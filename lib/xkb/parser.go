@@ -1349,10 +1349,10 @@ func (p *parser) parseKeysymLit() (Keysym, error) {
 }
 
 func resolveKeysymName(name string) (Keysym, bool) {
-	switch strings.ToLower(name) {
-	case "any", "nosymbol":
+	switch {
+	case asciiEqualFold(name, "any"), asciiEqualFold(name, "nosymbol"):
 		return KeyNoSymbol, true
-	case "none", "voidsymbol":
+	case asciiEqualFold(name, "none"), asciiEqualFold(name, "voidsymbol"):
 		return KeyVoidSymbol, true
 	}
 	sym := KeysymFromName(name, KeysymNoFlags)

@@ -100,6 +100,22 @@ func asciiLower(s string) string {
 	return s
 }
 
+func asciiEqualFold(s, lower string) bool {
+	if len(s) != len(lower) {
+		return false
+	}
+	for i := range len(s) {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c != lower[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func parseKeysymHex(s string) (uint32, bool) {
 	if s == "" || len(s) > 8 {
 		return 0, false
