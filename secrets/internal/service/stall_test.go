@@ -226,7 +226,7 @@ func slowDisk(s *Service) (*gate, *atomic.Int32) {
 	s.disk.write = func(path string, data []byte, perm os.FileMode) error {
 		writes.Add(1)
 		g.pass()
-		return atomicfile.WriteFile(path, data, perm)
+		return atomicfile.WriteFileDurable(path, data, perm)
 	}
 	return g, &writes
 }

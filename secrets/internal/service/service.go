@@ -199,7 +199,7 @@ func Start(conn *dbus.Conn, cfg Config) (*Service, error) {
 		return nil, errors.New("start the secret service: no Stretch to derive keys with")
 	}
 	s := &Service{
-		conn: conn, cfg: cfg, disk: disk{dir: cfg.Dir, write: atomicfile.WriteFile},
+		conn: conn, cfg: cfg, disk: disk{dir: cfg.Dir, write: atomicfile.WriteFileDurable},
 		colls: map[string]*collection{}, reserved: map[string]struct{}{}, aliasOff: map[string]func(){},
 		sessions: map[dbus.ObjectPath]*session{}, prompts: map[dbus.ObjectPath]func(){},
 		peers: newPeers(conn), grants: map[string]map[itemRef]struct{}{},

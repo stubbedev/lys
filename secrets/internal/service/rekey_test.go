@@ -231,7 +231,7 @@ func TestACrashDuringARekeyLeavesTheOldFileOrTheNew(t *testing.T) {
 	if !bytes.Equal(f.loginFile(t), before) {
 		t.Fatal("a failed re-key write changed the file")
 	}
-	f.svc.disk.write = atomicfile.WriteFile
+	f.svc.disk.write = atomicfile.WriteFileDurable
 	f.svc.Close()
 	f.start(t)
 	if err := f.svc.UnlockLogin([]byte("old")); err != nil || f.loginSecret(t, id) != "s3cret" {
