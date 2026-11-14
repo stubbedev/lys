@@ -141,14 +141,24 @@ func scratchDir(fsDir string) (string, error) {
 	if err := unix.Statfs(fsDir, &st); err != nil {
 		return "", fmt.Errorf("the scratch file system %s: %w", fsDir, err)
 	}
-	if st.Type != unix.TMPFS_MAGIC {
-		return "", fmt.Errorf("the scratch file system %s is not a tmpfs (type %#x): the tests keep their files on one", fsDir, st.Type)
+	if err := scratchUsable(fsDir, st); err != nil {
+		return "", err
 	}
 	dir, err := os.MkdirTemp(fsDir, "lys-test-")
 	if err != nil {
 		return "", fmt.Errorf("create the scratch directory in %s: %w", fsDir, err)
 	}
 	return dir, nil
+}
+
+func scratchUsable(fsDir string, st unix.Statfs_t) error {
+	if st.Type != unix.TMPFS_MAGIC {
+		return fmt.Errorf("the scratch file system %s is not a tmpfs (type %#x): the tests keep their files on one", fsDir, st.Type)
+	}
+	if st.Flags&unix.ST_NOEXEC != 0 {
+		return fmt.Errorf("the scratch file system %s is mounted noexec: tests run the binaries they build from their temporary directories, so mount it with exec (docker: --tmpfs /dev/shm:rw,nosuid,nodev,exec)", fsDir)
+	}
+	return nil
 }
 
 func isolateIn(scratch string) error {

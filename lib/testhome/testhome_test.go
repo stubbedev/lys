@@ -323,6 +323,22 @@ func TestMainRefusesAScratchFileSystemThatIsNoTmpfs(t *testing.T) {
 	}
 }
 
+func TestAScratchFileSystemMustBeAnExecutableTmpfs(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		st   unix.Statfs_t
+		ok   bool
+	}{
+		{"an executable tmpfs", unix.Statfs_t{Type: unix.TMPFS_MAGIC, Flags: unix.ST_NOSUID | unix.ST_NODEV}, true},
+		{"a noexec tmpfs", unix.Statfs_t{Type: unix.TMPFS_MAGIC, Flags: unix.ST_NOSUID | unix.ST_NODEV | unix.ST_NOEXEC}, false},
+		{"a btrfs", unix.Statfs_t{Type: unix.BTRFS_SUPER_MAGIC}, false},
+	} {
+		if err := scratchUsable("/scratch", c.st); (err == nil) != c.ok {
+			t.Errorf("%s: scratchUsable = %v, want ok %v", c.name, err, c.ok)
+		}
+	}
+}
+
 func TestMainRunsTheChildOfAnIsolatedTestAsItIs(t *testing.T) {
 	restoreAfter(t)
 	parent := t.TempDir()
