@@ -164,17 +164,22 @@ func setStaged(root *table, path string, v any) {
 
 // stagedAt reports whether a leaf is staged at path.
 func stagedAt(root *table, path string) bool {
+	_, ok := stagedLeaf(root, path)
+	return ok
+}
+
+func stagedLeaf(root *table, path string) (any, bool) {
 	var current any = root
 	for seg := range strings.SplitSeq(path, ".") {
 		t, ok := current.(*table)
 		if !ok {
-			return false
+			return nil, false
 		}
 		if current, ok = t.get(seg); !ok {
-			return false
+			return nil, false
 		}
 	}
-	return true
+	return current, true
 }
 
 // deleteStaged removes the leaf at path and prunes emptied tables.

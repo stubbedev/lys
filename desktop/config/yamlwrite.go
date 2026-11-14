@@ -23,22 +23,27 @@ var errNotADocument = errors.New("a config document must be a table")
 // yamlDocument renders a table as a block-style YAML document; a
 // non-table root is an error.
 func yamlDocument(v any) (string, error) {
+	out, err := yamlDocumentBytes(v)
+	return string(out), err
+}
+
+func yamlDocumentBytes(v any) ([]byte, error) {
 	if !isTable(v) {
-		return "", errNotADocument
+		return nil, errNotADocument
+	}
+	if isEmptyTable(v) {
+		return nil, nil
 	}
 	var out bytes.Buffer
 	enc := yaml.NewEncoder(&out)
 	enc.SetIndent(2)
 	if err := enc.Encode(yamlNode(v, false)); err != nil {
-		return "", fmt.Errorf("encode YAML: %w", err)
+		return nil, fmt.Errorf("encode YAML: %w", err)
 	}
 	if err := enc.Close(); err != nil {
-		return "", fmt.Errorf("encode YAML: %w", err)
+		return nil, fmt.Errorf("encode YAML: %w", err)
 	}
-	if isEmptyTable(v) {
-		return "", nil
-	}
-	return out.String(), nil
+	return out.Bytes(), nil
 }
 
 func isEmptyTable(v any) bool {

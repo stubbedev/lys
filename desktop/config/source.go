@@ -1,6 +1,7 @@
 package config
 
 import (
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -19,18 +20,6 @@ const (
 
 func (v ValueSource) String() string {
 	return [...]string{"default", "config", "runtime"}[v]
-}
-
-// configLeaves is the leaves a config document sets, at canonical
-// paths, as encoded values.
-func configLeaves(tree any) *table {
-	staged := newTable()
-	if tree == nil {
-		return staged
-	}
-	ca := &layerApply{kind: configLayer, sink: DiscardDiagnostics, staged: staged}
-	_ = ca.applyContainer(valueOf(Defaults()), migrateLogin(tree), "")
-	return staged
 }
 
 // canonicalPath resolves a dot path (aliases allowed) to its canonical
@@ -59,9 +48,9 @@ func (s *Service) Source(path string) ValueSource {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	switch {
-	case stagedAt(s.staged, canonical):
+	case stagedAt(s.cur.staged, canonical):
 		return SourceRuntime
-	case stagedAt(s.configSet, canonical):
+	case stagedAt(s.cur.configSet, canonical):
 		return SourceConfig
 	}
 	return SourceDefault
@@ -76,7 +65,7 @@ func (s *Service) ConfigValue(path string) (any, bool) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return stagedValue(s.configSet, canonical)
+	return stagedValue(s.cur.configSet, canonical)
 }
 
 // RuntimeValue is the runtime override at a dot path, false for none.
@@ -87,39 +76,87 @@ func (s *Service) RuntimeValue(path string) (any, bool) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return stagedValue(s.staged, canonical)
+	return stagedValue(s.cur.staged, canonical)
 }
 
-// encodedDefaults is the defaults encoded once: they never change.
-var encodedDefaults = sync.OnceValue(func() any { return widenFloats(encode(Defaults())) })
+var defaultConfig = sync.OnceValue(Defaults)
 
 // DefaultValue is the built-in default at a dot path, encoded as the
 // config serializes it, a copy the caller owns.
-func DefaultValue(path string) (any, error) {
-	v := encodedDefaults()
+func DefaultValue(path string) (any, error) { return encodedAt(defaultConfig(), path) }
+
+func encodedAt(cfg *Config, path string) (any, error) {
+	v := valueOf(cfg)
+	var encoded any
+	walked := true
 	for seg := range strings.SplitSeq(path, ".") {
-		next, ok := lookup(v, seg)
+		if walked {
+			child, found, structural := schemaChild(v, seg)
+			if structural {
+				if !found {
+					return nil, &InvalidFieldError{Field: seg, Component: path, Reason: FieldNotFound}
+				}
+				v = child
+				continue
+			}
+			encoded, walked = encodeValue(v), false
+		}
+		next, ok := lookup(encoded, seg)
 		if !ok {
 			return nil, &InvalidFieldError{Field: seg, Component: path, Reason: FieldNotFound}
 		}
-		v = next
+		encoded = next
 	}
-	return widenFloats(v), nil
+	if walked {
+		encoded = encodeValue(v)
+	}
+	return widenFloats(encoded), nil
+}
+
+func schemaChild(v reflect.Value, key string) (child reflect.Value, found, structural bool) {
+	if _, ok := marshalerOf(v); ok || enumVariants(v.Type()) != nil {
+		return reflect.Value{}, false, false
+	}
+	switch v.Kind() {
+	case reflect.Pointer:
+		if v.IsNil() {
+			return reflect.Value{}, false, true
+		}
+		return schemaChild(v.Elem(), key)
+	case reflect.Struct:
+		f, ok := fieldByKey(v.Type(), key)
+		if !ok {
+			return reflect.Value{}, false, true
+		}
+		child = v.FieldByIndex(f.index)
+	case reflect.Map:
+		child = v.MapIndex(reflect.ValueOf(key).Convert(v.Type().Key()))
+		if !child.IsValid() {
+			return reflect.Value{}, false, true
+		}
+	default:
+		return reflect.Value{}, false, false
+	}
+	return child, !encodesAbsent(child), true
+}
+
+func encodesAbsent(v reflect.Value) bool {
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return true
+		}
+		v = v.Elem()
+	}
+	return false
 }
 
 // stagedValue is the leaf staged at a canonical path, plain.
 func stagedValue(root *table, path string) (any, bool) {
-	var current any = root
-	for seg := range strings.SplitSeq(path, ".") {
-		t, ok := current.(*table)
-		if !ok {
-			return nil, false
-		}
-		if current, ok = t.get(seg); !ok {
-			return nil, false
-		}
+	v, ok := stagedLeaf(root, path)
+	if !ok {
+		return nil, false
 	}
-	return widenFloats(toPlain(current)), true
+	return widenFloats(toPlain(v)), true
 }
 
 // Plain turns a GetByPath value into plain Go values: tables become

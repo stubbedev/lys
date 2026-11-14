@@ -68,6 +68,7 @@ type Marshaler interface {
 type fieldInfo struct {
 	index      []int
 	key        string
+	keys       []string
 	aliases    []string
 	deprecated []string
 	required   bool
@@ -85,13 +86,7 @@ type fieldInfo struct {
 
 // lookupKeys is the canonical key, then aliases, then deprecated
 // aliases — serde_keys' order.
-func (f *fieldInfo) lookupKeys() []string {
-	keys := make([]string, 0, 1+len(f.aliases)+len(f.deprecated))
-	keys = append(keys, f.key)
-	keys = append(keys, f.aliases...)
-	keys = append(keys, f.deprecated...)
-	return keys
-}
+func (f *fieldInfo) lookupKeys() []string { return f.keys }
 
 func (f *fieldInfo) isDeprecated(key string) bool {
 	return slices.Contains(f.deprecated, key)
@@ -116,6 +111,16 @@ func fieldsOf(t reflect.Type) []fieldInfo {
 	fields := collectFields(t, nil)
 	fieldCache.Store(t, fields)
 	return fields
+}
+
+func fieldByKey(t reflect.Type, key string) (*fieldInfo, bool) {
+	fields := fieldsOf(t)
+	for i := range fields {
+		if fields[i].key == key {
+			return &fields[i], true
+		}
+	}
+	return nil, false
 }
 
 func collectFields(t reflect.Type, prefix []int) []fieldInfo {
@@ -165,6 +170,7 @@ func collectFields(t reflect.Type, prefix []int) []fieldInfo {
 				panic(fmt.Sprintf("config: %s.%s: unknown cfg option %q", t.Name(), sf.Name, name))
 			}
 		}
+		info.keys = slices.Concat([]string{key}, info.aliases, info.deprecated)
 		if inline {
 			if key != "" || sf.Type.Kind() != reflect.Struct {
 				panic(fmt.Sprintf("config: %s.%s: inline needs an unnamed struct field", t.Name(), sf.Name))

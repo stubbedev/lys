@@ -6,8 +6,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -422,5 +424,233 @@ func TestADefaultByPathWalksTheDefaultsEncodedOnceAndHandsOutACopy(t *testing.T)
 	bar.(*table).set("location", "mutated")
 	if v, _ := DefaultValue("bar.location"); v != want {
 		t.Fatalf("a caller's change to a default reached the defaults: %v", v)
+	}
+}
+
+func costService(t *testing.T) *Service {
+	t.Helper()
+	dir := t.TempDir()
+	writeFile(t, dir, "config.yaml", "bar:\n  location: bottom\nanimations:\n  osd:\n    enter: fade\n    exit-duration: 120\nlauncher:\n  display-names:\n    drun: apps\n    run: commands\n")
+	svc := Load(dir, DiscardDiagnostics)
+	t.Cleanup(svc.Close)
+	for path, v := range map[string]any{
+		"bar.layer":                          "overlay",
+		"modules.window-title.icon-mappings": map[string]any{"firefox": "web", "foot": "term"},
+		"animations.dropdown":                map[string]any{"enter-duration": int64(90)},
+		"modules.notification.icon-name":     "bell",
+		"general.font":                       "Sans",
+		"styling.palette.bg":                 "#101010",
+		"animations.osd":                     map[string]any{"enter": "zoom"},
+		"modules.clock.format":               "%H:%M",
+		"launcher.display-names":             map[string]any{"drun": "programs"},
+		"modules.window-title.format":        "{title}",
+	} {
+		if err := svc.SetByPath(path, v); err != nil {
+			t.Fatalf("set %s: %v", path, err)
+		}
+	}
+	return svc
+}
+
+func wholeEncodedAt(cfg *Config, path string) (any, error) {
+	v := widenFloats(encode(cfg))
+	for seg := range strings.SplitSeq(path, ".") {
+		next, ok := lookup(v, seg)
+		if !ok {
+			return nil, &InvalidFieldError{Field: seg, Component: path, Reason: FieldNotFound}
+		}
+		v = next
+	}
+	return widenFloats(v), nil
+}
+
+func encodedPaths(v any, prefix string, out []string) []string {
+	keys, get, ok := tableEntries(v)
+	if !ok {
+		return out
+	}
+	for _, k := range keys {
+		path := joinPath(prefix, k)
+		out = append(out, path, path+".nope")
+		out = encodedPaths(get(k), path, out)
+	}
+	return out
+}
+
+func schemaPaths(t reflect.Type, prefix string, out []string) []string {
+	for _, f := range fieldsOf(t) {
+		path := joinPath(prefix, f.key)
+		out = append(out, path)
+		if isContainer(f.typ) || f.typ.Implements(valueStructType) {
+			out = schemaPaths(f.typ, path, out)
+		}
+	}
+	return out
+}
+
+func TestAReadByPathGivesWhatTheWholeEncodingHoldsAtThatPath(t *testing.T) {
+	svc := costService(t)
+	cfg := svc.Config()
+	paths := encodedPaths(encode(cfg), "", []string{"", "nope", "bar.", ".bar", "bar..location"})
+	paths = schemaPaths(typeOf[Config](), "", paths)
+	for _, path := range paths {
+		want, wantErr := wholeEncodedAt(cfg, path)
+		got, err := svc.GetByPath(path)
+		if !reflect.DeepEqual(got, want) || !reflect.DeepEqual(err, wantErr) {
+			t.Errorf("%q: got %#v, %v; the whole encoding holds %#v, %v", path, got, err, want, wantErr)
+		}
+	}
+}
+
+func TestAWriteLeavesTheSnapshotAFullRebuildGives(t *testing.T) {
+	svc := costService(t)
+	if err := svc.SetByPath("modules.notification.icon-name", "bell-off"); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"animations.osd", "animations.dropdown", "bar.exclusive"} {
+		if _, err := svc.ResetByPath(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc.mu.Lock()
+	cur := svc.cur
+	svc.mu.Unlock()
+	rebuilt, err := build(cur.tree, toPlain(cur.staged), nil, DiscardDiagnostics)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cur.cfg, rebuilt.cfg) {
+		t.Error("the snapshot after incremental writes differs from a rebuild of its layers")
+	}
+	if !reflect.DeepEqual(cur.configSet, rebuilt.configSet) {
+		t.Error("the config layer after incremental writes differs from a rebuild of it")
+	}
+	got, _ := yamlDocument(cur.staged)
+	want, _ := yamlDocument(rebuilt.staged)
+	if got != want {
+		t.Errorf("the runtime layer after a reset is\n%s\na rebuild orders it\n%s", got, want)
+	}
+}
+
+func TestAWriteCostsTheSameWhateverElseTheConfigHolds(t *testing.T) {
+	bare := Load(t.TempDir(), DiscardDiagnostics)
+	t.Cleanup(bare.Close)
+	full := costService(t)
+	write := func(svc *Service) func() {
+		var i int
+		return func() {
+			i++
+			if err := svc.SetByPath("bar.exclusive", i%2 == 0); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	few := testing.AllocsPerRun(50, write(bare))
+	many := testing.AllocsPerRun(50, write(full))
+	if many > few+2 {
+		t.Fatalf("a write allocates %v beside ten overrides and a config file, %v beside none: it rebuilds what it did not touch", many, few)
+	}
+	read := func(svc *Service) func() {
+		w := write(svc)
+		return func() {
+			w()
+			if _, err := svc.GetByPath("bar.exclusive"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if withRead := testing.AllocsPerRun(50, read(full)); withRead > many+2 {
+		t.Fatalf("a leaf read after a write allocates %v more: it encodes more than the leaf", withRead-many)
+	}
+}
+
+func TestSubscribersHearOnlyEffectiveChanges(t *testing.T) {
+	svc := costService(t)
+	var calls int
+	cancel := svc.Subscribe(func(_, _ *Config) { calls++ })
+	defer cancel()
+	steps := []struct {
+		name string
+		do   func() error
+		fire bool
+	}{
+		{"set to the value it holds", func() error { return svc.SetByPath("bar.layer", "overlay") }, false},
+		{"set a new value", func() error { return svc.SetByPath("bar.layer", "bottom") }, true},
+		{"set a map to the one it holds", func() error {
+			return svc.SetByPath("modules.window-title.icon-mappings", map[string]any{"foot": "term", "firefox": "web"})
+		}, false},
+		{"set a value struct field", func() error {
+			return svc.SetByPath("animations.osd", map[string]any{"enter": "fade"})
+		}, true},
+		{"reset to the config value it holds", func() error {
+			if err := svc.SetByPath("bar.location", "bottom"); err != nil {
+				return err
+			}
+			_, err := svc.ResetByPath("bar.location")
+			return err
+		}, false},
+		{"reset to a different value", func() error { _, err := svc.ResetByPath("bar.layer"); return err }, true},
+		{"reset with nothing to drop", func() error { _, err := svc.ResetByPath("bar.layer"); return err }, false},
+		{"session takes reduced motion", func() error { svc.SetSessionReducedMotion(true); return nil }, true},
+		{"reset all", svc.ResetAllRuntime, true},
+		{"reset all again", svc.ResetAllRuntime, false},
+	}
+	for _, step := range steps {
+		calls = 0
+		if err := step.do(); err != nil {
+			t.Fatalf("%s: %v", step.name, err)
+		}
+		if fired := calls > 0; fired != step.fire {
+			t.Errorf("%s: subscribers fired %v, want %v", step.name, fired, step.fire)
+		}
+	}
+}
+
+func TestSaveDoesNoWorkBeyondRenderingTheDocument(t *testing.T) {
+	svc := costService(t)
+	render := testing.AllocsPerRun(3, func() {
+		if _, err := yamlDocumentBytes(widenFloats(svc.cur.staged)); err != nil {
+			t.Fatal(err)
+		}
+	})
+	save := testing.AllocsPerRun(3, func() {
+		if err := svc.Save(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if save > render+3 {
+		t.Fatalf("Save allocates %v, %v beyond rendering the document", save, save-render)
+	}
+	data, err := os.ReadFile(svc.RuntimePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want, _ := svc.RuntimeYAML(); string(data) != want {
+		t.Errorf("runtime.yaml =\n%s\nwant\n%s", data, want)
+	}
+}
+
+func TestSaveNamesTheFileItCouldNotWriteAndKeepsTheOldOne(t *testing.T) {
+	svc := costService(t)
+	if err := svc.Save(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(svc.RuntimePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp := filepath.Join(svc.Dir(), "runtime.tmp")
+	if err := os.Mkdir(tmp, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetByPath("bar.layer", "bottom"); err != nil {
+		t.Fatal(err)
+	}
+	err = svc.Save()
+	if err == nil || err.Error() != "cannot persist config to '"+tmp+"'" || !errors.Is(err, syscall.EISDIR) {
+		t.Fatalf("save over a directory temporary: %v", err)
+	}
+	if after, _ := os.ReadFile(svc.RuntimePath()); !bytes.Equal(after, before) {
+		t.Errorf("a failed save changed runtime.yaml to\n%s", after)
 	}
 }

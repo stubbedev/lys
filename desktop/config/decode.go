@@ -253,12 +253,7 @@ func encodeValue(v reflect.Value) any { return encodeValueMode(v, false) }
 // entries (serde_json's null) instead of dropping them.
 func encodeValueMode(v reflect.Value, keepNone bool) any {
 	t := v.Type()
-	if t.Kind() != reflect.Pointer && t.Implements(marshalerType) {
-		m, _ := reflect.TypeAssert[Marshaler](v)
-		return m.MarshalConfig()
-	}
-	if v.CanAddr() && reflect.PointerTo(t).Implements(marshalerType) {
-		m, _ := reflect.TypeAssert[Marshaler](v.Addr())
+	if m, ok := marshalerOf(v); ok {
 		return m.MarshalConfig()
 	}
 	if enumVariants(t) != nil {
@@ -317,6 +312,17 @@ func encodeValueMode(v reflect.Value, keepNone bool) any {
 		return out
 	}
 	panic(fmt.Sprintf("config: no encoder for %s", t))
+}
+
+func marshalerOf(v reflect.Value) (Marshaler, bool) {
+	t := v.Type()
+	if t.Kind() != reflect.Pointer && t.Implements(marshalerType) {
+		return reflect.TypeAssert[Marshaler](v)
+	}
+	if v.CanAddr() && reflect.PointerTo(t).Implements(marshalerType) {
+		return reflect.TypeAssert[Marshaler](v.Addr())
+	}
+	return nil, false
 }
 
 // Encode serializes a config (or any schema value) into its file

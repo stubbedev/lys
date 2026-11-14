@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
+
+	"golang.org/x/sys/unix"
 )
 
 // Service is the live configuration: the defaults, the config file
@@ -19,21 +23,17 @@ import (
 // *Config snapshots that subscribers receive on every effective change.
 // Snapshots are never mutated; a reload publishes a new one.
 type Service struct {
-	dir  string
-	sink DiagnosticSink
+	dir         string
+	runtimePath string
+	runtimeTmp  string
+	sink        DiagnosticSink
 
-	mu     sync.Mutex
-	cfg    *Config
-	tree   any    // the merged config document last loaded, nil for none
-	staged *table // the runtime leaves in effect, canonical paths
-	// configSet is the leaves the config file set, canonical paths.
-	configSet    *table
+	mu           sync.Mutex
+	cur          layers
 	subs         map[int]func(old, new *Config)
 	nextSub      int
 	session      sessionMotion
 	motionWarned *bool
-	encoded      any
-	encodedFor   *Config
 
 	secretsMu   sync.Mutex
 	secretsSubs map[int]func()
@@ -41,6 +41,16 @@ type Service struct {
 	nextSignal  int
 
 	watcher *watcher
+}
+
+type layers struct {
+	cfg *Config
+	// tree is the merged config document last loaded, nil for none.
+	tree any
+	// staged is the runtime leaves in effect, canonical paths.
+	staged *table
+	// configSet is the leaves the config file set, canonical paths.
+	configSet *table
 }
 
 // Open loads the user's configuration from the platform directory and
@@ -63,13 +73,15 @@ func Open() (*Service, error) {
 // Load builds a service over dir without watching it (the CLI's
 // one-shot load).
 func Load(dir string, sink DiagnosticSink) *Service {
+	runtimePath := RuntimeOverlayPath(filepath.Join(dir, "config.yaml"))
 	s := &Service{
 		dir:         dir,
+		runtimePath: runtimePath,
+		runtimeTmp:  strings.TrimSuffix(runtimePath, filepath.Ext(runtimePath)) + ".tmp",
 		sink:        sink,
 		subs:        map[int]func(old, new *Config){},
 		secretsSubs: map[int]func(){},
 		themeSubs:   map[int]func(){},
-		staged:      newTable(),
 	}
 	LoadEnvFiles(dir)
 	tree, err := loadTree(s.MainPath())
@@ -77,16 +89,15 @@ func Load(dir string, sink DiagnosticSink) *Service {
 		log.Printf("config: using defaults, %s failed:\n%v", filepath.Base(s.MainPath()), err)
 		tree = nil
 	}
-	s.tree = tree
 	runtimeTree, err := readRuntime(s.RuntimePath())
 	if err != nil {
 		log.Printf("config: runtime.yaml failed:\n%v", err)
 	}
-	cfg, staged, rerr := build(tree, runtimeTree, nil, sink)
+	cur, rerr := build(tree, runtimeTree, nil, sink)
 	if rerr != nil {
 		log.Printf("config: invalid runtime.yaml value:\n%v", rerr)
 	}
-	s.cfg, s.staged, s.configSet = cfg, staged, configLeaves(tree)
+	s.cur = cur
 	return s
 }
 
@@ -94,9 +105,7 @@ func Load(dir string, sink DiagnosticSink) *Service {
 func (s *Service) MainPath() string { return DiscoverMain(s.dir) }
 
 // RuntimePath is runtime.yaml in the config directory.
-func (s *Service) RuntimePath() string {
-	return RuntimeOverlayPath(filepath.Join(s.dir, "config.yaml"))
-}
+func (s *Service) RuntimePath() string { return s.runtimePath }
 
 // Dir is the config directory the service reads.
 func (s *Service) Dir() string { return s.dir }
@@ -105,7 +114,7 @@ func (s *Service) Dir() string { return s.dir }
 func (s *Service) Config() *Config {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.cfg
+	return s.cur.cfg
 }
 
 // Subscribe registers fn for every change of the effective config; fn
@@ -136,19 +145,18 @@ func Watch[T any](s *Service, selector func(*Config) T, fn func(T)) (cancel func
 	})
 }
 
-// publish swaps in a new snapshot and notifies the subscribers when
-// the effective config changed.
-func (s *Service) publish(cfg *Config, staged *table, tree any) {
+// publish swaps in new layers and notifies the subscribers when the
+// effective config changed. Only the session and the leaves the
+// touched tables name can differ from the current snapshot.
+func (s *Service) publish(next layers, touched ...*table) {
+	cfg := next.cfg
 	s.mu.Lock()
 	cfg.Animations.session = s.session
-	old := s.cfg
-	s.cfg, s.staged, s.tree = cfg, staged, tree
-	s.configSet = configLeaves(tree)
+	old := s.cur.cfg
+	s.cur = next
 	var subs []func(old, new *Config)
-	if !reflect.DeepEqual(old, cfg) {
-		for _, fn := range s.subs {
-			subs = append(subs, fn)
-		}
+	if old.Animations.session != cfg.Animations.session || leavesDiffer(old, cfg, touched) {
+		subs = slices.Collect(maps.Values(s.subs))
 	}
 	warn := s.shadowedMotionKey()
 	s.mu.Unlock()
@@ -160,6 +168,65 @@ func (s *Service) publish(cfg *Config, staged *table, tree any) {
 	}
 }
 
+func leavesDiffer(old, cfg *Config, touched []*table) bool {
+	for _, t := range touched {
+		if containerDiffers(valueOf(old), valueOf(cfg), t) {
+			return true
+		}
+	}
+	return false
+}
+
+func containerDiffers(old, cfg reflect.Value, staged *table) bool {
+	for _, key := range staged.keys {
+		f := mustFieldByKey(old.Type(), key)
+		a, b := old.FieldByIndex(f.index), cfg.FieldByIndex(f.index)
+		if !isContainer(f.typ) {
+			if !reflect.DeepEqual(a.Interface(), b.Interface()) {
+				return true
+			}
+			continue
+		}
+		if containerDiffers(a, b, stagedContainer(staged, key)) {
+			return true
+		}
+	}
+	return false
+}
+
+func stagedContainer(staged *table, key string) *table {
+	child, ok := staged.vals[key].(*table)
+	if !ok {
+		panic(fmt.Sprintf("config: staged section %q holds %T, not a table", key, staged.vals[key]))
+	}
+	return child
+}
+
+func mustFieldByKey(t reflect.Type, key string) *fieldInfo {
+	f, ok := fieldByKey(t, key)
+	if !ok {
+		panic(fmt.Sprintf("config: staged key %q names no field of %s", key, t))
+	}
+	return f
+}
+
+func withStaged(base, src *table, t reflect.Type) *table {
+	out := &table{keys: slices.Clone(base.keys), vals: maps.Clone(base.vals)}
+	for _, key := range src.keys {
+		f := mustFieldByKey(t, key)
+		v := src.vals[key]
+		if isContainer(f.typ) {
+			child, ok := base.vals[key].(*table)
+			if !ok {
+				child = newTable()
+			}
+			v = withStaged(child, stagedContainer(src, key), f.typ)
+		}
+		out.set(key, v)
+	}
+	return out
+}
+
 // reducedMotionKey is the key a compositor that owns reduced motion
 // leaves without effect.
 const reducedMotionKey = "animations.reduced-motion"
@@ -168,12 +235,12 @@ const reducedMotionKey = "animations.reduced-motion"
 // motion and the key is set, once for each value it is set to. The lock
 // is held.
 func (s *Service) shadowedMotionKey() *Diagnostic {
-	set := stagedAt(s.staged, reducedMotionKey) || stagedAt(s.configSet, reducedMotionKey)
-	if !s.cfg.Animations.CompositorOwnsMotion() || !set {
+	set := stagedAt(s.cur.staged, reducedMotionKey) || stagedAt(s.cur.configSet, reducedMotionKey)
+	if !s.cur.cfg.Animations.CompositorOwnsMotion() || !set {
 		s.motionWarned = nil
 		return nil
 	}
-	value := s.cfg.Animations.ReducedMotion
+	value := s.cur.cfg.Animations.ReducedMotion
 	if s.motionWarned != nil && *s.motionWarned == value {
 		return nil
 	}
@@ -209,32 +276,33 @@ func (s *Service) setSessionMotion(say sessionMotion) {
 		return
 	}
 	s.session = say
-	next := *s.cfg
-	staged, tree := s.staged, s.tree
+	next := s.cur
+	cfg := *next.cfg
+	next.cfg = &cfg
 	s.mu.Unlock()
-	s.publish(&next, staged, tree)
+	s.publish(next)
 }
 
 // build applies the config tree then the runtime tree onto the
 // defaults. warn, when set, holds the runtime overrides active before
 // a reload: config leaves they shadow get the "change ignored"
 // warning.
-func build(configTree, runtimeTree any, warn *table, sink DiagnosticSink) (*Config, *table, error) {
-	configTree, runtimeTree = migrateLogin(configTree), migrateLogin(runtimeTree)
+func build(configTree, runtimeTree any, warn *table, sink DiagnosticSink) (layers, error) {
+	migrated, runtimeTree := migrateLogin(configTree), migrateLogin(runtimeTree)
 	cfg := Defaults()
-	ca := &layerApply{kind: configLayer, sink: sink}
+	ca := &layerApply{kind: configLayer, sink: sink, staged: newTable()}
 	if warn != nil {
 		ca.overridden = func(path string) bool { return stagedAt(warn, path) }
 	}
-	if configTree != nil {
-		_ = ca.applyContainer(valueOf(cfg), configTree, "")
+	if migrated != nil {
+		_ = ca.applyContainer(valueOf(cfg), migrated, "")
 	}
 	ra := &layerApply{kind: runtimeLayer, sink: sink, staged: newTable()}
 	var err error
 	if runtimeTree != nil {
 		err = ra.applyContainer(valueOf(cfg), runtimeTree, "")
 	}
-	return cfg, ra.staged, err
+	return layers{cfg: cfg, tree: configTree, staged: ra.staged, configSet: ca.staged}, err
 }
 
 // readRuntime parses runtime.yaml. A missing one is no overrides (the
@@ -266,22 +334,7 @@ func (s *Service) Value() any {
 
 // GetByPath returns the effective value at a dot path, as the config
 // serializes (canonical keys; f32 values widened to f64).
-func (s *Service) GetByPath(path string) (any, error) {
-	s.mu.Lock()
-	if s.encodedFor != s.cfg {
-		s.encoded, s.encodedFor = widenFloats(encode(s.cfg)), s.cfg
-	}
-	v := s.encoded
-	s.mu.Unlock()
-	for seg := range strings.SplitSeq(path, ".") {
-		next, ok := lookup(v, seg)
-		if !ok {
-			return nil, &InvalidFieldError{Field: seg, Component: path, Reason: FieldNotFound}
-		}
-		v = next
-	}
-	return widenFloats(v), nil
-}
+func (s *Service) GetByPath(path string) (any, error) { return encodedAt(s.Config(), path) }
 
 // SetByPath sets a runtime override at a dot path. A value the field
 // rejects is a *RuntimeValueError; an unknown path applies nothing.
@@ -291,14 +344,16 @@ func (s *Service) SetByPath(path string, value any) error {
 		return err
 	}
 	s.mu.Lock()
-	tree, staged := s.tree, cloneTable(s.staged)
+	next := s.cur
 	s.mu.Unlock()
-	cfg, _, _ := build(tree, toPlain(staged), nil, DiscardDiagnostics)
-	ra := &layerApply{kind: runtimeLayer, sink: s.sink, staged: staged}
-	if err := ra.applyContainer(valueOf(cfg), root, ""); err != nil {
+	cfg := *next.cfg
+	touched := newTable()
+	ra := &layerApply{kind: runtimeLayer, sink: s.sink, staged: touched}
+	if err := ra.applyContainer(valueOf(&cfg), root, ""); err != nil {
 		return err
 	}
-	s.publish(cfg, staged, tree)
+	next.cfg, next.staged = &cfg, withStaged(next.staged, touched, typeOf[Config]())
+	s.publish(next, touched)
 	return nil
 }
 
@@ -310,23 +365,69 @@ func (s *Service) ResetByPath(path string) (cleared bool, err error) {
 		return false, err
 	}
 	s.mu.Lock()
-	tree, staged := s.tree, cloneTable(s.staged)
+	next := s.cur
 	s.mu.Unlock()
-	cleared = stagedAt(staged, canonical)
+	cleared = stagedAt(next.staged, canonical)
+	cfg := *next.cfg
+	if cleared {
+		base, err := layeredBelowRuntime(next.configSet, canonical)
+		if err != nil {
+			return false, err
+		}
+		fieldAt(valueOf(&cfg), canonical).Set(base)
+	}
+	staged := cloneTable(next.staged)
 	deleteStaged(staged, strings.Split(canonical, "."))
-	cfg, staged, _ := build(tree, toPlain(staged), nil, DiscardDiagnostics)
-	s.publish(cfg, staged, tree)
+	next.cfg, next.staged = &cfg, schemaOrdered(staged, typeOf[Config]())
+	touched := newTable()
+	setStaged(touched, canonical, nil)
+	s.publish(next, touched)
 	return cleared, nil
+}
+
+func layeredBelowRuntime(configSet *table, canonical string) (reflect.Value, error) {
+	defaults := fieldAt(valueOf(defaultConfig()), canonical)
+	encoded, ok := stagedLeaf(configSet, canonical)
+	if !ok {
+		return defaults, nil
+	}
+	v, err := decodeLeaf(defaults.Type(), toPlain(encoded))
+	if err != nil {
+		return reflect.Value{}, fmt.Errorf("config: decode the config file's %s again: %w", canonical, err)
+	}
+	return v, nil
+}
+
+func fieldAt(v reflect.Value, canonical string) reflect.Value {
+	for seg := range strings.SplitSeq(canonical, ".") {
+		v = v.FieldByIndex(mustFieldByKey(v.Type(), seg).index)
+	}
+	return v
+}
+
+func schemaOrdered(staged *table, t reflect.Type) *table {
+	out := newTable()
+	for _, f := range fieldsOf(t) {
+		v, ok := staged.get(f.key)
+		if !ok {
+			continue
+		}
+		if isContainer(f.typ) {
+			v = schemaOrdered(stagedContainer(staged, f.key), f.typ)
+		}
+		out.set(f.key, v)
+	}
+	return out
 }
 
 // ResetAllRuntime drops every runtime override and removes
 // runtime.yaml; a missing file is not an error.
 func (s *Service) ResetAllRuntime() error {
 	s.mu.Lock()
-	tree := s.tree
+	tree, previous := s.cur.tree, s.cur.staged
 	s.mu.Unlock()
-	cfg, staged, _ := build(tree, nil, nil, DiscardDiagnostics)
-	s.publish(cfg, staged, tree)
+	next, _ := build(tree, nil, nil, DiscardDiagnostics)
+	s.publish(next, previous)
 	err := os.Remove(s.RuntimePath())
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -336,49 +437,61 @@ func (s *Service) ResetAllRuntime() error {
 
 // RuntimeYAML renders the runtime overrides as runtime.yaml content.
 func (s *Service) RuntimeYAML() (string, error) {
+	out, err := s.runtimeDocument()
+	return string(out), err
+}
+
+func (s *Service) runtimeDocument() ([]byte, error) {
 	s.mu.Lock()
-	staged := s.staged
+	staged := s.cur.staged
 	s.mu.Unlock()
-	return yamlDocument(widenFloats(staged))
+	return yamlDocumentBytes(widenFloats(staged))
 }
 
 // Save persists the runtime overrides to runtime.yaml atomically:
-// write runtime.tmp, fsync, rename over, fsync the directory.
+// write runtime.tmp, fsync it, and rename it over.
 func (s *Service) Save() error {
-	content, err := s.RuntimeYAML()
+	content, err := s.runtimeDocument()
 	if err != nil {
 		return &LoadError{msg: "cannot render the runtime overrides", err: err}
 	}
-	path := s.RuntimePath()
-	tmp := strings.TrimSuffix(path, filepath.Ext(path)) + ".tmp"
-	persistErr := func(p string, err error) error {
-		return &LoadError{msg: fmt.Sprintf("cannot persist config to '%s'", p), err: err}
+	if err := writeSynced(s.runtimeTmp, content); err != nil {
+		return &LoadError{msg: fmt.Sprintf("cannot persist config to '%s'", s.runtimeTmp), err: err}
 	}
-	f, err := os.Create(tmp) //nolint:gosec // runtime.tmp in the config dir
+	if err := unix.Rename(s.runtimeTmp, s.runtimePath); err != nil {
+		return &LoadError{msg: fmt.Sprintf("cannot persist config to '%s'", s.runtimePath), err: os.NewSyscallError("rename", err)}
+	}
+	return nil
+}
+
+func writeSynced(path string, data []byte) error {
+	fd, err := unix.Open(path, unix.O_WRONLY|unix.O_CREAT|unix.O_TRUNC|unix.O_CLOEXEC, 0o666)
 	if err != nil {
-		return persistErr(tmp, err)
+		return os.NewSyscallError("open", err)
 	}
-	if _, err := f.WriteString(content); err != nil {
-		_ = f.Close()
-		return persistErr(tmp, err)
+	err = writeAll(fd, data)
+	if err == nil {
+		err = os.NewSyscallError("fsync", unix.Fsync(fd))
 	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		return persistErr(tmp, err)
+	if closeErr := unix.Close(fd); err == nil && closeErr != nil {
+		err = os.NewSyscallError("close", closeErr)
 	}
-	if err := f.Close(); err != nil {
-		return persistErr(tmp, err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return persistErr(path, err)
-	}
-	dir, err := os.Open(filepath.Dir(path))
 	if err != nil {
-		return persistErr(filepath.Dir(path), err)
+		_ = unix.Unlink(path)
 	}
-	defer func() { _ = dir.Close() }()
-	if err := dir.Sync(); err != nil {
-		return persistErr(filepath.Dir(path), err)
+	return err
+}
+
+func writeAll(fd int, data []byte) error {
+	for len(data) > 0 {
+		n, err := unix.Write(fd, data)
+		if errors.Is(err, unix.EINTR) {
+			continue
+		}
+		if err != nil {
+			return os.NewSyscallError("write", err)
+		}
+		data = data[n:]
 	}
 	return nil
 }
@@ -392,11 +505,11 @@ func (s *Service) reloadMain() error {
 		return err
 	}
 	s.mu.Lock()
-	previous := s.staged
+	previous := s.cur
 	s.mu.Unlock()
 	runtimeTree, _ := readRuntime(s.RuntimePath())
-	cfg, staged, _ := build(tree, runtimeTree, previous, s.sink)
-	s.publish(cfg, staged, tree)
+	next, _ := build(tree, runtimeTree, previous.staged, s.sink)
+	s.publish(next, previous.staged, next.staged, previous.configSet, next.configSet)
 	return nil
 }
 
@@ -408,10 +521,10 @@ func (s *Service) reloadRuntime() {
 		return
 	}
 	s.mu.Lock()
-	tree := s.tree
+	previous := s.cur
 	s.mu.Unlock()
-	cfg, staged, _ := build(tree, runtimeTree, nil, s.sink)
-	s.publish(cfg, staged, tree)
+	next, _ := build(previous.tree, runtimeTree, nil, s.sink)
+	s.publish(next, previous.staged, next.staged)
 }
 
 // SubscribeSecrets registers fn for every reload of the .env files.

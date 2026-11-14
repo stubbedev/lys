@@ -1519,7 +1519,6 @@ var schemaDocs = map[string]string{
 	"SeparatorConfig.Color":                                  "Color of the separator line.",
 	"SeparatorConfig.Length":                                 "Length of the separator line. Accepts a scale multiplier or pixels (e.g. `\"24px\"`).",
 	"SeparatorConfig.Size":                                   "Thickness of the separator line in pixels.",
-	"Service.configSet":                                      "configSet is the leaves the config file set, canonical paths.",
 	"SessionAction":                                          "One action the dashboard session actions",
 	"SessionAction=lock":                                     "Lock the session",
 	"SessionAction=log-out":                                  "Logout of the current session",
@@ -1863,6 +1862,9 @@ var schemaDocs = map[string]string{
 	"fieldInfo.owner":                                        "owner is the struct type that declares the field (differs from\nthe walked type for inline groups).",
 	"layerApply.overridden":                                  "overridden reports whether a runtime override is active at a\npath; the config layer warns that its value is shadowed.",
 	"layerApply.staged":                                      "staged collects the runtime leaves that applied, at their\ncanonical paths, as encoded values — the ConfigProperty runtime\nslots ExtractRuntimeValues persists.",
+	"layers.configSet":                                       "configSet is the leaves the config file set, canonical paths.",
+	"layers.staged":                                          "staged is the runtime leaves in effect, canonical paths.",
+	"layers.tree":                                            "tree is the merged config document last loaded, nil for none.",
 	"schemaGen.defaults":                                     "defaults maps each container type to its default instance, from\nthe walk of Defaults().",
 	"valueStruct":                                            "Leaf types are decoded wholesale: a layer replaces the whole value,\nthe way a ConfigProperty<T> holds one T. Every non-struct type is a\nleaf; a struct is a leaf when it implements Unmarshaler or is marked\nas a value struct (a plain serde struct held by one ConfigProperty,\nlike SurfaceAnimation or DropdownSize). Any other struct is a\ncontainer whose fields are properties of their own.",
 }
