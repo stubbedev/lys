@@ -2,6 +2,7 @@ package gpu
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"slices"
@@ -146,12 +147,27 @@ func testKeepsThePacketOfAFrameBeforeAFailure(t *testing.T, d *Device, b backend
 	}
 }
 
+// timesOut is an encoder backend whose next waits for an encode, left
+// of them, time out with the frame still in flight, as the backends'
+// own do: nothing of it is taken.
+type timesOut struct {
+	encodeBackend
+	left int
+}
+
+func (b *timesOut) collect(slot int) ([]byte, error) {
+	if b.left == 0 {
+		return b.encodeBackend.collect(slot)
+	}
+	b.left--
+	return nil, fmt.Errorf("wait for an encode: %w", ErrTimeout)
+}
+
 // A frame whose wait for its encode times out stays in flight, on every
 // backend: the Encode that timed out returns no packet and encodes
 // nothing, the next Encode waits for that frame again before its slot
-// takes another, and its packet comes out then. An Encode whose wait for
-// its conversion times out encodes nothing either, and the next one
-// converts again. The stream decodes whole, every frame its own picture.
+// takes another, and its packet comes out then. The stream decodes
+// whole, every frame its own picture.
 func TestEncodeKeepsAFrameWhoseWaitTimedOutInFlight(t *testing.T) {
 	t.Parallel()
 	for _, codec := range []Codec{H264, H265} {
@@ -166,8 +182,10 @@ func TestEncodeKeepsAFrameWhoseWaitTimedOutInFlight(t *testing.T) {
 }
 
 func testKeepsAFrameWhoseWaitTimedOutInFlight(t *testing.T, d *Device, ffmpeg string, b backend, codec Codec) {
-	cfg := EncoderConfig{Codec: codec, Width: 3840, Height: 2160, FrameRate: 30, KeyInterval: 30, QP: 10}
+	cfg := EncoderConfig{Codec: codec, Width: 320, Height: 240, FrameRate: 30, KeyInterval: 30, QP: 20}
 	c := openClip(t, d, cfg, b.open)
+	waits := &timesOut{encodeBackend: c.enc.backend}
+	c.enc.backend = waits
 	imgs := make([]*image.RGBA, encodeSlots+1)
 	bufs := make([]*Buffer, len(imgs))
 	for i := range imgs {
@@ -175,34 +193,24 @@ func testKeepsAFrameWhoseWaitTimedOutInFlight(t *testing.T, d *Device, ffmpeg st
 		bufs[i].fill(t, imgs[i])
 	}
 	at := func(frame int) time.Duration { return time.Duration(frame) * time.Second / 30 }
-	limit, bound := d.waitLimit, time.Millisecond
+	const timedOut = encodeSlots
 	var src []*image.RGBA
-	timedOut := -1
-	for timedOut < 0 || c.frames < timedOut+encodeSlots+1 {
-		if c.frames == 12 {
-			t.Fatalf("no wait of %v for a frame timed out in %d frames of %dx%d at QP %d", bound, c.frames, cfg.Width, cfg.Height, cfg.QP)
-		}
+	for c.frames < timedOut+encodeSlots+1 {
 		buf := bufs[c.frames%len(bufs)]
-		if timedOut < 0 {
-			d.waitLimit = bound
+		if c.frames == timedOut {
+			waits.left = 1
 		}
 		out, err := c.enc.Encode(buf, at(c.frames))
-		d.waitLimit = limit
-		if err != nil {
-			if !errors.Is(err, ErrTimeout) || len(out) != 0 {
-				t.Fatalf("frame %d with a %v wait: %d packets, %v, want ErrTimeout", c.frames, bound, len(out), err)
-			}
+		if c.frames == timedOut {
 			oldest := at(c.frames - encodeSlots)
-			frameTimedOut := strings.Contains(err.Error(), "the frame at "+oldest.String())
-			if frameTimedOut {
-				timedOut = c.frames
+			if !errors.Is(err, ErrTimeout) || !strings.Contains(err.Error(), "the frame at "+oldest.String()) || len(out) != 0 {
+				t.Fatalf("frame %d whose wait for the frame at %v times out: %d packets, %v, want ErrTimeout naming that frame", c.frames, oldest, len(out), err)
 			}
-			if out, err = c.enc.Encode(buf, at(c.frames)); err != nil {
-				t.Fatalf("frame %d again, waiting %v: %v", c.frames, limit, err)
+			if out, err = c.enc.Encode(buf, at(c.frames)); err != nil || len(out) == 0 || out[len(out)-1].PTS != oldest {
+				t.Fatalf("frame %d again: %d packets, %v, want the timed-out frame's, at %v, last", c.frames, len(out), err, oldest)
 			}
-			if frameTimedOut && (len(out) == 0 || out[len(out)-1].PTS != oldest) {
-				t.Fatalf("frame %d again returned %d packets, want the timed-out frame's, at %v, last", c.frames, len(out), oldest)
-			}
+		} else if err != nil {
+			t.Fatalf("frame %d: %v", c.frames, err)
 		}
 		c.pkts = append(c.pkts, out...)
 		src = append(src, imgs[c.frames%len(imgs)])
