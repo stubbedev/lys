@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -119,15 +120,7 @@ type harness struct {
 	closed       map[string]int
 	onClosed     map[string]func()
 	ticks        map[string]func()
-	now          time.Duration
-	timers       []*fakeTimer
 	ended        atomic.Bool
-}
-
-type fakeTimer struct {
-	at      time.Duration
-	fn      func()
-	stopped bool
 }
 
 // newHarness starts a shell on monitors, all showing a.png, with the
@@ -171,11 +164,6 @@ func newHarness(t *testing.T, kind config.AnimationType, monitors ...string) *ha
 			name := h.tickingOutput()
 			h.ticks[name] = fn
 			return func() { delete(h.ticks, name) }
-		},
-		after: func(d time.Duration, fn func()) func() {
-			tm := &fakeTimer{at: h.now + d, fn: fn}
-			h.timers = append(h.timers, tm)
-			return func() { tm.stopped = true }
 		},
 	}
 	h.s = newShell(ui, svc, cfg, rasterDeps{
@@ -228,33 +216,6 @@ func (h *harness) plug(name string, w, ht int) *app.Output {
 	return out
 }
 
-func (h *harness) advance(d time.Duration) {
-	h.now += d
-	for {
-		var next *fakeTimer
-		for _, tm := range h.timers {
-			if !tm.stopped && tm.at <= h.now && (next == nil || tm.at < next.at) {
-				next = tm
-			}
-		}
-		if next == nil {
-			return
-		}
-		next.stopped = true
-		next.fn()
-	}
-}
-
-func (h *harness) pendingTimers() int {
-	n := 0
-	for _, tm := range h.timers {
-		if !tm.stopped {
-			n++
-		}
-	}
-	return n
-}
-
 // run does the queued work off the loop until none is left.
 func (h *harness) run() {
 	for len(h.queued) > 0 {
@@ -273,6 +234,12 @@ func (h *harness) step() {
 	for _, fn := range queued {
 		fn()
 	}
+}
+
+func (h *harness) settle() {
+	h.run()
+	h.finish()
+	h.forgotten = nil
 }
 
 // show sets path on every monitor and lets it land.
@@ -329,7 +296,7 @@ func (h *harness) wantForgotten(why string, ids ...render.ImageID) {
 func TestCrossfadeFreesTheOutgoingRasterWhenItEnds(t *testing.T) {
 	h := newHarness(t, config.AnimationFade, "DP-1")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	a := h.current("DP-1")
 	h.wantLive(1, "a shown")
 	h.show("b.png")
@@ -344,7 +311,7 @@ func TestCrossfadeFreesTheOutgoingRasterWhenItEnds(t *testing.T) {
 func TestSwapWithoutTransitionFreesAtOnce(t *testing.T) {
 	h := newHarness(t, config.AnimationNone, "DP-1")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	a := h.current("DP-1")
 	h.show("b.png")
 	h.wantLive(1, "b replaced a")
@@ -359,7 +326,7 @@ func TestSwapWithoutTransitionFreesAtOnce(t *testing.T) {
 func TestSwapMidCrossfadeFreesTheImageFadingOut(t *testing.T) {
 	h := newHarness(t, config.AnimationFade, "DP-1")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	a := h.current("DP-1")
 	h.show("b.png")
 	b := h.current("DP-1")
@@ -382,10 +349,10 @@ func TestOvertakenDecodeIsFreed(t *testing.T) {
 	h.s.reconcile()
 	h.run()
 	h.wantLive(1, "only b kept")
-	if len(h.forgotten) != 1 {
-		t.Fatalf("forgot %v, want the overtaken a", h.forgotten)
+	if len(h.forgotten) != 2 {
+		t.Fatalf("forgot %v, want the overtaken a and the built-in wallpaper it decoded under", h.forgotten)
 	}
-	if got := h.current("DP-1"); got == h.forgotten[0] {
+	if got := h.current("DP-1"); slices.Contains(h.forgotten, got) {
 		t.Error("the overtaken raster is on screen")
 	}
 }
@@ -395,7 +362,7 @@ func TestOutputRemovalFreesItsRaster(t *testing.T) {
 	h := newHarness(t, config.AnimationFade, "DP-1", "DP-2")
 	out := h.plug("DP-1", 64, 36)
 	h.plug("DP-2", 32, 18)
-	h.run()
+	h.settle()
 	gone := h.current("DP-1")
 	h.wantLive(2, "two sizes")
 	h.s.RemoveOutput(out)
@@ -411,7 +378,7 @@ func TestOutputRemovalFreesItsRaster(t *testing.T) {
 func TestCompositorCloseFreesTheRasters(t *testing.T) {
 	h := newHarness(t, config.AnimationFade, "DP-1")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	h.show("b.png")
 	h.wantLive(2, "mid-crossfade")
 	h.onClosed["DP-1"]()
@@ -427,7 +394,7 @@ func TestShutdownFreesEveryRaster(t *testing.T) {
 	h := newHarness(t, config.AnimationFade, "DP-1", "DP-2")
 	h.plug("DP-1", 64, 36)
 	h.plug("DP-2", 32, 18)
-	h.run()
+	h.settle()
 	h.show("b.png")
 	h.wantLive(4, "both outputs mid-crossfade")
 	h.s.shutdown()
@@ -449,10 +416,11 @@ func TestShutdownFreesARasterMadeAfterTheLoopEnded(t *testing.T) {
 	}
 	h.ended.Store(true)
 	h.run()
-	h.wantLive(1, "the raster landed nowhere")
+	h.wantLive(2, "the built-in wallpaper shown, the raster landed nowhere")
+	builtin := h.liveBuiltin("DP-1")
 	h.s.shutdown()
 	h.wantLive(0, "shut down")
-	h.wantForgotten("shut down")
+	h.wantForgotten("shut down", builtin)
 }
 
 // Shutdown waits for a resample running alongside it and frees what
@@ -504,8 +472,8 @@ func TestOutputRemovedMidResampleFreesItsRaster(t *testing.T) {
 	h.s.RemoveOutput(gone)
 	h.run()
 	h.wantLive(1, "DP-1 removed mid-resample")
-	if len(h.forgotten) != 1 {
-		t.Errorf("forgot %v, want DP-1's unshown raster", h.forgotten)
+	if len(h.forgotten) != 3 {
+		t.Errorf("forgot %v, want DP-1's unshown raster and both built-in wallpapers", h.forgotten)
 	}
 	h.current("DP-2")
 	h.s.shutdown()
@@ -531,7 +499,7 @@ func TestOutputRemovedMidResampleThenShutdownFreesItsRaster(t *testing.T) {
 func TestRasterOutlivesTheListsThatDrawIt(t *testing.T) {
 	h := newHarness(t, config.AnimationNone, "DP-1")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	drawing := render.NewRecorder(1, 1, 1, 1).Recording()
 	h.show("b.png")
 	if len(h.forgotten) != 1 {
@@ -550,7 +518,7 @@ func TestSharedRasterLivesUntilItsLastUser(t *testing.T) {
 	one := h.plug("DP-1", 64, 36)
 	two := h.plug("DP-2", 64, 36)
 	h.plug("HDMI-1", 32, 18)
-	h.run()
+	h.settle()
 	if h.current("DP-1") != h.current("DP-2") || h.current("DP-1") == h.current("HDMI-1") {
 		t.Fatal("the same size does not share, or another size does")
 	}
@@ -571,7 +539,7 @@ func TestSharedRasterLivesUntilItsLastUser(t *testing.T) {
 func TestLiveRasterIsSharedWithoutADecode(t *testing.T) {
 	h := newHarness(t, config.AnimationNone, "DP-1", "DP-2")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	h.plug("DP-2", 64, 36)
 	if len(h.queued) != 0 || h.decodes[h.path("a.png")] != 1 {
 		t.Fatalf("a live raster was made again: %d decodes", h.decodes[h.path("a.png")])
@@ -587,7 +555,7 @@ func TestLiveRasterIsSharedWithoutADecode(t *testing.T) {
 func TestUndecodableFileLeavesNothing(t *testing.T) {
 	h := newHarness(t, config.AnimationNone, "DP-1")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	delete(h.decodable, h.path("b.png"))
 	h.show("b.png")
 	h.wantLive(1, "a kept")
@@ -608,13 +576,13 @@ func TestDecodedImageIsFreedOnceEveryRasterIsMade(t *testing.T) {
 	if len(h.queued) != 2 {
 		t.Fatalf("%d resamples queued, want one per size", len(h.queued))
 	}
-	h.wantLive(1, "the decoded image waits for its resamples")
+	h.wantLive(3, "the decoded image waits for its resamples under both built-in wallpapers")
 	fn := h.queued[0]
 	h.queued = h.queued[1:]
 	fn()
-	h.wantLive(2, "one raster made, the decoded image still needed")
+	h.wantLive(3, "one raster replaced its built-in wallpaper, the decoded image still needed")
 	h.run()
-	h.wantLive(2, "both rasters made, the decoded image freed")
+	h.wantLive(2, "both rasters made, the decoded image and the built-in wallpapers freed")
 }
 
 // A decode that finishes after the loop ended lands nowhere: shutdown
@@ -627,7 +595,7 @@ func TestShutdownFreesADecodeTheLoopNeverTook(t *testing.T) {
 	if len(h.queued) != 0 {
 		t.Fatalf("%d resamples queued from a decode the loop never took", len(h.queued))
 	}
-	h.wantLive(1, "the decoded image landed nowhere")
+	h.wantLive(2, "the decoded image and the built-in wallpaper landed nowhere")
 	h.s.shutdown()
 	h.wantLive(0, "shut down")
 }

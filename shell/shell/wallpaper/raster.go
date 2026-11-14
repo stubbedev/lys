@@ -3,6 +3,7 @@ package wallpaper
 import (
 	"image"
 	"log"
+	"slices"
 	"sync/atomic"
 
 	"github.com/stubbedev/lys-desktop/imagedecode"
@@ -55,8 +56,9 @@ type rasterDeps struct {
 }
 
 type waiter struct {
-	ready  func(*raster)
-	failed func()
+	ready    func(*raster)
+	failed   func()
+	decoding func()
 }
 
 // rasters makes, shares and frees the wallpaper rasters. A file is
@@ -92,15 +94,18 @@ func newRasters(d rasterDeps) *rasters {
 // at once when it is live. ready holds one reference, which it gives
 // back with release, whether it shows the raster or not. A file that
 // cannot be decoded or rasterized is logged and failed runs instead.
-func (rs *rasters) acquire(key rasterKey, ready func(*raster), failed func()) {
+func (rs *rasters) acquire(key rasterKey, ready func(*raster), failed, decoding func()) {
 	if r, ok := rs.live[key]; ok {
 		r.refs++
 		ready(r)
 		return
 	}
-	w := waiter{ready: ready, failed: failed}
+	w := waiter{ready: ready, failed: failed, decoding: decoding}
 	if waiters, ok := rs.waiting[key]; ok {
 		rs.waiting[key] = append(waiters, w)
+		if slices.Contains(rs.decoding[key.path], key) {
+			decoding()
+		}
 		return
 	}
 	rs.waiting[key] = []waiter{w}
@@ -129,6 +134,9 @@ func (rs *rasters) acquire(key rasterKey, ready func(*raster), failed func()) {
 }
 
 func (rs *rasters) decode(key rasterKey) {
+	for _, w := range rs.waiting[key] {
+		w.decoding()
+	}
 	if keys, ok := rs.decoding[key.path]; ok {
 		rs.decoding[key.path] = append(keys, key)
 		return

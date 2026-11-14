@@ -1,15 +1,12 @@
 package wallpaper
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys-desktop/config"
 	"github.com/stubbedev/lys-lib/render"
 	"github.com/stubbedev/lys-ui/app"
 )
-
-const neverShownLog = "has shown no frame"
 
 type firstFrameRun struct {
 	*harness
@@ -51,18 +48,55 @@ func (r *firstFrameRun) wantDone(name string, n int, why string) {
 	}
 }
 
-func TestNoLayerOpensBeforeItsImage(t *testing.T) {
-	r := startFirstFrame(t, "DP-1")
-	if r.opened["DP-1"] != 0 {
-		t.Fatal("a layer opened with no image to show")
+func (r *firstFrameRun) holdDecode() (decode []func()) {
+	r.t.Helper()
+	if len(r.queued) != 2 {
+		r.t.Fatalf("%d jobs queued, want the built-in wallpaper and the decode", len(r.queued))
 	}
-	r.wantDone("DP-1", 0, "decoding")
+	builtin, decode := r.queued[0], r.queued[1:]
+	r.queued = []func(){builtin}
+	return decode
+}
+
+func TestADecodingImageShowsTheBuiltinUntilItLands(t *testing.T) {
+	r := startFirstFrame(t, "DP-1")
+	decode := r.holdDecode()
 	r.run()
 	if r.opened["DP-1"] != 1 {
-		t.Fatalf("opened %d layers once the image landed, want 1", r.opened["DP-1"])
+		t.Fatalf("opened %d layers while the image decodes, want the built-in one", r.opened["DP-1"])
 	}
-	if r.s.surfaces["DP-1"].view.cur == nil {
-		t.Fatal("the layer opened without its image")
+	builtin := r.liveBuiltin("DP-1")
+	r.wantDone("DP-1", 0, "built-in not presented yet")
+	r.onPresented["DP-1"]()
+	r.wantDone("DP-1", 1, "built-in presented")
+	r.queued = decode
+	r.run()
+	if r.current("DP-1") == builtin {
+		t.Error("the image never replaced the built-in wallpaper")
+	}
+	if r.opened["DP-1"] != 1 {
+		t.Errorf("the image opened another layer: %d", r.opened["DP-1"])
+	}
+	r.wantForgotten("the built-in wallpaper gave way", builtin)
+	r.wantLive(1, "the image alone")
+	r.wantDone("DP-1", 1, "the image landed")
+}
+
+func TestACachedImageShowsWithoutTheBuiltin(t *testing.T) {
+	dir := t.TempDir()
+	first := loginWith(t, dir, "")
+	source := first.path("a.png")
+	first.s.shutdown()
+	second := cachedHarness(t, dir)
+	second.useFile(t, source)
+	second.plug("DP-1", 64, 36)
+	second.run()
+	box, known := outputTarget(second.s.surfaces["DP-1"].out)
+	if _, ok := second.s.rasters.live[rasterKey{path: builtinWallpaper, box: box, known: known}]; ok || len(second.forgotten) != 0 {
+		t.Errorf("a cached image went through the built-in wallpaper: forgot %v", second.forgotten)
+	}
+	if second.opened["DP-1"] != 1 || second.s.surfaces["DP-1"].view.cur == nil {
+		t.Fatal("the cached image did not show")
 	}
 }
 
@@ -76,9 +110,6 @@ func TestEachOutputIsReleasedByItsOwnFirstFrame(t *testing.T) {
 	r.wantDone("DP-2", 0, "DP-1 presented")
 	r.onPresented["DP-2"]()
 	r.wantDone("DP-2", 1, "DP-2 presented")
-	if n := r.pendingTimers(); n != 0 {
-		t.Errorf("%d timers still run after every output presented", n)
-	}
 	r.onPresented["DP-1"]()
 	r.wantDone("DP-1", 1, "presented again")
 }
@@ -89,9 +120,6 @@ func TestWaitOnAPresentedOutputIsReleasedAtOnce(t *testing.T) {
 	r.onPresented["DP-1"]()
 	r.await(r.s.outputs["DP-1"])
 	r.wantDone("DP-1", 2, "a second wait after the first frame")
-	if n := r.pendingTimers(); n != 0 {
-		t.Errorf("the wait on a presented output left %d timers", n)
-	}
 }
 
 func TestOutputPluggedAfterItsWaitIsReleasedByItsFirstFrame(t *testing.T) {
@@ -112,20 +140,14 @@ func TestOutputPluggedAfterItsWaitIsReleasedByItsFirstFrame(t *testing.T) {
 	r.wantDone("DP-1", 1, "another output presented")
 }
 
-func TestPluggedOutputsSlowImageIsBoundedByTheBuiltinWallpaper(t *testing.T) {
+func TestAPluggedOutputsDecodingImageShowsTheBuiltin(t *testing.T) {
 	r := startFirstFrame(t)
-	logs := captureLog(t)
 	late := r.plug("HDMI-A-1", 64, 36)
 	r.await(late)
-	decode := r.queued
-	r.queued = nil
-	r.advance(firstFrameLimit)
+	decode := r.holdDecode()
 	r.run()
-	if !strings.Contains(logs.String(), "not ready after") {
-		t.Errorf("the limit logged %q", logs.String())
-	}
 	if r.opened["HDMI-A-1"] != 1 {
-		t.Fatalf("opened %d layers past the limit, want the built-in one", r.opened["HDMI-A-1"])
+		t.Fatalf("opened %d layers while the image decodes, want the built-in one", r.opened["HDMI-A-1"])
 	}
 	r.liveBuiltin("HDMI-A-1")
 	r.onPresented["HDMI-A-1"]()
@@ -134,41 +156,9 @@ func TestPluggedOutputsSlowImageIsBoundedByTheBuiltinWallpaper(t *testing.T) {
 	r.run()
 }
 
-func TestSlowImageIsBoundedByTheBuiltinWallpaper(t *testing.T) {
-	r := startFirstFrame(t, "DP-1")
-	decode := r.queued
-	r.queued = nil
-	logs := captureLog(t)
-	r.advance(firstFrameLimit)
-	r.run()
-	if !strings.Contains(logs.String(), "not ready after") {
-		t.Errorf("the limit logged %q", logs.String())
-	}
-	if r.opened["DP-1"] != 1 {
-		t.Fatalf("opened %d layers past the limit, want the built-in one", r.opened["DP-1"])
-	}
-	builtin := r.liveBuiltin("DP-1")
-	r.wantDone("DP-1", 0, "built-in not presented yet")
-	r.onPresented["DP-1"]()
-	r.wantDone("DP-1", 1, "built-in presented")
-	r.queued = decode
-	r.run()
-	if r.current("DP-1") == builtin {
-		t.Error("the image never replaced the built-in wallpaper")
-	}
-	if r.opened["DP-1"] != 1 {
-		t.Errorf("the image opened another layer: %d", r.opened["DP-1"])
-	}
-	r.wantForgotten("the built-in wallpaper gave way", builtin)
-	r.wantLive(1, "the image alone")
-	r.wantDone("DP-1", 1, "the image landed")
-}
-
 func TestImageLandingBeforeTheBuiltinKeepsItsPlace(t *testing.T) {
 	r := startFirstFrame(t, "DP-1")
-	decode := r.queued
-	r.queued = nil
-	r.advance(firstFrameLimit)
+	decode := r.holdDecode()
 	builtin := r.queued
 	r.queued = decode
 	r.run()
@@ -199,35 +189,25 @@ func TestUndecodableImageShowsTheBuiltinWithoutWaiting(t *testing.T) {
 	}
 }
 
-func TestPresentationThatNeverComesIsBoundedAndLoggedOnce(t *testing.T) {
+func TestWaitersHoldUntilAFramePresents(t *testing.T) {
 	r := startFirstFrame(t, "DP-1")
 	r.await(r.s.outputs["DP-1"])
 	r.run()
-	logs := captureLog(t)
-	r.advance(firstFrameBound - 1)
-	r.wantDone("DP-1", 0, "just inside the bound")
-	r.advance(1)
-	r.wantDone("DP-1", 2, "the bound, both waiters")
-	if n := strings.Count(logs.String(), neverShownLog); n != 1 {
-		t.Errorf("giving up was logged %d times, want once:\n%s", n, logs.String())
-	}
+	r.wantDone("DP-1", 0, "shown, not presented")
 	r.onPresented["DP-1"]()
-	r.wantDone("DP-1", 2, "presented past the bound")
+	r.wantDone("DP-1", 2, "presented, both waiters")
+	r.onPresented["DP-1"]()
+	r.wantDone("DP-1", 2, "presented again")
 }
 
 func TestCancelledWaitIsNeverReleased(t *testing.T) {
 	r := startFirstFrame(t)
-	logs := captureLog(t)
 	late := r.plug("DP-1", 64, 36)
 	cancel := r.await(late)
 	cancel()
 	r.run()
-	r.advance(firstFrameBound)
 	r.onPresented["DP-1"]()
 	r.wantDone("DP-1", 0, "cancelled")
-	if strings.Contains(logs.String(), neverShownLog) {
-		t.Errorf("a cancelled wait logged giving up:\n%s", logs.String())
-	}
 }
 
 func TestOutputRemovedWhileWaitingReleasesItsWaiters(t *testing.T) {
@@ -236,9 +216,6 @@ func TestOutputRemovedWhileWaitingReleasesItsWaiters(t *testing.T) {
 	r.wantDone("DP-1", 1, "the output left")
 	r.run()
 	r.wantLive(0, "nothing draws the image")
-	if n := r.pendingTimers(); n != 0 {
-		t.Errorf("%d timers outlive the removed output", n)
-	}
 }
 
 func TestCompositorClosingTheLayerReleasesItsWaiters(t *testing.T) {

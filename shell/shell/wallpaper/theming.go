@@ -48,5 +48,5 @@ func (s *Shell) sampleOnLoop(monitor string, done func([]material.ARGB, error)) 
 		pixels := material.Sample(r.image.RGBA, extract.SampleSide)
 		rs.release(r)
 		done(pixels, nil)
-	}, func() { done(nil, fmt.Errorf("wallpaper %s could not be prepared", path)) })
+	}, func() { done(nil, fmt.Errorf("wallpaper %s could not be prepared", path)) }, func() {})
 }

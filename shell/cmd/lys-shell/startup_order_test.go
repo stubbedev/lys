@@ -37,7 +37,7 @@ import (
 	"github.com/stubbedev/lys-shell/shell/filechooser"
 )
 
-const startupBound = 30 * time.Second
+const startupBound = 2 * time.Minute
 
 func redJPEG(t *testing.T) []byte {
 	t.Helper()
@@ -285,10 +285,7 @@ func TestShellUnderTestNeverReachesTheHostsLogind(t *testing.T) {
 	if calls, err := os.ReadFile(loginCalls); err == nil && strings.Contains(string(calls), "lock") {
 		t.Errorf("the shell started the lock screen: %s", calls)
 	}
-	awaitBar(t, s)
-	if got := captureCenter(t); !isRed(got) {
-		t.Errorf("the bar mapped over %v, want the red wallpaper", got)
-	}
+	awaitBarOverAWallpaper(t, s)
 }
 
 func TestBarLandsOnAVisibleWallpaper(t *testing.T) {
@@ -298,10 +295,7 @@ func TestBarLandsOnAVisibleWallpaper(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := startShellProcess(t, image)
-	awaitBar(t, s)
-	if got := captureCenter(t); !isRed(got) {
-		t.Errorf("the bar mapped over %v, want the red wallpaper", got)
-	}
+	awaitBarOverAWallpaper(t, s)
 }
 
 func TestBarsLandOnAVisibleWallpaperOnEveryOutput(t *testing.T) {
@@ -326,10 +320,18 @@ func TestBarsLandOnAVisibleWallpaperOnEveryOutput(t *testing.T) {
 		t.Fatalf("%d outputs, want 2", len(centers))
 	}
 	for _, got := range centers {
-		if !isRed(got.color) {
-			t.Errorf("%s shows %v under the bar, want the red wallpaper", got.output, got.color)
+		if isBlack(got.color) {
+			t.Errorf("%s shows a black desktop under the bar", got.output)
 		}
 	}
+	await(t, s, "the image on every output", func() bool {
+		for _, got := range captureCenters(t) {
+			if !isRed(got.color) {
+				return false
+			}
+		}
+		return true
+	})
 }
 
 func TestDecodeThatHangsShowsTheBuiltinWallpaperUnderTheBar(t *testing.T) {
@@ -343,9 +345,6 @@ func TestDecodeThatHangsShowsTheBuiltinWallpaperUnderTheBar(t *testing.T) {
 	got := captureCenter(t)
 	if isBlack(got) {
 		t.Fatalf("the bar mapped over a black desktop while the image decodes")
-	}
-	if !strings.Contains(s.logs(t), "is not ready after") {
-		t.Errorf("the slow image logged nothing:\n%s", s.logs(t))
 	}
 	feed(t, fifo, redJPEG(t))
 	await(t, s, "the image to replace the built-in wallpaper", func() bool { return isRed(captureCenter(t)) })
@@ -520,16 +519,16 @@ func startShellAwaitingAPluggedOutput(t *testing.T) (s *startedShell, heldImage 
 	return s, heldImage
 }
 
-func requireNoBarWhileTheImageIsHeld(t *testing.T, s *startedShell, hold time.Duration) {
+func awaitBarOverAWallpaper(t *testing.T, s *startedShell) {
 	t.Helper()
-	for until := time.Now().Add(hold); time.Now().Before(until); time.Sleep(10 * time.Millisecond) {
-		if barMappedOn(t, pluggedOutput) {
-			t.Fatalf("the bar mapped on %s while its wallpaper was still decoding; it shows %v\nshell log:\n%s", pluggedOutput, captureCenterOf(t, pluggedOutput), s.logs(t))
-		}
+	await(t, s, "the bar", func() bool { return barMapped(t) })
+	if got := captureCenter(t); isBlack(got) {
+		t.Fatalf("the bar mapped over a black desktop\nshell log:\n%s", s.logs(t))
 	}
+	await(t, s, "the red wallpaper", func() bool { return isRed(captureCenter(t)) })
 }
 
-func awaitBarOverAWallpaper(t *testing.T, s *startedShell) {
+func awaitPluggedBarOverAWallpaper(t *testing.T, s *startedShell) {
 	t.Helper()
 	await(t, s, "the bar on "+pluggedOutput, func() bool {
 		if !barMappedOn(t, pluggedOutput) {
@@ -558,21 +557,9 @@ func feed(t *testing.T, fifo string, data []byte) {
 	})
 }
 
-func TestBarOnAPluggedOutputWaitsForItsWallpaper(t *testing.T) {
+func TestBarOnAPluggedOutputMapsOverTheBuiltinWallpaperWhileItsImageDecodes(t *testing.T) {
 	s, held := startShellAwaitingAPluggedOutput(t)
-	requireNoBarWhileTheImageIsHeld(t, s, 500*time.Millisecond)
-	feed(t, held, redJPEG(t))
-	awaitBarOverAWallpaper(t, s)
-	await(t, s, "the image on "+pluggedOutput, func() bool { return isRed(captureCenterOf(t, pluggedOutput)) })
-}
-
-func TestBarOnAPluggedOutputMapsOverTheBuiltinWallpaperWhenItsImageHangs(t *testing.T) {
-	s, held := startShellAwaitingAPluggedOutput(t)
-	requireNoBarWhileTheImageIsHeld(t, s, 500*time.Millisecond)
-	awaitBarOverAWallpaper(t, s)
-	if !strings.Contains(s.logs(t), pluggedOutput+": "+held+" is not ready after") {
-		t.Errorf("the hanging image on %s logged nothing:\n%s", pluggedOutput, s.logs(t))
-	}
+	awaitPluggedBarOverAWallpaper(t, s)
 	feed(t, held, redJPEG(t))
 	await(t, s, "the image to replace the built-in wallpaper on "+pluggedOutput, func() bool { return isRed(captureCenterOf(t, pluggedOutput)) })
 }

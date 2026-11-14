@@ -26,7 +26,7 @@ func (h *harness) sample(monitor string) ([]material.ARGB, error) {
 func TestThemingReadsTheShownRasterWithoutOpeningTheFile(t *testing.T) {
 	h := newHarness(t, config.AnimationNone, "DP-1")
 	h.plug("DP-1", 64, 36)
-	h.run()
+	h.settle()
 	decodes := h.decodes[h.path("a.png")]
 	pixels, err := h.sample("DP-1")
 	if err != nil {

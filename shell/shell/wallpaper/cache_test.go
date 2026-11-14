@@ -195,6 +195,7 @@ func TestRasterStaysAliveThroughItsSave(t *testing.T) {
 	if len(h.queued) != 1 {
 		t.Fatalf("%d jobs queued, want the save", len(h.queued))
 	}
+	h.forgotten = nil
 	h.s.RemoveOutput(h.s.outputs["DP-1"])
 	h.wantLive(1, "the save holds it")
 	h.wantForgotten("the save holds it")
