@@ -413,7 +413,7 @@ func (c *Compositor) enable(b backend.Output, rule OutputRule) error {
 		return err
 	}
 	c.addCursorPlane(o)
-	c.preloadCursorsLater(o.Scale().ToDevice(c.cursors.Size))
+	c.preloadCursorsLater(c.themeCursorPx(o))
 	if err := c.relayout(); err != nil {
 		return err
 	}
@@ -587,6 +587,7 @@ func (c *Compositor) outputResized(o *output.Output) error {
 	if err := errors.Join(o.Changed(), c.relayout()); err != nil {
 		return err
 	}
+	c.preloadCursorsLater(c.themeCursorPx(o))
 	_, err := c.arrange(o)
 	return errors.Join(err, c.syncAreas(), c.schedule(o))
 }

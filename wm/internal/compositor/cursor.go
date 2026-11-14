@@ -42,10 +42,6 @@ func loadCursorImage(theme *xcursor.Theme, name string, px int) (xcursor.Image, 
 	return loadCursorImage(theme, "default", px)
 }
 
-func (c *Compositor) cursorTexture(name string, scale output.Scale) (*cursorTexture, error) {
-	return c.cursorTextureAt(name, scale.ToDevice(c.cursors.Size))
-}
-
 type loadedCursor struct {
 	img    xcursor.Image
 	size   image.Point
@@ -213,22 +209,27 @@ func (c *Compositor) drawCursor(pass *frame, o *output.Output, shown []*surface.
 
 func (c *Compositor) grownCursor(o *output.Output) (ct *cursorTexture, size, hotspot image.Point, err error) {
 	growth := c.cursorGrowth(c.clock())
-	if growth == 1 {
-		ct, err = c.cursorTexture(c.cursorShape(), o.Scale())
-		if err != nil {
-			return nil, image.Point{}, image.Point{}, err
-		}
-		return ct, ct.size, ct.hotspot, nil
+	px := c.themeCursorPx(o)
+	want := px
+	if growth != 1 {
+		want = int(math.Round(float64(px) * shakeGrowth))
 	}
-	px := o.Scale().ToDevice(c.cursors.Size)
-	if ct, err = c.cursorTextureAt(c.cursorShape(), int(math.Round(float64(px)*shakeGrowth))); err != nil {
+	if ct, err = c.cursorTextureAt(c.cursorShape(), want); err != nil {
 		return nil, image.Point{}, image.Point{}, err
 	}
+	size, hotspot = ct.extent(px, growth)
+	return ct, size, hotspot, nil
+}
+
+func (ct *cursorTexture) extent(px int, growth float64) (size, hotspot image.Point) {
+	if growth == 1 && ct.px == px {
+		return ct.size, ct.hotspot
+	}
 	k := growth * float64(px) / float64(ct.px)
-	grown := func(p image.Point) image.Point {
+	scaled := func(p image.Point) image.Point {
 		return image.Pt(int(math.Round(float64(p.X)*k)), int(math.Round(float64(p.Y)*k)))
 	}
-	return ct, grown(ct.size), grown(ct.hotspot), nil
+	return scaled(ct.size), scaled(ct.hotspot)
 }
 
 func (c *Compositor) cursorTip(o *output.Output) image.Point {
@@ -325,16 +326,24 @@ func (c *Compositor) cursorShape() string {
 	return "default"
 }
 
-func (c *Compositor) themePixels(o *output.Output) (*cursorTexture, bool) {
+func (c *Compositor) themePixels(o *output.Output) (cursorPixels, bool) {
 	switch c.seat.Cursor().(type) {
 	case seat.SurfaceCursor, seat.HiddenCursor:
-		return nil, false
+		return cursorPixels{}, false
 	}
 	if c.cursorGrowth(c.clock()) != 1 {
-		return nil, false
+		return cursorPixels{}, false
 	}
-	ct, err := c.cursorTexture(c.cursorShape(), o.Scale())
-	return ct, err == nil && ct.pixels != nil
+	px := c.themeCursorPx(o)
+	ct, err := c.cursorTextureAt(c.cursorShape(), px)
+	if err != nil || ct.pixels == nil {
+		return cursorPixels{}, false
+	}
+	if ct.px == px {
+		return cursorPixels{pix: ct.pixels, size: ct.size}, true
+	}
+	size, _ := ct.extent(px, 1)
+	return cursorPixels{pix: resample(ct.pixels, ct.size, size), size: size}, true
 }
 
 type cursorPixels struct {
@@ -361,8 +370,8 @@ func (c *Compositor) surfacePixels() (*cursorPixels, bool) {
 
 func (c *Compositor) loadCursor(hw *hwCursor, o *output.Output, box image.Rectangle, hotspot image.Point) error {
 	plan := c.cursorPlan(o)
-	if ct, ok := c.themePixels(o); ok {
-		return hw.load(plan, ct.pixels, ct.size.X*4, ct.size, hotspot)
+	if tp, ok := c.themePixels(o); ok {
+		return hw.load(plan, tp.pix, tp.size.X*4, tp.size, hotspot)
 	}
 	if cp, ok := c.surfacePixels(); ok {
 		return hw.load(plan, cp.pix, cp.size.X*4, cp.size, hotspot)
@@ -523,4 +532,8 @@ func (c *Compositor) dropPointers() error {
 	}
 	clear(c.pointers)
 	return errors.Join(errs...)
+}
+
+func (c *Compositor) themeCursorPx(o *output.Output) int {
+	return o.Scale().ToDevice(c.cursors.Size)
 }

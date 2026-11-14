@@ -198,7 +198,7 @@ func (c *Compositor) zoomCursor(o *output.Output, sc *scene, z *outputZoom) erro
 	factor := z.factor(c.frameTime)
 	tip := c.cursorTip(o)
 	if _, surface := c.seat.Cursor().(seat.SurfaceCursor); !surface && z.level.Done(c.frameTime) {
-		base := o.Scale().ToDevice(c.cursors.Size)
+		base := c.themeCursorPx(o)
 		px := crispCursorPx(base, factor)
 		ct, err := c.cursorTextureAt(c.cursorShape(), px)
 		if err != nil {
