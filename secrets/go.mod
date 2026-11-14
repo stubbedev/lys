@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	filippo.io/edwards25519 v1.2.0
-	github.com/stubbedev/lys-lib v0.3.23-0.20261114211204-ffe461df1b22
+	github.com/stubbedev/lys-lib v0.3.23-0.20261114222303-aa62779785b8
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sys v0.49.0
 )
