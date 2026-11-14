@@ -10,13 +10,15 @@ package render
 // new key and the stale one ages out.
 
 import (
-	"container/list"
+	"fmt"
 	"hash/maphash"
 	"math"
 	"slices"
 	"sync"
 	"unicode/utf8"
 	"unsafe"
+
+	"github.com/stubbedev/memory-go/heapslab"
 
 	"github.com/stubbedev/lys-lib/text"
 )
@@ -222,21 +224,28 @@ func dropRuneLines() {
 // the front on hit; eviction walks the back when a put pushes the total
 // over budget, always keeping the freshly inserted entry. K must not
 // retain more than the caller intends; V's cost is computed by callers
-// and passed to put.
+// and passed to put. Entries live in chunks of a pool, linked newest to
+// oldest, so an insert after eviction reuses the evicted entry's slot
+// and the collector tracks a chunk, not each entry.
 type lru[K comparable, V any] struct {
 	gets    uint64
 	mu      sync.Mutex
-	entries map[K]*list.Element
-	order   list.List // front = most recently used
+	entries map[K]heapslab.Item[lruEntry[K, V]]
+	pool    *heapslab.Pool[lruEntry[K, V]]
+	newest  heapslab.Item[lruEntry[K, V]]
+	oldest  heapslab.Item[lruEntry[K, V]]
 	live    int
 	budget  int
 }
 
 type lruEntry[K comparable, V any] struct {
-	key  K
-	val  V
-	cost int
+	key          K
+	val          V
+	cost         int
+	newer, older heapslab.Item[lruEntry[K, V]]
 }
+
+const lruChunk = 64
 
 // newLRU is an empty cache of budget, which holds nothing until its
 // first put: a package-level cache costs its importer no code.
@@ -249,14 +258,14 @@ func (c *lru[K, V]) get(key K) (V, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.gets++
-	if el, ok := c.entries[key]; ok {
-		c.order.MoveToFront(el)
-		if e, ok := el.Value.(*lruEntry[K, V]); ok {
-			return e.val, true
-		}
+	it, ok := c.entries[key]
+	if !ok {
+		var zero V
+		return zero, false
 	}
-	var zero V
-	return zero, false
+	c.unlink(it)
+	c.pushNewest(it)
+	return it.Value().val, true
 }
 
 // put inserts or refreshes an entry and evicts least-recently-used
@@ -265,34 +274,67 @@ func (c *lru[K, V]) get(key K) (V, bool) {
 func (c *lru[K, V]) put(key K, val V, cost int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if el, ok := c.entries[key]; ok {
-		c.order.MoveToFront(el)
-		if e, ok := el.Value.(*lruEntry[K, V]); ok {
-			c.live += cost - e.cost
-			e.val, e.cost = val, cost
-		}
+	if it, ok := c.entries[key]; ok {
+		c.unlink(it)
+		c.pushNewest(it)
+		e := it.Value()
+		c.live += cost - e.cost
+		e.val, e.cost = val, cost
 	} else {
 		if c.entries == nil {
-			c.entries = make(map[K]*list.Element)
+			pool, err := heapslab.NewPool[lruEntry[K, V]](lruChunk)
+			if err != nil {
+				panic(fmt.Sprintf("render: the cache's entry pool: %v", err))
+			}
+			c.entries, c.pool = make(map[K]heapslab.Item[lruEntry[K, V]]), pool
 		}
-		c.entries[key] = c.order.PushFront(&lruEntry[K, V]{key: key, val: val, cost: cost})
+		it := c.pool.Get()
+		*it.Value() = lruEntry[K, V]{key: key, val: val, cost: cost}
+		c.entries[key] = it
+		c.pushNewest(it)
 		c.live += cost
 	}
-	for c.live > c.budget && c.order.Len() > 1 {
-		back := c.order.Back()
-		if e, ok := back.Value.(*lruEntry[K, V]); ok {
-			c.order.Remove(back)
-			delete(c.entries, e.key)
-			c.live -= e.cost
-		}
+	for c.live > c.budget && c.oldest != c.newest {
+		old := c.oldest
+		e := old.Value()
+		c.unlink(old)
+		delete(c.entries, e.key)
+		c.live -= e.cost
+		c.pool.Put(old)
 	}
+}
+
+func (c *lru[K, V]) unlink(it heapslab.Item[lruEntry[K, V]]) {
+	e := it.Value()
+	if e.newer.IsNil() {
+		c.newest = e.older
+	} else {
+		e.newer.Value().older = e.older
+	}
+	if e.older.IsNil() {
+		c.oldest = e.newer
+	} else {
+		e.older.Value().newer = e.newer
+	}
+	e.newer, e.older = heapslab.Item[lruEntry[K, V]]{}, heapslab.Item[lruEntry[K, V]]{}
+}
+
+func (c *lru[K, V]) pushNewest(it heapslab.Item[lruEntry[K, V]]) {
+	e := it.Value()
+	e.older = c.newest
+	if c.newest.IsNil() {
+		c.oldest = it
+	} else {
+		c.newest.Value().newer = it
+	}
+	c.newest = it
 }
 
 // len returns the number of cached entries.
 func (c *lru[K, V]) len() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.order.Len()
+	return len(c.entries)
 }
 
 // dropAll empties the cache. Tests use it to pin miss-path costs and
@@ -301,7 +343,10 @@ func (c *lru[K, V]) len() int {
 func (c *lru[K, V]) dropAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.entries = nil
-	c.order.Init()
+	if c.pool != nil {
+		c.pool.Free()
+	}
+	c.entries, c.pool = nil, nil
+	c.newest, c.oldest = heapslab.Item[lruEntry[K, V]]{}, heapslab.Item[lruEntry[K, V]]{}
 	c.live = 0
 }

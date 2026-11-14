@@ -225,6 +225,38 @@ func TestLRUEvictionKeepsHotEntries(t *testing.T) {
 	}
 }
 
+func TestLRUEntriesShareChunksAndEvictedSlotsAreReused(t *testing.T) {
+	const n = 4096
+	v := new(int)
+	fill := func() *lru[int, *int] {
+		c := newLRU[int, *int](n)
+		for i := range n {
+			c.put(i, v, 1)
+		}
+		return c
+	}
+	if allocs := testing.AllocsPerRun(10, func() { fill() }); allocs > n/16 {
+		t.Errorf("filling a cache with %d entries allocates %v times, want entries carved from shared chunks", n, allocs)
+	}
+	c := fill()
+	next := n
+	if allocs := testing.AllocsPerRun(1000, func() {
+		c.put(next, v, 1)
+		next++
+	}); allocs != 0 {
+		t.Errorf("a put that evicts allocates %v times, want the evicted slot reused", allocs)
+	}
+	if c.len() != n {
+		t.Errorf("cache holds %d entries after churn, want %d", c.len(), n)
+	}
+	if _, ok := c.get(next - 1); !ok {
+		t.Error("the newest entry is missing after churn")
+	}
+	if _, ok := c.get(next - n - 1); ok {
+		t.Error("an entry older than the budget survived churn")
+	}
+}
+
 func TestShapedCacheEvictionUnderProductionBudget(t *testing.T) {
 	// The production cache evicts: stuff it with heavy shapes until
 	// the 16 MiB budget forces eviction, touching the hot entry every
