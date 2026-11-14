@@ -2,7 +2,6 @@ package harness
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"slices"
 	"testing"
@@ -137,10 +136,8 @@ func TestForeignToplevelsSeeAndChangeMinimized(t *testing.T) {
 
 func TestAGenieHeadsForTheTaskbarRectangle(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = genieTable(t, time.Second)
-		cfg.Clock = func() time.Duration { return now }
 	}, small)
 	bar := testclient.Connect(t, h.Socket())
 	panel := bar.Layer(testclient.LayerSpec{Layer: cwlr.ZwlrLayerShellV1LayerTop, Anchor: cwlr.ZwlrLayerSurfaceV1AnchorLeft | cwlr.ZwlrLayerSurfaceV1AnchorTop | cwlr.ZwlrLayerSurfaceV1AnchorBottom, Size: image.Pt(10, 0)}, testclient.Fill(0, 0xff, 0))
@@ -161,11 +158,9 @@ func TestAGenieHeadsForTheTaskbarRectangle(t *testing.T) {
 		t.Fatal(err)
 	}
 	bar.Sync()
+	h.Hold()
 	h.dispatch("minimize")
-	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		now += 999 * time.Millisecond
-		return nil
-	})
+	h.Advance(999 * time.Millisecond)
 	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
 	h.Eventually("the window down to the corner the panel named", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(100, 50, bg)(b, comp) && showing(30, 20, bg)(b, comp) && showing(12, 90, bg)(b, comp)
@@ -178,16 +173,8 @@ func TestAGenieHeadsForTheTaskbarRectangle(t *testing.T) {
 
 func TestAGenieRestoresOutOfTheTaskbarRectangle(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
-	at := func(h *Harness, d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = genieTable(t, time.Second)
-		cfg.Clock = func() time.Duration { return now }
 	}, small)
 	dock := testclient.Connect(t, h.Socket())
 	green := [3]byte{0, 0xff, 0}
@@ -209,17 +196,19 @@ func TestAGenieRestoresOutOfTheTaskbarRectangle(t *testing.T) {
 		t.Fatal(err)
 	}
 	dock.Sync()
+	minimized := h.Hold()
 	h.dispatch("minimize")
-	at(h, time.Hour+time.Second)
+	restored := minimized + time.Second + small.Interval()
+	h.AdvanceTo(restored)
 	h.Eventually("the window gone into the panel", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(5, 85, green)(b, comp) && !showing(100, 50, gray)(b, comp)
 	})
 	h.dispatch("restore")
-	at(h, time.Hour+time.Second+time.Millisecond)
+	h.Rendered(0)
 	h.Eventually("the window starting out of the rectangle the panel named, above the panel", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(5, 85, gray)(b, comp) && !showing(100, 50, gray)(b, comp) && showing(5, 20, green)(b, comp)
 	})
-	at(h, time.Hour+2*time.Second)
+	h.AdvanceTo(restored + time.Second + small.Interval())
 	h.Eventually("the window back where it was", showing(100, 50, gray))
 }
 
@@ -229,16 +218,8 @@ func TestAGenieCollapsesTowardTheNearestEdgeAndComesBack(t *testing.T) {
 }
 
 func testAGenieCollapsesTowardTheNearestEdgeAndComesBack(t *testing.T, start gpuStarter) {
-	now := time.Hour
-	at := func(h *Harness, d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = time.Hour + d
-			return nil
-		})
-	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = genieTable(t, time.Second)
-		cfg.Clock = func() time.Duration { return now }
 	}, small)
 	c := testclient.Connect(t, h.Socket())
 	gray := [3]byte{0x60, 0x60, 0x60}
@@ -248,33 +229,23 @@ func testAGenieCollapsesTowardTheNearestEdgeAndComesBack(t *testing.T, start gpu
 	h.dispatch("togglefloating")
 	c.DispatchUntil("a floating window", func() bool { return w.Logical == image.Pt(80, 50) })
 	h.Eventually("the window in the middle", showing(80, 45, gray))
+	minimized := h.Hold()
 	h.dispatch("minimize")
 	h.Eventually("the window whole as the genie starts", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(45, 30, gray)(b, comp) && showing(115, 70, gray)(b, comp)
 	})
-	at(h, 700*time.Millisecond)
+	h.AdvanceTo(minimized + 700*time.Millisecond)
 	h.Eventually("the far corners gone, the tail on its way", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(45, 30, bg)(b, comp) && showing(115, 30, bg)(b, comp)
 	})
-	at(h, 2*time.Second)
+	h.AdvanceTo(minimized + 2*time.Second)
 	h.Eventually("nothing left", showing(80, 45, bg))
-	h.Advance(100 * time.Millisecond)
-	var frames uint64
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		frames = b.Outputs()[0].Frames()
-		return nil
-	})
-	h.Advance(200 * time.Millisecond)
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		if n := b.Outputs()[0].Frames(); n != frames {
-			t.Errorf("%d frames ran after the genie ended", n-frames)
-		}
-		return nil
-	})
+	h.idleFor(200*time.Millisecond, "after the genie ended")
+	restored := h.Now()
 	h.dispatch("restore")
+	h.Rendered(0)
 	h.Eventually("the restored window starts collapsed", showing(45, 30, bg))
-	at(h, 2*time.Second+300*time.Millisecond)
-	at(h, 4*time.Second)
+	h.AdvanceTo(restored + time.Second + small.Interval())
 	h.Eventually("the window whole again", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(45, 30, gray)(b, comp) && showing(115, 70, gray)(b, comp)
 	})
@@ -282,10 +253,8 @@ func testAGenieCollapsesTowardTheNearestEdgeAndComesBack(t *testing.T, start gpu
 
 func TestReversingAGenieMidwayKeepsItsPlace(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = genieTable(t, time.Second)
-		cfg.Clock = func() time.Duration { return now }
 	}, small)
 	c := testclient.Connect(t, h.Socket())
 	gray := [3]byte{0x60, 0x60, 0x60}
@@ -293,18 +262,14 @@ func TestReversingAGenieMidwayKeepsItsPlace(t *testing.T) {
 	w := c.Window("genie", testclient.Fill(gray[0], gray[1], gray[2]))
 	c.DispatchUntil("the window to map", w.Mapped)
 	h.Eventually("the window", showing(5, 5, gray))
+	h.Hold()
 	h.dispatch("minimize")
-	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		now += 600 * time.Millisecond
-		return nil
-	})
+	h.Advance(600 * time.Millisecond)
 	h.Eventually("the top corner gone", showing(5, 5, bg))
 	h.dispatch("restore")
+	h.Rendered(0)
 	h.Eventually("the top corner still gone just after the reversal", showing(5, 5, bg))
-	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		now += 2 * time.Second
-		return nil
-	})
+	h.Advance(2 * time.Second)
 	h.Eventually("the window whole", showing(5, 5, gray))
 }
 
@@ -338,16 +303,8 @@ func TestUnderReducedMotionAWindowMinimizesAsAFade(t *testing.T) {
 func TestAGenieDrawsItsWindowOnceUntilTheWindowChanges(t *testing.T) {
 	t.Parallel()
 	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
-		now := time.Hour
-		at := func(h *Harness, d time.Duration) {
-			h.Do(func(*headless.Backend, *compositor.Compositor) error {
-				now = time.Hour + d
-				return nil
-			})
-		}
 		h := start(t, func(cfg *compositor.Config) {
 			cfg.Animations = genieTable(t, time.Second)
-			cfg.Clock = func() time.Duration { return now }
 		}, small)
 		redraws := func() (n uint64) {
 			h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
@@ -371,30 +328,35 @@ func TestAGenieDrawsItsWindowOnceUntilTheWindowChanges(t *testing.T) {
 		h.dispatch("togglefloating")
 		c.DispatchUntil("a floating window", func() bool { return w.Logical == image.Pt(80, 50) })
 		h.Eventually("the window in the middle", showing(80, 45, gray))
+		minimized := h.Hold()
 		h.dispatch("minimize")
-		at(h, 2*time.Second)
+		restored := minimized + 2*time.Second
+		h.AdvanceTo(restored)
 		h.Eventually("the window gone", showing(80, 45, bg))
 		h.dispatch("restore")
+		h.Rendered(0)
 		h.Eventually("the restored window starts collapsed", showing(45, 30, bg))
-		drawn := frames(h)
-		h.Eventually("a frame of the genie", func(b *headless.Backend, _ *compositor.Compositor) bool { return b.Outputs()[0].Frames() > drawn })
 		before := redraws()
-		for _, d := range []time.Duration{2100, 2300, 2500} {
+		for _, d := range []time.Duration{100, 300, 500} {
 			shown := frames(h)
-			at(h, d*time.Millisecond)
-			c.DispatchUntil(fmt.Sprintf("a frame at %d ms", d), func() bool { return frames(h) > shown })
+			h.AdvanceTo(restored + d*time.Millisecond)
+			if frames(h) <= shown {
+				t.Fatalf("no frame of the genie ran by %d ms into the restore", d)
+			}
 		}
 		if got := redraws() - before; got > 1 {
 			t.Fatalf("a window that did not change was drawn %d times for its genie", got)
 		}
 		before = redraws()
 		painted = green
-		if err := w.Redraw(); err != nil {
+		if err := errors.Join(w.Redraw(), c.Display.Roundtrip()); err != nil {
 			t.Fatal(err)
 		}
-		at(h, 2700*time.Millisecond)
-		c.DispatchUntil("the commit to redraw the genie's window", func() bool { return redraws() > before })
-		at(h, 4*time.Second)
+		h.AdvanceTo(restored + 700*time.Millisecond)
+		if redraws() <= before {
+			t.Fatal("the commit did not redraw the genie's window")
+		}
+		h.AdvanceTo(restored + 2*time.Second)
 		h.Eventually("the window whole in its new colour", showing(80, 45, green))
 	})
 }

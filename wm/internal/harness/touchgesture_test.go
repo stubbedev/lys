@@ -79,17 +79,16 @@ func (f *fingers) up(ids ...int32) {
 }
 
 func TestABottomEdgeSwipeDrivesTheOverviewAndSettlesByVelocity(t *testing.T) {
-	var now time.Duration
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = springTable(t)
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Gestures.Touch = []binds.GestureBind{bottomEdgeOverview}
 	}, small)
 	r := inputOn(t, h)
 	r.expect("kb_enter win", "enter win 80,50", "frame")
+	h.Hold()
 	progress := func() (p float64) {
 		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
-			p = c.OverviewProgress(now)
+			p = c.OverviewProgress(h.loop.Now())
 			return nil
 		})
 		return p
@@ -106,7 +105,7 @@ func TestABottomEdgeSwipeDrivesTheOverviewAndSettlesByVelocity(t *testing.T) {
 	}
 	f.move(time.Second, []int32{1}, []float64{0.5}, []float64{0.62})
 	f.up(1)
-	h.advanceClock(&now, 5*time.Second)
+	h.Advance(5 * time.Second)
 	if got := progress(); got != 0 {
 		t.Fatalf("a slow swipe a third of the way settled at %v, not closed", got)
 	}
@@ -115,7 +114,7 @@ func TestABottomEdgeSwipeDrivesTheOverviewAndSettlesByVelocity(t *testing.T) {
 		f.move(8*time.Millisecond, []int32{2}, []float64{0.5}, []float64{y})
 	}
 	f.up(2)
-	h.advanceClock(&now, 5*time.Second)
+	h.Advance(5 * time.Second)
 	if got := progress(); got != 1 {
 		t.Fatalf("a quick flick a third of the way settled at %v, not open", got)
 	}

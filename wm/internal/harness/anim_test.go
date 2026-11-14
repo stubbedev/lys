@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys-wm/internal/anim"
+	"github.com/stubbedev/lys-wm/internal/backend"
 	"github.com/stubbedev/lys-wm/internal/backend/headless"
 	"github.com/stubbedev/lys-wm/internal/compositor"
 	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
@@ -16,6 +17,34 @@ import (
 	"github.com/stubbedev/lys-wm/internal/testclient"
 	"github.com/stubbedev/lys-wm/internal/wm"
 )
+
+func frameSlack(m backend.Mode, d time.Duration) float64 {
+	return float64(m.Interval()) / float64(d)
+}
+
+func nearProgress(got, c, bg [3]byte, progress, slack float64) bool {
+	lo, hi := blend(c, bg, max(progress-slack, 0)), blend(c, bg, min(progress+slack, 1))
+	for i := range got {
+		if int(got[i]) < int(min(lo[i], hi[i]))-1 || int(got[i]) > int(max(lo[i], hi[i]))+1 {
+			return false
+		}
+	}
+	return true
+}
+
+func (h *Harness) idleFor(d time.Duration, what string) {
+	h.t.Helper()
+	before := framesOn(h, 0)
+	h.Advance(d)
+	if after := framesOn(h, 0); after != before {
+		h.t.Fatalf("%d frames ran %s", after-before, what)
+	}
+}
+
+func (h *Harness) frameNow() {
+	h.t.Helper()
+	h.Do(func(b *headless.Backend, comp *compositor.Compositor) error { return comp.Frame(b.Outputs()[0]) })
+}
 
 func linearMoves(t *testing.T, d time.Duration) anim.Table {
 	t.Helper()
@@ -33,21 +62,13 @@ func TestAMovedWindowAnimatesOnTheFrameClock(t *testing.T) {
 }
 
 func testAMovedWindowAnimatesOnTheFrameClock(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	var next compositor.Config
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Animations = linearMoves(t, time.Second)
-		cfg.Clock = func() time.Duration { return now }
 		next = *cfg
 		next.WM.Gaps = wm.Gaps{Outer: wm.Insets{Top: 20, Right: 20, Bottom: 20, Left: 20}}
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = time.Hour + d
-			return nil
-		})
-	}
 	c := testclient.Connect(t, h.Socket())
 	gray := [3]byte{0x60, 0x60, 0x60}
 	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
@@ -55,11 +76,12 @@ func testAMovedWindowAnimatesOnTheFrameClock(t *testing.T, start gpuStarter) {
 	c.DispatchUntil("the window to map", w.Mapped)
 	h.Eventually("the window over the whole output", showing(5, 5, gray))
 
+	moved := h.Hold()
 	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error { return comp.Reconfigure(next) })
 	c.DispatchUntil("the goal size, configured at once", func() bool { return w.Logical == image.Pt(118, 78) })
 	h.Eventually("the window still covering its start", showing(5, 5, gray))
 
-	at(500 * time.Millisecond)
+	h.AdvanceTo(moved + 500*time.Millisecond)
 	h.Eventually("the window halfway in", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(5, 5, bg)(b, comp) && showing(12, 12, gray)(b, comp)
 	})
@@ -70,11 +92,11 @@ func testAMovedWindowAnimatesOnTheFrameClock(t *testing.T, start gpuStarter) {
 		}
 		return nil
 	})
-	if damage.Empty() || !damage.In(image.Rect(0, 0, 160, 120)) || !image.Pt(5, 5).In(damage) {
-		t.Fatalf("the halfway frame repainted %v, want the strip the window left", damage)
+	if damage.Empty() || !damage.In(image.Rect(1, 1, 159, 119)) || !image.Pt(10, 10).In(damage) {
+		t.Fatalf("the halfway frame repainted %v, want the strip the window left since the frame before", damage)
 	}
 
-	at(time.Second)
+	h.AdvanceTo(moved + time.Second + tall.Interval())
 	h.Eventually("the window at its goal", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(12, 12, bg)(b, comp) && showing(22, 22, gray)(b, comp)
 	})
@@ -98,10 +120,8 @@ func TestADraggedWindowFollowsThePointerWithoutAnimating(t *testing.T) {
 }
 
 func testADraggedWindowFollowsThePointerWithoutAnimating(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	h := start(t, func(cfg *compositor.Config) {
-		cfg.Animations = linearMoves(t, time.Hour)
-		cfg.Clock = func() time.Duration { return now }
+		cfg.Animations = linearMoves(t, time.Second)
 		withBinds(t, bindSpec{chord: "SUPER + mouse:272", action: "movewindow"})(cfg)
 	}, small)
 	c := testclient.Connect(t, h.Socket())
@@ -109,17 +129,16 @@ func testADraggedWindowFollowsThePointerWithoutAnimating(t *testing.T, start gpu
 	c.DispatchUntil("the window to map", w.Mapped)
 	h.dispatch("togglefloating")
 	c.DispatchUntil("a floating window", func() bool { return w.Logical == image.Pt(80, 50) })
-	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		now = 3 * time.Hour
-		return nil
-	})
-	h.Eventually("the floating window settled in the middle", showing(45, 30, blueColor))
+	h.Eventually("the floating window in the middle", showing(45, 30, blueColor))
+	settle(t, h)
+	h.Hold()
 	h.key(keySuper, true)
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		o, p := b.Outputs()[0], b.Pointer()
 		return errors.Join(p.MoveTo(o, 0.5, 0.5), p.Frame(), p.Button(btnLeft, true), p.Frame(), p.MoveTo(o, 100.0/160, 0.6), p.Frame())
 	})
-	h.Eventually("the window under the pointer while the clock stands still", showing(135, 80, blueColor))
+	h.Advance(2 * small.Interval())
+	h.Eventually("the window under the pointer two refreshes into a one-second move animation", showing(135, 80, blueColor))
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		p := b.Pointer()
 		return errors.Join(p.Button(btnLeft, false), p.Frame())
@@ -133,7 +152,6 @@ func TestWindowsPopInAndOutWhileTheyFade(t *testing.T) {
 }
 
 func testWindowsPopInAndOutWhileTheyFade(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	half := anim.Style{Kind: anim.Popin, Percent: 50}
 	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{
@@ -146,14 +164,8 @@ func testWindowsPopInAndOutWhileTheyFade(t *testing.T, start gpuStarter) {
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = time.Hour + d
-			return nil
-		})
-	}
+	slack := frameSlack(tall, d)
 	white := [3]byte{0xff, 0xff, 0xff}
 	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
 	showingNear := func(x, y int, want [3]byte) func(*headless.Backend, *compositor.Compositor) bool {
@@ -161,43 +173,39 @@ func testWindowsPopInAndOutWhileTheyFade(t *testing.T, start gpuStarter) {
 			return near(pixel(snapshot(b.Outputs()[0]), x, y), want)
 		}
 	}
+	halfway := func(x, y int) func(*headless.Backend, *compositor.Compositor) bool {
+		return func(b *headless.Backend, _ *compositor.Compositor) bool {
+			return nearProgress(pixel(snapshot(b.Outputs()[0]), x, y), white, bg, 0.5, slack)
+		}
+	}
 	both := func(a, b func(*headless.Backend, *compositor.Compositor) bool) func(*headless.Backend, *compositor.Compositor) bool {
 		return func(x *headless.Backend, c *compositor.Compositor) bool { return a(x, c) && b(x, c) }
 	}
 	c := testclient.Connect(t, h.Socket())
+	opened := h.Hold()
 	w := c.Window("popping", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("the window to map", w.Mapped)
 	h.Eventually("nothing drawn at the start of the open", both(showingNear(25, 20, bg), showingNear(100, 80, bg)))
-	at(500 * time.Millisecond)
-	h.Eventually("the window three quarters grown and half faded in", both(showingNear(25, 20, blend(white, bg, 0.5)), showingNear(5, 5, bg)))
-	at(time.Second)
+	h.AdvanceTo(opened + 500*time.Millisecond)
+	h.Eventually("the window three quarters grown and half faded in", both(halfway(25, 20), showingNear(5, 5, bg)))
+	h.AdvanceTo(opened + time.Second + tall.Interval())
 	h.Eventually("the window open and opaque", showingNear(5, 5, white))
 
-	at(2 * time.Second)
-	open := h.Rendered(0)
+	closing := opened + time.Minute
+	h.AdvanceTo(closing)
+	open := h.Snapshot(0)
 	if err := errors.Join(w.Destroy(), c.Display.Roundtrip()); err != nil {
 		t.Fatal(err)
 	}
-	h.Eventually("the closed window still shown at its start", showingNear(5, 5, white))
-	if closed := h.Rendered(0); !bytes.Equal(closed.Pix, open.Pix) {
+	h.frameNow()
+	if shown := h.Snapshot(0); !bytes.Equal(shown.Pix, open.Pix) {
 		t.Fatal("the closing window's snapshot does not match the window it replaced pixel for pixel")
 	}
-	at(2500 * time.Millisecond)
-	h.Eventually("the closing window three quarters shrunk and half faded out", both(showingNear(25, 20, blend(white, bg, 0.5)), showingNear(5, 5, bg)))
-	at(3 * time.Second)
+	h.AdvanceTo(closing + 500*time.Millisecond)
+	h.Eventually("the closing window three quarters shrunk and half faded out", both(halfway(25, 20), showingNear(5, 5, bg)))
+	h.AdvanceTo(closing + time.Second + tall.Interval())
 	h.Eventually("the closed window gone", showingNear(100, 80, bg))
-	var before uint64
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		before = b.Outputs()[0].Frames()
-		return nil
-	})
-	h.Advance(200 * time.Millisecond)
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		if after := b.Outputs()[0].Frames(); after != before {
-			t.Errorf("%d frames ran after the close animation ended", after-before)
-		}
-		return nil
-	})
+	h.idleFor(200*time.Millisecond, "after the close animation ended")
 }
 
 func TestAWorkspaceSwitchSlidesBothWorkspaces(t *testing.T) {
@@ -206,7 +214,6 @@ func TestAWorkspaceSwitchSlidesBothWorkspaces(t *testing.T) {
 }
 
 func testAWorkspaceSwitchSlidesBothWorkspaces(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.Workspaces: {Enabled: &on, Shape: anim.Linear, Duration: &d}})
@@ -215,45 +222,26 @@ func testAWorkspaceSwitchSlidesBothWorkspaces(t *testing.T, start gpuStarter) {
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	red, blue := [3]byte{0xff, 0, 0}, [3]byte{0, 0, 0xff}
 	c := testclient.Connect(t, h.Socket())
 	r := c.Window("red", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("red to map", r.Mapped)
 	h.dispatch("workspace 2")
-	at(2 * time.Hour)
 	b := c.Window("blue", testclient.Fill(0xff, 0, 0))
 	c.DispatchUntil("blue to map", b.Mapped)
 	h.Eventually("the second workspace shown", showing(20, 60, blue))
 
-	at(3 * time.Hour)
+	switched := h.Hold()
 	h.dispatch("workspace 1")
 	h.Eventually("the switch starting from the workspace it leaves", showing(20, 60, blue))
-	at(3*time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(switched + 500*time.Millisecond)
 	h.Eventually("both workspaces halfway", func(x *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(20, 60, red)(x, comp) && showing(140, 60, blue)(x, comp)
 	})
-	at(3*time.Hour + time.Second)
+	h.AdvanceTo(switched + time.Second + tall.Interval())
 	h.Eventually("the first workspace in place", showing(140, 60, red))
-	var before uint64
-	h.Do(func(x *headless.Backend, _ *compositor.Compositor) error {
-		before = x.Outputs()[0].Frames()
-		return nil
-	})
-	h.Advance(200 * time.Millisecond)
-	h.Do(func(x *headless.Backend, _ *compositor.Compositor) error {
-		if n := x.Outputs()[0].Frames(); n != before {
-			t.Errorf("%d frames ran after the switch ended", n-before)
-		}
-		return nil
-	})
+	h.idleFor(200*time.Millisecond, "after the switch ended")
 }
 
 func TestLayerSurfacesSlideInAndFadeOut(t *testing.T) {
@@ -262,7 +250,6 @@ func TestLayerSurfacesSlideInAndFadeOut(t *testing.T) {
 }
 
 func testLayerSurfacesSlideInAndFadeOut(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	fade := anim.Style{Kind: anim.FadeStyle}
@@ -276,35 +263,30 @@ func testLayerSurfacesSlideInAndFadeOut(t *testing.T, start gpuStarter) {
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = time.Hour + d
-			return nil
-		})
-	}
 	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
 	shell := testclient.Connect(t, h.Socket())
+	opened := h.Hold()
 	bar := shell.Layer(topBar(cwlr.ZwlrLayerSurfaceV1KeyboardInteractivityNone), testclient.Fill(barColor[2], barColor[1], barColor[0]))
 	shell.DispatchUntil("the bar to map", bar.Mapped)
 	h.Eventually("the bar above the output at the start", showing(80, 5, bg))
-	at(500 * time.Millisecond)
+	h.AdvanceTo(opened + 500*time.Millisecond)
 	h.Eventually("the bar halfway in from the top", func(b *headless.Backend, c *compositor.Compositor) bool {
 		return showing(80, 5, barColor)(b, c) && showing(80, 15, bg)(b, c)
 	})
-	at(time.Second)
+	h.AdvanceTo(opened + time.Second + tall.Interval())
 	h.Eventually("the bar in place", showing(80, 15, barColor))
 
-	at(2 * time.Second)
+	closing := opened + 2*time.Second
+	h.AdvanceTo(closing)
 	if err := errors.Join(bar.Destroy(), shell.Display.Roundtrip()); err != nil {
 		t.Fatal(err)
 	}
-	at(2500 * time.Millisecond)
+	h.AdvanceTo(closing + 500*time.Millisecond)
 	h.Eventually("the closed bar half faded where it was", func(b *headless.Backend, _ *compositor.Compositor) bool {
-		return near(pixel(snapshot(b.Outputs()[0]), 80, 15), blend(barColor, bg, 0.5))
+		return nearProgress(pixel(snapshot(b.Outputs()[0]), 80, 15), barColor, bg, 0.5, frameSlack(tall, d))
 	})
-	at(3 * time.Second)
+	h.AdvanceTo(closing + time.Second + tall.Interval())
 	h.Eventually("the closed bar gone", showing(80, 15, bg))
 }
 
@@ -314,7 +296,6 @@ func TestAFocusChangeFadesTheOpacityOfBothWindows(t *testing.T) {
 }
 
 func testAFocusChangeFadesTheOpacityOfBothWindows(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.Fade: {Enabled: &on, Shape: anim.Linear, Duration: &d}, anim.FadeIn: {Enabled: &off}, anim.FadeOut: {Enabled: &off}})
@@ -323,15 +304,9 @@ func testAFocusChangeFadesTheOpacityOfBothWindows(t *testing.T, start gpuStarter
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor.Opacity = compositor.Opacity{Active: 1, Inactive: 0.5, Fullscreen: 1}
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
+	slack := frameSlack(tall, d)
 	white := [3]byte{0xff, 0xff, 0xff}
 	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
 	look := func(lx, rx float64) func(*headless.Backend, *compositor.Compositor) bool {
@@ -346,14 +321,16 @@ func testAFocusChangeFadesTheOpacityOfBothWindows(t *testing.T, start gpuStarter
 	r := c.Window("right", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("right to map", r.Mapped)
 	c.DispatchUntil("both windows drawn at their tiles", func() bool { return l.Logical == image.Pt(80, 120) && r.Logical == image.Pt(80, 120) })
-	at(2 * time.Hour)
 	h.Eventually("left faded to inactive, right focused", look(0.5, 1))
-	at(3 * time.Hour)
+	focused := h.Hold()
 	h.dispatch("focus left")
 	h.Eventually("the focus change starting from what was shown", look(0.5, 1))
-	at(3*time.Hour + 500*time.Millisecond)
-	h.Eventually("both halfway", look(0.75, 0.75))
-	at(3*time.Hour + time.Second)
+	h.AdvanceTo(focused + 500*time.Millisecond)
+	h.Eventually("both halfway", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		buf := snapshot(b.Outputs()[0])
+		return nearProgress(pixel(buf, 20, 100), white, bg, 0.75, slack/2) && nearProgress(pixel(buf, 140, 100), white, bg, 0.75, slack/2)
+	})
+	h.AdvanceTo(focused + time.Second + tall.Interval())
 	h.Eventually("left focused, right inactive", look(1, 0.5))
 }
 
@@ -363,7 +340,6 @@ func TestBorderColoursChangeAtOnceAndGradientsTurnOnlyTheRing(t *testing.T) {
 }
 
 func testBorderColoursChangeAtOnceAndGradientsTurnOnlyTheRing(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	loop := anim.Style{Kind: anim.Loop}
@@ -382,19 +358,12 @@ func testBorderColoursChangeAtOnceAndGradientsTurnOnlyTheRing(t *testing.T, star
 	var next compositor.Config
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Decor.BorderWidth = 4
 		cfg.Decor.ActiveBorder, cfg.Decor.InactiveBorder = render.SolidBorder(red), render.SolidBorder(blue)
 		next = *cfg
 		next.Decor.ActiveBorder = gradient
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	c := testclient.Connect(t, h.Socket())
 	l := c.Window("left", testclient.Fill(0x30, 0x30, 0x30))
 	c.DispatchUntil("left to map", l.Mapped)
@@ -402,18 +371,18 @@ func testBorderColoursChangeAtOnceAndGradientsTurnOnlyTheRing(t *testing.T, star
 	c.DispatchUntil("right to map", r.Mapped)
 	c.Sync()
 	h.Eventually("the layout landed", landed)
-	at(2 * time.Hour)
 	h.Eventually("the left border inactive", showing(1, 100, [3]byte{0, 0, 0xff}))
-	at(3 * time.Hour)
+	h.Hold()
 	h.dispatch("focus left")
-	h.Eventually("the left border red", showing(1, 100, [3]byte{0xff, 0, 0}))
+	h.Advance(2 * tall.Interval())
+	h.Eventually("the left border red two refreshes after the focus moved", showing(1, 100, [3]byte{0xff, 0, 0}))
 
 	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error { return comp.Reconfigure(next) })
-	at(5 * time.Hour)
+	h.Advance(2 * tall.Interval())
 	h.Eventually("the gradient border drawn", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		return pixel(snapshot(b.Outputs()[0]), 1, 100) != [3]byte{0xff, 0, 0}
 	})
-	at(5*time.Hour + 250*time.Millisecond)
+	h.Advance(250 * time.Millisecond)
 	inner := image.Rect(4, 4, 76, 116)
 	h.Eventually("the turned gradient repainting the ring alone", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		damage := b.Outputs()[0].LastDamage()
@@ -432,7 +401,6 @@ func testBorderColoursChangeAtOnceAndGradientsTurnOnlyTheRing(t *testing.T, star
 type borderScene struct {
 	*Harness
 	client *testclient.Client
-	at     func(time.Duration)
 }
 
 var (
@@ -442,26 +410,19 @@ var (
 
 func startBorderScene(t *testing.T, start gpuStarter, motion map[anim.Event]anim.Setting, rules ...wm.Rule) borderScene {
 	t.Helper()
-	now := time.Hour
 	table, errs := anim.Resolve(true, motion)
 	if len(errs) != 0 {
 		t.Fatal(errs)
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Rules = rules
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Decor.BorderWidth = 4
 		cfg.Decor.ActiveBorder = render.SolidBorder(render.Color{R: 0xff, A: 0xff})
 		cfg.Decor.InactiveBorder = render.SolidBorder(render.Color{B: 0xff, A: 0xff})
 	}, tall)
-	return borderScene{Harness: h, client: testclient.Connect(t, h.Socket()), at: func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}}
+	return borderScene{Harness: h, client: testclient.Connect(t, h.Socket())}
 }
 
 func (s borderScene) open(title string) *testclient.Window {
@@ -482,10 +443,6 @@ func placedAtOnce(motion map[anim.Event]anim.Setting) map[anim.Event]anim.Settin
 	return motion
 }
 
-func halfOverTheWallpaper(c [3]byte) [3]byte {
-	return [3]byte{c[0]/2 + 0x1e/2, c[1]/2 + 0x1e/2, c[2]/2 + 0x2e/2}
-}
-
 func bordersShowing(left, right [3]byte) func(*headless.Backend, *compositor.Compositor) bool {
 	return func(b *headless.Backend, _ *compositor.Compositor) bool {
 		buf := snapshot(b.Outputs()[0])
@@ -504,13 +461,14 @@ func testBorderColoursChangeOnTheNextFrameWhenFocusMoves(t *testing.T, start gpu
 	s.open("right")
 	s.client.Sync()
 	s.Eventually("the layout landed", landed)
-	s.at(2 * time.Hour)
 	s.Eventually("the newest window focused", bordersShowing(borderInactive, borderActive))
 
-	s.at(3 * time.Hour)
+	s.Hold()
 	s.dispatch("focus left")
-	s.Eventually("both borders changed with the clock still at the change", bordersShowing(borderActive, borderInactive))
+	s.Advance(2 * tall.Interval())
+	s.Eventually("both borders changed two refreshes after the change", bordersShowing(borderActive, borderInactive))
 	s.dispatch("focus right")
+	s.Advance(2 * tall.Interval())
 	s.Eventually("and back, in both directions", bordersShowing(borderInactive, borderActive))
 }
 
@@ -522,20 +480,20 @@ func TestBorderColoursChangeOnTheNextFrameWhenANewWindowTakesFocus(t *testing.T)
 func testBorderColoursChangeOnTheNextFrameWhenANewWindowTakesFocus(t *testing.T, start gpuStarter) {
 	s := startBorderScene(t, start, placedAtOnce(slowMotion()))
 	s.open("left")
-	s.at(2 * time.Hour)
 	s.Eventually("the lone window focused", showing(1, 100, borderActive))
 
-	s.at(3 * time.Hour)
+	opened := s.Hold()
 	s.open("right")
 	s.client.Sync()
 	s.Eventually("the layout landed", landed)
-	s.Eventually("the old window inactive with the clock still at the opening", showing(1, 100, borderInactive))
-	s.at(3*time.Hour + 500*time.Millisecond)
+	s.Advance(2 * tall.Interval())
+	s.Eventually("the old window inactive two refreshes after the opening", showing(1, 100, borderInactive))
+	s.AdvanceTo(opened + 500*time.Millisecond)
 	s.Eventually("the new window's border all active colour, only its own fade_in showing", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		buf := snapshot(b.Outputs()[0])
-		return pixel(buf, 1, 100) == borderInactive && near(pixel(buf, 158, 100), halfOverTheWallpaper(borderActive))
+		return pixel(buf, 1, 100) == borderInactive && halfFadedIn(pixel(buf, 158, 100), borderActive)
 	})
-	s.at(3*time.Hour + time.Second)
+	s.AdvanceTo(opened + time.Second + tall.Interval())
 	s.Eventually("the new window in full", bordersShowing(borderInactive, borderActive))
 }
 
@@ -547,20 +505,19 @@ func TestBorderColoursOfAWindowOpeningUnfocusedAreInactiveAtOnce(t *testing.T) {
 func testBorderColoursOfAWindowOpeningUnfocusedAreInactiveAtOnce(t *testing.T, start gpuStarter) {
 	s := startBorderScene(t, start, placedAtOnce(slowMotion()), wm.Rule{Match: wm.Match{Title: regexp.MustCompile(`^floating$`)}, Mode: wm.RuleFloat, Size: wm.Px(40, 40)})
 	s.open("floating")
-	s.at(2 * time.Hour)
 	floatingEdge := showing(70, 38, borderActive)
 	s.Eventually("the floating window focused", floatingEdge)
 
-	s.at(3 * time.Hour)
+	opened := s.Hold()
 	s.open("tiled")
 	s.client.Sync()
 	s.Eventually("the layout landed", landed)
-	s.at(3*time.Hour + 500*time.Millisecond)
+	s.AdvanceTo(opened + 500*time.Millisecond)
 	s.Eventually("the tiled window all inactive colour, only its own fade_in showing", func(b *headless.Backend, _ *compositor.Compositor) bool {
-		return near(pixel(snapshot(b.Outputs()[0]), 1, 100), halfOverTheWallpaper(borderInactive))
+		return halfFadedIn(pixel(snapshot(b.Outputs()[0]), 1, 100), borderInactive)
 	})
 	s.Eventually("focus still on the floating window", floatingEdge)
-	s.at(3*time.Hour + time.Second)
+	s.AdvanceTo(opened + time.Second + tall.Interval())
 	s.Eventually("the tiled window in full, never active", showing(1, 100, borderInactive))
 }
 
@@ -570,7 +527,6 @@ func TestASpringDraggedWindowTrailsThePointer(t *testing.T) {
 }
 
 func testASpringDraggedWindowTrailsThePointer(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	off, on := false, true
 	s, err := anim.NewSpring(300, 30, 1)
 	if err != nil {
@@ -582,29 +538,24 @@ func testASpringDraggedWindowTrailsThePointer(t *testing.T, start gpuStarter) {
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		withBinds(t, bindSpec{chord: "SUPER + mouse:272", action: "movewindow"})(cfg)
 	}, small)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	c := testclient.Connect(t, h.Socket())
 	w := c.Window("dragged", testclient.Fill(0xff, 0, 0))
 	c.DispatchUntil("the window to map", w.Mapped)
 	h.dispatch("togglefloating")
 	c.DispatchUntil("a floating window", func() bool { return w.Logical == image.Pt(80, 50) })
 	c.Sync()
-	at(2 * time.Hour)
-	h.Eventually("the floating window settled in the middle", showing(45, 30, blueColor))
+	h.Eventually("the floating window in the middle", showing(45, 30, blueColor))
+	settle(t, h)
+	h.Hold()
 	h.key(keySuper, true)
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		o, p := b.Pointer(), b.Outputs()[0]
 		return errors.Join(o.MoveTo(p, 0.5, 0.5), o.Frame(), o.Button(btnLeft, true), o.Frame(), o.MoveTo(p, 100.0/160, 0.6), o.Frame())
 	})
-	h.Eventually("the window still where the drag began while the clock stands still", func(b *headless.Backend, comp *compositor.Compositor) bool {
+	h.Rendered(0)
+	h.Eventually("the window moved but drawn near where the drag began on the next frame", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		for _, win := range comp.Snapshot().Windows {
 			if win.Title == "dragged" && win.Rect.X == 60 {
 				return showing(45, 30, blueColor)(b, comp) && !showing(135, 80, blueColor)(b, comp)
@@ -612,7 +563,7 @@ func testASpringDraggedWindowTrailsThePointer(t *testing.T, start gpuStarter) {
 		}
 		return false
 	})
-	at(3 * time.Hour)
+	h.Advance(2 * time.Second)
 	h.Eventually("the window caught up with the pointer", showing(135, 80, blueColor))
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		p := b.Pointer()
@@ -627,7 +578,6 @@ func TestAMorphingMoveStretchesTheWindowsContentAheadOfIt(t *testing.T) {
 }
 
 func testAMorphingMoveStretchesTheWindowsContentAheadOfIt(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	morph := anim.Style{Kind: anim.Morph}
@@ -637,16 +587,9 @@ func testAMorphingMoveStretchesTheWindowsContentAheadOfIt(t *testing.T, start gp
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Decor.BorderWidth = 0
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	c := testclient.Connect(t, h.Socket())
 	l := c.Window("left", testclient.Fill(0x60, 0x60, 0x60))
 	c.DispatchUntil("left to map", l.Mapped)
@@ -654,13 +597,12 @@ func testAMorphingMoveStretchesTheWindowsContentAheadOfIt(t *testing.T, start gp
 	c.DispatchUntil("right to map", r.Mapped)
 	c.Sync()
 	h.Eventually("the layout landed", landed)
-	at(2 * time.Hour)
 	h.Eventually("the windows side by side", showing(140, 100, [3]byte{0xff, 0xff, 0xff}))
-	at(3 * time.Hour)
+	moved := h.Hold()
 	h.dispatch("move left")
-	at(3*time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(moved + 500*time.Millisecond)
 	h.Eventually("the window's own content stretching ahead of it", showing(37, 100, [3]byte{0xff, 0xff, 0xff}))
-	at(4 * time.Hour)
+	h.AdvanceTo(moved + time.Second + tall.Interval())
 	h.Eventually("the blob gone once the move ends", showing(37, 100, [3]byte{0xff, 0xff, 0xff}))
 }
 
@@ -670,7 +612,6 @@ func TestAnElasticDragBendsTheWindowAndItSettlesFlat(t *testing.T) {
 }
 
 func testAnElasticDragBendsTheWindowAndItSettlesFlat(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	off, on := false, true
 	elastic := anim.Style{Kind: anim.Elastic}
 	d := time.Second
@@ -680,27 +621,22 @@ func testAnElasticDragBendsTheWindowAndItSettlesFlat(t *testing.T, start gpuStar
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		withBinds(t, bindSpec{chord: "SUPER + mouse:272", action: "movewindow"})(cfg)
 	}, small)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	c := testclient.Connect(t, h.Socket())
 	w := c.Window("jelly", testclient.Fill(0xff, 0, 0))
 	c.DispatchUntil("the window to map", w.Mapped)
 	h.dispatch("togglefloating")
 	c.DispatchUntil("a floating window", func() bool { return w.Logical == image.Pt(80, 50) })
-	at(2 * time.Hour)
 	h.Eventually("the floating window in the middle", showing(45, 30, blueColor))
+	settle(t, h)
+	h.Hold()
 	h.key(keySuper, true)
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		o, p := b.Pointer(), b.Outputs()[0]
 		return errors.Join(o.MoveTo(p, 45.0/160, 30.0/100), o.Frame(), o.Button(btnLeft, true), o.Frame(), o.MoveTo(p, 75.0/160, 30.0/100), o.Frame())
 	})
+	h.Advance(2 * small.Interval())
 	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
 	h.Eventually("the grabbed corner at the pointer while the far corner lags", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(72, 27, blueColor)(b, comp) && showing(146, 72, bg)(b, comp)
@@ -710,22 +646,11 @@ func testAnElasticDragBendsTheWindowAndItSettlesFlat(t *testing.T, start gpuStar
 		return errors.Join(p.Button(btnLeft, false), p.Frame())
 	})
 	h.key(keySuper, false)
-	at(3 * time.Hour)
+	h.Advance(d + small.Interval())
 	h.Eventually("the window flat at its new place", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(146, 72, blueColor)(b, comp) && showing(71, 26, blueColor)(b, comp)
 	})
-	var before uint64
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		before = b.Outputs()[0].Frames()
-		return nil
-	})
-	h.Advance(200 * time.Millisecond)
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		if n := b.Outputs()[0].Frames(); n != before {
-			t.Errorf("%d frames ran after the wobble settled", n-before)
-		}
-		return nil
-	})
+	h.idleFor(200*time.Millisecond, "after the wobble settled")
 }
 
 func TestAGooWorkspaceSwitchMeltsTheWindowsTogether(t *testing.T) {
@@ -734,7 +659,6 @@ func TestAGooWorkspaceSwitchMeltsTheWindowsTogether(t *testing.T) {
 }
 
 func testAGooWorkspaceSwitchMeltsTheWindowsTogether(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	goo := anim.Style{Kind: anim.Goo}
@@ -744,39 +668,31 @@ func testAGooWorkspaceSwitchMeltsTheWindowsTogether(t *testing.T, start gpuStart
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Decor.BorderWidth = 0
 		cfg.WM.Autotile.Enabled = false
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	white := [3]byte{0xff, 0xff, 0xff}
 	c := testclient.Connect(t, h.Socket())
 	one := c.Window("one", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("one to map", one.Mapped)
 	h.dispatch("workspace 2")
-	at(2 * time.Hour)
 	left := c.Window("left", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("left to map", left.Mapped)
 	right := c.Window("right", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("right to map", right.Mapped)
 	c.DispatchUntil("two columns", func() bool { return left.Logical == image.Pt(80, 120) && right.Logical == image.Pt(80, 120) })
 	h.Eventually("the second workspace shown", showing(40, 100, white))
-	at(3 * time.Hour)
+	switched := h.Hold()
 	h.dispatch("workspace 1")
-	at(3*time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(switched + 500*time.Millisecond)
 	h.Eventually("the blob showing through both half-faded workspaces", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		g := int(pixel(snapshot(b.Outputs()[0]), 40, 100)[1])
 		bg := int(compositor.Background.G)
 		without := (0xff*3 + bg) / 4
 		return g < without-4 || g > without+4
 	})
-	at(4 * time.Hour)
+	h.AdvanceTo(switched + time.Second + tall.Interval())
 	h.Eventually("the first workspace alone once the switch ends", showing(40, 100, white))
 }
 
@@ -786,7 +702,6 @@ func TestANewWindowBudsOffItsNeighbour(t *testing.T) {
 }
 
 func testANewWindowBudsOffItsNeighbour(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	bud := anim.Style{Kind: anim.Bud}
@@ -796,40 +711,38 @@ func testANewWindowBudsOffItsNeighbour(t *testing.T, start gpuStarter) {
 	}
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Decor.BorderWidth = 0
 		cfg.WM.Autotile.Enabled = false
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	white := [3]byte{0xff, 0xff, 0xff}
 	c := testclient.Connect(t, h.Socket())
 	a := c.Window("parent", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("the first window to map", a.Mapped)
-	at(2 * time.Hour)
 	h.Eventually("the first window open", showing(70, 100, white))
+	opened := h.Hold()
 	b := c.Window("bud", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("the second window to map", b.Mapped)
 	c.DispatchUntil("the first window halved", func() bool { return a.Logical == image.Pt(80, 120) })
-	at(2*time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(opened + 500*time.Millisecond)
 	h.Eventually("a blob joining the new window to its neighbour", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		return pixel(snapshot(b.Outputs()[0]), 70, 100)[0] < 0xe0
 	})
-	at(3 * time.Hour)
+	closing := opened + time.Second + tall.Interval()
+	h.AdvanceTo(closing)
 	h.Eventually("both windows plain once the bud is grown", showing(70, 100, white))
 	if err := errors.Join(b.Destroy(), c.Display.Roundtrip()); err != nil {
 		t.Fatal(err)
 	}
 	c.DispatchUntil("the first window whole again", func() bool { return a.Logical == image.Pt(160, 120) })
-	at(3*time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(closing + 500*time.Millisecond)
 	h.Eventually("the closing window flowing back into its neighbour", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		return pixel(snapshot(b.Outputs()[0]), 70, 100)[0] < 0xe0
 	})
-	at(4 * time.Hour)
+	h.AdvanceTo(closing + time.Second + tall.Interval())
 	h.Eventually("the neighbour plain once the bud is gone", showing(70, 100, white))
+}
+
+func halfFadedIn(got, c [3]byte) bool {
+	return nearProgress(got, c, [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}, 0.5, frameSlack(tall, time.Second))
 }

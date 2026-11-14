@@ -39,7 +39,7 @@ type Harness struct {
 	RuntimeDir string
 	loop       *loop.Loop
 	clock      *loop.Manual
-	frozen     bool
+	clockMode  clockMode
 	skew       time.Duration
 	goal       time.Duration
 	advances   []advance
@@ -56,6 +56,14 @@ type Harness struct {
 	loopG      atomic.Uint64
 	clients    []*Client
 }
+
+type clockMode int
+
+const (
+	clockFollowsWall clockMode = iota
+	clockStepsFrames
+	clockHeld
+)
 
 type advance struct {
 	to      time.Duration
@@ -246,7 +254,6 @@ func start(t testing.TB, s setup, modes ...backend.Mode) *Harness {
 	cfg.Report = func(err error) { t.Errorf("compositor reported: %v", err) }
 	cfg.Hooks.Spawner = h.spawner
 	cfg.Decor.BorderWidth = 0
-	cfg.Clock = h.loop.Now
 	s.configure(&cfg)
 	if h.compositor, err = compositor.New(h.loop, h.display, h.backend, cfg); err != nil {
 		t.Fatalf("harness: %v", err)
@@ -335,17 +342,19 @@ func (h *Harness) wall() time.Duration {
 
 func (h *Harness) tick() {
 	now := h.clock.Now()
-	if h.goal <= now {
-		h.release()
-		return
-	}
-	if next, ok := h.clock.NextTimer(); ok && next <= h.goal {
+	next, timed := h.clock.NextTimer()
+	switch {
+	case h.goal <= now:
+		if !timed || next > now {
+			h.release()
+		}
+	case timed && next <= h.goal:
 		h.clock.Set(max(next, now))
-		return
+	default:
+		h.clock.Set(h.goal)
+		h.skew = max(h.skew, h.goal-loop.Monotonic())
+		h.release()
 	}
-	h.clock.Set(h.goal)
-	h.skew = max(h.skew, h.goal-loop.Monotonic())
-	h.release()
 }
 
 func (h *Harness) dry() {
@@ -355,10 +364,13 @@ func (h *Harness) dry() {
 		if ok && next <= h.clock.Now() {
 			return
 		}
-		if !h.frozen {
+		switch h.clockMode {
+		case clockFollowsWall:
 			if ok {
 				h.clock.WaitAtMost(next - h.clock.Now())
 			}
+			return
+		case clockHeld:
 			return
 		}
 		frame, ok := h.clock.NextFrame()
@@ -371,10 +383,33 @@ func (h *Harness) dry() {
 
 func (h *Harness) Freeze() {
 	h.t.Helper()
+	h.stopClock(clockStepsFrames)
+}
+
+func (h *Harness) Hold() time.Duration {
+	h.t.Helper()
+	return h.stopClock(clockHeld)
+}
+
+func (h *Harness) stopClock(m clockMode) time.Duration {
+	h.t.Helper()
+	var at time.Duration
 	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		h.frozen = true
+		h.clockMode = m
 		h.clock.Follow(nil)
+		at = h.clock.Now()
 		return nil
+	})
+	return at
+}
+
+func (h *Harness) doHeld(f func(b *headless.Backend, c *compositor.Compositor, leap func(time.Duration)) error) {
+	h.t.Helper()
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		if h.clockMode != clockHeld {
+			return errors.New("harness: doHeld on a clock that is not held; Hold it first")
+		}
+		return f(b, c, func(d time.Duration) { h.clock.Set(h.clock.Now() + max(d, 0)) })
 	})
 }
 
@@ -391,9 +426,28 @@ func (h *Harness) release() {
 
 func (h *Harness) Advance(d time.Duration) {
 	h.t.Helper()
+	h.advance(func(now time.Duration) (time.Duration, error) { return now + d, nil })
+}
+
+func (h *Harness) AdvanceTo(at time.Duration) {
+	h.t.Helper()
+	h.advance(func(now time.Duration) (time.Duration, error) {
+		if at < now {
+			return 0, fmt.Errorf("harness: advance to %v, which the clock passed at %v", at, now)
+		}
+		return at, nil
+	})
+}
+
+func (h *Harness) advance(goal func(now time.Duration) (time.Duration, error)) {
+	h.t.Helper()
 	reached := make(chan struct{})
+	var to time.Duration
 	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		to := h.clock.Now() + d
+		var err error
+		if to, err = goal(h.clock.Now()); err != nil {
+			return err
+		}
 		h.goal = max(h.goal, to)
 		h.advances = append(h.advances, advance{to: to, reached: reached})
 		return nil
@@ -403,10 +457,10 @@ func (h *Harness) Advance(d time.Duration) {
 	select {
 	case <-reached:
 	case <-hang.C:
-		h.t.Fatalf("harness: the compositor loop did not run %v of its clock within %v", d, testenv.HangLimit)
+		h.t.Fatalf("harness: the compositor loop did not reach %v on its clock within %v", to, testenv.HangLimit)
 	case err := <-h.done:
 		h.done <- err
-		h.t.Fatalf("harness: compositor loop ended before running %v of its clock: %v", d, err)
+		h.t.Fatalf("harness: compositor loop ended before reaching %v on its clock: %v", to, err)
 	}
 }
 
@@ -503,10 +557,38 @@ func (h *Harness) Rendered(i int) *soft.Buffer {
 		o, before = outputs[i], outputs[i].Frames()
 		return o.ScheduleFrame()
 	})
+	h.stepHeldTo(func(*headless.Backend, *compositor.Compositor) bool { return o.Frames() > before })
 	h.Eventually(fmt.Sprintf("a new frame on output %d", i), func(*headless.Backend, *compositor.Compositor) bool {
 		return o.Frames() > before
 	})
 	return h.Snapshot(i)
+}
+
+func (h *Harness) stepHeldTo(done func(b *headless.Backend, c *compositor.Compositor) bool) {
+	h.t.Helper()
+	deadline := time.Now().Add(testenv.HangLimit)
+	for {
+		var next time.Duration
+		var step bool
+		h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+			if h.clockMode != clockHeld || done(b, c) {
+				return nil
+			}
+			var ok bool
+			if next, ok = h.clock.NextFrame(); !ok {
+				return errors.New("harness: waiting for a frame on a held clock with no frame timer armed")
+			}
+			next, step = max(next, h.clock.Now()), true
+			return nil
+		})
+		if !step {
+			return
+		}
+		if time.Now().After(deadline) {
+			h.t.Fatalf("harness: frames on the held clock still had not finished after %v", testenv.HangLimit)
+		}
+		h.AdvanceTo(next)
+	}
 }
 
 func (h *Harness) Snapshot(i int) *soft.Buffer {

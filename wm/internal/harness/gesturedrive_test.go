@@ -22,11 +22,10 @@ type swipeRig struct {
 	t      *testing.T
 	h      *Harness
 	c      *testclient.Client
-	now    *time.Duration
 	events time.Duration
 }
 
-func swipeConfig(t *testing.T, now *time.Duration, style anim.Style, extra func(*compositor.Config)) func(*compositor.Config) {
+func swipeConfig(t *testing.T, style anim.Style, extra func(*compositor.Config)) func(*compositor.Config) {
 	t.Helper()
 	off, on := false, true
 	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.Workspaces: {Enabled: &on, Shape: anim.Smooth, Style: &style}})
@@ -35,7 +34,6 @@ func swipeConfig(t *testing.T, now *time.Duration, style anim.Style, extra func(
 	}
 	return func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return *now }
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Decor.BorderWidth = 0
 		cfg.Gestures.Distance = float64(tall.Size.X)
@@ -47,22 +45,15 @@ func swipeConfig(t *testing.T, now *time.Duration, style anim.Style, extra func(
 
 func startSwipeRig(t *testing.T, start gpuStarter, style anim.Style, extra func(*compositor.Config)) *swipeRig {
 	t.Helper()
-	now := time.Hour
-	r := &swipeRig{t: t, now: &now, events: 5 * time.Hour}
-	r.h = start(t, swipeConfig(t, &now, style, extra), tall)
+	r := &swipeRig{t: t, events: 5 * time.Hour}
+	r.h = start(t, swipeConfig(t, style, extra), tall)
 	r.c = testclient.Connect(t, r.h.Socket())
 	return r
 }
 
-func (r *swipeRig) at(d time.Duration) {
-	r.h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		*r.now = d
-		return nil
-	})
-}
-
 func (r *swipeRig) settle() {
-	r.at(*r.now + swipeSettled)
+	r.t.Helper()
+	r.h.Advance(swipeSettled)
 }
 
 func (r *swipeRig) workspace(id int, name string, fill func(*testclient.Client) *testclient.Window) {
@@ -134,6 +125,7 @@ func (r *swipeRig) active() wm.WorkspaceID {
 
 func (r *swipeRig) expectNoMoreFrames() {
 	r.t.Helper()
+	r.h.stepHeldTo(atRest)
 	r.h.Eventually("the output to stop drawing with nothing moving", atRest)
 }
 
@@ -149,15 +141,16 @@ func TestASwipeTracksTheFingersAndCommits(t *testing.T) {
 		if got := r.active(); got != 1 {
 			t.Fatalf("tracking switched to workspace %d", got)
 		}
-		r.at(*r.now + time.Hour)
+		r.h.Advance(time.Hour)
 		r.swipe(-60, 0)
 		r.h.Eventually("the same place however late the frame", both(showing(50, 30, redColor), showing(70, 30, blueColor)))
 		r.rest()
+		r.h.Hold()
 		r.end(false)
 		if got := r.active(); got != 2 {
 			t.Fatalf("past half stays on workspace %d", got)
 		}
-		r.at(*r.now + 50*time.Millisecond)
+		r.h.Advance(50 * time.Millisecond)
 		r.h.Eventually("the spring under way, both still drawn", both(showing(5, 30, redColor), showing(100, 30, blueColor)))
 		r.settle()
 		r.h.Eventually("the second workspace in place", showing(5, 30, blueColor))
@@ -286,8 +279,9 @@ func TestANewSwipeGrabsASettlingOneWhereItIs(t *testing.T) {
 		r.begin()
 		r.swipe(-100, 0)
 		r.rest()
+		r.h.Hold()
 		r.end(false)
-		r.at(*r.now + 50*time.Millisecond)
+		r.h.Advance(50 * time.Millisecond)
 		r.h.Eventually("the settle under way", both(showing(5, 30, redColor), showing(100, 30, blueColor)))
 		var held *[3]byte
 		r.begin()
@@ -296,7 +290,8 @@ func TestANewSwipeGrabsASettlingOneWhereItIs(t *testing.T) {
 			held = &got
 			return nil
 		})
-		r.at(*r.now + time.Hour)
+		r.h.Advance(time.Hour)
+		r.h.Rendered(0)
 		r.h.Eventually("held there", showing(5, 30, *held))
 		r.expectNoMoreFrames()
 		for range 6 {
@@ -326,11 +321,12 @@ func TestASwipeGrabbedBackPastWhereItCameFromHidesWhereItWasGoing(t *testing.T) 
 	r.begin()
 	r.swipe(-100, 0)
 	r.rest()
+	r.h.Hold()
 	r.end(false)
 	if got := r.active(); got != 3 {
 		t.Fatalf("committed to workspace %d", got)
 	}
-	r.at(*r.now + 50*time.Millisecond)
+	r.h.Advance(50 * time.Millisecond)
 	r.h.Eventually("the settle under way", both(showing(5, 30, blueColor), showing(100, 30, greenColor)))
 	r.begin()
 	r.swipe(160, 0)
@@ -348,8 +344,9 @@ func TestASwipeThatGrabsThenGoesNowhereSettlesWhereItWasGoing(t *testing.T) {
 	r.begin()
 	r.swipe(-100, 0)
 	r.rest()
+	r.h.Hold()
 	r.end(false)
-	r.at(*r.now + 50*time.Millisecond)
+	r.h.Advance(50 * time.Millisecond)
 	r.begin()
 	r.end(false)
 	if got := r.active(); got != 2 {

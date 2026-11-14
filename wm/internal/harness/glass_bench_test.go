@@ -112,11 +112,9 @@ func BenchmarkGlassRimStep(b *testing.B) {
 
 func benchOverview(b *testing.B, open func(testing.TB) setup, windows int, moving bool) {
 	b.Helper()
-	now := time.Hour
 	s := open(b)
 	s.configure = func(cfg *compositor.Config) {
 		cfg.Animations = animated(b)
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor.Rounding = 12
 		cfg.Rules = []wm.Rule{{Match: wm.Match{Title: regexp.MustCompile(`^pile$`)}, Mode: wm.RuleFloat, Size: wm.Px(1000, 700)}}
 	}
@@ -127,10 +125,11 @@ func benchOverview(b *testing.B, open func(testing.TB) setup, windows int, movin
 		c.DispatchUntil("a window to map", w.Mapped)
 		w.Stop()
 	}
+	h.Hold()
 	h.dispatch("overview show")
-	h.Do(func(bk *headless.Backend, comp *compositor.Compositor) error {
+	h.doHeld(func(bk *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
 		o := bk.Outputs()[0]
-		now += 10 * time.Second
+		leap(10 * time.Second)
 		if err := comp.Frame(o); err != nil {
 			return err
 		}
@@ -138,7 +137,7 @@ func benchOverview(b *testing.B, open func(testing.TB) setup, windows int, movin
 		for b.Loop() {
 			if moving {
 				frame++
-				now += 4 * time.Millisecond
+				leap(4 * time.Millisecond)
 				if frame%40 == 0 {
 					if err := comp.Dispatch(wm.OverviewAction{Mode: wm.OverviewToggle}); err != nil {
 						return err

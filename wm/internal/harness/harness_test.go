@@ -425,6 +425,48 @@ func TestAFrozenHarnessClockMovesOnlyByAdvanceAndFrames(t *testing.T) {
 	}
 }
 
+func TestAHeldHarnessClockStepsNoFramesAndMovesOnlyByAdvance(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	h.Eventually("no frame owed", quiet)
+	start := h.Hold()
+	var before uint64
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		before = b.Outputs()[0].Frames()
+		return b.Outputs()[0].ScheduleFrame()
+	})
+	for range 3 {
+		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			if !b.Outputs()[0].FrameOwed() {
+				return fmt.Errorf("the frame owed on a held clock at %v was stepped to", start)
+			}
+			return nil
+		})
+	}
+	if now := h.Now(); now != start {
+		t.Fatalf("a held clock went from %v to %v with a frame owed", start, now)
+	}
+	interval := small.Interval()
+	h.AdvanceTo(start + 3*interval)
+	h.Eventually("the owed frames presented", quiet)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		if got := b.Outputs()[0].Frames() - before; got != 1 {
+			return fmt.Errorf("advancing three refreshes ran %d frames, want the one asked for", got)
+		}
+		return nil
+	})
+	if now := h.Now(); now != start+3*interval {
+		t.Fatalf("advancing to %v left the clock at %v", start+3*interval, now)
+	}
+	h.doHeld(func(_ *headless.Backend, _ *compositor.Compositor, leap func(time.Duration)) error {
+		leap(time.Minute)
+		if now := h.loop.Now(); now != start+3*interval+time.Minute {
+			return fmt.Errorf("a leap of a minute from %v left the clock at %v", start+3*interval, now)
+		}
+		return nil
+	})
+}
+
 func TestAnAdvanceFiresTimersAtTheirOwnDeadlinesWhileTheClockFollowsTheWall(t *testing.T) {
 	t.Parallel()
 	h := Start(t, small)

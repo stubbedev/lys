@@ -241,27 +241,21 @@ func TestAShaderReadingTimeKeepsDrawing(t *testing.T) {
 }
 
 func testAShaderReadingTimeKeepsDrawing(t *testing.T, start gpuStarter) {
-	now := time.Hour
-	h := start(t, func(cfg *compositor.Config) {
-		shaded(writeShader(t, pulseShader))(cfg)
-		cfg.Clock = func() time.Duration { return now }
-	}, small)
-	set := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
+	h := start(t, shaded(writeShader(t, pulseShader)), small)
+	second := h.Hold().Truncate(time.Second) + time.Second
+	pulse := func(fraction float64) func(*headless.Backend, *compositor.Compositor) bool {
+		slack := frameSlack(small, time.Second)
+		lo, hi := int((fraction-slack)*0xff)-1, int((fraction+slack)*0xff)+2
+		return func(b *headless.Backend, _ *compositor.Compositor) bool {
+			px := snapshot(b.Outputs()[0])
+			v := int(px.Pix[50*px.Stride+50*4+2])
+			return v >= lo && v <= hi
+		}
 	}
-	set(time.Hour + 250*time.Millisecond)
-	h.Eventually("a quarter of the pulse", func(b *headless.Backend, _ *compositor.Compositor) bool {
-		px := snapshot(b.Outputs()[0])
-		return px.Pix[50*px.Stride+50*4+2] >= 0x3e && px.Pix[50*px.Stride+50*4+2] <= 0x42
-	})
-	set(time.Hour + 750*time.Millisecond)
-	h.Eventually("three quarters of the pulse, with nothing else changing", func(b *headless.Backend, _ *compositor.Compositor) bool {
-		px := snapshot(b.Outputs()[0])
-		return px.Pix[50*px.Stride+50*4+2] >= 0xbd && px.Pix[50*px.Stride+50*4+2] <= 0xc1
-	})
+	h.AdvanceTo(second + 250*time.Millisecond)
+	h.Eventually("a quarter of the pulse", pulse(0.25))
+	h.AdvanceTo(second + 750*time.Millisecond)
+	h.Eventually("three quarters of the pulse, with nothing else changing", pulse(0.75))
 }
 
 func TestScanoutStopsOnlyWhileAShaderIsOn(t *testing.T) {

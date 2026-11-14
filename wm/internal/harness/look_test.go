@@ -13,9 +13,9 @@ import (
 )
 
 func defaultLook(cfg *compositor.Config) {
-	report, clock, rules := cfg.Report, cfg.Clock, cfg.Rules
+	report, rules := cfg.Report, cfg.Rules
 	*cfg = compositor.DefaultConfig(cfg.Seat.Keymap, cfg.Font)
-	cfg.Report, cfg.Clock, cfg.Rules = report, clock, rules
+	cfg.Report, cfg.Rules = report, rules
 	cfg.Decor.Blur.Size, cfg.Decor.Blur.Passes = 3, 2
 	for speed, e := range cfg.Slower {
 		e.Decor.Blur.Size, e.Decor.Blur.Passes = 3, 2

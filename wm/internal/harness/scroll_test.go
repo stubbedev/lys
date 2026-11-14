@@ -80,7 +80,6 @@ func TestAnOffScreenColumnGetsFramesAtTheHiddenRateAndScrollingConfiguresNothing
 
 func TestAViewSwipeTracksTheFingersAndSettlesOnAColumnEdge(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
 	off, on := false, true
 	spring, err := anim.NewSpring(300, 30, 1)
 	if err != nil {
@@ -90,11 +89,10 @@ func TestAViewSwipeTracksTheFingersAndSettlesOnAColumnEdge(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatal(errs)
 	}
-	r := &swipeRig{t: t, now: &now, events: 5 * time.Hour}
+	r := &swipeRig{t: t, events: 5 * time.Hour}
 	r.h = StartWith(t, func(cfg *compositor.Config) {
 		scrolled(cfg)
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return *r.now }
 		cfg.Gestures.Distance = float64(tall.Size.X)
 		cfg.Gestures.Binds = []binds.GestureBind{{Kind: backend.Swipe, Fingers: 3, Direction: binds.SwipeHorizontal, Drive: binds.DriveView}}
 	}, tall)
@@ -113,9 +111,10 @@ func TestAViewSwipeTracksTheFingersAndSettlesOnAColumnEdge(t *testing.T) {
 		t.Fatalf("tracking the fingers sent configures: %v then %v", before, after)
 	}
 	r.rest()
+	r.h.Hold()
 	r.end(false)
 	r.h.Eventually("the spring starting where the fingers left the strip", both(showing(10, 60, redColor), showing(50, 60, blueColor)))
-	r.at(*r.now + 60*time.Millisecond)
+	r.h.Advance(60 * time.Millisecond)
 	r.h.Eventually("red sliding out with the spring, still drawn while it is on screen", both(showing(4, 60, redColor), showing(16, 60, blueColor), showing(150, 60, greenColor)))
 	r.settle()
 	r.h.Eventually("blue settled on the left edge, green beside it", both(showing(5, 60, blueColor), showing(150, 60, greenColor)))

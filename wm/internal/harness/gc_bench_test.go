@@ -22,12 +22,10 @@ func BenchmarkGCCountPerThousandFrames(b *testing.B) {
 			old := debug.SetGCPercent(percent)
 			b.Cleanup(func() { debug.SetGCPercent(old) })
 			mode := backend.Mode{Size: image.Pt(640, 360), RefreshMHz: 60000, Preferred: true}
-			now := time.Second
 			h := start(b, setup{open: softBackend, configure: func(cfg *compositor.Config) {
 				cfg.WM = compositor.DefaultSettings()
 				cfg.Decor = compositor.DefaultDecor(compositor.DefaultAccent)
 				cfg.Animations = anim.MustResolve(anim.DefaultMotion())
-				cfg.Clock = func() time.Duration { return now }
 			}}, mode)
 			for i := range 6 {
 				c := testclient.Connect(b, h.Socket())
@@ -36,11 +34,12 @@ func BenchmarkGCCountPerThousandFrames(b *testing.B) {
 				w.Stop()
 			}
 			actions := []string{"focus left", "move left", "workspace 2", "workspace 1", "overview toggle", "overview toggle"}
+			h.Hold()
 			var before, after runtime.MemStats
 			runtime.ReadMemStats(&before)
 			frames := 0
 			for b.Loop() {
-				h.Do(func(bk *headless.Backend, comp *compositor.Compositor) error {
+				h.doHeld(func(bk *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
 					for i := range 20 {
 						a, err := wm.ParseAction(actions[i%len(actions)])
 						if err != nil {
@@ -50,7 +49,7 @@ func BenchmarkGCCountPerThousandFrames(b *testing.B) {
 							return err
 						}
 						for range 50 {
-							now += 16 * time.Millisecond
+							leap(16 * time.Millisecond)
 							if err := comp.Frame(bk.Outputs()[0]); err != nil {
 								return err
 							}
@@ -76,12 +75,10 @@ func TestAnimatedFramesAllocateAlmostNothing(t *testing.T) {
 		t.Skip("the race detector allocates on its own")
 	}
 	mode := backend.Mode{Size: image.Pt(320, 180), RefreshMHz: 60000, Preferred: true}
-	now := time.Second
 	h := start(t, setup{open: softBackend, configure: func(cfg *compositor.Config) {
 		cfg.WM = compositor.DefaultSettings()
 		cfg.Decor = compositor.DefaultDecor(compositor.DefaultAccent)
 		cfg.Animations = anim.MustResolve(anim.DefaultMotion())
-		cfg.Clock = func() time.Duration { return now }
 	}}, mode)
 	for i := range 6 {
 		c := testclient.Connect(t, h.Socket())
@@ -90,9 +87,10 @@ func TestAnimatedFramesAllocateAlmostNothing(t *testing.T) {
 		w.Stop()
 	}
 	actions := []string{"focus left", "move left", "workspace 2", "workspace 1"}
-	h.Do(func(bk *headless.Backend, comp *compositor.Compositor) error {
+	h.Hold()
+	h.doHeld(func(bk *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
 		for range 4 {
-			now += time.Second
+			leap(time.Second)
 			if err := comp.Frame(bk.Outputs()[0]); err != nil {
 				return err
 			}
@@ -109,7 +107,7 @@ func TestAnimatedFramesAllocateAlmostNothing(t *testing.T) {
 				return err
 			}
 			for range 25 {
-				now += 16 * time.Millisecond
+				leap(16 * time.Millisecond)
 				if err := comp.Frame(bk.Outputs()[0]); err != nil {
 					return err
 				}

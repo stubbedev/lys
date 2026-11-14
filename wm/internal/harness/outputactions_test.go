@@ -85,7 +85,6 @@ func TestWindowsAndWorkspacesMoveBetweenOutputs(t *testing.T) {
 
 func TestMoveToWorkspaceFollowRunsOneSwitch(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.Workspaces: {Enabled: &on, Shape: anim.Linear, Duration: &d}})
@@ -94,14 +93,7 @@ func TestMoveToWorkspaceFollowRunsOneSwitch(t *testing.T) {
 	}
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	red, blue := [3]byte{0xff, 0, 0}, [3]byte{0, 0, 0xff}
 	c := testclient.Connect(t, h.Socket())
 	r := c.Window("red", testclient.Fill(0, 0, 0xff))
@@ -112,24 +104,21 @@ func TestMoveToWorkspaceFollowRunsOneSwitch(t *testing.T) {
 		return showing(20, 60, red)(x, comp) && showing(140, 60, blue)(x, comp) && !comp.Holding()
 	})
 
-	at(2 * time.Hour)
+	moved := h.Hold()
 	h.ctl("movetoworkspace 3 follow")
 	c.DispatchUntil("red to fill workspace 1", func() bool { return r.Logical == tall.Size })
+	c.Sync()
 	h.Eventually("the move to land", func(_ *headless.Backend, comp *compositor.Compositor) bool { return !comp.Holding() })
-	at(2*time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(moved + 500*time.Millisecond)
 	h.Eventually("workspace 1 leaving to the left and 3 with blue arriving from the right", func(x *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(20, 60, red)(x, comp) && showing(140, 60, blue)(x, comp) && !comp.Holding()
 	})
-	at(2*time.Hour + time.Second)
+	h.AdvanceTo(moved + time.Second + 3*tall.Interval())
 	h.Eventually("workspace 3 in place with blue alone", func(x *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(20, 60, blue)(x, comp) && showing(140, 60, blue)(x, comp)
 	})
 	if w := query[ipc.Window](h, wmipc.KindActiveWindow); w.Title != "blue" || w.Workspace != 3 {
 		t.Fatalf("the followed window is %+v", w)
 	}
-	before := framesOn(h, 0)
-	h.Advance(200 * time.Millisecond)
-	if n := framesOn(h, 0); n != before {
-		t.Fatalf("%d frames ran after the switch ended", n-before)
-	}
+	h.idleFor(200*time.Millisecond, "after the switch ended")
 }

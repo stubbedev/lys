@@ -13,12 +13,11 @@ import (
 	"github.com/stubbedev/lys-wm/internal/wm"
 )
 
-func overviewBenchHarness(b *testing.B, open func(testing.TB) setup, now *time.Duration, windows int, tiled bool) (*Harness, []*testclient.Window) {
+func overviewBenchHarness(b *testing.B, open func(testing.TB) setup, windows int, tiled bool) (*Harness, []*testclient.Window) {
 	b.Helper()
 	s := open(b)
 	s.configure = func(cfg *compositor.Config) {
 		cfg.Animations = springTable(b)
-		cfg.Clock = func() time.Duration { return *now }
 		cfg.Decor.Rounding = 12
 		if !tiled {
 			cfg.Rules = []wm.Rule{{Match: wm.Match{Title: regexp.MustCompile(`^float`)}, Mode: wm.RuleFloat, Size: wm.Px(1000, 700)}}
@@ -33,14 +32,15 @@ func overviewBenchHarness(b *testing.B, open func(testing.TB) setup, now *time.D
 		w.Stop()
 		all = append(all, w)
 	}
+	h.Hold()
+	h.Advance(time.Minute)
 	h.Rendered(0)
 	return h, all
 }
 
 func BenchmarkFrameClosed30Windows(b *testing.B) {
 	benchRenderers(b, func(b *testing.B, open func(testing.TB) setup) {
-		var now time.Duration
-		h, _ := overviewBenchHarness(b, open, &now, 30, false)
+		h, _ := overviewBenchHarness(b, open, 30, false)
 		h.Do(func(bk *headless.Backend, c *compositor.Compositor) error {
 			o := bk.Outputs()[0]
 			corners := [2]float64{0.02, 0.98}
@@ -64,9 +64,8 @@ func BenchmarkOverviewMoving(b *testing.B) {
 }
 
 func overviewMoving(b *testing.B, open func(testing.TB) setup, tiled bool) {
-	var now time.Duration
-	h, _ := overviewBenchHarness(b, open, &now, 30, tiled)
-	h.Do(func(bk *headless.Backend, c *compositor.Compositor) error {
+	h, _ := overviewBenchHarness(b, open, 30, tiled)
+	h.doHeld(func(bk *headless.Backend, c *compositor.Compositor, leap func(time.Duration)) error {
 		o := bk.Outputs()[0]
 		toggle, err := wm.ParseAction("overview toggle")
 		if err != nil {
@@ -76,8 +75,8 @@ func overviewMoving(b *testing.B, open func(testing.TB) setup, tiled bool) {
 			return err
 		}
 		for b.Loop() {
-			now += 8 * time.Millisecond
-			if p := c.OverviewProgress(now); p > 0.98 || p < 0.02 {
+			leap(8 * time.Millisecond)
+			if p := c.OverviewProgress(h.loop.Now()); p > 0.98 || p < 0.02 {
 				if err := c.Dispatch(toggle); err != nil {
 					return err
 				}
@@ -95,10 +94,9 @@ func overviewMoving(b *testing.B, open func(testing.TB) setup, tiled bool) {
 
 func BenchmarkOverviewSettledOneWindowDamages(b *testing.B) {
 	benchRenderers(b, func(b *testing.B, open func(testing.TB) setup) {
-		var now time.Duration
-		h, _ := overviewBenchHarness(b, open, &now, 30, false)
+		h, _ := overviewBenchHarness(b, open, 30, false)
 		h.dispatch("overview show")
-		h.advanceClock(&now, time.Minute)
+		h.Advance(time.Minute)
 		h.Rendered(0)
 		h.Do(func(bk *headless.Backend, c *compositor.Compositor) error {
 			o := bk.Outputs()[0]
@@ -117,8 +115,7 @@ func BenchmarkOverviewSettledOneWindowDamages(b *testing.B) {
 
 func BenchmarkReadback(b *testing.B) {
 	benchRenderers(b, func(b *testing.B, open func(testing.TB) setup) {
-		var now time.Duration
-		h, _ := overviewBenchHarness(b, open, &now, 1, true)
+		h, _ := overviewBenchHarness(b, open, 1, true)
 		h.Do(func(bk *headless.Backend, _ *compositor.Compositor) error {
 			o := bk.Outputs()[0]
 			for b.Loop() {
@@ -133,15 +130,14 @@ func BenchmarkReadback(b *testing.B) {
 
 func BenchmarkOverviewFrameAllocs(b *testing.B) {
 	benchRenderers(b, func(b *testing.B, open func(testing.TB) setup) {
-		var now time.Duration
-		h, _ := overviewBenchHarness(b, open, &now, 30, true)
+		h, _ := overviewBenchHarness(b, open, 30, true)
 		h.dispatch("overview show")
 		h.Rendered(0)
-		h.Do(func(bk *headless.Backend, c *compositor.Compositor) error {
+		h.doHeld(func(bk *headless.Backend, c *compositor.Compositor, leap func(time.Duration)) error {
 			o := bk.Outputs()[0]
 			b.ReportAllocs()
 			for b.Loop() {
-				now += time.Millisecond
+				leap(time.Millisecond)
 				if err := c.Frame(o); err != nil {
 					return err
 				}
@@ -153,10 +149,9 @@ func BenchmarkOverviewFrameAllocs(b *testing.B) {
 
 func BenchmarkThumbRedraw(b *testing.B) {
 	benchRenderers(b, func(b *testing.B, open func(testing.TB) setup) {
-		var now time.Duration
-		h, _ := overviewBenchHarness(b, open, &now, 10, true)
+		h, _ := overviewBenchHarness(b, open, 10, true)
 		h.dispatch("overview show")
-		h.advanceClock(&now, time.Minute)
+		h.Advance(time.Minute)
 		h.Rendered(0)
 		h.Do(func(bk *headless.Backend, c *compositor.Compositor) error {
 			o := bk.Outputs()[0]

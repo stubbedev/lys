@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys-lib/wmipc"
 
@@ -91,23 +90,24 @@ func TestPerWindowLookRulesApply(t *testing.T) {
 
 func TestAnAnimationFalseRuleMapsAndClosesWithoutAnimating(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
 	table := anim.MustResolve(anim.DefaultMotion())
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Rules = []wm.Rule{titled("still", wm.Decision{Animation: &wm.WindowAnimation{Off: true}})}
 	}, small)
 	c := testclient.Connect(t, h.Socket())
+	h.Hold()
 	w := c.Window("still", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("still to map", w.Mapped)
-	h.Eventually("drawn in full at once with the clock stopped", func(b *headless.Backend, comp *compositor.Compositor) bool {
+	h.Rendered(0)
+	h.Eventually("drawn in full on the next frame", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return pixel(snapshot(b.Outputs()[0]), 2, 2) == [3]byte{0xff, 0, 0} && !comp.Animating(comp.Outputs()[0])
 	})
 	if err := errors.Join(w.Destroy(), c.Display.Roundtrip()); err != nil {
 		t.Fatal(err)
 	}
-	h.Eventually("gone at once", func(b *headless.Backend, comp *compositor.Compositor) bool {
+	h.Rendered(0)
+	h.Eventually("gone on the next frame", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return pixel(snapshot(b.Outputs()[0]), 80, 50) != [3]byte{0xff, 0, 0} && !comp.Animating(comp.Outputs()[0])
 	})
 }

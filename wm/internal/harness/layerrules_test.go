@@ -23,7 +23,6 @@ func layerRule(namespace string, p wm.LayerProps) wm.LayerRule {
 
 func TestLayerRulesPickEachLayersAnimation(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	fade := anim.Style{Kind: anim.FadeStyle}
@@ -33,18 +32,11 @@ func TestLayerRulesPickEachLayersAnimation(t *testing.T) {
 	}
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.LayerRules = []wm.LayerRule{
 			layerRule("sliding", wm.LayerProps{Animation: &wm.WindowAnimation{In: anim.Style{Kind: anim.Slide}}}),
 			layerRule("still", wm.LayerProps{Animation: &wm.WindowAnimation{Off: true}}),
 		}
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	c := testclient.Connect(t, h.Socket())
 	open := func(namespace string, anchor cwlr.ZwlrLayerSurfaceV1Anchor) {
 		l := c.Layer(testclient.LayerSpec{Layer: cwlr.ZwlrLayerShellV1LayerTop, Anchor: anchor, Size: image.Pt(40, 20), Namespace: namespace}, testclient.Fill(0, 0, 0xff))
@@ -52,14 +44,15 @@ func TestLayerRulesPickEachLayersAnimation(t *testing.T) {
 	}
 	red := [3]byte{0xff, 0, 0}
 	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
+	opened := h.Hold()
 	open("sliding", cwlr.ZwlrLayerSurfaceV1AnchorTop|cwlr.ZwlrLayerSurfaceV1AnchorLeft)
 	open("fading", cwlr.ZwlrLayerSurfaceV1AnchorTop|cwlr.ZwlrLayerSurfaceV1AnchorRight)
 	open("still", cwlr.ZwlrLayerSurfaceV1AnchorBottom|cwlr.ZwlrLayerSurfaceV1AnchorLeft)
-	at(time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(opened + 500*time.Millisecond)
 	h.Eventually("halfway: the slide moved, the fade faded, the still one in place", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		s := snapshot(b.Outputs()[0])
 		return pixel(s, 20, 5) == red && pixel(s, 20, 15) == bg &&
-			near(pixel(s, 140, 10), blend(red, bg, 0.5)) &&
+			nearProgress(pixel(s, 140, 10), red, bg, 0.5, frameSlack(tall, d)) &&
 			pixel(s, 20, 110) == red
 	})
 }

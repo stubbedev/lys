@@ -77,7 +77,7 @@ type thumbCycle struct {
 	counts  render.Counts
 }
 
-func (h *Harness) thumbCycle(now *time.Duration, change func()) thumbCycle {
+func (h *Harness) thumbCycle(change func()) thumbCycle {
 	h.t.Helper()
 	var (
 		cycle   thumbCycle
@@ -89,19 +89,19 @@ func (h *Harness) thumbCycle(now *time.Duration, change func()) thumbCycle {
 		return nil
 	})
 	change()
-	h.Do(func(b *headless.Backend, comp *compositor.Compositor) error {
+	h.doHeld(func(b *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
 		o := b.Outputs()[0]
 		frames := 0
 		for comp.OverviewThumbRedraws() == redraws || comp.OverviewThumbsStale() {
 			if frames++; frames > thumbFrameBound {
 				break
 			}
-			*now += thumbFrameStep
+			leap(thumbFrameStep)
 			if err := comp.Frame(o); err != nil {
 				return err
 			}
 		}
-		*now += thumbFrameStep
+		leap(thumbFrameStep)
 		if err := comp.Frame(o); err != nil {
 			return err
 		}
@@ -122,10 +122,8 @@ func (h *Harness) thumbCycle(now *time.Duration, change func()) thumbCycle {
 func TestAThumbnailStaysFilteredAcrossItsWindowsUpdates(t *testing.T) {
 	t.Parallel()
 	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
-		var now time.Duration
 		h := start(t, func(cfg *compositor.Config) {
 			cfg.Animations = springTable(t)
-			cfg.Clock = func() time.Duration { return now }
 			plainOverview(cfg)
 		}, overviewMode)
 		c := testclient.Connect(t, h.Socket())
@@ -134,20 +132,21 @@ func TestAThumbnailStaysFilteredAcrossItsWindowsUpdates(t *testing.T) {
 		h.dispatch("fullscreen")
 		c.DispatchUntil("the window at the whole output", func() bool { return w.Logical == overviewMode.Size })
 		w.Stop()
+		h.Hold()
 		h.Rendered(0)
 		h.dispatch("overview show")
-		h.frameAt(&now, time.Minute)
+		h.frameAt(time.Minute)
 		thumb := planOf(h, 0).Strip[0].Inset(12)
-		first := h.thumbCycle(&now, func() {})
+		first := h.thumbCycle(func() {})
 		update := func() {
 			if err := w.Redraw(); err != nil {
 				t.Fatal(err)
 			}
 			c.Sync()
 		}
-		updated := h.thumbCycle(&now, update)
-		again := h.thumbCycle(&now, update)
-		refreshed := h.thumbCycle(&now, func() {
+		updated := h.thumbCycle(update)
+		again := h.thumbCycle(update)
+		refreshed := h.thumbCycle(func() {
 			h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
 				comp.DirtyOverviewThumbs()
 				return nil

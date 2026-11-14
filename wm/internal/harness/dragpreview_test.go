@@ -195,24 +195,20 @@ func TestThePreviewSpringsAndFadesAndUnderReducedMotionOnlyFades(t *testing.T) {
 		"reduced": anim.ResolveReduced,
 	} {
 		t.Run(name, func(t *testing.T) {
-			d := time.Hour
+			d := time.Second
 			off, on := false, true
 			table, errs := build(map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.Snap: {Enabled: &on, Shape: anim.Linear, Duration: &d}, anim.FadeSnap: {Enabled: &on, Shape: anim.Linear, Duration: &d}})
 			if len(errs) != 0 {
 				t.Fatal(errs)
 			}
-			now := time.Hour
 			h := StartWith(t, func(cfg *compositor.Config) {
 				dragConfig(t, cfg)
 				cfg.Animations = table
-				cfg.Clock = func() time.Duration { return now }
 			}, small)
 			_, _ = floatingForDrag(t, h)
+			h.Hold()
 			holdDrag(t, h, image.Pt(80, 50), image.Pt(4, 50))
-			h.Do(func(*headless.Backend, *compositor.Compositor) error {
-				now += d / 2
-				return nil
-			})
+			h.Advance(d / 2)
 			far := pixel(h.Rendered(0), 2, 2)
 			if name == "reduced" && far == previewBackground {
 				t.Error("under reduced motion the preview did not start at its target")

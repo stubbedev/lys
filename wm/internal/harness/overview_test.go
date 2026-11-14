@@ -755,10 +755,8 @@ func springTable(t testing.TB) anim.Table {
 
 func TestTheOverviewAnimatesOnASpringAndReversesInFlight(t *testing.T) {
 	t.Parallel()
-	var now time.Duration
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = springTable(t)
-		cfg.Clock = func() time.Duration { return now }
 		plainOverview(cfg)
 	}, overviewMode)
 	c := testclient.Connect(t, h.Socket())
@@ -766,10 +764,11 @@ func TestTheOverviewAnimatesOnASpringAndReversesInFlight(t *testing.T) {
 	c.DispatchUntil("the window to map", w.Mapped)
 	w.Stop()
 	h.Rendered(0)
+	h.Hold()
 	progress := func() float64 {
 		var p float64
 		h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
-			p = comp.OverviewProgress(now)
+			p = comp.OverviewProgress(h.loop.Now())
 			return nil
 		})
 		return p
@@ -778,7 +777,7 @@ func TestTheOverviewAnimatesOnASpringAndReversesInFlight(t *testing.T) {
 	if p := progress(); p != 0 {
 		t.Fatalf("opening starts at %v", p)
 	}
-	h.advanceClock(&now, 100*time.Millisecond)
+	h.Advance(100 * time.Millisecond)
 	mid := progress()
 	if mid <= 0 || mid >= 1 {
 		t.Fatalf("100ms in the spring is at %v", mid)
@@ -787,13 +786,13 @@ func TestTheOverviewAnimatesOnASpringAndReversesInFlight(t *testing.T) {
 	if p := progress(); p != mid {
 		t.Fatalf("reversing jumped from %v to %v", mid, p)
 	}
-	h.advanceClock(&now, 8*time.Millisecond)
+	h.Advance(8 * time.Millisecond)
 	if p := progress(); p < mid {
 		t.Fatalf("the spring lost its velocity: %v after %v", p, mid)
 	}
-	h.advanceClock(&now, 5*time.Second)
+	h.Advance(5 * time.Second)
 	h.Eventually("the overview gone", func(b *headless.Backend, comp *compositor.Compositor) bool {
-		return comp.OverviewProgress(now) == 0 && showing(10, 10, redPix)(b, comp)
+		return comp.OverviewProgress(h.loop.Now()) == 0 && showing(10, 10, redPix)(b, comp)
 	})
 }
 
@@ -1005,22 +1004,21 @@ func TestThreeFingersScrubTheOverview(t *testing.T) {
 
 func TestThreeFingersGrabASettlingOverview(t *testing.T) {
 	t.Parallel()
-	var now time.Duration
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = springTable(t)
-		cfg.Clock = func() time.Duration { return now }
 	}, overviewMode)
 	c := testclient.Connect(t, h.Socket())
 	w := c.Window("win", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("the window to map", w.Mapped)
 	w.Stop()
 	h.Rendered(0)
+	h.Hold()
 	h.dispatch("overview show")
-	h.advanceClock(&now, 80*time.Millisecond)
+	h.Advance(80 * time.Millisecond)
 	at := func() float64 {
 		var p float64
 		h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
-			p = comp.OverviewProgress(now)
+			p = comp.OverviewProgress(h.loop.Now())
 			return nil
 		})
 		return p
@@ -1030,7 +1028,7 @@ func TestThreeFingersGrabASettlingOverview(t *testing.T) {
 		t.Fatalf("80ms into opening the overview is at %v", held)
 	}
 	h.gesture(func(_ *headless.Output, p *headless.Pointer) error { return p.GestureBegin(backend.Swipe, 3) })
-	h.advanceClock(&now, time.Second)
+	h.Advance(time.Second)
 	if got := at(); got != held {
 		t.Fatalf("held fingers let it go from %v to %v", held, got)
 	}
@@ -1040,7 +1038,7 @@ func TestThreeFingersGrabASettlingOverview(t *testing.T) {
 		t.Fatalf("40 units from %v scrub to %v", held, got)
 	}
 	h.gesture(func(_ *headless.Output, p *headless.Pointer) error { return p.GestureEnd(backend.Swipe, false) })
-	h.advanceClock(&now, 5*time.Second)
+	h.Advance(5 * time.Second)
 	if got := at(); got != 0 && got != 1 {
 		t.Fatalf("settled at %v", got)
 	}
@@ -1192,10 +1190,8 @@ func TestABorderStaysWholeAsAWindowShrinks(t *testing.T) {
 	magenta := render.Color{R: 0xff, B: 0xff, A: 0xff}
 	want := [3]byte{0xff, 0, 0xff}
 	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
-		var now time.Duration
 		h := start(t, func(cfg *compositor.Config) {
 			cfg.Animations = springTable(t)
-			cfg.Clock = func() time.Duration { return now }
 			cfg.Decor.BorderWidth = 1
 			cfg.Decor.ActiveBorder, cfg.Decor.InactiveBorder = render.SolidBorder(magenta), render.SolidBorder(magenta)
 			plainOverview(cfg)
@@ -1205,15 +1201,17 @@ func TestABorderStaysWholeAsAWindowShrinks(t *testing.T) {
 		c.DispatchUntil("the window to map", w.Mapped)
 		w.Stop()
 		h.Rendered(0)
+		h.Hold()
+		h.Advance(time.Minute)
 		h.dispatch("overview show")
-		h.Do(func(b *headless.Backend, comp *compositor.Compositor) error {
+		h.doHeld(func(b *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
 			o := b.Outputs()[0]
 			for range 40 {
-				now += 8 * time.Millisecond
+				leap(8 * time.Millisecond)
 				if err := comp.Frame(o); err != nil {
 					return err
 				}
-				r, ok := comp.OverviewWindowRect(1, now)
+				r, ok := comp.OverviewWindowRect(1, h.loop.Now())
 				if !ok {
 					t.Fatal("no rectangle for the window")
 				}
@@ -1221,7 +1219,7 @@ func TestABorderStaysWholeAsAWindowShrinks(t *testing.T) {
 				mid := centre(r)
 				for _, at := range []image.Point{{mid.X, r.Min.Y}, {mid.X, r.Max.Y - 1}, {r.Min.X, mid.Y}, {r.Max.X - 1, mid.Y}} {
 					if at.In(image.Rectangle{Max: overviewMode.Size}) && pixel(px, at.X, at.Y) != want {
-						t.Errorf("at %v with the window at %v the edge is %v", now, r, pixel(px, at.X, at.Y))
+						t.Errorf("at %v with the window at %v the edge is %v", h.loop.Now(), r, pixel(px, at.X, at.Y))
 						return nil
 					}
 				}
@@ -1330,22 +1328,21 @@ func TestAFingerDragsAWindowOntoAThumbnail(t *testing.T) {
 func TestADroppedWindowFliesIntoItsThumbnail(t *testing.T) {
 	t.Parallel()
 	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
-		var now time.Duration
 		h := start(t, func(cfg *compositor.Config) {
 			cfg.Animations = springTable(t)
-			cfg.Clock = func() time.Duration { return now }
 			plainOverview(cfg)
 		}, overviewMode)
 		_, red, blue := colouredPair(t, h)
 		red.Stop()
 		blue.Stop()
+		h.Hold()
 		h.dispatch("overview show")
-		h.advanceClock(&now, time.Minute)
+		h.Advance(time.Minute)
 		h.Rendered(0)
 		plan := planOf(h, 0)
 		drop := centre(plan.Plus)
 		dragBetween(h, centre(plan.windows[2]), drop)
-		h.advanceClock(&now, 30*time.Millisecond)
+		h.Advance(30 * time.Millisecond)
 		var mid image.Point
 		var closing int
 		h.Do(func(b *headless.Backend, comp *compositor.Compositor) error {
@@ -1353,7 +1350,7 @@ func TestADroppedWindowFliesIntoItsThumbnail(t *testing.T) {
 			if err := comp.Frame(b.Outputs()[0]); err != nil {
 				return err
 			}
-			mid = comp.ClosingAt(now).Add(image.Pt(30, 15))
+			mid = comp.ClosingAt(h.loop.Now()).Add(image.Pt(30, 15))
 			return nil
 		})
 		if closing != 1 {
@@ -1368,7 +1365,7 @@ func TestADroppedWindowFliesIntoItsThumbnail(t *testing.T) {
 			}
 			return nil
 		})
-		h.advanceClock(&now, time.Minute)
+		h.Advance(time.Minute)
 		h.Eventually("the flight over", func(b *headless.Backend, comp *compositor.Compositor) bool {
 			if err := comp.Frame(b.Outputs()[0]); err != nil {
 				return false
@@ -1379,10 +1376,8 @@ func TestADroppedWindowFliesIntoItsThumbnail(t *testing.T) {
 }
 
 func TestAMovingOverviewFrameAllocatesNothing(t *testing.T) {
-	var now time.Duration
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = springTable(t)
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor.Rounding = 12
 		cfg.Decor.BorderWidth = 2
 	}, overviewMode)
@@ -1404,12 +1399,13 @@ func TestAMovingOverviewFrameAllocatesNothing(t *testing.T) {
 		closed = testing.AllocsPerRun(100, func() { hover(b) })
 		return nil
 	})
+	h.Hold()
 	h.dispatch("overview show")
 	h.Rendered(0)
-	h.Do(func(b *headless.Backend, comp *compositor.Compositor) error {
+	h.doHeld(func(b *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
 		o := b.Outputs()[0]
 		step := func() {
-			now += time.Millisecond
+			leap(time.Millisecond)
 			if err := comp.Frame(o); err != nil {
 				t.Error(err)
 			}
@@ -1423,14 +1419,6 @@ func TestAMovingOverviewFrameAllocatesNothing(t *testing.T) {
 		if got := testing.AllocsPerRun(100, func() { hover(b) }); got > closed {
 			t.Errorf("hovering allocates %v times, against %v with the overview closed", got, closed)
 		}
-		return nil
-	})
-}
-
-func (h *Harness) advanceClock(now *time.Duration, by time.Duration) {
-	h.t.Helper()
-	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		*now += by
 		return nil
 	})
 }
@@ -1560,11 +1548,9 @@ func TestAnIconifiedXWindowThatNeverDrewHoldsATileInTheRow(t *testing.T) {
 
 func TestAWindowWhoseBufferIsGoneKeepsItsTileEvenDragged(t *testing.T) {
 	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
-		var now time.Duration
 		tile := render.Color{R: 0xc0, G: 0x20, B: 0xa0, A: 0xff}
 		h := start(t, func(cfg *compositor.Config) {
 			cfg.Animations = springTable(t)
-			cfg.Clock = func() time.Duration { return now }
 			plainOverview(cfg)
 			cfg.Decor.Tab.Inactive.Background = tile
 		}, overviewMode)
@@ -1581,8 +1567,9 @@ func TestAWindowWhoseBufferIsGoneKeepsItsTileEvenDragged(t *testing.T) {
 			t.Fatal(err)
 		}
 		c.Sync()
+		h.Hold()
 		h.dispatch("overview show")
-		h.advanceClock(&now, time.Minute)
+		h.Advance(time.Minute)
 		h.Rendered(0)
 		slot := onlySlot(t, h)
 		from := centre(slot)
@@ -1594,16 +1581,15 @@ func TestAWindowWhoseBufferIsGoneKeepsItsTileEvenDragged(t *testing.T) {
 			return errors.Join(b.Pointer().Button(btnLeft, true), b.Pointer().Frame())
 		})
 		h.moveAt(to, overviewMode.Size)
+		h.Rendered(0)
 		h.Eventually("the tile beside the pointer", showing(to.X-40, to.Y, want))
 	})
 }
 
 func TestADraggedWindowKeepsItsPopup(t *testing.T) {
 	t.Parallel()
-	var now time.Duration
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = springTable(t)
-		cfg.Clock = func() time.Duration { return now }
 		plainOverview(cfg)
 	}, overviewMode)
 	c := testclient.Connect(t, h.Socket())
@@ -1612,8 +1598,9 @@ func TestADraggedWindowKeepsItsPopup(t *testing.T) {
 	p := c.Popup(w, menuAt(image.Pt(100, 100), image.Pt(200, 100)), nil, testclient.Fill(0, 0xff, 0))
 	c.DispatchUntil("the popup to map", p.Mapped)
 	h.Eventually("the popup in place", showing(200, 150, greenPix))
+	h.Hold()
 	h.dispatch("overview show")
-	h.advanceClock(&now, time.Minute)
+	h.Advance(time.Minute)
 	h.Rendered(0)
 	slot := planOf(h, 0).windows[1]
 	on := image.Pt(slot.Min.X+200*slot.Dx()/800, slot.Min.Y+150*slot.Dy()/500)
@@ -1624,6 +1611,7 @@ func TestADraggedWindowKeepsItsPopup(t *testing.T) {
 		return errors.Join(b.Pointer().Button(btnLeft, true), b.Pointer().Frame())
 	})
 	h.moveAt(grab.Add(by), overviewMode.Size)
+	h.Rendered(0)
 	moved := on.Add(by)
 	h.Eventually("the popup carried with its window", showing(moved.X, moved.Y, greenPix))
 	left := image.Pt(slot.Min.X+100*slot.Dx()/800+by.X+2, slot.Min.Y+100*slot.Dy()/500+by.Y+2)
@@ -1657,36 +1645,34 @@ func (h *Harness) fingerUp() {
 	})
 }
 
-func springOverview(t *testing.T, now *time.Duration, start gpuStarter) (*Harness, *testclient.Client) {
+func springOverview(t *testing.T, start gpuStarter) (*Harness, *testclient.Client) {
 	t.Helper()
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Animations = springTable(t)
-		cfg.Clock = func() time.Duration { return *now }
 		plainOverview(cfg)
 	}, overviewMode)
 	c, red, blue := colouredPair(t, h)
 	red.Stop()
 	blue.Stop()
+	h.Hold()
 	h.dispatch("overview show")
-	h.advanceClock(now, time.Minute)
+	h.Advance(time.Minute)
 	h.Rendered(0)
 	return h, c
 }
 
-func (h *Harness) frameAt(now *time.Duration, by time.Duration) {
+func (h *Harness) frameAt(by time.Duration) {
 	h.t.Helper()
-	h.advanceClock(now, by)
-	h.Do(func(b *headless.Backend, comp *compositor.Compositor) error {
-		return comp.Frame(b.Outputs()[0])
-	})
+	h.Advance(by)
+	h.frameNow()
 }
 
-func (h *Harness) windowRect(id wm.WindowID, now *time.Duration) image.Rectangle {
+func (h *Harness) windowRect(id wm.WindowID) image.Rectangle {
 	h.t.Helper()
 	var r image.Rectangle
 	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
 		var ok bool
-		if r, ok = comp.OverviewWindowRect(id, *now); !ok {
+		if r, ok = comp.OverviewWindowRect(id, h.loop.Now()); !ok {
 			h.t.Errorf("window %d has no rectangle in the overview", id)
 		}
 		return nil
@@ -1708,18 +1694,17 @@ func TestACancelledDragPutsTheWindowBack(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			var now time.Duration
-			h, _ := springOverview(t, &now, StartWith)
+			h, _ := springOverview(t, StartWith)
 			plan := planOf(h, 0)
 			slot := plan.windows[2]
 			h.fingerDown(centre(slot))
 			h.fingerTo(centre(slot).Add(image.Pt(60, 40)))
-			if got := h.windowRect(2, &now); got == slot {
+			if got := h.windowRect(2); got == slot {
 				t.Fatalf("the finger did not carry the window out of %v", slot)
 			}
 			cancel(h)
-			h.frameAt(&now, time.Minute)
-			if got := h.windowRect(2, &now); got != slot {
+			h.frameAt(time.Minute)
+			if got := h.windowRect(2); got != slot {
 				t.Errorf("the window is at %v, its slot is %v", got, slot)
 			}
 			h.Eventually("the window drawn in its slot", showing(centre(slot).X, centre(slot).Y, bluePix))
@@ -1729,25 +1714,24 @@ func TestACancelledDragPutsTheWindowBack(t *testing.T) {
 
 func TestASecondFingerLeavesADragAlone(t *testing.T) {
 	t.Parallel()
-	var now time.Duration
-	h, _ := springOverview(t, &now, StartWith)
+	h, _ := springOverview(t, StartWith)
 	plan := planOf(h, 0)
 	slot := plan.windows[2]
 	h.fingerDown(centre(slot))
 	to := centre(slot).Add(image.Pt(60, 40))
 	h.fingerTo(to)
-	carried := h.windowRect(2, &now)
+	carried := h.windowRect(2)
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		x, y := fingerAt(centre(plan.windows[1]))
 		return errors.Join(b.Touch().Down(1, b.Outputs()[0], x, y), b.Touch().Frame(), b.Touch().Motion(1, x+0.1, y), b.Touch().Frame(), b.Touch().Up(1), b.Touch().Frame())
 	})
-	if got := h.windowRect(2, &now); got != carried {
+	if got := h.windowRect(2); got != carried {
 		t.Errorf("a second finger moved the carried window from %v to %v", carried, got)
 	}
 	h.expectOverview(true)
 	h.fingerUp()
-	h.frameAt(&now, time.Minute)
-	if got := h.windowRect(2, &now); got != slot {
+	h.frameAt(time.Minute)
+	if got := h.windowRect(2); got != slot {
 		t.Errorf("the window dropped on nothing is at %v, its slot is %v", got, slot)
 	}
 }
@@ -1755,15 +1739,14 @@ func TestASecondFingerLeavesADragAlone(t *testing.T) {
 func TestAFingerCarriesAWindowAndItFliesIntoItsThumbnail(t *testing.T) {
 	t.Parallel()
 	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
-		var now time.Duration
-		h, _ := springOverview(t, &now, start)
+		h, _ := springOverview(t, start)
 		plan := planOf(h, 0)
 		slot := plan.windows[2]
 		h.fingerDown(centre(slot))
 		held := image.Pt(centre(slot).X+60, plan.Strip[0].Max.Y+70)
 		h.fingerTo(centre(slot).Add(image.Pt(20, 20)))
 		h.fingerTo(held)
-		h.frameAt(&now, time.Millisecond)
+		h.frameAt(time.Millisecond)
 		h.Rendered(0)
 		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 			if got := pixel(snapshot(b.Outputs()[0]), held.X, held.Y); got != bluePix {
@@ -1786,8 +1769,8 @@ func TestAFingerCarriesAWindowAndItFliesIntoItsThumbnail(t *testing.T) {
 		if flights != 1 {
 			t.Fatalf("%d windows in flight, want 1", flights)
 		}
-		h.frameAt(&now, 30*time.Millisecond)
-		h.frameAt(&now, time.Minute)
+		h.frameAt(30 * time.Millisecond)
+		h.frameAt(time.Minute)
 		h.Eventually("the flight over", func(b *headless.Backend, comp *compositor.Compositor) bool {
 			return comp.Frame(b.Outputs()[0]) == nil && comp.ClosingCount() == 0
 		})
@@ -1796,8 +1779,7 @@ func TestAFingerCarriesAWindowAndItFliesIntoItsThumbnail(t *testing.T) {
 
 func TestAFlightLandsOnTheThumbnailWhereItNowIs(t *testing.T) {
 	t.Parallel()
-	var now time.Duration
-	h, _ := springOverview(t, &now, StartWith)
+	h, _ := springOverview(t, StartWith)
 	drop := centre(planOf(h, 0).Plus)
 	dragBetween(h, centre(planOf(h, 0).windows[2]), drop)
 	plan := planOf(h, 0)
@@ -1810,7 +1792,7 @@ func TestAFlightLandsOnTheThumbnailWhereItNowIs(t *testing.T) {
 		if comp.ClosingCount() != 1 {
 			t.Fatalf("%d windows in flight", comp.ClosingCount())
 		}
-		at = comp.ClosingAt(now + time.Minute)
+		at = comp.ClosingAt(h.loop.Now() + time.Minute)
 		return nil
 	})
 	if at != want {
@@ -1820,8 +1802,7 @@ func TestAFlightLandsOnTheThumbnailWhereItNowIs(t *testing.T) {
 
 func TestDroppingAWindowOnItsOwnThumbnailSendsItBackWithoutAFlight(t *testing.T) {
 	t.Parallel()
-	var now time.Duration
-	h, _ := springOverview(t, &now, StartWith)
+	h, _ := springOverview(t, StartWith)
 	plan := planOf(h, 0)
 	dragBetween(h, centre(plan.windows[2]), centre(plan.Strip[0]))
 	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
@@ -1830,8 +1811,8 @@ func TestDroppingAWindowOnItsOwnThumbnailSendsItBackWithoutAFlight(t *testing.T)
 		}
 		return nil
 	})
-	h.frameAt(&now, time.Minute)
-	if got := h.windowRect(2, &now); got != plan.windows[2] {
+	h.frameAt(time.Minute)
+	if got := h.windowRect(2); got != plan.windows[2] {
 		t.Errorf("the window is at %v, its slot is %v", got, plan.windows[2])
 	}
 }

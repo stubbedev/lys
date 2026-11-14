@@ -470,23 +470,15 @@ func TestAnimationsStartFromTheLandingAndRetargetFromWhatIsShown(t *testing.T) {
 }
 
 func testAnimationsStartFromTheLandingAndRetargetFromWhatIsShown(t *testing.T, start gpuStarter) {
-	now := time.Hour
 	var gaps20, gaps40 compositor.Config
 	h := start(t, func(cfg *compositor.Config) {
 		cfg.Decor = compositor.PlainDecor()
 		cfg.Animations = linearMoves(t, time.Second)
-		cfg.Clock = func() time.Duration { return now }
 		cfg.HoldBound = time.Hour
 		gaps20, gaps40 = *cfg, *cfg
 		gaps20.WM.Gaps = wm.Gaps{Outer: wm.Insets{Top: 20, Right: 20, Bottom: 20, Left: 20}}
 		gaps40.WM.Gaps = wm.Gaps{Outer: wm.Insets{Top: 40, Right: 40, Bottom: 40, Left: 40}}
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = time.Hour + d
-			return nil
-		})
-	}
 	reconfigure := func(cfg compositor.Config) {
 		h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error { return comp.Reconfigure(cfg) })
 	}
@@ -495,6 +487,8 @@ func testAnimationsStartFromTheLandingAndRetargetFromWhatIsShown(t *testing.T, s
 	c, w := open(t, h, "moved", testclient.Fill(gray[0], gray[1], gray[2]))
 	h.Eventually("the window over the output", showing(5, 5, gray))
 
+	held := h.Hold()
+	at := func(d time.Duration) { h.AdvanceTo(held + d) }
 	reconfigure(gaps20)
 	h.Eventually("the change held for the client", holding)
 	at(400 * time.Millisecond)
@@ -512,14 +506,15 @@ func testAnimationsStartFromTheLandingAndRetargetFromWhatIsShown(t *testing.T, s
 	h.Eventually("the retarget held for the client", holding)
 	at(1150 * time.Millisecond)
 	h.Eventually("the first motion runs on during the hold", func(b *headless.Backend, comp *compositor.Compositor) bool {
-		return showing(12, 12, bg)(b, comp) && showing(17, 17, gray)(b, comp)
+		return showing(12, 12, bg)(b, comp) && showing(19, 19, gray)(b, comp)
 	})
 	c.DispatchUntil("the client answers again", func() bool { return w.Logical == image.Pt(78, 38) })
 	c.Sync()
 	h.Eventually("the retarget landed", landed)
-	h.stillShows("the retarget starts from what is shown", 12, 12, bg)
-	h.stillShows("the retarget starts from what is shown", 17, 17, gray)
-	at(2150 * time.Millisecond)
+	if shown := h.Rendered(0); pixel(shown, 12, 12) != bg || pixel(shown, 19, 19) != gray {
+		t.Errorf("the retarget does not start from what is shown: pixels 12,12 and 19,19 are %v and %v, want %v and %v", pixel(shown, 12, 12), pixel(shown, 19, 19), bg, gray)
+	}
+	at(2150*time.Millisecond + tall.Interval())
 	h.Eventually("the window at its last goal", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(38, 38, bg)(b, comp) && showing(42, 42, gray)(b, comp)
 	})

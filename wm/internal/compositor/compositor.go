@@ -100,7 +100,6 @@ type Config struct {
 	Overview         OverviewStyle
 	Switcher         SwitcherStyle
 	Slower           map[render.Speed]Effects
-	Clock            func() time.Duration
 	ClientHotkeys    bool
 	CursorBehavior   CursorBehavior
 	DeviceOutputs    map[string]wm.OutputMatch
@@ -174,7 +173,6 @@ func PlainConfig(keymap *xkb.Keymap, font *gtext.Typeface) Config {
 		HiddenFrame:    DefaultHiddenFrame,
 		PowerSaverRate: DefaultPowerSaverRate,
 		HDRHold:        DefaultHDRHold,
-		Clock:          loop.Monotonic,
 		Gestures:       DefaultGestures(),
 		HotCorners:     DefaultHotCorners(),
 		Overview:       DefaultOverviewStyle(),
@@ -459,9 +457,6 @@ func validate(cfg Config) (binds.Map, error) {
 	if cfg.Icons == nil {
 		return binds.Map{}, errors.New("compositor: Config.Icons is nil")
 	}
-	if cfg.Clock == nil {
-		return binds.Map{}, errors.New("compositor: Config.Clock is nil")
-	}
 	if !(cfg.Gestures.Distance > 0) {
 		return binds.Map{}, fmt.Errorf("compositor: gesture distance %v is not positive", cfg.Gestures.Distance)
 	}
@@ -515,7 +510,7 @@ func (c *Compositor) adopt(cfg Config, m binds.Map) {
 	c.colorManagement = cfg.ColorManagement
 	c.clientHotkeys = cfg.ClientHotkeys
 	c.tearing, c.icons, c.inheritTimeout, c.holdBound = cfg.Tearing, cfg.Icons, cfg.InheritTimeout, cfg.HoldBound
-	c.animations, c.clock, c.layerRules, c.workspaceRules = cfg.Animations, cfg.Clock, cfg.LayerRules, cfg.WorkspaceRules
+	c.animations, c.layerRules, c.workspaceRules = cfg.Animations, cfg.LayerRules, cfg.WorkspaceRules
 	c.swallow = cfg.Swallow
 	c.syncWorkspaceRules()
 	c.gestures = cfg.Gestures
@@ -560,6 +555,7 @@ func New(l *loop.Loop, display *server.Display, b backend.Backend, cfg Config) (
 		dropped:        map[backend.Output]int{},
 		inherited:      map[*output.Output]*loop.Timer{},
 		loop:           l,
+		clock:          l.Now,
 		display:        display,
 		pointers:       map[cursorKey]*cursorTexture{},
 		hwCursors:      map[*output.Output]*hwCursor{},

@@ -23,7 +23,6 @@ type pinRun struct {
 
 func runPinnedSwitch(t *testing.T, withPip bool) pinRun {
 	t.Helper()
-	now := time.Hour
 	d := time.Second
 	off, on := false, true
 	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.Workspaces: {Enabled: &on, Shape: anim.Linear, Duration: &d}})
@@ -32,17 +31,10 @@ func runPinnedSwitch(t *testing.T, withPip bool) pinRun {
 	}
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Animations = table
-		cfg.Clock = func() time.Duration { return now }
 		cfg.Decor.BorderWidth = 0
 		cfg.WM.Gaps = wm.Gaps{}
 		cfg.Rules = []wm.Rule{{Match: wm.Match{Title: regexp.MustCompile(`^pip$`)}, Mode: wm.RuleFloat, Size: wm.Px(40, 30)}}
 	}, tall)
-	at := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now = d
-			return nil
-		})
-	}
 	c := testclient.Connect(t, h.Socket())
 	r := c.Window("red", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("red to map", r.Mapped)
@@ -59,9 +51,9 @@ func runPinnedSwitch(t *testing.T, withPip bool) pinRun {
 		run.rest, _ = comp.FrameCost(comp.Outputs()[0])
 		return nil
 	})
-	at(2 * time.Hour)
+	switched := h.Hold()
 	h.dispatch("workspace 2")
-	at(2*time.Hour + 500*time.Millisecond)
+	h.AdvanceTo(switched + 500*time.Millisecond)
 	h.Eventually("the switch halfway", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return showing(10, 10, [3]byte{0xff, 0, 0})(b, comp) && showing(120, 10, [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B})(b, comp)
 	})
@@ -70,7 +62,7 @@ func runPinnedSwitch(t *testing.T, withPip bool) pinRun {
 		run.pipAt = pixel(snapshot(b.Outputs()[0]), 70, 50)
 		return nil
 	})
-	at(3 * time.Hour)
+	h.AdvanceTo(switched + time.Second + tall.Interval())
 	h.Eventually("workspace 2 shown", func(_ *headless.Backend, comp *compositor.Compositor) bool {
 		s := comp.WM()
 		shown, _ := s.ActiveOn(s.FocusedOutput())

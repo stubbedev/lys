@@ -71,64 +71,64 @@ func TestTypingHidesTheCursorAndMotionShowsItWithOnePlaneCommit(t *testing.T) {
 
 func TestHideAfterWaitsForTheClockAndNeverHidesWhileAButtonIsHeld(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
+	const hideAfter = time.Second
 	h := StartWith(t, func(c *compositor.Config) {
-		c.Clock = func() time.Duration { return now }
-		c.CursorBehavior.HideAfter = time.Millisecond
+		c.CursorBehavior.HideAfter = hideAfter
 	}, small)
 	r := inputOn(t, h)
 	r.expect("kb_enter win", "enter win 80,50", "frame")
-	advance := func(d time.Duration) {
-		h.Do(func(*headless.Backend, *compositor.Compositor) error {
-			now += d
-			return nil
-		})
-	}
-	checked := func(what string) {
+	h.Hold()
+	hidden := func(what string, want bool) {
 		t.Helper()
-		var from uint64
 		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
-			from = c.CursorIdleChecks()
-			return nil
-		})
-		h.Eventually(what, func(_ *headless.Backend, c *compositor.Compositor) bool { return c.CursorIdleChecks() >= from+2 })
-		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
-			if c.CursorHidden() {
-				return fmt.Errorf("%s: the cursor hid", what)
+			if c.CursorHidden() != want {
+				return fmt.Errorf("%s: cursor hidden %v, want %v", what, c.CursorHidden(), want)
 			}
 			return nil
 		})
 	}
 	r.moveTo(40, 50)
 	r.expect("motion 40,50", "frame")
-	checked("idle checks before the clock moves")
-	advance(time.Millisecond)
-	h.Eventually("the cursor hidden once hide_after passed", func(_ *headless.Backend, c *compositor.Compositor) bool { return c.CursorHidden() })
+	h.Advance(hideAfter - time.Millisecond)
+	hidden("a millisecond before hide_after passed", false)
+	h.Advance(time.Millisecond)
+	hidden("once hide_after passed", true)
 	r.inject(func(b *headless.Backend, _ *headless.Output) error {
 		return errors.Join(b.Pointer().Button(btnLeft, true), b.Pointer().Frame())
 	})
 	r.expect("button 272 1", "frame")
-	advance(time.Hour)
-	checked("idle checks while the button is held")
+	var from uint64
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		from = c.CursorIdleChecks()
+		return nil
+	})
+	h.Advance(10 * hideAfter)
+	hidden("ten hide_after periods with the button held", false)
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		if checks := c.CursorIdleChecks() - from; checks != 10 {
+			return fmt.Errorf("ten hide_after periods with the button held checked idleness %d times, want 10", checks)
+		}
+		return nil
+	})
 	r.inject(func(b *headless.Backend, _ *headless.Output) error {
 		return errors.Join(b.Pointer().Button(btnLeft, false), b.Pointer().Frame())
 	})
 	r.expect("button 272 0", "frame")
-	checked("idle checks right after the release")
-	advance(time.Millisecond)
-	h.Eventually("the cursor hidden after the release", func(_ *headless.Backend, c *compositor.Compositor) bool { return c.CursorHidden() })
+	h.Advance(hideAfter - time.Millisecond)
+	hidden("a millisecond before hide_after passed since the release", false)
+	h.Advance(time.Millisecond)
+	hidden("once hide_after passed since the release", true)
 }
 
 func TestAShakeGrowsTheCursorAndAStraightDashDoesNot(t *testing.T) {
 	t.Parallel()
-	now := time.Hour
 	h := StartWith(t, func(c *compositor.Config) {
-		c.Clock = func() time.Duration { return now }
 		c.CursorBehavior.ShakeToFind = true
 	}, small, small)
+	h.Hold()
 	growthAfter := func(d time.Duration) (g float64) {
+		h.Advance(d)
 		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
-			now += d
 			g = c.CursorGrowth()
 			return nil
 		})
@@ -163,8 +163,19 @@ func TestAShakeGrowsTheCursorAndAStraightDashDoesNot(t *testing.T) {
 		tip := [2]int{int(x), int(y)}
 		return tip[0]+30 < snap.W && pixel(snap, tip[0]+2, tip[1]+30) != [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
 	})
-	h.Eventually("the cursor settled back to its size", func(_ *headless.Backend, c *compositor.Compositor) bool {
-		now += time.Second
+	settled := func(_ *headless.Backend, c *compositor.Compositor) bool {
 		return c.CursorGrowth() == 1 && !c.Animating(c.Outputs()[0])
-	})
+	}
+	for range 10 {
+		h.Advance(time.Second)
+		var done bool
+		h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+			done = settled(b, c)
+			return nil
+		})
+		if done {
+			return
+		}
+	}
+	t.Fatal("the grown cursor did not settle back to its size within ten seconds of the harness clock")
 }
