@@ -50,6 +50,9 @@ type VideoDecoder struct {
 	op    vk.VideoCodecOperationFlagBitsKHR
 	codec decodeCodec
 	shape decodeShape
+	// framed is the frame size the track's container gives, zero where
+	// it gives none.
+	framed [2]int
 
 	// tiling and usage are the output pictures' and the DPB's; output is
 	// where the device decodes pictures and which queue copies them out
@@ -211,7 +214,7 @@ func (d *Device) NewVideoDecoder(track demux.Track) (*VideoDecoder, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gpu: %s track %d: %w", track.Codec, track.Index, unsupported(err))
 	}
-	v := &VideoDecoder{d: d, name: track.Codec.String(), op: decodeCodecs[i].op.operation, codec: codec, reset: true}
+	v := &VideoDecoder{d: d, name: track.Codec.String(), op: decodeCodecs[i].op.operation, codec: codec, framed: [2]int{track.Width, track.Height}, reset: true}
 	if v.pool, err = d.commandPool(d.decode.family); err != nil {
 		return nil, err
 	}

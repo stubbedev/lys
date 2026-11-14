@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"image"
 	"math/bits"
 	"os"
@@ -461,26 +462,43 @@ func TestDecodeVP9IntraFramesAndTheirContexts(t *testing.T) {
 }
 
 // An intra-only frame that resets a context frames saved to, and which
-// is not context 0, the one it decodes from, is refused, naming both: a
-// Vulkan Video picture names one context, for a device to reset and to
-// decode from.
-func TestDecodeVP9RefusesToResetASavedContextApart(t *testing.T) {
+// is not context 0, the one it decodes from, resets it all the same,
+// bit for bit as libvpx and ffmpeg decode the stream: the frames after
+// it that decode from that context find the default one. The frame is
+// made of the second key frame, coded where context 0 is the default
+// one, which is where ffmpeg decodes an intra-only frame as libvpx
+// does: so it comes after another, made of an error resilient key
+// frame, that resets context 0 and saves to none.
+func TestDecodeVP9ResetsASavedContextApart(t *testing.T) {
 	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegPasses(t, "a.webm", 192, 128, 1.4, vp9TwoContexts()...)
 	track, pkts := packets(t, cl.path)
+	resilient := ffmpegClip(t, "b.webm", 192, 128, 0.4, vp9NoContext()[0]...)
+	_, resilientPkts := packets(t, resilient.path)
 	key := secondKey(t, pkts)
-	cut := recoded(t, pkts, key, hidden(vp9test.IntraOnly{Reset: vp9.ResetOneContext, Refresh: 0xff, Context: 1}))
+	all := datas(pkts)
+	cut := apart(slices.Concat(all[:key], [][]byte{
+		vp9test.IntraOnly{Reset: vp9.ResetOneContext, Refresh: 0x01}.Of(t, resilientPkts[0].Data),
+		vp9test.IntraOnly{Reset: vp9.ResetOneContext, Refresh: 0xff, Context: 1}.Of(t, all[key]),
+		vp9test.ShowExisting(0),
+	}, all[key+1:]))
+	hdrs := vp9test.Headers(t, datas(cut))
+	if h := &hdrs[key+1][0]; h.SavedContexts != 0b10 || h.ResetContextIdx != 1 || h.RefreshFrameContext != true {
+		t.Fatalf("the intra-only frame finds contexts %04b saved to, resets context %d and saves (%v), want 0010, 1 and true", h.SavedContexts, h.ResetContextIdx, h.RefreshFrameContext)
+	}
+	if !slices.ContainsFunc(hdrs[key+3:], func(h []vp9.FrameHeader) bool { return h[0].FrameContextIdx == 1 }) {
+		t.Fatal("no frame after the intra-only frame decodes from context 1")
+	}
 	v, err := d.NewVideoDecoder(track)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer v.Close()
-	decodeSome(t, v, cut[:key])
-	err = v.Decode(cut[key])
-	if !errors.Is(err, ErrNoVideoDecoder) || !strings.Contains(err.Error(), "resets frame context 1, which holds saved probabilities, and decodes from context 0") {
-		t.Errorf("decoding an intra-only frame that resets context 1: %v, want ErrNoVideoDecoder naming contexts 1 and 0", err)
-	}
+	got := decodeAll(t, v, cut)
+	path := writeIVF(t, "VP90", cl.w, cl.h, cut)
+	checkFrames(t, ffmpegDecoded(t, path, cl.w, cl.h, nv12Samples), got, 0)
+	checkFrames(t, ffmpegDecoded(t, path, cl.w, cl.h, nv12Samples, "-c:v", "libvpx-vp9"), got, 0)
 }
 
 // splicedAt is where spliced's second stream starts.
@@ -535,13 +553,15 @@ func TestDecodeVP9IntraOnlyFramesChangeTheSize(t *testing.T) {
 	}
 }
 
-// A frame larger than the key frame its video session was made for,
-// which leaves reference pictures or frame contexts of the frames
-// before it for the frames after it, is refused, saying both sizes: a
+// A frame larger than the key frame, which leaves reference pictures or
+// frame contexts of the frames before it for the frames after it,
+// decodes bit for bit as ffmpeg decodes it where the container gives
+// its size: the video session is made for that. Where the container
+// gives none, or a smaller one, it is refused, saying the sizes: a
 // session's pictures do not grow, and another session has neither.
-func TestDecodeVP9RefusesToGrowAmongReferences(t *testing.T) {
+func TestDecodeVP9GrowsAmongReferencesToTheContainersSize(t *testing.T) {
 	t.Parallel()
-	d := decodingDevice(t, demux.VP9)
+	small, large := image.Pt(192, 128), image.Pt(256, 144)
 	for _, c := range []struct {
 		name string
 		to   vp9test.IntraOnly
@@ -550,24 +570,72 @@ func TestDecodeVP9RefusesToGrowAmongReferences(t *testing.T) {
 		{"keeping frame contexts", vp9test.IntraOnly{Reset: vp9.ResetOneContext, Refresh: 0xff}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			cut := spliced(t, image.Pt(192, 128), image.Pt(256, 144), c.to)
-			v, err := d.NewVideoDecoder(demux.Track{Kind: demux.Video, Codec: demux.VP9})
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer v.Close()
-			for i, p := range cut {
-				err = v.Decode(p)
+			t.Parallel()
+			d := decodingDevice(t, demux.VP9)
+			cut := spliced(t, small, large, c.to)
+			t.Run("sized by the container", func(t *testing.T) {
+				v, err := d.NewVideoDecoder(demux.Track{Kind: demux.Video, Codec: demux.VP9, Width: large.X, Height: large.Y})
 				if err != nil {
-					if i != splicedAt {
-						t.Errorf("packet %d failed, want the intra-only frame, packet %d", i, splicedAt)
-					}
-					break
+					t.Fatal(err)
 				}
-			}
-			if !errors.Is(err, ErrNoVideoDecoder) || !strings.Contains(err.Error(), "256x144, larger than the 192x128 pictures of its video session") {
-				t.Errorf("decoding a larger frame among references: %v, want ErrNoVideoDecoder naming both sizes", err)
+				defer v.Close()
+				got := decodeAll(t, v, cut)
+				checkSized(t, writeIVF(t, "VP90", large.X, large.Y, cut), got)
+				if runs, want := sizeRuns(got), []image.Point{small, large}; !slices.Equal(runs, want) {
+					t.Errorf("frames of sizes %v, want %v", runs, want)
+				}
+			})
+			for _, framed := range []image.Point{{}, {224, 144}} {
+				t.Run(fmt.Sprintf("container giving %v", framed), func(t *testing.T) {
+					v, err := d.NewVideoDecoder(demux.Track{Kind: demux.Video, Codec: demux.VP9, Width: framed.X, Height: framed.Y})
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer v.Close()
+					for i, p := range cut {
+						err = v.Decode(p)
+						if err != nil {
+							if i != splicedAt {
+								t.Errorf("packet %d failed, want the intra-only frame, packet %d", i, splicedAt)
+							}
+							break
+						}
+					}
+					session := image.Pt(max(small.X, framed.X), max(small.Y, framed.Y))
+					want := fmt.Sprintf("256x144, larger than the %dx%d pictures of its video session (made for the larger of the key frame and the %dx%d frames the container gives)", session.X, session.Y, framed.X, framed.Y)
+					if !errors.Is(err, ErrNoVideoDecoder) || !strings.Contains(err.Error(), want) {
+						t.Errorf("decoding a larger frame among references: %v, want ErrNoVideoDecoder saying %q", err, want)
+					}
+				})
 			}
 		})
+	}
+}
+
+// A frame header that shows a picture shown before, on a device that
+// decodes into output pictures apart from its reference pictures, is
+// refused, saying so: such a device copies nothing out of its DPB, and
+// none was at hand to verify a copy. The device under test decodes
+// into its reference pictures, so the test takes the decoder for one
+// that does not once its session is made.
+func TestDecodeVP9RefusesToShowAFrameAgainFromApartOutputPictures(t *testing.T) {
+	t.Parallel()
+	d := decodingDevice(t, demux.VP9)
+	cl := ffmpegClip(t, "a.webm", 192, 128, 0.4, libvpx("-g", "250")...)
+	track, pkts := packets(t, cl.path)
+	hdrs := vp9test.Headers(t, datas(pkts))
+	v, err := d.NewVideoDecoder(track)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer v.Close()
+	decodeSome(t, v, pkts[:2])
+	output := v.output
+	v.output = outputDistinct
+	defer func() { v.output = output }()
+	again := demux.Packet{PTS: pkts[1].PTS + frameApart/2, Duration: frameApart, Data: vp9test.ShowExisting(uint8(bits.TrailingZeros8(hdrs[1][0].RefreshFrameFlags)))}
+	err = v.Decode(again)
+	if want := "a second time"; !errors.Is(err, ErrNoVideoDecoder) || !strings.Contains(err.Error(), want) {
+		t.Errorf("showing a frame again: %v, want ErrNoVideoDecoder saying %q", err, want)
 	}
 }
