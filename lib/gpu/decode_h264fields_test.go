@@ -2,6 +2,7 @@ package gpu
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -548,72 +549,195 @@ func TestDecodeH264RefusesAMalformedPacketBeforeDecodingIt(t *testing.T) {
 }
 
 // Decoding fields, handing their frames out and releasing them
-// allocates nothing once the decoder has its frames.
+// allocates nothing once the decoder has its frames: fields of 3
+// reference frames, and fields of 12, more reference fields than the
+// device decodes from, which name the ones their slices' reference
+// picture lists hold, some moving the oldest to the front.
 func TestDecodeH264FieldsDoNotAllocate(t *testing.T) {
 	if testbuild.Race {
 		t.Skip("the race detector allocates")
 	}
-	d := decodingDevice(t, demux.H264)
-	src := pFields(t, 6, 3)
-	cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
-	cut.fieldPairs(src, h264Top)
-	pkts := cut.packets(true)
-	v, err := d.NewVideoDecoder(cut.track())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer v.Close()
-	i := 0
-	step := func() {
-		for range 2 {
-			if err := v.Decode(pkts[i]); err != nil {
+	for _, c := range []struct {
+		name string
+		cut  func(t *testing.T) *h264Cut
+	}{
+		{"3 reference frames", func(t *testing.T) *h264Cut {
+			src := pFields(t, 6, 3)
+			cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
+			cut.fieldPairs(src, h264Top)
+			return cut
+		}},
+		{"12 reference frames, lists modified", func(t *testing.T) *h264Cut {
+			return modifiedPairs(t, pFields(t, 6, 12), 12, 0)
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d := decodingDevice(t, demux.H264)
+			cut := c.cut(t)
+			pkts := cut.packets(true)
+			v, err := d.NewVideoDecoder(cut.track())
+			if err != nil {
 				t.Fatal(err)
 			}
-			i++
-		}
-		for f := v.Next(); f != nil; f = v.Next() {
-			f.Release()
-		}
-	}
-	for range 20 {
-		step()
-	}
-	if n := testing.AllocsPerRun((len(pkts)-i)/2-1, step); n != 0 {
-		t.Errorf("%.1f allocations a frame of two fields, want 0", n)
+			defer v.Close()
+			i := 0
+			step := func() {
+				for range 2 {
+					if err := v.Decode(pkts[i]); err != nil {
+						t.Fatal(err)
+					}
+					i++
+				}
+				for f := v.Next(); f != nil; f = v.Next() {
+					f.Release()
+				}
+			}
+			for range 20 {
+				step()
+			}
+			if n := testing.AllocsPerRun((len(pkts)-i)/2-1, step); n != 0 {
+				t.Errorf("%.1f allocations a frame of two fields, want 0", n)
+			}
+		})
 	}
 }
 
-// A field that predicts from more reference fields than the device
-// decodes a picture from is refused, saying how many of each: every
-// field before it decodes, each a reference picture of its own.
-func TestDecodeH264RefusesMoreReferenceFieldsThanTheDeviceDecodesFrom(t *testing.T) {
-	t.Parallel()
-	d := decodingDevice(t, demux.H264)
-	src := pFields(t, 0.8, 10)
+// modifiedPairs cuts src's pictures in as pairs of reference fields,
+// top first, the first field of each frame from the refs-th on, when
+// the oldest field of the reference frames is refs frames before it,
+// moving that field, of the other parity, to the front of reference
+// picture list 0 of its slices from the from-th on, past the fields
+// x264's num_ref_idx_l0_active leaves in it.
+func modifiedPairs(t *testing.T, src *h264Source, refs, from int) *h264Cut {
+	t.Helper()
 	cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
-	cut.fieldPairs(src, h264Top)
-	pkts := cut.packets(true)
+	if int(cut.seq.MaxNumRefFrames) != refs || len(src.pics) < 2*refs+4 {
+		t.Fatalf("%d reference frames and %d pictures, want %d and %d", cut.seq.MaxNumRefFrames, len(src.pics), refs, 2*refs+4)
+	}
+	oldest := [2][]nal.H264ListModification{{{Idc: 0, Arg: uint32(2 * refs)}}}
+	for i := 0; i+1 < len(src.pics); i += 2 {
+		first := cutPicture{src: src, index: i, fields: h264Top, ref: true}
+		if i/2 >= refs {
+			first.modify = make([][2][]nal.H264ListModification, len(src.pics[i].slices))
+			for j := from; j < len(first.modify); j++ {
+				first.modify[j] = oldest
+			}
+		}
+		cut.picture(first)
+		cut.picture(cutPicture{src: src, index: i + 1, fields: h264Bottom, second: true, ref: true})
+	}
+	return cut
+}
+
+// Fields whose reference fields are more than the device decodes a
+// picture from decode bit for bit as ffmpeg decodes them where their
+// slices' reference picture lists name no more: P fields of 12
+// reference frames, top and bottom field first, whose lists x264 cuts
+// to 12 fields of the 24; B fields; and P fields that move the oldest
+// reference field, which the list would not hold, to its front.
+func TestDecodeH264FieldsNameTheReferencesTheirListsHold(t *testing.T) {
+	t.Parallel()
+	const refs = 12
+	for _, c := range []struct {
+		name string
+		cut  func(t *testing.T) *h264Cut
+	}{
+		{"P fields, top first", func(t *testing.T) *h264Cut {
+			src := pFields(t, 2, refs)
+			cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
+			cut.fieldPairs(src, h264Top)
+			return cut
+		}},
+		{"P fields, bottom first", func(t *testing.T) *h264Cut {
+			src := pFields(t, 2, refs)
+			cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
+			cut.fieldPairs(src, h264Bottom)
+			return cut
+		}},
+		{"B fields", func(t *testing.T) *h264Cut {
+			src := x264Source(t, fieldsW, fieldH, 2, "-bf", "2", "-refs", strconv.Itoa(refs), "-x264-params", "keyint=250:b-pyramid=none")
+			cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
+			cut.fieldPairs(src, h264Top)
+			return cut
+		}},
+		{"P fields moving the oldest reference field to the front", func(t *testing.T) *h264Cut {
+			return modifiedPairs(t, pFields(t, 2, refs), refs, 0)
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.H264)
+			cut := c.cut(t)
+			v, err := d.NewVideoDecoder(cut.track())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer v.Close()
+			got := decodeAll(t, v, cut.packets(false))
+			if limit := v.activeRefs(); limit >= 2*int(cut.seq.MaxNumRefFrames) {
+				t.Skipf("the device decodes a picture from %d reference pictures, as many as the %d fields of %d reference frames", limit, 2*cut.seq.MaxNumRefFrames, cut.seq.MaxNumRefFrames)
+			}
+			checkFrames(t, cut.reference(fieldsW, fieldsH), got, 0)
+		})
+	}
+}
+
+// A field whose slices' reference picture lists name more reference
+// fields than the device decodes a picture from is refused, saying how
+// many of each: fields of two slices and 16 reference frames, the
+// first slice's list x264's 16 fields of the 32, the second's moving
+// the oldest to its front, 17 between them.
+func TestDecodeH264RefusesMoreListedReferenceFieldsThanTheDeviceDecodesFrom(t *testing.T) {
+	t.Parallel()
+	const refs = 16
+	d := decodingDevice(t, demux.H264)
+	src := x264Source(t, fieldsW, fieldH, 2, "-bf", "0", "-refs", strconv.Itoa(refs), "-x264-params", "keyint=250:slices=2")
+	if n := len(src.pics[1].slices); n != 2 {
+		t.Fatalf("x264 coded %d slices a picture, want 2", n)
+	}
+	cut := modifiedPairs(t, src, refs, 1)
 	v, err := d.NewVideoDecoder(cut.track())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer v.Close()
-	if err := v.Decode(pkts[0]); err != nil {
+	pkts := cut.packets(false)
+	decodeSome(t, v, pkts[:refs])
+	if limit := v.activeRefs(); limit != refs {
+		t.Skipf("the device decodes a picture from %d reference pictures, not the %d the test is made for", limit, refs)
+	}
+	err = v.Decode(pkts[refs])
+	want := fmt.Sprintf("predicts from %d reference pictures, each field decoded as a picture one, of which its slices' reference picture lists name %d, where %s decodes from %d", 2*refs, refs+1, d.Name(), refs)
+	if !errors.Is(err, ErrNoVideoDecoder) || !strings.Contains(err.Error(), want) {
+		t.Errorf("frame %d: %v, want ErrNoVideoDecoder saying %q", refs, err, want)
+	}
+}
+
+// Fields, on a device that decodes into output pictures apart from its
+// reference pictures, are refused, saying so: a frame's first field
+// would wait in an output picture its second field does not decode
+// into, and no such device was at hand to verify otherwise. The device
+// under test decodes into its reference pictures, so the test takes
+// the decoder for one that does not once its session is made.
+func TestDecodeH264RefusesFieldsIntoApartOutputPictures(t *testing.T) {
+	t.Parallel()
+	d := decodingDevice(t, demux.H264)
+	src := pFields(t, 0.4, 3)
+	cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
+	cut.fieldPairs(src, h264Top)
+	pkts := cut.packets(false)
+	v, err := d.NewVideoDecoder(cut.track())
+	if err != nil {
 		t.Fatal(err)
 	}
-	limit, fields := v.activeRefs(), min(2*int(cut.seq.MaxNumRefFrames), len(pkts)-1)
-	if limit >= fields {
-		t.Skipf("the device decodes a picture from %d reference pictures, as many as the %d fields the stream predicts from", limit, fields)
-	}
-	for i, p := range pkts[1 : limit+1] {
-		if err := v.Decode(p); err != nil {
-			t.Fatalf("field %d, predicting from %d fields: %v", i+1, i+1, err)
-		}
-	}
-	err = v.Decode(pkts[limit+1])
-	want := strconv.Itoa(limit+1) + " reference pictures"
-	if !errors.Is(err, ErrNoVideoDecoder) || !strings.Contains(err.Error(), want) {
-		t.Errorf("field %d: %v, want ErrNoVideoDecoder saying %q", limit+1, err, want)
+	defer v.Close()
+	decodeSome(t, v, pkts[:1])
+	output := v.output
+	v.output = outputDistinct
+	defer func() { v.output = output }()
+	err = v.Decode(pkts[1])
+	if want := "decodes into output pictures apart from them"; !errors.Is(err, ErrNoVideoDecoder) || !strings.Contains(err.Error(), want) {
+		t.Errorf("fields: %v, want ErrNoVideoDecoder saying %q", err, want)
 	}
 }
 

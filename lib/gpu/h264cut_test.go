@@ -236,6 +236,9 @@ func extendedSPS(sps []byte) []byte {
 // with the bottom field bottom after it. pps, if any, is a PPS sent
 // before the picture, of the stream's ID, whose pic_init_qp is qp more
 // than the stream's first: the picture's slices code as much less.
+// modify are the modifications of the reference picture lists of each
+// of its slices, by index, none past them, which the source's slices
+// have none of.
 type cutPicture struct {
 	src    *h264Source
 	index  int
@@ -247,6 +250,7 @@ type cutPicture struct {
 	mmco   []nal.H264MMCO
 	pps    []byte
 	qp     int32
+	modify [][2][]nal.H264ListModification
 }
 
 // h264Cut is a stream cut together of the pictures of sources: its
@@ -308,14 +312,19 @@ func (c *h264Cut) add(p cutPicture) {
 	if p.pps != nil {
 		units = append(units, p.pps)
 	}
-	for _, u := range src.slices {
-		units = append(units, c.slice(u, src, &p))
+	for i, u := range src.slices {
+		var modify [2][]nal.H264ListModification
+		if i < len(p.modify) {
+			modify = p.modify[i]
+		}
+		units = append(units, c.slice(u, src, &p, &modify))
 	}
 	c.units, c.made = append(c.units, units), append(c.made, p)
 }
 
-// slice is unit, a slice of src, with its header rewritten for p.
-func (c *h264Cut) slice(unit []byte, src *h264SourcePic, p *cutPicture) []byte {
+// slice is unit, a slice of src, with its header rewritten for p and
+// its reference picture lists modified as modify says.
+func (c *h264Cut) slice(unit []byte, src *h264SourcePic, p *cutPicture, modify *[2][]nal.H264ListModification) []byte {
 	c.t.Helper()
 	from, to := &p.src.seq, &c.seq
 	rbsp := nal.Unescape(nil, unit[1:])
@@ -367,11 +376,18 @@ func (c *h264Cut) slice(unit []byte, src *h264SourcePic, p *cutPicture) []byte {
 				w.UE(r.UE())
 			}
 		}
-		for range 1 + b2i(kind == nal.H264SliceB) {
+		for i := range 1 + b2i(kind == nal.H264SliceB) {
 			if r.Flag() {
 				c.t.Fatal("the source reorders a reference list, by picture numbers that are other pictures' in another stream")
 			}
-			w.Flag(false)
+			w.Flag(len(modify[i]) > 0)
+			for _, m := range modify[i] {
+				w.UE(uint32(m.Idc))
+				w.UE(m.Arg)
+			}
+			if len(modify[i]) > 0 {
+				w.UE(3)
+			}
 		}
 	}
 	if src.ref {

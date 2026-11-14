@@ -92,6 +92,87 @@ func TestH264RefusesWhatItCannotRead(t *testing.T) {
 	}
 }
 
+// A slice header's reference counts and the modifications of its
+// reference picture lists read back as written: a P slice's list 0, a
+// B slice's two; more modifications than a list's entries are an error.
+func TestH264ParsesReferencePictureListModifications(t *testing.T) {
+	h := H264{ProfileIdc: 100, LevelIdc: 41, WidthMbs: 11, HeightMbs: 9, Log2MaxFrameNum: 6, MaxNumRefFrames: 4, InitQP: 26}
+	var sps [32]*H264SPS
+	sps[0] = parseSPS(t, h.SPS())
+	unit := h.PPS()
+	var p H264PPS
+	if err := p.Parse(Unescape(nil, unit[1:]), &sps); err != nil {
+		t.Fatal(err)
+	}
+	var pps [256]*H264PPS
+	pps[0] = &p
+	slice := func(typ uint32, active []uint32, lists [2][]H264ListModification) []byte {
+		var w Writer
+		w.UE(0)
+		w.UE(typ)
+		w.UE(0)
+		w.U(6, 3)
+		if typ == H264SliceB {
+			w.Flag(true)
+		}
+		w.Flag(true)
+		for _, n := range active {
+			w.UE(n - 1)
+		}
+		for i := range active {
+			w.Flag(len(lists[i]) > 0)
+			for _, m := range lists[i] {
+				w.UE(uint32(m.Idc))
+				w.UE(m.Arg)
+			}
+			if len(lists[i]) > 0 {
+				w.UE(3)
+			}
+		}
+		w.Flag(false)
+		w.SE(0)
+		w.Trailing()
+		return w.Unit(1<<5 | H264NALSlice)
+	}
+	for _, c := range []struct {
+		name   string
+		typ    uint32
+		active []uint32
+		lists  [2][]H264ListModification
+	}{
+		{"P", H264SliceP, []uint32{6}, [2][]H264ListModification{{{Idc: 0, Arg: 4}, {Idc: 2, Arg: 1}}}},
+		{"B", H264SliceB, []uint32{2, 3}, [2][]H264ListModification{nil, {{Idc: 1, Arg: 0}}}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			unit := slice(c.typ, c.active, c.lists)
+			var sh H264SliceHeader
+			if err := sh.Parse(Unescape(nil, unit[1:]), unit[0], &pps, &sps); err != nil {
+				t.Fatal(err)
+			}
+			for i := range 2 {
+				want := uint8(0)
+				if i < len(c.active) {
+					want = uint8(c.active[i])
+				}
+				m := &sh.Modifications[i]
+				if sh.NumRefIdxActive[i] != want || m.N != len(c.lists[i]) {
+					t.Fatalf("list %d: %d entries and %d modifications, want %d and %d", i, sh.NumRefIdxActive[i], m.N, want, len(c.lists[i]))
+				}
+				for j, op := range c.lists[i] {
+					if m.Ops[j] != op {
+						t.Errorf("list %d modification %d: %+v, want %+v", i, j, m.Ops[j], op)
+					}
+				}
+			}
+		})
+	}
+	unit = slice(H264SliceP, []uint32{1}, [2][]H264ListModification{{{Idc: 0, Arg: 0}, {Idc: 0, Arg: 1}}})
+	var sh H264SliceHeader
+	if err := sh.Parse(Unescape(nil, unit[1:]), unit[0], &pps, &sps); !errors.Is(err, ErrH264) {
+		t.Errorf("two modifications of a list of one entry: %v, want ErrH264", err)
+	}
+}
+
 // writeList writes values as a scaling_list's deltas.
 func writeList(w *Writer, values []int) {
 	last := 8

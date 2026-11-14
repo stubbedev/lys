@@ -517,16 +517,40 @@ type H264MMCO struct {
 	MaxLongTermFrameIdxPlus1  uint32
 }
 
+// H264MaxRefIdx bounds the entries of a slice's reference picture list:
+// num_ref_idx_active_minus1 is at most 31.
+const H264MaxRefIdx = 32
+
+// H264ListModification is one modification_of_pic_nums_idc and its
+// argument (7.3.3.1): abs_diff_pic_num_minus1 for 0 and 1,
+// long_term_pic_num for 2.
+type H264ListModification struct {
+	Idc uint8
+	Arg uint32
+}
+
+// H264ListModifications is one list's ref_pic_list_modification, the
+// modifications before the one that ends them.
+type H264ListModifications struct {
+	N   int
+	Ops [H264MaxRefIdx]H264ListModification
+}
+
 // H264SliceHeader is what a slice header (7.3.3) says that a decoder
 // managing the reference pictures uses.
 type H264SliceHeader struct {
 	FirstMbInSlice uint32
 	// SliceType is slice_type modulo 5.
-	SliceType              uint8
-	PPSID                  uint8
-	FrameNum               uint32
-	FieldPic, BottomField  bool
-	IDRPicID               uint16
+	SliceType             uint8
+	PPSID                 uint8
+	FrameNum              uint32
+	FieldPic, BottomField bool
+	IDRPicID              uint16
+	// NumRefIdxActive is each list's num_ref_idx_active_minus1 plus
+	// one: list 0's for a P, SP or B slice, list 1's for a B slice,
+	// else 0; Modifications each list's ref_pic_list_modification.
+	NumRefIdxActive        [2]uint8
+	Modifications          [2]H264ListModifications
 	PicOrderCntLsb         uint32
 	DeltaPicOrderCntBottom int32
 	DeltaPicOrderCnt       [2]int32
@@ -614,20 +638,28 @@ func (h *H264SliceHeader) Parse(rbsp []byte, header byte, pps *[256]*H264PPS, sp
 		r.Skip(1)
 	}
 	l0, l1 := uint32(p.NumRefIdxL0DefaultActiveMinus1), uint32(p.NumRefIdxL1DefaultActiveMinus1)
+	h.NumRefIdxActive = [2]uint8{}
+	h.Modifications[0].N, h.Modifications[1].N = 0, 0
 	switch h.SliceType {
 	case H264SliceP, H264SliceSP, H264SliceB:
+		lists := 1
 		if r.Flag() {
 			l0 = r.UE()
 			if h.SliceType == H264SliceB {
 				l1 = r.UE()
 			}
 		}
-		if l0 > 31 || l1 > 31 {
-			return fmt.Errorf("%w slice: reference counts %d and %d are past 32", ErrH264, l0+1, l1+1)
+		if l0 > H264MaxRefIdx-1 || l1 > H264MaxRefIdx-1 {
+			return fmt.Errorf("%w slice: reference counts %d and %d are past %d", ErrH264, l0+1, l1+1, H264MaxRefIdx)
 		}
-		skipRefPicListModification(&r)
+		h.NumRefIdxActive[0] = uint8(l0 + 1)
 		if h.SliceType == H264SliceB {
-			skipRefPicListModification(&r)
+			h.NumRefIdxActive[1], lists = uint8(l1+1), 2
+		}
+		for i := range lists {
+			if err := parseListModifications(&r, &h.Modifications[i], int(h.NumRefIdxActive[i])); err != nil {
+				return fmt.Errorf("%w slice: list %d: %w", ErrH264, i, err)
+			}
 		}
 	}
 	if p.WeightedPred && (h.SliceType == H264SliceP || h.SliceType == H264SliceSP) || p.WeightedBipredIdc == 1 && h.SliceType == H264SliceB {
@@ -645,20 +677,27 @@ func (h *H264SliceHeader) Parse(rbsp []byte, header byte, pps *[256]*H264PPS, sp
 	return nil
 }
 
-// skipRefPicListModification reads past one list's
-// ref_pic_list_modification (7.3.3.1).
-func skipRefPicListModification(r *Reader) {
+// parseListModifications reads one list's ref_pic_list_modification
+// (7.3.3.1) into m: at most n modifications, the list's entries.
+func parseListModifications(r *Reader, m *H264ListModifications, n int) error {
 	if !r.Flag() {
-		return
+		return nil
 	}
-	for range 33 {
-		op := r.UE()
-		if op == 3 || r.Short() {
-			return
+	for {
+		idc := r.UE()
+		switch {
+		case r.Short():
+			return errors.New("ref_pic_list_modification ends inside its syntax")
+		case idc == 3:
+			return nil
+		case idc > 3:
+			return fmt.Errorf("modification_of_pic_nums_idc %d", idc)
+		case m.N == n:
+			return fmt.Errorf("more than the list's %d modifications", n)
 		}
-		r.UE()
+		m.Ops[m.N] = H264ListModification{Idc: uint8(idc), Arg: r.UE()}
+		m.N++
 	}
-	r.short = true
 }
 
 // skipPredWeightTable reads past pred_weight_table (7.3.3.2).

@@ -280,19 +280,31 @@ func main() {
   pairs them, ffmpeg neither); a frame with a short-term and a long-term
   reference field, and a frame decoded as one picture of which one field alone
   is left a reference (a Vulkan Video reference picture is long-term or not,
-  and a frame or the fields it was decoded as, as a whole); a field that
-  predicts from more reference fields than the device decodes a picture from
-  (NVIDIA: 16, each field of a frame decoded as two counting); and a gap in
-  `frame_num`, which is inferred in sequences of frames only.
+  and a frame or the fields it was decoded as, as a whole); a picture whose
+  slices' reference picture lists name more reference fields than the device
+  decodes a picture from (NVIDIA: 16, each field of a frame decoded as two
+  counting); and a gap in `frame_num`, which is inferred in sequences of
+  frames only. A picture with more reference fields than that names only the
+  ones its slices' lists hold (8.2.4: the initial lists, field lists by
+  alternating parity, cut to `num_ref_idx_active` and modified as the slice
+  says), where a device given only those lays out the same lists.
 - A VP9 frame is the size its header says, whatever its references' (libvpx
   resizes a stream it cannot fit in its bitrate): the device scales the
   references as it predicts, each picture decoded at its own size into the
   pictures of the session its key frame made, so the frames' `Size` changes
-  and the caller scales them to where it draws them. A frame larger than the
-  session's pictures starts another session where it leaves nothing of the
-  frames before it (a key frame, or an intra-only frame that refreshes every
-  reference slot and resets every frame context); one that keeps reference
-  pictures or frame contexts is refused, as is one naming a reference VP9
+  and the caller scales them to where it draws them. The session is made for
+  the larger of the key frame and the frame size the container gives the
+  track (`demux.Track.Width` and `Height`, libvpx's configured size, which it
+  resizes down from), so frames that grow back to it keep their references.
+  A frame larger than the session's pictures starts another session where it
+  leaves nothing of the frames before it (a key frame, or an intra-only frame
+  that refreshes every reference slot and resets every frame context); one
+  that keeps reference pictures or frame contexts is refused (the reference
+  pictures are layers of one image, as a device without
+  `VK_VIDEO_CAPABILITY_SEPARATE_REFERENCE_IMAGES_BIT_KHR` (NVIDIA) needs, and
+  the device keeps the frame contexts in the session, so neither carries over;
+  a session for the device's largest pictures, 8192x8192 on NVIDIA, takes
+  955 MB where one of 1920x1080 takes 30), as is one naming a reference VP9
   scales to no frame of its size (less than half or more than 16 times it).
 - A VP9 superframe or an AV1 temporal unit whose last frame fails (every
   frame held, say) keeps the frames before it that decoded: their reference
@@ -319,10 +331,14 @@ func main() {
   refuses the stream there.
 - A VP9 intra frame decodes from frame context 0 and saves to it whatever
   `frame_context_idx` it codes, which the device is told as 0; the context
-  coded is the one `reset_frame_context` 2 resets. A Vulkan Video picture
-  names one context, so an intra-only frame that resets another one is
-  decoded where nothing was saved to that context (resetting it changes
-  nothing) and refused where something was.
+  coded is the one `reset_frame_context` 2 resets (the specification's
+  `setup_past_independence`, as libvpx decodes it; ffmpeg decodes an
+  intra-only frame from the context it codes instead, which agrees with
+  libvpx only where context 0 is the default one). A Vulkan Video picture
+  names one context, which a device resets, decodes from and saves to, so an
+  intra-only frame that resets another one that frames saved to is decoded
+  twice: first as a picture naming that context, resetting it and saving to
+  none, into the DPB slot the frame then decodes into as it codes.
 - AV1 film grain comes out as dav1d synthesizes it, sample for sample. A
   device with output pictures apart from its reference pictures applies it; on
   one that decodes into its reference pictures alone (NVIDIA, Intel) the decoder

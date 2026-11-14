@@ -76,6 +76,12 @@ type h264Decoder struct {
 	refSlots  [h264MaxSlots]int
 	refPtrs   [h264MaxSlots]unsafe.Pointer
 	req       decodePicture
+	// lists works out the slices' reference picture lists, from the
+	// headers of the picture's slices after its first in sliceHdrs.
+	lists     h264Lists
+	sliceHdrs []nal.H264SliceHeader
+	hdrs      []*nal.H264SliceHeader
+	used      h264Avail
 }
 
 // newH264Decoder reads config, the track's avcC
@@ -389,7 +395,7 @@ func (c *h264Decoder) picture(v *VideoDecoder, p demux.Packet, slices []h264Unit
 		at += copy(buf[at:], startCode)
 		at += copy(buf[at:], slices[i].unit)
 	}
-	if err := c.submit(v, &pic, frame, total); err != nil {
+	if err := c.submit(v, &pic, slices, frame, total); err != nil {
 		return err
 	}
 	c.state.finish(&pic)
@@ -445,7 +451,8 @@ func h264FieldFlags(fields h264Fields) uint32 {
 	return bitfield(flagBit{fields&h264Top != 0, vk.StdVideoDecodeH264ReferenceTopField}, flagBit{fields&h264Bottom != 0, vk.StdVideoDecodeH264ReferenceBottomField})
 }
 
-// submit decodes pic from the first total bytes of the stream buffer,
+// submit decodes pic, of slices (nil for a frame a gap infers, whose
+// header pic has), from the first total bytes of the stream buffer,
 // its slices at c.offsets, into frame where it completes one. A frame
 // predicts from the reference frames whose fields both are references,
 // a field from every reference field. A Vulkan Video reference picture
@@ -453,11 +460,14 @@ func h264FieldFlags(fields h264Fields) uint32 {
 // named whole, and a device takes its fields where the picture being
 // decoded is a field; one decoded as two fields is named by the fields
 // that are references, each a reference picture of the ones a device
-// decodes a picture from.
-func (c *h264Decoder) submit(v *VideoDecoder, pic *h264Pic, frame *VideoFrame, total int) error {
+// decodes a picture from. Where those are more than the device decodes
+// from, the picture names only the ones its slices' reference picture
+// lists hold, as long as a device given only those lays the lists out
+// the same.
+func (c *h264Decoder) submit(v *VideoDecoder, pic *h264Pic, slices []h264Unit, frame *VideoFrame, total int) error {
 	c.fill(pic)
 	c.req = decodePicture{frame: frame, coded: v.shape.coded, bytes: total, info: unsafe.Pointer(&c.picInfo), setup: pic.slot, setupInfo: unsafe.Pointer(&c.setupInfo), held: pic.second && pic.ref}
-	n, active := 0, 0
+	var avail h264Avail
 	for slot := range c.state.slots {
 		r := &c.state.refs[slot]
 		marked := r.marked()
@@ -470,11 +480,27 @@ func (c *h264Decoder) submit(v *VideoDecoder, pic *h264Pic, frame *VideoFrame, t
 		case r.whole && marked != h264Frame:
 			return fmt.Errorf("%w: H.264 frame %d, decoded as one picture, has its %s alone left a reference, which a Vulkan Video reference picture cannot say: it names the fields of a frame decoded as two", ErrNoVideoDecoder, r.frameNum, marked)
 		}
+		avail[slot] = marked
+	}
+	named := &avail
+	if all, limit := c.activeOf(&avail), v.activeRefs(); all > limit {
+		var err error
+		if named, err = c.listed(v, pic, slices, &avail); err != nil {
+			return err
+		}
+		if listed := c.activeOf(named); listed > limit {
+			return fmt.Errorf("%w: an H.264 %s predicts from %d reference pictures, each field decoded as a picture one, of which its slices' reference picture lists name %d, where %s decodes from %d", ErrNoVideoDecoder, pic.fields, all, listed, v.d.name, limit)
+		}
+	}
+	n := 0
+	for slot, fields := range named[:c.state.slots] {
+		if fields == 0 {
+			continue
+		}
+		r := &c.state.refs[slot]
 		c.refStd[n] = vk.StdVideoDecodeH264ReferenceInfo{FrameNum: uint16(r.frameNum & 0xffff), PicOrderCnt: r.poc}
-		active++
 		if !r.whole {
-			c.refStd[n].Flags = h264FieldFlags(marked)
-			active += b2i(marked == h264Frame)
+			c.refStd[n].Flags = h264FieldFlags(fields)
 		}
 		if r.long != 0 {
 			c.refStd[n].Flags |= vk.StdVideoDecodeH264ReferenceUsedForLongTerm
@@ -484,11 +510,60 @@ func (c *h264Decoder) submit(v *VideoDecoder, pic *h264Pic, frame *VideoFrame, t
 		c.refSlots[n], c.refPtrs[n] = slot, unsafe.Pointer(&c.refInfo[n])
 		n++
 	}
-	if limit := v.activeRefs(); active > limit {
-		return fmt.Errorf("%w: an H.264 %s predicts from %d reference pictures, each field decoded as a picture one, where %s decodes from %d", ErrNoVideoDecoder, pic.fields, active, v.d.name, limit)
-	}
 	c.req.refs, c.req.refInfo = c.refSlots[:n], c.refPtrs[:n]
 	return v.submit(&c.req)
+}
+
+// activeOf is how many reference pictures a device decodes a picture
+// from that names the fields of avail: one for a frame decoded whole,
+// else one for each field.
+func (c *h264Decoder) activeOf(avail *h264Avail) int {
+	n := 0
+	for slot, fields := range avail[:c.state.slots] {
+		switch {
+		case fields == 0:
+		case c.state.refs[slot].whole, fields != h264Frame:
+			n++
+		default:
+			n += 2
+		}
+	}
+	return n
+}
+
+// listed are the fields of avail the reference picture lists of pic's
+// slices name (8.2.4), with the whole of each frame decoded as one
+// picture, which a device takes both fields of. A device given only
+// those must lay the lists out as from them all.
+func (c *h264Decoder) listed(v *VideoDecoder, pic *h264Pic, slices []h264Unit, avail *h264Avail) (*h264Avail, error) {
+	c.hdrs = append(c.hdrs[:0], pic.hdr)
+	for i, s := range slices[min(1, len(slices)):] {
+		if i == len(c.sliceHdrs) {
+			c.sliceHdrs = append(c.sliceHdrs, nal.H264SliceHeader{})
+		}
+		h := &c.sliceHdrs[i]
+		if err := c.header(h, s.unit); err != nil {
+			return nil, err
+		}
+		c.hdrs = append(c.hdrs, h)
+	}
+	used := &c.used
+	if err := c.lists.names(&c.state, pic, c.hdrs, avail, used); err != nil {
+		return nil, err
+	}
+	for slot, fields := range used[:c.state.slots] {
+		if fields != 0 && c.state.refs[slot].whole {
+			used[slot] = avail[slot]
+		}
+	}
+	same, err := c.lists.same(&c.state, pic, c.hdrs, avail, used)
+	if err != nil {
+		return nil, err
+	}
+	if !same {
+		return nil, fmt.Errorf("%w: an H.264 %s predicts from %d reference pictures, more than the %d %s decodes from, and a device given only the %d its slices' reference picture lists name would lay the lists out otherwise", ErrNoVideoDecoder, pic.fields, c.activeOf(avail), v.activeRefs(), v.d.name, c.activeOf(used))
+	}
+	return used, nil
 }
 
 func b2i(b bool) int {
@@ -536,7 +611,7 @@ func (c *h264Decoder) inferGap(v *VideoDecoder, sps *nal.H264SPS, shape decodeSh
 		}
 		copy(buf[copy(buf, startCode):], unit)
 		c.offsets = append(c.offsets[:0], 0)
-		if err := c.submit(v, q, frame, total); err != nil {
+		if err := c.submit(v, q, nil, frame, total); err != nil {
 			return err
 		}
 		frame.free(0)
