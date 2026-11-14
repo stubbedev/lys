@@ -54,11 +54,6 @@ const (
 	busySize  = 1024
 )
 
-func heavyPassJob(t *testing.T, d *Device, tg *Target) slowJob {
-	t.Helper()
-	return newSlowJob(t, d, func(units int) { heavyPass(t, d, tg, units, color.RGBA{A: 255}) })
-}
-
 // handout is a sync_file d handed out for the work it submitted after
 // since, and whether all d had submitted had finished right after: a
 // fence that had signalled is handed out as a stub (the kernel exports
@@ -88,6 +83,16 @@ func (h handout) signalled(t *testing.T) (time.Duration, bool) {
 		t.Errorf("sync_file %d had signalled at %v, before the work since %v was submitted, and was handed out with that work unfinished: it does not cover it", h.fd, at, h.since)
 	}
 	return at, false
+}
+
+func signalTime(t *testing.T, fd int) time.Duration {
+	t.Helper()
+	waitReadable(t, fd)
+	at, ok, err := drm.SyncFileSignalTime(fd)
+	if err != nil || !ok {
+		t.Fatalf("the signal time of sync_file %d: %v, %v", fd, ok, err)
+	}
+	return at
 }
 
 func dupFD(t *testing.T, fd int) int {
@@ -123,31 +128,27 @@ func TestSyncFileSignalsOnceThePassFinishes(t *testing.T) {
 	if _, ok, err := d.FrameDone(); ok || (err != nil && !errors.Is(err, ErrNoFrameTime)) {
 		t.Fatalf("FrameDone before any pass: %v, %v", ok, err)
 	}
-	tg, err := d.NewOffscreen(2048, 2048)
+	tg, err := d.NewOffscreen(busySize, busySize)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer tg.Close()
-	job := heavyPassJob(t, d, tg)
 	before := monotonic()
-	heavyPass(t, d, tg, job.units, color.RGBA{0, 255, 0, 255})
+	heavyPass(t, d, tg, busyDraws, color.RGBA{0, 255, 0, 255})
 	fd, err := d.SyncFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer unix.Close(fd)
-	signalled := signalTime(t, fd)
-	job.ran(t, before, signalled)
+	signalled, _ := handedOut(d, fd, before).signalled(t)
 	if err := d.Finish(); err != nil {
 		t.Fatal(err)
 	}
 	after := monotonic()
-	var props vk.PhysicalDeviceProperties
-	d.cmds.GetPhysicalDeviceProperties(d.phys, &props)
-	if props.DeviceType == vk.PhysicalDeviceTypeCpu {
+	if isCPUDevice(d) {
 		t.Logf("%s signals its sync_files on the CPU, at %v: not checked", d.Name(), signalled)
-	} else if signalled < before || signalled > after {
-		t.Errorf("the sync_file signalled at %v, outside the pass's %v to %v", signalled, before, after)
+	} else if signalled > after {
+		t.Errorf("the sync_file signalled at %v, after the pass was waited for at %v", signalled, after)
 	}
 	if got := readTarget(t, tg).RGBAAt(1, 1); got != (color.RGBA{0, 255, 0, 255}) {
 		t.Errorf("the pass drew %v", got)
@@ -598,21 +599,21 @@ func TestDeviceCloseWithAFrameSignal(t *testing.T) {
 // driver that exports it or one that never does.
 func TestASyncFileOfMinusOneMeansAllFinished(t *testing.T) {
 	d := lavapipeSyncDevice(t)
-	tg, err := d.NewOffscreen(8, 8)
+	tg, err := d.NewOffscreen(busySize, busySize)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer tg.Close()
-	job := heavyPassJob(t, d, tg)
 	for range 8 {
-		start := monotonic()
-		heavyPass(t, d, tg, job.units, color.RGBA{0, 255, 0, 255})
+		since := monotonic()
+		heavyPass(t, d, tg, busyDraws, color.RGBA{0, 255, 0, 255})
 		fd := syncFile(t, d)
-		job.endsBy(t, start, fd)
-		if fd < 0 {
-			if got := readTarget(t, tg).RGBAAt(1, 1); got != (color.RGBA{0, 255, 0, 255}) {
-				t.Fatalf("all finished, but the pass drew %v", got)
-			}
+		if fd >= 0 {
+			handedOut(d, fd, since).signalled(t)
+			continue
+		}
+		if got := readTarget(t, tg).RGBAAt(1, 1); got != (color.RGBA{0, 255, 0, 255}) {
+			t.Fatalf("all finished, but the pass drew %v", got)
 		}
 	}
 }

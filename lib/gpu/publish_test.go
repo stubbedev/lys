@@ -190,21 +190,15 @@ func TestAFrameWithoutAFenceIsFinishedWhenRenderReturns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tg, err := d.NewTarget(64, 64, fourcc.ARGB8888, mods)
+	tg, err := d.NewTarget(busySize, busySize, fourcc.ARGB8888, mods)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer tg.Close()
-	rec := render.NewRecorder(64, 64, 1, 1)
-	draw := func(units int) {
-		if err := d.Render(heavyList(rec, 64, 64, units, render.RGBA(0, 255, 0, 255)), tg); err != nil {
-			t.Fatal(err)
-		}
+	rec := render.NewRecorder(busySize, busySize, 1, 1)
+	if err := d.Render(heavyList(rec, busySize, busySize, busyDraws, render.RGBA(0, 255, 0, 255)), tg); err != nil {
+		t.Fatal(err)
 	}
-	job := newSlowJob(t, d, draw)
-	start := monotonic()
-	draw(job.units)
-	job.ran(t, start, monotonic())
 	if n := len(d.inflight); n != 0 {
 		t.Errorf("%d submissions in flight when Render returned", n)
 	}

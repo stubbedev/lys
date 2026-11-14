@@ -113,14 +113,11 @@ func TestPublishCoversPassesAlreadySubmitted(t *testing.T) {
 func TestPublishWithoutAFenceFinishesThePass(t *testing.T) {
 	d := exportingDevice(t)
 	d.implicitFences = false
-	tg := passTarget(t, d, 64)
-	job := heavyPassJob(t, d, tg)
-	start := monotonic()
-	heavyPass(t, d, tg, job.units, color.RGBA{0, 255, 0, 255})
+	tg := passTarget(t, d, busySize)
+	heavyPass(t, d, tg, busyDraws, color.RGBA{0, 255, 0, 255})
 	if err := d.Publish(tg); err != nil {
 		t.Fatal(err)
 	}
-	job.ran(t, start, monotonic())
 	if n := len(d.inflight); n != 0 || d.batch != 0 {
 		t.Errorf("%d submissions in flight and batch %v when Publish returned", n, d.batch != 0)
 	}

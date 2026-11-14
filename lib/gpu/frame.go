@@ -161,17 +161,18 @@ func (d *Device) render(l *render.List, t *Target, explicit bool, carry []Carry)
 	f.stats.prims += len(f.prims)
 	err := f.flush(true)
 	if debug.Enabled {
-		debug.Log("gpu", "frame %dx%d: %d prims, %d segments, %d readbacks, %d texture uploads, sprite pixels %v", t.s.w, t.s.h, f.stats.prims, f.stats.segments, f.stats.readbacks, f.stats.textureUploads, f.stats.sprites)
+		debug.Log("gpu", "frame %dx%d: %d prims, %d drawn, %d segments, %d readbacks, %d texture uploads, sprite pixels %v", t.s.w, t.s.h, f.stats.prims, f.stats.drawn, f.stats.segments, f.stats.readbacks, f.stats.textureUploads, f.stats.sprites)
 	}
 	return err
 }
 
-// frameStats is what a frame drew how: its primitives, the segments it
-// submitted in, its readbacks, the image textures and atlas masks it
-// uploaded, and the pixels of CPU sprites per call.
+// frameStats is what a frame drew how: its primitives, those its draws
+// recorded once the hidden were dropped, the segments it submitted in,
+// its readbacks, the image textures and atlas masks it uploaded, and the
+// pixels of CPU sprites per call.
 type frameStats struct {
-	prims, segments, readbacks, textureUploads, imageBytes, maskBytes, carryBarriers int
-	sprites                                                                          map[string]int
+	prims, drawn, segments, readbacks, textureUploads, imageBytes, maskBytes, carryBarriers int
+	sprites                                                                                 map[string]int
 }
 
 // reset empties the stats for a new frame, keeping the map.
@@ -572,6 +573,7 @@ func (f *frame) record(cb vk.CommandBuffer, final bool) {
 				tex2 = sampled2
 			}
 			d.cmds.CmdDraw(cb, 4, st.count, 0, st.first)
+			f.stats.drawn += int(st.count)
 		}
 	}
 	end()

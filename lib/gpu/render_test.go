@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys-lib/fourcc"
 	"github.com/stubbedev/lys-lib/render"
@@ -1019,15 +1018,13 @@ func TestRenderDrawsWhatAFullOpaqueCoverHidesAsTheCPUDoes(t *testing.T) {
 
 func TestARecordingEndingInAFullOpaqueClearCostsTheClearAlone(t *testing.T) {
 	d := openDevice(t)
-	size := 2048
-	if isCPUDevice(d) {
-		size = 64
-	}
+	const size, rects = 64, 64
 	tg := newTarget(t, d, size, size)
 	rec := render.NewRecorder(size, size, 1, 1)
 	all := render.Rect{W: size, H: size}
 	green := render.RGBA(0, 255, 0, 255)
-	record := func(units int, cleared bool) *render.List {
+	drawn := func(units int, cleared bool) int {
+		t.Helper()
 		rec.ResetRecorder(size, size, 1, 1)
 		for i := range units {
 			rec.RoundedRect(all, 8, render.RGBA(uint8(i), 0, 0, 255))
@@ -1035,30 +1032,19 @@ func TestARecordingEndingInAFullOpaqueClearCostsTheClearAlone(t *testing.T) {
 		if cleared {
 			rec.Clear(all, green)
 		}
-		return rec.Recording()
+		if err := d.Render(rec.Recording(), tg); err != nil {
+			t.Fatal(err)
+		}
+		return d.frame.stats.drawn
 	}
-	timed := func(l *render.List) time.Duration {
-		t.Helper()
-		if err := d.Finish(); err != nil {
-			t.Fatal(err)
-		}
-		start := monotonic()
-		if err := d.Render(l, tg); err != nil {
-			t.Fatal(err)
-		}
-		if err := d.Finish(); err != nil {
-			t.Fatal(err)
-		}
-		return monotonic() - start
+	busy := drawn(rects, false)
+	alone := drawn(0, true)
+	hidden := drawn(rects, true)
+	if busy < rects {
+		t.Fatalf("%d rounded rects drew %d primitives", rects, busy)
 	}
-	job := newSlowJob(t, d, func(units int) { timed(record(units, false)) })
-	busy := timed(record(job.units, false))
-	job.ran(t, 0, busy)
-	alone := timed(record(0, true))
-	hidden := timed(record(job.units, true))
-	t.Logf("%s at %d²: %d rounded rects %v, a clear alone %v, the rects then the clear %v", d.Name(), size, job.units, busy, alone, hidden)
-	if hidden-alone > (busy-alone)/4 {
-		t.Errorf("%d rounded rects hidden by a full opaque clear cost %v over the clear alone (%v); drawn they cost %v", job.units, hidden-alone, alone, busy)
+	if hidden != alone {
+		t.Errorf("%d rounded rects hidden by a full opaque clear drew %d primitives, the clear alone %d", rects, hidden, alone)
 	}
 	if got := readTarget(t, tg).RGBAAt(size/2, size/2); got != (color.RGBA{0, 255, 0, 255}) {
 		t.Errorf("the hidden rects then the clear left %v", got)

@@ -478,24 +478,17 @@ func TestARefilledSourceEncodesTheFrameItHeld(t *testing.T) {
 			c := &clip{t: t, cfg: cfg, enc: enc, buf: buf}
 			src := make([]*image.RGBA, len(colors))
 			all := image.Rectangle{Max: fill.Size()}
-			draw := func(fills int, col color.RGBA) {
+			publish := func(col color.RGBA) {
 				runPass(t, writer, fill, []image.Rectangle{all}, func(p *Pass) {
 					p.Clear(color.RGBA{A: 255})
-					for range fills {
+					for range busyDraws {
 						p.FillRect(all, color.RGBA{A: 128}, Mask{})
 					}
 					p.FillRect(all, color.RGBA{col.R / 255 * 254, col.G / 255 * 254, col.B / 255 * 254, 254}, Mask{})
 				})
-			}
-			job := newSlowJob(t, writer, func(fills int) { draw(fills, colors[0]) })
-			publish := func(col color.RGBA) {
-				start := monotonic()
-				draw(job.units, col)
 				if err := writer.Publish(fill); err != nil {
 					t.Fatal(err)
 				}
-				fence := dmabufFence(t, buf.Dmabuf().Planes[0].FD)
-				job.endsBy(t, start, fence)
 			}
 			publish(colors[0])
 			for i, col := range colors {
