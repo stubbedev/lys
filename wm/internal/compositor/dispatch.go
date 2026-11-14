@@ -240,6 +240,7 @@ func spinUnsignalled(ns int64) (start, now int64, errno syscall.Errno) {
 func spinPreemptibly(start, now, ns int64) syscall.Errno {
 	var errno syscall.Errno
 	for now-start < ns {
+		runtime.Gosched()
 		if now, errno = threadCPUNanos(); errno != 0 {
 			return errno
 		}

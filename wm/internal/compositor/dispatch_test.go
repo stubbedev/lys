@@ -277,7 +277,6 @@ func TestADebugSpinLeftByItsPolicyIsSeenSpinningPreemptibly(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
 		tids <- unix.Gettid()
 		done <- spinWithoutBlocking(d)
 	}()
