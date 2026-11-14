@@ -176,11 +176,7 @@ func spinWithoutBlocking(d time.Duration) error {
 		return fmt.Errorf("compositor: debug spin %v: GOMAXPROCS is %d, and a spin holds its processor until it ends, so nothing else, a priority guard included, could run", d, procs)
 	}
 	return withoutGC(func() error {
-		start, now, errno := spinThreadCPU(d.Nanoseconds())
-		if errno == 0 {
-			errno = spinPreemptibly(start, now, d.Nanoseconds())
-		}
-		if errno != 0 {
+		if errno := spinThenPreemptibly(d.Nanoseconds()); errno != 0 {
 			return fmt.Errorf("compositor: debug spin %v: read this thread's CPU clock or scheduling policy: %w", d, errno)
 		}
 		return nil
@@ -195,6 +191,16 @@ func withoutGC(f func() error) error {
 		debug.SetMemoryLimit(limit)
 	}()
 	return f()
+}
+
+//go:nosplit
+//go:noinline
+func spinThenPreemptibly(ns int64) syscall.Errno {
+	start, now, errno := spinThreadCPU(ns)
+	if errno != 0 {
+		return errno
+	}
+	return spinPreemptibly(start, now, ns)
 }
 
 //go:nosplit
@@ -230,6 +236,7 @@ func spinUnsignalled(ns int64) (start, now int64, errno syscall.Errno) {
 	return start, now, 0
 }
 
+//go:noinline
 func spinPreemptibly(start, now, ns int64) syscall.Errno {
 	var errno syscall.Errno
 	for now-start < ns {

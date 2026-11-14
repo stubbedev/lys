@@ -140,8 +140,7 @@ func TestADebugSpinTurnsPreemptibleOnceItsThreadLeavesItsSchedulingPolicy(t *tes
 		start, now, errno := spinThreadCPU(most.Nanoseconds())
 		out <- result{time.Duration(now - start), errno}
 	}()
-	tid := <-tids
-	toBatch(t, tid)
+	toBatch(t, spinning(t, <-tids))
 	got := <-out
 	if got.errno != 0 {
 		t.Fatal(got.errno)
@@ -149,6 +148,29 @@ func TestADebugSpinTurnsPreemptibleOnceItsThreadLeavesItsSchedulingPolicy(t *tes
 	if got.ran >= most {
 		t.Fatalf("the spin ran its whole %v unpreemptibly after its thread moved to SCHED_BATCH", most)
 	}
+}
+
+func threadCPU(t *testing.T, tid int) time.Duration {
+	t.Helper()
+	var ts unix.Timespec
+	if err := unix.ClockGettime(int32(^tid)<<3|6, &ts); err != nil { //nolint:gosec // a thread ID fits the clock ID's 29 bits
+		t.Fatalf("read the CPU clock of thread %d: %v", tid, err)
+	}
+	return time.Duration(ts.Nano())
+}
+
+const spinEntered = 10 * time.Millisecond
+
+func spinning(t *testing.T, tid int) int {
+	t.Helper()
+	from := threadCPU(t, tid)
+	for deadline := time.Now().Add(30 * time.Second); threadCPU(t, tid)-from < spinEntered; {
+		if time.Now().After(deadline) {
+			t.Fatalf("thread %d did not spin %v within 30s", tid, spinEntered)
+		}
+		runtime.Gosched()
+	}
+	return tid
 }
 
 func toBatch(t *testing.T, tid int) {
@@ -216,7 +238,7 @@ func TestADebugSpinTakesNoSignalsAndGivesItsThreadItsSignalMaskBack(t *testing.T
 		}
 		runtime.Gosched()
 	}
-	toBatch(t, tid)
+	toBatch(t, spinning(t, tid))
 	got := <-out
 	if got.err != nil || got.errno != 0 {
 		t.Fatal(got.err, got.errno)
@@ -245,6 +267,34 @@ func TestADebugSpinCollectsNoGarbageAndGivesTheGCItsSettingsBack(t *testing.T) {
 	}
 	if after := [2]int64{int64(debug.SetGCPercent(150)), debug.SetMemoryLimit(-1)}; after != [2]int64{150, 3 << 30} {
 		t.Fatalf("the GC came back with percent %d and memory limit %d, want 150 and %d", after[0], after[1], int64(3<<30))
+	}
+}
+
+func TestADebugSpinLeftByItsPolicyIsSeenSpinningPreemptibly(t *testing.T) {
+	atLeastTwoProcs(t)
+	const d = time.Second
+	tids := make(chan int)
+	done := make(chan error, 1)
+	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		tids <- unix.Gettid()
+		done <- spinWithoutBlocking(d)
+	}()
+	toBatch(t, spinning(t, <-tids))
+	buf := make([]byte, 1<<20)
+	stacks := string(buf[:runtime.Stack(buf, true)])
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	var spinning string
+	for g := range strings.SplitSeq(stacks, "\n\n") {
+		if strings.Contains(g, "compositor.spinWithoutBlocking(") {
+			spinning = g
+		}
+	}
+	if !strings.Contains(spinning, "compositor.spinPreemptibly(") {
+		t.Fatalf("the first stack taken after the spin left its policy is not in spinPreemptibly:\n%s", spinning)
 	}
 }
 
