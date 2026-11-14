@@ -1,7 +1,6 @@
 package session
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,14 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/sys/unix"
-
+	"github.com/stubbedev/lys-wm/internal/fdmsg"
 	"github.com/stubbedev/lys-wm/internal/loop"
 )
 
 const (
 	HolderProtocol = 2
 	maxHolderMsg   = 64 << 10
+	maxHolderFDs   = 4
 	holderTimeout  = 15 * time.Second
 )
 
@@ -59,68 +58,11 @@ type HolderMsg struct {
 }
 
 func SendHolder(fd int, m HolderMsg, fds ...int) error {
-	body, err := json.Marshal(m)
-	if err != nil {
-		return fmt.Errorf("session: encode a message to the holder: %w", err)
-	}
-	var oob []byte
-	if len(fds) > 0 {
-		oob = unix.UnixRights(fds...)
-	}
-	for {
-		err := unix.Sendmsg(fd, body, oob, nil, unix.MSG_NOSIGNAL)
-		if errors.Is(err, unix.EINTR) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("session: send %s: %w", m.Op, err)
-		}
-		return nil
-	}
+	return fdmsg.Send(fd, m, fds...)
 }
 
 func RecvHolder(fd int) (HolderMsg, []int, error) {
-	body := make([]byte, maxHolderMsg)
-	oob := make([]byte, unix.CmsgSpace(4*4))
-	for {
-		n, oobn, _, _, err := unix.Recvmsg(fd, body, oob, unix.MSG_CMSG_CLOEXEC)
-		if errors.Is(err, unix.EINTR) {
-			continue
-		}
-		if err != nil {
-			return HolderMsg{}, nil, fmt.Errorf("session: read from the holder: %w", err)
-		}
-		if n == 0 {
-			return HolderMsg{}, nil, os.ErrClosed
-		}
-		var fds []int
-		if oobn > 0 {
-			msgs, err := unix.ParseSocketControlMessage(oob[:oobn])
-			if err != nil {
-				return HolderMsg{}, nil, fmt.Errorf("session: parse the holder's fds: %w", err)
-			}
-			for i := range msgs {
-				got, err := unix.ParseUnixRights(&msgs[i])
-				if err != nil {
-					return HolderMsg{}, nil, fmt.Errorf("session: parse the holder's fds: %w", err)
-				}
-				fds = append(fds, got...)
-			}
-		}
-		var m HolderMsg
-		if err := json.Unmarshal(body[:n], &m); err != nil {
-			return HolderMsg{}, nil, errors.Join(fmt.Errorf("session: decode a message from the holder: %w", err), closeAll(fds))
-		}
-		return m, fds, nil
-	}
-}
-
-func closeAll(fds []int) error {
-	var errs []error
-	for _, fd := range fds {
-		errs = append(errs, unix.Close(fd))
-	}
-	return errors.Join(errs...)
+	return fdmsg.Recv[HolderMsg](fdmsg.NewReceiver(fd, maxHolderMsg, maxHolderFDs))
 }
 
 type holderReply struct {
@@ -198,7 +140,7 @@ func (h *Holder) event(m HolderMsg, fds []int) error {
 		return nil
 	}
 	if h.listener == nil {
-		return closeAll(fds)
+		return fdmsg.CloseAll(fds)
 	}
 	d := Device{Major: m.Major, Minor: m.Minor}
 	switch m.Op {
@@ -216,7 +158,7 @@ func (h *Holder) event(m HolderMsg, fds []int) error {
 	case OpSleep:
 		return h.listener.PrepareForSleep(m.On)
 	}
-	return closeAll(fds)
+	return fdmsg.CloseAll(fds)
 }
 
 func (h *Holder) call(m HolderMsg, fds ...int) (HolderMsg, []int, error) {

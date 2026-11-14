@@ -11,6 +11,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var (
+	ErrBodyTruncated = errors.New("message truncated")
+	ErrFDsTruncated  = errors.New("passed fds truncated")
+)
+
 func Send(fd int, m any, fds ...int) error {
 	body, err := json.Marshal(m)
 	if err != nil {
@@ -61,9 +66,9 @@ func Recv[T any](r *Receiver) (T, []int, error) {
 		}
 		switch {
 		case flags&unix.MSG_TRUNC != 0:
-			return m, nil, errors.Join(fmt.Errorf("fdmsg: a %T did not fit %d bytes", m, len(r.body)), CloseAll(fds))
+			return m, nil, errors.Join(fmt.Errorf("fdmsg: a %T did not fit %d bytes: %w", m, len(r.body), ErrBodyTruncated), CloseAll(fds))
 		case flags&unix.MSG_CTRUNC != 0:
-			return m, nil, errors.Join(fmt.Errorf("fdmsg: a %T came with more fds than its %d bytes of control space", m, len(r.oob)), CloseAll(fds))
+			return m, nil, errors.Join(fmt.Errorf("fdmsg: a %T came with more fds than its %d bytes of control space hold: %w", m, len(r.oob), ErrFDsTruncated), CloseAll(fds))
 		}
 		if err := json.Unmarshal(r.body[:n], &m); err != nil {
 			return m, nil, errors.Join(fmt.Errorf("fdmsg: decode %T from %q: %w", m, r.body[:n], err), CloseAll(fds))
