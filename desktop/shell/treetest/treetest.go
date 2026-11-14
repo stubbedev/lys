@@ -31,7 +31,7 @@ var Loop sync.Mutex
 // a speed bound. The first surface of a test binary compiles the whole
 // stylesheet bundle, which the race detector under a parallel test run
 // stretches past a couple of seconds.
-const Liveness = 10 * time.Second
+const Liveness = 2 * time.Minute
 
 // Walk visits w and every descendant, depth first: a hidden
 // revealer's content too, which its Children leave out.
