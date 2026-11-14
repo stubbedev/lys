@@ -21,17 +21,16 @@ const (
 	locale1Name  = "org.freedesktop.locale1"
 	locale1Path  = dbus.ObjectPath("/org/freedesktop/locale1")
 	propsGetAll  = "org.freedesktop.DBus.Properties.GetAll"
-	BusTimeout   = 2 * time.Second
+	busTimeout   = 2 * time.Second
 	XorgConf     = "/etc/X11/xorg.conf.d/00-keyboard.conf"
 	VconsoleConf = "/etc/vconsole.conf"
 )
 
 type Sources struct {
-	Timeout        time.Duration
 	Xorg, Vconsole string
 }
 
-var System = Sources{Timeout: BusTimeout, Xorg: XorgConf, Vconsole: VconsoleConf}
+var System = Sources{Xorg: XorgConf, Vconsole: VconsoleConf}
 
 type Reading struct {
 	Names xkb.Names
@@ -39,7 +38,7 @@ type Reading struct {
 }
 
 func (s Sources) Read(localedFailed func(error)) (Reading, error) {
-	names, err := fromLocaled(s.Timeout)
+	names, err := fromLocaled()
 	if err == nil {
 		return Reading{Names: names, From: locale1Name}, nil
 	}
@@ -64,10 +63,10 @@ func (s Sources) Read(localedFailed func(error)) (Reading, error) {
 	return r, nil
 }
 
-func fromLocaled(timeout time.Duration) (xkb.Names, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func fromLocaled() (xkb.Names, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), busTimeout)
 	defer cancel()
-	conn, err := dbusx.DialSystem(ctx, timeout)
+	conn, err := dbusx.DialSystem(ctx, busTimeout)
 	if err != nil {
 		return xkb.Names{}, fmt.Errorf("keyboard: %w", err)
 	}

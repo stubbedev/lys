@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys-lib/xkb"
 
@@ -15,7 +14,7 @@ import (
 func sources(t *testing.T, xorg, vconsole string) keyboard.Sources {
 	t.Helper()
 	dir := t.TempDir()
-	s := keyboard.Sources{Timeout: 2 * time.Second, Xorg: filepath.Join(dir, "00-keyboard.conf"), Vconsole: filepath.Join(dir, "vconsole.conf")}
+	s := keyboard.Sources{Xorg: filepath.Join(dir, "00-keyboard.conf"), Vconsole: filepath.Join(dir, "vconsole.conf")}
 	for path, text := range map[string]string{s.Xorg: xorg, s.Vconsole: vconsole} {
 		if text == "" {
 			continue

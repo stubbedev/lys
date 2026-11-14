@@ -485,7 +485,7 @@ func greeterKiosk(t *testing.T, o Options) kioskKeyboard {
 func keyboardOptions(t *testing.T, xorg string) Options {
 	t.Helper()
 	dir := t.TempDir()
-	o := Options{Keyboard: keyboard.Sources{Timeout: keyboard.BusTimeout, Xorg: filepath.Join(dir, "00-keyboard.conf"), Vconsole: filepath.Join(dir, "vconsole.conf")}}
+	o := Options{Keyboard: keyboard.Sources{Xorg: filepath.Join(dir, "00-keyboard.conf"), Vconsole: filepath.Join(dir, "vconsole.conf")}}
 	if xorg != "" {
 		if err := os.WriteFile(o.Keyboard.Xorg, []byte(xorg), 0o600); err != nil {
 			t.Fatal(err)
