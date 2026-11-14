@@ -293,13 +293,15 @@ type focusOptOut interface{ focusable() bool }
 // none or visibility: hidden takes no focus, the same as a disabled
 // one.
 func isFocusable(w Widget) bool {
+	return takesFocus(w) && IsEnabled(w) && rendered(w)
+}
+
+func takesFocus(w Widget) bool {
 	if _, ok := w.(KeyActionHandler); !ok {
 		return false
 	}
-	if o, ok := w.(focusOptOut); ok && !o.focusable() {
-		return false
-	}
-	return IsEnabled(w) && rendered(w)
+	o, ok := w.(focusOptOut)
+	return !ok || o.focusable()
 }
 
 // FirstFocusable is the first widget of w's tree, w included, in

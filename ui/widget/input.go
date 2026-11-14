@@ -192,7 +192,7 @@ func isControl(w Widget) bool {
 // Arrange, so call it on an arranged tree.
 func IsEnabled(w Widget) bool {
 	for w != nil {
-		if e, ok := w.(interface{ Enabled() bool }); ok && !e.Enabled() {
+		if !ownEnabled(w) {
 			return false
 		}
 		p, ok := w.(interface{ Parent() Widget })
@@ -202,6 +202,11 @@ func IsEnabled(w Widget) bool {
 		w = p.Parent()
 	}
 	return true
+}
+
+func ownEnabled(w Widget) bool {
+	e, ok := w.(interface{ Enabled() bool })
+	return !ok || e.Enabled()
 }
 
 // HoverMover receives pointer motion while the widget is hovered, even
@@ -1256,12 +1261,7 @@ func (r *Router) FocusPrev() { r.focusStep(-1) }
 // unfocusable since it was set moves to the next focusable first.
 func (r *Router) focusStep(dir int) {
 	r.dropUnfocusable()
-	var order []Widget
-	focusWalker(r.focusScope(), func(w Widget) {
-		if tabStop(w) {
-			order = append(order, w)
-		}
-	})
+	order := appendTabStops(nil, r.focusScope())
 	if len(order) == 0 {
 		return
 	}
@@ -1314,6 +1314,38 @@ func groupOf(w Widget) Widget {
 // tabStop reports whether Tab lands on w: focusable, and not inside a
 // focus group, which is its rows' one stop.
 func tabStop(w Widget) bool { return isFocusable(w) && groupOf(w) == nil }
+
+// appendTabStops appends the widgets of scope's tree that are tab stops
+// (tabStop), in paint order. A hidden or disabled container hides or
+// disables its whole subtree, so the walk skips one without visiting
+// it, and each widget is tested once rather than with all its
+// ancestors, and only when it could be a stop or holds children.
+func appendTabStops(order []Widget, scope Widget) []Widget {
+	if p := parentOf(scope); p != nil && (!IsEnabled(p) || !IsVisible(p)) {
+		return order
+	}
+	return appendTabStopsUnder(order, scope, groupOf(scope) != nil)
+}
+
+func appendTabStopsUnder(order []Widget, w Widget, inGroup bool) []Widget {
+	checked, open := false, false
+	passes := func() bool {
+		if !checked {
+			checked, open = true, ownEnabled(w) && ownVisible(w)
+		}
+		return open
+	}
+	if !inGroup && takesFocus(w) && passes() && shown(w) {
+		order = append(order, w)
+	}
+	_, group := w.(focusGroup)
+	walkTreeStack.each(func(kids []Widget) []Widget { return appendKids(w, kids) }, func(k Widget) {
+		if passes() {
+			order = appendTabStopsUnder(order, k, inGroup || group)
+		}
+	})
+	return order
+}
 
 // FocusTrapper is a widget that can hold Tab traversal inside a part
 // of itself: a modal sheet over the content. FocusTrap returns that
