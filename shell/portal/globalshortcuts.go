@@ -95,15 +95,64 @@ type globalShortcuts struct {
 	mu   sync.Mutex
 	dev  shortcutDevice
 	regs map[string]*registration
+
+	life    context.Context
+	end     context.CancelFunc
+	pending int
+	idle    *sync.Cond
 }
 
 func newGlobalShortcuts(conn *dbus.Conn, s *sessions, storePath string, start func(shortcutEvents) (shortcutDevice, error)) *globalShortcuts {
 	started := time.Now()
-	return &globalShortcuts{
+	life, end := context.WithCancel(context.Background())
+	g := &globalShortcuts{
 		conn: conn, sessions: s, start: start, storePath: storePath,
 		now:  func() uint64 { return intconv.Clamp[uint64](time.Since(started).Milliseconds()) },
 		regs: map[string]*registration{},
+		life: life, end: end,
 	}
+	g.idle = sync.NewCond(&g.mu)
+	return g
+}
+
+var errShortcutsStopped = errors.New("global shortcuts: the portal is stopping")
+
+func (g *globalShortcuts) background(fn func()) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.life.Err() != nil {
+		return errShortcutsStopped
+	}
+	g.pending++
+	go func() {
+		defer g.finished()
+		fn()
+	}()
+	return nil
+}
+
+func (g *globalShortcuts) finished() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.pending--
+	if g.pending == 0 {
+		g.idle.Broadcast()
+	}
+}
+
+func (g *globalShortcuts) waitIdle() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	for g.pending > 0 {
+		g.idle.Wait()
+	}
+}
+
+func (g *globalShortcuts) close() {
+	g.mu.Lock()
+	g.end()
+	g.mu.Unlock()
+	g.waitIdle()
 }
 
 func (g *globalShortcuts) iface() dbusx.Interface {
@@ -536,7 +585,9 @@ func (o globalShortcutsObject) ConfigureShortcuts(session dbus.ObjectPath, paren
 	if dev, err := o.g.device(); err == nil {
 		if dev, hotkeys := dev.(hotkeyDevice); hotkeys {
 			if len(list) > 0 {
-				go o.g.configureHotkeys(dev, caller, s, list)
+				if err := o.g.background(func() { o.g.configureHotkeys(dev, caller, s, list) }); err != nil {
+					return dbusx.Failed(err.Error())
+				}
 				return nil
 			}
 			subtitle = ""
@@ -546,8 +597,8 @@ func (o globalShortcutsObject) ConfigureShortcuts(session dbus.ObjectPath, paren
 	if len(list) > 0 {
 		body = shortcutLines(ownerOf(s).name, list)
 	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), configureDialogTimeout)
+	if err := o.g.background(func() {
+		ctx, cancel := context.WithTimeout(o.g.life, configureDialogTimeout)
 		defer cancel()
 		_, _, err := portaldialogs.NewClient(o.g.conn).Access(ctx, caller, portaldialogs.AccessRequest{
 			Title: shortcutsTitle, Subtitle: subtitle,
@@ -556,7 +607,9 @@ func (o globalShortcutsObject) ConfigureShortcuts(session dbus.ObjectPath, paren
 		if err != nil {
 			warnf("global shortcuts: configure dialog: %v", err)
 		}
-	}()
+	}); err != nil {
+		return dbusx.Failed(err.Error())
+	}
 	return nil
 }
 

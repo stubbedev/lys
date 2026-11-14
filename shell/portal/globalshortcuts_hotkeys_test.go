@@ -107,8 +107,6 @@ func triggers(list []shortcut) []string {
 	return out
 }
 
-// activations are the shortcut ids of the Activated signals of a short
-// wait.
 func (r *rig) activations(t *testing.T) []string {
 	t.Helper()
 	var ids []string
@@ -266,6 +264,60 @@ func TestHotkeysConfigureRebinds(t *testing.T) {
 	}
 }
 
+func TestHotkeysAConfigureIsKeptBeforeTheBackendStops(t *testing.T) {
+	r, f, d, store := hotkeysRig(t)
+	r.shortcutSession(t, sessA)
+	r.bind(t, sessA, preferring("screenshot", "Take a screenshot", "CTRL+ALT+p"))
+	d.editor.Store(func(int) (map[string]string, bool) { return map[string]string{"screenshot": "Super+F9"}, true })
+	if err := r.obj.Call(GlobalShortcutsIface+".ConfigureShortcuts", 0, sessA, "", Vardict{}).Err; err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool { return f.bound.Load()[shortcutKey("org.app", "screenshot")] == "Super+F9" })
+	r.backend.shortcuts.close()
+	kept, err := permissions.ReadShortcuts(store)
+	if err != nil || len(kept["org.app"]) != 1 || kept["org.app"][0].Trigger != "Super+F9" {
+		t.Errorf("once the backend stopped the store keeps %v, %v; want the configured trigger", kept, err)
+	}
+}
+
+func TestHotkeysAConfigureLeftUpEndsWithTheBackend(t *testing.T) {
+	r, _, d, store := hotkeysRig(t)
+	r.shortcutSession(t, sessA)
+	r.bind(t, sessA, preferring("screenshot", "Take a screenshot", "CTRL+ALT+p"))
+	shown, release := make(chan struct{}), make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	d.editor.Store(func(int) (map[string]string, bool) {
+		close(shown)
+		<-release
+		return map[string]string{"screenshot": "Super+F9"}, true
+	})
+	if err := r.obj.Call(GlobalShortcutsIface+".ConfigureShortcuts", 0, sessA, "", Vardict{}).Err; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-shown:
+	case <-time.After(hangGuard):
+		t.Fatal("the configure editor never showed")
+	}
+	closed := make(chan struct{})
+	go func() {
+		r.backend.shortcuts.close()
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(hangGuard):
+		t.Fatal("the backend's stop waited on a configure dialog left up")
+	}
+	kept, err := permissions.ReadShortcuts(store)
+	if err != nil || len(kept["org.app"]) != 1 || kept["org.app"][0].Trigger != "Ctrl+Alt+P" {
+		t.Errorf("a dialog cut short by the stop changed the store to %v, %v", kept, err)
+	}
+	if err := r.obj.Call(GlobalShortcutsIface+".ConfigureShortcuts", 0, sessA, "", Vardict{}).Err; err == nil {
+		t.Error("a configure after the stop was taken")
+	}
+}
+
 // A second session of the app binds its kept triggers with no dialog,
 // and they fire.
 func TestHotkeysASecondSessionNeedsNoDialog(t *testing.T) {
@@ -373,20 +425,7 @@ func TestConfigBindsStoreNoTrigger(t *testing.T) {
 	}
 }
 
-// shortcutsChanged collects the ShortcutsChanged signals of a short
-// wait.
 func (r *rig) shortcutsChanged(t *testing.T) []*dbus.Signal {
 	t.Helper()
-	var out []*dbus.Signal
-	deadline := time.After(500 * time.Millisecond)
-	for {
-		select {
-		case s := <-r.signals:
-			if s.Name == GlobalShortcutsIface+".ShortcutsChanged" {
-				out = append(out, s)
-			}
-		case <-deadline:
-			return out
-		}
-	}
+	return r.settled(t, GlobalShortcutsIface+".ShortcutsChanged")
 }

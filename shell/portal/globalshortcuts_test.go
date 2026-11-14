@@ -96,20 +96,42 @@ func shortcutIDs(list []shortcut) []string {
 	return ids
 }
 
-// shortcutSignals collects the Activated / Deactivated signals of a
-// short wait.
 func (r *rig) shortcutSignals(t *testing.T) []*dbus.Signal {
 	t.Helper()
+	return r.settled(t, GlobalShortcutsIface+".Activated", GlobalShortcutsIface+".Deactivated")
+}
+
+const settledSignal = "dev.stubbe.lys.test.Settled"
+
+const hangGuard = 2 * time.Minute
+
+func (r *rig) settled(t *testing.T, names ...string) []*dbus.Signal {
+	t.Helper()
+	worked := make(chan struct{})
+	go func() {
+		r.backend.shortcuts.waitIdle()
+		close(worked)
+	}()
+	select {
+	case <-worked:
+	case <-time.After(hangGuard):
+		t.Fatalf("the global shortcuts' work still runs after %s", hangGuard)
+	}
+	if err := r.backend.conn.Emit(ObjectPath, settledSignal); err != nil {
+		t.Fatalf("emit %s: %v", settledSignal, err)
+	}
 	var out []*dbus.Signal
-	deadline := time.After(200 * time.Millisecond)
 	for {
 		select {
 		case s := <-r.signals:
-			if s.Name == GlobalShortcutsIface+".Activated" || s.Name == GlobalShortcutsIface+".Deactivated" {
+			if s.Name == settledSignal {
+				return out
+			}
+			if slices.Contains(names, s.Name) {
 				out = append(out, s)
 			}
-		case <-deadline:
-			return out
+		case <-time.After(hangGuard):
+			t.Fatalf("%s never arrived after %s", settledSignal, hangGuard)
 		}
 	}
 }
@@ -337,7 +359,7 @@ func TestGlobalShortcutsCloseWhenTheLoopEnds(t *testing.T) {
 // waitFor polls cond until it holds, failing after two seconds.
 func waitFor(t *testing.T, cond func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(2 * time.Second); !cond(); time.Sleep(5 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); !cond(); time.Sleep(5 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("condition never held")
 		}

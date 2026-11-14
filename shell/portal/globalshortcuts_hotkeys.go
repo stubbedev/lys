@@ -323,7 +323,7 @@ func (g *globalShortcuts) configureHotkeys(dev hotkeyDevice, caller portaldialog
 		was[sc.ID] = triggerOf(sc.ID)
 		rows[i] = portaldialogs.ShortcutRow{ID: sc.ID, Description: shownAs(sc), Trigger: was[sc.ID]}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), configureDialogTimeout)
+	ctx, cancel := context.WithTimeout(g.life, configureDialogTimeout)
 	defer cancel()
 	dialogs := portaldialogs.NewClient(g.conn)
 	if _, err := g.editTriggers(dev, s.path, owner, rows, func(rows []portaldialogs.ShortcutRow) ([]portaldialogs.ShortcutTrigger, bool) {

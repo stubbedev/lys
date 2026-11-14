@@ -135,6 +135,7 @@ func (b *Backend) Serve() (stop func(), err error) {
 	unwatch := b.settings.watch(b.conn)
 	unwatchLockdown := lockdown{b.cfg}.watch(b.conn)
 	return func() {
+		b.shortcuts.close()
 		unwatchLockdown()
 		unwatch()
 		unforward()
