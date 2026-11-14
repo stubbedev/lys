@@ -546,7 +546,7 @@ func startCPUProfile(path string) (func() error, error) {
 	}, nil
 }
 
-func openFrameTrace(path string, kind backendKind, renderer rendererKind, b backend.Backend, report func(error)) (*frametrace.Recorder, error) {
+func openFrameTrace(path string, kind backendKind, renderer rendererKind, b backend.Backend, now func() time.Duration, report func(error)) (*frametrace.Recorder, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -557,7 +557,7 @@ func openFrameTrace(path string, kind backendKind, renderer rendererKind, b back
 	}
 	h := frametrace.Header{Backend: kind.String(), Renderer: renderer.String(), Device: named.DeviceName(), Software: render.SoftwareDevice(named.DeviceName()), Vsync: kind == drmBackend}
 	sync, _ := r.(frametrace.Sync)
-	return frametrace.Create(path, h, sync, frametrace.Clock{Now: loop.Monotonic, Signal: kdrm.SyncFileSignalTime}, report)
+	return frametrace.Create(path, h, sync, frametrace.Clock{Now: now, Signal: kdrm.SyncFileSignalTime}, report)
 }
 
 func run(args []string) (err error) {
@@ -692,11 +692,11 @@ func run(args []string) (err error) {
 	}
 	cfg.Hooks.SwitchVT, cfg.Hooks.Lid, s.configureInput = b.switchVT, b.lid, b.configureInput
 	cfg.LidClosedAtStart = b.lidClosed
-	cfg.Hooks.OpenFrameTrace = func(path string) (*frametrace.Recorder, error) {
-		return openFrameTrace(path, kind, renderer, b, cfg.Report)
+	cfg.Hooks.OpenFrameTrace = func(path string, now func() time.Duration) (*frametrace.Recorder, error) {
+		return openFrameTrace(path, kind, renderer, b, now, cfg.Report)
 	}
 	defer leave(func() error { return b.Close() })
-	frames, err := openFrameTrace(*framesPath, kind, renderer, b, cfg.Report)
+	frames, err := openFrameTrace(*framesPath, kind, renderer, b, l.Now, cfg.Report)
 	if err != nil {
 		return err
 	}

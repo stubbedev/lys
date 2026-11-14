@@ -169,7 +169,7 @@ func (c *Compositor) startDebugTrace(path string) error {
 	if c.hooks.OpenFrameTrace == nil {
 		return errors.New("compositor: this lys-wm cannot record a frame trace")
 	}
-	r, err := c.hooks.OpenFrameTrace(path)
+	r, err := c.hooks.OpenFrameTrace(path, c.clock)
 	if err != nil {
 		return fmt.Errorf("compositor: start the frame trace %s: %w", path, err)
 	}

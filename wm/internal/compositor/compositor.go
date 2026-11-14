@@ -115,7 +115,7 @@ type Hooks struct {
 	ParseProp      func(key, value string) (wm.Decision, error)
 	Exit           func() error
 	SwitchVT       func(vt uint32) error
-	OpenFrameTrace func(path string) (*frametrace.Recorder, error)
+	OpenFrameTrace func(path string, now func() time.Duration) (*frametrace.Recorder, error)
 	Lid            LidPolicy
 	Spawner        *spawn.Spawner
 }
