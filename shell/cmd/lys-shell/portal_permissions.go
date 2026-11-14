@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"text/tabwriter"
 
 	"github.com/stubbedev/lys-desktop/portal/permissions"
@@ -46,10 +49,14 @@ func withPermissions(run func(context.Context, *cli.Matches, permissions.Store) 
 			return cliMessage("Failed to connect to D-Bus session bus: " + err.Error())
 		}
 		defer func() { _ = conn.Close() }()
-		ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+		ctx, cancel := permissionsContext()
 		defer cancel()
 		return run(ctx, m, permissions.Store{Conn: conn, ShortcutsPath: permissions.ShortcutsPath()})
 	}
+}
+
+func permissionsContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
 
 func permissionsList(ctx context.Context, m *cli.Matches, s permissions.Store) error {

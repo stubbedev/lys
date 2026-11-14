@@ -74,3 +74,11 @@ func TestPortalPermissionsRevoke(t *testing.T) {
 		t.Errorf("an unknown table = %d %q, want a parse error", code, stderr)
 	}
 }
+
+func TestPortalPermissionsWaitOnTheStoreWithoutAClock(t *testing.T) {
+	ctx, cancel := permissionsContext()
+	defer cancel()
+	if deadline, ok := ctx.Deadline(); ok {
+		t.Errorf("the permission commands give up at %v: a store busy writing its database fails them", deadline)
+	}
+}
