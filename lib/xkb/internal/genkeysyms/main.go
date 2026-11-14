@@ -23,6 +23,7 @@ import (
 
 	"github.com/ebitengine/purego"
 
+	"github.com/stubbedev/lys-lib/atomicfile"
 	"github.com/stubbedev/lys-lib/clib"
 )
 
@@ -319,11 +320,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("genkeysyms: %v", err)
 	}
-	tmp := *out + ".tmp"
-	if err := os.WriteFile(tmp, text, 0o644); err != nil { //nolint:gosec // a source file
-		log.Fatalf("genkeysyms: %v", err)
-	}
-	if err := os.Rename(tmp, *out); err != nil {
+	if err := atomicfile.WriteFile(*out, text, 0o644); err != nil {
 		log.Fatalf("genkeysyms: %v", err)
 	}
 }
