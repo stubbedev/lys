@@ -326,7 +326,7 @@ func TestClosingTheFocusedWindowFocusesTheOneUnderThePointer(t *testing.T) {
 	c := r.window("c")
 	r.moveTo(centre(r.rect("a")))
 	r.wantFocus("c", "with hover focus off")
-	if err := errors.Join(c.Toplevel.Destroy(), c.Surface.Destroy()); err != nil {
+	if err := c.Destroy(); err != nil {
 		t.Fatal(err)
 	}
 	r.c.Sync()
