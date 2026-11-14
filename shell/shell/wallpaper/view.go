@@ -83,6 +83,7 @@ type shown struct {
 type view struct {
 	widget.Base
 	cur, prev *shown
+	painted   func()
 	kind      TransitionKind
 	// progress runs 0 -> 1 over a transition; at 1 prev is dropped.
 	progress float64
@@ -205,6 +206,10 @@ func (v *view) Paint(cv *render.Canvas) {
 	}
 	if v.cur == nil {
 		return
+	}
+	if painted := v.painted; painted != nil {
+		v.painted = nil
+		painted()
 	}
 	if v.prev == nil || v.kind != TransitionCrossfade {
 		widget.PaintChild(cv, v.cur.pic)

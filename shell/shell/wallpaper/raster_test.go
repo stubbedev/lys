@@ -116,7 +116,7 @@ type harness struct {
 	// compositor-side close.
 	refuseLayers bool
 	opened       map[string]int
-	onPresented  map[string]func()
+	paint        map[string]func()
 	closed       map[string]int
 	onClosed     map[string]func()
 	ticks        map[string]func()
@@ -131,7 +131,7 @@ func newHarness(t *testing.T, kind config.AnimationType, monitors ...string) *ha
 		t: t, dir: files(t, "a.png", "b.png", "c.png"),
 		decodable: map[string]bool{}, decodes: map[string]int{},
 		closed: map[string]int{}, onClosed: map[string]func(){}, ticks: map[string]func(){},
-		opened: map[string]int{}, onPresented: map[string]func(){},
+		opened: map[string]int{}, paint: map[string]func(){},
 	}
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, photo(120, 80), nil); err != nil {
@@ -157,9 +157,14 @@ func newHarness(t *testing.T, kind config.AnimationType, monitors ...string) *ha
 			}
 			h.onClosed[name] = c.OnClosed
 			h.opened[name]++
-			h.onPresented[name] = c.OnPresented
+			if c.OnPresented != nil {
+				h.t.Errorf("the wallpaper layer of %s waits for a presentation the compositor withholds from a hidden surface", name)
+			}
+			root := c.Root.(*view)
+			h.paint[name] = func() { paintView(root, 64, 36) }
 			return func() { h.closed[name]++ }, nil
 		},
+		invoke: func(fn func()) { fn() },
 		every: func(_ time.Duration, fn func()) func() {
 			name := h.tickingOutput()
 			h.ticks[name] = fn

@@ -47,6 +47,7 @@ type frameWaiter struct{ done func() }
 type loop struct {
 	newLayer func(app.LayerConfig) (closeLayer func(), err error)
 	every    func(d time.Duration, fn func()) (cancel func())
+	invoke   func(fn func())
 }
 
 // appLoop is the application's loop.
@@ -59,7 +60,8 @@ func appLoop(application *app.Application) loop {
 			}
 			return layer.Close, nil
 		},
-		every: application.Every,
+		every:  application.Every,
+		invoke: application.Invoke,
 	}
 }
 
@@ -310,7 +312,8 @@ func (s *Shell) reconcile() {
 }
 
 // AwaitFirstFrame runs done on the loop once out's wallpaper has
-// presented a frame: at once when it has, or when out is left with no
+// painted its first frame, so a surface committed after it lands over
+// the wallpaper: at once when it has, or when out is left with no
 // wallpaper to wait for. cancel drops done unrun.
 func (s *Shell) AwaitFirstFrame(out *app.Output, done func()) (cancel func()) {
 	if surf, ok := s.surfaces[out.Name]; ok && surf.out == out && surf.shown {
@@ -337,7 +340,7 @@ func (s *Shell) release(out *app.Output) {
 	}
 }
 
-func (s *Shell) presented(surf *surface) {
+func (s *Shell) painted(surf *surface) {
 	if surf.dropped {
 		return
 	}
@@ -365,7 +368,9 @@ type surface struct {
 }
 
 func (s *Shell) newSurface(name string, out *app.Output) *surface {
-	return &surface{shell: s, name: name, out: out, view: newView()}
+	surf := &surface{shell: s, name: name, out: out, view: newView()}
+	surf.view.painted = func() { s.ui.invoke(func() { s.painted(surf) }) }
+	return surf
 }
 
 func (surf *surface) openLayer() {
@@ -379,7 +384,6 @@ func (surf *surface) openLayer() {
 		Namespace:     "lys-shell-wallpaper",
 		Root:          surf.view,
 		Background:    backdrop,
-		OnPresented:   func() { s.presented(surf) },
 		OnClosed: func() {
 			// The output went away (or the compositor closed us): the
 			// next reconcile rebuilds it if the monitor is still known.

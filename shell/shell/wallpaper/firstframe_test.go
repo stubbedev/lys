@@ -67,7 +67,7 @@ func TestADecodingImageShowsTheBuiltinUntilItLands(t *testing.T) {
 	}
 	builtin := r.liveBuiltin("DP-1")
 	r.wantDone("DP-1", 0, "built-in not presented yet")
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	r.wantDone("DP-1", 1, "built-in presented")
 	r.queued = decode
 	r.run()
@@ -105,19 +105,19 @@ func TestEachOutputIsReleasedByItsOwnFirstFrame(t *testing.T) {
 	r.run()
 	r.wantDone("DP-1", 0, "mapped, nothing presented")
 	r.wantDone("DP-2", 0, "mapped, nothing presented")
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	r.wantDone("DP-1", 1, "DP-1 presented")
 	r.wantDone("DP-2", 0, "DP-1 presented")
-	r.onPresented["DP-2"]()
+	r.paint["DP-2"]()
 	r.wantDone("DP-2", 1, "DP-2 presented")
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	r.wantDone("DP-1", 1, "presented again")
 }
 
 func TestWaitOnAPresentedOutputIsReleasedAtOnce(t *testing.T) {
 	r := startFirstFrame(t, "DP-1")
 	r.run()
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	r.await(r.s.outputs["DP-1"])
 	r.wantDone("DP-1", 2, "a second wait after the first frame")
 }
@@ -125,7 +125,7 @@ func TestWaitOnAPresentedOutputIsReleasedAtOnce(t *testing.T) {
 func TestOutputPluggedAfterItsWaitIsReleasedByItsFirstFrame(t *testing.T) {
 	r := startFirstFrame(t, "DP-1")
 	r.run()
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	late := testOutput("HDMI-A-1", 64, 36)
 	r.await(late)
 	r.s.AddOutput(late)
@@ -135,7 +135,7 @@ func TestOutputPluggedAfterItsWaitIsReleasedByItsFirstFrame(t *testing.T) {
 		t.Fatalf("the plugged output opened %d layers, want 1", r.opened["HDMI-A-1"])
 	}
 	r.wantDone("HDMI-A-1", 0, "mapped, not presented")
-	r.onPresented["HDMI-A-1"]()
+	r.paint["HDMI-A-1"]()
 	r.wantDone("HDMI-A-1", 1, "presented")
 	r.wantDone("DP-1", 1, "another output presented")
 }
@@ -150,7 +150,7 @@ func TestAPluggedOutputsDecodingImageShowsTheBuiltin(t *testing.T) {
 		t.Fatalf("opened %d layers while the image decodes, want the built-in one", r.opened["HDMI-A-1"])
 	}
 	r.liveBuiltin("HDMI-A-1")
-	r.onPresented["HDMI-A-1"]()
+	r.paint["HDMI-A-1"]()
 	r.wantDone("HDMI-A-1", 1, "built-in presented")
 	r.queued = decode
 	r.run()
@@ -183,7 +183,7 @@ func TestUndecodableImageShowsTheBuiltinWithoutWaiting(t *testing.T) {
 	if r.opened["DP-1"] != 1 || r.s.surfaces["DP-1"].view.cur == nil {
 		t.Fatal("an undecodable image left the output empty")
 	}
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	if done != 1 {
 		t.Errorf("the waiter was released %d times, want 1", done)
 	}
@@ -194,10 +194,22 @@ func TestWaitersHoldUntilAFramePresents(t *testing.T) {
 	r.await(r.s.outputs["DP-1"])
 	r.run()
 	r.wantDone("DP-1", 0, "shown, not presented")
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	r.wantDone("DP-1", 2, "presented, both waiters")
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	r.wantDone("DP-1", 2, "presented again")
+}
+
+func TestAFirstFramePaintedUnderALockReleasesTheBar(t *testing.T) {
+	r := startFirstFrame(t, "DP-1", "DP-2")
+	r.run()
+	r.paint["DP-2"]()
+	r.wantDone("DP-2", 1, "DP-2 painted while nothing of it can be presented")
+	r.wantDone("DP-1", 0, "DP-1 not painted")
+	r.paint["DP-1"]()
+	r.wantDone("DP-1", 1, "DP-1 painted")
+	r.await(r.s.outputs["DP-2"])
+	r.wantDone("DP-2", 2, "a bar joining after the first paint")
 }
 
 func TestCancelledWaitIsNeverReleased(t *testing.T) {
@@ -206,7 +218,7 @@ func TestCancelledWaitIsNeverReleased(t *testing.T) {
 	cancel := r.await(late)
 	cancel()
 	r.run()
-	r.onPresented["DP-1"]()
+	r.paint["DP-1"]()
 	r.wantDone("DP-1", 0, "cancelled")
 }
 
