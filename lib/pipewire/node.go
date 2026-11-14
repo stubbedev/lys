@@ -1077,6 +1077,15 @@ func (n *node) queue(slot int, b *buffer) {
 	n.writeSlots(slot, statusHaveData, b.id)
 }
 
+func (n *node) unread(slot int) bool {
+	for i := range n.mixes {
+		if s := n.mixes[i].slots[slot]; s != nil && s.status.Load() == statusHaveData {
+			return true
+		}
+	}
+	return false
+}
+
 // idle tells every link this cycle brings no buffer.
 func (n *node) idle(slot int) { n.writeSlots(slot, statusNeedData, idInvalid) }
 

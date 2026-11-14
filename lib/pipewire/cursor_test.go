@@ -322,3 +322,44 @@ type oversized struct{ *testCursor }
 func (oversized) CursorBitmap(_ uint64, _ []byte, side int) (CursorBitmap, bool) {
 	return CursorBitmap{Format: VideoBGRA, Width: uint32(side + 1), Height: 1, Stride: uint32(side+1) * 4}, true
 }
+
+func TestAConsumerThatMissesTheHidingBufferStillHidesThePointer(t *testing.T) {
+	cur := &testCursor{state: CursorState{Visible: true, X: 3, Y: 4, Shape: 5}}
+	r := newCycleRig(t, &still{})
+	p := r.n.h.(*Producer)
+	p.cursor = &cursorSender{source: cur}
+	cur.wake = func() {}
+	for i := range r.n.buffers {
+		b := &r.n.buffers[i]
+		if err := b.layMeta(metaCursor, 512, cursorMetaSize(8)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	take := func() (cMetaCursor, cMetaBitmap, bool) {
+		s := &r.io[directionOutput^r.pos.clock.cycle.Load()&1]
+		if s.status.Load() != statusHaveData {
+			return cMetaCursor{}, cMetaBitmap{}, false
+		}
+		s.status.Store(statusNeedData)
+		b := r.n.buffers[s.bufferID.Load()]
+		return *b.cursor.head, *b.cursor.bitmap, true
+	}
+	r.run(t)
+	if head, bitmap, ok := take(); !ok || head.id == 0 || bitmap.width != 5 {
+		t.Fatalf("the first buffer carried %+v %+v (%v); want the pointer with its bitmap", head, bitmap, ok)
+	}
+	cur.state.Visible = false
+	r.run(t)
+	for range 4 {
+		r.run(t)
+		head, bitmap, ok := take()
+		if !ok {
+			continue
+		}
+		if head.id == 0 || head.bitmapOffset == 0 || bitmap.width != 0 {
+			t.Fatalf("after a missed hiding buffer the consumer got %+v %+v, want the empty bitmap of a hidden pointer", head, bitmap)
+		}
+		return
+	}
+	t.Fatal("after a missed hiding buffer the consumer got nothing more; it still shows the pointer")
+}

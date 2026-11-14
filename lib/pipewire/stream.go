@@ -473,6 +473,10 @@ func (p *Producer) driveLocked(n *node) (time.Duration, error) {
 	if early := p.early(now); early > 0 {
 		return early, nil
 	}
+	slot, _ := n.cycleSlot()
+	if n.unread(slot) {
+		p.resend()
+	}
 	b := p.frame(n, now)
 	if b == nil {
 		if p.notifies && p.useDmabuf {
@@ -480,7 +484,6 @@ func (p *Producer) driveLocked(n *node) (time.Duration, error) {
 		}
 		return p.interval, nil
 	}
-	slot, _ := n.cycleSlot()
 	n.queue(slot, b)
 	err := n.begin()
 	p.prepare(n)
@@ -495,6 +498,9 @@ func (p *Producer) process(n *node) int32 {
 	slot, ok := n.cycleSlot()
 	if !ok {
 		return statusNeedData
+	}
+	if n.unread(slot) {
+		p.resend()
 	}
 	b := p.frame(n, time.Now())
 	if b == nil {
@@ -585,13 +591,17 @@ func (p *Producer) prepare(n *node) {
 // the stream is ending, tells the source its frames are gone with them.
 func (p *Producer) buffersCleared() {
 	p.pending = nil
-	if p.cursor != nil {
-		p.cursor.reset()
-	}
 	select {
 	case <-p.closing:
 		return
 	default:
+	}
+	p.resend()
+}
+
+func (p *Producer) resend() {
+	if p.cursor != nil {
+		p.cursor.reset()
 	}
 	if r, ok := p.cfg.Source.(Restarter); ok {
 		r.Restart()
