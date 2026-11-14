@@ -559,7 +559,12 @@ func (c *Context) NewKeymapFromBuffer(text []byte, format KeymapFormat) (*Keymap
 		return nil, fmt.Errorf("xkb: compile keymap: unsupported format %d", format)
 	}
 	text = trimNUL(text)
-	file, err := newParsedFile(c, "(input string)", string(text)).defaultMap()
+	s := c.newSession(format)
+	pf, err := s.parseText("(input string)", string(text))
+	if err != nil {
+		return nil, fmt.Errorf("xkb: parse keymap: %w", err)
+	}
+	file, err := pf.defaultMap()
 	if err != nil {
 		c.log(LogError, 0, keymapCompilationFailed, "Failed to parse input xkb string\n")
 		return nil, fmt.Errorf("xkb: parse keymap: %w", err)
@@ -569,7 +574,7 @@ func (c *Context) NewKeymapFromBuffer(text []byte, format KeymapFormat) (*Keymap
 		return nil, fmt.Errorf("xkb: parse keymap: a %s file cannot compile alone into a keymap", file.typ.dir())
 	}
 	m := newKeymap(c, format)
-	if err := m.finish(file, c.newSession(format)); err != nil {
+	if err := m.finish(file, s); err != nil {
 		c.log(LogError, 0, keymapCompilationFailed, "Failed to compile keymap\n")
 		return nil, fmt.Errorf("xkb: compile keymap: %w", err)
 	}
@@ -634,6 +639,7 @@ type session struct {
 	paths  []string
 	raw    map[string]rawFile
 	parsed map[string]*parsedFile
+	ast    *astArenas
 }
 
 type rawFile struct {
@@ -654,13 +660,27 @@ func (s *session) read(path string) ([]byte, error) {
 	return src, err
 }
 
-func (s *session) parse(path string, src []byte) *parsedFile {
-	pf, ok := s.parsed[path]
-	if !ok {
-		pf = newParsedFile(s.Context, path, unsafe.String(unsafe.SliceData(src), len(src))) //nolint:gosec // the session keeps src and never writes to it
-		s.parsed[path] = pf
+func (s *session) parse(path string, src []byte) (*parsedFile, error) {
+	if pf, ok := s.parsed[path]; ok {
+		return pf, nil
 	}
-	return pf
+	pf, err := s.parseText(path, unsafe.String(unsafe.SliceData(src), len(src))) //nolint:gosec // the session keeps src and never writes to it
+	if err != nil {
+		return nil, err
+	}
+	s.parsed[path] = pf
+	return pf, nil
+}
+
+func (s *session) parseText(name, src string) (*parsedFile, error) {
+	if s.ast == nil {
+		ast, err := newASTArenas()
+		if err != nil {
+			return nil, err
+		}
+		s.ast = ast
+	}
+	return newParsedFile(s.Context, s.ast, name, src), nil
 }
 
 func (s *session) processInclude(stmt includeStmt, typ fileType) (*xkbFile, error) {
@@ -691,7 +711,10 @@ func (s *session) processInclude(stmt includeStmt, typ fileType) (*xkbFile, erro
 			continue
 		}
 		found = true
-		pf := s.parse(path, src)
+		pf, err := s.parse(path, src)
+		if err != nil {
+			return nil, err
+		}
 		var f *xkbFile
 		if stmt.mapName != "" {
 			f, err = pf.named(stmt.mapName)

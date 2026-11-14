@@ -328,7 +328,7 @@ func setModsField(format KeymapFormat, handler actionType, mods *modSet, a *acti
 		if index != nil {
 			return errNotArray
 		}
-		if id, ok := value.(exprIdent); ok {
+		if id, ok := value.(*exprIdent); ok {
 			if n := strings.ToLower(id.name); n == "usemodmapmods" || n == "modmapmods" {
 				a.mods = 0
 				a.flags |= flagLookupModmap

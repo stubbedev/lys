@@ -209,7 +209,7 @@ func (info *keycodesInfo) handleFile(f *xkbFile) error {
 		switch v := d.(type) {
 		case includeDecl:
 			err = info.handleInclude(v)
-		case keycodeDecl:
+		case *keycodeDecl:
 			if v.value < 0 || v.value > keycodeMax {
 				err = fmt.Errorf("illegal keycode %d for <%s>", v.value, v.name)
 				break

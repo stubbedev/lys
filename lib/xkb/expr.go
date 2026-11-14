@@ -44,12 +44,12 @@ type lhs struct {
 
 func resolveLhs(e expr) (lhs, error) {
 	switch v := e.(type) {
-	case exprIdent:
+	case *exprIdent:
 		return lhs{field: v.name}, nil
 	case exprField:
 		return lhs{elem: v.elem, field: v.field}, nil
-	case exprArray:
-		return lhs(v), nil
+	case *exprArray:
+		return lhs(*v), nil
 	}
 	return lhs{}, fmt.Errorf("%T is not assignable", e)
 }
@@ -58,7 +58,7 @@ func resolveBoolean(e expr) (bool, error) {
 	switch v := e.(type) {
 	case exprBool:
 		return v.value, nil
-	case exprIdent:
+	case *exprIdent:
 		switch strings.ToLower(v.name) {
 		case "true", "yes", "on":
 			return true, nil
@@ -79,7 +79,7 @@ func resolveInteger(e expr, lookup identLookup) (int64, error) {
 	switch v := e.(type) {
 	case exprInt:
 		return v.value, nil
-	case exprIdent:
+	case *exprIdent:
 		if lookup != nil {
 			if u, ok := lookup(v.name); ok {
 				return int64(u), nil
@@ -189,7 +189,7 @@ func resolveString(e expr) (string, error) {
 }
 
 func resolveEnum(e expr, table []lookupEntry) (uint32, error) {
-	v, ok := e.(exprIdent)
+	v, ok := e.(*exprIdent)
 	if !ok {
 		return 0, codedf(codeWrongFieldType, "found %T where an enumerated value was expected", e)
 	}
@@ -207,7 +207,7 @@ func resolveMask(e expr, lookup identLookup) (uint32, error) {
 			return 0, fmt.Errorf("mask %d is out of range", v.value)
 		}
 		return uint32(v.value), nil
-	case exprIdent:
+	case *exprIdent:
 		value, ok := lookup(v.name)
 		if !ok {
 			return 0, codedf(codeInvalidIdentifier, "identifier %q of type mask is unknown", v.name)
@@ -262,7 +262,7 @@ func resolveModMask(e expr, typ modType, mods *modSet) (uint32, error) {
 }
 
 func resolveVirtualMod(e expr, mods *modSet) (uint32, error) {
-	v, ok := e.(exprIdent)
+	v, ok := e.(*exprIdent)
 	if !ok {
 		return 0, codedf(codeWrongFieldType, "found %T where a virtual modifier name was expected", e)
 	}

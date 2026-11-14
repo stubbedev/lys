@@ -1,9 +1,12 @@
 package xkb
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/stubbedev/memory-go/heapslab"
 )
 
 type fileType uint8
@@ -136,12 +139,12 @@ type ledNameDecl struct {
 
 func (varDecl) isDecl()         {}
 func (includeDecl) isDecl()     {}
-func (keycodeDecl) isDecl()     {}
+func (*keycodeDecl) isDecl()    {}
 func (aliasDecl) isDecl()       {}
 func (vmodDecl) isDecl()        {}
 func (interpDecl) isDecl()      {}
 func (typeDecl) isDecl()        {}
-func (symbolsDecl) isDecl()     {}
+func (*symbolsDecl) isDecl()    {}
 func (modMapDecl) isDecl()      {}
 func (groupCompatDecl) isDecl() {}
 func (ledMapDecl) isDecl()      {}
@@ -185,8 +188,7 @@ type (
 type parser struct {
 	declScratch  [1]decl
 	levelScratch []levelItem
-	syms         chunk[Keysym]
-	symLists     chunk[exprKeysymList]
+	ast          *astArenas
 	ctx          *Context
 	exprDepth    int
 	lex          *lexer
@@ -194,12 +196,12 @@ type parser struct {
 	next         token
 }
 
-func newParser(c *Context, name, src string) (*parser, error) {
+func newParser(c *Context, ast *astArenas, name, src string) (*parser, error) {
 	src = strings.TrimPrefix(src, "\xef\xbb\xbf")
 	if len(src) > 0 && (src[0] >= 0x80 || src[0] == 0) && !strings.HasPrefix(src, "\u200e") && !strings.HasPrefix(src, "\u200f") {
 		return nil, fmt.Errorf("%s: the file encoding is not backward compatible with ASCII", name)
 	}
-	p := &parser{ctx: c, lex: newLexer(c, name, src)}
+	p := &parser{ctx: c, ast: ast, lex: newLexer(c, name, src)}
 	var err error
 	if p.tok, err = p.lex.next(); err != nil {
 		return nil, err
@@ -250,9 +252,9 @@ type parsedFile struct {
 	finished bool
 }
 
-func newParsedFile(c *Context, name, src string) *parsedFile {
+func newParsedFile(c *Context, ast *astArenas, name, src string) *parsedFile {
 	pf := &parsedFile{ctx: c, name: name, maps: map[string]*xkbFile{}}
-	pf.parser, pf.err = newParser(c, name, src)
+	pf.parser, pf.err = newParser(c, ast, name, src)
 	if pf.err != nil {
 		c.log(LogError, 0, invalidSyntaxCode, "%v\n", pf.err)
 	}
@@ -642,7 +644,9 @@ func (p *parser) parseKeycode(merge mergeMode) ([]decl, error) {
 		return nil, err
 	}
 	_, err := p.expect(tokSemi, "';'")
-	return p.oneDecl(keycodeDecl{merge: merge, name: name, value: value}), err
+	d := p.ast.keycodes.Alloc()
+	*d = keycodeDecl{merge: merge, name: name, value: value}
+	return p.oneDecl(d), err
 }
 
 func (p *parser) parseAlias(merge mergeMode) ([]decl, error) {
@@ -782,7 +786,8 @@ func (p *parser) parseKeySymbols(merge mergeMode) ([]decl, error) {
 	if _, err := p.expect(tokOBrace, "'{'"); err != nil {
 		return nil, err
 	}
-	d := symbolsDecl{merge: merge, name: name, body: make([]varDecl, 0, 2)}
+	d := p.ast.symbols.Alloc()
+	*d = symbolsDecl{merge: merge, name: name, body: p.ast.bodies.AllocSlice(symbolsBody)[:0]}
 	if p.tok.kind != tokCBrace {
 		for {
 			v, err := p.parseSymbolsVar()
@@ -816,14 +821,14 @@ func (p *parser) parseSymbolsVar() (varDecl, error) {
 			return varDecl{}, err
 		}
 		name, err := p.parseIdent()
-		return varDecl{name: exprIdent{name: name}, value: exprBool{value: false}}, err
+		return varDecl{name: p.ident(name), value: exprBool{value: false}}, err
 	}
 	lhs, err := p.parseLhs()
 	if err != nil {
 		return varDecl{}, err
 	}
 	if p.tok.kind != tokEquals {
-		id, ok := lhs.(exprIdent)
+		id, ok := lhs.(*exprIdent)
 		if !ok {
 			return varDecl{}, p.errorf("syntax error: expected '='")
 		}
@@ -850,14 +855,14 @@ func (p *parser) parseVarDecl() (varDecl, error) {
 			return varDecl{}, err
 		}
 		_, err = p.expect(tokSemi, "';'")
-		return varDecl{name: exprIdent{name: name}, value: exprBool{value: false}}, err
+		return varDecl{name: p.ident(name), value: exprBool{value: false}}, err
 	}
 	lhs, err := p.parseLhs()
 	if err != nil {
 		return varDecl{}, err
 	}
 	if p.tok.kind == tokSemi {
-		id, ok := lhs.(exprIdent)
+		id, ok := lhs.(*exprIdent)
 		if !ok {
 			return varDecl{}, p.errorf("syntax error: expected '='")
 		}
@@ -912,12 +917,24 @@ func (p *parser) parseLhsRest(first string) (expr, error) {
 			return exprField{elem: first, field: second}, nil
 		}
 		index, err := p.parseIndex()
-		return exprArray{elem: first, field: second, index: index}, err
+		return p.array(first, second, index), err
 	case tokOBracket:
 		index, err := p.parseIndex()
-		return exprArray{field: first, index: index}, err
+		return p.array("", first, index), err
 	}
-	return exprIdent{name: first}, nil
+	return p.ident(first), nil
+}
+
+func (p *parser) ident(name string) *exprIdent {
+	e := p.ast.idents.Alloc()
+	e.name = name
+	return e
+}
+
+func (p *parser) array(elem, field string, index expr) *exprArray {
+	e := p.ast.arrays.Alloc()
+	*e = exprArray{elem: elem, field: field, index: index}
+	return e
 }
 
 func (p *parser) parseIndex() (expr, error) {
@@ -976,7 +993,7 @@ func (p *parser) parseExpr(minPrec int) (expr, error) {
 		}
 		if p.tok.kind == tokEquals && minPrec <= precAssign {
 			switch left.(type) {
-			case exprIdent, exprField, exprArray:
+			case *exprIdent, exprField, *exprArray:
 			default:
 				return nil, p.errorf("syntax error: cannot assign to this expression")
 			}
@@ -1158,11 +1175,13 @@ func (p *parser) parseLevels() (expr, error) {
 	}
 	switch kind {
 	case levelSyms:
-		levels := p.symLists.take(len(items))
+		levels := p.ast.symLists.AllocSlice(len(items))
 		for i, item := range items {
 			levels[i] = item.syms
 		}
-		return exprSymsLevels{levels: levels}, nil
+		e := p.ast.symsLevels.Alloc()
+		e.levels = levels
+		return e, nil
 	case levelActs:
 		levels := make([]exprActionList, len(items))
 		for i, item := range items {
@@ -1201,7 +1220,7 @@ func (p *parser) parseLevelItem() (levelItem, error) {
 	}
 	item := levelItem{kind: levelSyms}
 	if sym != KeyNoSymbol {
-		item.syms.syms = p.syms.take(1)
+		item.syms.syms = p.ast.syms.AllocSlice(1)
 		item.syms.syms[0] = sym
 	}
 	return item, nil
@@ -1421,19 +1440,41 @@ func parseIncludeMap(s string) (includeStmt, string, byte, error) {
 	return stmt, next, op, nil
 }
 
-// chunk hands out small slices from one block, so a file's thousands of
-// one-keysym levels are a few allocations rather than one each.
-type chunk[T any] struct{ free []T }
+// astArenas carve a session's syntax tree from shared chunks, so the
+// thousands of keys, identifiers and one-keysym levels a keymap parses
+// to are a few allocations rather than one each. The tree lives as long
+// as the session that parsed it.
+type astArenas struct {
+	keycodes   *heapslab.Arena[keycodeDecl]
+	symbols    *heapslab.Arena[symbolsDecl]
+	bodies     *heapslab.Arena[varDecl]
+	idents     *heapslab.Arena[exprIdent]
+	arrays     *heapslab.Arena[exprArray]
+	syms       *heapslab.Arena[Keysym]
+	symLists   *heapslab.Arena[exprKeysymList]
+	symsLevels *heapslab.Arena[exprSymsLevels]
+}
 
-const chunkSize = 512
+const (
+	astChunk    = 256
+	symbolsBody = 2
+)
 
-func (c *chunk[T]) take(n int) []T {
-	if n > len(c.free) {
-		c.free = make([]T, max(n, chunkSize))
+func newASTArenas() (*astArenas, error) {
+	var a astArenas
+	var errs [8]error
+	a.keycodes, errs[0] = heapslab.NewArena[keycodeDecl](astChunk)
+	a.symbols, errs[1] = heapslab.NewArena[symbolsDecl](astChunk)
+	a.bodies, errs[2] = heapslab.NewArena[varDecl](astChunk)
+	a.idents, errs[3] = heapslab.NewArena[exprIdent](astChunk)
+	a.arrays, errs[4] = heapslab.NewArena[exprArray](astChunk)
+	a.syms, errs[5] = heapslab.NewArena[Keysym](astChunk)
+	a.symLists, errs[6] = heapslab.NewArena[exprKeysymList](astChunk)
+	a.symsLevels, errs[7] = heapslab.NewArena[exprSymsLevels](astChunk)
+	if err := errors.Join(errs[:]...); err != nil {
+		return nil, fmt.Errorf("xkb: syntax tree arenas: %w", err)
 	}
-	s := c.free[:n:n]
-	c.free = c.free[n:]
-	return s
+	return &a, nil
 }
 
 func (p *parser) oneDecl(d decl) []decl {

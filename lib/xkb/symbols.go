@@ -377,7 +377,7 @@ func (info *symbolsInfo) handleFile(f *xkbFile) error {
 		switch v := d.(type) {
 		case includeDecl:
 			err = info.handleInclude(v)
-		case symbolsDecl:
+		case *symbolsDecl:
 			err = info.handleSymbols(v)
 		case varDecl:
 			err = info.handleGlobalVar(v)
@@ -429,7 +429,7 @@ func (info *symbolsInfo) addSymbols(k *keyInfo, index, value expr) error {
 		g.defined |= groupSyms
 		return nil
 	}
-	list, ok := value.(exprSymsLevels)
+	list, ok := value.(*exprSymsLevels)
 	if !ok {
 		return fmt.Errorf("expected a list of symbols for key <%s>, found %T", k.name, value)
 	}
@@ -656,7 +656,7 @@ func (info *symbolsInfo) handleGlobalVar(v varDecl) error {
 	return codedf(codeUnknownDefault, "default defined for unknown field %q", l.field)
 }
 
-func (info *symbolsInfo) handleSymbols(d symbolsDecl) error {
+func (info *symbolsInfo) handleSymbols(d *symbolsDecl) error {
 	k := info.defaultKey.clone()
 	k.merge = d.merge
 	k.name = d.name

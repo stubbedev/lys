@@ -249,7 +249,7 @@ func (info *compatInfo) resolvePredicate(e expr) (matchOp, uint32, error) {
 		}
 		pred = matchOp(p) //nolint:gosec // the table's own values
 		e = v.args[0]
-	case exprIdent:
+	case *exprIdent:
 		if strings.EqualFold(v.name, "any") {
 			return matchAny, realModMask, nil
 		}
