@@ -3,6 +3,7 @@ package atomicfile
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -187,5 +188,46 @@ func TestATemporaryIsKnownForItsTargetOnly(t *testing.T) {
 		if IsTemporary(path, other) {
 			t.Errorf("%s is taken for a temporary of %s", other, path)
 		}
+	}
+}
+
+func TestADurableWriteSyncsTheDirectoryOnceAfterTheRename(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "f")
+	var synced []string
+	counting := func(d string) error {
+		if got, err := os.ReadFile(path); err != nil || string(got) != "new" {
+			t.Errorf("the directory synced before the rename: %q, %v", got, err)
+		}
+		synced = append(synced, d)
+		return syncDir(d)
+	}
+	if err := replace(path, 0o600, counting, writeData([]byte("new"))); err != nil {
+		t.Fatal(err)
+	}
+	if len(synced) != 1 || synced[0] != dir {
+		t.Fatalf("a durable write synced %v, want %s once", synced, dir)
+	}
+}
+
+func TestADurableWriteReportsTheDirectorySyncItCouldNotMakeAndAPlainOneOpensNoDirectory(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root opens a directory without read permission")
+	}
+	dir := filepath.Join(t.TempDir(), "d")
+	if err := os.Mkdir(dir, 0o300); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	path := filepath.Join(dir, "f")
+	err := WriteFileDurable(path, []byte("new"), 0o600)
+	if !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), "sync the directory") {
+		t.Fatalf("a durable write into an unreadable directory returned %v, want the directory sync's error", err)
+	}
+	if got, _ := os.ReadFile(path); string(got) != "new" {
+		t.Errorf("target is %q, want the renamed content", got)
+	}
+	if err := WriteFile(path, []byte("plain"), 0o600); err != nil {
+		t.Fatalf("a plain write into the same directory: %v", err)
 	}
 }

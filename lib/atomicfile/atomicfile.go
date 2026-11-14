@@ -2,7 +2,8 @@
 // named temporary file beside the target, which is synced and renamed
 // over it. A reader sees the old file or the new one and never a partial
 // write, a crash leaves one of the two complete, and concurrent writers
-// never share a temporary.
+// never share a temporary. WriteFileDurable also syncs the directory, so
+// once it returns the new file survives a power cut.
 package atomicfile
 
 import (
@@ -24,7 +25,7 @@ const tempAttempts = 10000
 // Write replaces path with what write produces, with permissions perm.
 // On a failure path is untouched and the temporary is removed.
 func Write(path string, perm os.FileMode, write func(io.Writer) error) error {
-	return replace(path, perm, func(f tempFile) error {
+	return replace(path, perm, keepRename, func(f tempFile) error {
 		buf := bufio.NewWriter(f)
 		if err := write(buf); err != nil {
 			return err
@@ -37,18 +38,46 @@ func Write(path string, perm os.FileMode, write func(io.Writer) error) error {
 // wrote, as a muxer patching its header does: write is handed the
 // temporary itself, unbuffered.
 func WriteSeekable(path string, perm os.FileMode, write func(io.WriteSeeker) error) error {
-	return replace(path, perm, func(f tempFile) error { return write(f) })
+	return replace(path, perm, keepRename, func(f tempFile) error { return write(f) })
 }
 
 // WriteFile replaces path with data, as os.WriteFile but atomically.
 func WriteFile(path string, data []byte, perm os.FileMode) error {
-	return replace(path, perm, func(f tempFile) error {
-		_, err := f.Write(data)
-		return err
-	})
+	return replace(path, perm, keepRename, writeData(data))
 }
 
-func replace(path string, perm os.FileMode, write func(tempFile) error) error {
+// WriteFileDurable is WriteFile for data the caller reports as stored,
+// which must outlive a power cut: the directory is synced after the
+// rename, so the replacement is on disk when it returns. A failure of
+// that sync is reported with path already replaced.
+func WriteFileDurable(path string, data []byte, perm os.FileMode) error {
+	return replace(path, perm, syncDir, writeData(data))
+}
+
+func writeData(data []byte) func(tempFile) error {
+	return func(f tempFile) error {
+		_, err := f.Write(data)
+		return err
+	}
+}
+
+type afterRename func(dir string) error
+
+func keepRename(string) error { return nil }
+
+func syncDir(dir string) error {
+	fd, err := unix.Open(dir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return &os.PathError{Op: "open", Path: dir, Err: err}
+	}
+	err = os.NewSyscallError("fsync", unix.Fsync(fd))
+	if closeErr := unix.Close(fd); err == nil && closeErr != nil {
+		err = os.NewSyscallError("close", closeErr)
+	}
+	return err
+}
+
+func replace(path string, perm os.FileMode, after afterRename, write func(tempFile) error) error {
 	tmp, err := writeTemp(path, perm, write)
 	if err != nil {
 		return err
@@ -56,6 +85,9 @@ func replace(path string, perm os.FileMode, write func(tempFile) error) error {
 	if err := unix.Rename(tmp, path); err != nil {
 		_ = unix.Unlink(tmp)
 		return fmt.Errorf("atomicfile: replace %s: %w", path, os.NewSyscallError("rename", err))
+	}
+	if err := after(filepath.Dir(path)); err != nil {
+		return fmt.Errorf("atomicfile: sync the directory of %s: %w", path, err)
 	}
 	return nil
 }
