@@ -277,6 +277,38 @@ func TestCursorSenderStamps(t *testing.T) {
 	}
 }
 
+func TestABitmapOvertakenByANewShapeGoesOutInTheSameBuffer(t *testing.T) {
+	mem := make([]byte, cursorMetaSize(8))
+	m, err := layCursorMeta(mem, 0, uint32(len(mem)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur := &advancingCursor{testCursor: &testCursor{state: CursorState{Visible: true, X: 3, Y: 4, Shape: 5}}}
+	s := &cursorSender{source: cur}
+	if err := s.stamp(m); err != nil {
+		t.Fatal(err)
+	}
+	if m.head.bitmapOffset == 0 || m.bitmap.width != 6 || s.pending() {
+		t.Fatalf("a shape published while its bitmap was read stamped %+v %+v, pending %v; want the new shape's bitmap", *m.head, *m.bitmap, s.pending())
+	}
+}
+
+// advancingCursor publishes a new shape the first time a bitmap is read,
+// as a capture cursor taking a new image of the pointer does.
+type advancingCursor struct {
+	*testCursor
+	advanced bool
+}
+
+func (a *advancingCursor) CursorBitmap(shape uint64, dst []byte, side int) (CursorBitmap, bool) {
+	if !a.advanced {
+		a.advanced = true
+		a.state.Shape++
+		return CursorBitmap{}, false
+	}
+	return a.testCursor.CursorBitmap(shape, dst, side)
+}
+
 // racingCursor's shape always changed before its bitmap is read.
 type racingCursor struct{ *testCursor }
 

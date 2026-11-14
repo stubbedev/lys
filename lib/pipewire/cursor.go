@@ -165,8 +165,15 @@ func (c *cursorSender) stamp(m cursorMeta) error {
 	}
 	side := m.side()
 	bm, ok := c.source.CursorBitmap(s.Shape, m.pixels, int(side))
-	if !ok {
-		return nil
+	for !ok {
+		next := c.state()
+		if !next.Visible || next.Shape == s.Shape {
+			return nil
+		}
+		s = next
+		c.sent = s
+		*h = cMetaCursor{id: 1, x: s.X, y: s.Y, hotX: s.HotspotX, hotY: s.HotspotY}
+		bm, ok = c.source.CursorBitmap(s.Shape, m.pixels, int(side))
 	}
 	if bm.Width > side || bm.Height > side || bm.Stride > side*cursorPixelBytes || uint64(bm.Stride)*uint64(bm.Height) > uint64(len(m.pixels)) {
 		return fmt.Errorf("pipewire: a %dx%d cursor bitmap of stride %d, in room for %dx%d", bm.Width, bm.Height, bm.Stride, side, side)
