@@ -117,10 +117,10 @@ func (g *gtkPrintRig) print(t *testing.T, gtk string, choose func(root widget.Wi
 	case err := <-exited:
 		exited <- err
 		t.Fatalf("GTK %s ended before its dialog opened: %v\n%s", gtk, err, stderr.String())
-	case <-time.After(30 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatalf("GTK %s never opened the dialog:\n%s", gtk, stderr.String())
 	}
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); ; time.Sleep(time.Millisecond) {
 		treetest.Loop.Lock()
 		listed := slices.Contains(treetest.Labels(root), "office")
 		treetest.Loop.Unlock()
@@ -136,7 +136,7 @@ func (g *gtkPrintRig) print(t *testing.T, gtk string, choose func(root widget.Wi
 	treetest.Button(t, root, "Print").OnClick()
 	treetest.Loop.Unlock()
 	sent := func() bool { return strings.HasSuffix(stdout.String(), "sent\n") }
-	for deadline := time.Now().Add(30 * time.Second); !landed() || !sent(); time.Sleep(5 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); !landed() || !sent(); time.Sleep(5 * time.Millisecond) {
 		select {
 		case err := <-exited:
 			exited <- err
