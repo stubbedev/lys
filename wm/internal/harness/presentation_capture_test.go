@@ -2,6 +2,7 @@ package harness
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -48,5 +49,19 @@ func TestAHiddenWindowsCaptureIsPresentedAtItsOutputsRefresh(t *testing.T) {
 		if prev := tr.events[max(i-1, 0)]; i > 0 && (e.at <= prev.at || e.seq < prev.seq) {
 			t.Fatalf("presentation %d at %v seq %d does not follow %v seq %d", i, e.at, e.seq, prev.at, prev.seq)
 		}
+	}
+	var log testclient.Log
+	_, errFrame := w.Surface.Frame(orderedFrame{&log})
+	_, errFeedback := tr.p.Feedback(w.Surface, &orderedFeedback{log: &log})
+	if err := errors.Join(errFrame, errFeedback, w.Surface.Commit(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	f, frame, _ := grab(t, c, session, view.size)
+	c.DispatchUntil("a capture of the hidden window, its frame callback and its feedback", func() bool { return (f.ready || f.failed) && len(log) == 2 })
+	if err := errors.Join(frame.Destroy(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	if want := (testclient.Log{"presented", "done"}); !slices.Equal(log, want) {
+		t.Fatalf("a capture of the hidden window sent %v, want %v: the feedback must reach the client before it is asked for the next frame", log, want)
 	}
 }

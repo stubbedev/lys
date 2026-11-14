@@ -580,16 +580,14 @@ func (c *Compositor) Presented(b backend.Output, p backend.Presentation) error {
 	refresh := outputRefresh(b, p)
 	var errs error
 	for _, s := range c.shown[o] {
-		var frame error
-		if sc.culled[s] {
-			frame = c.throttleFrames(s)
-		} else {
-			frame = s.FrameDone(wire.Millis(p.Time))
-		}
-		errs = errors.Join(errs, frame)
 		if c.presentsOn(s, o) {
 			c.outputResources = o.AppendResources(c.outputResources[:0], s.Client())
 			errs = errors.Join(errs, s.Presented(c.outputResources, p.Time, refresh, p.Variable, p.Seq, sc.feedbackKind(s, kind, p.Idle)))
+		}
+		if sc.culled[s] {
+			errs = errors.Join(errs, c.throttleFrames(s))
+		} else {
+			errs = errors.Join(errs, s.FrameDone(wire.Millis(p.Time)))
 		}
 	}
 	if p.Idle {

@@ -157,7 +157,7 @@ func (c *Compositor) capturedTree(o *output.Output, root *surface.Surface, at ti
 		delete(c.hidden.waiting, member)
 		member.Latch()
 		outputs, refresh, seq := c.presentationAt(o, member, at)
-		errs = errors.Join(errs, member.FrameDone(wire.Millis(at)), member.Presented(outputs, at, refresh, false, seq, 0))
+		errs = errors.Join(errs, member.Presented(outputs, at, refresh, false, seq, 0), member.FrameDone(wire.Millis(at)))
 	}
 	return errs
 }
