@@ -18,7 +18,7 @@ import (
 	"github.com/stubbedev/lys-desktop/portal/permissions"
 )
 
-const ownBound = 10 * time.Second
+const ownBound = 2 * time.Minute
 
 // Binary is xdg-permission-store, which ships in xdg-desktop-portal's
 // libexec beside the frontend $XDG_DESKTOP_PORTAL names (the dev shell
