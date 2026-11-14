@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/stubbedev/lys-lib/dbustest"
 	"github.com/stubbedev/lys-lib/pulse/pulsetest"
 	"github.com/stubbedev/lys-lib/sockdir"
@@ -22,7 +24,7 @@ var isolatedKeys = []string{"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STA
 
 func restoreAfter(t *testing.T) {
 	t.Helper()
-	for _, k := range slices.Concat(isolatedKeys, sessionEnv[:], toolchainEnv[:], []string{wltest.HeadlessEnv, SessionEnv}) {
+	for _, k := range slices.Concat(isolatedKeys, sessionEnv[:], toolchainEnv[:], []string{wltest.HeadlessEnv, SessionEnv, tmpEnv, goTmpEnv}) {
 		v, set := os.LookupEnv(k)
 		t.Setenv(k, v)
 		if !set {
@@ -285,6 +287,39 @@ func TestMainIsolatesRunsAndRemovesTheHome(t *testing.T) {
 	}
 	if _, err := os.Stat(home); !os.IsNotExist(err) {
 		t.Errorf("the home %s after Main: %v, want it removed", home, err)
+	}
+}
+
+func TestMainKeepsTheHomeAndEveryTemporaryOnATmpfs(t *testing.T) {
+	restoreAfter(t)
+	t.Setenv(isolatedEnv, "")
+	t.Setenv(wltest.HeadlessEnv, "")
+	t.Setenv(goTmpEnv, os.TempDir())
+	var scratch string
+	code := Main(func() int {
+		for _, dir := range []string{os.Getenv("HOME"), os.TempDir(), os.Getenv(goTmpEnv)} {
+			var st unix.Statfs_t
+			if err := unix.Statfs(dir, &st); err != nil || st.Type != unix.TMPFS_MAGIC {
+				t.Errorf("%q during the run: statfs %v, type %#x, want a tmpfs", dir, err, st.Type)
+			}
+		}
+		scratch = filepath.Dir(os.TempDir())
+		return 0
+	})
+	if code != 0 {
+		t.Fatalf("Main = %d", code)
+	}
+	if _, err := os.Stat(scratch); !os.IsNotExist(err) {
+		t.Errorf("the scratch directory %s after Main: %v, want it removed", scratch, err)
+	}
+}
+
+func TestMainRefusesAScratchFileSystemThatIsNoTmpfs(t *testing.T) {
+	restoreAfter(t)
+	t.Setenv(isolatedEnv, "")
+	ran := false
+	if code := mainOn("/proc", func() int { ran = true; return 0 }); code == 0 || ran {
+		t.Fatalf("mainOn(/proc) = %d, ran %v: want a failure before the tests run", code, ran)
 	}
 }
 

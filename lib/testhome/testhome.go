@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/stubbedev/lys-lib/dbusx"
 	"github.com/stubbedev/lys-lib/pulse/native"
 	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
@@ -44,6 +46,8 @@ const (
 	systemBusEnv  = "DBUS_SYSTEM_BUS_ADDRESS"
 	pulseEnv      = "PULSE_SERVER"
 	displayEnv    = "WAYLAND_DISPLAY"
+	tmpEnv        = "TMPDIR"
+	goTmpEnv      = "GOTMPDIR"
 
 	probeTimeout     = 2 * time.Second
 	toolchainTimeout = 30 * time.Second
@@ -78,6 +82,9 @@ var toolchainEnv = [...]string{"GOENV", "GOCACHE", "GOMODCACHE", "GOPATH"}
 // from TestMain. See Main for what isolating does.
 func Run(m *testing.M) { os.Exit(Main(m.Run)) }
 
+// scratchFS is the tmpfs every isolated test binary's files live on.
+const scratchFS = "/dev/shm"
+
 // Main is Run for a TestMain with work of its own around the tests: it
 // isolates the process, calls run, and returns its code.
 //
@@ -95,33 +102,68 @@ func Run(m *testing.M) { os.Exit(Main(m.Run)) }
 // and the sound server are pinned, the latter to the recipe's runtime
 // directory, and a session bus the recipe did not name, to a socket
 // under the temp directory, so that no client guesses one.
-// The go command's caches and configuration, whose defaults lie under
-// the home that moved, stay where they were, so a go build a test runs
-// starts warm.
+// The home and every temporary directory lie on the tmpfs at /dev/shm,
+// which must be one: TMPDIR, and GOTMPDIR, which testing's TempDir and
+// the go command's work directories take before TMPDIR. The go
+// command's caches and configuration, whose defaults lie under the home
+// that moved, stay where they were, so a go build a test runs starts
+// warm.
 //
 // A test binary started by an isolated test (a helper process, the
 // binary run again as the program under test) runs as it is: its
 // environment is the one its parent made for it.
-func Main(run func() int) int {
+func Main(run func() int) int { return mainOn(scratchFS, run) }
+
+func mainOn(fsDir string, run func() int) int {
 	if os.Getenv(isolatedEnv) != "" {
 		return run()
 	}
-	home, err := os.MkdirTemp("", "lys-test-home-")
+	scratch, err := scratchDir(fsDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "testhome:", err)
 		return 1
 	}
 	code := 1
-	if err := isolate(home); err != nil {
+	if err := isolateIn(scratch); err != nil {
 		fmt.Fprintln(os.Stderr, "testhome:", err)
 	} else {
 		code = run()
 	}
-	if err := os.RemoveAll(home); err != nil {
+	if err := os.RemoveAll(scratch); err != nil {
 		fmt.Fprintln(os.Stderr, "testhome:", err)
 		return 1
 	}
 	return code
+}
+
+func scratchDir(fsDir string) (string, error) {
+	var st unix.Statfs_t
+	if err := unix.Statfs(fsDir, &st); err != nil {
+		return "", fmt.Errorf("the scratch file system %s: %w", fsDir, err)
+	}
+	if st.Type != unix.TMPFS_MAGIC {
+		return "", fmt.Errorf("the scratch file system %s is not a tmpfs (type %#x): the tests keep their files on one", fsDir, st.Type)
+	}
+	dir, err := os.MkdirTemp(fsDir, "lys-test-")
+	if err != nil {
+		return "", fmt.Errorf("create the scratch directory in %s: %w", fsDir, err)
+	}
+	return dir, nil
+}
+
+func isolateIn(scratch string) error {
+	home, tmp := filepath.Join(scratch, "home"), filepath.Join(scratch, "tmp")
+	for _, dir := range []string{home, tmp} {
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			return fmt.Errorf("create %s: %w", dir, err)
+		}
+	}
+	for _, key := range []string{tmpEnv, goTmpEnv} {
+		if err := os.Setenv(key, tmp); err != nil {
+			return fmt.Errorf("set %s: %w", key, err)
+		}
+	}
+	return isolate(home)
 }
 
 func isolate(home string) error {
