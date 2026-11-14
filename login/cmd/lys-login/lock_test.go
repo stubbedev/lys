@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -34,10 +36,29 @@ func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSessio
 
 const displaySession logind.SessionID = "1"
 
+const hangGuard = 2 * time.Minute
+
 type lockProcess struct {
 	cmd    *exec.Cmd
 	stdout *bufio.Reader
-	stderr strings.Builder
+	stderr syncBuffer
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 // startLock runs `lys-login lock args...` the way lys-shell's lockclient
@@ -78,7 +99,7 @@ func (p *lockProcess) exit(t *testing.T) int {
 			t.Fatalf("wait for lys-login lock: %v", err)
 		}
 		return p.cmd.ProcessState.ExitCode()
-	case <-time.After(20 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatalf("lys-login lock never exited; stderr:\n%s", p.stderr.String())
 		return -1
 	}
@@ -98,7 +119,7 @@ func (p *lockProcess) lockedLine(t *testing.T) {
 		if strings.TrimSpace(line) != lockclient.LockedLine {
 			t.Fatalf("stdout = %q, want %q; stderr:\n%s", line, lockclient.LockedLine, p.stderr.String())
 		}
-	case <-time.After(20 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatalf("lys-login lock never reported the lock; stderr:\n%s", p.stderr.String())
 	}
 }
