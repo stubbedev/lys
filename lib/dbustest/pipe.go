@@ -11,8 +11,6 @@ import (
 	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
 )
 
-const hangupWait = 5 * time.Second
-
 // Pipe proves that a descriptor a test sends over D-Bus is closed by
 // everyone it reaches: Write is the write end of a pipe, to send, and
 // its read end hangs up only once no copy of Write is open anywhere in
@@ -53,17 +51,17 @@ func (p *Pipe) closeWrite(t testing.TB) {
 
 // RequireEveryCopyClosed closes Write and fails the test unless every
 // copy of it the bus handed out in the process is closed as well within
-// a liveness bound.
+// the hang guard.
 func (p *Pipe) RequireEveryCopyClosed(t testing.TB) {
 	t.Helper()
 	p.closeWrite(t)
 	fds := []unix.PollFd{{Fd: intconv.Must[int32](p.read), Events: unix.POLLIN}}
-	deadline := time.Now().Add(hangupWait)
-	n, err := unix.Poll(fds, int(hangupWait.Milliseconds()))
+	deadline := time.Now().Add(hangGuard)
+	n, err := unix.Poll(fds, int(hangGuard.Milliseconds()))
 	for errors.Is(err, unix.EINTR) && time.Now().Before(deadline) {
 		n, err = unix.Poll(fds, int(time.Until(deadline).Milliseconds()))
 	}
 	if err != nil || n != 1 || fds[0].Revents&unix.POLLHUP == 0 {
-		t.Fatalf("dbustest: a copy of descriptor %d is still open %v after the test closed its own: poll = %d, %v, events %#x", p.Write, hangupWait, n, err, fds[0].Revents)
+		t.Fatalf("dbustest: a copy of descriptor %d is still open %v after the test closed its own: poll = %d, %v, events %#x", p.Write, hangGuard, n, err, fds[0].Revents)
 	}
 }

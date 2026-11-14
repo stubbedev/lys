@@ -40,7 +40,7 @@ const config = `<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Config
 </busconfig>
 `
 
-const startTimeout = 5 * time.Second
+const hangGuard = 2 * time.Minute
 
 // Bus is one private bus.
 type Bus struct {
@@ -72,7 +72,7 @@ func SocketPath(t testing.TB) string {
 // it at cleanup. The bus accepts connections once StartAt returns.
 func StartAt(t testing.TB, sock string) *Bus {
 	t.Helper()
-	b, err := launch(t.TempDir(), sock)
+	b, err := launch(t.TempDir(), sock, time.After)
 	if err != nil {
 		t.Fatalf("dbustest: %v", err)
 	}
@@ -82,8 +82,9 @@ func StartAt(t testing.TB, sock string) *Bus {
 
 // launch runs a dbus-daemon bound to sock, its config written to dir,
 // and returns once the daemon prints its address: it does so only
-// after binding the socket.
-func launch(dir, sock string) (*Bus, error) {
+// after binding the socket. A daemon that exits first fails at once;
+// the hang guard armed with after only stops one that does neither.
+func launch(dir, sock string, after func(time.Duration) <-chan time.Time) (*Bus, error) {
 	daemon, err := exec.LookPath("dbus-daemon")
 	if err != nil {
 		return nil, fmt.Errorf("dbus-daemon not on PATH: %w", err)
@@ -117,8 +118,8 @@ func launch(dir, sock string) (*Bus, error) {
 			return &Bus{Address: addr, daemon: cmd}, nil
 		}
 		failure = "printed no address"
-	case <-time.After(startTimeout):
-		failure = "printed no address within " + startTimeout.String()
+	case <-after(hangGuard):
+		failure = "hung without printing its address for " + hangGuard.String()
 	}
 	_ = cmd.Process.Kill()
 	waitErr := cmd.Wait()

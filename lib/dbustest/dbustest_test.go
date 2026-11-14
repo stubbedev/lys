@@ -1,10 +1,16 @@
 package dbustest
 
 import (
+	"bufio"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
 
 	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
 )
@@ -76,9 +82,111 @@ func TestABusRestartsAtTheSameSocket(t *testing.T) {
 // into a failed test rather than a skip.
 func TestLaunchWithoutADaemonFails(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	_, err := launch(t.TempDir(), SocketPath(t))
+	_, err := launch(t.TempDir(), SocketPath(t), time.After)
 	if !errors.Is(err, exec.ErrNotFound) || !strings.Contains(err.Error(), "dbus-daemon") {
 		t.Fatalf("launch without dbus-daemon = %v, want a not-found error naming it", err)
+	}
+}
+
+type fakeDaemon struct {
+	dir, started, release string
+}
+
+func installFakeDaemon(t *testing.T, script string) fakeDaemon {
+	t.Helper()
+	d := fakeDaemon{dir: t.TempDir()}
+	d.started, d.release = filepath.Join(d.dir, "started"), filepath.Join(d.dir, "release")
+	for _, fifo := range []string{d.started, d.release} {
+		if err := unix.Mkfifo(fifo, 0o600); err != nil {
+			t.Fatalf("mkfifo %s: %v", fifo, err)
+		}
+	}
+	bin := filepath.Join(d.dir, "bin")
+	if err := os.Mkdir(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	body := "#!/bin/sh\nSTARTED=" + d.started + "\nRELEASE=" + d.release + "\n" + script
+	if err := os.WriteFile(filepath.Join(bin, "dbus-daemon"), []byte(body), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	return d
+}
+
+type launched struct {
+	bus *Bus
+	err error
+}
+
+func launchWithGuard(t *testing.T, d fakeDaemon) (results <-chan launched, armed <-chan time.Duration, fire chan<- time.Time) {
+	t.Helper()
+	out := make(chan launched, 1)
+	arm := make(chan time.Duration, 1)
+	trigger := make(chan time.Time, 1)
+	after := func(d time.Duration) <-chan time.Time {
+		arm <- d
+		return trigger
+	}
+	go func() {
+		b, err := launch(d.dir, SocketPath(t), after)
+		out <- launched{b, err}
+	}()
+	return out, arm, trigger
+}
+
+func (d fakeDaemon) awaitStart(t *testing.T) {
+	t.Helper()
+	f, err := os.Open(d.started)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if _, err := bufio.NewReader(f).ReadString('\n'); err != nil {
+		t.Fatalf("the fake daemon's start signal: %v", err)
+	}
+}
+
+func TestLaunchWaitsForTheAddressHoweverLongTheDaemonTakes(t *testing.T) {
+	d := installFakeDaemon(t, "echo started > \"$STARTED\"\nread line < \"$RELEASE\"\necho \"$line\"\nexec sleep 600\n")
+	results, armed, _ := launchWithGuard(t, d)
+	d.awaitStart(t)
+	if guard := <-armed; guard != hangGuard || guard < time.Minute {
+		t.Fatalf("launch armed a %v guard, want the %v hang guard", guard, hangGuard)
+	}
+	select {
+	case r := <-results:
+		t.Fatalf("launch returned %+v before the daemon printed its address", r)
+	default:
+	}
+	const address = "unix:path=/nowhere,guid=0123456789abcdef0123456789abcdef"
+	if err := os.WriteFile(d.release, []byte(address+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := <-results
+	if r.err != nil || r.bus.Address != address {
+		t.Fatalf("launch = %+v, want the printed address %s", r, address)
+	}
+	r.bus.Stop(t)
+}
+
+func TestLaunchStopsADaemonThatHangsWithoutAnAddress(t *testing.T) {
+	d := installFakeDaemon(t, "echo stuck >&2\necho started > \"$STARTED\"\nread line < \"$RELEASE\"\n")
+	results, armed, fire := launchWithGuard(t, d)
+	d.awaitStart(t)
+	<-armed
+	fire <- time.Time{}
+	r := <-results
+	if r.err == nil || !strings.Contains(r.err.Error(), "hung without printing its address") || !strings.Contains(r.err.Error(), "stuck") {
+		t.Fatalf("launch of a hung daemon = %v, want the hang named with its stderr", r.err)
+	}
+}
+
+func TestLaunchFailsAtOnceWhenTheDaemonExitsWithoutAnAddress(t *testing.T) {
+	d := installFakeDaemon(t, "echo 'Failed to start message bus: no config' >&2\nexit 1\n")
+	results, _, _ := launchWithGuard(t, d)
+	r := <-results
+	if r.err == nil || !strings.Contains(r.err.Error(), "printed no address") || !strings.Contains(r.err.Error(), "no config") {
+		t.Fatalf("launch of a failing daemon = %v, want its stderr", r.err)
 	}
 }
 
