@@ -337,6 +337,9 @@ func TestAGoldenFrameIsOneThatAskedForNothingItLacked(t *testing.T) {
 
 func onEachConfiguredRenderer(t *testing.T, test func(t *testing.T, start gpuStarter)) {
 	t.Run("soft", func(t *testing.T) { test(t, StartWith) })
+	if raceEnabled {
+		return
+	}
 	onEachGPURenderer(t, test)
 }
 
