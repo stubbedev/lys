@@ -153,7 +153,7 @@ func TestADebugSpinTurnsPreemptibleOnceItsThreadLeavesItsSchedulingPolicy(t *tes
 func threadCPU(t *testing.T, tid int) time.Duration {
 	t.Helper()
 	var ts unix.Timespec
-	if err := unix.ClockGettime(int32(^tid)<<3|6, &ts); err != nil { //nolint:gosec // a thread ID fits the clock ID's 29 bits
+	if err := unix.ClockGettime(int32(^tid)<<3|6, &ts); err != nil {
 		t.Fatalf("read the CPU clock of thread %d: %v", tid, err)
 	}
 	return time.Duration(ts.Nano())
