@@ -218,3 +218,59 @@ func testKeepsAFrameWhoseWaitTimedOutInFlight(t *testing.T, d *Device, ffmpeg st
 	}
 	checkDecodes(t, ffmpeg, c, src)
 }
+
+// An Encode whose wait for its conversion times out encodes nothing and
+// hands back no packet; the next Encode waits for that stray conversion
+// before it converts its own buffer, so the frame comes out as that
+// buffer's picture, not the one the stray conversion read, on every
+// backend: where no fence tells the writer, Encode waits for each
+// conversion.
+func TestAnEncodeWhoseConversionWaitTimedOutConvertsAgain(t *testing.T) {
+	t.Parallel()
+	d, ffmpeg := encodingDevice(t, H264)
+	d.implicitFences = false
+	for _, b := range encodingBackends(t, d, H264) {
+		t.Run(b.kind.String(), func(t *testing.T) { testConvertsAgainAfterAConversionWaitTimedOut(t, d, ffmpeg, b) })
+	}
+}
+
+func testConvertsAgainAfterAConversionWaitTimedOut(t *testing.T, d *Device, ffmpeg string, b backend) {
+	cfg := EncoderConfig{Codec: H264, Width: 320, Height: 240, FrameRate: 30, KeyInterval: 30, QP: 20}
+	c := openClip(t, d, cfg, b.open)
+	imgs := []*image.RGBA{encodeFrame(cfg.Width, cfg.Height, 0), encodeFrame(cfg.Width, cfg.Height, 1), encodeFrame(cfg.Width, cfg.Height, 2)}
+	bufs := make([]*Buffer, len(imgs))
+	for i, img := range imgs {
+		bufs[i] = newExportBuffer(t, d, cfg.Width, cfg.Height)
+		bufs[i].fill(t, img)
+	}
+	at := func(frame int) time.Duration { return time.Duration(frame) * time.Second / 30 }
+	encode := func(buf *Buffer) ([]Packet, uint64, error) {
+		waits := d.BlockingWaits()
+		out, err := c.enc.Encode(buf, at(c.frames))
+		return out, d.BlockingWaits() - waits, err
+	}
+	out, plain, err := encode(bufs[0])
+	if err != nil {
+		t.Fatalf("frame 0: %v", err)
+	}
+	c.pkts = append(c.pkts, out...)
+	c.frames++
+	d.waitFault = true
+	out, _, err = encode(bufs[1])
+	if !errors.Is(err, ErrTimeout) || len(out) != 0 {
+		t.Fatalf("frame 1 whose conversion wait times out: %d packets, %v, want ErrTimeout", len(out), err)
+	}
+	if d.waitFault {
+		t.Fatal("frame 1 waited for nothing, so its conversion wait could not time out")
+	}
+	out, waited, err := encode(bufs[2])
+	if err != nil {
+		t.Fatalf("frame 1 again, from another buffer: %v", err)
+	}
+	if waited != plain+1 {
+		t.Errorf("frame 1 again waited here %d times, a frame without a stray conversion %d: want one more, for the stray conversion", waited, plain)
+	}
+	c.pkts = append(c.pkts, out...)
+	c.frames++
+	checkDecodes(t, ffmpeg, c, []*image.RGBA{imgs[0], imgs[2]})
+}

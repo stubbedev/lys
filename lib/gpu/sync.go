@@ -81,6 +81,10 @@ type timing struct {
 	// submissions go through before that one.
 	fault      vk.Result
 	faultAfter int
+	// waitFault is whether a test makes the device's next fence wait
+	// time out, as if the driver had answered VK_TIMEOUT, in place of
+	// waiting.
+	waitFault bool
 	// spareFences, spareBuffers and spareSemaphores are the objects of
 	// finished submissions, for the next ones.
 	spareFences     []vk.Fence
@@ -896,14 +900,24 @@ func (d *Device) waitFence(f vk.Fence) error {
 		return err
 	}
 	d.blockingWaits++
-	d.args.fence = f
-	if r := d.cmds.WaitForFences(d.device, 1, &d.args.fence, vk.True, intconv.Must[uint64](d.waitLimit.Nanoseconds())); r != vk.Success {
+	if r := d.awaitFence(f); r != vk.Success {
 		if r == vk.ErrorDeviceLost {
 			d.lost = true
 		}
 		return fmt.Errorf("gpu: vkWaitForFences, %d submissions in flight, %v at most: %w", len(d.inflight), d.waitLimit, resultError(r))
 	}
 	return nil
+}
+
+// awaitFence waits for f, the device's wait limit at most, unless a test
+// armed waitFault, which this wait then times out in place of.
+func (d *Device) awaitFence(f vk.Fence) vk.Result {
+	if d.waitFault {
+		d.waitFault = false
+		return vk.Timeout
+	}
+	d.args.fence = f
+	return d.cmds.WaitForFences(d.device, 1, &d.args.fence, vk.True, intconv.Must[uint64](d.waitLimit.Nanoseconds()))
 }
 
 func (d *Device) waitOldest() error {
