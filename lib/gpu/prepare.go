@@ -34,6 +34,7 @@ type pipelineJob struct {
 type builtPipeline struct {
 	job      pipelineJob
 	pipeline vk.Pipeline
+	err      error
 }
 
 // preparer builds pipelines on a worker once Prepare has been called, so a
@@ -44,14 +45,18 @@ type preparer struct {
 	path   string
 	builds atomic.Uint64
 	// async is whether Prepare was called; queued is what is on its way,
-	// both the device goroutine's.
-	async  bool
-	queued map[pipelineKey]struct{}
+	// failed what the worker could not build, and formats the target
+	// formats prepared, all the device goroutine's.
+	async   bool
+	queued  map[pipelineKey]struct{}
+	failed  map[pipelineKey]error
+	formats map[vk.Format]struct{}
+	// beforeBuild is what BeforeBuild set.
+	beforeBuild func()
 
 	mu      sync.Mutex
 	jobs    []pipelineJob
 	built   []builtPipeline
-	err     error
 	running bool
 	stop    bool
 	idle    sync.Cond
@@ -65,12 +70,18 @@ func (d *Device) lazyPipeline(key pipelineKey, have vk.Pipeline, build func() (v
 	}
 	pr := &d.prep
 	if !pr.async {
+		if pr.beforeBuild != nil {
+			pr.beforeBuild()
+		}
 		p, err := build()
 		if err != nil {
 			return 0, err
 		}
 		publish(p)
 		return p, nil
+	}
+	if err, ok := pr.failed[key]; ok {
+		return 0, err
 	}
 	if _, ok := pr.queued[key]; ok {
 		return 0, nil
@@ -114,31 +125,41 @@ func (d *Device) buildPipelines() {
 		pr.jobs = pr.jobs[1:]
 		pr.mu.Unlock()
 		p, err := job.build()
-		pr.mu.Lock()
 		if err != nil {
-			pr.err = errors.Join(pr.err, fmt.Errorf("gpu: a pipeline built ahead of its first draw: %w", err))
-		} else {
-			pr.built = append(pr.built, builtPipeline{job: job, pipeline: p})
+			err = fmt.Errorf("gpu: a pipeline built ahead of its first draw: %w", err)
 		}
+		pr.mu.Lock()
+		pr.built = append(pr.built, builtPipeline{job: job, pipeline: p, err: err})
 		pr.mu.Unlock()
 	}
 }
 
-// publishPipelines hands the pipelines the worker finished to their owners.
+// publishPipelines hands the pipelines the worker finished to their owners,
+// and keeps what it failed to build failing: a draw that needs one fails
+// with the driver's refusal instead of being skipped for good.
 func (d *Device) publishPipelines() error {
 	pr := &d.prep
 	if !pr.async {
 		return nil
 	}
 	pr.mu.Lock()
-	built, err := pr.built, pr.err
-	pr.built, pr.err = nil, nil
+	built := pr.built
+	pr.built = nil
 	pr.mu.Unlock()
+	var errs []error
 	for _, b := range built {
-		b.job.publish(b.pipeline)
 		delete(pr.queued, b.job.key)
+		if b.err != nil {
+			if pr.failed == nil {
+				pr.failed = map[pipelineKey]error{}
+			}
+			pr.failed[b.job.key] = b.err
+			errs = append(errs, b.err)
+			continue
+		}
+		b.job.publish(b.pipeline)
 	}
-	return err
+	return errors.Join(errs...)
 }
 
 // Prepare builds, on a worker, the pipelines drawing into targets of formats
@@ -149,19 +170,45 @@ func (d *Device) publishPipelines() error {
 // nothing left. Bad formats fail at once; a driver's refusal comes from a later
 // Begin.
 func (d *Device) Prepare(formats ...fourcc.Format) error {
+	vfs := make([]vk.Format, 0, len(formats))
 	for _, f := range formats {
-		if _, ok := lookupPixelFormat(f); !ok {
+		pf, ok := lookupPixelFormat(f)
+		if !ok {
 			return fmt.Errorf("gpu: Prepare of DRM format %s, no target format", f)
 		}
+		vfs = append(vfs, pf.vk)
 	}
+	return d.prepare(vfs)
+}
+
+// PrepareFor is Prepare for the formats of targets, offscreen ones too; a
+// format already prepared costs nothing.
+func (d *Device) PrepareFor(targets ...*Target) error {
+	vfs := make([]vk.Format, 0, len(targets))
+	for _, t := range targets {
+		switch {
+		case t == nil || t.closed:
+			return errors.New("gpu: PrepareFor of a closed target")
+		case t.s.d != d:
+			return errors.New("gpu: PrepareFor of another device's target")
+		}
+		vfs = append(vfs, t.s.format())
+	}
+	return d.prepare(vfs)
+}
+
+func (d *Device) prepare(formats []vk.Format) error {
 	cs, err := d.colorInit()
 	if err != nil {
 		return err
 	}
-	d.prep.async = true
-	for _, f := range formats {
-		pf, _ := lookupPixelFormat(f)
-		ct, err := d.compTargetOf(pf.vk)
+	pr := &d.prep
+	pr.async = true
+	for _, vf := range formats {
+		if _, ok := pr.formats[vf]; ok {
+			continue
+		}
+		ct, err := d.compTargetOf(vf)
 		if err != nil {
 			return err
 		}
@@ -182,9 +229,22 @@ func (d *Device) Prepare(formats ...fourcc.Format) error {
 		if _, _, err := d.colorPlainPipeline(cs, ct); err != nil {
 			return err
 		}
+		if pr.formats == nil {
+			pr.formats = map[vk.Format]struct{}{}
+		}
+		pr.formats[vf] = struct{}{}
 	}
 	return nil
 }
+
+// BeforeBuild has f run before each pipeline a draw builds at its first use on
+// a device that never called Prepare, on the goroutine drawing: f may lower
+// that thread's priority for the driver's compile.
+func (d *Device) BeforeBuild(f func()) { d.prep.beforeBuild = f }
+
+// PipelineBuilds counts the pipelines this device has built, on its own
+// goroutine or on the worker Prepare starts.
+func (d *Device) PipelineBuilds() uint64 { return d.prep.builds.Load() }
 
 // Prepared reports whether the worker has built everything asked of it; the
 // pipelines reach passes from the next Begin.

@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys-lib/fourcc"
 	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-lib/third_party/vk"
 )
 
 func awaitPrepared(t *testing.T, d *Device) {
@@ -51,7 +52,7 @@ func TestAfterPrepareNoPassBuildsAPipeline(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stops.Close()
-	before := d.prep.builds.Load()
+	before := d.PipelineBuilds()
 	ct := ColorTransform{Matrix: [9]float32{1, 0, 0, 0, 1, 0, 0, 0, 1}, Scale: 1}
 	for _, colored := range []bool{false, true} {
 		runPass(t, d, tg, []image.Rectangle{{Max: tg.Size()}}, func(p *Pass) {
@@ -72,8 +73,151 @@ func TestAfterPrepareNoPassBuildsAPipeline(t *testing.T) {
 			}
 		})
 	}
-	if n := d.prep.builds.Load() - before; n != 0 {
+	if n := d.PipelineBuilds() - before; n != 0 {
 		t.Errorf("%d pipelines built while passes recorded after Prepare", n)
+	}
+}
+
+func TestPipelineBuildsCountsTheFirstDrawOfAPipelineOnly(t *testing.T) {
+	d := openDevice(t)
+	tg := newTarget(t, d, 8, 8)
+	fill := func() {
+		runPass(t, d, tg, []image.Rectangle{{Max: tg.Size()}}, func(p *Pass) {
+			p.FillRect(image.Rect(0, 0, 8, 8), color.RGBA{R: 0xff, A: 0xff}, Mask{})
+		})
+	}
+	before := d.PipelineBuilds()
+	fill()
+	first := d.PipelineBuilds()
+	if first == before {
+		t.Fatal("the first fill into a new target built no pipeline")
+	}
+	fill()
+	if n := d.PipelineBuilds() - first; n != 0 {
+		t.Errorf("a second identical fill built %d pipelines", n)
+	}
+	if err := d.Prepare(fourcc.ABGR8888); err != nil {
+		t.Fatal(err)
+	}
+	awaitPrepared(t, d)
+	if d.PipelineBuilds() == first {
+		t.Error("the pipelines Prepare built on its worker were not counted")
+	}
+}
+
+func TestBeforeBuildRunsBeforeEachPipelineADrawBuilds(t *testing.T) {
+	d := openDevice(t)
+	tg := newTarget(t, d, 8, 8)
+	var hooked, builtFirst uint64
+	d.BeforeBuild(func() {
+		if d.PipelineBuilds() != builtFirst+hooked {
+			t.Error("a pipeline was built before its hook ran")
+		}
+		hooked++
+	})
+	builtFirst = d.PipelineBuilds()
+	fill := func() {
+		runPass(t, d, tg, []image.Rectangle{{Max: tg.Size()}}, func(p *Pass) {
+			p.FillRect(image.Rect(0, 0, 8, 8), color.RGBA{R: 0xff, A: 0xff}, Mask{})
+		})
+	}
+	fill()
+	if built := d.PipelineBuilds() - builtFirst; hooked == 0 || hooked != built {
+		t.Fatalf("the hook ran %d times for %d pipelines built", hooked, built)
+	}
+	fill()
+	if built := d.PipelineBuilds() - builtFirst; hooked != built {
+		t.Errorf("the hook ran %d times for %d pipelines built", hooked, built)
+	}
+	if err := d.Prepare(fourcc.ABGR8888); err != nil {
+		t.Fatal(err)
+	}
+	ran := hooked
+	awaitPrepared(t, d)
+	if hooked != ran {
+		t.Errorf("the hook ran %d times for pipelines built on the worker", hooked-ran)
+	}
+}
+
+func TestPrepareForBuildsWhatAnOffscreenTargetsDrawsTakeOnce(t *testing.T) {
+	d := openDevice(t)
+	tg, err := d.NewOffscreenFloat(16, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(tg.Close)
+	src := newTarget(t, d, 8, 8)
+	if err := d.PrepareFor(tg, src); err != nil {
+		t.Fatal(err)
+	}
+	awaitPrepared(t, d)
+	prepared := d.PipelineBuilds()
+	if err := d.PrepareFor(tg); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := d.Prepared(); err != nil || !ok {
+		t.Fatalf("a second PrepareFor of a prepared format left work: %v, %v", ok, err)
+	}
+	runPass(t, d, src, []image.Rectangle{{Max: src.Size()}}, func(p *Pass) { p.Clear(color.RGBA{A: 0xff}) })
+	tex, err := src.Texture()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runPass(t, d, tg, []image.Rectangle{{Max: tg.Size()}}, func(p *Pass) {
+		r := image.Rect(0, 0, 8, 8)
+		p.FillRect(r, color.RGBA{R: 0xff, A: 0xff}, Mask{})
+		p.DrawTexture(tex, FRect{W: 8, H: 8}, r, TransformNormal, 1, Mask{})
+		p.Kawase(tex, r, 1, false)
+		if p.Incomplete() {
+			t.Error("a pass into a target PrepareFor prepared skipped a draw")
+		}
+	})
+	if n := d.PipelineBuilds() - prepared; n != 0 {
+		t.Errorf("%d pipelines built after PrepareFor finished: by a second PrepareFor of the format or by draws into it", n)
+	}
+	closed := newTarget(t, d, 4, 4)
+	closed.Close()
+	if err := d.PrepareFor(closed); err == nil {
+		t.Error("PrepareFor of a closed target succeeded")
+	}
+}
+
+func TestAPipelineTheWorkerCannotBuildFailsEveryDrawThatNeedsIt(t *testing.T) {
+	d := openDevice(t)
+	if err := d.Prepare(); err != nil {
+		t.Fatal(err)
+	}
+	refused := errors.New("refused")
+	key := pipelineKey{owner: t, which: 1}
+	builds := 0
+	build := func() (vk.Pipeline, error) {
+		builds++
+		return 0, refused
+	}
+	publish := func(vk.Pipeline) { t.Error("a refused pipeline was published") }
+	if p, err := d.lazyPipeline(key, 0, build, publish); p != 0 || err != nil {
+		t.Fatalf("the first ask: %v, %v, want it queued", p, err)
+	}
+	deadline := time.Now().Add(time.Minute)
+	var err error
+	for err == nil {
+		if time.Now().After(deadline) {
+			t.Fatal("the worker never reported the refusal")
+		}
+		_, err = d.Prepared()
+		time.Sleep(time.Millisecond)
+	}
+	if !errors.Is(err, refused) {
+		t.Fatalf("Prepared reported %v, want the refusal", err)
+	}
+	for range 2 {
+		if _, err := d.lazyPipeline(key, 0, build, publish); !errors.Is(err, refused) {
+			t.Fatalf("a later ask: %v, want the refusal", err)
+		}
+	}
+	awaitPrepared(t, d)
+	if builds != 1 {
+		t.Errorf("the refused pipeline was built %d times, want once", builds)
 	}
 }
 
@@ -97,8 +241,8 @@ func TestAPassBeforeItsPipelineExistsSkipsTheDrawAndSaysSo(t *testing.T) {
 		}
 		return incomplete
 	}
-	builds := d.prep.builds.Load()
-	if !draw() && d.prep.builds.Load() == builds {
+	builds := d.PipelineBuilds()
+	if !draw() && d.PipelineBuilds() == builds {
 		t.Log("the worker beat the first draw")
 	}
 	awaitPrepared(t, d)
