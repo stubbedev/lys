@@ -1081,6 +1081,7 @@ func TestAnOutputGoingAwayAndAReloadLeaveTheOverviewWhole(t *testing.T) {
 }
 
 func TestAHeldArrowRepeats(t *testing.T) {
+	t.Parallel()
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Seat.RepeatRate, cfg.Seat.RepeatDelay = 200, 10
 	}, overviewMode)
@@ -1547,6 +1548,7 @@ func TestAnIconifiedXWindowThatNeverDrewHoldsATileInTheRow(t *testing.T) {
 }
 
 func TestAWindowWhoseBufferIsGoneKeepsItsTileEvenDragged(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
 		tile := render.Color{R: 0xc0, G: 0x20, B: 0xa0, A: 0xff}
 		h := start(t, func(cfg *compositor.Config) {

@@ -249,6 +249,7 @@ func TestAVirtualOutputRendersOnlyWhileCaptured(t *testing.T) {
 }
 
 func TestAVirtualOutputStreamsIntoDMABUFs(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
 		h := start(t, func(*compositor.Config) {}, small)
 		name := h.createOutput(ipc.Request{Mode: &virtualMode})

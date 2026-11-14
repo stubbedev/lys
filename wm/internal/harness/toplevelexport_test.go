@@ -235,6 +235,7 @@ func TestAToplevelExportFrameCopiesOnce(t *testing.T) {
 }
 
 func TestAToplevelExportIntoDMABUFs(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAToplevelExportIntoDMABUFs)
 }
 

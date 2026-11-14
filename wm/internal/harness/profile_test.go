@@ -34,6 +34,7 @@ func profiled(d *colorspace.Description) func(*compositor.Config) {
 }
 
 func TestAProfileOnAnOutputWithoutCRTCLUTsCorrectsEveryDraw(t *testing.T) {
+	t.Parallel()
 	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
 		p3 := displayP3(t)
 		h := start(t, profiled(p3), small)

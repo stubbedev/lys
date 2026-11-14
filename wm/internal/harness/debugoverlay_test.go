@@ -56,6 +56,7 @@ func TestTheOpaqueOverlayTintsTheOpaqueWindow(t *testing.T) {
 }
 
 func TestThePlanesOverlayLeavesAScannedOutWindowScannedOut(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
 		s := fullscreenScanout(t, start, func(*compositor.Config) {})
 		s.show(t, "the dmabuf", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0xff, 0, 0)))

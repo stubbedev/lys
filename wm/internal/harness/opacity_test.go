@@ -60,6 +60,7 @@ func testInactiveWindowsAndRuledWindowsAreTranslucent(t *testing.T, start gpuSta
 }
 
 func TestATranslucentFullscreenWindowIsComposited(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testATranslucentFullscreenWindowIsComposited)
 }
 

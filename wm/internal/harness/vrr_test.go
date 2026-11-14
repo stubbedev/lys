@@ -37,6 +37,7 @@ func headAdaptive(on bool) cwom.ZwlrOutputHeadV1AdaptiveSyncState {
 }
 
 func TestAFullscreenGameOrVideoVariesTheRefreshUnderTheFullscreenPolicy(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name    string
 		content cct.WpContentTypeV1Type

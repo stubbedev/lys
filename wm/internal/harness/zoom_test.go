@@ -182,6 +182,7 @@ func TestReducedMotionZoomsAtOnce(t *testing.T) {
 }
 
 func TestScanoutStopsWhileZoomedAndResumes(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
 		s := fullscreenScanout(t, start, zoomConfig)
 		h, c := s.h, s.c

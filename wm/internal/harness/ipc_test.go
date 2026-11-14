@@ -78,6 +78,7 @@ func expectEvent(t *testing.T, lines <-chan string, want string) {
 }
 
 func TestEveryActionThroughIPC(t *testing.T) {
+	t.Parallel()
 	reloads, exits := 0, 0
 	h := StartWith(t, func(cfg *compositor.Config) {
 		cfg.Overview.Blur = false

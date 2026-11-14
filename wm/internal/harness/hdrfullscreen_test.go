@@ -25,6 +25,7 @@ func hdrState(h *Harness) (on bool, commits uint64) {
 }
 
 func TestHDRFullscreenSwitchesTheSignalForAnHDRFullscreenSurface(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testHDRFullscreenSwitchesTheSignal)
 }
 

@@ -94,6 +94,7 @@ func overlays(h *Harness) (flips, presents uint64, shown int) {
 }
 
 func TestWindowedVideosGoToOverlayPlanes(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testWindowedVideosGoToOverlayPlanes)
 }
 
@@ -174,6 +175,7 @@ func testWindowedVideosGoToOverlayPlanes(t *testing.T, start gpuStarter) {
 }
 
 func TestARefusedOverlayFlipCompositesTheWindowInstead(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testARefusedOverlayFlipCompositesTheWindowInstead)
 }
 

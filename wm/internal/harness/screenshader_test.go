@@ -259,6 +259,7 @@ func testAShaderReadingTimeKeepsDrawing(t *testing.T, start gpuStarter) {
 }
 
 func TestScanoutStopsOnlyWhileAShaderIsOn(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testScanoutStopsOnlyWhileAShaderIsOn)
 }
 

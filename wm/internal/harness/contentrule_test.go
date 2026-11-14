@@ -124,6 +124,7 @@ func xQuiesce(t *testing.T, h *Harness, xc *xclient) uint64 {
 }
 
 func TestAContentRuleOverridesAClientsGameTag(t *testing.T) {
+	t.Parallel()
 	s := fullscreenScanout(t, startAdaptive, func(cfg *compositor.Config) {
 		cfg.Outputs.Fallback.VRR = compositor.VRRFullscreen
 		cfg.Tearing = true

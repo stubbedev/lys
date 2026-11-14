@@ -104,6 +104,7 @@ func testRoundedWindowsAndBorders(t *testing.T, start gpuStarter) {
 }
 
 func TestARoundedWindowThatFillsTheOutputIsComposited(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testARoundedWindowThatFillsTheOutputIsComposited)
 }
 

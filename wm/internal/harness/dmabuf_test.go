@@ -10,6 +10,7 @@ import (
 )
 
 func TestDMABUFClientsOnTheGPURenderers(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testDMABUFClientsOnTheGPURenderers)
 }
 
@@ -52,6 +53,7 @@ func testDMABUFClientsOnTheGPURenderers(t *testing.T, start gpuStarter) {
 }
 
 func TestADMABUFDestroyedInASynchronizedCacheKeepsItsClient(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testADMABUFDestroyedInASynchronizedCacheKeepsItsClient)
 }
 

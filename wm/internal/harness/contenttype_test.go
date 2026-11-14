@@ -107,6 +107,7 @@ func TestOneContentTypePerSurfaceUntilItIsGone(t *testing.T) {
 }
 
 func TestAFullscreenGameTearsLikeARuleWouldMakeIt(t *testing.T) {
+	t.Parallel()
 	testclientRule := func(tearing wm.RuleTearing) []wm.Rule {
 		return []wm.Rule{{Match: wm.Match{AppID: regexp.MustCompile(`^lys-wm\.testclient$`)}, Tearing: tearing}}
 	}
@@ -185,6 +186,7 @@ func tearingGame(t *testing.T) *scanoutScene {
 }
 
 func TestACompositedFullscreenGameStatesItsFrameHints(t *testing.T) {
+	t.Parallel()
 	s := tearingGame(t)
 	if err := errors.Join(s.w.Redraw(), s.c.Display.Flush()); err != nil {
 		t.Fatal(err)
@@ -193,6 +195,7 @@ func TestACompositedFullscreenGameStatesItsFrameHints(t *testing.T) {
 }
 
 func TestZoomOverATearingGameResetsTheFrameHints(t *testing.T) {
+	t.Parallel()
 	s := tearingGame(t)
 	s.show(t, "the game", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0xff, 0, 0)))
 	s.h.Eventually("the game tearing as a game", frameHints(true, true, wm.ContentGame))

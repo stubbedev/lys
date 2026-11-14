@@ -357,6 +357,7 @@ func dmabufCapture(t *testing.T, start gpuStarter) (*testclient.Client, *ceic.Ex
 }
 
 func TestImageCopyCaptureIntoDMABUFs(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testImageCopyCaptureIntoDMABUFs)
 }
 
@@ -375,6 +376,7 @@ func testImageCopyCaptureIntoDMABUFs(t *testing.T, start gpuStarter) {
 }
 
 func TestACaptureIntoADMABUFTheRendererCannotDrawIntoBreaksTheConstraints(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testACaptureIntoADMABUFTheRendererCannotDrawIntoBreaksTheConstraints)
 }
 
@@ -848,6 +850,7 @@ func TestAReusedShmBufferIsUpdatedOnlyWhereItIsStale(t *testing.T) {
 }
 
 func TestADMABUFCaptureRepaintsOnlyWhatChanged(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testADMABUFCaptureRepaintsOnlyWhatChanged)
 }
 

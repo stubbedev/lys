@@ -77,6 +77,7 @@ func (s *scanoutScene) show(t *testing.T, name string, b *testclient.DMABUF) {
 }
 
 func TestFullscreenDMABUFsScanOutDirectly(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testFullscreenDMABUFsScanOutDirectly)
 }
 
@@ -107,6 +108,7 @@ func testFullscreenDMABUFsScanOutDirectly(t *testing.T, start gpuStarter) {
 }
 
 func TestAnHDROutputScansOutOnlyWhatMatchesItsSignal(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAnHDROutputScansOutOnlyWhatMatchesItsSignal)
 }
 
@@ -135,6 +137,7 @@ func testAnHDROutputScansOutOnlyWhatMatchesItsSignal(t *testing.T, start gpuStar
 }
 
 func TestAFullscreenDMABUFScansOutOverAWallpaperAndABar(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAFullscreenDMABUFScansOutOverAWallpaperAndABar)
 }
 
@@ -151,6 +154,7 @@ func testAFullscreenDMABUFScansOutOverAWallpaperAndABar(t *testing.T, start gpuS
 }
 
 func TestAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt)
 }
 
@@ -176,6 +180,7 @@ func testAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt(t *testing.T, start
 }
 
 func TestATenBitDMABUFScansOutUnconverted(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testATenBitDMABUFScansOutUnconverted)
 }
 
@@ -185,6 +190,7 @@ func testATenBitDMABUFScansOutUnconverted(t *testing.T, start gpuStarter) {
 }
 
 func TestDestroyingAReplacedBufferStillOnScreenSendsNoRelease(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testDestroyingAReplacedBufferStillOnScreenSendsNoRelease)
 }
 
@@ -206,6 +212,7 @@ func testDestroyingAReplacedBufferStillOnScreenSendsNoRelease(t *testing.T, star
 }
 
 func TestAFullscreenSurfaceIsOfferedThePlaneFormats(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAFullscreenSurfaceIsOfferedThePlaneFormats)
 }
 
@@ -232,6 +239,7 @@ func testAFullscreenSurfaceIsOfferedThePlaneFormats(t *testing.T, start gpuStart
 }
 
 func TestAWindowWhoseBufferWasDestroyedIsDrawnAgainFromItsNextBuffer(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAWindowWhoseBufferWasDestroyedIsDrawnAgainFromItsNextBuffer)
 }
 
@@ -248,6 +256,7 @@ func testAWindowWhoseBufferWasDestroyedIsDrawnAgainFromItsNextBuffer(t *testing.
 }
 
 func TestACommitThatChangesNothingScansOutNothingAgain(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testACommitThatChangesNothingScansOutNothingAgain)
 }
 
@@ -273,6 +282,7 @@ func testACommitThatChangesNothingScansOutNothingAgain(t *testing.T, start gpuSt
 }
 
 func TestAScannedOutFrameIsZeroCopyAndACompositedOneIsNot(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
 		s := fullscreenScanout(t, start, func(*compositor.Config) {})
 		p, err := cpt.NewWpPresentation(s.c.Display, 2, &presentationEvents{})
@@ -324,6 +334,7 @@ func scannedAt(h *Harness) backend.Placement {
 }
 
 func TestScaledAndLetterboxedFullscreenDMABUFsScanOut(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testScaledAndLetterboxedFullscreenDMABUFsScanOut)
 }
 

@@ -103,6 +103,7 @@ func TestEveryTransformRotatesTheOutputOnTheSoftRenderer(t *testing.T) {
 }
 
 func TestEveryTransformRotatesTheOutputOnTheGPURenderers(t *testing.T) {
+	t.Parallel()
 	onEachGPURenderer(t, checkTransforms)
 }
 
@@ -222,6 +223,7 @@ func TestAMirrorShowsItsSourceWithOneDrawAndNoWorkspaces(t *testing.T) {
 }
 
 func TestAPreRotatedFullscreenBufferScansOutOnARotatedOutput(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
 		h := start(t, transformed(render.Rotate90), small)
 		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {

@@ -265,5 +265,6 @@ func TestTitlebarGoldensOnTheSoftRenderer(t *testing.T) {
 }
 
 func TestTitlebarGoldensOnTheGPURenderers(t *testing.T) {
+	t.Parallel()
 	onEachGPURenderer(t, titlebarGoldens)
 }

@@ -205,6 +205,7 @@ func TestAScreencopyFrameCopiesOnce(t *testing.T) {
 }
 
 func TestScreencopyIntoDMABUFsOnTheGPURenderers(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testScreencopyIntoDMABUFsOnTheGPURenderers)
 }
 
@@ -267,6 +268,7 @@ func copyDMABUF(t *testing.T, c *testclient.Client, mgr *cwsc.ZwlrScreencopyMana
 }
 
 func TestAScreencopyIntoADMABUFTheRendererCannotDrawIntoFailsAndKeepsTheClient(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAScreencopyIntoADMABUFTheRendererCannotDrawIntoFailsAndKeepsTheClient)
 }
 
@@ -289,6 +291,7 @@ func testAScreencopyIntoADMABUFTheRendererCannotDrawIntoFailsAndKeepsTheClient(t
 }
 
 func TestAScreencopyIntoADMABUFOfTheWrongSizeIsAProtocolError(t *testing.T) {
+	t.Parallel()
 	onEachDMABUFRenderer(t, testAScreencopyIntoADMABUFOfTheWrongSizeIsAProtocolError)
 }
 
@@ -299,6 +302,7 @@ func testAScreencopyIntoADMABUFOfTheWrongSizeIsAProtocolError(t *testing.T, star
 }
 
 func TestTheSoftRendererOffersNoScreencopyDMABUF(t *testing.T) {
+	t.Parallel()
 	h := Start(t, small)
 	c := testclient.Connect(t, h.Socket())
 	mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)

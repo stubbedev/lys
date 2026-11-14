@@ -77,6 +77,7 @@ func TestAnHDROutputMovesItsCursorOnThePlane(t *testing.T) {
 }
 
 func TestAnHDRFullscreenBufferKeepsScanningOutUnderAMovingCursor(t *testing.T) {
+	t.Parallel()
 	h := StartGLESWithCursorPlanes(t, image.Pt(64, 64), hdrRule, small)
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		b.Outputs()[0].AllowScanout(primaryPlane)

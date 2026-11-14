@@ -19,6 +19,7 @@ type ignoreRelease struct{}
 func (ignoreRelease) Release(*cw.WlBuffer) error { return nil }
 
 func TestAShrunkPoolDisconnectsOnlyItsClientOnTheGPURenderers(t *testing.T) {
+	t.Parallel()
 	onEachGPURenderer(t, testAShrunkPoolDisconnectsOnlyItsClientOnTheGPURenderers)
 }
 
@@ -78,6 +79,7 @@ func tenBitFill(format cw.WlShmFormat, r, g, b uint32) testclient.Painter {
 }
 
 func TestTenBitShmBuffersShowTheirColour(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		start func(t *testing.T) *Harness

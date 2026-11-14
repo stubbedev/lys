@@ -13,6 +13,7 @@ import (
 )
 
 func TestTearingFollowsTheSwitchTheHintAndTheRules(t *testing.T) {
+	t.Parallel()
 	testclientRule := func(tearing wm.RuleTearing) []wm.Rule {
 		return []wm.Rule{{Match: wm.Match{AppID: regexp.MustCompile(`^lys-wm\.testclient$`)}, Tearing: tearing}}
 	}
@@ -97,6 +98,7 @@ func TestOneTearingControlPerSurfaceUntilItIsGone(t *testing.T) {
 }
 
 func TestDestroyingTheHintStopsTearing(t *testing.T) {
+	t.Parallel()
 	s := fullscreenScanout(t, StartGLES, func(cfg *compositor.Config) { cfg.Tearing = true })
 	hint, err := tearingManager(t, s.c).GetTearingControl(s.w.Surface)
 	if err != nil {
