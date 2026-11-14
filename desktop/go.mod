@@ -3,8 +3,8 @@ module github.com/stubbedev/lys-desktop
 go 1.27.4
 
 require (
-	github.com/stubbedev/lys-lib v0.3.23-0.20261114195656-726d3a98e18d
-	github.com/stubbedev/lys-ui v0.2.26-0.20261114120530-6d7585002daa
+	github.com/stubbedev/lys-lib v0.3.23-0.20261114211204-ffe461df1b22
+	github.com/stubbedev/lys-ui v0.2.26-0.20261114211358-1083873f7f70
 	github.com/stubbedev/memory-go v0.6.0
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/image v0.47.0
