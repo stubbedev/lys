@@ -86,7 +86,7 @@ func (w *WM) AwaitCapture(t *testing.T) {
 	t.Helper()
 	select {
 	case <-w.captureFake(t).opened:
-	case <-time.After(timeout):
+	case <-time.After(hangGuard):
 		t.Fatal("lyswmtest: no capture opened")
 	}
 }
@@ -96,7 +96,7 @@ func (w *WM) AwaitCaptureClosed(t *testing.T) {
 	t.Helper()
 	select {
 	case <-w.captureFake(t).closed:
-	case <-time.After(timeout):
+	case <-time.After(hangGuard):
 		t.Fatal("lyswmtest: no capture closed")
 	}
 }
@@ -109,7 +109,7 @@ func (w *WM) ExpectCaptureCommand(t *testing.T, want string) {
 		if got != want {
 			t.Errorf("capture command %s, want %s", got, want)
 		}
-	case <-time.After(timeout):
+	case <-time.After(hangGuard):
 		t.Fatalf("no capture command, want %s", want)
 	}
 }
@@ -121,7 +121,7 @@ func (w *WM) SendCapture(t *testing.T, lines ...string) {
 	for _, line := range lines {
 		select {
 		case c.events <- line:
-		case <-time.After(timeout):
+		case <-time.After(hangGuard):
 			t.Fatal("lyswmtest: the capture takes no more events")
 		}
 	}

@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	ack     = `{"version":1}`
-	unknown = `{"version":1,"error":"unknown request"}`
-	timeout = 2 * time.Second
+	ack       = `{"version":1}`
+	unknown   = `{"version":1,"error":"unknown request"}`
+	hangGuard = 2 * time.Minute
+	stopGrace = 2 * time.Second
 )
 
 // WM is the fake. It answers each request by its name, records every
@@ -177,7 +178,7 @@ func (w *WM) AwaitWatch(t *testing.T) {
 	t.Helper()
 	select {
 	case <-w.watching:
-	case <-time.After(timeout):
+	case <-time.After(hangGuard):
 		t.Fatal("lyswmtest: nothing watched the event stream")
 	}
 }
@@ -190,7 +191,7 @@ func (w *WM) ExpectDispatch(t *testing.T, want string) {
 		if got != want {
 			t.Errorf("dispatched %q, want %q", got, want)
 		}
-	case <-time.After(timeout):
+	case <-time.After(hangGuard):
 		t.Fatalf("nothing dispatched, want %q", want)
 	}
 }

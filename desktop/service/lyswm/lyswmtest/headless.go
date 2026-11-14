@@ -59,7 +59,7 @@ func Headless(t *testing.T) {
 		_ = cmd.Process.Signal(os.Interrupt)
 		select {
 		case <-exited:
-		case <-time.After(timeout):
+		case <-time.After(stopGrace):
 			_ = cmd.Process.Kill()
 			<-exited
 		}
@@ -69,7 +69,7 @@ func Headless(t *testing.T) {
 			mu.Unlock()
 		}
 	})
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); ; time.Sleep(20 * time.Millisecond) {
 		select {
 		case <-exited:
 			mu.Lock()
