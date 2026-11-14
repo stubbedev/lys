@@ -155,7 +155,6 @@ func (r *focusRig) motionIsFree(why string) {
 }
 
 func TestFocusFollowsMouseModes(t *testing.T) {
-	t.Parallel()
 	t.Run("off", func(t *testing.T) {
 		r := startFocus(t, wm.FocusSettings{FollowsMouse: wm.FollowsMouseOff})
 		r.window("a")
