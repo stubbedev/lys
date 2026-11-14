@@ -106,7 +106,7 @@ type outgoing struct {
 	reading bool
 	waiting bool
 	done    bool
-	since   time.Time
+	since   time.Duration
 }
 
 func (o *outgoing) close() error {
@@ -125,7 +125,7 @@ func (m *wm) outgoingBusy() bool {
 
 func (m *wm) expireOutgoing() {
 	m.dropOutgoing(func(k outKey, o *outgoing) bool {
-		if time.Since(o.since) <= m.transfer {
+		if m.loop.Now()-o.since < m.transfer {
 			return false
 		}
 		m.report(fmt.Errorf("xwayland: the X window %d took nothing of a selection for %v; dropped the transfer", k.requestor, m.transfer))
@@ -147,8 +147,8 @@ func (m *wm) armReap() {
 	if len(m.outgoing) == 0 {
 		err = m.reap.Disarm()
 	} else {
-		oldest := slices.MinFunc(slices.Collect(maps.Values(m.outgoing)), func(a, b *outgoing) int { return a.since.Compare(b.since) })
-		err = m.reap.Arm(max(time.Until(oldest.since.Add(m.transfer)), time.Millisecond))
+		oldest := slices.MinFunc(slices.Collect(maps.Values(m.outgoing)), func(a, b *outgoing) int { return cmp.Compare(a.since, b.since) })
+		err = m.reap.Arm(oldest.since + m.transfer - m.loop.Now())
 	}
 	if err != nil {
 		m.report(fmt.Errorf("xwayland: watch the selection transfers to X: %w", err))
@@ -472,7 +472,7 @@ func (m *wm) firstChunk(e xproto.SelectionRequestEvent, property xproto.Atom, in
 	xproto.ChangeWindowAttributes(m.x, e.Requestor, xproto.CwEventMask, []uint32{xproto.EventMaskPropertyChange})
 	lowerBound := binary.LittleEndian.AppendUint32(nil, incrChunk)
 	xproto.ChangeProperty(m.x, xproto.PropModeReplace, e.Requestor, property, m.atoms[atomIncr], 32, 1, lowerBound)
-	m.outgoing[outKey{e.Requestor, property}] = &outgoing{target: e.Target, src: in, pending: chunk, total: len(chunk), since: time.Now()}
+	m.outgoing[outKey{e.Requestor, property}] = &outgoing{target: e.Target, src: in, pending: chunk, total: len(chunk), since: m.loop.Now()}
 	m.armReap()
 	m.notifySelection(e, property)
 	return nil
@@ -503,7 +503,7 @@ func (m *wm) sendChunk(key outKey, o *outgoing) {
 	}
 	n := len(o.pending)
 	xproto.ChangeProperty(m.x, xproto.PropModeReplace, key.requestor, key.property, o.target, 8, uint32(n), o.pending) //nolint:gosec // at most one chunk
-	o.pending, o.waiting, o.done, o.since = nil, false, n == 0, time.Now()
+	o.pending, o.waiting, o.done, o.since = nil, false, n == 0, m.loop.Now()
 	m.armReap()
 }
 

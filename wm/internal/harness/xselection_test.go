@@ -602,24 +602,40 @@ func TestAStalledTransferToXIsDroppedOnTimeAndReleasesItsSource(t *testing.T) {
 		r, err := xproto.GetSelectionOwner(xc.x, xc.atoms["CLIPBOARD"]).Reply()
 		return err == nil && r.Owner != 0
 	})
+	h.Hold()
 	stalled := xc.inputWindow()
 	if err := xproto.ConvertSelectionChecked(xc.x, stalled, xc.atoms["CLIPBOARD"], xc.atoms["UTF8_STRING"], xc.atoms["XSEL_DATA"], xproto.TimeCurrentTime).Check(); err != nil {
 		t.Fatal(err)
 	}
 	a.seen(t, "the source asked for the text", func() bool { return slices.Contains(src.Log, "send text/plain;charset=utf-8") })
+	h.Eventually("the transfer to X started incrementally", func(*headless.Backend, *compositor.Compositor) bool {
+		r, err := xproto.GetProperty(xc.x, false, stalled, xc.atoms["XSEL_DATA"], xproto.GetPropertyTypeAny, 0, 1).Reply()
+		return err == nil && r.Type == xc.atoms["INCR"]
+	})
+	dropped := func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.ContainsFunc(reported, func(err error) bool { return strings.Contains(err.Error(), "took nothing of a selection") })
+	}
+	h.Advance(XTransferTimeout - time.Millisecond)
+	select {
+	case err := <-writeErr:
+		t.Fatalf("the source's write failed with %v before the transfer timeout passed on the harness clock", err)
+	default:
+	}
+	if dropped() {
+		t.Fatal("the stalled transfer was dropped before its timeout passed on the harness clock")
+	}
+	h.Advance(time.Millisecond)
 	select {
 	case err := <-writeErr:
 		if !errors.Is(err, syscall.EPIPE) {
 			t.Fatalf("the source's write failed with %v, want EPIPE once the transfer is dropped", err)
 		}
-	case <-time.After(XTransferTimeout + clientTimeout):
-		t.Fatalf("the source still writes %v after the X window stopped reading", XTransferTimeout+clientTimeout)
+	case <-time.After(clientTimeout):
+		t.Fatalf("the source still writes %v after the transfer timeout passed on the harness clock", clientTimeout)
 	}
-	h.Eventually("the dropped transfer reported", func(*headless.Backend, *compositor.Compositor) bool {
-		mu.Lock()
-		defer mu.Unlock()
-		return slices.ContainsFunc(reported, func(err error) bool { return strings.Contains(err.Error(), "took nothing of a selection") })
-	})
+	h.Eventually("the dropped transfer reported", func(*headless.Backend, *compositor.Compositor) bool { return dropped() })
 }
 
 func TestStalledTransfersToXAreBoundedAndDieWithTheirWindow(t *testing.T) {

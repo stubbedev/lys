@@ -47,6 +47,12 @@ func setup(t *testing.T) (*loop.Loop, *Output, *recorder) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	o, r := setupOn(t, l)
+	return l, o, r
+}
+
+func setupOn(t *testing.T, l *loop.Loop) (*Output, *recorder) {
+	t.Helper()
 	r := &recorder{l: l}
 	o, err := New(l, soft.New(), r, "VIRT-1", mode)
 	if err != nil {
@@ -57,7 +63,7 @@ func setup(t *testing.T) (*loop.Loop, *Output, *recorder) {
 			t.Error(err)
 		}
 	})
-	return l, o, r
+	return o, r
 }
 
 func enable(t *testing.T, o *Output) {
@@ -128,6 +134,46 @@ func TestFramesRenderOffscreenOnTheModesClock(t *testing.T) {
 		if cur.Seq <= prev.Seq || cur.Idle || cur.Refresh != mode.Interval() {
 			t.Fatalf("presentation %d = %+v after %+v: want a later tick of %v", i, cur, prev, mode.Interval())
 		}
+	}
+}
+
+func TestFramesArePacedAndStampedOnTheLoopsClock(t *testing.T) {
+	const start = 1000 * time.Hour
+	l, clock, err := loop.NewManual(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock.WhenDry(func() {
+		at, ok := clock.NextFrame()
+		if !ok {
+			at, ok = clock.NextTimer()
+		}
+		if ok {
+			clock.Set(at)
+		}
+	})
+	o, r := setupOn(t, l)
+	enable(t, o)
+	const want = 6
+	r.stopAfter = want
+	r.onFrame = func(out backend.Output) error {
+		paint(t, out, r.frames)
+		if r.frames < want {
+			return out.ScheduleFrame()
+		}
+		return nil
+	}
+	if err := o.ScheduleFrame(); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	for i, p := range r.presented {
+		if at := start + time.Duration(i+1)*mode.Interval(); p.Time != at {
+			t.Fatalf("presentation %d at %v, want %v on the loop's clock, which started at %v", i, p.Time, at, start)
+		}
+	}
+	if len(r.presented) != want {
+		t.Fatalf("%d presentations, want %d", len(r.presented), want)
 	}
 }
 

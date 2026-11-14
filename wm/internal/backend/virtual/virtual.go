@@ -27,6 +27,7 @@ type Handler interface {
 }
 
 type Output struct {
+	loop       *loop.Loop
 	name       string
 	mode       backend.Mode
 	state      backend.OutputState
@@ -58,7 +59,7 @@ func New(l *loop.Loop, r render.Renderer, h Handler, name string, m backend.Mode
 		return nil, fmt.Errorf("virtual: %s: mode %dx%d@%dmHz is beyond %dx%d at %d Hz", name, m.Size.X, m.Size.Y, m.RefreshMHz, MaxEdge, MaxEdge, MaxRefreshMHz/1000)
 	}
 	m.Preferred = true
-	o := &Output{name: name, mode: m, state: backend.OutputState{Mode: m}, renderer: r, handler: h}
+	o := &Output{loop: l, name: name, mode: m, state: backend.OutputState{Mode: m}, renderer: r, handler: h}
 	o.clock = backend.NewFrameClock(l.Idle, o.frameReady, o.runFrame, nil)
 	var err error
 	if o.timer, err = l.AddTimer(o.vblank); err != nil {
@@ -223,10 +224,10 @@ func (o *Output) arm() error {
 	if o.armed {
 		return nil
 	}
-	now := loop.Monotonic()
+	now := o.loop.Now()
 	at, ticks := backend.NextVblank(o.lastVblank, now, o.state.Mode.Interval())
 	o.nextVblank, o.nextSeq = at, o.seq+ticks
-	if err := o.timer.Arm(at - now); err != nil {
+	if err := o.timer.ArmFrame(at - now); err != nil {
 		return fmt.Errorf("virtual: arm the frame timer of %s: %w", o.name, err)
 	}
 	o.armed = true
