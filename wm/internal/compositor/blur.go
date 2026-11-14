@@ -54,6 +54,7 @@ type blurCache struct {
 	touched uint64
 	partial bool
 	used    bool
+	stale   bool
 	to      colorOut
 	spec    chainSpec
 	sizes   []image.Point
@@ -174,6 +175,17 @@ func (bc *blurCaches) dropUnused() error {
 	return errors.Join(errs...)
 }
 
+func (bc *blurCaches) invalidate() {
+	for _, b := range bc.bySurface {
+		b.stale = true
+	}
+	for _, b := range []*blurCache{bc.xray, bc.mica} {
+		if b != nil {
+			b.stale = true
+		}
+	}
+}
+
 func (bc *blurCaches) drop() error {
 	var errs []error
 	for s, b := range bc.bySurface {
@@ -240,7 +252,7 @@ func (c *Compositor) micaSpec(o *output.Output) chainSpec {
 }
 
 func blurStale(cache *blurCache, spec chainSpec, area image.Rectangle, below []drawOp, to colorOut) bool {
-	return cache.area != area || cache.spec != spec || cache.to != to || !slices.Equal(cache.below, below) || len(cache.chain) == 0
+	return cache.stale || cache.area != area || cache.spec != spec || cache.to != to || !slices.Equal(cache.below, below) || len(cache.chain) == 0
 }
 
 func (c *Compositor) drawBlurRegion(pass *frame, o *output.Output, s *surface.Surface, org origin, m render.Mask, look *wm.Look) {
@@ -512,7 +524,7 @@ func (c *Compositor) renderBlur(newTarget func(image.Point) (render.TextureTarge
 		}
 	}
 	c.blurGen++
-	b.touched, b.partial = c.blurGen, damage != nil
+	b.touched, b.partial, b.stale = c.blurGen, damage != nil, false
 	if !b.partial {
 		b.version = c.blurGen
 	}

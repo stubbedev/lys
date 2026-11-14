@@ -1,11 +1,11 @@
 package vulkan_test
 
 import (
-	"fmt"
 	"image"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	lgpu "github.com/stubbedev/lys-lib/gpu"
 
@@ -288,14 +288,116 @@ func TestEveryCompileLeavesRealtimeFirst(t *testing.T) {
 	rendertest.CompilesLeaveRealtimeOncePerDrawState(t, r, target(t, r, image.Pt(4, 4)), target(t, r, image.Pt(8, 8)))
 }
 
-func TestAWarmedTargetFormatDrawsOrdinaryFramesWithoutLeavingRealtime(t *testing.T) {
-	r := testenv.Vulkan(t)
-	tt := target(t, r, image.Pt(4, 4))
-	rendertest.WarmedTargetDrawsOrdinaryFramesWithoutLeavingRealtime(t, r, tt, func() error {
-		vt, ok := tt.(*vulkan.Target)
-		if !ok {
-			return fmt.Errorf("a %T target", tt)
+func paintUntilComplete(t *testing.T, r *vulkan.Renderer, paint func() error) (compiles uint64) {
+	t.Helper()
+	deadline := time.Now().Add(testenv.HangLimit)
+	for {
+		before := r.Counts().Incomplete
+		n, err := rendertest.CompilesOnAPinnedThread(paint)
+		if err != nil {
+			t.Fatal(err)
 		}
-		return vulkan.Warm(r, vt)
-	})
+		compiles += n
+		if r.Counts().Incomplete == before {
+			return compiles
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("frames still skipped draws after %v", testenv.HangLimit)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestOffThreadFramesNeverCompileOnTheirThreadAndWarmOnesBuildNothing(t *testing.T) {
+	r := testenv.Vulkan(t)
+	early := target(t, r, image.Pt(4, 4))
+	if err := r.BuildOffThread(); err != nil {
+		t.Fatal(err)
+	}
+	late := target(t, r, image.Pt(8, 8))
+	e := rendertest.EveryEffect(t, r)
+	for _, tt := range []render.Target{early, late} {
+		if n := paintUntilComplete(t, r, rendertest.PaintEffects(r, tt, e)); n != 0 {
+			t.Errorf("frames into a %v target left realtime %d times", tt.Size(), n)
+		}
+	}
+	warm := r.Counts()
+	n, err := rendertest.CompilesOnAPinnedThread(rendertest.PaintEffects(r, early, e))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := r.Counts()
+	if n != 0 || got.Programs != warm.Programs || got.Incomplete != warm.Incomplete || got.ColdDraws != warm.ColdDraws {
+		t.Errorf("a warm frame left realtime %d times, built %d pipelines, skipped draws in %d passes and drew %d cold draws", n, got.Programs-warm.Programs, got.Incomplete-warm.Incomplete, got.ColdDraws-warm.ColdDraws)
+	}
+}
+
+func TestAFrameThatSkippedADrawDrawsItOnceItsPipelineIsBuilt(t *testing.T) {
+	r := testenv.Vulkan(t)
+	if err := r.BuildOffThread(); err != nil {
+		t.Fatal(err)
+	}
+	red := render.Color{R: 0xff, A: 0xff}
+	check := func(when string) {
+		t.Helper()
+		tt := target(t, r, image.Pt(2, 2))
+		if n := paintUntilComplete(t, r, func() error {
+			p, err := r.Begin(tt, render.Region{{Max: tt.Size()}})
+			if err != nil {
+				return err
+			}
+			p.Clear(render.Color{})
+			p.FillRect(image.Rect(0, 0, 2, 2), red, render.Mask{})
+			return p.End()
+		}); n != 0 {
+			t.Errorf("%s: left realtime %d times", when, n)
+		}
+		pix := make([]byte, 2*2*4)
+		if err := tt.Read(pix, 2*4); err != nil {
+			t.Fatal(err)
+		}
+		if got := (render.Color{R: pix[2], G: pix[1], B: pix[0], A: pix[3]}); got != red {
+			t.Errorf("%s: the completed frame drew %v, want %v", when, got, red)
+		}
+	}
+	check("on the first device")
+	r.LoseDevice()
+	if err := r.Recover(); err != nil {
+		t.Fatal(err)
+	}
+	check("after a device loss")
+}
+
+func TestOnceItsPipelinesAreBuiltTheFirstFrameIntoANewTargetIsComplete(t *testing.T) {
+	r := testenv.Vulkan(t)
+	if err := r.BuildOffThread(); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(testenv.HangLimit)
+	for {
+		built, err := r.PipelinesBuilt()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if built {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the pipelines were not built within %v", testenv.HangLimit)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	before := r.Counts()
+	if before.Programs == 0 {
+		t.Error("the pipelines built off the thread were not counted")
+	}
+	e := rendertest.EveryEffect(t, r)
+	n, err := rendertest.CompilesOnAPinnedThread(rendertest.PaintEffects(r, target(t, r, image.Pt(4, 4)), e))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := r.Counts()
+	if n != 0 || got.Incomplete != before.Incomplete || got.Programs != before.Programs {
+		t.Errorf("the first frame into a new target left realtime %d times, skipped draws in %d passes and built %d pipelines", n, got.Incomplete-before.Incomplete, got.Programs-before.Programs)
+	}
 }

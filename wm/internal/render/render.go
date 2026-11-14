@@ -384,6 +384,12 @@ type Counts struct {
 	ResetChecks uint64
 	Programs    uint64
 	ColdDraws   uint64
+	Incomplete  uint64
+}
+
+type OffThreadBuilder interface {
+	BuildOffThread() error
+	PipelinesBuilt() (bool, error)
 }
 
 type Renderer interface {

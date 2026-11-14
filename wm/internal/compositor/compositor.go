@@ -195,6 +195,7 @@ type Compositor struct {
 	outputs            []*output.Output
 	layout             *output.Manager
 	renderer           render.Renderer
+	incompletePasses   uint64
 	frames             *frametrace.Recorder
 	surfaces           *surface.Manager
 	shm                *shm.Manager
@@ -596,6 +597,9 @@ func New(l *loop.Loop, display *server.Display, b backend.Backend, cfg Config) (
 func (c *Compositor) setup(l *loop.Loop, display *server.Display, b backend.Backend, cfg Config) error {
 	var err error
 	if err := sandbox(display); err != nil {
+		return err
+	}
+	if err := c.buildOffThread(); err != nil {
 		return err
 	}
 	if c.repeat.timer, err = l.AddTimer(c.repeatFired); err != nil {

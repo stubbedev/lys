@@ -22,7 +22,7 @@ func (c *Compositor) Frame(b backend.Output) error {
 	if err != nil || c.parked {
 		return err
 	}
-	return p.frame(c, b)
+	return errors.Join(p.frame(c, b), c.redrawIncomplete())
 }
 
 func (c *Compositor) liveFrame(o *output.Output) error {

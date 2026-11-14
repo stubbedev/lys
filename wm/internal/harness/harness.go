@@ -176,7 +176,21 @@ func StartVulkan(t *testing.T, configure func(*compositor.Config), modes ...back
 	t.Helper()
 	vulkanTurn.hold(t)
 	testenv.Vulkan(t)
-	return start(t, setup{open: vulkanBackend, configure: configure, traced: true}, modes...)
+	return builtPipelines(start(t, setup{open: vulkanBackend, configure: configure, traced: true}, modes...))
+}
+
+func builtPipelines(h *Harness) *Harness {
+	h.t.Helper()
+	var err error
+	h.Eventually("the renderer's pipelines built off the compositor thread", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		var built bool
+		built, err = c.PipelinesBuilt()
+		return built || err != nil
+	})
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return h
 }
 
 func StartGLESWithCursorPlanes(t *testing.T, size image.Point, configure func(*compositor.Config), modes ...backend.Mode) *Harness {
@@ -190,7 +204,7 @@ func StartVulkanWithCursorPlanes(t *testing.T, size image.Point, configure func(
 	t.Helper()
 	vulkanTurn.hold(t)
 	testenv.Vulkan(t)
-	return start(t, setup{open: withCursorPlanes(vulkanBackend, size), configure: configure, traced: true}, modes...)
+	return builtPipelines(start(t, setup{open: withCursorPlanes(vulkanBackend, size), configure: configure, traced: true}, modes...))
 }
 
 const XTransferTimeout = 2 * time.Second

@@ -35,38 +35,83 @@ var formats = []struct {
 }
 
 type Renderer struct {
-	d        *lgpu.Device
-	node     uint64
-	pass     *pass
-	idle     pass
-	counts   render.Counts
-	waits    uint64
-	submits  uint64
-	lost     error
-	textures map[*texture]struct{}
-	targets  map[*Target]struct{}
-	linears  map[*linearCopy]struct{}
-	shaders  map[*screenShader]struct{}
-	drawn    map[drawState]struct{}
-	warmed   map[uint64]struct{}
-	effects  render.Effects
-
-	effectSource *TextureTarget
+	d         *lgpu.Device
+	node      uint64
+	pass      *pass
+	idle      pass
+	counts    render.Counts
+	waits     uint64
+	submits   uint64
+	builds    uint64
+	lost      error
+	offThread bool
+	textures  map[*texture]struct{}
+	targets   map[*Target]struct{}
+	linears   map[*linearCopy]struct{}
+	shaders   map[*screenShader]struct{}
 }
 
 func newRenderer(d *lgpu.Device, node uint64) *Renderer {
-	return &Renderer{
+	r := &Renderer{
 		d: d, node: node,
 		textures: map[*texture]struct{}{}, targets: map[*Target]struct{}{}, linears: map[*linearCopy]struct{}{}, shaders: map[*screenShader]struct{}{},
-		drawn: map[drawState]struct{}{}, warmed: map[uint64]struct{}{},
 	}
+	d.BeforeBuild(r.compiling)
+	return r
+}
+
+func (r *Renderer) compiling() {
+	r.counts.ColdDraws++
+	gpu.Compiling()
 }
 
 func (r *Renderer) Counts() render.Counts {
 	counts := r.counts
 	counts.GPUWaits = r.waits + r.d.BlockingWaits()
 	counts.Submits = r.submits + r.d.Submissions()
+	counts.Programs = r.builds + r.d.PipelineBuilds()
 	return counts
+}
+
+func (r *Renderer) BuildOffThread() error {
+	r.offThread = true
+	if r.lost != nil {
+		return nil
+	}
+	ts := make([]*lgpu.Target, 0, len(r.targets))
+	for t := range r.targets {
+		ts = append(ts, t.t)
+	}
+	return r.prepareWithOffscreen(ts)
+}
+
+func (r *Renderer) prepareWithOffscreen(ts []*lgpu.Target) error {
+	offscreen, err := r.d.NewOffscreen(1, 1)
+	if err != nil {
+		return fmt.Errorf("vulkan: an offscreen target to prepare its format: %w", r.note(err))
+	}
+	defer offscreen.Close()
+	float, err := r.d.NewOffscreenFloat(1, 1)
+	if err != nil {
+		return fmt.Errorf("vulkan: a float target to prepare its format: %w", r.note(err))
+	}
+	defer float.Close()
+	return r.note(r.d.PrepareFor(append(ts, offscreen, float)...))
+}
+
+func (r *Renderer) PipelinesBuilt() (bool, error) {
+	if r.lost != nil {
+		return false, nil
+	}
+	built, err := r.d.Prepared()
+	return built, r.note(err)
+}
+
+func (r *Renderer) prepare(t *lgpu.Target) error {
+	if !r.offThread {
+		return nil
+	}
+	return r.note(r.d.PrepareFor(t))
 }
 
 func (r *Renderer) note(err error) error {
@@ -120,8 +165,7 @@ func (r *Renderer) Recover() error {
 	}
 	r.waits += r.d.BlockingWaits()
 	r.submits += r.d.Submissions()
-	clear(r.drawn)
-	clear(r.warmed)
+	r.builds += r.d.PipelineBuilds()
 	gpu.Compiling()
 	r.d.Close()
 	d, err := r.open()
@@ -129,6 +173,12 @@ func (r *Renderer) Recover() error {
 		return fmt.Errorf("vulkan: a new device after a device loss: %w", err)
 	}
 	r.d, r.lost = d, nil
+	d.BeforeBuild(r.compiling)
+	if r.offThread {
+		if err := r.prepareWithOffscreen(nil); err != nil {
+			return fmt.Errorf("vulkan: build pipelines off the thread on the new device: %w", err)
+		}
+	}
 	var errs []error
 	for t := range r.textures {
 		errs = append(errs, t.make())
@@ -195,8 +245,7 @@ func (r *Renderer) DeviceName() string {
 }
 
 func (r *Renderer) Close() error {
-	errs := make([]error, 0, len(r.targets)+len(r.linears)+1)
-	errs = append(errs, r.destroyEffects())
+	errs := make([]error, 0, len(r.targets)+len(r.linears))
 	for t := range r.targets {
 		errs = append(errs, t.closeDmabuf())
 	}
@@ -353,6 +402,10 @@ func (t *Target) make() error {
 	}
 	if err != nil {
 		return r.note(err)
+	}
+	if err := r.prepare(t.t); err != nil {
+		t.t.Close()
+		return err
 	}
 	if t.tex == nil {
 		return nil
@@ -518,7 +571,7 @@ func (r *Renderer) NewExportedTarget(size image.Point, format fourcc.Format, mod
 	}
 	target := &Target{r: r, t: t, kind: exportedTarget, size: size}
 	r.targets[target] = struct{}{}
-	if err := r.warm(target); err != nil {
+	if err := r.prepare(t); err != nil {
 		return nil, nil, errors.Join(err, target.Destroy(), shared.Close())
 	}
 	return target, shared, nil
@@ -618,14 +671,7 @@ func (r *Renderer) NewLinearCopyTarget(size image.Point, format fourcc.Format) (
 }
 
 func (r *Renderer) ImportTarget(b gpu.DMABUF) (render.ReadTarget, error) {
-	t, err := r.buildTarget(&Target{r: r, kind: importedTarget, size: b.Size, dmabuf: b})
-	if err != nil {
-		return nil, err
-	}
-	if err := r.warm(t); err != nil {
-		return nil, errors.Join(err, t.Destroy())
-	}
-	return t, nil
+	return r.buildTarget(&Target{r: r, kind: importedTarget, size: b.Size, dmabuf: b})
 }
 
 func sitingOf(s gpu.Siting) lgpu.Siting {
@@ -754,12 +800,9 @@ func (r *Renderer) Finish() error {
 }
 
 type pass struct {
-	r       *Renderer
-	p       *lgpu.Pass
-	target  *Target
-	colored bool
-	cut     bool
-	err     error
+	r   *Renderer
+	p   *lgpu.Pass
+	err error
 }
 
 func (r *Renderer) target(target render.Target) (*Target, error) {
@@ -795,12 +838,11 @@ func (r *Renderer) begin(target render.Target, damage render.Region) (render.Pas
 	if r.lost != nil {
 		return render.LostPass{}, nil
 	}
-	r.compiling(drawState{target: t.key(), op: opTarget})
 	p, err := r.d.Begin(t.t, damage)
 	if err != nil {
 		return nil, r.note(err)
 	}
-	r.idle = pass{r: r, p: p, target: t}
+	r.idle = pass{r: r, p: p}
 	r.pass = &r.idle
 	return r.pass, nil
 }
@@ -810,7 +852,6 @@ func rgba(c render.Color) color.RGBA {
 }
 
 func (p *pass) SetColor(t *render.ColorTransform) {
-	p.colored = t != nil
 	p.p.SetColor(t)
 }
 
@@ -820,12 +861,10 @@ func (p *pass) SetCut(t render.Texture, c render.AlphaCut) {
 		p.fail(fmt.Errorf("vulkan: a cut over a texture of another renderer (%T)", t))
 		return
 	}
-	p.cut = true
 	p.p.SetCut(tex.t, c)
 }
 
 func (p *pass) ClearCut() {
-	p.cut = false
 	p.p.ClearCut()
 }
 
@@ -835,16 +874,10 @@ func (p *pass) Clear(c render.Color) {
 }
 
 func (p *pass) FillRect(r image.Rectangle, c render.Color, m render.Mask) {
-	if !r.Empty() {
-		p.note(opFill, c.A == 0xff && m == (render.Mask{}), nil)
-	}
 	p.p.FillRect(r, rgba(c), m)
 }
 
 func (p *pass) FillGoo(r image.Rectangle, c render.Color, g render.Goo) {
-	if !r.Empty() {
-		p.note(opGoo, false, nil)
-	}
 	p.p.FillGoo(r, rgba(c), g)
 }
 
@@ -857,9 +890,6 @@ func (p *pass) Kawase(t render.Texture, dst image.Rectangle, offset float32, up 
 		return
 	case p.err != nil:
 		return
-	}
-	if !dst.Empty() {
-		p.note(opKawase, false, tex)
 	}
 	p.p.Kawase(tex.t, dst, offset, up)
 }
@@ -877,9 +907,6 @@ func (p *pass) FillGradient(r image.Rectangle, g render.Gradient, m render.Mask)
 		p.fail(err)
 		return
 	}
-	if !r.Empty() {
-		p.note(opGradient, false, nil)
-	}
 	p.p.FillGradient(r, lgpu.Gradient{Stops: tex.t, From: g.From, To: g.To, Alpha: g.Alpha}, m)
 }
 
@@ -896,19 +923,18 @@ func (p *pass) DrawTexture(t render.Texture, src render.FRect, dst image.Rectang
 		p.fail(err)
 		return
 	}
-	if !dst.Empty() && alpha != 0 {
-		p.note(opTexture, alpha == 1 && m == (render.Mask{}), tex)
-	}
 	p.p.DrawTexture(tex.t, src, dst, lgpu.Transform(transform), alpha, m)
 }
 
 type screenShader struct {
-	r     *Renderer
-	s     *lgpu.FragmentShader
-	spirv []byte
+	r        *Renderer
+	s        *lgpu.FragmentShader
+	spirv    []byte
+	prepared map[uint64]struct{}
 }
 
 func (s *screenShader) make() error {
+	clear(s.prepared)
 	fs, err := s.r.d.NewFragmentShader(s.spirv)
 	if err != nil {
 		return fmt.Errorf("vulkan: %w", s.r.note(err))
@@ -918,7 +944,7 @@ func (s *screenShader) make() error {
 }
 
 func (r *Renderer) NewScreenShader(p *shader.Program) (render.ScreenShader, error) {
-	s := &screenShader{r: r, spirv: p.SPIRV()}
+	s := &screenShader{r: r, spirv: p.SPIRV(), prepared: map[uint64]struct{}{}}
 	if r.lost == nil {
 		if err := s.make(); err != nil {
 			return nil, err
@@ -936,17 +962,24 @@ func (s *screenShader) Prepare(target render.Target) error {
 	if s.r.lost != nil {
 		return nil
 	}
-	s.r.compiling(drawState{op: opShader, target: t.key(), shader: s})
-	return s.r.note(s.s.Prepare(t.t))
+	key := t.key()
+	if _, ok := s.prepared[key]; ok {
+		return nil
+	}
+	s.r.compiling()
+	if err := s.s.Prepare(t.t); err != nil {
+		return s.r.note(err)
+	}
+	s.prepared[key] = struct{}{}
+	return nil
+}
+
+func (t *Target) key() uint64 {
+	return uint64(t.kind)<<32 | uint64(t.t.Dmabuf().Format)
 }
 
 func (s *screenShader) Destroy() error {
 	delete(s.r.shaders, s)
-	for d := range s.r.drawn {
-		if d.shader == s {
-			delete(s.r.drawn, d)
-		}
-	}
 	if s.s == nil {
 		return nil
 	}
@@ -966,9 +999,6 @@ func (p *pass) DrawScreenShader(s render.ScreenShader, t render.Texture, dst ima
 	case p.err != nil:
 		return
 	}
-	if !dst.Empty() {
-		p.r.compiling(drawState{op: opShader, target: p.target.key(), shader: sh})
-	}
 	p.p.DrawFragmentShader(sh.s, tex.t, dst, [4]float32{seconds, float32(dst.Dx()), float32(dst.Dy())})
 }
 
@@ -985,9 +1015,6 @@ func (p *pass) DrawGlass(t render.Texture, src render.FRect, dst image.Rectangle
 		p.fail(err)
 		return
 	}
-	if !dst.Empty() && alpha != 0 {
-		p.note(opGlass, false, tex)
-	}
 	p.p.DrawGlass(tex.t, src, dst, alpha, m, g)
 }
 
@@ -1002,5 +1029,8 @@ func (p *pass) End() error {
 		return errors.New("vulkan: End of a pass already ended")
 	}
 	p.r.pass = nil
+	if p.p.Incomplete() {
+		p.r.counts.Incomplete++
+	}
 	return errors.Join(p.err, p.r.note(p.p.End()))
 }
