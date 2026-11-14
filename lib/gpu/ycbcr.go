@@ -176,7 +176,7 @@ func (d *Device) ycbcrKindOf(pf pixelFormat, c YCbCr, features vk.FormatFeatureF
 		return nil, err
 	}
 	d.comp.ycbcr[k] = kind
-	return kind, nil
+	return kind, d.prepareKind(kind)
 }
 
 func (kind *ycbcrKind) create(d *Device, k ycbcrKey) error {

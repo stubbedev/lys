@@ -229,25 +229,36 @@ func (d *Device) colorGlassPipeline(ct *compTarget) (vk.Pipeline, error) {
 // colorTexturePipeline is how t, of any kind, draws through a colour transform
 // into a ct target in format target.
 func (d *Device) colorTexturePipeline(t *Texture, ct *compTarget, target vk.Format) (vk.Pipeline, vk.PipelineLayout, error) {
-	cs := &d.comp.color
 	switch {
 	case t.ycbcr != nil:
-		kind := t.ycbcr
-		return kind.colored.get(d, target, kind.sets.layout, func(layout vk.PipelineLayout) (vk.Pipeline, error) {
-			return d.graphicsPipeline([2]vk.ShaderModule{d.comp.vert, cs.frags[colorFragTexture]}, layout, ct.pass, blendOver)
-		})
+		return t.ycbcr.coloredPipeline(d, ct, target)
 	case t.yuv444 != nil:
-		kind := t.yuv444
-		return kind.colored.get(d, target, d.comp.sets.layout, func(layout vk.PipelineLayout) (vk.Pipeline, error) {
-			return d.constantsPipelineOf(ct, cs.frags[colorFragYCbCr444], layout, unsafe.Pointer(&kind.constants), unsafe.Sizeof(kind.constants))
-		})
+		return t.yuv444.coloredPipeline(d, ct, target)
 	case t.planes != nil:
-		kind := t.planes
-		return kind.colored.get(d, target, kind.sets.layout, func(layout vk.PipelineLayout) (vk.Pipeline, error) {
-			return d.constantsPipelineOf(ct, cs.frags[colorFragYCbCrPlanes], layout, unsafe.Pointer(&kind.constants), unsafe.Sizeof(kind.constants))
-		})
+		return t.planes.coloredPipeline(d, ct, target)
 	}
-	return d.colorPlainPipeline(cs, ct)
+	return d.colorPlainPipeline(&d.comp.color, ct)
+}
+
+func (kind *ycbcrKind) coloredPipeline(d *Device, ct *compTarget, target vk.Format) (vk.Pipeline, vk.PipelineLayout, error) {
+	cs := &d.comp.color
+	return kind.colored.get(d, target, kind.sets.layout, func(layout vk.PipelineLayout) (vk.Pipeline, error) {
+		return d.graphicsPipeline([2]vk.ShaderModule{d.comp.vert, cs.frags[colorFragTexture]}, layout, ct.pass, blendOver)
+	})
+}
+
+func (kind *yuv444Kind) coloredPipeline(d *Device, ct *compTarget, target vk.Format) (vk.Pipeline, vk.PipelineLayout, error) {
+	cs := &d.comp.color
+	return kind.colored.get(d, target, d.comp.sets.layout, func(layout vk.PipelineLayout) (vk.Pipeline, error) {
+		return d.constantsPipelineOf(ct, cs.frags[colorFragYCbCr444], layout, unsafe.Pointer(&kind.constants), unsafe.Sizeof(kind.constants))
+	})
+}
+
+func (kind *planesKind) coloredPipeline(d *Device, ct *compTarget, target vk.Format) (vk.Pipeline, vk.PipelineLayout, error) {
+	cs := &d.comp.color
+	return kind.colored.get(d, target, kind.sets.layout, func(layout vk.PipelineLayout) (vk.Pipeline, error) {
+		return d.constantsPipelineOf(ct, cs.frags[colorFragYCbCrPlanes], layout, unsafe.Pointer(&kind.constants), unsafe.Sizeof(kind.constants))
+	})
 }
 
 func (d *Device) colorPlainPipeline(cs *colorState, ct *compTarget) (vk.Pipeline, vk.PipelineLayout, error) {

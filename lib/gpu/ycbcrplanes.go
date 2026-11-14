@@ -235,7 +235,7 @@ func (d *Device) planesKindOf(l yuvImageLayout, c YCbCr) (*planesKind, error) {
 		return nil, err
 	}
 	d.comp.planes[k] = kind
-	return kind, nil
+	return kind, d.prepareKind(kind)
 }
 
 func (kind *planesKind) pipeline(d *Device, target vk.Format) (vk.Pipeline, error) {

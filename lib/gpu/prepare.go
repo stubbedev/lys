@@ -4,8 +4,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -229,6 +231,14 @@ func (d *Device) prepare(formats []vk.Format) error {
 		if _, _, err := d.colorPlainPipeline(cs, ct); err != nil {
 			return err
 		}
+		if err := d.prepareCuts(ct); err != nil {
+			return err
+		}
+		for _, kind := range d.yuvKinds() {
+			if err := prepareYUV(d, kind, ct, vf); err != nil {
+				return err
+			}
+		}
 		if pr.formats == nil {
 			pr.formats = map[vk.Format]struct{}{}
 		}
@@ -328,6 +338,77 @@ func (d *Device) savePipelineCache() error {
 	}
 	if err := atomicfile.WriteFile(pr.path, data[:n], 0o600); err != nil {
 		return fmt.Errorf("gpu: the pipeline cache %s: %w", pr.path, err)
+	}
+	return nil
+}
+
+// yuvKind is one way of sampling YUV textures, whose pipelines depend on the
+// target format.
+type yuvKind interface {
+	pipeline(d *Device, target vk.Format) (vk.Pipeline, error)
+	coloredPipeline(d *Device, ct *compTarget, target vk.Format) (vk.Pipeline, vk.PipelineLayout, error)
+}
+
+func (d *Device) yuvKinds() []yuvKind {
+	kinds := make([]yuvKind, 0, len(d.comp.ycbcr)+len(d.comp.yuv444)+len(d.comp.planes))
+	for _, k := range d.comp.ycbcr {
+		kinds = append(kinds, k)
+	}
+	for _, k := range d.comp.yuv444 {
+		kinds = append(kinds, k)
+	}
+	for _, k := range d.comp.planes {
+		kinds = append(kinds, k)
+	}
+	return kinds
+}
+
+func prepareYUV(d *Device, kind yuvKind, ct *compTarget, target vk.Format) error {
+	if _, err := kind.pipeline(d, target); err != nil {
+		return err
+	}
+	_, _, err := kind.coloredPipeline(d, ct, target)
+	return err
+}
+
+// prepareKind queues a new YUV kind's pipelines for every prepared format,
+// so its first draw into any of them finds them built.
+func (d *Device) prepareKind(kind yuvKind) error {
+	pr := &d.prep
+	if !pr.async {
+		return nil
+	}
+	formats := slices.Sorted(maps.Keys(pr.formats))
+	for _, vf := range formats {
+		ct, err := d.compTargetOf(vf)
+		if err != nil {
+			return err
+		}
+		if err := prepareYUV(d, kind, ct, vf); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// prepareCuts queues the alpha cut variants into ct's target.
+func (d *Device) prepareCuts(ct *compTarget) error {
+	cs, err := d.cutInit()
+	if err != nil {
+		return err
+	}
+	colorLayout, err := d.cutColorLayout(cs)
+	if err != nil {
+		return err
+	}
+	for frag := range cutFrags {
+		layout := cs.layout
+		if frag == cutFragTextureColor || frag == cutFragGlassColor {
+			layout = colorLayout
+		}
+		if _, err := d.cutPipeline(ct, frag, layout); err != nil {
+			return err
+		}
 	}
 	return nil
 }

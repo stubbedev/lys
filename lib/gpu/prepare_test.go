@@ -68,6 +68,11 @@ func TestAfterPrepareNoPassBuildsAPipeline(t *testing.T) {
 				p.Kawase(tex, r, 1, false)
 				p.FillGoo(r, color.RGBA{A: 0xff}, Goo{A: RoundRect{Rect: r}, B: RoundRect{Rect: r}})
 			}
+			p.SetCut(tex, AlphaCut{Src: FRect{W: 8, H: 8}, Dst: r, Threshold: 0.5})
+			p.FillRect(r, color.RGBA{A: 0xff}, Mask{})
+			p.DrawTexture(tex, FRect{W: 8, H: 8}, r, TransformNormal, 1, Mask{})
+			p.DrawGlass(tex, FRect{W: 8, H: 8}, r, 1, Mask{}, Glass{Saturation: 1, Brightness: 1, Contrast: 1})
+			p.ClearCut()
 			if p.Incomplete() {
 				t.Error("a prepared pass skipped a draw")
 			}
@@ -218,6 +223,69 @@ func TestAPipelineTheWorkerCannotBuildFailsEveryDrawThatNeedsIt(t *testing.T) {
 	awaitPrepared(t, d)
 	if builds != 1 {
 		t.Errorf("the refused pipeline was built %d times, want once", builds)
+	}
+}
+
+func TestPreparedFormatsCarryEveryYUVKindMadeBeforeOrAfter(t *testing.T) {
+	d := openDevice(t)
+	before, err := d.yuv444KindOf(pixelFormat{yuvBits: 8}, YCbCr{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Prepare(fourcc.ARGB8888); err != nil {
+		t.Fatal(err)
+	}
+	after, err := d.planesKindOf(yuvImageLayout{count: 3, bits: 8, hsub: 2, vsub: 2}, YCbCr{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	awaitPrepared(t, d)
+	pf, _ := lookupPixelFormat(fourcc.ARGB8888)
+	ct, err := d.compTargetOf(pf.vk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	built := d.PipelineBuilds()
+	for name, kind := range map[string]yuvKind{"a kind made before Prepare": before, "a kind made after it": after} {
+		if p, err := kind.pipeline(d, pf.vk); err != nil || p == 0 {
+			t.Errorf("%s: its pipeline into a prepared format is %v, %v", name, p, err)
+		}
+		if p, _, err := kind.coloredPipeline(d, ct, pf.vk); err != nil || p == 0 {
+			t.Errorf("%s: its colour-managed pipeline into a prepared format is %v, %v", name, p, err)
+		}
+	}
+	if n := d.PipelineBuilds() - built; n != 0 {
+		t.Errorf("%d pipelines built by the first draws of YUV kinds into a prepared format", n)
+	}
+}
+
+func TestAYUVTextureImportedAfterPrepareDrawsCompleteOnceItSettles(t *testing.T) {
+	d := yuvDevice(t, fourcc.NV12, false)
+	if err := d.Prepare(fourcc.ARGB8888); err != nil {
+		t.Fatal(err)
+	}
+	tg := newTarget(t, d, 8, 8)
+	tx, err := d.ImportTexture(yuvPlanes{format: fourcc.NV12, w: 8, h: 8}.buffer(t, 120, 90, 200))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Close()
+	awaitPrepared(t, d)
+	built := d.PipelineBuilds()
+	ct := ColorTransform{Matrix: [9]float32{1, 0, 0, 0, 1, 0, 0, 0, 1}, Scale: 1}
+	for _, colored := range []bool{false, true} {
+		runPass(t, d, tg, []image.Rectangle{{Max: tg.Size()}}, func(p *Pass) {
+			if colored {
+				p.SetColor(&ct)
+			}
+			p.DrawTexture(tx, FRect{W: 8, H: 8}, image.Rect(0, 0, 8, 8), TransformNormal, 1, Mask{})
+			if p.Incomplete() {
+				t.Errorf("colored %v: a YUV draw after the worker settled was skipped", colored)
+			}
+		})
+	}
+	if n := d.PipelineBuilds() - built; n != 0 {
+		t.Errorf("%d pipelines built drawing a YUV texture into a prepared format", n)
 	}
 }
 

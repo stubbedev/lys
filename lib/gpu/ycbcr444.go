@@ -77,7 +77,7 @@ func (d *Device) yuv444KindOf(pf pixelFormat, c YCbCr) (*yuv444Kind, error) {
 	}
 	kind := &yuv444Kind{constants: constants, pipes: map[vk.Format]vk.Pipeline{}}
 	d.comp.yuv444[k] = kind
-	return kind, nil
+	return kind, d.prepareKind(kind)
 }
 
 func (kind *yuv444Kind) pipeline(d *Device, target vk.Format) (vk.Pipeline, error) {
