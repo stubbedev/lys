@@ -796,6 +796,9 @@ func (c *Compositor) explicitSync(l *loop.Loop, display *server.Display) error {
 }
 
 func (c *Compositor) Close() error {
+	for _, sc := range c.scenes {
+		sc.stale = true
+	}
 	errs := []error{c.landInFlight(), c.stopDebugRecorders(), c.closeVirtualOutputs(), c.dropOverview(), c.endReads(), c.dropDecor(), c.dropAllClosing(), c.dropLockSnapshots(), c.dropBlurs(), c.dropShaders()}
 	for _, sc := range c.scenes {
 		errs = append(errs, sc.dropImage())
