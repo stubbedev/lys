@@ -330,10 +330,14 @@ func TestTheHiddenCursorModeCarriesNoCursorMeta(t *testing.T) {
 	for i := range 20 {
 		r.move(at(i))
 	}
+	moved := v.captured()
 	r.painter.Cursor(24, color.RGBA{B: 0xff, A: 0xff})
+	newImage := v.captured()
 	v.until("the still frame sent again", func(b pwtest.Buffer) bool { return b.Size > 0 }, noCursor)
-	if n := v.captured(); n != 0 {
-		t.Fatalf("a pointer over a still output captured %d frames without a cursor", n)
+	if later := v.captured(); moved+newImage+later != 0 {
+		var f capture.StreamFrame
+		v.ext.stream.Latest(&f)
+		t.Fatalf("a pointer over a still output captured frames without a cursor: %d during the moves, %d for the new image, %d after; the last damaged %+v", moved, newImage, later, f.Damage)
 	}
 }
 
