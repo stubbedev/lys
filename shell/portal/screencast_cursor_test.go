@@ -2,6 +2,7 @@ package portal
 
 import (
 	"errors"
+	"image"
 	"image/color"
 	"testing"
 	"time"
@@ -25,12 +26,14 @@ type cursorRig struct {
 	w, h    uint32
 }
 
+var stillColor = color.RGBA{R: 0x20, G: 0x40, B: 0x60, A: 0xff}
+
 func newCursorRig(t *testing.T) *cursorRig {
 	t.Helper()
 	lyswmtest.Headless(t)
 	pwtest.Start(t)
 	p := wltest.NewPainter(t)
-	p.Layer(wltest.AnchorTop|wltest.AnchorBottom|wltest.AnchorLeft|wltest.AnchorRight, 0, 0, color.RGBA{R: 0x20, G: 0x40, B: 0x60, A: 0xff})
+	p.Layer(wltest.AnchorTop|wltest.AnchorBottom|wltest.AnchorLeft|wltest.AnchorRight, 0, 0, stillColor)
 	p.Run()
 	pointer, err := vinput.Dial("", vinput.Options{})
 	if err != nil {
@@ -142,24 +145,48 @@ func (v *castView) until(what string, ok func(pwtest.Buffer) bool, seen func(pwt
 	return pwtest.Buffer{}
 }
 
-// settle waits until lys-wm stops changing the output (a surface still
-// animating open): until two frames come with none captured between
-// them, the second the first sent again, as a still output's stream does
-// once stillRefresh passed. It passes each buffer to seen.
 func (v *castView) settle(seen func(pwtest.Buffer)) {
 	v.t.Helper()
-	frames := 0
+	still := false
 	for range 1000 {
 		b := v.next()
 		seen(b)
 		if b.Size == 0 {
 			continue
 		}
-		if frames++; v.captured() == 0 && frames > 1 {
+		if !still {
+			still = v.cornersShow(stillColor)
+			v.captured()
+			continue
+		}
+		if v.captured() == 0 {
 			return
 		}
 	}
 	v.t.Fatal("lys-wm kept changing the output through a thousand buffers")
+}
+
+func (v *castView) cornersShow(c color.RGBA) bool {
+	v.t.Helper()
+	var f capture.StreamFrame
+	if !v.ext.stream.Latest(&f) {
+		return false
+	}
+	frame, err := f.Frame()
+	if err != nil {
+		v.t.Fatal(err)
+	}
+	img, err := frame.Image()
+	if err != nil {
+		v.t.Fatal(err)
+	}
+	b := img.Bounds()
+	for _, p := range []image.Point{b.Min, {b.Max.X - 1, b.Min.Y}, {b.Min.X, b.Max.Y - 1}, b.Max.Sub(image.Pt(1, 1))} {
+		if got := img.RGBAAt(p.X, p.Y); got.R != c.R || got.G != c.G || got.B != c.B {
+			return false
+		}
+	}
+	return true
 }
 
 // captured is how many frames the capture took since the last call.
@@ -275,7 +302,7 @@ func TestTheEmbeddedCursorModeCapturesAFramePerMove(t *testing.T) {
 		x, y := at(i)
 		r.move(x, y)
 		v.until("a frame of the moved pointer", func(b pwtest.Buffer) bool { return b.Size > 0 }, noCursor)
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(hangGuard)
 		for frames <= uint64(i) {
 			if time.Now().After(deadline) {
 				t.Fatalf("move %d captured no frame", i)
