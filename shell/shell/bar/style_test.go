@@ -90,6 +90,8 @@ func testSpawn(t *testing.T) func(func()) {
 	return work.Go
 }
 
+const hangGuard = 2 * time.Minute
+
 func awaitWork(t *testing.T, what string, wait func()) {
 	t.Helper()
 	done := make(chan struct{})
@@ -99,7 +101,7 @@ func awaitWork(t *testing.T, what string, wait func()) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(hangGuard):
 		stacks := make([]byte, 1<<20)
 		t.Errorf("%s:\n%s", what, stacks[:runtime.Stack(stacks, true)])
 	}

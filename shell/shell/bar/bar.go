@@ -350,6 +350,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	s.down.add(s.ctx.Calendar.Close)
 	if dir, ok := xdg.OS.CacheDir(identity.Name); ok {
 		s.ctx.Lyrics = lyrics.New(lyrics.Endpoint, filepath.Join(dir, "lyrics"))
+		s.down.add(s.ctx.Lyrics.Close)
 	} else {
 		log.Print("lyrics: no cache directory (neither XDG_CACHE_HOME nor HOME is set), so no lyrics")
 	}

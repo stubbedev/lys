@@ -73,15 +73,16 @@ func (l *lyricsPanel) follow(p mpris.Player) {
 		return
 	}
 	svc := l.ctx.Lyrics
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), lyricsLookupTimeout)
+	life := l.ctx.Life()
+	l.ctx.Go(func() {
+		ctx, cancel := context.WithTimeout(life, lyricsLookupTimeout)
 		defer cancel()
 		found, err := svc.Get(ctx, track)
 		if err != nil {
 			log.Printf("media: %v", err)
 		}
 		l.ctx.Invoke(func() { l.show(gen, found, err) })
-	}()
+	})
 }
 
 func (l *lyricsPanel) show(gen uint64, found lyrics.Lyrics, err error) {

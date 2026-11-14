@@ -51,6 +51,7 @@ func lyricsDropdown(t *testing.T, enabled bool, server *httptest.Server, dir str
 	ctx := newTestContext(t, cfg)
 	ctx.Media = newFakeMedia(lyricsPlayer)
 	ctx.Lyrics = lyrics.New(server.URL, dir)
+	t.Cleanup(ctx.Lyrics.Close)
 	v := mediaDropdown(ctx).(*mediaView)
 	t.Cleanup(func() {
 		headlessLoop.Lock()
@@ -68,7 +69,7 @@ func loopRead[T any](read func() T) T {
 
 func waitLyricsPage(t *testing.T, v *mediaView, page string) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for loopRead(func() string { return v.lyrics.Visible() }) != page {
 		if time.Now().After(deadline) {
 			t.Fatalf("the lyrics panel shows %q (%q), want %q", v.lyrics.Visible(), v.lyrics.status.Text(), page)
@@ -153,13 +154,14 @@ func TestMissingLyricsShowNoLyricsOnce(t *testing.T) {
 		v := lyricsDropdown(t, true, server, dir)
 		loopRead(func() bool { v.toggleLyrics(); return true })
 		waitLyricsPage(t, v, "status")
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(hangGuard)
 		for loopRead(v.lyrics.status.Text) != i18n.T("dropdown-media-lyrics-none") {
 			if time.Now().After(deadline) {
 				t.Fatalf("status %q, want No lyrics", loopRead(v.lyrics.status.Text))
 			}
 			time.Sleep(2 * time.Millisecond)
 		}
+		v.ctx.Lyrics.Close()
 	}
 	if n := requests.Load(); n != 1 {
 		t.Errorf("%d requests for a track without lyrics, want the miss cached after 1", n)

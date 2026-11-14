@@ -2,6 +2,8 @@ package lyrics
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -82,6 +84,11 @@ func newFakeLRCLIB(t *testing.T, status int, body string) *fakeLRCLIB {
 	return f
 }
 
+func closing(t *testing.T, s *Service) *Service {
+	t.Cleanup(s.Close)
+	return s
+}
+
 var song = Track{Artist: "Band", Title: "Song", Album: "Record", Length: 185400 * time.Millisecond}
 
 func TestOneRequestPerTrackAcrossMemoryAndDisk(t *testing.T) {
@@ -98,7 +105,10 @@ func TestOneRequestPerTrackAcrossMemoryAndDisk(t *testing.T) {
 			t.Fatalf("lyrics = %+v", l)
 		}
 	}
-	if l, err := New(server.URL, dir).Get(ctx, song); err != nil || !l.Found() {
+	s.Close()
+	restarted := New(server.URL, dir)
+	t.Cleanup(restarted.Close)
+	if l, err := restarted.Get(ctx, song); err != nil || !l.Found() {
 		t.Fatalf("a restarted service: %+v, %v", l, err)
 	}
 	if n := server.requests.Load(); n != 1 {
@@ -121,7 +131,9 @@ func TestAMissIsCachedToo(t *testing.T) {
 	server := newFakeLRCLIB(t, http.StatusNotFound, `{"code":404,"name":"TrackNotFound"}`)
 	dir := t.TempDir()
 	for range 2 {
-		l, err := New(server.URL, dir).Get(context.Background(), song)
+		s := New(server.URL, dir)
+		l, err := s.Get(context.Background(), song)
+		s.Close()
 		if err != nil || l.Found() {
 			t.Fatalf("a 404 = %+v, %v; want no lyrics and no error", l, err)
 		}
@@ -133,7 +145,7 @@ func TestAMissIsCachedToo(t *testing.T) {
 
 func TestAFailureIsAnErrorAndAsksAgain(t *testing.T) {
 	server := newFakeLRCLIB(t, http.StatusInternalServerError, "boom")
-	s := New(server.URL, t.TempDir())
+	s := closing(t, New(server.URL, t.TempDir()))
 	for range 2 {
 		if _, err := s.Get(context.Background(), song); err == nil {
 			t.Fatal("a 500 was no error")
@@ -146,11 +158,11 @@ func TestAFailureIsAnErrorAndAsksAgain(t *testing.T) {
 
 func TestInstrumentalAndPlainLyrics(t *testing.T) {
 	instrumental := newFakeLRCLIB(t, http.StatusOK, `{"instrumental":true,"plainLyrics":null,"syncedLyrics":null}`)
-	if l, err := New(instrumental.URL, t.TempDir()).Get(context.Background(), song); err != nil || l.Found() {
+	if l, err := closing(t, New(instrumental.URL, t.TempDir())).Get(context.Background(), song); err != nil || l.Found() {
 		t.Errorf("an instrumental = %+v, %v; want no lyrics", l, err)
 	}
 	plain := newFakeLRCLIB(t, http.StatusOK, `{"instrumental":false,"plainLyrics":"one\ntwo\n\n","syncedLyrics":null}`)
-	l, err := New(plain.URL, t.TempDir()).Get(context.Background(), song)
+	l, err := closing(t, New(plain.URL, t.TempDir())).Get(context.Background(), song)
 	if err != nil || l.Synced || !reflect.DeepEqual(l.Lines, []Line{{Text: "one"}, {Text: "two"}}) {
 		t.Errorf("plain lyrics = %+v, %v", l, err)
 	}
@@ -158,7 +170,7 @@ func TestInstrumentalAndPlainLyrics(t *testing.T) {
 
 func TestATrackWithoutArtistAsksNothing(t *testing.T) {
 	server := newFakeLRCLIB(t, http.StatusOK, `{}`)
-	l, err := New(server.URL, t.TempDir()).Get(context.Background(), Track{Title: "Song"})
+	l, err := closing(t, New(server.URL, t.TempDir())).Get(context.Background(), Track{Title: "Song"})
 	if err != nil || l.Found() || server.requests.Load() != 0 {
 		t.Errorf("no artist: %+v, %v, %d requests; want nothing asked", l, err, server.requests.Load())
 	}
@@ -167,7 +179,7 @@ func TestATrackWithoutArtistAsksNothing(t *testing.T) {
 func TestConcurrentGetsShareOneRequest(t *testing.T) {
 	server := newFakeLRCLIB(t, http.StatusOK, `{"plainLyrics":"x"}`)
 	server.gate = make(chan struct{})
-	s := New(server.URL, t.TempDir())
+	s := closing(t, New(server.URL, t.TempDir()))
 	var wg sync.WaitGroup
 	for range 4 {
 		wg.Go(func() {
@@ -192,10 +204,46 @@ func TestAnUnreadableCacheEntryIsFetchedAgain(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, song.key().file()), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if l, err := New(server.URL, dir).Get(context.Background(), song); err != nil || !l.Found() {
+	s := New(server.URL, dir)
+	if l, err := s.Get(context.Background(), song); err != nil || !l.Found() {
 		t.Fatalf("Get over a corrupt entry = %+v, %v", l, err)
 	}
+	s.Close()
 	if l, err := readCached(dir, song.key().file()); err != nil || !l.Found() {
 		t.Errorf("the corrupt entry was not replaced: %+v, %v", l, err)
+	}
+}
+
+func TestAFailedCacheWriteStillShowsTheLyrics(t *testing.T) {
+	server := newFakeLRCLIB(t, http.StatusOK, `{"plainLyrics":"x"}`)
+	blocked := filepath.Join(t.TempDir(), "a-file")
+	if err := os.WriteFile(blocked, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := New(server.URL, filepath.Join(blocked, "lyrics"))
+	l, err := s.Get(context.Background(), song)
+	s.Close()
+	if err != nil || !l.Found() {
+		t.Errorf("Get with an unwritable cache = %+v, %v; want the fetched lyrics", l, err)
+	}
+}
+
+func TestCloseWaitsForTheCacheWriteAndStopsNewOnes(t *testing.T) {
+	server := newFakeLRCLIB(t, http.StatusOK, `{"plainLyrics":"x"}`)
+	dir := t.TempDir()
+	s := New(server.URL, dir)
+	if _, err := s.Get(context.Background(), song); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	if l, err := readCached(dir, song.key().file()); err != nil || !l.Found() {
+		t.Errorf("once Close returned the cache holds %+v, %v; want the lyrics", l, err)
+	}
+	other := Track{Artist: "Band", Title: "Other"}
+	if l, err := s.Get(context.Background(), other); err != nil || !l.Found() {
+		t.Fatalf("Get after Close = %+v, %v; want the fetched lyrics", l, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, other.key().file())); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a closed service wrote its cache: %v", err)
 	}
 }

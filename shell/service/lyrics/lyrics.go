@@ -75,6 +75,8 @@ type Service struct {
 	known   map[key]Lyrics
 	order   []key
 	pending map[key]*lookup
+	closed  bool
+	writes  sync.WaitGroup
 }
 
 // New looks lyrics up at endpoint (Endpoint, or a test server) and
@@ -148,10 +150,30 @@ func (s *Service) resolve(ctx context.Context, t Track, k key) (Lyrics, error) {
 	if err != nil {
 		return Lyrics{}, err
 	}
-	if err := writeCached(path, l); err != nil {
-		return Lyrics{}, err
-	}
+	s.store(path, l)
 	return l, nil
+}
+
+func (s *Service) store(path string, l Lyrics) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		log.Printf("lyrics: not caching %s: the service is closed", path)
+		return
+	}
+	s.writes.Go(func() {
+		if err := writeCached(path, l); err != nil {
+			log.Printf("lyrics: the next session fetches them again: %v", err)
+		}
+	})
+}
+
+// Close waits for the cache writes under way; later lookups are not cached.
+func (s *Service) Close() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.writes.Wait()
 }
 
 func readCached(dir, name string) (Lyrics, error) {
