@@ -153,8 +153,10 @@ func testKeepsThePacketOfAFrameBeforeAFailure(t *testing.T, d *Device, b backend
 // its conversion times out encodes nothing either, and the next one
 // converts again. The stream decodes whole, every frame its own picture.
 func TestEncodeKeepsAFrameWhoseWaitTimedOutInFlight(t *testing.T) {
+	t.Parallel()
 	for _, codec := range []Codec{H264, H265} {
 		t.Run(codec.String(), func(t *testing.T) {
+			t.Parallel()
 			d, ffmpeg := encodingDevice(t, codec)
 			for _, b := range encodingBackends(t, d, codec) {
 				t.Run(b.kind.String(), func(t *testing.T) { testKeepsAFrameWhoseWaitTimedOutInFlight(t, d, ffmpeg, b, codec) })

@@ -11,6 +11,7 @@ import (
 // P010 pictures bit for bit as ffmpeg decodes it, where the device
 // decodes the codec at 10 bits.
 func TestDecodeTenBitMatchesFFmpeg(t *testing.T) {
+	t.Parallel()
 	tenBit := []string{"-pix_fmt", "yuv420p10le"}
 	for _, c := range []struct {
 		name, file string
@@ -22,6 +23,7 @@ func TestDecodeTenBitMatchesFFmpeg(t *testing.T) {
 		{"VP9 profile 2, hidden alternate references", "c.webm", demux.VP9, libvpxTwoPass(append([]string{"-b:v", "200k", "-g", "25", "-auto-alt-ref", "1", "-lag-in-frames", "16"}, tenBit...)...)},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			d := decodingDevice(t, c.codec)
 			cl := encodeClip(t, c.file, 192, 144, 2, p010Samples, c.passes...)
 			track, pkts := packets(t, cl.path)

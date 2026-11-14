@@ -13,6 +13,7 @@ import (
 // ffmpeg decodes them, where the device decodes them: 12-bit H.265 and
 // VP9, and 4:4:4 H.265 at 8, 10 and 12 bits, an odd size among them.
 func TestDecodeDeepAndFullChromaMatchFFmpeg(t *testing.T) {
+	t.Parallel()
 	x265 := func(format string) [][]string {
 		return [][]string{{"-c:v", "libx265", "-pix_fmt", format, "-x265-params", "log-level=none:keyint=25:bframes=3:b-pyramid=1"}}
 	}
@@ -30,6 +31,7 @@ func TestDecodeDeepAndFullChromaMatchFFmpeg(t *testing.T) {
 		{"VP9 profile 2 12-bit, hidden alternate references", "c.webm", demux.VP9, 192, 144, videoSamples{12, chroma420}, libvpxTwoPass("-b:v", "200k", "-g", "25", "-auto-alt-ref", "1", "-lag-in-frames", "16", "-pix_fmt", "yuv420p12le")},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			d := decodingDevice(t, c.codec)
 			cl := encodeClip(t, c.file, c.w, c.h, 2, c.samples, c.passes...)
 			track, pkts := packets(t, cl.path)
@@ -67,6 +69,7 @@ func skipRefusedProfile(t *testing.T, d *Device, err error, samples videoSamples
 }
 
 func TestRefusedFormatsNameTheCapabilityQuery(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name, file string
 		codec      demux.Codec
@@ -83,6 +86,7 @@ func TestRefusedFormatsNameTheCapabilityQuery(t *testing.T) {
 		{"VP9 profile 3 4:2:2 10-bit", "c.webm", demux.VP9, libvpx("-pix_fmt", "yuv422p10le"), "profile 3 at 10-bit 4:2:2"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			d := decodingDevice(t, c.codec)
 			cl := ffmpegClip(t, c.file, 192, 144, 0.2, c.args...)
 			track, pkts := packets(t, cl.path)
@@ -109,6 +113,7 @@ func TestRefusedFormatsNameTheCapabilityQuery(t *testing.T) {
 // ErrNoVideoDecoder too, with what the parser read of it: a caller
 // tells it from a malformed stream, which is not, with errors.Is.
 func TestUnsupportedFormatsAreNoVideoDecoder(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name  string
 		codec demux.Codec
@@ -119,6 +124,7 @@ func TestUnsupportedFormatsAreNoVideoDecoder(t *testing.T) {
 		{"H.265 monochrome", demux.H265, []string{"-c:v", "libx265", "-pix_fmt", "gray", "-x265-params", "log-level=none"}, nal.ErrHEVC},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			d := decodingDevice(t, c.codec)
 			cl := ffmpegClip(t, "a.mp4", 160, 144, 0.2, c.args...)
 			track, pkts := packets(t, cl.path)
@@ -138,6 +144,7 @@ func TestUnsupportedFormatsAreNoVideoDecoder(t *testing.T) {
 // verified, is refused all the same, saying so, and no session is made
 // for it.
 func TestAnUnverifiedFormatIsRefusedThoughTheDeviceAcceptsIt(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	cl := ffmpegClip(t, "a.mp4", 192, 144, 0.2, "-c:v", "libx264")
 	track, pkts := packets(t, cl.path)

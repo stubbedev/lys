@@ -49,6 +49,7 @@ func endOf(t *testing.T, d *Device, w, h int, draw func(p *Pass)) error {
 // reaching into the codec's padding, a frame handed back and a frame
 // whose decoder is closed, each by name.
 func TestDrawFrameRefusesWhatIsNotItsPicture(t *testing.T) {
+	t.Parallel()
 	const w, h = 174, 98
 	d, v, f := heldFrame(t, w, h)
 	if f.extent == [2]int{w, h} {
@@ -101,6 +102,7 @@ func TestDrawFrameRefusesWhatIsNotItsPicture(t *testing.T) {
 // A region of a frame draws as that region of the whole picture does:
 // the source is in the picture's pixels.
 func TestDrawFrameSamplesItsSource(t *testing.T) {
+	t.Parallel()
 	const w, h = 174, 98
 	d, _, f := heldFrame(t, w, h)
 	defer f.Release()
@@ -126,6 +128,7 @@ func TestDrawFrameSamplesItsSource(t *testing.T) {
 // A frame released while the pass that drew it is still open is not
 // decoded into before that pass's submission has sampled it.
 func TestFrameReleasedInAPassOutlivesIt(t *testing.T) {
+	t.Parallel()
 	const w, h = 174, 98
 	d, _, f := heldFrame(t, w, h)
 	if err := d.Finish(); err != nil {

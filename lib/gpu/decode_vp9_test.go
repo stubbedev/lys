@@ -30,7 +30,7 @@ func libvpxTwoPass(args ...string) [][]string {
 // (ffmpeg's libvpx codes frames that decode in parallel, which do not,
 // unless told otherwise).
 func TestDecodeVP9MatchesFFmpeg(t *testing.T) {
-	d := decodingDevice(t, demux.VP9)
+	t.Parallel()
 	for _, c := range []struct {
 		name, file string
 		w, h       int
@@ -45,6 +45,8 @@ func TestDecodeVP9MatchesFFmpeg(t *testing.T) {
 		{"backward adaptation", "g.webm", 192, 128, libvpxTwoPass("-b:v", "200k", "-g", "30", "-auto-alt-ref", "1", "-lag-in-frames", "16", "-frame-parallel", "0")},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.VP9)
 			cl := ffmpegPasses(t, c.file, c.w, c.h, 2, c.passes...)
 			track, pkts := packets(t, cl.path)
 			v, err := d.NewVideoDecoder(track)
@@ -61,6 +63,7 @@ func TestDecodeVP9MatchesFFmpeg(t *testing.T) {
 // from it on as a decode from the start does; the frames hidden before
 // the reset are not shown.
 func TestDecodeVP9ResetsAtAKeyframe(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegPasses(t, "a.webm", 192, 128, 3, libvpxTwoPass("-b:v", "200k", "-g", "20", "-keyint_min", "20", "-auto-alt-ref", "1", "-lag-in-frames", "16")...)
 	track, pkts := packets(t, cl.path)
@@ -87,6 +90,7 @@ func TestDecodeVP9ResetsAtAKeyframe(t *testing.T) {
 
 // A frame's Rect is the frame, at an odd size too.
 func TestDecodeVP9CropsToTheFrame(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegClip(t, "a.webm", 271, 153, 0.2, libvpx()...)
 	track, pkts := packets(t, cl.path)
@@ -144,6 +148,7 @@ func TestDecodeVP9DoesNotAllocate(t *testing.T) {
 
 // A 4:4:4 stream (profile 1) is refused, naming its profile.
 func TestDecodeVP9Refuses444(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegClip(t, "a.webm", 192, 128, 0.2, libvpx("-pix_fmt", "yuv444p")...)
 	track, pkts := packets(t, cl.path)

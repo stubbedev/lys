@@ -31,7 +31,7 @@ func x264Interlaced(first FieldOrder, args ...string) []string {
 // CAVLC, more reference frames than a field picture could name on the
 // device, and a size that crops.
 func TestDecodeH264MBAFFMatchesFFmpeg(t *testing.T) {
-	d := decodingDevice(t, demux.H264)
+	t.Parallel()
 	for _, c := range []struct {
 		name string
 		w, h int
@@ -44,6 +44,8 @@ func TestDecodeH264MBAFFMatchesFFmpeg(t *testing.T) {
 		{"cropped 270x152", 270, 152, x264Interlaced(TopFieldFirst, "-bf", "2", "-x264-params", "keyint=12")},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.H264)
 			cl := ffmpegClip(t, "a.mp4", c.w, c.h, 2, c.args...)
 			track, pkts := packets(t, cl.path)
 			v, err := d.NewVideoDecoder(track)
@@ -239,7 +241,7 @@ var fieldCuts = []struct {
 // the decoder marks there is tested against the standard,
 // decode_h264dpb_test.go, not against ffmpeg.)
 func TestDecodeH264FieldsMatchFFmpeg(t *testing.T) {
-	d := decodingDevice(t, demux.H264)
+	t.Parallel()
 	for _, c := range fieldCuts {
 		for _, apart := range []bool{false, true} {
 			name := c.name + ", a packet a frame"
@@ -247,6 +249,8 @@ func TestDecodeH264FieldsMatchFFmpeg(t *testing.T) {
 				name = c.name + ", a packet a field"
 			}
 			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				d := decodingDevice(t, demux.H264)
 				cut := c.cut(t)
 				v, err := d.NewVideoDecoder(cut.track())
 				if err != nil {
@@ -262,6 +266,7 @@ func TestDecodeH264FieldsMatchFFmpeg(t *testing.T) {
 // A stream that names the Extended profile and says it obeys Main's
 // constraints decodes as the Main profile stream it is.
 func TestDecodeH264ExtendedWithinMain(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	src := x264Source(t, fieldsW, fieldH, 1, "-bf", "2", "-x264-params", "keyint=12:b-pyramid=none")
 	cut := newH264Cut(t, extendedSPS(src.sps), src.pps)
@@ -304,6 +309,7 @@ func ffmpegFieldOrders(t *testing.T, path string) []FieldOrder {
 // as ffmpeg says of it: progressive frames, x264's interlaced frames
 // top and bottom field first, and field pairs of both orders.
 func TestDecodeH264FieldOrder(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	orders := func(v *VideoDecoder, pkts []demux.Packet) []FieldOrder {
 		var out []FieldOrder
@@ -373,6 +379,7 @@ func TestDecodeH264FieldOrder(t *testing.T) {
 // from it on as a decode from the start does, though the field decoded
 // last before the reset waited for its frame's other.
 func TestDecodeH264FieldsResetAtAKeyframe(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	cut := fieldCuts[0].cut(t)
 	pkts := cut.packets(true)
@@ -401,6 +408,7 @@ func TestDecodeH264FieldsResetAtAKeyframe(t *testing.T) {
 // with the PPS before the packet again, not the one its second field
 // sent.
 func TestDecodeH264RetriesAPacketWhoseSecondFieldFailed(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	for _, c := range []struct {
 		name string
@@ -485,6 +493,7 @@ func lengthPrefixed(units ...[]byte) []byte {
 // packets it was made of, given after it, decode as though it had never
 // been given.
 func TestDecodeH264RefusesAMalformedPacketBeforeDecodingIt(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	joined := func(pkts []demux.Packet, extra ...[]byte) demux.Packet {
 		p := pkts[0]
@@ -578,6 +587,7 @@ func TestDecodeH264FieldsDoNotAllocate(t *testing.T) {
 // decodes a picture from is refused, saying how many of each: every
 // field before it decodes, each a reference picture of its own.
 func TestDecodeH264RefusesMoreReferenceFieldsThanTheDeviceDecodesFrom(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	src := pFields(t, 0.8, 10)
 	cut := newH264Cut(t, fieldSPS(t, src.sps, false), src.pps)
@@ -614,6 +624,7 @@ func TestDecodeH264RefusesMoreReferenceFieldsThanTheDeviceDecodesFrom(t *testing
 // frame_num, which the decoder infers frames for in sequences of
 // frames only.
 func TestDecodeH264RefusesFieldsItCannotDecode(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	for _, c := range []struct {
 		name string

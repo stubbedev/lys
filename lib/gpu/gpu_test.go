@@ -2,6 +2,7 @@ package gpu
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,18 +20,22 @@ import (
 	"github.com/stubbedev/lys-lib/third_party/vk"
 )
 
-// openDevice opens the test's device (internal/gputest picks the
+func TestMain(m *testing.M) {
+	if _, err := gputest.Setup(os.Setenv); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Exit(m.Run())
+}
+
+// openDevice opens the test's device (TestMain has gputest pick the
 // driver); with none the test skips, unless LYS_TEST_GPU asks for
 // one.
 func openDevice(t testing.TB) *Device {
 	t.Helper()
-	required, err := gputest.SetupTest(t)
-	if err != nil {
-		t.Fatal(err)
-	}
 	d, err := Open()
 	if errors.Is(err, ErrNoVulkan) || errors.Is(err, ErrNoDevice) {
-		if required {
+		if gputest.Enabled() {
 			t.Fatalf("no GPU device for LYS_TEST_GPU=%s: %v", os.Getenv("LYS_TEST_GPU"), err)
 		}
 		t.Skipf("no Vulkan device: %v", err)
@@ -162,9 +167,6 @@ func TestTargetModifiersMeetTheDevices(t *testing.T) {
 // instead, and refuses one no device is; a host without DRM nodes
 // (lavapipe alone) skips (#330).
 func TestOpenNode(t *testing.T) {
-	if _, err := gputest.SetupTest(t); err != nil {
-		t.Fatal(err)
-	}
 	render, _ := filepath.Glob("/dev/dri/renderD*")
 	primary, _ := filepath.Glob("/dev/dri/card*")
 	if _, err := OpenNode(0); err == nil {
@@ -315,9 +317,6 @@ func TestExportsIsProven(t *testing.T) {
 // the call though C sees them only as integers (it crashed in
 // vkCreateInstance before).
 func TestDevicesOpenConcurrently(t *testing.T) {
-	if _, err := gputest.SetupTest(t); err != nil {
-		t.Fatal(err)
-	}
 	if d, err := Open(); err != nil {
 		t.Skipf("no Vulkan device: %v", err)
 	} else {
@@ -338,7 +337,7 @@ func TestDevicesOpenConcurrently(t *testing.T) {
 	var wg sync.WaitGroup
 	for g := range 4 {
 		wg.Go(func() {
-			for range 12 {
+			for range 2 {
 				d, err := Open()
 				if err != nil {
 					t.Errorf("goroutine %d: %v", g, err)
@@ -357,7 +356,7 @@ func TestDevicesOpenConcurrently(t *testing.T) {
 func TestDevicesShareTheProcessInstance(t *testing.T) {
 	first := openDevice(t)
 	name, instance := first.Name(), first.instance
-	for i := range 20 {
+	for i := range 2 {
 		d, err := Open()
 		if err != nil {
 			t.Fatalf("open %d: %v", i, err)

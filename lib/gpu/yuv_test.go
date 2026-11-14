@@ -237,10 +237,10 @@ func TestEveryLayoutConvertsByTheDriverOrThroughPlainImages(t *testing.T) {
 }
 
 func everyLayoutConverts(t *testing.T, planes bool) {
+	d := exportingDevice(t)
+	d.ycbcr = d.ycbcr && !planes
 	for _, f := range ycbcrFormats {
 		t.Run(f.String(), func(t *testing.T) {
-			d := exportingDevice(t)
-			d.ycbcr = d.ycbcr && !planes
 			linearOrSkip(t, d, d.TextureModifiers, f)
 			l, _ := yuvLayoutOf(f)
 			bits := l.bits
@@ -354,9 +354,9 @@ func packed444(f fourcc.Format, y, u, v, a uint16) []byte {
 }
 
 func TestPacked444ConvertsWhereTheDriverOffersIt(t *testing.T) {
+	d := exportingDevice(t)
 	for _, f := range yuv444Formats {
 		t.Run(f.String(), func(t *testing.T) {
-			d := exportingDevice(t)
 			linearOrSkip(t, d, d.TextureModifiers, f)
 			pf, _ := lookupPixelFormat(f)
 			bits := pf.yuvBits

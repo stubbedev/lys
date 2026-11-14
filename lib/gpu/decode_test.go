@@ -399,7 +399,7 @@ func differing(a, b []byte) int {
 // CAVLC in several slices; custom scaling matrices; a size that crops;
 // and Matroska.
 func TestDecodeH264MatchesFFmpeg(t *testing.T) {
-	d := decodingDevice(t, demux.H264)
+	t.Parallel()
 	for _, c := range []struct {
 		name, file string
 		w, h       int
@@ -413,6 +413,8 @@ func TestDecodeH264MatchesFFmpeg(t *testing.T) {
 		{"matroska", "f.mkv", 160, 96, []string{"-c:v", "libx264", "-bf", "2", "-x264-params", "keyint=12"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.H264)
 			cl := ffmpegClip(t, c.file, c.w, c.h, 2, c.args...)
 			track, pkts := packets(t, cl.path)
 			v, err := d.NewVideoDecoder(track)
@@ -431,7 +433,7 @@ func TestDecodeH264MatchesFFmpeg(t *testing.T) {
 // parallel processing, slices, tiles, the default scaling lists, a
 // size that crops, and Matroska.
 func TestDecodeH265MatchesFFmpeg(t *testing.T) {
-	d := decodingDevice(t, demux.H265)
+	t.Parallel()
 	x265 := func(params string) []string {
 		return []string{"-c:v", "libx265", "-x265-params", "log-level=none:" + params}
 	}
@@ -448,6 +450,8 @@ func TestDecodeH265MatchesFFmpeg(t *testing.T) {
 		{"matroska", "f.mkv", 160, 144, x265("keyint=12:bframes=2")},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.H265)
 			cl := ffmpegClip(t, c.file, c.w, c.h, 2, c.args...)
 			track, pkts := packets(t, cl.path)
 			v, err := d.NewVideoDecoder(track)
@@ -465,6 +469,7 @@ func TestDecodeH265MatchesFFmpeg(t *testing.T) {
 // so as well when the CRA picture fails (every frame held) and is
 // given again.
 func TestDecodeH265ResetsAtACRA(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H265)
 	cl := ffmpegClip(t, "a.mp4", 160, 144, 3, "-c:v", "libx265", "-x265-params", "log-level=none:keyint=20:min-keyint=20:open-gop=1:bframes=3")
 	track, pkts := packets(t, cl.path)
@@ -505,7 +510,7 @@ func TestDecodeH265ResetsAtACRA(t *testing.T) {
 // frames from it on as a decode from the start does, open-GOP keyframes
 // that are not IDRs too, whose leading B-frames are dropped.
 func TestDecodeH264ResetsAtAKeyframe(t *testing.T) {
-	d := decodingDevice(t, demux.H264)
+	t.Parallel()
 	for _, c := range []struct {
 		name string
 		args []string
@@ -514,6 +519,8 @@ func TestDecodeH264ResetsAtAKeyframe(t *testing.T) {
 		{"open GOP", []string{"-c:v", "libx264", "-bf", "2", "-x264-params", "keyint=20:open-gop=1"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.H264)
 			cl := ffmpegClip(t, "a.mp4", 160, 96, 3, c.args...)
 			track, pkts := packets(t, cl.path)
 			v, err := d.NewVideoDecoder(track)
@@ -547,6 +554,7 @@ func TestDecodeH264ResetsAtAKeyframe(t *testing.T) {
 // the chroma of each pixel its own. Only its picture draws, not the
 // padding the codec adds around it.
 func TestDecodedFrameDraws(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name   string
 		codec  demux.Codec
@@ -564,6 +572,7 @@ func TestDecodedFrameDraws(t *testing.T) {
 		{"10-bit 4:4:4 full range", demux.H265, 174, 144, []string{"-c:v", "libx265", "-pix_fmt", "yuv444p10le", "-colorspace", "bt709", "-color_range", "pc", "-x265-params", "log-level=none"}, videoSamples{10, chroma444}, BT709, FullRange},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			d := decodingDevice(t, c.codec)
 			cl := encodeClip(t, "a.mp4", c.w, c.h, 0.2, c.format, c.args)
 			track, pkts := packets(t, cl.path)

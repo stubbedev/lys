@@ -25,6 +25,7 @@ func drawFrame(t *testing.T, d *Device, tg *Target, f *VideoFrame) {
 // the pass itself, which the decode then is done before. Once the
 // decode is known done a pass waits for it no more.
 func TestDrawnFrameWaitsForItsDecodeOnTheGPU(t *testing.T) {
+	t.Parallel()
 	const w, h = 1920, 1080
 	d := decodingDevice(t, demux.H264)
 	cl := ffmpegClip(t, "a.mp4", w, h, 0.1, "-c:v", "libx264")
@@ -77,6 +78,7 @@ func TestDrawnFrameWaitsForItsDecodeOnTheGPU(t *testing.T) {
 // Decoded answers for a frame the caller holds, and says why not for
 // one handed back or of a closed decoder.
 func TestDecodedRefusesFramesNotHeld(t *testing.T) {
+	t.Parallel()
 	d, v, f := heldFrame(t, 174, 98)
 	if err := v.wait(f.seq); err != nil {
 		t.Fatal(err)
@@ -102,6 +104,7 @@ func TestDecodedRefusesFramesNotHeld(t *testing.T) {
 // submitted takes its semaphore out of that submission's waits, every
 // decode having finished, and the submission runs.
 func TestClosedDecoderLeavesNoWaitBehind(t *testing.T) {
+	t.Parallel()
 	d, v, f := heldFrame(t, 174, 98)
 	tg := newTarget(t, d, 64, 36)
 	drawFrame(t, d, tg, f)
@@ -120,6 +123,7 @@ func TestClosedDecoderLeavesNoWaitBehind(t *testing.T) {
 // A closed decoder hands out no frame: the ones it had ready went with
 // it.
 func TestClosedDecoderHandsOutNothing(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	cl := ffmpegClip(t, "a.mp4", 174, 98, 0.2, "-c:v", "libx264")
 	track, pkts := packets(t, cl.path)

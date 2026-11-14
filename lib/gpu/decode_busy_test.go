@@ -19,6 +19,7 @@ func drain(v *VideoDecoder) {
 // whole clip of each codec, hidden frames and reordering included,
 // nothing waits here.
 func TestDecodeNeverWaitsForACallerThatHeedsBusy(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		codec demux.Codec
 		args  []string
@@ -29,6 +30,7 @@ func TestDecodeNeverWaitsForACallerThatHeedsBusy(t *testing.T) {
 		{demux.VP9, libvpx("-g", "20", "-lag-in-frames", "19", "-auto-alt-ref", "1")},
 	} {
 		t.Run(c.codec.String(), func(t *testing.T) {
+			t.Parallel()
 			d := decodingDevice(t, c.codec)
 			cl := ffmpegClip(t, "a.mp4", 640, 360, 2, c.args...)
 			track, pkts := packets(t, cl.path)
@@ -79,6 +81,7 @@ func TestDecodeNeverWaitsForACallerThatHeedsBusy(t *testing.T) {
 // the GPU instead of waiting for it, up to its limit of slots, and
 // what it then decodes is still the stream's pictures.
 func TestDecodeMakesRoomInsteadOfWaiting(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	cl := ffmpegClip(t, "a.mp4", 640, 360, 0.48, "-c:v", "libx264", "-bf", "2")
 	track, pkts := packets(t, cl.path)
@@ -114,6 +117,7 @@ func TestDecodeMakesRoomInsteadOfWaiting(t *testing.T) {
 
 // Busy refuses a closed decoder by name.
 func TestBusyRefusesAClosedDecoder(t *testing.T) {
+	t.Parallel()
 	_, v, _ := heldFrame(t, 174, 98)
 	v.Close()
 	if _, err := v.Busy(); err == nil {

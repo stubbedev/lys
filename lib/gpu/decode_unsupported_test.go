@@ -11,6 +11,7 @@ import (
 // A malformed packet is an error that is not ErrNoVideoDecoder: the
 // decoder decodes the format, and the stream is broken.
 func TestMalformedPacketsAreNotNoVideoDecoder(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		codec demux.Codec
 		args  []string
@@ -20,6 +21,7 @@ func TestMalformedPacketsAreNotNoVideoDecoder(t *testing.T) {
 		{demux.H265, []string{"-c:v", "libx265", "-x265-params", "log-level=none"}, nal.ErrHEVC},
 	} {
 		t.Run(c.codec.String(), func(t *testing.T) {
+			t.Parallel()
 			d := decodingDevice(t, c.codec)
 			cl := ffmpegClip(t, "a.mp4", 160, 144, 0.2, c.args...)
 			track, pkts := packets(t, cl.path)

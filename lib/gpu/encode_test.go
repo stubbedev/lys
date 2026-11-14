@@ -364,8 +364,10 @@ func encodingBackends(t *testing.T, d *Device, c Codec) []backend {
 // codec: Vulkan video on NVIDIA, VA-API on Intel Xe2, whose Vulkan
 // driver encodes no video.
 func TestEncoderBackend(t *testing.T) {
+	t.Parallel()
 	for _, codec := range []Codec{H264, H265} {
 		t.Run(codec.String(), func(t *testing.T) {
+			t.Parallel()
 			d, _ := encodingDevice(t, codec)
 			cfg := EncoderConfig{Codec: codec, Width: 64, Height: 64, FrameRate: 30, KeyInterval: 30, QP: 20}
 			bs := backends(d, codec)
@@ -406,8 +408,10 @@ func TestEncoderBackend(t *testing.T) {
 // or reference falls far below. Every backend the device encodes the
 // codec on does.
 func TestEncoderDecodes(t *testing.T) {
+	t.Parallel()
 	for _, codec := range []Codec{H264, H265} {
 		t.Run(codec.String(), func(t *testing.T) {
+			t.Parallel()
 			d, ffmpeg := encodingDevice(t, codec)
 			for _, b := range backends(d, codec) {
 				for _, size := range []image.Point{{640, 360}, {333, 241}, {64, 48}} {
@@ -473,6 +477,7 @@ func near(frame []byte, w, x, y int, c color.RGBA) bool {
 // rectangle: a two-pixel picture fills its rectangle's halves; a new
 // picture of another size replaces it; nil takes it away again.
 func TestEncoderOverlay(t *testing.T) {
+	t.Parallel()
 	d, ffmpeg := encodingDevice(t, H264)
 	const w, h = 320, 192
 	c := newClip(t, d, EncoderConfig{Codec: H264, Width: w, Height: h, FrameRate: 30, KeyInterval: 30, QP: 20})
@@ -524,6 +529,7 @@ func TestEncoderOverlay(t *testing.T) {
 // SetOverlay refuses an empty rectangle and one off the frame, and
 // works on no closed encoder.
 func TestEncoderOverlayRefuses(t *testing.T) {
+	t.Parallel()
 	d, _ := encodingDevice(t, H264)
 	c := newClip(t, d, EncoderConfig{Codec: H264, Width: 128, Height: 64, FrameRate: 30, KeyInterval: 30, QP: 20})
 	img := solid(4, 4, color.RGBA{A: 255})
@@ -566,8 +572,10 @@ func TestBufferReadsBack(t *testing.T) {
 // parameter sets describe the track and its packets are the samples,
 // in MP4 and in Matroska, and ffprobe reads every frame back.
 func TestEncoderMuxes(t *testing.T) {
+	t.Parallel()
 	for _, codec := range []Codec{H264, H265} {
 		t.Run(codec.String(), func(t *testing.T) {
+			t.Parallel()
 			d, ffmpeg := encodingDevice(t, codec)
 			ffprobe := filepath.Join(filepath.Dir(ffmpeg), "ffprobe")
 			const frames = 20
@@ -632,6 +640,7 @@ func TestEncoderMuxes(t *testing.T) {
 // reaches the frame's edges. The expected layouts are worked by hand:
 // the buffer holds the output flipped, then turned counter-clockwise.
 func TestEncoderSourceAndTransform(t *testing.T) {
+	t.Parallel()
 	d, ffmpeg := encodingDevice(t, H264)
 	red, green, blue, white := color.RGBA{220, 30, 30, 255}, color.RGBA{20, 200, 40, 255}, color.RGBA{30, 60, 200, 255}, color.RGBA{250, 250, 250, 255}
 	for _, tc := range []struct {
@@ -696,6 +705,7 @@ func TestEncoderSourceAndTransform(t *testing.T) {
 // say for the same stream, field for field where slices depend on
 // them: the driver is the reference the writer is held to.
 func TestEncoderHeadersMatchTheDrivers(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		codec  Codec
 		header func(*vulkanBackend) [][]byte
@@ -728,6 +738,7 @@ func TestEncoderHeadersMatchTheDrivers(t *testing.T) {
 		}},
 	} {
 		t.Run(c.codec.String(), func(t *testing.T) {
+			t.Parallel()
 			d, _ := encodingDevice(t, c.codec)
 			if d.video == nil || !slices.Contains(d.video.codecs, c.codec) {
 				t.Skipf("%s encodes no %s on its Vulkan video queue", d.Name(), c.codec)

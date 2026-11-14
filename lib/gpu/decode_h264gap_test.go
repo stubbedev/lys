@@ -64,6 +64,7 @@ func allowGaps(t *testing.T, sps []byte) []byte {
 // the deblocking filter, which ffmpeg runs as if each inferred frame
 // were the frame it copies.
 func TestDecodeH264FrameNumGap(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.H264)
 	dir := t.TempDir()
 	src := filepath.Join(dir, "a.h264")

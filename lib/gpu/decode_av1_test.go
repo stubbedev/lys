@@ -37,7 +37,7 @@ func libaom(params string, args ...string) []string {
 // segmentation, delta q and loop filter deltas, a size that crops, and
 // Matroska.
 func TestDecodeAV1MatchesFFmpeg(t *testing.T) {
-	d := decodingDevice(t, demux.AV1)
+	t.Parallel()
 	for _, c := range []struct {
 		name, file         string
 		w, h               int
@@ -55,6 +55,8 @@ func TestDecodeAV1MatchesFFmpeg(t *testing.T) {
 		{"SVT-AV1", "f.mp4", 192, 128, []string{"-c:v", "libsvtav1", "-preset", "10", "-g", "24", "-svtav1-params", "film-grain=0"}, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.AV1)
 			cl := ffmpegClip(t, c.file, c.w, c.h, 2, c.args...)
 			track, pkts := packets(t, cl.path)
 			v, err := d.NewVideoDecoder(track)
@@ -99,7 +101,7 @@ func checkRefusedSegmentIDs(t *testing.T, cl stream, v *VideoDecoder, pkts []dem
 // lag, overlapped and clipped noise, at 8 and 10 bits and at an odd
 // size.
 func TestDecodeAV1FilmGrain(t *testing.T) {
-	d := decodingDevice(t, demux.AV1)
+	t.Parallel()
 	type grained struct {
 		name   string
 		w, h   int
@@ -119,6 +121,8 @@ func TestDecodeAV1FilmGrain(t *testing.T) {
 	}
 	for _, c := range clips {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.AV1)
 			secs := 0.4
 			if c.name == clips[0].name {
 				secs = 1
@@ -184,6 +188,7 @@ func TestDecodeAV1FilmGrainDoesNotAllocate(t *testing.T) {
 // frames from it on as a decode from the start does; the frames hidden
 // before the reset are not shown.
 func TestDecodeAV1ResetsAtAKeyframe(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.AV1)
 	cl := ffmpegClip(t, "a.mp4", 192, 128, 3, libaom("", "-g", "20", "-keyint_min", "20", "-lag-in-frames", "19")...)
 	track, pkts := packets(t, cl.path)
@@ -210,6 +215,7 @@ func TestDecodeAV1ResetsAtAKeyframe(t *testing.T) {
 
 // A frame's Rect is the frame, the 8x8 blocks it is coded in cropped.
 func TestDecodeAV1CropsToTheFrame(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.AV1)
 	cl := ffmpegClip(t, "a.mp4", 270, 150, 0.2, libaom("")...)
 	track, pkts := packets(t, cl.path)
@@ -350,7 +356,7 @@ func av1ShownAgain(t *testing.T, args []string, grain bool) (cl stream, track de
 // picture went out in and not in the reference picture it is copied
 // out of again.
 func TestDecodeAV1ShowsAFrameAgain(t *testing.T) {
-	d := decodingDevice(t, demux.AV1)
+	t.Parallel()
 	for _, c := range []struct {
 		name  string
 		args  []string
@@ -360,6 +366,8 @@ func TestDecodeAV1ShowsAFrameAgain(t *testing.T) {
 		{"with film grain", libaom("film-grain-test=1", "-g", "12"), true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.AV1)
 			cl, track, again, _, at := av1ShownAgain(t, c.args, c.grain)
 			v, err := d.NewVideoDecoder(track)
 			if err != nil {
@@ -384,6 +392,7 @@ func TestDecodeAV1ShowsAFrameAgain(t *testing.T) {
 // rather than being lost to the decoder, and its packet given again
 // decodes as though it had not failed.
 func TestDecodeAV1RetriesAFrameWhoseFilmGrainFailed(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.AV1)
 	cl, track, again, hdrs, at := av1ShownAgain(t, libaom("film-grain-test=1", "-g", "12"), true)
 	shown := 1 + slices.IndexFunc(hdrs[1:], func(h []av1.FrameHeader) bool {
@@ -438,6 +447,7 @@ func TestDecodeAV1RetriesAFrameWhoseFilmGrainFailed(t *testing.T) {
 }
 
 func TestDecodeAV1RetriesATemporalUnitWhoseLastFrameFailed(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.AV1)
 	cl := ffmpegClip(t, "a.mp4", 192, 128, 1.2, libaom("enable-tpl-model=1", "-g", "30", "-lag-in-frames", "19", "-auto-alt-ref", "1")...)
 	track, pkts := packets(t, cl.path)
@@ -475,7 +485,7 @@ func svtScaled(t *testing.T, w, h int, params string) string {
 // predicts from references and is upscaled by superres is refused,
 // saying so, after the frames before it decode right.
 func TestDecodeAV1ScalesFramesAndReferences(t *testing.T) {
-	d := decodingDevice(t, demux.AV1)
+	t.Parallel()
 	const superresKeys = "superres-mode=1:superres-denom=8:superres-kf-denom=16"
 	for _, c := range []struct {
 		name                       string
@@ -488,6 +498,8 @@ func TestDecodeAV1ScalesFramesAndReferences(t *testing.T) {
 		{"superres frames predicting from references", "superres-mode=2", false, true, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.AV1)
 			path := svtScaled(t, 512, 288, c.params)
 			track, pkts := packets(t, path)
 			v, err := d.NewVideoDecoder(track)
@@ -528,6 +540,7 @@ func TestDecodeAV1ScalesFramesAndReferences(t *testing.T) {
 // A frame smaller than the least coded extent the device decodes is
 // refused, saying both sizes, after the frames before it decode right.
 func TestDecodeAV1RefusesAFrameSmallerThanTheDeviceDecodes(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.AV1)
 	path := svtScaled(t, 256, 144, "resize-mode=2")
 	track, pkts := packets(t, path)

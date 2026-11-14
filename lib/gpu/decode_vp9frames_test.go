@@ -151,6 +151,7 @@ const resizedVP9 = "testdata/vp9-resize.ivf"
 // frames of its own size; and a picture of another size than the frames
 // around it shows a second time at its own.
 func TestDecodeVP9ScalesItsReferences(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	pkts := readIVF(t, resizedVP9)
 	large, small := image.Pt(432, 240), image.Pt(324, 180)
@@ -237,6 +238,7 @@ func decodeShownAgain(t *testing.T, v *VideoDecoder, pkts []demux.Packet) []deco
 // it was decoded, and the key frame, still in a slot nothing refreshed,
 // among the frames that followed it.
 func TestDecodeVP9ShowsAFrameAgain(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegPasses(t, "a.webm", 192, 128, 1.2, libvpxTwoPass("-b:v", "200k", "-g", "30", "-auto-alt-ref", "1", "-lag-in-frames", "16")...)
 	track, pkts := packets(t, cl.path)
@@ -296,6 +298,7 @@ func TestDecodeVP9ShowsAFrameAgain(t *testing.T) {
 }
 
 func TestDecodeVP9RetriesASuperframeWhoseShownFrameFailed(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegPasses(t, "a.webm", 192, 128, 1.2, libvpxTwoPass("-b:v", "200k", "-g", "30", "-auto-alt-ref", "1", "-lag-in-frames", "16", "-frame-parallel", "0")...)
 	track, pkts := packets(t, cl.path)
@@ -424,7 +427,7 @@ func vp9NoContext() [][]string  { return [][]string{libvpx("-g", "12", "-error-r
 //     saves to it all the same, where the frames after it find what it
 //     saved.
 func TestDecodeVP9IntraFramesAndTheirContexts(t *testing.T) {
-	d := decodingDevice(t, demux.VP9)
+	t.Parallel()
 	for _, c := range []struct {
 		name   string
 		passes [][]string
@@ -440,6 +443,8 @@ func TestDecodeVP9IntraFramesAndTheirContexts(t *testing.T) {
 		{"key frame coding another context", vp9TwoContexts(), func(t *testing.T, key []byte) [][]byte { return [][]byte{vp9test.KeyContext(t, key, 2)} }},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.VP9)
 			cl := ffmpegPasses(t, "a.webm", 192, 128, 1.4, c.passes...)
 			track, pkts := packets(t, cl.path)
 			cut := recoded(t, pkts, secondKey(t, pkts), c.with)
@@ -460,6 +465,7 @@ func TestDecodeVP9IntraFramesAndTheirContexts(t *testing.T) {
 // Vulkan Video picture names one context, for a device to reset and to
 // decode from.
 func TestDecodeVP9RefusesToResetASavedContextApart(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegPasses(t, "a.webm", 192, 128, 1.4, vp9TwoContexts()...)
 	track, pkts := packets(t, cl.path)
@@ -499,7 +505,7 @@ func spliced(t *testing.T, first, second image.Point, to vp9test.IntraOnly, args
 // is; to a larger one, where it leaves nothing of the frames before it,
 // neither a reference picture nor a frame context, in another session.
 func TestDecodeVP9IntraOnlyFramesChangeTheSize(t *testing.T) {
-	d := decodingDevice(t, demux.VP9)
+	t.Parallel()
 	large, small := image.Pt(256, 144), image.Pt(192, 128)
 	for _, c := range []struct {
 		name          string
@@ -512,6 +518,8 @@ func TestDecodeVP9IntraOnlyFramesChangeTheSize(t *testing.T) {
 		{"larger and error resilient, keeping nothing", small, large, vp9test.IntraOnly{Resilient: true, Refresh: 0xff}, []string{"-error-resilient", "1"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			d := decodingDevice(t, demux.VP9)
 			cut := spliced(t, c.first, c.second, c.to, c.args...)
 			v, err := d.NewVideoDecoder(demux.Track{Kind: demux.Video, Codec: demux.VP9})
 			if err != nil {
@@ -532,6 +540,7 @@ func TestDecodeVP9IntraOnlyFramesChangeTheSize(t *testing.T) {
 // before it for the frames after it, is refused, saying both sizes: a
 // session's pictures do not grow, and another session has neither.
 func TestDecodeVP9RefusesToGrowAmongReferences(t *testing.T) {
+	t.Parallel()
 	d := decodingDevice(t, demux.VP9)
 	for _, c := range []struct {
 		name string
