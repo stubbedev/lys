@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/stubbedev/lys-lib v0.3.23-0.20261114092729-497f2aad9def
-	github.com/stubbedev/memory-go v0.5.0
+	github.com/stubbedev/memory-go v0.6.0
 	golang.org/x/image v0.47.0
 	golang.org/x/sys v0.49.0
 )
