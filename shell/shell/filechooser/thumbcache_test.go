@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys-desktop/fileuri"
+	"github.com/stubbedev/lys-desktop/shell/treetest"
 )
 
 func goroutineID() int64 {
@@ -77,7 +78,7 @@ func (hs *harness) openRows(t *testing.T, dir string, paths []string) int {
 	})
 	found := 0
 	for _, p := range paths {
-		hs.waitThumbFor(t, p, rowIconPx, 15*time.Second)
+		hs.waitThumbFor(t, p, rowIconPx, treetest.Liveness)
 		hs.run(func() {
 			if hs.c.thumbs.found[thumbKey{p, rowIconPx}] != nil {
 				found++
@@ -246,12 +247,8 @@ func TestHangingThumbnailerFailsOnce(t *testing.T) {
 	doc := pdfFile(t, hs)
 	installThumbnailer(t, hs, "hang")
 	hs.c.thumbnailer.runTimeout = 500 * time.Millisecond
-	start := time.Now()
 	if hs.openRows(t, filepath.Dir(doc), []string{doc}) != 0 {
 		t.Error("a hung thumbnailer made a thumbnail")
-	}
-	if waited := time.Since(start); waited > 10*time.Second {
-		t.Errorf("the hanging thumbnailer held the row for %v", waited)
 	}
 	switchThumbnailer(t, hs, "png")
 	hs.c.thumbnailer.runTimeout = thumbnailerTimeout

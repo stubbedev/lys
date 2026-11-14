@@ -567,7 +567,7 @@ func TestRecursiveSearchStreamsMatchesForTheLiveQuery(t *testing.T) {
 		t.Errorf("in-folder search = %v", got)
 	}
 	hs.click(t, "Search subfolders")
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(treetest.Liveness)
 	want := []string{"a.png", filepath.Join("pics", "a.png")}
 	for !slices.Equal(hs.shown(), want) {
 		if time.Now().After(deadline) {
@@ -667,7 +667,7 @@ func TestUnfocusableOverlayAnswersNothing(t *testing.T) {
 // waitThumb waits until the thumbnail lookup for path at px ended.
 func (hs *harness) waitThumb(t *testing.T, path string, px int) {
 	t.Helper()
-	hs.waitThumbFor(t, path, px, 2*time.Second)
+	hs.waitThumbFor(t, path, px, treetest.Liveness)
 }
 
 // waitThumbFor waits up to limit until the thumbnail lookup for path
@@ -1838,7 +1838,7 @@ func TestWatchMountsStops(t *testing.T) {
 	go func() { stop(); close(done) }()
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(treetest.Liveness):
 		t.Fatal("stopping the mount watch hung")
 	}
 }
