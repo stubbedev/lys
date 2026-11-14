@@ -8,8 +8,8 @@ github.com/stubbedev/lys-lib v0.3.23-0.20261114092729-497f2aad9def h1:5oW+YVIUhE
 github.com/stubbedev/lys-lib v0.3.23-0.20261114092729-497f2aad9def/go.mod h1:+d6jqP2R9I4xH/NMGV9KJmKS7yV7/3NzG6JhaOkGqu4=
 github.com/stubbedev/lys-ui v0.2.26-0.20261114120530-6d7585002daa h1:znuevVrR79iPH4//WU7ncmzccQJk4OMYDpmn57QIZj4=
 github.com/stubbedev/lys-ui v0.2.26-0.20261114120530-6d7585002daa/go.mod h1:1YBGcqFwE5aDRr5e9rzDGqLz5YVqPewTe87ogF6fMcU=
-github.com/stubbedev/memory-go v0.5.0 h1:xo2HTc/1vhHuafiKCPveaGIQO2aEgH56IUJi+M+hieo=
-github.com/stubbedev/memory-go v0.5.0/go.mod h1:o5etMTWH5bhekxgE/iH/zndRj4U5Wl7BIVD+olGUuzw=
+github.com/stubbedev/memory-go v0.6.0 h1:BsgEnXF1Ov5OZkKjJSKlB0BT3z9dFPVba9ltKPETDmg=
+github.com/stubbedev/memory-go v0.6.0/go.mod h1:OK9MYTrI/8E0yMkzNH2jDmd97lacvL4wXhHX3HH8+e4=
 go.yaml.in/yaml/v3 v3.0.6 h1:zcDfvjXEqTQmpjniUBLc91xYJMB2c4QOFxEF/LCEckM=
 go.yaml.in/yaml/v3 v3.0.6/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/image v0.47.0 h1:za/8gVz++PPZqmZJBNSISICN5Rrj5zixP/8K++fgmqo=
