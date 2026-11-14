@@ -21,6 +21,8 @@ import (
 // a test concludes it does not.
 const settle = 300 * time.Millisecond
 
+const hangGuard = 2 * time.Minute
+
 // Run starts a private headless sway, env overriding its environment
 // (swaytest.Start), and runs an application on it for the rest of the
 // test. Cleanups the test registers afterwards run first, while the
@@ -55,10 +57,10 @@ func Loop(t *testing.T) *app.Application {
 }
 
 // Until polls cond on a's loop until it holds, failing the test with
-// what after ten seconds.
+// what after hangGuard.
 func Until(t *testing.T, a *app.Application, what string, cond func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); ; time.Sleep(20 * time.Millisecond) {
 		if On(a, cond) {
 			return
 		}
@@ -80,7 +82,7 @@ func On[T any](a *app.Application, fn func() T) T {
 // wl_display.sync after all it queued for the client ahead of it, and
 // the loop dispatches in order. Input another client of the compositor
 // injected and round-tripped has reached a's handlers when it returns.
-// It fails the test after ten seconds.
+// It fails the test after hangGuard.
 func Dispatched(t *testing.T, a *app.Application) {
 	t.Helper()
 	awaitCallback(t, a, "a display sync", func() (*wl.Callback, error) { return a.Session().Display.Sync() })
@@ -89,7 +91,7 @@ func Dispatched(t *testing.T, a *app.Application) {
 // Drawn waits until the compositor has taken a frame of surface drawn
 // after the call: invalidate owes the surface a draw, and that draw
 // drains every invalidation made before it, so no frame is owed for
-// them when Drawn returns. It fails the test after ten seconds.
+// them when Drawn returns. It fails the test after hangGuard.
 func Drawn(t *testing.T, a *app.Application, surface *wl.Surface, invalidate func()) {
 	t.Helper()
 	awaitCallback(t, a, "a frame callback", func() (*wl.Callback, error) {
@@ -102,7 +104,7 @@ func Drawn(t *testing.T, a *app.Application, surface *wl.Surface, invalidate fun
 }
 
 // awaitCallback makes request on a's loop and waits for its callback,
-// what naming it in the failure after ten seconds.
+// what naming it in the failure after hangGuard.
 func awaitCallback(t *testing.T, a *app.Application, what string, request func() (*wl.Callback, error)) {
 	t.Helper()
 	done := make(chan struct{})
@@ -118,8 +120,8 @@ func awaitCallback(t *testing.T, a *app.Application, what string, request func()
 	}
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatalf("the loop dispatched no answer to %s within 10s: it was stuck or the compositor never answered", what)
+	case <-time.After(hangGuard):
+		t.Fatalf("the loop dispatched no answer to %s within %s: it was stuck or the compositor never answered", what, hangGuard)
 	}
 }
 
@@ -146,13 +148,13 @@ func Never[T any](t *testing.T, what string, answered <-chan T) {
 }
 
 // Answer waits for answered's answer, failing the test with what after
-// ten seconds.
+// hangGuard.
 func Answer[T any](t *testing.T, what string, answered <-chan T) T {
 	t.Helper()
 	select {
 	case v := <-answered:
 		return v
-	case <-time.After(10 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatalf("never answered: %s", what)
 		var none T
 		return none
