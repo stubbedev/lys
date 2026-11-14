@@ -52,14 +52,39 @@ func startTest(t *testing.T, parts recordingParts, format config.RecorderFormat)
 	return r, path, terms
 }
 
-// waitRecording polls cond until it holds, failing with what after
-// five seconds.
+// hangMargin is how long before the test binary's deadline a wait gives
+// up, so the test fails naming what it waited for instead of the binary
+// panicking.
+const hangMargin = 10 * time.Second
+
+// waitRecording polls cond until it holds. Only a hang stops it, by the
+// test binary's deadline: a loaded machine is slow, not wrong.
 func waitRecording(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); !cond(); time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("never: %s", what)
+	deadline, bounded := t.Deadline()
+	for ; !cond(); time.Sleep(5 * time.Millisecond) {
+		if bounded && time.Until(deadline) < hangMargin {
+			t.Fatalf("never, by the test deadline: %s", what)
 		}
+	}
+}
+
+// endOrFail stops r unless the test has, reporting what that stop could
+// not write: deferred right after the start, it ends the capture before
+// a failing test releases the device it encodes on.
+func endOrFail(t *testing.T, r *recording) {
+	t.Helper()
+	if err := r.end(); err != nil {
+		t.Errorf("stop the recording the test left running: %v", err)
+	}
+}
+
+// recordFrames has the video loop paced by wall record n frames at
+// period.
+func recordFrames(wall *fakeWall, period time.Duration, n int) {
+	for range n {
+		wall.advance(period)
+		wall.tick(period)
 	}
 }
 

@@ -193,30 +193,52 @@ func (e *GPUEngine) forgetSource() {
 	}
 }
 
-// gpuSession is an opened screen, held across the start delay.
+// gpuSession is an opened screen, held across the start delay, and the
+// one capture it runs, which Close ends before it releases the screen
+// the capture encodes from.
 type gpuSession struct {
-	screen *screen
-	audio  *pulse.Service
-	wall   wallClock
+	screen  *screen
+	audio   *pulse.Service
+	wall    wallClock
+	capture *recording
 }
+
+// errSessionCaptures is a second capture asked of a session.
+var errSessionCaptures = errors.New("recorder: the session already runs a capture")
 
 // Start implements Session: the parts opts asks for, into a new file.
 func (g *gpuSession) Start(opts Options, term func(reason string)) (Recording, error) {
+	if g.capture != nil {
+		return nil, errSessionCaptures
+	}
 	parts, err := g.parts(opts)
 	if err != nil {
 		return nil, err
 	}
-	return startRecording(parts, opts, term)
+	rec, err := startRecording(parts, opts, term)
+	if err != nil {
+		return nil, err
+	}
+	g.capture = rec
+	return rec, nil
 }
 
 // StartReplay implements Session: the parts opts asks for, into a ring
 // holding span.
 func (g *gpuSession) StartReplay(opts Options, span time.Duration, term func(reason string), onKey func()) (Replay, error) {
+	if g.capture != nil {
+		return nil, errSessionCaptures
+	}
 	parts, err := g.parts(opts)
 	if err != nil {
 		return nil, err
 	}
-	return startReplay(parts, span, term, onKey)
+	rp, err := startReplay(parts, span, term, onKey)
+	if err != nil {
+		return nil, err
+	}
+	g.capture = rp.rec
+	return rp, nil
 }
 
 // parts are the encoder on the screen's GPU, the webcam and the audio
@@ -249,8 +271,15 @@ func (g *gpuSession) parts(opts Options) (recordingParts, error) {
 	return parts, nil
 }
 
-// Close releases the screen.
-func (g *gpuSession) Close() error { return g.screen.Close() }
+// Close ends the session's capture, unless a Stop already has, then
+// releases the screen.
+func (g *gpuSession) Close() error {
+	var err error
+	if g.capture != nil {
+		err = g.capture.end()
+	}
+	return errors.Join(err, g.screen.Close())
+}
 
 // audioSources are the captures opts asks for: the desktop (the
 // default sink's monitor) and the microphone.

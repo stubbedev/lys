@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys-desktop/config"
 	"github.com/stubbedev/lys-desktop/swaytest"
@@ -47,6 +48,12 @@ func colourNear(a, b color.RGBA) bool {
 	return d(a.R, b.R) <= 24 && d(a.G, b.G) <= 24 && d(a.B, b.B) <= 24
 }
 
+// The transform test records transformFrames frames at transformPeriod.
+const (
+	transformFrames = 10
+	transformPeriod = time.Second / 30
+)
+
 // The recording shows the output upright whatever its transform, and a
 // region of it pixel-exact: every block centre of the decoded frame has
 // the colour the upright screen has there. The output is 1280x720 at
@@ -86,6 +93,8 @@ func TestRecordsTransformedOutputsAndRegionsUpright(t *testing.T) {
 					want = image.Rect(int(target.X)*2, int(target.Y)*2, int(target.X+target.Width)*2, int(target.Y+target.Height)*2)
 				}
 				e := NewGPUEngine(&fakePicker{reply: "/" + target.Payload()}, nil, layout, noFocus, "")
+				wall := newFakeWall(time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC), transformPeriod)
+				e.wall = wall
 				s, err := e.OpenSession(context.Background(), false)
 				if err != nil {
 					t.Fatal(err)
@@ -100,9 +109,12 @@ func TestRecordsTransformedOutputsAndRegionsUpright(t *testing.T) {
 				if !ok {
 					t.Fatalf("the engine started a %T", rec)
 				}
-				waitRecording(t, "ten frames recorded", func() bool { return r.videoFrames.Load() >= 10 })
+				recordFrames(wall, transformPeriod, transformFrames)
 				if err := rec.Stop(); err != nil {
 					t.Fatal(err)
+				}
+				if n := r.videoFrames.Load(); n != transformFrames {
+					t.Fatalf("%d frames recorded, want the %d the clock ticked", n, transformFrames)
 				}
 				frame := lastFrame(t, path, want.Size())
 				checked, wrong := 0, 0

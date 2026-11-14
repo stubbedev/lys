@@ -292,15 +292,21 @@ func TestWebcamOverlayIsEncodedIntoTheFrame(t *testing.T) {
 	cam := &fakeCamera{frames: make(chan *image.RGBA, 1), recycled: make(chan *image.RGBA, 1)}
 	cam.frames <- red
 	path := filepath.Join(t.TempDir(), "cam.mkv")
-	rec, err := startRecording(recordingParts{video: video, cam: cam, camRect: rect, fps: 30, wall: systemClock{}}, Options{OutputPath: path, Format: config.RecorderFormatMkv}, func(r string) { t.Errorf("reported %q", r) })
+	period := time.Second / 30
+	wall := newFakeWall(time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC), period)
+	rec, err := startRecording(recordingParts{video: video, cam: cam, camRect: rect, fps: 30, wall: wall}, Options{OutputPath: path, Format: config.RecorderFormatMkv}, func(r string) { t.Errorf("reported %q", r) })
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer endOrFail(t, rec)
 	<-cam.recycled
-	after := rec.videoFrames.Load()
-	waitRecording(t, "frames encoded over the overlay", func() bool { return rec.videoFrames.Load() >= after+3 })
+	const frames = 10
+	recordFrames(wall, period, frames)
 	if err := rec.Stop(); err != nil {
 		t.Fatal(err)
+	}
+	if n := rec.videoFrames.Load(); n != frames {
+		t.Fatalf("%d frames encoded over the overlay, want the %d the clock ticked", n, frames)
 	}
 	frame := lastFrame(t, path, size)
 	center := image.Pt((rect.Min.X+rect.Max.X)/2, (rect.Min.Y+rect.Max.Y)/2)
@@ -311,6 +317,44 @@ func TestWebcamOverlayIsEncodedIntoTheFrame(t *testing.T) {
 	if c := frame.RGBAAt(outside.X, outside.Y); c.R > 200 && c.G < 60 {
 		t.Errorf("outside the overlay %v decodes red %v", outside, c)
 	}
+}
+
+// Closing a session ends the capture it runs before it releases the
+// screen the capture encodes from: the file is written whole, a Stop
+// after it reports that first stop's result, and nothing touches the
+// released device.
+func TestClosingASessionEndsItsCaptureFirst(t *testing.T) {
+	requireFFmpeg(t)
+	output := gpuSway(t)
+	e := NewGPUEngine(&fakePicker{reply: "/screen:" + output}, nil, noLogical, noFocus, "")
+	period := time.Second / 30
+	wall := newFakeWall(time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC), period)
+	e.wall = wall
+	s, err := e.OpenSession(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "closed.mkv")
+	rec, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(r string) { t.Errorf("reported %q", r) })
+	if err != nil {
+		closeOrFail(t, "the session", s)
+		t.Fatal(err)
+	}
+	if _, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(string) {}); !errors.Is(err, errSessionCaptures) {
+		t.Errorf("a second capture of the session: %v, want errSessionCaptures", err)
+	}
+	const frames = 10
+	recordFrames(wall, period, frames)
+	if err := s.Close(); err != nil {
+		t.Fatalf("close the session with its capture running: %v", err)
+	}
+	if err := rec.Stop(); err != nil {
+		t.Errorf("Stop after the session ended the capture: %v", err)
+	}
+	if n := rec.(*recording).videoFrames.Load(); n != frames {
+		t.Errorf("%d frames written, want the %d the clock ticked", n, frames)
+	}
+	lastFrame(t, path, s.(*gpuSession).screen.frameSize())
 }
 
 // lastFrame decodes the file's last frame to RGBA.

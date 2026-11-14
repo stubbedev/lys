@@ -398,6 +398,17 @@ func (r *recording) Stop() error {
 	return r.stopErr
 }
 
+// end stops r for the Close of its session unless a Stop already has,
+// whose error that Stop returned, so it is not reported again.
+func (r *recording) end() error {
+	var err error
+	r.stopOnce.Do(func() {
+		r.stopErr = r.finish()
+		err = r.stopErr
+	})
+	return err
+}
+
 func (r *recording) finish() error {
 	for _, c := range r.captures {
 		c.Close()
