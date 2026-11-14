@@ -3,11 +3,14 @@ package atomicfile
 import (
 	"errors"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
 )
+
+const writeFileAllocs = 5
 
 func TestWriteFileReplacesContentAndMode(t *testing.T) {
 	dir := t.TempDir()
@@ -80,7 +83,7 @@ func TestMissingDirectoryIsReported(t *testing.T) {
 	}
 }
 
-func TestDirectoryIsSyncedAfterTheRename(t *testing.T) {
+func TestAWriteNeedsNoReadAccessToTheDirectory(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root opens a directory without read permission")
 	}
@@ -90,12 +93,38 @@ func TestDirectoryIsSyncedAfterTheRename(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
 	path := filepath.Join(dir, "f")
-	err := WriteFile(path, []byte("new"), 0o600)
-	if !errors.Is(err, fs.ErrPermission) {
-		t.Fatalf("write into an unreadable directory returned %v, want the directory sync's error", err)
+	if err := WriteFile(path, []byte("new"), 0o600); err != nil {
+		t.Fatalf("write into a write-only directory: %v", err)
 	}
 	if got, _ := os.ReadFile(path); string(got) != "new" {
 		t.Errorf("target is %q, want the renamed content", got)
+	}
+}
+
+func TestAFailedRenameLeavesTheTargetAndNoTemporary(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "f")
+	if err := os.MkdirAll(filepath.Join(path, "inside"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	err := WriteFile(path, []byte("new"), 0o600)
+	if !errors.Is(err, syscall.EISDIR) || !strings.Contains(err.Error(), path) {
+		t.Fatalf("replace a directory: %v, want EISDIR naming %s", err, path)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Errorf("%d entries left in the directory, want only the target", len(entries))
+	}
+}
+
+func TestWriteFileAllocatesOnlyTheNamesItPassesTheKernel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "f")
+	data := []byte("content")
+	if allocs := testing.AllocsPerRun(5, func() {
+		if err := WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}); allocs > writeFileAllocs {
+		t.Fatalf("WriteFile allocates %v, want at most %d: the temporary's name and the C strings of its open and rename", allocs, writeFileAllocs)
 	}
 }
 
@@ -134,5 +163,29 @@ func TestFailedWriteSeekableLeavesNoTemporary(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
 		t.Errorf("%d entries left in the directory, want none", len(entries))
+	}
+}
+
+func TestATemporaryIsKnownForItsTargetOnly(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "runtime.yaml")
+	var seen []string
+	err := Write(path, 0o600, func(io.Writer) error {
+		entries, err := os.ReadDir(dir)
+		for _, e := range entries {
+			seen = append(seen, filepath.Join(dir, e.Name()))
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 1 || !IsTemporary(path, seen[0]) {
+		t.Fatalf("the write's temporaries %v are not all known as temporaries of %s", seen, path)
+	}
+	for _, other := range []string{path, seen[0] + "x", filepath.Join(dir, ".runtime.yaml.tmp"), filepath.Join(dir, ".other.tmp1"), filepath.Join(t.TempDir(), filepath.Base(seen[0]))} {
+		if IsTemporary(path, other) {
+			t.Errorf("%s is taken for a temporary of %s", other, path)
+		}
 	}
 }
