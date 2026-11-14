@@ -283,8 +283,9 @@ func main() {
   and a frame or the fields it was decoded as, as a whole); a picture whose
   slices' reference picture lists name more reference fields than the device
   decodes a picture from (NVIDIA: 16, each field of a frame decoded as two
-  counting); and a gap in `frame_num`, which is inferred in sequences of
-  frames only. A picture with more reference fields than that names only the
+  counting); and a gap in `frame_num` right after a field without its
+  frame's other (ffmpeg conceals the gap with that field's frame, a skip
+  slice would copy the frame before it). A picture with more reference fields than that names only the
   ones its slices' lists hold (8.2.4: the initial lists, field lists by
   alternating parity, cut to `num_ref_idx_active` and modified as the slice
   says), where a device given only those lays out the same lists.
@@ -367,7 +368,14 @@ func main() {
   frame before it, so it holds a DPB slot and its place in the reference lists,
   and a stream predicting from it (frames lost) reads what ffmpeg conceals it
   with; ffmpeg deblocks such a stream a little differently, taking the copy
-  for the frame it copies. A gap the SPS does not allow is an error naming the frames missing.
+  for the frame it copies. In a sequence of fields or of macroblock-adaptive
+  frames each inferred frame is a frame picture, both its fields references
+  as 8.2.5.2 says, its picture order count the previous reference frame's
+  plus 2 for both fields, as ffmpeg counts. ffmpeg marks only the field of
+  the picture after the gap a reference in each, so where a field's lists
+  reach past the inferred frame's first field the two disagree, and the
+  decoder follows the standard. A gap the SPS does not allow is an error
+  naming the frames missing.
 - `internal/av1` reads the OBUs, sequence headers, frame headers (with the
   reference frame state they predict from) and tile groups; `internal/vp9`
   reads superframe indexes and uncompressed headers (with the reference frame

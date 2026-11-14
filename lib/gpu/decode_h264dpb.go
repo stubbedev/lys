@@ -268,17 +268,40 @@ func (s *h264State) frameNumGap(p *h264Pic) (int, error) {
 // sliding window marking takes in when it finishes. Its picture order
 // count is the decoding process's where pic_order_cnt_type derives it
 // from frame_num, else (where the standard leaves it unspecified) the
-// previous reference frame's plus 2, as ffmpeg counts.
+// previous reference frame's plus 2 for both fields, as ffmpeg counts.
 func (s *h264State) infer(q *h264Pic, sps *nal.H264SPS) error {
 	s.gapHdr = nal.H264SliceHeader{SliceType: nal.H264SliceP, FrameNum: (s.prevRefFrameNum + 1) % (uint32(1) << sps.Log2MaxFrameNum)}
 	*q = h264Pic{hdr: &s.gapHdr, sps: sps, ref: true, fields: h264Frame, nonExisting: true}
 	s.first.open = false
 	if sps.PicOrderCntType == 0 {
-		q.poc = [2]int32{s.prevRefPoc[0] + 2, s.prevRefPoc[1] + 2}
+		poc := min(s.prevRefPoc[0], s.prevRefPoc[1]) + 2
+		q.poc = [2]int32{poc, poc}
 	} else {
 		s.pictureOrder(q)
 	}
 	return s.freeSlot(q)
+}
+
+// lastRefWhole reports whether the latest short-term reference frame,
+// the one of the highest FrameNumWrap for a picture of frame_num
+// frameNum, has both its fields short-term references: what a frame
+// inferred for a gap copies, as ffmpeg conceals the gap with it.
+func (s *h264State) lastRefWhole(frameNum uint32, sps *nal.H264SPS) bool {
+	last, lastWrap := -1, int64(0)
+	for i := range s.slots {
+		r := &s.refs[i]
+		if r.short == 0 {
+			continue
+		}
+		wrap := int64(r.frameNum)
+		if r.frameNum > frameNum {
+			wrap -= int64(1) << sps.Log2MaxFrameNum
+		}
+		if last < 0 || wrap > lastWrap {
+			last, lastWrap = i, wrap
+		}
+	}
+	return last >= 0 && s.refs[last].short == h264Frame
 }
 
 // pictureOrder derives p's picture order count (8.2.1): a frame's two,

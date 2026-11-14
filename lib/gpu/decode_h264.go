@@ -360,7 +360,7 @@ func (c *h264Decoder) picture(v *VideoDecoder, p demux.Packet, slices []h264Unit
 	c.state.slots = shape.slots
 	gap, err := c.state.begin(&pic)
 	if err == nil && gap > 0 {
-		err = c.inferGap(v, sps, shape, gap)
+		err = c.inferGap(v, sps, shape, gap, c.hdr.FrameNum)
 	}
 	if err == nil && !c.kept {
 		c.before, c.kept = c.state, true
@@ -580,10 +580,14 @@ func b2i(b bool) int {
 // picture in each DPB slot a decode names; they go to it as ordinary
 // short-term references, not flagged is_non_existing, so a stream that
 // predicts from them (frames lost) reads the copy, as ffmpeg conceals
-// the loss.
-func (c *h264Decoder) inferGap(v *VideoDecoder, sps *nal.H264SPS, shape decodeShape, gap int) error {
-	if !sps.FrameMbsOnly {
-		return fmt.Errorf("%w: frame_num skips %d frames in SPS %d, a sequence of fields or field-pair frames, where the decoder infers no frames for a gap", ErrNoVideoDecoder, gap, sps.ID)
+// the loss. In a sequence of fields a gap frame is a frame picture, both
+// its fields references, as 8.2.5.2 infers it, copying the latest
+// short-term reference frame; where that is a field alone, the skip
+// slice would copy another frame than the one ffmpeg conceals the gap
+// with, and the gap is refused.
+func (c *h264Decoder) inferGap(v *VideoDecoder, sps *nal.H264SPS, shape decodeShape, gap int, frameNum uint32) error {
+	if !c.state.lastRefWhole(frameNum, sps) {
+		return fmt.Errorf("%w: frame_num skips %d frames in SPS %d before frame_num %d, and the latest short-term reference frame is no frame both of whose fields are references for the frames the gap leaves non-existing to copy", ErrNoVideoDecoder, gap, sps.ID, frameNum)
 	}
 	pps, err := c.skipPPS(sps)
 	if err != nil {

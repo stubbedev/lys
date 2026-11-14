@@ -745,8 +745,9 @@ func TestDecodeH264RefusesFieldsIntoApartOutputPictures(t *testing.T) {
 // a frame whose fields are a reference and none, as no decoder pairs
 // them; a frame with a short-term and a long-term reference field,
 // which a Vulkan Video reference picture cannot say; and a gap in
-// frame_num, which the decoder infers frames for in sequences of
-// frames only.
+// frame_num after a field without its frame's other, where ffmpeg
+// copies that field's frame into the frames the gap leaves
+// non-existing and a skip slice would copy the frame before it.
 func TestDecodeH264RefusesFieldsItCannotDecode(t *testing.T) {
 	t.Parallel()
 	d := decodingDevice(t, demux.H264)
@@ -781,14 +782,15 @@ func TestDecodeH264RefusesFieldsItCannotDecode(t *testing.T) {
 			cut.field(src, 2, h264Bottom, true)
 			return cut
 		}, 2, "decoded as one picture, has its top field alone left a reference"},
-		{"a gap in frame_num", func(t *testing.T, src *h264Source) *h264Cut {
+		{"a gap in frame_num after a field without its frame's other", func(t *testing.T, src *h264Source) *h264Cut {
 			cut := newH264Cut(t, fieldSPS(t, src.sps, true), src.pps)
 			cut.field(src, 0, h264Top, false)
 			cut.field(src, 1, h264Bottom, true)
-			cut.prevRef++
 			cut.field(src, 2, h264Top, false)
+			cut.skip(1)
+			cut.field(src, 3, h264Top, false)
 			return cut
-		}, 2, "frame_num skips 1 frames"},
+		}, 3, "frame_num skips 1 frames in SPS 0 before frame_num 3, and the latest short-term reference frame is no frame both of whose fields are references"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			cut := c.cut(t, pFields(t, 0.4, 3))

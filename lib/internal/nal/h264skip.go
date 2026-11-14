@@ -8,9 +8,11 @@ func H264SkipPPS(id, spsID uint8) H264PPS {
 }
 
 // H264SkipSlice is the NAL unit of one P slice covering a frame of s
-// (frame_mbs_only) in which every macroblock is skipped, with the
-// deblocking filter off: decoded, it copies the first picture of its
-// reference list. A decoder makes one for each frame a gap in frame_num
+// in which every macroblock is skipped, with the deblocking filter off:
+// decoded, it copies the first picture of its reference list. In a
+// sequence of fields it is a frame picture (field_pic_flag 0), and in
+// one of macroblock-adaptive frames every skipped pair is a frame pair,
+// as its neighbours are. A decoder makes one for each frame a gap in frame_num
 // leaves non-existing (8.2.5.2), so the frame has a picture as a
 // decoder that conceals the gap with the frame before has. pps is an
 // H264SkipPPS of s; frameNum and pocLsb are the slice's frame_num and,
@@ -24,6 +26,9 @@ func H264SkipSlice(s *H264SPS, pps *H264PPS, frameNum, pocLsb uint32) []byte {
 		w.U(2, 0)
 	}
 	w.U(uint(s.Log2MaxFrameNum), frameNum)
+	if !s.FrameMbsOnly {
+		w.Flag(false)
+	}
 	switch {
 	case s.PicOrderCntType == 0:
 		w.U(uint(s.Log2MaxPicOrderCntLsb), pocLsb)
