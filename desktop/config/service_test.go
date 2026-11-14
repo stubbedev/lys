@@ -3,15 +3,18 @@ package config
 import (
 	"bytes"
 	"errors"
+	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys-lib/atomicfile"
 )
 
 func collectDiags() (DiagnosticSink, func() []Diagnostic) {
@@ -73,8 +76,14 @@ func TestSetSavesAndReadsBack(t *testing.T) {
 	if reloaded.Config().Clock.Format.String() != "%H:%M" {
 		t.Errorf("reloaded format = %q", reloaded.Config().Clock.Format)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "runtime.tmp")); err == nil {
-		t.Error("runtime.tmp left behind")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if p := filepath.Join(dir, e.Name()); atomicfile.IsTemporary(svc.RuntimePath(), p) {
+			t.Errorf("%s left behind", p)
+		}
 	}
 }
 
@@ -618,8 +627,8 @@ func TestSaveDoesNoWorkBeyondRenderingTheDocument(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	if save > render+3 {
-		t.Fatalf("Save allocates %v, %v beyond rendering the document", save, save-render)
+	if save > render+5 {
+		t.Fatalf("Save allocates %v, %v beyond rendering the document and atomicfile's five", save, save-render)
 	}
 	data, err := os.ReadFile(svc.RuntimePath())
 	if err != nil {
@@ -631,6 +640,9 @@ func TestSaveDoesNoWorkBeyondRenderingTheDocument(t *testing.T) {
 }
 
 func TestSaveNamesTheFileItCouldNotWriteAndKeepsTheOldOne(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root writes into a read-only directory")
+	}
 	svc := costService(t)
 	if err := svc.Save(); err != nil {
 		t.Fatal(err)
@@ -639,18 +651,50 @@ func TestSaveNamesTheFileItCouldNotWriteAndKeepsTheOldOne(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmp := filepath.Join(svc.Dir(), "runtime.tmp")
-	if err := os.Mkdir(tmp, 0o700); err != nil {
+	if err := os.Chmod(svc.Dir(), 0o500); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.Chmod(svc.Dir(), 0o700) })
 	if err := svc.SetByPath("bar.layer", "bottom"); err != nil {
 		t.Fatal(err)
 	}
 	err = svc.Save()
-	if err == nil || err.Error() != "cannot persist config to '"+tmp+"'" || !errors.Is(err, syscall.EISDIR) {
-		t.Fatalf("save over a directory temporary: %v", err)
+	if err == nil || err.Error() != "cannot persist config to '"+svc.RuntimePath()+"'" || !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("save into a read-only directory: %v", err)
 	}
 	if after, _ := os.ReadFile(svc.RuntimePath()); !bytes.Equal(after, before) {
 		t.Errorf("a failed save changed runtime.yaml to\n%s", after)
+	}
+}
+
+func TestASavesTemporaryReloadsOnlyTheRuntimeLayer(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "config.yaml", "bar:\n  location: bottom\n")
+	svc := Load(dir, DiscardDiagnostics)
+	t.Cleanup(svc.Close)
+	var tmp string
+	if err := atomicfile.Write(svc.RuntimePath(), 0o600, func(io.Writer) error {
+		entries, err := os.ReadDir(dir)
+		for _, e := range entries {
+			if p := filepath.Join(dir, e.Name()); atomicfile.IsTemporary(svc.RuntimePath(), p) {
+				tmp = p
+			}
+		}
+		return err
+	}); err != nil || tmp == "" {
+		t.Fatalf("no temporary seen during a write: %v", err)
+	}
+	writeFile(t, dir, "config.yaml", "bar:\n  location: left\n")
+	if err := svc.reloadPaths([]string{tmp}); err != nil {
+		t.Fatal(err)
+	}
+	if got := svc.Config().Bar.Location; got != LocationBottom {
+		t.Errorf("runtime.yaml's temporary reloaded the config file: location %q", got)
+	}
+	if err := svc.reloadPaths([]string{filepath.Join(dir, "config.yaml")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := svc.Config().Bar.Location; got != LocationLeft {
+		t.Errorf("a config file change did not reload it: location %q", got)
 	}
 }

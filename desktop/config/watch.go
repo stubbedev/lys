@@ -10,6 +10,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/stubbedev/lys-lib/atomicfile"
 	"golang.org/x/sys/unix"
 )
 
@@ -211,7 +212,6 @@ func (w *watcher) close() {
 func (s *Service) reloadPaths(paths []string) error {
 	themes := filepath.Join(s.dir, "themes")
 	runtime := s.RuntimePath()
-	runtimeTmp := strings.TrimSuffix(runtime, filepath.Ext(runtime)) + ".tmp"
 	var env, theme, runtimeOnly, main bool
 	for _, p := range paths {
 		switch {
@@ -219,7 +219,7 @@ func (s *Service) reloadPaths(paths []string) error {
 			env = true
 		case p == themes || strings.HasPrefix(p, themes+string(filepath.Separator)):
 			theme = true
-		case p == runtime || p == runtimeTmp:
+		case p == runtime || atomicfile.IsTemporary(runtime, p):
 			runtimeOnly = true
 		default:
 			main = true

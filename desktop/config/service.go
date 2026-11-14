@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/sys/unix"
+	"github.com/stubbedev/lys-lib/atomicfile"
 )
 
 // Service is the live configuration: the defaults, the config file
@@ -25,7 +25,6 @@ import (
 type Service struct {
 	dir         string
 	runtimePath string
-	runtimeTmp  string
 	sink        DiagnosticSink
 
 	mu           sync.Mutex
@@ -77,7 +76,6 @@ func Load(dir string, sink DiagnosticSink) *Service {
 	s := &Service{
 		dir:         dir,
 		runtimePath: runtimePath,
-		runtimeTmp:  strings.TrimSuffix(runtimePath, filepath.Ext(runtimePath)) + ".tmp",
 		sink:        sink,
 		subs:        map[int]func(old, new *Config){},
 		secretsSubs: map[int]func(){},
@@ -448,50 +446,15 @@ func (s *Service) runtimeDocument() ([]byte, error) {
 	return yamlDocumentBytes(widenFloats(staged))
 }
 
-// Save persists the runtime overrides to runtime.yaml atomically:
-// write runtime.tmp, fsync it, and rename it over.
+// Save persists the runtime overrides to runtime.yaml atomically
+// (atomicfile).
 func (s *Service) Save() error {
 	content, err := s.runtimeDocument()
 	if err != nil {
 		return &LoadError{msg: "cannot render the runtime overrides", err: err}
 	}
-	if err := writeSynced(s.runtimeTmp, content); err != nil {
-		return &LoadError{msg: fmt.Sprintf("cannot persist config to '%s'", s.runtimeTmp), err: err}
-	}
-	if err := unix.Rename(s.runtimeTmp, s.runtimePath); err != nil {
-		return &LoadError{msg: fmt.Sprintf("cannot persist config to '%s'", s.runtimePath), err: os.NewSyscallError("rename", err)}
-	}
-	return nil
-}
-
-func writeSynced(path string, data []byte) error {
-	fd, err := unix.Open(path, unix.O_WRONLY|unix.O_CREAT|unix.O_TRUNC|unix.O_CLOEXEC, 0o666)
-	if err != nil {
-		return os.NewSyscallError("open", err)
-	}
-	err = writeAll(fd, data)
-	if err == nil {
-		err = os.NewSyscallError("fsync", unix.Fsync(fd))
-	}
-	if closeErr := unix.Close(fd); err == nil && closeErr != nil {
-		err = os.NewSyscallError("close", closeErr)
-	}
-	if err != nil {
-		_ = unix.Unlink(path)
-	}
-	return err
-}
-
-func writeAll(fd int, data []byte) error {
-	for len(data) > 0 {
-		n, err := unix.Write(fd, data)
-		if errors.Is(err, unix.EINTR) {
-			continue
-		}
-		if err != nil {
-			return os.NewSyscallError("write", err)
-		}
-		data = data[n:]
+	if err := atomicfile.WriteFile(s.runtimePath, content, 0o644); err != nil {
+		return &LoadError{msg: fmt.Sprintf("cannot persist config to '%s'", s.runtimePath), err: err}
 	}
 	return nil
 }
