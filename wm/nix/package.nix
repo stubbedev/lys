@@ -31,7 +31,7 @@
 
         # Pins the module dependencies in go.sum; `just vendor-hash` recomputes
         # it, and CI does so on Dependabot's pull requests.
-        vendorHash = "sha256-sdpWHtl+AxFn64R7HUyJ3kbDRSqQYJkhPwZpAjjjcMA=";
+        vendorHash = "sha256-UEik1qTf2nANDDjcmgG9imC4/MBSTjCJS9cR3lbUX2g=";
 
         subPackages = ["cmd/lys-wm" "cmd/lys-wmctl"];
 
