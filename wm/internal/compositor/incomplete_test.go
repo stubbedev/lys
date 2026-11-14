@@ -30,8 +30,6 @@ func (r *offThreadRenderer) BuildOffThread() error {
 	return nil
 }
 
-func (r *offThreadRenderer) PipelinesBuilt() (bool, error) { return true, nil }
-
 type offThreadBackend struct {
 	*headless.Backend
 	r *offThreadRenderer
@@ -67,8 +65,14 @@ func TestAFrameWithAnIncompletePassIsRedrawnWhole(t *testing.T) {
 		}
 	}
 	r.on(func() {
+		if b.r.offThread != 0 {
+			t.Errorf("a compositor nobody raised asked its renderer to build off the thread %d times", b.r.offThread)
+		}
+		if err := r.comp.BuildOffThread(); err != nil {
+			t.Fatal(err)
+		}
 		if b.r.offThread != 1 {
-			t.Errorf("the compositor asked its renderer to build off the thread %d times, want once", b.r.offThread)
+			t.Errorf("BuildOffThread asked the renderer %d times, want once", b.r.offThread)
 		}
 	})
 	await("the first frames to settle", func() bool { return o.Frames() > 0 && !o.FrameOwed() })

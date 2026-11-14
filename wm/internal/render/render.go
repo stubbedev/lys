@@ -389,7 +389,6 @@ type Counts struct {
 
 type OffThreadBuilder interface {
 	BuildOffThread() error
-	PipelinesBuilt() (bool, error)
 }
 
 type Renderer interface {

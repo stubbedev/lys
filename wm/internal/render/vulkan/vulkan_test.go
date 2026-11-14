@@ -308,6 +308,24 @@ func paintUntilComplete(t *testing.T, r *vulkan.Renderer, paint func() error) (c
 	}
 }
 
+func awaitWorker(t *testing.T, r *vulkan.Renderer) {
+	t.Helper()
+	deadline := time.Now().Add(testenv.HangLimit)
+	for {
+		built, err := r.Device().Prepared()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if built {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the pipelines were not built within %v", testenv.HangLimit)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestOffThreadFramesNeverCompileOnTheirThreadAndWarmOnesBuildNothing(t *testing.T) {
 	r := testenv.Vulkan(t)
 	early := target(t, r, image.Pt(4, 4))
@@ -321,6 +339,7 @@ func TestOffThreadFramesNeverCompileOnTheirThreadAndWarmOnesBuildNothing(t *test
 			t.Errorf("frames into a %v target left realtime %d times", tt.Size(), n)
 		}
 	}
+	awaitWorker(t, r)
 	warm := r.Counts()
 	n, err := rendertest.CompilesOnAPinnedThread(rendertest.PaintEffects(r, early, e))
 	if err != nil {
@@ -373,20 +392,7 @@ func TestOnceItsPipelinesAreBuiltTheFirstFrameIntoANewTargetIsComplete(t *testin
 	if err := r.BuildOffThread(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
-		built, err := r.PipelinesBuilt()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if built {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the pipelines were not built within %v", testenv.HangLimit)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	awaitWorker(t, r)
 	before := r.Counts()
 	if before.Programs == 0 {
 		t.Error("the pipelines built off the thread were not counted")

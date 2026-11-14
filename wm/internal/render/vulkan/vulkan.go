@@ -99,14 +99,6 @@ func (r *Renderer) prepareWithOffscreen(ts []*lgpu.Target) error {
 	return r.note(r.d.PrepareFor(append(ts, offscreen, float)...))
 }
 
-func (r *Renderer) PipelinesBuilt() (bool, error) {
-	if r.lost != nil {
-		return false, nil
-	}
-	built, err := r.d.Prepared()
-	return built, r.note(err)
-}
-
 func (r *Renderer) prepare(t *lgpu.Target) error {
 	if !r.offThread {
 		return nil

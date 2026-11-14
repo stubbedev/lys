@@ -851,6 +851,9 @@ func run(args []string) (err error) {
 	if err := gpu.CompileThrough(yield); err != nil {
 		return errors.Join(err, restore(), unpin())
 	}
+	if err := s.comp.BuildOffThread(); err != nil {
+		return errors.Join(err, restore(), unpin())
+	}
 	ran := l.Run()
 	if errors.Is(ran, nested.ErrClosed) {
 		ran = nil

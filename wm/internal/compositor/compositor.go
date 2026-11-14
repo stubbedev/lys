@@ -599,9 +599,6 @@ func (c *Compositor) setup(l *loop.Loop, display *server.Display, b backend.Back
 	if err := sandbox(display); err != nil {
 		return err
 	}
-	if err := c.buildOffThread(); err != nil {
-		return err
-	}
 	if c.repeat.timer, err = l.AddTimer(c.repeatFired); err != nil {
 		return err
 	}

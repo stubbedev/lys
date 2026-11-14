@@ -6,7 +6,7 @@ import (
 	"github.com/stubbedev/lys-wm/internal/render"
 )
 
-func (c *Compositor) buildOffThread() error {
+func (c *Compositor) BuildOffThread() error {
 	b, ok := c.renderer.(render.OffThreadBuilder)
 	if !ok {
 		return nil
@@ -15,14 +15,6 @@ func (c *Compositor) buildOffThread() error {
 		return fmt.Errorf("build the renderer's pipelines off the compositor thread: %w", err)
 	}
 	return nil
-}
-
-func (c *Compositor) PipelinesBuilt() (bool, error) {
-	b, ok := c.renderer.(render.OffThreadBuilder)
-	if !ok {
-		return true, nil
-	}
-	return b.PipelinesBuilt()
 }
 
 func (c *Compositor) redrawIncomplete() error {
