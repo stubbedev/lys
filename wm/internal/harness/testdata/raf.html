@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>raf</title>
+<style>body{margin:0;background:#222}#b{position:absolute;width:120px;height:120px;background:#c33}</style>
+</head><body><div id="b"></div>
+<script>
+let frames = 0;
+const b = document.getElementById('b');
+function frame() {
+  frames++;
+  if (frames % 4 === 0) {
+    b.style.transform = `translate(${(frames * 7) % 600}px, ${(frames * 3) % 300}px)`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setInterval(() => console.log(`RAF ${frames}`), 100);
+</script></body></html>

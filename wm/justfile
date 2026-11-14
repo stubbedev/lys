@@ -116,6 +116,21 @@ hardware:
     done
     exit "$rc"
 
+# Drive a real Chromium through what stopped it painting in #397: output
+# power, moves between a 60 and a 144 Hz output, a window across both, power
+# saver, a hidden workspace and a capture of the hidden window, failing when it
+# stops drawing animation frames. It renders on the GPU, so it runs only as
+# `just docker chromium`, which brings Chromium from nixpkgs.
+chromium:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "${LYS_WM_CONTAINER-}" != 1 ]]; then
+        echo "chromium: it renders on the GPU beside the session; run it as \`just docker chromium\`" >&2
+        exit 1
+    fi
+    unset {{shell_drivers}}
+    PATH="$CHROMIUM_BIN:$PATH" LYS_WM_CHROMIUM=1 LYS_WM_HEADLESS=1 go test -count=1 -timeout 5m -v -run '^TestChromium' ./internal/harness/
+
 # Measure what can hold up the compositor thread between frames (#260): an shm
 # upload, a cursor theme miss, an X11 request and the snapshot behind an IPC
 # watcher. On the host it runs on the dev shell's software rasterisers; run it
@@ -221,6 +236,9 @@ docker recipe="gates" memory="10g":
     for node in "${nodes[@]}"; do
         [[ -c "$node" ]] && host+=(--device "$node" --group-add "$(stat -c %g "$node")")
     done
+    if [[ "$recipe" == chromium ]]; then
+        host+=(-e "CHROMIUM_BIN=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#chromium)/bin")
+    fi
     if [[ -e /run/opengl-driver ]]; then
         host+=(-v /run/opengl-driver:/run/opengl-driver:ro)
     else

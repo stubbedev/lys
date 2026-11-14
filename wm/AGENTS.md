@@ -35,6 +35,13 @@ frame rate, and plays every animation under `lys-wm-pace`
 per-frame counts pass `cmd/lys-wm-pace/baseline.json`. No gate judges time: a
 loaded machine passes the same.
 
+After changes to frame callbacks, presentation feedback, output power or
+capture, run `just docker chromium`: it drives Chromium from nixpkgs, with
+the begin-frame source the Chrome of #397 used, through output power, moves
+between a 60 and a 144 Hz output, power saver and a hidden window's capture,
+and fails when it stops painting. `TestChromium` skips unless
+`LYS_WM_CHROMIUM=1` and `chromium` is on `PATH`.
+
 What only a kernel driver can answer, the DRM tests named `OnASeat` ask real
 ones: `nix build .#checks.x86_64-linux.vm-seat` runs them as DRM master in a VM
 on virtio-gpu and vkms (cursor, overlay planes), counting every atomic request,
