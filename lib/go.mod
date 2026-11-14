@@ -6,7 +6,7 @@ require (
 	github.com/ebitengine/purego v0.11.2
 	github.com/kettek/apng v0.0.0-20250827064933-2bb5f5fcf253
 	github.com/rivo/uniseg v0.4.7
-	github.com/stubbedev/memory-go v0.5.0
+	github.com/stubbedev/memory-go v0.6.0
 	golang.org/x/image v0.47.0
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
