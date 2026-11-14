@@ -177,7 +177,7 @@ func TestDevicesOpenDisplays(t *testing.T) {
 	}
 }
 
-func renderNode(t *testing.T) int {
+func renderNode(t *testing.T) (int, string) {
 	t.Helper()
 	nodes, err := filepath.Glob("/dev/dri/renderD*")
 	if err != nil || len(nodes) == 0 {
@@ -188,11 +188,11 @@ func renderNode(t *testing.T) int {
 		t.Skipf("open %s: %v", nodes[0], err)
 	}
 	t.Cleanup(func() { _ = unix.Close(fd) })
-	return fd
+	return fd, nodes[0]
 }
 
 func TestGBMAllocatesExportableBuffers(t *testing.T) {
-	fd := renderNode(t)
+	fd, node := renderNode(t)
 	lib, err := gpu.LoadGBM(gpu.PathsFromEnv(os.Getenv))
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +204,7 @@ func TestGBMAllocatesExportableBuffers(t *testing.T) {
 	defer dev.Close()
 	b, err := dev.Allocate(image.Pt(64, 32), fourcc.XRGB8888, nil, gpu.UseRendering)
 	if err != nil {
-		t.Fatalf("%s: %v", dev.Backend(), err)
+		t.Fatalf("the %s backend on %s with GBM_BACKENDS_PATH=%q: %v", dev.Backend(), node, os.Getenv("GBM_BACKENDS_PATH"), err)
 	}
 	if len(b.Planes) == 0 || b.Planes[0].FD < 0 || b.Planes[0].Stride < 64*4 || b.Size != image.Pt(64, 32) {
 		t.Fatalf("buffer %+v", b.DMABUF)
