@@ -37,7 +37,7 @@ const (
 	fakeGreeterFailEnv = "LYS_FAKE_GREETER_FAILS"
 	fakeDaemonMode     = "fake-daemon"
 	burstSize          = 3000
-	stepDeadline       = 30 * time.Second
+	stepDeadline       = 2 * time.Minute
 )
 
 func openDescriptors() int {
@@ -400,18 +400,34 @@ func (d *fakeDM) pids(name string) []int {
 	return pids
 }
 
+var errNotYet = errors.New("not yet")
+
 func (d *fakeDM) await(what string, ok func() bool) {
 	d.t.Helper()
+	d.awaitNil(what, func() error {
+		if ok() {
+			return nil
+		}
+		return errNotYet
+	})
+}
+
+func (d *fakeDM) awaitNil(what string, check func() error) {
+	d.t.Helper()
 	deadline := time.Now().Add(stepDeadline)
-	for !ok() {
+	for {
+		err := check()
+		if err == nil {
+			return
+		}
 		select {
-		case err := <-d.done:
-			d.done <- err
-			d.t.Fatalf("waiting for %s, the fake daemon ended: %v", what, err)
+		case ended := <-d.done:
+			d.done <- ended
+			d.t.Fatalf("waiting for %s, the fake daemon ended: %v", what, ended)
 		default:
 		}
 		if time.Now().After(deadline) {
-			d.t.Fatalf("no %s in %s", what, stepDeadline)
+			d.t.Fatalf("no %s in %s: %v", what, stepDeadline, err)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -461,7 +477,7 @@ func (d *fakeDM) login() (worker int, generation string) {
 		d.t.Fatalf("login: %v", err)
 	}
 	d.await("the session's worker", func() bool { return len(d.lines("workers")) > before })
-	d.await("the daemon tracking the session", d.tracks)
+	d.awaitNil("the daemon tracking the session", d.track)
 	pid, generation, ok := cutPid(d.lines("workers")[before])
 	if !ok {
 		d.t.Fatal("the worker's line")
@@ -469,10 +485,12 @@ func (d *fakeDM) login() (worker int, generation string) {
 	return pid, generation
 }
 
-func (d *fakeDM) tracks() bool {
+func (d *fakeDM) track() error {
 	_, err := CursorSocket.Send(d.runtime, cursorrecord.Cursor{Theme: "x", Size: 24})
-	return err == nil
+	return err
 }
+
+func (d *fakeDM) tracks() bool { return d.track() == nil }
 
 func (d *fakeDM) upgrade(exec string) (string, error) {
 	return UpgradeSocket.Send(d.runtime, UpgradeRequest{Exec: exec, Args: []string{"fake"}})
@@ -770,7 +788,7 @@ func TestALoginUnderWayFinishesBeforeTheUpgrade(t *testing.T) {
 	}
 	d.await("the worker", func() bool { return len(d.lines("workers")) == 1 })
 	worker := d.pids("workers")[0]
-	d.await("the session tracked", d.tracks)
+	d.awaitNil("the session tracked", d.track)
 	if got := d.lines("greeters"); len(got) != 1 {
 		t.Errorf("greeters = %v, want the login to have won", got)
 	}

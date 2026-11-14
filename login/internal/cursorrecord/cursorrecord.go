@@ -114,6 +114,9 @@ func Write(dir string, uid uint32, c Cursor) (string, error) {
 		return "", fmt.Errorf("cursor record: create %s: %w", dir, err)
 	}
 	p := path(dir, uid)
+	if held, err := Read(dir, uid); err == nil && held == c {
+		return p, nil
+	}
 	if err := atomicfile.WriteFile(p, append(data, '\n'), 0o644); err != nil {
 		return "", fmt.Errorf("cursor record: write %s: %w", p, err)
 	}

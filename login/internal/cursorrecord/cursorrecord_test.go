@@ -69,6 +69,30 @@ func TestWriteIsReadBack(t *testing.T) {
 	}
 }
 
+func TestWritingTheRecordAgainLeavesItAlone(t *testing.T) {
+	dir := t.TempDir()
+	p, err := Write(dir, 1000, Cursor{"Bibata", 32})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Write(dir, 1000, Cursor{"Bibata", 32}); err != nil {
+		t.Fatal(err)
+	}
+	if again, err := os.Stat(p); err != nil || !os.SameFile(first, again) {
+		t.Errorf("writing the same cursor again replaced the record: %v", err)
+	}
+	if _, err := Write(dir, 1000, Cursor{"Bibata", 48}); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := os.Stat(p); err != nil || os.SameFile(first, changed) {
+		t.Errorf("a new size left the record in place: %v", err)
+	}
+}
+
 func TestWriteRefusesWhatCannotBeRecorded(t *testing.T) {
 	dir := t.TempDir()
 	for _, c := range []Cursor{{}, {Theme: "../x", Size: 24}} {
