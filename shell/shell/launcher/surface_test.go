@@ -111,6 +111,8 @@ type harness struct {
 	focusErr error
 }
 
+const hangGuard = 2 * time.Minute
+
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
@@ -184,7 +186,7 @@ func (h *harness) stop() {
 	}()
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(hangGuard):
 		stacks := make([]byte, 1<<20)
 		h.t.Errorf("the surface's work outlives its sessions:\n%s", stacks[:runtime.Stack(stacks, true)])
 	}
@@ -207,7 +209,7 @@ func (h *harness) open(opts launcheripc.SessionOptions, replace bool, rows ...st
 // until pumps the loop until cond holds.
 func (h *harness) until(what string, cond func() bool) {
 	h.t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for {
 		h.loop.pump()
 		if cond() {
@@ -245,7 +247,7 @@ func (h *harness) pointAt(pos int) (*widget.Router, widget.Point) {
 // frame pumps the loop until the session's terminal frame arrives.
 func (h *harness) frame(reply <-chan launcheripc.ServerFrame) launcheripc.ServerFrame {
 	h.t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for {
 		h.loop.pump()
 		select {

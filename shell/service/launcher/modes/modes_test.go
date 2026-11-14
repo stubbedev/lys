@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -164,9 +166,46 @@ func TestRunScanFindsOnlyExecutables(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := map[string]bool{}
-	collectExecutables(dir, names)
+	collectExecutables(bg, dir, names)
 	if !names["mytool"] || names["notexec"] || !names["linked"] {
 		t.Errorf("names = %v (a symlinked executable counts)", names)
+	}
+}
+
+func TestRunLoadForAnEndedSessionScansAndAsksNothing(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "mytool"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(filepath.ListSeparator)+filepath.Dir(sh))
+	listed := filepath.Join(dir, "listed")
+	opened := false
+	h := launcher.DeferHistory(func() (*launcher.History, error) {
+		opened = true
+		return nil, errors.New("the history of an ended session")
+	})
+	defer func() { _ = h.Close() }()
+	cfg := DefaultRunConfig()
+	cfg.ListCommand = "touch " + listed
+	ctx, cancel := context.WithCancel(bg)
+	cancel()
+	if got := NewRun(cfg, h).Load(ctx); len(got.Items) != 0 {
+		t.Errorf("an ended session's load listed %d commands", len(got.Items))
+	}
+	if opened {
+		t.Error("an ended session's load opened the history")
+	}
+	if _, err := os.Stat(listed); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("an ended session's load ran the list command: %v", err)
+	}
+	live := NewRun(DefaultRunConfig(), nil)
+	live.Load(bg)
+	if !slices.Contains(live.commands, "mytool") {
+		t.Errorf("a live session's load listed %v, want mytool among them", live.commands)
 	}
 }
 

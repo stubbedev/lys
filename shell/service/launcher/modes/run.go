@@ -94,7 +94,10 @@ func (r *Run) execute(command string, inTerminal bool) error {
 // Load lists the $PATH executables (plus the list command's lines),
 // recently used first, then alphabetically.
 func (r *Run) Load(ctx context.Context) launcher.ModeState {
-	names := scanPath()
+	names := scanPath(ctx)
+	if ctx.Err() != nil {
+		return launcher.ModeState{Prompt: "run"}
+	}
 	if strings.TrimSpace(r.cfg.ListCommand) != "" {
 		for _, n := range listCommandEntries(ctx, r.cfg.ListCommand) {
 			names[n] = true
@@ -167,10 +170,10 @@ func orderByRecent(names map[string]bool, recent []string) []string {
 }
 
 // scanPath collects the executable file names on $PATH.
-func scanPath() map[string]bool {
+func scanPath(ctx context.Context) map[string]bool {
 	names := map[string]bool{}
 	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
-		collectExecutables(dir, names)
+		collectExecutables(ctx, dir, names)
 	}
 	return names
 }
@@ -179,12 +182,18 @@ func scanPath() map[string]bool {
 // followed: on NixOS nearly every PATH entry is one (the Rust scan's
 // DirEntry metadata did not follow them, which left run mode close to
 // empty there).
-func collectExecutables(dir string, names map[string]bool) {
+func collectExecutables(ctx context.Context, dir string, names map[string]bool) {
+	if ctx.Err() != nil {
+		return
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
+		if ctx.Err() != nil {
+			return
+		}
 		st, err := os.Stat(filepath.Join(dir, e.Name())) //nolint:gosec // a PATH directory listing
 		if err != nil || !st.Mode().IsRegular() || st.Mode()&0o111 == 0 {
 			continue
