@@ -492,3 +492,30 @@ func TestCloseReturnsOnceEveryPollHasEnded(t *testing.T) {
 		t.Errorf("Close returned with %d of the 2 polls ended", got)
 	}
 }
+
+func TestANewPlaceDropsTheOldForecastButANewIntervalKeepsIt(t *testing.T) {
+	byCity := func(_ context.Context, s Settings, _ time.Time) (*Weather, error) {
+		if s.Location == City("B") {
+			return nil, locationNotFound("B")
+		}
+		return &Weather{Location: Location{City: "A"}}, nil
+	}
+	s := Settings{Interval: time.Hour, Location: City("A")}
+	svc := newService(s, byCity, func(error, int) time.Duration { return time.Millisecond })
+	defer svc.Close()
+	waitFor(t, "the forecast for A", func() bool { return svc.Status().Kind == Loaded })
+
+	s.Interval = 2 * time.Hour
+	svc.Configure(s)
+	waitFor(t, "the refetch at the new interval", func() bool { return svc.Status().Kind == Loaded })
+	if w := svc.Weather(); w == nil || w.Location.City != "A" {
+		t.Fatalf("a new interval dropped the forecast: %+v", w)
+	}
+
+	s.Location = City("B")
+	svc.Configure(s)
+	waitFor(t, "the failure for B", func() bool { return svc.Status().Kind == Failed })
+	if w := svc.Weather(); w != nil {
+		t.Errorf("after moving to B, which failed, the forecast for %q is still shown", w.Location.City)
+	}
+}

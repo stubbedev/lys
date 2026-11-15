@@ -111,7 +111,15 @@ func (s *Service) Configure(next Settings) {
 	if next == s.settings {
 		return
 	}
+	if !next.samePlace(s.settings) {
+		s.weather = nil
+	}
 	s.restartLocked(next)
+}
+
+func (s Settings) samePlace(o Settings) bool {
+	s.Interval, o.Interval = 0, 0
+	return s == o
 }
 
 // restartLocked restarts polling: status back to loading, the old
