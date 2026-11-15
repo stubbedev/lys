@@ -537,7 +537,7 @@ func newSecretEditor(k *kit, s slot, optional bool) *text {
 }
 
 // wmAccent is the palette name lys-wm gives the desktop accent, which is
-// lys-shell's accent (docs/guide/how-it-works.md, One accent).
+// lys-shell's accent (docs/settings/guide/lys-wm.md).
 const wmAccent = "accent"
 
 // wmPalette is every name a lys-wm colour takes, with its colour: lys-wm's

@@ -61,7 +61,7 @@ func TestTypeSlugAndCells(t *testing.T) {
 		t.Errorf("numbers: %s %s %s", formatNumber(float64(float32(0.35))), formatNumber(0.05), formatNumber(1))
 	}
 	known := map[string]bool{"ColorValue": true}
-	if typeLink("Array_of_Nullable_ColorValue", known) != "array of [`ColorValue`](/config/types#color-value) or null" {
+	if typeLink("Array_of_Nullable_ColorValue", known) != "array of [`ColorValue`](/shell/config/types#color-value) or null" {
 		t.Errorf("wrapped link = %s", typeLink("Array_of_Nullable_ColorValue", known))
 	}
 	if typeLink("Unknown", known) != "`Unknown`" || typeLink("uint32", known) != "u32" {

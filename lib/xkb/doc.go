@@ -9,7 +9,7 @@
 // Its behaviour follows libxkbcommon 1.13, whose sources (MIT) it was written
 // against, and the differential tests hold it to that library across every
 // layout, variant, option and model xkeyboard-config offers, in both keymap
-// formats. docs/xkb.md maps every libxkbcommon function to its Go equivalent,
+// formats. docs/lib/xkb.md maps every libxkbcommon function to its Go equivalent,
 // and a test fails when a header declares one the table misses. See
 // LICENSE.libxkbcommon.
 package xkb

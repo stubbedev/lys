@@ -371,7 +371,7 @@ func TestGeoClueDropInIsPackaged(t *testing.T) {
 			}
 		}
 	}
-	if docs := readRepoFile(t, "docs/config/modules/nightlight.md"); !strings.Contains(docs, "/etc"+installed) {
+	if docs := readRepoFile(t, "../docs/shell/config/modules/nightlight.md"); !strings.Contains(docs, "/etc"+installed) {
 		t.Errorf("the docs do not name /etc%s", installed)
 	}
 }

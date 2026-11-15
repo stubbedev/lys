@@ -2,7 +2,7 @@
 // switches delivered by the portal monitor (portalsettings), which
 // the application wires in. This is a lookup refresh, never a palette
 // swap — the "toolkit never flips its own theme" rule is untouched
-// (docs/architecture.md "Non-goals"); what changes is which theme's
+// (docs/ui/architecture.md "Non-goals"); what changes is which theme's
 // files icon names resolve against.
 package icons
 
