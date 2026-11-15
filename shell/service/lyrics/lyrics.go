@@ -20,7 +20,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/lib/atomicfile"
-
 	"github.com/stubbedev/lys/lib/buildinfo"
 )
 

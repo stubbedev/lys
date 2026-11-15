@@ -12,8 +12,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shlex"
-
 	"github.com/stubbedev/lys/lib/buildinfo"
+
 	"github.com/stubbedev/lys/shell/internal/cli"
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
 	"github.com/stubbedev/lys/shell/service/launcher"

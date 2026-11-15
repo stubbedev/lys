@@ -20,10 +20,10 @@ import (
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/buildinfo"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/shell/internal/clock"
 )
 

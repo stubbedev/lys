@@ -9,12 +9,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
-
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
 var xdndAtoms = []string{"XdndAware", "XdndSelection", "XdndEnter", "XdndPosition", "XdndStatus", "XdndLeave", "XdndDrop", "XdndFinished", "XdndActionCopy", "XdndTypeList", "UTF8_STRING", "INCR", "XSEL_DATA"}

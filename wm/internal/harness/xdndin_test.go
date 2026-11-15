@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
 type xDragSource struct {

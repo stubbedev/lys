@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/wm/third_party/xgb"
-	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -21,6 +19,8 @@ import (
 	"github.com/stubbedev/lys/wm/internal/ipc"
 	"github.com/stubbedev/lys/wm/internal/spawn"
 	"github.com/stubbedev/lys/wm/internal/wm"
+	"github.com/stubbedev/lys/wm/third_party/xgb"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
 func xConnect(t *testing.T, h *Harness) {

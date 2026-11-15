@@ -18,7 +18,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/data"
@@ -26,6 +25,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/server"
 	"github.com/stubbedev/lys/wm/internal/spawn"
 	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
 const Env = "LYS_WM_XWAYLAND"

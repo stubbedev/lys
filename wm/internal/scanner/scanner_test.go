@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/srcroot"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys/lib/srcroot"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	scs "github.com/stubbedev/lys/wm/internal/protocol/server/cursorshape"
 	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"

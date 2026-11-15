@@ -45,6 +45,9 @@ linters:
           disabled: true
   exclusions:
     generated: lax
+    # Upstream code carried verbatim (third_party/xgb, THIRD_PARTY.md).
+    paths:
+      - third_party/
     rules:
       - path: _test\.go
         linters:

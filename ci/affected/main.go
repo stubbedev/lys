@@ -11,6 +11,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -57,7 +58,7 @@ func run(args []string, stdout io.Writer) error {
 }
 
 func load(path string) (map[string]Component, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // ci/components.json under the module root
 	if err != nil {
 		return nil, fmt.Errorf("read the components: %w", err)
 	}
@@ -89,7 +90,7 @@ func choose(root, module string, components map[string]Component, base string, a
 }
 
 func git(root string, args ...string) ([]string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) //nolint:gosec // git diff of a base the workflow names
 	cmd.Dir = root
 	out, err := cmd.Output()
 	if err != nil {
@@ -155,26 +156,23 @@ func writeText(w io.Writer, p Plan) error {
 func writeGitHub(p Plan) error {
 	path := os.Getenv("GITHUB_OUTPUT")
 	if path == "" {
-		return fmt.Errorf("GITHUB_OUTPUT is not set")
+		return errors.New("GITHUB_OUTPUT is not set")
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-	if err != nil {
-		return fmt.Errorf("open GITHUB_OUTPUT: %w", err)
-	}
-	for _, out := range []struct {
+	var out bytes.Buffer
+	for _, entry := range []struct {
 		key string
 		v   any
 	}{{"components", p.Components}, {"jobs", p.Jobs}, {"packages", p.Packages}} {
-		key := out.key
-		data, err := json.Marshal(out.v)
+		data, err := json.Marshal(entry.v)
 		if err != nil {
-			f.Close()
-			return fmt.Errorf("encode %s: %w", key, err)
+			return fmt.Errorf("encode %s: %w", entry.key, err)
 		}
-		if _, err := fmt.Fprintf(f, "%s=%s\n", key, data); err != nil {
-			f.Close()
-			return fmt.Errorf("write %s to GITHUB_OUTPUT: %w", key, err)
-		}
+		fmt.Fprintf(&out, "%s=%s\n", entry.key, data)
 	}
-	return f.Close()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0) //nolint:gosec // the file GitHub names for step outputs
+	if err != nil {
+		return fmt.Errorf("open GITHUB_OUTPUT: %w", err)
+	}
+	_, err = f.Write(out.Bytes())
+	return errors.Join(err, f.Close())
 }

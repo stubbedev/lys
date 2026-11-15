@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/stubbedev/lys/lib/buildinfo"
+
 	"github.com/stubbedev/lys/shell/internal/cli"
 	"github.com/stubbedev/lys/shell/internal/lockcli"
 )

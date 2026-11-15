@@ -58,7 +58,7 @@ func Component(dir string) (root, importPath string, err error) {
 }
 
 func modulePath(goMod string) (string, error) {
-	f, err := os.Open(goMod)
+	f, err := os.Open(goMod) //nolint:gosec // the go.mod above a directory the caller names
 	if err != nil {
 		return "", err
 	}

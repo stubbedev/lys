@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/stubbedev/lys/lib/buildinfo"
+
 	"github.com/stubbedev/lys/shell/internal/cli"
 )
 

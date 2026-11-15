@@ -8,9 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"go.yaml.in/yaml/v3"
-
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"go.yaml.in/yaml/v3"
 )
 
 // Helpers behind `lys-shell config`, kept here so the output forms live

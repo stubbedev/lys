@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -16,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/testclient"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/xsync"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
 const gtkHoldBound = 2 * time.Second

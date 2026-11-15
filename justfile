@@ -44,11 +44,12 @@ packages +names:
 affected base="origin/main":
     go run ./ci/affected -base {{ base }}
 
-# The repository's own gate: a tidy go.mod, the CI planner's tests and every
-# flake output evaluating on both systems.
+# The repository's own gate: a tidy go.mod, the CI planner's tests and lint, and
+# every flake output evaluating on both systems.
 repository-check:
     nix develop .#lib -c go mod tidy -diff
     nix develop .#lib -c go test ./ci/...
+    nix develop .#lib -c golangci-lint run --config lib/.golangci.yml ./ci/...
     nix flake check --no-build --all-systems
 
 # Fail, showing the diff, when go.mod or go.sum is not tidy.

@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/anim"
@@ -24,6 +23,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/testclient"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
 const keyUp = 103

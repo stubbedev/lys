@@ -151,7 +151,6 @@ func TestParseArgs(t *testing.T) {
 	}
 }
 
-
 func TestRevokeGivesUpTheRetainedAuthorizations(t *testing.T) {
 	t.Parallel()
 
