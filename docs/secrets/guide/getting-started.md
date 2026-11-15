@@ -21,28 +21,15 @@ lys-secrets serves two D-Bus names:
 
 ## Install
 
+[Install](/install/) covers the flake and the packages for the whole desktop.
 Every route installs the `lys-secrets` binary, the user unit
 `lys-secrets.service` (`Type=dbus`, wanted by `graphical-session.target`) and
 D-Bus activation files for both names.
 
 ### NixOS
 
-```nix
-{
-  inputs.lys.url = "github:stubbedev/lys";
-
-  outputs = { nixpkgs, lys, ... }: {
-    nixosConfigurations.example = nixpkgs.lib.nixosSystem {
-      modules = [
-        lys.nixosModules.lys-secrets
-        { services.lys-secrets.enable = true; }
-      ];
-    };
-  };
-}
-```
-
-Evaluation fails if `services.gnome.gnome-keyring.enable` is also set, or if
+Import `lys.nixosModules.lys-secrets` and set
+`services.lys-secrets.enable = true;`. Evaluation fails if `services.gnome.gnome-keyring.enable` is also set, or if
 `sshAgent.enable` and `programs.ssh.startAgent` are both set.
 
 ### home-manager
@@ -55,17 +42,9 @@ Options for both modules: [Nix options](/secrets/guide/configuration#nix-options
 
 ### Debian, Ubuntu, Fedora
 
-Each [release](https://github.com/stubbedev/lys/releases/latest) has a `.deb`
-and `.rpm` for x86_64 and aarch64, and `SHA256SUMS`:
-
-```sh
-sha256sum --check --ignore-missing SHA256SUMS
-sudo apt install ./lys-secrets_<version>_amd64.deb      # arm64: _arm64.deb
-sudo dnf install ./lys-secrets-<version>-1.<dist>.x86_64.rpm  # .aarch64.rpm
-systemctl --user enable --now lys-secrets
-```
-
-A package installs `/usr/bin/lys-secrets`, the `/usr/bin/pinentry-lys` link, the
+Install the `.deb` or `.rpm` from the
+[latest release](https://github.com/stubbedev/lys/releases/latest), then
+`systemctl --user enable --now lys-secrets`. A package installs `/usr/bin/lys-secrets`, the `/usr/bin/pinentry-lys` link, the
 user unit, and the activation files under `/usr/share/lys-secrets/`. It enables
 nothing. For on-demand activation, copy the activation files:
 

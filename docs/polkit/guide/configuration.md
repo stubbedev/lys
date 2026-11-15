@@ -7,7 +7,7 @@ There is no configuration file.
 | Option | Type | Default | Effect |
 | --- | --- | --- | --- |
 | `services.lys-polkit.enable` | bool | `false` | Installs the package and links its user unit into `graphical-session.target.wants` |
-| `services.lys-polkit.package` | package | `lys-polkit.packages.${system}.default` | Package whose binary and user unit are used |
+| `services.lys-polkit.package` | package | the flake's lys-polkit | Package whose binary and user unit are used |
 
 ## Build-time values
 
@@ -44,7 +44,7 @@ user manager.
 
 ## User unit
 
-`dist/lys-polkit.service.in`:
+[`polkit/dist/lys-polkit.service.in`](https://github.com/stubbedev/lys/blob/main/polkit/dist/lys-polkit.service.in):
 
 | Setting | Value |
 | --- | --- |

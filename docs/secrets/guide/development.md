@@ -8,6 +8,7 @@
 | `client` | Secret Service client: lookup, store, delete, browse collections and items, `ChangeLock`; plain (`Open`) or DH (`OpenEncrypted`) session | lys-shell's Secret portal, lys-settings' passwords page, the vault's session store |
 | `control` | Unlock socket client (`Unlock`, `Rekey`) and server | lys-login |
 | `transport` | The `plain` and DH secret transports | `client`, the service |
+| `secretbus` | The Secret Service's D-Bus interfaces, events and signals | `client`, the service |
 | `secretstest` | The real Secret Service on a test bus, with scripted password prompts | Consumers' tests |
 
 Everything else is under `internal/`.
@@ -34,14 +35,7 @@ tools, dbus for the tests' private buses, and the clients tested against
 `nix flake check` builds the package, evaluates both modules and boots a NixOS VM
 that checks D-Bus activation under dbus-broker.
 
-## CI and releases
+## Releases
 
-| Workflow | Runs |
-| --- | --- |
-| `ci.yml` | `just check`, `nix flake check`, and builds and smoke-tests the archive, `.deb` and `.rpm` (`package.yml`, `scripts/ci/`, `packaging/`) |
-| `release.yml` | On tag `vX.Y.Z`: packages, `SHA256SUMS` and a GitHub release |
-| `security.yml` | CodeQL (Go, Actions), Grype, govulncheck; dependency review on pull requests |
-| `vendor-hash.yml` | On pull requests changing `go.mod` or `go.sum`, updates `vendorHash` |
-| `docs.yml` | Publishes this site |
-
-Dependabot updates Go modules and workflows.
+lys-secrets is released with every other lys app, under one version
+([Releases](/install/#releases)).

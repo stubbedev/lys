@@ -4,8 +4,8 @@ The flake's dev shell provides Go (the `go.mod` version), gopls,
 golangci-lint, delve, just, git, gh, dbus and getent, with `CGO_ENABLED=0` and
 `GOTOOLCHAIN=local`. Enter it with `direnv allow` or `nix develop`.
 
-D-Bus goes through [lys-lib](/lib/)'s godbus
-fork and `dbusx`; the dialog contract is lys-lib's `portaldialogs`.
+D-Bus goes through [lys-lib](/lib/)'s godbus fork and `dbusx`; the dialog
+contract is lys-lib's `portaldialogs`.
 
 ## Recipes
 
@@ -41,20 +41,9 @@ a name-service-only user, wrong then right password, cancel, the setuid helper
 without the socket, `auth_admin_keep` listing/reuse/revoke/expiry, and no
 agent after lys-polkit stops.
 
-## CI
-
-| Workflow | Runs |
-| --- | --- |
-| `ci.yml` | `just check` in the dev shell on x86_64 and aarch64, `nix build` on aarch64, `nix flake check` |
-| `security.yml` | CodeQL, Grype, govulncheck (to code scanning); dependency review on pull requests |
-| `vendor-hash.yml` | Updates `vendorHash` on pull requests that change `go.mod` or `go.sum` |
-| `docs.yml` | Builds and publishes this site on pushes to `main` |
-
-Dependabot updates Go modules, GitHub Actions and the docs' npm packages.
-
 ## Linting
 
-`.golangci.yml`: standard linters plus bodyclose, copyloopvar, errorlint,
+`polkit/.golangci.yml`: standard linters plus bodyclose, copyloopvar, errorlint,
 gosec, intrange, misspell, modernize, nolintlint, perfsprint, revive,
 unconvert, unparam, usestdlibvars and whitespace; formatters gofumpt and gci.
 No issue caps.

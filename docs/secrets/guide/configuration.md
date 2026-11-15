@@ -52,7 +52,7 @@ Under `services.lys-secrets`, for both the NixOS and home-manager module:
 | Option | Default | Effect |
 | --- | --- | --- |
 | `enable` | `false` | Install and start the service |
-| `package` | the flake's package | Package to run |
+| `package` | the flake's lys-secrets | Package to run |
 | `collections.lockAfter` | `0` (minutes) | `--collection-lock-after` |
 | `collections.lockOnScreenLock` | `false` | `--collection-lock-on-screen-lock` |
 | `collections.confirmForeignReads` | `false` | `--confirm-foreign-reads` |

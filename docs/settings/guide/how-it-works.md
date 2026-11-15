@@ -5,14 +5,15 @@ is the single source of truth.
 
 ## lys-shell
 
-lys-settings uses lys-shell's public Go packages, pinned in `go.mod`:
+lys-settings reads lys-shell's config through the packages of
+[lys-desktop](/desktop/), built from the same commit as the shell:
 
 | Package | Used for |
 | --- | --- |
-| `config` | Fields, defaults, config layers and runtime overrides |
-| `styling`, `shell/apptheme` | The window's theme, matching the shell |
-| `i18n` | Field labels; the app's own messages sit on top |
-| `settingspage` | The launcher contract below |
+| `desktop/config` | Fields, defaults, config layers and runtime overrides |
+| `desktop/styling`, `desktop/shell/apptheme` | The window's theme, matching the shell |
+| `desktop/i18n` | Field labels; the app's own messages sit on top |
+| `desktop/settingspage` | The launcher contract below |
 
 ## lys-wm
 

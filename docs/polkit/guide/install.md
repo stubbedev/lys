@@ -1,7 +1,8 @@
 # Install
 
 Disable any other polkit agent the session starts; polkitd accepts one per
-session.
+session. [Install](/install/) covers the packages and the flake for the whole
+desktop.
 
 ## Home-manager
 
@@ -22,7 +23,7 @@ This installs the package and the `lys-polkit.service` user unit, wanted by
 `graphical-session.target`. On NixOS, polkitd comes from
 `security.polkit.enable = true`.
 
-## Without nix
+## From source
 
 Requires the Go version declared in `go.mod`.
 

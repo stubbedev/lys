@@ -44,7 +44,5 @@ check, the wrapper and desktop-file check, and a NixOS VM test of accounts-daemo
 
 ## Releases
 
-`just release-patch` (or `-minor`, `-major`) tags a clean `main` whose CI passed.
-`.github/workflows/release.yml` then publishes the archive, `.deb` and `.rpm` for
-x86_64 and aarch64, with `SHA256SUMS`. Release after the lys-shell and lys-wm versions
-it needs: `go.mod` pins lys-shell, and `flake.lock` pins the lys-wm the tests use.
+lys-settings is released with every other lys app, under one version
+([Releases](/install/#releases)).

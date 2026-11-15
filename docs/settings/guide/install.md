@@ -1,5 +1,8 @@
 # Install
 
+[Install](/install/) covers the packages and the flake for the whole desktop.
+This page is what is particular to lys-settings.
+
 ## Nix
 
 lys-shell's NixOS and Home Manager modules install lys-settings by default:
@@ -27,11 +30,9 @@ To install it alone, as on lys-wm without the shell:
 
 The flake's `overlays.default` adds `pkgs.lys-settings`.
 
-## Debian and Fedora
+## Debian, Ubuntu and Fedora
 
-Each [release](https://github.com/stubbedev/lys/releases/latest) has a
-`.deb` and an `.rpm` for amd64 and arm64. They recommend lys-shell or lys-wm.
-[Install](/install/) has the commands.
+The `.deb` and `.rpm` recommend lys-shell or lys-wm.
 
 ## Archive
 
@@ -49,7 +50,7 @@ The app loads its icons from `../share/lys-settings/icons` relative to its binar
 
 ## Versions
 
-lys-settings reads lys-shell's config through lys-shell's own packages, so it
-knows the keys of the lys-shell built with it. lys-wm's rules are read at run time from the `lys-wm` on `PATH`: a key that lys-wm does not
-know is refused with its message, and a lys-wm that cannot report its schema or
-built-in config leaves the **Compositor** pages showing the error.
+lys-settings knows the lys-shell keys of the release it comes with. lys-wm's
+rules are read at run time from the `lys-wm` on `PATH`: a key that lys-wm does
+not know is refused with its message, and a lys-wm that cannot report its schema
+or built-in config leaves the **Compositor** pages showing the error.
