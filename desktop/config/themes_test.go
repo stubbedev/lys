@@ -34,7 +34,7 @@ func TestBuiltinThemesTable(t *testing.T) {
 	}
 	// Spot-check a palette field by field against palettes.rs.
 	nord, ok := PaletteByName("nord")
-	want := Palette{"#2e3440", "#3b4252", "#434c5e", "#eceff4", "#d8dee9", "#88c0d0", "#bf616a", "#ebcb8b", "#a3be8c", "#81a1c1"}
+	want := palette("#2e3440", "#3b4252", "#434c5e", "#eceff4", "#d8dee9", "#88c0d0", "#bf616a", "#ebcb8b", "#a3be8c", "#81a1c1")
 	if !ok || nord != want {
 		t.Errorf("nord = %+v, want %+v", nord, want)
 	}
@@ -131,7 +131,7 @@ extra: ignored
 	if len(themes) != builtins+2 {
 		t.Fatalf("themes = %d, want the builtins plus also and mine", len(themes))
 	}
-	want := Palette{"#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007", "#000008", "#000009", "#00000a"}
+	want := palette("#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007", "#000008", "#000009", "#00000a")
 	for i, name := range []string{"also", "mine"} {
 		if got := themes[builtins+i]; got.Name != name || got.Builtin || got.Palette != want {
 			t.Errorf("user theme %d = %+v, want %s with the file's palette", i, got, name)

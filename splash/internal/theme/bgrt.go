@@ -88,7 +88,7 @@ func (b *BGRT) place(size image.Point) image.Rectangle {
 	s := b.Image.Bounds().Size()
 	at := b.Offset
 	if (size.X-s.X)/2 != b.Offset.X {
-		at = image.Pt((size.X-s.X)/2, size.Y*382/1000-s.Y/2)
+		at = opticalOrigin(size, s)
 	}
 	return image.Rectangle{Min: at, Max: at.Add(s)}
 }

@@ -48,6 +48,7 @@ func TestParseErrorsNameTheField(t *testing.T) {
 	tests := map[string]string{
 		"background: red\n":           "background",
 		"foreground: \"#12345\"\n":    "foreground",
+		"secondary: blue\n":           "secondary",
 		"accent: \"#gg0000\"\n":       "accent",
 		"logo: plymouth\n":            "logo",
 		"throbber: wheel\n":           "throbber",
@@ -65,6 +66,21 @@ func TestParseErrorsNameTheField(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), field) || !strings.Contains(err.Error(), "theme.yaml") {
 			t.Errorf("Parse(%q) = %v, want an error naming theme.yaml and %s", doc, err, field)
+		}
+	}
+}
+
+func TestAnInvalidTokenFailsWithTheDefinedError(t *testing.T) {
+	t.Parallel()
+	tests := map[string]string{
+		"secondary: \"#12345\"\n":            `theme: theme.yaml: line 1: secondary: "#12345" is not #rrggbb`,
+		"units: true\naccent: \"#gg0000\"\n": `theme: theme.yaml: line 2: accent: "#gg0000" is not #rrggbb`,
+		"foreground: \"d4d6e8\"\n":           `theme: theme.yaml: line 1: foreground: "d4d6e8" is not #rrggbb`,
+	}
+	for doc, want := range tests {
+		got, err := Parse("theme.yaml", []byte(doc))
+		if err == nil || err.Error() != want {
+			t.Errorf("Parse(%q) = %+v, %v; want the error %q", doc, got, err, want)
 		}
 	}
 }
@@ -227,11 +243,14 @@ func TestGoldenFrames(t *testing.T) {
 		{"password-keymap", Default(), nil, 1, size, State{Prompt: Prompt{Kind: PasswordPrompt, Text: "Please enter passphrase for disk root:", Shown: strings.Repeat("•", 3)}, Hints: Hints{Keymap: "de"}}},
 		{"question", Default(), nil, 1, size, State{Prompt: Prompt{Kind: QuestionPrompt, Text: "Continue booting?", Shown: "yes"}}},
 		{"message", Default(), nil, 1, size, State{Message: "Starting Disk Encryption", Phase: 9}},
+		{"units", Default(), nil, 1, size, State{Message: "Starting Disk Encryption", Status: "systemd-cryptsetup@root.service", Phase: 9}},
+		{"shutdown", Default(), nil, 1, size, State{Message: "Powering off", Phase: 21}},
 		{"update", Default(), nil, 1, size, State{Updating: true, Progress: 42, Message: "Installing updates"}},
 		{"boot-progress-0", Default(), nil, 1, size, State{Booting: true, Progress: 0, Phase: 3}},
 		{"boot-progress-50", Default(), nil, 1, size, State{Booting: true, Progress: 50, Phase: 3}},
 		{"boot-progress-99", Default(), nil, 1, size, State{Booting: true, Progress: 99, Phase: 3}},
-		{"scale2", Default(), nil, 2, image.Pt(1600, 1200), State{Message: "Starting Disk Encryption", Phase: 3}},
+		{"scale2", Default(), nil, 2, image.Pt(1600, 1200), State{Message: "Starting Disk Encryption", Status: "systemd-cryptsetup@root.service", Phase: 3}},
+		{"password-scale2", Default(), nil, 2, image.Pt(1600, 1200), State{Prompt: Prompt{Kind: PasswordPrompt, Text: "Please enter passphrase for disk root:", Shown: strings.Repeat("•", 5)}, Hints: Hints{Keymap: "de", CapsLock: true}}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -249,7 +268,7 @@ func TestGoldenRotated(t *testing.T) {
 	t.Parallel()
 	panel := image.Pt(600, 800)
 	f := frame(kms.Clockwise.View(panel))
-	draw(t, renderer(t, Default(), nil), f, 1, nil, State{Message: "Turned", Phase: 3})
+	draw(t, renderer(t, Default(), nil), f, 1, nil, State{Message: "Turned", Status: "systemd-udevd.service", Phase: 3})
 	dev := frame(panel)
 	kms.Blit(dev, f, image.Rectangle{Max: f.Size}, kms.Clockwise)
 	check(t, "rotated", dev)
@@ -339,6 +358,9 @@ func TestEveryPartialRedrawMatchesAFullOne(t *testing.T) {
 		{Phase: 8, Message: "jjj"},
 		{Phase: 8, Message: strings.Repeat("far too long for the box ", 20)},
 		{Phase: 8, Message: "short"},
+		{Phase: 8, Message: "short", Status: "systemd-udevd.service"},
+		{Phase: 8, Message: "short", Status: "a.service"},
+		{Phase: 8, Status: strings.Repeat("far-too-long.service ", 20)},
 		{Phase: 8, Prompt: Prompt{Kind: QuestionPrompt, Text: "Go on?", Shown: "y"}},
 		{Phase: 8, Prompt: Prompt{Kind: QuestionPrompt, Text: "Go on?", Shown: "yes"}},
 		{Phase: 8, Prompt: Prompt{Kind: PasswordPrompt, Text: "Go on?", Shown: "•••"}},
@@ -551,7 +573,8 @@ func TestDamageIsOnlyWhatChanged(t *testing.T) {
 		{"a dots step is the two dots that swap", State{Phase: 0}, State{Phase: 12}, 2, l.throb, 2 * dot},
 		{"a key typed is the entry's inside", prompt("•"), prompt("••"), 1, l.entryInner(), area(l.entryInner())},
 		{"a short message is its text", State{}, State{Message: "Starting"}, 1, l.message, 150 * l.message.Dy()},
-		{"the prompt's text is its extent", prompt("•"), State{Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk two:", Shown: "•"}}, 1, l.promptLine(), 150 * l.promptLine().Dy()},
+		{"a unit name is its text on the status line", State{Message: "Starting"}, State{Message: "Starting", Status: "udev.service"}, 1, l.status, 150 * l.status.Dy()},
+		{"the prompt's text is its extent", prompt("•"), State{Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk two:", Shown: "•"}}, 1, l.promptLine, 150 * l.promptLine.Dy()},
 		{"a percent of boot is its columns", State{Booting: true, Progress: 50}, State{Booting: true, Progress: 51}, 1, l.boot, barArea(l.boot) / 10},
 		{"a percent of update is its columns", State{Updating: true, Progress: 50}, State{Updating: true, Progress: 51}, 1, l.updateBar(), barArea(l.updateBar()) / 10},
 		{"a message and a boot step stay apart", State{Booting: true, Progress: 50}, State{Booting: true, Progress: 51, Message: "m"}, 2, l.busy.Union(l.message).Union(l.boot), barArea(l.boot)/10 + 50*l.message.Dy()},
@@ -607,13 +630,73 @@ func TestHintsShowOnlyWithAPromptAndDamageOnlyThemselves(t *testing.T) {
 	if d := bounds(draw(t, r, f, 1, &on, off)); d.Empty() || !d.In(l.caps) {
 		t.Errorf("Caps Lock going off damaged %v, want part of the hint line %v", d, l.caps)
 	}
-	if l.caps.Overlaps(l.entry()) || l.keymap.Overlaps(l.entry()) || l.keymap.Empty() {
-		t.Errorf("the hints at %v and %v overlap the entry %v or have no room", l.caps, l.keymap, l.entry())
+	if l.caps.Overlaps(l.entry) || l.keymap.Overlaps(l.entry) || l.keymap.Empty() {
+		t.Errorf("the hints at %v and %v overlap the entry %v or have no room", l.caps, l.keymap, l.entry)
 	}
 	blank, hidden := frame(size), frame(size)
 	draw(t, r, blank, 1, nil, State{})
 	draw(t, r, hidden, 1, nil, State{Hints: Hints{Keymap: "de", CapsLock: true}})
 	if !bytes.Equal(blank.Pix, hidden.Pix) {
 		t.Error("the hints show without a prompt")
+	}
+}
+
+func TestTheGridRowsStackInOrderWithoutOverlap(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		size  image.Point
+		scale int
+	}{{image.Pt(800, 600), 1}, {image.Pt(1600, 1200), 2}, {image.Pt(1920, 1080), 1}, {image.Pt(1920, 1080), 2}, {image.Pt(1280, 720), 1}} {
+		l := renderer(t, Default(), nil).layout(tc.size, tc.scale)
+		rows := []image.Rectangle{l.logo, l.busy, l.boot, l.message, l.status, l.promptLine, l.entry, l.caps}
+		for i := 1; i < len(rows); i++ {
+			if rows[i].Min.Y < rows[i-1].Max.Y {
+				t.Errorf("%v at scale %d: row %d %v starts above row %d's end %v", tc.size, tc.scale, i, rows[i], i-1, rows[i-1])
+			}
+		}
+		for _, r := range rows[1:] {
+			if !r.In(l.group) {
+				t.Errorf("%v at scale %d: %v lies outside the status group %v", tc.size, tc.scale, r, l.group)
+			}
+		}
+		if l.group.Max.Y > tc.size.Y {
+			t.Errorf("%v at scale %d: the status group %v runs off the frame", tc.size, tc.scale, l.group)
+		}
+		centre := l.logo.Min.Add(l.logo.Max).Div(2)
+		if centre.X != tc.size.X/2 || centre.Y != tc.size.Y*382/1000 {
+			t.Errorf("%v at scale %d: the logo is centred at %v, want the optical centre", tc.size, tc.scale, centre)
+		}
+	}
+}
+
+func TestSwitchingStatesNeverMovesTheLogoOrTheThrobber(t *testing.T) {
+	t.Parallel()
+	size := image.Pt(800, 600)
+	r := renderer(t, Default(), nil)
+	l := r.layout(size, 1)
+	region := func(f kms.Frame, at image.Rectangle) []byte {
+		var out []byte
+		for y := at.Min.Y; y < at.Max.Y; y++ {
+			out = append(out, f.Pix[y*f.Stride+at.Min.X*4:y*f.Stride+at.Max.X*4]...)
+		}
+		return out
+	}
+	states := []State{
+		{Phase: 5},
+		{Phase: 5, Message: "Starting Disk Encryption"},
+		{Phase: 5, Message: "Starting", Status: "systemd-udevd.service"},
+		{Phase: 5, Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk:", Shown: "••"}, Hints: Hints{CapsLock: true, Keymap: "de"}},
+		{Phase: 5, Message: "Powering off"},
+	}
+	first := frame(size)
+	draw(t, r, first, 1, nil, states[0])
+	for i, s := range states[1:] {
+		f := frame(size)
+		draw(t, r, f, 1, nil, s)
+		for name, at := range map[string]image.Rectangle{"logo": l.logo, "throbber": l.throb} {
+			if !bytes.Equal(region(first, at), region(f, at)) {
+				t.Errorf("state %d changes the %s at %v", i+1, name, at)
+			}
+		}
 	}
 }

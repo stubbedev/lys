@@ -13,11 +13,12 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/tokens"
 )
 
 // RemBase is the rem the stylesheet's base values multiply: styling.rs's
 // REM_BASE.
-const RemBase = 16.0
+const RemBase = tokens.RemPx
 
 // Palette is the runtime color palette — the --palette-* custom
 // properties. Themes replace it wholesale.
@@ -248,27 +249,24 @@ func WidthStyle(px int) string {
 // rounding level resolves to.
 func ToolkitRadiusPx() int { return widget.DarkTheme().Radius }
 
-// RoundingRadiusPx resolves a rounding level to corner pixels: the
-// --radius-* table (css/tokens/index.css) times the scale, with
-// full pinned at 9999px unscaled.
+// RoundingRadiusPx resolves a rounding level to corner pixels: tokens'
+// radius scale at RemBase times the scale, with full pinned at
+// tokens.RadiusFullPx unscaled.
 func RoundingRadiusPx(level config.RoundingLevel, scale float64) int {
-	if level == config.RoundingFull {
-		return 9999
-	}
-	var rem float64
 	switch level {
+	case config.RoundingFull:
+		return tokens.RadiusFullPx
 	case config.RoundingDefault:
 		return int(math.Round(float64(ToolkitRadiusPx()) * scale))
 	case config.RoundingSm:
-		rem = 0.375
+		return int(math.Round(tokens.RadiusSM.Px(RemBase, scale)))
 	case config.RoundingMd:
-		rem = 0.625
+		return int(math.Round(tokens.RadiusMD.Px(RemBase, scale)))
 	case config.RoundingLg:
-		rem = 0.875
+		return int(math.Round(tokens.RadiusLG.Px(RemBase, scale)))
 	default: // none, and anything invalid: sharp corners
 		return 0
 	}
-	return int(math.Round(rem * RemBase * scale))
 }
 
 // HexRGBA renders a premultiplied color as the straight-alpha #rrggbbaa

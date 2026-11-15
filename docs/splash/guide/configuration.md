@@ -1,17 +1,19 @@
 # Configuration and themes
 
 The only configuration file is the theme: `/etc/lys-splash/theme.yaml`, or the
-file `--theme` names. Without it the embedded theme applies; a field left out
-keeps the embedded value.
+file `--theme` names. Without it the defaults apply; a field left out keeps its
+default. The colour defaults are the desktop's default palette (`desktop/tokens`),
+the same one the lys-login greeter and lock screen draw with.
 
 | Field | Values | Default | Effect |
 | --- | --- | --- | --- |
 | `background` | `#rrggbb` | `#000000` | Background colour |
-| `foreground` | `#rrggbb` | `#d8d9e6` | Message and prompt text |
-| `accent` | `#rrggbb` | `#ffb454` | Throbber, progress bars, prompt border |
+| `foreground` | `#rrggbb` | the palette's text colour | Message and prompt text |
+| `secondary` | `#rrggbb` | the palette's muted text colour | Unit names and prompt hints |
+| `accent` | `#rrggbb` | the palette's primary colour | Throbber and progress bars |
 | `logo` | `firmware`, `lys` | `firmware` | `firmware`: the firmware's logo (ACPI BGRT) if it left one on screen, else lys's. `lys`: always lys's |
 | `throbber` | `spinner`, `dots` | `spinner` | Busy animation |
-| `units` | bool | `false` | Shows the name of each unit systemd starts under the throbber |
+| `units` | bool | `false` | Shows the name of each unit systemd starts on its own line under the message, in the secondary size and colour |
 | `prompt-hints` | bool | `true` | Shows "Caps Lock is on" under a prompt and the console keymap beside it |
 
 The default background is black so the firmware's logo, drawn on black, blends

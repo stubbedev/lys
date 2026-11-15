@@ -58,9 +58,9 @@
 .lock-window .lock-credentials entry,
 .lock-window .lock-power .lock-power-button,
 .lock-window .lock-footer .lock-a11y-button {
-  background-color: color-mix(in srgb, var(--palette-fg) 16%, transparent);
+  background-color: var(--field-fill);
   backdrop-filter: blur(20px) saturate(1.6);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--palette-fg) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--field-border);
   transition: background-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .lock-window .lock-credentials entry {

@@ -87,8 +87,17 @@ func TestStaticCSSIsTheBundle(t *testing.T) {
 	if strings.Contains(StaticCSS, "* {\n  all: unset;") {
 		t.Error("StaticCSS resets every node, erasing lys-ui's theme layer")
 	}
+	for _, m := range spaces {
+		if strings.Contains(StaticCSS, "--space-"+m.name+":") {
+			t.Errorf("StaticCSS restates the space-%s token", m.name)
+		}
+	}
+	for _, m := range radii {
+		if strings.Contains(StaticCSS, "--radius-"+m.name+":") {
+			t.Errorf("StaticCSS restates the radius-%s token", m.name)
+		}
+	}
 	for _, want := range []string{
-		"--space-sm: calc(0.5rem * var(--global-scale));",
 		"button.bar-button {",
 		".bar-group {",
 	} {

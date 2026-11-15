@@ -624,7 +624,7 @@ func (d *daemon) apply(req protocol.Request) error {
 	switch r := req.(type) {
 	case protocol.Update:
 		if d.units {
-			d.state.Message = r.Status
+			d.state.Status = r.Status
 		}
 	case protocol.ChangeMode:
 		d.state.Updating = slices.Contains(updatingModes, r.Mode)
@@ -772,6 +772,9 @@ func (d *daemon) themeLoaded(l *themeLoad) (func() error, error) {
 	}
 	if l.renderer != nil {
 		d.renderer, d.units, d.hints, d.rearm = l.renderer, l.units, l.hints, true
+		if !d.units {
+			d.state.Status = ""
+		}
 		d.showKeymap()
 		clear(d.drawn)
 		d.shown, d.stale = nil, true

@@ -6,6 +6,7 @@ import (
 	"image"
 	"math"
 
+	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
@@ -44,6 +45,7 @@ type Prompt struct {
 type State struct {
 	Hidden   bool
 	Message  string
+	Status   string
 	Prompt   Prompt
 	Hints    Hints
 	Updating bool
@@ -103,65 +105,101 @@ func NewRenderer(t Theme, bgrt *BGRT) (*Renderer, error) {
 }
 
 type layout struct {
-	scale   int
-	logo    image.Rectangle
-	busy    image.Rectangle
-	throb   image.Rectangle
-	boot    image.Rectangle
-	message image.Rectangle
-	prompt  image.Rectangle
-	caps    image.Rectangle
-	keymap  image.Rectangle
+	scale      int
+	logo       image.Rectangle
+	group      image.Rectangle
+	busy       image.Rectangle
+	throb      image.Rectangle
+	boot       image.Rectangle
+	message    image.Rectangle
+	status     image.Rectangle
+	promptLine image.Rectangle
+	entry      image.Rectangle
+	caps       image.Rectangle
+	keymap     image.Rectangle
 }
 
 const (
-	lysLogoSize   = 128
+	lysLogoSize   = 112
 	throbberSize  = 40
 	dotCount      = 3
 	barWidth      = 240
 	barHeight     = 8
 	bootBarHeight = 4
-	textSize      = 16
-	hintSize      = 13
 	keymapWidth   = 96
 	bulletSize    = 24
-	lineHeight    = 28
-	margin        = 32
 	entryWidth    = 320
-	entryHeight   = 40
-	gapAfterLogo  = 48
-	gapAfterBusy  = 24
-	gapBeforeForm = 16
-	gapInForm     = 8
 )
+
+func space(r tokens.Rem, scale int) int {
+	return int(r.Px(tokens.RemPx, float64(scale)))
+}
+
+func textPx(t tokens.TextSize, scale int) float64 {
+	return t.Px(tokens.RemPx, float64(scale))
+}
+
+func opticalOrigin(frame, size image.Point) image.Point {
+	return image.Pt((frame.X-size.X)/2, frame.Y*382/1000-size.Y/2)
+}
+
+type column struct {
+	minX, maxX, y int
+}
+
+func (c *column) row(h int) image.Rectangle {
+	r := image.Rect(c.minX, c.y, c.maxX, c.y+h)
+	c.y += h
+	return r
+}
+
+func (c *column) gap(h int) {
+	c.y += h
+}
+
+func centred(row image.Rectangle, w int) image.Rectangle {
+	mid := (row.Min.X + row.Max.X) / 2
+	w = min(w, row.Dx())
+	return image.Rect(mid-w/2, row.Min.Y, mid-w/2+w, row.Max.Y)
+}
 
 func (r *Renderer) layout(size image.Point, scale int) layout {
 	s := func(v int) int { return v * scale }
+	sp := func(t tokens.Rem) int { return space(t, scale) }
 	l := layout{scale: scale}
 	if r.bgrt != nil {
 		l.logo = r.bgrt.place(size)
 	} else {
-		n := s(lysLogoSize)
-		at := image.Pt((size.X-n)/2, size.Y*382/1000-n/2)
-		l.logo = image.Rectangle{Min: at, Max: at.Add(image.Pt(n, n))}
+		n := image.Pt(s(lysLogoSize), s(lysLogoSize))
+		at := opticalOrigin(size, n)
+		l.logo = image.Rectangle{Min: at, Max: at.Add(n)}
 	}
-	busyW := max(s(throbberSize), s(barWidth))
-	y := l.logo.Max.Y + s(gapAfterLogo)
-	l.busy = image.Rect((size.X-busyW)/2, y, (size.X+busyW)/2, y+s(throbberSize))
-	l.boot = image.Rect((size.X-s(barWidth))/2, l.busy.Max.Y+s(gapInForm), (size.X+s(barWidth))/2, l.busy.Max.Y+s(gapInForm+bootBarHeight))
-	y = l.busy.Max.Y + s(gapAfterBusy)
-	l.message = image.Rect(s(margin), y, size.X-s(margin), y+s(lineHeight))
-	y = l.message.Max.Y + s(gapBeforeForm)
-	l.prompt = image.Rect(s(margin), y, size.X-s(margin), y+s(lineHeight+gapInForm+entryHeight))
-	y = l.prompt.Max.Y + s(gapInForm)
-	l.caps = image.Rect(s(margin), y, size.X-s(margin), y+s(lineHeight))
-	overflow := l.caps.Max.Y - (size.Y - s(gapInForm))
-	room := l.busy.Min.Y - (l.logo.Max.Y + s(gapInForm))
+	margin := sp(tokens.SpaceXL)
+	c := column{minX: margin, maxX: size.X - margin, y: l.logo.Max.Y + sp(tokens.SpaceXL)}
+	top := c.y
+	l.busy = centred(c.row(s(throbberSize)), s(max(throbberSize, barWidth)))
+	c.gap(sp(tokens.SpaceSM))
+	l.boot = centred(c.row(s(bootBarHeight)), s(barWidth))
+	c.gap(sp(tokens.SpaceLG))
+	l.message = c.row(sp(tokens.SpaceXL))
+	l.status = c.row(sp(tokens.SpaceLG))
+	c.gap(sp(tokens.SpaceMD))
+	l.promptLine = c.row(sp(tokens.SpaceXL))
+	c.gap(sp(tokens.SpaceSM))
+	field := c.row(sp(tokens.SpaceXL) + sp(tokens.SpaceSM))
+	l.entry = centred(field, s(entryWidth))
+	c.gap(sp(tokens.SpaceSM))
+	l.caps = c.row(sp(tokens.SpaceLG))
+	l.group = image.Rect(c.minX, top, c.maxX, c.y)
+	overflow := l.group.Max.Y - (size.Y - sp(tokens.SpaceSM))
+	room := l.group.Min.Y - (l.logo.Max.Y + sp(tokens.SpaceSM))
 	if up := image.Pt(0, min(overflow, room)); up.Y > 0 {
-		l.busy, l.boot, l.message, l.prompt, l.caps = l.busy.Sub(up), l.boot.Sub(up), l.message.Sub(up), l.prompt.Sub(up), l.caps.Sub(up)
+		for _, at := range []*image.Rectangle{&l.group, &l.busy, &l.boot, &l.message, &l.status, &l.promptLine, &field, &l.entry, &l.caps} {
+			*at = at.Sub(up)
+		}
 	}
-	entry := l.entry()
-	l.keymap = image.Rect(entry.Max.X+s(gapInForm), entry.Min.Y, entry.Max.X+s(gapInForm+keymapWidth), entry.Max.Y).Intersect(l.prompt)
+	gap := sp(tokens.SpaceSM)
+	l.keymap = image.Rect(l.entry.Max.X+gap, l.entry.Min.Y, l.entry.Max.X+gap+s(keymapWidth), l.entry.Max.Y).Intersect(field)
 	n := s(throbberSize)
 	at := l.busy.Min.Add(l.busy.Max).Div(2).Sub(image.Pt(n/2, n/2))
 	l.throb = image.Rectangle{Min: at, Max: at.Add(image.Pt(n, n))}
@@ -189,7 +227,8 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 		}
 		r.busy(cv, l, cur)
 		r.bootProgress(cv, l, cur)
-		r.message(cv, l, cur.Message)
+		r.line(cv, l.message, cur.Message, textPx(tokens.Title, scale), r.theme.Foreground, render.AlignCenter)
+		r.line(cv, l.status, cur.Status, textPx(tokens.Caption, scale), r.theme.Secondary, render.AlignCenter)
 		r.prompt(cv, l, cur.Prompt)
 		r.hints(cv, l, cur)
 		return kms.DamageOf(full), nil
@@ -217,17 +256,20 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 		damage.Add(r.moveBar(cv, l.boot, prev.Progress, cur.Progress))
 	}
 	if prev.Message != cur.Message {
-		damage.Add(r.redrawLine(cv, l.message, prev.Message, cur.Message, float64(textSize*scale), render.AlignCenter))
+		damage.Add(r.redrawLine(cv, l.message, prev.Message, cur.Message, textPx(tokens.Title, scale), r.theme.Foreground, render.AlignCenter))
+	}
+	secondary := textPx(tokens.Caption, scale)
+	if prev.Status != cur.Status {
+		damage.Add(r.redrawLine(cv, l.status, prev.Status, cur.Status, secondary, r.theme.Secondary, render.AlignCenter))
 	}
 	if prev.Prompt != cur.Prompt {
 		r.redrawPrompt(cv, l, prev.Prompt, cur.Prompt, &damage)
 	}
-	hint := float64(hintSize * scale)
 	if from, to := prev.CapsLockShown(), cur.CapsLockShown(); from != to {
-		damage.Add(r.redrawLine(cv, l.caps, from, to, hint, render.AlignCenter))
+		damage.Add(r.redrawLine(cv, l.caps, from, to, secondary, r.theme.Secondary, render.AlignCenter))
 	}
 	if from, to := prev.KeymapShown(), cur.KeymapShown(); from != to {
-		damage.Add(r.redrawLine(cv, l.keymap, from, to, hint, render.AlignStart))
+		damage.Add(r.redrawLine(cv, l.keymap, from, to, secondary, r.theme.Secondary, render.AlignStart))
 	}
 	damage.Intersect(full)
 	return damage, nil
@@ -277,38 +319,37 @@ func (r *Renderer) textExtent(box image.Rectangle, s string, px float64, align r
 	return image.Rect(mid-width/2, box.Min.Y, mid+width/2, box.Max.Y).Intersect(box)
 }
 
-func (r *Renderer) redrawLine(cv *render.Canvas, box image.Rectangle, from, to string, px float64, align render.Alignment) image.Rectangle {
+func (r *Renderer) redrawLine(cv *render.Canvas, box image.Rectangle, from, to string, px float64, col render.Color, align render.Alignment) image.Rectangle {
 	extent := r.textExtent(box, from, px, align).Union(r.textExtent(box, to, px, align))
 	r.clear(cv, extent)
-	r.line(cv, box, to, px, align)
+	r.line(cv, box, to, px, col, align)
 	return extent
 }
 
-func (r *Renderer) line(cv *render.Canvas, box image.Rectangle, s string, px float64, align render.Alignment) {
+func (r *Renderer) line(cv *render.Canvas, box image.Rectangle, s string, px float64, col render.Color, align render.Alignment) {
 	if s == "" {
 		return
 	}
 	clip := cv.PushClip(rect(box))
-	r.face.DrawAligned(cv, s, rect(box), px, r.theme.Foreground, align)
+	r.face.DrawAligned(cv, s, rect(box), px, col, align)
 	cv.PopClip(clip)
 }
 
 func (r *Renderer) redrawPrompt(cv *render.Canvas, l layout, from, to Prompt, damage *kms.Damage) {
 	if from.Text != to.Text {
-		damage.Add(r.redrawLine(cv, l.promptLine(), from.Text, to.Text, float64(textSize*l.scale), render.AlignCenter))
+		damage.Add(r.redrawLine(cv, l.promptLine, from.Text, to.Text, textPx(tokens.Title, l.scale), r.theme.Foreground, render.AlignCenter))
 	}
 	switch {
 	case (from.Kind == NoPrompt) != (to.Kind == NoPrompt):
-		entry := l.entry()
-		r.clear(cv, entry)
+		r.clear(cv, l.entry)
 		if to.Kind != NoPrompt {
-			r.entryBorder(cv, l)
+			r.field(cv, l)
 			r.shown(cv, l, to)
 		}
-		damage.Add(entry)
+		damage.Add(l.entry)
 	case to.Kind != NoPrompt && (from.Shown != to.Shown || from.Kind != to.Kind):
 		inner := l.entryInner()
-		r.clear(cv, inner)
+		cv.ClearDevice(rect(inner), r.fieldFill())
 		r.shown(cv, l, to)
 		damage.Add(inner)
 	}
@@ -373,13 +414,21 @@ func (r *Renderer) AddLogo(l *LogoRaster) {
 
 func mix(a, b render.Color, num, denom uint32) render.Color {
 	ch := func(x, y uint8) uint8 {
-		return uint8((uint32(x)*(denom-num) + uint32(y)*num) / denom) //nolint:gosec // a weighted mean of two bytes is a byte
+		return uint8((uint32(x)*(denom-num) + uint32(y)*num + denom/2) / denom) //nolint:gosec // a weighted mean of two bytes is a byte
 	}
 	return render.RGB(ch(a.R(), b.R()), ch(a.G(), b.G()), ch(a.B(), b.B()))
 }
 
 func (r *Renderer) dim() render.Color {
 	return mix(r.theme.Background, r.theme.Accent, 1, 4)
+}
+
+func (r *Renderer) fieldFill() render.Color {
+	return mix(r.theme.Background, r.theme.Foreground, uint32(tokens.FieldFill), 100)
+}
+
+func (r *Renderer) fieldBorder() render.Color {
+	return mix(r.fieldFill(), r.theme.Foreground, uint32(tokens.FieldBorder), 100)
 }
 
 func (l layout) updateBar() image.Rectangle {
@@ -519,39 +568,24 @@ func (r *Renderer) bar(cv *render.Canvas, track image.Rectangle, p protocol.Perc
 	}
 }
 
-func (r *Renderer) message(cv *render.Canvas, l layout, msg string) {
-	r.line(cv, l.message, msg, float64(textSize*l.scale), render.AlignCenter)
-}
-
-func (l layout) promptLine() image.Rectangle {
-	line := l.prompt
-	line.Max.Y = line.Min.Y + lineHeight*l.scale
-	return line
-}
-
-func (l layout) entry() image.Rectangle {
-	s := l.scale
-	c := (l.prompt.Min.X + l.prompt.Max.X) / 2
-	w := min(entryWidth*s, l.prompt.Dx())
-	return image.Rect(c-w/2, l.promptLine().Max.Y+gapInForm*s, c+w/2, l.prompt.Max.Y)
-}
-
 func (l layout) entryInner() image.Rectangle {
-	return l.entry().Inset(entryHeight * l.scale / 4)
+	h := l.entry.Dy()
+	return image.Rect(l.entry.Min.X+h/2, l.entry.Min.Y+h/4, l.entry.Max.X-h/2, l.entry.Max.Y-h/4)
 }
 
 func (r *Renderer) prompt(cv *render.Canvas, l layout, p Prompt) {
 	if p.Kind == NoPrompt {
 		return
 	}
-	r.line(cv, l.promptLine(), p.Text, float64(textSize*l.scale), render.AlignCenter)
-	r.entryBorder(cv, l)
+	r.line(cv, l.promptLine, p.Text, textPx(tokens.Title, l.scale), r.theme.Foreground, render.AlignCenter)
+	r.field(cv, l)
 	r.shown(cv, l, p)
 }
 
-func (r *Renderer) entryBorder(cv *render.Canvas, l layout) {
-	s := l.scale
-	cv.RoundedBorder(rect(l.entry()), render.UniformCorners(entryHeight*s/4), render.UniformInsets(max(s, 1)), r.theme.Accent)
+func (r *Renderer) field(cv *render.Canvas, l layout) {
+	pill := min(tokens.RadiusFullPx, l.entry.Dy()/2)
+	cv.RoundedRect(rect(l.entry), pill, r.fieldFill())
+	cv.RoundedBorder(rect(l.entry), render.UniformCorners(pill), render.UniformInsets(l.scale), r.fieldBorder())
 }
 
 func (r *Renderer) shown(cv *render.Canvas, l layout, p Prompt) {
@@ -559,7 +593,7 @@ func (r *Renderer) shown(cv *render.Canvas, l layout, p Prompt) {
 		return
 	}
 	s := l.scale
-	px := float64(textSize * s)
+	px := textPx(tokens.Body, s)
 	inner := l.entryInner()
 	prev := cv.PushClip(rect(inner))
 	if p.Kind == PasswordPrompt {
@@ -577,7 +611,7 @@ func (r *Renderer) shown(cv *render.Canvas, l layout, p Prompt) {
 }
 
 func (r *Renderer) hints(cv *render.Canvas, l layout, s State) {
-	px := float64(hintSize * l.scale)
-	r.line(cv, l.caps, s.CapsLockShown(), px, render.AlignCenter)
-	r.line(cv, l.keymap, s.KeymapShown(), px, render.AlignStart)
+	px := textPx(tokens.Caption, l.scale)
+	r.line(cv, l.caps, s.CapsLockShown(), px, r.theme.Secondary, render.AlignCenter)
+	r.line(cv, l.keymap, s.KeymapShown(), px, r.theme.Secondary, render.AlignStart)
 }

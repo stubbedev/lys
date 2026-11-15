@@ -4,7 +4,6 @@
 package theme
 
 import (
-	_ "embed" // the default theme
 	"errors"
 	"fmt"
 	"maps"
@@ -13,13 +12,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"go.yaml.in/yaml/v3"
 )
-
-//go:embed default.yaml
-var defaultYAML []byte
 
 // Logo is what the splash shows as its logo.
 type Logo uint8
@@ -46,21 +43,34 @@ const (
 type Theme struct {
 	Background render.Color
 	Foreground render.Color
+	Secondary  render.Color
 	Accent     render.Color
 	Logo       Logo
 	Throbber   Throbber
-	// Units shows the name of each unit systemd starts on the message line.
+	// Units shows the name of each unit systemd starts on the status line.
 	Units       bool
 	PromptHints bool
 }
 
-// Default is the theme embedded in the binary.
 func Default() Theme {
-	t, err := parse("default.yaml", defaultYAML, nil)
-	if err != nil {
-		panic(err)
+	p := tokens.LysShell()
+	return Theme{
+		Background:  render.RGB(0, 0, 0),
+		Foreground:  mustColor("fg", p.Fg),
+		Secondary:   mustColor("fg-muted", p.FgMuted),
+		Accent:      mustColor("primary", p.Primary),
+		Logo:        FirmwareLogo,
+		Throbber:    Spinner,
+		PromptHints: true,
 	}
-	return t
+}
+
+func mustColor(token, hex string) render.Color {
+	c, err := parseColor(hex)
+	if err != nil {
+		panic(fmt.Sprintf("theme: the desktop palette's %s: %v", token, err))
+	}
+	return c
 }
 
 // Load reads the theme at path. A missing file is the default theme; a file
@@ -84,53 +94,38 @@ func Load(path string) (Theme, error) {
 // Parse validates a theme.yaml read from file; a field it leaves out keeps
 // the default theme's value.
 func Parse(file string, data []byte) (Theme, error) {
-	base := Default()
-	return parse(file, data, &base)
-}
-
-func parse(file string, data []byte, base *Theme) (Theme, error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return Theme{}, fmt.Errorf("theme: %s: %w", file, err)
 	}
-	var t Theme
-	if base != nil {
-		t = *base
-	}
+	t := Default()
 	fields := map[string]func(*yaml.Node) error{
 		"background":   decode(&t.Background, parseColor),
 		"foreground":   decode(&t.Foreground, parseColor),
+		"secondary":    decode(&t.Secondary, parseColor),
 		"accent":       decode(&t.Accent, parseColor),
 		"logo":         decode(&t.Logo, enum(map[string]Logo{"firmware": FirmwareLogo, "lys": LysLogo})),
 		"throbber":     decode(&t.Throbber, enum(map[string]Throbber{"spinner": Spinner, "dots": Dots})),
 		"units":        decode(&t.Units, identity[bool]),
 		"prompt-hints": decode(&t.PromptHints, identity[bool]),
 	}
-	var errs []error
-	seen := map[string]bool{}
-	if len(doc.Content) > 0 {
-		root := doc.Content[0]
-		if root.Kind != yaml.MappingNode {
-			return Theme{}, fmt.Errorf("theme: %s: line %d: the theme is not a mapping of fields", file, root.Line)
-		}
-		for i := 0; i+1 < len(root.Content); i += 2 {
-			key, value := root.Content[i], root.Content[i+1]
-			set, ok := fields[key.Value]
-			if !ok {
-				errs = append(errs, fmt.Errorf("theme: %s: line %d: %s is not a theme field; the fields are %s", file, key.Line, key.Value, strings.Join(slices.Sorted(maps.Keys(fields)), ", ")))
-				continue
-			}
-			seen[key.Value] = true
-			if err := set(value); err != nil {
-				errs = append(errs, fmt.Errorf("theme: %s: line %d: %s: %w", file, value.Line, key.Value, err))
-			}
-		}
+	if len(doc.Content) == 0 {
+		return t, nil
 	}
-	if base == nil {
-		for _, name := range slices.Sorted(maps.Keys(fields)) {
-			if !seen[name] {
-				errs = append(errs, fmt.Errorf("theme: %s: %s is missing", file, name))
-			}
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return Theme{}, fmt.Errorf("theme: %s: line %d: the theme is not a mapping of fields", file, root.Line)
+	}
+	var errs []error
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		key, value := root.Content[i], root.Content[i+1]
+		set, ok := fields[key.Value]
+		if !ok {
+			errs = append(errs, fmt.Errorf("theme: %s: line %d: %s is not a theme field; the fields are %s", file, key.Line, key.Value, strings.Join(slices.Sorted(maps.Keys(fields)), ", ")))
+			continue
+		}
+		if err := set(value); err != nil {
+			errs = append(errs, fmt.Errorf("theme: %s: line %d: %s: %w", file, value.Line, key.Value, err))
 		}
 	}
 	if err := errors.Join(errs...); err != nil {

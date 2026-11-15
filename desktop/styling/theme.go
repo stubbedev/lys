@@ -167,7 +167,8 @@ func cssColor(c render.Color) string {
 
 // BundleCSS is the built-in stylesheet under cfg's theme: the static
 // rules, the palette and config block for palette, the tokens resolved
-// from p, the same palette as render colors, and the type scale.
+// from p, the same palette as render colors, the type scale, and the
+// spacing, radii and field.
 func BundleCSS(cfg *config.Config, palette config.Palette, p *Palette) string {
-	return StaticCSS + "\n" + ThemeCSS(palette, cfg.General, cfg.Bar, cfg.Styling) + "\n" + NotificationCSS(palette, cfg.Notification, cfg.Styling) + "\n" + TokensCSS(p) + "\n" + TypeScaleCSS()
+	return StaticCSS + "\n" + ThemeCSS(palette, cfg.General, cfg.Bar, cfg.Styling) + "\n" + NotificationCSS(palette, cfg.Notification, cfg.Styling) + "\n" + TokensCSS(p) + "\n" + TypeScaleCSS() + "\n" + MetricsCSS()
 }

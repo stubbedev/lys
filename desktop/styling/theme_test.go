@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
 )
@@ -197,23 +196,8 @@ func TestTokensCSSIsTheTokenTable(t *testing.T) {
 func TestBundleTokensPaintTheTokenColor(t *testing.T) {
 	cfg := config.Defaults()
 	p := Default()
-	var warns []string
-	widget.SetParseWarn(func(msg string) { warns = append(warns, msg) })
-	sheet := widget.NewStylesheet(BundleCSS(cfg, cfg.Styling.ActivePalette(), p)+"\n.token-probe { background-color: var(--bg-overlay); }", 200)
-	widget.SetParseWarn(nil)
-	if len(warns) > 0 {
-		t.Fatalf("the bundle trips the CSS engine: %v", warns)
-	}
-	box := widget.NewBox(widget.Row, 0, 0)
-	box.AddClass("token-probe")
-	box.SetSizeRequest(10, 10)
-	box.AttachStylesheet(sheet)
-	widget.SizeWithin(box, widget.Size{W: 10, H: 10})
-	box.Arrange(render.Rect{W: 10, H: 10})
-	data := make([]byte, render.Stride(10)*10)
-	box.Paint(render.NewScaled(data, render.Stride(10), 10, 10, 1, 1))
-	i := 5*render.Stride(10) + 5*4
-	got := render.RGB(data[i+2], data[i+1], data[i])
+	px := paintProbe(t, BundleCSS(cfg, cfg.Styling.ActivePalette(), p), "var(--bg-overlay)")
+	got := render.RGB(px[0], px[1], px[2])
 	if want, _ := p.Token(config.TokenBgOverlay); got != want {
 		t.Errorf("var(--bg-overlay) paints %#08x, want the token's %#08x", uint32(got), uint32(want))
 	}
@@ -226,17 +210,7 @@ func TestNotificationCSSTintsTheCardColor(t *testing.T) {
 	palette := cfg.Styling.ActivePalette()
 	paint := func(opacity config.Percentage) [4]byte {
 		cfg.Notification.PopupOpacity = opacity
-		sheet := widget.NewStylesheet(BundleCSS(cfg, palette, Default())+"\n.probe { background-color: var(--notification-popup-surface); }", 200)
-		box := widget.NewBox(widget.Row, 0, 0)
-		box.AddClass("probe")
-		box.SetSizeRequest(10, 10)
-		box.AttachStylesheet(sheet)
-		widget.SizeWithin(box, widget.Size{W: 10, H: 10})
-		box.Arrange(render.Rect{W: 10, H: 10})
-		data := make([]byte, render.Stride(10)*10)
-		box.Paint(render.NewScaled(data, render.Stride(10), 10, 10, 1, 1))
-		i := 5*render.Stride(10) + 5*4
-		return [4]byte{data[i+2], data[i+1], data[i], data[i+3]}
+		return paintProbe(t, BundleCSS(cfg, palette, Default()), "var(--notification-popup-surface)")
 	}
 	elevated, err := PaletteFromHex(palette)
 	if err != nil {

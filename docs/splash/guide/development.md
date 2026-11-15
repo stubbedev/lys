@@ -15,7 +15,7 @@ Paths are under `splash/` in the repository.
 | `internal/server` | Daemon side of the socket: peer credentials, deferred answers |
 | `internal/client` | The plymouth command line |
 | `internal/daemon` | Splash lifecycle from boot to quit, modes, boot duration |
-| `internal/theme` | `theme.yaml` validation (default embedded), BGRT logo, frame rendering with damage |
+| `internal/theme` | `theme.yaml` validation (defaults from `desktop/tokens`), BGRT logo, frame rendering with damage |
 | `internal/kms` | Outputs on two dumb buffers per card: mode and scale, rotation, paced damage-limited flips, uevents |
 | `internal/console` | Virtual terminal, captured console output, text fallback |
 | `internal/key` | Terminal bytes decoded into keys |

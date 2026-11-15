@@ -1,11 +1,5 @@
 :root {
   --scrim: rgba(0, 0, 0, 0.6);
-  --space-2xs: calc(0.125rem * var(--global-scale));
-  --space-xs: calc(0.25rem * var(--global-scale));
-  --space-sm: calc(0.5rem * var(--global-scale));
-  --space-md: calc(1rem * var(--global-scale));
-  --space-lg: calc(1.5rem * var(--global-scale));
-  --space-xl: calc(2rem * var(--global-scale));
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -25,11 +19,6 @@
   --font-mono: var(--cfg-font-mono);
   --radius-none: 0;
   --radius-default: calc(var(--toolkit-radius) * var(--global-scale));
-  --radius-sm: calc(0.375rem * var(--global-scale));
-  --radius-md: calc(0.625rem * var(--global-scale));
-  --radius-lg: calc(0.875rem * var(--global-scale));
-  --radius-xl: calc(1.125rem * var(--global-scale));
-  --radius-full: 9999px;
   --rounding-element: var(--cfg-rounding-element);
   --rounding-container: var(--cfg-rounding-container);
   --bar-rounding-element: var(--cfg-bar-rounding-element);
@@ -63,24 +52,11 @@
   --bar-btn-label-size: var( --bar-btn-label-size-override, calc(var(--bar-text-body) * var(--bar-btn-label-scale)) );
   --bar-btn-label-padding: var( --bar-btn-label-padding-override, calc(0.5rem * var(--bar-scale) * var(--bar-btn-label-padding-scale)) );
   --bar-btn-gap: var( --bar-btn-gap-override, calc(0.5rem * var(--bar-scale) * var(--bar-btn-gap-scale)) );
-  --bar-space-xs: calc(0.25rem * var(--bar-scale));
-  --bar-space-sm: calc(0.5rem * var(--bar-scale));
-  --bar-space-md: calc(1rem * var(--bar-scale));
-  --bar-space-lg: calc(1.5rem * var(--bar-scale));
-  --bar-space-xl: calc(2rem * var(--bar-scale));
   --bar-icon-xs: calc(0.75rem * var(--bar-scale));
   --bar-icon-sm: calc(1rem * var(--bar-scale));
   --bar-icon-md: calc(1.25rem * var(--bar-scale));
   --bar-icon-lg: calc(1.6rem * var(--bar-scale));
   --bar-icon-xl: calc(2rem * var(--bar-scale));
   --bar-radius-default: calc(var(--toolkit-radius) * var(--bar-scale));
-  --bar-radius-sm: calc(0.375rem * var(--bar-scale));
-  --bar-radius-md: calc(0.625rem * var(--bar-scale));
-  --bar-radius-lg: calc(0.875rem * var(--bar-scale));
-  --bar-radius-xl: calc(1.125rem * var(--bar-scale));
   --bar-button-radius-default: calc(var(--toolkit-radius) * var(--bar-scale));
-  --bar-button-radius-sm: calc(0.375rem * var(--bar-scale));
-  --bar-button-radius-md: calc(0.625rem * var(--bar-scale));
-  --bar-button-radius-lg: calc(0.875rem * var(--bar-scale));
-  --bar-button-radius-xl: calc(1.125rem * var(--bar-scale));
 }
