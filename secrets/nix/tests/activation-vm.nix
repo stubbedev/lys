@@ -17,7 +17,7 @@ in
     name = "lys-secrets-activation-vm";
 
     nodes.machine = {
-      imports = [self.nixosModules.default];
+      imports = [self.nixosModules.lys-secrets];
       services.lys-secrets.enable = true;
       services.dbus.implementation = "broker";
       users.users.${user} = {

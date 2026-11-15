@@ -9,7 +9,6 @@
 {
   pkgs,
   self,
-  lys-wm,
 }: let
   user = "alice";
   password = "lys-a11y-vm";
@@ -36,8 +35,8 @@ in
 
     nodes.machine = {...}: {
       imports = [
-        self.nixosModules.default
-        lys-wm.nixosModules.default
+        self.nixosModules.lys-login
+        self.nixosModules.lys-wm
         greeterVm.module
       ];
       programs.lys-wm.enable = true;

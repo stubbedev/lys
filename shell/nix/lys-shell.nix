@@ -1,6 +1,6 @@
 {
   lib,
-  buildGoModule,
+  lysGo,
   makeWrapper,
   libX11,
   xkeyboard-config,
@@ -21,41 +21,6 @@ let
     vulkan-loader
   ];
 
-  # internal/version is the one place the release version lives.
-  version =
-    let
-      line =
-        lib.findFirst (lib.hasPrefix "const Version = ")
-          (throw "internal/version/version.go declares no Version")
-          (lib.splitString "\n" (builtins.readFile ../internal/version/version.go));
-    in
-    lib.removeSuffix "\"" (lib.removePrefix "const Version = \"" line);
-
-  nonGoDirs = [
-    "contrib"
-    "docs"
-    "nix"
-    "packaging"
-    "schema"
-    "scripts"
-    "tests"
-  ];
-  goDirs = lib.attrNames (
-    lib.filterAttrs (
-      name: type: type == "directory" && !lib.hasPrefix "." name && !lib.elem name nonGoDirs
-    ) (builtins.readDir ../.)
-  );
-
-  src = lib.fileset.toSource {
-    root = ../.;
-    fileset = lib.fileset.unions (
-      [
-        ../go.mod
-        ../go.sum
-      ]
-      ++ map (dir: ../. + "/${dir}") goDirs
-    );
-  };
 
   # The binaries that draw through lys-ui and dlopen the GPU and media
   # libraries.
@@ -64,24 +29,15 @@ let
     "lys-lock"
   ];
 in
-buildGoModule {
+lysGo.build {
   pname = "lys-shell";
-  inherit version src;
 
-  # The vendored modules' hash: a go.mod change (a lys-ui bump) and the
-  # first import of a package not vendored yet both change it, since only
-  # imported packages are vendored; `just vendor-hash` recomputes it (a
-  # stale one is reused, not reported, the derivation being fixed-output).
-  vendorHash = "sha256-YJXMTJbOxmrmrQO9qbKINe6RFiKH7l0qdogVcLVBF0U=";
 
   subPackages = [
-    "cmd/lys-shell"
-    "cmd/lys-lock"
+    "shell/cmd/lys-shell"
+    "shell/cmd/lys-lock"
   ];
 
-  # lys-ui and the purego bindings are pure Go; cgo stays off, as in the
-  # devShell.
-  env.CGO_ENABLED = "0";
   ldflags = [
     "-s"
     "-w"
@@ -109,27 +65,27 @@ buildGoModule {
   postInstall = ''
     # Handler for the globalprotectcallback: URI scheme (GlobalProtect
     # SAML sign-in answers).
-    install -Dm0644 resources/dev.stubbe.lys.vpn-sso-callback.desktop -t $out/share/applications
+    install -Dm0644 shell/resources/dev.stubbe.lys.vpn-sso-callback.desktop -t $out/share/applications
     go tool install-icons $out/share/icons/hicolor/scalable/actions
     # Reference copy of the systemd user unit; the modules define their own.
-    install -Dm0644 resources/lys-shell.service -t $out/share/lys-shell
+    install -Dm0644 shell/resources/lys-shell.service -t $out/share/lys-shell
 
     # The xdg-desktop-portal backend: the interface declaration, the D-Bus
     # activation file, and the reference unit and portals.conf.
-    install -Dm0644 resources/lys-shell.portal resources/lys-shell-lys-wm.portal \
+    install -Dm0644 shell/resources/lys-shell.portal shell/resources/lys-shell-lys-wm.portal \
       -t $out/share/xdg-desktop-portal/portals
     install -d $out/share/dbus-1/services
-    substitute resources/org.freedesktop.impl.portal.desktop.lys.service \
+    substitute shell/resources/org.freedesktop.impl.portal.desktop.lys.service \
       $out/share/dbus-1/services/org.freedesktop.impl.portal.desktop.lys.service \
       --replace-fail /usr/bin/lys-shell "$out/bin/lys-shell"
-    for activation in resources/dev.stubbe.lys.*.service; do
+    for activation in shell/resources/dev.stubbe.lys.*.service; do
       substitute "$activation" "$out/share/dbus-1/services/$(basename "$activation")" \
         --replace-fail /usr/bin/lys-shell "$out/bin/lys-shell"
     done
-    substitute resources/xdg-desktop-portal-lys-shell.service \
+    substitute shell/resources/xdg-desktop-portal-lys-shell.service \
       $out/share/lys-shell/xdg-desktop-portal-lys-shell.service \
       --replace-fail /usr/bin/lys-shell "$out/bin/lys-shell"
-    install -Dm0644 resources/lys-shell-portals.conf -t $out/share/lys-shell
+    install -Dm0644 shell/resources/lys-shell-portals.conf -t $out/share/lys-shell
   '';
 
   # The dev shell puts the same libraries on its loader path.

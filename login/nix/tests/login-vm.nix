@@ -18,13 +18,11 @@
   pkgs,
   lib,
   self,
-  lys-wm,
-  lys-secrets,
 }: let
   user = "alice";
   password = "lys-login-vm";
   greeterVm = import ./greeter-vm.nix {inherit pkgs;};
-  defaultCompositor = lys-wm.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  defaultCompositor = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
 
   # The cursor the session records for the next greeter.
   cursorTheme = "lys-vm-cursor";
@@ -62,9 +60,9 @@ in
 
     nodes.machine = {...}: {
       imports = [
-        self.nixosModules.default
-        lys-wm.nixosModules.default
-        lys-secrets.nixosModules.default
+        self.nixosModules.lys-login
+        self.nixosModules.lys-wm
+        self.nixosModules.lys-secrets
         greeterVm.module
         greeterVm.systemAccount
       ];

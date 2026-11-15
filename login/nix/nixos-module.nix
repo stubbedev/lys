@@ -166,8 +166,8 @@ in {
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      defaultText = lib.literalExpression "lys-login.packages.\${system}.default";
+      default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login;
+      defaultText = lib.literalExpression "lys.packages.\${system}.lys-login";
       description = "The lys-login package: the greeter, the lock screen and the display manager.";
     };
 
@@ -233,8 +233,8 @@ in {
 
       compositorPackage = lib.mkOption {
         type = lib.types.package;
-        default = self.inputs.lys-wm.packages.${pkgs.stdenv.hostPlatform.system}.default;
-        defaultText = lib.literalExpression "lys-login.inputs.lys-wm.packages.\${system}.default";
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
+        defaultText = lib.literalExpression "lys.packages.\${system}.lys-wm";
         example = lib.literalExpression "config.programs.lys-wm.package";
         description = "lys-wm, the kiosk compositor the `lys-login` display manager shows the greeter in.";
       };
@@ -242,7 +242,7 @@ in {
       splashPackage = lib.mkOption {
         type = lib.types.nullOr lib.types.package;
         default = null;
-        example = lib.literalExpression "lys-splash.packages.\${system}.default";
+        example = lib.literalExpression "lys.packages.\${system}.lys-splash";
         description = ''
           lys-splash, when it is the boot splash: the `lys-login` display
           manager takes the screen from it without a blank frame. Its unit

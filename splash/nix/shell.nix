@@ -1,11 +1,15 @@
-{inputs, ...}: {
+{
+  inputs,
+  self,
+  ...
+}: {
   perSystem = {
     pkgs,
     self',
     ...
   }: {
-    devShells.default = pkgs.mkShell {
-      inputsFrom = [self'.packages.default];
+    devShells.splash = pkgs.mkShell {
+      inputsFrom = [self'.packages.lys-splash];
 
       packages = with pkgs; [
         gopls
@@ -23,6 +27,5 @@
       };
     };
 
-    formatter = pkgs.alejandra;
   };
 }

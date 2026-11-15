@@ -10,7 +10,7 @@
     system,
     ...
   }: let
-    module = self.nixosModules.default;
+    module = self.nixosModules.lys-wm;
     vm = args: import ./vm.nix ({inherit pkgs module;} // args);
     screencast = portal:
       import ./screencast.nix {
@@ -146,11 +146,11 @@
       vm-gpu-tests = import ./gpu-tests.nix {
         inherit pkgs;
         inherit (self'.packages) lys-wm;
-        inherit (inputs'.lys-ui.packages) lys-ui;
+        inherit (self'.packages) lys-ui;
       };
       headless = pkgs.callPackage ./headless.nix {
         inherit (self'.packages) lys-wm;
-        inherit (inputs'.lys-ui.packages) lys-ui;
+        inherit (self'.packages) lys-ui;
       };
       module = let
         machine = inputs.nixpkgs.lib.nixosSystem {

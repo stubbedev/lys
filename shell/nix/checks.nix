@@ -12,7 +12,6 @@
           # tests/hyprland-vm.nix.
           lys-shell-hyprland-vm = pkgs.callPackage ../tests/hyprland-vm.nix {
             inherit self;
-            inherit (inputs) lys-secrets lys-login;
           };
           # internal/clockwatch on a real kernel, stepping the clock and
           # suspending, in a NixOS VM (needs KVM); see
@@ -24,13 +23,12 @@
           # tests/lys-wm-vm.nix.
           lys-shell-lys-wm-vm = pkgs.callPackage ../tests/lys-wm-vm.nix {
             inherit self;
-            inherit (inputs) lys-wm lys-login;
           };
           # A screen shared through this shell's portal, on lys-wm's harness.
-          lys-shell-lys-wm-screencast-vm = inputs.lys-wm.lib.screencast {
+          lys-shell-lys-wm-screencast-vm = self.lib.screencast {
             inherit pkgs;
-            module = inputs.lys-wm.nixosModules.default;
-            lysShell = self.nixosModules.default;
+            module = self.nixosModules.lys-wm;
+            lysShell = self.nixosModules.lys-shell;
             portal = "lys-shell";
             seconds = 10;
           };
@@ -42,12 +40,12 @@
           # The modules install the settings app unless told not to.
           lys-shell-settings-app =
             let
-              settingsPkg = inputs.lys-settings.packages.${pkgs.stdenv.hostPlatform.system}.default;
+              settingsPkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-settings;
               nixos =
                 enable:
                 (inputs.nixpkgs.lib.nixosSystem {
                   modules = [
-                    self.nixosModules.default
+                    self.nixosModules.lys-shell
                     {
                       nixpkgs.hostPlatform = pkgs.stdenv.hostPlatform.system;
                       system.stateVersion = "26.05";

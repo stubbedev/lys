@@ -1,8 +1,7 @@
 {
   pkgs,
   splash,
-  lys-login,
-  lys-wm,
+  self,
   wmPackage,
 }: let
   grab = pkgs.callPackage ./drm-grab.nix {};
@@ -11,7 +10,7 @@ in
     name = "lys-splash-greeter-outputs";
     extraPythonPackages = p: [p.pillow];
     nodes.machine = {
-      imports = [(import ./greeter.nix {inherit pkgs splash lys-login lys-wm wmPackage;})];
+      imports = [(import ./greeter.nix {inherit pkgs splash self wmPackage;})];
       boot.kernelPackages = pkgs.linuxPackages_latest;
       boot.kernelModules = ["vkms"];
       boot.extraModprobeConfig = "options vkms create_default_dev=0";

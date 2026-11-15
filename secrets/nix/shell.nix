@@ -4,8 +4,8 @@
     self',
     ...
   }: {
-    devShells.default = pkgs.mkShell {
-      inputsFrom = [self'.packages.default];
+    devShells.secrets = pkgs.mkShell {
+      inputsFrom = [self'.packages.lys-secrets];
 
       packages = with pkgs; [
         gopls
@@ -38,6 +38,5 @@
       };
     };
 
-    formatter = pkgs.alejandra;
   };
 }

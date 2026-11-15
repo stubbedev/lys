@@ -11,7 +11,6 @@
 {
   pkgs,
   self,
-  lys-wm,
 }: let
   password = "lys-switch-vm";
   greeterVm = import ./greeter-vm.nix {inherit pkgs;};
@@ -67,8 +66,8 @@ in
 
     nodes.machine = {...}: {
       imports = [
-        self.nixosModules.default
-        lys-wm.nixosModules.default
+        self.nixosModules.lys-login
+        self.nixosModules.lys-wm
         greeterVm.module
       ];
       programs.lys-wm.enable = true;

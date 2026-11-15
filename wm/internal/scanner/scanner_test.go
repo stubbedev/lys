@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/lib/srcroot"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	scs "github.com/stubbedev/lys/wm/internal/protocol/server/cursorshape"
 	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
@@ -25,7 +26,7 @@ func TestGeneratedTreeIsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	module, err := modulePath(dir)
+	_, module, err := srcroot.Component(dir)
 	if err != nil {
 		t.Fatal(err)
 	}

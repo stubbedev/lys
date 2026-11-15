@@ -1,35 +1,14 @@
 {
   perSystem = {
-    inputs',
     lib,
-    pkgs,
+    lysGo,
     ...
-  }: let
-    src = lib.fileset.toSource {
-      root = ../.;
-      fileset = lib.fileset.difference (lib.fileset.gitTracked ../.) (
-        lib.fileset.unions [
-          ../flake.nix
-          ../flake.lock
-          ../nix
-          ../docs
-        ]
-      );
-    };
-  in {
-    packages.default = (pkgs.buildGoModule.override {go = inputs'.devtools.packages.go;}) {
+  }: {
+    packages.lys-secrets = lysGo.build {
       pname = "lys-secrets";
-      version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf src))}";
 
-      inherit src;
+      subPackages = ["secrets/cmd/lys-secrets"];
 
-      # The module cache's hash; `just vendor-hash` recomputes it after a
-      # go.mod change.
-      vendorHash = "sha256-0HGjRSRvPRIjXEhKBPEgWjDEcvcKGK8DDmDmgtxoISE=";
-
-      subPackages = ["cmd/lys-secrets"];
-
-      env.CGO_ENABLED = 0;
       ldflags = ["-s" "-w"];
 
       # The suite runs in `just check`: it needs private D-Bus sessions and
@@ -44,10 +23,10 @@
       postInstall = ''
         ln -s lys-secrets $out/bin/pinentry-lys
         install -d $out/lib/systemd/user $out/share/dbus-1/services
-        substitute resources/lys-secrets.service $out/lib/systemd/user/lys-secrets.service \
+        substitute secrets/resources/lys-secrets.service $out/lib/systemd/user/lys-secrets.service \
           --replace-fail /usr/bin/lys-secrets "$out/bin/lys-secrets"
         for activation in org.freedesktop.secrets dev.stubbe.lys.Vault1; do
-          substitute resources/$activation.service $out/share/dbus-1/services/$activation.service \
+          substitute secrets/resources/$activation.service $out/share/dbus-1/services/$activation.service \
             --replace-fail /usr/bin/lys-secrets "$out/bin/lys-secrets"
         done
       '';

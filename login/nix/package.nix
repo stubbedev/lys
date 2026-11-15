@@ -1,39 +1,20 @@
-{inputs, ...}: {
+{
   perSystem = {
-    inputs',
     lib,
+    lysGo,
     pkgs,
     ...
   }: let
-    src = lib.fileset.toSource {
-      root = ../.;
-      fileset = lib.fileset.difference (lib.fileset.gitTracked ../.) (
-        lib.fileset.unions [
-          ../flake.nix
-          ../flake.lock
-          ../nix
-          ../docs
-        ]
-      );
-    };
     # What the binary dlopens through purego: libpam for authentication
     # and sessions, and what drawing loads through
     # lys-ui (libvulkan, libva).
     libs = [pkgs.pam pkgs.libva pkgs.vulkan-loader];
   in {
-    packages.default = (pkgs.buildGoModule.override {go = inputs'.devtools.packages.go;}) {
+    packages.lys-login = lysGo.build {
       pname = "lys-login";
-      version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf src))}";
 
-      inherit src;
+      subPackages = ["login/cmd/lys-login"];
 
-      # The module cache's hash; `just vendor-hash` recomputes it after a
-      # go.mod change.
-      vendorHash = "sha256-jSufueV7Jh1oFAqkhawg4AoWEECW9Kuk2KCnuYPQaxI=";
-
-      subPackages = ["cmd/lys-login"];
-
-      env.CGO_ENABLED = 0;
       ldflags = [
         "-s"
         "-w"
@@ -47,7 +28,7 @@
       nativeBuildInputs = [pkgs.makeWrapper];
 
       postInstall = ''
-        install -Dm0644 resources/dev.stubbe.lys.login.policy $out/share/polkit-1/actions/dev.stubbe.lys.login.policy
+        install -Dm0644 login/resources/dev.stubbe.lys.login.policy $out/share/polkit-1/actions/dev.stubbe.lys.login.policy
       '';
 
       postFixup = ''

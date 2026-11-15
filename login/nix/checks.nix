@@ -8,11 +8,11 @@
     pkgs,
     ...
   }: let
-    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login;
     fakeLysWm = pkgs.writeShellScriptBin "lys-wm" "";
     greeterSystem = greeter:
       (pkgs.nixos {
-        imports = [self.nixosModules.default];
+        imports = [self.nixosModules.lys-login];
         programs.lys-login.greeter = {enable = true;} // greeter;
         boot.loader.grub.enable = false;
         fileSystems."/" = {
@@ -35,16 +35,13 @@
         # nix/tests/login-vm.nix.
         login-vm = pkgs.callPackage ./tests/login-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm lys-secrets;
         };
         # The login keyring with the real gnome-keyring; see nix/tests/keyring-vm.nix.
         keyring-vm = pkgs.callPackage ./tests/keyring-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm;
         };
         upgrade-vm = pkgs.callPackage ./tests/upgrade-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm lys-secrets;
         };
         # The greeter under greetd in cage; see nix/tests/greetd-vm.nix.
         greetd-vm = pkgs.callPackage ./tests/greetd-vm.nix {inherit self;};
@@ -55,37 +52,30 @@
         # several; see nix/tests/keyboard-vm.nix.
         keyboard-vm = pkgs.callPackage ./tests/keyboard-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm;
         };
         # The greeter's accessibility menu; see nix/tests/accessibility-vm.nix.
         accessibility-vm = pkgs.callPackage ./tests/accessibility-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm;
         };
         # Fast user switching; see nix/tests/switch-vm.nix.
         switch-vm = pkgs.callPackage ./tests/switch-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm;
         };
         # Autologin and the disk passphrase as the keyring's; see nix/tests/autologin-vm.nix.
         autologin-vm = pkgs.callPackage ./tests/autologin-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm lys-secrets;
         };
         # A changed password re-keys the login collection; see nix/tests/rekey-vm.nix.
         rekey-vm = pkgs.callPackage ./tests/rekey-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm lys-secrets;
         };
         # The lock screen's status row and fingerprint; see nix/tests/lock-vm.nix.
         lock-vm = pkgs.callPackage ./tests/lock-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm;
         };
         # An X11 session reaches logind as x11; see nix/tests/x11-session-vm.nix.
         x11-session-vm = pkgs.callPackage ./tests/x11-session-vm.nix {
           inherit self;
-          inherit (inputs) lys-wm;
         };
       }
       // {
@@ -173,7 +163,7 @@
             lib.hasInfix
             (builtins.unsafeDiscardStringContext " daemon --vt 1 --service lys-login --greeter-user lys-greeter --compositor ${lib.getExe' compositor "lys-wm"} ")
             (builtins.unsafeDiscardStringContext sys.systemd.services.lys-login.serviceConfig.ExecStart);
-          defaultCompositor = inputs.lys-wm.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          defaultCompositor = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
         in
           pkgs.runCommand "lys-login-default-display-manager" {} ''
             ${lib.optionalString (failedAssertions system != []) ''echo "greeter.enable alone fails an assertion" >&2; exit 1''}

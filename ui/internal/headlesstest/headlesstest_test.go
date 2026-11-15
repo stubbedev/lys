@@ -148,7 +148,7 @@ func TestLogWatcherTimeoutCarriesTail(t *testing.T) {
 // clicks below land on chrome. The states client's floating pin keeps
 // the confirmed maximize/fullscreen configure sizes deterministic.
 func TestSwayRecipePinsTheShowcase(t *testing.T) {
-	root, err := ModuleDir()
+	root, err := ComponentDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestSwayRecipePinsTheShowcase(t *testing.T) {
 // are doubled again by the nix ” string, so the guard matches the
 // escaped source form.
 func TestHyprlandVMRecipePinsTheShowcase(t *testing.T) {
-	root, err := ModuleDir()
+	root, err := ComponentDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,13 +208,13 @@ func TestHyprlandVMRecipePinsTheShowcase(t *testing.T) {
 	}
 }
 
-func TestModuleDirFindsRepoRoot(t *testing.T) {
-	root, err := ModuleDir()
+func TestComponentDirFindsTheUIDirectory(t *testing.T) {
+	root, err := ComponentDir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "cmd", "lys-ui-hello")); err != nil {
-		t.Errorf("module root %s has no cmd/lys-ui-hello: %v", root, err)
+		t.Errorf("ui directory %s has no cmd/lys-ui-hello: %v", root, err)
 	}
 }
 

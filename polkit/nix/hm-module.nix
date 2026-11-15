@@ -12,8 +12,8 @@ in {
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      defaultText = lib.literalExpression "lys-polkit.packages.\${system}.default";
+      default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-polkit;
+      defaultText = lib.literalExpression "lys.packages.\${system}.lys-polkit";
       description = "The lys-polkit package, whose user unit is installed.";
     };
   };

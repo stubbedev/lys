@@ -9,30 +9,20 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/stubbedev/lys/lib/srcroot"
 )
 
 // buildTimeout bounds one `go build` of the client under test; a warm
 // cache compiles it in seconds, a cold one needs the slack.
 const buildTimeout = 3 * time.Minute
 
-// ModuleDir locates the lys-ui module root by walking up from the
-// current directory (the tests run inside the module tree), so the
-// harness can build cmd targets without assuming a working directory.
-func ModuleDir() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("headlesstest: no go.mod above %s", dir)
-		}
-		dir = parent
-	}
+// ComponentDir is lys-ui's directory in the source tree, found from the
+// current directory (the tests run inside it), so the harness can build
+// cmd targets without assuming a working directory.
+func ComponentDir() (string, error) {
+	dir, _, err := srcroot.Component(".")
+	return dir, err
 }
 
 // BuildShowcase compiles the widget showcase with the lysdebug tag
@@ -46,7 +36,7 @@ func BuildShowcase(dir string) (string, error) {
 // (trace calls are compiled out otherwise) into dir/bin and returns the
 // binary path.
 func BuildClient(dir, pkg, bin string) (string, error) {
-	root, err := ModuleDir()
+	root, err := ComponentDir()
 	if err != nil {
 		return "", err
 	}

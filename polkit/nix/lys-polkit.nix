@@ -1,38 +1,31 @@
 {
   lib,
-  buildGoModule,
   dbus,
   getent,
-  version,
-  src,
+  lysGo,
 }:
-buildGoModule {
+lysGo.build {
   pname = "lys-polkit";
-  inherit version src;
 
-  vendorHash = "sha256-0MDbfxsn6E1Js7S55C9PZ5PpUmgbuIuF+EmULW8qarQ=";
-
-  subPackages = ["."];
-
-  env.CGO_ENABLED = 0;
+  subPackages = ["polkit/cmd/lys-polkit"];
 
   ldflags = [
     "-s"
-    "-X main.version=${version}"
+    "-X main.version=${lysGo.version}"
   ];
 
   nativeCheckInputs = [dbus getent];
   doCheck = true;
 
   postInstall = ''
-    install -Dm644 dist/lys-polkit.service.in $out/lib/systemd/user/lys-polkit.service
+    install -Dm644 polkit/dist/lys-polkit.service.in $out/lib/systemd/user/lys-polkit.service
     substituteInPlace $out/lib/systemd/user/lys-polkit.service --replace-fail @bindir@ $out/bin
   '';
 
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
-    $out/bin/lys-polkit --version | grep -qxF "lys-polkit ${version}"
+    $out/bin/lys-polkit --version | grep -qxF "lys-polkit ${lysGo.version}"
     grep -qxF "ExecStart=$out/bin/lys-polkit" $out/lib/systemd/user/lys-polkit.service
     runHook postInstallCheck
   '';

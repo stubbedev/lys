@@ -6,7 +6,6 @@
 {
   pkgs,
   self,
-  lys-wm,
 }: let
   user = "ada";
   password = "correct horse";
@@ -27,8 +26,8 @@ in
 
     nodes.machine = {...}: {
       imports = [
-        self.nixosModules.default
-        lys-wm.nixosModules.default
+        self.nixosModules.lys-login
+        self.nixosModules.lys-wm
         greeterVm.module
       ];
 

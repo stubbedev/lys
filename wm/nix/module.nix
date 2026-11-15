@@ -15,7 +15,7 @@
     };
   };
 in {
-  flake.nixosModules.default = {
+  flake.nixosModules.lys-wm = {
     config,
     lib,
     pkgs,
@@ -61,7 +61,7 @@ in {
     ]);
   };
 
-  flake.homeManagerModules.default = {
+  flake.homeManagerModules.lys-wm = {
     config,
     lib,
     pkgs,

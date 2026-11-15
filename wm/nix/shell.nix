@@ -1,11 +1,15 @@
-{inputs, ...}: {
+{
+  inputs,
+  self,
+  ...
+}: {
   perSystem = {
     inputs',
     pkgs,
     self',
     ...
   }: {
-    devShells.default = pkgs.mkShell {
+    devShells.wm = pkgs.mkShell {
       inputsFrom = [self'.packages.lys-wm];
 
       packages = with pkgs;
@@ -20,7 +24,7 @@
         ++ ["${inputs.lys-ci}"]
         ++ import ./test-programs.nix {
           inherit pkgs;
-          inherit (inputs'.lys-ui.packages) lys-ui;
+          lys-ui = self'.packages.lys-ui.overrideAttrs {doCheck = false;};
         };
 
       env =
@@ -30,7 +34,5 @@
           GOTOOLCHAIN = "local";
         };
     };
-
-    formatter = pkgs.alejandra;
   };
 }

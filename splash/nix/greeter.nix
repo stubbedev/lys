@@ -5,11 +5,10 @@
 {
   pkgs,
   splash,
-  lys-login,
-  lys-wm,
+  self,
   wmPackage,
 }: {config, ...}: {
-  imports = [lys-login.nixosModules.default lys-wm.nixosModules.default];
+  imports = [self.nixosModules.lys-login self.nixosModules.lys-wm];
   boot.kernelParams = ["drm.debug=0x10" "log_buf_len=64M"];
   programs.lys-wm = {
     enable = true;

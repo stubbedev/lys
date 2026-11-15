@@ -1,10 +1,10 @@
 { self, ... }:
 {
   flake = {
-    # NixOS: `imports = [ lys-shell.nixosModules.default ]; programs.lys-shell.enable = true;`
-    nixosModules.default = import ./nixos-module.nix self;
+    # NixOS: `imports = [ lys.nixosModules.lys-shell ]; programs.lys-shell.enable = true;`
+    nixosModules.lys-shell = import ./nixos-module.nix self;
 
-    # home-manager: `imports = [ lys-shell.homeManagerModules.default ]; programs.lys-shell.enable = true;`
-    homeManagerModules.default = import ./hm-module.nix self;
+    # home-manager: `imports = [ lys.homeManagerModules.lys-shell ]; programs.lys-shell.enable = true;`
+    homeManagerModules.lys-shell = import ./hm-module.nix self;
   };
 }

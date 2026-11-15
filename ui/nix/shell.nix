@@ -1,4 +1,8 @@
-{inputs, ...}: {
+{
+  inputs,
+  self,
+  ...
+}: {
   perSystem = {
     buildGoModule,
     go,
@@ -15,11 +19,10 @@
       pkg.override (lib.mapAttrs (_: _: buildGoModule)
         (lib.filterAttrs (name: _: lib.match "buildGo.*Module" name != null)
           (lib.functionArgs pkg.override)));
-    gpuDrivers = inputs.lys-lib.lib.gpuDriverEnv pkgs;
+    gpuDrivers = self.lib.gpuDriverEnv pkgs;
   in {
-    formatter = pkgs.alejandra;
 
-    devShells.default = pkgs.mkShellNoCC ({
+    devShells.ui = pkgs.mkShellNoCC ({
         packages =
           [
             go

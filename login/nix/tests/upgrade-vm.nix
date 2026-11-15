@@ -2,14 +2,12 @@
   pkgs,
   lib,
   self,
-  lys-wm,
-  lys-secrets,
 }: let
   user = "alice";
   password = "lys-login-vm";
   otherRuntimeDir = "/run/lys-login-elsewhere";
   greeterVm = import ./greeter-vm.nix {inherit pkgs;};
-  first = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  first = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login;
   next = first.overrideAttrs (old: {version = "${old.version}-next";});
 
   refusing = pkgs.writeShellScriptBin "lys-login" ''
@@ -83,9 +81,9 @@ in
 
     nodes.machine = {...}: {
       imports = [
-        self.nixosModules.default
-        lys-wm.nixosModules.default
-        lys-secrets.nixosModules.default
+        self.nixosModules.lys-login
+        self.nixosModules.lys-wm
+        self.nixosModules.lys-secrets
         greeterVm.module
       ];
 

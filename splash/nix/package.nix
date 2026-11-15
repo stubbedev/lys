@@ -1,8 +1,8 @@
 {
   perSystem = {
     lib,
+    lysGo,
     pkgs,
-    inputs',
     ...
   }: let
     kernelCommandLineConditions = lib.concatMapStringsSep "\n" (c: "ConditionKernelCommandLine=${c}") [
@@ -12,29 +12,13 @@
       "|splash"
       "|rhgb"
     ];
-    src = lib.fileset.toSource {
-      root = ../.;
-      fileset = lib.fileset.difference (lib.fileset.gitTracked ../.) (
-        lib.fileset.unions [
-          ../flake.nix
-          ../flake.lock
-          ../nix
-          ../docs
-        ]
-      );
-    };
   in {
-    packages.default = (pkgs.buildGoModule.override {go = inputs'.devtools.packages.go;}) {
+    packages.lys-splash = lysGo.build {
       pname = "lys-splash";
-      version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf src))}";
-
-      inherit src;
-
-      vendorHash = "sha256-Iaj6WFlmFjiSrOMxSLhrW5IRsbcJOEMft9LDLK/IjjU=";
-
-      env.CGO_ENABLED = 0;
+      subPackages = ["splash/cmd/lys-splash"];
 
       doCheck = true;
+      checkPhase = lysGo.test ["./splash/..."];
 
       outputs = ["out" "compat"];
 
@@ -44,7 +28,7 @@
       postInstall = ''
         installUnits() {
           mkdir -p "$1"
-          for unit in units/*; do
+          for unit in splash/units/*; do
             substitute "$unit" "$1/$(basename "$unit")" \
               --subst-var-by lys_splash "$2" \
               --subst-var-by kernel_command_line_conditions ${lib.escapeShellArg kernelCommandLineConditions} \
@@ -58,7 +42,7 @@
         mkdir -p $compat/sbin $compat/share
         ln -s ../bin/lys-splash $compat/sbin/plymouthd
         installUnits $compat/lib/systemd/system /usr/bin/lys-splash /usr/bin/systemd-tty-ask-password-agent
-        cp -r initramfs-tools $compat/share/initramfs-tools
+        cp -r splash/initramfs-tools $compat/share/initramfs-tools
 
         if grep -rn '@[a-z_]*@' $out/lib $compat/lib; then
           echo "a unit names a placeholder that is not filled in" >&2

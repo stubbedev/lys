@@ -21,7 +21,7 @@ check: vet lint no-fused test build
 # suite just headless runs, driven by LYS_UI_TEST_COMPOSITOR=hyprland.
 # Needs KVM; a required CI gate alongside sway.
 hyprland-vm:
-    nix build -L .#checks.{{ arch() }}-{{ os() }}.lys-ui-hyprland-vm
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.ui-hyprland-vm
 
 # The AT-SPI bridge's bus-level tests (#65, #114): a private
 # dbus-daemon plays the accessibility bus, a second connection plays
@@ -33,7 +33,7 @@ atspi:
 # Build the Nix package with its sandboxed tests: a go.mod or go.sum
 # change without the matching vendorHash in nix/package.nix fails here.
 package:
-    nix build -L --no-link .#checks.{{ arch() }}-{{ os() }}.lys-ui
+    nix build -L --no-link .#checks.{{ arch() }}-{{ os() }}.ui-package
 
 # The GPU renderer's lys-ui tests on lavapipe, Mesa's CPU Vulkan
 # driver, so they gate without a GPU: every widget golden rendered on
@@ -397,22 +397,3 @@ panel:
 # Run the layer-shell status bar (lys-ui-bar).
 bar:
     go run ./cmd/lys-ui-bar
-
-# Set nix/package.nix's vendorHash to the hash of the modules go.sum pins.
-vendor-hash:
-    nix run github:stubbedev/lys-ci#vendor-hash -- nix/package.nix .#lys-ui.goModules
-
-# Tag the current commit as the next release and push it, refusing anything but
-# a clean default branch whose CI succeeded.
-release-patch:
-    nix run github:stubbedev/lys-ci#release -- patch
-
-release-minor:
-    nix run github:stubbedev/lys-ci#release -- minor
-
-release-major:
-    nix run github:stubbedev/lys-ci#release -- major
-
-# Move every lys module and flake input to its head, then the vendor hash.
-bump-lys:
-    nix run github:stubbedev/lys-ci#bump-lys

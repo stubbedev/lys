@@ -4,8 +4,8 @@
     self',
     ...
   }: {
-    devShells.default = pkgs.mkShell {
-      inputsFrom = [self'.packages.default];
+    devShells.polkit = pkgs.mkShell {
+      inputsFrom = [self'.packages.lys-polkit];
 
       packages = with pkgs; [
         gopls
@@ -24,6 +24,5 @@
       };
     };
 
-    formatter = pkgs.alejandra;
   };
 }

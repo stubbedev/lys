@@ -16,8 +16,6 @@
   pkgs,
   lib,
   self,
-  lys-wm,
-  lys-secrets,
 }: let
   password = "lys-autologin-vm";
   otherPassphrase = "other-luks-key";
@@ -60,9 +58,9 @@ in
 
     nodes.machine = {...}: {
       imports = [
-        self.nixosModules.default
-        lys-wm.nixosModules.default
-        lys-secrets.nixosModules.default
+        self.nixosModules.lys-login
+        self.nixosModules.lys-wm
+        self.nixosModules.lys-secrets
         greeterVm.module
       ];
       virtualisation = {

@@ -17,8 +17,7 @@
   pkgs,
   module,
   splash,
-  lys-login,
-  lys-wm,
+  self,
   wmPackage,
 }: let
   inherit (pkgs) lib;
@@ -54,7 +53,7 @@ in
     name = "lys-splash-e2e";
     extraPythonPackages = p: [p.pillow];
     nodes.machine = {
-      imports = [(luks ["/dev/vdb" "/dev/vdc"]) (import ./greeter.nix {inherit pkgs splash lys-login lys-wm wmPackage;})];
+      imports = [(luks ["/dev/vdb" "/dev/vdc"]) (import ./greeter.nix {inherit pkgs splash self wmPackage;})];
       virtualisation.qemu.options = ["-vga none" "-device virtio-vga" "-action shutdown=pause"];
       boot.kernelParams = ["modprobe.blacklist=virtio_gpu"];
       systemd.services.native-gpu = {

@@ -8,11 +8,11 @@
     pkgs,
     ...
   }: let
-    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-polkit;
     home = inputs.home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       modules = [
-        self.homeManagerModules.default
+        self.homeManagerModules.lys-polkit
         {
           home = {
             username = "alice";

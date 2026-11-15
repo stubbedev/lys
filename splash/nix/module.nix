@@ -1,5 +1,5 @@
 {self, ...}: {
-  flake.nixosModules.default = {
+  flake.nixosModules.lys-splash = {
     config,
     lib,
     pkgs,
@@ -20,8 +20,8 @@
       enable = lib.mkEnableOption "lys-splash, the lys desktop's boot splash, in place of plymouth";
       package = lib.mkOption {
         type = lib.types.package;
-        default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-        defaultText = lib.literalExpression "lys-splash.packages.\${pkgs.stdenv.hostPlatform.system}.default";
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-splash;
+        defaultText = lib.literalExpression "lys.packages.\${system}.lys-splash";
         description = "The lys-splash package to run.";
       };
       theme = lib.mkOption {

@@ -1,12 +1,16 @@
-{inputs, ...}: {
+{
+  inputs,
+  self,
+  ...
+}: {
   perSystem = {
     lib,
     pkgs,
     self',
     ...
   }: {
-    devShells.default = pkgs.mkShell {
-      inputsFrom = [self'.packages.default];
+    devShells.settings = pkgs.mkShell {
+      inputsFrom = [self'.packages.lys-settings];
 
       packages = with pkgs; [
         gopls
@@ -22,12 +26,12 @@
         jetbrains-mono
         # What the tests hold the app to, and the compositor the end-to-end test
         # starts in a private runtime directory.
-        inputs.lys-wm.packages.${pkgs.stdenv.hostPlatform.system}.default
+        self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm
         wtype
         dbus
       ];
 
-      LD_LIBRARY_PATH = lib.makeLibraryPath (self'.packages.default.libs ++ [pkgs.pam]);
+      LD_LIBRARY_PATH = lib.makeLibraryPath (self'.packages.lys-settings.libs ++ [pkgs.pam]);
       LYS_SETTINGS_TEST_PWQUALITY = "${pkgs.libpwquality.lib}/lib/security/pam_pwquality.so";
       XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
       XLOCALEDIR = "${pkgs.libX11}/share/X11/locale";
@@ -39,6 +43,5 @@
       GOTOOLCHAIN = "local";
     };
 
-    formatter = pkgs.alejandra;
   };
 }

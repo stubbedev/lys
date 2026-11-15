@@ -39,8 +39,8 @@ in {
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      defaultText = lib.literalExpression "lys-login.packages.\${system}.default";
+      default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login;
+      defaultText = lib.literalExpression "lys.packages.\${system}.lys-login";
       description = "The lys-login package: the greeter, the lock screen and the display manager.";
     };
 

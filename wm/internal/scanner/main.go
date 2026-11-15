@@ -5,16 +5,14 @@ package main
 //go:generate go run . -dir ../protocol
 
 import (
-	"bufio"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	xml "github.com/stubbedev/lys/lib/protocols"
+	"github.com/stubbedev/lys/lib/srcroot"
 )
 
 func main() {
@@ -31,7 +29,7 @@ func run(dir string) error {
 	if err != nil {
 		return err
 	}
-	module, err := modulePath(dir)
+	_, module, err := srcroot.Component(dir)
 	if err != nil {
 		return err
 	}
@@ -73,36 +71,6 @@ func loadProtocols(m *manifest) ([]*protocol, error) {
 		return nil, err
 	}
 	return protocols, nil
-}
-
-func modulePath(dir string) (string, error) {
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return "", fmt.Errorf("resolve %s: %w", dir, err)
-	}
-	for d := abs; ; d = filepath.Dir(d) {
-		f, err := os.Open(filepath.Join(d, "go.mod"))
-		if errors.Is(err, os.ErrNotExist) {
-			if filepath.Dir(d) == d {
-				return "", fmt.Errorf("no go.mod above %s", abs)
-			}
-			continue
-		}
-		if err != nil {
-			return "", fmt.Errorf("open go.mod: %w", err)
-		}
-		defer f.Close()
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			if rest, ok := strings.CutPrefix(sc.Text(), "module "); ok {
-				return strings.TrimSpace(rest), nil
-			}
-		}
-		if err := sc.Err(); err != nil {
-			return "", fmt.Errorf("read %s: %w", f.Name(), err)
-		}
-		return "", fmt.Errorf("%s has no module line", f.Name())
-	}
 }
 
 func replaceTree(dst string, files map[string][]byte) error {

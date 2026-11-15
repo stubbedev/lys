@@ -21,8 +21,6 @@
   pkgs,
   lib,
   self,
-  lys-secrets,
-  lys-login,
 }:
 
 let
@@ -95,8 +93,8 @@ pkgs.testers.nixosTest {
     {
       imports = [
         self.nixosModules.default
-        lys-secrets.nixosModules.default
-        lys-login.nixosModules.default
+        self.nixosModules.lys-secrets
+        self.nixosModules.lys-login
       ];
 
       programs.lys-shell.enable = true;

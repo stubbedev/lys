@@ -4,14 +4,14 @@
 default:
     @just --list
 
-# Every gate a commit must pass: formatting, a tidy go.mod, the release
+# Every gate a commit must pass: formatting, the release
 # gates, the vulnerability scan and the race detector. Each package's tests run
 # once plain, in `check`, and once under `race`, and the animations are played
 # against their baselines. CI runs each as a separate job in the dev shell.
 gates: plain race pace-gates
 
 # Every gate but the race detector.
-plain: fmt-check tidy-check check vuln
+plain: fmt-check check vuln
 
 # The tests that open the machine's DRM card nodes or render on its GPU. They
 # run only in the container `just docker hardware` builds, never beside a
@@ -292,7 +292,7 @@ schema:
 
 # Static analysis of every package with go vet.
 vet:
-    go vet ./...
+    go vet $(go list ./... | grep -v /third_party/xgb)
 
 # Fail on any float product fused into an FMA, which rounds differently from amd64.
 no-fused:
@@ -342,17 +342,10 @@ fmt:
 fmt-check:
     golangci-lint fmt --diff ./...
 
-# Fail, showing the diff, when go.mod or go.sum is not tidy.
-tidy-check:
-    go mod tidy -diff
 
 # Fail when a reachable dependency has a known vulnerability.
 vuln:
     govulncheck ./...
-
-# Set nix/package.nix's vendorHash to the hash of the modules go.sum pins.
-vendor-hash:
-    nix run github:stubbedev/lys-ci#vendor-hash -- nix/package.nix .#lys-wm.goModules
 
 # Move an issue to In Progress on the lys-wm project board.
 start issue:
@@ -373,18 +366,3 @@ start issue:
     gh project item-edit --project-id PVT_kwHOBU6Wkc4Bm521 --id "$item" \
         --field-id PVTSSF_lAHOBU6Wkc4Bm521zhlg6Ew --single-select-option-id 47fc9ee4 >/dev/null
     echo "#$issue is In Progress"
-
-# Tag the current commit as the next release and push it, refusing anything but
-# a clean default branch whose CI succeeded.
-release-patch:
-    nix run github:stubbedev/lys-ci#release -- patch
-
-release-minor:
-    nix run github:stubbedev/lys-ci#release -- minor
-
-release-major:
-    nix run github:stubbedev/lys-ci#release -- major
-
-# Move every lys module and flake input to its head, then the vendor hash.
-bump-lys:
-    nix run github:stubbedev/lys-ci#bump-lys

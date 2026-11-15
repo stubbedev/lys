@@ -1,15 +1,19 @@
-{inputs, ...}: {
+{
+  inputs,
+  self,
+  ...
+}: {
   perSystem = {
     inputs',
     lib,
     pkgs,
     ...
   }: let
-    gpuDrivers = inputs.lys-lib.lib.gpuDriverEnv pkgs;
+    gpuDrivers = self.lib.gpuDriverEnv pkgs;
     fonts = [pkgs.inter pkgs.jetbrains-mono pkgs.nerd-fonts.jetbrains-mono];
     fontDirs = lib.concatMapStrings (font: "  <dir>${font}/share/fonts</dir>\n") fonts;
   in {
-    devShells.default = pkgs.mkShell {
+    devShells.desktop = pkgs.mkShell {
       packages = with pkgs;
         [
           inputs'.devtools.packages.go
@@ -26,7 +30,7 @@
           dbus
           pipewire
           systemd
-          inputs.lys-wm.packages.${pkgs.stdenv.hostPlatform.system}.default
+          self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm
           wl-clipboard
         ]
         ++ fonts;
@@ -54,6 +58,5 @@
         + gpuDrivers.shellHook;
     };
 
-    formatter = pkgs.alejandra;
   };
 }

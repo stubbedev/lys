@@ -2,8 +2,6 @@
   pkgs,
   lib,
   self,
-  lys-wm,
-  lys-login,
 }:
 
 let
@@ -73,8 +71,8 @@ pkgs.testers.nixosTest {
     {
       imports = [
         self.nixosModules.default
-        lys-wm.nixosModules.default
-        lys-login.nixosModules.default
+        self.nixosModules.lys-wm
+        self.nixosModules.lys-login
       ];
 
       programs.lys-shell = {

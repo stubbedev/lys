@@ -55,10 +55,6 @@ run *args:
 fmt:
     golangci-lint fmt
 
-# Set nix/lys-settings.nix's vendorHash to the hash of the modules go.sum pins.
-vendor-hash:
-    nix run github:stubbedev/lys-ci#vendor-hash -- nix/lys-settings.nix .#default.goModules
-
 # Run a recipe in the flake's dev shell inside a throwaway container, so nothing
 # the tests start reaches the desktop session: no host runtime dir, display, bus
 # or DRM node.
@@ -78,18 +74,3 @@ docker recipe="check" memory="6g":
         --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
         -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$PWD:/src" -v lys-settings-go:/go -w /src -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache GOLANGCI_LINT_CACHE=/go/lint TMPDIR=/tmp && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{quote(recipe)}}
-
-# Tag the current commit as the next release and push it, refusing anything but
-# a clean default branch whose CI succeeded.
-release-patch:
-    nix run github:stubbedev/lys-ci#release -- patch
-
-release-minor:
-    nix run github:stubbedev/lys-ci#release -- minor
-
-release-major:
-    nix run github:stubbedev/lys-ci#release -- major
-
-# Move every lys module and flake input to its head, then the vendor hash.
-bump-lys:
-    nix run github:stubbedev/lys-ci#bump-lys

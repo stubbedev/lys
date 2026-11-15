@@ -1,32 +1,25 @@
 {
   lib,
-  buildGoModule,
+  lysGo,
   makeWrapper,
   libX11,
   xkeyboard-config,
   libva,
   vulkan-loader,
-  version,
-  src,
 }: let
   # What the binary dlopens through purego: lys-ui's GPU renderer and the
   # recorder pages' device probes.
   libs = [libva vulkan-loader];
 in
-  buildGoModule {
+  lysGo.build {
     pname = "lys-settings";
-    inherit version src;
 
-    vendorHash = "sha256-vEc8YY1Pmi6hYsBgayvGgIxF3/gF2KjJMfbQU5OKOhY=";
-
-    subPackages = ["cmd/lys-settings"];
-
-    env.CGO_ENABLED = "0";
+    subPackages = ["settings/cmd/lys-settings"];
 
     ldflags = [
       "-s"
       "-w"
-      "-X main.version=${version}"
+      "-X main.version=${lysGo.version}"
       "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
       "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${libX11}/share/X11/locale"
     ];
@@ -37,9 +30,9 @@ in
     nativeBuildInputs = [makeWrapper];
 
     postInstall = ''
-      install -Dm0644 resources/dev.stubbe.lys.settings.desktop -t $out/share/applications
-      install -Dm0644 resources/lys-settings.svg -t $out/share/icons/hicolor/scalable/apps
-      go tool install-icons $out/share/lys-settings/icons/hicolor/scalable/actions $(cat resources/icons.txt)
+      install -Dm0644 settings/resources/dev.stubbe.lys.settings.desktop -t $out/share/applications
+      install -Dm0644 settings/resources/lys-settings.svg -t $out/share/icons/hicolor/scalable/apps
+      go tool install-icons $out/share/lys-settings/icons/hicolor/scalable/actions $(cat settings/resources/icons.txt)
     '';
 
     postFixup = ''
@@ -50,7 +43,7 @@ in
     installCheckPhase = ''
       runHook preInstallCheck
       export HOME=$TMPDIR XDG_CONFIG_HOME=$TMPDIR/config
-      $out/bin/lys-settings --version | grep -qxF "lys-settings ${version}"
+      $out/bin/lys-settings --version | grep -qxF "lys-settings ${lysGo.version}"
       $out/bin/lys-settings --list-pages | grep -qF '"id":"bar-general"'
       if $out/bin/lys-settings --bogus 2>/dev/null; then
         echo "an unknown flag was accepted" >&2

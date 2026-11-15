@@ -49,15 +49,15 @@ in
   imports = [
     (lib.mkRemovedOptionModule [ "programs" "lys-shell" "secrets" "enable" ] ''
       lys-secrets moved to its own flake, github:stubbedev/lys-secrets: import
-      its homeManagerModules.default and set `services.lys-secrets.enable = true;`.
+      its homeManagerModules.lys-secrets or .lys-login and set `services.lys-secrets.enable = true;`.
     '')
     (lib.mkRemovedOptionModule [ "programs" "lys-shell" "greeter" ] ''
       lys-login moved to its own flake, github:stubbedev/lys-login: import
-      its homeManagerModules.default and use `programs.lys-login.greeter`.
+      its homeManagerModules.lys-secrets or .lys-login and use `programs.lys-login.greeter`.
     '')
     (lib.mkRemovedOptionModule [ "programs" "lys-shell" "lock" ] ''
       lys-login moved to its own flake, github:stubbedev/lys-login: import
-      its homeManagerModules.default and use `programs.lys-login.lock`.
+      its homeManagerModules.lys-secrets or .lys-login and use `programs.lys-login.lock`.
     '')
   ];
 
@@ -120,8 +120,8 @@ in
 
       package = lib.mkOption {
         type = lib.types.package;
-        default = self.inputs.lys-settings.packages.${pkgs.stdenv.hostPlatform.system}.default;
-        defaultText = lib.literalExpression "lys-settings.packages.\${system}.default";
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-settings;
+        defaultText = lib.literalExpression "lys.packages.\${system}.lys-settings";
         description = "The lys-settings package to install.";
       };
     };

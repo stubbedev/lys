@@ -105,8 +105,8 @@ self: {
 
   package = lib.mkOption {
     type = lib.types.package;
-    default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-    defaultText = lib.literalExpression "lys-secrets.packages.\${system}.default";
+    default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-secrets;
+    defaultText = lib.literalExpression "lys.packages.\${system}.lys-secrets";
     description = "The lys-secrets package.";
   };
 }

@@ -8,12 +8,12 @@
     pkgs,
     ...
   }: let
-    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-settings;
     home = enable:
       inputs.home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          self.homeManagerModules.default
+          self.homeManagerModules.lys-settings
           {
             home = {
               username = "alice";

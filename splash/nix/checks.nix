@@ -10,7 +10,7 @@
     ...
   }: let
     testBinary = name: pkg:
-      self'.packages.default.overrideAttrs {
+      self'.packages.lys-splash.overrideAttrs {
         pname = "lys-splash-${name}-test";
         outputs = ["out"];
         postInstall = "";
@@ -26,14 +26,14 @@
           runHook postInstall
         '';
       };
-    module = self.nixosModules.default;
+    module = self.nixosModules.lys-splash;
     untested = pkg: pkg.overrideAttrs {doCheck = false;};
-    vmSplash = untested self'.packages.default;
-    wmPackage = untested inputs.lys-wm.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
+    vmSplash = untested self'.packages.lys-splash;
+    wmPackage = untested self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
   in {
     checks = {
-      package = self'.packages.default;
-      plymouth-client = self'.packages.default.overrideAttrs (old: {
+      package = self'.packages.lys-splash;
+      plymouth-client = self'.packages.lys-splash.overrideAttrs (old: {
         pname = "lys-splash-plymouth-client";
         env = old.env // {LYS_SPLASH_PLYMOUTH = lib.getExe' pkgs.plymouth "plymouth";};
         checkFlags = ["-run=^TestPlymouthClient$" "-v"];
@@ -59,19 +59,19 @@
       vm-journal = import ./vm-journal.nix {inherit pkgs;};
       vm-e2e = import ./vm-e2e.nix {
         inherit pkgs module;
-        inherit (inputs) lys-login lys-wm;
+        inherit self;
         inherit wmPackage;
         splash = vmSplash;
       };
       vm-greeter = import ./vm-greeter.nix {
         inherit pkgs module;
-        inherit (inputs) lys-login lys-wm;
+        inherit self;
         inherit wmPackage;
         splash = vmSplash;
       };
       vm-greeter-outputs = import ./vm-greeter-outputs.nix {
         inherit pkgs;
-        inherit (inputs) lys-login lys-wm;
+        inherit self;
         inherit wmPackage;
         splash = vmSplash;
       };

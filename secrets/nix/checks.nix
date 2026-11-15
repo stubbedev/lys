@@ -8,12 +8,12 @@
     pkgs,
     ...
   }: let
-    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-secrets;
     home =
       (inputs.home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          self.homeManagerModules.default
+          self.homeManagerModules.lys-secrets
           {
             home = {
               username = "u";
@@ -41,7 +41,7 @@
       (inputs.nixpkgs.lib.nixosSystem {
         inherit (pkgs.stdenv.hostPlatform) system;
         modules = [
-          self.nixosModules.default
+          self.nixosModules.lys-secrets
           {
             services.lys-secrets.enable = true;
             boot.loader.grub.enable = false;

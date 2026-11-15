@@ -1,23 +1,15 @@
 {
   perSystem = {
-    buildGoModule,
     lib,
+    lysGo,
     pkgs,
     ...
   }: let
-    drmTests = buildGoModule {
+    drmTests = lysGo.build {
       pname = "lys-lib-drm-tests";
-      version = "0";
-      src = lib.fileset.toSource {
-        root = ../.;
-        fileset = lib.fileset.difference (lib.fileset.gitTracked ../.) (
-          lib.fileset.unions [../flake.nix ../flake.lock ../nix ../docs]
-        );
-      };
-      vendorHash = "sha256-RZndGeY4iJLriCvqq2mz0GGGpvmKSiK9ehhtA5cg7Fo=";
       buildPhase = ''
         runHook preBuild
-        go test -c -o drm.test ./drm
+        go test -c -o drm.test ./lib/drm
         runHook postBuild
       '';
       doCheck = false;

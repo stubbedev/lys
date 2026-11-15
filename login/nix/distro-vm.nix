@@ -7,7 +7,7 @@
 # network for the build tools.
 {
   lib,
-  inputs,
+  self,
   ...
 }: {
   perSystem = {pkgs, ...}: let
@@ -21,7 +21,7 @@
         sha256 = "28680fe5b371a5a82ebf43a31926e086a168e59949d03969c5093e7071f90b7f";
       };
     };
-    lysSecrets = inputs.lys-secrets.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    lysSecrets = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-secrets;
     guest = pkgs.runCommand "lys-login-distro-vm-guest" {} ''
       cp -r ${lib.fileset.toSource {
         root = ../.;
@@ -29,7 +29,10 @@
       }} $out
       chmod -R u+w $out
       mkdir -p $out/lys-secrets/bin
-      cp -r ${inputs.lys-secrets}/{LICENSE,packaging,resources,scripts} $out/lys-secrets/
+      cp -r ${lib.fileset.toSource {
+        root = ../../secrets;
+        fileset = lib.fileset.unions [../../secrets/LICENSE ../../secrets/packaging ../../secrets/resources ../../secrets/scripts];
+      }}/. $out/lys-secrets/
       cp ${lysSecrets}/bin/lys-secrets $out/lys-secrets/bin/
     '';
     run = distro: image:

@@ -7,7 +7,7 @@
   }: let
     gpuDrivers = import ./gpu-drivers.nix pkgs;
   in {
-    devShells.default = pkgs.mkShellNoCC ({
+    devShells.lib = pkgs.mkShellNoCC ({
         packages =
           [
             go

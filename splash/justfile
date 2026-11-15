@@ -29,7 +29,7 @@ build:
 
 # Run nixpkgs' plymouth client against the server, in the nix sandbox.
 plymouth-client:
-    nix build --no-link -L .#checks.{{ arch() }}-{{ os() }}.plymouth-client
+    nix build --no-link -L .#checks.{{ arch() }}-{{ os() }}.splash-plymouth-client
 
 # Build an initramfs-tools image with the compat output in an Ubuntu container.
 initramfs-tools image="ubuntu:24.04":
@@ -38,22 +38,3 @@ initramfs-tools image="ubuntu:24.04":
 # Format every Go source in place with gofmt.
 fmt:
     gofmt -w .
-
-# Set nix/package.nix's vendorHash to the hash of the modules go.sum pins.
-vendor-hash:
-    nix run github:stubbedev/lys-ci#vendor-hash -- nix/package.nix .#default.goModules
-
-# Tag the current commit as the next release and push it, refusing anything but
-# a clean default branch whose CI succeeded.
-release-patch:
-    nix run github:stubbedev/lys-ci#release -- patch
-
-release-minor:
-    nix run github:stubbedev/lys-ci#release -- minor
-
-release-major:
-    nix run github:stubbedev/lys-ci#release -- major
-
-# Move every lys module and flake input to its head, then the vendor hash.
-bump-lys:
-    nix run github:stubbedev/lys-ci#bump-lys

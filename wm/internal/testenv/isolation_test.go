@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/srcroot"
 )
 
 const testhomePath = "github.com/stubbedev/lys/lib/testhome"
@@ -73,31 +75,18 @@ func TestEveryTestBinaryRunsInATestHome(t *testing.T) {
 
 func moduleRoot(t *testing.T) string {
 	t.Helper()
-	dir, err := os.Getwd()
+	dir, _, err := srcroot.Component(".")
 	if err != nil {
-		t.Fatalf("working directory: %v", err)
+		t.Fatal(err)
 	}
-	for {
-		_, err := os.Stat(filepath.Join(dir, "go.mod"))
-		if err == nil {
-			return dir
-		}
-		if !errors.Is(err, fs.ErrNotExist) {
-			t.Fatalf("look for go.mod in %s: %v", dir, err)
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("no go.mod above the working directory")
-		}
-		dir = parent
-	}
+	return dir
 }
 
 func skipDir(root, path, name string) error {
 	if path == root {
 		return nil
 	}
-	if name == "testdata" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+	if name == "testdata" || name == "third_party" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
 		return filepath.SkipDir
 	}
 	_, err := os.Stat(filepath.Join(path, "go.mod"))

@@ -10,8 +10,6 @@
 {
   pkgs,
   self,
-  lys-wm,
-  lys-secrets,
 }: let
   password = "lys-rekey-vm-old";
   newPassword = "Lys-rekey-VM-new-2026";
@@ -29,9 +27,9 @@ in
 
     nodes.machine = {...}: {
       imports = [
-        self.nixosModules.default
-        lys-wm.nixosModules.default
-        lys-secrets.nixosModules.default
+        self.nixosModules.lys-login
+        self.nixosModules.lys-wm
+        self.nixosModules.lys-secrets
         greeterVm.module
       ];
       environment.systemPackages = [pkgs.libsecret];

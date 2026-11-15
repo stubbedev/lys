@@ -8,15 +8,15 @@
       enable = lib.mkEnableOption "lys-settings, the lys desktop's settings app";
       package = lib.mkOption {
         type = lib.types.package;
-        default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-        defaultText = lib.literalExpression "lys-settings.packages.\${system}.default";
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-settings;
+        defaultText = lib.literalExpression "lys.packages.\${system}.lys-settings";
         description = "The lys-settings package to install.";
       };
     };
   };
 in {
   flake = {
-    nixosModules.default = {
+    nixosModules.lys-settings = {
       config,
       lib,
       ...
@@ -27,7 +27,7 @@ in {
       };
     };
 
-    homeManagerModules.default = {
+    homeManagerModules.lys-settings = {
       config,
       lib,
       ...
@@ -36,10 +36,6 @@ in {
       config = lib.mkIf config.programs.lys-settings.enable {
         home.packages = [config.programs.lys-settings.package];
       };
-    };
-
-    overlays.default = _final: prev: {
-      lys-settings = self.packages.${prev.stdenv.hostPlatform.system}.default;
     };
   };
 }

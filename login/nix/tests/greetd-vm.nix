@@ -26,7 +26,7 @@
     renderer,
     env ? [],
   }: {
-    imports = [self.nixosModules.default greeterVm.module];
+    imports = [self.nixosModules.lys-login greeterVm.module];
     programs.lys-login.greeter = {
       enable = true;
       displayManager = "greetd";

@@ -16,15 +16,14 @@
   pkgs,
   module,
   splash,
-  lys-login,
-  lys-wm,
+  self,
   wmPackage,
 }:
 pkgs.testers.runNixOSTest {
   name = "lys-splash-greeter";
   extraPythonPackages = p: [p.pillow];
   nodes.machine = {
-    imports = [module (import ./greeter.nix {inherit pkgs splash lys-login lys-wm wmPackage;})];
+    imports = [module (import ./greeter.nix {inherit pkgs splash self wmPackage;})];
     boot.lys-splash = {
       enable = true;
       package = splash;

@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   perSystem =
     {
@@ -11,10 +11,10 @@
       # Vulkan and VA-API drivers off NixOS, as lys-lib's and lys-ui's
       # shells set them up: without it the GPU tests and sway's renderer
       # find no driver there.
-      gpuDrivers = inputs.lys-lib.lib.gpuDriverEnv pkgs;
+      gpuDrivers = self.lib.gpuDriverEnv pkgs;
     in
     {
-      devShells.default = pkgs.mkShell {
+      devShells.shell = pkgs.mkShell {
         inputsFrom = [ self'.packages.lys-shell ];
 
         packages = with pkgs; [
@@ -44,7 +44,7 @@
           ffmpeg-headless
           # The compositor the minimized-windows module and dock tests run on
           # headless (service/lyswm/lyswmtest.Headless).
-          inputs.lys-wm.packages.${pkgs.stdenv.hostPlatform.system}.default
+          self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm
           # wl-paste, the out-of-process data-control reader the screenshot
           # clipboard tests read the selection back with.
           wl-clipboard
@@ -124,6 +124,5 @@
           + gpuDrivers.shellHook;
       };
 
-      formatter = pkgs.nixfmt;
     };
 }

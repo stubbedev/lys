@@ -1,39 +1,16 @@
 {
   perSystem = {
-    inputs',
     lib,
+    lysGo,
     pkgs,
     self',
     ...
-  }: let
-    src = lib.fileset.toSource {
-      root = ../.;
-      fileset = lib.fileset.difference (lib.fileset.gitTracked ../.) (
-        lib.fileset.unions [
-          ../flake.nix
-          ../flake.lock
-          ../nix
-          (lib.fileset.difference ../docs (lib.fileset.unions [../docs/actions.md ../docs/shaders]))
-        ]
-      );
-    };
-  in {
+  }: {
     packages = {
-      default = self'.packages.lys-wm;
-      lys-wm = (pkgs.buildGoModule.override {go = inputs'.devtools.packages.go;}) {
+      lys-wm = lysGo.build {
         pname = "lys-wm";
-        # Nix has no version to read from the source tree, so builds from a
-        # checkout are stamped with their source's hash: only a commit that
-        # changes the source changes the package.
-        version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf src))}";
 
-        inherit src;
-
-        # Pins the module dependencies in go.sum; `just vendor-hash` recomputes
-        # it, and CI does so on Dependabot's pull requests.
-        vendorHash = "sha256-hICTvPqGmwcgXLjcnDs7M8P0ttTcYSoDpXQ3F0IL2A8=";
-
-        subPackages = ["cmd/lys-wm" "cmd/lys-wmctl"];
+        subPackages = ["wm/cmd/lys-wm" "wm/cmd/lys-wmctl"];
 
         # purego loads these at runtime; the store paths are baked in so the
         # binary needs no library search path.
@@ -49,12 +26,11 @@
           "-X main.defaultFont=${dejavu_fonts}/share/fonts/truetype/DejaVuSans.ttf"
         ];
 
-        env.CGO_ENABLED = 0;
 
         postInstall = ''
-          install -Dm644 packaging/systemd/lys-wm-session.target $out/share/systemd/user/lys-wm-session.target
-          install -Dm644 packaging/xdg-desktop-portal/lys-wm-portals.conf $out/share/xdg-desktop-portal/lys-wm-portals.conf
-          install -Dm644 packaging/wayland-sessions/lys-wm.desktop $out/share/wayland-sessions/lys-wm.desktop
+          install -Dm644 wm/packaging/systemd/lys-wm-session.target $out/share/systemd/user/lys-wm-session.target
+          install -Dm644 wm/packaging/xdg-desktop-portal/lys-wm-portals.conf $out/share/xdg-desktop-portal/lys-wm-portals.conf
+          install -Dm644 wm/packaging/wayland-sessions/lys-wm.desktop $out/share/wayland-sessions/lys-wm.desktop
           substituteInPlace $out/share/wayland-sessions/lys-wm.desktop --replace-fail "Exec=lys-wm" "Exec=$out/bin/lys-wm"
         '';
 
@@ -75,7 +51,6 @@
     };
 
     apps = {
-      default = self'.apps.lys-wm;
       lys-wm = {
         type = "app";
         program = lib.getExe self'.packages.lys-wm;
