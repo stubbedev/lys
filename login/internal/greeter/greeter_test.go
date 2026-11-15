@@ -1,0 +1,532 @@
+package greeter
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys-ui/widget"
+
+	"github.com/stubbedev/lys-login/internal/cursorrecord"
+)
+
+func envOf(vars map[string]string) xdg.Env {
+	return func(name string) string { return vars[name] }
+}
+
+func TestParseOptions(t *testing.T) {
+	greetd := UserDefaults(envOf(map[string]string{"HOME": "/var/lib/greetd"}))
+	o, err := ParseOptions(greetd, []string{"--", "niri", "--session"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(o.Command, []string{"niri", "--session"}) || o.ConfigPath != config.GreeterConfigPath {
+		t.Errorf("command after --: %+v", o)
+	}
+	if !slices.Equal(o.SessionDirs, []string{"/usr/local/share/wayland-sessions", "/usr/share/wayland-sessions"}) ||
+		!slices.Equal(o.XSessionDirs, []string{"/usr/local/share/xsessions", "/usr/share/xsessions"}) {
+		t.Errorf("default dirs: %v %v", o.SessionDirs, o.XSessionDirs)
+	}
+
+	o, err = ParseOptions(UserDefaults(envOf(map[string]string{"XDG_DATA_DIRS": "/data", "XDG_STATE_HOME": "/state", "HOME": "/home/g"})), []string{
+		"--config", "/tmp/c.yaml", "--env", "XDG_SESSION_TYPE=wayland",
+		"--sessions", "/a", "--sessions", "/b", "--xsessions", "/x", "--state", "/run/g/last", "--", "sway",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.ConfigPath != "/tmp/c.yaml" || !reflect.DeepEqual(o.Env, []string{"XDG_SESSION_TYPE=wayland"}) ||
+		!reflect.DeepEqual(o.SessionDirs, []string{"/a", "/b"}) || !reflect.DeepEqual(o.XSessionDirs, []string{"/x"}) ||
+		o.StatePath != "/run/g/last" || !reflect.DeepEqual(o.Command, []string{"sway"}) {
+		t.Errorf("full parse: %+v", o)
+	}
+	if LastUserPath(o.StatePath) != "/run/g/last-user" {
+		t.Errorf("last-user path = %s", LastUserPath(o.StatePath))
+	}
+
+	for _, bad := range [][]string{{"--config"}, {"--env", "NOEQUALS"}, {"--bogus"}, {"--sessions"}, {"--state"}} {
+		requireUsageError(t, greetd, bad, "")
+	}
+}
+
+func requireUsageError(t *testing.T, d Defaults, args []string, naming string) {
+	t.Helper()
+	_, err := ParseOptions(d, args)
+	var usage UsageError
+	if !errors.As(err, &usage) || !strings.Contains(err.Error(), "usage: lys-login greet") || !strings.Contains(err.Error(), naming) {
+		t.Errorf("ParseOptions(%q) = %v, want a usage error naming %q", args, err, naming)
+	}
+}
+
+func TestAGreeterOfItsOwnAccountKeepsItsStateUnderItsStateDirectory(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{"XDG_STATE_HOME", map[string]string{"XDG_STATE_HOME": "/state", "HOME": "/var/lib/greetd"}, "/state/lys-greeter/last-session"},
+		{"HOME", map[string]string{"HOME": "/var/lib/greetd"}, "/var/lib/greetd/.local/state/lys-greeter/last-session"},
+		{"a relative XDG_STATE_HOME", map[string]string{"XDG_STATE_HOME": "state", "HOME": "/var/lib/greetd"}, "/var/lib/greetd/.local/state/lys-greeter/last-session"},
+	} {
+		o, err := ParseOptions(UserDefaults(envOf(c.env)), nil)
+		if err != nil || o.StatePath != c.want {
+			t.Errorf("%s: state default = %s, %v; want %s", c.name, o.StatePath, err, c.want)
+		}
+	}
+}
+
+func TestAGreeterWithNoStateDirectoryIsRefusedUnlessStateIsGiven(t *testing.T) {
+	for _, env := range []map[string]string{nil, {"XDG_STATE_HOME": "state", "HOME": "greetd"}} {
+		homeless := UserDefaults(envOf(env))
+		requireUsageError(t, homeless, nil, "--state is not given, and neither XDG_STATE_HOME nor HOME holds an absolute path")
+		o, err := ParseOptions(homeless, []string{"--state", "/var/lib/lys-greeter/last-session"})
+		if err != nil || o.StatePath != "/var/lib/lys-greeter/last-session" {
+			t.Errorf("%v with --state: %+v, %v", env, o, err)
+		}
+	}
+}
+
+func TestTheDisplayManagersGreeterKeepsItsStateInItsOwnAccountsDirectory(t *testing.T) {
+	for _, env := range []map[string]string{nil, {"HOME": "/root", "XDG_STATE_HOME": "/root/.local/state"}} {
+		o, err := ParseOptions(SystemDefaults(envOf(env)), nil)
+		if err != nil || o.StatePath != "/var/lib/lys-greeter/last-session" {
+			t.Errorf("%v: state default = %s, %v; want the greeter account's, never the display manager's own", env, o.StatePath, err)
+		}
+	}
+}
+
+func TestTheSessionDefaultsAreTheSystemDataDirectories(t *testing.T) {
+	env := envOf(map[string]string{
+		"XDG_DATA_DIRS": "/run/current-system/sw/share:relative::/usr/share",
+		"XDG_DATA_HOME": "/var/lib/greetd/data",
+		"HOME":          "/var/lib/greetd",
+	})
+	for name, d := range map[string]Defaults{"its own account's": UserDefaults(env), "the display manager's": SystemDefaults(env)} {
+		o, err := ParseOptions(d, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"/run/current-system/sw/share/wayland-sessions", "/usr/share/wayland-sessions"}; !slices.Equal(o.SessionDirs, want) {
+			t.Errorf("%s Wayland session dirs %q, want %q: the system data directories alone, the absolute ones", name, o.SessionDirs, want)
+		}
+		if want := []string{"/run/current-system/sw/share/xsessions", "/usr/share/xsessions"}; !slices.Equal(o.XSessionDirs, want) {
+			t.Errorf("%s X11 session dirs %q, want %q", name, o.XSessionDirs, want)
+		}
+	}
+}
+
+func TestNoSessionDirectoriesCanBeSaid(t *testing.T) {
+	d := SystemDefaults(envOf(map[string]string{"XDG_DATA_DIRS": "/data"}))
+	o, err := ParseOptions(d, []string{"--no-sessions", "--xsessions", "/x", "--", "sway"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(o.SessionDirs) != 0 || !slices.Equal(o.XSessionDirs, []string{"/x"}) {
+		t.Errorf("--no-sessions: %q %q, want no Wayland session dirs and /x", o.SessionDirs, o.XSessionDirs)
+	}
+	o, err = ParseOptions(d, []string{"--no-xsessions"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(o.SessionDirs, []string{"/data/wayland-sessions"}) || len(o.XSessionDirs) != 0 {
+		t.Errorf("--no-xsessions: %q %q, want the default Wayland session dirs and no X11 ones", o.SessionDirs, o.XSessionDirs)
+	}
+	requireUsageError(t, d, []string{"--no-sessions", "--sessions", "/a"}, "--no-sessions contradicts --sessions /a")
+	requireUsageError(t, d, []string{"--xsessions", "/x", "--no-xsessions"}, "--no-xsessions contradicts --xsessions /x")
+}
+
+func TestARelativePathIsRefused(t *testing.T) {
+	d := SystemDefaults(envOf(nil))
+	for _, flag := range []string{"--config", "--sessions", "--xsessions", "--state"} {
+		requireUsageError(t, d, []string{flag, "relative/path"}, flag+` requires an absolute path, not "relative/path"`)
+	}
+}
+
+func TestTheCommandLineAnOptionsWritesParsesBackToItInAnyEnvironment(t *testing.T) {
+	daemon := SystemDefaults(envOf(nil))
+	greeters := map[string]Defaults{
+		"the display manager's environment": daemon,
+		"a PAM session's environment": UserDefaults(envOf(map[string]string{
+			"XDG_DATA_DIRS": "/run/current-system/sw/share", "HOME": "/var/empty", "XDG_STATE_HOME": "/var/empty/state",
+		})),
+		"an environment with no home": UserDefaults(envOf(nil)),
+	}
+	for _, args := range [][]string{
+		nil,
+		{"--", "sway", "--unsupported-gpu"},
+		{"--no-sessions", "--no-xsessions", "--", "sway"},
+		{"--config", "/etc/c.yaml", "--state", "/var/lib/g/last", "--sessions", "/a", "--sessions", "/b", "--no-xsessions", "--env", "A=b", "--env", "C=d e", "--hand-over"},
+	} {
+		want, err := ParseOptions(daemon, args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for name, d := range greeters {
+			got, err := ParseOptions(d, want.Args())
+			if err != nil || !reflect.DeepEqual(got, want) {
+				t.Errorf("%q written as %q parses in %s to %+v, %v; want %+v", args, want.Args(), name, got, err, want)
+			}
+		}
+	}
+}
+
+func TestTheIconsGoUnderTheRuntimeDir(t *testing.T) {
+	got, err := iconsDir(envOf(map[string]string{"XDG_RUNTIME_DIR": "/run/user/7"}))
+	if err != nil || got != "/run/user/7/lys-greeter-icons" {
+		t.Errorf("with a runtime dir: %s, %v", got, err)
+	}
+	for _, runtime := range []string{"", "run"} {
+		got, err := iconsDir(envOf(map[string]string{"XDG_RUNTIME_DIR": runtime}))
+		if err == nil || !strings.Contains(err.Error(), strconv.Quote(runtime)) {
+			t.Errorf("XDG_RUNTIME_DIR=%q: %q, %v; want an error naming it", runtime, got, err)
+		}
+	}
+}
+
+func TestCachesLiveBesideTheStateAndNotInTheHome(t *testing.T) {
+	t.Setenv("HOME", "/var/empty")
+	t.Setenv("XDG_CACHE_HOME", "/inherited/cache")
+	if err := ApplyCacheDir("/var/lib/lys-greeter/last-session"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "/var/lib/lys-greeter/cache"; got != want {
+		t.Errorf("cache dir = %q, want %q", got, want)
+	}
+}
+
+func TestLastRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "last-session")
+	if LoadLast(path) != "" {
+		t.Error("a missing state file reads as a value")
+	}
+	if err := SaveLast(path, "sway"); err != nil {
+		t.Fatal(err)
+	}
+	if LoadLast(path) != "sway" {
+		t.Errorf("round trip = %q", LoadLast(path))
+	}
+	_ = os.WriteFile(path, []byte("  \n"), 0o600)
+	if LoadLast(path) != "" {
+		t.Error("a blank state file reads as a value")
+	}
+}
+
+func TestParseDesktop(t *testing.T) {
+	s, ok := parseDesktop("[Desktop Entry]\nName=Sway\nComment=tiling wm\nExec=sway\nType=Application\n", "sway")
+	if !ok || s.Name != "Sway" || !reflect.DeepEqual(s.Exec, []string{"sway"}) {
+		t.Errorf("basic: %+v %v", s, ok)
+	}
+	s, _ = parseDesktop("[Desktop Entry]\nName=Plasma\nExec=startplasma-wayland --foo %U\n", "plasma")
+	if !reflect.DeepEqual(s.Exec, []string{"startplasma-wayland", "--foo"}) {
+		t.Errorf("field codes: %v", s.Exec)
+	}
+	for _, hidden := range []string{"Hidden=true", "NoDisplay=true"} {
+		if _, ok := parseDesktop("[Desktop Entry]\nName=X\nExec=x\n"+hidden+"\n", "x"); ok {
+			t.Errorf("%s kept", hidden)
+		}
+	}
+	if _, ok := parseDesktop("[Desktop Entry]\nName=X\n", "x"); ok {
+		t.Error("no Exec kept")
+	}
+	if _, ok := parseDesktop("[Desktop Entry]\nName=X\nExec=%u\n", "x"); ok {
+		t.Error("an Exec of only field codes kept")
+	}
+	if s, _ := parseDesktop("[Desktop Entry]\nExec=hyprland\n", "hyprland"); s.Name != "hyprland" {
+		t.Errorf("name default = %q", s.Name)
+	}
+	s, _ = parseDesktop("[Desktop Entry]\nName=Sway\nExec=sway\n[Desktop Action new]\nExec=sway -c other\n", "sway")
+	if !reflect.DeepEqual(s.Exec, []string{"sway"}) {
+		t.Errorf("action group leaked: %v", s.Exec)
+	}
+	x := applyKind(Session{ID: "plasma-x11", Name: "Plasma", Exec: []string{"startplasma-x11"}}, X11)
+	if x.Kind != X11 || x.Name != "Plasma (X11)" || !reflect.DeepEqual(x.Exec, []string{"startx", "/usr/bin/env", "startplasma-x11"}) {
+		t.Errorf("x11 kind: %+v", x)
+	}
+}
+
+func TestDiscoverPrecedenceAndSort(t *testing.T) {
+	hi, lo := t.TempDir(), t.TempDir()
+	write := func(dir, name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(hi, "sway.desktop", "[Desktop Entry]\nName=Sway (local)\nExec=/usr/local/bin/sway\n")
+	write(lo, "sway.desktop", "[Desktop Entry]\nName=Sway\nExec=sway\n")
+	write(lo, "niri.desktop", "[Desktop Entry]\nName=niri\nExec=niri --session\n")
+	write(lo, "README", "not a session")
+	got := Discover([]string{hi, lo, "/nonexistent"}, Wayland)
+	got = append(got, Discover([]string{lo}, X11)...)
+	SortSessions(got)
+	var ids []string
+	for _, s := range got {
+		ids = append(ids, s.ID+"="+s.Name)
+	}
+	want := []string{"niri=niri", "niri-x11=niri (X11)", "sway=Sway (local)", "sway-x11=Sway (X11)"}
+	if !reflect.DeepEqual(ids, want) {
+		t.Errorf("sessions = %v, want %v", ids, want)
+	}
+}
+
+const passwd = `root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+alice:x:1000:1000:Alice Wonder,,,:/home/alice:/bin/zsh
+bob:x:1001:1001::/home/bob:/bin/bash
+svc:x:998:998:service:/var/lib/svc:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+carol:x:1002:1002:Carol:/home/carol:/bin/false
+garbage
+`
+
+func TestParsePasswd(t *testing.T) {
+	users := parsePasswd(passwd)
+	if len(users) != 2 || users[0].Name != "alice" || users[1].Name != "bob" {
+		t.Fatalf("users = %+v, want alice and bob", users)
+	}
+	if users[0].DisplayName != "Alice Wonder" || users[1].DisplayName != "bob" || users[0].Home != "/home/alice" || users[0].UID != 1000 || users[1].UID != 1001 {
+		t.Errorf("fields: %+v", users)
+	}
+	if len(parsePasswd("garbage\nno:fields\n")) != 0 {
+		t.Error("malformed lines kept")
+	}
+}
+
+func TestCursorParsers(t *testing.T) {
+	c, sources := parseHyprland("monitor=,preferred,auto,1\nenv = XCURSOR_THEME,Bibata-Modern-Ice # my cursor\nenv=XCURSOR_SIZE,20\nsource = ~/.config/hypr/extra.conf\n")
+	if c != (Cursor{"Bibata-Modern-Ice", 20}) || !reflect.DeepEqual(sources, []string{"~/.config/hypr/extra.conf"}) {
+		t.Errorf("hyprland env: %+v %v", c, sources)
+	}
+	if c, _ := parseHyprland("exec-once = hyprctl setcursor Adwaita 32\n"); c != (Cursor{"Adwaita", 32}) {
+		t.Errorf("hyprctl setcursor: %+v", c)
+	}
+	if c := parseNiri("cursor {\n    xcursor-theme \"Bibata\" // comment\n    xcursor-size 28\n}\n"); c != (Cursor{"Bibata", 28}) {
+		t.Errorf("niri: %+v", c)
+	}
+	if c := parseSway("seat * xcursor_theme \"Adwaita\" 48\n"); c != (Cursor{"Adwaita", 48}) {
+		t.Errorf("sway: %+v", c)
+	}
+	if c := parseGTKSettings("[Settings]\ngtk-cursor-theme-name = Vimix\ngtk-cursor-theme-size=22\n"); c != (Cursor{"Vimix", 22}) {
+		t.Errorf("gtk: %+v", c)
+	}
+	if c := parseIndexTheme("[Icon Theme]\nInherits=phinger-cursors-light, other\n"); c != (Cursor{Theme: "phinger-cursors-light"}) {
+		t.Errorf("index.theme: %+v", c)
+	}
+	if got := (Cursor{Theme: "A"}).or(Cursor{"B", 24}); got != (Cursor{"A", 24}) {
+		t.Errorf("or: %+v", got)
+	}
+}
+
+// TestDetectCursorOrder: the record wins; else the remembered
+// session's compositor is consulted first.
+func TestDetectCursorOrder(t *testing.T) {
+	home, records := t.TempDir(), t.TempDir()
+	ada := User{Name: "ada", UID: 1000, Home: home}
+	write := func(rel, body string) {
+		t.Helper()
+		p := filepath.Join(home, rel)
+		_ = os.MkdirAll(filepath.Dir(p), 0o700)
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(".config/hypr/hyprland.conf", "env = XCURSOR_THEME,HyprTheme\nenv = XCURSOR_SIZE,30\nsource = extra.conf\n")
+	write(".config/hypr/extra.conf", "")
+	write(".config/niri/config.kdl", "xcursor-theme \"NiriTheme\"\nxcursor-size 40\n")
+	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{"HyprTheme", 30}) {
+		t.Errorf("hyprland session: %+v", got)
+	}
+	if got := DetectCursor(records, ada, "niri"); got != (Cursor{"NiriTheme", 40}) {
+		t.Errorf("niri session: %+v", got)
+	}
+	if _, err := cursorrecord.Write(records, 1001, cursorrecord.Cursor{Theme: "Someone else's", Size: 64}); err != nil {
+		t.Fatal(err)
+	}
+	if got := DetectCursor(records, ada, "niri"); got != (Cursor{"NiriTheme", 40}) {
+		t.Errorf("another uid's record must not count: %+v", got)
+	}
+	if _, err := cursorrecord.Write(records, ada.UID, cursorrecord.Cursor{Theme: "Recorded", Size: 36}); err != nil {
+		t.Fatal(err)
+	}
+	if got := DetectCursor(records, ada, "niri"); got != (Cursor{"Recorded", 36}) {
+		t.Errorf("the record the session handed over must win: %+v", got)
+	}
+	if got := DetectCursor(records, User{Name: "bob", UID: 1002, Home: filepath.Join(home, "absent")}, ""); got != (Cursor{}) {
+		t.Errorf("no record and an unreadable home: %+v", got)
+	}
+}
+
+// The record reaches the greeter when the user's home is closed to it,
+// as a default 0700 home is to the greeter's account.
+func TestDetectCursorThroughAClosedHome(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root enters every home")
+	}
+	home, records := filepath.Join(t.TempDir(), "ada"), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, ".config/gtk-4.0"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".config/gtk-4.0/settings.ini"), []byte("[Settings]\ngtk-cursor-theme-name=Dotfile\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(home, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+	ada := User{Name: "ada", UID: 1000, Home: home}
+	if got := DetectCursor(records, ada, ""); got != (Cursor{}) {
+		t.Fatalf("a closed home without a record yielded %+v", got)
+	}
+	if _, err := cursorrecord.Write(records, ada.UID, cursorrecord.Cursor{Theme: "Bibata", Size: 48}); err != nil {
+		t.Fatal(err)
+	}
+	if got := DetectCursor(records, ada, ""); got != (Cursor{"Bibata", 48}) {
+		t.Errorf("through a closed home: %+v, want the record's Bibata at 48", got)
+	}
+}
+
+func TestCursorUser(t *testing.T) {
+	ada, bob := User{Name: "ada", UID: 1000}, User{Name: "bob", UID: 1001}
+	if u, ok := cursorUser([]User{ada, bob}, "bob"); !ok || u != bob {
+		t.Errorf("the remembered user: %+v, %v", u, ok)
+	}
+	if u, ok := cursorUser([]User{ada}, ""); !ok || u != ada {
+		t.Errorf("the only user: %+v, %v", u, ok)
+	}
+	if u, ok := cursorUser([]User{ada, bob}, "carol"); ok {
+		t.Errorf("an unknown remembered user among several: %+v", u)
+	}
+}
+
+// The display manager's cursor for the kiosk: the greeter's config
+// over the remembered user's record, and nobody's dotfiles.
+func TestKioskCursor(t *testing.T) {
+	records, home := t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, ".config/gtk-4.0"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".config/gtk-4.0/settings.ini"), []byte("[Settings]\ngtk-cursor-theme-name=Dotfile\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ada, bob := User{Name: "ada", UID: 1000, Home: home}, User{Name: "bob", UID: 1001, Home: home}
+	if _, err := cursorrecord.Write(records, ada.UID, cursorrecord.Cursor{Theme: "Bibata", Size: 48}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XCURSOR_THEME", "")
+	t.Setenv("XCURSOR_SIZE", "")
+	defaults := config.DefaultsLogin().Greeter
+	if got := KioskCursor(defaults, records, []User{ada, bob}, "ada"); got != (Cursor{"Bibata", 48}) {
+		t.Errorf("ada's record: %+v", got)
+	}
+	if got := KioskCursor(defaults, records, []User{ada, bob}, "bob"); got != (Cursor{Size: 24}) {
+		t.Errorf("bob has no record and his dotfiles stay unread: %+v", got)
+	}
+	g := defaults
+	g.CursorTheme, g.CursorThemeExplicit = "Configured", true
+	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{"Configured", 48}) {
+		t.Errorf("the config's theme over the record's: %+v", got)
+	}
+}
+
+// TestResolveCursor pins install_cursor's order: explicit config,
+// detection, environment, the size default.
+func TestResolveCursor(t *testing.T) {
+	t.Setenv("XCURSOR_THEME", "EnvTheme")
+	t.Setenv("XCURSOR_SIZE", "18")
+	g := config.DefaultsLogin().Greeter
+	if got := ResolveCursor(g, Cursor{Theme: "Detected"}); got != (Cursor{"Detected", 18}) {
+		t.Errorf("defaults are not explicit: %+v", got)
+	}
+	g.CursorTheme, g.CursorThemeExplicit = "Configured", true
+	g.CursorSize, g.CursorSizeExplicit = 48, true
+	if got := ResolveCursor(g, Cursor{"Detected", 30}); got != (Cursor{"Configured", 48}) {
+		t.Errorf("explicit config wins: %+v", got)
+	}
+	t.Setenv("XCURSOR_THEME", "")
+	t.Setenv("XCURSOR_SIZE", "")
+	if got := ResolveCursor(config.DefaultsLogin().Greeter, Cursor{}); got != (Cursor{Size: 24}) {
+		t.Errorf("nothing anywhere: %+v, want the 24px size default", got)
+	}
+}
+
+// The embedded glyphs land in the icon directory under their theme
+// names, so the widgets load them by name.
+func TestWriteIcons(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "icons")
+	if err := writeIcons(dir); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range themeIcons() {
+		if _, err := os.Stat(filepath.Join(dir, name+".svg")); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+func TestEveryEmbeddedGlyphIsAThemeIcon(t *testing.T) {
+	entries, err := embeddedIcons.ReadDir("assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if !slices.Contains(themeIcons(), strings.TrimSuffix(e.Name(), ".svg")) {
+			t.Errorf("assets/%s is embedded but no theme icon draws it", e.Name())
+		}
+	}
+}
+
+// The greeter's stylesheet comes with lys-ui's theme on the configured
+// palette, so its lys-ui widgets match the stylesheet.
+func TestStylesheetInstallsTheWidgetTheme(t *testing.T) {
+	t.Cleanup(func() { widget.SetTheme(nil) })
+	cfg := config.Defaults()
+	Stylesheet(cfg)
+	p, err := styling.PaletteFromHex(cfg.Styling.ActivePalette())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if widget.Current().Bg != p.Bg || widget.Current().Accent != p.Primary {
+		t.Error("the greeter left lys-ui's theme off the configured palette")
+	}
+}
+
+func TestFirstPresentedFrameTakesTheScreenFromTheSplash(t *testing.T) {
+	taken := make(chan struct{})
+	cfg := windowConfig(nil, func() { close(taken) }, nil)
+	if cfg.OnPresented == nil {
+		t.Fatal("the greeter's window does not report its first presented frame")
+	}
+	cfg.OnPresented()
+	<-taken
+}
+
+func TestWithoutDisplayManagerNoFrameIsReported(t *testing.T) {
+	if windowConfig(nil, nil, nil).OnPresented != nil {
+		t.Error("a greeter with no hand-over to make reports its first frame")
+	}
+}
+
+func TestOptionsSessions(t *testing.T) {
+	empty := t.TempDir()
+	o := Options{SessionDirs: []string{empty}, XSessionDirs: []string{filepath.Join(empty, "missing")}}
+	if _, err := o.Sessions(); !errors.Is(err, ErrNoSessions) || !strings.Contains(err.Error(), empty) {
+		t.Errorf("no session files and no fallback: %v, want ErrNoSessions naming the dirs", err)
+	}
+	o.Command = []string{"niri", "--session"}
+	got, err := o.Sessions()
+	if err != nil || len(got) != 1 || got[0].ID != "custom" || !reflect.DeepEqual(got[0].Exec, o.Command) {
+		t.Errorf("fallback only: %+v, %v", got, err)
+	}
+}

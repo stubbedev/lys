@@ -1,0 +1,182 @@
+package greeter
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/stubbedev/lys-login/internal/auth"
+)
+
+// SessionKind is which discovery directory advertised a session.
+type SessionKind uint8
+
+// Session kinds.
+const (
+	// Wayland sessions (wayland-sessions/*.desktop) start directly.
+	Wayland SessionKind = iota
+	// X11 sessions (xsessions/*.desktop) start through
+	// `startx /usr/bin/env`: greetd runs no X server, startx provides
+	// one (the tuigreet approach).
+	X11
+)
+
+// sessionType is the XDG_SESSION_TYPE of a kind's sessions.
+func (k SessionKind) sessionType() string {
+	if k == X11 {
+		return "x11"
+	}
+	return "wayland"
+}
+
+// Session is one selectable session (session.rs Session).
+type Session struct {
+	// ID is the .desktop stem, suffixed -x11 for X11 sessions; the
+	// remembered choice.
+	ID string
+	// Kind is the discovery directory it came from, and with it the type
+	// logind registers it as.
+	Kind SessionKind
+	// Name is Name= (else the id), suffixed " (X11)" for X11.
+	Name string
+	// Exec is the argv from Exec=, field codes dropped (and the startx
+	// wrapper prepended for X11).
+	Exec []string
+}
+
+// Discover reads kind sessions from every *.desktop under dirs:
+// Hidden/NoDisplay entries and files without a usable Exec are
+// skipped, and an id seen in an earlier dir wins (XDG precedence).
+func Discover(dirs []string, kind SessionKind) []Session {
+	var out []Session
+	seen := map[string]bool{}
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue // a missing sessions dir is normal
+		}
+		for _, e := range entries {
+			name := e.Name()
+			if filepath.Ext(name) != ".desktop" {
+				continue
+			}
+			id := strings.TrimSuffix(name, ".desktop")
+			if kind == X11 {
+				id += "-x11"
+			}
+			if seen[id] {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(dir, name)) //nolint:gosec // system session files
+			if err != nil {
+				continue
+			}
+			if s, ok := parseDesktop(string(data), id); ok {
+				seen[id] = true
+				out = append(out, applyKind(s, kind))
+			}
+		}
+	}
+	return out
+}
+
+// SortSessions orders the merged list by lowercased name, as main.rs
+// does after merging the kinds.
+func SortSessions(sessions []Session) {
+	sort.SliceStable(sessions, func(i, j int) bool {
+		return strings.ToLower(sessions[i].Name) < strings.ToLower(sessions[j].Name)
+	})
+}
+
+func applyKind(s Session, kind SessionKind) Session {
+	s.Kind = kind
+	if kind == X11 {
+		s.Name += " (X11)"
+		s.Exec = append([]string{"startx", "/usr/bin/env"}, s.Exec...)
+	}
+	return s
+}
+
+// parseDesktop reads the [Desktop Entry] group; false when hidden or
+// without a usable Exec.
+func parseDesktop(text, id string) (Session, bool) {
+	var name, exec string
+	haveName, haveExec, hidden, inEntry := false, false, false, false
+	for line := range strings.SplitSeq(text, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			inEntry = line == "[Desktop Entry]"
+			continue
+		}
+		if !inEntry {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		switch strings.TrimSpace(key) {
+		case "Name":
+			if !haveName {
+				name, haveName = value, true
+			}
+		case "Exec":
+			exec, haveExec = value, true
+		case "Hidden", "NoDisplay":
+			if value == "true" {
+				hidden = true
+			}
+		}
+	}
+	if hidden || !haveExec {
+		return Session{}, false
+	}
+	argv := parseExec(exec)
+	if len(argv) == 0 {
+		return Session{}, false
+	}
+	if name == "" {
+		name = id
+	}
+	return Session{ID: id, Name: name, Exec: argv}, true
+}
+
+// parseExec splits an Exec= line on whitespace, dropping field codes
+// (%f, %U, ...). Session Exec lines are near-universally simple, so
+// full desktop-entry quoting is not handled (as in session.rs).
+func parseExec(exec string) []string {
+	var out []string
+	for tok := range strings.FieldsSeq(exec) {
+		if len(tok) == 2 && tok[0] == '%' {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+var ErrNoSessions = errors.New("no sessions to log into")
+
+func (o Options) Sessions() ([]Session, error) {
+	sessions := Discover(o.SessionDirs, Wayland)
+	sessions = append(sessions, Discover(o.XSessionDirs, X11)...)
+	SortSessions(sessions)
+	if len(o.Command) > 0 {
+		sessions = append(sessions, Session{ID: "custom", Kind: Wayland, Name: CustomSessionName(), Exec: o.Command})
+	}
+	if len(sessions) == 0 {
+		return nil, fmt.Errorf("%w: no session files in the Wayland session dirs %q (--sessions) or the X11 session dirs %q (--xsessions), and no `-- <argv>` fallback session",
+			ErrNoSessions, o.SessionDirs, o.XSessionDirs)
+	}
+	return sessions, nil
+}
+
+func (s Session) Started(extra []string) auth.Session {
+	env := make([]string, 0, 1+len(extra))
+	env = append(env, auth.SessionTypeEnv+"="+s.Kind.sessionType())
+	return auth.Session{Cmd: s.Exec, Env: append(env, extra...)}
+}

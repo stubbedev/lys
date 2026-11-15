@@ -1,0 +1,975 @@
+package lock
+
+import (
+	"errors"
+	"image"
+	"image/color"
+	"image/draw"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-desktop/imagedecode"
+	"github.com/stubbedev/lys-desktop/shell/apptheme"
+	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys-login/internal/auth"
+	loginscreen "github.com/stubbedev/lys-login/internal/screen"
+)
+
+// fakeLocker plays lys-ui's session lock: Lock builds one surface per
+// fake output right away, like LockSession covering every output.
+type fakeLocker struct {
+	available bool
+	active    bool
+	outputs   int
+	cfg       app.SessionLockConfig
+	surfaces  []app.LockSurface
+	releases  int
+	focused   []widget.Widget
+	lockErr   error
+}
+
+func (f *fakeLocker) Available() bool { return f.available }
+func (f *fakeLocker) Active() bool    { return f.active }
+
+func (f *fakeLocker) Lock(cfg app.SessionLockConfig) error {
+	if f.lockErr != nil {
+		return f.lockErr
+	}
+	f.active = true
+	f.cfg = cfg
+	for range f.outputs {
+		f.plug()
+	}
+	return nil
+}
+
+// plug hotplugs one more output.
+func (f *fakeLocker) plug() app.LockSurface {
+	s := f.cfg.Surface(&app.Output{})
+	f.surfaces = append(f.surfaces, s)
+	return s
+}
+
+func (f *fakeLocker) Release() {
+	f.active = false
+	f.releases++
+	for _, s := range f.surfaces {
+		s.OnClosed()
+	}
+	f.surfaces = nil
+}
+
+func (f *fakeLocker) Focus(w widget.Widget) { f.focused = append(f.focused, w) }
+
+// fakeLoop runs invokes inline.
+type fakeLoop struct{}
+
+func (l *fakeLoop) Invoke(fn func()) { fn() }
+
+// fakeAuth records conversations; the test drives their events.
+type fakeAuth struct {
+	service   string
+	onEvent   func(auth.Event)
+	answers   []string
+	cancelled bool
+}
+
+func (a *fakeAuth) Answer(s string) { a.answers = append(a.answers, s) }
+func (a *fakeAuth) Cancel()         { a.cancelled = true }
+
+type harness struct {
+	s      *Screen
+	locker *fakeLocker
+	loop   *fakeLoop
+	convs  []*fakeAuth
+	hints  []bool
+	locked int
+	now    time.Time
+	wall   *fakeWall
+	blank  *blankTimer
+	// forgotten are the rasters the renderer was told to drop.
+	forgotten []render.ImageID
+}
+
+// blankTimer is the one blank timer, re-armed in place.
+type blankTimer struct {
+	fn      func()
+	d       time.Duration
+	resets  int
+	stopped bool
+}
+
+func (b *blankTimer) Reset(d time.Duration) {
+	b.d = d
+	b.resets++
+	b.stopped = false
+}
+
+func (b *blankTimer) Stop() { b.stopped = true }
+
+// fakeWall is a wall clock a test moves.
+type fakeWall struct {
+	h     *harness
+	at    time.Time
+	fn    func()
+	wakes int
+}
+
+func (w *fakeWall) Now() time.Time { return w.h.now }
+
+func (w *fakeWall) Arm(at time.Time, fn func()) { w.at, w.fn = at, fn }
+
+func (w *fakeWall) Disarm() { w.fn = nil }
+
+// fire runs what is armed, as the timer does on its time or a jump.
+func (w *fakeWall) fire() {
+	fn := w.fn
+	w.fn = nil
+	w.wakes++
+	fn()
+}
+
+func newHarness(t *testing.T, edit func(*config.LoginConfig)) *harness {
+	t.Helper()
+	return newHarnessWith(t, edit, nil)
+}
+
+func newHarnessWith(t *testing.T, edit func(*config.LoginConfig), deps func(*Deps)) *harness {
+	t.Helper()
+	face := treetest.Font(t)
+	cfg := config.Defaults()
+	if edit != nil {
+		edit(&cfg.Login)
+	}
+	h := &harness{
+		locker: &fakeLocker{available: true, outputs: 2},
+		loop:   &fakeLoop{},
+		now:    time.Date(2026, 3, 5, 9, 7, 0, 0, time.Local),
+	}
+	h.wall = &fakeWall{h: h}
+	d := Deps{
+		Locker: h.locker,
+		Loop:   h.loop,
+		Now:    func() time.Time { return h.now },
+		Wall:   h.wall,
+		NewTimer: func(fn func()) Timer {
+			if h.blank != nil {
+				t.Error("a second blank timer: every key must re-arm the one")
+			}
+			h.blank = &blankTimer{fn: fn}
+			return h.blank
+		},
+		Auth: func(service string, onEvent func(auth.Event)) authHandle {
+			c := &fakeAuth{service: service, onEvent: onEvent}
+			h.convs = append(h.convs, c)
+			return c
+		},
+		SetLockedHint: func(locked bool) { h.hints = append(h.hints, locked) },
+		Decode: func(*memory.Shared, string) (imagedecode.Decoded, error) {
+			return imagedecode.Decoded{Image: image.NewRGBA(image.Rect(0, 0, 4, 4))}, nil
+		},
+		Outputs:  func() []image.Point { return []image.Point{{1920, 1080}, {1080, 1920}} },
+		Forget:   func(id render.ImageID) { h.forgotten = append(h.forgotten, id) },
+		OnLocked: func(struct{}) { h.locked++ },
+	}
+	if deps != nil {
+		deps(&d)
+	}
+	h.s = New(cfg, "Ada Lovelace", face, apptheme.New(cfg).Sheet, d)
+	return h
+}
+
+func (h *harness) lock(t *testing.T) {
+	t.Helper()
+	h.s.Lock()
+	if !h.locker.active {
+		t.Fatal("Lock did not acquire the session lock")
+	}
+	h.locker.cfg.OnLocked()
+}
+
+// finishExit runs every prompt's exit transition to its end.
+func (h *harness) finishExit() {
+	for _, f := range slices.Clone(h.s.faces) {
+		f.prompt.Reveal.Finish()
+	}
+}
+
+func (h *harness) conv(t *testing.T) *fakeAuth {
+	t.Helper()
+	if len(h.convs) == 0 {
+		t.Fatal("no conversation started")
+	}
+	return h.convs[len(h.convs)-1]
+}
+
+func (h *harness) eachFace(t *testing.T, fn func(*face)) {
+	t.Helper()
+	if len(h.s.faces) == 0 {
+		t.Fatal("no lock surfaces")
+	}
+	for _, f := range h.s.faces {
+		fn(f)
+	}
+}
+
+func TestLockCoversOutputsAndReportsTheHint(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	if len(h.s.faces) != 2 {
+		t.Fatalf("faces = %d, want one per output", len(h.s.faces))
+	}
+	h.eachFace(t, func(f *face) {
+		if f.prompt.Clock.Text() != "09:07" || f.prompt.Date.Text() != "Thursday, March 5" {
+			t.Errorf("clock = %q / %q", f.prompt.Clock.Text(), f.prompt.Date.Text())
+		}
+		if !f.prompt.Entry.Enabled() || f.prompt.Error.Visible() || f.scrim.Visible() {
+			t.Error("a fresh surface must take input with no message and no blackout")
+		}
+		if !f.prompt.Reveal.Revealed() || f.prompt.Reveal.Transition() != widget.RevealFade {
+			t.Errorf("the prompt: revealed %v, transition %v; want it entering with the lock transition",
+				f.prompt.Reveal.Revealed(), f.prompt.Reveal.Transition())
+		}
+	})
+	for _, s := range h.locker.surfaces {
+		if s.Focus == nil || s.Background.A() != 255 {
+			t.Error("a lock surface must focus its entry and paint opaque")
+		}
+	}
+	if len(h.hints) != 1 || !h.hints[0] {
+		t.Errorf("LockedHint calls = %v, want [true] once locked", h.hints)
+	}
+	if h.locked != 1 {
+		t.Errorf("what locks with the session ran %d times, want once", h.locked)
+	}
+	if want := h.now.Add(time.Minute); h.wall.fn == nil || !h.wall.at.Equal(want) {
+		t.Fatalf("the clock is armed for %v, want the next minute %v", h.wall.at, want)
+	}
+	h.now = h.now.Add(time.Minute)
+	h.wall.fire()
+	if got := h.s.faces[1].prompt.Clock.Text(); got != "09:08" {
+		t.Errorf("tick clock = %q", got)
+	}
+
+	h.s.Lock() // idempotent while locked
+	if len(h.s.faces) != 2 || len(h.locker.surfaces) != 2 {
+		t.Error("a second Lock while locked rebuilt the surfaces")
+	}
+}
+
+func TestLockRefusals(t *testing.T) {
+	h := newHarness(t, func(l *config.LoginConfig) { l.Lock.Enabled = false })
+	if err := h.s.Lock(); err == nil || !strings.Contains(err.Error(), "disabled") || h.locker.active {
+		t.Errorf("login.lock.enabled = false: %v, locked %v", err, h.locker.active)
+	}
+	h = newHarness(t, nil)
+	h.locker.available = false
+	if err := h.s.Lock(); err == nil || !strings.Contains(err.Error(), "ext-session-lock-v1") || h.locker.active {
+		t.Errorf("without ext-session-lock-v1: %v, locked %v", err, h.locker.active)
+	}
+	h = newHarness(t, nil)
+	h.locker.lockErr = errors.New("boom")
+	if err := h.s.Lock(); !errors.Is(err, h.locker.lockErr) {
+		t.Errorf("a refused lock request = %v, want it wrapped", err)
+	}
+	if len(h.s.faces) != 0 || h.wall.fn != nil {
+		t.Error("a failed LockSession left state behind")
+	}
+}
+
+// TestUnlockWithPassword: the typed password answers PAM's first
+// prompt, success unlocks, and the hint goes false.
+func TestUnlockWithPassword(t *testing.T) {
+	h := newHarness(t, func(l *config.LoginConfig) { l.Lock.PamService = "lys-shell" })
+	h.lock(t)
+	h.s.Submit("")
+	if len(h.convs) != 0 {
+		t.Fatal("an empty submit started a conversation")
+	}
+	h.s.Submit("hunter2")
+	c := h.conv(t)
+	if c.service != "lys-shell" {
+		t.Errorf("conversation service = %q", c.service)
+	}
+	h.eachFace(t, func(f *face) {
+		if f.prompt.Entry.Enabled() {
+			t.Error("entries stay enabled while PAM runs")
+		}
+	})
+	h.s.Submit("again") // a stray submit while PAM works
+	if len(h.convs) != 1 || len(c.answers) != 0 {
+		t.Fatal("a stray submit reached the conversation")
+	}
+	c.onEvent(auth.Event{Kind: auth.EventPrompt, Prompt: auth.Prompt{Kind: auth.PromptSecret, Text: "Password: "}})
+	if len(c.answers) != 1 || c.answers[0] != "hunter2" {
+		t.Fatalf("answers = %q, want the stashed password", c.answers)
+	}
+	c.onEvent(auth.Event{Kind: auth.EventSuccess})
+	h.finishExit()
+	if h.locker.active || h.locker.releases != 1 {
+		t.Error("success did not unlock")
+	}
+	if len(h.s.faces) != 0 || h.wall.fn != nil {
+		t.Error("unlock left surfaces or the clock behind")
+	}
+	if got := h.hints[len(h.hints)-1]; got {
+		t.Error("LockedHint not cleared on unlock")
+	}
+}
+
+// TestFailedAttempts pins the failure feedback and the attempt cap.
+func TestFailedAttempts(t *testing.T) {
+	h := newHarness(t, func(l *config.LoginConfig) { l.MaxAttempts = 2 })
+	h.lock(t)
+	fail := func() {
+		t.Helper()
+		h.now = h.now.Add(time.Hour)
+		h.s.Submit("wrong")
+		h.conv(t).onEvent(auth.Event{Kind: auth.EventFailure, Reason: "authentication failed", Refusal: auth.RefusalCredentials})
+	}
+	fail()
+	h.eachFace(t, func(f *face) {
+		if f.prompt.Error.Text() != failedAttempts(1) || !f.prompt.Error.Visible() {
+			t.Errorf("message = %q", f.prompt.Error.Text())
+		}
+		if !f.prompt.Entry.Enabled() || f.prompt.Entry.Text() != "" {
+			t.Error("a failure must re-arm and clear the entry")
+		}
+	})
+	if len(h.locker.focused) != 2 {
+		t.Errorf("focus requests = %d, want the entry refocused on each surface", len(h.locker.focused))
+	}
+	fail()
+	h.eachFace(t, func(f *face) {
+		if f.prompt.Error.Text() != i18n.T("lock-locked-out") || f.prompt.Entry.Enabled() {
+			t.Errorf("at the cap: message %q, entry enabled %v", f.prompt.Error.Text(), f.prompt.Entry.Enabled())
+		}
+	})
+	h.s.Submit("more")
+	if len(h.convs) != 2 {
+		t.Error("a submit past the cap started a conversation")
+	}
+	if !h.locker.active {
+		t.Error("the cap unlocked the screen; it must stay locked")
+	}
+
+	quiet := newHarness(t, func(l *config.LoginConfig) { l.ShowFailedAttempts = false })
+	quiet.lock(t)
+	quiet.s.Submit("wrong")
+	quiet.conv(t).onEvent(auth.Event{Kind: auth.EventFailure, Refusal: auth.RefusalCredentials})
+	if got := quiet.s.faces[0].prompt.Error.Text(); got != i18n.T("lock-incorrect") {
+		t.Errorf("show-failed-attempts = false: %q", got)
+	}
+}
+
+// TestRePrompt: a second input prompt (expired password, OTP) waits
+// for the next submit; info prompts only show their text.
+func TestRePrompt(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	h.s.Submit("old")
+	c := h.conv(t)
+	c.onEvent(auth.Event{Kind: auth.EventPrompt, Prompt: auth.Prompt{Kind: auth.PromptSecret}})
+	c.onEvent(auth.Event{Kind: auth.EventPrompt, Prompt: auth.Prompt{Kind: auth.PromptInfo, Text: "Password expired"}})
+	if got := h.s.faces[0].prompt.Error.Text(); got != "Password expired" {
+		t.Errorf("info prompt message = %q", got)
+	}
+	c.onEvent(auth.Event{Kind: auth.EventPrompt, Prompt: auth.Prompt{Kind: auth.PromptSecret, Text: "New password: "}})
+	if !h.s.faces[0].prompt.Entry.Enabled() {
+		t.Fatal("a re-prompt must re-enable the entry")
+	}
+	h.s.Submit("new")
+	if len(c.answers) != 2 || c.answers[1] != "new" {
+		t.Errorf("answers = %q, want the re-prompt answered by the next submit", c.answers)
+	}
+	if len(h.convs) != 1 {
+		t.Error("answering a re-prompt started a new conversation")
+	}
+}
+
+func TestGraceWindow(t *testing.T) {
+	h := newHarness(t, func(l *config.LoginConfig) { l.Lock.GracePeriodMS = 5000 })
+	h.lock(t)
+	h.now = h.now.Add(4 * time.Second)
+	h.s.Submit("")
+	h.finishExit()
+	if h.locker.active || len(h.convs) != 0 {
+		t.Error("a submit within the grace window must unlock without PAM")
+	}
+	h = newHarness(t, func(l *config.LoginConfig) { l.Lock.GracePeriodMS = 5000 })
+	h.lock(t)
+	h.now = h.now.Add(6 * time.Second)
+	h.s.Submit("pw")
+	if !h.locker.active || len(h.convs) != 1 {
+		t.Error("past the grace window the password is required")
+	}
+}
+
+func TestBlankTimer(t *testing.T) {
+	h := newHarness(t, func(l *config.LoginConfig) { l.Lock.BlankTimeoutMS = 30000 })
+	h.lock(t)
+	if h.blank == nil || h.blank.resets != 1 || h.blank.d != 30*time.Second {
+		t.Fatalf("blank timer = %+v", h.blank)
+	}
+	h.now = h.now.Add(30 * time.Second)
+	h.blank.fn()
+	h.eachFace(t, func(f *face) {
+		if !f.scrim.Visible() {
+			t.Error("the blank timer did not black out the surfaces")
+		}
+	})
+	h.s.Activity()
+	h.eachFace(t, func(f *face) {
+		if f.scrim.Visible() {
+			t.Error("activity did not unblank")
+		}
+	})
+	if h.blank.resets != 2 || h.blank.d != 30*time.Second {
+		t.Error("activity did not re-arm the blank timer")
+	}
+	h.blank.fn() // a stale firing must not blank
+	if h.s.faces[0].scrim.Visible() {
+		t.Error("a superseded blank timer blanked the screen")
+	}
+	h.now = h.now.Add(29 * time.Second)
+	h.s.Activity()
+	h.now = h.now.Add(29 * time.Second)
+	h.blank.fn()
+	if h.s.faces[0].scrim.Visible() {
+		t.Error("a key did not push the blank back")
+	}
+	h.s.ForceUnlock()
+	if !h.blank.stopped {
+		t.Error("the unlock left the blank timer running")
+	}
+	h.blank.fn()
+	if h.s.blanked {
+		t.Error("a firing after the unlock blanked")
+	}
+
+	never := newHarness(t, nil)
+	never.lock(t)
+	if never.blank != nil && never.blank.resets != 0 {
+		t.Error("blank-timeout-ms = 0 armed a timer")
+	}
+}
+
+func TestAKeyAllocatesNothing(t *testing.T) {
+	h := newHarness(t, func(l *config.LoginConfig) { l.Lock.BlankTimeoutMS = 30000 })
+	h.lock(t)
+	if n := testing.AllocsPerRun(100, h.s.Activity); n != 0 {
+		t.Errorf("%v allocations per key on the blank timer", n)
+	}
+	if h.blank.resets < 100 {
+		t.Errorf("%d re-arms for 100 keys", h.blank.resets)
+	}
+}
+
+// TestHotplugInheritsState: an output plugged in mid-lock gets a
+// surface showing the current message and input state.
+func TestHotplugInheritsState(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	h.s.Submit("wrong")
+	h.conv(t).onEvent(auth.Event{Kind: auth.EventFailure, Refusal: auth.RefusalCredentials})
+	h.s.Submit("again")
+	h.locker.plug()
+	late := h.s.faces[len(h.s.faces)-1]
+	if late.prompt.Error.Text() != failedAttempts(1) {
+		t.Errorf("hotplugged message = %q", late.prompt.Error.Text())
+	}
+	if late.prompt.Entry.Enabled() {
+		t.Error("a hotplugged surface took input while PAM runs")
+	}
+	h.locker.surfaces[0].OnClosed() // unplug the first output
+	if len(h.s.faces) != 2 {
+		t.Errorf("faces after unplug = %d, want 2", len(h.s.faces))
+	}
+}
+
+func TestStaleConversationIgnored(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	h.s.Submit("pw")
+	stale := h.conv(t)
+	h.s.ForceUnlock()
+	h.finishExit()
+	if h.locker.active || !stale.cancelled {
+		t.Fatal("ForceUnlock must unlock and cancel the conversation")
+	}
+	h.lock(t)
+	stale.onEvent(auth.Event{Kind: auth.EventFailure, Refusal: auth.RefusalCredentials})
+	if h.s.attempts != 0 {
+		t.Error("a stale conversation's failure counted against the new lock")
+	}
+	stale.onEvent(auth.Event{Kind: auth.EventSuccess})
+	if !h.locker.active {
+		t.Error("a stale conversation's success unlocked the new lock")
+	}
+}
+
+func TestDeniedLock(t *testing.T) {
+	h := newHarness(t, nil)
+	h.s.Lock()
+	h.locker.active = false // lys-ui drops a finished lock
+	h.locker.cfg.OnFinished()
+	if len(h.s.faces) != 0 || h.wall.fn != nil {
+		t.Error("a denied lock left surfaces or the clock behind")
+	}
+	if len(h.hints) != 0 {
+		t.Errorf("a denied lock touched LockedHint: %v", h.hints)
+	}
+	if h.locked != 0 {
+		t.Errorf("a denied lock locked what locks with the session %d times", h.locked)
+	}
+}
+
+func TestBackgroundModes(t *testing.T) {
+	var loaded []string
+	h := newHarness(t, func(l *config.LoginConfig) {
+		l.Background.Mode = config.BackgroundImage
+		l.Background.Image = "/srv/lock.png"
+		l.Blur = mustBlur(8)
+	})
+	h.s.d.Decode = func(_ *memory.Shared, path string) (imagedecode.Decoded, error) {
+		loaded = append(loaded, path)
+		return imagedecode.Decoded{Image: image.NewRGBA(image.Rect(0, 0, 2, 2))}, nil
+	}
+	h.lock(t)
+	if len(loaded) != 1 || loaded[0] != "/srv/lock.png" || h.s.bg == nil {
+		t.Errorf("image mode loaded %q (decoded once for every output)", loaded)
+	}
+	// The decoded image lives only as long as the lock.
+	h.locker.cfg.OnFinished()
+	if h.s.bg != nil {
+		t.Error("the background outlived the lock")
+	}
+
+	h = newHarness(t, nil)
+	h.s.d.Decode = func(*memory.Shared, string) (imagedecode.Decoded, error) {
+		t.Error("color mode decoded an image")
+		return imagedecode.Decoded{}, nil
+	}
+	h.lock(t)
+
+	h = newHarness(t, func(l *config.LoginConfig) { l.Background.Mode = config.BackgroundImage; l.Background.Image = "/nope" })
+	h.s.d.Decode = func(*memory.Shared, string) (imagedecode.Decoded, error) {
+		return imagedecode.Decoded{}, errors.New("no such file")
+	}
+	h.lock(t)
+	if h.s.bg != nil || !h.locker.active {
+		t.Error("an unreadable image must fall back to the color and still lock")
+	}
+}
+
+// imageHarness is a harness whose lock shows a 600x400 image on a
+// 192x108 output.
+func imageHarness(t *testing.T) *harness {
+	t.Helper()
+	h := newHarness(t, func(l *config.LoginConfig) {
+		l.Background.Mode = config.BackgroundImage
+		l.Background.Image = "/srv/lock.png"
+		l.Blur = mustBlur(8)
+	})
+	h.s.d.Decode = func(*memory.Shared, string) (imagedecode.Decoded, error) {
+		return imagedecode.Decoded{Image: image.NewRGBA(image.Rect(0, 0, 600, 400))}, nil
+	}
+	h.s.d.Outputs = func() []image.Point { return []image.Point{{192, 108}} }
+	return h
+}
+
+// The background is made at the size the outputs show it at, and every
+// surface draws that one raster, by its identity.
+func TestLockBackgroundIsSizedForTheOutputs(t *testing.T) {
+	h := imageHarness(t)
+	h.lock(t)
+	if h.s.bg == nil {
+		t.Fatal("image mode made no background")
+	}
+	if got := h.s.bg.Image.Bounds().Size(); got != image.Pt(192, 128) {
+		t.Errorf("background %v, want the 600x400 source covering 192x108: 192x128", got)
+	}
+	if h.s.bg.Image.ID == 0 {
+		t.Error("the off-heap background has no identity to drop its texture by")
+	}
+	if live := h.s.mem.Stats().Live; live != 1 {
+		t.Errorf("%d off-heap allocations while locked, want the background alone", live)
+	}
+}
+
+// However the lock ends, the background's texture is forgotten once,
+// by its identity, and its off-heap pixels are freed; a lock the
+// compositor never took frees it too.
+func TestLockFreesTheBackground(t *testing.T) {
+	for name, end := range map[string]func(h *harness){
+		"unlocked":            func(h *harness) { h.s.ForceUnlock() },
+		"ended by compositor": func(h *harness) { h.locker.cfg.OnFinished() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := imageHarness(t)
+			h.lock(t)
+			id := h.s.bg.Image.ID
+			end(h)
+			h.finishExit()
+			if live := h.s.mem.Stats().Live; live != 0 {
+				t.Errorf("%d off-heap allocations after the lock ended", live)
+			}
+			if !slices.Equal(h.forgotten, []render.ImageID{id}) {
+				t.Errorf("forgot %v, want the background %v once", h.forgotten, id)
+			}
+			if h.s.bg != nil {
+				t.Error("the background outlived the lock")
+			}
+		})
+	}
+	t.Run("lock refused", func(t *testing.T) {
+		h := imageHarness(t)
+		h.locker.lockErr = errors.New("refused")
+		h.s.Lock()
+		if live := h.s.mem.Stats().Live; live != 0 || len(h.forgotten) != 1 {
+			t.Errorf("a refused lock left %d allocations and forgot %v", live, h.forgotten)
+		}
+	})
+	t.Run("still locked", func(t *testing.T) {
+		h := imageHarness(t)
+		h.lock(t)
+		h.now = h.now.Add(time.Hour)
+		h.s.Submit("wrong")
+		h.conv(t).onEvent(auth.Event{Kind: auth.EventFailure, Reason: "bad", Refusal: auth.RefusalCredentials})
+		if live := h.s.mem.Stats().Live; live != 1 || len(h.forgotten) != 0 {
+			t.Errorf("a failed attempt left %d allocations and forgot %v; the lock still shows it", live, h.forgotten)
+		}
+	})
+}
+
+// The background's pixels are freed only once every List recorded
+// while the lock was up has ended: a frame still being played keeps
+// them.
+func TestLockFreesTheBackgroundAfterTheFence(t *testing.T) {
+	h := imageHarness(t)
+	h.lock(t)
+	drawing := render.NewRecorder(1, 1, 1, 1).Recording()
+	h.s.ForceUnlock()
+	h.finishExit()
+	if live := h.s.mem.Stats().Live; live != 1 {
+		t.Fatalf("%d allocations while a List from before the unlock is open, want the background kept", live)
+	}
+	drawing.End()
+	if live := h.s.mem.Stats().Live; live != 0 {
+		t.Fatalf("%d allocations after the last List ended", live)
+	}
+}
+
+// The messages are _lock.ftl's, the count interpolated.
+func TestFailureTextIsLocalized(t *testing.T) {
+	if got := failedAttempts(3); !strings.Contains(got, "3") || strings.HasPrefix(got, "No localization") {
+		t.Errorf("failed attempts = %q, want the message with the count", got)
+	}
+	for _, id := range []string{"lock-incorrect", "lock-locked-out", "lock-failed-attempts"} {
+		if got := i18n.T(id); strings.HasPrefix(got, "No localization") {
+			t.Errorf("%s has no message: %q", id, got)
+		}
+	}
+}
+
+// stylesheet should set.
+func TestSurfaceIsTheStyledLockTree(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	root := h.locker.surfaces[0].Root
+	win, ok := root.(*widget.Box)
+	if !ok || !slices.Contains(win.Classes(), "lock-window") {
+		t.Fatalf("surface root %T, want the .lock-window node", root)
+	}
+	for _, class := range []string{"lock-bg", "lock-account", "lock-avatar", "lock-credentials", "lock-clock", "lock-date", "lock-entry", "lock-error", "lock-scrim"} {
+		if len(treetest.WithClass(root, class)) != 1 {
+			t.Errorf("want one .%s node", class)
+		}
+	}
+	for _, l := range treetest.All[*widget.Label](root) {
+		if l.Color() != 0 {
+			t.Errorf("label %v pins ink %#08x over the stylesheet", l.Classes(), uint32(l.Color()))
+		}
+	}
+	if e := h.s.faces[0].prompt.Entry; e.Color() != 0 {
+		t.Errorf("the entry pins ink %#08x", uint32(e.Color()))
+	}
+}
+
+// mustBlur is a valid blur of sigma px.
+func mustBlur(sigma int64) config.LockBlur {
+	b, err := config.NewLockBlur(sigma)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// The lock screen warns of Caps Lock as the greeter does: every face
+// follows each change while locked, and a face built later starts in
+// the current state. No timer or subscription outlives the lock.
+func TestLockFollowsCapsLock(t *testing.T) {
+	h := newHarness(t, nil)
+	var report func(bool)
+	stopped := 0
+	h.s.d.OnCapsLock = func(fn func(bool)) func() {
+		report = fn
+		fn(false)
+		return func() { stopped++ }
+	}
+	h.s.Lock()
+	for _, f := range h.s.faces {
+		if f.prompt.Caps.Visible() {
+			t.Fatal("the caps warning shows with Caps Lock off")
+		}
+	}
+	report(true)
+	for _, f := range h.s.faces {
+		if !f.prompt.Caps.Visible() || f.prompt.Caps.Text() != i18n.T("lock-caps-lock") {
+			t.Error("a face does not warn of Caps Lock")
+		}
+	}
+	h.locker.plug()
+	if last := h.s.faces[len(h.s.faces)-1]; !last.prompt.Caps.Visible() {
+		t.Error("a face plugged in later does not start warning")
+	}
+	h.s.ForceUnlock()
+	if h.wall.fn != nil {
+		t.Error("the clock still runs after the unlock")
+	}
+	if stopped != 1 {
+		t.Errorf("the Caps Lock subscription stopped %d times", stopped)
+	}
+}
+
+// Caps Lock already on when the screen locks warns at once, with no key
+// pressed.
+func TestLockWarnsOfCapsLockAlreadyOn(t *testing.T) {
+	h := newHarness(t, nil)
+	h.s.d.OnCapsLock = func(fn func(bool)) func() {
+		fn(true)
+		return func() {}
+	}
+	h.s.Lock()
+	for _, f := range h.s.faces {
+		if !f.prompt.Caps.Visible() {
+			t.Error("a face does not warn of Caps Lock on at the start")
+		}
+	}
+}
+
+func TestLockExpiredAccountIsNotAWrongPassword(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	h.s.Submit("pw")
+	h.conv(t).onEvent(auth.Event{Kind: auth.EventFailure, Refusal: auth.RefusalExpired})
+	want := loginscreen.RefusalText(auth.RefusalExpired)
+	h.eachFace(t, func(f *face) {
+		if got := f.prompt.Error.Text(); got != want {
+			t.Errorf("message = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestLockKeepsAModuleErrorOverTheRefusal(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	h.s.Submit("pw")
+	c := h.conv(t)
+	c.onEvent(auth.Event{Kind: auth.EventPrompt, Prompt: auth.Prompt{Kind: auth.PromptError, Text: "The account is locked"}})
+	c.onEvent(auth.Event{Kind: auth.EventFailure, Refusal: auth.RefusalCredentials})
+	h.eachFace(t, func(f *face) {
+		if got := f.prompt.Error.Text(); got != "The account is locked" {
+			t.Errorf("message = %q, want the module's", got)
+		}
+	})
+}
+
+func TestTheClockWakesOnceAMinuteAndNeverWhileBlanked(t *testing.T) {
+	h := newHarness(t, func(l *config.LoginConfig) { l.Lock.BlankTimeoutMS = 30000 })
+	h.lock(t)
+	end := h.now.Add(60 * time.Second)
+	for h.wall.fn != nil && !h.wall.at.After(end) {
+		h.now = h.wall.at
+		h.wall.fire()
+	}
+	if h.wall.wakes > 1 {
+		t.Errorf("%d clock wakes over 60s of a minute clock, want at most one", h.wall.wakes)
+	}
+	h.now = h.now.Add(30 * time.Second)
+	h.blank.fn()
+	if !h.s.blanked {
+		t.Fatal("the screen did not blank")
+	}
+	if h.wall.fn != nil {
+		t.Errorf("a clock timer for %v armed under the blank scrim", h.wall.at)
+	}
+	h.now = h.now.Add(time.Hour)
+	h.s.Activity()
+	want := h.s.cfg.ClockFormat.Layout().Format(h.now)
+	if got := h.s.faces[0].prompt.Clock.Text(); got != want {
+		t.Errorf("unblanking shows %q, want %q", got, want)
+	}
+	if h.wall.fn == nil {
+		t.Error("unblanking did not start the clock again")
+	}
+}
+
+func TestAJumpOfTheWallClockShowsWithoutAKey(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	for _, jump := range []time.Duration{3 * time.Hour, -5 * time.Hour, 24 * time.Hour} {
+		h.now = h.now.Add(jump)
+		h.wall.fire()
+		want := h.s.cfg.ClockFormat.Layout().Format(h.now)
+		if got := h.s.faces[0].prompt.Clock.Text(); got != want {
+			t.Errorf("after a jump of %v the clock shows %q, want %q", jump, got, want)
+		}
+		if h.wall.fn == nil || !h.wall.at.After(h.now) {
+			t.Errorf("after a jump of %v the clock is armed for %v, past %v", jump, h.wall.at, h.now)
+		}
+	}
+	zone := time.FixedZone("elsewhere", 5*3600+1800)
+	h.now = h.now.In(zone)
+	h.wall.fire()
+	want := h.now.Format("15:04")
+	if got := h.s.faces[0].prompt.Clock.Text(); got != want {
+		t.Errorf("after the zone changed the clock shows %q, want %q", got, want)
+	}
+}
+
+func TestAnUnlockHidesThePromptsBeforeItReleasesTheLock(t *testing.T) {
+	h := newHarness(t, nil)
+	ends := 0
+	h.s.d.OnEnded = func() { ends++ }
+	h.lock(t)
+	h.finishExit()
+	h.s.ForceUnlock()
+	if !h.locker.active || h.locker.releases != 0 || ends != 0 {
+		t.Fatalf("released %d times (active %v, %d ends) before the prompts hid", h.locker.releases, h.locker.active, ends)
+	}
+	h.eachFace(t, func(f *face) {
+		if f.prompt.Reveal.Revealed() || f.prompt.Entry.Enabled() {
+			t.Error("a prompt stays up and typeable through the unlock")
+		}
+	})
+	h.finishExit()
+	if h.locker.active || h.locker.releases != 1 || ends != 1 || len(h.s.faces) != 0 {
+		t.Errorf("after the prompts hid: %d releases, active %v, %d ends, %d faces; want one clean release", h.locker.releases, h.locker.active, ends, len(h.s.faces))
+	}
+}
+
+func TestAnUnlockWithAnimationsOffIsInstant(t *testing.T) {
+	h := newHarness(t, nil)
+	h.s.anims.Enabled = false
+	h.lock(t)
+	h.s.ForceUnlock()
+	if h.locker.active || h.locker.releases != 1 {
+		t.Errorf("with animations off the unlock waited: %d releases, active %v", h.locker.releases, h.locker.active)
+	}
+}
+
+func TestARelockDuringTheUnlockKeepsTheLock(t *testing.T) {
+	h := newHarness(t, nil)
+	ends := 0
+	h.s.d.OnEnded = func() { ends++ }
+	h.lock(t)
+	h.finishExit()
+	h.s.ForceUnlock()
+	exiting := slices.Clone(h.s.faces)
+	if err := h.s.Lock(); err != nil {
+		t.Fatal(err)
+	}
+	h.eachFace(t, func(f *face) {
+		if !f.prompt.Reveal.Revealed() || !f.prompt.Entry.Enabled() {
+			t.Error("the re-lock left a prompt hidden or untypeable")
+		}
+	})
+	for _, f := range exiting {
+		f.prompt.Reveal.Finish()
+	}
+	if !h.locker.active || h.locker.releases != 0 || ends != 0 {
+		t.Errorf("the cancelled unlock released anyway: %d releases, active %v, %d ends", h.locker.releases, h.locker.active, ends)
+	}
+	if len(h.locker.surfaces) != 2 {
+		t.Errorf("the re-lock made %d surfaces, want the two it kept", len(h.locker.surfaces))
+	}
+	h.s.ForceUnlock()
+	h.finishExit()
+	if h.locker.releases != 1 || ends != 1 {
+		t.Errorf("the next unlock: %d releases, %d ends, want one each", h.locker.releases, ends)
+	}
+}
+
+func TestASecondUnlockDuringTheExitReleasesOnce(t *testing.T) {
+	h := newHarness(t, nil)
+	ends := 0
+	h.s.d.OnEnded = func() { ends++ }
+	h.lock(t)
+	h.finishExit()
+	h.s.ForceUnlock()
+	h.s.ForceUnlock()
+	h.finishExit()
+	if h.locker.releases != 1 || ends != 1 {
+		t.Errorf("%d releases, %d ends, want one each", h.locker.releases, ends)
+	}
+}
+
+func TestTheCompositorEndingTheLockDuringTheExitEndsItOnce(t *testing.T) {
+	h := newHarness(t, nil)
+	ends := 0
+	h.s.d.OnEnded = func() { ends++ }
+	h.lock(t)
+	h.finishExit()
+	exiting := slices.Clone(h.s.faces)
+	h.s.ForceUnlock()
+	h.locker.cfg.OnFinished()
+	for _, f := range exiting {
+		f.prompt.Reveal.Finish()
+	}
+	if h.locker.releases != 0 || ends != 1 {
+		t.Errorf("%d releases, %d ends; the compositor's end is the only one", h.locker.releases, ends)
+	}
+}
+
+// Every face asks the session user by name for their password, and their
+// picture shows on every face once it is decoded, on faces of outputs
+// plugged in after it too.
+func TestEveryFaceShowsTheSessionAccount(t *testing.T) {
+	h := newHarness(t, nil)
+	h.lock(t)
+	for _, f := range h.s.faces {
+		if !slices.Contains(treetest.Labels(f.account.Root), "Ada Lovelace") || f.account.Initials() != "AL" {
+			t.Errorf("a face shows %q, want Ada Lovelace", treetest.Labels(f.account.Root))
+		}
+		if f.prompt.Entry.Placeholder() != i18n.T("lock-password") {
+			t.Errorf("password placeholder = %q", f.prompt.Entry.Placeholder())
+		}
+	}
+	picture := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	draw.Draw(picture, picture.Rect, image.NewUniform(color.RGBA{R: 0xff, A: 0xff}), image.Point{}, draw.Src)
+	painted := func(f *face) bool {
+		a := treetest.First[*widget.Avatar](t, f.account.Root)
+		a.Arrange(render.Rect{W: 8, H: 8})
+		data := make([]byte, render.Stride(8)*8)
+		a.Paint(render.New(data, render.Stride(8), 8, 8))
+		center := data[4*(4*8+4):][:4]
+		return center[0] == 0 && center[1] == 0 && center[2] == 0xff
+	}
+	h.s.SetPicture(picture)
+	h.locker.plug()
+	for i, f := range h.s.faces {
+		if !painted(f) {
+			t.Errorf("face %d paints the initials over the picture", i)
+		}
+	}
+}

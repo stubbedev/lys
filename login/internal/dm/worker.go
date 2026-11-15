@@ -1,0 +1,434 @@
+package dm
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"os/exec"
+	"os/signal"
+	"os/user"
+	"runtime"
+	"slices"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+	"unsafe"
+
+	"github.com/stubbedev/lys-lib/xdg"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-login/internal/auth"
+)
+
+// Seat is the seat the display manager runs on.
+const Seat = "seat0"
+
+// sessionPath is the PATH a session starts with when PAM sets none.
+const sessionPath = "/run/wrappers/bin:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin"
+
+// profileScript starts a session command the way a login does: the
+// system and the user's profile first, then the command in its place.
+const profileScript = `[ -f /etc/profile ] && . /etc/profile; [ -f "$HOME/.profile" ] && . "$HOME/.profile"; exec "$@"`
+
+// stopGrace is how long a stopped greeter or session has to exit before it is
+// killed.
+const stopGrace = 5 * time.Second
+
+// WorkerOptions are what every worker runs with.
+type WorkerOptions struct {
+	// Service is the PAM service.
+	Service string
+	// VT is the virtual terminal the sessions run on.
+	VT int
+	// Self is the lys-login program the workers and the greeter run.
+	Self string
+	// RuntimeDir holds the lock a session worker keeps while its session runs.
+	RuntimeDir string
+	Autologin  bool
+}
+
+// greeterSessionType is the type of the session the greeter's compositor
+// runs in.
+const greeterSessionType = "wayland"
+
+// sessionEnv is the environment pam_systemd registers a session with.
+func (o WorkerOptions) sessionEnv(class, sessionType string) []string {
+	return []string{
+		auth.SessionTypeEnv + "=" + sessionType,
+		"XDG_SESSION_CLASS=" + class,
+		"XDG_SEAT=" + Seat,
+		"XDG_VTNR=" + strconv.Itoa(o.VT),
+	}
+}
+
+// loginEnv is sessionEnv for a login whose start request carries
+// startEnv, which names the type of the session the user picked.
+func (o WorkerOptions) loginEnv(startEnv []string) ([]string, error) {
+	sessionType := lookupIn(startEnv)(auth.SessionTypeEnv)
+	if sessionType == "" {
+		return nil, fmt.Errorf("the start request names no %s: %q", auth.SessionTypeEnv, startEnv)
+	}
+	return o.sessionEnv("user", sessionType), nil
+}
+
+// account is who a process runs as.
+type account struct {
+	name, home, shell string
+	uid, gid          uint32
+	groups            []uint32
+}
+
+func lookupAccount(name string) (account, error) {
+	u, err := user.Lookup(name)
+	if err != nil {
+		return account{}, fmt.Errorf("look up %s: %w", name, err)
+	}
+	uid, err := strconv.ParseUint(u.Uid, 10, 32)
+	if err != nil {
+		return account{}, fmt.Errorf("%s's uid %q: %w", name, u.Uid, err)
+	}
+	gid, err := strconv.ParseUint(u.Gid, 10, 32)
+	if err != nil {
+		return account{}, fmt.Errorf("%s's gid %q: %w", name, u.Gid, err)
+	}
+	ids, err := u.GroupIds()
+	if err != nil {
+		return account{}, fmt.Errorf("%s's groups: %w", name, err)
+	}
+	groups := make([]uint32, 0, len(ids))
+	for _, id := range ids {
+		g, err := strconv.ParseUint(id, 10, 32)
+		if err != nil {
+			return account{}, fmt.Errorf("%s's group %q: %w", name, id, err)
+		}
+		groups = append(groups, uint32(g))
+	}
+	shell, err := loginShell(name)
+	if err != nil {
+		return account{}, err
+	}
+	return account{name: name, home: u.HomeDir, shell: shell, uid: uint32(uid), gid: uint32(gid), groups: groups}, nil
+}
+
+// passwdFile is the account database the shell is read from, as
+// os/user reads the rest of the account.
+const passwdFile = "/etc/passwd"
+
+// loginShell is name's shell in the account database, /bin/sh when it
+// names none.
+func loginShell(name string) (string, error) {
+	data, err := os.ReadFile(passwdFile)
+	if err != nil {
+		return "", fmt.Errorf("look up %s's shell: %w", name, err)
+	}
+	return shellOf(string(data), name), nil
+}
+
+// shellOf is name's shell in a passwd file's text, /bin/sh without one.
+func shellOf(passwd, name string) string {
+	for line := range strings.SplitSeq(passwd, "\n") {
+		fields := strings.Split(line, ":")
+		if len(fields) >= 7 && fields[0] == name && fields[6] != "" {
+			return fields[6]
+		}
+	}
+	return "/bin/sh"
+}
+
+// environ is a session's environment: PAM's, then the account's
+// basics where PAM set none, then extra.
+func (a account) environ(pamEnv, extra []string) []string {
+	env := append([]string(nil), pamEnv...)
+	set := map[string]bool{}
+	for _, kv := range env {
+		for i := range len(kv) {
+			if kv[i] == '=' {
+				set[kv[:i]] = true
+				break
+			}
+		}
+	}
+	for _, kv := range [][2]string{{"HOME", a.home}, {"USER", a.name}, {"LOGNAME", a.name}, {"SHELL", a.shell}, {"PATH", sessionPath}} {
+		if !set[kv[0]] {
+			env = append(env, kv[0]+"="+kv[1])
+		}
+	}
+	return append(env, extra...)
+}
+
+// startAs starts argv as a, in a session of its own with the VT as its
+// controlling terminal and standard input; output goes to the worker's
+// log.
+func (o WorkerOptions) startAs(a account, argv, env []string) (*exec.Cmd, error) {
+	tty, err := os.OpenFile(fmt.Sprintf("/dev/tty%d", o.VT), os.O_RDWR|syscall.O_NOCTTY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("open the VT: %w", err)
+	}
+	defer func() { _ = tty.Close() }()
+	cmd := exec.Command(argv[0], argv[1:]...) //nolint:gosec // the session the user chose, run as them
+	cmd.Env, cmd.Dir = env, a.home
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, os.Stderr, os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true, Setctty: true, Ctty: 0,
+		Credential: &syscall.Credential{Uid: a.uid, Gid: a.gid, Groups: a.groups},
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("start %s as %s: %w", argv[0], a.name, err)
+	}
+	return cmd, nil
+}
+
+// RunGreeter is the greeter's worker: it opens the greeter user's
+// session, runs the compositor as that user, and closes the session when
+// the compositor exits or the daemon stops the worker (SIGTERM). It
+// must run on the process's main thread, as auth.Login says.
+func RunGreeter(o WorkerOptions, greeterUser string, compositor, extraEnv []string) error {
+	a, err := lookupAccount(greeterUser)
+	if err != nil {
+		return err
+	}
+	login, err := auth.Greeter(o.Service, greeterUser)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := login.Close(); err != nil {
+			log.Printf("dm: greeter: %v", err)
+		}
+	}()
+	pamEnv, err := login.OpenSession(o.sessionEnv("greeter", greeterSessionType))
+	if err != nil {
+		return fmt.Errorf("greeter session: %w", err)
+	}
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	defer signal.Stop(stop)
+	cmd, err := o.startAs(a, compositor, a.environ(pamEnv, extraEnv))
+	if err != nil {
+		return err
+	}
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	select {
+	case err := <-exited:
+		return fmt.Errorf("the greeter's compositor exited: %w", err)
+	case <-stop:
+		return stopGroup("the greeter", cmd, exited)
+	}
+}
+
+// stopGroup ends the compositor cmd first, so it never draws a frame
+// without what runs in it, then the rest of its process group; SIGKILL
+// after the grace. what names it in the log.
+func stopGroup(what string, cmd *exec.Cmd, exited <-chan error) error {
+	_ = cmd.Process.Signal(syscall.SIGTERM)
+	select {
+	case err := <-exited:
+		log.Printf("dm: the compositor of %s stopped: %v", what, err)
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		return nil
+	case <-time.After(stopGrace):
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		err := <-exited
+		return fmt.Errorf("%s did not stop in time and was killed: %w", what, err)
+	}
+}
+
+// keyringWait bounds how long a session's keyring has to start before
+// its login password is dropped.
+const keyringWait = time.Minute
+
+// unlockKeyringAs hands password to the login keyring of a's session,
+// whose environment is env, once one runs there, and reports what the
+// keyring said, or why none took it, on the returned channel. The
+// session never waits for it. The thread also activates the keyring on
+// the session's bus, whose authentication goes by its credentials.
+//
+// The keyring takes the password from its own user alone, so it is
+// handed over from an OS thread of this process that takes a's
+// credentials first, as pam_gnome_keyring hands it over from a child of
+// gdm's worker that takes them, and ends with the hand-over. Nothing is
+// executed for it: under SELinux the session's domain may not enter
+// this program, which is labelled as a display manager's. It takes
+// password over and clears it before it reports.
+func unlockKeyringAs(a account, env []string, password, previous []byte) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		runtime.LockOSThread()
+		err := handOverAs(a, env, password, previous)
+		clear(password)
+		clear(previous)
+		done <- err
+	}()
+	return done
+}
+
+func reportKeyring(ch *channel, name string, unlocked <-chan error) {
+	err := <-unlocked
+	if err == nil {
+		return
+	}
+	text := fmt.Sprintf("dm: the login keyring of %s stays locked: %v", name, err)
+	if sendErr := ch.send(event{Kind: evKeyringLocked, Text: text}); sendErr != nil {
+		log.Printf("%s; and the daemon could not be told: %v", text, sendErr)
+	}
+}
+
+// handOverAs is unlockKeyringAs on its locked thread.
+func handOverAs(a account, env []string, password, previous []byte) error {
+	if err := becomeOnThread(a); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), keyringWait)
+	defer cancel()
+	return auth.AwaitLoginKeyring(ctx, lookupIn(env), password, previous)
+}
+
+// becomeOnThread gives the calling OS thread a's groups, gid and uid,
+// real, effective and saved: the thread can never take root's back, so
+// its goroutine must stay locked to it, which ends the thread with the
+// goroutine. The raw system calls change this thread alone, where the
+// syscall package's Setuid and the others change every thread.
+func becomeOnThread(a account) error {
+	var groups unsafe.Pointer
+	if len(a.groups) > 0 {
+		groups = unsafe.Pointer(&a.groups[0]) //nolint:gosec // setgroups(2) reads len(a.groups) gid_t values here
+	}
+	if _, _, errno := unix.RawSyscall(unix.SYS_SETGROUPS, uintptr(len(a.groups)), uintptr(groups), 0); errno != 0 {
+		return fmt.Errorf("give the keyring's thread %s's groups: %w", a.name, errno)
+	}
+	if _, _, errno := unix.RawSyscall(unix.SYS_SETRESGID, uintptr(a.gid), uintptr(a.gid), uintptr(a.gid)); errno != 0 {
+		return fmt.Errorf("give the keyring's thread %s's gid %d: %w", a.name, a.gid, errno)
+	}
+	if _, _, errno := unix.RawSyscall(unix.SYS_SETRESUID, uintptr(a.uid), uintptr(a.uid), uintptr(a.uid)); errno != 0 {
+		return fmt.Errorf("give the keyring's thread %s's uid %d: %w", a.name, a.uid, errno)
+	}
+	return nil
+}
+
+// lookupIn is env, KEY=value pairs, as an xdg.Env: the last value of a
+// key, as getenv(3) finds the first.
+func lookupIn(env []string) xdg.Env {
+	return func(name string) string {
+		for _, kv := range slices.Backward(env) {
+			if k, v, ok := strings.Cut(kv, "="); ok && k == name {
+				return v
+			}
+		}
+		return ""
+	}
+}
+
+func (o WorkerOptions) authenticate(user string, ask auth.Ask) (*auth.Login, error) {
+	if !o.Autologin {
+		return auth.Authenticate(o.Service, user, ask)
+	}
+	login, err := auth.Autologin(o.Service, user)
+	if err != nil {
+		return nil, err
+	}
+	if login.HasSecret() {
+		log.Printf("dm: autologin of %s: the disk passphrase from the kernel keyring goes to the login keyring", user)
+	} else {
+		log.Printf("dm: autologin of %s: no disk passphrase in the kernel keyring, so the login keyring stays locked until the lock screen opens it", user)
+	}
+	return login, nil
+}
+
+// RunSession is one login's worker, serving the daemon over rw: it
+// authenticates the user the daemon names, relaying PAM's prompts, and
+// once told to start, opens the session, runs the command as the user
+// until it exits, and closes the session. It must run on the process's
+// main thread, as auth.Login says.
+func RunSession(o WorkerOptions, rw io.ReadWriter) error {
+	ch := newChannel(rw)
+	var req request
+	if err := ch.recv(&req); err != nil {
+		return err
+	}
+	if req.Op != opAuth || req.User == "" {
+		return fmt.Errorf("dm: a session worker's first request is %q, want auth", req.Op)
+	}
+	ask := func(p auth.Prompt) (string, bool) {
+		if err := ch.send(event{Kind: evPrompt, Prompt: &p}); err != nil {
+			return "", false
+		}
+		var ans request
+		if err := ch.recv(&ans); err != nil || ans.Op != opAnswer || ans.Answer == nil {
+			return "", false
+		}
+		return *ans.Answer, true
+	}
+	login, err := o.authenticate(req.User, ask)
+	if err != nil {
+		log.Printf("dm: login of %s: %v", req.User, err)
+		return ch.send(event{Kind: evFailed, Text: err.Error()})
+	}
+	defer func() {
+		if err := login.Close(); err != nil {
+			log.Printf("dm: session of %s: %v", req.User, err)
+		}
+	}()
+	secret, previous := login.TakeSecret(), login.TakePrevious()
+	defer func() { clear(secret); clear(previous) }()
+	if err := ch.send(event{Kind: evAuthenticated}); err != nil {
+		return err
+	}
+	if err := ch.recv(&req); err != nil {
+		return err
+	}
+	if req.Op != opStart || len(req.Cmd) == 0 {
+		return nil
+	}
+	a, err := lookupAccount(login.User())
+	if err != nil {
+		return ch.send(event{Kind: evFailed, Text: err.Error()})
+	}
+	sessionEnv, err := o.loginEnv(req.Env)
+	if err != nil {
+		return ch.send(event{Kind: evFailed, Text: err.Error()})
+	}
+	pamEnv, err := login.OpenSession(sessionEnv)
+	if err != nil {
+		return ch.send(event{Kind: evFailed, Text: err.Error()})
+	}
+	env := a.environ(pamEnv, req.Env)
+	argv := append([]string{"/bin/sh", "-c", profileScript, "sh"}, req.Cmd...)
+	held, err := holdSessionLock(o.RuntimeDir, o.VT)
+	if err != nil {
+		return ch.send(event{Kind: evFailed, Text: err.Error()})
+	}
+	defer func() { _ = held.Close() }()
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	defer signal.Stop(stop)
+	cmd, err := o.startAs(a, argv, env)
+	if err != nil {
+		return ch.send(event{Kind: evFailed, Text: err.Error()})
+	}
+	if err := ch.send(event{Kind: evStarted, UID: a.uid, SessionID: lookupIn(pamEnv)("XDG_SESSION_ID")}); err != nil {
+		log.Printf("dm: tell the daemon the session started: %v", err)
+	}
+	if secret != nil {
+		unlocked := unlockKeyringAs(a, env, secret, previous)
+		secret, previous = nil, nil
+		go reportKeyring(ch, a.name, unlocked)
+	}
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	var waitErr error
+	select {
+	case waitErr = <-exited:
+	case <-stop:
+		waitErr = stopGroup("the session of "+a.name, cmd, exited)
+	}
+	text := "exited"
+	if waitErr != nil {
+		text = waitErr.Error()
+	}
+	log.Printf("dm: the session of %s ended: %s", a.name, text)
+	return ch.send(event{Kind: evEnded, Text: text})
+}

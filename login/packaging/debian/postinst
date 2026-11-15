@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+	systemd-sysusers lys-login.conf
+fi
+
+#DEBHELPER#
+
+if [ "$1" = "configure" ] && [ -n "$2" ] && systemctl is-active --quiet lys-login.service; then
+	systemctl daemon-reload
+	systemctl reload lys-login.service ||
+		echo "lys-login: the running display manager stays on the old version until it restarts; see journalctl -u lys-login" >&2
+fi

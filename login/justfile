@@ -1,0 +1,145 @@
+# lys-login dev tasks.
+
+# List all recipes with their descriptions.
+default:
+    @just --list
+
+# Run every release gate in order: vet, lint, test, race, build.
+check: vet lint no-fused test race build
+
+# Static analysis of every package with go vet.
+vet:
+    go vet ./...
+
+# Lint without changing anything: formatting and golangci-lint
+# Fail on any float product fused into an FMA, which rounds differently from amd64.
+no-fused:
+    no-fused
+
+# (settings in .golangci.yml).
+lint:
+    golangci-lint fmt --diff
+    golangci-lint run
+
+# Run the test suite in a random order, so a test that leans on state an
+# earlier one left behind fails instead of passing by declaration order.
+test *args:
+    go test ${LYS_TEST_ARGS--shuffle=on} ./... {{args}}
+
+# Run the test suite under the race detector, which needs cgo.
+race:
+    CGO_ENABLED=1 go test -race ${LYS_TEST_ARGS--shuffle=on} ./...
+
+# Compile-check every package; the output is discarded.
+build:
+    go build -o /dev/null ./...
+
+# The program interpreter the dist/ binary requests: the distro's loader
+# at its standard path. purego links it dynamically, and a Go toolchain
+# from Nix would otherwise name its own /nix/store loader, which exists
+# only on NixOS.
+fhs_interpreter := if arch() == "aarch64" { "/lib/ld-linux-aarch64.so.1" } else { "/lib64/ld-linux-x86-64.so.2" }
+
+# Build the release binary into dist/, as the archive and the Debian and
+# RPM packages ship it: pure Go (libpam and the drawing libraries load at
+# runtime through purego), stripped, asking for the standard loader;
+# beside it the notice of the wordlist lys-desktop's config links in.
+dist:
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{fhs_interpreter}}" -o dist/ ./cmd/lys-login
+    install -m 0644 "$(go list -m -f '{{{{.Dir}}' github.com/stubbedev/lys-desktop)/service/bitwarden/generator/eff_large_wordlist.NOTICE" dist/
+
+# Format every Go source in place (gofumpt and gci via golangci-lint).
+fmt:
+    golangci-lint fmt
+
+# lys-login as the display manager in a NixOS VM (needs KVM): the greeter
+# in a lys-wm kiosk with no greetd or cage, a wrong and a right password,
+# the logind session, lys-secrets' login collection unlocked by the
+# login, and the greeter back after it. Screenshots in ./result.
+login-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.login-vm
+
+# Setting the wall clock wakes the login screen's clock, in a NixOS VM.
+wallclock-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.wallclock-vm
+
+# The login keyring with the real gnome-keyring and no PAM module for it, in a
+# NixOS VM (needs KVM): the daemon starts and unlocks it, a password it no
+# longer opens with warns, and so does no keyring at all.
+keyring-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.keyring-vm
+
+# The daemon upgraded in place in a NixOS VM (needs KVM): a session and its lock
+# screen survive a switch to a second build, a refused and a failed upgrade leave
+# the old daemon running and say why, and the next greeter and lock screen are new.
+upgrade-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.upgrade-vm
+
+# The greeter under greetd in a cage kiosk in a NixOS VM (needs KVM), on GLES2
+# over llvmpipe and on pixman: a wrong and a right password, and the greeter back.
+greetd-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.greetd-vm
+
+# The greeter on the system keyboard layout in a NixOS VM (needs KVM): a German
+# password typed on German keys, and with German and US a Caps Lock switch, a US
+# password, and the next greeter back on the layout the user logged in with.
+keyboard-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.keyboard-vm
+
+# The lock screen's status row and fingerprint in a NixOS VM (needs KVM): a
+# fake player shown, a Caps Lock layout switch while locked, and a fake fprintd
+# whose no-match counts and whose match unlocks without a password.
+lock-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.lock-vm
+
+# The greeter's accessibility menu in a NixOS VM (needs KVM): nothing started
+# with every option off, Super+Alt+S starting Orca, which speaks the focused
+# field, and the choices back at the next greeter.
+accessibility-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.accessibility-vm
+
+# Fast user switching in a NixOS VM (needs KVM): a greeter on a free VT for
+# a second user, back to the first without a password, an upgrade with both
+# sessions, a logout back to the other session, and a stop ending both.
+switch-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.switch-vm
+
+# Autologin in a NixOS VM (needs KVM): no greeter at boot and one after the
+# logout, then a LUKS root whose passphrase opens the login keyring, or does not.
+autologin-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.autologin-vm
+
+# A changed password re-keys the login collection, in a NixOS VM (needs KVM).
+rekey-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.rekey-vm
+
+# An X11 session through the display manager in a NixOS VM (needs KVM): logind
+# holds it as Type=x11, and the greeter before it stays wayland.
+x11-session-vm:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.x11-session-vm
+
+# The .deb or the .rpm built, installed and logged in through in a
+# Debian or Fedora cloud VM, as nix/distro-vm.nix describes (needs KVM,
+# and the network in the guest): `just distro-vm debian`.
+distro-vm distro: dist
+    ./scripts/ci/build-archive.sh dist 0.0.0 {{ arch() }}
+    nix run .#distro-vm-{{ distro }} -- lys-login-0.0.0-{{ arch() }}-linux.tar.gz
+
+# Move every lys module and flake input to its head, then the vendor hash.
+bump-lys:
+    nix run github:stubbedev/lys-ci#bump-lys
+
+# Set nix/package.nix's vendorHash to the hash of the modules go.sum pins.
+vendor-hash:
+    nix run github:stubbedev/lys-ci#vendor-hash -- nix/package.nix .#default.goModules
+
+# Tag the current commit as the next release and push it, refusing anything but
+# a clean default branch whose CI succeeded.
+release-patch:
+    nix run github:stubbedev/lys-ci#release -- patch
+
+release-minor:
+    nix run github:stubbedev/lys-ci#release -- minor
+
+release-major:
+    nix run github:stubbedev/lys-ci#release -- major

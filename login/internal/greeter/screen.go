@@ -1,0 +1,602 @@
+package greeter
+
+import (
+	"cmp"
+	"image"
+	"log"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-desktop/imagedecode"
+	"github.com/stubbedev/lys-desktop/shell/reveal"
+	"github.com/stubbedev/lys-desktop/shell/widgets"
+	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys-lib/logind"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys-login/internal/auth"
+	"github.com/stubbedev/lys-login/internal/layouts"
+	loginscreen "github.com/stubbedev/lys-login/internal/screen"
+)
+
+// t is the greeter's t! (lys-greeter.ftl, the desktop locale).
+func t(id string, args ...i18n.Arg) string { return i18n.Greeter().Get(id, args...) }
+
+// CustomSessionName labels the explicit `-- <argv>` session.
+func CustomSessionName() string { return t("greeter-custom-session") }
+
+const handOverWait = 2 * time.Second
+
+// maxListedUsers caps the avatar row; beyond it the username entry
+// carries the load.
+const maxListedUsers = 8
+
+// powerIconPx is the power buttons' glyph size.
+const powerIconPx = 20
+
+// Init is what the greeter starts from (app.rs GreeterInit).
+type Init struct {
+	Config *config.Config
+	// Sessions is non-empty (main enforces it).
+	Sessions    []Session
+	Users       []User
+	LastSession string
+	LastUser    string
+	Layouts     map[string]string
+	A11y        Accessibility
+	StatePath   string
+	SessionEnv  []string
+	OnPresented func()
+	HandOver    bool
+}
+
+// deps are the screen's collaborators; Run fills the production ones.
+type deps struct {
+	// connect opens the greetd conversation for this attempt; cmd
+	// resolves the selected session at start_session.
+	connect func(start auth.Start) (auth.Conversation, error)
+	spawn   func(conv auth.Conversation, username string, onEvent func(auth.Event)) authHandle
+	invoke  func(func())
+	focus   func(widget.Widget)
+	// focused is the widget the last focus landed on, nil before one
+	// does.
+	focused func() widget.Widget
+	// keyboardHeld reports whether the compositor gives this client
+	// the seat's keyboard.
+	keyboardHeld  func() bool
+	quit          func()
+	whenPresented func(fn func()) error
+	after         func(d time.Duration) <-chan time.Time
+	// wall is the clock the greeter shows.
+	wall loginscreen.WallClock
+	now  func() time.Time
+	// saveLast stores a remembered value; it syncs, so never on the loop.
+	saveLast func(path, value string) error
+	// power runs a power action to its end, off the loop.
+	power func(logind.PowerAction)
+	// loadImage decodes the background (no blur in the greeter), its
+	// pixels in mem where it can.
+	loadImage func(mem *memory.Shared, path string) (imagedecode.Decoded, error)
+	// outputs are the device pixel sizes of the outputs the greeter
+	// shows on, which the background is resampled to.
+	outputs func() []image.Point
+	// forget drops the renderer's copy of a raster that is no longer
+	// drawn, before its pixels are freed.
+	forget func(render.ImageID)
+	// loadAvatar decodes an avatar file.
+	loadAvatar func(path string) (image.Image, error)
+	// outputScale is the largest buffer scale of the outputs the greeter shows on.
+	outputScale  func() int
+	nextLayout   func(steps int)
+	labelLayouts func(names []string) ([]layouts.Layout, error)
+	a11y         a11yDeps
+}
+
+type authHandle interface {
+	Answer(string)
+	Cancel()
+}
+
+// screen is the greeter UI and its login state machine.
+type screen struct {
+	init   Init
+	d      deps
+	prompt *loginscreen.Prompt
+	root   widget.Widget
+	drop   *widget.Dropdown
+	power  *widget.Box
+	users  []*userButton
+	picked *userButton
+
+	// bg is the background at the outputs' size, freed when the
+	// greeter ends; nil draws the color. Its pixels live in mem.
+	bg  *loginscreen.Backdrop
+	mem memory.Shared
+
+	mu       sync.Mutex // guards selected: greetd reads it off the loop
+	selected int
+
+	auth    authHandle
+	authGen uint64
+	// moduleError is the last error a PAM module sent during this attempt,
+	// which says more than the refusal that follows it.
+	moduleError string
+	awaiting    bool
+	pending     *string
+
+	presented bool
+	announced bool
+
+	clock *loginscreen.ClockTicker
+
+	layouts *loginscreen.KeyboardLayouts
+	a11y    a11yMenu
+
+	// saving is the write handOver may have stopped waiting for.
+	saving sync.WaitGroup
+}
+
+// userButton is one account in the user list.
+type userButton struct {
+	user   User
+	tile   *loginscreen.AccountTile
+	button *widget.Button
+}
+
+// newScreen builds the greeter view: the login screen in its greeter
+// mode, with the user list, the session picker and the power buttons;
+// font shapes the text and sheet styles the window.
+func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *screen {
+	s := &screen{init: init, d: d}
+	g := init.Config.Login
+	th := widget.Current()
+	textPx := widgets.TextPx(styling.Body, 1)
+
+	names := make([]string, len(init.Sessions))
+	for i, sess := range init.Sessions {
+		names[i] = sess.Name
+		if sess.ID == init.LastSession && init.LastSession != "" {
+			s.selected = i
+		}
+	}
+	s.drop = widget.NewDropdown(font, textPx, names, s.selected)
+	s.drop.AddClass("lock-session")
+	s.drop.SetCursorName("pointer")
+	s.drop.SetHAlign(widget.AlignCenter)
+	s.drop.OnSelect = func(i int) {
+		s.mu.Lock()
+		s.selected = i
+		s.mu.Unlock()
+	}
+	s.drop.SetVisible(len(init.Sessions) > 1)
+
+	users := widget.NewBox(widget.Row, th.Spacing, 0)
+	users.AddClass("lock-users")
+	users.SetHAlign(widget.AlignCenter)
+	if g.Greeter.ShowUserList && len(init.Users) > 0 && len(init.Users) <= maxListedUsers {
+		s.populateUsers(users, font)
+	} else {
+		users.SetVisible(false)
+	}
+	rows := loginscreen.GreeterRows{Session: s.drop}
+	footer := widget.NewBox(widget.Row, 4*th.Spacing, 0)
+	footer.AddClass("lock-footer")
+	footer.Append(s.a11yButton(font), false)
+	if g.Greeter.ShowPowerButtons {
+		s.power = s.powerRow(font)
+		footer.Append(s.power, false)
+	}
+	rows.Power = footer
+	s.bg = s.loadBackground()
+	spec := loginscreen.Spec{
+		Mode: loginscreen.Greeter, Config: g, Font: font, Sheet: sheet, Backdrop: s.bg,
+		Identity: users, Greeter: rows, Password: t("greeter-password"), CapsLock: t("greeter-caps-lock"),
+		Focus: d.focus, OnSubmit: s.submit,
+	}
+	s.layouts = loginscreen.NewKeyboardLayouts(loginscreen.LayoutDeps{
+		Invoke: d.invoke, Label: d.labelLayouts, Next: d.nextLayout, Mode: "greeter",
+		Show: func([]layouts.Layout, uint32) { s.layouts.ShowOn(s.prompt) },
+	})
+	if s.layouts.CanSwitch() {
+		spec.NextLayout = s.layouts.Cycle
+	}
+	surface := loginscreen.Build(spec)
+	s.prompt, s.root = surface.Prompt, surface.Root
+	s.prompt.Username.SetPlaceholder(t("greeter-username"))
+	s.prompt.Username.SetAccessibleName(t("greeter-username"))
+	s.prompt.Username.SetVisible(s.picked == nil)
+	var shown []func(time.Time) string
+	if g.ShowClock {
+		shown = append(shown, g.ClockFormat.Layout().Format, g.DateFormat.Layout().Format)
+	}
+	s.clock = loginscreen.NewClockTicker(d.wall, s.refreshClock, shown...)
+	s.refreshClock()
+	return s
+}
+
+// start pre-fills the remembered user and focuses the next field:
+// the password when the username is known, the username otherwise.
+func (s *screen) start() {
+	s.applyA11y(s.init.A11y)
+	s.showPrompt()
+	if s.init.HandOver {
+		s.prompt.Reveal.Finish()
+	}
+	if s.init.LastUser != "" {
+		s.prompt.Username.SetText(s.init.LastUser)
+		s.wantLayoutOf(s.init.LastUser)
+		s.d.focus(s.prompt.Entry)
+		return
+	}
+	s.d.focus(s.prompt.Username)
+}
+
+// markPresented notes that the compositor showed the form's first frame.
+func (s *screen) markPresented() {
+	s.presented = true
+	s.announceReady()
+}
+
+// announceReady logs, once, the moment what is typed reaches the form:
+// its first frame is on screen, the compositor gives this client the
+// keyboard, and a field of the form holds the focus. A compositor drops
+// keys while no surface holds its keyboard, so nothing typed before this
+// line is guaranteed to arrive, and everything after it is.
+func (s *screen) announceReady() {
+	if s.announced || !s.presented || !s.d.keyboardHeld() {
+		return
+	}
+	var field string
+	switch s.d.focused() {
+	case s.prompt.Username:
+		field = "username"
+	case s.prompt.Entry:
+		field = "password"
+	default:
+		return
+	}
+	s.announced = true
+	log.Printf("greeter: ready: the form is on screen and the %s field holds the keyboard", field)
+}
+
+// loadBackground is the greeter's background at the outputs' size,
+// blurred as the lock screen's is: an unreadable image falls back to the
+// color, never a mystery black.
+func (s *screen) loadBackground() *loginscreen.Backdrop {
+	path := s.init.Config.Login.Background.ImagePath(s.init.Config.Wallpaper.Wallpaper)
+	if path == "" {
+		return nil
+	}
+	bg, err := loginscreen.LoadBackdrop(&s.mem, s.d.loadImage, path, s.init.Config.Login.Blur.Sigma(), s.d.outputs())
+	if err != nil {
+		log.Printf("greeter: %v; using color fill", err)
+		return nil
+	}
+	return bg
+}
+
+// end lets go of the background once the greeter no longer shows it.
+func (s *screen) end() {
+	s.screenReader(false)
+	if s.bg == nil {
+		return
+	}
+	s.bg.Retire(s.d.forget, "greeter")
+	s.bg = nil
+}
+
+// populateUsers is populate_user_row: one account tile per login user
+// in the .lock-users row; a click fills the username, marks the button
+// selected, and focuses the password.
+func (s *screen) populateUsers(row *widget.Box, font render.Font) {
+	for _, u := range s.init.Users {
+		ub := &userButton{user: u, tile: loginscreen.NewAccountTile(font, u.DisplayName)}
+		if img := s.avatarPicture(u); img != nil {
+			ub.tile.SetPicture(img)
+		}
+		ub.button = widget.NewButton(ub.tile.Root, 0, 0)
+		ub.button.AddClass("lock-user-button", css.Ghost)
+		if u.Name == s.init.LastUser {
+			ub.button.AddClass("selected")
+			s.picked = ub
+		}
+		ub.button.OnClick = func() { s.pickUser(ub) }
+		s.users = append(s.users, ub)
+		row.Append(ub.button, false)
+	}
+}
+
+func (s *screen) pickUser(picked *userButton) {
+	if s.picked != nil {
+		s.picked.button.RemoveClass("selected")
+	}
+	if picked == s.picked {
+		s.picked = nil
+		s.prompt.Username.SetText("")
+		s.prompt.Username.SetVisible(true)
+		s.d.focus(s.prompt.Username)
+		return
+	}
+	s.picked = picked
+	picked.button.AddClass("selected")
+	s.prompt.Username.SetText(picked.user.Name)
+	s.prompt.Username.SetVisible(false)
+	s.wantLayoutOf(picked.user.Name)
+	s.d.focus(s.prompt.Entry)
+}
+
+// avatarPicture is the user's image at the size their tile shows it, nil
+// when they have none that reads.
+func (s *screen) avatarPicture(u User) image.Image {
+	return loginscreen.AvatarPicture(s.d.loadAvatar, u.Icon, s.d.outputScale())
+}
+
+// powerRow is build_power_box: sleep, restart and shut down in the
+// .lock-power row at the bottom center, each a round button over its name.
+func (s *screen) powerRow(font render.Font) *widget.Box {
+	th := widget.Current()
+	row := widget.NewBox(widget.Row, 4*th.Spacing, 0)
+	row.AddClass("lock-power")
+	for _, b := range []struct {
+		icon   string
+		name   string
+		action logind.PowerAction
+	}{
+		{sleepIcon, t("greeter-sleep"), logind.Suspend},
+		{restartIcon, t("greeter-restart"), logind.Reboot},
+		{shutdownIcon, t("greeter-shutdown"), logind.PowerOff},
+	} {
+		btn := widget.NewButton(widget.NewThemeIcon(b.icon, powerIconPx), 0, 0)
+		btn.AddClass("lock-power-button", css.Ghost, css.Icon, css.Large)
+		btn.SetAccessibleName(b.name)
+		action := b.action
+		btn.OnClick = func() { go s.d.power(action) }
+		name := widget.NewLabel(font, widgets.TextPx(styling.Caption, 1), b.name, 0)
+		name.AddClass("lock-power-name")
+		name.SetAlignment(render.AlignCenter)
+		col := widget.NewBox(widget.Column, th.Spacing/2, 0)
+		col.AppendAligned(btn, false, widget.AlignCenter).Append(name, false)
+		row.Append(col, false)
+	}
+	return row
+}
+
+// selectedSession is the session the picker shows.
+func (s *screen) selectedSession() Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.init.Sessions[s.selected]
+}
+
+// startedSession is what a login starts: the session the picker shows,
+// registered as its kind, with SessionEnv after that so --env can
+// override the type of a custom session.
+func (s *screen) startedSession() auth.Session {
+	return s.selectedSession().Started(s.init.SessionEnv)
+}
+
+// submit is Enter in the password entry: answer a prompt on screen, or
+// start a login with the entered username.
+func (s *screen) submit(value string) {
+	if s.awaiting {
+		s.awaiting = false
+		if s.auth != nil {
+			s.auth.Answer(value)
+		}
+		s.prompt.Entry.SetText("")
+		s.prompt.Entry.SetEnabled(false)
+		return
+	}
+	if s.auth != nil {
+		return
+	}
+	username := strings.TrimSpace(s.prompt.Username.Text())
+	if username == "" {
+		s.prompt.SetMessage(t("greeter-enter-username"))
+		s.d.focus(s.prompt.Username)
+		return
+	}
+	s.prompt.SetMessage("")
+	s.setForm(false)
+	s.startConversation(username, value)
+}
+
+func (s *screen) startConversation(username, password string) {
+	conv, err := s.d.connect(auth.Start{Session: s.startedSession, Before: s.handOver})
+	if err != nil {
+		log.Printf("greeter: cannot connect to greetd: %v", err)
+		s.prompt.SetMessage(t("greeter-greetd-unavailable", i18n.Str("error", err.Error())))
+		s.setForm(true)
+		return
+	}
+	s.pending = &password
+	s.authGen++
+	gen := s.authGen
+	s.auth = s.d.spawn(conv, username, func(ev auth.Event) {
+		s.d.invoke(func() {
+			if gen == s.authGen {
+				s.onEvent(ev)
+			}
+		})
+	})
+}
+
+func (s *screen) onEvent(ev auth.Event) {
+	switch ev.Kind {
+	case auth.EventPrompt:
+		s.onPrompt(ev.Prompt)
+	case auth.EventSuccess:
+		log.Printf("greeter: authentication succeeded; the session is starting")
+		if !s.init.HandOver {
+			s.d.quit()
+		}
+	case auth.EventFailure:
+		log.Printf("greeter: authentication failed: %s", ev.Reason)
+		s.auth = nil
+		s.authGen++
+		s.awaiting = false
+		s.pending = nil
+		s.prompt.SetMessage(cmp.Or(s.moduleError, loginscreen.RefusalText(ev.Refusal)))
+		s.moduleError = ""
+		s.show()
+		// Keep the username, clear the password; the next submit starts
+		// a fresh conversation (greetd cancelled this one).
+		s.setForm(true)
+		s.prompt.Entry.SetText("")
+		s.d.focus(s.prompt.Entry)
+	}
+}
+
+// onPrompt: the stashed password answers the first input prompt;
+// later ones (OTP, expired password) re-enable the entry and wait for
+// the next submit. Info and error prompts show their text.
+func (s *screen) onPrompt(p auth.Prompt) {
+	if !p.WantsInput() {
+		if p.Kind == auth.PromptError {
+			s.moduleError = p.Text
+		}
+		s.prompt.SetMessage(p.Text)
+		return
+	}
+	if s.pending != nil {
+		answer := *s.pending
+		s.pending = nil
+		if s.auth != nil {
+			s.auth.Answer(answer)
+		}
+		return
+	}
+	s.awaiting = true
+	s.prompt.SetMessage(p.Text)
+	s.prompt.Entry.SetEnabled(true)
+	s.prompt.Entry.SetText("")
+	s.d.focus(s.prompt.Entry)
+}
+
+// setForm enables or disables the whole login form.
+func (s *screen) setForm(on bool) {
+	s.prompt.Username.SetEnabled(on)
+	s.prompt.Entry.SetEnabled(on)
+	s.drop.SetEnabled(on)
+}
+
+// rememberedLogin is what a login leaves behind for the next one.
+type rememberedLogin struct {
+	session string
+	user    string
+	layout  string
+}
+
+// loginToRemember reads what it needs on the loop.
+func (s *screen) loginToRemember() rememberedLogin {
+	return rememberedLogin{session: s.selectedSession().ID, user: strings.TrimSpace(s.prompt.Username.Text()), layout: s.layouts.Active()}
+}
+
+// remember persists the session and the username for next time.
+func (s *screen) remember(l rememberedLogin) {
+	if err := s.d.saveLast(s.init.StatePath, l.session); err != nil {
+		log.Printf("greeter: could not save last session: %v", err)
+	}
+	if l.user == "" {
+		return
+	}
+	if err := s.d.saveLast(LastUserPath(s.init.StatePath), l.user); err != nil {
+		log.Printf("greeter: could not save last user: %v", err)
+	}
+	path, ok := LastLayoutPath(s.init.StatePath, l.user)
+	if l.layout == "" || !ok {
+		return
+	}
+	if err := s.d.saveLast(path, l.layout); err != nil {
+		log.Printf("greeter: could not save the layout %s logged in with: %v", l.user, err)
+	}
+}
+
+func (s *screen) refreshClock() {
+	now := s.d.now()
+	g := s.init.Config.Login
+	s.prompt.Clock.SetText(g.ClockFormat.Layout().Format(now))
+	s.prompt.Date.SetText(g.DateFormat.Layout().Format(now))
+}
+
+// setCapsLock shows or hides the warning.
+func (s *screen) setCapsLock(on bool) { s.prompt.SetCapsLock(on) }
+
+// handOver runs between the authentication and start_session, on the worker that
+// talks to greetd. The login is remembered here because the display manager may end
+// the greeter as soon as the session starts, before the success event reaches the
+// loop. Writing it syncs, so the loop only supplies what to write and goes on
+// animating. Nothing here holds the session back for longer than handOverWait: a
+// stalled disk costs what it had yet to write, not the login.
+func (s *screen) handOver() {
+	deadline := s.d.after(handOverWait)
+	login := make(chan rememberedLogin, 1)
+	s.d.invoke(func() { login <- s.loginToRemember() })
+	saved := make(chan struct{})
+	expired := false
+	select {
+	case l := <-login:
+		s.saving.Go(func() {
+			defer close(saved)
+			s.remember(l)
+		})
+		select {
+		case <-saved:
+		case <-deadline:
+			expired = true
+			log.Printf("greeter: the login was not saved within %v; starting the session regardless", handOverWait)
+		}
+	case <-deadline:
+		expired = true
+		log.Printf("greeter: the loop did not answer within %v; starting the session without remembering the login", handOverWait)
+	}
+	shown := make(chan struct{})
+	s.d.invoke(func() { s.leave(func() { close(shown) }) })
+	if expired {
+		return
+	}
+	select {
+	case <-shown:
+	case <-deadline:
+		log.Printf("greeter: the frame without the login prompt was not presented within %v; starting the session over whatever is on screen", handOverWait)
+	}
+}
+
+func (s *screen) leave(done func()) {
+	present := func() {
+		if err := s.d.whenPresented(done); err != nil {
+			log.Printf("greeter: %v", err)
+			done()
+		}
+	}
+	reveal.Hide(s.prompt.Reveal, s.init.Config.Animations, config.AnimLock, present)
+}
+
+func (s *screen) show() {
+	s.prompt.Reveal.SetOnTransitionDone(nil)
+	s.showPrompt()
+}
+
+func (s *screen) showPrompt() {
+	reveal.Show(s.prompt.Reveal, s.init.Config.Animations, config.AnimLock)
+}
+
+func (s *screen) coverOn(out *app.Output, font render.Font, sheet *widget.Stylesheet) app.LayerConfig {
+	return app.LayerConfig{
+		Output:     out,
+		Layer:      app.LayerBackground,
+		Anchor:     app.AnchorTop | app.AnchorBottom | app.AnchorLeft | app.AnchorRight,
+		Keyboard:   app.KeyboardNone,
+		Namespace:  "lys-greeter-cover",
+		Background: render.RGB(0, 0, 0),
+		OwnMotion:  true,
+		Root:       loginscreen.Cover(loginscreen.Spec{Config: s.init.Config.Login, Font: font, Sheet: sheet, Backdrop: s.bg}),
+	}
+}
