@@ -27,6 +27,23 @@ A new component, or a new CI job, is an entry in `ci/components.json`.
 Verify locally before pushing, push, and check CI once when pushes stop. A red
 `main` is fixed before anything else lands.
 
+## CI and gates finish in ten minutes
+
+A full CI run, and any local gate run, finishes in under ten minutes of wall
+clock. A gate that takes longer is a bug to fix, never a wait to sit through.
+
+- **Build once, share everywhere.** Every package, test binary and VM closure
+  is built once per architecture and reused through the binary cache by every
+  job and every test that needs it. No job rebuilds what another already built.
+- **Share VMs.** VM tests that can run on the same machine run in one booted
+  VM, as subtests of one NixOS test, not one boot per scenario.
+- **Parallel, never serial.** Independent checks run at the same time, in CI
+  as jobs and locally as concurrent processes. Nothing runs component by
+  component in a line.
+- **Measure it.** A change that makes a job slower says by how much and why,
+  and a job that grows past its share of the ten minutes is split or made
+  cheaper in the same change.
+
 ## Tests define behavior
 
 Every feature and every bug fix lands with tests, positive and negative: a
