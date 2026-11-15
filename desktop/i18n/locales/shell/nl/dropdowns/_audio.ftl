@@ -1,0 +1,11 @@
+dropdown-audio-title = Geluid
+dropdown-audio-output = Uitvoer
+dropdown-audio-input = Invoer
+dropdown-audio-output-devices = Uitvoerapparaten
+dropdown-audio-input-devices = Invoerapparaten
+dropdown-audio-app-volume = Toepassingsvolume
+dropdown-audio-no-device = Geen apparaten gevonden
+dropdown-audio-no-devices-title = Geen audioapparaten
+dropdown-audio-no-devices-description = Geen audio-uitvoer- of -invoerapparaten gevonden
+dropdown-audio-no-apps = Geen toepassingen die geluid afspelen
+dropdown-audio-settings = Geluidsinstellingen

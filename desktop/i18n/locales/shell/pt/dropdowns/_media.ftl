@@ -1,0 +1,11 @@
+dropdown-media-title = A reproduzir
+dropdown-media-no-player-title = Nada a reproduzir
+dropdown-media-no-player-description = Comece a reproduzir multimédia em qualquer aplicação para a controlar aqui
+dropdown-media-sources = Fontes multimédia
+dropdown-media-unknown-title = Título desconhecido
+dropdown-media-unknown-artist = Artista desconhecido
+dropdown-media-unknown-album = Álbum desconhecido
+dropdown-media-lyrics = Letra
+dropdown-media-lyrics-loading = A procurar a letra…
+dropdown-media-lyrics-none = Sem letra
+dropdown-media-lyrics-unavailable = Letra indisponível

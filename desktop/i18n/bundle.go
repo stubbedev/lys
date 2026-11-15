@@ -19,18 +19,22 @@ const maxPlaceables = 100
 // a single locale and no registered functions (i18n-embed adds none).
 type bundle struct {
 	locale   LangID
-	plural   pluralRule
+	plural   pluralRules
 	messages map[string]*entry
 	terms    map[string]*entry
 }
 
 // newBundle adds a resource the way FluentBundle::add_resource does: a
-// duplicate id keeps the first definition.
-func newBundle(locale LangID, res *resource) *bundle {
-	_, rule := pluralRuleFor(locale)
+// duplicate id keeps the first definition. A locale without a plural
+// rule set is an error.
+func newBundle(locale LangID, res *resource) (*bundle, error) {
+	rules, err := cardinalRulesFor(locale)
+	if err != nil {
+		return nil, err
+	}
 	b := &bundle{
 		locale:   locale,
-		plural:   rule,
+		plural:   rules,
 		messages: map[string]*entry{},
 		terms:    map[string]*entry{},
 	}
@@ -44,7 +48,7 @@ func newBundle(locale LangID, res *resource) *bundle {
 			table[e.id] = e
 		}
 	}
-	return b
+	return b, nil
 }
 
 func (e *entry) attribute(name string) *pattern {
@@ -164,11 +168,11 @@ func (s *scope) matches(key, selector value) bool {
 	case key.kind == valueNumber && selector.kind == valueNumber:
 		return key.num == selector.num
 	case key.kind == valueString && selector.kind == valueNumber:
-		if !slices.Contains([]string{"zero", "one", "two", "few", "many", "other"}, key.str) {
+		if !isPluralCategory(key.str) {
 			return false
 		}
 		ops, ok := selector.num.pluralOperands()
-		return ok && s.bundle.plural(ops) == key.str
+		return ok && s.bundle.plural.category(ops) == pluralCategory(key.str)
 	}
 	return false
 }

@@ -6,14 +6,11 @@ import (
 	greeterlocales "github.com/stubbedev/lys/desktop/i18n/locales/greeter"
 )
 
-// TestGreeterDomain pins the greeter's file-per-locale domain: the
-// French file answers a French desktop, en-US the rest, and an
-// argument is isolated as fluent-bundle does.
 func TestGreeterDomain(t *testing.T) {
 	assets := NewFileAssets(greeterlocales.FS, "lys-greeter.ftl")
 	available, err := assets.Available()
-	if err != nil || len(available) != 2 {
-		t.Fatalf("available = %v, %v; want en-US and fr", available, err)
+	if err != nil || langs(available) != shipped {
+		t.Fatalf("available = %v, %v; want %s", available, err, shipped)
 	}
 	fr, _ := ParseLangID("fr-FR")
 	l, err := Select(assets, []LangID{fr})
@@ -26,7 +23,7 @@ func TestGreeterDomain(t *testing.T) {
 	if got := l.Get("greeter-username"); got != "Nom d'utilisateur" {
 		t.Errorf("fr username = %q", got)
 	}
-	en, _ := ParseLangID("de-DE")
+	en, _ := ParseLangID("ja-JP")
 	l, _ = Select(assets, []LangID{en})
 	if got := l.Get("greeter-caps-lock"); got != "Caps Lock is on" {
 		t.Errorf("fallback caps lock = %q", got)

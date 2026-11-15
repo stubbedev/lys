@@ -62,54 +62,85 @@ func TestRequestedLanguagesFromEnvironment(t *testing.T) {
 	}
 }
 
-func TestNegotiateFilteringAgainstShippedLocales(t *testing.T) {
-	available := []LangID{MustLangID("en-US"), MustLangID("fr")}
+func parseLangs(t *testing.T, list string) []LangID {
+	t.Helper()
+	var ids []LangID
+	if list == "" {
+		return nil
+	}
+	for tag := range strings.SplitSeq(list, ",") {
+		ids = append(ids, MustLangID(tag))
+	}
+	return ids
+}
+
+func TestNegotiateOrdersCataloguesByRequest(t *testing.T) {
+	available := parseLangs(t, "de,de-AT,en-US,fr,pt")
 	cases := map[string]string{
-		"fr-FR":       "fr,en-US",
-		"fr":          "fr,en-US",
+		"de-AT":       "de-AT,de,en-US",
+		"de-CH":       "de,de-AT,en-US",
+		"de":          "de,de-AT,en-US",
 		"fr-CA":       "fr,en-US",
-		"de-DE":       "en-US",
+		"pt-BR":       "pt,en-US",
 		"en-GB":       "en-US",
-		"en":          "en-US",
+		"ja-JP":       "en-US",
+		"und":         "en-US",
 		"":            "en-US",
-		"de-DE,fr-BE": "fr,en-US",
+		"ja,pt-PT,fr": "pt,fr,en-US",
 		"en-US,fr":    "en-US,fr",
+		"de-1996":     "de,de-AT,en-US",
 	}
 	for req, want := range cases {
-		var requested []LangID
-		if req != "" {
-			for r := range strings.SplitSeq(req, ",") {
-				requested = append(requested, MustLangID(r))
-			}
-		}
-		got := langs(negotiateLanguages(requested, available, Fallback, filtering))
-		if got != want {
+		if got := langs(negotiate(parseLangs(t, req), available)); got != want {
 			t.Errorf("%q -> %q, want %q", req, got, want)
 		}
 	}
 }
 
-func TestNegotiateStrategies(t *testing.T) {
-	available := []LangID{MustLangID("de"), MustLangID("de-AT"), MustLangID("fr")}
-	req := []LangID{MustLangID("de-DE"), MustLangID("fr")}
-	if got := langs(filterMatches(req, available, filtering)); got != "de,de-AT,fr" {
-		t.Errorf("filtering = %q", got)
+func TestSystemLocalesResolveToTheirCatalogue(t *testing.T) {
+	cases := []struct {
+		env  map[string]string
+		want string
+	}{
+		{map[string]string{"LANG": "de_DE.UTF-8"}, "de,en-US"},
+		{map[string]string{"LANG": "de_AT.UTF-8"}, "de,en-US"},
+		{map[string]string{"LANG": "de_CH"}, "de,en-US"},
+		{map[string]string{"LANG": "es_ES.UTF-8"}, "es,en-US"},
+		{map[string]string{"LANG": "es_MX.UTF-8"}, "es,en-US"},
+		{map[string]string{"LANG": "it_IT.UTF-8"}, "it,en-US"},
+		{map[string]string{"LANG": "pt_PT.UTF-8"}, "pt,en-US"},
+		{map[string]string{"LANG": "pt_BR.UTF-8"}, "pt,en-US"},
+		{map[string]string{"LANG": "nl_NL.UTF-8"}, "nl,en-US"},
+		{map[string]string{"LANG": "nl_BE.UTF-8@euro"}, "nl,en-US"},
+		{map[string]string{"LANG": "fr_CA.UTF-8"}, "fr,en-US"},
+		{map[string]string{"LANG": "en_GB.UTF-8"}, "en-US"},
+		{map[string]string{"LANG": "ja_JP.UTF-8"}, "en-US"},
+		{map[string]string{"LANG": "C.UTF-8"}, "en-US"},
+		{map[string]string{}, "en-US"},
+		{map[string]string{"LANGUAGE": "ja:es_MX:it", "LANG": "de_DE.UTF-8"}, "es,it,de,en-US"},
 	}
-	if got := langs(filterMatches(req, available, matching)); got != "de,fr" {
-		t.Errorf("matching = %q", got)
+	english, err := Select(domains["shell"], nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := langs(filterMatches(req, available, lookup)); got != "de" {
-		t.Errorf("lookup = %q", got)
-	}
-	if got := langs(negotiateLanguages([]LangID{MustLangID("ja")}, available, MustLangID("en"), lookup)); got != "en" {
-		t.Errorf("lookup default = %q", got)
-	}
-}
-
-func TestPluralRuleSelection(t *testing.T) {
-	for in, want := range map[string]string{"en-US": "en", "fr-FR": "fr", "fr": "fr", "de": "en"} {
-		if got, _ := pluralRuleFor(MustLangID(in)); got.String() != want {
-			t.Errorf("%s -> %s, want %s", in, got, want)
+	for _, c := range cases {
+		requested := requestedLanguages(func(k string) string { return c.env[k] })
+		for name, assets := range domains {
+			l, err := Select(assets, requested)
+			if err != nil {
+				t.Fatalf("%s %v: %v", name, c.env, err)
+			}
+			if got := langs(l.Languages()); got != c.want {
+				t.Errorf("%s %v -> %q, want %q", name, c.env, got, c.want)
+			}
+		}
+		shell, err := Select(domains["shell"], requested)
+		if err != nil {
+			t.Fatal(err)
+		}
+		translated := shell.Get("osd-brightness") != english.Get("osd-brightness")
+		if wantTranslated := !strings.HasPrefix(c.want, "en-US"); translated != wantTranslated {
+			t.Errorf("%v: osd-brightness = %q", c.env, shell.Get("osd-brightness"))
 		}
 	}
 }

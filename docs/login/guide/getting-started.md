@@ -51,7 +51,8 @@ greetd.
   [Configuration](/login/guide/configuration#keyboard-layout).
 - **Accessibility menu**; see [Configuration](/login/guide/configuration#accessibility).
 - **Power buttons**: `systemctl suspend`, `reboot` and `poweroff`.
-- **Translations**: en-US and French, shared with the rest of the desktop.
+- **Translations**: English (US), German, Spanish, French, Italian, Dutch and
+  European Portuguese, shared with the rest of the desktop.
 
 ## Troubleshooting
 

@@ -5,117 +5,41 @@ import (
 	"strings"
 )
 
-// strategy is fluent-langneg's NegotiationStrategy.
-type strategy int
-
-const (
-	filtering strategy = iota
-	matching
-	lookup
-)
-
-// control is what one comparison pass tells filterMatches to do next.
-type control int
-
-const (
-	proceed     control = iota // keep trying looser comparisons
-	nextRequest                // matching: this requested locale is served
-	stopAll                    // lookup: one match is all we want
-)
-
-// filterMatches ports fluent-langneg 0.13 filter_matches: for every
-// requested identifier it tries exact, available-as-range, maximized,
-// variant-less, and region-less comparisons in turn, moving each
-// matched available locale into the result.
-func filterMatches(requested, available []LangID, mode strategy) []LangID {
-	var supported []LangID
+// negotiate orders the available catalogues by the requested languages:
+// for each requested language in turn, every catalogue not yet chosen
+// that serves it, closest first (the same identifier, then a catalogue
+// whose every subtag the request carries, then one of the same language
+// with any script, region or variants), and the fallback last. A
+// language no catalogue serves contributes nothing, so a desktop in an
+// unsupported language reads en-US. pt-BR is served by pt, European
+// Portuguese, the closest catalogue lys has.
+func negotiate(requested, available []LangID) []LangID {
+	var chosen []LangID
 	remaining := slices.Clone(available)
-
+	take := func(serves func(LangID) bool) {
+		remaining = slices.DeleteFunc(remaining, func(catalogue LangID) bool {
+			if !serves(catalogue) {
+				return false
+			}
+			chosen = append(chosen, catalogue)
+			return true
+		})
+	}
 	for _, want := range requested {
-		req := want
-		req.variants = slices.Clone(want.variants)
-		test := func(selfRange, otherRange bool) control {
-			found := false
-			var kept []LangID
-			for _, loc := range remaining {
-				if mode != filtering && found {
-					kept = append(kept, loc)
-					continue
-				}
-				if loc.matches(req, selfRange, otherRange) {
-					found = true
-					supported = append(supported, loc)
-					continue
-				}
-				kept = append(kept, loc)
-			}
-			remaining = kept
-			switch {
-			case !found || mode == filtering:
-				return proceed
-			case mode == matching:
-				return nextRequest
-			default:
-				return stopAll
-			}
-		}
-		outcome := func() control {
-			if c := test(false, false); c != proceed {
-				return c
-			}
-			if c := test(true, false); c != proceed {
-				return c
-			}
-			if req.language == "" {
-				return nextRequest
-			}
-			if req.maximize() {
-				if c := test(true, false); c != proceed {
-					return c
-				}
-			}
-			req.variants = nil
-			if c := test(true, true); c != proceed {
-				return c
-			}
-			req.region = ""
-			if req.maximize() {
-				if c := test(true, false); c != proceed {
-					return c
-				}
-			}
-			req.region = ""
-			return test(true, true)
-		}()
-		if outcome == stopAll {
-			break
-		}
+		take(want.Equal)
+		take(func(catalogue LangID) bool { return catalogue.covers(want) })
+		take(func(catalogue LangID) bool { return catalogue.language == want.language })
 	}
-	return supported
+	if !slices.ContainsFunc(chosen, Fallback.Equal) {
+		chosen = append(chosen, Fallback)
+	}
+	return chosen
 }
 
-// negotiateLanguages ports negotiate_languages: the filtered matches,
-// with the default appended when absent (or, for lookup, used only
-// when nothing matched).
-func negotiateLanguages(requested, available []LangID, def LangID, mode strategy) []LangID {
-	supported := filterMatches(requested, available, mode)
-	if mode == lookup {
-		if len(supported) == 0 {
-			supported = append(supported, def)
-		}
-		return supported
-	}
-	if !slices.ContainsFunc(supported, def.Equal) {
-		supported = append(supported, def)
-	}
-	return supported
-}
-
-// requestedLanguages ports i18n-embed's DesktopLanguageRequester on
-// unix: sys-locale 0.3's list (every LANGUAGE entry, then LC_ALL,
-// LC_MESSAGES, and LANG, each deduplicated as a string, with the
-// encoding and modifier cut and '_' turned into '-'), dropping any tag
-// unic-langid rejects ("C", "POSIX", empty entries).
+// requestedLanguages is the desktop locale's languages: every LANGUAGE
+// entry, then LC_ALL, LC_MESSAGES and LANG, each deduplicated as a
+// string, with the encoding and modifier cut and '_' turned into '-',
+// dropping any tag that is no language identifier ("C", empty entries).
 func requestedLanguages(getenv func(string) string) []LangID {
 	var tags []string
 	add := func(raw string) {
@@ -143,7 +67,8 @@ func requestedLanguages(getenv func(string) string) []LangID {
 	return ids
 }
 
-// posixToBCP47 is sys-locale's posix_to_bcp47.
+// posixToBCP47 cuts a POSIX locale's encoding and modifier and turns
+// '_' into '-'.
 func posixToBCP47(locale string) string {
 	if i := strings.IndexAny(locale, ".@"); i >= 0 {
 		locale = locale[:i]

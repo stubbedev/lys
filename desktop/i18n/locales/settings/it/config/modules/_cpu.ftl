@@ -1,0 +1,77 @@
+### lys-shell Configuration - CPU Module
+
+## CPU Module Configuration
+
+settings-modules-cpu-poll-interval-ms = Intervallo di aggiornamento
+    .description = Intervallo di aggiornamento in millisecondi
+
+settings-modules-cpu-temp-sensor = Sensore di temperatura
+    .description = Etichetta del sensore per le letture della temperatura (ad es. "Tctl", "auto")
+
+settings-modules-cpu-format = Formato di visualizzazione
+    .description = Stringa di formato con i segnaposto: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}
+
+settings-modules-cpu-icon-name = Nome dell'icona
+    .description = Nome dell'icona simbolica
+
+settings-modules-cpu-border-show = Mostra il bordo
+    .description = Mostra un bordo attorno al pulsante
+
+settings-modules-cpu-border-color = Colore del bordo
+    .description = Token del colore del bordo
+
+settings-modules-cpu-icon-show = Mostra l'icona
+    .description = Mostra l'icona del modulo
+
+settings-modules-cpu-tooltip = Mostra il suggerimento
+    .description = Mostra lo stato del modulo in un suggerimento al passaggio del mouse
+
+settings-modules-cpu-icon-color = Colore dell'icona
+    .description = Colore di primo piano dell'icona
+
+settings-modules-cpu-icon-bg-color = Sfondo dell'icona
+    .description = Colore di sfondo del contenitore dell'icona
+
+settings-modules-cpu-label-show = Mostra l'etichetta
+    .description = Mostra l'etichetta di testo
+
+settings-modules-cpu-label-color = Colore dell'etichetta
+    .description = Colore del testo dell'etichetta
+
+settings-modules-cpu-label-max-length = Lunghezza massima dell'etichetta
+    .description = Numero massimo di caratteri prima del troncamento
+
+settings-modules-cpu-button-bg-color = Sfondo del pulsante
+    .description = Colore di sfondo del pulsante
+
+settings-modules-cpu-left-click = Clic sinistro
+    .description = Comando della shell al clic sinistro
+
+settings-modules-cpu-right-click = Clic destro
+    .description = Comando della shell al clic destro
+
+settings-modules-cpu-middle-click = Clic centrale
+    .description = Comando della shell al clic centrale
+
+settings-modules-cpu-scroll-up = Scorrimento in alto
+    .description = Comando della shell allo scorrimento in alto
+
+settings-modules-cpu-scroll-down = Scorrimento in basso
+    .description = Comando della shell allo scorrimento in basso
+
+settings-modules-cpu-thresholds = Soglie
+    .description = Soglie di colore che cambiano in base ai livelli del valore
+
+## Format placeholders
+
+settings-modules-cpu-format-placeholder-percent = Utilizzo della CPU (0-100)
+
+settings-modules-cpu-format-placeholder-freq-ghz = Frequenza del core più occupato in GHz
+
+settings-modules-cpu-format-placeholder-avg-freq-ghz = Frequenza media dei core in GHz
+
+settings-modules-cpu-format-placeholder-max-freq-ghz = Frequenza più alta tra i core in GHz
+
+settings-modules-cpu-format-placeholder-temp-c = Temperatura in gradi Celsius (0 se non disponibile)
+
+settings-modules-cpu-format-placeholder-temp-f = Temperatura in gradi Fahrenheit (32 se non disponibile)

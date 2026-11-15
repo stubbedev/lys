@@ -191,21 +191,17 @@ func (a Assets) Source(locale string) (string, error) {
 }
 
 // Select negotiates the requested languages against the available
-// ones (i18n_embed::select: fluent-langneg filtering, en-US default)
-// and loads the result, fallback last. It is an error only when the
-// fallback itself has no partials.
+// ones and loads the result, fallback last. It is an error when the
+// fallback itself has no partials or a loaded locale has no plural
+// rule set.
 func Select(assets Assets, requested []LangID) (*Loader, error) {
 	available, err := assets.Available()
 	if err != nil {
 		return nil, err
 	}
-	supported := negotiateLanguages(requested, available, Fallback, filtering)
-	load := slices.Clone(supported)
-	if !slices.ContainsFunc(load, Fallback.Equal) {
-		load = append(load, Fallback)
-	}
+	supported := negotiate(requested, available)
 	l := &Loader{languages: supported}
-	for _, lang := range load {
+	for _, lang := range supported {
 		src, err := assets.Source(lang.String())
 		if err != nil {
 			return nil, err
@@ -213,7 +209,11 @@ func Select(assets Assets, requested []LangID) (*Loader, error) {
 		if src == "" && lang.Equal(Fallback) {
 			return nil, fmt.Errorf("i18n: fallback language %s has no FTL partials", Fallback)
 		}
-		l.bundles = append(l.bundles, newBundle(lang, parseResource(src)))
+		b, err := newBundle(lang, parseResource(src))
+		if err != nil {
+			return nil, err
+		}
+		l.bundles = append(l.bundles, b)
 	}
 	return l, nil
 }

@@ -148,45 +148,11 @@ func (id LangID) Equal(other LangID) bool {
 		id.region == other.region && slices.Equal(id.variants, other.variants)
 }
 
-// matches ports LanguageIdentifier::matches: each subtag matches when
-// equal, or when the side treated as a range leaves it unset.
-func (id LangID) matches(other LangID, selfRange, otherRange bool) bool {
-	sub := func(a, b string) bool {
-		return (selfRange && a == "") || (otherRange && b == "") || a == b
-	}
-	variants := (selfRange && len(id.variants) == 0) ||
-		(otherRange && len(other.variants) == 0) ||
-		slices.Equal(id.variants, other.variants)
-	return sub(id.language, other.language) && sub(id.script, other.script) &&
-		sub(id.region, other.region) && variants
-}
-
-// regionMatchingKeys is fluent-langneg's mock likely-subtags table of
-// languages whose region is their own code.
-var regionMatchingKeys = []string{
-	"az", "bg", "cs", "de", "es", "fi", "fr", "hu", "it", "lt", "lv", "nl", "pl", "ro", "ru",
-}
-
-// maximize is fluent-langneg 0.13's MockLikelySubtags::maximize (the
-// crate is built without its cldr feature).
-func (id *LangID) maximize() bool {
-	extended := map[string]string{
-		"en":    "en-Latn-US",
-		"fr":    "fr-Latn-FR",
-		"sr":    "sr-Cyrl-SR",
-		"sr-RU": "sr-Latn-SR",
-		"az-IR": "az-Arab-IR",
-		"zh-GB": "zh-Hant-GB",
-		"zh-US": "zh-Hant-US",
-	}[id.String()]
-	if extended == "" {
-		if slices.Contains(regionMatchingKeys, id.language) {
-			id.region = strings.ToUpper(id.language)
-			return true
-		}
-		return false
-	}
-	full := MustLangID(extended)
-	id.language, id.script, id.region = full.language, full.script, full.region
-	return true
+// covers reports whether every subtag id sets is want's: a catalogue
+// "pt" covers "pt-BR", a catalogue "de-AT" does not cover "de".
+func (id LangID) covers(want LangID) bool {
+	sub := func(have, asked string) bool { return have == "" || have == asked }
+	return sub(id.language, want.language) && sub(id.script, want.script) &&
+		sub(id.region, want.region) &&
+		(len(id.variants) == 0 || slices.Equal(id.variants, want.variants))
 }

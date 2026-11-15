@@ -1,0 +1,11 @@
+dropdown-media-title = Speelt nu af
+dropdown-media-no-player-title = Er wordt geen media afgespeeld
+dropdown-media-no-player-description = Speel media af in een willekeurige toepassing om die hier te bedienen
+dropdown-media-sources = Mediabronnen
+dropdown-media-unknown-title = Onbekende titel
+dropdown-media-unknown-artist = Onbekende artiest
+dropdown-media-unknown-album = Onbekend album
+dropdown-media-lyrics = Songtekst
+dropdown-media-lyrics-loading = Songtekst opzoeken…
+dropdown-media-lyrics-none = Geen songtekst
+dropdown-media-lyrics-unavailable = Songtekst niet beschikbaar

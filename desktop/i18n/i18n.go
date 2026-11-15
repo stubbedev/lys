@@ -1,7 +1,8 @@
-// Package i18n is lys's Fluent localization: a loader, bundle, parser
-// and language negotiation following i18n-embed 0.16
-// (FluentLanguageLoader), fluent-bundle 0.16, fluent-syntax 0.12, and
-// fluent-langneg 0.13.
+// Package i18n is lys's Fluent localization: a loader, bundle and
+// parser following i18n-embed 0.16 (FluentLanguageLoader),
+// fluent-bundle 0.16 and fluent-syntax 0.12, language negotiation by
+// language subtag, and CLDR cardinal plural rules for every catalogue
+// it ships: en-US, de, es, fr, it, nl and pt (European Portuguese).
 //
 // Three domains exist:
 //

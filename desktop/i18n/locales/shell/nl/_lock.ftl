@@ -1,0 +1,14 @@
+lock-incorrect = Onjuist wachtwoord
+lock-failed-attempts = Onjuist wachtwoord — { $count } mislukte pogingen
+lock-locked-out = Te veel mislukte pogingen
+lock-caps-lock = Caps Lock staat aan
+lock-password = Voer wachtwoord in
+lock-fingerprint-no-match = Vingerafdruk niet herkend
+lock-fingerprint-retry = Probeer je vinger opnieuw
+lock-fingerprint-touch = Raak de lezer aan of typ je wachtwoord
+lock-media-play = Afspelen
+lock-media-pause = Pauzeren
+lock-media-next = Volgend nummer
+lock-battery = { $percent }%
+lock-battery-charging = Aan het opladen
+lock-switch-user = Gebruiker wisselen

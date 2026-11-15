@@ -36,7 +36,8 @@ never wall clock; timeouts only stop hangs.
   and `--check-config`. A new key in either needs a row here, not a new rule.
 - `internal/wmconfig` is pure edits over bytes plus the file's effects at the edge.
   An edit that would change more than its key is refused, never approximated.
-- Every message lives in `internal/locale/locales`, in en-US and fr.
+- Every message lives in `internal/locale/locales`, in en-US, de, es, fr, it, nl
+  and pt (European Portuguese).
 - An icon a page names is one `resources/icons` ships, in the app's own share
   directory, so no file is owned by both lys-settings' package and lys-shell's.
 

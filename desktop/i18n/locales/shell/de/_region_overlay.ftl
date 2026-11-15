@@ -1,0 +1,9 @@
+region-overlay-drag-select = Ziehen zum Auswählen
+region-overlay-click-pick = Klicken, um ein Fenster zu wählen
+region-overlay-drag-adjust = Ziehen zum Anpassen
+region-overlay-confirm = Bestätigen
+region-overlay-nudge = Verschieben
+region-overlay-cancel = Abbrechen
+window-pick-click = Klicken Sie auf ein Fenster, um es freizugeben
+window-pick-screen = Bildschirm freigeben
+window-pick-picker = Auswahl anzeigen

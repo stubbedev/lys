@@ -1,0 +1,6 @@
+notification-popup-unknown-app = Onbekend
+notification-popup-clear-all = Alles wissen
+notification-popup-reply-placeholder = Antwoorden
+notification-popup-time-just-now = Zojuist
+notification-popup-time-minutes-ago = { $minutes } min. geleden
+notification-popup-time-hours-ago = { $hours } u geleden

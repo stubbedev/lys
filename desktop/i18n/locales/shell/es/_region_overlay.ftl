@@ -1,0 +1,9 @@
+region-overlay-drag-select = Arrastre para seleccionar
+region-overlay-click-pick = Pulse para elegir una ventana
+region-overlay-drag-adjust = Arrastre para ajustar
+region-overlay-confirm = Confirmar
+region-overlay-nudge = Desplazar
+region-overlay-cancel = Cancelar
+window-pick-click = Pulse en una ventana para compartirla
+window-pick-screen = Compartir la pantalla
+window-pick-picker = Mostrar el selector

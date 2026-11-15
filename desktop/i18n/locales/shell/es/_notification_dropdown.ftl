@@ -1,0 +1,26 @@
+### Notification Dropdown
+
+notification-dropdown-title = Notificaciones
+notification-dropdown-empty-title = Todo al día
+notification-dropdown-empty-description = No hay notificaciones nuevas
+notification-dropdown-clear-all = Borrar todo
+notification-dropdown-dnd-label = No molestar
+notification-dnd-reason-manual = Activado
+notification-dnd-reason-until = Hasta las { $time }
+notification-dnd-reason-override = Desactivado hasta las { $time }
+notification-dnd-reason-override-open = Desactivado hasta que cambien las reglas
+notification-dnd-reason-scheduled = Programado hasta las { $time }
+notification-dnd-reason-scheduled-open = Programado
+notification-dnd-reason-sharing = Pantalla compartida
+notification-dnd-reason-fullscreen = Hay una ventana a pantalla completa
+notification-dropdown-group-clear = Borrar
+notification-dropdown-group-more = { $count } más
+notification-dropdown-unknown-app = Desconocida
+notification-dropdown-time-just-now = Ahora mismo
+notification-dropdown-time-minutes-ago = hace { $minutes } min
+notification-dropdown-time-hours-ago = hace { $hours } h
+notification-source-screenshot = Capturas de pantalla
+notification-source-recorder = Grabador de pantalla
+notification-source-bluetooth = Bluetooth
+notification-source-mail = Correo
+notification-source-system = Sistema

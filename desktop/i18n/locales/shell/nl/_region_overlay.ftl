@@ -1,0 +1,9 @@
+region-overlay-drag-select = Sleep om te selecteren
+region-overlay-click-pick = Klik om een venster te kiezen
+region-overlay-drag-adjust = Sleep om aan te passen
+region-overlay-confirm = Bevestigen
+region-overlay-nudge = Verschuiven
+region-overlay-cancel = Annuleren
+window-pick-click = Klik op een venster om het te delen
+window-pick-screen = Het scherm delen
+window-pick-picker = De kiezer tonen

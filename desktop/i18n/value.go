@@ -85,37 +85,41 @@ func (n number) String() string {
 	return s + "." + strings.Repeat("0", n.minFD)
 }
 
-// operands are the CLDR plural operands fluent-bundle derives from a
-// number: i (integer digits) and v (visible fraction digit count) are
-// all the carried rules read.
+// operands are the CLDR plural operands of a number: i (integer
+// digits), v (visible fraction digit count) and f (visible fraction
+// digits as an integer).
 type operands struct {
 	i uint64
 	v int
+	f uint64
 }
 
-// pluralOperands derives the operands from formatFloat's string plus
-// fluent-bundle's minimum-fraction-digits bump. It fails on an
-// unparsable integer part.
+// pluralOperands derives the operands from formatFloat's string padded
+// to the minimum fraction digits. It fails on an unparsable integer
+// part and on fraction digits beyond uint64.
 func (n number) pluralOperands() (operands, bool) {
-	s := strings.TrimPrefix(formatFloat(n.v), "-")
-	var ops operands
-	if dot := strings.IndexByte(s, '.'); dot >= 0 {
-		i, err := strconv.ParseUint(s[:dot], 10, 64)
-		if err != nil {
-			return operands{}, false
-		}
-		ops = operands{i: i, v: len(s) - dot - 1}
-	} else {
+	s := strings.TrimPrefix(n.String(), "-")
+	dot := strings.IndexByte(s, '.')
+	if dot < 0 {
 		abs, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			return operands{}, false
 		}
-		ops = operands{i: saturatingUint(abs)}
+		return operands{i: saturatingUint(abs)}, true
 	}
-	if n.minFD > ops.v {
-		ops.v = n.minFD
+	i, err := strconv.ParseUint(s[:dot], 10, 64)
+	if err != nil {
+		return operands{}, false
 	}
-	return ops, true
+	fraction := s[dot+1:]
+	if fraction == "" {
+		return operands{i: i}, true
+	}
+	f, err := strconv.ParseUint(fraction, 10, 64)
+	if err != nil {
+		return operands{}, false
+	}
+	return operands{i: i, v: len(fraction), f: f}, true
 }
 
 // saturatingUint converts f to uint64: NaN to 0, out of range clamped.

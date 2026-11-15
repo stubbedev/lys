@@ -1,0 +1,107 @@
+dropdown-bitwarden-title = Bitwarden
+dropdown-bitwarden-tooltip-logged-out = Bitwarden: meld je aan om de kluis te openen
+dropdown-bitwarden-tooltip-locked = Bitwarden: de kluis is vergrendeld
+dropdown-bitwarden-tooltip-unlocked = Bitwarden: de kluis is open
+dropdown-bitwarden-unavailable = Kluis niet beschikbaar
+dropdown-bitwarden-server = Server: { $server }
+dropdown-bitwarden-account = Vergrendeld: { $email }
+dropdown-bitwarden-email = E-mail
+dropdown-bitwarden-email-placeholder = jij@example.com
+dropdown-bitwarden-master-password = Hoofdwachtwoord
+dropdown-bitwarden-client-id = API-sleutel client_id
+dropdown-bitwarden-client-secret = API-sleutel client_secret
+dropdown-bitwarden-required = Vereist
+dropdown-bitwarden-login = Aanmelden
+dropdown-bitwarden-login-tooltip = Aanmelden bij je Bitwarden-account
+dropdown-bitwarden-use-api-key = Aanmelden met een API-sleutel
+dropdown-bitwarden-use-api-key-tooltip = Aanmelden met je persoonlijke API-sleutel, waarvoor geen tweede factor nodig is
+dropdown-bitwarden-use-password = Aanmelden met het hoofdwachtwoord
+dropdown-bitwarden-use-password-tooltip = Aanmelden met je e-mailadres en hoofdwachtwoord
+dropdown-bitwarden-two-factor-title = Aanmelden in twee stappen
+dropdown-bitwarden-two-factor-app = Voer de code uit je authenticator-app in.
+dropdown-bitwarden-two-factor-email = Voer de code in die naar { $email } is gemaild.
+dropdown-bitwarden-new-device-title = Nieuw apparaat
+dropdown-bitwarden-new-device-desc = Bitwarden heeft een verificatiecode naar { $email } gemaild om dit apparaat te bevestigen.
+dropdown-bitwarden-code-placeholder = Code
+dropdown-bitwarden-send-code = Code verzenden
+dropdown-bitwarden-send-code-tooltip = De verificatiecode naar het adres van je account mailen
+dropdown-bitwarden-back = Terug
+dropdown-bitwarden-back-login-tooltip = Terug naar het aanmelden
+dropdown-bitwarden-back-vault-tooltip = Terug naar de kluis
+dropdown-bitwarden-verify = Verifiëren
+dropdown-bitwarden-verify-tooltip = De code controleren en het aanmelden voltooien
+dropdown-bitwarden-unlock = Ontgrendelen
+dropdown-bitwarden-unlock-tooltip = De kluis openen met je hoofdwachtwoord
+dropdown-bitwarden-sync = Synchroniseren
+dropdown-bitwarden-lock = Vergrendelen
+dropdown-bitwarden-logout = Afmelden
+dropdown-bitwarden-search = In de kluis zoeken
+dropdown-bitwarden-no-items = Geen items
+dropdown-bitwarden-more = { $shown } van { $total } items getoond. Zoek om ze te beperken.
+dropdown-bitwarden-undecryptable = Kon niet worden ontsleuteld
+dropdown-bitwarden-copy = Kopiëren
+dropdown-bitwarden-copy-reprompt-tooltip = Het hoofdwachtwoord controleren en het beveiligde veld kopiëren
+dropdown-bitwarden-cancel = Annuleren
+dropdown-bitwarden-cancel-tooltip = Niets kopiëren en terug naar de kluis
+dropdown-bitwarden-copy-field = { $field } kopiëren
+dropdown-bitwarden-copied = { $field } gekopieerd.
+dropdown-bitwarden-copied-clears = { $field } gekopieerd. Het klembord wordt over { $seconds } s gewist.
+dropdown-bitwarden-reprompt-title = Hoofdwachtwoord opnieuw vragen
+dropdown-bitwarden-reprompt-desc = { $item } is beveiligd: voer je hoofdwachtwoord in om de { $field } te kopiëren.
+dropdown-bitwarden-field-username = gebruikersnaam
+dropdown-bitwarden-field-password = wachtwoord
+dropdown-bitwarden-field-totp = verificatiecode
+dropdown-bitwarden-field-card-number = kaartnummer
+dropdown-bitwarden-field-card-code = beveiligingscode
+dropdown-bitwarden-field-email = e-mail
+dropdown-bitwarden-field-notes = notitie
+dropdown-bitwarden-field-passphrase = wachtwoordzin
+dropdown-bitwarden-generator = Een wachtwoord genereren
+dropdown-bitwarden-generate = Een nieuwe { $field } genereren en kopiëren
+dropdown-bitwarden-generator-password-caption = { $length } tekens: { $charsets }
+dropdown-bitwarden-generator-passphrase-caption = { $words } woorden
+dropdown-bitwarden-generator-empty = Geen generatorvoorinstellingen
+dropdown-bitwarden-generator-empty-hint = Voeg ze toe onder modules.bitwarden.generator-passwords en generator-passphrases.
+dropdown-bitwarden-error-wrong-password = Verkeerd hoofdwachtwoord.
+dropdown-bitwarden-error-credentials = Het e-mailadres, het hoofdwachtwoord of de code is onjuist.
+dropdown-bitwarden-error-login-required = De sessie is beëindigd. Meld je opnieuw aan.
+dropdown-bitwarden-error-unavailable = De server is niet beschikbaar. Probeer het later opnieuw.
+dropdown-bitwarden-error-server = De server weigerde: { $message }
+dropdown-bitwarden-error-network = Kon de server niet bereiken.
+launcher-bitwarden-locked = Bitwarden is vergrendeld. Typ je hoofdwachtwoord en druk op Enter.
+launcher-bitwarden-logged-out = Meld je eerst aan bij Bitwarden via het uitklapmenu in de balk.
+launcher-bitwarden-hint = Enter kopieert het wachtwoord of eerste veld van een item; Shift+Enter toont de velden.
+dropdown-bitwarden-totp-live = { $code } · nog { $seconds } s
+dropdown-bitwarden-notify-sync-failed = Bitwarden kon niet synchroniseren
+dropdown-bitwarden-notify-logged-out = Bitwarden heeft je afgemeld
+dropdown-bitwarden-notify-logged-out-body = De sessie is verlopen of ingetrokken. Meld je opnieuw aan via de balk.
+dropdown-bitwarden-sends = Bitwarden Send
+dropdown-bitwarden-send-name = Naam
+dropdown-bitwarden-send-name-placeholder = Wat je verstuurt
+dropdown-bitwarden-send-text = Tekst
+dropdown-bitwarden-send-text-placeholder = De tekst die de link opent
+dropdown-bitwarden-send-deletion = Verwijderen na
+dropdown-bitwarden-send-max-access = Maximaal aantal keer openen (0 voor geen limiet)
+dropdown-bitwarden-send-password = Wachtwoord
+dropdown-bitwarden-send-password-placeholder = Optioneel, gevraagd voordat de tekst verschijnt
+dropdown-bitwarden-send-create = Aanmaken en link kopiëren
+dropdown-bitwarden-send-create-tooltip = De Send aanmaken en de deellink kopiëren
+dropdown-bitwarden-send-none = Geen Sends
+dropdown-bitwarden-send-delete = { $name } verwijderen
+dropdown-bitwarden-send-hours = { $hours ->
+    [one] 1 uur
+   *[other] { $hours } uur
+}
+dropdown-bitwarden-send-days = { $days ->
+    [one] 1 dag
+   *[other] { $days } dagen
+}
+dropdown-bitwarden-send-accesses = { $count ->
+    [one] één keer geopend
+   *[other] { $count } keer geopend
+}
+dropdown-bitwarden-send-accesses-of = { $count } van { $max } keer geopend
+dropdown-bitwarden-send-deletes = verwijderd op { $date }
+dropdown-bitwarden-send-protected = wachtwoord
+dropdown-bitwarden-send-disabled = uitgeschakeld
+dropdown-bitwarden-field-send-link = Send-link

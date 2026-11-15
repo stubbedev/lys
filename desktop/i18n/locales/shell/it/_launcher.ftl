@@ -1,0 +1,132 @@
+launcher-placeholder-search = Cerca app, finestre, file e altro
+launcher-placeholder-filter = Filtra
+launcher-placeholder-characters = Cerca caratteri per nome o digita U+2192
+launcher-placeholder-query = Cerca
+launcher-actions-placeholder = Cerca azioni
+launcher-section-answer = Risposta
+launcher-section-recent = Recenti
+launcher-section-apps = Applicazioni
+launcher-section-windows = Finestre aperte
+launcher-section-commands = Comandi
+launcher-section-links = Link
+launcher-section-browser = Browser
+launcher-section-settings = Impostazioni
+launcher-section-files = File
+launcher-section-clipboard = Appunti
+launcher-section-emoji = Emoji
+launcher-section-characters = Caratteri
+launcher-section-vault = Cassaforte
+launcher-section-web = Web
+launcher-failed = { $what } non riuscito: { $error }
+launcher-action-open = Apri
+launcher-action-run = Esegui
+launcher-action-run-in-terminal = Esegui nel terminale
+launcher-action-type = Inserisci
+launcher-action-copy = Copia
+launcher-action-copy-url = Copia URL
+launcher-action-copy-name = Copia nome
+launcher-action-copy-code-point = Copia punto di codice
+launcher-action-copy-html-entity = Copia entità HTML
+launcher-action-type-skin-tone = Digita { $emoji } ({ $tone })
+launcher-skin-tone-light = carnagione chiara
+launcher-skin-tone-medium-light = carnagione medio-chiara
+launcher-skin-tone-medium = carnagione media
+launcher-skin-tone-medium-dark = carnagione medio-scura
+launcher-skin-tone-dark = carnagione scura
+launcher-action-copy-title = Copia titolo
+launcher-action-copy-path = Copia percorso
+launcher-action-copy-result = Copia risultato
+launcher-action-copy-number = Copia numero
+launcher-action-copy-equation = Copia equazione
+launcher-action-copy-command = Copia comando
+launcher-action-continue = Continua con il risultato
+launcher-action-reveal = Mostra nella cartella
+launcher-action-open-terminal-here = Apri terminale qui
+launcher-action-switch-window = Passa alla finestra
+launcher-action-close-window = Chiudi finestra
+launcher-action-forget = Dimentica
+launcher-action-clear-unpinned = Cancella non fissati
+launcher-action-pin = Fissa
+launcher-action-unpin = Rimuovi fissaggio
+launcher-window-on-workspace = { $class } nello spazio di lavoro { $workspace }
+launcher-preview-title = Titolo
+launcher-preview-app = App
+launcher-preview-workspace = Spazio di lavoro
+launcher-preview-type = Tipo
+launcher-preview-size = Dimensione
+launcher-web-search = Cerca «{ $query }» su { $engine }
+launcher-shell-subtitle = Comando della shell
+launcher-answer-currency-source = { $amount } { $from } in { $to } · BCE, { $date }
+launcher-answer-day-offset = { $time } ({ $sign }{ $days ->
+    [one] { $days } giorno
+    [many] { $days } giorni
+   *[other] { $days } giorni
+})
+launcher-answer-currency-stale = { $source } ({ $days ->
+    [one] di { $days } giorno fa
+    [many] di { $days } giorni fa
+   *[other] di { $days } giorni fa
+})
+launcher-answer-time-place = { $day } a { $place }
+launcher-answer-days = { $days ->
+    [one] { $days } giorno
+    [many] { $days } giorni
+   *[other] { $days } giorni
+}
+launcher-system-lock = Blocca schermo
+launcher-system-suspend = Sospendi
+launcher-system-logout = Termina sessione
+launcher-system-reboot = Riavvia
+launcher-system-shutdown = Spegni
+launcher-system-confirm = Premi Invio per { $what }, Esc per tornare indietro.
+launcher-settings-subtitle = Pagina delle impostazioni
+launcher-setting-subtitle = Impostazione in { $page }
+launcher-clipboard-gone = Quella voce non è più nella cronologia degli appunti
+launcher-clipboard-pinned = Fissato
+launcher-picker-clipboard = Cronologia degli appunti
+launcher-picker-emoji = Selettore emoji
+launcher-picker-characters = Caratteri Unicode
+launcher-picker-vault = Cassaforte Bitwarden
+launcher-picker-bookmarks = Segnalibri del browser
+launcher-picker-visited = Siti più visitati
+launcher-picker-processes = Termina processo
+launcher-script-argument-required = { $name } è obbligatorio
+launcher-footer-select = Seleziona
+launcher-footer-actions = Azioni
+launcher-footer-complete = Completa
+launcher-footer-back = Indietro
+launcher-footer-close = Chiudi
+launcher-process-subtitle = { $memory } · PID { $pid }
+launcher-process-end = Termina { $name }
+launcher-process-force = Forza la chiusura di { $name }
+launcher-control-dnd-on = Attiva Non disturbare
+launcher-control-dnd-off = Disattiva Non disturbare
+launcher-control-wifi-on = Attiva il Wi-Fi
+launcher-control-wifi-off = Disattiva il Wi-Fi
+launcher-control-bluetooth-on = Attiva il Bluetooth
+launcher-control-bluetooth-off = Disattiva il Bluetooth
+launcher-control-audio = Passa l'audio a { $device }
+launcher-control-audio-subtitle = Uscita audio
+launcher-control-play = Riproduci
+launcher-control-pause = Metti in pausa
+launcher-control-next = Traccia successiva
+launcher-control-previous = Traccia precedente
+launcher-control-screenshot-region = Schermata di un'area
+launcher-control-screenshot-output = Schermata dello schermo
+launcher-control-screenshot-window = Schermata della finestra
+launcher-control-record-start = Avvia registrazione
+launcher-control-record-stop = Ferma registrazione
+launcher-control-pick-color = Preleva colore
+launcher-control-screenshot-text = Copia testo dallo schermo
+launcher-control-screenshot-qr = Scansiona codice QR
+launcher-control-color-copied = Copiato { $color }
+launcher-control-wallpaper = Scegli sfondo
+launcher-wallpaper-title = Sfondo
+launcher-wallpaper-placeholder = Filtra gli sfondi
+launcher-wallpaper-set-on = Imposta su { $monitor }
+launcher-wallpaper-set-all = Imposta su tutti gli schermi
+launcher-wallpaper-every-display = tutti gli schermi
+launcher-wallpaper-none = Nessuna immagine nelle cartelle degli sfondi
+launcher-wallpaper-no-match = Nessuno sfondo corrispondente
+launcher-emoji-none = Nessuna tabella emoji disponibile
+launcher-emoji-no-match = Nessuna emoji corrispondente

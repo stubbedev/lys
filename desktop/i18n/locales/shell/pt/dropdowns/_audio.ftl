@@ -1,0 +1,11 @@
+dropdown-audio-title = Áudio
+dropdown-audio-output = Saída
+dropdown-audio-input = Entrada
+dropdown-audio-output-devices = Dispositivos de saída
+dropdown-audio-input-devices = Dispositivos de entrada
+dropdown-audio-app-volume = Volume das aplicações
+dropdown-audio-no-device = Nenhum dispositivo encontrado
+dropdown-audio-no-devices-title = Sem dispositivos de áudio
+dropdown-audio-no-devices-description = Não foram encontrados dispositivos de saída ou entrada de áudio
+dropdown-audio-no-apps = Nenhuma aplicação a reproduzir áudio
+dropdown-audio-settings = Definições de áudio

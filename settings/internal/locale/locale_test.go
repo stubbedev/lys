@@ -1,68 +1,48 @@
 package locale
 
 import (
-	"io/fs"
-	"regexp"
-	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 )
 
-var messageLine = regexp.MustCompile(`(?m)^(?:([a-z][a-zA-Z0-9-]*) *=|\s+\.([a-z][a-zA-Z0-9-]*) *=)`)
-
-func ownIDs(t *testing.T, lang string) []string {
-	t.Helper()
-	var ids []string
-	err := fs.WalkDir(locales, "locales/"+lang, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		data, err := fs.ReadFile(locales, path)
-		if err != nil {
-			return err
-		}
-		message := ""
-		for _, m := range messageLine.FindAllSubmatch(data, -1) {
-			if len(m[1]) > 0 {
-				message = string(m[1])
-				ids = append(ids, message)
-				continue
-			}
-			ids = append(ids, message+"."+string(m[2]))
-		}
-		return nil
-	})
+func TestEveryLanguageHasEveryMessageEnglishHas(t *testing.T) {
+	gaps, err := Assets().Gaps()
 	if err != nil {
 		t.Fatal(err)
 	}
-	slices.Sort(ids)
-	return ids
+	for _, gap := range gaps {
+		t.Error(gap)
+	}
 }
 
-func TestFrenchHasEveryMessageEnglishHas(t *testing.T) {
-	en, fr := ownIDs(t, "en-US"), ownIDs(t, "fr")
-	if len(en) == 0 {
-		t.Fatal("no messages found, so the pattern is wrong")
+func TestEveryLanguageIsShipped(t *testing.T) {
+	available, err := Assets().Available()
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, id := range en {
-		if !slices.Contains(fr, id) {
-			t.Errorf("fr has no %s", id)
-		}
+	var got []string
+	for _, lang := range available {
+		got = append(got, lang.String())
 	}
-	for _, id := range fr {
-		if !slices.Contains(en, id) {
-			t.Errorf("en-US has no %s", id)
-		}
+	if want := "de en-US es fr it nl pt"; strings.Join(got, " ") != want {
+		t.Fatalf("languages %q, want %q", strings.Join(got, " "), want)
 	}
 }
 
 func TestOwnMessagesAndTheConfigsLabelsResolveTogether(t *testing.T) {
-	for _, lang := range []string{"en-US", "fr"} {
-		l, err := i18n.Select(Assets(), []i18n.LangID{i18n.MustLangID(lang)})
+	available, err := Assets().Available()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lang := range available {
+		l, err := i18n.Select(Assets(), []i18n.LangID{lang})
 		if err != nil {
 			t.Fatal(err)
+		}
+		if got := l.Languages(); !got[0].Equal(lang) {
+			t.Errorf("%s: negotiated %v", lang, got)
 		}
 		if !l.Has("settings-title") {
 			t.Errorf("%s: no message of this app", lang)

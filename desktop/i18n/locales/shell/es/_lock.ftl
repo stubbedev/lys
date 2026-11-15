@@ -1,0 +1,14 @@
+lock-incorrect = Contraseña incorrecta
+lock-failed-attempts = Contraseña incorrecta — { $count } intentos fallidos
+lock-locked-out = Demasiados intentos fallidos
+lock-caps-lock = Bloq Mayús está activado
+lock-password = Introduzca la contraseña
+lock-fingerprint-no-match = Huella dactilar no reconocida
+lock-fingerprint-retry = Vuelva a intentarlo con el dedo
+lock-fingerprint-touch = Toque el lector o escriba su contraseña
+lock-media-play = Reproducir
+lock-media-pause = Pausar
+lock-media-next = Pista siguiente
+lock-battery = { $percent }%
+lock-battery-charging = Cargando
+lock-switch-user = Cambiar de usuario
