@@ -2,11 +2,13 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,9 +20,23 @@ import (
 type fakeNotmuch struct {
 	mu      sync.Mutex
 	counts  map[string]uint32
+	fails   map[string]error
 	newest  map[string][]Message
 	dbPath  string
 	counted int
+}
+
+func (f *fakeNotmuch) fail(query string, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fails == nil {
+		f.fails = map[string]error{}
+	}
+	if err == nil {
+		delete(f.fails, query)
+		return
+	}
+	f.fails[query] = err
 }
 
 func (f *fakeNotmuch) set(query string, n uint32) {
@@ -35,21 +51,24 @@ func (f *fakeNotmuch) setNewest(query string, messages []Message) {
 	f.newest[query] = messages
 }
 
-func (f *fakeNotmuch) Count(_ context.Context, query string) uint32 {
+func (f *fakeNotmuch) Count(_ context.Context, query string) (uint32, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.counted++
-	return f.counts[query]
+	if err := f.fails[query]; err != nil {
+		return 0, err
+	}
+	return f.counts[query], nil
 }
 
-func (f *fakeNotmuch) Newest(_ context.Context, query string, limit int) []Message {
+func (f *fakeNotmuch) Newest(_ context.Context, query string, limit int) ([]Message, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	all := f.newest[query]
 	if len(all) > limit {
 		all = all[:limit]
 	}
-	return all
+	return all, nil
 }
 
 func (f *fakeNotmuch) DatabasePath(context.Context) (string, bool) {
@@ -258,11 +277,11 @@ func TestParseSearchTakesTheFirstMatchedAuthor(t *testing.T) {
 		{"authors": "Dave", "subject": "Build"}
 	]`)
 	want := []Message{{Sender: "Alice Smith", Subject: "Lunch"}, {Sender: "Dave", Subject: "Build"}}
-	if got := parseSearch(out); !reflect.DeepEqual(got, want) {
-		t.Errorf("parse = %+v, want %+v", got, want)
+	if got, err := parseSearch(out); err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("parse = %+v, %v, want %+v", got, err, want)
 	}
-	if got := parseSearch([]byte("not json")); got != nil {
-		t.Errorf("bad json = %+v, want nil", got)
+	if got, err := parseSearch([]byte("not json")); err == nil || got != nil {
+		t.Errorf("bad json = %+v, %v, want an error", got, err)
 	}
 }
 
@@ -275,27 +294,114 @@ func fakeNotmuchBinary(t *testing.T, script string) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
-func TestCLIParsesAndZeroesOnFailure(t *testing.T) {
+func TestCLIParsesAndReportsFailures(t *testing.T) {
 	fakeNotmuchBinary(t, `case "$1" in
-count) [ "$2" = "tag:unread" ] && echo 12 || exit 1 ;;
+count) case "$2" in
+  tag:unread) echo 12 ;;
+  garbled) echo many ;;
+  *) echo "Error: bad query" >&2; exit 1 ;;
+  esac ;;
 config) echo "/home/me/Mail" ;;
-search) echo '[{"authors":"Eve","subject":"'"$4"'"}]' ;;
+search) [ "$5" = "broken" ] && { echo "Error: no database" >&2; exit 1; }; echo '[{"authors":"Eve","subject":"'"$4"'"}]' ;;
 esac`)
 	ctx := context.Background()
-	if got := (CLI{}).Count(ctx, "tag:unread"); got != 12 {
-		t.Errorf("count = %d, want 12", got)
+	if got, err := (CLI{}).Count(ctx, "tag:unread"); err != nil || got != 12 {
+		t.Errorf("count = %d, %v, want 12", got, err)
 	}
-	if got := (CLI{}).Count(ctx, "bad query"); got != 0 {
-		t.Errorf("failing count = %d, want 0", got)
+	if _, err := (CLI{}).Count(ctx, "bad query"); err == nil || !strings.Contains(err.Error(), "bad query") || !strings.Contains(err.Error(), "Error: bad query") {
+		t.Errorf("failing count err = %v, want the query and notmuch's message", err)
+	}
+	if _, err := (CLI{}).Count(ctx, "garbled"); err == nil || !strings.Contains(err.Error(), `"many"`) {
+		t.Errorf("unparsable count err = %v, want the output named", err)
 	}
 	if path, ok := (CLI{}).DatabasePath(ctx); !ok || path != "/home/me/Mail" {
 		t.Errorf("database path = %q, %v", path, ok)
 	}
-	if got := (CLI{}).Newest(ctx, "tag:unread", 3); len(got) != 1 || got[0].Subject != "--limit=3" {
-		t.Errorf("newest = %+v, want the limit passed through", got)
+	if got, err := (CLI{}).Newest(ctx, "tag:unread", 3); err != nil || len(got) != 1 || got[0].Subject != "--limit=3" {
+		t.Errorf("newest = %+v, %v, want the limit passed through", got, err)
 	}
-	if got := (CLI{}).Newest(ctx, "tag:unread", 0); got != nil {
-		t.Errorf("limit 0 = %+v, want no search", got)
+	if _, err := (CLI{}).Newest(ctx, "broken", 3); err == nil || !strings.Contains(err.Error(), "no database") {
+		t.Errorf("failing search err = %v, want notmuch's message", err)
+	}
+	if got, err := (CLI{}).Newest(ctx, "tag:unread", 0); err != nil || got != nil {
+		t.Errorf("limit 0 = %+v, %v, want no search", got, err)
+	}
+}
+
+func TestAFailedQueryIsAnErrorNotAnEmptyInbox(t *testing.T) {
+	broken := errors.New("notmuch count tag:unread: exit status 1")
+	nm := &fakeNotmuch{counts: map[string]uint32{"tag:unread": 4}, newest: map[string][]Message{}}
+	nm.fail("tag:unread", broken)
+	svc, _ := startService(t, config.DefaultsMail(), nm, nil)
+	if st := svc.State(); !errors.Is(st.Err, broken) || st.Total != 0 {
+		t.Errorf("state = %+v, want the count's error", st)
+	}
+	if svc.PerAccount() {
+		t.Error("a query-only setup counts per account")
+	}
+
+	healthy := &fakeNotmuch{counts: map[string]uint32{"tag:unread": 0}, newest: map[string][]Message{}}
+	empty, _ := startService(t, config.DefaultsMail(), healthy, nil)
+	if st := empty.State(); st.Err != nil || st.Total != 0 {
+		t.Errorf("an empty inbox = %+v, want zero and no error", st)
+	}
+}
+
+func TestAFailedAccountIsMarkedAndTheOthersStillCount(t *testing.T) {
+	cfg := config.DefaultsMail()
+	cfg.Accounts = []config.MailAccount{
+		{Name: "Work", Query: "folder:work", Provider: config.MailProviderGmail},
+		{Name: "Home", Query: "folder:home"},
+	}
+	broken := errors.New("exit status 1")
+	nm := &fakeNotmuch{counts: map[string]uint32{"folder:work": 2, "folder:home": 5}, newest: map[string][]Message{}}
+	nm.fail("folder:work", broken)
+	svc, _ := startService(t, cfg, nm, nil)
+	st := svc.State()
+	if !svc.PerAccount() || len(st.Accounts) != 2 {
+		t.Fatalf("state = %+v, want both accounts", st)
+	}
+	work, home := st.Accounts[0], st.Accounts[1]
+	if !errors.Is(work.Err, broken) || !strings.Contains(work.Err.Error(), "Work") || work.Count != 0 {
+		t.Errorf("work = %+v, want its error naming it", work)
+	}
+	if home.Err != nil || home.Count != 5 || st.Total != 5 {
+		t.Errorf("home = %+v total %d, want 5 read", home, st.Total)
+	}
+	if !errors.Is(st.Err, broken) {
+		t.Errorf("state err = %v, want the failed account's", st.Err)
+	}
+}
+
+func TestARecoveredQueryDoesNotNotifyItsBacklog(t *testing.T) {
+	maildir := t.TempDir()
+	nm := &fakeNotmuch{dbPath: maildir, counts: map[string]uint32{"tag:unread": 3}, newest: map[string][]Message{
+		"tag:unread": {{Sender: "Alice", Subject: "Hi"}},
+	}}
+	notifier := &fakeNotifier{}
+	svc, ticks := startService(t, notifyConfig(), nm, notifier)
+
+	nm.fail("tag:unread", errors.New("locked"))
+	touch(t, maildir, "a")
+	waitTick(t, ticks, "the failed read")
+	if svc.State().Err == nil {
+		t.Fatal("the failed read published no error")
+	}
+	nm.fail("tag:unread", nil)
+	touch(t, maildir, "b")
+	waitTick(t, ticks, "the recovered read")
+	if st := svc.State(); st.Err != nil || st.Total != 3 {
+		t.Errorf("recovered state = %+v", st)
+	}
+	if got := notifier.all(); len(got) != 0 {
+		t.Errorf("a recovery after a failure notified %+v as new mail", got)
+	}
+
+	nm.set("tag:unread", 4)
+	touch(t, maildir, "c")
+	waitTick(t, ticks, "an arrival")
+	if got := notifier.all(); len(got) != 1 {
+		t.Errorf("an arrival after the recovery notified %d, want 1", len(got))
 	}
 }
 

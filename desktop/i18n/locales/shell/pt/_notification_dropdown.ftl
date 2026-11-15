@@ -1,6 +1,8 @@
 notification-dropdown-title = Notificações
 notification-dropdown-empty-title = Está tudo em dia
 notification-dropdown-empty-description = Sem notificações novas
+notification-dropdown-error-title = Não foi possível ler o histórico de notificações
+notification-dropdown-error-description = As novas notificações continuam a chegar; as anteriores não podem ser listadas.
 notification-dropdown-clear-all = Limpar tudo
 notification-dropdown-dnd-label = Não incomodar
 notification-dnd-reason-manual = Ativo

@@ -2,6 +2,7 @@ package bar
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"slices"
 	"strconv"
@@ -51,17 +52,21 @@ type notificationView struct {
 	dnd                   *widget.Switch
 	dndItem               *widget.Item
 	syncing               bool
-	// body is the content: the empty state and the list swap by
-	// visibility, no Stack.
-	body   *widget.Box
-	empty  *widget.StatusPage
-	scroll *widget.Scroll
-	list   *widget.Box
-	groups []*notifGroup
+	// body is the content: the empty state, the error page, the read
+	// alert and the list swap by visibility, no Stack.
+	body      *widget.Box
+	empty     *widget.StatusPage
+	failed    *widget.StatusPage
+	readAlert *widget.Alert
+	scroll    *widget.Scroll
+	list      *widget.Box
+	groups    []*notifGroup
 	// notifs is the history read so far, newest first; more reports
-	// whether the last read came back full, so older ones may follow.
-	notifs []*notifications.Notification
-	more   bool
+	// whether the last read came back full, so older ones may follow;
+	// readErr is why the last read stopped short, nil when it did not.
+	notifs  []*notifications.Notification
+	more    bool
+	readErr error
 
 	*openFollow
 	// pageOf reads the history; reads are v.reading's alone, off the loop.
@@ -104,9 +109,18 @@ func notificationDropdown(ctx ModuleContext) widget.Widget {
 	scroll := dropdownScroll(v.list, "notification-dropdown-scroll")
 	v.scroll = scroll
 	scroll.WatchRange(v.scrolled)
+	v.failed = widgets.EmptyState(font, px, "ld-bell-symbolic", i18n.T("notification-dropdown-error-title"), i18n.T("notification-dropdown-error-description"))
+	v.failed.AddClass("notification-dropdown-error")
+	v.failed.SetVisible(false)
+	v.readAlert = widget.NewAlert(font, i18n.T("notification-dropdown-error-title"), "")
+	v.readAlert.SetIcon(widget.NewThemeIcon("ld-info-symbolic", itemIconPx))
+	v.readAlert.AddClass("notification-dropdown-read-alert")
+	v.readAlert.SetVisible(false)
 	v.body = dropdownContent("notification-dropdown-content")
 	v.body.Append(dndCard, false)
 	v.body.Append(empty, true)
+	v.body.Append(v.failed, true)
+	v.body.Append(v.readAlert, false)
 	v.body.Append(scroll, true)
 	v.Append(v.body, true)
 
@@ -170,13 +184,13 @@ func (v *notificationView) readInto(kept []*notifications.Notification, n int) {
 	asked := v.reading
 	v.loading = true
 	mountOffLoop(v.ctx, func() {
-		more := readNotifPages(v.pageOf, &kept, n)
+		more, err := readNotifPages(v.pageOf, &kept, n)
 		show := func() {
 			if asked != v.reading {
 				return
 			}
 			v.loading = false
-			v.notifs, v.more = kept, more
+			v.notifs, v.more, v.readErr = kept, more, err
 			v.regroup()
 		}
 		returnToLoop(v.ctx, show)
@@ -184,8 +198,9 @@ func (v *notificationView) readInto(kept []*notifications.Notification, n int) {
 }
 
 // readNotifPages appends up to n notifications older than the last of notifs, a
-// page at a time, reporting whether more may follow.
-func readNotifPages(pageOf func(*notifications.Key, int) ([]*notifications.Notification, error), notifs *[]*notifications.Notification, n int) bool {
+// page at a time, reporting whether more may follow, or the error that
+// stopped the read with what it read before.
+func readNotifPages(pageOf func(*notifications.Key, int) ([]*notifications.Notification, error), notifs *[]*notifications.Notification, n int) (bool, error) {
 	more := false
 	for n > 0 {
 		var before *notifications.Key
@@ -196,17 +211,18 @@ func readNotifPages(pageOf func(*notifications.Key, int) ([]*notifications.Notif
 		limit := min(n, notifications.MaxPage)
 		page, err := pageOf(before, limit)
 		if err != nil {
-			log.Printf("notification dropdown: %v", err)
-			return false
+			err = fmt.Errorf("notification dropdown: reading the history: %w", err)
+			log.Print(err)
+			return false, err
 		}
 		*notifs = append(*notifs, page...)
 		more = len(page) == limit
 		if !more {
-			return false
+			return false, nil
 		}
 		n -= limit
 	}
-	return more
+	return more, nil
 }
 
 // scrolled reads the next page once the list scrolls near its end.
@@ -229,11 +245,15 @@ func (v *notificationView) loadMore() {
 // regroup rebuilds the groups over what has been read: stale groups go,
 // existing ones take their new notifications (keeping their
 // expansion), new ones are added, and the list takes the newest-first
-// order.
+// order. A failed read shows the error page when nothing was read, and
+// the read alert over what was.
 func (v *notificationView) regroup() {
 	notifs := v.notifs
+	failed := v.readErr != nil
 	v.clearAll.SetVisible(len(notifs) > 0)
-	v.empty.SetVisible(len(notifs) == 0)
+	v.empty.SetVisible(len(notifs) == 0 && !failed)
+	v.failed.SetVisible(len(notifs) == 0 && failed)
+	v.readAlert.SetVisible(len(notifs) > 0 && failed)
 	v.scroll.SetVisible(len(notifs) > 0)
 	byApp := make(map[string]*notifGroup, len(v.groups))
 	for _, g := range v.groups {

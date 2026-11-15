@@ -1,6 +1,8 @@
 notification-dropdown-title = Meldingen
 notification-dropdown-empty-title = Helemaal bij
 notification-dropdown-empty-description = Geen nieuwe meldingen
+notification-dropdown-error-title = Meldingsgeschiedenis kon niet worden gelezen
+notification-dropdown-error-description = Nieuwe meldingen komen nog steeds binnen; eerdere kunnen niet worden getoond.
 notification-dropdown-clear-all = Alles wissen
 notification-dropdown-dnd-label = Niet storen
 notification-dnd-reason-manual = Aan

@@ -1,2 +1,4 @@
 dropdown-mail-title = Correio
-dropdown-mail-empty = Nenhuma conta configurada. Adicione contas em [modules.mail] para ver uma discriminação por conta.
+dropdown-mail-unread = Correio por ler
+dropdown-mail-error-title = Não foi possível contar o correio por ler
+dropdown-mail-account-error = Não foi possível contar

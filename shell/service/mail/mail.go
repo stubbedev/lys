@@ -6,6 +6,8 @@ package mail
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,18 +30,22 @@ const Debounce = 500 * time.Millisecond
 // fires, so a large sync cannot flood the notification daemon.
 const NotifyMax = 5
 
-// AccountUnread is one account's resolved icon and unread count.
+// AccountUnread is one account's resolved icon and unread count; Err
+// is why the count could not be read, and Count is then 0.
 type AccountUnread struct {
 	Name  string
 	Icon  string
 	Count uint32
+	Err   error
 }
 
 // State is one published read: the per-account counts in config order
-// (empty without accounts) and the total.
+// (empty without accounts), the total of the counts that were read, and
+// Err, every query that failed, nil when all were read.
 type State struct {
 	Accounts []AccountUnread
 	Total    uint32
+	Err      error
 }
 
 // Message is one newest-first search hit.
@@ -50,10 +56,10 @@ type Message struct {
 
 // Notmuch is the query seam.
 type Notmuch interface {
-	// Count is `notmuch count <query>`, 0 on any failure.
-	Count(ctx context.Context, query string) uint32
-	// Newest returns up to limit newest matches, empty on failure.
-	Newest(ctx context.Context, query string, limit int) []Message
+	// Count is `notmuch count <query>`.
+	Count(ctx context.Context, query string) (uint32, error)
+	// Newest returns up to limit newest matches.
+	Newest(ctx context.Context, query string, limit int) ([]Message, error)
 	// DatabasePath is `notmuch config get database.path`; ok=false
 	// when there is no database to watch.
 	DatabasePath(ctx context.Context) (string, bool)
@@ -92,8 +98,12 @@ func New(cfg config.MailConfig, notmuch Notmuch, notifier Notifier) *Service {
 func (s *Service) State() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return State{Accounts: append([]AccountUnread(nil), s.state.Accounts...), Total: s.state.Total}
+	return State{Accounts: append([]AccountUnread(nil), s.state.Accounts...), Total: s.state.Total, Err: s.state.Err}
 }
+
+// PerAccount reports whether the accounts are counted, rather than the
+// single query.
+func (s *Service) PerAccount() bool { return len(s.cfg.Accounts) > 0 }
 
 // Subscribe ticks after every publish; stop unregisters.
 func (s *Service) Subscribe() (<-chan struct{}, func()) { return s.ticks.Subscribe() }
@@ -156,32 +166,50 @@ func (s *Service) watchMaildir(ctx context.Context) *fswatch.Watcher {
 }
 
 // recompute re-runs the queries and publishes; with notify (and the
-// notify key) set, every query whose count rose fires its batch.
+// notify key) set, every query whose count rose since its last read
+// fires its batch. A query that failed, now or on the read before,
+// notifies nothing.
 func (s *Service) recompute(ctx context.Context, notify bool) {
 	notify = notify && s.cfg.Notify && s.notifier != nil
 	previous := s.State()
 
 	var next State
 	var batch []newMail
+	var failures []error
 	if len(s.cfg.Accounts) == 0 {
-		next.Total = s.notmuch.Count(ctx, s.cfg.Query)
-		if notify && next.Total > previous.Total {
-			batch = s.buildBatch(ctx, s.cfg.Query, s.cfg.IconName, "New mail", previous.Total, next.Total)
+		count, err := s.notmuch.Count(ctx, s.cfg.Query)
+		next.Total = count
+		if err != nil {
+			failures = append(failures, err)
+		} else if notify && previous.Err == nil && count > previous.Total {
+			batch = s.buildBatch(ctx, s.cfg.Query, s.cfg.IconName, "New mail", previous.Total, count)
 		}
 	} else {
 		prevCounts := make(map[string]uint32, len(previous.Accounts))
 		for _, account := range previous.Accounts {
-			prevCounts[account.Name] = account.Count
+			if account.Err == nil {
+				prevCounts[account.Name] = account.Count
+			}
 		}
 		for _, account := range s.cfg.Accounts {
-			count := s.notmuch.Count(ctx, account.Query)
-			next.Total += count
 			icon := account.ResolvedIcon()
-			if prev := prevCounts[account.Name]; notify && count > prev {
+			count, err := s.notmuch.Count(ctx, account.Query)
+			if err != nil {
+				err = fmt.Errorf("account %s: %w", account.Name, err)
+				failures = append(failures, err)
+				next.Accounts = append(next.Accounts, AccountUnread{Name: account.Name, Icon: icon, Err: err})
+				continue
+			}
+			next.Total += count
+			if prev, read := prevCounts[account.Name]; notify && read && count > prev {
 				batch = append(batch, s.buildBatch(ctx, account.Query, icon, account.Name, prev, count)...)
 			}
 			next.Accounts = append(next.Accounts, AccountUnread{Name: account.Name, Icon: icon, Count: count})
 		}
+	}
+	next.Err = errors.Join(failures...)
+	if next.Err != nil {
+		log.Printf("mail: cannot count unread mail: %v", next.Err)
 	}
 
 	s.mu.Lock()
@@ -213,7 +241,10 @@ type newMail struct {
 // back to one count-only entry when no details can be read.
 func (s *Service) buildBatch(ctx context.Context, query, icon, fallbackSender string, previous, total uint32) []newMail {
 	arrived := total - previous
-	messages := s.notmuch.Newest(ctx, query, min(int(arrived), NotifyMax))
+	messages, err := s.notmuch.Newest(ctx, query, min(int(arrived), NotifyMax))
+	if err != nil {
+		log.Printf("mail: cannot read the newest messages, notifying the count only: %v", err)
+	}
 	if len(messages) == 0 {
 		return []newMail{{
 			icon:    icon,

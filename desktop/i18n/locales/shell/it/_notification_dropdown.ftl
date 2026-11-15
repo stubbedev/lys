@@ -3,6 +3,8 @@
 notification-dropdown-title = Notifiche
 notification-dropdown-empty-title = Tutto in ordine
 notification-dropdown-empty-description = Nessuna nuova notifica
+notification-dropdown-error-title = Impossibile leggere la cronologia delle notifiche
+notification-dropdown-error-description = Le nuove notifiche continuano ad arrivare; quelle precedenti non possono essere elencate.
 notification-dropdown-clear-all = Cancella tutto
 notification-dropdown-dnd-label = Non disturbare
 notification-dnd-reason-manual = Attivo

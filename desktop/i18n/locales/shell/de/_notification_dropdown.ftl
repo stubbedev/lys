@@ -3,6 +3,8 @@
 notification-dropdown-title = Benachrichtigungen
 notification-dropdown-empty-title = Alles erledigt
 notification-dropdown-empty-description = Keine neuen Benachrichtigungen
+notification-dropdown-error-title = Benachrichtigungsverlauf konnte nicht gelesen werden
+notification-dropdown-error-description = Neue Benachrichtigungen kommen weiterhin an; frühere können nicht angezeigt werden.
 notification-dropdown-clear-all = Alle löschen
 notification-dropdown-dnd-label = Nicht stören
 notification-dnd-reason-manual = An

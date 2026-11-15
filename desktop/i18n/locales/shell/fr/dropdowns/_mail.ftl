@@ -1,4 +1,6 @@
 ### Menu déroulant du courrier
 
 dropdown-mail-title = Courrier
-dropdown-mail-empty = Aucun compte configuré. Ajoutez des comptes sous [modules.mail] pour voir la répartition par compte.
+dropdown-mail-unread = Courrier non lu
+dropdown-mail-error-title = Impossible de compter le courrier non lu
+dropdown-mail-account-error = Comptage impossible

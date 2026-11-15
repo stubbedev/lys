@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -35,17 +36,35 @@ func mailLabel(format string, count uint32) string {
 }
 
 func mailVars(count uint32) map[string]string {
-	return map[string]string{"count": strconv.FormatUint(uint64(count), 10)}
+	return mailCountVars(strconv.FormatUint(uint64(count), 10))
+}
+
+func mailCountVars(count string) map[string]string {
+	return map[string]string{"count": count}
+}
+
+const (
+	mailUnknownCount = "--"
+	mailFailedClass  = "mail-failed"
+)
+
+func mailStateLabel(format string, st mail.State) string {
+	if st.Err != nil {
+		return jinja.ReplaceVars(format, mailCountVars(mailUnknownCount))
+	}
+	return mailLabel(format, st.Total)
 }
 
 // mailModule is the module: the shared service's unread total on a bar
-// button, the module root hidden at zero under hide-when-zero.
+// button, the module root hidden at zero under hide-when-zero. A count
+// that could not be read shows as unknown, marks the module mail-failed
+// and keeps it shown.
 type mailModule struct {
 	ctx    ModuleContext
 	btn    *barButton
 	icon   *widget.Icon
 	chrome moduleChrome
-	count  uint32
+	state  mail.State
 	stop   func()
 }
 
@@ -58,7 +77,7 @@ func newMail(ctx ModuleContext) (Module, error) {
 	m := &mailModule{ctx: ctx}
 	m.icon = moduleIcon(ctx, ctx.Config.Mail.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
-	m.apply(ctx.Mail.State().Total)
+	m.apply(ctx.Mail.State())
 	ticks, unsubscribe := ctx.Mail.Subscribe()
 	done := make(chan struct{})
 	m.stop = func() {
@@ -72,26 +91,33 @@ func newMail(ctx ModuleContext) (Module, error) {
 				return
 			case <-ticks:
 			}
-			total := ctx.Mail.State().Total
-			m.ctx.Invoke(func() { m.apply(total) })
+			st := ctx.Mail.State()
+			m.ctx.Invoke(func() { m.apply(st) })
 		}
 	}()
 	return m, nil
 }
 
-func (m *mailModule) apply(count uint32) {
-	cfg := m.ctx.Config.Mail
-	m.count = count
-	text := mailLabel(cfg.Format, count)
-	m.btn.SetLabel(text)
+func (m *mailModule) apply(st mail.State) {
+	m.state = st
+	m.btn.SetLabel(mailStateLabel(m.ctx.Config.Mail.Format, st))
+	detail := ""
+	if st.Err != nil {
+		detail = i18n.T("dropdown-mail-error-title")
+	}
+	m.btn.SetDescription(detail)
 	m.showChrome()
 }
 
-// showChrome hides the module root at zero under hide-when-zero.
+// showChrome hides the module root at zero under hide-when-zero, never
+// while a count failed.
 func (m *mailModule) showChrome() {
-	if m.chrome != nil {
-		m.chrome.SetVisible(m.count > 0 || !m.ctx.Config.Mail.HideWhenZero)
+	if m.chrome == nil {
+		return
 	}
+	failed := m.state.Err != nil
+	setClass(m.chrome, mailFailedClass, failed)
+	m.chrome.SetVisible(failed || m.state.Total > 0 || !m.ctx.Config.Mail.HideWhenZero)
 }
 
 func (m *mailModule) setChrome(c moduleChrome) {

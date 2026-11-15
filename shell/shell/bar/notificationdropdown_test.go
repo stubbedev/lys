@@ -2,6 +2,7 @@ package bar
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -744,5 +745,107 @@ func TestNotificationDropdownReadsTheHistoryOffTheLoop(t *testing.T) {
 	apptest.Answer(t, "the loop ran while the read held", ran)
 	if got := reads.Load(); got != 1 {
 		t.Errorf("%d page reads for one rebuild, want 1", got)
+	}
+}
+
+func TestReadNotifPagesReportsTheFailure(t *testing.T) {
+	broken := errors.New("store unreadable")
+	calls := 0
+	pageOf := func(_ *notifications.Key, limit int) ([]*notifications.Notification, error) {
+		calls++
+		if calls > 1 {
+			return nil, broken
+		}
+		page := make([]*notifications.Notification, limit)
+		for i := range page {
+			page[i] = &notifications.Notification{ID: uint32(limit - i)}
+		}
+		return page, nil
+	}
+	var read []*notifications.Notification
+	more, err := readNotifPages(pageOf, &read, notifications.MaxPage+1)
+	if !errors.Is(err, broken) || more {
+		t.Errorf("more %v err %v, want the store's error and no more", more, err)
+	}
+	if len(read) != notifications.MaxPage {
+		t.Errorf("read %d, want the %d before the failure kept", len(read), notifications.MaxPage)
+	}
+	read = nil
+	calls = 0
+	if more, err := readNotifPages(pageOf, &read, 5); err != nil || !more || len(read) != 5 {
+		t.Errorf("a healthy full read: more %v err %v, %d read", more, err, len(read))
+	}
+}
+
+func TestNotificationDropdownShowsAFailedRead(t *testing.T) {
+	svc := newNotifTestService(t)
+	svc.Notify("mail", 0, "", "Mail", "", nil, 0)
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Notifications = svc
+	v := notificationDropdown(ctx).(*notificationView)
+	defer v.dropdownClosed()
+	if v.failed.Visible() || v.readAlert.Visible() {
+		t.Fatal("a healthy read shows a failure")
+	}
+
+	broken := errors.New("store unreadable")
+	onHeadlessLoop(func() bool {
+		v.pageOf = func(*notifications.Key, int) ([]*notifications.Notification, error) { return nil, broken }
+		v.rebuild()
+		return true
+	})
+	waitHeadless(t, "the error page", func() bool { return v.failed.Visible() })
+	if onHeadlessLoop(func() bool { return v.empty.Visible() || v.scroll.Visible() || v.readAlert.Visible() }) {
+		t.Error("a failed read with nothing read shows the empty state, the list or the alert")
+	}
+	if got := itemText(v.failed, "title"); got != i18n.T("notification-dropdown-error-title") {
+		t.Errorf("the error page reads %q", got)
+	}
+
+	onHeadlessLoop(func() bool {
+		v.pageOf = svc.Page
+		v.rebuild()
+		return true
+	})
+	waitHeadless(t, "the list back", func() bool { return v.scroll.Visible() && !v.failed.Visible() && !v.readAlert.Visible() })
+}
+
+func TestNotificationDropdownKeepsWhatItReadOverAFailedPage(t *testing.T) {
+	svc := newNotifTestService(t)
+	svc.Notify("mail", 0, "", "Mail", "", nil, 0)
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Notifications = svc
+	v := notificationDropdown(ctx).(*notificationView)
+	defer v.dropdownClosed()
+	broken := errors.New("store unreadable")
+	onHeadlessLoop(func() bool {
+		v.pageOf = func(before *notifications.Key, limit int) ([]*notifications.Notification, error) {
+			if before != nil {
+				return nil, broken
+			}
+			return svc.Page(before, limit)
+		}
+		v.more = true
+		v.loadMore()
+		return true
+	})
+	waitHeadless(t, "the read alert", func() bool { return v.readAlert.Visible() })
+	if onHeadlessLoop(func() bool {
+		return !v.scroll.Visible() || v.failed.Visible() || v.empty.Visible() || len(v.notifs) != 1
+	}) {
+		t.Error("a failed later page hides what was read")
+	}
+	if got := v.readAlert.Title(); got != i18n.T("notification-dropdown-error-title") {
+		t.Errorf("alert = %q", got)
+	}
+}
+
+func TestNotificationDropdownEmptyHistoryIsNotAFailure(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Notifications = newNotifTestService(t)
+	v := notificationDropdown(ctx).(*notificationView)
+	defer v.dropdownClosed()
+	if !v.empty.Visible() || v.failed.Visible() || v.readAlert.Visible() {
+		t.Errorf("empty history: empty %v, error page %v, alert %v", v.empty.Visible(), v.failed.Visible(), v.readAlert.Visible())
 	}
 }

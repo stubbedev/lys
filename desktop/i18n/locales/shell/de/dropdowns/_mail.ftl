@@ -1,4 +1,6 @@
 ### Mail Dropdown
 
 dropdown-mail-title = E-Mail
-dropdown-mail-empty = Keine Konten eingerichtet. Fügen Sie Konten unter [modules.mail] hinzu, um eine Aufschlüsselung pro Konto zu sehen.
+dropdown-mail-unread = Ungelesene E-Mails
+dropdown-mail-error-title = Ungelesene E-Mails konnten nicht gezählt werden
+dropdown-mail-account-error = Konnte nicht gezählt werden

@@ -3,6 +3,8 @@
 notification-dropdown-title = Notifications
 notification-dropdown-empty-title = All Caught Up
 notification-dropdown-empty-description = No new notifications
+notification-dropdown-error-title = Notification history could not be read
+notification-dropdown-error-description = New notifications still arrive; earlier ones cannot be listed.
 notification-dropdown-clear-all = Clear All
 notification-dropdown-dnd-label = Do Not Disturb
 notification-dnd-reason-manual = On
