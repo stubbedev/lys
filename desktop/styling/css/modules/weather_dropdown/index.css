@@ -43,3 +43,7 @@ image.sun-icon.sunset {
   border-radius: 9999px;
   background: linear-gradient(90deg, var(--status-info), var(--status-warning));
 }
+.weather-stale .bar-button-icon,
+.weather-stale .bar-button-label {
+  opacity: 0.6;
+}

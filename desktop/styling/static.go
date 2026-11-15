@@ -60,6 +60,7 @@ var sheetOrder = []string{
 	"modules/dashboard_dropdown/dashboard.css",
 	"modules/bluetooth_dropdown/device_list.css",
 	"modules/bluetooth_dropdown/index.css",
+	"modules/mail_dropdown/index.css",
 	"modules/media_dropdown/player_view.css",
 	"modules/media_dropdown/source_picker.css",
 	"modules/network_dropdown/active_connection.css",

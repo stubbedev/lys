@@ -1,0 +1,6 @@
+.mail-failed .bar-button-icon {
+  color: var(--status-error);
+}
+.mail-dropdown-row.failed {
+  color: var(--status-error);
+}
