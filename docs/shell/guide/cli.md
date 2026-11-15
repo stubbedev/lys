@@ -23,7 +23,7 @@ Every command takes `--help`. Commands that act on the shell need it running. A 
 | `config reset PATH` | Remove the override |
 | `config schema [--stdout]` | Write `schema.json` to the config directory, or print it |
 | `config default [--stdout]` | Write `config.yaml.example`, or print it |
-| `config docs [--out DIR] [--only MODULE]` | Generate the config reference pages (default `docs/config`) |
+| `config docs [--out DIR] [--only MODULE]` | Generate this manual's config reference pages (default `docs/shell/config`, run from the repository root) |
 
 See [Editing config](/shell/guide/editing-config).
 

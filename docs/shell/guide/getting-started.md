@@ -6,17 +6,13 @@ title: Getting started
 
 lys-shell is a Wayland desktop shell written in Go on [lys-ui](/ui/). It runs on any compositor with `wlr-layer-shell` and draws a bar, dropdowns, notifications, an OSD, a launcher and the wallpaper. It is also an xdg-desktop-portal backend. Workspace modules exist for lys-wm, Hyprland, Niri, Mango and Sway.
 
-<a href="../lys-shell-preview.png" target="_blank" rel="noopener">
-  <img src="/lys-shell-preview.png" alt="lys-shell desktop shell" style="margin-bottom: 1.5rem;">
-</a>
+![lys-shell's bar and dropdowns on a desktop](/lys-shell-preview.png)
 
-<a href="../lys-settings-preview.png" target="_blank" rel="noopener">
-  <img src="/lys-settings-preview.png" alt="lys-shell settings GUI">
-</a>
+![lys-settings editing lys-shell's config](/lys-settings-preview.png)
 
 ## Install
 
-[Install](/install/) covers the packages and the flake. lys-shell's packages install the binaries, the systemd user units, the portal and D-Bus files, the icons, shell completions and a GeoClue drop-in. On NixOS, [NixOS](/shell/guide/getting-started-nixos) has the module options.
+[Install](/install/) covers the packages, the tarball and the flake; [NixOS](/shell/guide/getting-started-nixos) has the module options. lys-shell's packages install the binaries, the systemd user units, the portal and D-Bus files, the icons, shell completions and a GeoClue drop-in.
 
 ### Build from source
 
@@ -58,23 +54,21 @@ Modules talk to these services. Install the ones you use:
 ::: code-group
 
 ```sh [Arch]
-sudo pacman -S --needed go git just vulkan-icd-loader libva intel-media-driver
+sudo pacman -S --needed vulkan-icd-loader libva intel-media-driver
 sudo pacman -S --needed bluez bluez-utils networkmanager upower \
   power-profiles-daemon pipewire wireplumber pipewire-pulse
 sudo systemctl enable --now bluetooth NetworkManager upower power-profiles-daemon
 ```
 
 ```sh [Debian / Ubuntu]
-sudo apt install golang-go git just libvulkan1 libva2 libva-drm2 \
-  intel-media-va-driver mesa-va-drivers
+sudo apt install libvulkan1 libva2 libva-drm2 intel-media-va-driver mesa-va-drivers
 sudo apt install dbus-user-session bluez network-manager \
   upower power-profiles-daemon pipewire-pulse wireplumber
 sudo systemctl enable --now bluetooth NetworkManager upower power-profiles-daemon
 ```
 
 ```sh [Fedora]
-sudo dnf install golang git just vulkan-loader libva intel-media-driver \
-  mesa-va-drivers
+sudo dnf install vulkan-loader libva intel-media-driver mesa-va-drivers
 # Workstation ships these; Minimal and Server need them:
 sudo dnf install pipewire-pulseaudio wireplumber NetworkManager bluez upower \
   power-profiles-daemon
@@ -96,7 +90,7 @@ lys-shell shell                                   # or: run it in the foreground
 
 lys-shell reads `$XDG_CONFIG_HOME/lys-shell/config.yaml` (default `~/.config/lys-shell/config.yaml`) and applies changes on save. A missing file is created holding only the schema modeline; every field has a default. See [Editing config](/shell/guide/editing-config) and the [config reference](/shell/config/).
 
-`lys-shell panel settings` opens [lys-settings](/settings/), a separate package that edits the same config live.
+`lys-shell panel settings` opens [lys-settings](/settings/), which edits the same config live.
 
 ## Lock screen
 
