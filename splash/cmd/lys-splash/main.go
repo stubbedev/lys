@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"golang.org/x/sys/unix"
 
@@ -248,6 +249,13 @@ func listen(socket, notify string, log *slog.Logger) (*server.Server, error) {
 	return srv, err
 }
 
+func forgetLastFrame() error {
+	if err := os.Remove(splashframe.LastFramePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove the record of the last frame: %w", err)
+	}
+	return nil
+}
+
 func serve(o options, base *slog.Logger) (err error) {
 	logs := asynclog.New(base.Handler())
 	defer logs.Flush(time.After(logFlushWait))
@@ -261,7 +269,7 @@ func serve(o options, base *slog.Logger) (err error) {
 	if err != nil {
 		log.Warn("falling back to the default theme", "err", err)
 	}
-	bgrt, err := theme.LoadBGRT(theme.BGRTDir)
+	bgrt, err := splashframe.LoadBGRT(splashframe.BGRTDir)
 	if err != nil {
 		log.Warn("drawing without the firmware's logo", "err", err)
 	}
@@ -315,6 +323,8 @@ func serve(o options, base *slog.Logger) (err error) {
 		SaveBootDuration: daemon.SaveBootDuration,
 		LoadTheme:        theme.Load,
 		RasterizeLogo:    theme.RasterizeLogo,
+		SaveLastFrame:    func(f splashframe.LastFrame) error { return splashframe.SaveLastFrame(splashframe.LastFramePath, f) },
+		ForgetLastFrame:  forgetLastFrame,
 		LoadKeymap:       func() (string, error) { return keymap.Load("/") },
 		Clock:            daemon.SystemClock{},
 		Log:              log,

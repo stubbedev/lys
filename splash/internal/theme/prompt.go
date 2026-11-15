@@ -70,6 +70,7 @@ func (s State) WithPrompt(p Prompt) State {
 }
 
 func (s State) Advance(n int) State {
+	s = s.AdvanceFade(n)
 	if s.Prompt.Kind != NoPrompt {
 		s.Ask = s.Ask.advance(n)
 		return s

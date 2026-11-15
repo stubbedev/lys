@@ -1,13 +1,14 @@
 package theme
 
 import (
-	_ "embed" // the font and the lys logo
+	_ "embed" // the font
 	"fmt"
 	"image"
 	"math"
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/render"
 
@@ -16,9 +17,6 @@ import (
 
 //go:embed assets/Cantarell-Regular.ttf
 var fontTTF []byte
-
-//go:embed assets/lys.svg
-var lysSVG []byte
 
 // Frames is how many steps one turn of the throbber takes.
 const Frames = 36
@@ -53,6 +51,8 @@ type State struct {
 	Updating bool
 	Progress Progress
 	Phase    int
+	Leaving  bool
+	Fade     Fade
 }
 
 type Hints struct {
@@ -106,12 +106,14 @@ func hintsLine(h [3]string) string {
 // Renderer draws frames from states with one theme. It is not safe for
 // concurrent use.
 type Renderer struct {
-	theme Theme
-	face  *render.Typeface
-	bgrt  *BGRT
-	logos map[int]*render.Icon
-	steps map[throbberStep][]byte
-	cv    render.Canvas
+	theme   Theme
+	face    *render.Typeface
+	bgrt    *splashframe.BGRT
+	logos   map[int]*render.Icon
+	steps   map[throbberStep][]byte
+	cv      render.Canvas
+	scv     render.Canvas
+	scratch []byte
 }
 
 type throbberStep struct {
@@ -121,7 +123,7 @@ type throbberStep struct {
 
 // NewRenderer prepares drawing with t; bgrt is the firmware's logo, nil
 // when it left none.
-func NewRenderer(t Theme, bgrt *BGRT) (*Renderer, error) {
+func NewRenderer(t Theme, bgrt *splashframe.BGRT) (*Renderer, error) {
 	face, err := render.LoadFont(fontTTF)
 	if err != nil {
 		return nil, fmt.Errorf("theme: load the embedded font: %w", err)
@@ -133,100 +135,28 @@ func NewRenderer(t Theme, bgrt *BGRT) (*Renderer, error) {
 }
 
 type layout struct {
-	scale     int
-	logo      image.Rectangle
-	group     image.Rectangle
-	busy      image.Rectangle
-	throb     image.Rectangle
-	title     image.Rectangle
-	secondary image.Rectangle
-	notice    image.Rectangle
-	field     image.Rectangle
-	entry     image.Rectangle
-	hints     image.Rectangle
+	splashframe.Grid
 }
 
-const (
-	lysLogoSize  = 112
-	throbberSize = 40
-	dotCount     = 3
-	entryWidth   = 320
-)
-
-func space(r tokens.Rem, scale int) int {
-	return int(r.Px(tokens.RemPx, float64(scale)))
-}
+const dotCount = 3
 
 func textPx(t tokens.TextSize, scale int) float64 {
 	return t.Px(tokens.RemPx, float64(scale))
 }
 
-func opticalOrigin(frame, size image.Point) image.Point {
-	return image.Pt((frame.X-size.X)/2, frame.Y*382/1000-size.Y/2)
-}
-
-type column struct {
-	minX, maxX, y int
-}
-
-func (c *column) row(h int) image.Rectangle {
-	r := image.Rect(c.minX, c.y, c.maxX, c.y+h)
-	c.y += h
-	return r
-}
-
-func (c *column) gap(h int) {
-	c.y += h
-}
-
-func centred(row image.Rectangle, w int) image.Rectangle {
-	mid := (row.Min.X + row.Max.X) / 2
-	w = min(w, row.Dx())
-	return image.Rect(mid-w/2, row.Min.Y, mid-w/2+w, row.Max.Y)
-}
-
 func (r *Renderer) layout(size image.Point, scale int) layout {
-	s := func(v int) int { return v * scale }
-	sp := func(t tokens.Rem) int { return space(t, scale) }
-	l := layout{scale: scale}
+	logo := splashframe.LysLogo(size, scale)
 	if r.bgrt != nil {
-		l.logo = r.bgrt.place(size)
-	} else {
-		n := image.Pt(s(lysLogoSize), s(lysLogoSize))
-		at := opticalOrigin(size, n)
-		l.logo = image.Rectangle{Min: at, Max: at.Add(n)}
+		logo = r.bgrt.Rect(size)
 	}
-	margin := sp(tokens.SpaceXL)
-	c := column{minX: margin, maxX: size.X - margin, y: l.logo.Max.Y + sp(tokens.SpaceXL)}
-	top := c.y
-	l.busy = c.row(s(throbberSize))
-	c.gap(sp(tokens.SpaceLG))
-	l.title = c.row(sp(tokens.SpaceXL))
-	l.secondary = c.row(sp(tokens.SpaceLG))
-	c.gap(sp(tokens.SpaceMD))
-	l.field = c.row(sp(tokens.SpaceXL) + sp(tokens.SpaceSM))
-	l.entry = centred(l.field, s(entryWidth))
-	c.gap(sp(tokens.SpaceSM))
-	l.hints = c.row(sp(tokens.SpaceLG))
-	l.notice = c.row(sp(tokens.SpaceLG))
-	l.group = image.Rect(c.minX, top, c.maxX, c.y)
-	overflow := l.group.Max.Y - (size.Y - sp(tokens.SpaceSM))
-	room := l.group.Min.Y - (l.logo.Max.Y + sp(tokens.SpaceSM))
-	if up := image.Pt(0, min(overflow, room)); up.Y > 0 {
-		for _, at := range []*image.Rectangle{&l.group, &l.busy, &l.title, &l.secondary, &l.notice, &l.field, &l.entry, &l.hints} {
-			*at = at.Sub(up)
-		}
-	}
-	n := s(throbberSize)
-	at := l.busy.Min.Add(l.busy.Max).Div(2).Sub(image.Pt(n/2, n/2))
-	l.throb = image.Rectangle{Min: at, Max: at.Add(image.Pt(n, n))}
-	return l
+	return layout{splashframe.Layout(size, scale, logo)}
 }
 
 // Draw brings frame f, shown at scale, from prev to cur and returns the
 // rectangles it changed. With prev nil the whole frame is drawn; otherwise only
 // the pixels whose state differs are redrawn: the entry for a key typed, the
-// text's extent for a message, the columns between two fills of a bar.
+// text's extent for a message, the columns between two fills of a bar, and
+// while a fade runs the status group and the logo when it fades too.
 func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Damage, error) {
 	if scale < 1 {
 		return kms.Damage{}, fmt.Errorf("theme: scale %d is not positive", scale)
@@ -239,18 +169,18 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 		if cur.Hidden {
 			return kms.DamageOf(full), nil
 		}
-		if err := r.logo(cv, l); err != nil {
+		if err := r.whole(cv, l, cur); err != nil {
 			return kms.Damage{}, err
 		}
-		r.indicator(cv, l, cur)
-		for _, row := range r.textRows(l, cur) {
-			r.line(cv, row.box, row.text, row.px, render.AlignCenter)
-		}
-		r.field(cv, l, cur)
-		r.line(cv, l.hints, r.hintsText(cur.hintsShown()), textPx(tokens.Caption, scale), render.AlignCenter)
 		return kms.DamageOf(full), nil
 	}
 	if cur.Hidden {
+		return kms.Damage{}, nil
+	}
+	if prev.Fading() || cur.Fading() || prev.Leaving != cur.Leaving {
+		return r.fade(f, l, *prev, cur)
+	}
+	if cur.Leaving {
 		return kms.Damage{}, nil
 	}
 	var damage kms.Damage
@@ -263,10 +193,37 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 	}
 	r.redrawField(cv, l, *prev, cur, &damage)
 	if h, g := prev.hintsShown(), cur.hintsShown(); h != g {
-		damage.Add(r.redrawLine(cv, l.hints, r.hintsText(h), r.hintsText(g), textPx(tokens.Caption, scale), render.AlignCenter))
+		damage.Add(r.redrawLine(cv, l.Hints, r.hintsText(h), r.hintsText(g), textPx(tokens.Caption, scale), render.AlignCenter))
 	}
 	damage.Intersect(full)
 	return damage, nil
+}
+
+func (r *Renderer) whole(cv *render.Canvas, l layout, s State) error {
+	img, err := r.logoImage(l.Scale)
+	if err != nil {
+		return err
+	}
+	blank := s.Fading() && s.Fade.Kind == FadeIn
+	if !blank || !s.Fade.Logo {
+		splashframe.Mark{Image: img, At: l.Logo}.Paint(cv)
+	}
+	if !blank {
+		r.group(cv, l, s)
+	}
+	return nil
+}
+
+func (r *Renderer) group(cv *render.Canvas, l layout, s State) {
+	if s.Leaving {
+		return
+	}
+	r.indicator(cv, l, s)
+	for _, row := range r.textRows(l, s) {
+		r.line(cv, row.box, row.text, row.px, render.AlignCenter)
+	}
+	r.field(cv, l, s)
+	r.line(cv, l.Hints, r.hintsText(s.hintsShown()), textPx(tokens.Caption, l.Scale), render.AlignCenter)
 }
 
 type rowText struct {
@@ -281,16 +238,16 @@ type textRow struct {
 }
 
 func (r *Renderer) textRows(l layout, s State) [3]textRow {
-	title, secondary := textPx(tokens.Title, l.scale), textPx(tokens.Caption, l.scale)
+	title, secondary := textPx(tokens.Title, l.Scale), textPx(tokens.Caption, l.Scale)
 	if s.Prompt.Kind == NoPrompt {
 		status := s.Status
 		if s.Updating {
 			status = UpdateHint
 		}
 		return [3]textRow{
-			{l.title, title, rowText{s.Message, r.theme.Foreground}},
-			{l.secondary, secondary, rowText{status, r.theme.Secondary}},
-			{l.notice, secondary, rowText{}},
+			{l.Title, title, rowText{s.Message, r.theme.Foreground}},
+			{l.Secondary, secondary, rowText{status, r.theme.Secondary}},
+			{l.Notice, secondary, rowText{}},
 		}
 	}
 	w := wordsOf(s.Prompt)
@@ -299,9 +256,9 @@ func (r *Renderer) textRows(l layout, s State) [3]textRow {
 		notice = rowText{w.refused, r.theme.Error}
 	}
 	return [3]textRow{
-		{l.title, title, rowText{w.title, r.theme.Foreground}},
-		{l.secondary, secondary, rowText{w.device, r.theme.Secondary}},
-		{l.notice, secondary, notice},
+		{l.Title, title, rowText{w.title, r.theme.Foreground}},
+		{l.Secondary, secondary, rowText{w.device, r.theme.Secondary}},
+		{l.Notice, secondary, notice},
 	}
 }
 
@@ -374,21 +331,28 @@ func (r *Renderer) clear(cv *render.Canvas, at image.Rectangle) {
 	cv.ClearDevice(rect(at), r.theme.Background)
 }
 
-func (r *Renderer) logo(cv *render.Canvas, l layout) error {
+func (r *Renderer) logoImage(scale int) (image.Image, error) {
 	if r.bgrt != nil {
-		cv.DrawImageDevice(r.bgrt.Image, l.logo.Min.X, l.logo.Min.Y)
-		return nil
+		return r.bgrt.Image, nil
 	}
-	icon, ok := r.logos[l.scale]
+	icon, ok := r.logos[scale]
 	if !ok {
-		logo, err := RasterizeLogo(l.scale)
+		logo, err := RasterizeLogo(scale)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		r.AddLogo(logo)
 		icon = logo.icon
 	}
-	icon.Draw(cv, l.logo.Min.X, l.logo.Min.Y)
+	return icon.Still(), nil
+}
+
+func (r *Renderer) logo(cv *render.Canvas, l layout) error {
+	img, err := r.logoImage(l.Scale)
+	if err != nil {
+		return err
+	}
+	splashframe.Mark{Image: img, At: l.Logo}.Paint(cv)
 	return nil
 }
 
@@ -401,10 +365,9 @@ type LogoRaster struct {
 // RasterizeLogo draws the lys logo at scale, milliseconds of work that does not
 // belong on the frame loop and needs no Renderer.
 func RasterizeLogo(scale int) (*LogoRaster, error) {
-	n := lysLogoSize * scale
-	icon, err := render.LoadSVG(lysSVG, n, n)
+	icon, err := splashframe.RasterizeLogo(scale)
 	if err != nil {
-		return nil, fmt.Errorf("theme: rasterize the lys logo at %dpx: %w", n, err)
+		return nil, fmt.Errorf("theme: %w", err)
 	}
 	return &LogoRaster{scale: scale, icon: icon}, nil
 }
@@ -421,6 +384,14 @@ func (r *Renderer) NeedsLogo(scale int) bool {
 // AddLogo keeps a logo for the frames at its scale.
 func (r *Renderer) AddLogo(l *LogoRaster) {
 	r.logos[l.scale] = l.icon
+}
+
+func (r *Renderer) LastFrame(outputs []splashframe.Output) splashframe.LastFrame {
+	logo := splashframe.LogoLys
+	if r.bgrt != nil {
+		logo = splashframe.LogoFirmware
+	}
+	return splashframe.LastFrame{Background: r.theme.Background, Logo: logo, ReducedMotion: r.theme.ReducedMotion, Outputs: outputs}
 }
 
 func mix(a, b render.Color, num, denom uint32) render.Color {
@@ -443,13 +414,13 @@ func (r *Renderer) fieldBorder() render.Color {
 }
 
 func (l layout) bar() image.Rectangle {
-	h := space(tokens.SpaceSM, l.scale)
-	y := (l.busy.Min.Y + l.busy.Max.Y - h) / 2
-	return image.Rect(l.entry.Min.X, y, l.entry.Max.X, y+h)
+	h := splashframe.Space(tokens.SpaceSM, l.Scale)
+	y := (l.Busy.Min.Y + l.Busy.Max.Y - h) / 2
+	return image.Rect(l.Entry.Min.X, y, l.Entry.Max.X, y+h)
 }
 
 func (l layout) percent() image.Rectangle {
-	return image.Rect(l.bar().Max.X+space(tokens.SpaceSM, l.scale), l.busy.Min.Y, l.busy.Max.X, l.busy.Max.Y)
+	return image.Rect(l.bar().Max.X+splashframe.Space(tokens.SpaceSM, l.Scale), l.Busy.Min.Y, l.Busy.Max.X, l.Busy.Max.Y)
 }
 
 type indicator uint8
@@ -483,7 +454,7 @@ func (r *Renderer) indicator(cv *render.Canvas, l layout, s State) {
 		r.lock(cv, l, s.Ask)
 	case barShown:
 		r.bar(cv, l.bar(), s.Progress.Shown())
-		r.line(cv, l.percent(), r.percentText(s), textPx(tokens.Caption, l.scale), render.AlignStart)
+		r.line(cv, l.percent(), r.percentText(s), textPx(tokens.Caption, l.Scale), render.AlignStart)
 	case throbberShown:
 		r.throbber(cv, l, s.Phase)
 	}
@@ -499,28 +470,31 @@ func (r *Renderer) redrawIndicator(f kms.Frame, cv *render.Canvas, l layout, pre
 	from, to := indicatorOf(prev), indicatorOf(cur)
 	switch {
 	case from != to:
-		r.clear(cv, l.busy)
+		r.clear(cv, l.Busy)
 		r.indicator(cv, l, cur)
-		damage.Add(l.busy)
+		damage.Add(l.Busy)
 	case to == barShown:
 		if a, b := prev.Progress.Shown(), cur.Progress.Shown(); a != b {
 			damage.Add(r.moveBar(cv, l.bar(), a, b))
 		}
 		if prev.Updating != cur.Updating || prev.Progress.Percent() != cur.Progress.Percent() {
-			damage.Add(r.redrawLine(cv, l.percent(), r.percentText(prev), r.percentText(cur), textPx(tokens.Caption, l.scale), render.AlignStart))
+			damage.Add(r.redrawLine(cv, l.percent(), r.percentText(prev), r.percentText(cur), textPx(tokens.Caption, l.Scale), render.AlignStart))
 		}
 	case to == throbberShown && r.step(prev.Phase) != r.step(cur.Phase):
 		r.stepThrobber(f, cv, l, prev.Phase, cur.Phase, damage)
 	case to == lockShown && prev.Ask.breath() != cur.Ask.breath():
-		r.clear(cv, l.throb)
+		r.clear(cv, l.Throb)
 		r.lock(cv, l, cur.Ask)
-		damage.Add(l.throb)
+		damage.Add(l.Throb)
 	}
 }
 
 func (r *Renderer) PhasesToNextPicture(s State, size image.Point, scale int) int {
 	if s.Hidden {
 		return 0
+	}
+	if s.Fading() {
+		return 1
 	}
 	switch indicatorOf(s) {
 	case lockShown:
@@ -554,14 +528,14 @@ func (r *Renderer) throbberPhasesToNextPicture(phase int) int {
 // picture is computed per pixel once and copied from then on, since a boot
 // repeats the same few dozen for as long as it lasts.
 func (r *Renderer) stepThrobber(f kms.Frame, cv *render.Canvas, l layout, from, to int, damage *kms.Damage) {
-	at := l.throb
+	at := l.Throb
 	if !at.In(image.Rectangle{Max: f.Size}) {
 		r.clear(cv, at)
 		r.throbber(cv, l, to)
 		damage.Add(at)
 		return
 	}
-	key := throbberStep{l.scale, r.step(to)}
+	key := throbberStep{l.Scale, r.step(to)}
 	row := at.Dx() * kms.BytesPerPixel
 	saved, cached := r.steps[key]
 	if !cached {
@@ -613,12 +587,12 @@ func restore(f kms.Frame, saved []byte, at, region image.Rectangle) {
 }
 
 func (l layout) dotSize() int {
-	return throbberSize * l.scale / 4
+	return splashframe.IndicatorPx * l.Scale / 4
 }
 
 // dot is where the throbber's dot i lies.
 func (l layout) dot(i int) image.Rectangle {
-	c := l.throb.Min.Add(l.throb.Max).Div(2)
+	c := l.Throb.Min.Add(l.Throb.Max).Div(2)
 	d := l.dotSize()
 	x := c.X + (i-1)*d*3/2 - d/2
 	return image.Rect(x, c.Y-d/2, x+d, c.Y-d/2+d)
@@ -626,8 +600,8 @@ func (l layout) dot(i int) image.Rectangle {
 
 func (r *Renderer) throbber(cv *render.Canvas, l layout, phase int) {
 	dim := r.dim()
-	c := l.throb.Min.Add(l.throb.Max).Div(2)
-	size := float64(throbberSize * l.scale)
+	c := l.Throb.Min.Add(l.Throb.Max).Div(2)
+	size := float64(splashframe.IndicatorPx * l.Scale)
 	step := r.step(phase)
 	switch r.theme.Throbber {
 	case Spinner:
@@ -667,29 +641,29 @@ func (r *Renderer) bar(cv *render.Canvas, track image.Rectangle, p Fill) {
 
 func (r *Renderer) lock(cv *render.Canvas, l layout, a Ask) {
 	col := mix(r.theme.Background, r.theme.Accent, breathLevels[a.breath()], 100)
-	u := l.scale
+	u := l.Scale
 	at := func(x, y, w, h int) render.Rect {
-		return render.Rect{X: l.throb.Min.X + x*u, Y: l.throb.Min.Y + y*u, W: w * u, H: h * u}
+		return render.Rect{X: l.Throb.Min.X + x*u, Y: l.Throb.Min.Y + y*u, W: w * u, H: h * u}
 	}
-	cx, cy := float64(l.throb.Min.X+20*u), float64(l.throb.Min.Y+15*u)
+	cx, cy := float64(l.Throb.Min.X+20*u), float64(l.Throb.Min.Y+15*u)
 	cv.Arc(cx, cy, float64(7*u), float64(4*u), math.Pi, math.Pi, col)
 	cv.FillRectDevice(at(11, 15, 4, 4), col)
 	cv.FillRectDevice(at(25, 15, 4, 4), col)
-	cv.RoundedRect(at(8, 19, 24, 17), space(tokens.RadiusSM, u), col)
+	cv.RoundedRect(at(8, 19, 24, 17), splashframe.Space(tokens.RadiusSM, u), col)
 	cv.RoundedRect(at(18, 25, 4, 6), 2*u, r.theme.Background)
 }
 
 func (l layout) shakeAmplitude() int {
-	return space(tokens.SpaceSM, l.scale)
+	return splashframe.Space(tokens.SpaceSM, l.Scale)
 }
 
 func (l layout) shakeSpan() image.Rectangle {
 	a := l.shakeAmplitude()
-	return image.Rect(l.entry.Min.X-a, l.entry.Min.Y, l.entry.Max.X+a, l.entry.Max.Y).Intersect(l.field)
+	return image.Rect(l.Entry.Min.X-a, l.Entry.Min.Y, l.Entry.Max.X+a, l.Entry.Max.Y).Intersect(l.Field)
 }
 
 func (l layout) entryAt(a Ask) image.Rectangle {
-	return l.entry.Add(image.Pt(a.shakeOffset(l.shakeAmplitude()), 0))
+	return l.Entry.Add(image.Pt(a.shakeOffset(l.shakeAmplitude()), 0))
 }
 
 func inside(entry image.Rectangle) image.Rectangle {
@@ -708,7 +682,7 @@ func (r *Renderer) field(cv *render.Canvas, l layout, s State) {
 		ring = r.theme.Error
 	}
 	cv.RoundedRect(rect(at), pill, r.fieldFill())
-	cv.RoundedBorder(rect(at), render.UniformCorners(pill), render.UniformInsets(l.scale), ring)
+	cv.RoundedBorder(rect(at), render.UniformCorners(pill), render.UniformInsets(l.Scale), ring)
 	r.entryText(cv, l, inside(at), s)
 }
 
@@ -744,20 +718,20 @@ func (r *Renderer) typedWidth(l layout, p Prompt) int {
 		return 0
 	}
 	if p.Kind == PasswordPrompt {
-		return p.typed()*l.dotPitch() - space(tokens.SpaceXS, l.scale)
+		return p.typed()*l.dotPitch() - splashframe.Space(tokens.SpaceXS, l.Scale)
 	}
-	return int(math.Ceil(r.face.Shape(p.Shown, textPx(tokens.Body, l.scale)).Advance()))
+	return int(math.Ceil(r.face.Shape(p.Shown, textPx(tokens.Body, l.Scale)).Advance()))
 }
 
 func (l layout) dotPitch() int {
-	return space(tokens.SpaceSM, l.scale) + space(tokens.SpaceXS, l.scale)
+	return splashframe.Space(tokens.SpaceSM, l.Scale) + splashframe.Space(tokens.SpaceXS, l.Scale)
 }
 
 func (r *Renderer) caret(l layout, inner image.Rectangle, p Prompt) image.Rectangle {
-	w := space(tokens.Space2XS, l.scale)
+	w := splashframe.Space(tokens.Space2XS, l.Scale)
 	x := inner.Min.X
 	if typed := r.typedWidth(l, p); typed > 0 {
-		x = min(inner.Min.X+typed+space(tokens.SpaceXS, l.scale), inner.Max.X-w)
+		x = min(inner.Min.X+typed+splashframe.Space(tokens.SpaceXS, l.Scale), inner.Max.X-w)
 	}
 	return image.Rect(x, inner.Min.Y, x+w, inner.Max.Y)
 }
@@ -773,20 +747,20 @@ func (r *Renderer) entryText(cv *render.Canvas, l layout, inner image.Rectangle,
 	r.drawCaret(cv, c, s.Ask)
 	prev := cv.PushClip(rect(inner))
 	defer cv.PopClip(prev)
-	gap := space(tokens.SpaceXS, l.scale)
+	gap := splashframe.Space(tokens.SpaceXS, l.Scale)
 	if s.Prompt.Shown == "" {
-		px := textPx(tokens.Body, l.scale)
+		px := textPx(tokens.Body, l.Scale)
 		r.face.DrawAligned(cv, wordsOf(s.Prompt).placeholder, rect(image.Rect(c.Max.X+gap, inner.Min.Y, inner.Max.X, inner.Max.Y)), px, r.theme.Secondary, render.AlignStart)
 		return
 	}
 	x := c.Min.X - gap - r.typedWidth(l, s.Prompt)
 	if s.Prompt.Kind == QuestionPrompt {
-		shaped := r.face.Shape(s.Prompt.Shown, textPx(tokens.Body, l.scale))
+		shaped := r.face.Shape(s.Prompt.Shown, textPx(tokens.Body, l.Scale))
 		baseline := inner.Min.Y + (inner.Dy()+int(shaped.Ascent()-shaped.Descent()))/2
 		shaped.Draw(cv, x, baseline, r.theme.Foreground)
 		return
 	}
-	d := space(tokens.SpaceSM, l.scale)
+	d := splashframe.Space(tokens.SpaceSM, l.Scale)
 	y := (inner.Min.Y + inner.Max.Y - d) / 2
 	for i := range s.Prompt.typed() {
 		at := x + i*l.dotPitch()

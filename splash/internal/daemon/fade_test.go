@@ -1,0 +1,250 @@
+package daemon
+
+import (
+	"bytes"
+	"image"
+	"reflect"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys/desktop/splashframe"
+	"github.com/stubbedev/lys/lib/render"
+
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/theme"
+)
+
+var pictureSize = image.Pt(800, 600)
+
+func (r *run) settles(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		from := r.presents()
+		time.Sleep(4 * FrameInterval)
+		if r.presents() == from {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the screen still presents after 5s")
+		}
+	}
+}
+
+func (r *run) screen() *fakeScreen {
+	return r.display.screens[0].(*fakeScreen)
+}
+
+func lysPicture(t *testing.T) []byte {
+	t.Helper()
+	icon, err := splashframe.RasterizeLogo(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pix := make([]byte, pictureSize.X*pictureSize.Y*4)
+	cv := render.NewScaled(pix, pictureSize.X*4, pictureSize.X, pictureSize.Y, 1, 1)
+	splashframe.Picture{Background: theme.Default().Background, Mark: splashframe.LysMark(pictureSize, 1, icon)}.Paint(cv)
+	return pix
+}
+
+func pausedRun(t *testing.T, s setup) *run {
+	t.Helper()
+	s.screens, s.size, s.keep = 1, pictureSize, true
+	r := start(t, s)
+	r.call(t, protocol.PauseProgress{}, protocol.Ack{})
+	r.settles(t)
+	return r
+}
+
+func TestTheIntroFadesInWhilePausedThenTheLoopIdles(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{})
+	if got := r.presents(); got < 2 || got > 1+theme.IntroPhases {
+		t.Errorf("%d presents for the first frame and the intro, want 2 to %d", got, 1+theme.IntroPhases)
+	}
+	r.holdsStillFor(t, "a paused splash after its intro", 10*FrameInterval)
+}
+
+func TestReducedMotionHasNoIntro(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{theme: stillTheme()})
+	if got := r.presents(); got != 1 {
+		t.Errorf("%d presents for a paused splash without motion, want its first frame alone", got)
+	}
+}
+
+func TestDeactivateFadesTheGroupOutRecordsTheFrameAndThenDrawsNothing(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{})
+	r.call(t, protocol.ShowMessage{Text: "Starting"}, protocol.Ack{})
+	r.settles(t)
+	from := r.presents()
+	r.call(t, protocol.Deactivate{}, protocol.Ack{})
+	if got := r.presents() - from; got < 1 || got > theme.LeavePhases {
+		t.Errorf("%d presents for the leave, want 1 to %d", got, theme.LeavePhases)
+	}
+	r.display.mu.Lock()
+	deactivated := r.display.deactivated
+	r.display.mu.Unlock()
+	if !deactivated {
+		t.Fatal("the display is active after the deactivate's answer")
+	}
+	if !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+		t.Error("the last frame before the deactivate is not the shared picture: the logo alone on black")
+	}
+	saved, _ := r.frames.state()
+	want := splashframe.LastFrame{Background: theme.Default().Background, Logo: splashframe.LogoLys, Outputs: []splashframe.Output{{Name: "Virtual-1", Size: pictureSize, Scale: 1}}}
+	if len(saved) != 1 || !reflect.DeepEqual(saved[0], want) {
+		t.Errorf("recorded %+v, want %+v", saved, want)
+	}
+	r.call(t, protocol.ShowMessage{Text: "Late"}, protocol.Ack{})
+	r.call(t, protocol.ResumeProgress{}, protocol.Ack{})
+	r.holdsStillFor(t, "an inactive splash", 10*FrameInterval)
+}
+
+func TestReducedMotionDeactivatesWithOneCut(t *testing.T) {
+	t.Parallel()
+	still := stillTheme()
+	r := pausedRun(t, setup{theme: still})
+	r.call(t, protocol.ShowMessage{Text: "Starting"}, protocol.Ack{})
+	from := r.presents()
+	r.call(t, protocol.Deactivate{}, protocol.Ack{})
+	if got := r.presents() - from; got != 1 {
+		t.Errorf("%d presents for a leave without motion, want the one cut", got)
+	}
+	if !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+		t.Error("the cut does not land on the shared picture")
+	}
+	saved, _ := r.frames.state()
+	if len(saved) != 1 || !saved[0].ReducedMotion {
+		t.Errorf("recorded %+v, want one frame that asks for cuts", saved)
+	}
+}
+
+func TestAQuitRetainingFadesOutAndTheRecordGoesWithTheSplash(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{})
+	from := r.presents()
+	r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
+	if err := r.finished(t); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.presents() - from; got < 1 || got > theme.LeavePhases {
+		t.Errorf("%d presents for the leave, want 1 to %d", got, theme.LeavePhases)
+	}
+	if !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+		t.Error("the retained frame is not the shared picture")
+	}
+	if saved, forgotten := r.frames.state(); len(saved) != 1 || forgotten != 1 {
+		t.Errorf("%d records saved and %d removals, want the one record removed as the splash exits", len(saved), forgotten)
+	}
+}
+
+func TestAQuitWithoutRetainCutsAndRecordsNothing(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{})
+	from := r.presents()
+	r.call(t, protocol.Quit{}, protocol.Ack{})
+	if err := r.finished(t); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.presents() - from; got != 0 {
+		t.Errorf("a quit that gives the console back presented %d frames", got)
+	}
+	if saved, forgotten := r.frames.state(); len(saved) != 0 || forgotten != 1 {
+		t.Errorf("%d records saved and %d removals, want none saved and a stale one removed", len(saved), forgotten)
+	}
+}
+
+func TestSIGTERMAtShutdownFadesOutBeforeTheFrameStays(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{mode: Shutdown})
+	from := r.presents()
+	r.cancel()
+	if err := r.finished(t); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.presents() - from; got < 1 || got > theme.LeavePhases {
+		t.Errorf("%d presents for the shutdown's leave, want 1 to %d", got, theme.LeavePhases)
+	}
+	if !r.display.retained || !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+		t.Errorf("retained %v: the frame that stays is not the logo alone", r.display.retained)
+	}
+}
+
+func TestNoRecordWithoutAPictureOnScreen(t *testing.T) {
+	t.Parallel()
+	text := start(t, setup{})
+	text.call(t, protocol.Deactivate{}, protocol.Ack{})
+	if saved, _ := text.frames.state(); len(saved) != 0 {
+		t.Errorf("the text splash recorded %+v", saved)
+	}
+	hidden := pausedRun(t, setup{})
+	hidden.call(t, protocol.HideSplash{}, protocol.Ack{})
+	from := hidden.presents()
+	hidden.call(t, protocol.Deactivate{}, protocol.Ack{})
+	if saved, _ := hidden.frames.state(); len(saved) != 0 {
+		t.Errorf("a hidden splash recorded %+v", saved)
+	}
+	if got := hidden.presents() - from; got != 0 {
+		t.Errorf("a hidden splash presented %d frames to leave", got)
+	}
+}
+
+func TestAReactivateDuringTheFadeAnswersTheDeactivateAndShowsTheSplash(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{})
+	c := r.dial(t)
+	r.send(t, c, protocol.Deactivate{}, protocol.Reactivate{})
+	expect(t, c, protocol.Ack{})
+	expect(t, c, protocol.Ack{})
+	r.display.mu.Lock()
+	deactivated := r.display.deactivated
+	r.display.mu.Unlock()
+	if deactivated {
+		t.Error("the display is deactivated after the reactivate")
+	}
+	from := r.presents()
+	r.call(t, protocol.ShowMessage{Text: "Back"}, protocol.Ack{})
+	r.presentsAfter(t, from)
+	if bytes.Equal(r.screen().picture(), lysPicture(t)) {
+		t.Error("the splash shown again still has no status group")
+	}
+}
+
+func TestAMessageCrossfadesOnlyTheGroup(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{})
+	l := image.Rectangle{Max: pictureSize}
+	from := r.presents()
+	r.call(t, protocol.ShowMessage{Text: "Starting Disk Encryption"}, protocol.Ack{})
+	r.settles(t)
+	s := r.screen()
+	s.mu.Lock()
+	presents := slices.Clone(s.presents[from:])
+	s.mu.Unlock()
+	if len(presents) < 1 || len(presents) > theme.CrossfadePhases {
+		t.Errorf("%d presents for a crossfade, want 1 to %d", len(presents), theme.CrossfadePhases)
+	}
+	for _, p := range presents {
+		if p.Dy() >= l.Dy()/2 || p.Min.Y < l.Dy()/2 {
+			t.Errorf("a crossfade frame presented %v, want the status group in the lower half of %v", p, l)
+		}
+	}
+}
+
+func TestAQuitWaitingOnAFadeOutlastsAReactivate(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{})
+	c := r.dial(t)
+	r.send(t, c, protocol.Quit{Retain: true}, protocol.Reactivate{})
+	expect(t, c, protocol.Ack{})
+	expect(t, c, protocol.Ack{})
+	if err := r.finished(t); err != nil {
+		t.Fatal(err)
+	}
+	if !r.display.retained || !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+		t.Error("a reactivate during a quit's fade left a frame other than the logo alone")
+	}
+}

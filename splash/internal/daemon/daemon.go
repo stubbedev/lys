@@ -14,6 +14,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/drm"
 	"golang.org/x/sys/unix"
 
@@ -41,6 +42,7 @@ const capsLockPoll = 250 * time.Millisecond
 
 // Screen is one output the splash draws on.
 type Screen interface {
+	Name() string
 	Frame() kms.Frame
 	Scale() int
 	Present(damage kms.Damage) error
@@ -146,10 +148,12 @@ type Config struct {
 	// LoadTheme reads the theme Reload shows.
 	LoadTheme func(path string) (theme.Theme, error)
 	// RasterizeLogo draws the logo for a scale off the loop.
-	RasterizeLogo func(scale int) (*theme.LogoRaster, error)
-	LoadKeymap    func() (string, error)
-	Clock         Clock
-	Log           *slog.Logger
+	RasterizeLogo   func(scale int) (*theme.LogoRaster, error)
+	SaveLastFrame   func(splashframe.LastFrame) error
+	ForgetLastFrame func() error
+	LoadKeymap      func() (string, error)
+	Clock           Clock
+	Log             *slog.Logger
 	// started hands a test the daemon as Run makes it.
 	started func(*daemon)
 }
@@ -197,6 +201,12 @@ type event struct {
 	keymap   *keymapLoad
 }
 
+type leave struct {
+	deactivations []*server.Call
+	quits         []*server.Call
+	stop          bool
+}
+
 type keymapLoad struct {
 	serial uint64
 	name   string
@@ -211,7 +221,7 @@ type daemon struct {
 	console  Console
 	messages console.Scrollback
 	details  bool
-	bgrt     *theme.BGRT
+	bgrt     *splashframe.BGRT
 	renderer *theme.Renderer
 	units    bool
 	hints    bool
@@ -255,6 +265,7 @@ type daemon struct {
 	rearm       bool
 	capsWatched bool
 	capsAt      time.Time
+	leave       *leave
 }
 
 // Run serves the splash until a quit request or ctx ends. ctx ending is a
@@ -262,7 +273,7 @@ type daemon struct {
 // shutdown, reboot and kexec modes, where the frame stays until the power
 // goes. Whatever ends Run, a panic in a handler included, gives the VT back
 // and releases the display and the console.
-func Run(ctx context.Context, cfg Config, t theme.Theme, bgrt *theme.BGRT, dev Devices) (err error) {
+func Run(ctx context.Context, cfg Config, t theme.Theme, bgrt *splashframe.BGRT, dev Devices) (err error) {
 	r, err := theme.NewRenderer(t, bgrt)
 	if err != nil {
 		return errors.Join(err, cfg.Server.Close())
@@ -283,6 +294,7 @@ func Run(ctx context.Context, cfg Config, t theme.Theme, bgrt *theme.BGRT, dev D
 		started:  cfg.Clock.Now(),
 		timer:    cfg.Clock.NewTimer(),
 	}
+	d.state = r.Intro(d.state)
 	if cfg.started != nil {
 		cfg.started(d)
 	}
@@ -401,8 +413,12 @@ func (d *daemon) step() {
 		return
 	}
 	phases := now.Sub(d.phaseAt) / FrameInterval
-	d.state = d.state.Advance(int(phases))
 	d.phaseAt = d.phaseAt.Add(phases * FrameInterval)
+	if d.paused {
+		d.state = d.state.AdvanceFade(int(phases))
+		return
+	}
+	d.state = d.state.Advance(int(phases))
 	d.estimate(now)
 }
 
@@ -411,7 +427,7 @@ func (d *daemon) bootClockRuns() bool {
 }
 
 func (d *daemon) nextFill() theme.Fill {
-	if !d.bootClockRuns() {
+	if d.paused || !d.bootClockRuns() {
 		return 0
 	}
 	var f theme.Fill
@@ -431,6 +447,12 @@ func (d *daemon) estimate(now time.Time) {
 }
 
 func (d *daemon) phasesToNextPicture() int {
+	if d.paused {
+		if d.state.Fading() && !d.state.Hidden && len(d.drawn) > 0 {
+			return 1
+		}
+		return 0
+	}
 	n := 0
 	for _, shown := range d.drawn {
 		m := d.renderer.PhasesToNextPicture(d.state, shown.size, shown.scale)
@@ -456,20 +478,30 @@ func (d *daemon) showPrompt(p theme.Prompt) {
 func (d *daemon) loop(ctx context.Context) error {
 	defer d.timer.Stop()
 	d.looping = true
+	stopped := ctx.Done()
 	for {
 		var reply func() error
 		var err error
 		typed := false
 		select {
-		case <-ctx.Done():
-			return errors.Join(d.quit(d.cfg.Mode.stopping()), d.recordDuration())
+		case <-stopped:
+			stopped = nil
+			if !d.cfg.Mode.stopping() {
+				return errors.Join(d.quit(false), d.recordDuration())
+			}
+			d.leaveFor(func(l *leave) { l.stop = true })
 		case e := <-d.inbox:
 			switch {
 			case e.call != nil:
-				if q, ok := e.call.Request.(protocol.Quit); ok {
-					return errors.Join(d.quit(q.Retain), e.call.Reply(protocol.Ack{}), d.recordDuration())
+				q, quit := e.call.Request.(protocol.Quit)
+				switch {
+				case quit && !q.Retain:
+					return errors.Join(d.quit(false), e.call.Reply(protocol.Ack{}), d.recordDuration())
+				case quit:
+					d.leaveFor(func(l *leave) { l.quits = append(l.quits, e.call) })
+				default:
+					reply, err = d.request(e.call)
 				}
-				reply, err = d.request(e.call)
 			case e.hangup != nil:
 				d.asker.HangUp(e.hangup)
 			case e.output != nil:
@@ -499,6 +531,9 @@ func (d *daemon) loop(ctx context.Context) error {
 			d.step()
 		}
 		d.followCapsLock(typed)
+		if d.graphics && !d.details {
+			d.state = d.renderer.Crossfade(d.settled, d.state)
+		}
 		if d.state != d.settled {
 			d.rearm = true
 		}
@@ -507,6 +542,13 @@ func (d *daemon) loop(ctx context.Context) error {
 		}
 		if reply != nil {
 			err = errors.Join(err, reply())
+		}
+		if d.leave != nil && d.left() {
+			done, lerr := d.finishLeave()
+			if done {
+				return errors.Join(err, lerr)
+			}
+			err = errors.Join(err, lerr)
 		}
 		if err != nil {
 			d.cfg.Log.Warn("handling an event", "err", err)
@@ -621,7 +663,78 @@ func (d *daemon) toggleDetails() error {
 }
 
 func (d *daemon) animating() bool {
-	return !d.paused && !d.inactive && d.graphics && (d.phasesToNextPicture() > 0 || d.nextFill() > 0)
+	return !d.inactive && d.graphics && (d.phasesToNextPicture() > 0 || d.nextFill() > 0)
+}
+
+func (d *daemon) showsPicture() bool {
+	return d.graphics && !d.details && !d.inactive && !d.state.Hidden && len(d.drawn) > 0
+}
+
+func (d *daemon) leaveFor(add func(*leave)) {
+	if d.leave == nil {
+		d.leave = &leave{}
+	}
+	add(d.leave)
+	if d.showsPicture() {
+		d.state = d.renderer.Leave(d.state)
+	}
+}
+
+func (d *daemon) left() bool {
+	return !d.showsPicture() || d.state.Leaving && !d.state.Fading() && d.state == d.settled
+}
+
+func (d *daemon) finishLeave() (bool, error) {
+	l := d.leave
+	d.leave = nil
+	var errs []error
+	if d.showsPicture() {
+		errs = append(errs, d.recordLastFrame())
+	}
+	if len(l.deactivations) > 0 {
+		errs = append(errs, d.deactivate())
+		errs = append(errs, ack(l.deactivations)...)
+	}
+	if len(l.quits) == 0 && !l.stop {
+		return false, errors.Join(errs...)
+	}
+	errs = append(errs, d.quit(true))
+	errs = append(errs, ack(l.quits)...)
+	return true, errors.Join(append(errs, d.recordDuration())...)
+}
+
+func ack(calls []*server.Call) []error {
+	errs := make([]error, len(calls))
+	for i, c := range calls {
+		errs[i] = c.Reply(protocol.Ack{})
+	}
+	return errs
+}
+
+func (d *daemon) recordLastFrame() error {
+	outputs := make([]splashframe.Output, 0, len(d.screens))
+	for _, s := range d.screens {
+		if shown, ok := d.drawn[s]; ok {
+			outputs = append(outputs, splashframe.Output{Name: s.Name(), Size: shown.size, Scale: shown.scale})
+		}
+	}
+	if len(outputs) == 0 {
+		return nil
+	}
+	if err := d.cfg.SaveLastFrame(d.renderer.LastFrame(outputs)); err != nil {
+		return err
+	}
+	d.cfg.Log.Info("recorded the last frame for whoever takes the screen over", "outputs", outputs)
+	return nil
+}
+
+func (d *daemon) deactivate() error {
+	d.inactive = true
+	if d.details {
+		d.details, d.stale = false, true
+		return nil
+	}
+	return d.display.Deactivate()
 }
 
 func (d *daemon) canAsk() bool {
@@ -661,6 +774,9 @@ func (d *daemon) request(c *server.Call) (func() error, error) {
 			return answer(protocol.Nak{}), nil
 		}
 		return answer(protocol.Ack{}), nil
+	case protocol.Deactivate:
+		d.leaveFor(func(l *leave) { l.deactivations = append(l.deactivations, c) })
+		return nil, nil
 	case protocol.NewRoot:
 		if err := d.cfg.Chroot(r.Dir); err != nil {
 			return answer(protocol.Nak{}), fmt.Errorf("daemon: switch to the new root %s: %w", r.Dir, err)
@@ -704,17 +820,22 @@ func (d *daemon) apply(req protocol.Request) error {
 		d.state.Hidden = false
 	case protocol.HideSplash:
 		d.state.Hidden = true
-	case protocol.Deactivate:
-		d.inactive = true
-		if d.details {
-			d.details, d.stale = false, true
-			return nil
-		}
-		return d.display.Deactivate()
 	case protocol.Reactivate:
+		var errs []error
+		if d.leave != nil {
+			errs = ack(d.leave.deactivations)
+			d.leave.deactivations = nil
+			if len(d.leave.quits) == 0 && !d.leave.stop {
+				d.leave = nil
+			}
+		}
 		d.inactive, d.details, d.stale = false, false, true
+		d.state = d.state.Returned()
+		if d.leave != nil {
+			d.state = d.renderer.Leave(d.state)
+		}
 		clear(d.drawn)
-		return errors.Join(d.display.Reactivate(), d.reclaim())
+		return errors.Join(append(errs, d.display.Reactivate(), d.reclaim())...)
 	case protocol.IgnoreKeystroke:
 		return d.asker.Ignore(r.Keys)
 	case protocol.SystemInitialized:
@@ -723,7 +844,7 @@ func (d *daemon) apply(req protocol.Request) error {
 		return d.reclaim()
 	case protocol.Error:
 		d.cfg.Log.Warn("the boot reported an error")
-	case protocol.Ping, protocol.Quit, protocol.Password, protocol.Question,
+	case protocol.Ping, protocol.Quit, protocol.Password, protocol.Question, protocol.Deactivate,
 		protocol.CachedPassword, protocol.WatchKeystroke, protocol.HasActiveVT, protocol.NewRoot, protocol.Reload:
 	}
 	return nil
@@ -975,6 +1096,10 @@ func (d *daemon) quit(retain bool) error {
 	for _, c := range d.reloads {
 		errs = append(errs, c.Reply(protocol.Nak{}))
 	}
+	if d.leave != nil {
+		errs = append(errs, ack(append(d.leave.deactivations, d.leave.quits...))...)
+		d.leave = nil
+	}
 	if err := d.display.Close(retain); errors.Is(err, drm.ErrNoCloseFB) {
 		d.cfg.Log.Warn("this kernel has no CLOSEFB, so the splash's last frame goes away with it", "err", err)
 	} else {
@@ -997,7 +1122,7 @@ func (d *daemon) quit(retain bool) error {
 			errs = append(errs, d.console.Restore(d.messages.Lines()))
 		}
 	}
-	return errors.Join(errs...)
+	return errors.Join(append(errs, d.cfg.ForgetLastFrame())...)
 }
 
 func (d *daemon) recordDuration() error {

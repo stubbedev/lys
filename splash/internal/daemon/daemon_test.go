@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/testbuild"
 
@@ -31,12 +32,15 @@ type fakeScreen struct {
 	frame    kms.Frame
 	mu       sync.Mutex
 	presents []image.Rectangle
+	keep     bool
+	shown    []byte
 }
 
 func newScreen(size image.Point) *fakeScreen {
 	return &fakeScreen{frame: kms.Frame{Pix: make([]byte, size.X*size.Y*4), Stride: size.X * 4, Size: size}}
 }
 
+func (s *fakeScreen) Name() string     { return "Virtual-1" }
 func (s *fakeScreen) Frame() kms.Frame { return s.frame }
 func (s *fakeScreen) Scale() int       { return 1 }
 
@@ -48,7 +52,16 @@ func (s *fakeScreen) Present(d kms.Damage) error {
 		bounds = bounds.Union(r)
 	}
 	s.presents = append(s.presents, bounds)
+	if s.keep {
+		s.shown = append(s.shown[:0], s.frame.Pix...)
+	}
 	return nil
+}
+
+func (s *fakeScreen) picture() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.shown)
 }
 
 type fakeDisplay struct {
@@ -206,6 +219,37 @@ type run struct {
 	duration string
 	console  *fakeConsole
 	d        *daemon
+	frames   *lastFrames
+}
+
+func keepNoFrame(splashframe.LastFrame) error { return nil }
+
+func forgetNoFrame() error { return nil }
+
+type lastFrames struct {
+	mu        sync.Mutex
+	saved     []splashframe.LastFrame
+	forgotten int
+}
+
+func (l *lastFrames) save(f splashframe.LastFrame) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.saved = append(l.saved, f)
+	return nil
+}
+
+func (l *lastFrames) forget() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.forgotten++
+	return nil
+}
+
+func (l *lastFrames) state() ([]splashframe.LastFrame, int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.saved), l.forgotten
 }
 
 // vtSettled returns once what the loop has handled so far has reached the VT.
@@ -249,6 +293,32 @@ type setup struct {
 	loadTheme func(string) (theme.Theme, error)
 	keymap    func() (string, error)
 	theme     *theme.Theme
+	clock     Clock
+	keep      bool
+}
+
+type laterClock struct {
+	SystemClock
+	mu    sync.Mutex
+	ahead time.Duration
+}
+
+func (c *laterClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return time.Now().Add(c.ahead)
+}
+
+func (c *laterClock) skip(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.ahead += d
+}
+
+func stillTheme() *theme.Theme {
+	th := theme.Default()
+	th.ReducedMotion = true
+	return &th
 }
 
 func saveUnsynced(path string, d time.Duration) error {
@@ -257,7 +327,7 @@ func saveUnsynced(path string, d time.Duration) error {
 
 func start(t *testing.T, s setup) *run {
 	t.Helper()
-	r := &run{socket: "@lys-splash-daemon-test-" + rand.Text(), display: &fakeDisplay{}, done: make(chan error, 1), roots: make(chan string, 4), duration: s.duration, console: newConsole()}
+	r := &run{socket: "@lys-splash-daemon-test-" + rand.Text(), display: &fakeDisplay{}, done: make(chan error, 1), roots: make(chan string, 4), duration: s.duration, console: newConsole(), frames: &lastFrames{}}
 	if r.duration == "" {
 		r.duration = filepath.Join(t.TempDir(), "boot-duration")
 	}
@@ -266,7 +336,9 @@ func start(t *testing.T, s setup) *run {
 		size = image.Pt(320, 240)
 	}
 	for range s.screens {
-		r.display.screens = append(r.display.screens, newScreen(size))
+		screen := newScreen(size)
+		screen.keep = s.keep
+		r.display.screens = append(r.display.screens, screen)
 	}
 	var vt Terminal
 	if !s.noVT {
@@ -306,8 +378,12 @@ func start(t *testing.T, s setup) *run {
 	if s.theme != nil {
 		th = *s.theme
 	}
+	clock := s.clock
+	if clock == nil {
+		clock = SystemClock{}
+	}
 	started := make(chan *daemon, 1)
-	cfg := Config{started: func(d *daemon) { started <- d }, LoadKeymap: keymap, Mode: s.mode, Server: listen(t, r.socket), Chroot: chroot, BootDuration: r.duration, LoadBootDuration: load, SaveBootDuration: save, LoadTheme: loadTheme, RasterizeLogo: theme.RasterizeLogo, Clock: SystemClock{}, Log: log}
+	cfg := Config{started: func(d *daemon) { started <- d }, LoadKeymap: keymap, Mode: s.mode, Server: listen(t, r.socket), Chroot: chroot, BootDuration: r.duration, LoadBootDuration: load, SaveBootDuration: save, LoadTheme: loadTheme, RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: r.frames.save, ForgetLastFrame: r.frames.forget, Clock: clock, Log: log}
 	go func() {
 		r.done <- Run(ctx, cfg, th, nil, Devices{Display: r.display, VT: vt, Console: r.console})
 	}()
@@ -445,7 +521,7 @@ func TestDeactivateDropsKeys(t *testing.T) {
 
 func TestMessageRedrawsOnlyItsLine(t *testing.T) {
 	t.Parallel()
-	r := start(t, setup{screens: 1})
+	r := start(t, setup{screens: 1, theme: stillTheme()})
 	r.call(t, protocol.PauseProgress{}, protocol.Ack{})
 	s := r.display.screens[0].(*fakeScreen)
 	s.mu.Lock()
@@ -569,7 +645,7 @@ func TestPanicRestoresTheVT(t *testing.T) {
 	display.screens = []Screen{newScreen(image.Pt(64, 64))}
 	vt := newVT()
 	socket := "@lys-splash-daemon-test-" + rand.Text()
-	cfg := Config{Server: listen(t, socket), Chroot: func(string) error { return nil }, LoadBootDuration: LoadBootDuration, LoadKeymap: func() (string, error) { return "", nil }, RasterizeLogo: theme.RasterizeLogo, Clock: SystemClock{}, Log: slog.New(slog.DiscardHandler)}
+	cfg := Config{Server: listen(t, socket), Chroot: func(string) error { return nil }, LoadBootDuration: LoadBootDuration, LoadKeymap: func() (string, error) { return "", nil }, RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Clock: SystemClock{}, Log: slog.New(slog.DiscardHandler)}
 	panicked := make(chan any, 1)
 	go func() {
 		defer func() { panicked <- recover() }()
@@ -774,7 +850,7 @@ func TestAPromptHoldsStillWhileHiddenOrPaused(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			r := start(t, setup{mode: Boot, screens: 1})
+			r := start(t, setup{mode: Boot, screens: 1, theme: stillTheme()})
 			c := r.dial(t)
 			r.send(t, c, protocol.Password{Prompt: "Disk:"}, protocol.Ping{})
 			expect(t, c, protocol.Ack{})

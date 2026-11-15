@@ -1,4 +1,4 @@
-package theme
+package splashframe
 
 import (
 	"bytes"
@@ -32,11 +32,11 @@ func LoadBGRT(dir string) (*BGRT, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("theme: open the BGRT table: %w", err)
+		return nil, fmt.Errorf("splashframe: open the BGRT table: %w", err)
 	}
 	b, err := loadBGRT(root)
 	if cerr := root.Close(); cerr != nil {
-		err = errors.Join(err, fmt.Errorf("theme: close the BGRT table: %w", cerr))
+		err = errors.Join(err, fmt.Errorf("splashframe: close the BGRT table: %w", cerr))
 	}
 	return b, err
 }
@@ -59,11 +59,11 @@ func loadBGRT(root *os.Root) (*BGRT, error) {
 	}
 	data, err := root.ReadFile("image")
 	if err != nil {
-		return nil, fmt.Errorf("theme: the BGRT image: %w", err)
+		return nil, fmt.Errorf("splashframe: the BGRT image: %w", err)
 	}
 	img, err := bmp.Decode(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("theme: decode the BGRT image in %s: %w", root.Name(), err)
+		return nil, fmt.Errorf("splashframe: decode the BGRT image in %s: %w", root.Name(), err)
 	}
 	return &BGRT{Image: img, Offset: image.Pt(x, y)}, nil
 }
@@ -71,24 +71,24 @@ func loadBGRT(root *os.Root) (*BGRT, error) {
 func readInt(root *os.Root, name string) (int, error) {
 	data, err := root.ReadFile(name)
 	if err != nil {
-		return 0, fmt.Errorf("theme: the BGRT %s: %w", name, err)
+		return 0, fmt.Errorf("splashframe: the BGRT %s: %w", name, err)
 	}
 	v, err := strconv.Atoi(strings.TrimSpace(string(data)))
 	if err != nil {
-		return 0, fmt.Errorf("theme: the BGRT %s in %s: %w", name, root.Name(), err)
+		return 0, fmt.Errorf("splashframe: the BGRT %s in %s: %w", name, root.Name(), err)
 	}
 	return v, nil
 }
 
-// place is where the firmware logo goes on a frame of size: at the
-// firmware's offsets when they centre it horizontally on this size, which
-// means the firmware drew at this resolution, otherwise centred at the golden
-// ratio's height as plymouth places it.
-func (b *BGRT) place(size image.Point) image.Rectangle {
+// Rect is where the firmware logo goes on a frame: at the firmware's
+// offsets when they centre it horizontally on this frame, which means the
+// firmware drew at this resolution, otherwise at the optical centre as
+// plymouth places it.
+func (b *BGRT) Rect(frame image.Point) image.Rectangle {
 	s := b.Image.Bounds().Size()
 	at := b.Offset
-	if (size.X-s.X)/2 != b.Offset.X {
-		at = opticalOrigin(size, s)
+	if (frame.X-s.X)/2 != b.Offset.X {
+		at = OpticalOrigin(frame, s)
 	}
 	return image.Rectangle{Min: at, Max: at.Add(s)}
 }

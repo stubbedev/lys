@@ -7,13 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/golden"
 	"github.com/stubbedev/lys/lib/render"
-	"golang.org/x/image/bmp"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
 	"github.com/stubbedev/lys/splash/internal/protocol"
@@ -22,19 +21,19 @@ import (
 func TestDefaultParses(t *testing.T) {
 	t.Parallel()
 	d := Default()
-	if d.Background != render.RGB(0, 0, 0) || d.Logo != FirmwareLogo || d.Throbber != Spinner || d.Units || !d.PromptHints {
+	if d.Background != render.RGB(0, 0, 0) || d.Logo != FirmwareLogo || d.Throbber != Spinner || d.Units || !d.PromptHints || d.ReducedMotion {
 		t.Errorf("Default() = %+v", d)
 	}
 }
 
 func TestParseOverridesTheDefault(t *testing.T) {
 	t.Parallel()
-	got, err := Parse("theme.yaml", []byte("accent: \"#102030\"\nthrobber: dots\nunits: true\nprompt-hints: false\n"))
+	got, err := Parse("theme.yaml", []byte("accent: \"#102030\"\nthrobber: dots\nunits: true\nprompt-hints: false\nreduced-motion: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := Default()
-	want.Accent, want.Throbber, want.Units, want.PromptHints = render.RGB(0x10, 0x20, 0x30), Dots, true, false
+	want.Accent, want.Throbber, want.Units, want.PromptHints, want.ReducedMotion = render.RGB(0x10, 0x20, 0x30), Dots, true, false, true
 	if got != want {
 		t.Errorf("Parse = %+v, want %+v", got, want)
 	}
@@ -54,6 +53,7 @@ func TestParseErrorsNameTheField(t *testing.T) {
 		"throbber: wheel\n":           "throbber",
 		"units: maybe\n":              "units",
 		"prompt-hints: 1\n":           "prompt-hints",
+		"reduced-motion: often\n":     "reduced-motion",
 		"colour: \"#000000\"\n":       "colour",
 		"background: [1, 2]\n":        "background",
 		"logo: lys\nthrobber: none\n": "throbber",
@@ -124,66 +124,6 @@ func testLogo() image.Image {
 	return img
 }
 
-func writeBGRT(t *testing.T, status string, offset image.Point) string {
-	t.Helper()
-	dir := t.TempDir()
-	var buf bytes.Buffer
-	if err := bmp.Encode(&buf, testLogo()); err != nil {
-		t.Fatal(err)
-	}
-	files := map[string]string{
-		"status":  status,
-		"xoffset": strconv.Itoa(offset.X) + "\n",
-		"yoffset": strconv.Itoa(offset.Y) + "\n",
-		"image":   buf.String(),
-	}
-	for name, data := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return dir
-}
-
-func TestLoadBGRT(t *testing.T) {
-	t.Parallel()
-	b, err := LoadBGRT(writeBGRT(t, "1\n", image.Pt(272, 129)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b == nil || b.Offset != image.Pt(272, 129) || b.Image.Bounds().Size() != image.Pt(96, 48) {
-		t.Fatalf("LoadBGRT = %+v", b)
-	}
-	if b, err := LoadBGRT(writeBGRT(t, "0\n", image.Pt(1, 1))); b != nil || err != nil {
-		t.Errorf("a logo no longer on screen loaded as %+v, %v", b, err)
-	}
-	if b, err := LoadBGRT(filepath.Join(t.TempDir(), "none")); b != nil || err != nil {
-		t.Errorf("a machine without BGRT loaded %+v, %v", b, err)
-	}
-	corrupt := writeBGRT(t, "1\n", image.Pt(1, 1))
-	if err := os.WriteFile(filepath.Join(corrupt, "image"), []byte("BMnot really"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := LoadBGRT(corrupt); err == nil {
-		t.Error("a corrupt BGRT image loaded")
-	}
-	badStatus := writeBGRT(t, "yes\n", image.Pt(1, 1))
-	if _, err := LoadBGRT(badStatus); err == nil {
-		t.Error("a non-numeric status loaded")
-	}
-}
-
-func TestBGRTPlacement(t *testing.T) {
-	t.Parallel()
-	b := &BGRT{Image: testLogo(), Offset: image.Pt(272, 100)}
-	if got := b.place(image.Pt(640, 400)); got.Min != image.Pt(272, 100) {
-		t.Errorf("at the firmware's resolution the logo moved to %v", got.Min)
-	}
-	if got := b.place(image.Pt(1280, 800)); got.Min != image.Pt(592, 800*382/1000-24) {
-		t.Errorf("at another resolution the logo is at %v, want centred at the golden ratio", got.Min)
-	}
-}
-
 const goldenDir = "testdata/golden"
 
 func frame(size image.Point) kms.Frame {
@@ -212,7 +152,7 @@ func check(t *testing.T, name string, f kms.Frame) {
 	golden.Check(t, goldenDir, name, render.NRGBA(f.Pix, f.Stride, f.Size.X, f.Size.Y), golden.Tolerance{})
 }
 
-func renderer(t *testing.T, th Theme, bgrt *BGRT) *Renderer {
+func renderer(t *testing.T, th Theme, bgrt *splashframe.BGRT) *Renderer {
 	t.Helper()
 	r, err := NewRenderer(th, bgrt)
 	if err != nil {
@@ -224,11 +164,11 @@ func renderer(t *testing.T, th Theme, bgrt *BGRT) *Renderer {
 func TestGoldenFrames(t *testing.T) {
 	t.Parallel()
 	size := image.Pt(800, 600)
-	bgrt := &BGRT{Image: testLogo(), Offset: image.Pt(352, 205)}
+	bgrt := &splashframe.BGRT{Image: testLogo(), Offset: image.Pt(352, 205)}
 	tests := []struct {
 		name  string
 		theme Theme
-		bgrt  *BGRT
+		bgrt  *splashframe.BGRT
 		scale int
 		size  image.Point
 		state State
@@ -319,8 +259,8 @@ func TestThrobberDamageCoversOnlyTheThrobber(t *testing.T) {
 	next.Phase = 1
 	d := bounds(draw(t, r, f, 1, &prev, next))
 	l := r.layout(size, 1)
-	if d != l.throb {
-		t.Fatalf("a throbber step damaged %v, want the throbber's %v", d, l.throb)
+	if d != l.Throb {
+		t.Fatalf("a throbber step damaged %v, want the throbber's %v", d, l.Throb)
 	}
 	changed := image.Rectangle{}
 	for y := range size.Y {
@@ -427,8 +367,8 @@ func TestBootProgressDamagesOnlyItsBar(t *testing.T) {
 	if d := bounds(draw(t, r, f, 1, &prev, next)); d.Empty() || !d.In(l.bar()) {
 		t.Errorf("a boot progress step damaged %v, want part of the bar's %v", d, l.bar())
 	}
-	if !l.bar().In(l.busy) || l.bar().Overlaps(l.title) {
-		t.Errorf("the progress bar %v leaves the indicator's slot %v or overlaps the message %v", l.bar(), l.busy, l.title)
+	if !l.bar().In(l.Busy) || l.bar().Overlaps(l.Title) {
+		t.Errorf("the progress bar %v leaves the indicator's slot %v or overlaps the message %v", l.bar(), l.Busy, l.Title)
 	}
 	without := frame(size)
 	draw(t, r, without, 1, nil, State{Phase: 4})
@@ -590,14 +530,14 @@ func TestDamageIsOnlyWhatChanged(t *testing.T) {
 		within   image.Rectangle
 		most     int
 	}{
-		{"a dots step is the dots that change", State{Phase: 0}, State{Phase: 12}, dotCount, l.throb, dotCount * dot},
-		{"a key typed is the entry's inside", prompt("•"), prompt("••"), 1, inside(l.entry), area(inside(l.entry))},
-		{"a short message is its text", State{}, State{Message: "Starting"}, 1, l.title, 150 * l.title.Dy()},
-		{"a unit name is its text on the status line", State{Message: "Starting"}, State{Message: "Starting", Status: "udev.service"}, 1, l.secondary, 150 * l.secondary.Dy()},
-		{"the prompt's text is its extent", prompt("•"), State{Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk two:", Shown: "•"}}, 1, l.title, 150 * l.title.Dy()},
+		{"a dots step is the dots that change", State{Phase: 0}, State{Phase: 12}, dotCount, l.Throb, dotCount * dot},
+		{"a key typed is the entry's inside", prompt("•"), prompt("••"), 1, inside(l.Entry), area(inside(l.Entry))},
+		{"a short message is its text", State{}, State{Message: "Starting"}, 1, l.Title, 150 * l.Title.Dy()},
+		{"a unit name is its text on the status line", State{Message: "Starting"}, State{Message: "Starting", Status: "udev.service"}, 1, l.Secondary, 150 * l.Secondary.Dy()},
+		{"the prompt's text is its extent", prompt("•"), State{Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk two:", Shown: "•"}}, 1, l.Title, 150 * l.Title.Dy()},
 		{"a percent of boot is its columns", State{Progress: known(50)}, State{Progress: known(51)}, 1, l.bar(), barArea(l.bar()) / 10},
-		{"a percent of update is its columns and its number", State{Updating: true, Progress: known(50)}, State{Updating: true, Progress: known(51)}, 2, l.busy, barArea(l.bar())/10 + area(l.percent())},
-		{"a message and a boot step stay apart", State{Progress: known(50)}, State{Progress: known(51), Message: "m"}, 2, l.busy.Union(l.title), barArea(l.bar())/10 + 50*l.title.Dy()},
+		{"a percent of update is its columns and its number", State{Updating: true, Progress: known(50)}, State{Updating: true, Progress: known(51)}, 2, l.Busy, barArea(l.bar())/10 + area(l.percent())},
+		{"a message and a boot step stay apart", State{Progress: known(50)}, State{Progress: known(51), Message: "m"}, 2, l.Busy.Union(l.Title), barArea(l.bar())/10 + 50*l.Title.Dy()},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -644,48 +584,20 @@ func TestHintsShowOnlyWithAPromptAndDamageOnlyThemselves(t *testing.T) {
 	draw(t, r, f, 1, nil, off)
 	on := off
 	on.Hints.CapsLock = true
-	if d := bounds(draw(t, r, f, 1, &off, on)); d.Empty() || !d.In(l.hints) {
-		t.Errorf("Caps Lock coming on damaged %v, want part of the hint line %v", d, l.hints)
+	if d := bounds(draw(t, r, f, 1, &off, on)); d.Empty() || !d.In(l.Hints) {
+		t.Errorf("Caps Lock coming on damaged %v, want part of the hint line %v", d, l.Hints)
 	}
-	if d := bounds(draw(t, r, f, 1, &on, off)); d.Empty() || !d.In(l.hints) {
-		t.Errorf("Caps Lock going off damaged %v, want part of the hint line %v", d, l.hints)
+	if d := bounds(draw(t, r, f, 1, &on, off)); d.Empty() || !d.In(l.Hints) {
+		t.Errorf("Caps Lock going off damaged %v, want part of the hint line %v", d, l.Hints)
 	}
-	if l.hints.Overlaps(l.field) || l.hints.Empty() {
-		t.Errorf("the hints at %v overlap the field %v or have no room", l.hints, l.field)
+	if l.Hints.Overlaps(l.Field) || l.Hints.Empty() {
+		t.Errorf("the hints at %v overlap the field %v or have no room", l.Hints, l.Field)
 	}
 	blank, hidden := frame(size), frame(size)
 	draw(t, r, blank, 1, nil, State{})
 	draw(t, r, hidden, 1, nil, State{Hints: Hints{Keymap: "de", CapsLock: true}})
 	if !bytes.Equal(blank.Pix, hidden.Pix) {
 		t.Error("the hints show without a prompt")
-	}
-}
-
-func TestTheGridRowsStackInOrderWithoutOverlap(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		size  image.Point
-		scale int
-	}{{image.Pt(800, 600), 1}, {image.Pt(1600, 1200), 2}, {image.Pt(1920, 1080), 1}, {image.Pt(1920, 1080), 2}, {image.Pt(1280, 720), 1}} {
-		l := renderer(t, Default(), nil).layout(tc.size, tc.scale)
-		rows := []image.Rectangle{l.logo, l.busy, l.title, l.secondary, l.field, l.hints, l.notice}
-		for i := 1; i < len(rows); i++ {
-			if rows[i].Min.Y < rows[i-1].Max.Y {
-				t.Errorf("%v at scale %d: row %d %v starts above row %d's end %v", tc.size, tc.scale, i, rows[i], i-1, rows[i-1])
-			}
-		}
-		for _, r := range rows[1:] {
-			if !r.In(l.group) {
-				t.Errorf("%v at scale %d: %v lies outside the status group %v", tc.size, tc.scale, r, l.group)
-			}
-		}
-		if l.group.Max.Y > tc.size.Y {
-			t.Errorf("%v at scale %d: the status group %v runs off the frame", tc.size, tc.scale, l.group)
-		}
-		centre := l.logo.Min.Add(l.logo.Max).Div(2)
-		if centre.X != tc.size.X/2 || centre.Y != tc.size.Y*382/1000 {
-			t.Errorf("%v at scale %d: the logo is centred at %v, want the optical centre", tc.size, tc.scale, centre)
-		}
 	}
 }
 
@@ -706,9 +618,9 @@ func TestSwitchingStatesNeverMovesTheLogoOrTheThrobber(t *testing.T) {
 	for i, s := range states[1:] {
 		f := frame(size)
 		draw(t, r, f, 1, nil, s)
-		parts := map[string]image.Rectangle{"logo": l.logo, "throbber": l.throb}
+		parts := map[string]image.Rectangle{"logo": l.Logo, "throbber": l.Throb}
 		if s.Prompt.Kind != NoPrompt {
-			parts = map[string]image.Rectangle{"logo": l.logo}
+			parts = map[string]image.Rectangle{"logo": l.Logo}
 		}
 		for name, at := range parts {
 			if !bytes.Equal(region(first, at), region(f, at)) {

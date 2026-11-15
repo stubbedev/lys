@@ -123,13 +123,15 @@ func TestBootRecordsItsDurationOnceWritable(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			r := start(t, setup{mode: tc.mode, screens: 1})
+			clock := &laterClock{}
+			r := start(t, setup{mode: tc.mode, screens: 1, clock: clock})
 			if tc.switched {
 				r.call(t, protocol.NewRoot{Dir: "/sysroot"}, protocol.Ack{})
 			}
 			if tc.writable {
 				r.call(t, protocol.SystemInitialized{}, protocol.Ack{})
 			}
+			clock.skip(time.Minute)
 			r.call(t, protocol.Quit{}, protocol.Ack{})
 			if err := r.finished(t); err != nil {
 				t.Fatal(err)
@@ -148,7 +150,8 @@ func TestBootRecordsItsDurationOnceWritable(t *testing.T) {
 func TestStalledDurationSaveHoldsNeitherTheQuitNorTheDevices(t *testing.T) {
 	t.Parallel()
 	saving, unstall := make(chan struct{}), make(chan struct{})
-	r := start(t, setup{screens: 1, save: func(path string, d time.Duration) error {
+	clock := &laterClock{}
+	r := start(t, setup{screens: 1, clock: clock, save: func(path string, d time.Duration) error {
 		close(saving)
 		<-unstall
 		return saveUnsynced(path, d)
@@ -157,6 +160,7 @@ func TestStalledDurationSaveHoldsNeitherTheQuitNorTheDevices(t *testing.T) {
 	defer release()
 	r.call(t, protocol.NewRoot{Dir: "/sysroot"}, protocol.Ack{})
 	r.call(t, protocol.SystemInitialized{}, protocol.Ack{})
+	clock.skip(time.Minute)
 	r.call(t, protocol.Quit{}, protocol.Ack{})
 	select {
 	case <-saving:

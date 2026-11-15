@@ -77,6 +77,26 @@ flipped with atomic commits at most once per vblank.
   if its status says it is still on screen. It keeps the firmware's offsets when
   they centre it on the current mode, otherwise it is placed at a fixed height.
 
+## Fades
+
+Every fade blends only its own rectangles toward the next state's picture, one
+frame per phase of the 30 Hz frame loop and eased so most of the change comes
+first, and lands exactly on that picture. The loop wakes for each of its frames
+and goes back to idle after the last, and a fade runs while the progress is
+paused, so a `deactivate` never waits on it.
+
+| Fade | Length | What blends |
+| --- | --- | --- |
+| Firmware to splash | 0.3 s | With the firmware's logo (BGRT) on screen, the logo stays where the firmware left it and the status group fades in beside it. Without one, the lys logo and the status group fade in from the background. |
+| Between states | 0.17 s | The status group alone, when a prompt comes or goes, the message or the prompt's text changes, update mode starts or ends, or the progress bar takes the throbber's place. Unit names, typed characters, the caret, the lock's breath and the throbber change in place as before. A change during a fade starts the next one from the picture on screen. |
+| Leaving | 0.3 s | The status group fades out, leaving the logo alone on the background: before a `deactivate` is answered, before `quit --retain-splash` closes the cards, and before the frame of a shutdown, reboot or kexec splash stays on `SIGTERM`. |
+
+A screen lit during a fade starts from the fade's start (the background, for
+the first one) or from its target and lands with the others. While hidden, a
+fade holds. With [`reduced-motion`](/splash/guide/configuration) every fade is a
+cut, a single frame. A `quit` without `--retain-splash` gives the console back
+at once.
+
 ## Boot messages
 
 While shown, the splash redirects the console into a pseudo-terminal with
@@ -117,8 +137,9 @@ With fbdev emulation on (the kernel default), closing the last open file of a
 card restores the kernel console with a modeset. So the splash's close must not
 be the last one:
 
-1. `lys-splash deactivate` drops DRM master on every card and keeps them open,
-   frame on screen.
+1. `lys-splash deactivate` fades the status group out, records the frame it
+   leaves on screen, drops DRM master on every card and keeps them open, frame
+   on screen, and only then answers.
 2. The compositor opens the cards and takes master without a modeset.
 3. `lys-splash quit --retain-splash` closes the splash's framebuffers with
    `CLOSEFB` and exits. The compositor still holds the cards, so the console is
@@ -136,12 +157,34 @@ A display manager implements this contract:
 lys-login's greeter on lys-wm implements it. On a kernel without `CLOSEFB` the
 splash logs a warning and its frame disappears when it exits.
 
+### The last frame
+
+The frame a leave ends on is the logo alone on the background. While the
+splash runs after a `deactivate` (or a `quit --retain-splash` with the picture
+on screen) it keeps a record of that frame in `/run/lys-splash/last-frame.json`:
+
+```json
+{"background":"#000000","logo":"lys","reduced-motion":false,"outputs":[{"name":"Virtual-1","width":1280,"height":800,"scale":1}]}
+```
+
+`logo` is `lys` or `firmware` (the BGRT logo, which a reader takes from
+`/sys/firmware/acpi/bgrt`), and each output is a connector with the size of its
+frame in device pixels and the scale the splash drew it at. The geometry is not
+in the record: where the logo goes for a frame of that size and scale comes from
+`desktop/splashframe`, the one definition of the splash's grid, which the
+splash draws with and lys-login's greeter computes its first frame from. The
+greeter draws that frame again as its first and fades its own screen in over
+it ([Taking over from the splash](/login/reference/architecture#taking-over-from-the-splash)),
+so the logo does not move across the hand-over. The splash writes nothing when
+it was hidden or in text, and removes the record when it exits.
+
 ## Shutdown
 
 The shutdown, reboot and kexec splashes never close their cards. They
 re-execute with `@` prefixed to `argv[0]` so `systemd-shutdown` spares them,
-and the power goes with the frame on screen. `SIGTERM` in these modes keeps the
-frame; in `boot` and `updates`, `SIGTERM` and `SIGINT` quit as `quit` does.
+and the power goes with the frame on screen. `SIGTERM` in these modes fades the
+status group out and keeps the frame, the logo alone; in `boot` and `updates`,
+`SIGTERM` and `SIGINT` quit as `quit` does.
 
 Exception: when a card is driven by `nvidia`, whose shutdown requires all DRM
 clients gone, the shutdown splashes do not re-execute; `systemd-shutdown`'s

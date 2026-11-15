@@ -9,11 +9,10 @@ import (
 	"maps"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/desktop/tokens"
-	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"go.yaml.in/yaml/v3"
 )
@@ -49,8 +48,9 @@ type Theme struct {
 	Logo       Logo
 	Throbber   Throbber
 	// Units shows the name of each unit systemd starts on the status line.
-	Units       bool
-	PromptHints bool
+	Units         bool
+	PromptHints   bool
+	ReducedMotion bool
 }
 
 func Default() Theme {
@@ -68,7 +68,7 @@ func Default() Theme {
 }
 
 func mustColor(token, hex string) render.Color {
-	c, err := parseColor(hex)
+	c, err := splashframe.ParseColor(hex)
 	if err != nil {
 		panic(fmt.Sprintf("theme: the desktop palette's %s: %v", token, err))
 	}
@@ -102,15 +102,16 @@ func Parse(file string, data []byte) (Theme, error) {
 	}
 	t := Default()
 	fields := map[string]func(*yaml.Node) error{
-		"background":   decode(&t.Background, parseColor),
-		"foreground":   decode(&t.Foreground, parseColor),
-		"secondary":    decode(&t.Secondary, parseColor),
-		"accent":       decode(&t.Accent, parseColor),
-		"error":        decode(&t.Error, parseColor),
-		"logo":         decode(&t.Logo, enum(map[string]Logo{"firmware": FirmwareLogo, "lys": LysLogo})),
-		"throbber":     decode(&t.Throbber, enum(map[string]Throbber{"spinner": Spinner, "dots": Dots})),
-		"units":        decode(&t.Units, identity[bool]),
-		"prompt-hints": decode(&t.PromptHints, identity[bool]),
+		"background":     decode(&t.Background, splashframe.ParseColor),
+		"foreground":     decode(&t.Foreground, splashframe.ParseColor),
+		"secondary":      decode(&t.Secondary, splashframe.ParseColor),
+		"accent":         decode(&t.Accent, splashframe.ParseColor),
+		"error":          decode(&t.Error, splashframe.ParseColor),
+		"logo":           decode(&t.Logo, enum(map[string]Logo{"firmware": FirmwareLogo, "lys": LysLogo})),
+		"throbber":       decode(&t.Throbber, enum(map[string]Throbber{"spinner": Spinner, "dots": Dots})),
+		"units":          decode(&t.Units, identity[bool]),
+		"prompt-hints":   decode(&t.PromptHints, identity[bool]),
+		"reduced-motion": decode(&t.ReducedMotion, identity[bool]),
 	}
 	if len(doc.Content) == 0 {
 		return t, nil
@@ -153,17 +154,6 @@ func decode[R, T any](dst *T, conv func(R) (T, error)) func(*yaml.Node) error {
 }
 
 func identity[T any](v T) (T, error) { return v, nil }
-
-func parseColor(s string) (render.Color, error) {
-	if len(s) != 7 || s[0] != '#' {
-		return 0, fmt.Errorf("%q is not #rrggbb", s)
-	}
-	rgb, err := strconv.ParseUint(s[1:], 16, 32)
-	if err != nil {
-		return 0, fmt.Errorf("%q is not #rrggbb", s)
-	}
-	return render.Color(0xff000000 | intconv.Must[uint32](rgb)), nil
-}
 
 func enum[T any](names map[string]T) func(string) (T, error) {
 	return func(s string) (T, error) {

@@ -16,9 +16,11 @@ the same one the lys-login greeter and lock screen draw with.
 | `throbber` | `spinner`, `dots` | `spinner` | Busy animation |
 | `units` | bool | `false` | Shows the name of each unit systemd starts on its own line under the message, in the secondary size and colour |
 | `prompt-hints` | bool | `true` | Adds "Caps Lock is on" and the console keymap to the hints under a prompt's field, beside "Esc: boot messages" |
+| `reduced-motion` | bool | `false` | Cuts instead of fading: no fade in from the firmware, no crossfade between states, no fade out before a hand-over or the power going, and the lys-login greeter replaces the splash's last frame in one cut |
 
 The default background is black so the firmware's logo, drawn on black, blends
-in. The logo image, the font and the scale are not configurable.
+in. The logo image, the font, the scale and the length of the fades are not
+configurable; [Fades](/splash/guide/how-it-works#fades) lists them.
 
 ```yaml
 accent: "#7aa2f7"

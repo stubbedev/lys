@@ -84,7 +84,7 @@ func TestAnUnparseablePromptShowsVerbatim(t *testing.T) {
 	asked, said := frame(size), frame(size)
 	draw(t, r, asked, 1, nil, State{Prompt: password(text, 2)})
 	draw(t, r, said, 1, nil, State{Message: text})
-	if !bytes.Equal(region(asked, l.title), region(said, l.title)) {
+	if !bytes.Equal(region(asked, l.Title), region(said, l.Title)) {
 		t.Error("the unparsed prompt's title row differs from the same text as a message")
 	}
 }
@@ -138,12 +138,12 @@ func TestACaretBlinkDamagesOnlyTheCaret(t *testing.T) {
 			for _, step := range [][2]State{{on, off}, {off, on}} {
 				d, l, _ := stepDamage(t, scale, step[0], step[1])
 				r := renderer(t, Default(), nil)
-				want := r.caret(l, inside(l.entry), p)
+				want := r.caret(l, inside(l.Entry), p)
 				if len(d.Rects()) != 1 || d.Rects()[0] != want {
 					t.Errorf("scale %d, %d typed: a blink damaged %v, want the caret's %v alone", scale, p.typed(), d.Rects(), want)
 				}
-				if !want.In(inside(l.entry)) {
-					t.Errorf("scale %d: the caret %v lies outside the field %v", scale, want, inside(l.entry))
+				if !want.In(inside(l.Entry)) {
+					t.Errorf("scale %d: the caret %v lies outside the field %v", scale, want, inside(l.Entry))
 				}
 			}
 		}
@@ -157,8 +157,8 @@ func TestABreathDamagesOnlyTheLock(t *testing.T) {
 		to := from
 		to.Ask.Breath = breathPhases
 		d, l, _ := stepDamage(t, scale, from, to)
-		if len(d.Rects()) != 1 || d.Rects()[0] != l.throb {
-			t.Errorf("scale %d: a breath damaged %v, want the lock's %v alone", scale, d.Rects(), l.throb)
+		if len(d.Rects()) != 1 || d.Rects()[0] != l.Throb {
+			t.Errorf("scale %d: a breath damaged %v, want the lock's %v alone", scale, d.Rects(), l.Throb)
 		}
 		same := from
 		same.Ask.Breath = breathPhases - 1
@@ -177,7 +177,7 @@ func TestTheBreathChangesTheLock(t *testing.T) {
 		r := renderer(t, Default(), nil)
 		f := frame(size)
 		draw(t, r, f, 1, nil, s)
-		pictures[string(region(f, r.layout(size, 1).throb))] = true
+		pictures[string(region(f, r.layout(size, 1).Throb))] = true
 	}
 	if len(pictures) < breathSteps/2+1 {
 		t.Errorf("a breath shows %d distinct pictures, want %d", len(pictures), breathSteps/2+1)
@@ -211,7 +211,7 @@ func TestTheShakeEndsStill(t *testing.T) {
 		if at, ok := changedOutside(f, before, d); ok {
 			t.Errorf("a shake frame changed %v outside its damage", at)
 		}
-		offsets[l.entryAt(s.Ask).Min.X-l.entry.Min.X] = true
+		offsets[l.entryAt(s.Ask).Min.X-l.Entry.Min.X] = true
 		frames++
 		s = next
 		if frames > shakeSteps {
@@ -221,8 +221,8 @@ func TestTheShakeEndsStill(t *testing.T) {
 	if frames != shakeSteps || len(offsets) < 3 {
 		t.Errorf("the shake took %d frames over %d offsets, want %d frames over at least 3", frames, len(offsets), shakeSteps)
 	}
-	if l.entryAt(s.Ask) != l.entry {
-		t.Errorf("after the shake the field rests at %v, want %v", l.entryAt(s.Ask), l.entry)
+	if l.entryAt(s.Ask) != l.Entry {
+		t.Errorf("after the shake the field rests at %v, want %v", l.entryAt(s.Ask), l.Entry)
 	}
 	if n := r.PhasesToNextPicture(s, size, 1); n <= 1 {
 		t.Errorf("after the shake the next picture is %d phases away, want the caret's or the breath's", n)
@@ -334,13 +334,13 @@ func TestTheErrorStateShowsOnlyOnARetry(t *testing.T) {
 	plain, wrong := frame(size), frame(size)
 	draw(t, r, plain, 1, nil, State{Prompt: password(rootPrompt, 0)})
 	draw(t, r, wrong, 1, nil, State{Prompt: refused(rootPrompt, 0)})
-	if bytes.Equal(region(plain, l.notice), region(wrong, l.notice)) {
+	if bytes.Equal(region(plain, l.Notice), region(wrong, l.Notice)) {
 		t.Error("a refused prompt shows no error line")
 	}
-	if !bytes.Equal(region(plain, l.notice), bytes.Repeat([]byte{0, 0, 0, 0xff}, l.notice.Dx()*l.notice.Dy())) {
+	if !bytes.Equal(region(plain, l.Notice), bytes.Repeat([]byte{0, 0, 0, 0xff}, l.Notice.Dx()*l.Notice.Dy())) {
 		t.Error("a first prompt shows something on the error line")
 	}
-	if bytes.Equal(region(plain, l.entry), region(wrong, l.entry)) {
+	if bytes.Equal(region(plain, l.Entry), region(wrong, l.Entry)) {
 		t.Error("a refused prompt's field looks like a first one's")
 	}
 	d, _, _ := stepDamage(t, 1, State{Prompt: refused(rootPrompt, 0)}, State{Prompt: refused(rootPrompt, 0), Message: "cryptsetup: ERROR: wrong"})

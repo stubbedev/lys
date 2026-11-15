@@ -29,6 +29,8 @@ func (s *quietScreen) Frame() kms.Frame {
 
 func (s *quietScreen) Scale() int { return 1 }
 
+func (s *quietScreen) Name() string { return "Virtual-1" }
+
 func (s *quietScreen) Present(kms.Damage) error {
 	s.presents++
 	return nil
@@ -43,7 +45,7 @@ func newQuietDaemon(t *testing.T, th theme.Theme) (*daemon, *quietScreen) {
 		t.Fatal(err)
 	}
 	d := &daemon{
-		cfg:      Config{RasterizeLogo: theme.RasterizeLogo, Clock: SystemClock{}, Log: slog.New(slog.DiscardHandler)},
+		cfg:      Config{RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Clock: SystemClock{}, Log: slog.New(slog.DiscardHandler)},
 		display:  &fakeDisplay{screens: []Screen{s}},
 		renderer: r,
 		drawn:    map[Screen]drawnScreen{},
@@ -105,7 +107,7 @@ func TestAFlipDrawsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := &daemon{
-		cfg:      Config{RasterizeLogo: theme.RasterizeLogo, Clock: SystemClock{}, Log: slog.New(slog.DiscardHandler)},
+		cfg:      Config{RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Clock: SystemClock{}, Log: slog.New(slog.DiscardHandler)},
 		display:  display,
 		renderer: r,
 		drawn:    map[Screen]drawnScreen{},
@@ -212,7 +214,7 @@ func TestTheLoopWakesOnlyForAPictureThatChanges(t *testing.T) {
 			size := image.Pt(320, 240)
 			s := &quietScreen{frame: kms.Frame{Pix: make([]byte, size.X*size.Y*kms.BytesPerPixel), Stride: size.X * kms.BytesPerPixel, Size: size}}
 			d := &daemon{
-				cfg:      Config{RasterizeLogo: theme.RasterizeLogo, Clock: clock, Log: slog.New(slog.DiscardHandler)},
+				cfg:      Config{RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Clock: clock, Log: slog.New(slog.DiscardHandler)},
 				display:  &fakeDisplay{screens: []Screen{s}},
 				renderer: r,
 				drawn:    map[Screen]drawnScreen{},
@@ -294,7 +296,7 @@ func TestAFailingScreenBacksOffAndLogsOnce(t *testing.T) {
 			s.frame = kms.Frame{Pix: make([]byte, size.X*size.Y*kms.BytesPerPixel), Stride: size.X * kms.BytesPerPixel, Size: size}
 			var records atomic.Int32
 			d := &daemon{
-				cfg:      Config{RasterizeLogo: theme.RasterizeLogo, Clock: clock, Log: slog.New(countingHandler{slog.DiscardHandler, &records})},
+				cfg:      Config{RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Clock: clock, Log: slog.New(countingHandler{slog.DiscardHandler, &records})},
 				display:  &fakeDisplay{screens: []Screen{s}},
 				renderer: r,
 				drawn:    map[Screen]drawnScreen{},
@@ -393,7 +395,7 @@ func TestALogoIsRasterizedOffTheLoopAndTheScreenWaitsForIt(t *testing.T) {
 	entered, release := make(chan struct{}, 1), make(chan struct{})
 	clock := newFakeClock()
 	d := &daemon{
-		cfg: Config{Clock: clock, Log: slog.New(slog.DiscardHandler), RasterizeLogo: func(scale int) (*theme.LogoRaster, error) {
+		cfg: Config{Clock: clock, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Log: slog.New(slog.DiscardHandler), RasterizeLogo: func(scale int) (*theme.LogoRaster, error) {
 			if testbuild.GoroutineID() == loop {
 				onLoop.Add(1)
 			}

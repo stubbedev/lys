@@ -45,13 +45,13 @@ func TestOneIndicatorAtATime(t *testing.T) {
 	throbbing, barred := frame(size), frame(size)
 	draw(t, r, throbbing, 1, nil, State{Phase: 3})
 	draw(t, r, barred, 1, nil, State{Phase: 3, Progress: known(0)})
-	if bytes.Equal(region(throbbing, l.throb), region(barred, l.throb)) {
+	if bytes.Equal(region(throbbing, l.Throb), region(barred, l.Throb)) {
 		t.Error("with the progress known the throbber still shows")
 	}
 	outside := func(f []byte) []byte {
 		g := bytes.Clone(f)
-		for y := l.busy.Min.Y; y < l.busy.Max.Y; y++ {
-			clear(g[y*size.X*4+l.busy.Min.X*4 : y*size.X*4+l.busy.Max.X*4])
+		for y := l.Busy.Min.Y; y < l.Busy.Max.Y; y++ {
+			clear(g[y*size.X*4+l.Busy.Min.X*4 : y*size.X*4+l.Busy.Max.X*4])
 		}
 		return g
 	}
@@ -154,8 +154,8 @@ func TestLongStatusTruncatesAndNeverWraps(t *testing.T) {
 	l := r.layout(size, 1)
 	long := strings.Repeat("systemd-cryptsetup@luks-0123456789abcdef.service ", 4)
 	px := textPx(tokens.Caption, 1)
-	fitted := r.fit(l.secondary, long, px)
-	if !strings.HasSuffix(fitted, "…") || r.face.Shape(fitted, px).Advance() > float64(l.secondary.Dx()) {
+	fitted := r.fit(l.Secondary, long, px)
+	if !strings.HasSuffix(fitted, "…") || r.face.Shape(fitted, px).Advance() > float64(l.Secondary.Dx()) {
 		t.Errorf("the status %q fits as %q", long, fitted)
 	}
 	with, without := frame(size), frame(size)
@@ -163,7 +163,7 @@ func TestLongStatusTruncatesAndNeverWraps(t *testing.T) {
 	draw(t, r, without, 1, nil, State{Message: "m"})
 	blank := func(f []byte) []byte {
 		g := bytes.Clone(f)
-		for y := l.secondary.Min.Y; y < l.secondary.Max.Y; y++ {
+		for y := l.Secondary.Min.Y; y < l.Secondary.Max.Y; y++ {
 			clear(g[y*size.X*4 : (y+1)*size.X*4])
 		}
 		return g
@@ -172,8 +172,8 @@ func TestLongStatusTruncatesAndNeverWraps(t *testing.T) {
 		t.Error("a long status draws outside its row")
 	}
 	short := State{Message: "m", Status: "udev.service"}
-	if d, _, _ := stepDamage(t, 1, short, State{Message: "m", Status: long}); !bounds(d).In(l.secondary) {
-		t.Errorf("a long status damaged %v outside its row %v", d.Rects(), l.secondary)
+	if d, _, _ := stepDamage(t, 1, short, State{Message: "m", Status: long}); !bounds(d).In(l.Secondary) {
+		t.Errorf("a long status damaged %v outside its row %v", d.Rects(), l.Secondary)
 	}
 }
 
@@ -188,7 +188,7 @@ func TestUpdateModeShowsThePercentAndTheWarning(t *testing.T) {
 	if bytes.Equal(region(boot, l.percent()), region(update, l.percent())) {
 		t.Error("an update shows no percentage beside its bar")
 	}
-	if bytes.Equal(region(boot, l.secondary), region(update, l.secondary)) {
+	if bytes.Equal(region(boot, l.Secondary), region(update, l.Secondary)) {
 		t.Error("an update shows no warning on its secondary line")
 	}
 	if got := (State{Progress: known(42)}).percentShown(); got.text != "" {
@@ -198,8 +198,8 @@ func TestUpdateModeShowsThePercentAndTheWarning(t *testing.T) {
 		t.Errorf("an update at 42%% shows %q", got.text)
 	}
 	d, _, _ := stepDamage(t, 1, State{Updating: true, Progress: known(42)}, State{Updating: true, Progress: known(43)})
-	if !bounds(d).In(l.busy) {
-		t.Errorf("a percent of update damaged %v outside the indicator's slot %v", d.Rects(), l.busy)
+	if !bounds(d).In(l.Busy) {
+		t.Errorf("a percent of update damaged %v outside the indicator's slot %v", d.Rects(), l.Busy)
 	}
 }
 

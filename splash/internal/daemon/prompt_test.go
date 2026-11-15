@@ -29,7 +29,7 @@ func clockedDaemon(t *testing.T, clock *fakeClock) (*daemon, *quietScreen) {
 	size := image.Pt(320, 240)
 	s := &quietScreen{frame: kms.Frame{Pix: make([]byte, size.X*size.Y*kms.BytesPerPixel), Stride: size.X * kms.BytesPerPixel, Size: size}}
 	d := &daemon{
-		cfg:      Config{RasterizeLogo: theme.RasterizeLogo, Clock: clock, Log: slog.New(slog.DiscardHandler)},
+		cfg:      Config{RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Clock: clock, Log: slog.New(slog.DiscardHandler)},
 		display:  &fakeDisplay{screens: []Screen{s}},
 		renderer: r,
 		drawn:    map[Screen]drawnScreen{},
