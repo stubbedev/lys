@@ -17,7 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 )
 
-const headlessConfig = "xwayland:\n  enabled: false\n"
+const headlessConfig = "xwayland:\n  enabled: false\nanimations:\n  enabled: false\n"
 
 // Headless runs a real lys-wm on its headless backend with the software
 // renderer in a private runtime directory, without Xwayland or a session
