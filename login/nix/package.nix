@@ -29,7 +29,7 @@
 
       # The module cache's hash; `just vendor-hash` recomputes it after a
       # go.mod change.
-      vendorHash = "sha256-M++pCmt12ZNw8b0ek6kSCComcH6E2tjCDbZ+CvYmXi8=";
+      vendorHash = "sha256-I2WrJlta6iDxORPX4Z/nRjw6Vc2vUqXOx7KJdLtqwA0=";
 
       subPackages = ["cmd/lys-login"];
 
