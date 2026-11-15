@@ -1,0 +1,226 @@
+package cava
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/service/pulse"
+	"github.com/stubbedev/lys-lib/pulse/native"
+	"github.com/stubbedev/lys-lib/pulse/pulsetest"
+)
+
+// audioServer is a fake PulseAudio with one sink (and its monitor)
+// set as default, and a connected service.
+func audioServer(t *testing.T) (*pulsetest.Server, *pulse.Service) {
+	t.Helper()
+	srv := pulsetest.New(t)
+	spec := native.SampleSpec{Format: native.SampleS16LE, Channels: 2, Rate: 48000}
+	channels := native.ChannelMap{native.ChannelFrontLeft, native.ChannelFrontRight}
+	srv.PutSink(native.DeviceInfo{
+		Index: 1, Name: "speakers", Description: "Speakers", SampleSpec: spec, ChannelMap: channels,
+		Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm}, Monitor: 2, MonitorName: "speakers.monitor",
+		Props: native.PropList{}, BaseVolume: native.VolumeNorm, Card: native.InvalidIndex,
+		Formats: []native.FormatInfo{{Encoding: native.EncodingPCM, Props: native.PropList{}}},
+	})
+	srv.PutSource(native.DeviceInfo{
+		Index: 2, Name: "speakers.monitor", Description: "Monitor of Speakers", SampleSpec: spec, ChannelMap: channels,
+		OwnerModule: native.InvalidIndex, Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm},
+		Monitor: 1, MonitorName: "speakers", Props: native.PropList{}, BaseVolume: native.VolumeNorm, Card: native.InvalidIndex,
+	})
+	srv.SetDefaults("speakers", "speakers.monitor")
+	svc, err := pulse.Connect(context.Background(), srv.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svc.Close() })
+	return srv, svc
+}
+
+func drainUntil(t *testing.T, src *Source, n int) []float64 {
+	t.Helper()
+	var got []float64
+	deadline := time.Now().Add(5 * time.Second)
+	for len(got) < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("got %d samples, want %d", len(got), n)
+		}
+		got = append(got, src.Drained(nil)...)
+		time.Sleep(5 * time.Millisecond)
+	}
+	return got
+}
+
+func TestSourceRecordsTheMonitorAsRawInt16Mono(t *testing.T) {
+	srv, svc := audioServer(t)
+	src, err := NewSource(svc, "auto", 1, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := src.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer src.Stop()
+
+	rec := srv.WaitRecords(t, 1)[0]
+	if rec.Source != "speakers.monitor" {
+		t.Errorf("recording %q, want the default sink's monitor", rec.Source)
+	}
+	if rec.SampleSpec != (native.SampleSpec{Format: native.SampleS16LE, Channels: 1, Rate: sampleRate}) {
+		t.Errorf("spec = %+v, want s16le mono at %d", rec.SampleSpec, sampleRate)
+	}
+	if rec.FragSize != fragmentFrames*2 {
+		t.Errorf("fragsize = %d, want %d frames", rec.FragSize, fragmentFrames)
+	}
+	// Wait for the stream to be up before pushing into it.
+	time.Sleep(20 * time.Millisecond)
+	rec.Push([]byte{0x01, 0x00, 0xff, 0xff, 0x00, 0x80})
+	got := drainUntil(t, src, 3)
+	if got[0] != 1 || got[1] != -1 || got[2] != -32768 {
+		t.Errorf("samples = %v, want raw int16 values 1, -1, -32768", got)
+	}
+	if again := src.Drained(nil); again != nil {
+		t.Errorf("second drain = %v, want nothing new", again)
+	}
+}
+
+func TestSourceDiscardsTheBacklogOnOverflow(t *testing.T) {
+	src := &Source{channels: 1, samples: newSamples(1, 4)}
+	src.accumulate([]byte{1, 0, 2, 0, 3, 0})
+	// Two more would make five: cava drops the stale three.
+	src.accumulate([]byte{4, 0, 5, 0})
+	if got := src.Drained(nil); len(got) != 2 || got[0] != 4 || got[1] != 5 {
+		t.Errorf("after overflow = %v, want only the new 4, 5", got)
+	}
+	// One chunk alone larger than the buffer keeps its newest samples.
+	src.accumulate([]byte{1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0})
+	if got := src.Drained(nil); len(got) != 4 || got[0] != 3 || got[3] != 6 {
+		t.Errorf("oversized chunk = %v, want the newest four", got)
+	}
+}
+
+func TestNewSourceRejectsBadArguments(t *testing.T) {
+	_, svc := audioServer(t)
+	if _, err := NewSource(nil, "auto", 1, 16); err == nil {
+		t.Error("nil capturer: want an error")
+	}
+	if _, err := NewSource(svc, "auto", 1, 0); err == nil {
+		t.Error("zero capacity: want an error")
+	}
+	if _, err := NewSource(svc, "auto", 3, 16); err == nil {
+		t.Error("three channels: want an error")
+	}
+	if s, err := NewSource(svc, "auto", 2, 5); err != nil || s.samples.capacity != 4 {
+		t.Errorf("a stereo capacity of 5 = %v, %v; want 4, whole frames", s, err)
+	}
+	if _, err := NewSource(svc, "auto", 2, 1); err == nil {
+		t.Error("a capacity below one stereo frame: want an error")
+	}
+	if _, err := NewSource(svc, "bad\x00name", 1, 16); err == nil {
+		t.Error("NUL in the source name: want an error")
+	}
+	named, err := NewSource(svc, "speakers", 1, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := named.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer named.Stop()
+	if err := named.Start(); err == nil {
+		t.Error("second Start: want an error")
+	}
+}
+
+func TestSourceRecordsStereoInterleaved(t *testing.T) {
+	srv, svc := audioServer(t)
+	src, err := NewSource(svc, "auto", 2, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := src.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer src.Stop()
+	rec := srv.WaitRecords(t, 1)[0]
+	if rec.SampleSpec.Channels != 2 {
+		t.Errorf("spec = %+v, want stereo", rec.SampleSpec)
+	}
+	time.Sleep(20 * time.Millisecond)
+	// Two frames (left 1, right -1; left 2, right -2) and a dangling
+	// half frame, which is no sample pair and is dropped.
+	rec.Push([]byte{0x01, 0x00, 0xff, 0xff, 0x02, 0x00, 0xfe, 0xff, 0x07, 0x00})
+	got := drainUntil(t, src, 4)
+	if len(got) != 4 || got[0] != 1 || got[1] != -1 || got[2] != 2 || got[3] != -2 {
+		t.Errorf("samples = %v, want 1 -1 2 -2", got)
+	}
+}
+
+func TestStereoOverflowKeepsFramesPaired(t *testing.T) {
+	src := &Source{channels: 2, samples: newSamples(2, 4)}
+	// Three frames into room for two: the newest two frames stay, left
+	// before right.
+	src.accumulate([]byte{1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0})
+	if got := src.Drained(nil); len(got) != 4 || got[0] != 3 || got[1] != 4 || got[3] != 6 {
+		t.Errorf("oversized stereo chunk = %v, want 3 4 5 6", got)
+	}
+}
+
+func TestNotifySoundFiresOnceForTheFirstSoundAndDropsSilence(t *testing.T) {
+	s := newSamples(1, 8)
+	fired := make(chan struct{}, 2)
+	s.notifySound(func() { fired <- struct{}{} })
+	s.push([]float64{0, 0, 0})
+	s.silence()
+	select {
+	case <-fired:
+		t.Fatal("silence reported as sound")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if got := s.drained(nil); len(got) != 0 {
+		t.Errorf("silence queued while parked: %v", got)
+	}
+	s.push([]float64{0, 7})
+	select {
+	case <-fired:
+	case <-time.After(2 * time.Second):
+		t.Fatal("sound never reported")
+	}
+	if got := s.drained(nil); len(got) != 2 || got[1] != 7 {
+		t.Errorf("the sound that woke the analyzer was lost: %v", got)
+	}
+	s.push([]float64{9})
+	select {
+	case <-fired:
+		t.Fatal("one arming fired twice")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestNotifySoundFiresAtOnceForSoundAlreadyWaiting(t *testing.T) {
+	s := newSamples(1, 8)
+	s.push([]float64{1})
+	fired := make(chan struct{})
+	s.notifySound(func() { close(fired) })
+	select {
+	case <-fired:
+	case <-time.After(2 * time.Second):
+		t.Fatal("waiting sound never reported")
+	}
+}
+
+func TestPushS16DecodesWholeFramesAndReusesItsBuffer(t *testing.T) {
+	s := newSamples(2, 16)
+	s.pushS16([]byte{1, 0, 0xff, 0xff, 9})
+	if got := s.drained(nil); len(got) != 2 || got[0] != 1 || got[1] != -1 {
+		t.Errorf("samples = %v, want the one whole frame 1 -1", got)
+	}
+	chunk := make([]byte, 16)
+	s.pushS16(chunk)
+	if allocs := testing.AllocsPerRun(100, func() {
+		s.pushS16(chunk)
+		s.drained(s.pend[:0])
+	}); allocs != 0 {
+		t.Errorf("a chunk allocated %v times", allocs)
+	}
+}

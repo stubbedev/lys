@@ -1,0 +1,190 @@
+package bar
+
+import (
+	"fmt"
+	"path/filepath"
+	"testing"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-ui/widget"
+
+	"github.com/stubbedev/lys-shell/service/recorder"
+	"github.com/stubbedev/lys-shell/service/recorder/recordertest"
+)
+
+func TestRecorderLabel(t *testing.T) {
+	// helpers.rs's assertions: idle shows a dash, recording shows the
+	// clock.
+	if got := recorderLabel("{{ elapsed }}", recorder.Change{}); got != "-" {
+		t.Errorf("idle = %q", got)
+	}
+	if got := recorderLabel("{{ elapsed }}", recorder.Change{Active: true, ElapsedSecs: 65}); got != "1:05" {
+		t.Errorf("recording = %q", got)
+	}
+	if got := recorderLabel("{{ state }} {{ elapsed }}", recorder.Change{Active: true, Paused: true, ElapsedSecs: 3661}); got != i18n.T("bar-recorder-paused")+" 1:01:01" {
+		t.Errorf("paused = %q", got)
+	}
+	if got := recorderLabel("{{ state }} {{ elapsed }}", recorder.Change{Replay: recorder.ReplayArmed}); got != i18n.T("bar-recorder-replay")+" -" {
+		t.Errorf("replay armed = %q", got)
+	}
+	if got := recorderLabel("{{ state }}", recorder.Change{Active: true, Replay: recorder.ReplayArmed}); got != i18n.T("bar-recorder-recording") {
+		t.Errorf("recording with replay armed = %q, want the recording state", got)
+	}
+}
+
+func TestRecorderIconPriority(t *testing.T) {
+	cfg := config.DefaultsRecorder()
+	if got := recorderIconName(cfg, recorder.Change{}); got != cfg.Icons()[config.RecorderIdle].Name {
+		t.Errorf("idle icon = %q", got)
+	}
+	if got := recorderIconName(cfg, recorder.Change{Active: true}); got != cfg.Icons()[config.RecorderRecording].Name {
+		t.Errorf("recording icon = %q", got)
+	}
+	if got := recorderIconName(cfg, recorder.Change{Active: true, Paused: true}); got != cfg.Icons()[config.RecorderPaused].Name {
+		t.Errorf("paused icon = %q", got)
+	}
+	// Preparing keeps the recording glyph (the Rust pulse class).
+	if got := recorderIconName(cfg, recorder.Change{Preparing: true}); got != cfg.Icons()[config.RecorderRecording].Name {
+		t.Errorf("preparing icon = %q", got)
+	}
+	// Paused only counts once recording: select_icon checks active first.
+	if got := recorderIconName(cfg, recorder.Change{Preparing: true, Paused: true}); got != cfg.Icons()[config.RecorderRecording].Name {
+		t.Errorf("preparing while paused icon = %q, want the recording icon", got)
+	}
+	if got := recorderIconName(cfg, recorder.Change{Replay: recorder.ReplayArmed}); got != cfg.Icons()[config.RecorderReplay].Name || got == cfg.Icons()[config.RecorderIdle].Name {
+		t.Errorf("replay armed icon = %q, want the distinct replay icon", got)
+	}
+	if got := recorderIconName(cfg, recorder.Change{Active: true, Replay: recorder.ReplayArmed}); got != cfg.Icons()[config.RecorderRecording].Name {
+		t.Errorf("recording with replay armed icon = %q, want the recording icon", got)
+	}
+	if got := recorderIconName(cfg, recorder.Change{Replay: recorder.ReplayStarting}); got != cfg.Icons()[config.RecorderIdle].Name {
+		t.Errorf("replay starting icon = %q, want idle until armed", got)
+	}
+}
+
+// The pre-capture delay puts recorder-preparing on the module root and
+// takes it off once capture starts; the label keeps label-color.
+func TestRecorderPreparingClass(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Recorder.OutputDirectory = t.TempDir()
+	ctx := newTestContext(t, cfg)
+	// The recorder notifies after Stop returns; retiring the generation
+	// on the loop drops that late work before the next test runs.
+	ctx.gen = newMountGen()
+	t.Cleanup(func() { onHeadlessLoop(func() bool { ctx.gen.retire(); return true }) })
+	gate := make(chan struct{})
+	ctx.Recorder = recorder.NewState(&recordertest.Engine{Gate: gate}, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{})
+	module, err := createOnHeadlessLoop("recorder", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	m := module.(*recorderModule)
+	chrome := widget.NewBox(widget.Row, 0, 0)
+	onHeadlessLoop(func() bool { m.setChrome(chrome); return true })
+	if onHeadlessLoop(func() bool { return widget.HasClass(chrome, "recorder-preparing") }) {
+		t.Fatal("idle module is preparing")
+	}
+	// The gate holds the session open: the recorder stays preparing.
+	ctx.Recorder.Start()
+	waitHeadless(t, "the preparing class", func() bool { return widget.HasClass(chrome, "recorder-preparing") })
+	if ink := onHeadlessLoop(func() bool { return m.btn.Label().Color() == 0 }); !ink {
+		t.Error("preparing pinned the label ink")
+	}
+	close(gate)
+	waitHeadless(t, "the class gone once recording", func() bool {
+		return ctx.Recorder.Snapshot().Active && !widget.HasClass(chrome, "recorder-preparing")
+	})
+	ctx.Recorder.Stop()
+	waitHeadless(t, "idle", func() bool { return ctx.Recorder.Snapshot().Status == recorder.StatusIdle })
+}
+
+// A start that fails (a GPU without a video encoder) leaves the idle
+// module tinted by recorder-failed with the reason as its tooltip; a
+// new start takes both away.
+func TestRecorderFailedState(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Recorder.OutputDirectory = t.TempDir()
+	cfg.Recorder.StartDelayMs = 0
+	ctx := newTestContext(t, cfg)
+	ctx.gen = newMountGen()
+	t.Cleanup(func() { onHeadlessLoop(func() bool { ctx.gen.retire(); return true }) })
+	noEncoder := fmt.Errorf("recorder: %w: llvmpipe encodes no H.264", recorder.ErrNoVideoEncoder)
+	engine := &recordertest.Engine{StartErr: noEncoder}
+	ctx.Recorder = recorder.NewState(engine, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{})
+	module, err := createOnHeadlessLoop("recorder", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	m := module.(*recorderModule)
+	chrome := widget.NewBox(widget.Row, 0, 0)
+	onHeadlessLoop(func() bool { m.setChrome(chrome); return true })
+	failed := func() bool {
+		return widget.HasClass(chrome, "recorder-failed") && m.btn.detail == noEncoder.Error()
+	}
+	if onHeadlessLoop(failed) || onHeadlessLoop(func() bool { return m.btn.detail != "" }) {
+		t.Fatal("a fresh module shows a failure")
+	}
+	ctx.Recorder.Start()
+	waitHeadless(t, "the failed class and its reason", failed)
+	engine.StartErr = nil
+	ctx.Recorder.Start()
+	waitHeadless(t, "the failure cleared by recording", func() bool {
+		return ctx.Recorder.Snapshot().Active && !widget.HasClass(chrome, "recorder-failed") && m.btn.detail == ""
+	})
+	ctx.Recorder.Stop()
+	waitHeadless(t, "idle", func() bool { return ctx.Recorder.Snapshot().Status == recorder.StatusIdle })
+}
+
+func TestLoadFileAppliesRecorder(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	good := "modules:\n  recorder:\n    output-format: mp4\n    microphone: true\n    start-delay-ms: 0\n    icon-recording: tb-circle-dot-symbolic\n"
+	if err := osWrite(path, good); err != nil {
+		t.Fatal(err)
+	}
+	c, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if c.Recorder.OutputFormat != "mp4" || !c.Recorder.Microphone || c.Recorder.StartDelayMs != 0 {
+		t.Errorf("config = %+v", c.Recorder)
+	}
+	if got := c.Recorder.Icons()[config.RecorderRecording].Name; got != "tb-circle-dot-symbolic" {
+		t.Errorf("icon-recording = %q", got)
+	}
+
+	if err := osWrite(path, "modules:\n  recorder:\n    output-format: avi\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.LoadFile(path); err == nil {
+		t.Error("bad output-format: want a load error")
+	}
+}
+
+func TestRecorderModuleFollowsState(t *testing.T) {
+	cfg := config.Defaults()
+	// A recording lands in a temp dir, never the user's ~/Videos.
+	cfg.Recorder.OutputDirectory = t.TempDir()
+	ctx := newTestContext(t, cfg)
+	ctx.Recorder = recorder.NewState(&recordertest.Engine{}, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{})
+
+	module, err := createOnHeadlessLoop("recorder", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	label := findLabel(module.Root())
+	if got := label.Text(); got != "-" {
+		t.Fatalf("idle label = %q, want -", got)
+	}
+	// Drive the shared state; the module's follower picks it up.
+	ctx.Recorder.Start()
+	waitForText(t, label, "0:00")
+	ctx.Recorder.Stop()
+	waitForText(t, label, "-")
+}
+
+func TestRecorderModuleRequiresService(t *testing.T) {
+	if _, err := createOnHeadlessLoop("recorder", newTestContext(t, config.Defaults())); err == nil {
+		t.Error("no recorder service: want an error")
+	}
+}

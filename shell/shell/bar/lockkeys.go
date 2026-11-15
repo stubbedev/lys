@@ -1,0 +1,60 @@
+package bar
+
+import (
+	"github.com/stubbedev/lys-desktop/service/lyswm"
+	"github.com/stubbedev/lys-lib/wmipc"
+
+	"github.com/stubbedev/lys-shell/service/keytoggles"
+	"github.com/stubbedev/lys-shell/shell/osd"
+)
+
+func lockKeySource() osd.LockKeys {
+	if detectCompositor() == compositorLysWM {
+		return lysWMLockKeys
+	}
+	return evdevLockKeys
+}
+
+func evdevLockKeys(fn func(keytoggles.Event)) (func(), error) {
+	return keytoggles.Watch(fn), nil
+}
+
+func lysWMLockKeys(fn func(keytoggles.Event)) (func(), error) {
+	w, err := lyswm.WatchState(lyswm.LocksState)
+	if err != nil {
+		return nil, err
+	}
+	last := w.Value()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range w.Ticks() {
+			next := w.Value()
+			for _, e := range lockChanges(last, next) {
+				fn(e)
+			}
+			last = next
+		}
+	}()
+	return func() {
+		w.Close()
+		<-done
+	}, nil
+}
+
+func lockChanges(prev, next wmipc.Locks) []keytoggles.Event {
+	var events []keytoggles.Event
+	for _, k := range []struct {
+		key        keytoggles.Key
+		prev, next bool
+	}{
+		{keytoggles.CapsLock, prev.Caps, next.Caps},
+		{keytoggles.NumLock, prev.Num, next.Num},
+		{keytoggles.ScrollLock, prev.Scroll, next.Scroll},
+	} {
+		if k.prev != k.next {
+			events = append(events, keytoggles.Event{Key: k.key, Active: k.next})
+		}
+	}
+	return events
+}

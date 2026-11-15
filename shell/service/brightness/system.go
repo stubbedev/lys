@@ -1,0 +1,379 @@
+package brightness
+
+import (
+	"context"
+	"errors"
+	"log"
+	"math"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/fswatch"
+	"github.com/stubbedev/lys-lib/logind"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"golang.org/x/sys/unix"
+)
+
+// hotplugSettle is the pause before a hotplug-triggered DDC scan, so
+// DRM has settled and the monitor's I²C bus answers the probe.
+const hotplugSettle = 500 * time.Millisecond
+
+// driftInterval is how often the levels are compared, the correction
+// for changes no watch or uevent reports (firmware hotkeys that never
+// touch the attribute through a write); a var so tests can quiet it.
+var driftInterval = time.Second
+
+// System is the real source (backend/mod.rs): sysfs devices written
+// through logind with a sysfs fallback, plus, when external monitors
+// are enabled, DDC/CI monitors found by a detached scan and re-scanned
+// on DRM hotplug.
+type System struct {
+	logind *logindBacklight // nil means sysfs writes only
+	ddc    atomic.Pointer[ddcManager]
+
+	mu        sync.Mutex
+	subs      map[chan struct{}]struct{}
+	pending   map[string]uint32 // latest DDC target per monitor
+	requested map[string]uint32 // a writer goroutine owns the monitor; the level it is heading to
+
+	watch  *fswatch.Watcher
+	events ueventReader
+	stop   chan struct{}
+	done   sync.WaitGroup
+	// settle is hotplugSettle; tests shorten it.
+	settle time.Duration
+}
+
+// NewSystem starts the source. external enables DDC/CI discovery
+// (the enable-external key); the first scan runs detached so internal
+// panels are usable at once. system is the system bus logind's writes
+// go over, and stays the caller's; nil writes through sysfs. A missing
+// uevent socket degrades to no hotplug instead of failing.
+func NewSystem(system *dbus.Conn, external bool) *System {
+	s := &System{
+		subs:      map[chan struct{}]struct{}{},
+		pending:   map[string]uint32{},
+		requested: map[string]uint32{},
+		stop:      make(chan struct{}),
+		settle:    hotplugSettle,
+	}
+	if system != nil {
+		s.logind = &logindBacklight{manager: logind.NewManager(system)}
+	}
+	s.start()
+	s.SetExternal(external)
+	return s
+}
+
+// SetExternal follows the enable-external key: on starts a detached DDC
+// scan, off closes every i2c bus held and scans no more until it is on
+// again.
+func (s *System) SetExternal(on bool) {
+	if !on {
+		if m := s.ddc.Swap(nil); m != nil {
+			m.close()
+			s.broadcast()
+		}
+		return
+	}
+	if m := newDDCManager(); s.ddc.CompareAndSwap(nil, m) {
+		s.scanDDC(m, 0)
+	}
+}
+
+func (s *System) start() {
+	if w, err := fswatch.New(unix.IN_MODIFY, false); err == nil {
+		s.watch = w
+	} else {
+		log.Printf("brightness: %v", err)
+	}
+	if reader, err := listenUevents(); err == nil {
+		s.events = reader
+	} else {
+		log.Printf("brightness: no hotplug: %v", err)
+	}
+	probe := &levelProbe{}
+	s.rescan(probe)
+	s.done.Go(func() { s.loop(probe) })
+}
+
+// Close stops the watchers and waits for the goroutines; later calls
+// are no-ops.
+func (s *System) Close() error {
+	select {
+	case <-s.stop:
+		return nil
+	default:
+	}
+	close(s.stop)
+	if s.events != nil {
+		_ = s.events.Close()
+	}
+	if s.watch != nil {
+		_ = s.watch.Close()
+	}
+	s.done.Wait()
+	return nil
+}
+
+// rescan looks at the devices present: a watch per device directory
+// (adding an existing one is a no-op for inotify) and the drift probe.
+func (s *System) rescan(probe *levelProbe) {
+	entries, err := os.ReadDir(BacklightDir)
+	if err != nil {
+		log.Printf("brightness: rescan: %v", err)
+		entries = nil
+	}
+	if s.watch != nil {
+		for _, entry := range entries {
+			_ = s.watch.Add(filepath.Join(BacklightDir, entry.Name()))
+		}
+	}
+	probe.open(entries)
+}
+
+// loop fans the watches out to subscribers.
+func (s *System) loop(probe *levelProbe) {
+	var changed <-chan struct{}
+	if s.watch != nil {
+		changed = s.watch.Changed()
+	}
+	hotplug := make(chan uevent)
+	if s.events != nil {
+		s.done.Go(func() {
+			for {
+				ev, err := s.events.Next()
+				if err != nil {
+					return
+				}
+				select {
+				case hotplug <- ev:
+				case <-s.stop:
+					return
+				}
+			}
+		})
+	}
+	defer probe.close()
+	drift := time.NewTicker(driftInterval)
+	defer drift.Stop()
+	// Without a device there is no level to drift, and hotplug says when
+	// one appears; without hotplug the ticker has to look for it.
+	armDrift := func() {
+		if probe.empty() && s.events != nil {
+			drift.Stop()
+			return
+		}
+		drift.Reset(driftInterval)
+	}
+	armDrift()
+	for {
+		select {
+		case <-s.stop:
+			return
+		case <-changed:
+			if _, err := probe.moved(); err != nil {
+				s.rescan(probe)
+				armDrift()
+			}
+			s.broadcast()
+		case <-drift.C:
+			moved, err := probe.moved()
+			if err != nil || probe.empty() {
+				count := len(probe.levels)
+				s.rescan(probe)
+				armDrift()
+				moved = err != nil || len(probe.levels) != count
+			}
+			if moved {
+				s.broadcast()
+			}
+		case ev := <-hotplug:
+			switch {
+			case ev.isBacklightHotplug():
+				s.rescan(probe)
+				armDrift()
+				s.broadcast()
+			case ev.isBacklightChange():
+				if _, err := probe.moved(); err != nil {
+					s.rescan(probe)
+					armDrift()
+				}
+				s.broadcast()
+			case ev.isDRMHotplug():
+				if m := s.ddc.Load(); m != nil {
+					s.scanDDC(m, s.settle)
+				}
+			}
+		}
+	}
+}
+
+// scanDDC re-scans detached after settle and ticks subscribers when
+// the monitor set changed (scan_ddc).
+func (s *System) scanDDC(m *ddcManager, settle time.Duration) {
+	s.done.Go(func() {
+		if settle > 0 {
+			select {
+			case <-time.After(settle):
+			case <-s.stop:
+				return
+			}
+		}
+		added, removed := m.refresh()
+		for _, name := range added {
+			log.Printf("brightness: external DDC monitor connected: %s", name)
+		}
+		for _, name := range removed {
+			log.Printf("brightness: external DDC monitor disconnected: %s", name)
+		}
+		if len(added)+len(removed) > 0 {
+			s.broadcast()
+		}
+	})
+}
+
+func (s *System) broadcast() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for ch := range s.subs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// Devices reads every sysfs device, then the DDC monitors from their
+// cached levels (a DDC read is too slow to make per refresh), each at
+// the level a queued write is heading to.
+func (s *System) Devices(context.Context) ([]Device, error) {
+	devices := Enumerate()
+	m := s.ddc.Load()
+	if m == nil {
+		return devices, nil
+	}
+	monitors := m.devices()
+	s.mu.Lock()
+	for i, d := range monitors {
+		if level, ok := s.requested[d.Name]; ok {
+			monitors[i].Brightness = min(level, d.Max)
+		}
+	}
+	s.mu.Unlock()
+	return append(devices, monitors...), nil
+}
+
+// rawLevel maps a percentage, clamped to 0..100, onto 0..top.
+func rawLevel(percent float64, top uint32) uint32 {
+	return uint32(math.Round(min(max(percent, 0), 100) / 100 * float64(top)))
+}
+
+// Set applies a clamped percentage. A DDC monitor's write is handed to
+// its writer goroutine and Set returns at once: DDC I/O takes tens of
+// milliseconds a transaction, and a slider drag coalesces to the
+// latest value instead of queueing every step. Write failures are
+// logged, as the Rust caller does with the error it gets back.
+func (s *System) Set(ctx context.Context, name string, percent float64) error {
+	if m := s.ddc.Load(); m != nil {
+		if d, ok := m.display(name); ok {
+			s.queueDDC(m, name, rawLevel(percent, d.max))
+			return nil
+		}
+	}
+	device, err := ReadDevice(name)
+	if err != nil {
+		return err
+	}
+	value := rawLevel(percent, device.Max)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.logind == nil {
+		return writeSysfs(name, value)
+	}
+	viaLogind := s.logind.set(ctx, name, value)
+	if viaLogind == nil {
+		return nil
+	}
+	if err := writeSysfs(name, value); err != nil {
+		return errors.Join(viaLogind, err)
+	}
+	return nil
+}
+
+// queueDDC records the latest target, reports it at once, and starts
+// the monitor's writer if none is running. DDC has no kernel
+// notification, so the writer reports again when it settles, which
+// shows the monitor's real level after a failed write.
+func (s *System) queueDDC(m *ddcManager, name string, value uint32) {
+	s.mu.Lock()
+	s.pending[name] = value
+	_, running := s.requested[name]
+	s.requested[name] = value
+	s.mu.Unlock()
+	s.broadcast()
+	if running {
+		return
+	}
+	s.done.Go(func() {
+		for {
+			s.mu.Lock()
+			target, ok := s.pending[name]
+			delete(s.pending, name)
+			if !ok {
+				delete(s.requested, name)
+				s.mu.Unlock()
+				s.broadcast()
+				return
+			}
+			s.mu.Unlock()
+			if err := m.setRaw(name, target); err != nil {
+				log.Printf("%v", err)
+			}
+		}
+	})
+}
+
+// Subscribe registers for change ticks until ctx ends or stop.
+func (s *System) Subscribe(ctx context.Context) (<-chan struct{}, func(), error) {
+	select {
+	case <-s.stop:
+		return nil, nil, errors.New("brightness: source closed")
+	default:
+	}
+	internal := make(chan struct{}, 1)
+	s.mu.Lock()
+	s.subs[internal] = struct{}{}
+	s.mu.Unlock()
+	ticks := make(chan struct{}, 1)
+	quit := make(chan struct{})
+	var once sync.Once
+	stop := func() { once.Do(func() { close(quit) }) }
+	go func() {
+		defer close(ticks)
+		defer func() {
+			s.mu.Lock()
+			delete(s.subs, internal)
+			s.mu.Unlock()
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-quit:
+				return
+			case <-s.stop:
+				return
+			case <-internal:
+				select {
+				case ticks <- struct{}{}:
+				default:
+				}
+			}
+		}
+	}()
+	return ticks, stop, nil
+}

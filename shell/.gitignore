@@ -1,0 +1,18 @@
+/dist/
+/lys-shell-design
+
+# Temporary sandboxes, and binaries `go build ./cmd/...` leaves at the root
+/lys-shell
+/lys-lock
+/sandbox/
+
+/result
+*.test
+
+
+# direnv
+.direnv
+/.env
+
+# pre-commit
+.pre-commit-config.yaml

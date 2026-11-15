@@ -1,0 +1,395 @@
+package bar
+
+import (
+	"bufio"
+	"encoding/binary"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys-ui/widget"
+
+	"github.com/stubbedev/lys-shell/service/hyprland"
+	"github.com/stubbedev/lys-shell/service/mango"
+	"github.com/stubbedev/lys-shell/service/niri"
+)
+
+func TestMainKeyboardLayoutPicksMainNonVirtual(t *testing.T) {
+	devices := hyprland.Devices{Keyboards: []hyprland.KeyboardDevice{
+		{Name: "hl-virtual-keyboard-1", Main: true, ActiveKeymap: "us"},
+		{Name: "at-translated-set-2-keyboard", Main: false, ActiveKeymap: "de"},
+	}}
+	if got := mainKeyboardLayout(devices); got != "de" {
+		t.Errorf("layout = %q, want de (virtual keyboards never win)", got)
+	}
+}
+
+func TestMainKeyboardLayoutPrefersMainFlag(t *testing.T) {
+	devices := hyprland.Devices{Keyboards: []hyprland.KeyboardDevice{
+		{Name: "usb-keyboard", Main: false, ActiveKeymap: "us"},
+		{Name: "at-translated-set-2-keyboard", Main: true, ActiveKeymap: "de(nodeadkeys)"},
+	}}
+	if got := mainKeyboardLayout(devices); got != "de(nodeadkeys)" {
+		t.Errorf("layout = %q, want the main keyboard's", got)
+	}
+}
+
+func TestMainKeyboardLayoutSkipsPlaceholderKeymaps(t *testing.T) {
+	devices := hyprland.Devices{Keyboards: []hyprland.KeyboardDevice{
+		{Name: "at-translated-set-2-keyboard", Main: true, ActiveKeymap: "error"},
+		{Name: "usb-keyboard", Main: false, ActiveKeymap: "none"},
+		{Name: "third", Main: false, ActiveKeymap: "us"},
+	}}
+	if got := mainKeyboardLayout(devices); got != "us" {
+		t.Errorf("layout = %q, want the first keyboard with a real keymap", got)
+	}
+	// All placeholders: no layout at all.
+	devices.Keyboards = devices.Keyboards[:2]
+	if got := mainKeyboardLayout(devices); got != "" {
+		t.Errorf("layout = %q, want empty", got)
+	}
+}
+
+func TestKeyboardLayoutLabelMatchesRustAssertions(t *testing.T) {
+	// helpers.rs's tests.
+	if got := keyboardLayoutLabel("us", "{{ layout }}", nil); got != "us" {
+		t.Errorf("= %q, want us", got)
+	}
+	if got := keyboardLayoutLabel("de", "KB: {{ layout }}", nil); got != "KB: de" {
+		t.Errorf("= %q, want the prefixed layout", got)
+	}
+	aliasMap := map[string]string{"us": "EN"}
+	if got := keyboardLayoutLabel("us", "{{ alias }}", aliasMap); got != "EN" {
+		t.Errorf("= %q, want the alias", got)
+	}
+	if got := keyboardLayoutLabel("de", "{{ layout }} | {{ alias }}", aliasMap); got != "de | de" {
+		t.Errorf("= %q, want layout twice (alias falls back)", got)
+	}
+}
+
+// newFakeDevicesConn serves j/devices through a fake command socket
+// plus an (empty) event socket the module can subscribe to.
+func newFakeDevicesConn(t *testing.T, devicesJSON string) *hyprland.Connection {
+	t.Helper()
+	dir := sockdir.Dir(t)
+	commandPath := filepath.Join(dir, ".socket.sock")
+	eventPath := filepath.Join(dir, ".socket2.sock")
+	ln, err := net.Listen("unix", commandPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	eventLn, err := net.Listen("unix", eventPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { eventLn.Close() })
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 4096)
+				n, _ := c.Read(buf)
+				if string(buf[:n]) == "j/devices" {
+					c.Write([]byte(devicesJSON))
+					c.Write([]byte{'\x04'})
+				}
+			}(conn)
+		}
+	}()
+	return hyprland.ConnectTo(commandPath, eventPath)
+}
+
+func TestKeyboardLayoutModuleRenders(t *testing.T) {
+	devicesJSON := `{"keyboards":[{"name":"at-translated-set-2-keyboard","main":true,"active_keymap":"de"},{"name":"hl-virtual-keyboard-x","main":true,"active_keymap":"none"}]}`
+	cfg := config.Defaults()
+	cfg.KeyboardInput.LayoutAliasMap = map[string]string{"de": "DE"}
+	ctx := newTestContext(t, cfg)
+	ctx.Hyprland = newFakeDevicesConn(t, devicesJSON)
+
+	module, err := createOnHeadlessLoop("keyboard-input", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	label := findLabel(module.Root())
+	if btn, ok := module.Root().(*barButton); !ok || btn.icon == nil || btn.icon.Name() != ctx.Config.KeyboardInput.IconName {
+		t.Errorf("root %T, want a bar button with the keyboard icon", module.Root())
+	}
+	if got := label.Text(); got != "DE" {
+		t.Errorf("label = %q, want the de alias", got)
+	}
+}
+
+// clearCompositorEnv hides every compositor socket the host session
+// advertises, so each test names the one it fakes.
+func clearCompositorEnv(t *testing.T) {
+	t.Helper()
+	for _, name := range []string{wmipc.SocketEnv, "HYPRLAND_INSTANCE_SIGNATURE", niri.SocketEnv, mango.SocketEnv, "SWAYSOCK"} {
+		t.Setenv(name, "")
+	}
+}
+
+// waitLabel polls the label until it reads want.
+func waitLabel(t *testing.T, label *widget.Label, want string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		headlessLoop.Lock()
+		got := label.Text()
+		headlessLoop.Unlock()
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("label = %q, want %q", got, want)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func newTestKeyboardLayout(t *testing.T, cfg *config.Config) *widget.Label {
+	t.Helper()
+	module, err := createOnHeadlessLoop("keyboard-input", newTestContext(t, cfg))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	return findLabel(module.Root())
+}
+
+func TestNewKeyboardLayoutRefusesAnUnknownCompositor(t *testing.T) {
+	clearCompositorEnv(t)
+	ctx := newTestContext(t, config.Defaults())
+	if _, err := createOnHeadlessLoop("keyboard-input", ctx); err == nil {
+		t.Fatal("no supported compositor: want an error, got a module")
+	}
+}
+
+// fakeSwayInputs answers GET_INPUTS (100) with the current inputs and,
+// once subscribed, sends one input event per value on events after
+// switching the inputs to it.
+func fakeSwayInputs(t *testing.T, inputs string, events chan string) {
+	t.Helper()
+	var mu sync.Mutex
+	frame := func(conn net.Conn, msgType uint32, body string) {
+		out := make([]byte, 14, 14+len(body))
+		copy(out, "i3-ipc")
+		binary.LittleEndian.PutUint32(out[6:], uint32(len(body)))
+		binary.LittleEndian.PutUint32(out[10:], msgType)
+		_, _ = conn.Write(append(out, body...))
+	}
+	path := serveUnix(t, "sway.sock", func(conn net.Conn, stop <-chan struct{}) {
+		for {
+			head := make([]byte, 14)
+			if _, err := io.ReadFull(conn, head); err != nil {
+				return
+			}
+			payload := make([]byte, binary.LittleEndian.Uint32(head[6:]))
+			if _, err := io.ReadFull(conn, payload); err != nil {
+				return
+			}
+			switch msgType := binary.LittleEndian.Uint32(head[10:]); msgType {
+			case 100:
+				mu.Lock()
+				body := inputs
+				mu.Unlock()
+				frame(conn, msgType, body)
+			case 2:
+				if string(payload) != `["input"]` {
+					frame(conn, msgType, `{"success": false}`)
+					return
+				}
+				frame(conn, msgType, `{"success": true}`)
+				for {
+					var next string
+					select {
+					case <-stop:
+						return
+					case next = <-events:
+					}
+					mu.Lock()
+					inputs = next
+					mu.Unlock()
+					frame(conn, 0x80000015, `{"change":"xkb_layout"}`)
+				}
+			default:
+				frame(conn, msgType, "[]")
+			}
+		}
+	})
+	clearCompositorEnv(t)
+	t.Setenv("SWAYSOCK", path)
+}
+
+func TestKeyboardLayoutFollowsSwayInputEvents(t *testing.T) {
+	events := make(chan string, 1)
+	fakeSwayInputs(t, `[{"type":"pointer"},{"type":"keyboard","xkb_active_layout_name":"German"}]`, events)
+	cfg := config.Defaults()
+	cfg.KeyboardInput.LayoutAliasMap = map[string]string{"German": "DE"}
+	label := newTestKeyboardLayout(t, cfg)
+	if got := label.Text(); got != "DE" {
+		t.Errorf("label = %q, want the German alias", got)
+	}
+	// An input event re-reads the inputs.
+	events <- `[{"type":"keyboard","xkb_active_layout_name":"English (US)"}]`
+	waitLabel(t, label, "English (US)")
+	// A keyboard without a layout shows the unknown layout
+	// (component.rs UNKNOWN_LAYOUT) rather than keeping the stale one.
+	events <- `[{"type":"keyboard"}]`
+	waitLabel(t, label, "?")
+}
+
+// A session without a keyboard starts on the unknown layout, through
+// the format and alias map like any layout.
+func TestKeyboardLayoutStartsUnknownWithoutAKeyboard(t *testing.T) {
+	events := make(chan string, 1)
+	fakeSwayInputs(t, `[{"type":"pointer"}]`, events)
+	cfg := config.Defaults()
+	cfg.KeyboardInput.Format = "KB {{ alias }}"
+	cfg.KeyboardInput.LayoutAliasMap = map[string]string{"?": "none"}
+	if got := newTestKeyboardLayout(t, cfg).Text(); got != "KB none" {
+		t.Errorf("label = %q, want the unknown layout through format and alias", got)
+	}
+}
+
+// A first read that fails builds the module on the unknown layout
+// (the Rust snapshot warns and shows "?") instead of dropping it.
+func TestKeyboardLayoutSurvivesAFailedFirstRead(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Hyprland = newFakeDevicesConn(t, `{"keyboards": not json`)
+	module, err := createOnHeadlessLoop("keyboard-input", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if got := findLabel(module.Root()).Text(); got != "?" {
+		t.Errorf("label = %q, want the unknown layout", got)
+	}
+}
+
+// fakeNiriLayouts answers KeyboardLayouts with the current index and,
+// on the event stream, sends one KeyboardLayoutSwitched per index on
+// switches after switching to it.
+func fakeNiriLayouts(t *testing.T, names string, switches chan int) {
+	t.Helper()
+	var mu sync.Mutex
+	current := 0
+	path := serveUnix(t, "niri.sock", func(conn net.Conn, stop <-chan struct{}) {
+		r := bufio.NewReader(conn)
+		for {
+			line, err := r.ReadString('\n')
+			if err != nil {
+				return
+			}
+			switch line {
+			case "\"KeyboardLayouts\"\n":
+				mu.Lock()
+				idx := current
+				mu.Unlock()
+				_, _ = fmt.Fprintf(conn, `{"Ok":{"KeyboardLayouts":{"names":%s,"current_idx":%d}}}`+"\n", names, idx)
+			case "\"EventStream\"\n":
+				_, _ = conn.Write([]byte("{\"Ok\":\"Handled\"}\n"))
+				for {
+					var idx int
+					select {
+					case <-stop:
+						return
+					case idx = <-switches:
+					}
+					mu.Lock()
+					current = idx
+					mu.Unlock()
+					_, _ = fmt.Fprintf(conn, `{"KeyboardLayoutSwitched":{"idx":%d}}`+"\n", idx)
+				}
+			}
+		}
+	})
+	clearCompositorEnv(t)
+	t.Setenv(niri.SocketEnv, path)
+}
+
+func TestKeyboardLayoutFollowsNiriLayoutSwitches(t *testing.T) {
+	switches := make(chan int, 1)
+	fakeNiriLayouts(t, `["English (US)","German"]`, switches)
+	label := newTestKeyboardLayout(t, config.Defaults())
+	if got := label.Text(); got != "English (US)" {
+		t.Errorf("label = %q, want the first layout", got)
+	}
+	switches <- 1
+	waitLabel(t, label, "German")
+	// An index past the names is no layout: the unknown one.
+	switches <- 5
+	waitLabel(t, label, "?")
+}
+
+func TestKeyboardLayoutFollowsMangosActiveMonitor(t *testing.T) {
+	fakeMangoSocket(t,
+		`[{"name":"DP-1","active":false,"tags":[],"active_tags":[],"keyboardlayout":"German"},`+
+			`{"name":"eDP-1","active":true,"tags":[],"active_tags":[],"keyboardlayout":"English (US)"}]`,
+		`[]`)
+	label := newTestKeyboardLayout(t, config.Defaults())
+	// The frames stream in after the module mounts.
+	waitLabel(t, label, "English (US)")
+}
+
+func TestKeyboardLayoutHidesWithLabelShowOff(t *testing.T) {
+	events := make(chan string)
+	fakeSwayInputs(t, `[{"type":"keyboard","xkb_active_layout_name":"German"}]`, events)
+	cfg := config.Defaults()
+	cfg.KeyboardInput.LabelShow = false
+	row := widget.NewBox(widget.Row, 0, 0)
+	if err := mountInto(row, newTestContext(t, cfg), "keyboard-input"); err != nil {
+		t.Fatal(err)
+	}
+	btn := treetest.WithClass(row, "bar-button")[0].(*barButton)
+	if got := btn.Label().Text(); got != "" {
+		t.Errorf("label = %q, want none with label-show off", got)
+	}
+	if got, want := btn.AccessibleName(), i18n.T("bar-module-keyboard-input")+", German"; got != want {
+		t.Errorf("label-show off names the module %q, want %q", got, want)
+	}
+}
+
+func TestLoadFileAppliesKeyboardLayout(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	content := "modules:\n  keyboard-input:\n    format: \"KB {{ layout }}\"\n    label-show: false\n    layout-alias-map:\n      us: EN\n      de: DE\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if c.KeyboardInput.Format != "KB {{ layout }}" || c.KeyboardInput.LabelShow {
+		t.Errorf("config = %+v", c.KeyboardInput)
+	}
+	if c.KeyboardInput.LayoutAliasMap["us"] != "EN" || c.KeyboardInput.LayoutAliasMap["de"] != "DE" {
+		t.Errorf("alias map = %+v", c.KeyboardInput.LayoutAliasMap)
+	}
+}
+
+func TestLoadFileRejectsBadKeyboardLayout(t *testing.T) {
+	for _, content := range []string{
+		"modules:\n  keyboard-input:\n    layout-alias-map:\n      us: 3\n",
+	} {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := config.LoadFile(path); err == nil {
+			t.Errorf("%q: want a load error, got nil", content)
+		}
+	}
+}

@@ -1,0 +1,1099 @@
+package launcher
+
+import (
+	"context"
+	"errors"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/shell/apptheme"
+	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys-ui/widget"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-shell/internal/launcheripc"
+	engine "github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys-shell/service/launcher/search"
+)
+
+// fakeLoop is the UI loop: Invoke queues, pump runs on the test
+// goroutine, as the real loop runs everything on one goroutine.
+type fakeLoop struct {
+	mu    sync.Mutex
+	queue []func()
+}
+
+func (l *fakeLoop) invoke(fn func()) {
+	l.mu.Lock()
+	l.queue = append(l.queue, fn)
+	l.mu.Unlock()
+}
+
+func (l *fakeLoop) pump() {
+	for {
+		l.mu.Lock()
+		q := l.queue
+		l.queue = nil
+		l.mu.Unlock()
+		if len(q) == 0 {
+			return
+		}
+		for _, fn := range q {
+			fn()
+		}
+	}
+}
+
+// fakeWindow records what the surface does to its layer. Focus goes
+// through a widget.Router over the surface's root, as on the real
+// layer, so a request it refuses (a widget outside the shown tree)
+// leaves nothing focused here too.
+type fakeWindow struct {
+	cfg    app.LayerConfig
+	closed bool
+	router *widget.Router
+	// opacity records every fade step.
+	opacity []float64
+	// opacityErr is a compositor without the alpha modifier.
+	opacityErr error
+	// refuse fails every SetFocus, as a layer whose surface is gone.
+	refuse error
+}
+
+func (w *fakeWindow) Close() { w.closed = true }
+func (w *fakeWindow) SetFocus(f widget.Widget) error {
+	if w.refuse != nil {
+		return w.refuse
+	}
+	return w.router.SetFocus(f)
+}
+func (w *fakeWindow) focused() widget.Widget { return w.router.Focused() }
+func (w *fakeWindow) SetOpacity(alpha float64) error {
+	if w.opacityErr != nil {
+		return w.opacityErr
+	}
+	w.opacity = append(w.opacity, alpha)
+	return nil
+}
+
+type fakeTimer struct {
+	d       time.Duration
+	fn      func()
+	stopped bool
+}
+
+type harness struct {
+	t       *testing.T
+	loop    *fakeLoop
+	s       *Surface
+	cfg     *config.Config
+	windows []*fakeWindow
+	timers  []*fakeTimer
+	hooks   []string
+	// hookInputs are the typed text each hook was told.
+	hookInputs []string
+	copied     []string
+	nextID     uint64
+	// styled records the variant faces asked for: "b", "i", "bi".
+	styled []string
+	// openErr fails every Open, as a compositor refusing the layer.
+	openErr error
+	// focusErr fails every opened window's SetFocus.
+	focusErr error
+}
+
+const hangGuard = 2 * time.Minute
+
+func newHarness(t *testing.T) *harness {
+	t.Helper()
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	face := treetest.Font(t)
+	h := &harness{t: t, loop: &fakeLoop{}, cfg: config.Defaults()}
+	h.cfg.Launcher.History.Enable = false
+	// Surfaces close at once here; TestSurfacePlaysItsExit animates.
+	h.cfg.Animations.Enabled = false
+	h.s = New(Deps{
+		Invoke: h.loop.invoke,
+		After: func(d time.Duration, fn func()) func() {
+			tm := &fakeTimer{d: d, fn: fn}
+			h.timers = append(h.timers, tm)
+			return func() { tm.stopped = true }
+		},
+		Config: func() *config.Config { return h.cfg },
+		Open: func(cfg app.LayerConfig) (Window, error) {
+			if h.openErr != nil {
+				return nil, h.openErr
+			}
+			w := &fakeWindow{cfg: cfg, router: &widget.Router{Root: cfg.Root}, refuse: h.focusErr}
+			h.windows = append(h.windows, w)
+			return w, nil
+		},
+		Font: face,
+		Variants: func(bold, italic bool) *render.Typeface {
+			key := ""
+			if bold {
+				key += "b"
+			}
+			if italic {
+				key += "i"
+			}
+			h.styled = append(h.styled, key)
+			return face.(*render.Typeface)
+		},
+		MonitorWidth: func() int { return 2000 },
+		Copy:         func(text string) { h.copied = append(h.copied, text) },
+		FireHook: func(command string, ctx engine.HookContext) {
+			if command != "" {
+				h.hooks = append(h.hooks, command+":"+ctx.Entry)
+				h.hookInputs = append(h.hookInputs, ctx.Input)
+			}
+		},
+	})
+	t.Cleanup(h.stop)
+	return h
+}
+
+// stop ends the session the test left open, as its client going away
+// does, and waits for everything the surface ran off the loop: the next
+// test starts with nothing of this one still running.
+func (h *harness) stop() {
+	h.loop.pump()
+	s := h.s
+	switch {
+	case s.cur != nil:
+		s.ClientGone(s.cur.sess.ID)
+	case s.panel != nil:
+		s.ClientGone(s.panel.sess.ID)
+	case s.picker != nil:
+		s.ClientGone(s.picker.sess.ID)
+	case s.emojiGrid != nil:
+		s.ClientGone(s.emojiGrid.sess.ID)
+	}
+	h.loop.pump()
+	done := make(chan struct{})
+	go func() {
+		s.work.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(hangGuard):
+		stacks := make([]byte, 1<<20)
+		h.t.Errorf("the surface's work outlives its sessions:\n%s", stacks[:runtime.Stack(stacks, true)])
+	}
+}
+
+// open starts a session and returns its reply channel.
+func (h *harness) open(opts launcheripc.SessionOptions, replace bool, rows ...string) (*launcheripc.Session, <-chan launcheripc.ServerFrame) {
+	h.t.Helper()
+	ch := make(chan []string, 1)
+	if len(rows) > 0 {
+		ch <- rows
+	}
+	close(ch)
+	h.nextID++
+	sess, reply := launcheripc.NewSession(h.nextID, opts, replace, ch)
+	h.s.Open(sess)
+	return sess, reply
+}
+
+// until pumps the loop until cond holds.
+func (h *harness) until(what string, cond func() bool) {
+	h.t.Helper()
+	deadline := time.Now().Add(hangGuard)
+	for {
+		h.loop.pump()
+		if cond() {
+			return
+		}
+		if time.Now().After(deadline) {
+			h.t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func (h *harness) key(spec string) bool {
+	h.t.Helper()
+	accel, err := app.ParseAccel(spec)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return h.s.keyCaptured(accel)
+}
+
+// pointAt lays the open surface out and returns a Router with the
+// pointer resting on list row pos, which only exists once laid out.
+func (h *harness) pointAt(pos int) (*widget.Router, widget.Point) {
+	h.t.Helper()
+	v := h.s.cur.views
+	treetest.Pointer(v.box, v.list, 800, 600)
+	row, ok := v.list.rows[pos].(*launcherRow)
+	if !ok {
+		h.t.Fatalf("row %d is not laid out", pos)
+	}
+	return treetest.Pointer(v.box, row, 800, 600)
+}
+
+// frame pumps the loop until the session's terminal frame arrives.
+func (h *harness) frame(reply <-chan launcheripc.ServerFrame) launcheripc.ServerFrame {
+	h.t.Helper()
+	deadline := time.Now().Add(hangGuard)
+	for {
+		h.loop.pump()
+		select {
+		case f := <-reply:
+			h.loop.pump()
+			return f
+		default:
+		}
+		if time.Now().After(deadline) {
+			h.t.Fatal("no terminal frame")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func dmenu() launcheripc.SessionOptions { return launcheripc.SessionOptions{Dmenu: true} }
+
+func TestDmenuSessionFiltersAndAccepts(t *testing.T) {
+	h := newHarness(t)
+	_, reply := h.open(dmenu(), false, "alpha", "beta", "gamma")
+	h.until("the rows", func() bool { return h.s.cur != nil && h.s.model.len() == 3 })
+	if len(h.windows) != 1 {
+		t.Fatalf("windows = %d", len(h.windows))
+	}
+	w := h.windows[0]
+	if w.cfg.Namespace != "lys-shell-launcher" || w.cfg.Keyboard != app.KeyboardExclusive || w.cfg.Anchor != app.AnchorTop|app.AnchorBottom|app.AnchorLeft|app.AnchorRight || w.cfg.Layer != app.LayerOverlay {
+		t.Errorf("layer = %+v", w.cfg)
+	}
+	if w.focused() != widget.Widget(h.s.cur.views.entry) || h.s.sel != 0 {
+		t.Error("the entry is not focused or the first row not selected")
+	}
+	h.s.cur.views.entry.SetText("ga")
+	h.until("the filter", func() bool { return h.s.model.len() == 1 })
+	if h.s.model.textAt(0) != "gamma" {
+		t.Errorf("filtered = %q", h.s.model.textAt(0))
+	}
+	if !h.key("Return") {
+		t.Fatal("Return is bound to accept")
+	}
+	h.loop.pump()
+	f := h.frame(reply)
+	if f.Type != launcheripc.FrameResult || f.Code != 0 || len(f.Selected) != 1 || f.Selected[0].Text != "gamma" || f.Filter != "ga" {
+		t.Errorf("result = %+v", f)
+	}
+	h.until("the session to end", func() bool { return h.s.cur == nil })
+	if !w.closed {
+		t.Error("the surface stayed mapped")
+	}
+	if h.key("Return") {
+		t.Error("a key reached a closed session")
+	}
+}
+
+func TestEntryTakesFocusOnEveryOpen(t *testing.T) {
+	for _, animated := range []bool{false, true} {
+		h := newHarness(t)
+		h.cfg.Animations.Enabled = animated
+		entryFocused := func(what string, w *fakeWindow) *active {
+			t.Helper()
+			h.until(what, func() bool { return h.s.cur != nil && h.s.cur.win == Window(w) })
+			if got := w.focused(); got != widget.Widget(h.s.cur.views.entry) {
+				t.Errorf("animated %v, %s: focus = %v, want the entry", animated, what, got)
+			}
+			return h.s.cur
+		}
+		_, first := h.open(dmenu(), false, "a")
+		h.until("the first surface", func() bool { return len(h.windows) == 1 })
+		was := entryFocused("the first open", h.windows[0])
+		h.key("Escape")
+		h.frame(first)
+		_, _ = h.open(dmenu(), false, "b")
+		h.until("the reopened surface", func() bool { return len(h.windows) == 2 })
+		reopened := entryFocused("the reopen after a hide", h.windows[1])
+		if h.windows[1].focused() == widget.Widget(was.views.entry) {
+			t.Errorf("animated %v: the reopened surface focuses the ended session's entry", animated)
+		}
+		_, _ = h.open(dmenu(), true, "c")
+		h.until("the replacing surface", func() bool { return len(h.windows) == 3 })
+		entryFocused("a -replace", h.windows[2])
+		if h.windows[2].focused() == widget.Widget(reopened.views.entry) {
+			t.Errorf("animated %v: the replacing surface focuses the displaced session's entry", animated)
+		}
+	}
+}
+
+func TestUnmappableSurfaceCancelsWithoutFocus(t *testing.T) {
+	h := newHarness(t)
+	h.openErr = errors.New("no layer shell")
+	_, reply := h.open(dmenu(), false, "a")
+	if f := h.frame(reply); f.Type != launcheripc.FrameCancelled || f.Code != 1 {
+		t.Errorf("an unmappable surface = %+v, want cancelled with code 1", f)
+	}
+	if len(h.windows) != 0 || h.s.cur != nil {
+		t.Errorf("windows = %d, session live %v; want nothing mapped or focused", len(h.windows), h.s.cur != nil)
+	}
+}
+
+// A surface whose entry cannot take focus could not be typed into: the
+// session ends cancelled with code 1 and the surface closes.
+func TestUnfocusableEntryCancelsAndCloses(t *testing.T) {
+	h := newHarness(t)
+	h.focusErr = app.ErrClosed
+	_, reply := h.open(dmenu(), false, "a")
+	if f := h.frame(reply); f.Type != launcheripc.FrameCancelled || f.Code != 1 {
+		t.Errorf("an unfocusable entry = %+v, want cancelled with code 1", f)
+	}
+	if len(h.windows) != 1 || !h.windows[0].closed || h.s.cur != nil {
+		t.Errorf("windows = %d, session live %v; want the one surface closed", len(h.windows), h.s.cur != nil)
+	}
+}
+
+func TestUnboundKeysReachTheEntryAndCancelCloses(t *testing.T) {
+	h := newHarness(t)
+	_, reply := h.open(dmenu(), false, "one")
+	h.until("the rows", func() bool { return h.s.model.len() == 1 })
+	if h.key("a") {
+		t.Error("a plain letter was captured instead of typed")
+	}
+	h.key("Escape")
+	if f := h.frame(reply); f.Type != launcheripc.FrameCancelled || f.Code != 1 {
+		t.Errorf("cancel = %+v", f)
+	}
+}
+
+func TestBusyReplaceAndClientGone(t *testing.T) {
+	h := newHarness(t)
+	_, first := h.open(dmenu(), false, "a")
+	h.until("the first session", func() bool { return h.s.cur != nil })
+	_, busy := h.open(dmenu(), false, "b")
+	h.loop.pump()
+	if f := h.frame(busy); f.Type != launcheripc.FrameBusy {
+		t.Errorf("a second session without -replace = %+v", f)
+	}
+	second, _ := h.open(dmenu(), true, "c")
+	h.loop.pump()
+	if f := h.frame(first); f.Type != launcheripc.FrameCancelled || f.Code != 1 {
+		t.Errorf("the displaced session = %+v", f)
+	}
+	if h.s.cur == nil || h.s.cur.sess != second || !h.windows[0].closed {
+		t.Fatal("-replace did not take over")
+	}
+	// A stale ClientGone leaves the live session alone; its own ends it.
+	h.s.ClientGone(1)
+	h.loop.pump()
+	if h.s.cur == nil {
+		t.Fatal("another connection's ClientGone closed the session")
+	}
+	h.s.ClientGone(second.ID)
+	h.loop.pump()
+	if h.s.cur != nil || !h.windows[1].closed {
+		t.Error("ClientGone did not close its session")
+	}
+}
+
+func TestDumpRepliesWithTheFilteredListUnmapped(t *testing.T) {
+	h := newHarness(t)
+	opts := dmenu()
+	opts.Dump = true
+	filter := "e"
+	opts.Filter = &filter
+	_, reply := h.open(opts, false, "one", "two", "three")
+	h.until("the matches", func() bool { return len(h.timers) > 0 })
+	if len(h.windows) != 0 {
+		t.Error("-dump mapped the surface")
+	}
+	// Each match list restarts the debounce; the last one replies.
+	last := h.timers[len(h.timers)-1]
+	if last.d != dumpDebounce {
+		t.Errorf("debounce = %v", last.d)
+	}
+	h.until("the filtered matches", func() bool { return h.s.model.len() == 2 })
+	last = h.timers[len(h.timers)-1]
+	last.fn()
+	f := h.frame(reply)
+	if f.Type != launcheripc.FrameDump || len(f.Items) != 2 || f.Items[0] != "one" || f.Items[1] != "three" {
+		t.Errorf("dump = %+v", f)
+	}
+}
+
+func TestErrorDialogClosesOnAnyBinding(t *testing.T) {
+	h := newHarness(t)
+	msg := "<b>no network</b>"
+	_, reply := h.open(launcheripc.SessionOptions{ErrorMessage: &msg}, false)
+	h.loop.pump()
+	v := h.s.cur.views
+	if v.input.Visible() || v.frame.Visible() || !v.message.Visible() || v.message.Text() != "no network" {
+		t.Errorf("dialog: input %v list %v message %q", v.input.Visible(), v.frame.Visible(), v.message.Text())
+	}
+	// The line renders the markup (its weight kept), not its text.
+	if !strings.Contains(v.message.Markup(), "<b>") {
+		t.Errorf("message markup = %q, want the bold kept", v.message.Markup())
+	}
+	if h.s.cur.act != nil {
+		t.Error("a dialog started an engine")
+	}
+	h.key("Escape")
+	if f := h.frame(reply); f.Type != launcheripc.FrameResult || f.Code != 0 {
+		t.Errorf("dialog close = %+v", f)
+	}
+}
+
+func TestNoUsableModesIsAMenuError(t *testing.T) {
+	h := newHarness(t)
+	hook := "notify"
+	_, reply := h.open(launcheripc.SessionOptions{Modes: []string{"no-such-mode"}, OnMenuError: &hook}, false)
+	h.loop.pump()
+	if f := h.frame(reply); f.Type != launcheripc.FrameCancelled || f.Code != 1 {
+		t.Errorf("no modes = %+v", f)
+	}
+	if len(h.windows) != 0 || h.s.cur != nil || len(h.hooks) != 1 {
+		t.Errorf("windows %d hooks %v", len(h.windows), h.hooks)
+	}
+}
+
+func TestRowClickAcceptsTheClickedRow(t *testing.T) {
+	h := newHarness(t)
+	_, reply := h.open(dmenu(), false, "alpha", "beta", "gamma")
+	h.until("the rows", func() bool { return h.s.model.len() == 3 })
+	// A middle click is bound to nothing.
+	r, p := h.pointAt(2)
+	r.Press(widget.BTNMiddle, p, 0)
+	if h.s.sel != 0 {
+		t.Error("an unbound button moved the selection")
+	}
+	r, p = h.pointAt(1)
+	r.Press(widget.BTNLeft, p, 0)
+	if f := h.frame(reply); len(f.Selected) != 1 || f.Selected[0].Text != "beta" {
+		t.Errorf("click result = %+v", f)
+	}
+}
+
+func TestWheelMovesTheSelection(t *testing.T) {
+	h := newHarness(t)
+	h.open(dmenu(), false, "a", "b", "c")
+	h.until("the rows", func() bool { return h.s.model.len() == 3 })
+	r, _ := h.pointAt(0)
+	r.Axis(0, 1, 0)
+	if h.s.sel != 1 {
+		t.Errorf("wheel down: sel %d", h.s.sel)
+	}
+	r.Axis(0, -1, 0)
+	if h.s.sel != 0 {
+		t.Errorf("wheel up: sel %d", h.s.sel)
+	}
+	r.Axis(0, 1, widget.ModAlt)
+	if h.s.sel != 0 {
+		t.Errorf("Alt+wheel moved the selection to %d; it is not a bound scroll", h.s.sel)
+	}
+}
+
+// A press reaches the bindings with its click count and modifiers: a
+// double-press binding waits for the second press, and a modified one
+// fires only with its modifier held.
+func TestRowPressesCarryClicksAndModifiers(t *testing.T) {
+	h := newHarness(t)
+	_, reply := h.open(dmenu(), false, "alpha", "beta", "gamma")
+	h.until("the rows", func() bool { return h.s.model.len() == 3 })
+	h.s.cur.mouse = compileMouse([]engine.Binding{
+		{Action: "me-select-entry", Keys: "Control+MouseMiddle"},
+		{Action: "me-accept-entry", Keys: "MouseDPrimary"},
+	})
+	r, p := h.pointAt(2)
+	r.Press(widget.BTNMiddle, p, 0)
+	if h.s.sel != 0 {
+		t.Errorf("a bare middle press selected row %d", h.s.sel)
+	}
+	r.Press(widget.BTNMiddle, p, widget.ModCtrl)
+	if h.s.sel != 2 {
+		t.Errorf("Control+middle selected row %d, want 2", h.s.sel)
+	}
+	r, p = h.pointAt(1)
+	r.Press(widget.BTNLeft, p, 0)
+	r.Release(widget.BTNLeft, p)
+	h.loop.pump()
+	select {
+	case f := <-reply:
+		t.Fatalf("a single press accepted the double-press binding: %+v", f)
+	default:
+	}
+	r.Press(widget.BTNLeft, p, 0)
+	if f := h.frame(reply); len(f.Selected) != 1 || f.Selected[0].Text != "beta" {
+		t.Errorf("double press = %+v", f)
+	}
+}
+
+func TestMultiSelectTogglesAndAcceptsThePicked(t *testing.T) {
+	h := newHarness(t)
+	opts := dmenu()
+	opts.MultiSelect = true
+	_, reply := h.open(opts, false, "a", "b", "c")
+	h.until("the rows", func() bool { return h.s.model.len() == 3 && h.s.multi.enabled })
+	h.key("Shift+Return") // picks a, moves to b
+	h.key("Down")         // c
+	h.key("Shift+Return") // picks c
+	if len(h.s.multi.picked) != 2 {
+		t.Fatalf("picked = %v", h.s.multi.picked)
+	}
+	h.key("Return")
+	f := h.frame(reply)
+	if len(f.Selected) != 2 || f.Selected[0].Text != "a" || f.Selected[1].Text != "c" {
+		t.Errorf("multi result = %+v", f)
+	}
+}
+
+func TestDecisionHooks(t *testing.T) {
+	h := newHarness(t)
+	accepted, canceled := "acc", "can"
+	opts := dmenu()
+	opts.OnEntryAccepted, opts.OnMenuCanceled = &accepted, &canceled
+	_, reply := h.open(opts, false, "alpha")
+	h.until("the rows", func() bool { return h.s.model.len() == 1 })
+	h.key("Return")
+	if len(h.hooks) != 1 || h.hooks[0] != "acc:alpha" {
+		t.Errorf("hooks = %v", h.hooks)
+	}
+	h.frame(reply)
+	h.hooks = nil
+	h.open(opts, false, "beta")
+	h.until("the second session", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
+	h.key("Escape")
+	if len(h.hooks) != 1 || h.hooks[0] != "can:beta" {
+		t.Errorf("cancel hooks = %v", h.hooks)
+	}
+}
+
+func TestMoveSelectionCyclesOnlyUnderCycle(t *testing.T) {
+	h := newHarness(t)
+	h.open(dmenu(), false, "a", "b", "c")
+	h.until("the rows", func() bool { return h.s.model.len() == 3 })
+	h.s.cur.ui.cycle = false
+	h.s.moveSelection(-1)
+	if h.s.sel != 0 {
+		t.Errorf("clamped up = %d", h.s.sel)
+	}
+	h.s.cur.ui.cycle = true
+	h.s.moveSelection(-1)
+	if h.s.sel != 2 {
+		t.Errorf("cycled up = %d", h.s.sel)
+	}
+	h.s.moveSelection(5)
+	if h.s.sel != 2 {
+		t.Errorf("a page step clamps even under cycle: %d", h.s.sel)
+	}
+}
+
+// Centre is the search panel's place, whatever the panel's size; the rest sit
+// against their edges, offset from there.
+func TestPlacePanel(t *testing.T) {
+	out := render.Rect{W: 1000, H: 1000}
+	for _, c := range []struct {
+		loc  config.LauncherLocation
+		x, y int
+		want render.Rect
+	}{
+		{config.LauncherCenter, 0, 0, render.Rect{X: 400, Y: 220, W: 200, H: 100}},
+		{config.LauncherCenter, 10, 20, render.Rect{X: 400, Y: 220, W: 200, H: 100}},
+		{config.LauncherNorth, 10, 20, render.Rect{X: 400, Y: 20, W: 200, H: 100}},
+		{config.LauncherSouthEast, -10, -20, render.Rect{X: 790, Y: 880, W: 200, H: 100}},
+		{config.LauncherWest, 10, 20, render.Rect{X: 10, Y: 450, W: 200, H: 100}},
+	} {
+		if got := placePanel(out, 200, 100, c.loc, c.x, c.y); got != c.want {
+			t.Errorf("%s offset %d,%d: %v, want %v", c.loc, c.x, c.y, got, c.want)
+		}
+	}
+	if a, b := placePanel(out, 200, 100, config.LauncherCenter, 0, 0), placePanel(out, 200, 500, config.LauncherCenter, 0, 0); a.Y != b.Y {
+		t.Errorf("the field moved as the panel grew: %d, %d", a.Y, b.Y)
+	}
+}
+
+func TestResolveWidth(t *testing.T) {
+	h := newHarness(t)
+	ui := uiSettings{width: 600}
+	if h.s.resolveWidth(ui) != ui.width {
+		t.Error("no -width keeps the configured width")
+	}
+	ui.widthOverride = &launcheripc.Width{Unit: launcheripc.WidthPercent, Value: 50}
+	if got := h.s.resolveWidth(ui); got != 1000 {
+		t.Errorf("50%% of 2000 = %d", got)
+	}
+	ui.widthOverride = &launcheripc.Width{Unit: launcheripc.WidthPixels, Value: 0}
+	if h.s.resolveWidth(ui) != 1 {
+		t.Error("a zero width floors at 1")
+	}
+	ui.widthOverride = &launcheripc.Width{Unit: launcheripc.WidthChars, Value: 10}
+	if got := h.s.resolveWidth(ui); got < 10 || got%10 != 0 {
+		t.Errorf("10 chars = %d", got)
+	}
+}
+
+func TestRowDisplayColumnsAndEllipsize(t *testing.T) {
+	d := rowDisplay{columns: []uint32{2, 3, 9}, separator: "|"}
+	if got := d.applyColumns("a|b|c"); got != "b c" {
+		t.Errorf("columns = %q", got)
+	}
+	if (rowDisplay{}).applyColumns("a|b") != "a|b" {
+		t.Error("no columns keeps the text")
+	}
+	if (rowDisplay{ellipsize: "start"}).mode() != widget.EllipsizeStart || (rowDisplay{ellipsize: "x"}).mode() != widget.EllipsizeEnd {
+		t.Error("ellipsize modes")
+	}
+}
+
+func TestMatchModel(t *testing.T) {
+	var m matchModel
+	items := []engine.Item{engine.NewItem("Firefox"), {Display: "<b>Term</b>", MatchText: "Term", Flags: engine.FlagMarkup}}
+	items[0].MatchText = "Firefox"
+	m.update(items, []uint32{1, 0})
+	if m.textAt(0) != "Term" || m.textAt(1) != "Firefox" || m.textAt(5) != "" {
+		t.Errorf("texts %q %q", m.textAt(0), m.textAt(1))
+	}
+	if pos, ok := m.findPosition("FIRE"); !ok || pos != 1 {
+		t.Errorf("find = %d %v", pos, ok)
+	}
+	if got := m.texts(); len(got) != 2 || got[0] != "<b>Term</b>" {
+		t.Errorf("dump texts keep the display: %v", got)
+	}
+}
+
+// TestAcceptBindingAcceptsTheRowItLandedOn pins on_mouse: an accept
+// bound alone (no select binding beside it) still accepts the clicked
+// row, not the one selected when the press came.
+func TestAcceptBindingAcceptsTheRowItLandedOn(t *testing.T) {
+	h := newHarness(t)
+	_, reply := h.open(dmenu(), false, "alpha", "beta", "gamma")
+	h.until("the rows", func() bool { return h.s.model.len() == 3 })
+	h.s.cur.mouse = compileMouse([]engine.Binding{{Action: "me-accept-entry", Keys: "MousePrimary"}})
+	r, p := h.pointAt(2)
+	r.Press(widget.BTNLeft, p, 0)
+	if f := h.frame(reply); len(f.Selected) != 1 || f.Selected[0].Text != "gamma" {
+		t.Errorf("accept-only click = %+v", f)
+	}
+}
+
+// TestALateEventFromAnEndedSessionIsDropped pins the sink guard: an
+// engine event that arrives after its session ended never reaches the
+// next session's list.
+func TestALateEventFromAnEndedSessionIsDropped(t *testing.T) {
+	h := newHarness(t)
+	_, first := h.open(dmenu(), false, "a")
+	h.until("the first session", func() bool { return h.s.model.len() == 1 })
+	stale := &sessionSink{s: h.s, a: h.s.cur}
+	h.key("Escape")
+	h.frame(first)
+	h.open(dmenu(), false, "b", "c")
+	h.until("the second session", func() bool { return h.s.model.len() == 2 })
+	stale.onMatches(engineMatches{items: []engine.Item{engine.NewItem("x")}, matched: []uint32{0}})
+	stale.onAction(engine.ActionClose{})
+	if h.s.model.len() != 2 || h.s.cur == nil {
+		t.Errorf("a stale event reached the new session: %d rows, live %v", h.s.model.len(), h.s.cur != nil)
+	}
+}
+
+// TestSurfacePlaysItsExit pins the enter and hide_animated: a session
+// opens its surface entering with the launcher transition; when it
+// ends the surface stays mapped through its exit and closes when that
+// lands, while a replacing session already has its own.
+func TestSurfacePlaysItsExit(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = true
+	zoom := config.AnimationZoom
+	h.cfg.Animations.Launcher.Exit = &zoom
+	_, _ = h.open(dmenu(), false, "a")
+	h.until("the first session", func() bool { return h.s.cur != nil && h.s.cur.win != nil })
+	first := h.s.cur
+	_, _ = h.open(dmenu(), true, "b")
+	h.loop.pump()
+	if h.windows[0].closed {
+		t.Fatal("the replaced surface closed before its exit played")
+	}
+	if len(h.windows) != 2 {
+		t.Fatalf("windows = %d, want the replacement mapped meanwhile", len(h.windows))
+	}
+	done := first.views.motion.done
+	if done == nil {
+		t.Fatal("the replaced session is not playing its exit")
+	}
+	first.views.motion.done = nil
+	done()
+	if !h.windows[0].closed || h.windows[1].closed {
+		t.Errorf("after the exit: first closed %v, second closed %v", h.windows[0].closed, h.windows[1].closed)
+	}
+}
+
+func TestSuperKeyBindingsParse(t *testing.T) {
+	table := compileKeys([]engine.Binding{{Action: "accept-entry", Keys: "Super+Return, Control+j"}})
+	if len(table) != 2 {
+		t.Fatalf("%d bindings, want the Super one too", len(table))
+	}
+	press, err := app.ParseAccel("Super+Return")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, ok := lookupKey(table, press); !ok || b.action != table[0].action {
+		t.Error("Super+Return finds no binding")
+	}
+	plain, _ := app.ParseAccel("Return")
+	if _, ok := lookupKey(table, plain); ok {
+		t.Error("plain Return matched the Super binding")
+	}
+}
+
+// Markup that does not parse shows literally, not as an empty line.
+// The message line and markup rows shape their styled runs with the
+// font's variants; a plain row asks for none.
+func TestMarkupShapesWithTheVariants(t *testing.T) {
+	h := newHarness(t)
+	mesg := "a <b>bold</b> note"
+	opts := dmenu()
+	opts.Mesg = &mesg
+	h.open(opts, false, "<i>slanted</i>")
+	h.until("the rows", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
+	h.loop.pump()
+	layout(h.s.cur.views.root, 600, 400)
+	if !slices.Contains(h.styled, "b") || slices.Contains(h.styled, "i") {
+		t.Errorf("styled faces %v, want the message's bold and no italic for a plain row", h.styled)
+	}
+	h = newHarness(t)
+	opts = dmenu()
+	opts.MarkupRows = true
+	h.open(opts, false, "<i>slanted</i>")
+	h.until("the rows", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
+	h.loop.pump()
+	layout(h.s.cur.views.root, 600, 400)
+	if !slices.Contains(h.styled, "i") {
+		t.Errorf("styled faces %v, want the markup row's italic", h.styled)
+	}
+}
+
+// layout measures and arranges root at w x h, building the visible rows.
+func layout(root widget.Widget, w, h int) {
+	widget.SizeWithin(root, widget.Size{W: w, H: h})
+	root.Arrange(render.Rect{W: w, H: h})
+}
+
+func TestMessageMarkupFallsBackToTheLiteral(t *testing.T) {
+	if got := messageMarkup(`<span color="#ff0000">late</span>`); !strings.Contains(got, "late") || !strings.Contains(got, "<span") {
+		t.Errorf("valid markup = %q, want it translated", got)
+	}
+	got := messageMarkup("<b>broken")
+	if strings.Contains(got, "<b>") || !strings.Contains(got, "broken") {
+		t.Errorf("broken markup = %q, want the escaped literal", got)
+	}
+}
+
+// Every label takes its ink from the stylesheet, so a selected row
+// reads --fg-on-accent and urgent and active rows their colors
+// (launcher.css): nothing in the open surface pins one.
+func TestLabelsTakeTheStylesheetInk(t *testing.T) {
+	h := newHarness(t)
+	h.open(dmenu(), false, "alpha", "beta")
+	h.until("the rows", func() bool { return h.s.cur != nil && h.s.model.len() == 2 })
+	h.loop.pump()
+	root := h.windows[0].cfg.Root
+	labels := treetest.All[*widget.Label](root)
+	if len(labels) == 0 {
+		t.Fatal("no labels in the surface")
+	}
+	for _, l := range labels {
+		if l.Color() != 0 {
+			t.Errorf("label %q pins ink %#08x", l.Text(), uint32(l.Color()))
+		}
+	}
+	if c := h.s.cur.views.entry.Color(); c != 0 {
+		t.Errorf("the entry pins ink %#08x", uint32(c))
+	}
+	win := h.s.cur.views.root
+	if root != widget.Widget(win) || win.Element() != "window" || !widget.HasClass(win, "launcher-window") {
+		t.Fatalf("root %T, want window.launcher-window", root)
+	}
+	if box := h.s.cur.views.box; win.Children()[0] != widget.Widget(box) || !widget.HasClass(box, "launcher-panel") {
+		t.Errorf("window child %T, want .launcher-panel", win.Children()[0])
+	}
+	if !h.s.cur.views.tabs.Homogeneous() {
+		t.Error("the mode tabs are not homogeneous")
+	}
+	lists := treetest.WithClass(root, "launcher-listview")
+	if len(lists) != 1 || lists[0].(*resultList).Element() != "listview" {
+		t.Errorf("%d .launcher-listview nodes, want the one listview", len(lists))
+	}
+}
+
+// A desktop entry names a specific icon a theme may lack: the row
+// resolves it through GTK's dash fallbacks (preferences-system-network
+// to preferences-system), as a GAppInfo icon does, instead of drawing
+// nothing.
+func TestRowIconFallsBackAlongTheName(t *testing.T) {
+	treetest.IconTheme(t, "preferences-system")
+	if ink := treetest.Ink(rowIcon(engine.IconName("preferences-system-network"), 24, func(fn func()) { fn() })); ink == 0 {
+		t.Error("the row drew no icon for a name whose dash-shortened form exists")
+	}
+	if ink := treetest.Ink(rowIcon(engine.IconName("unrelated-app"), 24, func(fn func()) { fn() })); ink != 0 {
+		t.Error("a name with no present form drew an icon")
+	}
+}
+
+// The message line sits inside its CSS padding, aligned with the prompt
+// and the rows instead of flush with the surface (a RichLabel once
+// ignored its padding).
+func TestMessageLineKeepsItsPadding(t *testing.T) {
+	h := newHarness(t)
+	mesg := "A <b>script</b> mode"
+	opts := dmenu()
+	opts.Mesg = &mesg
+	h.open(opts, false, "alpha")
+	h.until("the rows", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
+	h.loop.pump()
+	v := h.s.cur.views
+	cfg := config.Defaults()
+	v.root.AttachStylesheet(widget.NewStylesheet(styling.BundleCSS(cfg, cfg.Styling.ActivePalette(), styling.Default()), 200))
+	layout(v.root, 600, 400)
+	bare := widget.NewRichLabel(h.s.d.Font, fontPx(), v.message.Markup(), 0)
+	natural := widget.SizeWithinAsChild(bare, widget.Size{W: 600, H: 400})
+	got := widget.SizeWithinAsChild(v.message, widget.Size{W: 600, H: 400})
+	if got.W <= natural.W || got.H <= natural.H {
+		t.Errorf("the message measures %v around %v of text, want its padding added", got, natural)
+	}
+}
+
+// A session's rows are the search panel's row box, carrying the selected
+// state.
+func TestASessionsRowsAreTheSharedRowBox(t *testing.T) {
+	row := buildRow(0, engine.Item{Display: "alpha"}, true, rowStyle{font: treetest.Font(t), px: 14}, nil, 0)
+	if !row.content.HasClass("launcher-search-row") || !row.content.HasState(widget.StateSelected) {
+		t.Error("a selected row is not a selected .launcher-search-row")
+	}
+	if idle := buildRow(1, engine.Item{Display: "beta"}, false, rowStyle{font: treetest.Font(t), px: 14}, nil, 1); idle.content.HasState(widget.StateSelected) {
+		t.Error("an unselected row carries the selected state")
+	}
+}
+
+// maskedMode asks for a secret until it is given one, then lists a row.
+type maskedMode struct{ secrets []string }
+
+func (*maskedMode) Name() string       { return VaultModeName }
+func (*maskedMode) AllowsCustom() bool { return true }
+
+func (m *maskedMode) Load(context.Context) engine.ModeState {
+	if len(m.secrets) > 0 {
+		return engine.ModeState{Items: []engine.Item{engine.NewItem("item")}, Prompt: VaultModeName}
+	}
+	return engine.ModeState{Prompt: "secret", Password: true}
+}
+
+func (m *maskedMode) Activate(ctx context.Context, _ engine.Target, _ engine.ActivateKind, input string) engine.Action {
+	m.secrets = append(m.secrets, input)
+	return engine.ActionReload{State: m.Load(ctx)}
+}
+
+// A mode asking for a secret dots the input and tells no hook what was
+// typed; once it lists rows again the input shows and is cleared.
+func TestMaskedModeKeepsTheSecretFromHooks(t *testing.T) {
+	h := newHarness(t)
+	mode := &maskedMode{}
+	h.s.d.Vault = func() engine.Mode { return mode }
+	accepted := "acc"
+	opts := launcheripc.SessionOptions{Modes: []string{VaultModeName}, OnEntryAccepted: &accepted}
+	h.open(opts, false)
+	h.until("the masked prompt", func() bool { return h.s.cur != nil && h.s.cur.views.entry.Echo() == widget.EchoPassword })
+	h.s.cur.views.entry.SetText("hunter2")
+	h.loop.pump()
+	h.key("Return")
+	h.until("the rows", func() bool { return h.s.model.len() == 1 })
+	if !slices.Equal(mode.secrets, []string{"hunter2"}) {
+		t.Fatalf("the mode got %q", mode.secrets)
+	}
+	for i, hook := range h.hooks {
+		if strings.Contains(hook, "hunter2") || strings.Contains(h.hookInputs[i], "hunter2") {
+			t.Errorf("hook %q (input %q) was told the secret", hook, h.hookInputs[i])
+		}
+	}
+	if len(h.hooks) == 0 {
+		t.Error("the accept fired no hook")
+	}
+	if e := h.s.cur.views.entry; e.Echo() != widget.EchoNormal || e.Text() != "" {
+		t.Errorf("after the secret: echo %v, text %q", e.Echo(), e.Text())
+	}
+}
+
+// A rofi session is the search panel: the same surface, the same place,
+// width and measures, and the blur behind the panel alone.
+func TestASessionIsTheSamePanelAsTheSearchPanel(t *testing.T) {
+	useBundledIcons(t)
+	out := render.Rect{W: 1600, H: 1000}
+	ph := newPanelHarness(t)
+	ph.s.d.Sheet = apptheme.New(ph.cfg).Sheet
+	ph.cfg.Launcher.Width = config.Defaults().Launcher.Width
+	p, _ := ph.openPanel()
+	ph.typed(p, "alpha")
+	ph.waitTitles(p, "Alpha Docs", "Alpha Issues", webRow("alpha"))
+	data := make([]byte, render.Stride(renderW)*renderH)
+	paintPanel(p, data)
+	panelCfg := ph.harness.windows[0].cfg
+	wantBox := p.v.box.Bounds()
+	wantInput, wantFooter := p.v.input.Bounds(), p.v.footer.Bounds()
+	var wantRow render.Rect
+	for _, r := range p.v.list.pool {
+		if r.title.Visible() {
+			wantRow = r.Bounds()
+			break
+		}
+	}
+	p.finish(search.Cancel{})
+	ph.loop.pump()
+
+	h := newHarness(t)
+	h.s.d.Sheet = apptheme.New(h.cfg).Sheet
+	h.cfg.Launcher.Width = config.Defaults().Launcher.Width
+	h.open(dmenu(), false, "alpha", "beta", "gamma")
+	h.until("the rows", func() bool { return h.s.cur != nil && h.s.cur.win != nil && h.s.model.len() == 3 })
+	v := h.s.cur.views
+	cfg := h.windows[0].cfg
+	if cfg.Anchor != panelCfg.Anchor || cfg.Width != panelCfg.Width || cfg.Height != panelCfg.Height || cfg.Margin != panelCfg.Margin ||
+		cfg.Layer != panelCfg.Layer || cfg.OwnMotion != panelCfg.OwnMotion || !cfg.BackgroundBlur {
+		t.Errorf("session surface %+v, want the panel's %+v", cfg, panelCfg)
+	}
+	v.motion.snapSize(v.target(out))
+	v.root.Arrange(out)
+	v.root.Arrange(out)
+	v.root.Paint(render.NewScaled(data, render.Stride(renderW), renderW, renderH, 1, 1))
+	got := v.box.Bounds()
+	if got.X != wantBox.X || got.Y != wantBox.Y || got.W != wantBox.W {
+		t.Errorf("panel at %v, want the search panel's place and width %v", got, wantBox)
+	}
+	if b := v.input.Bounds(); b.H != wantInput.H || b.Y != wantInput.Y {
+		t.Errorf("field %v, want %v", b, wantInput)
+	}
+	if b := v.footer.Bounds(); b.H != wantFooter.H || !widget.IsVisible(v.footer) {
+		t.Errorf("footer %v visible %v, want %v", b, widget.IsVisible(v.footer), wantFooter)
+	}
+	row, ok := v.list.rows[0].(*launcherRow)
+	if !ok {
+		t.Fatal("no first row")
+	}
+	if b := row.Bounds(); b.H != wantRow.H {
+		t.Errorf("row %dpx tall, want the search panel's %d", b.H, wantRow.H)
+	}
+	for _, r := range widget.BackdropRegion(v.root) {
+		if r.X < got.X || r.Y < got.Y || r.X+r.W > got.X+got.W || r.Y+r.H > got.Y+got.H {
+			t.Errorf("blur region %v reaches past the panel %v", r, got)
+		}
+	}
+}
+
+// A press outside the panel leaves, as it does the search panel; one on it
+// does not.
+func TestAPressOutsideASessionCancelsIt(t *testing.T) {
+	h := newHarness(t)
+	_, reply := h.open(dmenu(), false, "a")
+	h.until("the surface", func() bool { return h.s.cur != nil && h.s.cur.win != nil })
+	v := h.s.cur.views
+	press := h.windows[0].cfg.OnPress
+	press(1, v.box)
+	if h.s.cur == nil {
+		t.Fatal("a press on the panel ended the session")
+	}
+	press(1, v.root)
+	if f := h.frame(reply); f.Type != launcheripc.FrameCancelled {
+		t.Errorf("frame %+v, want a cancel", f)
+	}
+}
+
+// Rows carry their hints only while there are rows to act on.
+func TestASessionsFooterFollowsItsRows(t *testing.T) {
+	h := newHarness(t)
+	h.open(dmenu(), false, "alpha")
+	h.until("the row", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
+	v := h.s.cur.views
+	if !v.footer.Visible() || !strings.Contains(v.hints.Markup(), "Esc") {
+		t.Errorf("with a row: footer %v, hints %q", v.footer.Visible(), v.hints.Markup())
+	}
+	v.entry.SetText("nothing matches this")
+	h.until("no rows", func() bool { return h.s.model.len() == 0 })
+	if v.footer.Visible() {
+		t.Error("the footer stayed with no rows to act on")
+	}
+}
+
+func TestWhatRunsOnceClosedWaitsForThePanelToLeave(t *testing.T) {
+	ph := newPanelHarness(t)
+	p, _ := ph.openPanel()
+	ran := false
+	before := len(ph.timers)
+	p.finish(search.CloseThen{Run: func() { ran = true }})
+	if !ph.harness.windows[0].closed {
+		t.Fatal("the surface did not close")
+	}
+	if ran {
+		t.Fatal("it ran before the compositor could take the surface away")
+	}
+	if len(ph.timers) != before+1 || ph.timers[before].d != typeSettle {
+		t.Fatalf("timers %d, was %d", len(ph.timers), before)
+	}
+	ph.timers[before].fn()
+	if !ran {
+		t.Error("the settle did not run it")
+	}
+}
+
+func TestClosingWithoutAnEffectRunsNothingLater(t *testing.T) {
+	ph := newPanelHarness(t)
+	p, _ := ph.openPanel()
+	before := len(ph.timers)
+	p.finish(search.Close{})
+	if len(ph.timers) != before {
+		t.Error("a plain close left something to run")
+	}
+}
+
+func TestARowsFileIconPointingAtAFIFODrawsNothingAndDoesNotBlock(t *testing.T) {
+	fifo := filepath.Join(t.TempDir(), "icon.png")
+	if err := unix.Mkfifo(fifo, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	posted := make(chan func(), 4)
+	icon := rowIcon(engine.IconFile(fifo), 24, func(fn func()) { posted <- fn })
+	for quiet := false; !quiet; {
+		select {
+		case fn := <-posted:
+			fn()
+		case <-time.After(200 * time.Millisecond):
+			quiet = true
+		}
+	}
+	if ink := treetest.Ink(icon); ink != 0 {
+		t.Errorf("the row drew %d pixels for a file that is not one", ink)
+	}
+}
+
+func TestASessionOpensWhileItsHistoryHolds(t *testing.T) {
+	h := newHarness(t)
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	asked := make(chan struct{}, 1)
+	h.cfg.Launcher.History.Enable = true
+	h.s.d.OpenHistory = func() (*engine.History, error) {
+		asked <- struct{}{}
+		<-release
+		return nil, errors.New("held")
+	}
+	mode := "run"
+	opts := launcheripc.SessionOptions{Mode: &mode, Modes: []string{"run"}}
+	h.open(opts, false)
+	h.until("the surface, with the history held", func() bool { return len(h.windows) == 1 })
+	h.until("the actor asking for the history, off the loop", func() bool { return len(asked) == 1 })
+}
+
+func (w *fakeWindow) Scale() (num, denom int) { return 120, 120 }
+
+func (w *fakeWindow) OnScaleChanged(func(num, denom int)) (cancel func()) { return func() {} }

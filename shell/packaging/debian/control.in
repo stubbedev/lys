@@ -1,0 +1,45 @@
+Source: lys-shell
+Section: utils
+Priority: optional
+Maintainer: @MAINTAINER@
+Build-Depends:
+ debhelper-compat (= 13),
+ desktop-file-utils
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/stubbedev/lys-shell
+Vcs-Git: https://github.com/stubbedev/lys-shell.git
+Vcs-Browser: https://github.com/stubbedev/lys-shell
+
+Package: lys-shell
+Architecture: amd64 arm64
+Depends:
+ ${misc:Depends},
+ hicolor-icon-theme
+Recommends:
+ libvulkan1,
+ mesa-vulkan-drivers,
+ libva2,
+ libva-drm2,
+ intel-media-va-driver | mesa-va-drivers,
+ xdg-desktop-portal,
+ bubblewrap,
+ geoclue-2.0,
+ lys-settings
+Suggests:
+ dbus-user-session,
+ bluez,
+ network-manager,
+ upower,
+ power-profiles-daemon,
+ pipewire-pulse,
+ wireplumber,
+ tesseract-ocr
+Description: Wayland desktop shell
+ lys-shell is a compositor-agnostic Wayland desktop shell: bar, dropdowns,
+ launcher, notifications, OSD, and an xdg-desktop-portal
+ backend, configured in YAML or through lys-settings, a package of its own.
+ .
+ The binaries are Go with no cgo; they load Vulkan at runtime when
+ it is installed (the screen recorder needs it, with a GPU that
+ encodes H.264).

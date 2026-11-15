@@ -1,0 +1,220 @@
+package osd
+
+import (
+	"context"
+	"log"
+	"math"
+
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-desktop/service/mpris"
+	"github.com/stubbedev/lys-desktop/service/pulse"
+
+	"github.com/stubbedev/lys-shell/service/brightness"
+	"github.com/stubbedev/lys-shell/service/keytoggles"
+)
+
+// level is a slider's dedupe key (last_volume): the rounded level and
+// the mute state.
+type level struct {
+	percent uint32
+	muted   bool
+	set     bool
+}
+
+func levelOf(percent float64, muted bool) level {
+	return level{percent: uint32(math.Round(max(percent, 0))), muted: muted, set: true}
+}
+
+// audioEvents is handle_volume_changed and handle_input_volume_changed:
+// the default devices' levels, each flashed only when its rounded level
+// or mute state moved.
+type audioEvents struct {
+	out, in level
+}
+
+func (a *audioEvents) next(ctx context.Context, src pulse.Source) []Event {
+	var evs []Event
+	if sink, err := src.DefaultSink(ctx); err == nil {
+		d := sink.Device
+		pct := d.Volume.AveragePercentage()
+		if l := levelOf(pct, d.Muted); l != a.out {
+			a.out = l
+			evs = append(evs, Slider(d.Description, VolumeIcon(pct, d.Muted), pct, d.Muted))
+		}
+	}
+	if source, err := src.DefaultSource(ctx); err == nil {
+		d := source.Device
+		pct := d.Volume.AveragePercentage()
+		if l := levelOf(pct, d.Muted); l != a.in {
+			a.in = l
+			evs = append(evs, Slider(d.Description, MicrophoneIcon(d.Muted), pct, d.Muted))
+		}
+	}
+	return evs
+}
+
+// brightnessEvents is handle_brightness_changed per device: the average
+// over the devices whose rounded level moved, so changing one output
+// shows that output's level. A device appearing is not a change.
+type brightnessEvents struct{ last map[string]level }
+
+func (b *brightnessEvents) next(ctx context.Context, src brightness.Source) (Event, bool) {
+	devices, err := src.Devices(ctx)
+	if err != nil {
+		return Event{}, false
+	}
+	seen := make(map[string]level, len(devices))
+	var moved []brightness.Device
+	for _, d := range devices {
+		l := levelOf(d.Percentage(), false)
+		seen[d.Name] = l
+		if prev, ok := b.last[d.Name]; ok && prev != l {
+			moved = append(moved, d)
+		}
+	}
+	b.last = seen
+	pct, ok := brightness.AveragePercentage(moved)
+	if !ok {
+		return Event{}, false
+	}
+	return Slider(i18n.T("osd-brightness"), BrightnessIcon, pct, false), true
+}
+
+// Layouts is the compositor's keyboard layout: Layout reads the active
+// one, and each tick from Subscribe is the cue to read it again.
+type Layouts interface {
+	Layout() (string, error)
+	Subscribe(ctx context.Context) (<-chan struct{}, func(), error)
+}
+
+// layoutEvents flashes a keyboard layout switch: the layout's name
+// when it differs from the last one read. An unreadable or unknown
+// layout is not a switch.
+type layoutEvents struct{ last string }
+
+func (l *layoutEvents) next(src Layouts) (Event, bool) {
+	name, err := src.Layout()
+	if err != nil {
+		log.Printf("osd: keyboard layout: %v", err)
+		return Event{}, false
+	}
+	if name == "" || name == l.last {
+		return Event{}, false
+	}
+	l.last = name
+	return layoutEvent(name), true
+}
+
+// Tracks is the media service's track changes: each one is offered to
+// the OSD, which osd.media filters.
+type Tracks interface {
+	TrackChanges() (<-chan mpris.TrackChange, func())
+}
+
+// LockKeys follows the lock keys: it calls fn for each key that turns
+// on or off until stop, which waits for the last call.
+type LockKeys func(fn func(keytoggles.Event)) (stop func(), err error)
+
+// Watch follows the audio, brightness, keyboard layout, track
+// change, and lock-key sources until ctx ends (watchers.rs spawn). A nil source is skipped. The levels at
+// start seed the dedupe without flashing, as the Rust watchers' first
+// emission lands inside the quiet period. The lock-key source runs only
+// while the OSD is enabled, since it holds input devices open.
+func (o *Osd) Watch(ctx context.Context, audio pulse.Source, light brightness.Source, layouts Layouts, tracks Tracks, locks LockKeys) {
+	if tracks != nil {
+		changes, stop := tracks.TrackChanges()
+		defer stop()
+		go func() {
+			for c := range changes {
+				o.Show(NowPlaying(c))
+			}
+		}()
+	}
+	if audio != nil {
+		if ticks, stop, err := audio.Subscribe(ctx); err == nil {
+			defer stop()
+			go func() {
+				var a audioEvents
+				a.next(ctx, audio)
+				for range ticks {
+					for _, ev := range a.next(ctx, audio) {
+						o.Show(ev)
+					}
+				}
+			}()
+		} else {
+			log.Printf("osd: audio: %v", err)
+		}
+	}
+	if light != nil {
+		if ticks, stop, err := light.Subscribe(ctx); err == nil {
+			defer stop()
+			go func() {
+				var b brightnessEvents
+				b.next(ctx, light)
+				for range ticks {
+					if ev, ok := b.next(ctx, light); ok {
+						o.Show(ev)
+					}
+				}
+			}()
+		} else {
+			log.Printf("osd: brightness: %v", err)
+		}
+	}
+	if layouts != nil {
+		if ticks, stop, err := layouts.Subscribe(ctx); err == nil {
+			if stop != nil {
+				defer stop()
+			}
+			go func() {
+				var l layoutEvents
+				l.next(layouts)
+				for range ticks {
+					if ev, ok := l.next(layouts); ok {
+						o.Show(ev)
+					}
+				}
+			}()
+		} else {
+			log.Printf("osd: keyboard layout: %v", err)
+		}
+	}
+	if locks == nil {
+		<-ctx.Done()
+		return
+	}
+	o.followLockKeys(ctx, locks)
+}
+
+// followLockKeys keeps the lock-key source running exactly while the
+// OSD is enabled, until ctx ends. A source that fails to start is tried
+// again the next time the OSD is enabled.
+func (o *Osd) followLockKeys(ctx context.Context, locks LockKeys) {
+	var stop func()
+	defer func() {
+		if stop != nil {
+			stop()
+		}
+	}()
+	for {
+		wanted := o.lockKeysWanted.Load()
+		switch {
+		case wanted && stop == nil:
+			started, err := locks(func(e keytoggles.Event) { o.Show(toggleEvent(e)) })
+			if err != nil {
+				log.Printf("osd: lock keys: %v", err)
+				break
+			}
+			stop = started
+		case !wanted && stop != nil:
+			stop()
+			stop = nil
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-o.lockKeysChanged:
+		}
+	}
+}

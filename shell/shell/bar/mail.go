@@ -1,0 +1,111 @@
+package bar
+
+import (
+	"context"
+	"errors"
+	"strconv"
+
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys-ui/widget"
+
+	"github.com/stubbedev/lys-shell/internal/desktopnotify"
+	"github.com/stubbedev/lys-shell/internal/jinja"
+	"github.com/stubbedev/lys-shell/service/mail"
+)
+
+// startMail builds and runs the shared mail service, as the Rust
+// bootstrap does whether or not a mail module is placed. Without a
+// session bus it still counts; it only cannot notify. The returned function
+// stops it.
+func startMail(ctx *ModuleContext, conn *dbus.Conn) func() {
+	var notifier mail.Notifier
+	if conn != nil {
+		notifier = mail.DesktopNotifier{Sender: desktopnotify.NewSender(conn)}
+	}
+	svc := mail.New(ctx.Config.Mail, mail.CLI{}, notifier)
+	ctx.Mail = svc
+	runCtx, cancel := context.WithCancel(context.Background())
+	go svc.Run(runCtx)
+	return cancel
+}
+
+// mailLabel is format_label: {{ count }} replaced, not a template.
+func mailLabel(format string, count uint32) string {
+	return jinja.ReplaceVars(format, mailVars(count))
+}
+
+func mailVars(count uint32) map[string]string {
+	return map[string]string{"count": strconv.FormatUint(uint64(count), 10)}
+}
+
+// mailModule is the module: the shared service's unread total on a bar
+// button, the module root hidden at zero under hide-when-zero.
+type mailModule struct {
+	ctx    ModuleContext
+	btn    *barButton
+	icon   *widget.Icon
+	chrome moduleChrome
+	count  uint32
+	stop   func()
+}
+
+var errMailNoService = errors.New("mail: requires the shared mail service")
+
+func newMail(ctx ModuleContext) (Module, error) {
+	if ctx.Mail == nil {
+		return nil, errMailNoService
+	}
+	m := &mailModule{ctx: ctx}
+	m.icon = moduleIcon(ctx, ctx.Config.Mail.Icon())
+	m.btn = newBarButton(ctx, m.icon, "")
+	m.apply(ctx.Mail.State().Total)
+	ticks, unsubscribe := ctx.Mail.Subscribe()
+	done := make(chan struct{})
+	m.stop = func() {
+		unsubscribe()
+		close(done)
+	}
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticks:
+			}
+			total := ctx.Mail.State().Total
+			m.ctx.Invoke(func() { m.apply(total) })
+		}
+	}()
+	return m, nil
+}
+
+// apply is update_display for one count.
+func (m *mailModule) apply(count uint32) {
+	cfg := m.ctx.Config.Mail
+	m.count = count
+	text := mailLabel(cfg.Format, count)
+	m.btn.SetLabel(text)
+	m.showChrome()
+}
+
+// showChrome hides the module root at zero under hide-when-zero.
+func (m *mailModule) showChrome() {
+	if m.chrome != nil {
+		m.chrome.SetVisible(m.count > 0 || !m.ctx.Config.Mail.HideWhenZero)
+	}
+}
+
+func (m *mailModule) setChrome(c moduleChrome) {
+	m.chrome = c
+	m.showChrome()
+}
+
+func (m *mailModule) Root() widget.Widget { return m.btn }
+
+// Stop unsubscribes from the service.
+func (m *mailModule) Stop() {
+	if m.stop != nil {
+		m.stop()
+		m.stop = nil
+	}
+}

@@ -1,0 +1,436 @@
+package recorder
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"io"
+	"os"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-lib/audiomix"
+	"github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys-lib/media/mux"
+	"github.com/stubbedev/lys-lib/media/opus"
+)
+
+// minFrameGap is the least time between two video frames: the muxers
+// keep a 90 kHz clock, and a frame right after a resume could
+// otherwise land on its predecessor's tick.
+const minFrameGap = time.Millisecond
+
+// Track indexes in the file.
+const (
+	videoTrack = 0
+	audioTrack = 1
+)
+
+// videoEncoder captures the screen and encodes it: the GPU in
+// production. It belongs to the recording's video goroutine.
+type videoEncoder interface {
+	// ParameterSets are the stream's SPS and PPS NAL units.
+	ParameterSets() (sps, pps []byte)
+	// SetOverlay draws img over every following frame, scaled into dst.
+	SetOverlay(img *image.RGBA, dst image.Rectangle) error
+	// Frame captures a frame stamped pts and returns the packets that
+	// finished meanwhile; none when the capture was skipped.
+	Frame(pts time.Duration) ([]gpu.Packet, error)
+	// Flush returns the frames still in flight.
+	Flush() ([]gpu.Packet, error)
+	Close() error
+}
+
+// camera is a webcam delivering frames already padded to the overlay's
+// aspect. Frames closes when the camera stops, Err then saying why.
+type camera interface {
+	Frames() <-chan *image.RGBA
+	// Recycle hands a frame back once it is uploaded.
+	Recycle(*image.RGBA)
+	Err() error
+	Close()
+}
+
+// audioCapture is one running audio source; Close stops its chunks.
+type audioCapture interface{ Close() }
+
+// startAudio starts a source whose chunks of 48 kHz stereo s16le go to
+// onData, from any goroutine.
+type startAudio func(onData func([]byte)) (audioCapture, error)
+
+// fileMuxer is mux.MP4 or mux.MKV.
+type fileMuxer interface {
+	WriteSample(mux.Sample) error
+	Close() error
+}
+
+// newMuxer writes format's container to w.
+func newMuxer(format config.RecorderFormat, w io.Writer, tracks ...mux.Track) (fileMuxer, error) {
+	switch format {
+	case config.RecorderFormatMp4:
+		return mux.NewMP4(w, tracks...)
+	case config.RecorderFormatMkv:
+		return mux.NewMKV(w, tracks...)
+	}
+	return nil, fmt.Errorf("recorder: no muxer for output format %q", format)
+}
+
+// recordingParts are what a recording runs on; it owns them all from
+// the start, the camera with its rectangle on the frame.
+type recordingParts struct {
+	video   videoEncoder
+	cam     camera
+	camRect image.Rectangle
+	audio   []startAudio
+	fps     uint32
+	wall    wallClock
+}
+
+// recording is one running capture: a video goroutine capturing and
+// encoding at the frame rate, an audio goroutine mixing and encoding
+// every 20 ms, both writing to one sink on one clock.
+type recording struct {
+	p    recordingParts
+	term func(reason string)
+	sink sampleSink
+
+	// mu guards the clock and the mixer: the audio sources push from
+	// their own goroutines.
+	mu       sync.Mutex
+	clock    activeClock
+	mixer    *audiomix.Mixer
+	captures []audioCapture
+
+	opus *opus.Encoder
+
+	stop     chan struct{}
+	loops    sync.WaitGroup
+	failOnce sync.Once
+	stopOnce sync.Once
+	stopErr  error
+	// drainErr is the audio loop's last drain on stop, read after it
+	// ends.
+	drainErr error
+	// videoFrames counts the video samples written: what a caller
+	// waiting for footage watches.
+	videoFrames atomic.Uint64
+}
+
+// sampleSink is where a recording's encoded samples go, from both of
+// its loops at once: a file being muxed, or the replay ring.
+type sampleSink interface {
+	write(s mux.Sample, key bool) error
+	// close finishes the sink after the last sample.
+	close() error
+	// discard drops a sink whose recording failed to start.
+	discard() error
+}
+
+// fileSink muxes the samples into a new file.
+type fileSink struct {
+	path string
+	file *os.File
+
+	mu  sync.Mutex
+	mux fileMuxer
+}
+
+// openFileSink creates path, failing when it exists, and starts
+// format's container in it.
+func openFileSink(path string, format config.RecorderFormat, tracks []mux.Track) (*fileSink, error) {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gosec // the user's recording, readable as their other videos
+	if err != nil {
+		return nil, fmt.Errorf("recorder: create the output: %w", err)
+	}
+	s := &fileSink{path: path, file: file}
+	if s.mux, err = newMuxer(format, file, tracks...); err != nil {
+		return nil, errors.Join(fmt.Errorf("recorder: %s: %w", path, err), s.discard())
+	}
+	return s, nil
+}
+
+func (s *fileSink) write(sample mux.Sample, _ bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.mux.WriteSample(sample); err != nil {
+		return fmt.Errorf("recorder: write %s: %w", s.path, err)
+	}
+	return nil
+}
+
+func (s *fileSink) close() error {
+	var errs []error
+	s.mu.Lock()
+	if err := s.mux.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("recorder: finalize %s: %w", s.path, err))
+	}
+	s.mu.Unlock()
+	if err := s.file.Sync(); err != nil {
+		errs = append(errs, fmt.Errorf("recorder: sync %s: %w", s.path, err))
+	}
+	if err := s.file.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("recorder: close %s: %w", s.path, err))
+	}
+	return errors.Join(errs...)
+}
+
+func (s *fileSink) discard() error {
+	var errs []error
+	if err := s.file.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("recorder: close the discarded %s: %w", s.path, err))
+	}
+	if err := os.Remove(s.path); err != nil {
+		errs = append(errs, fmt.Errorf("recorder: remove the discarded %s: %w", s.path, err))
+	}
+	return errors.Join(errs...)
+}
+
+// startRecording opens opts.OutputPath and starts recording parts into
+// it. On failure everything parts held is released and the file
+// removed.
+func startRecording(parts recordingParts, opts Options, term func(reason string)) (*recording, error) {
+	return startPipeline(parts, term, func(tracks []mux.Track) (sampleSink, error) {
+		sink, err := openFileSink(opts.OutputPath, opts.Format, tracks)
+		if err != nil {
+			return nil, err
+		}
+		return sink, nil
+	})
+}
+
+// startPipeline starts recording parts into the sink open makes for
+// the recording's tracks. On failure everything parts held is
+// released, the sink discarded.
+func startPipeline(parts recordingParts, term func(reason string), open func([]mux.Track) (sampleSink, error)) (_ *recording, err error) {
+	r := &recording{p: parts, term: term, stop: make(chan struct{})}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, r.release())
+		}
+	}()
+	sps, pps := parts.video.ParameterSets()
+	tracks := []mux.Track{mux.H264{SPS: sps, PPS: pps}}
+	if len(parts.audio) > 0 {
+		tracks = append(tracks, mux.Opus{Channels: audioChannels, PreSkip: opus.PreSkip})
+		if r.opus, err = opus.NewEncoder(audioChannels, audioBitrate, opus.ConstrainedVBR); err != nil {
+			return nil, fmt.Errorf("recorder: Opus encoder: %w", err)
+		}
+		r.mixer = newMixer(len(parts.audio))
+	}
+	if r.sink, err = open(tracks); err != nil {
+		return nil, err
+	}
+	r.clock = newActiveClock(parts.wall.Now())
+	for i, start := range parts.audio {
+		c, err := start(func(chunk []byte) { r.pushAudio(i, chunk) })
+		if err != nil {
+			return nil, err
+		}
+		r.captures = append(r.captures, c)
+	}
+	r.loops.Add(1)
+	go r.videoLoop()
+	if r.mixer != nil {
+		r.loops.Add(1)
+		go r.audioLoop()
+	}
+	return r, nil
+}
+
+// release closes what startRecording acquired when it fails, the
+// empty output included.
+func (r *recording) release() error {
+	for _, c := range r.captures {
+		c.Close()
+	}
+	if r.p.cam != nil {
+		r.p.cam.Close()
+	}
+	err := r.p.video.Close()
+	if r.sink != nil {
+		err = errors.Join(err, r.sink.discard())
+	}
+	return err
+}
+
+// fail reports the first error that ends the recording on its own. The
+// report runs off the loop: the state's teardown calls Stop, which waits
+// for the loops.
+func (r *recording) fail(err error) {
+	r.failOnce.Do(func() { go r.term(err.Error()) })
+}
+
+func (r *recording) writeVideo(pkts []gpu.Packet) error {
+	for _, p := range pkts {
+		if err := r.sink.write(mux.Sample{Track: videoTrack, PTS: p.PTS, Data: p.Data}, p.Key); err != nil {
+			return err
+		}
+		r.videoFrames.Add(1)
+	}
+	return nil
+}
+
+// videoTime is the clock now, and whether it is stopped.
+func (r *recording) videoTime() (time.Duration, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.clock.elapsed(r.p.wall.Now()), r.clock.paused
+}
+
+// videoLoop captures a frame every frame period while the clock runs,
+// and uploads each new webcam frame as the overlay.
+func (r *recording) videoLoop() {
+	defer r.loops.Done()
+	ticks, stopTicks := r.p.wall.Ticker(time.Second / time.Duration(max(r.p.fps, 1)))
+	defer stopTicks()
+	var frames <-chan *image.RGBA
+	if r.p.cam != nil {
+		frames = r.p.cam.Frames()
+	}
+	last := time.Duration(-1)
+	for {
+		select {
+		case <-r.stop:
+			return
+		case img, ok := <-frames:
+			if !ok {
+				r.fail(fmt.Errorf("recorder: the webcam stopped: %w", r.p.cam.Err()))
+				return
+			}
+			err := r.p.video.SetOverlay(img, r.p.camRect)
+			r.p.cam.Recycle(img)
+			if err != nil {
+				r.fail(fmt.Errorf("recorder: overlay the webcam: %w", err))
+				return
+			}
+			continue
+		case <-ticks:
+		}
+		pts, paused := r.videoTime()
+		if paused || (last >= 0 && pts-last < minFrameGap) {
+			continue
+		}
+		pkts, err := r.p.video.Frame(pts)
+		if err == nil {
+			err = r.writeVideo(pkts)
+		}
+		if err != nil {
+			r.fail(err)
+			return
+		}
+		last = pts
+	}
+}
+
+// pushAudio queues a source's chunk; a paused recording drops it.
+func (r *recording) pushAudio(source int, chunk []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.clock.paused {
+		r.mixer.Push(source, chunk)
+	}
+}
+
+// audioLoop mixes and encodes the frames due every packet period,
+// trailing the clock by audioLatency (a stopped clock makes none due);
+// on stop it drains up to the clock itself.
+func (r *recording) audioLoop() {
+	defer r.loops.Done()
+	ticks, stopTicks := r.p.wall.Ticker(audioFrameTime)
+	defer stopTicks()
+	emitted := 0
+	pcm := make([]int16, audioFrame*audioChannels)
+	var packet []byte
+	pump := func(latency time.Duration) error {
+		for {
+			r.mu.Lock()
+			if framesDue(r.clock.elapsed(r.p.wall.Now()), latency, emitted) == 0 {
+				r.mu.Unlock()
+				return nil
+			}
+			r.mixer.Mix(pcm)
+			r.mu.Unlock()
+			var err error
+			if packet, err = r.opus.Encode(packet[:0], pcm); err != nil {
+				return fmt.Errorf("recorder: Opus-encode the audio at %v: %w", time.Duration(emitted)*audioFrameTime, err)
+			}
+			if err := r.sink.write(mux.Sample{Track: audioTrack, PTS: time.Duration(emitted) * audioFrameTime, Data: packet}, true); err != nil {
+				return err
+			}
+			emitted++
+		}
+	}
+	for {
+		select {
+		case <-r.stop:
+			r.drainErr = pump(0)
+			return
+		case <-ticks:
+			if err := pump(audioLatency); err != nil {
+				r.fail(err)
+				return
+			}
+		}
+	}
+}
+
+// SetPaused stops or restarts the clock. While it stands, the sources'
+// chunks are dropped and no frame falls due; what they queued before
+// the pause still fills the frames up to it, so the audio after the
+// pause stays aligned with the video.
+func (r *recording) SetPaused(paused bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if paused {
+		r.clock.pause(r.p.wall.Now())
+		return
+	}
+	r.clock.resume(r.p.wall.Now())
+}
+
+// Stop stops the sources, lets the loops finish their last frames,
+// drains the encoder's frames in flight into the file, and finalizes
+// it. A second call returns the first's result.
+func (r *recording) Stop() error {
+	r.stopOnce.Do(func() { r.stopErr = r.finish() })
+	return r.stopErr
+}
+
+// end stops r for the Close of its session unless a Stop already has,
+// whose error that Stop returned, so it is not reported again.
+func (r *recording) end() error {
+	var err error
+	r.stopOnce.Do(func() {
+		r.stopErr = r.finish()
+		err = r.stopErr
+	})
+	return err
+}
+
+func (r *recording) finish() error {
+	for _, c := range r.captures {
+		c.Close()
+	}
+	close(r.stop)
+	r.loops.Wait()
+	if r.p.cam != nil {
+		r.p.cam.Close()
+	}
+	errs := []error{r.drainErr}
+	pkts, err := r.p.video.Flush()
+	if err != nil {
+		errs = append(errs, fmt.Errorf("recorder: drain the video encoder: %w", err))
+	}
+	if err := r.writeVideo(pkts); err != nil {
+		errs = append(errs, err)
+	}
+	if err := r.p.video.Close(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := r.sink.close(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}

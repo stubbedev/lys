@@ -1,0 +1,630 @@
+package launcher
+
+import (
+	"math"
+	"slices"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/shell/widgets"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys-ui/widget/css"
+
+	engine "github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys-shell/service/launcher/search"
+)
+
+// panelViews is the panel's widget tree, built once per config and
+// handed from one panel to the next.
+type panelViews struct {
+	*panelFrame
+	*panelChrome
+	// p is the panel showing them, nil while none does.
+	p   *panel
+	cfg *config.Config
+	// hl is the query's copy for highlighting, on the UI loop.
+	hl    engine.FuzzyQuery
+	body  *widget.Box
+	list  *searchList
+	pane  *previewPane
+	font  render.Font
+	scale float64
+	lines int
+	// baseW is the width without the preview pane.
+	baseW       int
+	withPreview bool
+}
+
+func newPanelViews(d Deps, cfg *config.Config) *panelViews {
+	scale := float64(cfg.Styling.Scale)
+	px := scaledPx(cfg)
+	v := &panelViews{
+		cfg: cfg, font: d.Font, scale: scale, lines: max(int(cfg.Launcher.Lines), 1),
+		baseW: launcherWidthPx(cfg),
+	}
+	v.panelChrome = newPanelChrome(d, cfg, func(text string) {
+		if p := v.p; p != nil && p.eng != nil && !p.closing {
+			p.querySeq++
+			p.eng.SetQuery(text, p.querySeq)
+		}
+	})
+
+	v.list = newSearchList(v, cfg, d.Font, d.Variants, px(searchRowHeight), px(headerRowHeight), px(searchIconSize))
+	v.list.bindAsync(v.searchIcon, "ld-search-symbolic")
+	v.pane = newPreviewPane(d.Font, px, 0)
+	v.body = widget.NewBox(widget.Row, 0, 0)
+	v.body.Append(v.list, true)
+	v.body.Append(v.pane.box, false)
+
+	content := widget.NewBox(widget.Column, 0, 0)
+	content.Append(v.input, false)
+	content.Append(v.message, false)
+	content.Append(v.sep, false)
+	content.Append(v.body, true)
+	content.Append(v.footer, false)
+
+	v.panelFrame = newPanelFrame(d, content, v.baseW, v.fieldH(), func() Window {
+		if v.p == nil {
+			return nil
+		}
+		return v.p.win
+	})
+	v.target = func(render.Rect) (int, int) { return v.targetW(), v.targetH() }
+	v.place = func(out render.Rect, w, h int) render.Rect { return placePanel(out, w, h, config.LauncherCenter, 0, 0) }
+	return v
+}
+
+// bind hands the views to p, showing nothing yet: what the last panel
+// left is cleared, and the size lands on an empty field.
+func (v *panelViews) bind(p *panel, spawn, invoke func(func())) {
+	v.p = p
+	v.list.loader = newIconLoader(p.ctx, spawn, invoke, v.list.iconReady)
+	v.list.waiting = v.list.waiting[:0]
+	v.list.setRows(nil, -1)
+	v.hl.Set("")
+	v.setField("")
+	v.setChip("")
+	v.setMessage("")
+	v.sep.SetVisible(false)
+	v.notice.SetText("")
+	v.footer.SetVisible(false)
+	v.withPreview = false
+	v.pane.box.SetVisible(false)
+	v.pane.show(nil, engine.PreviewContent{}, nil)
+	v.motion.reset(v.baseW, v.fieldH())
+}
+
+// release ends p's hold on the views once its surface has gone.
+func (v *panelViews) release(p *panel) {
+	if v.p == p {
+		v.p = nil
+	}
+}
+
+// fieldH is the fixed height above the list.
+func (v *panelViews) fieldH() int { return int(math.Round(inputRowHeight * v.scale)) }
+
+func (v *panelViews) footerH() int { return int(math.Round(footerHeight * v.scale)) }
+
+// messageH is the message's height at the panel's width.
+func (v *panelViews) messageH() int {
+	if !v.message.Visible() {
+		return 0
+	}
+	return v.message.Measure(widget.Column, v.baseW).Nat
+}
+
+// targetH is the height the panel springs to for what it now shows.
+func (v *panelViews) targetH() int {
+	h := v.fieldH() + v.messageH()
+	listH := v.list.contentH()
+	if listH == 0 {
+		if v.notice.Text() != "" {
+			return h + v.footerH()
+		}
+		return h
+	}
+	if v.withPreview {
+		listH = max(listH, v.list.linesH(previewMinRows))
+	}
+	limit := v.list.linesH(v.lines)
+	if v.withPreview {
+		limit = max(limit, v.list.linesH(previewMinRows))
+	}
+	if v.root.bounds().H > 0 {
+		limit = min(limit, int(float64(v.root.bounds().H)*(1-panelTopFraction))-h-v.footerH()-panelEdgeGap)
+	}
+	return h + 1 + min(listH, max(limit, v.list.linesH(1))) + v.footerH()
+}
+
+// targetW is the width it springs to.
+func (v *panelViews) targetW() int {
+	w := v.baseW
+	if v.withPreview {
+		w += v.pane.width
+	}
+	return panelWidthIn(v.root.bounds(), w)
+}
+
+// pageRows is how many rows PageUp and PageDown move.
+func (v *panelViews) pageRows() int { return max(v.lines-1, 1) }
+
+// retarget sends the panel toward its size for the current content.
+func (v *panelViews) retarget(*panel) {
+	v.panelFrame.retarget()
+}
+
+func (v *panelViews) setField(text string) {
+	stop := v.entry.OnChanged
+	v.entry.OnChanged = nil
+	v.entry.SetText(text)
+	v.entry.OnChanged = stop
+}
+
+// setLevel shows what the level says about itself.
+func (v *panelViews) setLevel(f search.Frame) {
+	v.setChip(f.Title)
+	v.entry.SetPlaceholder(f.Placeholder)
+	echo := widget.EchoNormal
+	if f.Mask {
+		echo = widget.EchoPassword
+	}
+	v.entry.SetEcho(echo)
+	v.setMessage(f.Message)
+	v.sep.SetVisible(len(f.Rows) > 0)
+}
+
+func (v *panelViews) setHasPreview(on bool, p *panel) {
+	on = on && p.s.d.Config().Launcher.Search.Previews
+	if on == v.withPreview {
+		return
+	}
+	v.withPreview = on
+	v.pane.box.SetVisible(on)
+}
+
+// setFooter shows the hints, or a failure said out loud.
+func (v *panelViews) setFooter(p *panel) {
+	v.notice.SetText(p.notice)
+	shown := len(p.frame.Rows) > 0 || p.notice != "" || p.depth > 0
+	v.footer.SetVisible(shown)
+	if !shown {
+		return
+	}
+	v.hintBuf = hintFor(p, v.hintBuf[:0])
+	v.showHints()
+}
+
+// showPreview shows the entry's facts and loaded content; with nothing
+// to show it shows what the row says of itself, so the pane is never
+// blank while a row is selected.
+func (v *panelViews) showPreview(c engine.PreviewContent, err error, entry *search.Entry) {
+	var facts []engine.PreviewFact
+	if entry != nil {
+		facts = entry.Preview.Facts
+	}
+	if v.pane.show(facts, c, err) || entry == nil {
+		return
+	}
+	v.pane.showSummary(v.list.bindAsync, iconSource(entry.Icon), entry.Glyph, entry.Title, entry.Subtitle)
+}
+
+// searchList is the virtualized result list: a fixed height per row kind,
+// so nothing shifts as rows change text, and a pool of row widgets
+// rebound in place, so typing costs a few labels' worth of work.
+type searchList struct {
+	widget.Base
+	v        *panelViews
+	font     render.Font
+	variants widget.VariantFunc
+	rowH     int
+	headerH  int
+	margin   render.Insets
+	iconSize int
+	icons    bool
+	rows     []search.Row
+	selected int
+	// offset is the scroll position in pixels; scroll its spring.
+	offset float64
+	scroll *anim.Spring
+	pool   []*searchRow
+	shown  []widget.Widget
+	loader *iconLoader
+	// num and denom are the device scale icons are decoded for, its
+	// window's; num is 0 until the window exists.
+	num, denom int
+	// waiting are the icons shown once decoded.
+	waiting []*asyncIcon
+	// openTag is the highlight's markup, for the theme's accent.
+	openTag   string
+	openColor render.Color
+}
+
+func newSearchList(v *panelViews, cfg *config.Config, font render.Font, variants widget.VariantFunc, rowH, headerH, iconSize int) *searchList {
+	l := &searchList{v: v, font: font, variants: variants, rowH: rowH, headerH: headerH, margin: rowMargin(scaledPx(cfg)), iconSize: iconSize, icons: cfg.Launcher.ShowIcons, selected: -1}
+	l.SetElement("listview")
+	l.AddClass("launcher-search-list")
+	l.scroll = anim.NewSpring(l, anim.SpringParams{Response: 160 * time.Millisecond, Damping: 1}, []float64{0}, func(pos []float64) {
+		l.offset = pos[0]
+		l.InvalidateLayout()
+	})
+	l.scroll.SetPrecision(0.5)
+	l.SetOnScroll(func(e widget.ScrollEvent) bool {
+		l.scrollTo(l.scrollTarget() + float64(e.DY*rowH))
+		return true
+	})
+	return l
+}
+
+// contentH is every row's height together.
+func (l *searchList) contentH() int {
+	if len(l.rows) == 0 {
+		return 0
+	}
+	h := 2 * l.edge()
+	for i := range l.rows {
+		h += l.heightOf(i)
+	}
+	return h
+}
+
+func (l *searchList) edge() int { return l.margin.Left - l.margin.Top }
+
+func (l *searchList) linesH(n int) int { return n*l.rowH + 2*l.edge() }
+
+func (l *searchList) heightOf(i int) int {
+	if l.rows[i].Header != "" {
+		return l.headerH
+	}
+	return l.rowH
+}
+
+func (l *searchList) topOf(i int) int {
+	y := l.edge()
+	for k := range i {
+		y += l.heightOf(k)
+	}
+	return y
+}
+
+func (l *searchList) scrollTarget() float64 { return l.offset }
+
+func (l *searchList) scrollTo(y float64) {
+	limit := float64(max(l.contentH()-l.Bounds().H, 0))
+	y = min(max(y, 0), limit)
+	if l.v.motion.instant {
+		l.scroll.Snap(y)
+		return
+	}
+	l.scroll.SetTarget(y)
+}
+
+// setRows swaps the list. The scroll goes back to the top for a new
+// list, except when the selected row stays in view.
+func (l *searchList) setRows(rows []search.Row, selected int) {
+	l.rows = rows
+	l.selected = selected
+	l.scroll.Snap(0)
+	l.reveal(selected)
+	l.InvalidateLayout()
+}
+
+func (l *searchList) setSelected(i int) {
+	l.selected = i
+	l.reveal(i)
+	l.InvalidateLayout()
+}
+
+// reveal scrolls row i into view, a heading above it too.
+func (l *searchList) reveal(i int) {
+	if i < 0 || i >= len(l.rows) || l.Bounds().H == 0 {
+		return
+	}
+	top := l.topOf(i) - l.edge()
+	if i > 0 && l.rows[i-1].Header != "" {
+		top -= l.headerH
+	}
+	bottom := l.topOf(i) + l.rowH + l.edge()
+	switch {
+	case float64(top) < l.offset:
+		l.scrollTo(float64(top))
+	case float64(bottom) > l.offset+float64(l.Bounds().H):
+		l.scrollTo(float64(bottom - l.Bounds().H))
+	}
+}
+
+// firstShown is the first row index in view.
+func (l *searchList) firstShown() int {
+	y := l.edge()
+	for i := range l.rows {
+		y += l.heightOf(i)
+		if float64(y) > l.offset {
+			return i
+		}
+	}
+	return 0
+}
+
+// Measure is flexible: the body gives it its room.
+func (l *searchList) Measure(axis widget.Axis, _ int) widget.Sizes {
+	if axis == widget.Column {
+		return widget.Sizes{}
+	}
+	return widget.Sizes{}
+}
+
+// Arrange binds and lays the rows in view; the rest cost nothing.
+func (l *searchList) Arrange(r render.Rect) {
+	l.ArrangeSelf(r)
+	l.shown = l.shown[:0]
+	off := int(math.Round(l.offset))
+	y := l.edge()
+	used := 0
+	number := 0
+	for i := range l.rows {
+		h := l.heightOf(i)
+		isItem := l.rows[i].Header == ""
+		if y+h > off && y < off+r.H {
+			if isItem {
+				number++
+			}
+			if used == len(l.pool) {
+				l.pool = append(l.pool, newSearchRow(l))
+			}
+			row := l.pool[used]
+			used++
+			row.bind(i, l.rows[i], i == l.selected, number)
+			row.Arrange(l.margin.Shrink(render.Rect{X: r.X, Y: r.Y + y - off, W: r.W, H: h}))
+			l.shown = append(l.shown, row)
+		}
+		y += h
+	}
+	widget.SetParents(l, l.shown...)
+}
+
+// ArrangeRoot mirrors Arrange for the root path.
+func (l *searchList) ArrangeRoot(r render.Rect) { l.Arrange(r) }
+
+// Paint paints the rows in view.
+func (l *searchList) Paint(cv *render.Canvas) {
+	prev := cv.PushClip(l.Bounds())
+	for _, w := range l.shown {
+		widget.PaintChild(cv, w)
+	}
+	cv.PopClip(prev)
+}
+
+// Children are the rows in view.
+func (l *searchList) Children() []widget.Widget { return l.shown }
+
+// HitTest descends into the row under p.
+func (l *searchList) HitTest(p widget.Point) widget.Widget {
+	b := l.Bounds()
+	if p.X < b.X || p.Y < b.Y || p.X >= b.X+b.W || p.Y >= b.Y+b.H {
+		return nil
+	}
+	for _, w := range l.shown {
+		if hit := w.HitTest(p); hit != nil {
+			return hit
+		}
+	}
+	return l.HitLeaf(l, p)
+}
+
+// ScrollBy scrolls by whole rows.
+func (l *searchList) ScrollBy(_, dy int) { l.scrollTo(l.offset + float64(dy*l.rowH)) }
+
+// searchRow is one row of the pool, rebound as the list changes.
+type searchRow struct {
+	*widget.Box
+	l     *searchList
+	index int
+	icon  *asyncIcon
+	glyph *widget.Label
+	title *widget.RichLabel
+	// positions and markup are the highlight's memory.
+	positions []int
+	markup    []byte
+	subtitle  *widget.Label
+	hint      *widget.Label
+	header    *widget.Label
+}
+
+func newSearchRow(l *searchList) *searchRow {
+	px := fontPx()
+	r := &searchRow{Box: newRowBox(), l: l}
+	r.icon = newAsyncIcon(l.iconSize, "launcher-search-row-icon")
+	r.AppendAligned(r.icon.slot, false, widget.AlignCenter)
+	r.glyph = widget.NewLabel(l.font, float64(l.iconSize)*glyphFontFactor, "", 0)
+	r.glyph.SetVisible(false)
+	r.glyph.SetSizeRequest(l.iconSize, 0)
+	r.glyph.SetAlignment(render.AlignCenter)
+	r.AppendAligned(r.glyph, false, widget.AlignCenter)
+	r.title = widget.NewRichLabel(l.font, px, "", 0)
+	r.title.AddClass("launcher-search-row-title")
+	r.title.SetVariants(l.variants)
+	r.title.SetEllipsize(widget.EllipsizeEnd)
+	r.AppendAligned(r.title, false, widget.AlignCenter)
+	r.subtitle = widget.NewLabel(l.font, widgetsSmallPx(), "", 0)
+	r.subtitle.AddClass("launcher-search-row-subtitle", css.DimLabel)
+	r.subtitle.SetEllipsize(widget.EllipsizeEnd)
+	r.AppendAligned(r.subtitle, true, widget.AlignCenter)
+	r.hint = widget.NewLabel(l.font, widgetsSmallPx(), "", 0)
+	r.hint.AddClass("launcher-search-row-hint", css.DimLabel)
+	r.AppendAligned(r.hint, false, widget.AlignCenter)
+	r.header = widget.NewLabel(l.font, widgetsSmallPx(), "", 0)
+	r.header.AddClass("launcher-search-header")
+	r.AppendAligned(r.header, true, widget.AlignCenter)
+	r.SetOnPointer(func(e widget.PointerEvent) bool {
+		if p := l.v.p; p != nil && (e.Button == widget.BTNLeft || e.Button == widget.BTNRight) {
+			p.rowPressed(r.index, e.Button)
+		}
+		return true
+	})
+	return r
+}
+
+// HitTest makes the row the leaf the pointer lands on.
+func (r *searchRow) HitTest(p widget.Point) widget.Widget { return r.HitLeaf(r, p) }
+
+// bind shows row i. Text that did not change costs a comparison.
+func (r *searchRow) bind(i int, row search.Row, selected bool, number int) {
+	r.index = i
+	r.SetState(widget.StateSelected, selected)
+	isHeader := row.Header != ""
+	r.header.SetVisible(isHeader)
+	r.icon.slot.SetVisible(!isHeader && r.l.icons && row.Entry != nil && row.Entry.Glyph == "")
+	r.glyph.SetVisible(!isHeader && r.l.icons && row.Entry != nil && row.Entry.Glyph != "")
+	r.title.SetVisible(!isHeader)
+	r.subtitle.SetVisible(!isHeader)
+	r.hint.SetVisible(!isHeader)
+	if isHeader {
+		r.header.SetText(row.Header)
+		return
+	}
+	e := row.Entry
+	r.positions = row.AppendHighlights(r.positions[:0], &r.l.v.hl)
+	r.markup = appendHighlightMarkup(r.markup[:0], e.Title, r.positions, r.l.highlightTag())
+	if string(r.markup) != r.title.Markup() {
+		r.title.SetMarkup(string(r.markup))
+	}
+	r.subtitle.SetText(e.Subtitle)
+	hint := e.Hint
+	if hint == "" && number >= 1 && number <= 9 {
+		hint = numberHints[number-1]
+	}
+	r.hint.SetText(hint)
+	if !r.l.icons {
+		return
+	}
+	if e.Glyph != "" {
+		r.glyph.SetText(e.Glyph)
+		return
+	}
+	r.l.bindAsync(r.icon, iconSource(e.Icon))
+}
+
+// numberHints are the rows' shortcut labels.
+var numberHints = [...]string{"Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5", "Ctrl+6", "Ctrl+7", "Ctrl+8", "Ctrl+9"}
+
+// iconSource is what names an entry's icon: a theme name or a file.
+func iconSource(icon engine.Icon) string {
+	switch ic := icon.(type) {
+	case engine.IconName:
+		return string(ic)
+	case engine.IconFile:
+		return string(ic)
+	case engine.IconThumbnail:
+		return ic.Fallback
+	}
+	return ""
+}
+
+// highlightTag is the highlight's markup for the theme's accent, built
+// when the accent changes rather than per row.
+func (l *searchList) highlightTag() string {
+	accent := widget.Current().Accent
+	if l.openTag == "" || accent != l.openColor {
+		l.openColor = accent
+		l.openTag = "<span weight=\"700\" foreground=\"" + widgets.HexColor(accent) + "\">"
+	}
+	return l.openTag
+}
+
+// asyncIcon is a fixed-size slot for an icon that may not be decoded yet.
+// The slot is its size from the start, so an icon landing moves nothing,
+// and the one Icon widget is renamed rather than rebuilt.
+type asyncIcon struct {
+	slot *widget.Box
+	icon *widget.Icon
+	size int
+	// name is what the slot should show, shown what it does.
+	name, shown string
+}
+
+func newAsyncIcon(size int, class string) *asyncIcon {
+	a := &asyncIcon{slot: widget.NewBox(widget.Row, 0, 0), size: size}
+	a.slot.SetSizeRequest(size, size)
+	a.slot.AddClass(class)
+	return a
+}
+
+// show puts the decoded icon in the slot. Only this touches a theme name
+// on the UI loop, once the cache holds its raster.
+func (a *asyncIcon) show(name string) {
+	a.shown = name
+	if a.icon == nil {
+		a.icon = widget.NewThemeIconFallback(name, a.size)
+		a.slot.Append(a.icon, false)
+		return
+	}
+	a.icon.SetThemeName(name)
+	a.icon.SetVisible(true)
+}
+
+func (a *asyncIcon) blank() {
+	a.shown = ""
+	if a.icon != nil {
+		a.icon.SetVisible(false)
+	}
+}
+
+// bindAsync makes a show name: at once when its raster is decoded (the
+// cache answers without waiting), else blank until the loader has it.
+func (l *searchList) bindAsync(a *asyncIcon, name string) {
+	if a.name == name && (a.shown == name || name == "") {
+		return
+	}
+	a.name = name
+	if name == "" {
+		a.blank()
+		return
+	}
+	if l.num != 0 && widget.ThemeIconPreloaded(name, a.size, l.num, l.denom) {
+		a.show(name)
+		return
+	}
+	a.blank()
+	if !slices.Contains(l.waiting, a) {
+		l.waiting = append(l.waiting, a)
+	}
+	if l.num == 0 {
+		return
+	}
+	l.loader.request(iconRequest{name: name, size: a.size, num: l.num, denom: l.denom})
+}
+
+// iconReady runs on the UI loop when a decode finished.
+func (l *searchList) iconReady(req iconRequest) {
+	kept := l.waiting[:0]
+	for _, a := range l.waiting {
+		switch {
+		case a.name == req.name && a.size == req.size:
+			a.show(req.name)
+		case a.name != "" && a.shown != a.name:
+			kept = append(kept, a)
+		}
+	}
+	l.waiting = kept
+}
+
+// setScale follows the window: another device scale is another raster.
+func (l *searchList) setScale(num, denom int) {
+	if num == l.num && denom == l.denom {
+		return
+	}
+	l.num, l.denom = num, denom
+	l.waiting = l.waiting[:0]
+	for _, row := range l.pool {
+		row.icon.name = ""
+	}
+	l.v.searchIcon.name = ""
+	l.bindAsync(l.v.searchIcon, "ld-search-symbolic")
+	hero := l.v.pane.summary.icon
+	name := hero.name
+	hero.name = ""
+	l.bindAsync(hero, name)
+	l.InvalidateLayout()
+}

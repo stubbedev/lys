@@ -1,0 +1,423 @@
+package ipp
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"sync/atomic"
+	"time"
+)
+
+// The CUPS scheduler's domain sockets, the default server where one
+// exists (libcups' cupsServer order).
+var defaultSockets = []string{"/run/cups/cups.sock", "/var/run/cups/cups.sock"}
+
+// DefaultServer is libcups' server choice: $CUPS_SERVER (a socket path
+// or host[:port]), else the scheduler's domain socket, else
+// localhost:631.
+func DefaultServer() string {
+	if s := os.Getenv("CUPS_SERVER"); s != "" {
+		return s
+	}
+	for _, s := range defaultSockets {
+		if _, err := os.Stat(s); err == nil {
+			return s
+		}
+	}
+	return "localhost:631"
+}
+
+// Client talks IPP to one CUPS server.
+type Client struct {
+	http *http.Client
+	// base is the HTTP origin requests go to; the printer URIs inside
+	// them always name localhost, as libcups writes them.
+	base string
+	ids  atomic.Uint32
+}
+
+// requestTimeout bounds one request: CUPS answers at once, and a
+// spooling document is local.
+const requestTimeout = 30 * time.Second
+
+// NewClient addresses server: an absolute socket path or host[:port].
+func NewClient(server string) *Client {
+	c := &Client{http: &http.Client{Timeout: requestTimeout}}
+	if strings.HasPrefix(server, "/") {
+		path := server
+		c.http.Transport = &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", path)
+		}}
+		c.base = "http://localhost"
+		return c
+	}
+	if !strings.Contains(server, ":") {
+		server += ":631"
+	}
+	c.base = "http://" + server
+	return c
+}
+
+// Printer is one queue as the dialog lists it, with what it supports
+// (empty when it does not say).
+type Printer struct {
+	Name, Location, StateMessage string
+	// State is printer-state: 3 idle, 4 processing, 5 stopped.
+	State     int32
+	Accepting bool
+	// UUID is its printer-uuid ("urn:uuid:…"), DeviceURI where CUPS
+	// sends its jobs.
+	UUID, DeviceURI string
+	// StateReasons are its printer-state-reasons keywords ("none" left
+	// out), Markers its supplies.
+	StateReasons []string
+	Markers      []Marker
+	// Media are its PWG media names, Sides its sides keywords,
+	// ColorModes its print-color-mode keywords, Qualities its
+	// print-quality enums; each with its default.
+	Media, Sides, ColorModes   []string
+	MediaDefault, SidesDefault string
+	ColorModeDefault           string
+	Qualities                  []int32
+	QualityDefault             int32
+	// NumberUp are the pages per sheet it can print (number-up-
+	// supported, its ranges spelled out up to maxNumberUp), Scalings its
+	// print-scaling keywords, MediaSources its trays, MediaTypes its
+	// media types and OutputBins its output trays; each with its default
+	// where IPP has one.
+	NumberUp                 []int32
+	Scalings                 []string
+	ScalingDefault           string
+	MediaSources, MediaTypes []string
+	OutputBins               []string
+	OutputBinDefault         string
+}
+
+// maxNumberUp bounds a number-up-supported range spelled out.
+const maxNumberUp = 16
+
+// Marker is one supply (marker-names, marker-colors, marker-levels):
+// its level in percent, negative when the printer cannot tell.
+type Marker struct {
+	Name, Color string
+	Level       int32
+}
+
+// The printer-state values.
+const (
+	StateIdle       int32 = 3
+	StateProcessing int32 = 4
+	StateStopped    int32 = 5
+)
+
+// printerAttributes are the attributes a Printer reads.
+var printerAttributes = []string{
+	"printer-name", "printer-location", "printer-state", "printer-state-message", "printer-state-reasons",
+	"printer-is-accepting-jobs", "printer-uuid", "device-uri", "marker-names", "marker-colors", "marker-levels",
+	"media-supported", "media-default", "sides-supported", "sides-default",
+	"print-color-mode-supported", "print-color-mode-default", "print-quality-supported", "print-quality-default",
+	"number-up-supported", "print-scaling-supported", "print-scaling-default", "media-source-supported",
+	"media-type-supported", "output-bin-supported", "output-bin-default",
+}
+
+// operation is the operation group every request opens with.
+func operation(printerURI string, extra ...Attr) Group {
+	attrs := []Attr{
+		String(TagCharset, "attributes-charset", "utf-8"),
+		String(TagLanguage, "attributes-natural-language", "en"),
+		String(TagURI, "printer-uri", printerURI),
+	}
+	return Group{Tag: GroupOperation, Attrs: append(attrs, extra...)}
+}
+
+// PrinterURI is the queue's URI as CUPS names it.
+func PrinterURI(name string) string { return "ipp://localhost/printers/" + url.PathEscape(name) }
+
+// Printers lists the queues (CUPS-Get-Printers).
+func (c *Client) Printers(ctx context.Context) ([]Printer, error) {
+	req := Message{Code: OpCUPSGetPrinters, Groups: []Group{operation("ipp://localhost/",
+		String(TagKeyword, "requested-attributes", printerAttributes...),
+	)}}
+	resp, err := c.do(ctx, "/", req, nil)
+	if err != nil {
+		return nil, err
+	}
+	var out []Printer
+	for _, g := range resp.Groups {
+		if p, ok := printerOf(g); ok {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+// Printer reads one queue's attributes (Get-Printer-Attributes).
+func (c *Client) Printer(ctx context.Context, name string) (Printer, error) {
+	return c.Attributes(ctx, PrinterURI(name))
+}
+
+// Attributes reads the attributes of the printer at printerURI, posted
+// to its path (Get-Printer-Attributes).
+func (c *Client) Attributes(ctx context.Context, printerURI string) (Printer, error) {
+	u, err := url.Parse(printerURI)
+	if err != nil {
+		return Printer{}, fmt.Errorf("ipp: printer URI %q: %w", printerURI, err)
+	}
+	req := Message{Code: OpGetPrinterAttributes, Groups: []Group{operation(printerURI,
+		String(TagKeyword, "requested-attributes", printerAttributes...),
+	)}}
+	resp, err := c.do(ctx, u.EscapedPath(), req, nil)
+	if err != nil {
+		return Printer{}, err
+	}
+	for _, g := range resp.Groups {
+		if p, ok := printerOf(g); ok {
+			return p, nil
+		}
+	}
+	return Printer{}, fmt.Errorf("ipp: no attributes for printer %s", printerURI)
+}
+
+// CreateLocalPrinter has CUPS make a temporary IPP Everywhere queue for
+// the printer at deviceURI, which it removes once idle
+// (CUPS-Create-Local-Printer), and reports its name.
+func (c *Client) CreateLocalPrinter(ctx context.Context, deviceURI, name string) (string, error) {
+	req := Message{Code: OpCUPSCreateLocalPrinter, Groups: []Group{
+		operation("ipp://localhost/"),
+		{Tag: GroupPrinter, Attrs: []Attr{String(TagName, "printer-name", name), String(TagURI, "device-uri", deviceURI)}},
+	}}
+	resp, err := c.do(ctx, "/", req, nil)
+	if err != nil {
+		return "", fmt.Errorf("ipp: a queue for %s: %w", deviceURI, err)
+	}
+	for _, g := range resp.Groups {
+		if g.Tag != GroupPrinter {
+			continue
+		}
+		u, err := url.Parse(g.Text("printer-uri-supported"))
+		if err != nil {
+			continue
+		}
+		if queue, ok := strings.CutPrefix(u.Path, "/printers/"); ok && queue != "" {
+			return url.PathUnescape(queue)
+		}
+	}
+	return "", fmt.Errorf("ipp: CUPS named no queue for %s", deviceURI)
+}
+
+// DeviceAttributes reads the attributes of a network printer at its own
+// ipp:// or ipps:// URI, as the dialog does for one found over DNS-SD
+// before CUPS has a queue for it. An ipps printer's certificate is
+// self-signed as a rule, and only its capabilities are read, so it is
+// not verified; the job itself goes through CUPS.
+func DeviceAttributes(ctx context.Context, uri string) (Printer, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return Printer{}, fmt.Errorf("ipp: printer URI %q: %w", uri, err)
+	}
+	port := u.Port()
+	if port == "" {
+		port = "631"
+	}
+	c := &Client{http: &http.Client{Timeout: requestTimeout}}
+	switch u.Scheme {
+	case "ipp":
+		c.base = (&url.URL{Scheme: "http", Host: net.JoinHostPort(u.Hostname(), port)}).String()
+	case "ipps":
+		c.base = (&url.URL{Scheme: "https", Host: net.JoinHostPort(u.Hostname(), port)}).String()
+		c.http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} //nolint:gosec // capabilities only, from a printer whose certificate is self-signed
+	default:
+		return Printer{}, fmt.Errorf("ipp: printer URI %q is neither ipp nor ipps", uri)
+	}
+	return c.Attributes(ctx, uri)
+}
+
+// Default is the scheduler's default destination (CUPS-Get-Default),
+// "" when it has none.
+func (c *Client) Default(ctx context.Context) (string, error) {
+	req := Message{Code: OpCUPSGetDefault, Groups: []Group{operation("ipp://localhost/",
+		String(TagKeyword, "requested-attributes", "printer-name"),
+	)}}
+	resp, err := c.do(ctx, "/", req, nil)
+	if IsNotFound(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	for _, g := range resp.Groups {
+		if g.Tag == GroupPrinter {
+			return g.Text("printer-name"), nil
+		}
+	}
+	return "", nil
+}
+
+// printerOf reads a printer group; false for another group or a
+// nameless printer.
+func printerOf(g Group) (Printer, bool) {
+	if g.Tag != GroupPrinter {
+		return Printer{}, false
+	}
+	p := Printer{
+		Name: g.Text("printer-name"), Location: g.Text("printer-location"), StateMessage: g.Text("printer-state-message"),
+		UUID: g.Text("printer-uuid"), DeviceURI: g.Text("device-uri"), Accepting: true,
+	}
+	if p.Name == "" {
+		return Printer{}, false
+	}
+	if s, ok := g.Int("printer-state"); ok {
+		p.State = s
+	}
+	if a, ok := g.Int("printer-is-accepting-jobs"); ok {
+		p.Accepting = a != 0
+	}
+	for _, r := range g.Texts("printer-state-reasons") {
+		if r != "none" {
+			p.StateReasons = append(p.StateReasons, r)
+		}
+	}
+	names, colors, levels := g.Texts("marker-names"), g.Texts("marker-colors"), g.Ints("marker-levels")
+	for i, name := range names {
+		m := Marker{Name: name, Level: -1}
+		if i < len(colors) {
+			m.Color = colors[i]
+		}
+		if i < len(levels) {
+			m.Level = levels[i]
+		}
+		p.Markers = append(p.Markers, m)
+	}
+	p.Media, p.MediaDefault = g.Texts("media-supported"), g.Text("media-default")
+	p.Sides, p.SidesDefault = g.Texts("sides-supported"), g.Text("sides-default")
+	p.ColorModes, p.ColorModeDefault = g.Texts("print-color-mode-supported"), g.Text("print-color-mode-default")
+	p.Qualities = g.Ints("print-quality-supported")
+	p.QualityDefault, _ = g.Int("print-quality-default")
+	p.NumberUp = numberUp(g)
+	p.Scalings, p.ScalingDefault = g.Texts("print-scaling-supported"), g.Text("print-scaling-default")
+	p.MediaSources, p.MediaTypes = g.Texts("media-source-supported"), g.Texts("media-type-supported")
+	p.OutputBins, p.OutputBinDefault = g.Texts("output-bin-supported"), g.Text("output-bin-default")
+	return p, true
+}
+
+// numberUp spells number-up-supported out: its integers, and its
+// ranges up to maxNumberUp.
+func numberUp(g Group) []int32 {
+	a, _ := g.Get("number-up-supported")
+	var out []int32
+	for _, v := range a.Values {
+		if v.Tag != TagRange {
+			out = append(out, v.Int)
+			continue
+		}
+		for n := max(v.Low, 1); n <= min(v.Int, maxNumberUp); n++ {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// Job is one document to spool.
+type Job struct {
+	Printer, Title, User string
+	// Format is the document's MIME type.
+	Format string
+	// Attrs are the job template attributes (copies, sides, media...).
+	Attrs    []Attr
+	Document io.Reader
+}
+
+// Print sends a job (Print-Job) and returns its id.
+func (c *Client) Print(ctx context.Context, j Job) (int32, error) {
+	groups := []Group{operation(PrinterURI(j.Printer),
+		String(TagName, "requesting-user-name", j.User),
+		String(TagName, "job-name", j.Title),
+		String(TagMimeMedia, "document-format", j.Format),
+	)}
+	if len(j.Attrs) > 0 {
+		groups = append(groups, Group{Tag: GroupJob, Attrs: j.Attrs})
+	}
+	resp, err := c.do(ctx, "/printers/"+url.PathEscape(j.Printer), Message{Code: OpPrintJob, Groups: groups}, j.Document)
+	if err != nil {
+		return 0, err
+	}
+	for _, g := range resp.Groups {
+		if id, ok := g.Int("job-id"); ok {
+			return id, nil
+		}
+	}
+	return 0, nil
+}
+
+// do posts one request (and its document) and decodes the answer; an
+// unsuccessful status is an error carrying status-message.
+func (c *Client) do(ctx context.Context, path string, m Message, doc io.Reader) (Message, error) {
+	m.RequestID = c.ids.Add(1)
+	if err := m.checkLengths(); err != nil {
+		return Message{}, err
+	}
+	body := io.Reader(bytes.NewReader(m.Encode()))
+	if doc != nil {
+		body = io.MultiReader(body, doc)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, body)
+	if err != nil {
+		return Message{}, err
+	}
+	req.Header.Set("Content-Type", "application/ipp")
+	res, err := c.http.Do(req)
+	if err != nil {
+		return Message{}, fmt.Errorf("ipp: %w", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		return Message{}, fmt.Errorf("ipp: HTTP %s", res.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(res.Body, 16<<20))
+	if err != nil {
+		return Message{}, fmt.Errorf("ipp: %w", err)
+	}
+	resp, err := Decode(data)
+	if err != nil {
+		return Message{}, err
+	}
+	if !StatusOK(resp.Code) {
+		msg := ""
+		for _, g := range resp.Groups {
+			if t := g.Text("status-message"); t != "" {
+				msg = t
+			}
+		}
+		return resp, &StatusError{Code: resp.Code, Message: msg}
+	}
+	return resp, nil
+}
+
+// StatusError is an unsuccessful IPP status.
+type StatusError struct {
+	Code    uint16
+	Message string
+}
+
+func (e *StatusError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("ipp: status %#04x: %s", e.Code, e.Message)
+	}
+	return fmt.Sprintf("ipp: status %#04x", e.Code)
+}
+
+// IsNotFound reports client-error-not-found (no such printer, or no
+// printers at all for CUPS-Get-Printers).
+func IsNotFound(err error) bool {
+	var se *StatusError
+	return errors.As(err, &se) && se.Code == 0x0406
+}

@@ -1,0 +1,317 @@
+package modes
+
+import (
+	"bufio"
+	"encoding/json"
+	"errors"
+	"net"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/stubbedev/lys-lib/sockdir"
+
+	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys-shell/service/mango"
+)
+
+func captured(t *testing.T, compositor, name string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "compositors", compositor, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+type replay struct {
+	mu       sync.Mutex
+	requests []string
+}
+
+func (r *replay) recorded() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.requests)
+}
+
+func (r *replay) note(request string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.requests = append(r.requests, request)
+}
+
+func serve(t *testing.T, path string, handle func(net.Conn)) {
+	t.Helper()
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer func() { _ = conn.Close() }()
+				handle(conn)
+			}()
+		}
+	}()
+}
+
+func serveLines(t *testing.T, path string, replies map[string]string) *replay {
+	t.Helper()
+	r := &replay{}
+	serve(t, path, func(conn net.Conn) {
+		reader := bufio.NewReader(conn)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			request := strings.TrimSuffix(line, "\n")
+			r.note(request)
+			reply, ok := replies[request]
+			if !ok {
+				t.Errorf("unexpected request %q", request)
+				return
+			}
+			if _, err := conn.Write([]byte(reply)); err != nil {
+				return
+			}
+		}
+	})
+	return r
+}
+
+func serveHyprland(t *testing.T, replies map[string]string) *replay {
+	t.Helper()
+	runtime := sockdir.Dir(t)
+	const signature = "captured"
+	base := filepath.Join(runtime, "hypr", signature)
+	if err := os.MkdirAll(base, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_RUNTIME_DIR", runtime)
+	t.Setenv("HYPRLAND_INSTANCE_SIGNATURE", signature)
+	r := &replay{}
+	serve(t, filepath.Join(base, ".socket.sock"), func(conn net.Conn) {
+		buf := make([]byte, 4096)
+		n, err := conn.Read(buf)
+		if err != nil {
+			return
+		}
+		request := string(buf[:n])
+		r.note(request)
+		reply, ok := replies[request]
+		if !ok {
+			t.Errorf("unexpected request %q", request)
+			return
+		}
+		_, _ = conn.Write([]byte(reply))
+	})
+	return r
+}
+
+func titles(windows []WindowInfo) []string {
+	out := make([]string, len(windows))
+	for i, w := range windows {
+		out[i] = w.Title
+	}
+	return out
+}
+
+func displays(items []launcher.Item) []string {
+	out := make([]string, len(items))
+	for i, item := range items {
+		out[i] = item.Display
+	}
+	return out
+}
+
+func TestCapturedHyprlandWindows(t *testing.T) {
+	const (
+		missingFocusLua = `dispatch hl.dsp.focus({window = "address:0xdead"})`
+		missingFocusOld = "dispatch focuswindow address:0xdead"
+	)
+	for _, tc := range []struct {
+		compositor string
+		focus      string
+		shut       string
+		missing    string
+	}{
+		{
+			compositor: "hyprland-0.57.0",
+			focus:      `dispatch hl.dsp.focus({window = "address:%s"})`,
+			shut:       `dispatch hl.dsp.window.close({window = "address:%s"})`,
+			missing:    "focus-missing-reply.txt",
+		},
+		{
+			compositor: "hyprland-0.56.2",
+			focus:      "dispatch focuswindow address:%s",
+			shut:       "dispatch closewindow address:%s",
+			missing:    "focus-missing-reply.txt",
+		},
+	} {
+		t.Run(tc.compositor, func(t *testing.T) {
+			clients := captured(t, tc.compositor, "clients.json")
+			var raw []struct {
+				Address string `json:"address"`
+				Class   string `json:"class"`
+			}
+			if err := json.Unmarshal([]byte(clients), &raw); err != nil {
+				t.Fatal(err)
+			}
+			if len(raw) != 3 {
+				t.Fatalf("captured clients = %+v", raw)
+			}
+			target := raw[0].Address
+			request := func(format string) string { return strings.ReplaceAll(format, "%s", target) }
+			replies := map[string]string{
+				"j/clients":         clients,
+				"j/activeworkspace": captured(t, tc.compositor, "activeworkspace.json"),
+				request(tc.focus):   "ok",
+				request(tc.shut):    "ok",
+			}
+			if tc.compositor == "hyprland-0.57.0" {
+				replies[missingFocusLua] = captured(t, tc.compositor, tc.missing)
+			} else {
+				invalid := captured(t, tc.compositor, "lua-dispatch-reply.txt")
+				replies[`dispatch hl.dsp.focus({window = "address:`+target+`"})`] = invalid
+				replies[`dispatch hl.dsp.window.close({window = "address:`+target+`"})`] = invalid
+				replies[missingFocusLua] = invalid
+				replies[missingFocusOld] = captured(t, tc.compositor, tc.missing)
+			}
+			r := serveHyprland(t, replies)
+			var b hyprlandBackend
+
+			got, err := b.List(bg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(titles(got), []string{"live-a", "live-b", "live-c"}) {
+				t.Fatalf("listed %+v", got)
+			}
+			if got[0].ID != target || got[0].Class != "live-a" || got[0].Workspace != "1" || !got[0].OnCurrentWorkspace {
+				t.Errorf("live-a = %+v", got[0])
+			}
+			if !got[1].Focused || got[0].Focused || got[2].Focused {
+				t.Errorf("the focused window is live-b: %+v", got)
+			}
+			if got[2].Workspace != "2" || got[2].OnCurrentWorkspace {
+				t.Errorf("live-c lives on workspace 2: %+v", got[2])
+			}
+
+			if err := b.Focus(bg, target); err != nil {
+				t.Errorf("focus: %v", err)
+			}
+			if err := b.Close(bg, target); err != nil {
+				t.Errorf("close: %v", err)
+			}
+			requests := r.recorded()
+			if !slices.Contains(requests, request(tc.focus)) || !slices.Contains(requests, request(tc.shut)) {
+				t.Errorf("requests = %q", requests)
+			}
+			if err := b.Focus(bg, "0xdead"); err == nil || !strings.Contains(err.Error(), strings.TrimSpace(captured(t, tc.compositor, tc.missing))) {
+				t.Errorf("focusing a missing window = %v", err)
+			}
+		})
+	}
+}
+
+func TestCapturedHyprland057RefusesLegacyDispatch(t *testing.T) {
+	const compositor = "hyprland-0.57.0"
+	r := serveHyprland(t, map[string]string{
+		`dispatch hl.dsp.focus({window = "address:0x1"})`: captured(t, compositor, "focus-missing-reply.txt"),
+		"dispatch focuswindow address:0x1":                captured(t, compositor, "legacy-dispatch-reply.txt"),
+	})
+	if err := (hyprlandBackend{}).Focus(bg, "0x1"); err == nil {
+		t.Error("a window the compositor did not find is an error")
+	}
+	if got := r.recorded(); len(got) != 1 {
+		t.Errorf("a Lua instance's failure must not retry in the legacy language: %q", got)
+	}
+}
+
+func TestCapturedNiriWindows(t *testing.T) {
+	const compositor = "niri-26.04"
+	socket := filepath.Join(sockdir.Dir(t), "niri.sock")
+	t.Setenv("NIRI_SOCKET", socket)
+	r := serveLines(t, socket, map[string]string{
+		`"Windows"`:                           captured(t, compositor, "windows.json"),
+		`"Workspaces"`:                        captured(t, compositor, "workspaces.json"),
+		`{"Action":{"FocusWindow":{"id":2}}}`: `{"Ok":"Handled"}` + "\n",
+		`{"Action":{"CloseWindow":{"id":2}}}`: `{"Ok":"Handled"}` + "\n",
+	})
+	m := &Window{cfg: DefaultWindowConfig(), backend: niriBackend{}}
+	st := m.Load(bg)
+	if want := []string{"two   live-b   live-b", "two   live-a   live-a", "2   live-c   live-c"}; !slices.Equal(displays(st.Items), want) {
+		t.Errorf("rows = %q, want the most recently focused first and the focused window last, %q", displays(st.Items), want)
+	}
+	focused := m.windows[len(m.windows)-1]
+	if !focused.Focused || !focused.OnCurrentWorkspace {
+		t.Errorf("the focused window = %+v", focused)
+	}
+	if m.windows[0].OnCurrentWorkspace {
+		t.Errorf("a window on the unfocused workspace = %+v", m.windows[0])
+	}
+	if err := (niriBackend{}).Focus(bg, "2"); err != nil {
+		t.Errorf("focus: %v", err)
+	}
+	if err := (niriBackend{}).Close(bg, "2"); err != nil {
+		t.Errorf("close: %v", err)
+	}
+	if got := r.recorded(); !slices.Contains(got, `{"Action":{"FocusWindow":{"id":2}}}`) || !slices.Contains(got, `{"Action":{"CloseWindow":{"id":2}}}`) {
+		t.Errorf("requests = %q", got)
+	}
+}
+
+func TestCapturedMangoWindows(t *testing.T) {
+	const compositor = "mango-0.18.3"
+	socket := filepath.Join(sockdir.Dir(t), "mango.sock")
+	t.Setenv(mango.SocketEnv, socket)
+	missing := captured(t, compositor, "focus-missing-reply.json")
+	r := serveLines(t, socket, map[string]string{
+		"watch all-clients":            captured(t, compositor, "watch-all-clients.json"),
+		"watch all-monitors":           captured(t, compositor, "watch-all-monitors.json"),
+		"dispatch focusid client,1":    `{"success":true}` + "\n",
+		"dispatch killclient client,1": `{"success":true}` + "\n",
+		"dispatch focusid client,99":   missing,
+	})
+	var b mangoBackend
+	got, err := b.List(bg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(titles(got), []string{"live-c", "live-b", "live-a"}) {
+		t.Fatalf("listed %+v", got)
+	}
+	if got[2].ID != "1" || got[2].Class != "live-a" || got[2].Workspace != "1" || got[2].OnCurrentWorkspace {
+		t.Errorf("live-a = %+v", got[2])
+	}
+	if !got[0].Focused || got[0].Workspace != "2" || !got[0].OnCurrentWorkspace {
+		t.Errorf("live-c = %+v", got[0])
+	}
+	if err := b.Focus(bg, "1"); err != nil {
+		t.Errorf("focus: %v", err)
+	}
+	if err := b.Close(bg, "1"); err != nil {
+		t.Errorf("close: %v", err)
+	}
+	if got := r.recorded(); !slices.Contains(got, "dispatch focusid client,1") || !slices.Contains(got, "dispatch killclient client,1") {
+		t.Errorf("requests = %q", got)
+	}
+	var rejected *mango.RejectedError
+	if err := b.Focus(bg, "99"); !errors.As(err, &rejected) {
+		t.Errorf("focusing a missing client = %v", err)
+	}
+	if err := b.Focus(bg, "not-a-number"); err == nil {
+		t.Error("a malformed client id is an error")
+	}
+}

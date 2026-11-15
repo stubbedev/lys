@@ -1,0 +1,6 @@
+Capture a dragged region or a clicked window
+
+Usage: lys-shell screenshot region
+
+Options:
+  -h, --help  Print help

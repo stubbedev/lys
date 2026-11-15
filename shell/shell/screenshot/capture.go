@@ -1,0 +1,378 @@
+package screenshot
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"image/draw"
+	"log"
+	"math"
+	"sync"
+
+	"github.com/stubbedev/lys-desktop/offheap"
+	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys-shell/service/sharepreview"
+	"github.com/stubbedev/lys-shell/shell/regionoverlay"
+)
+
+// The compositor-agnostic capture half of the host
+// (screenshot/capture.rs): whole outputs through wlr-screencopy with
+// the transform read from wl_output, freeze-frame captures of every
+// output for the region overlay and the color picker, and window
+// capture through Hyprland's toplevel-export when a Hyprland handle is
+// known, else ext-image-copy-capture matched by app id and title.
+// Every function blocks on the capture connection.
+
+// frozenOutput is one output captured up front: its connector and the
+// full-resolution, transform-corrected frame. The frame's pixels live
+// off the Go heap in pix, so they go back to the system when the frame
+// is released instead of lingering as garbage; its identity keys the
+// GPU texture drawn from it, which is dropped on release too.
+type frozenOutput struct {
+	connector string
+	image     render.StillImage
+	pix       memory.Slice[byte]
+}
+
+// framesOf maps each frozen output's connector to its frame.
+func framesOf(frozen []frozenOutput) map[string]render.StillImage {
+	frames := make(map[string]render.StillImage, len(frozen))
+	for _, f := range frozen {
+		frames[f.connector] = f.image
+	}
+	return frames
+}
+
+// windowTarget identifies the window to capture: one the user picked
+// by its ext-foreign-toplevel identifier, or the focused one resolved
+// from the compositor's focus state.
+type windowTarget struct {
+	// identifier is the picked window's ext toplevel identifier.
+	identifier string
+	// hyprlandHandle is the toplevel-export handle (the window
+	// address), when on Hyprland.
+	hyprlandHandle uint64
+	hasHandle      bool
+	// appID and title match an ext toplevel on the generic path.
+	appID, title       string
+	hasAppID, hasTitle bool
+}
+
+// freeFrames frees the frames' pixels; nothing may draw them any more.
+func freeFrames(mem *memory.Shared, frozen []frozenOutput) {
+	pix := make([]memory.Slice[byte], len(frozen))
+	for i, f := range frozen {
+		pix[i] = f.pix
+	}
+	freePixels(mem, pix...)
+}
+
+// freePixels frees frame pixels mem holds, logging a failure: the flow
+// that let go of them has nothing left to undo.
+func freePixels(mem *memory.Shared, pix ...memory.Slice[byte]) {
+	if err := offheap.Free(mem, pix...); err != nil {
+		log.Printf("screenshot: %v", err)
+	}
+}
+
+// frozenFrame converts a captured frame into pixels mem holds, with the
+// output transform applied: straight in when there is none, else
+// through a scratch image freed before it returns.
+func frozenFrame(mem *memory.Shared, connector string, f *capture.Frame, t capture.Transform) (frozenOutput, error) {
+	w, h := sharepreview.TransformedSize(f.Width, f.Height, t)
+	img, pix, err := offheap.NewRGBA(mem, w, h)
+	if err != nil {
+		return frozenOutput{}, err
+	}
+	out := frozenOutput{connector: connector, image: render.NewStillImage(img), pix: pix}
+	if t == capture.TransformNormal {
+		err = f.ImageInto(img)
+	} else {
+		err = transformedInto(mem, img, f, t)
+	}
+	if err != nil {
+		freeFrames(mem, []frozenOutput{out})
+		return frozenOutput{}, fmt.Errorf("cannot decode the capture of %s: %w", connector, err)
+	}
+	return out, nil
+}
+
+// transformedInto converts f into dst with t applied, through a
+// scratch image of f's own orientation that mem holds while it runs.
+func transformedInto(mem *memory.Shared, dst *image.RGBA, f *capture.Frame, t capture.Transform) error {
+	raw, pix, err := offheap.NewRGBA(mem, f.Width, f.Height)
+	if err != nil {
+		return err
+	}
+	defer freePixels(mem, pix)
+	if err := f.ImageInto(raw); err != nil {
+		return err
+	}
+	sharepreview.TransformInto(dst, raw, t)
+	return nil
+}
+
+// captureAllOutputs captures every named output for the freeze-frame
+// flows into frames mem holds, the pointer composited in when pointer
+// is set. Run it before any overlay maps, so transient popups on screen
+// are baked into the frames. The copies run sequentially on one
+// connection; the conversions (format + transform) fan out one
+// goroutine per output. On an error no frame is left allocated.
+func captureAllOutputs(mem *memory.Shared, pointer bool) ([]frozenOutput, error) {
+	c, err := capture.Connect()
+	if err != nil {
+		return nil, fmt.Errorf("cannot connect to wayland: %w", err)
+	}
+	defer func() { _ = c.Close() }()
+	type raw struct {
+		connector string
+		frame     *capture.Frame
+		transform capture.Transform
+	}
+	var raws []raw
+	for _, o := range c.Outputs() {
+		if o.Name == "" {
+			continue
+		}
+		f, err := c.CaptureOutput(o, screenshotOptions(pointer))
+		if err != nil {
+			return nil, fmt.Errorf("output capture failed: %w", err)
+		}
+		raws = append(raws, raw{connector: o.Name, frame: f, transform: o.Transform})
+	}
+	out := make([]frozenOutput, len(raws))
+	errs := make([]error, len(raws))
+	var wg sync.WaitGroup
+	for i, r := range raws {
+		wg.Go(func() { out[i], errs[i] = frozenFrame(mem, r.connector, r.frame, r.transform) })
+	}
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		freeFrames(mem, out)
+		return nil, err
+	}
+	return out, nil
+}
+
+// captureOutput captures one output by connector name, or the first
+// output when name is empty, with the pointer when pointer is set.
+func captureOutput(name string, pointer bool) (*image.RGBA, error) {
+	c, err := capture.Connect()
+	if err != nil {
+		return nil, fmt.Errorf("cannot connect to wayland: %w", err)
+	}
+	defer func() { _ = c.Close() }()
+	outs := c.Outputs()
+	var target capture.Output
+	switch {
+	case name != "":
+		o, ok := c.OutputByName(name)
+		if !ok {
+			return nil, fmt.Errorf("output %s not found", name)
+		}
+		target = o
+	case len(outs) > 0:
+		target = outs[0]
+	default:
+		return nil, errors.New("no outputs available")
+	}
+	f, err := c.CaptureOutput(target, screenshotOptions(pointer))
+	if err != nil {
+		return nil, fmt.Errorf("output capture failed: %w", err)
+	}
+	img, err := sharepreview.FrameImage(f, target.Transform)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode capture: %w", err)
+	}
+	return img, nil
+}
+
+// captureWindow captures the target window: Hyprland's toplevel-export
+// when a handle is known and the protocol is there, else the generic
+// ext path; with the pointer when pointer is set.
+func captureWindow(t windowTarget, pointer bool) (*image.RGBA, error) {
+	c, err := capture.Connect()
+	if err != nil {
+		return nil, fmt.Errorf("cannot connect to wayland: %w", err)
+	}
+	defer func() { _ = c.Close() }()
+	var f *capture.Frame
+	if t.identifier == "" && t.hasHandle && c.HasHyprlandExport() {
+		f, err = c.CaptureHyprlandWindow(t.hyprlandHandle, screenshotOptions(pointer))
+		if err != nil {
+			return nil, fmt.Errorf("window capture failed: %w", err)
+		}
+	} else {
+		if !c.HasToplevelCapture() {
+			return nil, errors.New("window capture not supported on this compositor")
+		}
+		tls, err := c.Toplevels()
+		if err != nil {
+			return nil, fmt.Errorf("window capture failed: %w", err)
+		}
+		idx := -1
+		for i, tl := range tls {
+			if matchesToplevel(tl, t) {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return nil, errors.New("could not find the target window to capture")
+		}
+		f, err = c.CaptureToplevel(tls[idx], screenshotOptions(pointer))
+		if err != nil {
+			return nil, fmt.Errorf("window capture failed: %w", err)
+		}
+	}
+	img, err := sharepreview.FrameImage(f, capture.TransformNormal)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode capture: %w", err)
+	}
+	return img, nil
+}
+
+// matchesToplevel matches an ext toplevel against the target: by its
+// identifier when the target names one, else by app id and title.
+func matchesToplevel(tl capture.Toplevel, t windowTarget) bool {
+	if t.identifier != "" {
+		return tl.Identifier == t.identifier
+	}
+	return matchesTarget(tl.AppID, tl.Title, t)
+}
+
+// matchesTarget matches an ext toplevel against the target by app id
+// and title. Each key the target carries must match; a target with no
+// identity at all matches nothing, rather than everything.
+func matchesTarget(appID, title string, t windowTarget) bool {
+	if !t.hasAppID && !t.hasTitle {
+		return false
+	}
+	if t.hasAppID && appID != t.appID {
+		return false
+	}
+	if t.hasTitle && title != t.title {
+		return false
+	}
+	return true
+}
+
+// logicalGeometry is an output's position and size in the compositor
+// layout; positions may be negative.
+type logicalGeometry struct {
+	x, y, width, height int
+}
+
+// placedFrame pairs an output's logical placement with its
+// physical-resolution frame.
+type placedFrame struct {
+	logical logicalGeometry
+	image   *image.RGBA
+}
+
+// layoutBounds is the bounding box spanning every geometry: the
+// minimum origin and the total extent. ok is false without geometries.
+func layoutBounds(geoms []logicalGeometry) (x, y, w, h int, ok bool) {
+	if len(geoms) == 0 {
+		return 0, 0, 0, 0, false
+	}
+	minX, minY := geoms[0].x, geoms[0].y
+	maxX, maxY := geoms[0].x+geoms[0].width, geoms[0].y+geoms[0].height
+	for _, g := range geoms[1:] {
+		minX, minY = min(minX, g.x), min(minY, g.y)
+		maxX, maxY = max(maxX, g.x+g.width), max(maxY, g.y+g.height)
+	}
+	return minX, minY, max(maxX-minX, 0), max(maxY-minY, 0), true
+}
+
+// compositeOutputs composites every output's frame into one image
+// spanning the layout's logical bounding box: each frame scaled to its
+// logical size (fractional scaling makes the physical size differ) and
+// placed at its origin minus the layout's top-left. No frames make a
+// 0x0 image.
+func compositeOutputs(frames []placedFrame) *image.RGBA {
+	geoms := make([]logicalGeometry, len(frames))
+	for i, f := range frames {
+		geoms[i] = f.logical
+	}
+	ox, oy, w, h, ok := layoutBounds(geoms)
+	if !ok {
+		return image.NewRGBA(image.Rectangle{})
+	}
+	canvas := image.NewRGBA(image.Rect(0, 0, w, h))
+	for _, f := range frames {
+		lw, lh := max(f.logical.width, 0), max(f.logical.height, 0)
+		if lw == 0 || lh == 0 {
+			continue
+		}
+		scaled := f.image
+		if b := f.image.Bounds(); b.Dx() != lw || b.Dy() != lh {
+			scaled = sharepreview.Resize(f.image, lw, lh)
+		}
+		dx, dy := max(f.logical.x-ox, 0), max(f.logical.y-oy, 0)
+		draw.Draw(canvas, image.Rect(dx, dy, dx+lw, dy+lh), scaled, scaled.Bounds().Min, draw.Src)
+	}
+	return canvas
+}
+
+// cropFrozen crops a logical selection out of an output's frozen frame:
+// the selection scales by the frame/logical ratio and clamps to the
+// frame.
+func cropFrozen(img *image.RGBA, logicalW, logicalH int, sel regionoverlay.Selection) *image.RGBA {
+	b := img.Bounds()
+	sx := float64(b.Dx()) / float64(max(logicalW, 1))
+	sy := float64(b.Dy()) / float64(max(logicalH, 1))
+	x := clampNonNeg(math.Round(float64(sel.X) * sx))
+	y := clampNonNeg(math.Round(float64(sel.Y) * sy))
+	w := clampNonNeg(math.Round(float64(sel.Width) * sx))
+	h := clampNonNeg(math.Round(float64(sel.Height) * sy))
+	x, y = min(x, b.Dx()), min(y, b.Dy())
+	w, h = min(w, b.Dx()-x), min(h, b.Dy()-y)
+	out := image.NewRGBA(image.Rect(0, 0, w, h))
+	draw.Draw(out, out.Bounds(), img, image.Pt(b.Min.X+x, b.Min.Y+y), draw.Src)
+	return out
+}
+
+// cropAcross crops a selection spanning several outputs out of their
+// frozen frames, at logical resolution as the whole-screen composite:
+// each output's part is cropped at its frame's resolution, scaled to
+// its logical size, and placed by its offset in the selection.
+func cropAcross(frames map[string]render.StillImage, monitors []regionoverlay.Monitor, sel image.Rectangle) *image.RGBA {
+	out := image.NewRGBA(image.Rect(0, 0, sel.Dx(), sel.Dy()))
+	for _, m := range monitors {
+		frame, ok := frames[m.Connector]
+		mon := image.Rect(m.X, m.Y, m.X+m.Width, m.Y+m.Height)
+		part := sel.Intersect(mon)
+		if !ok || part.Empty() {
+			continue
+		}
+		crop := cropFrozen(frame.RGBA, m.Width, m.Height, regionoverlay.Selection{
+			Output: m.Connector, X: part.Min.X - m.X, Y: part.Min.Y - m.Y, Width: part.Dx(), Height: part.Dy(),
+		})
+		if b := crop.Bounds(); b.Dx() != part.Dx() || b.Dy() != part.Dy() {
+			crop = sharepreview.Resize(crop, part.Dx(), part.Dy())
+		}
+		at := part.Min.Sub(sel.Min)
+		draw.Draw(out, image.Rectangle{Min: at, Max: at.Add(part.Size())}, crop, crop.Bounds().Min, draw.Src)
+	}
+	return out
+}
+
+// clampNonNeg converts a rounded float to int the way Rust's `as u32`
+// saturates negatives to zero.
+func clampNonNeg(v float64) int {
+	if v < 0 || math.IsNaN(v) {
+		return 0
+	}
+	return int(v)
+}
+
+// screenshotOptions is every capture here: a one-shot screenshot the
+// user asked for, which a compositor keeping surfaces out of screen
+// sharing lets show them, with the pointer when pointer is set.
+func screenshotOptions(pointer bool) capture.Options {
+	return capture.Options{Cursor: pointer, Intent: capture.Screenshot}
+}

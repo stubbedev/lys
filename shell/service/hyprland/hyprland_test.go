@@ -1,0 +1,381 @@
+package hyprland
+
+import (
+	"bufio"
+	"context"
+	"net"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/ipcsock/ipcsocktest"
+	"github.com/stubbedev/lys-lib/sockdir"
+)
+
+// fakeHyprland is a scriptable IPC server: it answers command-socket
+// requests from a table and can push event lines to the first event
+// subscriber.
+type fakeHyprland struct {
+	commandPath string
+	eventPath   string
+	replies     map[string]string
+	requests    chan string
+	events      chan net.Conn
+}
+
+func startFake(t *testing.T, replies map[string]string) *fakeHyprland {
+	t.Helper()
+	dir := sockdir.Dir(t)
+	f := &fakeHyprland{
+		commandPath: filepath.Join(dir, ".socket.sock"),
+		eventPath:   filepath.Join(dir, ".socket2.sock"),
+		replies:     replies,
+		requests:    make(chan string, 16),
+		events:      make(chan net.Conn, 1),
+	}
+	commandLn, err := net.Listen("unix", f.commandPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for {
+			conn, err := commandLn.Accept()
+			if err != nil {
+				return
+			}
+			go f.serveCommand(conn)
+		}
+	}()
+	t.Cleanup(func() { commandLn.Close() })
+
+	eventLn, err := net.Listen("unix", f.eventPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for {
+			conn, err := eventLn.Accept()
+			if err != nil {
+				return
+			}
+			f.events <- conn
+		}
+	}()
+	t.Cleanup(func() { eventLn.Close() })
+	return f
+}
+
+func (f *fakeHyprland) serveCommand(conn net.Conn) {
+	defer conn.Close()
+	// One request per connection, small enough for a single read; the
+	// client keeps its write side open while it waits for the reply.
+	tmp := make([]byte, 4096)
+	n, _ := conn.Read(tmp)
+	request := string(tmp[:n])
+	select {
+	case f.requests <- request:
+	default:
+	}
+	reply, ok := f.replies[request]
+	if !ok {
+		reply = "invalid request"
+	}
+	conn.Write([]byte(reply))
+	conn.Write([]byte{endOfTransmission})
+}
+
+// PushEvents waits for the first event subscriber and writes lines to
+// it, like the compositor pushing its event stream.
+func (f *fakeHyprland) PushEvents(t *testing.T, lines ...string) {
+	t.Helper()
+	select {
+	case conn := <-f.events:
+		w := bufio.NewWriter(conn)
+		for _, line := range lines {
+			w.WriteString(line + "\n")
+		}
+		if err := w.Flush(); err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no event subscriber connected")
+	}
+}
+
+func TestCommandRoundTrip(t *testing.T) {
+	fake := startFake(t, map[string]string{
+		"j/workspaces":                           `[{"id":1,"name":"1","monitor":"DP-1","monitorID":0,"windows":2,"hasfullscreen":false,"ispersistent":false,"lastwindow":"0x1","lastwindowtitle":"term","tiled_layout":"dwindle"}]`,
+		"j/monitors":                             `[{"id":0,"name":"DP-1","activeWorkspace":{"id":2,"name":"2"},"focused":true}]`,
+		`dispatch hl.dsp.focus({workspace = 3})`: "ok",
+	})
+	conn := ConnectTo(fake.commandPath, fake.eventPath)
+
+	workspaces, err := conn.Workspaces()
+	if err != nil {
+		t.Fatalf("Workspaces: %v", err)
+	}
+	if len(workspaces) != 1 || workspaces[0].Name != "1" || workspaces[0].Windows != 2 {
+		t.Fatalf("workspaces = %+v", workspaces)
+	}
+	if got := <-fake.requests; got != "j/workspaces" {
+		t.Errorf("request = %q, want j/workspaces", got)
+	}
+
+	monitors, err := conn.Monitors()
+	if err != nil {
+		t.Fatalf("Monitors: %v", err)
+	}
+	if len(monitors) != 1 || !monitors[0].Focused || monitors[0].ActiveWS.ID != 2 {
+		t.Fatalf("monitors = %+v", monitors)
+	}
+	if got := <-fake.requests; got != "j/monitors" {
+		t.Errorf("monitors request = %q", got)
+	}
+
+	if err := conn.Dispatch(FocusWorkspace(3)); err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if got := <-fake.requests; got != "dispatch hl.dsp.focus({workspace = 3})" {
+		t.Errorf("dispatch request = %q", got)
+	}
+}
+
+func TestCommandBadJSONIsAnError(t *testing.T) {
+	fake := startFake(t, map[string]string{"j/workspaces": "{not json"})
+	conn := ConnectTo(fake.commandPath, fake.eventPath)
+	if _, err := conn.Workspaces(); err == nil {
+		t.Fatal("malformed reply: want an error, got nil")
+	}
+}
+
+func TestDispatchFallsBackOnlyWithoutLua(t *testing.T) {
+	const lua, legacy = `dispatch hl.dsp.focus({window = "address:0x1"})`, "dispatch focuswindow address:0x1"
+	for _, tc := range []struct {
+		name         string
+		replies      map[string]string
+		wantRequests []string
+		wantErr      string
+	}{
+		{"lua ack", map[string]string{lua: "ok"}, []string{lua}, ""},
+		{"no lua, legacy ack", map[string]string{lua: "Invalid dispatcher", legacy: "ok"}, []string{lua, legacy}, ""},
+		{"no lua, legacy refusal", map[string]string{lua: "Invalid dispatcher", legacy: "No such window found"}, []string{lua, legacy}, "No such window found"},
+		{"lua refusal stays lua", map[string]string{lua: "warning: =[C]:-1: hl.focus: window not found"}, []string{lua}, "window not found"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := startFake(t, tc.replies)
+			err := ConnectTo(fake.commandPath, fake.eventPath).Dispatch(FocusWindow("0x1"))
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Errorf("Dispatch: %v", err)
+			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
+				t.Errorf("Dispatch = %v, want %q", err, tc.wantErr)
+			}
+			for _, want := range tc.wantRequests {
+				if got := <-fake.requests; got != want {
+					t.Errorf("request = %q, want %q", got, want)
+				}
+			}
+			select {
+			case got := <-fake.requests:
+				t.Errorf("extra request %q", got)
+			default:
+			}
+		})
+	}
+}
+
+func TestEvents(t *testing.T) {
+	fake := startFake(t, nil)
+	conn := ConnectTo(fake.commandPath, fake.eventPath)
+	events, err := conn.Events(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fake.PushEvents(t,
+		"workspace>>2",
+		"workspacev2>>2,2",
+		"focusedmon>>DP-1,2",
+		"createworkspace>>4",
+		"destroyworkspace>>9",
+		"openwindow>>0x1,3,kitty,ed",
+		"screencast>>1,0",
+	)
+
+	want := []Event{
+		{Kind: EventWorkspace, Name: "2", ID: -1, Payload: "2"},
+		{Kind: EventWorkspaceV2, ID: 2, Name: "2", Payload: "2,2"},
+		{Kind: EventFocusedMon, Name: "DP-1", ID: 2, Payload: "DP-1,2"},
+		{Kind: EventCreateWorkspc, Name: "4", ID: -1, Payload: "4"},
+		{Kind: EventDestroyWorkspc, Name: "9", ID: -1, Payload: "9"},
+		{Kind: EventOpenWindow, Name: "3", ID: -1, Payload: "0x1,3,kitty,ed"},
+		{Kind: "screencast", ID: -1, Payload: "1,0"},
+	}
+	for _, expected := range want {
+		select {
+		case got, ok := <-events:
+			if !ok {
+				t.Fatal("event channel closed early")
+			}
+			if got.Kind != expected.Kind || got.Name != expected.Name || got.ID != expected.ID || got.Payload != expected.Payload {
+				t.Fatalf("event %+v, want %+v", got, expected)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for %+v", expected)
+		}
+	}
+}
+
+func TestParseEventRejectsMissingSeparator(t *testing.T) {
+	if _, ok := ParseEvent("garbage-line"); ok {
+		t.Fatal("line without >>: want a failed parse")
+	}
+}
+
+func TestPathsFromEnvironment(t *testing.T) {
+	t.Setenv("HYPRLAND_INSTANCE_SIGNATURE", "sig_1")
+	t.Setenv("XDG_RUNTIME_DIR", "/run/user/1000")
+	command, events, err := Paths()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join("/run/user/1000", "hypr", "sig_1", ".socket.sock"); command != want {
+		t.Errorf("command path = %q, want %q", command, want)
+	}
+	if want := filepath.Join("/run/user/1000", "hypr", "sig_1", ".socket2.sock"); events != want {
+		t.Errorf("event path = %q, want %q", events, want)
+	}
+
+	t.Setenv("HYPRLAND_INSTANCE_SIGNATURE", "")
+	if _, _, err := Paths(); err == nil {
+		t.Error("missing signature: want an error, got nil")
+	}
+	t.Setenv("HYPRLAND_INSTANCE_SIGNATURE", "sig_1")
+	t.Setenv("XDG_RUNTIME_DIR", "")
+	if _, _, err := Paths(); err == nil {
+		t.Error("missing XDG_RUNTIME_DIR: want an error, got nil")
+	}
+}
+
+func TestParseEventWindowAddressesAndV2Payloads(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want Event
+	}{
+		{"focusedmonv2>>DP-2,7", Event{Kind: EventFocusedMonV2, Name: "DP-2", ID: 7}},
+		{"urgent>>55d0a1", Event{Kind: EventUrgent, ID: -1, Address: "55d0a1"}},
+		{"activewindowv2>>55d0a1", Event{Kind: EventActiveWindowV2, ID: -1, Address: "55d0a1"}},
+		{"windowtitlev2>>55d0a1,a, b", Event{Kind: EventWindowTitleV2, ID: -1, Address: "55d0a1", Title: "a, b"}},
+		{"openwindow>>55d0a1,3,kitty,ed", Event{Kind: EventOpenWindow, ID: -1, Name: "3", Address: "55d0a1"}},
+		{"closewindow>>55d0a1", Event{Kind: EventCloseWindow, ID: -1, Name: "55d0a1", Address: "55d0a1"}},
+		{"movewindowv2>>55d0a1,4,DP-1", Event{Kind: EventMoveWindowV2, ID: 4, Name: "DP-1", Address: "55d0a1"}},
+		{"configreloaded>>", Event{Kind: EventConfigReloaded, ID: -1}},
+	} {
+		got, ok := ParseEvent(tc.line)
+		if !ok {
+			t.Errorf("%s: parse failed", tc.line)
+			continue
+		}
+		if got.Kind != tc.want.Kind || got.Name != tc.want.Name || got.ID != tc.want.ID || got.Address != tc.want.Address || got.Title != tc.want.Title {
+			t.Errorf("%s = %+v, want %+v", tc.line, got, tc.want)
+		}
+	}
+	if _, ok := ParseEvent("focusedmonv2>>DP-2"); ok {
+		t.Error("focusedmonv2 without a workspace id parsed")
+	}
+}
+
+func TestClientsRulesAndActiveWorkspace(t *testing.T) {
+	fake := startFake(t, map[string]string{
+		"j/clients":         `[{"address":"0x55d0a1","class":"kitty","title":"t","workspace":{"id":2,"name":"2"},"monitor":0,"floating":false,"at":[5,6],"size":[70,80],"mapped":true,"hidden":false,"focusHistoryID":3,"pid":1}]`,
+		"j/workspacerules":  `[{"workspaceString":"3","monitor":"DP-1"},{"workspaceString":"special:magic"}]`,
+		"j/activeworkspace": `{"id":4,"name":"4","monitor":"DP-1","windows":1}`,
+	})
+	conn := ConnectTo(fake.commandPath, fake.eventPath)
+	clients, err := conn.Clients()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(clients) != 1 || clients[0].Address != "55d0a1" || clients[0].Workspace.ID != 2 || clients[0].Class != "kitty" ||
+		clients[0].At != [2]int{5, 6} || clients[0].Size != [2]int{70, 80} || !clients[0].Mapped || clients[0].Hidden || clients[0].FocusHistoryID != 3 {
+		t.Errorf("clients = %+v, want the address normalized", clients)
+	}
+	rules, err := conn.WorkspaceRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != 2 || rules[0].WorkspaceString != "3" || *rules[0].Monitor != "DP-1" || rules[1].Monitor != nil {
+		t.Errorf("rules = %+v", rules)
+	}
+	ws, err := conn.ActiveWorkspace()
+	if err != nil || ws.ID != 4 {
+		t.Errorf("active = %+v %v", ws, err)
+	}
+}
+
+func TestCommandGivesUpOnACompositorThatNeverAnswers(t *testing.T) {
+	conn := ConnectTo(ipcsocktest.Silent(t), "")
+	conn.timeout = ipcsocktest.Fast
+	ipcsocktest.GivesUp(t, func() error {
+		_, err := conn.Command("j/clients")
+		return err
+	}, "hyprland", "read", "j/clients")
+}
+
+func TestCommandGivesUpOnACompositorThatNeverReads(t *testing.T) {
+	conn := ConnectTo(ipcsocktest.Silent(t), "")
+	conn.timeout = ipcsocktest.Fast
+	request := strings.Repeat("x", 16<<20)
+	ipcsocktest.GivesUp(t, func() error {
+		_, err := conn.Command(request)
+		return err
+	}, "hyprland", "write")
+}
+
+func TestCommandNamesWhatItCouldNotConnectFor(t *testing.T) {
+	conn := ConnectTo(filepath.Join(t.TempDir(), "gone.sock"), "")
+	_, err := conn.Command("j/clients")
+	if err == nil || !strings.Contains(err.Error(), "j/clients") || !strings.Contains(err.Error(), "gone.sock") {
+		t.Errorf("error = %v, want the request and the socket", err)
+	}
+}
+
+func TestEventsCloseOnCancelWhileTheCompositorIsSilent(t *testing.T) {
+	conn := ConnectTo("", ipcsocktest.Silent(t))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	events, err := conn.Events(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Duration(ipcsocktest.Fast))
+	cancel()
+	select {
+	case _, open := <-events:
+		if open {
+			t.Fatal("an event from a silent compositor")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the channel stayed open after the cancel")
+	}
+}
+
+func TestNextKeyboardLayoutAsksForEveryKeyboardsNextLayout(t *testing.T) {
+	const request = "switchxkblayout all next"
+	fake := startFake(t, map[string]string{request: "ok"})
+	if err := ConnectTo(fake.commandPath, fake.eventPath).NextKeyboardLayout(); err != nil {
+		t.Fatalf("NextKeyboardLayout: %v", err)
+	}
+	if got := <-fake.requests; got != request {
+		t.Errorf("request = %q, want %q", got, request)
+	}
+}
+
+func TestNextKeyboardLayoutRefusedIsAnError(t *testing.T) {
+	fake := startFake(t, map[string]string{"switchxkblayout all next": "device not found"})
+	err := ConnectTo(fake.commandPath, fake.eventPath).NextKeyboardLayout()
+	if err == nil || !strings.Contains(err.Error(), "device not found") {
+		t.Errorf("NextKeyboardLayout = %v, want the refusal", err)
+	}
+}

@@ -1,0 +1,51 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+
+# The archive already contains built (stripped, static Go) binaries, so
+# there is no useful DWARF multifile optimization for debhelper to perform.
+override_dh_dwz:
+
+# Do not emit a separate dbgsym package for repackaged upstream binaries.
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
+override_dh_auto_install:
+	install -d debian/lys-shell/usr/bin
+	install -m 0755 lys-shell lys-lock debian/lys-shell/usr/bin/
+
+	install -d debian/lys-shell/usr/lib/systemd/user
+	install -m 0644 lys-shell.service xdg-desktop-portal-lys-shell.service debian/lys-shell/usr/lib/systemd/user/
+
+	install -d debian/lys-shell/usr/share/xdg-desktop-portal/portals
+	install -m 0644 lys-shell.portal debian/lys-shell/usr/share/xdg-desktop-portal/portals/lys-shell.portal
+	install -m 0644 lys-shell-lys-wm.portal debian/lys-shell/usr/share/xdg-desktop-portal/portals/lys-shell-lys-wm.portal
+	install -m 0644 lys-shell-portals.conf debian/lys-shell/usr/share/xdg-desktop-portal/lys-shell-portals.conf
+	install -d debian/lys-shell/usr/share/dbus-1/services
+	install -m 0644 org.freedesktop.impl.portal.desktop.lys.service debian/lys-shell/usr/share/dbus-1/services/
+	install -m 0644 dev.stubbe.lys.*.service debian/lys-shell/usr/share/dbus-1/services/
+
+
+	install -d debian/lys-shell/etc/geoclue/conf.d
+	install -m 0644 geoclue-lys-shell.conf debian/lys-shell/etc/geoclue/conf.d/50-lys-shell.conf
+
+	install -d debian/lys-shell/usr/share/applications
+	install -m 0644 dev.stubbe.lys.vpn-sso-callback.desktop debian/lys-shell/usr/share/applications/dev.stubbe.lys.vpn-sso-callback.desktop
+	desktop-file-validate debian/lys-shell/usr/share/applications/dev.stubbe.lys.vpn-sso-callback.desktop
+
+	install -d debian/lys-shell/usr/share/icons/hicolor/scalable/apps
+
+	install -d debian/lys-shell/usr/share/icons/hicolor/scalable/actions
+	install -m 0644 icons/hicolor/scalable/actions/*.svg debian/lys-shell/usr/share/icons/hicolor/scalable/actions/
+
+	install -d debian/lys-shell/usr/share/bash-completion/completions
+	install -m 0644 completions/completions.bash debian/lys-shell/usr/share/bash-completion/completions/lys-shell
+
+	install -d debian/lys-shell/usr/share/zsh/vendor-completions
+	install -m 0644 completions/_lys-shell debian/lys-shell/usr/share/zsh/vendor-completions/_lys-shell
+
+	install -d debian/lys-shell/usr/share/fish/vendor_completions.d
+	install -m 0644 completions/lys-shell.fish debian/lys-shell/usr/share/fish/vendor_completions.d/lys-shell.fish

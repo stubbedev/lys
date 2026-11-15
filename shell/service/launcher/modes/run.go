@@ -1,0 +1,223 @@
+package modes
+
+import (
+	"bufio"
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/stubbedev/lys-shell/internal/pango"
+	"github.com/stubbedev/lys-shell/service/launcher"
+)
+
+func failed(state launcher.ModeState, err error) launcher.Action {
+	message := pango.Escape(err.Error())
+	state.Message = &message
+	return launcher.ActionReload{State: state}
+}
+
+// IsIgnored reports whether an entry is one the user keeps out of
+// history (rofi -ignored-prefixes). It matches the command - the
+// executable for run, the desktop id for drun - because that is what
+// history stores; an empty prefix matches nothing.
+func IsIgnored(entry string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if p != "" && strings.HasPrefix(entry, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// RunConfig is the run mode's knobs (rofi's -run-* family).
+type RunConfig struct {
+	// RunCommand is the plain accept template ({cmd}).
+	RunCommand string
+	// ShellCommand is the alt accept template ({terminal}, {cmd}).
+	ShellCommand string
+	// ListCommand adds its stdout lines as entries.
+	ListCommand string
+	// Terminal is the terminal emulator; empty autodetects.
+	Terminal string
+	// MaxHistory caps the recorded history.
+	MaxHistory uint32
+	// IgnoredPrefixes keeps matching commands out of history.
+	IgnoredPrefixes []string
+}
+
+// DefaultRunConfig is RunConfig::default.
+func DefaultRunConfig() RunConfig {
+	return RunConfig{RunCommand: "{cmd}", ShellCommand: "{terminal} -e {cmd}", MaxHistory: 25}
+}
+
+// Run executes commands found on $PATH (run.rs).
+type Run struct {
+	cfg      RunConfig
+	history  *launcher.History
+	commands []string
+}
+
+// NewRun builds the mode; a nil history disables recency and recording.
+func NewRun(cfg RunConfig, history *launcher.History) *Run {
+	return &Run{cfg: cfg, history: history}
+}
+
+// Name is "run".
+func (*Run) Name() string { return "run" }
+
+func (r *Run) execute(command string, inTerminal bool) error {
+	var rendered string
+	if inTerminal {
+		var err error
+		if rendered, err = launcher.RenderInTerminal(r.cfg.ShellCommand, r.cfg.Terminal, map[string]string{"cmd": command}); err != nil {
+			return fmt.Errorf("run %q in a terminal: %w", command, err)
+		}
+	} else {
+		rendered = launcher.Render(r.cfg.RunCommand, launcher.Values(map[string]string{"cmd": command}))
+	}
+	launcher.RunShell(rendered)
+	if IsIgnored(command, r.cfg.IgnoredPrefixes) || r.history == nil {
+		return nil
+	}
+	if err := r.history.Record("run", command, r.cfg.MaxHistory); err != nil {
+		log.Printf("launcher: run history record failed: %v", err)
+	}
+	return nil
+}
+
+// Load lists the $PATH executables (plus the list command's lines),
+// recently used first, then alphabetically.
+func (r *Run) Load(ctx context.Context) launcher.ModeState {
+	names := scanPath(ctx)
+	if ctx.Err() != nil {
+		return launcher.ModeState{Prompt: "run"}
+	}
+	if strings.TrimSpace(r.cfg.ListCommand) != "" {
+		for _, n := range listCommandEntries(ctx, r.cfg.ListCommand) {
+			names[n] = true
+		}
+	}
+	var recent []string
+	if r.history != nil {
+		recent, _ = r.history.Recent("run")
+	}
+	r.commands = orderByRecent(names, recent)
+	items := make([]launcher.Item, len(r.commands))
+	for i, c := range r.commands {
+		items[i] = launcher.NewItem(c)
+	}
+	return launcher.ModeState{Items: items, Prompt: "run"}
+}
+
+// Activate runs the row's command or the typed one; Alt runs it in a
+// terminal, and with no terminal to run it in stays open and says so.
+func (r *Run) Activate(ctx context.Context, target launcher.Target, kind launcher.ActivateKind, _ string) launcher.Action {
+	var command string
+	if row, ok := target.Row(); ok {
+		if int(row) >= len(r.commands) {
+			return launcher.ActionNothing{}
+		}
+		command = r.commands[row]
+	} else if custom, ok := kind.(launcher.ActivateCustom); ok {
+		command = custom.Text
+	} else {
+		return launcher.ActionNothing{}
+	}
+	if strings.TrimSpace(command) == "" {
+		return launcher.ActionNothing{}
+	}
+	_, alt := kind.(launcher.ActivateAlt)
+	if err := r.execute(command, alt); err != nil {
+		return failed(r.Load(ctx), err)
+	}
+	return launcher.ActionClose{}
+}
+
+// Delete forgets the row's history entry and reloads.
+func (r *Run) Delete(ctx context.Context, index uint32) launcher.Action {
+	if r.history == nil || int(index) >= len(r.commands) {
+		return launcher.ActionNothing{}
+	}
+	if err := r.history.Remove("run", r.commands[index]); err != nil {
+		log.Printf("launcher: run history delete failed: %v", err)
+	}
+	return launcher.ActionReload{State: r.Load(ctx)}
+}
+
+// orderByRecent is recently used first (rofi's run order), then the
+// alphabetical rest.
+func orderByRecent(names map[string]bool, recent []string) []string {
+	var ordered []string
+	for _, e := range recent {
+		if names[e] {
+			ordered = append(ordered, e)
+		}
+	}
+	var rest []string
+	for n := range names {
+		if !slices.Contains(recent, n) {
+			rest = append(rest, n)
+		}
+	}
+	slices.Sort(rest)
+	return append(ordered, rest...)
+}
+
+// scanPath collects the executable file names on $PATH.
+func scanPath(ctx context.Context) map[string]bool {
+	names := map[string]bool{}
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		collectExecutables(ctx, dir, names)
+	}
+	return names
+}
+
+// collectExecutables adds dir's executable files. Symlinks are
+// followed: on NixOS nearly every PATH entry is one (the Rust scan's
+// DirEntry metadata did not follow them, which left run mode close to
+// empty there).
+func collectExecutables(ctx context.Context, dir string, names map[string]bool) {
+	if ctx.Err() != nil {
+		return
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if ctx.Err() != nil {
+			return
+		}
+		st, err := os.Stat(filepath.Join(dir, e.Name())) //nolint:gosec // a PATH directory listing
+		if err != nil || !st.Mode().IsRegular() || st.Mode()&0o111 == 0 {
+			continue
+		}
+		names[e.Name()] = true
+	}
+}
+
+// listCommandEntries runs -run-list-command and returns its non-empty
+// stdout lines.
+func listCommandEntries(ctx context.Context, command string) []string {
+	out, err := exec.CommandContext(ctx, "sh", "-c", command).Output() //nolint:gosec // the user's list command
+	if err != nil && len(out) == 0 {
+		if exitErr := (*exec.ExitError)(nil); !errors.As(err, &exitErr) {
+			log.Printf("launcher: run-list-command %q failed: %v", command, err)
+		}
+		return nil
+	}
+	var lines []string
+	sc := bufio.NewScanner(strings.NewReader(strings.ToValidUTF8(string(out), "�")))
+	for sc.Scan() {
+		if line := strings.TrimSuffix(sc.Text(), "\r"); line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}

@@ -1,0 +1,624 @@
+package bar
+
+import (
+	"context"
+	"log"
+	"slices"
+	"strconv"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-desktop/shell/widgets"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys-ui/widget/css"
+
+	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys-shell/shell/notifyui"
+)
+
+// Notification dropdown constants (notification_group/methods.rs,
+// notification_item/methods.rs, watchers.rs).
+const (
+	notifMaxVisibleItems = 3
+	notifIconPx          = 32
+	notifTimeTick        = 30 * time.Second
+	// notifPageSize is how many notifications the dropdown reads at
+	// once; scrolling within notifPageAhead px of the end reads the next.
+	notifPageSize  = 50
+	notifPageAhead = 200
+)
+
+// notifTimeLabel is time_to_string.
+func notifTimeLabel(age notifyui.Age) string { return notifyui.TimeLabel(age, "notification-dropdown") }
+
+// notificationView is the notification dropdown: the header (bell or
+// muted bell, clear all), the do-not-disturb row, and the app groups or
+// the empty state, following the service while open.
+type notificationView struct {
+	ctx  ModuleContext
+	svc  *notifications.Service
+	font render.Font
+	px   float64
+	now  func() time.Time
+	// minter mints the activation tokens action presses carry.
+	minter notifyui.TokenMinter
+	popoverHook
+
+	*widget.Box
+	headerIcon, emptyIcon *widget.Icon
+	clearAll              *widget.Button
+	dnd                   *widget.Switch
+	dndItem               *widget.Item
+	syncing               bool
+	// body is the content: the empty state and the list swap by
+	// visibility, no Stack (the Rust tree sets visible in place).
+	body   *widget.Box
+	empty  *widget.StatusPage
+	scroll *widget.Scroll
+	list   *widget.Box
+	groups []*notifGroup
+	// notifs is the history read so far, newest first; more reports
+	// whether the last read came back full, so older ones may follow.
+	notifs []*notifications.Notification
+	more   bool
+
+	*openFollow
+	// pageOf reads the history; reads are v.reading's alone, off the loop.
+	pageOf  func(before *notifications.Key, limit int) ([]*notifications.Notification, error)
+	reading uint64
+	loading bool
+}
+
+func notificationDropdown(ctx ModuleContext) widget.Widget {
+	font, px := dropdownFont(ctx)
+	v := &notificationView{ctx: ctx, svc: ctx.Notifications, font: font, px: px, now: time.Now, minter: notifyui.Minter(ctx.App)}
+	v.openFollow = newOpenFollow(ctx, v.follow)
+	if v.svc != nil {
+		v.pageOf = v.svc.Page
+	}
+	v.Box = widget.NewBox(widget.Column, 0, 0)
+	v.AddClass("dropdown", "notification-dropdown")
+
+	clearLabel := widget.NewLabel(font, px, i18n.T("notification-dropdown-clear-all"), 0)
+	v.clearAll = dropdownButton(clearLabel, v.dismissAll, "notification-dropdown-clear-all", css.Ghost, css.Small)
+	header, headerIcon := dropdownHeaderIcon(font, "ld-bell-symbolic", i18n.T("notification-dropdown-title"), v.clearAll)
+	v.headerIcon = headerIcon
+	v.Append(header, false)
+
+	dndCard, dndGroup := itemCard()
+	dndCard.AddClass("notification-dropdown-dnd-row")
+	dnd := widget.NewItem(font, i18n.T("notification-dropdown-dnd-label"), "")
+	v.dndItem = dnd
+	dnd.SetSmall(true)
+	v.dnd = widget.NewSwitch(false)
+	v.dnd.OnChanged = v.dndToggled
+	dnd.AddAction(v.dnd)
+	dndGroup.Append(dnd)
+
+	empty, emptyIcon := widgets.EmptyStateIcon(font, px, "ld-bell-symbolic", i18n.T("notification-dropdown-empty-title"), i18n.T("notification-dropdown-empty-description"))
+	v.emptyIcon = emptyIcon
+	v.empty = empty
+	v.list = widget.NewBox(widget.Column, widget.Current().Spacing, 0)
+	v.list.AddClass("notification-dropdown-groups")
+	scroll := dropdownScroll(v.list, "notification-dropdown-scroll")
+	v.scroll = scroll
+	scroll.WatchRange(v.scrolled)
+	v.body = dropdownContent("notification-dropdown-content")
+	v.body.Append(dndCard, false)
+	v.body.Append(empty, true)
+	v.body.Append(scroll, true)
+	v.Append(v.body, true)
+
+	v.startFollowing()
+	return v
+}
+
+// syncDND is DndChanged: the switch (without writing back) and the
+// bell icons.
+func (v *notificationView) syncDND() {
+	var focus notifications.Focus
+	if v.svc != nil {
+		focus = v.svc.Focus()
+	}
+	on := focus.On
+	v.dndItem.SetDescription(focusText(focus))
+	v.syncing = true
+	v.dnd.SetOn(on)
+	v.syncing = false
+	icon := "ld-bell-symbolic"
+	if on {
+		icon = "ld-bell-off-symbolic"
+	}
+	v.headerIcon.SetThemeName(icon)
+	v.emptyIcon.SetThemeName(icon)
+}
+
+func (v *notificationView) dndToggled(on bool) {
+	if v.syncing || v.svc == nil {
+		return
+	}
+	v.svc.SetDND(on)
+}
+
+// dismissAll leaves the loop to the store write and a closed signal per
+// notification; the history's change comes back to rebuild.
+func (v *notificationView) dismissAll() {
+	if v.svc != nil {
+		v.svc.Detach(v.svc.DismissAll)
+	}
+}
+
+// dismiss is Notification::dismiss.
+func (v *notificationView) dismiss(id uint32) {
+	v.svc.Close(id, notifications.Dismissed)
+}
+
+// rebuild rereads the history as deep as the dropdown has read it,
+// at least a page, after a change.
+func (v *notificationView) rebuild() {
+	if v.pageOf == nil {
+		v.regroup()
+		return
+	}
+	v.readInto(nil, max(notifPageSize, len(v.notifs)))
+}
+
+// readInto reads up to n notifications older than the last of kept, off the
+// loop, and shows kept and them; a read that a newer one replaced shows nothing.
+func (v *notificationView) readInto(kept []*notifications.Notification, n int) {
+	v.reading++
+	asked := v.reading
+	v.loading = true
+	mountOffLoop(v.ctx, func() {
+		more := readNotifPages(v.pageOf, &kept, n)
+		show := func() {
+			if asked != v.reading {
+				return
+			}
+			v.loading = false
+			v.notifs, v.more = kept, more
+			v.regroup()
+		}
+		returnToLoop(v.ctx, show)
+	})
+}
+
+// readNotifPages appends up to n notifications older than the last of notifs, a
+// page at a time, reporting whether more may follow.
+func readNotifPages(pageOf func(*notifications.Key, int) ([]*notifications.Notification, error), notifs *[]*notifications.Notification, n int) bool {
+	more := false
+	for n > 0 {
+		var before *notifications.Key
+		if len(*notifs) > 0 {
+			k := (*notifs)[len(*notifs)-1].Key()
+			before = &k
+		}
+		limit := min(n, notifications.MaxPage)
+		page, err := pageOf(before, limit)
+		if err != nil {
+			log.Printf("notification dropdown: %v", err)
+			return false
+		}
+		*notifs = append(*notifs, page...)
+		more = len(page) == limit
+		if !more {
+			return false
+		}
+		n -= limit
+	}
+	return more
+}
+
+// scrolled reads the next page once the list scrolls near its end.
+func (v *notificationView) scrolled() {
+	r := v.scroll.AxisRange(widget.Column)
+	if !v.more || !r.Overflows() || r.Offset < r.Max()-notifPageAhead {
+		return
+	}
+	v.ctx.Invoke(v.loadMore)
+}
+
+// loadMore reads the next page into the groups.
+func (v *notificationView) loadMore() {
+	if !v.more || v.loading {
+		return
+	}
+	v.readInto(slices.Clone(v.notifs), notifPageSize)
+}
+
+// regroup is rebuild_groups over what has been read: stale groups go,
+// existing ones take their new notifications (keeping their
+// expansion), new ones are added, and the list takes the newest-first
+// order.
+func (v *notificationView) regroup() {
+	notifs := v.notifs
+	v.clearAll.SetVisible(len(notifs) > 0)
+	v.empty.SetVisible(len(notifs) == 0)
+	v.scroll.SetVisible(len(notifs) > 0)
+	byApp := make(map[string]*notifGroup, len(v.groups))
+	for _, g := range v.groups {
+		byApp[g.app] = g
+	}
+	next := make([]*notifGroup, 0, len(v.groups))
+	for _, data := range notifyui.GroupBy(notifs, notifyui.AppKey) {
+		g, ok := byApp[data.Key]
+		if ok {
+			g.update(data.Notifs)
+		} else {
+			g = newNotifGroup(v, data)
+		}
+		next = append(next, g)
+	}
+	v.groups = next
+	v.list.Clear()
+	for _, g := range next {
+		v.list.Append(g, false)
+	}
+}
+
+// refreshTimes is TimeTick.
+func (v *notificationView) refreshTimes() {
+	for _, g := range v.groups {
+		for _, it := range g.items {
+			it.refreshTime()
+		}
+	}
+}
+
+// follow rebuilds on history changes, syncs DND, and refreshes the
+// relative times every 30s, until the dropdown closes.
+func (v *notificationView) follow(life context.Context) {
+	v.syncDND()
+	v.rebuild()
+	if v.svc == nil {
+		return
+	}
+	history, stopHistory := v.svc.HistoryChanges()
+	rebuilds := latestOnLoop[struct{}]{post: v.ctx.Invoke, show: func(struct{}) {
+		if life.Err() == nil {
+			v.rebuild()
+		}
+	}}
+	v.ctx.Go(func() {
+		defer stopHistory()
+		for {
+			select {
+			case <-life.Done():
+				return
+			case _, ok := <-history:
+				if !ok {
+					return
+				}
+				rebuilds.give(struct{}{})
+			}
+		}
+	})
+	events, stop := v.svc.Subscribe()
+	v.ctx.Go(func() {
+		defer stop()
+		tick := time.NewTicker(notifTimeTick)
+		defer tick.Stop()
+		for {
+			select {
+			case <-life.Done():
+				return
+			case <-tick.C:
+				v.ctx.Invoke(v.refreshTimes)
+			case ev, ok := <-events:
+				if !ok {
+					return
+				}
+				if ev.Kind == notifications.EventDnd {
+					v.ctx.Invoke(v.syncDND)
+				}
+			}
+		}
+	})
+}
+
+// notifGroup is NotificationGroup: lys-ui's card whose header Item
+// (the app's icon and name, the newest summary while collapsed, the
+// count, clear, and the chevron) toggles the group, over the visible
+// items and the "N more" link.
+type notifGroup struct {
+	*widget.Box
+	view     *notificationView
+	app      string
+	expanded bool
+	notifs   []*notifications.Notification
+	items    []*notifItem
+	overflow int
+
+	head      *widget.Item
+	icon      *widget.Icon
+	count     *widget.Badge
+	chevron   *widget.Icon
+	itemsBox  *widget.Box
+	list      *widget.ItemGroup
+	moreRow   *widget.Box
+	moreLabel *widget.Label
+}
+
+func newNotifGroup(v *notificationView, data notifyui.Group) *notifGroup {
+	g := &notifGroup{view: v, app: data.Key, expanded: true, Box: widget.NewBox(widget.Column, 0, 0)}
+	g.AddClass(css.Card, "notification-dropdown-group")
+
+	appName := data.Key
+	if appName == "" {
+		appName = i18n.T("notification-dropdown-unknown-app")
+	}
+	// The whole header is the click target; its actions (the clear
+	// button) keep their own clicks.
+	g.head = widget.NewItem(v.font, appName, "")
+	g.head.SetSmall(true)
+	g.head.SetEllipsize(true)
+	g.head.AddClass("notification-dropdown-group-header")
+	g.icon = widget.NewThemeIcon(notifyui.FallbackIcon, itemIconPx)
+	g.head.SetMedia(g.icon, false)
+	g.head.SetOnActivate(g.toggle)
+	g.count = widget.NewBadge(v.font, "")
+	g.count.SetVariant(widget.BadgeSecondary)
+	g.count.AddClass("notification-dropdown-group-count")
+	g.head.AddAction(g.count)
+	clearLabel := widget.NewLabel(v.font, v.px, i18n.T("notification-dropdown-group-clear"), 0)
+	g.head.AddAction(dropdownButton(clearLabel, g.clear, "notification-dropdown-group-clear", css.Ghost, css.Small))
+	g.chevron = widget.NewThemeIcon("ld-chevron-up-symbolic", itemIconPx)
+	g.head.AddAction(g.chevron)
+	g.Append(g.head, false)
+
+	g.itemsBox = widget.NewBox(widget.Column, 0, 0)
+	g.itemsBox.AddClass("notification-dropdown-group-items")
+	g.list = widget.NewItemGroup()
+	g.itemsBox.Append(g.list, false)
+	g.moreLabel = widget.NewLabel(v.font, v.px, "", 0)
+	g.moreRow = itemBody()
+	g.moreRow.Append(dropdownButton(g.moreLabel, g.showAll, "notification-dropdown-group-more", css.Link, css.Small), false)
+	g.itemsBox.Append(g.moreRow, false)
+	g.Append(g.itemsBox, false)
+
+	g.update(data.Notifs)
+	return g
+}
+
+// update is UpdateNotifications: the group icon (always the mapped one
+// of the newest) and reconcile_items.
+func (g *notifGroup) update(notifs []*notifications.Notification) {
+	g.icon.SetThemeName(notifyui.ResolveIcon(config.IconSourceMapped, notifs[0]).Name)
+	g.notifs = notifs
+	g.count.SetText(strconv.Itoa(len(notifs)))
+	g.count.SetVisible(len(notifs) > 1)
+	limit := notifMaxVisibleItems
+	if len(g.items) > notifMaxVisibleItems {
+		limit = len(notifs)
+	}
+	visible := notifs[:min(len(notifs), limit)]
+	g.overflow = len(notifs) - len(visible)
+	same := slices.EqualFunc(g.items, visible, func(it *notifItem, n *notifications.Notification) bool {
+		return it.n.ID == n.ID
+	})
+	if !same {
+		g.items = g.items[:0]
+		g.list.Clear()
+		g.appendItems(visible)
+	}
+	g.sync()
+}
+
+func (g *notifGroup) appendItems(notifs []*notifications.Notification) {
+	for _, n := range notifs {
+		it := newNotifItem(g.view, n)
+		g.items = append(g.items, it)
+		g.list.Append(it)
+	}
+}
+
+// sync applies the #[watch]es on expanded and overflow.
+func (g *notifGroup) sync() {
+	g.itemsBox.SetVisible(g.expanded)
+	if g.expanded {
+		g.head.SetDescription("")
+	} else {
+		g.head.SetDescription(g.notifs[0].Summary)
+	}
+	if g.expanded {
+		g.chevron.SetThemeName("ld-chevron-up-symbolic")
+	} else {
+		g.chevron.SetThemeName("ld-chevron-down-symbolic")
+	}
+	g.moreLabel.SetText(i18n.T("notification-dropdown-group-more", i18n.Str("count", strconv.Itoa(g.overflow))))
+	g.moreRow.SetVisible(g.overflow > 0)
+}
+
+// toggle is ToggleExpanded: collapsing drops back to the default cap
+// (reset_to_default_cap).
+func (g *notifGroup) toggle() {
+	g.expanded = !g.expanded
+	if !g.expanded && len(g.items) > notifMaxVisibleItems {
+		g.items = g.items[:notifMaxVisibleItems]
+		g.list.Clear()
+		for _, it := range g.items {
+			g.list.Append(it)
+		}
+		g.overflow = len(g.notifs) - notifMaxVisibleItems
+	}
+	g.sync()
+}
+
+// showAll is show_all_items.
+func (g *notifGroup) showAll() {
+	g.appendItems(g.notifs[len(g.items):])
+	g.overflow = 0
+	g.sync()
+}
+
+// clear is ClearGroup, off the loop as dismissAll is.
+func (g *notifGroup) clear() {
+	ids := make([]uint32, len(g.notifs))
+	for i, n := range g.notifs {
+		ids[i] = n.ID
+	}
+	svc := g.view.svc
+	svc.Detach(func() { svc.Dismiss(ids) })
+}
+
+// notifItem is NotificationItem: the notification as lys-ui's Item
+// (its icon, the summary, the relative time and the dismiss button)
+// over the two-line body and the non-default actions in rows of three.
+// A default action makes the item a control that closes the dropdown
+// and invokes it.
+type notifItem struct {
+	*widget.Box
+	view *notificationView
+	n    *notifications.Notification
+	main *widget.Item
+	time *widget.Label
+}
+
+// itemIcon builds the item's icon: an unloadable file picture falls
+// back to the themed bell (apply_icon's load failure) and reports
+// whether the glyph still draws a picture, so it sits bare, without
+// the media tile, only when the file actually shows.
+func itemIcon(icon notifyui.Icon, size int, post func(func()), fileShows func()) (*widget.Icon, bool) {
+	return notifyui.NewIcon(icon, size, 0, post, fileShows), icon.File == "" && notifyui.IsFileIcon(icon)
+}
+
+func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem {
+	it := &notifItem{view: v, n: n, Box: widget.NewBox(widget.Column, 0, 0)}
+	it.AddClass("notification-dropdown-item", notifyui.UrgencyClass(n.Urgency))
+
+	it.main = widget.NewItem(v.font, n.Summary, "")
+	it.main.SetSmall(true)
+	it.main.SetEllipsize(true)
+	it.main.AddClass("notification-dropdown-item-main")
+	icon := notifyui.ResolveIcon(v.ctx.Config.Notification.IconSource, n)
+	size := itemIconPx
+	if notifyui.IsFileIcon(icon) {
+		size = notifIconPx
+	}
+	var glyph *widget.Icon
+	glyph, isFile := itemIcon(icon, size, v.ctx.Invoke, func() {
+		if glyph != nil {
+			glyph.AddClass("file-icon")
+			it.main.SetMedia(glyph, true)
+		}
+	})
+	glyph.AddClass("notification-dropdown-item-icon")
+	if isFile || (icon.File != "" && glyph.Name() == icon.File) {
+		isFile = true
+		glyph.AddClass("file-icon")
+	}
+	it.main.SetMedia(glyph, isFile)
+	it.time = widget.NewLabel(v.font, v.px, "", 0)
+	it.time.AddClass("notification-dropdown-item-time", css.Caption, css.DimLabel)
+	it.main.AddAction(it.time)
+	id := n.ID
+	dismiss := dropdownButton(widget.NewThemeIcon("ld-x-symbolic", itemIconPx), func() { v.dismiss(id) }, "notification-dropdown-item-dismiss", css.Ghost, css.Icon, css.Small)
+	it.main.AddAction(dismiss)
+	// A default action makes the item open on a click anywhere the
+	// dismiss button does not take (setup_default_action's gesture).
+	if _, ok := n.DefaultAction(); ok {
+		it.main.AddClass("notification-dropdown-item-default")
+		it.main.SetCursorName("pointer")
+		it.main.SetOnActivate(it.invokeDefault)
+	}
+	it.Append(it.main, false)
+
+	body := itemBody()
+	if n.Body != "" {
+		text := widget.NewRichLabel(v.font, v.px, notifyui.BodyMarkup(n.Body), 0)
+		text.SetVariants(app.FontVariantsOf(v.font))
+		text.AddClass("notification-dropdown-item-body", css.DimLabel)
+		text.SetWrap(true)
+		text.SetEllipsize(widget.EllipsizeEnd)
+		text.SetMaxLines(2)
+		text.OnLinkClick = it.openLink
+		body.Append(text, false)
+	}
+	if percent, ok := n.Progress.Percent(); ok {
+		bar := widget.NewProgressBar(float64(percent) / 100)
+		bar.AddClass("notification-dropdown-item-progress")
+		body.Append(bar, false)
+	}
+	if actions := it.actionRows(); actions != nil {
+		body.Append(actions, false)
+	}
+	if len(body.Children()) > 0 {
+		it.Append(body, false)
+	}
+	it.refreshTime()
+	return it
+}
+
+// actionRows is build_action_buttons; nil without visible actions.
+func (it *notifItem) actionRows() widget.Widget {
+	visible := notifyui.VisibleActions(it.n)
+	if len(visible) == 0 {
+		return nil
+	}
+	v := it.view
+	gap := widget.Current().Spacing / 2
+	box := widget.NewBox(widget.Column, gap, 0)
+	box.AddClass("notification-dropdown-item-actions")
+	for chunk := range slices.Chunk(visible, notifyui.ActionsPerRow) {
+		// The homogeneous row: a column-homogeneous grid gives every
+		// button the widest button's width, gtk Box homogeneous's
+		// equal shares.
+		row := widget.NewGrid(gap, 0)
+		row.SetColumnHomogeneous(true)
+		row.AddClass("notification-dropdown-item-action-row")
+		for i, a := range chunk {
+			label := widget.NewLabel(v.font, v.px, a.Label, 0)
+			label.SetAlignment(render.AlignCenter)
+			key := a.ID
+			btn := dropdownButton(label, func() { it.invoke(key) }, "notification-dropdown-item-action-btn", css.Outline, css.Small)
+			row.Attach(btn, i, 0, 1, 1)
+		}
+		box.Append(row, false)
+	}
+	return box
+}
+
+// invoke runs an action with a token from the press and dismisses the
+// notification, as the Rust button does (invoke, then dismiss,
+// resident or not).
+func (it *notifItem) invoke(key string) {
+	svc, id := it.view.svc, it.n.ID
+	notifyui.WithActivationToken(it.view.minter, func(token string) {
+		mountOffLoop(it.view.ctx, func() {
+			svc.InvokeAction(id, key, token)
+			svc.Close(id, notifications.Dismissed)
+		})
+	})
+}
+
+// invokeDefault closes the dropdown first: the default action usually
+// raises another window (setup_default_action).
+func (it *notifItem) invokeDefault() {
+	it.view.popdown()
+	it.invoke(notifications.DefaultActionID)
+}
+
+// refreshTime is RefreshTime.
+func (it *notifItem) refreshTime() {
+	it.time.SetText(notifTimeLabel(notifyui.RelativeTime(it.view.now(), it.n.Added)))
+}
+
+// openLink opens a body link with a token from the click; only web and
+// mail links open.
+func (it *notifItem) openLink(href string) {
+	if !notifyui.OpenableLink(href) {
+		log.Printf("notifications: not opening %q: only http, https and mailto links open", href)
+		return
+	}
+	it.view.popdown()
+	notifyui.WithActivationToken(it.view.minter, func(token string) {
+		mountOffLoop(it.view.ctx, func() {
+			if err := notifyui.OpenLink(href, token); err != nil {
+				log.Printf("notifications: open %s: %v", href, err)
+			}
+		})
+	})
+}

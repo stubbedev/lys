@@ -1,0 +1,39 @@
+"area:shell":
+    - changed-files:
+          - any-glob-to-any-file: "shell/**"
+
+"area:services":
+    - changed-files:
+          - any-glob-to-any-file: "service/**"
+
+"area:styling":
+    - changed-files:
+          - any-glob-to-any-file: "styling/**"
+
+"area:config":
+    - changed-files:
+          - any-glob-to-any-file: ["config/**", "schema/**"]
+
+"area:icons":
+    - changed-files:
+          - any-glob-to-any-file: ["internal/icons/**"]
+
+"area:i18n":
+    - changed-files:
+          - any-glob-to-any-file: "i18n/**"
+
+"area:portal":
+    - changed-files:
+          - any-glob-to-any-file: "portal/**"
+
+"area:lock":
+    - changed-files:
+          - any-glob-to-any-file: "shell/lockclient/**"
+
+"area:cli":
+    - changed-files:
+          - any-glob-to-any-file: "cmd/**"
+
+"area:ci":
+    - changed-files:
+          - any-glob-to-any-file: ".github/**"

@@ -1,0 +1,10 @@
+Set the value of a configuration path
+
+Usage: lys-shell config set <PATH> <VALUE>
+
+Arguments:
+  <PATH>   The configuration path to set (e.g., "modules.battery.enabled")
+  <VALUE>  The value to set, as YAML (e.g. true, 5, [a, b]); anything else is a string
+
+Options:
+  -h, --help  Print help

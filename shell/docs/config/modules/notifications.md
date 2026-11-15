@@ -1,0 +1,191 @@
+---
+title: notifications
+outline: [2, 3]
+---
+
+# notifications
+
+<div v-pre>
+
+Notification center: icon in the bar, dropdown with history, DND toggle.
+
+Add it to your layout with `notifications`:
+
+```yaml
+bar:
+  layout:
+    - monitor: "*"
+      right: [notifications]
+```
+
+## General
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | bool | `true` | Enable the notifications service and module. |
+| `icon-name` | string | `"ld-bell-symbolic"` | Icon shown when no notifications and DND is off. |
+| `icon-unread` | string | `"ld-bell-dot-symbolic"` | Icon shown when notifications exist. |
+| `icon-dnd` | string | `"ld-bell-off-symbolic"` | Icon shown when Do Not Disturb is active. |
+| `border-show` | bool | `false` | Display border around button. |
+| `icon-show` | bool | `true` | Display module icon. |
+| `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
+| `label-show` | bool | `true` | Display notification count label. |
+| `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
+| `blocklist` | array of string | `[]` | Glob patterns for app names whose notifications are blocked entirely. |
+| `dnd` | [`NotificationDndConfig`](/config/types#notification-dnd-config) | `{...}` | Do-not-disturb rules: critical and allowed apps through, a schedule, and turning it on while sharing the screen or in fullscreen. |
+| `sounds` | [`NotificationSounds`](/config/types#notification-sounds) | `"critical"` | Which notifications play a sound: `off`, `critical` (urgent ones only), or `all`. Sounds stay silent in do-not-disturb, while the screen is shared or recorded, and while the default output is muted. |
+| `sound-default` | string | `"message-new-instant"` | Sound theme name a notification without its own sound plays, and what a sound the theme lacks falls back to. |
+| `sound-mute-apps` | array of string | `[]` | App-name or desktop-entry globs whose notifications never play a sound. |
+| `sound-volume` | [`Percentage`](/config/types#percentage) | `100` | Volume of notification sounds, as a percentage of the sound as recorded. |
+| `icon-source` | [`IconSource`](/config/types#icon-source) | `"automatic"` | How notification icons are resolved. |
+| `history-memory` | [`NotificationHistoryMemory`](/config/types#notification-history-memory) | `200` | How many of the newest notifications the history keeps in memory. Older ones stay on disk and load as the dropdown scrolls to them. |
+| `history-stored` | [`NotificationHistoryStored`](/config/types#notification-history-stored) | `10000` | How many notifications the history keeps on disk. The oldest are deleted past it. |
+| `popup-position` | [`PopupPosition`](/config/types#popup-position) | `"top-right"` | Screen position for popup notifications. |
+| `popup-max-visible` | u32 | `5` | Maximum number of popups visible at once. |
+| `popup-stacking-order` | [`StackingOrder`](/config/types#stacking-order) | `"newest-first"` | Order in which popups stack on screen. |
+| `popup-stack` | [`PopupStack`](/config/types#popup-stack) | `"per-app"` | Which popups collapse into one stack: the newest card in front, up to two older ones peeking out behind it, and a count of the rest. Hovering a stack fans it out into a list. |
+| `popup-duration` | u32 | `5000` | Maximum popup display duration in milliseconds. |
+| `popup-hover-pause` | bool | `true` | Pause popup auto-dismiss timer on hover. |
+| `popup-margin-x` | [`Size`](/config/types#size) | `0` | Horizontal margin from screen edges. Accepts a scale multiplier or pixels (e.g. `"12px"`). |
+| `popup-margin-y` | [`Size`](/config/types#size) | `0` | Vertical margin from screen edges. Accepts a scale multiplier or pixels (e.g. `"12px"`). |
+| `popup-gap` | [`Size`](/config/types#size) | `1` | Gap between stacked popups: a multiplier of the default 8px (`1.0` = default) or absolute pixels. |
+| `popup-monitor` | [`PopupMonitor`](/config/types#popup-monitor) | `"primary"` | Target monitor: "primary" or a connector name like "DP-1". |
+| `popup-layer` | [`Layer`](/config/types#layer) | `"overlay"` | Layer-shell layer popup notifications are placed on. |
+| `popup-close-behavior` | [`PopupCloseBehavior`](/config/types#popup-close-behavior) | `"dismiss"` | What happens when the close button on a popup is clicked. |
+| `popup-shadow` | bool | `true` | Display drop shadow on popup cards. |
+| `popup-opacity` | [`Percentage`](/config/types#percentage) | `75` | Opacity of a popup card's frosted surface at rest (0-100). The card under the pointer is opaque, and so is every card where the compositor cannot blur what is behind the popups. |
+| `popup-urgency-bar` | [`UrgencyBarThreshold`](/config/types#urgency-bar-threshold) | `"critical"` | Minimum urgency level that displays a colored urgency bar. |
+| `thresholds` | array of [`ThresholdEntry`](/config/types#threshold-entry) | `[]` | Dynamic color thresholds based on notification count. |
+
+::: details More about `blocklist`
+
+Matched notifications are silently dropped.
+Supports `*` (any characters) and `?` (single character).
+
+Examples: `["notify-send", "*chromium*", "Vivaldi*"]`
+
+:::
+
+::: details More about `icon-source`
+
+| Mode | Per-notification image | No image provided |
+|------|----------------------|-------------------|
+| `automatic` | Shows the image | Mapped icon |
+| `mapped` | Ignored | Mapped icon |
+| `application` | Shows the image | App's generic icon, then mapped fallback |
+
+:::
+
+::: details More about `popup-duration`
+
+Applications may request a shorter timeout, which takes precedence.
+
+:::
+
+::: details More about `popup-layer`
+
+When `general.tearing-mode` is enabled, `overlay` is demoted to `top`
+to allow fullscreen tearing.
+
+:::
+
+::: details More about `thresholds`
+
+Entries are checked in order; the last matching entry wins for each
+color slot. Use `above` for high-value warnings (e.g., many unread
+notifications).
+
+#### Example
+
+```yaml
+modules:
+  notifications:
+    thresholds:
+      - above: 5
+        icon-color: status-warning
+        label-color: status-warning
+      - above: 20
+        icon-color: status-error
+        label-color: status-error
+```
+
+:::
+
+## Colors
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `border-color` | [`ColorValue`](/config/types#color-value) | `"green"` | Border color token. |
+| `icon-color` | [`ColorValue`](/config/types#color-value) | `"auto"` | Icon foreground color. Auto selects based on variant for contrast. |
+| `icon-bg-color` | [`ColorValue`](/config/types#color-value) | `"green"` | Icon container background color token. |
+| `label-color` | [`ColorValue`](/config/types#color-value) | `"fg-default"` | Label text color token. |
+| `button-bg-color` | [`ColorValue`](/config/types#color-value) | `"bg-surface-elevated"` | Button background color token. |
+
+## Click actions
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `left-click` | [`ClickAction`](/config/types#click-action) | `"dropdown:notification"` | Action on left click. |
+| `right-click` | [`ClickAction`](/config/types#click-action) | `"lys-shell notify dnd"` | Action on right click. Default toggles Do Not Disturb. |
+| `middle-click` | [`ClickAction`](/config/types#click-action) | `""` | Action on middle click. |
+| `scroll-up` | [`ClickAction`](/config/types#click-action) | `""` | Action on scroll up. |
+| `scroll-down` | [`ClickAction`](/config/types#click-action) | `""` | Action on scroll down. |
+
+## Default configuration
+
+```yaml
+modules:
+  notifications:
+    enabled: true
+    icon-name: ld-bell-symbolic
+    icon-unread: ld-bell-dot-symbolic
+    icon-dnd: ld-bell-off-symbolic
+    border-show: false
+    border-color: green
+    icon-show: true
+    tooltip: true
+    icon-color: auto
+    icon-bg-color: green
+    label-show: true
+    label-color: fg-default
+    label-max-length: 0
+    button-bg-color: bg-surface-elevated
+    left-click: dropdown:notification
+    right-click: lys-shell notify dnd
+    middle-click: ""
+    scroll-up: ""
+    scroll-down: ""
+    blocklist: []
+    dnd:
+      allow-critical: true
+      allow-apps: []
+      schedule: []
+      while-sharing: true
+      while-fullscreen: false
+    sounds: critical
+    sound-default: message-new-instant
+    sound-mute-apps: []
+    sound-volume: 100
+    icon-source: automatic
+    history-memory: 200
+    history-stored: 10000
+    popup-position: top-right
+    popup-max-visible: 5
+    popup-stacking-order: newest-first
+    popup-stack: per-app
+    popup-duration: 5000
+    popup-hover-pause: true
+    popup-margin-x: 0.0
+    popup-margin-y: 0.0
+    popup-gap: 1.0
+    popup-monitor: primary
+    popup-layer: overlay
+    popup-close-behavior: dismiss
+    popup-shadow: true
+    popup-opacity: 75
+    popup-urgency-bar: critical
+    thresholds: []
+```
+
+
+</div>

@@ -1,0 +1,151 @@
+package launcher
+
+import (
+	"errors"
+	"math"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+func memHistory(t *testing.T) *History {
+	t.Helper()
+	h, err := OpenHistoryAt(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = h.Close() })
+	return h
+}
+
+func TestRecordAccumulatesUses(t *testing.T) {
+	h := memHistory(t)
+	_ = h.RecordAt("run", "htop", 1000, 25)
+	_ = h.RecordAt("run", "htop", 2000, 25)
+	w, err := h.FrecencyAt("run", 2000)
+	if err != nil || math.Abs(w["htop"]-2.0) > 1e-9 {
+		t.Errorf("weights = %v %v", w, err)
+	}
+}
+
+func TestFrecencyDecaysWithAge(t *testing.T) {
+	h := memHistory(t)
+	_ = h.RecordAt("drun", "old.desktop", 0, 25)
+	_ = h.RecordAt("drun", "new.desktop", 100*day, 25)
+	w, _ := h.FrecencyAt("drun", 100*day)
+	if w["new.desktop"] <= w["old.desktop"] || math.Abs(w["old.desktop"]-0.1) > 1e-9 {
+		t.Errorf("weights = %v", w)
+	}
+}
+
+func TestPruneKeepsMostRecent(t *testing.T) {
+	h := memHistory(t)
+	for i, name := range []string{"a", "b", "c", "d"} {
+		_ = h.RecordAt("run", name, int64(i), 2)
+	}
+	if got, _ := h.Recent("run"); !reflect.DeepEqual(got, []string{"d", "c"}) {
+		t.Errorf("recent = %v", got)
+	}
+}
+
+func TestRemoveDeletesEntry(t *testing.T) {
+	h := memHistory(t)
+	_ = h.RecordAt("run", "htop", 0, 25)
+	_ = h.Remove("run", "htop")
+	if got, _ := h.Recent("run"); len(got) != 0 {
+		t.Errorf("recent = %v", got)
+	}
+}
+
+func TestModesAreIsolated(t *testing.T) {
+	h := memHistory(t)
+	_ = h.RecordAt("run", "htop", 0, 25)
+	_ = h.RecordAt("drun", "firefox.desktop", 0, 25)
+	if got, _ := h.Recent("run"); !reflect.DeepEqual(got, []string{"htop"}) {
+		t.Errorf("run = %v", got)
+	}
+	if got, _ := h.Recent("drun"); !reflect.DeepEqual(got, []string{"firefox.desktop"}) {
+		t.Errorf("drun = %v", got)
+	}
+}
+
+func TestHistoryPersistsInTheRustFileLayout(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	h, err := OpenHistory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = h.RecordAt("ssh", "host", 5, 25)
+	_ = h.Close()
+	dir, _ := DataDir()
+	h2, err := OpenHistoryAt(filepath.Join(dir, "launcher.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = h2.Close() }()
+	if got, _ := h2.Recent("ssh"); !reflect.DeepEqual(got, []string{"host"}) {
+		t.Errorf("reopened = %v", got)
+	}
+}
+
+// The data directory ignores a relative XDG_DATA_HOME, as the XDG spec
+// says, and is an error when HOME is not absolute either.
+func TestDataDirIgnoresARelativeXDGDataHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", "relative/data")
+	if got, err := DataDir(); err != nil || got != filepath.Join(home, ".local", "share", "lys-shell") {
+		t.Errorf("DataDir = %q %v, want the HOME fallback", got, err)
+	}
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("HOME", "relative/home")
+	if got, err := DataDir(); err == nil {
+		t.Errorf("DataDir = %q with no absolute base, want an error", got)
+	}
+}
+
+func TestAnUnopenableHistoryIsAnError(t *testing.T) {
+	if _, err := OpenHistoryAt(filepath.Join(t.TempDir(), "missing-dir", "x.db")); err == nil {
+		t.Error("a database in a missing directory must fail to open")
+	}
+}
+
+func TestDeferredHistoryOpensOnFirstUse(t *testing.T) {
+	opens := 0
+	h := DeferHistory(func() (*History, error) {
+		opens++
+		return OpenHistoryAt(":memory:")
+	})
+	if opens != 0 {
+		t.Fatal("deferring the history opened it")
+	}
+	if err := h.RecordAt("drun", "a", 1, 10); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := h.Recent("drun"); err != nil || len(got) != 1 {
+		t.Errorf("Recent = %v, %v", got, err)
+	}
+	if opens != 1 {
+		t.Errorf("opened %d times, want once", opens)
+	}
+	if err := h.Close(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDeferredHistoryNobodyUsedNeverOpens(t *testing.T) {
+	opens := 0
+	h := DeferHistory(func() (*History, error) {
+		opens++
+		return OpenHistoryAt(":memory:")
+	})
+	if err := h.Close(); err != nil {
+		t.Error(err)
+	}
+	if _, err := h.Recent("drun"); !errors.Is(err, errHistoryClosed) {
+		t.Errorf("a use after Close = %v, want its refusal", err)
+	}
+	if opens != 0 {
+		t.Errorf("closing an unused history opened it %d times", opens)
+	}
+}

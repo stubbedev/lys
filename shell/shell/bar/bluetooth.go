@@ -1,0 +1,83 @@
+package bar
+
+import (
+	"errors"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-ui/widget"
+
+	"github.com/stubbedev/lys-shell/service/bluetooth"
+)
+
+// bluetoothLabel is helpers.rs's format_label: Off when unavailable or
+// disabled, Disconnected with no devices, one device's alias, else the
+// count.
+func bluetoothLabel(snap bluetooth.Snapshot) string {
+	if !snap.Available || !snap.Enabled {
+		return i18n.T("bar-bluetooth-disabled")
+	}
+	switch len(snap.Connected) {
+	case 0:
+		return i18n.T("bar-bluetooth-disconnected")
+	case 1:
+		return snap.Connected[0]
+	default:
+		return i18n.T("bar-bluetooth-connected-count", i18n.Int("count", int64(len(snap.Connected))))
+	}
+}
+
+// bluetoothIconName is helpers.rs's select_icon: disabled when the
+// adapter is absent or off, searching while discovering, then the
+// connected states.
+func bluetoothIconName(cfg config.BluetoothConfig, snap bluetooth.Snapshot) string {
+	if !snap.Available || !snap.Enabled {
+		return cfg.DisabledIcon
+	}
+	if snap.Discovering {
+		return cfg.SearchingIcon
+	}
+	if len(snap.Connected) == 0 {
+		return cfg.DisconnectedIcon
+	}
+	return cfg.ConnectedIcon
+}
+
+// bluetooth is the module: the BlueZ status label.
+type bluetoothModule struct {
+	ctx    ModuleContext
+	source bluetooth.Source
+	btn    *barButton
+	icon   *widget.Icon
+}
+
+func newBluetooth(ctx ModuleContext) (Module, error) {
+	if ctx.App == nil {
+		return nil, errors.New("bluetooth: requires the application loop")
+	}
+	if ctx.Bluetooth == nil {
+		return nil, errors.New("bluetooth: no BlueZ source available")
+	}
+	m := &bluetoothModule{ctx: ctx, source: ctx.Bluetooth}
+	m.icon = moduleIcon(ctx, ctx.Config.Bluetooth.Icon())
+	m.btn = newBarButton(ctx, m.icon, "")
+	m.refresh()
+	// The module lives as long as the bar; the subscription ends with
+	// the service.
+	ticks, stop := ctx.Bluetooth.Subscribe()
+	follow(m.ctx, ticks, stop, func(struct{}) { m.refresh() })
+	return m, nil
+}
+
+// refresh restyles the label and state icon from the service state.
+func (m *bluetoothModule) refresh() {
+	snap := m.source.State().Snapshot()
+	cfg := m.ctx.Config.Bluetooth
+	label := bluetoothLabel(snap)
+	m.btn.SetLabel(label)
+	if setter := m.icon; setter != nil {
+		setter.SetThemeName(bluetoothIconName(cfg, snap))
+	}
+}
+
+func (m *bluetoothModule) Root() widget.Widget { return m.btn }

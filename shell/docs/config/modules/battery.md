@@ -1,0 +1,147 @@
+---
+title: battery
+outline: [2, 3]
+---
+
+# battery
+
+<div v-pre>
+
+Battery level, charging state, and a dropdown with the batteries of
+peripherals UPower reports (wireless mice, keyboards, controllers,
+headsets) and power-profile controls. Low and critical battery levels
+send critical notifications whether or not the module is placed.
+
+::: warning
+
+This module uses `upower` (D-Bus) for battery information. Ensure `upower` daemon is running and exposes a battery device (verify with `upower --battery` or `upower --dump`).
+
+:::
+
+Add it to your layout with `battery`:
+
+```yaml
+bar:
+  layout:
+    - monitor: "*"
+      right: [battery]
+```
+
+## General
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `level-icons` | array of string | `[...]` | Icons for battery levels from empty to full. |
+| `charging-icon` | string | `"ld-battery-charging-symbolic"` | Icon shown when battery is charging. |
+| `alert-icon` | string | `"ld-battery-warning-symbolic"` | Icon shown when battery is not present or in an error state. |
+| `border-show` | bool | `false` | Display border around button. |
+| `icon-show` | bool | `true` | Display module icon. |
+| `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
+| `label-show` | bool | `true` | Display percentage label. |
+| `format` | string | `"{{ percent }}%"` | Format string for the label. |
+| `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
+| `thresholds` | array of [`ThresholdEntry`](/config/types#threshold-entry) | `[]` | Dynamic color thresholds based on battery percentage. |
+| `notify-low` | bool | `true` | Send a critical notification when the battery, or a peripheral UPower reports such as a wireless mouse, enters UPower's low or critical warning level. |
+| `notify-charged-at` | [`Percentage`](/config/types#percentage) | `0` | Notify once when the charging battery reaches this percentage. Set to 0 to disable. |
+
+::: details More about `level-icons`
+
+The percentage is divided evenly among icons. With 5 icons:
+0-20% uses icons\[0\], 21-40% uses icons\[1\], etc.
+
+:::
+
+::: details More about `format`
+
+#### Placeholders
+
+- `{{ percent }}` - Battery level (0-100)
+
+#### Examples
+
+- `"{{ percent }}%"` - "45%"
+
+:::
+
+::: details More about `thresholds`
+
+Entries are checked in order; the last matching entry wins for each
+color slot. Use `below` for low-value warnings (e.g., low battery).
+
+#### Example
+
+```yaml
+modules:
+  battery:
+    thresholds:
+      - below: 40
+        icon-color: status-warning
+      - below: 20
+        icon-color: status-error
+        label-color: status-error
+```
+
+:::
+
+::: details More about `notify-low`
+
+The levels follow UPower's `PercentageLow` and `PercentageCritical`.
+Each level notifies once; plugging in and unplugging again re-arms them.
+
+:::
+
+## Colors
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `border-color` | [`ColorValue`](/config/types#color-value) | `"yellow"` | Border color token. |
+| `icon-color` | [`ColorValue`](/config/types#color-value) | `"auto"` | Icon foreground color. Auto selects based on variant for contrast. |
+| `icon-bg-color` | [`ColorValue`](/config/types#color-value) | `"yellow"` | Icon container background color token. |
+| `label-color` | [`ColorValue`](/config/types#color-value) | `"fg-default"` | Label text color token. |
+| `button-bg-color` | [`ColorValue`](/config/types#color-value) | `"bg-surface-elevated"` | Button background color token. |
+
+## Click actions
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `left-click` | [`ClickAction`](/config/types#click-action) | `"dropdown:battery"` | Action on left click. |
+| `right-click` | [`ClickAction`](/config/types#click-action) | `""` | Action on right click. |
+| `middle-click` | [`ClickAction`](/config/types#click-action) | `""` | Action on middle click. |
+| `scroll-up` | [`ClickAction`](/config/types#click-action) | `""` | Action on scroll up. |
+| `scroll-down` | [`ClickAction`](/config/types#click-action) | `""` | Action on scroll down. |
+
+## Default configuration
+
+```yaml
+modules:
+  battery:
+    level-icons:
+      - ld-battery-symbolic
+      - ld-battery-low-symbolic
+      - ld-battery-medium-symbolic
+      - ld-battery-full-symbolic
+    charging-icon: ld-battery-charging-symbolic
+    alert-icon: ld-battery-warning-symbolic
+    border-show: false
+    border-color: yellow
+    icon-show: true
+    tooltip: true
+    icon-color: auto
+    icon-bg-color: yellow
+    label-show: true
+    label-color: fg-default
+    format: '{{ percent }}%'
+    label-max-length: 0
+    button-bg-color: bg-surface-elevated
+    left-click: dropdown:battery
+    right-click: ""
+    middle-click: ""
+    scroll-up: ""
+    scroll-down: ""
+    thresholds: []
+    notify-low: true
+    notify-charged-at: 0
+```
+
+
+</div>

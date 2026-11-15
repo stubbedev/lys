@@ -1,0 +1,263 @@
+package wallpaper
+
+import (
+	"image"
+	"math"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-ui/widget"
+)
+
+// TransitionKind is how one wallpaper replaces the previous one: the
+// gtk::Stack transitions the Rust surface flips between its two
+// pictures (stack_transition).
+type TransitionKind uint8
+
+// Transitions. The [animations] types a Stack cannot do (swing,
+// bounce, genie, zoom, rotate, flip) fall back to Crossfade, as in
+// Rust.
+const (
+	TransitionNone TransitionKind = iota
+	TransitionCrossfade
+	TransitionSlideUp
+	TransitionSlideDown
+	TransitionSlideLeft
+	TransitionSlideRight
+)
+
+// Transition is the kind and its duration.
+type Transition struct {
+	Kind     TransitionKind
+	Duration time.Duration
+}
+
+// transitionOf is the wallpaper surface's resolved [animations] entry
+// as the stack transition it can play (stack_transition).
+func transitionOf(a config.AnimationsConfig) Transition {
+	return Transition{
+		Kind:     stackTransition(a.TransitionFor(config.AnimWallpaper, false)),
+		Duration: time.Duration(a.DurationFor(config.AnimWallpaper, false)) * time.Millisecond,
+	}
+}
+
+// stackTransition maps an animation type onto a stack transition.
+func stackTransition(t config.AnimationType) TransitionKind {
+	switch t {
+	case config.AnimationNone:
+		return TransitionNone
+	case config.AnimationSlideUp:
+		return TransitionSlideUp
+	case config.AnimationSlideDown:
+		return TransitionSlideDown
+	case config.AnimationSlideLeft:
+		return TransitionSlideLeft
+	case config.AnimationSlideRight:
+		return TransitionSlideRight
+	case config.AnimationFade, config.AnimationSwingUp, config.AnimationSwingDown, config.AnimationSwingLeft,
+		config.AnimationSwingRight, config.AnimationBounce, config.AnimationGenie, config.AnimationZoom,
+		config.AnimationRotate, config.AnimationFlip:
+		return TransitionCrossfade
+	}
+	panic("wallpaper: unknown animation type " + string(t))
+}
+
+// easeOutCubic is GtkStack's progress curve.
+func easeOutCubic(t float64) float64 {
+	p := t - 1
+	return float64(p*p*p) + 1
+}
+
+// shown is one image the view draws and how it lets go of it.
+type shown struct {
+	pic *widget.Image
+	// size is the image's pixel size, for the crossfade's letterbox.
+	size image.Point
+	// release runs once the view no longer draws pic.
+	release func()
+}
+
+// view shows the current wallpaper and, mid-transition, the previous
+// one: the Go counterpart of the surface's two-picture gtk::Stack.
+type view struct {
+	widget.Base
+	cur, prev *shown
+	painted   func()
+	kind      TransitionKind
+	// progress runs 0 -> 1 over a transition; at 1 prev is dropped.
+	progress float64
+}
+
+func newView() *view { return &view{progress: 1} }
+
+// show swaps img in with the given transition kind and reports whether
+// it transitions, its progress then driven by step. TransitionNone (or
+// no previous image) lands at once. An outgoing image still fading from
+// an earlier swap is dropped now.
+func (v *view) show(img *shown, kind TransitionKind) bool {
+	v.drop()
+	v.prev, v.cur = v.cur, img
+	v.kind, v.progress = kind, 0
+	if kind == TransitionNone || v.prev == nil {
+		v.finish()
+	}
+	v.arrangeChildren()
+	v.InvalidateLayout()
+	v.Invalidate()
+	return v.progress < 1
+}
+
+// step advances a running transition to linear time fraction t (0-1)
+// and reports whether it is still running.
+func (v *view) step(t float64) bool {
+	if t >= 1 {
+		v.finish()
+	} else {
+		v.progress = easeOutCubic(max(t, 0))
+	}
+	v.arrangeChildren()
+	v.Invalidate()
+	return v.progress < 1
+}
+
+func (v *view) finish() {
+	v.progress = 1
+	v.drop()
+}
+
+// drop lets go of the outgoing image.
+func (v *view) drop() {
+	if v.prev == nil {
+		return
+	}
+	prev := v.prev
+	v.prev = nil
+	prev.release()
+}
+
+// clear lets go of every image: the surface is going away.
+func (v *view) clear() {
+	v.drop()
+	if v.cur == nil {
+		return
+	}
+	cur := v.cur
+	v.cur = nil
+	cur.release()
+	v.Invalidate()
+}
+
+// Measure asks for nothing: the surface is anchored to every edge and
+// the view takes the whole box.
+func (v *view) Measure(widget.Axis, int) widget.Sizes { return widget.Sizes{} }
+
+// Arrange records the rect and places the images for the current
+// transition offset.
+func (v *view) Arrange(r render.Rect) {
+	v.ArrangeSelf(r)
+	v.arrangeChildren()
+}
+
+// ArrangeRoot mirrors Arrange for the tree-root path.
+func (v *view) ArrangeRoot(r render.Rect) { v.Arrange(r) }
+
+// offsets are the logical x/y shifts of the incoming and outgoing
+// images: the incoming slides from the far edge to rest, the outgoing
+// from rest out the near edge.
+func (v *view) offsets(r render.Rect) (inX, inY, outX, outY int) {
+	p := v.progress
+	w, h := float64(r.W), float64(r.H)
+	round := func(f float64) int { return int(math.Round(f)) }
+	switch v.kind {
+	case TransitionSlideLeft:
+		return round(w * (1 - p)), 0, round(-w * p), 0
+	case TransitionSlideRight:
+		return round(-w * (1 - p)), 0, round(w * p), 0
+	case TransitionSlideUp:
+		return 0, round(h * (1 - p)), 0, round(-h * p)
+	case TransitionSlideDown:
+		return 0, round(-h * (1 - p)), 0, round(h * p)
+	}
+	return 0, 0, 0, 0
+}
+
+func (v *view) arrangeChildren() {
+	r := v.Bounds()
+	inX, inY, outX, outY := v.offsets(r)
+	if v.cur != nil {
+		v.cur.pic.Arrange(render.Rect{X: r.X + inX, Y: r.Y + inY, W: r.W, H: r.H})
+	}
+	if v.prev != nil {
+		v.prev.pic.Arrange(render.Rect{X: r.X + outX, Y: r.Y + outY, W: r.W, H: r.H})
+	}
+	widget.SetParents(v, v.Children()...)
+}
+
+// Paint draws the outgoing image under the incoming one, clipped to
+// the surface. A crossfade keeps the outgoing image opaque and blends
+// the incoming one over it at the progress: over opaque pixels that is
+// exactly prev*(1-p) + cur*p, the GSK cross-fade.
+func (v *view) Paint(cv *render.Canvas) {
+	prevClip := cv.PushClip(v.Bounds())
+	defer cv.PopClip(prevClip)
+	if v.prev != nil {
+		widget.PaintChild(cv, v.prev.pic)
+	}
+	if v.cur == nil {
+		return
+	}
+	if painted := v.painted; painted != nil {
+		v.painted = nil
+		painted()
+	}
+	if v.prev == nil || v.kind != TransitionCrossfade {
+		widget.PaintChild(cv, v.cur.pic)
+		return
+	}
+	// The incoming letterbox is the black backdrop fading in too.
+	prevAlpha := cv.PushAlpha(v.progress)
+	box := cv.MapRect(v.cur.pic.Bounds())
+	_, inner := render.PlaceImage(v.cur.size.X, v.cur.size.Y, box.W, box.H, v.cur.pic.Scale(), render.ImageCentered)
+	inner.X += box.X
+	inner.Y += box.Y
+	fillOutside(cv, box, inner, backdrop)
+	widget.PaintChild(cv, v.cur.pic)
+	cv.PopAlpha(prevAlpha)
+}
+
+// backdrop is the surface's letterbox color.
+var backdrop = render.RGB(0, 0, 0)
+
+// fillOutside fills the device-pixel ring of outer around inner.
+func fillOutside(cv *render.Canvas, outer, inner render.Rect, c render.Color) {
+	if inner.W <= 0 || inner.H <= 0 {
+		cv.FillRectDevice(outer, c)
+		return
+	}
+	for _, r := range []render.Rect{
+		{X: outer.X, Y: outer.Y, W: outer.W, H: inner.Y - outer.Y},
+		{X: outer.X, Y: inner.Y + inner.H, W: outer.W, H: outer.Y + outer.H - inner.Y - inner.H},
+		{X: outer.X, Y: inner.Y, W: inner.X - outer.X, H: inner.H},
+		{X: inner.X + inner.W, Y: inner.Y, W: outer.X + outer.W - inner.X - inner.W, H: inner.H},
+	} {
+		if r.W > 0 && r.H > 0 {
+			cv.FillRectDevice(r, c)
+		}
+	}
+}
+
+// HitTest: the wallpaper takes no input; presses land on the view.
+func (v *view) HitTest(p widget.Point) widget.Widget { return v.HitLeaf(v, p) }
+
+// Children lists the images being shown.
+func (v *view) Children() []widget.Widget {
+	var out []widget.Widget
+	if v.prev != nil {
+		out = append(out, v.prev.pic)
+	}
+	if v.cur != nil {
+		out = append(out, v.cur.pic)
+	}
+	return out
+}

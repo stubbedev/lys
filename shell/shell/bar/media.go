@@ -1,0 +1,269 @@
+package bar
+
+import (
+	"errors"
+	"sync"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/desktopentry"
+	"github.com/stubbedev/lys-desktop/glob"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-desktop/service/mpris"
+	"github.com/stubbedev/lys-ui/widget"
+
+	"github.com/stubbedev/lys-shell/internal/jinja"
+)
+
+// The status glyphs helpers.rs embeds (Nerd Font media icons).
+const (
+	mediaPlayGlyph  = "󰐊"
+	mediaPauseGlyph = "󰏤"
+	mediaStopGlyph  = "󰓛"
+)
+
+// mediaNoPlayerLabel is the label while no player is active.
+const mediaNoPlayerLabel = "--"
+
+// mediaStatusText is the _bar.ftl status vocabulary.
+func mediaStatusText(state mpris.PlaybackState) string {
+	switch state {
+	case mpris.StatePlaying:
+		return i18n.T("bar-media-playing")
+	case mpris.StatePaused:
+		return i18n.T("bar-media-paused")
+	}
+	return i18n.T("bar-media-stopped")
+}
+
+// mediaStatusGlyph maps the state onto its glyph.
+func mediaStatusGlyph(state mpris.PlaybackState) string {
+	switch state {
+	case mpris.StatePlaying:
+		return mediaPlayGlyph
+	case mpris.StatePaused:
+		return mediaPauseGlyph
+	}
+	return mediaStopGlyph
+}
+
+// mediaLabel is helpers.rs format_label: title, artist, album, status,
+// and status_icon.
+func mediaLabel(format string, p mpris.Player) string {
+	return jinja.RenderOr(format, mediaVars(p))
+}
+
+func mediaVars(p mpris.Player) map[string]any {
+	return map[string]any{
+		"title": p.Title, "artist": p.Artist, "album": p.Album,
+		"status": mediaStatusText(p.State), "status_icon": mediaStatusGlyph(p.State),
+	}
+}
+
+// mediaIconEnv is what the icon pick reads beyond the config: whether
+// a theme icon exists and a desktop entry's Icon key. Tests fake both.
+type mediaIconEnv struct {
+	exists      func(name string) bool
+	desktopIcon func(entry string) (string, bool)
+}
+
+var mediaDesktopIcons = newDesktopIconMemo(func(entry string) (string, bool) {
+	return desktopentry.Icon(entry, desktopentry.ApplicationDirs())
+})
+
+// liveMediaIconEnv reads the real icon theme and the XDG applications dirs,
+// off the loop and once per entry; resolved runs when an entry asked for
+// has been looked up.
+func liveMediaIconEnv(resolved func()) mediaIconEnv {
+	return mediaIconEnv{
+		exists: widget.ThemeIconExists,
+		desktopIcon: func(entry string) (string, bool) {
+			return mediaDesktopIcons.lookup(entry, resolved)
+		},
+	}
+}
+
+type desktopIconAnswer struct {
+	icon string
+	ok   bool
+}
+
+type desktopIconMemo struct {
+	find func(entry string) (string, bool)
+
+	mu      sync.Mutex
+	known   map[string]desktopIconAnswer
+	waiting map[string][]func()
+}
+
+func newDesktopIconMemo(find func(entry string) (string, bool)) *desktopIconMemo {
+	return &desktopIconMemo{find: find, known: map[string]desktopIconAnswer{}, waiting: map[string][]func(){}}
+}
+
+func (m *desktopIconMemo) lookup(entry string, resolved func()) (string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if a, ok := m.known[entry]; ok {
+		return a.icon, a.ok
+	}
+	waiters, finding := m.waiting[entry]
+	m.waiting[entry] = append(waiters, resolved)
+	if !finding {
+		go m.resolve(entry)
+	}
+	return "", false
+}
+
+func (m *desktopIconMemo) resolve(entry string) {
+	icon, ok := m.find(entry)
+	m.mu.Lock()
+	m.known[entry] = desktopIconAnswer{icon, ok}
+	waiters := m.waiting[entry]
+	delete(m.waiting, entry)
+	m.mu.Unlock()
+	for _, resolved := range waiters {
+		resolved()
+	}
+}
+
+// resolveMediaIcon is helpers.rs resolve_icon.
+func resolveMediaIcon(cfg config.MediaConfig, p mpris.Player) string {
+	entrySymbolic := func() string {
+		if p.DesktopEntry != "" {
+			return p.DesktopEntry + "-symbolic"
+		}
+		return cfg.IconName
+	}
+	switch cfg.IconType {
+	case config.MediaIconTypeDefault:
+		return cfg.IconName
+	case config.MediaIconTypeApplication:
+		return entrySymbolic()
+	case config.MediaIconTypeSpinningDisc:
+		return cfg.SpinningDiscIcon
+	}
+	for _, m := range cfg.PlayerIconMappings() {
+		if glob.Wildcard(m.Pattern, p.BusName) {
+			return m.Icon
+		}
+	}
+	for _, m := range config.MediaBuiltinIcons {
+		if glob.Wildcard(m.Pattern, p.BusName) {
+			return m.Icon
+		}
+	}
+	return entrySymbolic()
+}
+
+// mediaIconName is helpers.rs build_icon: application mode reads the
+// desktop entry's icon; the other modes resolve and keep the result
+// only when the theme has it, application-mapped trying the desktop
+// entry next; icon-name is the last resort.
+func mediaIconName(cfg config.MediaConfig, p mpris.Player, env mediaIconEnv) string {
+	if cfg.IconType == config.MediaIconTypeApplication {
+		if icon, ok := env.desktopIcon(p.DesktopEntry); ok {
+			return icon
+		}
+		return cfg.IconName
+	}
+	if resolved := resolveMediaIcon(cfg, p); env.exists(resolved) {
+		return resolved
+	}
+	if cfg.IconType == config.MediaIconTypeApplicationMapped {
+		if icon, ok := env.desktopIcon(p.DesktopEntry); ok {
+			return icon
+		}
+	}
+	return cfg.IconName
+}
+
+// mediaModule is the now-playing button: the active player's icon and
+// label, following the service.
+type mediaModule struct {
+	ctx    ModuleContext
+	source mpris.Source
+	env    mediaIconEnv
+	btn    *barButton
+	icon   *widget.Icon
+	// chrome is the module box around the button: the disc classes are
+	// ancestor selectors (`.media-disc button.bar-button ... image`), so they
+	// must sit above the bar button, on the wrapper.
+	chrome moduleChrome
+}
+
+func newMedia(ctx ModuleContext) (Module, error) {
+	if ctx.Media == nil {
+		return nil, errors.New("media: no MPRIS source available")
+	}
+	m := &mediaModule{ctx: ctx, source: ctx.Media}
+	m.env = liveMediaIconEnv(func() { ctx.Invoke(m.refresh) })
+	m.build()
+	ticks, stop := ctx.Media.Subscribe()
+	follow(ctx, ticks, stop, func(struct{}) { m.refresh() })
+	return m, nil
+}
+
+// build assembles the icon+label tree and paints the first state.
+func (m *mediaModule) build() {
+	cfg := m.ctx.Config.Media
+	m.icon = moduleIcon(m.ctx, cfg.Icon())
+	m.btn = newBarButton(m.ctx, m.icon, "")
+	m.refresh()
+}
+
+// typeClass is the module box's type class, the ancestor the disc
+// selectors hang from.
+func (m *mediaModule) typeClass() string { return "media" }
+
+// setChrome takes the module box appendModule wraps the button in;
+// the disc classes re-apply now that the ancestor exists.
+func (m *mediaModule) setChrome(c moduleChrome) {
+	m.chrome = c
+	m.refresh()
+}
+
+// refresh is update_cmd's PlayerChanged/MetadataChanged/
+// PlaybackStateChanged: label, icon, and the disc classes.
+func (m *mediaModule) refresh() {
+	cfg := m.ctx.Config.Media
+	p, ok := m.source.Active()
+	label, icon := mediaNoPlayerLabel, cfg.IconName
+	if ok {
+		label, icon = mediaLabel(cfg.Format, p), mediaIconName(cfg, p, m.env)
+	}
+	m.btn.SetLabel(label)
+	if m.icon != nil {
+		m.icon.SetThemeName(icon)
+	}
+	if m.chrome != nil {
+		m.chrome.SetVisible(ok)
+	}
+	setClass(m.chrome, "media-disc", ok && cfg.IconType == config.MediaIconTypeSpinningDisc)
+	setClass(m.chrome, "media-spinning", ok && p.State == mpris.StatePlaying)
+}
+
+// classer is a widget carrying style classes (every lys-ui node).
+type classer interface {
+	AddClass(names ...string)
+	RemoveClass(names ...string)
+}
+
+// moduleChrome is a module's wrapper box, the Rust module root: its
+// classes and its visibility.
+type moduleChrome interface {
+	classer
+	SetVisible(on bool)
+}
+
+// setClass toggles one style class; a nil classer is a no-op.
+func setClass(w classer, class string, on bool) {
+	if w == nil {
+		return
+	}
+	if on {
+		w.AddClass(class)
+		return
+	}
+	w.RemoveClass(class)
+}
+
+func (m *mediaModule) Root() widget.Widget { return m.btn }

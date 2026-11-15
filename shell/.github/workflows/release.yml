@@ -1,0 +1,171 @@
+name: Release
+
+on:
+    push:
+        tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+    contents: write
+
+jobs:
+    changelog:
+        name: Changelog
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+
+            - name: Verify tag matches internal/version
+              run: |
+                  VERSION="${GITHUB_REF_NAME#v}"
+                  SOURCE="$(./scripts/ci/version.sh)"
+                  if [ -z "$SOURCE" ]; then
+                      echo "Failed to read the version from internal/version/version.go"
+                      exit 1
+                  fi
+                  if [ "$VERSION" != "$SOURCE" ]; then
+                      echo "Tag $VERSION does not match internal/version $SOURCE"
+                      exit 1
+                  fi
+
+            - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+              with:
+                  extra_nix_config: |
+                      experimental-features = nix-command flakes
+                      extra-substituters = https://nix.stubbe.dev/c/default/default https://nix.stubbe.dev/c/default/flakes
+                      extra-trusted-public-keys = default:6uWvXutL9cXjV3lii+Ur5ff+ArQoG4kMBKNXWrIxhHg= flakes:0Dr9MyPOvA6va2GVzflJcbrChNoZUeIZflyrww3O+YM=
+
+            - name: Generate release notes
+              run: nix develop --accept-flake-config -c go run ./internal/tools/releasenotes "${GITHUB_REF_NAME}" > release-notes.md
+
+            - name: Create GitHub release
+              uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
+              with:
+                  tag: ${{ github.ref_name }}
+                  name: ${{ github.ref_name }}
+                  bodyFile: release-notes.md
+                  draft: true
+                  token: ${{ secrets.GITHUB_TOKEN }}
+
+    # The binaries are pure Go (lys-ui dlopens what it needs), so one build
+    # serves the archive and both packages. The nix closure is not built
+    # here: the tag points at the release commit on master, whose push
+    # already ran ci.yml's nix job and pushed that closure to xilo.
+    archive:
+        name: Archive + deb
+        needs: changelog
+        strategy:
+            fail-fast: false
+            matrix: &arches
+                include:
+                    - { runner: ubuntu-latest, arch: x86_64 }
+                    - { runner: ubuntu-24.04-arm, arch: aarch64 }
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+              with:
+                  extra_nix_config: |
+                      experimental-features = nix-command flakes
+                      extra-substituters = https://nix.stubbe.dev/c/default/default https://nix.stubbe.dev/c/default/flakes
+                      extra-trusted-public-keys = default:6uWvXutL9cXjV3lii+Ur5ff+ArQoG4kMBKNXWrIxhHg= flakes:0Dr9MyPOvA6va2GVzflJcbrChNoZUeIZflyrww3O+YM=
+
+            - name: Build binaries
+              run: nix develop --accept-flake-config -c just build
+
+            - name: Build archive
+              run: ./scripts/ci/build-archive.sh dist "${GITHUB_REF_NAME#v}" ${{ matrix.arch }}
+
+            - name: Build Debian package
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends build-essential debhelper desktop-file-utils dpkg-dev
+                  VERSION="${GITHUB_REF_NAME#v}"
+                  ./scripts/ci/build-packages.sh "lys-shell-${VERSION}-${{ matrix.arch }}-linux.tar.gz" "${VERSION}" deb
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: archive-${{ matrix.arch }}
+                  path: lys-shell-*-${{ matrix.arch }}-linux.tar.gz
+
+            - name: Upload to release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  VERSION="${GITHUB_REF_NAME#v}"
+                  gh release upload "${{ github.ref_name }}" \
+                    "lys-shell-${VERSION}-${{ matrix.arch }}-linux.tar.gz" \
+                    debbuild/DEBS/*/*.deb \
+                    --clobber
+
+    rpm:
+        name: Package (Fedora)
+        needs: archive
+        strategy:
+            fail-fast: false
+            matrix: *arches
+        runs-on: ${{ matrix.runner }}
+        container:
+            image: fedora:latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: archive-${{ matrix.arch }}
+
+            - name: Build Fedora package
+              run: |
+                  dnf -y --setopt=install_weak_deps=False install rpm-build desktop-file-utils systemd-rpm-macros gh
+                  VERSION="${GITHUB_REF_NAME#v}"
+                  ./scripts/ci/build-packages.sh "lys-shell-${VERSION}-${{ matrix.arch }}-linux.tar.gz" "${VERSION}" rpm
+
+            - name: Upload to release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release upload "${{ github.ref_name }}" \
+                    --repo "${{ github.repository }}" \
+                    rpmbuild/RPMS/${{ matrix.arch }}/*.rpm \
+                    --clobber
+
+    checksums:
+        name: Checksums
+        needs: [changelog, archive, rpm]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Download assets
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release download "${{ github.ref_name }}" \
+                    --repo "${{ github.repository }}" \
+                    --pattern "*.tar.gz" \
+                    --pattern "*.deb" \
+                    --pattern "*.rpm" \
+                    --dir release
+
+            - name: Generate SHA256SUMS
+              run: cd release && sha256sum *.tar.gz *.deb *.rpm > ../SHA256SUMS
+
+            - name: Upload checksums
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh release upload "${{ github.ref_name }}" --repo "${{ github.repository }}" SHA256SUMS --clobber
+
+    publish:
+        name: Publish release
+        needs: checksums
+        runs-on: ubuntu-latest
+        steps:
+            - name: Undraft release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false

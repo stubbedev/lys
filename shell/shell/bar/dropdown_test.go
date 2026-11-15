@@ -1,0 +1,497 @@
+package bar
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/shell/reveal"
+	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys-ui/widget"
+)
+
+var _ = render.Color(0)
+
+func TestDropdownBuildersCoverRegistryNames(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
+	// Every name the click-action parser accepts as dropdown:<name> has
+	// a builder that produces a tree.
+	for _, name := range r.Names() {
+		if build, ok := r.builders[name]; !ok || build == nil {
+			t.Errorf("dropdown %q registered without a builder", name)
+			continue
+		}
+		if got := r.builders[name](ctx); got == nil {
+			t.Errorf("dropdown %q built nil content", name)
+		}
+	}
+	// The names the shell's own defaults reference are present.
+	for _, name := range []string{"calendar", "battery", "audio", "weather", "notification"} {
+		if _, ok := r.builders[name]; !ok {
+			t.Errorf("default-referenced dropdown %q missing", name)
+		}
+	}
+	// Power is a menu overlay, not a dropdown (the Rust registry has none).
+	if _, ok := r.builders["power"]; ok {
+		t.Error("a power dropdown is registered")
+	}
+}
+
+func TestDropdownOpenWithoutHostErrors(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
+	// No host attached and no app: the open is an error, not a panic,
+	// and the click path logs it.
+	anchor := widget.NewLabel(ctx.Font, 12, "anchor", 0xFF000000)
+	if err := r.open("DP-1", "calendar", anchor); err == nil {
+		t.Fatal("hostless open: want an error")
+	}
+	// An unknown dropdown name errors too.
+	r.attachHost("DP-1", fakeHost{}, 1000)
+	if err := r.open("DP-1", "nope", anchor); err == nil {
+		t.Fatal("unknown dropdown: want an error")
+	}
+}
+
+func TestDropdownToggleSemantics(t *testing.T) {
+	// The re-click dismiss path runs before any host lookup: with the
+	// popover open, the second click dismisses instead of re-opening.
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
+	// Without an app the popover was never opened, so openPop stays
+	// empty; exercise the map bookkeeping directly.
+	r.mu.Lock()
+	r.openPop["DP-1"] = nil
+	r.mu.Unlock()
+	// nil popover: the toggle branch does not fire (nil != non-nil).
+	anchor := widget.NewLabel(ctx.Font, 12, "anchor", 0xFF000000)
+	if err := r.open("DP-1", "calendar", anchor); err == nil {
+		t.Fatal("hostless open: want an error")
+	}
+}
+
+// fakeHost satisfies app.Host for the registry's host lookups.
+type fakeHost struct{}
+
+func (fakeHost) EnsureUsable() error      { return nil }
+func (fakeHost) Closed() bool             { return false }
+func (fakeHost) Size() (int, int)         { return 800, 32 }
+func (fakeHost) HostSurface() *wl.Surface { return nil }
+
+// Dropdown builders get the full style even when the bar's modules run
+// with fg left to the stylesheet (zero): a popover has no stylesheet, so
+// a zero fg would paint every default-colored dropdown label
+// transparent.
+func TestDropdownBuildersGetTheFullStyle(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	full := computeStyle(cfg, styling.Default())
+	r := newDropdownRegistry(nil, cfg, ctx.Font, &full, ctx)
+	if r.ctx.Style.fg == 0 || r.ctx.Style != &full {
+		t.Fatalf("builders see fg %08x, want the full style's %08x", uint32(r.ctx.Style.fg), uint32(full.fg))
+	}
+	v := calendarDropdown(r.ctx).(*calendarView)
+	if v.hours == nil {
+		t.Fatal("no hours label")
+	}
+	if ctx.Style.fg != 0 {
+		t.Error("the module context's style was changed")
+	}
+}
+
+func TestDropdownGravityOpensAwayFromTheEdge(t *testing.T) {
+	for loc, want := range map[config.Location]app.Gravity{
+		config.LocationTop: app.GravityBottom, config.LocationBottom: app.GravityTop,
+		config.LocationLeft: app.GravityRight, config.LocationRight: app.GravityLeft,
+	} {
+		cfg := config.Defaults()
+		cfg.Bar.Location = loc
+		anchor := widget.NewBox(widget.Row, 0, 0)
+		if got := dropdownPopover(cfg, anchor, anchor, 0, 0).Gravity; got != want {
+			t.Errorf("a %s bar's dropdown opens toward %v, want %v", loc, got, want)
+		}
+	}
+}
+
+// fakePopover records what dropdown content asked of its popover.
+type fakePopover struct {
+	dismissed int
+	focused   widget.Widget
+	// refuse fails every SetFocus, as a popover already gone.
+	refuse error
+}
+
+func (f *fakePopover) Dismiss() { f.dismissed++ }
+
+func (f *fakePopover) SetFocus(w widget.Widget) error {
+	if f.refuse != nil {
+		return f.refuse
+	}
+	f.focused = w
+	return nil
+}
+
+// A focus asked before the popover opens lands once it attaches; one
+// the popover refuses is logged with its reason, not dropped silently.
+func TestPopoverHookFocusesOnAttachAndLogsARefusal(t *testing.T) {
+	entry := widget.NewBox(widget.Column, 0, 0)
+	var hook popoverHook
+	hook.focus(entry)
+	pop := &fakePopover{}
+	hook.attachPopover(pop)
+	if pop.focused != entry {
+		t.Errorf("the pending focus landed on %v, want the entry", pop.focused)
+	}
+	buf := captureLog(t)
+	hook.attachPopover(&fakePopover{refuse: widget.ErrNotInTree})
+	hook.focus(entry)
+	if got := buf.String(); !strings.Contains(got, "cannot focus") || !strings.Contains(got, widget.ErrNotInTree.Error()) {
+		t.Errorf("a refused focus logged %q, want its reason", got)
+	}
+}
+
+func TestDropdownScrollIsVerticalOnly(t *testing.T) {
+	s := dropdownScroll(widget.NewBox(widget.Column, 0, 0), "picker-body")
+	if !s.VerticalOnly || !s.HasClass("picker-body") {
+		t.Error("a dropdown scroll must scroll vertically only, with its class")
+	}
+	if bare := dropdownScroll(widget.NewBox(widget.Column, 0, 0), ""); len(bare.Classes()) != 0 {
+		t.Errorf("an empty class was added: %v", bare.Classes())
+	}
+}
+
+// TestDropdownDismissPlaysTheExit pins animate_out: whatever closes it,
+// the popover stays through the card's exit and goes
+// when that lands; disabled animations end it at once.
+func TestDropdownDismissPlaysTheExit(t *testing.T) {
+	anims := config.DefaultsAnimations()
+	rev := widget.NewRevealer(widget.NewBox(widget.Row, 0, 0))
+	reveal.Show(rev, anims, config.AnimDropdown)
+	rev.Finish()
+	done := 0
+	dropdownExit(rev, anims)(func() { done++ })
+	if done != 0 || rev.Revealed() {
+		t.Fatalf("mid-exit: %d dones, revealed %v", done, rev.Revealed())
+	}
+	rev.Finish()
+	if done != 1 {
+		t.Errorf("after the exit: %d dones, want 1", done)
+	}
+
+	anims.Enabled = false
+	rev = widget.NewRevealer(widget.NewBox(widget.Row, 0, 0))
+	reveal.Show(rev, anims, config.AnimDropdown)
+	done = 0
+	dropdownExit(rev, anims)(func() { done++ })
+	if done != 1 {
+		t.Errorf("animations off: %d dones, want 1 at once", done)
+	}
+}
+
+func TestDropdownGenieEdgeIsTheBars(t *testing.T) {
+	for loc, want := range map[config.Location]widget.Edge{
+		config.LocationTop: widget.EdgeTop, config.LocationBottom: widget.EdgeBottom,
+		config.LocationLeft: widget.EdgeLeft, config.LocationRight: widget.EdgeRight,
+	} {
+		if got := dropdownGenieEdge(loc); got != want {
+			t.Errorf("%s: %v, want %v", loc, got, want)
+		}
+	}
+}
+
+func TestPageSlideFollowsInteractionDuration(t *testing.T) {
+	build := func(cfg *config.Config) *widget.Stack {
+		s := widget.NewStack()
+		pageSlide(s, cfg)
+		s.Add("a", widget.NewBox(widget.Row, 0, 0))
+		s.Add("b", widget.NewBox(widget.Row, 0, 0))
+		return s
+	}
+	cfg := config.Defaults()
+	s := build(cfg)
+	s.Show("b")
+	if !s.Switching() {
+		t.Error("a page switch did not slide")
+	}
+	cfg.Animations.Enabled = false
+	s = build(cfg)
+	s.Show("b")
+	if s.Switching() {
+		t.Error("animations off: the switch still slid")
+	}
+}
+
+// countingContent is dropdown content that counts its builds and its
+// releases.
+type countingContent struct {
+	*widget.Box
+	closed, opened int
+}
+
+func (c *countingContent) dropdownClosed() { c.closed++ }
+func (c *countingContent) dropdownOpened() { c.opened++ }
+
+// Instances are built once and reused (the DropdownInstance cache):
+// state survives a close; a config change releases them, stopping what
+// they follow, and the next open builds afresh.
+func TestDropdownInstancesAreCachedUntilReleased(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
+	var built []*countingContent
+	build := func(ModuleContext) widget.Widget {
+		c := &countingContent{Box: widget.NewBox(widget.Column, 0, 0)}
+		built = append(built, c)
+		return c
+	}
+	first := r.instance("custom", build)
+	if again := r.instance("custom", build); again != first || len(built) != 1 {
+		t.Fatalf("second open built %d instances, want the first reused", len(built))
+	}
+	if built[0].closed != 0 {
+		t.Error("a cached instance was released while cached")
+	}
+	moved := config.Defaults()
+	moved.Bar.Location = config.LocationBottom
+	r.setConfig(moved)
+	if built[0].closed != 1 {
+		t.Errorf("released %d times on a config change, want once", built[0].closed)
+	}
+	if fresh := r.instance("custom", build); fresh == first || len(built) != 2 {
+		t.Error("after the release the old instance came back")
+	}
+	// A sized dropdown caches its panel, which forwards both hooks.
+	panel := r.instance("calendar", calendarDropdown)
+	if _, ok := panel.(*panelBox); !ok {
+		t.Fatalf("calendar instance = %T, want the sized panel", panel)
+	}
+	if r.instance("calendar", calendarDropdown) != panel {
+		t.Error("the calendar panel was rebuilt")
+	}
+	inner := &countingContent{Box: widget.NewBox(widget.Column, 0, 0)}
+	p := newPanelBox(inner, 0, 0)
+	p.dropdownOpened()
+	p.dropdownClosed()
+	if inner.opened != 1 || inner.closed != 1 {
+		t.Errorf("panel forwarded opened %d closed %d, want 1 each", inner.opened, inner.closed)
+	}
+}
+
+// Stacks sized to their visible page tween the card through a switch;
+// homogeneous ones have nothing to tween.
+func TestDropdownInstanceStacksInterpolate(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
+	t.Cleanup(r.release)
+	sized, fixed := widget.NewStack(), widget.NewStack()
+	sized.SetHomogeneous(false)
+	r.instance("custom", func(ModuleContext) widget.Widget {
+		return widget.NewBox(widget.Column, 0, 0).Append(sized, false).Append(fixed, false)
+	})
+	if !sized.InterpolateSize() {
+		t.Error("a page-sized stack does not tween the card")
+	}
+	if fixed.InterpolateSize() {
+		t.Error("a homogeneous stack was set to interpolate")
+	}
+	// The network editor's stack is one of them.
+	v := r.instance("network", func(c ModuleContext) widget.Widget { return newNetworkView(c, netDeps{}) })
+	if panel, ok := v.(*panelBox); !ok || !panel.child.(*networkView).body.InterpolateSize() {
+		t.Error("the network pages do not tween")
+	}
+}
+
+// dropdown-autohide off opens a popover a click elsewhere leaves open.
+func TestDropdownPopoverFollowsAutohide(t *testing.T) {
+	cfg := config.Defaults()
+	anchor := widget.NewBox(widget.Row, 0, 0)
+	if pc := dropdownPopover(cfg, anchor, anchor, 1000, 0); pc.Dismissal != app.PopoverClickAway || pc.MaxHeight != 900 {
+		t.Errorf("autohide on: %+v, want a click-away popover capped at 900", pc)
+	}
+	cfg.Bar.DropdownAutohide = false
+	if pc := dropdownPopover(cfg, anchor, anchor, 0, 0); pc.Dismissal != app.PopoverSticky || pc.MaxHeight != 0 {
+		t.Errorf("autohide off: %+v, want a sticky popover", pc)
+	}
+}
+
+// A sized dropdown's popover caps at its configured width, so lys-ui's
+// fill-width rows take the dropdown's width instead of the output's; an
+// unsized one keeps the default ceiling.
+func TestDropdownPopoverCapsAtItsWidth(t *testing.T) {
+	cfg := config.Defaults()
+	anchor := widget.NewBox(widget.Row, 0, 0)
+	w, _, _ := dropdownDims("mail", cfg)
+	if pc := dropdownPopover(cfg, anchor, anchor, 1000, w); pc.MaxWidth != w || w <= 0 {
+		t.Errorf("mail popover max width = %d, want its %d width", pc.MaxWidth, w)
+	}
+	if pc := dropdownPopover(cfg, anchor, anchor, 1000, 0); pc.MaxWidth != 0 {
+		t.Errorf("an unsized popover caps at %d, want the default ceiling", pc.MaxWidth)
+	}
+}
+
+// The popover tree takes the theme from the bar it is anchored to: a
+// panel's labels resolve their ink through the bar theme's variables,
+// the title in the palette's text color; with the sheet lower in the
+// tree they resolved nothing and painted transparent.
+func TestDropdownTreeStylesThePanelText(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Bar.DropdownOpacity = 100
+	ctx := styledContext(t, cfg)
+	full := computeStyle(cfg, ctx.Style.palette)
+	ctx.Style = &full
+	bar := widget.NewBox(widget.Row, 0, 0)
+	ctx.Theme.Attach(bar)
+	anchor := widget.NewBox(widget.Row, 0, 0)
+	bar.Append(anchor, false)
+	widget.SizeWithin(bar, widget.Size{W: 600, H: 40})
+	bar.Arrange(render.Rect{W: 600, H: 40})
+	root, _ := dropdownTree(calendarDropdown(ctx), cfg)
+	arrange := func() []*widget.Label {
+		widget.SizeWithin(root, widget.Size{W: 600, H: 900})
+		root.Arrange(render.Rect{W: 600, H: 900})
+		labels := treetest.All[*widget.Label](root)
+		if len(labels) == 0 {
+			t.Fatal("no labels in the panel")
+		}
+		return labels
+	}
+	widget.SetStyleAnchor(root, anchor)
+	for _, l := range arrange() {
+		c := widget.CascadeColor(l)
+		if c.A() == 0 {
+			t.Errorf("label %q has no ink from the bar's theme", l.Text())
+		}
+		if want := ctx.Theme.RenderPalette().Fg; l.Text() == "Calendar" && c != want {
+			t.Errorf("the title has ink %#x, want the bar theme's %#x", uint32(c), uint32(want))
+		}
+	}
+	// The popover card paints the dropdown surface: popover.dropdown
+	// takes the palette's dropdown color over lys-ui's popover fill.
+	var card widget.Widget
+	treetest.Walk(root, func(w widget.Widget) {
+		if card == nil && widget.HasClass(w, "dropdown") && widget.HasClass(w, "shadow") {
+			card = w
+		}
+	})
+	if card == nil {
+		t.Fatal("no popover card in the tree")
+	}
+	if got, want := widget.StyleBackground(card), ctx.Theme.RenderPalette().Surface; got != want {
+		t.Errorf("the popover card paints %#x, want the dropdown surface %#x", uint32(got), uint32(want))
+	}
+}
+
+// A dropdown's scroll packs short content at its top, as the GTK
+// viewport does; the bluetooth sections sat mid-panel before.
+func TestDropdownScrollPacksShortContentAtTheTop(t *testing.T) {
+	col := widget.NewBox(widget.Column, 0, 0)
+	first := widget.NewSpacer(10, 20)
+	col.Append(first, false)
+	s := dropdownScroll(col, "")
+	widget.SizeWithin(s, widget.Size{W: 300, H: 400})
+	s.Arrange(render.Rect{W: 300, H: 400})
+	if y := first.Bounds().Y; y > 2 {
+		t.Errorf("the first child sits at y=%d, want the top", y)
+	}
+}
+
+// hidingContent counts the closes of its popover.
+type hidingContent struct {
+	*widget.Box
+	hidden int
+}
+
+func (h *hidingContent) dropdownHidden() { h.hidden++ }
+
+// A dropdown holds its bar button open until its popover closes, and
+// the close reaches content that acts on each close, through a sized
+// panel too. An anchor that is no bar button holds nothing, and with
+// neither there is nothing to run.
+func TestHoldDropdown(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	btn := newBarButton(ctx, nil, "12:30")
+	content := &hidingContent{Box: widget.NewBox(widget.Column, 0, 0)}
+	closed := holdDropdown(btn, true, content)
+	if !btn.HasState(widget.StateChecked) || !btn.frozen {
+		t.Error("an open dropdown leaves its button unchecked or its label live")
+	}
+	closed()
+	if btn.HasState(widget.StateChecked) || btn.frozen || content.hidden != 1 {
+		t.Errorf("closed: checked %v, frozen %v, content hidden %d", btn.HasState(widget.StateChecked), btn.frozen, content.hidden)
+	}
+	plain := widget.NewBox(widget.Column, 0, 0)
+	holdDropdown(plain, true, newPanelBox(content, 0, 0))()
+	if content.hidden != 2 || plain.HasState(widget.StateChecked) {
+		t.Errorf("through a panel: hidden %d, plain anchor checked %v", content.hidden, plain.HasState(widget.StateChecked))
+	}
+	if holdDropdown(plain, true, plain) != nil {
+		t.Error("nothing to run is not nil")
+	}
+}
+
+// A tray menu and a bar dropdown open at lys-ui's popover gap from
+// their button.
+func TestPopoverGaps(t *testing.T) {
+	anchor := widget.NewBox(widget.Row, 0, 0)
+	closed := 0
+	tray := trayMenuConfig(anchor, testFont(t), 14, nil, func() { closed++ })
+	if tray.Gap != widget.PopoverGap || tray.Anchor != widget.Boundser(anchor) {
+		t.Errorf("tray menu gap %d, want %d from its button", tray.Gap, widget.PopoverGap)
+	}
+	tray.OnClosed()
+	if closed != 1 {
+		t.Error("the tray menu's OnClosed is not the one given")
+	}
+	if pc := dropdownPopover(config.Defaults(), anchor, anchor, 1000, 0); pc.Gap != widget.PopoverGap {
+		t.Errorf("dropdown gap %d, want %d from its button", pc.Gap, widget.PopoverGap)
+	}
+}
+
+// A translucent panel asks for the compositor's blur; a panel at full
+// opacity has nothing to show through and pays nothing.
+func TestDropdownPopoverAsksForBlurWhenTranslucent(t *testing.T) {
+	anchor := widget.NewBox(widget.Column, 0, 0)
+	cfg := config.Defaults()
+	if !dropdownPopover(cfg, anchor, anchor, 1000, 0).BackgroundBlur {
+		t.Error("the default translucent panel does not ask for blur")
+	}
+	cfg.Bar.DropdownOpacity = 100
+	if dropdownPopover(cfg, anchor, anchor, 1000, 0).BackgroundBlur {
+		t.Error("an opaque panel asks for blur")
+	}
+}
+
+// A dropdown fading in shows from the shared start opacity, readable
+// from its first frame; a slide still enters from hidden, and the exit
+// still fades all the way out.
+func TestDropdownFadesInFromAReadableOpacity(t *testing.T) {
+	cfg := config.Defaults()
+	_, rev := dropdownTree(widget.NewBox(widget.Row, 0, 0), cfg)
+	reveal.Show(rev, cfg.Animations, config.AnimDropdown)
+	if got := rev.Progress(); got != reveal.FadeFrom {
+		t.Errorf("the dropdown fade starts at %v, want %v", got, reveal.FadeFrom)
+	}
+	rev.Finish()
+	dropdownExit(rev, cfg.Animations)(nil)
+	rev.Finish()
+	if got := rev.Progress(); got != 0 {
+		t.Errorf("the exit lands at %v, want hidden", got)
+	}
+
+	enter := config.AnimationSlideDown
+	cfg.Animations.Dropdown.Enter = &enter
+	_, rev = dropdownTree(widget.NewBox(widget.Row, 0, 0), cfg)
+	reveal.Show(rev, cfg.Animations, config.AnimDropdown)
+	if got := rev.Progress(); got != 0 {
+		t.Errorf("a sliding dropdown starts at %v, want hidden", got)
+	}
+}

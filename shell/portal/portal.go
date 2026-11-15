@@ -1,0 +1,147 @@
+// Package portal is lys-shell's xdg-desktop-portal backend: the
+// org.freedesktop.impl.portal.* interfaces the compositor-independent
+// xdg-desktop-portal frontend routes sandboxed apps' requests to,
+// served as one object under the org.freedesktop.impl.portal.desktop.lys
+// name that `lys-shell portal` claims. Interactive interfaces delegate their dialogs to the running
+// shell over its own D-Bus services.
+package portal
+
+import (
+	"fmt"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/identity"
+	"github.com/stubbedev/lys-desktop/portal/permissions"
+	"github.com/stubbedev/lys-lib/dbusx"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys-lib/xdg"
+
+	"github.com/stubbedev/lys-shell/internal/toplevels"
+	"github.com/stubbedev/lys-shell/service/screenshare"
+)
+
+// BusName is the backend's well-known name (lys-shell.portal's DBusName).
+const BusName = screenshare.BusName
+
+// ObjectPath is where every interface is mounted.
+const ObjectPath = screenshare.Path
+
+// shellName is what the portal's PipeWire client and EIS seat are
+// called, and what its ScreenCast streams are named after.
+const shellName = identity.Name
+
+// screencastNode is the PipeWire node name of every ScreenCast stream.
+const screencastNode = shellName + "-screencast"
+
+// Backend is the running portal backend.
+type Backend struct {
+	conn     *dbus.Conn
+	cfg      *config.Service
+	settings *settings
+	sessions *sessions
+	// spawn starts a program the portal hands off to (detach; a
+	// recorder in tests).
+	spawn func(argv, env []string) error
+	// open hands a URI to the user's default app for it, raised by
+	// an activation token (openURI; a recorder in tests).
+	open       func(uri, token string) error
+	logind     *logind
+	inhibitor  *inhibitor
+	notifier   *notifier
+	clipboard  *clipboardBridge
+	shortcuts  *globalShortcuts
+	screenCast *screenCast
+	remote     *remoteDesktop
+	input      *inputCapture
+	shares     *shares
+	// windows is the compositor's window list (a fake in tests).
+	windows windowSource
+	// dataDir is lys-shell's data directory, "" when none resolves.
+	dataDir string
+}
+
+// New builds the backend over a session-bus connection and the config.
+func New(conn *dbus.Conn, cfg *config.Service) *Backend {
+	b := &Backend{
+		conn: conn, cfg: cfg, sessions: newSessions(conn),
+		settings: newSettings(cfg, xdg.OS),
+		spawn:    detach, open: openURI, logind: &logind{}, notifier: newNotifier(conn),
+	}
+	b.inhibitor = newInhibitor(conn, b.sessions, b.logind)
+	if dir, ok := xdg.OS.DataDir(identity.Name); ok {
+		b.dataDir = dir
+	}
+	b.windows = &windowList{conn: conn, watch: toplevels.Watch}
+	// One Wayland connection serves every interface that needs the
+	// compositor, started by the first of them.
+	loop := &waylandLoop{}
+	b.screenCast = newScreenCast(conn, b.sessions, b.castReminder(), screenStreams{openDevice: openVulkanAllocator}.start, loop.outputs)
+	b.remote = newRemoteDesktop(conn, b.sessions, b.screenCast, dialInput, touchOffered)
+	b.shares = newShares(conn, b.sessions)
+	b.clipboard = newClipboardBridge(conn, b.sessions, waylandClipboardStarter(loop))
+	b.shortcuts = newGlobalShortcuts(conn, b.sessions, permissions.ShortcutsPath(), waylandShortcutsStarter(loop))
+	loop.onEnd(b.clipboard.loopEnded)
+	loop.onEnd(b.shortcuts.loopEnded)
+	b.input = offeredInputCapture(conn, b.sessions, loop)
+	return b
+}
+
+// interfaces is every interface the backend mounts at ObjectPath.
+func (b *Backend) interfaces() []dbusx.Interface {
+	ifaces := append([]dbusx.Interface{
+		b.settings.iface(),
+		lockdown{b.cfg}.iface(),
+		background{b.conn, b.notifier, b.windows}.iface(),
+		usbIface(b.conn),
+		emailIface(b.conn, b.spawn, b.open),
+		secretIface(b.conn, b.cfg),
+		b.inhibitor.iface(),
+		screenshotIface(b.conn),
+		fileChooserIface(b.conn),
+		printIface(b.conn),
+		b.clipboard.iface(),
+		b.shortcuts.iface(),
+		b.screenCast.iface(),
+		b.remote.iface(),
+		b.shares.iface(),
+		b.notifier.iface(),
+		wallpaperIface(b.conn, b.cfg, b.dataDir),
+	}, dialogIfaces(b.conn, b.cfg)...)
+	if b.input != nil {
+		ifaces = append(ifaces, b.input.iface())
+	}
+	return ifaces
+}
+
+// Serve mounts the interfaces, claims BusName (failing loudly when
+// another backend owns it rather than queueing and idling forever) and
+// starts the settings watcher and the notification action forwarder.
+// The returned stop ends both, runs
+// every live session's cleanup and drops the name.
+func (b *Backend) Serve() (stop func(), err error) {
+	if _, err := dbusx.Export(b.conn, ObjectPath, b.interfaces()...); err != nil {
+		return nil, fmt.Errorf("cannot register D-Bus object: %w", err)
+	}
+	release, err := dbusx.Own(b.conn, BusName)
+	if err != nil {
+		return nil, fmt.Errorf("cannot request D-Bus name: %w", err)
+	}
+	unforward, err := b.notifier.forward()
+	if err != nil {
+		// Buttons still show; their presses just do not reach the app.
+		warnf("notification: cannot subscribe to ActionInvoked: %v", err)
+		unforward = func() {}
+	}
+	unwatch := b.settings.watch(b.conn)
+	unwatchLockdown := lockdown{b.cfg}.watch(b.conn)
+	return func() {
+		b.shortcuts.close()
+		unwatchLockdown()
+		unwatch()
+		unforward()
+		b.sessions.clearAll()
+		b.windows.close()
+		b.logind.close()
+		release()
+	}, nil
+}

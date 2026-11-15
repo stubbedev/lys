@@ -1,0 +1,265 @@
+package main
+
+import (
+	"bytes"
+	"errors"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/dbustest"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+
+	"github.com/stubbedev/lys-shell/service/shellipc"
+)
+
+// fakeShell owns the application id; quit releases it the way the
+// process exiting would.
+func fakeShell(t *testing.T) {
+	t.Helper()
+	conn := dbustest.SessionConn(t)
+	// The quit lands on a D-Bus goroutine; the channel hands it the
+	// release with an ordering the race detector sees.
+	released := make(chan func(), 1)
+	release, err := shellipc.ServeApplication(conn, shellipc.Actions{
+		Quit:    func() { go (<-released)() },
+		Inspect: func() {},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	released <- release
+}
+
+func TestPanelLifecycleCommands(t *testing.T) {
+	dbustest.Session(t)
+	if stdout, _, code := runCaptured(t, false, "panel", "status"); code != 0 || stdout != "Panel is not running\n" {
+		t.Errorf("status down: %d %q", code, stdout)
+	}
+	for _, cmd := range []string{"stop", "inspect"} {
+		if _, stderr, code := runCaptured(t, false, "panel", cmd); code != 1 || stderr != "Error: Panel is not running\n" {
+			t.Errorf("%s down: %d %q", cmd, code, stderr)
+		}
+	}
+
+	fakeShell(t)
+	if stdout, _, _ := runCaptured(t, false, "panel", "status"); stdout != "Panel is running\n" {
+		t.Errorf("status up: %q", stdout)
+	}
+	if stdout, _, code := runCaptured(t, false, "panel", "start"); code != 0 || stdout != "Panel is already running\n" {
+		t.Errorf("start while running: %d %q", code, stdout)
+	}
+	if stdout, stderr, code := runCaptured(t, false, "panel", "inspect"); code != 0 || stdout != "Inspector opened\n" {
+		t.Errorf("inspect: %d %q %q", code, stdout, stderr)
+	}
+	if stdout, stderr, code := runCaptured(t, false, "panel", "stop"); code != 0 || stdout != "Panel stopped\n" {
+		t.Errorf("stop: %d %q %q", code, stdout, stderr)
+	}
+	if stdout, _, _ := runCaptured(t, false, "panel", "status"); stdout != "Panel is not running\n" {
+		t.Errorf("status after stop: %q", stdout)
+	}
+}
+
+func TestPanelDashboard(t *testing.T) {
+	dbustest.Session(t)
+	if _, stderr, code := runCaptured(t, false, "panel", "dashboard"); code != 1 || stderr != "Error: Shell service not running. Start lys-shell shell first.\n" {
+		t.Errorf("shell down: %d %q", code, stderr)
+	}
+	var monitors []string
+	var mu sync.Mutex
+	release, err := shellipc.Serve(dbustest.SessionConn(t), shellipc.NewState(nil), shellipc.Hooks{
+		DashboardToggle: func(m string) error {
+			mu.Lock()
+			defer mu.Unlock()
+			monitors = append(monitors, m)
+			if m == "NOPE" {
+				return errors.New("no dashboard module in the bar on NOPE")
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	if stdout, stderr, code := runCaptured(t, false, "panel", "dashboard"); code != 0 || stdout != "" {
+		t.Errorf("toggle: %d %q %q", code, stdout, stderr)
+	}
+	if stdout, stderr, code := runCaptured(t, false, "panel", "dashboard", "DP-2"); code != 0 || stdout != "" {
+		t.Errorf("toggle on DP-2: %d %q %q", code, stdout, stderr)
+	}
+	if _, stderr, code := runCaptured(t, false, "panel", "dashboard", "NOPE"); code != 1 || !strings.Contains(stderr, "no dashboard module") {
+		t.Errorf("refused: %d %q, want the shell's reason", code, stderr)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if want := []string{"", "DP-2", "NOPE"}; !slices.Equal(monitors, want) {
+		t.Errorf("the shell was asked for %q, want %q", monitors, want)
+	}
+}
+
+func TestPanelBarVisibility(t *testing.T) {
+	dbustest.Session(t)
+	if _, stderr, code := runCaptured(t, false, "panel", "hide"); code != 1 || stderr != "Error: Shell service not running. Start lys-shell shell first.\n" {
+		t.Errorf("shell down: %d %q", code, stderr)
+	}
+	state := shellipc.NewState(nil)
+	state.SetConnectors([]string{"DP-1", "DP-2"})
+	release, err := shellipc.Serve(dbustest.SessionConn(t), state, shellipc.Hooks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	steps := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"panel", "hide", "DP-1"}, "Bar hidden on DP-1\n"},
+		{[]string{"panel", "toggle"}, "All bars toggled\n"},
+		{[]string{"panel", "hide"}, "All bars hidden\n"},
+		{[]string{"panel", "show", "DP-2"}, "Bar shown on DP-2\n"},
+		{[]string{"panel", "toggle", "DP-2"}, "Bar toggled on DP-2\n"},
+		{[]string{"panel", "show"}, "All bars shown\n"},
+	}
+	wantHidden := []map[string]bool{
+		{"DP-1": true}, {}, {"DP-1": true, "DP-2": true}, {"DP-1": true}, {"DP-1": true, "DP-2": true}, {},
+	}
+	for i, s := range steps {
+		stdout, stderr, code := runCaptured(t, false, s.args...)
+		if code != 0 || stdout != s.want {
+			t.Errorf("%v: %d %q %q", s.args, code, stdout, stderr)
+		}
+		for _, c := range []string{"DP-1", "DP-2"} {
+			if state.Hidden(c) != wantHidden[i][c] {
+				t.Errorf("after %v: %s hidden = %v", s.args, c, state.Hidden(c))
+			}
+		}
+	}
+}
+
+func TestPanelRevealReachesTheBars(t *testing.T) {
+	dbustest.Session(t)
+	state := shellipc.NewState(nil)
+	release, err := shellipc.Serve(dbustest.SessionConn(t), state, shellipc.Hooks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, stderr, code := runCaptured(t, false, "panel", "reveal"); code != 1 || !strings.Contains(stderr, "bars not ready") {
+		t.Errorf("no bars yet: %d %q", code, stderr)
+	}
+	release()
+	var mu sync.Mutex
+	var revealed []string
+	release, err = shellipc.Serve(dbustest.SessionConn(t), state, shellipc.Hooks{BarReveal: func(monitor string) {
+		mu.Lock()
+		defer mu.Unlock()
+		revealed = append(revealed, monitor)
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	for _, s := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"panel", "reveal"}, "All bars revealed\n"},
+		{[]string{"panel", "reveal", "DP-2"}, "Bar revealed on DP-2\n"},
+	} {
+		if stdout, stderr, code := runCaptured(t, false, s.args...); code != 0 || stdout != s.want {
+			t.Errorf("%v: %d %q %q", s.args, code, stdout, stderr)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if want := []string{"", "DP-2"}; !slices.Equal(revealed, want) {
+		t.Errorf("revealed %q, want %q", revealed, want)
+	}
+}
+
+func TestShellRefusesASecondInstance(t *testing.T) {
+	dbustest.Session(t)
+	started := 0
+	start := func(*dbus.Conn) error { started++; return nil }
+	var stderr bytes.Buffer
+	if err := runShell(&stderr, start); err != nil || started != 1 || stderr.Len() != 0 {
+		t.Fatalf("first shell: %v started=%d %q", err, started, stderr.String())
+	}
+	fakeShell(t)
+	if err := runShell(&stderr, start); err != nil || started != 1 || stderr.String() != "lys-shell shell is already running\n" {
+		t.Fatalf("second shell: %v started=%d %q", err, started, stderr.String())
+	}
+	// A start failure is the shell's error.
+	stderr.Reset()
+	dbustest.Session(t)
+	if err := runShell(&stderr, func(*dbus.Conn) error { return errors.New("no output") }); err == nil {
+		t.Error("start error swallowed")
+	}
+}
+
+func TestPanelFocusHandsABarTheKeyboard(t *testing.T) {
+	dbustest.Session(t)
+	state := shellipc.NewState(nil)
+	var mu sync.Mutex
+	var focused []string
+	release, err := shellipc.Serve(dbustest.SessionConn(t), state, shellipc.Hooks{BarFocus: func(monitor string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		focused = append(focused, monitor)
+		if monitor == "HDMI-9" {
+			return errors.New("no bar is open on HDMI-9")
+		}
+		return nil
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	for _, args := range [][]string{{"panel", "focus"}, {"panel", "focus", "DP-2"}} {
+		if stdout, stderr, code := runCaptured(t, false, args...); code != 0 || stdout != "" {
+			t.Errorf("%v: %d %q %q", args, code, stdout, stderr)
+		}
+	}
+	if _, stderr, code := runCaptured(t, false, "panel", "focus", "HDMI-9"); code != 1 || !strings.Contains(stderr, "no bar is open on HDMI-9") {
+		t.Errorf("a monitor without a bar: %d %q", code, stderr)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if want := []string{"", "DP-2", "HDMI-9"}; !slices.Equal(focused, want) {
+		t.Errorf("focused %q, want %q", focused, want)
+	}
+}
+
+// The stop is told once the application id has lost its owner, and its
+// watch takes its match rule off the connection again.
+func TestPanelStopIsToldOfTheApplicationIDLosingItsOwner(t *testing.T) {
+	bus := dbustest.Start(t)
+	conn := bus.Conn(t)
+	released, failed := make(chan struct{}, 1), make(chan error, 1)
+	watch, err := watchRelease(conn, released, failed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shell := bus.Conn(t)
+	if reply, err := shell.RequestName(shellipc.AppID, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("own %s: %v %v", shellipc.AppID, reply, err)
+	}
+	if err := shell.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-released:
+	case err := <-failed:
+		t.Fatalf("the watch failed: %v", err)
+	case <-time.After(shutdownTimeout):
+		t.Fatal("the application id lost its owner and the stop was not told")
+	}
+	if err := watch.Stop(); err != nil {
+		t.Fatalf("stop the watch: %v", err)
+	}
+	if rules := dbustest.MatchRules(t, conn); len(rules) != 0 {
+		t.Fatalf("the watch left the match rules %q", rules)
+	}
+}

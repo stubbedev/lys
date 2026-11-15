@@ -1,0 +1,211 @@
+package bar
+
+import (
+	"image"
+	"image/color"
+	"image/png"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys-ui/widget"
+)
+
+func TestParseOSRelease(t *testing.T) {
+	info, ok := parseOSRelease("NAME=\"Arch Linux\"\nID=arch\nLOGO='archlinux-logo'\n")
+	if !ok || info.id != "arch" || info.logo != "archlinux-logo" {
+		t.Errorf("= %+v, %v; want arch with the unquoted logo", info, ok)
+	}
+	if info, ok := parseOSRelease("ID=\"nixos\"\n"); !ok || info.id != "nixos" || info.logo != "" {
+		t.Errorf("quoted id = %+v, %v", info, ok)
+	}
+	// No ID line: no distro (detect_distro's id?).
+	if _, ok := parseOSRelease("NAME=Something\nLOGO=x\n"); ok {
+		t.Error("an os-release without ID must not detect a distro")
+	}
+}
+
+func TestDashboardIconOrder(t *testing.T) {
+	distro := func(id, logo string) func() (distroInfo, bool) {
+		return func() (distroInfo, bool) { return distroInfo{id: id, logo: logo}, true }
+	}
+	none := func() (distroInfo, bool) { return distroInfo{}, false }
+	have := func(names ...string) func(string) bool {
+		return func(n string) bool { return slices.Contains(names, n) }
+	}
+	for _, tc := range []struct {
+		name     string
+		override string
+		distro   func() (distroInfo, bool)
+		exists   func(string) bool
+		want     string
+	}{
+		{"override wins", "custom-icon", distro("arch", ""), have(), "custom-icon"},
+		{"no os-release", "", none, have("si-archlinux-symbolic"), dashboardFallbackIcon},
+		{"bundled icon", "", distro("arch", "arch-logo"), have("si-archlinux-symbolic", "arch-logo"), "si-archlinux-symbolic"},
+		{"opensuse variants share one", "", distro("opensuse-leap", ""), have("si-opensuse-symbolic"), "si-opensuse-symbolic"},
+		{"bundled missing falls to LOGO", "", distro("arch", "arch-logo"), have("arch-logo"), "arch-logo"},
+		{"then distributor-logo", "", distro("weird", "nope"), have("distributor-logo-weird"), "distributor-logo-weird"},
+		{"nothing resolves", "", distro("weird", "nope"), have(), dashboardFallbackIcon},
+	} {
+		if got := dashboardIcon(tc.override, tc.distro, tc.exists); got != tc.want {
+			t.Errorf("%s: icon = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestDashboardModuleIsTheIcon(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Dashboard.IconOverride = "my-distro-symbolic"
+	ctx := newTestContext(t, cfg)
+	module, err := createOnHeadlessLoop("dashboard", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	icon, ok := module.Root().(*widget.Icon)
+	if !ok || icon.Name() != "my-distro-symbolic" {
+		t.Fatalf("root = %T, want the override icon", module.Root())
+	}
+	// The default binding opens the dashboard dropdown.
+	if got := moduleBinding("dashboard", cfg).LeftClick.String(); got != "dropdown:dashboard" {
+		t.Errorf("left-click = %q, want dropdown:dashboard", got)
+	}
+}
+
+func TestLoadFileAppliesDashboard(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	good := "modules:\n  dashboard:\n    icon-override: x\n    dropdown-lock-command: swaylock\n    usage-error: 90\n" +
+		"    right-click: \"dropdown:calendar\"\n    user-session:\n      actions: [reboot, lock]\n"
+	if err := osWrite(path, good); err != nil {
+		t.Fatal(err)
+	}
+	c, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	d := c.Dashboard
+	if d.IconOverride != "x" || d.DropdownLockCommand != "swaylock" || d.UsageError != 90 {
+		t.Errorf("dashboard = %+v", d)
+	}
+	if d.DropdownLogoutCommand != config.DefaultLogoutCommand || d.UsageWarning != 60 {
+		t.Errorf("unset keys lost their defaults: %+v", d)
+	}
+	if len(d.UserSession.Actions) != 2 || d.UserSession.Actions[0] != config.SessionActionReboot || d.UserSession.Actions[1] != config.SessionActionLock {
+		t.Errorf("actions = %v, want [reboot lock]", d.UserSession.Actions)
+	}
+	if d.Clicks().RightClick.String() != "dropdown:calendar" || d.Clicks().LeftClick.String() != "dropdown:dashboard" {
+		t.Errorf("clicks = %+v", d.Clicks())
+	}
+
+	// The defaults carry all four actions in schema order.
+	def := config.DefaultsDashboard().UserSession.Actions
+	if len(def) != 4 || def[0] != config.SessionActionLock || def[3] != config.SessionActionPowerOff {
+		t.Errorf("default actions = %v", def)
+	}
+
+	for _, bad := range []string{
+		"modules:\n  dashboard:\n    user-session:\n      actions: [logout]\n",
+		"modules:\n  dashboard:\n    usage-warning: high\n",
+		"modules:\n  dashboard:\n    left-click: 3\n",
+	} {
+		if err := osWrite(path, bad); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := config.LoadFile(path); err == nil {
+			t.Errorf("%q: want a load error", bad)
+		}
+	}
+}
+
+func TestSessionButtonsFollowTheActions(t *testing.T) {
+	cfg := config.DefaultsDashboard()
+	cfg.DropdownRebootCommand = "my-reboot"
+	b := sessionButtonFor(config.SessionActionReboot, cfg)
+	if b.icon != "ld-refresh-cw-symbolic" || b.command != "my-reboot" {
+		t.Errorf("reboot button = %+v", b)
+	}
+	if b := sessionButtonFor(config.SessionActionLogOut, cfg); b.icon != "ld-log-out-symbolic" || b.command != cfg.DropdownLogoutCommand {
+		t.Errorf("log-out button = %+v", b)
+	}
+}
+
+func TestUserSessionSectionRendersConfiguredActions(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USER", "alice")
+	cfg := config.Defaults()
+	cfg.Dashboard.UserSession.Actions = []config.SessionAction{config.SessionActionLock, config.SessionActionPowerOff}
+	ctx := newTestContext(t, cfg)
+	card, ok := userSessionSection(ctx).(*widget.Box)
+	if !ok || !card.HasClass("card") || !card.HasClass("dashboard-card") {
+		t.Fatal("section is not the card dashboard-card")
+	}
+	row, ok := card.Children()[0].(*widget.Item)
+	if !ok || !row.HasClass("dashboard-user-session") {
+		t.Fatalf("the card holds %T, want the session Item", card.Children()[0])
+	}
+	// The Item: the avatar tile as its bare media, the username as its
+	// title, and the configured actions as its buttons.
+	avatar, ok := findByClass(row, "user-avatar").(*widget.Box)
+	if !ok {
+		t.Fatal("no user-avatar tile")
+	}
+	// No ~/.face: the user glyph stands in.
+	if glyph, ok := avatar.Children()[0].(*widget.Icon); !ok || glyph.Name() != "ld-user-symbolic" {
+		t.Errorf("avatar = %T, want the ld-user-symbolic glyph", avatar.Children()[0])
+	}
+	if name := itemText(row, "title"); name != "alice" {
+		t.Errorf("username = %q, want alice", name)
+	}
+	if n := len(treetest.WithClass(row, "session-btn")); n != 2 {
+		t.Fatalf("session buttons = %d, want the two configured actions", n)
+	}
+}
+
+func TestUserSessionUsesTheFaceImage(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	accountAt(t, home)
+	img := image.NewNRGBA(image.Rect(0, 0, 64, 48))
+	for i := range img.Pix {
+		img.Pix[i] = 0xff
+	}
+	img.Set(0, 0, color.NRGBA{A: 255})
+	face := filepath.Join(home, ".face")
+	f, err := os.Create(face)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(f, img); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	// The face rides on the tile as its background image, the Rust
+	// avatar's inline url().
+	tile := widget.NewBox(widget.Row, 0, 0)
+	tile.AddClass("user-avatar")
+	setAvatar(tile)
+	if !strings.Contains(tile.InlineStyle(), `url('`+face+`')`) {
+		t.Errorf("the tile carries %q, want the face's url", tile.InlineStyle())
+	}
+	// An undecodable face still takes the inline style: the paint
+	// falls back to the box's background color under it.
+	if err := os.WriteFile(face, []byte("nope"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tile2 := widget.NewBox(widget.Row, 0, 0)
+	setAvatar(tile2)
+	if tile2.InlineStyle() == "" {
+		t.Error("a present face file set no background image")
+	}
+	// No file at all: the tile stays clean for the user glyph.
+	os.Remove(face)
+	tile3 := widget.NewBox(widget.Row, 0, 0)
+	setAvatar(tile3)
+	if tile3.InlineStyle() != "" {
+		t.Errorf("a missing face set %q", tile3.InlineStyle())
+	}
+}

@@ -1,0 +1,84 @@
+package portal
+
+import (
+	"os"
+	"testing"
+
+	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys-lib/pipewire/pwtest"
+
+	"github.com/stubbedev/lys-shell/shell/sharepicker"
+)
+
+// The real capture-to-PipeWire path against a private headless
+// compositor; runs only with LYS_SHELL_CAPTURE_HEADLESS=1 and
+// WAYLAND_DISPLAY/XDG_RUNTIME_DIR pointing at that session (it must
+// never stream a developer's screen). The PipeWire daemon is private.
+func TestHeadlessScreenStreams(t *testing.T) {
+	if os.Getenv("LYS_SHELL_CAPTURE_HEADLESS") == "" {
+		t.Skip("LYS_SHELL_CAPTURE_HEADLESS is not set")
+	}
+	c, err := capture.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs := c.Outputs()
+	_ = c.Close()
+	if len(outs) == 0 || outs[0].Name == "" {
+		t.Fatalf("outputs = %v", outs)
+	}
+	pwtest.Start(t)
+	streams := screenStreams{openDevice: openVulkanAllocator}
+	for _, target := range []sharepicker.Target{
+		{Kind: sharepicker.TargetOutput, Name: outs[0].Name},
+		{Kind: sharepicker.TargetRegion, Name: outs[0].Name, X: 10, Y: 20, Width: 200, Height: 100},
+	} {
+		s, err := streams.start(target, cursorEmbedded, defaultFPS)
+		if err != nil {
+			t.Fatalf("%s: %v", target.Payload(), err)
+		}
+		w, h := s.Size()
+		if s.NodeID() == 0 || w <= 0 || h <= 0 {
+			t.Errorf("%s: node %d size %dx%d", target.Payload(), s.NodeID(), w, h)
+		}
+		if target.Kind == sharepicker.TargetRegion && (w < 200 || h < 100) {
+			t.Errorf("region streams %dx%d", w, h)
+		}
+		s.Close()
+	}
+	if _, err := streams.start(sharepicker.Target{Kind: sharepicker.TargetOutput, Name: "NOPE-1"}, cursorHidden, defaultFPS); err == nil {
+		t.Error("a missing output streamed")
+	}
+	if _, err := streams.start(sharepicker.Target{Kind: sharepicker.TargetWindow, Name: "no-such-window"}, cursorHidden, defaultFPS); err == nil {
+		t.Error("a missing window streamed")
+	}
+}
+
+// TestHeadlessGPUStream takes the zero-copy path against a private
+// compositor that renders on the GPU (WLR_RENDERER=gles2 on a render
+// node); LYS_SHELL_CAPTURE_DMABUF=1 asks for it, with the same rule as
+// above: never a developer's screen.
+func TestHeadlessGPUStream(t *testing.T) {
+	if os.Getenv("LYS_SHELL_CAPTURE_DMABUF") == "" {
+		t.Skip("LYS_SHELL_CAPTURE_DMABUF is not set")
+	}
+	c, err := capture.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs := c.Outputs()
+	_ = c.Close()
+	if len(outs) == 0 {
+		t.Fatal("no outputs")
+	}
+	pwtest.Start(t)
+	streams := screenStreams{openDevice: openVulkanAllocator}
+	s, err := streams.startGPU(sharepicker.Target{Kind: sharepicker.TargetOutput, Name: outs[0].Name}, castCursor{}, 30)
+	if err != nil {
+		t.Fatalf("the zero-copy path declined: %v", err)
+	}
+	defer s.Close()
+	if w, h := s.Size(); w <= 0 || h <= 0 || s.NodeID() == 0 {
+		t.Errorf("stream %dx%d node %d", w, h, s.NodeID())
+	}
+}

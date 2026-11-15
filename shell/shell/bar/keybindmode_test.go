@@ -1,0 +1,188 @@
+package bar
+
+import (
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys-ui/widget"
+
+	"github.com/stubbedev/lys-shell/service/hyprland"
+)
+
+func TestKeybindModeLabel(t *testing.T) {
+	if got := keybindModeLabel("{{ mode }}", "resize"); got != "resize" {
+		t.Errorf("= %q", got)
+	}
+	// An empty submap renders the "default" vocabulary word.
+	if got := keybindModeLabel("{{ mode }}", ""); got != i18n.T("bar-keybind-mode-default") {
+		t.Errorf("= %q, want default", got)
+	}
+	if got := keybindModeLabel("[{{ mode }}]", "move"); got != "[move]" {
+		t.Errorf("= %q", got)
+	}
+}
+
+func TestKeybindModeVisibility(t *testing.T) {
+	if !keybindModeVisible("resize", true) {
+		t.Error("auto-hide hid a real submap")
+	}
+	if keybindModeVisible("", true) {
+		t.Error("auto-hide kept the default submap visible")
+	}
+	if !keybindModeVisible("", false) {
+		t.Error("auto-hide off must always show")
+	}
+}
+
+func TestParseEventSubmap(t *testing.T) {
+	event, ok := hyprland.ParseEvent("submap>>resize")
+	if !ok || event.Kind != hyprland.EventSubmap || event.Name != "resize" {
+		t.Errorf("= %+v ok=%v", event, ok)
+	}
+	// Empty payload: the default submap.
+	event, ok = hyprland.ParseEvent("submap>>")
+	if !ok || event.Name != "" {
+		t.Errorf("= %+v ok=%v, want an empty submap", event, ok)
+	}
+}
+
+func TestLoadFileAppliesKeybindMode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	good := "modules:\n  keybind-mode:\n    format: \"[{plugin}] {{ mode }}\"\n    auto-hide: true\n"
+	if err := osWrite(path, good); err != nil {
+		t.Fatal(err)
+	}
+	c, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if c.KeybindMode.Format != "[{plugin}] {{ mode }}" || !c.KeybindMode.AutoHide {
+		t.Errorf("config = %+v", c.KeybindMode)
+	}
+	if c.KeybindMode.Icon().Name != "ld-layers-symbolic" {
+		t.Errorf("icon = %+v", c.KeybindMode.Icon())
+	}
+
+	if err := osWrite(path, "modules:\n  keybind-mode:\n    format: \"\"\n"); err != nil {
+		t.Fatal(err)
+	}
+	// The schema puts no constraint on the format string.
+	if _, err := config.LoadFile(path); err != nil {
+		t.Errorf("empty format: accepted by the schema, got %v", err)
+	}
+}
+
+func TestKeybindModeModuleRequiresHyprlandOrLysWM(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	ctx.Hyprland = nil
+	advertise(t, "SWAYSOCK")
+	if _, err := createOnHeadlessLoop("keybind-mode", ctx); err == nil {
+		t.Fatal("under sway: want an error, got a module")
+	}
+}
+
+func TestKeybindModeModuleFollowsSubmaps(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	eventLn := startFakeEventStream(t, []string{"submap>>resize\n"})
+	ctx.Hyprland = hyprland.ConnectTo(filepath.Join(sockdir.Dir(t), "unused.sock"), eventLn)
+
+	module, err := createOnHeadlessLoop("keybind-mode", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// The icon defaults on, so the root is the bar button carrying both.
+	row, ok := module.Root().(*barButton)
+	if !ok || row.icon == nil {
+		t.Fatalf("Root = %T, want the bar button with its icon and label", module.Root())
+	}
+	label := findLabel(row)
+	waitForText(t, label, "resize")
+}
+
+// Under auto-hide the module root starts hidden on the default submap,
+// shows in a named one, and hides again on leaving it; without
+// auto-hide it always shows.
+func TestKeybindModeHidesTheModuleRoot(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.KeybindMode.AutoHide = true
+	ctx := newTestContext(t, cfg)
+	f, conn := startFakeHypr(t, map[string]string{})
+	ctx.Hyprland = conn
+	module, err := createOnHeadlessLoop("keybind-mode", ctx)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	m := module.(*keybindModeModule)
+	chrome := widget.NewBox(widget.Row, 0, 0)
+	onHeadlessLoop(func() bool { m.setChrome(chrome); return true })
+	visible := func() bool { return onHeadlessLoop(func() bool { return chrome.Visible() }) }
+	if visible() {
+		t.Fatal("default submap under auto-hide is shown")
+	}
+	f.emit(t, "submap>>resize")
+	waitHeadless(t, "shown in resize", chrome.Visible)
+	f.emit(t, "submap>>")
+	waitHeadless(t, "hidden on leaving", func() bool { return !chrome.Visible() })
+	cfg.KeybindMode.AutoHide = false
+	onHeadlessLoop(func() bool { m.render(); return true })
+	if !visible() {
+		t.Error("auto-hide off hid the module")
+	}
+}
+
+func TestKeybindModeMountsWhileItsFirstSubmapArrives(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.KeybindMode.AutoHide = true
+	ctx := newTestContext(t, cfg)
+	ctx.Hyprland = hyprland.ConnectTo(filepath.Join(sockdir.Dir(t), "unused.sock"), startFakeEventStream(t, []string{"submap>>resize\n"}))
+	row := widget.NewBox(widget.Row, 0, 0)
+	shown := make(chan bool, 1)
+	go func() { shown <- shownInResize(row) }()
+	if err := mountInto(row, ctx, "keybind-mode"); err != nil {
+		t.Fatalf("mount: %v", err)
+	}
+	if !<-shown {
+		t.Fatal("under auto-hide the resize submap never showed the module")
+	}
+	if got := onHeadlessLoop(findLabel(row).Text); got != "resize" {
+		t.Errorf("the label reads %q, want the resize submap", got)
+	}
+}
+
+func shownInResize(row *widget.Box) bool {
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if onHeadlessLoop(func() bool {
+			kids := row.Children()
+			return len(kids) == 1 && widget.IsVisible(kids[0]) && findLabel(row).Text() == "resize"
+		}) {
+			return true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return false
+}
+
+// findLabel walks a module root for its first label.
+func findLabel(w widget.Widget) *widget.Label {
+	if label, ok := w.(*widget.Label); ok {
+		return label
+	}
+	if b, ok := w.(*barButton); ok {
+		return b.Label()
+	}
+	if box, ok := w.(interface{ Children() []widget.Widget }); ok {
+		for _, kid := range box.Children() {
+			if label := findLabel(kid); label != nil {
+				return label
+			}
+		}
+	}
+	return nil
+}
