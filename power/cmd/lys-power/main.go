@@ -1,7 +1,8 @@
 // Command lys-power applies power-source policy on Linux laptops: it
 // swaps the power-profiles-daemon profile on AC edges and adaptively moves
 // the battery charge thresholds so the machine leaves the desk with a full
-// battery without spending its life plugged in at 100%.
+// battery without spending its life plugged in at 100%. As a user service
+// it also sets the backlight from the room's light.
 package main
 
 import (
@@ -19,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/lib/dbusx"
 
+	"github.com/stubbedev/lys/power/internal/autobright"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/daemon"
 	"github.com/stubbedev/lys/power/internal/history"
@@ -35,10 +37,13 @@ Usage:
   lys-power full      Request a charge to 100% until the next unplug
   lys-power status    Print the current state and prediction
   lys-power predict   Print the predicted unplug time
+  lys-power brightness
+                      Set the backlight from the room's light (a user service)
   lys-power version   Print the version
 
 Paths can be overridden with LYS_POWER_SUPPLY_DIR, LYS_POWER_STATE_DIR and
-LYS_POWER_RUNTIME_DIR.
+LYS_POWER_RUNTIME_DIR; where brightness looks for a light sensor and a
+camera with LYS_POWER_IIO_DIR and LYS_POWER_DEV_DIR.
 `
 
 func main() {
@@ -71,6 +76,10 @@ func dispatch(command string, cfg config.Config, log *slog.Logger) error {
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 		return daemon.Run(ctx, cfg, log)
+	case "brightness":
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		return autobright.Run(ctx, cfg, log)
 	case "once":
 		return withProfiles(log, func(client *profiles.Client) error {
 			var pc daemon.ProfileClient

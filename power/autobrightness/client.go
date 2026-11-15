@@ -37,16 +37,6 @@ func (c *Client) Resume(ctx context.Context) error {
 	return nil
 }
 
-func ChangedMatch() []dbus.MatchOption {
-	return []dbus.MatchOption{
-		dbus.WithMatchSender(ServiceName),
-		dbus.WithMatchObjectPath(ServicePath),
-		dbus.WithMatchInterface(propertiesIface),
-		dbus.WithMatchMember("PropertiesChanged"),
-		dbus.WithMatchArg(0, Interface),
-	}
-}
-
 func Changed(sig *dbus.Signal) (State, bool, error) {
 	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
 		return 0, false, nil

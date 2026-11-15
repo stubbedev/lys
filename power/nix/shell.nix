@@ -9,6 +9,7 @@
 
       packages = with pkgs; [
         gopls
+        dbus
         golangci-lint
         delve
         just

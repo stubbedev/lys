@@ -1,7 +1,9 @@
 # lys-power
 
 lys-power controls when a laptop's battery charges and which power profile it
-runs, in one static Go binary. It runs as the `lys-power` system service.
+runs, in one static Go binary. It runs as the `lys-power` system service. As
+the `lys-power-brightness` user service it can also set the screen brightness
+from the room's light: see [Automatic brightness](#automatic-brightness).
 
 A battery left plugged in at 100% wears out fast. So while the laptop is on
 AC, lys-power holds the charge between **75%** and **80%**. It learns at what
@@ -58,6 +60,8 @@ lys-power once      Evaluate once
 lys-power full      Charge to 100% until the next unplug
 lys-power status    Print the power source, thresholds, profile and prediction
 lys-power predict   Print the predicted unplug time
+lys-power brightness
+                    Set the backlight from the room's light (the user service runs this)
 lys-power version   Print the version
 ```
 
@@ -67,7 +71,82 @@ setup that runs lys-power from a timer or a udev rule instead of as a service.
 
 The environment variables `LYS_POWER_SUPPLY_DIR`, `LYS_POWER_STATE_DIR` and
 `LYS_POWER_RUNTIME_DIR` replace `/sys/class/power_supply`,
-`/var/lib/lys-power` and `/run/battery-charge`.
+`/var/lib/lys-power` and `/run/battery-charge`. `LYS_POWER_IIO_DIR` and
+`LYS_POWER_DEV_DIR` replace `/sys/bus/iio/devices` and `/dev`, where
+`brightness` looks for a light sensor and a camera.
+
+## Automatic brightness
+
+Automatic brightness sets the backlight from the light in the room. It is off
+unless you enable it: running the `lys-power-brightness` user service is what
+turns it on. It runs in your graphical session, as you, not as root.
+
+**Where the light comes from.** An ambient light sensor is preferred: the
+first IIO device under `/sys/bus/iio/devices` with `in_illuminance_input`, or
+`in_illuminance_raw` with its `in_illuminance_scale` and
+`in_illuminance_offset`. It is read every 2 seconds. Without one, the camera
+estimates the light: the first `/dev/video*` capture node with manual
+exposure control. With neither, the service exits with an error that names
+what it looked for, and the unit shows as failed.
+
+**The camera.** Once a minute, lys-power switches the camera on at the
+smallest frame size it offers, for about a second. A camera's auto exposure
+makes every picture look about equally bright, so the brightness of a frame
+alone says little about the room. lys-power lets auto exposure settle, then
+holds the exposure manually at the camera's default gain and adjusts it until a
+frame is neither too dark nor too bright, and takes the frame's brightness
+divided by its exposure time as the room's light. Afterwards it puts the
+exposure and gain controls back as they were. If another application is
+using the camera, for example during a call, that sample is skipped and the
+backlight stays where it is.
+
+**Privacy.** A frame is only averaged into a single brightness number, in
+memory. No frame is ever written to disk, kept or sent anywhere. While the
+backlight is paused, or the session is locked or in the background, the camera
+is not switched on at all.
+
+**How the backlight moves.** The light is smoothed with a moving average over
+about 30 seconds. The level follows the logarithm of the illuminance, from 5%
+at 1 lux to 100% at 3000 lux. The backlight moves only when the new level is
+more than 6 percentage points from the current one, and then in steps over
+1.5 seconds rather than in one jump. It drives every backlight under
+`/sys/class/backlight`, through logind, as the shell's brightness keys do.
+
+**Pausing and resuming.** When the backlight changes to a level lys-power did
+not set, from the shell's brightness slider, a brightness key or any other
+program, automatic brightness pauses and leaves the backlight alone. The
+shell's brightness widget shows whether automatic brightness is following the
+room or paused, and its "follow the room again" action hands control back: the
+backlight then goes to the level for the current light at once. The idle dim
+does not count as a change: when the shell dims the screen after a period of
+inactivity and puts it back when you return, automatic brightness carries on.
+A dim that you then change yourself keeps it paused. lys-power neither samples
+nor writes while the session is locked or another session is in the
+foreground.
+
+The state is on the session bus as the `State` property (`following` or
+`paused`) of `dev.stubbe.lys.AutoBrightness1` at
+`/dev/stubbe/lys/AutoBrightness`, with `PropertiesChanged` on every change,
+and `Resume()` hands control back:
+
+```sh
+busctl --user get-property dev.stubbe.lys.AutoBrightness1 /dev/stubbe/lys/AutoBrightness dev.stubbe.lys.AutoBrightness1 State
+busctl --user call dev.stubbe.lys.AutoBrightness1 /dev/stubbe/lys/AutoBrightness dev.stubbe.lys.AutoBrightness1 Resume
+```
+
+The name is on the bus only while the service runs.
+
+On NixOS, set `services.lys-power.autoBrightness.enable = true;` (see
+[NixOS](#nixos)). On other distributions, the packages install the user unit
+without enabling it:
+
+```sh
+systemctl --user enable --now lys-power-brightness
+```
+
+Your user needs access to the camera, which logind grants the user at the
+seat, and the backlight is written through logind's `SetBrightness`, so no
+group membership is needed.
 
 ## Upgrading from adaptive-power-manager
 
@@ -93,28 +172,34 @@ writing the same thresholds work against each other.
 | Option | Default | Description |
 | --- | --- | --- |
 | `services.lys-power.enable` | `false` | Run the `lys-power` system service. |
-| `services.lys-power.package` | the flake's `lys-power` | The package whose unit and tmpfiles rule are installed. |
+| `services.lys-power.package` | the flake's `lys-power` | The package whose units and tmpfiles rule are installed. |
+| `services.lys-power.autoBrightness.enable` | `false` | Start the `lys-power-brightness` user service, [automatic brightness](#automatic-brightness), with every graphical session. |
 
 The module installs `lys-power`, its system unit, wanted by
 `graphical.target`, and the tmpfiles rule that creates `/run/battery-charge`.
 It also enables `services.upower` and `services.power-profiles-daemon` with
 `mkDefault`. Set either to `false` to run without it, for example when TLP
-manages the power profiles.
+manages the power profiles. `autoBrightness.enable` installs the package's
+user unit `lys-power-brightness.service` and has it wanted by
+`graphical-session.target`; it works with or without `enable`.
 
 ## Other distributions
 
 The `.deb` and `.rpm` on the
 [latest release](https://github.com/stubbedev/lys/releases/latest) install
-`/usr/bin/lys-power`, the unit `lys-power.service` and the tmpfiles rule
-`lys-power.conf`. They enable nothing:
+`/usr/bin/lys-power`, the unit `lys-power.service`, the user unit
+`lys-power-brightness.service` and the tmpfiles rule `lys-power.conf`. They
+enable nothing:
 
 ```sh
 sudo systemctl enable --now lys-power
+systemctl --user enable --now lys-power-brightness   # automatic brightness, optional
 ```
 
 The tarball `lys-power-<version>-<arch>-linux.tar.gz` holds the same files.
 Install the binary as `/usr/bin/lys-power`, the unit under
-`/usr/lib/systemd/system/` and `lys-power.tmpfiles` as
+`/usr/lib/systemd/system/`, `lys-power-brightness.service` under
+`/usr/lib/systemd/user/` and `lys-power.tmpfiles` as
 `/usr/lib/tmpfiles.d/lys-power.conf`, then run
 `sudo systemd-tmpfiles --create lys-power.conf` and enable the unit.
 

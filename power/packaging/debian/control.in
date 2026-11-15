@@ -24,5 +24,10 @@ Description: adaptive battery charging and power profile policy for the lys desk
  hours before that moment. It also switches the power-profiles-daemon
  profile on every AC edge: performance on AC, power-saver on battery.
  .
+ As a user service, lys-power-brightness sets the screen brightness from
+ an ambient light sensor, or else from short camera captures that are
+ never kept or sent anywhere.
+ .
  The package enables nothing: start the system service with
- systemctl enable --now lys-power.
+ systemctl enable --now lys-power, and automatic brightness with
+ systemctl --user enable --now lys-power-brightness.

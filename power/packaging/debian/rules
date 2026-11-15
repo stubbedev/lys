@@ -13,11 +13,17 @@ override_dh_strip:
 override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start --no-stop-on-upgrade
 
+override_dh_installsystemduser:
+	dh_installsystemduser --no-enable
+
 override_dh_auto_install:
 	install -d debian/lys-power/usr/bin
 	install -m 0755 lys-power debian/lys-power/usr/bin/
 
 	install -d debian/lys-power/usr/lib/systemd/system
 	install -m 0644 lys-power.service debian/lys-power/usr/lib/systemd/system/
+
+	install -d debian/lys-power/usr/lib/systemd/user
+	install -m 0644 lys-power-brightness.service debian/lys-power/usr/lib/systemd/user/
 
 	install -D -m 0644 lys-power.tmpfiles debian/lys-power/usr/lib/tmpfiles.d/lys-power.conf

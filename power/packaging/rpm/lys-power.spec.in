@@ -18,7 +18,9 @@ Recommends:     (power-profiles-daemon or tuned-ppd)
 %description
 lys-power holds a laptop's battery at 75-80% while it is plugged in and learns when the charger usually comes out, charging to 100% in the two hours before that moment. It also switches the power-profiles-daemon profile on every AC edge: performance on AC, power-saver on battery.
 
-The package enables nothing: start the system service with systemctl enable --now lys-power.
+As a user service, lys-power-brightness sets the screen brightness from an ambient light sensor, or else from short camera captures that are never kept or sent anywhere.
+
+The package enables nothing: start the system service with systemctl enable --now lys-power, and automatic brightness with systemctl --user enable --now lys-power-brightness.
 
 %prep
 %setup -q -n lys-power-%{version}-%{_arch}-linux
@@ -31,6 +33,9 @@ install -m 0755 lys-power %{buildroot}%{_bindir}/
 
 install -d %{buildroot}%{_unitdir}
 install -m 0644 lys-power.service %{buildroot}%{_unitdir}/
+
+install -d %{buildroot}%{_userunitdir}
+install -m 0644 lys-power-brightness.service %{buildroot}%{_userunitdir}/
 
 install -D -m 0644 lys-power.tmpfiles %{buildroot}%{_tmpfilesdir}/lys-power.conf
 
@@ -48,6 +53,7 @@ install -D -m 0644 lys-power.tmpfiles %{buildroot}%{_tmpfilesdir}/lys-power.conf
 %license LICENSE
 %{_bindir}/lys-power
 %{_unitdir}/lys-power.service
+%{_userunitdir}/lys-power-brightness.service
 %{_tmpfilesdir}/lys-power.conf
 
 %changelog

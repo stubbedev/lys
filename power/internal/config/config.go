@@ -13,6 +13,8 @@ const (
 	DefaultSupplyDir  = "/sys/class/power_supply"
 	DefaultStateDir   = "/var/lib/lys-power"
 	DefaultRuntimeDir = "/run/battery-charge"
+	DefaultIIODir     = "/sys/bus/iio/devices"
+	DefaultDevDir     = "/dev"
 )
 
 // LegacyStateDirs are where lys-power's predecessors kept their state,
@@ -50,11 +52,65 @@ const (
 	BusTimeout = 5 * time.Second
 )
 
+// Automatic brightness. The backlight follows the room's illuminance
+// along a curve linear in log lux, from BrightnessFloor percent at or
+// below DarkLux to BrightnessCeiling percent at or above BrightLux.
+const (
+	DarkLux           = 1.0
+	BrightLux         = 3000.0
+	BrightnessFloor   = 5.0
+	BrightnessCeiling = 100.0
+	// MinLux is the least illuminance the smoothing works with, so a
+	// sensor reading 0 in the dark keeps the logarithm finite.
+	MinLux = 0.1
+	// SmoothingTau is the time constant of the moving average of log
+	// illuminance.
+	SmoothingTau = 30 * time.Second
+	// HysteresisPercent is how far the target must be from the current
+	// level before the backlight moves.
+	HysteresisPercent = 6.0
+	// TransitionSteps writes, TransitionStep apart, carry the backlight to
+	// a new level.
+	TransitionSteps = 15
+	TransitionStep  = 100 * time.Millisecond
+	// SensorInterval is how often an ambient light sensor is read, and
+	// CameraInterval how often the camera is switched on to estimate the
+	// light when there is no sensor.
+	SensorInterval = 2 * time.Second
+	CameraInterval = time.Minute
+)
+
+// The camera estimate. The camera's auto exposure settles over
+// CameraSettleFrames frames; its exposure is then held manually at its
+// default gain and bracketed, at most CameraBrackets times, until a
+// frame's mean luma lies within CameraLumaLow..CameraLumaHigh, aiming
+// at CameraLumaTarget; CameraDiscardFrames frames are dropped after
+// each exposure change, and no frame may take longer than CameraFrame.
+// No exposure is longer than CameraMaxExposure exposure_absolute units,
+// so a capture in the dark stays short.
+// CameraLuxScale converts luma per exposure_absolute unit (100 µs) to
+// lux, an approximation for a typical laptop camera.
+const (
+	CameraSettleFrames  = 10
+	CameraDiscardFrames = 3
+	CameraBrackets      = 6
+	CameraFrame         = 2 * time.Second
+	CameraMaxExposure   = 2000
+	CameraLumaLow       = 30.0
+	CameraLumaTarget    = 110.0
+	CameraLumaHigh      = 210.0
+	CameraLuxScale      = 900.0
+)
+
 // Config is the resolved configuration.
 type Config struct {
 	SupplyDir  string
 	StateDir   string
 	RuntimeDir string
+	// IIODir lists the IIO devices an ambient light sensor is looked for
+	// among, and DevDir holds the camera nodes.
+	IIODir string
+	DevDir string
 }
 
 // Load reads the configuration, applying LYS_POWER_* environment overrides.
@@ -63,6 +119,8 @@ func Load() Config {
 		SupplyDir:  env("LYS_POWER_SUPPLY_DIR", DefaultSupplyDir),
 		StateDir:   env("LYS_POWER_STATE_DIR", DefaultStateDir),
 		RuntimeDir: env("LYS_POWER_RUNTIME_DIR", DefaultRuntimeDir),
+		IIODir:     env("LYS_POWER_IIO_DIR", DefaultIIODir),
+		DevDir:     env("LYS_POWER_DEV_DIR", DefaultDevDir),
 	}
 }
 

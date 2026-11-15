@@ -1,0 +1,23 @@
+[Unit]
+Description=lys-power automatic screen brightness
+Documentation=https://github.com/stubbedev/lys/tree/main/docs/power
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lys-power brightness
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=graphical-session.target
