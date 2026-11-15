@@ -1621,13 +1621,24 @@ func (s *Session) step() error {
 		return nil
 	}
 	if err := runThroughProxyNil(ctx.Run); errors.Is(err, wl.ErrContextRunTimeout) {
-		return s.wakeDue(ctx)
+		if err := s.wakeDue(ctx); err != nil {
+			return err
+		}
+		return s.dispatchReady(ctx)
 	} else if err := s.asDisconnect(err); err != nil {
 		return err
 	}
 	if err := s.dispatchBuffered(ctx); err != nil {
 		return err
 	}
+	return s.dispatchReady(ctx)
+}
+
+// dispatchReady dispatches what one non-blocking read brings in, so a
+// pass whose wake was already due when it parked still takes the events
+// waiting on the socket: a loop whose timers or queued work come due
+// every pass would otherwise never read the compositor again.
+func (s *Session) dispatchReady(ctx *wl.Context) error {
 	read, err := ctx.ReadReady()
 	if errors.Is(err, os.ErrDeadlineExceeded) {
 		return s.wakeDue(ctx)

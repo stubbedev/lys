@@ -14,43 +14,56 @@ import (
 	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
-// syncCompositor plays the compositor's half of wl_display.sync on c:
-// every sync is answered with its callback's done and the display's
-// delete_id. It counts the syncs it answered and returns when c closes.
-func syncCompositor(c net.Conn, answered *atomic.Int32) {
+// answerSync plays the compositor's half of one request on c: a
+// wl_display.sync is answered with its callback's done and the
+// display's delete_id, and reported true; any other request is read
+// and skipped.
+func answerSync(c net.Conn) (bool, error) {
 	var head [8]byte
+	if _, err := io.ReadFull(c, head[:]); err != nil {
+		return false, err
+	}
+	obj := binary.NativeEndian.Uint32(head[0:4])
+	word := binary.NativeEndian.Uint32(head[4:8])
+	body := make([]byte, word>>16-8)
+	if _, err := io.ReadFull(c, body); err != nil {
+		return false, err
+	}
+	if obj != 1 || word&0xffff != displaySyncOpcode {
+		return false, nil
+	}
+	id := binary.NativeEndian.Uint32(body[0:4])
+	const eventSize, doneOpcode, deleteIDOpcode = 12, 0, 1
+	var ev [2 * eventSize]byte
+	binary.NativeEndian.PutUint32(ev[0:], id)
+	binary.NativeEndian.PutUint32(ev[4:], eventSize<<16+doneOpcode)
+	binary.NativeEndian.PutUint32(ev[8:], 1)
+	binary.NativeEndian.PutUint32(ev[12:], 1)
+	binary.NativeEndian.PutUint32(ev[16:], eventSize<<16+deleteIDOpcode)
+	binary.NativeEndian.PutUint32(ev[20:], id)
+	if _, err := c.Write(ev[:]); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// syncCompositor answers every sync on c, counting them, and returns
+// when c closes.
+func syncCompositor(c net.Conn, answered *atomic.Int32) {
 	for {
-		if _, err := io.ReadFull(c, head[:]); err != nil {
+		synced, err := answerSync(c)
+		if err != nil {
 			return
 		}
-		obj := binary.NativeEndian.Uint32(head[0:4])
-		word := binary.NativeEndian.Uint32(head[4:8])
-		body := make([]byte, word>>16-8)
-		if _, err := io.ReadFull(c, body); err != nil {
-			return
-		}
-		if obj != 1 || word&0xffff != displaySyncOpcode {
-			continue
-		}
-		id := binary.NativeEndian.Uint32(body[0:4])
-		answered.Add(1)
-		const eventSize, doneOpcode, deleteIDOpcode = 12, 0, 1
-		var ev [2 * eventSize]byte
-		binary.NativeEndian.PutUint32(ev[0:], id)
-		binary.NativeEndian.PutUint32(ev[4:], eventSize<<16+doneOpcode)
-		binary.NativeEndian.PutUint32(ev[8:], 1)
-		binary.NativeEndian.PutUint32(ev[12:], 1)
-		binary.NativeEndian.PutUint32(ev[16:], eventSize<<16+deleteIDOpcode)
-		binary.NativeEndian.PutUint32(ev[20:], id)
-		if _, err := c.Write(ev[:]); err != nil {
-			return
+		if synced {
+			answered.Add(1)
 		}
 	}
 }
 
-// newSyncSession connects a session to a loopback compositor that
-// answers syncs.
-func newSyncSession(t *testing.T) (*Session, net.Conn, *atomic.Int32) {
+// newLoopbackSession connects a session to a loopback compositor whose
+// end of the connection the test plays.
+func newLoopbackSession(t *testing.T) (*Session, net.Conn) {
 	t.Helper()
 	ln, _ := wltest.LoopbackDisplay(t, "wayland-wake")
 	t.Cleanup(func() { _ = ln.Close() })
@@ -63,10 +76,18 @@ func newSyncSession(t *testing.T) (*Session, net.Conn, *atomic.Int32) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	answered := &atomic.Int32{}
-	go syncCompositor(srv, answered)
 	s := &Session{Display: d}
 	t.Cleanup(s.Close)
+	return s, srv
+}
+
+// newSyncSession connects a session to a loopback compositor that
+// answers syncs.
+func newSyncSession(t *testing.T) (*Session, net.Conn, *atomic.Int32) {
+	t.Helper()
+	s, srv := newLoopbackSession(t)
+	answered := &atomic.Int32{}
+	go syncCompositor(srv, answered)
 	return s, srv, answered
 }
 
@@ -172,6 +193,29 @@ func TestManyWakesRaceWithADispatchingLoop(t *testing.T) {
 	s.WakeAfter(0)
 	if err := waittest.For(t, done, "the loop to leave its park after its wakes"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A pass whose wake is already due when it parks still dispatches what
+// the compositor sent meanwhile: a loop whose timer or queued work comes
+// due every pass must not stop reading the compositor, or input that
+// arrived stays unseen by the work that follows it.
+func TestADueWakeStillDispatchesTheEventsWaiting(t *testing.T) {
+	s, srv := newLoopbackSession(t)
+	answered := false
+	if err := s.AfterSync(func() { answered = true }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Display.Context().Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if synced, err := answerSync(srv); err != nil || !synced {
+		t.Fatalf("the compositor did not answer the sync: %v, %v", synced, err)
+	}
+	s.WakeAfter(0)
+	stepWithin(t, s, 5*time.Second)
+	if !answered {
+		t.Error("a Step with a due wake left the compositor's waiting answer undispatched")
 	}
 }
 
