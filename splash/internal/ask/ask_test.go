@@ -364,3 +364,43 @@ func TestReplyErrorsSurface(t *testing.T) {
 		t.Errorf("a failed reply left the prompt %+v", got)
 	}
 }
+
+func TestTheSamePromptAskedAgainAfterAPasswordIsARetry(t *testing.T) {
+	t.Parallel()
+	var a Asker
+	a.Password(&reply{}, 1, "Disk root:")
+	if a.Prompt().Retry {
+		t.Fatal("a prompt asked the first time is a retry")
+	}
+	typeText(t, &a, "wrong")
+	press(t, &a, key.Enter)
+	a.Password(&reply{}, 2, "Disk root:")
+	if got := a.Prompt(); !got.Retry || got.Shown != "" {
+		t.Errorf("the prompt asked again after a password is %+v, want an empty retry", got)
+	}
+	typeText(t, &a, "right")
+	press(t, &a, key.Enter)
+	a.Password(&reply{}, 3, "Disk home:")
+	if a.Prompt().Retry {
+		t.Error("another disk's prompt after a password is a retry")
+	}
+}
+
+func TestAnAbandonedOrQuestionedPromptIsNoRetry(t *testing.T) {
+	t.Parallel()
+	var a Asker
+	a.Password(&reply{}, 1, "Disk root:")
+	typeText(t, &a, "half")
+	press(t, &a, key.Interrupt)
+	a.Password(&reply{}, 1, "Disk root:")
+	if a.Prompt().Retry {
+		t.Error("a prompt asked again after it was abandoned is a retry")
+	}
+	press(t, &a, key.Enter)
+	a.Question(&reply{}, 1, "Disk root:")
+	press(t, &a, key.Enter)
+	a.Question(&reply{}, 1, "Disk root:")
+	if a.Prompt().Retry {
+		t.Error("a question asked again is a retry")
+	}
+}

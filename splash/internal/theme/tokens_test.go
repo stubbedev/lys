@@ -31,6 +31,7 @@ func TestTheSplashDrawsWithTheGreetersTokens(t *testing.T) {
 		{"foreground", d.Foreground, token(config.TokenFgDefault)},
 		{"secondary", d.Secondary, token(config.TokenFgMuted)},
 		{"accent", d.Accent, token(config.TokenAccent)},
+		{"error", d.Error, token(config.TokenStatusError)},
 	} {
 		if c.got != c.want {
 			t.Errorf("the splash's %s is %#08x, the greeter's %#08x", c.name, uint32(c.got), uint32(c.want))

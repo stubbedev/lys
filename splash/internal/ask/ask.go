@@ -50,6 +50,7 @@ const typedChunk = 64
 type entry struct {
 	kind   theme.PromptKind
 	prompt string
+	retry  bool
 	reply  Replier
 	conn   Conn
 }
@@ -64,15 +65,16 @@ type watch struct {
 // cached passwords and the keystroke watches. It is not safe for concurrent
 // use.
 type Asker struct {
-	queue   []entry
-	typed   Secret
-	cache   []Secret
-	watches []watch
+	queue    []entry
+	typed    Secret
+	cache    []Secret
+	watches  []watch
+	answered string
 }
 
 // Password queues a password prompt answered by r.
 func (a *Asker) Password(r Replier, c Conn, prompt string) {
-	a.queue = append(a.queue, entry{kind: theme.PasswordPrompt, prompt: prompt, reply: r, conn: c})
+	a.queue = append(a.queue, entry{kind: theme.PasswordPrompt, prompt: prompt, retry: prompt == a.answered, reply: r, conn: c})
 }
 
 // Question queues a question, whose answer is echoed, answered by r.
@@ -163,8 +165,10 @@ func (a *Asker) typeRune(r rune) {
 func (a *Asker) answer(text []byte, cache bool) error {
 	e := a.queue[0]
 	a.queue = a.queue[1:]
+	a.answered = ""
 	if cache && e.kind == theme.PasswordPrompt {
 		a.cache = append(a.cache, Secret(slices.Clone(text)))
+		a.answered = e.prompt
 	}
 	err := e.reply.Reply(protocol.Answer{Data: text})
 	a.forget()
@@ -197,7 +201,7 @@ func (a *Asker) Prompt() theme.Prompt {
 		return theme.Prompt{}
 	}
 	e := a.queue[0]
-	p := theme.Prompt{Kind: e.kind, Text: e.prompt}
+	p := theme.Prompt{Kind: e.kind, Text: e.prompt, Retry: e.retry}
 	if e.kind == theme.PasswordPrompt {
 		p.Shown = strings.Repeat(bullet, utf8.RuneCount(a.typed))
 	} else {

@@ -45,6 +45,7 @@ type Theme struct {
 	Foreground render.Color
 	Secondary  render.Color
 	Accent     render.Color
+	Error      render.Color
 	Logo       Logo
 	Throbber   Throbber
 	// Units shows the name of each unit systemd starts on the status line.
@@ -59,6 +60,7 @@ func Default() Theme {
 		Foreground:  mustColor("fg", p.Fg),
 		Secondary:   mustColor("fg-muted", p.FgMuted),
 		Accent:      mustColor("primary", p.Primary),
+		Error:       mustColor("red", p.Red),
 		Logo:        FirmwareLogo,
 		Throbber:    Spinner,
 		PromptHints: true,
@@ -104,6 +106,7 @@ func Parse(file string, data []byte) (Theme, error) {
 		"foreground":   decode(&t.Foreground, parseColor),
 		"secondary":    decode(&t.Secondary, parseColor),
 		"accent":       decode(&t.Accent, parseColor),
+		"error":        decode(&t.Error, parseColor),
 		"logo":         decode(&t.Logo, enum(map[string]Logo{"firmware": FirmwareLogo, "lys": LysLogo})),
 		"throbber":     decode(&t.Throbber, enum(map[string]Throbber{"spinner": Spinner, "dots": Dots})),
 		"units":        decode(&t.Units, identity[bool]),

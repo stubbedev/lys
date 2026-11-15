@@ -96,6 +96,7 @@ func TestACapsLockChangePresentsOnlyTheHintOnce(t *testing.T) {
 	t.Parallel()
 	size := image.Pt(800, 600)
 	r := start(t, setup{screens: 1, size: size, keymap: keymapOf("de")})
+	r.call(t, protocol.PauseProgress{}, protocol.Ack{})
 	c := r.dial(t)
 	r.send(t, c, protocol.Password{Prompt: "Disk:"}, protocol.Ping{})
 	expect(t, c, protocol.Ack{})

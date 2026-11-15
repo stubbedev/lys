@@ -14,9 +14,19 @@ reboot and kexec.
 - **Progress bar:** this boot's elapsed time against the previous boot's
   duration. It stays short of full until the splash quits. Without a recorded
   previous boot there is no bar.
-- **Password prompt** when a disk needs one:
+- **Password prompt** when a disk needs one. It takes the throbber's place
+  under the logo: a breathing lock, "Unlock disk" with the disk's name under
+  it (cryptsetup's own text when it is not one the splash knows), a field
+  with a dot per character and a blinking caret, and the hints:
 
-![A passphrase prompt under the logo and spinner](../../../splash/internal/theme/testdata/golden/password.png)
+![A passphrase prompt: a lock, Unlock disk, root, a field with seven dots](../../../splash/internal/theme/testdata/golden/password.png)
+
+- **A refused passphrase:** when a disk asks again, the field turns red, shakes
+  briefly and "Incorrect passphrase" shows under it:
+
+![A refused passphrase: a red field and Incorrect passphrase](../../../splash/internal/theme/testdata/golden/password-error.png)
+
+- **Questions** take the same place, with the answer shown as it is typed.
 
 Shutdown, reboot and kexec show the logo and throbber until the power goes.
 

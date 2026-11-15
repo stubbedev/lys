@@ -86,8 +86,13 @@ captured text is shown on <kbd>Esc</kbd> and written back to the console on a
 - Prompts queue and show one at a time, oldest first.
 - Every typed password is cached and tried on the next disk.
 - Buffers that held a secret are zeroed after use.
-- Throbber and progress hold still while a prompt waits; it redraws only on a
-  key or a Caps Lock change.
+- A password asked again with the same prompt after one was typed into it is
+  shown as refused.
+- While a prompt waits, the lock breathes and the caret blinks, together about
+  four frames a second, each redrawing only the lock or the caret. Both stop
+  while the splash is hidden, paused or handed over. The throbber and the boot
+  progress hold still under the prompt, and the time it waits does not count
+  towards the boot's progress or its recorded duration.
 - With `prompt-hints`, the keyboard LEDs (`KDGKBLED`) are read when the prompt
   appears, after each key and four times a second. The keymap shown is
   `KEYMAP` from `/etc/vconsole.conf`, else `XKBLAYOUT` from

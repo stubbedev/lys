@@ -225,6 +225,7 @@ type daemon struct {
 	paused   bool
 	inactive bool
 	asker    ask.Asker
+	askedAt  time.Time
 	inbox    chan event
 	done     chan struct{}
 	quitted  bool
@@ -368,8 +369,8 @@ func (d *daemon) untilNextChange() time.Duration {
 		next = earliest(next, d.capsAt)
 	}
 	if d.ticking {
-		next = earliest(next, d.phaseAt.Add(time.Duration(d.renderer.PhasesToNextPicture(d.state.Phase))*FrameInterval))
-		if d.previous > 0 && d.state.Progress < protocol.MaxPercent-1 {
+		next = earliest(next, d.phaseAt.Add(time.Duration(d.renderer.PhasesToNextPicture(d.state))*FrameInterval))
+		if d.bootClockRuns() && d.state.Progress < protocol.MaxPercent-1 {
 			next = earliest(next, d.started.Add(nextPercentAt(d.state.Progress, d.previous)))
 		}
 	}
@@ -394,10 +395,26 @@ func (d *daemon) step() {
 		return
 	}
 	phases := now.Sub(d.phaseAt) / FrameInterval
-	d.state.Phase = (d.state.Phase + int(phases%theme.Frames)) % theme.Frames
+	d.state = d.state.Advance(int(phases))
 	d.phaseAt = d.phaseAt.Add(phases * FrameInterval)
-	if d.previous > 0 {
+	if d.bootClockRuns() {
 		d.state.Progress = bootProgress(now.Sub(d.started), d.previous)
+	}
+}
+
+func (d *daemon) bootClockRuns() bool {
+	return d.previous > 0 && d.state.Prompt.Kind == theme.NoPrompt
+}
+
+func (d *daemon) showPrompt(p theme.Prompt) {
+	was := d.state.Prompt.Kind != theme.NoPrompt
+	d.state = d.state.WithPrompt(p)
+	is := p.Kind != theme.NoPrompt
+	switch {
+	case is && !was:
+		d.askedAt = d.cfg.Clock.Now()
+	case was && !is:
+		d.started = d.started.Add(d.cfg.Clock.Now().Sub(d.askedAt))
 	}
 }
 
@@ -434,7 +451,7 @@ func (d *daemon) loop(ctx context.Context) error {
 				typed = true
 				err = d.typed(e.keys)
 			}
-			d.state.Prompt = d.asker.Prompt()
+			d.showPrompt(d.asker.Prompt())
 		case e := <-d.display.Events():
 			var changed bool
 			changed, err = d.display.Handle(e)
@@ -447,6 +464,9 @@ func (d *daemon) loop(ctx context.Context) error {
 			d.step()
 		}
 		d.followCapsLock(typed)
+		if d.state != d.settled {
+			d.rearm = true
+		}
 		if d.stale || d.state != d.settled {
 			err = errors.Join(err, d.redraw())
 		}
@@ -566,7 +586,7 @@ func (d *daemon) toggleDetails() error {
 }
 
 func (d *daemon) animating() bool {
-	return !d.paused && !d.inactive && !d.state.Updating && !d.state.Hidden && d.state.Prompt.Kind == theme.NoPrompt && d.graphics
+	return !d.paused && !d.inactive && d.graphics && d.renderer.PhasesToNextPicture(d.state) > 0
 }
 
 func (d *daemon) canAsk() bool {

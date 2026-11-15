@@ -9,12 +9,13 @@ the same one the lys-login greeter and lock screen draw with.
 | --- | --- | --- | --- |
 | `background` | `#rrggbb` | `#000000` | Background colour |
 | `foreground` | `#rrggbb` | the palette's text colour | Message and prompt text |
-| `secondary` | `#rrggbb` | the palette's muted text colour | Unit names and prompt hints |
-| `accent` | `#rrggbb` | the palette's primary colour | Throbber and progress bars |
+| `secondary` | `#rrggbb` | the palette's muted text colour | Unit names, the disk under a prompt, placeholder and prompt hints |
+| `accent` | `#rrggbb` | the palette's primary colour | Throbber, progress bars and the lock over a prompt |
+| `error` | `#rrggbb` | the palette's red | The field's ring and the "Incorrect passphrase" line when a disk asks again |
 | `logo` | `firmware`, `lys` | `firmware` | `firmware`: the firmware's logo (ACPI BGRT) if it left one on screen, else lys's. `lys`: always lys's |
 | `throbber` | `spinner`, `dots` | `spinner` | Busy animation |
 | `units` | bool | `false` | Shows the name of each unit systemd starts on its own line under the message, in the secondary size and colour |
-| `prompt-hints` | bool | `true` | Shows "Caps Lock is on" under a prompt and the console keymap beside it |
+| `prompt-hints` | bool | `true` | Adds "Caps Lock is on" and the console keymap to the hints under a prompt's field, beside "Esc: boot messages" |
 
 The default background is black so the firmware's logo, drawn on black, blends
 in. The logo image, the font and the scale are not configurable.

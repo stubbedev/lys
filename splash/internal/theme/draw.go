@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"strings"
 
 	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/render"
@@ -38,6 +39,7 @@ type Prompt struct {
 	Kind  PromptKind
 	Text  string
 	Shown string
+	Retry bool
 }
 
 // State is what the splash shows. Progress is the update's while Updating,
@@ -47,6 +49,7 @@ type State struct {
 	Message  string
 	Status   string
 	Prompt   Prompt
+	Ask      Ask
 	Hints    Hints
 	Updating bool
 	Booting  bool
@@ -59,7 +62,12 @@ type Hints struct {
 	Keymap   string
 }
 
-const CapsLockHint = "Caps Lock is on"
+const (
+	CapsLockHint = "Caps Lock is on"
+	EscHint      = "Esc: boot messages"
+	hintGap      = " · "
+	keymapLabel  = "Keymap: "
+)
 
 func (s State) CapsLockShown() string {
 	if s.Prompt.Kind == NoPrompt || !s.Hints.CapsLock {
@@ -73,6 +81,27 @@ func (s State) KeymapShown() string {
 		return ""
 	}
 	return s.Hints.Keymap
+}
+
+func (s State) hintsShown() [3]string {
+	if s.Prompt.Kind == NoPrompt {
+		return [3]string{}
+	}
+	return [3]string{s.CapsLockShown(), s.KeymapShown(), EscHint}
+}
+
+func hintsLine(h [3]string) string {
+	parts := make([]string, 0, len(h))
+	for i, part := range h {
+		switch {
+		case part == "":
+		case i == 1:
+			parts = append(parts, keymapLabel+part)
+		default:
+			parts = append(parts, part)
+		}
+	}
+	return strings.Join(parts, hintGap)
 }
 
 // Renderer draws frames from states with one theme. It is not safe for
@@ -105,18 +134,18 @@ func NewRenderer(t Theme, bgrt *BGRT) (*Renderer, error) {
 }
 
 type layout struct {
-	scale      int
-	logo       image.Rectangle
-	group      image.Rectangle
-	busy       image.Rectangle
-	throb      image.Rectangle
-	boot       image.Rectangle
-	message    image.Rectangle
-	status     image.Rectangle
-	promptLine image.Rectangle
-	entry      image.Rectangle
-	caps       image.Rectangle
-	keymap     image.Rectangle
+	scale     int
+	logo      image.Rectangle
+	group     image.Rectangle
+	busy      image.Rectangle
+	throb     image.Rectangle
+	boot      image.Rectangle
+	title     image.Rectangle
+	secondary image.Rectangle
+	notice    image.Rectangle
+	field     image.Rectangle
+	entry     image.Rectangle
+	hints     image.Rectangle
 }
 
 const (
@@ -126,8 +155,6 @@ const (
 	barWidth      = 240
 	barHeight     = 8
 	bootBarHeight = 4
-	keymapWidth   = 96
-	bulletSize    = 24
 	entryWidth    = 320
 )
 
@@ -181,25 +208,22 @@ func (r *Renderer) layout(size image.Point, scale int) layout {
 	c.gap(sp(tokens.SpaceSM))
 	l.boot = centred(c.row(s(bootBarHeight)), s(barWidth))
 	c.gap(sp(tokens.SpaceLG))
-	l.message = c.row(sp(tokens.SpaceXL))
-	l.status = c.row(sp(tokens.SpaceLG))
+	l.title = c.row(sp(tokens.SpaceXL))
+	l.secondary = c.row(sp(tokens.SpaceLG))
 	c.gap(sp(tokens.SpaceMD))
-	l.promptLine = c.row(sp(tokens.SpaceXL))
+	l.field = c.row(sp(tokens.SpaceXL) + sp(tokens.SpaceSM))
+	l.entry = centred(l.field, s(entryWidth))
 	c.gap(sp(tokens.SpaceSM))
-	field := c.row(sp(tokens.SpaceXL) + sp(tokens.SpaceSM))
-	l.entry = centred(field, s(entryWidth))
-	c.gap(sp(tokens.SpaceSM))
-	l.caps = c.row(sp(tokens.SpaceLG))
+	l.hints = c.row(sp(tokens.SpaceLG))
+	l.notice = c.row(sp(tokens.SpaceLG))
 	l.group = image.Rect(c.minX, top, c.maxX, c.y)
 	overflow := l.group.Max.Y - (size.Y - sp(tokens.SpaceSM))
 	room := l.group.Min.Y - (l.logo.Max.Y + sp(tokens.SpaceSM))
 	if up := image.Pt(0, min(overflow, room)); up.Y > 0 {
-		for _, at := range []*image.Rectangle{&l.group, &l.busy, &l.boot, &l.message, &l.status, &l.promptLine, &field, &l.entry, &l.caps} {
+		for _, at := range []*image.Rectangle{&l.group, &l.busy, &l.boot, &l.title, &l.secondary, &l.notice, &l.field, &l.entry, &l.hints} {
 			*at = at.Sub(up)
 		}
 	}
-	gap := sp(tokens.SpaceSM)
-	l.keymap = image.Rect(l.entry.Max.X+gap, l.entry.Min.Y, l.entry.Max.X+gap+s(keymapWidth), l.entry.Max.Y).Intersect(field)
 	n := s(throbberSize)
 	at := l.busy.Min.Add(l.busy.Max).Div(2).Sub(image.Pt(n/2, n/2))
 	l.throb = image.Rectangle{Min: at, Max: at.Add(image.Pt(n, n))}
@@ -225,28 +249,20 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 		if err := r.logo(cv, l); err != nil {
 			return kms.Damage{}, err
 		}
-		r.busy(cv, l, cur)
+		r.indicator(cv, l, cur)
 		r.bootProgress(cv, l, cur)
-		r.line(cv, l.message, cur.Message, textPx(tokens.Title, scale), r.theme.Foreground, render.AlignCenter)
-		r.line(cv, l.status, cur.Status, textPx(tokens.Caption, scale), r.theme.Secondary, render.AlignCenter)
-		r.prompt(cv, l, cur.Prompt)
-		r.hints(cv, l, cur)
+		for _, row := range r.textRows(l, cur) {
+			r.line(cv, row.box, row.text, row.px, render.AlignCenter)
+		}
+		r.field(cv, l, cur)
+		r.line(cv, l.hints, r.hintsText(cur.hintsShown()), textPx(tokens.Caption, scale), render.AlignCenter)
 		return kms.DamageOf(full), nil
 	}
 	if cur.Hidden {
 		return kms.Damage{}, nil
 	}
 	var damage kms.Damage
-	switch {
-	case prev.Updating != cur.Updating:
-		r.clear(cv, l.busy)
-		r.busy(cv, l, cur)
-		damage.Add(l.busy)
-	case cur.Updating && prev.Progress != cur.Progress:
-		damage.Add(r.moveBar(cv, l.updateBar(), prev.Progress, cur.Progress))
-	case !cur.Updating && r.step(prev.Phase) != r.step(cur.Phase):
-		r.stepThrobber(f, cv, l, prev.Phase, cur.Phase, &damage)
-	}
+	r.redrawIndicator(f, cv, l, *prev, cur, &damage)
 	switch {
 	case bootShown(*prev) != bootShown(cur):
 		r.clear(cv, l.boot)
@@ -255,24 +271,54 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 	case bootShown(cur) && prev.Progress != cur.Progress:
 		damage.Add(r.moveBar(cv, l.boot, prev.Progress, cur.Progress))
 	}
-	if prev.Message != cur.Message {
-		damage.Add(r.redrawLine(cv, l.message, prev.Message, cur.Message, textPx(tokens.Title, scale), r.theme.Foreground, render.AlignCenter))
+	from, to := r.textRows(l, *prev), r.textRows(l, cur)
+	for i := range to {
+		if from[i].text != to[i].text {
+			damage.Add(r.redrawLine(cv, to[i].box, from[i].text, to[i].text, to[i].px, render.AlignCenter))
+		}
 	}
-	secondary := textPx(tokens.Caption, scale)
-	if prev.Status != cur.Status {
-		damage.Add(r.redrawLine(cv, l.status, prev.Status, cur.Status, secondary, r.theme.Secondary, render.AlignCenter))
-	}
-	if prev.Prompt != cur.Prompt {
-		r.redrawPrompt(cv, l, prev.Prompt, cur.Prompt, &damage)
-	}
-	if from, to := prev.CapsLockShown(), cur.CapsLockShown(); from != to {
-		damage.Add(r.redrawLine(cv, l.caps, from, to, secondary, r.theme.Secondary, render.AlignCenter))
-	}
-	if from, to := prev.KeymapShown(), cur.KeymapShown(); from != to {
-		damage.Add(r.redrawLine(cv, l.keymap, from, to, secondary, r.theme.Secondary, render.AlignStart))
+	r.redrawField(cv, l, *prev, cur, &damage)
+	if h, g := prev.hintsShown(), cur.hintsShown(); h != g {
+		damage.Add(r.redrawLine(cv, l.hints, r.hintsText(h), r.hintsText(g), textPx(tokens.Caption, scale), render.AlignCenter))
 	}
 	damage.Intersect(full)
 	return damage, nil
+}
+
+type rowText struct {
+	text string
+	col  render.Color
+}
+
+type textRow struct {
+	box  image.Rectangle
+	px   float64
+	text rowText
+}
+
+func (r *Renderer) textRows(l layout, s State) [3]textRow {
+	title, secondary := textPx(tokens.Title, l.scale), textPx(tokens.Caption, l.scale)
+	if s.Prompt.Kind == NoPrompt {
+		return [3]textRow{
+			{l.title, title, rowText{s.Message, r.theme.Foreground}},
+			{l.secondary, secondary, rowText{s.Status, r.theme.Secondary}},
+			{l.notice, secondary, rowText{}},
+		}
+	}
+	w := wordsOf(s.Prompt)
+	notice := rowText{s.Message, r.theme.Secondary}
+	if s.Prompt.Retry {
+		notice = rowText{w.refused, r.theme.Error}
+	}
+	return [3]textRow{
+		{l.title, title, rowText{w.title, r.theme.Foreground}},
+		{l.secondary, secondary, rowText{w.device, r.theme.Secondary}},
+		{l.notice, secondary, notice},
+	}
+}
+
+func (r *Renderer) hintsText(h [3]string) rowText {
+	return rowText{hintsLine(h), r.theme.Secondary}
 }
 
 // fillEnd is the column a bar's fill reaches at p.
@@ -305,8 +351,10 @@ func (r *Renderer) moveBar(cv *render.Canvas, track image.Rectangle, from, to pr
 	return band
 }
 
-// textExtent is the part of box that text at px aligned by align can reach, with
-// room for what a glyph's outline overhangs its advance.
+func (r *Renderer) fit(box image.Rectangle, s string, px float64) string {
+	return r.face.Ellipsize(s, float64(box.Dx()), px)
+}
+
 func (r *Renderer) textExtent(box image.Rectangle, s string, px float64, align render.Alignment) image.Rectangle {
 	if s == "" {
 		return image.Rectangle{}
@@ -319,40 +367,20 @@ func (r *Renderer) textExtent(box image.Rectangle, s string, px float64, align r
 	return image.Rect(mid-width/2, box.Min.Y, mid+width/2, box.Max.Y).Intersect(box)
 }
 
-func (r *Renderer) redrawLine(cv *render.Canvas, box image.Rectangle, from, to string, px float64, col render.Color, align render.Alignment) image.Rectangle {
-	extent := r.textExtent(box, from, px, align).Union(r.textExtent(box, to, px, align))
+func (r *Renderer) redrawLine(cv *render.Canvas, box image.Rectangle, from, to rowText, px float64, align render.Alignment) image.Rectangle {
+	extent := r.textExtent(box, r.fit(box, from.text, px), px, align).Union(r.textExtent(box, r.fit(box, to.text, px), px, align))
 	r.clear(cv, extent)
-	r.line(cv, box, to, px, col, align)
+	r.line(cv, box, to, px, align)
 	return extent
 }
 
-func (r *Renderer) line(cv *render.Canvas, box image.Rectangle, s string, px float64, col render.Color, align render.Alignment) {
-	if s == "" {
+func (r *Renderer) line(cv *render.Canvas, box image.Rectangle, t rowText, px float64, align render.Alignment) {
+	if t.text == "" {
 		return
 	}
 	clip := cv.PushClip(rect(box))
-	r.face.DrawAligned(cv, s, rect(box), px, col, align)
+	r.face.DrawAligned(cv, r.fit(box, t.text, px), rect(box), px, t.col, align)
 	cv.PopClip(clip)
-}
-
-func (r *Renderer) redrawPrompt(cv *render.Canvas, l layout, from, to Prompt, damage *kms.Damage) {
-	if from.Text != to.Text {
-		damage.Add(r.redrawLine(cv, l.promptLine, from.Text, to.Text, textPx(tokens.Title, l.scale), r.theme.Foreground, render.AlignCenter))
-	}
-	switch {
-	case (from.Kind == NoPrompt) != (to.Kind == NoPrompt):
-		r.clear(cv, l.entry)
-		if to.Kind != NoPrompt {
-			r.field(cv, l)
-			r.shown(cv, l, to)
-		}
-		damage.Add(l.entry)
-	case to.Kind != NoPrompt && (from.Shown != to.Shown || from.Kind != to.Kind):
-		inner := l.entryInner()
-		cv.ClearDevice(rect(inner), r.fieldFill())
-		r.shown(cv, l, to)
-		damage.Add(inner)
-	}
 }
 
 func rect(r image.Rectangle) render.Rect {
@@ -437,12 +465,66 @@ func (l layout) updateBar() image.Rectangle {
 	return image.Rect(c.X-w/2, c.Y-h/2, c.X+w/2, c.Y+h/2)
 }
 
-func (r *Renderer) busy(cv *render.Canvas, l layout, s State) {
-	if !s.Updating {
-		r.throbber(cv, l, s.Phase)
-		return
+type indicator uint8
+
+const (
+	throbberShown indicator = iota
+	updateBarShown
+	lockShown
+)
+
+func indicatorOf(s State) indicator {
+	switch {
+	case s.Prompt.Kind != NoPrompt:
+		return lockShown
+	case s.Updating:
+		return updateBarShown
 	}
-	r.bar(cv, l.updateBar(), s.Progress)
+	return throbberShown
+}
+
+func (r *Renderer) indicator(cv *render.Canvas, l layout, s State) {
+	switch indicatorOf(s) {
+	case lockShown:
+		r.lock(cv, l, s.Ask)
+	case updateBarShown:
+		r.bar(cv, l.updateBar(), s.Progress)
+	case throbberShown:
+		r.throbber(cv, l, s.Phase)
+	}
+}
+
+func (r *Renderer) redrawIndicator(f kms.Frame, cv *render.Canvas, l layout, prev, cur State, damage *kms.Damage) {
+	from, to := indicatorOf(prev), indicatorOf(cur)
+	switch {
+	case from != to:
+		r.clear(cv, l.busy)
+		r.indicator(cv, l, cur)
+		damage.Add(l.busy)
+	case to == updateBarShown && prev.Progress != cur.Progress:
+		damage.Add(r.moveBar(cv, l.updateBar(), prev.Progress, cur.Progress))
+	case to == throbberShown && r.step(prev.Phase) != r.step(cur.Phase):
+		r.stepThrobber(f, cv, l, prev.Phase, cur.Phase, damage)
+	case to == lockShown && prev.Ask.breath() != cur.Ask.breath():
+		r.clear(cv, l.throb)
+		r.lock(cv, l, cur.Ask)
+		damage.Add(l.throb)
+	}
+}
+
+func (r *Renderer) PhasesToNextPicture(s State) int {
+	if s.Hidden {
+		return 0
+	}
+	switch indicatorOf(s) {
+	case lockShown:
+		return s.Ask.phasesToNextPicture()
+	case updateBarShown:
+		return 0
+	case throbberShown:
+		return r.throbberPhasesToNextPicture(s.Phase)
+	}
+	return 0
 }
 
 // step is which of the throbber's distinct pictures phase shows.
@@ -453,9 +535,7 @@ func (r *Renderer) step(phase int) int {
 	return phase % Frames
 }
 
-// PhasesToNextPicture is how many phases from phase the throbber shows a
-// different picture.
-func (r *Renderer) PhasesToNextPicture(phase int) int {
+func (r *Renderer) throbberPhasesToNextPicture(phase int) int {
 	if r.theme.Throbber != Dots {
 		return 1
 	}
@@ -549,7 +629,7 @@ func (r *Renderer) throbber(cv *render.Canvas, l layout, phase int) {
 }
 
 func bootShown(s State) bool {
-	return s.Booting && !s.Updating
+	return s.Booting && !s.Updating && s.Prompt.Kind == NoPrompt
 }
 
 func (r *Renderer) bootProgress(cv *render.Canvas, l layout, s State) {
@@ -568,50 +648,134 @@ func (r *Renderer) bar(cv *render.Canvas, track image.Rectangle, p protocol.Perc
 	}
 }
 
-func (l layout) entryInner() image.Rectangle {
-	h := l.entry.Dy()
-	return image.Rect(l.entry.Min.X+h/2, l.entry.Min.Y+h/4, l.entry.Max.X-h/2, l.entry.Max.Y-h/4)
+func (r *Renderer) lock(cv *render.Canvas, l layout, a Ask) {
+	col := mix(r.theme.Background, r.theme.Accent, breathLevels[a.breath()], 100)
+	u := l.scale
+	at := func(x, y, w, h int) render.Rect {
+		return render.Rect{X: l.throb.Min.X + x*u, Y: l.throb.Min.Y + y*u, W: w * u, H: h * u}
+	}
+	cx, cy := float64(l.throb.Min.X+20*u), float64(l.throb.Min.Y+15*u)
+	cv.Arc(cx, cy, float64(7*u), float64(4*u), math.Pi, math.Pi, col)
+	cv.FillRectDevice(at(11, 15, 4, 4), col)
+	cv.FillRectDevice(at(25, 15, 4, 4), col)
+	cv.RoundedRect(at(8, 19, 24, 17), space(tokens.RadiusSM, u), col)
+	cv.RoundedRect(at(18, 25, 4, 6), 2*u, r.theme.Background)
 }
 
-func (r *Renderer) prompt(cv *render.Canvas, l layout, p Prompt) {
-	if p.Kind == NoPrompt {
+func (l layout) shakeAmplitude() int {
+	return space(tokens.SpaceSM, l.scale)
+}
+
+func (l layout) shakeSpan() image.Rectangle {
+	a := l.shakeAmplitude()
+	return image.Rect(l.entry.Min.X-a, l.entry.Min.Y, l.entry.Max.X+a, l.entry.Max.Y).Intersect(l.field)
+}
+
+func (l layout) entryAt(a Ask) image.Rectangle {
+	return l.entry.Add(image.Pt(a.shakeOffset(l.shakeAmplitude()), 0))
+}
+
+func inside(entry image.Rectangle) image.Rectangle {
+	h := entry.Dy()
+	return image.Rect(entry.Min.X+h/2, entry.Min.Y+h/4, entry.Max.X-h/2, entry.Max.Y-h/4)
+}
+
+func (r *Renderer) field(cv *render.Canvas, l layout, s State) {
+	if s.Prompt.Kind == NoPrompt {
 		return
 	}
-	r.line(cv, l.promptLine, p.Text, textPx(tokens.Title, l.scale), r.theme.Foreground, render.AlignCenter)
-	r.field(cv, l)
-	r.shown(cv, l, p)
+	at := l.entryAt(s.Ask)
+	pill := min(tokens.RadiusFullPx, at.Dy()/2)
+	ring := r.fieldBorder()
+	if s.Prompt.Retry {
+		ring = r.theme.Error
+	}
+	cv.RoundedRect(rect(at), pill, r.fieldFill())
+	cv.RoundedBorder(rect(at), render.UniformCorners(pill), render.UniformInsets(l.scale), ring)
+	r.entryText(cv, l, inside(at), s)
 }
 
-func (r *Renderer) field(cv *render.Canvas, l layout) {
-	pill := min(tokens.RadiusFullPx, l.entry.Dy()/2)
-	cv.RoundedRect(rect(l.entry), pill, r.fieldFill())
-	cv.RoundedBorder(rect(l.entry), render.UniformCorners(pill), render.UniformInsets(l.scale), r.fieldBorder())
+func (r *Renderer) redrawField(cv *render.Canvas, l layout, prev, cur State, damage *kms.Damage) {
+	was, is := prev.Prompt.Kind != NoPrompt, cur.Prompt.Kind != NoPrompt
+	if !was && !is {
+		return
+	}
+	if was != is || prev.Prompt.Retry != cur.Prompt.Retry || l.entryAt(prev.Ask) != l.entryAt(cur.Ask) {
+		span := l.shakeSpan()
+		r.clear(cv, span)
+		r.field(cv, l, cur)
+		damage.Add(span)
+		return
+	}
+	inner := inside(l.entryAt(cur.Ask))
+	if prev.Prompt.Kind != cur.Prompt.Kind || prev.Prompt.Shown != cur.Prompt.Shown {
+		cv.ClearDevice(rect(inner), r.fieldFill())
+		r.entryText(cv, l, inner, cur)
+		damage.Add(inner)
+		return
+	}
+	if prev.Ask.caretShown() != cur.Ask.caretShown() {
+		c := r.caret(l, inner, cur.Prompt)
+		cv.ClearDevice(rect(c), r.fieldFill())
+		r.drawCaret(cv, c, cur.Ask)
+		damage.Add(c)
+	}
 }
 
-func (r *Renderer) shown(cv *render.Canvas, l layout, p Prompt) {
+func (r *Renderer) typedWidth(l layout, p Prompt) int {
 	if p.Shown == "" {
-		return
+		return 0
 	}
-	s := l.scale
-	px := textPx(tokens.Body, s)
-	inner := l.entryInner()
-	prev := cv.PushClip(rect(inner))
 	if p.Kind == PasswordPrompt {
-		px = float64(bulletSize * s)
+		return p.typed()*l.dotPitch() - space(tokens.SpaceXS, l.scale)
 	}
-	shaped := r.face.Shape(p.Shown, px)
-	adv := int(math.Ceil(shaped.Advance()))
-	x := inner.Min.X + (inner.Dx()-adv)/2
-	if adv > inner.Dx() {
-		x = inner.Max.X - adv
-	}
-	baseline := inner.Min.Y + (inner.Dy()+int(shaped.Ascent()-shaped.Descent()))/2
-	shaped.Draw(cv, x, baseline, r.theme.Foreground)
-	cv.PopClip(prev)
+	return int(math.Ceil(r.face.Shape(p.Shown, textPx(tokens.Body, l.scale)).Advance()))
 }
 
-func (r *Renderer) hints(cv *render.Canvas, l layout, s State) {
-	px := textPx(tokens.Caption, l.scale)
-	r.line(cv, l.caps, s.CapsLockShown(), px, r.theme.Secondary, render.AlignCenter)
-	r.line(cv, l.keymap, s.KeymapShown(), px, r.theme.Secondary, render.AlignStart)
+func (l layout) dotPitch() int {
+	return space(tokens.SpaceSM, l.scale) + space(tokens.SpaceXS, l.scale)
+}
+
+func (r *Renderer) caret(l layout, inner image.Rectangle, p Prompt) image.Rectangle {
+	w := space(tokens.Space2XS, l.scale)
+	x := inner.Min.X
+	if typed := r.typedWidth(l, p); typed > 0 {
+		x = min(inner.Min.X+typed+space(tokens.SpaceXS, l.scale), inner.Max.X-w)
+	}
+	return image.Rect(x, inner.Min.Y, x+w, inner.Max.Y)
+}
+
+func (r *Renderer) drawCaret(cv *render.Canvas, c image.Rectangle, a Ask) {
+	if a.caretShown() {
+		cv.FillRectDevice(rect(c), r.theme.Foreground)
+	}
+}
+
+func (r *Renderer) entryText(cv *render.Canvas, l layout, inner image.Rectangle, s State) {
+	c := r.caret(l, inner, s.Prompt)
+	r.drawCaret(cv, c, s.Ask)
+	prev := cv.PushClip(rect(inner))
+	defer cv.PopClip(prev)
+	gap := space(tokens.SpaceXS, l.scale)
+	if s.Prompt.Shown == "" {
+		px := textPx(tokens.Body, l.scale)
+		r.face.DrawAligned(cv, wordsOf(s.Prompt).placeholder, rect(image.Rect(c.Max.X+gap, inner.Min.Y, inner.Max.X, inner.Max.Y)), px, r.theme.Secondary, render.AlignStart)
+		return
+	}
+	x := c.Min.X - gap - r.typedWidth(l, s.Prompt)
+	if s.Prompt.Kind == QuestionPrompt {
+		shaped := r.face.Shape(s.Prompt.Shown, textPx(tokens.Body, l.scale))
+		baseline := inner.Min.Y + (inner.Dy()+int(shaped.Ascent()-shaped.Descent()))/2
+		shaped.Draw(cv, x, baseline, r.theme.Foreground)
+		return
+	}
+	d := space(tokens.SpaceSM, l.scale)
+	y := (inner.Min.Y + inner.Max.Y - d) / 2
+	for i := range s.Prompt.typed() {
+		at := x + i*l.dotPitch()
+		if at+d <= inner.Min.X {
+			continue
+		}
+		cv.RoundedRect(render.Rect{X: at, Y: y, W: d, H: d}, d/2, r.theme.Foreground)
+	}
 }

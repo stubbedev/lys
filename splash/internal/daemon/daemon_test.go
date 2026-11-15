@@ -728,8 +728,13 @@ func (r *run) advances(t *testing.T) {
 
 func (r *run) holdsStill(t *testing.T, what string) {
 	t.Helper()
+	r.holdsStillFor(t, what, 5*FrameInterval)
+}
+
+func (r *run) holdsStillFor(t *testing.T, what string, d time.Duration) {
+	t.Helper()
 	from := r.presents()
-	time.Sleep(5 * FrameInterval)
+	time.Sleep(d)
 	if got := r.presents(); got != from {
 		t.Errorf("%s presented %d frames", what, got-from)
 	}
@@ -745,21 +750,41 @@ func TestThrobberStopsWhileHiddenAndResumes(t *testing.T) {
 	r.advances(t)
 }
 
-func TestThrobberStopsWhileAPromptWaitsAndResumes(t *testing.T) {
+func TestAPromptAnimatesAndTheThrobberResumes(t *testing.T) {
 	t.Parallel()
 	r := start(t, setup{mode: Boot, screens: 1, size: image.Pt(1280, 800)})
 	r.advances(t)
 	c := r.dial(t)
 	r.send(t, c, protocol.Password{Prompt: "Disk:"}, protocol.Ping{})
 	expect(t, c, protocol.Ack{})
-	r.holdsStill(t, "a splash waiting on a password")
-	waiting := r.presents()
-	r.typeKeys("h")
-	r.presentsAfter(t, waiting)
-	r.holdsStill(t, "a splash waiting on the rest of a password")
-	r.typeKeys("unter2\r")
+	r.advances(t)
+	r.typeKeys("hunter2\r")
 	expect(t, c, protocol.Answer{Data: []byte("hunter2")})
 	r.advances(t)
+}
+
+func TestAPromptHoldsStillWhileHiddenOrPaused(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name         string
+		halt, resume protocol.Request
+	}{
+		{"hidden", protocol.HideSplash{}, protocol.ShowSplash{}},
+		{"paused", protocol.PauseProgress{}, protocol.ResumeProgress{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			r := start(t, setup{mode: Boot, screens: 1})
+			c := r.dial(t)
+			r.send(t, c, protocol.Password{Prompt: "Disk:"}, protocol.Ping{})
+			expect(t, c, protocol.Ack{})
+			r.advances(t)
+			r.call(t, tc.halt, protocol.Ack{})
+			r.holdsStillFor(t, "a "+tc.name+" prompt", 40*FrameInterval)
+			r.call(t, tc.resume, protocol.Ack{})
+			r.advances(t)
+		})
+	}
 }
 
 func TestAClientThatStopsReadingLeavesTheLoopRunning(t *testing.T) {
