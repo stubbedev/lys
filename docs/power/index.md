@@ -122,7 +122,9 @@ does not count as a change: when the shell dims the screen after a period of
 inactivity and puts it back when you return, automatic brightness carries on.
 A dim that you then change yourself keeps it paused. lys-power neither samples
 nor writes while the session is locked or another session is in the
-foreground.
+foreground. When your display session ends, or another of your sessions
+becomes it, the service exits with an error naming the session, and systemd
+starts it again for the session now in front.
 
 The state is on the session bus as the `State` property (`following` or
 `paused`) of `dev.stubbe.lys.AutoBrightness1` at

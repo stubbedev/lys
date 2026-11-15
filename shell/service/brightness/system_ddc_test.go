@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/service/backlight/backlighttest"
 )
 
 func ddcLevel(t *testing.T, sys *System, name string) (Device, bool) {
@@ -21,7 +23,7 @@ func ddcLevel(t *testing.T, sys *System, name string) (Device, bool) {
 }
 
 func TestQueuedDDCLevelShowsAndTicksBeforeTheWriteLands(t *testing.T) {
-	fakeBacklightDir(t, nil)
+	backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	monitor := &fakeMonitor{current: 40, max: 100, hold: make(chan struct{})}
 	fake.plugOn(t, 2, monitor, "card1-DP-2")
@@ -68,7 +70,7 @@ func TestQueuedDDCLevelShowsAndTicksBeforeTheWriteLands(t *testing.T) {
 }
 
 func TestFailedDDCWriteFallsBackToTheMonitorsLevel(t *testing.T) {
-	fakeBacklightDir(t, nil)
+	backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	monitor := &fakeMonitor{current: 40, max: 100, failWrites: 1 << 20}
 	fake.plug(t, 2, monitor)
@@ -83,21 +85,5 @@ func TestFailedDDCWriteFallsBackToTheMonitorsLevel(t *testing.T) {
 	})
 	if d, _ := ddcLevel(t, sys, "ddci2c-2"); d.Connector != "" {
 		t.Errorf("an unwired bus lights %q", d.Connector)
-	}
-}
-
-func TestSetRoundsToTheNearestRawStep(t *testing.T) {
-	fakeBacklightDir(t, map[string]struct {
-		typ      string
-		cur, max uint32
-	}{"coarse": {"raw", 1, 10}})
-	sys := newTestSystem(t, false)
-	for percent, want := range map[float64]uint32{36: 4, 34: 3, 5: 1, 4: 0} {
-		if err := sys.Set(context.Background(), "coarse", percent); err != nil {
-			t.Fatal(err)
-		}
-		if d, _ := ReadDevice("coarse"); d.Brightness != want {
-			t.Errorf("Set(%v%%) on 10 steps = %d, want %d", percent, d.Brightness, want)
-		}
 	}
 }

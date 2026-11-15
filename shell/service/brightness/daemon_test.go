@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -39,7 +40,7 @@ func (f *fakeSource) Set(_ context.Context, name string, percent float64) error 
 	f.sets = append(f.sets, name)
 	for i, d := range f.devices {
 		if d.Name == name {
-			f.devices[i].Brightness = rawLevel(percent, d.Max)
+			f.devices[i].Brightness = backlight.RawLevel(percent, d.Max)
 		}
 	}
 	return nil

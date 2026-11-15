@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/logind"
-	"github.com/stubbedev/lys/shell/service/brightness"
 
 	"github.com/stubbedev/lys/power/autobrightness"
 	"github.com/stubbedev/lys/power/internal/ambient"
@@ -41,11 +41,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, closing("system bus", system.Close())) }()
-	session, err := logind.NewManager(system).GetSession(ctx, logind.AutoSession)
-	if err != nil {
-		return fmt.Errorf("find the display session: %w", err)
-	}
-	backlight := brightness.NewSystem(system, false)
+	backlight := backlight.NewSysfs(system)
 	defer func() { err = errors.Join(err, closing("backlight watch", backlight.Close())) }()
 
 	sessionBus, err := dbusx.DialSession(ctx, config.BusTimeout)
@@ -54,13 +50,23 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
 	}
 	defer func() { err = errors.Join(err, closing("session bus", sessionBus.Close())) }()
 
-	d := New(light, backlight, session, realClock{}, log, p)
+	d := New(light, backlight, displaySessions{logind.NewManager(system)}, realClock{}, log, p)
 	server, release, err := autobrightness.Serve(sessionBus, autobrightness.Following, d.Resume)
 	if err != nil {
 		return err
 	}
 	defer release()
 	return d.Run(ctx, server)
+}
+
+type displaySessions struct{ manager logind.Manager }
+
+func (s displaySessions) Display(ctx context.Context) (Session, error) {
+	session, err := s.manager.GetSession(ctx, logind.AutoSession)
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
 }
 
 func closing(what string, err error) error {

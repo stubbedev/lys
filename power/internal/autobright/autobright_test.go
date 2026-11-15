@@ -7,11 +7,13 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/shell/service/brightness"
+	"github.com/stubbedev/lys/desktop/service/backlight"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/autobrightness"
 	"github.com/stubbedev/lys/power/internal/ambient"
@@ -72,34 +74,34 @@ func (l *light) Sample(ctx context.Context) (ambient.Lux, error) {
 	}
 }
 
-type backlight struct {
+type fakeBacklight struct {
 	mu     sync.Mutex
 	levels map[string]uint32
 	ticks  chan struct{}
 	writes chan float64
 }
 
-func newBacklight(names ...string) *backlight {
-	b := &backlight{levels: map[string]uint32{}, ticks: make(chan struct{}), writes: make(chan float64, 64)}
+func newBacklight(names ...string) *fakeBacklight {
+	b := &fakeBacklight{levels: map[string]uint32{}, ticks: make(chan struct{}), writes: make(chan float64, 64)}
 	for _, name := range names {
 		b.levels[name] = 400
 	}
 	return b
 }
 
-func (b *backlight) Devices(context.Context) ([]brightness.Device, error) {
+func (b *fakeBacklight) Devices(context.Context) ([]backlight.Device, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	var out []brightness.Device
+	var out []backlight.Device
 	for _, name := range []string{"acpi_video0", "intel_backlight"} {
 		if raw, ok := b.levels[name]; ok {
-			out = append(out, brightness.Device{Name: name, Brightness: raw, Max: maxRaw})
+			out = append(out, backlight.Device{Name: name, Brightness: raw, Max: maxRaw})
 		}
 	}
 	return out, nil
 }
 
-func (b *backlight) Set(_ context.Context, name string, percent float64) error {
+func (b *fakeBacklight) Set(_ context.Context, name string, percent float64) error {
 	b.mu.Lock()
 	b.levels[name] = uint32(math.Round(percent / 100 * maxRaw))
 	b.mu.Unlock()
@@ -107,11 +109,11 @@ func (b *backlight) Set(_ context.Context, name string, percent float64) error {
 	return nil
 }
 
-func (b *backlight) Subscribe(context.Context) (<-chan struct{}, func(), error) {
+func (b *fakeBacklight) Subscribe(context.Context) (<-chan struct{}, func(), error) {
 	return b.ticks, func() {}, nil
 }
 
-func (b *backlight) setAll(raw uint32) {
+func (b *fakeBacklight) setAll(raw uint32) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for name := range b.levels {
@@ -119,7 +121,7 @@ func (b *backlight) setAll(raw uint32) {
 	}
 }
 
-func (b *backlight) level(name string) uint32 {
+func (b *fakeBacklight) level(name string) uint32 {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.levels[name]
@@ -127,8 +129,11 @@ func (b *backlight) level(name string) uint32 {
 
 type session struct {
 	mu             sync.Mutex
+	path           dbus.ObjectPath
 	active, locked bool
 }
+
+func (s *session) Path() dbus.ObjectPath { return s.path }
 
 func (s *session) Active(context.Context) (bool, error) {
 	s.mu.Lock()
@@ -148,6 +153,24 @@ func (s *session) set(active, locked bool) {
 	s.active, s.locked = active, locked
 }
 
+type sessions struct {
+	mu      sync.Mutex
+	display Session
+	err     error
+}
+
+func (s *sessions) Display(context.Context) (Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.display, s.err
+}
+
+func (s *sessions) set(display Session, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.display, s.err = display, err
+}
+
 type publisher struct{ states chan autobrightness.State }
 
 func (p *publisher) Publish(s autobrightness.State) error {
@@ -156,16 +179,17 @@ func (p *publisher) Publish(s autobrightness.State) error {
 }
 
 type harness struct {
-	t       *testing.T
-	clock   *clock
-	light   *light
-	back    *backlight
-	session *session
-	pub     *publisher
-	daemon  *Daemon
-	curve   ambient.Curve
-	done    chan error
-	cancel  context.CancelFunc
+	t        *testing.T
+	clock    *clock
+	light    *light
+	back     *fakeBacklight
+	session  *session
+	sessions *sessions
+	pub      *publisher
+	daemon   *Daemon
+	curve    ambient.Curve
+	done     chan error
+	cancel   context.CancelFunc
 }
 
 func start(t *testing.T, names ...string) *harness {
@@ -186,12 +210,13 @@ func start(t *testing.T, names ...string) *harness {
 		clock:   newClock(),
 		light:   &light{readings: make(chan reading)},
 		back:    newBacklight(names...),
-		session: &session{active: true},
+		session: &session{path: "/org/freedesktop/login1/session/_32", active: true},
 		pub:     &publisher{states: make(chan autobrightness.State, 8)},
 		curve:   curve,
 		done:    make(chan error, 1),
 	}
-	h.daemon = New(h.light, h.back, h.session, h.clock, slog.New(slog.NewTextHandler(io.Discard, nil)), Params{
+	h.sessions = &sessions{display: h.session}
+	h.daemon = New(h.light, h.back, h.sessions, h.clock, slog.New(slog.NewTextHandler(io.Discard, nil)), Params{
 		Curve: curve, Smoother: smoother, Band: 6, Steps: steps, Step: stepGap, Interval: interval,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -507,8 +532,67 @@ func TestEveryBacklightIsDriven(t *testing.T) {
 }
 
 func TestNoBacklightIsAnError(t *testing.T) {
-	d := New(&light{}, newBacklight(), &session{active: true}, newClock(), slog.New(slog.NewTextHandler(io.Discard, nil)), Params{Steps: steps})
+	d := New(&light{}, newBacklight(), &sessions{display: &session{active: true}}, newClock(), slog.New(slog.NewTextHandler(io.Discard, nil)), Params{Steps: steps})
 	if err := d.Run(context.Background(), &publisher{}); err == nil {
 		t.Fatal("the daemon ran without a backlight")
+	}
+}
+
+func (h *harness) stopped() error {
+	h.t.Helper()
+	select {
+	case err := <-h.done:
+		h.done <- nil
+		return err
+	case <-time.After(hang):
+		h.t.Fatal("the daemon went on")
+	}
+	return nil
+}
+
+func TestTheSameDisplaySessionKeepsFollowing(t *testing.T) {
+	h := start(t)
+	next := h.follow(100)
+	h.sessions.set(&session{path: h.session.path, active: true}, nil)
+	h.clock.now = h.clock.now.Add(time.Hour)
+	h.sampleWith(next, 10000)
+	levels := h.transition(1)
+	if math.Abs(levels[len(levels)-1]-100) > 1e-9 {
+		t.Fatalf("the daemon went to %v, want 100%%", levels)
+	}
+}
+
+func TestAnotherDisplaySessionStopsTheDaemon(t *testing.T) {
+	h := start(t)
+	next := h.follow(100)
+	h.sessions.set(&session{path: "/org/freedesktop/login1/session/_33", active: true}, nil)
+	h.clock.now = h.clock.now.Add(interval)
+	next <- h.clock.now
+	err := h.stopped()
+	if !errors.Is(err, ErrSessionChanged) || !strings.Contains(err.Error(), "_33") {
+		t.Fatalf("the daemon stopped with %v, want %v naming the new session", err, ErrSessionChanged)
+	}
+	h.quiet()
+}
+
+func TestAGoneDisplaySessionStopsTheDaemon(t *testing.T) {
+	h := start(t)
+	h.follow(100)
+	gone := errors.New("org.freedesktop.login1.NoSuchSession")
+	h.sessions.set(nil, gone)
+	h.back.setAll(900)
+	h.back.ticks <- struct{}{}
+	err := h.stopped()
+	if !errors.Is(err, ErrSessionChanged) || !errors.Is(err, gone) {
+		t.Fatalf("the daemon stopped with %v, want %v wrapping %v", err, ErrSessionChanged, gone)
+	}
+	h.quiet()
+}
+
+func TestNoDisplaySessionAtStartIsAnError(t *testing.T) {
+	gone := errors.New("org.freedesktop.login1.NoSuchSession")
+	d := New(&light{}, newBacklight("intel_backlight"), &sessions{err: gone}, newClock(), slog.New(slog.NewTextHandler(io.Discard, nil)), Params{Steps: steps})
+	if err := d.Run(context.Background(), &publisher{}); !errors.Is(err, gone) {
+		t.Fatalf("the daemon ran with %v, want %v", err, gone)
 	}
 }

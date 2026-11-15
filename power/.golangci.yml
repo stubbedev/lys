@@ -1,6 +1,7 @@
 version: "2"
 
 run:
+  allow-parallel-runners: true
   relative-path-mode: cfg
   timeout: 5m
 
@@ -9,6 +10,7 @@ linters:
   enable:
     - bodyclose
     - copyloopvar
+    - depguard
     - errorlint
     - gosec
     - intrange
@@ -22,6 +24,24 @@ linters:
     - usestdlibvars
     - whitespace
   settings:
+    depguard:
+      rules:
+        apps:
+          deny:
+            - pkg: github.com/stubbedev/lys/login
+              desc: apps share code through desktop/ or lib/, never through another app
+            - pkg: github.com/stubbedev/lys/polkit
+              desc: apps share code through desktop/ or lib/, never through another app
+            - pkg: github.com/stubbedev/lys/secrets
+              desc: apps share code through desktop/ or lib/, never through another app
+            - pkg: github.com/stubbedev/lys/settings
+              desc: apps share code through desktop/ or lib/, never through another app
+            - pkg: github.com/stubbedev/lys/shell
+              desc: apps share code through desktop/ or lib/, never through another app
+            - pkg: github.com/stubbedev/lys/splash
+              desc: apps share code through desktop/ or lib/, never through another app
+            - pkg: github.com/stubbedev/lys/wm
+              desc: apps share code through desktop/ or lib/, never through another app
     errcheck:
       check-type-assertions: true
       exclude-functions:

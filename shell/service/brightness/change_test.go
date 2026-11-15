@@ -2,6 +2,8 @@ package brightness
 
 import (
 	"testing"
+
+	"github.com/stubbedev/lys/desktop/service/backlight"
 )
 
 func TestParseChangeAcceptsLevelsAndSteps(t *testing.T) {
@@ -103,10 +105,10 @@ func TestTargetHoldsTheFloor(t *testing.T) {
 func TestTargetFloorIsAtLeastOneRawStep(t *testing.T) {
 	coarse := Device{Brightness: 3, Max: 7}
 	got := Relative(-100).Target(coarse, 5)
-	if raw := rawLevel(got, coarse.Max); raw != 1 {
+	if raw := backlight.RawLevel(got, coarse.Max); raw != 1 {
 		t.Errorf("floor on a 7-step panel = %v%% (raw %d), want one raw step", got, raw)
 	}
-	if got := Relative(-100).Target(coarse, 0); rawLevel(got, coarse.Max) != 0 {
+	if got := Relative(-100).Target(coarse, 0); backlight.RawLevel(got, coarse.Max) != 0 {
 		t.Errorf("no floor still lit the panel at %v%%", got)
 	}
 }

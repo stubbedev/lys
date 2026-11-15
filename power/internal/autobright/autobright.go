@@ -12,7 +12,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/stubbedev/lys/shell/service/brightness"
+	"github.com/stubbedev/lys/desktop/service/backlight"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/autobrightness"
 	"github.com/stubbedev/lys/power/internal/ambient"
@@ -26,9 +27,20 @@ type Light interface {
 
 // Session is the logind session whose backlight is driven.
 type Session interface {
+	Path() dbus.ObjectPath
 	Active(ctx context.Context) (bool, error)
 	LockedHint(ctx context.Context) (bool, error)
 }
+
+// Sessions resolves the user's display session as it is now.
+type Sessions interface {
+	Display(ctx context.Context) (Session, error)
+}
+
+// ErrSessionChanged stops the daemon when the display session it drives
+// is no longer the user's display session, so the service restarts on
+// the one that is.
+var ErrSessionChanged = errors.New("the display session changed")
 
 // Publisher announces who holds the backlight.
 type Publisher interface {
@@ -54,7 +66,8 @@ type Params struct {
 // Daemon is one automatic brightness loop.
 type Daemon struct {
 	light     Light
-	backlight brightness.Source
+	backlight backlight.Source
+	sessions  Sessions
 	session   Session
 	clock     Clock
 	log       *slog.Logger
@@ -66,12 +79,13 @@ type Daemon struct {
 	resumes chan chan error
 }
 
-// New is a daemon that follows from the backlight's current level.
-func New(light Light, backlight brightness.Source, session Session, clock Clock, log *slog.Logger, p Params) *Daemon {
+// New is a daemon that follows from the backlight's current level, in
+// the display session sessions resolves when it runs.
+func New(light Light, backlight backlight.Source, sessions Sessions, clock Clock, log *slog.Logger, p Params) *Daemon {
 	return &Daemon{
 		light:     light,
 		backlight: backlight,
-		session:   session,
+		sessions:  sessions,
 		clock:     clock,
 		log:       log,
 		params:    p,
@@ -101,6 +115,11 @@ func (d *Daemon) Resume(ctx context.Context) error {
 // Run samples, follows and serves Resume until ctx ends, announcing the
 // state through pub.
 func (d *Daemon) Run(ctx context.Context, pub Publisher) error {
+	session, err := d.sessions.Display(ctx)
+	if err != nil {
+		return fmt.Errorf("find the display session: %w", err)
+	}
+	d.session = session
 	ticks, stop, err := d.backlight.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("watch the backlight: %w", err)
@@ -160,8 +179,16 @@ func (d *Daemon) ended(ctx context.Context) error {
 }
 
 // foreground reports whether the session is active and unlocked, the
-// only time the daemon samples, writes or attributes a change.
+// only time the daemon samples, writes or attributes a change. A session
+// that is no longer the display session stops the daemon.
 func (d *Daemon) foreground(ctx context.Context) (bool, error) {
+	current, err := d.sessions.Display(ctx)
+	if err != nil {
+		return false, fmt.Errorf("%w: find the display session in place of %s: %w", ErrSessionChanged, d.session.Path(), err)
+	}
+	if current.Path() != d.session.Path() {
+		return false, fmt.Errorf("%w from %s to %s", ErrSessionChanged, d.session.Path(), current.Path())
+	}
 	active, err := d.session.Active(ctx)
 	if err != nil {
 		return false, fmt.Errorf("read whether the session is active: %w", err)
@@ -176,7 +203,7 @@ func (d *Daemon) foreground(ctx context.Context) (bool, error) {
 	return !locked, nil
 }
 
-func (d *Daemon) levels(ctx context.Context) ([]brightness.Device, error) {
+func (d *Daemon) levels(ctx context.Context) ([]backlight.Device, error) {
 	devices, err := d.backlight.Devices(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read the backlights: %w", err)
@@ -187,7 +214,7 @@ func (d *Daemon) levels(ctx context.Context) ([]brightness.Device, error) {
 	return devices, nil
 }
 
-func raw(devices []brightness.Device) []ambient.Level {
+func raw(devices []backlight.Device) []ambient.Level {
 	out := make([]ambient.Level, len(devices))
 	for i, dev := range devices {
 		out[i] = ambient.Level{Name: dev.Name, Raw: dev.Brightness}
@@ -206,7 +233,7 @@ func (d *Daemon) observeIfForeground(ctx context.Context, pub Publisher) error {
 
 // observe reads the backlights and attributes any change, returning
 // what it read.
-func (d *Daemon) observe(ctx context.Context, pub Publisher) ([]brightness.Device, error) {
+func (d *Daemon) observe(ctx context.Context, pub Publisher) ([]backlight.Device, error) {
 	devices, err := d.levels(ctx)
 	if err != nil {
 		return nil, err
@@ -258,12 +285,12 @@ func (d *Daemon) sample(ctx context.Context, pub Publisher) error {
 // retarget starts a transition to the curve's level for the smoothed
 // light when it lies outside the band around the current level, or
 // whenever forced.
-func (d *Daemon) retarget(devices []brightness.Device, force bool) {
+func (d *Daemon) retarget(devices []backlight.Device, force bool) {
 	lux, ok := d.smooth.Lux()
 	if !ok {
 		return
 	}
-	current, _ := brightness.AveragePercentage(devices)
+	current, _ := backlight.AveragePercentage(devices)
 	target := d.params.Curve.Percent(lux)
 	if !force && !ambient.Outside(current, target, d.params.Band) {
 		return

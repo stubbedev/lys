@@ -1,4 +1,4 @@
-package brightness
+package backlight
 
 import (
 	"bytes"
@@ -30,15 +30,15 @@ const levelAttrSize = 12
 func (p *levelProbe) open(devices []os.DirEntry) {
 	p.close()
 	for _, device := range devices {
-		path := filepath.Join(BacklightDir, device.Name(), "brightness")
-		file, err := os.Open(path) //nolint:gosec // the path is BacklightDir plus a directory entry
+		path := filepath.Join(Dir, device.Name(), "brightness")
+		file, err := os.Open(path) //nolint:gosec // the path is Dir plus a directory entry
 		if err != nil {
-			log.Printf("brightness: drift probe: %v", err)
+			log.Printf("backlight: drift probe: %v", err)
 			continue
 		}
 		level := probedLevel{file: file, last: make([]byte, 0, levelAttrSize)}
 		if _, err := level.moved(); err != nil {
-			log.Printf("brightness: drift probe: %v", err)
+			log.Printf("backlight: drift probe: %v", err)
 			_ = file.Close()
 			continue
 		}

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys/shell/internal/drmconn"
+	"github.com/stubbedev/lys/desktop/drmconn"
 )
 
 // DRMDir is the sysfs class directory of DRM cards and connectors; a
@@ -19,29 +19,12 @@ var DRMDir = drmconn.Dir
 // tree; a var so tests can repoint it.
 var I2CAdapterDir = "/sys/bus/i2c/devices"
 
-func ancestorConnector(path string) string {
-	for dir := path; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
-		if name, ok := drmconn.Name(filepath.Base(dir)); ok {
-			return name
-		}
-	}
-	return ""
-}
-
-func backlightConnector(name string) (string, error) {
-	path, err := filepath.EvalSymlinks(filepath.Join(BacklightDir, name))
-	if err != nil {
-		return "", fmt.Errorf("brightness: resolve backlight %s: %w", name, err)
-	}
-	return ancestorConnector(path), nil
-}
-
 func i2cConnector(bus uint32) (string, error) {
 	adapter, err := filepath.EvalSymlinks(filepath.Join(I2CAdapterDir, i2cNodePrefix+strconv.FormatUint(uint64(bus), 10)))
 	if err != nil {
 		return "", fmt.Errorf("brightness: resolve i2c adapter %d: %w", bus, err)
 	}
-	if name := ancestorConnector(adapter); name != "" {
+	if name := drmconn.Ancestor(adapter); name != "" {
 		return name, nil
 	}
 	entries, err := os.ReadDir(DRMDir)

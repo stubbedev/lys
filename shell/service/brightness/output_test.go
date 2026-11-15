@@ -56,37 +56,6 @@ func (f *fakeSysfs) adapter(bus uint32, parent string) string {
 	return dir
 }
 
-func (f *fakeSysfs) wireBacklight(name, connectorDir string) {
-	f.t.Helper()
-	dir := filepath.Join(connectorDir, name)
-	if err := os.Rename(filepath.Join(BacklightDir, name), dir); err != nil {
-		f.t.Fatal(err)
-	}
-	f.link(dir, filepath.Join(BacklightDir, name))
-}
-
-func TestBacklightConnectorFollowsTheSysfsLink(t *testing.T) {
-	fakeBacklightDir(t, map[string]struct {
-		typ      string
-		cur, max uint32
-	}{
-		"intel_backlight": {"raw", 3000, 12000},
-		"acpi_video0":     {"firmware", 50, 100},
-	})
-	sysfs := newFakeSysfs(t)
-	sysfs.wireBacklight("intel_backlight", sysfs.connector("card1-eDP-1"))
-	connectors := map[string]string{}
-	for _, d := range Enumerate() {
-		connectors[d.Name] = d.Connector
-	}
-	if connectors["intel_backlight"] != "eDP-1" {
-		t.Errorf("intel_backlight lights %q, want eDP-1", connectors["intel_backlight"])
-	}
-	if c, ok := connectors["acpi_video0"]; !ok || c != "" {
-		t.Errorf("acpi_video0 lights %q (listed %v), want no connector", c, ok)
-	}
-}
-
 func TestI2CConnectorFromDPAuxAndHDMIDDCLink(t *testing.T) {
 	sysfs := newFakeSysfs(t)
 	sysfs.adapter(6, sysfs.connector("card1-DP-2"))
