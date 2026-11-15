@@ -57,7 +57,7 @@ type TreemanConfig struct {
 func DefaultsTreeman() TreemanConfig {
 	return TreemanConfig{
 		Format:          "{{ total }}",
-		IconName:        "ld-layers-symbolic",
+		IconName:        "ld-graph-star-symbolic",
 		IconPreparing:   "ld-loader-circle-symbolic",
 		IconTearingDown: "ld-trash-2-symbolic",
 		IconFailed:      "ld-alert-triangle-symbolic",

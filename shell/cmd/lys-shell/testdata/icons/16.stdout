@@ -1,4 +1,4 @@
-Would install 64 icons:
+Would install 65 icons:
   cm-gone-symbolic (no auto-install: import manually)
   ld-activity-symbolic (from lucide)
   ld-alert-triangle-symbolic (from lucide)
@@ -24,6 +24,7 @@ Would install 64 icons:
   ld-disc-3-symbolic (from lucide)
   ld-ethernet-port-symbolic (from lucide)
   ld-globe-symbolic (from lucide)
+  ld-graph-star-symbolic (from lucide)
   ld-hard-drive-symbolic (from lucide)
   ld-history-symbolic (from lucide)
   ld-keyboard-symbolic (from lucide)

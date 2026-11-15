@@ -23,7 +23,7 @@ bar:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `format` | string | `"{{ total }}"` | Format string for the label. |
-| `icon-name` | string | `"ld-layers-symbolic"` | Module icon (shown when every worktree is resting-ready). |
+| `icon-name` | string | `"ld-graph-star-symbolic"` | Module icon (shown when every worktree is resting-ready). |
 | `icon-preparing` | string | `"ld-loader-circle-symbolic"` | Icon shown while any worktree is being prepared. |
 | `icon-tearing-down` | string | `"ld-trash-2-symbolic"` | Icon shown while any worktree is being torn down. |
 | `icon-failed` | string | `"ld-alert-triangle-symbolic"` | Icon shown when any worktree's last finalize errored. |
@@ -77,7 +77,7 @@ bar:
 modules:
   treeman:
     format: '{{ total }}'
-    icon-name: ld-layers-symbolic
+    icon-name: ld-graph-star-symbolic
     icon-preparing: ld-loader-circle-symbolic
     icon-tearing-down: ld-trash-2-symbolic
     icon-failed: ld-alert-triangle-symbolic

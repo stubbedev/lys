@@ -21,6 +21,7 @@ ld-eye-symbolic
 ld-film-symbolic
 ld-folder-open-symbolic
 ld-globe-symbolic
+ld-graph-star-symbolic
 ld-grid-2x2-symbolic
 ld-hard-drive-symbolic
 ld-image-symbolic
