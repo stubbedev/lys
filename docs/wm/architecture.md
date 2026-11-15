@@ -21,7 +21,7 @@ reasonable Go alternative exists, and then it is loaded at runtime with
 | epoll, memfd | `golang.org/x/sys/unix` |
 | logind, systemd, D-Bus | lys-lib's `third_party/godbus` |
 | udev | netlink, read directly |
-| X11 window manager | `github.com/jezek/xgb`, built from `third_party/xgb` (a `go.mod` replace) |
+| X11 window manager | a patched copy of `github.com/jezek/xgb` in `third_party/xgb` |
 | Text | lys-lib's `render` on its `third_party/typesetting` |
 | Icon themes | lys-lib's `icontheme` |
 | Config file | `go.yaml.in/yaml/v3`, strict |
@@ -742,7 +742,7 @@ management and power, virtual input, session lock, layer shell, workspaces,
 global shortcuts, hotkeys, shortcut inhibit, gamma, CTM, input methods and
 every `lys_*` protocol.
 
-Private protocols are pinned from lys-lib:
+The private protocols are lys-lib's, in its `protocols` directory:
 
 - **`lys_escape_v1`**: a one-shot claim on the next unmodified Escape. A key
   goes to the first that wants it: compositor bind, lock surface, popup grab,
@@ -763,13 +763,11 @@ surfaces.
 
 ## Protocol bindings
 
-- `internal/protocol/protocols.json` pins every protocol source and maps each
-  XML file to a package. `go run ./internal/scanner -fetch` refreshes the
-  vendored XML; `go generate ./internal/scanner` regenerates both sides; a test
-  fails when the committed tree is stale.
-- The XML is not shared with lys-lib's `wlr`: the server advertises the newest
-  version at a pinned source, while `wlr` is the client API lys-ui and
-  lys-shell build against.
+- The XML is lys-lib's `protocols` package, the one source every lys binding
+  is generated from; its `sources.json` pins each upstream file.
+  `internal/protocol/protocols.json` maps each XML file to a package.
+  `go generate ./internal/scanner` regenerates both sides; a test fails when
+  the committed tree is stale.
 - Each interface becomes a type wrapping `wire.Object`. Incoming messages go to
   a per-interface `Handler` with one typed method each; object arguments are
   looked up and type-checked first. A message that creates an object returns

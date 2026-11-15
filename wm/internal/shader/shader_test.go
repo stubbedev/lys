@@ -14,7 +14,7 @@ import (
 
 func exampleSources(t *testing.T) map[string][]byte {
 	t.Helper()
-	paths, err := filepath.Glob("../../docs/shaders/*.frag")
+	paths, err := filepath.Glob("../../../docs/wm/shaders/*.frag")
 	if err != nil || len(paths) == 0 {
 		t.Fatalf("no example shaders: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestTheRunnerComputes(t *testing.T) {
 }
 
 func BenchmarkExamples(b *testing.B) {
-	paths, err := filepath.Glob("../../docs/shaders/*.frag")
+	paths, err := filepath.Glob("../../../docs/wm/shaders/*.frag")
 	if err != nil {
 		b.Fatal(err)
 	}

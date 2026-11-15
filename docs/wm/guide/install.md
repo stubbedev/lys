@@ -14,19 +14,8 @@ Every install provides:
 
 ## NixOS
 
-```nix
-{
-  inputs.lys.url = "github:stubbedev/lys";
-  outputs = {nixpkgs, lys, ...}: {
-    nixosConfigurations.host = nixpkgs.lib.nixosSystem {
-      modules = [
-        lys.nixosModules.lys-wm
-        {programs.lys-wm.enable = true;}
-      ];
-    };
-  };
-}
-```
+Import `lys.nixosModules.lys-wm` ([NixOS](/install/nixos) adds the flake) and
+set `programs.lys-wm.enable = true`.
 
 | Option | Default | Effect |
 | --- | --- | --- |
@@ -44,13 +33,8 @@ Import `lys.homeManagerModules.lys-wm` and set
 and `foot`, and links `lys-wm-session.target` into `~/.config/systemd/user`.
 The display manager, portals, login limits and GPU drivers stay the host's:
 point the display manager at `lys-wm --systemd` yourself.
-
-To try lys-wm nested in your current Wayland session without installing it:
-
-```sh
-nix run github:stubbedev/lys#lys-wm
-nix run github:stubbedev/lys#lys-wm -- --renderer soft   # if the GPU driver is unusable from Nix
-```
+[NixOS](/install/nixos#packages-only) shows how to try lys-wm nested with
+`nix run`, without installing it.
 
 ## Debian and Ubuntu
 
@@ -81,8 +65,7 @@ sudo dnf install ./lys-wm-<version>-1.fc<release>.x86_64.rpm    # .aarch64.rpm o
   `xdg-desktop-portal-wlr`, `xdg-desktop-portal-gtk`, `lys-shell`, `foot`,
   `vulkan-loader`, `mesa-vulkan-drivers`.
 
-The RPM is built for the current `fedora:latest`. The lys-shell and portal
-notes above apply.
+The lys-shell and portal notes above apply.
 
 ## Tarball
 

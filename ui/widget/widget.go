@@ -71,7 +71,7 @@ type Widget interface {
 	// Row, its height for Column - given forSize, its extent across
 	// that axis, or Unknown: GTK's height-for-width measure. The
 	// request never depends on the room a parent will offer; the
-	// parent decides at Arrange (docs/architecture.md).
+	// parent decides at Arrange (docs/ui/architecture.md).
 	Measure(axis Axis, forSize int) Sizes
 	// Arrange assigns the widget's final pixel rect and recurses into
 	// children.

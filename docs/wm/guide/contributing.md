@@ -42,9 +42,11 @@ runs each as its own job. [Frame pacing](../frame-pacing) covers
 
 ## This site
 
-The pages live in `docs/` and every push to `main` publishes them.
+lys-wm's pages are the `docs/wm/` section of the
+[lys manual](/), built from the repository's `docs/` directory.
 [Actions](../actions) is generated from `wm.Actions`: edit the action
-summaries in `internal/wm/action.go` and run `go test ./internal/wm -update`.
+summaries in `wm/internal/wm/action.go` and run
+`go test ./wm/internal/wm -update` from the repository root.
 
 ```sh
 cd docs
