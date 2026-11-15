@@ -79,4 +79,6 @@ notice; the reason is in `journalctl -u lys-login`. Retry with
 
 The unit hands the screen over from [lys-splash](/splash/)
 without a blank frame when it is installed at `/usr/bin/lys-splash`, and skips
-those steps otherwise.
+those steps otherwise. The greeter's first frame is then the splash's last one,
+and the login screen fades in over it
+([Taking over from the splash](/login/reference/architecture#taking-over-from-the-splash)).

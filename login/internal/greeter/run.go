@@ -117,6 +117,7 @@ func Run(init Init) error {
 		outputScale:  func() int { return loginscreen.MaxScale(sess.Outputs()) },
 		nextLayout:   layouts.Switcher("greeter"),
 		labelLayouts: layouts.LabeledOnSystem,
+		splash:       loadSplashFrame,
 		a11y: a11yDeps{
 			readerFound:  readerFound,
 			startReader:  screenReaders.start(a, readerPath),

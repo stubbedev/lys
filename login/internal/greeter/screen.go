@@ -98,6 +98,7 @@ type deps struct {
 	nextLayout   func(steps int)
 	labelLayouts func(names []string) ([]layouts.Layout, error)
 	a11y         a11yDeps
+	splash       func() (splashFrame, error)
 }
 
 type authHandle interface {
@@ -138,6 +139,7 @@ type screen struct {
 
 	presented bool
 	announced bool
+	over      *takeOver
 
 	clock *loginscreen.ClockTicker
 
@@ -215,6 +217,9 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	}
 	surface := loginscreen.Build(spec)
 	s.prompt, s.root = surface.Prompt, surface.Root
+	if s.over = takeOverSplash(d.splash); s.over != nil {
+		s.root = s.over.over(surface.Root, init.Config.Animations)
+	}
 	s.prompt.Username.SetPlaceholder(t("greeter-username"))
 	s.prompt.Username.SetAccessibleName(t("greeter-username"))
 	s.prompt.Username.SetVisible(s.picked == nil)
@@ -252,6 +257,9 @@ func (s *screen) start() {
 // markPresented notes that the compositor showed the form's first frame.
 func (s *screen) markPresented() {
 	s.presented = true
+	if s.over != nil {
+		s.over.start()
+	}
 	s.announceReady()
 }
 

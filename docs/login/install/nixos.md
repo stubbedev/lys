@@ -44,7 +44,9 @@ With [lys-splash](/splash/) as boot splash, set
 `greeter.splashPackage`. The unit then conflicts with `lys-splash-quit.service`,
 runs `lys-splash deactivate` before lys-wm starts, and the daemon runs
 `lys-splash quit --retain-splash` once the greeter's first frame is presented,
-so there is no blank frame.
+so there is no blank frame: the greeter's first frame is the splash's last one,
+the logo where the splash left it, and the login screen fades in over it
+([Taking over from the splash](/login/reference/architecture#taking-over-from-the-splash)).
 
 ## Lock screen
 

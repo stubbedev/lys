@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"image"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -88,6 +89,7 @@ type rig struct {
 	noLayoutSwitch bool
 	a11y           fakeA11y
 	noReader       bool
+	splash         *splashFrame
 }
 
 func newRig(t *testing.T, edit func(*Init)) *rig {
@@ -194,6 +196,12 @@ func buildRig(t *testing.T, edit func(*Init), r *rig) *rig {
 			return out, nil
 		},
 		a11y: r.a11y.deps(!r.noReader, !r.noLayoutSwitch),
+		splash: func() (splashFrame, error) {
+			if r.splash == nil {
+				return splashFrame{}, fs.ErrNotExist
+			}
+			return *r.splash, nil
+		},
 	})
 	t.Cleanup(r.s.saving.Wait)
 	return r

@@ -22,10 +22,27 @@ def black(img):
     return all(high < 16 for _, high in img.getextrema())
 
 
-def share(box, img):
-    if box is None:
-        return 0
-    return (box[2] - box[0]) * (box[3] - box[1]) / (img.width * img.height)
+taken_over = re.compile(r"greeter: the first frame takes over the splash's: the logo at \((\d+),(\d+)\)-\((\d+),(\d+)\) on (\d+)x(\d+)")
+
+
+def taken_over_logo(m):
+    log = whole_output(m, "journalctl -b -t lys-login -o cat --no-pager")
+    found = taken_over.findall(log)
+    assert len(found) == 1, f"the greeter said {len(found)} times where it took the splash's logo over, want once"
+    x0, y0, x1, y1, w, h = (int(n) for n in found[0])
+    return (x0, y0, x1, y1), (w, h)
+
+
+def inside(box, outer):
+    return outer[0] <= box[0] and outer[1] <= box[1] and box[2] <= outer[2] and box[3] <= outer[3]
+
+
+def logo_area(box):
+    return (box[2] - box[0]) * (box[3] - box[1])
+
+
+def jumps(a, b):
+    return sum(ImageChops.difference(a, b).convert("L").histogram()[97:])
 
 
 greeter_logs = "journalctl -b --no-pager -o short-monotonic -u 'lys-splash*' -u lys-login -u greeter-gate -u user@998; journalctl -b --no-pager -o short-monotonic _UID=998 | tail -50"
@@ -62,22 +79,25 @@ def hand_over(m):
         assert time.monotonic() < deadline, f"the splash still runs 180s after lys-login was let start, {len(paths)} dumps in"
 
     frames = [load(p) for p in paths]
-    greeter_at = None
     for i, frame in enumerate(frames):
-        if differences(frame, splash) is None:
-            assert greeter_at is None, f"dump {i} shows the splash again after the greeter showed in dump {greeter_at}"
-            continue
         assert not black(frame), f"dump {i} of {len(frames)} is black"
-        if greeter_at is None:
-            greeter_at = i
-    assert greeter_at is not None, f"none of {len(frames)} dumps shows the greeter"
-    greeter = frames[-1]
-    frames[greeter_at].save(m.out_dir / "greeter-first.png")
-    greeter.save(m.out_dir / "greeter-last.png")
-    for i in range(greeter_at, len(frames)):
-        box = ImageChops.difference(frames[i], greeter).getbbox()
-        assert share(box, greeter) < 0.1, f"dump {i}, after the splash, is neither the splash nor the greeter: it differs from the greeter in {box}"
-    print(f"{len(frames)} dumps: the splash until dump {greeter_at}, the greeter from there")
+    left = next((i for i, frame in enumerate(frames) if differences(frame, splash) is not None), None)
+    assert left is not None, f"none of {len(frames)} dumps shows anything but the splash"
+    again = [i for i in range(left, len(frames)) if differences(frames[i], splash) is None]
+    assert not again, f"dumps {again[:8]} show the splash again after it began to leave in dump {left}"
+
+    logo, size = taken_over_logo(m)
+    assert size == splash.size, f"the greeter took the splash's frame over at {size}, the screen is {splash.size}"
+    last = [i for i in range(left, len(frames)) if inside(content(frames[i], (0, 0, 0)), logo)]
+    assert last, f"no dump shows the splash's last frame, its logo alone in {logo}"
+    picture = frames[last[0]]
+    picture.save(m.out_dir / "splash-last.png")
+    assert_same(picture.crop(logo), splash.crop(logo), f"the logo in {logo} as the splash left it against the splash before it left")
+    for i in range(last[0] + 1, len(frames)):
+        jumped = jumps(frames[i - 1].crop(logo), frames[i].crop(logo))
+        assert jumped <= logo_area(logo) // 50, f"between dumps {i - 1} and {i}, {jumped} pixels of the logo's box {logo} jump: the greeter's first frame does not hold the splash's logo there"
+    frames[-1].save(m.out_dir / "greeter-last.png")
+    print(f"{len(frames)} dumps: the splash until dump {left}, its logo alone in {logo} from dump {last[0]}, the greeter fading in over it after")
 
     kernel = whole_output(m, "dmesg --notime")
     assert gate_marker in kernel, "the gate left no mark in the kernel log"

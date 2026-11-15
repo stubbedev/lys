@@ -20,6 +20,7 @@
     compositorPackage = config.programs.lys-wm.package;
     splashPackage = splash;
     settings.login.show-clock = false;
+    settings.animations.lock.enter-duration = 2000;
     session = {
       dirs = [];
       x11Dirs = [];

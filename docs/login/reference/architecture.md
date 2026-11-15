@@ -31,7 +31,9 @@ daemon the socket is reachable only by the greeter account.
    keyboard and accessibility settings, and starts the greeter's worker. The
    greeter tells the daemon on `splash.sock` when its first frame is on screen;
    one that is not on screen 30 s after it starts is logged as a warning
-   (`journalctl -u lys-login -p warning`).
+   (`journalctl -u lys-login -p warning`). When lys-splash handed the screen
+   over, that first frame is the splash's last one drawn again, and the login
+   screen fades in over it ([Taking over from the splash](#taking-over-from-the-splash)).
 2. Each login attempt is a new connection. The daemon starts a session worker
    over a socket pair and relays PAM prompts and answers as JSON lines. The
    worker also verifies the user's fingerprint with fprintd and reports what the
@@ -52,6 +54,36 @@ daemon the socket is reachable only by the greeter account.
    `user`.
 7. When the session ends the worker closes the PAM session. The daemon switches
    to another running session, or shows the greeter.
+
+
+## Taking over from the splash
+
+[lys-splash](/splash/guide/how-it-works#hand-over-to-a-display-manager) fades
+its status group out before it lets go of the screen and records what its last
+frame shows in `/run/lys-splash/last-frame.json`: the background colour, which
+logo (lys's or the firmware's BGRT logo), whether its theme asks for
+`reduced-motion`, and every output's name, size and scale. The greeter reads the
+record when it starts, while the splash still runs; the splash removes it when
+it exits.
+
+The greeter's first frame is that picture drawn again: the background, and the
+logo at the position the splash computed, from the same grid in
+`desktop/splashframe` and at the scale the splash used on an output of that
+size, not the compositor's. The firmware's logo comes from
+`/sys/firmware/acpi/bgrt`, as the splash read it. Once that frame is presented,
+the whole login screen fades in over it for the lock screen's enter duration
+(`animations.lock`), and the picture underneath is dropped when the fade ends.
+With `reduced-motion` in the splash's theme, or `animations.enabled: false`, the
+login screen replaces the picture in one cut.
+
+Without a record (no lys-splash, or a greeter started again after a session)
+the greeter starts as before. A record it cannot read, a firmware logo no
+longer in the BGRT table, or a window of a size the splash never drew is logged
+(`greeter: starting without the splash's last frame` or `greeter: the first
+frame is the splash's background without its logo`); the greeter then starts
+without the picture or shows the splash's background alone under the fade.
+The greeter logs where it put the logo (`greeter: the first frame takes over
+the splash's: the logo at ...`).
 
 ## Switching users
 

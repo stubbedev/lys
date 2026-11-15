@@ -15,7 +15,7 @@ Paths are under `splash/` in the repository.
 | `internal/server` | Daemon side of the socket: peer credentials, deferred answers |
 | `internal/client` | The plymouth command line |
 | `internal/daemon` | Splash lifecycle from boot to quit, modes, boot duration |
-| `internal/theme` | `theme.yaml` validation (defaults from `desktop/tokens`), BGRT logo, frame rendering with damage |
+| `internal/theme` | `theme.yaml` validation (defaults from `desktop/tokens`), frame rendering with damage, fades |
 | `internal/kms` | Outputs on two dumb buffers per card: mode and scale, rotation, paced damage-limited flips, uevents |
 | `internal/console` | Virtual terminal, captured console output, text fallback |
 | `internal/key` | Terminal bytes decoded into keys |
@@ -58,9 +58,13 @@ Paths are under `splash/` in the repository.
 | `vm-splash` | The daemon on virtio-gpu with the plymouth client and systemd's password agent, then detached as `plymouthd` logging to the journal |
 | `vm-boot` | A boot through the module, on virtio-gpu and with no display |
 | `vm-journal` | Reading a guest's whole journal through a slowly drained VM shell |
-| `vm-greeter` | Hand-over to lys-login's greeter on lys-wm, checking every screen dump |
+| `vm-greeter` | Hand-over to lys-login's greeter on lys-wm, checking every screen dump: the splash fades its group out, and the greeter's first frame holds the logo exactly where the splash left it while its screen fades in |
 | `vm-greeter-outputs` | Hand-over to the greeter with two vkms outputs, both lit by the splash and both taken by the greeter |
 | `vm-e2e` | The full path, each stage failing by name: OVMF and simpledrm, virtio-gpu, a LUKS root and a second LUKS disk unlocked by one passphrase at the splash, switch root, the plymouth client, hand-over to the greeter, the reboot splash, and a display-less machine typing its passphrase at the text fallback |
+
+The grid, the lys logo, the BGRT logo's placement and the record of the last
+frame are `desktop/splashframe`, outside the splash, because lys-login's greeter
+computes its first frame from them too.
 
 virtio-gpu and vkms have no Vulkan driver, so `nix/greeter.nix` sets
 `LYS_WM_RENDERER=gles` in the session variables, which reach the greeter's
