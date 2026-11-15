@@ -1,0 +1,271 @@
+package vault
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/stubbedev/lys-lib/dbusx"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+)
+
+// Client calls the vault. A login or an unlock derives the master key
+// and talks to the server, so the calls are bounded only by ctx.
+type Client struct {
+	conn *dbus.Conn
+	obj  dbus.BusObject
+}
+
+// NewClient addresses the vault over conn.
+func NewClient(conn *dbus.Conn) *Client {
+	return &Client{conn: conn, obj: conn.Object(ServiceName, ServicePath)}
+}
+
+func (c *Client) call(ctx context.Context, method string, args ...any) *dbus.Call {
+	return c.obj.CallWithContext(ctx, iface+"."+method, 0, args...)
+}
+
+func (c *Client) do(ctx context.Context, method string, args ...any) error {
+	return decodeError(c.call(ctx, method, args...).Err)
+}
+
+// Status is the vault at a glance.
+func (c *Client) Status(ctx context.Context) (Status, error) {
+	var w wireStatus
+	if err := c.call(ctx, "Status").Store(&w); err != nil {
+		return Status{}, decodeError(err)
+	}
+	return fromWire(w)
+}
+
+// Items lists the open vault, favorites first then by name; ErrLocked
+// while it is not open.
+func (c *Client) Items(ctx context.Context) ([]Item, error) {
+	var items []Item
+	if err := c.call(ctx, "Items").Store(&items); err != nil {
+		return nil, decodeError(err)
+	}
+	for _, it := range items {
+		if err := it.check(); err != nil {
+			return nil, fmt.Errorf("vault: Items: %w", err)
+		}
+	}
+	return items, nil
+}
+
+// Field is item id's field f. A secret of an item behind the reprompt
+// needs the master password as password; otherwise it is ignored.
+func (c *Client) Field(ctx context.Context, id string, f Field, password string) (Value, error) {
+	var (
+		text    string
+		expires int64
+	)
+	if err := c.call(ctx, "Field", id, uint32(f), password).Store(&text, &expires); err != nil {
+		return Value{}, decodeError(err)
+	}
+	v := Value{Text: text}
+	if expires != 0 {
+		v.Expires = time.Unix(expires, 0)
+	}
+	return v, nil
+}
+
+// Login logs in with the master password and opens the vault. A second
+// factor or a new device's code comes back as TwoFactorRequiredError or
+// ErrNewDeviceVerification: ask for it and call Login again with it.
+func (c *Client) Login(ctx context.Context, r LoginRequest) error {
+	return c.do(ctx, "Login", toWireLogin(r))
+}
+
+// SendLoginEmail asks the server to email a login's second-factor
+// code.
+func (c *Client) SendLoginEmail(ctx context.Context, r LoginRequest) error {
+	return c.do(ctx, "SendLoginEmail", toWireLogin(r))
+}
+
+// LoginAPIKey logs in with the personal API key and opens the vault
+// with the master password.
+func (c *Client) LoginAPIKey(ctx context.Context, r APIKeyRequest) error {
+	return c.do(ctx, "LoginAPIKey", wireAPIKey{Server: r.Server.String(), Email: r.Email, ClientID: r.ClientID, Secret: r.Secret, Password: r.Password})
+}
+
+// Unlock opens a locked vault with the master password.
+func (c *Client) Unlock(ctx context.Context, password string) error {
+	return c.do(ctx, "Unlock", password)
+}
+
+// Lock wipes the vault's keys and plaintext. A vault that is not
+// running holds no keys: Lock does not start it, and finds nothing to
+// lock.
+func (c *Client) Lock(ctx context.Context) error {
+	err := c.obj.CallWithContext(ctx, iface+".Lock", dbus.FlagNoAutoStart).Err
+	if de, ok := errors.AsType[dbus.Error](err); ok && (de.Name == errServiceUnknown || de.Name == errNameHasNoOwner) {
+		return nil
+	}
+	return decodeError(err)
+}
+
+// The bus's answers for a name nobody owns.
+const (
+	errServiceUnknown = "org.freedesktop.DBus.Error.ServiceUnknown"
+	errNameHasNoOwner = "org.freedesktop.DBus.Error.NameHasNoOwner"
+)
+
+// Logout locks, forgets the session here, and asks the server to revoke
+// it. An error matching ErrRevocationUnsupported is a completed logout on
+// a server that cannot revoke, so its refresh token stays valid until it
+// expires or the account's sessions are deauthorized. One matching
+// ErrSessionNotRevoked means revoking was tried and failed.
+func (c *Client) Logout(ctx context.Context) error { return c.do(ctx, "Logout") }
+
+// Sync refetches the open vault.
+func (c *Client) Sync(ctx context.Context) error { return c.do(ctx, "Sync") }
+
+// NetworkLogin is the login in folder answering the network connection
+// named name; false when there is none or the vault is not open.
+func (c *Client) NetworkLogin(ctx context.Context, folder, name string) (NetworkLogin, bool, error) {
+	var (
+		found bool
+		l     NetworkLogin
+	)
+	if err := c.call(ctx, "NetworkLogin", folder, name).Store(&found, &l.Username, &l.Password, &l.Fields); err != nil {
+		return NetworkLogin{}, false, decodeError(err)
+	}
+	if !found {
+		return NetworkLogin{}, false, nil
+	}
+	return l, true, nil
+}
+
+// Watcher is what Watch reports.
+type Watcher struct {
+	// Changed is the status after a change of it or of the items, and
+	// the vault's status whenever the vault (re)appears on the bus.
+	Changed func(Status)
+	// SyncFailed is a periodic sync failing.
+	SyncFailed func(error)
+}
+
+// Watch reports the vault's signals to w, each on the watch's
+// goroutine, until ctx ends. Only the signals of whoever owns the
+// vault's name as they arrive count, across a restart of the vault; a
+// malformed one is logged and skipped.
+func (c *Client) Watch(ctx context.Context, w Watcher) error {
+	watch, err := dbusx.WatchSignals(ctx, c.conn, dbusx.FromOwner(ServiceName),
+		func(err error) { log.Printf("vault: skip a signal: %v", err) },
+		dbusx.On(changed, ServicePath, func(raw wireStatus, _ dbus.Sequence) error {
+			st, err := fromWire(raw)
+			if err != nil {
+				return fmt.Errorf("%s: %w", changed.Name(), err)
+			}
+			w.Changed(st)
+			return nil
+		}),
+		dbusx.On(syncFailed, ServicePath, func(raw wireError, _ dbus.Sequence) error {
+			err := fromWireError(raw)
+			if err == nil {
+				return fmt.Errorf("%s without an error", syncFailed.Name())
+			}
+			w.SyncFailed(err)
+			return nil
+		}),
+		dbusx.OnOwnerChange(ServiceName, func(_, owner string, _ dbus.Sequence) error {
+			if owner == "" {
+				return nil
+			}
+			st, err := c.Status(ctx)
+			if err != nil {
+				return fmt.Errorf("the status of the vault that appeared: %w", err)
+			}
+			w.Changed(st)
+			return nil
+		}))
+	if err != nil {
+		return fmt.Errorf("vault: watch %s: %w", ServiceName, err)
+	}
+	go func() {
+		<-watch.Done()
+		if err := watch.Stop(); err != nil && !errors.Is(err, dbusx.ErrDisconnected) {
+			log.Printf("vault: %v", err)
+		}
+	}()
+	return nil
+}
+
+func (c *Client) CreateLogin(ctx context.Context, l NewLogin) (ItemID, error) {
+	if err := l.Validate(); err != nil {
+		return "", fmt.Errorf("vault: CreateLogin: %w", err)
+	}
+	uris := l.URIs
+	if uris == nil {
+		uris = []string{}
+	}
+	var id string
+	if err := c.call(ctx, "CreateLogin", l.Folder, l.Name, l.Username, l.Password, uris).Store(&id); err != nil {
+		return "", decodeError(err)
+	}
+	if id == "" {
+		return "", errors.New("vault: CreateLogin answered no id")
+	}
+	return ItemID(id), nil
+}
+
+func (c *Client) FindLogin(ctx context.Context, name string, scope FolderScope) (Item, bool, error) {
+	folder, scoped := scope.Folder()
+	var (
+		found bool
+		it    Item
+	)
+	if err := c.call(ctx, "FindLogin", name, scoped, folder).Store(&found, &it); err != nil {
+		return Item{}, false, decodeError(err)
+	}
+	if !found {
+		return Item{}, false, nil
+	}
+	if err := it.check(); err != nil {
+		return Item{}, false, fmt.Errorf("vault: FindLogin: %w", err)
+	}
+	if it.Type != ItemLogin || it.Name != name || !scope.Contains(it.Folder) {
+		return Item{}, false, fmt.Errorf("vault: FindLogin answered item %s, not a login named as asked", it.ID)
+	}
+	return it, true, nil
+}
+
+func (c *Client) Sends(ctx context.Context) ([]Send, error) {
+	var raw []wireSend
+	if err := c.call(ctx, "Sends").Store(&raw); err != nil {
+		return nil, decodeError(err)
+	}
+	sends := make([]Send, len(raw))
+	for i, w := range raw {
+		s, err := fromWireSend(w)
+		if err != nil {
+			return nil, fmt.Errorf("vault: Sends: %w", err)
+		}
+		sends[i] = s
+	}
+	return sends, nil
+}
+
+func (c *Client) CreateTextSend(ctx context.Context, s NewTextSend) (CreatedSend, error) {
+	if err := s.Validate(time.Now()); err != nil {
+		return CreatedSend{}, fmt.Errorf("vault: CreateTextSend: %w", err)
+	}
+	var id, link string
+	if err := c.call(ctx, "CreateTextSend", s.Name, s.Text, s.Deletion.Unix(), s.MaxAccessCount, s.Password).Store(&id, &link); err != nil {
+		return CreatedSend{}, decodeError(err)
+	}
+	if id == "" || link == "" {
+		return CreatedSend{}, errors.New("vault: CreateTextSend answered no id or URL")
+	}
+	return CreatedSend{ID: SendID(id), URL: link}, nil
+}
+
+func (c *Client) DeleteSend(ctx context.Context, id SendID) error {
+	if err := id.validate(); err != nil {
+		return fmt.Errorf("vault: DeleteSend: %w", err)
+	}
+	return c.do(ctx, "DeleteSend", string(id))
+}

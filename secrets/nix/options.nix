@@ -1,0 +1,112 @@
+self: {
+  lib,
+  pkgs,
+  ...
+}: {
+  enable = lib.mkEnableOption ''
+    lys-secrets as the session's Secret Service (`org.freedesktop.secrets`):
+    libsecret, Chromium and Electron apps, git's libsecret credential helper
+    and the xdg-desktop-portal's per-app secrets keep their secrets in
+    collections encrypted at rest under `$XDG_DATA_HOME/lys-secrets`. The
+    lock screen and lys-login unlock the login collection with the session
+    password. It also holds the Bitwarden vault (`dev.stubbe.lys.Vault1`)
+    that lys-shell's vault widget, launcher and network agent use. Only one
+    provider can own `org.freedesktop.secrets`: do not run gnome-keyring's
+    secrets component as well (lys-secrets logs the other owner and serves
+    the vault alone)'';
+
+  collections = {
+    lockAfter = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 0;
+      description = ''
+        Lock a collection after this many minutes with no secret read from it
+        and nothing in it changed. 0 keeps it open until something locks it.
+      '';
+    };
+    lockOnScreenLock = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Lock every collection when logind says the session locked. lys-login's
+        lock screen reopens the login collection as it unlocks; other collections
+        ask for their password when next used. The Bitwarden vault keeps to
+        `vault.lockAfter`.
+      '';
+    };
+    confirmForeignReads = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Ask through the desktop's dialog before a program reads an item it did
+        not store: Deny, Allow (for that program's connection) or Always allow
+        (it joins the item's owners). Programs are told apart by their
+        executable, so every script one interpreter runs counts as one program.
+        A speed bump against careless exfiltration, not a sandbox.
+      '';
+    };
+  };
+
+  sshAgent.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = ''
+      Serve an SSH agent on `$XDG_RUNTIME_DIR/lys-secrets/ssh` for the keys in
+      `~/.ssh` that have a `.pub` beside them and those added with `ssh-add`,
+      and point `SSH_AUTH_SOCK` at it. An encrypted key's passphrase is asked
+      through the desktop's dialog on first use and can be remembered in the
+      login collection, so keys sign without a prompt while it is unlocked.
+      Do not run another SSH agent as well.
+    '';
+  };
+
+  pinentry.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = ''
+      Make `pinentry-lys` GnuPG's pinentry: gpg-agent asks for passphrases
+      through the desktop's dialog, which can remember one in the login
+      collection under pinentry-gnome3's `org.gnupg.Passphrase` schema. Sets
+      home-manager's `services.gpg-agent.pinentry.package`, or NixOS'
+      `programs.gnupg.agent.pinentryPackage`; enabling the agent stays yours.
+    '';
+  };
+
+  vault = {
+    lockAfter = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 15;
+      description = ''
+        Lock the Bitwarden vault after it went this many minutes with no field
+        read from it. 0 keeps it open until locked by hand or with the session.
+      '';
+    };
+    collectionFolder = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "Desktop";
+      description = ''
+        Show the logins of this Bitwarden folder as the Secret Service's
+        read-only `bitwarden` collection, so libsecret clients find them while
+        the vault is open; a locked vault is a locked collection that unlocks
+        with the master password. Logins behind the master password reprompt
+        are left out. Empty shows no collection.
+      '';
+    };
+    syncInterval = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 30;
+      description = ''
+        Sync the open Bitwarden vault every this many minutes. 0 syncs only
+        on unlock and when asked.
+      '';
+    };
+  };
+
+  package = lib.mkOption {
+    type = lib.types.package;
+    default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    defaultText = lib.literalExpression "lys-secrets.packages.\${system}.default";
+    description = "The lys-secrets package.";
+  };
+}

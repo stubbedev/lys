@@ -1,0 +1,546 @@
+package service
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"errors"
+	"os"
+	"path/filepath"
+	"slices"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/dbustest"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+
+	"github.com/stubbedev/lys-secrets/control"
+	"github.com/stubbedev/lys-secrets/internal/keyring"
+	"github.com/stubbedev/lys-secrets/secretbus"
+	"github.com/stubbedev/lys-secrets/transport"
+)
+
+const loginPassword = "login-pw"
+
+// legacyCollection is a collection file of the first format, with the
+// password "hunter2".
+const legacyCollection = "TFlTS1IAAAEAAAABAAAAQAGjzhhSpY9OmDslM1+vDRBaAAAAAgAAAAEAAAACyHnaGCkaJBKklYTjvZHsapMlK8akXO/oJyyaAOpQ1rXA4HHJXVQSQIpZlWfrrambVWtIGgz3c2AgFk4M1RGirwAAAAIAAAABb639s4oiokdpDy7a5eOnCNcE3HSK/hY6QFGiNKqgPFfGqwg1oGH7ARu3RAavBAXcqIyv9Cb58eYgBerIbRmFHOOPgW0rkzBftxUd8wbTCHUmWTAqUktj7nGFLVbcDPDPqo7d1MHNI+xFI8NlbNB1VC2132AOFqgy07fXXOYVtr7BppwuXube6bai+7wPqBUfmZIernqsRSLyjo+TKU9D5AoyStMTGs6v9m79vZfqelOtTCwv/14h/uLK8pC9bcCIdp4/Ne2i39xsZ/RO/RbRFdKjfODC7lqFk61M9XUQAR4QaRvbxno50j0VltlSEfdMS8NDfZAIR6v73ygqlR87gvWQUDjgQYItpVOSknyhAvnvXtwzA57MliiNzj8D8jZ3q/BNQsYUNVT70TE5l+tLkYTcjTmwRkkwOyBk/vPfGkL7IpQWgKhRxZ4tWG/i/CIL54GH5ypQo8BbM5We4Gz98aGwhPkHZzG43FoV32bOIqNdQ5eBSMyhMt0R+lUYvb2nciYUL0as618TXZ30x6G8cd8w8quIAyYTGQphP81DZ+XoQq/XzUA2xQKPX6RKvURTBUYhEMmttwXUrMCtQZc="
+
+var defaultAliasPath = dbus.ObjectPath(aliasBase + "default")
+
+var lockStates = []struct {
+	name    string
+	restart bool
+}{{"locked", false}, {"restarted", true}}
+
+var deletePaths = []struct {
+	name string
+	path dbus.ObjectPath
+}{{"collection path", collectionPath(LoginID)}, {"default alias", defaultAliasPath}}
+
+func openSession(t *testing.T, conn *dbus.Conn) dbus.ObjectPath {
+	t.Helper()
+	var out dbus.Variant
+	var sess dbus.ObjectPath
+	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".OpenSession", 0, transport.AlgPlain, dbus.MakeVariant("")).Store(&out, &sess); err != nil {
+		t.Fatal(err)
+	}
+	return sess
+}
+
+func plainSecret(sess dbus.ObjectPath, value string) Secret {
+	return Secret{Session: sess, Parameters: []byte{}, Value: []byte(value), ContentType: "text/plain"}
+}
+
+func itemProps(label string) map[string]dbus.Variant {
+	return map[string]dbus.Variant{propItemLabel: dbus.MakeVariant(label), propItemAttrs: dbus.MakeVariant(map[string]string{"k": "v"})}
+}
+
+func requireDBusError(t *testing.T, what string, err error, name string) {
+	t.Helper()
+	var de dbus.Error
+	if !errors.As(err, &de) || de.Name != name {
+		t.Errorf("%s = %v, want %s", what, err, name)
+	}
+}
+
+func (f *fixture) loginFile(t *testing.T) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(f.dir, LoginID+collectionExt))
+	if err != nil {
+		t.Fatalf("the login collection's file: %v", err)
+	}
+	return data
+}
+
+func readDefaultAlias(t *testing.T, conn *dbus.Conn) dbus.ObjectPath {
+	t.Helper()
+	var got dbus.ObjectPath
+	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".ReadAlias", 0, "default").Store(&got); err != nil {
+		t.Fatal(err)
+	}
+	return got
+}
+
+func (f *fixture) showPrompt(t *testing.T, conn *dbus.Conn, prompt dbus.ObjectPath, answer string) (dismissed bool) {
+	t.Helper()
+	f.prompter.script(answer)
+	completed := watchCompleted(t, f, prompt)
+	if err := conn.Object(BusName, prompt).Call(secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
+		t.Fatal(err)
+	}
+	dismissed, _ = completed()
+	return dismissed
+}
+
+func (f *fixture) unlockThroughPrompt(t *testing.T, conn *dbus.Conn, path dbus.ObjectPath, answer string) (dismissed bool) {
+	t.Helper()
+	var unlocked []dbus.ObjectPath
+	var prompt dbus.ObjectPath
+	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".Unlock", 0, []dbus.ObjectPath{path}).Store(&unlocked, &prompt); err != nil || prompt == noPrompt {
+		t.Fatalf("Unlock(%s) = %v, %q, %v; want a prompt", path, unlocked, prompt, err)
+	}
+	return f.showPrompt(t, conn, prompt, answer)
+}
+
+func lockedLogin(t *testing.T, restart bool) (f *fixture, conn *dbus.Conn, item dbus.ObjectPath) {
+	t.Helper()
+	f = newFixture(t)
+	if err := f.svc.UnlockLogin([]byte(loginPassword)); err != nil {
+		t.Fatal(err)
+	}
+	conn = f.bus.Conn(t)
+	var prompt dbus.ObjectPath
+	if err := conn.Object(BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(openSession(t, conn), "kept"), false).Store(&item, &prompt); err != nil {
+		t.Fatal(err)
+	}
+	f.svc.Lock()
+	if restart {
+		f.svc.Close()
+		f.start(t)
+	}
+	return f, conn, item
+}
+
+func TestDeletingALockedCollectionIsRefused(t *testing.T) {
+	for _, state := range lockStates {
+		for _, target := range deletePaths {
+			t.Run(state.name+"/"+target.name, func(t *testing.T) {
+				f, conn, item := lockedLogin(t, state.restart)
+				before := f.loginFile(t)
+
+				err := conn.Object(BusName, target.path).Call(secretbus.CollectionInterface+".Delete", 0).Err
+				requireDBusError(t, "Delete", err, errIsLocked)
+
+				if !bytes.Equal(f.loginFile(t), before) {
+					t.Error("a refused Delete changed the file")
+				}
+				if paths, _ := f.prop(t, rootPath, secretbus.ServiceInterface+".Collections").([]dbus.ObjectPath); !slices.Contains(paths, collectionPath(LoginID)) {
+					t.Errorf("Collections = %v, want the login collection kept", paths)
+				}
+				if got := readDefaultAlias(t, conn); got != collectionPath(LoginID) {
+					t.Errorf("ReadAlias(default) = %q, want it kept", got)
+				}
+				if asked := f.prompter.log(); len(asked) != 0 {
+					t.Errorf("a refused Delete prompted: %v", asked)
+				}
+				if err := f.svc.UnlockLogin([]byte(loginPassword)); err != nil {
+					t.Fatal(err)
+				}
+				var secret Secret
+				if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, openSession(t, conn)).Store(&secret); err != nil || string(secret.Value) != "kept" {
+					t.Errorf("GetSecret after the refusal = %q, %v", secret.Value, err)
+				}
+			})
+		}
+	}
+}
+
+func TestACollectionDeletesOnlyOnceUnlockedThroughThePrompt(t *testing.T) {
+	for _, target := range deletePaths {
+		t.Run(target.name, func(t *testing.T) {
+			f, conn, _ := lockedLogin(t, false)
+			obj := conn.Object(BusName, target.path)
+
+			if !f.unlockThroughPrompt(t, conn, target.path, "") {
+				t.Fatal("the unlock prompt completed although dismissed")
+			}
+			requireDBusError(t, "Delete after a dismissed unlock", obj.Call(secretbus.CollectionInterface+".Delete", 0).Err, errIsLocked)
+
+			if f.unlockThroughPrompt(t, conn, target.path, loginPassword) {
+				t.Fatal("the unlock prompt was dismissed")
+			}
+			var prompt dbus.ObjectPath
+			if err := obj.Call(secretbus.CollectionInterface+".Delete", 0).Store(&prompt); err != nil || prompt != noPrompt {
+				t.Fatalf("Delete of an unlocked collection = %q, %v", prompt, err)
+			}
+			if _, err := os.Stat(filepath.Join(f.dir, LoginID+collectionExt)); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("the file after Delete: %v, want it gone", err)
+			}
+			if got := readDefaultAlias(t, conn); got != noPrompt {
+				t.Errorf("ReadAlias(default) = %q, want it gone with the collection", got)
+			}
+			requireDBusError(t, "Delete again", obj.Call(secretbus.CollectionInterface+".Delete", 0).Err, errNoSuchObject)
+		})
+	}
+}
+
+func TestALockedCollectionRefusesEveryChange(t *testing.T) {
+	for _, state := range lockStates {
+		t.Run(state.name, func(t *testing.T) {
+			f, conn, item := lockedLogin(t, state.restart)
+			before := f.loginFile(t)
+			sess := openSession(t, conn)
+			itemObj := conn.Object(BusName, item)
+			for _, change := range []struct {
+				name string
+				err  error
+			}{
+				{"Item.Delete", itemObj.Call(secretbus.ItemInterface+".Delete", 0).Err},
+				{"Item.SetSecret", itemObj.Call(secretbus.ItemInterface+".SetSecret", 0, plainSecret(sess, "changed")).Err},
+				{"Item.Label", itemObj.SetProperty(propItemLabel, dbus.MakeVariant("changed"))},
+				{"Item.Attributes", itemObj.SetProperty(propItemAttrs, dbus.MakeVariant(map[string]string{"k": "changed"}))},
+				{"Collection.Label", conn.Object(BusName, collectionPath(LoginID)).SetProperty(propCollLabel, dbus.MakeVariant("changed"))},
+				{"alias Collection.Label", conn.Object(BusName, defaultAliasPath).SetProperty(propCollLabel, dbus.MakeVariant("changed"))},
+			} {
+				requireDBusError(t, change.name, change.err, errIsLocked)
+			}
+
+			var created, prompt dbus.ObjectPath
+			if err := conn.Object(BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("changed"), plainSecret(sess, "changed"), true).Store(&created, &prompt); err != nil || prompt == noPrompt {
+				t.Fatalf("CreateItem = %q, %q, %v; want a prompt", created, prompt, err)
+			}
+			if !f.showPrompt(t, conn, prompt, "") {
+				t.Error("CreateItem's dismissed prompt completed")
+			}
+
+			if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".ChangeLock", 0, collectionPath(LoginID)).Store(&prompt); err != nil {
+				t.Fatalf("ChangeLock = %v", err)
+			}
+			if !f.showPrompt(t, conn, prompt, "") {
+				t.Error("ChangeLock's dismissed prompt completed")
+			}
+
+			if !bytes.Equal(f.loginFile(t), before) {
+				t.Error("a refused change altered the file")
+			}
+			if locked, _ := f.prop(t, collectionPath(LoginID), secretbus.CollectionInterface+".Locked").(bool); !locked {
+				t.Error("a refused change unlocked the collection")
+			}
+		})
+	}
+}
+
+func TestDeletingACollectionDestroysItsKey(t *testing.T) {
+	f := newFixture(t)
+	if err := f.svc.UnlockLogin([]byte(loginPassword)); err != nil {
+		t.Fatal(err)
+	}
+	f.svc.mu.Lock()
+	kr := f.svc.colls[LoginID].kr
+	f.svc.mu.Unlock()
+	conn := f.bus.Conn(t)
+	if err := conn.Object(BusName, collectionPath(LoginID)).Call(secretbus.CollectionInterface+".Delete", 0).Err; err != nil {
+		t.Fatal(err)
+	}
+	f.svc.mu.Lock()
+	defer f.svc.mu.Unlock()
+	if !kr.Locked() {
+		t.Error("the deleted collection's key is still in memory")
+	}
+}
+
+func TestATamperedCollectionIsNotAWrongPassword(t *testing.T) {
+	f, conn, _ := lockedLogin(t, false)
+	f.svc.Close()
+	path := filepath.Join(f.dir, LoginID+collectionExt)
+	data := f.loginFile(t)
+	data[len(data)-1] ^= 1
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f.start(t)
+
+	err := f.svc.UnlockLogin([]byte(loginPassword))
+	if !errors.Is(err, keyring.ErrTampered) || errors.Is(err, control.ErrWrongPassword) {
+		t.Errorf("UnlockLogin = %v, want ErrTampered and not a wrong password", err)
+	}
+	if !f.unlockThroughPrompt(t, conn, collectionPath(LoginID), loginPassword) {
+		t.Error("a prompt over a tampered file completed")
+	}
+	if asked := f.prompter.log(); len(asked) != 1 {
+		t.Errorf("prompts = %v, want one and no retry", asked)
+	}
+}
+
+func TestUnlockRewritesAFileOfTheFirstFormat(t *testing.T) {
+	f := newFixture(t)
+	f.svc.Close()
+	legacy, err := base64.StdEncoding.DecodeString(legacyCollection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(f.dir, LoginID+collectionExt), legacy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f.start(t)
+	if err := f.svc.UnlockLogin([]byte("hunter2")); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.loginFile(t); bytes.Equal(got, legacy) || got[7] != 2 {
+		t.Errorf("the file was not rewritten in the current format: version byte %d", got[7])
+	}
+	f.svc.Lock()
+	f.svc.Close()
+	f.start(t)
+	if err := f.svc.UnlockLogin([]byte("hunter2")); err != nil {
+		t.Errorf("the rewritten file does not open: %v", err)
+	}
+}
+
+func aliasesFileBytes(t *testing.T, f *fixture) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(f.dir, aliasesFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func (f *fixture) createCollection(t *testing.T, conn *dbus.Conn, label string) {
+	t.Helper()
+	var coll, prompt dbus.ObjectPath
+	props := map[string]dbus.Variant{propCollLabel: dbus.MakeVariant(label)}
+	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".CreateCollection", 0, props, "").Store(&coll, &prompt); err != nil || prompt == noPrompt {
+		t.Fatalf("CreateCollection = %q, %q, %v; want a prompt", coll, prompt, err)
+	}
+	if f.showPrompt(t, conn, prompt, "other-pw") {
+		t.Fatal("the create prompt was dismissed")
+	}
+}
+
+func setAlias(conn *dbus.Conn, name string, target dbus.ObjectPath) error {
+	return conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".SetAlias", 0, name, target).Err
+}
+
+func TestTheAliasOfALockedCollectionCannotMove(t *testing.T) {
+	for _, state := range lockStates {
+		for _, target := range []struct {
+			name string
+			path dbus.ObjectPath
+		}{{"removed", noPrompt}, {"moved to another", collectionPath("other")}} {
+			t.Run(state.name+"/"+target.name, func(t *testing.T) {
+				f, conn, _ := lockedLogin(t, state.restart)
+				f.createCollection(t, conn, "other")
+				before := aliasesFileBytes(t, f)
+
+				requireDBusError(t, "SetAlias", setAlias(conn, "default", target.path), errIsLocked)
+
+				if got := readDefaultAlias(t, conn); got != collectionPath(LoginID) {
+					t.Errorf("default = %s, want it still on the login collection", got)
+				}
+				if !bytes.Equal(aliasesFileBytes(t, f), before) {
+					t.Error("the refused call changed the alias file")
+				}
+			})
+		}
+	}
+}
+
+func TestAnAliasCannotMoveOntoALockedCollection(t *testing.T) {
+	_, conn, _ := lockedLogin(t, false)
+	requireDBusError(t, "SetAlias", setAlias(conn, "mine", collectionPath(LoginID)), errIsLocked)
+	var got dbus.ObjectPath
+	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".ReadAlias", 0, "mine").Store(&got); err != nil || got != noPrompt {
+		t.Errorf("ReadAlias(mine) = %s, %v; want none", got, err)
+	}
+}
+
+func TestAnAliasMovesBetweenUnlockedCollections(t *testing.T) {
+	f, conn, _ := lockedLogin(t, false)
+	if err := f.svc.UnlockLogin([]byte(loginPassword)); err != nil {
+		t.Fatal(err)
+	}
+	f.createCollection(t, conn, "other")
+	if err := setAlias(conn, "default", collectionPath("other")); err != nil {
+		t.Fatalf("SetAlias = %v", err)
+	}
+	if got := readDefaultAlias(t, conn); got != collectionPath("other") {
+		t.Errorf("default = %s", got)
+	}
+}
+
+func TestUnlockingLetsTheAliasMove(t *testing.T) {
+	f, conn, _ := lockedLogin(t, true)
+	requireDBusError(t, "SetAlias", setAlias(conn, "default", noPrompt), errIsLocked)
+	if f.unlockThroughPrompt(t, conn, collectionPath(LoginID), loginPassword) {
+		t.Fatal("the unlock prompt was dismissed")
+	}
+	if err := setAlias(conn, "default", noPrompt); err != nil {
+		t.Fatalf("SetAlias after unlocking = %v", err)
+	}
+	if got := readDefaultAlias(t, conn); got != noPrompt {
+		t.Errorf("default = %s after removing it", got)
+	}
+}
+
+func idleFixture(t *testing.T, after time.Duration, now func() time.Time) (*fixture, *dbus.Conn, dbus.ObjectPath) {
+	t.Helper()
+	f := &fixture{bus: dbustest.Session(t), dir: t.TempDir(), prompter: &fakePrompter{}}
+	svc, err := Start(f.bus.Conn(t), Config{Dir: f.dir, KDF: testKDF, Stretch: keyring.Argon2id, Prompter: f.prompter, LockAfter: after, Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(svc.Close)
+	f.svc = svc
+	conn := f.bus.Conn(t)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if err := svc.UnlockLogin([]byte(loginPassword)); err != nil {
+			t.Fatal(err)
+		}
+		var item, prompt dbus.ObjectPath
+		if err := conn.Object(BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(openSession(t, conn), "kept"), false).Store(&item, &prompt); err != nil {
+			t.Fatal(err)
+		}
+		if prompt == noPrompt {
+			return f, conn, item
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the collection kept locking within %v before an item could be created", after)
+		}
+	}
+}
+
+func (f *fixture) loginLocked() bool {
+	f.svc.mu.Lock()
+	defer f.svc.mu.Unlock()
+	return f.svc.colls[LoginID].kr.Locked()
+}
+
+func TestIdleCollectionsLockOnlyOnceUnused(t *testing.T) {
+	const after = time.Hour
+	var mu sync.Mutex
+	clock := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	now := func() time.Time { mu.Lock(); defer mu.Unlock(); return clock }
+	advance := func(d time.Duration) { mu.Lock(); defer mu.Unlock(); clock = clock.Add(d) }
+	f, conn, item := idleFixture(t, after, now)
+	sess := openSession(t, conn)
+
+	advance(after - time.Minute)
+	f.svc.lockIdle()
+	if f.loginLocked() {
+		t.Fatal("locked before its idle time")
+	}
+	var secret Secret
+	if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&secret); err != nil {
+		t.Fatal(err)
+	}
+	advance(after - time.Minute)
+	f.svc.lockIdle()
+	if f.loginLocked() {
+		t.Fatal("reading a secret did not restart the idle clock")
+	}
+	if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".SetSecret", 0, plainSecret(sess, "changed")).Err; err != nil {
+		t.Fatal(err)
+	}
+	advance(after - time.Minute)
+	f.svc.lockIdle()
+	if f.loginLocked() {
+		t.Fatal("a change did not restart the idle clock")
+	}
+	var found []dbus.ObjectPath
+	if err := conn.Object(BusName, collectionPath(LoginID)).Call(secretbus.CollectionInterface+".SearchItems", 0, map[string]string{"k": "v"}).Store(&found); err != nil {
+		t.Fatal(err)
+	}
+	advance(time.Minute)
+	f.svc.lockIdle()
+	if !f.loginLocked() {
+		t.Fatal("a search restarted the idle clock, or the collection did not lock")
+	}
+	f.svc.mu.Lock()
+	pending := f.svc.idle
+	f.svc.mu.Unlock()
+	if pending != nil {
+		t.Error("a check stays pending with every collection locked")
+	}
+
+	if err := f.svc.UnlockLogin([]byte(loginPassword)); err != nil {
+		t.Fatal(err)
+	}
+	f.svc.lockIdle()
+	if f.loginLocked() {
+		t.Error("unlocking did not restart the idle clock")
+	}
+}
+
+func TestAnIdleCollectionLocksByItself(t *testing.T) {
+	f, conn, item := idleFixture(t, 50*time.Millisecond, nil)
+	deadline := time.Now().Add(10 * time.Second)
+	for !f.loginLocked() {
+		if time.Now().After(deadline) {
+			t.Fatal("the idle collection never locked")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	var secret Secret
+	err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, openSession(t, conn)).Store(&secret)
+	requireDBusError(t, "GetSecret", err, errIsLocked)
+}
+
+func TestANewEmptyCollectionLocksWhenIdleToo(t *testing.T) {
+	f := &fixture{bus: dbustest.Session(t), dir: t.TempDir(), prompter: &fakePrompter{}}
+	svc, err := Start(f.bus.Conn(t), Config{Dir: f.dir, KDF: testKDF, Stretch: keyring.Argon2id, Prompter: f.prompter, LockAfter: 50 * time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(svc.Close)
+	f.svc = svc
+	if err := svc.UnlockLogin([]byte(loginPassword)); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for !f.loginLocked() {
+		if time.Now().After(deadline) {
+			t.Fatal("the new collection never locked")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestNoIdleLockByDefault(t *testing.T) {
+	var mu sync.Mutex
+	clock := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	now := func() time.Time { mu.Lock(); defer mu.Unlock(); return clock }
+	f, _, _ := idleFixture(t, 0, now)
+	f.svc.mu.Lock()
+	pending := f.svc.idle
+	f.svc.mu.Unlock()
+	if pending != nil {
+		t.Error("a check is pending with no idle time set")
+	}
+	mu.Lock()
+	clock = clock.Add(24 * 365 * time.Hour)
+	mu.Unlock()
+	if f.loginLocked() {
+		t.Error("the collection locked with no idle time set")
+	}
+}
+
+func TestLockCollectionsLeavesTheVaultOpen(t *testing.T) {
+	f, v := vaultFixture(t)
+	if err := f.svc.UnlockLogin([]byte(loginPassword)); err != nil {
+		t.Fatal(err)
+	}
+	if err := v.Unlock(context.Background(), "master"); err != nil {
+		t.Fatal(err)
+	}
+	f.svc.LockCollections()
+	if !f.loginLocked() {
+		t.Error("the collection stayed unlocked")
+	}
+	if _, open := v.Logins(); !open {
+		t.Error("the vault locked")
+	}
+}

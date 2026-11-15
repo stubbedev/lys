@@ -1,0 +1,405 @@
+package bitwarden
+
+import (
+	"context"
+	"encoding/base64"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"slices"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/vaultserver"
+
+	"github.com/stubbedev/lys-secrets/vault"
+)
+
+// fakeServer serves one handler per path and records the forms and
+// headers it saw.
+type fakeServer struct {
+	*httptest.Server
+	forms   []url.Values
+	headers []http.Header
+}
+
+func newFakeServer(t *testing.T, routes map[string]http.HandlerFunc) *fakeServer {
+	t.Helper()
+	f := &fakeServer{}
+	mux := http.NewServeMux()
+	for path, h := range routes {
+		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("parse form: %v", err)
+			}
+			f.forms = append(f.forms, r.PostForm)
+			f.headers = append(f.headers, r.Header.Clone())
+			h(w, r)
+		})
+	}
+	f.Server = httptest.NewServer(mux)
+	t.Cleanup(f.Close)
+	return f
+}
+
+func reply(status int, body string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	}
+}
+
+func testClient(f *fakeServer) *Client {
+	server, err := vaultserver.ParseServer(f.URL)
+	if err != nil {
+		panic(err)
+	}
+	return NewClient(server, Device{ID: "dev-1", Name: "lys-secrets"})
+}
+
+var testNow = time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+
+// The current prelogin answers the KDF and a salt; an older server
+// without it (a 404) answers the original endpoint, salted by email.
+func TestPrelogin(t *testing.T) {
+	f := newFakeServer(t, map[string]http.HandlerFunc{
+		"/identity/accounts/prelogin/password": reply(200, `{"KdfSettings":{"KdfType":1,"Iterations":3,"Memory":64,"Parallelism":4},"Salt":"salty"}`),
+	})
+	p, err := testClient(f).Prelogin(context.Background(), "a@b.c")
+	if err != nil || p.Kdf != (Kdf{Type: KdfArgon2id, Iterations: 3, Memory: 64, Parallelism: 4}) || p.Salt != "salty" {
+		t.Errorf("current prelogin = %+v, %v", p, err)
+	}
+	old := newFakeServer(t, map[string]http.HandlerFunc{
+		"/identity/accounts/prelogin": reply(200, `{"kdf":0,"kdfIterations":600000,"kdfMemory":null,"kdfParallelism":null}`),
+	})
+	p, err = testClient(old).Prelogin(context.Background(), "a@b.c")
+	if err != nil || p.Kdf != (Kdf{Type: KdfPBKDF2, Iterations: 600000}) || p.Salt != "a@b.c" {
+		t.Errorf("legacy prelogin = %+v, %v", p, err)
+	}
+	broken := newFakeServer(t, map[string]http.HandlerFunc{
+		"/identity/accounts/prelogin/password": reply(500, `{"message":"boom"}`),
+	})
+	var ae *APIError
+	if _, err := testClient(broken).Prelogin(context.Background(), "a@b.c"); !errors.As(err, &ae) || !ae.Retryable() {
+		t.Errorf("a 500 prelogin = %v, want a retryable APIError without the fallback", err)
+	}
+}
+
+// bitwarden.com answers the password endpoint in the original shape: its
+// top-level KDF fields are the account's, not a zero KDF.
+func TestAPasswordPreloginInTheOriginalShapeIsRead(t *testing.T) {
+	f := newFakeServer(t, map[string]http.HandlerFunc{
+		"/identity/accounts/prelogin/password": reply(200, `{"kdf":0,"kdfIterations":600000,"kdfMemory":null,"kdfParallelism":null}`),
+	})
+	p, err := testClient(f).Prelogin(context.Background(), "a@b.c")
+	if err != nil || p.Kdf != (Kdf{Type: KdfPBKDF2, Iterations: 600000}) || p.Salt != "a@b.c" {
+		t.Errorf("prelogin = %+v, %v; want PBKDF2 600000 salted by the email", p, err)
+	}
+}
+
+func TestAPreloginNamingNoKeyDerivationFails(t *testing.T) {
+	f := newFakeServer(t, map[string]http.HandlerFunc{
+		"/identity/accounts/prelogin/password": reply(200, `{"salt":"s"}`),
+	})
+	if p, err := testClient(f).Prelogin(context.Background(), "a@b.c"); err == nil {
+		t.Errorf("prelogin = %+v, want an error rather than a zero KDF", p)
+	}
+}
+
+// A password login posts the hash, the device and the base64url email
+// header, and reads the tokens and wrapped keys.
+func TestPasswordLogin(t *testing.T) {
+	f := newFakeServer(t, map[string]http.HandlerFunc{
+		"/identity/connect/token": reply(200, `{"access_token":"at","refresh_token":"rt","expires_in":3600,"token_type":"Bearer","Key":"2.k","PrivateKey":"2.p"}`),
+	})
+	tok, err := testClient(f).PasswordLogin(context.Background(), "a@b.c", "hash", &vault.TwoFactor{Provider: vault.TwoFactorAuthenticator, Code: "123456"}, "", testNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.AccessToken != "at" || tok.RefreshToken != "rt" || !tok.Expires.Equal(testNow.Add(time.Hour)) || tok.Key != "2.k" || tok.PrivateKey != "2.p" {
+		t.Errorf("token = %+v", tok)
+	}
+	form := f.forms[0]
+	for k, want := range map[string]string{
+		"grant_type": "password", "username": "a@b.c", "password": "hash", "scope": "api offline_access",
+		"client_id": "desktop", "deviceType": "8", "deviceIdentifier": "dev-1", "deviceName": "lys-secrets",
+		"twoFactorToken": "123456", "twoFactorProvider": "0", "twoFactorRemember": "0",
+	} {
+		if form.Get(k) != want {
+			t.Errorf("form %s = %q, want %q", k, form.Get(k), want)
+		}
+	}
+	if got := f.headers[0].Get("Auth-Email"); got != base64.RawURLEncoding.EncodeToString([]byte("a@b.c")) {
+		t.Errorf("Auth-Email = %q", got)
+	}
+	if form.Has("newDeviceOtp") {
+		t.Error("a login without a device code sent one")
+	}
+}
+
+// The server's challenges come back as typed errors: a second factor
+// (with the providers, sorted), a new device's code, refused
+// credentials; anything else is an APIError.
+func TestLoginChallenges(t *testing.T) {
+	for _, c := range []struct {
+		body   string
+		status int
+		check  func(error) bool
+	}{
+		{`{"TwoFactorProviders2":{"1":{"Email":"a***@b.c"},"0":null}}`, 400, func(err error) bool {
+			var tf *vault.TwoFactorRequiredError
+			return errors.As(err, &tf) && slices.Equal(tf.Providers, []vault.TwoFactorProvider{vault.TwoFactorAuthenticator, vault.TwoFactorEmail})
+		}},
+		{`{"ErrorModel":{"Message":"New device verification required"}}`, 400, func(err error) bool { return errors.Is(err, vault.ErrNewDeviceVerification) }},
+		{`{"error":"invalid_grant","ErrorModel":{"Message":"Username or password is incorrect. Try again."}}`, 400, func(err error) bool { return errors.Is(err, vault.ErrInvalidCredentials) }},
+		{`{"error":"slow_down"}`, 429, func(err error) bool {
+			var ae *APIError
+			return errors.As(err, &ae) && ae.Retryable() && ae.Message == "slow_down"
+		}},
+		{`not json`, 502, func(err error) bool { return err != nil }},
+	} {
+		f := newFakeServer(t, map[string]http.HandlerFunc{"/identity/connect/token": reply(c.status, c.body)})
+		if _, err := testClient(f).PasswordLogin(context.Background(), "a@b.c", "h", nil, "", testNow); !c.check(err) {
+			t.Errorf("%d %s = %v", c.status, c.body, err)
+		}
+	}
+	f := newFakeServer(t, map[string]http.HandlerFunc{"/identity/connect/token": reply(200, `{"token_type":"Bearer"}`)})
+	if _, err := testClient(f).PasswordLogin(context.Background(), "a@b.c", "h", nil, "", testNow); err == nil {
+		t.Error("a 200 without an access token logged in")
+	}
+}
+
+// A new device's emailed code rides the retry.
+func TestNewDeviceCodeIsSent(t *testing.T) {
+	f := newFakeServer(t, map[string]http.HandlerFunc{"/identity/connect/token": reply(200, `{"access_token":"at","expires_in":1}`)})
+	if _, err := testClient(f).PasswordLogin(context.Background(), "a@b.c", "h", nil, "998877", testNow); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.forms[0].Get("newDeviceOtp"); got != "998877" {
+		t.Errorf("newDeviceOtp = %q", got)
+	}
+}
+
+// The API key logs in with client credentials and scope api; a refresh
+// sends the login's client id and keeps the refresh token the server
+// did not rotate.
+func TestAPIKeyLoginAndRefresh(t *testing.T) {
+	f := newFakeServer(t, map[string]http.HandlerFunc{"/identity/connect/token": reply(200, `{"access_token":"at2","expires_in":60}`)})
+	c := testClient(f)
+	if _, err := c.APIKeyLogin(context.Background(), "user.abc", "s3cret", testNow); err != nil {
+		t.Fatal(err)
+	}
+	if f.forms[0].Get("grant_type") != "client_credentials" || f.forms[0].Get("client_id") != "user.abc" || f.forms[0].Get("client_secret") != "s3cret" || f.forms[0].Get("scope") != "api" {
+		t.Errorf("API key form = %v", f.forms[0])
+	}
+	tok, err := c.Refresh(context.Background(), "rt-old", "desktop", testNow)
+	if err != nil || tok.AccessToken != "at2" || tok.RefreshToken != "rt-old" {
+		t.Errorf("refresh = %+v, %v", tok, err)
+	}
+	if f.forms[1].Get("grant_type") != "refresh_token" || f.forms[1].Get("refresh_token") != "rt-old" || f.forms[1].Get("client_id") != "desktop" {
+		t.Errorf("refresh form = %v", f.forms[1])
+	}
+}
+
+// Sync sends the bearer token and reads the account; a 401 is an
+// APIError that is not retryable.
+func TestSync(t *testing.T) {
+	f := newFakeServer(t, map[string]http.HandlerFunc{
+		"/api/sync": func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Authorization") != "Bearer at" {
+				reply(401, `{"message":"no"}`)(w, r)
+				return
+			}
+			reply(200, `{"profile":{"email":"a@b.c","key":"2.k","privateKey":"2.p","organizations":[{"id":"o1","key":"4.x"}]},"folders":[{"id":"f1","name":"2.n"}],"ciphers":[{"id":"c1","type":1,"name":"2.n","login":{"username":"2.u","uris":[{"uri":"2.u"}]}}]}`)(w, r)
+		},
+	})
+	s, err := testClient(f).Sync(context.Background(), "at")
+	if err != nil || s.Profile.Key != "2.k" || len(s.Profile.Organizations) != 1 || len(s.Ciphers) != 1 || s.Ciphers[0].Login.Uris[0].URI != "2.u" {
+		t.Errorf("sync = %+v, %v", s, err)
+	}
+	var ae *APIError
+	if _, err := testClient(f).Sync(context.Background(), "bad"); !errors.As(err, &ae) || ae.Status != 401 || ae.Retryable() {
+		t.Errorf("unauthorized sync = %v", err)
+	}
+}
+
+// The clouds resolve to their own endpoints; a self-hosted base URL
+// puts the API and identity under it.
+func TestEndpointsOf(t *testing.T) {
+	eu, _ := vaultserver.ParseServer(vaultserver.CloudEU)
+	if e := endpointsOf(eu); e.API != "https://api.bitwarden.eu" || e.Identity != "https://identity.bitwarden.eu" {
+		t.Errorf("EU cloud = %+v", e)
+	}
+	own, _ := vaultserver.ParseServer("https://vault.example.com/")
+	if e := endpointsOf(own); e.API != "https://vault.example.com/api" || e.Identity != "https://vault.example.com/identity" {
+		t.Errorf("self-hosted = %+v", e)
+	}
+}
+
+func TestCreateCipher(t *testing.T) {
+	var got []byte
+	f := newFakeServer(t, map[string]http.HandlerFunc{
+		"/api/ciphers": func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer at" || r.Header.Get("Content-Type") != "application/json" {
+				reply(401, `{"message":"no"}`)(w, r)
+				return
+			}
+			got, _ = io.ReadAll(r.Body)
+			reply(200, `{"id":"c9","type":1,"folderId":"f1","name":"2.n","login":{"username":"2.u"}}`)(w, r)
+		},
+	})
+	c, err := testClient(f).CreateCipher(context.Background(), "at", cipherRequest{Type: vault.ItemLogin, FolderID: "f1", Name: "2.n", Login: &loginRequest{Username: "2.u", URIs: []uriRequest{}}})
+	if err != nil || c.ID != "c9" || c.FolderID != "f1" || c.Login.Username != "2.u" {
+		t.Errorf("created = %+v, %v", c, err)
+	}
+	const want = `{"type":1,"folderId":"f1","name":"2.n","favorite":false,"reprompt":0,"login":{"username":"2.u","uris":[]}}`
+	if string(got) != want {
+		t.Errorf("request = %s, want %s", got, want)
+	}
+	var ae *APIError
+	if _, err := testClient(f).CreateCipher(context.Background(), "bad", cipherRequest{}); !errors.As(err, &ae) || ae.Status != 401 {
+		t.Errorf("unauthorized = %v", err)
+	}
+	g := newFakeServer(t, map[string]http.HandlerFunc{"/api/ciphers": reply(200, `{}`)})
+	if _, err := testClient(g).CreateCipher(context.Background(), "at", cipherRequest{}); err == nil {
+		t.Error("an answer without an id was taken")
+	}
+}
+
+func TestARedirectToPlainHTTPIsRefused(t *testing.T) {
+	var followed atomic.Bool
+	plain := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { followed.Store(true) }))
+	t.Cleanup(plain.Close)
+	for _, tc := range []struct {
+		name   string
+		target string
+		want   error
+	}{
+		{"off this machine", "http://vault.example.com/identity/accounts/prelogin/password", vaultserver.ErrInsecureServer},
+		{"to loopback", plain.URL, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, tc.target, http.StatusTemporaryRedirect)
+			}))
+			t.Cleanup(srv.Close)
+			server, err := vaultserver.ParseServer(srv.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := NewClient(server, Device{ID: "d", Name: "n"})
+			c.http.Transport = srv.Client().Transport
+			_, err = c.Prelogin(t.Context(), "ada@example.com")
+			if tc.want == nil {
+				if !followed.Load() {
+					t.Errorf("the redirect to loopback was not followed: %v", err)
+				}
+				return
+			}
+			if !errors.Is(err, tc.want) || errors.Is(err, vault.ErrUnreachable) {
+				t.Errorf("Prelogin = %v, want %v and not unreachable", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestRedirectsStayLimited(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, srv.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(srv.Close)
+	server, err := vaultserver.ParseServer(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = NewClient(server, Device{ID: "d", Name: "n"}).Prelogin(t.Context(), "ada@example.com")
+	if err == nil || !strings.Contains(err.Error(), "redirects") {
+		t.Errorf("Prelogin = %v, want the redirect limit", err)
+	}
+}
+
+func TestRevokeTellsAnUnsupportedServerFromAFailure(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		status      int
+		body        string
+		ok          bool
+		unsupported bool
+	}{
+		{name: "revoked", status: http.StatusOK, ok: true},
+		{name: "no endpoint", status: http.StatusNotFound, unsupported: true},
+		{name: "no such method", status: http.StatusMethodNotAllowed, unsupported: true},
+		{name: "not implemented", status: http.StatusNotImplemented, unsupported: true},
+		{name: "token type unsupported", status: http.StatusBadRequest, body: `{"error":"unsupported_token_type"}`, unsupported: true},
+		{name: "another bad request", status: http.StatusBadRequest, body: `{"error":"invalid_request"}`},
+		{name: "unreadable bad request", status: http.StatusBadRequest, body: `<html>`},
+		{name: "client refused", status: http.StatusUnauthorized, body: `{"error":"invalid_client"}`},
+		{name: "server down", status: http.StatusServiceUnavailable},
+		{name: "server error", status: http.StatusInternalServerError},
+		{name: "gateway", status: http.StatusBadGateway},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFakeServer(t, map[string]http.HandlerFunc{"/identity/connect/revocation": reply(tc.status, tc.body)})
+			err := testClient(f).Revoke(t.Context(), "rt", clientID)
+			if tc.ok {
+				if err != nil {
+					t.Errorf("Revoke = %v", err)
+				}
+				return
+			}
+			if err == nil || errors.Is(err, vault.ErrRevocationUnsupported) != tc.unsupported {
+				t.Errorf("Revoke = %v, want unsupported %v", err, tc.unsupported)
+			}
+		})
+	}
+}
+
+func TestEveryRequestNamesTheClientVersion(t *testing.T) {
+	identified := func(ok string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Bitwarden-Client-Version") == "" {
+				reply(400, `{"message":"No client version header found"}`)(w, r)
+				return
+			}
+			reply(200, ok)(w, r)
+		}
+	}
+	f := newFakeServer(t, map[string]http.HandlerFunc{
+		"/identity/accounts/prelogin/password": identified(`{"kdf":0,"kdfIterations":600000}`),
+		"/identity/connect/token":              identified(`{"access_token":"at","expires_in":60}`),
+		"/identity/connect/revocation":         identified(``),
+		"/api/sync":                            identified(`{"profile":{"email":"a@b.c"}}`),
+	})
+	c := testClient(f)
+	if _, err := c.Prelogin(t.Context(), "a@b.c"); err != nil {
+		t.Errorf("prelogin = %v", err)
+	}
+	if _, err := c.PasswordLogin(t.Context(), "a@b.c", "h", nil, "", testNow); err != nil {
+		t.Errorf("login = %v", err)
+	}
+	if err := c.Revoke(t.Context(), "rt", clientID); err != nil {
+		t.Errorf("revoke = %v", err)
+	}
+	if _, err := c.Sync(t.Context(), "at"); err != nil {
+		t.Errorf("sync = %v", err)
+	}
+	if len(f.headers) != 4 {
+		t.Fatalf("the server saw %d requests, want 4", len(f.headers))
+	}
+	for i, h := range f.headers {
+		if h.Get("Bitwarden-Client-Version") != clientVersion || h.Get("Device-Type") != "8" || h.Get("Bitwarden-Client-Name") != "desktop" {
+			t.Errorf("request %d identified itself as %q %q %q", i, h.Get("Bitwarden-Client-Version"), h.Get("Device-Type"), h.Get("Bitwarden-Client-Name"))
+		}
+	}
+	refusing := newFakeServer(t, map[string]http.HandlerFunc{"/api/sync": reply(400, `{"message":"No client version header found"}`)})
+	var ae *APIError
+	if _, err := testClient(refusing).Sync(t.Context(), "at"); !errors.As(err, &ae) || ae.Status != 400 || ae.Message != "No client version header found" || ae.Retryable() {
+		t.Errorf("a refused sync = %v, want the server's non-retryable answer", err)
+	}
+}

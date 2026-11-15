@@ -1,0 +1,395 @@
+// Command lys-secrets serves the freedesktop Secret Service
+// (org.freedesktop.secrets) for a lys desktop: libsecret, Chromium and
+// Electron apps, git's credential helper and the portal's Secret backend
+// keep their secrets in collections encrypted at rest under
+// $XDG_DATA_HOME/lys-secrets. It also holds the user's Bitwarden vault
+// (dev.stubbe.lys.Vault1): its account under
+// $XDG_STATE_HOME/lys-secrets/bitwarden, the credential that renews it
+// in the Secret Service's default collection. It is a small process of its
+// own, apart from the shell, so the code holding unlocked keys is only
+// this.
+//
+//	lys-secrets [--unlock-fd N] [--collection-lock-after D] [--collection-lock-on-screen-lock]
+//	            [--confirm-foreign-reads] [--ssh-agent]
+//	            [--vault-lock-after D] [--vault-sync-interval D] [--vault-collection-folder NAME]
+//
+// The login collection unlocks with the password the user logs in or
+// unlocks the session with: lys-login, at both its login and its lock
+// screen, sends it over the control socket at
+// $XDG_RUNTIME_DIR/lys-secrets/control, and whatever starts this process
+// with the password in hand may write it to an inherited descriptor
+// (--unlock-fd). When another provider already owns
+// org.freedesktop.secrets, lys-secrets logs who and serves the vault
+// alone; when another lys-secrets serves the vault, it exits.
+//
+// With --ssh-agent it also serves the SSH agent protocol on
+// $XDG_RUNTIME_DIR/lys-secrets/ssh, for the keys of ~/.ssh and those added
+// with ssh-add, remembering key passphrases in the login collection, and
+// hands that socket to the session as SSH_AUTH_SOCK.
+//
+//	lys-secrets pinentry   (or pinentry-lys, a link to lys-secrets)
+//
+// is GnuPG's pinentry (pinentry-program in gpg-agent.conf): it asks for
+// passphrases through the desktop's dialog and can remember them in the
+// login collection, under pinentry-gnome3's org.gnupg.Passphrase schema.
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"sync/atomic"
+	"syscall"
+	"time"
+
+	"github.com/stubbedev/lys-lib/dbusx"
+	"github.com/stubbedev/lys-lib/logind"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys-lib/xdg"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-secrets/client"
+	"github.com/stubbedev/lys-secrets/control"
+	"github.com/stubbedev/lys-secrets/internal/bitwarden"
+	"github.com/stubbedev/lys-secrets/internal/keyring"
+	"github.com/stubbedev/lys-secrets/internal/prompt"
+	"github.com/stubbedev/lys-secrets/internal/service"
+	"github.com/stubbedev/lys-secrets/internal/sshagent"
+	"github.com/stubbedev/lys-secrets/internal/usersock"
+	"github.com/stubbedev/lys-secrets/vault"
+)
+
+// vaultDevice is the name the Bitwarden account's device list shows.
+const vaultDevice = "lys-secrets"
+
+// options are the command line's settings.
+type options struct {
+	unlockFD            int
+	vault               bitwarden.Policy
+	vaultFolder         string
+	collectionLockAfter time.Duration
+	lockOnScreenLock    bool
+	confirmForeignReads bool
+	sshAgent            bool
+}
+
+func main() {
+	if filepath.Base(os.Args[0]) == "pinentry-lys" || len(os.Args) > 1 && os.Args[1] == "pinentry" {
+		if err := runPinentry(); err != nil {
+			fmt.Fprintln(os.Stderr, "lys-secrets pinentry:", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	var o options
+	flag.IntVar(&o.unlockFD, "unlock-fd", -1, "read the login password from this inherited descriptor and unlock the login collection with it")
+	flag.DurationVar(&o.collectionLockAfter, "collection-lock-after", 0, "lock a collection after no secret was read from it and nothing in it changed for this long; 0 keeps it open until locked")
+	flag.BoolVar(&o.lockOnScreenLock, "collection-lock-on-screen-lock", false, "lock every collection when logind says the session locked")
+	flag.BoolVar(&o.confirmForeignReads, "confirm-foreign-reads", false, "ask before a program reads an item another program stored")
+	flag.BoolVar(&o.sshAgent, "ssh-agent", false, "serve an SSH agent on $XDG_RUNTIME_DIR/lys-secrets/ssh that keeps key passphrases in the login collection")
+	flag.DurationVar(&o.vault.LockAfter, "vault-lock-after", 15*time.Minute, "lock the Bitwarden vault after it went unused this long; 0 keeps it open until locked")
+	flag.DurationVar(&o.vault.SyncInterval, "vault-sync-interval", 30*time.Minute, "sync the open Bitwarden vault this often; 0 syncs only on unlock and when asked")
+	flag.StringVar(&o.vaultFolder, "vault-collection-folder", "", "show the logins of this Bitwarden folder as the Secret Service's \"bitwarden\" collection; empty shows none")
+	flag.Parse()
+	if flag.NArg() != 0 {
+		fmt.Fprintf(os.Stderr, "lys-secrets: unexpected argument %q\n", flag.Arg(0))
+		os.Exit(2)
+	}
+	if o.vault.LockAfter < 0 || o.vault.SyncInterval < 0 || o.collectionLockAfter < 0 {
+		fmt.Fprintf(os.Stderr, "lys-secrets: --collection-lock-after %v, --vault-lock-after %v and --vault-sync-interval %v must not be negative\n", o.collectionLockAfter, o.vault.LockAfter, o.vault.SyncInterval)
+		os.Exit(2)
+	}
+	if err := run(o); err != nil {
+		fmt.Fprintln(os.Stderr, "lys-secrets:", err)
+		os.Exit(1)
+	}
+}
+
+func run(o options) error {
+	// Neither a core dump nor a same-user ptrace may read unlocked keys.
+	if err := unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0); err != nil {
+		return fmt.Errorf("make the process undumpable: %w", err)
+	}
+	var password []byte
+	if o.unlockFD >= 0 {
+		f := os.NewFile(uintptr(o.unlockFD), "unlock-fd")
+		if f == nil {
+			return fmt.Errorf("--unlock-fd %d is not a descriptor", o.unlockFD)
+		}
+		var err error
+		password, err = control.ReadPassword(f)
+		_ = f.Close()
+		if err != nil {
+			return err
+		}
+		defer clear(password)
+	}
+	data, ok := xdg.OS.DataHome()
+	if !ok {
+		return errors.New("neither XDG_DATA_HOME nor HOME is set")
+	}
+	state, ok := xdg.OS.StateDir("lys-secrets")
+	if !ok {
+		return errors.New("neither XDG_STATE_HOME nor HOME is set")
+	}
+	sock, err := control.SocketPath(xdg.OS)
+	if err != nil {
+		return err
+	}
+	conn, err := dbus.ConnectSessionBus()
+	if err != nil {
+		return fmt.Errorf("connect to the session bus: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	var secrets atomic.Pointer[service.Service]
+	bw, release, err := serveVault(ctx, conn, filepath.Join(state, "bitwarden"), o.vault, func() {
+		if svc := secrets.Load(); svc != nil {
+			svc.VaultChanged()
+		}
+	})
+	if errors.Is(err, dbusx.ErrNameTaken) {
+		var owner string
+		_ = conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, vault.ServiceName).Store(&owner)
+		log.Printf("lys-secrets: %s is already served by %s; staying off", vault.ServiceName, owner)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer release()
+	defer bw.Lock()
+
+	dialogs := prompt.New(conn)
+	var agent atomic.Pointer[sshagent.Agent]
+	svc, err := service.Start(conn, service.Config{
+		Dir: filepath.Join(data, "lys-secrets"), KDF: keyring.DefaultKDF, Stretch: keyring.Argon2id, Prompter: dialogs,
+		Vault:     vaultCollection{bw: bw, folder: o.vaultFolder},
+		LockAfter: o.collectionLockAfter, ConfirmForeignReads: o.confirmForeignReads,
+		Locked: func(id string) {
+			if a := agent.Load(); a != nil && id == service.LoginID {
+				a.Forget()
+			}
+		},
+	})
+	if errors.Is(err, dbusx.ErrNameTaken) {
+		var owner string
+		_ = conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, service.BusName).Store(&owner)
+		log.Printf("lys-secrets: %s is already served by %s; serving %s alone", service.BusName, owner, vault.ServiceName)
+		<-ctx.Done()
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer svc.Close()
+	secrets.Store(svc)
+
+	if password != nil {
+		if err := svc.UnlockLogin(password); err != nil {
+			log.Printf("lys-secrets: the login password does not unlock the login collection: %v", err)
+		}
+		clear(password)
+	}
+
+	if o.lockOnScreenLock {
+		go lockOnScreenLock(ctx, svc)
+	}
+
+	if o.sshAgent {
+		stop, err := serveAgent(ctx, conn, svc, dialogs, &agent)
+		if err != nil {
+			return err
+		}
+		defer stop()
+	}
+
+	ln, err := control.Listen(sock)
+	if err != nil {
+		return err
+	}
+	log.Printf("lys-secrets: serving %s and %s, unlock socket %s", service.BusName, vault.ServiceName, sock)
+	control.Serve(ctx, ln, svc)
+	return nil
+}
+
+// serveAgent serves the SSH agent for ~/.ssh until ctx ends, keeping
+// passphrases in svc's login collection and asking through dialogs, and
+// hands its socket to the session as SSH_AUTH_SOCK; stop takes it back and
+// drops every key.
+func serveAgent(ctx context.Context, conn *dbus.Conn, svc *service.Service, dialogs *prompt.Dialogs, current *atomic.Pointer[sshagent.Agent]) (stop func(), err error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("the SSH agent: find ~/.ssh: %w", err)
+	}
+	path, err := usersock.Path(xdg.OS, "ssh")
+	if err != nil {
+		return nil, fmt.Errorf("the SSH agent: %w", err)
+	}
+	ln, err := usersock.Listen(path)
+	if err != nil {
+		return nil, fmt.Errorf("the SSH agent: %w", err)
+	}
+	a := sshagent.New(filepath.Join(home, ".ssh"), dialogs, loginPassphrases{svc})
+	current.Store(a)
+	go a.Serve(ctx, ln)
+	unexport := exportEnv(conn, "SSH_AUTH_SOCK", path)
+	log.Printf("lys-secrets: serving the SSH agent on %s", path)
+	return func() {
+		unexport()
+		_ = ln.Close()
+		current.Store(nil)
+		a.Close()
+	}, nil
+}
+
+// loginPassphrases keeps the SSH agent's remembered passphrases in the
+// login collection.
+type loginPassphrases struct{ svc *service.Service }
+
+func (p loginPassphrases) Lookup(attrs map[string]string) ([]byte, bool, error) {
+	return p.svc.LoginSecret(attrs)
+}
+
+func (p loginPassphrases) Remember(label string, attrs map[string]string, passphrase []byte) error {
+	return p.svc.StoreLoginSecret(label, attrs, passphrase)
+}
+
+// exportEnv sets name to value in the environment the systemd user manager
+// and D-Bus activation start programs with, so the session finds it;
+// unexport takes it back from systemd. Neither being reachable is logged,
+// since the agent serves without it.
+func exportEnv(conn *dbus.Conn, name, value string) (unexport func()) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	assignment := name + "=" + value
+	systemd := conn.Object("org.freedesktop.systemd1", "/org/freedesktop/systemd1")
+	if err := systemd.CallWithContext(ctx, "org.freedesktop.systemd1.Manager.SetEnvironment", 0, []string{assignment}).Err; err != nil {
+		log.Printf("lys-secrets: the systemd user manager does not have %s: %v", assignment, err)
+	}
+	if err := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.UpdateActivationEnvironment", 0, map[string]string{name: value}).Err; err != nil {
+		log.Printf("lys-secrets: D-Bus activation does not have %s: %v", assignment, err)
+	}
+	return func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := systemd.CallWithContext(ctx, "org.freedesktop.systemd1.Manager.UnsetEnvironment", 0, []string{name}).Err; err != nil {
+			log.Printf("lys-secrets: take %s back from the systemd user manager: %v", name, err)
+		}
+	}
+}
+
+// lockOnScreenLock locks svc's collections each time the session locks,
+// until ctx ends. Not being able to watch does not stop the service, whose
+// secrets every app needs, and the log says what it means.
+func lockOnScreenLock(ctx context.Context, svc *service.Service) {
+	if err := watchScreenLock(ctx, svc); err != nil {
+		log.Printf("lys-secrets: collections will NOT lock with the screen, despite --collection-lock-on-screen-lock: %v", err)
+	}
+}
+
+// watchScreenLock locks svc's collections on each Lock logind sends the
+// session, as for `loginctl lock-session`, and each time its LockedHint
+// turns true, as a lock screen such as lys-login's sets it, until ctx
+// ends or the system bus goes away. The session is logind's auto one:
+// a user unit is in none, so it is the user's display session.
+func watchScreenLock(ctx context.Context, svc *service.Service) error {
+	conn, err := logind.Dial(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	session, err := logind.NewManager(conn).GetSession(ctx, logind.AutoSession)
+	if err != nil {
+		return err
+	}
+	w, err := session.Watch(ctx, func(e logind.Event, err error) {
+		if err != nil {
+			log.Printf("lys-secrets: %v", err)
+			return
+		}
+		if !sessionLocked(e) {
+			return
+		}
+		svc.LockCollections()
+		log.Print("lys-secrets: the session locked, so every collection did")
+	})
+	if err != nil {
+		return err
+	}
+	<-w.Done()
+	return w.Stop()
+}
+
+func sessionLocked(e logind.Event) bool {
+	switch e := e.(type) {
+	case logind.Locked:
+		return true
+	case logind.LockedHintChanged:
+		return e.Locked
+	}
+	return false
+}
+
+// serveVault opens the Bitwarden vault whose session lives in dir and
+// serves it under its name on conn, keeping it under policy until ctx
+// ends; changed runs after each change of it. release drops the name.
+func serveVault(ctx context.Context, conn *dbus.Conn, dir string, policy bitwarden.Policy, changed func()) (*bitwarden.Service, func(), error) {
+	var d *vault.Daemon
+	bw, err := bitwarden.Open(dir, vaultDevice, client.NewKeychain(conn), func() {
+		if err := d.Changed(); err != nil {
+			log.Printf("lys-secrets: %v", err)
+		}
+		changed()
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	d = vault.NewDaemon(ctx, bw)
+	release, err := d.Export(conn)
+	if err != nil {
+		return nil, nil, err
+	}
+	go bw.Keep(ctx, policy, func(err error) {
+		if err := d.SyncFailed(err); err != nil {
+			log.Printf("lys-secrets: %v", err)
+		}
+	})
+	return bw, release, nil
+}
+
+// vaultCollection is the vault as the Secret Service sees it: the
+// shareable logins of one folder, shown when a folder is set.
+type vaultCollection struct {
+	bw     *bitwarden.Service
+	folder string
+}
+
+func (c vaultCollection) Shown() bool { return c.folder != "" }
+
+func (c vaultCollection) Logins() ([]service.VaultLogin, bool) {
+	logins, open := c.bw.FolderLogins(c.folder)
+	out := make([]service.VaultLogin, len(logins))
+	for i, l := range logins {
+		out[i] = service.VaultLogin(l)
+	}
+	return out, open
+}
+
+func (c vaultCollection) Password(id string) ([]byte, error) {
+	return c.bw.FolderPassword(c.folder, id)
+}
+
+func (c vaultCollection) Unlock(ctx context.Context, password string) error {
+	return c.bw.Unlock(ctx, password)
+}
+
+func (c vaultCollection) Lock() { c.bw.Lock() }
