@@ -15,7 +15,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys/shell/internal/drmconn"
+	"github.com/stubbedev/lys/desktop/drmconn"
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
