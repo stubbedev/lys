@@ -1,6 +1,7 @@
 package theme
 
 import (
+	"fmt"
 	"image"
 
 	"github.com/stubbedev/lys/splash/internal/protocol"
@@ -26,7 +27,11 @@ func FillOf(p protocol.Percent) Fill {
 }
 
 func (p Progress) Percent() protocol.Percent {
-	return protocol.Percent(p.To / FillPerPercent)
+	n := p.To / FillPerPercent
+	if n < 0 || n > Fill(protocol.MaxPercent) {
+		panic(fmt.Sprintf("theme: progress fill %d is outside 0..%d", p.To, FullFill))
+	}
+	return protocol.Percent(n)
 }
 
 func (p Progress) Toward(to protocol.Percent) Progress {

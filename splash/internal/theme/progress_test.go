@@ -220,3 +220,23 @@ func TestTheThrobberKeepsItsFrameBudget(t *testing.T) {
 		}
 	}
 }
+
+func TestAFillConvertsToItsWholePercent(t *testing.T) {
+	for _, c := range []struct {
+		fill Fill
+		want protocol.Percent
+	}{{0, 0}, {FillPerPercent - 1, 0}, {FillPerPercent * 42, 42}, {FullFill, protocol.MaxPercent}} {
+		if got := (Progress{Known: true, To: c.fill}).Percent(); got != c.want {
+			t.Errorf("fill %d is %d%%, want %d%%", c.fill, got, c.want)
+		}
+	}
+}
+
+func TestAFillPastFullIsRefused(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("a fill past full converted to a percent")
+		}
+	}()
+	_ = Progress{Known: true, To: FullFill + FillPerPercent}.Percent()
+}
