@@ -1624,7 +1624,7 @@ func TestActionCustomEntryCollapsesWhileHidden(t *testing.T) {
 	}
 }
 
-func TestModulePagesFollowTheRustOrder(t *testing.T) {
+func TestModulePagesFollowTheModuleOrder(t *testing.T) {
 	var ids []string
 	for _, p := range modulePages(&config.Config{}) {
 		ids = append(ids, p.id)

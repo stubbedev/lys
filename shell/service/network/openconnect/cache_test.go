@@ -62,7 +62,7 @@ func TestTheStateDirectoryFallsBackToHomeForARelativeXDGStateHome(t *testing.T) 
 	}
 }
 
-func TestCredentialsAreWrittenPrivateAndInTheRustsFormat(t *testing.T) {
+func TestCredentialsAreWrittenPrivateAndInTheirFormat(t *testing.T) {
 	base := stateHome(t)
 	storeSession("fmt", session{cookie: "authcookie=abc", host: "vpn.example.com", gwcert: "pin-sha256:AAAA"})
 	storePassword("fmt", "hunter2")

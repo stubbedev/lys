@@ -86,7 +86,7 @@ func TestPowerCommandsAgainstTheDaemon(t *testing.T) {
 	}
 }
 
-func TestPowerErrorsMatchRust(t *testing.T) {
+func TestPowerErrorsSayWhatFailed(t *testing.T) {
 	dbustest.Session(t)
 
 	// No daemon on the bus: the shell is not running.

@@ -39,7 +39,7 @@ func TestDeriveLayersIsPinned(t *testing.T) {
 	}
 }
 
-func TestHexToRGBAMatchesRust(t *testing.T) {
+func TestHexToRGBAParsesEveryForm(t *testing.T) {
 	for _, tc := range []struct {
 		hex   string
 		alpha float32

@@ -87,7 +87,7 @@ func TestDefaultOptionsLoadBackAndUnknownFieldsAreLenient(t *testing.T) {
 	}
 }
 
-func TestServerFramesMatchTheRustWire(t *testing.T) {
+func TestServerFramesMatchTheWireFormat(t *testing.T) {
 	for f, want := range map[*ServerFrame]string{
 		{Type: FrameOpened}: `{"type":"opened"}`,
 		new(Busy()):         `{"type":"busy"}`,

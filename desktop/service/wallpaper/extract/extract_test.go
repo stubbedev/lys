@@ -86,7 +86,7 @@ func resultLine(err error) string {
 	return "ok\n"
 }
 
-func TestExtractMatchesRustGolden(t *testing.T) {
+func TestExtractMatchesTheGoldens(t *testing.T) {
 	for name, apply := range goldenCases {
 		t.Run(name, func(t *testing.T) {
 			out := t.TempDir()

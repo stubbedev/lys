@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func TestFromWmoCodePinsTheRustEdges(t *testing.T) {
+func TestFromWmoCodePinsTheEdges(t *testing.T) {
 	for _, tc := range []struct {
 		code uint8
 		want Condition
@@ -192,7 +192,7 @@ func TestOpenMeteoMissingDataIsAParseError(t *testing.T) {
 	}
 }
 
-func TestHTTPStatusesMapToTheRustErrors(t *testing.T) {
+func TestHTTPStatusesMapToTheirErrors(t *testing.T) {
 	for _, tc := range []struct {
 		status    int
 		auth      bool

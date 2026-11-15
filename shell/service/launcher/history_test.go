@@ -69,7 +69,7 @@ func TestModesAreIsolated(t *testing.T) {
 	}
 }
 
-func TestHistoryPersistsInTheRustFileLayout(t *testing.T) {
+func TestHistoryPersistsInItsFileLayout(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	h, err := OpenHistory()
 	if err != nil {

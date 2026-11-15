@@ -112,7 +112,7 @@ func exchange(t *testing.T, line string) string {
 	return strings.TrimSpace(reply)
 }
 
-func TestServerRepliesLikeRust(t *testing.T) {
+func TestServerRepliesToEachRequest(t *testing.T) {
 	s := listen(t)
 	cases := []struct{ in, want string }{
 		{

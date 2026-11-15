@@ -12,7 +12,7 @@ func utc(y int, m time.Month, d, h, min int) time.Time {
 }
 
 // The solar.rs test cases, verbatim.
-func TestPhaseAtMatchesTheRustCases(t *testing.T) {
+func TestPhaseAtMatchesTheKnownCases(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		now      time.Time

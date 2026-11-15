@@ -279,7 +279,7 @@ func TestCopiesStayInBounds(t *testing.T) {
 // The sheet is the print view!: the .print-form grid with a label
 // column, and the printer list in a scroll at least 64px tall that
 // grows with its rows to 240.
-func TestSheetIsTheRustLayout(t *testing.T) {
+func TestSheetLayout(t *testing.T) {
 	hs := newHarness(t)
 	_, c := hs.prepare(t)
 	grids := treetest.All[*widget.Grid](c.Root)

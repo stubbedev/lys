@@ -43,7 +43,7 @@ func assertCSS(t *testing.T, name, got, want string) {
 	t.Fatalf("%s: output differs from the golden", name)
 }
 
-func TestThemeCSSMatchesRustGoldens(t *testing.T) {
+func TestThemeCSSMatchesTheGoldens(t *testing.T) {
 	d := config.Defaults()
 	d.Bar = config.PlainBar()
 	latte, _ := config.PaletteByName("catppuccin-latte")

@@ -72,7 +72,7 @@ func TestMissingVariableWritesItsReference(t *testing.T) {
 	}
 }
 
-func TestNumbersFormatLikeRust(t *testing.T) {
+func TestNumbersFormatByTheirRules(t *testing.T) {
 	l := enOnly(t, "n = { $n }\nlit = { 1.50 }\n")
 	cases := []struct {
 		arg  Arg

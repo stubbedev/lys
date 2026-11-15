@@ -375,7 +375,7 @@ func TestDaemonOverTheBus(t *testing.T) {
 // over the reveal over the .share-picker-surface card at the configured
 // size (scaled by [styling] scale), spinners on the window cards until
 // the captures land, and every label's ink left to the stylesheet.
-func TestSurfaceIsTheRustTree(t *testing.T) {
+func TestSurfaceTree(t *testing.T) {
 	p, _ := testPicker(t, config.DefaultsSharePicker(), false, false)
 	root, ok := p.root(dialogsurface.OnOverlay).(*widget.Box)
 	if !ok || root.Element() != "window" || !widget.HasClass(root, "share-picker-window") {
