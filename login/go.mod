@@ -3,8 +3,8 @@ module github.com/stubbedev/lys-login
 go 1.27.4
 
 require (
-	github.com/stubbedev/lys-desktop v0.0.10-0.20261115010233-fd4dccfea92e
-	github.com/stubbedev/lys-lib v0.3.23
+	github.com/stubbedev/lys-desktop v0.0.11
+	github.com/stubbedev/lys-lib v0.3.24
 	github.com/stubbedev/lys-secrets v0.3.25
 	github.com/stubbedev/lys-ui v0.2.28
 	github.com/stubbedev/memory-go v0.6.0
