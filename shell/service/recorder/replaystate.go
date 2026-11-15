@@ -35,6 +35,9 @@ func (s ReplayStatus) String() string {
 // ErrReplayOff is a save with no instant replay armed.
 var ErrReplayOff = errors.New("recorder: the instant replay is not armed")
 
+// ErrReplaySaving is a save while another is still writing.
+var ErrReplaySaving = errors.New("recorder: an instant replay save is already writing")
+
 const replayIcon = "ld-history-symbolic"
 
 // ConfigureReplay applies modules.recorder.replay.enable: switching it
@@ -130,14 +133,23 @@ func stopReplay(rep Replay, session Session) {
 }
 
 // SaveReplay writes the replay's last seconds to a new file in the
-// output directory, without stopping it, and returns the file.
+// output directory, without stopping it, and returns the file. One save
+// writes at a time: another while it does fails with ErrReplaySaving.
 func (s *State) SaveReplay() (string, error) {
 	s.mu.Lock()
 	rep := s.replay
-	s.mu.Unlock()
-	if rep == nil {
+	switch {
+	case rep == nil:
+		s.mu.Unlock()
 		return "", ErrReplayOff
+	case s.replaySaving:
+		s.mu.Unlock()
+		return "", ErrReplaySaving
 	}
+	s.replaySaving = true
+	s.mu.Unlock()
+	s.notify()
+	defer s.replaySaved()
 	cfg := s.config()
 	path := ReplayPath(cfg.OutputDirectory, cfg.OutputFormat, time.Now())
 	if err := os.MkdirAll(filepath.Dir(path), outputDirPerms); err != nil {
@@ -152,6 +164,14 @@ func (s *State) SaveReplay() (string, error) {
 		s.hooks.Notify(i18n.T("notification-source-recorder"), i18n.T("recorder-notification-replay-saved"), path, replayIcon)
 	}
 	return path, nil
+}
+
+// replaySaved ends the save SaveReplay claimed.
+func (s *State) replaySaved() {
+	s.mu.Lock()
+	s.replaySaving = false
+	s.mu.Unlock()
+	s.notify()
 }
 
 // replayFailed settles a start that failed to Off, unless a stop or a

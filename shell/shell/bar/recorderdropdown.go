@@ -332,12 +332,14 @@ func (v *recorderView) controls() widget.Widget {
 }
 
 // saveReplay saves the instant replay off the loop: the service reports
-// the file or the failure through the OSD and a notification.
+// the file or the failure through the OSD and a notification. The button
+// stays disabled until the service reports the save returned.
 func (v *recorderView) saveReplay() {
 	r := v.ctx.Recorder
 	if r == nil {
 		return
 	}
+	v.replaySave.SetEnabled(false)
 	v.ctx.Go(func() {
 		if _, err := r.SaveReplay(); err != nil {
 			log.Printf("recorder: %v", err)
@@ -417,7 +419,7 @@ func (v *recorderView) applyState(c recorder.Change) {
 	}
 	v.pause.SetEnabled(c.Active)
 	armed := c.Replay == recorder.ReplayArmed
-	v.replaySave.SetEnabled(armed)
+	v.replaySave.SetEnabled(armed && !c.ReplaySaving)
 	memory := "-"
 	if armed {
 		memory = sysinfo.AutoBytes(c.ReplayBytes)

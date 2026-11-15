@@ -93,6 +93,51 @@ func TestReplaySaveWhileOffFails(t *testing.T) {
 	}
 }
 
+// One save writes at a time: a second while the first is writing is
+// the defined error and writes nothing; the snapshot says a save is
+// writing until it returns, and a save after it writes again.
+func TestReplaySaveWhileOneIsWritingFails(t *testing.T) {
+	engine := &recordertest.Engine{}
+	s, _ := newState(t, engine, nil)
+	s.StartReplay()
+	rp := armedReplay(t, engine, s)
+	if s.Snapshot().ReplaySaving {
+		t.Fatal("an armed replay with no save under way reports one writing")
+	}
+	release := rp.HoldSave()
+	first := make(chan error, 1)
+	go func() {
+		_, err := s.SaveReplay()
+		first <- err
+	}()
+	waitFor(t, "the first save writing", func() bool { return s.Snapshot().ReplaySaving })
+	second := make(chan error, 1)
+	go func() {
+		_, err := s.SaveReplay()
+		second <- err
+	}()
+	secondErr := <-second
+	release()
+	if err := <-first; err != nil {
+		t.Fatalf("the first save: %v", err)
+	}
+	if !errors.Is(secondErr, recorder.ErrReplaySaving) {
+		t.Errorf("a save while one writes = %v, want %v", secondErr, recorder.ErrReplaySaving)
+	}
+	if s.Snapshot().ReplaySaving {
+		t.Error("the snapshot still reports a save writing after it returned")
+	}
+	if got := len(rp.Saves()); got != 1 {
+		t.Errorf("%d files written, want the first save's only", got)
+	}
+	if _, err := s.SaveReplay(); err != nil {
+		t.Fatalf("a save after the first returned: %v", err)
+	}
+	if got := len(rp.Saves()); got != 2 {
+		t.Errorf("%d files written, want a second once the first returned", got)
+	}
+}
+
 // The CLI's start and stop work whatever the config says, and a
 // recording runs beside an armed replay without touching it.
 func TestReplayFromTheCLIBesideARecording(t *testing.T) {

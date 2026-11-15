@@ -123,9 +123,10 @@ type Change struct {
 	// own, "" once a new one starts.
 	Error string
 	// Replay is the instant replay's state, ReplayBytes the memory its
-	// ring holds while armed.
-	Replay      ReplayStatus
-	ReplayBytes uint64
+	// ring holds while armed, ReplaySaving whether a save is writing.
+	Replay       ReplayStatus
+	ReplayBytes  uint64
+	ReplaySaving bool
 }
 
 // State is the recorder service. Safe for concurrent use.
@@ -157,6 +158,7 @@ type State struct {
 	replayStatus  ReplayStatus
 	replay        Replay
 	replaySession Session
+	replaySaving  bool
 	// replayGen numbers each arming, so a late report from an earlier
 	// one is ignored.
 	replayGen uint64
@@ -190,14 +192,15 @@ func (s *State) Snapshot() Change {
 
 func (s *State) snapshotLocked() Change {
 	c := Change{
-		Status:      s.status,
-		Active:      s.active,
-		Paused:      s.paused,
-		Preparing:   s.preparing,
-		ElapsedSecs: s.elapsed,
-		OutputPath:  s.output,
-		Error:       s.lastErr,
-		Replay:      s.replayStatus,
+		Status:       s.status,
+		Active:       s.active,
+		Paused:       s.paused,
+		Preparing:    s.preparing,
+		ElapsedSecs:  s.elapsed,
+		OutputPath:   s.output,
+		Error:        s.lastErr,
+		Replay:       s.replayStatus,
+		ReplaySaving: s.replaySaving,
 	}
 	if s.replay != nil {
 		c.ReplayBytes = s.replay.Bytes()

@@ -223,10 +223,18 @@ type Replay struct {
 	saves   []string
 	stops   int
 	saveErr error
+	hold    chan struct{}
 }
 
 // Save implements recorder.Replay.
 func (r *Replay) Save(path string, format config.RecorderFormat) error {
+	r.mu.Lock()
+	hold := r.hold
+	r.hold = nil
+	r.mu.Unlock()
+	if hold != nil {
+		<-hold
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.saveErr != nil {
@@ -234,6 +242,16 @@ func (r *Replay) Save(path string, format config.RecorderFormat) error {
 	}
 	r.saves = append(r.saves, path)
 	return os.WriteFile(path, []byte("replay "+string(format)), 0o600)
+}
+
+// HoldSave makes the next Save block until release runs, so a test can
+// act while that save is writing; later saves are not held.
+func (r *Replay) HoldSave() (release func()) {
+	gate := make(chan struct{})
+	r.mu.Lock()
+	r.hold = gate
+	r.mu.Unlock()
+	return sync.OnceFunc(func() { close(gate) })
 }
 
 // Bytes implements recorder.Replay.

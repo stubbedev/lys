@@ -362,8 +362,25 @@ func TestRecorderDropdownInstantReplay(t *testing.T) {
 	rp := engine.Replays()[0]
 	rp.Keyframe(3 << 20)
 	waitHeadless(t, "the ring's memory", func() bool { return v.replayMemory.Text() == "3.0 MiB" })
+	release := rp.HoldSave()
 	v.replaySave.OnClick()
-	waitHeadless(t, "the save", func() bool { return len(rp.Saves()) == 1 })
+	if v.replaySave.Enabled() {
+		t.Error("Save stays enabled after a click")
+	}
+	waitHeadless(t, "the save writing", func() bool { return ctx.Recorder.Snapshot().ReplaySaving })
+	rp.Keyframe(4 << 20)
+	waitHeadless(t, "the ring's memory while saving", func() bool { return v.replayMemory.Text() == "4.0 MiB" })
+	if v.replaySave.Enabled() {
+		t.Error("a state change re-enabled Save while the save writes")
+	}
+	v.replaySave.ClickAt(widget.Point{})
+	release()
+	waitHeadless(t, "the save returned", func() bool { return v.replaySave.Enabled() })
+	if got := len(rp.Saves()); got != 1 {
+		t.Errorf("a second click while the save wrote: %d files, want 1", got)
+	}
+	v.replaySave.OnClick()
+	waitHeadless(t, "a save after it", func() bool { return len(rp.Saves()) == 2 })
 	ctx.Recorder.StopReplay()
 	waitHeadless(t, "off", func() bool { return !v.replaySave.Enabled() && v.replayMemory.Text() == "-" })
 }
