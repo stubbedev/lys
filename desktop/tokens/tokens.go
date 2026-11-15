@@ -1,7 +1,8 @@
 // Package tokens is the one definition of the design every lys surface
-// draws with: the default palette, the type scale, spacing, radii and the
-// field. It imports nothing, so the boot splash embeds the same values
-// the desktop's stylesheet, the greeter and the lock screen resolve.
+// draws with: the default palette, the typeface, the type scale, spacing,
+// radii and the field. It imports nothing, so the boot splash embeds the
+// same values the desktop's stylesheet, the greeter and the lock screen
+// resolve.
 package tokens
 
 // Palette is a theme's ten colors as #rrggbb strings.
@@ -21,6 +22,10 @@ func LysShell() Palette {
 		Red: "#e46870", Yellow: "#e0b870", Green: "#68c898", Blue: "#78a0e0",
 	}
 }
+
+// FontSans is the default family of every surface's text, the family the
+// boot splash embeds.
+const FontSans = "Inter"
 
 // RemPx is the pixels of 1rem, the body text size every rem token
 // multiplies.

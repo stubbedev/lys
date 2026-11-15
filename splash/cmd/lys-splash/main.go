@@ -1,6 +1,8 @@
 // Command lys-splash is the lys desktop's boot splash. Run as plymouthd, or
-// as lys-splash with --mode first, it is the daemon; run as plymouth, or as
-// lys-splash with anything else, it is the client.
+// as lys-splash with --mode first, it is the daemon; run from a
+// system-shutdown directory, it is systemd-shutdown's last word to the
+// splash; run as plymouth, or as lys-splash with anything else, it is the
+// client.
 package main
 
 import (
@@ -16,6 +18,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -45,7 +48,12 @@ const (
 	readyTimeout  = 30 * time.Second
 	logFlushWait  = 2 * time.Second
 	selfExe       = "/proc/self/exe"
+	// shutdownHooks is the base name of the directories whose executables
+	// systemd-shutdown runs just before the reset, each with its verb.
+	shutdownHooks = "system-shutdown"
 )
+
+var shutdownVerbs = []string{"halt", "poweroff", "reboot", "kexec"}
 
 func main() {
 	os.Exit(run(os.Args))
@@ -57,10 +65,13 @@ const (
 	clientRole role = iota
 	daemonRole
 	plymouthdRole
+	shutdownHookRole
 )
 
 func roleOf(argv []string) role {
 	switch name := filepath.Base(strings.TrimPrefix(argv[0], string(daemon.RootStorageMarker))); {
+	case filepath.Base(filepath.Dir(argv[0])) == shutdownHooks:
+		return shutdownHookRole
 	case name == "plymouthd":
 		return plymouthdRole
 	case name == "plymouth":
@@ -72,11 +83,29 @@ func roleOf(argv []string) role {
 }
 
 func run(argv []string) int {
-	if roleOf(argv) == clientRole {
-		c := client.Client{Socket: protocol.SocketName, Stdout: os.Stdout, Stderr: os.Stderr, Command: client.RunCommand}
+	c := client.Client{Socket: protocol.SocketName, Stdout: os.Stdout, Stderr: os.Stderr, Command: client.RunCommand}
+	switch roleOf(argv) {
+	case clientRole:
 		return c.Main(argv[1:])
+	case shutdownHookRole:
+		return shutdownHook(c, argv)
+	case daemonRole:
+		return runDaemon(argv, false)
+	case plymouthdRole:
+		return runDaemon(argv, true)
 	}
-	return runDaemon(argv, roleOf(argv) == plymouthdRole)
+	panic(fmt.Sprintf("lys-splash: role %d of %q", roleOf(argv), argv))
+}
+
+// shutdownHook runs as systemd-shutdown runs a hook, with the verb the
+// machine goes down by: it asks the splash spared from the killing to fade
+// its group out, and returns once the frame is the logo alone.
+func shutdownHook(c client.Client, argv []string) int {
+	if len(argv) != 2 || !slices.Contains(shutdownVerbs, argv[1]) {
+		fmt.Fprintf(c.Stderr, "%s: as a systemd-shutdown hook, want one argument of %s, got %q\n", argv[0], strings.Join(shutdownVerbs, ", "), argv[1:])
+		return client.ExitFailed
+	}
+	return c.Main([]string{"quit", "--retain-splash"})
 }
 
 type options struct {

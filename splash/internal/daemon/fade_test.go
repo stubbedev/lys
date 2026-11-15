@@ -176,6 +176,66 @@ func TestSIGTERMAtShutdownFadesOutBeforeTheFrameStays(t *testing.T) {
 	}
 }
 
+func TestARetainedQuitAtTheEndOfAShutdownFadesOutOnceAndTheSplashStays(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []Mode{Shutdown, Reboot, Kexec} {
+		t.Run(mode.String(), func(t *testing.T) {
+			t.Parallel()
+			r := pausedRun(t, setup{mode: mode})
+			r.call(t, protocol.ShowMessage{Text: "Rebooting"}, protocol.Ack{})
+			r.settles(t)
+			from := r.presents()
+			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
+			if got := r.presents() - from; got < 1 || got > theme.LeavePhases {
+				t.Errorf("%d presents for the leave, want 1 to %d", got, theme.LeavePhases)
+			}
+			if !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+				t.Error("the frame after the quit is not the logo alone")
+			}
+			faded := r.presents()
+			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
+			r.call(t, protocol.ShowMessage{Text: "Late"}, protocol.Ack{})
+			r.holdsStillFor(t, "a splash whose group is gone", 10*FrameInterval)
+			if got := r.presents(); got != faded || !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+				t.Errorf("%d more presents after the first quit, want the frame to stay the logo alone", got-faded)
+			}
+			r.display.mu.Lock()
+			closed, deactivated := r.display.closed, r.display.deactivated
+			r.display.mu.Unlock()
+			if closed || deactivated {
+				t.Errorf("display closed %v, deactivated %v: the splash let go of its card before the power goes", closed, deactivated)
+			}
+			select {
+			case err := <-r.done:
+				t.Fatalf("the splash ended on a retained quit in %s mode: %v", mode, err)
+			default:
+			}
+			if saved, _ := r.frames.state(); len(saved) != 0 {
+				t.Errorf("recorded %+v for a hand-over that never comes", saved)
+			}
+			r.cancel()
+			if err := r.finished(t); err != nil {
+				t.Fatal(err)
+			}
+			if got := r.presents(); got != faded || !r.display.retained {
+				t.Errorf("%d presents and retained %v on the SIGTERM after the fade, want the frame kept as it was", got-faded, r.display.retained)
+			}
+		})
+	}
+}
+
+func TestARetainedQuitAtShutdownWithoutAPictureIsAnsweredAtOnce(t *testing.T) {
+	t.Parallel()
+	r := start(t, setup{mode: Reboot})
+	r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
+	r.call(t, protocol.Ping{}, protocol.Ack{})
+	select {
+	case err := <-r.done:
+		t.Fatalf("the text splash ended on a retained quit at reboot: %v", err)
+	default:
+	}
+}
+
 func TestNoRecordWithoutAPictureOnScreen(t *testing.T) {
 	t.Parallel()
 	text := start(t, setup{})

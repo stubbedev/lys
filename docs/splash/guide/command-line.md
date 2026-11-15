@@ -7,6 +7,7 @@ argument:
 | --- | --- |
 | `plymouthd` | Daemon; detaches once ready |
 | `lys-splash --mode=...` (`--mode` first) | Daemon, in the foreground |
+| Any name in a `system-shutdown` directory, with `halt`, `poweroff`, `reboot` or `kexec` | [Shutdown hook](/splash/guide/how-it-works#shutdown): `quit --retain-splash`, returning once the group has faded out |
 | `plymouth`, or `lys-splash` with anything else | Client |
 
 The units and initramfs scripts start the daemon; you normally do not.

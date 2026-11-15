@@ -205,7 +205,15 @@ type event struct {
 type leave struct {
 	deactivations []*server.Call
 	quits         []*server.Call
-	stop          bool
+	// holds are quits retaining the splash in a stopping mode: answered
+	// once the group is gone, while the splash stays until the power goes.
+	holds []*server.Call
+	stop  bool
+}
+
+// ends says the leave ends the splash once the group is gone.
+func (l *leave) ends() bool {
+	return len(l.quits) > 0 || l.stop
 }
 
 type keymapLoad struct {
@@ -272,7 +280,9 @@ type daemon struct {
 // Run serves the splash until a quit request or ctx ends. ctx ending is a
 // SIGTERM: it quits as a quit request without retain would, except in the
 // shutdown, reboot and kexec modes, where the frame stays until the power
-// goes. Whatever ends Run, a panic in a handler included, gives the VT back
+// goes. In those modes a quit retaining the splash, which systemd-shutdown's
+// last step sends to a splash it spared, fades the group out and keeps the
+// splash running with the frame on screen. Whatever ends Run, a panic in a handler included, gives the VT back
 // and releases the display and the console.
 func Run(ctx context.Context, cfg Config, t theme.Theme, bgrt *splashframe.BGRT, dev Devices) (err error) {
 	r, err := theme.NewRenderer(t, bgrt)
@@ -498,6 +508,8 @@ func (d *daemon) loop(ctx context.Context) error {
 				switch {
 				case quit && !q.Retain:
 					return errors.Join(d.quit(false), e.call.Reply(protocol.Ack{}), d.recordDuration())
+				case quit && d.cfg.Mode.stopping():
+					d.leaveFor(func(l *leave) { l.holds = append(l.holds, e.call) })
 				case quit:
 					d.leaveFor(func(l *leave) { l.quits = append(l.quits, e.call) })
 				default:
@@ -689,14 +701,15 @@ func (d *daemon) finishLeave() (bool, error) {
 	l := d.leave
 	d.leave = nil
 	var errs []error
-	if d.showsPicture() {
+	if d.showsPicture() && !d.cfg.Mode.stopping() {
 		errs = append(errs, d.recordLastFrame())
 	}
 	if len(l.deactivations) > 0 {
 		errs = append(errs, d.deactivate())
 		errs = append(errs, ack(l.deactivations)...)
 	}
-	if len(l.quits) == 0 && !l.stop {
+	errs = append(errs, ack(l.holds)...)
+	if !l.ends() {
 		return false, errors.Join(errs...)
 	}
 	errs = append(errs, d.quit(true))
@@ -826,7 +839,7 @@ func (d *daemon) apply(req protocol.Request) error {
 		if d.leave != nil {
 			errs = ack(d.leave.deactivations)
 			d.leave.deactivations = nil
-			if len(d.leave.quits) == 0 && !d.leave.stop {
+			if !d.leave.ends() && len(d.leave.holds) == 0 {
 				d.leave = nil
 			}
 		}
@@ -1102,7 +1115,7 @@ func (d *daemon) quit(retain bool) error {
 		errs = append(errs, c.Reply(protocol.Nak{}))
 	}
 	if d.leave != nil {
-		errs = append(errs, ack(append(d.leave.deactivations, d.leave.quits...))...)
+		errs = append(errs, ack(slices.Concat(d.leave.deactivations, d.leave.quits, d.leave.holds))...)
 		d.leave = nil
 	}
 	if err := d.display.Close(retain); errors.Is(err, drm.ErrNoCloseFB) {

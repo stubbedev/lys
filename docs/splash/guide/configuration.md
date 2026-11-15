@@ -19,8 +19,11 @@ the same one the lys-login greeter and lock screen draw with.
 | `reduced-motion` | bool | `false` | Cuts instead of fading: no fade in from the firmware, no crossfade between states, no fade out before a hand-over or the power going, and the lys-login greeter replaces the splash's last frame in one cut |
 
 The default background is black so the firmware's logo, drawn on black, blends
-in. The logo image, the font, the scale and the length of the fades are not
-configurable; [Fades](/splash/guide/how-it-works#fades) lists them.
+in. The lys logo is drawn in the palette's primary colour, the default
+`accent`, and the text in Inter Regular, the desktop's default font, so the
+greeter takes over in the same colour and typeface. The logo image, its colour,
+the font, the scale and the length of the fades are not configurable;
+[Fades](/splash/guide/how-it-works#fades) lists them.
 
 ```yaml
 accent: "#7aa2f7"

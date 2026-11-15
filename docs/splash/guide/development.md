@@ -53,14 +53,8 @@ Paths are under `splash/` in the repository.
 | `plymouth-client` | nixpkgs' `plymouth` client against the server |
 | `units` | Every unit conflicts with its Plymouth unit; units and initramfs-tools script agree on a table of kernel command lines |
 | `module` | Evaluates the NixOS module and finds the splash in the initrd |
-| `vm-kms` | The kms package's real-card test as root on a vkms-only VM |
-| `vm-kms-switch` | The splash on simpledrm, then on the native driver as it takes over |
-| `vm-splash` | The daemon on virtio-gpu with the plymouth client and systemd's password agent, then detached as `plymouthd` logging to the journal |
-| `vm-boot` | A boot through the module, on virtio-gpu and with no display |
-| `vm-journal` | Reading a guest's whole journal through a slowly drained VM shell |
-| `vm-greeter` | Hand-over to lys-login's greeter on lys-wm, checking every screen dump: the splash fades its group out, and the greeter's first frame holds the logo exactly where the splash left it while its screen fades in |
-| `vm-greeter-outputs` | Hand-over to the greeter with two vkms outputs, both lit by the splash and both taken by the greeter |
-| `vm-e2e` | The full path, each stage failing by name: OVMF and simpledrm, virtio-gpu, a LUKS root and a second LUKS disk unlocked by one passphrase at the splash, switch root, the plymouth client, hand-over to the greeter, the reboot splash, and a display-less machine typing its passphrase at the text fallback |
+| `vms-greeter` | VMs on virtio-gpu, without a display and on vkms, booted at once, their scenarios in turn, each failure naming its scenario: `boot`, a boot through the module on virtio-gpu and with no display; `greeter`, hand-over to lys-login's greeter on lys-wm, checking every screen dump: the splash fades its group out, and the greeter's first frame holds the logo exactly where the splash left it while its screen fades in; on one vkms VM with two outputs, one turned, `kms`, the kms package's real-card test as root, then `greeter-outputs`, hand-over to the greeter with both outputs lit by the splash and both taken by the greeter, then `journal`, reading the guest's whole journal through a slowly drained VM shell |
+| `vms-firmware` | OVMF VMs: `e2e`, the full path, each stage failing by name: OVMF and simpledrm, virtio-gpu, a LUKS root and a second LUKS disk unlocked by one passphrase at the splash, switch root, the plymouth client, hand-over to the greeter, the reboot splash, and a display-less machine typing its passphrase at the text fallback; on one more VM, `kms-switch`, the splash on simpledrm, then on the native driver as it takes over, then `daemon`, the daemon on virtio-gpu with the plymouth client and systemd's password agent, then detached as `plymouthd` logging to the journal |
 
 The grid, the lys logo, the BGRT logo's placement and the record of the last
 frame are `desktop/splashframe`, outside the splash, because lys-login's greeter

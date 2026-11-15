@@ -15,7 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/splash/internal/client"
 	"github.com/stubbedev/lys/splash/internal/daemon"
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/server"
 )
 
 func TestRoleOf(t *testing.T) {
@@ -34,6 +37,11 @@ func TestRoleOf(t *testing.T) {
 		{[]string{"lys-splash", "quit", "--retain-splash"}, clientRole},
 		{[]string{"lys-splash", "--ping"}, clientRole},
 		{[]string{"lys-splash"}, clientRole},
+		{[]string{"/usr/lib/systemd/system-shutdown/lys-splash", "reboot"}, shutdownHookRole},
+		{[]string{"/etc/systemd/system-shutdown/lys-splash", "poweroff"}, shutdownHookRole},
+		{[]string{"/usr/lib/systemd/system-shutdown/plymouth", "kexec"}, shutdownHookRole},
+		{[]string{"/usr/bin/lys-splash", "reboot"}, clientRole},
+		{[]string{"/run/system-shutdown-not/lys-splash", "halt"}, clientRole},
 	}
 	for _, tc := range tests {
 		if got := roleOf(tc.argv); got != tc.want {
@@ -152,4 +160,58 @@ func TestDeadStderrHelper(t *testing.T) {
 		t.Skip("run by TestTheDaemonOutlivesItsStandardErrorsReader")
 	}
 	os.Exit(runDaemon([]string{"lys-splash", "--mode=bogus"}, false))
+}
+
+type recordingHandler struct {
+	requests chan protocol.Request
+}
+
+func (h recordingHandler) Request(c *server.Call) {
+	h.requests <- c.Request
+	_ = c.Reply(protocol.Ack{})
+}
+
+func (recordingHandler) HangUp(*server.Conn) {}
+
+func TestTheShutdownHookAsksTheSplashToRetainItsFrame(t *testing.T) {
+	t.Parallel()
+	socket := "@lys-splash-main-hook-" + rand.Text()
+	srv, err := server.Listen(socket, uint32(os.Getuid()), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := recordingHandler{requests: make(chan protocol.Request, 4)}
+	served := make(chan error, 1)
+	go func() { served <- srv.Serve(h) }()
+	t.Cleanup(func() {
+		if err := srv.Close(); err != nil {
+			t.Error(err)
+		}
+		<-served
+	})
+	var stderr bytes.Buffer
+	c := client.Client{Socket: socket, Stdout: io.Discard, Stderr: &stderr}
+	for _, verb := range shutdownVerbs {
+		if got := shutdownHook(c, []string{"/usr/lib/systemd/system-shutdown/lys-splash", verb}); got != client.ExitOK {
+			t.Fatalf("the hook for %s exited %d: %s", verb, got, stderr.String())
+		}
+		if got := <-h.requests; got != (protocol.Quit{Retain: true}) {
+			t.Errorf("the hook for %s sent %#v, want a quit retaining the splash", verb, got)
+		}
+	}
+	for _, argv := range [][]string{
+		{"/usr/lib/systemd/system-shutdown/lys-splash"},
+		{"/usr/lib/systemd/system-shutdown/lys-splash", "suspend"},
+		{"/usr/lib/systemd/system-shutdown/lys-splash", "reboot", "now"},
+	} {
+		stderr.Reset()
+		if got := shutdownHook(c, argv); got != client.ExitFailed || !strings.Contains(stderr.String(), "halt, poweroff, reboot, kexec") {
+			t.Errorf("the hook run as %q exited %d with %q, want a failure naming the verbs", argv, got, stderr.String())
+		}
+	}
+	select {
+	case r := <-h.requests:
+		t.Errorf("a hook with a wrong verb sent %#v", r)
+	default:
+	}
 }

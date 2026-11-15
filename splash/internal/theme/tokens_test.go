@@ -1,13 +1,17 @@
 package theme
 
 import (
+	"encoding/binary"
+	"image"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
 func TestTheSplashDrawsWithTheGreetersTokens(t *testing.T) {
@@ -65,5 +69,53 @@ func TestTheSplashDrawsWithTheGreetersTokens(t *testing.T) {
 	}
 	if got, want := tokens.RadiusFullPx, styling.RoundingRadiusPx(config.RoundingFull, 1); got != want {
 		t.Errorf("the splash's pill radius is %d, the greeter's %d", got, want)
+	}
+}
+
+func TestTheLysLogoAndTheThrobberShareTheAccent(t *testing.T) {
+	t.Parallel()
+	d := Default()
+	logo, err := splashframe.LogoColor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if logo != d.Accent {
+		t.Fatalf("the lys logo is %#08x, the default accent %#08x", uint32(logo), uint32(d.Accent))
+	}
+	size := image.Pt(800, 600)
+	f := frame(size)
+	r := renderer(t, d, nil)
+	draw(t, r, f, 1, nil, State{Phase: 3})
+	l := r.layout(size, 1)
+	inAccent := func(box image.Rectangle) int {
+		n := 0
+		for y := box.Min.Y; y < box.Max.Y; y++ {
+			for x := box.Min.X; x < box.Max.X; x++ {
+				if render.Color(binary.LittleEndian.Uint32(f.Pix[y*f.Stride+x*4:])) == d.Accent {
+					n++
+				}
+			}
+		}
+		return n
+	}
+	for name, box := range map[string]image.Rectangle{"logo": l.Logo, "throbber": l.Throb} {
+		if inAccent(box) == 0 {
+			t.Errorf("no pixel of the %s %v is the accent %#08x", name, box, uint32(d.Accent))
+		}
+	}
+}
+
+func TestTheSplashEmbedsTheGreetersDefaultTypeface(t *testing.T) {
+	t.Parallel()
+	r := renderer(t, Default(), nil)
+	greeter := config.Defaults().General.FontSans
+	if got := r.face.Family(); got != greeter {
+		t.Errorf("the splash embeds %q, the greeter's default font is %q", got, greeter)
+	}
+	if greeter != tokens.FontSans {
+		t.Errorf("the greeter's default font is %q, not the token's %q", greeter, tokens.FontSans)
+	}
+	if d := r.face.Describe(); d.Aspect.Style != font.StyleNormal || d.Aspect.Weight != font.WeightNormal {
+		t.Errorf("the embedded face is %+v, want the regular face", d)
 	}
 }

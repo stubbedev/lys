@@ -15,6 +15,8 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/image/bmp"
+
+	"github.com/stubbedev/lys/desktop/tokens"
 )
 
 func checker() image.Image {
@@ -132,6 +134,34 @@ func TestAShortFrameMovesTheGroupUpButNeverOverTheLogo(t *testing.T) {
 	}
 }
 
+func TestAShortFrameCentresTheLogoAndTheGroupAsOneBlock(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		size  image.Point
+		scale int
+	}{{image.Pt(640, 400), 1}, {image.Pt(640, 480), 1}, {image.Pt(1280, 800), 2}, {image.Pt(1280, 960), 2}} {
+		l := Layout(tc.size, tc.scale, LysLogo(tc.size, tc.scale))
+		frame := image.Rectangle{Max: tc.size}
+		for name, r := range map[string]image.Rectangle{
+			"logo": l.Logo, "group": l.Group, "busy": l.Busy, "throb": l.Throb, "title": l.Title, "secondary": l.Secondary,
+			"notice": l.Notice, "field": l.Field, "entry": l.Entry, "hints": l.Hints,
+		} {
+			if !r.In(frame) {
+				t.Errorf("%v at scale %d: the %s %v runs off the frame", tc.size, tc.scale, name, r)
+			}
+		}
+		if gap := l.Group.Min.Y - l.Logo.Max.Y; gap != Space(tokens.SpaceXL, tc.scale) {
+			t.Errorf("%v at scale %d: the group sits %dpx under the logo, want the grid's %dpx", tc.size, tc.scale, gap, Space(tokens.SpaceXL, tc.scale))
+		}
+		if top, bottom := l.Logo.Min.Y, tc.size.Y-l.Group.Max.Y; top-bottom > 1 || bottom-top > 1 {
+			t.Errorf("%v at scale %d: %dpx above the logo and %dpx below the group, want the block centred", tc.size, tc.scale, top, bottom)
+		}
+		if l.Logo.Size() != image.Pt(LogoPx*tc.scale, LogoPx*tc.scale) || l.Logo.Min.X != (tc.size.X-LogoPx*tc.scale)/2 {
+			t.Errorf("%v at scale %d: the logo is %v, want the logo's size centred across", tc.size, tc.scale, l.Logo)
+		}
+	}
+}
+
 func TestTranslatedMovesEveryBox(t *testing.T) {
 	t.Parallel()
 	size := image.Pt(800, 600)
@@ -163,6 +193,38 @@ func TestTheLysMarkIsTheLogoAtItsPlace(t *testing.T) {
 		m := LysMark(size, scale, icon)
 		if m.At != LysLogo(size, scale) || m.Image.Bounds().Size() != m.At.Size() {
 			t.Errorf("scale %d: the mark of a %v raster fills %v, want the logo's box %v", scale, m.Image.Bounds().Size(), m.At, LysLogo(size, scale))
+		}
+	}
+}
+
+func TestTheLysLogoIsDrawnInThePalettesPrimary(t *testing.T) {
+	t.Parallel()
+	primary, err := ParseColor(tokens.LysShell().Primary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := LogoColor(); err != nil || got != primary {
+		t.Fatalf("LogoColor() = %#08x, %v; want the primary %#08x", uint32(got), err, uint32(primary))
+	}
+	for _, scale := range []int{1, 2} {
+		icon, err := RasterizeLogo(scale)
+		if err != nil {
+			t.Fatal(err)
+		}
+		img := icon.Image()
+		opaque := 0
+		for i := 0; i < len(img.Pix); i += 4 {
+			a := uint32(img.Pix[i+3])
+			want := [3]uint8{uint8(uint32(primary.R()) * a / 255), uint8(uint32(primary.G()) * a / 255), uint8(uint32(primary.B()) * a / 255)}
+			if got := [3]uint8(img.Pix[i : i+3]); got != want {
+				t.Fatalf("scale %d: a logo pixel of alpha %d is %v, want the primary %s at that alpha, %v", scale, a, got, tokens.LysShell().Primary, want)
+			}
+			if a == 0xff {
+				opaque++
+			}
+		}
+		if opaque < LogoPx*scale*LogoPx*scale/8 {
+			t.Errorf("scale %d: %d opaque pixels, the logo's shape is missing", scale, opaque)
 		}
 	}
 }

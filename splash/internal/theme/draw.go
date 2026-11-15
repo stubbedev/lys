@@ -15,7 +15,7 @@ import (
 	"github.com/stubbedev/lys/splash/internal/kms"
 )
 
-//go:embed assets/Cantarell-Regular.ttf
+//go:embed assets/Inter-Regular.ttf
 var fontTTF []byte
 
 // Frames is how many steps one turn of the throbber takes.

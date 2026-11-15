@@ -1,5 +1,7 @@
 package config
 
+import "github.com/stubbedev/lys/desktop/tokens"
+
 // GeneralConfig is the [general] section.
 //
 // Shell-wide settings that don't belong to any specific module.
@@ -18,7 +20,7 @@ type GeneralConfig struct {
 // DefaultsGeneral returns the schema defaults.
 func DefaultsGeneral() GeneralConfig {
 	return GeneralConfig{
-		FontSans: "Inter",
+		FontSans: tokens.FontSans,
 		FontMono: "JetBrains Mono",
 	}
 }

@@ -76,6 +76,11 @@ flipped with atomic commits at most once per vblank.
 - **Firmware logo.** With `logo: firmware`, read from `/sys/firmware/acpi/bgrt`
   if its status says it is still on screen. It keeps the firmware's offsets when
   they centre it on the current mode, otherwise it is placed at a fixed height.
+- **Short screens.** The lys logo sits at the golden ratio of the height. On a
+  screen too short to hold the status group below it there, such as 640x400
+  or 640x480, the logo and the group are centred together as one block: one
+  layout per screen size, the same in every state. The firmware's logo stays
+  where the firmware drew it, and the group moves up toward it.
 
 ## Fades
 
@@ -89,7 +94,7 @@ paused, so a `deactivate` never waits on it.
 | --- | --- | --- |
 | Firmware to splash | 0.3 s | With the firmware's logo (BGRT) on screen, the logo stays where the firmware left it and the status group fades in beside it. Without one, the lys logo and the status group fade in from the background. |
 | Between states | 0.17 s | The status group alone, when a prompt comes or goes, the message or the prompt's text changes, update mode starts or ends, or the progress bar takes the throbber's place. Unit names, typed characters, the caret, the lock's breath and the throbber change in place as before. A change during a fade starts the next one from the picture on screen. |
-| Leaving | 0.3 s | The status group fades out, leaving the logo alone on the background: before a `deactivate` is answered, before `quit --retain-splash` closes the cards, and before the frame of a shutdown, reboot or kexec splash stays on `SIGTERM`. |
+| Leaving | 0.3 s | The status group fades out, leaving the logo alone on the background: before a `deactivate` is answered, before `quit --retain-splash` closes the cards, and before the frame of a shutdown, reboot or kexec splash stays for the power to go ([Shutdown](#shutdown)). |
 
 A screen lit during a fade starts from the fade's start (the background, for
 the first one) or from its target and lands with the others. While hidden, a
@@ -182,9 +187,15 @@ it was hidden or in text, and removes the record when it exits.
 
 The shutdown, reboot and kexec splashes never close their cards. They
 re-execute with `@` prefixed to `argv[0]` so `systemd-shutdown` spares them,
-and the power goes with the frame on screen. `SIGTERM` in these modes fades the
-status group out and keeps the frame, the logo alone; in `boot` and `updates`,
-`SIGTERM` and `SIGINT` quit as `quit` does.
+and the power goes with the frame on screen. Spared, they get no `SIGTERM`, so
+`systemd-shutdown` itself tells them it is done: just before the reset it runs
+every executable in its `system-shutdown` directories, and the binary linked
+there as `lys-splash` sends `quit --retain-splash`. In these modes that quit
+fades the status group out once, answers when the frame is the logo alone, and
+leaves the splash running with its cards open; the hook returns on that answer,
+so the reset comes after the fade. A later retained quit or a message changes
+nothing on screen. `SIGTERM` in these modes also fades the group out and keeps
+the frame; in `boot` and `updates`, `SIGTERM` and `SIGINT` quit as `quit` does.
 
 Exception: when a card is driven by `nvidia`, whose shutdown requires all DRM
 clients gone, the shutdown splashes do not re-execute; `systemd-shutdown`'s
