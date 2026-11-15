@@ -6,9 +6,11 @@ golangci-lint, delve, just, git, gh and the lys-ci tools, with
 
 ## Layout
 
+Paths are under `splash/` in the repository.
+
 | Path | Contents |
 | --- | --- |
-| `main.go` | Role selection; starts the daemon or the client |
+| `cmd/lys-splash` | Role selection; starts the daemon or the client |
 | `internal/protocol` | plymouthd's socket protocol: request and response codec |
 | `internal/server` | Daemon side of the socket: peer credentials, deferred answers |
 | `internal/client` | The plymouth command line |
@@ -43,7 +45,7 @@ golangci-lint, delve, just, git, gh and the lys-ci tools, with
 
 ## Nix
 
-- `nix build`: the package (`nix/package.nix`), outputs `out` and `compat`.
+- `nix build .#lys-splash`: the package (`nix/package.nix`), outputs `out` and `compat`.
 - `nix fmt`: alejandra.
 - `nix flake check` runs:
 
@@ -66,26 +68,5 @@ virtio-gpu and vkms have no Vulkan driver, so `nix/greeter.nix` sets
 `LYS_WM_RENDERER=gles` in the session variables, which reach the greeter's
 lys-wm through PAM: it renders with GLES on llvmpipe instead of stopping.
 
-Expected frames live in `internal/theme/testdata/golden`; this site's pictures
-are those files.
-
-## CI
-
-`.github/workflows/ci.yml` runs `just check`; the `package`, `units`, `module`
-and `plymouth-client` checks; the initramfs-tools image; and `vm-e2e`,
-`vm-greeter`, `vm-boot`, `vm-splash` and `vm-journal` under KVM.
-`.github/workflows/security.yml` runs CodeQL, Grype and govulncheck, and
-dependency review on pull requests. Dependabot updates Go modules, actions and the site's npm packages.
-
-## This site
-
-The site in `docs/` uses the shared lys theme. Node is not in the dev shell:
-
-```sh
-cd docs
-nix shell nixpkgs#nodejs_22 -c npm ci
-nix shell nixpkgs#nodejs_22 -c npm run build
-nix shell nixpkgs#nodejs_22 -c npm run preview
-```
-
-`.github/workflows/docs.yml` publishes it on pushes to `main` that touch `docs/`, the workflow or the golden frames.
+Expected frames live in `internal/theme/testdata/golden`; this manual's
+pictures of the splash are those files.

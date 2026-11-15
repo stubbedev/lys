@@ -1,8 +1,8 @@
 # Configuration
 
-Both screens read the `login` section of the lys-shell config. The
-[login reference](/shell/config/login) on the
-lys-shell site is the schema; this page covers what lys-login does with it.
+Both screens read the `login` section of the lys-shell config. lys-shell's
+[login reference](/shell/config/login) is the schema; this page covers what
+lys-login does with it.
 `lys-settings` edits these keys under **Login & Lock Screen** and **Greeter**.
 
 ## Which file
@@ -87,7 +87,6 @@ Who may run it:
 - **Under greetd or without a session**: there is no daemon to ask. Root writes
   directly (`sudo lys-login apply-config`, `--config PATH` for another system
   config).
-
 
 ## Cursor
 

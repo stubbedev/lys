@@ -2,26 +2,12 @@
 
 ## NixOS
 
-Add the flake as an input and import its module:
+With the lys flake as an input ([NixOS](/install/nixos)), import its module:
 
 ```nix
 {
-  inputs.lys.url = "github:stubbedev/lys";
-
-  outputs = {
-    nixpkgs,
-    lys,
-    ...
-  }: {
-    nixosConfigurations.machine = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ./configuration.nix
-        lys.nixosModules.lys-splash
-        {boot.lys-splash.enable = true;}
-      ];
-    };
-  };
+  imports = [lys.nixosModules.lys-splash];
+  boot.lys-splash.enable = true;
 }
 ```
 

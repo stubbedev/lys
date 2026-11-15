@@ -16,13 +16,11 @@ lys-login is one binary with these modes:
 
 ## Install
 
-| System | Page |
-| --- | --- |
-| NixOS | [NixOS](/login/install/nixos) |
-| Debian, Ubuntu, Fedora | [Debian, Ubuntu and Fedora](/login/install/packages) |
-| Anything else, or under greetd | [Other systems](/login/install/other) |
-
-Releases and the flake cover x86_64 and aarch64.
+[Install](/install/) sets up the whole desktop. lys-login's own setup is on
+[NixOS](/login/install/nixos),
+[Debian, Ubuntu and Fedora](/login/install/packages) and
+[Other systems](/login/install/other), which also covers the greeter under
+greetd.
 
 ## Requirements
 
@@ -53,7 +51,7 @@ Releases and the flake cover x86_64 and aarch64.
   [Configuration](/login/guide/configuration#keyboard-layout).
 - **Accessibility menu**; see [Configuration](/login/guide/configuration#accessibility).
 - **Power buttons**: `systemctl suspend`, `reboot` and `poweroff`.
-- **Translations**: en-US and French, from lys-shell.
+- **Translations**: en-US and French, shared with the rest of the desktop.
 
 ## Troubleshooting
 

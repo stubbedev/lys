@@ -70,7 +70,7 @@ from a pipe.
 
 ## Interface with lys-shell
 
-`lys-login lock` takes no arguments. lys-shell's `shell/lockclient` is the other
+`lys-login lock` takes no arguments. lys-desktop's `shell/lockclient` is the other
 side; `cmd/lys-login/lock_test.go` tests the contract against the binary.
 
 | Signal | Meaning |

@@ -1,23 +1,7 @@
 # NixOS
 
-Add the flake and import the module:
-
-```nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    lys.url = "github:stubbedev/lys";
-  };
-  outputs = {nixpkgs, lys, ...}: {
-    nixosConfigurations.host = nixpkgs.lib.nixosSystem {
-      modules = [
-        lys.nixosModules.lys-login
-        ./configuration.nix
-      ];
-    };
-  };
-}
-```
+With the lys flake as an input ([NixOS](/install/nixos)), import
+`lys.nixosModules.lys-login`.
 
 ## Display manager
 
