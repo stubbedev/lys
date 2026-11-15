@@ -158,11 +158,12 @@ type DeviceClass uint8
 const (
 	ClassPointer DeviceClass = iota
 	ClassTouchpad
+	ClassTrackpoint
 )
 
-var deviceClassNames = [...]string{ClassPointer: "pointer", ClassTouchpad: "touchpad"}
+var deviceClassNames = [...]string{ClassPointer: "pointer", ClassTouchpad: "touchpad", ClassTrackpoint: "trackpoint"}
 
-var deviceClassAccel = [len(deviceClassNames)]AccelProfile{ClassPointer: AccelFlat, ClassTouchpad: AccelAdaptive}
+var deviceClassAccel = [len(deviceClassNames)]AccelProfile{ClassPointer: AccelFlat, ClassTouchpad: AccelAdaptive, ClassTrackpoint: AccelAdaptive}
 
 func DeviceClasses() []DeviceClass {
 	out := make([]DeviceClass, len(deviceClassNames))
@@ -176,14 +177,16 @@ func (c DeviceClass) String() string { return deviceClassNames[c] }
 
 func (c DeviceClass) DefaultAccel() AccelProfile { return deviceClassAccel[c] }
 
-func classify(tapFingers int32, caps backend.Capability) *DeviceClass {
+func classify(tapFingers int32, pointingStick bool, caps backend.Capability) *DeviceClass {
 	switch {
 	case tapFingers > 0:
 		return new(ClassTouchpad)
-	case caps&backend.Pointer != 0:
-		return new(ClassPointer)
+	case caps&backend.Pointer == 0:
+		return nil
+	case pointingStick:
+		return new(ClassTrackpoint)
 	}
-	return nil
+	return new(ClassPointer)
 }
 
 type InputConfig struct {

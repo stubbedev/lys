@@ -3825,6 +3825,114 @@
             }
           },
           "additionalProperties": false
+        },
+        "trackpoint": {
+          "type": "object",
+          "properties": {
+            "accel_points": {
+              "type": "object",
+              "properties": {
+                "points": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "step": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            },
+            "accel_profile": {
+              "type": "string",
+              "enum": [
+                "adaptive",
+                "flat"
+              ],
+              "default": "adaptive"
+            },
+            "accel_speed": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "click_method": {
+              "type": "string",
+              "enum": [
+                "button_areas",
+                "clickfinger",
+                "none"
+              ]
+            },
+            "disable_while_typing": {
+              "type": "boolean"
+            },
+            "disabled_on_external_mouse": {
+              "type": "boolean"
+            },
+            "drag_lock": {
+              "type": "boolean"
+            },
+            "left_handed": {
+              "type": "boolean"
+            },
+            "middle_emulation": {
+              "type": "boolean"
+            },
+            "natural_scroll": {
+              "type": "boolean"
+            },
+            "scroll_button": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "back",
+                    "extra",
+                    "forward",
+                    "left",
+                    "middle",
+                    "right",
+                    "side",
+                    "task"
+                  ]
+                },
+                {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              ]
+            },
+            "scroll_button_lock": {
+              "type": "boolean"
+            },
+            "scroll_factor": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            },
+            "scroll_method": {
+              "type": "string",
+              "enum": [
+                "edge",
+                "none",
+                "on_button_down",
+                "two_finger"
+              ]
+            },
+            "tap": {
+              "type": "boolean"
+            },
+            "tap_button_map": {
+              "type": "string",
+              "enum": [
+                "lmr",
+                "lrm"
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

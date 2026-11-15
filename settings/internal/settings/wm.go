@@ -479,6 +479,7 @@ func wmSections() []navSection {
 		wmPage("wm-input", "ld-keyboard-symbolic",
 			sectionSpec{"wm-section-keyboard", wmFields("input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options", "input.keyboard.model", "input.keyboard.rules", "input.keyboard.repeat_rate", "input.keyboard.repeat_delay")},
 			sectionSpec{"wm-section-pointer", wmFields("input.pointer.natural_scroll", "input.pointer.middle_emulation", "input.pointer.accel_profile", "input.pointer.accel_speed", "input.pointer.scroll_factor")},
+			sectionSpec{"wm-section-trackpoint", wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method", "input.trackpoint.accel_profile", "input.trackpoint.accel_speed", "input.trackpoint.scroll_factor")},
 			sectionSpec{"wm-section-touchpad", wmFields("input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation", "input.touchpad.click_method", "input.touchpad.scroll_method", "input.touchpad.accel_profile", "input.touchpad.accel_speed", "input.touchpad.scroll_factor")},
 		),
 		wmPage("wm-binds", "ld-key-round-symbolic",

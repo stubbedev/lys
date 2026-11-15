@@ -12,7 +12,7 @@ key does.
 | Shadow & Blur | `wm-effects` | `decoration.shadow`, `decoration.blur` |
 | Motion | `wm-motion` | `animations`, `overview`, `drag_preview` |
 | Tiling & Tabs | `wm-tiling` | `autotile`, `tabs` |
-| Input | `wm-input` | `input.keyboard`, `input.pointer`, `input.touchpad` |
+| Input | `wm-input` | `input.keyboard`, `input.pointer`, `input.trackpoint`, `input.touchpad` |
 | Keys & Gestures | `wm-binds` | `binds`, `submaps`, app shortcuts, `gestures` |
 | Displays | `wm-outputs` | Output layout, `color_management`, `tearing`, `gpu`, `lid_suspend` |
 | Rules & Session | `wm-session` | `rules`, `env`, `xwayland`, `palette` |

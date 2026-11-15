@@ -96,6 +96,7 @@ func fakeConfigurable(def fakeSettings) (*inputReader, *fakeSettings) {
 		deviceName:   func(uintptr) string { return fakeDevice },
 		deviceRef:    func(dev uintptr) uintptr { return dev },
 		deviceHasCap: func(_ uintptr, c int32) int32 { return b2i(c == capPointer) },
+		udevDevice:   func(uintptr) uintptr { return 0 },
 		pad:          padFuncs{deviceGroup: func(uintptr) uintptr { return 0 }},
 		config: configFuncs{
 			tapFingers: func(uintptr) int32 { return 3 },
@@ -310,7 +311,7 @@ func TestADeviceOfNoClassKeepsLibinputsProfile(t *testing.T) {
 	in.fn.config.tapFingers = func(uintptr) int32 { return 0 }
 	in.fn.deviceHasCap = func(_ uintptr, c int32) int32 { return b2i(c == capKeyboard) }
 	in.config = DefaultInputConfig()
-	if err := in.configure(&InputDevice{name: fakeDevice, h: 7, class: classify(0, 0)}); err != nil {
+	if err := in.configure(&InputDevice{name: fakeDevice, h: 7, class: classify(0, false, 0)}); err != nil {
 		t.Fatal(err)
 	}
 	if now.profile != accelAdaptive {
@@ -318,21 +319,72 @@ func TestADeviceOfNoClassKeepsLibinputsProfile(t *testing.T) {
 	}
 }
 
-func TestDevicesAreClassedByTappingThenByPointing(t *testing.T) {
+func TestDevicesAreClassedByTappingThenByStickThenByPointing(t *testing.T) {
 	for _, c := range []struct {
 		tapFingers int32
+		stick      bool
 		caps       backend.Capability
 		want       *DeviceClass
 	}{
-		{3, backend.Pointer, new(ClassTouchpad)},
-		{0, backend.Pointer, new(ClassPointer)},
-		{0, backend.Pointer | backend.Keyboard, new(ClassPointer)},
-		{0, backend.Keyboard, nil},
-		{0, backend.Touch, nil},
+		{3, false, backend.Pointer, new(ClassTouchpad)},
+		{3, true, backend.Pointer, new(ClassTouchpad)},
+		{0, true, backend.Pointer, new(ClassTrackpoint)},
+		{0, true, backend.Pointer | backend.Keyboard, new(ClassTrackpoint)},
+		{0, false, backend.Pointer, new(ClassPointer)},
+		{0, false, backend.Pointer | backend.Keyboard, new(ClassPointer)},
+		{0, true, backend.Keyboard, nil},
+		{0, false, backend.Keyboard, nil},
+		{0, false, backend.Touch, nil},
 	} {
-		if got := classify(c.tapFingers, c.caps); !reflect.DeepEqual(got, c.want) {
-			t.Errorf("%d tap fingers, capabilities %v: class %v, want %v", c.tapFingers, c.caps, got, c.want)
+		if got := classify(c.tapFingers, c.stick, c.caps); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%d tap fingers, pointing stick %t, capabilities %v: class %v, want %v", c.tapFingers, c.stick, c.caps, got, c.want)
 		}
+	}
+}
+
+func hotplugStick(t *testing.T, property string, libinputDefault accelKind, config InputConfig) accelKind {
+	t.Helper()
+	in, now := fakeConfigurable(fakeSettings{profile: libinputDefault, tapMap: TapLRM, click: ClickButtonAreas, scroll: ScrollOnButtonDown, button: 0x112, area: Area{X2: 1, Y2: 1}})
+	const udevHandle = 9
+	unrefs := 0
+	in.fn.config.tapFingers = func(uintptr) int32 { return 0 }
+	in.fn.udevDevice = func(uintptr) uintptr { return udevHandle }
+	in.fn.udevProperty = func(u uintptr, key string) string {
+		if u != udevHandle || key != "ID_INPUT_POINTINGSTICK" {
+			return ""
+		}
+		return property
+	}
+	in.fn.udevUnref = func(u uintptr) uintptr {
+		if u == udevHandle {
+			unrefs++
+		}
+		return 0
+	}
+	in.config = config
+	in.event(7)
+	if r := in.filling.records; len(r) != 1 || r[0].kind != deviceAdded {
+		t.Fatalf("hotplug recorded %+v, want one added device and no configuration error", r)
+	}
+	if unrefs != 1 {
+		t.Fatalf("the udev device was released %d times, want once", unrefs)
+	}
+	return now.profile
+}
+
+func TestAFreshConfigAcceleratesATrackpointAndNotAMouse(t *testing.T) {
+	if got := hotplugStick(t, "1", accelFlat, DefaultInputConfig()); got != accelAdaptive {
+		t.Errorf("a trackpoint whose libinput default is flat holds profile %d, want adaptive", got)
+	}
+	for _, property := range []string{"", "0"} {
+		if got := hotplugStick(t, property, accelAdaptive, DefaultInputConfig()); got != accelFlat {
+			t.Errorf("a mouse udev tags ID_INPUT_POINTINGSTICK=%q holds profile %d, want flat", property, got)
+		}
+	}
+	flat := DefaultInputConfig()
+	flat.Classes[ClassTrackpoint].AccelProfile = AccelFlat
+	if got := hotplugStick(t, "1", accelAdaptive, flat); got != accelFlat {
+		t.Errorf("input.trackpoint.accel_profile flat left the trackpoint at profile %d", got)
 	}
 }
 

@@ -270,10 +270,11 @@ type rawCursor struct {
 }
 
 type rawInput struct {
-	Keyboard rawKeyboard               `yaml:"keyboard"`
-	Pointer  rawDevice                 `yaml:"pointer"`
-	Touchpad rawDevice                 `yaml:"touchpad"`
-	Devices  map[string]rawNamedDevice `yaml:"devices"`
+	Keyboard   rawKeyboard               `yaml:"keyboard"`
+	Pointer    rawDevice                 `yaml:"pointer"`
+	Touchpad   rawDevice                 `yaml:"touchpad"`
+	Trackpoint rawDevice                 `yaml:"trackpoint"`
+	Devices    map[string]rawNamedDevice `yaml:"devices"`
 }
 
 type rawDevice struct {
@@ -1564,7 +1565,7 @@ func (p *parser) deviceOutputs(devices map[string]rawNamedDevice) map[string]wm.
 }
 
 func (r rawInput) classes() [len(session.InputConfig{}.Classes)]rawDevice {
-	return [...]rawDevice{session.ClassPointer: r.Pointer, session.ClassTouchpad: r.Touchpad}
+	return [...]rawDevice{session.ClassPointer: r.Pointer, session.ClassTouchpad: r.Touchpad, session.ClassTrackpoint: r.Trackpoint}
 }
 
 func classKey(k session.DeviceClass) string { return "input." + k.String() }

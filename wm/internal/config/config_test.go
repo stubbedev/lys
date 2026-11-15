@@ -1374,8 +1374,8 @@ func TestDeviceSettingsParseIntoTypedValues(t *testing.T) {
 	}
 }
 
-func TestAFreshConfigAcceleratesTouchpadsAndNotMice(t *testing.T) {
-	for _, text := range []string{"", "input:\n  touchpad:\n    tap: true\n  pointer:\n    natural_scroll: true\n"} {
+func TestAFreshConfigAcceleratesTouchpadsAndTrackpointsAndNotMice(t *testing.T) {
+	for _, text := range []string{"", "input:\n  touchpad:\n    tap: true\n  pointer:\n    natural_scroll: true\n  trackpoint:\n    accel_speed: 0.5\n"} {
 		cfg, err := Parse("t.yaml", []byte(text))
 		if err != nil {
 			t.Fatalf("%q: %v", text, err)
@@ -1386,11 +1386,14 @@ func TestAFreshConfigAcceleratesTouchpadsAndNotMice(t *testing.T) {
 		if p := cfg.Input.Classes[session.ClassTouchpad].AccelProfile; p != session.AccelAdaptive {
 			t.Errorf("%q: input.touchpad.accel_profile is %v, want adaptive", text, p)
 		}
+		if p := cfg.Input.Classes[session.ClassTrackpoint].AccelProfile; p != session.AccelAdaptive {
+			t.Errorf("%q: input.trackpoint.accel_profile is %v, want adaptive", text, p)
+		}
 	}
 }
 
 func TestEachClassTakesItsOwnAccelerationProfile(t *testing.T) {
-	cfg, err := Parse("t.yaml", []byte("input:\n  pointer:\n    accel_profile: adaptive\n  touchpad:\n    accel_profile: flat\n"))
+	cfg, err := Parse("t.yaml", []byte("input:\n  pointer:\n    accel_profile: adaptive\n  touchpad:\n    accel_profile: flat\n  trackpoint:\n    accel_profile: flat\n    accel_speed: -0.25\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1400,9 +1403,13 @@ func TestEachClassTakesItsOwnAccelerationProfile(t *testing.T) {
 	if p := cfg.Input.Classes[session.ClassTouchpad].AccelProfile; p != session.AccelFlat {
 		t.Errorf("input.touchpad.accel_profile flat parsed to %v", p)
 	}
+	if tp := cfg.Input.Classes[session.ClassTrackpoint]; tp.AccelProfile != session.AccelFlat || tp.AccelSpeed == nil || *tp.AccelSpeed != -0.25 {
+		t.Errorf("input.trackpoint with flat at -0.25 parsed to %+v", tp)
+	}
 	for text, want := range map[string]string{
-		"input:\n  pointer:\n    accel_profile: fast\n":  `t.yaml:3: input.pointer.accel_profile: "fast" is not one of adaptive, flat`,
-		"input:\n  touchpad:\n    accel_profile: none\n": `t.yaml:3: input.touchpad.accel_profile: "none" is not one of adaptive, flat`,
+		"input:\n  trackpoint:\n    accel_profile: slow\n": `t.yaml:3: input.trackpoint.accel_profile: "slow" is not one of adaptive, flat`,
+		"input:\n  pointer:\n    accel_profile: fast\n":    `t.yaml:3: input.pointer.accel_profile: "fast" is not one of adaptive, flat`,
+		"input:\n  touchpad:\n    accel_profile: none\n":   `t.yaml:3: input.touchpad.accel_profile: "none" is not one of adaptive, flat`,
 	} {
 		if _, err := Parse("t.yaml", []byte(text)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v, want %q", text, err, want)
@@ -1412,7 +1419,7 @@ func TestEachClassTakesItsOwnAccelerationProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "t.yaml:2: input.mouse: unknown key (known: devices, keyboard, pointer, touchpad)"; len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0].Error(), want) {
+	if want := "t.yaml:2: input.mouse: unknown key (known: devices, keyboard, pointer, touchpad, trackpoint)"; len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0].Error(), want) {
 		t.Errorf("a class lys-wm does not have warned %v, want %q", cfg.Warnings, want)
 	}
 	if p := cfg.Input.Classes[session.ClassPointer].AccelProfile; p != session.AccelFlat {

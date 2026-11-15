@@ -92,6 +92,9 @@ type libinputFuncs struct {
 	deviceHasCap     func(dev uintptr, capability int32) int32
 	deviceRef        func(dev uintptr) uintptr
 	deviceUnref      func(dev uintptr) uintptr
+	udevDevice       func(dev uintptr) uintptr
+	udevProperty     func(udev uintptr, key string) string
+	udevUnref        func(udev uintptr) uintptr
 	keyboardEvent    func(ev uintptr) uintptr
 	keyTime          func(kev uintptr) uint64
 	key              func(kev uintptr) uint32
@@ -363,6 +366,15 @@ func hotCall[R uintptr | int32 | uint64](f *libinputFuncs, sym uintptr) func(uin
 	}
 }
 
+func (f *libinputFuncs) pointingStick(dev uintptr) bool {
+	u := f.udevDevice(dev)
+	if u == 0 {
+		return false
+	}
+	defer f.udevUnref(u)
+	return f.udevProperty(u, "ID_INPUT_POINTINGSTICK") == "1"
+}
+
 func (r *inputReader) bind(path string) error {
 	f := &r.fn
 	syms := []libSymbol{
@@ -386,6 +398,9 @@ func (r *inputReader) bind(path string) error {
 		{&f.deviceHasCap, "libinput_device_has_capability"},
 		{&f.deviceRef, "libinput_device_ref"},
 		{&f.deviceUnref, "libinput_device_unref"},
+		{&f.udevDevice, "libinput_device_get_udev_device"},
+		{&f.udevProperty, "udev_device_get_property_value"},
+		{&f.udevUnref, "udev_device_unref"},
 		{&f.keyboardEvent, "libinput_event_get_keyboard_event"},
 		{&f.keyTime, "libinput_event_keyboard_get_time_usec"},
 		{&f.key, "libinput_event_keyboard_get_key"},
@@ -855,7 +870,7 @@ func (r *inputReader) event(ev uintptr) {
 				d.caps |= flag
 			}
 		}
-		d.class = classify(f.config.tapFingers(h), d.caps)
+		d.class = classify(f.config.tapFingers(h), f.pointingStick(h), d.caps)
 		d.group = f.pad.deviceGroup(h)
 		if f.deviceHasCap(h, capTabletTool) != 0 {
 			d.tablet, d.tabletID = true, tabletinput.ID{Vendor: f.tablet.vendor(h), Product: f.tablet.product(h)}
