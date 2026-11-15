@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Read `README.md` for what lys-wm is, and `docs/architecture.md` for the
+Read `README.md` for what lys-wm is, and `../docs/wm/architecture.md` for the
 decisions every change builds on.
 
 ## Gates
@@ -31,7 +31,7 @@ pacing: it runs the GPU, DRM-without-master, nested dmabuf and GLES harness
 tests on the host's GPU and fails if any of them skips, then measures es2gears
 against headless GLES lys-wm in a private runtime dir (Xwayland off) and reports its
 frame rate, and plays every animation under `lys-wm-pace`
-(`docs/frame-pacing.md`), reporting late frames and failing when a step's
+(`../docs/wm/frame-pacing.md`), reporting late frames and failing when a step's
 per-frame counts pass `cmd/lys-wm-pace/baseline.json`. No gate judges time: a
 loaded machine passes the same.
 
@@ -63,7 +63,7 @@ GitHub is the only tracker. Nothing is planned in local files or chat.
 
 | Thing | Where | Role |
 | --- | --- | --- |
-| Issues | `stubbedev/lys-wm` | One unit of work each; the body is the spec |
+| Issues | `stubbedev/lys` | One unit of work each; the body is the spec |
 | Milestones | `M0 Foundation` … `M9 Multi-GPU` | Phases; each description holds the exit criteria |
 | Project | [lys-wm board](https://github.com/users/stubbedev/projects/3) | Status of every issue: Todo, In Progress, Done |
 
@@ -91,7 +91,7 @@ numeric user ID), passing `group_by` and `vertical_group_by` as field IDs.
 4. `just start <issue>`.
 
 ```sh
-gh issue list -R stubbedev/lys-wm --milestone "M0 Foundation" --state open \
+gh issue list -R stubbedev/lys --milestone "M0 Foundation" --state open \
   --json number,title,labels --jq '.[] | "#\(.number) \(.title) [\([.labels[].name] | join(", "))]"'
 ```
 
@@ -116,7 +116,7 @@ mentioned. An unrelated find gets its own issue and its own commit; then
 return to the task in progress.
 
 ```sh
-gh issue create -R stubbedev/lys-wm --project lys-wm \
+gh issue create -R stubbedev/lys --project lys-wm \
   --milestone "M1 Core protocols" --label "area:protocol,prio:high" \
   --title "protocol: <what>" --body-file - <<'MD'
 ## Goal
@@ -140,7 +140,7 @@ MD
 
 Issues labelled `decision` are settled before the code that depends on them.
 Comment the outcome and the reasons on the issue, record it in
-`docs/architecture.md`, then implement. Ask the user first when the choice is
+`../docs/wm/architecture.md`, then implement. Ask the user first when the choice is
 costly to reverse.
 
 ## Milestones
@@ -148,7 +148,7 @@ costly to reverse.
 - Close a milestone only when all its issues are closed **and** its exit
   criteria have been exercised. Say how they were verified in the closing
   comment of its last issue, then
-  `gh api -X PATCH repos/stubbedev/lys-wm/milestones/<number> -f state=closed`.
+  `gh api -X PATCH repos/stubbedev/lys/milestones/<number> -f state=closed`.
 - If exit criteria change, edit the milestone description.
 - To move an issue to another milestone, comment why: usually a dependency
   that was missed.
@@ -157,4 +157,4 @@ costly to reverse.
 
 Issues link Hyprland, aquamarine, hyprwayland-scanner and hy3 at pinned
 commits. When refreshing a link, pin the new commit too. What each licence
-allows is in `docs/architecture.md`; never port hy3 code.
+allows is in `../docs/wm/architecture.md`; never port hy3 code.

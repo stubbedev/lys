@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Read `README.md` for what lys-settings is, and `docs/guide/how-it-works.md` for
+Read `README.md` for what lys-settings is, and `../docs/settings/guide/how-it-works.md` for
 how it speaks to lys-shell and lys-wm.
 
 ## Gates
@@ -44,4 +44,4 @@ never wall clock; timeouts only stop hangs.
 
 ## The tracker
 
-GitHub issues on `stubbedev/lys-settings`. Nothing is planned in local files.
+GitHub issues on `stubbedev/lys`. Nothing is planned in local files.

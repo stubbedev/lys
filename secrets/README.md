@@ -1,19 +1,17 @@
 <p align="center">
-  <img src="docs/public/lys-secrets.svg" width="160" alt="lys-secrets">
+  <img src="../docs/public/lys-secrets.svg" width="160" alt="lys-secrets">
 </p>
 
 <h1 align="center">lys-secrets</h1>
 
 <p align="center">
-  The lys desktop's freedesktop
+  The freedesktop
   <a href="https://specifications.freedesktop.org/secret-service-spec/latest/">Secret Service</a>
-  and Bitwarden vault.
+  and Bitwarden vault of <a href="../README.md">lys</a>.
 </p>
 
 <p align="center">
-  <a href="https://github.com/stubbedev/lys/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-secrets/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT license"></a>
-  <a href="https://stubbedev.github.io/lys/secrets/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://stubbedev.github.io/lys/secrets/">Documentation</a>
 </p>
 
 lys-secrets serves `org.freedesktop.secrets` for libsecret (`secret-tool`),
@@ -29,11 +27,11 @@ Any program running as you can read an unlocked collection; see
 
 Disable any other Secret Service provider first.
 
-- **NixOS / home-manager:** import `lys-secrets.nixosModules.default` or
-  `lys-secrets.homeManagerModules.default` and set
+- **NixOS / home-manager:** import `lys.nixosModules.lys-secrets` or
+  `lys.homeManagerModules.lys-secrets` from `github:stubbedev/lys` and set
   `services.lys-secrets.enable = true;`.
-- **Debian, Ubuntu, Fedora:** install the `.deb` or `.rpm` from a
-  [release](https://github.com/stubbedev/lys/releases), then
+- **Debian, Ubuntu, Fedora:** install the `.deb` or `.rpm` from the
+  [latest release](https://github.com/stubbedev/lys/releases/latest), then
   `systemctl --user enable --now lys-secrets`.
 - **Others:** see
   [Getting started](https://stubbedev.github.io/lys/secrets/guide/getting-started).
@@ -47,17 +45,3 @@ collection. Then:
 secret-tool store --label='An example' app example
 secret-tool lookup app example
 ```
-
-## Documentation
-
-<https://stubbedev.github.io/lys/secrets/>
-
-## The lys family
-
-[lys-shell](https://github.com/stubbedev/lys/tree/main/shell),
-[lys-wm](https://github.com/stubbedev/lys/tree/main/wm),
-[lys-ui](https://github.com/stubbedev/lys/tree/main/ui),
-[lys-lib](https://github.com/stubbedev/lys/tree/main/lib),
-[lys-login](https://github.com/stubbedev/lys/tree/main/login),
-[lys-splash](https://github.com/stubbedev/lys/tree/main/splash),
-[lys-polkit](https://github.com/stubbedev/lys/tree/main/polkit).

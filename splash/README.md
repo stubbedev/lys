@@ -1,19 +1,17 @@
 <p align="center">
-  <img src="docs/public/lys-splash.svg" width="160" alt="lys-splash">
+  <img src="../docs/public/lys-splash.svg" width="160" alt="lys-splash">
 </p>
 
 <h1 align="center">lys-splash</h1>
 
 <p align="center">
-  The lys desktop's boot splash, in place of Plymouth. It starts in the
+  The boot splash of <a href="../README.md">lys</a>, in place of Plymouth. It starts in the
   initrd, draws on every output, asks for disk passwords, survives the
   switch to the real root and hands its last frame to the display manager.
 </p>
 
 <p align="center">
-  <a href="https://github.com/stubbedev/lys/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-splash/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT license"></a>
-  <a href="https://stubbedev.github.io/lys/splash/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://stubbedev.github.io/lys/splash/">Documentation</a>
 </p>
 
 <p align="center">
@@ -27,11 +25,11 @@ embedded.
 
 ## Install
 
-NixOS:
+NixOS, with `inputs.lys.url = "github:stubbedev/lys";`:
 
 ```nix
 {
-  imports = [lys-splash.nixosModules.default];
+  imports = [lys.nixosModules.lys-splash];
   boot.lys-splash.enable = true;
 }
 ```
@@ -51,20 +49,6 @@ throbber: dots
 ```
 
 Do not start the daemon on a running desktop: it takes over the display.
-
-## Documentation
-
-[stubbedev.github.io/lys-splash](https://stubbedev.github.io/lys/splash/)
-
-## The lys family
-
-[lys-shell](https://github.com/stubbedev/lys/tree/main/shell),
-[lys-wm](https://github.com/stubbedev/lys/tree/main/wm),
-[lys-ui](https://github.com/stubbedev/lys/tree/main/ui),
-[lys-lib](https://github.com/stubbedev/lys/tree/main/lib),
-[lys-login](https://github.com/stubbedev/lys/tree/main/login),
-[lys-polkit](https://github.com/stubbedev/lys/tree/main/polkit),
-[lys-secrets](https://github.com/stubbedev/lys/tree/main/secrets).
 
 ## License
 
