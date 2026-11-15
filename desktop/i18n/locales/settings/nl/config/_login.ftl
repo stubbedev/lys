@@ -58,6 +58,9 @@ settings-login-greeter-show-user-list = Gebruikerslijst tonen
 settings-login-greeter-show-power-buttons = Energieknoppen tonen
     .description = De knoppen uitschakelen/herstarten onderaan het aanmeldscherm tonen
 
+settings-login-greeter-fingerprint = Aanmelden met vingerafdruk
+    .description = Aanmelden met een geregistreerde vingerafdruk (fprintd) naast het wachtwoord
+
 settings-login-greeter-cursor-theme = Cursorthema
     .description = Xcursor-thema op het aanmeldscherm (leeg = systeemstandaard)
 

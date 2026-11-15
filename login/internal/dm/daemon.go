@@ -271,14 +271,33 @@ func (o Options) greeterAccessibility() greeter.Accessibility {
 	return a
 }
 
-// greeterCursor is the cursor the next greeter shows: the greeter's
-// config, else the record the remembered user's last session left.
-func (o Options) greeterCursor() greeter.Cursor {
+func (o Options) greeterConfig() config.LoginGreeterConfig {
 	cfg, err := config.LoadGreeter(o.Greeter.ConfigPath, config.StderrDiagnostics)
 	if err != nil {
 		log.Printf("dm: the greeter's config: %v", err)
 	}
-	return greeter.KioskCursor(cfg.Login.Greeter, o.CursorDir, greeter.ReadUsers(), greeter.LoadLast(greeter.LastUserPath(o.Greeter.StatePath)))
+	return cfg.Login.Greeter
+}
+
+// greeterCursor is the cursor the next greeter shows: the greeter's
+// config, else the record the remembered user's last session left.
+func (o Options) greeterCursor(g config.LoginGreeterConfig) greeter.Cursor {
+	return greeter.KioskCursor(g, o.CursorDir, greeter.ReadUsers(), greeter.LoadLast(greeter.LastUserPath(o.Greeter.StatePath)))
+}
+
+type loginMethod int
+
+const (
+	passwordLogin loginMethod = iota
+	passwordOrFingerprintLogin
+	autoLogin
+)
+
+func greeterLoginMethod(g config.LoginGreeterConfig) loginMethod {
+	if g.Fingerprint {
+		return passwordOrFingerprintLogin
+	}
+	return passwordLogin
 }
 
 // yamlString is s as a double-quoted YAML scalar.
@@ -315,6 +334,7 @@ type greeted struct {
 
 type greeterRequests struct {
 	vt       int
+	method   loginMethod
 	upgrades <-chan *pendingUpgrade
 	drain    time.Duration
 	existing func(user string) bool
@@ -323,7 +343,8 @@ type greeterRequests struct {
 // greet runs the greeter until a user is authenticated and asks for a
 // session, or an upgrade replaces this program, then stops it.
 func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgrade, drain time.Duration, existing func(user string) bool) (greeted, error) {
-	req := greeterRequests{vt: vt, upgrades: upgrades, drain: drain, existing: existing}
+	settings := o.greeterConfig()
+	req := greeterRequests{vt: vt, method: greeterLoginMethod(settings), upgrades: upgrades, drain: drain, existing: existing}
 	sock := filepath.Join(o.RuntimeDir, "greeter.sock")
 	ln, err := o.listen(sock)
 	if err != nil {
@@ -331,7 +352,7 @@ func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgr
 	}
 	defer func() { _ = ln.Close() }()
 	cfg := filepath.Join(o.RuntimeDir, "kiosk.yaml")
-	if err := os.WriteFile(cfg, []byte(kioskConfig(kiosk{greet: o.greeterCommand(), cursor: o.greeterCursor(), keyboard: o.greeterKeyboard(), a11y: o.greeterAccessibility()})), 0o644); err != nil { //nolint:gosec // the greeter user reads it
+	if err := os.WriteFile(cfg, []byte(kioskConfig(kiosk{greet: o.greeterCommand(), cursor: o.greeterCursor(settings), keyboard: o.greeterKeyboard(), a11y: o.greeterAccessibility()})), 0o644); err != nil { //nolint:gosec // the greeter user reads it
 		return greeted{}, fmt.Errorf("write %s: %w", cfg, err)
 	}
 	gw := exec.Command(o.Self, o.greeterWorkerArgs(sock, cfg, vt)...) //nolint:gosec // lys-login itself
@@ -499,7 +520,7 @@ func (o Options) serveGreeter(conn net.Conn, r greeterRequests) (*pendingLogin, 
 	state := endedLogin
 	user, existing := "", ""
 	defer func() {
-		if l != nil && !state.authenticated() {
+		if l != nil {
 			l.cancel()
 		}
 	}()
@@ -531,7 +552,7 @@ func (o Options) serveGreeter(conn net.Conn, r greeterRequests) (*pendingLogin, 
 					}
 					continue
 				}
-				w, err := o.startSessionWorker(req.Username, r.vt, false)
+				w, err := o.startSessionWorker(req.Username, r.vt, r.method)
 				if err != nil {
 					if err := auth.WriteGreetdError(conn, false, err.Error()); err != nil {
 						return nil, err
@@ -575,7 +596,7 @@ func (o Options) serveGreeter(conn net.Conn, r greeterRequests) (*pendingLogin, 
 				}
 				var w *worker
 				if l != nil {
-					w = l.w
+					w, l = l.w, nil
 				}
 				return &pendingLogin{w: w, user: user, existing: existing, cmd: req.Cmd, env: req.Env}, nil
 			}
@@ -754,10 +775,14 @@ type worker struct {
 }
 
 // startSessionWorker starts a session worker and asks it to
-// authenticate user.
-func (o Options) startSessionWorker(user string, vt int, autologin bool) (*worker, error) {
+// authenticate user by method.
+func (o Options) startSessionWorker(user string, vt int, method loginMethod) (*worker, error) {
 	if user == "" {
 		return nil, errors.New("no user name")
+	}
+	args, err := o.sessionWorkerArgs(vt, method)
+	if err != nil {
+		return nil, fmt.Errorf("start a session worker for %s: %w", user, err)
 	}
 	pair, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
@@ -770,16 +795,6 @@ func (o Options) startSessionWorker(user string, vt int, autologin bool) (*worke
 	}
 	mine, theirs := os.NewFile(uintptr(pair[0]), "dm"), os.NewFile(uintptr(pair[1]), "worker")
 	defer func() { _ = theirs.Close() }()
-	service := o.Service
-	if autologin {
-		service = AutologinService
-	}
-	args := []string{"worker", "session", "--service", service, "--vt", strconv.Itoa(vt), "--runtime-dir", o.RuntimeDir}
-	if autologin {
-		args = append(args, "--autologin")
-	} else {
-		args = append(args, "--fingerprint-service", FingerprintService)
-	}
 	cmd := exec.Command(o.Self, args...) //nolint:gosec // lys-login itself
 	cmd.ExtraFiles = []*os.File{theirs}
 	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
@@ -793,6 +808,19 @@ func (o Options) startSessionWorker(user string, vt int, autologin bool) (*worke
 		return nil, err
 	}
 	return w, nil
+}
+
+func (o Options) sessionWorkerArgs(vt int, method loginMethod) ([]string, error) {
+	args := []string{"worker", "session", "--vt", strconv.Itoa(vt), "--runtime-dir", o.RuntimeDir}
+	switch method {
+	case autoLogin:
+		return append(args, "--service", AutologinService, "--autologin"), nil
+	case passwordOrFingerprintLogin:
+		return append(args, "--service", o.Service, "--fingerprint-service", FingerprintService), nil
+	case passwordLogin:
+		return append(args, "--service", o.Service), nil
+	}
+	return nil, fmt.Errorf("unknown login method %d", method)
 }
 
 // cancel ends a worker that has not started a session.

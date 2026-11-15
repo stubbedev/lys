@@ -62,6 +62,9 @@ settings-login-greeter-show-user-list = Mostra l'elenco utenti
 settings-login-greeter-show-power-buttons = Mostra i pulsanti di alimentazione
     .description = Mostra i pulsanti di spegnimento e riavvio in fondo alla schermata di accesso
 
+settings-login-greeter-fingerprint = Accesso con impronta
+    .description = Accedere con un'impronta registrata (fprintd) oltre che con la password
+
 settings-login-greeter-cursor-theme = Tema del cursore
     .description = Tema Xcursor usato nella schermata di accesso (vuoto = predefinito di sistema)
 

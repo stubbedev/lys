@@ -590,7 +590,7 @@ func (d *seat) autologin() bool {
 	if a == nil || !d.claimAutologin() {
 		return false
 	}
-	w, err := d.o.startSessionWorker(a.User, d.o.VT, true)
+	w, err := d.o.startSessionWorker(a.User, d.o.VT, autoLogin)
 	if err != nil {
 		log.Printf("dm: autologin of %s: %v", a.User, err)
 		return false

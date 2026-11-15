@@ -62,6 +62,9 @@ settings-login-greeter-show-user-list = Show User List
 settings-login-greeter-show-power-buttons = Show Power Buttons
     .description = Show the shutdown/reboot buttons at the bottom of the login screen
 
+settings-login-greeter-fingerprint = Fingerprint Login
+    .description = Log in with an enrolled fingerprint (fprintd) as well as the password
+
 settings-login-greeter-cursor-theme = Cursor Theme
     .description = Xcursor theme used on the login screen (empty = system default)
 

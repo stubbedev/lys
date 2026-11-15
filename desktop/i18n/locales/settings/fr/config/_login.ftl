@@ -38,6 +38,8 @@ settings-login-greeter-show-user-list = Afficher la liste des utilisateurs
     .description = Afficher au-dessus du champ de nom d'utilisateur des avatars cliquables pour les utilisateurs de la machine
 settings-login-greeter-show-power-buttons = Afficher les boutons d'alimentation
     .description = Afficher les boutons d'arrêt et de redémarrage en bas de l'écran de connexion
+settings-login-greeter-fingerprint = Connexion par empreinte
+    .description = Se connecter avec une empreinte enregistrée (fprintd) en plus du mot de passe
 settings-login-greeter-cursor-theme = Thème de curseur
     .description = Thème Xcursor utilisé sur l'écran de connexion (vide = valeur par défaut du système)
 settings-login-greeter-cursor-size = Taille du curseur

@@ -65,14 +65,7 @@ func runFakeMode() (int, bool) {
 }
 
 func appendLine(name, line string) {
-	f, err := os.OpenFile(filepath.Join(os.Getenv(fakeDirEnv), name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	if _, err := f.WriteString(line + "\n"); err != nil {
-		panic(err)
-	}
+	appendTo(filepath.Join(os.Getenv(fakeDirEnv), name), line)
 }
 
 type fileCard struct{ f *os.File }

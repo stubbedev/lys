@@ -62,6 +62,9 @@ settings-login-greeter-show-user-list = Benutzerliste anzeigen
 settings-login-greeter-show-power-buttons = Energieknöpfe anzeigen
     .description = Die Knöpfe zum Herunterfahren/Neustarten unten auf dem Anmeldebildschirm anzeigen
 
+settings-login-greeter-fingerprint = Anmeldung per Fingerabdruck
+    .description = Mit einem registrierten Fingerabdruck (fprintd) zusätzlich zum Passwort anmelden
+
 settings-login-greeter-cursor-theme = Zeigerthema
     .description = Xcursor-Thema auf dem Anmeldebildschirm (leer = Systemstandard)
 

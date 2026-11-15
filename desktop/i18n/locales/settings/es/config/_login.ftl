@@ -62,6 +62,9 @@ settings-login-greeter-show-user-list = Mostrar la lista de usuarios
 settings-login-greeter-show-power-buttons = Mostrar los botones de energía
     .description = Muestra los botones de apagar/reiniciar en la parte inferior de la pantalla de inicio de sesión
 
+settings-login-greeter-fingerprint = Inicio de sesión con huella
+    .description = Iniciar sesión con una huella registrada (fprintd) además de la contraseña
+
 settings-login-greeter-cursor-theme = Tema del cursor
     .description = Tema de Xcursor usado en la pantalla de inicio de sesión (vacío = predeterminado del sistema)
 

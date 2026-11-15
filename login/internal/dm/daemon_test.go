@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/testhome"
 	"github.com/stubbedev/lys/lib/xkb"
 	"go.yaml.in/yaml/v3"
@@ -61,13 +62,20 @@ func fakeSessionWorker() int {
 		_ = ch.send(event{Kind: evEnded, Text: "exited"})
 		return 0
 	}
-	if i := slices.Index(os.Args, "--fingerprint-service"); i < 0 || i+1 >= len(os.Args) || os.Args[i+1] != FingerprintService {
-		_ = ch.send(event{Kind: evFailed, Text: "no fingerprint service"})
-		return 0
+	fingerprint := false
+	if i := slices.Index(os.Args, "--fingerprint-service"); i >= 0 {
+		if i+1 >= len(os.Args) || os.Args[i+1] != FingerprintService {
+			_ = ch.send(event{Kind: evFailed, Text: "not the fingerprint service"})
+			return 0
+		}
+		fingerprint = true
+	}
+	if record := os.Getenv(fakeSessionRecordEnv); record != "" {
+		defer func() { appendTo(record, req.Op) }()
 	}
 	secret := &auth.Prompt{Kind: auth.PromptSecret, Text: "Password:"}
-	switch req.User {
-	case "finger":
+	switch {
+	case req.User == "finger" && fingerprint:
 		_ = ch.send(event{Kind: evFingerprint, Fingerprint: fprint.Listening})
 		_ = ch.send(event{Kind: evPrompt, Prompt: secret})
 		_ = ch.send(event{Kind: evAuthenticated})
@@ -82,7 +90,7 @@ func fakeSessionWorker() int {
 		_ = ch.send(event{Kind: evStarted, UID: 1001})
 		_ = ch.send(event{Kind: evEnded, Text: "exited"})
 		return 0
-	case "nomatch":
+	case req.User == "nomatch" && fingerprint:
 		_ = ch.send(event{Kind: evPrompt, Prompt: secret})
 		_ = ch.send(event{Kind: evFingerprint, Fingerprint: fprint.NoMatch})
 	default:
@@ -101,8 +109,21 @@ func fakeSessionWorker() int {
 	return 0
 }
 
+const fakeSessionRecordEnv = "LYS_LOGIN_FAKE_SESSION_RECORD"
+
+func appendTo(path, line string) {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		panic(err)
+	}
+}
+
 func testRequests() greeterRequests {
-	return greeterRequests{vt: 7, existing: func(string) bool { return false }}
+	return greeterRequests{vt: 7, method: passwordOrFingerprintLogin, existing: func(string) bool { return false }}
 }
 
 func TestAWorkerThatCannotBeReapedHasItsHandleReleased(t *testing.T) {
@@ -160,11 +181,16 @@ func testOptions() Options {
 // serve runs the daemon's side of one greeter connection.
 func serve(t *testing.T) (net.Conn, <-chan *pendingLogin, <-chan error) {
 	t.Helper()
+	return serveWith(t, testRequests())
+}
+
+func serveWith(t *testing.T, r greeterRequests) (net.Conn, <-chan *pendingLogin, <-chan error) {
+	t.Helper()
 	server, client := net.Pipe()
 	t.Cleanup(func() { _ = server.Close(); _ = client.Close() })
 	logins, errs := make(chan *pendingLogin, 1), make(chan error, 1)
 	go func() {
-		l, err := testOptions().serveGreeter(server, testRequests())
+		l, err := testOptions().serveGreeter(server, r)
 		logins <- l
 		errs <- err
 	}()
@@ -695,6 +721,237 @@ func TestAFingerprintThatDoesNotMatchLeavesThePasswordToLogIn(t *testing.T) {
 			t.Fatal(err)
 		}
 		finishLogin(t, login)
+	}
+}
+
+func recordSession(t *testing.T) func() []string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "session")
+	t.Setenv(fakeSessionRecordEnv, path)
+	return func() []string {
+		data, err := os.ReadFile(path)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Fields(string(data))
+	}
+}
+
+func authenticateOver(t *testing.T, client net.Conn, user string) {
+	t.Helper()
+	read := func(want string) {
+		t.Helper()
+		var resp map[string]any
+		if err := readFrame(client, &resp); err != nil {
+			t.Fatal(err)
+		}
+		if resp["type"] != want {
+			t.Fatalf("response %v, want %s", resp, want)
+		}
+	}
+	if err := writeFrame(client, map[string]any{"type": auth.GreetdCreateSession, "username": user}); err != nil {
+		t.Fatal(err)
+	}
+	read("auth_message")
+	if err := writeFrame(client, map[string]any{"type": auth.GreetdPostResponse, "response": "pw"}); err != nil {
+		t.Fatal(err)
+	}
+	read("success")
+}
+
+func TestAGreeterThatGoesAwayAfterAuthenticatingEndsTheLogin(t *testing.T) {
+	ended := recordSession(t)
+	client, logins, errs := serve(t)
+	authenticateOver(t, client, "alice")
+	if err := client.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if login := <-logins; login != nil {
+		t.Fatalf("a greeter that went away handed over %+v", login)
+	}
+	if err := <-errs; err != nil {
+		t.Fatal(err)
+	}
+	if got := ended(); !slices.Equal(got, []string{opCancel}) {
+		t.Errorf("the worker's last request %q, want it cancelled so it ends its PAM transaction", got)
+	}
+}
+
+func TestAGreeterThatStartsTheSessionKeepsTheLogin(t *testing.T) {
+	ended := recordSession(t)
+	client, logins, errs := serve(t)
+	authenticateOver(t, client, "alice")
+	if err := writeFrame(client, map[string]any{"type": auth.GreetdStartSession, "cmd": []string{"Hyprland"}, "env": []string{}}); err != nil {
+		t.Fatal(err)
+	}
+	var resp map[string]any
+	if err := readFrame(client, &resp); err != nil || resp["type"] != "success" {
+		t.Fatalf("start_session = %v, %v; want success", resp, err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatal(err)
+	}
+	login := <-logins
+	if err := <-errs; err != nil {
+		t.Fatal(err)
+	}
+	if login == nil {
+		t.Fatal("start_session handed over no login")
+	}
+	if got := ended(); got != nil {
+		t.Fatalf("the worker ended (%q) before its session was started", got)
+	}
+	if started := finishLogin(t, login); !slices.Equal(started, []uint32{1000}) {
+		t.Errorf("started = %v, want the session's uid once", started)
+	}
+	if got := ended(); !slices.Equal(got, []string{opStart}) {
+		t.Errorf("the worker's last request %q, want the start", got)
+	}
+}
+
+func TestAnAuthenticatedLoginThatLosesToAnotherIsEnded(t *testing.T) {
+	ended := recordSession(t)
+	conns := make(chan net.Conn)
+	results := make(chan greeted, 1)
+	go func() {
+		g, _ := testOptions().serveConns(context.Background(), conns, make(chan struct{}), testRequests())
+		results <- g
+	}()
+	connect := func() net.Conn {
+		server, client := net.Pipe()
+		t.Cleanup(func() { _ = client.Close() })
+		conns <- server
+		return client
+	}
+	loser, winner := connect(), connect()
+	authenticateOver(t, loser, "bob")
+	authenticateOver(t, winner, "alice")
+	if err := writeFrame(winner, map[string]any{"type": auth.GreetdStartSession, "cmd": []string{"Hyprland"}, "env": []string{}}); err != nil {
+		t.Fatal(err)
+	}
+	var resp map[string]any
+	if err := readFrame(winner, &resp); err != nil || resp["type"] != "success" {
+		t.Fatalf("start_session = %v, %v; want success", resp, err)
+	}
+	g := <-results
+	if g.login == nil || g.login.user != "alice" {
+		t.Fatalf("serveConns handed over %+v, want alice's login", g.login)
+	}
+	if got := ended(); !slices.Equal(got, []string{opCancel}) {
+		t.Errorf("the other authenticated worker's last request %q, want it cancelled", got)
+	}
+	finishLogin(t, g.login)
+}
+
+func TestWithTheFingerprintOffOnlyThePasswordLogsIn(t *testing.T) {
+	r := testRequests()
+	r.method = passwordLogin
+	for _, c := range []struct {
+		password string
+		ok       bool
+	}{{"pw", true}, {"wrong", false}} {
+		client, logins, errs := serveWith(t, r)
+		var prompts []auth.Prompt
+		g := auth.NewGreetd(client, auth.Start{Session: func() auth.Session { return auth.Session{Cmd: []string{"Hyprland"}} }})
+		err := g.Run("finger", func(p auth.Prompt) (string, bool) {
+			prompts = append(prompts, p)
+			if p.WantsInput() {
+				return c.password, true
+			}
+			return "", false
+		})
+		if len(prompts) != 1 || prompts[0].Kind != auth.PromptSecret {
+			t.Errorf("%s: prompts %+v, want the password prompt alone and no fingerprint reader", c.password, prompts)
+		}
+		if !c.ok {
+			if err == nil || !strings.Contains(err.Error(), "Authentication failure") {
+				t.Errorf("a wrong password with the fingerprint off = %v, want the refusal", err)
+			}
+			_ = client.Close()
+			if l := <-logins; l != nil {
+				t.Error("a wrong password with the fingerprint off handed over a session")
+			}
+			<-errs
+			continue
+		}
+		if err != nil {
+			t.Fatalf("the password with the fingerprint off: %v", err)
+		}
+		login := <-logins
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+		if started := finishLogin(t, login); !slices.Equal(started, []uint32{1000}) {
+			t.Errorf("started = %v, want the password's session", started)
+		}
+	}
+}
+
+func TestEachLoginMethodStartsItsWorker(t *testing.T) {
+	o := testOptions()
+	o.RuntimeDir = "/run/lys-login"
+	for _, c := range []struct {
+		method loginMethod
+		want   []string
+	}{
+		{passwordLogin, []string{"--service", "lys-login"}},
+		{passwordOrFingerprintLogin, []string{"--service", "lys-login", "--fingerprint-service", FingerprintService}},
+		{autoLogin, []string{"--service", AutologinService, "--autologin"}},
+	} {
+		got, err := o.sessionWorkerArgs(7, c.method)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := append([]string{"worker", "session", "--vt", "7", "--runtime-dir", "/run/lys-login"}, c.want...)
+		if !slices.Equal(got, want) {
+			t.Errorf("method %d: %q, want %q", c.method, got, want)
+		}
+	}
+	if _, err := o.sessionWorkerArgs(7, autoLogin+1); err == nil || !strings.Contains(err.Error(), "unknown login method") {
+		t.Errorf("an unknown method = %v, want refused", err)
+	}
+}
+
+func greeterConfigFile(t *testing.T, yaml string) Options {
+	t.Helper()
+	o := testOptions()
+	o.Greeter.ConfigPath = filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(o.Greeter.ConfigPath, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return o
+}
+
+func TestTheGreetersConfigChoosesTheLoginMethod(t *testing.T) {
+	for _, c := range []struct {
+		yaml string
+		want loginMethod
+	}{
+		{"login:\n  greeter:\n    show-user-list: false\n", passwordOrFingerprintLogin},
+		{"login:\n  greeter:\n    fingerprint: true\n", passwordOrFingerprintLogin},
+		{"login:\n  greeter:\n    fingerprint: false\n", passwordLogin},
+	} {
+		if got := greeterLoginMethod(greeterConfigFile(t, c.yaml).greeterConfig()); got != c.want {
+			t.Errorf("%q: method %d, want %d", c.yaml, got, c.want)
+		}
+	}
+}
+
+func TestAnInvalidFingerprintSettingIsAConfigErrorAndKeepsTheDefault(t *testing.T) {
+	o := greeterConfigFile(t, "login:\n  greeter:\n    fingerprint: maybe\n")
+	var diags []config.Diagnostic
+	cfg, err := config.LoadGreeter(o.Greeter.ConfigPath, func(d config.Diagnostic) { diags = append(diags, d) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diags) != 1 || diags[0].Kind != config.DiagnosticError || !strings.Contains(diags[0].Plain(), "login.greeter.fingerprint") {
+		t.Fatalf("diagnostics %+v, want one error naming the fingerprint key", diags)
+	}
+	if got := greeterLoginMethod(cfg.Login.Greeter); got != passwordOrFingerprintLogin {
+		t.Errorf("method %d after an invalid value, want the default", got)
 	}
 }
 

@@ -101,6 +101,11 @@ type LoginGreeterConfig struct {
 	// program on the PATH or an absolute path. Its row is hidden when it
 	// is not installed.
 	ScreenReader string `cfg:"screen-reader,type=Program"`
+	// Accept an enrolled fingerprint (fprintd) alongside the password:
+	// whichever comes first logs in. Turn it off to log in with the
+	// password alone, which also opens the login keyring. Nothing changes
+	// without fprintd or an enrolled finger.
+	Fingerprint bool `cfg:"fingerprint"`
 	// CursorThemeExplicit and CursorSizeExplicit record that a layer
 	// set the key: explicit values beat cursor auto-detection, schema
 	// defaults do not.
@@ -117,7 +122,7 @@ func DefaultsLogin() LoginConfig {
 		DateFormat:         mustStrftime("%A, %B %-d"),
 		ShowFailedAttempts: true,
 		Lock:               LoginLockConfig{Enabled: true, PamService: "system-auth", ShowMedia: true, ShowBattery: true, Fingerprint: true, ShowSwitchUser: true},
-		Greeter:            LoginGreeterConfig{ShowUserList: true, ShowPowerButtons: true, CursorSize: 24, ScreenReader: "orca"},
+		Greeter:            LoginGreeterConfig{ShowUserList: true, ShowPowerButtons: true, CursorSize: 24, ScreenReader: "orca", Fingerprint: true},
 	}
 }
 
@@ -177,7 +182,7 @@ var GreeterApplyKeys = []string{
 	"background-mode", "background-image", "background-color", "blur",
 	"show-clock", "clock-format", "date-format",
 	"greeter.show-user-list", "greeter.show-power-buttons",
-	"greeter.cursor-theme", "greeter.cursor-size",
+	"greeter.cursor-theme", "greeter.cursor-size", "greeter.fingerprint",
 }
 
 // Background is the background keys the lock screen and the greeter

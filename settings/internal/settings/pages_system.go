@@ -53,7 +53,7 @@ func greeterPage(*config.Config) pageSpec {
 		id: "greeter", navKey: "settings-nav-greeter-page", icon: "ld-monitor-symbolic",
 		header: "settings-page-greeter",
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons")},
+			{title: "settings-section-general", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint")},
 			{title: "settings-section-cursor", rows: fields("login.greeter.cursor-theme", "login.greeter.cursor-size")},
 		},
 		footer: greeterApplyFooter,
