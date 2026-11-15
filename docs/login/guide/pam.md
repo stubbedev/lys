@@ -30,9 +30,14 @@ login with logind. The workers set in the PAM environment:
 | `XDG_SEAT` | `seat0` |
 | `XDG_VTNR` | The session's VT |
 
-- **Debian, Ubuntu**: `common-auth`, `common-account`, `common-session`,
-  `common-password`.
-- **Fedora**: `password-auth` and `postlogin`.
+- **Debian, Ubuntu**: `pam_unix` for the password, then `common-account`,
+  `common-session` and `common-password`. The `auth` lines are written out
+  instead of including `common-auth`, which `pam-auth-update` gives
+  `pam_fprintd` once `libpam-fprintd` is installed (see
+  [Fingerprint](#fingerprint)). An account from LDAP, SSSD or Kerberos needs
+  its module's `auth` line added after `pam_unix`.
+- **Fedora**: `password-auth` and `postlogin`. authselect puts `pam_fprintd`
+  in `system-auth` and `fingerprint-auth`, never in `password-auth`.
 - **NixOS**: `security.pam.services.lys-login.startSession = true`, and
   `fprintAuth = false` (see [Fingerprint](#fingerprint)).
 
@@ -79,9 +84,13 @@ for the password field, as on the [lock screen](/login/guide/lock-screen#fingerp
 
 `pam_fprintd` must not be in `lys-login`: it blocks the password until it times
 out. The NixOS module turns it off there (`services.fprintd.enable` adds it to
-every service). On Debian, `common-auth` includes `pam_fprintd` when
-`libpam-fprintd` is installed; remove it with `pam-auth-update` or write the
-`auth` lines of `lys-login` out instead of including `common-auth`.
+every service). The Debian and Fedora services keep it out by not including
+`common-auth` or `system-auth`.
+
+`login.greeter.fingerprint: false` in the greeter's config turns the
+fingerprint off: the worker never asks fprintd, and the password alone logs in,
+which also opens the [keyring](#the-keyring). The lock screen keeps its own
+`login.lock.fingerprint`.
 
 No password is typed, so the [keyring](#the-keyring) gets the `cryptsetup` key
 from the kernel keyring, as [autologin](#autologin) does. Without one the keyring
