@@ -2,6 +2,8 @@ package bar
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"slices"
 	"strconv"
@@ -286,7 +288,7 @@ func audioDropdown(ctx ModuleContext) widget.Widget {
 	v.pickers[audioInput] = newDevicePicker(v, audioInput, i18n.T("dropdown-audio-input-devices"))
 	v.pages = pageStack()
 	pageSlide(v.pages, ctx.Config)
-	v.capture = newCaptureSection(ctx, font, px)
+	v.capture = newCaptureSection(ctx, font, px, func() { v.reads.request() })
 	mainPage := widget.NewBox(widget.Column, 2*widget.Current().Spacing, 0)
 	mainPage.Append(v.capture, false)
 	mainPage.Append(v.main, true)
@@ -479,36 +481,49 @@ func (s *volumeSection) toggleMute() {
 	})
 }
 
-// appVolume is one AppVolumeItem row.
-type appVolume struct {
-	key   pulse.StreamKey
-	name  string
-	icon  string
-	vol   pulse.Volume
-	muted bool
+type appStream struct {
+	key      pulse.StreamKey
+	channels int
 }
 
-// appVolumeRows filters the streams: no event streams, one row
-// per process, sorted by name.
+// appVolume is one AppVolumeItem row: every playback stream of one
+// process, shown at the first stream's volume and muted only when every
+// stream is.
+type appVolume struct {
+	streams []appStream
+	name    string
+	icon    string
+	vol     pulse.Volume
+	muted   bool
+}
+
+func (r appVolume) id() pulse.StreamKey { return r.streams[0].key }
+
+// appVolumeRows filters the streams: no event streams, one row per
+// process holding all of its streams, a row per stream without a
+// process, sorted by name.
 func appVolumeRows(streams []pulse.AudioStream, source config.AppIconSource, exists func(string) bool) []appVolume {
-	seen := map[uint32]bool{}
+	byPID := map[uint32]int{}
 	var rows []appVolume
 	for _, st := range streams {
 		if isEventStream(st.Properties) {
 			continue
 		}
+		member := appStream{key: st.Key, channels: st.Volume.Channels()}
+		if i, ok := byPID[st.PID]; ok {
+			rows[i].streams = append(rows[i].streams, member)
+			rows[i].muted = rows[i].muted && st.Muted
+			continue
+		}
 		if st.PID != 0 {
-			if seen[st.PID] {
-				continue
-			}
-			seen[st.PID] = true
+			byPID[st.PID] = len(rows)
 		}
 		rows = append(rows, appVolume{
-			key:   st.Key,
-			name:  appDisplayName(st.ApplicationName, st.Name),
-			icon:  resolveStreamIcon(st.Properties, source, exists),
-			vol:   st.Volume,
-			muted: st.Muted,
+			streams: []appStream{member},
+			name:    appDisplayName(st.ApplicationName, st.Name),
+			icon:    resolveStreamIcon(st.Properties, source, exists),
+			vol:     st.Volume,
+			muted:   st.Muted,
 		})
 	}
 	slices.SortStableFunc(rows, func(a, b appVolume) int { return strings.Compare(a.name, b.name) })
@@ -539,12 +554,12 @@ func newAppVolumes(v *audioView) *appVolumes {
 func (a *appVolumes) apply(streams []pulse.AudioStream) {
 	rows := appVolumeRows(streams, a.view.ctx.Config.Audio.DropdownAppIcons, widget.ThemeIconExists)
 	same := a.items != nil && slices.EqualFunc(rows, a.rows, func(x, y appVolume) bool {
-		return x.key == y.key && x.name == y.name && x.icon == y.icon
+		return slices.Equal(x.streams, y.streams) && x.name == y.name && x.icon == y.icon
 	})
 	a.rows = rows
 	if same {
 		for _, r := range rows {
-			a.items[r.key].apply(r)
+			a.items[r.id()].apply(r)
 		}
 		return
 	}
@@ -552,7 +567,7 @@ func (a *appVolumes) apply(streams []pulse.AudioStream) {
 	a.items = make(map[pulse.StreamKey]*appVolumeItem, len(rows))
 	for _, r := range rows {
 		item := newAppVolumeItem(a.view, r)
-		a.items[r.key] = item
+		a.items[r.id()] = item
 		a.list.Append(item)
 	}
 	if len(rows) == 0 {
@@ -625,20 +640,34 @@ func (it *appVolumeItem) sync() {
 	}
 }
 
-// volumeWrite is the stream write the slider runs
+// volumeWrite is the write of every stream of the row the slider runs
 // off the loop.
 func (it *appVolumeItem) volumeWrite(pct float64) func() {
-	key, volume := it.row.key, pulse.VolumeFromPercentage(pct, it.row.vol.Channels())
+	streams := it.row.streams
 	return it.view.call("set app volume", func(ctx context.Context, src pulse.Source) error {
-		return src.SetStreamVolume(ctx, key, volume)
+		return eachStream(streams, func(s appStream) error {
+			return src.SetStreamVolume(ctx, s.key, pulse.VolumeFromPercentage(pct, s.channels))
+		})
 	})
 }
 
 func (it *appVolumeItem) toggleMute() {
-	key, muted := it.row.key, !it.row.muted
+	streams, muted := it.row.streams, !it.row.muted
 	it.view.write("toggle app mute", func(ctx context.Context, src pulse.Source) error {
-		return src.SetStreamMute(ctx, key, muted)
+		return eachStream(streams, func(s appStream) error {
+			return src.SetStreamMute(ctx, s.key, muted)
+		})
 	})
+}
+
+func eachStream(streams []appStream, write func(appStream) error) error {
+	var errs []error
+	for _, s := range streams {
+		if err := write(s); err != nil {
+			errs = append(errs, fmt.Errorf("stream %d: %w", s.key.Index, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // devicePicker is the back button and title over one row

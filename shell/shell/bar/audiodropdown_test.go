@@ -2,6 +2,8 @@ package bar
 
 import (
 	"context"
+	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -127,23 +129,80 @@ func TestDeviceIcons(t *testing.T) {
 	}
 }
 
-func TestAppVolumeRowsFilterDedupeAndSort(t *testing.T) {
+func TestAppVolumeRowsFilterGroupAndSort(t *testing.T) {
 	streams := []pulse.AudioStream{
-		{Key: pulse.StreamKey{Index: 1}, ApplicationName: "zed", PID: 7},
+		{Key: pulse.StreamKey{Index: 1}, ApplicationName: "zed", PID: 7, Muted: true},
 		{Key: pulse.StreamKey{Index: 2}, ApplicationName: "zed", PID: 7},
 		{Key: pulse.StreamKey{Index: 3}, ApplicationName: "bell", Properties: map[string]string{paStreamRestoreID: paRoleEvent}},
 		{Key: pulse.StreamKey{Index: 4}, Name: "anon"},
 		{Key: pulse.StreamKey{Index: 5}, Name: "anon2"},
+		{Key: pulse.StreamKey{Index: 6}, ApplicationName: "zed", PID: 8, Muted: true},
 	}
 	rows := appVolumeRows(streams, config.AppIconSourceMapped, func(string) bool { return true })
-	var got []uint32
+	var got [][]uint32
+	var muted []bool
 	for _, r := range rows {
-		got = append(got, r.key.Index)
+		var keys []uint32
+		for _, s := range r.streams {
+			keys = append(keys, s.key.Index)
+		}
+		got = append(got, keys)
+		muted = append(muted, r.muted)
 	}
-	// No event stream, one row for PID 7, no-PID streams all kept,
-	// sorted by display name.
-	if want := []uint32{4, 5, 1}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
-		t.Errorf("rows = %v, want %v", got, want)
+	want := [][]uint32{{4}, {5}, {1, 2}, {6}}
+	if !slices.EqualFunc(got, want, slices.Equal[[]uint32]) {
+		t.Errorf("rows = %v, want no event stream, PID 7's two streams in one row, PID 8 its own row, the no-PID streams one row each", got)
+	}
+	if !slices.Equal(muted, []bool{false, false, false, true}) {
+		t.Errorf("muted = %v, want PID 7's row unmuted while one of its streams plays", muted)
+	}
+}
+
+func TestAnAppRowWritesEveryStreamOfItsProcess(t *testing.T) {
+	srv, svc := audioFixture(t)
+	second := playback(41, "firefox", 4242)
+	second.Volume = native.CVolume{native.VolumeNorm / 2, native.VolumeNorm / 2}
+	srv.PutSinkInput(second)
+	srv.PutSinkInput(playback(50, "mpv", 5151))
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Pulse = svc
+	v := audioDropdown(ctx).(*audioView)
+	defer v.dropdownClosed()
+
+	waitHeadless(t, "a row per process", func() bool { return len(v.apps.items) == 2 })
+	firefox := onHeadlessLoop(func() *appVolumeItem { return v.apps.items[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}] })
+	if firefox == nil {
+		t.Fatal("no row for firefox's first stream")
+	}
+	onHeadlessLoop(func() bool { firefox.mute.ClickAt(widget.Point{}); return true })
+	waitHeadless(t, "both firefox streams muted", func() bool {
+		a, _ := srv.SinkInput(40)
+		b, _ := srv.SinkInput(41)
+		return a.Mute && b.Mute
+	})
+	if st, _ := srv.SinkInput(50); st.Mute {
+		t.Error("muting firefox muted mpv, another process")
+	}
+
+	onHeadlessLoop(func() bool { firefox.slider.Knob.SetValue(20); return true })
+	waitHeadless(t, "both firefox streams at the new volume", func() bool {
+		a, _ := srv.SinkInput(40)
+		b, _ := srv.SinkInput(41)
+		return a.Volume[0] == b.Volume[0] && a.Volume[0] < native.VolumeNorm/2
+	})
+	if st, _ := srv.SinkInput(50); st.Volume[0] != native.VolumeNorm {
+		t.Errorf("mpv's volume %d, want it untouched by firefox's slider", st.Volume[0])
+	}
+}
+
+func playback(index uint32, app string, pid int) native.StreamInfo {
+	return native.StreamInfo{
+		Index: index, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: 1,
+		SampleSpec: pulsetest.StereoSpec(), ChannelMap: pulsetest.StereoMap(),
+		Volume:    native.CVolume{native.VolumeNorm, native.VolumeNorm},
+		Props:     native.PropList{"application.name": app, "application.process.id": strconv.Itoa(pid)},
+		HasVolume: true, VolumeWritable: true,
+		Format: native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}},
 	}
 }
 
@@ -158,14 +217,7 @@ func audioFixture(t *testing.T) (*pulsetest.Server, *pulse.Service) {
 	srv.PutSink(headset)
 	srv.PutSource(pulsetest.Source(2, "speakers.monitor", "Monitor of Speakers", 1, "speakers"))
 	srv.PutSource(pulsetest.Source(10, "mic", "Microphone", native.InvalidIndex, ""))
-	srv.PutSinkInput(native.StreamInfo{
-		Index: 40, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: 1,
-		SampleSpec: pulsetest.StereoSpec(), ChannelMap: pulsetest.StereoMap(),
-		Volume:    native.CVolume{native.VolumeNorm, native.VolumeNorm},
-		Props:     native.PropList{"application.name": "firefox", "application.process.id": "4242"},
-		HasVolume: true, VolumeWritable: true,
-		Format: native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}},
-	})
+	srv.PutSinkInput(playback(40, "firefox", 4242))
 	srv.SetDefaults("speakers", "mic")
 	svc, err := pulse.Connect(context.Background(), srv.Addr())
 	if err != nil {

@@ -11,7 +11,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/service/backgroundapps"
 )
@@ -70,6 +69,7 @@ type backgroundAppsView struct {
 	*widget.Box
 	pages *widget.Stack
 	list  *widget.ItemGroup
+	stops *stopButtons[backgroundapps.InstanceID]
 
 	*openFollow
 }
@@ -78,6 +78,7 @@ func backgroundAppsDropdown(ctx ModuleContext) widget.Widget {
 	font, px := dropdownFont(ctx)
 	v := &backgroundAppsView{ctx: ctx, src: ctx.BackgroundApps, font: font, px: px}
 	v.openFollow = newOpenFollow(ctx, v.follow)
+	v.stops = newStopButtons[backgroundapps.InstanceID](ctx, "background-apps", v.rebuild)
 	v.Box = widget.NewBox(widget.Column, 0, 0)
 	v.AddClass("dropdown", "background-apps-dropdown")
 	icon := ctx.Config.BackgroundApps.Icon
@@ -123,14 +124,12 @@ func (v *backgroundAppsView) row(a backgroundapps.App) *widget.Item {
 		icon = named
 	}
 	row.SetMedia(icon, false)
-	instance := a.Instance
-	stop := dropdownButton(widget.NewLabel(v.font, v.px, i18n.T("dropdown-background-apps-stop"), 0), func() {
-		v.ctx.Go(func() {
-			if err := v.src.Stop(context.Background(), instance); err != nil {
-				log.Printf("background-apps: %v", err)
-			}
-		})
-	}, "background-apps-stop", css.DestructiveAction, css.Small)
+	instance, name := a.Instance, a.Name
+	stop := v.stops.button(v.font, v.px, i18n.T("dropdown-background-apps-stop"), instance, "background-apps-stop",
+		func(err error) string {
+			return i18n.T("dropdown-background-apps-stop-failed", i18n.Str("app", name), i18n.Str("error", err.Error()))
+		},
+		func(ctx context.Context) error { return v.src.Stop(ctx, instance) })
 	row.AddAction(stop)
 	return row
 }

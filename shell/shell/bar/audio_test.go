@@ -8,8 +8,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/feed"
@@ -22,6 +24,7 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/service/privacy"
 	"github.com/stubbedev/lys/shell/service/screenshare"
@@ -479,10 +482,16 @@ func TestTheAudioDropdownListsWhatCapturesAndStopsAShare(t *testing.T) {
 	if src, _ := srv.Source(3); src.Mute {
 		t.Error("muting Firefox muted the microphone")
 	}
-	onHeadlessLoop(func() bool { actions[1].(*widget.Button).OnClick(); return true })
+	onHeadlessLoop(func() bool { actions[1].(*widget.Button).ClickAt(widget.Point{}); return true })
+	confirm := onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(v.capture, "audio-capture-confirm") })
+	if len(confirm) != 1 {
+		t.Fatalf("%d confirm buttons after End, want the camera row's", len(confirm))
+	}
+	onHeadlessLoop(func() bool { confirm[0].(*widget.Button).ClickAt(widget.Point{}); return true })
 	if !slices.Equal(signalled, []int{777}) {
 		t.Errorf("ended %v, want the camera's process", signalled)
 	}
+	actions = onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(v.capture, "audio-capture-action") })
 	onHeadlessLoop(func() bool { actions[2].(*widget.Button).OnClick(); return true })
 	waitHeadless(t, "the share stopped and its row gone", func() bool {
 		return !slices.Contains(labels(), "org.chromium.Chromium")
@@ -494,6 +503,254 @@ func TestTheAudioDropdownListsWhatCapturesAndStopsAShare(t *testing.T) {
 	srv.RemoveSourceOutput(42)
 	cams.set()
 	waitHeadless(t, "the capture section hidden", func() bool { return !v.capture.Visible() })
+}
+
+func cameraDropdown(t *testing.T, fail error) (*audioView, *fakeCameras, *[]syscall.Signal) {
+	t.Helper()
+	ctx, _, cams, _ := captureFixture(t)
+	v := onHeadlessLoop(func() *audioView { return audioDropdown(ctx).(*audioView) })
+	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
+	var signals []syscall.Signal
+	onHeadlessLoop(func() bool {
+		v.capture.signal = func(pid int, sig syscall.Signal) error {
+			if pid != 777 {
+				t.Errorf("signalled pid %d, want the camera's 777", pid)
+			}
+			signals = append(signals, sig)
+			return fail
+		}
+		return true
+	})
+	cams.set(privacy.CameraUser{PID: 777, Name: "zoom", Device: "/dev/video0"})
+	waitHeadless(t, "the camera listed", func() bool { return slices.Contains(treetest.Labels(v.capture), "zoom") })
+	return v, cams, &signals
+}
+
+func clickOnly(t *testing.T, root widget.Widget, class string) {
+	t.Helper()
+	found := onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(root, class) })
+	if len(found) != 1 {
+		t.Fatalf("%d widgets of class %s, want one", len(found), class)
+	}
+	onHeadlessLoop(func() bool { found[0].(*widget.Button).ClickAt(widget.Point{}); return true })
+}
+
+func countClass(root widget.Widget, class string) int {
+	return onHeadlessLoop(func() int { return len(treetest.WithClass(root, class)) })
+}
+
+func TestEndingACameraAsksInTheRowFirst(t *testing.T) {
+	v, cams, signals := cameraDropdown(t, nil)
+	clickOnly(t, v.capture, "audio-capture-action")
+	if len(*signals) != 0 {
+		t.Fatalf("End alone sent %v, want nothing before the row confirms", *signals)
+	}
+	ask := i18n.T("dropdown-privacy-end-confirm", i18n.Str("app", "zoom"))
+	if l := onHeadlessLoop(func() []string { return treetest.Labels(v.capture) }); !slices.Contains(l, ask) {
+		t.Errorf("labels %q, want the row asking %q", l, ask)
+	}
+
+	cams.set(privacy.CameraUser{PID: 777, Name: "zoom", Device: "/dev/video0"}, privacy.CameraUser{PID: 900, Name: "cheese", Device: "/dev/video1"})
+	waitHeadless(t, "the second camera listed", func() bool { return slices.Contains(treetest.Labels(v.capture), "cheese") })
+	if n := countClass(v.capture, "audio-capture-confirm"); n != 1 {
+		t.Fatalf("%d confirm buttons after a rebuild, want the asking row to keep asking", n)
+	}
+
+	clickOnly(t, v.capture, "audio-capture-cancel")
+	if len(*signals) != 0 {
+		t.Errorf("Cancel sent %v, want nothing", *signals)
+	}
+	if n := countClass(v.capture, "audio-capture-confirm"); n != 0 {
+		t.Errorf("%d confirm buttons after Cancel, want the row back to End", n)
+	}
+
+	onHeadlessLoop(func() bool {
+		treetest.WithClass(v.capture, "audio-capture-action")[0].(*widget.Button).ClickAt(widget.Point{})
+		return true
+	})
+	clickOnly(t, v.capture, "audio-capture-confirm")
+	if !slices.Equal(*signals, []syscall.Signal{syscall.SIGTERM}) {
+		t.Errorf("confirming sent %v, want one SIGTERM", *signals)
+	}
+	if n := countClass(v.capture, "audio-capture-confirm") + countClass(v.capture, "audio-capture-failed"); n != 0 {
+		t.Errorf("the row still asks or fails after a sent signal (%d)", n)
+	}
+}
+
+func TestAPromptEndsWithItsCamera(t *testing.T) {
+	v, cams, signals := cameraDropdown(t, nil)
+	clickOnly(t, v.capture, "audio-capture-action")
+	cams.set()
+	waitHeadless(t, "the camera gone", func() bool { return !v.capture.Visible() })
+	cams.set(privacy.CameraUser{PID: 777, Name: "zoom", Device: "/dev/video0"})
+	waitHeadless(t, "the camera back", func() bool { return slices.Contains(treetest.Labels(v.capture), "zoom") })
+	if n := countClass(v.capture, "audio-capture-confirm"); n != 0 {
+		t.Errorf("%d confirm buttons on a camera that came back, want the old prompt gone", n)
+	}
+	if len(*signals) != 0 {
+		t.Errorf("sent %v, want nothing", *signals)
+	}
+}
+
+func TestAFailedEndShowsInTheDropdown(t *testing.T) {
+	v, _, signals := cameraDropdown(t, syscall.EPERM)
+	clickOnly(t, v.capture, "audio-capture-action")
+	clickOnly(t, v.capture, "audio-capture-confirm")
+	if len(*signals) != 1 {
+		t.Fatalf("sent %v, want one signal", *signals)
+	}
+	want := i18n.T("dropdown-privacy-end-failed", i18n.Str("app", "zoom"), i18n.Str("error", syscall.EPERM.Error()))
+	if l := onHeadlessLoop(func() []string { return treetest.Labels(v.capture) }); !slices.Contains(l, want) {
+		t.Errorf("labels %q, want the failure %q", l, want)
+	}
+	if n := countClass(v.capture, "audio-capture-failed"); n != 1 {
+		t.Errorf("%d failed rows, want the camera's", n)
+	}
+	clickOnly(t, v.capture, "audio-capture-action")
+	if n := countClass(v.capture, "audio-capture-confirm"); n != 1 {
+		t.Errorf("%d confirm buttons after End on a failed row, want it to ask again", n)
+	}
+	if len(*signals) != 1 {
+		t.Errorf("End on a failed row sent %v, want no new signal before it confirms", *signals)
+	}
+}
+
+func TestOnlyEndAndStopAreDestructive(t *testing.T) {
+	ctx, srv, cams, shares := captureFixture(t)
+	v := onHeadlessLoop(func() *audioView { return audioDropdown(ctx).(*audioView) })
+	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	muted := recording(42, 3, "Firefox", 4343)
+	muted.Mute = true
+	srv.PutSourceOutput(muted)
+	cams.set(privacy.CameraUser{PID: 777, Name: "zoom", Device: "/dev/video0"})
+	shares.set(chromeShare)
+	waitHeadless(t, "every capture listed", func() bool { return len(treetest.WithClass(v.capture, "audio-capture-action")) == 3 })
+	destructive := onHeadlessLoop(func() []bool {
+		var out []bool
+		for _, b := range treetest.WithClass(v.capture, "audio-capture-action") {
+			out = append(out, widget.HasClass(b, css.DestructiveAction))
+		}
+		return out
+	})
+	if !slices.Equal(destructive, []bool{false, true, true}) {
+		t.Errorf("destructive (Unmute, End, Stop) = %v, want only End and Stop", destructive)
+	}
+}
+
+type stopGate struct {
+	calls     atomic.Int32
+	answers   chan error
+	deadlines chan time.Duration
+}
+
+func newStopGate() *stopGate {
+	return &stopGate{answers: make(chan error), deadlines: make(chan time.Duration, 8)}
+}
+
+func (g *stopGate) wait(ctx context.Context) error {
+	g.calls.Add(1)
+	if dl, ok := ctx.Deadline(); ok {
+		g.deadlines <- time.Until(dl)
+	} else {
+		g.deadlines <- -1
+	}
+	select {
+	case err := <-g.answers:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+type gatedShares struct {
+	shareSource
+	gate *stopGate
+}
+
+func (g gatedShares) Stop(ctx context.Context, session dbus.ObjectPath) error {
+	if err := g.gate.wait(ctx); err != nil {
+		return err
+	}
+	return g.shareSource.Stop(ctx, session)
+}
+
+type toasts struct {
+	mu     sync.Mutex
+	labels []string
+}
+
+func (r *toasts) record(label, _ string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.labels = append(r.labels, label)
+}
+
+func (r *toasts) list() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.labels)
+}
+
+func checkStopButton(t *testing.T, root widget.Widget, rebuild func(), class string, gate *stopGate, shown *toasts, failed, rowLabel string) {
+	t.Helper()
+	button := func() *widget.Button {
+		found := treetest.WithClass(root, class)
+		if len(found) != 1 {
+			t.Fatalf("%d widgets of class %s, want one", len(found), class)
+		}
+		return found[0].(*widget.Button)
+	}
+	clickOnly(t, root, class)
+	waitHeadless(t, "the stop started", func() bool { return gate.calls.Load() == 1 })
+	if d := <-gate.deadlines; d <= 0 || d > offLoopTimeout {
+		t.Errorf("the stop runs with %v left, want a deadline within %v", d, offLoopTimeout)
+	}
+	if onHeadlessLoop(func() bool { return widget.IsEnabled(button()) }) {
+		t.Error("the button is enabled while its stop runs")
+	}
+	onHeadlessLoop(func() bool { rebuild(); return true })
+	if onHeadlessLoop(func() bool { return widget.IsEnabled(button()) }) {
+		t.Error("the rebuilt button is enabled while its stop runs")
+	}
+	onHeadlessLoop(func() bool { button().ClickAt(widget.Point{}); return true })
+	if n := gate.calls.Load(); n != 1 {
+		t.Errorf("%d stops after a second click while pending, want one", n)
+	}
+	gate.answers <- errors.New("no reply")
+	waitHeadless(t, "the failure toasted", func() bool { return len(shown.list()) == 1 })
+	if got := shown.list(); got[0] != failed {
+		t.Errorf("toasted %q, want %q", got[0], failed)
+	}
+	waitHeadless(t, "the button enabled again", func() bool { return widget.IsEnabled(button()) })
+	if n := gate.calls.Load(); n != 1 {
+		t.Fatalf("%d stops once the first failed, want the click while pending to have started none", n)
+	}
+
+	clickOnly(t, root, class)
+	waitHeadless(t, "the second stop started", func() bool { return gate.calls.Load() == 2 })
+	<-gate.deadlines
+	gate.answers <- nil
+	waitHeadless(t, "the stopped row gone", func() bool { return !slices.Contains(treetest.Labels(root), rowLabel) })
+	if got := shown.list(); len(got) != 1 {
+		t.Errorf("toasts %q, want none for the success", got)
+	}
+}
+
+func TestAScreenShareStopIsPendingToastsAndRetries(t *testing.T) {
+	ctx, _, _, shares := captureFixture(t)
+	gate := newStopGate()
+	shown := &toasts{}
+	ctx.ScreenShares = gatedShares{shareSource: ctx.ScreenShares, gate: gate}
+	ctx.Toast = shown.record
+	v := onHeadlessLoop(func() *audioView { return audioDropdown(ctx).(*audioView) })
+	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	shares.set(chromeShare)
+	waitHeadless(t, "the share listed", func() bool { return slices.Contains(treetest.Labels(v.capture), "org.chromium.Chromium") })
+	failed := i18n.T("dropdown-screen-share-stop-failed", i18n.Str("app", "org.chromium.Chromium"), i18n.Str("error", "no reply"))
+	checkStopButton(t, v.capture, v.capture.render, "audio-capture-action", gate, shown, failed, "org.chromium.Chromium")
+	if got := shares.stoppedSessions(); !slices.Equal(got, []dbus.ObjectPath{chromeShare.Session}) {
+		t.Errorf("stopped %v, want the share once", got)
+	}
 }
 
 func TestShareDescriptions(t *testing.T) {

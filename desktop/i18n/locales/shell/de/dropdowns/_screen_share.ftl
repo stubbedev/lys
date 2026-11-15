@@ -7,3 +7,4 @@ dropdown-screen-share-output = Bildschirm { $name }
 dropdown-screen-share-window = Fenster „{ $title }“
 dropdown-screen-share-region = Teil von { $name }
 dropdown-screen-share-dynamic = Das Übertragungsziel
+dropdown-screen-share-stop-failed = Die Bildschirmfreigabe von { $app } konnte nicht beendet werden: { $error }

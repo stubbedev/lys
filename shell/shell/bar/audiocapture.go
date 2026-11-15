@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -78,8 +79,9 @@ func captureFeeds(ctx ModuleContext) []subscription {
 
 // captureSection is the audio dropdown's capture card: a row per app
 // recording the microphone, with a button that mutes that stream alone;
-// per process holding a camera, with a button that ends it; and per
-// screen share, with its Stop. Hidden while nothing captures.
+// per process holding a camera, with a button that ends it once the row
+// confirms; and per screen share, with its Stop. Hidden while nothing
+// captures.
 type captureSection struct {
 	*widget.Box
 	ctx  ModuleContext
@@ -88,10 +90,19 @@ type captureSection struct {
 	list *widget.ItemGroup
 	// signal ends a camera's process (syscall.Kill; a test seam).
 	signal func(pid int, sig syscall.Signal) error
+
+	last       captureState
+	prompt     *cameraPrompt
+	shareStops *stopButtons[dbus.ObjectPath]
 }
 
-func newCaptureSection(ctx ModuleContext, font render.Font, px float64) *captureSection {
-	c := &captureSection{ctx: ctx, font: font, px: px, signal: syscall.Kill}
+type cameraPrompt struct {
+	pid     int
+	failure error
+}
+
+func newCaptureSection(ctx ModuleContext, font render.Font, px float64, refresh func()) *captureSection {
+	c := &captureSection{ctx: ctx, font: font, px: px, signal: syscall.Kill, shareStops: newStopButtons[dbus.ObjectPath](ctx, "audio", refresh)}
 	card, list := itemCard()
 	card.AddClass("audio-capture-list")
 	c.list = list
@@ -101,8 +112,17 @@ func newCaptureSection(ctx ModuleContext, font render.Font, px float64) *capture
 	return c
 }
 
-// apply lists what captures now.
+// apply lists what captures now; a camera's prompt ends with its row.
 func (c *captureSection) apply(s captureState) {
+	c.last = s
+	if c.prompt != nil && !slices.ContainsFunc(s.cameras, func(cam privacy.CameraUser) bool { return cam.PID == c.prompt.pid }) {
+		c.prompt = nil
+	}
+	c.render()
+}
+
+func (c *captureSection) render() {
+	s := c.last
 	c.list.Clear()
 	c.SetVisible(!s.idle())
 	cfg := c.ctx.Config.Audio
@@ -112,43 +132,118 @@ func (c *captureSection) apply(s captureState) {
 		if muted {
 			label = "dropdown-privacy-unmute"
 		}
-		c.list.Append(c.row(u.Name, i18n.T("dropdown-privacy-mic", i18n.Str("source", u.Source)), cfg.MicIcon, i18n.T(label), func() {
+		row := c.row(u.Name, i18n.T("dropdown-privacy-mic", i18n.Str("source", u.Source)), cfg.MicIcon)
+		row.AddAction(c.button(i18n.T(label), func() {
 			c.ctx.Go(func() {
 				if err := c.ctx.Pulse.SetStreamMute(context.Background(), key, !muted); err != nil {
 					log.Printf("audio: mute %s: %v", u.Name, err)
 				}
 			})
-		}))
+		}, "audio-capture-action", css.Outline))
+		c.list.Append(row)
 	}
 	for _, cam := range s.cameras {
-		pid := cam.PID
-		c.list.Append(c.row(cam.Name, i18n.T("dropdown-privacy-camera", i18n.Str("device", cam.Device), i18n.Str("pid", strconv.Itoa(pid))), cfg.CaptureCameraIcon, i18n.T("dropdown-privacy-end"), func() {
-			if err := c.signal(pid, syscall.SIGTERM); err != nil {
-				log.Printf("audio: end %d: %v", pid, err)
-			}
-		}))
+		c.list.Append(c.cameraRow(cam, cfg.CaptureCameraIcon))
 	}
 	for _, sh := range s.shares {
-		session := sh.Session
-		c.list.Append(c.row(shareApp(sh), shareTargets(sh), cfg.CaptureScreenIcon, i18n.T("dropdown-screen-share-stop"), func() {
-			c.ctx.Go(func() {
-				if err := c.ctx.ScreenShares.Stop(context.Background(), session); err != nil {
-					log.Printf("audio: stop screen share %s: %v", session, err)
-				}
-			})
-		}))
+		session, app := sh.Session, shareApp(sh)
+		row := c.row(app, shareTargets(sh), cfg.CaptureScreenIcon)
+		row.AddAction(c.shareStops.button(c.font, c.px, i18n.T("dropdown-screen-share-stop"), session, "audio-capture-action",
+			func(err error) string {
+				return i18n.T("dropdown-screen-share-stop-failed", i18n.Str("app", app), i18n.Str("error", err.Error()))
+			},
+			func(ctx context.Context) error { return c.ctx.ScreenShares.Stop(ctx, session) }))
+		c.list.Append(row)
 	}
 }
 
-// row is one app: its name over what it uses, and its action.
-func (c *captureSection) row(title, subtitle, icon, action string, run func()) *widget.Item {
+func (c *captureSection) cameraRow(cam privacy.CameraUser, icon string) *widget.Item {
+	pid := cam.PID
+	ask := func() {
+		c.prompt = &cameraPrompt{pid: pid}
+		c.render()
+	}
+	if c.prompt == nil || c.prompt.pid != pid {
+		row := c.row(cam.Name, cameraUse(cam), icon)
+		row.AddAction(c.button(i18n.T("dropdown-privacy-end"), ask, "audio-capture-action", css.DestructiveAction))
+		return row
+	}
+	if err := c.prompt.failure; err != nil {
+		row := c.row(cam.Name, i18n.T("dropdown-privacy-end-failed", i18n.Str("app", cam.Name), i18n.Str("error", err.Error())), icon)
+		row.AddClass("audio-capture-failed", css.Error)
+		row.AddAction(c.button(i18n.T("dropdown-privacy-end"), ask, "audio-capture-action", css.DestructiveAction))
+		return row
+	}
+	row := c.row(cam.Name, i18n.T("dropdown-privacy-end-confirm", i18n.Str("app", cam.Name)), icon)
+	row.AddClass("audio-capture-confirming")
+	row.AddAction(c.button(i18n.T("dropdown-privacy-cancel"), func() {
+		c.prompt = nil
+		c.render()
+	}, "audio-capture-cancel", css.Outline))
+	row.AddAction(c.button(i18n.T("dropdown-privacy-end"), func() {
+		c.prompt = nil
+		if err := c.signal(pid, syscall.SIGTERM); err != nil {
+			log.Printf("audio: end %s (pid %d): %v", cam.Name, pid, err)
+			c.prompt = &cameraPrompt{pid: pid, failure: err}
+		}
+		c.render()
+	}, "audio-capture-confirm", css.DestructiveAction))
+	return row
+}
+
+func cameraUse(cam privacy.CameraUser) string {
+	return i18n.T("dropdown-privacy-camera", i18n.Str("device", cam.Device), i18n.Str("pid", strconv.Itoa(cam.PID)))
+}
+
+// row is one app: its name over what it uses.
+func (c *captureSection) row(title, subtitle, icon string) *widget.Item {
 	row := widget.NewItem(c.font, title, subtitle)
 	row.SetSmall(true)
 	row.SetEllipsize(true)
 	row.AddClass("audio-capture-row")
 	row.SetMedia(widget.NewThemeIcon(icon, itemIconPx), false)
-	row.AddAction(dropdownButton(widget.NewLabel(c.font, c.px, action, 0), run, "audio-capture-action", css.DestructiveAction, css.Small))
 	return row
+}
+
+func (c *captureSection) button(label string, run func(), classes ...string) *widget.Button {
+	return dropdownButton(widget.NewLabel(c.font, c.px, label, 0), run, append(classes, css.Small)...)
+}
+
+type stopButtons[K comparable] struct {
+	ctx     ModuleContext
+	module  string
+	pending map[K]struct{}
+	done    func()
+}
+
+func newStopButtons[K comparable](ctx ModuleContext, module string, done func()) *stopButtons[K] {
+	return &stopButtons[K]{ctx: ctx, module: module, pending: map[K]struct{}{}, done: done}
+}
+
+func (s *stopButtons[K]) button(font render.Font, px float64, label string, key K, class string, failed func(error) string, stop func(context.Context) error) *widget.Button {
+	b := dropdownButton(widget.NewLabel(font, px, label, 0), nil, class, css.DestructiveAction, css.Small)
+	_, running := s.pending[key]
+	b.SetEnabled(!running)
+	b.OnClick = func() {
+		s.pending[key] = struct{}{}
+		b.SetEnabled(false)
+		s.ctx.Go(func() {
+			life, cancel := context.WithTimeout(s.ctx.Life(), offLoopTimeout)
+			err := stop(life)
+			cancel()
+			s.ctx.Invoke(func() {
+				delete(s.pending, key)
+				if err != nil {
+					log.Printf("%s: %v", s.module, err)
+					if s.ctx.Toast != nil {
+						s.ctx.Toast(failed(err), "ld-alert-triangle-symbolic")
+					}
+				}
+				s.done()
+			})
+		})
+	}
+	return b
 }
 
 // shareApp names the app sharing: its id, or "An app" for one outside a

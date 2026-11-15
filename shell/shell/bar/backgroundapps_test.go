@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -30,13 +31,17 @@ type noMonitorMethods struct{}
 
 func (f *fakeMonitor) set(t *testing.T, apps ...map[string]dbus.Variant) {
 	t.Helper()
+	if err := f.publish(apps...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (f *fakeMonitor) publish(apps ...map[string]dbus.Variant) error {
 	f.mu.Lock()
 	f.apps = apps
 	f.mu.Unlock()
-	if err := f.conn.Emit(backgroundapps.Path, "org.freedesktop.DBus.Properties.PropertiesChanged", backgroundapps.Interface,
-		map[string]dbus.Variant{backgroundapps.Property: dbus.MakeVariant(apps)}, []string{}); err != nil {
-		t.Fatal(err)
-	}
+	return f.conn.Emit(backgroundapps.Path, "org.freedesktop.DBus.Properties.PropertiesChanged", backgroundapps.Interface,
+		map[string]dbus.Variant{backgroundapps.Property: dbus.MakeVariant(apps)}, []string{})
 }
 
 func backgroundApp(id, instance, message string) map[string]dbus.Variant {
@@ -162,10 +167,45 @@ func TestBackgroundAppsAreListedAndStopKillsTheInstance(t *testing.T) {
 	if len(stops) != 1 {
 		t.Fatalf("%d stop buttons, want one per app", len(stops))
 	}
-	onHeadlessLoop(func() bool { stops[0].(*widget.Button).OnClick(); return true })
+	onHeadlessLoop(func() bool { stops[0].(*widget.Button).ClickAt(widget.Point{}); return true })
 	waitHeadless(t, "the kill", func() bool { return len(rec.recorded()) == 1 })
 	if got := rec.recorded(); !slices.Equal(got, []string{"77"}) {
 		t.Errorf("Stop stopped %q, want instance 77", got)
+	}
+}
+
+type gatedApps struct {
+	*stopRecorder
+	gate    *stopGate
+	stopped func() error
+}
+
+func (g gatedApps) Stop(ctx context.Context, instance backgroundapps.InstanceID) error {
+	if err := g.gate.wait(ctx); err != nil {
+		return err
+	}
+	if err := g.stopRecorder.Stop(ctx, instance); err != nil {
+		return err
+	}
+	return g.stopped()
+}
+
+func TestABackgroundAppStopIsPendingToastsAndRetries(t *testing.T) {
+	f, rec, ctx := followBackgroundApps(t, true)
+	gate := newStopGate()
+	shown := &toasts{}
+	ctx.BackgroundApps = gatedApps{stopRecorder: rec, gate: gate, stopped: func() error { return f.publish() }}
+	ctx.Toast = shown.record
+	f.set(t, backgroundApp("org.gnome.Fractal", "1234", "Syncing messages"))
+	v := onHeadlessLoop(func() *backgroundAppsView {
+		return backgroundAppsDropdown(ctx).(*backgroundAppsView)
+	})
+	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	waitHeadless(t, "the app listed", func() bool { return slices.Contains(treetest.Labels(v), "Fractal") })
+	failed := i18n.T("dropdown-background-apps-stop-failed", i18n.Str("app", "Fractal"), i18n.Str("error", "no reply"))
+	checkStopButton(t, v, v.rebuild, "background-apps-stop", gate, shown, failed, "Fractal")
+	if got := rec.recorded(); !slices.Equal(got, []string{"1234"}) {
+		t.Errorf("stopped %q, want instance 1234 once", got)
 	}
 }
 
