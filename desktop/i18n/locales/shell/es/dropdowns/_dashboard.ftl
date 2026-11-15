@@ -54,3 +54,4 @@ dropdown-dashboard-cpu = CPU
 dropdown-dashboard-ram = RAM
 dropdown-dashboard-disk = Disco
 dropdown-dashboard-temp = Temp. CPU
+dropdown-dashboard-switch-player = Cambiar de reproductor

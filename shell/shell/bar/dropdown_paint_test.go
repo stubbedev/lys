@@ -223,7 +223,7 @@ func TestGlyphRingGlyphClearsTheTrack(t *testing.T) {
 func TestDropdownHeaderActionsKeepTheirHeight(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	sw := widget.NewSwitch(true)
-	scan := dropdownButton(widget.NewThemeIcon("tb-refresh-symbolic", 16), nil, css.Ghost, css.Icon)
+	scan := iconButton(widget.NewThemeIcon("tb-refresh-symbolic", 16), "Scan", nil, css.Ghost, css.Icon)
 	header := dropdownHeader(ctx.Font, "ld-bluetooth-symbolic", "Bluetooth", scan, sw)
 	ctx.Theme.Attach(header)
 	natural := widget.SizeWithinAsChild(sw, widget.Size{W: 400, H: 400})

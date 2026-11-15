@@ -69,9 +69,7 @@ func treemanDropdown(ctx ModuleContext) widget.Widget {
 	v.reads = newRefresher(ctx, v.life, v.read, v.apply)
 	v.Box = widget.NewBox(widget.Column, 0, 0)
 	v.AddClass("dropdown", "treeman-dropdown")
-	backIcon := widget.NewThemeIcon("ld-arrow-left-symbolic", int(px))
-	v.back = dropdownButton(backIcon, func() { v.openDetail("") }, css.Ghost, css.Icon)
-	v.back.SetTooltip(i18n.T("dropdown-treeman-back"))
+	v.back = iconButton(widget.NewThemeIcon("ld-arrow-left-symbolic", int(px)), i18n.T("dropdown-treeman-back"), func() { v.openDetail("") }, css.Ghost, css.Icon)
 	header, _, title := dropdownHeaderParts(font, ctx.Config.Treeman.IconName, i18n.T("dropdown-treeman-title"), v.back)
 	v.title = title
 	v.Append(header, false)
@@ -269,7 +267,7 @@ func (v *treemanView) worktreeRow(wt treeman.Worktree) widget.Widget {
 	}
 	path := wt.Path
 	cluster := v.actions(path)
-	cluster.InsertAt(0, v.ghostIcon("ld-info-symbolic", i18n.T("dropdown-treeman-action-info"), func() { v.openDetail(path) }), false)
+	cluster.InsertAt(0, ghostIconButton("ld-info-symbolic", itemIconPx, i18n.T("dropdown-treeman-action-info"), func() { v.openDetail(path) }), false)
 	slot := widget.NewStack()
 	slot.SetTransition(widget.StackCrossfade, hoverTransition)
 	slot.Add("state", atEnd(state))
@@ -279,24 +277,16 @@ func (v *treemanView) worktreeRow(wt treeman.Worktree) widget.Widget {
 	return newRevealSlot(row, slot, "state", "actions")
 }
 
-func (v *treemanView) ghostIcon(icon, tooltip string, onClick func()) *widget.Button {
-	glyph := widget.NewThemeIcon(icon, itemIconPx)
-	b := dropdownButton(glyph, onClick, css.Ghost, css.Icon, css.Small)
-	b.SetTooltip(tooltip)
-	b.SetAccessibleName(tooltip)
-	return b
-}
-
 // actions are the row's buttons: prepare, then reset and teardown,
 // both confirmed.
 func (v *treemanView) actions(path string) *widget.Box {
 	row := widget.NewBox(widget.Row, widget.Current().Spacing/2, 0)
 	row.AddClass("treeman-actions")
-	row.Append(v.ghostIcon("ld-refresh-cw-symbolic", i18n.T("dropdown-treeman-action-prepare"),
+	row.Append(ghostIconButton("ld-refresh-cw-symbolic", itemIconPx, i18n.T("dropdown-treeman-action-prepare"),
 		func() { v.run(treeman.ActionPrepare, path) }), false)
-	row.Append(v.ghostIcon("ld-rotate-ccw-symbolic", i18n.T("dropdown-treeman-action-reset"),
+	row.Append(ghostIconButton("ld-rotate-ccw-symbolic", itemIconPx, i18n.T("dropdown-treeman-action-reset"),
 		func() { v.confirmReset(path) }), false)
-	row.Append(v.ghostIcon("ld-trash-2-symbolic", i18n.T("dropdown-treeman-action-teardown"),
+	row.Append(ghostIconButton("ld-trash-2-symbolic", itemIconPx, i18n.T("dropdown-treeman-action-teardown"),
 		func() { v.confirmTeardown(path) }), false)
 	return row
 }

@@ -53,6 +53,8 @@ type fakeWifiCtl struct {
 	connectFn func(progress func(network.DeviceState)) error
 	forgotten []string
 	forgetErr error
+	enableErr error
+	disconErr error
 	enabled   []bool
 	disconn   int
 }
@@ -123,8 +125,9 @@ func (f *fakeWifiCtl) hiddenJoins() []fakeHiddenJoin {
 func (f *fakeWifiCtl) Disconnect(context.Context) error {
 	f.mu.Lock()
 	f.disconn++
+	err := f.disconErr
 	f.mu.Unlock()
-	return nil
+	return err
 }
 
 func (f *fakeWifiCtl) Forget(_ context.Context, ssid string) error {
@@ -137,8 +140,9 @@ func (f *fakeWifiCtl) Forget(_ context.Context, ssid string) error {
 func (f *fakeWifiCtl) SetEnabled(_ context.Context, on bool) error {
 	f.mu.Lock()
 	f.enabled = append(f.enabled, on)
+	err := f.enableErr
 	f.mu.Unlock()
-	return nil
+	return err
 }
 
 func (f *fakeWifiCtl) setAPs(aps ...network.AccessPoint) {
@@ -1059,5 +1063,104 @@ func TestNetworkHiddenFormJoinsASavedNetworkWithoutAPassword(t *testing.T) {
 	waitHeadless(t, "the join", func() bool { return len(wifi.hiddenJoins()) == 1 })
 	if j := wifi.hiddenJoins()[0]; j.net.Name() != "lab" || j.password != "" {
 		t.Errorf("joined %q with %q, want lab by its saved profile", j.net.Name(), j.password)
+	}
+}
+
+// The password form connects only with a password: Connect stays
+// disabled while the box is empty, and Enter on an empty box says why
+// instead of joining.
+func TestNetworkPasswordFormRefusesAnEmptyPassword(t *testing.T) {
+	wifi := &fakeWifiCtl{aps: []network.AccessPoint{netAP("home", 80, network.SecurityWPA2, "/ap/1")}}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, HasWifi: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	onHeadlessLoop(func() bool {
+		v.selectNetwork("home")
+		if v.state != netPasswordEntry || widget.IsEnabled(v.password.connectBtn) {
+			t.Errorf("an empty form: state %d, Connect enabled %v; want the form with Connect disabled", v.state, widget.IsEnabled(v.password.connectBtn))
+		}
+		v.password.secret.entry.OnActivate("")
+		if v.state != netPasswordEntry || !v.password.errLabel.Visible() || v.password.errLabel.Text() != i18n.T("dropdown-network-hidden-error-password") {
+			t.Errorf("Enter on an empty box: state %d, error %q; want the form asking for the password", v.state, v.password.errLabel.Text())
+		}
+		v.password.secret.entry.SetText("hunter2")
+		if !widget.IsEnabled(v.password.connectBtn) {
+			t.Error("a typed password leaves Connect disabled")
+		}
+		v.password.secret.entry.SetText("")
+		if widget.IsEnabled(v.password.connectBtn) {
+			t.Error("an emptied box leaves Connect enabled")
+		}
+		return true
+	})
+	if c, _, _, _, _ := wifi.calls(); len(c) != 0 {
+		t.Errorf("an empty password joined: %+v", c)
+	}
+}
+
+// While a connection is under way the network rows and the hidden
+// network row take no clicks; once it settles they do again.
+func TestNetworkRowsTakeNoClicksWhileConnecting(t *testing.T) {
+	release := make(chan struct{})
+	wifi := &fakeWifiCtl{aps: []network.AccessPoint{
+		netAP("cafe", 60, network.SecurityNone, "/ap/2"),
+		netAP("library", 50, network.SecurityNone, "/ap/3"),
+	}}
+	wifi.connectFn = func(func(network.DeviceState)) error {
+		<-release
+		return nil
+	}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, HasWifi: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	enabled := func() (list, hidden bool) {
+		onHeadlessLoop(func() bool {
+			list, hidden = widget.IsEnabled(v.listCard), widget.IsEnabled(v.hiddenCard)
+			return true
+		})
+		return list, hidden
+	}
+	if list, hidden := enabled(); !list || !hidden {
+		t.Fatalf("before any connection: list %v, hidden row %v; want both taking clicks", list, hidden)
+	}
+	onHeadlessLoop(func() bool { v.selectNetwork("cafe"); return true })
+	if onHeadlessLoop(func() bool { return v.state != netConnecting }) {
+		t.Fatal("selecting cafe did not start connecting")
+	}
+	if list, hidden := enabled(); list || hidden {
+		t.Errorf("connecting: list %v, hidden row %v; want neither taking clicks", list, hidden)
+	}
+	close(release)
+	waitHeadless(t, "the connection to settle", func() bool { return v.state == netNormal })
+	if list, hidden := enabled(); !list || !hidden {
+		t.Errorf("settled: list %v, hidden row %v; want both taking clicks again", list, hidden)
+	}
+	if c, _, _, _, _ := wifi.calls(); len(c) != 1 || c[0].path != "/ap/2" {
+		t.Errorf("connects = %+v, want the one to cafe", c)
+	}
+}
+
+// A refused WiFi switch and a refused disconnect say why over the list,
+// instead of reaching only the log; the next action that goes through
+// clears it.
+func TestNetworkRefusedSwitchAndDisconnectShowWhy(t *testing.T) {
+	wifi := &fakeWifiCtl{known: map[string]bool{"home": true}, enableErr: errors.New("rfkill blocked"), disconErr: errors.New("busy")}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, HasWifi: true, Wifi: network.StatusConnected, WifiSSID: "home"}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	onHeadlessLoop(func() bool { v.wifiToggled(false); return true })
+	waitHeadless(t, "the refused switch", v.actionErr.Visible)
+	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not turn WiFi off: rfkill blocked" {
+		t.Errorf("a refused switch says %q", got)
+	}
+	settleNetReads(t, v)
+	onHeadlessLoop(func() bool { v.active.disconnect(); return true })
+	waitHeadless(t, "the refused disconnect", func() bool { return plain(v.actionErr.Text()) == "Could not disconnect from home: busy" })
+	wifi.mu.Lock()
+	wifi.enableErr = nil
+	wifi.mu.Unlock()
+	settleNetReads(t, v)
+	onHeadlessLoop(func() bool { v.wifiToggled(true); return true })
+	waitHeadless(t, "the switch that goes through", func() bool { _, _, on, _, _ := wifi.calls(); return len(on) == 2 })
+	settleNetReads(t, v)
+	if onHeadlessLoop(v.actionErr.Visible) {
+		t.Errorf("a switch that went through left %q", onHeadlessLoop(v.actionErr.Text))
 	}
 }

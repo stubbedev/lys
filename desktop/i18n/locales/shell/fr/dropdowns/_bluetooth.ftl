@@ -169,3 +169,4 @@ dropdown-bluetooth-error-scan = Impossible de rechercher des appareils : { $erro
 ## Oublier un appareil
 dropdown-bluetooth-forget-confirm = Oublier { $name } ?
 dropdown-bluetooth-forget-confirm-detail = Le jumelage sera supprimé. Pour utiliser à nouveau l'appareil, jumelez-le de nouveau.
+dropdown-bluetooth-scan = Rechercher des appareils

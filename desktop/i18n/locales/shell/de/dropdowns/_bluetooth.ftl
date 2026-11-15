@@ -159,3 +159,4 @@ dropdown-bluetooth-error-scan = Die Gerätesuche konnte nicht gestartet werden: 
 ## Ein Gerät vergessen
 dropdown-bluetooth-forget-confirm = { $name } vergessen?
 dropdown-bluetooth-forget-confirm-detail = Die Kopplung wird entfernt. Um das Gerät wieder zu verwenden, koppeln Sie es erneut.
+dropdown-bluetooth-scan = Nach Geräten suchen

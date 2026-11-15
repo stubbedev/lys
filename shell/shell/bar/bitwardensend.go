@@ -145,7 +145,7 @@ func (v *bitwardenView) listSends(sends []vault.Send) {
 		row.SetSmall(true)
 		row.SetEllipsize(true)
 		row.SetMedia(widget.NewThemeIcon(bwSendIcon(s.Type), int(v.px*1.2)), false)
-		row.AddAction(v.iconButton("ld-trash-2-symbolic", i18n.T("dropdown-bitwarden-send-delete", i18n.Str("name", bwSendName(s))), func() { v.deleteSend(s.ID) }))
+		row.AddAction(ghostIconButton("ld-trash-2-symbolic", int(v.px), i18n.T("dropdown-bitwarden-send-delete", i18n.Str("name", bwSendName(s))), func() { v.deleteSend(s.ID) }))
 		v.sendList.Append(row)
 	}
 	if len(sends) == 0 {

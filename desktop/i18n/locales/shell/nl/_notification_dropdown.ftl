@@ -24,3 +24,5 @@ notification-source-recorder = Schermrecorder
 notification-source-bluetooth = Bluetooth
 notification-source-mail = E-mail
 notification-source-system = Systeem
+notification-dropdown-item-dismiss = Sluiten
+notification-dropdown-time-days-ago = { $days } d geleden

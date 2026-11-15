@@ -33,14 +33,17 @@ import (
 )
 
 func TestNotifTimeLabel(t *testing.T) {
-	if got := notifTimeLabel(notifyui.Age{}); got != i18n.T("notification-dropdown-time-just-now") {
+	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeJustNow}); got != i18n.T("notification-dropdown-time-just-now") {
 		t.Errorf("just now = %q", got)
 	}
-	if got := notifTimeLabel(notifyui.Age{Minutes: 5}); got != i18n.T("notification-dropdown-time-minutes-ago", i18n.Str("minutes", "5")) {
+	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeMinutes, Count: 5}); got != i18n.T("notification-dropdown-time-minutes-ago", i18n.Str("minutes", "5")) {
 		t.Errorf("minutes = %q", got)
 	}
-	if got := notifTimeLabel(notifyui.Age{Hours: 3}); got != i18n.T("notification-dropdown-time-hours-ago", i18n.Str("hours", "3")) {
+	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeHours, Count: 3}); got != i18n.T("notification-dropdown-time-hours-ago", i18n.Str("hours", "3")) {
 		t.Errorf("hours = %q", got)
+	}
+	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeDays, Count: 12}); got != i18n.T("notification-dropdown-time-days-ago", i18n.Str("days", "12")) {
+		t.Errorf("days = %q", got)
 	}
 }
 

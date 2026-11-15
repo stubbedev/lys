@@ -12,3 +12,7 @@ dropdown-audio-no-devices-description = Nessun dispositivo audio di uscita o di 
 dropdown-audio-no-apps = Nessuna applicazione sta riproducendo audio
 dropdown-audio-settings = Impostazioni audio
 dropdown-audio-capture = Acquisizione in corso
+dropdown-audio-mute = Disattiva audio
+dropdown-audio-unmute = Riattiva audio
+dropdown-audio-back = Indietro
+dropdown-audio-write-failed = Impossibile modificare l'audio

@@ -23,7 +23,7 @@ type netHiddenForm struct {
 
 func newNetHiddenForm(v *networkView) *netHiddenForm {
 	f := &netHiddenForm{v: v}
-	f.formCard = newFormCard(v.font, v.px, "ld-wifi-symbolic", f.cancel, "network-password-card", "network-hidden-card")
+	f.formCard = newFormCard(v.font, v.px, "ld-wifi-symbolic", i18n.T("dropdown-network-cancel"), f.cancel, "network-password-card", "network-hidden-card")
 	f.head.SetTitle(i18n.T("dropdown-network-hidden-title"))
 	f.name = widget.NewEntry(v.font, v.px, 0)
 	f.name.AddClass("network-hidden-name")

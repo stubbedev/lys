@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -27,6 +26,7 @@ type fakeVPN struct {
 	entries  []network.VPN
 	settings map[string]network.ConnectionDict
 	writeErr error
+	toggErr  error
 	toggled  []string
 	added    []fakeVPNWrite
 	updated  []fakeVPNWrite
@@ -47,8 +47,9 @@ func (f *fakeVPN) Entries() []network.VPN {
 func (f *fakeVPN) Toggle(_ context.Context, uuid string) error {
 	f.mu.Lock()
 	f.toggled = append(f.toggled, uuid)
+	err := f.toggErr
 	f.mu.Unlock()
-	return nil
+	return err
 }
 
 func (f *fakeVPN) Add(_ context.Context, kind, name string, values map[string]string) error {
@@ -505,14 +506,16 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 		t.Errorf("saved as %q, not its own kind", u[1].kind)
 	}
 
-	// An unreadable profile never opens the editor, and nothing appears
-	// in the list: the reason is the log's.
+	// An unreadable profile never opens the editor, and says why over
+	// the list.
 	v.vpnCloseForm()
 	v.vpnEdit("missing")
-	time.Sleep(50 * time.Millisecond)
-	onHeadlessLoop(func() bool { return true })
+	waitHeadless(t, "the unreadable profile's reason", v.actionErr.Visible)
 	if v.body.Visible() != netPageBrowse {
 		t.Error("an unreadable profile opened the editor")
+	}
+	if got := onHeadlessLoop(v.actionErr.Text); !strings.HasPrefix(plain(got), "Could not read missing: ") {
+		t.Errorf("the unreadable profile says %q", got)
 	}
 }
 
@@ -575,13 +578,16 @@ func TestVPNFormWireGuard(t *testing.T) {
 	if f.errLabel.Text() != i18n.T("dropdown-network-vpn-import-failed") || f.name.Text() != "Mine" {
 		t.Errorf("bad file: %q name %q", f.errLabel.Text(), f.name.Text())
 	}
-	// Dismissing the chooser is no failure, nor is a portal error one
-	// the form can explain.
+	// Dismissing the chooser is no failure; a chooser that cannot open
+	// says why instead of leaving the click without an answer.
 	f.setError("")
 	f.importDone("", fmt.Errorf("open: %w", portal.ErrCancelled))
-	f.importDone("", errors.New("no portal"))
 	if f.errLabel.Visible() || f.name.Text() != "Mine" {
 		t.Error("a dismissed chooser reported a failure")
+	}
+	f.importDone("", errors.New("no portal"))
+	if !f.errLabel.Visible() || plain(f.errLabel.Text()) != "Could not open a file: no portal" || f.name.Text() != "Mine" {
+		t.Errorf("a chooser that cannot open: error %v %q, name %q", f.errLabel.Visible(), f.errLabel.Text(), f.name.Text())
 	}
 }
 
@@ -613,4 +619,22 @@ func TestVPNListKeepsItsRowsWhenNothingChanged(t *testing.T) {
 	if after[1] != before[1] {
 		t.Error("the add row was replaced")
 	}
+}
+
+// A refused VPN toggle says why over the list, naming the profile; one
+// that goes through says nothing.
+func TestVPNRefusedToggleShowsWhy(t *testing.T) {
+	vpn := &fakeVPN{entries: []network.VPN{{UUID: "u1", Name: "Work", State: network.VPNDisconnected}}, toggErr: errors.New("no secrets")}
+	v, _ := newVPNTestView(t, vpn, nil)
+	v.apply(v.read(context.Background()))
+	onHeadlessLoop(func() bool { v.vpnToggle("u1"); return true })
+	waitHeadless(t, "the refusal", v.actionErr.Visible)
+	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not switch Work: no secrets" {
+		t.Errorf("a refused toggle says %q", got)
+	}
+	vpn.mu.Lock()
+	vpn.toggErr = nil
+	vpn.mu.Unlock()
+	onHeadlessLoop(func() bool { v.vpnToggle("u1"); return true })
+	waitHeadless(t, "the second toggle", func() bool { _, _, _, tg := vpn.writes(); return len(tg) == 2 && !v.actionErr.Visible() })
 }

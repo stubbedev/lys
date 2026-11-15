@@ -12,3 +12,7 @@ dropdown-audio-no-devices-description = No se han encontrado dispositivos de ent
 dropdown-audio-no-apps = Ninguna aplicación está reproduciendo audio
 dropdown-audio-settings = Configuración de audio
 dropdown-audio-capture = Capturando
+dropdown-audio-mute = Silenciar
+dropdown-audio-unmute = Activar sonido
+dropdown-audio-back = Atrás
+dropdown-audio-write-failed = No se pudo cambiar el audio

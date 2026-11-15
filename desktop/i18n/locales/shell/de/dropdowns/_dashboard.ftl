@@ -54,3 +54,4 @@ dropdown-dashboard-cpu = CPU
 dropdown-dashboard-ram = RAM
 dropdown-dashboard-disk = Datenträger
 dropdown-dashboard-temp = CPU-Temperatur
+dropdown-dashboard-switch-player = Player wechseln

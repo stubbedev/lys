@@ -143,3 +143,4 @@ dropdown-bluetooth-error-scan = Kan niet naar apparaten zoeken: { $error }
 ## Een apparaat vergeten
 dropdown-bluetooth-forget-confirm = { $name } vergeten?
 dropdown-bluetooth-forget-confirm-detail = De koppeling wordt verwijderd. Koppel het apparaat opnieuw om het weer te gebruiken.
+dropdown-bluetooth-scan = Zoeken naar apparaten

@@ -26,3 +26,5 @@ notification-source-recorder = Enregistreur d'écran
 notification-source-bluetooth = Bluetooth
 notification-source-mail = Courrier
 notification-source-system = Système
+notification-dropdown-item-dismiss = Ignorer
+notification-dropdown-time-days-ago = Il y a { $days } j

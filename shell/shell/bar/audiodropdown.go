@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"slices"
 	"strconv"
 	"strings"
@@ -255,6 +254,7 @@ type audioView struct {
 	output, input *volumeSection
 	apps          *appVolumes
 	pickers       [2]*devicePicker
+	failed        *widget.Alert
 
 	*openFollow
 	reads *refresher[audioState]
@@ -297,6 +297,8 @@ func audioDropdown(ctx ModuleContext) widget.Widget {
 	v.pages.Add("input", v.pickers[audioInput])
 	v.pages.Show("main")
 	page := dropdownContent()
+	v.failed = writeAlert(font, "audio-failed")
+	page.Append(v.failed, false)
 	page.Append(v.pages, true)
 	v.Append(page, true)
 
@@ -342,17 +344,20 @@ func (v *audioView) write(what string, fn func(context.Context, pulse.Source) er
 	}
 }
 
-// call is fn against the audio source as one blocking write, its
-// failure logged; nil without a source.
+// call is fn against the audio source as one blocking write under the
+// module's write bound, its failure shown over the pages until a write
+// goes through; nil without a source.
 func (v *audioView) call(what string, fn func(context.Context, pulse.Source) error) func() {
 	src := v.ctx.Pulse
 	if src == nil {
 		return nil
 	}
 	return func() {
-		if err := fn(context.Background(), src); err != nil {
-			log.Printf("audio: %s: %v", what, err)
+		err := boundedWrite(v.ctx, func(ctx context.Context) error { return fn(ctx, src) })
+		if err != nil {
+			err = fmt.Errorf("%s: %w", what, err)
 		}
+		v.ctx.Invoke(func() { reportWrite(v.failed, "audio", i18n.T("dropdown-audio-write-failed"), err) })
 	}
 }
 
@@ -401,7 +406,7 @@ func newVolumeSection(v *audioView, kind audioKind) *volumeSection {
 	s.item.SetMedia(s.icon, false)
 	s.item.SetOnActivate(func() { v.showPage(page) })
 	s.muteIcon = widget.NewThemeIcon("", itemIconPx)
-	s.mute = dropdownButton(s.muteIcon, s.toggleMute, "audio-mute-btn", css.Ghost, css.Icon, css.Small)
+	s.mute = iconButton(s.muteIcon, audioMuteLabel(false), s.toggleMute, "audio-mute-btn", css.Ghost, css.Icon, css.Small)
 	s.item.AddAction(s.mute)
 	s.item.AddAction(widget.NewThemeIcon("ld-chevron-right-symbolic", itemIconPx))
 	s.Append(s.item, false)
@@ -450,8 +455,17 @@ func (s *volumeSection) setMuted(muted bool) {
 	s.syncMuteIcon()
 }
 
+// audioMuteLabel names a mute button by what a click does.
+func audioMuteLabel(muted bool) string {
+	if muted {
+		return i18n.T("dropdown-audio-unmute")
+	}
+	return i18n.T("dropdown-audio-mute")
+}
+
 func (s *volumeSection) syncMuteIcon() {
 	muted := s.device != nil && s.device.muted
+	s.mute.SetTooltip(audioMuteLabel(muted))
 	if s.kind == audioInput {
 		s.muteIcon.SetThemeName(audioInputIcon(muted))
 		return
@@ -605,7 +619,7 @@ func newAppVolumeItem(v *audioView, r appVolume) *appVolumeItem {
 	it.value.AddClass("audio-app-value", css.DimLabel, css.Numeric)
 	it.item.AddAction(it.value)
 	it.muteIcon = widget.NewThemeIcon("", itemIconPx)
-	it.mute = dropdownButton(it.muteIcon, it.toggleMute, "audio-mute-btn", css.Ghost, css.Icon, css.Small)
+	it.mute = iconButton(it.muteIcon, audioMuteLabel(false), it.toggleMute, "audio-mute-btn", css.Ghost, css.Icon, css.Small)
 	it.item.AddAction(it.mute)
 	it.Append(it.item, false)
 
@@ -631,6 +645,7 @@ func (it *appVolumeItem) sync() {
 	pct := it.slider.Value()
 	it.value.SetText(strconv.FormatFloat(pct, 'f', 0, 64) + "%")
 	it.muteIcon.SetThemeName(audioVolumeIcon(pct, it.row.muted))
+	it.mute.SetTooltip(audioMuteLabel(it.row.muted))
 	if it.row.muted {
 		it.AddClass("audio-muted")
 		it.mute.AddClass("muted")
@@ -691,7 +706,7 @@ func newDevicePicker(v *audioView, kind audioKind, title string) *devicePicker {
 	header := widget.NewBox(widget.Row, th.Spacing, 0)
 	header.AddClass("picker-header")
 	back := widget.NewThemeIcon("ld-arrow-left-symbolic", int(v.px))
-	backBtn := dropdownButton(back, func() { v.showPage("main") }, "picker-back", css.Ghost, css.Icon, css.Small)
+	backBtn := iconButton(back, i18n.T("dropdown-audio-back"), func() { v.showPage("main") }, "picker-back", css.Ghost, css.Icon, css.Small)
 	header.AppendAligned(backBtn, false, widget.AlignCenter)
 	titleLabel := widget.NewLabel(v.font, v.px, title, 0)
 	titleLabel.AddClass("picker-title", css.Heading)

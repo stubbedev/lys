@@ -329,7 +329,7 @@ func (v *recorderView) controls() widget.Widget {
 	}, "recorder-record-button")
 	row.Append(v.record, true)
 	v.pauseIcon = widget.NewThemeIcon("ld-pause-symbolic", int(v.px))
-	v.pause = dropdownButton(v.pauseIcon, func() {
+	v.pause = iconButton(v.pauseIcon, i18n.T("dropdown-recorder-pause"), func() {
 		if r := v.ctx.Recorder; r != nil {
 			r.SetPaused(!r.Snapshot().Paused)
 		}
@@ -373,7 +373,7 @@ func (v *recorderView) row(title string) *widget.Item {
 // switchRow is a labeled switch writing a boolean config key.
 func (v *recorderView) switchRow(title string, on bool, path string) *widget.Item {
 	r := v.row(title)
-	sw := widget.NewSwitch(on)
+	sw := namedSwitch(title, on)
 	sw.OnChanged = func(on bool) {
 		if v.reverting {
 			return

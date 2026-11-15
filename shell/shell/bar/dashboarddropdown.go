@@ -194,11 +194,10 @@ func (v *dashboardView) card(iconName, heading string, extra ...widget.Widget) *
 
 // header is the dropdown header with the open-settings action.
 func (v *dashboardView) header() widget.Widget {
-	settings := dropdownButton(widget.NewThemeIcon("ld-settings-symbolic", itemIconPx), func() {
+	settings := iconButton(widget.NewThemeIcon("ld-settings-symbolic", itemIconPx), i18n.T("dropdown-dashboard-open-settings"), func() {
 		spawn.Quiet(settingspage.Program)
 	}, css.Ghost, css.Icon)
 	settings.AddClass("dashboard-settings-btn")
-	settings.SetTooltip(i18n.T("dropdown-dashboard-open-settings"))
 	return dropdownHeader(v.font, "ld-layout-dashboard-symbolic", i18n.T("dropdown-dashboard-title"), settings)
 }
 
@@ -385,7 +384,7 @@ func (v *dashboardView) controls() widget.Widget {
 			v.refreshAll()
 		}
 	}
-	mute := dropdownButton(muteIcon, func() {
+	mute := iconButton(muteIcon, audioMuteLabel(false), func() {
 		target := !muted
 		src := v.ctx.Pulse
 		serviceWrite(v.ctx, func(c context.Context) error { return src.SetMuted(c, target) }, written)
@@ -434,6 +433,7 @@ func (v *dashboardView) controls() widget.Widget {
 		device.SetText(sink.Description)
 		slider.Set(sink.Volume.AveragePercentage())
 		muteIcon.SetThemeName(dashboardGlyph(muted, "ld-volume-x-symbolic", "ld-volume-2-symbolic"))
+		mute.SetTooltip(audioMuteLabel(muted))
 	})
 	return card
 }
@@ -448,7 +448,7 @@ func (v *dashboardView) media() widget.Widget {
 		reportWrite(failed, "dashboard", i18n.T("dropdown-dashboard-media-failed"), err)
 	}
 	control := func(write func(context.Context) error) { serviceWrite(v.ctx, write, written) }
-	switchBtn := dropdownButton(widget.NewThemeIcon("ld-arrow-left-right-symbolic", itemIconPx), func() {
+	switchBtn := iconButton(widget.NewThemeIcon("ld-arrow-left-right-symbolic", itemIconPx), i18n.T("dropdown-dashboard-switch-player"), func() {
 		// The next player after the active one.
 		src := v.ctx.Media
 		if src == nil {
@@ -497,12 +497,12 @@ func (v *dashboardView) media() widget.Widget {
 		bus := current.BusName
 		control(func(c context.Context) error { return cmd(src, c, bus) })
 	}
-	prev := dropdownButton(widget.NewThemeIcon("ld-skip-back-symbolic", itemIconPx), func() { fire(mpris.Source.Previous) }, css.Ghost, css.Icon, css.Small)
+	prev := iconButton(widget.NewThemeIcon("ld-skip-back-symbolic", itemIconPx), i18n.T("dropdown-media-previous"), func() { fire(mpris.Source.Previous) }, css.Ghost, css.Icon, css.Small)
 	prev.AddClass("media-btn")
 	playIcon := widget.NewThemeIcon("ld-play-symbolic", itemIconPx)
-	play := dropdownButton(playIcon, func() { fire(mpris.Source.PlayPause) }, css.SuggestedAction, css.Icon, css.Small)
+	play := iconButton(playIcon, mediaPlayPauseLabel(mpris.StateStopped), func() { fire(mpris.Source.PlayPause) }, css.SuggestedAction, css.Icon, css.Small)
 	play.AddClass("media-btn", "play")
-	next := dropdownButton(widget.NewThemeIcon("ld-skip-forward-symbolic", itemIconPx), func() { fire(mpris.Source.Next) }, css.Ghost, css.Icon, css.Small)
+	next := iconButton(widget.NewThemeIcon("ld-skip-forward-symbolic", itemIconPx), i18n.T("dropdown-media-next"), func() { fire(mpris.Source.Next) }, css.Ghost, css.Icon, css.Small)
 	next.AddClass("media-btn")
 	controls := widget.NewBox(widget.Row, th.Spacing/2, 0)
 	controls.AddClass("media-controls")
@@ -587,7 +587,8 @@ func (v *dashboardView) media() widget.Widget {
 			art.Clear()
 			art.Append(widgets.Center(mediaArt(artURL, "ld-music-symbolic", "dashboard-media-art-placeholder", "", int(v.px*1.4))), true)
 		}
-		playIcon.SetThemeName(dashboardGlyph(current.State == mpris.StatePlaying, "ld-pause-symbolic", "ld-play-symbolic"))
+		playIcon.SetThemeName(mediaPlayPauseIcon(current.State))
+		play.SetTooltip(mediaPlayPauseLabel(current.State))
 		prev.SetEnabled(current.CanGoPrevious)
 		next.SetEnabled(current.CanGoNext)
 		seek.SetEnabled(current.CanSeek)

@@ -12,3 +12,7 @@ dropdown-audio-no-devices-description = No audio output or input devices found
 dropdown-audio-no-apps = No applications playing audio
 dropdown-audio-settings = Audio Settings
 dropdown-audio-capture = Capturing
+dropdown-audio-mute = Mute
+dropdown-audio-unmute = Unmute
+dropdown-audio-back = Back
+dropdown-audio-write-failed = Couldn't change the audio

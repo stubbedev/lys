@@ -10,3 +10,7 @@ dropdown-audio-no-devices-description = Geen audio-uitvoer- of -invoerapparaten 
 dropdown-audio-no-apps = Geen toepassingen die geluid afspelen
 dropdown-audio-settings = Geluidsinstellingen
 dropdown-audio-capture = Opname
+dropdown-audio-mute = Dempen
+dropdown-audio-unmute = Dempen opheffen
+dropdown-audio-back = Terug
+dropdown-audio-write-failed = Kan de audio niet wijzigen

@@ -148,7 +148,7 @@ type formCard struct {
 	body *widget.Box
 }
 
-func newFormCard(font render.Font, px float64, icon string, onClose func(), classes ...string) *formCard {
+func newFormCard(font render.Font, px float64, icon, closeLabel string, onClose func(), classes ...string) *formCard {
 	f := &formCard{Box: widget.NewBox(widget.Column, 0, 0)}
 	f.AddClass(append([]string{css.Card}, classes...)...)
 	f.head = widget.NewItem(font, "", "")
@@ -156,7 +156,7 @@ func newFormCard(font render.Font, px float64, icon string, onClose func(), clas
 	f.head.SetEllipsize(true)
 	f.icon = widget.NewThemeIcon(icon, itemIconPx)
 	f.head.SetMedia(f.icon, false)
-	closeBtn := dropdownButton(widget.NewThemeIcon("ld-x-symbolic", int(px)), onClose, css.Ghost, css.Icon, css.Small, "form-close")
+	closeBtn := iconButton(widget.NewThemeIcon("ld-x-symbolic", int(px)), closeLabel, onClose, css.Ghost, css.Icon, css.Small, "form-close")
 	f.head.AddAction(closeBtn)
 	f.Append(f.head, false)
 	f.body = itemBody()
@@ -390,14 +390,48 @@ func (f *openFollow) dropdownClosed() {
 	f.end()
 }
 
-// dropdownButton is a flat dropdown button: the class's stylesheet
-// rules paint it (the hover and active shades, the ink), so nothing is
-// set here.
-func dropdownButton(child widget.Widget, onClick func(), classes ...string) *widget.Button {
+// buttonFace is the content of a dropdown button that names it: a
+// label, an icon beside a label, or a box holding a label. A bare icon
+// names nothing, so it is not one; iconButton takes it with its label.
+type buttonFace interface {
+	*widget.Label | *widget.ButtonContent | *widget.Box
+	widget.Widget
+}
+
+// dropdownButton is a flat dropdown button named by the label its face
+// holds: the class's stylesheet rules paint it (the hover and active
+// shades, the ink), so nothing is set here.
+func dropdownButton[F buttonFace](face F, onClick func(), classes ...string) *widget.Button {
+	return flatButton(face, onClick, classes)
+}
+
+// iconButton is a flat icon-only dropdown button whose tooltip, and so
+// its accessible name, is label.
+func iconButton(icon *widget.Icon, label string, onClick func(), classes ...string) *widget.Button {
+	b := flatButton(icon, onClick, classes)
+	b.SetTooltip(label)
+	return b
+}
+
+// ghostIconButton is a row action: a small ghost button of the theme
+// icon named icon at px, whose tooltip and accessible name are label.
+func ghostIconButton(icon string, px int, label string, onClick func(), classes ...string) *widget.Button {
+	return iconButton(widget.NewThemeIcon(icon, px), label, onClick, append([]string{css.Ghost, css.Icon, css.Small}, classes...)...)
+}
+
+func flatButton(child widget.Widget, onClick func(), classes []string) *widget.Button {
 	b := widget.NewButton(child, 0, 0)
 	b.AddClass(classes...)
 	b.OnClick = onClick
 	return b
+}
+
+// namedSwitch is a switch whose accessible name is label: the row or
+// header that shows the label beside it does not name it.
+func namedSwitch(label string, on bool) *widget.Switch {
+	s := widget.NewSwitch(on)
+	s.SetAccessibleName(label)
+	return s
 }
 
 // iconTile wraps icon in the styled tile box the stylesheets target:

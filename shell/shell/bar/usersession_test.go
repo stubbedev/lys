@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -44,8 +45,10 @@ func sessionCardTree(t *testing.T, card widget.Widget) (row *widget.Item, avatar
 // media, the username as its title, and one ghost icon button per
 // configured action, in order, with i18n tooltips.
 func TestUserSessionIsAnItem(t *testing.T) {
+	home := t.TempDir()
 	t.Setenv("USER", "lys-shell")
-	t.Setenv("HOME", t.TempDir()) // no ~/.face: the user glyph
+	t.Setenv("HOME", home)
+	accountAt(t, home)
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
 	row, avatar, btns := sessionCardTree(t, userSessionSection(ctx))
@@ -57,8 +60,8 @@ func TestUserSessionIsAnItem(t *testing.T) {
 	if !isIcon || glyph.Name() != "ld-user-symbolic" || glyph.Tint() != 0 {
 		t.Fatalf("the avatar = %v, want the untinted ld-user glyph", avatar.Children()[0])
 	}
-	if got := itemText(row, "title"); got != "lys-shell" {
-		t.Errorf("username = %q, want $USER", got)
+	if got := itemText(row, "title"); got != "Test" {
+		t.Errorf("the session row names %q, want the account's real name, not $USER", got)
 	}
 	want := []powermenu.Action{powermenu.Lock, powermenu.LogOut, powermenu.Suspend, powermenu.Reboot, powermenu.ShutDown}
 	if len(btns) != len(want) {
@@ -143,6 +146,31 @@ func TestUserSessionAvatarTakesTheFaceAsItsBackground(t *testing.T) {
 	_, avatar, _ = sessionCardTree(t, userSessionSection(ctx))
 	if avatar.InlineStyle() != "" {
 		t.Errorf("without a face the tile carries %q", avatar.InlineStyle())
+	}
+}
+
+// The session row names the account by its real name, and by nothing
+// when the account cannot be read, never by $USER.
+func TestUserSessionNamesTheAccountsRealName(t *testing.T) {
+	t.Setenv("USER", "someone-else")
+	prev := currentAccount
+	t.Cleanup(func() { currentAccount = prev })
+	currentAccount = func() (useraccount.Account, error) {
+		return useraccount.Account{Name: "alice", RealName: "Alice Liddell", Home: t.TempDir()}, nil
+	}
+	row, _, _ := sessionCardTree(t, userSessionSection(newTestContext(t, config.Defaults())))
+	if got := itemText(row, "title"); got != "Alice Liddell" {
+		t.Errorf("the session row names %q, want the real name", got)
+	}
+	currentAccount = func() (useraccount.Account, error) {
+		return useraccount.Account{}, errors.New("no passwd entry")
+	}
+	row, avatar, _ := sessionCardTree(t, userSessionSection(newTestContext(t, config.Defaults())))
+	if got := itemText(row, "title"); got != "" {
+		t.Errorf("an unreadable account names %q, want nothing", got)
+	}
+	if avatar.InlineStyle() != "" {
+		t.Errorf("an unreadable account paints the avatar %q", avatar.InlineStyle())
 	}
 }
 

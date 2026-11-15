@@ -153,10 +153,10 @@ func newBtDropdown(ctx ModuleContext, src bluetooth.Source) *btDropdown {
 	// and title.
 	d.scanIcon = widget.NewThemeIcon("ld-refresh-cw-symbolic", int(px))
 	// lys-ui's ghost icon square.
-	d.scanBtn = dropdownButton(d.scanIcon, nil, css.Ghost, css.Icon)
+	d.scanBtn = iconButton(d.scanIcon, btText("dropdown-bluetooth-scan"), nil, css.Ghost, css.Icon)
 	d.scanBtn.AddClass("bluetooth-scan-btn")
 	d.scanBtn.OnClick = d.onScan
-	d.toggle = widget.NewSwitch(false)
+	d.toggle = namedSwitch(btText("dropdown-bluetooth-title"), false)
 	d.toggle.OnChanged = d.onToggle
 	header, glyph, _ := dropdownHeaderParts(font, "ld-bluetooth-symbolic", btText("dropdown-bluetooth-title"), d.scanBtn, d.toggle)
 	d.headerIcon = glyph
@@ -379,8 +379,8 @@ func (d *btDropdown) buildRow(s deviceSnapshot) *btDeviceRow {
 		if s.connected {
 			toggleKey, toggleIcon = "dropdown-bluetooth-disconnect", "ld-unplug-symbolic"
 		}
-		toggle := btActionButton(px, toggleIcon, btText(toggleKey), func() { d.onDeviceClick(s) }, "bluetooth-action-toggle")
-		forget := btActionButton(px, "ld-trash-2-symbolic", btText("dropdown-bluetooth-forget"), func() { d.onForget(s) }, "bluetooth-forget")
+		toggle := ghostIconButton(toggleIcon, int(px), btText(toggleKey), func() { d.onDeviceClick(s) }, "bluetooth-action-toggle")
+		forget := ghostIconButton("ld-trash-2-symbolic", int(px), btText("dropdown-bluetooth-forget"), func() { d.onForget(s) }, "bluetooth-forget")
 		toggle.SetEnabled(pending == 0)
 		forget.SetEnabled(pending == 0)
 		actions.Append(toggle, false)
@@ -396,15 +396,6 @@ func (d *btDropdown) buildRow(s deviceSnapshot) *btDeviceRow {
 		row.syncSlot()
 	}
 	return row
-}
-
-// btActionButton is a row action: a small ghost icon button whose
-// tooltip and accessible name are its label.
-func btActionButton(px float64, icon, label string, onClick func(), class string) *widget.Button {
-	b := dropdownButton(widget.NewThemeIcon(icon, int(px)), onClick, css.Ghost, css.Icon, css.Small, class)
-	b.SetTooltip(label)
-	b.SetAccessibleName(label)
-	return b
 }
 
 // statusLabel is the pending action, else connected or

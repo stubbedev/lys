@@ -24,3 +24,5 @@ notification-source-recorder = Gravador de ecrã
 notification-source-bluetooth = Bluetooth
 notification-source-mail = Correio
 notification-source-system = Sistema
+notification-dropdown-item-dismiss = Dispensar
+notification-dropdown-time-days-ago = há { $days } d

@@ -2,6 +2,7 @@ package bar
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -28,6 +29,7 @@ type fakeMediaSource struct {
 	active  int // index into players; -1 for none
 	calls   []string
 	feed    chan struct{}
+	err     error
 }
 
 func newFakeMedia(players ...mpris.Player) *fakeMediaSource {
@@ -62,8 +64,9 @@ func (f *fakeMediaSource) Subscribe() (<-chan struct{}, func()) { return f.feed,
 func (f *fakeMediaSource) record(call string) error {
 	f.mu.Lock()
 	f.calls = append(f.calls, call)
+	err := f.err
 	f.mu.Unlock()
-	return nil
+	return err
 }
 
 func (f *fakeMediaSource) Calls() []string {
@@ -610,5 +613,38 @@ func TestDesktopIconLookupRunsOffTheLoopAndOncePerEntry(t *testing.T) {
 	}
 	if got := finds.Load(); got != 1 {
 		t.Errorf("%d walks for one entry, want 1", got)
+	}
+}
+
+// A refused transport command or player pick says why under the
+// controls; the next command that goes through hides it.
+func TestMediaRefusedControlShowsWhy(t *testing.T) {
+	source := newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.vlc", Identity: "VLC", CanGoNext: true})
+	source.err = errors.New("not supported")
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Media = source
+	v := mediaDropdown(ctx).(*mediaView)
+	defer v.dropdownClosed()
+	v.refresh()
+	onHeadlessLoop(func() bool { v.fire("next track", v.src.Next); return true })
+	waitHeadless(t, "the refusal", v.failed.Visible)
+	if got := onHeadlessLoop(v.failed.Title); got != i18n.T("dropdown-media-control-failed") {
+		t.Errorf("the alert reads %q", got)
+	}
+	if got := onHeadlessLoop(v.failed.Description); !strings.Contains(got, "next track") || !strings.Contains(got, "not supported") {
+		t.Errorf("the alert describes %q, want the command and its refusal", got)
+	}
+	source.mu.Lock()
+	source.err = nil
+	source.mu.Unlock()
+	onHeadlessLoop(func() bool { v.fire("next track", v.src.Next); return true })
+	waitHeadless(t, "the command that goes through", func() bool { return !v.failed.Visible() })
+	v.showPicker()
+	rows := treetest.WithClass(v.sources, "media-source-option")
+	source.players = nil
+	source.active = -1
+	rows[0].(*widget.Item).ClickAt(widget.Point{})
+	if !v.failed.Visible() || !strings.Contains(v.failed.Description(), "select org.mpris.MediaPlayer2.vlc") {
+		t.Errorf("a refused pick: alert %v %q", v.failed.Visible(), v.failed.Description())
 	}
 }

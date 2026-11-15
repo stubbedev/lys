@@ -43,3 +43,5 @@ dropdown-weather-error-rate-limit = Troppe richieste. Riprova più tardi.
 dropdown-weather-error-unknown = Qualcosa è andato storto. Riprova più tardi.
 dropdown-weather-retry = Riprova
 dropdown-weather-stale-title = Impossibile aggiornare il meteo
+dropdown-weather-time-am = { $time } AM
+dropdown-weather-time-pm = { $time } PM

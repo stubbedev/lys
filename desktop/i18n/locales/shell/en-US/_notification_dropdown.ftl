@@ -26,3 +26,5 @@ notification-source-recorder = Screen Recorder
 notification-source-bluetooth = Bluetooth
 notification-source-mail = Mail
 notification-source-system = System
+notification-dropdown-item-dismiss = Dismiss
+notification-dropdown-time-days-ago = { $days }d ago

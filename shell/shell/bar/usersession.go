@@ -3,7 +3,6 @@ package bar
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
@@ -35,33 +34,15 @@ func sessionPowerAction(action config.SessionAction) powermenu.Action {
 	panic(fmt.Sprintf("dashboard: session action %q has no power-menu action", action))
 }
 
-// sessionUsername is $USER, "user" when unset.
-func sessionUsername() string {
-	if user := os.Getenv("USER"); user != "" {
-		return user
-	}
-	return "user"
-}
-
 // currentAccount is the user the dashboard shows (a seam for tests).
 var currentAccount = useraccount.Current
 
-// facePath is the user's avatar (the AccountsService icon, else
-// ~/.face), looked up afresh; "" for none.
-func facePath() string {
-	acct, err := currentAccount()
-	if err != nil {
-		log.Printf("dashboard: %v", err)
-		return ""
-	}
-	return useraccount.FindAvatar(acct.Name, acct.Home)
-}
-
-// setAvatar paints the face onto the tile as its background image,
+// setAvatar paints the account's face (the AccountsService icon, else
+// ~/.face), looked up afresh, onto the tile as its background image,
 // cover-fit inside the rounded box. The tile shows the user glyph
 // when the file is absent.
-func setAvatar(tile *widget.Box) {
-	path := facePath()
+func setAvatar(tile *widget.Box, acct useraccount.Account) {
+	path := useraccount.FindAvatar(acct.Name, acct.Home)
 	if path == "" {
 		return
 	}
@@ -81,23 +62,24 @@ func userSessionSection(ctx ModuleContext) widget.Widget {
 	cfg := ctx.Config.Dashboard
 	card := widget.NewBox(widget.Column, 0, 0)
 	card.AddClass(css.Card, "dashboard-card")
-	row := widget.NewItem(font, sessionUsername(), "")
+	acct, err := currentAccount()
+	if err != nil {
+		log.Printf("dashboard: the session row names no user: %v", err)
+	}
+	row := widget.NewItem(font, acct.RealName, "")
 	row.SetSmall(true)
 	row.SetEllipsize(true)
 	row.AddClass("dashboard-user-session")
 	tile := widget.NewBox(widget.Row, 0, 0)
 	tile.AddClass("user-avatar")
-	setAvatar(tile)
+	if err == nil {
+		setAvatar(tile, acct)
+	}
 	tile.Append(widget.NewThemeIcon("ld-user-symbolic", avatarPx), false)
 	row.SetMedia(tile, true)
 	for _, action := range cfg.UserSession.Actions {
 		power := sessionPowerAction(action)
-		glyph := widget.NewThemeIcon(power.Icon(), itemIconPx)
-		button := widget.NewButton(glyph, 0, 0)
-		button.AddClass(css.Ghost, css.Icon, css.Small, "session-btn")
-		button.SetTooltip(power.Label())
-		button.OnClick = func() { ctx.PowerMenu.Request(power) }
-		row.AddAction(button)
+		row.AddAction(ghostIconButton(power.Icon(), itemIconPx, power.Label(), func() { ctx.PowerMenu.Request(power) }, "session-btn"))
 	}
 	card.Append(row, false)
 	return card

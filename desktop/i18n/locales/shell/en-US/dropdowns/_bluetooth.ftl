@@ -169,3 +169,4 @@ dropdown-bluetooth-error-scan = Could not search for devices: { $error }
 ## Forgetting a device
 dropdown-bluetooth-forget-confirm = Forget { $name }?
 dropdown-bluetooth-forget-confirm-detail = The pairing is removed. To use the device again, pair it again.
+dropdown-bluetooth-scan = Scan for devices

@@ -60,10 +60,11 @@ func sameCalendars(a, b []config.CalendarSource) bool {
 }
 
 func clockText(t time.Time, use12h bool) string {
+	text := strftimeOf(hourLayout(use12h)+":%M", t)
 	if use12h {
-		return strftimeOf("%-I:%M %p", t)
+		return text + " " + strftimeOf("%p", t)
 	}
-	return strftimeOf("%H:%M", t)
+	return text
 }
 
 func eventTimeText(o calendar.Occurrence, use12h bool) string {

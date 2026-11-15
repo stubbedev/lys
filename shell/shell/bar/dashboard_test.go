@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/shell/powermenu"
@@ -144,8 +145,14 @@ func TestSessionActionsAreThePowerMenusActions(t *testing.T) {
 }
 
 func TestUserSessionSectionRendersConfiguredActions(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
 	t.Setenv("USER", "alice")
+	prev := currentAccount
+	t.Cleanup(func() { currentAccount = prev })
+	currentAccount = func() (useraccount.Account, error) {
+		return useraccount.Account{Name: "alice", RealName: "Alice Liddell", Home: home}, nil
+	}
 	cfg := config.Defaults()
 	cfg.Dashboard.UserSession.Actions = []config.SessionAction{config.SessionActionLock, config.SessionActionPowerOff}
 	ctx := newTestContext(t, cfg)
@@ -167,8 +174,8 @@ func TestUserSessionSectionRendersConfiguredActions(t *testing.T) {
 	if glyph, ok := avatar.Children()[0].(*widget.Icon); !ok || glyph.Name() != "ld-user-symbolic" {
 		t.Errorf("avatar = %T, want the ld-user-symbolic glyph", avatar.Children()[0])
 	}
-	if name := itemText(row, "title"); name != "alice" {
-		t.Errorf("username = %q, want alice", name)
+	if name := itemText(row, "title"); name != "Alice Liddell" {
+		t.Errorf("the session row names %q, want the account's real name", name)
 	}
 	if n := len(treetest.WithClass(row, "session-btn")); n != 2 {
 		t.Fatalf("session buttons = %d, want the two configured actions", n)
@@ -193,10 +200,14 @@ func TestUserSessionUsesTheFaceImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = f.Close()
+	acct, err := currentAccount()
+	if err != nil {
+		t.Fatal(err)
+	}
 	// The face rides on the tile as its background image.
 	tile := widget.NewBox(widget.Row, 0, 0)
 	tile.AddClass("user-avatar")
-	setAvatar(tile)
+	setAvatar(tile, acct)
 	if !strings.Contains(tile.InlineStyle(), `url('`+face+`')`) {
 		t.Errorf("the tile carries %q, want the face's url", tile.InlineStyle())
 	}
@@ -206,14 +217,14 @@ func TestUserSessionUsesTheFaceImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	tile2 := widget.NewBox(widget.Row, 0, 0)
-	setAvatar(tile2)
+	setAvatar(tile2, acct)
 	if tile2.InlineStyle() == "" {
 		t.Error("a present face file set no background image")
 	}
 	// No file at all: the tile stays clean for the user glyph.
 	os.Remove(face)
 	tile3 := widget.NewBox(widget.Row, 0, 0)
-	setAvatar(tile3)
+	setAvatar(tile3, acct)
 	if tile3.InlineStyle() != "" {
 		t.Errorf("a missing face set %q", tile3.InlineStyle())
 	}

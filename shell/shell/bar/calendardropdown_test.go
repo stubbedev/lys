@@ -150,3 +150,44 @@ func mustStrftimeFormat(t *testing.T, s string) config.StrftimeFormat {
 	}
 	return f
 }
+
+// The hero and the agenda show the hour the same way: unpadded on the
+// 12-hour clock, two digits on the 24-hour one.
+func TestCalendarHeroAndAgendaShowTheSameHour(t *testing.T) {
+	at := time.Date(2026, time.March, 4, 3, 7, 9, 0, time.UTC)
+	for _, c := range []struct {
+		format, hero, agenda string
+	}{
+		{"%I:%M %p", "3", "3:07 AM"},
+		{"%H:%M", "03", "03:07"},
+	} {
+		cfg := config.Defaults()
+		cfg.Clock.Format = mustStrftimeFormat(t, c.format)
+		v := calendarDropdown(newTestContext(t, cfg)).(*calendarView)
+		v.now = func() time.Time { return at }
+		v.tick()
+		if got := v.hours.Text(); got != c.hero {
+			t.Errorf("%s: the hero shows the hour %q, want %q", c.format, got, c.hero)
+		}
+		use12h := calendarIs12h(c.format)
+		if got := clockText(at, use12h); got != c.agenda {
+			t.Errorf("%s: the agenda shows %q, want %q", c.format, got, c.agenda)
+		}
+	}
+}
+
+// The hero ticks on the next second only while it shows seconds;
+// without them it waits for the next minute.
+func TestCalendarTicksOnlyWhenTheHeroChanges(t *testing.T) {
+	at := time.Date(2026, time.March, 4, 3, 7, 9, 250*int(time.Millisecond), time.UTC)
+	if got := calendarTickDelay(at, true); got != 750*time.Millisecond {
+		t.Errorf("with seconds the next tick is in %v, want 750ms", got)
+	}
+	if got := calendarTickDelay(at, false); got != 50*time.Second+750*time.Millisecond {
+		t.Errorf("without seconds the next tick is in %v, want the next minute", got)
+	}
+	onMinute := time.Date(2026, time.March, 4, 3, 8, 0, 0, time.UTC)
+	if got := calendarTickDelay(onMinute, false); got != time.Minute {
+		t.Errorf("on the minute the next tick is in %v, want a full minute", got)
+	}
+}

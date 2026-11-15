@@ -37,7 +37,7 @@ func newNightlightCard(ctx ModuleContext, font render.Font, px float64, svc *nig
 	c.item = widget.NewItem(font, i18n.T("dropdown-brightness-nightlight-title"), "")
 	c.item.SetSmall(true)
 	c.item.SetMedia(widget.NewThemeIcon(ctx.Config.Nightlight.IconOn, itemIconPx), false)
-	c.toggle = widget.NewSwitch(false)
+	c.toggle = namedSwitch(i18n.T("dropdown-brightness-nightlight-title"), false)
 	c.toggle.AddClass("brightness-nightlight-toggle")
 	c.toggle.OnChanged = c.switched
 	c.item.AddAction(c.toggle)

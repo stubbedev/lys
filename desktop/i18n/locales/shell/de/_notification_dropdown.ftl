@@ -26,3 +26,5 @@ notification-source-recorder = Bildschirmaufnahme
 notification-source-bluetooth = Bluetooth
 notification-source-mail = E-Mail
 notification-source-system = System
+notification-dropdown-item-dismiss = Verwerfen
+notification-dropdown-time-days-ago = vor { $days } Tg.

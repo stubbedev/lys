@@ -2,6 +2,7 @@ package bar
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strconv"
 	"testing"
@@ -554,5 +555,28 @@ func TestAudioSectionIsAnItem(t *testing.T) {
 	v.input.item.ClickAt(widget.Point{})
 	if v.pages.Visible() != "input" {
 		t.Errorf("activating the input row opened page %q, want input", v.pages.Visible())
+	}
+}
+
+// A refused audio write says why over the pages, naming what was being
+// done, and the next write that goes through hides it.
+func TestAudioRefusedWriteShowsWhy(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Pulse = &fakePulseSource{}
+	v := &audioView{ctx: ctx, failed: writeAlert(ctx.Font, "audio-failed")}
+	v.call("set volume", func(context.Context, pulse.Source) error { return errors.New("sink gone") })()
+	if !onHeadlessLoop(v.failed.Visible) {
+		t.Fatal("a refused write shows nothing")
+	}
+	if title, desc := onHeadlessLoop(v.failed.Title), onHeadlessLoop(v.failed.Description); title != i18n.T("dropdown-audio-write-failed") || desc != "set volume: sink gone" {
+		t.Errorf("the alert reads %q / %q", title, desc)
+	}
+	v.call("set volume", func(context.Context, pulse.Source) error { return nil })()
+	if onHeadlessLoop(v.failed.Visible) {
+		t.Error("a write that went through left the alert")
+	}
+	v.ctx.Pulse = nil
+	if v.call("set volume", func(context.Context, pulse.Source) error { return nil }) != nil {
+		t.Error("a write without an audio source runs")
 	}
 }

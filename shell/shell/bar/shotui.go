@@ -3,9 +3,11 @@ package bar
 import (
 	"image"
 	"log"
+	"math"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -19,7 +21,24 @@ import (
 	"github.com/stubbedev/lys/shell/shell/shotthumb"
 )
 
-const toolbarPx = 14
+// shotSizes are the screenshot surfaces' measures at the configured
+// scale: the text, and the reading indicator's padding and its gap
+// from the top of the screen.
+type shotSizes struct {
+	textPx  float64
+	padding int
+	margin  int32
+}
+
+func shotSizesOf(s config.StylingConfig) shotSizes {
+	scale := float64(s.Scale)
+	rem := widget.RootFontSize() * scale
+	return shotSizes{
+		textPx:  widgets.TextPx(styling.Body, scale),
+		padding: int(math.Round(0.75 * rem)),
+		margin:  int32(math.Round(3 * rem)),
+	}
+}
 
 type shotUI struct {
 	app     *app.Application
@@ -123,7 +142,7 @@ func (u *shotUI) edit(shot shotthumb.Shot) {
 	_, err := markup.Open(markup.Deps{
 		App:     u.app,
 		Font:    u.font,
-		Px:      toolbarPx,
+		Px:      shotSizesOf(u.current().Styling).textPx,
 		Palette: markupPalette(u.current().Styling),
 		Save:    u.writer(true),
 		SaveAs:  u.writer(false),
@@ -179,14 +198,15 @@ func markupPalette(s config.StylingConfig) []render.Color {
 func (u *shotUI) working(cancel func()) func() {
 	opened := make(chan *app.LayerWindow, 1)
 	u.app.Invoke(func() {
-		label := widget.NewLabel(u.font, toolbarPx, i18n.T("screenshot-reading-text"), 0)
-		box := widget.NewBox(widget.Row, 0, 12)
+		sizes := shotSizesOf(u.current().Styling)
+		label := widget.NewLabel(u.font, sizes.textPx, i18n.T("screenshot-reading-text"), 0)
+		box := widget.NewBox(widget.Row, 0, sizes.padding)
 		box.SetElement("item")
 		box.Append(label, false)
 		w, err := u.app.NewLayer(app.LayerConfig{
 			Layer:     app.LayerOverlay,
 			Anchor:    app.AnchorTop,
-			Margin:    app.Margins{Top: 48},
+			Margin:    app.Margins{Top: sizes.margin},
 			Keyboard:  app.KeyboardExclusive,
 			Namespace: "lys-shell-screenshot-reading",
 			Root:      box,

@@ -96,7 +96,7 @@ func notificationDropdown(ctx ModuleContext) widget.Widget {
 	dnd := widget.NewItem(font, i18n.T("notification-dropdown-dnd-label"), "")
 	v.dndItem = dnd
 	dnd.SetSmall(true)
-	v.dnd = widget.NewSwitch(false)
+	v.dnd = namedSwitch(i18n.T("notification-dropdown-dnd-label"), false)
 	v.dnd.OnChanged = v.dndToggled
 	dnd.AddAction(v.dnd)
 	dndGroup.Append(dnd)
@@ -530,7 +530,7 @@ func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem
 	it.time.AddClass("notification-dropdown-item-time", css.Caption, css.DimLabel)
 	it.main.AddAction(it.time)
 	id := n.ID
-	dismiss := dropdownButton(widget.NewThemeIcon("ld-x-symbolic", itemIconPx), func() { v.dismiss(id) }, "notification-dropdown-item-dismiss", css.Ghost, css.Icon, css.Small)
+	dismiss := ghostIconButton("ld-x-symbolic", itemIconPx, i18n.T("notification-dropdown-item-dismiss"), func() { v.dismiss(id) }, "notification-dropdown-item-dismiss")
 	it.main.AddAction(dismiss)
 	// A default action makes the item open on a click anywhere the
 	// dismiss button does not take.

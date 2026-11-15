@@ -54,3 +54,4 @@ dropdown-dashboard-cpu = Processeur
 dropdown-dashboard-ram = Mémoire
 dropdown-dashboard-disk = Disque
 dropdown-dashboard-temp = Temp. proc.
+dropdown-dashboard-switch-player = Changer de lecteur

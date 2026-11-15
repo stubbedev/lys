@@ -26,7 +26,7 @@ type netSaveOffer struct {
 
 func newNetSaveOffer(v *networkView) *netSaveOffer {
 	f := &netSaveOffer{v: v}
-	f.formCard = newFormCard(v.font, v.px, "ld-shield-check-symbolic", f.dismiss, "network-save-card")
+	f.formCard = newFormCard(v.font, v.px, "ld-shield-check-symbolic", i18n.T("dropdown-network-save-not-now"), f.dismiss, "network-save-card")
 	f.head.SetDescription(i18n.T("dropdown-network-save-title"))
 	f.body = widget.NewLabel(v.font, v.px, "", 0)
 	f.body.AddClass(css.DimLabel)

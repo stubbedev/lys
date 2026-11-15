@@ -3,7 +3,6 @@ package bar
 import (
 	"context"
 	"fmt"
-	"log"
 	"slices"
 	"time"
 
@@ -75,6 +74,33 @@ func mediaLoopIcon(mode mpris.LoopMode) string {
 	return "ld-repeat-symbolic"
 }
 
+// mediaPlayPauseLabel, mediaLoopLabel and mediaShuffleLabel name the
+// transport buttons by what they show.
+func mediaPlayPauseLabel(state mpris.PlaybackState) string {
+	if state == mpris.StatePlaying {
+		return i18n.T("dropdown-media-pause")
+	}
+	return i18n.T("dropdown-media-play")
+}
+
+func mediaLoopLabel(mode mpris.LoopMode) string {
+	switch mode {
+	case mpris.LoopTrack:
+		return i18n.T("dropdown-media-repeat-track")
+	case mpris.LoopPlaylist:
+		return i18n.T("dropdown-media-repeat-playlist")
+	default:
+		return i18n.T("dropdown-media-repeat-off")
+	}
+}
+
+func mediaShuffleLabel(on bool) string {
+	if on {
+		return i18n.T("dropdown-media-shuffle-on")
+	}
+	return i18n.T("dropdown-media-shuffle-off")
+}
+
 // orUnknown substitutes the placeholder for an empty field.
 func orUnknown(value, placeholder string) string {
 	if value == "" {
@@ -130,6 +156,7 @@ type mediaView struct {
 
 	lyrics       *lyricsPanel
 	lyricsButton *widget.Button
+	failed       *widget.Alert
 	showLyrics   bool
 
 	current mpris.Player
@@ -186,14 +213,11 @@ const (
 // controlButton builds one transport button on lys-ui's icon buttons:
 // a ghost one, or with classes beyond media-control (the accent
 // play/pause) those.
-func (v *mediaView) controlButton(icon *widget.Icon, onClick func(), classes ...string) *widget.Button {
+func (v *mediaView) controlButton(icon *widget.Icon, label string, onClick func(), classes ...string) *widget.Button {
 	if len(classes) == 0 {
 		classes = []string{css.Ghost}
 	}
-	b := widget.NewButton(icon, 0, 0)
-	b.AddClass(append([]string{"media-control", css.Icon}, classes...)...)
-	b.OnClick = onClick
-	return b
+	return iconButton(icon, label, onClick, append([]string{"media-control", css.Icon}, classes...)...)
 }
 
 // buildPlayer assembles the player view once; refresh fills it in: the
@@ -214,8 +238,7 @@ func (v *mediaView) buildPlayer(font render.Font, px float64) {
 	source.AppendAligned(v.identity, false, widget.AlignCenter)
 	source.AppendAligned(widget.NewThemeIcon("ld-chevron-right-symbolic", itemIconPx), false, widget.AlignCenter)
 	sourceButton := dropdownButton(source, v.showPicker, "media-source-button", css.Ghost, css.Small)
-	v.lyricsButton = dropdownButton(widget.NewThemeIcon("ld-mic-vocal-symbolic", itemIconPx), v.toggleLyrics, "media-lyrics-button", css.Ghost, css.Icon, css.Small)
-	v.lyricsButton.SetTooltip(i18n.T("dropdown-media-lyrics"))
+	v.lyricsButton = iconButton(widget.NewThemeIcon("ld-mic-vocal-symbolic", itemIconPx), i18n.T("dropdown-media-lyrics"), v.toggleLyrics, "media-lyrics-button", css.Ghost, css.Icon, css.Small)
 	v.player.Append(dropdownHeader(font, "ld-disc-3-symbolic", i18n.T("dropdown-media-title"), v.lyricsButton, sourceButton), false)
 
 	body := dropdownContent("media-player")
@@ -265,35 +288,42 @@ func (v *mediaView) buildPlayer(font render.Font, px float64) {
 
 	controls := widget.NewBox(widget.Row, th.Spacing, 0)
 	controls.AddClass("media-controls")
-	v.shuffle = v.controlButton(widget.NewThemeIcon("ld-shuffle-symbolic", mediaControlPx), func() { v.fire("toggle shuffle", v.src.ToggleShuffle) })
+	v.shuffle = v.controlButton(widget.NewThemeIcon("ld-shuffle-symbolic", mediaControlPx), mediaShuffleLabel(false), func() { v.fire("toggle shuffle", v.src.ToggleShuffle) })
 	v.shuffle.AddClass("minor")
-	v.previous = v.controlButton(widget.NewThemeIcon("ld-skip-back-symbolic", mediaControlPx), func() { v.fire("previous track", v.src.Previous) })
+	v.previous = v.controlButton(widget.NewThemeIcon("ld-skip-back-symbolic", mediaControlPx), i18n.T("dropdown-media-previous"), func() { v.fire("previous track", v.src.Previous) })
 	v.playIcon = widget.NewThemeIcon("ld-play-symbolic", mediaPlayPx)
-	v.playPause = v.controlButton(v.playIcon, func() { v.fire("play/pause", v.src.PlayPause) }, css.SuggestedAction, css.Large, "main")
-	v.next = v.controlButton(widget.NewThemeIcon("ld-skip-forward-symbolic", mediaControlPx), func() { v.fire("next track", v.src.Next) })
+	v.playPause = v.controlButton(v.playIcon, mediaPlayPauseLabel(mpris.StateStopped), func() { v.fire("play/pause", v.src.PlayPause) }, css.SuggestedAction, css.Large, "main")
+	v.next = v.controlButton(widget.NewThemeIcon("ld-skip-forward-symbolic", mediaControlPx), i18n.T("dropdown-media-next"), func() { v.fire("next track", v.src.Next) })
 	v.loopIcon = widget.NewThemeIcon("ld-repeat-symbolic", mediaControlPx)
-	v.loop = v.controlButton(v.loopIcon, func() { v.fire("toggle loop", v.src.ToggleLoop) })
+	v.loop = v.controlButton(v.loopIcon, mediaLoopLabel(mpris.LoopNone), func() { v.fire("toggle loop", v.src.ToggleLoop) })
 	v.loop.AddClass("minor")
 	for _, b := range []*widget.Button{v.shuffle, v.previous, v.playPause, v.next, v.loop} {
 		controls.AppendAligned(b, false, widget.AlignCenter)
 	}
 	body.AppendAligned(controls, false, widget.AlignCenter)
+	v.failed = writeAlert(font, "media-failed")
+	body.Append(v.failed, false)
 	v.player.Append(body, true)
 }
 
-// fire runs one transport command off the loop; failures log.
+// fire runs one transport command off the loop under the module's
+// write bound; a failure shows under the controls until a command goes
+// through.
 func (v *mediaView) fire(what string, cmd func(context.Context, string) error) {
 	if !v.has {
 		return
 	}
 	bus := v.current.BusName
-	v.ctx.Go(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+	serviceWrite(v.ctx, func(ctx context.Context) error {
 		if err := cmd(ctx, bus); err != nil {
-			log.Printf("media: %s failed: %v", what, err)
+			return fmt.Errorf("%s: %w", what, err)
 		}
-	})
+		return nil
+	}, v.controlled)
+}
+
+func (v *mediaView) controlled(err error) {
+	reportWrite(v.failed, "media", i18n.T("dropdown-media-control-failed"), err)
 }
 
 // seekTo seeks to the percent of the track length; nothing
@@ -356,12 +386,15 @@ func (v *mediaView) refresh() {
 	v.seek.SetEnabled(p.CanSeek)
 	v.shuffle.SetEnabled(p.CanShuffle)
 	setClass(v.shuffle, "active", p.Shuffle)
+	v.shuffle.SetTooltip(mediaShuffleLabel(p.Shuffle))
 	v.previous.SetEnabled(p.CanGoPrevious)
 	v.next.SetEnabled(p.CanGoNext)
 	v.loop.SetEnabled(p.CanLoop)
 	setClass(v.loop, "active", p.Loop != mpris.LoopNone && p.Loop != mpris.LoopUnsupported)
 	v.loopIcon.SetThemeName(mediaLoopIcon(p.Loop))
+	v.loop.SetTooltip(mediaLoopLabel(p.Loop))
 	v.playIcon.SetThemeName(mediaPlayPauseIcon(p.State))
+	v.playPause.SetTooltip(mediaPlayPauseLabel(p.State))
 	v.syncLyrics()
 }
 
@@ -457,7 +490,7 @@ func (v *mediaView) buildPicker() {
 	col := dropdownContent("media-source-picker")
 	header := widget.NewBox(widget.Row, th.Spacing, 0)
 	header.AddClass("picker-header")
-	back := dropdownButton(widget.NewThemeIcon("ld-arrow-left-symbolic", itemIconPx), func() { v.mode = ""; v.refresh() }, "picker-back", css.Ghost, css.Icon, css.Small)
+	back := iconButton(widget.NewThemeIcon("ld-arrow-left-symbolic", itemIconPx), i18n.T("dropdown-media-back"), func() { v.mode = ""; v.refresh() }, "picker-back", css.Ghost, css.Icon, css.Small)
 	header.AppendAligned(back, false, widget.AlignCenter)
 	headerLabel := widget.NewLabel(font, px, i18n.T("dropdown-media-sources"), 0)
 	headerLabel.AddClass("picker-title", css.Heading)
@@ -482,9 +515,11 @@ func (v *mediaView) buildPicker() {
 		}
 		bus := p.bus
 		row.SetOnActivate(func() {
-			if err := v.src.SetActive(bus); err != nil {
-				log.Printf("media: select %s: %v", bus, err)
+			err := v.src.SetActive(bus)
+			if err != nil {
+				err = fmt.Errorf("select %s: %w", bus, err)
 			}
+			v.controlled(err)
 			v.mode = ""
 			v.refresh()
 		})

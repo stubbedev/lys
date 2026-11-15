@@ -87,7 +87,7 @@ func newBtPairingCard(ctx ModuleContext) *btPairingCard {
 	font, px := dropdownFont(ctx)
 	c := &btPairingCard{}
 	th := widget.Current()
-	card := newFormCard(font, px, "ld-bluetooth-symbolic", func() { c.emit(pairingOutput{kind: outputCancelled}) }, "bluetooth-pairing-card")
+	card := newFormCard(font, px, "ld-bluetooth-symbolic", btText("dropdown-bluetooth-cancel"), func() { c.emit(pairingOutput{kind: outputCancelled}) }, "bluetooth-pairing-card")
 	c.device, c.icon = card.head, card.icon
 	c.icon.AddClass("bluetooth-icon")
 	col := card.body

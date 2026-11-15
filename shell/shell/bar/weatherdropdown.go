@@ -26,28 +26,37 @@ const (
 	weatherUpdatedEvery = time.Minute
 )
 
-// weatherHourLabel is "3PM" or "15:00".
+// weatherHourLabel is "3 PM" or "15:00", the period in the shell's
+// language.
 func weatherHourLabel(t time.Time, format config.TimeFormat) string {
 	if format == config.TimeFormat24h {
 		return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
 	}
-	return t.Format("3PM")
+	return weather12h(t.Hour(), strconv.Itoa(twelveHour(t.Hour())))
 }
 
-// weatherSunTime is "6:05 AM" or "06:05".
+// weatherSunTime is "6:05 AM" or "06:05", the period in the shell's
+// language.
 func weatherSunTime(t weather.TimeOfDay, format config.TimeFormat) string {
 	if format == config.TimeFormat24h {
 		return t.String()
 	}
-	period := "AM"
-	if t.Hour >= 12 {
-		period = "PM"
+	return weather12h(t.Hour, fmt.Sprintf("%d:%02d", twelveHour(t.Hour), t.Minute))
+}
+
+func twelveHour(hour int) int {
+	if h := hour % 12; h != 0 {
+		return h
 	}
-	hour := t.Hour % 12
-	if hour == 0 {
-		hour = 12
+	return 12
+}
+
+func weather12h(hour int, clock string) string {
+	id := "dropdown-weather-time-am"
+	if hour >= 12 {
+		id = "dropdown-weather-time-pm"
 	}
-	return fmt.Sprintf("%d:%02d %s", hour, t.Minute, period)
+	return i18n.T(id, i18n.Str("time", clock))
 }
 
 // weatherDayLabel is the weekday's abbreviation.
@@ -192,10 +201,7 @@ func (v *weatherView) label(text string, role styling.TextRole, class string) *w
 // header is the dropdown header: the title and the refresh action. It
 // is the one header that leaves the template's icon hidden.
 func (v *weatherView) header() widget.Widget {
-	refresh := widget.NewButton(v.icon("ld-refresh-cw-symbolic", 1), 0, 0)
-	refresh.AddClass(css.Ghost, css.Icon)
-	refresh.OnClick = v.svc.Refresh
-	refresh.SetTooltip(i18n.T("dropdown-weather-refresh"))
+	refresh := iconButton(v.icon("ld-refresh-cw-symbolic", 1), i18n.T("dropdown-weather-refresh"), v.svc.Refresh, css.Ghost, css.Icon)
 	row, glyph := dropdownHeaderIcon(v.font, "ld-sun-symbolic", i18n.T("dropdown-weather-title"), refresh)
 	glyph.SetVisible(false)
 	return row

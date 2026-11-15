@@ -99,7 +99,7 @@ func (v *bitwardenView) rebuildPresets() {
 		row.SetEllipsize(true)
 		row.SetMedia(widget.NewThemeIcon(p.icon, int(v.px*1.2)), false)
 		row.SetOnActivate(func() { v.generate(p) })
-		row.AddAction(v.iconButton("ld-copy-symbolic", i18n.T("dropdown-bitwarden-generate", i18n.Str("field", p.field)), func() { v.generate(p) }))
+		row.AddAction(ghostIconButton("ld-copy-symbolic", int(v.px), i18n.T("dropdown-bitwarden-generate", i18n.Str("field", p.field)), func() { v.generate(p) }))
 		v.genList.Append(row)
 		v.genRows = append(v.genRows, row)
 	}

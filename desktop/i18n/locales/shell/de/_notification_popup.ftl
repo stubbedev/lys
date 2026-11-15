@@ -6,3 +6,4 @@ notification-popup-reply-placeholder = Antworten
 notification-popup-time-just-now = Gerade eben
 notification-popup-time-minutes-ago = vor { $minutes } min
 notification-popup-time-hours-ago = vor { $hours } h
+notification-popup-time-days-ago = vor { $days } Tg.

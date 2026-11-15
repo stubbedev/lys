@@ -377,8 +377,7 @@ func (s *netVPNs) row(r network.VPN) *widget.Item {
 		row.SetTooltip(r.Detail)
 	}
 	gear := widget.NewThemeIcon("ld-settings-symbolic", int(v.px))
-	edit := dropdownButton(gear, func() { v.vpnEdit(uuid) }, "network-vpn-edit", css.Ghost, css.Icon, css.Small)
-	edit.SetTooltip(i18n.T("dropdown-network-vpn-edit"))
+	edit := iconButton(gear, i18n.T("dropdown-network-vpn-edit"), func() { v.vpnEdit(uuid) }, "network-vpn-edit", css.Ghost, css.Icon, css.Small)
 	row.AddAction(edit)
 	return row
 }
@@ -439,11 +438,9 @@ func newNetVPNForm(v *networkView) *netVPNForm {
 	// share it.
 	f.head = widget.NewItem(v.font, i18n.T("dropdown-network-vpn-new"), "")
 	f.head.SetSmall(true)
-	backBtn := dropdownButton(widget.NewThemeIcon("ld-arrow-left-symbolic", int(v.px)), f.cancel, "network-vpn-back", css.Ghost, css.Icon, css.Small)
-	backBtn.SetTooltip(i18n.T("dropdown-network-vpn-back"))
+	backBtn := ghostIconButton("ld-arrow-left-symbolic", int(v.px), i18n.T("dropdown-network-vpn-back"), f.cancel, "network-vpn-back")
 	f.head.SetMedia(backBtn, true)
-	f.importBtn = dropdownButton(widget.NewThemeIcon("ld-folder-open-symbolic", int(v.px)), f.importFile, "network-vpn-import", css.Ghost, css.Icon, css.Small)
-	f.importBtn.SetTooltip(i18n.T("dropdown-network-vpn-import"))
+	f.importBtn = ghostIconButton("ld-folder-open-symbolic", int(v.px), i18n.T("dropdown-network-vpn-import"), f.importFile, "network-vpn-import")
 	f.head.AddAction(f.importBtn)
 	f.Append(f.head, false)
 
@@ -785,6 +782,7 @@ func (f *netVPNForm) importDone(path string, err error) {
 		return
 	case err != nil:
 		log.Printf("network: VPN import: %v", err)
+		f.setError(i18n.T("dropdown-network-vpn-import-error", i18n.Str("error", err.Error())))
 		return
 	}
 	if values, ok := readWgQuick(path); ok {
@@ -817,11 +815,28 @@ func (v *networkView) vpnToggle(uuid string) {
 	if vpn == nil {
 		return
 	}
-	go func() {
-		if err := vpn.Toggle(context.Background(), uuid); err != nil {
-			log.Printf("network: VPN toggle: %v", err)
-		}
-	}()
+	name := v.vpnName(uuid)
+	v.act(func(ctx context.Context) error { return vpn.Toggle(ctx, uuid) }, func(err error) string {
+		return i18n.T("dropdown-network-vpn-error-toggle", i18n.Str("name", name), i18n.Str("error", err.Error()))
+	}, nil)
+}
+
+// vpnRow is the profile the rows show as uuid.
+func (v *networkView) vpnRow(uuid string) (network.VPN, bool) {
+	i := slices.IndexFunc(v.cur.vpns, func(r network.VPN) bool { return r.UUID == uuid })
+	if i < 0 {
+		return network.VPN{}, false
+	}
+	return v.cur.vpns[i], true
+}
+
+// vpnName is the name the row of uuid shows, the uuid for a profile no
+// row shows.
+func (v *networkView) vpnName(uuid string) string {
+	if r, ok := v.vpnRow(uuid); ok {
+		return r.Name
+	}
+	return uuid
 }
 
 // vpnAdd opens the editor empty.
@@ -838,15 +853,15 @@ func (v *networkView) vpnEdit(uuid string) {
 	if vpn == nil {
 		return
 	}
-	name := ""
-	if i := slices.IndexFunc(v.cur.vpns, func(r network.VPN) bool { return r.UUID == uuid }); i >= 0 {
-		name = v.cur.vpns[i].Name
-	}
+	row, _ := v.vpnRow(uuid)
+	name, shown := row.Name, v.vpnName(uuid)
+	v.showActionError("")
 	go func() {
 		dict, err := vpn.SettingsOf(v.life, uuid)
 		v.ctx.Invoke(func() {
 			if err != nil {
 				log.Printf("network: cannot read VPN profile %s: %v", uuid, err)
+				v.showActionError(i18n.T("dropdown-network-vpn-error-read", i18n.Str("name", shown), i18n.Str("error", err.Error())))
 				return
 			}
 			v.vpnForm.showEdit(uuid, name, network.KindOf(dict), network.ReadProfileValues(dict))

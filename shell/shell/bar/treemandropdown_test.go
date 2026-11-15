@@ -256,7 +256,7 @@ func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
 		t.Fatalf("Tab onto the row shows %q, want the actions", slot.Visible())
 	}
 	teardown := treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-teardown"))
-	if got := teardown.AccessibleName(); got != i18n.T("dropdown-treeman-action-teardown") {
+	if got := widget.Describe(teardown).Name; got != i18n.T("dropdown-treeman-action-teardown") {
 		t.Errorf("the teardown button reads %q to assistive technology", got)
 	}
 	tabUntil(t, router, v, teardown)

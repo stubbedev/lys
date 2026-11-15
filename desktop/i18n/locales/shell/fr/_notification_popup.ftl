@@ -6,3 +6,4 @@ notification-popup-reply-placeholder = Répondre
 notification-popup-time-just-now = À l'instant
 notification-popup-time-minutes-ago = Il y a { $minutes } min
 notification-popup-time-hours-ago = Il y a { $hours } h
+notification-popup-time-days-ago = Il y a { $days } j

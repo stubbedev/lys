@@ -451,7 +451,6 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget) er
 		if same {
 			return nil
 		}
-		// The exit plays before the next popover opens.
 		r.mu.Lock()
 	}
 	build, ok := r.builders[name]

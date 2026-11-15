@@ -10,6 +10,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
 
@@ -69,5 +71,20 @@ func TestEditorSaveWritesAndCopiesWithoutStallingTheLoop(t *testing.T) {
 	defer snap.Release()
 	if entries := snap.Entries(); len(entries) != 1 || entries[0].Mime != transfer.MimePNG {
 		t.Fatalf("the clipboard history holds %v, want the edited image as image/png", entries)
+	}
+}
+
+// The screenshot surfaces follow the styling scale: at 1 the body text,
+// a 12px padding and a 48px gap on a 16px root, and twice each at 2.
+func TestShotSizesFollowTheScale(t *testing.T) {
+	cfg := config.Defaults()
+	one := shotSizesOf(cfg.Styling)
+	if one.textPx != widgets.TextPx(styling.Body, 1) || one.padding != 12 || one.margin != 48 {
+		t.Errorf("scale 1: %+v, want the body text, 12px padding, 48px margin", one)
+	}
+	cfg.Styling.Scale = 2
+	two := shotSizesOf(cfg.Styling)
+	if two.textPx != 2*one.textPx || two.padding != 2*one.padding || two.margin != 2*one.margin {
+		t.Errorf("scale 2: %+v, want twice %+v", two, one)
 	}
 }

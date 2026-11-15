@@ -2,6 +2,7 @@ package notifyui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,19 +99,53 @@ func TestUrgency(t *testing.T) {
 
 func TestRelativeTime(t *testing.T) {
 	now := time.Unix(100000, 0)
-	if a := RelativeTime(now, now.Add(-30*time.Second)); !a.JustNow() {
-		t.Errorf("30s = %+v", a)
+	for _, c := range []struct {
+		name string
+		ago  time.Duration
+		want Age
+	}{
+		{"30s", 30 * time.Second, Age{Unit: AgeJustNow}},
+		{"30m", 30 * time.Minute, Age{Unit: AgeMinutes, Count: 30}},
+		{"2.5h", 150 * time.Minute, Age{Unit: AgeHours, Count: 2}},
+		{"23h59m", 24*time.Hour - time.Minute, Age{Unit: AgeHours, Count: 23}},
+		{"24h", 24 * time.Hour, Age{Unit: AgeDays, Count: 1}},
+		{"300h", 300 * time.Hour, Age{Unit: AgeDays, Count: 12}},
+		{"future", -time.Hour, Age{Unit: AgeJustNow}},
+	} {
+		if got := RelativeTime(now, now.Add(-c.ago)); got != c.want {
+			t.Errorf("%s = %+v, want %+v", c.name, got, c.want)
+		}
 	}
-	if a := RelativeTime(now, now.Add(-30*time.Minute)); a.Minutes != 30 || a.JustNow() {
-		t.Errorf("30m = %+v", a)
+}
+
+// Every age reads in the surface's own strings, days included, so a
+// notification from last week never shows as hundreds of hours.
+func TestTimeLabelReadsEveryUnit(t *testing.T) {
+	for _, domain := range []string{"notification-popup", "notification-dropdown"} {
+		for _, c := range []struct {
+			age  Age
+			want string
+		}{
+			{Age{Unit: AgeJustNow}, i18n.T(domain + "-time-just-now")},
+			{Age{Unit: AgeMinutes, Count: 5}, i18n.T(domain+"-time-minutes-ago", i18n.Str("minutes", "5"))},
+			{Age{Unit: AgeHours, Count: 3}, i18n.T(domain+"-time-hours-ago", i18n.Str("hours", "3"))},
+			{Age{Unit: AgeDays, Count: 12}, i18n.T(domain+"-time-days-ago", i18n.Str("days", "12"))},
+		} {
+			got := TimeLabel(c.age, domain)
+			if got != c.want {
+				t.Errorf("%s %+v = %q, want %q", domain, c.age, got, c.want)
+			}
+			if strings.Contains(got, domain) {
+				t.Errorf("%s %+v reads the missing message id %q", domain, c.age, got)
+			}
+		}
 	}
-	if a := RelativeTime(now, now.Add(-150*time.Minute)); a.Hours != 2 || a.Minutes != 0 {
-		t.Errorf("2.5h = %+v", a)
-	}
-	// A timestamp from the future reads as just now.
-	if a := RelativeTime(now, now.Add(time.Hour)); !a.JustNow() {
-		t.Errorf("future = %+v", a)
-	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an age with no unit label rendered instead of panicking")
+		}
+	}()
+	TimeLabel(Age{Unit: AgeDays + 1}, "notification-popup")
 }
 
 func TestBodyMarkup(t *testing.T) {

@@ -260,11 +260,11 @@ func bitwardenDropdown(ctx ModuleContext) widget.Widget {
 	v.AddClass("dropdown", "bitwarden-dropdown")
 	v.spinner = widget.NewSpinner(int(px))
 	v.spinner.SetVisible(false)
-	v.genBtn = v.iconButton("ld-shuffle-symbolic", i18n.T("dropdown-bitwarden-generator"), v.toggleGenerator)
-	v.sendBtn = v.iconButton("ld-send-symbolic", i18n.T("dropdown-bitwarden-sends"), v.toggleSends)
-	v.syncBtn = v.iconButton("ld-refresh-cw-symbolic", i18n.T("dropdown-bitwarden-sync"), v.sync)
-	v.lockBtn = v.iconButton("ld-lock-symbolic", i18n.T("dropdown-bitwarden-lock"), v.lock)
-	v.logoutBtn = v.iconButton("ld-log-out-symbolic", i18n.T("dropdown-bitwarden-logout"), v.askLogout)
+	v.genBtn = ghostIconButton("ld-shuffle-symbolic", int(v.px), i18n.T("dropdown-bitwarden-generator"), v.toggleGenerator)
+	v.sendBtn = ghostIconButton("ld-send-symbolic", int(v.px), i18n.T("dropdown-bitwarden-sends"), v.toggleSends)
+	v.syncBtn = ghostIconButton("ld-refresh-cw-symbolic", int(v.px), i18n.T("dropdown-bitwarden-sync"), v.sync)
+	v.lockBtn = ghostIconButton("ld-lock-symbolic", int(v.px), i18n.T("dropdown-bitwarden-lock"), v.lock)
+	v.logoutBtn = ghostIconButton("ld-log-out-symbolic", int(v.px), i18n.T("dropdown-bitwarden-logout"), v.askLogout)
 	v.Append(dropdownHeader(font, "ld-shield-check-symbolic", i18n.T("dropdown-bitwarden-title"), v.spinner, v.genBtn, v.sendBtn, v.syncBtn, v.lockBtn, v.logoutBtn), false)
 	content := dropdownContent()
 	v.errLabel = v.caption(css.Error)
@@ -410,12 +410,6 @@ func (v *bitwardenView) showError(err error) {
 	v.syncBtn.SetVisible(false)
 	v.lockBtn.SetVisible(false)
 	v.logoutBtn.SetVisible(false)
-}
-
-func (v *bitwardenView) iconButton(icon, tooltip string, onClick func()) *widget.Button {
-	b := dropdownButton(widget.NewThemeIcon(icon, int(v.px)), onClick, css.Ghost, css.Icon, css.Small)
-	b.SetTooltip(tooltip)
-	return b
 }
 
 func (v *bitwardenView) textButton(text, tooltip string, onClick func(), classes ...string) *widget.Button {
@@ -901,7 +895,7 @@ func (v *bitwardenView) row(it vault.Item) widget.Widget {
 		row.SetOnActivate(func() { v.copyField(it, it.Fields[0]) })
 	}
 	for _, f := range it.Fields {
-		b := v.iconButton(bwFieldIcon(f), i18n.T("dropdown-bitwarden-copy-field", i18n.Str("field", bwFieldName(f))), func() { v.copyField(it, f) })
+		b := ghostIconButton(bwFieldIcon(f), int(v.px), i18n.T("dropdown-bitwarden-copy-field", i18n.Str("field", bwFieldName(f))), func() { v.copyField(it, f) })
 		row.AddAction(b)
 	}
 	return row

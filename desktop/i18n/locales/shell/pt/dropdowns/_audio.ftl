@@ -10,3 +10,7 @@ dropdown-audio-no-devices-description = Não foram encontrados dispositivos de s
 dropdown-audio-no-apps = Nenhuma aplicação a reproduzir áudio
 dropdown-audio-settings = Definições de áudio
 dropdown-audio-capture = A capturar
+dropdown-audio-mute = Silenciar
+dropdown-audio-unmute = Reativar som
+dropdown-audio-back = Voltar
+dropdown-audio-write-failed = Não foi possível alterar o áudio

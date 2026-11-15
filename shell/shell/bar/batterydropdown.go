@@ -292,7 +292,7 @@ func (v *batteryView) batterySection() widget.Widget {
 	v.charge = widget.NewItem(v.font, "", "")
 	v.charge.SetSmall(true)
 	v.charge.AddClass("charge-limit")
-	v.chargeSwitch = widget.NewSwitch(false)
+	v.chargeSwitch = namedSwitch(i18n.T("dropdown-battery-charge-limit"), false)
 	v.chargeSwitch.OnChanged = v.chargeToggled
 	v.charge.AddAction(v.chargeSwitch)
 	v.chargeCard = widget.NewBox(widget.Column, 0, 0)

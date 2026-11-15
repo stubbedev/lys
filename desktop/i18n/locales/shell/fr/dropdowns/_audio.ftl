@@ -12,3 +12,7 @@ dropdown-audio-no-devices-description = Aucun périphérique de sortie ou d'entr
 dropdown-audio-no-apps = Aucune application ne lit de l'audio
 dropdown-audio-settings = Paramètres audio
 dropdown-audio-capture = Capture en cours
+dropdown-audio-mute = Couper le son
+dropdown-audio-unmute = Rétablir le son
+dropdown-audio-back = Retour
+dropdown-audio-write-failed = Impossible de modifier l'audio

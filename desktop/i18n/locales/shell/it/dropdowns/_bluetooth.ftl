@@ -159,3 +159,4 @@ dropdown-bluetooth-error-scan = Impossibile cercare dispositivi: { $error }
 ## Dimenticare un dispositivo
 dropdown-bluetooth-forget-confirm = Dimenticare { $name }?
 dropdown-bluetooth-forget-confirm-detail = L'associazione verrà rimossa. Per usare di nuovo il dispositivo, associalo di nuovo.
+dropdown-bluetooth-scan = Cerca dispositivi

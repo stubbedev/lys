@@ -178,10 +178,8 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	v.Box = widget.NewBox(widget.Column, 0, 0)
 	v.AddClass("dropdown", "network-dropdown")
 
-	scanIcon := widget.NewThemeIcon("ld-refresh-cw-symbolic", int(px))
-	v.scanBtn = dropdownButton(scanIcon, v.startScan, "network-scan-btn")
-	v.scanBtn.AddClass(css.Ghost, css.Icon)
-	v.wifiSwitch = widget.NewSwitch(false)
+	v.scanBtn = iconButton(widget.NewThemeIcon("ld-refresh-cw-symbolic", int(px)), i18n.T("dropdown-network-scan"), v.startScan, "network-scan-btn", css.Ghost, css.Icon)
+	v.wifiSwitch = namedSwitch(i18n.T("dropdown-network-wifi"), false)
 	v.wifiSwitch.OnChanged = v.wifiToggled
 	header, icon, _ := dropdownHeaderParts(font, "ld-wifi-symbolic", i18n.T("dropdown-network-title"), v.scanBtn, v.wifiSwitch)
 	v.headerIcon = icon
@@ -330,6 +328,8 @@ func (v *networkView) rebuildList() {
 	v.hidden.SetVisible(wifiAvail && v.state == netHiddenEntry)
 	v.hiddenCard.SetVisible(wifiAvail && v.cur.snap.WifiEnabled && v.state != netHiddenEntry)
 	v.listCard.SetVisible(wifiAvail && len(v.cache) > 0)
+	v.listCard.SetEnabled(v.state != netConnecting)
+	v.hiddenCard.SetEnabled(v.state != netConnecting)
 	v.noNetworks.SetVisible(wifiAvail && len(v.cache) == 0)
 	v.noAdapter.SetVisible(!wifiAvail)
 }
@@ -551,23 +551,31 @@ func (v *networkView) forget(ssid string) {
 	v.forgetThen(ssid, nil)
 }
 
-func (v *networkView) forgetThen(ssid string, then func(w wifiControl)) {
+func (v *networkView) forgetThen(ssid string, then func()) {
 	w := v.wifi()
 	if w == nil {
 		return
 	}
+	v.act(func(ctx context.Context) error { return w.Forget(ctx, ssid) }, func(err error) string {
+		return i18n.T("dropdown-network-error-forget", i18n.Str("name", ssid), i18n.Str("error", err.Error()))
+	}, then)
+}
+
+// act runs write off the loop under the module's write bound, then
+// re-reads: a failure shows over the list as failed words it, a write
+// that goes through runs then on the loop (nil for nothing).
+func (v *networkView) act(write func(context.Context) error, failed func(error) string, then func()) {
 	v.showActionError("")
-	v.ctx.Go(func() {
+	serviceWrite(v.ctx, write, func(err error) {
 		defer v.refresh()
-		if err := w.Forget(context.Background(), ssid); err != nil {
-			log.Printf("network: forget %q: %v", ssid, err)
-			v.ctx.Invoke(func() {
-				v.showActionError(i18n.T("dropdown-network-error-forget", i18n.Str("name", ssid), i18n.Str("error", err.Error())))
-			})
+		if err != nil {
+			message := failed(err)
+			log.Printf("network: %s", message)
+			v.showActionError(message)
 			return
 		}
 		if then != nil {
-			then(w)
+			then()
 		}
 	})
 }
@@ -589,12 +597,13 @@ func (v *networkView) wifiToggled(on bool) {
 		v.cache, v.pendingSSID, v.selection = nil, "", nil
 		v.state = netNormal
 	}
-	v.ctx.Go(func() {
-		if err := w.SetEnabled(context.Background(), on); err != nil {
-			log.Printf("network: wifi toggle: %v", err)
-		}
-		v.refresh()
-	})
+	id := "dropdown-network-error-wifi-off"
+	if on {
+		id = "dropdown-network-error-wifi-on"
+	}
+	v.act(func(ctx context.Context) error { return w.SetEnabled(ctx, on) }, func(err error) string {
+		return i18n.T(id, i18n.Str("error", err.Error()))
+	}, nil)
 }
 
 // follow re-reads on NetworkManager, saved-profile, and agent changes
@@ -826,11 +835,10 @@ func (a *netActive) disconnect() {
 	if w == nil {
 		return
 	}
-	a.v.ctx.Go(func() {
-		if err := w.Disconnect(context.Background()); err != nil {
-			log.Printf("network: wifi disconnect: %v", err)
-		}
-	})
+	ssid := a.ssid
+	a.v.act(w.Disconnect, func(err error) string {
+		return i18n.T("dropdown-network-error-disconnect", i18n.Str("name", ssid), i18n.Str("error", err.Error()))
+	}, nil)
 }
 
 // forget is the saved profiles go, then the link.
@@ -839,11 +847,7 @@ func (a *netActive) forget() {
 		return
 	}
 	a.v.askForget(a.ssid, func(ssid string) {
-		a.v.forgetThen(ssid, func(w wifiControl) {
-			if err := w.Disconnect(context.Background()); err != nil {
-				log.Printf("network: wifi disconnect after forget: %v", err)
-			}
-		})
+		a.v.forgetThen(ssid, a.disconnect)
 	})
 }
 
@@ -857,24 +861,28 @@ func (a *netActive) dismiss() {
 // Cancel and Connect.
 type netPasswordForm struct {
 	*formCard
-	v        *networkView
-	secret   *secretEntry
-	errLabel *widget.Label
+	v          *networkView
+	secret     *secretEntry
+	errLabel   *widget.Label
+	connectBtn *widget.Button
 }
 
 func newNetPasswordForm(v *networkView) *netPasswordForm {
 	f := &netPasswordForm{v: v}
-	f.formCard = newFormCard(v.font, v.px, signalStrengthIcon(0), f.cancel, "network-password-card")
+	f.formCard = newFormCard(v.font, v.px, signalStrengthIcon(0), i18n.T("dropdown-network-cancel"), f.cancel, "network-password-card")
 	f.secret = newSecretEntry(v.font, v.px)
 	f.secret.entry.AddClass("network-password-input")
 	f.secret.entry.SetPlaceholder(i18n.T("dropdown-network-password-placeholder"))
 	f.secret.entry.OnActivate = func(string) { f.connect() }
+	f.secret.entry.OnChanged = func(password string) { f.connectBtn.SetEnabled(password != "") }
 	f.body.Append(f.secret.entry, false)
 	f.errLabel = v.errorLabel()
 	f.body.Append(f.errLabel, false)
+	f.connectBtn = v.primaryText(i18n.T("dropdown-network-connect"), "network-password-connect", f.connect)
+	f.connectBtn.SetEnabled(false)
 	f.body.Append(formActions(
 		v.outlineText(i18n.T("dropdown-network-cancel"), "network-password-cancel", f.cancel),
-		v.primaryText(i18n.T("dropdown-network-connect"), "network-password-connect", f.connect),
+		f.connectBtn,
 	), false)
 	f.SetVisible(false)
 	return f
@@ -886,14 +894,22 @@ func (f *netPasswordForm) show(ap apSnapshot, errMessage string) {
 	f.head.SetTitle(ap.ssid)
 	f.head.SetDescription(securityLabel(ap.security))
 	f.secret.reset()
-	f.errLabel.SetText(errMessage)
-	f.errLabel.SetVisible(errMessage != "")
+	f.showError(errMessage)
 	f.SetVisible(true)
 	f.v.focus(f.secret.entry)
 }
 
+func (f *netPasswordForm) showError(message string) {
+	f.errLabel.SetText(message)
+	f.errLabel.SetVisible(message != "")
+}
+
 func (f *netPasswordForm) connect() {
 	password := f.secret.entry.Text()
+	if password == "" {
+		f.showError(i18n.T("dropdown-network-hidden-error-password"))
+		return
+	}
 	f.secret.reset()
 	f.v.connect(password)
 }
@@ -924,7 +940,7 @@ type netSecretField struct {
 
 func newNetSecretForm(v *networkView) *netSecretForm {
 	f := &netSecretForm{v: v}
-	f.formCard = newFormCard(v.font, v.px, "ld-lock-symbolic", f.cancel, "network-password-card", "network-secret-card")
+	f.formCard = newFormCard(v.font, v.px, "ld-lock-symbolic", i18n.T("dropdown-network-cancel"), f.cancel, "network-password-card", "network-secret-card")
 	f.head.SetDescription(i18n.T("dropdown-network-secret-title"))
 	f.message = widget.NewLabel(v.font, v.px, "", 0)
 	f.message.AddClass("network-secret-message", css.DimLabel)

@@ -86,6 +86,15 @@ func (calendarNames) FormatDate(d widget.Date) string {
 		i18n.Str("year", strconv.Itoa(d.Year)))
 }
 
+// hourLayout is the hour every calendar clock shows: unpadded on the
+// 12-hour clock, two digits on the 24-hour one.
+func hourLayout(use12h bool) string {
+	if use12h {
+		return "%-I"
+	}
+	return "%H"
+}
+
 // calendarIs12h reports whether the clock format uses %I or %p.
 func calendarIs12h(format string) bool {
 	return strings.Contains(format, "%I") || strings.Contains(format, "%p")
@@ -216,11 +225,7 @@ func (v *calendarView) tick() {
 	now := v.now()
 	clock := v.ctx.Config.Clock
 	use12h := calendarIs12h(clock.Format.String())
-	if use12h {
-		v.hours.SetText(strftimeOf("%I", now))
-	} else {
-		v.hours.SetText(strftimeOf("%H", now))
-	}
+	v.hours.SetText(strftimeOf(hourLayout(use12h), now))
 	v.minutes.SetText(strftimeOf("%M", now))
 	v.seconds.SetText(strftimeOf("%S", now))
 	v.ampm.SetText(strftimeOf("%p", now))
@@ -260,18 +265,30 @@ func (v *calendarView) follow(life context.Context) {
 			}
 		})
 	}
+	seconds := v.ctx.Config.Clock.DropdownShowSeconds
 	v.ctx.Go(func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
+		timer := time.NewTimer(calendarTickDelay(v.now(), seconds))
+		defer timer.Stop()
 		for {
 			select {
 			case <-life.Done():
 				return
-			case <-ticker.C:
+			case <-timer.C:
 				v.ctx.Invoke(v.tick)
+				timer.Reset(calendarTickDelay(v.now(), seconds))
 			}
 		}
 	})
+}
+
+// calendarTickDelay is how long from now until the hero next changes:
+// the next second while it shows seconds, else the next minute.
+func calendarTickDelay(now time.Time, seconds bool) time.Duration {
+	step := time.Minute
+	if seconds {
+		step = time.Second
+	}
+	return now.Truncate(step).Add(step).Sub(now)
 }
 
 func (v *calendarView) hasEvents() bool { return v.ctx.Calendar != nil && v.ctx.Calendar.Configured() }
