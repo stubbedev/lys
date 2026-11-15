@@ -30,6 +30,7 @@ import (
 
 type fakeScreen struct {
 	frame    kms.Frame
+	scale    int
 	mu       sync.Mutex
 	presents []image.Rectangle
 	keep     bool
@@ -37,12 +38,12 @@ type fakeScreen struct {
 }
 
 func newScreen(size image.Point) *fakeScreen {
-	return &fakeScreen{frame: kms.Frame{Pix: make([]byte, size.X*size.Y*4), Stride: size.X * 4, Size: size}}
+	return &fakeScreen{frame: kms.Frame{Pix: make([]byte, size.X*size.Y*4), Stride: size.X * 4, Size: size}, scale: 1}
 }
 
 func (s *fakeScreen) Name() string     { return "Virtual-1" }
 func (s *fakeScreen) Frame() kms.Frame { return s.frame }
-func (s *fakeScreen) Scale() int       { return 1 }
+func (s *fakeScreen) Scale() int       { return s.scale }
 
 func (s *fakeScreen) Present(d kms.Damage) error {
 	s.mu.Lock()
@@ -295,6 +296,8 @@ type setup struct {
 	theme     *theme.Theme
 	clock     Clock
 	keep      bool
+	scale     int
+	bgrt      *splashframe.BGRT
 }
 
 type laterClock struct {
@@ -338,6 +341,9 @@ func start(t *testing.T, s setup) *run {
 	for range s.screens {
 		screen := newScreen(size)
 		screen.keep = s.keep
+		if s.scale != 0 {
+			screen.scale = s.scale
+		}
 		r.display.screens = append(r.display.screens, screen)
 	}
 	var vt Terminal
@@ -385,7 +391,7 @@ func start(t *testing.T, s setup) *run {
 	started := make(chan *daemon, 1)
 	cfg := Config{started: func(d *daemon) { started <- d }, LoadKeymap: keymap, Mode: s.mode, Server: listen(t, r.socket), Chroot: chroot, BootDuration: r.duration, LoadBootDuration: load, SaveBootDuration: save, LoadTheme: loadTheme, RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: r.frames.save, ForgetLastFrame: r.frames.forget, Clock: clock, Log: log}
 	go func() {
-		r.done <- Run(ctx, cfg, th, nil, Devices{Display: r.display, VT: vt, Console: r.console})
+		r.done <- Run(ctx, cfg, th, s.bgrt, Devices{Display: r.display, VT: vt, Console: r.console})
 	}()
 	r.d = <-started
 	t.Cleanup(func() {

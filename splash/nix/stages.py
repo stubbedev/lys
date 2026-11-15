@@ -18,6 +18,9 @@ def dump(m, i):
     return path
 
 
+background = (0, 0, 0)
+
+
 def black(img):
     return all(high < 16 for _, high in img.getextrema())
 
@@ -31,6 +34,16 @@ def taken_over_logo(m):
     assert len(found) == 1, f"the greeter said {len(found)} times where it took the splash's logo over, want once"
     x0, y0, x1, y1, w, h = (int(n) for n in found[0])
     return (x0, y0, x1, y1), (w, h)
+
+
+placed_line = re.compile(r'msg="placed the logo" output=\S+ at=\((\d+),(\d+)\)-\((\d+),(\d+)\) size=\((\d+),(\d+)\)')
+
+
+def placed_logo(m, size):
+    log = whole_output(m, "journalctl -b -u lys-splash-start -o cat --no-pager")
+    boxes = {tuple(int(n) for n in found[:4]) for found in placed_line.findall(log) if (int(found[4]), int(found[5])) == size}
+    assert len(boxes) == 1, f"lys-splash placed its logo on a {size[0]}x{size[1]} frame at {sorted(boxes)}, want one place"
+    return boxes.pop()
 
 
 def inside(box, outer):
@@ -64,7 +77,8 @@ def hand_over(m):
     m.succeed("lys-splash pause-progress")
     m.sleep(1)
     splash = screenshot(m, "splash")
-    content(splash, (0, 0, 0))
+    content(splash, background)
+    placed = placed_logo(m, splash.size)
     no_quit_unit(m, "under lys-login")
 
     m.succeed("touch /run/greeter-go")
@@ -88,7 +102,8 @@ def hand_over(m):
 
     logo, size = taken_over_logo(m)
     assert size == splash.size, f"the greeter took the splash's frame over at {size}, the screen is {splash.size}"
-    last = [i for i in range(left, len(frames)) if inside(content(frames[i], (0, 0, 0)), logo)]
+    assert logo == placed, f"the greeter put the splash's logo at {logo}, the splash placed it at {placed}"
+    last = [i for i in range(left, len(frames)) if inside(content(frames[i], background), logo)]
     assert last, f"no dump shows the splash's last frame, its logo alone in {logo}"
     picture = frames[last[0]]
     picture.save(m.out_dir / "splash-last.png")
@@ -111,15 +126,15 @@ def hand_over(m):
     m.succeed("journalctl -b -u lys-splash-start -g 'msg=quitting mode=boot retain=true'")
     no_quit_unit(m, "after the hand-over")
     m.succeed("pgrep -u lys-greeter -f 'lys-login greet'")
+    return splash, logo
 
 
-def reboot_shows_splash(m, splash):
+def reboot_shows_splash(m, splash, logo):
     m.execute("systemctl --no-block reboot", check_return=False, check_output=False)
     m.wait_for_console_text(r'msg="showing the splash" mode=reboot', timeout=seconds(30))
     m.wait_for_console_text(r"reboot: Restarting system", timeout=seconds(60))
     await_until(10, lambda: (None, None if "paused" in m.send_monitor_command("info status") else "the VM has not paused at the reset"))
-    rebooting = screenshot(m, "rebooting")
-    assert_same(top_half(rebooting), top_half(splash), "the frame at the reset against the splash's top half")
+    assert_same(screenshot(m, "rebooting").crop(logo), splash.crop(logo), f"the logo in {logo} at the reset against the splash's")
     assert "msg=quitting mode=reboot" not in m.get_console_log(), "the reboot splash quit before the reset"
 
 

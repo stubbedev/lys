@@ -186,6 +186,7 @@ type drawnScreen struct {
 	state   theme.State
 	size    image.Point
 	scale   int
+	logo    image.Rectangle
 	wait    time.Duration
 	retryAt time.Time
 }
@@ -1026,6 +1027,10 @@ func (d *daemon) drawScreen(s Screen) error {
 	err = s.Present(damage)
 	if err == nil {
 		shown.wait = 0
+		if logo := d.renderer.Logo(f.Size, shown.scale); logo != shown.logo {
+			shown.logo = logo
+			d.cfg.Log.Info("placed the logo", "output", s.Name(), "at", logo, "size", f.Size)
+		}
 		d.drawn[s] = shown
 		return nil
 	}

@@ -144,12 +144,15 @@ func textPx(t tokens.TextSize, scale int) float64 {
 	return t.Px(tokens.RemPx, float64(scale))
 }
 
-func (r *Renderer) layout(size image.Point, scale int) layout {
-	logo := splashframe.LysLogo(size, scale)
+func (r *Renderer) Logo(size image.Point, scale int) image.Rectangle {
 	if r.bgrt != nil {
-		logo = r.bgrt.Rect(size)
+		return r.bgrt.Rect(size)
 	}
-	return layout{splashframe.Layout(size, scale, logo)}
+	return splashframe.LysLogo(size, scale)
+}
+
+func (r *Renderer) layout(size image.Point, scale int) layout {
+	return layout{splashframe.Layout(size, scale, r.Logo(size, scale))}
 }
 
 // Draw brings frame f, shown at scale, from prev to cur and returns the

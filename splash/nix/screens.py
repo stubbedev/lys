@@ -21,10 +21,6 @@ def seconds(n):
     return timedelta(seconds=n)
 
 
-def top_half(img):
-    return img.crop((0, 0, img.width, img.height // 2))
-
-
 def load(path):
     with Image.open(path) as img:
         return img.convert("RGB")

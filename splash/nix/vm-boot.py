@@ -57,6 +57,7 @@ with logs_on_failure(machine, explained):
     machine.succeed(f"test \"$(readlink /proc/{pid}/root)\" = /")
     machine.succeed("lys-splash --ping", "plymouth --ping", "lys-splash --has-active-vt")
     splash = screenshot(machine, "splash")
+    logo = placed_logo(machine, splash.size)
 
     machine.wait_until_succeeds("journalctl -b -u lys-splash-start -g 'msg=\"the console keymap\" keymap=de-latin1'", timeout=seconds(10))
     machine.succeed("systemd-run --no-ask-password --unit=ask-hints -p StandardOutput=file:/tmp/answer lys-splash ask-for-password --prompt='Hinted password'")
@@ -89,7 +90,7 @@ with logs_on_failure(machine, explained):
     machine.screenshot("boot-messages")
     machine.send_key("esc")
     machine.wait_until_succeeds("journalctl -b -u lys-splash-start -g 'showing the splash again'", timeout=seconds(5))
-    await_screen(machine, "splash-again", lambda _, cur: differences(top_half(cur), top_half(splash)), 10)
+    await_screen(machine, "splash-again", lambda _, cur: differences(cur.crop(logo), splash.crop(logo)), 10)
 
     machine.succeed("lys-splash pause-progress")
     machine.sleep(1)
@@ -102,7 +103,10 @@ with logs_on_failure(machine, explained):
     machine.wait_until_fails(f"kill -0 {pid}", timeout=seconds(5))
     machine.wait_for_unit("lys-splash-quit-wait.service", timeout=seconds(10))
     machine.sleep(1)
-    assert_same(screenshot(machine, "handed-over"), paused, "the frame after the hand-over against the splash before it")
+    handed_over = screenshot(machine, "handed-over")
+    assert_same(handed_over.crop(logo), paused.crop(logo), f"the logo in {logo} after the hand-over against the splash's before it")
+    shown = content(handed_over, background)
+    assert inside(shown, logo), f"the frame after the hand-over shows {shown} on the background, more than the logo alone in {logo}"
     in_order(machine,
         ("lys-splash-read-write.service", r"^Finished "),
         ("lys-splash-quit-wait.service", r"^Finished "))
@@ -114,7 +118,7 @@ with logs_on_failure(machine, explained):
     machine.succeed("systemctl stop greeter")
 
 try:
-    reboot_shows_splash(machine, splash)
+    reboot_shows_splash(machine, splash, logo)
 except BaseException:
     print("--- machine's console\n" + machine.get_console_log()[-30000:])
     raise

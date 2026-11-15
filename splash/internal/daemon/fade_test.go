@@ -2,9 +2,12 @@ package daemon
 
 import (
 	"bytes"
+	"fmt"
 	"image"
+	"log/slog"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -246,5 +249,41 @@ func TestAQuitWaitingOnAFadeOutlastsAReactivate(t *testing.T) {
 	}
 	if !r.display.retained || !bytes.Equal(r.screen().picture(), lysPicture(t)) {
 		t.Error("a reactivate during a quit's fade left a frame other than the logo alone")
+	}
+}
+
+func TestTheLogoIsLoggedOncePerOutputWhereSplashframePlacesIt(t *testing.T) {
+	t.Parallel()
+	firmware := &splashframe.BGRT{Image: image.NewRGBA(image.Rect(0, 0, 48, 32)), Offset: image.Pt((pictureSize.X-48)/2, 90)}
+	lysTheme := theme.Default()
+	lysTheme.Logo = theme.LysLogo
+	tests := []struct {
+		name  string
+		bgrt  *splashframe.BGRT
+		theme *theme.Theme
+		want  func(scale int) image.Rectangle
+	}{
+		{"lys", nil, nil, func(scale int) image.Rectangle { return splashframe.LysLogo(pictureSize, scale) }},
+		{"firmware", firmware, nil, func(int) image.Rectangle { return firmware.Rect(pictureSize) }},
+		{"lys over firmware", firmware, &lysTheme, func(scale int) image.Rectangle { return splashframe.LysLogo(pictureSize, scale) }},
+	}
+	for _, tc := range tests {
+		for _, scale := range []int{1, 2} {
+			t.Run(fmt.Sprintf("%s at scale %d", tc.name, scale), func(t *testing.T) {
+				t.Parallel()
+				var logs lockedBuffer
+				r := pausedRun(t, setup{scale: scale, bgrt: tc.bgrt, theme: tc.theme, log: slog.New(slog.NewTextHandler(&logs, nil))})
+				r.call(t, protocol.ShowMessage{Text: "Starting"}, protocol.Ack{})
+				r.settles(t)
+				want := fmt.Sprintf(`msg="placed the logo" output=Virtual-1 at=%v size=%v`, tc.want(scale), pictureSize)
+				out := logs.String()
+				if n := strings.Count(out, want); n != 1 {
+					t.Errorf("logged %d times %s, want once over %d presents; logged:\n%s", n, want, r.presents(), out)
+				}
+				if n := strings.Count(out, `msg="placed the logo"`); n != 1 {
+					t.Errorf("logged where the logo went %d times, want once; logged:\n%s", n, out)
+				}
+			})
+		}
 	}
 }

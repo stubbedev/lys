@@ -89,10 +89,10 @@ with stage(machine, "compatibility"):
 
 with stage(machine, "hand-over", greeter_logs):
     await_gate(machine)
-    hand_over(machine)
+    splash, logo = hand_over(machine)
 
 with stage(machine, "shutdown"):
     try:
-        reboot_shows_splash(machine, load(machine.out_dir / "splash.png"))
+        reboot_shows_splash(machine, splash, logo)
     finally:
         machine.crash()
