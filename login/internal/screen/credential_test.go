@@ -164,7 +164,7 @@ const peekIconSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="
 // miss could only fail, and neither the toggle nor the paint after it may.
 func TestThePeekIconsNeedNoDiskAfterThePromptIsBuilt(t *testing.T) {
 	dir := t.TempDir()
-	for _, name := range []string{peekReveal, peekConceal} {
+	for _, name := range Icons() {
 		if err := os.WriteFile(filepath.Join(dir, name+".svg"), []byte(peekIconSVG), 0o600); err != nil {
 			t.Fatal(err)
 		}

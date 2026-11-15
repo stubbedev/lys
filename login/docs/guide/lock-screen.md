@@ -33,9 +33,13 @@ if it dies while the session is locked. It reports state to logind with
 ## Fingerprint
 
 With fprintd and an enrolled finger, the lock verifies a fingerprint alongside the
-password prompt; a match unlocks. Typing a password stops the reader. A
+password; a match unlocks. While the reader listens, a fingerprint prompt stands
+in for the password field: typing, or clicking it, brings the field back for the
+rest of that lock, the first character typed included, and the reader keeps
+listening. Typing a password stops the reader. A
 non-matching finger counts as a failed attempt. A fingerprint unlock opens no
-keyring.
+keyring. While logind reports the lid closed the reader is left alone and the
+password alone unlocks; opening the lid starts verifying again.
 
 ## Keyring and vault
 

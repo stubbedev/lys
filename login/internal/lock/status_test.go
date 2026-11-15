@@ -366,3 +366,60 @@ func treetestButtons(root widget.Widget, class string) []*widget.Button {
 	}
 	return out
 }
+
+func TestWhileTheReaderListensTheFingerprintPromptStandsInForThePassword(t *testing.T) {
+	r := newStatusRig(t, nil)
+	r.lock(t)
+	r.eachFace(t, func(f *face) {
+		if f.prompt.Fingerprint.Visible() || !f.prompt.Entry.Visible() {
+			t.Error("before the reader listens the password entry is the prompt")
+		}
+	})
+	r.finger.onResult(fprint.Listening)
+	r.eachFace(t, func(f *face) {
+		if !f.prompt.Fingerprint.Visible() || f.prompt.Entry.Visible() {
+			t.Error("a listening reader does not put the fingerprint prompt in the entry's place")
+		}
+	})
+	if got := r.locker.focused[len(r.locker.focused)-1]; got != r.s.faces[len(r.s.faces)-1].prompt.Fingerprint {
+		t.Errorf("focus went to %T, want the fingerprint prompt", got)
+	}
+	r.finger.onResult(fprint.Stopped)
+	r.eachFace(t, func(f *face) {
+		if f.prompt.Fingerprint.Visible() || !f.prompt.Entry.Visible() {
+			t.Error("a reader that stopped, as with the lid closed, still hides the password entry")
+		}
+	})
+}
+
+func TestChoosingThePasswordKeepsTheReaderListeningForThisLock(t *testing.T) {
+	r := newStatusRig(t, nil)
+	r.lock(t)
+	r.finger.onResult(fprint.Listening)
+	r.s.faces[0].prompt.Fingerprint.OnClick()
+	r.eachFace(t, func(f *face) {
+		if f.prompt.Fingerprint.Visible() || !f.prompt.Entry.Visible() {
+			t.Error("choosing the password left the fingerprint prompt up")
+		}
+	})
+	if !r.finger.running() {
+		t.Error("choosing the password stopped the reader")
+	}
+	r.finger.onResult(fprint.Stopped)
+	r.finger.onResult(fprint.Listening)
+	r.eachFace(t, func(f *face) {
+		if f.prompt.Fingerprint.Visible() {
+			t.Error("the reader listening again took the password entry away mid-lock")
+		}
+	})
+}
+
+func TestWithFingerprintOffThereIsNoFingerprintPrompt(t *testing.T) {
+	r := newStatusRig(t, func(l *config.LoginConfig) { l.Lock.Fingerprint = false })
+	r.lock(t)
+	r.eachFace(t, func(f *face) {
+		if f.prompt.Fingerprint != nil {
+			t.Error("fingerprint off built a fingerprint prompt")
+		}
+	})
+}

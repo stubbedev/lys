@@ -32,6 +32,8 @@ const (
 	Match Result = iota + 1
 	NoMatch
 	Retry
+	Listening
+	Stopped
 )
 
 type verifyStatus struct {
@@ -80,6 +82,7 @@ func Verify(ctx context.Context, conn *dbus.Conn, user string, onResult func(Res
 	if stopped, err := scan(ctx, d); stopped || err != nil {
 		return err
 	}
+	onResult(Listening)
 	for {
 		select {
 		case <-ctx.Done():

@@ -170,24 +170,28 @@ type Screen struct {
 	awaiting bool
 	// pending answers the conversation's first prompt: the password
 	// typed before PAM asked for it.
-	pending   *string
-	inputOn   bool
-	message   string
-	blanked   bool
-	caps      bool
-	watching  bool
-	stops     []func()
-	fpStop    func()
-	layouts   *loginscreen.KeyboardLayouts
-	media     nowPlaying
-	mediaOK   bool
-	battery   batteryLevel
-	batteryOK bool
-	blank     Timer
-	blankDue  time.Time
-	clock     *loginscreen.ClockTicker
-	clockText string
-	dateText  string
+	pending  *string
+	inputOn  bool
+	message  string
+	blanked  bool
+	caps     bool
+	watching bool
+	stops    []func()
+	fpStop   func()
+	// fpListening: the reader is listening, so the fingerprint prompt
+	// stands in for the password entry until usePassword.
+	fpListening bool
+	usePassword bool
+	layouts     *loginscreen.KeyboardLayouts
+	media       nowPlaying
+	mediaOK     bool
+	battery     batteryLevel
+	batteryOK   bool
+	blank       Timer
+	blankDue    time.Time
+	clock       *loginscreen.ClockTicker
+	clockText   string
+	dateText    string
 	// confirmed: the compositor sent locked for this lock.
 	confirmed bool
 	// unlocked: the last lock ended in an unlock, by password or by
@@ -251,6 +255,7 @@ func (s *Screen) Lock() error {
 	s.message = ""
 	s.blanked = false
 	s.confirmed = false
+	s.fpListening, s.usePassword = false, false
 	s.clock.Start()
 	err := s.d.Locker.Lock(app.SessionLockConfig{
 		Surface:    s.buildFace,
@@ -312,10 +317,46 @@ func (s *Screen) stopFingerprint() {
 		s.fpStop()
 		s.fpStop = nil
 	}
+	s.setListening(false)
+}
+
+func (s *Screen) setListening(on bool) {
+	if s.fpListening == on {
+		return
+	}
+	s.fpListening = on
+	s.showPrompt()
+}
+
+func (s *Screen) fingerprintShown() bool { return s.fpListening && !s.usePassword }
+
+// showPrompt puts the fingerprint prompt or the password entry on every
+// face, with keyboard focus on whichever shows.
+func (s *Screen) showPrompt() {
+	for _, f := range s.faces {
+		f.prompt.SetFingerprint(s.fingerprintShown())
+	}
+	s.focusEntry()
+}
+
+// choosePassword is the fingerprint prompt clicked or typed over: the
+// password entry comes back for this lock, the reader still listening.
+func (s *Screen) choosePassword() {
+	s.usePassword = true
+	s.Activity()
+	s.showPrompt()
 }
 
 func (s *Screen) onFingerprint(r fprint.Result) {
 	if s.fpStop == nil {
+		return
+	}
+	switch r {
+	case fprint.Listening:
+		s.setListening(true)
+		return
+	case fprint.Stopped:
+		s.setListening(false)
 		return
 	}
 	s.Activity()
@@ -388,6 +429,9 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 		Identity: account.Root, Password: i18n.T("lock-password"), CapsLock: i18n.T("lock-caps-lock"),
 		OnSubmit: s.Submit,
 	}
+	if s.d.Fingerprint != nil && s.cfg.Lock.Fingerprint {
+		spec.Lock.Fingerprint = &loginscreen.Fingerprint{Text: i18n.T("lock-fingerprint-touch"), OnPassword: s.choosePassword}
+	}
 	if s.showMedia() {
 		f.media = newMediaRow(s.font, s.playPause, s.nextTrack)
 		f.media.set(s.media, s.mediaOK)
@@ -412,6 +456,7 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 	f.prompt.Date.SetText(s.dateText)
 	f.prompt.SetMessage(s.message)
 	f.prompt.Entry.SetEnabled(s.inputOn)
+	f.prompt.SetFingerprint(s.fingerprintShown())
 	f.scrim.SetVisible(s.blanked)
 	// The background is opaque at once; the prompt reveals over it.
 	reveal.Show(f.prompt.Reveal, s.anims, config.AnimLock)
@@ -419,7 +464,7 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 	return app.LockSurface{
 		Root:       surface.Root,
 		Background: blackout,
-		Focus:      f.prompt.Entry,
+		Focus:      f.prompt.FocusTarget(),
 		OnKey:      func(*widget.Router, uint32, app.Mods) { s.keyPressed() },
 		OnClosed:   func() { s.dropFace(f) },
 	}
@@ -830,10 +875,11 @@ func (s *Screen) clearEntries() {
 	}
 }
 
-// focusEntry puts keyboard focus back on every surface's entry (each
-// surface keeps its own focus; the compositor picks the surface).
+// focusEntry puts keyboard focus back on every surface's prompt, the
+// fingerprint prompt or the entry (each surface keeps its own focus; the
+// compositor picks the surface).
 func (s *Screen) focusEntry() {
 	for _, f := range s.faces {
-		s.d.Locker.Focus(f.prompt.Entry)
+		s.d.Locker.Focus(f.prompt.FocusTarget())
 	}
 }

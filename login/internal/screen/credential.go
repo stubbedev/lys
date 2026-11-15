@@ -33,12 +33,33 @@ const layoutChars = 4
 // The password entry's peek icons: the
 // eye reveals masked text, the crossed eye masks it again.
 const (
-	peekReveal  = "ld-eye-symbolic"
-	peekConceal = "ld-eye-off-symbolic"
+	peekReveal      = "ld-eye-symbolic"
+	peekConceal     = "ld-eye-off-symbolic"
+	fingerprintIcon = "ld-fingerprint-symbolic"
 )
 
 // Icons are the theme icons the prompt draws.
-func Icons() []string { return []string{peekReveal, peekConceal} }
+func Icons() []string { return []string{peekReveal, peekConceal, fingerprintIcon} }
+
+// Fingerprint is the lock screen's fingerprint prompt, shown in place of
+// the password entry while the reader listens: Text beside the glyph, and
+// OnPassword, run when the person clicks it or types, before the typed
+// character reaches the password entry.
+type Fingerprint struct {
+	Text       string
+	OnPassword func()
+}
+
+// FingerprintPrompt is the built fingerprint prompt. It takes keyboard
+// focus while shown, so the first character typed switches to the
+// password entry and lands in it.
+type FingerprintPrompt struct {
+	*widget.Button
+	typed func(rune)
+}
+
+// InsertRune hands r to the password entry once OnPassword has run.
+func (f *FingerprintPrompt) InsertRune(r rune) { f.typed(r) }
 
 // Options configure one prompt.
 type Options struct {
@@ -64,6 +85,8 @@ type Options struct {
 	// to move on to the secret entry.
 	Focus      func(widget.Widget)
 	NextLayout func()
+	// Fingerprint adds the fingerprint prompt; nil leaves it out.
+	Fingerprint *Fingerprint
 }
 
 // Prompt is a built credential prompt and the handles its screen
@@ -77,6 +100,9 @@ type Prompt struct {
 	Username *widget.Entry
 	// Entry is the secret entry; Enter submits it.
 	Entry *widget.Entry
+	// Fingerprint stands in for Entry while SetFingerprint shows it; nil
+	// without Options.Fingerprint.
+	Fingerprint *FingerprintPrompt
 	// Clock and Date are hidden without ShowClock.
 	Clock, Date *widget.Label
 	// Caps is the caps lock warning, hidden until SetCapsLock shows it.
@@ -144,7 +170,12 @@ func newPrompt(o Options, onSubmit func(string)) *Prompt {
 		}
 		credentials.AppendAligned(p.Username, false, widget.AlignCenter)
 	}
-	credentials.AppendAligned(p.Entry, false, widget.AlignCenter).Append(p.Caps, false)
+	credentials.AppendAligned(p.Entry, false, widget.AlignCenter)
+	if o.Fingerprint != nil {
+		p.Fingerprint = newFingerprintPrompt(o.Font, textPx, *o.Fingerprint, p.Entry)
+		credentials.AppendAligned(p.Fingerprint, false, widget.AlignCenter)
+	}
+	credentials.Append(p.Caps, false)
 	if o.Extra != nil {
 		credentials.AppendAligned(o.Extra, false, widget.AlignCenter)
 	}
@@ -172,6 +203,38 @@ func newPrompt(o Options, onSubmit func(string)) *Prompt {
 	corner.SetMargin(render.Insets{Top: 2 * th.Spacing, Right: 2 * th.Spacing})
 	p.Reveal = widget.NewRevealer(widget.NewOverlay().Append(stack).AppendAligned(corner, widget.AlignEnd, widget.AlignStart))
 	return p
+}
+
+func newFingerprintPrompt(font render.Font, px float64, f Fingerprint, entry *widget.Entry) *FingerprintPrompt {
+	b := widget.NewButton(widget.NewButtonContent(font, px, fingerprintIcon, f.Text), 0, 0)
+	b.AddClass("lock-fingerprint", css.Pill, css.Ghost)
+	b.SetAccessibleName(f.Text)
+	b.SetCursorName("pointer")
+	b.OnClick = f.OnPassword
+	b.SetVisible(false)
+	return &FingerprintPrompt{Button: b, typed: func(r rune) {
+		f.OnPassword()
+		entry.InsertRune(r)
+	}}
+}
+
+// SetFingerprint shows the fingerprint prompt in place of the password
+// entry, or the entry again; a prompt without one keeps its entry.
+func (p *Prompt) SetFingerprint(on bool) {
+	if p.Fingerprint == nil {
+		return
+	}
+	p.Entry.SetVisible(!on)
+	p.Fingerprint.SetVisible(on)
+}
+
+// FocusTarget is what keyboard focus belongs on: the fingerprint prompt
+// while it shows, else the password entry.
+func (p *Prompt) FocusTarget() widget.Widget {
+	if p.Fingerprint != nil && p.Fingerprint.Visible() {
+		return p.Fingerprint
+	}
+	return p.Entry
 }
 
 // entry is one of the prompt's pill entries, showing placeholder while

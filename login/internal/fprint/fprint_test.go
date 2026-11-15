@@ -69,11 +69,12 @@ func (d *fakeDevice) emit(t *testing.T, result string, done bool) {
 }
 
 type rig struct {
-	dev     *fakeDevice
-	client  *dbus.Conn
-	results chan Result
-	ended   chan error
-	cancel  context.CancelFunc
+	listened bool
+	dev      *fakeDevice
+	client   *dbus.Conn
+	results  chan Result
+	ended    chan error
+	cancel   context.CancelFunc
 }
 
 func newRig(t *testing.T, fingers []string, noDevice bool) *rig {
@@ -113,6 +114,12 @@ func (r *rig) awaitStart(t *testing.T) {
 		t.Fatalf("Verify ended before VerifyStart: %v; calls %v", err, r.dev.recorded())
 	case <-time.After(10 * time.Second):
 		t.Fatalf("no VerifyStart; calls %v", r.dev.recorded())
+	}
+	if !r.listened {
+		r.listened = true
+		if got := r.awaitResult(t); got != Listening {
+			t.Fatalf("the first scan reported %v, want Listening", got)
+		}
 	}
 }
 

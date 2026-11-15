@@ -183,7 +183,7 @@ func (b *busWatches) fingerprint(user string) func(onResult func(fprint.Result))
 	return func(onResult func(fprint.Result)) func() {
 		return b.run("fingerprint", dialSystemBus, func(ctx context.Context, conn *dbus.Conn) error {
 			log.Printf("lock: fingerprint: asking fprintd to verify %s", user)
-			err := fprint.Verify(ctx, conn, user, func(r fprint.Result) { b.post(ctx, func() { onResult(r) }) })
+			err := fprint.VerifyWhileLidOpen(ctx, conn, user, func(r fprint.Result) { b.post(ctx, func() { onResult(r) }) })
 			if errors.Is(err, fprint.ErrUnavailable) {
 				log.Printf("lock: fingerprint: %v; the password alone unlocks", err)
 				return nil
