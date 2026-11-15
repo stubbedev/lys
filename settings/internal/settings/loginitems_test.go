@@ -1,0 +1,508 @@
+package settings
+
+import (
+	"context"
+	"errors"
+	"io/fs"
+	"maps"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-desktop/desktopentry"
+	"github.com/stubbedev/lys-desktop/shell/apptheme"
+	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys-lib/render"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys-ui/widget"
+)
+
+func autostartFixture(t *testing.T) (autostartDirs, string) {
+	t.Helper()
+	root := t.TempDir()
+	d := autostartDirs{user: filepath.Join(root, "home", "autostart"), system: []string{filepath.Join(root, "etc", "autostart"), filepath.Join(root, "vendor", "autostart")}}
+	entry := func(dir, id, extra string) {
+		put(t, filepath.Join(dir, id), "[Desktop Entry]\nType=Application\nName="+strings.TrimSuffix(id, desktopSuffix)+"\nExec=true\n"+extra)
+	}
+	entry(d.system[0], "nm-applet.desktop", "Icon=nm-device-wireless\n")
+	entry(d.system[0], "tracker.desktop", "")
+	entry(d.system[0], "gnome-only.desktop", "OnlyShowIn=GNOME;\n")
+	entry(d.system[1], "nm-applet.desktop", "Name=Shadowed\n")
+	entry(d.system[1], "skipped.desktop", "X-systemd-skip=true\n")
+	entry(d.user, "tracker.desktop", "Hidden=true\n")
+	entry(d.user, "syncthing.desktop", "")
+	put(t, filepath.Join(d.user, "notes.txt"), "")
+	return d, root
+}
+
+func entryByID(t *testing.T, entries []autostartEntry, id string) autostartEntry {
+	t.Helper()
+	i := slices.IndexFunc(entries, func(e autostartEntry) bool { return e.id == id })
+	if i < 0 {
+		t.Fatalf("no %s in %+v", id, entries)
+	}
+	return entries[i]
+}
+
+func TestAutostartIsReadOnceADirectoryAndMergedByName(t *testing.T) {
+	d, _ := autostartFixture(t)
+	reads := map[string]int{}
+	entries, err := readAutostart(d, []string{"lys-wm"}, func(dir string) ([]fs.DirEntry, error) {
+		reads[dir]++
+		return os.ReadDir(dir)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range append([]string{d.user}, d.system...) {
+		if reads[dir] != 1 {
+			t.Errorf("%s read %d times, want once", dir, reads[dir])
+		}
+	}
+	ids := make([]string, len(entries))
+	for i, e := range entries {
+		ids[i] = e.id
+	}
+	if want := []string{"gnome-only.desktop", "nm-applet.desktop", "skipped.desktop", "syncthing.desktop", "tracker.desktop"}; !slices.Equal(ids, want) {
+		t.Fatalf("%q, want %q", ids, want)
+	}
+	for id, enabled := range map[string]bool{"nm-applet.desktop": true, "tracker.desktop": false, "gnome-only.desktop": false, "skipped.desktop": false, "syncthing.desktop": true} {
+		if e := entryByID(t, entries, id); e.enabled != enabled {
+			t.Errorf("%s enabled %v, want %v", id, e.enabled, enabled)
+		}
+	}
+	nm := entryByID(t, entries, "nm-applet.desktop")
+	if nm.name != "nm-applet" || nm.icon != "nm-device-wireless" || nm.system != filepath.Join(d.system[0], "nm-applet.desktop") || nm.user != "" || nm.removable() {
+		t.Fatalf("the first system dir wins: %+v", nm)
+	}
+	if tr := entryByID(t, entries, "tracker.desktop"); tr.user == "" || tr.system == "" || tr.removable() {
+		t.Fatalf("a user override of a system entry: %+v", tr)
+	}
+	if !entryByID(t, entries, "syncthing.desktop").removable() {
+		t.Fatal("a user's own entry is not removable")
+	}
+}
+
+func TestTurningASystemEntryOffWritesAHiddenUserCopyAndLeavesTheSystemOne(t *testing.T) {
+	d, _ := autostartFixture(t)
+	system := filepath.Join(d.system[0], "nm-applet.desktop")
+	before := fileText(t, system)
+	entries, err := readAutostart(d, nil, os.ReadDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := setAutostart(d, entryByID(t, entries, "nm-applet.desktop"), false); err != nil {
+		t.Fatal(err)
+	}
+	user := filepath.Join(d.user, "nm-applet.desktop")
+	if got := fileText(t, user); got != before+"Hidden=true\n" {
+		t.Fatalf("the user copy is %q", got)
+	}
+	if fileText(t, system) != before {
+		t.Fatal("the system entry changed")
+	}
+	entries, _ = readAutostart(d, nil, os.ReadDir)
+	nm := entryByID(t, entries, "nm-applet.desktop")
+	if nm.enabled || nm.user != user {
+		t.Fatalf("%+v", nm)
+	}
+	if err := setAutostart(d, nm, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := fileText(t, user); got != before+"Hidden=false\n" {
+		t.Fatalf("turned on again: %q", got)
+	}
+	if left, _ := filepath.Glob(filepath.Join(d.user, ".*")); len(left) != 0 {
+		t.Fatalf("a temporary file was left: %v", left)
+	}
+}
+
+func TestAnAppIsAddedAsACopyAndOnlyYourOwnEntriesAreRemoved(t *testing.T) {
+	d, root := autostartFixture(t)
+	apps := filepath.Join(root, "applications")
+	put(t, filepath.Join(apps, "org.example.Notes.desktop"), "[Desktop Entry]\nType=Application\nName=Notes\nExec=true\n")
+	app, ok := desktopentry.LoadApp("org.example.Notes.desktop", filepath.Join(apps, "org.example.Notes.desktop"))
+	if !ok {
+		t.Fatal("the fixture app does not load")
+	}
+	if err := addAutostart(d, app); err != nil {
+		t.Fatal(err)
+	}
+	if got := fileText(t, filepath.Join(d.user, "org.example.Notes.desktop")); !strings.Contains(got, "Name=Notes") {
+		t.Fatalf("%q", got)
+	}
+	entries, _ := readAutostart(d, nil, os.ReadDir)
+	if err := removeAutostart(entryByID(t, entries, "nm-applet.desktop")); err == nil {
+		t.Fatal("a system entry was removed")
+	}
+	if err := removeAutostart(entryByID(t, entries, "org.example.Notes.desktop")); err != nil {
+		t.Fatal(err)
+	}
+	noFile(t, filepath.Join(d.user, "org.example.Notes.desktop"))
+}
+
+type fakeSystemd struct {
+	mu      sync.Mutex
+	calls   map[string]int
+	enabled []string
+	files   map[string]struct{ path, state string }
+	wants   map[string][]string
+}
+
+func (f *fakeSystemd) count(name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls[name]++
+}
+
+func (f *fakeSystemd) seen() (map[string]int, []string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return maps.Clone(f.calls), slices.Clone(f.enabled)
+}
+
+func (f *fakeSystemd) LoadUnit(name string) (dbus.ObjectPath, *dbus.Error) {
+	f.count("LoadUnit")
+	return dbus.ObjectPath("/org/freedesktop/systemd1/unit/" + strings.NewReplacer(".", "_2e", "-", "_2d").Replace(name)), nil
+}
+
+func (f *fakeSystemd) ListUnitFilesByPatterns(_, patterns []string) ([]struct{ Path, State string }, *dbus.Error) {
+	f.count("ListUnitFilesByPatterns")
+	var out []struct{ Path, State string }
+	for _, p := range patterns {
+		if file, ok := f.files[p]; ok {
+			out = append(out, struct{ Path, State string }{file.path, file.state})
+		}
+	}
+	return out, nil
+}
+
+type listedUnit struct {
+	Name, Description, Load, Active, Sub, Following string
+	Path                                            dbus.ObjectPath
+	JobID                                           uint32
+	JobType                                         string
+	JobPath                                         dbus.ObjectPath
+}
+
+func (f *fakeSystemd) ListUnitsByNames(names []string) ([]listedUnit, *dbus.Error) {
+	f.count("ListUnitsByNames")
+	out := make([]listedUnit, 0, len(names))
+	for _, n := range names {
+		out = append(out, listedUnit{Name: n, Description: "the " + n, Load: "loaded", Active: "active", Sub: "running", Path: "/", JobPath: "/"})
+	}
+	return out, nil
+}
+
+func (f *fakeSystemd) EnableUnitFiles(files []string, _, _ bool) (bool, []struct{ Type, File, Dest string }, *dbus.Error) {
+	f.count("EnableUnitFiles")
+	f.mu.Lock()
+	f.enabled = append(f.enabled, files...)
+	f.mu.Unlock()
+	return true, nil, nil
+}
+
+func (f *fakeSystemd) DisableUnitFiles(files []string, _ bool) ([]struct{ Type, File, Dest string }, *dbus.Error) {
+	f.count("DisableUnitFiles")
+	f.mu.Lock()
+	f.enabled = slices.DeleteFunc(f.enabled, func(s string) bool { return slices.Contains(files, s) })
+	f.mu.Unlock()
+	return nil, nil
+}
+
+func (f *fakeSystemd) Reload() *dbus.Error {
+	f.count("Reload")
+	return nil
+}
+
+type fakeUnitProps struct {
+	f    *fakeSystemd
+	name string
+}
+
+func (p fakeUnitProps) Get(iface, prop string) (dbus.Variant, *dbus.Error) {
+	p.f.count("Get " + p.name)
+	if iface != systemdUnit || prop != "Wants" {
+		return dbus.Variant{}, dbus.MakeFailedError(os.ErrNotExist)
+	}
+	return dbus.MakeVariant(p.f.wants[p.name]), nil
+}
+
+func startFakeSystemd(t *testing.T) (*fakeSystemd, *dbus.Conn) {
+	t.Helper()
+	bus := dbustest.Start(t)
+	service := bus.Conn(t)
+	f := &fakeSystemd{
+		calls: map[string]int{},
+		wants: map[string][]string{
+			"graphical-session.target": {"lys-shell.service", "syncthing.service", "graphical-session-pre.target"},
+			"lys-wm-session.target":    {"lys-shell.service", "lys-polkit.service"},
+		},
+		files: map[string]struct{ path, state string }{
+			"lys-shell.service":  {"/nix/store/abc-lys-shell/lib/systemd/user/lys-shell.service", "enabled"},
+			"syncthing.service":  {"/home/me/.config/systemd/user/syncthing.service", "enabled"},
+			"lys-polkit.service": {"/usr/lib/systemd/user/lys-polkit.service", "static"},
+		},
+	}
+	if err := service.Export(f, systemdPath, systemdManager); err != nil {
+		t.Fatal(err)
+	}
+	for target := range f.wants {
+		path, _ := f.LoadUnit(target)
+		if err := service.Export(fakeUnitProps{f, target}, path, "org.freedesktop.DBus.Properties"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.calls = map[string]int{}
+	if reply, err := service.RequestName(systemdName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("own %s: %v %v", systemdName, reply, err)
+	}
+	return f, bus.Conn(t)
+}
+
+func TestTheSessionsServicesComeFromOneListingOfTheirUnitFiles(t *testing.T) {
+	f, conn := startFakeSystemd(t)
+	m := systemdUser{conn: conn, resolve: func(p string) (string, error) { return p, nil }}
+	ctx, cancel := context.WithTimeout(context.Background(), hangGuard)
+	defer cancel()
+	units, err := m.units(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, len(units))
+	for i, u := range units {
+		names[i] = u.name
+	}
+	if want := []string{"lys-polkit.service", "lys-shell.service", "syncthing.service"}; !slices.Equal(names, want) {
+		t.Fatalf("%q, want %q", names, want)
+	}
+	if calls, _ := f.seen(); calls["ListUnitFilesByPatterns"] != 1 || calls["ListUnitsByNames"] != 1 {
+		t.Fatalf("calls %v, want one ListUnitFilesByPatterns and one ListUnitsByNames", calls)
+	}
+	for name, switchable := range map[string]bool{"lys-shell.service": false, "syncthing.service": true, "lys-polkit.service": false} {
+		u := units[slices.Index(names, name)]
+		if u.switchable() != switchable || u.active != "active" {
+			t.Errorf("%s: %+v switchable %v, want %v", name, u, u.switchable(), switchable)
+		}
+	}
+	if !units[slices.Index(names, "lys-shell.service")].nix() {
+		t.Error("a unit in the Nix store is not marked as Nix's")
+	}
+	if err := m.setEnabled(ctx, "syncthing.service", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.setEnabled(ctx, "syncthing.service", true); err != nil {
+		t.Fatal(err)
+	}
+	if calls, enabled := f.seen(); calls["DisableUnitFiles"] != 1 || calls["EnableUnitFiles"] != 1 || calls["Reload"] != 2 || !slices.Equal(enabled, []string{"syncthing.service"}) {
+		t.Fatalf("calls %v, enabled %v", calls, enabled)
+	}
+}
+
+type staticManager struct {
+	units_  []userUnit
+	toggled []string
+}
+
+func (m *staticManager) units(context.Context) ([]userUnit, error) { return m.units_, nil }
+
+func (m *staticManager) setEnabled(_ context.Context, name string, on bool) error {
+	m.toggled = append(m.toggled, name+map[bool]string{true: "+", false: "-"}[on])
+	return nil
+}
+
+func TestTestsNeverReadTheHostsAutostartEntries(t *testing.T) {
+	dirs, err := systemHost.autostartDirs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var read []string
+	if _, err := readAutostart(dirs, []string{"lys-wm"}, func(dir string) ([]fs.DirEntry, error) {
+		read = append(read, dir)
+		return nil, fs.ErrNotExist
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(read) == 0 {
+		t.Fatal("no autostart directory was read")
+	}
+	home := os.Getenv("HOME")
+	for _, dir := range read {
+		if !strings.HasPrefix(dir, home+"/") && !strings.HasPrefix(dir, noHostDir+"/") {
+			t.Errorf("a test reads the host's autostart directory %s", dir)
+		}
+	}
+}
+
+func TestALongLoginItemNameStaysInsideThePage(t *testing.T) {
+	for _, scale := range []string{"1", "2"} {
+		t.Run("scale "+scale, func(t *testing.T) {
+			d, root := autostartFixture(t)
+			put(t, filepath.Join(d.user, "long.desktop"), "[Desktop Entry]\nType=Application\nName="+strings.Repeat("x", 400)+"\nExec=true\n")
+			t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+			t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+			before := openUserManager
+			openUserManager = func() (userManager, func(), error) { return &staticManager{}, func() {}, nil }
+			t.Cleanup(func() { openUserManager = before })
+			win := laidOutPage(t, "styling:\n  scale: "+scale+"\n", loginItemsID, windowWidth)
+			rows := treetest.WithClass(win.page, "login-item")
+			if len(rows) == 0 {
+				t.Fatal("the page laid out no login item")
+			}
+			inside := func(x widget.Widget) {
+				t.Helper()
+				if b := x.(widget.Boundser).Bounds(); b.X+b.W > windowWidth {
+					t.Errorf("%T at %v reaches past the %dpx window", x, b, windowWidth)
+				}
+			}
+			for _, row := range rows {
+				inside(row)
+			}
+			for _, sw := range treetest.All[*widget.Switch](win.page) {
+				inside(sw)
+			}
+		})
+	}
+}
+
+func TestTabReachesEveryLoginItemSwitch(t *testing.T) {
+	d, root := autostartFixture(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+	t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+	manager := &staticManager{units_: []userUnit{
+		{name: "syncthing.service", active: "active", fileState: "enabled", path: "/home/me/.config/systemd/user/syncthing.service"},
+		{name: "lys-shell.service", active: "active", fileState: "enabled", path: "/nix/store/x/lys-shell.service"},
+	}}
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) { return manager, func() {}, nil }
+	t.Cleanup(func() { openUserManager = before })
+	k := testKit(t, "")
+	cfg := k.store.svc.Config()
+	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
+	w.stack.SetTransition(widget.StackNone, 0)
+	apptheme.New(cfg).Attach(w.root)
+	w.show(loginItemsID)
+	w.root.Arrange(render.Rect{W: 1400, H: 6000})
+	switches := treetest.All[*widget.Switch](w.page)
+	if len(switches) != 6 {
+		t.Fatalf("%d switches, want one per app (5) and one for the user's own service", len(switches))
+	}
+	router := &widget.Router{Root: w.root}
+	if err := router.SetFocus(w.search); err != nil {
+		t.Fatal(err)
+	}
+	visited := map[widget.Widget]bool{}
+	for range maxTabStops {
+		router.FocusNext()
+		if router.Focused() == widget.Widget(w.search) {
+			break
+		}
+		visited[router.Focused()] = true
+	}
+	for _, sw := range switches {
+		if !visited[sw] {
+			t.Errorf("the switch %q is out of Tab's reach", sw.AccessibleName())
+		}
+	}
+	syncthing := switches[slices.IndexFunc(switches, func(s *widget.Switch) bool { return s.AccessibleName() == "syncthing.service" })]
+	syncthing.Toggle()
+	if !slices.Equal(manager.toggled, []string{"syncthing.service-"}) {
+		t.Fatalf("toggled %v", manager.toggled)
+	}
+}
+
+func TestTheAddAppPickerOffersShownAppsAndAddsThePickedOne(t *testing.T) {
+	d, root := autostartFixture(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+	t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+	t.Setenv("XDG_DATA_HOME", root)
+	t.Setenv("XDG_DATA_DIRS", filepath.Join(root, "none"))
+	put(t, filepath.Join(root, "applications", "org.example.Notes.desktop"), "[Desktop Entry]\nType=Application\nName=Notes\nExec=true\nIcon=notes\n")
+	put(t, filepath.Join(root, "applications", "secret.desktop"), "[Desktop Entry]\nType=Application\nName=Secret\nExec=true\nNoDisplay=true\n")
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) { return &staticManager{}, func() {}, nil }
+	t.Cleanup(func() { openUserManager = before })
+	k := testKit(t, "")
+	f := &fakePickers{}
+	k.pickers = f
+	footer := loginItemsFooter(k)
+	treetest.Button(t, footer, "Add app…").ClickAt(widget.Point{})
+	if f.content == nil {
+		t.Fatal("Add app opened no picker")
+	}
+	flow := treetest.First[*widget.FlowBox](t, f.content)
+	if got := shownLabels(flow); !slices.Equal(got, []string{"Notes"}) {
+		t.Fatalf("offered %q, want the shown app alone", got)
+	}
+	if got := treetest.First[*widget.Icon](t, flow).Name(); got != "notes" {
+		t.Fatalf("the offered app shows icon %q", got)
+	}
+	flow.OnActivate(0)
+	if got := fileText(t, filepath.Join(d.user, "org.example.Notes.desktop")); !strings.Contains(got, "Name=Notes") {
+		t.Fatalf("picking Notes wrote %q", got)
+	}
+	noFile(t, filepath.Join(d.user, "secret.desktop"))
+}
+
+func TestTheAutostartDirectoriesAreAbsoluteOrAnError(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		env    map[string]string
+		user   string
+		system []string
+	}{
+		{"the config home and dirs", map[string]string{"XDG_CONFIG_HOME": "/cfg", "HOME": "/home/me", "XDG_CONFIG_DIRS": "/a:relative::/b"}, "/cfg/autostart", []string{"/a/autostart", "/b/autostart"}},
+		{"the home alone", map[string]string{"HOME": "/home/me"}, "/home/me/.config/autostart", []string{"/etc/xdg/autostart"}},
+		{"a relative config home", map[string]string{"XDG_CONFIG_HOME": "cfg", "HOME": "/home/me", "XDG_CONFIG_DIRS": "relative"}, "/home/me/.config/autostart", []string{"/etc/xdg/autostart"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d, err := fakeHost(t, c.env).autostartDirs()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if d.user != c.user || !slices.Equal(d.system, c.system) {
+				t.Fatalf("%+v, want the user's %s and the system's %q", d, c.user, c.system)
+			}
+		})
+	}
+	for name, env := range map[string]map[string]string{
+		"nothing set":     {"XDG_CONFIG_DIRS": "/etc/xdg"},
+		"a relative home": {"XDG_CONFIG_HOME": "cfg", "HOME": "me"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			d, err := fakeHost(t, env).autostartDirs()
+			if !errors.Is(err, errNoConfigHome) || !strings.Contains(err.Error(), "autostart") {
+				t.Fatalf("%+v, %v: want an error naming the autostart directory and both variables", d, err)
+			}
+		})
+	}
+}
+
+func TestWithoutAHomeTheLoginAppsSayWhyAndReadNoRelativeDirectory(t *testing.T) {
+	cwd := t.TempDir()
+	put(t, filepath.Join(cwd, ".config", "autostart", "stray.desktop"), "[Desktop Entry]\nType=Application\nName=Stray\nExec=true\n")
+	t.Chdir(cwd)
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) { return &staticManager{}, func() {}, nil }
+	t.Cleanup(func() { openUserManager = before })
+	k := testKit(t, "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "")
+	footer := loginItemsFooter(k)
+	if labels := treetest.Labels(footer); !slices.ContainsFunc(labels, func(text string) bool { return strings.Contains(text, errNoConfigHome.Error()) }) {
+		t.Fatalf("the page shows %q, not why it has no autostart directory", labels)
+	}
+	if rows := treetest.WithClass(footer, "login-item"); len(rows) != 0 {
+		t.Fatalf("%d login items listed from a directory relative to the working directory", len(rows))
+	}
+	for _, b := range treetest.All[*widget.Button](footer) {
+		if b.AccessibleName() == "Add app…" {
+			t.Fatal("Add app is offered with no autostart directory to add to")
+		}
+	}
+}

@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 0"
+  push:
+    paths-ignore:
+      - "docs/**"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: stubbedev/lys-ci/.github/actions/nix-setup@fc87539c0a5bd989cfc802c6112ad31a6daf8db4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Gates (vet, lint, no-fused, test, build)
+        run: nix develop -c just vet lint no-fused test build
+      - name: Nix package on the architecture the flake job does not cover
+        if: runner.arch == 'ARM64'
+        run: nix build -L .
+
+  race:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: stubbedev/lys-ci/.github/actions/nix-setup@fc87539c0a5bd989cfc802c6112ad31a6daf8db4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Race detector
+        run: nix develop -c just race
+
+  flake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: stubbedev/lys-ci/.github/actions/nix-setup@fc87539c0a5bd989cfc802c6112ad31a6daf8db4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Nix package, modules and the packaged app on lys-wm
+        run: nix flake check -L
