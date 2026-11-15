@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/stubbedev/lys-secrets/internal/lockedmem"
+	"github.com/stubbedev/lys/secrets/internal/lockedmem"
 )
 
 const keyLen = chacha20poly1305.KeySize

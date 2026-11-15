@@ -4,8 +4,8 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/rendertest"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/rendertest"
 )
 
 func benchWindowsOnHardware(b *testing.B, mask func(image.Rectangle) render.Mask) {

@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	csb "github.com/stubbedev/lys-wm/internal/protocol/client/systembell"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	csb "github.com/stubbedev/lys/wm/internal/protocol/client/systembell"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type streamed struct {

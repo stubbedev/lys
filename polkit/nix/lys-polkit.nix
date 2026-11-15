@@ -39,7 +39,7 @@ buildGoModule {
 
   meta = {
     description = "The lys desktop's polkit authentication agent";
-    homepage = "https://github.com/stubbedev/lys-polkit";
+    homepage = "https://github.com/stubbedev/lys/tree/main/polkit";
     license = lib.licenses.mit;
     mainProgram = "lys-polkit";
     platforms = lib.platforms.linux;

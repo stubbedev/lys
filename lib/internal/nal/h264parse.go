@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // The H.264 NAL unit types a decoder acts on (Table 7-1).

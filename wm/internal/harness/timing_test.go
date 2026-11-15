@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cpt "github.com/stubbedev/lys-wm/internal/protocol/client/presentationtime"
-	cspb "github.com/stubbedev/lys-wm/internal/protocol/client/singlepixelbuffer"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cxa "github.com/stubbedev/lys-wm/internal/protocol/client/xdgactivation"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cpt "github.com/stubbedev/lys/wm/internal/protocol/client/presentationtime"
+	cspb "github.com/stubbedev/lys/wm/internal/protocol/client/singlepixelbuffer"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cxa "github.com/stubbedev/lys/wm/internal/protocol/client/xdgactivation"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type presentationEvents struct{ clock uint32 }

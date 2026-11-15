@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 type Actions struct {

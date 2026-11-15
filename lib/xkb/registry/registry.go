@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/xkb"
 )
 
 // Flags adjusts NewContext.

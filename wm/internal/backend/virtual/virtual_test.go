@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 var mode = backend.Mode{Size: image.Pt(64, 48), RefreshMHz: 100000}

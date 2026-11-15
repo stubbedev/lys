@@ -3,7 +3,7 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/i18n"
+	"github.com/stubbedev/lys/lib/i18n"
 )
 
 // TestMessageCatalog pins the catalog contract: Tr is the identity

@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/service/nightlight"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/service/nightlight"
 )
 
 // fakeSunset is a scripted sunsetEnv: a fake filter, a settable clock,

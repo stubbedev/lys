@@ -27,7 +27,7 @@ This installs the package and the `lys-polkit.service` user unit, wanted by
 Requires the Go version declared in `go.mod`.
 
 ```sh
-git clone https://github.com/stubbedev/lys-polkit
+git clone https://github.com/stubbedev/lys/tree/main/polkit
 cd lys-polkit
 go build -ldflags "-X main.version=$(git describe --always)" -o lys-polkit .
 install -Dm755 lys-polkit ~/.local/bin/lys-polkit

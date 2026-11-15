@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/isobmff"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/isobmff"
 )
 
 // mp4TopLevel are box types an MP4 file starts with.

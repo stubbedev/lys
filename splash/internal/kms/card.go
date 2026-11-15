@@ -13,9 +13,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
 	"golang.org/x/sys/unix"
 )
 

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-secrets/client"
-	"github.com/stubbedev/lys-secrets/secretbus"
-	"github.com/stubbedev/lys-secrets/secretstest"
+	"github.com/stubbedev/lys/secrets/client"
+	"github.com/stubbedev/lys/secrets/secretbus"
+	"github.com/stubbedev/lys/secrets/secretstest"
 )
 
 func browseRig(t *testing.T) (*client.Client, *secretstest.Server) {

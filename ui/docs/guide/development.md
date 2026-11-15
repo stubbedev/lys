@@ -29,7 +29,7 @@ memory cap.
 
 | Recipe | Does |
 | --- | --- |
-| `just bench` | runs the benchmarks; CI archives the numbers without gating ([bench/baseline.md](https://github.com/stubbedev/lys-ui/blob/main/bench/baseline.md) has the method and the allocation budgets the tests enforce) |
+| `just bench` | runs the benchmarks; CI archives the numbers without gating ([bench/baseline.md](https://github.com/stubbedev/lys/blob/main/ui/bench/baseline.md) has the method and the allocation budgets the tests enforce) |
 | `just goldens` | regenerates the golden-image snapshots |
 | `just gallery` | opens the gallery |
 | `just docshots` | screenshots every widget for this site |
@@ -74,7 +74,7 @@ packages.
 ## Dependencies
 
 Pure Go, no cgo. Direct dependencies:
-[lys-lib](https://github.com/stubbedev/lys-lib),
+[lys-lib](https://github.com/stubbedev/lys/tree/main/lib),
 [stubbedev/memory-go](https://github.com/stubbedev/memory-go),
 [golang.org/x/image](https://pkg.go.dev/golang.org/x/image) and
 [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys).

@@ -3,10 +3,10 @@ package widget
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // LayoutMotion is how a widget animates a change of its laid-out rect:

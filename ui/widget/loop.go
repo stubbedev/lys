@@ -3,8 +3,8 @@ package widget
 import (
 	"time"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/animclock"
 )
 
 // loop is a repeating linear phase that runs only while on and on

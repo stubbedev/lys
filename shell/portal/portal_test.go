@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/wmipc"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-ui/gtksettings"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/wmipc"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/ui/gtksettings"
 
-	"github.com/stubbedev/lys-shell/internal/bussignal/bussignaltest"
-	"github.com/stubbedev/lys-shell/service/wallpaper"
+	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
 // rig is a backend serving on a private bus, with a client connection

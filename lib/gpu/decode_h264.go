@@ -8,10 +8,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // h264Decoder is H.264's part of a decoder: the parameter sets, the

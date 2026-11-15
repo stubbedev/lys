@@ -3,7 +3,7 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 func newTestHoverCard(t *testing.T) (*HoverCard, *Button, *fakeSurfaceHost) {

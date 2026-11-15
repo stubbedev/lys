@@ -4,9 +4,9 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // SetSharedElement tags the widget as one end of a shared-element

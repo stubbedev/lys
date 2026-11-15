@@ -7,16 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/vinput"
+	"github.com/stubbedev/lys/lib/vinput"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	clvt "github.com/stubbedev/lys-wm/internal/protocol/client/lysvirtualtouch"
-	cvk "github.com/stubbedev/lys-wm/internal/protocol/client/virtualkeyboard"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cvp "github.com/stubbedev/lys-wm/internal/protocol/client/wlrvirtualpointer"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	clvt "github.com/stubbedev/lys/wm/internal/protocol/client/lysvirtualtouch"
+	cvk "github.com/stubbedev/lys/wm/internal/protocol/client/virtualkeyboard"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cvp "github.com/stubbedev/lys/wm/internal/protocol/client/wlrvirtualpointer"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const typedKeymap = "xkb_keymap { xkb_keycodes \"typed\" {}; };\x00"

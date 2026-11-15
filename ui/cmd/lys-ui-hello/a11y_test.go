@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // The keyboard-first accessibility guarantee over the real showcase

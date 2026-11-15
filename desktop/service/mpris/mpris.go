@@ -16,12 +16,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-desktop/glob"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/glob"
 )
 
 // D-Bus names of the MPRIS2 surface.

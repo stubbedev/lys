@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/bluetooth"
+	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 func classOf(major, minor uint32) *uint32 {

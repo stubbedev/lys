@@ -1,6 +1,6 @@
 package pulsetest
 
-import "github.com/stubbedev/lys-lib/pulse/native"
+import "github.com/stubbedev/lys/lib/pulse/native"
 
 // StereoSpec is the s16le 48 kHz stereo sample spec the fixtures use.
 func StereoSpec() native.SampleSpec {

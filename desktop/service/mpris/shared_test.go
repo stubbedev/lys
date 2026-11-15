@@ -3,7 +3,7 @@ package mpris
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 )
 
 func TestCloseHandsASharedConnectionBack(t *testing.T) {

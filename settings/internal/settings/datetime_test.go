@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/glibclocale"
-	"github.com/stubbedev/lys-lib/glibclocale/glibclocaletest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/glibclocale"
+	"github.com/stubbedev/lys/lib/glibclocale/glibclocaletest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 type fakeSysCall struct {

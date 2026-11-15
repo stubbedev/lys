@@ -29,8 +29,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
-	"github.com/stubbedev/lys-secrets/internal/lockedmem"
-	"github.com/stubbedev/lys-secrets/internal/usersock"
+	"github.com/stubbedev/lys/secrets/internal/lockedmem"
+	"github.com/stubbedev/lys/secrets/internal/usersock"
 )
 
 // Schema is the xdg:schema of a remembered passphrase's item in the login

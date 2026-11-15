@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func marshalled(t *testing.T, e Event) string {

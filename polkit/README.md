@@ -9,16 +9,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stubbedev/lys-polkit/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-polkit/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
+  <a href="https://github.com/stubbedev/lys/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-polkit/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT license"></a>
-  <a href="https://stubbedev.github.io/lys-polkit/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://stubbedev.github.io/lys/polkit/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
 </p>
 
 lys-polkit registers with polkitd as the session's authentication agent. When a
 program requests an action that needs authentication (`pkexec`, a settings
 panel, a package manager), lys-polkit runs the PAM conversation through
 polkit's agent helper and shows it in
-[lys-shell](https://github.com/stubbedev/lys-shell)'s authentication dialog.
+[lys-shell](https://github.com/stubbedev/lys/tree/main/shell)'s authentication dialog.
 
 ## Install
 
@@ -35,7 +35,7 @@ With nix and home-manager:
 }
 ```
 
-Without nix, see [Install](https://stubbedev.github.io/lys-polkit/guide/install).
+Without nix, see [Install](https://stubbedev.github.io/lys/polkit/guide/install).
 
 ## Usage
 
@@ -50,14 +50,14 @@ lys-polkit revoke                      # drop retained admin authorizations, lik
 
 ## Documentation
 
-[stubbedev.github.io/lys-polkit](https://stubbedev.github.io/lys-polkit/)
+[stubbedev.github.io/lys-polkit](https://stubbedev.github.io/lys/polkit/)
 
 ## The lys family
 
-[lys-shell](https://github.com/stubbedev/lys-shell),
-[lys-wm](https://github.com/stubbedev/lys-wm),
-[lys-ui](https://github.com/stubbedev/lys-ui),
-[lys-lib](https://github.com/stubbedev/lys-lib),
-[lys-login](https://github.com/stubbedev/lys-login),
-[lys-splash](https://github.com/stubbedev/lys-splash),
-[lys-secrets](https://github.com/stubbedev/lys-secrets).
+[lys-shell](https://github.com/stubbedev/lys/tree/main/shell),
+[lys-wm](https://github.com/stubbedev/lys/tree/main/wm),
+[lys-ui](https://github.com/stubbedev/lys/tree/main/ui),
+[lys-lib](https://github.com/stubbedev/lys/tree/main/lib),
+[lys-login](https://github.com/stubbedev/lys/tree/main/login),
+[lys-splash](https://github.com/stubbedev/lys/tree/main/splash),
+[lys-secrets](https://github.com/stubbedev/lys/tree/main/secrets).

@@ -1,9 +1,9 @@
 package widget
 
 import (
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // WindowTitle is libadwaita's AdwWindowTitle: a title over a smaller,

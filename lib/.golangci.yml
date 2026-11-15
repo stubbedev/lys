@@ -80,7 +80,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/stubbedev/lys-lib)
+        - prefix(github.com/stubbedev/lys/lib)
   exclusions:
     generated: lax
     paths:

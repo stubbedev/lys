@@ -1,7 +1,7 @@
 package harfbuzz
 
 import (
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
 )
 
 // generalCategory is an enum value to allow compact storage (see generalCategories)

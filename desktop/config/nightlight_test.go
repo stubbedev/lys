@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 )
 
 func TestNightlightTransitionDefaultsToAQuarterHour(t *testing.T) {

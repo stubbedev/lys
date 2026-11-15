@@ -7,8 +7,8 @@ package colorspace
 import (
 	"math"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 type XY struct {

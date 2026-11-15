@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testhome"
+	"github.com/stubbedev/lys/lib/testhome"
 )
 
 const (

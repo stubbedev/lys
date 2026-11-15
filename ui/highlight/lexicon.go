@@ -6,7 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // lexicon is a language told by its words and delimiters, which one

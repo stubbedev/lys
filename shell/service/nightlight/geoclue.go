@@ -7,11 +7,11 @@ import (
 	"log"
 	"time"
 
-	desktopidentity "github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/prop"
+	desktopidentity "github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
 )
 
 // GeoClue2 names (geoclue.rs).

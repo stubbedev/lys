@@ -16,8 +16,8 @@ import (
 	"sort"
 	"sync"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/introspect"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
 // Error names of the standard org.freedesktop.DBus errors (zbus's

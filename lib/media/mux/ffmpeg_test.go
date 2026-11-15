@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
+	"github.com/stubbedev/lys/lib/internal/nal"
 )
 
 func requireFFmpeg(t *testing.T) {

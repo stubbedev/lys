@@ -4,10 +4,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/nightlight"
+	"github.com/stubbedev/lys/shell/service/nightlight"
 )
 
 func TestNightlightLabel(t *testing.T) {

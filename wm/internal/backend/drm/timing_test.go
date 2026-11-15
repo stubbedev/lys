@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend"
 )
 
 func TestACursorOnlyCommitLeadsTheVblankByThePlaneLead(t *testing.T) {

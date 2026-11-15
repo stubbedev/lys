@@ -5,7 +5,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 const clearLine = "\r\x1b[K"

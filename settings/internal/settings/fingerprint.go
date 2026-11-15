@@ -8,13 +8,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (

@@ -5,13 +5,13 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/clipboard"
-	"github.com/stubbedev/lys-ui/internal/dragdrop"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/internal/xfer"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/clipboard"
+	"github.com/stubbedev/lys/ui/internal/dragdrop"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/xfer"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // NewClipboard is the public way in for consumers outside the module:

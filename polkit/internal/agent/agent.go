@@ -14,13 +14,13 @@ import (
 	"sync"
 	"time"
 
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-polkit/internal/helper"
-	"github.com/stubbedev/lys-polkit/internal/locale"
-	"github.com/stubbedev/lys-polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/internal/helper"
+	"github.com/stubbedev/lys/polkit/internal/locale"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
 )
 
 // dismissTimeout bounds taking the dialog down once a request ended.

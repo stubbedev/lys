@@ -8,8 +8,8 @@ import (
 	"math/bits"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/matroska"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/matroska"
 )
 
 const (

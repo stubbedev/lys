@@ -6,18 +6,18 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	ccm "github.com/stubbedev/lys-wm/internal/protocol/client/colormanagement"
-	cpt "github.com/stubbedev/lys-wm/internal/protocol/client/presentationtime"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	ccm "github.com/stubbedev/lys/wm/internal/protocol/client/colormanagement"
+	cpt "github.com/stubbedev/lys/wm/internal/protocol/client/presentationtime"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 func scanouts(h *Harness) uint64 {

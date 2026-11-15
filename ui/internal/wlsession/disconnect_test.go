@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys-ui/internal/waittest"
+	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 // deadSocketSession returns a Session wired to a real unix socket whose

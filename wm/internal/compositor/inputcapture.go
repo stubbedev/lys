@@ -6,12 +6,12 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/binds"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 const captureReleaseChord = "SUPER+Escape"

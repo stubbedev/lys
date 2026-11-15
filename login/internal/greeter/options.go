@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // The directories of session files under a data directory.

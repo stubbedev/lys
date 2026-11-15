@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stubbedev/lys-login/internal/layouts"
+	"github.com/stubbedev/lys/login/internal/layouts"
 )
 
 const lst = `! model

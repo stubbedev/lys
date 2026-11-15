@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // newTestPanel is a panel with a header holding a title and a close

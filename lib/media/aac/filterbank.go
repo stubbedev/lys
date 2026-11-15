@@ -3,7 +3,7 @@ package aac
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The filterbank (4.6.11): inverse MDCTs of 2048 and 256 points,

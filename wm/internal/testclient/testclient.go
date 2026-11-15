@@ -13,17 +13,17 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	ccs "github.com/stubbedev/lys-wm/internal/protocol/client/cursorshape"
-	cfs "github.com/stubbedev/lys-wm/internal/protocol/client/fractionalscale"
-	cps "github.com/stubbedev/lys-wm/internal/protocol/client/primaryselection"
-	cvp "github.com/stubbedev/lys-wm/internal/protocol/client/viewporter"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	cxdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/render/gles"
-	"github.com/stubbedev/lys-wm/internal/testenv"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wlclient"
+	ccs "github.com/stubbedev/lys/wm/internal/protocol/client/cursorshape"
+	cfs "github.com/stubbedev/lys/wm/internal/protocol/client/fractionalscale"
+	cps "github.com/stubbedev/lys/wm/internal/protocol/client/primaryselection"
+	cvp "github.com/stubbedev/lys/wm/internal/protocol/client/viewporter"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/render/gles"
+	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wlclient"
 )
 
 var defaultSize = image.Pt(64, 64)

@@ -6,17 +6,17 @@ import (
 	"image"
 	"slices"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/edid"
-	"github.com/stubbedev/lys-lib/fourcc"
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	kdrm "github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/edid"
+	"github.com/stubbedev/lys/lib/fourcc"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/gles"
-	"github.com/stubbedev/lys-wm/internal/render/vulkan"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/gles"
+	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 )
 
 var ErrNoVulkan = errors.New("drm: no Vulkan driver renders for the card")

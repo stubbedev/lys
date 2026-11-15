@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // Vectors from Bitwarden's SDK tests (bitwarden-crypto master_key.rs and

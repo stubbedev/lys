@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/goroutine"
+	"github.com/stubbedev/lys/lib/internal/goroutine"
 )
 
 // ProtocolVersion is the native protocol version this client speaks.

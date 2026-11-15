@@ -5,10 +5,10 @@ import (
 	"slices"
 	"testing"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 var (

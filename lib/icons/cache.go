@@ -6,8 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // maxEntries caps the raster cache; the least recently used entry

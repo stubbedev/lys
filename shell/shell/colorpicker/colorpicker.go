@@ -22,17 +22,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-lib/xkb"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/shell/keys"
-	"github.com/stubbedev/lys-shell/shell/loupe"
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/keys"
+	"github.com/stubbedev/lys/shell/shell/loupe"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
 // Card geometry of color_picker/mod.rs, around the loupe's grid.

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // A 10-bit stream (H.265 Main 10, AV1 Main, VP9 profile 2) decodes into

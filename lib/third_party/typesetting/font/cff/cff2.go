@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	ps "github.com/stubbedev/lys-lib/third_party/typesetting/font/cff/interpreter"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	ps "github.com/stubbedev/lys/lib/third_party/typesetting/font/cff/interpreter"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
 // CFF2 represents a parsed 'CFF2' Opentype table.

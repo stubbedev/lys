@@ -7,12 +7,12 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/logutil"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/logutil"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // External launching (#86): app.OpenURL and app.OpenPath hand a URL or

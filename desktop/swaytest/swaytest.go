@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/sockdir"
-	"github.com/stubbedev/lys-lib/testhome"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/testhome"
 )
 
 const (

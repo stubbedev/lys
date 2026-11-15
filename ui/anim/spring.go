@@ -4,9 +4,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/stubbedev/lys-lib/motion"
+	"github.com/stubbedev/lys/lib/motion"
 
-	"github.com/stubbedev/lys-ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/internal/animclock"
 )
 
 // SpringParams shapes a physics spring the way SwiftUI's springs are

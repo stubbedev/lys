@@ -8,7 +8,7 @@ package widget
 import (
 	"time"
 
-	"github.com/stubbedev/lys-lib/text"
+	"github.com/stubbedev/lys/lib/text"
 )
 
 // undoLimit caps the undo stack; pushing past it drops the oldest

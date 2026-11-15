@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type resetRig struct {

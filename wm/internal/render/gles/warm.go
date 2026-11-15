@@ -4,8 +4,8 @@ import (
 	"errors"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 type sampling struct {

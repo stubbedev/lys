@@ -3,10 +3,10 @@ package printdialog
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/shell/dialogsurface"
-	"github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest"
 )
 
 func TestTheSheetFloatsOnTheOverlayAndFillsAWindow(t *testing.T) {

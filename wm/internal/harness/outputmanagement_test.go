@@ -7,18 +7,18 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	"github.com/stubbedev/lys-wm/internal/output"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwom "github.com/stubbedev/lys-wm/internal/protocol/client/wlroutputmanagement"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/testenv"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/output"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwom "github.com/stubbedev/lys/wm/internal/protocol/client/wlroutputmanagement"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var (

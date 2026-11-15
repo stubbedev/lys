@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/network/openconnect"
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/openconnect"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // fakeSignIn stands in for package openconnect: it claims openconnect

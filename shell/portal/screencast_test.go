@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/fakeclock"
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/fakeclock"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // fakeSharePicker is the shell's dev.stubbe.lys.SharePicker1.

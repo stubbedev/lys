@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 	"golang.org/x/sys/unix"
 )
 

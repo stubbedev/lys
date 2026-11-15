@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Client-side window chrome wiring (#91): the widgets live in the

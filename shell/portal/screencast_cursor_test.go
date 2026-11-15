@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
-	"github.com/stubbedev/lys-lib/vinput"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // cursorRig is a headless lys-wm with a still output under a pointer

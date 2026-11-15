@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/icons"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/icons"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // cssImage is one stylesheet url() file: decoded at its natural size off

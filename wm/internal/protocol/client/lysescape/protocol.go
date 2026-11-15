@@ -3,7 +3,7 @@
 package lysescape
 
 import (
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var LysEscapeManagerV1Interface = &wire.Interface{

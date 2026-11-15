@@ -2,7 +2,7 @@
 
 A copy of github.com/srwiley/oksvg at be6e8873101c (BSD 3-Clause,
 LICENSE), its non-test sources only, carried as a package of the lys-lib
-module and imported as `github.com/stubbedev/lys-lib/third_party/oksvg`.
+module and imported as `github.com/stubbedev/lys/lib/third_party/oksvg`.
 `render` rasterizes SVG icons and OT-SVG glyphs through it.
 
 ## Why it lives inside the module

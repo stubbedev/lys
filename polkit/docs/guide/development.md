@@ -4,7 +4,7 @@ The flake's dev shell provides Go (the `go.mod` version), gopls,
 golangci-lint, delve, just, git, gh, dbus and getent, with `CGO_ENABLED=0` and
 `GOTOOLCHAIN=local`. Enter it with `direnv allow` or `nix develop`.
 
-D-Bus goes through [lys-lib](https://github.com/stubbedev/lys-lib)'s godbus
+D-Bus goes through [lys-lib](https://github.com/stubbedev/lys/tree/main/lib)'s godbus
 fork and `dbusx`; the dialog contract is lys-lib's `portaldialogs`.
 
 ## Recipes

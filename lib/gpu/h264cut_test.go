@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // No encoder ffmpeg has codes H.264 field pictures: x264's interlaced

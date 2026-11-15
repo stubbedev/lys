@@ -7,9 +7,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/anim"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 const wobbleGrid = 8

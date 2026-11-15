@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func TestParseRequest(t *testing.T) {

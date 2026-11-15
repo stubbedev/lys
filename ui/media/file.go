@@ -7,8 +7,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // soundCodecs are the audio codecs OpenFile decodes.

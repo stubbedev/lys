@@ -367,7 +367,7 @@ start issue:
         -f query='query($number: Int!) { repository(owner: "stubbedev", name: "lys-wm") { issue(number: $number) { projectItems(first: 20) { nodes { id project { number } } } } } }' \
         --jq '.data.repository.issue.projectItems.nodes[] | select(.project.number == 3) | .id')
     if [[ -z "$item" ]]; then
-        echo "start: issue #$issue is not on the lys-wm board; add it with: gh project item-add 3 --owner stubbedev --url https://github.com/stubbedev/lys-wm/issues/$issue" >&2
+        echo "start: issue #$issue is not on the lys-wm board; add it with: gh project item-add 3 --owner stubbedev --url https://github.com/stubbedev/lys/issues/$issue" >&2
         exit 1
     fi
     gh project item-edit --project-id PVT_kwHOBU6Wkc4Bm521 --id "$item" \

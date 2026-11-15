@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/internal/animclock"
 )
 
 // FrameInterval is the period the timer paces a running clock at while no

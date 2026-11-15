@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // Window requests beyond state: interactive move and resize begun from

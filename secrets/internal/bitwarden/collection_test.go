@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // The Secret Service sees only the folder's logins that may leave the

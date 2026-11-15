@@ -9,7 +9,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // Grid geometry of color_picker/mod.rs.

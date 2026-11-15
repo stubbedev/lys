@@ -3,7 +3,7 @@ package goroutine_test
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/goroutine"
+	"github.com/stubbedev/lys/lib/internal/goroutine"
 )
 
 func TestIDIsStableOnAGoroutineAndDiffersAcrossThem(t *testing.T) {

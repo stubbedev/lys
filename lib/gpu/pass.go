@@ -9,8 +9,8 @@ import (
 	"slices"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // FRect is a rectangle in fractional pixels: the region of a texture

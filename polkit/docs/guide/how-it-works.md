@@ -63,7 +63,7 @@ session bus as `dev.stubbe.lys.Polkit1` at `/dev/stubbe/lys/Polkit`:
 The list is refreshed after each successful authentication, on polkitd's
 `Changed` signal, after each registration, and at the earliest expiry. With
 none held, no timer runs. `lys-polkit revoke` calls `RevokeAll`. The Go
-package `github.com/stubbedev/lys-polkit/retained` is the client.
+package `github.com/stubbedev/lys/polkit/retained` is the client.
 
 ## Supported polkit
 

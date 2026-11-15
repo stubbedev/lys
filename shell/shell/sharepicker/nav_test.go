@@ -3,7 +3,7 @@ package sharepicker
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 func TestNearest(t *testing.T) {

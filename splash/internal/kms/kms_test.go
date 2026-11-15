@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/testbuild"
 	"golang.org/x/sys/unix"
 )
 

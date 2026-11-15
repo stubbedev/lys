@@ -1,6 +1,6 @@
 package text
 
-import "github.com/stubbedev/lys-lib/third_party/wayland/wl"
+import "github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
 type BaseProxy = wl.BaseProxy
 type Context = wl.Context

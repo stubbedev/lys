@@ -5,7 +5,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 func TestAvatarPictureIsCutToItsSlot(t *testing.T) {

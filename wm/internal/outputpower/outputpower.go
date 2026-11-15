@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	swop "github.com/stubbedev/lys-wm/internal/protocol/server/wlroutputpower"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/output"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	swop "github.com/stubbedev/lys/wm/internal/protocol/server/wlroutputpower"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const version = 1

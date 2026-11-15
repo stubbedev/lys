@@ -9,8 +9,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // civilTwilightAltitude is the solar altitude of civil dawn and dusk, in

@@ -9,13 +9,13 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/output"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	swom "github.com/stubbedev/lys-wm/internal/protocol/server/wlroutputmanagement"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/output"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	swom "github.com/stubbedev/lys/wm/internal/protocol/server/wlroutputmanagement"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const version = 4

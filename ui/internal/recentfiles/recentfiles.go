@@ -16,11 +16,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-ui/internal/worker"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/internal/worker"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // Entry is one recently used file: its path (decoded from the file://

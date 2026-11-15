@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-shell/service/wallpaper"
-	"github.com/stubbedev/lys-shell/shell/filechooser"
-	"github.com/stubbedev/lys-shell/shell/printdialog"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
+	"github.com/stubbedev/lys/shell/shell/filechooser"
+	"github.com/stubbedev/lys/shell/shell/printdialog"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 const implPrefix = "org.freedesktop.impl.portal."

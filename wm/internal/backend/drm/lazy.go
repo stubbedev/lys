@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 type lazyBlit struct {

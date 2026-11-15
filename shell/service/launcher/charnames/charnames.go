@@ -20,9 +20,9 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // Magic starts the encoded table.

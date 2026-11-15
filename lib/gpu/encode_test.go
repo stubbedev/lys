@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/internal/nal/naltest"
-	"github.com/stubbedev/lys-lib/media/mux"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/internal/nal/naltest"
+	"github.com/stubbedev/lys/lib/media/mux"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // fill writes img's pixels into b as a compositor's copy would leave

@@ -8,10 +8,10 @@ import (
 	"slices"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // Linear is a linear single-plane dmabuf imported as a buffer, not an

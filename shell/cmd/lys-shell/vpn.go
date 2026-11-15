@@ -6,10 +6,10 @@ import (
 	"io"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/shellipc"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
 // vpnCommand is lys-shell/src/cli/vpn.rs: the browser's answer to a

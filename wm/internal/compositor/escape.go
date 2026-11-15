@@ -3,9 +3,9 @@ package compositor
 import (
 	"slices"
 
-	sle "github.com/stubbedev/lys-wm/internal/protocol/server/lysescape"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sle "github.com/stubbedev/lys/wm/internal/protocol/server/lysescape"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const escapeVersion = 1

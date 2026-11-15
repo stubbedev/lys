@@ -17,7 +17,7 @@ hero:
       link: /third-party/
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-lib
+      link: https://github.com/stubbedev/lys/tree/main/lib
 
 features:
   - title: Rendering and GPU

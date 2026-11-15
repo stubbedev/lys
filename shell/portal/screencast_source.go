@@ -3,7 +3,7 @@ package portal
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // Source types of ScreenCast (the AvailableSourceTypes bits). Virtual,

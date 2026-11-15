@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	engine "github.com/stubbedev/lys-shell/service/launcher"
+	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // keyAction is a surface action a key can trigger (views.rs KeyAction).

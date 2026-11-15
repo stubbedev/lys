@@ -3,7 +3,7 @@ package bar
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 func TestCustomUpdatesDispatch(t *testing.T) {

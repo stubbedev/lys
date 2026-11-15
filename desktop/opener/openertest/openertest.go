@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 )
 
 // Desktop is the scratch desktop: Root holds config/ (the user's

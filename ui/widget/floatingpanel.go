@@ -3,7 +3,7 @@ package widget
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // InputRegioner is a window's content that takes input only inside its

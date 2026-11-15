@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/filechooser"
-	"github.com/stubbedev/lys-shell/shell/printdialog"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/filechooser"
+	"github.com/stubbedev/lys/shell/shell/printdialog"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // fakeChooser answers every dialog with uris and records the request.

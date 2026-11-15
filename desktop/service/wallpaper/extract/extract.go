@@ -29,7 +29,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 // matugenMaxSourceColor clamps --source-color-index (MATUGEN_MAX_SOURCE_COLOR).

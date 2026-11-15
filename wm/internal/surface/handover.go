@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/region"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/region"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type HandoverRole interface {

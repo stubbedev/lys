@@ -4,7 +4,7 @@ import (
 	"errors"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/gpu"
 )
 
 const uploadBandBytes = 1 << 20

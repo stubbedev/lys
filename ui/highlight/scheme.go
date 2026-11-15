@@ -1,9 +1,9 @@
 package highlight
 
 import (
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Adwaita and AdwaitaDark are the style schemes for the def: ids every

@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 func TestIconString(t *testing.T) {

@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/config"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	"github.com/stubbedev/lys-wm/internal/systemd"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/config"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/systemd"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func TestParseDebug(t *testing.T) {

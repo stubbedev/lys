@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/imagedecode"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys-shell/service/wallpaper"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
 // photo is a decoder's YCbCr output with detail in every channel.

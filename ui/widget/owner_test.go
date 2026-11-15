@@ -3,9 +3,9 @@ package widget_test
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // wrapSwitch is the idiom apps use to add behavior to a widget.

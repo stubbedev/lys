@@ -3,8 +3,8 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/text"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/text"
 )
 
 type countingFont struct {

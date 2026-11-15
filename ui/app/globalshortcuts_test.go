@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 func TestGlobalShortcutEventsReachTheCallback(t *testing.T) {

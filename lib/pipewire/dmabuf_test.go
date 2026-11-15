@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 )
 
 func TestObjectPropFindsTheModifier(t *testing.T) {

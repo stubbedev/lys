@@ -3,9 +3,9 @@ package filechooser
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/portaldialogs"
 
-	"github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest"
 )
 
 // On lys-wm, an Open request naming the app's window maps the chooser as

@@ -3,7 +3,7 @@
 A copy of the `vector` package of golang.org/x/image v0.47.0 (BSD 3-Clause, LICENSE),
 without its tests, its generator or the generator's template, carried as a package
 of the lys-lib module and imported as
-`github.com/stubbedev/lys-lib/third_party/vector`. `render` and `third_party/rasterx`
+`github.com/stubbedev/lys/lib/third_party/vector`. `render` and `third_party/rasterx`
 rasterize glyphs, clips and SVG paths through it.
 
 ## Why it lives inside the module

@@ -9,10 +9,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // ErrNoVideoDecoder reports a device that does not decode the codec

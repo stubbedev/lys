@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-login/greeterconfig"
+	"github.com/stubbedev/lys/login/greeterconfig"
 )
 
 const DefaultRuntimeDir = "/run/lys-login"

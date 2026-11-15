@@ -15,12 +15,12 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/logutil"
-	"github.com/stubbedev/lys-lib/render"
-	wlos "github.com/stubbedev/lys-lib/third_party/wayland/os"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wlclient"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/logutil"
+	"github.com/stubbedev/lys/lib/render"
+	wlos "github.com/stubbedev/lys/lib/third_party/wayland/os"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
 	"golang.org/x/sys/unix"
 )
 

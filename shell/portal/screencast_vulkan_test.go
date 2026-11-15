@@ -9,20 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-desktop/swaytest"
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/dmabufprobe"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/dmabufprobe"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/internal/gpuhost"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/gpuhost"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // vulkanNode is the host's first render node, its device number, and

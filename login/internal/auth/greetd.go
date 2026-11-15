@@ -10,7 +10,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // GreetdSockEnv names the IPC socket greetd hands its greeter.

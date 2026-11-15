@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/internal/animclock"
 )
 
 func linearPiece(at, dur time.Duration, fn func(float64)) []piece {

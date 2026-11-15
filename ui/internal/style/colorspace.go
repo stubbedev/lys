@@ -4,8 +4,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // space is one CSS Color 4 interpolation space: the component layout

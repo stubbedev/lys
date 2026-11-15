@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/fourcc"
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	kdrm "github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fourcc"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 type blitWorld struct {

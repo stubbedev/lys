@@ -38,14 +38,14 @@
         # purego loads these at runtime; the store paths are baked in so the
         # binary needs no library search path.
         ldflags = with pkgs; [
-          "-X github.com/stubbedev/lys-wm/internal/gpu.defaultEGL=${libglvnd}/lib/libEGL.so.1"
-          "-X github.com/stubbedev/lys-wm/internal/gpu.defaultGLESv2=${libglvnd}/lib/libGLESv2.so.2"
-          "-X github.com/stubbedev/lys-wm/internal/gpu.defaultGBM=${libgbm}/lib/libgbm.so.1"
-          "-X github.com/stubbedev/lys-lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
-          "-X github.com/stubbedev/lys-lib/third_party/vk.defaultLibrary=${vulkan-loader}/lib/libvulkan.so.1"
-          "-X github.com/stubbedev/lys-lib/edid.defaultPNP=${hwdata}/share/hwdata/pnp.ids"
-          "-X github.com/stubbedev/lys-wm/internal/session.defaultLibinput=${libinput.out}/lib/libinput.so.10"
-          "-X github.com/stubbedev/lys-wm/internal/xwayland.defaultXwayland=${xwayland}/bin/Xwayland"
+          "-X github.com/stubbedev/lys/wm/internal/gpu.defaultEGL=${libglvnd}/lib/libEGL.so.1"
+          "-X github.com/stubbedev/lys/wm/internal/gpu.defaultGLESv2=${libglvnd}/lib/libGLESv2.so.2"
+          "-X github.com/stubbedev/lys/wm/internal/gpu.defaultGBM=${libgbm}/lib/libgbm.so.1"
+          "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
+          "-X github.com/stubbedev/lys/lib/third_party/vk.defaultLibrary=${vulkan-loader}/lib/libvulkan.so.1"
+          "-X github.com/stubbedev/lys/lib/edid.defaultPNP=${hwdata}/share/hwdata/pnp.ids"
+          "-X github.com/stubbedev/lys/wm/internal/session.defaultLibinput=${libinput.out}/lib/libinput.so.10"
+          "-X github.com/stubbedev/lys/wm/internal/xwayland.defaultXwayland=${xwayland}/bin/Xwayland"
           "-X main.defaultFont=${dejavu_fonts}/share/fonts/truetype/DejaVuSans.ttf"
         ];
 
@@ -66,7 +66,7 @@
 
         meta = {
           description = "A pure-Go tiling Wayland compositor";
-          homepage = "https://github.com/stubbedev/lys-wm";
+          homepage = "https://github.com/stubbedev/lys/tree/main/wm";
           license = lib.licenses.mit;
           mainProgram = "lys-wm";
           platforms = lib.platforms.unix;

@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	ctab "github.com/stubbedev/lys-wm/internal/protocol/client/tablet"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/tabletinput"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	ctab "github.com/stubbedev/lys/wm/internal/protocol/client/tablet"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/tabletinput"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type fakePad struct{}

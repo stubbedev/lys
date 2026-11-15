@@ -8,17 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/dmabufprobe"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/pipewire"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/dmabufprobe"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/pipewire"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // fakeSession is a window's capture session whose copies the test

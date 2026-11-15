@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
 )
 
 type lidRig struct {

@@ -2,8 +2,8 @@
 package wlclient
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
 )
 
 func DisplayDispatch(d *wl.Display) error {

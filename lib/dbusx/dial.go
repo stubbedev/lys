@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // DialSystem connects to the system bus, giving up when ctx ends or

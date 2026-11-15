@@ -3,9 +3,9 @@ package harfbuzz
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
 // ported from src/hb-ot-layout.cc, hb-ot-layout.hh

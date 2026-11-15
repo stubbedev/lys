@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 func TestTheDamageOverlayFillsEachDamageRectAndFadesToNoDamage(t *testing.T) {

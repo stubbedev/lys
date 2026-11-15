@@ -6,14 +6,14 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	ckd "github.com/stubbedev/lys-wm/internal/protocol/client/kdeserverdecoration"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cxd "github.com/stubbedev/lys-wm/internal/protocol/client/xdgdecoration"
-	cxdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	ckd "github.com/stubbedev/lys/wm/internal/protocol/client/kdeserverdecoration"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cxd "github.com/stubbedev/lys/wm/internal/protocol/client/xdgdecoration"
+	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type pongs struct{}

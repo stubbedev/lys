@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/bluetooth"
+	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 // fakeBluetooth is a scripted bluetooth.Source: tests set the state and

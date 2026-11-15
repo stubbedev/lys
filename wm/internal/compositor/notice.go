@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 const (

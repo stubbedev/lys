@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	"github.com/stubbedev/lys-lib/polkit/polkittest"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	"github.com/stubbedev/lys/lib/polkit/polkittest"
 
-	"github.com/stubbedev/lys-polkit/internal/polkit"
-	"github.com/stubbedev/lys-polkit/retained"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/retained"
 )
 
 const (

@@ -9,15 +9,15 @@ package portal
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/portal/permissions"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/portal/permissions"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-shell/internal/toplevels"
-	"github.com/stubbedev/lys-shell/service/screenshare"
+	"github.com/stubbedev/lys/shell/internal/toplevels"
+	"github.com/stubbedev/lys/shell/service/screenshare"
 )
 
 // BusName is the backend's well-known name (lys-shell.portal's DBusName).

@@ -17,7 +17,7 @@ hero:
       link: /install/nixos
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-login
+      link: https://github.com/stubbedev/lys/tree/main/login
 
 features:
   - title: Its own display manager

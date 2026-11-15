@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/stubbedev/lys-lib/assetfile"
+	"github.com/stubbedev/lys/lib/assetfile"
 )
 
 // ErrNotFound reports that no theme in the chain, nor any unthemed

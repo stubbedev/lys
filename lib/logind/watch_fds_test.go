@@ -6,9 +6,9 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
 )
 
 func TestWatchesOfASessionOnOneConnectionEachOwnTheResumedDevice(t *testing.T) {

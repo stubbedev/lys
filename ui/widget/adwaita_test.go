@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/internal/style"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // TestThemeSheetParsesClean pins the generated layer: every named

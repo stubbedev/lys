@@ -10,12 +10,12 @@ package app
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
 
-	"github.com/stubbedev/lys-ui/internal/window"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/window"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // stateHost plays the compositor's configure path against a real

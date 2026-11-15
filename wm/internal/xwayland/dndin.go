@@ -7,11 +7,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 
-	"github.com/stubbedev/lys-wm/internal/data"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/data"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 const (

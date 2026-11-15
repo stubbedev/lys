@@ -10,11 +10,11 @@ import (
 	"slices"
 	"strings"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/intconv"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/intconv"
 
-	"github.com/stubbedev/lys-wm/internal/region"
-	"github.com/stubbedev/lys-wm/internal/shader"
+	"github.com/stubbedev/lys/wm/internal/region"
+	"github.com/stubbedev/lys/wm/internal/shader"
 )
 
 type (

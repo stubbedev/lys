@@ -3,12 +3,12 @@ package bar
 import (
 	"log"
 
-	"github.com/stubbedev/lys-desktop/service/clipboard"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/desktop/service/clipboard"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/transfer"
 
-	"github.com/stubbedev/lys-shell/service/clipboardipc"
+	"github.com/stubbedev/lys/shell/service/clipboardipc"
 )
 
 // copyTextOffLoop copies text from any goroutine but the loop's, through

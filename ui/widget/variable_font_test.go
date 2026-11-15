@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // loadVF loads the Quicksand variable test face (wght 300-700).

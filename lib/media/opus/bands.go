@@ -3,7 +3,7 @@ package opus
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // bandCoder codes the normalised band shapes of one frame

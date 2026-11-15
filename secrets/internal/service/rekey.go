@@ -7,9 +7,9 @@ import (
 	"log"
 	"sync"
 
-	"github.com/stubbedev/lys-secrets/control"
-	"github.com/stubbedev/lys-secrets/internal/keyring"
-	"github.com/stubbedev/lys-secrets/internal/lockedmem"
+	"github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/lockedmem"
 )
 
 // rekeyOffer is the question a login password that does not open the login

@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 const contextSeparator = "\x04"

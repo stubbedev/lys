@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/swaytest"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // settle is how long what must not happen gets to happen anyway before

@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // Where the compositor offers its cast target, a monitor request's

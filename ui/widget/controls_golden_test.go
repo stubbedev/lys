@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/sysfont"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // The control set in both palettes: every button variant at

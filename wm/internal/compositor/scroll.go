@@ -6,8 +6,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func clipped(r image.Rectangle, p wm.Placement) image.Rectangle {

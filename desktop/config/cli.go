@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"go.yaml.in/yaml/v3"
 )
 

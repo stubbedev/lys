@@ -3,13 +3,13 @@
 package shaping
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/typesetting/bidi"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/di"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/harfbuzz"
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/bidi"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/di"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/harfbuzz"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 	"golang.org/x/image/math/fixed"
 )
 

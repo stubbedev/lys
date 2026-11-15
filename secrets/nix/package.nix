@@ -54,7 +54,7 @@
 
       meta = {
         description = "the lys desktop's freedesktop Secret Service";
-        homepage = "https://github.com/stubbedev/lys-secrets";
+        homepage = "https://github.com/stubbedev/lys/tree/main/secrets";
         license = lib.licenses.mit;
         mainProgram = "lys-secrets";
         platforms = lib.platforms.linux;

@@ -12,7 +12,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 )
 
 const captureBacklog = 4096

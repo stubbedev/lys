@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 func pair(t *testing.T) (*Display, *wire.Conn) {

@@ -3,7 +3,7 @@ package data
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/server"
 )
 
 type sourcePhase uint8

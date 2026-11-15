@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 )
 
 // windowEvents are the events that change a window the windows result

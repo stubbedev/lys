@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/resources"
+	"github.com/stubbedev/lys/desktop/resources"
 )
 
 // brandIcons are the bundled logos that are no Lucide glyph: Simple

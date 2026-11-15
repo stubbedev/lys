@@ -1,6 +1,6 @@
 package capture
 
-import "github.com/stubbedev/lys-lib/third_party/wayland/wl"
+import "github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
 // maxStaleBuffers bounds the buffers a session keeps the staleness of; a
 // buffer it forgot is damaged whole.

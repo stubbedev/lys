@@ -3,7 +3,7 @@ package gles
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func TestCloseDeletesEveryProgram(t *testing.T) {

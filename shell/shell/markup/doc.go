@@ -8,7 +8,7 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // Tool is what a drag on the image draws.

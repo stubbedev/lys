@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
 )
 
 // fhsFontDirectories are the fixed locations a Unix system keeps fonts in,

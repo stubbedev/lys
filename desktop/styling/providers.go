@@ -7,8 +7,8 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/service/wallpaper/extract"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 )
 
 // The wallpaper palette providers, ported from

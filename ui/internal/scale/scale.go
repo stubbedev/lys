@@ -14,11 +14,11 @@ package scale
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // Denom is the fixed denominator of the 120-based fractional-scale wire

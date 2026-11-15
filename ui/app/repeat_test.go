@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 func TestKeyRepeater(t *testing.T) {

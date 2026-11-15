@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/idle/idlepolicy"
+	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 
-	"github.com/stubbedev/lys-shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
 type fakeWatch struct {

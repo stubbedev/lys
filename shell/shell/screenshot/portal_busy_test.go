@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/portal"
-	"github.com/stubbedev/lys-shell/shell/colorpicker"
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/portal"
+	"github.com/stubbedev/lys/shell/shell/colorpicker"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 type busyRegion struct{}

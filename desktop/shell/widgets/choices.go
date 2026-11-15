@@ -3,11 +3,11 @@ package widgets
 import (
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys/desktop/styling"
 )
 
 // ChoiceRows builds a row per portal choice, a check button for a

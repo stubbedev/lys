@@ -5,14 +5,14 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	chte "github.com/stubbedev/lys-wm/internal/protocol/client/hyprlandtoplevelexport"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwft "github.com/stubbedev/lys-wm/internal/protocol/client/wlrforeigntoplevel"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	chte "github.com/stubbedev/lys/wm/internal/protocol/client/hyprlandtoplevelexport"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwft "github.com/stubbedev/lys/wm/internal/protocol/client/wlrforeigntoplevel"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type exportFrame struct {

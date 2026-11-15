@@ -23,8 +23,8 @@ accompanying documentation can be found in examples/create-window.
 
 	import (
 		"fmt"
-		"github.com/jezek/xgb"
-		"github.com/jezek/xgb/xproto"
+		"github.com/stubbedev/lys/wm/third_party/xgb"
+		"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	)
 
 	func main() {
@@ -74,8 +74,8 @@ can be found in examples/xinerama.
 	import (
 		"fmt"
 		"log"
-		"github.com/jezek/xgb"
-		"github.com/jezek/xgb/xinerama"
+		"github.com/stubbedev/lys/wm/third_party/xgb"
+		"github.com/stubbedev/lys/wm/third_party/xgb/xinerama"
 	)
 
 	func main() {

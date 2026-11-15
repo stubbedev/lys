@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // modelineLines is how many lines at each end of a text a modeline is

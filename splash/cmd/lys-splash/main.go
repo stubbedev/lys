@@ -21,19 +21,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-splash/internal/asynclog"
-	"github.com/stubbedev/lys-splash/internal/client"
-	"github.com/stubbedev/lys-splash/internal/console"
-	"github.com/stubbedev/lys-splash/internal/daemon"
-	"github.com/stubbedev/lys-splash/internal/keymap"
-	"github.com/stubbedev/lys-splash/internal/kms"
-	"github.com/stubbedev/lys-splash/internal/kmsg"
-	"github.com/stubbedev/lys-splash/internal/protocol"
-	"github.com/stubbedev/lys-splash/internal/server"
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/asynclog"
+	"github.com/stubbedev/lys/splash/internal/client"
+	"github.com/stubbedev/lys/splash/internal/console"
+	"github.com/stubbedev/lys/splash/internal/daemon"
+	"github.com/stubbedev/lys/splash/internal/keymap"
+	"github.com/stubbedev/lys/splash/internal/kms"
+	"github.com/stubbedev/lys/splash/internal/kmsg"
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/server"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 const (

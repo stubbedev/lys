@@ -6,11 +6,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/internal/style"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/internal/style"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // doubleClickWindow is the maximum gap between the clicks of a

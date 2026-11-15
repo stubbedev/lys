@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 )
 

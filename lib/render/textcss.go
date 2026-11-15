@@ -7,9 +7,9 @@ import (
 
 	"golang.org/x/image/math/fixed"
 
-	"github.com/stubbedev/lys-lib/text"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/shaping"
+	"github.com/stubbedev/lys/lib/text"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/shaping"
 )
 
 // WordSep reports whether r is a CSS word separator: the characters

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 type firstFrameRig struct {

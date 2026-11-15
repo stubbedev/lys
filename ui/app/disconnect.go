@@ -13,9 +13,9 @@ package app
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-lib/debug"
+	"github.com/stubbedev/lys/lib/debug"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // ErrDisconnected reports the compositor ended the connection. Run

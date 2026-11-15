@@ -8,7 +8,7 @@ lys-lib and lys-ui use, with upstream's tests: `wl`, `os`, `xdg`, `wlclient`,
 generates `wlr`'s bindings (`go tool wayland-scanner`). Their protocol XML
 lives in `protocols/`, shared with every other binding in the family. They are
 carried as packages of the lys-lib module and imported as
-`github.com/stubbedev/lys-lib/third_party/wayland/...`. A file differs
+`github.com/stubbedev/lys/lib/third_party/wayland/...`. A file differs
 from upstream by that import path and the patches below, nothing else.
 
 ## Why it lives inside the module

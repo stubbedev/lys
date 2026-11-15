@@ -5,7 +5,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/offheap"
+	"github.com/stubbedev/lys/desktop/offheap"
 	"github.com/stubbedev/memory-go"
 )
 

@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The closed form is exact: one long step lands where many short ones

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // portalVault is lys-secrets' vault for the Secret portal's tests: its

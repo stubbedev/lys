@@ -6,8 +6,8 @@ import (
 	"image"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/shm"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/shm"
 )
 
 func (c *Compositor) offLoop(work func() error, then func(error) error) {

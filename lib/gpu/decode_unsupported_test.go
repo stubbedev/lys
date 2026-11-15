@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // A malformed packet is an error that is not ErrNoVideoDecoder: the

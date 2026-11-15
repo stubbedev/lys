@@ -8,10 +8,10 @@ import (
 	"slices"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/av1"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/av1"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // av1Decoder is AV1's part of a decoder, as h264Decoder is H.264's.

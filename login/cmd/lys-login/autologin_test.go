@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-login/internal/greeter"
+	"github.com/stubbedev/lys/login/internal/greeter"
 )
 
 var offered = []greeter.Session{

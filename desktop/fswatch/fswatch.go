@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 	"golang.org/x/sys/unix"
 )
 

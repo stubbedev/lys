@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 type pixelFormat struct {

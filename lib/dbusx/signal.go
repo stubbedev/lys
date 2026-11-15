@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/introspect"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
 // Signal is one signal of a D-Bus interface, carrying a T: a struct

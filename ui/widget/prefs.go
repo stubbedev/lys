@@ -1,9 +1,9 @@
 package widget
 
 import (
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // PreferencesGroup and PreferencesPage (#93): the labeled, bordered

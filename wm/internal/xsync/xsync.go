@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jezek/xgb"
-	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys/wm/third_party/xgb"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
 const extension = "SYNC"

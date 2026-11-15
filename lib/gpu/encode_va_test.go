@@ -13,10 +13,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/internal/va"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/internal/va"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // nv12Of is c in BT.709 limited range, as the conversion writes it.

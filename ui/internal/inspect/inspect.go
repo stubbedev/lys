@@ -19,10 +19,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/sysfont"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Enabled reports whether the environment asked for the inspector at

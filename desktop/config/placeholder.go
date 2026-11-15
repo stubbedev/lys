@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 // Placeholder is one value a format field's template substitutes.

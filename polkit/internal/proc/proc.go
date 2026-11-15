@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/stubbedev/lys-polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
 )
 
 type FS string

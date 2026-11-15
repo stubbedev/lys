@@ -10,11 +10,11 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wlclient"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // Layer anchors, wlr-layer-shell's: a layer anchored to two opposite

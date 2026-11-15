@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/internal/compose"
+	"github.com/stubbedev/lys/ui/internal/compose"
 )
 
 // sessionWithCompose builds a session whose seat uses the shared

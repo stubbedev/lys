@@ -3,7 +3,7 @@ package native
 import (
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/internal/goroutine"
+	"github.com/stubbedev/lys/lib/internal/goroutine"
 )
 
 // routine is a goroutine a connection runs, which Close waits for

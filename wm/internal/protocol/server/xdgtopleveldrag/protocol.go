@@ -3,9 +3,9 @@
 package xdgtopleveldrag
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var XdgToplevelDragManagerV1Interface = &wire.Interface{

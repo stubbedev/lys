@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // TestGoldenItemButtonGroup pins the item variants and sizes,

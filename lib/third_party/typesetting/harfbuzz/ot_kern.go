@@ -1,6 +1,6 @@
 package harfbuzz
 
-import fontP "github.com/stubbedev/lys-lib/third_party/typesetting/font"
+import fontP "github.com/stubbedev/lys/lib/third_party/typesetting/font"
 
 func simpleKern(kernTable fontP.Kernx) fontP.SimpleKerns {
 	for _, subtable := range kernTable {

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 )
 
 // Service is the live configuration: the defaults, the config file

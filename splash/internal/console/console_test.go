@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 type fakeTTY struct {

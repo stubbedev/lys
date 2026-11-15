@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/golden"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/golden"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // lineCase is one line and its expected spans (show's notation).

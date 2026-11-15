@@ -9,17 +9,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/clockwatch"
-	"github.com/stubbedev/lys-shell/internal/jinja"
-	"github.com/stubbedev/lys-shell/service/nightlight"
+	"github.com/stubbedev/lys/shell/internal/clockwatch"
+	"github.com/stubbedev/lys/shell/internal/jinja"
+	"github.com/stubbedev/lys/shell/service/nightlight"
 )
 
 // The schedule's cadence. A jump of the clock, as a resume from suspend

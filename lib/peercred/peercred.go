@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // Credentials are the ids of the process at a socket's other end, from

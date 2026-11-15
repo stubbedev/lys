@@ -15,12 +15,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/shell/apptheme"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Window is a mapped dialog, either kind.

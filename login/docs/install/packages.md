@@ -1,8 +1,8 @@
 # Debian, Ubuntu and Fedora
 
-Each [release](https://github.com/stubbedev/lys-login/releases) carries `.deb`
+Each [release](https://github.com/stubbedev/lys/releases) carries `.deb`
 (amd64, arm64) and `.rpm` (x86_64, aarch64) packages. Install with lys-wm and,
-optionally, [lys-secrets](https://github.com/stubbedev/lys-secrets/releases), from
+optionally, [lys-secrets](https://github.com/stubbedev/lys/releases), from
 their own releases:
 
 ```sh
@@ -77,6 +77,6 @@ notice; the reason is in `journalctl -u lys-login`. Retry with
 
 ## lys-splash
 
-The unit hands the screen over from [lys-splash](https://github.com/stubbedev/lys-splash)
+The unit hands the screen over from [lys-splash](https://github.com/stubbedev/lys/tree/main/splash)
 without a blank frame when it is installed at `/usr/bin/lys-splash`, and skips
 those steps otherwise.

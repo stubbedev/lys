@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/protocol"
 )
 
 // The exit statuses.

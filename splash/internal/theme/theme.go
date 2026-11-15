@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/render"
 	"go.yaml.in/yaml/v3"
 )
 

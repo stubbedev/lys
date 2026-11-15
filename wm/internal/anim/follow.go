@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/stubbedev/lys-lib/motion"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/motion"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 const FollowTolerance = 0.25

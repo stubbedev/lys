@@ -3,9 +3,9 @@ package widget
 import (
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
 )
 
 // dragStackOffset is how far each card behind the front one shows.

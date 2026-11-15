@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/stubbedev/lys-desktop/service/notifications/notifypolicy"
-	"github.com/stubbedev/lys-desktop/service/sounds/soundpolicy"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
+	"github.com/stubbedev/lys/desktop/service/sounds/soundpolicy"
 )
 
 // NotificationConfig is ported from crates/wayle-config/src/schemas/modules/notification/mod.rs.

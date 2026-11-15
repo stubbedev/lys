@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // ClipboardIface bridges the Wayland selection to clipboard-enabled

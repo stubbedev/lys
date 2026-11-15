@@ -20,7 +20,7 @@ package compose
 import (
 	"os"
 
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/xkb"
 )
 
 // Table is an immutable set of compose sequences: keysym chains mapped

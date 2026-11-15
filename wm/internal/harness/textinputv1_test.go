@@ -5,10 +5,10 @@ import (
 	"slices"
 	"testing"
 
-	ctix "github.com/stubbedev/lys-wm/internal/protocol/client/textinput"
-	ctiv1 "github.com/stubbedev/lys-wm/internal/protocol/client/textinputv1"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	ctix "github.com/stubbedev/lys/wm/internal/protocol/client/textinput"
+	ctiv1 "github.com/stubbedev/lys/wm/internal/protocol/client/textinputv1"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type textInputV1Log struct{ log testclient.Log }

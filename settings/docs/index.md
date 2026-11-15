@@ -17,7 +17,7 @@ hero:
       link: /guide/install
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-settings
+      link: https://github.com/stubbedev/lys/tree/main/settings
 
 features:
   - title: Your config stays yours

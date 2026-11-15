@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const scriptedBudget = 20 * time.Millisecond

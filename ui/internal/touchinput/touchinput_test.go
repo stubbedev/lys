@@ -3,11 +3,11 @@ package touchinput
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // A pen drives the pointer and feeds its samples to the widget under

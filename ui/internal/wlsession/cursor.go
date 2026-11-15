@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/xcursor"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/xcursor"
 )
 
 // defaultCursor is shown whenever the app has not asked for another

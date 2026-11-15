@@ -3,8 +3,8 @@ package app
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-ui/internal/scale"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/scale"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Scale returns the device scale the window presents at, num device

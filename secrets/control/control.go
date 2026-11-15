@@ -24,9 +24,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-secrets/internal/usersock"
+	"github.com/stubbedev/lys/secrets/internal/usersock"
 )
 
 type request byte

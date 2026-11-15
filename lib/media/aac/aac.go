@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/media/internal/mp4audio"
-	"github.com/stubbedev/lys-lib/media/internal/pcm"
+	"github.com/stubbedev/lys/lib/media/internal/mp4audio"
+	"github.com/stubbedev/lys/lib/media/internal/pcm"
 )
 
 // Decoding fails with these, wrapped with what was being decoded.

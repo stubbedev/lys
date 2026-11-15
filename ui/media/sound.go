@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/aac"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/media/opus"
-	"github.com/stubbedev/lys-lib/media/vorbis"
-	"github.com/stubbedev/lys-lib/pulse/native"
+	"github.com/stubbedev/lys/lib/media/aac"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/opus"
+	"github.com/stubbedev/lys/lib/media/vorbis"
+	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
 const (

@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/media"
+	"github.com/stubbedev/lys/ui/media"
 )
 
 var errNoDecoderHere = errors.New("this device decodes no such video")

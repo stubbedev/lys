@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-splash/internal/daemon"
+	"github.com/stubbedev/lys/splash/internal/daemon"
 )
 
 func TestRoleOf(t *testing.T) {

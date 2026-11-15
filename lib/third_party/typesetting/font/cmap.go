@@ -7,7 +7,7 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
 // This file implements the logic needed to use a cmap.

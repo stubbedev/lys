@@ -6,7 +6,7 @@ import (
 	"image"
 
 	"github.com/ebitengine/purego"
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 )
 

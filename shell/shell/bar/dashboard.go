@@ -4,8 +4,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // dashboardFallbackIcon is the dashboard glyph shown when no distro icon

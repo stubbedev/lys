@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 // settleTimeout bounds the wait for the service's queued store writes.

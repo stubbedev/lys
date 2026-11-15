@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-login/greeterconfig"
+	"github.com/stubbedev/lys/login/greeterconfig"
 )
 
 func TestRefusalsCrossTheWire(t *testing.T) {

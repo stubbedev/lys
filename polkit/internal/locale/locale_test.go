@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/stubbedev/lys-polkit/internal/locale"
+	"github.com/stubbedev/lys/polkit/internal/locale"
 )
 
 func TestEmbeddedGermanTranslatesEveryMessage(t *testing.T) {

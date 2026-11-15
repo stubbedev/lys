@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestEachPowerButtonCallsItsLogindAction(t *testing.T) {

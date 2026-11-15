@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
 
-	"github.com/stubbedev/lys-shell/service/sni"
+	"github.com/stubbedev/lys/shell/service/sni"
 )
 
 const (

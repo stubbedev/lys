@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func TestMostRecentlyUsedOrder(t *testing.T) {

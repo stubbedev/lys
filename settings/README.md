@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stubbedev/lys-settings/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-settings/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
+  <a href="https://github.com/stubbedev/lys/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-settings/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT license"></a>
-  <a href="https://stubbedev.github.io/lys-settings/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://stubbedev.github.io/lys/settings/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
 </p>
 
 One window for the settings of
-[lys-shell](https://github.com/stubbedev/lys-shell),
-[lys-wm](https://github.com/stubbedev/lys-wm) and the system services they run on.
+[lys-shell](https://github.com/stubbedev/lys/tree/main/shell),
+[lys-wm](https://github.com/stubbedev/lys/tree/main/wm) and the system services they run on.
 Config changes are written as runtime overrides to each project's `runtime.yaml`,
 over the `config.yaml` you declare, which the app never writes. lys-wm checks every
 change before it is written and reloads it after. A config that Home Manager links
@@ -36,8 +36,8 @@ lys-shell's Nix modules install it by default. To install it alone:
 ```
 
 Debian and Fedora packages and an archive are on the
-[releases page](https://github.com/stubbedev/lys-settings/releases). See
-[Install](https://stubbedev.github.io/lys-settings/guide/install).
+[releases page](https://github.com/stubbedev/lys/releases). See
+[Install](https://stubbedev.github.io/lys/settings/guide/install).
 
 ## Use
 
@@ -55,4 +55,4 @@ nix develop
 just docker check  # every gate, in a container away from the desktop session
 ```
 
-See [Development](https://stubbedev.github.io/lys-settings/guide/development).
+See [Development](https://stubbedev.github.io/lys/settings/guide/development).

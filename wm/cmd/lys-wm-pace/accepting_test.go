@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func TestASocketBoundButNotListeningIsNotAccepting(t *testing.T) {

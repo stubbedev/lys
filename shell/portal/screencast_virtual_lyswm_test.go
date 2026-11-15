@@ -4,11 +4,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/wmipc"
 )
 
 // lysWMGeometry is the outputs' logical geometry as lys-wm reports it.

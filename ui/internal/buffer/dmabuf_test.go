@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys/lib/gpu"
 )
 
 // pendingImports is a pool whose create makes dmabuf buffers still

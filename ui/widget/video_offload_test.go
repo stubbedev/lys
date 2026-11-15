@@ -5,10 +5,10 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/media"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/media"
 )
 
 type fakeVideoSurface struct {

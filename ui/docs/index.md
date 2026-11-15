@@ -17,7 +17,7 @@ hero:
       link: /widgets
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-ui
+      link: https://github.com/stubbedev/lys/tree/main/ui
 
 features:
   - title: Components

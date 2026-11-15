@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // The fixture tree, laid out per the icon theme spec. Every flag glyph

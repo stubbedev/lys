@@ -16,15 +16,15 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/assetfile"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/fontscan"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/assetfile"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/fontscan"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-ui/internal/uifont"
+	"github.com/stubbedev/lys/ui/internal/uifont"
 )
 
 // quietLogger discards fontscan warnings.

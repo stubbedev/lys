@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 // killAloneRun is the -run pattern that selects the kill test alone.

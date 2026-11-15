@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
-	"github.com/stubbedev/lys-lib/eis/eistest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/vinput"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/lib/eis/eistest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/wmipc"
 )
 
 func TestInputCaptureOnLysWM(t *testing.T) {

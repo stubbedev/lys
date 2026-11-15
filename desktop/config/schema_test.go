@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config/internal/schemadoc"
+	"github.com/stubbedev/lys/desktop/config/internal/schemadoc"
 )
 
 const testSchemaVersion = "0.0.0"

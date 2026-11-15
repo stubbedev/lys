@@ -3,9 +3,9 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // An alert shows its description only while it has one, carries the

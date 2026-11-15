@@ -11,15 +11,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/sockdir"
-	"github.com/stubbedev/lys-login/dmsocket"
-	"github.com/stubbedev/lys-login/greeterconfig"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/login/dmsocket"
+	"github.com/stubbedev/lys/login/greeterconfig"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 type fakeDaemon struct {

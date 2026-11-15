@@ -3,13 +3,13 @@ package bar
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/godbus/prop"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/service/sni"
+	"github.com/stubbedev/lys/shell/service/sni"
 )
 
 const green = 0xff00ff00

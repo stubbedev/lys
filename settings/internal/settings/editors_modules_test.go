@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func typeNumber(n *number, text string) {

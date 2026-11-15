@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-secrets/control"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/secrets/control"
 )
 
 // keyringTimeout bounds the control-socket exchange: a locker must

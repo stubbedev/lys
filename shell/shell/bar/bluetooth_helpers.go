@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/bluetooth"
+	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 // The bluetooth dropdown's pure helpers, ported from

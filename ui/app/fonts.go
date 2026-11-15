@@ -6,10 +6,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/sysfont"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Font resolves a system font family by name at the given logical

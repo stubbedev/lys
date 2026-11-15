@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // IO is std::io::Error's Display for an OS error: the C library's

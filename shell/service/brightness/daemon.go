@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // ServiceName and ServicePath are dev.stubbe.lys.Brightness1, which

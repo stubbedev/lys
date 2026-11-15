@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 func TestGlassAdjustIsTheFilterFunctions(t *testing.T) {

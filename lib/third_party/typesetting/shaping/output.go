@@ -3,8 +3,8 @@
 package shaping
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/typesetting/di"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/di"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 	"golang.org/x/image/math/fixed"
 )
 

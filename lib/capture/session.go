@@ -6,11 +6,11 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/dmabufwl"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/dmabufwl"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // Source is what an ext-image-copy-capture session captures: an Output,

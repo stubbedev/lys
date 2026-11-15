@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/nal/naltest"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/internal/nal/naltest"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // Exp-Golomb codes come out as the spec's table 9-2 lists them.

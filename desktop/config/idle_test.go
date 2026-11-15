@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/idle/idlepolicy"
+	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 )
 
 func TestIdleTimeoutParsesDurationsAndNever(t *testing.T) {

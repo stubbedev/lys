@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-ui/internal/mailbox"
+	"github.com/stubbedev/lys/ui/internal/mailbox"
 )
 
 // Single-instance activation, GApplication/relm4 parity (#79): the

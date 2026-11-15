@@ -25,19 +25,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-lib/render"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/render"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys-shell/internal/desktopnotify"
-	"github.com/stubbedev/lys-shell/shell/colorpicker"
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/internal/desktopnotify"
+	"github.com/stubbedev/lys/shell/shell/colorpicker"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
 // The capture modes of Capture: a drag-selected region, one output

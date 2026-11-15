@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // Encoding a frame allocates only the packet it hands back, the slice

@@ -6,17 +6,17 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/colorspace"
-	"github.com/stubbedev/lys-wm/internal/dmabuf"
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/colorspace"
+	"github.com/stubbedev/lys/wm/internal/dmabuf"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type scannedOut struct {

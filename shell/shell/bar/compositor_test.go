@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-shell/service/mango"
-	"github.com/stubbedev/lys-shell/service/niri"
+	"github.com/stubbedev/lys/shell/service/mango"
+	"github.com/stubbedev/lys/shell/service/niri"
 )
 
 // advertise sets exactly the named compositor variables, hiding the

@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/dmabufprobe"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/pipewire"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/dmabufprobe"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/pipewire"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // defaultFPS is the advertised capture rate, clamped to the output's

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/opener/openertest"
+	"github.com/stubbedev/lys/desktop/opener/openertest"
 
-	"github.com/stubbedev/lys-shell/service/launcher/launchertest"
+	"github.com/stubbedev/lys/shell/service/launcher/launchertest"
 )
 
 func TestDetectTerminalTakesTheConfiguredOneThenTheEnvironmentThenThePath(t *testing.T) {

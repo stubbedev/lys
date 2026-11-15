@@ -8,9 +8,9 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/testbuild"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 func textureBytes(t *testing.T, tx *Texture) []byte {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // fakeVault holds entries by connection name.

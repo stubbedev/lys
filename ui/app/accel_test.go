@@ -4,12 +4,12 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // accelApp builds an application with just the accelerator table so

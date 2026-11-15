@@ -1,6 +1,6 @@
 package widget
 
-import "github.com/stubbedev/lys-lib/render"
+import "github.com/stubbedev/lys/lib/render"
 
 // tooltipTextPx is a tooltip's text size.
 const tooltipTextPx = 12

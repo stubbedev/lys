@@ -3,8 +3,8 @@ package recorder
 import (
 	"time"
 
-	"github.com/stubbedev/lys-lib/audiomix"
-	"github.com/stubbedev/lys-lib/media/opus"
+	"github.com/stubbedev/lys/lib/audiomix"
+	"github.com/stubbedev/lys/lib/media/opus"
 )
 
 // The audio track's shape: 48 kHz stereo, 20 ms Opus packets. The

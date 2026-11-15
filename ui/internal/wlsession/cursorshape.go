@@ -3,9 +3,9 @@ package wlsession
 import (
 	"os"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // cursor-shape-v1: when the compositor offers it, cursors are its to

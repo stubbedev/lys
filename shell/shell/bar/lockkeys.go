@@ -1,11 +1,11 @@
 package bar
 
 import (
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-shell/service/keytoggles"
-	"github.com/stubbedev/lys-shell/shell/osd"
+	"github.com/stubbedev/lys/shell/service/keytoggles"
+	"github.com/stubbedev/lys/shell/shell/osd"
 )
 
 func lockKeySource() osd.LockKeys {

@@ -3,8 +3,8 @@ package av1
 import (
 	"math/bits"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/nal"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/nal"
 )
 
 // reader reads the descriptors of the syntax (4.10) over nal's bit

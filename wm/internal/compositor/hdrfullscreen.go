@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 type HDRPolicy uint8

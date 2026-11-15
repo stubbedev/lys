@@ -9,9 +9,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 func expectRGB(y, u, v float64, bits int, m YCbCrMatrix, r YCbCrRange) color.RGBA {

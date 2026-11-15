@@ -7,14 +7,14 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/styling"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
-	"github.com/stubbedev/lys-settings/internal/wmconfig"
+	"github.com/stubbedev/lys/settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 // lys-wm keys that take one of two forms: gaps.outer, one number or one

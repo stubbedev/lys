@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/wmipc"
 )
 
 func defaultLogoutCommands() []struct{ name, command string } {

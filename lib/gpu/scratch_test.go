@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // A large upload grows the staging buffer for its frame, written

@@ -3,7 +3,7 @@ package sni
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 )
 
 func TestCloseHandsTheWatcherAndASharedConnectionBack(t *testing.T) {

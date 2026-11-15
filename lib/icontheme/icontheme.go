@@ -6,8 +6,8 @@
 package icontheme
 
 import (
-	"github.com/stubbedev/lys-lib/icons"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/icons"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // DefaultTheme is the theme a Theme starts on when none is named:

@@ -1,10 +1,10 @@
 # Contributing
 
-[`AGENTS.md`](https://github.com/stubbedev/lys-wm/blob/main/AGENTS.md)
+[`AGENTS.md`](https://github.com/stubbedev/lys/blob/main/wm/AGENTS.md)
 describes how work is picked and landed; [Architecture](../architecture) the
 design every change builds on. Work is tracked in the
-[issues](https://github.com/stubbedev/lys-wm/issues), grouped by
-[milestone](https://github.com/stubbedev/lys-wm/milestones).
+[issues](https://github.com/stubbedev/lys/issues), grouped by
+[milestone](https://github.com/stubbedev/lys/milestones).
 
 ## Development environment
 
@@ -36,7 +36,7 @@ nix build -L .#checks.x86_64-linux.vm        # the module in a VM on the drm bac
 
 The other `vm-*` checks cover several GPUs, the cursor plane, the lid, rtkit,
 upgrades, Xwayland, everyday clients and screen sharing.
-[`ci.yml`](https://github.com/stubbedev/lys-wm/blob/main/.github/workflows/ci.yml)
+[`ci.yml`](https://github.com/stubbedev/lys/blob/main/wm/.github/workflows/ci.yml)
 runs each as its own job. [Frame pacing](../frame-pacing) covers
 `lys-wm-pace` and its gate.
 

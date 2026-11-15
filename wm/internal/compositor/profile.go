@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/colorspace"
-	"github.com/stubbedev/lys-wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/colorspace"
+	"github.com/stubbedev/lys/wm/internal/output"
 )
 
 type profile struct {

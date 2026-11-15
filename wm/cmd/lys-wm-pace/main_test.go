@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/frametrace"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/frametrace"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func TestOptionsAreCheckedAtTheBoundary(t *testing.T) {

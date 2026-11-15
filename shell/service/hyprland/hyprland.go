@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/ipcsock"
+	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
 // endOfTransmission terminates every command-socket reply.

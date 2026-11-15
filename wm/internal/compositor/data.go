@@ -4,10 +4,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/data"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/data"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 func (c *Compositor) KeyboardFocusChanged(s *surface.Surface) error {

@@ -7,9 +7,9 @@ package main
 import (
 	"os"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/lockcli"
-	"github.com/stubbedev/lys-shell/internal/version"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/lockcli"
+	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 func main() {

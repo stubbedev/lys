@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	chc "github.com/stubbedev/lys-wm/internal/protocol/client/hyprlandctmcontrol"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	chc "github.com/stubbedev/lys/wm/internal/protocol/client/hyprlandctmcontrol"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type ctmEvents struct{ blocked bool }

@@ -20,7 +20,7 @@ import (
 
 	"github.com/stubbedev/memory-go/heapslab"
 
-	"github.com/stubbedev/lys-lib/text"
+	"github.com/stubbedev/lys/lib/text"
 )
 
 // shapeKey identifies one shaped line. The font field compares by

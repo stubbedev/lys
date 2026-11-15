@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 type VirtualKeyboard struct {

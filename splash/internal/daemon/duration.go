@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/protocol"
 )
 
 // BootDurationFile is where a boot records how long its splash showed, for

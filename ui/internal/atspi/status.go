@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/debug"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/debug"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-ui/internal/atspi/proto"
+	"github.com/stubbedev/lys/ui/internal/atspi/proto"
 )
 
 // The desktop's accessibility switch: org.a11y.Status on the session

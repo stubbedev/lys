@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 func targetBytes(t *testing.T, tg *Target) []byte {

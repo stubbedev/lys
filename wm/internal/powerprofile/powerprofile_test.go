@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/loop"
 )
 
 type daemon struct {

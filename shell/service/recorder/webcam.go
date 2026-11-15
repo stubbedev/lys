@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-desktop/service/recorder/devicechoice"
-	"github.com/stubbedev/lys-lib/v4l2"
+	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
+	"github.com/stubbedev/lys/lib/v4l2"
 )
 
 // webcamMaxFPS caps the overlay's updates: a webcam picture needs no

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/internal/recentfiles"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/recentfiles"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func openButtonApp(t *testing.T) *Application {

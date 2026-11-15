@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 func TestSetFocus(t *testing.T) {

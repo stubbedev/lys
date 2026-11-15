@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // ErrActivationUnavailable is a token request on a compositor without

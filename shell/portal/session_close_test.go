@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // sessionStartCase is a Start that shares the screens of a session

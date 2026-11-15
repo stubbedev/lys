@@ -3,9 +3,9 @@ package wallpaper
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 type firstFrameRun struct {

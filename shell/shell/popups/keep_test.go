@@ -3,8 +3,8 @@ package popups
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 type fakeWindow struct{ closed bool }

@@ -12,10 +12,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/mango"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/mango"
 )
 
 func captured(t *testing.T, compositor, name string) string {

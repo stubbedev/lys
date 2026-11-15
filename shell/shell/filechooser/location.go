@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/rivo/uniseg"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // maxCompletions bounds the location entry's matches.

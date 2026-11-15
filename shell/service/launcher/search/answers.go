@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/launcher/answer"
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/service/launcher/answer"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 // Calculator answers arithmetic, unit and currency conversions, times

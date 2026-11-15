@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 func TestTheTabledConstantsAreWhatTheirFormulasCompute(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"unicode"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 // GeneralCategory is an enum storing the Unicode General Category of a rune.

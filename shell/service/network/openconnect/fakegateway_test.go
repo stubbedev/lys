@@ -14,7 +14,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // The fake gateways: the Go port of crates/wayle-network/tests/

@@ -9,15 +9,15 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-desktop/service/pulse"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/pulse/native"
-	"github.com/stubbedev/lys-lib/pulse/pulsetest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/service/privacy"
+	"github.com/stubbedev/lys/shell/service/privacy"
 )
 
 // micServer is a private audio server with a microphone and a monitor.

@@ -9,9 +9,9 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
 // Location identifies where a font.Face is stored.

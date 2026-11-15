@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/gtksettings"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/gtksettings"
 
-	"github.com/stubbedev/lys-login/internal/cursorrecord"
+	"github.com/stubbedev/lys/login/internal/cursorrecord"
 )
 
 // The greeter runs pre-login, so there is no session to ask what

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // rgbMask writes colour and keeps the target's alpha.

@@ -3,7 +3,7 @@ package server
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type objectClass uint8

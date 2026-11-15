@@ -5,10 +5,10 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 
-	"github.com/stubbedev/lys-ui/internal/uifont"
+	"github.com/stubbedev/lys/ui/internal/uifont"
 )
 
 // A variable face the store matched at its default instance serves a

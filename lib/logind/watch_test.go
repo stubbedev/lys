@@ -10,10 +10,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 type received struct {

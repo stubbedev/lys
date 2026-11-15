@@ -10,9 +10,9 @@ package widget
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // cssInsets is one widget's resolved box: margin, border, and padding.

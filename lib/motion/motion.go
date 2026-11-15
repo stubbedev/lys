@@ -10,7 +10,7 @@ package motion
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // SpringStep is the damped harmonic oscillator's exact solution at

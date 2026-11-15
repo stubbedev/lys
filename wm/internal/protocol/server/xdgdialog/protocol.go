@@ -3,8 +3,8 @@
 package xdgdialog
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var XdgWmDialogV1Interface = &wire.Interface{

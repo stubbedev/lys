@@ -1,10 +1,10 @@
 package settings
 
 import (
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // newSidebar is Sidebar on lys-ui's sidebar beside content: the title over

@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // rectsOf reads the arranged rects of ws.

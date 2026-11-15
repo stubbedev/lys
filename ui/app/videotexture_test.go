@@ -7,11 +7,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/gputest"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/gputest"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // firstVideoFrame decodes the first frame of path's video on dev.

@@ -3,8 +3,8 @@
 package fifo
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var WpFifoManagerV1Interface = &wire.Interface{

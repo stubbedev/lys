@@ -6,12 +6,12 @@ package backgroundeffect
 import (
 	"errors"
 
-	sbe "github.com/stubbedev/lys-wm/internal/protocol/server/backgroundeffect"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/region"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sbe "github.com/stubbedev/lys/wm/internal/protocol/server/backgroundeffect"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/region"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const version = 1

@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 func TestFreeingResourcesNeverWaitsForTheGPU(t *testing.T) {

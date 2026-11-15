@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	"github.com/stubbedev/lys-wm/internal/output"
-	seis "github.com/stubbedev/lys-wm/internal/protocol/server/extimagecapturesource"
-	sldc "github.com/stubbedev/lys-wm/internal/protocol/server/lysdynamiccapture"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/output"
+	seis "github.com/stubbedev/lys/wm/internal/protocol/server/extimagecapturesource"
+	sldc "github.com/stubbedev/lys/wm/internal/protocol/server/lysdynamiccapture"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const dynamicCaptureVersion = 1

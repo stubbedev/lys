@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/styling/material"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/styling/material"
 )
 
 func solid(c material.ARGB, n int) []material.ARGB {

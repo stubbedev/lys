@@ -5,10 +5,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cxh "github.com/stubbedev/lys-wm/internal/protocol/client/xxhotkey"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cxh "github.com/stubbedev/lys/wm/internal/protocol/client/xxhotkey"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 const (

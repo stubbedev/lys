@@ -6,9 +6,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/transfer"
 
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
 
 const textMime = "text/plain;charset=utf-8"

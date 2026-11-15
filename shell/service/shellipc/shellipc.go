@@ -12,8 +12,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // dev.stubbe.lys.Shell1 (wayle-ipc/src/shell_ipc.rs).

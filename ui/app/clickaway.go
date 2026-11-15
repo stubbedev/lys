@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 
-	"github.com/stubbedev/lys-ui/internal/buffer"
-	"github.com/stubbedev/lys-ui/internal/layersurface"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/buffer"
+	"github.com/stubbedev/lys/ui/internal/layersurface"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // clickAwayNamespace tags the catcher surfaces for compositor rules.

@@ -1,8 +1,8 @@
 package bar
 
 import (
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Reveal toggle glyphs (helpers.rs's ICON_EYE / ICON_EYE_OFF).

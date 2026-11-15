@@ -5,11 +5,11 @@ import (
 	"log"
 	"sync"
 
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-shell/internal/clockwatch"
-	"github.com/stubbedev/lys-shell/service/notifications"
-	"github.com/stubbedev/lys-shell/service/recorder"
+	"github.com/stubbedev/lys/shell/internal/clockwatch"
+	"github.com/stubbedev/lys/shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/recorder"
 )
 
 type sharingSignals struct {

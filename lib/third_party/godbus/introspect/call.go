@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Call calls org.freedesktop.Introspectable.Introspect on a remote object

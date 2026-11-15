@@ -4,11 +4,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/xcursor"
+	"github.com/stubbedev/lys/lib/xcursor"
 
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func TestAnExecDoesItsSyscallsOffTheLoop(t *testing.T) {

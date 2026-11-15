@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // Unknown is what a name no glob claims guesses as.

@@ -3,15 +3,15 @@ package sharepicker
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/shell/apptheme"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/shell/dialogsurface"
-	"github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest"
 )
 
 type closingWindow struct{ closed bool }

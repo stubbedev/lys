@@ -4,11 +4,11 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/jinja"
-	"github.com/stubbedev/lys-shell/service/treeman"
+	"github.com/stubbedev/lys/shell/internal/jinja"
+	"github.com/stubbedev/lys/shell/service/treeman"
 )
 
 // treemanLabel is helpers.rs's format_label: plain replacements of

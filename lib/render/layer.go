@@ -7,7 +7,7 @@ import (
 
 	memory "github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // Affine is a 2-D affine map in device pixels: (x, y) goes to

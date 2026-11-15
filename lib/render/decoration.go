@@ -3,8 +3,8 @@ package render
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
 // DecorationLine is a set of text decoration lines (CSS

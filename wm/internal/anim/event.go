@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/motion"
+	"github.com/stubbedev/lys/lib/motion"
 )
 
 type Event uint8

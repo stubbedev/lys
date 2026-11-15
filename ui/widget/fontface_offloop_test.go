@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/internal/style"
-	"github.com/stubbedev/lys-ui/internal/uifont"
+	"github.com/stubbedev/lys/ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/uifont"
 )
 
 func writeFont(t *testing.T) string {

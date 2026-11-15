@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 )
 
 func TestVPNSSOCallbackReachesTheWaitingSignIn(t *testing.T) {

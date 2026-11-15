@@ -3,16 +3,16 @@ package app
 import (
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/wlr"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/popup"
-	"github.com/stubbedev/lys-ui/internal/surfx"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/popup"
+	"github.com/stubbedev/lys/ui/internal/surfx"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // TooltipOptions tune hover tooltips; zero fields keep the defaults

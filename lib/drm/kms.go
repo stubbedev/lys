@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 )
 
 // Device capabilities, as DRM_IOCTL_GET_CAP numbers them for Cap.

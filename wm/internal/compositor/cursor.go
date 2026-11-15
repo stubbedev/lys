@@ -6,14 +6,14 @@ import (
 	"image"
 	"math"
 
-	"github.com/stubbedev/lys-lib/xcursor"
+	"github.com/stubbedev/lys/lib/xcursor"
 	"golang.org/x/image/draw"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/seat"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/seat"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 type cursorKey struct {

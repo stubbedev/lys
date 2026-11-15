@@ -4,10 +4,10 @@
 package wlsession
 
 import (
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/intconv"
-	text "github.com/stubbedev/lys-lib/third_party/wayland/unstable/text-input-v3"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/intconv"
+	text "github.com/stubbedev/lys/lib/third_party/wayland/unstable/text-input-v3"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 )
 
 // MaxIMESurrounding is the wayland message size cap the protocol puts

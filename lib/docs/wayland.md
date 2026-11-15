@@ -1,6 +1,6 @@
 # Wayland
 
-Toolkit windows and surfaces are in [lys-ui](https://github.com/stubbedev/lys-ui).
+Toolkit windows and surfaces are in [lys-ui](https://github.com/stubbedev/lys/tree/main/ui).
 These packages need no toolkit. The keyboard model is on its [own page](/xkb).
 
 ## capture
@@ -16,7 +16,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 )
 
 func main() {
@@ -99,7 +99,7 @@ package main
 import (
 	"log"
 
-	"github.com/stubbedev/lys-lib/vinput"
+	"github.com/stubbedev/lys/lib/vinput"
 )
 
 const btnLeft = 0x110

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/logutil"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/logutil"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 )
 
 // capturedOutput redirects the process's stderr and stdout into pipes

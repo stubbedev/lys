@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // hlEvents adapts copyState to the hyprland_toplevel_export_frame_v1

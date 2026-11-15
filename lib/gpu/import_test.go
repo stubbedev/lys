@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/vk"
-	"github.com/stubbedev/lys-lib/udmabuf"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/udmabuf"
 )
 
 func newUdmabuf(t *testing.T, size int) *udmabuf.Buffer {

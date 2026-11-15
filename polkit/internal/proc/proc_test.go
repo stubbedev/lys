@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-polkit/internal/polkit"
-	"github.com/stubbedev/lys-polkit/internal/proc"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/internal/proc"
 )
 
 func TestNameOfThisProcess(t *testing.T) {

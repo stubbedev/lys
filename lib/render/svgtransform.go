@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/third_party/rasterx"
+	"github.com/stubbedev/lys/lib/third_party/rasterx"
 )
 
 // parseSVGTransform parses an SVG transform list into the matrix it

@@ -17,7 +17,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 func main() {
@@ -105,8 +105,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 func main() {

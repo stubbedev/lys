@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/debug"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/debug"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 const (

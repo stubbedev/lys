@@ -13,8 +13,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-shell/internal/gvariant"
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/internal/gvariant"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // emojiData holds GTK's emoji tables, extracted from libgtk-4 by

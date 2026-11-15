@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Pipe proves that a descriptor a test sends over D-Bus is closed by

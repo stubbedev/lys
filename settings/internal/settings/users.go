@@ -16,19 +16,19 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/pam"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
-	secrets "github.com/stubbedev/lys-secrets/control"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/pam"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
+	secrets "github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 	xdraw "golang.org/x/image/draw"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (

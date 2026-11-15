@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // agentPath is where the pairing agent lives on the bus (service.rs).

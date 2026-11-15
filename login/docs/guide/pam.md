@@ -14,7 +14,7 @@ Under greetd, greetd authenticates with its own service.
 
 The Debian/Ubuntu and Fedora packages install `lys-login`, `lys-login-autologin`
 and `lys-shell` into `/etc/pam.d`, from
-[`resources/pam/`](https://github.com/stubbedev/lys-login/tree/main/resources/pam).
+[`resources/pam/`](https://github.com/stubbedev/lys/tree/main/login/resources/pam).
 The NixOS module declares them.
 
 ## The display manager's service

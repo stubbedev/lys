@@ -7,7 +7,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // MaskGLSL is the GLSL of Mask.Coverage, maskCoverage, of GradientAt's

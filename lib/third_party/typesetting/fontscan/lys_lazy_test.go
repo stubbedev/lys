@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 // lazyTestMap is a system font filed as a family the sans-serif generic

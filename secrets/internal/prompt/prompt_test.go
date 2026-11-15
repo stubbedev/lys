@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/portaldialogs"
 
-	"github.com/stubbedev/lys-secrets/internal/dialogtest"
-	"github.com/stubbedev/lys-secrets/internal/keyring"
-	"github.com/stubbedev/lys-secrets/internal/pinentry"
-	"github.com/stubbedev/lys-secrets/internal/service"
-	"github.com/stubbedev/lys-secrets/internal/sshagent"
+	"github.com/stubbedev/lys/secrets/internal/dialogtest"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/pinentry"
+	"github.com/stubbedev/lys/secrets/internal/service"
+	"github.com/stubbedev/lys/secrets/internal/sshagent"
 )
 
 func TestOverlappingPromptsGetTheirOwnHandles(t *testing.T) {

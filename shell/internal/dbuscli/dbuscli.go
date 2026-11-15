@@ -14,7 +14,7 @@ import (
 	"errors"
 	"strings"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Message is a user-facing CLI error: the Rust CLI's exact text,

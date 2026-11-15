@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys/lib/gpu"
 )
 
 // recorder is a testing.TB that records how a test ended instead of

@@ -5,10 +5,10 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // ListModel supplies rows to a List. Row may return a fresh widget per

@@ -5,14 +5,14 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 
-	spc "github.com/stubbedev/lys-wm/internal/protocol/server/pointerconstraints"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/region"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	spc "github.com/stubbedev/lys/wm/internal/protocol/server/pointerconstraints"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/region"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const pointerConstraintsVersion = 1

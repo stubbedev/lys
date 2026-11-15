@@ -3,8 +3,8 @@ package sysfont
 import (
 	"context"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/fontscan"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/fontscan"
 )
 
 // systemFace is one system face: where it is and its aspect.

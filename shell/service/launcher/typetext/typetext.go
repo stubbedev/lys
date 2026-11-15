@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/vinput"
+	"github.com/stubbedev/lys/lib/vinput"
 )
 
 // keycodeOffset is what xkb adds to an evdev code; evdev 0 is reserved,

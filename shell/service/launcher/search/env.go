@@ -1,9 +1,9 @@
 package search
 
 import (
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // Env is how providers reach out of the process: a seam, so a test's

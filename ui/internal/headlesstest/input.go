@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/vinput"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/vinput"
 )
 
 // usKeymap is a flattened US xkb keymap (see testdata/us.xkb), the

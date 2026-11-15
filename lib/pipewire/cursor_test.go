@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 )
 
 // testCursor is a Cursor whose shape n is an n x n image of byte n.

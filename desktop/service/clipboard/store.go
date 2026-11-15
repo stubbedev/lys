@@ -14,9 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
 
 // Digest is the SHA-256 of an entry's bytes: the name its payload file

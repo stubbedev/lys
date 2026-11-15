@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/secrets/vault"
 
-	"github.com/stubbedev/lys-shell/service/network"
+	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // savedLogins records what the offer card kept, failing with err.

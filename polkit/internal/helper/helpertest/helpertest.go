@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-polkit/internal/helper"
+	"github.com/stubbedev/lys/polkit/internal/helper"
 )
 
 // The conversation the fake expects.

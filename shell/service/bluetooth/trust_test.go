@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func setTrustedCall(p dbus.ObjectPath) string { return deviceIface + ".Set.Trusted " + string(p) }

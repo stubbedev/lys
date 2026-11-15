@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/udisks"
-	"github.com/stubbedev/lys-shell/service/udisks/udiskstest"
+	"github.com/stubbedev/lys/shell/service/udisks"
+	"github.com/stubbedev/lys/shell/service/udisks/udiskstest"
 )
 
 const (

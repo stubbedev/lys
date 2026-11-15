@@ -6,13 +6,13 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwsc "github.com/stubbedev/lys-wm/internal/protocol/client/wlrscreencopy"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwsc "github.com/stubbedev/lys/wm/internal/protocol/client/wlrscreencopy"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type copyFrame struct {

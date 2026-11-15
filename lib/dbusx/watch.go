@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // ChangedProperties is what PropertiesChanged carries: the interface

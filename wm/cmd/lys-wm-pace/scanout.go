@@ -6,8 +6,8 @@ import (
 	"image"
 	"os"
 
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 const scanoutSteps = "scanout"

@@ -11,8 +11,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fourcc"
 )
 
 func card(t *testing.T) *drm.Device {

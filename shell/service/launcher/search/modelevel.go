@@ -3,8 +3,8 @@ package search
 import (
 	"context"
 
-	"github.com/stubbedev/lys-shell/internal/pango"
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/internal/pango"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // ModeLevel hosts a rofi mode as a level, so what already works as a

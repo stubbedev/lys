@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/matroska"
-	"github.com/stubbedev/lys-lib/media/mux"
+	"github.com/stubbedev/lys/lib/internal/matroska"
+	"github.com/stubbedev/lys/lib/media/mux"
 )
 
 const (

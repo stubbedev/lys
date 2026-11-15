@@ -1,9 +1,9 @@
 package widget
 
 import (
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // BadgeVariant picks a badge's look.

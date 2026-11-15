@@ -9,12 +9,12 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/intconv"
-	sys "github.com/stubbedev/lys-lib/third_party/wayland/os"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/xcursor"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/intconv"
+	sys "github.com/stubbedev/lys/lib/third_party/wayland/os"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/xcursor"
+	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 )
 

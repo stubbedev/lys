@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	ps "github.com/stubbedev/lys-lib/third_party/typesetting/font/cff/interpreter"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	ps "github.com/stubbedev/lys/lib/third_party/typesetting/font/cff/interpreter"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
 // LoadGlyph parses the glyph charstring to compute segments and path bounds.

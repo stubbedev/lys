@@ -10,8 +10,8 @@ import (
 	"image/jpeg"
 	"image/png"
 
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 	"golang.org/x/image/tiff"
 )
 

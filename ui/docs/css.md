@@ -665,4 +665,4 @@ go test ./widget -run TestCSSConformance
 - Static flex and flow trees lay out without allocating.
 
 The `BenchmarkStyleGallery*` benchmarks measure this
-([bench/baseline.md](https://github.com/stubbedev/lys-ui/blob/main/bench/baseline.md)).
+([bench/baseline.md](https://github.com/stubbedev/lys/blob/main/ui/bench/baseline.md)).

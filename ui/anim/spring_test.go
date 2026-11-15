@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/motion"
+	"github.com/stubbedev/lys/lib/motion"
 
-	"github.com/stubbedev/lys-ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/internal/animclock"
 )
 
 // fakeClock pins the time animations read and returns a clock with the

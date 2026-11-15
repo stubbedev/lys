@@ -10,19 +10,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	ccs "github.com/stubbedev/lys-wm/internal/protocol/client/cursorshape"
-	cel "github.com/stubbedev/lys-wm/internal/protocol/client/extforeigntoplevellist"
-	ceis "github.com/stubbedev/lys-wm/internal/protocol/client/extimagecapturesource"
-	ceic "github.com/stubbedev/lys-wm/internal/protocol/client/extimagecopycapture"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	ccs "github.com/stubbedev/lys/wm/internal/protocol/client/cursorshape"
+	cel "github.com/stubbedev/lys/wm/internal/protocol/client/extforeigntoplevellist"
+	ceis "github.com/stubbedev/lys/wm/internal/protocol/client/extimagecapturesource"
+	ceic "github.com/stubbedev/lys/wm/internal/protocol/client/extimagecopycapture"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type captureView struct {

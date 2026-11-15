@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/shell/widgets"
-	"github.com/stubbedev/lys-secrets/vault"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/secrets/vault"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 const bwPageSends = "sends"

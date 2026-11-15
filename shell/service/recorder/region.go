@@ -5,7 +5,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 )
 
 // scaleDenominator is the granularity of fractional output scales

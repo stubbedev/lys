@@ -3,8 +3,8 @@ package settings
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // maxTabStops bounds a page's Tab cycle, far above the busiest page's

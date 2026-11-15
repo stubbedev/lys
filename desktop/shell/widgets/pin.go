@@ -3,7 +3,7 @@ package widgets
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // sizer is a widget with a size request and a maximum size; every

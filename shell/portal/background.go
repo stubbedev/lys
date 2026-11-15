@@ -3,10 +3,10 @@ package portal
 import (
 	"sync"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/toplevels"
+	"github.com/stubbedev/lys/shell/internal/toplevels"
 )
 
 // BackgroundIface is org.freedesktop.impl.portal.Background.

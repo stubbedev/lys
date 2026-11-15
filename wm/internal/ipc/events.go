@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type Event interface {

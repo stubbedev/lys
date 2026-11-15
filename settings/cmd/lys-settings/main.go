@@ -10,9 +10,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/stubbedev/lys-desktop/settingspage"
+	"github.com/stubbedev/lys/desktop/settingspage"
 
-	"github.com/stubbedev/lys-settings/internal/settings"
+	"github.com/stubbedev/lys/settings/internal/settings"
 )
 
 var version = "dev"

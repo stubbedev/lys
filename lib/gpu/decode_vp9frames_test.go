@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/vp9"
-	"github.com/stubbedev/lys-lib/internal/vp9/vp9test"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/internal/vp9"
+	"github.com/stubbedev/lys/lib/internal/vp9/vp9test"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // ivfHeader and ivfFrameHeader are the sizes of an IVF file's header

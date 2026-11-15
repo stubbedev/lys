@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // Policy is how the open vault is kept: locked once unused for

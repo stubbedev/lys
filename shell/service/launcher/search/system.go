@@ -7,12 +7,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/settingspage"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/settingspage"
 
-	"github.com/stubbedev/lys-shell/internal/pango"
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/internal/pango"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // System offers the session commands, through the commands the power

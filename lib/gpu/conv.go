@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // count is len(s) as the uint32 element count Vulkan takes.

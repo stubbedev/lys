@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // ErrGlobalShortcutsUnavailable reports a desktop with neither

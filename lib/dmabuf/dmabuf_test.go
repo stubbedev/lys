@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/udmabuf"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/udmabuf"
 )
 
 // An fd whose driver has no such ioctl answers as a kernel before Linux 6.0

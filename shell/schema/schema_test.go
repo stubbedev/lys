@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-shell/internal/version"
+	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // notPortedSections are the root keys of the Rust schema the Go config

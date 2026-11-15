@@ -3,7 +3,7 @@
 A copy of the functions of Go 1.27.3's standard `math` package whose results depend
 on the architecture (BSD 3-Clause, LICENSE): `Sin`, `Cos`, `Sincos`, `Tan`, `Atan`,
 `Atan2`, `Asin`, `Acos`, `Exp`, `Exp2`, `Log`, `Log2`, `Log10`, `Pow`, `Cbrt`, `Hypot`,
-`Erf` and `Erfc`, imported as `github.com/stubbedev/lys-lib/third_party/gomath`. Every
+`Erf` and `Erfc`, imported as `github.com/stubbedev/lys/lib/third_party/gomath`. Every
 lys package calls these instead of `math`'s, which `.golangci.yml` enforces. `Sqrt`,
 `Floor`, `Abs`, `Mod` and the rest of `math` are exact, so they stay in `math`.
 

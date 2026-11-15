@@ -37,8 +37,8 @@
       ldflags = [
         "-s"
         "-w"
-        "-X github.com/stubbedev/lys-lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
-        "-X github.com/stubbedev/lys-lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
+        "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
+        "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
       ];
 
       # The suite runs in `just check`: it needs a compositor and D-Bus.
@@ -58,7 +58,7 @@
 
       meta = {
         description = "the lys desktop's display manager, greeter and lock screen";
-        homepage = "https://github.com/stubbedev/lys-login";
+        homepage = "https://github.com/stubbedev/lys/tree/main/login";
         license = lib.licenses.mit;
         mainProgram = "lys-login";
         platforms = lib.platforms.linux;

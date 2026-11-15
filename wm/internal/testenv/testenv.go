@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	gtext "github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xcursor"
+	gtext "github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xcursor"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render/vulkan"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render/vulkan"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 const strictEnv = "LYS_WM_HEADLESS"

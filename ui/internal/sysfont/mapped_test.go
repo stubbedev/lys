@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/internal/uifont"
+	"github.com/stubbedev/lys/ui/internal/uifont"
 )
 
 func isMapped(t *testing.T, path string) bool {

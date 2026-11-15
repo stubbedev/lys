@@ -5,19 +5,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/service/idleinhibit/inhibitduration"
-	"github.com/stubbedev/lys-desktop/service/mpris"
-	"github.com/stubbedev/lys-desktop/service/pulse"
-	"github.com/stubbedev/lys-desktop/service/upower"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
+	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/notifytest"
-	"github.com/stubbedev/lys-shell/service/idleinhibit"
-	"github.com/stubbedev/lys-shell/service/powerprofiles"
+	"github.com/stubbedev/lys/shell/internal/notifytest"
+	"github.com/stubbedev/lys/shell/service/idleinhibit"
+	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 func TestDashboardBatteryHelpers(t *testing.T) {

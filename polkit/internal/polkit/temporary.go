@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-polkit/retained"
+	"github.com/stubbedev/lys/polkit/retained"
 )
 
 type Temporary struct {

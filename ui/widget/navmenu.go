@@ -3,10 +3,10 @@ package widget
 import (
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // NavigationMenuItem is one entry of a NavigationMenu: a trigger

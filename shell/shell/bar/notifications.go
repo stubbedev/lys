@@ -4,10 +4,10 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 // notificationLabel is the count, and nothing when there is none, which

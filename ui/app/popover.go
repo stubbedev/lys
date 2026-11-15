@@ -6,17 +6,17 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
-	"github.com/stubbedev/lys-lib/wlr"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/wlr"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/internal/popup"
-	"github.com/stubbedev/lys-ui/internal/scale"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/popup"
+	"github.com/stubbedev/lys/ui/internal/scale"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Gravity is the side of its anchor a popover opens on.

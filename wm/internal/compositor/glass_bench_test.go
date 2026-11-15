@@ -5,12 +5,12 @@ import (
 	"image"
 	"testing"
 
-	gtext "github.com/stubbedev/lys-lib/render"
+	gtext "github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/gles"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/gles"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type finisher interface{ Finish() error }

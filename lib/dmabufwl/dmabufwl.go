@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // Params validates b and returns params carrying its planes, ready for

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 func TestPerWindowMediaViewport(t *testing.T) {

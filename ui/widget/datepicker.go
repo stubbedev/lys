@@ -3,9 +3,9 @@ package widget
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // TimeOfDay is a wall-clock time: an hour 0-23 and a minute 0-59.

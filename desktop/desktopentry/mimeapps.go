@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // The mimeapps.list file name and groups (the XDG mime-apps spec).

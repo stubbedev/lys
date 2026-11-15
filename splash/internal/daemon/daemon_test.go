@@ -17,14 +17,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/testbuild"
 
-	"github.com/stubbedev/lys-splash/internal/key"
-	"github.com/stubbedev/lys-splash/internal/kms"
-	"github.com/stubbedev/lys-splash/internal/protocol"
-	"github.com/stubbedev/lys-splash/internal/server"
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/key"
+	"github.com/stubbedev/lys/splash/internal/kms"
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/server"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 type fakeScreen struct {

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/pam"
+	"github.com/stubbedev/lys/lib/pam"
 )
 
 // fakePAM is a scripted libpam: authenticate runs the conversation

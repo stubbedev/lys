@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // D-Bus identity of the frontend's background monitor.

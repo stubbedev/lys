@@ -8,11 +8,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/internal/headlesstest/inproc"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/internal/headlesstest/inproc"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // A save over an existing file asks by default, over the picker: Cancel

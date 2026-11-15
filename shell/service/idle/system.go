@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/idle/idlepolicy"
-	"github.com/stubbedev/lys-lib/logind"
+	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
+	"github.com/stubbedev/lys/lib/logind"
 
-	"github.com/stubbedev/lys-shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
 // Backlights are the brightness devices the dim stage lowers.

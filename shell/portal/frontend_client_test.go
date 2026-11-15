@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	portalclient "github.com/stubbedev/lys-shell/internal/portal"
+	portalclient "github.com/stubbedev/lys/shell/internal/portal"
 )
 
 // lys-shell's own portal client takes a request's Response only from

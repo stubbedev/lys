@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/brightness"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
 func brightnessCommand() *cli.Command {

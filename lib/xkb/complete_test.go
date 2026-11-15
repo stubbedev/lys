@@ -17,8 +17,8 @@ import (
 
 	"github.com/ebitengine/purego"
 
-	"github.com/stubbedev/lys-lib/clib"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/clib"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 type libxkbMore struct {

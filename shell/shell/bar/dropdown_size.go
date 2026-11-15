@@ -1,9 +1,9 @@
 package bar
 
 import (
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // dropdownGeometry is a dropdown's built-in width, each Rust

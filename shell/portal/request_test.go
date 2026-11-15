@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // gate is what every fake shell dialog embeds: it records who asked,

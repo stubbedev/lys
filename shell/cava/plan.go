@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 
-	"github.com/stubbedev/lys-shell/third_party/fourier"
+	"github.com/stubbedev/lys/shell/third_party/fourier"
 )
 
 // Plan holds the analyzer state for one bar layout: one cava_init call.

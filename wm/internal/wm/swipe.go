@@ -3,7 +3,7 @@ package wm
 import (
 	"math"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
+	"github.com/stubbedev/lys/wm/internal/anim"
 )
 
 const swipeRubberBand = 0.2

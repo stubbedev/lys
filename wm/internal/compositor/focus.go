@@ -4,8 +4,8 @@ import (
 	"errors"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/seat"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/seat"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func (c *Compositor) swapOrigin(by wm.FocusOrigin) wm.FocusOrigin {

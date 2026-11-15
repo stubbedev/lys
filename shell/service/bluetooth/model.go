@@ -1,7 +1,7 @@
 package bluetooth
 
 import (
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Adapter is one org.bluez.Adapter1 (core/adapter). Values handed out

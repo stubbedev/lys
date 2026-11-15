@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/appearance"
+	"github.com/stubbedev/lys/lib/appearance"
 
-	"github.com/stubbedev/lys-ui/gtksettings"
+	"github.com/stubbedev/lys/ui/gtksettings"
 )
 
 func TestOnLoopDeliversOnPumpAndDropsAfterOff(t *testing.T) {

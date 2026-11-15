@@ -10,9 +10,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/portaldialogs"
 
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
 func plain(n Notice) [3]string { return [3]string{n.Summary, n.Body, n.Icon} }

@@ -6,14 +6,14 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/output"
-	svk "github.com/stubbedev/lys-wm/internal/protocol/server/virtualkeyboard"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	svp "github.com/stubbedev/lys-wm/internal/protocol/server/wlrvirtualpointer"
-	"github.com/stubbedev/lys-wm/internal/seat"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/output"
+	svk "github.com/stubbedev/lys/wm/internal/protocol/server/virtualkeyboard"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	svp "github.com/stubbedev/lys/wm/internal/protocol/server/wlrvirtualpointer"
+	"github.com/stubbedev/lys/wm/internal/seat"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const (

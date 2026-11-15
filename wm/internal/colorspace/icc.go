@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 var ErrICC = errors.New("colorspace: ICC profile")

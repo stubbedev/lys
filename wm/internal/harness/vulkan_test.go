@@ -4,9 +4,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 func composed(t *testing.T, h *Harness) *soft.Buffer {

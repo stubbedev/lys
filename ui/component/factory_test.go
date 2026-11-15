@@ -8,11 +8,11 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/component/componenttest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/component/componenttest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 type rowMsg int

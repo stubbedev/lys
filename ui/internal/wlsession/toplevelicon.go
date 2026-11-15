@@ -10,9 +10,9 @@ package wlsession
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // maxToplevelIconManagerVersion is the xdg_toplevel_icon_manager_v1

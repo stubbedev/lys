@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
 // D-Bus identity (wayle-ipc's share_picker proxy).

@@ -6,12 +6,12 @@ import (
 	"image"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
-	"github.com/stubbedev/lys-wm/internal/output"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/shell"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/anim"
+	"github.com/stubbedev/lys/wm/internal/output"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/shell"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 var (

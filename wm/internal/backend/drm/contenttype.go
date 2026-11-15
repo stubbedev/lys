@@ -3,10 +3,10 @@ package drm
 import (
 	"fmt"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 var _ backend.ContentTyped = (*Output)(nil)

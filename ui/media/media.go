@@ -24,10 +24,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/pulse/native"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // AudioFormat is the PCM an Audible source delivers: interleaved

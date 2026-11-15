@@ -8,15 +8,15 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	cct "github.com/stubbedev/lys-wm/internal/protocol/client/contenttype"
-	"github.com/stubbedev/lys-wm/internal/testenv"
-	"github.com/stubbedev/lys-wm/internal/wm"
-	"github.com/stubbedev/lys-wm/internal/xwayland"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	cct "github.com/stubbedev/lys/wm/internal/protocol/client/contenttype"
+	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/xwayland"
 )
 
 func contentRule(appID, title string, t wm.ContentType) wm.Rule {

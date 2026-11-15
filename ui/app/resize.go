@@ -5,11 +5,11 @@
 package app
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
 
-	"github.com/stubbedev/lys-ui/internal/window"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/window"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // resizer is the interactive-resize slice of a toplevel host; layer

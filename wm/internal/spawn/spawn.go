@@ -18,7 +18,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/fdmsg"
+	"github.com/stubbedev/lys/wm/internal/fdmsg"
 )
 
 const closeLimit = 5 * time.Second

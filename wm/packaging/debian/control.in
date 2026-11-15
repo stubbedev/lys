@@ -6,9 +6,9 @@ Build-Depends:
  debhelper-compat (= 13)
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
-Homepage: https://github.com/stubbedev/lys-wm
-Vcs-Git: https://github.com/stubbedev/lys-wm.git
-Vcs-Browser: https://github.com/stubbedev/lys-wm
+Homepage: https://github.com/stubbedev/lys/tree/main/wm
+Vcs-Git: https://github.com/stubbedev/lys.git
+Vcs-Browser: https://github.com/stubbedev/lys/tree/main/wm
 
 Package: lys-wm
 Architecture: amd64 arm64

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/media"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/media"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // MediaControls is GTK's GtkMediaControls: a play/pause button, a seek

@@ -11,20 +11,20 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/service/mpris"
-	"github.com/stubbedev/lys-desktop/service/upower"
-	"github.com/stubbedev/lys-desktop/settingspage"
-	"github.com/stubbedev/lys-desktop/shell/widgets"
-	"github.com/stubbedev/lys-desktop/spawn"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/spawn"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys-shell/service/network"
-	"github.com/stubbedev/lys-shell/service/powerprofiles"
-	"github.com/stubbedev/lys-shell/service/sysinfo"
+	"github.com/stubbedev/lys/shell/service/network"
+	"github.com/stubbedev/lys/shell/service/powerprofiles"
+	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
 // dashboardPoll paces what has no change signal while the dashboard is

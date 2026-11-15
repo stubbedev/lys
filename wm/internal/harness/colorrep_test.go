@@ -6,8 +6,8 @@ import (
 	"slices"
 	"testing"
 
-	ccr "github.com/stubbedev/lys-wm/internal/protocol/client/colorrepresentation"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	ccr "github.com/stubbedev/lys/wm/internal/protocol/client/colorrepresentation"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type colorRepEvents struct {

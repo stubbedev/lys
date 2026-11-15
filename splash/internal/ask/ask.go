@@ -11,9 +11,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-splash/internal/key"
-	"github.com/stubbedev/lys-splash/internal/protocol"
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/key"
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 // Replier answers one request; *server.Call is one.

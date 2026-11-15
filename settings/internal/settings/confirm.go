@@ -1,10 +1,10 @@
 package settings
 
 import (
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // confirmDialogWidth is the confirm's width, lys-ui's MessageBox's.

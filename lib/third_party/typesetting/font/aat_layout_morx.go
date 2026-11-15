@@ -2,7 +2,7 @@
 
 package font
 
-import "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+import "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 
 type Morx []MorxChain
 

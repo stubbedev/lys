@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-desktop/ipcsock"
+	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
 const (

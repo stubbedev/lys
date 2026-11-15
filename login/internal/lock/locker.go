@@ -4,8 +4,8 @@ import (
 	"errors"
 	"log"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // appLocker adapts lys-ui's session lock to the screen.

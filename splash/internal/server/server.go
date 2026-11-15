@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/peercred"
+	"github.com/stubbedev/lys/lib/peercred"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/protocol"
 )
 
 const (

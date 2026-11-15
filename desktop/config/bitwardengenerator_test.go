@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/service/bitwarden/generator"
+	"github.com/stubbedev/lys/desktop/service/bitwarden/generator"
 )
 
 func loadBitwarden(t *testing.T, body string) (*Config, error) {

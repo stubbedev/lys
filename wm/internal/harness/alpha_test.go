@@ -5,10 +5,10 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cam "github.com/stubbedev/lys-wm/internal/protocol/client/alphamodifier"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cam "github.com/stubbedev/lys/wm/internal/protocol/client/alphamodifier"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 var (

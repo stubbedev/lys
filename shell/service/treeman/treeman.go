@@ -17,10 +17,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-desktop/fswatch"
-	"github.com/stubbedev/lys-desktop/ipcsock"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/desktop/ipcsock"
+	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 )
 

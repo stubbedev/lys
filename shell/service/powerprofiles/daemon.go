@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // lys-shell's own interface over the service, which `lys-shell power` drives

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 func color(t *testing.T, s string) config.ColorValue {

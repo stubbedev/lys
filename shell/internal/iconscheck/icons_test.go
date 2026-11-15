@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/resources"
+	"github.com/stubbedev/lys/desktop/resources"
 )
 
 // iconName is a full theme icon name as the shell writes one.
@@ -105,7 +105,7 @@ func TestEveryIconTheCodeNamesIsBundled(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := moduleIconNames(t, root)
-	desktop, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/stubbedev/lys-desktop").Output()
+	desktop, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/stubbedev/lys/desktop").Output()
 	if err != nil {
 		t.Fatalf("locate the lys-desktop module: %v", err)
 	}

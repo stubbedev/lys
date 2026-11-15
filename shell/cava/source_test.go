@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/pulse"
-	"github.com/stubbedev/lys-lib/pulse/native"
-	"github.com/stubbedev/lys-lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 )
 
 // audioServer is a fake PulseAudio with one sink (and its monitor)

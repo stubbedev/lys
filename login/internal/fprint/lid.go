@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/stubbedev/lys-lib/logind"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/logind"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func VerifyWhileLidOpen(ctx context.Context, conn *dbus.Conn, user string, onResult func(Result)) error {

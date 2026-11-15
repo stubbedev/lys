@@ -8,7 +8,7 @@ package oksvg
 import (
 	"image/color"
 
-	"github.com/stubbedev/lys-lib/third_party/rasterx"
+	"github.com/stubbedev/lys/lib/third_party/rasterx"
 )
 
 // PathStyle holds the state of the SVG style.

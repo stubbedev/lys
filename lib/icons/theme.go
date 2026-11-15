@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // DirType is an icon directory's size-matching rule from index.theme.

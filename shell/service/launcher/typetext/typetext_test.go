@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/internal/keytest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/keytest"
 )
 
 func TestAKeymapBindsEachCharacterOnce(t *testing.T) {

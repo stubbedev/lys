@@ -10,8 +10,8 @@ import (
 
 	"github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys-desktop/offheap"
-	"github.com/stubbedev/lys-desktop/third_party/jpeg"
+	"github.com/stubbedev/lys/desktop/offheap"
+	"github.com/stubbedev/lys/desktop/third_party/jpeg"
 )
 
 // Decoded is a decoded image whose pixels may live off the Go heap:

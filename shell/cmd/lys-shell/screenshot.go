@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/dbuscli"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/dbuscli"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 // screenshotCommand is lys-shell/src/cli/screenshot/commands.rs: each

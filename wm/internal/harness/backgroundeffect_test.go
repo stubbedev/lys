@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cam "github.com/stubbedev/lys-wm/internal/protocol/client/alphamodifier"
-	cbe "github.com/stubbedev/lys-wm/internal/protocol/client/backgroundeffect"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	cxdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cam "github.com/stubbedev/lys/wm/internal/protocol/client/alphamodifier"
+	cbe "github.com/stubbedev/lys/wm/internal/protocol/client/backgroundeffect"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func fineChecker(pix []byte, stride int, size image.Point, _ int) {

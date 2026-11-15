@@ -17,7 +17,7 @@ hero:
       link: /guide/security
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-secrets
+      link: https://github.com/stubbedev/lys/tree/main/secrets
 
 features:
   - title: Drop-in provider

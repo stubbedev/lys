@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
 
 func TestClipboardHistoryBudgetLoads(t *testing.T) {

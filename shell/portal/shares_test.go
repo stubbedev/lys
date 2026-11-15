@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/screenshare"
+	"github.com/stubbedev/lys/shell/service/screenshare"
 )
 
 // followShares follows the rig's shares as the shell's bar does.

@@ -6,7 +6,7 @@ the latest release and upstream main parses fonts the same way as of
 2026-10-29), its non-test sources (and harfbuzz's Ragel machines, the
 source of the generated `ot_shape_*_machine.go`), carried as packages of
 the lys-lib module and imported as
-`github.com/stubbedev/lys-lib/third_party/typesetting/...`: `bidi`,
+`github.com/stubbedev/lys/lib/third_party/typesetting/...`: `bidi`,
 `di`, `font`, `font/cff`, `font/cff/interpreter`, `font/opentype`,
 `font/opentype/tables`, `fontscan`, `harfbuzz`, `internal/unicodedata`,
 `language`, `segmenter` and `shaping`, every package lys-lib and lys-ui
@@ -262,7 +262,7 @@ Most of the 21.7k left is parsing the resolved face, chiefly its GDEF and GPOS.
 
 ### Import path
 
-Every source imports `github.com/stubbedev/lys-lib/third_party/typesetting`
+Every source imports `github.com/stubbedev/lys/lib/third_party/typesetting`
 in place of `github.com/go-text/typesetting`, and the copy has no
 go.mod of its own. Upstream's tests (which read fonts from the separate
 `go-text/typesetting-utils` module), testdata, `testutils`, CI files,

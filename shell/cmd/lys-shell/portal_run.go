@@ -7,14 +7,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/portal"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/portal"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // runPortal is `lys-shell portal` / `lys-shell portal run` (cli/portal/

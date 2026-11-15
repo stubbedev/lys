@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 func TestAHiddenWindowsCaptureIsPresentedAtItsOutputsRefresh(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 // formatF32 prints a float32 as Rust's f32 Display does: the shortest

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"weak"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 type hosting struct{ clock *anim.Clock }

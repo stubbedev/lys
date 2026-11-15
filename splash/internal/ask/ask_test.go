@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-splash/internal/key"
-	"github.com/stubbedev/lys-splash/internal/protocol"
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/key"
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 type reply struct {

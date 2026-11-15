@@ -1,10 +1,10 @@
 package widgets
 
 import (
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys/desktop/styling"
 )
 
 // DialogCard is a dialog's surface: lys-ui's card under title, width

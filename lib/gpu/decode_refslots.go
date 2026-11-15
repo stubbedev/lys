@@ -6,7 +6,7 @@ import (
 	"image"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // refFrameSlots are the reference frame slots of AV1 and VP9 streams;

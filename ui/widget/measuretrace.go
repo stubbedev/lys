@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // measureMisses counts, in lysdebug builds, the measures that missed

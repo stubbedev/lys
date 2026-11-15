@@ -8,17 +8,17 @@ import (
 	"testing"
 	"time"
 
-	gtext "github.com/stubbedev/lys-lib/render"
+	gtext "github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/anim"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const glassParityTolerance = 3

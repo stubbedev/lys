@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 func TestFieldPicksTheEditorFromTheType(t *testing.T) {

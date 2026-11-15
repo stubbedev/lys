@@ -9,10 +9,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/transfer"
 
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
 
 // fakeDevice plays the data-control device: the test announces

@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-splash/internal/kms"
+	"github.com/stubbedev/lys/splash/internal/kms"
 )
 
 func BenchmarkThrobberStep(b *testing.B) {

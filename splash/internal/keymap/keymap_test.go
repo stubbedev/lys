@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-splash/internal/keymap"
+	"github.com/stubbedev/lys/splash/internal/keymap"
 )
 
 func root(t *testing.T, files map[string]string) string {

@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-desktop/identity"
+	"github.com/stubbedev/lys/desktop/identity"
 )
 
 // errNoHome is the lookup failure when neither the XDG variable nor

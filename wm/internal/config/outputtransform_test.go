@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func TestOutputsTakeATransformAMirrorAndReservedEdges(t *testing.T) {

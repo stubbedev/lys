@@ -3,8 +3,8 @@ package compositor
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/binds"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type mru struct {

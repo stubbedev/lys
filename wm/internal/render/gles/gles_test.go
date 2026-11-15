@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/gles"
-	"github.com/stubbedev/lys-wm/internal/render/rendertest"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/gles"
+	"github.com/stubbedev/lys/wm/internal/render/rendertest"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func renderer(t testing.TB) *gles.Renderer {

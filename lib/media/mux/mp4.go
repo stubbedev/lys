@@ -6,8 +6,8 @@ import (
 	"io"
 	"math"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/isobmff"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/isobmff"
 )
 
 const (

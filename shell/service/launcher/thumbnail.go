@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-desktop/mime"
-	"github.com/stubbedev/lys-desktop/shlex"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/shlex"
 )
 
 // Thumbnails for row icons (rofi -preview-cmd and thumbnail://),

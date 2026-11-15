@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-shell/internal/widgetipc"
+	"github.com/stubbedev/lys/shell/internal/widgetipc"
 )
 
 func TestWidgetUpdateReachesTheShell(t *testing.T) {

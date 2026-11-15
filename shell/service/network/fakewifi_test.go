@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/prop"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
 )
 
 const fakeWifiPath = dbus.ObjectPath("/org/freedesktop/NetworkManager/Devices/1")

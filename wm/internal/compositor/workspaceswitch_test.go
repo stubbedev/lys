@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/anim"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func TestWorkspaceSwitchStylesHalfway(t *testing.T) {

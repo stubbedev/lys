@@ -3,9 +3,9 @@ package harfbuzz
 import (
 	"fmt"
 
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
 )
 
 // ported from harfbuzz/src/hb-ot-shape-complex-khmer.cc Copyright © 2011,2012  Google, Inc. Behdad Esfahbod

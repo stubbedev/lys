@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // animatedGIF encodes a 3-frame 8x8 GIF, 100ms per frame, playing

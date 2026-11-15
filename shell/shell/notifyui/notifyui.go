@@ -13,18 +13,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/shell/widgets"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys-shell/internal/appicons"
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/internal/appicons"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 // FallbackIcon is the bell every unresolved notification shows.

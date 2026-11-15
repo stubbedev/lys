@@ -6,7 +6,7 @@ compositor with xdg-shell; sway and Hyprland are its CI gates.
 ## Install
 
 ```sh
-go get github.com/stubbedev/lys-ui@latest
+go get github.com/stubbedev/lys/ui@latest
 ```
 
 ## A first app
@@ -42,7 +42,7 @@ implementation.
 | `pdf` | PDF writing |
 | `transfer` | the shared shape of clipboard and drag-and-drop content |
 
-[lys-lib](https://github.com/stubbedev/lys-lib) provides the canvas
+[lys-lib](https://github.com/stubbedev/lys/tree/main/lib) provides the canvas
 (`render`), the GPU renderer (`gpu`), screen capture (`capture`),
 virtual input (`vinput`), the Wayland protocol bindings (`wlr`),
 dmabufs, MP4/Matroska muxing and the Opus encoder.

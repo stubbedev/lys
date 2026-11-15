@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
-	"github.com/stubbedev/lys-ui/internal/fdtest"
-	"github.com/stubbedev/lys-ui/internal/waittest"
-	"github.com/stubbedev/lys-ui/internal/xfer"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/internal/fdtest"
+	"github.com/stubbedev/lys/ui/internal/waittest"
+	"github.com/stubbedev/lys/ui/internal/xfer"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // capturingOffer plays a foreign drag offer and hands a test the write

@@ -3,7 +3,7 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 func stepDamage(t *testing.T, c *animClock, root Widget, r render.Rect) []render.Rect {

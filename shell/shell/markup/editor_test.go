@@ -9,12 +9,12 @@ import (
 	"testing"
 	"weak"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/internal/keytest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/keytest"
 )
 
 type saved struct {

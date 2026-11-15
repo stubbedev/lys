@@ -4,11 +4,11 @@ lys-lib is a Go library of non-widget building blocks for the lys family. It
 has no binary; import each package on its own. It targets Linux.
 
 ```sh
-go get github.com/stubbedev/lys-lib@latest
+go get github.com/stubbedev/lys/lib@latest
 ```
 
 The Go version is the one in `go.mod`. Signatures are in the
-[API reference](https://pkg.go.dev/github.com/stubbedev/lys-lib).
+[API reference](https://pkg.go.dev/github.com/stubbedev/lys/lib).
 
 ## Native libraries
 

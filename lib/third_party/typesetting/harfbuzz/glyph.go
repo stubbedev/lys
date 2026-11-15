@@ -3,8 +3,8 @@ package harfbuzz
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
 )
 
 // Position stores a position, scaled according to the `Font`

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 const (

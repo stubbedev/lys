@@ -3,12 +3,12 @@ package inputmethod
 import (
 	"errors"
 
-	stix "github.com/stubbedev/lys-wm/internal/protocol/server/textinput"
-	stiv1 "github.com/stubbedev/lys-wm/internal/protocol/server/textinputv1"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	stix "github.com/stubbedev/lys/wm/internal/protocol/server/textinput"
+	stiv1 "github.com/stubbedev/lys/wm/internal/protocol/server/textinputv1"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 func (m *Manager) bindTextInputV1(c *server.Client, id wire.ObjectID, v uint32) error {

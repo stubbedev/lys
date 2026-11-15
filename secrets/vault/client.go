@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Client calls the vault. A login or an unlock derives the master key

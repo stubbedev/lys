@@ -3,7 +3,7 @@ package widgets
 import (
 	"strings"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // MediaArt is a player's cover at a file:// or http(s) URL, scaled to

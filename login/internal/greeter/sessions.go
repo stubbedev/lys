@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/stubbedev/lys-login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/auth"
 )
 
 // SessionKind is which discovery directory advertised a session.

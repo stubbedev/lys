@@ -1,7 +1,7 @@
 # Install
 
 Release builds for x86_64 and aarch64 are on the
-[releases page](https://github.com/stubbedev/lys-wm/releases): a Debian
+[releases page](https://github.com/stubbedev/lys/releases): a Debian
 package, an RPM and a tarball, with `SHA256SUMS`. There is no apt or dnf
 repository, so packages do not update themselves. The Nix flake builds from
 source.
@@ -68,7 +68,7 @@ sudo apt install ./lys-wm_<version>_amd64.deb    # _arm64.deb on aarch64
   `mesa-vulkan-drivers`.
 
 `lys-shell` is not in the distribution archive; get it from
-[its releases](https://github.com/stubbedev/lys-shell/releases). Without it,
+[its releases](https://github.com/stubbedev/lys/releases). Without it,
 `xdg-desktop-portal-wlr` serves screen sharing and screenshots and
 `xdg-desktop-portal-gtk` the other portals.
 

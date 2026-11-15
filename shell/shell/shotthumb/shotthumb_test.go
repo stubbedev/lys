@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/fakeclock"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/vinput"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/transfer"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/fakeclock"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/transfer"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
 )
 
 const btnLeft = 0x110

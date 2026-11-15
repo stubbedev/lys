@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 )
 
 // Format is a wl_shm pixel format code (the wl_shm.format enum: DRM

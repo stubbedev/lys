@@ -3,8 +3,8 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // The value clamps, the sweep follows it, and assistive technology

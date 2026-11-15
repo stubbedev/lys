@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/edid"
+	"github.com/stubbedev/lys/lib/edid"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/colormanager"
-	"github.com/stubbedev/lys-wm/internal/colorspace"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/colormanager"
+	"github.com/stubbedev/lys/wm/internal/colorspace"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 const (

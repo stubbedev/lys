@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/icons"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/icons"
+	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/internal/surfx"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/surfx"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // testApp builds an Application whose Invoke can be driven without a

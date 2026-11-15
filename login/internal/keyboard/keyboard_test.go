@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-login/internal/keyboard"
-	"github.com/stubbedev/lys-login/internal/keyboard/keyboardtest"
+	"github.com/stubbedev/lys/login/internal/keyboard"
+	"github.com/stubbedev/lys/login/internal/keyboard/keyboardtest"
 )
 
 func sources(t *testing.T, xorg, vconsole string) keyboard.Sources {

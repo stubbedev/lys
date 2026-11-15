@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/swaytest"
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/lib/capture"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // blockSize is the side of the test pattern's blocks in pixels: large

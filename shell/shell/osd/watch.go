@@ -5,12 +5,12 @@ import (
 	"log"
 	"math"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/service/mpris"
-	"github.com/stubbedev/lys-desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/service/pulse"
 
-	"github.com/stubbedev/lys-shell/service/brightness"
-	"github.com/stubbedev/lys-shell/service/keytoggles"
+	"github.com/stubbedev/lys/shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/keytoggles"
 )
 
 // level is a slider's dedupe key (last_volume): the rounded level and

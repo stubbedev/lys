@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	greeterlocales "github.com/stubbedev/lys-desktop/i18n/locales/greeter"
-	settingslocales "github.com/stubbedev/lys-desktop/i18n/locales/settings"
-	shelllocales "github.com/stubbedev/lys-desktop/i18n/locales/shell"
+	greeterlocales "github.com/stubbedev/lys/desktop/i18n/locales/greeter"
+	settingslocales "github.com/stubbedev/lys/desktop/i18n/locales/settings"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 )
 
 var ftlPlaceholder = regexp.MustCompile(`\{"[^"]*[^"\s][^"]*"\}|\{ *[$-]?[a-zA-Z][a-zA-Z0-9_.-]* *(->)? *\}?`)

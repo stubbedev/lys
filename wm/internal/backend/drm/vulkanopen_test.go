@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 )
 
 func TestACardWithoutAVulkanDriverSaysSo(t *testing.T) {

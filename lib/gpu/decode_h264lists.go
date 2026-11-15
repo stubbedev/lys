@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
+	"github.com/stubbedev/lys/lib/internal/nal"
 )
 
 // h264ListPic is an entry of a reference picture list: the reference

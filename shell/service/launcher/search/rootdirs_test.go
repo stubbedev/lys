@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/identity"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/identity"
 )
 
 func setXDGHomes(t *testing.T, configHome, cacheHome, dataHome string) {

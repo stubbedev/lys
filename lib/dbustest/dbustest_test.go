@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 type echo struct{}

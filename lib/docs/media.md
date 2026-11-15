@@ -15,8 +15,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/gpu"
 )
 
 func main() {
@@ -124,8 +124,8 @@ import (
 	"io"
 	"log"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 func main() {
@@ -497,8 +497,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/mux"
-	"github.com/stubbedev/lys-lib/media/opus"
+	"github.com/stubbedev/lys/lib/media/mux"
+	"github.com/stubbedev/lys/lib/media/opus"
 )
 
 func main() {

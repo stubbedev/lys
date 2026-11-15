@@ -1,9 +1,9 @@
 package widget
 
 import (
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // Client-side window chrome (#91): HeaderBar, ActionBar, and

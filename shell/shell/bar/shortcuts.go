@@ -3,10 +3,10 @@ package bar
 import (
 	"log"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-shell/service/shellipc"
+	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
 type shellShortcut struct {

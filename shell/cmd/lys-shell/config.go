@@ -5,11 +5,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/configdocs"
-	"github.com/stubbedev/lys-shell/internal/version"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/configdocs"
+	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // configCommand is lys-shell/src/cli/config/commands.rs.

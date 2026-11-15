@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-ui/internal/waittest"
+	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 // loopApp is a testApp with a fake loop goroutine pumping each wake,

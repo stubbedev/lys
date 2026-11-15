@@ -10,19 +10,19 @@ import (
 	"slices"
 	"time"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/edid"
+	kdrm "github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/edid"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/gles"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
-	"github.com/stubbedev/lys-wm/internal/render/vulkan"
-	"github.com/stubbedev/lys-wm/internal/wm"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/gles"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/render/vulkan"
+	"github.com/stubbedev/lys/wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 type Backend struct {

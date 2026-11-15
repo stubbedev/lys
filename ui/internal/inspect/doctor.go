@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-ui/internal/buffer"
-	"github.com/stubbedev/lys-ui/internal/sysfont"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/buffer"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // DoctorOptions carries the doctor's overridable inputs. Empty fields

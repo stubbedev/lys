@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // Streams past 8 and 10 bits and past 4:2:0 decode bit for bit as

@@ -7,7 +7,7 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/stubbedev/lys-secrets/transport"
+	"github.com/stubbedev/lys/secrets/transport"
 )
 
 // maxDHTries bounds the private keys negotiateDH draws; each is

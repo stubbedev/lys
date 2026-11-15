@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // propDef describes one property name: the longhands it sets and the

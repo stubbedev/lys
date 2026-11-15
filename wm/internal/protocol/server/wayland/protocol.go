@@ -5,7 +5,7 @@ package wayland
 import (
 	"sync"
 
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var WlDisplayInterface = &wire.Interface{

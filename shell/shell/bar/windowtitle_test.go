@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/hyprland"
+	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 
 // startFakeEventStream serves one burst of socket2 lines and keeps the

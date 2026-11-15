@@ -3,7 +3,7 @@ package opus
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // SILK's frame geometry (silk/define.h).

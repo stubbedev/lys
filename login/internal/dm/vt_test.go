@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
 )
 
 func TestLogindSessionCallsReachTheSystemBus(t *testing.T) {

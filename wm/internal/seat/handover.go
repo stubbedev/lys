@@ -1,6 +1,6 @@
 package seat
 
-import sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+import sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
 
 type HandoverState struct {
 	Capabilities     sw.WlSeatCapability

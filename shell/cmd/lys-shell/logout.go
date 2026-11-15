@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-lib/logind"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/lib/logind"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
 // logoutCommand ends the user's session: lys-wm's exit action while

@@ -3,10 +3,10 @@ package widget
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // SymbolKind names one of the vector glyphs the toolkit draws for its

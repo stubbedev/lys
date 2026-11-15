@@ -50,7 +50,7 @@ gpu:
 # gpu-host covers the renderer, encoder and capture paths.
 gpu-host:
     #!/bin/sh
-    if ! out=$(LYS_TEST_GPU=host go test -count=1 -run '^TestDeviceCloseClosesTargets$' github.com/stubbedev/lys-lib/gpu 2>&1); then
+    if ! out=$(LYS_TEST_GPU=host go test -count=1 -run '^TestDeviceCloseClosesTargets$' github.com/stubbedev/lys/lib/gpu 2>&1); then
         printf '%s\n' "$out" | grep -E 'GPU device|vkCreate|Vulkan' | head -n 3
         echo "gpu-host: Vulkan opens no device that exports dmabufs here (VK_DRIVER_FILES=${VK_DRIVER_FILES:-unset})."
         echo "Off NixOS the dev shell points the loader at nixpkgs' Mesa (AMD, Intel); NVIDIA's driver needs nixGL."

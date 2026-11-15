@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 const cutCoverage = "(" + coverage + " * cutCoverage(cutTex, gl_FragCoord.xy, cutAxes, cutBase))"

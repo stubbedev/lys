@@ -1,6 +1,6 @@
 [Unit]
 Description=lys-wm compositor session
-Documentation=https://github.com/stubbedev/lys-wm
+Documentation=https://github.com/stubbedev/lys/tree/main/wm
 BindsTo=graphical-session.target
 Wants=graphical-session-pre.target xdg-desktop-autostart.target
 After=graphical-session-pre.target

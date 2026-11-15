@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // typeAheadTimeout is how long a typed prefix survives after the last

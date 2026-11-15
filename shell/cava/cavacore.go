@@ -3,7 +3,7 @@ package cava
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // Execute is cava_execute: fold new samples into the ring, FFT the

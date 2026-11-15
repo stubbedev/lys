@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // pairedConns is two peers on a private bus.

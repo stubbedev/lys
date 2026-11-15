@@ -3,7 +3,7 @@ package wlsession
 import (
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/worker"
+	"github.com/stubbedev/lys/ui/internal/worker"
 )
 
 const backgroundQueue = 128

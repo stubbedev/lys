@@ -10,10 +10,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/xcursor"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-lib/xkb"
-	"github.com/stubbedev/lys-lib/xkb/registry"
+	"github.com/stubbedev/lys/lib/xcursor"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/lib/xkb/registry"
 )
 
 type choice struct {

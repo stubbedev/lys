@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/logging"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/logging"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
 // selfManaged are the commands main.rs runs outside the shared CLI

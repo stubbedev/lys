@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-splash/internal/protocol"
-	"github.com/stubbedev/lys-splash/internal/server"
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/server"
 )
 
 type daemon struct {

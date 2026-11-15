@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/fswatch"
-	"github.com/stubbedev/lys-lib/logind"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/lib/logind"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 )
 

@@ -6,8 +6,8 @@ Version:        @VERSION@
 Release:        1%{?dist}
 Summary:        Settings app for the lys desktop
 License:        MIT
-URL:            https://github.com/stubbedev/lys-settings
-Source0:        https://github.com/stubbedev/lys-settings/releases/download/v%{version}/lys-settings-%{version}-%{_arch}-linux.tar.gz
+URL:            https://github.com/stubbedev/lys/tree/main/settings
+Source0:        https://github.com/stubbedev/lys/releases/download/v%{version}/lys-settings-%{version}-%{_arch}-linux.tar.gz
 ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  desktop-file-utils

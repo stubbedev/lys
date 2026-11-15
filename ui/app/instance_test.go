@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wltest"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/wltest"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // feedForward hands the primary a forwarded invocation the way a

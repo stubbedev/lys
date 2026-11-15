@@ -8,12 +8,12 @@ import (
 	"syscall"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-secrets/client"
-	"github.com/stubbedev/lys-secrets/internal/pinentry"
-	"github.com/stubbedev/lys-secrets/internal/prompt"
+	"github.com/stubbedev/lys/secrets/client"
+	"github.com/stubbedev/lys/secrets/internal/pinentry"
+	"github.com/stubbedev/lys/secrets/internal/prompt"
 )
 
 // cacheTimeout bounds each round trip to the Secret Service for a cached

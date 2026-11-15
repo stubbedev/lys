@@ -8,15 +8,15 @@ import (
 	"strconv"
 
 	"github.com/rivo/uniseg"
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/launcheripc"
-	engine "github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/charnames"
-	"github.com/stubbedev/lys-shell/service/launcher/search"
+	"github.com/stubbedev/lys/shell/internal/launcheripc"
+	engine "github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/charnames"
+	"github.com/stubbedev/lys/shell/service/launcher/search"
 )
 
 // SearchMode is the mode name that opens the search panel rather than a

@@ -4,9 +4,9 @@ import (
 	"log"
 	"slices"
 
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-login/internal/layouts"
+	"github.com/stubbedev/lys/login/internal/layouts"
 )
 
 type LayoutDeps struct {

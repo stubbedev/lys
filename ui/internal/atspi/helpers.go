@@ -9,11 +9,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-ui/internal/atspi/proto"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/atspi/proto"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // readToolkitVersion digs the module version out of the build info.

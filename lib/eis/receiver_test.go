@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/eis/eistest"
+	"github.com/stubbedev/lys/lib/eis/eistest"
 )
 
 const (

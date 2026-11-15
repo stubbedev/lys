@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/matroska"
-	"github.com/stubbedev/lys-lib/media/internal/mp4audio"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/matroska"
+	"github.com/stubbedev/lys/lib/media/internal/mp4audio"
 )
 
 const (

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/animclock"
-	"github.com/stubbedev/lys-ui/internal/surfx"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/internal/surfx"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // animClock is the injected animation clock for these tests: launches

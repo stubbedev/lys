@@ -3,10 +3,10 @@ package widget
 import (
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // shortcutRecorderSize is the recorder's text size.

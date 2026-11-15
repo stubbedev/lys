@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/testhome"
+	"github.com/stubbedev/lys/lib/testhome"
 )
 
 // TestMain shortens the wait for an absent shell, which most tests that

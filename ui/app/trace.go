@@ -1,6 +1,6 @@
 package app
 
-import "github.com/stubbedev/lys-lib/debug"
+import "github.com/stubbedev/lys/lib/debug"
 
 // Trace writes one line to lys-ui's debug trace stream, the one the
 // toolkit traces its wire, routing and frame decisions into: compiled

@@ -11,20 +11,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/logutil"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/logutil"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/wlr"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-ui/internal/buffer"
-	"github.com/stubbedev/lys-ui/internal/imgcache"
-	"github.com/stubbedev/lys-ui/internal/popup"
-	"github.com/stubbedev/lys-ui/internal/scale"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/buffer"
+	"github.com/stubbedev/lys/ui/internal/imgcache"
+	"github.com/stubbedev/lys/ui/internal/popup"
+	"github.com/stubbedev/lys/ui/internal/scale"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // rendererEnv picks how windows draw: "cpu" on the CPU into shared

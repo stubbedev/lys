@@ -5,10 +5,10 @@ import (
 	"image"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
-	swlr "github.com/stubbedev/lys-wm/internal/protocol/server/wlrlayershell"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/anim"
+	swlr "github.com/stubbedev/lys/wm/internal/protocol/server/wlrlayershell"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 func (c *Compositor) layerWithSurface(s *surface.Surface) *layer {

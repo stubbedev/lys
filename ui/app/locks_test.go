@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 func TestOnLocksReportsNowAndEachChangeUntilStopped(t *testing.T) {

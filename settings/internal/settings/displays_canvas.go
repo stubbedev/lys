@@ -3,10 +3,10 @@ package settings
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-settings/internal/displays"
+	"github.com/stubbedev/lys/settings/internal/displays"
 )
 
 const (

@@ -4,8 +4,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/di"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/segmenter"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/di"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/segmenter"
 	"golang.org/x/image/math/fixed"
 )
 

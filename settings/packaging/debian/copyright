@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: lys-settings
-Source: https://github.com/stubbedev/lys-settings
+Source: https://github.com/stubbedev/lys/tree/main/settings
 
 Files: *
 Copyright: 2026 Alexander Bugge Stage

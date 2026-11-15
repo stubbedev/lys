@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 )
 
 // Chromium keeps its cookie encryption key in the Secret Service: the

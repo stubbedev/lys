@@ -7,12 +7,12 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cel "github.com/stubbedev/lys-wm/internal/protocol/client/extforeigntoplevellist"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwft "github.com/stubbedev/lys-wm/internal/protocol/client/wlrforeigntoplevel"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cel "github.com/stubbedev/lys/wm/internal/protocol/client/extforeigntoplevellist"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwft "github.com/stubbedev/lys/wm/internal/protocol/client/wlrforeigntoplevel"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type extToplevel struct {

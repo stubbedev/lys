@@ -3,12 +3,12 @@ package app
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestRouteKeyUndoRedo(t *testing.T) {

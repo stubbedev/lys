@@ -3,8 +3,8 @@ package layering
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 func TestForEachConfigLayer(t *testing.T) {

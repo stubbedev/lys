@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/media/opus"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/media/opus"
 )
 
 // requireFFmpeg skips a test that needs ffmpeg and ffprobe without

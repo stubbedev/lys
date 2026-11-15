@@ -9,10 +9,10 @@ import (
 	"slices"
 	"testing"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func withoutGL() gpu.Paths {

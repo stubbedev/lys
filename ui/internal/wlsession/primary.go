@@ -5,9 +5,9 @@
 package wlsession
 
 import (
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // maxPrimarySelectionVersion is the zwp_primary_selection_unstable_v1

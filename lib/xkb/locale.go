@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/glibclocale"
+	"github.com/stubbedev/lys/lib/glibclocale"
 )
 
 type localeRule uint8

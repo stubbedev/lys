@@ -1,6 +1,6 @@
 package auth
 
-import "github.com/stubbedev/lys-lib/pam"
+import "github.com/stubbedev/lys/lib/pam"
 
 func CheckLibrary() error { return pam.CheckLibrary() }
 

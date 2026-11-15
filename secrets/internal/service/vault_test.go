@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-secrets/internal/keyring"
-	"github.com/stubbedev/lys-secrets/secretbus"
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/secretbus"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // fakeVault is the Bitwarden vault behind the vault collection: its

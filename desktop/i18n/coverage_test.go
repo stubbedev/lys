@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	settingslocales "github.com/stubbedev/lys-desktop/i18n/locales/settings"
-	shelllocales "github.com/stubbedev/lys-desktop/i18n/locales/shell"
+	settingslocales "github.com/stubbedev/lys/desktop/i18n/locales/settings"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 )
 
 var trees = map[string]Assets{

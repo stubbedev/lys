@@ -13,13 +13,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-secrets/internal/keyring"
-	"github.com/stubbedev/lys-secrets/internal/pinentry"
-	"github.com/stubbedev/lys-secrets/internal/service"
-	"github.com/stubbedev/lys-secrets/internal/sshagent"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/pinentry"
+	"github.com/stubbedev/lys/secrets/internal/service"
+	"github.com/stubbedev/lys/secrets/internal/sshagent"
 )
 
 // Dialogs is a service.Prompter, an sshagent.Prompter and a pinentry.UI over

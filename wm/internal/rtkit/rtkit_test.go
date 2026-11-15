@@ -4,12 +4,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/rtkit"
-	"github.com/stubbedev/lys-wm/internal/rtkit/rtkittest"
+	"github.com/stubbedev/lys/wm/internal/rtkit"
+	"github.com/stubbedev/lys/wm/internal/rtkit/rtkittest"
 )
 
 type recorder struct {

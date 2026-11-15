@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Signals hands the test the signals match brings conn, on a channel

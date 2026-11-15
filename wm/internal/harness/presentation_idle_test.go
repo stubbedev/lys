@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cpt "github.com/stubbedev/lys-wm/internal/protocol/client/presentationtime"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cpt "github.com/stubbedev/lys/wm/internal/protocol/client/presentationtime"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type presentationTrace struct {

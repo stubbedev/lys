@@ -5,10 +5,10 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/transfer"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/transfer"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // TabMime is the drag payload of a dragged tab: its page id, which

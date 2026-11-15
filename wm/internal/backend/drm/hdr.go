@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"math"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/edid"
+	kdrm "github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/edid"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend"
 )
 
 var _ backend.HDRDisplay = (*Output)(nil)

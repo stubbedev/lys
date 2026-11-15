@@ -3,7 +3,7 @@ package render_test
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testhome"
+	"github.com/stubbedev/lys/lib/testhome"
 )
 
 func TestMain(m *testing.M) { testhome.Run(m) }

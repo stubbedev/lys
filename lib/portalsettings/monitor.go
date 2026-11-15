@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/appearance"
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/logutil"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/appearance"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/logutil"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // The portal: a well-known name, one object, one method, one signal

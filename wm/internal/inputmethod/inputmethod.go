@@ -10,15 +10,15 @@ import (
 	"image"
 	"slices"
 
-	sim "github.com/stubbedev/lys-wm/internal/protocol/server/inputmethod"
-	stix "github.com/stubbedev/lys-wm/internal/protocol/server/textinput"
-	stiv1 "github.com/stubbedev/lys-wm/internal/protocol/server/textinputv1"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/seat"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	sim "github.com/stubbedev/lys/wm/internal/protocol/server/inputmethod"
+	stix "github.com/stubbedev/lys/wm/internal/protocol/server/textinput"
+	stiv1 "github.com/stubbedev/lys/wm/internal/protocol/server/textinputv1"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/seat"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 const (

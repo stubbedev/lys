@@ -9,7 +9,7 @@
 package fftpack
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 	"math"
 	"math/cmplx"
 )

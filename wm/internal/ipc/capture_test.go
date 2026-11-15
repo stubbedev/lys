@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 )
 
 type fakeCapture struct {

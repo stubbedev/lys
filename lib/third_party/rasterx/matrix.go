@@ -5,7 +5,7 @@
 package rasterx
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 	"golang.org/x/image/math/fixed"
 )
 

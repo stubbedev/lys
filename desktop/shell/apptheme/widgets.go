@@ -3,10 +3,10 @@ package apptheme
 import (
 	"sync"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/styling"
 )
 
 // WidgetTheme is lys-ui's theme built from the resolved palette, so

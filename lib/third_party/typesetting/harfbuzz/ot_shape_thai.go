@@ -1,8 +1,8 @@
 package harfbuzz
 
 import (
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 // ported from harfbuzz/src/hb-ot-shape-complex-thai.cc Copyright © 2010,2012  Google, Inc.  Behdad Esfahbod

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 )
 
 func openFilter(t *testing.T) (*Filter, *atomic.Int32) {

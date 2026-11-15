@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
-	shaderlang "github.com/stubbedev/lys-wm/internal/shader"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
+	shaderlang "github.com/stubbedev/lys/wm/internal/shader"
 )
 
 type screenShader struct {

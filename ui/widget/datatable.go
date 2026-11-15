@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // dataTablePageSize is the default rows per page.

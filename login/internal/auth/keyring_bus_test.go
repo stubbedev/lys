@@ -17,12 +17,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
-	"github.com/stubbedev/lys-lib/testhome"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-secrets/control"
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/testhome"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 const fakeKeyringArg = "fake-keyring"

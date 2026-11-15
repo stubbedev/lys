@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-login/internal/keyboard/keyboardtest"
+	"github.com/stubbedev/lys/login/internal/keyboard/keyboardtest"
 )
 
 func TestTheOutputTailForwardsWholeLinesAndKeepsTheLast(t *testing.T) {

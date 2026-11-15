@@ -7,17 +7,17 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-shell/internal/drmconn"
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/internal/drmconn"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // ScreenCastIface is org.freedesktop.impl.portal.ScreenCast:

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/mailbox"
+	"github.com/stubbedev/lys/ui/internal/mailbox"
 )
 
 // This file is the bridge between goroutines and the loop goroutine,

@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/output"
-	shc "github.com/stubbedev/lys-wm/internal/protocol/server/hyprlandctmcontrol"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/output"
+	shc "github.com/stubbedev/lys/wm/internal/protocol/server/hyprlandctmcontrol"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const version = 2

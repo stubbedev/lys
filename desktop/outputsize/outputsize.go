@@ -5,7 +5,7 @@ package outputsize
 import (
 	"image"
 
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 // Device is the output's current mode in device pixels, turned with a

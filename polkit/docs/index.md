@@ -17,7 +17,7 @@ hero:
       link: /guide/install
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-polkit
+      link: https://github.com/stubbedev/lys/tree/main/polkit
 
 features:
   - title: Password or fingerprint

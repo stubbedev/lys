@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 func newTestNavMenu(t *testing.T) (*NavigationMenu, *fakeSurfaceHost, *int) {

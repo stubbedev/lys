@@ -9,7 +9,7 @@ package icons
 import (
 	"log/slog"
 
-	"github.com/stubbedev/lys-lib/logutil"
+	"github.com/stubbedev/lys/lib/logutil"
 )
 
 // ApplyIconTheme switches the theme lookups resolve against and drops

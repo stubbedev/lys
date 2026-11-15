@@ -1,9 +1,9 @@
 package wlsession
 
 import (
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/internal/compose"
+	"github.com/stubbedev/lys/ui/internal/compose"
 )
 
 // Compose wiring. The session owns the compose table (resolved once

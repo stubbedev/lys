@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/imagedecode"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/memory-go"
 )
 
@@ -17,7 +17,7 @@ import (
 // builds against.
 func progressivePhoto(t *testing.T) string {
 	t.Helper()
-	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/stubbedev/lys-desktop").Output()
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/stubbedev/lys/desktop").Output()
 	if err != nil {
 		t.Fatalf("locate the lys-desktop module: %v", err)
 	}

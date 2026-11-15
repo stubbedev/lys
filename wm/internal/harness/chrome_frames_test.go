@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cpt "github.com/stubbedev/lys-wm/internal/protocol/client/presentationtime"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cpt "github.com/stubbedev/lys/wm/internal/protocol/client/presentationtime"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 func frameOwedWhenTheOutputGoes(t *testing.T, gone func(b *headless.Backend, c *compositor.Compositor) error) {

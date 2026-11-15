@@ -20,8 +20,8 @@ import (
 	"context"
 	"slices"
 
-	"github.com/stubbedev/lys-ui/internal/mailbox"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/mailbox"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Loop is the event loop components run on. *app.Application is the

@@ -11,13 +11,13 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/glob"
-	"github.com/stubbedev/lys-lib/wmipc"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/lib/wmipc"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/appicons"
-	"github.com/stubbedev/lys-shell/service/hyprland"
+	"github.com/stubbedev/lys/shell/internal/appicons"
+	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 
 // The hyprland-workspaces module (hyprland_workspaces/): the filter

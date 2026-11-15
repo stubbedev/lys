@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 )
 
 // socketPath is SocketPath under a runtime dir the test set.

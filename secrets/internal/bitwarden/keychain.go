@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 type Keychain interface {

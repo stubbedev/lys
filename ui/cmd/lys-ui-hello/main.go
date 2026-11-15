@@ -24,13 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/ui"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/ui"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const width, height = 640, 470

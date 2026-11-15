@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/media/mux"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/media/mux"
 )
 
 // ringChunk is the unit the replay ring stores encoded bytes in.

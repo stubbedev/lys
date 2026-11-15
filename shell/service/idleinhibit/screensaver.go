@@ -3,8 +3,8 @@ package idleinhibit
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // The freedesktop ScreenSaver identity Chromium, Electron and media players

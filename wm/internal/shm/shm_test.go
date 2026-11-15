@@ -9,15 +9,15 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/loop"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/testenv"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wlclient"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wlclient"
 )
 
 type reader struct {

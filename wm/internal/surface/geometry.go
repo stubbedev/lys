@@ -5,7 +5,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 var (

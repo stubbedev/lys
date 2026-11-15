@@ -1,8 +1,8 @@
 package portalsettings
 
 import (
-	"github.com/stubbedev/lys-lib/appearance"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/appearance"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // contrastHigh is the portal's one defined contrast value.

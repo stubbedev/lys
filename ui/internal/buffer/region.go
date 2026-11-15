@@ -1,6 +1,6 @@
 package buffer
 
-import "github.com/stubbedev/lys-lib/render"
+import "github.com/stubbedev/lys/lib/render"
 
 const maxRegionRects = 4
 

@@ -5,9 +5,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 func recorderKeycaps(r *ShortcutRecorder) []string {

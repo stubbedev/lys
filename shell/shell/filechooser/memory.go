@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-shell/internal/statefile"
+	"github.com/stubbedev/lys/shell/internal/statefile"
 )
 
 // maxAppFolders is how many apps' last folders are kept.

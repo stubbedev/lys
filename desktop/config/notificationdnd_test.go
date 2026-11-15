@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/notifications/notifypolicy"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 )
 
 func TestDndWindowsParseAndRoundTrip(t *testing.T) {

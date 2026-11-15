@@ -5,7 +5,7 @@ package tabletinput
 import (
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend"
 )
 
 type ToolType uint8

@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 const twoOutputsDP2Focused = `[{"name":"DP-1","rect":{"x":0,"y":0,"width":1280,"height":720},"focused":false},` +

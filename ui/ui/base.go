@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 type base[W nodeProps, B any] struct {

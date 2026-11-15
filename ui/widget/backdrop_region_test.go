@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 func glassTree(t *testing.T) (root, glass *Box, spin *Spinner, c *animClock) {

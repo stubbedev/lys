@@ -3,7 +3,7 @@ package compositor
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 func (c *Compositor) BuildOffThread() error {

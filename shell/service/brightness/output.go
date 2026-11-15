@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/internal/drmconn"
+	"github.com/stubbedev/lys/shell/internal/drmconn"
 )
 
 // DRMDir is the sysfs class directory of DRM cards and connectors; a

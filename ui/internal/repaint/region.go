@@ -8,12 +8,12 @@ package repaint
 import (
 	"image"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/buffer"
-	"github.com/stubbedev/lys-ui/internal/scale"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/buffer"
+	"github.com/stubbedev/lys/ui/internal/scale"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Region is the damage a surface owes its next frame. The zero value

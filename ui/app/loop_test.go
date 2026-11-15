@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // repNext adapts the repeater's deadline for nextWake, collapsing the

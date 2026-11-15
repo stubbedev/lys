@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/third_party/vk"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // pipelineKey names a pipeline being built: which of owner's, for which

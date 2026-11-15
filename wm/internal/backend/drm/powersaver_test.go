@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 )
 
 func modesets(commits []commit) int {

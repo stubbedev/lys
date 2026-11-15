@@ -3,15 +3,15 @@ package settings
 import (
 	"log"
 
-	"github.com/stubbedev/lys-desktop/shell/apptheme"
-	"github.com/stubbedev/lys-desktop/shell/widgets"
-	"github.com/stubbedev/lys-desktop/styling"
-	"github.com/stubbedev/lys-lib/render"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/render"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // hiddenPriority puts the reset button's hidden opacity above every

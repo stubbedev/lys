@@ -3,9 +3,9 @@ package app
 import (
 	"path/filepath"
 
-	"github.com/stubbedev/lys-lib/debug"
+	"github.com/stubbedev/lys/lib/debug"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const openButtonDefaultRecents = 5

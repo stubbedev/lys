@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/fontscan"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/fontscan"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/internal/uifont"
+	"github.com/stubbedev/lys/ui/internal/uifont"
 )
 
 // mustSans resolves the default sans face, skipping the test when the

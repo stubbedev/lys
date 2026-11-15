@@ -9,8 +9,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/stubbedev/lys-lib/motion"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/motion"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 type Curve interface {

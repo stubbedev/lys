@@ -3,8 +3,8 @@ package sysfont
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/fontscan"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/fontscan"
 )
 
 // faces builds system faces at the given aspects, located by order.

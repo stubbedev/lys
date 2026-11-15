@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 func TestTheProbeTurnsAScanoutBufferIntoAFramebufferAndRemovesIt(t *testing.T) {

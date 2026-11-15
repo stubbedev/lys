@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"image"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 func (r *Renderer) AsyncReads() bool {

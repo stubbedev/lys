@@ -3,10 +3,10 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // newTestSheet builds a right sheet with a header, a field and a

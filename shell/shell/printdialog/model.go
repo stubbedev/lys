@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-shell/internal/ipp"
+	"github.com/stubbedev/lys/shell/internal/ipp"
 )
 
 // paper is one size the form offers: its label, GTK's paper name (the

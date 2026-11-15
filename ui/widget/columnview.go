@@ -3,9 +3,9 @@ package widget
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // ColumnView is the virtualized table (#90): typed columns over a

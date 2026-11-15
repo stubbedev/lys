@@ -24,10 +24,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 	"golang.org/x/crypto/argon2"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // KdfType names the master-password key derivation.

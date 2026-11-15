@@ -18,14 +18,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/data"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/spawn"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/data"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/spawn"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 const Env = "LYS_WM_XWAYLAND"

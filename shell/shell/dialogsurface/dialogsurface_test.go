@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/shell/dialogsurface"
-	"github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest"
 )
 
 const testAppID = "lys-shell-test-dialog"

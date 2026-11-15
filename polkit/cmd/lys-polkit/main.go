@@ -15,19 +15,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/intconv"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-polkit/internal/agent"
-	"github.com/stubbedev/lys-polkit/internal/helper"
-	"github.com/stubbedev/lys-polkit/internal/locale"
-	"github.com/stubbedev/lys-polkit/internal/passwd"
-	"github.com/stubbedev/lys-polkit/internal/polkit"
-	"github.com/stubbedev/lys-polkit/internal/proc"
-	"github.com/stubbedev/lys-polkit/internal/tracker"
-	"github.com/stubbedev/lys-polkit/retained"
+	"github.com/stubbedev/lys/polkit/internal/agent"
+	"github.com/stubbedev/lys/polkit/internal/helper"
+	"github.com/stubbedev/lys/polkit/internal/locale"
+	"github.com/stubbedev/lys/polkit/internal/passwd"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/internal/proc"
+	"github.com/stubbedev/lys/polkit/internal/tracker"
+	"github.com/stubbedev/lys/polkit/retained"
 )
 
 // helperPrograms is where the setuid polkit-agent-helper-1 can be,

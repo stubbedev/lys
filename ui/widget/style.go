@@ -30,11 +30,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/assetfile"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/assetfile"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
-	"github.com/stubbedev/lys-ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
 )
 
 // Style priorities, GTK's provider priorities: a higher priority wins

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
 )
 
 func TestLogindLockTakesABlockInhibitor(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // h265Levels are H.265's levels (Table A.8) in order, as the StdVideo

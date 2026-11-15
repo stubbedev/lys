@@ -9,14 +9,14 @@ import (
 	"slices"
 	"time"
 
-	"github.com/jezek/xgb"
-	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys/wm/third_party/xgb"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 
-	"github.com/stubbedev/lys-wm/internal/data"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/xsync"
+	"github.com/stubbedev/lys/wm/internal/data"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/xsync"
 )
 
 type Listener interface {

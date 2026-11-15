@@ -3,7 +3,7 @@ package xkb_test
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func BenchmarkKeyEvent(b *testing.B) {

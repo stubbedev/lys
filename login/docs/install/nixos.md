@@ -59,7 +59,7 @@ greeter's lys-wm with GLES on llvmpipe; set
 `environment.sessionVariables.LYS_WM_RENDERER = "gles"` instead to cover the
 greeter and every lys-wm session, which inherit it through PAM.
 
-With [lys-splash](https://github.com/stubbedev/lys-splash) as boot splash, set
+With [lys-splash](https://github.com/stubbedev/lys/tree/main/splash) as boot splash, set
 `greeter.splashPackage`. The unit then conflicts with `lys-splash-quit.service`,
 runs `lys-splash deactivate` before lys-wm starts, and the daemon runs
 `lys-splash quit --retain-splash` once the greeter's first frame is presented,

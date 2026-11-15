@@ -11,8 +11,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const reportEvery = 20 * time.Millisecond

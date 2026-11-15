@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/udmabuf"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/udmabuf"
+	"github.com/stubbedev/lys/lib/wltest"
 )
 
 func newUdmabuf(t *testing.T, size int) (int, []byte) {

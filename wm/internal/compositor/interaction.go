@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/binds"
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/shell"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/shell"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type interaction struct {

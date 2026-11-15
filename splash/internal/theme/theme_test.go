@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/golden"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/golden"
+	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/image/bmp"
 
-	"github.com/stubbedev/lys-splash/internal/kms"
-	"github.com/stubbedev/lys-splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/kms"
+	"github.com/stubbedev/lys/splash/internal/protocol"
 )
 
 func TestDefaultParses(t *testing.T) {

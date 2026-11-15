@@ -4,11 +4,11 @@ import (
 	"errors"
 	"slices"
 
-	shfg "github.com/stubbedev/lys-wm/internal/protocol/server/hyprlandfocusgrab"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	shfg "github.com/stubbedev/lys/wm/internal/protocol/server/hyprlandfocusgrab"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const focusGrabVersion = 1

@@ -16,10 +16,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const usage = `usage: lys-wmctl [--socket <path>] <command>

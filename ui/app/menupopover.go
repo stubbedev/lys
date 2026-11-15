@@ -4,9 +4,9 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // MenuPopoverConfig declares a menu tree opened as nested popovers.

@@ -72,7 +72,7 @@ Point a YAML language server at `schema.json` with this first line (the created 
 # yaml-language-server: $schema=./schema.json
 ```
 
-VS Code needs the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml); Neovim, Helix and Zed use [`yaml-language-server`](https://github.com/redhat-developer/yaml-language-server). The repository carries the same schema at [`schema/lys-shell-config.schema.json`](https://github.com/stubbedev/lys-shell/blob/master/schema/lys-shell-config.schema.json).
+VS Code needs the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml); Neovim, Helix and Zed use [`yaml-language-server`](https://github.com/redhat-developer/yaml-language-server). The repository carries the same schema at [`schema/lys-shell-config.schema.json`](https://github.com/stubbedev/lys/blob/main/shell/schema/lys-shell-config.schema.json).
 
 ## CLI
 

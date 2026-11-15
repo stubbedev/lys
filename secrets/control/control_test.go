@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/sockdir"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 type fakeLogin struct {

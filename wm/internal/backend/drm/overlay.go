@@ -7,8 +7,8 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/gpu"
 )
 
 const (

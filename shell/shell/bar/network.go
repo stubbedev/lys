@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/service/network"
+	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // vpnView is what the module shows of the VPNs: whether NM holds any

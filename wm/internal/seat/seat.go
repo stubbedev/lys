@@ -8,15 +8,15 @@ import (
 	"slices"
 	"time"
 
-	scs "github.com/stubbedev/lys-wm/internal/protocol/server/cursorshape"
-	spg "github.com/stubbedev/lys-wm/internal/protocol/server/pointergestures"
-	srp "github.com/stubbedev/lys-wm/internal/protocol/server/relativepointer"
-	"github.com/stubbedev/lys-wm/internal/protocol/server/tablet"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	scs "github.com/stubbedev/lys/wm/internal/protocol/server/cursorshape"
+	spg "github.com/stubbedev/lys/wm/internal/protocol/server/pointergestures"
+	srp "github.com/stubbedev/lys/wm/internal/protocol/server/relativepointer"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/tablet"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 const (

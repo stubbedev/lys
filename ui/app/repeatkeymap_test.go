@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestKeyRepeatHoldsOffWhileAKeymapCompiles(t *testing.T) {

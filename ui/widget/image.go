@@ -13,13 +13,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stubbedev/lys-lib/logutil"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/logutil"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 
-	"github.com/stubbedev/lys-ui/internal/imgcache"
-	"github.com/stubbedev/lys-ui/internal/style"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/internal/imgcache"
+	"github.com/stubbedev/lys/ui/internal/style"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // ImageScale picks how an Image fills its arranged box. It aliases the

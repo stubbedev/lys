@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/icons/skpath"
-	"github.com/stubbedev/lys-desktop/icons/usvg"
+	"github.com/stubbedev/lys/desktop/icons/skpath"
+	"github.com/stubbedev/lys/desktop/icons/usvg"
 )
 
 // This file ports crates/wayle-icons/src/transform.rs: re-emit an

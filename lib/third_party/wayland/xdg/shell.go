@@ -3,7 +3,7 @@ package xdg
 
 //go:generate go run ../cmd/wayland-scanner -i ../../../protocols/xdg-shell.xml -o xdg-shell.xml.go
 
-import "github.com/stubbedev/lys-lib/third_party/wayland/wl"
+import "github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
 type WlSurface = wl.Surface
 type BaseProxy = wl.BaseProxy

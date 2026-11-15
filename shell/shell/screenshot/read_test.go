@@ -18,10 +18,10 @@ import (
 
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
 func qrImage(t testing.TB, payload string, size int) image.Image {

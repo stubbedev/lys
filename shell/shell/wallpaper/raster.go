@@ -6,14 +6,14 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-desktop/imagedecode"
-	"github.com/stubbedev/lys-desktop/offheap"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/offheap"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys-shell/internal/handoff"
-	"github.com/stubbedev/lys-shell/service/wallpaper"
+	"github.com/stubbedev/lys/shell/internal/handoff"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
 // rasterKey is what a raster is made for: one file at one fit on one

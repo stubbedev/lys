@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 )
 
 const maxDownload = 4 << 20

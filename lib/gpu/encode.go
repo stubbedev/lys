@@ -10,9 +10,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // ErrNoVideoEncoder reports a device that does not encode the codec

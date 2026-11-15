@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // SyncResponse is /sync's answer, the encrypted account.

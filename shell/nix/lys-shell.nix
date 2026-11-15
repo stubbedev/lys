@@ -85,8 +85,8 @@ buildGoModule {
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/stubbedev/lys-lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
-    "-X github.com/stubbedev/lys-lib/xkb.defaultXLocaleDir=${libX11}/share/X11/locale"
+    "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
+    "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${libX11}/share/X11/locale"
   ];
 
   # The suite runs in `just check` (it needs a compositor and D-Bus).
@@ -137,7 +137,7 @@ buildGoModule {
 
   meta = {
     description = "Wayland desktop shell";
-    homepage = "https://github.com/stubbedev/lys-shell";
+    homepage = "https://github.com/stubbedev/lys/tree/main/shell";
     license = lib.licenses.mit;
     mainProgram = "lys-shell";
     platforms = lib.platforms.linux;

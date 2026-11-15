@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // A device works until a test arms a loss, then fails its next

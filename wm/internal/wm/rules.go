@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/anim"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 type RuleMode uint8

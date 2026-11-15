@@ -1,9 +1,9 @@
 package styling
 
 import (
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 // highContrastDark is the dark counterpart of lys-ui's high-contrast

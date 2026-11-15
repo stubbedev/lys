@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-secrets/transport"
+	"github.com/stubbedev/lys/secrets/transport"
 )
 
 // clientDH is the client half, written from the spec the way

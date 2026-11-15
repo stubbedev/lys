@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func BenchmarkSearchVault(b *testing.B) {

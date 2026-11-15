@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/logutil"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/logutil"
 	"golang.org/x/sys/unix"
 )
 

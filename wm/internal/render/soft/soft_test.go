@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 
-	"github.com/stubbedev/lys-wm/internal/golden"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/rendertest"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/golden"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/rendertest"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 var _ render.Renderer = (*soft.Renderer)(nil)

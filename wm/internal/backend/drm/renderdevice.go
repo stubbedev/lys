@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 	"golang.org/x/sys/unix"
 )
 

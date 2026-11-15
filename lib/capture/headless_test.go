@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/wltest"
 )
 
 // The compositor-in-the-loop capture tests: they attach to the private

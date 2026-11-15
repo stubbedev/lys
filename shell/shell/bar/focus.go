@@ -1,9 +1,9 @@
 package bar
 
 import (
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 func focusText(f notifications.Focus) string {

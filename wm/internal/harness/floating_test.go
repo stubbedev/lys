@@ -7,13 +7,13 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	cxdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
-	cxtt "github.com/stubbedev/lys-wm/internal/protocol/client/xdgtopleveltag"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
+	cxtt "github.com/stubbedev/lys/wm/internal/protocol/client/xdgtopleveltag"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 var (

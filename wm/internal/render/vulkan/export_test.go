@@ -1,6 +1,6 @@
 package vulkan
 
-import "github.com/stubbedev/lys-wm/internal/gpu"
+import "github.com/stubbedev/lys/wm/internal/gpu"
 
 var YCbCrOf = ycbcrOf
 

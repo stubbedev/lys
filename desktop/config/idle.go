@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/idle/idlepolicy"
+	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 )
 
 // IdleConfig is the idle section: the shell's built-in idle policy.

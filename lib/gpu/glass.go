@@ -7,7 +7,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // GlassGLSL is the GLSL of a Glass draw, glassBackdrop and glassAdjust,

@@ -3,8 +3,8 @@ package settings
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // actionChoice is ActionChoice: a labeled preset command.

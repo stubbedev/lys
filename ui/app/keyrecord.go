@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/stubbedev/lys-lib/debug"
+	"github.com/stubbedev/lys/lib/debug"
 )
 
 type inhibitor interface{ Destroy() }

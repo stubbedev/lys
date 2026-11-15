@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/media"
+	"github.com/stubbedev/lys/ui/media"
 )
 
 func y4mClip(w, h, frames int) []byte {

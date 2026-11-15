@@ -14,8 +14,8 @@ import (
 	"github.com/ebitengine/purego"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/clib"
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/clib"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // Lib is libei's sender API.

@@ -17,7 +17,7 @@ hero:
       link: /config
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-wm
+      link: https://github.com/stubbedev/lys/tree/main/wm
 
 features:
   - title: Tiling like hy3

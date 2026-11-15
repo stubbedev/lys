@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/output"
 )
 
 func (c *Compositor) PowerChanged() {

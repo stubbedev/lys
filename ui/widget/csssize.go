@@ -13,9 +13,9 @@ package widget
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // indefinite is the extent of an axis a layout pass does not know. A

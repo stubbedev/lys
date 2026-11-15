@@ -3,8 +3,8 @@ package compositor
 import (
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type Corner uint8

@@ -14,12 +14,12 @@ import (
 	"os"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/ui"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/ui"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const panelWidth = 260

@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/offheap"
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/offheap"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-shell/shell/colorpicker"
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/colorpicker"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
 func solid(w, h int, c color.RGBA) *image.RGBA {

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-shell/service/keytoggles"
+	"github.com/stubbedev/lys/shell/service/keytoggles"
 )
 
 func TestLockChangesReportsEachChangedKeyWithItsNewState(t *testing.T) {

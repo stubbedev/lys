@@ -6,7 +6,7 @@ import (
 	"math/bits"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // fields reads big-endian fields out of a box or element payload; a

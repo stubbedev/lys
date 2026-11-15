@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
 type fakeBacklights struct {

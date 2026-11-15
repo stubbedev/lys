@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 // fakeLayer is a bar layer whose Rebuild fails with refuse.

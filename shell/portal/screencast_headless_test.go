@@ -4,10 +4,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // The real capture-to-PipeWire path against a private headless

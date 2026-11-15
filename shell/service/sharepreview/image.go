@@ -7,7 +7,7 @@ package sharepreview
 import (
 	"image"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 	xdraw "golang.org/x/image/draw"
 )
 

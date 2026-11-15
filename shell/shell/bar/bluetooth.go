@@ -3,11 +3,11 @@ package bar
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/service/bluetooth"
+	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 // bluetoothLabel is helpers.rs's format_label: Off when unavailable or

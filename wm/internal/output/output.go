@@ -9,12 +9,12 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxo "github.com/stubbedev/lys-wm/internal/protocol/server/xdgoutput"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxo "github.com/stubbedev/lys/wm/internal/protocol/server/xdgoutput"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const (

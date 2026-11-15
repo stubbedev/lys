@@ -4,8 +4,8 @@ import (
 	"math/bits"
 	"sort"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 // Rune coverage implementation, inspired by the fontconfig FcCharset type.

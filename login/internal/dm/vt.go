@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/stubbedev/lys-lib/logind"
+	"github.com/stubbedev/lys/lib/logind"
 	"golang.org/x/sys/unix"
 )
 

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/debug"
+	"github.com/stubbedev/lys/lib/debug"
 )
 
 // File cursors (CSS cursor: url()): the stylesheet names an xcursor

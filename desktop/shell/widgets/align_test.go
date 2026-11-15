@@ -3,8 +3,8 @@ package widgets
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // A centered child keeps its natural size in the middle of its slot;

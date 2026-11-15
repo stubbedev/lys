@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 )
 
 // Regression: the client never set a pointer cursor, leaving the

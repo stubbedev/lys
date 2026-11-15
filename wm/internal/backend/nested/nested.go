@@ -8,17 +8,17 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/edid"
+	"github.com/stubbedev/lys/lib/edid"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	xdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wlclient"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	xdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wlclient"
 )
 
 var ErrClosed = errors.New("nested: the last host window was closed")

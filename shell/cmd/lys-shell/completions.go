@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/stubbedev/lys-shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
 // completionsCommand is app.rs's Completions: clap_complete's script

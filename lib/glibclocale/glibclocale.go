@@ -28,8 +28,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/stubbedev/lys-lib/assetfile"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/assetfile"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 const (

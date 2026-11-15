@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var (

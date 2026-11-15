@@ -17,15 +17,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/wmipc"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/wmipc"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/internal/toplevels"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/toplevels"
 )
 
 // The app ids of the windows the rig maps.
@@ -74,7 +74,7 @@ func Start(t *testing.T) *Rig {
 func buildProbe(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "probe")
-	cmd := exec.Command("go", "build", "-o", bin, "github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest/probe") //nolint:gosec // go from PATH, into the test's temp dir
+	cmd := exec.Command("go", "build", "-o", bin, "github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest/probe") //nolint:gosec // go from PATH, into the test's temp dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build the probe: %v\n%s", err, out)
 	}

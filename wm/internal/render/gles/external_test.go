@@ -3,9 +3,9 @@ package gles
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/gpu"
 )
 
 func TestABufferNamingNoModifierIsSampledTheWayLinearIs(t *testing.T) {

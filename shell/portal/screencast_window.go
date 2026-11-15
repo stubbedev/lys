@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/dmabufprobe"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/pipewire"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/dmabufprobe"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/pipewire"
 )
 
 // A shared window streams zero-copy over an ext-image-copy capture

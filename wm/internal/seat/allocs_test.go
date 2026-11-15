@@ -7,11 +7,11 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	cpg "github.com/stubbedev/lys-wm/internal/protocol/client/pointergestures"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	cpg "github.com/stubbedev/lys/wm/internal/protocol/client/pointergestures"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const (

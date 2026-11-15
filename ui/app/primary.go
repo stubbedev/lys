@@ -5,7 +5,7 @@
 package app
 
 import (
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // primarySelection carries the primary-selection behavior for every

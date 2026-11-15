@@ -14,16 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/icontheme"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/icontheme"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cxti "github.com/stubbedev/lys-wm/internal/protocol/client/xdgtoplevelicon"
-	"github.com/stubbedev/lys-wm/internal/shell"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cxti "github.com/stubbedev/lys/wm/internal/protocol/client/xdgtoplevelicon"
+	"github.com/stubbedev/lys/wm/internal/shell"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type iconSizes struct {

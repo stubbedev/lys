@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/fontscan"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/fontscan"
 )
 
 func swapStore(t *testing.T, build func(context.Context) (*fontscan.FontMap, error)) {

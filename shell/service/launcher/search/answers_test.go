@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-shell/service/launcher/answer"
+	"github.com/stubbedev/lys/shell/service/launcher/answer"
 )
 
 var answerClock = time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)

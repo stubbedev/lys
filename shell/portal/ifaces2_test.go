@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	login1 "github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	login1 "github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/notifications"
-	"github.com/stubbedev/lys-shell/service/wallpaper"
+	"github.com/stubbedev/lys/shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
 // notifyCall is one Notify the fake daemon received.

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // SPA pod types (spa/utils/type.h).

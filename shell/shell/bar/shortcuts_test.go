@@ -5,10 +5,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-shell/service/shellipc"
-	"github.com/stubbedev/lys-shell/shell/launcher"
+	"github.com/stubbedev/lys/shell/service/shellipc"
+	"github.com/stubbedev/lys/shell/shell/launcher"
 )
 
 type fakeShortcuts struct {

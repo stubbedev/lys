@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/stubbedev/lys-lib/motion"
+	"github.com/stubbedev/lys/lib/motion"
 )
 
 // Easing maps linear progress t in [0, 1] to eased progress. Most

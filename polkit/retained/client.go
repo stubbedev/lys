@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 const (

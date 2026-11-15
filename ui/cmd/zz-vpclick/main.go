@@ -12,9 +12,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 
-	"github.com/stubbedev/lys-ui/internal/headlesstest"
+	"github.com/stubbedev/lys/ui/internal/headlesstest"
 )
 
 const usage = "usage: zz-vpclick X Y [click | dclick | scroll DY | key CODE | combo CODE | type TEXT]"

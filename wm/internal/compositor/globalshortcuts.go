@@ -6,11 +6,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/binds"
-	shgs "github.com/stubbedev/lys-wm/internal/protocol/server/hyprlandglobalshortcuts"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	shgs "github.com/stubbedev/lys/wm/internal/protocol/server/hyprlandglobalshortcuts"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const globalShortcutsVersion = 1

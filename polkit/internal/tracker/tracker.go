@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/stubbedev/lys-polkit/retained"
+	"github.com/stubbedev/lys/polkit/retained"
 )
 
 type Timer interface {

@@ -33,7 +33,7 @@ Classes work on any slot, including modules inside groups. A group is addressed 
 
 ## Finding selectors
 
-The built-in rules are in [`styling/css`](https://github.com/stubbedev/lys-shell/tree/master/styling/css), grouped into modules, components and primitives. They read colors, sizes and spacing from variables; overriding a variable under a narrower selector is the most robust change.
+The built-in rules are in [`styling/css`](https://github.com/stubbedev/lys/tree/main/shell/styling/css), grouped into modules, components and primitives. They read colors, sizes and spacing from variables; overriding a variable under a narrower selector is the most robust change.
 
 `lys-shell panel inspect` draws the widget tree over every bar and dropdown. While it is armed:
 

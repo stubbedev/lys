@@ -13,7 +13,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // maxShadowBlur caps the kernel extent in device pixels. Theme blurs

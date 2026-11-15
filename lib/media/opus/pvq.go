@@ -3,7 +3,7 @@ package opus
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The spreading levels a frame signals (RFC 6716 section 4.3.4.3).

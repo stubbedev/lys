@@ -5,15 +5,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/dbuscli"
-	"github.com/stubbedev/lys-shell/shell/filechooser"
-	"github.com/stubbedev/lys-shell/shell/printdialog"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/dbuscli"
+	"github.com/stubbedev/lys/shell/shell/filechooser"
+	"github.com/stubbedev/lys/shell/shell/printdialog"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // The `lys-shell portal show <dialog>` previews (cli/portal/show.rs): each

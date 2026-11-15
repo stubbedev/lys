@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/resources"
+	"github.com/stubbedev/lys/desktop/resources"
 )
 
 func TestEveryIconTheAppNamesIsOneItShips(t *testing.T) {

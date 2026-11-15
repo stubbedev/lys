@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/lib/atomicfile"
 )
 
 // overrideFile is the record's name inside the lys-shell state dir.

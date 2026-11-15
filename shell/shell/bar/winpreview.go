@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/wmipc"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/wmipc"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
-	"github.com/stubbedev/lys-shell/service/sharepreview"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/service/sharepreview"
 )
 
 // The window preview's measures, in logical pixels at scale 1.

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/version"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 const help = `Lock the session via lys-shell's lock screen

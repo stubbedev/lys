@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/spawn"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/spawn"
 
-	"github.com/stubbedev/lys-shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
 // runClickAction dispatches one binding, the Go counterpart of

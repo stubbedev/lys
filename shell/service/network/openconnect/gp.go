@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // GlobalProtect gateway authentication, spoken natively over HTTPS

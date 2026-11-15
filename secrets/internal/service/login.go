@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/stubbedev/lys-secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
 )
 
 // errNoLogin is a login secret asked for before the login collection exists.

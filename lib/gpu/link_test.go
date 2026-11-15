@@ -13,7 +13,7 @@ import (
 // a duplicated _cgo_init. Built without cgo, every lys-lib package's
 // dependencies carry purego's fakecgo and no other.
 func TestOneFakecgo(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "github.com/stubbedev/lys-lib/...")
+	cmd := exec.Command("go", "list", "-deps", "github.com/stubbedev/lys/lib/...")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.Output()
 	if err != nil {

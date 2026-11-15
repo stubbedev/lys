@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/media"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/media"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestAVideoWaitingForTheGPUDeviceIsWokenOnce(t *testing.T) {

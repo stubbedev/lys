@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/vp9"
-	"github.com/stubbedev/lys-lib/internal/vp9/vp9test"
+	"github.com/stubbedev/lys/lib/internal/vp9"
+	"github.com/stubbedev/lys/lib/internal/vp9/vp9test"
 )
 
 const contextsSrc = "testsrc2=size=192x128:rate=25:duration=1.4"

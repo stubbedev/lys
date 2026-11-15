@@ -3,7 +3,7 @@
 package hyprlandglobalshortcuts
 
 import (
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var HyprlandGlobalShortcutsManagerV1Interface = &wire.Interface{

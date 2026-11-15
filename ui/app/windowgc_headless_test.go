@@ -6,11 +6,11 @@ import (
 	"testing"
 	"weak"
 
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/internal/headlesstest/inproc"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/internal/headlesstest/inproc"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestHeadlessClosedWindowIsCollected(t *testing.T) {

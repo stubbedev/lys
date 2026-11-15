@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
 // List is a frame recorded instead of rasterized: every drawing call a

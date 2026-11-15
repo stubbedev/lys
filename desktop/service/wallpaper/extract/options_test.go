@@ -3,7 +3,7 @@ package extract
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 func TestParseToolAcceptsTheRustAliases(t *testing.T) {

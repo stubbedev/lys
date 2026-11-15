@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // settingsTree is a settings window's shape: a sidebar of rows beside a

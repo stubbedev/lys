@@ -5,11 +5,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	cfg "github.com/stubbedev/lys-wm/internal/protocol/client/hyprlandfocusgrab"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	cfg "github.com/stubbedev/lys/wm/internal/protocol/client/hyprlandfocusgrab"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type grabEvents struct{ cleared int }

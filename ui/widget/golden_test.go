@@ -23,12 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/golden"
-	"github.com/stubbedev/lys-lib/gputest"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/golden"
+	"github.com/stubbedev/lys/lib/gputest"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // goldenPad is the margin between the widget and its shot's edge, so

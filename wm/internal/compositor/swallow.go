@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type Swallow struct {

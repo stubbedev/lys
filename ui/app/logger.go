@@ -9,7 +9,7 @@ package app
 import (
 	"log/slog"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // SetLogger installs the library-wide logger: lys-ui's internals (session

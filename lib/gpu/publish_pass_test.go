@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // passTarget is a size x size dmabuf target of d for passes.

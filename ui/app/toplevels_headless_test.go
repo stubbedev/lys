@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/internal/headlesstest/inproc"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/internal/headlesstest/inproc"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // A window another client maps is listed on the application's own

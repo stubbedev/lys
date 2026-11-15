@@ -3,7 +3,7 @@ package gpu
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 type destroyer interface{ destroy() }

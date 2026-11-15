@@ -1,8 +1,8 @@
 package bar
 
 import (
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // ringVariants is every variant class lys-ui's ring recolors by.

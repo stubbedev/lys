@@ -5,7 +5,7 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // Cursor is the pointer a stream carries beside its frames as an

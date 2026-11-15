@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/desktopentry"
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-desktop/mime"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/mime"
 )
 
 // Target is what Open opens: an absolute local path, or a URI with a

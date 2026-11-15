@@ -5,8 +5,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 type floor interface {

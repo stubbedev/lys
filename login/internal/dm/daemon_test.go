@@ -17,14 +17,14 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testhome"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/testhome"
+	"github.com/stubbedev/lys/lib/xkb"
 	"go.yaml.in/yaml/v3"
 
-	"github.com/stubbedev/lys-login/internal/auth"
-	"github.com/stubbedev/lys-login/internal/greeter"
-	"github.com/stubbedev/lys-login/internal/keyboard"
-	"github.com/stubbedev/lys-login/internal/keyboard/keyboardtest"
+	"github.com/stubbedev/lys/login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/greeter"
+	"github.com/stubbedev/lys/login/internal/keyboard"
+	"github.com/stubbedev/lys/login/internal/keyboard/keyboardtest"
 )
 
 // TestMain lets the test binary be a session worker whose PAM is a

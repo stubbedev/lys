@@ -1,9 +1,9 @@
 package sharepicker
 
 import (
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // direction is an arrow key's way across the page, as a unit step.

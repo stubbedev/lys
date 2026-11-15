@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wlclient"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
 )
 
 // fakePointer records the requests the capability and cursor paths

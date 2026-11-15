@@ -4,10 +4,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	ccm "github.com/stubbedev/lys-wm/internal/protocol/client/colormanagement"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	ccm "github.com/stubbedev/lys/wm/internal/protocol/client/colormanagement"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 )
 
 type outputLog struct{ events []string }

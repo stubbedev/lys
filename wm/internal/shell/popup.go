@@ -6,11 +6,11 @@ import (
 	"image"
 	"slices"
 
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type PopupRoot interface {

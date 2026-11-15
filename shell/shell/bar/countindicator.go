@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // subscription is a followed list's change feed: a tick per change and

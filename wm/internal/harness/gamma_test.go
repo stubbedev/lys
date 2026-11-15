@@ -8,10 +8,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cgc "github.com/stubbedev/lys-wm/internal/protocol/client/wlrgammacontrol"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cgc "github.com/stubbedev/lys/wm/internal/protocol/client/wlrgammacontrol"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type gammaEvents struct {

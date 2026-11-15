@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys/lib/fourcc"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/shader"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/shader"
 )
 
 var formats = []struct {

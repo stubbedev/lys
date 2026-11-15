@@ -5,7 +5,7 @@ import (
 	"log"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/pulse/native"
+	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
 // Volume limits (volume/types.rs): 1.0 is 100%, above 2.0 may damage

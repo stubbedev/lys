@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const cageClientEnv = "LYS_UI_CAGE_CLIENT_DONE"

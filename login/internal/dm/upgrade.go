@@ -19,10 +19,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/peercred"
+	"github.com/stubbedev/lys/lib/peercred"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-login/dmsocket"
+	"github.com/stubbedev/lys/login/dmsocket"
 )
 
 const (

@@ -15,14 +15,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/shlex"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shlex"
+	"github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-login/internal/auth"
-	"github.com/stubbedev/lys-login/internal/greeter"
-	"github.com/stubbedev/lys-login/internal/keyboard"
+	"github.com/stubbedev/lys/login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/greeter"
+	"github.com/stubbedev/lys/login/internal/keyboard"
 )
 
 // Options configure the daemon.

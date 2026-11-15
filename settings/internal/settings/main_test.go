@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testhome"
+	"github.com/stubbedev/lys/lib/testhome"
 	"golang.org/x/sys/unix"
 )
 

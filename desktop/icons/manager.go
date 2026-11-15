@@ -15,7 +15,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-desktop/icons/usvg"
+	"github.com/stubbedev/lys/desktop/icons/usvg"
 )
 
 // This file ports manager.rs: install from a CDN, remove, list, and

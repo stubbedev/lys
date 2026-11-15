@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // Pango's markup constants: the weight <b> sets and the weight at

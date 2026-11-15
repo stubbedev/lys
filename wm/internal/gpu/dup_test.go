@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/gpu"
 )
 
 func memfd(t *testing.T, content string) int {

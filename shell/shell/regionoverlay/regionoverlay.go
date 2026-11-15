@@ -20,16 +20,16 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/shell/widgets"
-	"github.com/stubbedev/lys-desktop/styling"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/shell/keys"
-	"github.com/stubbedev/lys-shell/shell/loupe"
+	"github.com/stubbedev/lys/shell/shell/keys"
+	"github.com/stubbedev/lys/shell/shell/loupe"
 )
 
 // Selection is a region the user dragged, in logical pixels relative

@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // ipcMagic fronts every i3/sway IPC message and reply.

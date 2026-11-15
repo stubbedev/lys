@@ -12,9 +12,9 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/peercred/peercredtest"
-	"github.com/stubbedev/lys-lib/sockdir"
-	"github.com/stubbedev/lys-lib/testhome"
+	"github.com/stubbedev/lys/lib/peercred/peercredtest"
+	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/testhome"
 )
 
 func TestMain(m *testing.M) {

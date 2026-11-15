@@ -1,7 +1,7 @@
 package bidi
 
 import (
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
 )
 
 // This implementation is a port based on the reference implementation found at:

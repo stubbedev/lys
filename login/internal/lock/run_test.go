@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 func runtimeEnv(dir string) xdg.Env {

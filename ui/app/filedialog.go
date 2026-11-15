@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-ui/internal/recentfiles"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/recentfiles"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // FileDialogConfig declares an open dialog: where it starts, what it

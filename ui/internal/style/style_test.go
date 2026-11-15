@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // capture swaps the warning sink for one test and returns the messages.

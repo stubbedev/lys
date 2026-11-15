@@ -15,16 +15,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-desktop/glob"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/service/notifications/notifypolicy"
-	"github.com/stubbedev/lys-lib/atomicfile"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-shell/internal/clock"
-	"github.com/stubbedev/lys-shell/internal/version"
+	"github.com/stubbedev/lys/shell/internal/clock"
+	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // D-Bus identity and server information.

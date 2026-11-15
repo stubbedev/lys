@@ -3,8 +3,8 @@ package portal
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Vardict is a portal a{sv}: every interactive method's options and

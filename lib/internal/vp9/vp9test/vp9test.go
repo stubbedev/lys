@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/vp9"
+	"github.com/stubbedev/lys/lib/internal/vp9"
 )
 
 // Headers reads the headers of the frames in each of packets, a stream

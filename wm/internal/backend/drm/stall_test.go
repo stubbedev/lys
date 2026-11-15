@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend"
 )
 
 func (r *rig) framesFailing(err error) *Output {

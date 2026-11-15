@@ -1,10 +1,10 @@
 package shell
 
 import (
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxa "github.com/stubbedev/lys-wm/internal/protocol/server/xdgactivation"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxa "github.com/stubbedev/lys/wm/internal/protocol/server/xdgactivation"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const activationVersion = 1

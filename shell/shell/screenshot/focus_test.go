@@ -5,11 +5,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-shell/service/hyprland"
-	"github.com/stubbedev/lys-shell/service/niri"
-	"github.com/stubbedev/lys-shell/service/sway"
+	"github.com/stubbedev/lys/shell/service/hyprland"
+	"github.com/stubbedev/lys/shell/service/niri"
+	"github.com/stubbedev/lys/shell/service/sway"
 )
 
 func TestSwayFocusedWorkspaceOutput(t *testing.T) {

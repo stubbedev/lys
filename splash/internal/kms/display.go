@@ -12,7 +12,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/drm"
+	"github.com/stubbedev/lys/lib/drm"
 	"golang.org/x/sys/unix"
 )
 

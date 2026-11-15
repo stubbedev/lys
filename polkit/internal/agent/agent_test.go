@@ -14,16 +14,16 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	"github.com/stubbedev/lys-lib/polkit/polkittest"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	"github.com/stubbedev/lys/lib/polkit/polkittest"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-polkit/internal/agent"
-	"github.com/stubbedev/lys-polkit/internal/helper/helpertest"
-	"github.com/stubbedev/lys-polkit/internal/locale"
-	"github.com/stubbedev/lys-polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/internal/agent"
+	"github.com/stubbedev/lys/polkit/internal/helper/helpertest"
+	"github.com/stubbedev/lys/polkit/internal/locale"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
 )
 
 func TestMain(m *testing.M) {

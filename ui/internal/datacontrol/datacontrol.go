@@ -22,9 +22,9 @@ import (
 	"os"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/debug"
+	"github.com/stubbedev/lys/lib/debug"
 
-	"github.com/stubbedev/lys-ui/internal/xfer"
+	"github.com/stubbedev/lys/ui/internal/xfer"
 )
 
 // Selection names one of the seat's two selections.

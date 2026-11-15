@@ -14,20 +14,20 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/logutil"
-	text "github.com/stubbedev/lys-lib/third_party/wayland/unstable/text-input-v3"
-	deco "github.com/stubbedev/lys-lib/third_party/wayland/unstable/xdg-decoration-v1"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wlclient"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
-	"github.com/stubbedev/lys-lib/wlr"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/logutil"
+	text "github.com/stubbedev/lys/lib/third_party/wayland/unstable/text-input-v3"
+	deco "github.com/stubbedev/lys/lib/third_party/wayland/unstable/xdg-decoration-v1"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/wlr"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/internal/buffer"
-	"github.com/stubbedev/lys-ui/internal/compose"
-	"github.com/stubbedev/lys-ui/internal/worker"
+	"github.com/stubbedev/lys/ui/internal/buffer"
+	"github.com/stubbedev/lys/ui/internal/compose"
+	"github.com/stubbedev/lys/ui/internal/worker"
 )
 
 // requiredGlobals are the interfaces no lys-ui surface can exist without, in

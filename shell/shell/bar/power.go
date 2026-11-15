@@ -3,8 +3,8 @@ package bar
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // power is the icon-only power module: its bindings run the session

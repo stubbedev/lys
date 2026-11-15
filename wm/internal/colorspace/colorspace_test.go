@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 )
 
 func hdrOutput() Output {

@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 type fakeVault struct {

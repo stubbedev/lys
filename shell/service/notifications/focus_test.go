@@ -6,9 +6,9 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/stubbedev/lys-desktop/fakeclock"
-	"github.com/stubbedev/lys-desktop/service/notifications/notifypolicy"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/fakeclock"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func critical() map[string]dbus.Variant {

@@ -10,13 +10,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/peercred"
-	"github.com/stubbedev/lys-lib/polkit"
-	"github.com/stubbedev/lys-lib/polkit/polkittest"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/peercred"
+	"github.com/stubbedev/lys/lib/polkit"
+	"github.com/stubbedev/lys/lib/polkit/polkittest"
 
-	"github.com/stubbedev/lys-login/dmsocket"
-	"github.com/stubbedev/lys-login/greeterconfig"
+	"github.com/stubbedev/lys/login/dmsocket"
+	"github.com/stubbedev/lys/login/greeterconfig"
 )
 
 var colorChange = greeterconfig.Change{Staged: "login:\n  background-color: \"#ff0000\"\n"}

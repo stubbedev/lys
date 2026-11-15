@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/network/openconnect"
+	"github.com/stubbedev/lys/shell/service/network/openconnect"
 )
 
 // This file turns form values into a NetworkManager connection profile,

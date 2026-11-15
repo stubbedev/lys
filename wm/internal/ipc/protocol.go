@@ -13,10 +13,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/binds"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 var kinds = []wmipc.Kind{wmipc.KindVersion, wmipc.KindOutputs, wmipc.KindWorkspaces, wmipc.KindWindows, wmipc.KindActiveWindow, wmipc.KindSubmap, wmipc.KindLayout, wmipc.KindLocks, wmipc.KindReducedMotion, wmipc.KindDispatch, wmipc.KindWatch, wmipc.KindIcon, wmipc.KindOverview, wmipc.KindScratchpads, wmipc.KindConfigProblems, wmipc.KindUpgrade, wmipc.KindCreateOutput, wmipc.KindRemoveOutput, wmipc.KindCapture, wmipc.KindLayers, wmipc.KindDevices, wmipc.KindPickWindow, wmipc.KindBinds, wmipc.KindCastTarget}

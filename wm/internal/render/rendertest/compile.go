@@ -5,9 +5,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/shader"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/shader"
 )
 
 func Effects(t *testing.T, r render.Renderer, formats []render.Format) render.Effects {

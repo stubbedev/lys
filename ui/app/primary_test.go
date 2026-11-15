@@ -4,11 +4,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/internal/clipboard"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/clipboard"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // primaryClaim is one primary-selection claim a fakePrimarySource saw.

@@ -8,11 +8,11 @@ package widget
 import (
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/icons"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/icons"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // maxDamageRects caps the rect list handed to the frame. Past the cap

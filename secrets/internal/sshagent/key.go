@@ -13,7 +13,7 @@ import (
 	"filippo.io/edwards25519"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/stubbedev/lys-secrets/internal/lockedmem"
+	"github.com/stubbedev/lys/secrets/internal/lockedmem"
 )
 
 // privateKey is a decrypted private key in locked memory. An Ed25519 key

@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/colorspace"
+	"github.com/stubbedev/lys/wm/internal/colorspace"
 )
 
 func TestAnHDRCursorPixelMatchesTheFramesEncodeWithinACodeValue(t *testing.T) {

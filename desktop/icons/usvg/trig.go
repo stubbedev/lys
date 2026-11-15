@@ -4,7 +4,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The Rust code's f64 sin, cos, tan and atan2 come from the system

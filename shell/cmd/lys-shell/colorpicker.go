@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/dbuscli"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/dbuscli"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 // colorpickerCommand asks the running shell for a color pick over its

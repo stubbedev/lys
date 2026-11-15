@@ -3,10 +3,10 @@ package widget
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/text"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/text"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // Dropdown is a combobox: a closed face showing the current selection

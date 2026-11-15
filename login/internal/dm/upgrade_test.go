@@ -20,11 +20,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-login/internal/auth"
-	"github.com/stubbedev/lys-login/internal/cursorrecord"
-	"github.com/stubbedev/lys-login/internal/greeter"
+	"github.com/stubbedev/lys/login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/cursorrecord"
+	"github.com/stubbedev/lys/login/internal/greeter"
 )
 
 const (

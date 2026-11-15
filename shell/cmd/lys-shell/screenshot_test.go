@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 // stubRegion answers every region request err, not ok.

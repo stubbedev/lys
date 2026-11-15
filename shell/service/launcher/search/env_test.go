@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/desktopentry"
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/launchertest"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/launchertest"
 )
 
 func runAction(t *testing.T, actions []Action, title string) Outcome {

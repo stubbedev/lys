@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-desktop/ipcsock"
+	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
 // Fast is a timeout a test can afford to run into.

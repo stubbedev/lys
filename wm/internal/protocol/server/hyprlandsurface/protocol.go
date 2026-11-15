@@ -3,8 +3,8 @@
 package hyprlandsurface
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var HyprlandSurfaceManagerV1Interface = &wire.Interface{

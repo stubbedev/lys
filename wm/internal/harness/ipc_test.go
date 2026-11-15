@@ -11,18 +11,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/config"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	chgs "github.com/stubbedev/lys-wm/internal/protocol/client/hyprlandglobalshortcuts"
-	cxdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/testenv"
-	"github.com/stubbedev/lys-wm/internal/wm"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/config"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	chgs "github.com/stubbedev/lys/wm/internal/protocol/client/hyprlandglobalshortcuts"
+	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 func query[T any](h *Harness, kind wmipc.Kind) T {

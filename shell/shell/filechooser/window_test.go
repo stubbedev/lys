@@ -3,11 +3,11 @@ package filechooser
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface"
 )
 
 func (hs *harness) lastSpec(t *testing.T) dialogsurface.Spec {

@@ -6,7 +6,7 @@ package appearance
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // ColorScheme is the desktop's dark/light preference.

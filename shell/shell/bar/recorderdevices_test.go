@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/service/pulse"
-	"github.com/stubbedev/lys-desktop/service/recorder/devicechoice"
-	"github.com/stubbedev/lys-lib/pulse/native"
-	"github.com/stubbedev/lys-lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
+	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 )
 
 func TestMicrophoneSources(t *testing.T) {

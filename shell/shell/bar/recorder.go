@@ -3,12 +3,12 @@ package bar
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/jinja"
-	"github.com/stubbedev/lys-shell/service/recorder"
+	"github.com/stubbedev/lys/shell/internal/jinja"
+	"github.com/stubbedev/lys/shell/service/recorder"
 )
 
 // recorderLabel is helpers.rs's build_label: Idle/Replay armed/Paused/

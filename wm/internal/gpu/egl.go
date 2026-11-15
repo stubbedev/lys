@@ -11,7 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 )
 
 const (

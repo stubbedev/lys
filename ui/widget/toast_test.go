@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // fixedWidget is a leaf of constant natural size, the test child for

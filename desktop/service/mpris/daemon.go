@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-desktop/rusterr"
+	"github.com/stubbedev/lys/desktop/rusterr"
 )
 
 // lys-shell's own interface over the media service, which `lys-shell media`

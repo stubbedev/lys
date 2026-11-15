@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/wallpaper"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
 // wallpaperService names the service in "not running" errors.

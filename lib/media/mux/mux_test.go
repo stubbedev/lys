@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/matroska"
+	"github.com/stubbedev/lys/lib/internal/matroska"
 )
 
 func unhex(t *testing.T, s string) []byte {

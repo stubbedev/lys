@@ -12,8 +12,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	shelllocales "github.com/stubbedev/lys-desktop/i18n/locales/shell"
+	"github.com/stubbedev/lys/desktop/i18n"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 )
 
 // goUsage is what the repo's Go code asks of the shell domain: the ids
@@ -57,7 +57,7 @@ func scanGoUsage(t *testing.T) goUsage {
 		}
 		imports := false
 		for _, imp := range file.Imports {
-			if imp.Path.Value == `"github.com/stubbedev/lys-desktop/i18n"` {
+			if imp.Path.Value == `"github.com/stubbedev/lys/desktop/i18n"` {
 				imports = true
 			}
 		}

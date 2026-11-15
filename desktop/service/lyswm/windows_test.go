@@ -3,10 +3,10 @@ package lyswm_test
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 )
 
 func awaitWindows(t *testing.T, w *lyswm.WindowsWatcher, want func([]wmipc.Window) bool) []wmipc.Window {

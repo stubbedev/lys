@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
 )
 
 const testInterface = "org.example.Test"

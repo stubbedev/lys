@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-shell/internal/runtimesock"
+	"github.com/stubbedev/lys/shell/internal/runtimesock"
 )
 
 // RowChunk is the number of rows per rows frame when streaming stdin.

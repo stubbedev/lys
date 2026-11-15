@@ -1,6 +1,6 @@
 package compose
 
-import "github.com/stubbedev/lys-lib/xkb"
+import "github.com/stubbedev/lys/lib/xkb"
 
 // Result classifies what one Feed did to the sequence in flight.
 type Result uint8

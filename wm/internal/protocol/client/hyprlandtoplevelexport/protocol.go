@@ -3,9 +3,9 @@
 package hyprlandtoplevelexport
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/protocol/client/wlrforeigntoplevel"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wlrforeigntoplevel"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var HyprlandToplevelExportManagerV1Interface = &wire.Interface{

@@ -1,8 +1,8 @@
 package shaping
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/harfbuzz"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/harfbuzz"
 )
 
 // adjust the cache size of the zero value, used by default

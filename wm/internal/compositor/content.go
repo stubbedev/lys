@@ -4,8 +4,8 @@ import (
 	"errors"
 	"image"
 
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func (c *Compositor) contentOf(s *surface.Surface) (wm.ContentType, wm.ContentSource) {

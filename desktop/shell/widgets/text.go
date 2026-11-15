@@ -1,9 +1,9 @@
 package widgets
 
 import (
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-desktop/styling"
+	"github.com/stubbedev/lys/desktop/styling"
 )
 
 // TextPx is role's size in pixels at scale over the desktop's body

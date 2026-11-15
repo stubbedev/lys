@@ -7,10 +7,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/peercred"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/peercred"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Subject is who polkitd decides about, and whom an agent authenticates

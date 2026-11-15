@@ -2,7 +2,7 @@ package opentype
 
 import (
 	"encoding/binary"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 	"math"
 )
 

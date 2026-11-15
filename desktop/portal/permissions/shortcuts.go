@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-desktop/identity"
+	"github.com/stubbedev/lys/desktop/identity"
 )
 
 // Shortcut is one global shortcut an app bound, as lys keeps it for the

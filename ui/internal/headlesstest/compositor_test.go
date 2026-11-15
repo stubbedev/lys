@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/wltest"
 )
 
 func TestDriverForPicksAndDefaults(t *testing.T) {

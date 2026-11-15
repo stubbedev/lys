@@ -12,11 +12,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/dnssd"
+	"github.com/stubbedev/lys/shell/service/dnssd"
 )
 
 // Avahi's protocols, and the interface an address without a zone is

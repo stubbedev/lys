@@ -6,18 +6,18 @@ import (
 	"log"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/glob"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-lib/wmipc"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/lib/wmipc"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/jinja"
-	"github.com/stubbedev/lys-shell/service/hyprland"
-	"github.com/stubbedev/lys-shell/service/mango"
-	"github.com/stubbedev/lys-shell/service/niri"
-	"github.com/stubbedev/lys-shell/service/sway"
+	"github.com/stubbedev/lys/shell/internal/jinja"
+	"github.com/stubbedev/lys/shell/service/hyprland"
+	"github.com/stubbedev/lys/shell/service/mango"
+	"github.com/stubbedev/lys/shell/service/niri"
+	"github.com/stubbedev/lys/shell/service/sway"
 )
 
 // windowTitleLabel is helpers.rs's format_label: the template over

@@ -13,12 +13,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/internal/xfer"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/xfer"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // minActionVersion is the wl_data_device_manager version that gained

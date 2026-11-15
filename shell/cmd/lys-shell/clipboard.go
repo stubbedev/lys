@@ -1,6 +1,6 @@
 package main
 
-import "github.com/stubbedev/lys-shell/service/clipboardipc"
+import "github.com/stubbedev/lys/shell/service/clipboardipc"
 
 // copyToClipboard hands text to the running shell, whose clipboard then
 // owns the selection; without a shell it fails naming the service.

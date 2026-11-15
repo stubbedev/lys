@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/wltest"
 )
 
 // compositor is a Wayland server on the wire, just large enough for the

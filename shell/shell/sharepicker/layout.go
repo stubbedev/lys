@@ -1,8 +1,8 @@
 package sharepicker
 
 import (
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // outputSlot is one output card's place in the monitor map, in layout

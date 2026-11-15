@@ -3,7 +3,7 @@ package usvg
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // This file ports svgtypes' PathParser and SimplifyingPathParser plus

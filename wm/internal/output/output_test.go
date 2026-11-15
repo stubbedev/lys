@@ -9,16 +9,16 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/edid"
+	"github.com/stubbedev/lys/lib/edid"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cxo "github.com/stubbedev/lys-wm/internal/protocol/client/xdgoutput"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/testenv"
-	"github.com/stubbedev/lys-wm/internal/wlclient"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cxo "github.com/stubbedev/lys/wm/internal/protocol/client/xdgoutput"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/wlclient"
 )
 
 func TestScaleConversions(t *testing.T) {

@@ -4,12 +4,12 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/binds"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxh "github.com/stubbedev/lys-wm/internal/protocol/server/xxhotkey"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxh "github.com/stubbedev/lys/wm/internal/protocol/server/xxhotkey"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 const (

@@ -7,11 +7,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/desktopentry"
-	"github.com/stubbedev/lys-desktop/shlex"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/shlex"
 
-	"github.com/stubbedev/lys-shell/internal/pango"
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/internal/pango"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // DrunField is a desktop-entry field fed to the matcher

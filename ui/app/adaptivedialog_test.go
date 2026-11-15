@@ -3,8 +3,8 @@ package app
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestAdaptiveDialogAsABottomSheetWrapsAndRestoresTheParent(t *testing.T) {

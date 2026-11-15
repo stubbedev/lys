@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-login/dmsocket"
-	"github.com/stubbedev/lys-login/internal/dm"
+	"github.com/stubbedev/lys/login/dmsocket"
+	"github.com/stubbedev/lys/login/internal/dm"
 )
 
 func runSelf(t *testing.T, args ...string) (int, string) {

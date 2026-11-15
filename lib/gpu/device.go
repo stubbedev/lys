@@ -25,11 +25,11 @@ import (
 	memory "github.com/stubbedev/memory-go"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // ErrNoVulkan reports that the Vulkan loader (libvulkan) is missing.

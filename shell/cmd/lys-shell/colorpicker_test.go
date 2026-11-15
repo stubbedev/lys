@@ -11,12 +11,12 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-shell/shell/colorpicker"
-	"github.com/stubbedev/lys-shell/shell/regionoverlay"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/shell/colorpicker"
+	"github.com/stubbedev/lys/shell/shell/regionoverlay"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 type pickLog struct {

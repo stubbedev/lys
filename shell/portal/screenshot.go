@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/screenshot"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // Screenshot targets (the AvailableTargets bits, and the target

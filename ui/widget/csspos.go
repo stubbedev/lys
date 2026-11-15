@@ -10,9 +10,9 @@ package widget
 // hit-tests, one stacking context per container.
 
 import (
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // positioned reports a declared, non-static position.

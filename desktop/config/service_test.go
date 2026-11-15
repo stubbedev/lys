@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 )
 
 func collectDiags() (DiagnosticSink, func() []Diagnostic) {

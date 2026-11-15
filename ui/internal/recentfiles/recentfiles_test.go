@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // TestRecentFilesRoundTrip pins the persistence contract: Add moves

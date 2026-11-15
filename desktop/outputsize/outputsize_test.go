@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 func TestDevice(t *testing.T) {

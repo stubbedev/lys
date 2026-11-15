@@ -16,15 +16,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/vinput"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/vinput"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/ui"
-	"github.com/stubbedev/lys-ui/widget"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/ui"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // shotsAppID is the app id of the windows -shots opens; the compositor

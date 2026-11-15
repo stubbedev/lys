@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/service/dnssd"
+	"github.com/stubbedev/lys/shell/service/dnssd"
 )
 
 // The DNS-SD types an IPP printer announces itself as, the secure one

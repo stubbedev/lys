@@ -3,9 +3,9 @@ package compositor
 import (
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/output"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 func (c *Compositor) captureOutput(w *window) *output.Output {

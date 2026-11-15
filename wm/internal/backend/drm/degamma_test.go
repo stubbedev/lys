@@ -3,9 +3,9 @@ package drm
 import (
 	"testing"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 func TestADegammaLUTReachesTheCRTCInACommitOfItsOwn(t *testing.T) {

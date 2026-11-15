@@ -3,10 +3,10 @@ package harness
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/binds"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cksi "github.com/stubbedev/lys-wm/internal/protocol/client/keyboardshortcutsinhibit"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cksi "github.com/stubbedev/lys/wm/internal/protocol/client/keyboardshortcutsinhibit"
 )
 
 func (l *constraintLog) Active(*cksi.ZwpKeyboardShortcutsInhibitorV1) error {

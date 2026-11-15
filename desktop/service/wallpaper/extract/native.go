@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/styling/material"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/styling/material"
 )
 
 // SampleSide is the longest side, in samples, of the grid a wallpaper is

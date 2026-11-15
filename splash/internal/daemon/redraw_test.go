@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/testbuild"
 
-	"github.com/stubbedev/lys-splash/internal/kms"
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/kms"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 type quietScreen struct {

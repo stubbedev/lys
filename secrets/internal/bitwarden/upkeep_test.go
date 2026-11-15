@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 var upkeepNow = time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)

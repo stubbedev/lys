@@ -3,8 +3,8 @@ package notifyui
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestANotificationFileIconPaintsExactlyAtAFractionalScale(t *testing.T) {

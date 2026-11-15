@@ -10,7 +10,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"golang.org/x/sys/unix"
 )
 

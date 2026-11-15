@@ -4,13 +4,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/internal/headlesstest/inproc"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/internal/headlesstest/inproc"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // A bar shows along its edge, as thick as its content, and moves to

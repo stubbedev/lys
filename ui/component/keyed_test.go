@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/component/componenttest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/component/componenttest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestKeyedFactoryAddressesItemsByKey(t *testing.T) {

@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/bussignal"
+	"github.com/stubbedev/lys/shell/internal/bussignal"
 )
 
 const (

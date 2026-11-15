@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-secrets/control"
+	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/secrets/control"
 )
 
 // fakeKeyring serves one control-socket exchange: it captures the

@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // ExampleApplication is a minimal app on the lower-level path, public API

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 )
 
 func TestABufferIsStaleByTheFramesPublishedSinceItWasFilled(t *testing.T) {

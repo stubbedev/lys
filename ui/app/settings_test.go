@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/waittest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/waittest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // settingsEnv points the settings file at a scratch config dir and

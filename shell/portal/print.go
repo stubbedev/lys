@@ -4,10 +4,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/printdialog"
+	"github.com/stubbedev/lys/shell/shell/printdialog"
 )
 
 // printPortal is org.freedesktop.impl.portal.Print over the shell's

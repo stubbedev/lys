@@ -7,7 +7,7 @@ import (
 	"image/png"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 var (

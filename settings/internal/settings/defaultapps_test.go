@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/desktopentry"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func defaultAppsFixture(t *testing.T) (config string) {

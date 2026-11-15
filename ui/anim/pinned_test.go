@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/motion"
+	"github.com/stubbedev/lys/lib/motion"
 )
 
 type pinnedBezier struct {

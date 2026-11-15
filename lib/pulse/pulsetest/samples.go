@@ -4,7 +4,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/pulse/native"
+	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
 // Play is one PLAY_SAMPLE the fake answered: Sink is the sink it named,

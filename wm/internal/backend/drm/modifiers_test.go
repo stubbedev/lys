@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/fourcc"
+	kdrm "github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 func TestARefusedModifierFallsDownToTheNextOneTheDriverAllocates(t *testing.T) {

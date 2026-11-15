@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/service/pulse"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/rustparse"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/rustparse"
 )
 
 // audioCommand is lys-shell/src/cli/audio/commands.rs.

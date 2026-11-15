@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-ui/gtksettings"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/ui/gtksettings"
 )
 
 // toolkitKeys are the keys GTK 4's portal settings backend reads beyond

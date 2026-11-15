@@ -18,10 +18,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-desktop/glob"
-	"github.com/stubbedev/lys-desktop/mime"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // Mode is what the chooser is doing.

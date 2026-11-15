@@ -6,8 +6,8 @@ import (
 	"image"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // stillWorkerBytes is the size from which a still's upload leaves the frame

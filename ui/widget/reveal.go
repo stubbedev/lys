@@ -1,6 +1,6 @@
 package widget
 
-import "github.com/stubbedev/lys-lib/render"
+import "github.com/stubbedev/lys/lib/render"
 
 // RevealRect scrolls every Scroll above w just far enough that r, in
 // root coordinates, shows in its viewport: a rect below the viewport

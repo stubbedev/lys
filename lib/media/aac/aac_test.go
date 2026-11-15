@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/media/internal/pcm"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/internal/pcm"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 func TestDecodersShareTheTables(t *testing.T) {

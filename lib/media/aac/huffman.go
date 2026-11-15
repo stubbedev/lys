@@ -1,6 +1,6 @@
 package aac
 
-import "github.com/stubbedev/lys-lib/intconv"
+import "github.com/stubbedev/lys/lib/intconv"
 
 // huffEntry is one slot of a two-level Huffman lookup: a symbol and
 // its code length, or (sub > 0) the offset and width of the second

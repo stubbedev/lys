@@ -10,20 +10,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/dmabuf"
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	cld "github.com/stubbedev/lys-wm/internal/protocol/client/linuxdmabuf"
-	cls "github.com/stubbedev/lys-wm/internal/protocol/client/linuxdrmsyncobj"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/syncobj"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/dmabuf"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	cld "github.com/stubbedev/lys/wm/internal/protocol/client/linuxdmabuf"
+	cls "github.com/stubbedev/lys/wm/internal/protocol/client/linuxdrmsyncobj"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/syncobj"
 )
 
 type importingRenderer struct{ *spyRenderer }

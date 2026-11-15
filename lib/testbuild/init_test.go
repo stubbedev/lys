@@ -8,16 +8,16 @@ import (
 
 func TestPackageOfATestFunction(t *testing.T) {
 	for function, want := range map[string]string{
-		"github.com/stubbedev/lys-lib/media/opus.TestImportingCostsNothing":      "github.com/stubbedev/lys-lib/media/opus",
-		"github.com/stubbedev/lys-lib/dbusx_test.TestImportingCostsNothing":      "github.com/stubbedev/lys-lib/dbusx",
-		"github.com/stubbedev/lys-lib/third_party/wayland/wl.TestX.func1":        "github.com/stubbedev/lys-lib/third_party/wayland/wl",
+		"github.com/stubbedev/lys/lib/media/opus.TestImportingCostsNothing":      "github.com/stubbedev/lys/lib/media/opus",
+		"github.com/stubbedev/lys/lib/dbusx_test.TestImportingCostsNothing":      "github.com/stubbedev/lys/lib/dbusx",
+		"github.com/stubbedev/lys/lib/third_party/wayland/wl.TestX.func1":        "github.com/stubbedev/lys/lib/third_party/wayland/wl",
 		"gopkg.in/yaml%2ev3.TestImportingCostsNothing":                           "gopkg.in/yaml.v3",
-		"github.com/stubbedev/lys-lib/third_party/gomath.(*T).TestMethod":        "github.com/stubbedev/lys-lib/third_party/gomath",
+		"github.com/stubbedev/lys/lib/third_party/gomath.(*T).TestMethod":        "github.com/stubbedev/lys/lib/third_party/gomath",
 		"example.com/x/unit_test_test.TestImportingCostsNothing":                 "example.com/x/unit_test",
-		"github.com/stubbedev/lys-lib/pulse/native.TestImportingCostsNothing":    "github.com/stubbedev/lys-lib/pulse/native",
-		"github.com/stubbedev/lys-lib/xkb_test.TestImportingCostsNothing.func1":  "github.com/stubbedev/lys-lib/xkb",
-		"github.com/stubbedev/lys-lib/testbuild.TestThisPackageCostsNothingToo":  "github.com/stubbedev/lys-lib/testbuild",
-		"github.com/stubbedev/lys-lib/media/internal/pcm.TestImportingCostsNone": "github.com/stubbedev/lys-lib/media/internal/pcm",
+		"github.com/stubbedev/lys/lib/pulse/native.TestImportingCostsNothing":    "github.com/stubbedev/lys/lib/pulse/native",
+		"github.com/stubbedev/lys/lib/xkb_test.TestImportingCostsNothing.func1":  "github.com/stubbedev/lys/lib/xkb",
+		"github.com/stubbedev/lys/lib/testbuild.TestThisPackageCostsNothingToo":  "github.com/stubbedev/lys/lib/testbuild",
+		"github.com/stubbedev/lys/lib/media/internal/pcm.TestImportingCostsNone": "github.com/stubbedev/lys/lib/media/internal/pcm",
 	} {
 		if got := packageOf(function); got != want {
 			t.Errorf("packageOf(%q) = %q, want %q", function, got, want)

@@ -3,7 +3,7 @@ package render
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // GradientKind is a gradient's geometry.

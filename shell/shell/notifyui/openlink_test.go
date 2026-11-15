@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/opener/openertest"
+	"github.com/stubbedev/lys/desktop/opener/openertest"
 )
 
 func TestOpenLinkHandsTheLinkAndTokenToItsSchemesHandler(t *testing.T) {

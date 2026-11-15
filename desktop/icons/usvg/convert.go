@@ -6,9 +6,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 
-	"github.com/stubbedev/lys-desktop/icons/skpath"
+	"github.com/stubbedev/lys/desktop/icons/skpath"
 )
 
 // Tree is the converted document (usvg's Tree, trimmed to what the icon

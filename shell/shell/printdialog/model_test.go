@@ -7,9 +7,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-shell/internal/ipp"
+	"github.com/stubbedev/lys/shell/internal/ipp"
 )
 
 func TestPageRanges(t *testing.T) {

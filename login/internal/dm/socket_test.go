@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-login/dmsocket"
-	"github.com/stubbedev/lys-login/internal/cursorrecord"
+	"github.com/stubbedev/lys/login/dmsocket"
+	"github.com/stubbedev/lys/login/internal/cursorrecord"
 )
 
 // serveAt runs s with handle in a scratch runtime directory and

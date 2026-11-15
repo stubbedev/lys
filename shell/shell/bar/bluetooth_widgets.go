@@ -1,7 +1,7 @@
 package bar
 
 import (
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // btDeviceRow is one device row (device_item) on lys-ui's Item: the

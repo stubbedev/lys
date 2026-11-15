@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/testbuild"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 var budgetNow = time.Unix(1_700_000_000, 0).UTC()

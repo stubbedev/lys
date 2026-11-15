@@ -4,9 +4,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/motion"
+	"github.com/stubbedev/lys/lib/motion"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // Timing is a transition or animation timing function (CSS Easing 2):

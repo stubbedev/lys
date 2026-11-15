@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/icons"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/icons"
 )
 
 // fakeIconSearch records what initIcons does to the icon search path.

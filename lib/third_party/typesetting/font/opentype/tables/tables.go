@@ -2,7 +2,7 @@
 
 package tables
 
-import "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
+import "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
 
 //go:generate ../../../../typesetting-utils/generators/binarygen/cmd/generator . _src.go
 

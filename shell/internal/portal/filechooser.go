@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/url"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // FileChooserIface is org.freedesktop.portal.FileChooser.

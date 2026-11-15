@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-lib/intconv"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/intconv"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
 	_ "modernc.org/sqlite" // the pure-Go sqlite driver: notifications.db stays the Rust file
 )
 

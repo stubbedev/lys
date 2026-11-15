@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
 // this file implements the family substitution feature,

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 func TestPutArmsOnceUntilTake(t *testing.T) {

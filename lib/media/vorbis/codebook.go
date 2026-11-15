@@ -6,7 +6,7 @@ import (
 	"math/bits"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 const (

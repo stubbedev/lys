@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-secrets/secretbus"
-	"github.com/stubbedev/lys-secrets/transport"
+	"github.com/stubbedev/lys/secrets/secretbus"
+	"github.com/stubbedev/lys/secrets/transport"
 )
 
 const (

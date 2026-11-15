@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 func paintOnce(t *testing.T, icon *widget.Icon) {

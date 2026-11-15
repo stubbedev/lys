@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/logind"
+	"github.com/stubbedev/lys/lib/logind"
 )
 
 // BacklightDir is the sysfs class directory for backlight devices; a

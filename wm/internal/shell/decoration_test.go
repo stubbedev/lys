@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	ckd "github.com/stubbedev/lys-wm/internal/protocol/client/kdeserverdecoration"
-	cxd "github.com/stubbedev/lys-wm/internal/protocol/client/xdgdecoration"
-	sxd "github.com/stubbedev/lys-wm/internal/protocol/server/xdgdecoration"
+	ckd "github.com/stubbedev/lys/wm/internal/protocol/client/kdeserverdecoration"
+	cxd "github.com/stubbedev/lys/wm/internal/protocol/client/xdgdecoration"
+	sxd "github.com/stubbedev/lys/wm/internal/protocol/server/xdgdecoration"
 )
 
 type decorationEvents struct {

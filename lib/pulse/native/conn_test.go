@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/pulse/native"
-	"github.com/stubbedev/lys-lib/pulse/pulsetest"
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/sockdir"
 )
 
 func speakers() native.DeviceInfo {

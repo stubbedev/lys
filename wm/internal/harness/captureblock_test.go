@@ -6,15 +6,15 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	clch "github.com/stubbedev/lys-wm/internal/protocol/client/lyscapturehint"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	cwsc "github.com/stubbedev/lys-wm/internal/protocol/client/wlrscreencopy"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	clch "github.com/stubbedev/lys/wm/internal/protocol/client/lyscapturehint"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	cwsc "github.com/stubbedev/lys/wm/internal/protocol/client/wlrscreencopy"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 var (

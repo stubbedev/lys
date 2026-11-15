@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // ErrDeviceLost reports a Vulkan device that was lost (VK_ERROR_DEVICE_LOST):

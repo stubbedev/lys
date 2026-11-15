@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // yuv444Constants are ycbcr444.frag's specialization constants: what

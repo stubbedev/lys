@@ -5,10 +5,10 @@ import (
 	"log"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 // Windows offers the open windows to jump to, on whichever compositor

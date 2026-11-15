@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-shell/service/hyprland"
-	"github.com/stubbedev/lys-shell/service/mango"
-	"github.com/stubbedev/lys-shell/service/niri"
-	"github.com/stubbedev/lys-shell/service/sway"
+	"github.com/stubbedev/lys/shell/service/hyprland"
+	"github.com/stubbedev/lys/shell/service/mango"
+	"github.com/stubbedev/lys/shell/service/niri"
+	"github.com/stubbedev/lys/shell/service/sway"
 )
 
 // Focus resolves what the output and window modes capture: the focused

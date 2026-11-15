@@ -24,7 +24,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/auth"
 )
 
 // A worker and the daemon exchange JSON lines over a socket pair: the

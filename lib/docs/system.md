@@ -13,7 +13,7 @@ package main
 import (
 	"log"
 
-	"github.com/stubbedev/lys-lib/pipewire"
+	"github.com/stubbedev/lys/lib/pipewire"
 )
 
 type gray struct{}
@@ -99,9 +99,9 @@ package main
 import (
 	"log"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-lib/dbusx"
+	"github.com/stubbedev/lys/lib/dbusx"
 )
 
 type greeter struct{}

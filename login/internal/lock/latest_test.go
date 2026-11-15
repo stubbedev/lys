@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/testbuild"
 	"golang.org/x/sys/unix"
 )
 

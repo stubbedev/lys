@@ -1,8 +1,8 @@
 package launcher
 
 import (
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // resultList is the virtualized results view: only the rows inside the

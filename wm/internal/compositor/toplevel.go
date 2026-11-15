@@ -4,11 +4,11 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/shell"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/output"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/shell"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type want struct {

@@ -3,7 +3,7 @@ package capture
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // Dynamic is the compositor's cast target as a Source: a session on it

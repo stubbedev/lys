@@ -16,19 +16,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/handover"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	cel "github.com/stubbedev/lys-wm/internal/protocol/client/extforeigntoplevellist"
-	csl "github.com/stubbedev/lys-wm/internal/protocol/client/extsessionlock"
-	csc "github.com/stubbedev/lys-wm/internal/protocol/client/securitycontext"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	cxdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/handover"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	cel "github.com/stubbedev/lys/wm/internal/protocol/client/extforeigntoplevellist"
+	csl "github.com/stubbedev/lys/wm/internal/protocol/client/extsessionlock"
+	csc "github.com/stubbedev/lys/wm/internal/protocol/client/securitycontext"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const reapLimit = 10 * time.Second

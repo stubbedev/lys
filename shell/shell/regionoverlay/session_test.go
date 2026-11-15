@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
 )
 
 // syncLoop stands in for the application's loop: it runs what it is

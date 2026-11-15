@@ -3,7 +3,7 @@ package anim
 import (
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 const (

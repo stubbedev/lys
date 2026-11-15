@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/output"
 )
 
 const DefaultInheritTimeout = 30 * time.Second

@@ -8,16 +8,16 @@ import (
 	"slices"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	cld "github.com/stubbedev/lys-wm/internal/protocol/client/linuxdmabuf"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/gles"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wlclient/feedback"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	cld "github.com/stubbedev/lys/wm/internal/protocol/client/linuxdmabuf"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/gles"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wlclient/feedback"
 )
 
 const (

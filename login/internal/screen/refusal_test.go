@@ -3,9 +3,9 @@ package screen
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/auth"
 )
 
 func TestRefusalTextWordsEachRefusal(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // heldFrame decodes the first picture of a w x h H.264 clip on a device

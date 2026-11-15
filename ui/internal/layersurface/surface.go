@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // ErrUnavailable reports a compositor without zwlr_layer_shell_v1.

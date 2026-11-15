@@ -4,14 +4,14 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	seic "github.com/stubbedev/lys-wm/internal/protocol/server/extimagecopycapture"
-	slch "github.com/stubbedev/lys-wm/internal/protocol/server/lyscapturehint"
-	swsc "github.com/stubbedev/lys-wm/internal/protocol/server/wlrscreencopy"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/output"
+	seic "github.com/stubbedev/lys/wm/internal/protocol/server/extimagecopycapture"
+	slch "github.com/stubbedev/lys/wm/internal/protocol/server/lyscapturehint"
+	swsc "github.com/stubbedev/lys/wm/internal/protocol/server/wlrscreencopy"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const captureHintVersion = 1

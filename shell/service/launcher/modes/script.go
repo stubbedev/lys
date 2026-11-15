@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // Script is a custom script mode speaking the rofi-script(5) protocol

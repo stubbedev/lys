@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	"github.com/stubbedev/lys-lib/polkit/polkittest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	"github.com/stubbedev/lys/lib/polkit/polkittest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-polkit/internal/polkit"
-	"github.com/stubbedev/lys-polkit/internal/tracker"
-	"github.com/stubbedev/lys-polkit/retained"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/internal/tracker"
+	"github.com/stubbedev/lys/polkit/retained"
 )
 
 const timeout = 5 * time.Second

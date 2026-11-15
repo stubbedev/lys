@@ -7,7 +7,7 @@ import (
 	"image"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // CutGLSL is the GLSL of CutUniforms.Keeps at CutUniforms.UV, cutCoverage,

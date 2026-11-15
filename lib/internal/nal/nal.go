@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // ErrUnsupported marks a header that is well formed and uses coding

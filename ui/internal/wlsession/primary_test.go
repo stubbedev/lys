@@ -3,7 +3,7 @@ package wlsession
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 func TestPrimarySelectionIsOptional(t *testing.T) {

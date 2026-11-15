@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-shell/service/powerprofiles"
+	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 // fakeProfiles is power-profiles-daemon as the Go service sees it. The

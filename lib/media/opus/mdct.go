@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The MDCT runs at two sizes: one long block over the whole frame (1920

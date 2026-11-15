@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 type fatalRecorder struct {

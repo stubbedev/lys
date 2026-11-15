@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	swlr "github.com/stubbedev/lys-wm/internal/protocol/server/wlrlayershell"
-	"github.com/stubbedev/lys-wm/internal/shell"
+	swlr "github.com/stubbedev/lys/wm/internal/protocol/server/wlrlayershell"
+	"github.com/stubbedev/lys/wm/internal/shell"
 )
 
 const (

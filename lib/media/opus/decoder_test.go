@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // rangeOp is one symbol of the range coder round trip: its kind and

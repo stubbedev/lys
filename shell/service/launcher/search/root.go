@@ -11,17 +11,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/desktopentry"
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/settingspage"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/answer"
-	"github.com/stubbedev/lys-shell/service/launcher/charnames"
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/answer"
+	"github.com/stubbedev/lys/shell/service/launcher/charnames"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 // Deps are the shell services a search session draws on.

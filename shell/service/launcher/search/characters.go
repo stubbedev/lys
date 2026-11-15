@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/charnames"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/charnames"
 )
 
 var iconInvisible launcher.Icon = launcher.IconName("ld-hash-symbolic")

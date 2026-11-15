@@ -3,7 +3,7 @@ package i18n
 import (
 	"testing"
 
-	greeterlocales "github.com/stubbedev/lys-desktop/i18n/locales/greeter"
+	greeterlocales "github.com/stubbedev/lys/desktop/i18n/locales/greeter"
 )
 
 // TestGreeterDomain pins the greeter's file-per-locale domain: the

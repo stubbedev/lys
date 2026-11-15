@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/media/mux"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/mux"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 func requireFFmpeg(t *testing.T) {

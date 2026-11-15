@@ -3,10 +3,10 @@
 package shaping
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/typesetting/di"
-	ft "github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/harfbuzz"
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/di"
+	ft "github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/harfbuzz"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
 	"golang.org/x/image/math/fixed"
 )
 

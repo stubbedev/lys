@@ -8,14 +8,14 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	sel "github.com/stubbedev/lys-wm/internal/protocol/server/extforeigntoplevellist"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	swft "github.com/stubbedev/lys-wm/internal/protocol/server/wlrforeigntoplevel"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/output"
+	sel "github.com/stubbedev/lys/wm/internal/protocol/server/extforeigntoplevellist"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	swft "github.com/stubbedev/lys/wm/internal/protocol/server/wlrforeigntoplevel"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const (

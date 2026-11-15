@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )

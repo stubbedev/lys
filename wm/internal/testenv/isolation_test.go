@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-const testhomePath = "github.com/stubbedev/lys-lib/testhome"
+const testhomePath = "github.com/stubbedev/lys/lib/testhome"
 
 type testPackage struct {
 	testMains  []string

@@ -6,10 +6,10 @@ import (
 	"slices"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/vp9"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/vp9"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // vp9Decoder is VP9's part of a decoder, as av1Decoder is AV1's. VP9

@@ -10,7 +10,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/text"
+	"github.com/stubbedev/lys/lib/text"
 )
 
 func testChain(t testing.TB) *Chain {

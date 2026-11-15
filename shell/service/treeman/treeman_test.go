@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/lib/sockdir"
 )
 
 func TestWorstBucket(t *testing.T) {

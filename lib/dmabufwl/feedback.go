@@ -8,8 +8,8 @@ import (
 	"slices"
 	"syscall"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // TrancheFlags are a feedback tranche's zwp_linux_dmabuf_feedback_v1

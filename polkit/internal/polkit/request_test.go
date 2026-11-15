@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-polkit/internal/polkit"
+	"github.com/stubbedev/lys/polkit/internal/polkit"
 )
 
 func user(uid any) polkit.Identity {

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Introspectable implements org.freedesktop.Introspectable.

@@ -4,11 +4,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-ui/internal/waittest"
+	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 func TestAFallbackReadsNoFontWhereItShapes(t *testing.T) {

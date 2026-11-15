@@ -4,7 +4,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // fixedChild is one Fixed child: the widget and its position in

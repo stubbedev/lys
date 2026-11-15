@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
 )
 
 type buttonEvents struct{ *pointerEvents }

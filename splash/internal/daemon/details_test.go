@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-splash/internal/console"
-	"github.com/stubbedev/lys-splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/console"
+	"github.com/stubbedev/lys/splash/internal/protocol"
 )
 
 type fakeConsole struct {

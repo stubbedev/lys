@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/network/openconnect/openconnecttest"
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/openconnect/openconnecttest"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // connection is an NM connection dictionary as GetSecrets hands it.

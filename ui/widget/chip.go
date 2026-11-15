@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // chipMime is the drag mime of a chip moving between ChipBoxes.

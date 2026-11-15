@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/gputest"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/gputest"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // goldenDevice is the GPU the goldens also render on when

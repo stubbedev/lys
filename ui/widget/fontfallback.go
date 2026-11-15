@@ -3,7 +3,7 @@ package widget
 import (
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 var (

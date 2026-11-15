@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/image/font/gofont/goregular"
 
-	"github.com/stubbedev/lys-lib/text"
+	"github.com/stubbedev/lys/lib/text"
 )
 
 func testTypeface(tb testing.TB) *Typeface {

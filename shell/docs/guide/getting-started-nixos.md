@@ -74,7 +74,7 @@ System services (NetworkManager, BlueZ, UPower, power-profiles-daemon, GeoClue, 
 
 ## Lock screen
 
-[lys-login](https://github.com/stubbedev/lys-login) has its own flake and NixOS module. `programs.lys-login.enable` puts it on the `PATH`. `programs.lys-login.lock.enable` declares a PAM service for the unlock; point [`login.lock.pam-service`](/config/login) at it.
+[lys-login](https://github.com/stubbedev/lys/tree/main/login) has its own flake and NixOS module. `programs.lys-login.enable` puts it on the `PATH`. `programs.lys-login.lock.enable` declares a PAM service for the unlock; point [`login.lock.pam-service`](/config/login) at it.
 
 ## Converting settings to Nix
 

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/glibclocale/glibclocaletest"
+	"github.com/stubbedev/lys/lib/glibclocale/glibclocaletest"
 )
 
 var at = time.Date(2026, time.March, 4, 13, 5, 6, 0, time.UTC)

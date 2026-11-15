@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stubbedev/lys-splash/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-splash/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
+  <a href="https://github.com/stubbedev/lys/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/stubbedev/lys-splash/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT license"></a>
-  <a href="https://stubbedev.github.io/lys-splash/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://stubbedev.github.io/lys/splash/"><img src="https://img.shields.io/badge/docs-stubbedev.github.io-informational?style=for-the-badge" alt="Documentation"></a>
 </p>
 
 <p align="center">
@@ -37,7 +37,7 @@ NixOS:
 ```
 
 Ubuntu and Debian: copy the package's `compat` output under `/usr`; see the
-[install guide](https://stubbedev.github.io/lys-splash/guide/install).
+[install guide](https://stubbedev.github.io/lys/splash/guide/install).
 
 ## Use
 
@@ -54,17 +54,17 @@ Do not start the daemon on a running desktop: it takes over the display.
 
 ## Documentation
 
-[stubbedev.github.io/lys-splash](https://stubbedev.github.io/lys-splash/)
+[stubbedev.github.io/lys-splash](https://stubbedev.github.io/lys/splash/)
 
 ## The lys family
 
-[lys-shell](https://github.com/stubbedev/lys-shell),
-[lys-wm](https://github.com/stubbedev/lys-wm),
-[lys-ui](https://github.com/stubbedev/lys-ui),
-[lys-lib](https://github.com/stubbedev/lys-lib),
-[lys-login](https://github.com/stubbedev/lys-login),
-[lys-polkit](https://github.com/stubbedev/lys-polkit),
-[lys-secrets](https://github.com/stubbedev/lys-secrets).
+[lys-shell](https://github.com/stubbedev/lys/tree/main/shell),
+[lys-wm](https://github.com/stubbedev/lys/tree/main/wm),
+[lys-ui](https://github.com/stubbedev/lys/tree/main/ui),
+[lys-lib](https://github.com/stubbedev/lys/tree/main/lib),
+[lys-login](https://github.com/stubbedev/lys/tree/main/login),
+[lys-polkit](https://github.com/stubbedev/lys/tree/main/polkit),
+[lys-secrets](https://github.com/stubbedev/lys/tree/main/secrets).
 
 ## License
 

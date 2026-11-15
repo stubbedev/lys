@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // PlaybackParams describes a playback stream.

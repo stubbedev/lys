@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/av1"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/testbuild"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/internal/av1"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // libaom is ffmpeg's arguments for libaom at speed 6 with params, if

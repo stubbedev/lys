@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 
-	"github.com/stubbedev/lys-ui/internal/headlesstest"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/internal/headlesstest"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // fakeSource is a data source whose requests go nowhere: a context

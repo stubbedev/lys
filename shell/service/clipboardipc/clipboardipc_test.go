@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 )
 
 func TestCopyTextReachesTheShellsClipboard(t *testing.T) {

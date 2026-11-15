@@ -5,11 +5,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/charnames"
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/charnames"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 func countingTable(n *atomic.Int32) func() (*charnames.Table, error) {

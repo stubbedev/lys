@@ -5,10 +5,10 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/inputmethod"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/inputmethod"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 func (c *Compositor) PopupsChanged() error {

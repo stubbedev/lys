@@ -6,8 +6,8 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 var errNoMode = errors.New("kms: the connector lists no mode")

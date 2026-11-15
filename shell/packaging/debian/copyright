@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: lys-shell
-Source: https://github.com/stubbedev/lys-shell
+Source: https://github.com/stubbedev/lys/tree/main/shell
 
 Files: *
 Copyright: 2025 Jas Singh

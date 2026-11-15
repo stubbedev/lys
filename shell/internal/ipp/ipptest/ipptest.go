@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-shell/internal/ipp"
+	"github.com/stubbedev/lys/shell/internal/ipp"
 )
 
 // Job is one Print-Job the scheduler took: the queue its URI named,

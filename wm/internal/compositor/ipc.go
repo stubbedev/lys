@@ -5,17 +5,17 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/frametrace"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	"github.com/stubbedev/lys-wm/internal/output"
-	swlr "github.com/stubbedev/lys-wm/internal/protocol/server/wlrlayershell"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/shell"
-	"github.com/stubbedev/lys-wm/internal/tabletinput"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/frametrace"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/output"
+	swlr "github.com/stubbedev/lys/wm/internal/protocol/server/wlrlayershell"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/shell"
+	"github.com/stubbedev/lys/wm/internal/tabletinput"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func (c *Compositor) TraceFrames(r *frametrace.Recorder) {

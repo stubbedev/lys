@@ -5,10 +5,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/media/demux"
 
-	"github.com/stubbedev/lys-ui/media"
+	"github.com/stubbedev/lys/ui/media"
 )
 
 // OpenDialogs returns the dialogs a test cannot reach through the API

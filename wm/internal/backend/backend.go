@@ -8,13 +8,13 @@ import (
 	"image"
 	"time"
 
-	"github.com/stubbedev/lys-lib/edid"
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys/lib/edid"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/wm"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 func NextVblank(last, now, interval time.Duration) (at time.Duration, ticks uint64) {

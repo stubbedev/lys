@@ -28,9 +28,9 @@ import (
 	"os"
 	"sync"
 
-	greeterlocales "github.com/stubbedev/lys-desktop/i18n/locales/greeter"
-	settingslocales "github.com/stubbedev/lys-desktop/i18n/locales/settings"
-	shelllocales "github.com/stubbedev/lys-desktop/i18n/locales/shell"
+	greeterlocales "github.com/stubbedev/lys/desktop/i18n/locales/greeter"
+	settingslocales "github.com/stubbedev/lys/desktop/i18n/locales/settings"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 )
 
 // domain lazily builds one loader from the desktop locale, like the

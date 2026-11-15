@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/filechooser"
+	"github.com/stubbedev/lys/shell/shell/filechooser"
 )
 
 // openFileAsync calls OpenFile, its reply on the channel.

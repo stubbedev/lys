@@ -4,12 +4,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/jinja"
-	"github.com/stubbedev/lys-shell/service/sysinfo"
+	"github.com/stubbedev/lys/shell/internal/jinja"
+	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
 // netstatLabel is helpers.rs's format_label over one interface's

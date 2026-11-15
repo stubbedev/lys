@@ -1,6 +1,6 @@
 package widget
 
-import "github.com/stubbedev/lys-lib/render"
+import "github.com/stubbedev/lys/lib/render"
 
 // DrawingArea is a widget the application paints itself (GTK
 // DrawingArea): OnDraw receives the canvas, clipped to the area, on

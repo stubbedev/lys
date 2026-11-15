@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/internal/gvariant"
+	"github.com/stubbedev/lys/shell/internal/gvariant"
 )
 
 const prefix = "/org/gtk/libgtk/emoji/"

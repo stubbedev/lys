@@ -6,12 +6,12 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/auth"
 )
 
 // jpegPhoto is a w x h picture as the JPEG decoder returns one, YCbCr

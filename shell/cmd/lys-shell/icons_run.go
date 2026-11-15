@@ -13,11 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/icons"
-	"github.com/stubbedev/lys-desktop/resources"
+	"github.com/stubbedev/lys/desktop/icons"
+	"github.com/stubbedev/lys/desktop/resources"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // newIconManager is the handlers' IconManager::new (a variable so tests

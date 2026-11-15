@@ -14,16 +14,16 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/internal/clipboard"
-	"github.com/stubbedev/lys-ui/internal/compose"
-	"github.com/stubbedev/lys-ui/internal/dragdrop"
-	"github.com/stubbedev/lys-ui/internal/touchinput"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/clipboard"
+	"github.com/stubbedev/lys/ui/internal/compose"
+	"github.com/stubbedev/lys/ui/internal/dragdrop"
+	"github.com/stubbedev/lys/ui/internal/touchinput"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // ErrClosed reports that the surface ended and the loop exited. Callers

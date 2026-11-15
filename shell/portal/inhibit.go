@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	login1 "github.com/stubbedev/lys-lib/logind"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	login1 "github.com/stubbedev/lys/lib/logind"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/idleinhibit"
+	"github.com/stubbedev/lys/shell/service/idleinhibit"
 )
 
 // InhibitIface is org.freedesktop.impl.portal.Inhibit.

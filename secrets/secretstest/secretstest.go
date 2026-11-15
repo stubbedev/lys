@@ -10,10 +10,10 @@ import (
 	"sync"
 	"testing"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-secrets/internal/keyring"
-	"github.com/stubbedev/lys-secrets/internal/service"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/service"
 )
 
 // Server is a Secret Service serving org.freedesktop.secrets on a

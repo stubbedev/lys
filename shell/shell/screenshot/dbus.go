@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/shell/colorpicker"
+	"github.com/stubbedev/lys/shell/shell/colorpicker"
 )
 
 // D-Bus identity (wayle-ipc's screenshot proxy).

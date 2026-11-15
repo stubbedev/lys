@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // Error is a template syntax or render error.

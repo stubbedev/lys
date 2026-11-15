@@ -12,7 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/imagedecode"
 )
 
 const (

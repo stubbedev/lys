@@ -7,16 +7,16 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cxtd "github.com/stubbedev/lys-wm/internal/protocol/client/xdgtopleveldrag"
-	"github.com/stubbedev/lys-wm/internal/region"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cxtd "github.com/stubbedev/lys/wm/internal/protocol/client/xdgtopleveldrag"
+	"github.com/stubbedev/lys/wm/internal/region"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type tabDrag struct {

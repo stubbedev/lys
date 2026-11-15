@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/shader"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/shader"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func exampleSources(t *testing.T) map[string][]byte {

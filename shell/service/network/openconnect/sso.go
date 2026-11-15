@@ -21,9 +21,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/fileuri"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // AnyConnect single sign-on through the system browser (sso.rs): the

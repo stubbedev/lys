@@ -1,8 +1,8 @@
 package pulsetest
 
 import (
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/pulse/native"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
 // The fill functions are the server half of the wire layouts, written

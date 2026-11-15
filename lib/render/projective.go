@@ -3,7 +3,7 @@ package render
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The projective (3-D-lite) transform pipeline: CSS's 3-D transform

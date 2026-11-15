@@ -4,9 +4,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
 
 func TestAFrameCostCountsWhatItFilteredRepaintedAllocatedAndCopied(t *testing.T) {

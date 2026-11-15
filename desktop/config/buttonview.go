@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // Bar-button views: the bar_button key set (wayle-derive's

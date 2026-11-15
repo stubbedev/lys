@@ -7,15 +7,15 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cwsc "github.com/stubbedev/lys-wm/internal/protocol/client/securitycontext"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwsc2 "github.com/stubbedev/lys-wm/internal/protocol/client/wlrscreencopy"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/testenv"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wlclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cwsc "github.com/stubbedev/lys/wm/internal/protocol/client/securitycontext"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwsc2 "github.com/stubbedev/lys/wm/internal/protocol/client/wlrscreencopy"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wlclient"
 )
 
 type globalNames map[string]uint32

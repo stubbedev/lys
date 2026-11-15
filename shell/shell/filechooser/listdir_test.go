@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/fswatch"
+	"github.com/stubbedev/lys/desktop/fswatch"
 	"golang.org/x/sys/unix"
 )
 

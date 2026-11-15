@@ -4,12 +4,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/appearance"
-	"github.com/stubbedev/lys-lib/logutil"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/appearance"
+	"github.com/stubbedev/lys/lib/logutil"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-ui/gtksettings"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/gtksettings"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // ColorScheme returns the desktop's current dark/light preference,

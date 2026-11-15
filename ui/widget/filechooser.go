@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // FileChooser is the pure-Go file picker behind app.OpenFileDialog and

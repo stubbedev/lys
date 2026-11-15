@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // ComboboxOption is one choice of a Combobox: the typed value it picks

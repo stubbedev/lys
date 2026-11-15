@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"slices"
 
-	skd "github.com/stubbedev/lys-wm/internal/protocol/server/kdeserverdecoration"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxd "github.com/stubbedev/lys-wm/internal/protocol/server/xdgdecoration"
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	skd "github.com/stubbedev/lys/wm/internal/protocol/server/kdeserverdecoration"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxd "github.com/stubbedev/lys/wm/internal/protocol/server/xdgdecoration"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const (

@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-desktop/identity"
+	"github.com/stubbedev/lys/desktop/identity"
 )
 
 // daysToKeep is tracing.rs's DAYS_TO_KEEP.

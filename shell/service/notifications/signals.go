@@ -1,6 +1,6 @@
 package notifications
 
-import "github.com/stubbedev/lys-lib/dbusx"
+import "github.com/stubbedev/lys/lib/dbusx"
 
 // ActionInvocation is what ActionInvoked carries: the notification and
 // the key of the action the user picked.

@@ -3,7 +3,7 @@ package fontscan
 import (
 	"strings"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 // LangID is a compact representation of a language

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 )
 
 // Layout is one modifier to probe and how its buffers are allocated:

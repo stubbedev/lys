@@ -12,8 +12,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/internal/pango"
-	"github.com/stubbedev/lys-shell/service/launcher"
+	"github.com/stubbedev/lys/shell/internal/pango"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 func failed(state launcher.ModeState, err error) launcher.Action {

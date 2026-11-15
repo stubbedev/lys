@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 )
 
 // driving makes the rig's node the driver of its graph, with itself as the

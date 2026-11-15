@@ -3,7 +3,7 @@ package compositor
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 var (

@@ -6,9 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/vinput"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/wltest"
 )
 
 func TestHeadlessCursorFollowsThePointerAndCopiesItsImageOnce(t *testing.T) {

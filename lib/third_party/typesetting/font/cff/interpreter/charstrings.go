@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
 )
 
 // PathBounds represents a control bounds for

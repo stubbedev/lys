@@ -1,10 +1,10 @@
 package harfbuzz
 
 import (
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 type zeroWidthMarks uint8

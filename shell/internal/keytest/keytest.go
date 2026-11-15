@@ -9,10 +9,10 @@ package keytest
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/vinput"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
 )
 
 // The evdev codes the keyboard types its keys on, each the code of

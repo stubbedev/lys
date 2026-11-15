@@ -11,11 +11,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/internal/inspect"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/inspect"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // inspectAction is what an inspector chord asks for.

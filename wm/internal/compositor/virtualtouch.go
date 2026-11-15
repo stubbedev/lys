@@ -3,11 +3,11 @@ package compositor
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	slvt "github.com/stubbedev/lys-wm/internal/protocol/server/lysvirtualtouch"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	slvt "github.com/stubbedev/lys/wm/internal/protocol/server/lysvirtualtouch"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const virtualTouchVersion = 1

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/opener/openertest"
+	"github.com/stubbedev/lys/desktop/opener/openertest"
 
-	"github.com/stubbedev/lys-shell/internal/pango"
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/launchertest"
+	"github.com/stubbedev/lys/shell/internal/pango"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/launchertest"
 )
 
 func wantNoTerminalMessage(t *testing.T, a launcher.Action, names ...string) {

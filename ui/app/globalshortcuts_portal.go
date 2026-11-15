@@ -14,11 +14,11 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/debug"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/debug"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-ui/internal/worker"
+	"github.com/stubbedev/lys/ui/internal/worker"
 )
 
 // ErrGlobalShortcutDenied reports the user refusing the portal's bind

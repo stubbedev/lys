@@ -7,11 +7,11 @@ import (
 	"log"
 	"sync"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/transfer"
 
-	"github.com/stubbedev/lys-desktop/offheap"
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/offheap"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
 
 // Clipboard is the session's clipboard history, kept current: it

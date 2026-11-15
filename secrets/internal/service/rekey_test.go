@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-secrets/control"
-	"github.com/stubbedev/lys-secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
 )
 
 // loginWithItem is a locked login collection on the password "old", holding one

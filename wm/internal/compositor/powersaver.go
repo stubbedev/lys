@@ -1,6 +1,6 @@
 package compositor
 
-import "github.com/stubbedev/lys-wm/internal/backend"
+import "github.com/stubbedev/lys/wm/internal/backend"
 
 const DefaultPowerSaverRate = 60
 

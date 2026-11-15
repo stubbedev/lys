@@ -17,8 +17,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // Dir is where the display manager keeps the records.

@@ -16,7 +16,7 @@ import (
 	"image/draw"
 
 	"golang.org/x/image/math/fixed"
-	"github.com/stubbedev/lys-lib/third_party/vector"
+	"github.com/stubbedev/lys/lib/third_party/vector"
 )
 
 // At returns the color at the point x,y

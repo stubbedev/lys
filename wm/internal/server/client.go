@@ -6,13 +6,13 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/peercred"
+	"github.com/stubbedev/lys/lib/peercred"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type destroyHooks struct {

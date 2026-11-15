@@ -7,11 +7,11 @@ import (
 	"log"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/peercred"
-	"github.com/stubbedev/lys-lib/polkit"
+	"github.com/stubbedev/lys/lib/peercred"
+	"github.com/stubbedev/lys/lib/polkit"
 
-	"github.com/stubbedev/lys-login/dmsocket"
-	"github.com/stubbedev/lys-login/greeterconfig"
+	"github.com/stubbedev/lys/login/dmsocket"
+	"github.com/stubbedev/lys/login/greeterconfig"
 )
 
 const applyAction polkit.Action = "dev.stubbe.lys.login.apply-config"

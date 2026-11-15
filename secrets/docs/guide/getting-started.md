@@ -55,7 +55,7 @@ Options for both modules: [Nix options](/guide/configuration#nix-options).
 
 ### Debian, Ubuntu, Fedora
 
-Each [release](https://github.com/stubbedev/lys-secrets/releases) has a `.deb`
+Each [release](https://github.com/stubbedev/lys/releases) has a `.deb`
 and `.rpm` for x86_64 and aarch64, and `SHA256SUMS`:
 
 ```sh
@@ -124,6 +124,6 @@ collection, and a later `login` collection does not take over `default`.
 ## Bitwarden
 
 Log in from lys-shell's
-[bitwarden module](https://stubbedev.github.io/lys-shell/config/modules/bitwarden).
+[bitwarden module](https://stubbedev.github.io/lys/shell/config/modules/bitwarden).
 lys-secrets has no login command. To expose one vault folder to libsecret clients,
 set [`--vault-collection-folder`](/guide/configuration#flags).

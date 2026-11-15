@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	ctab "github.com/stubbedev/lys-wm/internal/protocol/client/tablet"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/tabletinput"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	ctab "github.com/stubbedev/lys/wm/internal/protocol/client/tablet"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/tabletinput"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const (

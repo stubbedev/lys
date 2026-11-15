@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/testbuild"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // The lookups that replaced the package's maps answer on the stack: an

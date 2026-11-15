@@ -3,9 +3,9 @@ package printdialog
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/portaldialogs"
 
-	"github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest"
 )
 
 // On lys-wm, a print request naming the app's window maps the dialog as

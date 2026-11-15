@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/icons/icontest"
+	"github.com/stubbedev/lys/desktop/icons/icontest"
 )
 
 const homeSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9" stroke="#000" stroke-width="2" fill="none"/></svg>`

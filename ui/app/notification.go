@@ -4,7 +4,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-ui/internal/notify"
+	"github.com/stubbedev/lys/ui/internal/notify"
 )
 
 // Desktop notifications (#85): app.Notify sends a GNotification-class

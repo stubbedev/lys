@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // Session is one logind session on one connection.

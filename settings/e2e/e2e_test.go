@@ -17,11 +17,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/settingspage"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/ui/app"
 
-	"github.com/stubbedev/lys-settings/internal/wmconfig"
-	"github.com/stubbedev/lys-settings/internal/wmtest"
+	"github.com/stubbedev/lys/settings/internal/wmconfig"
+	"github.com/stubbedev/lys/settings/internal/wmtest"
 )
 
 const (
@@ -308,7 +308,7 @@ func TestTheBuiltInConfigAndSchemaAreWhatThisAppExpects(t *testing.T) {
 func buildApp(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "lys-settings")
-	out, err := exec.Command("go", "build", "-o", bin, "github.com/stubbedev/lys-settings/cmd/lys-settings").CombinedOutput()
+	out, err := exec.Command("go", "build", "-o", bin, "github.com/stubbedev/lys/settings/cmd/lys-settings").CombinedOutput()
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}

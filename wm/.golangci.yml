@@ -73,7 +73,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/stubbedev/lys-wm)
+        - prefix(github.com/stubbedev/lys/wm)
   exclusions:
     generated: lax
     paths:

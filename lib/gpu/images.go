@@ -5,7 +5,7 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // maxImages bounds the image textures kept, well inside the descriptor

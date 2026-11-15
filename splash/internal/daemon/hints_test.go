@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-splash/internal/kms"
-	"github.com/stubbedev/lys-splash/internal/protocol"
-	"github.com/stubbedev/lys-splash/internal/theme"
+	"github.com/stubbedev/lys/splash/internal/kms"
+	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 func keymapOf(name string) func() (string, error) {

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	ccs "github.com/stubbedev/lys-wm/internal/protocol/client/cursorshape"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	ccs "github.com/stubbedev/lys/wm/internal/protocol/client/cursorshape"
 )
 
 func cursorState(r *inputRig) (hidden, visible bool, commits uint64) {

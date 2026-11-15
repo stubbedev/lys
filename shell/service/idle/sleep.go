@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/logind"
+	"github.com/stubbedev/lys/lib/logind"
 )
 
 // sleepWho is the inhibitor's owner as `systemd-inhibit --list` shows it.

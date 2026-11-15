@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // Charset is a class of characters a password draws from.

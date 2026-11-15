@@ -5,11 +5,11 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cbe "github.com/stubbedev/lys-wm/internal/protocol/client/backgroundeffect"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cbe "github.com/stubbedev/lys/wm/internal/protocol/client/backgroundeffect"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 func defaultLook(cfg *compositor.Config) {

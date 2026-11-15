@@ -1,6 +1,6 @@
 package edid
 
-import "github.com/stubbedev/lys-lib/third_party/gomath"
+import "github.com/stubbedev/lys/lib/third_party/gomath"
 
 const (
 	extColorimety = 0x05

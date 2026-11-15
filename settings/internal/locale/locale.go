@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"sync"
 
-	"github.com/stubbedev/lys-desktop/i18n"
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 //go:embed all:locales

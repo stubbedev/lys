@@ -3,9 +3,9 @@ package portal
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // dynamicCaptureOffered asks the compositor, on a capture connection of

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/rustparse"
-	"github.com/stubbedev/lys-shell/service/idleinhibit"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/rustparse"
+	"github.com/stubbedev/lys/shell/service/idleinhibit"
 )
 
 // idleCommand is lys-shell/src/cli/idle/commands.rs.

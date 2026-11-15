@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/intconv"
-	xdeco "github.com/stubbedev/lys-lib/third_party/wayland/unstable/xdg-decoration-v1"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/xdg"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/intconv"
+	xdeco "github.com/stubbedev/lys/lib/third_party/wayland/unstable/xdg-decoration-v1"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // ErrNotConfigured reports a draw attempt before the first configure

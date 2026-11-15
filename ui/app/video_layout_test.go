@@ -3,9 +3,9 @@ package app
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-ui/media"
+	"github.com/stubbedev/lys/ui/media"
 )
 
 func numberedFrame(w, h int) *media.YUVFrame {

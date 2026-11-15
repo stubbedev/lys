@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-secrets/internal/dialogtest"
+	"github.com/stubbedev/lys/secrets/internal/dialogtest"
 )
 
 // runPinentryCmd runs lys-secrets pinentry on the test's bus with stdin, until it

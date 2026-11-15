@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/animclock"
 )
 
 // animClock is the injected animation clock the anim-driven widget

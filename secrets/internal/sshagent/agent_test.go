@@ -18,14 +18,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/sockdir"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
-	"github.com/stubbedev/lys-secrets/internal/keyring"
-	"github.com/stubbedev/lys-secrets/internal/service"
-	"github.com/stubbedev/lys-secrets/internal/usersock"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/service"
+	"github.com/stubbedev/lys/secrets/internal/usersock"
 )
 
 // fakePrompter answers passphrase dialogs with passphrase, remembering it

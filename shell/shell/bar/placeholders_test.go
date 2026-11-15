@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/service/idleinhibit/inhibitduration"
-	"github.com/stubbedev/lys-desktop/service/mpris"
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
+	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/secrets/vault"
 
-	"github.com/stubbedev/lys-shell/internal/jinja"
-	"github.com/stubbedev/lys-shell/service/recorder"
-	"github.com/stubbedev/lys-shell/service/sysinfo"
-	"github.com/stubbedev/lys-shell/service/treeman"
-	"github.com/stubbedev/lys-shell/service/weather"
+	"github.com/stubbedev/lys/shell/internal/jinja"
+	"github.com/stubbedev/lys/shell/service/recorder"
+	"github.com/stubbedev/lys/shell/service/sysinfo"
+	"github.com/stubbedev/lys/shell/service/treeman"
+	"github.com/stubbedev/lys/shell/service/weather"
 )
 
 func declaredNames(t *testing.T, path string) []string {

@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/styling"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-login/internal/cursorrecord"
+	"github.com/stubbedev/lys/login/internal/cursorrecord"
 )
 
 func envOf(vars map[string]string) xdg.Env {

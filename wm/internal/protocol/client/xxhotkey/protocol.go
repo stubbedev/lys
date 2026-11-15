@@ -3,8 +3,8 @@
 package xxhotkey
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var XxHotkeyManagerV1Interface = &wire.Interface{

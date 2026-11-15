@@ -26,7 +26,7 @@ bind = SUPER, SPACE, exec, lys-shell launcher
 | Files | Recent files and the [file index](#file-index); a query starting with `/` or `~` lists that folder |
 | Calculator | Arithmetic (`6*7`, `sqrt(16)`), units (`5 km to mi`, `100 f in c`, `1 GiB to MB`), [currencies, times and dates](#currencies-times-and-dates) |
 | System | Lock, sleep, log out, restart, shut down, through the [`power`](/config/modules/power) commands. Ending the session asks for a second Enter |
-| Settings | Pages of [lys-settings](https://github.com/stubbedev/lys-settings), when installed |
+| Settings | Pages of [lys-settings](https://github.com/stubbedev/lys/tree/main/settings), when installed |
 | Clipboard | From three typed letters; `Clipboard History` lists all. See [Clipboard history](#clipboard-history) |
 | Emoji | From two typed letters; `Emoji Picker` lists all |
 | Unicode characters | From three typed letters (`right arrow` finds →); `Unicode Characters` lists all |

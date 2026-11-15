@@ -4,8 +4,8 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
 )
 
 // taskWindow is one window of the compositor's foreign-toplevel list as

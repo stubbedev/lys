@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/dmabufwl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/third_party/wayland/wlclient"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/dmabufwl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // Global names the client binds. They double as the protocol names in

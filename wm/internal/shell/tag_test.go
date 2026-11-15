@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	cxtt "github.com/stubbedev/lys-wm/internal/protocol/client/xdgtopleveltag"
+	cxtt "github.com/stubbedev/lys/wm/internal/protocol/client/xdgtopleveltag"
 )
 
 func (c *client) tagManager() *cxtt.XdgToplevelTagManagerV1 {

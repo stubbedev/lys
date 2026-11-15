@@ -3,7 +3,7 @@
 // technology side the tests play (atspitest).
 package proto
 
-import dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+import dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 // The desktop's accessibility switch and the accessibility bus's
 // address live on the session bus under at-spi-bus-launcher's name.

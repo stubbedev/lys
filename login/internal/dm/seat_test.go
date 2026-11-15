@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/auth"
 )
 
 type consoleCalls struct {

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
 
-	"github.com/stubbedev/lys-shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
 )
 
 // fakeNM is a NetworkManager on a private bus: the settings tree,

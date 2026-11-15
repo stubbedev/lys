@@ -15,11 +15,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/peercred"
+	"github.com/stubbedev/lys/lib/peercred"
 
-	"github.com/stubbedev/lys-login/dmsocket"
-	"github.com/stubbedev/lys-login/greeterconfig"
-	"github.com/stubbedev/lys-login/internal/cursorrecord"
+	"github.com/stubbedev/lys/login/dmsocket"
+	"github.com/stubbedev/lys/login/greeterconfig"
+	"github.com/stubbedev/lys/login/internal/cursorrecord"
 )
 
 // Socket is one of the display manager's sockets in its runtime

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/peercred"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/peercred"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func TestStartTimeIsReadPastACommandNameWithSpacesAndParentheses(t *testing.T) {

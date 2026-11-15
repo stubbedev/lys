@@ -5,7 +5,7 @@
 package bidi
 
 import (
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
 )
 
 // Paragraph is the main entry point of the package.

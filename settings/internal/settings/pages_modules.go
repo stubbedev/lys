@@ -1,6 +1,6 @@
 package settings
 
-import "github.com/stubbedev/lys-desktop/config"
+import "github.com/stubbedev/lys/desktop/config"
 
 // The module pages (pages/modules), in modules::factories order.
 

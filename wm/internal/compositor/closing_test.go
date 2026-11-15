@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	swlr "github.com/stubbedev/lys-wm/internal/protocol/server/wlrlayershell"
+	swlr "github.com/stubbedev/lys/wm/internal/protocol/server/wlrlayershell"
 )
 
 func TestSlideOffLeavesThroughTheNearestEdge(t *testing.T) {

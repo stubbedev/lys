@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The CSS filter effects: the color-matrix family (brightness,

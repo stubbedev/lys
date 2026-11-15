@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/appearance"
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/icons"
-	"github.com/stubbedev/lys-lib/internal/goroutine"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/appearance"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/icons"
+	"github.com/stubbedev/lys/lib/internal/goroutine"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 const xdgDesktopPortal = "org.freedesktop.portal.Desktop"

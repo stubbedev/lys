@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/swaytest"
-	"github.com/stubbedev/lys-lib/wlr"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/lib/wlr"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // A window is listed from its first done batch, with the batch's app id

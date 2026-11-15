@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // A bar's popover opens away from its edge, the side mapped to the

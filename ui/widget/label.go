@@ -7,10 +7,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/text"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/text"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // EllipsizeMode names where an overflowing label truncates. It is

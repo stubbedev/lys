@@ -14,9 +14,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // store is the config the window edits. Every write is a runtime

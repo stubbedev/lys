@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/dbusx"
-	"github.com/stubbedev/lys-lib/logind"
-	libpolkit "github.com/stubbedev/lys-lib/polkit"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/logind"
+	libpolkit "github.com/stubbedev/lys/lib/polkit"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // AgentPath is where lys-polkit exports its agent.

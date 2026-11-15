@@ -16,7 +16,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/rtkit/rtkittest"
+	"github.com/stubbedev/lys/wm/internal/rtkit/rtkittest"
 )
 
 const (

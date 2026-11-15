@@ -4,8 +4,8 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 func TestAFramesAllocations(t *testing.T) {

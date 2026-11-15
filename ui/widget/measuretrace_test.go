@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // A lysdebug build names each measure-cache miss by reason and widget

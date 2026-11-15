@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/service/network/openconnect"
+	"github.com/stubbedev/lys/shell/service/network/openconnect"
 )
 
 // This file is what kinds of VPN this machine can run and what each

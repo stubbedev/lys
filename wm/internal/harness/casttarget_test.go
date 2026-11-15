@@ -6,14 +6,14 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/ipc"
-	ceic "github.com/stubbedev/lys-wm/internal/protocol/client/extimagecopycapture"
-	cldc "github.com/stubbedev/lys-wm/internal/protocol/client/lysdynamiccapture"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
+	ceic "github.com/stubbedev/lys/wm/internal/protocol/client/extimagecopycapture"
+	cldc "github.com/stubbedev/lys/wm/internal/protocol/client/lysdynamiccapture"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type countedView struct {

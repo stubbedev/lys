@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/recorder"
-	"github.com/stubbedev/lys-shell/service/sysinfo"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/recorder"
+	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
 // recorderCommand is lys-shell/src/cli/recorder/commands.rs.

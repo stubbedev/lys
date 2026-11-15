@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-lib/capture"
-	"github.com/stubbedev/lys-lib/edid"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/edid"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/drmconn"
-	"github.com/stubbedev/lys-shell/shell/sharepicker"
+	"github.com/stubbedev/lys/shell/internal/drmconn"
+	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
 // Restore tokens are (suv): vendor, version, and the grant. Version 1

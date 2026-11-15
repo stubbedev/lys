@@ -8,7 +8,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const (

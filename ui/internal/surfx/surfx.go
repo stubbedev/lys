@@ -35,7 +35,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // Kind selects a surface's animation profile. The zero value is the

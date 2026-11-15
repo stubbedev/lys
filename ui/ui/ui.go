@@ -21,10 +21,10 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Node is a buildable piece of a widget tree.

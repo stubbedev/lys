@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
+	"github.com/stubbedev/lys/lib/debug"
 
-	"github.com/stubbedev/lys-ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
 )
 
 const fontWarmStopTimeout = 3 * time.Second

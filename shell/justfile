@@ -26,7 +26,7 @@ fhs_interpreter := if arch() == "aarch64" { "/lib/ld-linux-aarch64.so.1" } else 
 # runs a binary made for another system's loader.
 build:
     CGO_ENABLED=0 {{go}} build -trimpath -ldflags "-s -w -I {{fhs_interpreter}}" -o {{dist}}/ ./cmd/lys-shell ./cmd/lys-lock
-    install -m 0644 "$({{go}} list -m -f '{{{{.Dir}}' github.com/stubbedev/lys-desktop)/service/bitwarden/generator/eff_large_wordlist.NOTICE" {{dist}}/
+    install -m 0644 "$({{go}} list -m -f '{{{{.Dir}}' github.com/stubbedev/lys/desktop)/service/bitwarden/generator/eff_large_wordlist.NOTICE" {{dist}}/
     {{go}} tool install-icons {{dist}}/icons/hicolor/scalable/actions
     {{go}} run ./internal/tools/distcheck {{dist}}/lys-shell {{dist}}/lys-lock
     mkdir -p {{dist}}/completions
@@ -323,7 +323,7 @@ _release bump:
     echo
     echo "Tagged and pushed v${NEW}. The build, archives and cache push run on CI."
     echo "  status:  gh run list --workflow Release --limit 1"
-    echo "  actions: https://github.com/stubbedev/lys-shell/actions"
+    echo "  actions: https://github.com/stubbedev/lys/actions"
 
 release-patch: (_release "patch")
 release-minor: (_release "minor")

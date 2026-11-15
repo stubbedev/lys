@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-shell/service/shellipc"
+	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
 func TestVPNSSOCallbackReportsTheSignInCompleted(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // bus is the message bus's own name and interface, busPath the object

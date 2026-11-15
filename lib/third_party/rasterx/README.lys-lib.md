@@ -2,7 +2,7 @@
 
 A copy of github.com/srwiley/rasterx at 2ab79fcdd4ef (BSD 3-Clause, LICENSE), its
 non-test sources only, carried as a package of the lys-lib module and imported as
-`github.com/stubbedev/lys-lib/third_party/rasterx`. `render` and `third_party/oksvg`
+`github.com/stubbedev/lys/lib/third_party/rasterx`. `render` and `third_party/oksvg`
 stroke, dash and transform SVG paths through it.
 
 ## Why it lives inside the module

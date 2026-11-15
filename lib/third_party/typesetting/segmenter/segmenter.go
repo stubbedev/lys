@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	ucd "github.com/stubbedev/lys-lib/third_party/typesetting/internal/unicodedata"
+	ucd "github.com/stubbedev/lys/lib/third_party/typesetting/internal/unicodedata"
 )
 
 // breakAttr is a flag storing the break properties between two runes of

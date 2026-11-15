@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-ui/internal/sysfont"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/sysfont"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // NewTestApplication is NewApplication for a test: the application is

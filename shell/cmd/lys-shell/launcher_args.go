@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/internal/launcheripc"
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/internal/launcheripc"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 // launcherLocal is a command resolved entirely in the CLI.

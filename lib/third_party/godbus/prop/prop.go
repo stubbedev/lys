@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/introspect"
+	"github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
 // EmitType controls how org.freedesktop.DBus.Properties.PropertiesChanged is

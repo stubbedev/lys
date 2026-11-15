@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/stubbedev/lys-desktop/strftime"
+	"github.com/stubbedev/lys/desktop/strftime"
 )
 
 // StrftimeFormat is a chrono strftime format string compiled at load,

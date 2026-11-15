@@ -21,8 +21,8 @@ import (
 	"math/bits"
 	"time"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/nal"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/nal"
 )
 
 // Track describes one stream of a file: H264, H265 or Opus.

@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 )
 
 // NightlightConfig is the night light: a blue-light filter lys-shell

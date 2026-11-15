@@ -65,6 +65,6 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/stubbedev/lys-splash)
+        - prefix(github.com/stubbedev/lys/splash)
   exclusions:
     generated: lax

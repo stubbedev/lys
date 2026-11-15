@@ -9,11 +9,11 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-wm/internal/frametrace"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/frametrace"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const debugFade = 8

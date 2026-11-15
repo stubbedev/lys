@@ -5,9 +5,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/stubbedev/lys-desktop/identity"
-	login1 "github.com/stubbedev/lys-lib/logind"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/identity"
+	login1 "github.com/stubbedev/lys/lib/logind"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // logind is the backend's one system-bus link to systemd-logind,

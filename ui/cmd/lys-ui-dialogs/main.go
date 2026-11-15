@@ -12,11 +12,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func main() {
@@ -117,7 +117,7 @@ func run() error {
 			Name:     "lys-ui",
 			Version:  "0.1.0",
 			Comments: "a pure-Go Wayland toolkit",
-			Website:  "https://github.com/stubbedev/lys-ui",
+			Website:  "https://github.com/stubbedev/lys/tree/main/ui",
 			License:  "MIT",
 			Credits:  []app.AboutCredit{{Role: "Authors", Names: []string{"stubbe"}}},
 		})

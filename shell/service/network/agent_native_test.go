@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-shell/service/network/openconnect"
-	"github.com/stubbedev/lys-shell/service/network/openconnect/openconnecttest"
+	"github.com/stubbedev/lys/shell/service/network/openconnect"
+	"github.com/stubbedev/lys/shell/service/network/openconnect/openconnecttest"
 )
 
 // The agent's withdrawal and budget contracts against the real

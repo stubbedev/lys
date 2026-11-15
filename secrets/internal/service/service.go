@@ -23,14 +23,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-secrets/control"
-	"github.com/stubbedev/lys-secrets/internal/keyring"
-	"github.com/stubbedev/lys-secrets/secretbus"
-	"github.com/stubbedev/lys-secrets/transport"
+	"github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/secretbus"
+	"github.com/stubbedev/lys/secrets/transport"
 )
 
 // D-Bus names of the API.

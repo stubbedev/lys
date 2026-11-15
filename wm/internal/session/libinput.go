@@ -13,13 +13,13 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
-	"github.com/stubbedev/lys-lib/clib"
+	"github.com/stubbedev/lys/lib/clib"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/tabletinput"
-	"github.com/stubbedev/lys-wm/internal/xkb"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/tabletinput"
+	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
 const LibinputEnv = "LYS_WM_LIBINPUT"

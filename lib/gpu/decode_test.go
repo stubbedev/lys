@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // decodingDevice is a device that decodes c, with ffmpeg to make the

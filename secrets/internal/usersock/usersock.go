@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/stubbedev/lys-lib/peercred"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/peercred"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // Path is $XDG_RUNTIME_DIR/lys-secrets/name as env resolves it, so a

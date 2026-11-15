@@ -3,9 +3,9 @@ package bar
 import (
 	"log"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 // startNotifications builds the notification service the way the Rust

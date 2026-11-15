@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 
-	"github.com/stubbedev/lys-shell/service/sharepreview"
+	"github.com/stubbedev/lys/shell/service/sharepreview"
 )
 
 // Real previews against a private headless compositor; runs only with

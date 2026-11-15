@@ -3,7 +3,7 @@ package material
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // HCT is a color in Google's hue, chroma and tone space: CAM16 hue and

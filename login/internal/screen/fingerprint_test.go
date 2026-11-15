@@ -3,8 +3,8 @@ package screen
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func fingerprintPrompt(t *testing.T, onPassword func(p *Prompt)) *Prompt {

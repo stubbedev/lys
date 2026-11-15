@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/testhome"
-	"github.com/stubbedev/lys-lib/wltest"
+	"github.com/stubbedev/lys/lib/testhome"
+	"github.com/stubbedev/lys/lib/wltest"
 )
 
 // The compositor-in-the-loop suite: attaches to the private headless

@@ -68,7 +68,7 @@
 
       meta = {
         description = "The lys desktop's boot splash";
-        homepage = "https://github.com/stubbedev/lys-splash";
+        homepage = "https://github.com/stubbedev/lys/tree/main/splash";
         license = lib.licenses.mit;
         mainProgram = "lys-splash";
         platforms = lib.platforms.unix;

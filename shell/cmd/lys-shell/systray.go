@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/sni"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/sni"
 )
 
 // systrayCommand is lys-shell/src/cli/systray/commands.rs.

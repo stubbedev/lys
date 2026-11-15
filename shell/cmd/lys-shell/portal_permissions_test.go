@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/portal/permissions"
-	"github.com/stubbedev/lys-desktop/portal/permissions/permstoretest"
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/desktop/portal/permissions"
+	"github.com/stubbedev/lys/desktop/portal/permissions/permstoretest"
+	"github.com/stubbedev/lys/lib/dbustest"
 )
 
 // permissionsCLI is the session bus with xdg-permission-store holding

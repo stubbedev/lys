@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/style"
-	"github.com/stubbedev/lys-ui/internal/uifont"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/uifont"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // The theme layer (#95): a StylePriorityTheme stylesheet generated

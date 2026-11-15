@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
-	"github.com/stubbedev/lys-lib/testhome"
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/testhome"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/service/lyswm"
 )
 
 const headlessConfig = "xwayland:\n  enabled: false\n"

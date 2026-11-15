@@ -10,7 +10,7 @@ package render
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // Corners is a per-corner radius set in logical pixels, clockwise from

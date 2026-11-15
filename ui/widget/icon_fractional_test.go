@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/icons"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/icons"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 var fractionalScales = []struct {

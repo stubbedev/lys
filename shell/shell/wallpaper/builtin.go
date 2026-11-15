@@ -3,11 +3,11 @@ package wallpaper
 import (
 	"image"
 
-	"github.com/stubbedev/lys-desktop/offheap"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/offheap"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
+	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/memory-go"
 )
 

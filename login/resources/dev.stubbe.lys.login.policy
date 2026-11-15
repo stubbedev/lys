@@ -4,7 +4,7 @@
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
   <vendor>lys</vendor>
-  <vendor_url>https://github.com/stubbedev/lys-login</vendor_url>
+  <vendor_url>https://github.com/stubbedev/lys/tree/main/login</vendor_url>
   <action id="dev.stubbe.lys.login.apply-config">
     <description>Change the login screen</description>
     <message>Authentication is required to change the login screen</message>

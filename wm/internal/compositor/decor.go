@@ -7,14 +7,14 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/icontheme"
-	gtext "github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/icontheme"
+	gtext "github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-wm/internal/anim"
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/shell"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/anim"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/shell"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type TabColors struct {

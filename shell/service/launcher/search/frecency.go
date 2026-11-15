@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 const (

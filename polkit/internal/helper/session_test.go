@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 
-	"github.com/stubbedev/lys-polkit/internal/helper"
-	"github.com/stubbedev/lys-polkit/internal/helper/helpertest"
+	"github.com/stubbedev/lys/polkit/internal/helper"
+	"github.com/stubbedev/lys/polkit/internal/helper/helpertest"
 )
 
 func TestMain(m *testing.M) {

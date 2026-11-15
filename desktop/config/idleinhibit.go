@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/stubbedev/lys-desktop/service/idleinhibit/inhibitduration"
+	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 )
 
 // IdleInhibitConfig is ported from crates/wayle-config/src/schemas/modules/idle_inhibit/mod.rs.

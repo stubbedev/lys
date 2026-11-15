@@ -17,10 +17,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/auth"
 )
 
 // Seat is the seat the display manager runs on.

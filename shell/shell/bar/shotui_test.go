@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/service/clipboard"
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/clipboard"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/transfer"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/internal/keytest"
-	"github.com/stubbedev/lys-shell/shell/screenshot"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/keytest"
+	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 func TestEditorSaveWritesAndCopiesWithoutStallingTheLoop(t *testing.T) {

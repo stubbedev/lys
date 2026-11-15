@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/data"
-	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/data"
+	"github.com/stubbedev/lys/wm/internal/server"
 )
 
 const (

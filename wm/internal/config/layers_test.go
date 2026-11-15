@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/compositor"
 )
 
 func layers(config, runtime string) []Layer {

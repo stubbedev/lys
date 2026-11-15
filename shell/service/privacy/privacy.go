@@ -18,9 +18,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-desktop/fswatch"
-	"github.com/stubbedev/lys-desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/desktop/service/pulse"
 	"golang.org/x/sys/unix"
 )
 

@@ -3,9 +3,9 @@
 package lyscapturehint
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/client/extimagecopycapture"
-	"github.com/stubbedev/lys-wm/internal/protocol/client/wlrscreencopy"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/extimagecopycapture"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wlrscreencopy"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var LysCaptureHintManagerV1Interface = &wire.Interface{

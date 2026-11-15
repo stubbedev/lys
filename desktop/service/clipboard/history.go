@@ -25,12 +25,12 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
-	"github.com/stubbedev/lys-ui/transfer"
+	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-desktop/offheap"
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/offheap"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
 
 // DefaultCapacity is how many entries are kept before the oldest is

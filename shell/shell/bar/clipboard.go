@@ -4,10 +4,10 @@ import (
 	"errors"
 	"log"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/service/clipboard"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/clipboard"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 var errNoDataDir = errors.New("neither XDG_DATA_HOME nor HOME is an absolute path")

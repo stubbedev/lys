@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/os"
+	"github.com/stubbedev/lys/lib/third_party/wayland/os"
 )
 
 // ErrContextSendRequestUnix is raised in case sending wl request fails

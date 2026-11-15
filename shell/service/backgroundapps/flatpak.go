@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/desktopentry"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 )
 

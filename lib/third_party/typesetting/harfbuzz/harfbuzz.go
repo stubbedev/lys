@@ -15,10 +15,10 @@ import (
 	"math/bits"
 	"strconv"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 // based on upstream commit 5a31dd02f0b32de12336f72db9297bfe94cf0da1 (v12.3.0)

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"image"
 
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxs "github.com/stubbedev/lys-wm/internal/protocol/server/xwaylandshell"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxs "github.com/stubbedev/lys/wm/internal/protocol/server/xwaylandshell"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const (

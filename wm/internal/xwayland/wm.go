@@ -10,13 +10,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/jezek/xgb"
-	"github.com/jezek/xgb/composite"
-	"github.com/jezek/xgb/xfixes"
-	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys/wm/third_party/xgb"
+	"github.com/stubbedev/lys/wm/third_party/xgb/composite"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xfixes"
+	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/xsync"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/xsync"
 )
 
 func init() {

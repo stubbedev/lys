@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // Fortinet SSL VPN sign-in (fortinet.rs). The wire shapes come from

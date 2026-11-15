@@ -6,8 +6,8 @@ import (
 	"math/bits"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // Prop names one longhand property of the docs/css.md table. Shorthands

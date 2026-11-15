@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-desktop/service/bitwarden/generator"
+	"github.com/stubbedev/lys/desktop/service/bitwarden/generator"
 )
 
 // PasswordCharset is a generator character class.

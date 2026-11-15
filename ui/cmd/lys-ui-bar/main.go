@@ -15,12 +15,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/ui"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/ui"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const lysUILogoSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

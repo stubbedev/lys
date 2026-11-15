@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 func shared(t *testing.T) *Table {

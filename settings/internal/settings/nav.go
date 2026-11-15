@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/settingspage"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/settingspage"
 
-	"github.com/stubbedev/lys-settings/internal/locale"
-	"github.com/stubbedev/lys-settings/internal/wmconfig"
+	"github.com/stubbedev/lys/settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 // initialPage is the page the window opens on (INITIAL_PAGE_ID), or

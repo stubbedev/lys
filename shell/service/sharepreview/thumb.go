@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 )
 
 // WindowThumb captures a window preview: Hyprland's toplevel-export

@@ -3,9 +3,9 @@ package widget
 import (
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // SidebarCollapse is how a Sidebar collapses on a wide window.

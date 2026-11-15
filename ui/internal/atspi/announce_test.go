@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/render"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // announcementRecorder keeps the Announcement events the bridge sends.

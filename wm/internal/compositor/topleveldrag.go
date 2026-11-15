@@ -6,13 +6,13 @@ import (
 	"image"
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/data"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	sxtd "github.com/stubbedev/lys-wm/internal/protocol/server/xdgtopleveldrag"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/shell"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/data"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	sxtd "github.com/stubbedev/lys/wm/internal/protocol/server/xdgtopleveldrag"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/shell"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const toplevelDragVersion = 1

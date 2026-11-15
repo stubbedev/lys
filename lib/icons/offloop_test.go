@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 type heldFS struct {

@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
+	"github.com/stubbedev/lys/lib/internal/nal"
 )
 
 // h265Run decodes pictures through a h265State as the decoder does.

@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	lxkb "github.com/stubbedev/lys-lib/xkb"
+	lxkb "github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/sys/unix"
 )
 

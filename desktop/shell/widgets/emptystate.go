@@ -1,8 +1,8 @@
 package widgets
 
 import (
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // EmptyState is the empty-state template on lys-ui's StatusPage: the

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-polkit/internal/passwd"
+	"github.com/stubbedev/lys/polkit/internal/passwd"
 )
 
 const ldapUID = 70001

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/internal/nal"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // x264Interlaced is ffmpeg's arguments for x264 coding the test pattern

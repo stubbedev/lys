@@ -3,7 +3,7 @@ package style
 import (
 	"strings"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // The icon, caret and text-decoration property parsers.

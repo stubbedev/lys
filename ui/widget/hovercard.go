@@ -3,7 +3,7 @@ package widget
 import (
 	"time"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // The hover card's delays.

@@ -15,11 +15,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-secrets/client"
-	"github.com/stubbedev/lys-secrets/secretstest"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/secrets/client"
+	"github.com/stubbedev/lys/secrets/secretstest"
 )
 
 // interactive calls a (u, a{sv}) method.

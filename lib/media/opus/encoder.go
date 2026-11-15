@@ -31,7 +31,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // The stream geometry the encoder produces.

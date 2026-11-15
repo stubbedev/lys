@@ -29,7 +29,7 @@ To install it alone, as on lys-wm without the shell:
 
 ## Debian and Fedora
 
-The [releases page](https://github.com/stubbedev/lys-settings/releases) has a
+The [releases page](https://github.com/stubbedev/lys/releases) has a
 `.deb` and an `.rpm` for amd64 and arm64. They recommend lys-shell 0.3.5 or later,
 or lys-wm, and conflict with lys-shell packages older than 0.3.5.
 

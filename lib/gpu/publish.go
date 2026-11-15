@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
+	"github.com/stubbedev/lys/lib/dmabuf"
 )
 
 // nvidiaVendor is the PCI vendor of NVIDIA's GPUs.

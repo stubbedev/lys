@@ -3,8 +3,8 @@
 package textinputv1
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var ZwpTextInputV1Interface = &wire.Interface{

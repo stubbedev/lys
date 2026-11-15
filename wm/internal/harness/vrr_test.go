@@ -4,13 +4,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	cct "github.com/stubbedev/lys-wm/internal/protocol/client/contenttype"
-	cwom "github.com/stubbedev/lys-wm/internal/protocol/client/wlroutputmanagement"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	cct "github.com/stubbedev/lys/wm/internal/protocol/client/contenttype"
+	cwom "github.com/stubbedev/lys/wm/internal/protocol/client/wlroutputmanagement"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 func startAdaptive(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) *Harness {

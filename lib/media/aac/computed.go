@@ -3,7 +3,7 @@ package aac
 import (
 	"sync"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // tables are what a decoder computes rather than carries: the rising

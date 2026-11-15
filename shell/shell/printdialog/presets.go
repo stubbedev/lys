@@ -9,7 +9,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-shell/internal/statefile"
+	"github.com/stubbedev/lys/shell/internal/statefile"
 )
 
 // maxPresets is how many (app, printer) pairs' last forms are kept.

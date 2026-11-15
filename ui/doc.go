@@ -25,7 +25,7 @@
 //
 // The canvas widgets paint on (render), the GPU renderer, screen
 // capture, virtual input, the Wayland protocol bindings, media muxing
-// and the Opus encoder live in github.com/stubbedev/lys-lib.
+// and the Opus encoder live in github.com/stubbedev/lys/lib.
 //
 // Everything under internal/ is implementation. The docs/ directory
 // holds the reference: architecture, components, the application,

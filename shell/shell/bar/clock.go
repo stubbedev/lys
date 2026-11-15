@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/walltimer"
+	"github.com/stubbedev/lys/shell/internal/walltimer"
 )
 
 // clock renders the time through the configured strftime format beside

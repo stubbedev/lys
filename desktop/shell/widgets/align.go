@@ -3,7 +3,7 @@ package widgets
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // aligner is a widget with GTK's halign and valign; every lys-ui widget,

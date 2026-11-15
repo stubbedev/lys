@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 )
 
 // DisconnectReason classifies why the compositor connection ended.

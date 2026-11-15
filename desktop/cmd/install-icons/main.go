@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-desktop/resources"
+	"github.com/stubbedev/lys/desktop/resources"
 )
 
 func install(dir string, names []string) error {

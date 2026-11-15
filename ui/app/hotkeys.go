@@ -1,6 +1,6 @@
 package app
 
-import "github.com/stubbedev/lys-ui/internal/wlsession"
+import "github.com/stubbedev/lys/ui/internal/wlsession"
 
 // ErrHotkeysUnavailable reports a compositor without xx_hotkey_v1.
 var ErrHotkeysUnavailable = wlsession.ErrHotkeysUnavailable

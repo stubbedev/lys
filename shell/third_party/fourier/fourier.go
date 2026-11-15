@@ -4,7 +4,7 @@
 
 package fourier
 
-import "github.com/stubbedev/lys-shell/third_party/fourier/internal/fftpack"
+import "github.com/stubbedev/lys/shell/third_party/fourier/internal/fftpack"
 
 // FFT implements the Fast Fourier Transform for real sequences.
 type FFT struct {

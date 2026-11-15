@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/resources"
+	"github.com/stubbedev/lys/desktop/resources"
 )
 
 func TestInstallsTheNamedIconsOnly(t *testing.T) {

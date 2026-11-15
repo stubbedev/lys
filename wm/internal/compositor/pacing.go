@@ -4,14 +4,14 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/committiming"
-	"github.com/stubbedev/lys-wm/internal/contenttype"
-	"github.com/stubbedev/lys-wm/internal/fifo"
-	"github.com/stubbedev/lys-wm/internal/loop"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/surface"
-	"github.com/stubbedev/lys-wm/internal/tearingcontrol"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/committiming"
+	"github.com/stubbedev/lys/wm/internal/contenttype"
+	"github.com/stubbedev/lys/wm/internal/fifo"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/tearingcontrol"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func (c *Compositor) addPacing(l *loop.Loop, display *server.Display) error {

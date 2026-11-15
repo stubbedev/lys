@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
 )
 
 type firedByHand struct {

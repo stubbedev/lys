@@ -3,12 +3,12 @@ package dialoghost
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
-	"github.com/stubbedev/lys-shell/shell/dialogsurface"
-	"github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest"
 )
 
 const dialogAppID = "lys-shell-portal-dialog"

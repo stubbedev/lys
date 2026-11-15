@@ -5,7 +5,7 @@ LICENSE; the descriptor decoding bugs are unfixed there and on master,
 which is v5.2.4 as of 2026-10-28), its
 non-test sources and lys-lib's own tests, carried as packages of the
 lys-lib module and imported as
-`github.com/stubbedev/lys-lib/third_party/godbus` (package `dbus`),
+`github.com/stubbedev/lys/lib/third_party/godbus` (package `dbus`),
 `.../godbus/introspect` and `.../godbus/prop`. Every lys process on
 D-Bus talks to it through this copy, directly or through `dbusx`.
 
@@ -183,7 +183,7 @@ Drop the copy once upstream carries every fix below.
   only where `XDG_RUNTIME_DIR` names no absolute path. Pinned by
   `TestTheSessionBusIsFoundInTheRuntimeDirectory` and
   `TestARuntimeDirectoryWithoutABusHasNoSessionBus`.
-- Import path: every source imports `github.com/stubbedev/lys-lib/third_party/godbus`
+- Import path: every source imports `github.com/stubbedev/lys/lib/third_party/godbus`
   in place of `github.com/godbus/dbus/v5`, and the copy has no go.mod
   of its own. Upstream's tests, CI files and fuzz corpus are not
   carried; the tests named above pin the patches, the bus-dependent ones

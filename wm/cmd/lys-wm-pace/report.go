@@ -9,9 +9,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-wm/internal/frametrace"
+	"github.com/stubbedev/lys/wm/internal/frametrace"
 )
 
 type stepReport struct {

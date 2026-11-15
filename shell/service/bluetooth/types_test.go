@@ -3,7 +3,7 @@ package bluetooth
 import (
 	"testing"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func TestAddressType(t *testing.T) {

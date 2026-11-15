@@ -1,8 +1,8 @@
 package app
 
 import (
-	"github.com/stubbedev/lys-ui/internal/layersurface"
-	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/internal/layersurface"
+	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
 // Public aliases for the layer-surface enums. The internal package is

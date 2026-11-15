@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-lib/debug"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/debug"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-ui/internal/atspi"
-	"github.com/stubbedev/lys-ui/internal/worker"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/internal/atspi"
+	"github.com/stubbedev/lys/ui/internal/worker"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const (

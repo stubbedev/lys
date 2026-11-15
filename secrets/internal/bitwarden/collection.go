@@ -3,7 +3,7 @@ package bitwarden
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // FolderLogin is a login the Secret Service shows: its id, name,

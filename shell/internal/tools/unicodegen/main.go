@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 
-	"github.com/stubbedev/lys-shell/service/launcher/charnames"
+	"github.com/stubbedev/lys/shell/service/launcher/charnames"
 )
 
 func main() {

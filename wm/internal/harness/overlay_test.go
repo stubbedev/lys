@@ -5,16 +5,16 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	cld "github.com/stubbedev/lys-wm/internal/protocol/client/linuxdmabuf"
-	cvp "github.com/stubbedev/lys-wm/internal/protocol/client/viewporter"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wlclient/feedback"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	cld "github.com/stubbedev/lys/wm/internal/protocol/client/linuxdmabuf"
+	cvp "github.com/stubbedev/lys/wm/internal/protocol/client/viewporter"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wlclient/feedback"
 )
 
 var (

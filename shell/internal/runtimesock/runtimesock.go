@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // Path is the socket name in env's lys-shell runtime directory. Without

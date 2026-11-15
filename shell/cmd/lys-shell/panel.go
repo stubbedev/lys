@@ -9,13 +9,13 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/rusterr"
-	"github.com/stubbedev/lys-desktop/settingspage"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/rusterr"
+	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/shellipc"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
 // panelCommand is lys-shell/src/cli/panel/commands.rs.
@@ -173,7 +173,7 @@ func panelSettings(*cli.Matches) error {
 	if err := cmd.Start(); err != nil {
 		switch {
 		case errors.Is(err, exec.ErrNotFound), errors.Is(err, fs.ErrNotExist):
-			return cliMessage("lys-settings not found. Install it: https://github.com/stubbedev/lys-settings")
+			return cliMessage("lys-settings not found. Install it: https://github.com/stubbedev/lys/tree/main/settings")
 		case errors.Is(err, fs.ErrPermission):
 			return cliMessage("Permission denied when starting lys-settings")
 		default:

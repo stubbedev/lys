@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 type memKeychain struct {

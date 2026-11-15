@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/testbuild"
 
-	"github.com/stubbedev/lys-splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/protocol"
 )
 
 type event struct {

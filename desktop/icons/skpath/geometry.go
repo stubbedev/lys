@@ -3,7 +3,7 @@ package skpath
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // This file ports path_geometry.rs. The f32x2 lane math is written out

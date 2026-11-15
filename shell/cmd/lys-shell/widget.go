@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/widgetipc"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/widgetipc"
 )
 
 // widgetCommand is lys-shell/src/cli/widget/commands.rs.

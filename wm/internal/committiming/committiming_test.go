@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/loop"
 )
 
 func manualLoop(t *testing.T, start time.Duration) (*loop.Loop, *loop.Manual) {

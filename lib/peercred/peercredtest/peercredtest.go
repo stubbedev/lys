@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 )
 
 // socketEnv names, to the process Start runs, the socket to be the

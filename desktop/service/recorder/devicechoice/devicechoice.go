@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/v4l2"
+	"github.com/stubbedev/lys/lib/v4l2"
 )
 
 // DeviceChoice is DeviceChoice: ID is what the recorder consumes (""

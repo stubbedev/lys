@@ -17,7 +17,7 @@ hero:
       link: /config/
     - theme: alt
       text: GitHub
-      link: https://github.com/stubbedev/lys-shell
+      link: https://github.com/stubbedev/lys/tree/main/shell
 
 features:
   - title: Bar

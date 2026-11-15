@@ -71,6 +71,6 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/stubbedev/lys-ui)
+        - prefix(github.com/stubbedev/lys/ui)
   exclusions:
     generated: lax

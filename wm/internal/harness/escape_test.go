@@ -10,13 +10,13 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	cksi "github.com/stubbedev/lys-wm/internal/protocol/client/keyboardshortcutsinhibit"
-	cle "github.com/stubbedev/lys-wm/internal/protocol/client/lysescape"
-	cvk "github.com/stubbedev/lys-wm/internal/protocol/client/virtualkeyboard"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	cksi "github.com/stubbedev/lys/wm/internal/protocol/client/keyboardshortcutsinhibit"
+	cle "github.com/stubbedev/lys/wm/internal/protocol/client/lysescape"
+	cvk "github.com/stubbedev/lys/wm/internal/protocol/client/virtualkeyboard"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const (

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/desktopentry"
-	"github.com/stubbedev/lys-desktop/mime"
-	"github.com/stubbedev/lys-desktop/opener/openertest"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/opener/openertest"
 )
 
 type fixture struct {

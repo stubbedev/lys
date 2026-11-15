@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 func seal(t *testing.T, key SymmetricKey, plain []byte) string {

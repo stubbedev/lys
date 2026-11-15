@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/eis/eistest"
+	"github.com/stubbedev/lys/lib/eis/eistest"
 )
 
 // recorder is the Handler under test.

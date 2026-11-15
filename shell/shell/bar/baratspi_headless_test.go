@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/i18n"
-	shelllocales "github.com/stubbedev/lys-desktop/i18n/locales/shell"
-	"github.com/stubbedev/lys-desktop/shell/treetest"
-	"github.com/stubbedev/lys-desktop/swaytest"
-	"github.com/stubbedev/lys-ui/atspitest"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/ui/atspitest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // atspiLocaleEnv carries the locale a re-executed screen-reader test

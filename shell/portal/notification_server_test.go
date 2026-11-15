@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/notifytest"
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/internal/notifytest"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 // The portal takes the daemon's signals only from the owner of

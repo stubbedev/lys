@@ -9,7 +9,7 @@ unit, sysusers and tmpfiles files, the polkit action, and both distributions' PA
 files under `pam/`.
 The binary uses the standard program interpreter; the unit expects
 `/usr/bin/lys-login` and `/usr/bin/lys-wm` (lys-wm has its own archive in
-[its releases](https://github.com/stubbedev/lys-wm/releases)). From the unpacked
+[its releases](https://github.com/stubbedev/lys/releases)). From the unpacked
 directory:
 
 ```sh

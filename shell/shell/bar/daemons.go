@@ -3,11 +3,11 @@ package bar
 import (
 	"log"
 
-	"github.com/stubbedev/lys-desktop/service/mpris"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/service/mpris"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/powerprofiles"
-	"github.com/stubbedev/lys-shell/service/sni"
+	"github.com/stubbedev/lys/shell/service/powerprofiles"
+	"github.com/stubbedev/lys/shell/service/sni"
 )
 
 // serveCLIDaemons exports the session-bus interfaces the `lys-shell` CLI

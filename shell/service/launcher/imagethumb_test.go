@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/imagedecode"
 )
 
 func writeImage(t *testing.T, path string, w, h int) {

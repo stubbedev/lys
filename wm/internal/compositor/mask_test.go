@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/region"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/region"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 func TestRoundedOpsCullOnlyWhatTheirSolidPartCovers(t *testing.T) {

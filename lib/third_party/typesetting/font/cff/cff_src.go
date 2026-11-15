@@ -3,7 +3,7 @@ package cff
 import (
 	"errors"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
 //go:generate ../../../typesetting-utils/generators/binarygen/cmd/generator . _src.go

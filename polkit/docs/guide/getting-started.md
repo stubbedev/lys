@@ -10,7 +10,7 @@ through polkit's agent helper and shows it in lys-shell's dialog.
 | --- | --- |
 | polkitd, see [supported polkit](./how-it-works#supported-polkit) | `org.freedesktop.PolicyKit1` (system) |
 | systemd-logind | `org.freedesktop.login1` (system) |
-| [lys-shell](https://stubbedev.github.io/lys-shell/) dialogs, `Authenticate` contract | `dev.stubbe.lys.PortalDialogs1` (session) |
+| [lys-shell](https://stubbedev.github.io/lys/shell/) dialogs, `Authenticate` contract | `dev.stubbe.lys.PortalDialogs1` (session) |
 
 Without lys-shell's dialogs every request fails with polkit's `Failed`.
 

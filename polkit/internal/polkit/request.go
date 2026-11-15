@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // UID is a Unix user id.

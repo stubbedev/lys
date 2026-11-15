@@ -3,9 +3,9 @@ package widget
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // ColorButton shows the current color as a swatch on an outline icon

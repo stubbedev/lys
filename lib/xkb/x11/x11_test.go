@@ -13,9 +13,9 @@ import (
 
 	"github.com/ebitengine/purego"
 
-	"github.com/stubbedev/lys-lib/clib"
-	"github.com/stubbedev/lys-lib/xkb"
-	"github.com/stubbedev/lys-lib/xkb/x11"
+	"github.com/stubbedev/lys/lib/clib"
+	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/lib/xkb/x11"
 )
 
 type cLib struct {

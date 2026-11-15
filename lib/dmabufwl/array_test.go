@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // words lays 64-bit values out as the host-order 32-bit words a

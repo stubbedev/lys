@@ -6,13 +6,13 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/binds"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cpc "github.com/stubbedev/lys-wm/internal/protocol/client/pointerconstraints"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cpc "github.com/stubbedev/lys/wm/internal/protocol/client/pointerconstraints"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 func withHotCorner(t testing.TB, k compositor.Corner, action string, mods binds.ModifierSet) func(*compositor.Config) {

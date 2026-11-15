@@ -5,12 +5,12 @@ package rtkittest
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/rtkit"
+	"github.com/stubbedev/lys/wm/internal/rtkit"
 )
 
 const RTTimeUSecMax = 200000

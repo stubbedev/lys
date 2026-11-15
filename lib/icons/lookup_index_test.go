@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/testbuild"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 var (

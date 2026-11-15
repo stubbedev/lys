@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/xdg"
 	_ "modernc.org/sqlite" // the pure-Go sqlite driver: launcher.db stays the Rust file
 )
 

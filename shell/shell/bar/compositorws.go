@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/glob"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/glob"
 
-	"github.com/stubbedev/lys-shell/internal/appicons"
+	"github.com/stubbedev/lys/shell/internal/appicons"
 )
 
 // The sway and niri workspace modules are one Rust design twice over

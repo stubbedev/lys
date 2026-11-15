@@ -1,6 +1,6 @@
 package main
 
-import "github.com/stubbedev/lys-shell/internal/cli"
+import "github.com/stubbedev/lys/shell/internal/cli"
 
 // examplesHeader is style.rs's styled_header!("Examples:"): raw ANSI
 // that the help writer strips when the stream is not colored.

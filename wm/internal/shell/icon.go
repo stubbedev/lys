@@ -5,12 +5,12 @@ import (
 	"image"
 	"slices"
 
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	sxti "github.com/stubbedev/lys-wm/internal/protocol/server/xdgtoplevelicon"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/shm"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	sxti "github.com/stubbedev/lys/wm/internal/protocol/server/xdgtoplevelicon"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/shm"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const iconVersion = 1

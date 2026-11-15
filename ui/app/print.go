@@ -8,13 +8,13 @@ import (
 	"math"
 	"os"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/render"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/render"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-ui/pdf"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/pdf"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 const (

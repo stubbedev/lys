@@ -7,9 +7,9 @@ Build-Depends:
  desktop-file-utils
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
-Homepage: https://github.com/stubbedev/lys-shell
-Vcs-Git: https://github.com/stubbedev/lys-shell.git
-Vcs-Browser: https://github.com/stubbedev/lys-shell
+Homepage: https://github.com/stubbedev/lys/tree/main/shell
+Vcs-Git: https://github.com/stubbedev/lys.git
+Vcs-Browser: https://github.com/stubbedev/lys/tree/main/shell
 
 Package: lys-shell
 Architecture: amd64 arm64

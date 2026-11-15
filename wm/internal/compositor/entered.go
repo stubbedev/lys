@@ -3,8 +3,8 @@ package compositor
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-wm/internal/output"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 type entered struct {

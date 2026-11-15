@@ -11,9 +11,9 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // flexItem is a cssItem's flexbox scratch. Main sizes are outer

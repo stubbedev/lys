@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 func TestTheFortinetSessionCookieIsTheOneOpenconnectAsksFor(t *testing.T) {

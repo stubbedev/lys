@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/intconv"
 	"golang.org/x/sys/unix"
 )
 

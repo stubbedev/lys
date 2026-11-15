@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-desktop/fswatch"
-	"github.com/stubbedev/lys-desktop/identity"
+	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/desktop/identity"
 )
 
 // This file ports registry.rs minus the GTK IconTheme wiring: the icon

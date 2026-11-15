@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/demux"
-	"github.com/stubbedev/lys-lib/pulse/native"
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // The fixtures are one second of a 192x144 picture, red until 500 ms and

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 	"golang.org/x/sys/unix"
 )
 

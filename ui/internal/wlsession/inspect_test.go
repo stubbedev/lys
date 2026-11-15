@@ -3,8 +3,8 @@ package wlsession
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // TestGlobalsRecordsVersions drives the registry handler with a fake

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/wlr"
+	"github.com/stubbedev/lys/lib/wlr"
 )
 
 // CursorState is the pointer over a Cursor's source.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/stubbedev/lys-wm/blob/main/schema/lys-wm-config.schema.json",
+  "$id": "https://github.com/stubbedev/lys/blob/main/wm/schema/lys-wm-config.schema.json",
   "type": "object",
   "properties": {
     "animations": {

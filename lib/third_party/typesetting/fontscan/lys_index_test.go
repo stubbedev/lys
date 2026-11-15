@@ -14,8 +14,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 func syntheticSnapshot(fonts int) indexSnapshot {

@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/backend"
-	cpg "github.com/stubbedev/lys-wm/internal/protocol/client/pointergestures"
-	ctab "github.com/stubbedev/lys-wm/internal/protocol/client/tablet"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/tabletinput"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend"
+	cpg "github.com/stubbedev/lys/wm/internal/protocol/client/pointergestures"
+	ctab "github.com/stubbedev/lys/wm/internal/protocol/client/tablet"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/tabletinput"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type pointerEvents struct {

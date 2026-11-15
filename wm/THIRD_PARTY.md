@@ -18,12 +18,12 @@ derive from them.
 | [wlroots](https://gitlab.freedesktop.org/wlroots/wlroots) (`server-decoration`, KDE's protocol as wlroots vendors it) | LGPL-2.1-or-later |
 | [hyprland-protocols](https://github.com/hyprwm/hyprland-protocols) (`hyprland-global-shortcuts-v1`, `hyprland-ctm-control-v1`) | BSD-3-Clause |
 | [Hyprland](https://github.com/hyprwm/Hyprland) (`xx-hotkey-v1`) | MIT, per file |
-| [lys-lib](https://github.com/stubbedev/lys-lib) (`lys-escape-v1`) | MIT |
+| [lys-lib](https://github.com/stubbedev/lys/tree/main/lib) (`lys-escape-v1`) | MIT |
 
 ## Patched dependencies
 
 `third_party/xgb` is a copy of the packages lys-wm uses from
-[jezek/xgb](https://github.com/jezek/xgb) v1.3.1 (the root package,
+[jezek/xgb](https://github.com/stubbedev/lys/wm/third_party/xgb) v1.3.1 (the root package,
 `xproto`, `xfixes`, `composite`, `render` and `shape`), which `go.mod`
 replaces the module with. Upstream extension `Init` functions write the
 package-global event and error constructor maps while every connection's

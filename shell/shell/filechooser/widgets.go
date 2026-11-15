@@ -3,8 +3,8 @@ package filechooser
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // dropZone is a box that takes a file dropped anywhere on it: onDrop

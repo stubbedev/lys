@@ -4,9 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 func TestColorMixInterpolatesPremultipliedChannels(t *testing.T) {

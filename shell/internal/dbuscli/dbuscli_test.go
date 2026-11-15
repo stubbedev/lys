@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func TestFormatErrorForMethods(t *testing.T) {

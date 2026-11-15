@@ -6,8 +6,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dmabuf"
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/dmabuf"
+	"github.com/stubbedev/lys/lib/fourcc"
 )
 
 func TestCopyToLinearWritesAUdmabuf(t *testing.T) {

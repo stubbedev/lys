@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // ErrSyntax is an AV1 stream a decoder cannot read: malformed, or using

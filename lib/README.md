@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://stubbedev.github.io/lys-lib/">Documentation</a>
+  <a href="https://stubbedev.github.io/lys/lib/">Documentation</a>
 </p>
 
 - **Rendering and GPU:** a 2D canvas with CPU and Vulkan renderers, dmabufs, DRM.
@@ -23,7 +23,7 @@ time where used.
 ## Install
 
 ```sh
-go get github.com/stubbedev/lys-lib@latest
+go get github.com/stubbedev/lys/lib@latest
 ```
 
 ## Example
@@ -39,15 +39,15 @@ img := render.NRGBA(pixels, stride, 320, 120)
 
 ## Documentation
 
-- [stubbedev.github.io/lys-lib](https://stubbedev.github.io/lys-lib/): package map, a page per domain, patch policy, development.
-- [pkg.go.dev](https://pkg.go.dev/github.com/stubbedev/lys-lib): API reference.
+- [stubbedev.github.io/lys-lib](https://stubbedev.github.io/lys/lib/): package map, a page per domain, patch policy, development.
+- [pkg.go.dev](https://pkg.go.dev/github.com/stubbedev/lys/lib): API reference.
 
 ## The lys family
 
-[lys-shell](https://stubbedev.github.io/lys-shell/),
-[lys-wm](https://stubbedev.github.io/lys-wm/),
-[lys-ui](https://stubbedev.github.io/lys-ui/),
-[lys-login](https://stubbedev.github.io/lys-login/),
-[lys-splash](https://stubbedev.github.io/lys-splash/),
-[lys-polkit](https://stubbedev.github.io/lys-polkit/),
-[lys-secrets](https://stubbedev.github.io/lys-secrets/).
+[lys-shell](https://stubbedev.github.io/lys/shell/),
+[lys-wm](https://stubbedev.github.io/lys/wm/),
+[lys-ui](https://stubbedev.github.io/lys/ui/),
+[lys-login](https://stubbedev.github.io/lys/login/),
+[lys-splash](https://stubbedev.github.io/lys/splash/),
+[lys-polkit](https://stubbedev.github.io/lys/polkit/),
+[lys-secrets](https://stubbedev.github.io/lys/secrets/).

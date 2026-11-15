@@ -3,7 +3,7 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // maxFrameBuffers bounds the segments of frames recorded or in flight,

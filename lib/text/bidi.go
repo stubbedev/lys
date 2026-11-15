@@ -28,7 +28,7 @@ import (
 
 	"golang.org/x/text/unicode/bidi"
 
-	tsbidi "github.com/stubbedev/lys-lib/third_party/typesetting/bidi"
+	tsbidi "github.com/stubbedev/lys/lib/third_party/typesetting/bidi"
 )
 
 // Direction names the base paragraph direction text resolves and lays

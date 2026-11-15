@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	ps "github.com/stubbedev/lys-lib/third_party/typesetting/font/cff/interpreter"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
+	ps "github.com/stubbedev/lys/lib/third_party/typesetting/font/cff/interpreter"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
 )
 
 var errUnsupportedCFFVersion = errors.New("unsupported CFF version")

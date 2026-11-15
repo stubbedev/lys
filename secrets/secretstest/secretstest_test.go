@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-secrets/client"
-	"github.com/stubbedev/lys-secrets/secretstest"
+	"github.com/stubbedev/lys/secrets/client"
+	"github.com/stubbedev/lys/secrets/secretstest"
 )
 
 func TestServesTheUnlockedLoginCollectionAndScriptsItsPrompts(t *testing.T) {

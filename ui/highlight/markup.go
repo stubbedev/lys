@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Tags highlights HTML and XML as GtkSourceView's html.lang and

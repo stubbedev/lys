@@ -1,6 +1,6 @@
 package pulsetest
 
-import "github.com/stubbedev/lys-lib/pulse/native"
+import "github.com/stubbedev/lys/lib/pulse/native"
 
 // PutCard adds or replaces a card and announces it.
 func (s *Server) PutCard(c native.CardInfo) {

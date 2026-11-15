@@ -3,8 +3,8 @@
 package lysdynamiccapture
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/server/extimagecapturesource"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/extimagecapturesource"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var LysDynamicCaptureSourceManagerV1Interface = &wire.Interface{

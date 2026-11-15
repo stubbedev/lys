@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/demux"
 )
 
 // libvpx is ffmpeg's arguments for libvpx-vp9 at speed 4 with args.

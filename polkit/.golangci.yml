@@ -59,6 +59,6 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/stubbedev/lys-polkit)
+        - prefix(github.com/stubbedev/lys/polkit)
   exclusions:
     generated: lax

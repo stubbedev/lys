@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/internal/goroutine"
-	"github.com/stubbedev/lys-lib/pulse/native"
-	"github.com/stubbedev/lys-lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/internal/goroutine"
+	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 )
 
 const closeWait = 5 * time.Second

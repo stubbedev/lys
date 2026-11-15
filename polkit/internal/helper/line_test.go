@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-polkit/internal/helper"
-	"github.com/stubbedev/lys-polkit/internal/helper/helpertest"
+	"github.com/stubbedev/lys/polkit/internal/helper"
+	"github.com/stubbedev/lys/polkit/internal/helper/helpertest"
 )
 
 func TestParseLine(t *testing.T) {

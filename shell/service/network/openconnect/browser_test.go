@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/opener/openertest"
+	"github.com/stubbedev/lys/desktop/opener/openertest"
 
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 func TestOpenInBrowserOpensTheSignInWithTheHTTPSHandler(t *testing.T) {

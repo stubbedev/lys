@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/rtkit"
+	"github.com/stubbedev/lys/wm/internal/rtkit"
 )
 
 const (

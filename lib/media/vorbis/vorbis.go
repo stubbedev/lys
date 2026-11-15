@@ -20,8 +20,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/media/internal/pcm"
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/media/internal/pcm"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // Decode fails with one of these, wrapped with what was being read.

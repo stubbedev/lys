@@ -9,8 +9,8 @@ import (
 
 	memory "github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys-lib/render"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // scratchCanvas is a target-sized CPU canvas the renderer rasterizes

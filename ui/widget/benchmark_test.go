@@ -8,7 +8,7 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // BenchmarkShowcaseMeasure measures the cold layout pass: alternating

@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strconv"
 
-	kdrm "github.com/stubbedev/lys-lib/drm"
+	kdrm "github.com/stubbedev/lys/lib/drm"
 )
 
 const propTile = "TILE"

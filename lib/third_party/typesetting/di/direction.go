@@ -1,7 +1,7 @@
 package di
 
 import (
-	"github.com/stubbedev/lys-lib/third_party/typesetting/harfbuzz"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/harfbuzz"
 )
 
 // Direction indicates the layout direction of a piece of text.

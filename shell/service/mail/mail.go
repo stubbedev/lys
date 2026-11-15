@@ -14,12 +14,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/feed"
-	"github.com/stubbedev/lys-desktop/fswatch"
-	"github.com/stubbedev/lys-desktop/icons"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/desktop/icons"
 
-	"github.com/stubbedev/lys-shell/internal/jinja"
+	"github.com/stubbedev/lys/shell/internal/jinja"
 )
 
 // Debounce coalesces a maildir-sync burst into one re-query.

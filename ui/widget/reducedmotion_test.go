@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-ui/anim"
-	"github.com/stubbedev/lys-ui/internal/surfx"
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/surfx"
 )
 
 func TestReducedMotionStopsMotionAndKeepsFades(t *testing.T) {

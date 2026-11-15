@@ -4,9 +4,9 @@ import (
 	"math"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // flowMaxPerLine is GtkFlowBox's default max-children-per-line.

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 func esMajor(version string) int {

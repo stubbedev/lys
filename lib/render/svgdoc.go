@@ -17,8 +17,8 @@ import (
 
 	"golang.org/x/image/math/fixed"
 
-	"github.com/stubbedev/lys-lib/third_party/oksvg"
-	"github.com/stubbedev/lys-lib/third_party/rasterx"
+	"github.com/stubbedev/lys/lib/third_party/oksvg"
+	"github.com/stubbedev/lys/lib/third_party/rasterx"
 )
 
 // svgDoc is an SVG document parsed for drawing: oksvg's paths and the

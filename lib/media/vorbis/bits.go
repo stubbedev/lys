@@ -4,7 +4,7 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 type bitReader struct {

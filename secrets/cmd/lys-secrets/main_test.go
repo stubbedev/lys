@@ -16,18 +16,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
-	"github.com/stubbedev/lys-lib/portaldialogs"
-	"github.com/stubbedev/lys-lib/sockdir"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/sockdir"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-secrets/control"
-	"github.com/stubbedev/lys-secrets/internal/dialogtest"
-	"github.com/stubbedev/lys-secrets/internal/service"
-	"github.com/stubbedev/lys-secrets/vault"
+	"github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/secrets/internal/dialogtest"
+	"github.com/stubbedev/lys/secrets/internal/service"
+	"github.com/stubbedev/lys/secrets/vault"
 )
 
 // TestMain lets the test binary be lys-secrets: the tests re-exec it

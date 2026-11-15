@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-shell/internal/notifytest"
+	"github.com/stubbedev/lys/shell/internal/notifytest"
 )
 
 func TestNotificationLabel(t *testing.T) {

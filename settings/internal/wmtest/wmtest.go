@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-settings/internal/wmconfig"
+	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 // Bound is how long a test waits for lys-wm before it fails.

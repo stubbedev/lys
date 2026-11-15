@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-ui/internal/fdtest"
-	"github.com/stubbedev/lys-ui/internal/waittest"
+	"github.com/stubbedev/lys/ui/internal/fdtest"
+	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 type mockDesktop struct {

@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/av1"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/av1"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // grainPass synthesizes AV1 film grain into decoded pictures on the

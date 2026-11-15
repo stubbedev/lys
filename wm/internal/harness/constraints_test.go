@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cpc "github.com/stubbedev/lys-wm/internal/protocol/client/pointerconstraints"
-	crp "github.com/stubbedev/lys-wm/internal/protocol/client/relativepointer"
-	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
-	cvp "github.com/stubbedev/lys-wm/internal/protocol/client/wlrvirtualpointer"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cpc "github.com/stubbedev/lys/wm/internal/protocol/client/pointerconstraints"
+	crp "github.com/stubbedev/lys/wm/internal/protocol/client/relativepointer"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
+	cvp "github.com/stubbedev/lys/wm/internal/protocol/client/wlrvirtualpointer"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 type constraintLog struct{ events testclient.Log }

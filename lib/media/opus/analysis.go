@@ -3,7 +3,7 @@ package opus
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // lsbDepth is the input's resolution in bits: int16 PCM.

@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // redRGBA returns a fresh w x h red raster; every entry gets its own

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // Language is a registered highlighter (a GtkSourceView language): its

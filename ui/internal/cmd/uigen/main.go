@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys-ui/internal/uigen"
+	"github.com/stubbedev/lys/ui/internal/uigen"
 )
 
 func main() {

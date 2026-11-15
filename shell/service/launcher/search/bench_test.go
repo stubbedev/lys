@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/desktopentry"
 
-	"github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/launcher/modes"
+	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 // benchEntries are plausible rows: names with words, paths beneath them.

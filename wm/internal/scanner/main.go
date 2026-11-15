@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	xml "github.com/stubbedev/lys-lib/protocols"
+	xml "github.com/stubbedev/lys/lib/protocols"
 )
 
 func main() {

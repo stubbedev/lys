@@ -6,13 +6,13 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/backend/headless"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	cam "github.com/stubbedev/lys-wm/internal/protocol/client/alphamodifier"
-	chs "github.com/stubbedev/lys-wm/internal/protocol/client/hyprlandsurface"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	"github.com/stubbedev/lys-wm/internal/testclient"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	cam "github.com/stubbedev/lys/wm/internal/protocol/client/alphamodifier"
+	chs "github.com/stubbedev/lys/wm/internal/protocol/client/hyprlandsurface"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var greenPixel = [3]byte{0, 0xff, 0}

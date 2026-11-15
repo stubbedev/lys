@@ -101,7 +101,7 @@ renderer the shader runs on the compositor thread and is slow at full HD.
 
 Tested on all three renderers:
 
-- [`grayscale.frag`](https://github.com/stubbedev/lys-wm/blob/main/docs/shaders/grayscale.frag): luminance only
-- [`nightlight.frag`](https://github.com/stubbedev/lys-wm/blob/main/docs/shaders/nightlight.frag): a warm tint
-- [`sharpen.frag`](https://github.com/stubbedev/lys-wm/blob/main/docs/shaders/sharpen.frag): an unsharp mask over the eight neighbours
-- [`scanlines.frag`](https://github.com/stubbedev/lys-wm/blob/main/docs/shaders/scanlines.frag): moving scanlines and a vignette, reading `time`
+- [`grayscale.frag`](https://github.com/stubbedev/lys/blob/main/wm/docs/shaders/grayscale.frag): luminance only
+- [`nightlight.frag`](https://github.com/stubbedev/lys/blob/main/wm/docs/shaders/nightlight.frag): a warm tint
+- [`sharpen.frag`](https://github.com/stubbedev/lys/blob/main/wm/docs/shaders/sharpen.frag): an unsharp mask over the eight neighbours
+- [`scanlines.frag`](https://github.com/stubbedev/lys/blob/main/wm/docs/shaders/scanlines.frag): moving scanlines and a vignette, reading `time`

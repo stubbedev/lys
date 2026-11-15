@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-lib/udmabuf"
+	"github.com/stubbedev/lys/lib/udmabuf"
 )
 
 // fakeSyncFile answers SYNC_IOC_FILE_INFO as drivers/dma-buf/sync_file.c

@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/fdmsg"
-	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/fdmsg"
+	"github.com/stubbedev/lys/wm/internal/loop"
 )
 
 const (

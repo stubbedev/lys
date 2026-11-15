@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // countFDs reports how many fds this process holds. /proc/self/fd

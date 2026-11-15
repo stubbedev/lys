@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // Device decodes a dev_t sent as a wl_array, the shape of

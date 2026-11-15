@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/drm"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 // vulkanClip is a clip encoding codec on d's Vulkan video queue; the

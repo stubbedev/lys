@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-shell/service/launcher/search"
+	"github.com/stubbedev/lys/shell/service/launcher/search"
 )
 
 func TestTheNextPanelReusesTheViewsClearedOfTheLastOne(t *testing.T) {

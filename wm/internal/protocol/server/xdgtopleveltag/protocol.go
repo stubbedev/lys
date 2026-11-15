@@ -3,8 +3,8 @@
 package xdgtopleveltag
 
 import (
-	"github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var XdgToplevelTagManagerV1Interface = &wire.Interface{

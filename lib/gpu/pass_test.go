@@ -7,9 +7,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	"github.com/stubbedev/lys-lib/testbuild"
-	"github.com/stubbedev/lys-lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 func newTexture(t *testing.T, d *Device, f fourcc.Format, w, h int, px [][4]byte) *Texture {

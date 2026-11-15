@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	desktopidentity "github.com/stubbedev/lys-desktop/identity"
-	"github.com/stubbedev/lys-desktop/service/nightlight/nightschedule"
-	"github.com/stubbedev/lys-lib/dbustest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/third_party/godbus/prop"
+	desktopidentity "github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
 )
 
 const geoclueDropIn = "resources/geoclue-lys-shell.conf"

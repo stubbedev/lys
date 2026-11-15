@@ -11,13 +11,13 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-desktop/resources"
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/xdg"
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/resources"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
-	loginscreen "github.com/stubbedev/lys-login/internal/screen"
+	loginscreen "github.com/stubbedev/lys/login/internal/screen"
 )
 
 // embeddedIcons holds the glyph the shared bundle does not.

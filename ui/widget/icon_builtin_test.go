@@ -3,7 +3,7 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/icons"
+	"github.com/stubbedev/lys/lib/icons"
 )
 
 // TestGoldenBuiltinIcons pins the bundled Lucide set as stock chrome

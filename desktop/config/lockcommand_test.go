@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/logind"
-	"github.com/stubbedev/lys-lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
 
-	"github.com/stubbedev/lys-desktop/spawn"
+	"github.com/stubbedev/lys/desktop/spawn"
 )
 
 const displaySession logind.SessionID = "2"

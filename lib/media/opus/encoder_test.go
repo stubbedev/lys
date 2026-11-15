@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // signal is a test input: interleaved int16 PCM of some channels.

@@ -5,7 +5,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 const MaxBorderColors = 10

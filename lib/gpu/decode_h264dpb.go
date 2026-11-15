@@ -3,8 +3,8 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-lib/intconv"
-	"github.com/stubbedev/lys-lib/internal/nal"
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/internal/nal"
 )
 
 // h264MaxSlots are the DPB slots an H.264 stream can need: its 16

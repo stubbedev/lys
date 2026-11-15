@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/internal/keyring"
 )
 
 // credentialsTimeout bounds asking the bus who a client is.

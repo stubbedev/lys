@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/service/treeman"
+	"github.com/stubbedev/lys/shell/service/treeman"
 )
 
 // fakeTreeman is a scripted treeman.Source, safe across a follow

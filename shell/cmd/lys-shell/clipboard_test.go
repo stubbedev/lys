@@ -3,9 +3,9 @@ package main
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbustest"
 
-	"github.com/stubbedev/lys-shell/service/clipboardipc"
+	"github.com/stubbedev/lys/shell/service/clipboardipc"
 )
 
 func TestCopyToClipboardGoesThroughTheRunningShell(t *testing.T) {

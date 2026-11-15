@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/widgetipc"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/widgetipc"
 )
 
 // toastCommand is app.rs's Toast.

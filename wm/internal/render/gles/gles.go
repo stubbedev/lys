@@ -13,13 +13,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys-lib/fourcc"
-	lgpu "github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys/lib/fourcc"
+	lgpu "github.com/stubbedev/lys/lib/gpu"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/region"
-	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/region"
+	"github.com/stubbedev/lys/wm/internal/render"
 )
 
 const vertexShader = `attribute vec2 corner;

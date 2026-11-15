@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // Settings are the settings.ini keys a desktop's GTK apps take their

@@ -27,8 +27,8 @@ in
       "-s"
       "-w"
       "-X main.version=${version}"
-      "-X github.com/stubbedev/lys-lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
-      "-X github.com/stubbedev/lys-lib/xkb.defaultXLocaleDir=${libX11}/share/X11/locale"
+      "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
+      "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${libX11}/share/X11/locale"
     ];
 
     # The suite runs in `just check`: it needs lys-wm and fonts.
@@ -63,7 +63,7 @@ in
 
     meta = {
       description = "The lys desktop's settings app, for lys-shell and lys-wm";
-      homepage = "https://github.com/stubbedev/lys-settings";
+      homepage = "https://github.com/stubbedev/lys/tree/main/settings";
       license = lib.licenses.mit;
       mainProgram = "lys-settings";
       platforms = lib.platforms.linux;

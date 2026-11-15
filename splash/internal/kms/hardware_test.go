@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/drm"
+	"github.com/stubbedev/lys/lib/drm"
 )
 
 const vmEnv = "LYS_SPLASH_KMS_VM"

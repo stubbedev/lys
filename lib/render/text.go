@@ -16,12 +16,12 @@ import (
 
 	"golang.org/x/image/math/fixed"
 
-	"github.com/stubbedev/lys-lib/text"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/di"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	ot "github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/segmenter"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/shaping"
+	"github.com/stubbedev/lys/lib/text"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/di"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/segmenter"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/shaping"
 )
 
 // Font shapes and paints text: a single Typeface, or a Chain that

@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
-	"github.com/stubbedev/lys-lib/xdg"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys-desktop/fileuri"
-	"github.com/stubbedev/lys-desktop/shlex"
-	"github.com/stubbedev/lys-desktop/spawn"
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/shlex"
+	"github.com/stubbedev/lys/desktop/spawn"
 )
 
 // App is one application desktop entry, the GDesktopAppInfo a gio

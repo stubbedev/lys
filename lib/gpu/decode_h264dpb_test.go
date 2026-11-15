@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/internal/nal"
+	"github.com/stubbedev/lys/lib/internal/nal"
 )
 
 // dpbRun decodes pictures through a h264State as the decoder does;

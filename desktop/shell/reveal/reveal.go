@@ -7,9 +7,9 @@ package reveal
 import (
 	"time"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 // FadeFrom is the opacity an opening surface fades in from: its first

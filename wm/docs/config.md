@@ -3,7 +3,7 @@
 lys-wm reads one YAML file: `$XDG_CONFIG_HOME/lys-wm/config.yaml`, or
 `~/.config/lys-wm/config.yaml` when `XDG_CONFIG_HOME` is unset. Without it,
 lys-wm runs the built-in config,
-[`internal/config/default.yaml`](https://github.com/stubbedev/lys-wm/blob/main/internal/config/default.yaml),
+[`internal/config/default.yaml`](https://github.com/stubbedev/lys/blob/main/wm/internal/config/default.yaml),
 a good starting point to copy.
 
 Every section is optional. A file replaces the built-in config rather than
@@ -22,7 +22,7 @@ config.yaml:12: binds[3].action: bad action: unknown action "teleport"
 | `--runtime <file>` | Read this override file instead of `runtime.yaml`; it must exist |
 | `--check-config` | Load the config and overrides as a reload would, then exit: status 0 and no output when accepted, the errors and status 1 when not |
 | `--default-config` | Print the built-in config |
-| `--config-schema` | Print the JSON schema, as [`schema/lys-wm-config.schema.json`](https://github.com/stubbedev/lys-wm/blob/main/schema/lys-wm-config.schema.json) |
+| `--config-schema` | Print the JSON schema, as [`schema/lys-wm-config.schema.json`](https://github.com/stubbedev/lys/blob/main/wm/schema/lys-wm-config.schema.json) |
 | `--effective-config` | Print, as JSON, the layers read and every key they set, with its source layer, file, line and value |
 
 `SIGHUP`, the `reload` action and `lys-wmctl reload` read the file again;

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 type Resolver interface {

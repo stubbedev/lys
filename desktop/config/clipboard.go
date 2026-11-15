@@ -3,7 +3,7 @@ package config
 import (
 	"reflect"
 
-	"github.com/stubbedev/lys-desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
 
 // ClipboardConfig is the clipboard section: the session's clipboard

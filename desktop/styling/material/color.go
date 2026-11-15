@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // ARGB is an opaque sRGB color packed as 0xAARRGGBB.

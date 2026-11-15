@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/portal/permissions"
-	"github.com/stubbedev/lys-desktop/portal/permissions/permstoretest"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/portal/permissions"
+	"github.com/stubbedev/lys/desktop/portal/permissions/permstoretest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/bussignal/bussignaltest"
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 const hostRegistry = "org.freedesktop.host.portal.Registry"

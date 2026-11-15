@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // FrameType is a frame's frame_type.

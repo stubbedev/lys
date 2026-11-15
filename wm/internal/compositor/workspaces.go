@@ -8,10 +8,10 @@ import (
 	"slices"
 	"strconv"
 
-	sew "github.com/stubbedev/lys-wm/internal/protocol/server/extworkspace"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	sew "github.com/stubbedev/lys/wm/internal/protocol/server/extworkspace"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const extWorkspaceVersion = 1

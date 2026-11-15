@@ -3,10 +3,10 @@ package sharepicker
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-lib/portaldialogs"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/portaldialogs"
 
-	"github.com/stubbedev/lys-shell/shell/dialogsurface/surfacetest"
+	"github.com/stubbedev/lys/shell/shell/dialogsurface/surfacetest"
 )
 
 // On lys-wm, a share request naming the app's window maps the picker as

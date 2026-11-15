@@ -10,10 +10,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	ccm "github.com/stubbedev/lys-wm/internal/protocol/client/colormanagement"
-	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
-	cwsc "github.com/stubbedev/lys-wm/internal/protocol/client/wlrscreencopy"
-	"github.com/stubbedev/lys-wm/internal/testclient"
+	ccm "github.com/stubbedev/lys/wm/internal/protocol/client/colormanagement"
+	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	cwsc "github.com/stubbedev/lys/wm/internal/protocol/client/wlrscreencopy"
+	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
 type colorEvents struct {

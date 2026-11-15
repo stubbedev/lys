@@ -4,14 +4,14 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/fourcc"
+	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys-wm/internal/gpu"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/render/rendertest"
-	"github.com/stubbedev/lys-wm/internal/render/vulkan"
-	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/render/rendertest"
+	"github.com/stubbedev/lys/wm/internal/render/vulkan"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const sharedFormat = fourcc.XRGB8888

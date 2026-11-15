@@ -1,7 +1,7 @@
 # Configuration
 
 Both screens read the `login` section of the lys-shell config. The
-[login reference](https://stubbedev.github.io/lys-shell/config/login) on the
+[login reference](https://stubbedev.github.io/lys/shell/config/login) on the
 lys-shell site is the schema; this page covers what lys-login does with it.
 `lys-settings` edits these keys under **Login & Lock Screen** and **Greeter**.
 

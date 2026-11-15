@@ -1,6 +1,6 @@
 package opus
 
-import "github.com/stubbedev/lys-lib/intconv"
+import "github.com/stubbedev/lys/lib/intconv"
 
 // silkFIROrder is the interpolation FIR's length.
 const silkFIROrder = 8

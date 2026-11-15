@@ -3,7 +3,7 @@ package gpu
 import (
 	_ "embed" // the colour transform's GLSL below
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // ColorGLSL is the GLSL of ColorTransform.Apply, colorApply, valid as GLSL

@@ -5,13 +5,13 @@ import (
 	"image"
 	"sync/atomic"
 
-	"github.com/stubbedev/lys-lib/debug"
-	"github.com/stubbedev/lys-lib/gpu"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/debug"
+	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/internal/imgcache"
-	"github.com/stubbedev/lys-ui/media"
-	"github.com/stubbedev/lys-ui/widget/css"
+	"github.com/stubbedev/lys/ui/internal/imgcache"
+	"github.com/stubbedev/lys/ui/media"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // VideoFormat is the frames a VideoSurface carries: their size in

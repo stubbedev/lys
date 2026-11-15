@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/stubbedev/lys-lib/i18n"
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/i18n"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/component"
-	"github.com/stubbedev/lys-ui/ui"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/component"
+	"github.com/stubbedev/lys/ui/ui"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 //go:embed locale

@@ -3,10 +3,10 @@ package shell
 import (
 	"fmt"
 
-	sxdd "github.com/stubbedev/lys-wm/internal/protocol/server/xdgdialog"
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sxdd "github.com/stubbedev/lys/wm/internal/protocol/server/xdgdialog"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const dialogVersion = 1

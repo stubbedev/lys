@@ -87,7 +87,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/stubbedev/lys-desktop)
+        - prefix(github.com/stubbedev/lys/desktop)
   exclusions:
     # Upstream code carried close to verbatim (LYS_SHELL-PATCHES.md).
     paths:

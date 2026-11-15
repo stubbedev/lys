@@ -3,8 +3,8 @@ package network
 import (
 	"context"
 
-	"github.com/stubbedev/lys-shell/service/network/openconnect"
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/openconnect"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // SignIn is the agent's seam to the native openconnect sign-ins: an

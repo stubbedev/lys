@@ -3,9 +3,9 @@ package portalsettings
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/appearance"
-	"github.com/stubbedev/lys-lib/dbusx"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/appearance"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // TestAccentValue pins the accent mapping: a (ddd) triple inside a

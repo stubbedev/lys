@@ -9,7 +9,7 @@ import (
 
 	"github.com/ebitengine/purego"
 
-	"github.com/stubbedev/lys-lib/clib"
+	"github.com/stubbedev/lys/lib/clib"
 )
 
 type cRegistry struct {

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/stubbedev/lys-desktop/offheap"
+	"github.com/stubbedev/lys/desktop/offheap"
 )
 
 // ErrNoPinStore is a pin with nowhere to keep it: the session has no

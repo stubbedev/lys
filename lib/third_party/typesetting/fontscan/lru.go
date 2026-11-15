@@ -3,8 +3,8 @@ package fontscan
 import (
 	"hash/maphash"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font"
-	"github.com/stubbedev/lys-lib/third_party/typesetting/language"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/language"
 )
 
 // runeLRUEntry holds a single key-value pair for an LRU cache.

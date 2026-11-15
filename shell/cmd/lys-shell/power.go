@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/service/powerprofiles"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 // powerCommand is lys-shell/src/cli/power/commands.rs.

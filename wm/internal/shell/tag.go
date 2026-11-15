@@ -3,10 +3,10 @@ package shell
 import (
 	"fmt"
 
-	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
-	sxtt "github.com/stubbedev/lys-wm/internal/protocol/server/xdgtopleveltag"
-	"github.com/stubbedev/lys-wm/internal/server"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	sxdg "github.com/stubbedev/lys/wm/internal/protocol/server/xdgshell"
+	sxtt "github.com/stubbedev/lys/wm/internal/protocol/server/xdgtopleveltag"
+	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 const tagVersion = 1

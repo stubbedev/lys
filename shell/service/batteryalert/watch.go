@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/i18n"
-	"github.com/stubbedev/lys-desktop/service/upower"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/upower"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/service/powerprofiles"
+	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 // Config is what the watcher reads from the user's configuration on

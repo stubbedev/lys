@@ -3,7 +3,7 @@ package font
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/typesetting/font/opentype/tables"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
 func lysAdvances(histogram map[int16]int) []tables.LongHorMetric {

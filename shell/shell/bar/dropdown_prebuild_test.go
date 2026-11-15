@@ -4,10 +4,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys-shell/internal/apptest"
+	"github.com/stubbedev/lys/shell/internal/apptest"
 )
 
 // loopQueue is the loop: what is handed to it runs when drained.

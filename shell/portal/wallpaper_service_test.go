@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/wallpaper/extract"
-	"github.com/stubbedev/lys-ui/gtksettings"
+	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
+	"github.com/stubbedev/lys/ui/gtksettings"
 
-	"github.com/stubbedev/lys-shell/service/wallpaper"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
 // writeWallpaperPalette writes the palette an extraction leaves, with

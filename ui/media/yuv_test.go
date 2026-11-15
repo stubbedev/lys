@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys/lib/testbuild"
 
-	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 func yuvPlanes(w, h, frame int) []byte {

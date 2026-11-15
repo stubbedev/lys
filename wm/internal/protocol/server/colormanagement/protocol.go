@@ -5,8 +5,8 @@ package colormanagement
 import (
 	"sync"
 
-	"github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
-	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var WpColorManagerV1Interface = &wire.Interface{

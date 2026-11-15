@@ -25,7 +25,7 @@ of the module, the patches reach every application importing lys-lib, with no
 `replace`, and every family member shares the same types.
 
 When you import one of these directly, use the copy's import path, such as
-`github.com/stubbedev/lys-lib/third_party/godbus`, not upstream's. A value from
+`github.com/stubbedev/lys/lib/third_party/godbus`, not upstream's. A value from
 upstream's module is not a value of the copy's: a `font.Face` from one is not a
 face of the other.
 

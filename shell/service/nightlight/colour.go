@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stubbedev/lys-lib/third_party/gomath"
+	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // The documented ranges of the module's temperature and gamma.

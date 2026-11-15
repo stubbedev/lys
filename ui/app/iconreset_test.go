@@ -6,7 +6,7 @@ import (
 	"time"
 	"weak"
 
-	"github.com/stubbedev/lys-lib/icons"
+	"github.com/stubbedev/lys/lib/icons"
 )
 
 func TestAClosedApplicationIsNoLongerHeldByTheIconCacheItFollowed(t *testing.T) {

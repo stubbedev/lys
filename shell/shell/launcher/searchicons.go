@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys-ui/widget"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // iconRequest is one icon to decode.

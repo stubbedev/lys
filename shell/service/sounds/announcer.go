@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/glob"
-	"github.com/stubbedev/lys-desktop/service/sounds/soundpolicy"
-	"github.com/stubbedev/lys-lib/pulse/native"
+	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/desktop/service/sounds/soundpolicy"
+	"github.com/stubbedev/lys/lib/pulse/native"
 
-	"github.com/stubbedev/lys-shell/service/notifications"
+	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
 // Player plays a sample through the audio server's cache, loading it on

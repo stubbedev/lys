@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stubbedev/lys-wm/internal/binds"
-	"github.com/stubbedev/lys-wm/internal/compositor"
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/seat"
-	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys/wm/internal/binds"
+	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/seat"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const (
@@ -375,7 +375,7 @@ func objectSchema(t reflect.Type, path string, notes map[string]annotation) *sch
 func Schema() []byte {
 	root := schemaFor(reflect.TypeFor[rawConfig](), "", annotations())
 	root.Schema = "https://json-schema.org/draft/2020-12/schema"
-	root.ID = "https://github.com/stubbedev/lys-wm/blob/main/schema/lys-wm-config.schema.json"
+	root.ID = "https://github.com/stubbedev/lys/blob/main/wm/schema/lys-wm-config.schema.json"
 	var out bytes.Buffer
 	enc := json.NewEncoder(&out)
 	enc.SetEscapeHTML(false)

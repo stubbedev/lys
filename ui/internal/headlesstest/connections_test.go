@@ -3,10 +3,10 @@ package headlesstest
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/capture"
+	"github.com/stubbedev/lys/lib/capture"
 
-	"github.com/stubbedev/lys-ui/app"
-	"github.com/stubbedev/lys-ui/internal/waittest"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 // Two connections in one process (an application and a capture client,

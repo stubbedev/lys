@@ -1,6 +1,6 @@
 package component
 
-import "github.com/stubbedev/lys-ui/app"
+import "github.com/stubbedev/lys/ui/app"
 
 type surfaceRef struct {
 	window  *app.Window

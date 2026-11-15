@@ -3,7 +3,7 @@ package greeter
 import (
 	"testing"
 
-	"github.com/stubbedev/lys-lib/testhome"
+	"github.com/stubbedev/lys/lib/testhome"
 )
 
 // TestMain runs the package against a scratch home: building a theme

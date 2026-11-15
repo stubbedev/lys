@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-shell/service/network/openconnect"
+	"github.com/stubbedev/lys/shell/service/network/openconnect"
 )
 
 const openconnectDescriptor = "[VPN Connection]\n" +

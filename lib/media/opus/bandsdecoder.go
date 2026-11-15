@@ -3,7 +3,7 @@ package opus
 import (
 	"math"
 
-	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // normLen is the folding memory of one channel: every band but the

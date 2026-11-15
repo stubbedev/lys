@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/wlr"
-	"github.com/stubbedev/lys-lib/xkb"
+	"github.com/stubbedev/lys/lib/wlr"
+	"github.com/stubbedev/lys/lib/xkb"
 )
 
 type hotkeyTrigger struct{ keysym, modifiers uint32 }

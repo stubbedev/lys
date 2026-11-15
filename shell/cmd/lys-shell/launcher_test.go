@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-shell/internal/launcheripc"
+	"github.com/stubbedev/lys/shell/internal/launcheripc"
 )
 
 func parseOK(t *testing.T, args ...string) launcherInvocation {

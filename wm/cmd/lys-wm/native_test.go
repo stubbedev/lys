@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	drmbackend "github.com/stubbedev/lys-wm/internal/backend/drm"
-	"github.com/stubbedev/lys-wm/internal/loop"
+	drmbackend "github.com/stubbedev/lys/wm/internal/backend/drm"
+	"github.com/stubbedev/lys/wm/internal/loop"
 )
 
 func TestPrimaryGPUFollowsTheRule(t *testing.T) {

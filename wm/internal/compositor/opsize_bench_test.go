@@ -4,8 +4,8 @@ import (
 	"image"
 	"testing"
 
-	"github.com/stubbedev/lys-wm/internal/render"
-	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/surface"
 )
 
 func BenchmarkClipAndDiffOf100Ops(b *testing.B) {

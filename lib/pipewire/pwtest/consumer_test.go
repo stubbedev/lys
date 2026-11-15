@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/pipewire"
-	"github.com/stubbedev/lys-lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/pipewire"
+	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 )
 
 // once is a source of one frame of 0x55.

@@ -3,7 +3,7 @@ package network
 import (
 	"slices"
 
-	"github.com/stubbedev/lys-shell/service/network/secrets"
+	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
 // Vault is a password store the secret agent answers from before it

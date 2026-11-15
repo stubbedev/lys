@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	sys "github.com/stubbedev/lys-lib/third_party/wayland/os"
+	sys "github.com/stubbedev/lys/lib/third_party/wayland/os"
 )
 
 // Context wraps the wayland connection together with the map of all Context objects (proxies)

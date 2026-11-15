@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys/lib/render"
 
-	"github.com/stubbedev/lys-desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 // testLoop stands in for the application loop: Invoke queues, and the

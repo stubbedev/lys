@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/sockdir"
+	"github.com/stubbedev/lys/lib/sockdir"
 )
 
 func TestCLIModeLogsToFileAndEnsuresConfigDir(t *testing.T) {

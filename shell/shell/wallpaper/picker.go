@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/imagedecode"
-	"github.com/stubbedev/lys-lib/xdg"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/lib/xdg"
 
-	engine "github.com/stubbedev/lys-shell/service/launcher"
-	"github.com/stubbedev/lys-shell/service/wallpaper"
+	engine "github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
 // Picker is what the launcher's wallpaper picker sets wallpapers

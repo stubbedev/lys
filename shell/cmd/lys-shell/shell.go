@@ -6,14 +6,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/stubbedev/lys-desktop/config"
-	"github.com/stubbedev/lys-desktop/logging"
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/logging"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys-shell/internal/cli"
-	"github.com/stubbedev/lys-shell/internal/version"
-	"github.com/stubbedev/lys-shell/service/shellipc"
-	"github.com/stubbedev/lys-shell/shell/bar"
+	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/internal/version"
+	"github.com/stubbedev/lys/shell/service/shellipc"
+	"github.com/stubbedev/lys/shell/shell/bar"
 )
 
 // shellCommand is app.rs's Shell: the desktop shell in the foreground.

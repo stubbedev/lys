@@ -31,8 +31,8 @@
         version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf src))}";
         inherit src;
         ldflags = [
-          "-X github.com/stubbedev/lys-lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
-          "-X github.com/stubbedev/lys-lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
+          "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
+          "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
         ];
         env.CGO_ENABLED = "0";
         vendorHash = "sha256-BvbeggWqAlxYeMyBlm4AU3POo8IpBCzQgaajmwwPjCU=";
@@ -53,7 +53,7 @@
 
         meta = with lib;
           {
-            homepage = "https://github.com/stubbedev/lys-ui";
+            homepage = "https://github.com/stubbedev/lys/tree/main/ui";
             license = licenses.mit;
             platforms = platforms.linux;
             inherit description;

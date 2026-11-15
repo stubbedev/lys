@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-desktop/config"
+	"github.com/stubbedev/lys/desktop/config"
 
-	"github.com/stubbedev/lys-shell/internal/launcheripc"
+	"github.com/stubbedev/lys/shell/internal/launcheripc"
 )
 
 func TestSessionCSS(t *testing.T) {

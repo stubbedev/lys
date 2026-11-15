@@ -16,9 +16,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys-lib/wmipc"
+	"github.com/stubbedev/lys/lib/wmipc"
 
-	"github.com/stubbedev/lys-desktop/ipcsock"
+	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
 // ErrNotRunning is a request made while no lys-wm socket is advertised.

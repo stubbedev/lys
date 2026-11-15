@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 // VPNSSOCallback hands a globalprotectcallback: URI to the running

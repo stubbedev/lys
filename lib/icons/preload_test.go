@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys-lib/assetfile"
+	"github.com/stubbedev/lys/lib/assetfile"
 )
 
 // heldReadFS parks every ReadFile until release hands it the contents,

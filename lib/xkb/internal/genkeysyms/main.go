@@ -23,8 +23,8 @@ import (
 
 	"github.com/ebitengine/purego"
 
-	"github.com/stubbedev/lys-lib/atomicfile"
-	"github.com/stubbedev/lys-lib/clib"
+	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/clib"
 )
 
 var defineRE = regexp.MustCompile(`(?m)^#define XKB_KEY_(\w+)\s+(0x[0-9a-fA-F]+)`)

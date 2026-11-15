@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
-	"github.com/stubbedev/lys-lib/wlr"
-	"github.com/stubbedev/lys-lib/wltest"
-	"github.com/stubbedev/lys-lib/xcursor"
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/wlr"
+	"github.com/stubbedev/lys/lib/wltest"
+	"github.com/stubbedev/lys/lib/xcursor"
 )
 
 // frame is one image of a test Xcursor file; every pixel holds bgra.

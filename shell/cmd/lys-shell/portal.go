@@ -1,6 +1,6 @@
 package main
 
-import "github.com/stubbedev/lys-shell/internal/cli"
+import "github.com/stubbedev/lys/shell/internal/cli"
 
 // portalCommand is lys-shell/src/cli/portal/commands.rs. The subcommand is
 // optional: a bare `lys-shell portal` runs the backend, so the installed

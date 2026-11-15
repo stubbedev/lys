@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/stubbedev/lys-desktop/service/notifications/notifypolicy"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 )
 
 // NotificationDndConfig is modules.notifications.dnd.
