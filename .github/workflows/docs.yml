@@ -1,0 +1,23 @@
+name: docs
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+      - "lib/third_party/*/README.lys-lib.md"
+      - "splash/internal/theme/testdata/golden/*.png"
+      - "ui/component/example_test.go"
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: docs
+  cancel-in-progress: true
+jobs:
+  pages:
+    uses: stubbedev/lys-docs-theme/.github/workflows/pages.yml@7ae5fd05b520aca671ebf64488f5ad45bc18e314 # v0.1.2
+    with:
+      nix-prebuild: just ui/docshots ../docs/public/ui-widgets
