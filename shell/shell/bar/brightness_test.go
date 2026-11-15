@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/styling"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
@@ -244,5 +246,123 @@ func TestBrightnessStepActionHoldsTheConfiguredFloor(t *testing.T) {
 	runClickAction(ctx, config.ParseClickAction("brightness:5"))
 	if got := waitForSets(4)[2:]; !slices.Equal(got, []brightnessSet{{"panel", 13}, {"monitor", 55}}) {
 		t.Errorf("+5 wrote %v, want steps from each rounded level", got)
+	}
+}
+
+// fakeAutoBrightness is a scripted automatic brightness, safe across
+// the follow goroutine and the test.
+type fakeAutoBrightness struct {
+	mu      sync.Mutex
+	control brightness.Control
+	resumes int
+	changes feed.Feed[struct{}]
+}
+
+func (f *fakeAutoBrightness) Control() brightness.Control {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.control
+}
+
+func (f *fakeAutoBrightness) Subscribe() (<-chan struct{}, func()) { return f.changes.Subscribe() }
+
+func (f *fakeAutoBrightness) Resume(context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resumes++
+	return nil
+}
+
+func (f *fakeAutoBrightness) set(control brightness.Control) {
+	f.mu.Lock()
+	f.control = control
+	f.mu.Unlock()
+	f.changes.Publish(struct{}{})
+}
+
+func (f *fakeAutoBrightness) resumed() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.resumes
+}
+
+// The module shows who sets the backlight: the level icon and the
+// plain level without automatic brightness, its icon while it follows
+// the room's light, and the level icon again, described as paused,
+// while a manual change holds it.
+func TestBrightnessModuleShowsWhoSetsTheBacklight(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Brightness.LevelIcons = []string{"low", "high"}
+	ctx := newTestContext(t, cfg)
+	ctx.Brightness = &fakeBrightnessSource{devices: []brightness.Device{{Brightness: 9000, Max: 10000}}}
+	auto := &fakeAutoBrightness{}
+	ctx.AutoBrightness = auto
+	module, err := createOnHeadlessLoop("brightness", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := module.(*brightnessModule)
+	following := i18n.T("bar-brightness-following", i18n.Str("level", "90%"))
+	paused := i18n.T("bar-brightness-paused", i18n.Str("level", "90%"))
+	shows := func(icon string, described, notDescribed []string) func() bool {
+		return func() bool {
+			tooltip := m.btn.TooltipText()
+			if m.icon.Name() != icon || m.btn.Label().Text() != "90%" {
+				return false
+			}
+			for _, d := range described {
+				if !strings.Contains(tooltip, d) {
+					return false
+				}
+			}
+			for _, d := range notDescribed {
+				if strings.Contains(tooltip, d) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	manual := shows("high", []string{"90%"}, []string{following, paused})
+	if !onHeadlessLoop(manual) {
+		t.Fatalf("manual: icon %q tooltip %q, want the level icon and the plain level", m.icon.Name(), m.btn.TooltipText())
+	}
+	auto.set(brightness.ControlFollowing)
+	waitHeadless(t, "the automatic icon and description", shows(brightnessAutoIcon, []string{following}, []string{paused}))
+	auto.set(brightness.ControlPaused)
+	waitHeadless(t, "the level icon described as paused", shows("high", []string{paused}, []string{following}))
+	auto.set(brightness.ControlManual)
+	waitHeadless(t, "the manual look again", manual)
+}
+
+// Without automatic brightness on the bus the module looks as it
+// always did: the level icon, the level alone in its tooltip.
+func TestBrightnessModuleWithoutAutomaticBrightness(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Brightness.LevelIcons = []string{"low", "high"}
+	ctx := newTestContext(t, cfg)
+	ctx.Brightness = &fakeBrightnessSource{devices: []brightness.Device{{Brightness: 2000, Max: 10000}}}
+	module, err := createOnHeadlessLoop("brightness", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := module.(*brightnessModule)
+	if m.icon.Name() != "low" || m.control != brightness.ControlManual {
+		t.Errorf("icon %q control %v, want the level icon under manual control", m.icon.Name(), m.control)
+	}
+	if got, want := m.btn.TooltipText(), moduleDescription(m.btn.title, "", "20%"); got != want {
+		t.Errorf("tooltip %q, want %q", got, want)
+	}
+}
+
+func TestBrightnessDescription(t *testing.T) {
+	if got := brightnessDescription(brightness.ControlManual, "40%"); got != "" {
+		t.Errorf("manual = %q, want the label to speak for itself", got)
+	}
+	if got, want := brightnessDescription(brightness.ControlFollowing, "40%"), i18n.T("bar-brightness-following", i18n.Str("level", "40%")); got != want {
+		t.Errorf("following = %q, want %q", got, want)
+	}
+	if got, want := brightnessDescription(brightness.ControlPaused, "40%"), i18n.T("bar-brightness-paused", i18n.Str("level", "40%")); got != want {
+		t.Errorf("paused = %q, want %q", got, want)
 	}
 }

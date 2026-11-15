@@ -73,16 +73,18 @@ func deviceSubtitle(name string, kind brightness.Type, multi bool) (string, bool
 	return name + " · " + backlightTypeLabel(kind), true
 }
 
-// brightnessView is the brightness dropdown: a header, then a slider
-// card per backlight or the empty state. The device list rebuilds only
-// when the set of devices changes; a level change moves the slider in
-// place (sync_single_device), which the slider ignores mid-drag.
+// brightnessView is the brightness dropdown: a header, automatic
+// brightness's card while it runs, then a slider card per backlight or
+// the empty state. The device list rebuilds only when the set of
+// devices changes; a level change moves the slider in place
+// (sync_single_device), which the slider ignores mid-drag.
 type brightnessView struct {
 	ctx  ModuleContext
 	font render.Font
 	px   float64
 
 	*widget.Box
+	auto    *brightnessAutoCard
 	body    *widget.Stack
 	list    *widget.ItemGroup
 	devices []brightness.Device
@@ -113,6 +115,10 @@ func brightnessDropdown(ctx ModuleContext) widget.Widget {
 	// The content holds the device list and the empty state. No
 	// scroll: the list shows bare and the panel grows.
 	content := dropdownContent()
+	if ctx.AutoBrightness != nil {
+		v.auto = newBrightnessAutoCard(ctx, font, px, ctx.AutoBrightness)
+		content.Append(v.auto.card, false)
+	}
 	v.body = pageStack()
 	v.body.Add("devices", atTop(card))
 	v.body.Add("empty", empty)
@@ -197,11 +203,67 @@ func (v *brightnessView) write(name string, pct float64) func() {
 	}
 }
 
-// follow re-reads the devices on every service tick until the
-// dropdown closes.
+// follow re-reads the devices on every service tick, and follows who
+// sets the backlight, until the dropdown closes.
 func (v *brightnessView) follow(life context.Context) {
+	if v.auto != nil {
+		followControl(v.ctx, life, v.auto.src, v.auto.apply)
+	}
 	if v.ctx.Brightness == nil {
 		return
 	}
 	followInto(life, "brightness", infallibleStop(v.ctx.Brightness.Subscribe), v.reads)
+}
+
+// brightnessAutoCard is automatic brightness in the dropdown: shown
+// while it runs, saying whether it follows the room's light, and while
+// a manual change pauses it, the button handing the backlight back.
+type brightnessAutoCard struct {
+	ctx    ModuleContext
+	src    autoBrightnessSource
+	card   *widget.Box
+	item   *widget.Item
+	resume *widget.Button
+}
+
+func newBrightnessAutoCard(ctx ModuleContext, font render.Font, px float64, src autoBrightnessSource) *brightnessAutoCard {
+	c := &brightnessAutoCard{ctx: ctx, src: src}
+	card, group := itemCard()
+	card.AddClass("brightness-auto")
+	c.card = card
+	c.item = widget.NewItem(font, i18n.T("dropdown-brightness-auto-title"), "")
+	c.item.SetSmall(true)
+	c.item.SetMedia(widget.NewThemeIcon(brightnessAutoIcon, itemIconPx), false)
+	c.resume = dropdownButton(widget.NewLabel(font, px, i18n.T("dropdown-brightness-auto-resume"), 0), c.resumeAuto,
+		"brightness-auto-resume", css.SuggestedAction, css.Small)
+	c.item.AddAction(c.resume)
+	group.Append(c.item)
+	c.apply(brightness.ControlManual)
+	return c
+}
+
+// apply shows control: no card while the user alone sets the
+// backlight, the resume button only while a manual change pauses
+// automatic brightness.
+func (c *brightnessAutoCard) apply(control brightness.Control) {
+	c.card.SetVisible(control != brightness.ControlManual)
+	c.resume.SetVisible(control == brightness.ControlPaused)
+	switch control {
+	case brightness.ControlFollowing:
+		c.item.SetDescription(i18n.T("dropdown-brightness-auto-following"))
+	case brightness.ControlPaused:
+		c.item.SetDescription(i18n.T("dropdown-brightness-auto-paused"))
+	}
+}
+
+// resumeAuto hands the backlight back off the loop; the card follows
+// once automatic brightness announces it follows again.
+func (c *brightnessAutoCard) resumeAuto() {
+	c.ctx.Go(func() {
+		ctx, cancel := context.WithTimeout(c.ctx.Life(), offLoopTimeout)
+		defer cancel()
+		if err := c.src.Resume(ctx); err != nil {
+			log.Printf("brightness: %v", err)
+		}
+	})
 }

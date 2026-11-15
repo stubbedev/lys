@@ -10,3 +10,9 @@ dropdown-brightness-empty-description = Brightness control is available only for
 dropdown-brightness-device-internal = Built-in display
 dropdown-brightness-device-external = External display
 dropdown-brightness-device-keyboard = Keyboard backlight
+
+## Automatic brightness
+dropdown-brightness-auto-title = Automatic brightness
+dropdown-brightness-auto-following = Follows the room's light
+dropdown-brightness-auto-paused = Paused by a manual change
+dropdown-brightness-auto-resume = Resume

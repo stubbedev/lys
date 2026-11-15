@@ -256,3 +256,69 @@ func TestBrightnessSliderHoldsWhileItsWriteRuns(t *testing.T) {
 	}
 	close(gate)
 }
+
+// Without automatic brightness the dropdown has no card for it.
+func TestBrightnessDropdownWithoutAutomaticBrightness(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Brightness = &fakeBrightnessSource{}
+	v := brightnessDropdown(ctx).(*brightnessView)
+	defer v.dropdownClosed()
+	if n := len(treetest.WithClass(v, "brightness-auto")); n != 0 || v.auto != nil {
+		t.Errorf("%d automatic brightness cards without automatic brightness", n)
+	}
+}
+
+// The automatic brightness card shows only while it runs: following,
+// it says so; paused, it offers the button handing control back, which
+// resumes it off the loop.
+func TestBrightnessDropdownShowsAndResumesAutomaticBrightness(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Brightness = &fakeBrightnessSource{}
+	auto := &fakeAutoBrightness{}
+	ctx.AutoBrightness = auto
+	v := brightnessDropdown(ctx).(*brightnessView)
+	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	card := v.auto
+	if onHeadlessLoop(card.card.Visible) {
+		t.Fatal("the card shows while the user alone sets the backlight")
+	}
+
+	auto.set(brightness.ControlFollowing)
+	waitHeadless(t, "the following card", func() bool {
+		return card.card.Visible() && itemText(card.item, "description") == i18n.T("dropdown-brightness-auto-following")
+	})
+	if onHeadlessLoop(card.resume.Visible) {
+		t.Error("following automatic brightness offers to resume")
+	}
+
+	auto.set(brightness.ControlPaused)
+	waitHeadless(t, "the paused card", func() bool {
+		return card.resume.Visible() && itemText(card.item, "description") == i18n.T("dropdown-brightness-auto-paused")
+	})
+	onHeadlessLoop(func() bool { card.resume.OnClick(); return true })
+	waitHeadless(t, "the resume call", func() bool { return auto.resumed() == 1 })
+
+	auto.set(brightness.ControlManual)
+	waitHeadless(t, "the card gone", func() bool { return !card.card.Visible() })
+}
+
+// A change while the dropdown is hidden does not reach it; showing it
+// again shows the control it missed.
+func TestBrightnessDropdownStopsFollowingControlWhileHidden(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Brightness = &fakeBrightnessSource{}
+	auto := &fakeAutoBrightness{}
+	ctx.AutoBrightness = auto
+	v := brightnessDropdown(ctx).(*brightnessView)
+	onHeadlessLoop(func() bool { v.dropdownHidden(); return true })
+	auto.set(brightness.ControlFollowing)
+	time.Sleep(50 * time.Millisecond)
+	if onHeadlessLoop(v.auto.card.Visible) {
+		t.Error("a change while hidden showed the card")
+	}
+	onHeadlessLoop(func() bool { v.dropdownOpened(); return true })
+	if !onHeadlessLoop(v.auto.card.Visible) {
+		t.Error("showing the dropdown again did not show the control it missed")
+	}
+	onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+}

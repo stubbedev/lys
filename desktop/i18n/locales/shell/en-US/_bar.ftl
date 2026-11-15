@@ -119,3 +119,5 @@ bar-module-lys-wm-workspaces = { bar-module-workspaces }
 bar-module-mango-workspaces = { bar-module-workspaces }
 bar-module-niri-workspaces = { bar-module-workspaces }
 bar-module-sway-workspaces = { bar-module-workspaces }
+bar-brightness-following = { $level }, automatic
+bar-brightness-paused = { $level }, paused: follows the room again when you resume

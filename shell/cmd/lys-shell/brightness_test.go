@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/power/autobrightness"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
 )
@@ -76,4 +79,71 @@ func TestBrightnessCommandNeedsAFocusedOutputOrAName(t *testing.T) {
 		{[]string{"brightness", "+5"}, "Error: Failed to set brightness: the compositor reports no focused output; name one with --output\n"},
 		{[]string{"brightness", "+5", "-o", "DP-2"}, "DP-2: 45%\n"},
 	})
+}
+
+type fakeAutoBrightness struct {
+	resumes dbustest.Var[int]
+	refuse  *dbus.Error
+}
+
+func (f *fakeAutoBrightness) Resume() *dbus.Error {
+	if f.refuse != nil {
+		return f.refuse
+	}
+	f.resumes.Update(func(n int) int { return n + 1 })
+	return nil
+}
+
+func serveAutoBrightness(t *testing.T, f *fakeAutoBrightness) func() {
+	t.Helper()
+	release, err := dbusx.Serve(dbustest.SessionConn(t), dbusx.Service{
+		Name:       autobrightness.ServiceName,
+		Path:       autobrightness.ServicePath,
+		Interface:  autobrightness.Interface,
+		Methods:    f,
+		Properties: dbusx.Getters{autobrightness.Property: func() any { return autobrightness.Paused.String() }},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(release)
+	return release
+}
+
+func TestBrightnessAutoHandsTheBacklightBack(t *testing.T) {
+	dbustest.Session(t)
+	notRunning := "Error: automatic brightness is not running: nothing owns dev.stubbe.lys.AutoBrightness1 on the session bus\n"
+	runSteps(t, []step{{[]string{"brightness", "auto"}, notRunning}})
+	f := &fakeAutoBrightness{}
+	release := serveAutoBrightness(t, f)
+	runSteps(t, []step{
+		{[]string{"brightness", "auto"}, ""},
+		{[]string{"brightness", "auto", "--output", "DP-2"}, "Error: automatic brightness takes no output; drop --output DP-2\n"},
+	})
+	if got := f.resumes.Load(); got != 1 {
+		t.Errorf("Resume reached automatic brightness %d times, want once", got)
+	}
+	release()
+	runSteps(t, []step{{[]string{"brightness", "auto"}, notRunning}})
+}
+
+func TestBrightnessAutoReportsARefusal(t *testing.T) {
+	dbustest.Session(t)
+	serveAutoBrightness(t, &fakeAutoBrightness{refuse: dbusx.Failed("no ambient light sensor")})
+	runSteps(t, []step{{[]string{"brightness", "auto"}, "Error: Failed to resume automatic brightness: hand the backlight back to dev.stubbe.lys.AutoBrightness1: no ambient light sensor\n"}})
+}
+
+func TestBrightnessAutoLeavesTheShellsDaemonAlone(t *testing.T) {
+	dbustest.Session(t)
+	src := &fakeBacklights{devices: []brightness.Device{{Name: "intel_backlight", Type: brightness.TypeRaw, Brightness: 500, Max: 1000, Connector: "eDP-1"}}}
+	serveBrightness(t, src, "eDP-1")
+	f := &fakeAutoBrightness{}
+	serveAutoBrightness(t, f)
+	runSteps(t, []step{
+		{[]string{"brightness", "auto"}, ""},
+		{[]string{"brightness", "+10"}, "eDP-1: 60%\n"},
+	})
+	if got := f.resumes.Load(); got != 1 {
+		t.Errorf("Resume reached automatic brightness %d times, want once", got)
+	}
 }

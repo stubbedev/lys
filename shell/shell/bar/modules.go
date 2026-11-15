@@ -80,6 +80,9 @@ type ModuleContext struct {
 	// BackgroundApps is the portal's background apps, nil without a
 	// session bus.
 	BackgroundApps backgroundAppSource
+	// AutoBrightness is lys-power's automatic brightness, nil without
+	// a session bus.
+	AutoBrightness autoBrightnessSource
 	Bitwarden      *bitwardenHost
 	SNI            *sni.Store
 	Weather        *weather.Service

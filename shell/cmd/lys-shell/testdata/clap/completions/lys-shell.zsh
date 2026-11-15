@@ -144,7 +144,7 @@ _arguments "${_arguments_options[@]}" : \
 '--output=[Output connector name (e.g. DP-1); the focused output when omitted]:NAME:_default' \
 '-h[Print help]' \
 '--help[Print help]' \
-':change -- Percent\: N sets, +N raises, -N lowers; never below modules.brightness.min-brightness:_default' \
+':change -- Percent\: N sets, +N raises, -N lowers; never below modules.brightness.min-brightness; auto hands the backlight back to automatic brightness:_default' \
 && ret=0
 ;;
 (config)
