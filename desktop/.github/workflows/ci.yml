@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 0"
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: stubbedev/lys-ci/.github/actions/nix-setup@fc87539c0a5bd989cfc802c6112ad31a6daf8db4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Allow user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Vet, lint, test, build
+        run: nix develop --accept-flake-config -c just plain
+
+  race:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: stubbedev/lys-ci/.github/actions/nix-setup@fc87539c0a5bd989cfc802c6112ad31a6daf8db4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Allow user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Race detector
+        run: nix develop --accept-flake-config -c just race
