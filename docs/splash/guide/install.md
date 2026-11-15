@@ -6,18 +6,18 @@ Add the flake as an input and import its module:
 
 ```nix
 {
-  inputs.lys-splash.url = "github:stubbedev/lys-splash";
+  inputs.lys.url = "github:stubbedev/lys";
 
   outputs = {
     nixpkgs,
-    lys-splash,
+    lys,
     ...
   }: {
     nixosConfigurations.machine = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
         ./configuration.nix
-        lys-splash.nixosModules.default
+        lys.nixosModules.lys-splash
         {boot.lys-splash.enable = true;}
       ];
     };
@@ -28,7 +28,7 @@ Add the flake as an input and import its module:
 | Option | Type | Default | Effect |
 | --- | --- | --- | --- |
 | `boot.lys-splash.enable` | bool | `false` | Installs the binary, theme and units into the systemd initrd and the system, and adds `splash` to the kernel command line |
-| `boot.lys-splash.package` | package | this flake's package | The package to run |
+| `boot.lys-splash.package` | package | the flake's lys-splash | The package to run |
 | `boot.lys-splash.theme` | YAML attrs | `{}` | The fields of [`theme.yaml`](/splash/guide/configuration), written to `/etc/lys-splash/theme.yaml` in the initrd and the system |
 
 It cannot be combined with `boot.plymouth.enable` (an assertion fails). It
@@ -41,7 +41,7 @@ Build the package's `compat` output with Nix (on any machine) and copy it under
 `/usr`:
 
 ```sh
-nix build github:stubbedev/lys-splash#default.compat
+nix build github:stubbedev/lys#lys-splash.compat
 sudo apt-get remove plymouth
 sudo cp -dRf result-compat/. /usr/
 sudo systemctl enable lys-splash-start.service lys-splash-quit.service \

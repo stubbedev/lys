@@ -13,9 +13,9 @@ To install it alone, as on lys-wm without the shell:
 
 ```nix
 {
-  inputs.lys-settings.url = "github:stubbedev/lys-settings";
+  inputs.lys.url = "github:stubbedev/lys";
 
-  imports = [inputs.lys-settings.homeManagerModules.default]; # or nixosModules.default
+  imports = [inputs.lys.homeManagerModules.lys-settings]; # or nixosModules.lys-settings
   programs.lys-settings.enable = true;
 }
 ```
@@ -23,15 +23,15 @@ To install it alone, as on lys-wm without the shell:
 | Option | Default | Effect |
 | --- | --- | --- |
 | `programs.lys-settings.enable` | `false` | Install the package |
-| `programs.lys-settings.package` | this flake's package | Package to install |
+| `programs.lys-settings.package` | the flake's lys-settings | Package to install |
 
-`overlays.default` adds `pkgs.lys-settings`.
+The flake's `overlays.default` adds `pkgs.lys-settings`.
 
 ## Debian and Fedora
 
-The [releases page](https://github.com/stubbedev/lys/releases) has a
-`.deb` and an `.rpm` for amd64 and arm64. They recommend lys-shell 0.3.5 or later,
-or lys-wm, and conflict with lys-shell packages older than 0.3.5.
+Each [release](https://github.com/stubbedev/lys/releases/latest) has a
+`.deb` and an `.rpm` for amd64 and arm64. They recommend lys-shell or lys-wm.
+[Install](/install/) has the commands.
 
 ## Archive
 
@@ -49,7 +49,7 @@ The app loads its icons from `../share/lys-settings/icons` relative to its binar
 
 ## Versions
 
-Each release is built against the lys-shell version in its `go.mod`. lys-wm's
-rules are read at run time from the `lys-wm` on `PATH`: a key that lys-wm does not
+lys-settings reads lys-shell's config through lys-shell's own packages, so it
+knows the keys of the lys-shell built with it. lys-wm's rules are read at run time from the `lys-wm` on `PATH`: a key that lys-wm does not
 know is refused with its message, and a lys-wm that cannot report its schema or
 built-in config leaves the **Compositor** pages showing the error.

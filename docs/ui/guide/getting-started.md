@@ -42,7 +42,7 @@ implementation.
 | `pdf` | PDF writing |
 | `transfer` | the shared shape of clipboard and drag-and-drop content |
 
-[lys-lib](https://github.com/stubbedev/lys/tree/main/lib) provides the canvas
+[lys-lib](/lib/) provides the canvas
 (`render`), the GPU renderer (`gpu`), screen capture (`capture`),
 virtual input (`vinput`), the Wayland protocol bindings (`wlr`),
 dmabufs, MP4/Matroska muxing and the Opus encoder.

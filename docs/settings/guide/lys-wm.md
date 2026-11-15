@@ -3,7 +3,7 @@
 The **Compositor** pages appear when `lys-wm` is on `PATH`. They write runtime
 overrides to `$XDG_CONFIG_HOME/lys-wm/runtime.yaml` (`~/.config/lys-wm/runtime.yaml`
 when unset). lys-wm merges them over `config.yaml`, which this app only reads. See
-lys-wm's [config reference](https://stubbedev.github.io/lys/wm/config) for what each
+lys-wm's [config reference](/wm/config) for what each
 key does.
 
 | Page | ID | Keys |

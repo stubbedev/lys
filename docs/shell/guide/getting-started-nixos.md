@@ -4,21 +4,14 @@ title: NixOS
 
 # NixOS
 
-lys-shell is installed from this repository's flake. It exports `nixosModules.default`, `homeManagerModules.default`, `packages.${system}.default` and `overlays.default` (which adds `pkgs.lys-shell`).
-
-```nix
-# flake.nix
-{
-  inputs.lys-shell.url = "github:stubbedev/lys-shell";
-}
-```
+lys-shell comes from the lys flake as `nixosModules.lys-shell`, `homeManagerModules.lys-shell` and `packages.${system}.lys-shell`; [NixOS](/install/nixos) adds the flake as an input.
 
 ## NixOS module
 
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.lys-shell.nixosModules.default ];
+  imports = [ inputs.lys.nixosModules.lys-shell ];
   programs.lys-shell.enable = true;
 }
 ```
@@ -28,7 +21,7 @@ lys-shell is installed from this repository's flake. It exports `nixosModules.de
 | `programs.lys-shell.enable` | `false` | Install lys-shell. |
 | `programs.lys-shell.package` | the flake's package | Package to install. |
 | `programs.lys-shell.settingsApp.enable` | `true` | Also install lys-settings. Without it, `panel settings`, the dashboard and the launcher have no settings app to open. |
-| `programs.lys-shell.settingsApp.package` | lys-settings' flake package | Package to install. |
+| `programs.lys-shell.settingsApp.package` | the flake's lys-settings | Package to install. |
 | `programs.lys-shell.systemd.enable` | `false` | Run `lys-shell shell` as a systemd user service. |
 | `programs.lys-shell.systemd.target` | `"graphical-session.target"` | Target the service binds to. |
 | `programs.lys-shell.portal.enable` | `true` | Make lys-shell the xdg-desktop-portal backend for every interface (through `xdg.portal`, with `mkDefault` routing). |
@@ -39,7 +32,7 @@ lys-shell is installed from this repository's flake. It exports `nixosModules.de
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.lys-shell.homeManagerModules.default ];
+  imports = [ inputs.lys.homeManagerModules.lys-shell ];
   programs.lys-shell = {
     enable = true;
     autoInstallDependencies = true;
@@ -74,7 +67,7 @@ System services (NetworkManager, BlueZ, UPower, power-profiles-daemon, GeoClue, 
 
 ## Lock screen
 
-[lys-login](https://github.com/stubbedev/lys/tree/main/login) has its own flake and NixOS module. `programs.lys-login.enable` puts it on the `PATH`. `programs.lys-login.lock.enable` declares a PAM service for the unlock; point [`login.lock.pam-service`](/shell/config/login) at it.
+[lys-login](/login/) has its own NixOS module, `nixosModules.lys-login`. `programs.lys-login.enable` puts it on the `PATH`. `programs.lys-login.lock.enable` declares a PAM service for the unlock; point [`login.lock.pam-service`](/shell/config/login) at it.
 
 ## Converting settings to Nix
 

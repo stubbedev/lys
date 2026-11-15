@@ -110,7 +110,7 @@ See [IPC](../ipc).
 
 lys-wm draws windows only. Bars, launchers, wallpapers and portals are separate
 programs, started from `autostart` or as user services wanted by
-`graphical-session.target`. [lys-shell](https://stubbedev.github.io/lys/shell/)
-is the lys shell and [lys-login](https://stubbedev.github.io/lys/login/) its
+`graphical-session.target`. [lys-shell](/shell/)
+is the lys shell and [lys-login](/login/) its
 display manager and lock screen; any layer-shell bar and
 `ext-session-lock-v1` locker also works.

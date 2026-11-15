@@ -74,7 +74,7 @@ packages.
 ## Dependencies
 
 Pure Go, no cgo. Direct dependencies:
-[lys-lib](https://github.com/stubbedev/lys/tree/main/lib),
+[lys-lib](/lib/),
 [stubbedev/memory-go](https://github.com/stubbedev/memory-go),
 [golang.org/x/image](https://pkg.go.dev/golang.org/x/image) and
 [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys).

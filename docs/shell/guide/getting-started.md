@@ -4,7 +4,7 @@ title: Getting started
 
 # Getting started
 
-lys-shell is a Wayland desktop shell written in Go on [lys-ui](https://github.com/stubbedev/lys/tree/main/ui). It runs on any compositor with `wlr-layer-shell` and draws a bar, dropdowns, notifications, an OSD, a launcher and the wallpaper. It is also an xdg-desktop-portal backend. Workspace modules exist for lys-wm, Hyprland, Niri, Mango and Sway.
+lys-shell is a Wayland desktop shell written in Go on [lys-ui](/ui/). It runs on any compositor with `wlr-layer-shell` and draws a bar, dropdowns, notifications, an OSD, a launcher and the wallpaper. It is also an xdg-desktop-portal backend. Workspace modules exist for lys-wm, Hyprland, Niri, Mango and Sway.
 
 <a href="../lys-shell-preview.png" target="_blank" rel="noopener">
   <img src="/lys-shell-preview.png" alt="lys-shell desktop shell" style="margin-bottom: 1.5rem;">
@@ -16,18 +16,16 @@ lys-shell is a Wayland desktop shell written in Go on [lys-ui](https://github.co
 
 ## Install
 
-Each [release](https://github.com/stubbedev/lys/releases) has a `.deb`, a Fedora `.rpm` and a tarball, for x86_64 and aarch64. The packages install the binaries, the systemd user units, the portal and D-Bus files, the icons, shell completions and a GeoClue drop-in.
-
-On NixOS, use the flake: see [NixOS](/shell/guide/getting-started-nixos).
+[Install](/install/) covers the packages and the flake. lys-shell's packages install the binaries, the systemd user units, the portal and D-Bus files, the icons, shell completions and a GeoClue drop-in. On NixOS, [NixOS](/shell/guide/getting-started-nixos) has the module options.
 
 ### Build from source
 
-The build needs Go and [just](https://github.com/casey/just). The binaries use no cgo. `go.mod` pins Go 1.27; any `go` from 1.21 downloads that toolchain itself.
+The build needs Go. The binaries use no cgo. `go.mod` names the Go version; any `go` from 1.21 downloads that toolchain itself.
 
 ```sh
-git clone https://github.com/stubbedev/lys/tree/main/shell
-cd lys-shell
-just build   # or: CGO_ENABLED=0 go build -o dist/ ./cmd/...
+git clone https://github.com/stubbedev/lys
+cd lys
+CGO_ENABLED=0 go build -o dist/ ./shell/cmd/...
 sudo install -Dm755 dist/lys-shell dist/lys-lock -t /usr/local/bin
 lys-shell icons setup
 ```
@@ -98,8 +96,8 @@ lys-shell shell                                   # or: run it in the foreground
 
 lys-shell reads `$XDG_CONFIG_HOME/lys-shell/config.yaml` (default `~/.config/lys-shell/config.yaml`) and applies changes on save. A missing file is created holding only the schema modeline; every field has a default. See [Editing config](/shell/guide/editing-config) and the [config reference](/shell/config/).
 
-`lys-shell panel settings` opens [lys-settings](https://github.com/stubbedev/lys/tree/main/settings), a separate package that edits the same config live.
+`lys-shell panel settings` opens [lys-settings](/settings/), a separate package that edits the same config live.
 
 ## Lock screen
 
-Locking is done by [lys-login](https://github.com/stubbedev/lys/tree/main/login), which must be on the `PATH`. `lys-shell lock`, logind's Lock signal and `login.lock.lock-on-start` each start `lys-login lock` as its own process, which survives a shell restart. If that process dies while the session is still locked, the shell starts it again. On Hyprland this needs `misc:allow_session_lock_restore = true`.
+Locking is done by [lys-login](/login/), which must be on the `PATH`. `lys-shell lock`, logind's Lock signal and `login.lock.lock-on-start` each start `lys-login lock` as its own process, which survives a shell restart. If that process dies while the session is still locked, the shell starts it again. On Hyprland this needs `misc:allow_session_lock_restore = true`.

@@ -8,8 +8,8 @@ Run the display manager from the release archive, or only the greeter under gree
 unit, sysusers and tmpfiles files, the polkit action, and both distributions' PAM
 files under `pam/`.
 The binary uses the standard program interpreter; the unit expects
-`/usr/bin/lys-login` and `/usr/bin/lys-wm` (lys-wm has its own archive in
-[its releases](https://github.com/stubbedev/lys/releases)). From the unpacked
+`/usr/bin/lys-login` and `/usr/bin/lys-wm` (lys-wm's archive is in the same
+[release](https://github.com/stubbedev/lys/releases/latest)). From the unpacked
 directory:
 
 ```sh
@@ -56,12 +56,12 @@ greetd → cage -s → lys-login greet → (login) → your session
 
 ### home-manager
 
-`lys-login.homeManagerModules.default` options, under `programs.lys-login`:
+`lys.homeManagerModules.lys-login` options, under `programs.lys-login`:
 
 | Option | Type | Default | Effect |
 | --- | --- | --- | --- |
 | `enable` | bool | `false` | Install `lys-login`. |
-| `package` | package | this flake's | The lys-login package. |
+| `package` | package | the flake's lys-login | The lys-login package. |
 | `lock.enable` | bool | `false` | Warn with the steps to create the lock screen's PAM service. |
 | `lock.pamService` | string | `"lys-shell"` | The service name used in that warning. |
 | `greeter.enable` | bool | `false` | Install cage and the `lys-greeter-session` wrapper, and warn with the greetd setup left to do. |

@@ -1,6 +1,6 @@
 # Wayland
 
-Toolkit windows and surfaces are in [lys-ui](https://github.com/stubbedev/lys/tree/main/ui).
+Toolkit windows and surfaces are in [lys-ui](/ui/).
 These packages need no toolkit. The keyboard model is on its [own page](/lib/xkb).
 
 ## capture

@@ -6,15 +6,12 @@ Add the flake and import the module:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    lys-login = {
-      url = "github:stubbedev/lys-login";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    lys.url = "github:stubbedev/lys";
   };
-  outputs = {nixpkgs, lys-login, ...}: {
+  outputs = {nixpkgs, lys, ...}: {
     nixosConfigurations.host = nixpkgs.lib.nixosSystem {
       modules = [
-        lys-login.nixosModules.default
+        lys.nixosModules.lys-login
         ./configuration.nix
       ];
     };
@@ -35,8 +32,8 @@ programs.lys-login.greeter = {
 };
 ```
 
-This runs `lys-login daemon` as `display-manager.service` with the lys-wm from
-lys-login's flake input, and adds the `lys-login` and `lys-login-autologin` PAM
+This runs `lys-login daemon` as `display-manager.service` with the flake's
+lys-wm, and adds the `lys-login` and `lys-login-autologin` PAM
 services, the `lys-greeter` user and `/var/lib/lys-greeter`. `settings` becomes
 `/etc/lys-shell/config.yaml` ([Configuration](/login/guide/configuration)). Sessions
 come from the NixOS sessions directory, which collects every installed
@@ -59,7 +56,7 @@ greeter's lys-wm with GLES on llvmpipe; set
 `environment.sessionVariables.LYS_WM_RENDERER = "gles"` instead to cover the
 greeter and every lys-wm session, which inherit it through PAM.
 
-With [lys-splash](https://github.com/stubbedev/lys/tree/main/splash) as boot splash, set
+With [lys-splash](/splash/) as boot splash, set
 `greeter.splashPackage`. The unit then conflicts with `lys-splash-quit.service`,
 runs `lys-splash deactivate` before lys-wm starts, and the daemon runs
 `lys-splash quit --retain-splash` once the greeter's first frame is presented,
@@ -90,14 +87,14 @@ All under `programs.lys-login`.
 | Option | Type | Default | Effect |
 | --- | --- | --- | --- |
 | `enable` | bool | `false` | `lys-login` on the PATH. |
-| `package` | package | this flake's | The lys-login package. |
+| `package` | package | the flake's lys-login | The lys-login package. |
 | `autologin.user` | null or string | `null` | Account logged in once per boot before the first greeter ([Autologin](/login/guide/pam#autologin)). Requires `displayManager = "lys-login"`. |
 | `autologin.session` | null or string | `null` | Session id to start (a session file's name, `-x11` suffix for X11); null takes the last session, else the first. |
 | `lock.enable` | bool | `false` | Declare the lock screen's PAM service. |
 | `lock.pamService` | string | `"lys-shell"` | Its name. |
 | `greeter.enable` | bool | `false` | Run the greeter via `greeter.displayManager`. |
 | `greeter.displayManager` | `"lys-login"` or `"greetd"` | `"lys-login"` | `lys-login`: the daemon on `greeter.vt`. `greetd`: greetd with cage. |
-| `greeter.compositorPackage` | package | lys-login's lys-wm input | lys-wm for the greeter kiosk. |
+| `greeter.compositorPackage` | package | the flake's lys-wm | lys-wm for the greeter kiosk. |
 | `greeter.splashPackage` | null or package | `null` | lys-splash, when it is the boot splash. |
 | `greeter.vt` | positive int | `1` | VT the daemon runs on. |
 | `greeter.settings` | YAML | `{}` | Written to `/etc/lys-shell/config.yaml` when non-empty. |

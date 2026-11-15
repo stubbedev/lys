@@ -29,12 +29,12 @@ D-Bus activation files for both names.
 
 ```nix
 {
-  inputs.lys-secrets.url = "github:stubbedev/lys-secrets";
+  inputs.lys.url = "github:stubbedev/lys";
 
-  outputs = { nixpkgs, lys-secrets, ... }: {
+  outputs = { nixpkgs, lys, ... }: {
     nixosConfigurations.example = nixpkgs.lib.nixosSystem {
       modules = [
-        lys-secrets.nixosModules.default
+        lys.nixosModules.lys-secrets
         { services.lys-secrets.enable = true; }
       ];
     };
@@ -47,7 +47,7 @@ Evaluation fails if `services.gnome.gnome-keyring.enable` is also set, or if
 
 ### home-manager
 
-Import `lys-secrets.homeManagerModules.default` and set
+Import `lys.homeManagerModules.lys-secrets` and set
 `services.lys-secrets.enable = true;`. It installs the unit, activation files and
 a drop-in with the configured flags. It does not check for gnome-keyring.
 
@@ -55,7 +55,7 @@ Options for both modules: [Nix options](/secrets/guide/configuration#nix-options
 
 ### Debian, Ubuntu, Fedora
 
-Each [release](https://github.com/stubbedev/lys/releases) has a `.deb`
+Each [release](https://github.com/stubbedev/lys/releases/latest) has a `.deb`
 and `.rpm` for x86_64 and aarch64, and `SHA256SUMS`:
 
 ```sh
@@ -124,6 +124,6 @@ collection, and a later `login` collection does not take over `default`.
 ## Bitwarden
 
 Log in from lys-shell's
-[bitwarden module](https://stubbedev.github.io/lys/shell/config/modules/bitwarden).
+[bitwarden module](/shell/config/modules/bitwarden).
 lys-secrets has no login command. To expose one vault folder to libsecret clients,
 set [`--vault-collection-folder`](/secrets/guide/configuration#flags).
