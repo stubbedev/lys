@@ -3,6 +3,7 @@ package sni
 import (
 	"context"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -13,11 +14,13 @@ import (
 )
 
 // fakeMenu is a DBusMenu with one check row, a submenu, and a
-// separator; it records AboutToShow and Event calls.
+// separator; it records AboutToShow and Event calls. With stall set, an
+// AboutToShow is recorded and then never answered until stall closes.
 type fakeMenu struct {
 	mu      sync.Mutex
 	shown   []int32
 	clicked []int32
+	stall   chan struct{}
 }
 
 func node(id int32, props map[string]dbus.Variant, children ...dbus.Variant) dbus.Variant {
@@ -54,7 +57,11 @@ func (m *fakeMenu) GetLayout(parent, depth int32, props []string) (uint32, struc
 func (m *fakeMenu) AboutToShow(id int32) (bool, *dbus.Error) {
 	m.mu.Lock()
 	m.shown = append(m.shown, id)
+	stall := m.stall
 	m.mu.Unlock()
+	if stall != nil {
+		<-stall
+	}
 	return false, nil
 }
 
@@ -158,15 +165,16 @@ func TestHostAsWatcherTracksItemsAndMenus(t *testing.T) {
 	}
 	waitItems(t, store, func(i []Item) bool { return len(i) == 1 && i[0].IconName == "second-icon" })
 
-	// The menu: AboutToShow, then the parsed layout.
+	// The menu: AboutToShow for the root, then the parsed layout.
 	actions := host.Actions()
-	menu, err := actions.OpenMenu(context.Background(), got)
+	if err := actions.MenuOpening(context.Background(), got); err != nil {
+		t.Fatalf("MenuOpening: %v", err)
+	}
+	menu, err := actions.MenuLayout(context.Background(), got)
 	if err != nil {
-		t.Fatalf("OpenMenu: %v", err)
+		t.Fatalf("MenuLayout: %v", err)
 	}
-	if len(item.menu.shownCalls()) != 1 || item.menu.shownCalls()[0] != 0 {
-		t.Errorf("AboutToShow calls = %v, want the root", item.menu.shownCalls())
-	}
+	waitShown(t, item.menu, []int32{0})
 	// A re-read is the layout alone: AboutToShow is for showing.
 	relaid, err := actions.MenuLayout(context.Background(), got)
 	if err != nil {
@@ -240,14 +248,60 @@ func TestMenuCallsWithoutAMenuFail(t *testing.T) {
 	defer host.Close()
 	actions := host.Actions()
 	bare := Item{Bus: ":1.1", Path: "/StatusNotifierItem"}
-	if _, err := actions.OpenMenu(context.Background(), bare); err == nil {
-		t.Error("OpenMenu on an item without a menu succeeded")
+	if err := actions.MenuOpening(context.Background(), bare); err == nil {
+		t.Error("MenuOpening on an item without a menu succeeded")
 	}
 	if _, err := actions.MenuLayout(context.Background(), bare); err == nil {
 		t.Error("MenuLayout on an item without a menu succeeded")
 	}
 	if err := actions.MenuClicked(context.Background(), bare, 1); err == nil {
 		t.Error("MenuClicked on an item without a menu succeeded")
+	}
+}
+
+// MenuOpening hands AboutToShow to the app without waiting for its
+// answer: an app that never answers holds back neither the call nor the
+// layout read after it, and the app still receives the AboutToShow.
+func TestMenuOpeningDoesNotWaitForTheAnswer(t *testing.T) {
+	bus := dbustest.Start(t)
+	store := NewStore()
+	host, err := NewHostOn(bus.Conn(t), store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer host.Close()
+	item := startItem(t, bus, "slow")
+	stall := make(chan struct{})
+	defer close(stall)
+	item.menu.mu.Lock()
+	item.menu.stall = stall
+	item.menu.mu.Unlock()
+	item.register(t)
+	got := waitItems(t, store, func(i []Item) bool { return len(i) == 1 })[0]
+	actions := host.Actions()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := actions.MenuOpening(ctx, got); err != nil {
+		t.Fatalf("MenuOpening on an app that never answers: %v", err)
+	}
+	menu, err := actions.MenuLayout(ctx, got)
+	if err != nil {
+		t.Fatalf("the layout behind an unanswered AboutToShow: %v", err)
+	}
+	if len(menu.Children) != 4 {
+		t.Errorf("root children = %d, want 4", len(menu.Children))
+	}
+	waitShown(t, item.menu, []int32{0})
+}
+
+func waitShown(t *testing.T, m *fakeMenu, want []int32) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for !slices.Equal(m.shownCalls(), want) {
+		if time.Now().After(deadline) {
+			t.Fatalf("AboutToShow calls = %v, want %v", m.shownCalls(), want)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 
@@ -663,4 +717,45 @@ func TestHostFollowsTheExternalWatcherFromOwnerToOwner(t *testing.T) {
 	waitItems(t, store, func(i []Item) bool {
 		return slices.ContainsFunc(i, func(it Item) bool { return it.ID == "two" })
 	})
+}
+
+// scrollRecorder is an item's Scroll method, recording each call.
+type scrollRecorder struct {
+	calls dbustest.Var[[]string]
+}
+
+func (r *scrollRecorder) Scroll(delta int32, orientation string) *dbus.Error {
+	r.calls.Update(func(c []string) []string {
+		return append(slices.Clone(c), strconv.Itoa(int(delta))+" "+orientation)
+	})
+	return nil
+}
+
+// Scroll reaches the item with the delta and the spec's name of the
+// orientation.
+func TestActionsScrollSendsTheDeltaAndOrientation(t *testing.T) {
+	bus := dbustest.Start(t)
+	store := NewStore()
+	host, err := NewHostOn(bus.Conn(t), store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer host.Close()
+	item := startItem(t, bus, "wheel")
+	rec := &scrollRecorder{}
+	if err := item.conn.Export(rec, "/StatusNotifierItem", ItemIface); err != nil {
+		t.Fatal(err)
+	}
+	item.register(t)
+	got := waitItems(t, store, func(i []Item) bool { return len(i) == 1 })[0]
+	actions := host.Actions()
+	if err := actions.Scroll(context.Background(), got, 120, ScrollVertical); err != nil {
+		t.Fatalf("Scroll vertical: %v", err)
+	}
+	if err := actions.Scroll(context.Background(), got, -240, ScrollHorizontal); err != nil {
+		t.Fatalf("Scroll horizontal: %v", err)
+	}
+	if calls := rec.calls.Load(); !slices.Equal(calls, []string{"120 vertical", "-240 horizontal"}) {
+		t.Errorf("Scroll calls = %q, want the deltas with their orientations", calls)
+	}
 }

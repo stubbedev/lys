@@ -2,7 +2,6 @@ package sni
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -140,17 +139,20 @@ func (a *Actions) menuObject(it Item) (dbus.BusObject, error) {
 	return a.conn.Object(it.Bus, dbus.ObjectPath(it.MenuPath)), nil
 }
 
-// OpenMenu is the menu about to be shown: AboutToShow on the root (a
-// failure is fine - not every app implements it), then the full
-// layout. The spec calls AboutToShow once per showing, so a menu
-// already open re-reads with MenuLayout instead.
-func (a *Actions) OpenMenu(ctx context.Context, it Item) (MenuItem, error) {
-	if _, err := a.AboutToShow(ctx, it, 0); err != nil {
-		if _, ok := errors.AsType[dbus.Error](err); !ok {
-			return MenuItem{}, err
-		}
+// MenuOpening tells the app its menu is about to show (AboutToShow on
+// the root, the spec's once per showing) without waiting for the answer,
+// so an app slow to answer never holds the menu back: an app that
+// changes the layout in answer announces it with LayoutUpdated, which
+// reaches the open menu's change feed.
+func (a *Actions) MenuOpening(ctx context.Context, it Item) error {
+	obj, err := a.menuObject(it)
+	if err != nil {
+		return err
 	}
-	return a.MenuLayout(ctx, it)
+	if err := obj.CallWithContext(ctx, MenuIface+".AboutToShow", dbus.FlagNoReplyExpected, int32(0)).Err; err != nil {
+		return fmt.Errorf("sni: %s AboutToShow 0: %w", it.Key(), err)
+	}
+	return nil
 }
 
 // AboutToShow tells the app the (sub)menu id is about to show, the

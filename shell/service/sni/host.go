@@ -1058,9 +1058,9 @@ func (a *Actions) ContextMenu(ctx context.Context, it Item, x, y int32) error {
 	return a.conn.Object(it.Bus, dbus.ObjectPath(it.Path)).CallWithContext(ctx, ItemIface+".ContextMenu", 0, x, y).Err
 }
 
-// Scroll sends a scroll delta ("horizontal"/"vertical").
-func (a *Actions) Scroll(ctx context.Context, it Item, delta int32, orientation string) error {
-	return a.conn.Object(it.Bus, dbus.ObjectPath(it.Path)).CallWithContext(ctx, ItemIface+".Scroll", 0, delta, orientation).Err
+// Scroll sends a scroll delta along orientation.
+func (a *Actions) Scroll(ctx context.Context, it Item, delta int32, orientation ScrollOrientation) error {
+	return a.conn.Object(it.Bus, dbus.ObjectPath(it.Path)).CallWithContext(ctx, ItemIface+".Scroll", 0, delta, string(orientation)).Err
 }
 
 // IsWatcher reports whether this process serves the watcher role.

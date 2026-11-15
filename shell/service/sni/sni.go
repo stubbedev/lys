@@ -52,6 +52,15 @@ func ParseStatus(s string) Status {
 	return StatusPassive
 }
 
+// ScrollOrientation is the axis a Scroll moves along.
+type ScrollOrientation string
+
+// Scroll orientations, as the SNI spec names them.
+const (
+	ScrollVertical   ScrollOrientation = "vertical"
+	ScrollHorizontal ScrollOrientation = "horizontal"
+)
+
 // Pixmap is ARGB32 icon data in network byte order: Data holds at
 // least Width x Height pixels.
 type Pixmap struct {

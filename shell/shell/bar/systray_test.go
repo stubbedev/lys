@@ -55,8 +55,12 @@ func (f *fakeTray) ContextMenu(_ context.Context, it sni.Item) error {
 	return f.record("context-menu " + it.ID)
 }
 
-func (f *fakeTray) OpenMenu(_ context.Context, it sni.Item) (sni.MenuItem, error) {
-	return f.serveMenu("open-menu " + it.ID)
+func (f *fakeTray) Scroll(_ context.Context, it sni.Item, delta int32, orientation sni.ScrollOrientation) error {
+	return f.record("scroll " + it.ID + " " + strconv.Itoa(int(delta)) + " " + string(orientation))
+}
+
+func (f *fakeTray) MenuOpening(_ context.Context, it sni.Item) error {
+	return f.record("menu-opening " + it.ID)
 }
 
 func (f *fakeTray) MenuLayout(_ context.Context, it sni.Item) (sni.MenuItem, error) {
@@ -476,7 +480,7 @@ func TestSystrayRightClickFallsBackWithoutAMenu(t *testing.T) {
 	m, tray, _ := newTrayForTest(t, cfg, it)
 	// An empty menu: the item's own ContextMenu.
 	onHeadlessLoop(func() bool { m.rightClick(it.Key()); return true })
-	if calls := waitTray(t, tray, 2); len(calls) != 2 || calls[0] != "open-menu bare" || calls[1] != "context-menu bare" {
+	if calls := waitTray(t, tray, 3); !slices.Equal(calls, []string{"menu-opening bare", "menu-layout bare", "context-menu bare"}) {
 		t.Errorf("calls = %v, want the context-menu fallback", calls)
 	}
 	if onHeadlessLoop(func() bool { return m.menu != nil }) {
@@ -487,6 +491,77 @@ func TestSystrayRightClickFallsBackWithoutAMenu(t *testing.T) {
 	openTrayMenu(t, m, it.Key())
 	if onHeadlessLoop(func() int { return len(m.menu.items) }) != 1 {
 		t.Error("a published menu built no rows")
+	}
+}
+
+// Hovering an item says its tooltip's title, else its title, else its
+// id; the tooltip follows the item's changes.
+func TestSystrayTooltipFallsBackToTitleThenID(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		it   sni.Item
+		want string
+	}{
+		{"the tooltip's title", sni.Item{ID: "id", Title: "title", Tooltip: sni.Tooltip{Title: "tip", Description: "more"}}, "tip"},
+		{"no tooltip: the title", sni.Item{ID: "id", Title: "title", Tooltip: sni.Tooltip{Description: "more"}}, "title"},
+		{"no title either: the id", sni.Item{ID: "id"}, "id"},
+	} {
+		if got := trayTooltip(tc.it); got != tc.want {
+			t.Errorf("%s: tooltip %q, want %q", tc.name, got, tc.want)
+		}
+	}
+	it := &sni.Item{Bus: ":1.1", Path: "/StatusNotifierItem", ID: "app", Title: "App"}
+	m, _, store := newTrayForTest(t, config.Defaults(), it)
+	tooltip := func() string {
+		e, ok := m.entries[it.Key()]
+		if !ok {
+			return ""
+		}
+		return e.button.TooltipText()
+	}
+	waitHeadless(t, "the title as the tooltip", func() bool { return tooltip() == "App" })
+	store.Put(&sni.Item{Bus: ":1.1", Path: "/StatusNotifierItem", ID: "app", Title: "App", Tooltip: sni.Tooltip{Title: "3 unread"}})
+	waitHeadless(t, "the tooltip's title", func() bool { return tooltip() == "3 unread" })
+}
+
+// A wheel step on an item scrolls it, one Scroll per axis with KDE's
+// sign and step; a click activates it and scrolls nothing, and a step
+// on another item scrolls that one.
+func TestSystrayWheelScrollsTheItem(t *testing.T) {
+	a := &sni.Item{Bus: ":1.1", Path: "/a", ID: "a"}
+	b := &sni.Item{Bus: ":1.2", Path: "/b", ID: "b"}
+	m, tray, _ := newTrayForTest(t, config.Defaults(), a, b)
+	waitHeadless(t, "both buttons", func() bool { return len(m.order) == 2 })
+	router := onHeadlessLoop(func() *widget.Router {
+		widget.SizeWithin(m.root, widget.Size{W: 200, H: 40})
+		m.root.Arrange(render.Rect{W: 200, H: 40})
+		return &widget.Router{Root: m.root}
+	})
+	center := func(key string) widget.Point {
+		r := m.entries[key].button.Bounds()
+		return widget.Point{X: r.X + r.W/2, Y: r.Y + r.H/2}
+	}
+	onHeadlessLoop(func() bool {
+		p := center(a.Key())
+		router.Move(p)
+		router.Press(widget.BTNLeft, p, 0)
+		router.Release(widget.BTNLeft, p)
+		return true
+	})
+	if calls := waitTray(t, tray, 1); !slices.Equal(calls, []string{"activate a"}) {
+		t.Fatalf("a click: calls %v, want the activation alone", calls)
+	}
+	onHeadlessLoop(func() bool { router.Axis(0, 1, 0); return true })
+	if calls := waitTray(t, tray, 2); len(calls) != 2 || calls[1] != "scroll a -120 vertical" {
+		t.Fatalf("a step down: calls %v, want a vertical scroll of -120", calls)
+	}
+	onHeadlessLoop(func() bool { router.Axis(-1, 0, 0); return true })
+	if calls := waitTray(t, tray, 3); len(calls) != 3 || calls[2] != "scroll a 120 horizontal" {
+		t.Fatalf("a step left: calls %v, want a horizontal scroll of 120", calls)
+	}
+	onHeadlessLoop(func() bool { router.Move(center(b.Key())); router.Axis(0, -1, 0); return true })
+	if calls := waitTray(t, tray, 4); len(calls) != 4 || calls[3] != "scroll b 120 vertical" {
+		t.Fatalf("a step up on the other item: calls %v, want it scrolled up", calls)
 	}
 }
 
@@ -600,7 +675,7 @@ func TestSystrayMenuShortcutsFire(t *testing.T) {
 	if !accels.press("<Control><Shift>q") {
 		t.Fatal("the nested Quit shortcut is not bound")
 	}
-	if calls := waitTray(t, tray, 2); len(calls) != 2 || calls[1] != "clicked app 3" {
+	if calls := waitTray(t, tray, 3); !slices.Equal(calls, []string{"menu-opening app", "menu-layout app", "clicked app 3"}) {
 		t.Errorf("calls = %v, want the clicked event for id 3", calls)
 	}
 	for _, keys := range []string{"<Control>d", "<Control>g", "<Alt>x"} {

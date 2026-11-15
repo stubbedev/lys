@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -34,6 +35,9 @@ const (
 	// trayFallbackIcon is the glyph for an item with no icon at all.
 	trayFallbackIcon = "ld-app-window-symbolic"
 	trayCallTimeout  = 5 * time.Second
+	// trayScrollStep is one wheel step in an SNI Scroll delta: Qt's
+	// angle delta for a notch, which KDE's tray hosts send.
+	trayScrollStep = 120
 )
 
 // trayIconExtensions are tried, in order, in an item's IconThemePath.
@@ -46,9 +50,11 @@ type TrayService interface {
 	Activate(ctx context.Context, it sni.Item) error
 	SecondaryActivate(ctx context.Context, it sni.Item) error
 	ContextMenu(ctx context.Context, it sni.Item) error
-	// OpenMenu is AboutToShow and the layout, once per showing.
-	OpenMenu(ctx context.Context, it sni.Item) (sni.MenuItem, error)
-	// MenuLayout re-reads an open menu's layout without AboutToShow.
+	Scroll(ctx context.Context, it sni.Item, delta int32, orientation sni.ScrollOrientation) error
+	// MenuOpening is AboutToShow for the root, once per showing, sent
+	// without waiting for the app's answer.
+	MenuOpening(ctx context.Context, it sni.Item) error
+	// MenuLayout reads the menu's layout without AboutToShow.
 	MenuLayout(ctx context.Context, it sni.Item) (sni.MenuItem, error)
 	// SubmenuOpening is AboutToShow for a submenu as it opens; true asks
 	// for the layout to be read again.
@@ -83,8 +89,12 @@ func (t hostTray) ContextMenu(ctx context.Context, it sni.Item) error {
 	return t.a.ContextMenu(ctx, it, 0, 0)
 }
 
-func (t hostTray) OpenMenu(ctx context.Context, it sni.Item) (sni.MenuItem, error) {
-	return t.a.OpenMenu(ctx, it)
+func (t hostTray) Scroll(ctx context.Context, it sni.Item, delta int32, orientation sni.ScrollOrientation) error {
+	return t.a.Scroll(ctx, it, delta, orientation)
+}
+
+func (t hostTray) MenuOpening(ctx context.Context, it sni.Item) error {
+	return t.a.MenuOpening(ctx, it)
 }
 
 func (t hostTray) MenuLayout(ctx context.Context, it sni.Item) (sni.MenuItem, error) {
@@ -558,6 +568,7 @@ func (m *systrayModule) apply(views []trayView) {
 			m.entries[key] = e
 		}
 		e.item = v.item
+		e.button.SetTooltip(trayTooltip(v.item))
 		m.updateIcon(e, v.look)
 		order = append(order, e)
 	}
@@ -616,7 +627,41 @@ func (m *systrayModule) newEntry(it sni.Item) *trayEntry {
 		}
 		return true
 	})
+	e.button.SetOnScroll(func(ev widget.ScrollEvent) bool {
+		m.scroll(key, ev)
+		return true
+	})
 	return e
+}
+
+// trayTooltip is what hovering an item says: its tooltip's title, else
+// its title, else its id.
+func trayTooltip(it sni.Item) string {
+	for _, s := range []string{it.Tooltip.Title, it.Title, it.ID} {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// trayScrollDeltas are an SNI Scroll per axis a wheel step moves along,
+// positive up and left as KDE's hosts send them.
+func trayScrollDeltas(ev widget.ScrollEvent) []trayScroll {
+	var out []trayScroll
+	if ev.DY != 0 {
+		out = append(out, trayScroll{delta: intconv.Clamp[int32](-ev.DY * trayScrollStep), orientation: sni.ScrollVertical})
+	}
+	if ev.DX != 0 {
+		out = append(out, trayScroll{delta: intconv.Clamp[int32](-ev.DX * trayScrollStep), orientation: sni.ScrollHorizontal})
+	}
+	return out
+}
+
+// trayScroll is one SNI Scroll call.
+type trayScroll struct {
+	delta       int32
+	orientation sni.ScrollOrientation
 }
 
 // updateIcon applies the resolved look and the override tint, which
@@ -683,6 +728,18 @@ func (m *systrayModule) leftClick(key string) {
 	m.call("activate", key, m.tray.Activate)
 }
 
+// scroll sends the item the wheel step, one Scroll per axis.
+func (m *systrayModule) scroll(key string, ev widget.ScrollEvent) {
+	if m.tray == nil {
+		return
+	}
+	for _, sc := range trayScrollDeltas(ev) {
+		m.call("scroll", key, func(ctx context.Context, it sni.Item) error {
+			return m.tray.Scroll(ctx, it, sc.delta, sc.orientation)
+		})
+	}
+}
+
 // middleClick is SecondaryActivate.
 func (m *systrayModule) middleClick(key string) {
 	if m.tray != nil {
@@ -691,10 +748,10 @@ func (m *systrayModule) middleClick(key string) {
 }
 
 // rightClick toggles the menu: a second right-click closes the open
-// menu; otherwise AboutToShow and a fresh layout, then the menu -
-// or the item's own ContextMenu when it publishes none. The menu's
-// change feed starts before AboutToShow, so a layout the app changes in
-// answer to it still reaches the open menu.
+// menu; otherwise AboutToShow, not waited on, and a fresh layout shown
+// as soon as it is read - or the item's own ContextMenu when it
+// publishes none. The menu's change feed starts before AboutToShow, so
+// a layout the app changes in answer to it still reaches the open menu.
 func (m *systrayModule) rightClick(key string) {
 	if m.menu != nil && m.menu.key == key && m.menu.pop != nil && !m.menu.pop.Closed() {
 		m.closeMenu()
@@ -709,7 +766,10 @@ func (m *systrayModule) rightClick(key string) {
 		feed, stop := m.tray.WatchMenu(key)
 		open := &trayMenu{key: key, stop: stop}
 		ctx, cancel := context.WithTimeout(context.Background(), trayCallTimeout)
-		menu, err := m.tray.OpenMenu(ctx, it)
+		if err := m.tray.MenuOpening(ctx, it); err != nil {
+			log.Printf("systray: %s menu opening: %v", it.ID, err)
+		}
+		menu, err := m.tray.MenuLayout(ctx, it)
 		cancel()
 		m.ctx.Invoke(func() { m.showMenu(open, menu, err) })
 		m.followMenu(open, it, feed)

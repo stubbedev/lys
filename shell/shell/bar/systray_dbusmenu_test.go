@@ -30,11 +30,13 @@ type echoMenuNode struct {
 // sends LayoutUpdated, as a menu that grows each time it is asked to
 // show. With subRows set, row 1 is a submenu of that many rows, which
 // its own AboutToShow grows by one and answers with needUpdate (no
-// signal). It counts its AboutToShow and GetLayout calls and records
-// the ids shown.
+// signal). With stall set, every AboutToShow, once it has done the
+// above, goes unanswered until stall closes. It counts its AboutToShow
+// and GetLayout calls and records the ids shown.
 type echoMenu struct {
 	conn    *dbus.Conn
 	echo    bool
+	stall   dbustest.Var[chan struct{}]
 	rows    dbustest.Var[int32]
 	subRows dbustest.Var[int32]
 	shown   dbustest.Var[int]
@@ -43,6 +45,9 @@ type echoMenu struct {
 }
 
 func (m *echoMenu) AboutToShow(id int32) (bool, *dbus.Error) {
+	if stall := m.stall.Load(); stall != nil {
+		defer func() { <-stall }()
+	}
 	m.shown.Update(func(n int) int { return n + 1 })
 	m.shownID.Update(func(ids []int32) []int32 { return append(slices.Clone(ids), id) })
 	if id != 0 && m.subRows.Load() > 0 {
@@ -199,4 +204,30 @@ func TestSystraySubmenuOpenSendsItsAboutToShow(t *testing.T) {
 	waitHeadless(t, "the submenu's new rows", func() bool {
 		return m.menu != nil && len(m.menu.items[0].Items) == 2
 	})
+}
+
+// An app that never answers AboutToShow still gets its menu shown as
+// soon as its layout is read; when it changes the layout in answer to
+// AboutToShow and says so with LayoutUpdated, the open menu follows.
+func TestSystrayMenuShowsWithoutWaitingForAboutToShow(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		echo bool
+		rows int
+	}{
+		{"the layout as read", false, 1},
+		{"the layout the answer changed", true, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, menu, key := startEchoTray(t, tc.echo)
+			stall := make(chan struct{})
+			t.Cleanup(func() { close(stall) })
+			menu.stall.Store(stall)
+			openTrayMenu(t, m, key)
+			waitHeadless(t, "the menu's rows", func() bool { return len(menuLabels(m)) == tc.rows })
+			if n := menu.shown.Load(); n != 1 {
+				t.Errorf("AboutToShow calls = %d, want 1 for one opening", n)
+			}
+		})
+	}
 }
