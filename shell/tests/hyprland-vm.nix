@@ -418,9 +418,13 @@ pkgs.testers.nixosTest {
     bound = json.loads(machine.succeed("head -n1 /tmp/lys/shortcuts.json"))
     if bound["bound"] != 0:
         raise Exception(f"BindShortcuts answered {bound}")
-    listed = [line.split(" -> ")[0].strip() for line in hypr("globalshortcuts").splitlines() if "lys-vm-test" in line]
-    if len(listed) != 1:
-        raise Exception(f"the compositor lists {listed} for the bound shortcut")
+    def listed_shortcuts():
+        return [line.split(" -> ")[0].strip() for line in hypr("globalshortcuts").splitlines() if "lys-vm-test" in line]
+
+    # The portal answers BindShortcuts before the compositor has
+    # registered the shortcut, so the listing is waited for.
+    wait("the compositor listing the bound shortcut", lambda: len(listed_shortcuts()) == 1, tries=30)
+    listed = listed_shortcuts()
     dispatch(f'hl.dsp.global("{listed[0]}")')
     wait("the shortcut's activation", lambda: machine.execute("grep -q activated /tmp/lys/shortcuts.json")[0] == 0, tries=30)
 

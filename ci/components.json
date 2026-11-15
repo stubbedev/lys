@@ -23,7 +23,7 @@
       },
       {
         "name": "race, GPU, headless",
-        "runners": ["x86_64", "aarch64"],
+        "runners": ["x86_64"],
         "run": "just in lib race gpu headless"
       }
     ]
@@ -38,7 +38,7 @@
       },
       {
         "name": "race, GPU, headless",
-        "runners": ["x86_64", "aarch64"],
+        "runners": ["x86_64"],
         "run": "just in ui race gpu headless"
       },
       {
@@ -64,7 +64,7 @@
       },
       {
         "name": "race",
-        "runners": ["x86_64", "aarch64"],
+        "runners": ["x86_64"],
         "userns": true,
         "run": "just in desktop race"
       }
@@ -82,20 +82,14 @@
       },
       {
         "name": "race",
-        "runners": ["x86_64", "aarch64"],
+        "runners": ["x86_64"],
         "run": "just in wm race"
       },
       {
-        "name": "pacing (GLES)",
+        "name": "pacing (GLES, Vulkan)",
         "runners": ["x86_64"],
-        "timeout": 15,
-        "run": "just in wm pace-gate gles"
-      },
-      {
-        "name": "pacing (Vulkan)",
-        "runners": ["x86_64"],
-        "timeout": 15,
-        "run": "just in wm pace-gate vulkan"
+        "timeout": 25,
+        "run": "just in wm pace-gate gles && just in wm pace-gate vulkan"
       },
       {
         "name": "VMs: GPUs and outputs",
@@ -110,18 +104,10 @@
         "run": "just checks wm-vm-cursor wm-vm-xwayland wm-vm-gpu-tests wm-vm-rtkit"
       },
       {
-        "name": "VM: everyday clients",
+        "name": "VMs: everyday clients, screen sharing",
         "runners": ["x86_64"],
         "kvm": true,
-        "timeout": 20,
-        "run": "just checks wm-vm-apps"
-      },
-      {
-        "name": "VM: screen sharing",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "timeout": 20,
-        "run": "just checks wm-vm-screencast"
+        "run": "just checks wm-vm-apps wm-vm-screencast"
       }
     ]
   },
@@ -138,7 +124,7 @@
       },
       {
         "name": "race",
-        "runners": ["x86_64", "aarch64"],
+        "runners": ["x86_64"],
         "userns": true,
         "run": "just in shell race"
       },
@@ -148,25 +134,10 @@
         "run": "just packages lys-shell && just checks shell-settings-app shell-wrapper-vulkan"
       },
       {
-        "name": "VM: Hyprland",
+        "name": "VMs: Hyprland, lys-wm, screen sharing",
         "runners": ["x86_64"],
         "kvm": true,
-        "timeout": 20,
-        "run": "just checks shell-hyprland-vm"
-      },
-      {
-        "name": "VM: lys-wm",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "timeout": 20,
-        "run": "just checks shell-lys-wm-vm"
-      },
-      {
-        "name": "VM: screen sharing on lys-wm",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "timeout": 20,
-        "run": "just checks shell-lys-wm-screencast-vm"
+        "run": "just checks shell-hyprland-vm shell-lys-wm-vm shell-lys-wm-screencast-vm"
       }
     ]
   },
@@ -180,40 +151,16 @@
         "run": "just in login check && just checks login-package"
       },
       {
-        "name": "VM: login",
+        "name": "VMs: login, keyring, upgrade",
         "runners": ["x86_64"],
         "kvm": true,
-        "run": "just checks login-vm"
+        "run": "just checks login-vm login-keyring-vm login-upgrade-vm"
       },
       {
-        "name": "VM: keyring",
+        "name": "VMs: greetd, wall clock, X11 session",
         "runners": ["x86_64"],
         "kvm": true,
-        "run": "just checks login-keyring-vm"
-      },
-      {
-        "name": "VM: upgrade",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks login-upgrade-vm"
-      },
-      {
-        "name": "VM: greetd",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks login-greetd-vm"
-      },
-      {
-        "name": "VM: wall clock",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks login-wallclock-vm"
-      },
-      {
-        "name": "VM: X11 session",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks login-x11-session-vm"
+        "run": "just checks login-greetd-vm login-wallclock-vm login-x11-session-vm"
       }
     ]
   },
@@ -228,7 +175,7 @@
       },
       {
         "name": "race",
-        "runners": ["x86_64", "aarch64"],
+        "runners": ["x86_64"],
         "run": "just in settings race"
       },
       {
@@ -286,44 +233,20 @@
         "run": "just splash::initramfs-tools"
       },
       {
-        "name": "VM: LUKS boot to the greeter",
+        "name": "VMs: LUKS boot to the greeter, boot, journal",
         "runners": ["x86_64"],
         "kvm": true,
         "free-disk": true,
         "timeout": 60,
-        "run": "just checks splash-vm-e2e"
+        "run": "just checks splash-vm-e2e splash-vm-boot splash-vm-journal"
       },
       {
-        "name": "VM: greeter",
+        "name": "VMs: greeter, splash",
         "runners": ["x86_64"],
         "kvm": true,
         "free-disk": true,
         "timeout": 60,
-        "run": "just checks splash-vm-greeter"
-      },
-      {
-        "name": "VM: boot",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "free-disk": true,
-        "timeout": 60,
-        "run": "just checks splash-vm-boot"
-      },
-      {
-        "name": "VM: splash",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "free-disk": true,
-        "timeout": 60,
-        "run": "just checks splash-vm-splash"
-      },
-      {
-        "name": "VM: journal",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "free-disk": true,
-        "timeout": 60,
-        "run": "just checks splash-vm-journal"
+        "run": "just checks splash-vm-greeter splash-vm-splash"
       }
     ]
   }

@@ -89,6 +89,7 @@ jobs:
     with:
       component: ${{ matrix.component }}
       version: 0~git${{ github.sha }}
+      arches: '[{"runner": "ubuntu-latest", "arch": "x86_64", "deb": "amd64"}]'
 
   cache:
     needs: [plan, job]

@@ -2,7 +2,8 @@ name: package
 
 # One component's release archive, .deb and .rpm, each installed and run where
 # the component has a smoke test, all through its justfile. ci.yml builds them
-# for the components a change touches; release.yml builds every one for a tag.
+# on x86_64 for the components a change touches; release.yml builds every one,
+# on both architectures, for a tag.
 
 on:
   workflow_call:
@@ -15,6 +16,10 @@ on:
         description: The package version, without a leading v.
         required: true
         type: string
+      arches:
+        description: The architectures to build for, as JSON runner entries.
+        type: string
+        default: '[{"runner": "ubuntu-latest", "arch": "x86_64", "deb": "amd64"}, {"runner": "ubuntu-24.04-arm", "arch": "aarch64", "deb": "arm64"}]'
 
 permissions:
   contents: read
@@ -24,10 +29,8 @@ jobs:
     name: ${{ inputs.component }} / archive + deb (${{ matrix.arch }})
     strategy:
       fail-fast: false
-      matrix: &arches
-        include:
-          - { runner: ubuntu-latest, arch: x86_64, deb: amd64 }
-          - { runner: ubuntu-24.04-arm, arch: aarch64, deb: arm64 }
+      matrix:
+        include: ${{ fromJSON(inputs.arches) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -70,7 +73,8 @@ jobs:
     needs: deb
     strategy:
       fail-fast: false
-      matrix: *arches
+      matrix:
+        include: ${{ fromJSON(inputs.arches) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     container:
