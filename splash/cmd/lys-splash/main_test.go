@@ -215,3 +215,12 @@ func TestTheShutdownHookAsksTheSplashToRetainItsFrame(t *testing.T) {
 	default:
 	}
 }
+
+func TestTheShutdownHookWithoutASplashHasNothingToFade(t *testing.T) {
+	t.Parallel()
+	var stderr bytes.Buffer
+	c := client.Client{Socket: "@lys-splash-main-hook-absent-" + rand.Text(), Stdout: io.Discard, Stderr: &stderr}
+	if got := shutdownHook(c, []string{"/usr/lib/systemd/system-shutdown/lys-splash", "reboot"}); got != client.ExitOK || stderr.Len() != 0 {
+		t.Errorf("the hook with no splash running exited %d with %q, want 0 and nothing said", got, stderr.String())
+	}
+}

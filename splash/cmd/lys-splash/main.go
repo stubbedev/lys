@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -105,7 +106,15 @@ func shutdownHook(c client.Client, argv []string) int {
 		fmt.Fprintf(c.Stderr, "%s: as a systemd-shutdown hook, want one argument of %s, got %q\n", argv[0], strings.Join(shutdownVerbs, ", "), argv[1:])
 		return client.ExitFailed
 	}
-	return c.Main([]string{"quit", "--retain-splash"})
+	var stderr bytes.Buffer
+	real := c.Stderr
+	c.Stderr = &stderr
+	code := c.Main([]string{"quit", "--retain-splash"})
+	if code == client.ExitNoDaemon {
+		return client.ExitOK
+	}
+	_, _ = real.Write(stderr.Bytes())
+	return code
 }
 
 type options struct {
