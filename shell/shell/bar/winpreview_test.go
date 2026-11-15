@@ -182,6 +182,39 @@ func TestWindowPreviewClickFocusesAndMiddleClickCloses(t *testing.T) {
 	}
 }
 
+func TestWindowPreviewClickOnOverlappingWindowsActsOnTheTopOne(t *testing.T) {
+	r := newPreviewRig(t)
+	r.p.host = fakeHost{}
+	stacked := []previewWindow{
+		{id: "under", title: "under", appID: "code", rect: wmipc.Rect{X: 0, Y: 0, Width: 960, Height: 1080}, hasRect: true},
+		{id: "over", title: "over", appID: "foot", rect: wmipc.Rect{X: 0, Y: 0, Width: 960, Height: 1080}, hasRect: true},
+		{id: "beside", title: "beside", appID: "firefox", rect: wmipc.Rect{X: 960, Y: 0, Width: 960, Height: 1080}, hasRect: true},
+	}
+	gather := func() ([]previewWindow, previewActions) { return stacked, rigActions{r} }
+	anchor := widget.NewBox(widget.Row, 0, 0)
+	open := func() []*widget.Box {
+		r.p.hover(true, anchor, gather)
+		r.fire()
+		cells := previewCells(r.content)
+		if len(cells) != 3 {
+			t.Fatalf("%d cells, want one per window", len(cells))
+		}
+		return cells
+	}
+	press(r.content, open()[0], widget.BTNMiddle)
+	if fmt.Sprint(r.closedW) != "[over]" {
+		t.Errorf("middle click on the stacked windows closed %v, want only the one painted on top", r.closedW)
+	}
+	press(r.content, open()[0], widget.BTNLeft)
+	if fmt.Sprint(r.focused) != "[over]" {
+		t.Errorf("click on the stacked windows focused %v, want the one painted on top", r.focused)
+	}
+	press(r.content, open()[2], widget.BTNLeft)
+	if fmt.Sprint(r.focused) != "[over beside]" {
+		t.Errorf("click beside the stack focused %v, want the window beside it", r.focused)
+	}
+}
+
 func TestPlaceWindowsKeepsTheirArrangement(t *testing.T) {
 	placed := placeWindows(threeWindows(), 420, 240)
 	if len(placed) != 3 {

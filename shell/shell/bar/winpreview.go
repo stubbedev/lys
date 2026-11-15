@@ -5,6 +5,7 @@ import (
 	"errors"
 	"image"
 	"log"
+	"slices"
 	"sync"
 	"time"
 
@@ -360,9 +361,9 @@ func (c *previewCanvas) Paint(cv *render.Canvas) {
 // Children is the cells, for the style cascade and hover.
 func (c *previewCanvas) Children() []widget.Widget { return c.cells }
 
-// HitTest descends into the cell under p.
+// HitTest descends into the topmost cell under p: the last one painted.
 func (c *previewCanvas) HitTest(p widget.Point) widget.Widget {
-	for _, cell := range c.cells {
+	for _, cell := range slices.Backward(c.cells) {
 		if hit := cell.HitTest(p); hit != nil {
 			return hit
 		}
