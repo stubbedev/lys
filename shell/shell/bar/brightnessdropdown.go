@@ -75,9 +75,9 @@ func deviceSubtitle(name string, kind brightness.Type, multi bool) (string, bool
 
 // brightnessView is the brightness dropdown: a header, automatic
 // brightness's card while it runs, then a slider card per backlight or
-// the empty state. The device list rebuilds only when the set of
-// devices changes; a level change moves the slider in place
-// (sync_single_device), which the slider ignores mid-drag.
+// the empty state, and the night light's card. The device list rebuilds
+// only when the set of devices changes; a level change moves the slider
+// in place (sync_single_device), which the slider ignores mid-drag.
 type brightnessView struct {
 	ctx  ModuleContext
 	font render.Font
@@ -85,6 +85,7 @@ type brightnessView struct {
 
 	*widget.Box
 	auto    *brightnessAutoCard
+	night   *nightlightCard
 	body    *widget.Stack
 	list    *widget.ItemGroup
 	devices []brightness.Device
@@ -123,6 +124,10 @@ func brightnessDropdown(ctx ModuleContext) widget.Widget {
 	v.body.Add("devices", atTop(card))
 	v.body.Add("empty", empty)
 	content.Append(v.body, true)
+	if ctx.Nightlight != nil {
+		v.night = newNightlightCard(ctx, font, px, ctx.Nightlight)
+		content.Append(v.night.card, false)
+	}
 	v.Append(content, true)
 	v.apply(nil)
 	v.startFollowing()
@@ -208,6 +213,9 @@ func (v *brightnessView) write(name string, pct float64) func() {
 func (v *brightnessView) follow(life context.Context) {
 	if v.auto != nil {
 		followControl(v.ctx, life, v.auto.src, v.auto.apply)
+	}
+	if v.night != nil {
+		v.night.follow(life)
 	}
 	if v.ctx.Brightness == nil {
 		return

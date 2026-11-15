@@ -83,6 +83,7 @@ type ModuleContext struct {
 	// AutoBrightness is lys-power's automatic brightness, nil without
 	// a session bus.
 	AutoBrightness autoBrightnessSource
+	Nightlight     *nightlightService
 	Bitwarden      *bitwardenHost
 	SNI            *sni.Store
 	Weather        *weather.Service

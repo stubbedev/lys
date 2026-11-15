@@ -33,6 +33,16 @@ func TestBarsAffected(t *testing.T) {
 	if barsAffected(base, tone) {
 		t.Error("the emoji skin tone picked in the launcher rebuilds the bars")
 	}
+	strength := config.Defaults()
+	strength.Nightlight.Temperature = 3200
+	if barsAffected(base, strength) {
+		t.Error("the night light strength the brightness dropdown writes rebuilds the bars")
+	}
+	gamma := config.Defaults()
+	gamma.Nightlight.Gamma = 80
+	if !barsAffected(base, gamma) {
+		t.Error("a night light gamma change does not rebuild the bars")
+	}
 	icon := config.Defaults()
 	icon.Recorder.IconIdle = "other"
 	if !barsAffected(base, icon) {

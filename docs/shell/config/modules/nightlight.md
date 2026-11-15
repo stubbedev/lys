@@ -55,6 +55,17 @@ bar:
 
 :::
 
+::: details More about `temperature`
+
+The night light card in the brightness dropdown sets it, from 1000K to
+6600K in steps of 100K, next to a switch that turns the filter on and
+off as the module's toggle does. The card and the module show the same
+night light, which runs whether or not the bar shows the module. A
+strength or toggle the display refuses shows its error in the card and
+the module's tooltip.
+
+:::
+
 ::: details More about `auto-schedule`
 
 Transitions are centred on civil dawn and dusk (sun 6 degrees below the

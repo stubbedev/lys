@@ -54,13 +54,13 @@ func TestNeutralTemperatureIsTheIdentity(t *testing.T) {
 	if got := identity.Matrix(); got != (Matrix{1, 0, 0, 0, 1, 0, 0, 0, 1}) {
 		t.Errorf("identity matrix = %v", got)
 	}
-	if !mustSetting(t, neutralTemp, 100).IsIdentity() {
+	if !mustSetting(t, NeutralTemp, 100).IsIdentity() {
 		t.Error("the neutral temperature at full gamma is not the identity")
 	}
-	if mustSetting(t, neutralTemp, 99).IsIdentity() || mustSetting(t, 6500, 100).IsIdentity() {
+	if mustSetting(t, NeutralTemp, 99).IsIdentity() || mustSetting(t, 6500, 100).IsIdentity() {
 		t.Error("a strength that tints reads as the identity")
 	}
-	if got := mustSetting(t, neutralTemp, 100).Ramps(3); !slices.Equal(got, []uint16{0, 32768, 65535, 0, 32768, 65535, 0, 32768, 65535}) {
+	if got := mustSetting(t, NeutralTemp, 100).Ramps(3); !slices.Equal(got, []uint16{0, 32768, 65535, 0, 32768, 65535, 0, 32768, 65535}) {
 		t.Errorf("identity ramps = %v", got)
 	}
 }
@@ -157,15 +157,15 @@ func TestAnEaseCrossesTheFitsSeamWithoutAStep(t *testing.T) {
 // The seam is only ever closed along an ease: a settled strength is the
 // fit, however close to neutral, with the seam's step still in it.
 func TestASettledStrengthKeepsTheFitsEndValues(t *testing.T) {
-	cool := mustSetting(t, neutralTemp+1, 100).scale()
-	if want := whitepoint(neutralTemp + 1); cool != want {
+	cool := mustSetting(t, NeutralTemp+1, 100).scale()
+	if want := whitepoint(NeutralTemp + 1); cool != want {
 		t.Errorf("6601K scale = %v, want the fit's %v", cool, want)
 	}
 	if cool[1] > 0.99 {
 		t.Errorf("6601K green = %v: the fit's own value moved", cool[1])
 	}
-	warm := mustSetting(t, neutralTemp-1, 100).scale()
-	if want := whitepoint(neutralTemp - 1); warm != want {
+	warm := mustSetting(t, NeutralTemp-1, 100).scale()
+	if want := whitepoint(NeutralTemp - 1); warm != want {
 		t.Errorf("6599K scale = %v, want the fit's %v", warm, want)
 	}
 }
@@ -181,7 +181,7 @@ func TestAnEaseToTheIdentityStaysTheIdentity(t *testing.T) {
 	if mustSetting(t, 5000, 100).eased(0.5).IsIdentity() {
 		t.Error("a strength partway through an ease reads as the identity")
 	}
-	if got := mustSetting(t, neutralTemp, 80).eased(0.5).scale(); got != [3]float64{0.9, 0.9, 0.9} {
+	if got := mustSetting(t, NeutralTemp, 80).eased(0.5).scale(); got != [3]float64{0.9, 0.9, 0.9} {
 		t.Errorf("a gamma-only ease = %v, want 90%% on every channel", got)
 	}
 }

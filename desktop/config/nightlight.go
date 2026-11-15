@@ -21,6 +21,13 @@ type NightlightConfig struct {
 	// - `"{{ status }} ({{ temp }}K)"` - "On (4500K)"
 	Format string `cfg:"format"`
 	// Color temperature in Kelvin when filter is enabled. Range: 1000-20000.
+	//
+	// The night light card in the brightness dropdown sets it, from 1000K to
+	// 6600K in steps of 100K, next to a switch that turns the filter on and
+	// off as the module's toggle does. The card and the module show the same
+	// night light, which runs whether or not the bar shows the module. A
+	// strength or toggle the display refuses shows its error in the card and
+	// the module's tooltip.
 	Temperature uint32 `cfg:"temperature"`
 	// Display gamma percentage when filter is enabled. Range: 0-200.
 	Gamma uint32 `cfg:"gamma"`

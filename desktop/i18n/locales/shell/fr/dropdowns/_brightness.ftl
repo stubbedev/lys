@@ -16,3 +16,9 @@ dropdown-brightness-auto-title = Luminosité automatique
 dropdown-brightness-auto-following = Suit la lumière de la pièce
 dropdown-brightness-auto-paused = En pause après un réglage manuel
 dropdown-brightness-auto-resume = Reprendre
+
+## Éclairage nocturne
+dropdown-brightness-nightlight-title = Éclairage nocturne
+dropdown-brightness-nightlight-on = Activé à { $kelvin } K
+dropdown-brightness-nightlight-kelvin = { $kelvin } K
+dropdown-brightness-nightlight-unavailable = Indisponible : { $reason }

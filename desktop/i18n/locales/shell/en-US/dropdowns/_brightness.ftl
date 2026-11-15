@@ -16,3 +16,9 @@ dropdown-brightness-auto-title = Automatic brightness
 dropdown-brightness-auto-following = Follows the room's light
 dropdown-brightness-auto-paused = Paused by a manual change
 dropdown-brightness-auto-resume = Resume
+
+## Night light
+dropdown-brightness-nightlight-title = Night light
+dropdown-brightness-nightlight-on = On at { $kelvin }K
+dropdown-brightness-nightlight-kelvin = { $kelvin }K
+dropdown-brightness-nightlight-unavailable = Unavailable: { $reason }

@@ -105,6 +105,10 @@ func (w *clockWatch) jump(t *testing.T) func() {
 	}
 }
 
+func newNightlightWith(ctx ModuleContext, env sunsetEnv) *nightlightModule {
+	return newNightlightModule(ctx, newNightlightService(ctx, env))
+}
+
 func newTestNightlight(t *testing.T, cfg *config.Config, env sunsetEnv) *nightlightModule {
 	t.Helper()
 	ctx := newTestContext(t, cfg)
@@ -170,15 +174,15 @@ func TestNightlightToggleFlipsTheFilterAndIcon(t *testing.T) {
 	cfg := sunsetConfig(false)
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	if m.enabled || m.icon.Name() != cfg.Nightlight.IconOff || m.btn.Label().Text() != "Off" {
-		t.Fatalf("resting = enabled %v icon %q label %q", m.enabled, m.icon.Name(), m.btn.Label().Text())
+	if m.svc.enabled || m.icon.Name() != cfg.Nightlight.IconOff || m.btn.Label().Text() != "Off" {
+		t.Fatalf("resting = enabled %v icon %q label %q", m.svc.enabled, m.icon.Name(), m.btn.Label().Text())
 	}
 	m.RunAction(config.ParseClickAction(":toggle"))
-	if !fake.running || !m.enabled || m.icon.Name() != "ld-moon-symbolic" || m.btn.Label().Text() != "On" {
-		t.Fatalf("after toggle = running %v enabled %v icon %q", fake.running, m.enabled, m.icon.Name())
+	if !fake.running || !m.svc.enabled || m.icon.Name() != "ld-moon-symbolic" || m.btn.Label().Text() != "On" {
+		t.Fatalf("after toggle = running %v enabled %v icon %q", fake.running, m.svc.enabled, m.icon.Name())
 	}
 	m.RunAction(config.ParseClickAction(":toggle"))
-	if fake.running || m.enabled {
+	if fake.running || m.svc.enabled {
 		t.Fatal("the second toggle did not stop the filter")
 	}
 	// Other actions do not toggle.
@@ -187,7 +191,7 @@ func TestNightlightToggleFlipsTheFilterAndIcon(t *testing.T) {
 		t.Errorf("starts = %d, want only the one toggle", fake.starts)
 	}
 	// Without the schedule, evaluating drives nothing.
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Error("evaluate drove the filter with auto-schedule off")
 	}
@@ -196,12 +200,12 @@ func TestNightlightToggleFlipsTheFilterAndIcon(t *testing.T) {
 func TestNightlightScheduleFollowsTheSun(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetNight}
 	m := newTestNightlight(t, sunsetConfig(true), fake.env(t))
-	m.evaluate()
+	m.svc.evaluate()
 	if !fake.running {
 		t.Fatal("night: the schedule did not enable the filter")
 	}
 	fake.clock = sunsetDay
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Fatal("day: the schedule did not disable the filter")
 	}
@@ -211,12 +215,12 @@ func TestNightlightManualOverrideHoldsUntilTheBoundary(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetNight}
 	env := fake.env(t)
 	m := newTestNightlight(t, sunsetConfig(true), env)
-	m.evaluate() // night: on
-	m.toggle()   // the user turns it off at night
+	m.svc.evaluate() // night: on
+	m.svc.toggle()   // the user turns it off at night
 	if fake.running {
 		t.Fatal("toggle did not stop the filter")
 	}
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Fatal("the schedule overrode the manual toggle within the same phase")
 	}
@@ -225,8 +229,8 @@ func TestNightlightManualOverrideHoldsUntilTheBoundary(t *testing.T) {
 	}
 	// Crossing into day hands control back and drops the record.
 	fake.clock = sunsetDay
-	m.evaluate()
-	if m.manualOverride {
+	m.svc.evaluate()
+	if m.svc.manualOverride {
 		t.Error("the override survived the phase change")
 	}
 	if _, ok := nightlight.LoadOverride(env.stateDir, fake.clock); ok {
@@ -234,7 +238,7 @@ func TestNightlightManualOverrideHoldsUntilTheBoundary(t *testing.T) {
 	}
 	// The next night the schedule drives again.
 	fake.clock = sunsetNight.Add(24 * time.Hour)
-	m.evaluate()
+	m.svc.evaluate()
 	if !fake.running {
 		t.Error("the schedule did not resume after the boundary")
 	}
@@ -248,11 +252,11 @@ func TestNightlightRestartReplaysTheToggle(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := newTestNightlight(t, cfg, env)
-	if !fake.running || !m.enabled {
+	if !fake.running || !m.svc.enabled {
 		t.Fatal("a remembered manual enable was not replayed")
 	}
 	// Day would turn it off, but the replayed override holds.
-	m.evaluate()
+	m.svc.evaluate()
 	if !fake.running {
 		t.Error("the schedule dropped the replayed override in the same phase")
 	}
@@ -276,11 +280,11 @@ func TestNightlightLogsAFailedClear(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetNight}
 	env := fake.env(t)
 	m := newTestNightlight(t, sunsetConfig(true), env)
-	m.evaluate()
-	m.toggle()
+	m.svc.evaluate()
+	m.svc.toggle()
 	fake.clock = sunsetDay
-	m.evaluate()
-	if m.manualOverride {
+	m.svc.evaluate()
+	if m.svc.manualOverride {
 		t.Error("the override survived the phase change")
 	}
 	if strings.Contains(logged.String(), "can replay") {
@@ -291,10 +295,10 @@ func TestNightlightLogsAFailedClear(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(record, "occupied"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	m.toggle()
+	m.svc.toggle()
 	fake.clock = sunsetNight.Add(24 * time.Hour)
-	m.evaluate()
-	if m.manualOverride {
+	m.svc.evaluate()
+	if m.svc.manualOverride {
 		t.Error("a failed clear kept the override")
 	}
 	if got := logged.String(); !strings.Contains(got, "can replay") || !strings.Contains(got, record) {
@@ -336,7 +340,7 @@ func TestNightlightToggleLogsAFailedSave(t *testing.T) {
 	}
 	env.stateDir = filepath.Join(blocker, "state")
 	m := newTestNightlight(t, sunsetConfig(false), env)
-	m.toggle()
+	m.svc.toggle()
 	if !fake.running {
 		t.Error("a failed save stopped the toggle")
 	}
@@ -351,7 +355,7 @@ func TestNightlightToggleSavesQuietly(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	env := fake.env(t)
 	m := newTestNightlight(t, sunsetConfig(false), env)
-	m.toggle()
+	m.svc.toggle()
 	if strings.Contains(logged.String(), "will not survive") {
 		t.Errorf("log = %q", logged.String())
 	}
@@ -365,11 +369,11 @@ func TestNightlightToggleSavesQuietly(t *testing.T) {
 func TestNightlightFollowsGeoClueWithoutCoordinates(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
-	m.setLocation(mustLocation(t, -33.87, 151.21))
+	m.svc.setLocation(mustLocation(t, -33.87, 151.21))
 	if !fake.running {
 		t.Error("the resolved location did not drive the schedule")
 	}
-	m.setLocation(mustLocation(t, 55.6, 12.5))
+	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
 	if fake.running {
 		t.Error("travelling to where it is day left the filter on")
 	}
@@ -399,8 +403,8 @@ func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
 				return sydney, nil
 			}
 			m := newTestNightlight(t, tc.cfg, env)
-			m.run()
-			t.Cleanup(m.Stop)
+			m.svc.run()
+			t.Cleanup(m.svc.stop)
 			if tc.lookups {
 				<-located
 			} else {
@@ -446,15 +450,15 @@ func TestNightlightWithoutALocationDoesNotFollowASun(t *testing.T) {
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
-	m.evaluate()
-	if fake.starts != 0 || m.enabled {
+	m.svc.evaluate()
+	if fake.starts != 0 || m.svc.enabled {
 		t.Fatal("the schedule drove the filter with no location")
 	}
 	if m.btn.detail != "" {
 		t.Errorf("tooltip %q while the first lookup is out", m.btn.detail)
 	}
 	failure := errors.New("geoclue: get client: no such service")
-	m.lookupFailed(failure)
+	m.svc.lookupFailed(failure)
 	if tip := m.btn.detail; !strings.Contains(tip, failure.Error()) {
 		t.Errorf("tooltip = %q, want the reason", tip)
 	}
@@ -464,12 +468,12 @@ func TestNightlightWithoutALocationDoesNotFollowASun(t *testing.T) {
 	if !strings.Contains(logs.String(), failure.Error()) {
 		t.Errorf("log = %q, want the failed lookup", logs.String())
 	}
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.starts != 0 {
 		t.Error("a failed lookup started the filter")
 	}
 	// A fix ends the state and the schedule starts.
-	m.setLocation(mustLocation(t, 55.6, 12.5))
+	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
 	if !fake.running {
 		t.Error("the first fix did not start the schedule")
 	}
@@ -485,7 +489,7 @@ func TestNightlightHidesTheNoLocationStateWithTheScheduleOff(t *testing.T) {
 	m := newTestNightlight(t, cfg, fake.env(t))
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
-	m.lookupFailed(errors.New("geoclue: down"))
+	m.svc.lookupFailed(errors.New("geoclue: down"))
 	if m.btn.detail != "" || widget.HasClass(chrome, "nightlight-no-location") {
 		t.Error("the no-location state shows with the schedule off")
 	}
@@ -496,19 +500,19 @@ func TestNightlightLogsARepeatingLookupFailureOnce(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
 	for range 3 {
-		m.lookupFailed(errors.New("geoclue: down"))
+		m.svc.lookupFailed(errors.New("geoclue: down"))
 	}
 	if got := strings.Count(logs.String(), "geoclue: down"); got != 1 {
 		t.Errorf("logged %d times, want once: %q", got, logs.String())
 	}
-	m.lookupFailed(errors.New("geoclue: denied"))
+	m.svc.lookupFailed(errors.New("geoclue: denied"))
 	if !strings.Contains(logs.String(), "geoclue: denied") {
 		t.Error("a different failure was not logged")
 	}
 	// Recovering and failing again is news.
-	m.setLocation(mustLocation(t, 55.6, 12.5))
+	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
 	logs.Reset()
-	m.lookupFailed(errors.New("geoclue: denied"))
+	m.svc.lookupFailed(errors.New("geoclue: denied"))
 	if !strings.Contains(logs.String(), "geoclue: denied") {
 		t.Error("a failure after a recovery was not logged")
 	}
@@ -520,13 +524,13 @@ func TestNightlightKeepsItsLocationThroughAFailedLookup(t *testing.T) {
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
-	m.setLocation(mustLocation(t, 55.6, 12.5))
-	m.lookupFailed(errors.New("geoclue: down"))
+	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
+	m.svc.lookupFailed(errors.New("geoclue: down"))
 	if widget.HasClass(chrome, "nightlight-no-location") {
 		t.Error("a failed refresh hid the location the schedule follows")
 	}
 	fake.clock = sunsetDay
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Error("the schedule stopped following the location it had")
 	}
@@ -541,17 +545,17 @@ func TestNightlightIgnoresSpelledOutNullCoordinates(t *testing.T) {
 	cfg.Nightlight.Latitude, cfg.Nightlight.Longitude = &lat, &lng
 	fake := &fakeSunset{clock: sunsetNight}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Error("0, 0 drove the schedule")
 	}
-	if m.pinned {
+	if m.svc.pinned {
 		t.Error("0, 0 kept GeoClue out")
 	}
 	if !strings.Contains(logs.String(), "0, 0") {
 		t.Errorf("log = %q, want the warning", logs.String())
 	}
-	m.setLocation(mustLocation(t, 55.6, 12.5))
+	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
 	if !fake.running {
 		t.Error("GeoClue did not take over from 0, 0")
 	}
@@ -574,8 +578,8 @@ func TestNightlightShowsABadCoordinatePair(t *testing.T) {
 	m := newTestNightlight(t, cfg, env)
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
-	m.run()
-	t.Cleanup(m.Stop)
+	m.svc.run()
+	t.Cleanup(m.svc.stop)
 	time.Sleep(lookupGrace)
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
@@ -602,14 +606,14 @@ func TestNightlightRestartUsesTheRememberedFix(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetNight}
 	env := fake.env(t)
 	first := newTestNightlight(t, unpinnedConfig(), env)
-	first.setLocation(mustLocation(t, 55.6, 12.5))
-	first.Stop()
+	first.svc.setLocation(mustLocation(t, 55.6, 12.5))
+	first.svc.stop()
 
 	again := &fakeSunset{clock: sunsetNight}
 	restartEnv := again.env(t)
 	restartEnv.stateDir = env.stateDir
 	m := newTestNightlight(t, unpinnedConfig(), restartEnv)
-	m.evaluate()
+	m.svc.evaluate()
 	if !again.running {
 		t.Error("the restart did not apply the remembered fix")
 	}
@@ -622,7 +626,7 @@ func TestNightlightRestartUsesTheRememberedFix(t *testing.T) {
 	pinnedEnv := pinned.env(t)
 	pinnedEnv.stateDir = env.stateDir
 	p := newTestNightlight(t, pinnedDay, pinnedEnv)
-	p.evaluate()
+	p.svc.evaluate()
 	if pinned.running {
 		t.Error("a remembered fix in Sydney beat the pinned coordinates")
 	}
@@ -634,21 +638,21 @@ func TestNightlightEasesIntoAndOutOfNight(t *testing.T) {
 	start, length := duskEase(t, cfg)
 	fake := &fakeSunset{clock: start.Add(-time.Second)}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Fatal("the filter is on before the ease")
 	}
 	fake.clock = start
-	m.evaluate()
-	if fake.running || !m.stepping {
-		t.Fatalf("the first moment shows %v, stepping %v; want no filter yet, stepping", fake.running, m.stepping)
+	m.svc.evaluate()
+	if fake.running || !m.svc.stepping {
+		t.Fatalf("the first moment shows %v, stepping %v; want no filter yet, stepping", fake.running, m.svc.stepping)
 	}
 	lastTemp := nightlight.MaxTemp
 	for at := time.Minute; at < length; at += time.Minute {
 		fake.clock = start.Add(at)
-		m.evaluate()
-		if !fake.running || !m.stepping {
-			t.Fatalf("at %v: running %v stepping %v", at, fake.running, m.stepping)
+		m.svc.evaluate()
+		if !fake.running || !m.svc.stepping {
+			t.Fatalf("at %v: running %v stepping %v", at, fake.running, m.svc.stepping)
 		}
 		if fake.applied.Temp() >= lastTemp || fake.applied.Temp() <= 3000 {
 			t.Fatalf("at %v: temp %d after %d", at, fake.applied.Temp(), lastTemp)
@@ -659,29 +663,29 @@ func TestNightlightEasesIntoAndOutOfNight(t *testing.T) {
 		t.Errorf("the ease cleared the filter %d times", fake.stops)
 	}
 	fake.clock = start.Add(length)
-	m.evaluate()
-	if fake.applied.Temp() != 3000 || fake.applied.Gamma() != 80 || m.stepping {
-		t.Errorf("the end shows %dK %d%%, stepping %v", fake.applied.Temp(), fake.applied.Gamma(), m.stepping)
+	m.svc.evaluate()
+	if fake.applied.Temp() != 3000 || fake.applied.Gamma() != 80 || m.svc.stepping {
+		t.Errorf("the end shows %dK %d%%, stepping %v", fake.applied.Temp(), fake.applied.Gamma(), m.svc.stepping)
 	}
 	starts := fake.starts
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.starts != starts {
 		t.Error("a settled night re-applied the same strength")
 	}
 
 	dawn := dawnEase(t, cfg)
 	fake.clock = dawn
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.applied.Temp() != 3000 || !fake.running {
 		t.Errorf("the dawn ease starts at %dK, running %v; want the full strength", fake.applied.Temp(), fake.running)
 	}
 	fake.clock = dawn.Add(length / 2)
-	m.evaluate()
+	m.svc.evaluate()
 	if !fake.running || fake.applied.Temp() <= 3000 {
 		t.Errorf("mid dawn shows %dK, running %v", fake.applied.Temp(), fake.running)
 	}
 	fake.clock = dawn.Add(length)
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Error("the filter is on after the dawn ease")
 	}
@@ -696,7 +700,7 @@ func TestNightlightRestartMidEaseLandsOnTheMoment(t *testing.T) {
 	now := start.Add(length / 3)
 	fake := &fakeSunset{clock: now}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
+	m.svc.evaluate()
 	night, err := nightlight.NewSetting(3000, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -719,18 +723,18 @@ func TestNightlightToggleCancelsARunningEase(t *testing.T) {
 	fake := &fakeSunset{clock: start.Add(length / 4)}
 	env := fake.env(t)
 	m := newTestNightlight(t, cfg, env)
-	m.evaluate()
+	m.svc.evaluate()
 	if !fake.running {
 		t.Fatal("the ease did not start")
 	}
-	m.toggle()
-	if fake.running || m.stepping {
-		t.Fatalf("the toggle left running %v, stepping %v", fake.running, m.stepping)
+	m.svc.toggle()
+	if fake.running || m.svc.stepping {
+		t.Fatalf("the toggle left running %v, stepping %v", fake.running, m.svc.stepping)
 	}
 	for _, at := range []time.Duration{length / 4, length / 2, length * 3 / 4, length, 2 * length} {
 		fake.clock = start.Add(at)
-		m.evaluate()
-		if fake.running || m.stepping {
+		m.svc.evaluate()
+		if fake.running || m.svc.stepping {
 			t.Fatalf("at %v the schedule overwrote the toggle", at)
 		}
 	}
@@ -739,13 +743,13 @@ func TestNightlightToggleCancelsARunningEase(t *testing.T) {
 	}
 	dawn := dawnEase(t, cfg)
 	fake.clock = dawn.Add(-time.Second)
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Error("the override did not hold up to the next ease")
 	}
 	fake.clock = dawn.Add(length)
-	m.evaluate()
-	if m.manualOverride {
+	m.svc.evaluate()
+	if m.svc.manualOverride {
 		t.Error("the override outlived the next ease")
 	}
 }
@@ -756,15 +760,15 @@ func TestNightlightToggleOnMidEaseAppliesTheFullStrength(t *testing.T) {
 	start, length := duskEase(t, cfg)
 	fake := &fakeSunset{clock: start.Add(length / 2)}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
-	m.toggle() // off
-	m.toggle() // on
+	m.svc.evaluate()
+	m.svc.toggle() // off
+	m.svc.toggle() // on
 	if !fake.running || fake.applied.Temp() != 3000 {
 		t.Errorf("toggled on shows %dK, running %v; want the full strength", fake.applied.Temp(), fake.running)
 	}
 	fake.clock = start.Add(length * 3 / 4)
 	before := fake.starts
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.starts != before {
 		t.Error("the next tick overwrote the toggle")
 	}
@@ -779,37 +783,37 @@ func TestNightlightOverrideAtTheDestinationSkipsTheEase(t *testing.T) {
 
 	fake := &fakeSunset{clock: start.Add(2 * length)}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
-	m.toggle()
+	m.svc.evaluate()
+	m.svc.toggle()
 	fake.clock = dawn
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Fatal("dawn's ease flashed the filter on after it was turned off for the night")
 	}
 	fake.clock = dawn.Add(length / 2)
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.running {
 		t.Fatal("dawn's ease turned the filter on midway")
 	}
-	if m.manualOverride {
+	if m.svc.manualOverride {
 		t.Error("the override outlived the phase change")
 	}
 
 	fake = &fakeSunset{clock: start.Add(-time.Hour)}
 	m = newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
-	m.toggle()
+	m.svc.evaluate()
+	m.svc.toggle()
 	if !fake.running {
 		t.Fatal("the toggle did not turn the filter on")
 	}
 	stops := fake.stops
 	fake.clock = start
-	m.evaluate()
+	m.svc.evaluate()
 	if fake.stops != stops || !fake.running {
 		t.Fatal("dusk's ease dropped a filter already on")
 	}
 	fake.clock = start.Add(length)
-	m.evaluate()
+	m.svc.evaluate()
 	if !fake.running || fake.applied.Temp() != int(cfg.Nightlight.Temperature) {
 		t.Errorf("after dusk's ease: running %v at %dK", fake.running, fake.applied.Temp())
 	}
@@ -824,9 +828,9 @@ func TestNightlightOnlyAnOverrideSkipsAnEase(t *testing.T) {
 	_, length := duskEase(t, cfg)
 	fake := &fakeSunset{clock: dawn.Add(length / 2)}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
-	if !fake.running || !m.stepping {
-		t.Errorf("mid dawn after a restart: running %v, stepping %v", fake.running, m.stepping)
+	m.svc.evaluate()
+	if !fake.running || !m.svc.stepping {
+		t.Errorf("mid dawn after a restart: running %v, stepping %v", fake.running, m.svc.stepping)
 	}
 }
 
@@ -845,14 +849,14 @@ func TestNightlightZeroTransitionSwitchesAtOnce(t *testing.T) {
 	}
 	fake := &fakeSunset{clock: dusk.Add(-time.Second)}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
-	if fake.running || m.stepping {
+	m.svc.evaluate()
+	if fake.running || m.svc.stepping {
 		t.Fatal("the filter moved before dusk")
 	}
 	fake.clock = dusk
-	m.evaluate()
-	if !fake.running || m.stepping || fake.applied.Temp() != int(cfg.Nightlight.Temperature) {
-		t.Errorf("at dusk: running %v stepping %v at %dK", fake.running, m.stepping, fake.applied.Temp())
+	m.svc.evaluate()
+	if !fake.running || m.svc.stepping || fake.applied.Temp() != int(cfg.Nightlight.Temperature) {
+		t.Errorf("at dusk: running %v stepping %v at %dK", fake.running, m.svc.stepping, fake.applied.Temp())
 	}
 	if fake.starts != 1 {
 		t.Errorf("%d applies, want the one", fake.starts)
@@ -866,28 +870,28 @@ func TestNightlightTicksFastOnlyDuringAnEase(t *testing.T) {
 	start, length := duskEase(t, cfg)
 	fake := &fakeSunset{clock: start.Add(-time.Hour)}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.evaluate()
-	if got := m.nextTick(); got != nightlightScheduleTick {
+	m.svc.evaluate()
+	if got := m.svc.nextTick(); got != nightlightScheduleTick {
 		t.Errorf("idle tick = %v, want %v", got, nightlightScheduleTick)
 	}
 	fake.clock = start.Add(-10 * time.Second)
-	m.evaluate()
-	if got := m.nextTick(); got != 10*time.Second {
+	m.svc.evaluate()
+	if got := m.svc.nextTick(); got != 10*time.Second {
 		t.Errorf("just before the ease = %v, want to wake at its start", got)
 	}
 	fake.clock = start.Add(length / 2)
-	m.evaluate()
-	if got := m.nextTick(); got != fakeEaseStep {
+	m.svc.evaluate()
+	if got := m.svc.nextTick(); got != fakeEaseStep {
 		t.Errorf("during the ease = %v, want %v", got, fakeEaseStep)
 	}
-	m.toggle()
-	if got := m.nextTick(); got == fakeEaseStep {
+	m.svc.toggle()
+	if got := m.svc.nextTick(); got == fakeEaseStep {
 		t.Error("an override keeps the fast tick")
 	}
-	m.toggle()
+	m.svc.toggle()
 	fake.clock = start.Add(2 * length)
-	m.evaluate()
-	if got := m.nextTick(); got != nightlightScheduleTick {
+	m.svc.evaluate()
+	if got := m.svc.nextTick(); got != nightlightScheduleTick {
 		t.Errorf("after the ease = %v, want %v", got, nightlightScheduleTick)
 	}
 }
@@ -898,7 +902,7 @@ func TestNightlightStepsOnItsTimer(t *testing.T) {
 	start, length := duskEase(t, cfg)
 	fake := &fakeSunset{clock: start.Add(length / 4)}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.run()
+	m.svc.run()
 	waitForSchedule(t, func() bool { return fake.running })
 	headlessLoop.Lock()
 	fake.clock = start.Add(length / 2)
@@ -907,7 +911,7 @@ func TestNightlightStepsOnItsTimer(t *testing.T) {
 	headlessLoop.Unlock()
 	waitForSchedule(t, func() bool { return fake.applied != first && fake.starts > applied })
 	headlessLoop.Lock()
-	m.Stop()
+	m.svc.stop()
 	stopped := fake.starts
 	fake.clock = start.Add(length * 3 / 4)
 	headlessLoop.Unlock()
@@ -930,10 +934,10 @@ func TestNightlightCatchesUpOnAClockJump(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	env, watch := fake.watchedEnv(t)
 	m := newTestNightlight(t, cfg, env)
-	m.run()
-	t.Cleanup(m.Stop)
+	m.svc.run()
+	t.Cleanup(m.svc.stop)
 	jump := watch.jump(t)
-	waitForSchedule(t, func() bool { return m.timer != nil })
+	waitForSchedule(t, func() bool { return m.svc.timer != nil })
 
 	headlessLoop.Lock()
 	fake.clock = sunsetNight.Add(24 * time.Hour)
@@ -962,13 +966,13 @@ func TestNightlightWakesIntoAnEase(t *testing.T) {
 	fake := &fakeSunset{clock: start.Add(-time.Hour)}
 	env, watch := fake.watchedEnv(t)
 	m := newTestNightlight(t, cfg, env)
-	m.run()
-	t.Cleanup(m.Stop)
+	m.svc.run()
+	t.Cleanup(m.svc.stop)
 	jump := watch.jump(t)
-	waitForSchedule(t, func() bool { return m.timer != nil })
+	waitForSchedule(t, func() bool { return m.svc.timer != nil })
 	headlessLoop.Lock()
 	fake.clock = start.Add(length / 2)
-	want := nightlight.TargetAt(fake.clock, mustLocation(t, 55.6, 12.5), cfg.Nightlight.TransitionDuration.Transition(), m.night).Setting
+	want := nightlight.TargetAt(fake.clock, mustLocation(t, 55.6, 12.5), cfg.Nightlight.TransitionDuration.Transition(), m.svc.night).Setting
 	headlessLoop.Unlock()
 	jump()
 	waitForSchedule(t, func() bool { return fake.running })
@@ -977,7 +981,7 @@ func TestNightlightWakesIntoAnEase(t *testing.T) {
 	if fake.applied != want {
 		t.Errorf("applied %+v, want the ease's %+v", fake.applied, want)
 	}
-	if !m.stepping {
+	if !m.svc.stepping {
 		t.Error("the module woke into an ease and is not stepping")
 	}
 }
@@ -987,20 +991,20 @@ func TestNightlightClockJumpKeepsAToggleInItsPhase(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	env, watch := fake.watchedEnv(t)
 	m := newTestNightlight(t, sunsetConfig(true), env)
-	m.run()
-	t.Cleanup(m.Stop)
+	m.svc.run()
+	t.Cleanup(m.svc.stop)
 	jump := watch.jump(t)
-	waitForSchedule(t, func() bool { return m.timer != nil })
+	waitForSchedule(t, func() bool { return m.svc.timer != nil })
 	headlessLoop.Lock()
-	m.toggle()
+	m.svc.toggle()
 	fake.clock = sunsetDay.Add(time.Hour)
 	headlessLoop.Unlock()
 	jump()
 	time.Sleep(50 * time.Millisecond)
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
-	if !fake.running || !m.manualOverride {
-		t.Errorf("after the jump: running %v, override %v; want the toggle to hold", fake.running, m.manualOverride)
+	if !fake.running || !m.svc.manualOverride {
+		t.Errorf("after the jump: running %v, override %v; want the toggle to hold", fake.running, m.svc.manualOverride)
 	}
 }
 
@@ -1009,9 +1013,9 @@ func TestNightlightClockWatchLivesWithTheSchedule(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	env, watch := fake.watchedEnv(t)
 	m := newTestNightlight(t, sunsetConfig(true), env)
-	m.run()
+	m.svc.run()
 	watch.jump(t)
-	m.Stop()
+	m.svc.stop()
 	select {
 	case <-watch.ended:
 	case <-time.After(5 * time.Second):
@@ -1021,8 +1025,8 @@ func TestNightlightClockWatchLivesWithTheSchedule(t *testing.T) {
 	off := &fakeSunset{clock: sunsetDay}
 	offEnv, offWatch := off.watchedEnv(t)
 	idle := newTestNightlight(t, sunsetConfig(false), offEnv)
-	idle.run()
-	t.Cleanup(idle.Stop)
+	idle.svc.run()
+	t.Cleanup(idle.svc.stop)
 	select {
 	case <-offWatch.onJump:
 		t.Error("the schedule is off and the module watches the clock")
@@ -1038,9 +1042,9 @@ func TestNightlightWithoutAClockWatchStillSchedulesAndSaysSo(t *testing.T) {
 	env := fake.env(t)
 	env.clockJumps = func(context.Context, func()) error { return errors.New("timerfd refused") }
 	m := newTestNightlight(t, sunsetConfig(true), env)
-	m.run()
-	t.Cleanup(m.Stop)
-	waitForSchedule(t, func() bool { return fake.running && m.timer != nil })
+	m.svc.run()
+	t.Cleanup(m.svc.stop)
+	waitForSchedule(t, func() bool { return fake.running && m.svc.timer != nil })
 	deadline := time.Now().Add(5 * time.Second)
 	for !strings.Contains(logged.String(), "timerfd refused") {
 		if time.Now().After(deadline) {
@@ -1077,9 +1081,9 @@ func TestNightlightLiveEnvWatchesTheClock(t *testing.T) {
 func TestNightlightSetsNoTimerWithTheScheduleOff(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetNight}
 	m := newTestNightlight(t, sunsetConfig(false), fake.env(t))
-	m.run()
-	t.Cleanup(m.Stop)
-	if m.timer != nil {
+	m.svc.run()
+	t.Cleanup(m.svc.stop)
+	if m.svc.timer != nil {
 		t.Error("the schedule armed a timer while off")
 	}
 	if fake.starts != 0 {
@@ -1092,11 +1096,11 @@ func TestNightlightAppliesTheConfiguredStrength(t *testing.T) {
 	cfg.Nightlight.Temperature, cfg.Nightlight.Gamma = 3200, 85
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.toggle()
+	m.svc.toggle()
 	if fake.applied.Temp() != 3200 || fake.applied.Gamma() != 85 {
 		t.Errorf("applied %dK %d%%, want 3200K 85%%", fake.applied.Temp(), fake.applied.Gamma())
 	}
-	m.Stop()
+	m.svc.stop()
 	if !fake.closed {
 		t.Error("Stop did not close the filter, which would leave the display tinted")
 	}
@@ -1111,7 +1115,7 @@ func TestNightlightShowsARefusal(t *testing.T) {
 	m := newTestNightlight(t, cfg, fake.env(t))
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
-	m.toggle()
+	m.svc.toggle()
 	if m.btn.detail != "" || widget.HasClass(chrome, "nightlight-refused") {
 		t.Fatal("a clean apply shows a refusal")
 	}
@@ -1127,7 +1131,7 @@ func TestNightlightShowsARefusal(t *testing.T) {
 	if m.icon.Name() != cfg.Nightlight.IconOff || m.btn.Label().Text() != "Off" {
 		t.Errorf("refused shows icon %q label %q, want the off state", m.icon.Name(), m.btn.Label().Text())
 	}
-	m.toggle()
+	m.svc.toggle()
 	if m.btn.detail != "" || widget.HasClass(chrome, "nightlight-refused") {
 		t.Error("turning the filter off kept the refusal")
 	}
@@ -1140,7 +1144,7 @@ func TestNightlightRejectsAnOutOfRangeStrength(t *testing.T) {
 	cfg.Nightlight.Temperature = 500
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, cfg, fake.env(t))
-	m.toggle()
+	m.svc.toggle()
 	if fake.starts != 0 {
 		t.Error("an out-of-range temperature reached the filter")
 	}
@@ -1171,7 +1175,7 @@ func TestRetiringTheBarLetsGoOfTheColoursBeforeTheNextMounts(t *testing.T) {
 	ctx.gen = newMountGen()
 	env := fake.env(t)
 	m := onHeadlessLoop(func() *nightlightModule { return newNightlightWith(ctx, env) })
-	m.toggle()
+	m.svc.toggle()
 	if !fake.running {
 		t.Fatal("the toggle did not start the filter")
 	}
@@ -1218,10 +1222,10 @@ func TestNightlightToggleReturnsWhileTheFilterHolds(t *testing.T) {
 	apptest.Until(t, a, "the filter connected", func() bool { return m.read })
 	apptest.On(a, func() bool {
 		m.RunAction(config.ClickAction{Kind: config.ClickShell, Command: ":toggle"})
-		return m.enabled
+		return m.svc.enabled
 	})
 	apptest.Answer(t, "the Apply reached the filter, off the loop", held.entered)
-	if !apptest.On(a, func() bool { return m.enabled }) {
+	if !apptest.On(a, func() bool { return m.svc.enabled }) {
 		t.Error("the loop did not run while the filter held")
 	}
 }

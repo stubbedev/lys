@@ -1155,7 +1155,7 @@ var schemaDocs = map[string]string{
 	"NightlightConfig.RightClick":                            "Action on right click.",
 	"NightlightConfig.ScrollDown":                            "Action on scroll down.",
 	"NightlightConfig.ScrollUp":                              "Action on scroll up.",
-	"NightlightConfig.Temperature":                           "Color temperature in Kelvin when filter is enabled. Range: 1000-20000.",
+	"NightlightConfig.Temperature":                           "Color temperature in Kelvin when filter is enabled. Range: 1000-20000.\n\nThe night light card in the brightness dropdown sets it, from 1000K to\n6600K in steps of 100K, next to a switch that turns the filter on and\noff as the module's toggle does. The card and the module show the same\nnight light, which runs whether or not the bar shows the module. A\nstrength or toggle the display refuses shows its error in the card and\nthe module's tooltip.",
 	"NightlightConfig.Tooltip":                               "Show the module's state in a tooltip on hover.",
 	"NightlightConfig.TransitionDuration":                    "Length of the transition between day and night, in whole minutes, centred\non civil dawn or dusk. 0 switches at once. Range: 0-120.",
 	"NightlightTransition":                                   "Night light transition length in whole minutes, 0 for an instant switch.",

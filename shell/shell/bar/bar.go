@@ -697,6 +697,7 @@ func (s *shellStart) mount() {
 				// or transparency restyles the bars in place.
 				rt.ctx.Config = next
 				rt.ctx.Dropdowns.setConfig(next)
+				rt.ctx.Nightlight.reconfigure(next.Nightlight)
 				if accessibilityChanged(old, next) {
 					rt.rederive(next)
 					bars.restyle(next)
@@ -984,6 +985,7 @@ func (r *barRuntime) mount(application *app.Application, cfg *config.Config) {
 	r.ctx.Config = cfg
 	r.ctx.Font = r.font
 	r.ctx.Style = &r.moduleStyle
+	r.ctx.Nightlight = startNightlight(r.ctx)
 	if r.ctx.Dropdowns != nil {
 		r.ctx.Dropdowns.remount(r.ctx)
 		return

@@ -18,8 +18,8 @@ const (
 // the Kelvin temperature.
 const miredsPerKelvin = 1_000_000.0
 
-// neutralTemp is where the whitepoint fit is exactly the identity.
-const neutralTemp = 6600
+// NeutralTemp is where the whitepoint fit is exactly the identity.
+const NeutralTemp = 6600
 
 // Setting is a filter strength: the colour temperature in Kelvin and the
 // gamma, a brightness percentage. NewSetting and the easing between two
@@ -33,7 +33,7 @@ type Setting struct {
 }
 
 // identity is the strength that leaves the display's colours alone.
-var identity = Setting{temp: neutralTemp, gamma: 100}
+var identity = Setting{temp: NeutralTemp, gamma: 100}
 
 // NewSetting validates temp against MinTemp..MaxTemp and gamma against
 // 0..MaxGamma.
@@ -111,12 +111,12 @@ func warmBlue(t float64) float64 {
 	return clamp255(float64(138.5177312231*gomath.Log(t-10)) - 305.0447927307)
 }
 
-// fitSeam is how far the fit's piece on temp's side of neutralTemp stops
+// fitSeam is how far the fit's piece on temp's side of NeutralTemp stops
 // short of the identity: the fit's pieces do not meet there, so an ease
 // that only followed the fit would open with that whole step.
 func fitSeam(temp float64) [3]float64 {
-	t := float64(neutralTemp) / 100
-	if temp > neutralTemp {
+	t := float64(NeutralTemp) / 100
+	if temp > NeutralTemp {
 		return [3]float64{1: 1 - coolGreen(t)/255}
 	}
 	return [3]float64{2: 1 - warmBlue(t)/255}
