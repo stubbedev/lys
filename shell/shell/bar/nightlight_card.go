@@ -122,5 +122,8 @@ func (c *nightlightCard) switched(on bool) {
 
 func (c *nightlightCard) committed(v float64) {
 	c.writeErr = c.svc.setTemperature(nightlightTemperature(v))
+	if c.writeErr != nil {
+		c.slider.Reset(float64(c.svc.cfg.Temperature))
+	}
 	c.apply()
 }

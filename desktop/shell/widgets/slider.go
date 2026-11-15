@@ -224,6 +224,18 @@ func (d *DebouncedSlider) Set(v float64) {
 	if d.interacting() {
 		return
 	}
+	d.setQuietly(v)
+}
+
+// Reset moves the knob to v at once, past the hold Set keeps while the
+// user interacts, and drops a pending trailing commit: for a value the
+// backend refused, which must not stay where the user dropped it.
+func (d *DebouncedSlider) Reset(v float64) {
+	d.cancelTrailing()
+	d.setQuietly(v)
+}
+
+func (d *DebouncedSlider) setQuietly(v float64) {
 	d.programmatic = true
 	d.Knob.SetValue(v)
 	d.programmatic = false

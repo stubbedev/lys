@@ -128,6 +128,44 @@ func TestDebouncedSliderIgnoresExternalValuesWhileInteracting(t *testing.T) {
 	}
 }
 
+func TestDebouncedSliderResetBypassesTheReleaseGrace(t *testing.T) {
+	d, commits, clock := newTestSlider(t)
+	d.Knob.SetPressed(true)
+	d.Knob.SetValue(80)
+	d.Knob.SetPressed(false)
+	*clock = clock.Add(10 * time.Millisecond)
+	d.Set(50)
+	if d.Value() != 80 {
+		t.Fatalf("an outside value inside the release grace moved the knob to %v", d.Value())
+	}
+	d.Reset(50)
+	if d.Value() != 50 {
+		t.Errorf("a reset right after the release left the knob at %v, want 50", d.Value())
+	}
+	if got := d.label.Text(); got != "50%" {
+		t.Errorf("label = %q after the reset", got)
+	}
+	if !slices.Equal(*commits, []float64{80, 80}) {
+		t.Errorf("commits = %v, want the drag and release only, none from the reset", *commits)
+	}
+}
+
+func TestDebouncedSliderResetDropsTheTrailingCommit(t *testing.T) {
+	loop := &testLoop{}
+	d, commits, _ := newTestSliderOn(t, loop)
+	loop.mu.Lock()
+	d.Knob.SetValue(10)
+	d.Knob.SetValue(20)
+	d.Reset(50)
+	loop.mu.Unlock()
+	time.Sleep(2 * sliderThrottle)
+	loop.mu.Lock()
+	defer loop.mu.Unlock()
+	if !slices.Equal(*commits, []float64{10}) || d.Value() != 50 {
+		t.Errorf("commits %v value %v, want the reset to cancel the trailing 20", *commits, d.Value())
+	}
+}
+
 // A ranged slider spans its own bounds and labels with its format.
 func TestRangedSliderBoundsAndFormat(t *testing.T) {
 	d := NewRangedSlider(500, 5000, 900, testFont(t), 12, 0, (&testLoop{}).invoke)

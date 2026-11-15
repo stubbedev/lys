@@ -120,6 +120,41 @@ func TestBrightnessDropdownRefusedTemperatureKeepsTheServiceValue(t *testing.T) 
 	}
 }
 
+func dragNightlightSlider(d nightlightDropdown, to float64) {
+	onHeadlessLoop(func() bool {
+		d.card.slider.Knob.SetPressed(true)
+		d.card.slider.Knob.SetValue(to)
+		d.card.slider.Knob.SetPressed(false)
+		return true
+	})
+}
+
+func TestBrightnessDropdownRefusedDragSnapsTheSliderBack(t *testing.T) {
+	cfg := sunsetConfig(false)
+	cfg.Nightlight.Gamma = 300
+	fake := &fakeSunset{clock: sunsetDay}
+	d := newNightlightDropdown(t, cfg, fake.env(t))
+	dragNightlightSlider(d, 3000)
+	if got := d.card.slider.Value(); got != 5000 {
+		t.Errorf("slider at %v after a refused drag, want it back at the service's 5000K", got)
+	}
+	if !strings.Contains(d.failure(), "300%") {
+		t.Errorf("error %q, want the gamma that refused it", d.failure())
+	}
+}
+
+func TestBrightnessDropdownAcceptedDragKeepsTheSlider(t *testing.T) {
+	fake := &fakeSunset{clock: sunsetDay}
+	d := newNightlightDropdown(t, sunsetConfig(false), fake.env(t))
+	dragNightlightSlider(d, 3200)
+	if got := d.card.slider.Value(); got != 3200 {
+		t.Errorf("slider at %v after an accepted drag, want 3200K", got)
+	}
+	if d.svc.cfg.Temperature != 3200 || d.failure() != "" {
+		t.Errorf("service at %dK with error %q, want 3200K and none", d.svc.cfg.Temperature, d.failure())
+	}
+}
+
 type refusingSunset struct {
 	*fakeSunset
 	err error
