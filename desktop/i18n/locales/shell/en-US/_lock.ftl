@@ -5,6 +5,7 @@ lock-caps-lock = Caps Lock is on
 lock-password = Enter Password
 lock-fingerprint-no-match = Fingerprint not recognized
 lock-fingerprint-retry = Try your finger again
+lock-fingerprint-touch = Touch the reader or type your password
 lock-media-play = Play
 lock-media-pause = Pause
 lock-media-next = Next track
