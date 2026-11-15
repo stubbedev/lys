@@ -62,7 +62,7 @@ in
       };
       programs.steam.enable = app == "steam";
       fonts.packages = [pkgs.dejavu_fonts];
-      environment.systemPackages = [pkgs.xorg.xwininfo pkgs.xdotool];
+      environment.systemPackages = [pkgs.xwininfo pkgs.xdotool];
     };
     extraTest = run: let
       params = builtins.toJSON ({

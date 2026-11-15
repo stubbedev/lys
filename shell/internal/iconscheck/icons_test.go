@@ -6,7 +6,6 @@ import (
 	"go/token"
 	"io/fs"
 	"maps"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -16,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/resources"
+	"github.com/stubbedev/lys/lib/srcroot"
 )
 
 // iconName is a full theme icon name as the shell writes one.
@@ -105,11 +105,11 @@ func TestEveryIconTheCodeNamesIsBundled(t *testing.T) {
 		t.Fatal(err)
 	}
 	names := moduleIconNames(t, root)
-	desktop, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/stubbedev/lys/desktop").Output()
+	moduleRoot, _, err := srcroot.Module(root)
 	if err != nil {
-		t.Fatalf("locate the lys-desktop module: %v", err)
+		t.Fatal(err)
 	}
-	maps.Copy(names, moduleIconNames(t, strings.TrimSpace(string(desktop))))
+	maps.Copy(names, moduleIconNames(t, filepath.Join(moduleRoot, "desktop")))
 	if len(names) < 100 {
 		t.Fatalf("found only %d icon names in the module; the scan is broken", len(names))
 	}

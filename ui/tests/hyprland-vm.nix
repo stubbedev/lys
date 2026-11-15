@@ -256,7 +256,7 @@ in
       try:
           for selection in ["-skip " + kill_test, "-run " + kill_test]:
               machine.succeed(
-                "su - ${lysUIUser} -c 'cd /tmp/build && "
+                "su - ${lysUIUser} -c 'cd /tmp/build/ui && "
                 + suite_env
                 + "go test ./internal/headlesstest -count=1 "
                 + selection

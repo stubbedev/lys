@@ -2,26 +2,25 @@ package screen
 
 import (
 	"image"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/srcroot"
 	"github.com/stubbedev/memory-go"
 )
 
-// progressivePhoto is the large progressive JPEG lys-desktop's jpeg
-// decoder is tested with, read from the lys-desktop module this one
-// builds against.
+// progressivePhoto is the large progressive JPEG desktop's jpeg decoder
+// is tested with.
 func progressivePhoto(t *testing.T) string {
 	t.Helper()
-	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/stubbedev/lys/desktop").Output()
+	root, _, err := srcroot.Module(".")
 	if err != nil {
-		t.Fatalf("locate the lys-desktop module: %v", err)
+		t.Fatal(err)
 	}
-	return filepath.Join(strings.TrimSpace(string(out)), "third_party", "jpeg", "testdata", "flat-1024.progressive.444.jpeg")
+	return filepath.Join(root, "desktop", "third_party", "jpeg", "testdata", "flat-1024.progressive.444.jpeg")
 }
 
 func TestLoadBackdropFreesTheDecodedJPEG(t *testing.T) {

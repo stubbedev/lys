@@ -1,7 +1,7 @@
 pkgs:
 pkgs.writeShellScript "xwindows" ''
   set -euo pipefail
-  export PATH=${pkgs.lib.makeBinPath [pkgs.xorg.xwininfo pkgs.xorg.xprop pkgs.jq pkgs.gnugrep pkgs.gawk pkgs.gnused pkgs.coreutils]}
+  export PATH=${pkgs.lib.makeBinPath [pkgs.xwininfo pkgs.xprop pkgs.jq pkgs.gnugrep pkgs.gawk pkgs.gnused pkgs.coreutils]}
   field() { awk -F: -v k="$1" '$1 ~ k {gsub(/^ +| +$/, "", $2); print $2; exit}' <<< "$info"; }
   for id in $(xwininfo -root -children | awk '/^ +0x/ {print $1}'); do
     info=$(xwininfo -id "$id" 2> /dev/null) || continue

@@ -35,7 +35,7 @@
     imv = "${pkgs.imv}/bin/imv ${image}";
     mpv = "${pkgs.mpv}/bin/mpv --no-config --vo=gpu --gpu-context=wayland --gpu-sw --loop=inf av://lavfi:testsrc=size=640x360:rate=30";
     xterm = "${pkgs.xterm}/bin/xterm";
-    xeyes = "${pkgs.xorg.xeyes}/bin/xeyes";
+    xeyes = "${pkgs.xeyes}/bin/xeyes";
     pcmanfm = "${pkgs.pcmanfm}/bin/pcmanfm";
   };
   others = {

@@ -16,7 +16,7 @@
         postInstall = "";
         buildPhase = ''
           runHook preBuild
-          go test -c -o ${name}.test ./${pkg}
+          go test -c -o ${name}.test ./splash/${pkg}
           runHook postBuild
         '';
         doCheck = false;

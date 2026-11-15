@@ -45,12 +45,22 @@ affected base="origin/main":
     go run ./ci/affected -base {{ base }}
 
 # The repository's own gate: a tidy go.mod, the CI planner's tests and lint, and
-# every flake output evaluating on both systems.
+# every package, dev shell and check evaluating on both systems, each in its own
+# process so no evaluation holds them all at once.
+[script("bash")]
 repository-check:
+    set -euo pipefail
     nix develop .#lib -c go mod tidy -diff
     nix develop .#lib -c go test ./ci/...
     nix develop .#lib -c golangci-lint run --config lib/.golangci.yml ./ci/...
-    nix flake check --no-build --all-systems
+    for system in x86_64-linux aarch64-linux; do
+        for output in packages devShells checks; do
+            for name in $(nix eval --raw ".#${output}.${system}" --apply 'set: builtins.concatStringsSep " " (builtins.attrNames set)'); do
+                nix eval --raw ".#${output}.${system}.${name}.drvPath" >/dev/null
+            done
+        done
+    done
+    nix eval --raw .#nixosModules --apply 'm: builtins.concatStringsSep " " (builtins.attrNames m)' >/dev/null
 
 # Fail, showing the diff, when go.mod or go.sum is not tidy.
 tidy-check:

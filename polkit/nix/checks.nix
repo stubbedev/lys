@@ -33,7 +33,7 @@
           lys-polkit = pkg;
           fakedialogs = pkg.overrideAttrs (old: {
             pname = "lys-polkit-fakedialogs";
-            subPackages = ["internal/vmtest/fakedialogs"];
+            subPackages = ["polkit/internal/vmtest/fakedialogs"];
             ldflags = [];
             doCheck = false;
             postInstall = "";

@@ -12,7 +12,7 @@
     postFixup = "";
     buildPhase = ''
       runHook preBuild
-      go test -c -o screen.test ./internal/screen
+      go test -c -o screen.test ./login/internal/screen
       runHook postBuild
     '';
     doCheck = false;

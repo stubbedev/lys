@@ -11,7 +11,7 @@ in
     devices = ["virtio-gpu-pci"];
     outputs = ["Virtual-1"];
     machineConfig = {
-      environment.systemPackages = [pkgs.xorg.xwininfo pkgs.xdotool];
+      environment.systemPackages = [pkgs.xwininfo pkgs.xdotool];
       fonts.packages = [pkgs.dejavu_fonts];
     };
     extraTest = run: let

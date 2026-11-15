@@ -16,7 +16,7 @@ let
     pname = "lys-shell-clockwatch-test";
     buildPhase = ''
       runHook preBuild
-      go test -c -o clockwatch.test ./internal/clockwatch
+      go test -c -o clockwatch.test ./shell/internal/clockwatch
       runHook postBuild
     '';
     installPhase = ''

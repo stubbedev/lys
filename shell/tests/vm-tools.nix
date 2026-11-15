@@ -2,7 +2,7 @@
 {
   vmclick = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-shell.overrideAttrs {
     pname = "vmclick";
-    subPackages = [ "internal/tools/vmclick" ];
+    subPackages = [ "shell/internal/tools/vmclick" ];
     postInstall = "";
     postFixup = "";
   };

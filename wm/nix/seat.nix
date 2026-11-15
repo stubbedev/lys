@@ -8,7 +8,7 @@
     buildPhase = ''
       runHook preBuild
       mkdir -p "$out/bin"
-      go test -c -o "$out/bin/drm.test" ./internal/backend/drm
+      go test -c -o "$out/bin/drm.test" ./wm/internal/backend/drm
       runHook postBuild
     '';
     installPhase = ''
