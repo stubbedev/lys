@@ -10,8 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // rootCommand is lys-shell/src/cli/app.rs's Cli: the subcommands in the
@@ -20,7 +20,7 @@ func rootCommand() *cli.Command {
 	return &cli.Command{
 		Name:    "lys-shell",
 		About:   "Wayland services CLI",
-		Version: version.Version,
+		Version: buildinfo.Version(),
 		Subcommands: []*cli.Command{
 			audioCommand(),
 			brightnessCommand(),

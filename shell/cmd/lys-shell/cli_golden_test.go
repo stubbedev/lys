@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // The goldens under testdata/clap are the CLI's contract, first
@@ -75,7 +75,7 @@ func readGolden(t *testing.T, file string) golden {
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := strings.ReplaceAll(string(raw), "{{ version }}", version.Version)
+	text := strings.ReplaceAll(string(raw), "{{ version }}", buildinfo.Version())
 	head, rest, _ := strings.Cut(text, "\n")
 	g := golden{args: strings.Fields(strings.TrimPrefix(head, "args:"))}
 	codeLine, rest, _ := strings.Cut(rest, "\n")

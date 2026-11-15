@@ -12,8 +12,6 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
-
-	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // notPortedSections are the root keys of the Rust schema the Go config
@@ -39,7 +37,7 @@ func loadRustSchema(t *testing.T) map[string]any {
 func loadGoSchema(t *testing.T) map[string]any {
 	t.Helper()
 	var schema map[string]any
-	dec := json.NewDecoder(strings.NewReader(config.GenerateSchema(version.Version)))
+	dec := json.NewDecoder(strings.NewReader(config.GenerateSchema()))
 	dec.UseNumber()
 	if err := dec.Decode(&schema); err != nil {
 		t.Fatalf("generated schema is not JSON: %v", err)

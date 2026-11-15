@@ -117,7 +117,7 @@ func TestTheSchemaCarriesThePlaceholdersAndTypes(t *testing.T) {
 			}
 		} `json:"$defs"`
 	}
-	if err := json.Unmarshal([]byte(GenerateSchema(testSchemaVersion)), &schema); err != nil {
+	if err := json.Unmarshal([]byte(GenerateSchema()), &schema); err != nil {
 		t.Fatal(err)
 	}
 	battery := schema.Defs["BatteryConfig"].Properties["format"]

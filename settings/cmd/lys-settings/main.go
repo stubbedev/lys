@@ -11,11 +11,10 @@ import (
 	"os"
 
 	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/lib/buildinfo"
 
 	"github.com/stubbedev/lys/settings/internal/settings"
 )
-
-var version = "dev"
 
 const usage = `Configure the lys desktop's shell and compositor
 
@@ -61,7 +60,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch {
 	case *long || *short:
-		fmt.Fprintln(stdout, "lys-settings", version)
+		fmt.Fprintln(stdout, "lys-settings", buildinfo.Version())
 		return exitOK
 	case *list:
 		return report(stderr, listPages(stdout))

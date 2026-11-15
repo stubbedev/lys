@@ -39,7 +39,10 @@ in {
               overrideModAttrs = _: {name = "lys-go-modules";};
               env.CGO_ENABLED = "0";
             }
-            // args);
+            // args
+            // {
+              ldflags = (args.ldflags or []) ++ ["-X github.com/stubbedev/lys/lib/buildinfo.version=${version}"];
+            });
         test = packages: ''
           runHook preCheck
           go test ${lib.escapeShellArgs packages}

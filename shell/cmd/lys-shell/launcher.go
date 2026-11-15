@@ -13,9 +13,9 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shlex"
 
+	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/shell/internal/cli"
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
-	"github.com/stubbedev/lys/shell/internal/version"
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
@@ -108,7 +108,7 @@ func runLauncherLocal(local launcherLocal, stdout io.Writer) error {
 	case localHelp:
 		fmt.Fprintln(stdout, launcherHelp)
 	case localVersion:
-		fmt.Fprintf(stdout, "lys-shell launcher %s\n", version.Version)
+		fmt.Fprintf(stdout, "lys-shell launcher %s\n", buildinfo.Version())
 	case localDumpTheme:
 		fmt.Fprintln(stdout, launcherDumpTheme)
 	case localDumpConfig:

@@ -7,9 +7,9 @@ package main
 import (
 	"os"
 
+	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/shell/internal/cli"
 	"github.com/stubbedev/lys/shell/internal/lockcli"
-	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 func main() {
@@ -19,6 +19,6 @@ func main() {
 // run is main without the process exit.
 func run(args []string, out cli.Output) int {
 	root := lockcli.Command("lys-lock")
-	root.Version = version.Version
+	root.Version = buildinfo.Version()
 	return cli.Run(root, args, out)
 }

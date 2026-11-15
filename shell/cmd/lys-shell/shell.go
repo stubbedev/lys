@@ -11,7 +11,6 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/internal/version"
 	"github.com/stubbedev/lys/shell/service/shellipc"
 	"github.com/stubbedev/lys/shell/shell/bar"
 )
@@ -47,7 +46,7 @@ func refreshSchema() {
 		log.Printf("schema: cannot find the config dir: %v", err)
 		return
 	}
-	if err := config.EnsureSchemaCurrent(dir, version.Version); err != nil {
+	if err := config.EnsureSchemaCurrent(dir); err != nil {
 		log.Printf("schema: editors keep the old schema: %v", err)
 	}
 }

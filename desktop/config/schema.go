@@ -139,15 +139,15 @@ type schemaGen struct {
 // GenerateSchema returns the JSON Schema of the whole config, indented
 // by two spaces with sorted keys (the `lys-shell config schema --stdout`
 // output and the committed schema/lys-shell-config.schema.json).
-func GenerateSchema(version string) string {
+func GenerateSchema() string {
 	var b bytes.Buffer
-	if err := json.Indent(&b, []byte(marshalJSON(generateSchemaTree(version))), "", "  "); err != nil {
+	if err := json.Indent(&b, []byte(marshalJSON(generateSchemaTree())), "", "  "); err != nil {
 		panic(fmt.Sprintf("config: the generated schema is not JSON: %v", err))
 	}
 	return b.String()
 }
 
-func generateSchemaTree(version string) Schema {
+func generateSchemaTree() Schema {
 	g := &schemaGen{
 		defs:     map[string]Schema{},
 		ids:      map[string]string{},
@@ -159,7 +159,7 @@ func generateSchemaTree(version string) Schema {
 	schema := g.structSchema(root.Type())
 	schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
 	schema["title"] = schemaName(root.Type())
-	schema["$id"] = "lys-shell-config-" + version
+	schema["$id"] = "lys-shell-config"
 	if len(g.defs) > 0 {
 		defs := Schema{}
 		for k, v := range g.defs {

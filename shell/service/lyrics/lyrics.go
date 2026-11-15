@@ -21,7 +21,7 @@ import (
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys/shell/internal/version"
+	"github.com/stubbedev/lys/lib/buildinfo"
 )
 
 // Endpoint is LRCLIB's lookup by signature.
@@ -31,8 +31,9 @@ const (
 	requestTimeout = 10 * time.Second
 	maxBody        = 1 << 20
 	keptInMemory   = 32
-	userAgent      = identity.Name + "/" + version.Version + " (https://github.com/stubbedev/lys/tree/main/shell)"
 )
+
+var userAgent = identity.Name + "/" + buildinfo.Version() + " (https://github.com/stubbedev/lys)"
 
 // Track is what LRCLIB matches lyrics on: the MPRIS xesam fields and
 // mpris:length.

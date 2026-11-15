@@ -151,13 +151,6 @@ func TestParseArgs(t *testing.T) {
 	}
 }
 
-func TestBuildVersion(t *testing.T) {
-	t.Parallel()
-
-	if got := buildVersion(); got == "" {
-		t.Error("buildVersion is empty")
-	}
-}
 
 func TestRevokeGivesUpTheRetainedAuthorizations(t *testing.T) {
 	t.Parallel()

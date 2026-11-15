@@ -11,7 +11,6 @@ lysGo.build {
 
   ldflags = [
     "-s"
-    "-X main.version=${lysGo.version}"
   ];
 
   nativeCheckInputs = [dbus getent];

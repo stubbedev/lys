@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys/lib/atomicfile"
 	"go.yaml.in/yaml/v3"
+
+	"github.com/stubbedev/lys/lib/atomicfile"
 )
 
 // Helpers behind `lys-shell config`, kept here so the output forms live
@@ -87,12 +88,12 @@ func SchemaPath(dir string) string { return filepath.Join(dir, "schema.json") }
 
 // EnsureSchemaCurrent writes schema.json unless it already holds what
 // this binary generates.
-func EnsureSchemaCurrent(dir, version string) error {
+func EnsureSchemaCurrent(dir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the user's config dir
 		return fmt.Errorf("create the config dir %s: %w", dir, err)
 	}
 	schemaPath := SchemaPath(dir)
-	current := []byte(GenerateSchema(version))
+	current := []byte(GenerateSchema())
 	existing, err := os.ReadFile(schemaPath) //nolint:gosec // schema.json in the config dir
 	if err == nil && bytes.Equal(existing, current) {
 		return nil

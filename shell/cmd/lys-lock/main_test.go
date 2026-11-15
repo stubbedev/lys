@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 const help = `Lock the session via lys-shell's lock screen
@@ -41,7 +41,7 @@ func TestHelpAndVersionNeedNoSession(t *testing.T) {
 	for _, tc := range []struct{ arg, want string }{
 		{"-h", help},
 		{"--help", help},
-		{"--version", "lys-lock " + version.Version + "\n"},
+		{"--version", "lys-lock " + buildinfo.Version() + "\n"},
 	} {
 		stdout, stderr, code := runCaptured(t, tc.arg)
 		if code != 0 || stderr != "" || stdout != tc.want {

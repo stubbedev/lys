@@ -9,12 +9,12 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/lib/intconv"
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -39,7 +39,6 @@ var helperPrograms = "/usr/lib/polkit-1/polkit-agent-helper-1:/run/wrappers/bin/
 
 // version is the release the build names with -ldflags -X; without one
 // it is the module version Go recorded.
-var version string
 
 const usage = `Usage: lys-polkit [--version | --help]
        lys-polkit revoke
@@ -102,16 +101,6 @@ func parseArgs(args []string) (command, error) {
 	}
 }
 
-func buildVersion() string {
-	if version != "" {
-		return version
-	}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		return info.Main.Version
-	}
-	return "unknown"
-}
-
 func main() {
 	cmd, err := parseArgs(os.Args[1:])
 	if err != nil {
@@ -120,7 +109,7 @@ func main() {
 	}
 	switch cmd {
 	case printVersion:
-		fmt.Println("lys-polkit", buildVersion())
+		fmt.Println("lys-polkit", buildinfo.Version())
 		return
 	case printHelp:
 		fmt.Print(usage)

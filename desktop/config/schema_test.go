@@ -10,8 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config/internal/schemadoc"
 )
 
-const testSchemaVersion = "0.0.0"
-
 // TestSchemaDocsAreCurrent fails when schemadoc_gen.go is stale:
 // run `go generate ./config`.
 func TestSchemaDocsAreCurrent(t *testing.T) {
@@ -49,7 +47,7 @@ func TestPropertyOrder(t *testing.T) {
 // is written in without a formatter: two-space indentation, not the
 // compact form the writer builds it from.
 func TestGenerateSchemaIsIndented(t *testing.T) {
-	got := GenerateSchema(testSchemaVersion)
+	got := GenerateSchema()
 	var compact, indented bytes.Buffer
 	if err := json.Compact(&compact, []byte(got)); err != nil {
 		t.Fatal(err)

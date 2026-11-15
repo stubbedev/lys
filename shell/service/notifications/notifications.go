@@ -23,19 +23,21 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 
+	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/shell/internal/clock"
-	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // D-Bus identity and server information.
 const (
-	Interface     = "org.freedesktop.Notifications"
-	ObjPath       = "/org/freedesktop/Notifications"
-	ServerName    = identity.Name
-	ServerVendor  = identity.Name
-	ServerVersion = version.Version
-	SpecVersion   = "1.2"
+	Interface    = "org.freedesktop.Notifications"
+	ObjPath      = "/org/freedesktop/Notifications"
+	ServerName   = identity.Name
+	ServerVendor = identity.Name
+	SpecVersion  = "1.2"
 )
+
+// ServerVersion is the release GetServerInformation reports.
+var ServerVersion = buildinfo.Version()
 
 // DefaultPopupDuration is the popup display time until the shell sets
 // its configured one (builder.rs's popup_duration default).

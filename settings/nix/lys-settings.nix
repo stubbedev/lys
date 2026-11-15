@@ -19,7 +19,6 @@ in
     ldflags = [
       "-s"
       "-w"
-      "-X main.version=${lysGo.version}"
       "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
       "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${libX11}/share/X11/locale"
     ];

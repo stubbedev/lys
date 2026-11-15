@@ -9,7 +9,6 @@ import (
 
 	"github.com/stubbedev/lys/shell/internal/cli"
 	"github.com/stubbedev/lys/shell/internal/configdocs"
-	"github.com/stubbedev/lys/shell/internal/version"
 )
 
 // configCommand is lys-shell/src/cli/config/commands.rs.
@@ -159,10 +158,10 @@ func configReset(dir, path string, stdout io.Writer) error {
 
 func configSchema(dir string, toStdout bool, stdout io.Writer) error {
 	if toStdout {
-		_, err := fmt.Fprintln(stdout, config.GenerateSchema(version.Version))
+		_, err := fmt.Fprintln(stdout, config.GenerateSchema())
 		return err
 	}
-	if err := config.EnsureSchemaCurrent(dir, version.Version); err != nil {
+	if err := config.EnsureSchemaCurrent(dir); err != nil {
 		return fmt.Errorf("Failed to write schema files: %w", err) //nolint:staticcheck // the Rust CLI's capitalized message
 	}
 	_, err := fmt.Fprintf(stdout, "Written:\n  %s\n", config.SchemaPath(dir))

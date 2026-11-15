@@ -78,7 +78,7 @@ func TestTheSchemaNamesTheTypedStrings(t *testing.T) {
 			}
 		} `json:"$defs"`
 	}
-	if err := json.Unmarshal([]byte(GenerateSchema(testSchemaVersion)), &schema); err != nil {
+	if err := json.Unmarshal([]byte(GenerateSchema()), &schema); err != nil {
 		t.Fatal(err)
 	}
 	if ref := schema.Defs["LauncherConfig"].Properties["icon-theme"].Ref; ref != "#/$defs/IconTheme" {

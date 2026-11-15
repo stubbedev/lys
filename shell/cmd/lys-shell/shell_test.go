@@ -15,7 +15,6 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys/shell/internal/version"
 	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
@@ -37,7 +36,7 @@ func TestStartingTheShellRefreshesASchemaFromAnotherVersion(t *testing.T) {
 	if err := refreshingSchema(func(*dbus.Conn) error { return want })(nil); !errors.Is(err, want) {
 		t.Fatalf("the shell's own result was replaced: %v", err)
 	}
-	expected := config.GenerateSchema(version.Version)
+	expected := config.GenerateSchema()
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		got, err := os.ReadFile(path)
