@@ -32,18 +32,6 @@ settings-modules-dashboard-scroll-down = Desplazar hacia abajo
 settings-modules-dashboard-left-click = Clic izquierdo
     .description = Orden de shell al hacer clic izquierdo
 
-settings-modules-dashboard-dropdown-lock-command = Orden de bloqueo
-    .description = Orden de shell del botón de bloqueo
-
-settings-modules-dashboard-dropdown-logout-command = Orden de cierre de sesión
-    .description = Orden de shell del botón de cerrar la sesión
-
-settings-modules-dashboard-dropdown-reboot-command = Orden de reinicio
-    .description = Orden de shell del botón de reiniciar
-
-settings-modules-dashboard-dropdown-poweroff-command = Orden de apagado
-    .description = Orden de shell del botón de apagar
-
 settings-modules-dashboard-usage-warning = Aviso de uso
     .description = Porcentaje de uso de CPU/RAM/disco a partir del cual los anillos pasan a aviso
 
@@ -68,5 +56,6 @@ settings-modules-dashboard-user-session-actions = Acciones de sesión
 ## SessionAction variants
 enum-session-action-lock = Bloquear
 enum-session-action-logout = Cerrar la sesión
+enum-session-action-suspend = Suspender
 enum-session-action-reboot = Reiniciar
 enum-session-action-power-off = Apagar

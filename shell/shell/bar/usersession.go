@@ -25,6 +25,8 @@ func sessionPowerAction(action config.SessionAction) powermenu.Action {
 		return powermenu.Lock
 	case config.SessionActionLogOut:
 		return powermenu.LogOut
+	case config.SessionActionSuspend:
+		return powermenu.Suspend
 	case config.SessionActionReboot:
 		return powermenu.Reboot
 	case config.SessionActionPowerOff:

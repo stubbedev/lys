@@ -28,18 +28,6 @@ settings-modules-dashboard-scroll-down = Omlaag scrollen
 settings-modules-dashboard-left-click = Linksklik
     .description = Shell-opdracht bij linksklik
 
-settings-modules-dashboard-dropdown-lock-command = Vergrendelopdracht
-    .description = Shell-opdracht voor de vergrendelknop
-
-settings-modules-dashboard-dropdown-logout-command = Afmeldopdracht
-    .description = Shell-opdracht voor de afmeldknop
-
-settings-modules-dashboard-dropdown-reboot-command = Herstartopdracht
-    .description = Shell-opdracht voor de herstartknop
-
-settings-modules-dashboard-dropdown-poweroff-command = Uitschakelopdracht
-    .description = Shell-opdracht voor de uitschakelknop
-
 settings-modules-dashboard-usage-warning = Gebruikswaarschuwing
     .description = Percentage CPU-/RAM-/schijfgebruik waarbij de ringen de waarschuwingskleur krijgen
 
@@ -63,5 +51,6 @@ settings-modules-dashboard-user-session-actions = Sessieacties
 
 enum-session-action-lock = Vergrendelen
 enum-session-action-logout = Afmelden
+enum-session-action-suspend = Pauzestand
 enum-session-action-reboot = Herstarten
 enum-session-action-power-off = Uitschakelen

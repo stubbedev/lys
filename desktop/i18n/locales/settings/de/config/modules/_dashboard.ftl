@@ -32,18 +32,6 @@ settings-modules-dashboard-scroll-down = Nach unten scrollen
 settings-modules-dashboard-left-click = Linksklick
     .description = Shell-Befehl bei Linksklick
 
-settings-modules-dashboard-dropdown-lock-command = Sperrbefehl
-    .description = Shell-Befehl für die Sperrtaste
-
-settings-modules-dashboard-dropdown-logout-command = Abmeldebefehl
-    .description = Shell-Befehl für die Abmeldetaste
-
-settings-modules-dashboard-dropdown-reboot-command = Neustartbefehl
-    .description = Shell-Befehl für die Neustarttaste
-
-settings-modules-dashboard-dropdown-poweroff-command = Ausschaltbefehl
-    .description = Shell-Befehl für die Ausschalttaste
-
 settings-modules-dashboard-usage-warning = Auslastungswarnung
     .description = CPU-/RAM-/Datenträgerauslastung in Prozent, ab der die Ringe Warnung anzeigen
 
@@ -68,5 +56,6 @@ settings-modules-dashboard-user-session-actions = Sitzungsaktionen
 ## SessionAction variants
 enum-session-action-lock = Sperren
 enum-session-action-logout = Abmelden
+enum-session-action-suspend = Bereitschaft
 enum-session-action-reboot = Neu starten
 enum-session-action-power-off = Ausschalten

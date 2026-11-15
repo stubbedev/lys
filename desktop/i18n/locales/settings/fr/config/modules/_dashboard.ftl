@@ -32,18 +32,6 @@ settings-modules-dashboard-scroll-down = Défilement vers le bas
 settings-modules-dashboard-left-click = Clic gauche
     .description = Commande à exécuter au clic gauche
 
-settings-modules-dashboard-dropdown-lock-command = Commande de verrouillage
-    .description = Commande pour le bouton de verrouillage
-
-settings-modules-dashboard-dropdown-logout-command = Commande de déconnexion
-    .description = Commande pour le bouton de déconnexion
-
-settings-modules-dashboard-dropdown-reboot-command = Commande de redémarrage
-    .description = Commande pour le bouton de redémarrage
-
-settings-modules-dashboard-dropdown-poweroff-command = Commande d'extinction
-    .description = Commande pour le bouton d'extinction
-
 settings-modules-dashboard-usage-warning = Alerte d'utilisation
     .description = Pourcentage d'utilisation processeur, mémoire ou disque à partir duquel les anneaux passent en alerte
 settings-modules-dashboard-usage-error = Erreur d'utilisation
@@ -60,5 +48,6 @@ settings-modules-dashboard-user-session-actions = Actions de session
     .description = Actions de session affichées dans le tableau de bord (verrouiller, déconnecter, redémarrer, éteindre)
 enum-session-action-lock = Verrouiller
 enum-session-action-logout = Se déconnecter
+enum-session-action-suspend = Mettre en veille
 enum-session-action-reboot = Redémarrer
 enum-session-action-power-off = Éteindre

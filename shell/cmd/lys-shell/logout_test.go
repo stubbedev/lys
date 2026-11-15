@@ -16,7 +16,6 @@ import (
 func defaultLogoutCommands() []struct{ name, command string } {
 	return []struct{ name, command string }{
 		{"power", config.DefaultsPower().LogoutCommand},
-		{"dashboard", config.DefaultsDashboard().DropdownLogoutCommand},
 	}
 }
 

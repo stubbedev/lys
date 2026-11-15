@@ -60,7 +60,7 @@ func TestUserSessionIsAnItem(t *testing.T) {
 	if got := itemText(row, "title"); got != "lys-shell" {
 		t.Errorf("username = %q, want $USER", got)
 	}
-	want := []powermenu.Action{powermenu.Lock, powermenu.LogOut, powermenu.Reboot, powermenu.ShutDown}
+	want := []powermenu.Action{powermenu.Lock, powermenu.LogOut, powermenu.Suspend, powermenu.Reboot, powermenu.ShutDown}
 	if len(btns) != len(want) {
 		t.Fatalf("session buttons = %d, want %d", len(btns), len(want))
 	}
@@ -242,5 +242,14 @@ func TestLockRunsThePowerModulesCommandAtOnce(t *testing.T) {
 	h.btns[0].OnClick()
 	if len(h.opened) != 0 || len(h.ran) != 1 || h.ran[0] != "power-lock" {
 		t.Errorf("lock: opened %d menus, ran %v; want modules.power.lock-command at once", len(h.opened), h.ran)
+	}
+}
+
+func TestSuspendRunsThePowerModulesCommandAtOnce(t *testing.T) {
+	h := newSessionHarness(t, config.SessionActionSuspend)
+	h.cfg.Power.SuspendCommand = "power-suspend"
+	h.btns[0].OnClick()
+	if len(h.opened) != 0 || len(h.ran) != 1 || h.ran[0] != "power-suspend" {
+		t.Errorf("suspend: opened %d menus, ran %v; want modules.power.suspend-command at once", len(h.opened), h.ran)
 	}
 }

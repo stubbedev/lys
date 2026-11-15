@@ -32,18 +32,6 @@ settings-modules-dashboard-scroll-down = Scroll Down
 settings-modules-dashboard-left-click = Left Click
     .description = Shell command on left click
 
-settings-modules-dashboard-dropdown-lock-command = Lock Command
-    .description = Shell command for the lock button
-
-settings-modules-dashboard-dropdown-logout-command = Logout Command
-    .description = Shell command for the logout button
-
-settings-modules-dashboard-dropdown-reboot-command = Reboot Command
-    .description = Shell command for the reboot button
-
-settings-modules-dashboard-dropdown-poweroff-command = Power Off Command
-    .description = Shell command for the power-off button
-
 settings-modules-dashboard-usage-warning = Usage Warning
     .description = CPU/RAM/disk usage percent at which the rings turn warning
 
@@ -68,5 +56,6 @@ settings-modules-dashboard-user-session-actions = Session Actions
 ## SessionAction variants
 enum-session-action-lock = Lock
 enum-session-action-logout = Log Out
+enum-session-action-suspend = Suspend
 enum-session-action-reboot = Reboot
 enum-session-action-power-off = Power Off

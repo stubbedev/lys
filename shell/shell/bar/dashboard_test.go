@@ -80,7 +80,7 @@ func TestDashboardModuleIsTheIcon(t *testing.T) {
 
 func TestLoadFileAppliesDashboard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	good := "modules:\n  dashboard:\n    icon-override: x\n    dropdown-lock-command: swaylock\n    usage-error: 90\n" +
+	good := "modules:\n  dashboard:\n    icon-override: x\n    usage-error: 90\n" +
 		"    right-click: \"dropdown:calendar\"\n    user-session:\n      actions: [reboot, lock]\n"
 	if err := osWrite(path, good); err != nil {
 		t.Fatal(err)
@@ -90,10 +90,10 @@ func TestLoadFileAppliesDashboard(t *testing.T) {
 		t.Fatalf("LoadFile: %v", err)
 	}
 	d := c.Dashboard
-	if d.IconOverride != "x" || d.DropdownLockCommand != "swaylock" || d.UsageError != 90 {
+	if d.IconOverride != "x" || d.UsageError != 90 {
 		t.Errorf("dashboard = %+v", d)
 	}
-	if d.DropdownLogoutCommand != config.DefaultLogoutCommand || d.UsageWarning != 60 {
+	if d.UsageWarning != 60 {
 		t.Errorf("unset keys lost their defaults: %+v", d)
 	}
 	if len(d.UserSession.Actions) != 2 || d.UserSession.Actions[0] != config.SessionActionReboot || d.UserSession.Actions[1] != config.SessionActionLock {
@@ -103,9 +103,9 @@ func TestLoadFileAppliesDashboard(t *testing.T) {
 		t.Errorf("clicks = %+v", d.Clicks())
 	}
 
-	// The defaults carry all four actions in schema order.
+	// The defaults carry every action in schema order.
 	def := config.DefaultsDashboard().UserSession.Actions
-	if len(def) != 4 || def[0] != config.SessionActionLock || def[3] != config.SessionActionPowerOff {
+	if want := []config.SessionAction{config.SessionActionLock, config.SessionActionLogOut, config.SessionActionSuspend, config.SessionActionReboot, config.SessionActionPowerOff}; !slices.Equal(def, want) {
 		t.Errorf("default actions = %v", def)
 	}
 
@@ -127,6 +127,7 @@ func TestSessionActionsAreThePowerMenusActions(t *testing.T) {
 	for action, want := range map[config.SessionAction]powermenu.Action{
 		config.SessionActionLock:     powermenu.Lock,
 		config.SessionActionLogOut:   powermenu.LogOut,
+		config.SessionActionSuspend:  powermenu.Suspend,
 		config.SessionActionReboot:   powermenu.Reboot,
 		config.SessionActionPowerOff: powermenu.ShutDown,
 	} {

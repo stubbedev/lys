@@ -32,18 +32,6 @@ settings-modules-dashboard-scroll-down = Scorrimento in basso
 settings-modules-dashboard-left-click = Clic sinistro
     .description = Comando della shell al clic sinistro
 
-settings-modules-dashboard-dropdown-lock-command = Comando di blocco
-    .description = Comando della shell per il pulsante di blocco
-
-settings-modules-dashboard-dropdown-logout-command = Comando di fine sessione
-    .description = Comando della shell per il pulsante di fine sessione
-
-settings-modules-dashboard-dropdown-reboot-command = Comando di riavvio
-    .description = Comando della shell per il pulsante di riavvio
-
-settings-modules-dashboard-dropdown-poweroff-command = Comando di spegnimento
-    .description = Comando della shell per il pulsante di spegnimento
-
 settings-modules-dashboard-usage-warning = Avviso di utilizzo
     .description = Percentuale di utilizzo di CPU/RAM/disco alla quale gli anelli passano allo stato di avviso
 
@@ -68,5 +56,6 @@ settings-modules-dashboard-user-session-actions = Azioni di sessione
 ## SessionAction variants
 enum-session-action-lock = Blocca
 enum-session-action-logout = Termina sessione
+enum-session-action-suspend = Sospendi
 enum-session-action-reboot = Riavvia
 enum-session-action-power-off = Spegni

@@ -13,12 +13,10 @@ import (
 
 const displaySession logind.SessionID = "2"
 
-// defaultLockCommands are the power menu's and the dashboard's default
-// Lock commands.
+// defaultLockCommands are the power menu's default Lock commands.
 func defaultLockCommands() []struct{ name, command string } {
 	return []struct{ name, command string }{
 		{"power", DefaultsPower().LockCommand},
-		{"dashboard", DefaultsDashboard().DropdownLockCommand},
 	}
 }
 

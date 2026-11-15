@@ -28,18 +28,6 @@ settings-modules-dashboard-scroll-down = Deslocar para baixo
 settings-modules-dashboard-left-click = Clique esquerdo
     .description = Comando da shell ao clicar com o botão esquerdo
 
-settings-modules-dashboard-dropdown-lock-command = Comando de bloqueio
-    .description = Comando da shell do botão de bloqueio
-
-settings-modules-dashboard-dropdown-logout-command = Comando de terminar sessão
-    .description = Comando da shell do botão de terminar sessão
-
-settings-modules-dashboard-dropdown-reboot-command = Comando de reinício
-    .description = Comando da shell do botão de reiniciar
-
-settings-modules-dashboard-dropdown-poweroff-command = Comando de encerramento
-    .description = Comando da shell do botão de encerrar
-
 settings-modules-dashboard-usage-warning = Aviso de utilização
     .description = Percentagem de utilização de CPU/RAM/disco a partir da qual os anéis passam a aviso
 
@@ -63,5 +51,6 @@ settings-modules-dashboard-user-session-actions = Ações de sessão
 
 enum-session-action-lock = Bloquear
 enum-session-action-logout = Terminar sessão
+enum-session-action-suspend = Suspender
 enum-session-action-reboot = Reiniciar
 enum-session-action-power-off = Encerrar

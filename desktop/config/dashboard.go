@@ -32,14 +32,6 @@ type DashboardConfig struct {
 	ScrollDown ClickAction `cfg:"scroll-down"`
 	// Action on left click.
 	LeftClick ClickAction `cfg:"left-click"`
-	// Shell command for the lock button in the dashboard dropdown.
-	DropdownLockCommand string `cfg:"dropdown-lock-command,type=Command"`
-	// Shell command for the logout button in the dashboard dropdown.
-	DropdownLogoutCommand string `cfg:"dropdown-logout-command,type=Command"`
-	// Shell command for the reboot button in the dashboard dropdown.
-	DropdownRebootCommand string `cfg:"dropdown-reboot-command,type=Command"`
-	// Shell command for the power-off button in the dashboard dropdown.
-	DropdownPoweroffCommand string `cfg:"dropdown-poweroff-command,type=Command"`
 	// CPU/RAM/disk usage percent at which the dashboard rings turn warning.
 	UsageWarning float32 `cfg:"usage-warning"`
 	// CPU/RAM/disk usage percent at which the dashboard rings turn error.
@@ -59,30 +51,27 @@ type DashboardConfig struct {
 // DefaultsDashboard returns the schema defaults.
 func DefaultsDashboard() DashboardConfig {
 	return DashboardConfig{
-		IconOverride:            "",
-		BorderShow:              false,
-		BorderColor:             mustColor("yellow"),
-		IconColor:               mustColor("auto"),
-		IconBgColor:             mustColor("yellow"),
-		RightClick:              ClickAction{},
-		MiddleClick:             ClickAction{},
-		ScrollUp:                ClickAction{},
-		ScrollDown:              ClickAction{},
-		LeftClick:               ParseClickAction("dropdown:dashboard"),
-		DropdownLockCommand:     DefaultLockCommand,
-		DropdownLogoutCommand:   DefaultLogoutCommand,
-		DropdownRebootCommand:   "systemctl reboot",
-		DropdownPoweroffCommand: "systemctl poweroff",
-		UsageWarning:            60,
-		UsageError:              85,
-		TempWarning:             65,
-		TempError:               85,
-		BatteryWarning:          30,
-		BatteryCritical:         15,
+		IconOverride:    "",
+		BorderShow:      false,
+		BorderColor:     mustColor("yellow"),
+		IconColor:       mustColor("auto"),
+		IconBgColor:     mustColor("yellow"),
+		RightClick:      ClickAction{},
+		MiddleClick:     ClickAction{},
+		ScrollUp:        ClickAction{},
+		ScrollDown:      ClickAction{},
+		LeftClick:       ParseClickAction("dropdown:dashboard"),
+		UsageWarning:    60,
+		UsageError:      85,
+		TempWarning:     65,
+		TempError:       85,
+		BatteryWarning:  30,
+		BatteryCritical: 15,
 		UserSession: UserSessionConfig{
 			Actions: []SessionAction{
 				SessionActionLock,
 				SessionActionLogOut,
+				SessionActionSuspend,
 				SessionActionReboot,
 				SessionActionPowerOff,
 			},
@@ -114,6 +103,7 @@ func DefaultsUserSession() UserSessionConfig {
 		Actions: []SessionAction{
 			SessionActionLock,
 			SessionActionLogOut,
+			SessionActionSuspend,
 			SessionActionReboot,
 			SessionActionPowerOff,
 		},
@@ -131,10 +121,12 @@ const (
 	SessionActionLock SessionAction = "lock"
 	// Logout of the current session
 	SessionActionLogOut SessionAction = "log-out"
+	// Suspend the machine
+	SessionActionSuspend SessionAction = "suspend"
 	// Reboot the machine
 	SessionActionReboot SessionAction = "reboot"
 	// Power off the machine
 	SessionActionPowerOff SessionAction = "power-off"
 )
 
-var _ = registerEnum(SessionActionLock, SessionActionLogOut, SessionActionReboot, SessionActionPowerOff)
+var _ = registerEnum(SessionActionLock, SessionActionLogOut, SessionActionSuspend, SessionActionReboot, SessionActionPowerOff)

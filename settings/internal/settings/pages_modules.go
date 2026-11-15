@@ -226,10 +226,6 @@ func dashboardPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-commands", rows: []rowSpec{
 			field("modules.dashboard.user-session.actions", enumList),
-			field("modules.dashboard.dropdown-lock-command"),
-			field("modules.dashboard.dropdown-logout-command"),
-			field("modules.dashboard.dropdown-reboot-command"),
-			field("modules.dashboard.dropdown-poweroff-command"),
 		}},
 		{title: "settings-section-thresholds", rows: []rowSpec{
 			field("modules.dashboard.usage-warning", spin(0, 100, 1, 0)),
