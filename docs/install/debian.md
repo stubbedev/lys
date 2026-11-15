@@ -8,8 +8,13 @@ one command, so apt resolves their dependencies together:
 ```sh
 sudo apt install ./lys-wm_<version>_amd64.deb ./lys-shell_<version>_amd64.deb \
   ./lys-login_<version>_amd64.deb ./lys-settings_<version>_amd64.deb \
-  ./lys-polkit_<version>_amd64.deb ./lys-secrets_<version>_amd64.deb
+  ./lys-secrets_<version>_amd64.deb
 ```
+
+lys-polkit has no `.deb` or `.rpm`: install it with
+`go install github.com/stubbedev/lys/polkit/cmd/lys-polkit@latest`, or through
+the flake ([Other systems](/install/other)), and copy its user unit from
+`polkit/dist/lys-polkit.service.in` with `@bindir@` replaced.
 
 The packages install binaries, units, PAM services and data files, and enable
 nothing.

@@ -19,11 +19,9 @@ Depends:
 Recommends:
  libvulkan1,
  mesa-vulkan-drivers,
- lys-shell (>= 0.3.5~) | lys-wm
+ lys-shell (= @VERSION@) | lys-wm
 Breaks:
- lys-shell (<< 0.3.5~)
-Replaces:
- lys-shell (<< 0.3.5~)
+ lys-shell (<< @VERSION@)
 Description: settings app for the lys desktop
  lys-settings configures lys-shell and lys-wm: its pages edit lys-shell's
  runtime overrides, and lys-wm's config file, which lys-wm checks before it is

@@ -9,8 +9,13 @@ resolves their dependencies together:
 ```sh
 sudo dnf install ./lys-wm-<version>-*.x86_64.rpm ./lys-shell-<version>-*.x86_64.rpm \
   ./lys-login-<version>-*.x86_64.rpm ./lys-settings-<version>-*.x86_64.rpm \
-  ./lys-polkit-<version>-*.x86_64.rpm ./lys-secrets-<version>-*.x86_64.rpm
+  ./lys-secrets-<version>-*.x86_64.rpm
 ```
+
+lys-polkit has no `.deb` or `.rpm`: install it with
+`go install github.com/stubbedev/lys/polkit/cmd/lys-polkit@latest`, or through
+the flake ([Other systems](/install/other)), and copy its user unit from
+`polkit/dist/lys-polkit.service.in` with `@bindir@` replaced.
 
 The packages install binaries, units, PAM services and data files, and enable
 nothing.
