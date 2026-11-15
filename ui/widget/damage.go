@@ -1,6 +1,6 @@
 // Damage tracking turns per-widget invalidation flags into the repaint
 // rects one frame needs. Widgets mark themselves through Invalidate,
-// InvalidateRect, and InvalidateLayout; CollectDamage drains the flags
+// InvalidateRect, and InvalidateLayout; a DamageCollector drains the flags
 // into a rect list the app clips painting to and sends as
 // wl_surface.damage_buffer.
 package widget
@@ -29,6 +29,12 @@ type damageNoder interface {
 	takeDamage() (bounds render.Rect, extra []render.Rect, dirty bool)
 }
 
+// scrollDrainer is a viewport that drains its scroll into the walk
+// before its damage: a move the frame can copy, or the view it owes.
+type scrollDrainer interface {
+	drainScroll(c *DamageCollector)
+}
+
 // childser exposes a widget's children for tree walks (the same
 // interface focus traversal uses).
 type childser interface {
@@ -43,19 +49,6 @@ type childser interface {
 type childBuf interface {
 	appendChildren(buf []Widget) []Widget
 }
-
-// walkStack is the per-depth snapshot buffers the damage collector
-// reuses across frames. Tree walks are loop-goroutine work (the same
-// discipline as every widget mutation), so one stack serves the
-// process; slots hold their capacity for the next frame, and a walk
-// never re-enters a depth it is still iterating, so a level's snapshot
-// lives until its subtree is done. The stack reaches the deepest tree
-// the process has walked and stays there.
-var walkStack kidStack
-
-// backdropReach collects, per walk, the area each backdrop-filtered box
-// reads: its bounds grown by the filter's extent. Reused across walks.
-var backdropReach []render.Rect
 
 // damageGen counts every mark that can turn a tree dirty: a widget
 // invalidation, a style or theme generation move, a stale cascade.
@@ -89,55 +82,76 @@ var keptLayerGen atomic.Uint64
 // not hold what was recorded into them.
 func RepaintKeptLayers() { keptLayerGen.Add(1) }
 
-// CollectDamage drains every pending invalidation in the tree and
-// returns the repaint rects in root coordinates plus whether anything
-// is owed. Rects may overlap; the caller can clip painting to their
-// bounding box and damage each rect on the wire. Draining clears the
-// flags, so an empty result means the tree paints identically to the
-// last frame.
+// DamageCollector drains a widget tree's pending invalidations into the
+// repaint rects one frame owes. It keeps the walk's state and buffers,
+// reused by every collection, so a surface that keeps its collector
+// drains without allocating once they have grown. One collector serves
+// one loop: two trees drained at once need two collectors. The zero
+// value is ready to use.
+type DamageCollector struct {
+	rects        []render.Rect
+	moves        []ScrollMove
+	kids         kidStack
+	backdrop     []render.Rect
+	plateCorners []render.Rect
+	icons        uint64
+	takesMoves   bool
+	clip         render.Rect
+	clipped      bool
+	shift        viewShift
+	shiftNext    viewShift
+}
+
+// CollectDamage drains every pending invalidation in the tree with a
+// collector of its own and returns the repaint rects in root
+// coordinates plus whether anything is owed. A frame loop keeps a
+// DamageCollector instead, so its walks reuse their buffers.
 func CollectDamage(root Widget) (rects []render.Rect, any bool) {
-	return CollectDamageInto(nil, root)
+	var c DamageCollector
+	return c.Collect(root)
 }
 
-// CollectDamageInto is CollectDamage reusing buf's storage for the
-// rects, so a frame loop that keeps its buffer drains without
-// allocating.
-func CollectDamageInto(buf []render.Rect, root Widget) (rects []render.Rect, any bool) {
-	walkTakesMoves = false
-	return collectDamage(buf, root)
+// Collect drains every pending invalidation in the tree and returns the
+// repaint rects in root coordinates plus whether anything is owed.
+// Rects may overlap; the caller can clip painting to their bounding box
+// and damage each rect on the wire. Draining clears the flags, so an
+// empty result means the tree paints identically to the last frame.
+// The rects are the collector's storage, valid until its next
+// collection.
+func (c *DamageCollector) Collect(root Widget) (rects []render.Rect, any bool) {
+	c.takesMoves = false
+	c.collect(root)
+	return c.rects, len(c.rects) > 0
 }
 
-// CollectFrameDamageInto is CollectDamageInto for a frame that can copy
-// pixels: a viewport that only scrolled reports a ScrollMove, reusing
-// moves' storage, and owes only what the move exposed.
-func CollectFrameDamageInto(buf []render.Rect, moves []ScrollMove, root Widget) (rects []render.Rect, outMoves []ScrollMove, any bool) {
-	walkTakesMoves, walkMoves = true, moves[:0]
-	rects, any = collectDamage(buf, root)
-	outMoves, walkMoves, walkTakesMoves = walkMoves, nil, false
-	return rects, outMoves, any || len(outMoves) > 0
+// CollectFrame is Collect for a frame that can copy pixels: a viewport
+// that only scrolled reports a ScrollMove and owes only what the move
+// exposed. The moves are the collector's storage too, valid until its
+// next collection.
+func (c *DamageCollector) CollectFrame(root Widget) (rects []render.Rect, moves []ScrollMove, any bool) {
+	c.takesMoves = true
+	c.collect(root)
+	return c.rects, c.moves, len(c.rects) > 0 || len(c.moves) > 0
 }
 
-func collectDamage(buf []render.Rect, root Widget) (rects []render.Rect, any bool) {
-	rects = buf[:0]
+func (c *DamageCollector) collect(root Widget) {
+	c.rects, c.moves = c.rects[:0], c.moves[:0]
 	if root == nil {
-		return rects, false
+		return
 	}
 	damageWalks.Add(1)
-	backdropReach = backdropReach[:0]
-	walkIcons = icons.Default().Generation()
-	walkClip, walkClipped, walkShift, walkShiftNext = render.Rect{}, false, viewShift{}, viewShift{}
-	bbox := collectInto(root, &rects)
-	bbox = bbox.Union(widenForBackdrops(&rects))
-	if len(rects) > maxDamageRects {
-		rects = rects[:0]
+	c.backdrop = c.backdrop[:0]
+	c.icons = icons.Default().Generation()
+	c.clip, c.clipped, c.shift, c.shiftNext = render.Rect{}, false, viewShift{}, viewShift{}
+	bbox := c.collectInto(root)
+	bbox = bbox.Union(c.widenForBackdrops())
+	if len(c.rects) > maxDamageRects {
+		c.rects = c.rects[:0]
 		if !bbox.Empty() {
-			rects = append(rects, bbox)
+			c.rects = append(c.rects, bbox)
 		}
 	}
-	return rects, len(rects) > 0
 }
-
-var walkIcons uint64
 
 func markUnlinked(w, kid Widget) {
 	n, k := nodeOf(w), nodeOf(kid)
@@ -151,14 +165,14 @@ func markUnlinked(w, kid Widget) {
 // children iterate from the walk's own snapshot buffer, so a
 // container that mutates mid-drain changes the next frame, not this
 // walk.
-func collectInto(w Widget, rects *[]render.Rect) render.Rect {
+func (c *DamageCollector) collectInto(w Widget) render.Rect {
 	if n := nodeOf(w); n != nil {
-		if !n.damageStale && !n.damageVolatile && !n.styleDirty && n.themeSeen == themeGen && n.styleDmg == styleGen && n.damageIcons == walkIcons {
+		if !n.damageStale && !n.damageVolatile && !n.styleDirty && n.themeSeen == themeGen && n.styleDmg == styleGen && n.damageIcons == c.icons {
 			return render.Rect{}
 		}
-		n.damageStale, n.damageIcons = false, walkIcons
-		reach := len(backdropReach)
-		defer func() { n.damageVolatile = len(backdropReach) != reach }()
+		n.damageStale, n.damageIcons = false, c.icons
+		reach := len(c.backdrop)
+		defer func() { n.damageVolatile = len(c.backdrop) != reach }()
 	}
 	// A style-marked widget recomputes before it drains: pre-order, so
 	// a parent's inherited change marks and damages its subtree within
@@ -171,19 +185,22 @@ func collectInto(w Widget, rects *[]render.Rect) render.Rect {
 		if v := n.style(w); v.Has(style.PropBackdropFilter) && !v.Backdrop.Empty() {
 			if bs, ok := w.(Boundser); ok {
 				reach := v.Backdrop.Extent().Grow(bs.Bounds())
-				if walkClipped {
-					reach = reach.Intersect(walkClip)
+				if c.clipped {
+					reach = reach.Intersect(c.clip)
 				}
 				if !reach.Empty() {
-					backdropReach = append(backdropReach, reach)
+					c.backdrop = append(c.backdrop, reach)
 				}
 			}
 		}
 	}
-	savedClip, savedClipped, savedShift := walkClip, walkClipped, walkShift
-	defer func() { walkClip, walkClipped, walkShift = savedClip, savedClipped, savedShift }()
+	savedClip, savedClipped, savedShift := c.clip, c.clipped, c.shift
+	defer func() { c.clip, c.clipped, c.shift = savedClip, savedClipped, savedShift }()
 	n := nodeOf(w)
-	clip := walkClipped && n != nil && n.ownInkBounded(w)
+	clip := c.clipped && n != nil && n.ownInkBounded(w)
+	if sd, ok := w.(scrollDrainer); ok {
+		sd.drainScroll(c)
+	}
 	if dn, ok := w.(damageNoder); ok {
 		var why string
 		if debug.Enabled {
@@ -194,48 +211,48 @@ func collectInto(w Widget, rects *[]render.Rect) render.Rect {
 			noteDamage(w, bounds, why)
 		}
 		if dirty {
-			bbox = bbox.Union(emitDamage(rects, bounds, clip))
+			bbox = bbox.Union(c.emit(bounds, clip))
 			for _, r := range extras {
-				bbox = bbox.Union(emitDamage(rects, r, clip))
+				bbox = bbox.Union(c.emit(r, clip))
 			}
 		}
 	}
-	if walkShiftNext.moved() {
-		walkShift.dx += walkShiftNext.dx
-		walkShift.dy += walkShiftNext.dy
-		walkShiftNext = viewShift{}
+	if c.shiftNext.moved() {
+		c.shift.dx += c.shiftNext.dx
+		c.shift.dy += c.shiftNext.dy
+		c.shiftNext = viewShift{}
 	}
-	if c, ok := w.(damageClipper); ok {
-		if clip, clips := c.damageClip(); clips {
-			if walkClipped {
-				clip = clip.Intersect(walkClip)
+	if dc, ok := w.(damageClipper); ok {
+		if clip, clips := dc.damageClip(); clips {
+			if c.clipped {
+				clip = clip.Intersect(c.clip)
 			}
-			walkClip, walkClipped = clip, true
+			c.clip, c.clipped = clip, true
 		}
 	}
 	if n != nil && n.culled {
-		walkClip, walkClipped = render.Rect{}, true
+		c.clip, c.clipped = render.Rect{}, true
 	}
-	walkStack.each(func(kids []Widget) []Widget { return appendKids(w, kids) }, func(k Widget) {
+	c.kids.each(func(kids []Widget) []Widget { return appendKids(w, kids) }, func(k Widget) {
 		if k != nil {
 			markUnlinked(w, k)
-			bbox = bbox.Union(collectInto(k, rects))
+			bbox = bbox.Union(c.collectInto(k))
 		}
 	})
 	return bbox
 }
 
-func emitDamage(rects *[]render.Rect, r render.Rect, clip bool) render.Rect {
+func (c *DamageCollector) emit(r render.Rect, clip bool) render.Rect {
 	box := render.Rect{}
-	for _, d := range [2]render.Rect{r, shifted(r, walkShift.dx, walkShift.dy)} {
+	for _, d := range [2]render.Rect{r, shifted(r, c.shift.dx, c.shift.dy)} {
 		if clip {
-			d = d.Intersect(walkClip)
+			d = d.Intersect(c.clip)
 		}
 		if !d.Empty() {
-			*rects = append(*rects, d)
+			c.rects = append(c.rects, d)
 			box = box.Union(d)
 		}
-		if !walkShift.moved() {
+		if !c.shift.moved() {
 			break
 		}
 	}
@@ -248,20 +265,20 @@ func emitDamage(rects *[]render.Rect, r render.Rect, clip bool) render.Rect {
 // repaints whole (and the reach around it) whenever any of it does.
 // Added reaches can touch further boxes, so it runs to a fixed point.
 // It returns the bounding box of what it added.
-func widenForBackdrops(rects *[]render.Rect) render.Rect {
+func (c *DamageCollector) widenForBackdrops() render.Rect {
 	added := render.Rect{}
 	for grew := true; grew; {
 		grew = false
-		for i := 0; i < len(backdropReach); {
-			reach := backdropReach[i]
-			if !touches(*rects, reach) {
+		for i := 0; i < len(c.backdrop); {
+			reach := c.backdrop[i]
+			if !touches(c.rects, reach) {
 				i++
 				continue
 			}
-			*rects = append(*rects, reach)
+			c.rects = append(c.rects, reach)
 			added = added.Union(reach)
-			backdropReach[i] = backdropReach[len(backdropReach)-1]
-			backdropReach = backdropReach[:len(backdropReach)-1]
+			c.backdrop[i] = c.backdrop[len(c.backdrop)-1]
+			c.backdrop = c.backdrop[:len(c.backdrop)-1]
 			grew = true
 		}
 	}

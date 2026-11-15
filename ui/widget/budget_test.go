@@ -135,13 +135,13 @@ func TestAllocBudgetResizeDamage(t *testing.T) {
 	testbuild.SkipAllocBudget(t)
 	const w, h = 1605, 1391
 	root := settingsTree(t)
-	var buf []render.Rect
+	var damage DamageCollector
 	i := 0
 	resize := func() {
 		i++
 		SizeWithin(root, Size{W: w - i%2*8, H: h})
 		root.Arrange(render.Rect{W: w - i%2*8, H: h})
-		buf, _ = CollectDamageInto(buf, root)
+		damage.Collect(root)
 	}
 	for range 8 {
 		resize()
@@ -159,10 +159,11 @@ func TestAllocBudgetSteadyLayout(t *testing.T) {
 	root := settingsTree(t)
 	cv := render.New(make([]byte, render.Stride(w)*h), render.Stride(w), w, h)
 	settingsFrame(root, cv, w, h)
+	var damage DamageCollector
 	layout := func() {
 		SizeWithin(root, Size{W: w, H: h})
 		root.Arrange(render.Rect{W: w, H: h})
-		CollectDamage(root)
+		damage.Collect(root)
 	}
 	const budget = 207
 	if allocs := testing.AllocsPerRun(50, layout); allocs > budget {

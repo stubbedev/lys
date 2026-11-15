@@ -28,10 +28,11 @@ func popupScrollStep(t *testing.T, bg render.Color) []widget.ScrollMove {
 	r := render.Rect{W: 300, H: 400}
 	widget.SizeWithin(pc.visual, widget.Size{W: 300, H: 400})
 	pc.visual.Arrange(r)
-	widget.CollectFrameDamageInto(nil, nil, pc.visual)
+	var damage widget.DamageCollector
+	damage.CollectFrame(pc.visual)
 	sc.SetOffset(0, 10)
 	pc.visual.Arrange(r)
-	_, moves, _ := widget.CollectFrameDamageInto(nil, nil, pc.visual)
+	_, moves, _ := damage.CollectFrame(pc.visual)
 	return moves
 }
 

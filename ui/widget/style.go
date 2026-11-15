@@ -2323,7 +2323,7 @@ func inkOf(v *style.Values) render.Insets {
 }
 
 // styleStack is restyleSubtree's snapshot buffers, reused across passes
-// like the damage walk's walkStack.
+// like a DamageCollector's kidStack.
 var styleStack kidStack
 
 // restyleSubtree marks every descendant's computed style stale:

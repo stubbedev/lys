@@ -1175,7 +1175,7 @@ func focusWalker(w Widget, fn func(Widget)) {
 }
 
 // walkTreeStack is walkTree's per-depth snapshot buffers, reused
-// across walks like the damage walk's walkStack: the walk is
+// across walks like a DamageCollector's kidStack: the walk is
 // loop-goroutine work, a level's snapshot is a copy taken at visit
 // time (so a callback mutating the tree changes the next walk, not
 // this one), and a walk must not nest inside another walkTree.

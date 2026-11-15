@@ -34,8 +34,10 @@ type Region struct {
 	// regions is where the frame's paint regions are built, and changed
 	// what they change on screen.
 	regions, changed buffer.Region
-	// drained is the scratch a tree's damage drains into.
-	drained    []render.Rect
+	// damage drains the tree, its buffers reused frame to frame.
+	damage widget.DamageCollector
+	// moves are the views the last drain found scrolled, the damage
+	// collector's storage, until a plan or a later drain takes them.
 	moves      []widget.ScrollMove
 	blits      []blit
 	moved      []render.Rect
@@ -65,12 +67,12 @@ func (r *Region) Collect(root widget.Widget, bounds render.Rect) bool {
 	if earlier {
 		r.demote(bounds)
 	}
-	var damaged bool
-	r.drained, r.moves, damaged = widget.CollectFrameDamageInto(r.drained, r.moves, root)
+	drained, moves, damaged := r.damage.CollectFrame(root)
+	r.moves = moves
 	if earlier {
 		r.demote(bounds)
 	}
-	r.Add(bounds, r.drained...)
+	r.Add(bounds, drained...)
 	return damaged
 }
 

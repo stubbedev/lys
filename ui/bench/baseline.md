@@ -169,14 +169,14 @@ why it stays:
 
 - **`widget.CollectDamage`'s rect list**: about one allocation per
   dirty frame when the caller keeps no buffer, as the benchmarks do. A
-  window passes its own to `CollectDamageInto`.
+  window keeps its own `widget.DamageCollector`.
 - **`render.NewScaled` per non-window canvas** (`app/dragdrop.go`,
   `app/print.go`): one Canvas per dropped-image paint and per printed
   page. That is event-time work; the frame path reuses the window's
   canvas (`Canvas.Reset`).
 - **The Go runtime's background monitor**: nanosleep calls during tweens,
   inflated by strace, none at idle. It is not lys-ui code.
-- **Walk snapshot buffers** (`widget.walkStack`, `styleStack`,
+- **Walk snapshot buffers** (each `DamageCollector`'s kid stack, `styleStack`,
   `walkTreeStack`, the per-parent sibling lists) and **the rune-keyed
   shaping table**: the buffers are retained at the deepest tree the
   process has walked, plus one filtered child list per parent with

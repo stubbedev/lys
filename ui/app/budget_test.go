@@ -141,9 +141,10 @@ func TestAllocBudgetToastDamageWalk(t *testing.T) {
 	testbuild.SkipAllocBudget(t)
 	layer := &toastLayer{root: widget.NewBox(widget.Row, 0, 0), clock: new(anim.Clock)}
 	layer.add(widget.NewToast(testFace(t), "Saved", 0))
-	widget.CollectDamage(layer)
+	var damage widget.DamageCollector
+	damage.Collect(layer)
 	const budget = 0
-	allocs := testing.AllocsPerRun(100, func() { widget.CollectDamage(layer) })
+	allocs := testing.AllocsPerRun(100, func() { damage.Collect(layer) })
 	if allocs > budget {
 		t.Errorf("toast damage walk allocates %v allocs/op, budget %d", allocs, budget)
 	}

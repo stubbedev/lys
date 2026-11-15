@@ -16,7 +16,7 @@ func arrSum(ws []*Label) int {
 	return s
 }
 
-func longScroll(t *testing.T, rows int) (*Scroll, []*Label) {
+func longScroll(t testing.TB, rows int) (*Scroll, []*Label) {
 	t.Helper()
 	face := entryFace(t)
 	col := NewBox(Column, 0, 0)
@@ -76,10 +76,11 @@ func TestScrollStepOwesOnlyTheStripWhenItCanMove(t *testing.T) {
 	r := render.Rect{W: 800, H: 600}
 	SizeWithin(sc, Size{W: 800, H: 600})
 	sc.Arrange(r)
-	CollectDamage(sc)
+	var damage DamageCollector
+	damage.Collect(sc)
 	sc.SetOffset(0, 30)
 	sc.Arrange(r)
-	rects, moves, _ := CollectFrameDamageInto(nil, nil, sc)
+	rects, moves, _ := damage.CollectFrame(sc)
 	if len(moves) != 1 || moves[0].DY != -30 || moves[0].DX != 0 {
 		t.Fatalf("moves %+v, want the view moved up by 30", moves)
 	}
@@ -95,16 +96,15 @@ func TestScrollStepAllocatesNothing(t *testing.T) {
 	SizeWithin(sc, Size{W: 800, H: 600})
 	sc.Arrange(r)
 	cv := render.New(make([]byte, render.Stride(800)*600), render.Stride(800), 800, 600)
-	var rects []render.Rect
-	var moves []ScrollMove
-	rects, moves, _ = CollectFrameDamageInto(rects, moves, sc)
+	var damage DamageCollector
+	damage.CollectFrame(sc)
 	sc.Paint(cv)
 	y := 0
 	step := func() {
 		y = (y + 7) % 500
 		sc.SetOffset(0, y)
 		sc.Arrange(r)
-		rects, moves, _ = CollectFrameDamageInto(rects, moves, sc)
+		damage.CollectFrame(sc)
 		prev := cv.PushClipDevice(render.Rect{Y: 560, W: 800, H: 40})
 		sc.Paint(cv)
 		cv.PopClip(prev)
@@ -200,10 +200,11 @@ func TestListStepOwesItsStripAndKeepsRowsInOrder(t *testing.T) {
 	r := render.Rect{W: 600, H: 600}
 	SizeWithin(l, Size{W: 600, H: 600})
 	l.Arrange(r)
-	CollectDamage(l)
+	var damage DamageCollector
+	damage.Collect(l)
 	l.setOffset(48)
 	l.Arrange(r)
-	rects, moves, _ := CollectFrameDamageInto(nil, nil, l)
+	rects, moves, _ := damage.CollectFrame(l)
 	if len(moves) != 1 || moves[0].DY != -48 {
 		t.Fatalf("moves %+v, want the rows moved up by 48", moves)
 	}
@@ -227,14 +228,13 @@ func TestListStepAllocatesNothingAcrossRowsItHolds(t *testing.T) {
 	r := render.Rect{W: 600, H: 600}
 	SizeWithin(l, Size{W: 600, H: 600})
 	l.Arrange(r)
-	var rects []render.Rect
-	var moves []ScrollMove
+	var damage DamageCollector
 	y := 0
 	step := func() {
 		y = 24 - y
 		l.setOffset(y)
 		l.Arrange(r)
-		rects, moves, _ = CollectFrameDamageInto(rects, moves, l)
+		damage.CollectFrame(l)
 	}
 	for range 20 {
 		step()
@@ -272,10 +272,11 @@ func TestAnOverlappedScrollDoesNotMove(t *testing.T) {
 		r := render.Rect{W: 300, H: 200}
 		SizeWithin(root, Size{W: 300, H: 200})
 		root.Arrange(r)
-		CollectDamage(root)
+		var damage DamageCollector
+		damage.Collect(root)
 		sc.SetOffset(0, 40)
 		root.Arrange(r)
-		rects, moves, _ := CollectFrameDamageInto(nil, nil, root)
+		rects, moves, _ := damage.CollectFrame(root)
 		if len(moves) != 0 {
 			t.Errorf("%s: moved %+v", name, moves)
 		}
@@ -324,7 +325,8 @@ func TestAScrollOfBaseRowsThatDeclareTheirInkMovesAndArrangesWhatShows(t *testin
 	r := render.Rect{W: 400, H: 300}
 	SizeWithin(sc, Size{W: 400, H: 300})
 	sc.Arrange(r)
-	CollectFrameDamageInto(nil, nil, sc)
+	var damage DamageCollector
+	damage.CollectFrame(sc)
 	visible := (300+2*scrollOverscan)/20 + 3
 	for step := 1; step <= 10; step++ {
 		sc.SetOffset(0, step*10)
@@ -333,7 +335,7 @@ func TestAScrollOfBaseRowsThatDeclareTheirInkMovesAndArrangesWhatShows(t *testin
 		if got := *arranges - before; got > visible {
 			t.Fatalf("step %d arranged %d of 2000 rows, want at most %d", step, got, visible)
 		}
-		rects, moves, _ := CollectFrameDamageInto(nil, nil, sc)
+		rects, moves, _ := damage.CollectFrame(sc)
 		if len(moves) != 1 || moves[0].DY != -10 {
 			t.Fatalf("step %d: moves %+v, want the view copied up by 10", step, moves)
 		}
@@ -348,10 +350,11 @@ func TestAScrollOfBaseRowsThatDeclareNothingRepaintsItsView(t *testing.T) {
 	r := render.Rect{W: 400, H: 300}
 	SizeWithin(sc, Size{W: 400, H: 300})
 	sc.Arrange(r)
-	CollectFrameDamageInto(nil, nil, sc)
+	var damage DamageCollector
+	damage.CollectFrame(sc)
 	sc.SetOffset(0, 10)
 	sc.Arrange(r)
-	rects, moves, _ := CollectFrameDamageInto(nil, nil, sc)
+	rects, moves, _ := damage.CollectFrame(sc)
 	if len(moves) != 0 {
 		t.Errorf("rows that may paint anywhere were copied: %+v", moves)
 	}
