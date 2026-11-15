@@ -197,6 +197,12 @@ func (p windowPickers) popover(anchor, content, focus widget.Widget) (closePopov
 	return pop.Dismiss
 }
 
+func (p windowPickers) dialog(cfg app.DialogConfig) {
+	if _, err := p.app.NewDialog(p.win, cfg); err != nil {
+		log.Printf("settings: dialog %q: %v", cfg.Title, err)
+	}
+}
+
 // font opens lys-ui's font dialog for families alone (FontButton's
 // family-only level), monospace ones only when monospace.
 func (p windowPickers) font(family string, monospace bool, fn func(string)) {

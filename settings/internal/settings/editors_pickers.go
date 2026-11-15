@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys-desktop/shell/apptheme"
 	"github.com/stubbedev/lys-desktop/styling"
 	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-ui/app"
 	"github.com/stubbedev/lys-ui/widget"
 	"github.com/stubbedev/lys-ui/widget/css"
 
@@ -33,6 +34,8 @@ type pickers interface {
 	// loop with its path; a dismissed chooser calls nothing.
 	openFile(fn func(path string))
 	openFolder(fn func(path string))
+	// dialog opens cfg over the window.
+	dialog(cfg app.DialogConfig)
 }
 
 // fontPickerLabelChars caps the face's label (FontControl).

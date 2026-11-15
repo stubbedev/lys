@@ -16,28 +16,34 @@ const (
 	responseCancel  = "cancel"
 )
 
-// resetAllDialog is the reset-all question (ConfirmResetAll): lys-ui's
-// alert dialog with the description under the title, cancel and the
-// destructive confirm. It is modal, Esc cancels, Enter does nothing,
-// and only the confirm response drops the overrides.
-func resetAllDialog(k *kit) app.DialogConfig {
+// confirmDialog is lys-ui's alert asking the question messages under key
+// name: key-title over key-description, key-cancel and the destructive
+// key-confirm. It is modal, Esc cancels, Enter does nothing, and only the
+// confirm response runs onConfirm.
+func confirmDialog(k *kit, key string, onConfirm func()) app.DialogConfig {
 	t := locale.T()
-	body := k.label(t.Get("settings-reset-all-description"), css.DimLabel)
+	body := k.label(t.Get(key+"-description"), css.DimLabel)
 	body.SetWrap(true)
 	return app.DialogConfig{
-		Title:   t.Get("settings-reset-all-title"),
+		Title:   t.Get(key + "-title"),
 		Width:   confirmDialogWidth,
 		Content: body,
 		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-reset-all-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-reset-all-confirm"), Response: responseConfirm, Appearance: app.AppearanceDestructive},
+			{Label: t.Get(key + "-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
+			{Label: t.Get(key + "-confirm"), Response: responseConfirm, Appearance: app.AppearanceDestructive},
 		},
 		Modal:          true,
 		CancelResponse: responseCancel,
 		OnResponse: func(r string) {
 			if r == responseConfirm {
-				k.resetAll()
+				onConfirm()
 			}
 		},
 	}
+}
+
+// resetAllDialog is the reset-all question (ConfirmResetAll), dropping
+// the overrides on confirm.
+func resetAllDialog(k *kit) app.DialogConfig {
+	return confirmDialog(k, "settings-reset-all", k.resetAll)
 }

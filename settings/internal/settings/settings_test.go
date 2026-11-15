@@ -644,7 +644,10 @@ type fakePickers struct {
 	fontIn                 string
 	fontMono               bool
 	fontFn                 func(string)
+	dialogs                []app.DialogConfig
 }
+
+func (f *fakePickers) dialog(cfg app.DialogConfig) { f.dialogs = append(f.dialogs, cfg) }
 
 func (f *fakePickers) popover(anchor, content, focus widget.Widget) func() {
 	f.anchor, f.content, f.focus = anchor, content, focus
