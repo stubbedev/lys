@@ -86,7 +86,8 @@ var ErrActivationUnavailable = errors.New("wlsession: the compositor offers no x
 // focus). done always runs once: with the issued token - each request
 // its own, so concurrent requests (a launch, an attention request)
 // never trade tokens - or with ErrActivationUnavailable without the
-// protocol, or the request's failure.
+// protocol, or the request's failure, including a serial or surface
+// that could not be set.
 func (s *Session) RequestActivationToken(surface *wl.Surface, serial uint32, done func(token string, err error)) {
 	req := s.activation
 	if req == nil {
@@ -98,20 +99,33 @@ func (s *Session) RequestActivationToken(surface *wl.Surface, serial uint32, don
 		done("", fmt.Errorf("wlsession: request an activation token: %w", err))
 		return
 	}
+	if err := s.anchorActivationToken(tokReq, surface, serial); err != nil {
+		_ = tokReq.Destroy()
+		done("", err)
+		return
+	}
 	tok := &activationToken{sess: s, req: tokReq, done: done}
 	s.activationTokens = append(s.activationTokens, tok)
 	tokReq.AddDoneHandler(tok)
-	if serial != 0 && s.seat != nil {
-		_ = tokReq.SetSerial(serial, s.seat)
-	}
-	if surface != nil {
-		_ = tokReq.SetSurface(surface)
-	}
 	if err := tokReq.Commit(); err != nil {
 		s.removeActivationToken(tok)
 		_ = tokReq.Destroy()
 		done("", fmt.Errorf("wlsession: commit an activation token request: %w", err))
 	}
+}
+
+func (s *Session) anchorActivationToken(tokReq activationTokenAPI, surface *wl.Surface, serial uint32) error {
+	if serial != 0 && s.seat != nil {
+		if err := tokReq.SetSerial(serial, s.seat); err != nil {
+			return fmt.Errorf("wlsession: anchor an activation token to serial %d: %w", serial, err)
+		}
+	}
+	if surface != nil {
+		if err := tokReq.SetSurface(surface); err != nil {
+			return fmt.Errorf("wlsession: anchor an activation token to surface %d: %w", surface.Id(), err)
+		}
+	}
+	return nil
 }
 
 // Activate raises and focuses surface with a token the compositor

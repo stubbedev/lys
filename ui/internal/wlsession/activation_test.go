@@ -2,6 +2,7 @@ package wlsession
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
@@ -11,16 +12,21 @@ import (
 // fakeActivationToken records one token object's requests and keeps
 // the done listener the session registered.
 type fakeActivationToken struct {
-	serial    uint32
-	seat      *wl.Seat
-	surface   *wl.Surface
-	committed int
-	destroyed int
-	commitErr error
-	doneH     wlr.ActivationTokenV1DoneHandler
+	serial     uint32
+	seat       *wl.Seat
+	surface    *wl.Surface
+	committed  int
+	destroyed  int
+	commitErr  error
+	serialErr  error
+	surfaceErr error
+	doneH      wlr.ActivationTokenV1DoneHandler
 }
 
 func (f *fakeActivationToken) SetSerial(serial uint32, seat *wl.Seat) error {
+	if f.serialErr != nil {
+		return f.serialErr
+	}
 	f.serial, f.seat = serial, seat
 	return nil
 }
@@ -28,6 +34,9 @@ func (f *fakeActivationToken) SetSerial(serial uint32, seat *wl.Seat) error {
 func (f *fakeActivationToken) SetAppId(string) error { return nil }
 
 func (f *fakeActivationToken) SetSurface(surface *wl.Surface) error {
+	if f.surfaceErr != nil {
+		return f.surfaceErr
+	}
 	f.surface = surface
 	return nil
 }
@@ -47,7 +56,9 @@ type fakeActivation struct {
 	tokens      []*fakeActivationToken
 	activations []activationCall
 	tokenErr    error
-	commitErr   error // handed to every new token
+	commitErr   error
+	serialErr   error
+	surfaceErr  error
 }
 
 type activationCall struct {
@@ -59,7 +70,7 @@ func (f *fakeActivation) GetActivationToken() (activationTokenAPI, error) {
 	if f.tokenErr != nil {
 		return nil, f.tokenErr
 	}
-	t := &fakeActivationToken{commitErr: f.commitErr}
+	t := &fakeActivationToken{commitErr: f.commitErr, serialErr: f.serialErr, surfaceErr: f.surfaceErr}
 	f.tokens = append(f.tokens, t)
 	return t, nil
 }
@@ -170,6 +181,42 @@ func TestActivationTokenCommitFailure(t *testing.T) {
 	}
 	if len(s.activationTokens) != 1 {
 		t.Errorf("in-flight requests = %d, want only the healthy one", len(s.activationTokens))
+	}
+}
+
+func TestActivationTokenAnchorFailure(t *testing.T) {
+	setSerial := errors.New("set_serial failed")
+	setSurface := errors.New("set_surface failed")
+	for _, tc := range []struct {
+		name  string
+		fake  *fakeActivation
+		want  error
+		names string
+	}{
+		{"serial", &fakeActivation{serialErr: setSerial}, setSerial, "serial 42"},
+		{"surface", &fakeActivation{surfaceErr: setSurface}, setSurface, "surface 9"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &Session{seat: &wl.Seat{}}
+			s.activation = tc.fake
+			surf := &wl.Surface{}
+			surf.SetId(9)
+			var token string
+			var got error
+			calls := 0
+			s.RequestActivationToken(surf, 42, func(tok string, err error) { token, got = tok, err; calls++ })
+			if calls != 1 || !errors.Is(got, tc.want) || token != "" {
+				t.Fatalf("done ran %d times with %q, %v; want once with %v", calls, token, got, tc.want)
+			}
+			if !strings.Contains(got.Error(), tc.names) {
+				t.Errorf("error %q does not name the %s", got, tc.names)
+			}
+			tok := tc.fake.tokens[0]
+			if tok.committed != 0 || tok.destroyed != 1 || len(s.activationTokens) != 0 {
+				t.Errorf("committed %d, destroyed %d, in flight %d; want an unanchored token never committed and torn down",
+					tok.committed, tok.destroyed, len(s.activationTokens))
+			}
+		})
 	}
 }
 
