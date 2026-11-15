@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/stubbedev/lys-desktop/i18n"
 	"github.com/stubbedev/lys-lib/dbusx"
 	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
 	"github.com/stubbedev/lys-ui/widget"
@@ -108,17 +109,21 @@ func (r *enrollRing) set(passed int) {
 }
 
 type fingerprintSection struct {
-	*widget.Box
-	k        *kit
-	fp       *fprint
-	stages   int
-	enrolled []string
-	fingers  *widget.FlowBox
-	ring     *enrollRing
-	hint     *widget.Label
-	cancel   *widget.Button
-	watch    *dbusx.Watch
-	busy     bool
+	*widget.ItemGroup
+	k         *kit
+	fp        *fprint
+	fail      func(error)
+	enrolled  []string
+	enrol     *widget.Box
+	choices   *widget.FlowBox
+	progress  *widget.Box
+	ring      *enrollRing
+	hint      *widget.Label
+	cancel    *widget.Button
+	deleteAll *widget.Box
+	note      *widget.Box
+	watch     *dbusx.Watch
+	busy      bool
 }
 
 func (p *usersPanel) loadFingerprint() {
@@ -162,69 +167,101 @@ func withTimeoutValue[T any](fn func(context.Context) T) T {
 
 func newFingerprintSection(k *kit, fp *fprint, stages int, enrolled []string, fail func(error)) *fingerprintSection {
 	t := locale.T()
-	s := &fingerprintSection{Box: gapBox(widget.Column), k: k, fp: fp, stages: stages, enrolled: enrolled}
-	s.fingers = widget.NewWrapBox(widget.Current().Spacing, widget.Current().Spacing, widget.JustifyStart)
-	s.fingers.AddClass("fingerprint-fingers")
-	s.Append(s.fingers, false)
+	s := &fingerprintSection{ItemGroup: widget.NewItemGroup(), k: k, fp: fp, fail: fail, enrolled: enrolled}
+	s.choices = widget.NewWrapBox(widget.Current().Spacing/2, widget.Current().Spacing/2, widget.JustifyStart)
+	s.choices.AddClass("fingerprint-fingers")
+	s.enrol = itemColumn(
+		k.label(t.Get("settings-fingerprint-enrol"), "setting-label"),
+		wrapped(k.label(t.Attr("settings-fingerprint-enrol", "description"), "setting-description", css.Caption, css.DimLabel)),
+		s.choices,
+	)
 	s.ring = &enrollRing{ProgressRing: widget.NewProgressRing(0), stages: stages}
 	s.ring.SetAccessibleName(t.Get("settings-fingerprint-progress"))
-	s.ring.SetVisible(false)
-	s.hint = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	s.cancel = k.button(k.label(t.Get("settings-fingerprint-cancel")), func() { s.finish(fail) }, css.Secondary)
-	s.cancel.SetVisible(false)
-	s.Append(s.ring, false)
-	s.Append(s.hint, false)
-	s.Append(s.cancel, false)
-	deleteAll := k.button(k.label(t.Get("settings-fingerprint-delete-all")), func() {
-		s.call(fail, func(ctx context.Context) error {
-			if err := fp.device.call(ctx, "Claim", fp.user); err != nil {
-				return err
-			}
-			err := fp.device.call(ctx, "DeleteEnrolledFingers2")
-			return errors.Join(err, fp.device.call(ctx, "Release"))
-		})
-	}, css.Small, css.Destructive)
-	s.Append(deleteAll, false)
-	s.Append(wrapped(k.label(t.Get("settings-fingerprint-pam"), "setting-description", css.Caption, css.DimLabel)), false)
-	s.showFingers(fail)
+	s.hint = wrapped(k.label("", "setting-description"))
+	s.cancel = k.button(k.label(t.Get("settings-fingerprint-cancel")), s.finish, css.Small, css.Secondary)
+	s.progress = gapBox(widget.Row)
+	s.progress.SetElement("item")
+	s.progress.AppendAligned(s.ring, false, widget.AlignCenter)
+	s.progress.AppendAligned(s.hint, true, widget.AlignCenter)
+	s.progress.AppendAligned(s.cancel, false, widget.AlignCenter)
+	s.deleteAll = itemRow(k.button(k.label(t.Get("settings-fingerprint-delete-all")), s.confirmDeleteAll, css.Small, css.Destructive))
+	s.note = insetRow(wrapped(k.label(t.Get("settings-fingerprint-lock"), "setting-description", css.Caption, css.DimLabel)))
+	s.show()
 	return s
 }
 
-func (s *fingerprintSection) showFingers(fail func(error)) {
-	t := locale.T()
-	s.fingers.Clear()
+func itemColumn(children ...widget.Widget) *widget.Box {
+	col := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
+	col.SetElement("item")
+	for _, c := range children {
+		col.Append(c, false)
+	}
+	return col
+}
+
+func itemRow(w widget.Widget) *widget.Box {
+	row := gapBox(widget.Row)
+	row.SetElement("item")
+	row.Append(w, false)
+	return row
+}
+
+func fingerName(finger string) string {
+	return locale.T().Get("settings-fingerprint-" + finger)
+}
+
+func (s *fingerprintSection) show() {
+	s.Clear()
+	s.choices.Clear()
 	for _, f := range fingers {
-		b := widget.NewToggleButton(s.k.label(t.Get("settings-fingerprint-"+f)), widget.Current().Padding/2, 0)
-		b.SetAccessibleName(t.Get("settings-fingerprint-" + f))
-		b.SetActive(slices.Contains(s.enrolled, f))
-		b.AddClass("fingerprint-finger")
-		syncing := false
-		b.OnToggled = func(bool) {
-			if syncing {
-				return
-			}
-			syncing = true
-			b.SetActive(slices.Contains(s.enrolled, f))
-			syncing = false
-			switch {
-			case s.busy:
-			case slices.Contains(s.enrolled, f):
-				s.deleteFinger(f, fail)
-			default:
-				s.enroll(f, fail)
-			}
+		if !slices.Contains(s.enrolled, f) {
+			s.choices.Append(s.k.button(s.k.label(fingerName(f)), func() { s.enroll(f) }, css.Small, css.Outline, "fingerprint-finger"))
+			continue
 		}
-		s.fingers.Append(b)
+		s.Append(s.enrolledRow(f))
+	}
+	if len(s.enrolled) == 0 {
+		s.Append(s.k.emptyRow("ld-lock-open-symbolic", locale.T().Get("settings-fingerprint-none")))
+	}
+	s.enrol.SetVisible(!s.busy && len(s.enrolled) < len(fingers))
+	s.ring.SetVisible(s.busy)
+	s.cancel.SetVisible(s.busy)
+	s.progress.SetVisible(s.hint.Text() != "")
+	s.deleteAll.SetVisible(!s.busy && len(s.enrolled) > 0)
+	for _, w := range []widget.Widget{s.enrol, s.progress, s.deleteAll, s.note} {
+		s.Append(w)
 	}
 }
 
-func (s *fingerprintSection) call(fail func(error), fn func(context.Context) error) {
+func (s *fingerprintSection) enrolledRow(finger string) *widget.Item {
+	name := fingerName(finger)
+	row := widget.NewItem(s.k.face, name, "")
+	row.AddClass(css.Small, "fingerprint-enrolled")
+	label := deleteLabel(finger)
+	del := s.k.button(s.k.icon("ld-trash-2-symbolic"), func() { s.deleteFinger(finger) }, css.Icon, css.Ghost)
+	del.SetTooltip(label)
+	del.SetAccessibleName(label)
+	del.SetEnabled(!s.busy)
+	row.AddAction(del)
+	return row
+}
+
+func deleteLabel(finger string) string {
+	return locale.T().Get("settings-fingerprint-delete", i18n.Str("finger", fingerName(finger)))
+}
+
+func (s *fingerprintSection) say(text string) {
+	s.hint.SetText(text)
+	s.show()
+}
+
+func (s *fingerprintSection) call(fn func(context.Context) error) {
 	async(s.k, func() error {
 		_, err := withTimeout(func(ctx context.Context) (struct{}, error) { return struct{}{}, fn(ctx) })
 		return err
 	}, func(err error) {
-		fail(permissionMessage(err))
-		s.reload(fail)
+		s.fail(permissionMessage(err))
+		s.reload()
 	})
 }
 
@@ -236,18 +273,18 @@ func permissionMessage(err error) error {
 	return err
 }
 
-func (s *fingerprintSection) reload(fail func(error)) {
+func (s *fingerprintSection) reload() {
 	fp := s.fp
 	async(s.k, func() fingersListing {
 		v, err := withTimeout(fp.enrolled)
 		return fingersListing{v, err}
 	}, func(l fingersListing) {
 		if l.err != nil {
-			fail(l.err)
+			s.fail(l.err)
 			return
 		}
 		s.enrolled = l.names
-		s.showFingers(fail)
+		s.show()
 	})
 }
 
@@ -256,23 +293,23 @@ type fingersListing struct {
 	err   error
 }
 
-func (s *fingerprintSection) enroll(finger string, fail func(error)) {
-	t := locale.T()
+func (s *fingerprintSection) enroll(finger string) {
+	if s.busy {
+		return
+	}
 	watch, err := s.fp.watch(func(result string, done bool) {
-		s.k.invoke(func() { s.status(result, done, fail) })
+		s.k.invoke(func() { s.status(result, done) })
 	}, func(err error) {
-		s.k.invoke(func() { fail(err) })
+		s.k.invoke(func() { s.fail(err) })
 	})
 	if err != nil {
-		fail(err)
+		s.fail(err)
 		return
 	}
 	s.watch, s.busy = watch, true
 	s.ring.passed, s.ring.updates = 0, 0
 	s.ring.SetValue(0)
-	s.ring.SetVisible(true)
-	s.cancel.SetVisible(true)
-	s.hint.SetText(t.Get("settings-fingerprint-place"))
+	s.say(locale.T().Get("settings-fingerprint-place"))
 	fp := s.fp
 	async(s.k, func() error {
 		_, err := withTimeout(func(ctx context.Context) (struct{}, error) {
@@ -287,12 +324,13 @@ func (s *fingerprintSection) enroll(finger string, fail func(error)) {
 		return err
 	}, func(err error) {
 		if err != nil {
-			fail(errors.Join(permissionMessage(err), s.unwatch()))
+			s.fail(errors.Join(permissionMessage(err), s.unwatch()))
+			s.say("")
 		}
 	})
 }
 
-func (s *fingerprintSection) status(result string, done bool, fail func(error)) {
+func (s *fingerprintSection) status(result string, done bool) {
 	if !s.busy {
 		return
 	}
@@ -300,15 +338,16 @@ func (s *fingerprintSection) status(result string, done bool, fail func(error)) 
 	switch result {
 	case statusStage:
 		s.ring.set(s.ring.passed + 1)
-		s.hint.SetText(t.Get("settings-fingerprint-place"))
 	case statusCompleted:
-		s.ring.set(s.stages)
+		s.ring.set(s.ring.stages)
 	}
+	hint := t.Get("settings-fingerprint-place")
 	if key := "settings-fingerprint-" + strings.TrimPrefix(result, "enroll-"); t.Has(key) {
-		s.hint.SetText(t.Get(key))
+		hint = t.Get(key)
 	}
+	s.hint.SetText(hint)
 	if done || endsEnrolment(result) {
-		s.finish(fail)
+		s.finish()
 	}
 }
 
@@ -319,47 +358,71 @@ func (s *fingerprintSection) unwatch() error {
 		s.watch = nil
 	}
 	s.busy = false
-	s.cancel.SetVisible(false)
 	return err
 }
 
-func (s *fingerprintSection) finish(fail func(error)) {
+func (s *fingerprintSection) finish() {
 	if !s.busy {
 		return
 	}
 	if err := s.unwatch(); err != nil {
-		fail(err)
+		s.fail(err)
 	}
+	s.show()
 	fp := s.fp
-	s.call(fail, func(ctx context.Context) error {
+	s.call(func(ctx context.Context) error {
 		return errors.Join(fp.device.call(ctx, "EnrollStop"), fp.device.call(ctx, "Release"))
 	})
 }
 
 func (s *fingerprintSection) close() {
-	if s.busy {
-		unwatched := s.unwatch()
-		fp := s.fp
-		_, err := withTimeout(func(ctx context.Context) (struct{}, error) {
-			return struct{}{}, errors.Join(fp.device.call(ctx, "EnrollStop"), fp.device.call(ctx, "Release"))
-		})
-		if err := errors.Join(unwatched, err); err != nil {
-			log.Printf("settings: end the fingerprint enrolment: %v", err)
-		}
+	if !s.busy {
+		return
+	}
+	unwatched := s.unwatch()
+	fp := s.fp
+	_, err := withTimeout(func(ctx context.Context) (struct{}, error) {
+		return struct{}{}, errors.Join(fp.device.call(ctx, "EnrollStop"), fp.device.call(ctx, "Release"))
+	})
+	if err := errors.Join(unwatched, err); err != nil {
+		log.Printf("settings: end the fingerprint enrolment: %v", err)
 	}
 }
 
-func (s *fingerprintSection) deleteFinger(finger string, fail func(error)) {
+func (s *fingerprintSection) confirmDeleteAll() {
+	if s.k.pickers == nil {
+		s.fail(errors.New("settings: delete every fingerprint: no window to ask in"))
+		return
+	}
+	s.k.pickers.dialog(confirmDialog(s.k, "settings-fingerprint-delete-all", s.deleteAllFingers))
+}
+
+func (s *fingerprintSection) deleteAllFingers() {
+	if s.busy {
+		return
+	}
+	s.say("")
 	fp := s.fp
-	s.call(fail, func(ctx context.Context) error {
+	s.call(func(ctx context.Context) error {
+		if err := fp.device.call(ctx, "Claim", fp.user); err != nil {
+			return err
+		}
+		err := fp.device.call(ctx, "DeleteEnrolledFingers2")
+		return errors.Join(err, fp.device.call(ctx, "Release"))
+	})
+}
+
+func (s *fingerprintSection) deleteFinger(finger string) {
+	if s.busy {
+		return
+	}
+	s.say("")
+	fp := s.fp
+	s.call(func(ctx context.Context) error {
 		if err := fp.device.call(ctx, "Claim", fp.user); err != nil {
 			return err
 		}
 		err := fp.device.call(ctx, "DeleteEnrolledFinger", finger)
-		var derr dbus.Error
-		if errors.As(err, &derr) && derr.Name == "org.freedesktop.DBus.Error.UnknownMethod" {
-			err = fp.device.call(ctx, "DeleteEnrolledFingers2")
-		}
 		return errors.Join(err, fp.device.call(ctx, "Release"))
 	})
 }

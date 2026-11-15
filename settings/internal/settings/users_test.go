@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -196,7 +197,7 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 	bus := dbustest.Start(t)
 	serveAccounts(t, bus, self, others...)
 	enrolled := []string{"right-index-finger", "left-index-finger"}
-	serveFprint(t, bus, true, &enrolled)
+	serveFprint(t, bus, true, &enrolled, new(atomic.Bool))
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	k, _ := systemKit(t, bus)
 	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
@@ -204,8 +205,11 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 	if got := len(treetest.All[*widget.Dropdown](w.page)); got != 1+len(others) {
 		t.Fatalf("the users page lists %d accounts, want %d", got, 1+len(others))
 	}
-	if got := len(treetest.All[*widget.ToggleButton](w.page)); got != len(fingers) {
-		t.Fatalf("the users page offers %d fingers, want %d", got, len(fingers))
+	if got := len(treetest.WithClass(w.page, "fingerprint-finger")); got != len(fingers)-len(enrolled) {
+		t.Fatalf("the users page offers %d fingers, want %d", got, len(fingers)-len(enrolled))
+	}
+	if got := len(treetest.WithClass(w.page, "fingerprint-enrolled")); got != len(enrolled) {
+		t.Fatalf("the users page lists %d enrolled fingers, want %d", got, len(enrolled))
 	}
 	assertPageFits(t, w)
 }
