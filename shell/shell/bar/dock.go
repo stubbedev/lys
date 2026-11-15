@@ -22,6 +22,10 @@ import (
 // window of its app is minimized.
 const dockMinimizedAlpha = 0.35
 
+// dockPathPinned is the config path of the pinned apps the dock's menu
+// writes.
+const dockPathPinned = "dock.pinned"
+
 // dockApp is one dock entry: a pinned app, or an app with windows open
 // on the dock's output, with those windows in the order they appeared.
 type dockApp struct {
@@ -54,12 +58,44 @@ func dockApps(pinned []string, windows []taskWindow, output string) []dockApp {
 	return apps
 }
 
+// dockPin is pinned with appID after the others, unless it is there
+// already, as the config value the dock writes.
+func dockPin(pinned []string, appID string) []any {
+	out := make([]any, 0, len(pinned)+1)
+	for _, id := range pinned {
+		out = append(out, id)
+	}
+	if !slices.Contains(pinned, appID) {
+		out = append(out, appID)
+	}
+	return out
+}
+
+// dockUnpin is pinned without appID, as the config value the dock
+// writes.
+func dockUnpin(pinned []string, appID string) []any {
+	out := make([]any, 0, len(pinned))
+	for _, id := range pinned {
+		if id != appID {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 // running reports whether the app has a window open.
 func (a dockApp) running() bool { return len(a.windows) > 0 }
 
 // minimized reports whether every window of the app is minimized.
 func (a dockApp) minimized() bool {
 	return a.running() && !slices.ContainsFunc(a.windows, func(w taskWindow) bool { return !w.Minimized() })
+}
+
+// close closes each of the app's windows.
+func (a dockApp) close() {
+	for _, w := range a.windows {
+		w.Close()
+	}
 }
 
 // target is the window a click on the app brings up: after the focused
@@ -124,7 +160,8 @@ func overlap(a, b wmipc.Rect) bool {
 //	└ drawingarea.dock-reveal (the strip a hidden dock keeps)
 //
 // A pinned app launches on click; an open app's click brings up its next
-// window, restoring a minimized one, and a right click lists its windows.
+// window, restoring a minimized one, a middle click closes its windows,
+// and a right click lists its windows beside pinning and closing it.
 // Every window names its app's entry as its minimize rectangle, over the
 // bar module's.
 type dock struct {
@@ -284,10 +321,14 @@ func (d *dock) newEntry() *dockEntry {
 	e.AddClass("dock-item")
 	e.OnClick = func() { d.activate(e.app) }
 	e.SetOnPointer(func(ev widget.PointerEvent) bool {
-		if ev.Button != widget.BTNRight {
+		switch {
+		case ev.Button == widget.BTNRight:
+			openTaskMenu(d.ctx, d.host, e, d.menuItems(e.app))
+		case ev.Button == widget.BTNMiddle && e.app.running():
+			e.app.close()
+		default:
 			return false
 		}
-		d.menu(e)
 		return true
 	})
 	e.SetOnHoverWithin(func(on bool) {
@@ -324,16 +365,25 @@ func (d *dock) activate(a dockApp) {
 	d.launch(app)
 }
 
-// menu lists the app's windows, and offers to open another.
-func (d *dock) menu(e *dockEntry) {
-	items := make([]widget.MenuItem, 0, len(e.app.windows)+1)
-	for _, w := range e.app.windows {
+// menuItems lists the app's windows, offers to open another, to pin or
+// unpin the app, and to close its windows.
+func (d *dock) menuItems(a dockApp) []widget.MenuItem {
+	items := make([]widget.MenuItem, 0, len(a.windows)+3)
+	for _, w := range a.windows {
 		items = append(items, menuItem(d.hub.windowTooltip(w), w.Activate))
 	}
-	if app, ok := d.hub.apps.get(e.app.appID); ok && app.found {
+	if app, ok := d.hub.apps.get(a.appID); ok && app.found {
 		items = append(items, menuItem(i18n.T("bar-task-launch"), func() { d.launch(app) }))
 	}
-	openTaskMenu(d.ctx, d.host, e, items)
+	if a.pinned {
+		items = append(items, menuItem(i18n.T("dock-unpin"), func() { d.ctx.setConfig(dockPathPinned, dockUnpin(d.cfg.Pinned, a.appID)) }))
+	} else {
+		items = append(items, menuItem(i18n.T("dock-pin"), func() { d.ctx.setConfig(dockPathPinned, dockPin(d.cfg.Pinned, a.appID)) }))
+	}
+	if a.running() {
+		items = append(items, menuItem(i18n.T("bar-task-close"), a.close))
+	}
+	return items
 }
 
 // launchApp starts an app from its desktop entry off the loop.

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -398,5 +399,100 @@ func TestAZoomingDockKeepsHeadroomAndTakesInputOnItsPanel(t *testing.T) {
 	}
 	if w := widget.SizeWithin(r.d.reveal, widget.Size{W: 1000, H: 200}).W; w != rest.W {
 		t.Fatalf("the strip is %d wide, want the panel's %d", w, rest.W)
+	}
+}
+
+// menuLabel finds the menu row labeled label, nil for none.
+func menuLabel(items []widget.MenuItem, label string) *widget.MenuItem {
+	i := slices.IndexFunc(items, func(it widget.MenuItem) bool { return it.Label == label })
+	if i < 0 {
+		return nil
+	}
+	return &items[i]
+}
+
+// An unpinned app's menu offers Pin, never Unpin, and pins it once after
+// the others; a pinned one offers Unpin, never Pin, and drops it. The
+// value written is one the config service takes for dock.pinned.
+func TestTheDockMenuPinsAndUnpins(t *testing.T) {
+	cfg := config.DefaultsDock()
+	cfg.Pinned = []string{"firefox", "org.gnome.Nautilus"}
+	foot := &fakeWindow{appID: "foot", outputs: []string{"DP-1"}}
+	r := newDockRig(t, cfg, foot)
+	writes := map[string]any{}
+	r.d.ctx.SetConfig = func(path string, value any) { writes[path] = value }
+	pin, unpin := i18n.T("dock-pin"), i18n.T("dock-unpin")
+
+	items := r.d.menuItems(r.d.entries["foot"].app)
+	if menuLabel(items, unpin) != nil || menuLabel(items, pin) == nil {
+		t.Fatalf("an unpinned app's menu %v, want Pin and no Unpin", items)
+	}
+	menuLabel(items, pin).OnClick()
+	if got, want := writes[dockPathPinned], []any{"firefox", "org.gnome.Nautilus", "foot"}; !slices.Equal(got.([]any), want) {
+		t.Errorf("Pin wrote %v, want %v", got, want)
+	}
+	if got, want := dockPin([]string{"firefox", "foot"}, "foot"), []any{"firefox", "foot"}; !slices.Equal(got, want) {
+		t.Errorf("pinning a pinned app = %v, want it there once: %v", got, want)
+	}
+
+	items = r.d.menuItems(r.d.entries["firefox"].app)
+	if menuLabel(items, pin) != nil || menuLabel(items, unpin) == nil {
+		t.Fatalf("a pinned app's menu %v, want Unpin and no Pin", items)
+	}
+	menuLabel(items, unpin).OnClick()
+	if got, want := writes[dockPathPinned], []any{"org.gnome.Nautilus"}; !slices.Equal(got.([]any), want) {
+		t.Errorf("Unpin wrote %v, want %v", got, want)
+	}
+
+	svc := config.Load(t.TempDir(), nil)
+	if err := svc.SetByPath(dockPathPinned, dockPin(cfg.Pinned, "foot")); err != nil {
+		t.Fatalf("the config service rejects the pinned apps the dock writes: %v", err)
+	}
+	if got := svc.Config().Dock.Pinned; !slices.Equal(got, []string{"firefox", "org.gnome.Nautilus", "foot"}) {
+		t.Errorf("dock.pinned reads %v after the write", got)
+	}
+}
+
+// Close, in the menu and on a middle click, closes the app's windows on
+// the dock's output and nothing else; an app with no window offers no
+// Close, and a middle click on it closes nothing.
+func TestTheDockClosesAnAppsWindows(t *testing.T) {
+	cfg := config.DefaultsDock()
+	cfg.Pinned = []string{"firefox"}
+	a := &fakeWindow{appID: "foot", outputs: []string{"DP-1"}}
+	b := &fakeWindow{appID: "foot", outputs: []string{"DP-1"}}
+	away := &fakeWindow{appID: "foot", outputs: []string{"HDMI-A-1"}}
+	other := &fakeWindow{appID: "mpv", outputs: []string{"DP-1"}}
+	r := newDockRig(t, cfg, a, b, away, other)
+	closeLabel := i18n.T("bar-task-close")
+	if menuLabel(r.d.menuItems(r.d.entries["firefox"].app), closeLabel) != nil {
+		t.Error("an app with no window offers Close")
+	}
+	closeItem := menuLabel(r.d.menuItems(r.d.entries["foot"].app), closeLabel)
+	if closeItem == nil {
+		t.Fatal("an app with windows offers no Close")
+	}
+	closeItem.OnClick()
+	if a.closes != 1 || b.closes != 1 || away.closes != 0 || other.closes != 0 {
+		t.Fatalf("Close: closes a %d b %d away %d other %d, want the app's windows on the dock's output once each", a.closes, b.closes, away.closes, other.closes)
+	}
+
+	r.d.surface.Measure(widget.Column, widget.Unknown)
+	r.d.surface.Arrange(render.Rect{W: 1000, H: 800})
+	pointer := &widget.Router{Root: r.d.surface}
+	middle := func(e *dockEntry) {
+		bounds := e.Bounds()
+		p := widget.Point{X: bounds.X + bounds.W/2, Y: bounds.Y + bounds.H/2}
+		pointer.Move(p)
+		pointer.Press(widget.BTNMiddle, p, 0)
+		pointer.Release(widget.BTNMiddle, p)
+	}
+	middle(r.d.entries["mpv"])
+	if other.closes != 1 || a.closes != 1 || b.closes != 1 {
+		t.Fatalf("middle click on mpv: closes mpv %d foot %d/%d, want mpv's alone", other.closes, a.closes, b.closes)
+	}
+	middle(r.d.entries["firefox"])
+	if len(r.launched) != 0 || other.closes != 1 || a.closes != 1 {
+		t.Errorf("middle click on an app with no window: launched %v, closes %d/%d; want nothing", r.launched, other.closes, a.closes)
 	}
 }
