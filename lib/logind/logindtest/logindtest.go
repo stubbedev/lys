@@ -324,6 +324,26 @@ func (l *Logind) SetLidClosed(closed bool) {
 	l.lidClosed = closed
 }
 
+// SwitchLid sets the lid state and announces it with PropertiesChanged,
+// as logind does when the lid switch moves.
+func (l *Logind) SwitchLid(t testing.TB, closed bool) bool {
+	t.Helper()
+	l.SetLidClosed(closed)
+	return l.AnnounceManagerProperty(t, "LidClosed", closed)
+}
+
+// AnnounceManagerProperty has logind announce, with PropertiesChanged,
+// that property name of the manager changed to v, whatever v is and
+// without changing the manager.
+func (l *Logind) AnnounceManagerProperty(t testing.TB, name string, v any) bool {
+	t.Helper()
+	return sent(t, dbusx.PropertiesChanged.Emit(l.conn, logind.ManagerPath, dbusx.ChangedProperties{
+		Interface:   logind.ManagerInterface,
+		Changed:     map[string]dbus.Variant{name: dbus.MakeVariant(v)},
+		Invalidated: []string{},
+	}))
+}
+
 func (l *Logind) lidClosedNow() any {
 	l.mu.Lock()
 	defer l.mu.Unlock()

@@ -509,3 +509,58 @@ func TestLidClosedReadsTheManagersLidState(t *testing.T) {
 		}
 	}
 }
+
+func TestFollowLidReadsTheLidThenEveryChangeInOrder(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	fake.SetLidClosed(true)
+	changes := make(chan bool, 4)
+	closed, w, err := m.FollowLid(t.Context(), func(err error) { t.Errorf("failed: %v", err) }, func(c bool) { changes <- c })
+	if err != nil || !closed {
+		t.Fatalf("FollowLid = %v, %v; want closed", closed, err)
+	}
+	t.Cleanup(func() {
+		if err := w.Stop(); err != nil {
+			t.Errorf("Stop: %v", err)
+		}
+	})
+	for _, want := range []bool{false, true, false} {
+		fake.SwitchLid(t, want)
+		select {
+		case got := <-changes:
+			if got != want {
+				t.Fatalf("change %v, want %v", got, want)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("no change to %v", want)
+		}
+	}
+}
+
+func TestFollowLidReportsALidStateThatIsNoBoolean(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	failures := make(chan error, 1)
+	_, w, err := m.FollowLid(t.Context(), func(err error) { failures <- err }, func(c bool) { t.Errorf("a lid state %v from a string", c) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Stop() })
+	fake.AnnounceManagerProperty(t, "Docked", true)
+	fake.AnnounceManagerProperty(t, "LidClosed", "yes")
+	select {
+	case err := <-failures:
+		if !strings.Contains(err.Error(), "LidClosed") {
+			t.Fatalf("failure %q does not name LidClosed", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no failure for a LidClosed that is a string")
+	}
+}
+
+func TestFollowLidOnAZeroManagerFails(t *testing.T) {
+	t.Parallel()
+	if _, _, err := (logind.Manager{}).FollowLid(t.Context(), func(error) {}, func(bool) {}); err == nil {
+		t.Fatal("FollowLid on a zero Manager succeeded")
+	}
+}

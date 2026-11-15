@@ -147,11 +147,11 @@ func changedBool(path dbus.ObjectPath, name string, v dbus.Variant) (bool, error
 // because its connection closed.
 var ErrDisconnected = dbusx.ErrDisconnected
 
-// Watch follows one session's signals until its context ends, it is
-// stopped, or its connection closes.
+// Watch follows one logind object's signals until its context ends, it
+// is stopped, or its connection closes.
 type Watch struct {
 	signals *dbusx.Watch
-	session dbus.ObjectPath
+	object  dbus.ObjectPath
 }
 
 // Watch runs handle, on the watch's goroutine and in arrival order, for
@@ -181,7 +181,41 @@ func (s Session) watch(ctx context.Context, failed func(error), routes []dbusx.R
 	if err != nil {
 		return nil, fmt.Errorf("logind: watch session %s: %w", s.obj.path, err)
 	}
-	return &Watch{signals: signals, session: s.obj.path}, nil
+	return &Watch{signals: signals, object: s.obj.path}, nil
+}
+
+// FollowLid reads whether the lid is closed and then runs onChange, on
+// the watch's goroutine and in arrival order, with every LidClosed logind
+// announces. The read follows setting the watch up, so no change falls
+// between the two. failed gets an announcement that could not be decoded
+// and the watch's own failure.
+func (m Manager) FollowLid(ctx context.Context, failed func(error), onChange func(closed bool)) (closed bool, w *Watch, err error) {
+	if m.obj.conn == nil {
+		return false, nil, fmt.Errorf("logind: follow the lid: %w", errZeroHandle)
+	}
+	signals, err := dbusx.WatchSignals(ctx, m.obj.conn, dbusx.FromOwner(BusName),
+		func(err error) { failed(fmt.Errorf("logind: %w", err)) },
+		dbusx.On(dbusx.PropertiesChanged, ManagerPath, func(c dbusx.ChangedProperties, _ dbus.Sequence) error {
+			v, ok := c.Changed["LidClosed"]
+			if !ok {
+				return nil
+			}
+			closed, err := changedBool(ManagerPath, "LidClosed", v)
+			if err != nil {
+				return err
+			}
+			onChange(closed)
+			return nil
+		}).WithArg0(ManagerInterface))
+	if err != nil {
+		return false, nil, fmt.Errorf("logind: follow the lid: %w", err)
+	}
+	w = &Watch{signals: signals, object: ManagerPath}
+	closed, err = m.LidClosed(ctx)
+	if err != nil {
+		return false, nil, errors.Join(fmt.Errorf("logind: follow the lid: %w", err), w.Stop())
+	}
+	return closed, w, nil
 }
 
 // Done is closed once the watch has ended and removed what it held.
@@ -194,7 +228,7 @@ func (w *Watch) Done() <-chan struct{} { return w.signals.Done() }
 // watch's handler.
 func (w *Watch) Stop() error {
 	if err := w.signals.Stop(); err != nil {
-		return fmt.Errorf("logind: session %s: %w", w.session, err)
+		return fmt.Errorf("logind: %s: %w", w.object, err)
 	}
 	return nil
 }
