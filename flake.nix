@@ -64,6 +64,10 @@
         ./polkit/nix/shell.nix
         ./polkit/nix/modules.nix
         (checks "polkit" ./polkit/nix/checks.nix)
+        ./power/nix/package.nix
+        ./power/nix/shell.nix
+        ./power/nix/modules.nix
+        (checks "power" ./power/nix/checks.nix)
         ./secrets/nix/package.nix
         ./secrets/nix/shell.nix
         ./secrets/nix/modules.nix

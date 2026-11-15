@@ -1,0 +1,92 @@
+# lys-power dev tasks.
+
+# List all recipes with their descriptions.
+default:
+    @just --list
+
+# Run every release gate in order: vet, lint, test, race, build.
+check: vet lint test race build
+
+# Static analysis of every package with go vet.
+vet:
+    go vet ./...
+
+# Lint without changing anything: formatting and golangci-lint
+# (settings in .golangci.yml).
+lint:
+    golangci-lint fmt --diff
+    golangci-lint run
+
+# Run the test suite in a random order, so a test that leans on state an
+# earlier one left behind fails instead of passing by declaration order.
+test *args:
+    go test ${LYS_TEST_ARGS--shuffle=on} ./... {{args}}
+
+# Run the test suite under the race detector, which needs cgo.
+race:
+    CGO_ENABLED=1 go test -race ${LYS_TEST_ARGS--shuffle=on} ./...
+
+# Compile-check every package; the output is discarded.
+build:
+    go build -o /dev/null ./...
+
+# Build the release binary into dist/: static and stripped, as the
+# archive and the Debian and RPM packages ship it.
+dist:
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/ ./cmd/lys-power
+
+# Format every Go source in place (gofumpt and gci via golangci-lint).
+fmt:
+    golangci-lint fmt
+
+# Pack the dist/ build into lys-power-<version>-<arch>-linux.tar.gz, the release
+# archive the packages are built from.
+[script("bash")]
+archive version arch=arch() dist="dist":
+    set -euo pipefail
+    staging="lys-power-{{ version }}-{{ arch }}-linux"
+    rm -rf "${staging}"
+    mkdir -p "${staging}"
+    cp "{{ dist }}/lys-power" LICENSE \
+        dist/lys-power.service \
+        dist/lys-power.tmpfiles \
+        "${staging}/"
+    tar czf "${staging}.tar.gz" "${staging}"
+    rm -rf "${staging}"
+
+# Build the archive and the .deb and .rpm from dist/: `just power::package 0.5.0 deb`.
+package version format="": (archive version)
+    just --justfile ../packaging/justfile build power "{{ justfile_directory() }}/lys-power-{{ version }}-{{ arch() }}-linux.tar.gz" "{{ version }}" "{{ format }}"
+
+# Install a .deb or .rpm built by package (as root) and check it runs.
+[script("bash")]
+smoke-test package:
+    set -euo pipefail
+    just --justfile ../packaging/justfile install "$(readlink -f "{{ package }}")"
+    fail() {
+        echo "smoke test: $*" >&2
+        exit 1
+    }
+
+    out="$(lys-power version)"
+    [[ ${out} == "lys-power "* ]] || fail "lys-power version printed ${out@Q}"
+
+    status=0
+    out="$(lys-power unexpected 2>&1)" || status=$?
+    [[ ${status} -eq 2 ]] || fail "lys-power with an unknown command exited ${status}, want its usage error (2)"
+    [[ ${out} == *'unknown command: "unexpected"'* ]] || fail "lys-power with an unknown command printed ${out@Q}"
+
+    state="$(mktemp -d)"
+    trap 'rm -rf "${state}"' EXIT
+    out="$(LYS_POWER_STATE_DIR="${state}" lys-power predict)"
+    [[ ${out} == "no prediction: "* ]] || fail "lys-power predict without history printed ${out@Q}"
+
+    for file in /usr/lib/systemd/system/lys-power.service /usr/lib/tmpfiles.d/lys-power.conf; do
+        [[ -f ${file} ]] || fail "${file} is missing"
+    done
+    grep -qxF "ExecStart=/usr/bin/lys-power run" /usr/lib/systemd/system/lys-power.service ||
+        fail "lys-power.service does not run /usr/bin/lys-power"
+
+    [[ ! -e /etc/systemd/system/graphical.target.wants/lys-power.service ]] || fail "installing enabled lys-power.service"
+
+    echo "smoke test: {{ package }} installs and runs"

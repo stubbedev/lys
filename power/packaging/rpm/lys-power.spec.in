@@ -1,0 +1,55 @@
+%global debug_package %{nil}
+%global _build_id_links none
+
+Name:           lys-power
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Adaptive battery charging and power profile policy for the lys desktop
+License:        MIT AND BSD-2-Clause AND BSD-3-Clause
+URL:            https://github.com/stubbedev/lys/tree/main/power
+Source0:        https://github.com/stubbedev/lys/releases/download/v%{version}/lys-power-%{version}-%{_arch}-linux.tar.gz
+ExclusiveArch:  x86_64 aarch64
+
+BuildRequires:  systemd-rpm-macros
+Requires:       systemd
+Recommends:     upower
+Recommends:     (power-profiles-daemon or tuned-ppd)
+
+%description
+lys-power holds a laptop's battery at 75-80% while it is plugged in and learns when the charger usually comes out, charging to 100% in the two hours before that moment. It also switches the power-profiles-daemon profile on every AC edge: performance on AC, power-saver on battery.
+
+The package enables nothing: start the system service with systemctl enable --now lys-power.
+
+%prep
+%setup -q -n lys-power-%{version}-%{_arch}-linux
+
+%build
+
+%install
+install -d %{buildroot}%{_bindir}
+install -m 0755 lys-power %{buildroot}%{_bindir}/
+
+install -d %{buildroot}%{_unitdir}
+install -m 0644 lys-power.service %{buildroot}%{_unitdir}/
+
+install -D -m 0644 lys-power.tmpfiles %{buildroot}%{_tmpfilesdir}/lys-power.conf
+
+%post
+%systemd_post lys-power.service
+%tmpfiles_create lys-power.conf
+
+%preun
+%systemd_preun lys-power.service
+
+%postun
+%systemd_postun lys-power.service
+
+%files
+%license LICENSE
+%{_bindir}/lys-power
+%{_unitdir}/lys-power.service
+%{_tmpfilesdir}/lys-power.conf
+
+%changelog
+* @DATE@ @MAINTAINER@ - @VERSION@-1
+- Packaged upstream binary release

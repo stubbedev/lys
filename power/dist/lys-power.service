@@ -1,0 +1,23 @@
+[Unit]
+Description=lys-power adaptive battery charging and power profile policy
+Documentation=https://github.com/stubbedev/lys/tree/main/power
+After=power-profiles-daemon.service upower.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lys-power run
+StateDirectory=lys-power
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/sys/class/power_supply -/run/battery-charge
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=graphical.target

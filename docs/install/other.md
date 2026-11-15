@@ -13,6 +13,7 @@ load at run time, is on the app's page:
 | lys-wm | [Tarball](/wm/guide/install#tarball) |
 | lys-login | [Display manager from the archive](/login/install/other#display-manager-from-the-archive) |
 | lys-settings | [Archive](/settings/guide/install#archive) |
+| lys-power | [Other distributions](/power/#other-distributions) |
 | lys-secrets | [Other distributions](/secrets/guide/getting-started#other-distributions) |
 | lys-shell, lys-polkit | [lys-shell](/shell/guide/getting-started#install), [lys-polkit](/polkit/guide/install) |
 
@@ -57,6 +58,7 @@ go install github.com/stubbedev/lys/shell/cmd/lys-shell@latest
 go install github.com/stubbedev/lys/login/cmd/lys-login@latest
 go install github.com/stubbedev/lys/settings/cmd/lys-settings@latest
 go install github.com/stubbedev/lys/polkit/cmd/lys-polkit@latest
+go install github.com/stubbedev/lys/power/cmd/lys-power@latest
 go install github.com/stubbedev/lys/secrets/cmd/lys-secrets@latest
 go install github.com/stubbedev/lys/splash/cmd/lys-splash@latest
 ```

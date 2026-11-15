@@ -1,0 +1,28 @@
+Source: lys-power
+Section: admin
+Priority: optional
+Maintainer: @MAINTAINER@
+Build-Depends:
+ debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/stubbedev/lys/tree/main/power
+Vcs-Git: https://github.com/stubbedev/lys.git
+Vcs-Browser: https://github.com/stubbedev/lys/tree/main/power
+
+Package: lys-power
+Architecture: amd64 arm64
+Depends:
+ ${misc:Depends},
+ systemd
+Recommends:
+ upower,
+ power-profiles-daemon
+Description: adaptive battery charging and power profile policy for the lys desktop
+ lys-power holds a laptop's battery at 75-80% while it is plugged in and
+ learns when the charger usually comes out, charging to 100% in the two
+ hours before that moment. It also switches the power-profiles-daemon
+ profile on every AC edge: performance on AC, power-saver on battery.
+ .
+ The package enables nothing: start the system service with
+ systemctl enable --now lys-power.

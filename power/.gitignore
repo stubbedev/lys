@@ -1,0 +1,8 @@
+/lys-power
+/result
+*.test
+/.direnv
+/dist/lys-power
+/debbuild
+/rpmbuild
+/lys-power-*-linux.tar.gz

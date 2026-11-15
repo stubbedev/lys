@@ -9,7 +9,7 @@ resolves their dependencies together:
 ```sh
 sudo dnf install ./lys-wm-<version>-*.x86_64.rpm ./lys-shell-<version>-*.x86_64.rpm \
   ./lys-login-<version>-*.x86_64.rpm ./lys-settings-<version>-*.x86_64.rpm \
-  ./lys-secrets-<version>-*.x86_64.rpm
+  ./lys-power-<version>-*.x86_64.rpm ./lys-secrets-<version>-*.x86_64.rpm
 ```
 
 lys-polkit has no `.deb` or `.rpm`: install it with
@@ -50,6 +50,15 @@ login:
     pam-service: lys-shell
 ```
 
+## Battery charging
+
+On a laptop, enable lys-power's system service, after disabling TLP or any
+other tool that sets the battery's charge thresholds:
+
+```sh
+sudo systemctl enable --now lys-power
+```
+
 ## Boot splash
 
 lys-splash ships a NixOS module and an initramfs-tools hook, but no dracut
@@ -62,4 +71,5 @@ talks to. The app pages list them:
 [lys-wm](/wm/guide/install#fedora),
 [lys-shell](/shell/guide/getting-started#runtime-dependencies),
 [lys-login](/login/install/packages),
+[lys-power](/power/#other-distributions),
 [lys-secrets](/secrets/guide/getting-started#debian-ubuntu-fedora).

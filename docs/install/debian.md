@@ -8,7 +8,7 @@ one command, so apt resolves their dependencies together:
 ```sh
 sudo apt install ./lys-wm_<version>_amd64.deb ./lys-shell_<version>_amd64.deb \
   ./lys-login_<version>_amd64.deb ./lys-settings_<version>_amd64.deb \
-  ./lys-secrets_<version>_amd64.deb
+  ./lys-power_<version>_amd64.deb ./lys-secrets_<version>_amd64.deb
 ```
 
 lys-polkit has no `.deb` or `.rpm`: install it with
@@ -47,6 +47,15 @@ login:
     pam-service: lys-shell
 ```
 
+## Battery charging
+
+On a laptop, enable lys-power's system service, after disabling TLP or any
+other tool that sets the battery's charge thresholds:
+
+```sh
+sudo systemctl enable --now lys-power
+```
+
 ## Boot splash
 
 lys-splash is installed from its Nix build on Debian and Ubuntu, since it
@@ -60,4 +69,5 @@ talks to. The app pages list them:
 [lys-wm](/wm/guide/install#debian-and-ubuntu),
 [lys-shell](/shell/guide/getting-started#runtime-dependencies),
 [lys-login](/login/install/packages),
+[lys-power](/power/#other-distributions),
 [lys-secrets](/secrets/guide/getting-started#debian-ubuntu-fedora).

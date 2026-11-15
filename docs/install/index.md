@@ -10,6 +10,7 @@ whole desktop, or only the ones you want next to another desktop.
 | [lys-login](/login/) | Display manager, greeter and lock screen | lys-wm; lys-shell locks through it |
 | [lys-settings](/settings/) | The settings window | lys-shell or lys-wm |
 | [lys-polkit](/polkit/) | Polkit authentication agent | lys-shell's dialogs |
+| [lys-power](/power/) | Adaptive battery charging and power profile switching | power-profiles-daemon and UPower, optional |
 | [lys-secrets](/secrets/) | Secret Service, unlocked at login | lys-shell's dialogs for prompts |
 | [lys-splash](/splash/) | Boot splash | a systemd initrd or initramfs-tools |
 

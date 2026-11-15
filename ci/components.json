@@ -201,6 +201,17 @@
       }
     ]
   },
+  "power": {
+    "depends": ["packaging"],
+    "package": true,
+    "jobs": [
+      {
+        "name": "check",
+        "runners": ["x86_64", "aarch64"],
+        "run": "just in power check && just packages lys-power && just checks power-nixos-module"
+      }
+    ]
+  },
   "secrets": {
     "package": true,
     "jobs": [

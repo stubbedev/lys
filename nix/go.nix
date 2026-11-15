@@ -1,5 +1,5 @@
 {lib, ...}: let
-  components = ["lib" "ui" "desktop" "wm" "shell" "login" "settings" "polkit" "secrets" "splash"];
+  components = ["lib" "ui" "desktop" "wm" "shell" "login" "settings" "polkit" "power" "secrets" "splash"];
   docsReadByTests = map (path: ../. + "/${path}") (
     lib.filter (lib.hasPrefix "docs/") (
       lib.concatMap (c: c.paths or []) (lib.attrValues (lib.importJSON ../ci/components.json))

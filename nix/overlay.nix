@@ -6,6 +6,7 @@
       lys-login = null;
       lys-settings = null;
       lys-polkit = null;
+      lys-power = null;
       lys-secrets = null;
       lys-splash = null;
     };

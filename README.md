@@ -22,6 +22,7 @@
 | [`login/`](login) | Display manager, greeter and lock screen | `lys-login` |
 | [`settings/`](settings) | Settings app for lys-shell and lys-wm | `lys-settings` |
 | [`polkit/`](polkit) | Polkit authentication agent | `lys-polkit` |
+| [`power/`](power) | Adaptive battery charging and power profile switching | `lys-power` |
 | [`secrets/`](secrets) | Secret Service and Bitwarden vault | `lys-secrets` |
 | [`splash/`](splash) | Boot splash, in place of Plymouth | `lys-splash` |
 | [`lib/`](lib) | Rendering, Vulkan, Wayland, media, PipeWire, D-Bus and PAM | `github.com/stubbedev/lys/lib/...` |

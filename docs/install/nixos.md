@@ -4,8 +4,8 @@ The repository is one flake, `github:stubbedev/lys`. It provides:
 
 | Output | What it is |
 | --- | --- |
-| `packages.<system>.lys-<app>` | Each app: `lys-shell`, `lys-wm`, `lys-login`, `lys-settings`, `lys-polkit`, `lys-secrets`, `lys-splash` |
-| `nixosModules.lys-<app>` | NixOS modules for lys-shell, lys-wm, lys-login, lys-settings, lys-secrets and lys-splash |
+| `packages.<system>.lys-<app>` | Each app: `lys-shell`, `lys-wm`, `lys-login`, `lys-settings`, `lys-polkit`, `lys-power`, `lys-secrets`, `lys-splash` |
+| `nixosModules.lys-<app>` | NixOS modules for lys-shell, lys-wm, lys-login, lys-settings, lys-power, lys-secrets and lys-splash |
 | `homeModules.lys-<app>` | home-manager modules for lys-shell, lys-wm, lys-login, lys-settings, lys-polkit and lys-secrets |
 | `overlays.default` | Adds every lys package to `pkgs` |
 
@@ -25,6 +25,7 @@ The repository is one flake, `github:stubbedev/lys`. It provides:
         lys.nixosModules.lys-wm
         lys.nixosModules.lys-shell
         lys.nixosModules.lys-login
+        lys.nixosModules.lys-power
         lys.nixosModules.lys-secrets
         lys.nixosModules.lys-splash
         home-manager.nixosModules.home-manager
@@ -36,6 +37,7 @@ The repository is one flake, `github:stubbedev/lys`. It provides:
             greeter.compositorPackage = config.programs.lys-wm.package;
             lock.enable = true;
           };
+          services.lys-power.enable = true;
           services.lys-secrets.enable = true;
           boot.lys-splash.enable = true;
 
@@ -55,6 +57,7 @@ This gives:
 - lys-wm with its session, portal routing and login limits;
 - lys-shell with lys-settings, as the portal backend for every interface;
 - lys-login as `display-manager.service`, and the lock screen's PAM service;
+- lys-power managing the battery's charge limit and the power profile;
 - lys-secrets as the Secret Service, unlocked when you log in;
 - lys-splash in the systemd initrd;
 - lys-polkit as the polkit agent of alice's session.
@@ -68,6 +71,7 @@ Leave out any module you do not want. Each app's page has its options:
 | lys-login | NixOS, home-manager | [NixOS](/login/install/nixos) |
 | lys-settings | NixOS, home-manager | [Install](/settings/guide/install) |
 | lys-polkit | home-manager | [Install](/polkit/guide/install) |
+| lys-power | NixOS | [NixOS](/power/#nixos) |
 | lys-secrets | NixOS, home-manager | [Nix options](/secrets/guide/configuration#nix-options) |
 | lys-splash | NixOS | [Install](/splash/guide/install#nixos) |
 

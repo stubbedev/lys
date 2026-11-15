@@ -11,6 +11,7 @@ mod shell
 mod login
 mod settings
 mod polkit
+mod power
 mod secrets
 mod splash
 mod packaging

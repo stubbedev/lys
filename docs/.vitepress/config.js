@@ -154,6 +154,12 @@ const sections = [
     ],
   },
   {
+    dir: 'power',
+    name: 'lys-power',
+    blurb: 'Battery charging and power profiles',
+    sidebar: [],
+  },
+  {
     dir: 'secrets',
     name: 'lys-secrets',
     blurb: 'Secret Service',
