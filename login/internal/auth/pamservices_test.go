@@ -117,3 +117,18 @@ func TestAStackThatWaitsForAScanIsRefused(t *testing.T) {
 		}
 	}
 }
+
+func TestTheLockScreenStacksHaveNoFingerprint(t *testing.T) {
+	for distro, want := range map[string][]string{
+		"debian": {"pam_unix.so"},
+		"fedora": {"password-auth"},
+	} {
+		modules, err := authModules(packagedService(t, distro, "lys-shell"))
+		if err != nil {
+			t.Fatalf("%s: %v", distro, err)
+		}
+		if !slices.Equal(modules, want) {
+			t.Errorf("%s lys-shell: auth %q, want %q: the lock screen scans itself, so pam_fprintd must not wait in its password stack", distro, modules, want)
+		}
+	}
+}

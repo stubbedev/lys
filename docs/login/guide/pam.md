@@ -104,8 +104,10 @@ closed, the password alone logs in. Under greetd, greetd's own service decides.
 The lock screen authenticates against `login.lock.pam-service`, default
 `system-auth`. That service exists on Arch and Fedora but not on Debian or NixOS.
 
-- **Debian, Ubuntu, Fedora**: the package installs `lys-shell` (over
-  `common-auth`/`common-account`, or `system-auth`). Point the config at it:
+- **Debian, Ubuntu, Fedora**: the package installs `lys-shell`: `pam_unix`
+  over `common-account` on Debian, `password-auth` on Fedora, so pam_fprintd
+  never sits in it and a typed password is checked at once while the lock
+  screen scans for a fingerprint itself. Point the config at it:
 
   ```yaml
   login:
@@ -113,7 +115,8 @@ The lock screen authenticates against `login.lock.pam-service`, default
       pam-service: lys-shell
   ```
 
-  Fedora's default `system-auth` also works.
+  Fedora's `system-auth` carries pam_fprintd when authselect's
+  `with-fingerprint` is on, which makes a typed password wait for the scan.
 - **NixOS**: `programs.lys-login.lock.enable = true` declares the service named
   by `lock.pamService` (default `lys-shell`). Set the same name in the config.
   Its gnome-keyring lines are enabled unless `services.lys-secrets.enable` is set.
