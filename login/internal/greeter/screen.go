@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/memory-go"
 
 	"github.com/stubbedev/lys/login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/fprint"
 	"github.com/stubbedev/lys/login/internal/layouts"
 	loginscreen "github.com/stubbedev/lys/login/internal/screen"
 )
@@ -130,6 +131,10 @@ type screen struct {
 	moduleError string
 	awaiting    bool
 	pending     *string
+	user        string
+	prompted    bool
+	answered    bool
+	reader      *loginscreen.FingerprintReader
 
 	presented bool
 	announced bool
@@ -155,6 +160,7 @@ type userButton struct {
 // font shapes the text and sheet styles the window.
 func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *screen {
 	s := &screen{init: init, d: d}
+	s.reader = loginscreen.NewFingerprintReader(s.showReader)
 	g := init.Config.Login
 	th := widget.Current()
 	textPx := widgets.TextPx(styling.Body, 1)
@@ -198,7 +204,7 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	spec := loginscreen.Spec{
 		Mode: loginscreen.Greeter, Config: g, Font: font, Sheet: sheet, Backdrop: s.bg,
 		Identity: users, Greeter: rows, Password: t("greeter-password"), CapsLock: t("greeter-caps-lock"),
-		Focus: d.focus, OnSubmit: s.submit,
+		Focus: d.focus, OnSubmit: s.submit, Fingerprint: loginscreen.NewFingerprint(s.reader.ChoosePassword),
 	}
 	s.layouts = loginscreen.NewKeyboardLayouts(loginscreen.LayoutDeps{
 		Invoke: d.invoke, Label: d.labelLayouts, Next: d.nextLayout, Mode: "greeter",
@@ -212,6 +218,10 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	s.prompt.Username.SetPlaceholder(t("greeter-username"))
 	s.prompt.Username.SetAccessibleName(t("greeter-username"))
 	s.prompt.Username.SetVisible(s.picked == nil)
+	s.prompt.Username.OnActivate = func(string) {
+		s.d.focus(s.prompt.Entry)
+		s.listenFor(strings.TrimSpace(s.prompt.Username.Text()))
+	}
 	var shown []func(time.Time) string
 	if g.ShowClock {
 		shown = append(shown, g.ClockFormat.Layout().Format, g.DateFormat.Layout().Format)
@@ -233,6 +243,7 @@ func (s *screen) start() {
 		s.prompt.Username.SetText(s.init.LastUser)
 		s.wantLayoutOf(s.init.LastUser)
 		s.d.focus(s.prompt.Entry)
+		s.listenFor(s.init.LastUser)
 		return
 	}
 	s.d.focus(s.prompt.Username)
@@ -321,6 +332,7 @@ func (s *screen) pickUser(picked *userButton) {
 		s.picked = nil
 		s.prompt.Username.SetText("")
 		s.prompt.Username.SetVisible(true)
+		s.listenFor("")
 		s.d.focus(s.prompt.Username)
 		return
 	}
@@ -330,6 +342,7 @@ func (s *screen) pickUser(picked *userButton) {
 	s.prompt.Username.SetVisible(false)
 	s.wantLayoutOf(picked.user.Name)
 	s.d.focus(s.prompt.Entry)
+	s.listenFor(picked.user.Name)
 }
 
 // avatarPicture is the user's image at the size their tile shows it, nil
@@ -385,19 +398,22 @@ func (s *screen) startedSession() auth.Session {
 // submit is Enter in the password entry: answer a prompt on screen, or
 // start a login with the entered username.
 func (s *screen) submit(value string) {
+	username := strings.TrimSpace(s.prompt.Username.Text())
+	if s.auth != nil && s.user != username {
+		s.listenFor("")
+	}
 	if s.awaiting {
-		s.awaiting = false
-		if s.auth != nil {
-			s.auth.Answer(value)
-		}
-		s.prompt.Entry.SetText("")
-		s.prompt.Entry.SetEnabled(false)
+		s.answer(value)
 		return
 	}
 	if s.auth != nil {
+		if !s.answered {
+			s.pending, s.answered = &value, true
+			s.reader.Stop()
+			s.setForm(false)
+		}
 		return
 	}
-	username := strings.TrimSpace(s.prompt.Username.Text())
 	if username == "" {
 		s.prompt.SetMessage(t("greeter-enter-username"))
 		s.d.focus(s.prompt.Username)
@@ -405,10 +421,45 @@ func (s *screen) submit(value string) {
 	}
 	s.prompt.SetMessage("")
 	s.setForm(false)
-	s.startConversation(username, value)
+	s.startConversation(username, &value)
 }
 
-func (s *screen) startConversation(username, password string) {
+func (s *screen) answer(value string) {
+	s.awaiting, s.answered = false, true
+	if s.auth != nil {
+		s.auth.Answer(value)
+	}
+	s.reader.Stop()
+	s.prompt.Entry.SetText("")
+	s.setForm(false)
+}
+
+func (s *screen) listenFor(username string) {
+	if s.auth != nil && s.user == username {
+		return
+	}
+	if s.auth != nil || s.user != username {
+		s.dropAuth()
+		s.reader.Reset()
+	}
+	if username == "" {
+		s.user = ""
+		return
+	}
+	s.startConversation(username, nil)
+}
+
+func (s *screen) dropAuth() {
+	if s.auth != nil {
+		s.auth.Cancel()
+	}
+	s.auth = nil
+	s.authGen++
+	s.awaiting, s.pending, s.prompted, s.answered = false, nil, false, false
+	s.reader.Stop()
+}
+
+func (s *screen) startConversation(username string, password *string) {
 	conv, err := s.d.connect(auth.Start{Session: s.startedSession, Before: s.handOver})
 	if err != nil {
 		log.Printf("greeter: cannot connect to greetd: %v", err)
@@ -416,7 +467,7 @@ func (s *screen) startConversation(username, password string) {
 		s.setForm(true)
 		return
 	}
-	s.pending = &password
+	s.pending, s.user, s.prompted, s.answered = password, username, false, password != nil
 	s.authGen++
 	gen := s.authGen
 	s.auth = s.d.spawn(conv, username, func(ev auth.Event) {
@@ -434,15 +485,14 @@ func (s *screen) onEvent(ev auth.Event) {
 		s.onPrompt(ev.Prompt)
 	case auth.EventSuccess:
 		log.Printf("greeter: authentication succeeded; the session is starting")
+		s.setForm(false)
 		if !s.init.HandOver {
 			s.d.quit()
 		}
 	case auth.EventFailure:
 		log.Printf("greeter: authentication failed: %s", ev.Reason)
-		s.auth = nil
-		s.authGen++
-		s.awaiting = false
-		s.pending = nil
+		refused, again := s.user, s.prompted
+		s.dropAuth()
 		s.prompt.SetMessage(cmp.Or(s.moduleError, loginscreen.RefusalText(ev.Refusal)))
 		s.moduleError = ""
 		s.show()
@@ -451,6 +501,9 @@ func (s *screen) onEvent(ev auth.Event) {
 		s.setForm(true)
 		s.prompt.Entry.SetText("")
 		s.d.focus(s.prompt.Entry)
+		if again {
+			s.startConversation(refused, nil)
+		}
 	}
 }
 
@@ -458,6 +511,10 @@ func (s *screen) onEvent(ev auth.Event) {
 // later ones (OTP, expired password) re-enable the entry and wait for
 // the next submit. Info and error prompts show their text.
 func (s *screen) onPrompt(p auth.Prompt) {
+	if p.Kind == auth.PromptFingerprint {
+		s.onFingerprint(p.Fingerprint)
+		return
+	}
 	if !p.WantsInput() {
 		if p.Kind == auth.PromptError {
 			s.moduleError = p.Text
@@ -465,6 +522,7 @@ func (s *screen) onPrompt(p auth.Prompt) {
 		s.prompt.SetMessage(p.Text)
 		return
 	}
+	s.prompted = true
 	if s.pending != nil {
 		answer := *s.pending
 		s.pending = nil
@@ -474,10 +532,27 @@ func (s *screen) onPrompt(p auth.Prompt) {
 		return
 	}
 	s.awaiting = true
+	if !s.answered {
+		return
+	}
 	s.prompt.SetMessage(p.Text)
 	s.prompt.Entry.SetEnabled(true)
 	s.prompt.Entry.SetText("")
 	s.d.focus(s.prompt.Entry)
+}
+
+func (s *screen) onFingerprint(r fprint.Result) {
+	if s.answered || !s.reader.Follow(r) {
+		return
+	}
+	s.prompt.SetMessage(loginscreen.FingerprintMessage(r))
+}
+
+func (s *screen) showReader() {
+	s.prompt.SetFingerprint(s.reader.Shown())
+	if f := s.d.focused(); f == s.prompt.Entry || f == s.prompt.Fingerprint {
+		s.d.focus(s.prompt.FocusTarget())
+	}
 }
 
 // setForm enables or disables the whole login form.

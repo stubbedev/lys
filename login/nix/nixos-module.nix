@@ -142,6 +142,15 @@ self: {
       cfg.greeter.session.command
     ];
 
+  passwordlessStack = ''
+    auth     requisite pam_nologin.so
+    auth     [success=ok default=ignore] ${config.systemd.package}/lib/security/pam_systemd_loadkey.so
+    auth     required  pam_permit.so
+    account  include   lys-login
+    password include   lys-login
+    session  include   lys-login
+  '';
+
   upgradeFailedUnit = "lys-login-upgrade-failed.service";
 
   upgradeScript = pkgs.writeShellScript "lys-login-upgrade" ''
@@ -430,16 +439,13 @@ in {
       # One PAM service for both: the greeter's session (class greeter, no
       # authentication) and each login. startSession adds pam_systemd, which
       # registers both with logind on the seat and VT the daemon hands it.
-      security.pam.services.lys-login.startSession = true;
+      security.pam.services.lys-login = {
+        startSession = true;
+        fprintAuth = false;
+      };
       security.polkit.enable = lib.mkDefault true;
-      security.pam.services.lys-login-autologin.text = ''
-        auth     requisite pam_nologin.so
-        auth     [success=ok default=ignore] ${config.systemd.package}/lib/security/pam_systemd_loadkey.so
-        auth     required  pam_permit.so
-        account  include   lys-login
-        password include   lys-login
-        session  include   lys-login
-      '';
+      security.pam.services.lys-login-autologin.text = passwordlessStack;
+      security.pam.services.lys-login-fingerprint.text = passwordlessStack;
       systemd.tmpfiles.rules = [
         "d ${greeterStateDir} 0700 lys-greeter lys-greeter -"
       ];

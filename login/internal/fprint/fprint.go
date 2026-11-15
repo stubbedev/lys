@@ -36,6 +36,24 @@ const (
 	Stopped
 )
 
+var resultNames = [...]string{Match: "match", NoMatch: "no-match", Retry: "retry", Listening: "listening", Stopped: "stopped"}
+
+func (r Result) MarshalText() ([]byte, error) {
+	if r == 0 || int(r) >= len(resultNames) {
+		return nil, fmt.Errorf("fprint: no name for result %d", r)
+	}
+	return []byte(resultNames[r]), nil
+}
+
+func (r *Result) UnmarshalText(text []byte) error {
+	i := slices.Index(resultNames[:], string(text))
+	if i <= 0 {
+		return fmt.Errorf("fprint: unknown result %q", text)
+	}
+	*r = Result(i)
+	return nil
+}
+
 type verifyStatus struct {
 	Result string `dbus:"result"`
 	Done   bool   `dbus:"done"`

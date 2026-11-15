@@ -3,6 +3,8 @@ package auth
 import (
 	"fmt"
 	"io"
+
+	"github.com/stubbedev/lys/login/internal/fprint"
 )
 
 // GreetdRequest is one request a greeter sends over the greetd
@@ -62,6 +64,13 @@ func WriteGreetdPrompt(w io.Writer, p Prompt) error {
 	return writeGreetdFrame(w, greetdAuthMessage{Type: "auth_message", AuthMessageType: kind, AuthMessage: p.Text})
 }
 
+func WriteGreetdFingerprint(w io.Writer, r fprint.Result) error {
+	if err := checkFingerprintStatus(r); err != nil {
+		return err
+	}
+	return writeGreetdFrame(w, greetdFingerprintStatus{Type: greetdFingerprint, Fingerprint: r})
+}
+
 // The responses, each with exactly its variant's fields.
 type (
 	greetdSuccess struct {
@@ -76,5 +85,9 @@ type (
 		Type            string `json:"type"`
 		AuthMessageType string `json:"auth_message_type"`
 		AuthMessage     string `json:"auth_message"`
+	}
+	greetdFingerprintStatus struct {
+		Type        string        `json:"type"`
+		Fingerprint fprint.Result `json:"fingerprint"`
 	}
 )

@@ -11,6 +11,8 @@ import (
 	"os"
 
 	"github.com/stubbedev/lys/lib/intconv"
+
+	"github.com/stubbedev/lys/login/internal/fprint"
 )
 
 // GreetdSockEnv names the IPC socket greetd hands its greeter.
@@ -22,8 +24,14 @@ const GreetdSockEnv = "GREETD_SOCK"
 // whole login: create the session, answer every auth message, and on
 // success start the session; greetd then replaces the greeter.
 type Greetd struct {
-	conn  io.ReadWriter
-	start Start
+	conn   io.ReadWriter
+	start  Start
+	frames <-chan greetdFrame
+}
+
+type greetdFrame struct {
+	resp greetdResponse
+	err  error
 }
 
 // SessionTypeEnv is the variable pam_systemd registers a session's type
@@ -115,12 +123,15 @@ var cancelSession = cancelSessionRequest{Type: "cancel_session"}
 
 // greetdResponse is one decoded response.
 type greetdResponse struct {
-	Type            string `json:"type"`
-	ErrorType       string `json:"error_type"`
-	Description     string `json:"description"`
-	AuthMessageType string `json:"auth_message_type"`
-	AuthMessage     string `json:"auth_message"`
+	Type            string        `json:"type"`
+	ErrorType       string        `json:"error_type"`
+	Description     string        `json:"description"`
+	AuthMessageType string        `json:"auth_message_type"`
+	AuthMessage     string        `json:"auth_message"`
+	Fingerprint     fprint.Result `json:"fingerprint"`
 }
+
+const greetdFingerprint = "fingerprint"
 
 // validate rejects what serde's enums would: unknown variants and
 // unknown error or message kinds.
@@ -138,8 +149,20 @@ func (r greetdResponse) validate() error {
 			return err
 		}
 		return nil
+	case greetdFingerprint:
+		return checkFingerprintStatus(r.Fingerprint)
 	}
 	return fmt.Errorf("greetd: unknown response type %q", r.Type)
+}
+
+func checkFingerprintStatus(r fprint.Result) error {
+	if _, err := r.MarshalText(); err != nil {
+		return fmt.Errorf("greetd: a fingerprint status: %w", err)
+	}
+	if r == fprint.Match {
+		return errors.New("greetd: a fingerprint match is a success, not a status")
+	}
+	return nil
 }
 
 // greetdPrompt maps an auth message to the UI prompt.
@@ -196,11 +219,11 @@ func readGreetdFrame(r io.Reader, v any) error {
 
 // cancel cancels the session and reads greetd's answer, so the
 // connection is idle again rather than closed under a reply in flight.
-func (g *Greetd) cancel() error {
+func (g *Greetd) cancel(ask Ask) error {
 	if err := g.send(cancelSession); err != nil {
 		return fmt.Errorf("greetd: cancel the session: %w", err)
 	}
-	resp, err := g.recv()
+	resp, err := g.next(ask)
 	if err != nil {
 		return fmt.Errorf("greetd: the answer to cancel_session: %w", err)
 	}
@@ -213,13 +236,49 @@ func (g *Greetd) cancel() error {
 // send writes one request.
 func (g *Greetd) send(req any) error { return writeGreetdFrame(g.conn, req) }
 
-// recv reads one response.
-func (g *Greetd) recv() (greetdResponse, error) {
-	var resp greetdResponse
-	if err := readGreetdFrame(g.conn, &resp); err != nil {
-		return greetdResponse{}, err
+func (g *Greetd) readFrames(done <-chan struct{}) <-chan greetdFrame {
+	frames := make(chan greetdFrame)
+	go func() {
+		defer close(frames)
+		for {
+			var resp greetdResponse
+			err := readGreetdFrame(g.conn, &resp)
+			if err == nil {
+				err = resp.validate()
+			}
+			select {
+			case frames <- greetdFrame{resp: resp, err: err}:
+			case <-done:
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return frames
+}
+
+func (g *Greetd) receive() (greetdResponse, error) {
+	f, ok := <-g.frames
+	if !ok {
+		return greetdResponse{}, errors.New("greetd: the connection ended")
 	}
-	return resp, resp.validate()
+	return f.resp, f.err
+}
+
+func (g *Greetd) next(ask Ask) (greetdResponse, error) {
+	for {
+		resp, err := g.receive()
+		if err != nil || resp.Type != greetdFingerprint {
+			return resp, err
+		}
+		ask(fingerprintPrompt(resp))
+	}
+}
+
+func fingerprintPrompt(resp greetdResponse) Prompt {
+	return Prompt{Kind: PromptFingerprint, Fingerprint: resp.Fingerprint}
 }
 
 // Run implements Conversation: create_session, one
@@ -234,33 +293,21 @@ func (g *Greetd) Run(username string, ask Ask) error {
 		}
 		username = u
 	}
+	done := make(chan struct{})
+	defer close(done)
+	g.frames = g.readFrames(done)
 	if err := g.send(createSession(username)); err != nil {
 		return err
 	}
-	for {
-		resp, err := g.recv()
-		if err != nil {
-			return err
-		}
-		if resp.Type == "success" {
-			break
-		}
-		if resp.Type == "error" {
-			return errors.Join(greetdFailure(resp.Description), g.cancel())
-		}
-		prompt, _ := greetdPrompt(resp.AuthMessageType, resp.AuthMessage)
-		answer, ok := ask(prompt)
-		// A cancelled input prompt aborts the whole session.
-		if prompt.WantsInput() && !ok {
-			return errors.Join(ErrCancelled, g.cancel())
-		}
-		var response *string
-		if ok {
-			response = &answer
-		}
-		if err := g.send(postResponse(response)); err != nil {
-			return err
-		}
+	resp, err := g.next(ask)
+	for err == nil && resp.Type == "auth_message" {
+		resp, err = g.answer(resp, ask)
+	}
+	if err != nil {
+		return err
+	}
+	if resp.Type == "error" {
+		return errors.Join(greetdFailure(resp.Description), g.cancel(ask))
 	}
 
 	// Authenticated: hand off to the session; greetd replaces us.
@@ -271,7 +318,7 @@ func (g *Greetd) Run(username string, ask Ask) error {
 	if err := g.send(startSession(session.Cmd, session.Env)); err != nil {
 		return err
 	}
-	resp, err := g.recv()
+	resp, err = g.next(ask)
 	if err != nil {
 		return err
 	}
@@ -283,6 +330,53 @@ func (g *Greetd) Run(username string, ask Ask) error {
 	}
 	log.Printf("greetd: unexpected response to start_session: %+v", resp)
 	return errors.New("unexpected response to start_session")
+}
+
+func (g *Greetd) answer(resp greetdResponse, ask Ask) (greetdResponse, error) {
+	prompt, _ := greetdPrompt(resp.AuthMessageType, resp.AuthMessage)
+	if !prompt.WantsInput() {
+		answer, ok := ask(prompt)
+		return g.respond(answer, ok, ask)
+	}
+	answered := make(chan reply, 1)
+	go func() {
+		answer, ok := ask(prompt)
+		answered <- reply{text: answer, ok: ok}
+	}()
+	for {
+		select {
+		case r := <-answered:
+			if !r.ok {
+				return greetdResponse{}, errors.Join(ErrCancelled, g.cancel(ask))
+			}
+			return g.respond(r.text, true, ask)
+		case f, open := <-g.frames:
+			if !open {
+				return greetdResponse{}, errors.New("greetd: the connection ended")
+			}
+			switch {
+			case f.err != nil:
+				return greetdResponse{}, f.err
+			case f.resp.Type == greetdFingerprint:
+				ask(fingerprintPrompt(f.resp))
+			case f.resp.Type == "auth_message":
+				return greetdResponse{}, fmt.Errorf("greetd: the prompt %q came while %q waits for its answer", f.resp.AuthMessage, prompt.Text)
+			default:
+				return f.resp, nil
+			}
+		}
+	}
+}
+
+func (g *Greetd) respond(answer string, ok bool, ask Ask) (greetdResponse, error) {
+	var response *string
+	if ok {
+		response = &answer
+	}
+	if err := g.send(postResponse(response)); err != nil {
+		return greetdResponse{}, err
+	}
+	return g.next(ask)
 }
 
 // greetdFailure is a greetd error's description as an error, a

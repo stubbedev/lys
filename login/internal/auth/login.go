@@ -24,6 +24,7 @@ type Login struct {
 	last         int32
 	credentialed bool
 	opened       bool
+	typed        bool
 }
 
 // Authenticate starts service's transaction for user, authenticates it
@@ -32,29 +33,30 @@ func Authenticate(service, user string, ask Ask) (*Login, error) {
 	return authenticate(systemPAM{}, service, user, &pamConversation{ask: ask})
 }
 
-func Autologin(service, user string) (*Login, error) {
-	return autologin(systemPAM{}, service, user, diskPassphrase)
+func Passwordless(service, user string) (*Login, error) {
+	return passwordless(systemPAM{}, service, user, diskPassphrase)
 }
 
-func autologin(lib pamLib, service, user string, disk diskPassphraseFunc) (*Login, error) {
-	l, err := authenticate(lib, service, user, &pamConversation{ask: refuseAutologinPrompt})
+func passwordless(lib pamLib, service, user string, disk diskPassphraseFunc) (*Login, error) {
+	l, err := authenticate(lib, service, user, &pamConversation{ask: refusePrompt})
 	if err != nil {
 		return nil, err
 	}
+	l.typed = false
 	secret, err := disk()
 	if err != nil {
-		return nil, errors.Join(fmt.Errorf("autologin of %s: %w", user, err), l.Close())
+		return nil, errors.Join(fmt.Errorf("passwordless login of %s through %s: %w", user, service, err), l.Close())
 	}
 	l.secret = secret
 	return l, nil
 }
 
-func refuseAutologinPrompt(Prompt) (string, bool) { return "", false }
+func refusePrompt(Prompt) (string, bool) { return "", false }
 
 // Greeter starts service's transaction for the greeter's user, who
 // signs nothing in: only its session opens.
 func Greeter(service, user string) (*Login, error) {
-	txn, err := systemPAM{}.start(service, user, (&pamConversation{ask: func(Prompt) (string, bool) { return "", false }}).handle)
+	txn, err := systemPAM{}.start(service, user, (&pamConversation{ask: refusePrompt}).handle)
 	if err != nil {
 		return nil, fmt.Errorf("start PAM transaction %s for %s: %w", service, user, err)
 	}
@@ -66,7 +68,7 @@ func authenticate(lib pamLib, service, user string, conv *pamConversation) (*Log
 	if err != nil {
 		return nil, fmt.Errorf("start PAM transaction %s for %s: %w", service, user, err)
 	}
-	l := &Login{txn: txn, user: user}
+	l := &Login{txn: txn, user: user, typed: true}
 	if l.last = txn.authenticate(); l.last != pamSuccess {
 		err := &RefusedError{Call: "pam_authenticate", Code: pamCodeName(l.last)}
 		clear(conv.secret)
@@ -105,6 +107,8 @@ func (l *Login) TakeSecret() []byte {
 }
 
 func (l *Login) HasSecret() bool { return l.secret != nil }
+
+func (l *Login) Typed() bool { return l.typed }
 
 func (l *Login) TakePrevious() []byte {
 	previous := l.previous

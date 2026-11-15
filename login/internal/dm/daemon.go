@@ -53,7 +53,10 @@ type Autologin struct {
 	Session auth.Session
 }
 
-const AutologinService = "lys-login-autologin"
+const (
+	AutologinService   = "lys-login-autologin"
+	FingerprintService = "lys-login-fingerprint"
+)
 
 const greeterShowWait = 30 * time.Second
 
@@ -489,90 +492,127 @@ func (o Options) listen(path string) (*net.UnixListener, error) {
 // login to a session worker, until a login asks to start its session or
 // the greeter goes away.
 func (o Options) serveGreeter(conn net.Conn, r greeterRequests) (*pendingLogin, error) {
-	var w *worker
+	done := make(chan struct{})
+	defer close(done)
+	requests := greeterRequestsFrom(conn, done)
+	var l *authenticating
 	state := endedLogin
 	user, existing := "", ""
 	defer func() {
-		if w != nil && state != authenticatedLogin {
-			w.cancel()
+		if l != nil && !state.authenticated() {
+			l.cancel()
 		}
 	}()
-	// step relays the worker's next event and forgets a worker that
-	// ended.
-	step := func() error {
-		var err error
-		state, err = relay(conn, w)
-		if state == endedLogin {
-			w = nil
-		}
-		return err
-	}
 	for {
-		req, err := auth.ReadGreetdRequest(conn)
-		if errors.Is(err, io.EOF) {
-			return nil, nil
+		var events <-chan workerEvent
+		if l != nil {
+			events = l.events
 		}
-		if err != nil {
-			return nil, fmt.Errorf("read the greeter's request: %w", err)
-		}
-		switch req.Type {
-		case auth.GreetdCreateSession:
-			if w != nil {
-				w.cancel()
+		select {
+		case in := <-requests:
+			if errors.Is(in.err, io.EOF) {
+				return nil, nil
 			}
-			w, user, existing = nil, req.Username, ""
-			if r.existing(req.Username) {
-				log.Printf("dm: %s already has a session: the greeter switches to it", req.Username)
-				existing, state = req.Username, authenticatedLogin
+			if in.err != nil {
+				return nil, fmt.Errorf("read the greeter's request: %w", in.err)
+			}
+			req := in.req
+			switch req.Type {
+			case auth.GreetdCreateSession:
+				if l != nil {
+					l.cancel()
+				}
+				l, user, existing, state = nil, req.Username, "", endedLogin
+				if r.existing(req.Username) {
+					log.Printf("dm: %s already has a session: the greeter switches to it", req.Username)
+					existing, state = req.Username, authenticatedLogin
+					if err := auth.WriteGreetdSuccess(conn); err != nil {
+						return nil, err
+					}
+					continue
+				}
+				w, err := o.startSessionWorker(req.Username, r.vt, false)
+				if err != nil {
+					if err := auth.WriteGreetdError(conn, false, err.Error()); err != nil {
+						return nil, err
+					}
+					continue
+				}
+				l, state = authenticate(w), workingLogin
+			case auth.GreetdPostResponse:
+				switch {
+				case state == authenticatedEarly:
+					state = authenticatedLogin
+				case state == endedEarly:
+					state = endedLogin
+				case l == nil || state != awaitingAnswer:
+					if err := auth.WriteGreetdError(conn, false, "no login is waiting for an answer"); err != nil {
+						return nil, err
+					}
+				default:
+					if err := l.w.ch.send(request{Op: opAnswer, Answer: req.Response}); err != nil {
+						return nil, err
+					}
+					state = workingLogin
+				}
+			case auth.GreetdCancelSession:
+				if l != nil {
+					l.cancel()
+				}
+				l, state, existing = nil, endedLogin, ""
 				if err := auth.WriteGreetdSuccess(conn); err != nil {
 					return nil, err
 				}
-				continue
-			}
-			if w, err = o.startSessionWorker(req.Username, r.vt, false); err != nil {
-				w, state = nil, endedLogin
-				if err := auth.WriteGreetdError(conn, false, err.Error()); err != nil {
+			case auth.GreetdStartSession:
+				if !state.authenticated() || len(req.Cmd) == 0 {
+					if err := auth.WriteGreetdError(conn, false, "no authenticated login to start, or no command"); err != nil {
+						return nil, err
+					}
+					continue
+				}
+				if err := auth.WriteGreetdSuccess(conn); err != nil {
 					return nil, err
 				}
-				continue
-			}
-			if err := step(); err != nil {
-				return nil, err
-			}
-		case auth.GreetdPostResponse:
-			if w == nil || state != awaitingAnswer {
-				if err := auth.WriteGreetdError(conn, false, "no login is waiting for an answer"); err != nil {
-					return nil, err
+				var w *worker
+				if l != nil {
+					w = l.w
 				}
-				continue
+				return &pendingLogin{w: w, user: user, existing: existing, cmd: req.Cmd, env: req.Env}, nil
 			}
-			if err := w.ch.send(request{Op: opAnswer, Answer: req.Response}); err != nil {
+		case ev := <-events:
+			next, err := relay(conn, l, state, ev)
+			state = next
+			if state.ended() {
+				l = nil
+			}
+			if err != nil {
 				return nil, err
 			}
-			if err := step(); err != nil {
-				return nil, err
-			}
-		case auth.GreetdCancelSession:
-			if w != nil {
-				w.cancel()
-			}
-			w, state, existing = nil, endedLogin, ""
-			if err := auth.WriteGreetdSuccess(conn); err != nil {
-				return nil, err
-			}
-		case auth.GreetdStartSession:
-			if state != authenticatedLogin || len(req.Cmd) == 0 {
-				if err := auth.WriteGreetdError(conn, false, "no authenticated login to start, or no command"); err != nil {
-					return nil, err
-				}
-				continue
-			}
-			if err := auth.WriteGreetdSuccess(conn); err != nil {
-				return nil, err
-			}
-			return &pendingLogin{w: w, user: user, existing: existing, cmd: req.Cmd, env: req.Env}, nil
 		}
 	}
+}
+
+type greeterRequest struct {
+	req auth.GreetdRequest
+	err error
+}
+
+func greeterRequestsFrom(conn net.Conn, done <-chan struct{}) <-chan greeterRequest {
+	out := make(chan greeterRequest)
+	go func() {
+		for {
+			req, err := auth.ReadGreetdRequest(conn)
+			select {
+			case out <- greeterRequest{req: req, err: err}:
+			case <-done:
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return out
 }
 
 // loginState is where a login stands after its worker's last event.
@@ -581,37 +621,93 @@ type loginState int
 const (
 	// awaitingAnswer: a prompt is with the greeter.
 	awaitingAnswer loginState = iota
+	workingLogin
 	authenticatedLogin
+	authenticatedEarly
 	// endedLogin: the login failed and its worker is gone.
 	endedLogin
+	endedEarly
 )
+
+func (s loginState) authenticated() bool { return s == authenticatedLogin || s == authenticatedEarly }
+
+func (s loginState) ended() bool { return s == endedLogin || s == endedEarly }
+
+func (s loginState) outcome(replied, early loginState) loginState {
+	if s == awaitingAnswer {
+		return early
+	}
+	return replied
+}
+
+type authenticating struct {
+	w      *worker
+	events <-chan workerEvent
+	stop   chan struct{}
+}
+
+func authenticate(w *worker) *authenticating {
+	stop := make(chan struct{})
+	return &authenticating{w: w, events: w.authEvents(stop), stop: stop}
+}
+
+func (l *authenticating) cancel() {
+	close(l.stop)
+	l.w.cancel()
+}
+
+func (l *authenticating) end() {
+	close(l.stop)
+	if err := l.w.wait(); err != nil {
+		log.Printf("dm: a failed login: %v", err)
+	}
+}
+
+func (w *worker) authEvents(stop <-chan struct{}) <-chan workerEvent {
+	events := make(chan workerEvent)
+	go func() {
+		for {
+			var ev event
+			err := w.ch.recv(&ev)
+			select {
+			case events <- workerEvent{ev, err}:
+			case <-stop:
+				return
+			}
+			if err != nil || ev.Kind == evAuthenticated || ev.Kind == evFailed {
+				return
+			}
+		}
+	}()
+	return events
+}
 
 // relay forwards the worker's next event to the greeter: a prompt
 // waits for the greeter's answer, authenticated is a success, a failure
 // an authentication error that ends the worker.
-func relay(conn net.Conn, w *worker) (loginState, error) {
-	var ev event
-	if err := w.ch.recv(&ev); err != nil {
-		w.cancel()
-		return endedLogin, auth.WriteGreetdError(conn, false, "the login ended: "+err.Error())
+func relay(conn net.Conn, l *authenticating, state loginState, we workerEvent) (loginState, error) {
+	if we.err != nil {
+		l.cancel()
+		return state.outcome(endedLogin, endedEarly), auth.WriteGreetdError(conn, false, "the login ended: "+we.err.Error())
 	}
-	switch ev.Kind {
+	switch ev := we.ev; ev.Kind {
 	case evPrompt:
-		if ev.Prompt == nil {
-			w.cancel()
-			return endedLogin, errors.New("dm: a prompt event without a prompt")
+		if ev.Prompt == nil || state != workingLogin {
+			l.cancel()
+			return endedLogin, fmt.Errorf("dm: a prompt event %+v while the login stands at %d", ev.Prompt, state)
 		}
 		return awaitingAnswer, auth.WriteGreetdPrompt(conn, *ev.Prompt)
+	case evFingerprint:
+		return state, auth.WriteGreetdFingerprint(conn, ev.Fingerprint)
 	case evAuthenticated:
-		return authenticatedLogin, auth.WriteGreetdSuccess(conn)
+		return state.outcome(authenticatedLogin, authenticatedEarly), auth.WriteGreetdSuccess(conn)
 	case evFailed:
-		if err := w.wait(); err != nil {
-			log.Printf("dm: a failed login: %v", err)
-		}
-		return endedLogin, auth.WriteGreetdError(conn, true, ev.Text)
+		l.end()
+		return state.outcome(endedLogin, endedEarly), auth.WriteGreetdError(conn, true, ev.Text)
+	default:
+		l.cancel()
+		return endedLogin, fmt.Errorf("dm: unexpected event %q while authenticating", ev.Kind)
 	}
-	w.cancel()
-	return endedLogin, fmt.Errorf("dm: unexpected event %q while authenticating", ev.Kind)
 }
 
 type session struct {
@@ -681,6 +777,8 @@ func (o Options) startSessionWorker(user string, vt int, autologin bool) (*worke
 	args := []string{"worker", "session", "--service", service, "--vt", strconv.Itoa(vt), "--runtime-dir", o.RuntimeDir}
 	if autologin {
 		args = append(args, "--autologin")
+	} else {
+		args = append(args, "--fingerprint-service", FingerprintService)
 	}
 	cmd := exec.Command(o.Self, args...) //nolint:gosec // lys-login itself
 	cmd.ExtraFiles = []*os.File{theirs}

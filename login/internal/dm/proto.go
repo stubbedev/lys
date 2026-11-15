@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/stubbedev/lys/login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/fprint"
 )
 
 // A worker and the daemon exchange JSON lines over a socket pair: the
@@ -60,8 +61,9 @@ type event struct {
 	// (ended), or why its keyring stays locked (keyring-locked).
 	Text string `json:"text,omitempty"`
 	// UID is the account the session runs as (started).
-	UID       uint32 `json:"uid"`
-	SessionID string `json:"session_id,omitempty"`
+	UID         uint32        `json:"uid"`
+	SessionID   string        `json:"session_id,omitempty"`
+	Fingerprint fprint.Result `json:"fingerprint,omitempty"`
 }
 
 // The event kinds.
@@ -72,6 +74,7 @@ const (
 	evStarted       = "started"
 	evEnded         = "ended"
 	evKeyringLocked = "keyring-locked"
+	evFingerprint   = "fingerprint"
 )
 
 // channel is one side of a worker's socket pair.
@@ -118,6 +121,31 @@ func (c *channel) recv(v any) error {
 		return fmt.Errorf("dm: decode %q: %w", line, err)
 	}
 	return nil
+}
+
+type incoming struct {
+	req request
+	err error
+}
+
+func (c *channel) requests(done <-chan struct{}) <-chan incoming {
+	out := make(chan incoming)
+	go func() {
+		defer close(out)
+		for {
+			var req request
+			err := c.recv(&req)
+			select {
+			case out <- incoming{req: req, err: err}:
+			case <-done:
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return out
 }
 
 func (c *channel) readLine() ([]byte, error) {

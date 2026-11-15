@@ -28,7 +28,8 @@ virtio-gpu, put `LYS_WM_RENDERER=gles` in `/etc/environment`
   `Alias=display-manager.service`, installed but not enabled;
 - the `lys-greeter` system user (sysusers.d) and `/var/lib/lys-greeter`
   (tmpfiles.d);
-- the PAM services `lys-login`, `lys-login-autologin` and `lys-shell`
+- the PAM services `lys-login`, `lys-login-autologin`, `lys-login-fingerprint`
+  and `lys-shell`
   ([PAM services](/login/guide/pam));
 - the polkit action `dev.stubbe.lys.login.apply-config`
   ([Change the login screen](/login/guide/configuration#change-the-login-screen-from-your-session)).

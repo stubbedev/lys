@@ -16,7 +16,7 @@ func diskKey(secret string) diskPassphraseFunc {
 
 func TestAutologinTakesTheDiskPassphraseAsTheSecret(t *testing.T) {
 	f := &fakePAM{permit: true}
-	l, err := autologin(f, "lys-login-autologin", "alice", diskKey("luks passphrase"))
+	l, err := passwordless(f, "lys-login-autologin", "alice", diskKey("luks passphrase"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestAutologinTakesTheDiskPassphraseAsTheSecret(t *testing.T) {
 }
 
 func TestAutologinWithoutAKeyHasNoSecret(t *testing.T) {
-	l, err := autologin(&fakePAM{permit: true}, "lys-login-autologin", "alice", diskKey(""))
+	l, err := passwordless(&fakePAM{permit: true}, "lys-login-autologin", "alice", diskKey(""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestAutologinWithoutAKeyHasNoSecret(t *testing.T) {
 
 func TestAutologinFailsWhenTheKeyringCannotBeRead(t *testing.T) {
 	broken := errors.New("keyctl read: permission denied")
-	_, err := autologin(&fakePAM{permit: true}, "lys-login-autologin", "alice", func() ([]byte, error) { return nil, broken })
+	_, err := passwordless(&fakePAM{permit: true}, "lys-login-autologin", "alice", func() ([]byte, error) { return nil, broken })
 	if !errors.Is(err, broken) {
 		t.Fatalf("an unreadable keyring: %v, want it reported", err)
 	}
@@ -48,7 +48,7 @@ func TestAutologinFailsWhenTheKeyringCannotBeRead(t *testing.T) {
 
 func TestAutologinRefusesAStackThatAsks(t *testing.T) {
 	f := &fakePAM{password: "pw", batches: [][]pamMessage{{{style: pamPromptEchoOff, text: "Password: "}}}}
-	_, err := autologin(f, "lys-login-autologin", "alice", diskKey("unused"))
+	_, err := passwordless(f, "lys-login-autologin", "alice", diskKey("unused"))
 	if _, ok := errors.AsType[*RefusedError](err); !ok {
 		t.Fatalf("a prompting stack: %v, want a refusal", err)
 	}

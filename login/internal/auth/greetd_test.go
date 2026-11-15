@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+
+	"github.com/stubbedev/lys/login/internal/fprint"
 )
 
 // fakeGreetd plays greetd over one end of a pipe: it records every
@@ -310,5 +312,150 @@ func TestGreetdPlainErrorIsNotARefusal(t *testing.T) {
 	}
 	if _, ok := errors.AsType[*RefusedError](err); ok {
 		t.Errorf("a plain error came back as a refusal: %v", err)
+	}
+}
+
+func TestGreetdShowsTheFingerprintReaderWhereverItComes(t *testing.T) {
+	var seen []Prompt
+	_, err := runGreetd(t, "alice", func(p Prompt) (string, bool) {
+		seen = append(seen, p)
+		if p.WantsInput() {
+			return "pw", true
+		}
+		return "", false
+	}, func() []string { return []string{"sway"} }, func(f *fakeGreetd) {
+		f.read()
+		f.reply(`{"type":"fingerprint","fingerprint":"listening"}`)
+		f.reply(`{"type":"auth_message","auth_message_type":"secret","auth_message":"Password:"}`)
+		f.read()
+		f.reply(`{"type":"fingerprint","fingerprint":"stopped"}`)
+		f.reply(`{"type":"success"}`)
+		f.read()
+		f.reply(`{"type":"success"}`)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []PromptKind
+	for _, p := range seen {
+		kinds = append(kinds, p.Kind)
+	}
+	if len(seen) != 3 || seen[0].Fingerprint != fprint.Listening || seen[1].Kind != PromptSecret || seen[2].Fingerprint != fprint.Stopped {
+		t.Errorf("prompts %v %+v, want listening, the password, stopped", kinds, seen)
+	}
+}
+
+func TestGreetdTakesAnEarlySuccessWhileThePasswordIsAskedFor(t *testing.T) {
+	unanswered := make(chan struct{})
+	defer close(unanswered)
+	var fingerprints []fprint.Result
+	f, err := runGreetd(t, "alice", func(p Prompt) (string, bool) {
+		if p.Kind == PromptFingerprint {
+			fingerprints = append(fingerprints, p.Fingerprint)
+		}
+		if !p.WantsInput() {
+			return "", false
+		}
+		<-unanswered
+		return "", false
+	}, func() []string { return []string{"sway"} }, func(f *fakeGreetd) {
+		f.read()
+		f.reply(`{"type":"auth_message","auth_message_type":"secret","auth_message":"Password:"}`)
+		f.reply(`{"type":"fingerprint","fingerprint":"listening"}`)
+		f.reply(`{"type":"fingerprint","fingerprint":"no-match"}`)
+		f.reply(`{"type":"success"}`)
+		f.read()
+		f.reply(`{"type":"success"}`)
+	})
+	if err != nil {
+		t.Fatalf("a fingerprint login: %v", err)
+	}
+	wantRaw := []string{
+		`{"type":"create_session","username":"alice"}`,
+		`{"type":"start_session","cmd":["sway"],"env":["XDG_SESSION_TYPE=wayland"]}`,
+	}
+	if strings.Join(f.raw, "\n") != strings.Join(wantRaw, "\n") {
+		t.Errorf("wire =\n%s\nwant\n%s: the answered prompt takes no response", strings.Join(f.raw, "\n"), strings.Join(wantRaw, "\n"))
+	}
+	if len(fingerprints) != 2 || fingerprints[0] != fprint.Listening || fingerprints[1] != fprint.NoMatch {
+		t.Errorf("fingerprint statuses %v", fingerprints)
+	}
+}
+
+func TestGreetdTakesAnEarlyFailureWhileThePasswordIsAskedFor(t *testing.T) {
+	unanswered := make(chan struct{})
+	defer close(unanswered)
+	f, err := runGreetd(t, "alice", func(p Prompt) (string, bool) {
+		if p.WantsInput() {
+			<-unanswered
+		}
+		return "", false
+	}, func() []string { return nil }, func(f *fakeGreetd) {
+		f.read()
+		f.reply(`{"type":"auth_message","auth_message_type":"secret","auth_message":"Password:"}`)
+		f.reply(`{"type":"error","error_type":"auth_error","description":"pam_acct_mgmt: ACCT_EXPIRED"}`)
+		f.read()
+		f.reply(`{"type":"success"}`)
+	})
+	refused, ok := errors.AsType[*RefusedError](err)
+	if !ok || refused.Refusal() != RefusalExpired {
+		t.Fatalf("Run = %v, want the expired account's refusal", err)
+	}
+	if len(f.requests) != 2 || f.requests[1]["type"] != "cancel_session" {
+		t.Errorf("requests %v, want the session cancelled after the refusal", f.requests)
+	}
+}
+
+func TestGreetdRefusesAFingerprintStatusItCannotShow(t *testing.T) {
+	for _, body := range []string{
+		`{"type":"fingerprint","fingerprint":"match"}`,
+		`{"type":"fingerprint","fingerprint":"bogus"}`,
+		`{"type":"fingerprint"}`,
+	} {
+		_, err := runGreetd(t, "alice", func(Prompt) (string, bool) { return "x", true }, func() []string { return nil }, func(f *fakeGreetd) {
+			f.read()
+			f.reply(body)
+		})
+		if err == nil {
+			t.Errorf("response %s accepted", body)
+		}
+	}
+}
+
+func TestGreetdRefusesAPromptWhileAnotherAwaitsItsAnswer(t *testing.T) {
+	unanswered := make(chan struct{})
+	defer close(unanswered)
+	_, err := runGreetd(t, "alice", func(p Prompt) (string, bool) {
+		if p.WantsInput() {
+			<-unanswered
+		}
+		return "", false
+	}, func() []string { return nil }, func(f *fakeGreetd) {
+		f.read()
+		f.reply(`{"type":"auth_message","auth_message_type":"secret","auth_message":"Password:"}`)
+		f.reply(`{"type":"auth_message","auth_message_type":"secret","auth_message":"Again:"}`)
+	})
+	if err == nil || !strings.Contains(err.Error(), "waits for its answer") {
+		t.Fatalf("Run = %v, want the second prompt refused", err)
+	}
+}
+
+func TestTheFingerprintStatusWrittenIsTheOneRead(t *testing.T) {
+	client, server := net.Pipe()
+	defer func() { _ = client.Close(); _ = server.Close() }()
+	go func() {
+		if err := WriteGreetdFingerprint(server, fprint.Retry); err != nil {
+			t.Error(err)
+		}
+	}()
+	var resp greetdResponse
+	if err := readGreetdFrame(client, &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Type != "fingerprint" || resp.Fingerprint != fprint.Retry || resp.validate() != nil {
+		t.Errorf("read %+v", resp)
+	}
+	if err := WriteGreetdFingerprint(io.Discard, fprint.Match); err == nil {
+		t.Error("a match was written as a status")
 	}
 }

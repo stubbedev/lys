@@ -170,28 +170,25 @@ type Screen struct {
 	awaiting bool
 	// pending answers the conversation's first prompt: the password
 	// typed before PAM asked for it.
-	pending  *string
-	inputOn  bool
-	message  string
-	blanked  bool
-	caps     bool
-	watching bool
-	stops    []func()
-	fpStop   func()
-	// fpListening: the reader is listening, so the fingerprint prompt
-	// stands in for the password entry until usePassword.
-	fpListening bool
-	usePassword bool
-	layouts     *loginscreen.KeyboardLayouts
-	media       nowPlaying
-	mediaOK     bool
-	battery     batteryLevel
-	batteryOK   bool
-	blank       Timer
-	blankDue    time.Time
-	clock       *loginscreen.ClockTicker
-	clockText   string
-	dateText    string
+	pending   *string
+	inputOn   bool
+	message   string
+	blanked   bool
+	caps      bool
+	watching  bool
+	stops     []func()
+	fpStop    func()
+	reader    *loginscreen.FingerprintReader
+	layouts   *loginscreen.KeyboardLayouts
+	media     nowPlaying
+	mediaOK   bool
+	battery   batteryLevel
+	batteryOK bool
+	blank     Timer
+	blankDue  time.Time
+	clock     *loginscreen.ClockTicker
+	clockText string
+	dateText  string
 	// confirmed: the compositor sent locked for this lock.
 	confirmed bool
 	// unlocked: the last lock ended in an unlock, by password or by
@@ -211,6 +208,7 @@ type Screen struct {
 // styles the surfaces through the lock.css rules.
 func New(cfg *config.Config, account string, font render.Font, sheet *widget.Stylesheet, d Deps) *Screen {
 	s := &Screen{cfg: cfg.Login, chargingIcon: cfg.Battery.ChargingIcon, anims: cfg.Animations, wallpaper: cfg.Wallpaper.Wallpaper, account: account, font: font, sheet: sheet, d: d}
+	s.reader = loginscreen.NewFingerprintReader(s.showPrompt)
 	var shown []func(time.Time) string
 	if s.cfg.ShowClock {
 		shown = append(shown, s.cfg.ClockFormat.Layout().Format, s.cfg.DateFormat.Layout().Format)
@@ -255,7 +253,7 @@ func (s *Screen) Lock() error {
 	s.message = ""
 	s.blanked = false
 	s.confirmed = false
-	s.fpListening, s.usePassword = false, false
+	s.reader.Reset()
 	s.clock.Start()
 	err := s.d.Locker.Lock(app.SessionLockConfig{
 		Surface:    s.buildFace,
@@ -317,24 +315,14 @@ func (s *Screen) stopFingerprint() {
 		s.fpStop()
 		s.fpStop = nil
 	}
-	s.setListening(false)
+	s.reader.Stop()
 }
-
-func (s *Screen) setListening(on bool) {
-	if s.fpListening == on {
-		return
-	}
-	s.fpListening = on
-	s.showPrompt()
-}
-
-func (s *Screen) fingerprintShown() bool { return s.fpListening && !s.usePassword }
 
 // showPrompt puts the fingerprint prompt or the password entry on every
 // face, with keyboard focus on whichever shows.
 func (s *Screen) showPrompt() {
 	for _, f := range s.faces {
-		f.prompt.SetFingerprint(s.fingerprintShown())
+		f.prompt.SetFingerprint(s.reader.Shown())
 	}
 	s.focusEntry()
 }
@@ -342,21 +330,12 @@ func (s *Screen) showPrompt() {
 // choosePassword is the fingerprint prompt clicked or typed over: the
 // password entry comes back for this lock, the reader still listening.
 func (s *Screen) choosePassword() {
-	s.usePassword = true
 	s.Activity()
-	s.showPrompt()
+	s.reader.ChoosePassword()
 }
 
 func (s *Screen) onFingerprint(r fprint.Result) {
-	if s.fpStop == nil {
-		return
-	}
-	switch r {
-	case fprint.Listening:
-		s.setListening(true)
-		return
-	case fprint.Stopped:
-		s.setListening(false)
+	if s.fpStop == nil || !s.reader.Follow(r) {
 		return
 	}
 	s.Activity()
@@ -371,9 +350,10 @@ func (s *Screen) onFingerprint(r fprint.Result) {
 			s.lockOut()
 			return
 		}
-		s.setMessage(i18n.T("lock-fingerprint-no-match"))
+		s.setMessage(loginscreen.FingerprintMessage(r))
 	case fprint.Retry:
-		s.setMessage(i18n.T("lock-fingerprint-retry"))
+		s.setMessage(loginscreen.FingerprintMessage(r))
+	case fprint.Listening, fprint.Stopped:
 	}
 }
 
@@ -430,7 +410,7 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 		OnSubmit: s.Submit,
 	}
 	if s.d.Fingerprint != nil && s.cfg.Lock.Fingerprint {
-		spec.Lock.Fingerprint = &loginscreen.Fingerprint{Text: i18n.T("lock-fingerprint-touch"), OnPassword: s.choosePassword}
+		spec.Fingerprint = loginscreen.NewFingerprint(s.choosePassword)
 	}
 	if s.showMedia() {
 		f.media = newMediaRow(s.font, s.playPause, s.nextTrack)
@@ -456,7 +436,7 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 	f.prompt.Date.SetText(s.dateText)
 	f.prompt.SetMessage(s.message)
 	f.prompt.Entry.SetEnabled(s.inputOn)
-	f.prompt.SetFingerprint(s.fingerprintShown())
+	f.prompt.SetFingerprint(s.reader.Shown())
 	f.scrim.SetVisible(s.blanked)
 	// The background is opaque at once; the prompt reveals over it.
 	reveal.Show(f.prompt.Reveal, s.anims, config.AnimLock)

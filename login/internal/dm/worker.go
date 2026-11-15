@@ -13,14 +13,17 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/fprint"
 )
 
 // Seat is the seat the display manager runs on.
@@ -46,8 +49,9 @@ type WorkerOptions struct {
 	// Self is the lys-login program the workers and the greeter run.
 	Self string
 	// RuntimeDir holds the lock a session worker keeps while its session runs.
-	RuntimeDir string
-	Autologin  bool
+	RuntimeDir         string
+	Autologin          bool
+	FingerprintService string
 }
 
 // greeterSessionType is the type of the session the greeter's compositor
@@ -322,20 +326,105 @@ func lookupIn(env []string) xdg.Env {
 	}
 }
 
-func (o WorkerOptions) authenticate(user string, ask auth.Ask) (*auth.Login, error) {
-	if !o.Autologin {
-		return auth.Authenticate(o.Service, user, ask)
+const fingerprintDialTimeout = 5 * time.Second
+
+func (o WorkerOptions) authenticate(user string, ask auth.AskUntil, ch *channel) (*auth.Login, error) {
+	switch {
+	case o.Autologin:
+		return auth.Passwordless(o.Service, user)
+	case o.FingerprintService != "":
+		return auth.AuthenticateOrFingerprint(auth.FingerprintServices{Password: o.Service, Fingerprint: o.FingerprintService}, user, ask, fingerprintScanner(ch))
 	}
-	login, err := auth.Autologin(o.Service, user)
+	return auth.Authenticate(o.Service, user, func(p auth.Prompt) (string, bool) { return ask(p, nil) })
+}
+
+func logPasswordless(login *auth.Login) {
+	switch {
+	case login.Typed():
+	case login.HasSecret():
+		log.Printf("dm: %s logged in without a password: the disk passphrase from the kernel keyring goes to the login keyring", login.User())
+	default:
+		log.Printf("dm: %s logged in without a password and with no disk passphrase in the kernel keyring, so the login keyring stays locked until the lock screen opens it", login.User())
+	}
+}
+
+func fingerprintScanner(ch *channel) auth.Scanner {
+	return func(user string) (<-chan struct{}, func()) {
+		ctx, cancel := context.WithCancel(context.Background())
+		matched := make(chan struct{})
+		match := sync.OnceFunc(func() { close(matched) })
+		ended := make(chan struct{})
+		go func() {
+			defer close(ended)
+			err := verifyFingerprint(ctx, user, func(r fprint.Result) {
+				if ctx.Err() != nil {
+					return
+				}
+				if r == fprint.Match {
+					log.Printf("dm: the fingerprint of %s matched", user)
+					match()
+					return
+				}
+				if err := ch.send(event{Kind: evFingerprint, Fingerprint: r}); err != nil {
+					log.Printf("dm: tell the daemon what the fingerprint reader did: %v", err)
+				}
+			})
+			if err != nil {
+				log.Printf("dm: the fingerprint of %s: %v; the password alone logs in", user, err)
+			}
+		}()
+		return matched, func() {
+			cancel()
+			<-ended
+		}
+	}
+}
+
+func verifyFingerprint(ctx context.Context, user string, onResult func(fprint.Result)) error {
+	conn, err := dbusx.DialSystem(ctx, fingerprintDialTimeout)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("reach fprintd on the system bus: %w", err)
 	}
-	if login.HasSecret() {
-		log.Printf("dm: autologin of %s: the disk passphrase from the kernel keyring goes to the login keyring", user)
-	} else {
-		log.Printf("dm: autologin of %s: no disk passphrase in the kernel keyring, so the login keyring stays locked until the lock screen opens it", user)
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("dm: close the system bus connection fprintd was reached on: %v", err)
+		}
+	}()
+	return fprint.VerifyWhileLidOpen(ctx, conn, user, onResult)
+}
+
+func askThrough(ch *channel, requests <-chan incoming) auth.AskUntil {
+	return func(p auth.Prompt, withdrawn <-chan struct{}) (string, bool) {
+		select {
+		case <-withdrawn:
+			return "", false
+		default:
+		}
+		if err := ch.send(event{Kind: evPrompt, Prompt: &p}); err != nil {
+			return "", false
+		}
+		select {
+		case in, ok := <-requests:
+			if !ok || in.err != nil || in.req.Op != opAnswer || in.req.Answer == nil {
+				return "", false
+			}
+			return *in.req.Answer, true
+		case <-withdrawn:
+			return "", false
+		}
 	}
-	return login, nil
+}
+
+func awaitStart(requests <-chan incoming) (request, error) {
+	for in := range requests {
+		if in.err != nil {
+			return request{}, in.err
+		}
+		if in.req.Op != opAnswer {
+			return in.req, nil
+		}
+	}
+	return request{}, errClosed
 }
 
 // RunSession is one login's worker, serving the daemon over rw: it
@@ -345,24 +434,21 @@ func (o WorkerOptions) authenticate(user string, ask auth.Ask) (*auth.Login, err
 // main thread, as auth.Login says.
 func RunSession(o WorkerOptions, rw io.ReadWriter) error {
 	ch := newChannel(rw)
-	var req request
-	if err := ch.recv(&req); err != nil {
-		return err
+	done := make(chan struct{})
+	defer close(done)
+	requests := ch.requests(done)
+	first, ok := <-requests
+	if !ok {
+		return errClosed
 	}
+	if first.err != nil {
+		return first.err
+	}
+	req := first.req
 	if req.Op != opAuth || req.User == "" {
 		return fmt.Errorf("dm: a session worker's first request is %q, want auth", req.Op)
 	}
-	ask := func(p auth.Prompt) (string, bool) {
-		if err := ch.send(event{Kind: evPrompt, Prompt: &p}); err != nil {
-			return "", false
-		}
-		var ans request
-		if err := ch.recv(&ans); err != nil || ans.Op != opAnswer || ans.Answer == nil {
-			return "", false
-		}
-		return *ans.Answer, true
-	}
-	login, err := o.authenticate(req.User, ask)
+	login, err := o.authenticate(req.User, askThrough(ch, requests), ch)
 	if err != nil {
 		log.Printf("dm: login of %s: %v", req.User, err)
 		return ch.send(event{Kind: evFailed, Text: err.Error()})
@@ -372,12 +458,13 @@ func RunSession(o WorkerOptions, rw io.ReadWriter) error {
 			log.Printf("dm: session of %s: %v", req.User, err)
 		}
 	}()
+	logPasswordless(login)
 	secret, previous := login.TakeSecret(), login.TakePrevious()
 	defer func() { clear(secret); clear(previous) }()
 	if err := ch.send(event{Kind: evAuthenticated}); err != nil {
 		return err
 	}
-	if err := ch.recv(&req); err != nil {
+	if req, err = awaitStart(requests); err != nil {
 		return err
 	}
 	if req.Op != opStart || len(req.Cmd) == 0 {

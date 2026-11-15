@@ -16,6 +16,8 @@ import (
 	"log"
 	"os"
 	"sync"
+
+	"github.com/stubbedev/lys/login/internal/fprint"
 )
 
 // PromptKind is what a prompt wants from the user.
@@ -31,6 +33,7 @@ const (
 	PromptInfo
 	// PromptError is error text; no answer.
 	PromptError
+	PromptFingerprint
 )
 
 // String names the kind for logs.
@@ -44,14 +47,17 @@ func (k PromptKind) String() string {
 		return "info"
 	case PromptError:
 		return "error"
+	case PromptFingerprint:
+		return "fingerprint"
 	}
 	return "unknown"
 }
 
 // Prompt is one thing a backend wants from the user.
 type Prompt struct {
-	Kind PromptKind
-	Text string
+	Kind        PromptKind
+	Text        string
+	Fingerprint fprint.Result `json:",omitempty"`
 }
 
 // WantsInput reports whether the prompt expects a typed answer.
@@ -88,6 +94,8 @@ type Event struct {
 // when the user cancelled; for info and error prompts it returns
 // ("", false) at once.
 type Ask func(Prompt) (answer string, ok bool)
+
+type AskUntil func(p Prompt, withdrawn <-chan struct{}) (answer string, ok bool)
 
 // ErrCancelled is the failure a backend reports when the user
 // cancelled an input prompt.
@@ -153,6 +161,7 @@ func Spawn(conv Conversation, username string, onEvent func(Event)) *Handle {
 			}
 		}
 		err := conv.Run(username, ask)
+		h.Cancel()
 		// A conversation over a connection (greetd's) ends with it: the
 		// next attempt opens its own.
 		if c, ok := conv.(io.Closer); ok {

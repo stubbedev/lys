@@ -17,8 +17,8 @@ programs.lys-login.greeter = {
 ```
 
 This runs `lys-login daemon` as `display-manager.service` with the flake's
-lys-wm, and adds the `lys-login` and `lys-login-autologin` PAM
-services, the `lys-greeter` user and `/var/lib/lys-greeter`. `settings` becomes
+lys-wm, and adds the `lys-login`, `lys-login-autologin` and
+`lys-login-fingerprint` PAM services (with `pam_fprintd` off in `lys-login`), the `lys-greeter` user and `/var/lib/lys-greeter`. `settings` becomes
 `/etc/lys-shell/config.yaml` ([Configuration](/login/guide/configuration)). Sessions
 come from the NixOS sessions directory, which collects every installed
 compositor's session file.

@@ -23,8 +23,9 @@ sudo systemd-tmpfiles --create lys-login.conf
 sudo systemctl daemon-reload
 ```
 
-Write `/etc/pam.d/lys-login` (and `lys-login-autologin` for autologin) from the
-closest file under `pam/` ([PAM services](/login/guide/pam)), then:
+Write `/etc/pam.d/lys-login`, `lys-login-fingerprint` (and `lys-login-autologin`
+for autologin) from the closest files under `pam/`
+([PAM services](/login/guide/pam)), then:
 
 ```sh
 sudo systemctl disable gdm

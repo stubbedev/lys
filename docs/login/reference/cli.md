@@ -36,7 +36,7 @@ directories default to those of the daemon's `$XDG_DATA_DIRS`, and `--state` to
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `--vt N` | `1` | Virtual terminal. |
-| `--service NAME` | `lys-login` | [PAM service](/login/guide/pam). |
+| `--service NAME` | `lys-login` | [PAM service](/login/guide/pam) of a password login; a [fingerprint login](/login/guide/pam#fingerprint) goes through `lys-login-fingerprint`. |
 | `--greeter-user NAME` | `lys-greeter` | Account the greeter runs as. |
 | `--compositor PATH` | `lys-wm` | The greeter's compositor. |
 | `--runtime-dir DIR` | `/run/lys-login` | Sockets and kiosk config. |

@@ -424,7 +424,12 @@ func worker(args []string) int {
 	fs.Var(&env, "env", "KEY=value for the greeter's compositor (repeatable)")
 	fs.StringVar(&wo.RuntimeDir, "runtime-dir", dmsocket.DefaultRuntimeDir, "directory for the lock a session holds while it runs")
 	fs.BoolVar(&wo.Autologin, "autologin", false, "log the user in with the autologin PAM service, which asks nothing")
+	fs.StringVar(&wo.FingerprintService, "fingerprint-service", "", "verify a fingerprint with fprintd alongside the password, and log a match in through this PAM service")
 	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+	if wo.Autologin && wo.FingerprintService != "" {
+		fmt.Fprintln(os.Stderr, "lys-login worker: --autologin asks nothing, so it takes no --fingerprint-service")
 		return 2
 	}
 	var err error

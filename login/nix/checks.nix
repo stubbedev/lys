@@ -10,9 +10,9 @@
   }: let
     pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login;
     fakeLysWm = pkgs.writeShellScriptBin "lys-wm" "";
-    greeterSystem = greeter:
+    greeterSystemWith = extra: greeter:
       (pkgs.nixos {
-        imports = [self.nixosModules.lys-login];
+        imports = [self.nixosModules.lys-login extra];
         programs.lys-login.greeter = {enable = true;} // greeter;
         boot.loader.grub.enable = false;
         fileSystems."/" = {
@@ -21,6 +21,7 @@
         };
         system.stateVersion = lib.trivial.release;
       }).config;
+    greeterSystem = greeterSystemWith {};
     daemonSystem = greeter:
       greeterSystem ({
           displayManager = "lys-login";
@@ -154,6 +155,23 @@
             [ "$(${compositor "auto"})" = "LYS_WM_RENDERER= LYS_UI_RENDERER=" ] || { echo "renderer = auto forces a software path on the daemon's lys-wm" >&2; exit 1; }
             ${lib.optionalString (!rejects {graphicsWrapper = ["nixGL"];} "greeter.graphicsWrapper") ''echo "a graphicsWrapper passed evaluation under the lys-login display manager" >&2; exit 1''}
             ${lib.optionalString (rejects {} "greeter.graphicsWrapper") ''echo "the default graphicsWrapper was rejected" >&2; exit 1''}
+            touch $out
+          '';
+        fingerprint-pam = let
+          system =
+            greeterSystemWith {services.fprintd.enable = true;} {
+              displayManager = "lys-login";
+              compositorPackage = fakeLysWm;
+            };
+          pamText = service: system.security.pam.services.${service}.text;
+          fingerprint = pamText "lys-login-fingerprint";
+        in
+          pkgs.runCommand "lys-login-fingerprint-pam" {} ''
+            ${lib.optionalString (!lib.hasInfix "pam_fprintd" (pamText "login")) ''echo "services.fprintd.enable puts no pam_fprintd in the login stack, so this check proves nothing" >&2; exit 1''}
+            ${lib.optionalString (lib.hasInfix "pam_fprintd" (pamText "lys-login")) ''echo "the lys-login password stack waits on pam_fprintd before the password" >&2; exit 1''}
+            ${lib.optionalString (lib.hasInfix "pam_fprintd" fingerprint || lib.hasInfix "pam_unix" fingerprint) ''echo "lys-login-fingerprint authenticates again after the daemon verified the fingerprint" >&2; exit 1''}
+            ${lib.optionalString (!lib.hasInfix "pam_permit.so" fingerprint || !lib.hasInfix "pam_nologin.so" fingerprint || !lib.hasInfix "pam_systemd_loadkey.so" fingerprint) ''echo "lys-login-fingerprint is not nologin, the disk key, then permit" >&2; exit 1''}
+            ${lib.optionalString (!lib.hasInfix "account  include   lys-login" fingerprint || !lib.hasInfix "session  include   lys-login" fingerprint) ''echo "lys-login-fingerprint skips the account or session stack of lys-login" >&2; exit 1''}
             touch $out
           '';
         default-display-manager = let

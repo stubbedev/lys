@@ -8,12 +8,13 @@ and show whatever PAM asks.
 | `lys-login` (`--service`) | Each login through the daemon | authenticate, account, credentials, open session |
 | `lys-login` (`--service`) | The greeter's own session | credentials, open session |
 | `lys-login-autologin` | [Autologin](#autologin) | as `lys-login`, authenticating with `pam_permit` |
+| `lys-login-fingerprint` | A [fingerprint login](#fingerprint) | as `lys-login-autologin` |
 | `login.lock.pam-service` | The lock screen | authenticate, account |
 
 Under greetd, greetd authenticates with its own service.
 
-The Debian/Ubuntu and Fedora packages install `lys-login`, `lys-login-autologin`
-and `lys-shell` into `/etc/pam.d`, from
+The Debian/Ubuntu and Fedora packages install `lys-login`, `lys-login-autologin`,
+`lys-login-fingerprint` and `lys-shell` into `/etc/pam.d`, from
 [`resources/pam/`](https://github.com/stubbedev/lys/tree/main/login/resources/pam).
 The NixOS module declares them.
 
@@ -32,7 +33,8 @@ login with logind. The workers set in the PAM environment:
 - **Debian, Ubuntu**: `common-auth`, `common-account`, `common-session`,
   `common-password`.
 - **Fedora**: `password-auth` and `postlogin`.
-- **NixOS**: `security.pam.services.lys-login.startSession = true`.
+- **NixOS**: `security.pam.services.lys-login.startSession = true`, and
+  `fprintAuth = false` (see [Fingerprint](#fingerprint)).
 
 Elsewhere, adapt one of the packaged files.
 
@@ -53,6 +55,40 @@ With no key there (no LUKS, TPM unlock, initramfs-tools' cryptroot) or a
 passphrase the keyring rejects, the worker logs it and the keyring stays locked
 until the lock screen opens it. `login.lock.lock-on-start` locks the session as
 it starts.
+
+## Fingerprint
+
+Under the display manager the greeter takes a password or a fingerprint,
+whichever comes first. As soon as a user is known (remembered, picked, or typed
+and confirmed with Enter) the greeter starts the login, and the session worker
+asks fprintd over the system bus to verify that user's finger while the greeter
+waits for the password. While the reader listens, a fingerprint prompt stands in
+for the password field, as on the [lock screen](/login/guide/lock-screen#fingerprint).
+
+- **Password first**: the worker stops the scan and answers the first prompt of
+  `lys-login` with the typed password. A wrong
+  password is refused at once; the greeter starts listening again.
+- **Fingerprint first**: the worker withdraws the password prompt, so no
+  `lys-login` transaction starts, and logs the user in through
+  `lys-login-fingerprint`:
+  `pam_nologin`, `pam_systemd_loadkey`, then `pam_permit`, with the account,
+  session and password stacks of `lys-login`. Only the worker, as root and after
+  fprintd reported a match, opens that service.
+- **No match**: the greeter says so and keeps listening, and the password still
+  logs in.
+
+`pam_fprintd` must not be in `lys-login`: it blocks the password until it times
+out. The NixOS module turns it off there (`services.fprintd.enable` adds it to
+every service). On Debian, `common-auth` includes `pam_fprintd` when
+`libpam-fprintd` is installed; remove it with `pam-auth-update` or write the
+`auth` lines of `lys-login` out instead of including `common-auth`.
+
+No password is typed, so the [keyring](#the-keyring) gets the `cryptsetup` key
+from the kernel keyring, as [autologin](#autologin) does. Without one the keyring
+stays locked until the lock screen opens it, which the worker logs.
+
+Without fprintd, a reader or an enrolled finger, and while logind reports the lid
+closed, the password alone logs in. Under greetd, greetd's own service decides.
 
 ## The lock screen's service
 

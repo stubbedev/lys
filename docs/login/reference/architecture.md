@@ -33,8 +33,14 @@ daemon the socket is reachable only by the greeter account.
    one that is not on screen 30 s after it starts is logged as a warning
    (`journalctl -u lys-login -p warning`).
 2. Each login attempt is a new connection. The daemon starts a session worker
-   over a socket pair and relays PAM prompts and answers as JSON lines.
-3. A wrong password ends that worker; the greeter shows PAM's reason.
+   over a socket pair and relays PAM prompts and answers as JSON lines. The
+   worker also verifies the user's fingerprint with fprintd and reports what the
+   reader does; the daemon passes that to the greeter as a `fingerprint`
+   response beside the greetd ones. A match withdraws the password prompt: the
+   daemon answers it with the success at once, and drops the answer the greeter
+   may still send ([Fingerprint](/login/guide/pam#fingerprint)).
+3. A wrong password ends that worker; the greeter shows PAM's reason and starts
+   the next attempt.
 4. On success the greeter saves the session and username, hides the prompt,
    waits for that frame to be presented (at most 2 s) and asks to start.
 5. The daemon stops the greeter's worker: compositor first, then the process

@@ -41,7 +41,7 @@ const (
 // Icons are the theme icons the prompt draws.
 func Icons() []string { return []string{peekReveal, peekConceal, fingerprintIcon} }
 
-// Fingerprint is the lock screen's fingerprint prompt, shown in place of
+// Fingerprint is the fingerprint prompt, shown in place of
 // the password entry while the reader listens: Text beside the glyph, and
 // OnPassword, run when the person clicks it or types, before the typed
 // character reaches the password entry.

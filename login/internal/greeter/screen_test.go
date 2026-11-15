@@ -692,8 +692,14 @@ func TestGreeterUsernameEntryOnlyWithoutAListedUser(t *testing.T) {
 	if !r.s.prompt.Username.Visible() || r.s.prompt.Username.Text() != "" || r.focused != r.s.prompt.Username || slices.Contains(r.s.users[1].button.Classes(), "selected") {
 		t.Error("picking the user again clears the pick and hands the name back to the entry")
 	}
+	picked := len(r.convs)
+	for _, c := range r.convs {
+		if !c.cancelled {
+			t.Errorf("the conversation for %s outlived its pick", c.username)
+		}
+	}
 	r.s.submit("hunter2")
-	if len(r.convs) != 0 {
+	if len(r.convs) != picked || r.s.auth != nil {
 		t.Error("cleared, a login started without a name")
 	}
 

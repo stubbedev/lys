@@ -22,6 +22,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/stubbedev/lys/login/internal/auth"
+	"github.com/stubbedev/lys/login/internal/fprint"
 	"github.com/stubbedev/lys/login/internal/greeter"
 	"github.com/stubbedev/lys/login/internal/keyboard"
 	"github.com/stubbedev/lys/login/internal/keyboard/keyboardtest"
@@ -48,7 +49,7 @@ func fakeSessionWorker() int {
 		return 1
 	}
 	if slices.Contains(os.Args, "--autologin") {
-		if !slices.Contains(os.Args, AutologinService) {
+		if !slices.Contains(os.Args, AutologinService) || slices.Contains(os.Args, "--fingerprint-service") {
 			_ = ch.send(event{Kind: evFailed, Text: "not the autologin service"})
 			return 0
 		}
@@ -60,7 +61,33 @@ func fakeSessionWorker() int {
 		_ = ch.send(event{Kind: evEnded, Text: "exited"})
 		return 0
 	}
-	_ = ch.send(event{Kind: evPrompt, Prompt: &auth.Prompt{Kind: auth.PromptSecret, Text: "Password:"}})
+	if i := slices.Index(os.Args, "--fingerprint-service"); i < 0 || i+1 >= len(os.Args) || os.Args[i+1] != FingerprintService {
+		_ = ch.send(event{Kind: evFailed, Text: "no fingerprint service"})
+		return 0
+	}
+	secret := &auth.Prompt{Kind: auth.PromptSecret, Text: "Password:"}
+	switch req.User {
+	case "finger":
+		_ = ch.send(event{Kind: evFingerprint, Fingerprint: fprint.Listening})
+		_ = ch.send(event{Kind: evPrompt, Prompt: secret})
+		_ = ch.send(event{Kind: evAuthenticated})
+		for {
+			if err := ch.recv(&req); err != nil || req.Op != opAnswer {
+				break
+			}
+		}
+		if req.Op != opStart {
+			return 0
+		}
+		_ = ch.send(event{Kind: evStarted, UID: 1001})
+		_ = ch.send(event{Kind: evEnded, Text: "exited"})
+		return 0
+	case "nomatch":
+		_ = ch.send(event{Kind: evPrompt, Prompt: secret})
+		_ = ch.send(event{Kind: evFingerprint, Fingerprint: fprint.NoMatch})
+	default:
+		_ = ch.send(event{Kind: evPrompt, Prompt: secret})
+	}
 	if err := ch.recv(&req); err != nil || req.Op != opAnswer || req.Answer == nil || *req.Answer != "pw" {
 		_ = ch.send(event{Kind: evFailed, Text: "Authentication failure"})
 		return 0
@@ -559,5 +586,114 @@ func TestTheRememberedStickyAndSlowKeysReachTheKiosk(t *testing.T) {
 	}
 	if want := map[string]string{"sticky_keys": "true"}; !reflect.DeepEqual(bare.Input.Keyboard, want) {
 		t.Errorf("without a layout input.keyboard = %v, want %v", bare.Input.Keyboard, want)
+	}
+}
+
+func TestAFingerprintLogsInWhileThePasswordIsAskedFor(t *testing.T) {
+	client, logins, errs := serve(t)
+	unanswered := make(chan struct{})
+	defer close(unanswered)
+	var fingerprints []fprint.Result
+	g := auth.NewGreetd(client, auth.Start{Session: func() auth.Session { return auth.Session{Cmd: []string{"Hyprland"}} }})
+	err := g.Run("finger", func(p auth.Prompt) (string, bool) {
+		if p.Kind == auth.PromptFingerprint {
+			fingerprints = append(fingerprints, p.Fingerprint)
+		}
+		if p.WantsInput() {
+			<-unanswered
+		}
+		return "", false
+	})
+	if err != nil {
+		t.Fatalf("a fingerprint login with the password unanswered: %v", err)
+	}
+	login := <-logins
+	if err := <-errs; err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(fingerprints, []fprint.Result{fprint.Listening}) {
+		t.Errorf("fingerprint statuses %v, want the reader listening", fingerprints)
+	}
+	if started := finishLogin(t, login); !slices.Equal(started, []uint32{1001}) {
+		t.Errorf("started = %v, want the fingerprint's session", started)
+	}
+}
+
+func TestAnAnswerAfterAFingerprintLoginGetsNoReply(t *testing.T) {
+	client, logins, errs := serve(t)
+	read := func() map[string]any {
+		t.Helper()
+		var resp map[string]any
+		if err := readFrame(client, &resp); err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+	if err := writeFrame(client, map[string]any{"type": auth.GreetdCreateSession, "username": "finger"}); err != nil {
+		t.Fatal(err)
+	}
+	var types []string
+	for _, want := range []string{"fingerprint", "auth_message", "success"} {
+		resp := read()
+		types = append(types, asString(resp["type"]))
+		if resp["type"] != want {
+			t.Fatalf("responses %v, want the reader, the password prompt, then the fingerprint's success", types)
+		}
+	}
+	if err := writeFrame(client, map[string]any{"type": auth.GreetdPostResponse, "response": "typed too late"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFrame(client, map[string]any{"type": auth.GreetdStartSession, "cmd": []string{"Hyprland"}, "env": []string{}}); err != nil {
+		t.Fatal(err)
+	}
+	if resp := read(); resp["type"] != "success" {
+		t.Fatalf("start_session after the late answer = %v, want success: the answer the success already took has no reply of its own", resp)
+	}
+	login := <-logins
+	if err := <-errs; err != nil {
+		t.Fatal(err)
+	}
+	finishLogin(t, login)
+}
+
+func TestAFingerprintThatDoesNotMatchLeavesThePasswordToLogIn(t *testing.T) {
+	for _, c := range []struct {
+		password string
+		ok       bool
+	}{{"pw", true}, {"wrong", false}} {
+		client, logins, errs := serve(t)
+		var fingerprints []fprint.Result
+		g := auth.NewGreetd(client, auth.Start{Session: func() auth.Session { return auth.Session{Cmd: []string{"Hyprland"}} }})
+		err := g.Run("nomatch", func(p auth.Prompt) (string, bool) {
+			if p.Kind == auth.PromptFingerprint {
+				fingerprints = append(fingerprints, p.Fingerprint)
+			}
+			if p.WantsInput() {
+				return c.password, true
+			}
+			return "", false
+		})
+		if !slices.Equal(fingerprints, []fprint.Result{fprint.NoMatch}) {
+			t.Errorf("%s: fingerprint statuses %v, want the no-match", c.password, fingerprints)
+		}
+		if !c.ok {
+			if err == nil || !strings.Contains(err.Error(), "Authentication failure") {
+				t.Errorf("a wrong password after a no-match = %v, want the refusal", err)
+			}
+			_ = client.Close()
+			if l := <-logins; l != nil {
+				t.Error("a wrong password after a no-match handed over a session")
+			}
+			<-errs
+			continue
+		}
+		if err != nil {
+			t.Fatalf("the password after a no-match: %v", err)
+		}
+		login := <-logins
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+		finishLogin(t, login)
 	}
 }
