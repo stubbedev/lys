@@ -114,7 +114,7 @@ func TestMediaCommands(t *testing.T) {
 		{[]string{"media", "active"}, "Active player: VLC media player - Song [Paused]\n"},
 		{[]string{"media", "next"}, ""},
 		{[]string{"media", "play-pause", "spot"}, ""},
-		{[]string{"media", "loop", "track", "+2"}, "Loop mode set to track\n"},
+		{[]string{"media", "loop", "track", "2"}, "Loop mode set to track\n"},
 		{[]string{"media", "shuffle", "on", "spotify"}, ""},
 		{[]string{"media", "info", "spotify"}, "Player: Spotify\nStatus: Playing\nTitle: Song\nArtist: A, B\nAlbum: Record\nLength: 03:05\nVolume: 50%\nShuffle: On\nLoop: Track\nCapabilities: Seek, Next\n"},
 	}
@@ -128,6 +128,10 @@ func TestMediaCommands(t *testing.T) {
 		if code != 0 || stdout != s.want {
 			t.Errorf("%v: code %d stdout %q stderr %q\nwant %q", s.args, code, stdout, stderr, s.want)
 		}
+	}
+	stdout, stderr, code := runCaptured(t, false, "media", "loop", "none", "+2")
+	if code != 1 || stdout != "" || !strings.HasPrefix(stderr, "Error: No player matching '+2'\n") {
+		t.Errorf("a signed player number: code %d stdout %q stderr %q, want it refused as no matching player", code, stdout, stderr)
 	}
 	if got := strings.Join(vlc.Calls(), ","); got != "Next" {
 		t.Errorf("vlc calls = %s", got)
