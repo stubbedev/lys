@@ -406,8 +406,8 @@ pkgs.testers.nixosTest {
         raise Exception(f"PickColor answered {picked}")
 
     # A global shortcut: the app binds it through the portal, the user
-    # allows it, the compositor lists it, and its trigger reaches the
-    # app as Activated.
+    # allows it, the compositor holds it as an xx_hotkey_v1 on the
+    # preferred trigger, and that key reaches the app as Activated.
     machine.succeed(f"su - ${user} -c '{env} portal-client globalshortcuts > /tmp/lys/shortcuts.json 2>&1 &'")
     wait("the shortcut consent dialog", lambda: "lys-shell-portal-dialog" in namespaces())
     time.sleep(1)
@@ -418,14 +418,11 @@ pkgs.testers.nixosTest {
     bound = json.loads(machine.succeed("head -n1 /tmp/lys/shortcuts.json"))
     if bound["bound"] != 0:
         raise Exception(f"BindShortcuts answered {bound}")
-    def listed_shortcuts():
-        return [line.split(" -> ")[0].strip() for line in hypr("globalshortcuts").splitlines() if "lys-vm-test" in line]
-
-    # The portal answers BindShortcuts before the compositor has
-    # registered the shortcut, so the listing is waited for.
-    wait("the compositor listing the bound shortcut", lambda: len(listed_shortcuts()) == 1, tries=30)
-    listed = listed_shortcuts()
-    dispatch(f'hl.dsp.global("{listed[0]}")')
+    shortcuts = hypr_json("globalshortcuts")
+    held = [s for s in shortcuts if s["description"] == "lys-shell VM test"]
+    if len(held) != 1 or held[0].get("app_id") != "dev.stubbe.lys.VmTest" or held[0].get("trigger") != "CTRL+ALT+p":
+        raise Exception(f"the compositor holds no CTRL+ALT+p hotkey for the bound shortcut: {shortcuts}")
+    machine.send_key("ctrl-alt-p")
     wait("the shortcut's activation", lambda: machine.execute("grep -q activated /tmp/lys/shortcuts.json")[0] == 0, tries=30)
 
     def logged(log, line):

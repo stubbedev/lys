@@ -132,8 +132,8 @@ func (v *VirtualInput) press(button uint32, pressed bool) error {
 // a pointer that already rests on the spot (the client traces its
 // layout before its first frame lands), or a retry can aim at the
 // spot the last attempt left the pointer on - and a compositor that
-// sends no enter for a surface appearing under a resting cursor
-// (Hyprland) then leaves the press with no surface at all.
+// sends no enter for a surface appearing under a resting cursor then
+// leaves the press with no surface at all.
 func (v *VirtualInput) MoveOnto(x, y int) error {
 	if err := v.MoveTo(x+1, y); err != nil {
 		return err

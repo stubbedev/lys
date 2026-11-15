@@ -244,14 +244,16 @@ func waitKeyboard(t *testing.T, w *LogWatcher) {
 	}
 }
 
-// hoverUntil moves the pointer onto (x, y) (MoveOnto) until want
-// traces.
-func hoverUntil(w *LogWatcher, in *VirtualInput, category string, x, y int, want string) error {
+// hoverUntil moves the pointer onto (x, y) (MoveOnto) until want has
+// traced since mark: w.Mark() for what the hover itself must cause, 0
+// for state the client may have reached before, the window mapping
+// under a pointer already resting on the spot.
+func hoverUntil(w *LogWatcher, in *VirtualInput, mark int, category string, x, y int, want string) error {
 	for range 3 {
 		if err := in.MoveOnto(x, y); err != nil {
 			return fmt.Errorf("move: %w", err)
 		}
-		if err := w.WaitAll(category, attemptTimeout, want); err == nil {
+		if err := w.WaitSince(mark, category, want, attemptTimeout); err == nil {
 			return nil
 		}
 	}
@@ -1403,7 +1405,7 @@ func TestHeadlessSixthPassTypedListSurfaceAndOpenButton(t *testing.T) {
 	// timer keeps drawing: one more patch within a few ticks' budget is
 	// the floor, not a frame-rate assertion.
 	sx, sy := at("surface")
-	if err := hoverUntil(w, in, "input", sx, sy, "*widget.DrawSurface"); err != nil {
+	if err := hoverUntil(w, in, w.Mark(), "input", sx, sy, "*widget.DrawSurface"); err != nil {
 		t.Errorf("hovering the draw surface never routed to it: %v", err)
 	}
 	if err := w.WaitAll("demo", 4*time.Second, "surface drew "); err != nil {
@@ -1509,7 +1511,7 @@ func TestHeadlessCursorShapePaths(t *testing.T) {
 			_, w, centers := startShowcaseEnv(t, tc.env...)
 			in := newInput(t)
 			entry := centers["entry"]
-			if err := hoverUntil(w, in, "input", entry[0], entry[1], tc.want); err != nil {
+			if err := hoverUntil(w, in, 0, "input", entry[0], entry[1], tc.want); err != nil {
 				t.Errorf("hovering the entry never traced %s: %v", tc.want, err)
 			}
 		})

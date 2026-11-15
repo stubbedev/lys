@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -24,7 +25,7 @@ const hyprCommandTimeout = 5 * time.Second
 type hyprlandCompositor struct{}
 
 func (hyprlandCompositor) Name() string       { return "hyprland" }
-func (hyprlandCompositor) ConfigName() string { return "hypr.conf" }
+func (hyprlandCompositor) ConfigName() string { return "hypr.lua" }
 func (hyprlandCompositor) PIDName() string    { return "hyprland.pid" }
 func (hyprlandCompositor) LogName() string    { return "hyprland.log" }
 
@@ -34,16 +35,36 @@ func (hyprlandCompositor) CanRestart() bool { return false }
 // Restart is unsupported (CanRestart).
 func (hyprlandCompositor) Restart(string) error { return errors.ErrUnsupported }
 
-// CloseWindow dispatches closewindow for the window with the given
-// app_id (Hyprland matches it against the Wayland app_id, exactly the
-// class the recipes' windowrules pin).
+// CloseWindow closes the window with the given app_id (Hyprland
+// matches the class selector, a regex, against the Wayland app_id,
+// exactly the class the recipe's window rules pin).
 func (hyprlandCompositor) CloseWindow(dir, appID string) error {
 	sock, err := hyprControlSocket(dir)
 	if err != nil {
 		return err
 	}
-	_, err = hyprControlCommand(sock, "dispatch closewindow class:"+appID)
-	return err
+	return hyprCloseWindow(sock, appID)
+}
+
+// hyprCloseWindow dispatches hl.dsp.window.close for appID on the
+// control socket sock; anything but Hyprland's "ok" is the error.
+func hyprCloseWindow(sock, appID string) error {
+	request := hyprCloseWindowRequest(appID)
+	reply, err := hyprControlCommand(sock, request)
+	if err != nil {
+		return err
+	}
+	if reply != "ok" {
+		return fmt.Errorf("headlesstest: Hyprland answered %q to %q", reply, request)
+	}
+	return nil
+}
+
+// hyprCloseWindowRequest is the control request closing appID's
+// window. The selector sits in a Lua long string, which QuoteMeta's
+// output can never close early: it escapes every ']'.
+func hyprCloseWindowRequest(appID string) string {
+	return fmt.Sprintf("dispatch hl.dsp.window.close({ window = [[class:^(%s)$]] })", regexp.QuoteMeta(appID))
 }
 
 // hyprInstanceDir resolves the live Hyprland instance inside the

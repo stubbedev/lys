@@ -27,47 +27,33 @@
   # coordinates are compositor coordinates. The config must verify
   # clean (Hyprland --verify-config): any error raises an error banner
   # that reserves a strip at the top of the output, shifting every
-  # window off the coordinates the clients trace - which is what kept
-  # this gate red from #66 on. Hyprland 0.56 legacy rule syntax: "windowrule = <field> <value>, ..." where fields are
-  # effects (float, size, move) or "match:<prop> <regex>".
-  hyprConf = pkgs.writeText "lys-ui-vm-hypr.conf" ''
-    monitor=,preferred,auto,1
+  # window off the coordinates the clients trace. Hyprland reads it as
+  # Lua; the class patterns are regexes in Lua long strings, so their
+  # escapes reach Hyprland as written.
+  hyprLua = pkgs.writeText "lys-ui-vm-hypr.lua" ''
+    hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
 
-    animations {
-        enabled = 0
-    }
-    # The harness taps keys with a roundtrip between press and release;
-    # on this software-rendered VM one roundtrip (~800ms) outlasts the
-    # default 600ms repeat delay, turning every tap into a repeating
-    # held key. Taps are taps: repeat starts far past any roundtrip.
-    input {
-        repeat_delay = 5000
-    }
-    decoration {
-        rounding = 0
-        shadow {
-            enabled = false
-        }
-    }
-    misc {
-        disable_splash_rendering = true
-        force_default_wallpaper = 0
-        # The activation test checks a granted xdg-activation token by
-        # the focus it moves; by default Hyprland only marks the window.
-        focus_on_activate = true
-    }
-    debug {
-        disable_logs = false
-        enable_stdout_logs = true
-    }
+    hl.config({
+      animations = { enabled = false },
+      -- On this software-rendered VM a tap's release can trail its
+      -- press by a roundtrip (~800ms), past the default 600ms repeat
+      -- delay; repeat starts at the longest delay Hyprland accepts.
+      input = { repeat_delay = 2000 },
+      decoration = { rounding = 0, shadow = { enabled = false } },
+      misc = {
+        disable_splash_rendering = true,
+        force_default_wallpaper = 0,
+        -- The activation test checks a granted xdg-activation token by
+        -- the focus it moves; by default Hyprland only marks the window.
+        focus_on_activate = true,
+      },
+      debug = { disable_logs = false, enable_stdout_logs = true },
+    })
 
-    windowrule = float on, match:class ^(dev\\.stubbe\\.lys\\.ui\\.hello)$, size 640 470, move 0 0
-
-    windowrule = float on, match:class ^(dev\\.stubbe\\.lys\\.ui\\.states)$, size 420 280, move 40 40
-
-    windowrule = float on, match:class ^(dev\\.stubbe\\.lys\\.ui\\.multilist)$, size 300 300, move 0 0
-
-    windowrule = float on, match:title ^modal dialog$, move 340 0
+    hl.window_rule({ name = "lys-ui-hello", match = { class = [[^(dev\.stubbe\.lys\.ui\.hello)$]] }, float = true, size = "640 470", move = "0 0" })
+    hl.window_rule({ name = "lys-ui-states", match = { class = [[^(dev\.stubbe\.lys\.ui\.states)$]] }, float = true, size = "420 280", move = "40 40" })
+    hl.window_rule({ name = "lys-ui-multilist", match = { class = [[^(dev\.stubbe\.lys\.ui\.multilist)$]] }, float = true, size = "300 300", move = "0 0" })
+    hl.window_rule({ name = "lys-ui-modal-dialog", match = { title = [[^modal dialog$]] }, float = true, move = "340 0" })
   '';
 
   lysUIUser = "lys-ui";
@@ -147,14 +133,14 @@ in
       # session dir (Env.PIDPath); the recipe keeps both names where
       # the driver expects them, like the sway recipe does.
       machine.succeed(
-        "install -m 0644 -o ${lysUIUser} -g users ${hyprConf} ${runtimeDir}/hypr.conf"
+        "install -m 0644 -o ${lysUIUser} -g users ${hyprLua} ${runtimeDir}/hypr.lua"
       )
 
       # A config error is not a warning here: Hyprland's error banner
       # reserves a strip of the output and shifts every window off the
       # coordinates the clients trace. Refuse to boot on one.
       verdict = machine.succeed(
-        "su - ${lysUIUser} -c 'XDG_RUNTIME_DIR=${runtimeDir} Hyprland --verify-config -c ${runtimeDir}/hypr.conf 2>&1' | tail -n 5"
+        "su - ${lysUIUser} -c 'XDG_RUNTIME_DIR=${runtimeDir} Hyprland --verify-config -c ${runtimeDir}/hypr.lua 2>&1' | tail -n 5"
       )
       if "config ok" not in verdict:
           raise Exception("the Hyprland config does not verify:\n" + verdict)
@@ -167,7 +153,7 @@ in
       machine.succeed(
         "su - ${lysUIUser} -c '"
         + hypr_env
-        + "Hyprland -c ${runtimeDir}/hypr.conf >${runtimeDir}/hyprland.log 2>&1 "
+        + "Hyprland -c ${runtimeDir}/hypr.lua >${runtimeDir}/hyprland.log 2>&1 "
         "& echo $! > ${runtimeDir}/hyprland.pid'"
       )
 
@@ -191,7 +177,7 @@ in
           print(machine.execute("cat /home/lys-ui/.cache/hyprland/crash-reports/*.txt 2>/dev/null | head -n 80")[1])
           raise Exception("Hyprland never created its Wayland socket")
 
-      # Hyprland 0.56 auto-generates its instance signature (the env
+      # Hyprland auto-generates its instance signature (the env
       # var is advisory), so discover the live instance dir and aim
       # hyprctl and the suite at it.
       hypr_sig = machine.succeed(f"ls {runtime_dir}/hypr").split()[0]

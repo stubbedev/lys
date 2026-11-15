@@ -11,8 +11,11 @@ Bind it in your compositor. lys-wm's default config binds `SUPER + Space`.
 ```ini
 # sway
 bindsym $mod+space exec lys-shell launcher
-# Hyprland
-bind = SUPER, SPACE, exec, lys-shell launcher
+```
+
+```lua
+-- Hyprland
+hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("lys-shell launcher"))
 ```
 
 ## Sources

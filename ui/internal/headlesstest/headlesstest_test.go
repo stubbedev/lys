@@ -176,13 +176,12 @@ func TestSwayRecipePinsTheShowcase(t *testing.T) {
 }
 
 // TestHyprlandVMRecipePinsTheShowcase is the sway recipe guard's twin
-// for the Hyprland VM gate: the VM's windowrules must pin the same
-// floating sizes and positions (Hyprland 0.56 legacy rule syntax:
-// effects and match:class fields, comma-separated), or every traced
-// coordinate is compositor-relative to a tiling layout instead. The
-// dots in the app_ids are regex-escaped in the conf and the escapes
-// are doubled again by the nix ” string, so the guard matches the
-// escaped source form.
+// for the Hyprland VM gate: the VM's Lua window rules must pin the same
+// floating sizes and positions, or every traced coordinate is
+// compositor-relative to a tiling layout instead. The class patterns
+// are regex-escaped app_ids in Lua long strings, which neither Lua nor
+// the nix indented string unescapes, so the guard matches regexp.QuoteMeta's
+// form.
 func TestHyprlandVMRecipePinsTheShowcase(t *testing.T) {
 	root, err := ComponentDir()
 	if err != nil {
@@ -193,14 +192,18 @@ func TestHyprlandVMRecipePinsTheShowcase(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := string(data)
-	nixClass := func(appID string) string {
-		return strings.ReplaceAll(regexp.QuoteMeta(appID), `\`, `\\`)
+	rule := func(match, effects string) string {
+		return fmt.Sprintf("match = { %s }, float = true, %s })", match, effects)
+	}
+	class := func(appID string) string {
+		return fmt.Sprintf("class = [[^(%s)$]]", regexp.QuoteMeta(appID))
 	}
 	for _, want := range []string{
-		fmt.Sprintf("match:class ^(%s)$, size %d %d, move 0 0", nixClass(AppID), showcaseW, showcaseH),
-		fmt.Sprintf("match:class ^(%s)$, size %d %d, move 40 40", nixClass(StatesAppID), statesW, statesH),
-		fmt.Sprintf("match:class ^(%s)$, size %d %d, move 0 0", nixClass(MultilistAppID), multilistW, multilistH),
-		"match:title ^modal dialog$",
+		rule(class(AppID), fmt.Sprintf(`size = "%d %d", move = "0 0"`, showcaseW, showcaseH)),
+		rule(class(StatesAppID), fmt.Sprintf(`size = "%d %d", move = "40 40"`, statesW, statesH)),
+		rule(class(MultilistAppID), fmt.Sprintf(`size = "%d %d", move = "0 0"`, multilistW, multilistH)),
+		rule("title = [[^modal dialog$]]", `move = "340 0"`),
+		fmt.Sprintf("${runtimeDir}/%s", hyprlandCompositor{}.ConfigName()),
 	} {
 		if !strings.Contains(cfg, want) {
 			t.Errorf("Hyprland VM config lacks %q; keep it in sync with internal/headlesstest:\n%s", want, cfg)

@@ -37,7 +37,7 @@ func TestDriverArtifactNamesMatchTheRecipes(t *testing.T) {
 		t.Errorf("sway driver artifacts: %s %s %s", sway.ConfigName(), sway.PIDName(), sway.LogName())
 	}
 	hyprland, _ := driverFor("hyprland")
-	if hyprland.ConfigName() != "hypr.conf" || hyprland.PIDName() != "hyprland.pid" || hyprland.LogName() != "hyprland.log" {
+	if hyprland.ConfigName() != "hypr.lua" || hyprland.PIDName() != "hyprland.pid" || hyprland.LogName() != "hyprland.log" {
 		t.Errorf("hyprland driver artifacts: %s %s %s", hyprland.ConfigName(), hyprland.PIDName(), hyprland.LogName())
 	}
 }
@@ -98,9 +98,8 @@ func TestHyprInstanceDirPrefersTheEnvAndThenTheOnlyLiveOne(t *testing.T) {
 	}
 }
 
-func TestHyprControlCommandRoundTripsOneRequest(t *testing.T) {
-	// The control socket is a real unix socket; LoopbackDisplay keeps
-	// its path inside the kernel's 107-byte sun_path limit on CI.
+func fakeHyprControl(t *testing.T, reply string) (string, <-chan string) {
+	t.Helper()
 	ln, sock := wltest.LoopbackDisplay(t, "ctl-sock")
 	requests := make(chan string, 1)
 	go func() {
@@ -112,17 +111,52 @@ func TestHyprControlCommandRoundTripsOneRequest(t *testing.T) {
 		buf := make([]byte, 4096)
 		n, _ := conn.Read(buf)
 		requests <- string(buf[:n])
-		_, _ = conn.Write([]byte("ok\n"))
+		_, _ = conn.Write([]byte(reply + "\n"))
 	}()
-	reply, err := hyprControlCommand(sock, "dispatch closewindow class:dev.stubbe.lys.ui.states")
+	return sock, requests
+}
+
+func TestHyprControlCommandRoundTripsOneRequest(t *testing.T) {
+	sock, requests := fakeHyprControl(t, "ok")
+	reply, err := hyprControlCommand(sock, "version")
 	if err != nil {
 		t.Fatalf("hyprControlCommand: %v", err)
 	}
 	if reply != "ok" {
 		t.Errorf("reply = %q, want %q", reply, "ok")
 	}
-	if got := <-requests; got != "dispatch closewindow class:dev.stubbe.lys.ui.states" {
+	if got := <-requests; got != "version" {
 		t.Errorf("request = %q", got)
+	}
+}
+
+func TestHyprCloseWindowDispatchesTheLuaCloseForTheClass(t *testing.T) {
+	sock, requests := fakeHyprControl(t, "ok")
+	if err := hyprCloseWindow(sock, "dev.stubbe.lys.ui.states"); err != nil {
+		t.Fatalf("hyprCloseWindow: %v", err)
+	}
+	want := `dispatch hl.dsp.window.close({ window = [[class:^(dev\.stubbe\.lys\.ui\.states)$]] })`
+	if got := <-requests; got != want {
+		t.Errorf("request = %q, want %q", got, want)
+	}
+}
+
+func TestHyprCloseWindowFailsOnARefusal(t *testing.T) {
+	refusal := "dispatch failed: no such window"
+	sock, _ := fakeHyprControl(t, refusal)
+	err := hyprCloseWindow(sock, "dev.stubbe.lys.ui.states")
+	if err == nil {
+		t.Fatal("hyprCloseWindow took a refusal for success")
+	}
+	if !strings.Contains(err.Error(), refusal) || !strings.Contains(err.Error(), "hl.dsp.window.close") {
+		t.Errorf("refusal error lacks the reply or the request: %v", err)
+	}
+}
+
+func TestHyprCloseWindowRequestKeepsTheLongStringClosed(t *testing.T) {
+	got := hyprCloseWindowRequest("a]]b")
+	if strings.Count(got, "]]") != 1 {
+		t.Errorf("request %q closes its Lua long string early", got)
 	}
 }
 

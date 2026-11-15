@@ -94,4 +94,4 @@ lys-shell reads `$XDG_CONFIG_HOME/lys-shell/config.yaml` (default `~/.config/lys
 
 ## Lock screen
 
-Locking is done by [lys-login](/login/), which must be on the `PATH`. `lys-shell lock`, logind's Lock signal and `login.lock.lock-on-start` each start `lys-login lock` as its own process, which survives a shell restart. If that process dies while the session is still locked, the shell starts it again. On Hyprland this needs `misc:allow_session_lock_restore = true`.
+Locking is done by [lys-login](/login/), which must be on the `PATH`. `lys-shell lock`, logind's Lock signal and `login.lock.lock-on-start` each start `lys-login lock` as its own process, which survives a shell restart. If that process dies while the session is still locked, the shell starts it again. On Hyprland this needs `hl.config({ misc = { allow_session_lock_restore = true } })`.
