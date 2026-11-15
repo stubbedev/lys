@@ -117,12 +117,13 @@ func weatherErrorText(st weather.Status) string {
 	return i18n.T("dropdown-weather-error-unknown")
 }
 
-// weatherPage is the page a status shows.
-func weatherPage(st weather.Status) string {
-	switch st.Kind {
-	case weather.Loaded:
+// weatherPage is the page a status shows: a failure over held data
+// keeps the loaded page, which then carries the stale alert.
+func weatherPage(st weather.Status, w *weather.Weather) string {
+	switch {
+	case st.Kind == weather.Loaded, weatherStale(st, w):
 		return "loaded"
-	case weather.Failed:
+	case st.Kind == weather.Failed:
 		return "error"
 	}
 	return "loading"
@@ -239,7 +240,8 @@ func (v *weatherView) errorPage() widget.Widget {
 // refresh shows the status's page and rebuilds the loaded sections
 // from the latest data (every section's refresh at once). Every
 // refetch crossfades to the loading page, after a success too; the
-// loaded page keeps its last render until the new data lands.
+// loaded page keeps its last render until the new data lands, and a
+// failed refetch over held data shows it under the stale alert.
 func (v *weatherView) refresh() {
 	if v.svc == nil {
 		// No service: nothing to read (the builders sweep must not
@@ -249,18 +251,28 @@ func (v *weatherView) refresh() {
 	st := v.svc.Status()
 	w := v.svc.Weather()
 	v.errorText.SetText(weatherErrorText(st))
-	v.pages.Show(weatherPage(st))
+	v.pages.Show(weatherPage(st, w))
 	if w == nil {
 		return
 	}
 	cfg := v.ctx.Config.Weather
 	imperial := cfg.Units == config.TemperatureUnitImperial
 	v.loaded.Clear()
+	if weatherStale(st, w) {
+		v.loaded.Append(v.staleAlert(st), false)
+	}
 	v.loaded.Append(v.currentHeader(w, imperial), false)
 	v.loaded.Append(v.statsGrid(w, imperial), false)
 	v.loaded.Append(v.hourly(w, imperial, cfg.TimeFormat), false)
 	v.loaded.Append(v.daily(w, imperial), false)
 	v.loaded.Append(v.sunTimes(w, cfg.TimeFormat), false)
+}
+
+func (v *weatherView) staleAlert(st weather.Status) *widget.Alert {
+	a := widget.NewAlert(v.font, i18n.T("dropdown-weather-stale-title"), weatherErrorText(st))
+	a.SetIcon(widget.NewThemeIcon("ld-info-symbolic", itemIconPx))
+	a.AddClass("weather-stale-alert")
+	return a
 }
 
 // condIcon is a condition's glyph at scale times the text size,

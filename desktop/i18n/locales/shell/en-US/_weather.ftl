@@ -18,3 +18,6 @@ weather-thunderstorm = Thunderstorm
 weather-windy = Windy
 weather-hail = Hail
 weather-unknown = Unknown
+
+# { $reading } is the bar label; { $reason } why the refresh failed
+weather-stale = { $reading } (not refreshed: { $reason })

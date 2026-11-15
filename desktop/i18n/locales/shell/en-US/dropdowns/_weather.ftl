@@ -43,3 +43,4 @@ dropdown-weather-error-network = Cannot reach the weather service.
 dropdown-weather-error-rate-limit = Too many requests. Try again later.
 dropdown-weather-error-unknown = Something went wrong. Try again later.
 dropdown-weather-retry = Retry
+dropdown-weather-stale-title = Could not refresh the weather

@@ -42,3 +42,4 @@ dropdown-weather-error-network = Der Wetterdienst ist nicht erreichbar.
 dropdown-weather-error-rate-limit = Zu viele Anfragen. Versuchen Sie es später erneut.
 dropdown-weather-error-unknown = Etwas ist schiefgelaufen. Versuchen Sie es später erneut.
 dropdown-weather-retry = Erneut versuchen
+dropdown-weather-stale-title = Wetter konnte nicht aktualisiert werden

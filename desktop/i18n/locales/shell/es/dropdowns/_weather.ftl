@@ -42,3 +42,4 @@ dropdown-weather-error-network = No se puede contactar con el servicio meteorol�
 dropdown-weather-error-rate-limit = Demasiadas solicitudes. Inténtelo de nuevo más tarde.
 dropdown-weather-error-unknown = Algo ha ido mal. Inténtelo de nuevo más tarde.
 dropdown-weather-retry = Reintentar
+dropdown-weather-stale-title = No se ha podido actualizar el tiempo

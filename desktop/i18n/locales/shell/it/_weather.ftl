@@ -18,3 +18,6 @@ weather-thunderstorm = Temporale
 weather-windy = Ventoso
 weather-hail = Grandine
 weather-unknown = Sconosciuto
+
+# { $reading } is the bar label; { $reason } why the refresh failed
+weather-stale = { $reading } (non aggiornato: { $reason })

@@ -16,3 +16,6 @@ weather-thunderstorm = Onweer
 weather-windy = Winderig
 weather-hail = Hagel
 weather-unknown = Onbekend
+
+# { $reading } is the bar label; { $reason } why the refresh failed
+weather-stale = { $reading } (niet vernieuwd: { $reason })

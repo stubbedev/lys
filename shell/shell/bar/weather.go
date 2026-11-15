@@ -184,10 +184,11 @@ func resolvedSecret(value *string) string {
 // weatherModule is the bar button: the formatted conditions and their
 // icon, re-rendered on every service change.
 type weatherModule struct {
-	ctx  ModuleContext
-	svc  *weather.Service
-	btn  *barButton
-	icon *widget.Icon
+	ctx    ModuleContext
+	svc    *weather.Service
+	btn    *barButton
+	icon   *widget.Icon
+	chrome moduleChrome
 }
 
 func newWeather(ctx ModuleContext) (Module, error) {
@@ -205,16 +206,45 @@ func newWeather(ctx ModuleContext) (Module, error) {
 
 // render is the weather watcher: without data the configured icon
 // stays and the label keeps its last text; with data the label is the
-// format and the icon the condition's.
+// format and the icon the condition's. A failed refresh over held data
+// marks the module weather-stale and says why in its tooltip.
 func (m *weatherModule) render() {
 	cfg := m.ctx.Config.Weather
 	w := m.svc.Weather()
+	st := m.svc.Status()
+	stale := weatherStale(st, w)
+	setClass(m.chrome, weatherStaleClass, stale)
 	if w == nil {
 		m.setIcon(cfg.IconName)
+		m.btn.SetDescription(weatherFailure(st))
 		return
 	}
-	m.btn.SetLabel(weatherFormatLabel(cfg.Format, w, cfg.Units == config.TemperatureUnitImperial))
+	label := weatherFormatLabel(cfg.Format, w, cfg.Units == config.TemperatureUnitImperial)
+	m.btn.SetLabel(label)
 	m.setIcon(weatherConditionIcon(w.Current.Condition, w.Current.IsDay))
+	detail := ""
+	if stale {
+		detail = i18n.T("weather-stale", i18n.Str("reading", label), i18n.Str("reason", weatherErrorText(st)))
+	}
+	m.btn.SetDescription(detail)
+}
+
+const weatherStaleClass = "weather-stale"
+
+func weatherStale(st weather.Status, w *weather.Weather) bool {
+	return st.Kind == weather.Failed && w != nil
+}
+
+func weatherFailure(st weather.Status) string {
+	if st.Kind != weather.Failed {
+		return ""
+	}
+	return weatherErrorText(st)
+}
+
+func (m *weatherModule) setChrome(c moduleChrome) {
+	m.chrome = c
+	m.render()
 }
 
 func (m *weatherModule) setIcon(name string) {

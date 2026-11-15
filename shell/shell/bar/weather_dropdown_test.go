@@ -116,7 +116,7 @@ func TestWeatherErrorTextNamesTheCause(t *testing.T) {
 	if got := weatherErrorText(weather.Status{Kind: weather.Failed}); got != i18n.T("dropdown-weather-error-unknown") {
 		t.Errorf("other = %q", got)
 	}
-	if weatherPage(weather.Status{Kind: weather.Loading}) != "loading" || weatherPage(weather.Status{Kind: weather.Failed}) != "error" {
+	if weatherPage(weather.Status{Kind: weather.Loading}, nil) != "loading" || weatherPage(weather.Status{Kind: weather.Failed}, nil) != "error" {
 		t.Error("pages")
 	}
 	if got := weatherUpdatedAgo(time.Now().Add(time.Minute), time.Now()); got != i18n.T("dropdown-weather-updated-ago", i18n.Str("minutes", "0")) {
@@ -495,4 +495,166 @@ func TestWeatherDropdownWithoutTheServiceFollowsNothing(t *testing.T) {
 	followed := apptest.On(a, func() *weatherView { return weatherDropdown(ctx).(*weatherView) })
 	t.Cleanup(func() { apptest.On(a, func() bool { followed.dropdownClosed(); return true }) })
 	apptest.Until(t, a, "the service's data on the followed dropdown", func() bool { return followed.pages.Visible() == "loaded" })
+}
+
+type scriptedWeather struct {
+	mu  sync.Mutex
+	w   *weather.Weather
+	err error
+}
+
+func (s *scriptedWeather) set(w *weather.Weather, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.w, s.err = w, err
+}
+
+func (s *scriptedWeather) fetch(context.Context, weather.Settings, time.Time) (*weather.Weather, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w, s.err
+}
+
+func rainyWeather() *weather.Weather {
+	return &weather.Weather{
+		Zone:    time.Local,
+		Current: weather.Current{Temperature: 11, Condition: weather.CondRain},
+		Hourly:  make([]weather.Hourly, 8),
+		Daily:   []weather.Daily{{Date: time.Now(), TempLow: 4, TempHigh: 12}},
+	}
+}
+
+func TestWeatherPageKeepsHeldDataOverAFailure(t *testing.T) {
+	failed := weather.Status{Kind: weather.Failed, Error: weather.ErrNetwork}
+	for _, tc := range []struct {
+		st   weather.Status
+		w    *weather.Weather
+		want string
+	}{
+		{failed, rainyWeather(), "loaded"},
+		{failed, nil, "error"},
+		{weather.Status{Kind: weather.Loading}, rainyWeather(), "loading"},
+		{weather.Status{Kind: weather.Loading}, nil, "loading"},
+		{weather.Status{Kind: weather.Loaded}, rainyWeather(), "loaded"},
+	} {
+		if got := weatherPage(tc.st, tc.w); got != tc.want {
+			t.Errorf("status %v with data %v: page %q, want %q", tc.st.Kind, tc.w != nil, got, tc.want)
+		}
+	}
+}
+
+func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	script := &scriptedWeather{w: rainyWeather()}
+	svc := weather.NewWith(weather.Settings{Interval: time.Hour}, script.fetch)
+	defer svc.Close()
+	ctx.Weather = svc
+	waitHeadless(t, "the loaded status", func() bool { return svc.Status().Kind == weather.Loaded })
+	v := weatherDropdown(ctx).(*weatherView)
+	if findByClass(v, "weather-stale-alert") != nil {
+		t.Error("a successful fetch shows the stale alert")
+	}
+
+	script.set(nil, &weather.Error{Kind: weather.ErrLocationNotFound, Query: "Atlantis"})
+	svc.Refresh()
+	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
+	v.refresh()
+	if got := v.pages.Visible(); got != "loaded" {
+		t.Fatalf("a failure over held data shows page %q, want loaded", got)
+	}
+	alert, ok := classedWidget(t, v.loaded, "weather-stale-alert").(*widget.Alert)
+	if !ok {
+		t.Fatal("the stale alert is not lys-ui's Alert")
+	}
+	if alert.Title() != i18n.T("dropdown-weather-stale-title") || alert.Description() != i18n.T("dropdown-weather-error-location", i18n.Str("query", "Atlantis")) {
+		t.Errorf("alert = %q / %q", alert.Title(), alert.Description())
+	}
+	if got := len(v.loaded.Children()); got != 6 {
+		t.Errorf("loaded children = %d, want the alert over the five sections", got)
+	}
+	if v.loaded.Children()[0] != widget.Widget(alert) {
+		t.Error("the stale alert is not the loaded page's first row")
+	}
+
+	script.set(rainyWeather(), nil)
+	svc.Refresh()
+	waitHeadless(t, "the reloaded status", func() bool { return svc.Status().Kind == weather.Loaded })
+	v.refresh()
+	if findByClass(v.loaded, "weather-stale-alert") != nil {
+		t.Error("the stale alert outlives a successful refresh")
+	}
+}
+
+func TestWeatherFailureWithoutDataShowsNoStaleAlert(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	svc := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
+	defer svc.Close()
+	ctx.Weather = svc
+	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
+	v := weatherDropdown(ctx).(*weatherView)
+	if got := v.pages.Visible(); got != "error" {
+		t.Errorf("page = %q, want error", got)
+	}
+	if findByClass(v, "weather-stale-alert") != nil {
+		t.Error("a failure with no data shows the stale alert")
+	}
+}
+
+func TestWeatherModuleIsStaleOnlyWhileTheRefreshFails(t *testing.T) {
+	cfg := config.Defaults()
+	ctx := newTestContext(t, cfg)
+	script := &scriptedWeather{w: rainyWeather()}
+	svc := weather.NewWith(weather.Settings{Interval: time.Hour}, script.fetch)
+	defer svc.Close()
+	ctx.Weather = svc
+	ctx.gen = newMountGen()
+	defer ctx.gen.retire()
+	waitHeadless(t, "the loaded status", func() bool { return svc.Status().Kind == weather.Loaded })
+	m, err := createOnHeadlessLoop("weather", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wm := m.(*weatherModule)
+	chrome := widget.NewBox(widget.Row, 0, 0)
+	onHeadlessLoop(func() bool { wm.setChrome(chrome); return true })
+	stale := func() bool { return widget.HasClass(chrome, weatherStaleClass) }
+	if onHeadlessLoop(stale) || onHeadlessLoop(func() bool { return wm.btn.detail != "" }) {
+		t.Fatal("a current reading is marked stale")
+	}
+
+	script.set(nil, &weather.Error{Kind: weather.ErrLocationNotFound, Query: "Atlantis"})
+	svc.Refresh()
+	reason := i18n.T("dropdown-weather-error-location", i18n.Str("query", "Atlantis"))
+	want := i18n.T("weather-stale", i18n.Str("reading", "11°C"), i18n.Str("reason", reason))
+	waitHeadless(t, "the stale class and its reason", func() bool { return stale() && wm.btn.detail == want })
+	if got := onHeadlessLoop(func() string { return wm.btn.Label().Text() }); got != "11°C" {
+		t.Errorf("the stale label = %q, want the held 11°C", got)
+	}
+
+	script.set(rainyWeather(), nil)
+	svc.Refresh()
+	waitHeadless(t, "the stale class cleared", func() bool { return !stale() && wm.btn.detail == "" })
+}
+
+func TestWeatherModuleWithoutDataIsNotStale(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	svc := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
+	defer svc.Close()
+	ctx.Weather = svc
+	ctx.gen = newMountGen()
+	defer ctx.gen.retire()
+	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
+	m, err := createOnHeadlessLoop("weather", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wm := m.(*weatherModule)
+	chrome := widget.NewBox(widget.Row, 0, 0)
+	onHeadlessLoop(func() bool { wm.setChrome(chrome); return true })
+	if onHeadlessLoop(func() bool { return widget.HasClass(chrome, weatherStaleClass) }) {
+		t.Error("a module with no reading is marked stale")
+	}
+	if got := onHeadlessLoop(func() string { return wm.btn.detail }); got != i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", "weatherapi")) {
+		t.Errorf("detail = %q, want the failure's reason", got)
+	}
 }

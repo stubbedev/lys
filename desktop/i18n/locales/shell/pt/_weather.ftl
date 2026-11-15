@@ -16,3 +16,6 @@ weather-thunderstorm = Trovoada
 weather-windy = Ventoso
 weather-hail = Granizo
 weather-unknown = Desconhecido
+
+# { $reading } is the bar label; { $reason } why the refresh failed
+weather-stale = { $reading } (não atualizado: { $reason })

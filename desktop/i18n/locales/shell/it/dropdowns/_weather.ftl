@@ -42,3 +42,4 @@ dropdown-weather-error-network = Impossibile raggiungere il servizio meteo.
 dropdown-weather-error-rate-limit = Troppe richieste. Riprova più tardi.
 dropdown-weather-error-unknown = Qualcosa è andato storto. Riprova più tardi.
 dropdown-weather-retry = Riprova
+dropdown-weather-stale-title = Impossibile aggiornare il meteo
