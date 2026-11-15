@@ -113,7 +113,7 @@ docker recipe="check" memory="10g":
     set -euo pipefail
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
-    nix print-dev-env > "$dir/env.sh"
+    nix print-dev-env .#ui > "$dir/env.sh"
     printf 'root:x:0:0::/root:/bin/sh\nlys-ui:x:%s:%s::/go/home:/bin/sh\n' "$(id -u)" "$(id -g)" > "$dir/passwd"
     printf 'root:x:0:\nlys-ui:x:%s:\n' "$(id -g)" > "$dir/group"
     bash=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#bash^out)/bin/bash
@@ -129,7 +129,7 @@ docker recipe="check" memory="10g":
     fi
     docker run --rm --init --user "$(id -u):$(id -g)" --device /dev/kvm "${gpu[@]}" \
         --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
-        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$PWD:/src" -v lys-ui-go:/go -w /src -e SSL_CERT_FILE="$certs" \
+        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-ui-go:/go -w /src/ui -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache TMPDIR=/tmp FONTCONFIG_FILE="$LYS_UI_TEST_FONTCONFIG" && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{quote(recipe)}}
 
 # `check` plus the headless input gate - what CI runs. The gate is
@@ -220,7 +220,7 @@ gallery:
 # Screenshot every gallery demo, overlay opened, in both
 # palettes into dir: the gallery's -shots mode on a private headless
 # sway that floats its windows at the origin. The docs site shows them.
-docshots dir="docs/public/components":
+docshots dir="../docs/public/ui-widgets":
     #!/bin/sh
     env="{{test_dir}}-shots"
     # Scale 2, so the shots stay sharp on high-density screens, on a
@@ -317,12 +317,12 @@ test-env dir=test_dir output="mode 1280x800 scale 1":
     if [ -z "$bus" ]; then
         echo "private session bus failed to start"; exit 1
     fi
-    # Inside the dev shell (CI runs `nix develop -c just headless`)
+    # Inside the dev shell (CI runs `just in ui headless`)
     # sway is already on PATH, so the dev shell is only the fallback
     # for a host shell.
     boot="exec sway -c '$dir/sway.cfg'"
     if ! command -v sway >/dev/null 2>&1; then
-        boot="exec nix develop -c sway -c '$dir/sway.cfg'"
+        boot="exec nix develop .#ui -c sway -c '$dir/sway.cfg'"
     fi
     DBUS_SESSION_BUS_ADDRESS="$bus" XDG_RUNTIME_DIR="$dir" WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 \
         WLR_RENDERER=pixman sh -c "echo \$\$ > '$dir/sway.pid'; $boot" \

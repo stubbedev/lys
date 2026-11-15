@@ -1,0 +1,87 @@
+name: Nix, caches and the runner's switches
+description: >-
+  Installs Nix with the xilo substituters and just, and restores the job's Nix store and
+  Go caches under its own key, so the jobs of one matrix do not overwrite each
+  other's caches. Gives the runner KVM, unprivileged user namespaces or free
+  disk when the job asks. Go reuses a test result only while nothing it depends
+  on changed; the weekly scheduled run reruns everything.
+
+inputs:
+  github-token:
+    description: Token for the Nix fetches GitHub rate-limits.
+    required: true
+  cache-key:
+    description: The job's own cache key.
+    required: true
+  kvm:
+    description: Give the runner KVM, for NixOS VM checks.
+    default: "false"
+  userns:
+    description: Allow the unprivileged user namespaces bwrap needs.
+    default: "false"
+  free-disk:
+    description: Remove the runner's preinstalled toolchains, for VM disk images.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.free-disk == 'true'
+      shell: bash
+      run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+
+    - if: inputs.kvm == 'true'
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - if: inputs.userns == 'true'
+      shell: bash
+      run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+    - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      with:
+        github_access_token: ${{ inputs.github-token }}
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          accept-flake-config = true
+          extra-substituters = https://nix.stubbe.dev/c/default/default https://nix.stubbe.dev/c/default/flakes
+          extra-trusted-public-keys = default:6uWvXutL9cXjV3lii+Ur5ff+ArQoG4kMBKNXWrIxhHg= flakes:0Dr9MyPOvA6va2GVzflJcbrChNoZUeIZflyrww3O+YM=
+
+    - name: just, from the flake's nixpkgs
+      shell: bash
+      run: |
+        nix build --inputs-from . nixpkgs#just --out-link "${RUNNER_TEMP}/just"
+        echo "${RUNNER_TEMP}/just/bin" >> "$GITHUB_PATH"
+
+    - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+      with:
+        primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-${{ hashFiles('flake.lock') }}
+        restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-
+        gc-max-store-size-linux: 6G
+
+    - id: cache-day
+      shell: bash
+      run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-${{ steps.cache-day.outputs.day }}-${{ hashFiles('flake.lock', 'go.sum') }}
+        restore-keys: |
+          go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-
+
+    - name: Reuse unchanged test results, apart from the weekly full run
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+      run: |
+        if [ "$EVENT" = schedule ]; then
+          echo "GOFLAGS=-count=1" >> "$GITHUB_ENV"
+        else
+          echo "LYS_TEST_ARGS=" >> "$GITHUB_ENV"
+        fi

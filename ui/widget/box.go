@@ -66,7 +66,7 @@ func (c *childEntry) crossAlign() Align {
 // where an RTL reader starts. Columns are unaffected.
 //
 // A stylesheet display declaration lays the children out by CSS
-// instead — normal flow or flexbox (docs/css.md's Layout) — with the
+// instead — normal flow or flexbox (docs/ui/css.md's Layout) — with the
 // settings above standing in wherever the stylesheet is silent.
 type Box struct {
 	node

@@ -46,7 +46,7 @@ fhs_interpreter := if arch() == "aarch64" { "/lib/ld-linux-aarch64.so.1" } else 
 # beside it the notice of the wordlist lys-desktop's config links in.
 dist:
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{fhs_interpreter}}" -o dist/ ./cmd/lys-login
-    install -m 0644 "$(go list -m -f '{{{{.Dir}}' github.com/stubbedev/lys/desktop)/service/bitwarden/generator/eff_large_wordlist.NOTICE" dist/
+    install -m 0644 "../desktop/service/bitwarden/generator/eff_large_wordlist.NOTICE" dist/
 
 # Format every Go source in place (gofumpt and gci via golangci-lint).
 fmt:
@@ -120,7 +120,236 @@ x11-session-vm:
 
 # The .deb or the .rpm built, installed and logged in through in a
 # Debian or Fedora cloud VM, as nix/distro-vm.nix describes (needs KVM,
-# and the network in the guest): `just distro-vm debian`.
-distro-vm distro: dist
-    ./scripts/ci/build-archive.sh dist 0.0.0 {{ arch() }}
-    nix run .#distro-vm-{{ distro }} -- lys-login-0.0.0-{{ arch() }}-linux.tar.gz
+# and the network in the guest): `just login::distro-vm debian`.
+[script("bash")]
+distro-vm distro: dist (archive "0.0.0")
+    set -euo pipefail
+    image="$(nix build --no-link --print-out-paths "..#login-distro-vm-image-{{ distro }}")"
+    guest="$(nix build --no-link --print-out-paths ..#login-distro-vm-guest)"
+    nix shell --inputs-from .. nixpkgs#qemu_kvm nixpkgs#xorriso -c just distro-vm-boot "${image}" "${guest}" "lys-login-0.0.0-{{ arch() }}-linux.tar.gz"
+
+# Pack the dist/ build into lys-login-<version>-<arch>-linux.tar.gz, the release
+# archive the packages are built from.
+[script("bash")]
+archive version arch=arch() dist="dist":
+    set -euo pipefail
+    staging="lys-login-{{ version }}-{{ arch }}-linux"
+    rm -rf "${staging}"
+    mkdir -p "${staging}"
+    cp "{{ dist }}/lys-login" "{{ dist }}/eff_large_wordlist.NOTICE" LICENSE \
+        resources/lys-login.service \
+        resources/lys-login.sysusers \
+        resources/lys-login.tmpfiles \
+        resources/dev.stubbe.lys.login.policy \
+        "${staging}/"
+    cp -r resources/pam "${staging}/"
+    tar czf "${staging}.tar.gz" "${staging}"
+    rm -rf "${staging}"
+
+# Build the archive and the .deb and .rpm from dist/: `just login::package 0.5.0 deb`.
+package version format="": (archive version)
+    just --justfile ../packaging/justfile build login "{{ justfile_directory() }}/lys-login-{{ version }}-{{ arch() }}-linux.tar.gz" "{{ version }}" "{{ format }}"
+
+# Install a .deb or .rpm built by package (as root) and check it runs.
+[script("bash")]
+smoke-test package:
+    set -euo pipefail
+    just --justfile ../packaging/justfile install "$(readlink -f "{{ package }}")"
+    fail() {
+        echo "smoke test: $*" >&2
+        exit 1
+    }
+
+    status=0
+    lys-login >/dev/null 2>&1 || status=$?
+    [[ ${status} -eq 2 ]] || fail "lys-login without a mode exited ${status}, want its usage (2)"
+
+    for file in /usr/lib/systemd/system/lys-login.service /etc/pam.d/lys-login /etc/pam.d/lys-login-autologin /etc/pam.d/lys-shell \
+        /usr/lib/sysusers.d/lys-login.conf /usr/lib/tmpfiles.d/lys-login.conf /usr/share/polkit-1/actions/dev.stubbe.lys.login.policy; do
+        [[ -f ${file} ]] || fail "${file} is missing"
+    done
+
+    getent passwd lys-greeter >/dev/null || fail "the lys-greeter user does not exist"
+    [[ "$(stat -c '%U %a' /var/lib/lys-greeter)" == "lys-greeter 700" ]] ||
+        fail "/var/lib/lys-greeter is $(stat -c '%U %a' /var/lib/lys-greeter), want lys-greeter 700"
+    [[ ! -e /etc/systemd/system/display-manager.service ]] || fail "installing enabled a display manager"
+
+    echo "smoke test: {{ package }} installs and runs"
+
+# Boot the cloud image with the guest tree and the release archive, and run
+# distro-vm-guest in it (needs KVM and qemu; `just login::distro-vm` is the way
+# in).
+[script("bash")]
+distro-vm-boot image guest archive:
+    set -euo pipefail
+    ARCHIVE="$(readlink -f "{{ archive }}")"
+    WORK="$(mktemp -d)"
+    trap 'rm -rf "${WORK}"' EXIT
+
+    mkdir "${WORK}/src"
+    cp -r "{{ guest }}/." "${ARCHIVE}" "${WORK}/src/"
+    chmod -R u+w "${WORK}/src"
+
+    cat >"${WORK}/user-data" <<'CLOUD'
+    #cloud-config
+    runcmd:
+      - |
+        { command -v apt-get >/dev/null && apt-get update -q && apt-get install -y -q --no-install-recommends just; } || dnf -y -q install just
+        mkdir -p /mnt/lys && mount -o ro /dev/disk/by-label/LYS /mnt/lys && just --justfile /mnt/lys/login/justfile distro-vm-guest /mnt/lys >/dev/ttyS1 2>&1
+        echo "distro-vm: exit $?" >/dev/ttyS1
+        poweroff
+    CLOUD
+    echo "instance-id: lys-distro-vm" >"${WORK}/meta-data"
+
+    xorriso -as mkisofs -quiet -o "${WORK}/seed.iso" -V cidata -J -R "${WORK}/user-data" "${WORK}/meta-data"
+    xorriso -as mkisofs -quiet -o "${WORK}/src.iso" -V LYS -J -R "${WORK}/src"
+    qemu-img create -q -f qcow2 -F qcow2 -b "{{ image }}" "${WORK}/disk.qcow2" 12G
+
+    timeout 1800 qemu-system-x86_64 -enable-kvm -cpu host -smp 2 -m 2048 -no-reboot \
+        -drive "file=${WORK}/disk.qcow2,if=virtio" \
+        -drive "file=${WORK}/seed.iso,if=virtio,format=raw,readonly=on" \
+        -drive "file=${WORK}/src.iso,if=virtio,format=raw,readonly=on" \
+        -nic user,model=virtio-net-pci -vga std -display none \
+        -serial "file:${WORK}/console.log" -serial "file:${WORK}/result.log"
+
+    tr -d '\r' <"${WORK}/result.log"
+    if ! tr -d '\r' <"${WORK}/result.log" | grep -qx 'distro-vm: exit 0'; then
+        echo "distro-vm: the guest failed; the end of its console:" >&2
+        tail -n 60 "${WORK}/console.log" >&2
+        exit 1
+    fi
+
+# Inside the distro VM: build the packages from the tree in dir, install them,
+# log in through lys-login and upgrade it in place. distro-vm-boot runs it.
+[script("bash")]
+distro-vm-guest dir:
+    set -euo pipefail
+    LOGIN_USER=alice
+    PASSWORD=lys-distro-vm
+    OUT=/run/lys-distro-vm
+    GREETER=/usr/local/bin/lys-distro-vm-greeter
+    SESSION=/usr/local/bin/lys-distro-vm-session
+    UNIT=/usr/lib/systemd/system/lys-login.service
+
+    fail() {
+        echo "distro-vm: $*" >&2
+        journalctl -b --no-pager -n 300 | grep -v "the greeter ended\|exit status 1$" >&2 || true
+        exit 1
+    }
+
+    WORK="$(mktemp -d)"
+    cp -r "{{ dir }}/." "${WORK}/"
+    cd "${WORK}"
+
+    ARCHIVE="$(echo "${WORK}"/lys-login-*-linux.tar.gz)"
+    VERSION="$(basename "${ARCHIVE}")"
+    VERSION="${VERSION#lys-login-}"
+    VERSION="${VERSION%-*-linux.tar.gz}"
+
+    DISTRO_ID="$(sh -c '. /etc/os-release && echo "${ID}"')"
+    DISTRO="$(sh -c '. /etc/os-release && echo "${PRETTY_NAME}"')"
+    echo "distro-vm: ${DISTRO}"
+    case "${DISTRO_ID}" in
+    debian)
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -q
+        apt-get install -y -q --no-install-recommends build-essential debhelper dpkg-dev pamtester dbus-user-session
+        FORMAT=deb
+        BUILT=debbuild/DEBS
+        ;;
+    fedora)
+        dnf -y -q --setopt=install_weak_deps=False install rpm-build systemd-rpm-macros pamtester
+        FORMAT=rpm
+        BUILT=rpmbuild/RPMS
+        ;;
+    *) fail "no packages for ${DISTRO_ID}" ;;
+    esac
+
+    just --justfile packaging/justfile build login "${ARCHIVE}" "${VERSION}" "${FORMAT}"
+    PACKAGE="$(find "login/${BUILT}" -name "*.${FORMAT}")"
+    [[ -n ${PACKAGE} ]] || fail "packaging::build built no .${FORMAT} under login/${BUILT}"
+    just --justfile login/justfile smoke-test "${PWD}/${PACKAGE}"
+
+    ARCH="$(uname -m)"
+    just --justfile secrets/justfile archive "${VERSION}" "${ARCH}"
+    just --justfile packaging/justfile build secrets "${PWD}/secrets/lys-secrets-${VERSION}-${ARCH}-linux.tar.gz" "${VERSION}" "${FORMAT}"
+    SECRETS_PACKAGE="$(find "secrets/${BUILT}" -name "*.${FORMAT}")"
+    [[ -n ${SECRETS_PACKAGE} ]] || fail "packaging::build built no .${FORMAT} under secrets/${BUILT}"
+    case "${FORMAT}" in
+    deb) apt-get install -y -q --no-install-recommends "./${SECRETS_PACKAGE}" ;;
+    rpm) dnf -y -q --setopt=install_weak_deps=False install "./${SECRETS_PACKAGE}" ;;
+    esac
+
+    useradd -m "${LOGIN_USER}"
+    echo "${LOGIN_USER}:${PASSWORD}" | chpasswd
+    install -d -m 1777 "${OUT}"
+    printf '%s\n%s\n' "${LOGIN_USER}" "${PASSWORD}" >"${OUT}/credentials"
+    install -m 0755 login/scripts/distro-vm/greeter.py "${GREETER}"
+    install -m 0755 login/scripts/distro-vm/session.sh "${SESSION}"
+    install -d /usr/share/wayland-sessions
+    printf '[Desktop Entry]\nType=Application\nName=distro-vm\nExec=%s\n' "${SESSION}" >/usr/share/wayland-sessions/lys-distro-vm.desktop
+
+    daemon_args="$(sed -n "s|^\(Environment=\"LYS_LOGIN_DAEMON_ARGS=.* --compositor \)/usr/bin/lys-wm |\1${GREETER} |p" "${UNIT}")"
+    [[ -n ${daemon_args} ]] || fail "${UNIT} has no LYS_LOGIN_DAEMON_ARGS with --compositor /usr/bin/lys-wm"
+    install -d /etc/systemd/system/lys-login.service.d
+    printf '[Service]\n%s\n' "${daemon_args}" >/etc/systemd/system/lys-login.service.d/distro-vm.conf
+    systemctl daemon-reload
+    systemctl start lys-login.service
+
+    for _ in $(seq 120); do
+        [[ -s ${OUT}/session ]] && break
+        sleep 1
+    done
+    [[ -s ${OUT}/session ]] || fail "no session started; the greeter saw: $(cat "${OUT}/greeter" 2>/dev/null)"
+    echo "distro-vm: the greeter saw:"
+    cat "${OUT}/greeter"
+    echo "distro-vm: the session saw:"
+    cat "${OUT}/session"
+
+    grep -qx 'wrong-password {"type": "error", "error_type": "auth_error", .*' "${OUT}/greeter" ||
+        fail "a wrong password was not an authentication error"
+    grep -qx 'password {"type": "success"}' "${OUT}/greeter" || fail "the right password did not authenticate"
+    [[ "$(head -n 1 "${OUT}/session")" == "${LOGIN_USER} wayland user seat0 1" ]] ||
+        fail "the session ran with $(head -n 1 "${OUT}/session")"
+    for want in "Name=${LOGIN_USER}" Class=user Type=wayland Seat=seat0 VTNr=1; do
+        grep -qx "${want}" "${OUT}/session" || fail "logind's session lacks ${want}"
+    done
+
+    for _ in $(seq 60); do
+        [[ -e ${OUT}/greeter-again ]] && break
+        sleep 1
+    done
+    [[ -e ${OUT}/greeter-again ]] || fail "the greeter did not come back after the session"
+    loginctl list-sessions --no-legend | grep -q lys-greeter || fail "logind has no session for the greeter"
+
+    [[ "$(cat "${OUT}/keyring" 2>/dev/null)" == "b false" ]] ||
+        fail "the login did not unlock lys-secrets' login collection: $(cat "${OUT}/keyring" 2>/dev/null)"
+    [[ -d "/home/${LOGIN_USER}/.local/share/lys-secrets" ]] || fail "lys-secrets keeps no collection for ${LOGIN_USER}"
+
+    if echo wrong-password | runuser -u "${LOGIN_USER}" -- pamtester lys-shell "${LOGIN_USER}" authenticate; then
+        fail "lys-shell accepted a wrong password"
+    fi
+    echo "${PASSWORD}" | runuser -u "${LOGIN_USER}" -- pamtester lys-shell "${LOGIN_USER}" authenticate ||
+        fail "lys-shell refused ${LOGIN_USER}'s password"
+
+    greeters="$(wc -l <"${OUT}/greeter-again")"
+    daemon="$(systemctl show -P MainPID lys-login.service)"
+    case "${FORMAT}" in
+    deb) apt-get install -y -q --reinstall "./${PACKAGE}" ;;
+    rpm) dnf -y -q reinstall "./${PACKAGE}" ;;
+    esac
+    journalctl -b -u lys-login -o cat --no-pager | grep 'dm: upgraded in place from' >/dev/null ||
+        fail "upgrading the package did not upgrade the daemon in place"
+    [[ "$(systemctl show -P MainPID lys-login.service)" == "${daemon}" ]] ||
+        fail "upgrading the package restarted the daemon"
+    for _ in $(seq 60); do
+        [[ "$(wc -l <"${OUT}/greeter-again")" -gt ${greeters} ]] && break
+        sleep 1
+    done
+    [[ "$(wc -l <"${OUT}/greeter-again")" -gt ${greeters} ]] || fail "no greeter came up after the upgrade"
+
+    if journalctl -b --no-pager | grep -F 'avc:  denied'; then
+        fail "SELinux denied the above"
+    fi
+
+    echo "distro-vm: ${DISTRO}: logged in through lys-login, which unlocked lys-secrets, unlocked through lys-shell, and upgraded in place"

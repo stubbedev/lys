@@ -1,6 +1,6 @@
 package widget
 
-// The interaction-property golden set (docs/css.md): caret-color and
+// The interaction-property golden set (docs/ui/css.md): caret-color and
 // caret-shape reaching the entry's painted caret, accent-color
 // reaching the checked/accent surfaces.
 

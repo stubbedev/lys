@@ -63,7 +63,7 @@ docker recipe="check" memory="6g":
     set -euo pipefail
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
-    nix print-dev-env > "$dir/env.sh"
+    nix print-dev-env .#settings > "$dir/env.sh"
     printf 'root:x:0:0::/root:/bin/sh\nlys-settings:x:%s:%s::/go/home:/bin/sh\n' "$(id -u)" "$(id -g)" > "$dir/passwd"
     printf 'root:x:0:\nlys-settings:x:%s:\n' "$(id -g)" > "$dir/group"
     bash=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#bash^out)/bin/bash
@@ -72,5 +72,52 @@ docker recipe="check" memory="6g":
     docker run --rm -v lys-settings-go:/go debian:trixie-slim chown "$(id -u):$(id -g)" /go
     docker run --rm --init --user "$(id -u):$(id -g)" \
         --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
-        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$PWD:/src" -v lys-settings-go:/go -w /src -e SSL_CERT_FILE="$certs" \
+        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-settings-go:/go -w /src/settings -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache GOLANGCI_LINT_CACHE=/go/lint TMPDIR=/tmp && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{quote(recipe)}}
+
+# Pack the dist/ build into lys-settings-<version>-<arch>-linux.tar.gz, the release
+# archive the packages are built from.
+[script("bash")]
+archive version arch=arch() dist="dist":
+    set -euo pipefail
+    staging="lys-settings-{{ version }}-{{ arch }}-linux"
+    rm -rf "${staging}"
+    mkdir -p "${staging}/icons"
+    cp "{{ dist }}/lys-settings" LICENSE \
+        resources/dev.stubbe.lys.settings.desktop \
+        resources/lys-settings.svg \
+        "${staging}/"
+    cp -R "{{ dist }}/icons/hicolor" "${staging}/icons/"
+    tar czf "${staging}.tar.gz" "${staging}"
+    rm -rf "${staging}"
+
+# Build the archive and the .deb and .rpm from dist/: `just settings::package 0.5.0 deb`.
+package version format="": (archive version)
+    just --justfile ../packaging/justfile build settings "{{ justfile_directory() }}/lys-settings-{{ version }}-{{ arch() }}-linux.tar.gz" "{{ version }}" "{{ format }}"
+
+# Install a .deb or .rpm built by package (as root) and check it runs.
+[script("bash")]
+smoke-test package:
+    set -euo pipefail
+    just --justfile ../packaging/justfile install "$(readlink -f "{{ package }}")"
+    fail() {
+        echo "smoke test: $*" >&2
+        exit 1
+    }
+
+    for file in /usr/share/applications/dev.stubbe.lys.settings.desktop \
+        /usr/share/icons/hicolor/scalable/apps/lys-settings.svg \
+        /usr/share/lys-settings/icons/hicolor/scalable/actions/ld-x-symbolic.svg; do
+        [[ -f ${file} ]] || fail "${file} is missing"
+    done
+
+    home="$(mktemp -d)"
+    trap 'rm -rf "${home}"' EXIT
+    pages="$(HOME="${home}" XDG_CONFIG_HOME="${home}/config" lys-settings --list-pages)"
+    [[ ${pages} == *'"id":"bar-general"'* ]] || fail "--list-pages printed ${pages@Q}"
+
+    status=0
+    lys-settings --bogus >/dev/null 2>&1 || status=$?
+    [[ ${status} -eq 2 ]] || fail "an unknown flag exited ${status}, want 2"
+
+    echo "smoke test: {{ package }} installs and runs"

@@ -1,3 +1,3 @@
 {self, ...}: {
-  flake.homeManagerModules.lys-polkit = import ./hm-module.nix self;
+  flake.homeModules.lys-polkit = import ./hm-module.nix self;
 }

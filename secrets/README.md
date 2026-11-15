@@ -28,7 +28,7 @@ Any program running as you can read an unlocked collection; see
 Disable any other Secret Service provider first.
 
 - **NixOS / home-manager:** import `lys.nixosModules.lys-secrets` or
-  `lys.homeManagerModules.lys-secrets` from `github:stubbedev/lys` and set
+  `lys.homeModules.lys-secrets` from `github:stubbedev/lys` and set
   `services.lys-secrets.enable = true;`.
 - **Debian, Ubuntu, Fedora:** install the `.deb` or `.rpm` from the
   [latest release](https://github.com/stubbedev/lys/releases/latest), then

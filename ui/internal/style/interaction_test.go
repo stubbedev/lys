@@ -153,7 +153,7 @@ func TestAccentColor(t *testing.T) {
 }
 
 // TestAppearance pins appearance: none and auto parse; none's chrome
-// stripping is deferred (docs/css.md) and paints nothing here.
+// stripping is deferred (docs/ui/css.md) and paints nothing here.
 func TestAppearance(t *testing.T) {
 	s := parseOne(t, `
 		a { appearance: none; }

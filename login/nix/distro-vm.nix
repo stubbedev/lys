@@ -1,10 +1,8 @@
-# The release's .deb and .rpm, built and installed in a Debian and a
-# Fedora cloud VM the way CI builds them, then logged in through: see
-# scripts/distro-vm. lys-secrets' package is built and installed beside
-# it from the flake's lys-secrets, whose static binary runs on either
-# distribution, so the login can unlock its login collection. Run with
-# `just distro-vm <debian|fedora>`; it needs KVM and the guest needs the
-# network for the build tools.
+# What `just login::distro-vm <debian|fedora>` boots: the pinned cloud images,
+# and the guest tree its distro-vm-guest recipe builds the release's .deb or
+# .rpm from, laid out as the repository is. lys-secrets' package is built
+# beside it from the flake's static lys-secrets, so the login can unlock its
+# login collection.
 {
   lib,
   self,
@@ -22,38 +20,37 @@
       };
     };
     lysSecrets = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-secrets;
+    tree = lib.fileset.toSource {
+      root = ../..;
+      fileset = lib.fileset.unions [
+        ../../packaging/justfile
+        ../justfile
+        ../packaging
+        ../scripts/distro-vm
+        ../../secrets/justfile
+        ../../secrets/LICENSE
+        ../../secrets/packaging
+        ../../secrets/resources
+      ];
+    };
     guest = pkgs.runCommand "lys-login-distro-vm-guest" {} ''
-      cp -r ${lib.fileset.toSource {
-        root = ../.;
-        fileset = lib.fileset.unions [../packaging ../scripts/ci ../scripts/distro-vm];
-      }} $out
+      cp -r ${tree} $out
       chmod -R u+w $out
-      mkdir -p $out/lys-secrets/bin
-      cp -r ${lib.fileset.toSource {
-        root = ../../secrets;
-        fileset = lib.fileset.unions [../../secrets/LICENSE ../../secrets/packaging ../../secrets/resources ../../secrets/scripts];
-      }}/. $out/lys-secrets/
-      cp ${lysSecrets}/bin/lys-secrets $out/lys-secrets/bin/
+      install -Dm755 ${lysSecrets}/bin/lys-secrets $out/secrets/dist/lys-secrets
     '';
-    run = distro: image:
-      pkgs.writeShellApplication {
-        name = "lys-login-distro-vm-${distro}";
-        runtimeInputs = [pkgs.qemu_kvm pkgs.xorriso];
-        runtimeEnv = {
-          DISTRO_VM_IMAGE = image;
-          DISTRO_VM_GUEST = guest;
-        };
-        text = builtins.readFile ../scripts/distro-vm/run.sh;
-      };
   in
     lib.mkIf pkgs.stdenv.hostPlatform.isx86_64 {
-      packages = lib.mapAttrs' (distro: image: lib.nameValuePair "distro-vm-${distro}" (run distro image)) images;
+      packages =
+        {login-distro-vm-guest = guest;}
+        // lib.mapAttrs' (distro: image: lib.nameValuePair "login-distro-vm-image-${distro}" image) images;
 
-      # The guest's scripts pass shellcheck, as run.sh does when the
-      # packages above are built.
-      checks.distro-vm-scripts = pkgs.runCommand "lys-login-distro-vm-scripts" {nativeBuildInputs = [pkgs.shellcheck pkgs.python3];} ''
-        shellcheck ${../scripts/distro-vm}/guest.sh ${../scripts/distro-vm}/session.sh ${../scripts/distro-vm}/run.sh
-        python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' ${../scripts/distro-vm}/greeter.py
+      # The guest's files parse: the justfile its recipes are in, the session
+      # script and the greeter.
+      checks.distro-vm-scripts = pkgs.runCommand "lys-login-distro-vm-scripts" {nativeBuildInputs = [pkgs.just pkgs.shellcheck pkgs.python3];} ''
+        just --justfile ${guest}/login/justfile --summary >/dev/null
+        just --justfile ${guest}/packaging/justfile --summary >/dev/null
+        shellcheck ${guest}/login/scripts/distro-vm/session.sh
+        python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' ${guest}/login/scripts/distro-vm/greeter.py
         touch $out
       '';
     };

@@ -92,7 +92,7 @@ pkgs.testers.nixosTest {
     { ... }:
     {
       imports = [
-        self.nixosModules.default
+        self.nixosModules.lys-shell
         self.nixosModules.lys-secrets
         self.nixosModules.lys-login
       ];

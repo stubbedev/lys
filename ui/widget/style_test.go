@@ -118,7 +118,7 @@ func TestClassAPI(t *testing.T) {
 }
 
 func TestCSSElementNames(t *testing.T) {
-	// The pinned element-name list (docs/css.md): every node-embedding
+	// The pinned element-name list (docs/ui/css.md): every node-embedding
 	// widget type lowercased. The app-level surfaces (dialog, popover,
 	// tooltip, toast) ride SetElement and are pinned beside their
 	// constructors in the app package.

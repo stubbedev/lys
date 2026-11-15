@@ -56,7 +56,7 @@ greetd → cage -s → lys-login greet → (login) → your session
 
 ### home-manager
 
-`lys.homeManagerModules.lys-login` options, under `programs.lys-login`:
+`lys.homeModules.lys-login` options, under `programs.lys-login`:
 
 | Option | Type | Default | Effect |
 | --- | --- | --- | --- |

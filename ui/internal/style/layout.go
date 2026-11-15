@@ -1,6 +1,6 @@
 package style
 
-// The CSS layout properties (docs/css.md): display, the box sizes and
+// The CSS layout properties (docs/ui/css.md): display, the box sizes and
 // box-sizing, aspect-ratio, positioning and z-index, the flexbox group
 // with gap, overflow, visibility, and float/clear, and the grid group
 // (grid.go). They compute here; the widget layer's layout engines read
@@ -234,7 +234,7 @@ const (
 // way). Each field's longhand Set bit says whether the
 // stylesheet declared it: an undeclared display, flex-direction,
 // flex-grow, align-self or gap leaves the widget's programmatic layout
-// in charge (docs/css.md's interaction rule).
+// in charge (docs/ui/css.md's interaction rule).
 type Layout struct {
 	Display  Display
 	Position Position

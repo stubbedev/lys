@@ -27,7 +27,7 @@ in {
       };
     };
 
-    homeManagerModules.lys-settings = {
+    homeModules.lys-settings = {
       config,
       lib,
       ...

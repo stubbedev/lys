@@ -26,7 +26,7 @@
         jetbrains-mono
         # What the tests hold the app to, and the compositor the end-to-end test
         # starts in a private runtime directory.
-        self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm
+        (self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm.overrideAttrs {doCheck = false;})
         wtype
         dbus
       ];

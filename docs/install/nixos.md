@@ -6,7 +6,7 @@ The repository is one flake, `github:stubbedev/lys`. It provides:
 | --- | --- |
 | `packages.<system>.lys-<app>` | Each app: `lys-shell`, `lys-wm`, `lys-login`, `lys-settings`, `lys-polkit`, `lys-secrets`, `lys-splash` |
 | `nixosModules.lys-<app>` | NixOS modules for lys-shell, lys-wm, lys-login, lys-settings, lys-secrets and lys-splash |
-| `homeManagerModules.lys-<app>` | home-manager modules for lys-shell, lys-wm, lys-login, lys-settings, lys-polkit and lys-secrets |
+| `homeModules.lys-<app>` | home-manager modules for lys-shell, lys-wm, lys-login, lys-settings, lys-polkit and lys-secrets |
 | `overlays.default` | Adds every lys package to `pkgs` |
 
 ## The whole desktop
@@ -40,7 +40,7 @@ The repository is one flake, `github:stubbedev/lys`. It provides:
           boot.lys-splash.enable = true;
 
           home-manager.users.alice = {
-            imports = [lys.homeManagerModules.lys-polkit];
+            imports = [lys.homeModules.lys-polkit];
             services.lys-polkit.enable = true;
           };
         })

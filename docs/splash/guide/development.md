@@ -1,6 +1,6 @@
 # Development
 
-The flake's dev shell (`direnv allow` or `nix develop`) provides Go, gopls,
+The flake's dev shell (`nix develop .#splash`) provides Go, gopls,
 golangci-lint, delve, just, git, gh and the lys-ci tools, with
 `CGO_ENABLED=0` and `GOTOOLCHAIN=local`.
 
@@ -40,14 +40,12 @@ Paths are under `splash/` in the repository.
 | `just fmt` | `gofmt -w .` |
 | `just plymouth-client` | Runs the `plymouth-client` check |
 | `just initramfs-tools [image]` | Builds an initramfs-tools image from the compat output in an Ubuntu container (default `ubuntu:24.04`) and checks it holds the binary, links and scripts in order; needs Docker. It does not boot the image |
-| `just vendor-hash` | Updates `vendorHash` in `nix/package.nix` from `go.sum` |
-| `just release-patch`, `release-minor`, `release-major` | Tags and pushes the next release from a clean default branch with green CI |
 
 ## Nix
 
-- `nix build .#lys-splash`: the package (`nix/package.nix`), outputs `out` and `compat`.
+- `just packages lys-splash`: the package (`nix/package.nix`), outputs `out` and `compat`.
 - `nix fmt`: alejandra.
-- `nix flake check` runs:
+- `just checks splash-<name>` runs each of these, from the repository root. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 
 | Check | Tests |
 | --- | --- |

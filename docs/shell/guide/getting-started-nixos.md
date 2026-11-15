@@ -4,7 +4,7 @@ title: NixOS
 
 # NixOS
 
-lys-shell comes from the lys flake as `nixosModules.lys-shell`, `homeManagerModules.lys-shell` and `packages.${system}.lys-shell`; [NixOS](/install/nixos) adds the flake as an input.
+lys-shell comes from the lys flake as `nixosModules.lys-shell`, `homeModules.lys-shell` and `packages.${system}.lys-shell`; [NixOS](/install/nixos) adds the flake as an input.
 
 ## NixOS module
 
@@ -32,7 +32,7 @@ lys-shell comes from the lys flake as `nixosModules.lys-shell`, `homeManagerModu
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.lys.homeManagerModules.lys-shell ];
+  imports = [ inputs.lys.homeModules.lys-shell ];
   programs.lys-shell = {
     enable = true;
     autoInstallDependencies = true;

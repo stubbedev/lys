@@ -1,7 +1,6 @@
 # Development
 
-The code is under `login/` in the repository. `nix develop` gives the dev
-shell: the pinned Go toolchain, the lint stack, fonts, and the headless sway and
+The code is under `login/`. `nix develop .#login` gives the dev shell: the pinned Go toolchain, the lint stack, fonts, and the headless sway and
 private D-Bus the tests use.
 
 | Recipe | Effect |
@@ -16,8 +15,6 @@ private D-Bus the tests use.
 | `just fmt` | Format all Go sources (gofumpt, gci). |
 | `just dist` | Release binary in `dist/`, pure Go, with the standard loader and the wordlist notice. |
 | `just distro-vm <debian\|fedora>` | Build, install and log in through the `.deb` or `.rpm` in a cloud VM (KVM, guest network). |
-| `just vendor-hash` | Recompute `vendorHash` in `nix/package.nix`. |
-| `just release-patch\|minor\|major` | Tag and push the next release from a clean default branch with green CI. |
 
 NixOS VM checks (KVM), each `just <name>`:
 
@@ -36,7 +33,7 @@ NixOS VM checks (KVM), each `just <name>`:
 | `x11-session-vm` | X11 session registered as `x11`, greeter as `wayland`. |
 | `wallclock-vm` | Setting the wall clock updates the login clock. |
 
-`nix flake check` runs every check in `nix/checks.nix`.
+Each check is also `just checks login-<name>` from the repository root. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 
 The VM checks show the greeter on virtio-gpu, which has no Vulkan driver, so
 `nix/tests/greeter-vm.nix` sets `LYS_WM_RENDERER=gles` in the session variables

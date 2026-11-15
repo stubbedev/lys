@@ -360,7 +360,7 @@ func TestGeoClueDropInIsPackaged(t *testing.T) {
 	const installed = "/geoclue/conf.d/50-lys-shell.conf"
 	base := filepath.Base(geoclueDropIn)
 	for path, want := range map[string][]string{
-		"scripts/ci/build-archive.sh":     {geoclueDropIn},
+		"justfile":                        {geoclueDropIn},
 		"packaging/debian/rules":          {base, "etc" + installed},
 		"packaging/rpm/lys-shell.spec.in": {base, "%{_sysconfdir}" + installed},
 	} {

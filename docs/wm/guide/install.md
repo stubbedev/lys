@@ -28,7 +28,7 @@ portal config prefers, is not included. GPU drivers come from
 
 ## home-manager on another distribution
 
-Import `lys.homeManagerModules.lys-wm` and set
+Import `lys.homeModules.lys-wm` and set
 `programs.lys-wm.enable = true` (same `package` option). It installs lys-wm
 and `foot`, and links `lys-wm-session.target` into `~/.config/systemd/user`.
 The display manager, portals, login limits and GPU drivers stay the host's:

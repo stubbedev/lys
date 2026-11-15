@@ -157,7 +157,7 @@ type node struct {
 	// frame with; SetTheme bumps themeGen so every widget repaints once.
 	themeSeen uint64
 
-	// computed style (docs/css.md): the cascade result plus generation
+	// computed style (docs/ui/css.md): the cascade result plus generation
 	// stamps. csGen is the cascade's own freshness: style() recomputes
 	// until restyle runs under the current generation. styleSeen is the
 	// measure cache's: a stale value drops the cached measure (a load

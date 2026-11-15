@@ -6,7 +6,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 )
 
-// The CSS benchmarks (docs/css.md, "Performance envelope"): full-tree
+// The CSS benchmarks (docs/ui/css.md, "Performance envelope"): full-tree
 // match+compute over the showcase gallery, the single-widget restyle a
 // class toggle costs, and the steady-frame paint with a stylesheet
 // loaded — which must not move against BenchmarkShowcasePaint, the

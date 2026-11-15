@@ -5,11 +5,11 @@ how it speaks to lys-shell and lys-wm.
 
 ## Gates
 
-Run before every commit:
+Run before every commit, from the repository root:
 
 ```sh
-just docker check
-nix build -L
+just settings::docker check
+just packages lys-settings
 ```
 
 `just test` starts a headless lys-wm in a private runtime directory. Run it, and
@@ -18,10 +18,8 @@ session on the host. A plain `go test ./...` stays safe: the end-to-end test and
 the contract test skip without `LYS_SETTINGS_HEADLESS`, and no test touches the
 real config, whose directories are private to each test.
 
-After a `go.mod` change, refresh `nix/lys-settings.nix` with `just vendor-hash`.
-
-Verify locally before pushing, push, and check CI once when pushes stop. A red
-`main` is fixed before anything else lands.
+The repository's own rules (the vendor hash, CI, releases, the tracker) are in
+the root `AGENTS.md`.
 
 ## Tests define behavior
 

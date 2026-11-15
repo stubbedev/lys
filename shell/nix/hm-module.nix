@@ -49,15 +49,15 @@ in
   imports = [
     (lib.mkRemovedOptionModule [ "programs" "lys-shell" "secrets" "enable" ] ''
       lys-secrets moved to its own flake, github:stubbedev/lys-secrets: import
-      its homeManagerModules.lys-secrets or .lys-login and set `services.lys-secrets.enable = true;`.
+      its homeModules.lys-secrets or .lys-login and set `services.lys-secrets.enable = true;`.
     '')
     (lib.mkRemovedOptionModule [ "programs" "lys-shell" "greeter" ] ''
       lys-login moved to its own flake, github:stubbedev/lys-login: import
-      its homeManagerModules.lys-secrets or .lys-login and use `programs.lys-login.greeter`.
+      its homeModules.lys-secrets or .lys-login and use `programs.lys-login.greeter`.
     '')
     (lib.mkRemovedOptionModule [ "programs" "lys-shell" "lock" ] ''
       lys-login moved to its own flake, github:stubbedev/lys-login: import
-      its homeManagerModules.lys-secrets or .lys-login and use `programs.lys-login.lock`.
+      its homeModules.lys-secrets or .lys-login and use `programs.lys-login.lock`.
     '')
   ];
 

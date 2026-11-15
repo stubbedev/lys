@@ -44,7 +44,7 @@
           ffmpeg-headless
           # The compositor the minimized-windows module and dock tests run on
           # headless (service/lyswm/lyswmtest.Headless).
-          self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm
+          (self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm.overrideAttrs {doCheck = false;})
           # wl-paste, the out-of-process data-control reader the screenshot
           # clipboard tests read the selection back with.
           wl-clipboard

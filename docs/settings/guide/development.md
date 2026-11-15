@@ -1,7 +1,7 @@
 # Development
 
 The flake provides every dev tool and the `lys-wm` the tests run against:
-`direnv allow`, or `nix develop`.
+or `nix develop .#settings`.
 
 ## Recipes
 
@@ -18,8 +18,6 @@ The flake provides every dev tool and the `lys-wm` the tests run against:
 | `just build` | Compile-check every package |
 | `just dist` | The release binary, into `dist/` |
 | `just run [args]` | Run the app |
-| `just vendor-hash` | Refresh `vendorHash` in `nix/lys-settings.nix` after a `go.mod` change |
-| `just release-patch`, `-minor`, `-major` | Tag and push the next release |
 
 `just test`, `just race` and `just check` start a headless lys-wm: run them through
 `just docker`, never against the desktop session. A plain `go test ./...` is safe:
@@ -38,8 +36,9 @@ the end-to-end and contract tests skip without `LYS_SETTINGS_HEADLESS`.
 
 ## Nix
 
-`nix build` builds the package. `nix flake check` adds the Home Manager module
-check, the wrapper and desktop-file check, and a NixOS VM test of accounts-daemon.
+`just packages lys-settings` builds the package. `just checks settings-hm-module
+settings-wrapper-vulkan settings-vm-accounts` adds the Home Manager module check,
+the wrapper and desktop-file check, and a NixOS VM test of accounts-daemon. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 `nix fmt` formats Nix files with alejandra.
 
 ## Releases

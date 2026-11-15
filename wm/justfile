@@ -220,7 +220,7 @@ docker recipe="gates" memory="10g":
     set -euo pipefail
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
-    nix print-dev-env > "$dir/env.sh"
+    nix print-dev-env .#wm > "$dir/env.sh"
     printf 'root:x:0:0::/root:/bin/sh\nlys-wm:x:%s:%s::/go/home:/bin/sh\n' "$(id -u)" "$(id -g)" > "$dir/passwd"
     printf 'root:x:0:\nlys-wm:x:%s:\n' "$(id -g)" > "$dir/group"
     bash=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#bash^out)/bin/bash
@@ -252,7 +252,7 @@ docker recipe="gates" memory="10g":
     fi
     docker run --rm --init --user "$(id -u):$(id -g)" --device /dev/kvm "${host[@]}" \
         --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
-        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$PWD:/src" -v lys-wm-go:/go -w /src -e SSL_CERT_FILE="$certs" \
+        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-wm-go:/go -w /src/wm -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache TMPDIR=/tmp LYS_WM_CONTAINER=1 && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker "$recipe"
 
 # Run a NixOS VM test that needs the network, which the Nix build sandbox
@@ -357,7 +357,7 @@ start issue:
         exit 1
     fi
     item=$(gh api graphql -F number="$issue" \
-        -f query='query($number: Int!) { repository(owner: "stubbedev", name: "lys-wm") { issue(number: $number) { projectItems(first: 20) { nodes { id project { number } } } } } }' \
+        -f query='query($number: Int!) { repository(owner: "stubbedev", name: "lys") { issue(number: $number) { projectItems(first: 20) { nodes { id project { number } } } } } }' \
         --jq '.data.repository.issue.projectItems.nodes[] | select(.project.number == 3) | .id')
     if [[ -z "$item" ]]; then
         echo "start: issue #$issue is not on the lys-wm board; add it with: gh project item-add 3 --owner stubbedev --url https://github.com/stubbedev/lys/issues/$issue" >&2
@@ -366,3 +366,57 @@ start issue:
     gh project item-edit --project-id PVT_kwHOBU6Wkc4Bm521 --id "$item" \
         --field-id PVTSSF_lAHOBU6Wkc4Bm521zhlg6Ew --single-select-option-id 47fc9ee4 >/dev/null
     echo "#$issue is In Progress"
+
+# Pack the dist/ build into lys-wm-<version>-<arch>-linux.tar.gz, the release
+# archive the packages are built from.
+[script("bash")]
+archive version arch=arch() dist="dist":
+    set -euo pipefail
+    staging="lys-wm-{{ version }}-{{ arch }}-linux"
+    rm -rf "${staging}"
+    mkdir -p "${staging}"
+    cp "{{ dist }}/lys-wm" "{{ dist }}/lys-wmctl" LICENSE THIRD_PARTY.md \
+        packaging/systemd/lys-wm-session.target \
+        packaging/xdg-desktop-portal/lys-wm-portals.conf \
+        packaging/wayland-sessions/lys-wm.desktop \
+        packaging/limits.d/90-lys-wm.conf \
+        "${staging}/"
+    cp third_party/xgb/LICENSE "${staging}/xgb.LICENSE"
+    tar czf "${staging}.tar.gz" "${staging}"
+    rm -rf "${staging}"
+
+# Build the archive and the .deb and .rpm from dist/: `just wm::package 0.5.0 deb`.
+package version format="": (archive version)
+    just --justfile ../packaging/justfile build wm "{{ justfile_directory() }}/lys-wm-{{ version }}-{{ arch() }}-linux.tar.gz" "{{ version }}" "{{ format }}"
+
+# Install a .deb or .rpm built by package (as root) and check it runs.
+[script("bash")]
+smoke-test package:
+    set -euo pipefail
+    just --justfile ../packaging/justfile install "$(readlink -f "{{ package }}")"
+    fail() {
+        echo "smoke test: $*" >&2
+        exit 1
+    }
+
+    for file in /usr/lib/systemd/user/lys-wm-session.target /etc/security/limits.d/90-lys-wm.conf /usr/share/xdg-desktop-portal/lys-wm-portals.conf \
+        /usr/share/wayland-sessions/lys-wm.desktop /usr/share/lys-wm/DejaVuSans.ttf /usr/share/hwdata/pnp.ids /usr/share/X11/xkb/rules/evdev; do
+        [[ -f ${file} ]] || fail "${file} is missing"
+    done
+
+    for soname in libEGL.so.1 libGLESv2.so.2 libgbm.so.1 libinput.so.10; do
+        ldconfig -p | grep -qF "${soname} " || fail "${soname}, which lys-wm loads, is not on the library path"
+    done
+
+    expect_error() {
+        local want="$1" out status=0
+        shift
+        out="$("$@" 2>&1)" || status=$?
+        [[ ${status} -eq 1 ]] || fail "$* exited ${status}, want 1"
+        [[ ${out} == *"${want}"* ]] || fail "$* printed ${out@Q}, want ${want@Q}"
+    }
+
+    expect_error 'unknown backend "none"' lys-wm -backend none
+    expect_error 'no command' lys-wmctl
+
+    echo "smoke test: {{ package }} installs and runs"

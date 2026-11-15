@@ -1,6 +1,6 @@
 package widget
 
-// The CSS golden set (docs/css.md exit criterion 4): every property of
+// The CSS golden set (docs/ui/css.md exit criterion 4): every property of
 // the table shown applied on a consumer widget. New properties add a
 // shot here; the pre-CSS goldens must stay untouched — the zero-style
 // case is today's pixels.

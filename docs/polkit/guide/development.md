@@ -2,7 +2,7 @@
 
 The flake's dev shell provides Go (the `go.mod` version), gopls,
 golangci-lint, delve, just, git, gh, dbus and getent, with `CGO_ENABLED=0` and
-`GOTOOLCHAIN=local`. Enter it with `direnv allow` or `nix develop`.
+`GOTOOLCHAIN=local`. Enter it with `nix develop .#polkit`.
 
 D-Bus goes through [lys-lib](/lib/)'s godbus fork and `dbusx`; the dialog
 contract is lys-lib's `portaldialogs`.
@@ -17,8 +17,6 @@ contract is lys-lib's `portaldialogs`.
 | `just test` | `go test ./...` |
 | `just build` | Compile-checks every package |
 | `just fmt` | `gofmt -w .` |
-| `just vendor-hash` | Updates `vendorHash` in `nix/lys-polkit.nix` from `go.sum` |
-| `just release-patch` / `release-minor` / `release-major` | Tags and pushes the next release from a clean default branch with green CI |
 
 ## Tests
 
@@ -31,9 +29,11 @@ setuid transports.
 
 | Command | Effect |
 | --- | --- |
-| `nix build` | Builds the package with the user unit in `lib/systemd/user` (`nix/lys-polkit.nix`) |
-| `nix flake check` | Checks the home-manager module's unit wiring; on x86_64 also runs the NixOS VM test `tests/polkit-vm.nix` |
+| `just packages lys-polkit` | Builds the package with the user unit in `lib/systemd/user` (`nix/lys-polkit.nix`) |
+| `just checks polkit-hm-module polkit-vm` | The home-manager module's unit wiring, and on x86_64 the NixOS VM test `tests/polkit-vm.nix` |
 | `nix fmt` | Formats nix files with alejandra |
+
+Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 
 The VM test runs `pkexec` through lys-polkit against a real polkitd, with
 `internal/vmtest/fakedialogs` scripting the dialog: right password, details,

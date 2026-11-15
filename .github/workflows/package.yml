@@ -1,0 +1,103 @@
+name: package
+
+# One component's release archive, .deb and .rpm, each installed and run where
+# the component has a smoke test, all through its justfile. ci.yml builds them
+# for the components a change touches; release.yml builds every one for a tag.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: The component directory, e.g. login.
+        required: true
+        type: string
+      version:
+        description: The package version, without a leading v.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deb:
+    name: ${{ inputs.component }} / archive + deb (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix: &arches
+        include:
+          - { runner: ubuntu-latest, arch: x86_64, deb: amd64 }
+          - { runner: ubuntu-24.04-arm, arch: aarch64, deb: arm64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      COMPONENT: ${{ inputs.component }}
+      VERSION: ${{ inputs.version }}
+      DEB_ARCH: ${{ matrix.deb }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key: package-${{ inputs.component }}
+      - name: Build the binaries and the archive
+        run: just in "${COMPONENT}" dist archive "${VERSION}"
+      - name: Build the Debian package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential debhelper desktop-file-utils dpkg-dev
+          just packaging::build "${COMPONENT}" "${PWD}/${COMPONENT}/lys-${COMPONENT}-${VERSION}-$(uname -m)-linux.tar.gz" "${VERSION}" deb
+      - name: Install and run the Debian package
+        run: |
+          if just --justfile "${COMPONENT}/justfile" --show smoke-test >/dev/null 2>&1; then
+            sudo env "PATH=${PATH}" just --justfile "${COMPONENT}/justfile" smoke-test "${PWD}/${COMPONENT}/debbuild/DEBS/${DEB_ARCH}/"*.deb
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.component }}-archive-${{ matrix.arch }}
+          path: ${{ inputs.component }}/lys-${{ inputs.component }}-${{ inputs.version }}-${{ matrix.arch }}-linux.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.component }}-deb-${{ matrix.arch }}
+          path: ${{ inputs.component }}/debbuild/DEBS/${{ matrix.deb }}/*.deb
+          if-no-files-found: error
+
+  rpm:
+    name: ${{ inputs.component }} / rpm (${{ matrix.arch }})
+    needs: deb
+    strategy:
+      fail-fast: false
+      matrix: *arches
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    container:
+      image: fedora:latest
+    env:
+      COMPONENT: ${{ inputs.component }}
+      VERSION: ${{ inputs.version }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.component }}-archive-${{ matrix.arch }}
+          path: ${{ inputs.component }}
+      - name: Build the RPM package
+        run: |
+          dnf -y --setopt=install_weak_deps=False install just rpm-build systemd-rpm-macros desktop-file-utils
+          just --justfile packaging/justfile build "${COMPONENT}" "${PWD}/${COMPONENT}/lys-${COMPONENT}-${VERSION}-${ARCH}-linux.tar.gz" "${VERSION}" rpm
+      - name: Install and run the RPM package
+        run: |
+          if just --justfile "${COMPONENT}/justfile" --show smoke-test >/dev/null 2>&1; then
+            just --justfile "${COMPONENT}/justfile" smoke-test "${PWD}/${COMPONENT}/rpmbuild/RPMS/${ARCH}/"*.rpm
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.component }}-rpm-${{ matrix.arch }}
+          path: ${{ inputs.component }}/rpmbuild/RPMS/${{ matrix.arch }}/*.rpm
+          if-no-files-found: error

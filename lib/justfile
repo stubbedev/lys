@@ -129,7 +129,7 @@ docker recipe="gates" memory="10g":
     set -euo pipefail
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
-    nix print-dev-env > "$dir/env.sh"
+    nix print-dev-env .#lib > "$dir/env.sh"
     printf 'root:x:0:0::/root:/bin/sh\nlys-lib:x:%s:%s::/go/home:/bin/sh\n' "$(id -u)" "$(id -g)" > "$dir/passwd"
     printf 'root:x:0:\nlys-lib:x:%s:\n' "$(id -g)" > "$dir/group"
     bash=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#bash^out)/bin/bash
@@ -145,7 +145,7 @@ docker recipe="gates" memory="10g":
     fi
     docker run --rm --init --user "$(id -u):$(id -g)" --device /dev/kvm "${gpu[@]}" \
         --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
-        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$PWD:/src" -v lys-lib-go:/go -w /src -e SSL_CERT_FILE="$certs" \
+        -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-lib-go:/go -w /src/lib -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache GOLANGCI_LINT_CACHE=/go/lint TMPDIR=/tmp && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS PIPEWIRE_REMOTE PIPEWIRE_RUNTIME_DIR && mkdir -p "$HOME" && exec just "$1"' docker {{quote(recipe)}}
 
 # Run the suite under the race detector. It needs cgo, so only this
@@ -208,7 +208,7 @@ test-env dir=test_dir:
     if [ -z "$bus" ]; then
         echo "private session bus failed to start"; exit 1
     fi
-    # Inside the dev shell (CI runs `nix develop -c just headless`)
+    # Inside the dev shell (CI runs `just in lib headless`)
     # sway is already on PATH, so the dev shell is only the fallback
     # for a host shell.
     # LYS_TEST_WLR_RENDERER picks sway's renderer: pixman (the
@@ -216,7 +216,7 @@ test-env dir=test_dir:
     # dmabuf capture tests need (gpu-host).
     boot="exec sway --unsupported-gpu -c '$dir/sway.cfg'"
     if ! command -v sway >/dev/null 2>&1; then
-        boot="exec nix develop -c sway --unsupported-gpu -c '$dir/sway.cfg'"
+        boot="exec nix develop .#lib -c sway --unsupported-gpu -c '$dir/sway.cfg'"
     fi
     DBUS_SESSION_BUS_ADDRESS="$bus" XDG_RUNTIME_DIR="$dir" WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 \
         WLR_RENDERER="${LYS_TEST_WLR_RENDERER:-pixman}" sh -c "echo \$\$ > '$dir/sway.pid'; $boot" \

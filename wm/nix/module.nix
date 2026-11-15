@@ -61,7 +61,7 @@ in {
     ]);
   };
 
-  flake.homeManagerModules.lys-wm = {
+  flake.homeModules.lys-wm = {
     config,
     lib,
     pkgs,

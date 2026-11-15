@@ -2,7 +2,7 @@
 
 ## Gates
 
-`nix develop` (or direnv) enters the dev shell; `just` lists recipes.
+`nix develop .#lib` enters the dev shell; `just` lists recipes. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 `just gates` runs the gates:
 
 | Recipe | Runs |
@@ -25,8 +25,6 @@ Other recipes:
 | `just svg-refs` | Rasterize SVG references with rsvg-convert |
 | `just bench` | Benchmarks |
 | `just test-env`, `just test-env-stop` | Start or stop the headless sway test session |
-| `just vendor-hash` | Update the Nix `vendorHash` from `go.sum` |
-| `just release-patch`, `release-minor`, `release-major` | Tag and push the next release from a clean default branch with green CI |
 
 On Intel GPUs Mesa's ANV driver exposes Vulkan Video decoding only with
 `ANV_DEBUG=video-decode` (Mesa 26.2.5): run `ANV_DEBUG=video-decode just

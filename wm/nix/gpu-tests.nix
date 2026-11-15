@@ -10,14 +10,14 @@
     buildPhase = ''
       runHook preBuild
       mkdir -p "$out/bin"
-      ${pkgs.lib.concatMapStringsSep "\n" (p: ''go test -c -o "$out/bin/${baseNameOf p}.test" ./internal/${p}'') packages}
+      ${pkgs.lib.concatMapStringsSep "\n" (p: ''go test -c -o "$out/bin/${baseNameOf p}.test" ./wm/internal/${p}'') packages}
       runHook postBuild
     '';
     installPhase = ''
       runHook preInstall
-      cp -r internal "$out/internal"
-      mkdir -p "$out/docs"
-      cp -r docs/shaders "$out/docs/shaders"
+      mkdir -p "$out/wm" "$out/docs/wm"
+      cp -r wm/internal "$out/wm/internal"
+      cp -r docs/wm/shaders "$out/docs/wm/shaders"
       runHook postInstall
     '';
     postFixup = "";
@@ -29,7 +29,7 @@
     tests,
     allowSkips,
   }: ''
-    ran("${name}", "cd ${tests_}/internal/${dir} && LYS_WM_HEADLESS=1 GOTRACEBACK=crash HOME=/tmp TMPDIR=/tmp timeout 280 ${tests_}/bin/${name}.test "
+    ran("${name}", "cd ${tests_}/wm/internal/${dir} && LYS_WM_HEADLESS=1 GOTRACEBACK=crash HOME=/tmp TMPDIR=/tmp timeout 280 ${tests_}/bin/${name}.test "
         "-test.count=1 -test.v -test.run '${tests}' > /tmp/${name}.log 2>&1")
     print(machine.succeed("grep -E '^(--- |    --- |ok|FAIL|PASS|.*_test.go:.*(frame|nested|async))' /tmp/${name}.log"))
     assert_ran("/tmp/${name}.log", "${allowSkips}")

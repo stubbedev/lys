@@ -1,4 +1,4 @@
-// The CSS layer (docs/css.md): classes, ids, states, and inline styles
+// The CSS layer (docs/ui/css.md): classes, ids, states, and inline styles
 // on the shared node; prioritized stylesheets with hot reload; and the
 // per-widget computed style the render path reads where it reads Theme
 // fields.

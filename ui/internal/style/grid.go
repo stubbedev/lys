@@ -1,6 +1,6 @@
 package style
 
-// The CSS grid properties (CSS Grid Layout Module Level 2, docs/css.md):
+// The CSS grid properties (CSS Grid Layout Module Level 2, docs/ui/css.md):
 // the track lists of grid-template-columns and grid-template-rows with
 // repeat(), minmax(), fit-content() and named lines,
 // grid-template-areas, the implicit track sizes and the auto-placement
@@ -81,7 +81,7 @@ const (
 // value other than none: the tracks before an auto-fill or auto-fit
 // repetition (all of them without one), the repeated run, and the tracks
 // after it. Integer repetitions expand at parse time. Subgrid marks
-// `subgrid`, which carries no tracks (docs/css.md's grid deferrals).
+// `subgrid`, which carries no tracks (docs/ui/css.md's grid deferrals).
 type TrackList struct {
 	Subgrid bool
 	Head    TrackRun

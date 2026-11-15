@@ -1,0 +1,51 @@
+"component:lib":
+    - changed-files:
+          - any-glob-to-any-file: "lib/**"
+
+"component:ui":
+    - changed-files:
+          - any-glob-to-any-file: "ui/**"
+
+"component:desktop":
+    - changed-files:
+          - any-glob-to-any-file: "desktop/**"
+
+"component:wm":
+    - changed-files:
+          - any-glob-to-any-file: "wm/**"
+
+"component:shell":
+    - changed-files:
+          - any-glob-to-any-file: "shell/**"
+
+"component:login":
+    - changed-files:
+          - any-glob-to-any-file: "login/**"
+
+"component:settings":
+    - changed-files:
+          - any-glob-to-any-file: "settings/**"
+
+"component:polkit":
+    - changed-files:
+          - any-glob-to-any-file: "polkit/**"
+
+"component:secrets":
+    - changed-files:
+          - any-glob-to-any-file: "secrets/**"
+
+"component:splash":
+    - changed-files:
+          - any-glob-to-any-file: "splash/**"
+
+"component:packaging":
+    - changed-files:
+          - any-glob-to-any-file: "packaging/**"
+
+"component:docs":
+    - changed-files:
+          - any-glob-to-any-file: "docs/**"
+
+"ci":
+    - changed-files:
+          - any-glob-to-any-file: [".github/**", "ci/**", "nix/**", "flake.nix", "flake.lock", "justfile"]

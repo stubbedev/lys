@@ -18,6 +18,7 @@
           golangci-lint
           delve
           govulncheck
+          just
           git
           gh
         ]

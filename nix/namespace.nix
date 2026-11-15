@@ -8,7 +8,12 @@ lib: component: path: let
     if lib.isFunction perSystem
     then lib.setFunctionArgs (args: inResult (perSystem args)) (lib.functionArgs perSystem)
     else inResult perSystem;
-  inResult = result: result // lib.optionalAttrs (result ? checks) {checks = rename result.checks;};
+  inResult = result:
+    if result._type or null == "if"
+    then result // {content = inResult result.content;}
+    else if result._type or null == "merge"
+    then result // {contents = map inResult result.contents;}
+    else result // lib.optionalAttrs (result ? checks) {checks = rename result.checks;};
   inModule = module: module // lib.optionalAttrs (module ? perSystem) {perSystem = inPerSystem module.perSystem;};
   module = import path;
 in

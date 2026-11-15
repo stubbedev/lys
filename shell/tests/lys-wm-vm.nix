@@ -70,7 +70,7 @@ pkgs.testers.nixosTest {
     { ... }:
     {
       imports = [
-        self.nixosModules.default
+        self.nixosModules.lys-shell
         self.nixosModules.lys-wm
         self.nixosModules.lys-login
       ];

@@ -1,6 +1,6 @@
 package widget
 
-// The CSS grid layout (CSS Grid Layout Module Level 2, docs/css.md) over
+// The CSS grid layout (CSS Grid Layout Module Level 2, docs/ui/css.md) over
 // a Box's items: the explicit grid of the template track lists and
 // areas, auto-fill and auto-fit repetitions, line placement with named,
 // negative and area lines and spans, auto-placement (§8.5) sparse or

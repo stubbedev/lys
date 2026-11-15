@@ -130,7 +130,7 @@ func TestInputCaptureIsDeclaredForLysWMAlone(t *testing.T) {
 	if strings.Contains(readResource(t, "lys-shell-lys-wm.portal"), "UseIn") {
 		t.Error("lys-shell-lys-wm.portal volunteers through UseIn; only lys-wm-portals.conf routes to it")
 	}
-	for _, installer := range []string{"../nix/lys-shell.nix", "../nix/hm-module.nix", "../packaging/debian/rules", "../packaging/rpm/lys-shell.spec.in", "../scripts/ci/build-archive.sh"} {
+	for _, installer := range []string{"../nix/lys-shell.nix", "../nix/hm-module.nix", "../packaging/debian/rules", "../packaging/rpm/lys-shell.spec.in", "../justfile"} {
 		b, err := os.ReadFile(installer)
 		if err != nil {
 			t.Fatal(err)
@@ -188,7 +188,7 @@ func TestShellServicesAreActivatable(t *testing.T) {
 			t.Errorf("%s.service =\n%s\nwant\n%s", name, got, want)
 		}
 	}
-	for _, installer := range []string{"../nix/lys-shell.nix", "../packaging/debian/rules", "../packaging/rpm/lys-shell.spec.in", "../scripts/ci/build-archive.sh"} {
+	for _, installer := range []string{"../nix/lys-shell.nix", "../packaging/debian/rules", "../packaging/rpm/lys-shell.spec.in", "../justfile"} {
 		b, err := os.ReadFile(installer)
 		if err != nil {
 			t.Fatal(err)

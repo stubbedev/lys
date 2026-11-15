@@ -1,0 +1,75 @@
+# The Debian and Fedora packages every packaged component builds the same way:
+# from its release archive, with its packaging/debian and packaging/rpm.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+maintainer := env("DEBFULLNAME", "Alexander Bugge Stage") + " <" + env("DEBEMAIL", "abs@stubbe.dev") + ">"
+
+# Build component's .deb, .rpm or both from its release archive.
+[script("bash")]
+build component archive version format="":
+    set -euo pipefail
+    name="lys-{{ component }}"
+    archive="$(readlink -f "{{ archive }}")"
+    version="{{ version }}"
+    maintainer='{{ maintainer }}'
+    cd "../{{ component }}"
+    sed_escape() { printf '%s' "$1" | sed 's/[&\\|]/\\&/g'; }
+    render() {
+        sed -e "s|@VERSION@|$(sed_escape "${version}")|g" \
+            -e "s|@DATE@|$(sed_escape "$3")|g" \
+            -e "s|@MAINTAINER@|$(sed_escape "${maintainer}")|g" \
+            "$1" >"$2"
+    }
+    deb() {
+        local dir arch deb_arch topdir source_dir package_dir out_dir file
+        dir="$(basename "${archive}" .tar.gz)"
+        arch="${dir%-linux}"
+        arch="${arch##*-}"
+        case "${arch}" in
+        x86_64) deb_arch=amd64 ;;
+        aarch64) deb_arch=arm64 ;;
+        *) echo "no Debian architecture for ${arch} (from ${archive})" >&2; exit 1 ;;
+        esac
+        topdir="${PWD}/debbuild"
+        source_dir="${topdir}/BUILD/source"
+        package_dir="${source_dir}/${name}-${version}"
+        out_dir="${topdir}/DEBS/${deb_arch}"
+        rm -rf "${topdir}/BUILD"
+        mkdir -p "${source_dir}" "${out_dir}"
+        tar xzf "${archive}" -C "${source_dir}"
+        mv "${source_dir}/${dir}" "${package_dir}"
+        (cd packaging/debian && find . -type f ! -name '*.in' -print0) | while IFS= read -r -d '' file; do
+            install -D -m "$(stat -c %a "packaging/debian/${file}")" "packaging/debian/${file}" "${package_dir}/debian/${file}"
+        done
+        render packaging/debian/control.in "${package_dir}/debian/control" ""
+        render packaging/debian/changelog.in "${package_dir}/debian/changelog" "$(LC_ALL=C date -uR)"
+        (cd "${package_dir}" && dpkg-buildpackage -us -uc -b -a"${deb_arch}")
+        find "${source_dir}" -maxdepth 1 -type f -name '*.deb' -exec mv -t "${out_dir}" {} +
+    }
+    rpm() {
+        local topdir="${PWD}/rpmbuild"
+        rm -rf "${topdir}/BUILD" "${topdir}/BUILDROOT"
+        mkdir -p "${topdir}/SOURCES" "${topdir}/SPECS"
+        cp "${archive}" "${topdir}/SOURCES/"
+        render "packaging/rpm/${name}.spec.in" "${topdir}/SPECS/${name}.spec" "$(LC_ALL=C date -u '+%a %b %d %Y')"
+        rpmbuild --define "_topdir ${topdir}" -bb "${topdir}/SPECS/${name}.spec"
+    }
+    case "{{ format }}" in
+    "") deb; rpm ;;
+    deb) deb ;;
+    rpm) rpm ;;
+    *) echo "unknown package format: {{ format }}" >&2; exit 1 ;;
+    esac
+
+# Install a .deb or .rpm with the system's package manager (as root), the first
+# step of every component's smoke test.
+[script("bash")]
+install package:
+    set -euo pipefail
+    package="$(readlink -f "{{ package }}")"
+    case "${package}" in
+    *.deb) apt-get install -y --no-install-recommends "${package}" ;;
+    *.rpm) dnf -y --setopt=install_weak_deps=False install "${package}" ;;
+    *) echo "not a .deb or .rpm: ${package}" >&2; exit 1 ;;
+    esac

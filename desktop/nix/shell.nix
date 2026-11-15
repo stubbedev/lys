@@ -30,7 +30,7 @@
           dbus
           pipewire
           systemd
-          self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm
+          (self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm.overrideAttrs {doCheck = false;})
           wl-clipboard
         ]
         ++ fonts;

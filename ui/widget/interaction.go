@@ -1,4 +1,4 @@
-// The CSS interaction surfaces (docs/css.md): cursor, pointer-events,
+// The CSS interaction surfaces (docs/ui/css.md): cursor, pointer-events,
 // user-select, caret-shape, accent-color, appearance, and touch-action
 // — the computed values the input path and the painters read.
 package widget

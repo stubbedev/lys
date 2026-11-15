@@ -20,7 +20,7 @@ lys-shell runs on any compositor with `wlr-layer-shell`, including but not limit
 
 ## Install
 
-The manual's [install section](https://stubbedev.github.io/lys/install/) covers NixOS (`lys.nixosModules.lys-shell`, `lys.homeManagerModules.lys-shell`), the Debian, Ubuntu and Fedora packages and the tarball. [Getting started](https://stubbedev.github.io/lys/shell/guide/getting-started) lists the runtime dependencies and the build from source.
+The manual's [install section](https://stubbedev.github.io/lys/install/) covers NixOS (`lys.nixosModules.lys-shell`, `lys.homeModules.lys-shell`), the Debian, Ubuntu and Fedora packages and the tarball. [Getting started](https://stubbedev.github.io/lys/shell/guide/getting-started) lists the runtime dependencies and the build from source.
 
 ## Usage
 

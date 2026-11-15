@@ -168,7 +168,7 @@ func (m *Mask) Equal(o *Mask) bool {
 }
 
 // parseMaskImage parses mask-image: one <image>. A list of layers is
-// rejected: the engine composites one mask layer (docs/css.md).
+// rejected: the engine composites one mask layer (docs/ui/css.md).
 func parseMaskImage(ts []token, cx *ctx, v *Values) bool {
 	comps := components(ts)
 	if len(comps) != 1 {

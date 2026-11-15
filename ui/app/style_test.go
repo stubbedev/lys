@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// The app-level half of the element-name pin (docs/css.md): dialog,
+// The app-level half of the element-name pin (docs/ui/css.md): dialog,
 // popover, and tooltip name their cards through nameSurfaceElement;
 // toast is a widget type and pins itself in the widget package.
 func TestCSSSurfaceElementNames(t *testing.T) {

@@ -1,6 +1,6 @@
 package widget
 
-// The CSS sizing properties on every widget (docs/css.md): width,
+// The CSS sizing properties on every widget (docs/ui/css.md): width,
 // height, their min-* and max-* bounds, box-sizing and aspect-ratio.
 // They apply at the container boundary — measureOuter around the
 // widget's own Measure, arrangeChild around its Arrange — so a widget

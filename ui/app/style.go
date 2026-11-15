@@ -6,7 +6,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// App-level CSS surface names (docs/css.md): the element-name list's
+// App-level CSS surface names (docs/ui/css.md): the element-name list's
 // app half. Each surface names its card for the stylesheet in its
 // constructor; toast and the tooltip card are widgets and name
 // themselves. The dialog's
@@ -37,7 +37,7 @@ func nameSurfaceElement(w widget.Widget, surface string) {
 // behind); shadows off, the content edge to edge on the window
 // background. Hit-testing stays on the card — the gutter is never a
 // hit. Either way the card is named for the stylesheet's `dialog`
-// element (docs/css.md).
+// element (docs/ui/css.md).
 func dialogCard(root *widget.Box) (widget.Widget, render.Color) {
 	background := widget.Current().Bg
 	if gutter := widget.Current().ShadowGutter(); gutter > 0 {

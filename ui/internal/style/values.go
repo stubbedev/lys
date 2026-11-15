@@ -10,7 +10,7 @@ import (
 	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
-// Prop names one longhand property of the docs/css.md table. Shorthands
+// Prop names one longhand property of the docs/ui/css.md table. Shorthands
 // (padding, margin, border, border-radius, background, outline,
 // transition, all) expand onto these at parse time; the cascade runs
 // per longhand, exactly like CSS.
@@ -850,7 +850,7 @@ type Scalars struct {
 	// Perspective is the perspective distance in px; zero is none.
 	Perspective float64
 	// Preserve3D is transform-style: preserve-3d; flat otherwise. The
-	// painter flattens either way today — see docs/css.md.
+	// painter flattens either way today — see docs/ui/css.md.
 	Preserve3D bool
 	// BackfaceHidden is backface-visibility: hidden.
 	BackfaceHidden bool
@@ -944,7 +944,7 @@ type Scalars struct {
 	AccentColor render.Color
 	AccentAuto  bool
 	// Appearance is appearance: parsed only, none's chrome stripping
-	// is deferred (docs/css.md).
+	// is deferred (docs/ui/css.md).
 	Appearance Appearance
 	// TouchAction is touch-action: the pan axes a touch scroll may
 	// move.

@@ -1,5 +1,5 @@
 // Package style is lys-ui's CSS engine: a tokenizer and parser for the
-// GTK-flavored subset docs/css.md scopes, the rule index, and the
+// GTK-flavored subset docs/ui/css.md scopes, the rule index, and the
 // matcher/cascader that computes one widget's style — custom properties
 // with var() substitution, calc(), color-mix(), and per-longhand
 // cascade across prioritized stylesheets and per-widget inline

@@ -12,7 +12,7 @@ package widget
 // The cases live in one table per #159 feature group
 // (cssconformance_<group>_test.go). Deliberate gaps sit in each
 // group's exception table: those cases assert the documented current
-// behavior, and the runner checks docs/css.md states each one.
+// behavior, and the runner checks docs/ui/css.md states each one.
 
 import (
 	"fmt"
@@ -55,12 +55,12 @@ type confCase struct {
 
 // confException is a case whose outcome deviates from the spec by
 // design: want asserts the documented current behavior, and doc is a
-// phrase docs/css.md must contain where it states the exception.
+// phrase docs/ui/css.md must contain where it states the exception.
 type confException struct {
 	confCase
 	// reason says why the engine deviates.
 	reason string
-	// doc is the docs/css.md wording that documents the exception.
+	// doc is the docs/ui/css.md wording that documents the exception.
 	doc string
 }
 
@@ -448,22 +448,22 @@ func (c confCase) run(t *testing.T) {
 }
 
 // runConformanceExceptions runs a group's documented deviations: each
-// asserts the engine's current behavior, and docs/css.md must state it
+// asserts the engine's current behavior, and docs/ui/css.md must state it
 // (compared with whitespace runs collapsed, so the wording may wrap).
 func runConformanceExceptions(t *testing.T, list []confException) {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("..", "..", "docs", "ui", "css.md"))
 	if err != nil {
-		t.Fatalf("read docs/css.md: %v", err)
+		t.Fatalf("read docs/ui/css.md: %v", err)
 	}
 	doc := strings.Join(strings.Fields(string(raw)), " ")
 	cases := make([]confCase, len(list))
 	for i, e := range list {
 		if e.reason == "" || e.doc == "" {
-			t.Fatalf("exception %q needs a reason and its docs/css.md wording", e.name)
+			t.Fatalf("exception %q needs a reason and its docs/ui/css.md wording", e.name)
 		}
 		if !strings.Contains(doc, strings.Join(strings.Fields(e.doc), " ")) {
-			t.Errorf("exception %q: docs/css.md does not state %q", e.name, e.doc)
+			t.Errorf("exception %q: docs/ui/css.md does not state %q", e.name, e.doc)
 		}
 		cases[i] = e.confCase
 	}

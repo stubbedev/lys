@@ -7,19 +7,19 @@ stack, fonts, and the sway, dbus, pipewire and xdg-desktop-portal the tests
 start private instances of:
 
 ```sh
-nix develop -c just build   # pure-Go binaries (no cgo) into dist/
-nix develop -c just test    # go test ./...
-nix develop -c just vet     # go vet ./...
-nix develop -c just lint    # golangci-lint fmt --diff + golangci-lint run
-nix develop -c just check   # vet + lint + test + race + schema-check + build, run before every release
-just docker check           # any recipe in the dev shell inside a container, away from the desktop session
-just hyprland-vm            # the shell on a live Hyprland in a NixOS VM (KVM), screenshots in ./result
-just clockwatch-vm          # the clock-jump watcher on a real kernel in a NixOS VM (KVM): clock steps and suspend
+nix develop .#shell -c just shell::dist   # pure-Go binaries (no cgo) into shell/dist/
+just in shell test          # go test ./...
+just in shell vet           # go vet ./...
+just in shell lint          # golangci-lint fmt --diff + golangci-lint run
+just in shell check         # vet + lint + test + race + schema-check + dist, run before every commit
+just shell::docker check    # any recipe in the dev shell inside a container, away from the desktop session
+just shell::hyprland-vm     # the shell on a live Hyprland in a NixOS VM (KVM)
+just shell::clockwatch-vm   # the clock-jump watcher on a real kernel in a NixOS VM (KVM): clock steps and suspend
 ```
 
-After a `go.mod` change, or the first import of a module
-package nothing imported before (only imported packages are vendored),
-refresh `nix/lys-shell.nix`'s `vendorHash` with `just vendor-hash`.
+After a `go.mod` change, or the first import of a module package nothing
+imported before (only imported packages are vendored), refresh the one
+`vendorHash` with `just vendor-hash` at the repository root.
 
 ## Tests define behavior
 

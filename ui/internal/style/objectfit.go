@@ -2,7 +2,7 @@ package style
 
 import "github.com/stubbedev/lys/lib/render"
 
-// The replaced-content properties (docs/css.md): object-fit picks how
+// The replaced-content properties (docs/ui/css.md): object-fit picks how
 // an image fills its widget's box and object-position where the
 // concrete object sits in it. They are layout longhands: undeclared,
 // the widget's programmatic scale policy stands.

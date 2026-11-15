@@ -5,28 +5,28 @@ decisions every change builds on.
 
 ## Gates
 
-Run before every commit:
+Run before every commit, from the repository root:
 
 ```sh
-just docker gates
-nix build -L
+just wm::docker gates
+just packages lys-wm
 ```
 
-Every test runs in a container (`just docker <recipe>`) or a NixOS VM
-(`nix build .#checks...`), never against the desktop session on the host.
+Every test runs in a container (`just wm::docker <recipe>`) or a NixOS VM
+(`just checks wm-<name>`), never against the desktop session on the host.
 The container gets KVM, the GPUs' render nodes and GPU drivers at
 `/run/opengl-driver` (the host's on NixOS, the flake's Mesa elsewhere) and the
 host's udev database read-only (libinput declines a device udev has no record
 of, as the CI runner's udevd always has one), but no
 runtime dir, session bus or display socket, and no DRM card node except under
-`just docker hardware`, whose tests open the cards without master and never
+`just wm::docker hardware`, whose tests open the cards without master and never
 commit.
 
 Verify locally before pushing, push, and check CI once when pushes stop; do not sit polling it. A red `main`
 is fixed before anything else lands.
 
 The dev shell runs the GPU tests on Mesa's llvmpipe. On a machine with a GPU,
-run `just docker hardware` after changes to rendering, DRM, dmabuf, capture or frame
+run `just wm::docker hardware` after changes to rendering, DRM, dmabuf, capture or frame
 pacing: it runs the GPU, DRM-without-master, nested dmabuf and GLES harness
 tests on the host's GPU and fails if any of them skips, then measures es2gears
 against headless GLES lys-wm in a private runtime dir (Xwayland off) and reports its
@@ -36,24 +36,24 @@ per-frame counts pass `cmd/lys-wm-pace/baseline.json`. No gate judges time: a
 loaded machine passes the same.
 
 After changes to frame callbacks, presentation feedback, output power or
-capture, run `just docker chromium`: it drives Chromium from nixpkgs, with
+capture, run `just wm::docker chromium`: it drives Chromium from nixpkgs, with
 the begin-frame source the Chrome of #397 used, through output power, moves
 between a 60 and a 144 Hz output, power saver and a hidden window's capture,
 and fails when it stops painting. `TestChromium` skips unless
 `LYS_WM_CHROMIUM=1` and `chromium` is on `PATH`.
 
 What only a kernel driver can answer, the DRM tests named `OnASeat` ask real
-ones: `nix build .#checks.x86_64-linux.vm-seat` runs them as DRM master in a VM
+ones: `just checks wm-vm-seat` runs them as DRM master in a VM
 on virtio-gpu and vkms (cursor, overlay planes), counting every atomic request,
 reading the planes back from the kernel and tracing the damage clips it
 holds. They skip unless `LYS_WM_SEAT=1`, which is never set beside a session.
-`nix build .#vm-pace-drm` plays `lys-wm-pace -backend drm` on vkms's vblanks in
+`just packages vm-pace-drm` plays `lys-wm-pace -backend drm` on vkms's vblanks in
 a VM, on llvmpipe, so its late frames are about the latch, not the GPU.
 
 After changes to Xwayland, X11 window management or scaling, run the real X
-applications too. `nix build .#checks.x86_64-linux.vm-xwayland-apps` drives
+applications too. `just checks wm-vm-xwayland-apps` drives
 IntelliJ IDEA through its first run, dialogs, completion and floating windows
-on a 1.5 output; `just vm-online vm-steam` starts Steam up to its sign-in
+on a 1.5 output; `just wm::vm-online vm-steam` starts Steam up to its sign-in
 window, which needs the network the build sandbox lacks. Both are unfree and
 stay out of CI.
 

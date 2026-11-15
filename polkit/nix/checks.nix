@@ -12,7 +12,7 @@
     home = inputs.home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       modules = [
-        self.homeManagerModules.lys-polkit
+        self.homeModules.lys-polkit
         {
           home = {
             username = "alice";

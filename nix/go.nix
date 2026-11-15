@@ -1,5 +1,10 @@
 {lib, ...}: let
   components = ["lib" "ui" "desktop" "wm" "shell" "login" "settings" "polkit" "secrets" "splash"];
+  docsReadByTests = map (path: ../. + "/${path}") (
+    lib.filter (lib.hasPrefix "docs/") (
+      lib.concatMap (c: c.paths or []) (lib.attrValues (lib.importJSON ../ci/components.json))
+    )
+  );
   src = lib.fileset.toSource {
     root = ../.;
     fileset = lib.fileset.difference (lib.fileset.gitTracked ../.) (
@@ -8,7 +13,7 @@
           ../flake.nix
           ../flake.lock
           ../nix
-          (lib.fileset.maybeMissing ../docs)
+          (lib.fileset.difference ../docs (lib.fileset.unions docsReadByTests))
           (lib.fileset.maybeMissing ../.github)
         ]
         ++ map (c: lib.fileset.maybeMissing (../. + "/${c}/nix")) components

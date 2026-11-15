@@ -308,6 +308,7 @@ export default defineConfig({
       { text: 'Install', link: '/install/', activeMatch: '^/install/' },
       menu('Apps', apps),
       menu('Libraries', libraries),
+      { text: 'Development', link: '/development/', activeMatch: '^/development/' },
     ],
     sidebar: {
       '/install/': [install],

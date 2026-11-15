@@ -34,7 +34,7 @@ Import `lys.nixosModules.lys-secrets` and set
 
 ### home-manager
 
-Import `lys.homeManagerModules.lys-secrets` and set
+Import `lys.homeModules.lys-secrets` and set
 `services.lys-secrets.enable = true;`. It installs the unit, activation files and
 a drop-in with the configured flags. It does not check for gnome-keyring.
 

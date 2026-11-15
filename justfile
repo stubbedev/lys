@@ -13,18 +13,43 @@ mod settings
 mod polkit
 mod secrets
 mod splash
+mod packaging
 
 # List the recipes, the components' included.
 default:
     @just --list --list-submodules
 
-# Run one component's recipe in its dev shell, as CI does: `just in login check`.
-in component recipe="check":
-    nix develop .#{{ component }} -c just {{ component }}::{{ recipe }}
+# Run component recipes in the component's dev shell, as CI does:
+# `just in wm plain race`, `just in wm pace-gate gles`.
+in component +args:
+    nix develop .#{{ component }} -c just --justfile {{ component }}/justfile --working-directory {{ component }} {{ args }}
+
+# Build Nix checks for this machine's system: `just checks login-vm wm-module`.
+[script("bash")]
+checks +names:
+    set -euo pipefail
+    attrs=()
+    for name in {{ names }}; do attrs+=(".#checks.{{ arch() }}-linux.${name}"); done
+    nix build -L --no-link "${attrs[@]}"
+
+# Build flake packages: `just packages lys-wm lys-shell`.
+[script("bash")]
+packages +names:
+    set -euo pipefail
+    attrs=()
+    for name in {{ names }}; do attrs+=(".#${name}"); done
+    nix build -L --no-link "${attrs[@]}"
 
 # The components and CI jobs a change since base touches, imports included.
 affected base="origin/main":
     go run ./ci/affected -base {{ base }}
+
+# The repository's own gate: a tidy go.mod, the CI planner's tests and every
+# flake output evaluating on both systems.
+repository-check:
+    nix develop .#lib -c go mod tidy -diff
+    nix develop .#lib -c go test ./ci/...
+    nix flake check --no-build --all-systems
 
 # Fail, showing the diff, when go.mod or go.sum is not tidy.
 tidy-check:

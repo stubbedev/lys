@@ -25,15 +25,14 @@ Everything else is under `internal/`.
 | `just build` | Compile every package |
 | `just dist` | Static, stripped release binary in `dist/` |
 | `just fmt` | Format all Go sources |
-| `just vendor-hash` | Update `vendorHash` in `nix/package.nix` |
-| `just release-patch` / `-minor` / `-major` | Tag and push the next release from a clean default branch with green CI |
 
-`nix develop` (or `direnv allow`) provides the pinned Go toolchain, the lint
+`nix develop .#secrets` provides the pinned Go toolchain, the lint
 tools, dbus for the tests' private buses, and the clients tested against
 (secret-tool, python-secretstorage, Chromium, git's libsecret helper).
 
-`nix flake check` builds the package, evaluates both modules and boots a NixOS VM
-that checks D-Bus activation under dbus-broker.
+`just checks secrets-package secrets-hm-module secrets-nixos-module secrets-activation-vm`
+builds the package, evaluates both modules and boots a NixOS VM that checks
+D-Bus activation under dbus-broker. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 
 ## Releases
 

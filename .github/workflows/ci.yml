@@ -1,0 +1,142 @@
+name: ci
+
+# One workflow for every component. The plan job asks ci/affected which
+# components a change touches, through their files, their Go imports and the
+# dependencies ci/components.json declares, and runs only their jobs. A
+# scheduled or manual run, and any change to the shared files, runs them all.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      components: ${{ steps.plan.outputs.components }}
+      jobs: ${{ steps.plan.outputs.jobs }}
+      packages: ${{ steps.plan.outputs.packages }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) go run ./ci/affected -github -base "$PR_BASE" ;;
+            push) go run ./ci/affected -github -base "$PUSH_BASE" ;;
+            *) go run ./ci/affected -github -all ;;
+          esac
+      - name: Summary
+        env:
+          COMPONENTS: ${{ steps.plan.outputs.components }}
+          PACKAGES: ${{ steps.plan.outputs.packages }}
+        run: |
+          printf 'Components: %s\n\nPackages: %s\n' "$COMPONENTS" "$PACKAGES" >> "$GITHUB_STEP_SUMMARY"
+
+  job:
+    needs: plan
+    if: needs.plan.outputs.jobs != '[]'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key: ${{ matrix.id }}
+          kvm: ${{ matrix.kvm }}
+          userns: ${{ matrix.userns }}
+          free-disk: ${{ matrix.free-disk }}
+      - run: ${{ matrix.run }}
+
+  package:
+    needs: plan
+    if: needs.plan.outputs.packages != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.plan.outputs.packages) }}
+    uses: ./.github/workflows/package.yml
+    with:
+      component: ${{ matrix.component }}
+      version: 0~git${{ github.sha }}
+
+  cache:
+    needs: [plan, job]
+    if: >-
+      github.event_name == 'push' && needs.plan.outputs.packages != '[]' &&
+      needs.job.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      XILO_TOKEN: ${{ secrets.XILO_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key: cache
+      - name: Build the affected packages
+        env:
+          PACKAGES: ${{ needs.plan.outputs.packages }}
+        run: |
+          mapfile -t names < <(jq -r '.[] | "lys-" + .' <<< "$PACKAGES")
+          just packages "${names[@]}"
+          nix path-info "${names[@]/#/.#}" > outpaths
+      - if: env.XILO_TOKEN != ''
+        uses: stubbedev/xilo@dd96cb09f7781ceccd534af338a36853c80f7193 # v1.2.6
+        with:
+          url: https://nix.stubbe.dev
+          cache: default/default
+          token: ${{ secrets.XILO_TOKEN }}
+      - if: env.XILO_TOKEN != ''
+        run: |
+          mapfile -t paths < outpaths
+          xilo push default/default "${paths[@]}"
+
+  ci:
+    needs: [plan, job, package]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every planned job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "a planned job ended $result"; exit 1 ;;
+            esac
+          done

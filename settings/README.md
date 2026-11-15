@@ -25,7 +25,7 @@ into the Nix store stays editable.
 lys-shell's Nix modules install it by default. The manual's
 [install section](https://stubbedev.github.io/lys/install/) covers the packages,
 and [Install](https://stubbedev.github.io/lys/settings/guide/install) installing it
-alone (`lys.nixosModules.lys-settings`, `lys.homeManagerModules.lys-settings`).
+alone (`lys.nixosModules.lys-settings`, `lys.homeModules.lys-settings`).
 
 ## Use
 

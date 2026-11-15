@@ -1,6 +1,6 @@
 package widget
 
-// CSS positioning (docs/css.md): relative and sticky shift a widget
+// CSS positioning (docs/ui/css.md): relative and sticky shift a widget
 // from where its container's layout put it, never reflowing the
 // siblings; absolute and fixed take it out of the flow — the container
 // measures nothing for it — and place it against its containing block,

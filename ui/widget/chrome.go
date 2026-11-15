@@ -51,7 +51,7 @@ func DescendsFrom(w, ancestor Widget) bool {
 // (the app routes it to xdg_toplevel.move); a double press maximizes -
 // both delivered through the WindowMover contract, so the bar works in
 // any host that honors it. Styled as the `headerbar` element, its
-// title as `headerbar title` (docs/css.md).
+// title as `headerbar title` (docs/ui/css.md).
 type HeaderBar struct {
 	composite
 	packs

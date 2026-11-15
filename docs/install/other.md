@@ -29,10 +29,10 @@ With Nix and home-manager, import the flake's home-manager modules:
 
   # in the home-manager configuration
   imports = [
-    inputs.lys.homeManagerModules.lys-wm
-    inputs.lys.homeManagerModules.lys-shell
-    inputs.lys.homeManagerModules.lys-polkit
-    inputs.lys.homeManagerModules.lys-secrets
+    inputs.lys.homeModules.lys-wm
+    inputs.lys.homeModules.lys-shell
+    inputs.lys.homeModules.lys-polkit
+    inputs.lys.homeModules.lys-secrets
   ];
   programs.lys-wm.enable = true;
   programs.lys-shell.enable = true;

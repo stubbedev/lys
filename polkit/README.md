@@ -27,7 +27,7 @@ With home-manager:
   inputs.lys.url = "github:stubbedev/lys";
 
   # in the home-manager configuration
-  imports = [inputs.lys.homeManagerModules.lys-polkit];
+  imports = [inputs.lys.homeModules.lys-polkit];
   services.lys-polkit.enable = true;
   services.hyprpolkitagent.enable = false; # one agent per session
 }

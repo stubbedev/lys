@@ -18,7 +18,7 @@ To install it alone, as on lys-wm without the shell:
 {
   inputs.lys.url = "github:stubbedev/lys";
 
-  imports = [inputs.lys.homeManagerModules.lys-settings]; # or nixosModules.lys-settings
+  imports = [inputs.lys.homeModules.lys-settings]; # or nixosModules.lys-settings
   programs.lys-settings.enable = true;
 }
 ```

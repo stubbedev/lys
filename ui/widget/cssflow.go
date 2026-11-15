@@ -1,6 +1,6 @@
 package widget
 
-// The CSS layout of a Box (docs/css.md). A declared display hands the
+// The CSS layout of a Box (docs/ui/css.md). A declared display hands the
 // box's children to a CSS formatting context in place of the
 // programmatic box layout: flow for block, inline, inline-block and
 // flow-root, flexbox for flex and inline-flex (cssflex.go), grid for

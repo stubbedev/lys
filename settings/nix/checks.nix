@@ -13,7 +13,7 @@
       inputs.home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          self.homeManagerModules.lys-settings
+          self.homeModules.lys-settings
           {
             home = {
               username = "alice";

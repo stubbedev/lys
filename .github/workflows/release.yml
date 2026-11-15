@@ -1,0 +1,51 @@
+name: release
+
+# A vX.Y.Z tag, which `just release-patch` pushes once ci.yml passed on the
+# commit, releases every component under that one version: each packaged
+# component's archive, .deb and .rpm, and the checksums, on one GitHub release.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      packages: ${{ steps.plan.outputs.packages }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - id: plan
+        run: go run ./ci/affected -github -all
+      - id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  package:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.plan.outputs.packages) }}
+    uses: ./.github/workflows/package.yml
+    with:
+      component: ${{ matrix.component }}
+      version: ${{ needs.plan.outputs.version }}
+
+  publish:
+    needs: package
+    permissions:
+      contents: write
+    uses: stubbedev/lys-ci/.github/workflows/publish-release.yml@493dadd91d1312838dcb75a2d9a6012920a3be88
