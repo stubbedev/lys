@@ -109,6 +109,7 @@ type fakeDevice struct {
 	refusePowerOff    bool
 	busyNonblock      bool
 	busyUntilFlip     bool
+	busyFlips         bool
 	damageClips       bool
 	overlayZpos       uint64
 	refuseOverlay     bool
@@ -526,6 +527,9 @@ func (f *fakeDevice) Commit(r *kdrm.Request, flags uint32, userData uint64) erro
 	if (f.busyNonblock || f.busyUntilFlip) && flags&kdrm.AtomicNonblock != 0 && flags&kdrm.AtomicAllowModeset != 0 {
 		return unix.EBUSY
 	}
+	if f.busyFlips && flags&kdrm.AtomicNonblock != 0 && flags&kdrm.AtomicTestOnly == 0 {
+		return unix.EBUSY
+	}
 	if f.refuseOverlay && c.values[[2]uint32{42, propFB}] != 0 {
 		return unix.EINVAL
 	}
@@ -615,7 +619,7 @@ func (f *fakeDevice) refusesModeset(c commit) bool {
 
 func (f *fakeDevice) flip(t *testing.T, crtc uint32, seq uint32) {
 	t.Helper()
-	f.busyUntilFlip = false
+	f.busyUntilFlip, f.busyFlips = false, false
 	ev := make([]byte, 32)
 	binary.NativeEndian.PutUint32(ev, kdrm.EventFlipComplete)
 	binary.NativeEndian.PutUint32(ev[4:], 32)

@@ -1,12 +1,15 @@
 package drm
 
 import (
+	"image"
 	"slices"
 	"testing"
 
 	kdrm "github.com/stubbedev/lys-lib/drm"
+	"github.com/stubbedev/lys-lib/fourcc"
 
 	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/gpu"
 )
 
 func (r *rig) twoOutputsOneFlipping() (flipping, other *Output) {
@@ -26,6 +29,81 @@ func (r *rig) twoOutputsOneFlipping() (flipping, other *Output) {
 	r.committedSince("DP-1's frame in flight", flipping, 0)
 	r.dev.commits, r.rec.log = nil, nil
 	return flipping, other
+}
+
+func (r *rig) flipSecondsFirstFrame(second *Output) {
+	r.t.Helper()
+	if err := second.ScheduleFrame(); err != nil {
+		r.t.Fatal(err)
+	}
+	r.committedSince("DP-2's first frame", second, 0)
+	r.dev.flip(r.t, 11, 1)
+	r.until("DP-2's flip", func() bool { return !second.flipping })
+	r.dev.commits, r.rec.log = nil, nil
+}
+
+func TestAFlipRefusedBusyWaitsForTheDevicesFlips(t *testing.T) {
+	r := start(t)
+	first, second := r.twoOutputsOneFlipping()
+	r.flipSecondsFirstFrame(second)
+	r.dev.busyFlips = true
+	if err := second.ScheduleFrame(); err != nil {
+		t.Fatal(err)
+	}
+	r.until("DP-2's flip refused busy", func() bool { return second.busy != nil })
+	r.settle()
+	if second.flipping || slices.Contains(r.rec.log, "damaged DP-2") || len(r.reports) != 0 {
+		t.Fatalf("DP-2 flipping %v, log %v, reports %v", second.flipping, r.rec.log, r.reports)
+	}
+	refused := len(r.dev.commits)
+	r.dev.flip(t, 10, 2)
+	r.until("DP-2's flip after DP-1's", func() bool { return second.flipping })
+	got := slices.DeleteFunc(slices.Clone(r.dev.commits[refused:]), func(c commit) bool { return c.flags&kdrm.AtomicTestOnly != 0 })
+	if len(got) != 1 || got[0].userData != 11 || got[0].flags != planeFlags {
+		t.Fatalf("DP-2's held frame committed %+v", got)
+	}
+	frames := 0
+	for _, l := range r.rec.log {
+		switch l {
+		case "frame":
+			frames++
+		case "damaged DP-2":
+			t.Fatalf("DP-2 dropped a frame: log %v", r.rec.log)
+		}
+	}
+	if frames != 1 || len(r.reports) != 0 || first.flipping {
+		t.Fatalf("%d renders, reports %v, log %v", frames, r.reports, r.rec.log)
+	}
+}
+
+func TestACursorCommitRefusedBusyWaitsForTheDevicesFlips(t *testing.T) {
+	r := start(t)
+	first, second := r.twoOutputsOneFlipping()
+	r.dev.flip(t, 10, 2)
+	r.until("DP-1's flip", func() bool { return !first.flipping })
+	if err := second.ScheduleFrame(); err != nil {
+		t.Fatal(err)
+	}
+	r.committedSince("DP-2's first frame", second, 0)
+	r.elapse(first.planesWait())
+	c := r.shownCursor(first, image.Pt(4, 6))
+	r.dev.flip(t, 10, 3)
+	r.until("DP-1's cursor flip", func() bool { return !first.flipping })
+	r.elapse(first.planesWait())
+	r.dev.busyFlips = true
+	refused := len(r.dev.commits)
+	if err := c.MoveCursor(image.Pt(30, 20)); err != nil {
+		t.Fatal(err)
+	}
+	r.until("DP-1's cursor commit refused busy", func() bool { return first.planesBusy })
+	if first.flipping || len(r.reports) != 0 || !c.dirty {
+		t.Fatalf("a busy cursor commit: flipping %v, dirty %v, reports %v", first.flipping, c.dirty, r.reports)
+	}
+	r.dev.flip(t, 11, 1)
+	r.until("DP-1's cursor after DP-2's flip", func() bool { return first.flipping })
+	if _, at, _ := cursorAt(r.dev.commits[len(r.dev.commits)-1]); at != image.Pt(26, 14) || len(r.dev.commits) != refused+2 || len(r.reports) != 0 {
+		t.Fatalf("DP-1's held cursor at %v after commits %+v, reports %v", at, r.dev.commits[refused:], r.reports)
+	}
 }
 
 func TestAModesetRefusedBusyWaitsForTheDevicesFlips(t *testing.T) {
@@ -77,12 +155,7 @@ func TestAModesetRefusedBusyWithNoFlipPendingCommitsBlocking(t *testing.T) {
 func TestAPowerOffRefusedBusyWaitsForTheDevicesFlips(t *testing.T) {
 	r := start(t)
 	_, second := r.twoOutputsOneFlipping()
-	if err := second.ScheduleFrame(); err != nil {
-		t.Fatal(err)
-	}
-	r.committedSince("DP-2's first frame", second, 0)
-	r.dev.flip(t, 11, 1)
-	r.until("DP-2's flip", func() bool { return !second.flipping })
+	r.flipSecondsFirstFrame(second)
 	r.dev.busyUntilFlip = true
 	n := len(r.dev.commits)
 	state := second.State()
@@ -113,5 +186,17 @@ func TestAPowerOffRefusedBusyWithNoFlipPendingCommitsBlocking(t *testing.T) {
 	}
 	if got := r.dev.commits[n:]; len(got) != 2 || got[1].flags != kdrm.AtomicAllowModeset || o.offBusy {
 		t.Fatalf("a busy power off with nothing flipping committed %+v", got)
+	}
+}
+
+func TestAScanoutRefusedBusyIsComposited(t *testing.T) {
+	r := start(t)
+	_, second := r.twoOutputsOneFlipping()
+	r.flipSecondsFirstFrame(second)
+	r.dev.busyFlips = true
+	size := modeOf(second.mode).Size
+	client := gpu.DMABUF{Size: size, Format: scanoutFormat, Modifier: fourcc.Linear, Planes: []gpu.Plane{{FD: 7, Stride: uint32(size.X) * 4}}}
+	if ok, err := second.Scanout(&fakeBuffer{client}, client, backend.Whole(client.Size), func() error { return nil }, false); err != nil || ok {
+		t.Fatalf("Scanout refused busy = %t, %v, want the frame composited", ok, err)
 	}
 }

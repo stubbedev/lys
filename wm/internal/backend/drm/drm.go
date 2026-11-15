@@ -888,12 +888,12 @@ func (b *Backend) readEvents(loop.Events) error {
 }
 
 func (b *Backend) flipped(e kdrm.FlipEvent) error {
-	for _, o := range b.outputs {
-		if o.bound() && uint64(o.crtc.id) == e.UserData {
-			return errors.Join(o.flipped(e), o.commitPipelined(), b.commitHeld())
-		}
+	i := slices.IndexFunc(b.outputs, func(o *Output) bool { return o.bound() && uint64(o.crtc.id) == e.UserData })
+	if i < 0 {
+		return b.commitHeld()
 	}
-	return nil
+	o := b.outputs[i]
+	return errors.Join(o.flipped(e), o.commitPipelined(), b.commitHeld())
 }
 
 func (b *Backend) Paused() bool {
@@ -917,7 +917,7 @@ func (b *Backend) Resume() error {
 	b.paused = false
 	var errs []error
 	for _, o := range b.outputs {
-		o.kms, o.flipping, o.busy, o.offDue, o.offBusy = kmsModeset, false, nil, o.offDue || o.offBusy, false
+		o.kms, o.flipping, o.busy, o.planesBusy, o.offDue, o.offBusy = kmsModeset, false, nil, false, o.offDue || o.offBusy, false
 		errs = append(errs, o.dropLate(), o.dropScanout(o.queued))
 		o.queued = nil
 		if o.cursor != nil {
@@ -1044,6 +1044,7 @@ type Output struct {
 	restated      []uint32
 	extraFlips    int
 	busy          *scanout
+	planesBusy    bool
 	offBusy       bool
 	bpcFound      uint64
 	bpc           uint64
@@ -1792,6 +1793,10 @@ func (b *Backend) commitHeld() error {
 				o.b.report(fmt.Errorf("%w; the output stays lit until it next changes", err))
 			}
 		}
+		if o.planesBusy {
+			o.planesBusy = false
+			errs = append(errs, o.flushPlanes())
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -1868,7 +1873,7 @@ func (o *Output) commitFenced(s *scanout, fence int) error {
 	if !torn {
 		err = o.submit(s, fence, flags)
 	}
-	busy := errors.Is(err, unix.EBUSY) && flags&kdrm.AtomicAllowModeset != 0
+	busy := errors.Is(err, unix.EBUSY)
 	if busy && o.b.flipsPending() {
 		o.busy = s
 		err = o.dropRestated()
@@ -1980,7 +1985,7 @@ func (o *Output) Scanout(key backend.ScanoutKey, d gpu.DMABUF, at backend.Placem
 	if err := o.b.dev.Commit(&o.b.req, flags, uint64(o.crtc.id)); err != nil {
 		clear(o.tested)
 		o.spare = append(o.spare, s)
-		if refused(err) {
+		if refused(err) || errors.Is(err, unix.EBUSY) {
 			return false, nil
 		}
 		return false, fmt.Errorf("drm: commit a client buffer on %s: %w", o.Name(), err)
@@ -2342,6 +2347,10 @@ func (o *Output) sendPlanes(cursor bool) error {
 			return nil
 		}
 		err = o.commitPlanes(false)
+	}
+	if errors.Is(err, unix.EBUSY) && o.b.flipsPending() {
+		o.planesBusy = true
+		return nil
 	}
 	if err != nil {
 		return o.planesFailed(fmt.Errorf("drm: commit the cursor and colour of %s: %w", o.Name(), err))
