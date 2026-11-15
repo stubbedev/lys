@@ -52,7 +52,7 @@ func newTakeOver(f splashFrame) (*takeOver, error) {
 		if _, ok := t.logos[o.Scale]; ok {
 			continue
 		}
-		icon, err := splashframe.RasterizeLogo(o.Scale)
+		icon, err := splashframe.RasterizeLogo(o.Scale, f.frame.LogoColor)
 		if err != nil {
 			return nil, err
 		}

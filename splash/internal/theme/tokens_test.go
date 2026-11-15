@@ -74,34 +74,62 @@ func TestTheSplashDrawsWithTheGreetersTokens(t *testing.T) {
 
 func TestTheLysLogoAndTheThrobberShareTheAccent(t *testing.T) {
 	t.Parallel()
-	d := Default()
-	logo, err := splashframe.LogoColor()
+	primary := Default().Accent
+	accented, err := Parse("theme.yaml", []byte("accent: \"#7aa2f7\"\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if logo != d.Accent {
-		t.Fatalf("the lys logo is %#08x, the default accent %#08x", uint32(logo), uint32(d.Accent))
-	}
-	size := image.Pt(800, 600)
-	f := frame(size)
-	r := renderer(t, d, nil)
-	draw(t, r, f, 1, nil, State{Phase: 3})
-	l := r.layout(size, 1)
-	inAccent := func(box image.Rectangle) int {
-		n := 0
-		for y := box.Min.Y; y < box.Max.Y; y++ {
-			for x := box.Min.X; x < box.Max.X; x++ {
-				if render.Color(binary.LittleEndian.Uint32(f.Pix[y*f.Stride+x*4:])) == d.Accent {
-					n++
+	for name, th := range map[string]Theme{"default": Default(), "accent override": accented} {
+		size := image.Pt(800, 600)
+		f := frame(size)
+		r := renderer(t, th, nil)
+		draw(t, r, f, 1, nil, State{Phase: 3})
+		l := r.layout(size, 1)
+		count := func(box image.Rectangle, c render.Color) int {
+			n := 0
+			for y := box.Min.Y; y < box.Max.Y; y++ {
+				for x := box.Min.X; x < box.Max.X; x++ {
+					if render.Color(binary.LittleEndian.Uint32(f.Pix[y*f.Stride+x*4:])) == c {
+						n++
+					}
 				}
 			}
+			return n
 		}
-		return n
+		for part, box := range map[string]image.Rectangle{"logo": l.Logo, "throbber": l.Throb} {
+			if count(box, th.Accent) == 0 {
+				t.Errorf("%s: no pixel of the %s %v is the accent %#08x", name, part, box, uint32(th.Accent))
+			}
+			if th.Accent != primary && count(box, primary) != 0 {
+				t.Errorf("%s: the %s %v is drawn in the palette's primary %#08x, not the accent %#08x", name, part, box, uint32(primary), uint32(th.Accent))
+			}
+		}
+		if got := r.LastFrame([]splashframe.Output{{Name: "Virtual-1", Size: size, Scale: 1}}).LogoColor; got != th.Accent {
+			t.Errorf("%s: the last frame records the logo in %#08x, want the accent %#08x", name, uint32(got), uint32(th.Accent))
+		}
 	}
-	for name, box := range map[string]image.Rectangle{"logo": l.Logo, "throbber": l.Throb} {
-		if inAccent(box) == 0 {
-			t.Errorf("no pixel of the %s %v is the accent %#08x", name, box, uint32(d.Accent))
-		}
+}
+
+func TestALogoInAnotherColourIsNotTheRenderersLogo(t *testing.T) {
+	t.Parallel()
+	th := Default()
+	th.Accent = render.RGB(0x7a, 0xa2, 0xf7)
+	r := renderer(t, th, nil)
+	stale, err := RasterizeLogo(1, Default().Accent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.AddLogo(stale)
+	if !r.NeedsLogo(1) {
+		t.Error("a logo rasterized in another colour stands in for the theme's")
+	}
+	fresh, err := RasterizeLogo(1, r.LogoColor())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.AddLogo(fresh)
+	if r.NeedsLogo(1) {
+		t.Error("a logo rasterized in the theme's accent is still needed")
 	}
 }
 

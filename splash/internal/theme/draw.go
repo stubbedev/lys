@@ -109,11 +109,16 @@ type Renderer struct {
 	theme   Theme
 	face    *render.Typeface
 	bgrt    *splashframe.BGRT
-	logos   map[int]*render.Icon
+	logos   map[logoKey]*render.Icon
 	steps   map[throbberStep][]byte
 	cv      render.Canvas
 	scv     render.Canvas
 	scratch []byte
+}
+
+type logoKey struct {
+	scale int
+	color render.Color
 }
 
 type throbberStep struct {
@@ -131,7 +136,7 @@ func NewRenderer(t Theme, bgrt *splashframe.BGRT) (*Renderer, error) {
 	if t.Logo == LysLogo {
 		bgrt = nil
 	}
-	return &Renderer{theme: t, face: face, bgrt: bgrt, logos: map[int]*render.Icon{}, steps: map[throbberStep][]byte{}}, nil
+	return &Renderer{theme: t, face: face, bgrt: bgrt, logos: map[logoKey]*render.Icon{}, steps: map[throbberStep][]byte{}}, nil
 }
 
 type layout struct {
@@ -338,9 +343,9 @@ func (r *Renderer) logoImage(scale int) (image.Image, error) {
 	if r.bgrt != nil {
 		return r.bgrt.Image, nil
 	}
-	icon, ok := r.logos[scale]
+	icon, ok := r.logos[r.logoKey(scale)]
 	if !ok {
-		logo, err := RasterizeLogo(scale)
+		logo, err := RasterizeLogo(scale, r.LogoColor())
 		if err != nil {
 			return nil, err
 		}
@@ -359,20 +364,30 @@ func (r *Renderer) logo(cv *render.Canvas, l layout) error {
 	return nil
 }
 
-// LogoRaster is the lys logo rasterized for a scale.
+// LogoRaster is the lys logo rasterized for a scale in a colour.
 type LogoRaster struct {
-	scale int
-	icon  *render.Icon
+	key  logoKey
+	icon *render.Icon
 }
 
-// RasterizeLogo draws the lys logo at scale, milliseconds of work that does not
-// belong on the frame loop and needs no Renderer.
-func RasterizeLogo(scale int) (*LogoRaster, error) {
-	icon, err := splashframe.RasterizeLogo(scale)
+// RasterizeLogo draws the lys logo at scale in c, milliseconds of work that
+// does not belong on the frame loop and needs no Renderer.
+func RasterizeLogo(scale int, c render.Color) (*LogoRaster, error) {
+	icon, err := splashframe.RasterizeLogo(scale, c)
 	if err != nil {
 		return nil, fmt.Errorf("theme: %w", err)
 	}
-	return &LogoRaster{scale: scale, icon: icon}, nil
+	return &LogoRaster{key: logoKey{scale: scale, color: c}, icon: icon}, nil
+}
+
+// LogoColor is the colour the renderer draws the lys logo in: the theme's
+// accent, the throbber's and the bar's.
+func (r *Renderer) LogoColor() render.Color {
+	return r.theme.Accent
+}
+
+func (r *Renderer) logoKey(scale int) logoKey {
+	return logoKey{scale: scale, color: r.LogoColor()}
 }
 
 // NeedsLogo says a first frame at scale would rasterize the logo.
@@ -380,13 +395,14 @@ func (r *Renderer) NeedsLogo(scale int) bool {
 	if r.bgrt != nil {
 		return false
 	}
-	_, ok := r.logos[scale]
+	_, ok := r.logos[r.logoKey(scale)]
 	return !ok
 }
 
-// AddLogo keeps a logo for the frames at its scale.
+// AddLogo keeps a logo for the frames at its scale; one in a colour other
+// than LogoColor, rasterized for a theme since replaced, is never drawn.
 func (r *Renderer) AddLogo(l *LogoRaster) {
-	r.logos[l.scale] = l.icon
+	r.logos[l.key] = l.icon
 }
 
 func (r *Renderer) LastFrame(outputs []splashframe.Output) splashframe.LastFrame {
@@ -394,7 +410,7 @@ func (r *Renderer) LastFrame(outputs []splashframe.Output) splashframe.LastFrame
 	if r.bgrt != nil {
 		logo = splashframe.LogoFirmware
 	}
-	return splashframe.LastFrame{Background: r.theme.Background, Logo: logo, ReducedMotion: r.theme.ReducedMotion, Outputs: outputs}
+	return splashframe.LastFrame{Background: r.theme.Background, Logo: logo, LogoColor: r.LogoColor(), ReducedMotion: r.theme.ReducedMotion, Outputs: outputs}
 }
 
 func mix(a, b render.Color, num, denom uint32) render.Color {

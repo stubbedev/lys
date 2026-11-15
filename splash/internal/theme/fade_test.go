@@ -69,7 +69,7 @@ func picture(t *testing.T, size image.Point, scale int, bgrt *splashframe.BGRT) 
 		if bgrt != nil {
 			return bgrt.Mark(size)
 		}
-		icon, err := splashframe.RasterizeLogo(scale)
+		icon, err := splashframe.RasterizeLogo(scale, Default().Accent)
 		if err != nil {
 			t.Fatal(err)
 		}

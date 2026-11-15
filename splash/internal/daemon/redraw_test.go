@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
@@ -287,7 +288,7 @@ func TestAFailingScreenBacksOffAndLogsOnce(t *testing.T) {
 				t.Fatal(err)
 			}
 			size := image.Pt(320, 240)
-			logo, err := theme.RasterizeLogo(1)
+			logo, err := theme.RasterizeLogo(1, r.LogoColor())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -395,13 +396,13 @@ func TestALogoIsRasterizedOffTheLoopAndTheScreenWaitsForIt(t *testing.T) {
 	entered, release := make(chan struct{}, 1), make(chan struct{})
 	clock := newFakeClock()
 	d := &daemon{
-		cfg: Config{Clock: clock, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Log: slog.New(slog.DiscardHandler), RasterizeLogo: func(scale int) (*theme.LogoRaster, error) {
+		cfg: Config{Clock: clock, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Log: slog.New(slog.DiscardHandler), RasterizeLogo: func(scale int, c render.Color) (*theme.LogoRaster, error) {
 			if testbuild.GoroutineID() == loop {
 				onLoop.Add(1)
 			}
 			entered <- struct{}{}
 			<-release
-			return theme.RasterizeLogo(scale)
+			return theme.RasterizeLogo(scale, c)
 		}},
 		display:  display,
 		renderer: r,
@@ -413,7 +414,7 @@ func TestALogoIsRasterizedOffTheLoopAndTheScreenWaitsForIt(t *testing.T) {
 		looping:  true,
 	}
 	d.logos = map[int]bool{}
-	logo, err := theme.RasterizeLogo(1)
+	logo, err := theme.RasterizeLogo(1, r.LogoColor())
 	if err != nil {
 		t.Fatal(err)
 	}

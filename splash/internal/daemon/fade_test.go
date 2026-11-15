@@ -41,7 +41,7 @@ func (r *run) screen() *fakeScreen {
 
 func lysPicture(t *testing.T) []byte {
 	t.Helper()
-	icon, err := splashframe.RasterizeLogo(1)
+	icon, err := splashframe.RasterizeLogo(1, theme.Default().Accent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestDeactivateFadesTheGroupOutRecordsTheFrameAndThenDrawsNothing(t *testing
 		t.Error("the last frame before the deactivate is not the shared picture: the logo alone on black")
 	}
 	saved, _ := r.frames.state()
-	want := splashframe.LastFrame{Background: theme.Default().Background, Logo: splashframe.LogoLys, Outputs: []splashframe.Output{{Name: "Virtual-1", Size: pictureSize, Scale: 1}}}
+	want := splashframe.LastFrame{Background: theme.Default().Background, Logo: splashframe.LogoLys, LogoColor: theme.Default().Accent, Outputs: []splashframe.Output{{Name: "Virtual-1", Size: pictureSize, Scale: 1}}}
 	if len(saved) != 1 || !reflect.DeepEqual(saved[0], want) {
 		t.Errorf("recorded %+v, want %+v", saved, want)
 	}

@@ -25,10 +25,13 @@ func splashRig(t *testing.T, edit func(*Init), f splashFrame) *rig {
 	return buildRig(t, edit, &rig{outputs: []image.Point{{1920, 1080}}, timeout: make(chan time.Time), scale: 1, splash: &f, output: "Virtual-1"})
 }
 
+var splashLogoColor = render.RGB(0xe0, 0x94, 0x7a)
+
 func lysFrame(size image.Point, scale int) splashFrame {
 	return splashFrame{frame: splashframe.LastFrame{
 		Background: render.RGB(0, 0, 0),
 		Logo:       splashframe.LogoLys,
+		LogoColor:  splashLogoColor,
 		Outputs:    []splashframe.Output{{Name: "Virtual-1", Size: size, Scale: scale}},
 	}}
 }
@@ -70,7 +73,7 @@ func TestTheGreetersFirstFramePutsTheLogoWhereTheSplashLeftIt(t *testing.T) {
 			t.Fatal("a splash's last frame made no take-over")
 		}
 		first := painted(r, tc.size)
-		icon, err := splashframe.RasterizeLogo(tc.scale)
+		icon, err := splashframe.RasterizeLogo(tc.scale, splashLogoColor)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,6 +89,27 @@ func TestTheGreetersFirstFramePutsTheLogoWhereTheSplashLeftIt(t *testing.T) {
 		if splash := ink(want, tc.size, render.RGB(0, 0, 0)); got != splash {
 			t.Errorf("%v at scale %d: the logo's ink lies at %v, the splash's at %v", tc.size, tc.scale, got, splash)
 		}
+	}
+}
+
+func TestTheGreetersFirstFrameDrawsTheLogoInTheRecordedColour(t *testing.T) {
+	size := image.Pt(800, 600)
+	accent := render.RGB(0x7a, 0xa2, 0xf7)
+	f := lysFrame(size, 1)
+	f.frame.LogoColor = accent
+	first := painted(splashRig(t, nil, f), size)
+	picture := func(c render.Color) []byte {
+		icon, err := splashframe.RasterizeLogo(1, c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return pictureOf(splashframe.Picture{Background: f.frame.Background, Mark: splashframe.LysMark(size, 1, icon)}, size)
+	}
+	if !bytes.Equal(first, picture(accent)) {
+		t.Error("the first frame's logo is not in the colour the splash recorded")
+	}
+	if bytes.Equal(first, picture(splashLogoColor)) {
+		t.Error("the first frame's logo is in a colour the splash did not record")
 	}
 }
 
@@ -187,6 +211,7 @@ func twoOutputFrame(size image.Point) splashFrame {
 	return splashFrame{frame: splashframe.LastFrame{
 		Background: render.RGB(0, 0, 0),
 		Logo:       splashframe.LogoLys,
+		LogoColor:  splashLogoColor,
 		Outputs: []splashframe.Output{
 			{Name: "DP-1", Size: size, Scale: 1},
 			{Name: "DP-2", Size: size, Scale: 2},
@@ -196,7 +221,7 @@ func twoOutputFrame(size image.Point) splashFrame {
 
 func lysPicture(t *testing.T, size image.Point, scale int) []byte {
 	t.Helper()
-	icon, err := splashframe.RasterizeLogo(scale)
+	icon, err := splashframe.RasterizeLogo(scale, splashLogoColor)
 	if err != nil {
 		t.Fatal(err)
 	}

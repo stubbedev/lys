@@ -60,7 +60,7 @@ daemon the socket is reachable only by the greeter account.
 
 [lys-splash](/splash/guide/how-it-works#hand-over-to-a-display-manager) fades
 its status group out before it lets go of the screen and records what its last
-frame shows in `/run/lys-splash/last-frame.json`: the background colour, which
+frame shows in `/run/lys-splash/last-frame.json`: the background colour, the logo's colour, which
 logo (lys's or the firmware's BGRT logo), whether its theme asks for
 `reduced-motion`, and every output's name, size and scale. The greeter reads the
 record when it starts, while the splash still runs; the splash removes it when

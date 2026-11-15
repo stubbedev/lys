@@ -40,11 +40,13 @@ type Output struct {
 }
 
 // LastFrame is the splash's last frame as the greeter reproduces it: the
-// background and logo of its Picture on every output, and whether the
-// splash's theme asked for cuts instead of fades.
+// background and logo of its Picture on every output, the colour the lys
+// logo is drawn in, and whether the splash's theme asked for cuts instead
+// of fades.
 type LastFrame struct {
 	Background    render.Color
 	Logo          Logo
+	LogoColor     render.Color
 	ReducedMotion bool
 	Outputs       []Output
 }
@@ -59,6 +61,7 @@ type wireOutput struct {
 type wireFrame struct {
 	Background    string       `json:"background"`
 	Logo          string       `json:"logo"`
+	LogoColor     string       `json:"logo-color"`
 	ReducedMotion bool         `json:"reduced-motion"`
 	Outputs       []wireOutput `json:"outputs"`
 }
@@ -86,7 +89,7 @@ func (f LastFrame) Encode() ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("splashframe: record a last frame: logo %d is none of lys and firmware", f.Logo)
 	}
-	w := wireFrame{Background: FormatColor(f.Background), Logo: name, ReducedMotion: f.ReducedMotion, Outputs: make([]wireOutput, len(f.Outputs))}
+	w := wireFrame{Background: FormatColor(f.Background), Logo: name, LogoColor: FormatColor(f.LogoColor), ReducedMotion: f.ReducedMotion, Outputs: make([]wireOutput, len(f.Outputs))}
 	for i, o := range f.Outputs {
 		w.Outputs[i] = wireOutput{Name: o.Name, Width: o.Size.X, Height: o.Size.Y, Scale: o.Scale}
 	}
@@ -110,7 +113,11 @@ func ParseLastFrame(data []byte) (LastFrame, error) {
 	if err != nil {
 		return LastFrame{}, fmt.Errorf("background: %w", err)
 	}
-	f := LastFrame{Background: bg, ReducedMotion: w.ReducedMotion, Outputs: make([]Output, len(w.Outputs))}
+	logoColor, err := ParseColor(w.LogoColor)
+	if err != nil {
+		return LastFrame{}, fmt.Errorf("logo-color: %w", err)
+	}
+	f := LastFrame{Background: bg, LogoColor: logoColor, ReducedMotion: w.ReducedMotion, Outputs: make([]Output, len(w.Outputs))}
 	found := false
 	for logo, name := range logoNames {
 		if name == w.Logo {

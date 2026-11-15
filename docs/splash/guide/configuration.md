@@ -10,7 +10,7 @@ the same one the lys-login greeter and lock screen draw with.
 | `background` | `#rrggbb` | `#000000` | Background colour |
 | `foreground` | `#rrggbb` | the palette's text colour | Message and prompt text |
 | `secondary` | `#rrggbb` | the palette's muted text colour | Unit names, the disk under a prompt, placeholder and prompt hints |
-| `accent` | `#rrggbb` | the palette's primary colour | Throbber, progress bars and the lock over a prompt |
+| `accent` | `#rrggbb` | the palette's primary colour | The lys logo, the throbber, progress bars and the lock over a prompt |
 | `error` | `#rrggbb` | the palette's red | The field's ring and the "Incorrect passphrase" line when a disk asks again |
 | `logo` | `firmware`, `lys` | `firmware` | `firmware`: the firmware's logo (ACPI BGRT) if it left one on screen, else lys's. `lys`: always lys's |
 | `throbber` | `spinner`, `dots` | `spinner` | Busy animation |
@@ -19,10 +19,11 @@ the same one the lys-login greeter and lock screen draw with.
 | `reduced-motion` | bool | `false` | Cuts instead of fading: no fade in from the firmware, no crossfade between states, no fade out before a hand-over or the power going, and the lys-login greeter replaces the splash's last frame in one cut |
 
 The default background is black so the firmware's logo, drawn on black, blends
-in. The lys logo is drawn in the palette's primary colour, the default
-`accent`, and the text in Inter Regular, the desktop's default font, so the
-greeter takes over in the same colour and typeface. The logo image, its colour,
-the font, the scale and the length of the fades are not configurable;
+in. The lys logo is drawn in the `accent`, the palette's primary colour by
+default, and the text in Inter Regular, the desktop's default font; the splash
+records the logo's colour for the greeter, which takes over in the same colour
+and typeface. The logo image, the font, the scale and the length of the fades
+are not configurable;
 [Fades](/splash/guide/how-it-works#fades) lists them.
 
 ```yaml

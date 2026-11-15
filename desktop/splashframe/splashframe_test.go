@@ -162,6 +162,57 @@ func TestAShortFrameCentresTheLogoAndTheGroupAsOneBlock(t *testing.T) {
 	}
 }
 
+func solid(size image.Point) image.Image {
+	img := image.NewRGBA(image.Rectangle{Max: size})
+	for i := range img.Pix {
+		img.Pix[i] = 0xc0
+	}
+	return img
+}
+
+func TestAFirmwareLogoOnAShortFrameKeepsEveryRowInside(t *testing.T) {
+	t.Parallel()
+	for _, size := range []image.Point{image.Pt(640, 400), image.Pt(640, 480)} {
+		for _, img := range []image.Image{checker(), solid(image.Pt(160, 80)), solid(image.Pt(192, 96))} {
+			b := &BGRT{Image: img, Offset: OpticalOrigin(size, img.Bounds().Size())}
+			logo := b.Rect(size)
+			if logo.Min != b.Offset {
+				t.Fatalf("%v: the firmware's logo moved from %v to %v", size, b.Offset, logo.Min)
+			}
+			l := Layout(size, 1, logo)
+			frame := image.Rectangle{Max: image.Pt(size.X, bottom(size, 1))}
+			rows := []image.Rectangle{l.Busy, l.Title, l.Secondary, l.Field, l.Hints, l.Notice}
+			for i, r := range append(rows, l.Group, l.Throb, l.Entry) {
+				if !r.In(frame) {
+					t.Errorf("%v with a %v firmware logo at %v: row %d %v runs off the frame", size, img.Bounds().Size(), logo, i, r)
+				}
+			}
+			for i := 1; i < len(rows); i++ {
+				if rows[i].Min.Y < rows[i-1].Max.Y {
+					t.Errorf("%v with a %v firmware logo: row %d %v starts above row %d's end %v", size, img.Bounds().Size(), i, rows[i], i-1, rows[i-1])
+				}
+			}
+			if l.Logo != logo || l.Group.Min.Y < logo.Max.Y+Space(tokens.SpaceSM, 1) {
+				t.Errorf("%v with a %v firmware logo %v: the group %v rides over it or the logo moved to %v", size, img.Bounds().Size(), logo, l.Group, l.Logo)
+			}
+		}
+	}
+}
+
+func TestAFirmwareLogoWithRoomKeepsTheGroupsGaps(t *testing.T) {
+	t.Parallel()
+	for _, size := range []image.Point{image.Pt(1920, 1080), image.Pt(800, 600)} {
+		b := &BGRT{Image: checker(), Offset: OpticalOrigin(size, image.Pt(96, 48))}
+		l := Layout(size, 1, b.Rect(size))
+		if gap := l.Title.Min.Y - l.Busy.Max.Y; gap != Space(tokens.SpaceLG, 1) {
+			t.Errorf("%v: %dpx between the indicator and the title, want the roomy %dpx", size, gap, Space(tokens.SpaceLG, 1))
+		}
+		if gap := l.Group.Min.Y - l.Logo.Max.Y; gap != Space(tokens.SpaceXL, 1) {
+			t.Errorf("%v: the group sits %dpx under the firmware's logo, want the grid's %dpx", size, gap, Space(tokens.SpaceXL, 1))
+		}
+	}
+}
+
 func TestTranslatedMovesEveryBox(t *testing.T) {
 	t.Parallel()
 	size := image.Pt(800, 600)
@@ -186,7 +237,7 @@ func TestTheLysMarkIsTheLogoAtItsPlace(t *testing.T) {
 	t.Parallel()
 	for _, scale := range []int{1, 2} {
 		size := image.Pt(1920, 1080)
-		icon, err := RasterizeLogo(scale)
+		icon, err := RasterizeLogo(scale, render.RGB(0xe0, 0x94, 0x7a))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,34 +248,29 @@ func TestTheLysMarkIsTheLogoAtItsPlace(t *testing.T) {
 	}
 }
 
-func TestTheLysLogoIsDrawnInThePalettesPrimary(t *testing.T) {
+func TestTheLysLogoIsDrawnInTheColourAsked(t *testing.T) {
 	t.Parallel()
-	primary, err := ParseColor(tokens.LysShell().Primary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := LogoColor(); err != nil || got != primary {
-		t.Fatalf("LogoColor() = %#08x, %v; want the primary %#08x", uint32(got), err, uint32(primary))
-	}
-	for _, scale := range []int{1, 2} {
-		icon, err := RasterizeLogo(scale)
-		if err != nil {
-			t.Fatal(err)
-		}
-		img := icon.Image()
-		opaque := 0
-		for i := 0; i < len(img.Pix); i += 4 {
-			a := uint32(img.Pix[i+3])
-			want := [3]uint8{uint8(uint32(primary.R()) * a / 255), uint8(uint32(primary.G()) * a / 255), uint8(uint32(primary.B()) * a / 255)}
-			if got := [3]uint8(img.Pix[i : i+3]); got != want {
-				t.Fatalf("scale %d: a logo pixel of alpha %d is %v, want the primary %s at that alpha, %v", scale, a, got, tokens.LysShell().Primary, want)
+	for _, c := range []render.Color{render.RGB(0xe0, 0x94, 0x7a), render.RGB(0x7a, 0xa2, 0xf7)} {
+		for _, scale := range []int{1, 2} {
+			icon, err := RasterizeLogo(scale, c)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if a == 0xff {
-				opaque++
+			img := icon.Image()
+			opaque := 0
+			for i := 0; i < len(img.Pix); i += 4 {
+				a := uint32(img.Pix[i+3])
+				want := [3]uint8{uint8(uint32(c.R()) * a / 255), uint8(uint32(c.G()) * a / 255), uint8(uint32(c.B()) * a / 255)}
+				if got := [3]uint8(img.Pix[i : i+3]); got != want {
+					t.Fatalf("scale %d: a logo pixel of alpha %d is %v, want %s at that alpha, %v", scale, a, got, FormatColor(c), want)
+				}
+				if a == 0xff {
+					opaque++
+				}
 			}
-		}
-		if opaque < LogoPx*scale*LogoPx*scale/8 {
-			t.Errorf("scale %d: %d opaque pixels, the logo's shape is missing", scale, opaque)
+			if opaque < LogoPx*scale*LogoPx*scale/8 {
+				t.Errorf("scale %d: %d opaque pixels, the logo's shape is missing", scale, opaque)
+			}
 		}
 	}
 }
@@ -257,6 +303,7 @@ func TestALastFrameRoundTrips(t *testing.T) {
 	f := LastFrame{
 		Background:    render.RGB(0x01, 0x02, 0x03),
 		Logo:          LogoFirmware,
+		LogoColor:     render.RGB(0x7a, 0xa2, 0xf7),
 		ReducedMotion: true,
 		Outputs:       []Output{{Name: "eDP-1", Size: image.Pt(2880, 1800), Scale: 2}, {Name: "HDMI-A-1", Size: image.Pt(1920, 1080), Scale: 1}},
 	}
@@ -289,15 +336,17 @@ func TestNoRecordIsNotExist(t *testing.T) {
 
 func TestABadRecordFailsNamingTheField(t *testing.T) {
 	t.Parallel()
-	good := `"background":"#000000","logo":"lys","reduced-motion":false,"outputs":[{"name":"Virtual-1","width":1280,"height":800,"scale":1}]`
+	good := `"background":"#000000","logo":"lys","logo-color":"#e0947a","reduced-motion":false,"outputs":[{"name":"Virtual-1","width":1280,"height":800,"scale":1}]`
 	tests := map[string]string{
-		`{` + strings.Replace(good, `"#000000"`, `"black"`, 1) + `}`:                "background",
-		`{` + strings.Replace(good, `"lys"`, `"plymouth"`, 1) + `}`:                 "logo",
-		`{"background":"#000000","logo":"lys","reduced-motion":false,"outputs":[]}`: "outputs",
-		`{` + strings.Replace(good, `"scale":1`, `"scale":0`, 1) + `}`:              "outputs",
-		`{` + strings.Replace(good, `"name":"Virtual-1"`, `"name":""`, 1) + `}`:     "outputs",
-		`{` + good + `,"colour":"#ffffff"}`:                                         "colour",
-		`not json`:                                                                  "invalid",
+		`{` + strings.Replace(good, `"#000000"`, `"black"`, 1) + `}`:                                       "background",
+		`{` + strings.Replace(good, `"lys"`, `"plymouth"`, 1) + `}`:                                        "logo",
+		`{` + strings.Replace(good, `"#e0947a"`, `"orange"`, 1) + `}`:                                      "logo-color",
+		`{` + strings.Replace(good, `"logo-color":"#e0947a",`, ``, 1) + `}`:                                "logo-color",
+		`{"background":"#000000","logo":"lys","logo-color":"#e0947a","reduced-motion":false,"outputs":[]}`: "outputs",
+		`{` + strings.Replace(good, `"scale":1`, `"scale":0`, 1) + `}`:                                     "outputs",
+		`{` + strings.Replace(good, `"name":"Virtual-1"`, `"name":""`, 1) + `}`:                            "outputs",
+		`{` + good + `,"colour":"#ffffff"}`:                                                                "colour",
+		`not json`:                                                                                         "invalid",
 	}
 	for doc, want := range tests {
 		path := filepath.Join(t.TempDir(), "last-frame.json")

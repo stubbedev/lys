@@ -38,8 +38,8 @@ func OpticalOrigin(frame, size image.Point) image.Point {
 func LysLogo(frame image.Point, scale int) image.Rectangle {
 	n := image.Pt(LogoPx*scale, LogoPx*scale)
 	at := OpticalOrigin(frame, n)
-	block := n.Y + groupGap(scale) + stack(frame, scale, 0).Group.Dy()
-	if at.Y+block > frame.Y-Space(tokens.SpaceSM, scale) {
+	block := n.Y + groupGap(scale) + stack(frame, scale, 0, roomy).Group.Dy()
+	if at.Y+block > bottom(frame, scale) {
 		at.Y = max((frame.Y-block)/2, 0)
 	}
 	return image.Rectangle{Min: at, Max: at.Add(n)}
@@ -88,22 +88,33 @@ func groupGap(scale int) int {
 	return Space(tokens.SpaceXL, scale)
 }
 
-// stack is the status group's rows on a frame at scale, the group's top
-// at top.
-func stack(frame image.Point, scale, top int) Grid {
+// rowGaps are the spaces inside the status group: under the indicator,
+// above the field and under it.
+type rowGaps struct {
+	indicator, field, hints tokens.Rem
+}
+
+var (
+	roomy   = rowGaps{indicator: tokens.SpaceLG, field: tokens.SpaceMD, hints: tokens.SpaceSM}
+	compact = rowGaps{}
+)
+
+// stack is the status group's rows on a frame at scale with gaps between
+// them, the group's top at top.
+func stack(frame image.Point, scale, top int, gaps rowGaps) Grid {
 	s := func(v int) int { return v * scale }
 	sp := func(t tokens.Rem) int { return Space(t, scale) }
 	g := Grid{Scale: scale}
 	margin := sp(tokens.SpaceXL)
 	c := column{minX: margin, maxX: frame.X - margin, y: top}
 	g.Busy = c.row(s(IndicatorPx))
-	c.gap(sp(tokens.SpaceLG))
+	c.gap(sp(gaps.indicator))
 	g.Title = c.row(sp(tokens.SpaceXL))
 	g.Secondary = c.row(sp(tokens.SpaceLG))
-	c.gap(sp(tokens.SpaceMD))
+	c.gap(sp(gaps.field))
 	g.Field = c.row(sp(tokens.SpaceXL) + sp(tokens.SpaceSM))
 	g.Entry = centred(g.Field, s(EntryPx))
-	c.gap(sp(tokens.SpaceSM))
+	c.gap(sp(gaps.hints))
 	g.Hints = c.row(sp(tokens.SpaceLG))
 	g.Notice = c.row(sp(tokens.SpaceLG))
 	g.Group = image.Rect(c.minX, top, c.maxX, c.y)
@@ -116,11 +127,26 @@ func stack(frame image.Point, scale, top int) Grid {
 // Layout is the grid of a frame at scale with the logo in the box logo:
 // the status group starts below it. LysLogo leaves room for the group; a
 // logo the firmware placed may not, and the group then moves up, never
-// over the logo.
+// over the logo, and when that is not enough closes the gaps between its
+// rows.
 func Layout(frame image.Point, scale int, logo image.Rectangle) Grid {
-	g := stack(frame, scale, logo.Max.Y+groupGap(scale))
+	g := below(frame, scale, logo, roomy)
+	if g.Group.Max.Y > bottom(frame, scale) {
+		g = below(frame, scale, logo, compact)
+	}
+	return g
+}
+
+func bottom(frame image.Point, scale int) int {
+	return frame.Y - Space(tokens.SpaceSM, scale)
+}
+
+// below is the grid with the status group under logo, moved up toward it
+// as far as it overflows the frame.
+func below(frame image.Point, scale int, logo image.Rectangle, gaps rowGaps) Grid {
+	g := stack(frame, scale, logo.Max.Y+groupGap(scale), gaps)
 	g.Logo = logo
-	overflow := g.Group.Max.Y - (frame.Y - Space(tokens.SpaceSM, scale))
+	overflow := g.Group.Max.Y - bottom(frame, scale)
 	room := g.Group.Min.Y - (logo.Max.Y + Space(tokens.SpaceSM, scale))
 	if up := image.Pt(0, min(overflow, room)); up.Y > 0 {
 		for _, at := range g.groupRows() {

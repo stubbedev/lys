@@ -16,6 +16,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/splash/internal/ask"
@@ -147,8 +148,8 @@ type Config struct {
 	SaveBootDuration func(path string, d time.Duration) error
 	// LoadTheme reads the theme Reload shows.
 	LoadTheme func(path string) (theme.Theme, error)
-	// RasterizeLogo draws the logo for a scale off the loop.
-	RasterizeLogo   func(scale int) (*theme.LogoRaster, error)
+	// RasterizeLogo draws the logo for a scale in a colour off the loop.
+	RasterizeLogo   func(scale int, c render.Color) (*theme.LogoRaster, error)
 	SaveLastFrame   func(splashframe.LastFrame) error
 	ForgetLastFrame func() error
 	LoadKeymap      func() (string, error)
@@ -903,7 +904,7 @@ func (d *daemon) loadTheme() {
 				if !r.NeedsLogo(scale) {
 					continue
 				}
-				logo, lerr := d.cfg.RasterizeLogo(scale)
+				logo, lerr := d.cfg.RasterizeLogo(scale, r.LogoColor())
 				if lerr != nil {
 					err = errors.Join(err, lerr)
 					continue
@@ -942,8 +943,9 @@ func (d *daemon) logoReady(scale int) bool {
 		d.logos = map[int]bool{}
 	}
 	d.logos[scale] = true
+	color := d.renderer.LogoColor()
 	go func() {
-		logo, err := d.cfg.RasterizeLogo(scale)
+		logo, err := d.cfg.RasterizeLogo(scale, color)
 		d.post(event{logo: &rasterizedLogo{scale: scale, logo: logo, err: err}})
 	}()
 	return false

@@ -80,7 +80,8 @@ flipped with atomic commits at most once per vblank.
   screen too short to hold the status group below it there, such as 640x400
   or 640x480, the logo and the group are centred together as one block: one
   layout per screen size, the same in every state. The firmware's logo stays
-  where the firmware drew it, and the group moves up toward it.
+  where the firmware drew it, and the group moves up toward it; when that
+  still runs off the bottom, the group closes the gaps between its rows.
 
 ## Fades
 
@@ -169,11 +170,12 @@ splash runs after a `deactivate` (or a `quit --retain-splash` with the picture
 on screen) it keeps a record of that frame in `/run/lys-splash/last-frame.json`:
 
 ```json
-{"background":"#000000","logo":"lys","reduced-motion":false,"outputs":[{"name":"Virtual-1","width":1280,"height":800,"scale":1}]}
+{"background":"#000000","logo":"lys","logo-color":"#e0947a","reduced-motion":false,"outputs":[{"name":"Virtual-1","width":1280,"height":800,"scale":1}]}
 ```
 
 `logo` is `lys` or `firmware` (the BGRT logo, which a reader takes from
-`/sys/firmware/acpi/bgrt`), and each output is a connector with the size of its
+`/sys/firmware/acpi/bgrt`), `logo-color` is the theme's `accent` the lys logo
+is drawn in, and each output is a connector with the size of its
 frame in device pixels and the scale the splash drew it at. The geometry is not
 in the record: where the logo goes for a frame of that size and scale comes from
 `desktop/splashframe`, the one definition of the splash's grid, which the

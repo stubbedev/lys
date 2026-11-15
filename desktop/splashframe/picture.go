@@ -6,31 +6,15 @@ import (
 	"image"
 
 	"github.com/stubbedev/lys/lib/render"
-
-	"github.com/stubbedev/lys/desktop/tokens"
 )
 
 //go:embed lys.svg
 var lysSVG []byte
 
-// LogoColor is the color the lys logo is drawn in: the palette's primary,
-// the accent the splash's throbber and bar default to.
-func LogoColor() (render.Color, error) {
-	c, err := ParseColor(tokens.LysShell().Primary)
-	if err != nil {
-		return 0, fmt.Errorf("splashframe: the palette's primary: %w", err)
-	}
-	return c, nil
-}
-
-// RasterizeLogo draws the lys logo for a frame at scale, its shape in
-// LogoColor: milliseconds of work, so a frame loop asks for it ahead of
-// the frame that shows it.
-func RasterizeLogo(scale int) (*render.Icon, error) {
-	c, err := LogoColor()
-	if err != nil {
-		return nil, err
-	}
+// RasterizeLogo draws the lys logo for a frame at scale, its shape in c:
+// milliseconds of work, so a frame loop asks for it ahead of the frame
+// that shows it.
+func RasterizeLogo(scale int, c render.Color) (*render.Icon, error) {
 	n := LogoPx * scale
 	icon, err := render.LoadSVG(lysSVG, n, n)
 	if err != nil {

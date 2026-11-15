@@ -6,6 +6,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/render"
 )
 
@@ -51,37 +52,47 @@ func TestEveryStateStaysInsideAShortFrame(t *testing.T) {
 		{"question", Default(), State{Prompt: Prompt{Kind: QuestionPrompt, Text: "Continue booting?", Shown: "yes"}}},
 	}
 	for _, size := range shortFrames {
+		firmware := &splashframe.BGRT{Image: testLogo(), Offset: splashframe.OpticalOrigin(size, testLogo().Bounds().Size())}
 		for _, tc := range states {
-			t.Run(fmt.Sprintf("%s at %dx%d", tc.name, size.X, size.Y), func(t *testing.T) {
-				t.Parallel()
-				r := renderer(t, tc.theme, nil)
-				l := r.layout(size, 1)
-				whole := image.Rectangle{Max: size}
-				for name, row := range map[string]image.Rectangle{"logo": l.Logo, "group": l.Group, "busy": l.Busy, "title": l.Title, "secondary": l.Secondary, "field": l.Field, "hints": l.Hints, "notice": l.Notice} {
-					if !row.In(whole) {
-						t.Errorf("the %s row %v runs off the %v frame", name, row, size)
-					}
-				}
-				f := frame(size)
-				draw(t, r, f, 1, nil, tc.state)
-				var ink image.Rectangle
-				for y := range size.Y {
-					for x := range size.X {
-						if render.Color(binary.LittleEndian.Uint32(f.Pix[y*f.Stride+x*4:])) == tc.theme.Background {
-							continue
-						}
-						p := image.Pt(x, y)
-						if !p.In(l.Logo) && !p.In(l.Group) {
-							t.Fatalf("pixel %v is drawn outside the logo %v and the group %v", p, l.Logo, l.Group)
-						}
-						ink = ink.Union(image.Rect(x, y, x+1, y+1))
-					}
-				}
-				if ink.Empty() || ink.Max.Y <= l.Busy.Min.Y {
-					t.Errorf("the ink %v shows nothing of the group %v", ink, l.Group)
-				}
-			})
+			for logo, bgrt := range map[string]*splashframe.BGRT{"lys": nil, "firmware": firmware} {
+				t.Run(fmt.Sprintf("%s at %dx%d with the %s logo", tc.name, size.X, size.Y, logo), func(t *testing.T) {
+					t.Parallel()
+					stateInsideAShortFrame(t, renderer(t, tc.theme, bgrt), tc.theme, size, tc.state)
+				})
+			}
 		}
+	}
+}
+
+func stateInsideAShortFrame(t *testing.T, r *Renderer, th Theme, size image.Point, s State) {
+	t.Helper()
+	l := r.layout(size, 1)
+	whole := image.Rectangle{Max: size}
+	for name, row := range map[string]image.Rectangle{"logo": l.Logo, "group": l.Group, "busy": l.Busy, "title": l.Title, "secondary": l.Secondary, "field": l.Field, "hints": l.Hints, "notice": l.Notice} {
+		if !row.In(whole) {
+			t.Errorf("the %s row %v runs off the %v frame", name, row, size)
+		}
+	}
+	if l.Group.Min.Y < l.Logo.Max.Y {
+		t.Errorf("the group %v rides over the logo %v", l.Group, l.Logo)
+	}
+	f := frame(size)
+	draw(t, r, f, 1, nil, s)
+	var ink image.Rectangle
+	for y := range size.Y {
+		for x := range size.X {
+			if render.Color(binary.LittleEndian.Uint32(f.Pix[y*f.Stride+x*4:])) == th.Background {
+				continue
+			}
+			p := image.Pt(x, y)
+			if !p.In(l.Logo) && !p.In(l.Group) {
+				t.Fatalf("pixel %v is drawn outside the logo %v and the group %v", p, l.Logo, l.Group)
+			}
+			ink = ink.Union(image.Rect(x, y, x+1, y+1))
+		}
+	}
+	if ink.Empty() || ink.Max.Y <= l.Busy.Min.Y {
+		t.Errorf("the ink %v shows nothing of the group %v", ink, l.Group)
 	}
 }
 
