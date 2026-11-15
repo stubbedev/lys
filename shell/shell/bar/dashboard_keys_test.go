@@ -247,7 +247,7 @@ func TestDashboardKeysDriveIt(t *testing.T) {
 
 func keysView(t *testing.T, h int) (*dashboardView, *widget.Router) {
 	t.Helper()
-	ctx := styledContext(t, config.Defaults())
+	ctx := withPowerMenu(styledContext(t, config.Defaults()))
 	ctx.Pulse = &fakePulseSource{ticks: make(chan struct{}, 1)}
 	v := dashboardDropdown(ctx).(*dashboardView)
 	root := widget.NewBox(widget.Column, 0, 0)
@@ -406,7 +406,7 @@ func regionDiffers(a, b []byte, w int, r render.Rect) bool {
 func TestDashboardFocusShowsOnEveryControl(t *testing.T) {
 	restore := widget.SetAnimationsInstant(true)
 	t.Cleanup(restore)
-	ctx := lookContext(t)
+	ctx := withPowerMenu(lookContext(t))
 	v := dashboardDropdown(ctx).(*dashboardView)
 	data, w, h, root := paintPreview(ctx, v, "dashboard")
 	r := &widget.Router{Root: root}

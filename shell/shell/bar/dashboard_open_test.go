@@ -369,8 +369,12 @@ func TestTheDashboardHasSessionButtonsOnlyWithAPowerMenu(t *testing.T) {
 	if n := countClass(dashboardDropdown(ctx), "dashboard-user-session"); n != 0 {
 		t.Errorf("without a power menu the dashboard has %d session rows, whose buttons would request nothing; want none", n)
 	}
-	ctx.PowerMenu = powermenu.New(powermenu.Deps{Config: func() *config.Config { return ctx.Config }, Font: ctx.Font})
-	if n := countClass(dashboardDropdown(ctx), "dashboard-user-session"); n != 1 {
+	if n := countClass(dashboardDropdown(withPowerMenu(ctx)), "dashboard-user-session"); n != 1 {
 		t.Errorf("with a power menu the dashboard has %d session rows, want 1", n)
 	}
+}
+
+func withPowerMenu(ctx ModuleContext) ModuleContext {
+	ctx.PowerMenu = powermenu.New(powermenu.Deps{Config: func() *config.Config { return ctx.Config }, Font: ctx.Font})
+	return ctx
 }
