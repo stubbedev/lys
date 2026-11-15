@@ -108,7 +108,8 @@ type ModuleContext struct {
 	Tray          TrayService
 	CustomUpdates *customUpdates
 	// PowerMenu is the native power menu the power module's :menu
-	// opens; nil without one.
+	// opens and the dashboard's session buttons request; nil without
+	// one, and then the dashboard has no session card.
 	PowerMenu *powermenu.Menu
 	// Dropdowns opens the dropdown:<name> popovers; RunWith owns one
 	// registry across outputs.

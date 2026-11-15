@@ -115,7 +115,9 @@ func dashboardDropdown(ctx ModuleContext) widget.Widget {
 	sections.Append(v.media(), false)
 	sections.Append(v.infoRow(), false)
 	sections.Append(v.systemStats(), false)
-	sections.Append(userSessionSection(ctx), false)
+	if ctx.PowerMenu != nil {
+		sections.Append(userSessionSection(ctx), false)
+	}
 	v.scroll = growingScroll(dropdownScroll(sections, "dashboard-scroll"))
 	content.Append(v.scroll, true)
 	v.root.Append(content, true)

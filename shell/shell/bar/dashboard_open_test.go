@@ -26,6 +26,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/network"
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
 	"github.com/stubbedev/lys/shell/service/sysinfo"
+	"github.com/stubbedev/lys/shell/shell/powermenu"
 )
 
 type countedNetwork struct {
@@ -360,4 +361,16 @@ func procReads(t *testing.T, fn func()) int64 {
 	before := read()
 	fn()
 	return read() - before
+}
+
+func TestTheDashboardHasSessionButtonsOnlyWithAPowerMenu(t *testing.T) {
+	ctx := styledContext(t, config.Defaults())
+	ctx.PowerMenu = nil
+	if n := countClass(dashboardDropdown(ctx), "dashboard-user-session"); n != 0 {
+		t.Errorf("without a power menu the dashboard has %d session rows, whose buttons would request nothing; want none", n)
+	}
+	ctx.PowerMenu = powermenu.New(powermenu.Deps{Config: func() *config.Config { return ctx.Config }, Font: ctx.Font})
+	if n := countClass(dashboardDropdown(ctx), "dashboard-user-session"); n != 1 {
+		t.Errorf("with a power menu the dashboard has %d session rows, want 1", n)
+	}
 }
