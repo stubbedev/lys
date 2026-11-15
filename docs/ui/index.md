@@ -27,5 +27,5 @@ features:
   - title: The desktop
     details: xdg-shell and layer-shell windows, session lock, portals, clipboard, drag and drop, screen capture and AT-SPI accessibility.
   - title: Tested on real compositors
-    details: The compositor-in-the-loop suite runs on a private headless sway and on Hyprland in a NixOS VM, and both are required CI gates.
+    details: The compositor-in-the-loop suite runs on a private headless sway and on Hyprland in a NixOS VM.
 ---

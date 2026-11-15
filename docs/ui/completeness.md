@@ -133,7 +133,7 @@ Details: [Application model](application-model.md), [Input model](input-model.md
 
 ## Tested compositors
 
-Sway and Hyprland are required CI gates. Sway runs the full
+lys-ui is tested on Sway and Hyprland. Sway runs the full
 compositor-in-the-loop suite (`internal/headlesstest`). Hyprland runs
 the same suite except the reconnect test, which needs a compositor
 restart; the compositor-kill test runs last, on its own.

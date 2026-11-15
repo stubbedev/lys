@@ -7,7 +7,6 @@ just demo          # the lys-ui-hello showcase
 
 ## Gates
 
-CI runs all of these:
 
 ```sh
 just fmt-check     # gofumpt and gci formatting
@@ -29,10 +28,10 @@ memory cap.
 
 | Recipe | Does |
 | --- | --- |
-| `just bench` | runs the benchmarks; CI archives the numbers without gating ([bench/baseline.md](https://github.com/stubbedev/lys/blob/main/ui/bench/baseline.md) has the method and the allocation budgets the tests enforce) |
+| `just bench` | runs the benchmarks ([bench/baseline.md](https://github.com/stubbedev/lys/blob/main/ui/bench/baseline.md) has the method and the allocation budgets the tests enforce) |
 | `just goldens` | regenerates the golden-image snapshots |
 | `just gallery` | opens the gallery |
-| `just docshots` | screenshots every widget for this site |
+| `just docshots ../docs/public/ui-widgets` | screenshots every widget for the [widgets page](../widgets); without the argument the shots go to `ui/docs/public/components`, which the site does not read |
 
 ## Test isolation
 
@@ -58,23 +57,9 @@ Tests in package `app` build applications with `NewTestApplication`,
 which closes them when the test ends; a test there calling
 `NewApplication` itself fails `TestEveryTestApplicationIsBuiltToBeClosed`.
 
-## Builds and releases
-
-`nix build .#lys-ui` builds the module and every demo. A `v*` tag
-releases `lys-ui-hello`, `lys-ui-bar` and `lys-ui-panel` for
-linux/amd64 and arm64 through goreleaser.
-
-## Security
-
-`.github/workflows/security.yml` runs CodeQL (Go and GitHub Actions),
-Grype and govulncheck. Dependency review gates pull requests.
-Dependabot updates Go modules, workflow actions and the docs site's npm
-packages.
-
 ## Dependencies
 
-Pure Go, no cgo. Direct dependencies:
-[lys-lib](/lib/),
+Pure Go, no cgo. Besides [lys-lib](/lib/), lys-ui imports
 [stubbedev/memory-go](https://github.com/stubbedev/memory-go),
 [golang.org/x/image](https://pkg.go.dev/golang.org/x/image) and
 [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys).

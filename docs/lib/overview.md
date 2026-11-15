@@ -1,13 +1,14 @@
 # Overview and package map
 
-lys-lib is a Go library of non-widget building blocks for the lys family. It
-has no binary; import each package on its own. It targets Linux.
+lys-lib is the part of the `github.com/stubbedev/lys` module that holds the
+building blocks that are not widgets. It has no binary; import each package on
+its own. It targets Linux.
 
 ```sh
-go get github.com/stubbedev/lys/lib@latest
+go get github.com/stubbedev/lys
 ```
 
-The Go version is the one in `go.mod`. Signatures are in the
+The Go version is the one in the root `go.mod`. Signatures are in the
 [API reference](https://pkg.go.dev/github.com/stubbedev/lys/lib).
 
 ## Native libraries
@@ -88,7 +89,7 @@ Test helpers load `libpipewire-0.3.so.0` (`pipewire/pwtest`) and `libei.so.1`
 ### Test support
 
 [`golden`, `gputest`, `wltest`, `pipewire/pwtest`, `eis/eistest`, `dbustest`, `pulse/pulsetest`, `logind/logindtest`, `polkit/polkittest`, `peercred/peercredtest`, `sockdir`](/lib/development#test-support)
-can be imported from other modules' tests.
+can be imported from any test.
 
 ### Third party
 

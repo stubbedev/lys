@@ -1,12 +1,13 @@
 # Getting started
 
-lys-ui is a pure-Go (no cgo) widget toolkit for Wayland. It runs on any
-compositor with xdg-shell; sway and Hyprland are its CI gates.
+lys-ui is a pure-Go (no cgo) widget toolkit for Wayland, part of the
+`github.com/stubbedev/lys` module. It runs on any compositor with xdg-shell
+and is tested on sway and Hyprland.
 
 ## Install
 
 ```sh
-go get github.com/stubbedev/lys/ui@latest
+go get github.com/stubbedev/lys
 ```
 
 ## A first app

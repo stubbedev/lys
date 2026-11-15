@@ -3,7 +3,7 @@
 ## Gates
 
 `nix develop` (or direnv) enters the dev shell; `just` lists recipes.
-`just gates` runs everything CI runs:
+`just gates` runs the gates:
 
 | Recipe | Runs |
 | --- | --- |
@@ -62,23 +62,11 @@ package-level variable the compiler cannot lay out statically: a map, a call
 computed table, a slice of another variable. Write a switch or a static array
 in place of a small map, a constant in place of a computed one (with a test
 holding it to its formula), and build the rest on first use behind a
-`sync.Once` in a struct beside its value. `gpu` and the packages under it do
-not carry the test yet.
-
-## CI
-
-- `ci.yml` runs `just gates` in the dev shell on amd64 and arm64 runners.
-- `security.yml` runs CodeQL (Go, Actions), Grype and govulncheck, uploading to
-  code scanning; dependency review checks pull requests against a licence
-  allow-list.
-- `vendor-hash.yml` keeps the Nix vendor hash in step with `go.mod` changes on
-  pull requests.
-- `docs.yml` publishes this site.
-- Dependabot updates modules and workflows. Actions are pinned to commits.
+`sync.Once` in a struct beside its value.
 
 ## Test support
 
-Importable by tests here and in other family members.
+Importable by the tests of every lys component.
 
 | Package | Purpose |
 | --- | --- |
