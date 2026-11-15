@@ -235,3 +235,107 @@ func TestSessionCloseFailureOfTheReplayIsReported(t *testing.T) {
 		t.Errorf("session closes %d, want 1", got)
 	}
 }
+
+// holdASave arms a replay and starts a save that stays writing until
+// release runs; saved delivers what the save returned.
+func holdASave(t *testing.T) (s *recorder.State, engine *recordertest.Engine, rp *recordertest.Replay, release func(), saved <-chan error) {
+	t.Helper()
+	engine = &recordertest.Engine{}
+	s, _ = newState(t, engine, func(c *config.RecorderConfig) { c.OutputFormat = config.RecorderFormatMkv })
+	s.StartReplay()
+	rp = armedReplay(t, engine, s)
+	release = rp.HoldSave()
+	t.Cleanup(release)
+	done := make(chan error, 1)
+	go func() {
+		path, err := s.SaveReplay()
+		if err == nil {
+			data, readErr := os.ReadFile(path)
+			if readErr != nil || string(data) != "replay mkv" {
+				err = errors.Join(readErr, errors.New("the saved file holds "+string(data)))
+			}
+		}
+		done <- err
+	}()
+	waitFor(t, "the save writing", func() bool { return s.Snapshot().ReplaySaving })
+	return s, engine, rp, release, done
+}
+
+// A stop while a save writes the replay turns it off at once, but
+// stops the capture only once the save returned, so the file is whole;
+// the stop returns after the capture stopped.
+func TestReplayStopWaitsForTheSaveWritingIt(t *testing.T) {
+	s, engine, rp, release, saved := holdASave(t)
+	stopped := make(chan struct{})
+	go func() {
+		s.StopReplay()
+		close(stopped)
+	}()
+	waitFor(t, "the replay off", func() bool { return s.Snapshot().Replay == recorder.ReplayOff })
+	if rp.Stops() != 0 || engine.Sessions()[0].Closed() != 0 {
+		t.Fatalf("stops %d, session closes %d while the save still writes", rp.Stops(), engine.Sessions()[0].Closed())
+	}
+	release()
+	if err := <-saved; err != nil {
+		t.Fatalf("the save under the stop: %v", err)
+	}
+	<-stopped
+	if rp.Stops() != 1 || rp.StopsMidSave() != 0 || engine.Sessions()[0].Closed() != 1 {
+		t.Errorf("stops %d (%d mid-save), session closes %d, want one stop after the save", rp.Stops(), rp.StopsMidSave(), engine.Sessions()[0].Closed())
+	}
+}
+
+// A capture dying while a save writes the replay is torn down once the
+// save returned, and still reported.
+func TestReplayCaptureDeathWaitsForTheSaveWritingIt(t *testing.T) {
+	s, engine, rp, release, saved := holdASave(t)
+	torndown := make(chan struct{})
+	go func() {
+		rp.Fail("recorder: the output is gone: DP-1")
+		close(torndown)
+	}()
+	waitFor(t, "the replay off", func() bool { return s.Snapshot().Replay == recorder.ReplayOff })
+	if rp.Stops() != 0 || engine.Sessions()[0].Closed() != 0 {
+		t.Fatalf("stops %d, session closes %d while the save still writes", rp.Stops(), engine.Sessions()[0].Closed())
+	}
+	release()
+	if err := <-saved; err != nil {
+		t.Fatalf("the save under the capture death: %v", err)
+	}
+	<-torndown
+	if rp.Stops() != 1 || rp.StopsMidSave() != 0 || engine.Sessions()[0].Closed() != 1 {
+		t.Errorf("stops %d (%d mid-save), session closes %d, want one stop after the save", rp.Stops(), rp.StopsMidSave(), engine.Sessions()[0].Closed())
+	}
+}
+
+// A stop of a replay no save is writing does not wait on a save still
+// writing an earlier replay.
+func TestReplayStopDoesNotWaitForASaveOfAnotherReplay(t *testing.T) {
+	s, engine, first, release, saved := holdASave(t)
+	firstStopped := make(chan struct{})
+	go func() {
+		s.StopReplay()
+		close(firstStopped)
+	}()
+	waitFor(t, "the first replay off", func() bool { return s.Snapshot().Replay == recorder.ReplayOff })
+	s.StartReplay()
+	waitFor(t, "the second replay armed", func() bool {
+		return len(engine.Replays()) == 2 && s.Snapshot().Replay == recorder.ReplayArmed
+	})
+	second := engine.Replays()[1]
+	s.StopReplay()
+	if second.Stops() != 1 || engine.Sessions()[1].Closed() != 1 {
+		t.Errorf("the second replay: stops %d, session closes %d, want it stopped without waiting", second.Stops(), engine.Sessions()[1].Closed())
+	}
+	if first.Stops() != 0 {
+		t.Errorf("the first replay stopped %d times while its save still writes", first.Stops())
+	}
+	release()
+	if err := <-saved; err != nil {
+		t.Fatalf("the first replay's save: %v", err)
+	}
+	<-firstStopped
+	if first.Stops() != 1 || first.StopsMidSave() != 0 {
+		t.Errorf("the first replay: stops %d (%d mid-save)", first.Stops(), first.StopsMidSave())
+	}
+}

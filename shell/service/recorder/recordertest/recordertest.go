@@ -216,14 +216,16 @@ type Replay struct {
 	Opts recorder.Options
 	Span time.Duration
 
-	mu      sync.Mutex
-	term    func(string)
-	onKey   func()
-	bytes   uint64
-	saves   []string
-	stops   int
-	saveErr error
-	hold    chan struct{}
+	mu           sync.Mutex
+	term         func(string)
+	onKey        func()
+	bytes        uint64
+	saves        []string
+	stops        int
+	saveErr      error
+	hold         chan struct{}
+	writing      int
+	stopsMidSave int
 }
 
 // Save implements recorder.Replay.
@@ -231,12 +233,14 @@ func (r *Replay) Save(path string, format config.RecorderFormat) error {
 	r.mu.Lock()
 	hold := r.hold
 	r.hold = nil
+	r.writing++
 	r.mu.Unlock()
 	if hold != nil {
 		<-hold
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	defer func() { r.writing-- }()
 	if r.saveErr != nil {
 		return r.saveErr
 	}
@@ -266,7 +270,17 @@ func (r *Replay) Stop() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.stops++
+	if r.writing > 0 {
+		r.stopsMidSave++
+	}
 	return nil
+}
+
+// StopsMidSave counts Stop calls that came while a Save was writing.
+func (r *Replay) StopsMidSave() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.stopsMidSave
 }
 
 // Keyframe makes the ring hold n bytes and reports a keyframe entering

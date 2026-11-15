@@ -100,8 +100,9 @@ func (s *State) runReplay(gen uint64) {
 	s.toast(i18n.T("recorder-toast-replay-armed"), replayIcon, startToastMS)
 }
 
-// StopReplay disarms the instant replay, freeing its ring; one still
-// starting is torn down as it comes up.
+// StopReplay disarms the instant replay, freeing its ring once a save
+// still writing it returns; one still starting is torn down as it comes
+// up.
 func (s *State) StopReplay() {
 	s.mu.Lock()
 	if s.replayStatus == ReplayOff {
@@ -109,21 +110,48 @@ func (s *State) StopReplay() {
 		return
 	}
 	s.replayGen++
-	rep, session := s.takeReplayLocked()
+	teardown := s.takeReplayLocked()
 	s.mu.Unlock()
-	if rep != nil {
-		stopReplay(rep, session)
-	}
 	s.notify()
+	teardown.run()
 }
 
-// takeReplayLocked turns the replay off and hands back what it ran on,
-// nil while it was only starting. The caller holds mu.
-func (s *State) takeReplayLocked() (Replay, Session) {
-	rep, session := s.replay, s.replaySession
+// replaySave is a save writing rep; done closes once it returns.
+type replaySave struct {
+	rep  Replay
+	done chan struct{}
+}
+
+// replayTeardown is what an armed replay ran on, and the save writing
+// it when one was.
+type replayTeardown struct {
+	rep     Replay
+	session Session
+	saving  <-chan struct{}
+}
+
+// takeReplayLocked turns the replay off and hands back its teardown,
+// with no replay while it was only starting. The caller holds mu.
+func (s *State) takeReplayLocked() replayTeardown {
+	teardown := replayTeardown{rep: s.replay, session: s.replaySession}
+	if s.replaySave != nil && s.replaySave.rep == teardown.rep {
+		teardown.saving = s.replaySave.done
+	}
 	s.replayStatus = ReplayOff
 	s.replay, s.replaySession = nil, nil
-	return rep, session
+	return teardown
+}
+
+// run waits for the save writing the replay to return, then stops the
+// capture and closes its session.
+func (t replayTeardown) run() {
+	if t.rep == nil {
+		return
+	}
+	if t.saving != nil {
+		<-t.saving
+	}
+	stopReplay(t.rep, t.session)
 }
 
 func stopReplay(rep Replay, session Session) {
@@ -142,14 +170,15 @@ func (s *State) SaveReplay() (string, error) {
 	case rep == nil:
 		s.mu.Unlock()
 		return "", ErrReplayOff
-	case s.replaySaving:
+	case s.replaySave != nil:
 		s.mu.Unlock()
 		return "", ErrReplaySaving
 	}
-	s.replaySaving = true
+	saving := &replaySave{rep: rep, done: make(chan struct{})}
+	s.replaySave = saving
 	s.mu.Unlock()
 	s.notify()
-	defer s.replaySaved()
+	defer s.replaySaved(saving)
 	cfg := s.config()
 	path := ReplayPath(cfg.OutputDirectory, cfg.OutputFormat, time.Now())
 	if err := os.MkdirAll(filepath.Dir(path), outputDirPerms); err != nil {
@@ -166,11 +195,13 @@ func (s *State) SaveReplay() (string, error) {
 	return path, nil
 }
 
-// replaySaved ends the save SaveReplay claimed.
-func (s *State) replaySaved() {
+// replaySaved ends the save SaveReplay claimed, releasing a teardown
+// waiting on it.
+func (s *State) replaySaved(saving *replaySave) {
 	s.mu.Lock()
-	s.replaySaving = false
+	s.replaySave = nil
 	s.mu.Unlock()
+	close(saving.done)
 	s.notify()
 }
 
@@ -197,10 +228,10 @@ func (s *State) replayEnded(gen uint64, reason string) {
 		return
 	}
 	s.replayGen++
-	rep, session := s.takeReplayLocked()
+	teardown := s.takeReplayLocked()
 	s.mu.Unlock()
 	log.Printf("recorder: the instant replay ended unexpectedly: %s", reason)
-	stopReplay(rep, session)
 	s.notify()
+	teardown.run()
 	s.showError(fmt.Sprintf("%s: %s", i18n.T("recorder-toast-replay-failed"), reason))
 }

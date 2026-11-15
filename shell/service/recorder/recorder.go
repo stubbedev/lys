@@ -158,7 +158,7 @@ type State struct {
 	replayStatus  ReplayStatus
 	replay        Replay
 	replaySession Session
-	replaySaving  bool
+	replaySave    *replaySave
 	// replayGen numbers each arming, so a late report from an earlier
 	// one is ignored.
 	replayGen uint64
@@ -200,7 +200,7 @@ func (s *State) snapshotLocked() Change {
 		OutputPath:   s.output,
 		Error:        s.lastErr,
 		Replay:       s.replayStatus,
-		ReplaySaving: s.replaySaving,
+		ReplaySaving: s.replaySave != nil,
 	}
 	if s.replay != nil {
 		c.ReplayBytes = s.replay.Bytes()
