@@ -93,9 +93,11 @@ type ModuleContext struct {
 	// System is the shell's one system bus connection, nil without one;
 	// what reads it never closes it.
 	System *dbus.Conn
-	// SetConfig writes a runtime override and persists it; nil without
-	// a config service.
-	SetConfig func(path string, value any)
+	// SetConfig writes a runtime override and persists it, off the loop,
+	// then hands done the error that refused or lost it, or nil once it
+	// is saved; nil without a config service. Modules write through
+	// setConfig, which brings done back onto the loop.
+	SetConfig func(path string, value any, done func(error))
 	// Toast shows an OSD toast; nil without an OSD.
 	Toast func(label, icon string)
 	// Clipboard is the session clipboard history, nil when the

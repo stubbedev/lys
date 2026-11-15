@@ -149,7 +149,7 @@ func panelDeps(current func() *config.Config, live func() ModuleContext, browser
 		}
 		d.SkinTone = search.SkinToneOf(cfg.Launcher.Emoji.SkinTone)
 		d.SetSkinTone = func(tone modes.SkinTone) {
-			live().setConfig(skinTonePath, string(search.SkinToneName(tone)))
+			live().setConfig(skinTonePath, string(search.SkinToneName(tone)), logConfigFailure)
 		}
 		if cfg.Launcher.Search.CurrencyRates && rates != nil {
 			d.Rates = rates

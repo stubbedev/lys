@@ -81,6 +81,9 @@ type nightlightService struct {
 	night    nightlight.Setting
 	nightErr error
 
+	savedTemp uint32
+	saveErr   error
+
 	enabled         bool
 	live            nightlight.Setting
 	refused         error
@@ -118,7 +121,7 @@ func startNightlight(ctx ModuleContext) *nightlightService {
 
 func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 	cfg := ctx.Config.Nightlight
-	s := &nightlightService{ctx: ctx, env: env, cfg: cfg}
+	s := &nightlightService{ctx: ctx, env: env, cfg: cfg, savedTemp: cfg.Temperature}
 	ctx.OnRetire(s.stop)
 	if s.night, s.nightErr = nightlight.NewSetting(int(cfg.Temperature), int(cfg.Gamma)); s.nightErr != nil {
 		log.Print(s.nightErr)
@@ -485,15 +488,33 @@ func (s *nightlightService) setTemperature(kelvin uint32) error {
 	if err != nil {
 		return err
 	}
+	s.saveErr = nil
 	s.applyTemperature(kelvin, night)
-	s.ctx.setConfig(nightlightTemperaturePath, int64(kelvin))
+	s.ctx.setConfig(nightlightTemperaturePath, int64(kelvin), func(err error) { s.temperatureSaved(kelvin, err) })
 	return nil
+}
+
+func (s *nightlightService) temperatureSaved(kelvin uint32, err error) {
+	if err == nil {
+		s.savedTemp = kelvin
+		return
+	}
+	log.Print(err)
+	s.saveErr = err
+	if s.cfg.Temperature != kelvin || s.savedTemp == kelvin {
+		s.notify()
+		return
+	}
+	restore := s.cfg
+	restore.Temperature = s.savedTemp
+	s.reconfigure(restore)
 }
 
 func (s *nightlightService) reconfigure(cfg config.NightlightConfig) {
 	if cfg.Temperature == s.cfg.Temperature {
 		return
 	}
+	s.savedTemp = cfg.Temperature
 	night, err := nightlight.NewSetting(int(cfg.Temperature), int(cfg.Gamma))
 	if err == nil {
 		s.applyTemperature(cfg.Temperature, night)

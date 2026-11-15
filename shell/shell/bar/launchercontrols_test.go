@@ -297,7 +297,7 @@ func TestTheWallpaperRowOpensThePickerOnceThePanelHasGone(t *testing.T) {
 
 func TestAToneTypedFromTheActionsBecomesTheConfiguredDefault(t *testing.T) {
 	var set [][2]any
-	ctx := ModuleContext{SetConfig: func(path string, value any) { set = append(set, [2]any{path, value}) }}
+	ctx := ModuleContext{SetConfig: func(path string, value any, _ func(error)) { set = append(set, [2]any{path, value}) }}
 	cfg := config.Defaults()
 	cfg.Launcher.Emoji.SkinTone = config.SkinToneMediumLight
 	d := panelDeps(func() *config.Config { return cfg }, func() ModuleContext { return ctx }, nil, &launcher.Deps{}, func() {})()

@@ -83,12 +83,19 @@ func (c *nightlightCard) apply() {
 	c.syncing = true
 	c.toggle.SetOn(s.showing())
 	c.syncing = false
-	c.slider.Set(float64(s.cfg.Temperature))
+	if s.saveErr != nil {
+		c.slider.Reset(float64(s.cfg.Temperature))
+	} else {
+		c.slider.Set(float64(s.cfg.Temperature))
+	}
 	available := s.unavailable == nil
 	c.toggle.SetEnabled(available)
 	c.slider.SetEnabled(available)
 	c.item.SetDescription(c.status())
 	problem := s.problem()
+	if s.saveErr != nil {
+		problem = s.saveErr
+	}
 	if c.writeErr != nil {
 		problem = c.writeErr
 	}

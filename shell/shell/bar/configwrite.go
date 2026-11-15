@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 	"sync"
@@ -17,11 +18,13 @@ type configStore interface {
 type configChange struct {
 	path  string
 	value any
+	done  func(error)
 }
 
 // configWriter applies config changes in order on a goroutine of its own and
 // saves once whatever queued meanwhile is applied, so neither the bus nor the
-// fsync sits on the loop.
+// fsync sits on the loop. Each change's done hears, on that goroutine, the
+// error that refused or failed to save it, or nil once it is on disk.
 type configWriter struct {
 	store configStore
 
@@ -31,10 +34,10 @@ type configWriter struct {
 	idle    chan struct{}
 }
 
-func (w *configWriter) set(path string, value any) {
+func (w *configWriter) set(path string, value any, done func(error)) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.queue = append(w.queue, configChange{path, value})
+	w.queue = append(w.queue, configChange{path, value, done})
 	if !w.writing {
 		w.writing = true
 		w.idle = make(chan struct{})
@@ -43,10 +46,10 @@ func (w *configWriter) set(path string, value any) {
 }
 
 func (w *configWriter) write() {
-	dirty := false
+	var unsaved []func(error)
 	for {
 		w.mu.Lock()
-		if len(w.queue) == 0 && !dirty {
+		if len(w.queue) == 0 && len(unsaved) == 0 {
 			w.writing = false
 			close(w.idle)
 			w.mu.Unlock()
@@ -54,20 +57,24 @@ func (w *configWriter) write() {
 		}
 		if len(w.queue) == 0 {
 			w.mu.Unlock()
-			if err := w.store.Save(); err != nil {
-				log.Printf("config: save: %v", err)
+			err := w.store.Save()
+			if err != nil {
+				err = fmt.Errorf("config: save: %w", err)
 			}
-			dirty = false
+			for _, done := range unsaved {
+				done(err)
+			}
+			unsaved = nil
 			continue
 		}
 		next := w.queue[0]
 		w.queue = w.queue[1:]
 		w.mu.Unlock()
 		if err := w.store.SetByPath(next.path, next.value); err != nil {
-			log.Printf("config: set %s: %v", next.path, err)
+			next.done(fmt.Errorf("config: set %s: %w", next.path, err))
 			continue
 		}
-		dirty = true
+		unsaved = append(unsaved, next.done)
 	}
 }
 
@@ -87,10 +94,22 @@ func (w *configWriter) flush(timeout time.Duration) {
 	}
 }
 
-// setConfig writes through ctx.SetConfig when there is a service.
-func (c ModuleContext) setConfig(path string, value any) {
-	if c.SetConfig != nil {
-		c.SetConfig(path, value)
+// setConfig writes a runtime override through ctx.SetConfig and hands done
+// its outcome on the loop: the error that refused or lost it, or nil once
+// it is saved.
+func (c ModuleContext) setConfig(path string, value any, done func(error)) {
+	if c.SetConfig == nil {
+		done(fmt.Errorf("config: set %s: the shell runs without a config service", path))
+		return
+	}
+	c.SetConfig(path, value, func(err error) { c.Invoke(func() { done(err) }) })
+}
+
+// logConfigFailure is the done of a write whose caller has nowhere to
+// show a failure.
+func logConfigFailure(err error) {
+	if err != nil {
+		log.Print(err)
 	}
 }
 

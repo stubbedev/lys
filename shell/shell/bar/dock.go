@@ -376,9 +376,9 @@ func (d *dock) menuItems(a dockApp) []widget.MenuItem {
 		items = append(items, menuItem(i18n.T("bar-task-launch"), func() { d.launch(app) }))
 	}
 	if a.pinned {
-		items = append(items, menuItem(i18n.T("dock-unpin"), func() { d.ctx.setConfig(dockPathPinned, dockUnpin(d.cfg.Pinned, a.appID)) }))
+		items = append(items, menuItem(i18n.T("dock-unpin"), func() { d.ctx.setConfig(dockPathPinned, dockUnpin(d.cfg.Pinned, a.appID), logConfigFailure) }))
 	} else {
-		items = append(items, menuItem(i18n.T("dock-pin"), func() { d.ctx.setConfig(dockPathPinned, dockPin(d.cfg.Pinned, a.appID)) }))
+		items = append(items, menuItem(i18n.T("dock-pin"), func() { d.ctx.setConfig(dockPathPinned, dockPin(d.cfg.Pinned, a.appID), logConfigFailure) }))
 	}
 	if a.running() {
 		items = append(items, menuItem(i18n.T("bar-task-close"), a.close))

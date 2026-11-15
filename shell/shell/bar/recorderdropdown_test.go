@@ -2,6 +2,7 @@ package bar
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -83,19 +84,36 @@ func TestWebcamPreviewDrag(t *testing.T) {
 	}
 }
 
-// configLog records ModuleContext.SetConfig writes.
+// configLog records ModuleContext.SetConfig writes, and refuses them all
+// with fail once failWith set it. It answers at once: the tests drive
+// the dropdown off the headless loop.
 type configLog struct {
 	mu     sync.Mutex
 	writes map[string]any
+	fail   error
 }
 
-func (c *configLog) set(path string, value any) {
+func (c *configLog) set(path string, value any, done func(error)) {
+	done(c.record(path, value))
+}
+
+func (c *configLog) record(path string, value any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.fail != nil {
+		return c.fail
+	}
 	if c.writes == nil {
 		c.writes = map[string]any{}
 	}
 	c.writes[path] = value
+	return nil
+}
+
+func (c *configLog) failWith(err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.fail = err
 }
 
 func (c *configLog) get(path string) any {
@@ -339,6 +357,29 @@ func TestRecorderShortCameraSelectKeepsItsWidth(t *testing.T) {
 // recordText is the record button's label.
 func recordText(v *recorderView) string {
 	return treetest.All[*widget.Label](v.recordFace)[0].Text()
+}
+
+func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {
+	ctx, log, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
+	v := recorderDropdown(ctx).(*recorderView)
+	defer v.dropdownClosed()
+	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
+	was := sw.On()
+	sw.SetOn(!was)
+	if v.failure.Visible() || sw.On() == was {
+		t.Fatalf("a saved write shows error %v, switch %v", v.failure.Visible(), sw.On())
+	}
+	log.failWith(errors.New("config: save: no space left on device"))
+	sw.SetOn(was)
+	if !v.failure.Visible() || v.failure.Text() != "config: save: no space left on device" {
+		t.Errorf("error shown %v %q, want the failed save", v.failure.Visible(), v.failure.Text())
+	}
+	if sw.On() == was {
+		t.Error("the switch stays on the value that was not saved")
+	}
+	if got := log.get(recorderPathMic); got != !was {
+		t.Errorf("config holds %v, want the saved %v", got, !was)
+	}
 }
 
 // The instant replay card's switch writes replay.enable; while the

@@ -19,10 +19,11 @@ type configWrite struct {
 }
 
 type nightlightDropdown struct {
-	view   *brightnessView
-	card   *nightlightCard
-	svc    *nightlightService
-	writes *[]configWrite
+	view     *brightnessView
+	card     *nightlightCard
+	svc      *nightlightService
+	writes   *[]configWrite
+	saveFail *error
 }
 
 func newNightlightDropdown(t *testing.T, cfg *config.Config, env sunsetEnv) nightlightDropdown {
@@ -30,14 +31,18 @@ func newNightlightDropdown(t *testing.T, cfg *config.Config, env sunsetEnv) nigh
 	ctx := newTestContext(t, cfg)
 	ctx.Brightness = &fakeBrightnessSource{}
 	writes := &[]configWrite{}
-	ctx.SetConfig = func(path string, value any) { *writes = append(*writes, configWrite{path, value}) }
+	saveFail := new(error)
+	ctx.SetConfig = func(path string, value any, done func(error)) {
+		*writes = append(*writes, configWrite{path, value})
+		go done(*saveFail)
+	}
 	ctx.Nightlight = newNightlightService(ctx, env)
 	v := onHeadlessLoop(func() *brightnessView { return brightnessDropdown(ctx).(*brightnessView) })
 	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
 	if v.night == nil {
 		t.Fatal("the brightness dropdown has no night light card with a night light running")
 	}
-	return nightlightDropdown{view: v, card: v.night, svc: ctx.Nightlight, writes: writes}
+	return nightlightDropdown{view: v, card: v.night, svc: ctx.Nightlight, writes: writes, saveFail: saveFail}
 }
 
 func (d nightlightDropdown) failure() string {
@@ -152,6 +157,51 @@ func TestBrightnessDropdownAcceptedDragKeepsTheSlider(t *testing.T) {
 	}
 	if d.svc.cfg.Temperature != 3200 || d.failure() != "" {
 		t.Errorf("service at %dK with error %q, want 3200K and none", d.svc.cfg.Temperature, d.failure())
+	}
+}
+
+func TestBrightnessDropdownFailedSaveRestoresTheSavedTemperature(t *testing.T) {
+	fake := &fakeSunset{clock: sunsetDay}
+	d := newNightlightDropdown(t, sunsetConfig(false), fake.env(t))
+	onHeadlessLoop(func() bool { d.card.toggle.SetOn(true); return true })
+	full := errors.New("config: save: no space left on device")
+	onHeadlessLoop(func() bool { *d.saveFail = full; return true })
+	dragNightlightSlider(d, 3200)
+	waitHeadless(t, "the failed save shown", func() bool { return d.failure() == full.Error() })
+	if got := onHeadlessLoop(d.card.slider.Value); got != 5000 {
+		t.Errorf("slider at %v after a failed save, want the saved 5000K", got)
+	}
+	if got := onHeadlessLoop(func() uint32 { return d.svc.cfg.Temperature }); got != 5000 {
+		t.Errorf("service at %dK after a failed save, want the saved 5000K", got)
+	}
+	waitHeadless(t, "the display back at the saved strength", func() bool { return fake.applied.Temp() == 5000 })
+
+	onHeadlessLoop(func() bool { *d.saveFail = nil; return true })
+	dragNightlightSlider(d, 3200)
+	if got := onHeadlessLoop(d.failure); got != "" {
+		t.Errorf("a new attempt still shows %q", got)
+	}
+	waitHeadless(t, "the saved strength recorded", func() bool { return d.svc.savedTemp == 3200 })
+	got, failure, applied := onHeadlessLoop(d.card.slider.Value), onHeadlessLoop(d.failure), onHeadlessLoop(func() int { return fake.applied.Temp() })
+	if got != 3200 || failure != "" || applied != 3200 {
+		t.Errorf("a saved write: slider %v error %q display %dK, want 3200K and no error", got, failure, applied)
+	}
+}
+
+func TestBrightnessDropdownFailedSaveOfAnOlderStrengthKeepsTheNewer(t *testing.T) {
+	fake := &fakeSunset{clock: sunsetDay}
+	d := newNightlightDropdown(t, sunsetConfig(false), fake.env(t))
+	full := errors.New("config: save: no space left on device")
+	onHeadlessLoop(func() bool {
+		*d.saveFail = full
+		d.card.committed(3200)
+		*d.saveFail = nil
+		d.card.committed(2800)
+		return true
+	})
+	waitHeadless(t, "both saves answered", func() bool { return d.svc.savedTemp == 2800 })
+	if got := onHeadlessLoop(func() uint32 { return d.svc.cfg.Temperature }); got != 2800 {
+		t.Errorf("service at %dK, want the newer 2800K kept", got)
 	}
 }
 

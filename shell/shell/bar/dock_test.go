@@ -420,7 +420,7 @@ func TestTheDockMenuPinsAndUnpins(t *testing.T) {
 	foot := &fakeWindow{appID: "foot", outputs: []string{"DP-1"}}
 	r := newDockRig(t, cfg, foot)
 	writes := map[string]any{}
-	r.d.ctx.SetConfig = func(path string, value any) { writes[path] = value }
+	r.d.ctx.SetConfig = func(path string, value any, done func(error)) { writes[path] = value; done(nil) }
 	pin, unpin := i18n.T("dock-pin"), i18n.T("dock-unpin")
 
 	items := r.d.menuItems(r.d.entries["foot"].app)
