@@ -16,6 +16,7 @@ import (
 	cct "github.com/stubbedev/lys/wm/internal/protocol/client/contenttype"
 	ctc "github.com/stubbedev/lys/wm/internal/protocol/client/tearingcontrol"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -31,7 +32,7 @@ func contentTypeManager(t *testing.T, c *testclient.Client) *cct.WpContentTypeMa
 
 func expectContentTypes(t *testing.T, h *Harness, want map[string]wm.ContentType) {
 	t.Helper()
-	deadline := time.Now().Add(clientTimeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		got := map[string]wm.ContentType{}
 		for _, w := range query[[]ipc.Window](h, wmipc.KindWindows) {

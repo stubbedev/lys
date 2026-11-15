@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
 
@@ -50,7 +51,7 @@ func (s *xDragSource) serve() {
 
 func (s *xDragSource) message(name string) xproto.ClientMessageEvent {
 	s.t.Helper()
-	timeout := time.After(clientTimeout)
+	timeout := time.After(testenv.HangLimit)
 	for {
 		select {
 		case m, open := <-s.msgs:
@@ -121,7 +122,7 @@ func xDragSetup(t *testing.T) *xDragRig {
 func (x *xDragRig) enterZone(at image.Point) xproto.Window {
 	x.src.t.Helper()
 	var proxy xproto.Window
-	for deadline := time.Now().Add(clientTimeout); ; {
+	for deadline := time.Now().Add(testenv.HangLimit); ; {
 		x.r.moveOn(0, float64(at.X), float64(at.Y))
 		if w, ok := x.src.awareAt(at); ok {
 			proxy = w
@@ -158,7 +159,7 @@ func readDrop(t *testing.T, p *party, mime string) string {
 	if err := errors.Join(p.cb.Drag.Data.Receive(mime, fds[1]), unix.Close(fds[1]), p.c.Display.Flush()); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.SetReadDeadline(time.Now().Add(clientTimeout)); err != nil {
+	if err := r.SetReadDeadline(time.Now().Add(testenv.HangLimit)); err != nil {
 		t.Fatal(err)
 	}
 	got, err := io.ReadAll(r)

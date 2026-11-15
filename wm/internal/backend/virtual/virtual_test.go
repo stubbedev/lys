@@ -2,6 +2,7 @@ package virtual
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"strings"
 	"testing"
@@ -11,11 +12,10 @@ import (
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 var mode = backend.Mode{Size: image.Pt(64, 48), RefreshMHz: 100000}
-
-const bound = 10 * time.Second
 
 type recorder struct {
 	l         *loop.Loop
@@ -75,12 +75,12 @@ func enable(t *testing.T, o *Output) {
 
 func run(t *testing.T, l *loop.Loop) {
 	t.Helper()
-	guard, err := l.AddTimer(func() error { return errors.New("the loop ran past its bound") })
+	guard, err := l.AddTimer(func() error { return fmt.Errorf("the loop still ran after %v", testenv.HangLimit) })
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer guard.Remove()
-	if err := guard.Arm(bound); err != nil {
+	if err := guard.Arm(testenv.HangLimit); err != nil {
 		t.Fatal(err)
 	}
 	if err := l.Run(); err != nil {

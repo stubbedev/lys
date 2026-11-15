@@ -19,6 +19,7 @@ import (
 
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/spawn"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type spun struct {
@@ -164,9 +165,9 @@ const spinEntered = 10 * time.Millisecond
 func spinning(t *testing.T, tid int) int {
 	t.Helper()
 	from := threadCPU(t, tid)
-	for deadline := time.Now().Add(30 * time.Second); threadCPU(t, tid)-from < spinEntered; {
+	for deadline := time.Now().Add(testenv.HangLimit); threadCPU(t, tid)-from < spinEntered; {
 		if time.Now().After(deadline) {
-			t.Fatalf("thread %d did not spin %v within 30s", tid, spinEntered)
+			t.Fatalf("thread %d did not spin %v within %v", tid, spinEntered, testenv.HangLimit)
 		}
 		runtime.Gosched()
 	}
@@ -232,7 +233,7 @@ func TestADebugSpinTakesNoSignalsAndGivesItsThreadItsSignalMaskBack(t *testing.T
 	if !ok {
 		t.Fatal((<-out).err)
 	}
-	for deadline := time.Now().Add(30 * time.Second); blockedSignals(t, tid) != ^unblockable; {
+	for deadline := time.Now().Add(testenv.HangLimit); blockedSignals(t, tid) != ^unblockable; {
 		if time.Now().After(deadline) {
 			t.Fatalf("the spinning thread %d blocks signals %#x, want every one it can", tid, blockedSignals(t, tid))
 		}
@@ -328,7 +329,7 @@ func runUntilStopped(t *testing.T, c *Compositor) {
 		t.Fatal(err)
 	}
 	defer hang.Remove()
-	if err := hang.Arm(30 * time.Second); err != nil {
+	if err := hang.Arm(testenv.HangLimit); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.loop.Run(); err != nil {

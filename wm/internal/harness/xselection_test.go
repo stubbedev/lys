@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/data"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/third_party/xgb"
 	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
 )
@@ -53,7 +54,7 @@ func (c *xclient) inputWindow() xproto.Window {
 	return win
 }
 
-func (c *xclient) next(timeout time.Duration) (xgb.Event, error) {
+func (c *xclient) next() (xgb.Event, error) {
 	type result struct {
 		ev  xgb.Event
 		err error
@@ -75,7 +76,7 @@ func (c *xclient) next(timeout time.Duration) (xgb.Event, error) {
 	select {
 	case r := <-got:
 		return r.ev, r.err
-	case <-time.After(timeout):
+	case <-time.After(testenv.HangLimit):
 		return nil, errors.New("no X event arrived")
 	}
 }
@@ -93,7 +94,7 @@ func (c *xclient) convertWith(win xproto.Window, selection, target string, notif
 		return xproto.GetProperty(c.x, true, win, prop, xproto.GetPropertyTypeAny, 0, 1<<24).Reply()
 	}
 	for {
-		ev, err := c.next(clientTimeout)
+		ev, err := c.next()
 		if err != nil {
 			return 0, nil, err
 		}
@@ -111,7 +112,7 @@ func (c *xclient) convertWith(win xproto.Window, selection, target string, notif
 		}
 		var got []byte
 		for {
-			ev, err := c.next(clientTimeout)
+			ev, err := c.next()
 			if err != nil {
 				return 0, nil, err
 			}
@@ -187,7 +188,7 @@ func TestWaylandSelectionsPasteIntoX(t *testing.T) {
 			<-done
 		}
 		var targets []byte
-		for deadline := time.Now().Add(clientTimeout); ; time.Sleep(10 * time.Millisecond) {
+		for deadline := time.Now().Add(testenv.HangLimit); ; time.Sleep(10 * time.Millisecond) {
 			_, list, err := xc.convert(win, "CLIPBOARD", "TARGETS")
 			if err == nil {
 				targets = list
@@ -316,7 +317,7 @@ func askPaste(t *testing.T, p *party, mime string) func() string {
 	}
 	return func() string {
 		t.Helper()
-		if err := r.SetReadDeadline(time.Now().Add(clientTimeout)); err != nil {
+		if err := r.SetReadDeadline(time.Now().Add(testenv.HangLimit)); err != nil {
 			t.Fatal(err)
 		}
 		got, err := io.ReadAll(r)
@@ -423,7 +424,7 @@ func TestAnXSelectionDiesWithXwayland(t *testing.T) {
 	})
 	select {
 	case <-reports:
-	case <-time.After(clientTimeout):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("the crash was not reported")
 	}
 	h.Eventually("the dead X selection cleared", func(_ *headless.Backend, c *compositor.Compositor) bool {
@@ -462,7 +463,7 @@ func TestASilentXOwnerDoesNotHoldUpLaterPastes(t *testing.T) {
 	read := askPaste(t, p, "text/plain;charset=utf-8")
 	select {
 	case <-o.ignored:
-	case <-time.After(clientTimeout):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("the paste never reached the X owner")
 	}
 	mu.Lock()
@@ -632,8 +633,8 @@ func TestAStalledTransferToXIsDroppedOnTimeAndReleasesItsSource(t *testing.T) {
 		if !errors.Is(err, syscall.EPIPE) {
 			t.Fatalf("the source's write failed with %v, want EPIPE once the transfer is dropped", err)
 		}
-	case <-time.After(clientTimeout):
-		t.Fatalf("the source still writes %v after the transfer timeout passed on the harness clock", clientTimeout)
+	case <-time.After(testenv.HangLimit):
+		t.Fatalf("the source still writes %v after the transfer timeout passed on the harness clock", testenv.HangLimit)
 	}
 	h.Eventually("the dropped transfer reported", func(*headless.Backend, *compositor.Compositor) bool { return dropped() })
 }
@@ -672,7 +673,7 @@ func TestStalledTransfersToXAreBoundedAndDieWithTheirWindow(t *testing.T) {
 	refused := 0
 	for answered := 0; answered < tries; {
 		a.c.Sync()
-		ev, ok := xc.event(clientTimeout)
+		ev, ok := xc.event()
 		if !ok {
 			t.Fatalf("%d of %d conversions answered", answered, tries)
 		}

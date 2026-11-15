@@ -53,7 +53,7 @@ func (c *xclient) syncedWindow(rect image.Rectangle, pixel uint32) (xproto.Windo
 func (c *xclient) syncRequest() uint64 {
 	c.t.Helper()
 	for {
-		ev, open := c.event(clientTimeout)
+		ev, open := c.event()
 		if !open {
 			c.t.Fatal("the X connection closed before a sync request")
 		}

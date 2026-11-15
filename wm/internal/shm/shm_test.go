@@ -391,7 +391,7 @@ func TestAnUntrustedPoolIsCopiedOffTheLoop(t *testing.T) {
 	c.roundtrip()
 	var pixels [][]byte
 	var touches uint64
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for len(pixels) == 0 {
 		done := make(chan struct{})
 		if err := e.loop.Post(func() error {

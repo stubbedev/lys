@@ -243,7 +243,7 @@ func TestAnInputDeviceIsTakenOffTheLoop(t *testing.T) {
 		t.Fatal("the device was not in flight while the opener held it")
 	}
 	close(opener.release)
-	deadline := time.After(30 * time.Second)
+	deadline := time.After(testenv.HangLimit)
 	for adding() {
 		select {
 		case <-deadline:
@@ -274,7 +274,7 @@ func TestAReleaseDoesNotWaitForTheOpener(t *testing.T) {
 		if d.Major != 13 {
 			t.Fatalf("released %+v", d)
 		}
-	case <-time.After(30 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("the release never ran")
 	}
 }

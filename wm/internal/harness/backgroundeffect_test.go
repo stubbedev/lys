@@ -17,6 +17,7 @@ import (
 	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
 	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -429,7 +430,7 @@ func TestABlurRegionIsNotRedrawnWhenNothingBehindItChanged(t *testing.T) {
 		awayFromTheCursor := image.Rect(50, 35, 80, 50)
 		for range 5 {
 			presents := presentCount(h)
-			deadline := time.Now().Add(clientTimeout)
+			deadline := time.Now().Add(testenv.HangLimit)
 			for presentCount(h) == presents {
 				if time.Now().After(deadline) {
 					t.Fatal("the far layer stopped presenting")
@@ -501,7 +502,7 @@ func TestAPopupsFirstFrameIsAlreadyBlurred(t *testing.T) {
 		}
 		tinted := func(px [3]byte) bool { return px[0] > 0x70 && (px[1] < 0x18 || px[1] > 0x68) && px[0] != px[1] }
 		frosted := func(px [3]byte) bool { return px[1] >= 0x18 && px[1] <= 0x68 && px[0] > 0x70 }
-		deadline := time.Now().Add(clientTimeout)
+		deadline := time.Now().Add(testenv.HangLimit)
 		for {
 			c.Sync()
 			var px [3]byte

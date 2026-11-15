@@ -55,6 +55,21 @@ type frameFencer interface {
 	SyncFile() (int, error)
 }
 
+type frameTiming uint8
+
+const (
+	measuredTiming frameTiming = iota
+	halfRefreshTiming
+	virtualTiming
+)
+
+func timingOf(l *loop.Loop) frameTiming {
+	if l.Virtual() {
+		return virtualTiming
+	}
+	return measuredTiming
+}
+
 func New(l *loop.Loop) *Backend {
 	b := &Backend{loop: l, renderer: soft.New(), fenceTime: kdrm.SyncFileSignalTime, report: func(err error) { fmt.Fprintln(os.Stderr, "lys-wm:", err) }}
 	b.keyboard = &Keyboard{device: device{b, "headless-keyboard", backend.Keyboard}}
@@ -204,7 +219,7 @@ func (b *Backend) AddNamedOutput(name string, modes ...backend.Mode) (*Output, e
 		ctm:         backend.Identity,
 		inherited:   b.inherit,
 		renderFence: -1,
-		untimed:     b.loop.Virtual(),
+		timing:      timingOf(b.loop),
 	}
 	o.clock = backend.NewFrameClock(b.loop.Idle, o.frameReady, o.runFrame, &backend.Latch{
 		Wait: func() time.Duration {
@@ -280,7 +295,7 @@ type Output struct {
 	aimedAt        time.Duration
 	renderFence    int
 	fenceStart     time.Duration
-	untimed        bool
+	timing         frameTiming
 	armed          bool
 	clock          *backend.FrameClock
 	presentPending bool
@@ -616,7 +631,7 @@ func (o *Output) Present(damage render.Region) error {
 }
 
 func (o *Output) noTiming(cause error) {
-	o.untimed = true
+	o.timing = halfRefreshTiming
 	o.backend.report(fmt.Errorf("headless: %s renders on the half-refresh latch, its frames report no time: %w", o.name, cause))
 }
 
@@ -629,17 +644,14 @@ func (o *Output) dropFence() error {
 	return unix.Close(fd)
 }
 
-func (o *Output) StopTiming() {
-	o.untimed = true
-}
-
 func (o *Output) fenceFrame() {
+	if o.timing != measuredTiming {
+		return
+	}
 	f, ok := o.backend.renderer.(frameFencer)
 	switch {
 	case !ok:
 		o.budget.Sample(o.backend.loop.Now() - o.frameStart)
-		return
-	case o.untimed:
 		return
 	case !f.NativeFences():
 		o.noTiming(errors.New("the renderer has no native fences"))
@@ -649,7 +661,7 @@ func (o *Output) fenceFrame() {
 	if err := o.dropFence(); err != nil {
 		o.backend.report(fmt.Errorf("headless: close the render fence of %s: %w", o.name, err))
 	}
-	if o.untimed {
+	if o.timing != measuredTiming {
 		return
 	}
 	fd, err := f.SyncFile()
@@ -684,7 +696,10 @@ func (o *Output) timeFrame(flip time.Duration, flipped bool) error {
 	if flipped {
 		o.aimedAt = 0
 	}
-	if o.renderFence < 0 || o.untimed {
+	if o.timing == virtualTiming {
+		return nil
+	}
+	if o.renderFence < 0 || o.timing != measuredTiming {
 		if missed {
 			o.budget.Missed(interval)
 		}

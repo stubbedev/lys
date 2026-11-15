@@ -31,7 +31,10 @@ then pacing, and stops if the tests fail.
 The headless clock latches frames as `drm` does: half a refresh before each
 tick, extended up to a whole refresh for frames that need it. A frame requested
 with less time left than a typical render waits for the next latch. Only `drm`
-has real present times; the report names the clock used.
+has real present times; the report names the clock used. On a virtual loop, the
+test harness's, the headless backend measures no render time and counts no
+missed frame, so it latches every frame half a refresh before its tick and the
+same scenario runs the same frames however fast the machine is.
 
 Scenarios cover window open and close, spring moves and interruption, resize,
 workspace switches, three-finger swipes (follow and release), the genie,

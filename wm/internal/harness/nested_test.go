@@ -50,14 +50,6 @@ func startNestedWith(t *testing.T, host *Harness, configure func(*compositor.Con
 
 func startNestedOn(t *testing.T, host *Harness, renderer nested.Renderer, configure func(*compositor.Config)) *nestedLysWM {
 	t.Helper()
-	if renderer == nested.Vulkan {
-		host.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-			for _, o := range b.Outputs() {
-				o.StopTiming()
-			}
-			return nil
-		})
-	}
 	n := &nestedLysWM{t: t, host: host, dir: testenv.SocketDir(t)}
 	var err error
 	if n.loop, err = loop.New(); err != nil {
@@ -116,7 +108,7 @@ func (n *nestedLysWM) do(f func(c *compositor.Compositor) error) {
 
 func (n *nestedLysWM) eventually(what string, cond func(c *compositor.Compositor) bool) {
 	n.t.Helper()
-	deadline := time.Now().Add(clientTimeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		var ok bool
 		n.do(func(c *compositor.Compositor) error {
@@ -169,7 +161,7 @@ func TestNestedSessionWithRealClients(t *testing.T) {
 		return c.Seat().Focus() == c.Toplevels()[0].Surface()
 	})
 	host.tap(keyE, keyC, keyH, keyO, keyEnter)
-	terminal.Wait(t, clientTimeout)
+	terminal.Wait(t)
 	got, err := os.ReadFile(typed)
 	if err != nil {
 		t.Fatal(err)
@@ -180,10 +172,10 @@ func TestNestedSessionWithRealClients(t *testing.T) {
 	n.eventually("alacritty gone", func(c *compositor.Compositor) bool { return len(c.Toplevels()) == 0 })
 
 	hello := n.run("lys-ui-hello")
-	hello.Expect(t, "demo: mapped", clientTimeout)
+	hello.Expect(t, "demo: mapped")
 	n.eventually("lys-ui-hello to map", nestedToplevels(1))
 	host.click(0, 900, 500, btnRight)
-	hello.Expect(t, "demo: menu open", clientTimeout)
+	hello.Expect(t, "demo: menu open")
 	n.eventually("the menu with the keyboard", func(c *compositor.Compositor) bool {
 		popups := c.Toplevels()[0].Popups()
 		return len(popups) == 1 && popups[0].Mapped() && c.Seat().Focus() == popups[0].Surface()
@@ -196,7 +188,7 @@ func TestNestedSessionWithRealClients(t *testing.T) {
 
 	n.run("wl-copy", "--foreground", "nested clipboard")
 	n.eventually("the copied selection", func(c *compositor.Compositor) bool { return c.Selection(data.Clipboard) })
-	if out := n.run("wl-paste", "--no-newline").Wait(t, clientTimeout); out != "nested clipboard" {
+	if out := n.run("wl-paste", "--no-newline").Wait(t); out != "nested clipboard" {
 		t.Fatalf("wl-paste printed %q", out)
 	}
 }

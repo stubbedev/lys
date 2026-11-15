@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -17,8 +16,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/shell"
 	"github.com/stubbedev/lys/wm/internal/surface"
 )
-
-const clientTimeout = 20 * time.Second
 
 var desktop = backend.Mode{Size: image.Pt(1280, 800), RefreshMHz: 60000, Preferred: true}
 
@@ -106,7 +103,7 @@ func TestFootMapsAndTakesInput(t *testing.T) {
 	})
 	h.expectActive(foot)
 	h.tap(keyE, keyC, keyH, keyO, keyEnter)
-	foot.Wait(t, clientTimeout)
+	foot.Wait(t)
 	got, err := os.ReadFile(typed)
 	if err != nil {
 		t.Fatal(err)
@@ -120,10 +117,10 @@ func TestLysUIHelloMenu(t *testing.T) {
 	t.Setenv("GOELM_DEBUG", "demo")
 	h := Start(t, desktop, desktop)
 	hello := h.Run("lys-ui-hello")
-	hello.Expect(t, "demo: mapped", clientTimeout)
+	hello.Expect(t, "demo: mapped")
 	h.Eventually("lys-ui-hello to map", mappedToplevels(1))
 	h.click(0, 1024, 560, btnRight)
-	hello.Expect(t, "demo: menu open at (1024,560)", clientTimeout)
+	hello.Expect(t, "demo: menu open at (1024,560)")
 	var menu *shell.Popup
 	h.Eventually("the menu mapped with the keyboard", func(_ *headless.Backend, c *compositor.Compositor) bool {
 		top := c.Toplevels()[0]
@@ -149,7 +146,7 @@ func TestLysUIPopoverAndNestedMenu(t *testing.T) {
 	popover := h.Run("lys-ui-popover")
 	center := func(name string) (float64, float64) {
 		var x, y float64
-		if _, err := fmt.Sscanf(popover.Expect(t, "control "+name+" center", clientTimeout), "control "+name+" center (%g,%g)", &x, &y); err != nil {
+		if _, err := fmt.Sscanf(popover.Expect(t, "control "+name+" center"), "control "+name+" center (%g,%g)", &x, &y); err != nil {
 			t.Fatal(err)
 		}
 		return x, y
@@ -157,25 +154,25 @@ func TestLysUIPopoverAndNestedMenu(t *testing.T) {
 	mx, my := center("menu")
 	before := h.keyboardFocus()
 	h.click(0, mx, my, btnLeft)
-	popover.Expect(t, "demo: menu depth 1", clientTimeout)
+	popover.Expect(t, "demo: menu depth 1")
 	h.Eventually("the menu to take the keyboard", keyboardMovedFrom(before))
 	menu := h.keyboardFocus()
 	h.tap(keyDown, keyRight)
-	popover.Expect(t, "demo: menu depth 2", clientTimeout)
+	popover.Expect(t, "demo: menu depth 2")
 	h.Eventually("the submenu to take the keyboard", keyboardMovedFrom(menu))
 	h.tap(keyDown, keyEnter)
-	popover.Expect(t, "demo: menu leaf a", clientTimeout)
-	popover.Expect(t, "demo: menu depth 0", clientTimeout)
+	popover.Expect(t, "demo: menu leaf a")
+	popover.Expect(t, "demo: menu depth 0")
 	ox, oy := center("open")
 	before = h.keyboardFocus()
 	h.click(0, ox, oy, btnLeft)
-	popover.Expect(t, "demo: popover open", clientTimeout)
+	popover.Expect(t, "demo: popover open")
 	h.Eventually("the popover to take the keyboard", keyboardMovedFrom(before))
 	h.tap(keyH, keyI)
-	popover.Expect(t, "demo: popover text hi", clientTimeout)
-	popover.Expect(t, "demo: popover grew", clientTimeout)
+	popover.Expect(t, "demo: popover text hi")
+	popover.Expect(t, "demo: popover grew")
 	h.click(0, 1200, 700, btnLeft)
-	popover.Expect(t, "demo: popover closed", clientTimeout)
+	popover.Expect(t, "demo: popover closed")
 }
 
 func (h *Harness) keyboardFocus() *surface.Surface {

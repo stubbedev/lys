@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -47,7 +48,7 @@ func TestDispatchedActions(t *testing.T) {
 
 	out := filepath.Join(t.TempDir(), "display")
 	h.dispatch(`exec printf %s "$WAYLAND_DISPLAY" > ` + out)
-	deadline := time.Now().Add(clientTimeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		got, err := os.ReadFile(out)
 		if err == nil && string(got) == filepath.Join(h.RuntimeDir, h.display.Name()) {

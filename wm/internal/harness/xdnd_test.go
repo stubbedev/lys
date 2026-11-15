@@ -21,7 +21,7 @@ var xdndAtoms = []string{"XdndAware", "XdndSelection", "XdndEnter", "XdndPositio
 func (c *xclient) xdnd(name string) xproto.ClientMessageEvent {
 	c.t.Helper()
 	for {
-		m := c.clientMessage(clientTimeout)
+		m := c.clientMessage()
 		if m.Type == c.atoms[name] {
 			return m
 		}

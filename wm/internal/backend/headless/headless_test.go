@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 var _ backend.Backend = (*Backend)(nil)
@@ -217,9 +218,9 @@ func TestFramesRequestedBetweenVblanksMakeTheNextOne(t *testing.T) {
 	if err := o.ScheduleFrame(); err != nil {
 		t.Fatal(err)
 	}
-	runFor(t, l, 5*time.Second)
+	runFor(t, l, testenv.HangLimit)
 	if len(r.presented) < want {
-		t.Fatalf("%d presentations in 5 s at 100 Hz, want %d", len(r.presented), want)
+		t.Fatalf("%d presentations in %v at 100 Hz, want %d", len(r.presented), testenv.HangLimit, want)
 	}
 	// The wall clock decides when a frame renders: under load the
 	// client's request can land after the next vblank, and skipping it
@@ -592,5 +593,160 @@ func TestARendererWithoutFencesClaimsNoBudget(t *testing.T) {
 	}
 	if reports != 1 {
 		t.Fatalf("reported %d times", reports)
+	}
+}
+
+func virtualOutput(t *testing.T, renderer func(render.Renderer) render.Renderer) (*Output, *loop.Manual) {
+	t.Helper()
+	l, clock, err := loop.NewManual(time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	b := New(l)
+	b.renderer = renderer(b.renderer)
+	b.fenceTime = func(int) (time.Duration, bool, error) { return clock.Now(), true, nil }
+	o, err := b.AddOutput(backend.Mode{Size: image.Pt(16, 16), RefreshMHz: 60000, Preferred: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+	return o, clock
+}
+
+func TestFramesOnAVirtualLoopEarnNoBudgetFromHowLongTheyTook(t *testing.T) {
+	for name, renderer := range map[string]func(render.Renderer) render.Renderer{
+		"software":       func(r render.Renderer) render.Renderer { return r },
+		"native fences":  func(r render.Renderer) render.Renderer { return fencedFrames{r} },
+		"without fences": func(r render.Renderer) render.Renderer { return noFences{r} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			o, clock := virtualOutput(t, renderer)
+			interval := o.state.Mode.Interval()
+			untrained := o.budget.Budget(interval)
+			for range 40 {
+				o.frameStart = clock.Now()
+				o.aimedAt = o.frameStart + interval
+				o.budget.Painted(16 * 16)
+				clock.Set(o.frameStart + 2*interval)
+				o.fenceFrame()
+				if err := o.timeFrame(clock.Now(), true); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := o.budget.Budget(interval); got != untrained {
+				t.Fatalf("frames that took two refreshes of the loop's clock moved the budget from %v to %v", untrained, got)
+			}
+			if o.renderFence >= 0 {
+				t.Fatal("a frame on a virtual loop holds a render fence")
+			}
+		})
+	}
+}
+
+func TestFramesOnARealLoopEarnTheirBudgetFromHowLongTheyTook(t *testing.T) {
+	b, o := fencedOutput(t)
+	interval := o.state.Mode.Interval()
+	took := 12 * time.Millisecond
+	for range 40 {
+		o.frameStart = b.loop.Now() - took
+		o.fenceFrame()
+	}
+	if got := o.budget.Budget(interval); got < took {
+		t.Fatalf("software frames that took %v earned a budget of %v", took, got)
+	}
+}
+
+func TestAFrameShownLateOnARealLoopIsAMiss(t *testing.T) {
+	_, o := fencedOutput(t)
+	interval := o.state.Mode.Interval()
+	start := time.Second
+	o.aimedAt = start + interval
+	if err := o.timeFrame(start+2*interval, true); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := o.budget.Budget(interval), interval/2+3*time.Millisecond; got != want {
+		t.Fatalf("after a frame shown a refresh late the budget is %v, want the miss's margin over the half-refresh start, %v", got, want)
+	}
+}
+
+func framesLeadingVblanksAfterRendersThatTook(t *testing.T, took time.Duration) []time.Duration {
+	t.Helper()
+	l, clock, err := loop.NewManual(time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := New(l)
+	t.Cleanup(func() {
+		if err := errors.Join(b.Close(), l.Close()); err != nil {
+			t.Error(err)
+		}
+	})
+	clock.WhenDry(func() {
+		at, ok := clock.NextTimer()
+		if !ok {
+			t.Error("the loop ran dry with no timer armed")
+			l.Stop()
+			return
+		}
+		clock.Set(max(at, clock.Now()))
+	})
+	r := &recorder{}
+	if err := b.Start(r); err != nil {
+		t.Fatal(err)
+	}
+	o, err := b.AddOutput(mode100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := l.AddTimer(o.ScheduleFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Remove()
+	const trained, measured = 40, 20
+	var leads []time.Duration
+	frames := 0
+	r.onFrame = func(out backend.Output) {
+		if frames == trained+measured {
+			l.Stop()
+			return
+		}
+		if frames >= trained {
+			leads = append(leads, l.Now()-r.presented[len(r.presented)-1].Time)
+		}
+		f, err := out.BeginFrame()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := f.Renderer.Begin(f.Target, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if frames < trained {
+			clock.Set(clock.Now() + took)
+		}
+		frames++
+		if err := errors.Join(p.End(), out.Present(nil), client.Arm(time.Millisecond)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := o.ScheduleFrame(); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if len(leads) != measured {
+		t.Fatalf("%d frames measured, want %d", len(leads), measured)
+	}
+	return leads
+}
+
+func TestHowLongFramesTookOnAVirtualLoopDoesNotMoveLaterFrames(t *testing.T) {
+	fast := framesLeadingVblanksAfterRendersThatTook(t, 0)
+	slow := framesLeadingVblanksAfterRendersThatTook(t, mode100.Interval()*4/5)
+	if !slices.Equal(fast, slow) {
+		t.Fatalf("after slow renders frames start %v after the last vblank, after instant ones %v", slow, fast)
 	}
 }

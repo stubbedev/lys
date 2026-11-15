@@ -500,7 +500,7 @@ func TestAnXwaylandThatCannotStartIsTriedAgainNextTime(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := hang.Arm(30 * time.Second); err != nil {
+		if err := hang.Arm(testenv.HangLimit); err != nil {
 			t.Fatal(err)
 		}
 		if err := l.Run(); err != nil {
@@ -585,7 +585,7 @@ func TestXwaylandStartsFromTheSpawnerWithItsLogAndItsExit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer hang.Remove()
-	if err := hang.Arm(30 * time.Second); err != nil {
+	if err := hang.Arm(testenv.HangLimit); err != nil {
 		t.Fatal(err)
 	}
 	if err := l.Run(); err != nil {

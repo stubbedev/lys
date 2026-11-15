@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/xkb"
 )
 
@@ -119,7 +120,7 @@ func newVirtualDevice(t testing.TB, devName string, bits []uinputBit) *virtualDe
 		t.Fatalf("uinput sysname: %v", err)
 	}
 	sys := filepath.Join("/sys/devices/virtual/input", strings.TrimRight(string(name[:]), "\x00"))
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	var denied error
 	for {
 		events, _ := filepath.Glob(filepath.Join(sys, "event*"))
@@ -147,7 +148,7 @@ func newVirtualDevice(t testing.TB, devName string, bits []uinputBit) *virtualDe
 func (v *virtualDevice) awaitLED(t *testing.T, code uint16, value int32) {
 	t.Helper()
 	buf := make([]byte, 24)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for time.Now().Before(deadline) {
 		n, err := unix.Read(int(v.f.Fd()), buf)
 		if errors.Is(err, unix.EAGAIN) {

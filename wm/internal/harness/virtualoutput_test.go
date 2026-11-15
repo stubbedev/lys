@@ -102,7 +102,7 @@ func TestAVirtualOutputComesAndGoesLikeAMonitor(t *testing.T) {
 	if len(outputs) != 2 || got.Rect != (wmipc.Rect{X: 160, Width: 200, Height: 120}) || got.Mode != virtualMode || got.Scale != 1 || got.Description != "Virtual output VIRT-1" || !got.Powered {
 		t.Fatalf("outputs %+v", outputs)
 	}
-	info := h.Run("wayland-info").Wait(t, clientTimeout)
+	info := h.Run("wayland-info").Wait(t)
 	for _, want := range []string{"name: VIRT-1", "description: Virtual output VIRT-1", "logical_x: 160, logical_y: 0", "logical_width: 200, logical_height: 120"} {
 		if !strings.Contains(info, want) {
 			t.Errorf("wayland-info does not show %q:\n%s", want, info)

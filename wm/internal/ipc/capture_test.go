@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/wmipc"
+
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type fakeCapture struct {
@@ -150,7 +152,7 @@ func (r *rig) capture() (*CaptureConn, <-chan string, *fakeCapture) {
 
 func (r *rig) applied(fc *fakeCapture, n int) []CaptureCommand {
 	r.t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		var got []CaptureCommand
 		r.do(func(*fake) { got = append(got, fc.applied...) })
@@ -166,7 +168,7 @@ func (r *rig) applied(fc *fakeCapture, n int) []CaptureCommand {
 
 func (r *rig) closedCapture(fc *fakeCapture) {
 	r.t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		var closed bool
 		r.do(func(*fake) { closed = fc.closed })

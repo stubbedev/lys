@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const (
@@ -135,8 +136,8 @@ func (r *keyRecorder) requireStrokes(t *testing.T, codes []int32) {
 
 func runUntil(t testing.TB, l *loop.Loop, what string, done func() bool) {
 	t.Helper()
-	if !runAwhile(t, l, 10*time.Second, done) {
-		t.Fatalf("%s did not happen within 10s", what)
+	if !runAwhile(t, l, testenv.HangLimit, done) {
+		t.Fatalf("%s did not happen within %v", what, testenv.HangLimit)
 	}
 }
 
@@ -212,7 +213,7 @@ func TestKeysTypedWhileTheLoopIsBlockedAllReachTheHandlerInOrder(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	runAwhile(t, in.loop, 10*time.Second, func() bool { return len(rec.keys) >= 2*len(codes) })
+	runAwhile(t, in.loop, testenv.HangLimit, func() bool { return len(rec.keys) >= 2*len(codes) })
 	rec.requireStrokes(t, codes)
 	log.requireNoLoss()
 }
@@ -293,7 +294,7 @@ func TestParkingInputDeliversWhatWasReadAndReadsNothingUntilUnparked(t *testing.
 	if err := typeKeys(kbd.f, before, 0); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for in.queue.held.Load() < int64(2*len(before)) {
 		if time.Now().After(deadline) {
 			t.Fatalf("the reader queued %d of %d key events", in.queue.held.Load(), 2*len(before))

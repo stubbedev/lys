@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/binds"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -65,7 +66,7 @@ func lines(t *testing.T, path string) int {
 
 func eventuallyLines(t *testing.T, path string, cond func(int) bool) {
 	t.Helper()
-	deadline := time.Now().Add(clientTimeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for !cond(lines(t, path)) {
 		if time.Now().After(deadline) {
 			t.Fatalf("%s has %d lines", path, lines(t, path))

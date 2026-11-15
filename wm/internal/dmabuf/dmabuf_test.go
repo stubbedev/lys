@@ -582,7 +582,7 @@ func TestAwaitWriterHoldsUntilThePlaneIsReadable(t *testing.T) {
 	}
 	select {
 	case <-released:
-	case <-time.After(5 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("not released after the writer finished")
 	}
 	if err := e.l.Post(func() error {
@@ -629,7 +629,7 @@ func TestAWaitedPlaneKeepsOneDuplicateAcrossCommits(t *testing.T) {
 		}
 		select {
 		case <-released:
-		case <-time.After(30 * time.Second):
+		case <-time.After(testenv.HangLimit):
 			t.Fatal("not released after the writer finished")
 		}
 		var one [1]byte
@@ -723,7 +723,7 @@ func TestASweepCountsHowLongAPlaneFenceHoldsItsCommit(t *testing.T) {
 	}
 	select {
 	case <-released:
-	case <-time.After(5 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("not released after the writer finished")
 	}
 	if s := sweep(); s.busy || len(s.buffers) != 0 {

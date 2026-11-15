@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type blockedWriter struct {
@@ -39,7 +40,7 @@ func TestCancelReturnsWhileACopyIsStuckOnClientMemory(t *testing.T) {
 	}()
 	select {
 	case <-cancelled:
-	case <-time.After(30 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("cancel waited for the copy stuck in Write")
 	}
 	close(w.release)

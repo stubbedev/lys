@@ -686,7 +686,7 @@ func (c *Client) Output() string {
 	return c.output.String()
 }
 
-func (c *Client) Wait(t *testing.T, timeout time.Duration) string {
+func (c *Client) Wait(t *testing.T) string {
 	t.Helper()
 	select {
 	case err := <-c.exited:
@@ -694,15 +694,15 @@ func (c *Client) Wait(t *testing.T, timeout time.Duration) string {
 		if err != nil {
 			t.Fatalf("harness: %s failed: %v\n%s", filepath.Base(c.cmd.Path), err, c.output.String())
 		}
-	case <-time.After(timeout):
-		t.Fatalf("harness: %s still running after %v\n%s", filepath.Base(c.cmd.Path), timeout, c.output.String())
+	case <-time.After(testenv.HangLimit):
+		t.Fatalf("harness: %s still running after %v\n%s", filepath.Base(c.cmd.Path), testenv.HangLimit, c.output.String())
 	}
 	return c.output.String()
 }
 
-func (c *Client) Expect(t *testing.T, text string, timeout time.Duration) string {
+func (c *Client) Expect(t *testing.T, text string) string {
 	t.Helper()
-	deadline := time.Now().Add(timeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		out := c.output.String()
 		if i := strings.Index(out, text); i >= 0 {
@@ -715,7 +715,7 @@ func (c *Client) Expect(t *testing.T, text string, timeout time.Duration) string
 		default:
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("harness: %s did not print %q within %v:\n%s", filepath.Base(c.cmd.Path), text, timeout, out)
+			t.Fatalf("harness: %s did not print %q within %v:\n%s", filepath.Base(c.cmd.Path), text, testenv.HangLimit, out)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

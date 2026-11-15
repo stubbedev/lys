@@ -24,6 +24,7 @@ import (
 	cxti "github.com/stubbedev/lys/wm/internal/protocol/client/xdgtoplevelicon"
 	"github.com/stubbedev/lys/wm/internal/shell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type iconSizes struct {
@@ -77,7 +78,7 @@ func setIcon(t *testing.T, c *testclient.Client, m *cxti.XdgToplevelIconManagerV
 
 func eventuallyIcon(t *testing.T, h *Harness, title string, ok func(*ipc.Icon) bool) *ipc.Icon {
 	t.Helper()
-	deadline := time.Now().Add(clientTimeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		for _, w := range query[[]ipc.Window](h, wmipc.KindWindows) {
 			if w.Title == title && ok(w.Icon) {

@@ -60,7 +60,7 @@ func BenchmarkStallDragPublish(b *testing.B) {
 func BenchmarkStallXRequest(b *testing.B) {
 	testenv.Require(b, xwayland.Path(os.Getenv))
 	h := start(b, setup{open: softBackend, configure: flat, xwayland: func(error) {}}, benchMode)
-	conn, err := net.DialTimeout("unix", h.xSocket(), clientTimeout)
+	conn, err := net.DialTimeout("unix", h.xSocket(), testenv.HangLimit)
 	if err != nil {
 		b.Fatal(err)
 	}

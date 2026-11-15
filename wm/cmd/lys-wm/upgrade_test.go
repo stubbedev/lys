@@ -31,8 +31,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
-const reapLimit = 10 * time.Second
-
 func buildLysWM(t *testing.T) string {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "lys-wm")
@@ -102,7 +100,7 @@ func startBare(t *testing.T, binary, config string, extra ...string) *running {
 		}
 		return ""
 	}
-	for deadline := time.Now().Add(20 * time.Second); ; {
+	for deadline := time.Now().Add(testenv.HangLimit); ; {
 		socket, err := ipc.FindSocket(getenv)
 		if err == nil {
 			if _, err = ipc.Do(socket, ipc.Request{Request: wmipc.KindVersion}); err == nil {
@@ -120,7 +118,7 @@ func startBare(t *testing.T, binary, config string, extra ...string) *running {
 
 func (s *running) reap() {
 	s.t.Helper()
-	deadline := time.Now().Add(reapLimit)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		left, err := s.survivors()
 		if err != nil {
@@ -134,7 +132,7 @@ func (s *running) reap() {
 			for _, p := range left {
 				_ = unix.Kill(p.pid, unix.SIGKILL)
 			}
-			s.t.Errorf("processes of the session outlived it by %v: %+v", reapLimit, left)
+			s.t.Errorf("processes of the session outlived it by %v: %+v", testenv.HangLimit, left)
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -438,7 +436,7 @@ func (s *running) end() {
 		if err != nil {
 			s.t.Fatalf("the session ended with %v\n%s", err, s.log())
 		}
-	case <-time.After(20 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		s.t.Fatalf("the session did not end\n%s", s.log())
 	}
 	if _, err := os.Stat(s.waylandPath); !errors.Is(err, os.ErrNotExist) {

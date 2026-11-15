@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/ipc"
 	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
@@ -53,8 +54,8 @@ func TestHungClientsAreMarkedUnresponsive(t *testing.T) {
 	expectEvent(t, lines, `{"event":"unresponsive","window":1,"unresponsive":false}`)
 }
 
-func (r *rawClient) closedByServer(within time.Duration) bool {
-	deadline := time.Now().Add(within)
+func (r *rawClient) closedByServer() bool {
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		m, err := r.receive(deadline)
 		if err != nil {
@@ -87,7 +88,7 @@ func TestGarbageDisconnectsOnlyItsSender(t *testing.T) {
 	if _, err := unix.Write(r.conn.FD(), []byte{1, 0, 0, 0, 0, 0, 4, 0, 0xde, 0xad, 0xbe, 0xef}); err != nil {
 		t.Fatal(err)
 	}
-	if !r.closedByServer(fuzzTimeout) {
+	if !r.closedByServer() {
 		t.Fatal("a client that sent a 4-byte message was not disconnected")
 	}
 	survives(t, h)
@@ -109,13 +110,13 @@ func TestIDsOutsideTheClientRangeAreErrors(t *testing.T) {
 			if err := errors.Join(send(r), r.conn.Flush()); err != nil {
 				t.Fatal(err)
 			}
-			deadline := time.Now().Add(fuzzTimeout)
+			deadline := time.Now().Add(testenv.HangLimit)
 			m, err := r.receive(deadline)
 			if err != nil || m.ID != displayID || m.Opcode != 0 {
 				t.Fatalf("got %v, %v instead of a wl_display.error", m, err)
 			}
 			_ = m.Finish()
-			if !r.closedByServer(fuzzTimeout) {
+			if !r.closedByServer() {
 				t.Fatal("the client was not disconnected after its error")
 			}
 			survives(t, h)
@@ -143,7 +144,7 @@ func TestFDFloodsAreDisconnectedAndClosed(t *testing.T) {
 			break
 		}
 	}
-	if !r.closedByServer(fuzzTimeout) {
+	if !r.closedByServer() {
 		t.Fatal("a client that queued 2000 file descriptors was not disconnected")
 	}
 	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
@@ -157,7 +158,7 @@ func TestClientsThatNeverReadAreDisconnected(t *testing.T) {
 	t.Parallel()
 	h := StartUntraced(t, small)
 	r := dialRaw(t, h.Socket())
-	for deadline := time.Now().Add(2 * fuzzTimeout); ; {
+	for deadline := time.Now().Add(testenv.HangLimit); ; {
 		if time.Now().After(deadline) {
 			t.Fatal("a client that never read its events was still connected")
 		}
@@ -187,7 +188,7 @@ func TestStalledWindowsDoNotStallOthers(t *testing.T) {
 	hung.DispatchUntil("the window to map", w.Mapped)
 	var done bool
 	disconnected := false
-	for deadline := time.Now().Add(2 * fuzzTimeout); !disconnected; {
+	for deadline := time.Now().Add(testenv.HangLimit); !disconnected; {
 		if time.Now().After(deadline) {
 			t.Fatal("a client that never reads its frame callbacks was never disconnected")
 		}
@@ -350,7 +351,7 @@ func TestAnObjectThatCannotBeCreatedClosesItsFDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	var shmName, shmVersion uint32
-	if err := r.sync(time.Now().Add(fuzzTimeout), func(m *wire.Message) {
+	if err := r.sync(time.Now().Add(testenv.HangLimit), func(m *wire.Message) {
 		if m.ID == registry && m.Opcode == registryGlobal {
 			if name, iface, version := m.Uint(), m.Str(), m.Uint(); iface == "wl_shm" {
 				shmName, shmVersion = name, version
@@ -382,7 +383,7 @@ func TestAnObjectThatCannotBeCreatedClosesItsFDs(t *testing.T) {
 	}), r.conn.Flush(), unix.Close(pool)); err != nil {
 		t.Fatal(err)
 	}
-	if !r.closedByServer(fuzzTimeout) {
+	if !r.closedByServer() {
 		t.Fatal("a create_pool reusing a live id was accepted")
 	}
 	if err := r.conn.Close(); err != nil {

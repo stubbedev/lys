@@ -24,6 +24,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/render/soft"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const (
@@ -904,7 +905,7 @@ func (r *rig) runUntil(what string, done func() bool) error {
 	r.awaited, r.met, r.stuck, r.overdue = done, false, false, false
 	r.waits++
 	wait := r.waits
-	watchdog := time.AfterFunc(loopWait, func() {
+	watchdog := time.AfterFunc(testenv.HangLimit, func() {
 		r.l.Hand("the watchdog", func() error {
 			if wait == r.waits && r.awaited != nil {
 				r.overdue = true
@@ -926,16 +927,14 @@ func (r *rig) runUntil(what string, done func() bool) error {
 	case r.stuck:
 		r.t.Fatalf("%s never came: at %v the loop has no source ready, no timer armed and nothing running off it: %s", what, r.now()-rigEpoch, state)
 	case r.overdue:
-		r.t.Fatalf("waited %v for %s, with work off the loop that never returned: %s", loopWait, what, state)
+		r.t.Fatalf("waited %v for %s, with work off the loop that never returned: %s", testenv.HangLimit, what, state)
 	}
 	r.t.Fatalf("the loop stopped before %s: %s", what, state)
 	return nil
 }
 
-const loopWait = 10 * time.Second
-
 func loopUntil(l *loop.Loop, done func() bool) (bool, error) {
-	deadline := time.Now().Add(loopWait)
+	deadline := time.Now().Add(testenv.HangLimit)
 	met := false
 	var check *loop.Timer
 	check, err := l.AddTimer(func() error {

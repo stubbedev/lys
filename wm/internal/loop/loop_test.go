@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func newLoop(t *testing.T) *Loop {
@@ -73,7 +75,7 @@ func run(t *testing.T, l *Loop) {
 		if err != nil {
 			t.Fatalf("Run: %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("loop did not stop")
 	}
 }

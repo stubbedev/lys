@@ -97,12 +97,17 @@ type rig struct {
 
 func start(t *testing.T) *rig {
 	t.Helper()
+	return startReading(t, ioTimeout)
+}
+
+func startReading(t *testing.T, readTimeout time.Duration) *rig {
+	t.Helper()
 	l, err := loop.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 	r := &rig{t: t, loop: l, fake: &fake{}, path: filepath.Join(testenv.SocketDir(t), "lys-wm", "wayland-9.sock"), errs: make(chan error, 16)}
-	if r.server, err = Listen(l, r.path, r.fake, func(err error) { r.errs <- err }); err != nil {
+	if r.server, err = listen(l, r.path, r.fake, func(err error) { r.errs <- err }, readTimeout); err != nil {
 		t.Fatal(err)
 	}
 	r.fake.server = r.server
@@ -263,8 +268,8 @@ func next(t *testing.T, lines <-chan string) string {
 			t.Fatal("the event stream ended")
 		}
 		return l
-	case <-time.After(5 * time.Second):
-		t.Fatal("no event within 5s")
+	case <-time.After(testenv.HangLimit):
+		t.Fatalf("no event within %v", testenv.HangLimit)
 	}
 	return ""
 }
@@ -341,14 +346,20 @@ func TestSlowWatchersAreDropped(t *testing.T) {
 }
 
 func TestCloseWithClientsConnected(t *testing.T) {
-	r := start(t)
+	r := startReading(t, 2*testenv.HangLimit)
 	lines, stop := watch(t, r.path)
 	defer stop()
+	before := r.server.connected()
 	idle, err := net.Dial("unix", r.path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer idle.Close()
+	for deadline := time.Now().Add(testenv.HangLimit); r.server.connected() == before; time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the server did not take the idle client within %v", testenv.HangLimit)
+		}
+	}
 	closed := make(chan error, 1)
 	go func() { closed <- r.server.Close() }()
 	select {
@@ -356,12 +367,18 @@ func TestCloseWithClientsConnected(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	case <-time.After(ioTimeout / 2):
-		t.Fatal("Close waited for connected clients")
+	case <-time.After(testenv.HangLimit):
+		t.Fatalf("Close still waited for a connected client after %v, half the time the server waits for its request", testenv.HangLimit)
 	}
 	if _, ok := <-lines; ok {
 		t.Fatal("the event stream outlived the server")
 	}
+}
+
+func (s *Server) connected() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.conns)
 }
 
 func TestFindSocket(t *testing.T) {

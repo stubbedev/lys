@@ -61,7 +61,7 @@ func (h *Harness) watch() <-chan string {
 
 func expectEvent(t *testing.T, lines <-chan string, want string) {
 	t.Helper()
-	deadline := time.After(clientTimeout)
+	deadline := time.After(testenv.HangLimit)
 	for {
 		select {
 		case line, ok := <-lines:
@@ -316,7 +316,7 @@ func TestWorkspacePreviousThroughIPC(t *testing.T) {
 
 func (h *Harness) expectActive(c *Client) {
 	h.t.Helper()
-	deadline := time.Now().Add(clientTimeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		raw, err := ipc.Do(h.IPCSocket(), ipc.Request{Request: wmipc.KindActiveWindow})
 		if err != nil {

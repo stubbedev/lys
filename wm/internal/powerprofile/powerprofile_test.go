@@ -7,10 +7,11 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
-	"github.com/stubbedev/lys/lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type daemon struct {
@@ -59,7 +60,7 @@ type run struct {
 
 func (r *run) until(what string, done func() bool) {
 	r.t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	var check *loop.Timer
 	check, err := r.l.AddTimer(func() error {
 		if done() || time.Now().After(deadline) {

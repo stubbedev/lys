@@ -10,10 +10,11 @@ import (
 
 	"github.com/stubbedev/lys/lib/appearance"
 	"github.com/stubbedev/lys/lib/dbustest"
-	"github.com/stubbedev/lys/lib/third_party/godbus"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/render"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const (
@@ -89,7 +90,7 @@ func TestFollowingTheSameAccentAgainAsksForNoReload(t *testing.T) {
 
 func waitForProblem(t *testing.T, socket, want string) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		got := configProblems(t, socket)
 		for _, m := range got.Messages {

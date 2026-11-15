@@ -207,7 +207,7 @@ func TestARefusingCursorPlaneFallsBackToTheFrame(t *testing.T) {
 		if !strings.Contains(err.Error(), "drawing the cursor in the frame on HEADLESS-1: plane gone") {
 			t.Fatalf("reported %v", err)
 		}
-	case <-time.After(clientTimeout):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("the refusal was not reported")
 	}
 	h.Eventually("the arrow drawn in the frame", func(b *headless.Backend, _ *compositor.Compositor) bool {

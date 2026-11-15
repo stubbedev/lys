@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/ipc"
 	"github.com/stubbedev/lys/wm/internal/spawn"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 	"github.com/stubbedev/lys/wm/third_party/xgb"
 	"github.com/stubbedev/lys/wm/third_party/xgb/xproto"
@@ -25,12 +26,12 @@ import (
 
 func xConnect(t *testing.T, h *Harness) {
 	t.Helper()
-	conn, err := net.DialTimeout("unix", h.xSocket(), clientTimeout)
+	conn, err := net.DialTimeout("unix", h.xSocket(), testenv.HangLimit)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	if err := conn.SetDeadline(time.Now().Add(clientTimeout)); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(testenv.HangLimit)); err != nil {
 		t.Fatal(err)
 	}
 	setup := binary.LittleEndian.AppendUint16([]byte{'l', 0}, 11)
@@ -72,7 +73,7 @@ func TestXwaylandStartsOnTheFirstXClientAndAfterACrash(t *testing.T) {
 		if exit, ok := errors.AsType[*spawn.ExitError](err); !ok || !exit.Status.Signaled() || exit.Status.Signal() != syscall.SIGKILL {
 			t.Fatalf("reported %v, want Xwayland killed by SIGKILL", err)
 		}
-	case <-time.After(clientTimeout):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("the crash was not reported")
 	}
 	xConnect(t, h)
@@ -90,7 +91,7 @@ type xclient struct {
 
 func xDial(t *testing.T, h *Harness) *xclient {
 	t.Helper()
-	conn, err := net.DialTimeout("unix", h.xSocket(), clientTimeout)
+	conn, err := net.DialTimeout("unix", h.xSocket(), testenv.HangLimit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +283,7 @@ func TestAnXWindowIconifiesItself(t *testing.T) {
 		}
 		return binary.LittleEndian.Uint32(reply.Value)
 	}
-	deadline := time.Now().Add(clientTimeout)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for wmState() != iconicState {
 		if time.Now().After(deadline) {
 			t.Fatalf("WM_STATE %d, want iconic", wmState())
@@ -328,10 +329,10 @@ func TestXPropertyChangesReachTheWindow(t *testing.T) {
 	h.Eventually("the new WM_CLASS", titled("Other", "legacy"))
 }
 
-func (c *xclient) clientMessage(timeout time.Duration) xproto.ClientMessageEvent {
+func (c *xclient) clientMessage() xproto.ClientMessageEvent {
 	c.t.Helper()
-	for deadline := time.Now().Add(timeout); ; {
-		ev, open := c.event(time.Until(deadline))
+	for {
+		ev, open := c.event()
 		if !open {
 			c.t.Fatal("the X connection closed before a client message")
 		}
@@ -341,7 +342,7 @@ func (c *xclient) clientMessage(timeout time.Duration) xproto.ClientMessageEvent
 	}
 }
 
-func (c *xclient) event(timeout time.Duration) (xgb.Event, bool) {
+func (c *xclient) event() (xgb.Event, bool) {
 	type result struct {
 		ev   xgb.Event
 		open bool
@@ -363,7 +364,7 @@ func (c *xclient) event(timeout time.Duration) (xgb.Event, bool) {
 	select {
 	case r := <-got:
 		return r.ev, r.open
-	case <-time.After(timeout):
+	case <-time.After(testenv.HangLimit):
 		c.t.Fatal("no X event arrived")
 		return nil, false
 	}
@@ -397,7 +398,7 @@ func TestXWindowsCloseTheICCCMWay(t *testing.T) {
 		return len(ws) == 1 && ws[0].Focused
 	})
 	kill(h)
-	msg := polite.clientMessage(clientTimeout)
+	msg := polite.clientMessage()
 	if msg.Type != polite.atoms["WM_PROTOCOLS"] || xproto.Atom(msg.Data.Data32[0]) != polite.atoms["WM_DELETE_WINDOW"] {
 		t.Fatalf("closing a WM_DELETE_WINDOW window sent %#v", msg)
 	}
@@ -410,7 +411,7 @@ func TestXWindowsCloseTheICCCMWay(t *testing.T) {
 	})
 	kill(h)
 	for {
-		ev, open := rude.event(clientTimeout)
+		ev, open := rude.event()
 		if !open {
 			return
 		}
@@ -449,7 +450,7 @@ func TestXWindowsLearnTheirGeometryAndFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 	for {
-		ev, open := xc.event(clientTimeout)
+		ev, open := xc.event()
 		if !open {
 			t.Fatal("the X connection closed")
 		}
@@ -661,7 +662,7 @@ func TestHungXClientsAreMarkedUnresponsive(t *testing.T) {
 		ws := windowsOf(c)
 		return len(ws) == 1 && ws[0].Focused
 	})
-	ping := xc.clientMessage(clientTimeout)
+	ping := xc.clientMessage()
 	if ping.Type != xc.atoms["WM_PROTOCOLS"] || xproto.Atom(ping.Data.Data32[0]) != xc.atoms["_NET_WM_PING"] {
 		t.Fatalf("focusing the window sent %#v, not a _NET_WM_PING", ping)
 	}
@@ -768,7 +769,7 @@ func TestAnXwaylandThatLostItsWindowManagerIsRestarted(t *testing.T) {
 		if !strings.Contains(err.Error(), "killed because its window manager failed") {
 			t.Fatalf("reported %v", err)
 		}
-	case <-time.After(clientTimeout):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("Xwayland kept running without its window manager")
 	}
 	xConnect(t, h)

@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -21,7 +22,7 @@ func quickSwitch(cfg *compositor.Config) {
 
 func firstWorkspaceEvent(t *testing.T, lines <-chan string) string {
 	t.Helper()
-	deadline := time.After(clientTimeout)
+	deadline := time.After(testenv.HangLimit)
 	for {
 		select {
 		case line, ok := <-lines:

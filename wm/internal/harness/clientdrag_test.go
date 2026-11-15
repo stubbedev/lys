@@ -320,7 +320,7 @@ func TestAClientWindowMenuRequestIsAnnounced(t *testing.T) {
 		request(t, c, send)
 		h.dispatch("submap menu-barrier")
 		var got []string
-		deadline := time.After(clientTimeout)
+		deadline := time.After(testenv.HangLimit)
 		for {
 			select {
 			case line := <-lines:
@@ -483,20 +483,22 @@ func TestARealGTKHeaderBarDragMovesItsWindow(t *testing.T) {
 			h.Eventually("GTK drew itself at its floating size", showing(5, 5, previewBackground))
 			at := image.Pt(from.Min.X+from.Dx()/3, from.Min.Y+12)
 			presses := 0
-			for ; presses < 5 && !h.dragging(); presses++ {
+			giveUp := time.Now().Add(testenv.HangLimit)
+			for answer := 250 * time.Millisecond; !h.dragging(); answer *= 2 {
+				if time.Now().After(giveUp) {
+					t.Fatalf("GTK never asked lys-wm to move its window in %d header bar drags within %v", presses, testenv.HangLimit)
+				}
 				h.movePointer(at)
 				h.button(true)
 				h.movePointer(at.Add(image.Pt(20, 0)))
-				deadline := time.Now().Add(time.Second)
+				presses++
+				deadline := time.Now().Add(answer)
 				for !h.dragging() && time.Now().Before(deadline) {
 					time.Sleep(10 * time.Millisecond)
 				}
 				if !h.dragging() {
 					h.button(false)
 				}
-			}
-			if !h.dragging() {
-				t.Fatalf("GTK never asked lys-wm to move its window in %d header bar drags", presses)
 			}
 			h.movePointer(at.Add(image.Pt(80, 40)))
 			h.button(false)

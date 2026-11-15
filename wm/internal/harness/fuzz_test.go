@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
@@ -21,7 +22,6 @@ const (
 	registryBind    wire.Opcode   = 0
 	registryGlobal  wire.Opcode   = 0
 	callbackDone    wire.Opcode   = 0
-	fuzzTimeout                   = 2 * time.Second
 	createdSelector               = 0xf0
 )
 
@@ -124,7 +124,7 @@ func (r *rawClient) bindAll() []wire.ObjectID {
 		iface         string
 	}
 	var globals []advertised
-	if err := r.sync(time.Now().Add(fuzzTimeout), func(m *wire.Message) {
+	if err := r.sync(time.Now().Add(testenv.HangLimit), func(m *wire.Message) {
 		if m.ID == registry && m.Opcode == registryGlobal {
 			globals = append(globals, advertised{name: m.Uint(), iface: m.Str(), version: m.Uint()})
 		}
@@ -182,7 +182,7 @@ func FuzzRequests(f *testing.F) {
 		r := dialRaw(t, h.Socket())
 		r.play(r.bindAll(), script)
 		if err := r.conn.Flush(); err == nil {
-			_ = r.sync(time.Now().Add(fuzzTimeout), func(*wire.Message) {})
+			_ = r.sync(time.Now().Add(testenv.HangLimit), func(*wire.Message) {})
 		}
 		h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
 		c := testclient.Connect(t, h.Socket())

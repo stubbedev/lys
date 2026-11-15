@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const own logind.SessionID = "1"
@@ -66,7 +67,7 @@ func (e *events) ActiveChanged(active bool) error {
 
 func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); !cond(); {
+	for deadline := time.Now().Add(testenv.HangLimit); !cond(); {
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for %s", what)
 		}

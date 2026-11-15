@@ -18,6 +18,7 @@ import (
 	csb "github.com/stubbedev/lys/wm/internal/protocol/client/systembell"
 	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -59,7 +60,7 @@ func parseStreamed(t *testing.T, line string) streamed {
 
 func awaitStreamed(t *testing.T, lines <-chan string, what string, match func(streamed) bool) streamed {
 	t.Helper()
-	deadline := time.After(clientTimeout)
+	deadline := time.After(testenv.HangLimit)
 	var seen []string
 	for {
 		select {

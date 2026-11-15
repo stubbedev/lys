@@ -65,7 +65,7 @@ func TestDesktopIsDrawnOnEveryOutput(t *testing.T) {
 func TestWaylandInfoConnects(t *testing.T) {
 	t.Parallel()
 	h := Start(t, small)
-	out := h.Run("wayland-info").Wait(t, 10*time.Second)
+	out := h.Run("wayland-info").Wait(t)
 	if trace := h.Trace(); !strings.Contains(trace, "wl_display@1.get_registry(new id wl_registry@2)") {
 		t.Fatalf("wayland-info never reached the compositor:\n%s", trace)
 	}

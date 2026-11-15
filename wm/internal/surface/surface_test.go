@@ -667,7 +667,7 @@ func TestDestroyingSurfaces(t *testing.T) {
 	if err := e.client.Close(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		var n int
 		e.on(func() { n = len(e.rec.destroyed) })

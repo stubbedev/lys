@@ -20,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const seatVar = "LYS_WM_SEAT"
@@ -215,7 +216,7 @@ func (s *seat) until(what string, done func() bool) {
 		s.t.Fatal(err)
 	}
 	if !met {
-		s.t.Fatalf("waited %v for %s: %d commits, last errors %v, reports %v", loopWait, what, len(s.dev.commits), s.dev.errs[max(0, len(s.dev.errs)-4):], s.reports)
+		s.t.Fatalf("waited %v for %s: %d commits, last errors %v, reports %v", testenv.HangLimit, what, len(s.dev.commits), s.dev.errs[max(0, len(s.dev.errs)-4):], s.reports)
 	}
 	if len(s.reports) > 0 {
 		s.t.Fatalf("%s: the backend reported %v", what, s.reports)

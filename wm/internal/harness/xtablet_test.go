@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/tabletinput"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func TestAPensPressureReachesAnXClientThroughXwayland(t *testing.T) {
@@ -20,7 +21,7 @@ func TestAPensPressureReachesAnXClientThroughXwayland(t *testing.T) {
 	h.Eventually("the X window tiled", func(_ *headless.Backend, c *compositor.Compositor) bool { return len(windowsOf(c)) == 1 })
 	addTablet(h)
 	events := h.RunX("stdbuf", "-oL", "xinput", "test-xi2", "--root")
-	for deadline := time.Now().Add(clientTimeout); !strings.Contains(events.Output(), "EVENT type"); {
+	for deadline := time.Now().Add(testenv.HangLimit); !strings.Contains(events.Output(), "EVENT type"); {
 		if time.Now().After(deadline) {
 			t.Fatalf("xinput test-xi2 saw no pointer motion:\n%s", events.Output())
 		}
@@ -36,8 +37,8 @@ func TestAPensPressureReachesAnXClientThroughXwayland(t *testing.T) {
 	tablet(h, &tabletinput.Proximity{Time: time.Millisecond, Tool: pen, In: true, Axes: at(0.5, 0.5)},
 		&tabletinput.Tip{Time: 2 * time.Millisecond, Tool: pen, Down: true, Axes: draw},
 		&tabletinput.Motion{Time: 3 * time.Millisecond, Tool: pen, Axes: harder})
-	events.Expect(t, "2: 49151.00", 10*time.Second)
-	devices := h.RunX("xinput", "list", "--name-only").Wait(t, 10*time.Second)
+	events.Expect(t, "2: 49151.00")
+	devices := h.RunX("xinput", "list", "--name-only").Wait(t)
 	if !strings.Contains(devices, "xwayland-tablet stylus") {
 		t.Fatalf("Xwayland made no tablet stylus device:\n%s", devices)
 	}

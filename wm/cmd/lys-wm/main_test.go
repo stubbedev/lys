@@ -251,7 +251,7 @@ func startSessionOnBus(t *testing.T, config, bus string) (string, string, <-chan
 		}
 		return ""
 	}
-	for deadline := time.Now().Add(10 * time.Second); ; {
+	for deadline := time.Now().Add(testenv.HangLimit); ; {
 		socket, err := ipc.FindSocket(getenv)
 		if err == nil {
 			if _, err = ipc.Do(socket, ipc.Request{Request: wmipc.KindVersion}); err == nil {
@@ -277,7 +277,7 @@ func expectCleanExit(t *testing.T, socket string, done <-chan error, how string)
 		if err != nil {
 			t.Fatal(err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		t.Fatalf("lys-wm ignored %s", how)
 	}
 	if _, err := os.Stat(socket); !errors.Is(err, fs.ErrNotExist) {

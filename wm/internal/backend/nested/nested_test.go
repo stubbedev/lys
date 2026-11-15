@@ -70,7 +70,7 @@ func startSway(t *testing.T) *sway {
 			t.Logf("sway log:\n%s", log.String())
 		}
 	})
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		sockets, _ := filepath.Glob(filepath.Join(dir, "wayland-[0-9]*"))
 		ipc, _ := filepath.Glob(filepath.Join(dir, "sway-ipc.*.sock"))
@@ -119,7 +119,7 @@ func (s *sway) pixel(t *testing.T, x, y int) [3]byte {
 func (s *sway) eventuallyShows(t *testing.T, x, y int) {
 	t.Helper()
 	want := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for got := s.pixel(t, x, y); got != want; got = s.pixel(t, x, y) {
 		if time.Now().After(deadline) {
 			t.Fatalf("host pixel (%d, %d) is %v, want lys-wm's background %v", x, y, got, want)
@@ -176,7 +176,7 @@ func TestNestedInSway(t *testing.T) {
 	host.eventuallyShows(t, 320, 240)
 
 	host.run(t, "swaymsg", "output", "HEADLESS-1", "mode", "800x600")
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for {
 		var size image.Point
 		on(func() { size = b.Outputs()[0].State().Mode.Size })
@@ -196,7 +196,7 @@ func TestNestedInSway(t *testing.T) {
 		if !errors.Is(err, ErrClosed) {
 			t.Fatalf("Run = %v, want ErrClosed after the host closed the window", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(testenv.HangLimit):
 		t.Fatal("lys-wm kept running after its last host window closed")
 	}
 }

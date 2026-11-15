@@ -314,7 +314,7 @@ func (e *env) surface() (*cw.WlSurface, *cls.WpLinuxDrmSyncobjSurfaceV1) {
 
 func (e *env) waitFor(what string, cond func() bool) {
 	e.t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); !cond(); {
+	for deadline := time.Now().Add(testenv.HangLimit); !cond(); {
 		if time.Now().After(deadline) {
 			e.t.Fatalf("timed out waiting for %s", what)
 		}

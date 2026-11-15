@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const rightEdge ipc.BarrierID = 7
@@ -74,7 +75,7 @@ func (r *inputCaptureRig) next() string {
 			r.t.Fatal("the capture stream ended")
 		}
 		return e
-	case <-time.After(clientTimeout):
+	case <-time.After(testenv.HangLimit):
 		r.t.Fatal("no capture event")
 	}
 	return ""

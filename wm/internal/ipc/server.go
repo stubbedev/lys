@@ -57,13 +57,14 @@ type watcher struct {
 }
 
 type Server struct {
-	loop    *loop.Loop
-	handler Handler
-	report  func(error)
-	ln      *net.UnixListener
-	done    chan struct{}
-	closing sync.Once
-	wg      sync.WaitGroup
+	loop        *loop.Loop
+	handler     Handler
+	report      func(error)
+	ln          *net.UnixListener
+	readTimeout time.Duration
+	done        chan struct{}
+	closing     sync.Once
+	wg          sync.WaitGroup
 
 	mu       sync.Mutex
 	conns    map[*net.UnixConn]struct{}
@@ -78,6 +79,10 @@ type Server struct {
 }
 
 func Listen(l *loop.Loop, path string, h Handler, report func(error)) (*Server, error) {
+	return listen(l, path, h, report, ioTimeout)
+}
+
+func listen(l *loop.Loop, path string, h Handler, report func(error), readTimeout time.Duration) (*Server, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("ipc: create the socket directory: %w", err)
 	}
@@ -88,11 +93,16 @@ func Listen(l *loop.Loop, path string, h Handler, report func(error)) (*Server, 
 	if err != nil {
 		return nil, fmt.Errorf("ipc: listen: %w", err)
 	}
-	ln.SetUnlinkOnClose(true)
-	s := &Server{loop: l, handler: h, report: report, ln: ln, done: make(chan struct{}), conns: map[*net.UnixConn]struct{}{}, watching: map[*net.UnixConn]struct{}{}}
-	l.BeforeWait(s.publish)
+	s := newServer(l, ln, h, report, readTimeout)
 	s.Start()
 	return s, nil
+}
+
+func newServer(l *loop.Loop, ln *net.UnixListener, h Handler, report func(error), readTimeout time.Duration) *Server {
+	ln.SetUnlinkOnClose(true)
+	s := &Server{loop: l, handler: h, report: report, ln: ln, readTimeout: readTimeout, done: make(chan struct{}), conns: map[*net.UnixConn]struct{}{}, watching: map[*net.UnixConn]struct{}{}}
+	l.BeforeWait(s.publish)
+	return s
 }
 
 func (s *Server) Close() error {
@@ -254,10 +264,7 @@ func Adopt(l *loop.Loop, file *os.File, h Handler, report func(error)) (*Server,
 	if !ok {
 		return nil, errors.Join(fmt.Errorf("ipc: adopted a %T listener", fl), fl.Close())
 	}
-	ln.SetUnlinkOnClose(true)
-	s := &Server{loop: l, handler: h, report: report, ln: ln, done: make(chan struct{}), conns: map[*net.UnixConn]struct{}{}, watching: map[*net.UnixConn]struct{}{}}
-	l.BeforeWait(s.publish)
-	return s, nil
+	return newServer(l, ln, h, report, ioTimeout), nil
 }
 
 func (s *Server) Start() {
@@ -271,8 +278,8 @@ func (s *Server) forget(conn *net.UnixConn) {
 	_ = conn.Close()
 }
 
-func readRequest(conn *net.UnixConn, r *bufio.Reader) ([]byte, error) {
-	if err := conn.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
+func readRequest(conn *net.UnixConn, r *bufio.Reader, timeout time.Duration) ([]byte, error) {
+	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 		return nil, err
 	}
 	line, err := r.ReadSlice('\n')
@@ -346,7 +353,7 @@ func onLoop[T any](s *Server, f func() (T, error)) (T, error) {
 func (s *Server) serve(conn *net.UnixConn) {
 	defer s.forget(conn)
 	r := bufio.NewReaderSize(conn, maxRequest)
-	line, err := readRequest(conn, r)
+	line, err := readRequest(conn, r, s.readTimeout)
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
 			s.reply(conn, nil, err)

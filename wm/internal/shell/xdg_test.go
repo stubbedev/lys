@@ -24,6 +24,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/server"
 	"github.com/stubbedev/lys/wm/internal/shm"
 	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wire"
 	"github.com/stubbedev/lys/wm/internal/wlclient"
 )
@@ -542,7 +543,7 @@ func TestPingMarksUnresponsiveClients(t *testing.T) {
 		t.Fatal("a client that answered was marked unresponsive")
 	}
 	ping()
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for !slices.Contains(e.log(), "responsive false") {
 		if time.Now().After(deadline) {
 			t.Fatal("a client that never answered stayed responsive")
