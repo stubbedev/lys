@@ -60,12 +60,12 @@ func newNightlightCard(ctx ModuleContext, font render.Font, px float64, svc *nig
 	return c
 }
 
-func nightlightTemperature(v float64) int {
-	return int(math.Round(v/nightlightTemperatureStep)) * nightlightTemperatureStep
+func nightlightTemperature(v float64) uint32 {
+	return uint32(math.Round(v/nightlightTemperatureStep)) * nightlightTemperatureStep
 }
 
-func kelvinText(kelvin int) string {
-	return i18n.T("dropdown-brightness-nightlight-kelvin", i18n.Str("kelvin", strconv.Itoa(kelvin)))
+func kelvinText(kelvin uint32) string {
+	return i18n.T("dropdown-brightness-nightlight-kelvin", i18n.Str("kelvin", strconv.FormatUint(uint64(kelvin), 10)))
 }
 
 func (c *nightlightCard) follow(life context.Context) {

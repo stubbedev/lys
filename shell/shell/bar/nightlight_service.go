@@ -480,12 +480,12 @@ func (s *nightlightService) switchTo(on bool) {
 	s.stopFilter()
 }
 
-func (s *nightlightService) setTemperature(kelvin int) error {
-	night, err := nightlight.NewSetting(kelvin, int(s.cfg.Gamma))
+func (s *nightlightService) setTemperature(kelvin uint32) error {
+	night, err := nightlight.NewSetting(int(kelvin), int(s.cfg.Gamma))
 	if err != nil {
 		return err
 	}
-	s.applyTemperature(night)
+	s.applyTemperature(kelvin, night)
 	s.ctx.setConfig(nightlightTemperaturePath, int64(kelvin))
 	return nil
 }
@@ -496,7 +496,7 @@ func (s *nightlightService) reconfigure(cfg config.NightlightConfig) {
 	}
 	night, err := nightlight.NewSetting(int(cfg.Temperature), int(cfg.Gamma))
 	if err == nil {
-		s.applyTemperature(night)
+		s.applyTemperature(cfg.Temperature, night)
 		return
 	}
 	log.Printf("nightlight: %v", err)
@@ -509,8 +509,8 @@ func (s *nightlightService) reconfigure(cfg config.NightlightConfig) {
 	s.notify()
 }
 
-func (s *nightlightService) applyTemperature(night nightlight.Setting) {
-	s.cfg.Temperature = uint32(night.Temp())
+func (s *nightlightService) applyTemperature(kelvin uint32, night nightlight.Setting) {
+	s.cfg.Temperature = kelvin
 	s.night, s.nightErr = night, nil
 	switch {
 	case !s.enabled:
