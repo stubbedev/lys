@@ -46,12 +46,13 @@ func (r Result) MarshalText() ([]byte, error) {
 }
 
 func (r *Result) UnmarshalText(text []byte) error {
-	i := slices.Index(resultNames[:], string(text))
-	if i <= 0 {
-		return fmt.Errorf("fprint: unknown result %q", text)
+	for candidate := Match; candidate <= Stopped; candidate++ {
+		if resultNames[candidate] == string(text) {
+			*r = candidate
+			return nil
+		}
 	}
-	*r = Result(i)
-	return nil
+	return fmt.Errorf("fprint: unknown result %q", text)
 }
 
 type verifyStatus struct {

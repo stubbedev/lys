@@ -19,7 +19,7 @@ func TestNoResultHasNoName(t *testing.T) {
 	if text, err := Result(0).MarshalText(); err == nil {
 		t.Errorf("the zero result is named %q", text)
 	}
-	if text, err := Result(Stopped + 1).MarshalText(); err == nil {
+	if text, err := (Stopped + 1).MarshalText(); err == nil {
 		t.Errorf("a result past the last is named %q", text)
 	}
 }
