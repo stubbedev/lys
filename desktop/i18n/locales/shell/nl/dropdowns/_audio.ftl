@@ -9,3 +9,4 @@ dropdown-audio-no-devices-title = Geen audioapparaten
 dropdown-audio-no-devices-description = Geen audio-uitvoer- of -invoerapparaten gevonden
 dropdown-audio-no-apps = Geen toepassingen die geluid afspelen
 dropdown-audio-settings = Geluidsinstellingen
+dropdown-audio-capture = Opname

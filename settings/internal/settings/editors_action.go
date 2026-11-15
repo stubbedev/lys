@@ -202,15 +202,12 @@ func actionChoices(module string) []actionChoice {
 			shell("Toggle idle inhibit", "lys-shell idle toggle"),
 			shell("Toggle idle inhibit (indefinite)", "lys-shell idle toggle --indefinite"),
 		}
-	case "volume":
+	case "audio":
 		return []actionChoice{
-			shell("Toggle output mute", "lys-shell audio output-mute"), shell("Volume up (+5%)", "lys-shell audio output-volume +5"),
-			shell("Volume down (-5%)", "lys-shell audio output-volume -5"), dropdown("Open audio panel", "audio"),
-		}
-	case "microphone":
-		return []actionChoice{
-			shell("Toggle input mute", "lys-shell audio input-mute"), shell("Mic volume up (+5%)", "lys-shell audio input-volume +5"),
-			shell("Mic volume down (-5%)", "lys-shell audio input-volume -5"), dropdown("Open audio panel", "audio"),
+			shell("Toggle speaker mute", "lys-shell audio output-mute"), shell("Speaker volume up (+5%)", "lys-shell audio output-volume +5"),
+			shell("Speaker volume down (-5%)", "lys-shell audio output-volume -5"), shell("Toggle microphone mute", "lys-shell audio input-mute"),
+			shell("Microphone volume up (+5%)", "lys-shell audio input-volume +5"), shell("Microphone volume down (-5%)", "lys-shell audio input-volume -5"),
+			dropdown("Open audio panel", "audio"),
 		}
 	case "cava":
 		return []actionChoice{dropdown("Open audio panel", "audio")}

@@ -1,5 +1,3 @@
-dropdown-screen-share-title = Partilha de ecrã
-dropdown-screen-share-empty = Nada está a ser partilhado.
 dropdown-screen-share-stop = Parar
 dropdown-screen-share-unknown-app = Uma aplicação
 dropdown-screen-share-remote = { $app } (controlo remoto)

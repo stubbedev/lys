@@ -37,7 +37,7 @@ bar:
     - monitor: "*"
       left: [dashboard, hyprland-workspaces]
       center: [clock]
-      right: [volume, network, bluetooth, battery]
+      right: [audio, network, bluetooth, battery]
 ```
 
 ## Documentation

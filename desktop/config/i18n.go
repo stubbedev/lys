@@ -10,6 +10,7 @@ import (
 // key, the key the settings domain's FTL carries.
 var i18nPrefixes = map[string]string{
 	"AnimationsConfig":          "settings-animations",
+	"AudioConfig":               "settings-modules-audio",
 	"BarConfig":                 "settings-bar",
 	"BackgroundAppsConfig":      "settings-modules-background-apps",
 	"BatteryConfig":             "settings-modules-battery",
@@ -47,7 +48,6 @@ var i18nPrefixes = map[string]string{
 	"MailConfig":                "settings-modules-mail",
 	"MangoWorkspacesConfig":     "settings-modules-mango-workspaces",
 	"MediaConfig":               "settings-modules-media",
-	"MicrophoneConfig":          "settings-modules-microphone",
 	"NetstatConfig":             "settings-modules-netstat",
 	"NetworkConfig":             "settings-modules-network",
 	"NiriWorkspacesConfig":      "settings-modules-niri-workspaces",
@@ -61,8 +61,6 @@ var i18nPrefixes = map[string]string{
 	"RamConfig":                 "settings-modules-ram",
 	"RecorderConfig":            "settings-modules-recorder",
 	"RecorderReplayConfig":      "settings-modules-recorder-replay",
-	"PrivacyConfig":             "settings-modules-privacy",
-	"ScreenShareConfig":         "settings-modules-screen-share",
 	"ScreenshotConfig":          "settings-modules-screenshot",
 	"SeparatorConfig":           "settings-modules-separator",
 	"SharePickerConfig":         "settings-share-picker",
@@ -72,7 +70,6 @@ var i18nPrefixes = map[string]string{
 	"SystrayConfig":             "settings-modules-systray",
 	"TreemanConfig":             "settings-modules-treeman",
 	"UserSessionConfig":         "settings-modules-dashboard-user-session",
-	"VolumeConfig":              "settings-modules-volume",
 	"WallpaperConfig":           "settings-wallpaper",
 	"WeatherConfig":             "settings-modules-weather",
 	"WindowTitleConfig":         "settings-modules-window-title",

@@ -42,7 +42,7 @@ lys-shell comes from the lys flake as `nixosModules.lys-shell`, `homeModules.lys
           monitor = "*";
           left = [ "dashboard" ];
           center = [ "clock" ];
-          right = [ "battery" "volume" "systray" ];
+          right = [ "battery" "audio" "systray" ];
         }
       ];
       modules.weather = {

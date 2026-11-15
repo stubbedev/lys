@@ -324,13 +324,13 @@ type Module interface {
 type Factory func(ctx ModuleContext) (Module, error)
 
 var factories = map[string]Factory{
+	"audio":               newAudio,
 	"battery":             newBattery,
 	"brightness":          newBrightness,
 	"keyboard-input":      newKeyboardLayout,
 	"media":               newMedia,
 	"minimized-windows":   newMinimizedWindows,
 	"bluetooth":           newBluetooth,
-	"microphone":          newMicrophone,
 	"network":             newNetwork,
 	"window-title":        newWindowTitle,
 	"cpu":                 newCpu,
@@ -351,7 +351,6 @@ var factories = map[string]Factory{
 	"notifications":       newNotification,
 	"recorder":            newRecorder,
 	"systray":             newSystray,
-	"volume":              newVolume,
 	"clock":               newClock,
 	"cava":                newCava,
 	"hyprland-workspaces": newHyprlandWorkspaces,
@@ -360,8 +359,6 @@ var factories = map[string]Factory{
 	"mango-workspaces":    newMangoWorkspaces,
 	"lys-wm-workspaces":   newLysWMWorkspaces,
 	"workspaces":          newWorkspaces,
-	"privacy":             newPrivacy,
-	"screen-share":        newScreenShare,
 	"background-apps":     newBackgroundApps,
 	"screenshot":          newScreenshot,
 	"separator":           newSeparator,

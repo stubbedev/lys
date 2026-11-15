@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/secrets/vault"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -41,7 +42,7 @@ func TestEveryModuleRendersExactlyItsDeclaredPlaceholders(t *testing.T) {
 		"modules.battery.format":        renderedNames(batteryVars(45)),
 		"modules.bitwarden.format":      renderedNames(bitwardenVars(vault.Status{})),
 		"modules.brightness.format":     renderedNames(percentVars(65)),
-		"modules.volume.format":         renderedNames(percentVars(45)),
+		"modules.audio.format":          renderedNames(audioVars(pulse.Device{}, &pulse.Device{})),
 		"modules.cpu.format":            renderedNames(cpuContext(sysinfo.CPU{})),
 		"modules.ram.format":            renderedNames(ramContext(sysinfo.Memory{})),
 		"modules.storage.format":        renderedNames(storageContext(sysinfo.Storage{})),

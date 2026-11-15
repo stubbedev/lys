@@ -197,6 +197,7 @@ type audioState struct {
 	outputs, inputs       []audioDevice
 	defaultOut, defaultIn *audioDevice
 	streams               []pulse.AudioStream
+	capture               captureState
 }
 
 func outputEntry(d pulse.Device) audioDevice {
@@ -236,9 +237,9 @@ func readAudioState(ctx context.Context, src pulse.Source) audioState {
 	return s
 }
 
-// audioView is the audio dropdown: the main page (the default output
-// and input sections over the application volumes, or the empty state)
-// and a device picker page per kind.
+// audioView is the audio dropdown: the main page (what captures the
+// user, over the default output and input sections and the application
+// volumes, or the empty state) and a device picker page per kind.
 type audioView struct {
 	ctx  ModuleContext
 	font render.Font
@@ -248,6 +249,7 @@ type audioView struct {
 	pages *widget.Stack
 	main  *widget.Stack
 
+	capture       *captureSection
 	output, input *volumeSection
 	apps          *appVolumes
 	pickers       [2]*devicePicker
@@ -284,7 +286,11 @@ func audioDropdown(ctx ModuleContext) widget.Widget {
 	v.pickers[audioInput] = newDevicePicker(v, audioInput, i18n.T("dropdown-audio-input-devices"))
 	v.pages = pageStack()
 	pageSlide(v.pages, ctx.Config)
-	v.pages.Add("main", v.main)
+	v.capture = newCaptureSection(ctx, font, px)
+	mainPage := widget.NewBox(widget.Column, 2*widget.Current().Spacing, 0)
+	mainPage.Append(v.capture, false)
+	mainPage.Append(v.main, true)
+	v.pages.Add("main", mainPage)
 	v.pages.Add("output", v.pickers[audioOutput])
 	v.pages.Add("input", v.pickers[audioInput])
 	v.pages.Show("main")
@@ -293,15 +299,24 @@ func audioDropdown(ctx ModuleContext) widget.Widget {
 	v.Append(page, true)
 
 	v.apply(audioState{})
-	if src := ctx.Pulse; src != nil {
-		v.reads = newRefresher(ctx, v.life, func(c context.Context) audioState { return readAudioState(c, src) }, v.apply)
-		v.startFollowing()
-	}
+	v.reads = newRefresher(ctx, v.life, v.read, v.apply)
+	v.startFollowing()
 	return v
+}
+
+// read is the devices and streams there are, and what captures.
+func (v *audioView) read(ctx context.Context) audioState {
+	var s audioState
+	if src := v.ctx.Pulse; src != nil {
+		s = readAudioState(ctx, src)
+	}
+	s.capture = readCapture(v.ctx)
+	return s
 }
 
 // apply pushes one state into every part.
 func (v *audioView) apply(s audioState) {
+	v.capture.apply(s.capture)
 	v.output.apply(s.defaultOut, len(s.outputs) > 0)
 	v.input.apply(s.defaultIn, len(s.inputs) > 0)
 	if len(s.outputs) > 0 || len(s.inputs) > 0 {
@@ -340,9 +355,15 @@ func (v *audioView) call(what string, fn func(context.Context, pulse.Source) err
 }
 
 func (v *audioView) follow(life context.Context) {
-	if src := v.ctx.Pulse; src != nil {
-		followInto(life, "audio", infallibleStop(src.Subscribe), v.reads)
+	for _, feed := range captureFeeds(v.ctx) {
+		followTicks(life, feed, v.reads.request)
 	}
+	src := v.ctx.Pulse
+	if src == nil {
+		v.reads.first()
+		return
+	}
+	followInto(life, "audio", infallibleStop(src.Subscribe), v.reads)
 }
 
 // volumeSection is the default device as an Item (its
@@ -516,7 +537,7 @@ func newAppVolumes(v *audioView) *appVolumes {
 // apply rebuilds when the rows' identity changed (the stream list),
 // otherwise pushes each stream's volume and mute into its row.
 func (a *appVolumes) apply(streams []pulse.AudioStream) {
-	rows := appVolumeRows(streams, a.view.ctx.Config.Volume.DropdownAppIcons, widget.ThemeIconExists)
+	rows := appVolumeRows(streams, a.view.ctx.Config.Audio.DropdownAppIcons, widget.ThemeIconExists)
 	same := a.items != nil && slices.EqualFunc(rows, a.rows, func(x, y appVolume) bool {
 		return x.key == y.key && x.name == y.name && x.icon == y.icon
 	})

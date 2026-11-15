@@ -106,7 +106,7 @@ func TestResolveOr(t *testing.T) {
 func TestThresholdDecodeEveryKey(t *testing.T) {
 	path := writeConfig(t, `
 modules:
-  volume:
+  audio:
     thresholds:
       - above: 70
         below: 90.5
@@ -121,10 +121,10 @@ modules:
 	if err != nil {
 		t.Fatalf("LoadFile: %v", err)
 	}
-	if len(cfg.Volume.Thresholds) != 1 {
-		t.Fatalf("thresholds = %+v", cfg.Volume.Thresholds)
+	if len(cfg.Audio.Thresholds) != 1 {
+		t.Fatalf("thresholds = %+v", cfg.Audio.Thresholds)
 	}
-	e := cfg.Volume.Thresholds[0]
+	e := cfg.Audio.Thresholds[0]
 	if *e.Above != 70 || *e.Below != 90.5 || e.IconColor == nil || e.IconColor.Token != TokenStatusWarning {
 		t.Errorf("bounds/icon = %+v", e)
 	}
@@ -142,7 +142,7 @@ func TestThresholdDecodeRejectsBadEntries(t *testing.T) {
 	} {
 		// Every module shares the one decoder; cpu goes through the
 		// sysinfo path, battery through its own table.
-		for _, module := range []string{"battery", "cpu", "volume", "brightness", "notifications"} {
+		for _, module := range []string{"battery", "cpu", "audio", "brightness", "notifications"} {
 			path := writeConfig(t, "modules:\n  "+module+":\n    thresholds:\n      - "+tc.body+"\n")
 			_, err := LoadFile(path)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {

@@ -114,7 +114,7 @@ func TestABarButtonIsNamedByItsTitleAndState(t *testing.T) {
 func TestAnUnchangedStateMarksNothing(t *testing.T) {
 	cfg := config.Defaults()
 	b := newBarButton(newTestContext(t, cfg), nil, "")
-	b.configure("Volume", moduleButton("volume", cfg), config.ClickConfig{}, nil)
+	b.configure("Audio", moduleButton("audio", cfg), config.ClickConfig{}, nil)
 	b.SetLabel("40%")
 	b.SetDescription("40%, muted")
 	before := widget.A11yGeneration()
@@ -164,4 +164,4 @@ func modulesBuiltWithoutServices(t *testing.T) []builtModule {
 
 // modulesThatNeedNoService are modules every bar can show, with no
 // service running.
-var modulesThatNeedNoService = []string{"clock", "dashboard", "idle-inhibit", "power", "privacy", "screenshot"}
+var modulesThatNeedNoService = []string{"clock", "dashboard", "idle-inhibit", "power", "screenshot"}

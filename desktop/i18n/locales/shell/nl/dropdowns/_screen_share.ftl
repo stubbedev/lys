@@ -1,5 +1,3 @@
-dropdown-screen-share-title = Scherm delen
-dropdown-screen-share-empty = Er wordt niets gedeeld.
 dropdown-screen-share-stop = Stoppen
 dropdown-screen-share-unknown-app = Een toepassing
 dropdown-screen-share-remote = { $app } (bediening op afstand)

@@ -60,11 +60,11 @@ func TestFindLayoutInheritsEmptySectionsFromExtends(t *testing.T) {
 
 func TestFindLayoutExtendsKeepsOwnNonEmptySections(t *testing.T) {
 	layouts := []config.BarLayout{
-		{Monitor: "DP-1", Extends: new("*"), Left: []config.BarItem{{Module: "battery"}}, Right: []config.BarItem{{Module: "volume"}}},
+		{Monitor: "DP-1", Extends: new("*"), Left: []config.BarItem{{Module: "battery"}}, Right: []config.BarItem{{Module: "audio"}}},
 		{Monitor: "*", Center: []config.BarItem{{Module: "clock"}}, Right: []config.BarItem{{Module: "power"}}},
 	}
 	layout, _ := FindLayout(layouts, "DP-1")
-	if len(layout.Right) != 1 || layout.Right[0].Module != "volume" {
+	if len(layout.Right) != 1 || layout.Right[0].Module != "audio" {
 		t.Errorf("right = %+v, want DP-1's own volume (own sections are never overwritten)", layout.Right)
 	}
 }

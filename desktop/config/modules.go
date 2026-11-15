@@ -7,6 +7,8 @@ import "reflect"
 //
 // Configuration for all available lys-shell modules.
 type ModulesConfig struct {
+	// Audio module: speaker, microphone and capture indicator.
+	Audio AudioConfig `cfg:"audio"`
 	// Background apps indicator module.
 	BackgroundApps BackgroundAppsConfig `cfg:"background-apps"`
 	// Battery status module.
@@ -45,8 +47,6 @@ type ModulesConfig struct {
 	Media MediaConfig `cfg:"media"`
 	// Minimized windows module.
 	MinimizedWindows MinimizedWindowsConfig `cfg:"minimized-windows"`
-	// Microphone input module.
-	Microphone MicrophoneConfig `cfg:"microphone"`
 	// Network connection module.
 	Network NetworkConfig `cfg:"network"`
 	// Network traffic statistics module.
@@ -59,14 +59,10 @@ type ModulesConfig struct {
 	Power PowerConfig `cfg:"power"`
 	// Power profile indicator/switcher module.
 	PowerProfiles PowerProfilesConfig `cfg:"power-profiles"`
-	// Microphone, camera and screen-share privacy indicator module.
-	Privacy PrivacyConfig `cfg:"privacy"`
 	// RAM usage module.
 	RAM RamConfig `cfg:"ram"`
 	// Screen recorder module.
 	Recorder RecorderConfig `cfg:"recorder"`
-	// Screen share indicator module.
-	ScreenShare ScreenShareConfig `cfg:"screen-share"`
 	// Screenshot capture module.
 	Screenshot ScreenshotConfig `cfg:"screenshot"`
 	// Storage usage module.
@@ -79,8 +75,6 @@ type ModulesConfig struct {
 	Systray SystrayConfig `cfg:"systray"`
 	// treeman worktree health module.
 	Treeman TreemanConfig `cfg:"treeman"`
-	// Volume control module.
-	Volume VolumeConfig `cfg:"volume"`
 	// Weather display module.
 	Weather WeatherConfig `cfg:"weather"`
 	// Window title module.
@@ -132,6 +126,7 @@ func (m *ModulesConfig) ModuleClicks(name string) (ClickConfig, bool) {
 // DefaultsModules returns every module's schema defaults.
 func DefaultsModules() ModulesConfig {
 	return ModulesConfig{
+		Audio:              DefaultsAudio(),
 		BackgroundApps:     DefaultsBackgroundApps(),
 		Battery:            DefaultsBattery(),
 		Bitwarden:          DefaultsBitwarden(),
@@ -151,24 +146,20 @@ func DefaultsModules() ModulesConfig {
 		MangoWorkspaces:    DefaultsMangoWorkspaces(),
 		Media:              DefaultsMedia(),
 		MinimizedWindows:   DefaultsMinimizedWindows(),
-		Microphone:         DefaultsMicrophone(),
 		Network:            DefaultsNetwork(),
 		Netstat:            DefaultsNetstat(),
 		NiriWorkspaces:     DefaultsNiriWorkspaces(),
 		Notification:       DefaultsNotification(),
 		Power:              DefaultsPower(),
 		PowerProfiles:      DefaultsPowerProfiles(),
-		Privacy:            DefaultsPrivacy(),
 		RAM:                DefaultsRam(),
 		Recorder:           DefaultsRecorder(),
-		ScreenShare:        DefaultsScreenShare(),
 		Screenshot:         DefaultsScreenshot(),
 		Storage:            DefaultsStorage(),
 		Separator:          DefaultsSeparator(),
 		SwayWorkspaces:     DefaultsSwayWorkspaces(),
 		Systray:            DefaultsSystray(),
 		Treeman:            DefaultsTreeman(),
-		Volume:             DefaultsVolume(),
 		Weather:            DefaultsWeather(),
 		WindowTitle:        DefaultsWindowTitle(),
 		WorldClock:         DefaultsWorldClock(),

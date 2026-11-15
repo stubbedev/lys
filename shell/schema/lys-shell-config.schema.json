@@ -499,6 +499,160 @@
       },
       "type": "array"
     },
+    "AudioConfig": {
+      "description": "Speaker volume and mute, the microphone's state, and a capture indicator.\n\nThe button shows the default output's volume and mute state and the\ndefault input's mute state. While an app records the microphone the\nmicrophone icon takes the capture color; while an app holds a camera\nopen or shares the screen, an icon for each shows in the capture color.\nIts dropdown holds the output and input devices, the app volumes, and\nevery app capturing, each with a button that stops it.",
+      "properties": {
+        "border-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "red",
+          "description": "Border color token."
+        },
+        "border-show": {
+          "$ref": "#/$defs/boolean",
+          "default": false,
+          "description": "Display border around button."
+        },
+        "button-bg-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "bg-surface-elevated",
+          "description": "Button background color token."
+        },
+        "capture-camera-icon": {
+          "$ref": "#/$defs/string",
+          "default": "ld-webcam-symbolic",
+          "description": "Icon shown while an app holds a camera open."
+        },
+        "capture-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "status-warning",
+          "description": "Color of the capture indicator: the microphone icon while an app\nrecords it, and the camera and screen icons."
+        },
+        "capture-screen-icon": {
+          "$ref": "#/$defs/string",
+          "default": "ld-monitor-symbolic",
+          "description": "Icon shown while an app shares the screen."
+        },
+        "dropdown-app-icons": {
+          "$ref": "#/$defs/AppIconSource",
+          "default": "mapped",
+          "description": "Icon source for app volume entries in the audio dropdown."
+        },
+        "format": {
+          "$ref": "#/$defs/string",
+          "default": "{{ percent }}%",
+          "description": "Format string for the label.\n\n## Placeholders\n\n- `{{ percent }}` - Speaker volume (0-100)\n- `{{ mic_percent }}` - Microphone volume (0-100), empty without a microphone\n\n## Examples\n\n- `\"{{ percent }}%\"` - \"45%\"\n- `\"{{ percent }}% · {{ mic_percent }}%\"` - \"45% · 80%\"",
+          "x-placeholders": [
+            {
+              "description": "Speaker volume (0-100)",
+              "name": "percent",
+              "sample": "45",
+              "token": "{{ percent }}"
+            },
+            {
+              "description": "Microphone volume (0-100), empty without a microphone",
+              "name": "mic_percent",
+              "sample": "80",
+              "token": "{{ mic_percent }}"
+            }
+          ]
+        },
+        "icon-bg-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "red",
+          "description": "Icon container background color token."
+        },
+        "icon-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "auto",
+          "description": "Icon foreground color. Auto selects based on variant for contrast."
+        },
+        "icon-show": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Display the speaker icon."
+        },
+        "label-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "fg-default",
+          "description": "Label text color token."
+        },
+        "label-max-length": {
+          "$ref": "#/$defs/uint32",
+          "default": 0,
+          "description": "Max label characters before truncation with ellipsis. Set to 0 to disable."
+        },
+        "label-show": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Display the label."
+        },
+        "left-click": {
+          "$ref": "#/$defs/ClickAction",
+          "default": "dropdown:audio",
+          "description": "Action on left click. Default opens the audio dropdown.\n\nThe `lys-shell audio` commands name their device: `output-mute`\nand `output-volume <level>` act on the speaker, `input-mute` and\n`input-volume <level>` on the microphone. A level is 0-100, or\n`+N` and `-N` to move it."
+        },
+        "mic-hide-when-idle": {
+          "$ref": "#/$defs/boolean",
+          "default": false,
+          "description": "Show the microphone icon only while an app records the microphone."
+        },
+        "mic-icon": {
+          "$ref": "#/$defs/string",
+          "default": "ld-mic-symbolic",
+          "description": "Microphone icon shown while the input is live (unmuted)."
+        },
+        "mic-icon-muted": {
+          "$ref": "#/$defs/string",
+          "default": "ld-mic-off-symbolic",
+          "description": "Microphone icon shown while the input is muted."
+        },
+        "middle-click": {
+          "$ref": "#/$defs/ClickAction",
+          "default": "lys-shell audio output-mute",
+          "description": "Action on middle click. Default toggles the speaker's mute."
+        },
+        "right-click": {
+          "$ref": "#/$defs/ClickAction",
+          "default": "",
+          "description": "Action on right click."
+        },
+        "scroll-down": {
+          "$ref": "#/$defs/ClickAction",
+          "default": "lys-shell audio output-volume -5",
+          "description": "Action on scroll down. Default lowers the speaker volume by 5."
+        },
+        "scroll-up": {
+          "$ref": "#/$defs/ClickAction",
+          "default": "lys-shell audio output-volume +5",
+          "description": "Action on scroll up. Default raises the speaker volume by 5."
+        },
+        "speaker-icon-muted": {
+          "$ref": "#/$defs/string",
+          "default": "ld-volume-x-symbolic",
+          "description": "Speaker icon shown while the output is muted."
+        },
+        "speaker-icons": {
+          "$ref": "#/$defs/Array_of_string",
+          "default": [
+            "ld-volume-symbolic",
+            "ld-volume-1-symbolic",
+            "ld-volume-2-symbolic"
+          ],
+          "description": "Speaker icons for volume levels from low to maximum.\n\nThe percentage is divided evenly among icons. With 3 icons:\n1-33% uses speaker-icons\\[0\\], 34-66% uses speaker-icons\\[1\\],\n67-100% uses speaker-icons\\[2\\]."
+        },
+        "thresholds": {
+          "$ref": "#/$defs/Array_of_ThresholdEntry",
+          "default": [],
+          "description": "Dynamic color thresholds based on the speaker volume percentage.\n\nEntries are checked in order; the last matching entry wins for each\ncolor slot. Use `above` for high-value warnings (e.g., boosted volume).\n\n## Example\n\n```yaml\nmodules:\n  audio:\n    thresholds:\n      - above: 100\n        icon-color: status-warning\n        label-color: status-warning\n      - above: 130\n        icon-color: status-error\n        label-color: status-error\n```"
+        },
+        "tooltip": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Show the module's state in a tooltip on hover."
+        }
+      },
+      "type": "object"
+    },
     "AudioSource": {
       "description": "An audio source name.",
       "type": "string",
@@ -882,8 +1036,7 @@
                 "battery",
                 "bluetooth",
                 "network",
-                "microphone",
-                "volume",
+                "audio",
                 "notifications",
                 "power"
               ],
@@ -969,7 +1122,7 @@
           "description": "A named group of modules with shared visual container."
         }
       ],
-      "description": "One entry in a bar layout section (`left`, `center`, or `right`).\n\nThree shapes are accepted, all interchangeable in the same list:\n\n- A plain module name: `clock`\n- A module with a CSS class for per-instance styling: `{module: clock, class: primary}`\n- A named group that wraps several modules in a shared container, addressable by CSS ID\n\n## Examples\n\n```yaml\nbar:\n  layout:\n    - monitor: \"*\"\n\n      # Plain module\n      left: [dashboard]\n\n      # Mix of plain and classed modules on the same side\n      center:\n        - clock\n        - {module: clock, class: secondary}\n\n      # Named group (renders inside a GTK container with CSS ID `#status`)\n      right:\n        - {name: status, modules: [battery, network, volume]}\n\n    # Groups can hold classed modules too\n    - monitor: DP-2\n      left:\n        - name: clocks\n          modules:\n            - {module: clock, class: local}\n            - {module: world-clock, class: remote}\n```"
+      "description": "One entry in a bar layout section (`left`, `center`, or `right`).\n\nThree shapes are accepted, all interchangeable in the same list:\n\n- A plain module name: `clock`\n- A module with a CSS class for per-instance styling: `{module: clock, class: primary}`\n- A named group that wraps several modules in a shared container, addressable by CSS ID\n\n## Examples\n\n```yaml\nbar:\n  layout:\n    - monitor: \"*\"\n\n      # Plain module\n      left: [dashboard]\n\n      # Mix of plain and classed modules on the same side\n      center:\n        - clock\n        - {module: clock, class: secondary}\n\n      # Named group (renders inside a GTK container with CSS ID `#status`)\n      right:\n        - {name: status, modules: [battery, network, audio]}\n\n    # Groups can hold classed modules too\n    - monitor: DP-2\n      left:\n        - name: clocks\n          modules:\n            - {module: clock, class: local}\n            - {module: world-clock, class: remote}\n```"
     },
     "BarLayout": {
       "description": "Layout configuration for a bar on a specific monitor.\n\n## Examples\n\n```yaml\n# Single modules\nbar:\n  layout:\n    - monitor: \"*\"\n      left: [dashboard]\n      center: [clock]\n      right: [systray]\n\n    # Module with custom CSS class for per-instance styling\n    - monitor: DP-1\n      left:\n        - {module: clock, class: primary-clock}\n        - clock\n      center: [media]\n\n    # Grouped modules (share a visual container, CSS-targetable by name)\n    - monitor: DP-2\n      left:\n        - {name: status, modules: [battery, network]}\n\n    # Groups can also contain classed modules\n    - monitor: DP-3\n      left:\n        - name: clocks\n          modules:\n            - {module: clock, class: local}\n            - {module: world-clock, class: remote}\n\n    # Inherit from another layout\n    - monitor: \"*\"\n      left: [dashboard]\n      center: [clock]\n      right: [systray]\n    - monitor: HDMI-1\n      extends: \"*\"\n      right: [volume, systray]  # Override just this section\n\n    # Hide bar on a specific monitor\n    - monitor: HDMI-2\n      show: false\n```",
@@ -1027,8 +1180,7 @@
             "battery",
             "bluetooth",
             "network",
-            "microphone",
-            "volume",
+            "audio",
             "notifications",
             "power"
           ],
@@ -1050,6 +1202,7 @@
       "anyOf": [
         {
           "enum": [
+            "audio",
             "background-apps",
             "battery",
             "bitwarden",
@@ -1067,7 +1220,6 @@
             "mail",
             "media",
             "mango-workspaces",
-            "microphone",
             "minimized-windows",
             "netstat",
             "network",
@@ -1076,10 +1228,8 @@
             "notifications",
             "power",
             "power-profiles",
-            "privacy",
             "ram",
             "recorder",
-            "screen-share",
             "screenshot",
             "separator",
             "storage",
@@ -1087,7 +1237,6 @@
             "systray",
             "treeman",
             "updates",
-            "volume",
             "weather",
             "window-title",
             "workspaces",
@@ -5974,102 +6123,6 @@
         }
       ]
     },
-    "MicrophoneConfig": {
-      "description": "Microphone input level and mute toggle.",
-      "properties": {
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "red",
-          "description": "Border color token."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around button."
-        },
-        "button-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Button background color token."
-        },
-        "icon-active": {
-          "$ref": "#/$defs/string",
-          "default": "ld-mic-symbolic",
-          "description": "Icon shown when microphone is active (unmuted)."
-        },
-        "icon-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "red",
-          "description": "Icon container background color token."
-        },
-        "icon-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "auto",
-          "description": "Icon foreground color. Auto selects based on variant for contrast."
-        },
-        "icon-muted": {
-          "$ref": "#/$defs/string",
-          "default": "ld-mic-off-symbolic",
-          "description": "Icon shown when microphone is muted."
-        },
-        "icon-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Display module icon."
-        },
-        "label-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-default",
-          "description": "Label text color token."
-        },
-        "label-max-length": {
-          "$ref": "#/$defs/uint32",
-          "default": 0,
-          "description": "Max label characters before truncation with ellipsis. Set to 0 to disable."
-        },
-        "label-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Display percentage label."
-        },
-        "left-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "dropdown:audio",
-          "description": "Action on left click."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "lys-shell audio input-mute",
-          "description": "Action on middle click. Default toggles input mute."
-        },
-        "right-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on right click."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll down."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll up."
-        },
-        "thresholds": {
-          "$ref": "#/$defs/Array_of_ThresholdEntry",
-          "default": [],
-          "description": "Dynamic color thresholds based on microphone volume percentage.\n\nEntries are checked in order; the last matching entry wins for each\ncolor slot. Use `above` for high-value warnings (e.g., high input gain).\n\n## Example\n\n```yaml\nmodules:\n  microphone:\n    thresholds:\n      - above: 70\n        icon-color: status-warning\n        label-color: status-warning\n      - above: 90\n        icon-color: status-error\n        label-color: status-error\n```"
-        },
-        "tooltip": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show the module's state in a tooltip on hover."
-        }
-      },
-      "type": "object"
-    },
     "MinimizedWindowsConfig": {
       "description": "Minimized windows, like a dock.\n\nLists each minimized window as its app's icon, in the order the windows\nwere minimized, with the window title as tooltip. A click restores and\nfocuses the window, a middle click closes it, and a right click offers\nboth. Windows minimize into their icon and come back out of it. Works\non any compositor with the wlr foreign-toplevel protocol, lys-wm among\nthem.",
       "properties": {
@@ -6112,6 +6165,42 @@
     "ModulesConfig": {
       "description": "Configuration for all available lys-shell modules.",
       "properties": {
+        "audio": {
+          "$ref": "#/$defs/AudioConfig",
+          "default": {
+            "border-color": "red",
+            "border-show": false,
+            "button-bg-color": "bg-surface-elevated",
+            "capture-camera-icon": "ld-webcam-symbolic",
+            "capture-color": "status-warning",
+            "capture-screen-icon": "ld-monitor-symbolic",
+            "dropdown-app-icons": "mapped",
+            "format": "{{ percent }}%",
+            "icon-bg-color": "red",
+            "icon-color": "auto",
+            "icon-show": true,
+            "label-color": "fg-default",
+            "label-max-length": 0,
+            "label-show": true,
+            "left-click": "dropdown:audio",
+            "mic-hide-when-idle": false,
+            "mic-icon": "ld-mic-symbolic",
+            "mic-icon-muted": "ld-mic-off-symbolic",
+            "middle-click": "lys-shell audio output-mute",
+            "right-click": "",
+            "scroll-down": "lys-shell audio output-volume -5",
+            "scroll-up": "lys-shell audio output-volume +5",
+            "speaker-icon-muted": "ld-volume-x-symbolic",
+            "speaker-icons": [
+              "ld-volume-symbolic",
+              "ld-volume-1-symbolic",
+              "ld-volume-2-symbolic"
+            ],
+            "thresholds": [],
+            "tooltip": true
+          },
+          "description": "Audio module: speaker, microphone and capture indicator."
+        },
         "background-apps": {
           "$ref": "#/$defs/BackgroundAppsConfig",
           "default": {
@@ -6635,30 +6724,6 @@
           },
           "description": "Media player module."
         },
-        "microphone": {
-          "$ref": "#/$defs/MicrophoneConfig",
-          "default": {
-            "border-color": "red",
-            "border-show": false,
-            "button-bg-color": "bg-surface-elevated",
-            "icon-active": "ld-mic-symbolic",
-            "icon-bg-color": "red",
-            "icon-color": "auto",
-            "icon-muted": "ld-mic-off-symbolic",
-            "icon-show": true,
-            "label-color": "fg-default",
-            "label-max-length": 0,
-            "label-show": true,
-            "left-click": "dropdown:audio",
-            "middle-click": "lys-shell audio input-mute",
-            "right-click": "",
-            "scroll-down": "",
-            "scroll-up": "",
-            "thresholds": [],
-            "tooltip": true
-          },
-          "description": "Microphone input module."
-        },
         "minimized-windows": {
           "$ref": "#/$defs/MinimizedWindowsConfig",
           "default": {
@@ -6909,30 +6974,6 @@
           },
           "description": "Power profile indicator/switcher module."
         },
-        "privacy": {
-          "$ref": "#/$defs/PrivacyConfig",
-          "default": {
-            "border-color": "yellow",
-            "border-show": false,
-            "button-bg-color": "bg-surface-elevated",
-            "camera-icon": "ld-webcam-symbolic",
-            "icon": "ld-mic-symbolic",
-            "icon-bg-color": "yellow",
-            "icon-color": "auto",
-            "icon-show": true,
-            "label-color": "fg-default",
-            "label-max-length": 0,
-            "label-show": false,
-            "left-click": "dropdown:privacy",
-            "middle-click": "",
-            "right-click": "",
-            "screen-icon": "ld-monitor-symbolic",
-            "scroll-down": "",
-            "scroll-up": "",
-            "tooltip": true
-          },
-          "description": "Microphone, camera and screen-share privacy indicator module."
-        },
         "ram": {
           "$ref": "#/$defs/RamConfig",
           "default": {
@@ -7001,28 +7042,6 @@
             "webcam-y": 100
           },
           "description": "Screen recorder module."
-        },
-        "screen-share": {
-          "$ref": "#/$defs/ScreenShareConfig",
-          "default": {
-            "border-color": "red",
-            "border-show": false,
-            "button-bg-color": "bg-surface-elevated",
-            "icon": "ld-monitor-symbolic",
-            "icon-bg-color": "red",
-            "icon-color": "auto",
-            "icon-show": true,
-            "label-color": "fg-default",
-            "label-max-length": 0,
-            "label-show": false,
-            "left-click": "dropdown:screen-share",
-            "middle-click": "",
-            "right-click": "",
-            "scroll-down": "",
-            "scroll-up": "",
-            "tooltip": true
-          },
-          "description": "Screen share indicator module."
         },
         "screenshot": {
           "$ref": "#/$defs/ScreenshotConfig",
@@ -7165,36 +7184,6 @@
             "tooltip": true
           },
           "description": "treeman worktree health module."
-        },
-        "volume": {
-          "$ref": "#/$defs/VolumeConfig",
-          "default": {
-            "border-color": "red",
-            "border-show": false,
-            "button-bg-color": "bg-surface-elevated",
-            "dropdown-app-icons": "mapped",
-            "format": "{{ percent }}%",
-            "icon-bg-color": "red",
-            "icon-color": "auto",
-            "icon-muted": "ld-volume-x-symbolic",
-            "icon-show": true,
-            "label-color": "fg-default",
-            "label-max-length": 0,
-            "label-show": true,
-            "left-click": "dropdown:audio",
-            "level-icons": [
-              "ld-volume-symbolic",
-              "ld-volume-1-symbolic",
-              "ld-volume-2-symbolic"
-            ],
-            "middle-click": "lys-shell audio output-mute",
-            "right-click": "",
-            "scroll-down": "",
-            "scroll-up": "",
-            "thresholds": [],
-            "tooltip": true
-          },
-          "description": "Volume control module."
         },
         "weather": {
           "$ref": "#/$defs/WeatherConfig",
@@ -8946,102 +8935,6 @@
       },
       "type": "object"
     },
-    "PrivacyConfig": {
-      "description": "Privacy indicator.\n\nShows while an app records a microphone, holds a camera open or shares\nthe screen, with an icon for each; its dropdown names each app, with a\nbutton that mutes its recording, stops its camera or ends its share.",
-      "properties": {
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "yellow",
-          "description": "Border color token."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around button."
-        },
-        "button-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Button background color token."
-        },
-        "camera-icon": {
-          "$ref": "#/$defs/string",
-          "default": "ld-webcam-symbolic",
-          "description": "Icon shown while an app holds a camera open."
-        },
-        "icon": {
-          "$ref": "#/$defs/string",
-          "default": "ld-mic-symbolic",
-          "description": "Icon shown while an app records a microphone."
-        },
-        "icon-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "yellow",
-          "description": "Icon container background color token."
-        },
-        "icon-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "auto",
-          "description": "Icon foreground color. Auto selects based on variant for contrast."
-        },
-        "icon-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Display module icon."
-        },
-        "label-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-default",
-          "description": "Label text color token."
-        },
-        "label-max-length": {
-          "$ref": "#/$defs/uint32",
-          "default": 0,
-          "description": "Max label characters before truncation with ellipsis. Set to 0 to disable."
-        },
-        "label-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display the number of apps beside the icons."
-        },
-        "left-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "dropdown:privacy",
-          "description": "Action on left click. Default opens the dropdown."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on middle click."
-        },
-        "right-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on right click."
-        },
-        "screen-icon": {
-          "$ref": "#/$defs/string",
-          "default": "ld-monitor-symbolic",
-          "description": "Icon shown while an app shares the screen."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll down."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll up."
-        },
-        "tooltip": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show the module's state in a tooltip on hover."
-        }
-      },
-      "type": "object"
-    },
     "Program": {
       "description": "A program name on the path, or its path.",
       "type": "string",
@@ -9505,92 +9398,6 @@
       "maximum": 3.0,
       "minimum": 0.25,
       "type": "number"
-    },
-    "ScreenShareConfig": {
-      "description": "Screen share indicator.\n\nShows while an app captures the screen or a window through the desktop\nportal; its dropdown lists each share's app and what it captures, with\na button that stops it.",
-      "properties": {
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "red",
-          "description": "Border color token."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around button."
-        },
-        "button-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Button background color token."
-        },
-        "icon": {
-          "$ref": "#/$defs/string",
-          "default": "ld-monitor-symbolic",
-          "description": "Bar button icon."
-        },
-        "icon-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "red",
-          "description": "Icon container background color token."
-        },
-        "icon-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "auto",
-          "description": "Icon foreground color. Auto selects based on variant for contrast."
-        },
-        "icon-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Display module icon."
-        },
-        "label-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-default",
-          "description": "Label text color token."
-        },
-        "label-max-length": {
-          "$ref": "#/$defs/uint32",
-          "default": 0,
-          "description": "Max label characters before truncation with ellipsis. Set to 0 to disable."
-        },
-        "label-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display the number of shares beside the icon."
-        },
-        "left-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "dropdown:screen-share",
-          "description": "Action on left click. Default opens the dropdown."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on middle click."
-        },
-        "right-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on right click."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll down."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll up."
-        },
-        "tooltip": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show the module's state in a tooltip on hover."
-        }
-      },
-      "type": "object"
     },
     "ScreenshotConfig": {
       "description": "Screenshot capture button.\n\nClick the bar button to capture a region, output, or window. Controllable\nfrom the CLI / RPC socket: `lys-shell screenshot region|output|window`.\n\nAfter a capture a thumbnail floats in a screen corner: click it to mark\nthe image up (crop, arrow, rectangle, ellipse, freehand, text,\nhighlighter, numbered markers and pixelation, with undo and redo; Enter\nsaves over the file and copies it, Ctrl+S saves a copy elsewhere), drag\nit into an app, or delete the capture with its close button.\n\n`lys-shell screenshot text` copies the text in a dragged region (through\ntesseract, which must be installed) and `lys-shell screenshot qr` decodes\nthe QR code in one; neither saves a file.",
@@ -11007,124 +10814,6 @@
       },
       "type": "object"
     },
-    "VolumeConfig": {
-      "description": "Output volume control with a dropdown for device and app volumes.",
-      "properties": {
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "red",
-          "description": "Border color token."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around button."
-        },
-        "button-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Button background color token."
-        },
-        "dropdown-app-icons": {
-          "$ref": "#/$defs/AppIconSource",
-          "default": "mapped",
-          "description": "Icon source for app volume entries in the audio dropdown."
-        },
-        "format": {
-          "$ref": "#/$defs/string",
-          "default": "{{ percent }}%",
-          "description": "Format string for the label.\n\n## Placeholders\n\n- `{{ percent }}` - Volume (0-100)\n\n## Examples\n\n- `\"{{ percent }}%\"` - \"45%\"",
-          "x-placeholders": [
-            {
-              "description": "Volume (0-100)",
-              "name": "percent",
-              "sample": "45",
-              "token": "{{ percent }}"
-            }
-          ]
-        },
-        "icon-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "red",
-          "description": "Icon container background color token."
-        },
-        "icon-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "auto",
-          "description": "Icon foreground color. Auto selects based on variant for contrast."
-        },
-        "icon-muted": {
-          "$ref": "#/$defs/string",
-          "default": "ld-volume-x-symbolic",
-          "description": "Icon shown when audio output is muted."
-        },
-        "icon-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Display module icon."
-        },
-        "label-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-default",
-          "description": "Label text color token."
-        },
-        "label-max-length": {
-          "$ref": "#/$defs/uint32",
-          "default": 0,
-          "description": "Max label characters before truncation with ellipsis. Set to 0 to disable."
-        },
-        "label-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Display percentage label."
-        },
-        "left-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "dropdown:audio",
-          "description": "Action on left click. Default opens the audio dropdown."
-        },
-        "level-icons": {
-          "$ref": "#/$defs/Array_of_string",
-          "default": [
-            "ld-volume-symbolic",
-            "ld-volume-1-symbolic",
-            "ld-volume-2-symbolic"
-          ],
-          "description": "Icons for volume levels from low to maximum.\n\nThe percentage is divided evenly among icons. With 3 icons:\n1-33% uses icons\\[0\\], 34-66% uses icons\\[1\\], 67-100% uses icons\\[2\\]."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "lys-shell audio output-mute",
-          "description": "Action on middle click. Default toggles mute."
-        },
-        "right-click": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on right click."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll down."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/ClickAction",
-          "default": "",
-          "description": "Action on scroll up."
-        },
-        "thresholds": {
-          "$ref": "#/$defs/Array_of_ThresholdEntry",
-          "default": [],
-          "description": "Dynamic color thresholds based on volume percentage.\n\nEntries are checked in order; the last matching entry wins for each\ncolor slot. Use `above` for high-value warnings (e.g., boosted volume).\n\n## Example\n\n```yaml\nmodules:\n  volume:\n    thresholds:\n      - above: 100\n        icon-color: status-warning\n        label-color: status-warning\n      - above: 130\n        icon-color: status-error\n        label-color: status-error\n```"
-        },
-        "tooltip": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show the module's state in a tooltip on hover."
-        }
-      },
-      "type": "object"
-    },
     "VpnShow": {
       "description": "Whether the VPN indicator is part of the network module.",
       "oneOf": [
@@ -12103,8 +11792,7 @@
               "battery",
               "bluetooth",
               "network",
-              "microphone",
-              "volume",
+              "audio",
               "notifications",
               "power"
             ],
@@ -12417,6 +12105,38 @@
     "modules": {
       "$ref": "#/$defs/ModulesConfig",
       "default": {
+        "audio": {
+          "border-color": "red",
+          "border-show": false,
+          "button-bg-color": "bg-surface-elevated",
+          "capture-camera-icon": "ld-webcam-symbolic",
+          "capture-color": "status-warning",
+          "capture-screen-icon": "ld-monitor-symbolic",
+          "dropdown-app-icons": "mapped",
+          "format": "{{ percent }}%",
+          "icon-bg-color": "red",
+          "icon-color": "auto",
+          "icon-show": true,
+          "label-color": "fg-default",
+          "label-max-length": 0,
+          "label-show": true,
+          "left-click": "dropdown:audio",
+          "mic-hide-when-idle": false,
+          "mic-icon": "ld-mic-symbolic",
+          "mic-icon-muted": "ld-mic-off-symbolic",
+          "middle-click": "lys-shell audio output-mute",
+          "right-click": "",
+          "scroll-down": "lys-shell audio output-volume -5",
+          "scroll-up": "lys-shell audio output-volume +5",
+          "speaker-icon-muted": "ld-volume-x-symbolic",
+          "speaker-icons": [
+            "ld-volume-symbolic",
+            "ld-volume-1-symbolic",
+            "ld-volume-2-symbolic"
+          ],
+          "thresholds": [],
+          "tooltip": true
+        },
         "background-apps": {
           "border-color": "blue",
           "border-show": false,
@@ -12868,26 +12588,6 @@
           "spinning-disc-icon": "ld-disc-3-symbolic",
           "tooltip": true
         },
-        "microphone": {
-          "border-color": "red",
-          "border-show": false,
-          "button-bg-color": "bg-surface-elevated",
-          "icon-active": "ld-mic-symbolic",
-          "icon-bg-color": "red",
-          "icon-color": "auto",
-          "icon-muted": "ld-mic-off-symbolic",
-          "icon-show": true,
-          "label-color": "fg-default",
-          "label-max-length": 0,
-          "label-show": true,
-          "left-click": "dropdown:audio",
-          "middle-click": "lys-shell audio input-mute",
-          "right-click": "",
-          "scroll-down": "",
-          "scroll-up": "",
-          "thresholds": [],
-          "tooltip": true
-        },
         "minimized-windows": {
           "icon": "ld-app-window-symbolic",
           "icon-size": 1.0,
@@ -13106,26 +12806,6 @@
           "scroll-up": "",
           "tooltip": true
         },
-        "privacy": {
-          "border-color": "yellow",
-          "border-show": false,
-          "button-bg-color": "bg-surface-elevated",
-          "camera-icon": "ld-webcam-symbolic",
-          "icon": "ld-mic-symbolic",
-          "icon-bg-color": "yellow",
-          "icon-color": "auto",
-          "icon-show": true,
-          "label-color": "fg-default",
-          "label-max-length": 0,
-          "label-show": false,
-          "left-click": "dropdown:privacy",
-          "middle-click": "",
-          "right-click": "",
-          "screen-icon": "ld-monitor-symbolic",
-          "scroll-down": "",
-          "scroll-up": "",
-          "tooltip": true
-        },
         "ram": {
           "border-color": "green",
           "border-show": false,
@@ -13186,24 +12866,6 @@
           "webcam-size": 20,
           "webcam-x": 100,
           "webcam-y": 100
-        },
-        "screen-share": {
-          "border-color": "red",
-          "border-show": false,
-          "button-bg-color": "bg-surface-elevated",
-          "icon": "ld-monitor-symbolic",
-          "icon-bg-color": "red",
-          "icon-color": "auto",
-          "icon-show": true,
-          "label-color": "fg-default",
-          "label-max-length": 0,
-          "label-show": false,
-          "left-click": "dropdown:screen-share",
-          "middle-click": "",
-          "right-click": "",
-          "scroll-down": "",
-          "scroll-up": "",
-          "tooltip": true
         },
         "screenshot": {
           "border-color": "accent",
@@ -13321,32 +12983,6 @@
           "right-click": "",
           "scroll-down": "",
           "scroll-up": "",
-          "tooltip": true
-        },
-        "volume": {
-          "border-color": "red",
-          "border-show": false,
-          "button-bg-color": "bg-surface-elevated",
-          "dropdown-app-icons": "mapped",
-          "format": "{{ percent }}%",
-          "icon-bg-color": "red",
-          "icon-color": "auto",
-          "icon-muted": "ld-volume-x-symbolic",
-          "icon-show": true,
-          "label-color": "fg-default",
-          "label-max-length": 0,
-          "label-show": true,
-          "left-click": "dropdown:audio",
-          "level-icons": [
-            "ld-volume-symbolic",
-            "ld-volume-1-symbolic",
-            "ld-volume-2-symbolic"
-          ],
-          "middle-click": "lys-shell audio output-mute",
-          "right-click": "",
-          "scroll-down": "",
-          "scroll-up": "",
-          "thresholds": [],
           "tooltip": true
         },
         "weather": {

@@ -31,56 +31,68 @@ type BarGroup struct {
 
 // UnmarshalConfig implements Unmarshaler, trying in order:
 // a {module, class} table, then a module name, then a {name, modules}
-// group. Anything else — including a table missing a required key or
-// naming an unknown module — is an untagged-enum error.
+// group. A removed module anywhere in the entry is a
+// RemovedModuleError; anything else that fits no shape — including a
+// table missing a required key or naming an unknown module — is an
+// untagged-enum error.
 func (b *BarItem) UnmarshalConfig(v any) error {
-	if ref, ok := decodeModuleRef(v); ok {
+	ref, refErr := decodeModuleRef(v)
+	if refErr == nil {
 		*b = ref
 		return nil
 	}
-	if group, ok := decodeGroup(v); ok {
+	group, groupErr := decodeGroup(v)
+	if groupErr == nil {
 		*b = BarItem{Group: group}
 		return nil
+	}
+	for _, err := range []error{refErr, groupErr} {
+		if removed, ok := errors.AsType[*RemovedModuleError](err); ok {
+			return removed
+		}
 	}
 	return errUntagged("BarItem")
 }
 
 // decodeModuleRef is ModuleRef: Classed, then Plain.
-func decodeModuleRef(v any) (BarItem, bool) {
+func decodeModuleRef(v any) (BarItem, error) {
 	if isTable(v) {
 		rawModule, hasModule := lookup(v, "module")
 		rawClass, hasClass := lookup(v, "class")
 		class, classOK := rawClass.(string)
-		var module BarModule
-		if hasModule && hasClass && classOK && module.UnmarshalConfig(rawModule) == nil {
-			return BarItem{Module: module, Class: class}, true
+		if !hasModule || !hasClass || !classOK {
+			return BarItem{}, errUntagged("ModuleRef")
 		}
-		return BarItem{}, false
+		var module BarModule
+		if err := module.UnmarshalConfig(rawModule); err != nil {
+			return BarItem{}, err
+		}
+		return BarItem{Module: module, Class: class}, nil
 	}
 	var module BarModule
-	if module.UnmarshalConfig(v) != nil {
-		return BarItem{}, false
+	if err := module.UnmarshalConfig(v); err != nil {
+		return BarItem{}, err
 	}
-	return BarItem{Module: module}, true
+	return BarItem{Module: module}, nil
 }
 
-func decodeGroup(v any) (*BarGroup, bool) {
+func decodeGroup(v any) (*BarGroup, error) {
 	rawName, hasName := lookup(v, "name")
 	rawModules, hasModules := lookup(v, "modules")
 	name, nameOK := rawName.(string)
 	list, listOK := rawModules.([]any)
 	if !hasName || !hasModules || !nameOK || !listOK {
-		return nil, false
+		return nil, errUntagged("BarGroup")
 	}
 	group := &BarGroup{Name: name, Modules: make([]BarItem, 0, len(list))}
 	for _, entry := range list {
-		ref, ok := decodeModuleRef(entry)
-		if !ok {
-			return nil, false
+		ref, err := decodeModuleRef(entry)
+		if err != nil {
+			return nil, err
 		}
 		group.Modules = append(group.Modules, ref)
 	}
-	return group, true
+	return group, nil
 }
 
 // MarshalConfig implements Marshaler: a bare name, a {module, class}
@@ -106,7 +118,7 @@ func (b BarItem) MarshalConfig() any {
 }
 
 const (
-	barItemDoc   = "One entry in a bar layout section (`left`, `center`, or `right`).\n\nThree shapes are accepted, all interchangeable in the same list:\n\n- A plain module name: `clock`\n- A module with a CSS class for per-instance styling: `{module: clock, class: primary}`\n- A named group that wraps several modules in a shared container, addressable by CSS ID\n\n## Examples\n\n```yaml\nbar:\n  layout:\n    - monitor: \"*\"\n\n      # Plain module\n      left: [dashboard]\n\n      # Mix of plain and classed modules on the same side\n      center:\n        - clock\n        - {module: clock, class: secondary}\n\n      # Named group (renders inside a GTK container with CSS ID `#status`)\n      right:\n        - {name: status, modules: [battery, network, volume]}\n\n    # Groups can hold classed modules too\n    - monitor: DP-2\n      left:\n        - name: clocks\n          modules:\n            - {module: clock, class: local}\n            - {module: world-clock, class: remote}\n```"
+	barItemDoc   = "One entry in a bar layout section (`left`, `center`, or `right`).\n\nThree shapes are accepted, all interchangeable in the same list:\n\n- A plain module name: `clock`\n- A module with a CSS class for per-instance styling: `{module: clock, class: primary}`\n- A named group that wraps several modules in a shared container, addressable by CSS ID\n\n## Examples\n\n```yaml\nbar:\n  layout:\n    - monitor: \"*\"\n\n      # Plain module\n      left: [dashboard]\n\n      # Mix of plain and classed modules on the same side\n      center:\n        - clock\n        - {module: clock, class: secondary}\n\n      # Named group (renders inside a GTK container with CSS ID `#status`)\n      right:\n        - {name: status, modules: [battery, network, audio]}\n\n    # Groups can hold classed modules too\n    - monitor: DP-2\n      left:\n        - name: clocks\n          modules:\n            - {module: clock, class: local}\n            - {module: world-clock, class: remote}\n```"
 	moduleRefDoc = "Reference to a module, optionally with a custom CSS class.\n\n## Examples\n\n```yaml\n# Plain module (just the name)\nleft: [clock]\n\n# Module with custom CSS class\nleft:\n  - {module: clock, class: primary-clock}\n```"
 )
 
@@ -163,6 +175,7 @@ type BarModule string
 
 // The built-in modules the layout accepts (BUILTIN_MODULES).
 const (
+	ModuleAudio              BarModule = "audio"
 	ModuleBackgroundApps     BarModule = "background-apps"
 	ModuleBattery            BarModule = "battery"
 	ModuleBluetooth          BarModule = "bluetooth"
@@ -180,7 +193,6 @@ const (
 	ModuleMail               BarModule = "mail"
 	ModuleMedia              BarModule = "media"
 	ModuleMangoWorkspaces    BarModule = "mango-workspaces"
-	ModuleMicrophone         BarModule = "microphone"
 	ModuleMinimizedWindows   BarModule = "minimized-windows"
 	ModuleNetstat            BarModule = "netstat"
 	ModuleNetwork            BarModule = "network"
@@ -189,10 +201,8 @@ const (
 	ModuleNotifications      BarModule = "notifications"
 	ModulePower              BarModule = "power"
 	ModulePowerProfiles      BarModule = "power-profiles"
-	ModulePrivacy            BarModule = "privacy"
 	ModuleRAM                BarModule = "ram"
 	ModuleRecorder           BarModule = "recorder"
-	ModuleScreenShare        BarModule = "screen-share"
 	ModuleScreenshot         BarModule = "screenshot"
 	ModuleSeparator          BarModule = "separator"
 	ModuleStorage            BarModule = "storage"
@@ -200,7 +210,6 @@ const (
 	ModuleSystray            BarModule = "systray"
 	ModuleTreeman            BarModule = "treeman"
 	ModuleUpdates            BarModule = "updates"
-	ModuleVolume             BarModule = "volume"
 	ModuleWeather            BarModule = "weather"
 	ModuleWindowTitle        BarModule = "window-title"
 	ModuleWorkspaces         BarModule = "workspaces"
@@ -209,14 +218,14 @@ const (
 
 // BuiltinModules is the built-in module list in schema order.
 var BuiltinModules = []BarModule{
-	ModuleBackgroundApps, ModuleBattery, ModuleBitwarden, ModuleBluetooth, ModuleBrightness, ModuleCava, ModuleClock,
+	ModuleAudio, ModuleBackgroundApps, ModuleBattery, ModuleBitwarden, ModuleBluetooth, ModuleBrightness, ModuleCava, ModuleClock,
 	ModuleCPU, ModuleDashboard, ModuleHyprlandWorkspaces,
 	ModuleIdleInhibit, ModuleKeybindMode, ModuleKeyboardInput, ModuleLysWMWorkspaces, ModuleMail,
-	ModuleMedia, ModuleMangoWorkspaces, ModuleMicrophone, ModuleMinimizedWindows, ModuleNetstat,
+	ModuleMedia, ModuleMangoWorkspaces, ModuleMinimizedWindows, ModuleNetstat,
 	ModuleNetwork, ModuleNightlight, ModuleNiriWorkspaces, ModuleNotifications, ModulePower,
-	ModulePowerProfiles, ModulePrivacy, ModuleRAM, ModuleRecorder, ModuleScreenShare, ModuleScreenshot,
+	ModulePowerProfiles, ModuleRAM, ModuleRecorder, ModuleScreenshot,
 	ModuleSeparator, ModuleStorage, ModuleSwayWorkspaces, ModuleSystray,
-	ModuleTreeman, ModuleUpdates, ModuleVolume, ModuleWeather,
+	ModuleTreeman, ModuleUpdates, ModuleWeather,
 	ModuleWindowTitle, ModuleWorkspaces, ModuleWorldClock,
 }
 
@@ -224,6 +233,26 @@ var BuiltinModules = []BarModule{
 // a layout naming the old one still loads, with a warning.
 var renamedModules = map[string]BarModule{
 	"hyprsunset": ModuleNightlight,
+}
+
+// removedModules maps a module lys-shell no longer has to the one that
+// replaced it; a layout or a modules section naming it is an error.
+var removedModules = map[string]BarModule{
+	"microphone":   ModuleAudio,
+	"privacy":      ModuleAudio,
+	"screen-share": ModuleAudio,
+	"volume":       ModuleAudio,
+}
+
+// RemovedModuleError is a bar layout entry naming a module lys-shell no
+// longer has.
+type RemovedModuleError struct {
+	Module      string
+	Replacement BarModule
+}
+
+func (e *RemovedModuleError) Error() string {
+	return "bar module `" + e.Module + "` was removed; use `" + string(e.Replacement) + "`"
 }
 
 const customModulePrefix = "custom-"
@@ -246,6 +275,9 @@ func (m *BarModule) UnmarshalConfig(v any) error {
 		}
 		*m = BarModule(s)
 		return nil
+	}
+	if replacement, ok := removedModules[s]; ok {
+		return &RemovedModuleError{Module: s, Replacement: replacement}
 	}
 	if renamed, ok := renamedModules[s]; ok {
 		log.Printf("config: bar module %q was renamed to %q; update the bar layout", s, renamed)

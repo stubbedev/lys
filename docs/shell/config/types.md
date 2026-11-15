@@ -180,7 +180,7 @@ bar:
 
       # Named group (renders inside a GTK container with CSS ID `#status`)
       right:
-        - {name: status, modules: [battery, network, volume]}
+        - {name: status, modules: [battery, network, audio]}
 
     # Groups can hold classed modules too
     - monitor: DP-2
@@ -254,7 +254,7 @@ bar:
 
 Bar module name. Built-in modules or custom modules with a `custom-<id>` pattern.
 
-One of: `"background-apps"`, `"battery"`, `"bitwarden"`, `"bluetooth"`, `"brightness"`, `"cava"`, `"clock"`, `"cpu"`, `"dashboard"`, `"hyprland-workspaces"`, `"idle-inhibit"`, `"keybind-mode"`, `"keyboard-input"`, `"lys-wm-workspaces"`, `"mail"`, `"media"`, `"mango-workspaces"`, `"microphone"`, `"minimized-windows"`, `"netstat"`, `"network"`, `"nightlight"`, `"niri-workspaces"`, `"notifications"`, `"power"`, `"power-profiles"`, `"privacy"`, `"ram"`, `"recorder"`, `"screen-share"`, `"screenshot"`, `"separator"`, `"storage"`, `"sway-workspaces"`, `"systray"`, `"treeman"`, `"updates"`, `"volume"`, `"weather"`, `"window-title"`, `"workspaces"`, `"world-clock"`.
+One of: `"audio"`, `"background-apps"`, `"battery"`, `"bitwarden"`, `"bluetooth"`, `"brightness"`, `"cava"`, `"clock"`, `"cpu"`, `"dashboard"`, `"hyprland-workspaces"`, `"idle-inhibit"`, `"keybind-mode"`, `"keyboard-input"`, `"lys-wm-workspaces"`, `"mail"`, `"media"`, `"mango-workspaces"`, `"minimized-windows"`, `"netstat"`, `"network"`, `"nightlight"`, `"niri-workspaces"`, `"notifications"`, `"power"`, `"power-profiles"`, `"ram"`, `"recorder"`, `"screenshot"`, `"separator"`, `"storage"`, `"sway-workspaces"`, `"systray"`, `"treeman"`, `"updates"`, `"weather"`, `"window-title"`, `"workspaces"`, `"world-clock"`.
 
 String matching `^custom-[a-z0-9-]+$`.
 

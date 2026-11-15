@@ -94,7 +94,7 @@ in
               monitor = "*";
               left = [ "dashboard" ];
               center = [ "clock" ];
-              right = [ "battery" "network" "volume" "systray" ];
+              right = [ "battery" "network" "audio" "systray" ];
             }
           ];
           styling.appearance = "dark";

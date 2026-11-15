@@ -21,7 +21,7 @@ hero:
 
 features:
   - title: Bar
-    details: Per-monitor layouts with groups and CSS classes. Clock and world clock, battery, power profiles, brightness, volume and microphone, network and VPN, bluetooth, media, cava visualizer, CPU, RAM, storage, network traffic, weather, mail, notifications, system tray, screen recorder, screenshot, idle inhibit, night light, keyboard layout and keybind mode, window title, a dashboard, and workspaces for lys-wm, Hyprland, Niri, Mango and Sway.
+    details: Per-monitor layouts with groups and CSS classes. Clock and world clock, battery, power profiles, brightness, audio (speaker, microphone and what captures you), network and VPN, bluetooth, media, cava visualizer, CPU, RAM, storage, network traffic, weather, mail, notifications, system tray, screen recorder, screenshot, idle inhibit, night light, keyboard layout and keybind mode, window title, a dashboard, and workspaces for lys-wm, Hyprland, Niri, Mango and Sway.
   - title: Surfaces
     details: Notifications with popups and history, an OSD and custom toasts, a power menu, a rofi-compatible launcher, locking through lys-login, region and window screenshots, a colour picker, and a wallpaper engine with transitions and cycling.
   - title: Desktop portal

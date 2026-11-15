@@ -129,7 +129,7 @@ modules:
 
 ### Event-driven volume
 
-A `watch` command that prints a line whenever PulseAudio reports a change. (The built-in `volume` module does this natively.)
+A `watch` command that prints a line whenever PulseAudio reports a change. (The built-in `audio` module does this natively.)
 
 ```yaml
 modules:

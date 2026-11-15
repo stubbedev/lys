@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/stubbedev/lys/desktop/service/pulse"
 
+	"github.com/stubbedev/lys/shell/internal/audiolevel"
 	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
@@ -91,27 +91,17 @@ func (s audioSide) volume(m *cli.Matches, p *daemonProxy) error {
 		printVolume(m, volume, muted)
 		return nil
 	}
+	level, err := audiolevel.Parse(value)
+	if err != nil {
+		return err
+	}
 	var next float64
-	switch {
-	case strings.HasPrefix(value, "+") || strings.HasPrefix(value, "-"):
-		delta, err := strconv.ParseFloat(value[1:], 64)
-		if err != nil {
-			return fmt.Errorf("parse volume delta %q: %w", value, err)
-		}
-		if value[0] == '-' {
-			delta = -delta
-		}
-		if err := p.call("adjust "+s.opQualifier+"volume", "Adjust"+s.member+"Volume", []any{&next}, delta); err != nil {
+	if level.Relative {
+		if err := p.call("adjust "+s.opQualifier+"volume", "Adjust"+s.member+"Volume", []any{&next}, level.Percent); err != nil {
 			return err
 		}
-	default:
-		level, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("parse volume level %q: %w", value, err)
-		}
-		if err := p.call("set "+s.opQualifier+"volume", "Set"+s.member+"Volume", []any{&next}, level); err != nil {
-			return err
-		}
+	} else if err := p.call("set "+s.opQualifier+"volume", "Set"+s.member+"Volume", []any{&next}, level.Percent); err != nil {
+		return err
 	}
 	var muted bool
 	if err := p.prop("get "+s.opQualifier+"mute state", s.member+"Muted", &muted); err != nil {

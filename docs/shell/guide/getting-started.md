@@ -43,7 +43,7 @@ Modules talk to these services. Install the ones you use:
 
 | Service | Modules |
 | --- | --- |
-| PipeWire with WirePlumber and pipewire-pulse | `volume`, `microphone` |
+| PipeWire with WirePlumber and pipewire-pulse | `audio` |
 | NetworkManager | `network` |
 | BlueZ | `bluetooth` |
 | UPower | `battery` |

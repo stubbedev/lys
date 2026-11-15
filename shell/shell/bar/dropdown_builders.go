@@ -12,8 +12,6 @@ func dropdownBuilders() map[string]func(ctx ModuleContext) widget.Widget {
 	return map[string]func(ctx ModuleContext) widget.Widget{
 		"calendar":        calendarDropdown,
 		"audio":           audioDropdown,
-		"volume":          audioDropdown,
-		"microphone":      audioDropdown,
 		"brightness":      brightnessDropdown,
 		"battery":         batteryDropdown,
 		"network":         networkDropdown,
@@ -26,8 +24,6 @@ func dropdownBuilders() map[string]func(ctx ModuleContext) widget.Widget {
 		"bitwarden":       bitwardenDropdown,
 		"weather":         weatherDropdown,
 		"dashboard":       dashboardDropdown,
-		"privacy":         privacyDropdown,
-		"screen-share":    screenShareDropdown,
 		"background-apps": backgroundAppsDropdown,
 	}
 }

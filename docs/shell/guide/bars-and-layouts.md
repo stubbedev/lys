@@ -22,7 +22,7 @@ bar:
     - monitor: "*"
       left: [dashboard]
       center: [clock]
-      right: [battery, network, volume, systray]
+      right: [battery, network, audio, systray]
 ```
 
 ## Inheritance
@@ -35,10 +35,10 @@ bar:
     - monitor: "*"
       left: [dashboard]
       center: [clock]
-      right: [battery, network, volume, systray]
+      right: [battery, network, audio, systray]
     - monitor: HDMI-1
       extends: "*"
-      right: [volume, systray]
+      right: [audio, systray]
     - monitor: HDMI-2
       show: false
 ```
@@ -64,7 +64,9 @@ Module fields such as `left-click`, `right-click`, `middle-click`, `scroll-up` a
 | Value | Does |
 | --- | --- |
 | `""` | Nothing |
-| `dropdown:<name>` | Toggle a dropdown under this module: `audio`, `background-apps`, `battery`, `bitwarden`, `bluetooth`, `brightness`, `calendar`, `dashboard`, `mail`, `media`, `network`, `notification`, `privacy`, `recorder`, `screen-share`, `treeman`, `weather` |
+| `dropdown:<name>` | Toggle a dropdown under this module: `audio`, `background-apps`, `battery`, `bitwarden`, `bluetooth`, `brightness`, `calendar`, `dashboard`, `mail`, `media`, `network`, `notification`, `recorder`, `treeman`, `weather` |
 | `brightness:<N>` | Change every backlight by `N` percent (`+5`, `-5`), never below `modules.brightness.min-brightness` |
 | `brightness:toggle` | Turn all backlights off, or back to 100% when all are off |
+| `lys-shell audio output-mute` / `input-mute` | Toggle the speaker's or the microphone's mute, in the shell itself |
+| `lys-shell audio output-volume <L>` / `input-volume <L>` | Set the speaker's or the microphone's volume: `50` absolute, `+5` / `-10` relative, in the shell itself |
 | anything else | Run as a shell command |

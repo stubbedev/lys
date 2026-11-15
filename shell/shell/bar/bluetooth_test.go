@@ -7,7 +7,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/styling"
 
 	"github.com/stubbedev/lys/shell/service/bluetooth"
@@ -107,33 +106,6 @@ func TestBluetoothStateIcon(t *testing.T) {
 	m.refresh()
 	if got := icon.Name(); got != cfg.Bluetooth.DisabledIcon {
 		t.Errorf("disabled icon = %q", got)
-	}
-}
-
-func TestMicrophoneStateIcon(t *testing.T) {
-	cfg := config.Defaults()
-	style := computeStyle(cfg, styling.Default())
-	source := &fakePulseSource{dev: pulse.Device{Volume: pct(40)}}
-	m := &microphoneModule{ctx: ModuleContext{Config: cfg, Font: testFont(t), Style: &style, gen: testGen(t)}, source: source}
-	m.icon = moduleIcon(m.ctx, cfg.Microphone.Icon())
-	m.btn = newBarButton(m.ctx, m.icon, "")
-	if m.icon == nil {
-		t.Fatal("the microphone icon defaults on")
-	}
-	icon := m.icon
-
-	if err := readAndApply(m.read, m.apply); err != nil {
-		t.Fatal(err)
-	}
-	if got := icon.Name(); got != cfg.Microphone.Icon().Name {
-		t.Errorf("active icon = %q", got)
-	}
-	source.dev.Muted = true
-	if err := readAndApply(m.read, m.apply); err != nil {
-		t.Fatal(err)
-	}
-	if got := icon.Name(); got != cfg.Microphone.IconMuted {
-		t.Errorf("muted icon = %q", got)
 	}
 }
 

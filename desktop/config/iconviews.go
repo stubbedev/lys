@@ -20,11 +20,6 @@ func (c BluetoothConfig) Icon() IconConfig {
 // Icon is the keybind-mode icon.
 func (c KeybindModeConfig) Icon() IconConfig { return IconWith(c.IconShow, c.IconName, c.IconColor) }
 
-// Icon is the microphone's active icon.
-func (c MicrophoneConfig) Icon() IconConfig {
-	return IconWith(c.IconShow, c.IconActive, c.IconColor)
-}
-
 // Icon is the network offline icon.
 func (c NetworkConfig) Icon() IconConfig {
 	return IconWith(c.IconShow, c.WifiOfflineIcon, c.IconColor)
@@ -77,12 +72,12 @@ func (c KeyboardInputConfig) Icon() IconConfig {
 	return IconWith(c.IconShow, c.IconName, c.IconColor)
 }
 
-// Icon is the volume icon at full level; the module swaps the name by
-// level and mute state.
-func (c VolumeConfig) Icon() IconConfig {
-	name := c.IconMuted
-	if n := len(c.LevelIcons); n > 0 {
-		name = c.LevelIcons[n-1]
+// Icon is the audio module's speaker icon at full level; the module
+// swaps the name by level and mute state.
+func (c AudioConfig) Icon() IconConfig {
+	name := c.SpeakerIconMuted
+	if n := len(c.SpeakerIcons); n > 0 {
+		name = c.SpeakerIcons[n-1]
 	}
 	return IconWith(c.IconShow, name, c.IconColor)
 }

@@ -1,7 +1,5 @@
-### Privacy Dropdown
+### Audio Dropdown: microphone and camera capture rows
 
-dropdown-privacy-title = Privacy
-dropdown-privacy-empty = Nulla sta usando il microfono, una fotocamera o lo schermo.
 dropdown-privacy-mic = Registrazione di { $source }
 dropdown-privacy-camera = In uso: { $device } · PID { $pid }
 dropdown-privacy-mute = Silenzia

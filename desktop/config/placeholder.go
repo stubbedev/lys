@@ -58,6 +58,7 @@ var mailNotificationPlaceholders = jinjaFormat(
 )
 
 var formatFields = map[string]formatField{
+	"AudioConfig.Format":      jinjaFormat(ph("percent", "45"), ph("mic_percent", "80")),
 	"BatteryConfig.Format":    jinjaFormat(ph("percent", "45")),
 	"BitwardenConfig.Format":  jinjaFormat(ph("count", "142")),
 	"BrightnessConfig.Format": jinjaFormat(ph("percent", "65")),
@@ -99,7 +100,6 @@ var formatFields = map[string]formatField{
 	"TreemanConfig.Format": jinjaFormat(
 		ph("total", "7"), ph("stable", "4"), ph("up", "1"), ph("down", "1"), ph("failed", "1"),
 	),
-	"VolumeConfig.Format": jinjaFormat(ph("percent", "45")),
 	"WeatherConfig.Format": jinjaFormat(
 		ph("temp", "22"), ph("temp_unit", "°C"), ph("feels_like", "21"), ph("condition", "Partly cloudy"),
 		ph("humidity", "65%"), ph("wind_speed", "12 km/h"), ph("wind_dir", "NW"), ph("high", "25"), ph("low", "18"),

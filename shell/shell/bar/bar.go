@@ -404,7 +404,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 		s.ctx.Cameras = cams
 		s.down.add(func() { _ = cams.Close() })
 	} else {
-		log.Printf("cameras: %v; the privacy module shows no camera", err)
+		log.Printf("cameras: %v; the audio module shows no camera", err)
 	}
 	sniStore := sni.NewStore()
 	s.ctx.SNI = sniStore
@@ -413,7 +413,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 			s.ctx.ScreenShares = shares
 			s.down.add(shares.Close)
 		} else {
-			log.Printf("screen shares: %v; the screen-share module and do-not-disturb while sharing are off", err)
+			log.Printf("screen shares: %v; the audio module shows no screen share and do-not-disturb while sharing is off", err)
 		}
 		if s.notifSvc != nil {
 			server, err := notifications.Serve(conn, s.notifSvc)

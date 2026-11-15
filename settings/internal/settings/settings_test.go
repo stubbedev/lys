@@ -960,8 +960,8 @@ func TestIconEditorPicks(t *testing.T) {
 
 func TestActionEditor(t *testing.T) {
 	k := testKit(t, "")
-	path := "modules.volume.left-click"
-	choices := actionChoices("volume")
+	path := "modules.audio.left-click"
+	choices := actionChoices("audio")
 	_ = k.store.set(path, "")
 	c := newActionEditor(k, pathSlot(k.store, path), choices)
 	if c.drop.Selected() != c.noneIndex() || c.reveal.Revealed() {
@@ -1630,10 +1630,10 @@ func TestModulePagesFollowTheRustOrder(t *testing.T) {
 		ids = append(ids, p.id)
 	}
 	want := []string{
-		"battery", "bitwarden", "bluetooth", "brightness", "cava", "clock", "cpu", "custom", "dashboard", "hyprland-workspaces",
-		"nightlight", "idle-inhibit", "keybind-mode", "keyboard-input", "lys-wm-workspaces", "mail", "mango-workspaces", "media", "microphone", "minimized-windows",
+		"audio", "battery", "bitwarden", "bluetooth", "brightness", "cava", "clock", "cpu", "custom", "dashboard", "hyprland-workspaces",
+		"nightlight", "idle-inhibit", "keybind-mode", "keyboard-input", "lys-wm-workspaces", "mail", "mango-workspaces", "media", "minimized-windows",
 		"netstat", "network", "niri-workspaces", "notification", "power", "power-profiles", "ram", "recorder", "screenshot",
-		"separator", "storage", "sway-workspaces", "systray", "treeman", "volume", "weather", "window-title", "world-clock",
+		"separator", "storage", "sway-workspaces", "systray", "treeman", "weather", "window-title", "world-clock",
 	}
 	if !slices.Equal(ids, want) {
 		t.Errorf("module pages\n%v\nwant (modules::factories, unported pages aside)\n%v", ids, want)
@@ -1848,7 +1848,7 @@ const layoutYAML = `bar:
       show: true
       left: [clock, {name: sys, modules: [cpu, ram]}]
       center: []
-      right: [battery, volume]
+      right: [battery, audio]
 modules:
   custom:
     - id: gpu
@@ -2017,10 +2017,10 @@ func TestLayoutEditorChipsMoveByDrag(t *testing.T) {
 	card := c.list.Children()[0]
 	right := zoneChips(t, root, c, 0, zoneRight)
 	dragChip(t, right.ChipAt(1), right, leftHalf(right.ChipAt(0)))
-	if got := modules(storedLayouts(k)[0].Right); !slices.Equal(got, []string{"volume", "battery"}) {
+	if got := modules(storedLayouts(k)[0].Right); !slices.Equal(got, []string{"audio", "battery"}) {
 		t.Errorf("right after the reorder: %v", got)
 	}
-	if got := texts(right); !slices.Equal(got, []string{"Volume", "Battery"}) {
+	if got := texts(right); !slices.Equal(got, []string{"Audio", "Battery"}) {
 		t.Errorf("the zone shows %v after the reorder", got)
 	}
 	left := zoneChips(t, root, c, 0, zoneLeft)
@@ -2037,9 +2037,9 @@ func TestLayoutEditorChipsMoveByDrag(t *testing.T) {
 	if g := storedLayouts(k)[0].Center[0].Group; g == nil || g.Name != "sys!" {
 		t.Errorf("renaming the moved group wrote %+v", g)
 	}
-	click(root, treetest.Button(t, right, "Remove Volume"))
+	click(root, treetest.Button(t, right, "Remove Audio"))
 	if got := modules(storedLayouts(k)[0].Right); !slices.Equal(got, []string{"battery"}) {
-		t.Errorf("removing the reordered volume left %v", got)
+		t.Errorf("removing the reordered audio module left %v", got)
 	}
 
 	before := config.Encode(storedLayouts(k))
@@ -2404,7 +2404,7 @@ func TestALayoutChipAndThePickerNameModulesReadably(t *testing.T) {
 	}
 	_, c := newTestLayout(t)
 	root, _ := hosted(c)
-	if got := texts(zoneChips(t, root, c, 0, zoneRight)); !slices.Equal(got, []string{"Battery", "Volume"}) {
+	if got := texts(zoneChips(t, root, c, 0, zoneRight)); !slices.Equal(got, []string{"Battery", "Audio"}) {
 		t.Fatalf("the right zone shows %q", got)
 	}
 	p := c.pickModule(nil, func(config.BarModule) {})

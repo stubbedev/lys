@@ -19,8 +19,6 @@ type dropdownGeometry struct {
 // power menu) keeps its natural size.
 var dropdownGeometries = map[string]dropdownGeometry{
 	"audio":        {382, func(d *config.DropdownsConfig) config.DropdownSize { return d.Audio }},
-	"volume":       {382, func(d *config.DropdownsConfig) config.DropdownSize { return d.Audio }},
-	"microphone":   {382, func(d *config.DropdownsConfig) config.DropdownSize { return d.Audio }},
 	"battery":      {382, func(d *config.DropdownsConfig) config.DropdownSize { return d.Battery }},
 	"bitwarden":    {382, func(d *config.DropdownsConfig) config.DropdownSize { return d.Bitwarden }},
 	"bluetooth":    {382, func(d *config.DropdownsConfig) config.DropdownSize { return d.Bluetooth }},

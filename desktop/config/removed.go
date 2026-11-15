@@ -1,5 +1,10 @@
 package config
 
+import (
+	"maps"
+	"slices"
+)
+
 // removedKey is a key a section no longer reads: what became of it, and
 // where the setting lives now.
 type removedKey struct {
@@ -13,10 +18,23 @@ const vaultMoved = "the Bitwarden vault moved to lys-secrets"
 // reads. Setting one is an error diagnostic naming where it went, so a
 // setting is never dropped without a word.
 var removedKeys = map[string][]removedKey{
+	"modules": removedModuleSections(),
 	"modules.bitwarden": {
 		{"lock-after", vaultMoved, "lys-secrets --vault-lock-after (services.lys-secrets.vault.lockAfter)"},
 		{"sync-interval", vaultMoved, "lys-secrets --vault-sync-interval (services.lys-secrets.vault.syncInterval)"},
 	},
+}
+
+// removedModuleSections are the modules sections of the removed bar
+// modules, each pointing to its replacement's section.
+func removedModuleSections() []removedKey {
+	out := make([]removedKey, 0, len(removedModules))
+	for _, name := range slices.Sorted(maps.Keys(removedModules)) {
+		replacement := removedModules[name]
+		reason := (&RemovedModuleError{Module: name, Replacement: replacement}).Error()
+		out = append(out, removedKey{name, reason, "modules." + string(replacement)})
+	}
+	return out
 }
 
 // reportRemoved sinks an error for each removed key tree sets in the

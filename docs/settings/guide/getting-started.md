@@ -35,7 +35,7 @@ description and keywords.
 | Launcher | `launcher`, `launcher-modes` |
 | Lock | `lock` |
 | Greeter | `greeter` |
-| Modules | One page per bar module: `battery`, `bitwarden`, `bluetooth`, `brightness`, `cava`, `clock`, `cpu`, `custom`, `dashboard`, `hyprland-workspaces`, `nightlight`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `lys-wm-workspaces`, `mail`, `mango-workspaces`, `media`, `microphone`, `minimized-windows`, `netstat`, `network`, `niri-workspaces`, `notification`, `power`, `power-profiles`, `ram`, `recorder`, `screenshot`, `separator`, `storage`, `sway-workspaces`, `systray`, `treeman`, `volume`, `weather`, `window-title`, `world-clock` |
+| Modules | One page per bar module: `audio`, `battery`, `bitwarden`, `bluetooth`, `brightness`, `cava`, `clock`, `cpu`, `custom`, `dashboard`, `hyprland-workspaces`, `nightlight`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `lys-wm-workspaces`, `mail`, `mango-workspaces`, `media`, `minimized-windows`, `netstat`, `network`, `niri-workspaces`, `notification`, `power`, `power-profiles`, `ram`, `recorder`, `screenshot`, `separator`, `storage`, `sway-workspaces`, `systray`, `treeman`, `weather`, `window-title`, `world-clock` |
 | Compositor | `wm-windows`, `wm-effects`, `wm-motion`, `wm-tiling`, `wm-input`, `wm-binds`, `wm-outputs`, `wm-session`; shown only when `lys-wm` is on `PATH`. See [lys-wm settings](./lys-wm) |
 
 lys-shell's pages edit its config and work without the shell running.

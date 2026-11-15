@@ -52,11 +52,11 @@ func TestModuleClickDefaultsMatchSchema(t *testing.T) {
 	if got := cfg.Brightness.Clicks().ScrollDown.String(); got != "brightness:-5" {
 		t.Errorf("brightness scroll-down = %q", got)
 	}
-	if got := cfg.Volume.Clicks().MiddleClick.String(); got != "lys-shell audio output-mute" {
-		t.Errorf("volume middle-click = %q", got)
+	if got := cfg.Audio.Clicks().MiddleClick.String(); got != "lys-shell audio output-mute" {
+		t.Errorf("audio middle-click = %q", got)
 	}
-	if got := cfg.Microphone.Clicks().MiddleClick.String(); got != "lys-shell audio input-mute" {
-		t.Errorf("microphone middle-click = %q", got)
+	if got := cfg.Audio.Clicks().ScrollUp.String(); got != "lys-shell audio output-volume +5" {
+		t.Errorf("audio scroll-up = %q", got)
 	}
 	if got := cfg.Clock.Clicks().RightClick.String(); got != "dropdown:weather" {
 		t.Errorf("clock right-click = %q", got)

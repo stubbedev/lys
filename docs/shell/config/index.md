@@ -42,6 +42,7 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 
 | Module | Purpose |
 |---|---|
+| [`audio`](/shell/config/modules/audio) | Speaker volume and mute, the microphone's state, and a capture indicator. |
 | [`background-apps`](/shell/config/modules/background-apps) | Background apps indicator. |
 | [`battery`](/shell/config/modules/battery) | Battery level, charging state, and a dropdown with the batteries of |
 | [`bitwarden`](/shell/config/modules/bitwarden) | Bitwarden vault: the bar shows whether it is locked; the dropdown logs |
@@ -61,7 +62,6 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 | [`mail`](/shell/config/modules/mail) | Unread mail count, backed by a notmuch query. |
 | [`mango-workspaces`](/shell/config/modules/mango-workspaces) | MangoWM tag switcher module configuration. |
 | [`media`](/shell/config/modules/media) | Now-playing title and playback controls for the active MPRIS player. |
-| [`microphone`](/shell/config/modules/microphone) | Microphone input level and mute toggle. |
 | [`minimized-windows`](/shell/config/modules/minimized-windows) | Minimized windows, like a dock. |
 | [`netstat`](/shell/config/modules/netstat) | Network traffic counters (up/down rates). |
 | [`network`](/shell/config/modules/network) | Network connection status with a dropdown for switching connections. |
@@ -70,17 +70,14 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 | [`notifications`](/shell/config/modules/notifications) | Notification center: icon in the bar, dropdown with history, DND toggle. |
 | [`power`](/shell/config/modules/power) | Shutdown, reboot, and logout menu. |
 | [`power-profiles`](/shell/config/modules/power-profiles) | Power profile indicator and switcher (power-profiles-daemon). |
-| [`privacy`](/shell/config/modules/privacy) | Privacy indicator. |
 | [`ram`](/shell/config/modules/ram) | Memory and swap usage. |
 | [`recorder`](/shell/config/modules/recorder) | Native screen recorder encoding on the GPU's video encoder. |
-| [`screen-share`](/shell/config/modules/screen-share) | Screen share indicator. |
 | [`screenshot`](/shell/config/modules/screenshot) | Screenshot capture button. |
 | [`separator`](/shell/config/modules/separator) | A vertical rule between bar modules. |
 | [`storage`](/shell/config/modules/storage) | Disk usage for a mount point. |
 | [`sway-workspaces`](/shell/config/modules/sway-workspaces) | sway workspace indicators with click-to-switch. |
 | [`systray`](/shell/config/modules/systray) | System tray icons via the StatusNotifierItem protocol. |
 | [`treeman`](/shell/config/modules/treeman) | treeman worktree health across all registered repos, in a dropdown. |
-| [`volume`](/shell/config/modules/volume) | Output volume control with a dropdown for device and app volumes. |
 | [`weather`](/shell/config/modules/weather) | Current conditions with hourly and daily forecasts in a dropdown. |
 | [`window-title`](/shell/config/modules/window-title) | Active window title with optional app-icon prefix. |
 | [`world-clock`](/shell/config/modules/world-clock) | Multiple timezones shown together in a dropdown. |

@@ -9,3 +9,4 @@ dropdown-audio-no-devices-title = Sem dispositivos de áudio
 dropdown-audio-no-devices-description = Não foram encontrados dispositivos de saída ou entrada de áudio
 dropdown-audio-no-apps = Nenhuma aplicação a reproduzir áudio
 dropdown-audio-settings = Definições de áudio
+dropdown-audio-capture = A capturar

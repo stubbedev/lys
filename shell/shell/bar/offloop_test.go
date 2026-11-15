@@ -537,7 +537,7 @@ func TestMountingAFullLayoutCompletesWhileEverySourceHolds(t *testing.T) {
 	ctx.Treeman = &fakeTreeman{}
 	ctx.Connector = "DP-1"
 	items := []config.BarItem{}
-	for _, name := range []string{"battery", "brightness", "network", "power-profiles", "volume", "microphone", "bluetooth", "window-title", "keyboard-input", "hyprland-workspaces", "workspaces", "systray", "media", "keybind-mode", "treeman", "dashboard", "bitwarden", "mail", "weather", "cpu", "ram", "storage", "netstat"} {
+	for _, name := range []string{"battery", "brightness", "network", "power-profiles", "audio", "bluetooth", "window-title", "keyboard-input", "hyprland-workspaces", "workspaces", "systray", "media", "keybind-mode", "treeman", "dashboard", "bitwarden", "mail", "weather", "cpu", "ram", "storage", "netstat"} {
 		items = append(items, config.BarItem{Module: config.BarModule(name)})
 	}
 	mounted := make(chan *widget.Box, 1)

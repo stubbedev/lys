@@ -6,6 +6,7 @@ import "github.com/stubbedev/lys/desktop/config"
 
 func modulePages(cfg *config.Config) []pageSpec {
 	return []pageSpec{
+		audioPage(cfg),
 		batteryPage(cfg),
 		bitwardenPage(cfg),
 		bluetoothPage(cfg),
@@ -24,7 +25,6 @@ func modulePages(cfg *config.Config) []pageSpec {
 		mailPage(cfg),
 		mangoWorkspacesPage(cfg),
 		mediaPage(cfg),
-		microphonePage(cfg),
 		minimizedWindowsPage(cfg),
 		netstatPage(cfg),
 		networkPage(cfg),
@@ -40,11 +40,40 @@ func modulePages(cfg *config.Config) []pageSpec {
 		compositorWorkspacesPage("sway"),
 		systrayPage(cfg),
 		treemanPage(cfg),
-		volumePage(cfg),
 		weatherPage(cfg),
 		windowTitlePage(cfg),
 		worldClockPage(cfg),
 	}
+}
+
+// audioPage is pages/modules/audio.
+func audioPage(*config.Config) pageSpec {
+	return pageSpec{id: "audio", navKey: "settings-nav-audio", icon: "ld-volume-2-symbolic", header: "settings-page-audio", sections: []sectionSpec{
+		{title: "settings-section-general", rows: []rowSpec{
+			field("modules.audio.format"),
+			field("modules.audio.thresholds", thresholdList),
+		}},
+		{title: "settings-section-speaker", rows: []rowSpec{
+			field("modules.audio.speaker-icons", iconList),
+			field("modules.audio.speaker-icon-muted", iconRow),
+		}},
+		{title: "settings-section-microphone", rows: []rowSpec{
+			field("modules.audio.mic-icon", iconRow),
+			field("modules.audio.mic-icon-muted", iconRow),
+			field("modules.audio.mic-hide-when-idle"),
+		}},
+		{title: "settings-section-capture", rows: []rowSpec{
+			field("modules.audio.capture-camera-icon", iconRow),
+			field("modules.audio.capture-screen-icon", iconRow),
+			field("modules.audio.capture-color"),
+		}},
+		{title: "settings-section-dropdown", rows: []rowSpec{
+			field("modules.audio.dropdown-app-icons"),
+		}},
+		barDisplaySection("modules.audio"),
+		colorsSection("modules.audio"),
+		actionsSection("modules.audio", actionChoices("audio")),
+	}}
 }
 
 // batteryPage is pages/modules/battery.
@@ -311,20 +340,6 @@ func mediaPage(*config.Config) pageSpec {
 	}}
 }
 
-// microphonePage is pages/modules/microphone.
-func microphonePage(*config.Config) pageSpec {
-	return pageSpec{id: "microphone", navKey: "settings-nav-microphone", icon: "ld-mic-symbolic", header: "settings-page-microphone", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.microphone.icon-active", iconRow),
-			field("modules.microphone.icon-muted", iconRow),
-			field("modules.microphone.thresholds", thresholdList),
-		}},
-		barDisplaySection("modules.microphone"),
-		colorsSection("modules.microphone"),
-		actionsSection("modules.microphone", actionChoices("microphone")),
-	}}
-}
-
 // netstatPage is pages/modules/netstat.
 func netstatPage(*config.Config) pageSpec {
 	return pageSpec{id: "netstat", navKey: "settings-nav-netstat", icon: "ld-activity-symbolic", header: "settings-page-netstat", sections: []sectionSpec{
@@ -507,24 +522,6 @@ func treemanPage(*config.Config) pageSpec {
 		barDisplaySection("modules.treeman"),
 		colorsSection("modules.treeman"),
 		actionsSection("modules.treeman", actionChoices("treeman")),
-	}}
-}
-
-// volumePage is pages/modules/volume.
-func volumePage(*config.Config) pageSpec {
-	return pageSpec{id: "volume", navKey: "settings-nav-volume", icon: "ld-volume-2-symbolic", header: "settings-page-volume", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.volume.icon-muted", iconRow),
-			field("modules.volume.format"),
-			field("modules.volume.level-icons", iconList),
-			field("modules.volume.thresholds", thresholdList),
-		}},
-		{title: "settings-section-dropdown", rows: []rowSpec{
-			field("modules.volume.dropdown-app-icons"),
-		}},
-		barDisplaySection("modules.volume"),
-		colorsSection("modules.volume"),
-		actionsSection("modules.volume", actionChoices("volume")),
 	}}
 }
 

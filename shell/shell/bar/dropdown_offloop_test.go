@@ -290,3 +290,8 @@ func (f *stuckPulse) PlaybackStreams() []pulse.AudioStream {
 	f.hold()
 	return nil
 }
+
+func (f *stuckPulse) RecordingStreams() []pulse.AudioStream {
+	f.hold()
+	return nil
+}

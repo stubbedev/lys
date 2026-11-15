@@ -12,8 +12,8 @@ import (
 // the func that unsubscribes.
 type subscription func() (<-chan struct{}, func())
 
-// countIndicator is a bar button for a list a service follows (screen
-// shares, background apps): shown while the list holds anything, its
+// countIndicator is a bar button for a list a service follows (the
+// background apps): shown while the list holds anything, its
 // length beside the icon under label-show and in its name.
 type countIndicator struct {
 	ctx    ModuleContext

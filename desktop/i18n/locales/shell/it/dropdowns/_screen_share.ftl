@@ -1,7 +1,5 @@
-### Screen Share Dropdown
+### Audio Dropdown: screen share capture rows
 
-dropdown-screen-share-title = Condivisione schermo
-dropdown-screen-share-empty = Nulla è in condivisione.
 dropdown-screen-share-stop = Ferma
 dropdown-screen-share-unknown-app = Un'app
 dropdown-screen-share-remote = { $app } (controllo remoto)
