@@ -11,6 +11,6 @@ permissions:
 
 jobs:
   vendor-hash:
-    uses: stubbedev/lys-ci/.github/workflows/vendor-hash.yml@60bfdee759050e2b4f23bb1924e0b8e85d438512
+    uses: stubbedev/lys-ci/.github/workflows/vendor-hash.yml@06b36a34ac8bd6b0ba0bd8790e766cb8dc785ef9
     secrets:
       VENDOR_HASH_DEPLOY_KEY: ${{ secrets.VENDOR_HASH_DEPLOY_KEY }}

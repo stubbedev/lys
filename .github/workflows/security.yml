@@ -21,6 +21,6 @@ jobs:
       contents: read
       pull-requests: read
       security-events: write
-    uses: stubbedev/lys-ci/.github/workflows/security.yml@493dadd91d1312838dcb75a2d9a6012920a3be88
+    uses: stubbedev/lys-ci/.github/workflows/security.yml@ef230c6c7cb569cac3cb55dc727a45d496f727d4
     with:
       bounded-timeouts: true
