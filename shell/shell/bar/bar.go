@@ -833,8 +833,7 @@ func (s *shellStart) mount() {
 	// The launcher surface serves `lys-shell launcher` sessions.
 	var walls launcher.Wallpapers
 	if s.wall != nil && baseCtx.SetConfig != nil {
-		setConfig := baseCtx.SetConfig
-		walls = s.wall.NewPicker(current.Load, func(path string, value any) { setConfig(path, value, logConfigFailure) })
+		walls = s.wall.NewPicker(current.Load, savedOnLoop(baseCtx.SetConfig, application.Invoke))
 	}
 	stopLauncher, openLauncher := startLauncher(application, sess.Outputs, current.Load, func() ModuleContext { return rt.ctx }, theme, font, launcherShell{wallpapers: walls, focused: focused})
 	s.down.add(stopLauncher)

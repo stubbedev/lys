@@ -18,14 +18,15 @@ import (
 type Picker struct {
 	svc       *wallpaper.Service
 	config    func() *config.Config
-	setConfig func(path string, value any)
+	setConfig func(path string, value any, done func(error))
 	pictures  func() string
 	thumbs    engine.ImageThumbnails
 }
 
 // NewPicker serves the picker from the shell's service; setConfig queues
-// a config change to apply and save.
-func (s *Shell) NewPicker(cfg func() *config.Config, setConfig func(path string, value any)) *Picker {
+// a config change to apply and save, and hands done its outcome on the UI
+// loop: the error that refused or lost it, or nil once it is saved.
+func (s *Shell) NewPicker(cfg func() *config.Config, setConfig func(path string, value any, done func(error))) *Picker {
 	return &Picker{
 		svc: s.svc, config: cfg, setConfig: setConfig, pictures: picturesDir,
 		thumbs: engine.ImageThumbnails{Dir: engine.LargeThumbnailDir(), Decode: imagedecode.Open},
@@ -60,13 +61,15 @@ func (p *Picker) EndPreview() { p.svc.EndPreview() }
 
 // Commit sets path on monitor, or every monitor when monitor is empty,
 // and saves it: the monitor's own entry, or the global image with every
-// entry's image cleared, in one config change.
-func (p *Picker) Commit(path, monitor string) error {
+// entry's image cleared, in one config change whose outcome saved hears.
+// A wallpaper that cannot be set is the error returned, and nothing is
+// saved.
+func (p *Picker) Commit(path, monitor string, saved func(error)) error {
 	if err := p.svc.SetWallpaper(path, monitor); err != nil {
 		return fmt.Errorf("setting the wallpaper: %w", err)
 	}
 	key, value := commitChange(p.config().Wallpaper, path, monitor)
-	p.setConfig(key, value)
+	p.setConfig(key, value, saved)
 	return nil
 }
 

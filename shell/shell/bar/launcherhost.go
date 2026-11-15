@@ -134,7 +134,8 @@ func panelDeps(current func() *config.Config, live func() ModuleContext, browser
 	rates := newCurrencyRates()
 	return func() search.Deps {
 		cfg := current()
-		controls := controlSourcesOf(live())
+		ctx := live()
+		controls := controlSourcesOf(ctx)
 		if deps.Wallpapers != nil {
 			controls.wallpaper = openPicker
 		}
@@ -148,8 +149,10 @@ func panelDeps(current func() *config.Config, live func() ModuleContext, browser
 			SettingsPages: settingsPages,
 		}
 		d.SkinTone = search.SkinToneOf(cfg.Launcher.Emoji.SkinTone)
-		d.SetSkinTone = func(tone modes.SkinTone) {
-			live().setConfig(skinTonePath, string(search.SkinToneName(tone)), logConfigFailure)
+		if set := ctx.SetConfig; set != nil {
+			d.SetSkinTone = func(tone modes.SkinTone, saved func(error)) {
+				set(skinTonePath, string(search.SkinToneName(tone)), saved)
+			}
 		}
 		if cfg.Launcher.Search.CurrencyRates && rates != nil {
 			d.Rates = rates
@@ -161,6 +164,12 @@ func panelDeps(current func() *config.Config, live func() ModuleContext, browser
 			d.Vault = deps.Vault
 		}
 		return d
+	}
+}
+
+func savedOnLoop(set func(path string, value any, done func(error)), invoke func(func())) func(path string, value any, done func(error)) {
+	return func(path string, value any, done func(error)) {
+		set(path, value, func(err error) { invoke(func() { done(err) }) })
 	}
 }
 

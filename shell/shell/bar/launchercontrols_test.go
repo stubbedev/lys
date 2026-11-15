@@ -297,16 +297,30 @@ func TestTheWallpaperRowOpensThePickerOnceThePanelHasGone(t *testing.T) {
 
 func TestAToneTypedFromTheActionsBecomesTheConfiguredDefault(t *testing.T) {
 	var set [][2]any
-	ctx := ModuleContext{SetConfig: func(path string, value any, _ func(error)) { set = append(set, [2]any{path, value}) }}
+	refused := errors.New("config: save: read-only file system")
+	var saveErr error
+	ctx := ModuleContext{SetConfig: func(path string, value any, done func(error)) {
+		set = append(set, [2]any{path, value})
+		done(saveErr)
+	}}
 	cfg := config.Defaults()
 	cfg.Launcher.Emoji.SkinTone = config.SkinToneMediumLight
 	d := panelDeps(func() *config.Config { return cfg }, func() ModuleContext { return ctx }, nil, &launcher.Deps{}, func() {})()
 	if d.SkinTone != modes.ToneMediumLight {
 		t.Errorf("the session's tone = %d", d.SkinTone)
 	}
-	d.SetSkinTone(modes.ToneDark)
+	var heard []error
+	d.SetSkinTone(modes.ToneDark, func(err error) { heard = append(heard, err) })
 	if len(set) != 1 || set[0] != [2]any{"launcher.emoji.skin-tone", "dark"} {
 		t.Errorf("config writes %v", set)
+	}
+	saveErr = refused
+	d.SetSkinTone(modes.ToneLight, func(err error) { heard = append(heard, err) })
+	if len(heard) != 2 || heard[0] != nil || !errors.Is(heard[1], refused) {
+		t.Errorf("the saves heard %v, want nil then the refusal", heard)
+	}
+	if none := panelDeps(func() *config.Config { return cfg }, func() ModuleContext { return ModuleContext{} }, nil, &launcher.Deps{}, func() {})(); none.SetSkinTone != nil {
+		t.Error("a shell without a config service offers to keep a tone")
 	}
 	svc := config.Load(t.TempDir(), config.DiscardDiagnostics)
 	t.Cleanup(svc.Close)
@@ -343,5 +357,24 @@ func TestReadingRowsFollowTesseract(t *testing.T) {
 	tesseract = false
 	if got, want := titlesOf(s.captureControls(context.Background())), []string{"Scan QR Code"}; !slices.Equal(got, want) {
 		t.Fatalf("without tesseract rows %q, want %q", got, want)
+	}
+}
+
+func TestTheWallpaperPickersSaveIsHeardOnTheLoop(t *testing.T) {
+	refused := errors.New("config: save: read-only file system")
+	var queued []func()
+	var writes []string
+	set := savedOnLoop(func(path string, _ any, done func(error)) {
+		writes = append(writes, path)
+		done(refused)
+	}, func(fn func()) { queued = append(queued, fn) })
+	var heard []error
+	set("wallpaper", map[string]any{"wallpaper": "/w/a.png"}, func(err error) { heard = append(heard, err) })
+	if len(heard) != 0 || len(queued) != 1 {
+		t.Fatalf("the outcome came off the loop: heard %v, %d queued", heard, len(queued))
+	}
+	queued[0]()
+	if !slices.Equal(writes, []string{"wallpaper"}) || len(heard) != 1 || !errors.Is(heard[0], refused) {
+		t.Errorf("writes %v, heard %v; want the refusal once on the loop", writes, heard)
 	}
 }

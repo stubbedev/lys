@@ -43,7 +43,7 @@ type Deps struct {
 	// SkinTone is what person and hand emoji show in; SetSkinTone keeps a tone
 	// picked from an emoji's actions as the new default (nil keeps none).
 	SkinTone    modes.SkinTone
-	SetSkinTone func(modes.SkinTone)
+	SetSkinTone KeepSkinTone
 	// Rates are the currency reference rates, kept across sessions; nil
 	// answers no currencies.
 	Rates *answer.Rates

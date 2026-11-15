@@ -103,6 +103,37 @@ func TestSetRejectsBadValueWithTheRuntimeMessage(t *testing.T) {
 	}
 }
 
+func TestSetRejectsAPathThatNamesNoField(t *testing.T) {
+	svc := Load(t.TempDir(), DiscardDiagnostics)
+	t.Cleanup(svc.Close)
+	for path, v := range map[string]any{
+		"modules.clok.format": "%H:%M",
+		"bar.nope":            true,
+		"imports":             []any{"other.yaml"},
+		"modules":             map[string]any{"clok": map[string]any{"format": "%H"}},
+	} {
+		err := svc.SetByPath(path, v)
+		if want := "config: " + path + " names no config field"; err == nil || err.Error() != want {
+			t.Errorf("%s: err = %v, want %q", path, err, want)
+		}
+	}
+	if doc, err := svc.runtimeDocument(); err != nil || len(bytes.TrimSpace(doc)) != 0 {
+		t.Errorf("refused paths left runtime overrides %q, %v", doc, err)
+	}
+	for path, v := range map[string]any{
+		"modules.clock.format":           "%H:%M",
+		"modules.notification.icon-name": "bell-off",
+		"animations.osd":                 map[string]any{"enter": "zoom"},
+	} {
+		if err := svc.SetByPath(path, v); err != nil {
+			t.Errorf("%s: %v", path, err)
+		}
+	}
+	if cfg := svc.Config(); cfg.Clock.Format.String() != "%H:%M" || cfg.Animations.Osd.Enter == nil || *cfg.Animations.Osd.Enter != AnimationZoom {
+		t.Errorf("the known paths did not apply: format %q, osd enter %v", cfg.Clock.Format, cfg.Animations.Osd.Enter)
+	}
+}
+
 func TestGetByPath(t *testing.T) {
 	svc := Load(t.TempDir(), DiscardDiagnostics)
 	v, err := svc.GetByPath("bar.location")
@@ -447,7 +478,7 @@ func costService(t *testing.T) *Service {
 		"modules.window-title.icon-mappings": map[string]any{"firefox": "web", "foot": "term"},
 		"animations.dropdown":                map[string]any{"enter-duration": int64(90)},
 		"modules.notification.icon-name":     "bell",
-		"general.font":                       "Sans",
+		"general.font-sans":                  "Sans",
 		"styling.palette.bg":                 "#101010",
 		"animations.osd":                     map[string]any{"enter": "zoom"},
 		"modules.clock.format":               "%H:%M",

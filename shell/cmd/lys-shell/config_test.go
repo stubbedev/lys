@@ -77,7 +77,7 @@ func TestConfigSetAndGetFailures(t *testing.T) {
 		t.Errorf("bad value: %v", err)
 	}
 	if _, err := runConfigOut(t, "set", "bar.nope", "1"); err == nil ||
-		err.Error() != "Failed to read back value: invalid config field 'nope' in bar.nope: field not found" {
+		err.Error() != "Failed to set config at 'bar.nope': config: bar.nope names no config field" {
 		t.Errorf("unknown path: %v", err)
 	}
 	if _, err := runConfigOut(t, "get", "nope"); err == nil ||

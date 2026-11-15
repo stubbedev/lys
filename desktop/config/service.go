@@ -335,7 +335,8 @@ func (s *Service) Value() any {
 func (s *Service) GetByPath(path string) (any, error) { return encodedAt(s.Config(), path) }
 
 // SetByPath sets a runtime override at a dot path. A value the field
-// rejects is a *RuntimeValueError; an unknown path applies nothing.
+// rejects is a *RuntimeValueError; a path, or a table under it, that
+// names no config field is an error naming the path, and applies nothing.
 func (s *Service) SetByPath(path string, value any) error {
 	root := map[string]any{}
 	if err := InsertPath(root, path, value); err != nil {
@@ -349,6 +350,9 @@ func (s *Service) SetByPath(path string, value any) error {
 	ra := &layerApply{kind: runtimeLayer, sink: s.sink, staged: touched}
 	if err := ra.applyContainer(valueOf(&cfg), root, ""); err != nil {
 		return err
+	}
+	if touched.len() == 0 {
+		return fmt.Errorf("config: %s names no config field", path)
 	}
 	next.cfg, next.staged = &cfg, withStaged(next.staged, touched, typeOf[Config]())
 	s.publish(next, touched)

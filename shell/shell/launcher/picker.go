@@ -33,8 +33,10 @@ type Wallpapers interface {
 	// EndPreview shows the set images again.
 	EndPreview()
 	// Commit sets path on monitor ("" every monitor) and saves it to the
-	// config.
-	Commit(path, monitor string) error
+	// config. Once it is set, saved hears on the UI loop the error that
+	// kept it from the config, or nil once it is saved; a wallpaper that
+	// cannot be set is the error returned, and saved never hears.
+	Commit(path, monitor string, saved func(error)) error
 	// LoadThumbnail is path's thumbnail, made off the loop.
 	LoadThumbnail(path string) (image.Image, error)
 }
@@ -85,6 +87,7 @@ type picker struct {
 	cellPx     [2]int
 	stopSettle func()
 	stopScale  func()
+	saving     bool
 	closing    bool
 }
 
@@ -258,14 +261,29 @@ func (p *picker) preview(path string) {
 }
 
 // commit sets the selected image on monitor ("" every monitor) and ends
-// the session.
+// the session once it is saved.
 func (p *picker) commit(monitor string) {
 	path, ok := p.path(p.grid.Selected())
-	if !ok {
+	if !ok || p.saving {
 		return
 	}
-	if err := p.walls.Commit(path, monitor); err != nil {
+	p.saving = true
+	if err := p.walls.Commit(path, monitor, func(err error) { p.saved(path, err) }); err != nil {
+		p.saving = false
 		p.chrome.setMessage(pango.Escape(i18n.T("launcher-failed", i18n.Str("what", i18n.T("launcher-wallpaper-title")), i18n.Str("error", err.Error()))))
+	}
+}
+
+func (p *picker) saved(path string, err error) {
+	p.saving = false
+	if p.closing {
+		if err != nil {
+			log.Printf("launcher: %v", err)
+		}
+		return
+	}
+	if err != nil {
+		p.chrome.setMessage(pango.Escape(i18n.T("launcher-wallpaper-not-saved", i18n.Str("error", err.Error()))))
 		return
 	}
 	p.finish(true, path)

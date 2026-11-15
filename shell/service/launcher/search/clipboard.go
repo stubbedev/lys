@@ -136,19 +136,25 @@ func (c *Clipboard) pinAction(d clipboardData) Action {
 	}}
 }
 
+// KeepSkinTone keeps tone as the new default and hands saved, on any
+// goroutine, the error that kept it from the config, or nil once it is
+// saved.
+type KeepSkinTone func(tone modes.SkinTone, saved func(error))
+
 // Emoji offers the emoji table.
 type Emoji struct {
 	load    func() []modes.Emoji
 	tone    modes.SkinTone
-	setTone func(modes.SkinTone)
+	setTone KeepSkinTone
 	flat    bool
 }
 
 // NewEmoji offers load's emoji (modes.AvailableEmoji) in skin tone tone.
 // Typing a tone picked from an emoji's actions hands it to setTone, which
-// keeps it as the new default. Load decompresses a table, so it runs only
-// on the provider's goroutine.
-func NewEmoji(load func() []modes.Emoji, tone modes.SkinTone, setTone func(modes.SkinTone)) *Emoji {
+// keeps it as the new default; the emoji is typed once the tone is saved,
+// and a tone that is not saved says why instead. Load decompresses a
+// table, so it runs only on the provider's goroutine.
+func NewEmoji(load func() []modes.Emoji, tone modes.SkinTone, setTone KeepSkinTone) *Emoji {
 	return &Emoji{load: load, tone: tone, setTone: setTone}
 }
 
@@ -220,19 +226,31 @@ func (e *Emoji) Actions(entry Entry) []Action {
 		actions = append(actions, Action{
 			Title: i18n.T("launcher-action-type-skin-tone", i18n.Str("emoji", variant), i18n.Str("tone", i18n.T(skinTones[tone].key))),
 			Icon:  "ld-smile-symbolic",
-			Run: func(context.Context) Outcome {
-				if e.setTone != nil {
-					e.setTone(tone)
-				}
-				return Type{Text: variant}
-			},
+			Run:   func(ctx context.Context) Outcome { return e.typeKeeping(ctx, tone, variant) },
 		})
 	}
 	return actions
 }
 
+func (e *Emoji) typeKeeping(ctx context.Context, tone modes.SkinTone, variant string) Outcome {
+	if e.setTone == nil {
+		return Type{Text: variant}
+	}
+	saved := make(chan error, 1)
+	e.setTone(tone, func(err error) { saved <- err })
+	select {
+	case err := <-saved:
+		if err != nil {
+			return Stay{Message: i18n.T("launcher-skin-tone-not-saved", i18n.Str("error", err.Error()))}
+		}
+		return Type{Text: variant}
+	case <-ctx.Done():
+		return nil
+	}
+}
+
 // EmojiLevel lists every emoji, as the Emoji Picker row opens it.
-func EmojiLevel(load func() []modes.Emoji, tone modes.SkinTone, setTone func(modes.SkinTone)) *Level {
+func EmojiLevel(load func() []modes.Emoji, tone modes.SkinTone, setTone KeepSkinTone) *Level {
 	return &Level{Title: i18n.T("launcher-picker-emoji"), Placeholder: i18n.T("launcher-placeholder-filter"), Providers: []Provider{&Emoji{load: load, tone: tone, setTone: setTone, flat: true}}}
 }
 

@@ -23,6 +23,7 @@ type fakeWalls struct {
 	loads    []string
 	// commitErr refuses every commit.
 	commitErr error
+	saves     []func(error)
 }
 
 func (f *fakeWalls) Images() ([]string, error)    { return f.images, nil }
@@ -30,9 +31,23 @@ func (f *fakeWalls) Shown(monitor string) string  { return f.shown[monitor] }
 func (f *fakeWalls) EndPreview()                  { f.ended++ }
 func (f *fakeWalls) Preview(path, _ string) error { f.previews = append(f.previews, path); return nil }
 
-func (f *fakeWalls) Commit(path, mon string) error {
+func (f *fakeWalls) Commit(path, mon string, saved func(error)) error {
 	f.commits = append(f.commits, [2]string{path, mon})
-	return f.commitErr
+	if f.commitErr != nil {
+		return f.commitErr
+	}
+	f.saves = append(f.saves, saved)
+	return nil
+}
+
+func (f *fakeWalls) save(t *testing.T, err error) {
+	t.Helper()
+	if len(f.saves) == 0 {
+		t.Fatal("no commit waits on its save")
+	}
+	saved := f.saves[len(f.saves)-1]
+	f.saves = f.saves[:len(f.saves)-1]
+	saved(err)
 }
 
 func (f *fakeWalls) LoadThumbnail(path string) (image.Image, error) {
@@ -195,6 +210,14 @@ func TestPickerEnterSetsTheFocusedMonitorAndControlEnterEveryOne(t *testing.T) {
 	h.openPicker()
 	h.press("Right")
 	h.press("Return")
+	if h.walls.ended != 0 || h.s.picker == nil {
+		t.Errorf("enter closed the picker before the wallpaper was saved: %d preview ends", h.walls.ended)
+	}
+	h.press("Return")
+	if len(h.walls.saves) != 1 {
+		t.Errorf("enter while saving committed again: %v", h.walls.commits)
+	}
+	h.walls.save(t, nil)
 	if !slices.Equal(h.walls.commits, [][2]string{{"/w/b.png", "DP-1"}}) || h.walls.ended != 1 {
 		t.Errorf("enter committed %v, %d preview ends", h.walls.commits, h.walls.ended)
 	}
@@ -209,6 +232,7 @@ func TestPickerEnterSetsTheFocusedMonitorAndControlEnterEveryOne(t *testing.T) {
 		t.Errorf("launcher.monitor HDMI-1 set the picker on %q", p.monitor)
 	}
 	all.press("Control+Return")
+	all.walls.save(t, nil)
 	if !slices.Equal(all.walls.commits, [][2]string{{"/w/a.png", ""}}) {
 		t.Errorf("control+enter committed %v, want every monitor", all.walls.commits)
 	}
@@ -227,6 +251,44 @@ func TestPickerAFailedCommitSaysTheErrorAsText(t *testing.T) {
 	}
 	if h.s.picker != p {
 		t.Error("the failed commit closed the picker")
+	}
+}
+
+func TestPickerAFailedSaveSaysTheErrorAndStaysOpen(t *testing.T) {
+	h := newPickerHarness(t, "/w/a.png")
+	p := h.openPicker()
+	h.press("Return")
+	h.walls.save(t, errors.New("config: save: write <runtime.yaml>: read-only file system"))
+	markup := p.chrome.message.Markup()
+	if !p.chrome.message.Visible() || !strings.Contains(markup, "&lt;runtime.yaml&gt;: read-only file system") {
+		t.Errorf("the failed save shows %q (visible %t), want the error as text", markup, p.chrome.message.Visible())
+	}
+	if h.s.picker != p || h.walls.ended != 0 {
+		t.Errorf("the failed save closed the picker: %d preview ends", h.walls.ended)
+	}
+	h.press("Return")
+	h.walls.save(t, nil)
+	if h.s.picker != nil || h.walls.ended != 1 {
+		t.Errorf("a save that worked left the picker open: %d preview ends", h.walls.ended)
+	}
+	if f := <-h.reply; f.Type != launcheripc.FrameResult || len(f.Selected) != 1 || f.Selected[0].Text != "/w/a.png" {
+		t.Errorf("the saved wallpaper answered %+v", f)
+	}
+}
+
+func TestPickerASaveAfterEscapeAnswersNothingMore(t *testing.T) {
+	h := newPickerHarness(t, "/w/a.png")
+	h.openPicker()
+	h.press("Return")
+	h.press("Escape")
+	if f := <-h.reply; f.Type != launcheripc.FrameCancelled {
+		t.Errorf("escape while saving answered %+v", f)
+	}
+	h.walls.save(t, errors.New("config: save: disk full"))
+	select {
+	case f := <-h.reply:
+		t.Errorf("the late save answered %+v", f)
+	default:
 	}
 }
 

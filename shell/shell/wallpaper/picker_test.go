@@ -1,6 +1,7 @@
 package wallpaper
 
 import (
+	"errors"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -18,13 +19,24 @@ type recordedChange struct {
 
 func testPicker(t *testing.T, cfg *config.Config, monitors ...string) (*Picker, *wallpaper.Service, *[]recordedChange) {
 	t.Helper()
-	svc := newSvc(monitors...)
-	var changes []recordedChange
+	p, svc, changes, _ := testPickerSaving(t, cfg, nil, monitors...)
+	return p, svc, changes
+}
+
+func testPickerSaving(t *testing.T, cfg *config.Config, saveErr error, monitors ...string) (p *Picker, svc *wallpaper.Service, changes *[]recordedChange, outcomes *[]error) {
+	t.Helper()
+	svc = newSvc(monitors...)
+	changes, outcomes = &[]recordedChange{}, &[]error{}
 	s := &Shell{svc: svc}
-	p := s.NewPicker(func() *config.Config { return cfg }, func(path string, value any) {
-		changes = append(changes, recordedChange{path, value})
+	p = s.NewPicker(func() *config.Config { return cfg }, func(path string, value any, done func(error)) {
+		*changes = append(*changes, recordedChange{path, value})
+		done(saveErr)
 	})
-	return p, svc, &changes
+	return p, svc, changes, outcomes
+}
+
+func (p *Picker) commitRecording(path, monitor string, outcomes *[]error) error {
+	return p.Commit(path, monitor, func(err error) { *outcomes = append(*outcomes, err) })
 }
 
 func TestPickerEscapeAfterAPreviewLeavesWallpaperAndConfig(t *testing.T) {
@@ -68,7 +80,7 @@ func TestPickerCommitWritesOnlyTheFocusedMonitorsEntry(t *testing.T) {
 	if err := p.Preview(b, "DP-1"); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.Commit(b, "DP-1"); err != nil {
+	if err := p.Commit(b, "DP-1", func(error) {}); err != nil {
 		t.Fatal(err)
 	}
 	p.EndPreview()
@@ -102,7 +114,7 @@ func TestPickerCommitEveryMonitorSetsTheGlobalImageInOneChange(t *testing.T) {
 	cfg.Wallpaper.Monitors = []config.MonitorWallpaperConfig{{Name: "DP-1", FitMode: config.FitFit, Wallpaper: "/old.png"}}
 	p, svc, changes := testPicker(t, cfg, "DP-1", "DP-2")
 	a := filepath.Join(dir, "a.png")
-	if err := p.Commit(a, ""); err != nil {
+	if err := p.Commit(a, "", func(error) {}); err != nil {
 		t.Fatal(err)
 	}
 	want := []recordedChange{{"wallpaper", map[string]any{
@@ -136,5 +148,39 @@ func TestPickerImagesComeFromTheConfiguredFolders(t *testing.T) {
 	p.pictures = func() string { return filepath.Dir(one) }
 	if dirs := cfg.Wallpaper.PickerDirs(p.pictures()); !slices.Equal(dirs, []string{two, filepath.Join(filepath.Dir(one), "Wallpapers")}) {
 		t.Errorf("default folders %v", dirs)
+	}
+}
+
+func TestPickerCommitHandsOnTheSavesOutcome(t *testing.T) {
+	dir := files(t, "a.png")
+	a := filepath.Join(dir, "a.png")
+	refused := errors.New("config: save: read-only file system")
+	p, svc, changes, outcomes := testPickerSaving(t, config.Defaults(), refused, "DP-1")
+	if err := p.commitRecording(a, "DP-1", outcomes); err != nil {
+		t.Fatal(err)
+	}
+	if len(*changes) != 1 || len(*outcomes) != 1 || !errors.Is((*outcomes)[0], refused) {
+		t.Errorf("a refused save: changes %v, outcomes %v; want the refusal heard once", *changes, *outcomes)
+	}
+	if got, _ := svc.Wallpaper("DP-1"); got != a {
+		t.Errorf("DP-1 shows %q after an unsaved commit, want a still shown", got)
+	}
+
+	p, _, _, outcomes = testPickerSaving(t, config.Defaults(), nil, "DP-1")
+	if err := p.commitRecording(a, "DP-1", outcomes); err != nil {
+		t.Fatal(err)
+	}
+	if len(*outcomes) != 1 || (*outcomes)[0] != nil {
+		t.Errorf("a save that worked heard %v, want one nil", *outcomes)
+	}
+}
+
+func TestPickerCommitOfAnImageThatCannotBeSetSavesNothing(t *testing.T) {
+	p, _, changes, outcomes := testPickerSaving(t, config.Defaults(), nil, "DP-1")
+	if err := p.commitRecording(filepath.Join(t.TempDir(), "missing.png"), "DP-1", outcomes); err == nil {
+		t.Fatal("committing a missing image succeeded")
+	}
+	if len(*changes) != 0 || len(*outcomes) != 0 {
+		t.Errorf("a wallpaper that was not set wrote %v and heard %v", *changes, *outcomes)
 	}
 }

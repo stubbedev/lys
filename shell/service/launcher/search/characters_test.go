@@ -1,7 +1,10 @@
 package search
 
 import (
+	"context"
+	"errors"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -115,7 +118,10 @@ func TestACharacterSearchBuildsOnlyTheRowsItShows(t *testing.T) {
 func TestToneableEmojiOfferEveryToneAndRememberThePick(t *testing.T) {
 	table := func() []modes.Emoji { return modes.AvailableEmoji() }
 	var kept []modes.SkinTone
-	p := NewEmoji(table, modes.ToneMedium, func(tone modes.SkinTone) { kept = append(kept, tone) })
+	p := NewEmoji(table, modes.ToneMedium, func(tone modes.SkinTone, saved func(error)) {
+		kept = append(kept, tone)
+		saved(nil)
+	})
 	var thumbs, heart Entry
 	for _, e := range loaded(t, p) {
 		switch e.Title {
@@ -148,6 +154,40 @@ func TestToneableEmojiOfferEveryToneAndRememberThePick(t *testing.T) {
 	}
 	if len(p.Actions(heart)) != 3 || heart.Glyph != "❤️" {
 		t.Errorf("red heart: %q, %d actions", heart.Glyph, len(p.Actions(heart)))
+	}
+}
+
+func thumbsUp(t *testing.T, p *Emoji) Entry {
+	t.Helper()
+	for _, e := range loaded(t, p) {
+		if e.Title == "thumbs up" {
+			return e
+		}
+	}
+	t.Fatal("no thumbs up")
+	return Entry{}
+}
+
+func TestAToneThatIsNotSavedTypesNothingAndSaysWhy(t *testing.T) {
+	refused := errors.New("config: save: read-only file system")
+	p := NewEmoji(modes.AvailableEmoji, modes.ToneNone, func(_ modes.SkinTone, saved func(error)) { saved(refused) })
+	actions := p.Actions(thumbsUp(t, p))
+	stay, ok := actions[3].Run(ctx).(Stay)
+	if !ok || !strings.Contains(stay.Message, refused.Error()) {
+		t.Errorf("a refused tone ran %#v, want it said instead of typed", actions[3].Run(ctx))
+	}
+	if got := actions[0].Run(ctx); got != (Type{Text: "👍"}) {
+		t.Errorf("the default action %v after a refused tone", got)
+	}
+}
+
+func TestAToneSavingWhenTheSessionEndsTypesNothing(t *testing.T) {
+	p := NewEmoji(modes.AvailableEmoji, modes.ToneNone, func(modes.SkinTone, func(error)) {})
+	actions := p.Actions(thumbsUp(t, p))
+	ended, cancel := context.WithCancel(ctx)
+	cancel()
+	if got := actions[3].Run(ended); got != nil {
+		t.Errorf("a tone still saving as the session ended ran %#v", got)
 	}
 }
 

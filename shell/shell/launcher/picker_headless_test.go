@@ -32,11 +32,14 @@ type headlessWalls struct {
 	ended    int
 }
 
-func (w *headlessWalls) Images() ([]string, error)   { return w.images, nil }
-func (w *headlessWalls) Shown(string) string         { return w.images[0] }
-func (w *headlessWalls) Preview(p, _ string) error   { w.previews = append(w.previews, p); return nil }
-func (w *headlessWalls) EndPreview()                 { w.ended++ }
-func (w *headlessWalls) Commit(string, string) error { return nil }
+func (w *headlessWalls) Images() ([]string, error) { return w.images, nil }
+func (w *headlessWalls) Shown(string) string       { return w.images[0] }
+func (w *headlessWalls) Preview(p, _ string) error { w.previews = append(w.previews, p); return nil }
+func (w *headlessWalls) EndPreview()               { w.ended++ }
+func (w *headlessWalls) Commit(_, _ string, saved func(error)) error {
+	saved(nil)
+	return nil
+}
 func (w *headlessWalls) LoadThumbnail(path string) (image.Image, error) {
 	img, decoded, err := w.thumbs.Load(path)
 	if decoded {
