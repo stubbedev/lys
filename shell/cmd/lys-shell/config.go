@@ -76,7 +76,7 @@ func configCommand() *cli.Command {
 				Name:  "docs",
 				About: "Generate markdown reference pages for every registered schema",
 				Args: []*cli.Arg{
-					{ID: "out", Long: "out", Value: cli.Path, Defaults: []string{"docs/config"}, Help: "Output directory for the generated pages"},
+					{ID: "out", Long: "out", Value: cli.Path, Defaults: []string{"docs/shell/config"}, Help: "Output directory for the generated pages"},
 					{ID: "only", Long: "only", Value: cli.String, Help: "Regenerate only the named module"},
 				},
 				Run: func(m *cli.Matches) error {

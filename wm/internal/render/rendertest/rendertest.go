@@ -1045,7 +1045,7 @@ func ScreenShaders(t *testing.T, r render.Renderer, target render.ReadTarget, so
 
 func ExampleShaders(t *testing.T) []string {
 	t.Helper()
-	paths, err := filepath.Glob("../../../docs/shaders/*.frag")
+	paths, err := filepath.Glob("../../../../docs/wm/shaders/*.frag")
 	if err != nil || len(paths) == 0 {
 		t.Fatalf("no example shaders: %v", err)
 	}

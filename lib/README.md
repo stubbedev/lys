@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="docs/public/lys-lib.svg" width="160" alt="lys-lib">
+  <img src="../docs/public/lys-lib.svg" width="160" alt="lys-lib">
 </p>
 
 <h1 align="center">lys-lib</h1>
 
 <p align="center">
-  Non-widget building blocks for the lys family, in pure Go.
+  The building blocks of <a href="../README.md">lys</a> that are not widgets, in pure Go.
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@ time where used.
 ## Install
 
 ```sh
-go get github.com/stubbedev/lys/lib@latest
+go get github.com/stubbedev/lys
 ```
 
 ## Example
@@ -39,15 +39,5 @@ img := render.NRGBA(pixels, stride, 320, 120)
 
 ## Documentation
 
-- [stubbedev.github.io/lys-lib](https://stubbedev.github.io/lys/lib/): package map, a page per domain, patch policy, development.
+- [The manual](https://stubbedev.github.io/lys/lib/): package map, a page per domain, patch policy, development.
 - [pkg.go.dev](https://pkg.go.dev/github.com/stubbedev/lys/lib): API reference.
-
-## The lys family
-
-[lys-shell](https://stubbedev.github.io/lys/shell/),
-[lys-wm](https://stubbedev.github.io/lys/wm/),
-[lys-ui](https://stubbedev.github.io/lys/ui/),
-[lys-login](https://stubbedev.github.io/lys/login/),
-[lys-splash](https://stubbedev.github.io/lys/splash/),
-[lys-polkit](https://stubbedev.github.io/lys/polkit/),
-[lys-secrets](https://stubbedev.github.io/lys/secrets/).

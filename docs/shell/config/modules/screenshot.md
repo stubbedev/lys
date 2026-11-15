@@ -1,0 +1,105 @@
+---
+title: screenshot
+outline: [2, 3]
+---
+
+# screenshot
+
+<div v-pre>
+
+Screenshot capture button.
+
+Click the bar button to capture a region, output, or window. Controllable
+from the CLI / RPC socket: `lys-shell screenshot region|output|window`.
+
+After a capture a thumbnail floats in a screen corner: click it to mark
+the image up (crop, arrow, rectangle, ellipse, freehand, text,
+highlighter, numbered markers and pixelation, with undo and redo; Enter
+saves over the file and copies it, Ctrl+S saves a copy elsewhere), drag
+it into an app, or delete the capture with its close button.
+
+`lys-shell screenshot text` copies the text in a dragged region (through
+tesseract, which must be installed) and `lys-shell screenshot qr` decodes
+the QR code in one; neither saves a file.
+
+Add it to your layout with `screenshot`:
+
+```yaml
+bar:
+  layout:
+    - monitor: "*"
+      right: [screenshot]
+```
+
+## General
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `icon` | string | `"ld-camera-symbolic"` | Bar button icon. |
+| `output-directory` | [`Directory`](/shell/config/types#directory) | `""` | Output directory for screenshots. Empty uses the XDG Pictures directory. |
+| `filename-format` | [`StrftimeFormat`](/shell/config/types#strftime-format) | `"Screenshot_%Y-%m-%d_%H-%M-%S.png"` | Saved file name, formatted with `chrono`/`strftime` specifiers. |
+| `copy-to-clipboard` | bool | `true` | Copy the captured image to the clipboard. |
+| `notify` | bool | `true` | Show a desktop notification after capturing. With the thumbnail disabled it carries Edit, Open folder and Delete buttons. |
+| `thumbnail-ms` | u32 | `5000` | How long, in milliseconds, the floating thumbnail stays after a capture; hovering it pauses the countdown. Click it to annotate, drag it into an app, or delete the capture from it. Set to 0 to disable. |
+| `thumbnail-position` | [`ScreenshotCorner`](/shell/config/types#screenshot-corner) | `"bottom-right"` | Screen corner the floating thumbnail sits in. |
+| `ocr-languages` | array of string | `[]` | Tesseract language codes `lys-shell screenshot text` reads with (e.g. `[eng, deu]`). Empty follows the session language. |
+| `border-show` | bool | `false` | Display border around button. |
+| `icon-show` | bool | `true` | Display module icon. |
+| `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
+| `label` | string | `""` | Static label text shown beside the icon. |
+| `label-show` | bool | `false` | Display label. |
+| `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
+
+## Colors
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `border-color` | [`ColorValue`](/shell/config/types#color-value) | `"accent"` | Border color token. |
+| `icon-color` | [`ColorValue`](/shell/config/types#color-value) | `"auto"` | Icon foreground color. Auto selects based on variant for contrast. |
+| `icon-bg-color` | [`ColorValue`](/shell/config/types#color-value) | `"accent"` | Icon container background color token. |
+| `label-color` | [`ColorValue`](/shell/config/types#color-value) | `"fg-default"` | Label text color token. |
+| `button-bg-color` | [`ColorValue`](/shell/config/types#color-value) | `"bg-surface-elevated"` | Button background color token. |
+
+## Click actions
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `left-click` | [`ClickAction`](/shell/config/types#click-action) | `"lys-shell screenshot region"` | Action on left click. Default captures a region. |
+| `right-click` | [`ClickAction`](/shell/config/types#click-action) | `"lys-shell screenshot output"` | Action on right click. Default captures the focused output. |
+| `middle-click` | [`ClickAction`](/shell/config/types#click-action) | `"lys-shell screenshot window"` | Action on middle click. Default captures the active window. |
+| `scroll-up` | [`ClickAction`](/shell/config/types#click-action) | `""` | Action on scroll up. |
+| `scroll-down` | [`ClickAction`](/shell/config/types#click-action) | `""` | Action on scroll down. |
+
+## Default configuration
+
+```yaml
+modules:
+  screenshot:
+    icon: ld-camera-symbolic
+    output-directory: ""
+    filename-format: Screenshot_%Y-%m-%d_%H-%M-%S.png
+    copy-to-clipboard: true
+    notify: true
+    thumbnail-ms: 5000
+    thumbnail-position: bottom-right
+    ocr-languages: []
+    border-show: false
+    border-color: accent
+    icon-show: true
+    tooltip: true
+    icon-color: auto
+    icon-bg-color: accent
+    label: ""
+    label-show: false
+    label-color: fg-default
+    label-max-length: 0
+    button-bg-color: bg-surface-elevated
+    left-click: lys-shell screenshot region
+    right-click: lys-shell screenshot output
+    middle-click: lys-shell screenshot window
+    scroll-up: ""
+    scroll-down: ""
+```
+
+
+</div>

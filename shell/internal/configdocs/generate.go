@@ -9,6 +9,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
+const base = "/shell/config/"
+
 // Generate writes every page under dir: one per section (bar modules
 // in modules/), types.md, and index.md (generate_all).
 func Generate(dir string) error {
@@ -72,17 +74,17 @@ func indexPage(sections []config.DocSection) string {
 	b.WriteString("## Top-level sections\n\n| Section | What it controls |\n|---|---|\n")
 	for _, sec := range sections {
 		if sec.LayoutID == "" {
-			fmt.Fprintf(&b, "| [`%s`](/config/%s) | %s |\n", sec.Name, sec.Name, hook(sec))
+			fmt.Fprintf(&b, "| [`%s`](%s%s) | %s |\n", sec.Name, base, sec.Name, hook(sec))
 		}
 	}
 	b.WriteString("\n## Bar modules\n\nModules appear inside the `bar.layout` list. Each row links to the full reference.\n\n")
 	b.WriteString("| Module | Purpose |\n|---|---|\n")
 	for _, sec := range sections {
 		if sec.LayoutID != "" {
-			fmt.Fprintf(&b, "| [`%s`](/config/modules/%s) | %s |\n", sec.Name, sec.Name, hook(sec))
+			fmt.Fprintf(&b, "| [`%s`](%smodules/%s) | %s |\n", sec.Name, base, sec.Name, hook(sec))
 		}
 	}
-	b.WriteString("\n## Shared types\n\nEvery named type referenced across the config (`Color`, `ClickAction`, `Size`, and others) is documented on the [types page](/config/types).\n")
+	b.WriteString("\n## Shared types\n\nEvery named type referenced across the config (`Color`, `ClickAction`, `Size`, and others) is documented on the [types page](" + base + "types).\n")
 	b.WriteString("\n</div>\n")
 	return b.String()
 }

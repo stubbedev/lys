@@ -446,7 +446,7 @@ type WindowConfig struct {
 	// Background fills the frame before the tree paints. An alpha of
 	// 255 sets wl_surface.set_opaque_region automatically; an alpha
 	// below 255 leaves the surface translucent for compositor blur
-	// (panels: alpha 200-235 - docs/architecture.md, rule 13).
+	// (panels: alpha 200-235 - docs/ui/architecture.md, rule 13).
 	Background render.Color
 	// Opaque forces the opaque region even though Background is
 	// translucent; see app.Config.Opaque.
@@ -551,7 +551,7 @@ type LayerConfig struct {
 	// Background fills the frame before the tree paints. An alpha of
 	// 255 sets wl_surface.set_opaque_region automatically; an alpha
 	// below 255 leaves the surface translucent for compositor blur
-	// (panels: alpha 200-235 - docs/architecture.md, rule 13).
+	// (panels: alpha 200-235 - docs/ui/architecture.md, rule 13).
 	Background render.Color
 	// Opaque forces the opaque region even though Background is
 	// translucent; see app.Config.Opaque.

@@ -424,7 +424,7 @@ var schemaDocs = map[string]string{
 	"CssToken=status-warning":                                "`--status-warning` - Warning state color.",
 	"CssToken=status-warning-subtle":                         "`--status-warning-subtle` - Subtle warning background.",
 	"CssToken=yellow":                                        "`--yellow` - Yellow color for stylistic/decorative use.",
-	"CustomModuleDefinition":                                 "User-defined module that runs a shell command and renders the output in the bar.\n\nFull walkthrough with examples in `docs/guide/custom-modules.md`.",
+	"CustomModuleDefinition":                                 "User-defined module that runs a shell command and renders the output in the bar.\n\nFull walkthrough with examples in the [custom modules guide](https://stubbedev.github.io/lys/shell/guide/custom-modules).",
 	"CustomModuleDefinition.BorderColor":                     "Border color.",
 	"CustomModuleDefinition.BorderShow":                      "Display border around button.",
 	"CustomModuleDefinition.ButtonBgColor":                   "Button background color.",

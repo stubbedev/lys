@@ -78,7 +78,7 @@ func TestTheExampleShadersRunOnEveryRenderer(t *testing.T) {
 }
 
 func testTheExampleShadersRun(t *testing.T, start gpuStarter) {
-	path, err := filepath.Abs("../../docs/shaders/grayscale.frag")
+	path, err := filepath.Abs("../../../docs/wm/shaders/grayscale.frag")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var update = flag.Bool("update", false, "rewrite docs/actions.md")
+var update = flag.Bool("update", false, "rewrite docs/wm/actions.md")
 
 var everyAction = []Action{
 	MinimizeAction{},
@@ -337,7 +337,7 @@ func TestWorkspacePreviousGoesBackOnTheFocusedOutput(t *testing.T) {
 }
 
 func TestActionReferenceIsCurrent(t *testing.T) {
-	path := filepath.Join("..", "..", "docs", "actions.md")
+	path := filepath.Join("..", "..", "..", "docs", "wm", "actions.md")
 	if *update {
 		if err := os.WriteFile(path, []byte(Reference()), 0o644); err != nil {
 			t.Fatal(err)

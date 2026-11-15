@@ -1,0 +1,193 @@
+---
+title: bar
+outline: [2, 3]
+---
+
+# bar
+
+<div v-pre>
+
+Bar chrome: per-monitor layout, spacing, colors, and button styling.
+
+## General
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `layout` | array of [`BarLayout`](/shell/config/types#bar-layout) | `[...]` | Per-monitor bar layouts. Each entry targets a monitor by connector name (e.g., `"DP-1"`) or `"*"` for all monitors, and may inherit from another entry with `extends`. |
+| `scale` | [`ScaleFactor`](/shell/config/types#scale-factor) | `1` | Bar-specific scale multiplier for spacing, radius, and other bar elements. |
+| `inset-edge` | [`Size`](/shell/config/types#size) | `0.5` | Gap between bar and its attached screen edge. |
+| `inset-ends` | [`Size`](/shell/config/types#size) | `0.5` | Gap at the bar's ends. |
+| `padding` | [`Size`](/shell/config/types#size) | `0.35` | Internal spacing along bar thickness. |
+| `padding-ends` | [`Size`](/shell/config/types#size) | `0.5` | Internal spacing at bar ends. |
+| `module-gap` | [`Size`](/shell/config/types#size) | `0.5` | Gap between modules and groups on the bar. |
+| `location` | [`Location`](/shell/config/types#location) | `"top"` | Bar position on screen edge. |
+| `exclusive` | bool | `true` | Reserve screen space for the bar. |
+| `auto-hide` | [`BarAutoHide2`](/shell/config/types#bar-auto-hide2) | `"never"` | When the bar hides, leaving a thin strip at its edge that reveals it under the pointer. A layout entry's `auto-hide` overrides it for its monitors. |
+| `auto-hide-delay-ms` | u32 | `300` | How long the bar stays after the pointer leaves it, or after it stops being needed, before it hides (milliseconds). |
+| `layer` | [`Layer`](/shell/config/types#layer) | `"top"` | Layer-shell layer the bar is placed on. |
+| `background-opacity` | [`Percentage`](/shell/config/types#percentage) | `60` | Bar background opacity (0-100). Below 100 the compositor blurs what is behind the bar; where it offers no blur the bar rests on its opaque color. |
+| `border-location` | [`BorderLocation`](/shell/config/types#border-location) | `"all"` | Border placement for bar. |
+| `border-width` | u8 | `1` | Border width for bar (pixels). |
+| `rounding` | [`RoundingLevel`](/shell/config/types#rounding-level) | `"default"` | Corner rounding level for the bar. |
+| `shadow` | [`ShadowPreset`](/shell/config/types#shadow-preset) | `"none"` | Shadow style for the bar. |
+
+::: details More about `layout`
+
+#### Example
+
+```yaml
+bar:
+  layout:
+    - monitor: "*"
+      left: [dashboard]
+      center: [clock]
+      right: [battery, network, volume, systray]
+    - monitor: HDMI-1
+      extends: "*"
+      right: [volume, systray]
+```
+
+:::
+
+::: details More about `inset-edge`
+
+- **Orientation**: Distance from top (horizontal bar) or left (vertical bar)
+
+:::
+
+::: details More about `inset-ends`
+
+- **Orientation**: Left/right (horizontal bar), top/bottom (vertical bar)
+
+:::
+
+::: details More about `padding`
+
+- **Orientation**: Top/bottom (horizontal bar), left/right (vertical bar)
+
+:::
+
+::: details More about `padding-ends`
+
+- **Orientation**: Left/right (horizontal bar), top/bottom (vertical bar)
+
+:::
+
+::: details More about `exclusive`
+
+When disabled, windows may overlap the bar and the bar draws over them.
+An auto-hiding bar never reserves space.
+
+:::
+
+## Colors
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `bg` | [`ColorValue`](/shell/config/types#color-value) | `"bg-surface"` | Bar background color. |
+| `border-color` | [`ColorValue`](/shell/config/types#color-value) | `"border-default"` | Border color for the bar. |
+| `button-group-background` | [`ColorValue`](/shell/config/types#color-value) | `"bg-elevated"` | Background color for button groups. |
+| `button-group-border-color` | [`ColorValue`](/shell/config/types#color-value) | `"border-accent"` | Border color for button groups. |
+
+## Buttons
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `button-variant` | [`BarButtonVariant`](/shell/config/types#bar-button-variant) | `"basic"` | Visual style variant for bar buttons. |
+| `button-opacity` | [`Percentage`](/shell/config/types#percentage) | `100` | Button opacity (0-100). |
+| `button-bg-opacity` | [`Percentage`](/shell/config/types#percentage) | `0` | Button background opacity (0-100). |
+| `button-icon-size` | [`Size`](/shell/config/types#size) | `1` | Button icon size. Accepts a scale multiplier or pixels (e.g. `"24px"`). |
+| `button-icon-padding` | [`Size`](/shell/config/types#size) | `1` | Button icon container padding. Only applies to `block-prefix` and `icon-square` variants. Accepts a scale multiplier or pixels (e.g. `"8px"`). |
+| `button-label-size` | [`Size`](/shell/config/types#size) | `1` | Button label text size. Accepts a scale multiplier or pixels (e.g. `"16px"`). |
+| `button-label-weight` | [`FontWeightClass`](/shell/config/types#font-weight-class) | `"semibold"` | Button label font weight. |
+| `button-label-padding` | [`Size`](/shell/config/types#size) | `1` | Button label container padding. Accepts a scale multiplier or pixels (e.g. `"8px"`). |
+| `button-rounding` | [`RoundingLevel`](/shell/config/types#rounding-level) | `"sm"` | Corner rounding level for the buttons in the bar. |
+| `button-gap` | [`Size`](/shell/config/types#size) | `1` | Gap between button icon and label. Accepts a scale multiplier or pixels (e.g. `"4px"`). |
+| `button-icon-position` | [`IconPosition`](/shell/config/types#icon-position) | `"start"` | Icon position relative to label in bar buttons. |
+| `button-border-location` | [`BorderLocation`](/shell/config/types#border-location) | `"all"` | Border placement for bar buttons. |
+| `button-border-width` | u8 | `1` | Border width for bar buttons (pixels). |
+| `button-group-border-location` | [`BorderLocation`](/shell/config/types#border-location) | `"none"` | Border placement for button groups. |
+| `button-group-border-width` | u8 | `1` | Border width for button groups (pixels). |
+| `button-group-padding` | [`Size`](/shell/config/types#size) | `0` | Internal padding for button groups. |
+| `button-group-module-gap` | [`Size`](/shell/config/types#size) | `0.25` | Gap between modules within a group. |
+| `button-group-opacity` | [`Percentage`](/shell/config/types#percentage) | `100` | Button group opacity (0-100). |
+| `button-group-rounding` | [`RoundingLevel`](/shell/config/types#rounding-level) | `"sm"` | Corner rounding level for button groups. |
+
+## Dropdowns
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `dropdown-shadow` | bool | `true` | Enable dropdown panel shadow. |
+| `dropdown-opacity` | [`Percentage`](/shell/config/types#percentage) | `75` | Dropdown panel opacity (0-100). Below 100 the compositor blurs what is behind the panel; where it offers no blur the panel is opaque. |
+| `dropdown-autohide` | bool | `true` | Close dropdown when clicking outside it. |
+| `dropdown-freeze-label` | bool | `true` | Freeze the bar button label while its dropdown is open. |
+
+::: details More about `dropdown-autohide`
+
+Esc closes an open dropdown too. On lys-wm it does so beside the
+dropdown, with the keys still on the focused window, and the window
+sees neither the press nor the release, unless a bind on bare Esc, a
+window inhibiting shortcuts, an exclusive layer or a grab has the key.
+Elsewhere Esc reaches a dropdown only after a click into it, as keys
+stay with the focused window until then.
+
+:::
+
+::: details More about `dropdown-freeze-label`
+
+Prevents the button from resizing mid-interaction, which keeps the
+dropdown anchored in place.
+
+:::
+
+## Default configuration
+
+```yaml
+bar:
+  scale: 1.0
+  inset-edge: 0.5
+  inset-ends: 0.5
+  padding: 0.3499999940395355
+  padding-ends: 0.5
+  module-gap: 0.5
+  location: top
+  exclusive: true
+  auto-hide: never
+  auto-hide-delay-ms: 300
+  layer: top
+  bg: bg-surface
+  background-opacity: 60
+  border-location: all
+  border-width: 1
+  border-color: border-default
+  rounding: default
+  shadow: none
+  button-variant: basic
+  button-opacity: 100
+  button-bg-opacity: 0
+  button-icon-size: 1.0
+  button-icon-padding: 1.0
+  button-label-size: 1.0
+  button-label-weight: semibold
+  button-label-padding: 1.0
+  button-rounding: sm
+  button-gap: 1.0
+  button-icon-position: start
+  button-border-location: all
+  button-border-width: 1
+  button-group-border-location: none
+  button-group-border-width: 1
+  button-group-padding: 0.0
+  button-group-module-gap: 0.25
+  button-group-background: bg-elevated
+  button-group-opacity: 100
+  button-group-border-color: border-accent
+  button-group-rounding: sm
+  dropdown-shadow: true
+  dropdown-opacity: 75
+  dropdown-autohide: true
+  dropdown-freeze-label: true
+```
+
+
+</div>

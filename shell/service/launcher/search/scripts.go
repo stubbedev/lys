@@ -108,7 +108,7 @@ func ParseScript(path string, head io.Reader) (Script, bool, error) {
 }
 
 // Scripts offers the executables of a directory as commands. The format
-// is in docs/guide/launcher.md.
+// is in docs/shell/guide/launcher.md.
 type Scripts struct {
 	env Env
 	dir string

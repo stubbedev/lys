@@ -63,7 +63,7 @@ func syntheticWrapper(name string) bool {
 func typesPage(defs map[string]config.Schema) string {
 	var b strings.Builder
 	b.WriteString("---\ntitle: Types\noutline: [2, 3]\n---\n\n<div v-pre>\n\n# Types\n\n")
-	b.WriteString("Named types referenced across the config. Every field in [`/config/`](/config/) that shows a type like `Color` or `ClickAction` links here.\n\n")
+	b.WriteString("Named types referenced across the config. Every field in the [config reference](" + base + ") that shows a type like `Color` or `ClickAction` links here.\n\n")
 	names := make([]string, 0, len(defs))
 	for n := range defs {
 		names = append(names, n)

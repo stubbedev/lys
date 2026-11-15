@@ -452,7 +452,7 @@ func (c confCase) run(t *testing.T) {
 // (compared with whitespace runs collapsed, so the wording may wrap).
 func runConformanceExceptions(t *testing.T, list []confException) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "docs", "css.md"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "docs", "ui", "css.md"))
 	if err != nil {
 		t.Fatalf("read docs/css.md: %v", err)
 	}

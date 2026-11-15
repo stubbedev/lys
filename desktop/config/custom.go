@@ -4,7 +4,7 @@ package config
 //
 // User-defined module that runs a shell command and renders the output in the bar.
 //
-// Full walkthrough with examples in `docs/guide/custom-modules.md`.
+// Full walkthrough with examples in the [custom modules guide](https://stubbedev.github.io/lys/shell/guide/custom-modules).
 type CustomModuleDefinition struct {
 	// Unique identifier for this module.
 	//

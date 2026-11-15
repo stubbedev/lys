@@ -27,8 +27,8 @@
 // capture, virtual input, the Wayland protocol bindings, media muxing
 // and the Opus encoder live in github.com/stubbedev/lys/lib.
 //
-// Everything under internal/ is implementation. The docs/ directory
+// Everything under internal/ is implementation. The docs/ui directory
 // holds the reference: architecture, components, the application,
 // input and threading models, CSS, appearance, icons, accessibility,
-// the inspector, and the capability map in docs/completeness.md.
+// the inspector, and the capability map in docs/ui/completeness.md.
 package lysui

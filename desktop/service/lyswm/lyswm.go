@@ -1,6 +1,6 @@
 // Package lyswm is the lys-wm IPC client: one JSON request line per
 // connection on $LYS_WM_SOCKET, answered by one response line, and the
-// watch stream of event lines (lys-wm's docs/ipc.md).
+// watch stream of event lines (docs/wm/ipc.md).
 package lyswm
 
 import (

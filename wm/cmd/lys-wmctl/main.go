@@ -24,7 +24,7 @@ import (
 
 const usage = `usage: lys-wmctl [--socket <path>] <command>
 
-  dispatch <action> [args...]  run an action, as a keybind would (see docs/actions.md)
+  dispatch <action> [args...]  run an action, as a keybind would (see https://stubbedev.github.io/lys/wm/actions)
   batch <action>...            run each argument as an action, in order and at once,
                                stopping at the first that fails
   reload                       read the config file again; prints what it did not apply

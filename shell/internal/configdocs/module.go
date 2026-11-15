@@ -173,7 +173,7 @@ func typeLink(name string, known map[string]bool) string {
 		return "map of " + typeLink(inner, known)
 	}
 	if known[name] {
-		return fmt.Sprintf("[`%s`](/config/types#%s)", name, typeSlug(name))
+		return fmt.Sprintf("[`%s`](%stypes#%s)", name, base, typeSlug(name))
 	}
 	return "`" + name + "`"
 }

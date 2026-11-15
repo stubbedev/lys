@@ -12,7 +12,7 @@ import (
 )
 
 func BenchmarkScreenShader1080p(b *testing.B) {
-	paths, err := filepath.Glob("../../../docs/shaders/*.frag")
+	paths, err := filepath.Glob("../../../../docs/wm/shaders/*.frag")
 	if err != nil || len(paths) == 0 {
 		b.Fatalf("no example shaders: %v", err)
 	}

@@ -18,7 +18,7 @@ func TestCoverageTableListsEveryFunction(t *testing.T) {
 	if keysyms == "" {
 		t.Fatal("LYS_XKB_KEYSYMS_H is not set: the dev shell points it at libxkbcommon's headers")
 	}
-	table, err := os.ReadFile(filepath.Join("..", "docs", "xkb.md"))
+	table, err := os.ReadFile(filepath.Join("..", "..", "docs", "lib", "xkb.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestCoverageTableListsEveryFunction(t *testing.T) {
 		for _, m := range cFunction().FindAllSubmatch(src, -1) {
 			name := string(m[1]) + string(m[2])
 			if !regexp.MustCompile("`" + name + "`").Match(table) {
-				t.Errorf("%s from %s is not in docs/xkb.md", name, header)
+				t.Errorf("%s from %s is not in docs/lib/xkb.md", name, header)
 			}
 		}
 	}

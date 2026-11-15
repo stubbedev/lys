@@ -1,0 +1,175 @@
+---
+title: launcher
+outline: [2, 3]
+---
+
+# launcher
+
+<div v-pre>
+
+Application launcher / dmenu (rofi replacement).
+
+## General
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `location` | [`LauncherLocation`](/shell/config/types#launcher-location) | `"center"` | Surface position on screen. |
+| `width` | [`Size`](/shell/config/types#size) | `1` | Surface width: a multiplier of the default 720px (`1.0` = default) or absolute pixels (e.g. `"800px"`). |
+| `lines` | u32 | `10` | Visible result lines. |
+| `monitor` | [`Monitor`](/shell/config/types#monitor) | `""` | Output connector to show on ("" = focused output). |
+| `modes` | array of string | `[...]` | Modes enabled by default (order = tab/kb-mode-next order). Script modes are referenced by their `[launcher.scripts]` key. |
+| `cycle` | bool | `true` | Wrap selection at list edges. |
+| `matching` | [`LauncherMatching`](/shell/config/types#launcher-matching) | `"normal"` | Matching method. |
+| `tokenize` | bool | `true` | Split the query into independently matched words. |
+| `negate-char` | string | `"-"` | Token prefix that negates a token. |
+| `normalize-match` | bool | `true` | Strip accents/normalize Unicode while matching. |
+| `sort` | bool | `false` | Rank results by match quality (off = keep list order, rofi default). |
+| `sorting-method` | [`LauncherSorting`](/shell/config/types#launcher-sorting) | `"levenshtein"` | Ranking method when `sort` is on. |
+| `case` | [`LauncherCase`](/shell/config/types#launcher-case) | `"insensitive"` | Case handling. |
+| `terminal` | [`Program`](/shell/config/types#program) | `""` | Terminal emulator for terminal apps ("" = autodetect). |
+| `show-icons` | bool | `true` | Show row icons. |
+| `icon-theme` | [`IconTheme`](/shell/config/types#icon-theme) | `""` | Icon theme override ("" = system theme). |
+| `sidebar-mode` | bool | `false` | Show mode tabs at the bottom of the surface. |
+| `auto-select` | bool | `false` | Accept automatically when exactly one result remains. |
+| `hover-select` | bool | `false` | Select the row under the mouse cursor. |
+| `fixed-num-lines` | bool | `false` | Keep the list height fixed at `lines` rows. |
+| `display-names` | map of string | `{}` | Per-mode display-name overrides (rofi `display-{mode}`), e.g. `drun: apps`. |
+| `scripts` | map of string | `{}` | Custom script modes: name → executable (rofi `name:script`). |
+| `keybindings` | map of string | `{}` | Keybinding overrides: action (rofi `kb-` name without the prefix, e.g. `accept`, `cancel`, `mode-next`, `custom-1`) → comma-separated key list (e.g. `"Control+Tab,F3"`). Unset actions keep rofi's defaults. |
+| `mouse-bindings` | map of string | `{}` | Mouse binding overrides: action (rofi's `me-`/`ml-` name, prefix included, e.g. `me-accept-entry`, `ml-row-down`) → comma-separated button list (e.g. `"MouseDPrimary"`, `"ScrollDown"`). Unset actions keep their defaults. |
+| `font` | string | `""` | Launcher font, as a Pango description (`"Inter 12"`). Empty keeps the shell's font. rofi's `-font` overrides it per invocation. |
+| `styles` | map of string | `{}` | Named looks selectable per invocation with `-style <name>`: name → the CSS applied for that session, on top of `[styling]`. |
+| `preview-cmd` | string | `""` | Command that turns a `thumbnail://` row icon into an image file: `{input}` the icon's path, `{output}` where to write the thumbnail, `{size}` the requested pixel size. Empty uses the system's XDG thumbnailers. rofi's `-preview-cmd`. |
+| `history` | [`LauncherHistoryConfig`](/shell/config/types#launcher-history-config) | `{...}` | Launch history / frecency. |
+| `drun` | [`LauncherDrunConfig`](/shell/config/types#launcher-drun-config) | `{...}` | drun (application) mode. |
+| `run` | [`LauncherRunConfig`](/shell/config/types#launcher-run-config) | `{...}` | run (command) mode. |
+| `window` | [`LauncherWindowConfig`](/shell/config/types#launcher-window-config) | `{...}` | window switcher mode. |
+| `ssh` | [`LauncherSshConfig`](/shell/config/types#launcher-ssh-config) | `{...}` | ssh mode. |
+| `filebrowser` | [`LauncherFilebrowserConfig`](/shell/config/types#launcher-filebrowser-config) | `{...}` | file browser mode. |
+| `combi` | [`LauncherCombiConfig`](/shell/config/types#launcher-combi-config) | `{...}` | combi (combined modes) mode. |
+| `search` | [`LauncherSearchConfig`](/shell/config/types#launcher-search-config) | `{...}` | The search panel, `lys-shell launcher` with no arguments. |
+| `emoji` | [`LauncherEmojiConfig`](/shell/config/types#launcher-emoji-config) | `{...}` | Emoji in the search panel, the emoji grid and the emoji mode. |
+
+::: details More about `styles`
+
+CSS rather than a second copy of the display keys: a preset exists to
+say "this invocation looks different", and there is no list of the
+ways someone might want that. `-style compact` then costs one config
+entry instead of a schema change.
+
+:::
+
+## Default configuration
+
+```yaml
+launcher:
+  location: center
+  width: 1.0
+  lines: 10
+  monitor: ""
+  modes:
+    - drun
+    - run
+    - window
+  cycle: true
+  matching: normal
+  tokenize: true
+  negate-char: '-'
+  normalize-match: true
+  sort: false
+  sorting-method: levenshtein
+  case: insensitive
+  terminal: ""
+  show-icons: true
+  icon-theme: ""
+  sidebar-mode: false
+  auto-select: false
+  hover-select: false
+  fixed-num-lines: false
+  display-names: {}
+  scripts: {}
+  keybindings: {}
+  mouse-bindings: {}
+  font: ""
+  styles: {}
+  preview-cmd: ""
+  history:
+    enable: true
+    max-size: 25
+  drun:
+    categories: []
+    exclude-categories: []
+    match-fields:
+      - name
+      - generic
+      - exec
+      - categories
+      - keywords
+    display-format: '{name} [<span weight=''light'' size=''small''><i>({generic})</i></span>]'
+    show-actions: false
+    url-launcher: ""
+  run:
+    run-command: '{cmd}'
+    shell-command: '{terminal} -e {cmd}'
+    list-command: ""
+  window:
+    format: '{w}   {c}   {t}'
+    match-fields:
+      - title
+      - class
+    hide-active: false
+    close-on-delete: true
+  ssh:
+    client: ssh
+    command: '{terminal} -e {ssh-client} {host}'
+    parse-hosts: false
+    parse-known-hosts: true
+  filebrowser:
+    directory: ""
+    sorting-method: name
+    directories-first: true
+    show-hidden: false
+    command: ""
+  combi:
+    modes:
+      - window
+      - drun
+      - run
+    display-format: '{text}'
+  search:
+    providers:
+      - apps
+      - windows
+      - files
+      - calculator
+      - system
+      - settings
+      - clipboard
+      - emoji
+      - characters
+      - vault
+      - links
+      - browser-bookmarks
+      - browser-history
+      - quick-toggles
+      - media
+      - capture
+      - processes
+      - scripts
+      - shell
+      - web
+    web-engine: DuckDuckGo
+    web-url: https://duckduckgo.com/?q={query}
+    file-roots: []
+    file-exclude: []
+    commands-dir: ""
+    currency-rates: true
+    previews: true
+    quicklinks: []
+    snippets: []
+  emoji:
+    skin-tone: none
+```
+
+
+</div>
