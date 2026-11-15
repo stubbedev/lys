@@ -1,0 +1,487 @@
+package wm
+
+import (
+	"fmt"
+	"image"
+	"slices"
+)
+
+type Direction uint8
+
+const (
+	Left Direction = iota + 1
+	Right
+	Up
+	Down
+)
+
+func (d Direction) vertical() bool {
+	return d == Up || d == Down
+}
+
+func (d Direction) forward() bool {
+	return d == Right || d == Down
+}
+
+var directionNames = []string{Left: "left", Right: "right", Up: "up", Down: "down"}
+
+func (d Direction) String() string {
+	return enumName(directionNames, d, "Direction")
+}
+
+func along(l Layout, d Direction) bool {
+	if l == SplitV {
+		return d.vertical()
+	}
+	return !d.vertical()
+}
+
+func breakout(groups []*Group, idx []int, d Direction) int {
+	for level, g := range slices.Backward(groups) {
+		i := idx[level]
+		atEdge := (d.forward() && i == len(g.Children)-1) || (!d.forward() && i == 0)
+		if along(g.Layout, d) && !atEdge {
+			return level
+		}
+	}
+	return -1
+}
+
+func step(i int, d Direction) int {
+	if d.forward() {
+		return i + 1
+	}
+	return i - 1
+}
+
+func (t Tree) Neighbor(id WindowID, d Direction) (WindowID, bool, error) {
+	groups, idx, ok := t.path(id)
+	if !ok {
+		return 0, false, fmt.Errorf("look %s of window %d: %w", d, id, ErrUnknownWindow)
+	}
+	n, found := neighbourAt(groups, idx, d)
+	return n, found, nil
+}
+
+func (t Tree) NeighborOfFocus(d Direction) (WindowID, bool) {
+	groups, idx := t.focusPath()
+	return neighbourAt(groups, idx, d)
+}
+
+func neighbourAt(groups []*Group, idx []int, d Direction) (WindowID, bool) {
+	level := breakout(groups, idx, d)
+	if level < 0 {
+		return 0, false
+	}
+	return entered(groups[level].Children[step(idx[level], d)].Node, d), true
+}
+
+func entered(n Node, d Direction) WindowID {
+	for {
+		switch v := n.(type) {
+		case Window:
+			return v.ID
+		case *Group:
+			switch {
+			case v.Layout == Tabbed:
+				n = v.Children[v.Focus].Node
+			case along(v.Layout, d) && d.forward():
+				n = v.Children[0].Node
+			case along(v.Layout, d):
+				n = v.Children[len(v.Children)-1].Node
+			default:
+				n = v.Children[v.Focus].Node
+			}
+		}
+	}
+}
+
+func (t Tree) groupPath(target *Group) ([]*Group, []int) {
+	var groups []*Group
+	var idx []int
+	var find func(g *Group) bool
+	find = func(g *Group) bool {
+		groups = append(groups, g)
+		if g == target {
+			idx = append(idx, 0)
+			return true
+		}
+		for i, c := range g.Children {
+			if sub, ok := c.Node.(*Group); ok {
+				idx = append(idx, i)
+				if find(sub) {
+					return true
+				}
+				idx = idx[:len(idx)-1]
+			}
+		}
+		groups = groups[:len(groups)-1]
+		return false
+	}
+	if t.root == nil || !find(t.root) {
+		return nil, nil
+	}
+	return groups, idx
+}
+
+func (t *Tree) collapseAt(g *Group, policy CollapsePolicy) {
+	groups, idx := t.groupPath(g)
+	if groups != nil {
+		t.collapse(groups, idx, policy)
+	}
+}
+
+type moveResult uint8
+
+const (
+	moveDone moveResult = iota + 1
+	moveAtEdge
+	moveBlocked
+)
+
+func leavesLocked(groups []*Group, level int) bool {
+	for _, g := range groups[level+1:] {
+		if g.Locked {
+			return true
+		}
+	}
+	return false
+}
+
+func opaque(n Node) bool {
+	g, isGroup := n.(*Group)
+	return !isGroup || g.Locked
+}
+
+func (t Tree) Move(id WindowID, d Direction, policy CollapsePolicy) (Tree, bool, error) {
+	original := t
+	t = t.clone()
+	groups, idx, ok := t.path(id)
+	if !ok {
+		return Tree{}, false, fmt.Errorf("move window %d %s: %w", id, d, ErrUnknownWindow)
+	}
+	if t.moveAt(groups, idx, d, policy) != moveDone {
+		return original, false, nil
+	}
+	return t, true, nil
+}
+
+func (t Tree) MoveFocused(d Direction, policy CollapsePolicy) (Tree, moveResult) {
+	original := t
+	t = t.clone()
+	groups, idx := t.focusPath()
+	if r := t.moveAt(groups, idx, d, policy); r != moveDone {
+		return original, r
+	}
+	return t, moveDone
+}
+
+func (t *Tree) moveAt(groups []*Group, idx []int, d Direction, policy CollapsePolicy) moveResult {
+	if len(groups) == 0 {
+		return moveBlocked
+	}
+	level := breakout(groups, idx, d)
+	if leavesLocked(groups, level) {
+		return moveBlocked
+	}
+	if level < 0 {
+		return moveAtEdge
+	}
+	leaf := len(groups) - 1
+	parent := groups[leaf]
+	node := parent.Children[idx[leaf]].Node
+	g, j := groups[level], step(idx[level], d)
+	var target *Group
+	var at int
+	if neighbour := g.Children[j].Node; opaque(neighbour) {
+		if level == leaf {
+			i := idx[leaf]
+			g.Children[i], g.Children[j] = g.Children[j], g.Children[i]
+			g.Focus = j
+			t.collapseAt(g, policy)
+			t.focusNode(node)
+			return moveDone
+		}
+		target, at = g, j
+		if !d.forward() {
+			at = j + 1
+		}
+	} else {
+		target, _ = neighbour.(*Group)
+		for {
+			c, after := target.Focus, true
+			if along(target.Layout, d) {
+				c, after = 0, false
+				if !d.forward() {
+					c, after = len(target.Children)-1, true
+				}
+			}
+			if opaque(target.Children[c].Node) {
+				at = c
+				if after {
+					at = c + 1
+				}
+				break
+			}
+			target, _ = target.Children[c].Node.(*Group)
+		}
+	}
+	if len(parent.Children) == 1 && leaf > 0 && target == groups[leaf-1] {
+		target.Children[idx[leaf-1]].Node = node
+	} else {
+		parent.remove(idx[leaf])
+		target.insert(at, node)
+		t.collapseAt(parent, CollapseInvalid)
+		t.collapseAt(target, policy)
+	}
+	t.focusNode(node)
+	return moveDone
+}
+
+type neighbourOutput struct {
+	name string
+	gap  int
+}
+
+func adjacent(from, to image.Rectangle, d Direction) (int, bool) {
+	switch d {
+	case Left:
+		return from.Min.X - to.Max.X, to.Max.X <= from.Min.X && to.Min.Y < from.Max.Y && from.Min.Y < to.Max.Y
+	case Right:
+		return to.Min.X - from.Max.X, to.Min.X >= from.Max.X && to.Min.Y < from.Max.Y && from.Min.Y < to.Max.Y
+	case Up:
+		return from.Min.Y - to.Max.Y, to.Max.Y <= from.Min.Y && to.Min.X < from.Max.X && from.Min.X < to.Max.X
+	case Down:
+		return to.Min.Y - from.Max.Y, to.Min.Y >= from.Max.Y && to.Min.X < from.Max.X && from.Min.X < to.Max.X
+	}
+	return 0, false
+}
+
+func (s State) outputToward(from string, d Direction) (string, bool) {
+	o := s.output(from)
+	if o == nil {
+		return "", false
+	}
+	var best *neighbourOutput
+	for _, other := range s.outputs {
+		if other.Name == from {
+			continue
+		}
+		if gap, ok := adjacent(o.Area, other.Area, d); ok && (best == nil || gap < best.gap) {
+			best = &neighbourOutput{other.Name, gap}
+		}
+	}
+	if best == nil {
+		return "", false
+	}
+	return best.name, true
+}
+
+func (s State) nearest(id WindowID, d Direction) (WindowID, bool) {
+	var from image.Rectangle
+	var visible []Placement
+	for _, p := range s.Arrange(Spacing{}).Windows {
+		if p.ID == id {
+			from = p.Rect
+		} else if p.Visible {
+			visible = append(visible, p)
+		}
+	}
+	c := from.Min.Add(from.Size().Div(2))
+	best, bestScore := WindowID(0), -1
+	for _, p := range visible {
+		pc := p.Rect.Min.Add(p.Rect.Size().Div(2))
+		var along, across int
+		switch d {
+		case Left:
+			along, across = from.Min.X-p.Rect.Min.X, pc.Y-c.Y
+		case Right:
+			along, across = p.Rect.Max.X-from.Max.X, pc.Y-c.Y
+		case Up:
+			along, across = from.Min.Y-p.Rect.Min.Y, pc.X-c.X
+		case Down:
+			along, across = p.Rect.Max.Y-from.Max.Y, pc.X-c.X
+		}
+		if along <= 0 {
+			continue
+		}
+		if across < 0 {
+			across = -across
+		}
+		if score := along + 2*across; bestScore < 0 || score < bestScore {
+			best, bestScore = p.ID, score
+		}
+	}
+	return best, bestScore >= 0
+}
+
+func (s State) FocusDirection(d Direction) (State, error) {
+	if w := s.activeWorkspace(); w != nil {
+		if id, ok := w.focused(); ok {
+			next, found := s.nearest(id, d)
+			if w.floatingIndex(id) < 0 {
+				next, found = w.Tree.NeighborOfFocus(d)
+			}
+			if found {
+				return s.FocusWindow(next, Raise)
+			}
+		}
+	}
+	name, ok := s.outputToward(s.focused, d)
+	if !ok {
+		return s, nil
+	}
+	return s.FocusOutput(name)
+}
+
+func (s State) MoveDirection(d Direction, policy CollapsePolicy, step int) (State, error) {
+	w := s.activeWorkspace()
+	if w == nil {
+		return s, nil
+	}
+	if id, ok := w.focused(); ok && w.floatingIndex(id) >= 0 {
+		return s.stepFloating(w, id, d, step)
+	}
+	if !w.treeFocused() {
+		return s, nil
+	}
+	tree, result := w.Tree.MoveFocused(d, policy)
+	switch result {
+	case moveBlocked:
+		return s, nil
+	case moveAtEdge:
+		name, ok := s.outputToward(w.Output, d)
+		if !ok {
+			return s, nil
+		}
+		return s.moveFocusedToOutputEdge(name, d)
+	}
+	s = s.clone()
+	active := s.activeWorkspace()
+	active.Tree = tree
+	active.record()
+	return s, nil
+}
+
+func (t Tree) InsertAt(id WindowID, area image.Rectangle, at image.Point, auto Autotile) (Tree, error) {
+	zone := t.dropZones(DropZones{}, area).At(at)
+	if zone.Target == 0 {
+		return t.Place(id, area, auto)
+	}
+	before := zone.Before
+	focused, err := t.Focus(zone.Target)
+	if err != nil {
+		return Tree{}, err
+	}
+	placed, err := focused.Place(id, area, auto)
+	if err != nil || !before {
+		return placed, err
+	}
+	groups, idx, _ := placed.path(id)
+	g, i := groups[len(groups)-1], idx[len(idx)-1]
+	g.Children[i-1], g.Children[i] = g.Children[i], g.Children[i-1]
+	g.Focus = i - 1
+	return placed, nil
+}
+
+type DropZone struct {
+	Target WindowID
+	Before bool
+}
+
+type dropRect struct {
+	id     WindowID
+	rect   image.Rectangle
+	layout Layout
+}
+
+type DropZones struct {
+	rects []dropRect
+}
+
+func (t Tree) dropZones(z DropZones, area image.Rectangle) DropZones {
+	z.rects = z.rects[:0]
+	for _, p := range t.Arrange(area, Spacing{}).Windows {
+		if !p.Visible {
+			continue
+		}
+		groups, _, _ := t.path(p.ID)
+		z.rects = append(z.rects, dropRect{id: p.ID, rect: p.Rect, layout: groups[len(groups)-1].Layout})
+	}
+	return z
+}
+
+func (z DropZones) At(at image.Point) DropZone {
+	for i := len(z.rects) - 1; i >= 0; i-- {
+		r := &z.rects[i]
+		if !at.In(r.rect) {
+			continue
+		}
+		mid := r.rect.Min.Add(r.rect.Size().Div(2))
+		return DropZone{Target: r.id, Before: (r.layout == SplitH && at.X < mid.X) || (r.layout == SplitV && at.Y < mid.Y)}
+	}
+	return DropZone{}
+}
+
+const minTile = 32
+
+func (t Tree) Resize(id WindowID, area image.Rectangle, d Direction, delta int) (Tree, bool, error) {
+	if !t.Contains(id) {
+		return Tree{}, false, fmt.Errorf("resize window %d: %w", id, ErrUnknownWindow)
+	}
+	root, _ := t.root.resized(id, area, d, delta)
+	if root == nil {
+		return t, false, nil
+	}
+	t.root = root
+	return t, true, nil
+}
+
+func (g *Group) resized(id WindowID, r image.Rectangle, d Direction, delta int) (next *Group, settled bool) {
+	i := slices.IndexFunc(g.Children, func(c Child) bool { return nodeContains(c.Node, id) })
+	if sub, ok := g.Children[i].Node.(*Group); ok {
+		inner, settled := sub.resized(id, gaplessChildRect(g, r, i), d, delta)
+		if inner != nil {
+			c := *g
+			c.Children = slices.Clone(g.Children)
+			c.Children[i].Node = inner
+			return &c, true
+		}
+		if settled {
+			return nil, true
+		}
+	}
+	want := SplitH
+	span := r.Dx()
+	if d.vertical() {
+		want, span = SplitV, r.Dy()
+	}
+	if g.Layout == Scrolled && want == SplitH && span > 0 {
+		c := *g
+		c.Children = slices.Clone(g.Children)
+		ch := &c.Children[i]
+		w := Share(ch.Ratio + float64(delta)/float64(span))
+		if ch.Fixed > 0 {
+			w = Pixels(ch.Fixed + delta)
+		}
+		ch.setWidth(w, span, 0)
+		return &c, true
+	}
+	j := step(i, d)
+	if g.Layout != want || j < 0 || j >= len(g.Children) {
+		return nil, false
+	}
+	if span <= 0 {
+		return nil, true
+	}
+	perPixel := float64(len(g.Children)) / float64(span)
+	floor := float64(minTile * perPixel)
+	dr := float64(delta) * perPixel
+	dr = min(dr, max(0, g.Children[j].Ratio-floor))
+	dr = max(dr, -max(0, g.Children[i].Ratio-floor))
+	c := *g
+	c.Children = slices.Clone(g.Children)
+	c.Children[i].Ratio += dr
+	c.Children[j].Ratio -= dr
+	return &c, true
+}

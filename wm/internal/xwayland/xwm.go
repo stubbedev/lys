@@ -1,0 +1,821 @@
+package xwayland
+
+import (
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"image"
+	"maps"
+	"slices"
+	"time"
+
+	"github.com/jezek/xgb"
+	"github.com/jezek/xgb/xproto"
+
+	"github.com/stubbedev/lys-wm/internal/data"
+	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/xsync"
+)
+
+type Listener interface {
+	XWindowMapped(w *Window) error
+	XWindowUnmapped(w *Window) error
+	XWindowChanged(w *Window) error
+	XWindowRequest(w *Window, r Request) error
+	XWindowResponsive(w *Window, responsive bool) error
+	XWindowSynced(w *Window) error
+	CurrentSelection(k data.Kind) data.Source
+	SetSelection(k data.Kind, src data.Source) error
+	ForeignDrag(src data.DragSource) (*data.Drag, error)
+	XDragOver(over func(*surface.Surface, bool) error) error
+	XDragTarget() (*surface.Surface, float64, float64)
+	WorkArea() image.Rectangle
+}
+
+const (
+	icccmNormalState xproto.Atom = 1
+	icccmIconicState xproto.Atom = 3
+)
+
+const (
+	netWMStateRemove = iota
+	netWMStateAdd
+	netWMStateToggle
+)
+
+type Request interface {
+	isRequest()
+}
+
+type SetFullscreen struct {
+	On bool
+}
+
+type SetMaximized struct {
+	On bool
+}
+
+type Activate struct{}
+
+type Minimize struct{}
+
+type Configure struct {
+	Rect image.Rectangle
+}
+
+type Edge uint8
+
+const (
+	EdgeTopLeft Edge = iota
+	EdgeTop
+	EdgeTopRight
+	EdgeRight
+	EdgeBottomRight
+	EdgeBottom
+	EdgeBottomLeft
+	EdgeLeft
+	edgeCount
+)
+
+const (
+	netWMMoveResizeMove   = 8
+	netWMMoveResizeCancel = 11
+)
+
+const (
+	btnLeft   = 0x110
+	btnRight  = 0x111
+	btnMiddle = 0x112
+	btnSide   = 0x113
+)
+
+type Move struct {
+	Button uint32
+}
+
+type Resize struct {
+	Button uint32
+	Edge   Edge
+}
+
+type CancelMoveResize struct{}
+
+func (SetFullscreen) isRequest()    {}
+func (SetMaximized) isRequest()     {}
+func (Activate) isRequest()         {}
+func (Minimize) isRequest()         {}
+func (Configure) isRequest()        {}
+func (Move) isRequest()             {}
+func (Resize) isRequest()           {}
+func (CancelMoveResize) isRequest() {}
+
+type State struct {
+	Rect                                        image.Rectangle
+	Activated, Fullscreen, Maximized, Minimized bool
+}
+
+type props struct {
+	class       Class
+	title       string
+	hints       Hints
+	size        SizeHints
+	transient   xproto.Window
+	types       []xproto.Atom
+	states      []xproto.Atom
+	protocols   []xproto.Atom
+	pid         uint32
+	undecorated bool
+
+	syncCounter xsync.Counter
+}
+
+type Window struct {
+	wm       *wm
+	id       xproto.Window
+	override bool
+	rect     image.Rectangle
+	mapped   bool
+	serial   uint64
+	surface  *surface.Surface
+	raw      rawProps
+	props    props
+	shown    bool
+	applied  State
+	managed  bool
+	ping     uint32
+	timer    *loop.Timer
+	hung     bool
+
+	alarm        xsync.Alarm
+	alarmCounter xsync.Counter
+	syncWanted   uint64
+	syncMissed   bool
+}
+
+type wm struct {
+	x          *xgb.Conn
+	root       xproto.Window
+	sel        xproto.Window
+	atoms      atoms
+	windows    map[xproto.Window]*Window
+	shell      *Shell
+	listener   Listener
+	loop       *loop.Loop
+	stamps     uint32
+	client     *server.Client
+	report     func(error)
+	transfer   time.Duration
+	stall      *loop.Timer
+	reap       *loop.Timer
+	focused    xproto.Window
+	clients    []xproto.Window
+	stacking   []xproto.Window
+	selections [2]*selection
+	dndSel     *selection
+	dnd        *dndOut
+	dndStall   *loop.Timer
+	proxy      xproto.Window
+	proxyShown bool
+	xDragging  bool
+	in         *dndIn
+	incoming   []*incoming
+	outgoing   map[outKey]*outgoing
+	reading    int
+}
+
+func (w *Window) Surface() *surface.Surface {
+	return w.surface
+}
+
+func (w *Window) Override() bool {
+	return w.override
+}
+
+func (w *Window) Rect() image.Rectangle {
+	return w.rect
+}
+
+func (w *Window) Title() string {
+	return w.props.title
+}
+
+func (w *Window) Class() Class {
+	return w.props.class
+}
+
+func (w *Window) Pid() int32 {
+	return int32(w.props.pid) //nolint:gosec // _NET_WM_PID holds a process id
+}
+
+func (w *Window) Urgent() bool {
+	return w.props.hints.Urgent || w.has(w.props.states, atomNetWMStateDemandsAttention)
+}
+
+func (w *Window) Parent() *Window {
+	p := w.transientFor()
+	for a, steps := p, len(w.wm.windows); a != nil && steps > 0; a, steps = a.transientFor(), steps-1 {
+		if a == w {
+			return nil
+		}
+	}
+	return p
+}
+
+func (w *Window) transientFor() *Window {
+	p := w.wm.windows[w.props.transient]
+	if p == nil || !p.shown || p.override {
+		return nil
+	}
+	return p
+}
+
+func (w *Window) has(list []xproto.Atom, names ...atom) bool {
+	for _, n := range names {
+		if slices.Contains(list, w.wm.atoms[n]) {
+			return true
+		}
+	}
+	return false
+}
+
+var floatingTypes = []atom{
+	atomNetWMWindowTypeDialog, atomNetWMWindowTypeUtility, atomNetWMWindowTypeSplash, atomNetWMWindowTypeToolbar,
+	atomNetWMWindowTypeMenu, atomNetWMWindowTypePopupMenu, atomNetWMWindowTypeDropdownMenu, atomNetWMWindowTypeCombo,
+	atomNetWMWindowTypeTooltip, atomNetWMWindowTypeNotification, atomNetWMWindowTypeDND,
+}
+
+func (w *Window) PrefersFloating() bool {
+	return w.has(w.props.states, atomNetWMStateModal) || w.has(w.props.types, floatingTypes...)
+}
+
+func (w *Window) SizeHints() SizeHints {
+	return w.props.size
+}
+
+func (w *Window) Undecorated() bool {
+	return w.props.undecorated
+}
+
+func (w *Window) Modal() bool {
+	return w.has(w.props.states, atomNetWMStateModal)
+}
+
+func (w *Window) Fullscreen() bool {
+	return w.has(w.props.states, atomNetWMStateFullscreen)
+}
+
+func (w *Window) Maximized() bool {
+	return w.has(w.props.states, atomNetWMStateMaximizedVert, atomNetWMStateMaximizedHorz)
+}
+
+func (w *Window) Applied() State {
+	return w.applied
+}
+
+func (w *Window) Apply(s State) error {
+	if s == w.applied {
+		return nil
+	}
+	prev := w.applied
+	w.applied = s
+	if s.Rect != prev.Rect && !s.Rect.Empty() {
+		if s.Rect.Size() != w.rect.Size() {
+			if err := w.requestSync(); err != nil {
+				return err
+			}
+		}
+		w.rect = s.Rect
+		xproto.ConfigureWindow(w.wm.x, w.id, xproto.ConfigWindowX|xproto.ConfigWindowY|xproto.ConfigWindowWidth|xproto.ConfigWindowHeight|xproto.ConfigWindowBorderWidth,
+			[]uint32{uint32(int32(s.Rect.Min.X)), uint32(int32(s.Rect.Min.Y)), uint32(s.Rect.Dx()), uint32(s.Rect.Dy()), 0}) //nolint:gosec // X geometry is 16-bit and travels as 32-bit words
+		w.wm.notifyGeometry(w)
+	}
+	if s.Fullscreen != prev.Fullscreen {
+		w.setState(s.Fullscreen, atomNetWMStateFullscreen)
+	}
+	if s.Maximized != prev.Maximized {
+		w.setState(s.Maximized, atomNetWMStateMaximizedVert, atomNetWMStateMaximizedHorz)
+	}
+	if s.Minimized != prev.Minimized {
+		w.setState(s.Minimized, atomNetWMStateHidden)
+		wmState := icccmNormalState
+		if s.Minimized {
+			wmState = icccmIconicState
+		}
+		w.wm.changeAtoms(w.id, w.wm.atoms[atomWMState], w.wm.atoms[atomWMState], []xproto.Atom{wmState, 0})
+	}
+	if s.Activated != prev.Activated {
+		w.wm.activate(w, s.Activated)
+		if s.Activated && w.has(w.props.states, atomNetWMStateDemandsAttention) {
+			w.setState(false, atomNetWMStateDemandsAttention)
+		}
+	}
+	return nil
+}
+
+func (w *Window) requestSync() error {
+	counter := w.props.syncCounter
+	if counter == 0 || !w.has(w.props.protocols, atomNetWMSyncRequest) {
+		w.syncWanted = 0
+		return nil
+	}
+	w.syncMissed = w.syncWanted != 0
+	w.wm.stamps++
+	w.syncWanted = uint64(w.wm.stamps)
+	if err := w.armAlarm(counter); err != nil {
+		return err
+	}
+	w.wm.protocol(w.id, atomNetWMSyncRequest, xproto.TimeCurrentTime, w.wm.stamps)
+	return nil
+}
+
+func (w *Window) armAlarm(counter xsync.Counter) error {
+	if w.alarm != 0 && w.alarmCounter == counter {
+		xsync.ChangeAlarm(w.wm.x, w.alarm, w.syncWanted)
+		return nil
+	}
+	if w.alarm != 0 {
+		xsync.DestroyAlarm(w.wm.x, w.alarm)
+	}
+	id, err := w.wm.x.NewId()
+	if err != nil {
+		return fmt.Errorf("xwayland: allocate a sync alarm for window %#x: %w", w.id, err)
+	}
+	w.alarm, w.alarmCounter = xsync.Alarm(id), counter
+	xsync.CreateAlarm(w.wm.x, w.alarm, counter, w.syncWanted)
+	return nil
+}
+
+func (w *Window) Synced() bool {
+	return w.syncWanted == 0 || w.syncMissed
+}
+
+func (m *wm) alarmed(e xsync.AlarmNotify) error {
+	for _, w := range m.windows {
+		if w.alarm != e.Alarm {
+			continue
+		}
+		switch {
+		case e.State == xsync.AlarmDestroyed:
+			w.alarm, w.syncWanted, w.syncMissed = 0, 0, false
+		case e.Value >= w.syncWanted:
+			w.syncWanted, w.syncMissed = 0, false
+		default:
+			return nil
+		}
+		if !w.shown {
+			return nil
+		}
+		return m.listener.XWindowSynced(w)
+	}
+	return nil
+}
+
+func (w *Window) setState(on bool, names ...atom) {
+	for _, name := range names {
+		atom := w.wm.atoms[name]
+		w.props.states = slices.DeleteFunc(w.props.states, func(a xproto.Atom) bool { return a == atom })
+		if on {
+			w.props.states = append(w.props.states, atom)
+		}
+	}
+	w.wm.changeAtoms(w.id, w.wm.atoms[atomNetWMState], xproto.AtomAtom, w.props.states)
+}
+
+func (w *Window) Close() error {
+	if w.has(w.props.protocols, atomWMDeleteWindow) {
+		w.wm.protocol(w.id, atomWMDeleteWindow, xproto.TimeCurrentTime, 0)
+		return nil
+	}
+	xproto.KillClient(w.wm.x, uint32(w.id))
+	return nil
+}
+
+func (m *wm) protocol(win xproto.Window, name atom, timestamp, detail uint32) {
+	ev := xproto.ClientMessageEvent{
+		Format: 32, Window: win, Type: m.atoms[atomWMProtocols],
+		Data: xproto.ClientMessageDataUnionData32New([]uint32{uint32(m.atoms[name]), timestamp, detail, 0, 0}),
+	}
+	xproto.SendEvent(m.x, false, win, xproto.EventMaskNoEvent, string(ev.Bytes()))
+}
+
+func (w *Window) Ping(timeout time.Duration) error {
+	if w.ping != 0 || !w.has(w.props.protocols, atomNetWMPing) {
+		return nil
+	}
+	if w.timer == nil {
+		t, err := w.wm.loop.AddTimer(w.pingTimedOut)
+		if err != nil {
+			return fmt.Errorf("xwayland: ping timer for window %d: %w", w.id, err)
+		}
+		w.timer = t
+	}
+	w.wm.stamps++
+	w.ping = w.wm.stamps
+	w.wm.protocol(w.id, atomNetWMPing, w.ping, uint32(w.id))
+	return w.timer.Arm(timeout)
+}
+
+func (w *Window) pingTimedOut() error {
+	if w.ping == 0 || w.hung {
+		return nil
+	}
+	w.hung = true
+	return w.wm.listener.XWindowResponsive(w, false)
+}
+
+func (m *wm) pong(id xproto.Window, stamp uint32) error {
+	w, ok := m.windows[id]
+	if !ok || w.ping == 0 || w.ping != stamp {
+		return nil
+	}
+	w.ping = 0
+	if err := w.timer.Disarm(); err != nil {
+		return err
+	}
+	if !w.hung {
+		return nil
+	}
+	w.hung = false
+	return m.listener.XWindowResponsive(w, true)
+}
+
+func (m *wm) activate(w *Window, on bool) {
+	if !on {
+		if m.focused == w.id {
+			m.focused = 0
+			xproto.SetInputFocus(m.x, xproto.InputFocusPointerRoot, xproto.InputFocusPointerRoot, xproto.TimeCurrentTime)
+			m.changeWindows(m.root, atomNetActiveWindow, []xproto.Window{0})
+		}
+		return
+	}
+	m.focused = w.id
+	if w.props.hints.Input {
+		xproto.SetInputFocus(m.x, xproto.InputFocusPointerRoot, w.id, xproto.TimeCurrentTime)
+	}
+	if w.has(w.props.protocols, atomWMTakeFocus) {
+		m.protocol(w.id, atomWMTakeFocus, xproto.TimeCurrentTime, 0)
+	}
+	xproto.ConfigureWindow(m.x, w.id, xproto.ConfigWindowStackMode, []uint32{xproto.StackModeAbove})
+	if slices.Contains(m.stacking, w.id) {
+		m.restack(w.id, true)
+	}
+	m.changeWindows(m.root, atomNetActiveWindow, []xproto.Window{w.id})
+}
+
+func (m *wm) changeAtoms(win xproto.Window, prop, typ xproto.Atom, list []xproto.Atom) {
+	data := make([]byte, 0, 4*len(list))
+	for _, a := range list {
+		data = binary.LittleEndian.AppendUint32(data, uint32(a))
+	}
+	xproto.ChangeProperty(m.x, xproto.PropModeReplace, win, prop, typ, 32, uint32(len(list)), data) //nolint:gosec // property lists are short
+}
+
+func (m *wm) changeWindows(win xproto.Window, prop atom, list []xproto.Window) {
+	atoms := make([]xproto.Atom, len(list))
+	for i, w := range list {
+		atoms[i] = xproto.Atom(w)
+	}
+	m.changeAtoms(win, m.atoms[prop], xproto.AtomWindow, atoms)
+}
+
+func (m *wm) setWorkArea(r image.Rectangle) {
+	if r.Empty() {
+		xproto.DeleteProperty(m.x, m.root, m.atoms[atomNetWorkarea])
+		return
+	}
+	m.changeAtoms(m.root, m.atoms[atomNetWorkarea], xproto.AtomCardinal, []xproto.Atom{xproto.Atom(r.Min.X), xproto.Atom(r.Min.Y), xproto.Atom(r.Dx()), xproto.Atom(r.Dy())}) //nolint:gosec // X root coordinates are not negative
+}
+
+func (m *wm) frameless(id xproto.Window) {
+	m.changeAtoms(id, m.atoms[atomNetFrameExtents], xproto.AtomCardinal, []xproto.Atom{0, 0, 0, 0})
+}
+
+func (m *wm) window(id xproto.Window) *Window {
+	w, ok := m.windows[id]
+	if !ok {
+		w = &Window{wm: m, id: id}
+		m.windows[id] = w
+	}
+	return w
+}
+
+func (m *wm) created(id xproto.Window, rect image.Rectangle, override bool) error {
+	w := m.window(id)
+	w.rect, w.override = rect, override
+	return nil
+}
+
+func (m *wm) destroyed(id xproto.Window) error {
+	m.dropOutgoingTo(id)
+	w, ok := m.windows[id]
+	if !ok {
+		return nil
+	}
+	delete(m.windows, id)
+	if w.alarm != 0 {
+		xsync.DestroyAlarm(m.x, w.alarm)
+	}
+	var err error
+	if w.timer != nil {
+		err = w.timer.Remove()
+	}
+	return errors.Join(err, m.hide(w))
+}
+
+func (m *wm) setProps(w *Window, raw rawProps) {
+	w.raw = raw
+	p, err := parseProps(raw)
+	if err != nil {
+		m.report(fmt.Errorf("xwayland: window %#x: %w", w.id, err))
+	}
+	w.props = p
+}
+
+func (m *wm) mapRequested(id xproto.Window, raw rawProps) error {
+	w := m.window(id)
+	m.setProps(w, raw)
+	w.managed = true
+	m.changeAtoms(id, m.atoms[atomWMState], m.atoms[atomWMState], []xproto.Atom{icccmNormalState, 0})
+	m.frameless(id)
+	xproto.MapWindow(m.x, id)
+	return nil
+}
+
+func (m *wm) mapped(id xproto.Window, raw rawProps, override bool) error {
+	w := m.window(id)
+	w.mapped, w.override = true, override
+	if override {
+		m.setProps(w, raw)
+	}
+	return m.show(w)
+}
+
+func (m *wm) unmapped(id xproto.Window) error {
+	w, ok := m.windows[id]
+	if !ok {
+		return nil
+	}
+	w.mapped = false
+	if w.managed {
+		m.changeAtoms(id, m.atoms[atomWMState], m.atoms[atomWMState], []xproto.Atom{0, 0})
+	}
+	return m.hide(w)
+}
+
+func (m *wm) configured(id xproto.Window, rect image.Rectangle) error {
+	w, ok := m.windows[id]
+	if !ok || w.rect == rect {
+		return nil
+	}
+	w.rect = rect
+	if !w.shown || !w.override {
+		return nil
+	}
+	return m.listener.XWindowChanged(w)
+}
+
+func (m *wm) configureRequested(id xproto.Window, rect image.Rectangle, mask uint16) error {
+	w := m.window(id)
+	if !w.shown {
+		if mask&(xproto.ConfigWindowX|xproto.ConfigWindowY) == 0 {
+			rect = image.Rectangle{Min: w.rect.Min, Max: w.rect.Min.Add(rect.Size())}
+		}
+		w.rect = rect
+		xproto.ConfigureWindow(m.x, id, xproto.ConfigWindowX|xproto.ConfigWindowY|xproto.ConfigWindowWidth|xproto.ConfigWindowHeight,
+			[]uint32{uint32(int32(rect.Min.X)), uint32(int32(rect.Min.Y)), uint32(rect.Dx()), uint32(rect.Dy())}) //nolint:gosec // X geometry is 16-bit and travels as 32-bit words
+		return nil
+	}
+	if err := m.listener.XWindowRequest(w, Configure{Rect: rect}); err != nil {
+		return err
+	}
+	m.notifyGeometry(w)
+	return nil
+}
+
+func (m *wm) notifyGeometry(w *Window) {
+	r := w.rect
+	ev := xproto.ConfigureNotifyEvent{Event: w.id, Window: w.id, X: int16(r.Min.X), Y: int16(r.Min.Y), Width: uint16(r.Dx()), Height: uint16(r.Dy())} //nolint:gosec // X geometry is 16-bit
+	xproto.SendEvent(m.x, false, w.id, xproto.EventMaskStructureNotify, string(ev.Bytes()))
+}
+
+func (m *wm) propertyChanged(id xproto.Window, a atom, value []byte) error {
+	w, ok := m.windows[id]
+	if !ok {
+		return nil
+	}
+	if w.raw == nil {
+		w.raw = rawProps{}
+	}
+	if value == nil {
+		delete(w.raw, a)
+	} else {
+		w.raw[a] = value
+	}
+	m.setProps(w, w.raw)
+	if !w.shown {
+		return nil
+	}
+	return m.listener.XWindowChanged(w)
+}
+
+func (m *wm) serialSet(id xproto.Window, serial uint64) error {
+	w := m.window(id)
+	w.serial = serial
+	if s, ok := m.shell.Surface(serial); ok {
+		w.surface = s
+	}
+	return m.show(w)
+}
+
+func (m *wm) associated(serial uint64, s *surface.Surface) error {
+	for _, w := range m.windows {
+		if w.serial == serial {
+			w.surface = s
+			return m.show(w)
+		}
+	}
+	return nil
+}
+
+func (m *wm) dissociated(serial uint64) error {
+	for _, w := range m.windows {
+		if w.serial == serial {
+			err := m.hide(w)
+			w.surface = nil
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *wm) stateRequested(id xproto.Window, action uint32, a, b xproto.Atom) error {
+	w, ok := m.windows[id]
+	if !ok {
+		return nil
+	}
+	if action > netWMStateToggle {
+		m.report(fmt.Errorf("xwayland: _NET_WM_STATE action %d on window %#x", action, id))
+		return nil
+	}
+	requested := func(name atom) (asked, on bool) {
+		if x := m.atoms[name]; a != x && b != x {
+			return false, false
+		}
+		switch action {
+		case netWMStateRemove:
+			return true, false
+		case netWMStateAdd:
+			return true, true
+		}
+		return true, !w.has(w.props.states, name)
+	}
+	if asked, on := requested(atomNetWMStateDemandsAttention); asked {
+		w.setState(on, atomNetWMStateDemandsAttention)
+	}
+	vert, onVert := requested(atomNetWMStateMaximizedVert)
+	horz, onHorz := requested(atomNetWMStateMaximizedHorz)
+	if vert || horz {
+		if err := m.stateChange(w, onVert || onHorz, SetMaximized{On: onVert || onHorz}, atomNetWMStateMaximizedVert, atomNetWMStateMaximizedHorz); err != nil {
+			return err
+		}
+	}
+	if asked, on := requested(atomNetWMStateFullscreen); asked {
+		return m.stateChange(w, on, SetFullscreen{On: on}, atomNetWMStateFullscreen)
+	}
+	return nil
+}
+
+func (m *wm) stateChange(w *Window, on bool, r Request, states ...atom) error {
+	if !w.shown {
+		w.setState(on, states...)
+		return nil
+	}
+	return m.listener.XWindowRequest(w, r)
+}
+
+func (m *wm) iconifyRequested(id xproto.Window, state uint32) error {
+	w, ok := m.windows[id]
+	if !ok || !w.shown || xproto.Atom(state) != icccmIconicState {
+		return nil
+	}
+	return m.listener.XWindowRequest(w, Minimize{})
+}
+
+func evdevButton(x uint32) (uint32, bool) {
+	switch {
+	case x == 0:
+		return 0, true
+	case x <= 3:
+		return [...]uint32{btnLeft, btnMiddle, btnRight}[x-1], true
+	case x >= 8:
+		return btnSide + x - 8, true
+	}
+	return 0, false
+}
+
+func (m *wm) moveResizeRequested(id xproto.Window, direction, xButton uint32) error {
+	w, ok := m.windows[id]
+	if !ok || !w.shown {
+		return nil
+	}
+	if direction == netWMMoveResizeCancel {
+		return m.listener.XWindowRequest(w, CancelMoveResize{})
+	}
+	button, ok := evdevButton(xButton)
+	switch {
+	case !ok:
+		return nil
+	case direction < uint32(edgeCount):
+		return m.listener.XWindowRequest(w, Resize{Button: button, Edge: Edge(direction)})
+	case direction == netWMMoveResizeMove:
+		return m.listener.XWindowRequest(w, Move{Button: button})
+	}
+	return nil
+}
+
+func (m *wm) activeRequested(id xproto.Window) error {
+	w, ok := m.windows[id]
+	if !ok || !w.shown {
+		return nil
+	}
+	return m.listener.XWindowRequest(w, Activate{})
+}
+
+func (m *wm) show(w *Window) error {
+	if w.shown || !w.mapped || w.surface == nil {
+		return nil
+	}
+	w.shown = true
+	if w.managed {
+		m.clients = append(m.clients, w.id)
+		m.changeWindows(m.root, atomNetClientList, m.clients)
+		m.restack(w.id, true)
+	}
+	return m.listener.XWindowMapped(w)
+}
+
+func (m *wm) restack(id xproto.Window, top bool) {
+	m.stacking = slices.DeleteFunc(m.stacking, func(s xproto.Window) bool { return s == id })
+	if top {
+		m.stacking = append(m.stacking, id)
+	}
+	m.changeWindows(m.root, atomNetClientListStacking, m.stacking)
+}
+
+func (m *wm) hide(w *Window) error {
+	if !w.shown {
+		return nil
+	}
+	w.shown = false
+	w.syncWanted, w.syncMissed = 0, false
+	if m.focused == w.id {
+		m.focused = 0
+	}
+	if i := slices.Index(m.clients, w.id); i >= 0 {
+		m.clients = slices.Delete(m.clients, i, i+1)
+		m.changeWindows(m.root, atomNetClientList, m.clients)
+		m.restack(w.id, false)
+	}
+	err := m.listener.XWindowUnmapped(w)
+	w.applied = State{}
+	return err
+}
+
+func (m *wm) close() error {
+	var errs []error
+	for _, id := range slices.Sorted(maps.Keys(m.windows)) {
+		w := m.windows[id]
+		if w.timer != nil {
+			errs = append(errs, w.timer.Remove())
+			w.timer = nil
+		}
+		errs = append(errs, m.hide(w))
+	}
+	clear(m.windows)
+	for _, sel := range m.selections {
+		if sel.x == nil {
+			continue
+		}
+		if m.listener.CurrentSelection(sel.kind) == data.Source(sel.x) {
+			errs = append(errs, m.listener.SetSelection(sel.kind, nil))
+		}
+		sel.x = nil
+	}
+	for _, in := range m.incoming {
+		errs = append(errs, in.out.Close())
+	}
+	m.incoming = nil
+	if m.reap != nil {
+		errs = append(errs, m.reap.Remove())
+		m.reap = nil
+	}
+	if m.stall != nil {
+		errs = append(errs, m.stall.Remove())
+		m.stall = nil
+	}
+	errs = append(errs, m.closeDnd())
+	m.dropOutgoing(func(outKey, *outgoing) bool { return true })
+	return errors.Join(errs...)
+}

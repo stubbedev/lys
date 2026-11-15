@@ -1,0 +1,918 @@
+package harness
+
+import (
+	"encoding/binary"
+	"errors"
+	"image"
+	"net"
+	"slices"
+	"strings"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+
+	"github.com/jezek/xgb"
+	"github.com/jezek/xgb/xproto"
+	"github.com/stubbedev/lys-lib/wmipc"
+
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/ipc"
+	"github.com/stubbedev/lys-wm/internal/spawn"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+func xConnect(t *testing.T, h *Harness) {
+	t.Helper()
+	conn, err := net.DialTimeout("unix", h.xSocket(), clientTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.SetDeadline(time.Now().Add(clientTimeout)); err != nil {
+		t.Fatal(err)
+	}
+	setup := binary.LittleEndian.AppendUint16([]byte{'l', 0}, 11)
+	setup = append(setup, make([]byte, 8)...)
+	if _, err := conn.Write(setup); err != nil {
+		t.Fatal(err)
+	}
+	reply := make([]byte, 8)
+	if _, err := conn.Read(reply); err != nil {
+		t.Fatalf("no X connection setup reply: %v", err)
+	}
+	if reply[0] != 1 {
+		t.Fatalf("X connection setup failed: %v", reply)
+	}
+}
+
+func TestXwaylandStartsOnTheFirstXClientAndAfterACrash(t *testing.T) {
+	t.Parallel()
+	reports := make(chan error, 4)
+	h := StartXwayland(t, func(err error) { reports <- err }, small)
+	h.Do(func(*headless.Backend, *compositor.Compositor) error {
+		if h.xwayland.Running() || h.xwayland.Pid() != 0 {
+			t.Error("Xwayland runs before any X client connected")
+		}
+		return nil
+	})
+	xConnect(t, h)
+	h.Eventually("Xwayland ready", func(*headless.Backend, *compositor.Compositor) bool { return h.xwayland.Running() })
+	if !strings.Contains(h.Trace(), "xwayland_shell_v1") {
+		t.Fatal("Xwayland never bound xwayland_shell_v1")
+	}
+	var pid int
+	h.Do(func(*headless.Backend, *compositor.Compositor) error {
+		pid = h.xwayland.Pid()
+		return syscall.Kill(pid, syscall.SIGKILL)
+	})
+	select {
+	case err := <-reports:
+		if exit, ok := errors.AsType[*spawn.ExitError](err); !ok || !exit.Status.Signaled() || exit.Status.Signal() != syscall.SIGKILL {
+			t.Fatalf("reported %v, want Xwayland killed by SIGKILL", err)
+		}
+	case <-time.After(clientTimeout):
+		t.Fatal("the crash was not reported")
+	}
+	xConnect(t, h)
+	h.Eventually("Xwayland restarted", func(*headless.Backend, *compositor.Compositor) bool {
+		return h.xwayland.Running() && h.xwayland.Pid() != pid
+	})
+}
+
+type xclient struct {
+	t     *testing.T
+	x     *xgb.Conn
+	root  xproto.Window
+	atoms map[string]xproto.Atom
+}
+
+func xDial(t *testing.T, h *Harness) *xclient {
+	t.Helper()
+	conn, err := net.DialTimeout("unix", h.xSocket(), clientTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := xgb.NewConnNet(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(x.Close)
+	c := &xclient{t: t, x: x, root: xproto.Setup(x).DefaultScreen(x).Root, atoms: map[string]xproto.Atom{}}
+	for _, name := range []string{"WM_CLASS", "WM_NAME", "_NET_WM_NAME", "UTF8_STRING", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DIALOG", "_NET_WM_STATE", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE_MODAL", "WM_TRANSIENT_FOR", "WM_CHANGE_STATE", "WM_STATE"} {
+		r, err := xproto.InternAtom(x, false, uint16(len(name)), name).Reply()
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.atoms[name] = r.Atom
+	}
+	return c
+}
+
+func (c *xclient) window(rect image.Rectangle, pixel uint32, override bool, props map[string][]byte) xproto.Window {
+	c.t.Helper()
+	var or uint32
+	if override {
+		or = 1
+	}
+	return c.create(rect, xproto.CwBackPixel|xproto.CwOverrideRedirect, []uint32{pixel, or}, props)
+}
+
+func (c *xclient) create(rect image.Rectangle, mask uint32, values []uint32, props map[string][]byte) xproto.Window {
+	c.t.Helper()
+	win, err := xproto.NewWindowId(c.x)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	screen := xproto.Setup(c.x).DefaultScreen(c.x)
+	checks := []interface{ Check() error }{
+		xproto.CreateWindowChecked(c.x, screen.RootDepth, win, c.root, int16(rect.Min.X), int16(rect.Min.Y), uint16(rect.Dx()), uint16(rect.Dy()), 0,
+			xproto.WindowClassInputOutput, screen.RootVisual, mask, values),
+	}
+	for name, value := range props {
+		typ, format := xproto.Atom(xproto.AtomString), byte(8)
+		switch name {
+		case "_NET_WM_NAME":
+			typ = c.atoms["UTF8_STRING"]
+		case "_NET_WM_WINDOW_TYPE", "_NET_WM_STATE", "WM_PROTOCOLS", "XdndAware":
+			typ, format = xproto.Atom(xproto.AtomAtom), 32
+		case "_NET_WM_SYNC_REQUEST_COUNTER":
+			typ, format = xproto.Atom(xproto.AtomCardinal), 32
+		case "WM_TRANSIENT_FOR":
+			typ, format = xproto.Atom(xproto.AtomWindow), 32
+		case "WM_NORMAL_HINTS":
+			typ, format = xproto.Atom(xproto.AtomWmSizeHints), 32
+		}
+		checks = append(checks, xproto.ChangePropertyChecked(c.x, xproto.PropModeReplace, win, c.atoms[name], typ, format, uint32(len(value))/uint32(format/8), value))
+	}
+	checks = append(checks, xproto.MapWindowChecked(c.x, win))
+	for _, ck := range checks {
+		if err := ck.Check(); err != nil {
+			c.t.Fatal(err)
+		}
+	}
+	return win
+}
+
+func (c *xclient) atom(name string) []byte {
+	return binary.LittleEndian.AppendUint32(nil, uint32(c.atoms[name]))
+}
+
+func (c *xclient) geometry(win xproto.Window) image.Rectangle {
+	c.t.Helper()
+	g, err := xproto.GetGeometry(c.x, xproto.Drawable(win)).Reply()
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	return rectOfGeometry(g)
+}
+
+func rectOfGeometry(g *xproto.GetGeometryReply) image.Rectangle {
+	return image.Rect(int(g.X), int(g.Y), int(g.X)+int(g.Width), int(g.Y)+int(g.Height))
+}
+
+func windowsOf(c *compositor.Compositor) []ipc.Window {
+	return c.Snapshot().Windows
+}
+
+func TestManagedXMenusTooltipsAndNotificationsFloat(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"MENU", "POPUP_MENU", "DROPDOWN_MENU", "COMBO", "TOOLTIP", "NOTIFICATION", "DND"} {
+		t.Run(kind, func(t *testing.T) {
+			h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+			xc := xDial(t, h)
+			xc.intern("_NET_WM_WINDOW_TYPE_" + kind)
+			xc.window(image.Rect(0, 0, 40, 30), 0x0000ff, false, map[string][]byte{
+				"WM_CLASS":            []byte("menu\x00XTest\x00"),
+				"_NET_WM_WINDOW_TYPE": xc.atom("_NET_WM_WINDOW_TYPE_" + kind),
+			})
+			h.Eventually("the window floating", func(_ *headless.Backend, c *compositor.Compositor) bool {
+				ws := windowsOf(c)
+				return len(ws) == 1 && ws[0].Floating
+			})
+		})
+	}
+}
+
+func TestXWindowsAreManaged(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	main := xc.window(image.Rect(10, 10, 90, 70), 0xff0000, false, map[string][]byte{
+		"WM_CLASS":     []byte("xtest\x00XTest\x00"),
+		"_NET_WM_NAME": []byte("x window"),
+	})
+	h.Eventually("the X window tiled", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].AppID == "XTest" && ws[0].Title == "x window" && ws[0].Focused && !ws[0].Floating
+	})
+	h.Eventually("the X window filling the output", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(main) == image.Rect(0, 0, 160, 100)
+	})
+	h.Eventually("the X window drawn", showing(150, 90, [3]byte{0xff, 0, 0}))
+	focus, err := xproto.GetInputFocus(xc.x).Reply()
+	if err != nil || focus.Focus != main {
+		t.Fatalf("X focus on %#x (%v), want %#x", focus.Focus, err, main)
+	}
+
+	xc.window(image.Rect(0, 0, 40, 30), 0x0000ff, false, map[string][]byte{
+		"WM_CLASS":            []byte("dialog\x00XTest\x00"),
+		"_NET_WM_WINDOW_TYPE": xc.atom("_NET_WM_WINDOW_TYPE_DIALOG"),
+	})
+	h.Eventually("the dialog floating in the middle", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 2 && ws[1].Floating && ws[1].Rect == wmipc.Rect{X: 60, Y: 35, Width: 40, Height: 30} && ws[1].Focused
+	})
+	h.Eventually("the dialog drawn over the window", showing(80, 50, [3]byte{0, 0, 0xff}))
+
+	xc.window(image.Rect(4, 4, 24, 14), 0x00ff00, true, nil)
+	h.Eventually("the override-redirect window where it asked to be", showing(10, 8, [3]byte{0, 0xff, 0}))
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		if n := len(windowsOf(c)); n != 2 {
+			t.Errorf("%d managed windows after an override-redirect map", n)
+		}
+		return nil
+	})
+
+	full := xproto.ClientMessageEvent{
+		Format: 32, Window: main, Type: xc.atoms["_NET_WM_STATE"],
+		Data: xproto.ClientMessageDataUnionData32New([]uint32{1, uint32(xc.atoms["_NET_WM_STATE_FULLSCREEN"]), 0, 1, 0}),
+	}
+	if err := xproto.SendEventChecked(xc.x, false, xc.root, xproto.EventMaskSubstructureRedirect|xproto.EventMaskSubstructureNotify, string(full.Bytes())).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the X window fullscreen", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 2 && ws[0].Fullscreen
+	})
+
+	if err := xproto.DestroyWindowChecked(xc.x, main).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the destroyed X window gone", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return len(windowsOf(c)) == 1
+	})
+}
+
+func TestAnXWindowIconifiesItself(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	main := xc.window(image.Rect(10, 10, 90, 70), 0xff0000, false, map[string][]byte{"WM_CLASS": []byte("xtest\x00XTest\x00")})
+	h.Eventually("the X window tiled", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && !ws[0].Minimized
+	})
+	changeState := xc.atoms["WM_CHANGE_STATE"]
+	const iconicState = 3
+	iconify := xproto.ClientMessageEvent{Format: 32, Window: main, Type: changeState, Data: xproto.ClientMessageDataUnionData32New([]uint32{iconicState, 0, 0, 0, 0})}
+	if err := xproto.SendEventChecked(xc.x, false, xc.root, xproto.EventMaskSubstructureRedirect|xproto.EventMaskSubstructureNotify, string(iconify.Bytes())).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the X window minimized", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].Minimized
+	})
+	wmState := func() uint32 {
+		atom := xc.atoms["WM_STATE"]
+		reply, err := xproto.GetProperty(xc.x, false, main, atom, atom, 0, 2).Reply()
+		if err != nil || len(reply.Value) < 4 {
+			t.Fatalf("WM_STATE: %v, %+v", err, reply)
+		}
+		return binary.LittleEndian.Uint32(reply.Value)
+	}
+	deadline := time.Now().Add(clientTimeout)
+	for wmState() != iconicState {
+		if time.Now().After(deadline) {
+			t.Fatalf("WM_STATE %d, want iconic", wmState())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	h.dispatch("restore")
+	h.Eventually("the X window back", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && !ws[0].Minimized && ws[0].Focused
+	})
+}
+
+func TestXPropertyChangesReachTheWindow(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	win := xc.window(image.Rect(10, 10, 90, 70), 0xff0000, false, map[string][]byte{
+		"WM_CLASS":     []byte("xtest\x00XTest\x00"),
+		"WM_NAME":      []byte("legacy"),
+		"_NET_WM_NAME": []byte("modern"),
+	})
+	titled := func(appID, title string) func(*headless.Backend, *compositor.Compositor) bool {
+		return func(_ *headless.Backend, c *compositor.Compositor) bool {
+			ws := windowsOf(c)
+			return len(ws) == 1 && ws[0].AppID == appID && ws[0].Title == title
+		}
+	}
+	h.Eventually("the window titled by _NET_WM_NAME", titled("XTest", "modern"))
+	set := func(name string, typ xproto.Atom, value string) {
+		t.Helper()
+		if err := xproto.ChangePropertyChecked(xc.x, xproto.PropModeReplace, win, xc.atoms[name], typ, 8, uint32(len(value)), []byte(value)).Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set("_NET_WM_NAME", xc.atoms["UTF8_STRING"], "renamed")
+	h.Eventually("the new _NET_WM_NAME", titled("XTest", "renamed"))
+	if err := xproto.DeletePropertyChecked(xc.x, win, xc.atoms["_NET_WM_NAME"]).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the title falling back to WM_NAME", titled("XTest", "legacy"))
+	set("WM_CLASS", xproto.AtomString, "other\x00Other\x00")
+	h.Eventually("the new WM_CLASS", titled("Other", "legacy"))
+}
+
+func (c *xclient) clientMessage(timeout time.Duration) xproto.ClientMessageEvent {
+	c.t.Helper()
+	for deadline := time.Now().Add(timeout); ; {
+		ev, open := c.event(time.Until(deadline))
+		if !open {
+			c.t.Fatal("the X connection closed before a client message")
+		}
+		if m, ok := ev.(xproto.ClientMessageEvent); ok {
+			return m
+		}
+	}
+}
+
+func (c *xclient) event(timeout time.Duration) (xgb.Event, bool) {
+	type result struct {
+		ev   xgb.Event
+		open bool
+	}
+	got := make(chan result, 1)
+	go func() {
+		for {
+			ev, err := c.x.WaitForEvent()
+			if ev == nil && err == nil {
+				got <- result{nil, false}
+				return
+			}
+			if ev != nil {
+				got <- result{ev, true}
+				return
+			}
+		}
+	}()
+	select {
+	case r := <-got:
+		return r.ev, r.open
+	case <-time.After(timeout):
+		c.t.Fatal("no X event arrived")
+		return nil, false
+	}
+}
+
+func kill(h *Harness) {
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		a, err := wm.ParseAction("kill")
+		if err != nil {
+			return err
+		}
+		return c.Dispatch(a)
+	})
+}
+
+func TestXWindowsCloseTheICCCMWay(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	polite := xDial(t, h)
+	names := []string{"WM_PROTOCOLS", "WM_DELETE_WINDOW"}
+	for _, name := range names {
+		r, err := xproto.InternAtom(polite.x, false, uint16(len(name)), name).Reply()
+		if err != nil {
+			t.Fatal(err)
+		}
+		polite.atoms[name] = r.Atom
+	}
+	polite.window(image.Rect(0, 0, 50, 50), 0xffffff, false, map[string][]byte{"WM_PROTOCOLS": polite.atom("WM_DELETE_WINDOW")})
+	h.Eventually("the polite window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].Focused
+	})
+	kill(h)
+	msg := polite.clientMessage(clientTimeout)
+	if msg.Type != polite.atoms["WM_PROTOCOLS"] || xproto.Atom(msg.Data.Data32[0]) != polite.atoms["WM_DELETE_WINDOW"] {
+		t.Fatalf("closing a WM_DELETE_WINDOW window sent %#v", msg)
+	}
+
+	rude := xDial(t, h)
+	rude.window(image.Rect(0, 0, 50, 50), 0xffffff, false, nil)
+	h.Eventually("the rude window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 2 && ws[1].Focused
+	})
+	kill(h)
+	for {
+		ev, open := rude.event(clientTimeout)
+		if !open {
+			return
+		}
+		if m, ok := ev.(xproto.ClientMessageEvent); ok {
+			t.Fatalf("closing a window without WM_DELETE_WINDOW sent %#v instead of killing its client", m)
+		}
+	}
+}
+
+func TestXWindowsLearnTheirGeometryAndFrame(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	xc.intern("_NET_FRAME_EXTENTS", "_NET_REQUEST_FRAME_EXTENTS", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DIALOG")
+	win, err := xproto.NewWindowId(xc.x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	screen := xproto.Setup(xc.x).DefaultScreen(xc.x)
+	ask := xproto.ClientMessageEvent{Format: 32, Window: win, Type: xc.atoms["_NET_REQUEST_FRAME_EXTENTS"], Data: xproto.ClientMessageDataUnionData32New(make([]uint32, 5))}
+	for _, ck := range []interface{ Check() error }{
+		xproto.CreateWindowChecked(xc.x, screen.RootDepth, win, xc.root, 60, 35, 40, 30, 0, xproto.WindowClassInputOutput, screen.RootVisual,
+			xproto.CwBackPixel|xproto.CwEventMask, []uint32{0xffffff, xproto.EventMaskStructureNotify}),
+		xproto.ChangePropertyChecked(xc.x, xproto.PropModeReplace, win, xc.atoms["_NET_WM_WINDOW_TYPE"], xproto.AtomAtom, 32, 1, xc.atom("_NET_WM_WINDOW_TYPE_DIALOG")),
+		xproto.SendEventChecked(xc.x, false, xc.root, xproto.EventMaskSubstructureRedirect|xproto.EventMaskSubstructureNotify, string(ask.Bytes())),
+	} {
+		if err := ck.Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.Eventually("the requested frame extents", func(*headless.Backend, *compositor.Compositor) bool {
+		r, err := xproto.GetProperty(xc.x, false, win, xc.atoms["_NET_FRAME_EXTENTS"], xproto.AtomCardinal, 0, 4).Reply()
+		return err == nil && r.ValueLen == 4 && slices.Equal(r.Value, make([]byte, 16))
+	})
+	if err := xproto.MapWindowChecked(xc.x, win).Check(); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		ev, open := xc.event(clientTimeout)
+		if !open {
+			t.Fatal("the X connection closed")
+		}
+		n, ok := ev.(xproto.ConfigureNotifyEvent)
+		if ok && n.Window == win && n.X == 60 && n.Y == 35 && n.Width == 40 && n.Height == 30 {
+			return
+		}
+	}
+}
+
+func TestXWindowsRenderUnscaledOnHiDPIOutputs(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, scaled)
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		return c.SetOutputScale(b.Outputs()[0], 180)
+	})
+	xc := xDial(t, h)
+	h.Eventually("Xwayland's root in physical pixels", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(xc.root) == image.Rect(0, 0, 240, 150)
+	})
+	win := xc.window(image.Rect(0, 0, 50, 50), 0xff0000, false, map[string][]byte{"WM_CLASS": []byte("hidpi\x00HiDPI\x00")})
+	h.Eventually("the X window tiled in physical pixels", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].Rect == wmipc.Rect{Width: 160, Height: 100} && xc.geometry(win) == image.Rect(0, 0, 240, 150)
+	})
+	h.Eventually("the X window filling the output pixel for pixel", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		snap := primary(b.Outputs()[0])
+		return pixel(snap, 0, 0) == [3]byte{0xff, 0, 0} && pixel(snap, 239, 149) == [3]byte{0xff, 0, 0}
+	})
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		return errors.Join(b.Pointer().MoveTo(b.Outputs()[0], 0.5, 0.5), b.Pointer().Frame())
+	})
+	h.Eventually("the X pointer in physical pixels", func(*headless.Backend, *compositor.Compositor) bool {
+		p, err := xproto.QueryPointer(xc.x, win).Reply()
+		return err == nil && p.WinX == 120 && p.WinY == 75
+	})
+}
+
+func TestXWindowsMapAcrossMixedScales(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, scaled, small)
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		return c.SetOutputScale(b.Outputs()[0], 180)
+	})
+	xc := xDial(t, h)
+	h.Eventually("both outputs in X space", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(xc.root) == image.Rect(0, 0, 400, 150)
+	})
+	left := xc.window(image.Rect(0, 0, 50, 50), 0xff0000, false, nil)
+	h.Eventually("the first X window on the HiDPI output", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(left) == image.Rect(0, 0, 240, 150)
+	})
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		a, err := wm.ParseAction("focus right")
+		if err != nil {
+			return err
+		}
+		return c.Dispatch(a)
+	})
+	right := xc.window(image.Rect(0, 0, 50, 50), 0x00ff00, false, nil)
+	h.Eventually("the second X window on the plain output, right of the first in X space", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(right) == image.Rect(240, 0, 400, 100)
+	})
+	h.Eventually("each window drawn on its own output", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		outs := b.Outputs()
+		return pixel(primary(outs[0]), 239, 149) == [3]byte{0xff, 0, 0} && pixel(primary(outs[1]), 159, 99) == [3]byte{0, 0xff, 0}
+	})
+}
+
+func TestXWindowsMovedPartlyOffAnOutputKeepItsScale(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, scaled)
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		return c.SetOutputScale(b.Outputs()[0], 180)
+	})
+	xc := xDial(t, h)
+	h.Eventually("Xwayland's root in physical pixels", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(xc.root) == image.Rect(0, 0, 240, 150)
+	})
+	win := xc.window(image.Rect(0, 0, 60, 45), 0xff0000, false, map[string][]byte{
+		"WM_CLASS":            []byte("popup\x00XTest\x00"),
+		"_NET_WM_WINDOW_TYPE": xc.atom("_NET_WM_WINDOW_TYPE_DIALOG"),
+	})
+	h.Eventually("the dialog floating", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].Floating
+	})
+	above := int32(-15)
+	mask := uint16(xproto.ConfigWindowX | xproto.ConfigWindowY | xproto.ConfigWindowWidth | xproto.ConfigWindowHeight)
+	if err := xproto.ConfigureWindowChecked(xc.x, win, mask, []uint32{30, uint32(above), 60, 45}).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the dialog above the output's top edge, in logical and in X pixels", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].Rect == wmipc.Rect{X: 20, Y: -10, Width: 40, Height: 30} && xc.geometry(win) == image.Rect(30, -15, 90, 30)
+	})
+}
+
+func TestFixedSizeXWindowsKeepTheirSizeOnFractionalScales(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, scaled)
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		return c.SetOutputScale(b.Outputs()[0], 180)
+	})
+	xc := xDial(t, h)
+	xc.intern("WM_NORMAL_HINTS")
+	h.Eventually("Xwayland's root in physical pixels", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(xc.root) == image.Rect(0, 0, 240, 150)
+	})
+	hints := make([]uint32, 18)
+	hints[0], hints[5], hints[6], hints[7], hints[8] = 1<<4|1<<5, 61, 45, 61, 45
+	var raw []byte
+	for _, v := range hints {
+		raw = binary.LittleEndian.AppendUint32(raw, v)
+	}
+	win := xc.window(image.Rect(0, 0, 61, 45), 0xff0000, false, map[string][]byte{
+		"WM_CLASS":        []byte("fixed\x00XTest\x00"),
+		"WM_NORMAL_HINTS": raw,
+	})
+	h.Eventually("the fixed-size window centred, at its own size", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws, g := windowsOf(c), xc.geometry(win)
+		return len(ws) == 1 && ws[0].Floating && g.Min != (image.Point{}) && g.Size() == image.Pt(61, 45)
+	})
+}
+
+func TestFloatingXWindowsMapAtLeastAtTheirMinimumSize(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, scaled)
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		return c.SetOutputScale(b.Outputs()[0], 180)
+	})
+	xc := xDial(t, h)
+	xc.intern("WM_NORMAL_HINTS")
+	h.Eventually("Xwayland's root in physical pixels", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(xc.root) == image.Rect(0, 0, 240, 150)
+	})
+	hints := make([]uint32, 18)
+	hints[0], hints[5], hints[6] = 1<<4, 60, 45
+	var raw []byte
+	for _, v := range hints {
+		raw = binary.LittleEndian.AppendUint32(raw, v)
+	}
+	win := xc.window(image.Rect(0, 0, 1, 1), 0xff0000, false, map[string][]byte{
+		"WM_CLASS":            []byte("tour\x00XTest\x00"),
+		"_NET_WM_WINDOW_TYPE": xc.atom("_NET_WM_WINDOW_TYPE_DIALOG"),
+		"WM_NORMAL_HINTS":     raw,
+	})
+	h.Eventually("the dialog floating centred at its minimum size", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].Floating && ws[0].Rect == wmipc.Rect{X: 60, Y: 35, Width: 40, Height: 30} && xc.geometry(win) == image.Rect(90, 53, 150, 98)
+	})
+}
+
+func TestXWindowsLandPixelForPixelAtOddLogicalPositions(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, scaled)
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		return c.SetOutputScale(b.Outputs()[0], 180)
+	})
+	xc := xDial(t, h)
+	xc.intern("WM_NORMAL_HINTS")
+	h.Eventually("Xwayland's root in physical pixels", func(*headless.Backend, *compositor.Compositor) bool {
+		return xc.geometry(xc.root) == image.Rect(0, 0, 240, 150)
+	})
+	hints := make([]uint32, 18)
+	hints[0], hints[5], hints[6], hints[7], hints[8] = 1<<4|1<<5, 40, 40, 40, 40
+	var raw []byte
+	for _, v := range hints {
+		raw = binary.LittleEndian.AppendUint32(raw, v)
+	}
+	win := xc.window(image.Rect(0, 0, 40, 40), 0xff0000, false, map[string][]byte{
+		"WM_CLASS":        []byte("odd\x00XTest\x00"),
+		"WM_NORMAL_HINTS": raw,
+	})
+	var at image.Rectangle
+	h.Eventually("the window floating away from the origin", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		at = xc.geometry(win)
+		return len(ws) == 1 && ws[0].Floating && at.Min != (image.Point{})
+	})
+	gc, err := xproto.NewGcontextId(xc.x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	column := []xproto.Rectangle{{X: 20, Y: 0, Width: 1, Height: 40}}
+	for _, ck := range []interface{ Check() error }{
+		xproto.CreateGCChecked(xc.x, gc, xproto.Drawable(win), xproto.GcForeground, []uint32{0x0000ff}),
+		xproto.PolyFillRectangleChecked(xc.x, xproto.Drawable(win), gc, column),
+	} {
+		if err := ck.Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	red, blue := [3]byte{0xff, 0, 0}, [3]byte{0, 0, 0xff}
+	h.Eventually("the column and the edges unblended at the X position", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		snap, y := primary(b.Outputs()[0]), at.Min.Y+20
+		return pixel(snap, at.Min.X, y) == red && pixel(snap, at.Min.X+19, y) == red && pixel(snap, at.Min.X+20, y) == blue &&
+			pixel(snap, at.Min.X+21, y) == red && pixel(snap, at.Max.X-1, y) == red && pixel(snap, at.Max.X, y) != red
+	})
+}
+
+func TestHungXClientsAreMarkedUnresponsive(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	xc.intern("WM_PROTOCOLS", "_NET_WM_PING")
+	xc.window(image.Rect(0, 0, 50, 50), 0xffffff, false, map[string][]byte{"WM_PROTOCOLS": xc.atom("_NET_WM_PING")})
+	h.Eventually("the X window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].Focused
+	})
+	ping := xc.clientMessage(clientTimeout)
+	if ping.Type != xc.atoms["WM_PROTOCOLS"] || xproto.Atom(ping.Data.Data32[0]) != xc.atoms["_NET_WM_PING"] {
+		t.Fatalf("focusing the window sent %#v, not a _NET_WM_PING", ping)
+	}
+	h.Eventually("the silent X window marked unresponsive", unresponsive(1, true))
+	ping.Window = xc.root
+	if err := xproto.SendEventChecked(xc.x, false, xc.root, xproto.EventMaskSubstructureNotify|xproto.EventMaskSubstructureRedirect, string(ping.Bytes())).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the answered X window marked responsive", unresponsive(1, false))
+}
+
+func TestAnXModalDialogKeepsTheFocus(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	main := xc.window(image.Rect(10, 10, 90, 70), 0xff0000, false, map[string][]byte{
+		"WM_CLASS": []byte("xtest\x00XTest\x00"),
+	})
+	h.Eventually("the main window tiled", func(_ *headless.Backend, c *compositor.Compositor) bool { return len(windowsOf(c)) == 1 })
+	xc.window(image.Rect(0, 0, 40, 30), 0x0000ff, false, map[string][]byte{
+		"WM_CLASS":         []byte("dialog\x00XTest\x00"),
+		"WM_TRANSIENT_FOR": binary.LittleEndian.AppendUint32(nil, uint32(main)),
+		"_NET_WM_STATE":    xc.atom("_NET_WM_STATE_MODAL"),
+	})
+	dialogFocused := func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 2 && ws[1].Floating && ws[1].Focused
+	}
+	h.Eventually("the modal dialog focused", dialogFocused)
+	h.click(0, 5, 5, btnLeft)
+	h.Eventually("the modal dialog still focused after a click on its parent", dialogFocused)
+}
+
+func TestXModalDialogsTransientForEachOtherDoNotHangLysWM(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	modal := map[string][]byte{"WM_CLASS": []byte("first\x00XTest\x00"), "_NET_WM_STATE": xc.atom("_NET_WM_STATE_MODAL")}
+	first := xc.window(image.Rect(10, 10, 90, 70), 0xff0000, false, modal)
+	h.Eventually("the first window mapped", func(_ *headless.Backend, c *compositor.Compositor) bool { return len(windowsOf(c)) == 1 })
+	second := xc.window(image.Rect(0, 0, 40, 30), 0x0000ff, false, map[string][]byte{
+		"WM_CLASS":         []byte("second\x00XTest\x00"),
+		"WM_TRANSIENT_FOR": binary.LittleEndian.AppendUint32(nil, uint32(first)),
+		"_NET_WM_STATE":    xc.atom("_NET_WM_STATE_MODAL"),
+	})
+	h.Eventually("the second window mapped", func(_ *headless.Backend, c *compositor.Compositor) bool { return len(windowsOf(c)) == 2 })
+	cycle := binary.LittleEndian.AppendUint32(nil, uint32(second))
+	if err := xproto.ChangePropertyChecked(xc.x, xproto.PropModeReplace, first, xc.atoms["WM_TRANSIENT_FOR"], xproto.AtomWindow, 32, 1, cycle).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.click(0, 5, 5, btnLeft)
+	survives(t, h)
+}
+
+func TestABadNetWMStateActionIsReportedNotFatal(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var reported []error
+	h := StartXwayland(t, func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		reported = append(reported, err)
+	}, small)
+	xc := xDial(t, h)
+	win := xc.window(image.Rect(10, 10, 90, 70), 0xff0000, false, map[string][]byte{"WM_CLASS": []byte("xtest\x00XTest\x00")})
+	h.Eventually("the window tiled", func(_ *headless.Backend, c *compositor.Compositor) bool { return len(windowsOf(c)) == 1 })
+	ev := xproto.ClientMessageEvent{
+		Format: 32, Window: win, Type: xc.atoms["_NET_WM_STATE"],
+		Data: xproto.ClientMessageDataUnionData32New([]uint32{3, uint32(xc.atoms["_NET_WM_STATE_FULLSCREEN"]), 0, 0, 0}),
+	}
+	if err := xproto.SendEventChecked(xc.x, false, xc.root, xproto.EventMaskSubstructureNotify|xproto.EventMaskSubstructureRedirect, string(ev.Bytes())).Check(); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the bad action reported", func(*headless.Backend, *compositor.Compositor) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(reported) == 1 && strings.Contains(reported[0].Error(), "_NET_WM_STATE action 3")
+	})
+	survives(t, h)
+}
+
+func TestAnXwaylandThatLostItsWindowManagerIsRestarted(t *testing.T) {
+	t.Parallel()
+	reports := make(chan error, 4)
+	h := StartXwayland(t, func(err error) { reports <- err }, small)
+	c := xDial(t, h)
+	var pid int
+	h.Eventually("Xwayland ready", func(*headless.Backend, *compositor.Compositor) bool {
+		pid = h.xwayland.Pid()
+		return h.xwayland.Running()
+	})
+	check, err := xproto.InternAtom(c.x, false, uint16(len("_NET_SUPPORTING_WM_CHECK")), "_NET_SUPPORTING_WM_CHECK").Reply()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var owner *xproto.GetPropertyReply
+	h.Eventually("the window manager to claim the display", func(*headless.Backend, *compositor.Compositor) bool {
+		owner, err = xproto.GetProperty(c.x, false, c.root, check.Atom, xproto.AtomWindow, 0, 1).Reply()
+		return err == nil && owner.ValueLen == 1
+	})
+	xproto.KillClient(c.x, xgb.Get32(owner.Value))
+	select {
+	case err := <-reports:
+		if !strings.Contains(err.Error(), "killed because its window manager failed") {
+			t.Fatalf("reported %v", err)
+		}
+	case <-time.After(clientTimeout):
+		t.Fatal("Xwayland kept running without its window manager")
+	}
+	xConnect(t, h)
+	h.Eventually("Xwayland restarted", func(*headless.Backend, *compositor.Compositor) bool {
+		return h.xwayland.Running() && h.xwayland.Pid() != pid
+	})
+}
+
+func TestAnXWindowWhoseSurfaceGoesBeforeItsUnmapNotifyStillCloses(t *testing.T) {
+	t.Parallel()
+	h := StartXwaylandWith(t, slowFadeOut(t), func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	win := xc.window(image.Rect(0, 0, 50, 50), 0xff0000, false, map[string][]byte{"WM_CLASS": []byte("gone\x00gone\x00")})
+	h.Eventually("the X window on screen", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return len(windowsOf(c)) == 1
+	})
+	h.Eventually("the X window drawn", showing(150, 90, [3]byte{0xff, 0, 0}))
+	checks := []interface{ Check() error }{
+		xproto.GrabServerChecked(xc.x),
+		xproto.ChangePropertyChecked(xc.x, xproto.PropModeReplace, win, xc.atoms["WM_NAME"], xproto.AtomString, 8, 4, []byte("busy")),
+		xproto.UnmapWindowChecked(xc.x, win),
+	}
+	for _, ck := range checks {
+		if err := ck.Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.Eventually("the window gone while the grab holds the window manager behind its property read", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return len(windowsOf(c)) == 0
+	})
+	if got := pixel(h.Rendered(0), 150, 90); got[0] < 0x80 || got[1] != 0 || got[2] != 0 {
+		t.Errorf("the closing window is not on screen: the output shows %v", got)
+	}
+	if err := xproto.UngrabServerChecked(xc.x).Check(); err != nil {
+		t.Fatal(err)
+	}
+	xc.window(image.Rect(0, 0, 50, 50), 0x00ff00, false, map[string][]byte{"WM_CLASS": []byte("next\x00next\x00")})
+	h.Eventually("the next X window mapped once the window manager caught up", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return len(windowsOf(c)) == 1
+	})
+}
+
+func TestFocusingAnXWindowItsClientJustUnmappedIsNoError(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	xc := xDial(t, h)
+	left := xc.window(image.Rect(0, 0, 50, 50), 0xff0000, false, map[string][]byte{"WM_CLASS": []byte("left\x00left\x00")})
+	h.Eventually("the left window on screen", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return len(windowsOf(c)) == 1
+	})
+	xc.window(image.Rect(0, 0, 50, 50), 0x00ff00, false, map[string][]byte{"WM_CLASS": []byte("right\x00right\x00")})
+	h.Eventually("the right window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 2 && ws[1].Focused
+	})
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		if err := xproto.UnmapWindowChecked(xc.x, left).Check(); err != nil {
+			return err
+		}
+		a, err := wm.ParseAction("focus left")
+		if err != nil {
+			return err
+		}
+		return c.Dispatch(a)
+	})
+	h.Eventually("the window manager past the unmap its focus came after", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 1 && ws[0].AppID == "right" && ws[0].Focused
+	})
+	focus, err := xproto.GetInputFocus(xc.x).Reply()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if focus.Focus == left {
+		t.Errorf("X focus stayed on the unmapped window %#x", left)
+	}
+}
+
+func TestAFloatingXWindowWhoseMinimumArrivesAfterItsMapStaysCentred(t *testing.T) {
+	t.Parallel()
+	hints := make([]uint32, 18)
+	hints[0], hints[5], hints[6] = 1<<4, 60, 45
+	var raw []byte
+	for _, v := range hints {
+		raw = binary.LittleEndian.AppendUint32(raw, v)
+	}
+	dialog := func(xc *xclient, class string) xproto.Window {
+		xc.intern("WM_NORMAL_HINTS")
+		return xc.window(image.Rect(0, 0, 1, 1), 0xff0000, false, map[string][]byte{
+			"WM_CLASS":            []byte(class + "\x00XTest\x00"),
+			"_NET_WM_WINDOW_TYPE": xc.atom("_NET_WM_WINDOW_TYPE_DIALOG"),
+		})
+	}
+	setMinimum := func(xc *xclient, win xproto.Window) {
+		t.Helper()
+		if err := xproto.ChangePropertyChecked(xc.x, xproto.PropModeReplace, win, xc.atoms["WM_NORMAL_HINTS"], xproto.AtomWmSizeHints, 32, uint32(len(hints)), raw).Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sized := func(want image.Point) func(*headless.Backend, *compositor.Compositor) bool {
+		return func(_ *headless.Backend, c *compositor.Compositor) bool {
+			ws := windowsOf(c)
+			return len(ws) == 1 && ws[0].Floating && ws[0].Rect.Width >= want.X && ws[0].Rect.Height >= want.Y
+		}
+	}
+	t.Run("placed by lys-wm", func(t *testing.T) {
+		h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+		xc := xDial(t, h)
+		win := dialog(xc, "tour")
+		h.Eventually("the dialog floating", sized(image.Point{}))
+		setMinimum(xc, win)
+		h.Eventually("the dialog at its minimum", sized(image.Pt(60, 45)))
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			r := windowsOf(c)[0].Rect
+			if r.X != (small.Size.X-r.Width)/2 || r.Y != (small.Size.Y-r.Height)/2 {
+				t.Errorf("the grown dialog at %+v is not centred on a %v output", r, small.Size)
+			}
+			return nil
+		})
+	})
+	t.Run("resized by the user", func(t *testing.T) {
+		h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+		xc := xDial(t, h)
+		win := dialog(xc, "moved")
+		h.Eventually("the dialog floating", sized(image.Point{}))
+		var moved wmipc.Rect
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			a, err := wm.ParseAction("resizeactive 8 4")
+			if err != nil {
+				return err
+			}
+			return c.Dispatch(a)
+		})
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			moved = windowsOf(c)[0].Rect
+			return nil
+		})
+		setMinimum(xc, win)
+		h.Eventually("the dialog at its minimum", sized(image.Pt(60, 45)))
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			if r := windowsOf(c)[0].Rect; r.X != moved.X || r.Y != moved.Y {
+				t.Errorf("the dialog the user resized moved from %+v to %+v", moved, r)
+			}
+			return nil
+		})
+	})
+}

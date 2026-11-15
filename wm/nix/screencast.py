@@ -1,0 +1,249 @@
+import argparse
+import subprocess
+import sys
+
+import dbus
+import dbus.mainloop.glib
+from gi.repository import GLib
+
+SOURCES = {"monitor": 1, "window": 2}
+CURSOR_MODES = {"hidden": 1, "embedded": 2, "metadata": 4}
+BACKGROUND = bytes([0x2E, 0x1E, 0x1E])
+CURSOR_REACH = 64
+FRAMES_WHILE_THE_PICKER_CLOSES = 30
+FIRST_FRAME_MS = 10000
+MAX_GAP_MS = 2000
+SETTLED_SHARE = 0.002
+COLOR_TOLERANCE = 3
+MIN_DESKTOP_SEEN = 200
+DIMMED = 0.8
+DIMMED_SHARE = 0.8
+NOT_DIMMED = 3
+MAP_COLUMNS = 64
+MAP_ROWS = 20
+
+
+def start_cast(source, cursor_mode):
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+    portal = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+    screencast = dbus.Interface(portal, "org.freedesktop.portal.ScreenCast")
+    sender = bus.get_unique_name()[1:].replace(".", "_")
+    loop = GLib.MainLoop()
+    outcome = {}
+    tokens = iter(range(1, 100))
+
+    def fail(message):
+        outcome["error"] = message
+        loop.quit()
+
+    def request(name, handler, *args):
+        token = f"lyswm{next(tokens)}"
+        path = f"/org/freedesktop/portal/desktop/request/{sender}/{token}"
+
+        def respond(code, results):
+            print(f"screencast: {name} answered {code}", flush=True)
+            if code != 0:
+                fail(f"{name} answered {code} with {dict(results)}")
+                return
+            handler(results)
+
+        bus.add_signal_receiver(respond, "Response", "org.freedesktop.portal.Request", path=path)
+        args[-1]["handle_token"] = token
+        getattr(screencast, name)(*args, reply_handler=lambda _: None, error_handler=lambda e: fail(f"{name}: {e}"))
+
+    def started(results):
+        streams = results.get("streams", [])
+        if len(streams) != 1:
+            fail(f"Start gave streams {streams}")
+            return
+        outcome["node"] = int(streams[0][0])
+        loop.quit()
+
+    def selected(_):
+        request("Start", started, outcome["session"], "", dbus.Dictionary({}, signature="sv"))
+
+    def created(results):
+        outcome["session"] = results["session_handle"]
+        options = dbus.Dictionary(
+            {"types": dbus.UInt32(SOURCES[source]), "cursor_mode": dbus.UInt32(CURSOR_MODES[cursor_mode]), "multiple": False},
+            signature="sv",
+        )
+        request("SelectSources", selected, outcome["session"], options)
+
+    request("CreateSession", created, dbus.Dictionary({"session_handle_token": "lyswm"}, signature="sv"))
+    GLib.timeout_add_seconds(120, lambda: fail("the portal never answered"))
+    loop.run()
+    if "error" in outcome:
+        sys.exit(f"screencast: {outcome['error']}")
+    remote = screencast.OpenPipeWireRemote(outcome["session"], dbus.Dictionary({}, signature="sv")).take()
+    return remote, outcome["node"]
+
+
+def read_frames(path):
+    with open(f"{path}.size") as f:
+        width, height, frames = (int(v) for v in f.read().split())
+    size = width * height * 4
+    with open(path, "rb") as f:
+        captured = f.read()
+    if size == 0 or len(captured) != frames * size:
+        sys.exit(f"screencast: {len(captured)} bytes in {path} for {frames} frames of {width}x{height}")
+    return width, height, [captured[at:at + size] for at in range(0, len(captured), size)]
+
+
+def background_share(frame, width, height):
+    return sum(1 for at in range(0, len(frame), 4) if frame[at:at + 3] == BACKGROUND) / (width * height)
+
+
+def capture(args):
+    remote, node = start_cast(args.source, args.cursor)
+    result = subprocess.run(
+        ["pw-frames", str(remote), str(node), str(FRAMES_WHILE_THE_PICKER_CLOSES), str(args.frames), args.path],
+        timeout=120,
+        pass_fds=(remote,),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        sys.exit(f"screencast: pw-frames exited {result.returncode}: {result.stderr}")
+    lines = result.stdout.strip().split("\n")
+    sizes = lines[0].split()
+    if len(sizes) != 2:
+        sys.exit(f"screencast: pw-frames reported no size in {result.stdout!r}")
+    cursor_line = lines[-2].split() if len(lines) >= 2 else []
+    if len(cursor_line) != 6 or cursor_line[0] != "cursor":
+        sys.exit(f"screencast: pw-frames reported no cursor metas in {result.stdout!r}")
+    metas, bitmaps, cursor_x, cursor_y, bitmap_width = (int(v) for v in cursor_line[1:])
+    timing = lines[-1].split()
+    if len(timing) != 4 or timing[0] != "first" or timing[2] != "gap":
+        sys.exit(f"screencast: pw-frames reported no timing in {result.stdout!r}")
+    first_ms, gap_ms = int(timing[1]), int(timing[3])
+    with open(f"{args.path}.size", "w") as f:
+        f.write(f"{sizes[0]} {sizes[1]} {args.frames}\n")
+    width, height, frames = read_frames(args.path)
+    distinct = len(set(frames))
+    background = background_share(frames[-1], width, height)
+    settling = background_share(frames[0], width, height)
+    print(f"screencast: {args.source} stream node {node}, {width}x{height}, cursor {args.cursor}", flush=True)
+    print(f"screencast: {distinct} distinct frames of {len(frames)}; {background:.3f} of the last is the desktop background, {settling:.3f} of the first; first frame after {first_ms} ms, longest gap {gap_ms} ms", flush=True)
+    print(f"screencast: {metas} cursor metas, {bitmaps} bitmaps of width {bitmap_width}, the pointer last at {cursor_x},{cursor_y}", flush=True)
+    if args.cursor != "metadata" and metas != 0:
+        sys.exit(f"screencast: a {args.cursor} cursor stream carried {metas} cursor metas")
+    if args.cursor == "metadata":
+        if metas == 0 or bitmaps == 0 or bitmap_width == 0:
+            sys.exit("screencast: a metadata cursor stream carried no cursor meta with a bitmap")
+        if args.pointer and (abs(cursor_x - args.pointer[0]) > 1 or abs(cursor_y - args.pointer[1]) > 1):
+            sys.exit(f"screencast: the cursor meta puts the pointer at {cursor_x},{cursor_y}, not {args.pointer[0]},{args.pointer[1]}")
+    if first_ms > FIRST_FRAME_MS:
+        sys.exit(f"screencast: the first frame took {first_ms} ms")
+    if gap_ms > MAX_GAP_MS:
+        sys.exit(f"screencast: the stream stalled for {gap_ms} ms, discarded frames included")
+    if abs(background - settling) > SETTLED_SHARE:
+        sys.exit(f"screencast: the desktop went from {settling:.3f} to {background:.3f} of the frames after {FRAMES_WHILE_THE_PICKER_CLOSES} discarded: the picker is still closing")
+    if distinct < 2:
+        sys.exit("screencast: the stream shows no live content")
+    shows = args.shows or {"monitor": "desktop", "window": "window"}[args.source]
+    if shows == "desktop" and not 0.1 <= background < 1:
+        sys.exit("screencast: the last frame does not show the desktop and its windows")
+    if shows == "window" and background > 0.01:
+        sys.exit("screencast: the last frame shows the desktop, not just the window")
+
+
+def cursor(args):
+    width, height, hidden = read_frames(args.hidden)
+    embedded_width, embedded_height, embedded = read_frames(args.embedded)
+    if (embedded_width, embedded_height) != (width, height):
+        sys.exit(f"screencast: the hidden stream is {width}x{height}, the embedded one {embedded_width}x{embedded_height}")
+    a, b = hidden[-1], embedded[-1]
+    x0, y0 = max(args.x, 0), max(args.y, 0)
+    x1, y1 = min(args.x + args.width, width), min(args.y + args.height, height)
+    changed = [(x, y) for y in range(y0, y1) for x in range(x0, x1) if a[(y * width + x) * 4:(y * width + x) * 4 + 3] != b[(y * width + x) * 4:(y * width + x) * 4 + 3]]
+    if not changed:
+        sys.exit(f"screencast: the embedded cursor drew nothing in {x1 - x0}x{y1 - y0}+{x0}+{y0}")
+    xs, ys = [x for x, _ in changed], [y for _, y in changed]
+    box = (min(xs), min(ys), max(xs), max(ys))
+    print(f"screencast: the embedded cursor changed {len(changed)} pixels in {box}, the pointer at {args.px},{args.py}", flush=True)
+    if box[2] - box[0] > CURSOR_REACH or box[3] - box[1] > CURSOR_REACH:
+        sys.exit("screencast: hidden and embedded frames differ by more than a cursor")
+    if not (box[0] - CURSOR_REACH <= args.px <= box[2] + CURSOR_REACH and box[1] - CURSOR_REACH <= args.py <= box[3] + CURSOR_REACH):
+        sys.exit("screencast: the embedded cursor is not where the pointer is")
+
+
+def unpainted(args):
+    width, height, hidden = read_frames(args.hidden)
+    other_width, other_height, other = read_frames(args.other)
+    if (other_width, other_height) != (width, height):
+        sys.exit(f"screencast: the hidden stream is {width}x{height}, the other {other_width}x{other_height}")
+    a, b = hidden[-1], other[-1]
+    x0, y0 = max(args.x, 0), max(args.y, 0)
+    x1, y1 = min(args.x + args.width, width), min(args.y + args.height, height)
+    changed = sum(1 for y in range(y0, y1) for x in range(x0, x1) if a[(y * width + x) * 4:(y * width + x) * 4 + 3] != b[(y * width + x) * 4:(y * width + x) * 4 + 3])
+    if changed:
+        sys.exit(f"screencast: {changed} pixels around the pointer differ from the hidden stream: the cursor is painted")
+    print(f"screencast: no cursor painted in {x1 - x0}x{y1 - y0}+{x0}+{y0}", flush=True)
+
+
+def read_ppm(data):
+    fields = data.split(maxsplit=4)
+    if len(fields) != 5 or fields[0] != b"P6" or fields[3] != b"255":
+        sys.exit(f"screencast: not an 8-bit PPM: {data[:20]!r}")
+    width, height = int(fields[1]), int(fields[2])
+    pixels = fields[4]
+    if len(pixels) != width * height * 3:
+        sys.exit(f"screencast: {len(pixels)} bytes of pixels for a {width}x{height} PPM")
+    return width, height, pixels
+
+
+def dimmed(args):
+    with open(args.before, "rb") as f:
+        width, height, before = read_ppm(f.read())
+    now_width, now_height, now = read_ppm(sys.stdin.buffer.read())
+    if (now_width, now_height) != (width, height):
+        sys.exit(f"screencast: the screen was {width}x{height} and is {now_width}x{now_height}")
+    desktop = BACKGROUND[::-1]
+    shown = [at for at in range(0, len(before), 3) if all(abs(before[at + i] - desktop[i]) <= COLOR_TOLERANCE for i in range(3))]
+    if len(shown) < MIN_DESKTOP_SEEN:
+        sys.exit(f"screencast: only {len(shown)} pixels of the desktop showed, too few to see an overlay dim it")
+    dark = {at for at in shown if all(now[at + i] <= before[at + i] * DIMMED for i in range(3))}
+    print(f"screencast: {len(dark)} of {len(shown)} desktop pixels dimmed", flush=True)
+    if len(dark) < len(shown) * DIMMED_SHARE:
+        desk = set(shown)
+        step_x, step_y = width // MAP_COLUMNS, height // MAP_ROWS
+        for y in range(step_y // 2, height, step_y):
+            at_row = [(y * width + x) * 3 for x in range(step_x // 2, width, step_x)]
+            print("".join("D" if at in dark else "o" if at in desk else "." for at in at_row), flush=True)
+        sys.exit(NOT_DIMMED)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    commands = parser.add_subparsers(required=True)
+    cap = commands.add_parser("capture")
+    cap.add_argument("source", choices=SOURCES)
+    cap.add_argument("cursor", choices=CURSOR_MODES)
+    cap.add_argument("frames", type=int)
+    cap.add_argument("path")
+    cap.add_argument("--shows", choices=["desktop", "window", "anything"])
+    cap.add_argument("--pointer", type=int, nargs=2)
+    cap.set_defaults(run=capture)
+    cur = commands.add_parser("cursor")
+    cur.add_argument("hidden")
+    cur.add_argument("embedded")
+    for name in ("x", "y", "width", "height", "px", "py"):
+        cur.add_argument(name, type=int)
+    cur.set_defaults(run=cursor)
+    unp = commands.add_parser("unpainted")
+    unp.add_argument("hidden")
+    unp.add_argument("other")
+    for name in ("x", "y", "width", "height"):
+        unp.add_argument(name, type=int)
+    unp.set_defaults(run=unpainted)
+    dim = commands.add_parser("dimmed")
+    dim.add_argument("before")
+    dim.set_defaults(run=dimmed)
+    args = parser.parse_args()
+    args.run(args)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,700 @@
+package compositor
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"math"
+	"slices"
+
+	"github.com/stubbedev/lys-lib/icontheme"
+	gtext "github.com/stubbedev/lys-lib/render"
+
+	"github.com/stubbedev/lys-wm/internal/anim"
+	"github.com/stubbedev/lys-wm/internal/output"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/shell"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+type TabColors struct {
+	Background, Text render.Color
+}
+
+type StateColors struct {
+	Active, Inactive, Urgent TabColors
+}
+
+func (s StateColors) of(urgent, active bool) TabColors {
+	switch {
+	case urgent:
+		return s.Urgent
+	case active:
+		return s.Active
+	}
+	return s.Inactive
+}
+
+type TabStyle struct {
+	StateColors
+	Height, Padding, TextHeight, TextPadding int
+}
+
+type Opacity struct {
+	Active, Inactive, Fullscreen float32
+}
+
+type Dim struct {
+	Inactive bool
+	Strength float32
+}
+
+type Shadow struct {
+	Enabled          bool
+	Range            int
+	Power            int
+	Sharp            bool
+	Offset           image.Point
+	Scale            float64
+	Active, Inactive render.Color
+}
+
+type Decor struct {
+	BorderWidth                  int
+	Rounding                     int
+	Opacity                      Opacity
+	Dim                          Dim
+	Shadow                       Shadow
+	Blur                         Blur
+	ActiveBorder, InactiveBorder render.Border
+	Tab                          TabStyle
+	Titlebar                     Titlebars
+	DragPreview                  DragPreview
+}
+
+var (
+	mauve    = render.Color{R: 0xcb, G: 0xa6, B: 0xf7, A: 0xff}
+	crust    = render.Color{R: 0x11, G: 0x11, B: 0x1b, A: 0xff}
+	surface0 = render.Color{R: 0x31, G: 0x32, B: 0x44, A: 0xff}
+	textFg   = render.Color{R: 0xcd, G: 0xd6, B: 0xf4, A: 0xff}
+	red      = render.Color{R: 0xf3, G: 0x8b, B: 0xa8, A: 0xff}
+
+	shellSurface = render.Color{R: 0x1c, G: 0x1c, B: 0x2c, A: 0xff}
+	shellText    = render.Color{R: 0xd4, G: 0xd6, B: 0xe8, A: 0xff}
+	shellMuted   = render.Color{R: 0x8a, G: 0x8c, B: 0xa4, A: 0xff}
+	shellRed     = render.Color{R: 0xe4, G: 0x68, B: 0x70, A: 0xff}
+	shellYellow  = render.Color{R: 0xe0, G: 0xb8, B: 0x70, A: 0xff}
+	shellGreen   = render.Color{R: 0x68, G: 0xc8, B: 0x98, A: 0xff}
+)
+
+func PlainDecor() Decor {
+	return Decor{
+		BorderWidth: 1,
+		Opacity:     Opacity{Active: 1, Inactive: 1, Fullscreen: 1},
+		Dim:         Dim{Strength: 0.5},
+		Blur:        Blur{Size: 8, Passes: 1},
+		Shadow: Shadow{
+			Range: 4, Power: 3, Scale: 1,
+			Active:   render.Color{R: 0x1a, G: 0x1a, B: 0x1a, A: 0xee},
+			Inactive: render.Color{R: 0x1a, G: 0x1a, B: 0x1a, A: 0xee},
+		},
+		ActiveBorder:   render.SolidBorder(mauve),
+		InactiveBorder: render.SolidBorder(crust),
+		Tab: TabStyle{
+			Height: 15, Padding: 5, TextHeight: 8, TextPadding: 3,
+			Active:   TabColors{Background: mauve, Text: crust},
+			Inactive: TabColors{Background: surface0, Text: textFg},
+			Urgent:   TabColors{Background: red, Text: crust},
+		},
+		DragPreview: DragPreview{Enabled: true, Opacity: 0.25, SnapDistance: 16, Switch: DragSwitch{Width: 4, Frames: 30}},
+		Titlebar: Titlebars{
+			Height:   15,
+			Buttons:  [titlebarButtonKinds]TitlebarButton{TitlebarClose, TitlebarMinimize, TitlebarMaximize},
+			Active:   TabColors{Background: shellSurface, Text: shellText},
+			Inactive: TabColors{Background: shellSurface, Text: shellMuted},
+			Urgent:   TabColors{Background: red, Text: crust},
+			Lights:   TitlebarLights{Close: shellRed, Minimize: shellYellow, Maximize: shellGreen},
+		},
+	}
+}
+
+const lookUnit = 8
+
+var (
+	DefaultAccent = render.Color{R: 0xe0, G: 0x94, B: 0x7a, A: 0xff}
+	lookHairline  = render.Color{R: 0xff, G: 0xff, B: 0xff, A: 0x14}
+)
+
+func DefaultDecor(accent render.Color) Decor {
+	d := PlainDecor()
+	d.Rounding = lookUnit
+	d.ActiveBorder, d.InactiveBorder = render.SolidBorder(accent), render.SolidBorder(lookHairline)
+	d.Shadow = Shadow{
+		Enabled: true, Range: 24, Power: 2, Scale: 1, Offset: image.Pt(0, 8),
+		Active:   render.Color{A: 0x60},
+		Inactive: render.Color{A: 0x38},
+	}
+	d.Blur = Blur{Size: 6, Passes: 2, Look: wm.Look{SaturationShift: 0.3}}
+	d.Titlebar.Height = 24
+	d.Tab = TabStyle{
+		Height: 24, Padding: 0, TextHeight: 11, TextPadding: 8,
+		Active:   TabColors{Background: accent, Text: crust},
+		Inactive: TabColors{Background: surface0, Text: textFg},
+		Urgent:   TabColors{Background: red, Text: crust},
+	}
+	return d
+}
+
+type Look struct {
+	Decor    Decor
+	Motion   map[anim.Event]anim.Setting
+	Overview OverviewStyle
+}
+
+func DefaultLook(s render.Speed, accent render.Color) Look {
+	l := Look{Decor: DefaultDecor(accent), Motion: anim.DefaultMotion(), Overview: DefaultOverviewStyle()}
+	if s == render.GPU {
+		return l
+	}
+	l.Decor.Blur.Withhold = true
+	l.Overview.Blur = false
+	if s == render.CPUDriver {
+		return l
+	}
+	l.Decor.Shadow.Enabled = false
+	l.Motion = anim.FrugalMotion()
+	return l
+}
+
+func (c *Compositor) spacing() wm.Spacing {
+	return wm.Spacing{TabBar: c.decor.Tab.Height + c.decor.Tab.Padding, Gaps: c.settings.Gaps}
+}
+
+const (
+	tabIconRoom = 4
+	iconScale   = 120
+)
+
+type labelKey struct {
+	text     string
+	icon     *shell.Icon
+	theme    *icontheme.Theme
+	size     image.Point
+	px       int
+	colors   TabColors
+	centered bool
+	inset    int
+	light    render.Color
+}
+
+type label struct {
+	tex  render.Texture
+	used bool
+}
+
+func lysUIColor(c render.Color) gtext.Color {
+	return gtext.RGBA(c.R, c.G, c.B, c.A)
+}
+
+type labelSlot struct {
+	window wm.WindowID
+	notice int
+}
+
+func (c *Compositor) label(o *output.Output, key labelKey, slot labelSlot) render.Texture {
+	cache := c.labels[o]
+	if cache == nil {
+		cache = map[labelKey]*label{}
+		c.labels[o] = cache
+		c.labelSlots[o] = map[labelSlot]labelKey{}
+	}
+	if l, ok := cache[key]; ok {
+		l.used = true
+		if slot != (labelSlot{}) && l.tex != nil {
+			c.labelSlots[o][slot] = key
+		}
+		return l.tex
+	}
+	c.rasterLabelLater(o, key)
+	if was, ok := c.labelSlots[o][slot]; ok && slot != (labelSlot{}) {
+		if l, ok := cache[was]; ok {
+			l.used = true
+			return l.tex
+		}
+	}
+	return nil
+}
+
+type labelJob struct {
+	o   *output.Output
+	key labelKey
+}
+
+func (c *Compositor) rasterLabelLater(o *output.Output, key labelKey) {
+	job := labelJob{o, key}
+	if _, ok := c.labelsPending[job]; ok {
+		return
+	}
+	c.labelsPending[job] = struct{}{}
+	font, pad := c.font, o.Scale().ToDevice(c.decor.Tab.TextPadding)
+	c.labelWork.Run(func() {
+		pix, err := rasterLabel(font, key, pad)
+		c.loop.Hand("a rastered label", func() error { return c.labelRastered(job, pix, err) })
+	})
+}
+
+func (c *Compositor) labelRastered(job labelJob, pix []byte, err error) error {
+	delete(c.labelsPending, job)
+	c.landed++
+	cache := c.labels[job.o]
+	if cache == nil {
+		return nil
+	}
+	l := &label{used: true}
+	cache[job.key] = l
+	if err != nil {
+		c.report(fmt.Errorf("compositor: tab label %q: %w", job.key.text, err))
+		return nil
+	}
+	tex, err := c.renderer.NewTexture(render.ARGB8888, job.key.size, job.key.size.X*4, pix)
+	if err != nil {
+		c.report(fmt.Errorf("compositor: tab label %q: %w", job.key.text, err))
+		return nil
+	}
+	l.tex = tex
+	return c.schedule(job.o)
+}
+
+func (c *Compositor) LabelsPending() bool {
+	return len(c.labelsPending) > 0
+}
+
+func (c *Compositor) Landed() uint64 {
+	return c.landed
+}
+
+func rasterLabel(font *gtext.Typeface, key labelKey, pad int) ([]byte, error) {
+	stride := key.size.X * 4
+	pix := make([]byte, stride*key.size.Y)
+	cv := gtext.New(pix, stride, key.size.X, key.size.Y)
+	cv.Clear(gtext.Rect{W: key.size.X, H: key.size.Y}, lysUIColor(key.colors.Background))
+	if key.light != (render.Color{}) {
+		drawLight(cv, font, key)
+		return pix, nil
+	}
+	box := gtext.Rect{X: pad + key.inset, W: key.size.X - 2*(pad+key.inset), H: key.size.Y}
+	ic, side, err := labelIcon(key, pad)
+	if err != nil {
+		return nil, fmt.Errorf("the icon: %w", err)
+	}
+	room := 0
+	if ic != nil {
+		room = side + pad
+	}
+	if box.W <= room {
+		return pix, nil
+	}
+	text := font.Ellipsize(key.text, float64(box.W-room), float64(key.px))
+	if key.centered {
+		width := min(int(math.Ceil(font.Shape(text, float64(key.px)).Advance())), box.W-room)
+		box.X += (box.W - room - width) / 2
+		box.W = room + width
+	}
+	if ic != nil {
+		ic.Draw(cv, box.X, pad)
+		box.X += room
+		box.W -= room
+	}
+	align := gtext.AlignStart
+	if key.centered {
+		align = gtext.AlignCenter
+	}
+	font.DrawAligned(cv, text, box, float64(key.px), lysUIColor(key.colors.Text), align)
+	return pix, nil
+}
+
+func drawLight(cv *gtext.Canvas, font *gtext.Typeface, key labelKey) {
+	d := key.size.Y / 2
+	cv.RoundedRect(gtext.Rect{X: (key.size.X - d) / 2, Y: (key.size.Y - d) / 2, W: d, H: d}, d/2, lysUIColor(key.light))
+	if key.text == "" {
+		return
+	}
+	font.DrawAligned(cv, key.text, gtext.Rect{W: key.size.X, H: key.size.Y}, float64(key.px), lysUIColor(key.colors.Text), gtext.AlignCenter)
+}
+
+func labelIcon(key labelKey, pad int) (*gtext.Icon, int, error) {
+	side := key.size.Y - 2*pad
+	if side <= 0 || key.size.X-2*key.inset < tabIconRoom*side || key.icon == nil {
+		return nil, 0, nil
+	}
+	ic, err := tabIcon(key, side)
+	return ic, side, err
+}
+
+func tabIcon(key labelKey, side int) (*gtext.Icon, error) {
+	if key.icon.Name != "" {
+		ic, err := key.theme.Icon(key.icon.Name, side, iconScale)
+		if err == nil {
+			return ic, nil
+		}
+		if !errors.Is(err, icontheme.ErrNotFound) {
+			return nil, fmt.Errorf("%q from the icon theme: %w", key.icon.Name, err)
+		}
+	}
+	best, ok := key.icon.Best(side)
+	if !ok {
+		return nil, nil
+	}
+	return gtext.IconFromImage(best.Image, side, side)
+}
+
+func (c *Compositor) evictLabels(o *output.Output) error {
+	var errs []error
+	for key, l := range c.labels[o] {
+		if !l.used {
+			if l.tex != nil {
+				errs = append(errs, c.destroyTexture(l.tex))
+			}
+			delete(c.labels[o], key)
+			continue
+		}
+		l.used = false
+	}
+	return errors.Join(errs...)
+}
+
+func deviceLength(o *output.Output, v int) float32 {
+	return float32(float64(v) * o.Scale().Float())
+}
+
+func (c *Compositor) opacity(w *window) float32 {
+	if o := c.decision(w).Opacity; o != nil {
+		return *o
+	}
+	switch {
+	case w.layer == wm.LayerFullscreen:
+		return c.decor.Opacity.Fullscreen
+	case w == c.active:
+		return c.decor.Opacity.Active
+	}
+	return c.decor.Opacity.Inactive
+}
+
+func (c *Compositor) dimAroundColor() render.Color {
+	return render.Color{A: uint8(math.Round(float64(c.decor.Dim.Strength) * 0xff))}
+}
+
+func (c *Compositor) outerRadius(o *output.Output, w *window) float32 {
+	if w.layer == wm.LayerFullscreen || c.rounding(w) <= 0 {
+		return 0
+	}
+	return deviceLength(o, c.rounding(w)+c.borderWidth(w))
+}
+
+func (c *Compositor) tabsJoin() bool {
+	return c.decor.Rounding > 0 && c.decor.Tab.Padding == 0
+}
+
+func (c *Compositor) stripAbove(w *window) (image.Rectangle, bool) {
+	if !c.tabsJoin() || w.layer != wm.LayerTiled {
+		return image.Rectangle{}, false
+	}
+	for i := range c.tabBars {
+		if bar := &c.tabBars[i]; bar.Shown && bar.Rect.Max.Y == w.tile.Min.Y && slices.Contains(bar.Tabs, w.id) {
+			return bar.Rect, true
+		}
+	}
+	return image.Rectangle{}, false
+}
+
+func (c *Compositor) outline(o *output.Output, w *window) image.Rectangle {
+	tile := deviceRect(o, w.tile)
+	if strip, ok := c.stripAbove(w); ok {
+		tile.Min.Y = deviceRect(o, strip).Min.Y
+	}
+	return tile
+}
+
+func (c *Compositor) drawShadow(pass *frame, o *output.Output, w *window) {
+	if !c.shadowed(w) || w.layer == wm.LayerFullscreen {
+		return
+	}
+	c.paintShadow(pass, o, c.outline(o, w), c.outerRadius(o, w), c.shownShadow(w).Premultiply())
+}
+
+func (c *Compositor) paintShadow(pass *frame, o *output.Output, tile image.Rectangle, radius float32, color render.Color) {
+	sh := c.decor.Shadow
+	size := image.Pt(int(math.Round(float64(tile.Dx())*sh.Scale)), int(math.Round(float64(tile.Dy())*sh.Scale)))
+	corner := tile.Min.Add(tile.Size().Sub(size).Div(2)).Add(image.Pt(o.Scale().ToDevice(sh.Offset.X), o.Scale().ToDevice(sh.Offset.Y)))
+	base := image.Rectangle{Min: corner, Max: corner.Add(size)}
+	var falloff render.Falloff
+	reach := 0
+	if !sh.Sharp && sh.Range > 0 {
+		falloff = render.Falloff{Range: deviceLength(o, sh.Range), Power: float32(sh.Power)}
+		reach = int(math.Ceil(float64(falloff.Range)))
+	}
+	mask := render.Mask{
+		Keep:    render.RoundRect{Rect: base, Radius: radius},
+		Cut:     render.RoundRect{Rect: tile, Radius: radius},
+		Falloff: falloff,
+	}
+	outer := base.Inset(-reach)
+	for _, strip := range ringStrips(outer, tile.Intersect(outer), radius) {
+		if !strip.Empty() {
+			pass.fillMasked(strip, color, mask)
+		}
+	}
+}
+
+func (c *Compositor) rounded(w *window) bool {
+	return c.rounding(w) > 0 && w.layer != wm.LayerFullscreen
+}
+
+func (c *Compositor) windowMask(o *output.Output, w *window) render.Mask {
+	if !c.rounded(w) {
+		if !w.top.overflows(w.rect.Size()) {
+			return render.Mask{}
+		}
+		return render.Mask{Keep: render.RoundRect{Rect: deviceRect(o, w.rect)}}
+	}
+	return render.Mask{Keep: render.RoundRect{Rect: deviceRect(o, w.rect), Radius: deviceLength(o, c.rounding(w))}}
+}
+
+func (c *Compositor) drawnMask(o *output.Output, w *window) render.Mask {
+	m := c.windowMask(o, w)
+	if _, joined := c.stripAbove(w); joined {
+		m.Keep.Rect.Min.Y = c.outline(o, w).Min.Y
+	}
+	if bar, ok := c.barOf(w); ok && m.Keep.Rect != (image.Rectangle{}) {
+		m.Keep.Rect.Min.Y = deviceRect(o, bar).Min.Y
+	}
+	return m
+}
+
+func (c *Compositor) drawOutlined(pass *frame, o *output.Output, w *window) {
+	outer := c.outline(o, w)
+	inner := deviceRect(o, w.rect)
+	inner.Min.Y = min(inner.Min.Y, outer.Min.Y+o.Scale().ToDevice(c.borderWidth(w)))
+	c.drawBorderIn(pass, o, w, outer, inner)
+}
+
+func ringStrips(outer, inner image.Rectangle, cut float32) [4]image.Rectangle {
+	r := int(math.Ceil(float64(cut)))
+	top := image.Rect(outer.Min.X, outer.Min.Y, outer.Max.X, min(inner.Min.Y+r, outer.Max.Y))
+	bottom := image.Rect(outer.Min.X, max(inner.Max.Y-r, top.Max.Y), outer.Max.X, outer.Max.Y)
+	return [4]image.Rectangle{
+		top, bottom,
+		image.Rect(outer.Min.X, top.Max.Y, min(inner.Min.X+r, outer.Max.X), bottom.Min.Y),
+		image.Rect(max(inner.Max.X-r, outer.Min.X), top.Max.Y, outer.Max.X, bottom.Min.Y),
+	}
+}
+
+func scaleColor(c render.Color, a float32) render.Color {
+	k := func(v uint8) uint8 { return uint8(math.Round(float64(v) * float64(a))) }
+	return render.Color{R: k(c.R), G: k(c.G), B: k(c.B), A: k(c.A)}
+}
+
+func (c *Compositor) drawBorder(pass *frame, o *output.Output, w *window) {
+	c.drawBorderIn(pass, o, w, deviceRect(o, w.tile), deviceRect(o, w.rect))
+}
+
+func (c *Compositor) drawBorderIn(pass *frame, o *output.Output, w *window, outer, inner image.Rectangle) {
+	if c.borderWidth(w) <= 0 || w.layer == wm.LayerFullscreen {
+		return
+	}
+	c.refreshBorder(w, c.frameTime, false)
+	ring := render.Mask{Keep: render.RoundRect{Rect: outer}, Cut: render.RoundRect{Rect: inner}}
+	if c.rounded(w) {
+		ring.Keep.Radius, ring.Cut.Radius = c.outerRadius(o, w), deviceLength(o, c.rounding(w))
+	}
+	c.paintBorder(pass, w.border, outer, inner, ring, 1, c.borderTurn(w))
+}
+
+func (c *Compositor) paintBorder(pass *frame, border render.Border, outer, inner image.Rectangle, ring render.Mask, alpha float32, turn float64) {
+	if border.Gradient() {
+		stops, err := c.borderStops(border)
+		if err != nil {
+			c.report(err)
+			return
+		}
+		from, to := border.Turned(turn).Line(outer)
+		for _, strip := range ringStrips(outer, inner, ring.Cut.Radius) {
+			if !strip.Empty() {
+				pass.fillGradient(strip, render.Gradient{Stops: stops, From: from, To: to, Alpha: alpha}, ring)
+			}
+		}
+		return
+	}
+	color := scaleColor(border.Colors()[0].Premultiply(), alpha)
+	for _, strip := range ringStrips(outer, inner, ring.Cut.Radius) {
+		switch {
+		case strip.Empty():
+		case ring.Cut.Radius > 0:
+			pass.fillMasked(strip, color, ring)
+		default:
+			pass.FillRect(strip, color)
+		}
+	}
+}
+
+func (c *Compositor) borderStops(b render.Border) (render.Texture, error) {
+	key := b.Stops()
+	if t, ok := c.stops[key]; ok {
+		return t, nil
+	}
+	pix := make([]byte, 0, 4*len(b.Colors()))
+	for _, col := range b.Colors() {
+		p := col.Premultiply()
+		pix = append(pix, p.B, p.G, p.R, p.A)
+	}
+	t, err := c.renderer.NewTexture(render.ARGB8888, image.Pt(len(b.Colors()), 1), 4*len(b.Colors()), pix)
+	if err != nil {
+		return nil, fmt.Errorf("compositor: border gradient stops %v: %w", b.Colors(), err)
+	}
+	c.stops[key] = t
+	return t, nil
+}
+
+func (c *Compositor) dropStops() error {
+	var errs []error
+	for key, t := range c.stops {
+		errs = append(errs, c.destroyTexture(t))
+		delete(c.stops, key)
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) tabColors(id wm.WindowID, active bool) TabColors {
+	w := c.windowByID(id)
+	return c.decor.Tab.of(w != nil && w.urgent, active)
+}
+
+func (c *Compositor) workspaceDecorView(ws wm.WorkspaceID, shown bool) (view, bool) {
+	if sw := c.drawnSwitch; sw != nil {
+		if v, ok := sw.viewOf(ws); ok {
+			return v, true
+		}
+	}
+	return identity, shown
+}
+
+func (c *Compositor) drawRings(pass *frame, o *output.Output) {
+	width := c.decor.BorderWidth
+	if width <= 0 {
+		return
+	}
+	for _, ring := range c.rings {
+		v, drawn := c.workspaceDecorView(ring.Workspace, ring.Shown)
+		moved := v.rect(ring.Rect, o.Logical())
+		if !drawn || !moved.Overlaps(o.Logical()) {
+			continue
+		}
+		outer, inner := deviceRect(o, moved), deviceRect(o, moved.Inset(width))
+		mask := render.Mask{Keep: render.RoundRect{Rect: outer}, Cut: render.RoundRect{Rect: inner}}
+		if c.decor.Rounding > 0 {
+			mask.Keep.Radius, mask.Cut.Radius = deviceLength(o, c.decor.Rounding+width), deviceLength(o, c.decor.Rounding)
+		}
+		c.paintBorder(pass, c.decor.ActiveBorder, outer, inner, mask, float32(min(max(v.alpha, 0), 1)), 0)
+	}
+}
+
+func (c *Compositor) drawTabBars(pass *frame, o *output.Output) {
+	for i := range c.tabBars {
+		bar := &c.tabBars[i]
+		v, drawn := c.workspaceDecorView(bar.Workspace, bar.Shown)
+		moved := v.rect(bar.Rect, o.Logical())
+		if !drawn || !bar.Rect.Overlaps(o.Logical()) || !moved.Overlaps(o.Logical()) || !bar.Clip.Empty() && !bar.Clip.Overlaps(o.Logical()) {
+			continue
+		}
+		from := len(pass.ops)
+		strip := c.tabStrip(bar)
+		var corners render.Mask
+		if c.decor.Rounding > 0 {
+			if c.tabsJoin() {
+				clip := deviceRect(o, strip)
+				clip.Max.Y += o.Scale().ToDevice(c.decor.Rounding)
+				corners.Keep = render.RoundRect{Rect: clip, Radius: deviceLength(o, c.decor.Rounding)}
+			} else {
+				corners.Keep = render.RoundRect{Rect: deviceRect(o, strip), Radius: deviceLength(o, c.decor.Rounding)}
+			}
+		}
+		n := len(bar.Tabs)
+		for tab, id := range bar.Tabs {
+			dst := o.Scale().Rect(tabSlot(strip, tab, n).Sub(o.Position()))
+			if dst.Empty() {
+				continue
+			}
+			title := ""
+			var icon *shell.Icon
+			if w := c.windowByID(id); w != nil {
+				title, icon = w.top.Title(), w.top.Icon()
+			}
+			colors := c.tabColors(id, tab == bar.Active)
+			tex := c.label(o, labelKey{text: title, icon: icon, theme: c.icons, size: dst.Size(), px: o.Scale().ToDevice(c.decor.Tab.TextHeight), colors: colors}, labelSlot{window: id})
+			if tex == nil {
+				if corners != (render.Mask{}) && (tab == 0 || tab == n-1) {
+					pass.fillMasked(dst, colors.Background, corners)
+				} else {
+					pass.FillRect(dst, colors.Background)
+				}
+				continue
+			}
+			size := tex.Size()
+			src := render.FRect{W: float64(size.X), H: float64(size.Y)}
+			if corners != (render.Mask{}) && (tab == 0 || tab == n-1) {
+				pass.drawMasked(tex, src, dst, corners)
+				continue
+			}
+			pass.DrawTexture(tex, src, dst, render.Normal, 1)
+		}
+		if moved != bar.Rect {
+			pass.remap(from, deviceRect(o, bar.Rect), deviceRect(o, moved))
+		}
+		if v.alpha < 1 {
+			pass.fade(from, float32(max(v.alpha, 0)))
+		}
+	}
+}
+
+func (c *Compositor) dropLabels(o *output.Output) error {
+	var errs []error
+	for _, l := range c.labels[o] {
+		if l.tex == nil {
+			continue
+		}
+		errs = append(errs, c.destroyTexture(l.tex))
+	}
+	delete(c.labels, o)
+	delete(c.labelSlots, o)
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) tabStrip(bar *wm.TabBar) image.Rectangle {
+	strip := image.Rect(bar.Rect.Min.X, bar.Rect.Min.Y, bar.Rect.Max.X, bar.Rect.Min.Y+min(c.decor.Tab.Height, bar.Rect.Dy()))
+	if c.tabsJoin() {
+		border := c.decor.BorderWidth
+		strip.Min.X, strip.Min.Y, strip.Max.X = strip.Min.X+border, strip.Min.Y+border, strip.Max.X-border
+	}
+	return strip
+}
+
+func tabSlot(strip image.Rectangle, tab, n int) image.Rectangle {
+	return image.Rect(strip.Min.X+strip.Dx()*tab/n, strip.Min.Y, strip.Min.X+strip.Dx()*(tab+1)/n, strip.Max.Y)
+}
+
+func (c *Compositor) backgroundTabAt(at image.Point) (wm.WindowID, bool) {
+	for i := range c.tabBars {
+		bar := &c.tabBars[i]
+		strip := c.tabStrip(bar)
+		if !bar.Shown || !at.In(strip) {
+			continue
+		}
+		n := len(bar.Tabs)
+		for tab, id := range bar.Tabs {
+			if tab != bar.Active && at.In(tabSlot(strip, tab, n)) {
+				return id, true
+			}
+		}
+	}
+	return 0, false
+}

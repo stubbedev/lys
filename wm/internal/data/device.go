@@ -1,0 +1,285 @@
+package data
+
+import (
+	"errors"
+	"fmt"
+
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+type Action = sw.WlDataDeviceManagerDndAction
+
+const allActions = sw.WlDataDeviceManagerDndActionCopy | sw.WlDataDeviceManagerDndActionMove | sw.WlDataDeviceManagerDndActionAsk
+
+func (m *Manager) bindData(c *server.Client, id wire.ObjectID, version uint32) error {
+	_, err := sw.NewWlDataDeviceManager(c, id, version, dataManager{m, c})
+	return err
+}
+
+type dataManager struct {
+	m *Manager
+	c *server.Client
+}
+
+func (dataManager) Release(*sw.WlDataDeviceManager) error {
+	return nil
+}
+
+func (r dataManager) CreateDataSource(_ *sw.WlDataDeviceManager, res *sw.WlDataSource) (sw.WlDataSourceHandler, error) {
+	s := &dataSource{m: r.m, client: r.c, send: res.SendSend, cancel: res.SendCancelled, resource: res}
+	server.OnDestroy(res, s.destroy)
+	return s, nil
+}
+
+func (r dataManager) GetDataDevice(_ *sw.WlDataDeviceManager, res *sw.WlDataDevice, _ *sw.WlSeat) (sw.WlDataDeviceHandler, error) {
+	d := r.m.devicesOf(r.c)
+	track(r.m, d, &d.data, res)
+	if r.c != r.m.focus {
+		return dataDevice(r), nil
+	}
+	return dataDevice(r), r.m.offerData(r.c, res, r.m.selection[Clipboard])
+}
+
+type dataSource struct {
+	source
+	resource   *sw.WlDataSource
+	actions    Action
+	actionsSet bool
+	dragOnly   func() error
+}
+
+var ErrSourceUsed = errors.New("data: the source was already used")
+
+func ReserveForDrag(res *sw.WlDataSource, refuse func() error) error {
+	s, err := sourceOf(res)
+	if err != nil {
+		return err
+	}
+	if !s.fresh() || s.dragOnly != nil {
+		return ErrSourceUsed
+	}
+	s.dragOnly = refuse
+	return nil
+}
+
+func (d *Drag) Carries(res *sw.WlDataSource) bool {
+	s, ok := d.source.(*dataSource)
+	return ok && s.resource == res
+}
+
+func (s *dataSource) version() uint32 {
+	return s.resource.Base().Version()
+}
+
+func (s *dataSource) Offer(_ *sw.WlDataSource, mime string) error {
+	s.addMime(mime)
+	return nil
+}
+
+func (s *dataSource) Actions() Action {
+	if !s.actionsSet {
+		return sw.WlDataDeviceManagerDndActionCopy
+	}
+	return s.actions
+}
+
+func (s *dataSource) Target(mime *string) error {
+	return s.resource.SendTarget(mime)
+}
+
+func (s *dataSource) Action(a Action) error {
+	if s.version() < 3 {
+		return nil
+	}
+	return s.resource.SendAction(a)
+}
+
+func (s *dataSource) DropPerformed() error {
+	if s.version() < 3 {
+		return nil
+	}
+	return s.resource.SendDndDropPerformed()
+}
+
+func (s *dataSource) Finished() error {
+	if s.phase == sourceGone || s.version() < 3 {
+		return nil
+	}
+	return s.resource.SendDndFinished()
+}
+
+func (s *dataSource) SetActions(obj *sw.WlDataSource, actions Action) error {
+	switch {
+	case actions&^allActions != 0:
+		return obj.ProtocolError(sw.WlDataSourceErrorInvalidActionMask, "actions %d", actions)
+	case s.actionsSet || !s.fresh():
+		return obj.ProtocolError(sw.WlDataSourceErrorInvalidSource, "set_actions must come once, before the source is used")
+	}
+	s.actions, s.actionsSet = actions, true
+	return nil
+}
+
+func (s *dataSource) Destroy(*sw.WlDataSource) error {
+	return nil
+}
+
+func (s *dataSource) destroy() error {
+	s.end()
+	errs := []error{s.m.sourceGone(s)}
+	if d := s.m.drag; d != nil && d.source == s {
+		errs = append(errs, d.Cancel())
+	}
+	return errors.Join(errs...)
+}
+
+type dataDevice struct {
+	m *Manager
+	c *server.Client
+}
+
+func (dataDevice) Release(*sw.WlDataDevice) error {
+	return nil
+}
+
+func sourceOf(res *sw.WlDataSource) (*dataSource, error) {
+	if res == nil {
+		return nil, nil
+	}
+	s, ok := res.Handler().(*dataSource)
+	if !ok {
+		return nil, fmt.Errorf("data: wl_data_source@%d has handler %T", res.Base().ID(), res.Handler())
+	}
+	return s, nil
+}
+
+func (d dataDevice) SetSelection(obj *sw.WlDataDevice, res *sw.WlDataSource, _ uint32) error {
+	s, err := sourceOf(res)
+	if err != nil {
+		return err
+	}
+	switch {
+	case s == nil:
+	case s.dragOnly != nil:
+		return s.dragOnly()
+	case s.actionsSet:
+		return res.ProtocolError(sw.WlDataSourceErrorInvalidSource, "a drag-and-drop source cannot be the selection")
+	case s.phase == sourceDragged:
+		return obj.ProtocolError(sw.WlDataDeviceErrorUsedSource, "the source was already dragged")
+	default:
+		s.use(sourceSelected)
+	}
+	if d.c != d.m.focus {
+		if s != nil {
+			return s.Cancel()
+		}
+		return nil
+	}
+	if s == nil {
+		return d.m.SetSelection(Clipboard, nil)
+	}
+	return d.m.SetSelection(Clipboard, s)
+}
+
+func (d dataDevice) StartDrag(obj *sw.WlDataDevice, res *sw.WlDataSource, origin *sw.WlSurface, icon *sw.WlSurface, serial uint32) error {
+	s, err := sourceOf(res)
+	if err != nil {
+		return err
+	}
+	if s != nil && !s.fresh() {
+		return obj.ProtocolError(sw.WlDataDeviceErrorUsedSource, "the source was already used")
+	}
+	from, err := surface.From(origin)
+	if err != nil {
+		return err
+	}
+	var iconSurface *surface.Surface
+	if icon != nil {
+		if iconSurface, err = surface.From(icon); err != nil {
+			return err
+		}
+	}
+	if s != nil {
+		s.use(sourceDragged)
+	}
+	if from.Client() != d.c || !d.m.listener.CanDrag(from, serial) {
+		if s != nil {
+			return s.Cancel()
+		}
+		return nil
+	}
+	return d.m.startDrag(obj, s, from, iconSurface, serial)
+}
+
+type dataOffer struct {
+	selectionOffer
+	m         *Manager
+	client    *server.Client
+	resource  *sw.WlDataOffer
+	drag      *Drag
+	accepted  *string
+	actions   Action
+	preferred Action
+	chosen    Action
+	finished  bool
+}
+
+func (m *Manager) offerData(c *server.Client, dev *sw.WlDataDevice, src Source) error {
+	return offerTo(src, func() (*sw.WlDataOffer, error) {
+		o := &dataOffer{source: src, m: m, client: c}
+		res, err := dev.SendDataOffer(o)
+		o.resource = res
+		m.offers[Clipboard] = append(m.offers[Clipboard], &o.selectionOffer)
+		return res, err
+	}, dev.SendSelection)
+}
+
+func (o *dataOffer) Accept(_ *sw.WlDataOffer, _ uint32, mime *string) error {
+	if o.drag == nil || o.dead || o.drag.dropped {
+		return nil
+	}
+	o.accepted = mime
+	return o.drag.target(mime)
+}
+
+func (o *dataOffer) Receive(_ *sw.WlDataOffer, mime string, fd int) error {
+	return o.receive(mime, fd)
+}
+
+func (o *dataOffer) Finish(obj *sw.WlDataOffer) error {
+	d := o.drag
+	if d == nil || !d.dropped || d.offer != o || o.accepted == nil || o.chosen == sw.WlDataDeviceManagerDndActionNone {
+		return obj.ProtocolError(sw.WlDataOfferErrorInvalidFinish, "finish before a drop with an accepted type and action")
+	}
+	if o.chosen == sw.WlDataDeviceManagerDndActionAsk {
+		return obj.ProtocolError(sw.WlDataOfferErrorInvalidFinish, "finish while the action is still ask")
+	}
+	o.finished = true
+	return d.finish()
+}
+
+func (o *dataOffer) SetActions(obj *sw.WlDataOffer, actions, preferred Action) error {
+	switch {
+	case actions&^allActions != 0:
+		return obj.ProtocolError(sw.WlDataOfferErrorInvalidActionMask, "actions %d", actions)
+	case preferred&^allActions != 0 || (preferred != 0 && preferred&(preferred-1) != 0):
+		return obj.ProtocolError(sw.WlDataOfferErrorInvalidAction, "preferred action %d is not a single action", preferred)
+	case o.drag == nil:
+		return obj.ProtocolError(sw.WlDataOfferErrorInvalidOffer, "set_actions on a selection offer")
+	}
+	o.actions, o.preferred = actions, preferred
+	return o.drag.negotiate()
+}
+
+func (o *dataOffer) Destroy(*sw.WlDataOffer) error {
+	d := o.drag
+	if d == nil || !d.dropped || d.offer != o || o.finished {
+		return nil
+	}
+	if o.resource.Base().Version() < 3 {
+		return d.finish()
+	}
+	return d.Cancel()
+}

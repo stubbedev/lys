@@ -1,0 +1,513 @@
+// Package render defines the renderer interface that the software, GLES and
+// Vulkan renderers implement.
+package render
+
+import (
+	"encoding/binary"
+	"fmt"
+	"image"
+	"math"
+	"slices"
+	"strings"
+
+	lgpu "github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys-lib/intconv"
+
+	"github.com/stubbedev/lys-wm/internal/region"
+	"github.com/stubbedev/lys-wm/internal/shader"
+)
+
+type (
+	Mask           = lgpu.Mask
+	RoundRect      = lgpu.RoundRect
+	Falloff        = lgpu.Falloff
+	Goo            = lgpu.Goo
+	Glass          = lgpu.Glass
+	ColorTransform = lgpu.ColorTransform
+	AlphaCut       = lgpu.AlphaCut
+)
+
+type Transform uint8
+
+const (
+	Normal Transform = iota
+	Rotate90
+	Rotate180
+	Rotate270
+	Flipped
+	Flipped90
+	Flipped180
+	Flipped270
+)
+
+func (t Transform) SwapsAxes() bool {
+	return t&1 == 1
+}
+
+func (t Transform) Invert() Transform {
+	switch t {
+	case Rotate90:
+		return Rotate270
+	case Rotate270:
+		return Rotate90
+	}
+	return t
+}
+
+func (t Transform) Size(size image.Point) image.Point {
+	if t.SwapsAxes() {
+		return image.Pt(size.Y, size.X)
+	}
+	return size
+}
+
+func (t Transform) Point(p, size image.Point) image.Point {
+	w, h := size.X, size.Y
+	switch t {
+	case Rotate90:
+		return image.Pt(p.Y, w-p.X)
+	case Rotate180:
+		return image.Pt(w-p.X, h-p.Y)
+	case Rotate270:
+		return image.Pt(h-p.Y, p.X)
+	case Flipped:
+		return image.Pt(w-p.X, p.Y)
+	case Flipped90:
+		return image.Pt(p.Y, p.X)
+	case Flipped180:
+		return image.Pt(p.X, h-p.Y)
+	case Flipped270:
+		return image.Pt(h-p.Y, w-p.X)
+	}
+	return p
+}
+
+func (t Transform) Rect(r image.Rectangle, size image.Point) image.Rectangle {
+	return image.Rectangle{Min: t.Point(r.Min, size), Max: t.Point(r.Max, size)}.Canon()
+}
+
+func (t Transform) fpoint(x, y float64, size image.Point) (float64, float64) {
+	w, h := float64(size.X), float64(size.Y)
+	switch t {
+	case Rotate90:
+		return y, w - x
+	case Rotate180:
+		return w - x, h - y
+	case Rotate270:
+		return h - y, x
+	case Flipped:
+		return w - x, y
+	case Flipped90:
+		return y, x
+	case Flipped180:
+		return x, h - y
+	case Flipped270:
+		return h - y, w - x
+	}
+	return x, y
+}
+
+func (t Transform) FRect(r FRect, size image.Point) FRect {
+	x0, y0 := t.fpoint(r.X, r.Y, size)
+	x1, y1 := t.fpoint(r.X+r.W, r.Y+r.H, size)
+	return FRect{X: min(x0, x1), Y: min(y0, y1), W: math.Abs(x1 - x0), H: math.Abs(y1 - y0)}
+}
+
+type Axis struct {
+	Source   int
+	Reversed bool
+}
+
+func (t Transform) Axes() (horizontal, vertical Axis) {
+	h, v := Axis{0, false}, Axis{1, false}
+	switch t &^ Flipped {
+	case Rotate90:
+		h, v = Axis{1, false}, Axis{0, true}
+	case Rotate180:
+		h, v = Axis{0, true}, Axis{1, true}
+	case Rotate270:
+		h, v = Axis{1, true}, Axis{0, false}
+	}
+	if t&Flipped != 0 {
+		if h.Source == 0 {
+			h.Reversed = !h.Reversed
+		} else {
+			v.Reversed = !v.Reversed
+		}
+	}
+	return h, v
+}
+
+type Format uint8
+
+const (
+	ARGB8888 Format = iota + 1
+	XRGB8888
+	ABGR8888
+	XBGR8888
+	ARGB2101010
+	XRGB2101010
+	ABGR2101010
+	XBGR2101010
+)
+
+type formatTraits struct {
+	opaque, rgbOrder, tenBit bool
+}
+
+var traits = [...]formatTraits{
+	XRGB8888:    {opaque: true},
+	ABGR8888:    {rgbOrder: true},
+	XBGR8888:    {opaque: true, rgbOrder: true},
+	ARGB2101010: {tenBit: true},
+	XRGB2101010: {opaque: true, tenBit: true},
+	ABGR2101010: {rgbOrder: true, tenBit: true},
+	XBGR2101010: {opaque: true, rgbOrder: true, tenBit: true},
+}
+
+func (f Format) Opaque() bool {
+	return traits[f].opaque
+}
+
+func (f Format) RGBOrder() bool {
+	return traits[f].rgbOrder
+}
+
+func (f Format) TenBit() bool {
+	return traits[f].tenBit
+}
+
+func (f Format) Decode(px []byte) Color {
+	c := Color{B: px[0], G: px[1], R: px[2], A: px[3]}
+	if f.TenBit() {
+		v := binary.LittleEndian.Uint32(px)
+		c = Color{B: tenToEight(v), G: tenToEight(v >> 10), R: tenToEight(v >> 20), A: uint8(v>>30) * 0x55}
+	}
+	if f.RGBOrder() {
+		c.R, c.B = c.B, c.R
+	}
+	if f.Opaque() {
+		c.A = 0xff
+	}
+	return c
+}
+
+func (f Format) DecodeRow(row []byte) {
+	switch {
+	case f.TenBit() || f.RGBOrder():
+		for i := 0; i < len(row); i += 4 {
+			c := f.Decode(row[i : i+4])
+			row[i], row[i+1], row[i+2], row[i+3] = c.B, c.G, c.R, c.A
+		}
+	case f.Opaque():
+		for i := 3; i < len(row); i += 4 {
+			row[i] = 0xff
+		}
+	}
+}
+
+func tenToEight(v uint32) uint8 {
+	return uint8(((v&0x3ff)*0xff + 0x3ff/2) / 0x3ff)
+}
+
+type Color struct {
+	R, G, B, A uint8
+}
+
+func (c Color) Premultiply() Color {
+	k := func(v uint8) uint8 { return intconv.Must[uint8]((uint32(v)*uint32(c.A) + 127) / 255) }
+	return Color{R: k(c.R), G: k(c.G), B: k(c.B), A: c.A}
+}
+
+func (c Color) Premultiplied() bool {
+	return c.R <= c.A && c.G <= c.A && c.B <= c.A
+}
+
+type FRect = lgpu.FRect
+
+func CheckDraw(texture image.Point, src FRect, transform Transform, alpha float32, m Mask) error {
+	if err := m.Check(); err != nil {
+		return err
+	}
+	switch {
+	case transform > Flipped270:
+		return fmt.Errorf("render: invalid transform %d", transform)
+	case !(alpha >= 0 && alpha <= 1):
+		return fmt.Errorf("render: alpha %v outside [0, 1]", alpha)
+	case !(src.W > 0 && src.H > 0 && src.X >= 0 && src.Y >= 0) || src.X+src.W > float64(texture.X) || src.Y+src.H > float64(texture.Y):
+		return fmt.Errorf("render: source %+v outside texture %v", src, texture)
+	}
+	return nil
+}
+
+func CheckGlass(texture image.Point, src FRect, alpha float32, m Mask, g Glass) error {
+	if err := g.Check(m); err != nil {
+		return err
+	}
+	return CheckDraw(texture, src, Normal, alpha, m)
+}
+
+type Region []image.Rectangle
+
+func (g Region) Area() int {
+	n := 0
+	for _, r := range g {
+		n += r.Dx() * r.Dy()
+	}
+	return n
+}
+
+func (g Region) AreaIn(bounds image.Rectangle) int {
+	n := 0
+	for _, r := range g {
+		r = r.Intersect(bounds)
+		n += r.Dx() * r.Dy()
+	}
+	return n
+}
+
+func (g Region) ClipInto(dst *region.Set, bounds image.Rectangle) {
+	dst.Reset()
+	for _, r := range g {
+		dst.Add(r.Intersect(bounds))
+	}
+}
+
+func CheckUpdate(size image.Point, dst image.Rectangle, stride, n int) error {
+	if !dst.In(image.Rectangle{Max: size}) {
+		return fmt.Errorf("render: update %v outside a %v texture", dst, size)
+	}
+	return CheckPixels(dst.Size(), stride, n)
+}
+
+func CheckPixels(size image.Point, stride, n int) error {
+	switch {
+	case size.X <= 0 || size.Y <= 0:
+		return fmt.Errorf("render: %v is not a positive size", size)
+	case stride < size.X*4:
+		return fmt.Errorf("render: stride %d is shorter than a row of %d pixels", stride, size.X)
+	case stride%4 != 0:
+		return fmt.Errorf("render: stride %d is not a whole number of pixels", stride)
+	case n < stride*(size.Y-1)+size.X*4:
+		return fmt.Errorf("render: %v pixels with stride %d do not fit %d bytes", size, stride, n)
+	}
+	return nil
+}
+
+type Rows struct {
+	From, To int
+}
+
+func AllRows(size image.Point) Rows {
+	return Rows{0, size.Y}
+}
+
+func CheckRows(size image.Point, stride, n int, rows Rows) error {
+	if err := CheckPixels(size, stride, n); err != nil {
+		return err
+	}
+	if rows.From < 0 || rows.To > size.Y || rows.From >= rows.To {
+		return fmt.Errorf("render: rows %d to %d of a %v target", rows.From, rows.To, size)
+	}
+	return nil
+}
+
+type Target interface {
+	Size() image.Point
+}
+
+type ReadTarget interface {
+	Target
+	Read(pix []byte, stride int) error
+	ReadRows(pix []byte, stride int, rows Rows) error
+	Destroy() error
+}
+
+type TextureTarget interface {
+	ReadTarget
+	Texture() Texture
+}
+
+type PendingRead interface {
+	Wait() error
+	Map() ([]byte, int, error)
+	Release() error
+}
+
+type AsyncReadTarget interface {
+	ReadTarget
+	ReadAsync() (PendingRead, error)
+}
+
+type AsyncReader interface {
+	AsyncReads() bool
+	NewAsyncTarget(size image.Point) (AsyncReadTarget, error)
+}
+
+// Texture is a renderer's image. Update and Renderer.NewTexture may be
+// handed a client's memory, which faults if the client shrank its file:
+// a renderer reads data only from Go on the calling goroutine and stays
+// usable when that read panics, and keeps no reference to data.
+type Texture interface {
+	Working() bool
+	Size() image.Point
+	Update(dst image.Rectangle, stride int, data []byte) error
+	Destroy() error
+}
+
+// ScreenShader is a shader program in the form a renderer draws with.
+// Prepare does what drawing into target still takes, the last part a driver
+// may refuse, so that a caller can draw without it while no pass is open.
+type ScreenShader interface {
+	Prepare(target Target) error
+	Destroy() error
+}
+
+type NamedDevice interface {
+	DeviceName() string
+}
+
+func SoftwareDevice(name string) bool {
+	lower := strings.ToLower(name)
+	return slices.ContainsFunc([]string{"llvmpipe", "softpipe", "lavapipe", "swiftshader", "swrast", "software"}, func(p string) bool { return strings.HasPrefix(lower, p) })
+}
+
+type Counts struct {
+	Passes      uint64
+	Filters     uint64
+	Uploads     uint64
+	GPUWaits    uint64
+	Submits     uint64
+	Targets     uint64
+	Clears      uint64
+	Imports     uint64
+	ResetChecks uint64
+	Programs    uint64
+	ColdDraws   uint64
+	Incomplete  uint64
+}
+
+type OffThreadBuilder interface {
+	BuildOffThread() error
+}
+
+type Renderer interface {
+	Speed() Speed
+	Counts() Counts
+	Formats() []Format
+	NewTexture(format Format, size image.Point, stride int, data []byte) (Texture, error)
+	NewBlankTexture(format Format, size image.Point) (Texture, error)
+	NewTarget(size image.Point) (ReadTarget, error)
+	NewTextureTarget(size image.Point) (TextureTarget, error)
+	NewScreenShader(p *shader.Program) (ScreenShader, error)
+	NewWorkingTarget(size image.Point) (TextureTarget, error)
+	Begin(target Target, damage Region) (Pass, error)
+	Lost() error
+	Recover() error
+	LoseDevice()
+}
+
+type Speed uint8
+
+const (
+	GPU Speed = iota
+	CPUDriver
+	Software
+)
+
+func DriverSpeed(name string) Speed {
+	if SoftwareDevice(name) {
+		return CPUDriver
+	}
+	return GPU
+}
+
+type Gradient struct {
+	Stops    Texture
+	From, To [2]float32
+	Alpha    float32
+}
+
+func CheckGradient(g Gradient, m Mask) error {
+	if err := m.Check(); err != nil {
+		return err
+	}
+	switch size := g.Stops.Size(); {
+	case size.Y != 1 || size.X < 2:
+		return fmt.Errorf("render: gradient stops are an N x 1 texture with N >= 2, not %v", size)
+	case g.From == g.To:
+		return fmt.Errorf("render: a gradient from %v to itself has no direction", g.From)
+	case !(g.Alpha >= 0 && g.Alpha <= 1):
+		return fmt.Errorf("render: gradient alpha %v outside [0, 1]", g.Alpha)
+	}
+	return nil
+}
+
+type Pass interface {
+	SetColor(t *ColorTransform)
+	SetCut(t Texture, c AlphaCut)
+	ClearCut()
+	Clear(c Color)
+	FillRect(r image.Rectangle, c Color, m Mask)
+	FillGradient(r image.Rectangle, g Gradient, m Mask)
+	Kawase(t Texture, dst image.Rectangle, offset float32, up bool)
+	FillGoo(r image.Rectangle, c Color, g Goo)
+	DrawTexture(t Texture, src FRect, dst image.Rectangle, transform Transform, alpha float32, m Mask)
+	DrawScreenShader(s ScreenShader, t Texture, dst image.Rectangle, seconds float32)
+	DrawGlass(t Texture, src FRect, dst image.Rectangle, alpha float32, m Mask, g Glass)
+	End() error
+}
+
+type LostPass struct{}
+
+func (LostPass) SetColor(*ColorTransform)                                              {}
+func (LostPass) SetCut(Texture, AlphaCut)                                              {}
+func (LostPass) ClearCut()                                                             {}
+func (LostPass) Clear(Color)                                                           {}
+func (LostPass) FillRect(image.Rectangle, Color, Mask)                                 {}
+func (LostPass) FillGradient(image.Rectangle, Gradient, Mask)                          {}
+func (LostPass) Kawase(Texture, image.Rectangle, float32, bool)                        {}
+func (LostPass) FillGoo(image.Rectangle, Color, Goo)                                   {}
+func (LostPass) DrawTexture(Texture, FRect, image.Rectangle, Transform, float32, Mask) {}
+func (LostPass) DrawScreenShader(ScreenShader, Texture, image.Rectangle, float32)      {}
+func (LostPass) DrawGlass(Texture, FRect, image.Rectangle, float32, Mask, Glass)       {}
+func (LostPass) End() error                                                            { return nil }
+
+type LostRead struct {
+	Pix    []byte
+	Stride int
+}
+
+func NewLostRead(size image.Point) *LostRead {
+	return &LostRead{Pix: make([]byte, size.X*size.Y*4), Stride: size.X * 4}
+}
+
+func (*LostRead) Wait() error                 { return nil }
+func (l *LostRead) Map() ([]byte, int, error) { return l.Pix, l.Stride, nil }
+func (*LostRead) Release() error              { return nil }
+
+func (t Transform) Unit(x, y float64) (float64, float64) {
+	return t.fpoint(x, y, image.Pt(1, 1))
+}
+
+var transformNames = [...]string{Normal: "normal", Rotate90: "90", Rotate180: "180", Rotate270: "270", Flipped: "flipped", Flipped90: "flipped-90", Flipped180: "flipped-180", Flipped270: "flipped-270"}
+
+func TransformNames() []string {
+	return transformNames[:]
+}
+
+func (t Transform) String() string {
+	if int(t) < len(transformNames) {
+		return transformNames[t]
+	}
+	return fmt.Sprintf("Transform(%d)", uint8(t))
+}
+
+func ParseTransform(s string) (Transform, bool) {
+	for t, name := range transformNames {
+		if name == s {
+			return Transform(t), true
+		}
+	}
+	return 0, false
+}

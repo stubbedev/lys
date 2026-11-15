@@ -1,0 +1,547 @@
+package compositor
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"slices"
+	"time"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/stubbedev/lys-wm/internal/anim"
+	"github.com/stubbedev/lys-wm/internal/binds"
+	"github.com/stubbedev/lys-wm/internal/output"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys-wm/internal/xkb"
+)
+
+const (
+	overviewDragSlop = 8
+	overviewButton   = 272
+
+	keysymEscape    = 0xff1b
+	keysymReturn    = 0xff0d
+	keysymKPEnter   = 0xff8d
+	keysymSpace     = 0x20
+	keysymLeft      = 0xff51
+	keysymUp        = 0xff52
+	keysymRight     = 0xff53
+	keysymDown      = 0xff54
+	keysymTab       = 0xff09
+	keysymBackTab   = 0xfe20
+	keysymDelete    = 0xffff
+	keysymBackSpace = 0xff08
+	keysymX         = 0x78
+	keysym0         = 0x30
+	keysym9         = 0x39
+)
+
+type overviewPress struct {
+	button   uint32
+	touch    int32
+	touched  bool
+	at       point
+	target   overviewTarget
+	item     *overviewItem
+	dragging bool
+	grab     image.Point
+}
+
+func (c *Compositor) overviewSurfaceAt(p point) (*surface.Surface, point, *window) {
+	if s, local := c.hitInputPopups(p); s != nil {
+		return s, local, nil
+	}
+	for _, e := range slices.Backward(c.layers) {
+		if isOverlay(e.surface) {
+			if s, local := hitPopups(c.layerPopups(e), p); s != nil {
+				return s, local, nil
+			}
+		}
+	}
+	s, local := c.hitLayers(c.outputAt(p), overlay, p)
+	return s, local, nil
+}
+
+func (c *Compositor) overviewTargetAt(p point) overviewTarget {
+	ov := c.overview
+	o := c.outputAt(p)
+	v := ov.views[o]
+	if v == nil {
+		return nil
+	}
+	at := p.pixel()
+	for _, t := range v.spaces {
+		if at.In(t.rect) {
+			return overviewSpace{t}
+		}
+	}
+	if at.In(v.plus) {
+		return overviewPlus{v}
+	}
+	now := c.clock()
+	progress := ov.progress.At(now)
+	for _, e := range slices.Backward(v.order) {
+		if pr := ov.press; e.item.out || pr != nil && pr.dragging && pr.item == e.item {
+			continue
+		}
+		if at.In(e.rect(o, progress, now)) {
+			return overviewWindow{e.w}
+		}
+	}
+	return nil
+}
+
+func (c *Compositor) overviewPressed(button uint32, touch int32, touched bool, at point) error {
+	ov := c.overview
+	if ov.press != nil || !touched && button != overviewButton {
+		return nil
+	}
+	pr := &overviewPress{button: button, touch: touch, touched: touched, at: at, target: c.overviewTargetAt(at)}
+	if t, ok := pr.target.(overviewWindow); ok {
+		pr.item = c.overviewItemOf(t.w)
+	}
+	ov.press = pr
+	return nil
+}
+
+func (c *Compositor) overviewMoved(at point) error {
+	ov := c.overview
+	if pr := ov.press; pr != nil && pr.item != nil && !pr.item.minimized {
+		if !pr.dragging && movedPast(pr.at, at, overviewDragSlop) {
+			now := c.clock()
+			f := pr.item.frame(c.outputAt(pr.at), ov.progress.At(now), now)
+			pr.dragging, pr.grab = true, pr.at.pixel().Sub(f.Min)
+			pr.item.slot.Jump(f)
+		}
+		if pr.dragging {
+			f := pr.item.slot.At(c.clock())
+			pr.item.slot.Jump(f.Add(at.pixel().Sub(pr.grab).Sub(f.Min)))
+		}
+	}
+	hover := c.overviewTargetAt(at)
+	if hover == ov.selected && (ov.press == nil || !ov.press.dragging) {
+		return nil
+	}
+	ov.selected = hover
+	return c.scheduleAll()
+}
+
+func movedPast(a, b point, slop float64) bool {
+	dx, dy := a.X-b.X, a.Y-b.Y
+	return float64(dx*dx)+float64(dy*dy) >= float64(slop*slop)
+}
+
+func (c *Compositor) overviewReleased(at point) error {
+	ov := c.overview
+	pr := ov.press
+	ov.press = nil
+	if pr.dragging {
+		return errors.Join(c.overviewDrop(pr, at), c.cursorMoved())
+	}
+	if t := c.overviewTargetAt(at); t != pr.target {
+		return nil
+	}
+	return c.overviewActivate(pr.target)
+}
+
+func (c *Compositor) overviewActivate(t overviewTarget) error {
+	switch t := t.(type) {
+	case overviewWindow:
+		if err := c.activate(t.w, wm.FocusOther); err != nil {
+			return err
+		}
+		return c.closeOverview()
+	case overviewSpace:
+		return c.overviewGoToSpace(t.t.o.Backend().Name(), t.t.id)
+	case overviewPlus:
+		return c.overviewShowSpace(t.v.output.Backend().Name(), c.wm.UnusedWorkspace())
+	}
+	return c.closeOverview()
+}
+
+func (c *Compositor) overviewGoToSpace(name string, id wm.WorkspaceID) error {
+	if active, ok := c.wm.ActiveOn(name); ok && active == id {
+		return c.closeOverview()
+	}
+	return c.overviewShowSpace(name, id)
+}
+
+func (c *Compositor) overviewShowSpace(name string, id wm.WorkspaceID) error {
+	s, err := c.wm.FocusOutput(name)
+	if err != nil {
+		return err
+	}
+	return c.update(s.SwitchWorkspace(id))
+}
+
+func (c *Compositor) overviewDrop(pr *overviewPress, at point) error {
+	ov := c.overview
+	now := c.clock()
+	it := pr.item
+	home := c.overviewItemOutput(it)
+	s := c.wm
+	var dest wm.WorkspaceID
+	var err error
+	onThumb := false
+	switch t := c.overviewTargetAt(at).(type) {
+	case overviewSpace:
+		dest, onThumb = t.t.id, true
+	case overviewPlus:
+		if s, err = s.FocusOutput(t.v.output.Backend().Name()); err != nil {
+			return err
+		}
+		dest, onThumb = s.UnusedWorkspace(), true
+	default:
+		if id, ok := c.overviewGroupAt(at); ok {
+			dest = id
+		} else if o := c.outputAt(at); o != nil && o != home {
+			dest, _ = s.ActiveOn(o.Backend().Name())
+		}
+	}
+	current, _ := c.wm.WorkspaceOf(it.root.id)
+	if dest == 0 || dest == current {
+		it.slot.Set(it.goal, now, c.animations.Curve(anim.Overview))
+		return c.scheduleAll()
+	}
+	if s, err = c.overviewCarry(it, s, dest, now); err != nil {
+		return err
+	}
+	if !onThumb {
+		return c.update(s, nil)
+	}
+	return c.flyInto(it.root, c.outputAt(at), s, dest, ov.carried.at, now)
+}
+
+func (c *Compositor) overviewCarry(it *overviewItem, s wm.State, dest wm.WorkspaceID, now time.Duration) (wm.State, error) {
+	var err error
+	for _, m := range slices.Clone(it.members) {
+		if s, err = s.MoveWindowToWorkspace(m.id, dest, c.settings.Autotile); err != nil {
+			return s, err
+		}
+	}
+	c.overview.carried = &overviewCarried{root: it.root, at: it.slot.At(now)}
+	return s, nil
+}
+
+func (c *Compositor) overviewMoveSelected(d wm.Direction) error {
+	t, ok := c.overview.selected.(overviewWindow)
+	if !ok {
+		return nil
+	}
+	it := c.overviewItemOf(t.w)
+	if it == nil {
+		return nil
+	}
+	current, ok := c.wm.WorkspaceOf(it.root.id)
+	if !ok {
+		return nil
+	}
+	dest := current + 1
+	if d == wm.Left {
+		dest = current - 1
+	}
+	if dest < 1 {
+		return nil
+	}
+	now := c.clock()
+	s, err := c.overviewCarry(it, c.wm, dest, now)
+	if err != nil {
+		return err
+	}
+	return c.flyInto(it.root, c.overviewItemOutput(it), s, dest, c.overview.carried.at, now)
+}
+
+func (c *Compositor) flyInto(w *window, o *output.Output, s wm.State, dest wm.WorkspaceID, from image.Rectangle, now time.Duration) error {
+	curve := c.animations.Curve(anim.Overview)
+	var tt render.TextureTarget
+	if curve != anim.Instant && o != nil {
+		var err error
+		if tt, err = c.snapshot(w); err != nil {
+			return err
+		}
+	}
+	if err := c.update(s, nil); err != nil || tt == nil {
+		if tt != nil {
+			return errors.Join(err, tt.Destroy())
+		}
+		return err
+	}
+	cl := &closing{snapshot: tt, output: o, level: windowLevel, motion: anim.NewTween(from, anim.LerpRect), fade: anim.NewTween(1.0, anim.Lerp)}
+	cl.motion.Set(overviewThumbGoal(s, o, dest), now, curve)
+	cl.fade.Set(0, now, curve)
+	c.closing = append(c.closing, cl)
+	return c.scheduleAll()
+}
+
+func overviewThumbGoal(s wm.State, o *output.Output, id wm.WorkspaceID) image.Rectangle {
+	spaces := workspacesOn(s, o.Backend().Name(), 0)
+	at := slices.Index(spaces, id)
+	if at < 0 {
+		return image.Rectangle{}
+	}
+	return wm.PlanOverview(o.Logical(), len(spaces), nil, nil).Strip[at]
+}
+
+func (c *Compositor) abandonOverviewPress() {
+	ov := c.overview
+	pr := ov.press
+	ov.press = nil
+	if pr != nil && pr.dragging {
+		pr.item.slot.Set(pr.item.goal, c.clock(), c.animations.Curve(anim.Overview))
+	}
+}
+
+func (c *Compositor) overviewItemOutput(it *overviewItem) *output.Output {
+	for o, v := range c.overview.views {
+		if slices.Contains(v.items, it) {
+			return o
+		}
+	}
+	return nil
+}
+
+func (c *Compositor) overviewTargets() ([]overviewTarget, []image.Rectangle) {
+	targets, rects := c.overview.targets[:0], c.overview.rects[:0]
+	for _, o := range c.outputs {
+		v := c.overview.views[o]
+		if v == nil {
+			continue
+		}
+		for _, t := range v.spaces {
+			targets, rects = append(targets, overviewSpace{t}), append(rects, t.rect)
+		}
+		targets, rects = append(targets, overviewPlus{v}), append(rects, v.plus)
+		for _, it := range v.items {
+			if it.out {
+				continue
+			}
+			targets, rects = append(targets, overviewWindow{it.root}), append(rects, it.goal)
+		}
+	}
+	c.overview.targets, c.overview.rects = targets, rects
+	return targets, rects
+}
+
+func (c *Compositor) overviewSelectedRoot() overviewTarget {
+	selected := c.overview.selected
+	if t, ok := selected.(overviewWindow); ok {
+		if it := c.overviewItemOf(t.w); it != nil {
+			return overviewWindow{it.root}
+		}
+	}
+	return selected
+}
+
+func (c *Compositor) overviewCycle(by int) error {
+	targets, _ := c.overviewTargets()
+	windows := make([]overviewTarget, 0, len(targets))
+	for _, t := range targets {
+		if _, ok := t.(overviewWindow); ok {
+			windows = append(windows, t)
+		}
+	}
+	if len(windows) == 0 {
+		return nil
+	}
+	from := slices.Index(windows, c.overviewSelectedRoot())
+	if from < 0 && by < 0 {
+		from = 0
+	}
+	c.overview.selected = windows[(from+by+len(windows))%len(windows)]
+	return c.scheduleAll()
+}
+
+func (c *Compositor) overviewCloseSelected() error {
+	t, ok := c.overview.selected.(overviewWindow)
+	if !ok {
+		return nil
+	}
+	return errors.Join(c.overviewCycle(1), t.w.top.close())
+}
+
+func (c *Compositor) overviewStep(d wm.Direction) error {
+	ov := c.overview
+	targets, rects := c.overviewTargets()
+	from := slices.Index(targets, c.overviewSelectedRoot())
+	if from < 0 {
+		for _, t := range targets {
+			if _, ok := t.(overviewWindow); ok {
+				ov.selected = t
+				return c.scheduleAll()
+			}
+		}
+		return nil
+	}
+	next, ok := wm.OverviewNeighbour(rects, from, d)
+	if t, onWindow := targets[from].(overviewWindow); onWindow {
+		_, toWindow := targets[next].(overviewWindow)
+		switch {
+		case d == wm.Down && !ok && ov.scope != wm.OverviewApp:
+			return c.setOverviewScope(wm.OverviewApp, t.w.top.AppID())
+		case d == wm.Up && (!ok || !toWindow) && ov.scope == wm.OverviewApp:
+			return c.setOverviewScope(ov.back, ov.app)
+		}
+	}
+	if ok {
+		ov.selected = targets[next]
+		return c.scheduleAll()
+	}
+	return nil
+}
+
+func arrowOf(sym uint32) (wm.Direction, bool) {
+	switch sym {
+	case keysymLeft:
+		return wm.Left, true
+	case keysymRight:
+		return wm.Right, true
+	case keysymUp:
+		return wm.Up, true
+	case keysymDown:
+		return wm.Down, true
+	}
+	return 0, false
+}
+
+func (c *Compositor) repeatOverview(code uint32, d wm.Direction) error {
+	if c.seatConfig.RepeatRate == 0 {
+		return nil
+	}
+	return c.repeatKey(code, func() {
+		var err error
+		if c.overviewHolds() {
+			err = c.overviewStep(d)
+		} else {
+			err = c.repeat.stop()
+		}
+		if err != nil {
+			c.report(fmt.Errorf("compositor: repeat an arrow in the overview: %w", err))
+		}
+	})
+}
+
+func (c *Compositor) overviewDragging() bool {
+	return c.overview != nil && c.overview.press != nil && c.overview.press.dragging
+}
+
+func (c *Compositor) overviewTouching(id int32) bool {
+	if !c.overviewHolds() {
+		return false
+	}
+	pr := c.overview.press
+	return pr != nil && pr.touched && pr.touch == id
+}
+
+func (c *Compositor) overviewKey(code uint32) (bool, error) {
+	if c.seat.Focus() != nil {
+		return false, nil
+	}
+	km := c.seatConfig.Keymap
+	shift, err := binds.ModShift.Mask(km)
+	if err != nil {
+		return false, fmt.Errorf("compositor: the overview's Shift: %w", err)
+	}
+	alt, err := binds.ModAlt.Mask(km)
+	if err != nil {
+		return false, fmt.Errorf("compositor: the overview's Alt: %w", err)
+	}
+	sym := c.seat.Keysym(code)
+	var taken bool
+	switch c.binds.Held(c.seat.DepressedModifiers()) {
+	case 0:
+		if taken, err = c.overviewSym(sym, code); !taken {
+			taken, err = c.overviewType(sym)
+		}
+	case shift:
+		taken, err = c.overviewShiftSym(sym)
+	case alt:
+		taken, err = c.overviewAltSym(sym)
+	}
+	if taken {
+		c.held = append(c.held, code)
+	}
+	return taken, err
+}
+
+func (c *Compositor) overviewSym(sym, code uint32) (bool, error) {
+	if d, ok := arrowOf(sym); ok {
+		return true, errors.Join(c.overviewStep(d), c.repeatOverview(code, d))
+	}
+	switch sym {
+	case keysymEscape:
+		if c.overview.query != "" {
+			return true, c.setOverviewQuery("")
+		}
+		return true, c.closeOverview()
+	case keysymBackSpace:
+		q := c.overview.query
+		if q == "" {
+			return true, nil
+		}
+		_, size := utf8.DecodeLastRuneInString(q)
+		return true, c.setOverviewQuery(q[:len(q)-size])
+	case keysymReturn, keysymKPEnter:
+		return true, c.overviewActivate(c.overview.selected)
+	case keysymTab:
+		return true, c.overviewCycle(1)
+	case keysymBackTab:
+		return true, c.overviewCycle(-1)
+	case keysymDelete:
+		return true, c.overviewCloseSelected()
+	}
+	return false, nil
+}
+
+func (c *Compositor) overviewShiftSym(sym uint32) (bool, error) {
+	switch sym {
+	case keysymBackTab:
+		return true, c.overviewCycle(-1)
+	case keysymLeft:
+		return true, c.overviewMoveSelected(wm.Left)
+	case keysymRight:
+		return true, c.overviewMoveSelected(wm.Right)
+	}
+	return c.overviewType(sym)
+}
+
+func (c *Compositor) overviewAltSym(sym uint32) (bool, error) {
+	if sym >= keysym0 && sym <= keysym9 {
+		id := wm.WorkspaceID(sym - keysym0)
+		if id == 0 {
+			id = 10
+		}
+		return true, c.overviewGoToSpace(c.wm.FocusedOutput(), id)
+	}
+	switch sym {
+	case keysymSpace:
+		return true, c.overviewActivate(c.overview.selected)
+	case keysymX:
+		return true, c.overviewCloseSelected()
+	}
+	return false, nil
+}
+
+func (c *Compositor) overviewType(sym uint32) (bool, error) {
+	r := xkb.KeysymRune(sym)
+	if !unicode.IsPrint(r) {
+		return false, nil
+	}
+	return true, c.setOverviewQuery(c.overview.query + string(r))
+}
+
+func (c *Compositor) overviewGroupAt(p point) (wm.WorkspaceID, bool) {
+	v := c.overview.views[c.outputAt(p)]
+	if v == nil {
+		return 0, false
+	}
+	at := p.pixel()
+	for _, g := range v.groups {
+		if at.In(g.rect) {
+			return g.id, true
+		}
+	}
+	return 0, false
+}

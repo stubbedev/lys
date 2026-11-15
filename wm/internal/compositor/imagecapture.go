@@ -1,0 +1,625 @@
+package compositor
+
+import (
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"image"
+	"slices"
+	"time"
+
+	"github.com/stubbedev/lys-lib/fourcc"
+
+	"github.com/stubbedev/lys-wm/internal/dmabuf"
+	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys-wm/internal/output"
+	sefl "github.com/stubbedev/lys-wm/internal/protocol/server/extforeigntoplevellist"
+	seis "github.com/stubbedev/lys-wm/internal/protocol/server/extimagecapturesource"
+	seic "github.com/stubbedev/lys-wm/internal/protocol/server/extimagecopycapture"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/region"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/shm"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+const (
+	captureSourceVersion = 1
+	imageCaptureVersion  = 1
+)
+
+type captureSource interface {
+	area(c *Compositor) (*output.Output, image.Rectangle, bool)
+	paint(c *Compositor, o *output.Output, area image.Rectangle, cursor, screencast bool) (render.Color, func(render.Pass) error)
+}
+
+type outputSource struct{ output *output.Output }
+
+type windowSource struct{ window *window }
+
+type cursorSource struct{ session *cursorSession }
+
+type goneSource struct{}
+
+type sourceHandle struct{ source captureSource }
+
+func (c *Compositor) addImageCapture(d *server.Display, offer *dmabufOffer) error {
+	if _, err := d.AddGlobal(seis.ExtOutputImageCaptureSourceManagerV1Interface, captureSourceVersion, func(cl *server.Client, id wire.ObjectID, version uint32) error {
+		_, err := seis.NewExtOutputImageCaptureSourceManagerV1(cl, id, version, outputSources{c})
+		return err
+	}); err != nil {
+		return err
+	}
+	if _, err := d.AddGlobal(seis.ExtForeignToplevelImageCaptureSourceManagerV1Interface, captureSourceVersion, func(cl *server.Client, id wire.ObjectID, version uint32) error {
+		_, err := seis.NewExtForeignToplevelImageCaptureSourceManagerV1(cl, id, version, toplevelSources{c})
+		return err
+	}); err != nil {
+		return err
+	}
+	_, err := d.AddGlobal(seic.ExtImageCopyCaptureManagerV1Interface, imageCaptureVersion, func(cl *server.Client, id wire.ObjectID, version uint32) error {
+		_, err := seic.NewExtImageCopyCaptureManagerV1(cl, id, version, imageCaptures{c, cl, offer})
+		return err
+	})
+	return err
+}
+
+type dmabufOffer struct {
+	device  []byte
+	formats []dmabufFormat
+}
+
+type dmabufFormat struct {
+	format    fourcc.Format
+	modifiers []byte
+}
+
+func (o *dmabufOffer) offers(f fourcc.Format) bool {
+	return o.device != nil && slices.ContainsFunc(o.formats, func(d dmabufFormat) bool { return d.format == f })
+}
+
+func captureOffer(r render.Renderer) (*dmabufOffer, error) {
+	cr, ok := r.(captureRenderer)
+	if !ok {
+		return &dmabufOffer{}, nil
+	}
+	dev, err := cr.MainDevice()
+	if errors.Is(err, gpu.ErrUnsupported) {
+		return &dmabufOffer{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("image capture: %w", err)
+	}
+	offer := &dmabufOffer{device: binary.NativeEndian.AppendUint64(nil, dev)}
+	for _, format := range dmabufCaptureFormats {
+		mods, err := cr.RenderableModifiers(format)
+		if err != nil {
+			return nil, fmt.Errorf("image capture: modifiers of format %v: %w", format, err)
+		}
+		if len(mods) == 0 {
+			continue
+		}
+		list := make([]byte, 0, 8*len(mods))
+		for _, m := range mods {
+			list = binary.NativeEndian.AppendUint64(list, uint64(m))
+		}
+		offer.formats = append(offer.formats, dmabufFormat{format, list})
+	}
+	return offer, nil
+}
+
+type outputSources struct{ c *Compositor }
+
+func (outputSources) Destroy(*seis.ExtOutputImageCaptureSourceManagerV1) error { return nil }
+
+func (m outputSources) CreateSource(_ *seis.ExtOutputImageCaptureSourceManagerV1, _ *seis.ExtImageCaptureSourceV1, wl *sw.WlOutput) (seis.ExtImageCaptureSourceV1Handler, error) {
+	return &sourceHandle{outputSource{m.c.layout.Owner(wl)}}, nil
+}
+
+type toplevelSources struct{ c *Compositor }
+
+func (toplevelSources) Destroy(*seis.ExtForeignToplevelImageCaptureSourceManagerV1) error {
+	return nil
+}
+
+func (m toplevelSources) CreateSource(_ *seis.ExtForeignToplevelImageCaptureSourceManagerV1, _ *seis.ExtImageCaptureSourceV1, handle *sefl.ExtForeignToplevelHandleV1) (seis.ExtImageCaptureSourceV1Handler, error) {
+	for _, l := range m.c.extLists {
+		for w, h := range l.handles {
+			if h.resource == handle {
+				return &sourceHandle{windowSource{w}}, nil
+			}
+		}
+	}
+	return &sourceHandle{goneSource{}}, nil
+}
+
+func (*sourceHandle) Destroy(*seis.ExtImageCaptureSourceV1) error {
+	return nil
+}
+
+func sourceOf(source *seis.ExtImageCaptureSourceV1) (captureSource, error) {
+	h, ok := source.Handler().(*sourceHandle)
+	if !ok {
+		return nil, fmt.Errorf("compositor: capture source@%d has handler %T", source.Base().ID(), source.Handler())
+	}
+	return h.source, nil
+}
+
+type imageCaptures struct {
+	c     *Compositor
+	cl    *server.Client
+	offer *dmabufOffer
+}
+
+func (imageCaptures) Destroy(*seic.ExtImageCopyCaptureManagerV1) error { return nil }
+
+func (m imageCaptures) CreateSession(obj *seic.ExtImageCopyCaptureManagerV1, res *seic.ExtImageCopyCaptureSessionV1, source *seis.ExtImageCaptureSourceV1, options seic.ExtImageCopyCaptureManagerV1Options) (seic.ExtImageCopyCaptureSessionV1Handler, error) {
+	if options&^seic.ExtImageCopyCaptureManagerV1OptionsPaintCursors != 0 {
+		return nil, obj.ProtocolError(seic.ExtImageCopyCaptureManagerV1ErrorInvalidOption, "options %#x", options)
+	}
+	src, err := sourceOf(source)
+	if err != nil {
+		return nil, err
+	}
+	return m.c.openCaptureSession(&captureSession{c: m.c, cl: m.cl, res: res, offer: m.offer, source: src, cursor: options&seic.ExtImageCopyCaptureManagerV1OptionsPaintCursors != 0})
+}
+
+func (c *Compositor) openCaptureSession(s *captureSession) (*captureSession, error) {
+	server.Track(s.res, &c.captureSessions, s)
+	server.OnDestroy(s.res, s.scratch.drop)
+	server.OnDestroy(s.res, c.captureSetChanged)
+	return s, errors.Join(s.sync(), c.captureSetChanged())
+}
+
+func (m imageCaptures) CreatePointerCursorSession(_ *seic.ExtImageCopyCaptureManagerV1, res *seic.ExtImageCopyCaptureCursorSessionV1, source *seis.ExtImageCaptureSourceV1, _ *sw.WlPointer) (seic.ExtImageCopyCaptureCursorSessionV1Handler, error) {
+	src, err := sourceOf(source)
+	if err != nil {
+		return nil, err
+	}
+	k := &cursorSession{c: m.c, cl: m.cl, res: res, offer: m.offer, source: src}
+	server.Track(res, &m.c.cursorSessions, k)
+	return k, k.update()
+}
+
+type cursorSession struct {
+	c        *Compositor
+	cl       *server.Client
+	res      *seic.ExtImageCopyCaptureCursorSessionV1
+	offer    *dmabufOffer
+	source   captureSource
+	capture  *captureSession
+	inside   bool
+	position image.Point
+	hotspot  image.Point
+	box      image.Rectangle
+	gen      uint64
+}
+
+func (*cursorSession) Destroy(*seic.ExtImageCopyCaptureCursorSessionV1) error { return nil }
+
+func (k *cursorSession) GetCaptureSession(obj *seic.ExtImageCopyCaptureCursorSessionV1, res *seic.ExtImageCopyCaptureSessionV1) (seic.ExtImageCopyCaptureSessionV1Handler, error) {
+	if k.capture != nil {
+		return nil, obj.ProtocolError(seic.ExtImageCopyCaptureCursorSessionV1ErrorDuplicateSession, "the cursor session already has a capture session")
+	}
+	s, err := k.c.openCaptureSession(&captureSession{c: k.c, cl: k.cl, res: res, offer: k.offer, source: cursorSource{k}})
+	k.capture = s
+	return s, err
+}
+
+func (k *cursorSession) update() error {
+	c := k.c
+	o, area, ok := k.source.area(c)
+	var box image.Rectangle
+	if ok {
+		var err error
+		if box, err = c.cursorBounds(o); err != nil {
+			return err
+		}
+	}
+	var errs []error
+	inside := !box.Empty() && box.Overlaps(area)
+	entered := inside && !k.inside
+	switch {
+	case entered:
+		errs = append(errs, k.res.SendEnter())
+	case k.inside && !inside:
+		errs = append(errs, k.res.SendLeave())
+	}
+	k.inside = inside
+	if inside {
+		tip := c.cursorTip(o)
+		if position := tip.Sub(area.Min); entered || position != k.position {
+			k.position = position
+			errs = append(errs, k.res.SendPosition(int32(position.X), int32(position.Y))) //nolint:gosec // output coordinates fit
+		}
+		if hotspot := tip.Sub(box.Min); entered || hotspot != k.hotspot {
+			k.hotspot = hotspot
+			errs = append(errs, k.res.SendHotspot(int32(hotspot.X), int32(hotspot.Y))) //nolint:gosec // cursor sizes fit
+		}
+	}
+	changed := !box.Empty() && (box.Size() != k.box.Size() || c.cursorGen != k.gen)
+	k.box, k.gen = box, c.cursorGen
+	if s := k.capture; changed && s != nil && !s.stopped {
+		errs = append(errs, s.sync())
+		s.damage.Add(image.Rectangle{Max: box.Size()})
+		errs = append(errs, c.wakeCaptures(o))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) updateCursorSessions() error {
+	var err error
+	for _, k := range c.cursorSessions {
+		err = errors.Join(err, k.update())
+	}
+	return err
+}
+
+type captureSession struct {
+	c        *Compositor
+	cl       *server.Client
+	res      *seic.ExtImageCopyCaptureSessionV1
+	offer    *dmabufOffer
+	source   captureSource
+	cursor   bool
+	size     image.Point
+	frame    *captureFrame
+	scratch  captureScratch
+	damage   region.Set
+	cursorAt image.Rectangle
+	shown    cursorShot
+	captured bool
+	stopped  bool
+	oneshot  bool
+	blocked  []image.Rectangle
+}
+
+func (src outputSource) area(c *Compositor) (*output.Output, image.Rectangle, bool) {
+	if !c.outputLive(src.output) {
+		return nil, image.Rectangle{}, false
+	}
+	return src.output, c.captureRegion(src.output, image.Rectangle{}), true
+}
+
+func (src outputSource) paint(c *Compositor, o *output.Output, area image.Rectangle, cursor, screencast bool) (render.Color, func(render.Pass) error) {
+	return opaque, c.outputDraw(o, area, cursor, screencast)
+}
+
+func (src windowSource) area(c *Compositor) (*output.Output, image.Rectangle, bool) {
+	w := src.window
+	if !c.live(w) || w.output == nil {
+		return nil, image.Rectangle{}, false
+	}
+	return w.output, c.windowRegion(w), true
+}
+
+func (src windowSource) paint(c *Compositor, _ *output.Output, _ image.Rectangle, cursor, screencast bool) (render.Color, func(render.Pass) error) {
+	return opaque, c.windowDraw(src.window, cursor, screencast)
+}
+
+func (src cursorSource) area(c *Compositor) (*output.Output, image.Rectangle, bool) {
+	o, _, ok := src.session.source.area(c)
+	if !ok {
+		return nil, image.Rectangle{}, false
+	}
+	return o, src.session.box, true
+}
+
+func (cursorSource) paint(c *Compositor, o *output.Output, _ image.Rectangle, _, _ bool) (render.Color, func(render.Pass) error) {
+	return render.Color{}, c.pointerDraw(o)
+}
+
+func (goneSource) area(*Compositor) (*output.Output, image.Rectangle, bool) {
+	return nil, image.Rectangle{}, false
+}
+
+func (goneSource) paint(*Compositor, *output.Output, image.Rectangle, bool, bool) (render.Color, func(render.Pass) error) {
+	return render.Color{}, func(render.Pass) error { return nil }
+}
+
+func (s *captureSession) target() (*output.Output, image.Rectangle, bool) {
+	return s.source.area(s.c)
+}
+
+func (s *captureSession) sync() error {
+	if s.stopped {
+		return nil
+	}
+	_, area, ok := s.target()
+	if ok && area.Empty() {
+		return nil
+	}
+	if !ok {
+		s.stopped = true
+		var err error
+		if f := s.frame; f != nil && f.state == frameCapturing {
+			err = f.fail(seic.ExtImageCopyCaptureFrameV1FailureReasonStopped)
+		}
+		return errors.Join(err, s.res.SendStopped())
+	}
+	if area.Size() == s.size {
+		return nil
+	}
+	s.size, s.captured = area.Size(), false
+	s.damage.Reset()
+	err := s.constraints()
+	if f := s.frame; f != nil && f.state == frameCapturing {
+		if f.pending != nil {
+			s.c.cancelCapture(f.pending)
+		}
+		err = errors.Join(err, f.fail(seic.ExtImageCopyCaptureFrameV1FailureReasonBufferConstraints))
+	}
+	return err
+}
+
+func (s *captureSession) noteDamage(o *output.Output, frame *region.Set, cursorOnly bool) {
+	src, ok := s.c.resolved(s.source).(outputSource)
+	if s.stopped || !ok || src.output != o || (cursorOnly && (!s.cursor || s.showsCursor(o))) {
+		return
+	}
+	_, area, ok := s.target()
+	if !ok {
+		return
+	}
+	if s.oneshot {
+		addDamage(&s.damage, frame, area)
+		return
+	}
+	cur := s.c.blockedRects(o, s.c.blockedScratch)
+	s.c.blockedScratch = cur
+	if !slices.Equal(cur, s.blocked) {
+		addDamage(&s.damage, frame, area)
+		for _, r := range slices.Concat(s.blocked, cur) {
+			if r = r.Intersect(area); !r.Empty() {
+				s.damage.Add(r.Sub(area.Min))
+			}
+		}
+		s.blocked = slices.Clone(cur)
+		return
+	}
+	except := s.c.exceptScratch[:0]
+	for _, r := range cur {
+		except = append(except, r.Sub(area.Min))
+	}
+	s.c.exceptScratch = except
+	for _, r := range frame.Rects() {
+		if r = r.Intersect(area); !r.Empty() {
+			s.damage.AddExcept(r.Sub(area.Min), except)
+		}
+	}
+}
+
+func (c *Compositor) noteCommit(sf *surface.Surface) error {
+	var errs []error
+	errs = append(errs, c.noteWindowCopies(sf))
+	for _, s := range c.captureSessions {
+		src, ok := c.resolved(s.source).(windowSource)
+		if !ok || s.stopped || !c.inWindow(src.window, sf) || !s.oneshot && c.decision(src.window).BlockOutFrom.Blocks(true) {
+			continue
+		}
+		o, area, ok := s.target()
+		if !ok {
+			continue
+		}
+		s.damage.Add(image.Rectangle{Max: area.Size()})
+		errs = append(errs, c.wakeCaptures(o))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) noteCursor(o *output.Output, repaint bool) error {
+	var errs []error
+	for _, s := range c.captureSessions {
+		if !s.cursor || s.stopped {
+			continue
+		}
+		to, area, ok := s.target()
+		if !ok || to != o {
+			continue
+		}
+		box, err := c.cursorBounds(o)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if box == s.cursorAt {
+			continue
+		}
+		for _, r := range []image.Rectangle{s.cursorAt, box} {
+			if r = r.Intersect(area); !r.Empty() {
+				s.damage.Add(r.Sub(area.Min))
+			}
+		}
+		s.cursorAt = box
+		if _, window := c.resolved(s.source).(windowSource); window || !repaint {
+			errs = append(errs, c.wakeCaptures(o))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (s *captureSession) constraints() error {
+	res := s.res
+	errs := []error{res.SendBufferSize(uint32(s.size.X), uint32(s.size.Y))} //nolint:gosec // capture sizes are positive
+	for _, f := range []sw.WlShmFormat{sw.WlShmFormatXrgb8888, sw.WlShmFormatArgb8888} {
+		errs = append(errs, res.SendShmFormat(f))
+	}
+	if s.offer.device != nil {
+		errs = append(errs, res.SendDmabufDevice(s.offer.device))
+		for _, f := range s.offer.formats {
+			errs = append(errs, res.SendDmabufFormat(uint32(f.format), f.modifiers))
+		}
+	}
+	return errors.Join(append(errs, res.SendDone())...)
+}
+
+func (s *captureSession) CreateFrame(obj *seic.ExtImageCopyCaptureSessionV1, res *seic.ExtImageCopyCaptureFrameV1) (seic.ExtImageCopyCaptureFrameV1Handler, error) {
+	if s.frame != nil {
+		return nil, obj.ProtocolError(seic.ExtImageCopyCaptureSessionV1ErrorDuplicateFrame, "the session already has a frame")
+	}
+	f := &captureFrame{s: s, res: res, damage: region.Capped(maxDamageRects)}
+	s.frame = f
+	server.OnDestroy(res, func() error {
+		f.end(s.c)
+		if s.frame == f {
+			s.frame = nil
+		}
+		return nil
+	})
+	return f, nil
+}
+
+func (*captureSession) Destroy(*seic.ExtImageCopyCaptureSessionV1) error {
+	return nil
+}
+
+type captureFrame struct {
+	s      *captureSession
+	res    *seic.ExtImageCopyCaptureFrameV1
+	buffer *sw.WlBuffer
+	damage region.Set
+	frameLife
+}
+
+func (f *captureFrame) AttachBuffer(_ *seic.ExtImageCopyCaptureFrameV1, b *sw.WlBuffer) error {
+	f.buffer = b
+	return nil
+}
+
+func (f *captureFrame) DamageBuffer(obj *seic.ExtImageCopyCaptureFrameV1, x, y, w, h int32) error {
+	switch {
+	case x < 0 || y < 0 || w <= 0 || h <= 0:
+		return obj.ProtocolError(seic.ExtImageCopyCaptureFrameV1ErrorInvalidBufferDamage, "damage %d,%d %dx%d", x, y, w, h)
+	case f.state != frameIdle:
+		return obj.ProtocolError(seic.ExtImageCopyCaptureFrameV1ErrorAlreadyCaptured, "damage after capture")
+	}
+	f.damage.Add(image.Rect(int(x), int(y), int(x)+int(w), int(y)+int(h)))
+	return nil
+}
+
+func (f *captureFrame) fail(reason seic.ExtImageCopyCaptureFrameV1FailureReason) error {
+	if !f.finish() {
+		return nil
+	}
+	return f.res.SendFailed(reason)
+}
+
+func (f *captureFrame) broke(err error) error {
+	f.s.c.report(fmt.Errorf("compositor: image capture: %w", err))
+	return f.fail(seic.ExtImageCopyCaptureFrameV1FailureReasonUnknown)
+}
+
+func (f *captureFrame) Capture(obj *seic.ExtImageCopyCaptureFrameV1) error {
+	s := f.s
+	switch {
+	case f.state != frameIdle:
+		return obj.ProtocolError(seic.ExtImageCopyCaptureFrameV1ErrorAlreadyCaptured, "the frame was already captured")
+	case f.buffer == nil:
+		return obj.ProtocolError(seic.ExtImageCopyCaptureFrameV1ErrorNoBuffer, "capture without a buffer")
+	case s.stopped:
+		return f.fail(seic.ExtImageCopyCaptureFrameV1FailureReasonStopped)
+	}
+	o, area, ok := s.target()
+	if !ok {
+		return f.fail(seic.ExtImageCopyCaptureFrameV1FailureReasonStopped)
+	}
+	size := s.size
+	target, err := f.target(size)
+	if errors.Is(err, errConstraints) {
+		return f.fail(seic.ExtImageCopyCaptureFrameV1FailureReasonBufferConstraints)
+	}
+	if err != nil {
+		return f.broke(err)
+	}
+	clear, draw := s.source.paint(s.c, o, area, s.cursor, !s.oneshot)
+	k := &capture{output: o, size: size, clear: clear, draw: draw, target: target}
+	f.start(k)
+	k.waits = func(*region.Set) bool {
+		_, area, _ := s.target()
+		return area.Empty() || (s.captured && s.damage.Empty())
+	}
+	var damage []image.Rectangle
+	k.painted = func() error {
+		s.blocked = slices.Clone(s.c.blockedRects(o, s.c.blockedScratch))
+		damage = []image.Rectangle{{Max: size}}
+		if s.captured {
+			damage = slices.Clone(s.damage.Rects())
+			f.damage.AddSet(&s.damage)
+			f.damage.Clip(image.Rectangle{Max: size})
+			k.partial, k.repaint, k.update = true, damage, slices.Clone(f.damage.Rects())
+		}
+		s.captured = true
+		s.damage.Reset()
+		if !s.cursor {
+			return nil
+		}
+		box, err := s.c.cursorBounds(o)
+		s.cursorAt, s.shown = box, cursorShot{box: box, gen: s.c.cursorGen}
+		return err
+	}
+	k.done = func(at time.Duration, err error) error {
+		if err == nil {
+			if src, ok := s.c.resolved(s.source).(windowSource); ok {
+				return errors.Join(f.ready(at, damage), s.c.captured(src.window, at))
+			}
+			return f.ready(at, damage)
+		}
+		s.captured = false
+		if errors.Is(err, errCaptureGone) {
+			err = f.fail(seic.ExtImageCopyCaptureFrameV1FailureReasonStopped)
+		} else {
+			err = f.broke(err)
+		}
+		return errors.Join(err, s.c.wakeCaptures(o))
+	}
+	return s.c.queueCapture(k, k.waits(nil))
+}
+
+func (f *captureFrame) ready(at time.Duration, damage []image.Rectangle) error {
+	if !f.finish() {
+		return nil
+	}
+	errs := []error{f.res.SendTransform(sw.WlOutputTransformNormal)}
+	for _, r := range damage {
+		errs = append(errs, f.res.SendDamage(int32(r.Min.X), int32(r.Min.Y), int32(r.Dx()), int32(r.Dy()))) //nolint:gosec // damage lies inside the capture
+	}
+	ts := wire.TimespecOf(at)
+	errs = append(errs,
+		f.res.SendPresentationTime(ts.SecHi, ts.SecLo, ts.Nsec),
+		f.res.SendReady(),
+	)
+	return errors.Join(errs...)
+}
+
+func (f *captureFrame) target(size image.Point) (captureTarget, error) {
+	switch b := f.buffer.Handler().(type) {
+	case *shm.Buffer:
+		return shmTarget(b, size, captureFormats, &f.s.scratch)
+	case *dmabuf.Buffer:
+		return f.s.c.dmabufTarget(b, size)
+	}
+	return nil, fmt.Errorf("%w: neither a shared-memory nor a dmabuf buffer", errConstraints)
+}
+
+func (*captureFrame) Destroy(*seic.ExtImageCopyCaptureFrameV1) error {
+	return nil
+}
+
+func (c *Compositor) syncCaptureSessions() error {
+	var errs []error
+	for _, s := range c.captureSessions {
+		errs = append(errs, s.sync())
+	}
+	return errors.Join(errs...)
+}
+
+type cursorShot struct {
+	box image.Rectangle
+	gen uint64
+}
+
+func (s *captureSession) showsCursor(o *output.Output) bool {
+	box, err := s.c.cursorBounds(o)
+	return err == nil && s.captured && s.shown == cursorShot{box: box, gen: s.c.cursorGen}
+}

@@ -1,0 +1,442 @@
+package harness
+
+import (
+	"errors"
+	"image"
+	"regexp"
+	"slices"
+	"testing"
+
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
+	cxdg "github.com/stubbedev/lys-wm/internal/protocol/client/xdgshell"
+	cxtt "github.com/stubbedev/lys-wm/internal/protocol/client/xdgtopleveltag"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+var (
+	redColor  = [3]byte{0xff, 0, 0}
+	blueColor = [3]byte{0, 0, 0xff}
+)
+
+func TestFloatingFullscreenAndTransients(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	red := c.Window("red", testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("red to map", red.Mapped)
+	blue := c.Window("blue", testclient.Fill(0xff, 0, 0))
+	c.DispatchUntil("blue to map", blue.Mapped)
+
+	h.dispatch("togglefloating")
+	c.DispatchUntil("blue floats at half size", func() bool { return blue.Logical == image.Pt(80, 50) })
+	if slices.Contains(blue.States, cxdg.XdgToplevelStateTiledLeft) {
+		t.Fatalf("a floating window is still configured tiled: %v", blue.States)
+	}
+	c.DispatchUntil("red takes the whole output", func() bool { return red.Logical == small.Size })
+	h.Eventually("blue centred above red", showing(80, 40, blueColor))
+	h.Eventually("red around it", showing(10, 10, redColor))
+
+	h.dispatch("fullscreen")
+	c.DispatchUntil("blue fullscreen", func() bool {
+		return blue.Logical == small.Size && slices.Contains(blue.States, cxdg.XdgToplevelStateFullscreen)
+	})
+	h.Eventually("blue covering the output", showing(10, 10, blueColor))
+	if err := errors.Join(blue.Toplevel.UnsetFullscreen(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("blue floating again", func() bool { return blue.Logical == image.Pt(80, 50) })
+	if err := errors.Join(red.Toplevel.SetFullscreen(nil), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("red fullscreen on request", func() bool { return slices.Contains(red.States, cxdg.XdgToplevelStateFullscreen) })
+	if err := errors.Join(red.Toplevel.UnsetFullscreen(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+
+	dialog := c.Dialog(red, "dialog", testclient.Fill(0, 0xff, 0))
+	c.DispatchUntil("the dialog to map", dialog.Mapped)
+	if dialog.Logical != image.Pt(64, 64) {
+		t.Fatalf("the dialog was sized %v; transients pick their own size", dialog.Logical)
+	}
+	h.Eventually("the dialog centred over its parent", showing(90, 60, [3]byte{0, 0xff, 0}))
+}
+
+func TestFullscreenCoversTheTopLayerButNotOverlay(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	bar := c.Layer(topBar(cwlr.ZwlrLayerSurfaceV1KeyboardInteractivityNone), testclient.Fill(barColor[2], barColor[1], barColor[0]))
+	c.DispatchUntil("the bar to map", bar.Mapped)
+	note := c.Layer(testclient.LayerSpec{
+		Layer:  cwlr.ZwlrLayerShellV1LayerOverlay,
+		Anchor: cwlr.ZwlrLayerSurfaceV1AnchorBottom | cwlr.ZwlrLayerSurfaceV1AnchorRight,
+		Size:   image.Pt(30, 20),
+	}, testclient.Fill(noteColor[2], noteColor[1], noteColor[0]))
+	c.DispatchUntil("the note to map", note.Mapped)
+	w := c.Window("win", testclient.Fill(0xff, 0, 0))
+	c.DispatchUntil("the window to map", w.Mapped)
+	h.dispatch("fullscreen")
+	c.DispatchUntil("the window fullscreen", func() bool { return w.Logical == small.Size })
+	h.Eventually("the window over the bar", showing(5, 5, blueColor))
+	h.Eventually("the note above the window", showing(150, 95, noteColor))
+}
+
+func mouseDrag(t *testing.T, h *Harness) func(button uint32, from, to image.Point) {
+	return func(button uint32, from, to image.Point) {
+		t.Helper()
+		h.key(keySuper, true)
+		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			o := b.Outputs()[0]
+			p := b.Pointer()
+			size := small.Size
+			return errors.Join(
+				p.MoveTo(o, float64(from.X)/float64(size.X), float64(from.Y)/float64(size.Y)), p.Frame(),
+				p.Button(button, true), p.Frame(),
+				p.MoveTo(o, float64(to.X)/float64(size.X), float64(to.Y)/float64(size.Y)), p.Frame(),
+				p.Button(button, false), p.Frame(),
+			)
+		})
+		h.key(keySuper, false)
+	}
+}
+
+func TestMouseDragsMoveAndResize(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, withBinds(t,
+		bindSpec{chord: "SUPER + mouse:272", action: "movewindow"},
+		bindSpec{chord: "SUPER + mouse:273", action: "resizewindow"},
+	), small)
+	c := testclient.Connect(t, h.Socket())
+	left := c.Window("left", testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("left to map", left.Mapped)
+	right := c.Window("right", testclient.Fill(0xff, 0, 0))
+	c.DispatchUntil("right to map", right.Mapped)
+
+	drag := mouseDrag(t, h)
+
+	drag(btnRight, image.Pt(40, 50), image.Pt(70, 50))
+	c.DispatchUntil("the left tile grown by the drag", func() bool { return left.Logical == image.Pt(110, 100) })
+	c.DispatchUntil("the right tile shrunk", func() bool { return right.Logical == image.Pt(50, 100) })
+
+	drag(btnLeft, image.Pt(140, 50), image.Pt(10, 50))
+	h.Eventually("right dropped onto the left half", showing(5, 50, blueColor))
+
+	h.dispatch("togglefloating")
+	c.DispatchUntil("a floating window", func() bool { return right.Logical == image.Pt(80, 50) })
+	drag(btnLeft, image.Pt(80, 50), image.Pt(100, 60))
+	h.Eventually("the floating window moved by the drag", showing(135, 80, blueColor))
+}
+
+func TestWindowRulesFloatAndSize(t *testing.T) {
+	t.Parallel()
+	steam := regexp.MustCompile(`^lys-wm\.testclient$`)
+	h := StartWith(t, func(cfg *compositor.Config) {
+		cfg.Rules = []wm.Rule{
+			{Match: wm.Match{AppID: steam}, Mode: wm.RuleFloat},
+			{Match: wm.Match{AppID: steam, Title: regexp.MustCompile(`^Steam$`)}, Mode: wm.RuleTile},
+			{Match: wm.Match{AppID: steam, Title: regexp.MustCompile(`^Friends List$`)}, Size: wm.Px(40, 90)},
+		}
+	}, small)
+	c := testclient.Connect(t, h.Socket())
+	main := c.Window("Steam", testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("the main window to map", main.Mapped)
+	if main.Logical != small.Size || !slices.Contains(main.States, cxdg.XdgToplevelStateTiledLeft) {
+		t.Fatalf("the main window is %v %v; the tile rule wins", main.Logical, main.States)
+	}
+	friends := c.Window("Friends List", testclient.Fill(0xff, 0, 0))
+	c.DispatchUntil("the friends list to map", friends.Mapped)
+	if friends.Logical != image.Pt(40, 90) || slices.Contains(friends.States, cxdg.XdgToplevelStateTiledLeft) {
+		t.Fatalf("the friends list is %v %v, want floating at 40x90", friends.Logical, friends.States)
+	}
+	h.Eventually("the friends list centred", showing(70, 20, blueColor))
+}
+
+func TestAFloatingWindowOverAnotherOutputTakesTheClicksItCovers(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, withBinds(t, bindSpec{chord: "SUPER + mouse:272", action: "movewindow"}), small, small)
+	c := testclient.Connect(t, h.Socket())
+	float := c.Window("float", testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("the floating window to map", float.Mapped)
+	h.dispatch("togglefloating")
+	c.DispatchUntil("a floating window", func() bool { return float.Logical == image.Pt(80, 50) })
+	h.key(keySuper, true)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		o, p := b.Outputs()[0], b.Pointer()
+		return errors.Join(p.MoveTo(o, 0.5, 0.5), p.Frame(), p.Button(btnLeft, true), p.Frame(),
+			p.MoveTo(o, 150.0/160, 0.5), p.Frame(), p.Button(btnLeft, false), p.Frame())
+	})
+	h.key(keySuper, false)
+	h.Eventually("the floating window over the second output", func(_ *headless.Backend, comp *compositor.Compositor) bool {
+		for _, w := range comp.Snapshot().Windows {
+			if w.Title == "float" {
+				return w.Rect.X+w.Rect.Width > 170
+			}
+		}
+		return false
+	})
+	h.dispatch("workspace 2")
+	tiled := c.Window("tiled", testclient.Fill(0xff, 0, 0))
+	c.DispatchUntil("the tiled window to map", tiled.Mapped)
+	h.Eventually("the tiled window on the second output", func(_ *headless.Backend, comp *compositor.Compositor) bool {
+		for _, w := range comp.Snapshot().Windows {
+			if w.Title == "tiled" {
+				return w.Rect.X >= 160
+			}
+		}
+		return false
+	})
+	h.Eventually("the floating window drawn over the tiled one", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		return pixel(snapshot(b.Outputs()[1]), 5, 50) == redColor
+	})
+	h.click(1, 5, 50, btnLeft)
+	h.Eventually("the click went to the window drawn there", func(_ *headless.Backend, comp *compositor.Compositor) bool {
+		for _, w := range comp.Snapshot().Windows {
+			if w.Focused {
+				return w.Title == "float"
+			}
+		}
+		return false
+	})
+}
+
+func TestAWindowAcrossOutputsPrefersTheHighestScale(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, withBinds(t, bindSpec{chord: "SUPER + mouse:272", action: "movewindow"}), small, small)
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		return c.SetOutputScale(b.Outputs()[1], 240)
+	})
+	c := testclient.Connect(t, h.Socket())
+	w := c.ScaledWindow("across", testclient.FractionalScale, testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("the window to map", w.Mapped)
+	h.dispatch("togglefloating")
+	c.DispatchUntil("a floating window", func() bool { return w.Logical == image.Pt(80, 50) })
+	h.key(keySuper, true)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		o, p := b.Outputs()[0], b.Pointer()
+		return errors.Join(p.MoveTo(o, 0.5, 0.5), p.Frame(), p.Button(btnLeft, true), p.Frame(),
+			p.MoveTo(o, 150.0/160, 0.5), p.Frame(), p.Button(btnLeft, false), p.Frame())
+	})
+	h.key(keySuper, false)
+	c.DispatchUntil("the window on both outputs at the higher scale", func() bool { return w.Entered == 2 && w.Preferred120 == 240 })
+	for range 5 {
+		h.dispatch("resizeactive 1 0")
+		if err := c.Display.Roundtrip(); err != nil {
+			t.Fatal(err)
+		}
+		if w.Preferred120 != 240 {
+			t.Fatalf("the preferred scale went back to %d after a configure", w.Preferred120)
+		}
+	}
+}
+
+func fixedSize(size image.Point) func(*testclient.Window) error {
+	return func(w *testclient.Window) error {
+		return errors.Join(w.Toplevel.SetMinSize(int32(size.X), int32(size.Y)), w.Toplevel.SetMaxSize(int32(size.X), int32(size.Y)))
+	}
+}
+
+func TestWaylandWindowsThatAskToFloatFloat(t *testing.T) {
+	t.Parallel()
+	for name, setup := range map[string]func(*testing.T, *testclient.Client) func(*testclient.Window) error{
+		"a fixed size": func(*testing.T, *testclient.Client) func(*testclient.Window) error {
+			return fixedSize(image.Pt(60, 40))
+		},
+		"an xdg dialog without a parent": func(t *testing.T, c *testclient.Client) func(*testclient.Window) error {
+			m := dialogManager(t, c)
+			return func(w *testclient.Window) error {
+				_, err := m.GetXdgDialog(w.Toplevel)
+				return err
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := Start(t, small)
+			c := testclient.Connect(t, h.Socket())
+			app := c.Window("app", testclient.Fill(0, 0, 0xff))
+			c.DispatchUntil("the app to map", app.Mapped)
+			asks := c.WindowWith("asks", testclient.Fill(0, 0xff, 0), setup(t, c))
+			c.DispatchUntil("it to map", asks.Mapped)
+			if slices.Contains(asks.States, cxdg.XdgToplevelStateTiledLeft) {
+				t.Fatalf("it was configured tiled: %v", asks.States)
+			}
+			c.DispatchUntil("the app keeps the whole output", func() bool { return app.Logical == small.Size })
+			h.Eventually("it centred over the app", showing(65, 40, [3]byte{0, 0xff, 0}))
+			h.Eventually("the app around it", showing(10, 10, redColor))
+		})
+	}
+}
+
+func TestAFixedSizeWaylandWindowFloatsAtItsSize(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	fixed := c.WindowWith("fixed", testclient.Fill(0, 0xff, 0), fixedSize(image.Pt(60, 40)))
+	c.DispatchUntil("the fixed window to map", fixed.Mapped)
+	if fixed.Logical != image.Pt(60, 40) {
+		t.Fatalf("a window fixed at 60x40 floats at %v", fixed.Logical)
+	}
+}
+
+func TestWaylandWindowsThatDoNotAskToFloatTile(t *testing.T) {
+	t.Parallel()
+	for name, cfg := range map[string]struct {
+		rules []wm.Rule
+		setup func(*testclient.Window) error
+	}{
+		"only a minimum size": {setup: func(w *testclient.Window) error { return w.Toplevel.SetMinSize(20, 20) }},
+		"a fixed size overridden by a tile rule": {
+			rules: []wm.Rule{{Match: wm.Match{AppID: regexp.MustCompile(`^lys-wm\.testclient$`), Title: regexp.MustCompile(`^second$`)}, Mode: wm.RuleTile}},
+			setup: fixedSize(image.Pt(60, 40)),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := StartWith(t, func(conf *compositor.Config) { conf.Rules = cfg.rules }, small)
+			c := testclient.Connect(t, h.Socket())
+			app := c.Window("app", testclient.Fill(0, 0, 0xff))
+			c.DispatchUntil("the app to map", app.Mapped)
+			second := c.WindowWith("second", testclient.Fill(0, 0xff, 0), cfg.setup)
+			c.DispatchUntil("the second window to map", second.Mapped)
+			c.DispatchUntil("the two share the output", func() bool { return app.Logical.X < small.Size.X })
+		})
+	}
+}
+
+func TestDraggingAFloatingWindowSmallerStopsAtItsMinimum(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, withBinds(t, bindSpec{chord: "SUPER + mouse:273", action: "resizewindow"}), small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.WindowWith("roomy", testclient.Fill(0, 0, 0xff), func(w *testclient.Window) error { return w.Toplevel.SetMinSize(60, 40) })
+	c.DispatchUntil("the window to map", w.Mapped)
+	h.dispatch("togglefloating")
+	c.DispatchUntil("it floats at half the output", func() bool { return w.Logical == image.Pt(80, 50) })
+	mouseDrag(t, h)(btnRight, image.Pt(110, 70), image.Pt(10, 10))
+	c.DispatchUntil("the drag to settle", func() bool { return w.Logical != image.Pt(80, 50) })
+	if w.Logical != image.Pt(60, 40) {
+		t.Fatalf("a window asking for at least 60x40 was dragged to %v", w.Logical)
+	}
+}
+
+func TestAFloatingWindowGrowsWhenItRaisesItsMinimum(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("growing", testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("the window to map", w.Mapped)
+	h.dispatch("togglefloating")
+	c.DispatchUntil("it floats at half the output", func() bool { return w.Logical == image.Pt(80, 50) })
+	if err := errors.Join(w.Toplevel.SetMinSize(100, 70), w.Surface.Commit(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("it grows to its new minimum", func() bool { return w.Logical == image.Pt(100, 70) })
+}
+
+func TestWindowsFloatOrTileAgainWhenWhatDecidedItChanges(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, func(cfg *compositor.Config) {
+		cfg.Rules = []wm.Rule{{Match: wm.Match{AppID: regexp.MustCompile(`^lys-wm\.testclient$`), Title: regexp.MustCompile(`^Friends List$`)}, Mode: wm.RuleFloat}}
+	}, small)
+	c := testclient.Connect(t, h.Socket())
+	app := c.Window("app", testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("the app to map", app.Mapped)
+	w := c.Window("Steam", testclient.Fill(0, 0xff, 0))
+	c.DispatchUntil("the window to map tiled", func() bool { return w.Mapped() && app.Logical.X < small.Size.X })
+	tiled := func() bool { return app.Logical.X < small.Size.X }
+	floats := func() bool { return app.Logical == small.Size }
+	change := func(what string, f func() error, want func() bool) {
+		t.Helper()
+		if err := errors.Join(f(), w.Surface.Commit(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		c.DispatchUntil(what, want)
+	}
+	change("a retitle into the float rule floats it", func() error { return w.Toplevel.SetTitle("Friends List") }, floats)
+	change("a retitle out of it tiles it again", func() error { return w.Toplevel.SetTitle("Steam") }, tiled)
+	change("a fixed size floats it", func() error { return fixedSize(image.Pt(60, 40))(w) }, floats)
+	if w.Logical != image.Pt(60, 40) {
+		t.Fatalf("a window that became fixed at 60x40 floats at %v", w.Logical)
+	}
+	change("a size it can grow from again tiles it", func() error { return w.Toplevel.SetMaxSize(0, 0) }, tiled)
+
+	h.dispatch("togglefloating")
+	c.DispatchUntil("the user floats it", floats)
+	change("a retitle leaves the user's choice", func() error { return w.Toplevel.SetTitle("still mine") }, floats)
+	if err := c.Display.Roundtrip(); err != nil {
+		t.Fatal(err)
+	}
+	if !floats() {
+		t.Fatal("a window the user floated tiled again when its title changed")
+	}
+}
+
+func TestAFloatingWindowIsNeverSmallerThanItAsks(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, func(cfg *compositor.Config) {
+		cfg.Rules = []wm.Rule{{Match: wm.Match{AppID: regexp.MustCompile(`^lys-wm\.testclient$`)}, Mode: wm.RuleFloat, Size: wm.Px(40, 30)}}
+	}, desktop)
+	c := testclient.Connect(t, h.Socket())
+	w := c.WindowWith("roomy", testclient.Fill(0, 0, 0xff), func(w *testclient.Window) error { return w.Toplevel.SetMinSize(400, 300) })
+	c.DispatchUntil("the window to map", w.Mapped)
+	if w.Logical != image.Pt(400, 300) {
+		t.Fatalf("a window asking for at least 400x300 floats at %v", w.Logical)
+	}
+}
+
+func TestFullscreenAskedBeforeMappingIsHonoured(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	red := c.Window("red", testclient.Fill(0, 0, 0xff))
+	c.DispatchUntil("red to map", red.Mapped)
+	blue := c.WindowWith("blue", testclient.Fill(0xff, 0, 0), func(w *testclient.Window) error { return w.Toplevel.SetFullscreen(nil) })
+	c.DispatchUntil("blue's first configure", func() bool { return blue.Logical != (image.Point{}) })
+	if blue.Logical != small.Size || !slices.Contains(blue.States, cxdg.XdgToplevelStateFullscreen) {
+		t.Fatalf("the first configure was %v with states %v, want the whole output, fullscreen", blue.Logical, blue.States)
+	}
+	c.DispatchUntil("blue to map", blue.Mapped)
+	h.Eventually("blue covering the output", showing(10, 10, blueColor))
+
+	unset := c.WindowWith("unset", testclient.Fill(0, 0xff, 0), func(w *testclient.Window) error {
+		return errors.Join(w.Toplevel.SetFullscreen(nil), w.Toplevel.UnsetFullscreen())
+	})
+	c.DispatchUntil("the first configure of the window that changed its mind", func() bool { return unset.Logical != (image.Point{}) })
+	if slices.Contains(unset.States, cxdg.XdgToplevelStateFullscreen) {
+		t.Fatalf("a window that unset fullscreen before mapping was configured with %v", unset.States)
+	}
+}
+
+func TestRulesMatchingATagSetAfterMappingFloatAndTintTheWindow(t *testing.T) {
+	t.Parallel()
+	quarter := float32(0.25)
+	settings := regexp.MustCompile(`^settings$`)
+	h := StartWith(t, func(cfg *compositor.Config) {
+		cfg.Rules = []wm.Rule{{Match: wm.Match{Tag: settings}, Mode: wm.RuleFloat, Size: wm.Px(40, 90)}, {Match: wm.Match{Tag: settings}, Opacity: &quarter}}
+	}, small)
+	c := testclient.Connect(t, h.Socket())
+	white := [3]byte{0xff, 0xff, 0xff}
+	at := func(want [3]byte) func(*headless.Backend, *compositor.Compositor) bool {
+		return func(b *headless.Backend, _ *compositor.Compositor) bool {
+			return near(pixel(snapshot(b.Outputs()[0]), 70, 20), want)
+		}
+	}
+	w := c.Window("app", testclient.Fill(0xff, 0xff, 0xff))
+	c.DispatchUntil("the window to map", w.Mapped)
+	if w.Logical != small.Size {
+		t.Fatalf("the untagged window is %v, want tiled over the output", w.Logical)
+	}
+	quiesce(t, h, c, w)
+	h.Eventually("the untagged window opaque", at(white))
+	tags, err := cxtt.NewXdgToplevelTagManagerV1(c.Display, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(tags)
+	if err := errors.Join(tags.SetToplevelTag(w.Toplevel, "settings"), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the tagged window floated at its rule's size", func() bool { return w.Logical == image.Pt(40, 90) })
+	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
+	h.Eventually("the tagged window at its rule's opacity", at(blend(white, bg, 0.25)))
+}

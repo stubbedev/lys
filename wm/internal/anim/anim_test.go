@@ -1,0 +1,443 @@
+package anim
+
+import (
+	"image"
+	"math"
+	"testing"
+	"time"
+)
+
+func TestBezierMatchesKnownValues(t *testing.T) {
+	cases := []struct {
+		b       Bezier
+		x, want float64
+	}{
+		{Linear, 0.3, 0.3},
+		{Ease, 0.5, 0.8024033876},
+		{EaseInOut, 0.5, 0.5},
+		{EaseIn, 0.25, 0.0934646507},
+		{EaseOut, 0.75, 0.9065353493},
+	}
+	for _, c := range cases {
+		if got := c.b.Ease(c.x); math.Abs(got-c.want) > 1e-6 {
+			t.Errorf("%+v at %v = %v, want %v", c.b, c.x, got, c.want)
+		}
+	}
+	for _, b := range []Bezier{Linear, Ease, EaseIn, EaseOut, EaseInOut} {
+		if b.Ease(0) != 0 || b.Ease(1) != 1 || b.Ease(-1) != 0 || b.Ease(2) != 1 {
+			t.Errorf("%+v does not run from 0 to 1", b)
+		}
+		prev := 0.0
+		for i := range 1001 {
+			v := b.Ease(float64(i) / 1000)
+			if v < prev-1e-12 {
+				t.Fatalf("%+v falls at %v", b, float64(i)/1000)
+			}
+			prev = v
+		}
+	}
+}
+
+func TestBezierOvershootsWhenItsControlPointsDo(t *testing.T) {
+	b, err := NewBezier(0.05, 0.9, 0.1, 1.1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peak := 0.0
+	for i := range 1001 {
+		peak = max(peak, b.Ease(float64(i)/1000))
+	}
+	if peak <= 1 {
+		t.Errorf("peak %v, want an overshoot above 1", peak)
+	}
+}
+
+func TestNewBezierRefusesBadControlPoints(t *testing.T) {
+	for _, p := range [][4]float64{{-0.1, 0, 1, 1}, {0, 0, 1.5, 1}, {math.NaN(), 0, 1, 1}, {0, math.Inf(1), 1, 1}} {
+		if _, err := NewBezier(p[0], p[1], p[2], p[3]); err == nil {
+			t.Errorf("%v accepted", p)
+		}
+	}
+}
+
+func TestSpringsSettleAtTheirTarget(t *testing.T) {
+	cases := []struct {
+		name                 string
+		stiffness, damping   float64
+		overshoots           bool
+		minSettle, maxSettle time.Duration
+	}{
+		{"underdamped", 200, 10, true, 500 * time.Millisecond, 3 * time.Second},
+		{"critical", 100, 20, false, 500 * time.Millisecond, 3 * time.Second},
+		{"overdamped", 100, 60, false, 500 * time.Millisecond, 8 * time.Second},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := NewSpring(c.stiffness, c.damping, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if d := s.Duration(); d < c.minSettle || d > c.maxSettle {
+				t.Fatalf("settles after %v", d)
+			}
+			if s.At(0) != 0 || s.At(s.Duration()) != 1 {
+				t.Fatalf("runs from %v to %v", s.At(0), s.At(s.Duration()))
+			}
+			peak := 0.0
+			for at := time.Duration(0); at < s.Duration(); at += time.Millisecond {
+				peak = max(peak, s.At(at))
+			}
+			if got := peak > 1+SettleTolerance; got != c.overshoots {
+				t.Errorf("peak %v, overshoot %v, want %v", peak, got, c.overshoots)
+			}
+			if gap := math.Abs(1 - s.At(s.Duration()-time.Millisecond)); gap > 2*SettleTolerance {
+				t.Errorf("jumps %v at the settle time", gap)
+			}
+		})
+	}
+}
+
+func TestNewSpringRefusesSpringsThatNeverSettle(t *testing.T) {
+	for _, p := range [][3]float64{{0, 1, 1}, {1, 0, 1}, {1, 1, -1}, {math.Inf(1), 1, 1}, {1, 1e-6, 1}} {
+		if _, err := NewSpring(p[0], p[1], p[2]); err == nil {
+			t.Errorf("%v accepted", p)
+		}
+	}
+}
+
+func TestTweensRetargetFromWhatTheyShow(t *testing.T) {
+	c, err := Linear.Timed(100*time.Millisecond, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tw := NewTween(0.0, Lerp)
+	tw.Set(100, time.Second, c)
+	near := func(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
+	if got := tw.At(time.Second + 25*time.Millisecond); !near(got, 25) {
+		t.Fatalf("a quarter in shows %v", got)
+	}
+	tw.Set(0, time.Second+50*time.Millisecond, c)
+	if got := tw.At(time.Second + 50*time.Millisecond); !near(got, 50) {
+		t.Fatalf("the retarget starts at %v, want the 50 it showed", got)
+	}
+	if got := tw.At(time.Second + 100*time.Millisecond); !near(got, 25) {
+		t.Fatalf("halfway back shows %v", got)
+	}
+	if tw.Done(time.Second+149*time.Millisecond) || !tw.Done(time.Second+150*time.Millisecond) || tw.At(time.Hour) != 0 {
+		t.Fatal("the retargeted tween does not end at its target on time")
+	}
+	tw.Jump(7)
+	if !tw.Done(0) || tw.At(0) != 7 {
+		t.Fatal("a jump is not immediate")
+	}
+	var zero Tween[float64]
+	if !zero.Done(0) || zero.At(0) != 0 {
+		t.Fatal("the zero tween is not at rest")
+	}
+}
+
+func TestStylesParseAndDefaultPerEvent(t *testing.T) {
+	for text, want := range map[string]Style{"popin": {Popin, 80}, "popin 60%": {Popin, 60}, "slide": {Slide, 0}} {
+		if got, err := ParseStyle(text); err != nil || got != want {
+			t.Errorf("%q parsed to %+v, %v", text, got, err)
+		}
+	}
+	for _, text := range []string{"", "popin 60", "popin -1%", "slide left", "spin"} {
+		if _, err := ParseStyle(text); err == nil {
+			t.Errorf("%q accepted", text)
+		}
+	}
+	if s := (Table{}).Style(WindowsIn); s != (Style{Popin, 80}) {
+		t.Errorf("windows_in defaults to %+v", s)
+	}
+	slide := Style{Kind: Slide}
+	table, errs := Resolve(true, map[Event]Setting{WindowsOut: {Style: &slide}, FadeIn: {Style: &slide}})
+	if table.Style(WindowsOut) != slide || errs[FadeIn] == nil || errs[WindowsOut] != nil {
+		t.Errorf("windows_out %+v, errors %v", table.Style(WindowsOut), errs)
+	}
+}
+
+func TestLerpRectRoundsAndNeverInverts(t *testing.T) {
+	from, to := image.Rect(0, 0, 100, 100), image.Rect(50, 10, 60, 30)
+	if got := LerpRect(from, to, 0.5); got != image.Rect(25, 5, 80, 65) {
+		t.Errorf("halfway %v", got)
+	}
+	if got := LerpRect(from, to, 2); got.Dx() < 0 || got.Dy() < 0 {
+		t.Errorf("an overshoot inverted the rectangle: %v", got)
+	}
+}
+
+func TestEventsInheritFromTheirParents(t *testing.T) {
+	ms := func(n int) *time.Duration { d := time.Duration(n) * time.Millisecond; return &d }
+	off := false
+	table, errs := Resolve(true, map[Event]Setting{
+		Global:  {Shape: Linear, Duration: ms(400)},
+		Windows: {Duration: ms(100)},
+	})
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	if d := table.Curve(WindowsMove).Duration(); d != 100*time.Millisecond {
+		t.Errorf("windows_move takes %v, want the 100ms windows set", d)
+	}
+	if got := table.Curve(WindowsMove).At(50 * time.Millisecond); got != 0.5 {
+		t.Errorf("windows_move inherits a curve at %v halfway, want global's linear", got)
+	}
+	table, errs = Resolve(true, map[Event]Setting{Windows: {Enabled: &off}})
+	if len(errs) != 0 || table.Curve(WindowsMove) != Instant || table.Curve(Global) == Instant {
+		t.Errorf("disabling windows: global %v, windows_move %v, errors %v", table.Curve(Global), table.Curve(WindowsMove), errs)
+	}
+	table, _ = Resolve(false, nil)
+	if table.Curve(Global) != Instant {
+		t.Error("the master switch off still animates")
+	}
+	if (Table{}).Curve(WindowsMove) != Instant {
+		t.Error("the zero table animates")
+	}
+	table, errs = Resolve(true, map[Event]Setting{Global: {Duration: ms(300)}, WindowsMove: {Shape: Smooth}})
+	if len(errs) != 0 || table.Curve(WindowsMove) != Curve(Smooth) {
+		t.Errorf("a spring under an inherited duration: %v, %v", table.Curve(WindowsMove), errs)
+	}
+	_, errs = Resolve(true, map[Event]Setting{WindowsMove: {Shape: Smooth, Duration: ms(300)}})
+	if errs[WindowsMove] == nil {
+		t.Error("a spring with its own duration was accepted")
+	}
+	_, errs = Resolve(true, map[Event]Setting{Windows: {Duration: ms(0)}})
+	if errs[Windows] == nil {
+		t.Error("a bézier with no duration was accepted")
+	}
+	for _, e := range Events() {
+		if got, ok := EventNamed(e.String()); !ok || got != e {
+			t.Errorf("%v does not round-trip its name", e)
+		}
+	}
+}
+
+func TestSpringMotionKeepsItsVelocityAcrossARetarget(t *testing.T) {
+	for _, damping := range []float64{12, 2 * math.Sqrt(200), 60} {
+		s, err := NewSpring(200, damping, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := NewRectMotion(image.Rect(0, 0, 100, 100))
+		m.Set(image.Rect(500, 0, 600, 100), 0, s)
+		at := 80 * time.Millisecond
+		before := m.Velocity(at)
+		if before[0] <= 0 {
+			t.Fatalf("damping %v: the spring is not moving right after 80ms: %v", damping, before)
+		}
+		m.Set(image.Rect(500, 300, 600, 400), at, s)
+		after := m.Velocity(at)
+		if math.Abs(after[0]-before[0]) > 1e-6 || after[1] != before[1] {
+			t.Fatalf("damping %v: the retarget changed the velocity from %v to %v", damping, before, after)
+		}
+		if got := m.At(at + time.Millisecond); got.Min.X <= m.At(at).Min.X {
+			t.Fatalf("damping %v: the window stopped moving right on retarget: %v then %v", damping, m.At(at), got)
+		}
+		end := at
+		for !m.Done(end) {
+			end += time.Millisecond
+			if end > 30*time.Second {
+				t.Fatalf("damping %v: never settles", damping)
+			}
+		}
+		if got := m.At(end); got != image.Rect(500, 300, 600, 400) {
+			t.Fatalf("damping %v: settled at %v", damping, got)
+		}
+		p, _ := m.state(end - time.Millisecond)
+		if d := math.Abs(p[1] - 300); d > 2*FollowTolerance {
+			t.Fatalf("damping %v: jumped %v px at the settle time", damping, d)
+		}
+	}
+}
+
+func TestBezierMotionRetargetsFromWhereItIs(t *testing.T) {
+	c, err := Linear.Timed(time.Second, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRectMotion(image.Rect(0, 0, 10, 10))
+	m.Set(image.Rect(100, 0, 110, 10), 0, c)
+	m.Set(image.Rect(0, 0, 10, 10), 500*time.Millisecond, c)
+	if got := m.At(500 * time.Millisecond); got != image.Rect(50, 0, 60, 10) {
+		t.Fatalf("the retarget starts at %v", got)
+	}
+	if !m.Done(1500*time.Millisecond) || m.At(time.Hour) != image.Rect(0, 0, 10, 10) {
+		t.Fatal("the retargeted motion does not end at its target")
+	}
+}
+
+func TestAWobbleLagsAwayFromTheGrabAndSettles(t *testing.T) {
+	s, err := NewSpring(200, 14, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := NewWobble(s, 8, 8, 0)
+	w.Shift(100, 0, 0, 0)
+	if dx, _ := w.Offset(0, 0); math.Abs(dx) > 1e-9 {
+		t.Fatalf("the grabbed corner lags by %v", dx)
+	}
+	far, _ := w.Offset(8, 8)
+	mid, _ := w.Offset(4, 4)
+	if !(far < mid && mid < 0) {
+		t.Fatalf("lag at the middle %v and the far corner %v, want both behind, the far one more", mid, far)
+	}
+	if w.Resting() {
+		t.Fatal("a shifted wobble claims to rest")
+	}
+	w.Advance(50 * time.Millisecond)
+	moved, _ := w.Offset(8, 8)
+	if !(moved > far) {
+		t.Fatalf("the far corner did not spring back: %v then %v", far, moved)
+	}
+	end := 50 * time.Millisecond
+	for !w.Resting() {
+		end += 10 * time.Millisecond
+		w.Advance(end)
+		if end > 10*time.Second {
+			t.Fatal("the wobble never settles")
+		}
+	}
+	w.Shift(0, 40, 1, 1)
+	w.Advance(time.Hour)
+	if !w.Resting() {
+		t.Fatal("a wobble an hour on has not settled, or ran unbounded")
+	}
+}
+
+func TestReducedMotionReachesEveryEvent(t *testing.T) {
+	overshoot, err := NewBezier(0.3, 1.8, 0.6, 1.8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bouncy := mustSpring(300, 6)
+	d := 200 * time.Millisecond
+	for _, shape := range []Shape{overshoot, bouncy} {
+		settings := map[Event]Setting{}
+		for _, e := range Events() {
+			s := Setting{Shape: shape}
+			if shape == Shape(overshoot) {
+				s.Duration = &d
+			}
+			if styles := events[e].styles; len(styles) > 0 {
+				s.Style = &Style{Kind: styles[0], Percent: 50}
+			}
+			settings[e] = s
+		}
+		table, errs := ResolveReduced(settings)
+		if len(errs) != 0 {
+			t.Fatal(errs)
+		}
+		if !table.Reduced() {
+			t.Error("the table does not say it is reduced")
+		}
+		for _, e := range Events() {
+			c, st := table.Curve(e), table.Style(e)
+			switch st.Kind {
+			case NoStyle, FadeStyle:
+			default:
+				t.Errorf("%s keeps the spatial style %s", e, st)
+			}
+			if c == Instant {
+				continue
+			}
+			if _, spring := c.(Spring); spring {
+				t.Errorf("%s still runs on a spring", e)
+			}
+			last := 0.0
+			for at := time.Duration(0); at <= c.Duration(); at += c.Duration() / 64 {
+				v := c.At(at)
+				if v < last || v > 1 {
+					t.Errorf("%s at %v gives %v after %v: it overshoots or turns back", e, at, v, last)
+				}
+				last = v
+			}
+		}
+	}
+}
+
+func TestAnEventNamingNoReductionStaysStill(t *testing.T) {
+	var unnamed reduction
+	if unnamed != still {
+		t.Fatal("the zero reduction must be still, or a new event would keep its motion under reduced motion")
+	}
+	table, errs := ResolveReduced(nil)
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	for _, e := range Events() {
+		if events[e].reduced == still && table.Curve(e) != Instant {
+			t.Errorf("%s moves under reduced motion", e)
+		}
+	}
+}
+
+func TestReducedMotionKeepsFadesAndDropsMotion(t *testing.T) {
+	d := 120 * time.Millisecond
+	table, errs := ResolveReduced(map[Event]Setting{Global: {Duration: &d}})
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	for _, e := range []Event{WindowsMove, WindowsIn, WindowsOut, BorderAngle} {
+		if table.Curve(e) != Instant {
+			t.Errorf("%s still animates", e)
+		}
+	}
+	for _, e := range []Event{FadeIn, FadeOut, FadeSwitch, FadeDim, FadeShadow, Workspaces, LayersIn, LayersOut, WindowsMinimize} {
+		if table.Curve(e).Duration() != d {
+			t.Errorf("%s lasts %v, want the configured %v", e, table.Curve(e).Duration(), d)
+		}
+	}
+	for _, e := range []Event{Workspaces, LayersIn, LayersOut, WindowsMinimize} {
+		if table.Style(e).Kind != FadeStyle {
+			t.Errorf("%s has style %s, want fade", e, table.Style(e))
+		}
+	}
+}
+
+func TestReducedMotionHonoursAnEventTurnedOff(t *testing.T) {
+	off := false
+	table, errs := ResolveReduced(map[Event]Setting{FadeIn: {Enabled: &off}})
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	if table.Curve(FadeIn) != Instant || table.Curve(FadeOut) == Instant {
+		t.Errorf("fade_in %v, fade_out %v", table.Curve(FadeIn), table.Curve(FadeOut))
+	}
+}
+
+func TestTheOverviewKeepsItsSpringWhenAConfigSetsTheGlobalCurve(t *testing.T) {
+	d := 250 * time.Millisecond
+	defaults := MustResolve(Over(nil, DefaultMotion()))
+	set := MustResolve(Over(map[Event]Setting{Global: {Shape: EaseOut, Duration: &d}}, DefaultMotion()))
+	if got, want := set.Curve(Overview).Duration(), defaults.Curve(Overview).Duration(); got != want {
+		t.Errorf("the overview lasts %v under a global curve, %v without one", got, want)
+	}
+	if got := defaults.Curve(Overview); got == Smooth {
+		t.Errorf("the default overview spring is the slow one: %v", got)
+	}
+}
+
+func TestTheOverviewIsOnASpringUnlessToldOtherwise(t *testing.T) {
+	d := 300 * time.Millisecond
+	table, errs := Resolve(true, map[Event]Setting{Global: {Shape: Linear, Duration: &d}})
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	if _, ok := table.Curve(Overview).(Spring); !ok {
+		t.Errorf("the overview's curve is %T", table.Curve(Overview))
+	}
+	table, errs = Resolve(true, map[Event]Setting{Overview: {Shape: Linear, Duration: &d}})
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	if _, ok := table.Curve(Overview).(Spring); ok {
+		t.Error("the overview ignored the curve given to it")
+	}
+	if table, _ = Resolve(false, nil); table.Curve(Overview) != Instant {
+		t.Errorf("animations off leave the overview %T", table.Curve(Overview))
+	}
+	if table, _ = ResolveReduced(nil); table.Curve(Overview) != Instant {
+		t.Errorf("reduced motion leaves the overview %T", table.Curve(Overview))
+	}
+}

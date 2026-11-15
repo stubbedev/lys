@@ -1,0 +1,603 @@
+package nested
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"image"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/fourcc"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys-wm/internal/loop"
+	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/render/gles"
+	"github.com/stubbedev/lys-wm/internal/render/vulkan"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys-wm/internal/wire"
+	"github.com/stubbedev/lys-wm/internal/wlclient/feedback"
+)
+
+var _ backend.Backend = (*Backend)(nil)
+
+type sway struct {
+	dir    string
+	socket string
+	env    []string
+}
+
+func startSway(t *testing.T) *sway {
+	t.Helper()
+	bin := testenv.Require(t, "sway")
+	testenv.Require(t, "swaymsg")
+	testenv.Require(t, "grim")
+	dir := testenv.SocketDir(t)
+	cfg := filepath.Join(dir, "config")
+	if err := os.WriteFile(cfg, []byte("output * mode 640x480\ndefault_border none\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := &sway{dir: dir, env: append(os.Environ(),
+		"XDG_RUNTIME_DIR="+dir,
+		"WLR_BACKENDS=headless",
+		"WLR_LIBINPUT_NO_DEVICES=1",
+		"WLR_RENDERER=pixman",
+		"DBUS_SESSION_BUS_ADDRESS=disabled:",
+	)}
+	var log bytes.Buffer
+	cmd := exec.CommandContext(context.Background(), bin, "-c", cfg)
+	cmd.Env, cmd.Stdout, cmd.Stderr = s.env, &log, &log
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		if t.Failed() {
+			t.Logf("sway log:\n%s", log.String())
+		}
+	})
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		sockets, _ := filepath.Glob(filepath.Join(dir, "wayland-[0-9]*"))
+		ipc, _ := filepath.Glob(filepath.Join(dir, "sway-ipc.*.sock"))
+		for _, p := range sockets {
+			if !strings.HasSuffix(p, ".lock") && len(ipc) > 0 {
+				s.socket = p
+				s.env = append(s.env, "WAYLAND_DISPLAY="+p, "SWAYSOCK="+ipc[0])
+				return s
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("sway did not start:\n%s", log.String())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func (s *sway) run(t *testing.T, name string, args ...string) []byte {
+	t.Helper()
+	cmd := exec.CommandContext(context.Background(), name, args...)
+	cmd.Env = s.env
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("%s %v: %v", name, args, err)
+	}
+	return out
+}
+
+func (s *sway) pixel(t *testing.T, x, y int) [3]byte {
+	t.Helper()
+	ppm := s.run(t, "grim", "-t", "ppm", "-")
+	var w, h, maxval int
+	var header int
+	if _, err := fmt.Sscanf(string(ppm), "P6\n%d %d\n%d\n", &w, &h, &maxval); err != nil {
+		t.Fatalf("grim output is not a PPM: %v", err)
+	}
+	for lines := 0; lines < 3; header++ {
+		if ppm[header] == '\n' {
+			lines++
+		}
+	}
+	i := header + (y*w+x)*3
+	return [3]byte(ppm[i : i+3])
+}
+
+func (s *sway) eventuallyShows(t *testing.T, x, y int) {
+	t.Helper()
+	want := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
+	deadline := time.Now().Add(10 * time.Second)
+	for got := s.pixel(t, x, y); got != want; got = s.pixel(t, x, y) {
+		if time.Now().After(deadline) {
+			t.Fatalf("host pixel (%d, %d) is %v, want lys-wm's background %v", x, y, got, want)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func TestNestedInSway(t *testing.T) {
+	host := startSway(t)
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	b, err := New(l, host.socket, Options{Renderer: Soft})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	runtime := testenv.SocketDir(t)
+	display, err := server.New(l, server.Options{RuntimeDir: runtime, Report: func(err error) { t.Error(err) }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer display.Close()
+	comp, err := compositor.New(l, display, b, compositor.PlainConfig(testenv.Keymap(t), testenv.Font(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := comp.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	done := make(chan error, 1)
+	go func() { done <- l.Run() }()
+	on := func(f func()) {
+		ran := make(chan struct{})
+		if err := l.Post(func() error {
+			f()
+			close(ran)
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-ran:
+		case err := <-done:
+			t.Fatalf("loop ended: %v", err)
+		}
+	}
+
+	host.eventuallyShows(t, 320, 240)
+
+	host.run(t, "swaymsg", "output", "HEADLESS-1", "mode", "800x600")
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		var size image.Point
+		on(func() { size = b.Outputs()[0].State().Mode.Size })
+		if size == image.Pt(800, 600) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("nested output is %v after the host output grew to 800x600", size)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	host.eventuallyShows(t, 790, 590)
+
+	host.run(t, "swaymsg", `[app_id="lys-wm"]`, "kill")
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("Run = %v, want ErrClosed after the host closed the window", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("lys-wm kept running after its last host window closed")
+	}
+}
+
+type recorder struct {
+	events []backend.Event
+}
+
+func (r *recorder) OutputAdded(backend.Output) error                     { return nil }
+func (r *recorder) OutputRemoved(backend.Output) error                   { return nil }
+func (r *recorder) OutputChanged(backend.Output) error                   { return nil }
+func (r *recorder) OutputDamaged(backend.Output) error                   { return nil }
+func (r *recorder) Frame(backend.Output) error                           { return nil }
+func (r *recorder) Presented(backend.Output, backend.Presentation) error { return nil }
+func (r *recorder) DeviceAdded(backend.Device) error                     { return nil }
+func (r *recorder) DeviceRemoved(backend.Device) error                   { return nil }
+func (r *recorder) Input(_ backend.Device, e backend.Event) error {
+	r.events = append(r.events, e)
+	return nil
+}
+
+func inputRig() (*Backend, *Output, *recorder) {
+	r := &recorder{}
+	b := &Backend{handler: r}
+	o := &Output{backend: b, surface: &cw.WlSurface{}, size: image.Pt(200, 100)}
+	b.outputs = []*Output{o}
+	return b, o, r
+}
+
+func fixed(v float64) wire.Fixed { return wire.FixedFromFloat(v) }
+
+func TestPointerEventsAreNormalisedToTheOutput(t *testing.T) {
+	b, o, r := inputRig()
+	p := pointerEvents{&Pointer{backend: b, value120: map[cw.WlPointerAxis]int32{}}}
+	for _, err := range []error{
+		p.Motion(nil, 0, fixed(10), fixed(10)),
+		func() error { p.output = o; return nil }(),
+		p.Motion(nil, 0, fixed(50), fixed(25)),
+		p.Button(nil, 0, 0, 272, cw.WlPointerButtonStatePressed),
+		p.AxisSource(nil, cw.WlPointerAxisSourceFinger),
+		p.AxisValue120(nil, cw.WlPointerAxisVerticalScroll, 120),
+		p.Axis(nil, 0, cw.WlPointerAxisVerticalScroll, fixed(15)),
+		p.Frame(nil),
+		p.Axis(nil, 0, cw.WlPointerAxisHorizontalScroll, fixed(-3)),
+		p.Leave(nil, 0, o.surface),
+		p.Motion(nil, 0, fixed(10), fixed(10)),
+	} {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(r.events) != 5 {
+		t.Fatalf("events = %#v, want motion, button, axis, frame, axis", r.events)
+	}
+	if m := r.events[0].(backend.PointerMotionAbsolute); m.Output != o || m.X != 0.25 || m.Y != 0.25 {
+		t.Errorf("motion = %+v, want (0.25, 0.25) on the output", m)
+	}
+	if bt := r.events[1].(backend.PointerButton); bt.Button != 272 || !bt.Pressed {
+		t.Errorf("button = %+v", bt)
+	}
+	if a := r.events[2].(backend.PointerAxis); a.Source != backend.Finger || a.Value120 != 120 || a.Value != 15 || a.Orientation != backend.Vertical {
+		t.Errorf("axis = %+v", a)
+	}
+	if a := r.events[4].(backend.PointerAxis); a.Source != backend.Wheel || a.Value120 != 0 || a.Orientation != backend.Horizontal {
+		t.Errorf("axis after the frame = %+v, want the source and value120 reset", a)
+	}
+}
+
+func TestKeyboardReleasesHeldKeysOnLeave(t *testing.T) {
+	b, _, r := inputRig()
+	k := keyboardEvents{&Keyboard{backend: b, pressed: map[uint32]bool{}}}
+	for _, err := range []error{
+		k.Key(nil, 0, 0, 30, cw.WlKeyboardKeyStatePressed),
+		k.Key(nil, 0, 0, 31, cw.WlKeyboardKeyStatePressed),
+		k.Key(nil, 0, 0, 31, cw.WlKeyboardKeyStateRepeated),
+		k.Key(nil, 0, 0, 31, cw.WlKeyboardKeyStateReleased),
+		k.Leave(nil, 0, nil),
+	} {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	var got []string
+	for _, e := range r.events {
+		key := e.(backend.Key)
+		got = append(got, fmt.Sprintf("%d:%t", key.Code, key.Pressed))
+	}
+	if want := []string{"30:true", "31:true", "31:false", "30:false"}; !slices.Equal(got, want) {
+		t.Fatalf("keys = %v, want %v: repeats dropped and held keys released on leave", got, want)
+	}
+}
+
+func TestKeymapIsReadFromTheHost(t *testing.T) {
+	b, _, _ := inputRig()
+	k := keyboardEvents{&Keyboard{backend: b, pressed: map[uint32]bool{}}}
+	fd, err := unix.MemfdCreate("keymap", unix.MFD_CLOEXEC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := "xkb_keymap { };\x00"
+	if _, err := unix.Write(fd, []byte(text)); err != nil {
+		t.Fatal(err)
+	}
+	if err := k.Keymap(nil, cw.WlKeyboardKeymapFormatXkbV1, fd, uint32(len(text))); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(k.Keyboard.Keymap()); got != "xkb_keymap { };" {
+		t.Fatalf("keymap = %q", got)
+	}
+	if _, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0); err == nil {
+		t.Fatal("the keymap fd was left open")
+	}
+}
+
+func TestTouchTracksPointsPerOutput(t *testing.T) {
+	b, o, r := inputRig()
+	tc := touchEvents{&Touch{backend: b, outputs: map[int32]*Output{}}}
+	for _, err := range []error{
+		tc.Down(nil, 0, 0, o.surface, 1, fixed(100), fixed(50)),
+		tc.Down(nil, 0, 0, o.surface, 2, fixed(20), fixed(10)),
+		tc.Motion(nil, 0, 1, fixed(150), fixed(50)),
+		tc.Up(nil, 0, 0, 1),
+		tc.Frame(nil),
+		tc.Cancel(nil),
+		tc.Motion(nil, 0, 2, fixed(1), fixed(1)),
+	} {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(r.events) != 6 {
+		t.Fatalf("events = %#v", r.events)
+	}
+	if d := r.events[0].(backend.TouchDown); d.Output != o || d.X != 0.5 || d.Y != 0.5 {
+		t.Errorf("down = %+v", d)
+	}
+	if m := r.events[2].(backend.TouchMotion); m.X != 0.75 {
+		t.Errorf("motion = %+v", m)
+	}
+	if c := r.events[5].(backend.TouchCancel); c.ID != 2 {
+		t.Errorf("cancel = %+v, want the remaining point 2", c)
+	}
+}
+
+type idleFrames struct {
+	recorder
+	limit  int
+	frames int
+}
+
+func (h *idleFrames) OutputAdded(o backend.Output) error { return o.ScheduleFrame() }
+
+func (h *idleFrames) Frame(o backend.Output) error {
+	if h.frames++; h.frames > h.limit {
+		return nil
+	}
+	return o.ScheduleFrame()
+}
+
+func TestFramesThatPresentNothingWaitForTheHost(t *testing.T) {
+	host := startSway(t)
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	b, err := New(l, host.socket, Options{Renderer: Soft})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	const span = 200 * time.Millisecond
+	h := &idleFrames{limit: int(span/(16*time.Millisecond)) + 3}
+	if err := b.Start(h); err != nil {
+		t.Fatal(err)
+	}
+	stop, err := l.AddTimer(func() error {
+		l.Stop()
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop.Remove()
+	if err := stop.Arm(span); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if h.frames == 0 || h.frames > h.limit {
+		t.Fatalf("%d frames that presented nothing in %v, want between 1 and %d", h.frames, span, h.limit)
+	}
+}
+
+func hostTaking(modifiers ...fourcc.Modifier) feedback.Feedback {
+	var fb feedback.Feedback
+	formats := make([]gpu.FormatModifier, len(modifiers))
+	for i, m := range modifiers {
+		formats[i] = gpu.FormatModifier{Format: dmabufFormat, Modifier: m}
+	}
+	fb.Tranches = []feedback.Tranche{{Formats: formats}}
+	return fb
+}
+
+func TestAHostLayoutIsChosenFromWhatBothSidesTake(t *testing.T) {
+	const tiled = fourcc.Modifier(1)
+	for _, tc := range []struct {
+		name     string
+		host     []fourcc.Modifier
+		rendered []fourcc.Modifier
+		want     hostLayout
+		ok       bool
+	}{
+		{"a shared modifier", []fourcc.Modifier{tiled}, []fourcc.Modifier{tiled}, hostLayout{direct: true}, true},
+		{"implicit only, the device renders linear", []fourcc.Modifier{fourcc.Invalid}, []fourcc.Modifier{tiled, fourcc.Linear}, hostLayout{modifier: fourcc.Invalid}, true},
+		{"implicit only, the device renders no linear", []fourcc.Modifier{fourcc.Invalid}, []fourcc.Modifier{tiled}, hostLayout{modifier: fourcc.Invalid, copied: true}, true},
+		{"linear only, the device renders no linear", []fourcc.Modifier{fourcc.Linear}, []fourcc.Modifier{tiled}, hostLayout{modifier: fourcc.Linear, copied: true}, true},
+		{"nothing in common", []fourcc.Modifier{tiled + 1}, []fourcc.Modifier{tiled}, hostLayout{}, false},
+	} {
+		host := hostTaking(tc.host...)
+		got, ok := chooseHostLayout(host, tc.rendered, hostImports(host, tc.rendered))
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("%s: %+v, %v, want %+v, %v", tc.name, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+func TestVulkanSharesLinearBytesWithAHostOfImplicitModifiers(t *testing.T) {
+	r := testenv.Vulkan(t)
+	if !r.Device().Exports() {
+		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
+	}
+	rendered, err := r.ExportModifiers(dmabufFormat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(rendered, fourcc.Linear) {
+		t.Skipf("%s renders no linear; TestVulkanCopiesLinearBytes covers it", r.Device().Name())
+	}
+	s := &vulkanStack{r: r}
+	modifiers, err := s.modifiers(hostTaking(fourcc.Invalid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkLinearBytes(t, r, s, modifiers, r, fourcc.Linear)
+}
+
+func TestAnEGLHostImportsThoseBytesWithNoModifier(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	display, err := testenv.GPU(t).Surfaceless()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := display.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	host, err := gles.New(display)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := host.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	r := testenv.Vulkan(t)
+	if !r.Device().Exports() {
+		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
+	}
+	s := &vulkanStack{r: r}
+	modifiers, err := s.modifiers(hostTaking(fourcc.Invalid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkLinearBytes(t, r, s, modifiers, host, fourcc.Invalid)
+}
+
+func TestVulkanCopiesLinearBytesForADeviceThatRendersNoLinear(t *testing.T) {
+	r := testenv.Vulkan(t)
+	if !r.Device().Exports() {
+		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
+	}
+	checkLinearBytes(t, r, &vulkanStack{r: r, layout: hostLayout{modifier: fourcc.Invalid, copied: true}}, nil, r, fourcc.Linear)
+}
+
+func TestAVulkanStackLeavesNoDescriptorOfABufferItFreed(t *testing.T) {
+	r := testenv.Vulkan(t)
+	if !r.Device().Exports() {
+		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
+	}
+	rendered, err := r.ExportModifiers(dmabufFormat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name      string
+		layout    hostLayout
+		modifiers []fourcc.Modifier
+	}{
+		{"rendered in place", hostLayout{direct: true}, rendered},
+		{"copied into", hostLayout{modifier: fourcc.Linear, copied: true}, nil},
+	} {
+		s := &vulkanStack{r: r, layout: tc.layout}
+		before := testenv.OpenDMABUFs(t)
+		b, err := s.allocate(image.Pt(16, 8), tc.modifiers)
+		if err != nil {
+			t.Fatalf("a buffer %s: %v", tc.name, err)
+		}
+		if held := testenv.OpenDMABUFs(t); held < before+len(b.dmabuf.Planes) {
+			t.Errorf("a buffer %s: %d dma-buf descriptors are open while it is shared, %d before: its %d planes are not among them", tc.name, held, before, len(b.dmabuf.Planes))
+		}
+		if err := b.free(); err != nil {
+			t.Fatalf("a buffer %s: %v", tc.name, err)
+		}
+		if open := testenv.OpenDMABUFs(t); open != before {
+			t.Errorf("a buffer %s: %d dma-buf descriptors are open after it was freed, %d before it was allocated", tc.name, open, before)
+		}
+	}
+}
+
+type dmabufHost interface {
+	render.Renderer
+	ImportTexture(b gpu.DMABUF) (render.Texture, error)
+}
+
+func checkLinearBytes(t *testing.T, r *vulkan.Renderer, s *vulkanStack, modifiers []fourcc.Modifier, host dmabufHost, as fourcc.Modifier) {
+	t.Helper()
+	size := image.Pt(16, 8)
+	b, err := s.allocate(size, modifiers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := b.free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if b.dmabuf.Modifier != fourcc.Invalid {
+		t.Errorf("the host is told about modifier %v, want the implicit one", b.dmabuf.Modifier)
+	}
+	p, err := r.Begin(b.target, render.Region{image.Rectangle{Max: size}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Clear(render.Color{R: 0xff, A: 0xff})
+	p.FillRect(image.Rect(0, 4, 16, 8), render.Color{B: 0xff, A: 0xff}, render.Mask{})
+	if err := p.End(); err != nil {
+		t.Fatal(err)
+	}
+	if b.prepare != nil {
+		if err := b.prepare(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := r.Finish(); err != nil {
+		t.Fatal(err)
+	}
+	imported := b.dmabuf
+	imported.Modifier = as
+	tex, err := host.ImportTexture(imported)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := tex.Destroy(); err != nil {
+			t.Error(err)
+		}
+	}()
+	out, err := host.NewTarget(size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Destroy(); err != nil {
+			t.Error(err)
+		}
+	}()
+	p, err = host.Begin(out, render.Region{image.Rectangle{Max: size}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Clear(render.Color{})
+	p.DrawTexture(tex, render.FRect{W: 16, H: 8}, image.Rectangle{Max: size}, render.Normal, 1, render.Mask{})
+	if err := p.End(); err != nil {
+		t.Fatal(err)
+	}
+	pix := make([]byte, size.X*4*size.Y)
+	if err := out.Read(pix, size.X*4); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		at   image.Point
+		want [3]byte
+	}{{image.Pt(8, 1), [3]byte{0, 0, 0xff}}, {image.Pt(8, 6), [3]byte{0xff, 0, 0}}} {
+		at := c.at.Y*size.X*4 + c.at.X*4
+		if got := [3]byte(pix[at : at+3]); got != c.want {
+			t.Errorf("%v reads BGR %v, want %v", c.at, got, c.want)
+		}
+	}
+}

@@ -1,0 +1,702 @@
+package compositor
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"maps"
+	"slices"
+	"strings"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/colorspace"
+	"github.com/stubbedev/lys-wm/internal/output"
+	"github.com/stubbedev/lys-wm/internal/outputmanagement"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+type OutputRule struct {
+	Match         wm.OutputMatch
+	Mode          ModePolicy
+	Position      *image.Point
+	Scale         output.Scale
+	Depth         backend.BitDepth
+	VRR           VRRPolicy
+	Disabled      bool
+	Shader        string
+	HDR           HDRPolicy
+	SDRBrightness float64
+	HDRPeak       float64
+	ICC           *colorspace.Description
+	ICCPath       string
+	HotCorners    *HotCornerSet
+	Transform     render.Transform
+	Mirror        *wm.OutputMatch
+	Reserved      Insets
+}
+
+type Insets struct {
+	Top, Right, Bottom, Left int
+}
+
+const refreshToleranceMHz = 1000
+
+type OutputRules struct {
+	Named    []OutputRule
+	Fallback OutputRule
+}
+
+func (rs OutputRules) For(b backend.Output) OutputRule {
+	if i := slices.IndexFunc(rs.Named, func(r OutputRule) bool { return r.matches(b) }); i >= 0 {
+		return rs.Named[i]
+	}
+	return rs.Fallback
+}
+
+func (r OutputRule) matches(b backend.Output) bool {
+	return r.Match.Matches(b.Name(), b.Description())
+}
+
+func (r OutputRule) scale() output.Scale {
+	if r.Scale == 0 {
+		return output.Unit
+	}
+	return r.Scale
+}
+
+func internalPanel(name string) bool {
+	return strings.HasPrefix(name, "eDP")
+}
+
+func (c *Compositor) configuredRule(b backend.Output) OutputRule {
+	if rule, ok := c.outputOverrides[b.Name()]; ok {
+		return rule
+	}
+	rule := c.outputRules.For(b)
+	if s := c.virtualScale(b); s != 0 {
+		rule.Scale = s
+	}
+	return rule
+}
+
+func (c *Compositor) outputRule(b backend.Output) OutputRule {
+	rule := c.configuredRule(b)
+	if internalPanel(b.Name()) && c.clamshell() {
+		rule.Disabled = true
+	}
+	return rule
+}
+
+type ModePolicy interface {
+	choose(modes []backend.Mode, current backend.Mode) (backend.Mode, error)
+}
+
+type (
+	PreferredMode struct{}
+	HighResMode   struct{}
+	ExactMode     struct {
+		Size       image.Point
+		RefreshMHz int32
+	}
+)
+
+func (PreferredMode) choose(modes []backend.Mode, current backend.Mode) (backend.Mode, error) {
+	if i := slices.IndexFunc(modes, func(m backend.Mode) bool { return m.Preferred }); i >= 0 {
+		return modes[i], nil
+	}
+	return current, nil
+}
+
+func (HighResMode) choose(modes []backend.Mode, current backend.Mode) (backend.Mode, error) {
+	best := current
+	for _, m := range modes {
+		area, bestArea := m.Size.X*m.Size.Y, best.Size.X*best.Size.Y
+		if area > bestArea || area == bestArea && m.RefreshMHz > best.RefreshMHz {
+			best = m
+		}
+	}
+	return best, nil
+}
+
+func (e ExactMode) choose(modes []backend.Mode, _ backend.Mode) (backend.Mode, error) {
+	var best backend.Mode
+	found := false
+	for _, m := range modes {
+		if m.Size != e.Size {
+			continue
+		}
+		if e.RefreshMHz == 0 {
+			if !found || m.RefreshMHz > best.RefreshMHz {
+				best, found = m, true
+			}
+			continue
+		}
+		off := abs(m.RefreshMHz - e.RefreshMHz)
+		if off <= refreshToleranceMHz && (!found || off < abs(best.RefreshMHz-e.RefreshMHz)) {
+			best, found = m, true
+		}
+	}
+	if !found {
+		return backend.Mode{}, fmt.Errorf("no mode %dx%d@%dmHz among %v", e.Size.X, e.Size.Y, e.RefreshMHz, modes)
+	}
+	return best, nil
+}
+
+func (r OutputRule) mode() ModePolicy {
+	if r.Mode == nil {
+		return PreferredMode{}
+	}
+	return r.Mode
+}
+
+func abs(v int32) int32 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+func (c *Compositor) commitOutput(b backend.Output, rule OutputRule) (changed, recolored bool, err error) {
+	current := b.State()
+	next := current
+	switch {
+	case rule.Disabled:
+		next.Power = backend.Disabled
+	case !current.Enabled():
+		next.Power = backend.PoweredOn
+	}
+	if next.Enabled() {
+		m, err := rule.mode().choose(b.Modes(), current.Mode)
+		if err != nil {
+			return false, false, fmt.Errorf("compositor: output %s: %w", b.Name(), err)
+		}
+		next.Mode, next.Depth, next.HDR = m, rule.Depth, backend.HDRMetadata{}
+	}
+	var color *colorspace.Output
+	if next.Enabled() && c.signalsHDR(b, rule) {
+		co, meta, err := c.hdrAsked(b, rule)
+		if err != nil {
+			c.report(fmt.Errorf("compositor: output %s stays SDR: %w", b.Name(), err))
+		} else {
+			color, next.Depth, next.HDR = &co, backend.Depth10, meta
+			if rule.Shader != "" {
+				c.report(fmt.Errorf("compositor: output %s: screen shader %s stays off while it is in HDR: shaders work on SDR code values", b.Name(), rule.Shader))
+			}
+		}
+	}
+	changed = next != current
+	if changed {
+		err = b.Commit(next)
+		if color != nil && (errors.Is(err, backend.ErrHDRUnsupported) || errors.Is(err, backend.ErrDepthUnsupported)) {
+			c.report(fmt.Errorf("compositor: output %s stays SDR: %w", b.Name(), err))
+			color, next.Depth, next.HDR = nil, rule.Depth, backend.HDRMetadata{}
+			changed = next != current
+			err = nil
+			if changed {
+				err = b.Commit(next)
+			}
+		}
+		if errors.Is(err, backend.ErrDepthUnsupported) {
+			c.report(fmt.Errorf("compositor: output %s shows 8-bit frames instead: %w", b.Name(), err))
+			next.Depth = backend.Depth8
+			changed = next != current
+			err = nil
+			if changed {
+				err = b.Commit(next)
+			}
+		}
+		if err != nil {
+			return false, false, fmt.Errorf("compositor: output %s: %w", b.Name(), err)
+		}
+	}
+	if !next.Enabled() {
+		delete(c.hdr, b)
+		delete(c.profiles, b)
+		return changed, false, nil
+	}
+	recolored, err = c.setOutputColor(b, color)
+	if color != nil {
+		delete(c.profiles, b)
+	} else {
+		err = errors.Join(err, c.applyProfile(b, rule))
+	}
+	return changed, recolored, errors.Join(c.commitAdaptiveSync(b, rule.VRR), err)
+}
+
+func (c *Compositor) relayout() error {
+	c.hot.forget()
+	right := 0
+	for _, o := range c.outputs {
+		if at := c.outputRule(o.Backend()).Position; at != nil {
+			right = max(right, at.X+o.LogicalSize().X)
+		}
+	}
+	var errs []error
+	for _, o := range c.outputs {
+		at := image.Pt(right, 0)
+		if fixed := c.outputRule(o.Backend()).Position; fixed != nil {
+			at = *fixed
+		} else {
+			right += o.LogicalSize().X
+		}
+		if o.Position() != at {
+			errs = append(errs, o.Update(at, o.Scale(), o.Transform()))
+		}
+	}
+	return errors.Join(append(errs, c.shell.ReconfigureLock(), c.confirmLock(), c.outputConfig.Changed())...)
+}
+
+func (c *Compositor) output(b backend.Output) *output.Output {
+	for _, o := range c.outputs {
+		if o.Backend() == b {
+			return o
+		}
+	}
+	return nil
+}
+
+type placement interface {
+	frame(c *Compositor, b backend.Output) error
+	damaged(c *Compositor, b backend.Output) error
+	changed(c *Compositor, b backend.Output) error
+	removed(c *Compositor, b backend.Output) error
+}
+
+type liveOutput struct{ *output.Output }
+
+func (l liveOutput) frame(c *Compositor, _ backend.Output) error {
+	return c.liveFrame(l.Output)
+}
+
+func (l liveOutput) damaged(c *Compositor, _ backend.Output) error {
+	c.sceneOf(l.Output).invalidate()
+	return c.schedule(l.Output)
+}
+
+func (l liveOutput) changed(c *Compositor, b backend.Output) error {
+	if !backend.Displays(b) {
+		return c.reapplyOutputRules()
+	}
+	return errors.Join(c.outputResized(l.Output), c.dockChanged(b))
+}
+
+func (l liveOutput) removed(c *Compositor, _ backend.Output) error {
+	return c.disable(l.Output)
+}
+
+func (m *mirror) frame(c *Compositor, _ backend.Output) error {
+	return c.mirrorFrame(m)
+}
+
+func (*mirror) damaged(_ *Compositor, b backend.Output) error {
+	return b.ScheduleFrame()
+}
+
+func (*mirror) changed(c *Compositor, b backend.Output) error {
+	return c.dockChanged(b)
+}
+
+func (m *mirror) removed(c *Compositor, _ backend.Output) error {
+	return c.dropMirror(m)
+}
+
+type stalledOutput struct{}
+
+func (stalledOutput) frame(c *Compositor, b backend.Output) error {
+	return c.probeFrame(b)
+}
+
+func (stalledOutput) damaged(_ *Compositor, b backend.Output) error {
+	return b.ScheduleFrame()
+}
+
+func (stalledOutput) changed(c *Compositor, _ backend.Output) error {
+	return c.reapplyOutputRules()
+}
+
+func (stalledOutput) removed(c *Compositor, b backend.Output) error {
+	unhold(&c.stalled, b)
+	return c.outputConfig.Changed()
+}
+
+type disabledOutput struct{}
+
+func (disabledOutput) frame(*Compositor, backend.Output) error {
+	return nil
+}
+
+func (disabledOutput) damaged(*Compositor, backend.Output) error {
+	return nil
+}
+
+func (disabledOutput) changed(c *Compositor, b backend.Output) error {
+	return c.dockChanged(b)
+}
+
+func (disabledOutput) removed(c *Compositor, b backend.Output) error {
+	unhold(&c.disabled, b)
+	return c.outputConfig.Changed()
+}
+
+func unhold(from *[]backend.Output, b backend.Output) {
+	*from = slices.DeleteFunc(*from, func(x backend.Output) bool { return x == b })
+}
+
+func (c *Compositor) placed(b backend.Output, event string) (placement, error) {
+	if o := c.output(b); o != nil {
+		return liveOutput{o}, nil
+	}
+	if m := c.mirrorOf(b); m != nil {
+		return m, nil
+	}
+	switch {
+	case slices.Contains(c.stalled, b):
+		return stalledOutput{}, nil
+	case slices.Contains(c.disabled, b):
+		return disabledOutput{}, nil
+	}
+	return nil, backend.Broken("compositor: %s unknown output %s", event, b.Name())
+}
+
+func (c *Compositor) outputLive(o *output.Output) bool {
+	return o != nil && c.output(o.Backend()) == o
+}
+
+func (c *Compositor) OutputAdded(b backend.Output) error {
+	c.stateChanged()
+	return errors.Join(c.addOutput(b), c.dockChanged(b))
+}
+
+func (c *Compositor) addOutput(b backend.Output) error {
+	c.capFrameRate(b)
+	rule := c.outputRule(b)
+	if _, _, err := c.commitOutput(b, rule); err != nil {
+		c.report(err)
+	}
+	return c.place(b, rule)
+}
+
+func (c *Compositor) place(b backend.Output, rule OutputRule) error {
+	switch {
+	case !b.State().Enabled():
+		delete(c.dropped, b)
+		c.disabled = append(c.disabled, b)
+		return c.outputConfig.Changed()
+	case rule.Mirror != nil:
+		return c.addMirror(b, rule)
+	case !backend.Displays(b):
+		c.stalled = append(c.stalled, b)
+		return errors.Join(c.outputConfig.Changed(), b.ScheduleFrame())
+	}
+	return c.enable(b, rule)
+}
+
+func (c *Compositor) unplaced() []backend.Output {
+	return slices.Concat(c.disabled, c.stalled)
+}
+
+func (c *Compositor) probeFrame(b backend.Output) error {
+	if err := c.letterbox(b, func(render.Pass, image.Point) {}); err != nil {
+		return err
+	}
+	return b.ScheduleFrame()
+}
+
+func (c *Compositor) enable(b backend.Output, rule OutputRule) error {
+	o, err := c.layout.Add(b, image.Point{}, rule.scale(), rule.Transform)
+	if err != nil {
+		return err
+	}
+	c.outputs = append(c.outputs, o)
+	if err := c.keepInherited(o); err != nil {
+		return err
+	}
+	c.addCursorPlane(o)
+	c.preloadCursorsLater(c.themeCursorPx(o))
+	if err := c.relayout(); err != nil {
+		return err
+	}
+	if len(c.outputs) == 1 {
+		center := o.Logical().Min.Add(o.LogicalSize().Div(2))
+		c.cursor = point{float64(center.X), float64(center.Y)}
+	}
+	if _, err := c.arrange(o); err != nil {
+		return err
+	}
+	c.syncWorkspaceRules()
+	if err := c.update(c.wm.AddOutput(b.Name(), o.Logical(), c.usable[o].Add(o.Position()))); err != nil {
+		return err
+	}
+	return errors.Join(c.syncAreas(), c.scheduleAll())
+}
+
+func (c *Compositor) OutputRemoved(b backend.Output) error {
+	c.stateChanged()
+	p, err := c.placed(b, "removal of")
+	if err != nil {
+		return err
+	}
+	delete(c.dropped, b)
+	err = errors.Join(p.removed(c, b), c.dockChanged(b))
+	c.applyLidPolicy()
+	return err
+}
+
+func (c *Compositor) disable(o *output.Output) error {
+	if c.hold.target.o == o {
+		c.dropDragHold()
+	}
+	b := o.Backend()
+	c.outputs = slices.DeleteFunc(c.outputs, func(x *output.Output) bool { return x == o })
+	delete(c.shown, o)
+	errs := []error{c.castGone(nil, o)}
+	if hw, ok := c.hwCursors[o]; ok {
+		errs = append(errs, hw.release())
+		delete(c.hwCursors, o)
+	}
+	delete(c.overlays, o)
+	c.dropCandidates(o)
+	errs = append(errs, c.dropHDRSwitch(o.Backend()))
+	delete(c.profiles, o.Backend())
+	delete(c.blanked, o)
+	errs = append(errs, c.fill(o, nil, nil), c.dropCaptures(o), c.closeLayers(o), o.Remove())
+	delete(c.usable, o)
+	if sc, ok := c.scenes[o]; ok {
+		errs = append(errs, sc.blurs.drop(), sc.dropImage(), sc.dropWorking())
+	}
+	delete(c.scenes, o)
+	delete(c.hdr, b)
+	if c.colorManager != nil {
+		c.colorManager.OutputRemoved(o)
+	}
+	delete(c.switches, o)
+	delete(c.scratchSlideOf, o)
+	delete(c.peeks, o)
+	errs = append(errs, c.endInherited(o), c.dropLabels(o), c.overviewOutputGone(o), c.switcherOutputGone(o), c.dropClosingOn(o), c.dropLockSnapshotOn(o), c.power.Removed(o), c.gamma.Removed(o))
+	c.ctm.Removed(o)
+	for _, e := range c.entered.list {
+		if slices.Contains(e.outputs, o) {
+			errs = append(errs, e.s.Leave(o.Resources(e.s.Client())))
+			e.outputs = slices.DeleteFunc(e.outputs, func(x *output.Output) bool { return x == o })
+		}
+	}
+	for _, w := range c.windows {
+		if w.output == o {
+			w.output = nil
+		}
+	}
+	s, err := c.wm.RemoveOutput(b.Name())
+	if err != nil {
+		return errors.Join(append(errs, err)...)
+	}
+	c.wm = s
+	c.syncWorkspaceRules()
+	c.stateChanged()
+	errs = append(errs, c.relayout(), c.syncAreas(), c.fifo.Latched(nil), c.scheduleMirrorsOf(o))
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) Heads() []outputmanagement.Head {
+	heads := make([]outputmanagement.Head, 0, len(c.outputs)+len(c.disabled)+len(c.stalled))
+	for _, o := range c.outputs {
+		b := o.Backend()
+		as, ok := b.(backend.AdaptiveSync)
+		heads = append(heads, outputmanagement.Head{Output: b, Enabled: true, Mode: b.State().Mode, Position: o.Position(), Scale: o.Scale(), Transform: o.Transform(), AdaptiveSync: ok && as.AdaptiveSync()})
+	}
+	for _, b := range c.unplaced() {
+		heads = append(heads, outputmanagement.Head{Output: b})
+	}
+	slices.SortFunc(heads, func(a, b outputmanagement.Head) int { return strings.Compare(a.Output.Name(), b.Output.Name()) })
+	return heads
+}
+
+func (c *Compositor) Configure(heads []outputmanagement.HeadConfig, apply bool) error {
+	overrides := maps.Clone(c.outputOverrides)
+	if overrides == nil {
+		overrides = map[string]OutputRule{}
+	}
+	lit := false
+	for _, h := range heads {
+		b := h.Output
+		rule := c.configuredRule(b)
+		rule.Disabled = !h.Enabled
+		if h.Mode != nil {
+			rule.Mode = ExactMode{Size: h.Mode.Size, RefreshMHz: h.Mode.RefreshMHz}
+		}
+		if h.Position != nil {
+			at := *h.Position
+			rule.Position = &at
+		}
+		if h.Scale != nil {
+			rule.Scale = *h.Scale
+		}
+		if h.Transform != nil {
+			rule.Transform = *h.Transform
+		}
+		if h.AdaptiveSync != nil {
+			rule.VRR = VRROff
+			if *h.AdaptiveSync {
+				rule.VRR = VRROn
+			}
+		}
+		overrides[b.Name()] = rule
+		if !h.Enabled {
+			continue
+		}
+		lit = true
+		if _, err := rule.mode().choose(b.Modes(), b.State().Mode); err != nil {
+			return fmt.Errorf("%w: output %s: %w", outputmanagement.ErrRefused, b.Name(), err)
+		}
+	}
+	if !lit {
+		return fmt.Errorf("%w: a configuration that turns off every output would leave nothing on screen", outputmanagement.ErrRefused)
+	}
+	if !apply {
+		return nil
+	}
+	previous := c.outputOverrides
+	c.outputOverrides = overrides
+	if err := c.applyOutputRules(); err != nil {
+		c.outputOverrides = previous
+		return errors.Join(err, c.applyOutputRules())
+	}
+	return nil
+}
+
+func (c *Compositor) OutputDamaged(b backend.Output) error {
+	p, err := c.placed(b, "damage on")
+	if err != nil {
+		return err
+	}
+	return p.damaged(c, b)
+}
+
+func (c *Compositor) OutputChanged(b backend.Output) error {
+	c.stateChanged()
+	p, err := c.placed(b, "change of")
+	if err != nil {
+		return err
+	}
+	err = p.changed(c, b)
+	c.applyLidPolicy()
+	return err
+}
+
+func (c *Compositor) outputResized(o *output.Output) error {
+	if err := errors.Join(o.Changed(), c.relayout()); err != nil {
+		return err
+	}
+	c.preloadCursorsLater(c.themeCursorPx(o))
+	_, err := c.arrange(o)
+	return errors.Join(err, c.syncAreas(), c.schedule(o))
+}
+
+func (c *Compositor) SetOutputScale(b backend.Output, scale output.Scale) error {
+	p, err := c.placed(b, "scale for")
+	if err != nil {
+		return err
+	}
+	o, ok := p.(liveOutput)
+	if !ok {
+		return fmt.Errorf("compositor: scale for output %s, which is not in the layout", b.Name())
+	}
+	if err := o.Update(o.Position(), scale, o.Transform()); err != nil {
+		return err
+	}
+	return c.outputResized(o.Output)
+}
+
+func (c *Compositor) reapplyOutputRules() error {
+	return c.recovered(c.applyOutputRules())
+}
+
+func (c *Compositor) applyOutputRules() error {
+	external := func(b backend.Output) bool { return !internalPanel(b.Name()) }
+	errs := c.applyOutputRulesOf(external)
+	errs = append(errs, c.applyMirrorRules())
+	errs = append(errs, c.applyOutputRulesOf(func(b backend.Output) bool { return !external(b) })...)
+	errs = append(errs, c.relayout(), c.syncAreas())
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) applyOutputRulesOf(which func(backend.Output) bool) []error {
+	var errs []error
+	for _, o := range slices.Clone(c.outputs) {
+		if which(o.Backend()) {
+			errs = append(errs, c.applyEnabledRule(o))
+		}
+	}
+	for _, b := range slices.Clone(c.disabled) {
+		if which(b) {
+			errs = append(errs, c.applyDisabledRule(b))
+		}
+	}
+	for _, b := range slices.Clone(c.stalled) {
+		if which(b) {
+			errs = append(errs, c.applyStalledRule(b))
+		}
+	}
+	return errs
+}
+
+func (c *Compositor) applyEnabledRule(o *output.Output) error {
+	b := o.Backend()
+	rule := c.outputRule(b)
+	if rule.Disabled {
+		if _, _, err := c.commitOutput(b, rule); err != nil {
+			return err
+		}
+		return errors.Join(c.disable(o), c.place(b, rule))
+	}
+	if rule.Mirror != nil {
+		err := c.disable(o)
+		if _, _, cerr := c.commitOutput(b, rule); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		return errors.Join(err, c.addMirror(b, rule))
+	}
+	if !backend.Displays(b) {
+		return errors.Join(c.disable(o), c.place(b, rule))
+	}
+	changed, recolored, err := c.commitOutput(b, rule)
+	switch {
+	case changed || o.Scale() != rule.scale() || o.Transform() != rule.Transform:
+		return errors.Join(err, o.Update(o.Position(), rule.scale(), rule.Transform), c.outputResized(o))
+	case recolored && c.colorManager != nil:
+		return errors.Join(err, c.colorManager.OutputDone(o))
+	}
+	return err
+}
+
+func (c *Compositor) applyDisabledRule(b backend.Output) error {
+	rule := c.outputRule(b)
+	if rule.Disabled {
+		return nil
+	}
+	return c.replace(b, rule, &c.disabled)
+}
+
+func (c *Compositor) applyStalledRule(b backend.Output) error {
+	rule := c.outputRule(b)
+	if !rule.Disabled && rule.Mirror == nil && !backend.Displays(b) {
+		return nil
+	}
+	return c.replace(b, rule, &c.stalled)
+}
+
+func (c *Compositor) replace(b backend.Output, rule OutputRule, from *[]backend.Output) error {
+	if _, _, err := c.commitOutput(b, rule); err != nil {
+		return err
+	}
+	unhold(from, b)
+	return c.place(b, rule)
+}
+
+func (i Insets) inset(r image.Rectangle) image.Rectangle {
+	out := image.Rect(r.Min.X+i.Left, r.Min.Y+i.Top, r.Max.X-i.Right, r.Max.Y-i.Bottom)
+	if out.Empty() {
+		return image.Rectangle{Min: r.Min, Max: r.Min}
+	}
+	return out
+}

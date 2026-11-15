@@ -1,0 +1,574 @@
+package harness
+
+import (
+	"errors"
+	"image"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-wm/internal/anim"
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/binds"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+const swipeSettled = 30 * time.Second
+
+type swipeRig struct {
+	t      *testing.T
+	h      *Harness
+	c      *testclient.Client
+	events time.Duration
+}
+
+func swipeConfig(t *testing.T, style anim.Style, extra func(*compositor.Config)) func(*compositor.Config) {
+	t.Helper()
+	off, on := false, true
+	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.Workspaces: {Enabled: &on, Shape: anim.Smooth, Style: &style}})
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	return func(cfg *compositor.Config) {
+		cfg.Animations = table
+		cfg.Decor = compositor.PlainDecor()
+		cfg.Decor.BorderWidth = 0
+		cfg.Gestures.Distance = float64(tall.Size.X)
+		if extra != nil {
+			extra(cfg)
+		}
+	}
+}
+
+func startSwipeRig(t *testing.T, start gpuStarter, style anim.Style, extra func(*compositor.Config)) *swipeRig {
+	t.Helper()
+	r := &swipeRig{t: t, events: 5 * time.Hour}
+	r.h = start(t, swipeConfig(t, style, extra), tall)
+	r.c = testclient.Connect(t, r.h.Socket())
+	return r
+}
+
+func (r *swipeRig) settle() {
+	r.t.Helper()
+	r.h.Advance(swipeSettled)
+}
+
+func (r *swipeRig) workspace(id int, name string, fill func(*testclient.Client) *testclient.Window) {
+	r.t.Helper()
+	r.h.dispatch("workspace " + name)
+	r.settle()
+	w := fill(r.c)
+	r.c.DispatchUntil(name+" to map", w.Mapped)
+	r.h.Eventually("workspace "+name+" shown", showingWorkspace(wm.WorkspaceID(id)))
+}
+
+func (r *swipeRig) redBlue() {
+	r.t.Helper()
+	red := r.c.Window("red", testclient.Fill(0, 0, 0xff))
+	r.c.DispatchUntil("red to map", red.Mapped)
+	r.h.Eventually("red shown", showing(80, 30, redColor))
+	r.workspace(2, "2", func(c *testclient.Client) *testclient.Window { return c.Window("blue", testclient.Fill(0xff, 0, 0)) })
+	r.h.Eventually("blue shown", showing(80, 30, blueColor))
+	r.h.dispatch("workspace 1")
+	r.settle()
+	r.h.Eventually("red shown again", showing(80, 30, redColor))
+}
+
+func (r *swipeRig) begin() {
+	r.t.Helper()
+	r.h.gesture(func(_ *headless.Output, p *headless.Pointer) error { return p.GestureBegin(backend.Swipe, 3) })
+}
+
+func (r *swipeRig) swipe(dx, dy float64) {
+	r.t.Helper()
+	r.events += 8 * time.Millisecond
+	at := r.events
+	r.h.gesture(func(_ *headless.Output, p *headless.Pointer) error { return p.SwipeAt(at, dx, dy) })
+}
+
+func (r *swipeRig) rest() {
+	r.events += time.Second
+}
+
+func (r *swipeRig) end(cancelled bool) {
+	r.t.Helper()
+	r.events += time.Millisecond
+	at := r.events
+	r.h.gesture(func(_ *headless.Output, p *headless.Pointer) error {
+		return p.GestureEndAt(at, backend.Swipe, cancelled)
+	})
+}
+
+func both(conds ...func(*headless.Backend, *compositor.Compositor) bool) func(*headless.Backend, *compositor.Compositor) bool {
+	return func(b *headless.Backend, c *compositor.Compositor) bool {
+		for _, cond := range conds {
+			if !cond(b, c) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+func (r *swipeRig) active() wm.WorkspaceID {
+	var id wm.WorkspaceID
+	r.h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		s := c.WM()
+		id, _ = s.ActiveOn(s.FocusedOutput())
+		return nil
+	})
+	return id
+}
+
+func (r *swipeRig) expectNoMoreFrames() {
+	r.t.Helper()
+	r.h.stepHeldTo(atRest)
+	r.h.Eventually("the output to stop drawing with nothing moving", atRest)
+}
+
+func TestASwipeTracksTheFingersAndCommits(t *testing.T) {
+	t.Parallel()
+	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
+		r := startSwipeRig(t, start, anim.Style{Kind: anim.Slide}, nil)
+		r.redBlue()
+		r.begin()
+		r.swipe(-40, 0)
+		r.h.Eventually("both workspaces a quarter along", both(showing(100, 30, redColor), showing(130, 30, blueColor)))
+		r.expectNoMoreFrames()
+		if got := r.active(); got != 1 {
+			t.Fatalf("tracking switched to workspace %d", got)
+		}
+		r.h.Advance(time.Hour)
+		r.swipe(-60, 0)
+		r.h.Eventually("the same place however late the frame", both(showing(50, 30, redColor), showing(70, 30, blueColor)))
+		r.rest()
+		r.h.Hold()
+		r.end(false)
+		if got := r.active(); got != 2 {
+			t.Fatalf("past half stays on workspace %d", got)
+		}
+		r.h.Advance(50 * time.Millisecond)
+		r.h.Eventually("the spring under way, both still drawn", both(showing(5, 30, redColor), showing(100, 30, blueColor)))
+		r.settle()
+		r.h.Eventually("the second workspace in place", showing(5, 30, blueColor))
+		r.expectNoMoreFrames()
+	})
+}
+
+func TestASwipeShortOfHalfGoesBack(t *testing.T) {
+	t.Parallel()
+	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
+		r := startSwipeRig(t, start, anim.Style{Kind: anim.Slide}, nil)
+		r.redBlue()
+		r.begin()
+		r.swipe(-60, 0)
+		r.h.Eventually("tracking", showing(110, 30, blueColor))
+		r.rest()
+		r.end(false)
+		if got := r.active(); got != 1 {
+			t.Fatalf("a short swipe went to workspace %d", got)
+		}
+		r.settle()
+		r.h.Eventually("the first workspace back in place", showing(155, 30, redColor))
+		r.expectNoMoreFrames()
+	})
+}
+
+func TestAFlickCommitsFromAShortDistance(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.begin()
+	for range 3 {
+		r.swipe(-16, 0)
+	}
+	r.end(false)
+	if got := r.active(); got != 2 {
+		t.Fatalf("a flick left workspace %d showing", got)
+	}
+}
+
+func TestAFlickBackCancelsFromFarAlong(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.begin()
+	r.swipe(-120, 0)
+	r.rest()
+	for range 3 {
+		r.swipe(16, 0)
+	}
+	r.end(false)
+	if got := r.active(); got != 1 {
+		t.Fatalf("a flick back ended on workspace %d", got)
+	}
+}
+
+func TestACancelledSwipeGoesBack(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.begin()
+	r.swipe(-140, 0)
+	r.end(true)
+	if got := r.active(); got != 1 {
+		t.Fatalf("a cancelled swipe ended on workspace %d", got)
+	}
+	r.settle()
+	r.h.Eventually("back in place", showing(155, 30, redColor))
+}
+
+func TestASwipeRubberBandsAtTheEnds(t *testing.T) {
+	t.Parallel()
+	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
+		r := startSwipeRig(t, start, anim.Style{Kind: anim.Slide}, nil)
+		r.redBlue()
+		r.begin()
+		for range 20 {
+			r.swipe(20, 0)
+		}
+		bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
+		r.h.Eventually("some of the way against the resistance", both(showing(5, 30, bg), showing(100, 30, redColor)))
+		r.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			if got := pixel(snapshot(b.Outputs()[0]), 40, 30); got != redColor {
+				t.Errorf("two whole workspaces of travel moved the window past a fifth of the output, showing %v", got)
+			}
+			return nil
+		})
+		r.rest()
+		r.end(false)
+		if got := r.active(); got != 1 {
+			t.Fatalf("the first workspace rubber-banded to %d", got)
+		}
+		r.settle()
+		r.h.Eventually("sprung back", showing(5, 30, redColor))
+		r.expectNoMoreFrames()
+	})
+}
+
+func TestASwipeAcrossAWholeWorkspaceWalksOn(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.workspace(3, "3", func(c *testclient.Client) *testclient.Window { return c.Window("green", testclient.Fill(0, 0xff, 0)) })
+	r.h.dispatch("workspace 1")
+	r.settle()
+	r.h.Eventually("red", showing(80, 30, redColor))
+	r.begin()
+	r.swipe(-200, 0)
+	r.h.Eventually("the second and third workspaces", both(showing(50, 30, blueColor), showing(150, 30, greenColor)))
+	if got := r.active(); got != 2 {
+		t.Fatalf("crossing the second workspace left %d active", got)
+	}
+	r.swipe(-40, 0)
+	r.rest()
+	r.end(false)
+	if got := r.active(); got != 3 {
+		t.Fatalf("ended on %d", got)
+	}
+}
+
+func TestANewSwipeGrabsASettlingOneWhereItIs(t *testing.T) {
+	t.Parallel()
+	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
+		r := startSwipeRig(t, start, anim.Style{Kind: anim.Slide}, nil)
+		r.redBlue()
+		r.begin()
+		r.swipe(-100, 0)
+		r.rest()
+		r.h.Hold()
+		r.end(false)
+		r.h.Advance(50 * time.Millisecond)
+		r.h.Eventually("the settle under way", both(showing(5, 30, redColor), showing(100, 30, blueColor)))
+		var held *[3]byte
+		r.begin()
+		r.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			got := pixel(snapshot(b.Outputs()[0]), 5, 30)
+			held = &got
+			return nil
+		})
+		r.h.Advance(time.Hour)
+		r.h.Rendered(0)
+		r.h.Eventually("held there", showing(5, 30, *held))
+		r.expectNoMoreFrames()
+		for range 6 {
+			r.swipe(20, 0)
+		}
+		r.h.Rendered(0)
+		r.h.Eventually("the fingers bringing the first workspace back past its rest", both(showing(40, 30, redColor), showing(100, 30, redColor)))
+		r.rest()
+		r.end(false)
+		if got := r.active(); got != 1 {
+			t.Fatalf("swiping back mid-settle ended on workspace %d", got)
+		}
+		r.settle()
+		r.h.Eventually("the first workspace in place", showing(155, 30, redColor))
+		r.expectNoMoreFrames()
+	})
+}
+
+func TestASwipeGrabbedBackPastWhereItCameFromHidesWhereItWasGoing(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.workspace(3, "3", func(c *testclient.Client) *testclient.Window { return c.Window("green", testclient.Fill(0, 0xff, 0)) })
+	r.h.dispatch("workspace 2")
+	r.settle()
+	r.h.Eventually("blue", showing(80, 30, blueColor))
+	r.begin()
+	r.swipe(-100, 0)
+	r.rest()
+	r.h.Hold()
+	r.end(false)
+	if got := r.active(); got != 3 {
+		t.Fatalf("committed to workspace %d", got)
+	}
+	r.h.Advance(50 * time.Millisecond)
+	r.h.Eventually("the settle under way", both(showing(5, 30, blueColor), showing(100, 30, greenColor)))
+	r.begin()
+	r.swipe(160, 0)
+	r.h.Rendered(0)
+	r.h.Eventually("the first and second workspaces, the third gone", both(showing(30, 30, redColor), showing(100, 30, blueColor)))
+	if got := r.active(); got != 2 {
+		t.Fatalf("swiping past where it came from left %d active", got)
+	}
+}
+
+func TestASwipeThatGrabsThenGoesNowhereSettlesWhereItWasGoing(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.begin()
+	r.swipe(-100, 0)
+	r.rest()
+	r.h.Hold()
+	r.end(false)
+	r.h.Advance(50 * time.Millisecond)
+	r.begin()
+	r.end(false)
+	if got := r.active(); got != 2 {
+		t.Fatalf("on workspace %d", got)
+	}
+	r.settle()
+	r.h.Eventually("the second workspace in place", showing(5, 30, blueColor))
+	r.expectNoMoreFrames()
+}
+
+func TestASwipeRespectsNaturalScrollOff(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, func(cfg *compositor.Config) { cfg.Gestures.Natural = false })
+	r.redBlue()
+	r.begin()
+	r.swipe(100, 0)
+	r.h.Eventually("fingers right moving the content left", showing(100, 30, blueColor))
+	r.rest()
+	r.end(false)
+	if got := r.active(); got != 2 {
+		t.Fatalf("on workspace %d", got)
+	}
+}
+
+func TestASwipeDrivesSlidevert(t *testing.T) {
+	t.Parallel()
+	onEachConfiguredRenderer(t, func(t *testing.T, start gpuStarter) {
+		r := startSwipeRig(t, start, anim.Style{Kind: anim.SlideVert}, func(cfg *compositor.Config) {
+			cfg.Gestures.Binds = compositor.DefaultGestureBinds(anim.Style{Kind: anim.SlideVert})
+			cfg.Gestures.Distance = float64(tall.Size.Y)
+		})
+		r.redBlue()
+		r.begin()
+		r.swipe(0, -30)
+		r.h.Eventually("both workspaces a quarter up", both(showing(20, 80, redColor), showing(20, 100, blueColor)))
+		r.swipe(0, -50)
+		r.rest()
+		r.end(false)
+		if got := r.active(); got != 2 {
+			t.Fatalf("on workspace %d", got)
+		}
+		r.settle()
+		r.h.Eventually("the second workspace in place", showing(20, 5, blueColor))
+		r.expectNoMoreFrames()
+	})
+}
+
+func TestAKeySwitchWhileTrackingEndsTheGesture(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.workspace(3, "3", func(c *testclient.Client) *testclient.Window { return c.Window("green", testclient.Fill(0, 0xff, 0)) })
+	r.h.dispatch("workspace 1")
+	r.settle()
+	r.h.Eventually("red", showing(80, 30, redColor))
+	r.begin()
+	r.swipe(-40, 0)
+	r.h.Eventually("tracking", showing(130, 30, blueColor))
+	r.h.dispatch("workspace 3")
+	r.settle()
+	r.h.Eventually("the third workspace in place", showing(80, 30, greenColor))
+	r.expectNoMoreFrames()
+	r.swipe(-500, 0)
+	r.swipe(300, 0)
+	r.end(false)
+	if got := r.active(); got != 3 {
+		t.Fatalf("the rest of the gesture moved to workspace %d", got)
+	}
+	r.h.Eventually("still the third workspace", showing(80, 30, greenColor))
+	r.expectNoMoreFrames()
+	r.h.dispatch("workspace 1")
+	r.settle()
+	r.h.Eventually("keys still work afterwards", showing(80, 30, redColor))
+	r.begin()
+	r.swipe(-100, 0)
+	r.rest()
+	r.end(false)
+	if got := r.active(); got != 2 {
+		t.Fatalf("the next swipe ended on %d", got)
+	}
+}
+
+func TestAKeySwitchToTheWorkspaceBeingSwipedToCarriesOnFromThere(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.begin()
+	r.swipe(-40, 0)
+	r.h.Eventually("tracking", showing(130, 30, blueColor))
+	r.h.dispatch("workspace 2")
+	r.h.Eventually("still where the fingers left it", showing(130, 30, blueColor))
+	r.settle()
+	r.h.Eventually("the second workspace in place", showing(5, 30, blueColor))
+	r.swipe(100, 0)
+	r.end(false)
+	r.h.Eventually("the late fingers ignored", showing(5, 30, blueColor))
+}
+
+func TestAKeyboardActionWhileTrackingRuns(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, nil)
+	r.redBlue()
+	r.begin()
+	r.swipe(-40, 0)
+	r.h.dispatch("togglefloating")
+	r.swipe(-60, 0)
+	r.rest()
+	r.end(false)
+	if got := r.active(); got != 2 {
+		t.Fatalf("on %d", got)
+	}
+}
+
+func TestAClaimedSwipeCancelsOnTheClient(t *testing.T) {
+	t.Parallel()
+	h := Start(t, tall)
+	c, log := gestureClient(t, h, "gestures")
+	h.gesture(func(o *headless.Output, p *headless.Pointer) error {
+		return errors.Join(p.MoveTo(o, 0.5, 0.5), p.Frame(), p.GestureBegin(backend.Swipe, 3), p.Swipe(-2, 0), p.Swipe(-200, 0), p.Swipe(-50, 0), p.GestureEnd(backend.Swipe, false))
+	})
+	want := []string{"swipe begin 3", "swipe update -2 0", "swipe end 1"}
+	c.DispatchUntil("the cancel", func() bool { return len(log.events) >= len(want) })
+	if err := c.Display.Roundtrip(); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(log.events, want) {
+		t.Fatalf("events %q, want %q", log.events, want)
+	}
+}
+
+func TestASwipeOnAnUnboundAxisStaysWithTheClient(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, func(cfg *compositor.Config) {
+		cfg.Gestures.Binds = []binds.GestureBind{{Kind: backend.Swipe, Fingers: 3, Direction: binds.SwipeHorizontal, Drive: binds.DriveWorkspaces}}
+	}, tall)
+	c, log := gestureClient(t, h, "gestures")
+	h.gesture(func(o *headless.Output, p *headless.Pointer) error {
+		return errors.Join(p.MoveTo(o, 0.5, 0.5), p.Frame(), p.GestureBegin(backend.Swipe, 3), p.Swipe(0, 50), p.Swipe(300, 0), p.GestureEnd(backend.Swipe, false))
+	})
+	want := []string{"swipe begin 3", "swipe update 0 50", "swipe update 300 0", "swipe end 0"}
+	c.DispatchUntil("the swipe", func() bool { return len(log.events) >= len(want) })
+	if !slices.Equal(log.events, want) {
+		t.Fatalf("events %q, want %q", log.events, want)
+	}
+}
+
+func TestGestureActionsRunAndStayFromTheClient(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, func(cfg *compositor.Config) {
+		cfg.Gestures.Binds = []binds.GestureBind{
+			{Kind: backend.Pinch, Fingers: 2, Direction: binds.PinchIn, Action: wm.WorkspaceAction{Target: wm.WorkspaceID(2)}},
+			{Kind: backend.Hold, Fingers: 4, Action: wm.WorkspaceAction{Target: wm.WorkspaceID(3)}},
+			{Kind: backend.Swipe, Fingers: 4, Direction: binds.SwipeUp, Action: wm.WorkspaceAction{Target: wm.WorkspaceID(4)}},
+		}
+	}, tall)
+	c, log := gestureClient(t, h, "gestures")
+	h.gesture(func(o *headless.Output, p *headless.Pointer) error {
+		return errors.Join(p.MoveTo(o, 0.5, 0.5), p.Frame(), p.GestureBegin(backend.Pinch, 2), p.Pinch(0, 0, 0.96875, 0), p.Pinch(0, 0, 0.7, 0), p.Pinch(0, 0, 0.5, 0), p.GestureEnd(backend.Pinch, false))
+	})
+	h.Eventually("the pinch switching", showingWorkspace(2))
+	want := []string{"pinch begin 2", "pinch update 0 0 0.96875 0", "pinch end 1"}
+	c.DispatchUntil("the pinch cancelled", func() bool { return len(log.events) >= len(want) })
+	if !slices.Equal(log.events, want) {
+		t.Fatalf("events %q, want %q", log.events, want)
+	}
+	h.dispatch("workspace 1")
+	h.gesture(func(_ *headless.Output, p *headless.Pointer) error {
+		return errors.Join(p.GestureBegin(backend.Hold, 4), p.GestureEnd(backend.Hold, false))
+	})
+	h.Eventually("the hold switching", showingWorkspace(3))
+	h.dispatch("workspace 1")
+	h.gesture(func(_ *headless.Output, p *headless.Pointer) error {
+		return errors.Join(p.GestureBegin(backend.Swipe, 4), p.Swipe(0, -150), p.GestureEnd(backend.Swipe, false))
+	})
+	h.Eventually("the swipe switching", showingWorkspace(4))
+	if err := c.Display.Roundtrip(); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(log.events); n != len(want)+2 {
+		t.Fatalf("the client saw %q", log.events)
+	}
+}
+
+func TestLockedGesturesStayWithClients(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, func(cfg *compositor.Config) {
+		cfg.Gestures.Binds = []binds.GestureBind{{Kind: backend.Swipe, Fingers: 3, Direction: binds.SwipeHorizontal, Drive: binds.DriveWorkspaces}}
+	}, tall)
+	lockSession(t, h)
+	h.gesture(func(_ *headless.Output, p *headless.Pointer) error {
+		return errors.Join(p.GestureBegin(backend.Swipe, 3), p.Swipe(-200, 0), p.GestureEnd(backend.Swipe, false))
+	})
+	h.Eventually("no switch", showingWorkspace(1))
+}
+
+func TestAHiddenTabIsNotDrawnWhileSwiping(t *testing.T) {
+	t.Parallel()
+	r := startSwipeRig(t, StartWith, anim.Style{Kind: anim.Slide}, func(cfg *compositor.Config) { cfg.WM.Autotile.Enabled = false })
+	red := r.c.Window("red", testclient.Fill(0, 0, 0xff))
+	r.c.DispatchUntil("red to map", red.Mapped)
+	r.h.dispatch("workspace 2")
+	r.settle()
+	green := r.c.Window("green", testclient.Fill(0, 0xff, 0))
+	r.c.DispatchUntil("green to map", green.Mapped)
+	r.h.dispatch("makegroup tab")
+	blue := r.c.Window("blue", testclient.Fill(0xff, 0, 0))
+	r.c.DispatchUntil("blue to map", blue.Mapped)
+	r.c.DispatchUntil("blue in the tab", func() bool { return blue.Logical != image.Point{} })
+	r.h.Eventually("the blue tab on top", showing(80, 30, blueColor))
+	r.h.dispatch("focus left")
+	r.h.Eventually("the green tab on top", showing(80, 30, greenColor))
+	r.h.dispatch("workspace 1")
+	r.settle()
+	r.h.Eventually("red", showing(80, 30, redColor))
+	r.begin()
+	r.swipe(-80, 0)
+	r.h.Eventually("only the focused tab peeking in", both(showing(40, 30, redColor), showing(120, 30, greenColor)))
+	r.h.Eventually("the tab bar moved with its workspace", showing(40, 5, redColor))
+	r.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		if got := pixel(snapshot(b.Outputs()[0]), 120, 5); got == redColor || got == greenColor {
+			t.Errorf("no tab bar over the incoming workspace, showing %v", got)
+		}
+		return nil
+	})
+}

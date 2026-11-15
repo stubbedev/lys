@@ -1,0 +1,844 @@
+package compositor
+
+import (
+	"errors"
+	"image"
+	"math"
+	"slices"
+	"time"
+
+	"github.com/stubbedev/lys-lib/third_party/gomath"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/binds"
+	"github.com/stubbedev/lys-wm/internal/ipc"
+	"github.com/stubbedev/lys-wm/internal/output"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/seat"
+	"github.com/stubbedev/lys-wm/internal/shell"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/tabletinput"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+type point struct {
+	X, Y float64
+}
+
+func (p point) pixel() image.Point {
+	return image.Pt(int(math.Floor(p.X)), int(math.Floor(p.Y)))
+}
+
+func (p point) sub(o image.Point) point {
+	return point{p.X - float64(o.X), p.Y - float64(o.Y)}
+}
+
+type origin struct {
+	base image.Point
+	px   image.Point
+	k    output.Scale
+}
+
+func flat(at image.Point) origin {
+	return origin{base: at, k: output.Unit}
+}
+
+func (r origin) child(offset image.Point) origin {
+	return origin{base: r.base, px: r.px.Add(offset), k: r.k}
+}
+
+func (r origin) at() point {
+	return r.global(point{})
+}
+
+func (r origin) local(p point) point {
+	f := r.k.Float()
+	return point{float64((p.X-float64(r.base.X))*f) - float64(r.px.X), float64((p.Y-float64(r.base.Y))*f) - float64(r.px.Y)}
+}
+
+func (r origin) global(l point) point {
+	f := r.k.Float()
+	return point{float64(r.base.X) + (float64(r.px.X)+l.X)/f, float64(r.base.Y) + (float64(r.px.Y)+l.Y)/f}
+}
+
+func (r origin) device(o *output.Output, surface image.Point) image.Rectangle {
+	base, s := r.base.Sub(o.Position()), o.Scale()
+	return image.Rectangle{Min: s.DevicePointAt(base, r.px, r.k), Max: s.DevicePointAt(base, r.px.Add(surface), r.k)}
+}
+
+func wlCaps(c backend.Capability) sw.WlSeatCapability {
+	var caps sw.WlSeatCapability
+	if c.Has(backend.Keyboard) {
+		caps |= sw.WlSeatCapabilityKeyboard
+	}
+	if c.Has(backend.Pointer) {
+		caps |= sw.WlSeatCapabilityPointer
+	}
+	if c.Has(backend.Touch) {
+		caps |= sw.WlSeatCapabilityTouch
+	}
+	return caps
+}
+
+func (c *Compositor) DeviceAdded(d backend.Device) error {
+	c.devices = append(c.devices, d)
+	c.stateChanged()
+	if k, ok := d.(backend.KeyboardLEDs); ok && d.Capabilities().Has(backend.Keyboard) {
+		c.keyboards = append(c.keyboards, k)
+		k.SetLEDs(c.leds)
+	}
+	return errors.Join(c.seat.AddDevice(wlCaps(d.Capabilities())), c.tabletAdded(d))
+}
+
+func (c *Compositor) DeviceRemoved(d backend.Device) error {
+	c.devices = slices.DeleteFunc(c.devices, func(x backend.Device) bool { return x == d })
+	c.stateChanged()
+	c.keyboards = slices.DeleteFunc(c.keyboards, func(k backend.KeyboardLEDs) bool { return any(k) == any(d) })
+	return errors.Join(c.seat.RemoveDevice(wlCaps(d.Capabilities())), c.tabletRemoved(d))
+}
+
+func (c *Compositor) syncLEDs() {
+	l := c.seat.Locks()
+	if l == c.leds {
+		return
+	}
+	c.leds = l
+	for _, k := range c.keyboards {
+		k.SetLEDs(l)
+	}
+}
+
+func (c *Compositor) Cursor() (float64, float64) {
+	return c.cursor.X, c.cursor.Y
+}
+
+func (c *Compositor) layoutBounds() image.Rectangle {
+	var b image.Rectangle
+	for _, o := range c.outputs {
+		b = b.Union(o.Logical())
+	}
+	return b
+}
+
+func denormalize(r image.Rectangle, x, y float64) point {
+	return point{float64(r.Min.X) + float64(x*float64(r.Dx())), float64(r.Min.Y) + float64(y*float64(r.Dy()))}
+}
+
+func (c *Compositor) clampToOutputs(p point) point {
+	best, nearest := p, math.Inf(1)
+	for _, o := range c.outputs {
+		r := o.Logical()
+		q := point{
+			X: math.Min(math.Max(p.X, float64(r.Min.X)), float64(r.Max.X)-1),
+			Y: math.Min(math.Max(p.Y, float64(r.Min.Y)), float64(r.Max.Y)-1),
+		}
+		if d := gomath.Hypot(q.X-p.X, q.Y-p.Y); d < nearest {
+			best, nearest = q, d
+		}
+	}
+	return best
+}
+
+type screenArea struct {
+	rect      image.Rectangle
+	transform render.Transform
+}
+
+func areaOf(o *output.Output) screenArea {
+	return screenArea{rect: o.Logical(), transform: o.Transform()}
+}
+
+func (c *Compositor) absoluteArea(o backend.Output) (screenArea, bool) {
+	if o == nil {
+		return screenArea{rect: c.layoutBounds()}, len(c.outputs) > 0
+	}
+	out := c.output(o)
+	if out == nil {
+		return screenArea{}, false
+	}
+	return areaOf(out), true
+}
+
+func (c *Compositor) deviceArea(d backend.Device, o backend.Output) (screenArea, bool) {
+	m, mapped := c.deviceOutputs[d.Name()]
+	if o != nil || !mapped {
+		return c.absoluteArea(o)
+	}
+	out := c.outputMatching(m)
+	if out == nil {
+		return screenArea{}, false
+	}
+	return areaOf(out), true
+}
+
+func (c *Compositor) inArea(within screenArea, x, y float64) point {
+	x, y = within.transform.Invert().Unit(x, y)
+	area := within.rect
+	p := denormalize(area, x, y)
+	p.X = math.Min(math.Max(p.X, float64(area.Min.X)), float64(area.Max.X)-1)
+	p.Y = math.Min(math.Max(p.Y, float64(area.Min.Y)), float64(area.Max.Y)-1)
+	return c.clampToOutputs(p)
+}
+
+func (c *Compositor) Input(d backend.Device, e backend.Event) error {
+	err := c.input(d, e)
+	if c.presence.pushed == c.presence.hidden() {
+		return err
+	}
+	return errors.Join(err, c.cursorMoved())
+}
+
+func (c *Compositor) input(d backend.Device, e backend.Event) error {
+	switch e.(type) {
+	case backend.Switch:
+	case backend.Key, *backend.Key:
+		if err := c.idle.Activity(); err != nil {
+			return err
+		}
+	default:
+		if err := errors.Join(c.idle.Activity(), c.pointerActive()); err != nil {
+			return err
+		}
+	}
+	switch e := e.(type) {
+	case backend.Key:
+		return c.inputKey(d.Name(), e)
+	case *backend.Key:
+		return c.inputKey(d.Name(), *e)
+	case *backend.PointerMotion:
+		c.shaken(e.Time, e.DX)
+		if c.capturing != nil {
+			c.capturing.pointer(ipc.CaptureMotionEvent{DX: e.DX, DY: e.DY})
+			return nil
+		}
+		if crossed, err := c.crossBarrier(e.DX, e.DY); crossed || err != nil {
+			return err
+		}
+		if err := c.seat.RelativeMotion(e.Time, e.DX, e.DY, e.UnaccelDX, e.UnaccelDY); err != nil {
+			return err
+		}
+		from := c.cursor
+		want := point{X: from.X + e.DX, Y: from.Y + e.DY}
+		if err := c.moveCursor(e.Time, c.clampToOutputs(want)); err != nil {
+			return err
+		}
+		c.pushHotCorner(from, want, e)
+		return nil
+	case backend.PointerMotionAbsolute:
+		return c.inputAbsolute(d, e)
+	case *backend.PointerMotionAbsolute:
+		return c.inputAbsolute(d, *e)
+	case backend.PointerButton:
+		return c.inputButton(e)
+	case *backend.PointerButton:
+		return c.inputButton(*e)
+	case backend.PointerAxis:
+		return c.inputAxis(e)
+	case *backend.PointerAxis:
+		return c.inputAxis(*e)
+	case *backend.PointerFrame:
+		if c.capturing != nil {
+			c.capturing.frame()
+			return nil
+		}
+		return c.seat.PointerFrame()
+	case backend.GestureBegin:
+		return c.gestureBegin(d, e)
+	case *backend.SwipeUpdate:
+		return c.swipeUpdate(e)
+	case *backend.PinchUpdate:
+		return c.pinchUpdate(e)
+	case backend.GestureEnd:
+		return c.gestureEnd(e)
+	case backend.TouchDown:
+		return c.touchDown(d, e)
+	case *backend.TouchDown:
+		return c.touchDown(d, *e)
+	case backend.TouchMotion:
+		return c.touchMotion(e)
+	case *backend.TouchMotion:
+		return c.touchMotion(*e)
+	case backend.TouchUp:
+		return c.touchUp(e)
+	case *backend.TouchUp:
+		return c.touchUp(*e)
+	case backend.TouchCancel, *backend.TouchCancel:
+		return c.touchCancel()
+	case backend.TouchFrame, *backend.TouchFrame:
+		return c.seat.TouchFrame()
+	case *tabletinput.Proximity, *tabletinput.Motion, *tabletinput.Tip, *tabletinput.Button, *tabletinput.PadButton, *tabletinput.PadRing, *tabletinput.PadStrip, *tabletinput.PadDial:
+		return c.tabletInput(d, e)
+	case backend.Switch:
+		if e.Kind != backend.SwitchLid {
+			return nil
+		}
+		return c.lidSwitched(e.On)
+	}
+	return nil
+}
+
+func (c *Compositor) inputKey(device string, e backend.Key) error {
+	if c.seatConfig.SlowKeys > 0 {
+		return c.slowKey(device, e)
+	}
+	return c.acceptKey(device, e)
+}
+
+func (c *Compositor) acceptKey(device string, e backend.Key) error {
+	c.settleFocus()
+	err := c.takeKey(device, e)
+	if e.Pressed {
+		return err
+	}
+	return errors.Join(err, c.modifiersReleased())
+}
+
+func (c *Compositor) takeKey(device string, e backend.Key) error {
+	if err := c.seat.UseKeyboard(device); err != nil {
+		return err
+	}
+	if c.capturing != nil {
+		return c.captureKey(e)
+	}
+	if err := c.watchTap(e.Code, e.Pressed); err != nil {
+		return err
+	}
+	if e.Pressed && c.picking != nil && c.seat.Keysym(e.Code) == keysymEscape {
+		c.held = append(c.held, e.Code)
+		return c.cancelPick()
+	}
+	if e.Pressed {
+		if taken, err := c.switcherKey(c.seat.Keysym(e.Code)); taken {
+			c.held = append(c.held, e.Code)
+			return err
+		}
+	}
+	if e.Pressed && c.overviewHolds() {
+		if taken, err := c.overviewKey(e.Code); taken || err != nil {
+			return err
+		}
+	}
+	if bound, err := c.bindKey(e.Code, e.Pressed, e.Time); bound || err != nil {
+		return err
+	}
+	if taken, err := c.takeEscape(e.Code, e.Pressed); taken || err != nil {
+		return err
+	}
+	if e.Pressed {
+		if err := c.typed(e.Code); err != nil {
+			return err
+		}
+	}
+	if e.Pressed && c.keyEndsWalk(e.Code) {
+		if err := c.endWalk(); err != nil {
+			return err
+		}
+	}
+	err := c.seat.Key(e.Code, e.Pressed, e.Time)
+	c.syncLEDs()
+	return err
+}
+
+func (c *Compositor) inputAbsolute(d backend.Device, e backend.PointerMotionAbsolute) error {
+	if c.capturing != nil {
+		return nil
+	}
+	area, ok := c.deviceArea(d, e.Output)
+	if !ok {
+		return nil
+	}
+	return c.moveCursor(e.Time, c.inArea(area, e.X, e.Y))
+}
+
+func (c *Compositor) inputButton(e backend.PointerButton) error {
+	if c.capturing != nil {
+		c.capturing.pointer(ipc.CaptureButtonEvent{Button: e.Button, Pressed: e.Pressed})
+		return nil
+	}
+	if e.Pressed {
+		c.interruptTap()
+		c.settleFocus()
+		if err := c.endWalk(); err != nil {
+			return err
+		}
+	}
+	if c.pointerDrag() {
+		if e.Pressed {
+			return nil
+		}
+		return c.drag.Drop()
+	}
+	if e.Pressed && c.picking != nil {
+		c.consumed = append(c.consumed, e.Button)
+		return c.pickAtCursor()
+	}
+	if !e.Pressed {
+		c.bindButton(e.Button, false, e.Time)
+	}
+	if i := slices.Index(c.consumed, e.Button); !e.Pressed && i >= 0 {
+		c.consumed = slices.Delete(c.consumed, i, i+1)
+		released := errors.Join(c.releaseShortcuts(binds.Button{Code: e.Button}), c.releaseHotkeys(binds.Button{Code: e.Button}))
+		if c.overviewHolds() && c.overview.press != nil && !c.overview.press.touched && c.overview.press.button == e.Button {
+			return errors.Join(released, c.overviewReleased(c.cursor))
+		}
+		if c.draggedBy(buttonInput{e.Button}) {
+			return errors.Join(released, c.endDrag())
+		}
+		return released
+	}
+	if e.Pressed && !c.seat.PointerGrabbed() && c.outsideGrab(c.seat.PointerFocus()) {
+		c.consumed = append(c.consumed, e.Button)
+		return c.dismissGrabs()
+	}
+	if e.Pressed && c.bindButton(e.Button, true, e.Time) {
+		return nil
+	}
+	if e.Pressed && c.hotkeysOpen() {
+		if fired, err := c.pressHotkey(binds.Button{Code: e.Button}); fired || err != nil {
+			c.consumed = append(c.consumed, e.Button)
+			return err
+		}
+	}
+	if e.Pressed {
+		if taken, err := c.pressTitlebar(e.Button); taken || err != nil {
+			return err
+		}
+	}
+	if o := c.outputAt(c.cursor); e.Pressed && c.peeking(o) {
+		if w := c.sliverAt(o, c.cursor.pixel()); w != nil {
+			c.consumed = append(c.consumed, e.Button)
+			return errors.Join(c.endPeek(o), c.activate(w, wm.FocusClick))
+		}
+	}
+	if e.Pressed && c.overviewHolds() && c.seat.PointerFocus() == nil {
+		c.consumed = append(c.consumed, e.Button)
+		return c.overviewPressed(e.Button, 0, false, c.cursor)
+	}
+	if e.Pressed {
+		if err := errors.Join(c.clickFocus(c.seat.PointerFocus()), c.clickWindow()); err != nil {
+			return err
+		}
+	}
+	err := c.seat.PointerButton(e.Time, e.Button, e.Pressed)
+	if !e.Pressed && c.xdragOver != nil && !c.seat.PointerGrabbed() {
+		err = errors.Join(err, c.xdragOver(nil, false))
+	}
+	return err
+}
+
+func (c *Compositor) inputAxis(e backend.PointerAxis) error {
+	if c.capturing != nil {
+		c.captureAxis(e)
+		return nil
+	}
+	c.interruptTap()
+	if e.Orientation == backend.Vertical && e.Value != 0 {
+		dir := binds.ScrollDown
+		if e.Value < 0 {
+			dir = binds.ScrollUp
+		}
+		if b, i, ok := c.match(binds.Scroll{Dir: dir}); ok {
+			c.fire(b, i, e.Time, binds.Scroll{Dir: dir}, wm.FocusOther)
+			if !b.Flags.Pass {
+				return nil
+			}
+		}
+	}
+	a := seat.Axis{Orientation: sw.WlPointerAxisVerticalScroll, Source: sw.WlPointerAxisSource(e.Source), Value: e.Value, Value120: e.Value120}
+	if _, _, w := c.pointerTarget(); w != nil {
+		if k := c.decision(w).ScrollFactor; k != nil {
+			a.Value, a.Value120 = a.Value**k, int32(math.Round(float64(a.Value120)**k))
+		}
+	}
+	if e.Orientation == backend.Horizontal {
+		a.Orientation = sw.WlPointerAxisHorizontalScroll
+	}
+	return c.seat.PointerAxis(e.Time, a)
+}
+
+func (c *Compositor) touchDown(d backend.Device, e backend.TouchDown) error {
+	area, ok := c.deviceArea(d, e.Output)
+	if !ok {
+		return nil
+	}
+	p := c.touchPoint(c.inArea(area, e.X, e.Y))
+	if c.touchGesture.claimed {
+		c.touches[e.ID] = touchAt{area: area, at: p}
+		c.touchGestureAdd(e.ID, area.rect, p, nil)
+		return nil
+	}
+	s, local, w := c.surfaceAt(p)
+	if c.outsideGrab(s) {
+		return c.dismissGrabs()
+	}
+	if s == nil && c.overviewHolds() {
+		c.touches[e.ID] = touchAt{area: area, at: p}
+		return c.overviewPressed(0, e.ID, true, p)
+	}
+	c.touches[e.ID] = touchAt{area: area, at: p}
+	var err error
+	if s != nil {
+		err = c.seat.TouchDown(e.Time, e.ID, s, local.X, local.Y)
+	}
+	c.touchGestureAdd(e.ID, area.rect, p, w)
+	return err
+}
+
+func (c *Compositor) touchMotion(e backend.TouchMotion) error {
+	t, ok := c.touches[e.ID]
+	if !ok {
+		return nil
+	}
+	t.at = c.touchPoint(c.inArea(t.area, e.X, e.Y))
+	c.touches[e.ID] = t
+	if c.draggedBy(touchInput{e.ID}) {
+		c.markDragged()
+		return errors.Join(c.trackDragHold(), c.scheduleAll())
+	}
+	if c.touchDrag(e.ID) {
+		return errors.Join(c.dragMotion(e.Time), c.scheduleAll())
+	}
+	if c.overviewTouching(e.ID) {
+		return c.overviewMoved(t.at)
+	}
+	if taken, err := c.touchGestureMoved(e.ID, e.Time); taken || err != nil {
+		return err
+	}
+	s := c.seat.TouchSurface(e.ID)
+	if s == nil {
+		return nil
+	}
+	org, found := c.originOf(s)
+	if !found {
+		return nil
+	}
+	local := org.local(t.at)
+	return c.seat.TouchMotion(e.Time, e.ID, local.X, local.Y)
+}
+
+func (c *Compositor) touchUp(e backend.TouchUp) error {
+	if c.overviewTouching(e.ID) {
+		at := c.touches[e.ID].at
+		delete(c.touches, e.ID)
+		return c.overviewReleased(at)
+	}
+	if c.draggedBy(touchInput{e.ID}) {
+		if err := c.endDrag(); err != nil {
+			return err
+		}
+	}
+	if c.touchDrag(e.ID) {
+		c.seat.DropTouch(e.ID)
+		err := c.drag.Drop()
+		delete(c.touches, e.ID)
+		return err
+	}
+	delete(c.touches, e.ID)
+	if taken, err := c.touchGestureUp(e.ID, e.Time); taken || err != nil {
+		return err
+	}
+	return c.seat.TouchUp(e.Time, e.ID)
+}
+
+func (c *Compositor) touchCancel() error {
+	var err error
+	if c.touchGesture.n > 0 {
+		err = c.endTouchGesture(c.clock(), true)
+	}
+	if c.overviewHolds() {
+		c.abandonOverviewPress()
+		err = c.scheduleAll()
+	}
+	if c.touchDragging() {
+		err = errors.Join(err, c.drag.Cancel())
+	}
+	if c.interaction != nil {
+		if _, ok := c.interaction.by.(touchInput); ok {
+			err = errors.Join(err, c.endDrag())
+		}
+	}
+	clear(c.touches)
+	return errors.Join(err, c.seat.TouchCancel())
+}
+
+func (c *Compositor) moveCursor(at time.Duration, next point) error {
+	if c.capturing != nil {
+		return nil
+	}
+	next, moved := c.constrainMotion(next)
+	if !moved {
+		return nil
+	}
+	c.cursor = next
+	return errors.Join(c.pointerMoved(at), c.refreshConstraint(), c.rimsMoved())
+}
+
+func (c *Compositor) pointerMoved(at time.Duration) error {
+	if c.interaction != nil {
+		c.markDragged()
+		return errors.Join(c.trackDragHold(), c.scheduleAll())
+	}
+	if c.picking != nil {
+		return c.cursorMoved()
+	}
+	if c.overviewHolds() && c.overview.press != nil {
+		return errors.Join(c.overviewMoved(c.cursor), c.cursorMoved())
+	}
+	if c.pointerDrag() {
+		return errors.Join(c.dragMotion(at), c.scheduleAll())
+	}
+	if f := c.seat.PointerFocus(); f != nil && c.seat.PointerGrabbed() {
+		if org, ok := c.originOf(f); ok {
+			local := org.local(c.cursor)
+			var over error
+			if c.xdragOver != nil {
+				s, _, _ := c.surfaceAt(c.cursor)
+				over = c.xdragOver(s, true)
+			}
+			return errors.Join(over, c.seat.PointerMotion(at, local.X, local.Y), c.cursorMoved())
+		}
+	}
+	s, local, w, bar := c.pointerHit()
+	var err error
+	if s != c.seat.PointerFocus() {
+		err = c.seat.SetPointerFocus(s, local.X, local.Y)
+	} else if s != nil {
+		err = c.seat.PointerMotion(at, local.X, local.Y)
+	}
+	err = errors.Join(err, c.hoverFocus(w))
+	if c.overviewHolds() && s == nil {
+		err = errors.Join(err, c.overviewMoved(c.cursor))
+	}
+	return errors.Join(err, c.hoverTitlebar(bar), c.cursorMoved())
+}
+
+func (c *Compositor) pointerTarget() (*surface.Surface, point, *window) {
+	s, local, w, _ := c.pointerHit()
+	return s, local, w
+}
+
+func (c *Compositor) pointerHit() (*surface.Surface, point, *window, barHit) {
+	s, local, w := c.surfaceAt(c.cursor)
+	if hit, ok := c.barAt(c.cursor, s, w); ok {
+		return nil, point{}, hit.w, hit
+	}
+	if s != nil && c.outsideGrab(s) {
+		return nil, point{}, nil, barHit{}
+	}
+	return s, local, w, barHit{}
+}
+
+func (c *Compositor) refreshPointer() error {
+	if c.capturing != nil {
+		return nil
+	}
+	if c.interaction != nil || c.picking != nil {
+		return nil
+	}
+	if c.pointerDrag() {
+		return c.dragMotion(c.clock())
+	}
+	if c.seat.PointerGrabbed() {
+		return nil
+	}
+	s, local, w := c.pointerTarget()
+	c.hovered = w
+	switch {
+	case s != c.seat.PointerFocus():
+		return errors.Join(c.seat.SetPointerFocus(s, local.X, local.Y), c.seat.PointerFrame())
+	case c.constraint != nil && c.constraint.locks():
+		return nil
+	}
+	return c.seat.RebasePointer(c.clock(), local.X, local.Y)
+}
+
+func hitPopups(popups []placedPopup, p point) (*surface.Surface, point) {
+	for _, pp := range slices.Backward(popups) {
+		if s, local := hitTree(pp.popup.Surface(), flat(pp.origin), p); s != nil {
+			return s, local
+		}
+	}
+	return nil, point{}
+}
+
+func (c *Compositor) hitLayers(o *output.Output, levels []shell.Layer, p point) (*surface.Surface, point) {
+	var hit *surface.Surface
+	var at point
+	for e := range c.layersAt(o, levels) {
+		if s, local := hitTree(e.surface.Surface(), flat(e.bounds().Min), p); s != nil {
+			hit, at = s, local
+		}
+	}
+	return hit, at
+}
+
+func (c *Compositor) outputAt(p point) *output.Output {
+	for _, o := range c.outputs {
+		if p.pixel().In(o.Logical()) {
+			return o
+		}
+	}
+	return nil
+}
+
+func (c *Compositor) hitWindow(w *window, p point) (*surface.Surface, point) {
+	if !w.visible || !w.clip.Empty() && !p.pixel().In(w.clip) || c.carried(w) {
+		return nil, point{}
+	}
+	if s, local := hitPopups(c.popups(w), p); s != nil {
+		return s, local
+	}
+	return hitTree(w.top.Surface(), c.windowOrigin(w), p)
+}
+
+func (c *Compositor) surfaceAt(p point) (*surface.Surface, point, *window) {
+	if c.shell.Locked() {
+		s, local := c.hitLock(p)
+		return s, local, nil
+	}
+	if c.overviewHolds() {
+		return c.overviewSurfaceAt(p)
+	}
+	if s, local := c.hitUnmanaged(p); s != nil {
+		return s, local, nil
+	}
+	if s, local := c.hitInputPopups(p); s != nil {
+		return s, local, nil
+	}
+	for _, e := range slices.Backward(c.layers) {
+		if s, local := hitPopups(c.layerPopups(e), p); s != nil {
+			return s, local, nil
+		}
+	}
+	o := c.outputAt(p)
+	if s, local := c.hitLayers(o, overlay, p); s != nil {
+		return s, local, nil
+	}
+	for _, layer := range slices.Backward(scratchLayers) {
+		for _, w := range slices.Backward(c.stack) {
+			if w.scratch && w.visible && w.layer == layer {
+				if s, local := c.hitWindow(w, p); s != nil {
+					return s, local, w
+				}
+			}
+		}
+	}
+	for _, w := range slices.Backward(c.stack) {
+		if w.layer == wm.LayerFullscreen && !w.scratch && !c.peekHidesInput(w) {
+			if s, local := c.hitWindow(w, p); s != nil {
+				return s, local, w
+			}
+		}
+	}
+	if s, local := c.hitLayers(o, aboveWindows, p); s != nil {
+		return s, local, nil
+	}
+	for _, w := range slices.Backward(c.stack) {
+		if w.layer != wm.LayerFullscreen && !w.scratch && !c.peekHidesInput(w) && !c.carried(w) {
+			if s, local := hitPopups(c.popups(w), p); s != nil {
+				return s, local, w
+			}
+		}
+	}
+	for _, layer := range slices.Backward(windowLayers) {
+		for _, w := range slices.Backward(c.stack) {
+			if w.layer != layer || !w.visible || w.scratch || c.peekHidesInput(w) || c.carried(w) {
+				continue
+			}
+			if s, local := hitTree(w.top.Surface(), c.windowOrigin(w), p); s != nil {
+				return s, local, w
+			}
+		}
+	}
+	if s, local := c.hitLayers(o, belowWindows, p); s != nil {
+		return s, local, nil
+	}
+	return nil, point{}, nil
+}
+
+func hitTree(s *surface.Surface, org origin, p point) (*surface.Surface, point) {
+	for member := range s.StackTopDown() {
+		if member != s {
+			if sub := member.Subsurface(); sub != nil {
+				if hit, local := hitTree(member, org.child(sub.Position()), p); hit != nil {
+					return hit, local
+				}
+			}
+			continue
+		}
+		local := org.local(p)
+		if s.Buffer() != nil && s.AcceptsInput(local.pixel()) {
+			return s, local
+		}
+	}
+	return nil, point{}
+}
+
+func (c *Compositor) originOf(target *surface.Surface) (origin, bool) {
+	if org, ok := c.baseOrigin(target); ok {
+		return org, true
+	}
+	for _, placed := range c.inputPopups() {
+		if org, ok := treeOrigin(placed.popup.Surface, flat(placed.at.Min), target); ok {
+			return org, true
+		}
+	}
+	return origin{}, false
+}
+
+func (c *Compositor) baseOrigin(target *surface.Surface) (origin, bool) {
+	for _, o := range c.outputs {
+		if ls := c.lockSurfaceOn(o); ls != nil {
+			if org, ok := treeOrigin(ls.Surface(), flat(o.Position()), target); ok {
+				return org, true
+			}
+		}
+	}
+	for _, w := range c.unmanaged {
+		if org, ok := treeOrigin(w.Surface(), c.unmanagedOrigin(w), target); ok {
+			return org, true
+		}
+	}
+	for _, w := range c.windows {
+		if !w.visible {
+			continue
+		}
+		if org, ok := treeOrigin(w.top.Surface(), c.windowOrigin(w), target); ok {
+			return org, true
+		}
+		for _, pp := range c.popups(w) {
+			if org, ok := treeOrigin(pp.popup.Surface(), flat(pp.origin), target); ok {
+				return org, true
+			}
+		}
+	}
+	for _, e := range c.layers {
+		if !e.shown() {
+			continue
+		}
+		if org, ok := treeOrigin(e.surface.Surface(), flat(e.bounds().Min), target); ok {
+			return org, true
+		}
+		for _, pp := range c.layerPopups(e) {
+			if org, ok := treeOrigin(pp.popup.Surface(), flat(pp.origin), target); ok {
+				return org, true
+			}
+		}
+	}
+	return origin{}, false
+}
+
+func treeOrigin(s *surface.Surface, org origin, target *surface.Surface) (origin, bool) {
+	if s == target {
+		return org, true
+	}
+	for member := range s.Stack() {
+		if member != s && member.Subsurface() != nil {
+			if found, ok := treeOrigin(member, org.child(member.Subsurface().Position()), target); ok {
+				return found, true
+			}
+		}
+	}
+	return origin{}, false
+}

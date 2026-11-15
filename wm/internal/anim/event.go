@@ -1,0 +1,285 @@
+package anim
+
+import (
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/stubbedev/lys-lib/motion"
+)
+
+type Event uint8
+
+const (
+	Global Event = iota
+	Windows
+	WindowsMove
+	WindowsIn
+	WindowsOut
+	Fade
+	FadeIn
+	FadeOut
+	Workspaces
+	Layers
+	LayersIn
+	LayersOut
+	FadeSwitch
+	FadeDim
+	FadeShadow
+	BorderAngle
+	WindowsMinimize
+	Zoom
+	Snap
+	FadeSnap
+	Overview
+	Scratchpad
+	eventCount
+)
+
+type StyleKind uint8
+
+const (
+	NoStyle StyleKind = iota
+	Popin
+	Slide
+	SlideVert
+	FadeStyle
+	Once
+	Loop
+	Morph
+	Elastic
+	Goo
+	Bud
+	Genie
+)
+
+var styleNames = map[StyleKind]string{Popin: "popin", Slide: "slide", SlideVert: "slidevert", FadeStyle: "fade", Once: "once", Loop: "loop", Morph: "morph", Elastic: "elastic", Goo: "goo", Bud: "bud", Genie: "genie"}
+
+type Style struct {
+	Kind    StyleKind
+	Percent float64
+}
+
+func (s Style) String() string {
+	if s.Kind == Popin {
+		return fmt.Sprintf("popin %g%%", s.Percent)
+	}
+	return styleNames[s.Kind]
+}
+
+const defaultPopin = 80
+
+func ParseStyle(text string) (Style, error) {
+	fields := strings.Fields(text)
+	if len(fields) == 0 {
+		return Style{}, errors.New("anim: an empty style")
+	}
+	for kind, name := range styleNames {
+		if fields[0] != name {
+			continue
+		}
+		s := Style{Kind: kind}
+		switch {
+		case kind == Popin && len(fields) == 1:
+			s.Percent = defaultPopin
+		case kind == Popin && len(fields) == 2:
+			v, err := strconv.ParseFloat(strings.TrimSuffix(fields[1], "%"), 64)
+			if err != nil || !strings.HasSuffix(fields[1], "%") || !(v >= 0 && v <= 100) {
+				return Style{}, fmt.Errorf("anim: popin takes a percentage from 0%% to 100%%, not %q", fields[1])
+			}
+			s.Percent = v
+		case len(fields) > 1:
+			return Style{}, fmt.Errorf("anim: %s takes no argument, not %q", name, strings.Join(fields[1:], " "))
+		}
+		return s, nil
+	}
+	return Style{}, fmt.Errorf("anim: unknown style %q", fields[0])
+}
+
+type reduction uint8
+
+const (
+	still reduction = iota
+	fades
+	crossFades
+)
+
+var events = [eventCount]struct {
+	name    string
+	parent  Event
+	styles  []StyleKind
+	style   Style
+	reduced reduction
+	shape   Shape
+}{
+	Global:          {name: "global", parent: Global, reduced: fades},
+	Windows:         {name: "windows", parent: Global},
+	WindowsMove:     {name: "windows_move", parent: Windows, styles: []StyleKind{Morph, Elastic}},
+	WindowsIn:       {name: "windows_in", parent: Windows, styles: []StyleKind{Popin, Slide, Bud}, style: Style{Kind: Popin, Percent: defaultPopin}},
+	WindowsOut:      {name: "windows_out", parent: Windows, styles: []StyleKind{Popin, Slide, Bud}, style: Style{Kind: Popin, Percent: defaultPopin}},
+	Fade:            {name: "fade", parent: Global, reduced: fades},
+	FadeIn:          {name: "fade_in", parent: Fade, reduced: fades},
+	FadeOut:         {name: "fade_out", parent: Fade, reduced: fades},
+	Workspaces:      {name: "workspaces", parent: Global, styles: []StyleKind{Slide, SlideVert, FadeStyle, Popin, Goo}, style: Style{Kind: Slide}, reduced: crossFades},
+	Layers:          {name: "layers", parent: Global, reduced: fades},
+	LayersIn:        {name: "layers_in", parent: Layers, styles: []StyleKind{Slide, Popin, FadeStyle}, style: Style{Kind: Slide}, reduced: crossFades},
+	LayersOut:       {name: "layers_out", parent: Layers, styles: []StyleKind{Slide, Popin, FadeStyle}, style: Style{Kind: Slide}, reduced: crossFades},
+	FadeSwitch:      {name: "fade_switch", parent: Fade, reduced: fades},
+	FadeDim:         {name: "fade_dim", parent: Fade, reduced: fades},
+	FadeShadow:      {name: "fade_shadow", parent: Fade, reduced: fades},
+	BorderAngle:     {name: "borderangle", parent: Global, styles: []StyleKind{Once, Loop}, style: Style{Kind: Once}},
+	WindowsMinimize: {name: "windows_minimize", parent: Windows, styles: []StyleKind{Genie, FadeStyle}, style: Style{Kind: Genie}, reduced: crossFades},
+	Zoom:            {name: "zoom", parent: Global, shape: Smooth},
+	Snap:            {name: "snap", parent: Windows, shape: Smooth},
+	FadeSnap:        {name: "fade_snap", parent: Fade, reduced: fades},
+	Overview:        {name: "overview", parent: Global, shape: overviewSpring},
+	Scratchpad:      {name: "scratchpad", parent: Global, styles: []StyleKind{SlideVert, FadeStyle, Popin}, style: Style{Kind: SlideVert}, reduced: crossFades},
+}
+
+func (e Event) String() string {
+	return events[e].name
+}
+
+func Events() []Event {
+	out := make([]Event, eventCount)
+	for i := range out {
+		out[i] = Event(i)
+	}
+	return out
+}
+
+func EventNamed(name string) (Event, bool) {
+	for e, d := range events {
+		if d.name == name {
+			return Event(e), true
+		}
+	}
+	return 0, false
+}
+
+type Setting struct {
+	Enabled  *bool
+	Shape    Shape
+	Duration *time.Duration
+	Style    *Style
+}
+
+type resolved struct {
+	enabled  bool
+	shape    Shape
+	duration time.Duration
+	explicit bool
+}
+
+var (
+	Linear         = Bezier{motion.NewCubicBezier(0, 0, 1, 1)}
+	Ease           = Bezier{motion.NewCubicBezier(0.25, 0.1, 0.25, 1)}
+	EaseIn         = Bezier{motion.NewCubicBezier(0.42, 0, 1, 1)}
+	EaseOut        = Bezier{motion.NewCubicBezier(0, 0, 0.58, 1)}
+	EaseInOut      = Bezier{motion.NewCubicBezier(0.42, 0, 0.58, 1)}
+	Smooth         = mustSpring(170, 26)
+	overviewSpring = mustSpring(300, 34)
+	Wobbly         = mustSpring(200, 10)
+)
+
+func mustSpring(stiffness, damping float64) Spring {
+	s, err := NewSpring(stiffness, damping, 1)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+func Builtins() map[string]Shape {
+	return map[string]Shape{"linear": Linear, "ease": Ease, "ease_in": EaseIn, "ease_out": EaseOut, "ease_in_out": EaseInOut, "spring": Smooth}
+}
+
+const DefaultDuration = 250 * time.Millisecond
+
+type Table struct {
+	curves  [eventCount]Curve
+	styles  [eventCount]Style
+	reduced bool
+}
+
+func (t Table) Reduced() bool {
+	return t.reduced
+}
+
+func (t Table) Style(e Event) Style {
+	if t.reduced {
+		if events[e].reduced == crossFades {
+			return Style{Kind: FadeStyle}
+		}
+		return Style{}
+	}
+	if s := t.styles[e]; s != (Style{}) {
+		return s
+	}
+	return events[e].style
+}
+
+func (t Table) Curve(e Event) Curve {
+	if c := t.curves[e]; c != nil {
+		return c
+	}
+	return Instant
+}
+
+func Resolve(enabled bool, settings map[Event]Setting) (Table, map[Event]error) {
+	return resolve(enabled, false, settings)
+}
+
+func ResolveReduced(settings map[Event]Setting) (Table, map[Event]error) {
+	return resolve(true, true, settings)
+}
+
+func resolve(enabled, reduced bool, settings map[Event]Setting) (Table, map[Event]error) {
+	t := Table{reduced: reduced}
+	var got [eventCount]resolved
+	errs := map[Event]error{}
+	for _, e := range Events() {
+		r := resolved{enabled: true, shape: EaseOut, duration: DefaultDuration}
+		if e != Global {
+			r = got[events[e].parent]
+			r.explicit = false
+		}
+		s := settings[e]
+		if d := events[e].shape; d != nil && s.Duration == nil {
+			r.shape = d
+		}
+		if s.Enabled != nil {
+			r.enabled = *s.Enabled
+		}
+		if s.Shape != nil {
+			r.shape = s.Shape
+		}
+		if s.Duration != nil {
+			r.duration, r.explicit = *s.Duration, true
+		}
+		got[e] = r
+		if st := s.Style; st != nil {
+			if !slices.Contains(events[e].styles, st.Kind) {
+				errs[e] = fmt.Errorf("event %s takes no style %s", e, st)
+				continue
+			}
+			t.styles[e] = *st
+		}
+		c, err := r.shape.Timed(r.duration, r.explicit)
+		if err != nil {
+			errs[e] = fmt.Errorf("event %s: %w", e, err)
+			continue
+		}
+		switch {
+		case !enabled || !r.enabled:
+		case !reduced:
+			t.curves[e] = c
+		case events[e].reduced != still:
+			t.curves[e] = eased{EaseOut, r.duration}
+		}
+	}
+	return t, errs
+}

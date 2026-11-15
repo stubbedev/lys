@@ -1,0 +1,272 @@
+{
+  "protocols": [
+    {
+      "package": "wayland",
+      "file": "wayland.xml"
+    },
+    {
+      "package": "xdgshell",
+      "file": "xdg-shell.xml"
+    },
+    {
+      "package": "viewporter",
+      "file": "viewporter.xml"
+    },
+    {
+      "package": "presentationtime",
+      "file": "presentation-time.xml"
+    },
+    {
+      "package": "linuxdmabuf",
+      "file": "linux-dmabuf-v1.xml"
+    },
+    {
+      "package": "tablet",
+      "file": "tablet-v2.xml"
+    },
+    {
+      "package": "cursorshape",
+      "file": "cursor-shape-v1.xml"
+    },
+    {
+      "package": "fractionalscale",
+      "file": "fractional-scale-v1.xml"
+    },
+    {
+      "package": "singlepixelbuffer",
+      "file": "single-pixel-buffer-v1.xml"
+    },
+    {
+      "package": "xdgactivation",
+      "file": "xdg-activation-v1.xml"
+    },
+    {
+      "package": "linuxdrmsyncobj",
+      "file": "linux-drm-syncobj-v1.xml"
+    },
+    {
+      "package": "extsessionlock",
+      "file": "ext-session-lock-v1.xml"
+    },
+    {
+      "package": "extidlenotify",
+      "file": "ext-idle-notify-v1.xml"
+    },
+    {
+      "package": "extdatacontrol",
+      "file": "ext-data-control-v1.xml"
+    },
+    {
+      "package": "extforeigntoplevellist",
+      "file": "ext-foreign-toplevel-list-v1.xml"
+    },
+    {
+      "package": "extimagecapturesource",
+      "file": "ext-image-capture-source-v1.xml"
+    },
+    {
+      "package": "extimagecopycapture",
+      "file": "ext-image-copy-capture-v1.xml"
+    },
+    {
+      "package": "extworkspace",
+      "file": "ext-workspace-v1.xml"
+    },
+    {
+      "package": "xwaylandshell",
+      "file": "xwayland-shell-v1.xml"
+    },
+    {
+      "package": "xdgdecoration",
+      "file": "xdg-decoration-unstable-v1.xml"
+    },
+    {
+      "package": "xdgoutput",
+      "file": "xdg-output-unstable-v1.xml"
+    },
+    {
+      "package": "primaryselection",
+      "file": "primary-selection-unstable-v1.xml"
+    },
+    {
+      "package": "idleinhibit",
+      "file": "idle-inhibit-unstable-v1.xml"
+    },
+    {
+      "package": "pointerconstraints",
+      "file": "pointer-constraints-unstable-v1.xml"
+    },
+    {
+      "package": "relativepointer",
+      "file": "relative-pointer-unstable-v1.xml"
+    },
+    {
+      "package": "keyboardshortcutsinhibit",
+      "file": "keyboard-shortcuts-inhibit-unstable-v1.xml"
+    },
+    {
+      "package": "wlrlayershell",
+      "file": "wlr-layer-shell-unstable-v1.xml"
+    },
+    {
+      "package": "wlrdatacontrol",
+      "file": "wlr-data-control-unstable-v1.xml"
+    },
+    {
+      "package": "wlrscreencopy",
+      "file": "wlr-screencopy-unstable-v1.xml"
+    },
+    {
+      "package": "wlrforeigntoplevel",
+      "file": "wlr-foreign-toplevel-management-unstable-v1.xml"
+    },
+    {
+      "package": "wlrvirtualpointer",
+      "file": "wlr-virtual-pointer-unstable-v1.xml"
+    },
+    {
+      "package": "wlroutputpower",
+      "file": "wlr-output-power-management-unstable-v1.xml"
+    },
+    {
+      "package": "xdgforeignv1",
+      "file": "xdg-foreign-unstable-v1.xml"
+    },
+    {
+      "package": "xdgforeignv2",
+      "file": "xdg-foreign-unstable-v2.xml"
+    },
+    {
+      "package": "xdgdialog",
+      "file": "xdg-dialog-v1.xml"
+    },
+    {
+      "package": "systembell",
+      "file": "xdg-system-bell-v1.xml"
+    },
+    {
+      "package": "alphamodifier",
+      "file": "alpha-modifier-v1.xml"
+    },
+    {
+      "package": "securitycontext",
+      "file": "security-context-v1.xml"
+    },
+    {
+      "package": "pointergestures",
+      "file": "pointer-gestures-unstable-v1.xml"
+    },
+    {
+      "package": "wlroutputmanagement",
+      "file": "wlr-output-management-unstable-v1.xml"
+    },
+    {
+      "package": "kdeserverdecoration",
+      "file": "server-decoration.xml"
+    },
+    {
+      "package": "virtualkeyboard",
+      "file": "virtual-keyboard-unstable-v1.xml"
+    },
+    {
+      "package": "hyprlandglobalshortcuts",
+      "file": "hyprland-global-shortcuts-v1.xml"
+    },
+    {
+      "package": "hyprlandfocusgrab",
+      "file": "hyprland-focus-grab-v1.xml"
+    },
+    {
+      "package": "hyprlandctmcontrol",
+      "file": "hyprland-ctm-control-v1.xml"
+    },
+    {
+      "package": "hyprlandsurface",
+      "file": "hyprland-surface-v1.xml"
+    },
+    {
+      "package": "hyprlandtoplevelexport",
+      "file": "hyprland-toplevel-export-v1.xml"
+    },
+    {
+      "package": "colorrepresentation",
+      "file": "color-representation-v1.xml"
+    },
+    {
+      "package": "colormanagement",
+      "file": "color-management-v1.xml"
+    },
+    {
+      "package": "fifo",
+      "file": "fifo-v1.xml"
+    },
+    {
+      "package": "committiming",
+      "file": "commit-timing-v1.xml"
+    },
+    {
+      "package": "wlrgammacontrol",
+      "file": "wlr-gamma-control-unstable-v1.xml"
+    },
+    {
+      "package": "tearingcontrol",
+      "file": "tearing-control-v1.xml"
+    },
+    {
+      "package": "textinput",
+      "file": "text-input-unstable-v3.xml"
+    },
+    {
+      "package": "textinputv1",
+      "file": "text-input-unstable-v1.xml"
+    },
+    {
+      "package": "inputmethod",
+      "file": "input-method-unstable-v2.xml"
+    },
+    {
+      "package": "pointerwarp",
+      "file": "pointer-warp-v1.xml"
+    },
+    {
+      "package": "contenttype",
+      "file": "content-type-v1.xml"
+    },
+    {
+      "package": "xdgtoplevelicon",
+      "file": "xdg-toplevel-icon-v1.xml"
+    },
+    {
+      "package": "xdgtopleveltag",
+      "file": "xdg-toplevel-tag-v1.xml"
+    },
+    {
+      "package": "xdgtopleveldrag",
+      "file": "xdg-toplevel-drag-v1.xml"
+    },
+    {
+      "package": "lysescape",
+      "file": "lys-escape-v1.xml"
+    },
+    {
+      "package": "lysvirtualtouch",
+      "file": "lys-virtual-touch-v1.xml"
+    },
+    {
+      "package": "lyscapturehint",
+      "file": "lys-capture-hint-v1.xml"
+    },
+    {
+      "package": "lysdynamiccapture",
+      "file": "lys-dynamic-capture-v1.xml"
+    },
+    {
+      "package": "backgroundeffect",
+      "file": "ext-background-effect-v1.xml"
+    },
+    {
+      "package": "xxhotkey",
+      "file": "xx-hotkey-v1.xml"
+    }
+  ]
+}

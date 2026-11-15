@@ -1,0 +1,495 @@
+// Package xwayland runs Xwayland for X11 clients: it holds the X display
+// sockets, starts Xwayland on the first connection, and matches X windows
+// to their wl_surfaces through xwayland_shell_v1.
+package xwayland
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"image"
+	"io"
+	"net"
+	"os"
+	"os/exec"
+	"slices"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/jezek/xgb/xproto"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-wm/internal/data"
+	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/spawn"
+	"github.com/stubbedev/lys-wm/internal/surface"
+)
+
+const Env = "LYS_WM_XWAYLAND"
+
+var defaultXwayland = "Xwayland"
+
+func Path(getenv func(string) string) string {
+	if p := getenv(Env); p != "" {
+		return p
+	}
+	return defaultXwayland
+}
+
+type Options struct {
+	Binary          string
+	Dir             string
+	Env             []string
+	Log             io.Writer
+	Report          func(error)
+	Listener        Listener
+	FirstDisplay    int
+	TransferTimeout time.Duration
+	Spawner         *spawn.Spawner
+}
+
+type Server struct {
+	loop    *loop.Loop
+	display *server.Display
+	opts    Options
+	socks   *sockets
+	watch   []*loop.Source
+	shell   *Shell
+	proc    *process
+	closed  bool
+}
+
+type process struct {
+	child  *spawn.Process
+	client *server.Client
+	wm     *wm
+	notify int
+	ready  *loop.Source
+	line   []byte
+	up     bool
+	failed error
+}
+
+func (o Options) resolved() (Options, error) {
+	if o.Listener == nil || o.Report == nil || o.TransferTimeout <= 0 || o.Spawner == nil {
+		return Options{}, errors.New("xwayland: Options.Listener, Options.Report, Options.TransferTimeout and Options.Spawner are required")
+	}
+	binary, err := exec.LookPath(o.Binary)
+	if err != nil {
+		return Options{}, fmt.Errorf("xwayland: find %s (set %s to its path): %w", o.Binary, Env, err)
+	}
+	o.Binary = binary
+	return o, nil
+}
+
+func Listen(l *loop.Loop, d *server.Display, opts Options) (*Server, error) {
+	opts, err := opts.resolved()
+	if err != nil {
+		return nil, err
+	}
+	socks, skipped, err := bindDisplay(opts.Dir, opts.FirstDisplay, os.Remove)
+	if err != nil {
+		return nil, err
+	}
+	s := &Server{loop: l, display: d, opts: opts, socks: socks}
+	if len(skipped) > 0 {
+		opts.Report(fmt.Errorf("xwayland: took %s, passing over displays a dead X server left behind: %w", s.Display(), errors.Join(skipped...)))
+	}
+	if s.shell, err = newShell(d, s.IsClient, s.associated, s.dissociated); err != nil {
+		return nil, errors.Join(err, socks.close())
+	}
+	if err := s.arm(); err != nil {
+		return nil, errors.Join(err, s.Close())
+	}
+	return s, nil
+}
+
+func (s *Server) Display() string {
+	return ":" + strconv.Itoa(s.socks.n)
+}
+
+func (s *Server) Pid() int {
+	if s.proc == nil {
+		return 0
+	}
+	return s.proc.child.Pid
+}
+
+func (s *Server) Running() bool {
+	return s.proc != nil && s.proc.up
+}
+
+func (s *Server) IsClient(c *server.Client) bool {
+	return s.proc != nil && s.proc.client == c
+}
+
+func (s *Server) arm() error {
+	if len(s.watch) > 0 {
+		return nil
+	}
+	for _, fd := range s.socks.fds {
+		src, err := s.loop.AddFD(fd, loop.Readable, s.connecting)
+		if err != nil {
+			return fmt.Errorf("xwayland: watch %s: %w", s.Display(), err)
+		}
+		s.watch = append(s.watch, src)
+	}
+	return nil
+}
+
+func (s *Server) disarm() error {
+	var errs []error
+	for _, src := range s.watch {
+		errs = append(errs, src.Remove())
+	}
+	s.watch = s.watch[:0]
+	return errors.Join(errs...)
+}
+
+func (s *Server) connecting(loop.Events) error {
+	if err := s.disarm(); err != nil {
+		return err
+	}
+	if err := s.start(); err != nil {
+		s.report(fmt.Errorf("xwayland: start %s for %s: %w", s.opts.Binary, s.Display(), err))
+		if s.proc != nil {
+			return nil
+		}
+		return errors.Join(s.refuseWaiting(), s.arm())
+	}
+	return nil
+}
+
+func (s *Server) refuseWaiting() error {
+	var errs []error
+	for _, fd := range s.socks.fds {
+		for {
+			ready, err := unix.Poll([]unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}, 0) //nolint:gosec // fds fit int32
+			if errors.Is(err, unix.EINTR) {
+				continue
+			}
+			if err != nil || ready == 0 {
+				errs = append(errs, err)
+				break
+			}
+			conn, _, err := unix.Accept4(fd, unix.SOCK_CLOEXEC)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("xwayland: refuse a waiting X client: %w", err))
+				break
+			}
+			errs = append(errs, unix.Close(conn))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func pair() ([2]int, error) {
+	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	return [2]int{fds[0], fds[1]}, err
+}
+
+func (s *Server) start() error {
+	var mine, theirs []int
+	fail := func(err error) error {
+		for _, fd := range append(mine, theirs...) {
+			_ = unix.Close(fd)
+		}
+		return err
+	}
+	wayland, err := pair()
+	if err != nil {
+		return fmt.Errorf("socketpair for Wayland: %w", err)
+	}
+	mine, theirs = append(mine, wayland[0]), append(theirs, wayland[1])
+	wm, err := pair()
+	if err != nil {
+		return fail(fmt.Errorf("socketpair for the window manager: %w", err))
+	}
+	mine, theirs = append(mine, wm[0]), append(theirs, wm[1])
+	var notify [2]int
+	if err := unix.Pipe2(notify[:], unix.O_CLOEXEC); err != nil {
+		return fail(fmt.Errorf("pipe for -displayfd: %w", err))
+	}
+	mine, theirs = append(mine, notify[0]), append(theirs, notify[1])
+	var listen [2]int
+	for i, fd := range s.socks.fds {
+		if listen[i], err = unix.Dup(fd); err != nil {
+			return fail(fmt.Errorf("dup the X socket: %w", err))
+		}
+		theirs = append(theirs, listen[i])
+	}
+	fds := []int{listen[0], listen[1], notify[1], wm[1], wayland[1]}
+	files := make([]*os.File, len(fds))
+	for i, fd := range fds {
+		files[i] = os.NewFile(uintptr(fd), "xwayland")
+	}
+	child, err := s.opts.Spawner.Spawn(spawn.Command{
+		Path: s.opts.Binary,
+		Args: []string{s.opts.Binary, s.Display(), "-rootless", "-core", "-listenfd", "3", "-listenfd", "4", "-displayfd", "5", "-wm", "6"},
+		Env: append(slices.DeleteFunc(slices.Clone(s.opts.Env), func(kv string) bool {
+			name, _, _ := strings.Cut(kv, "=")
+			return name == "WAYLAND_DISPLAY" || name == "WAYLAND_SOCKET" || name == "DISPLAY"
+		}), "WAYLAND_SOCKET=7"),
+		Stdout:      s.opts.Log,
+		Stderr:      s.opts.Log,
+		ExtraFiles:  files,
+		DeathSignal: syscall.SIGTERM,
+	})
+	for _, f := range files {
+		_ = f.Close()
+	}
+	theirs = nil
+	if err != nil {
+		return fail(err)
+	}
+	p := &process{child: child, notify: notify[0]}
+	s.proc = p
+	go func() {
+		err := child.Wait()
+		s.loop.Hand("the exit of Xwayland", func() error { return s.exited(p, err) })
+	}()
+	wmFile := os.NewFile(uintptr(wm[0]), "xwayland-wm")
+	conn, err := net.FileConn(wmFile)
+	if err = errors.Join(err, wmFile.Close()); err != nil {
+		return errors.Join(fmt.Errorf("the window manager socket: %w", err), unix.Close(wayland[0]), s.kill(p))
+	}
+	go s.manage(p, conn)
+	if p.client, err = s.display.AddClient(wayland[0]); err != nil {
+		return errors.Join(err, unix.Close(wayland[0]), s.kill(p))
+	}
+	if p.ready, err = s.loop.AddFD(p.notify, loop.Readable, func(loop.Events) error { return s.notified(p) }); err != nil {
+		return errors.Join(err, s.kill(p))
+	}
+	return nil
+}
+
+func (s *Server) notified(p *process) error {
+	var buf [16]byte
+	n, err := unix.Read(p.notify, buf[:])
+	switch {
+	case errors.Is(err, unix.EAGAIN), errors.Is(err, unix.EINTR):
+		return nil
+	case err != nil:
+		return errors.Join(fmt.Errorf("xwayland: read -displayfd: %w", err), s.stopNotify(p))
+	case n == 0:
+		return s.stopNotify(p)
+	}
+	p.line = append(p.line, buf[:n]...)
+	if !bytes.ContainsRune(p.line, '\n') {
+		return nil
+	}
+	if got := strings.TrimSpace(string(p.line)); got != strconv.Itoa(s.socks.n) {
+		return errors.Join(fmt.Errorf("xwayland: started on display %q, want %s", got, s.Display()), s.stopNotify(p))
+	}
+	p.up = true
+	return s.stopNotify(p)
+}
+
+func (s *Server) stopNotify(p *process) error {
+	var errs []error
+	if p.ready != nil {
+		errs = append(errs, p.ready.Remove())
+		p.ready = nil
+	}
+	if p.notify >= 0 {
+		errs = append(errs, unix.Close(p.notify))
+		p.notify = -1
+	}
+	return errors.Join(errs...)
+}
+
+func (p *process) release() error {
+	if p.wm == nil {
+		return nil
+	}
+	err := p.wm.close()
+	p.wm.x.Close()
+	p.wm = nil
+	return err
+}
+
+func (s *Server) kill(p *process) error {
+	if err := p.child.Signal(syscall.SIGKILL); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return fmt.Errorf("xwayland: kill pid %d: %w", p.child.Pid, err)
+	}
+	return nil
+}
+
+func (s *Server) killFor(p *process, cause error) error {
+	err := p.child.Signal(syscall.SIGKILL)
+	switch {
+	case err == nil:
+		p.failed = cause
+		return nil
+	case errors.Is(err, os.ErrProcessDone):
+		return nil
+	}
+	return fmt.Errorf("xwayland: kill pid %d, as %w: %w", p.child.Pid, cause, err)
+}
+
+func (s *Server) exited(p *process, status error) error {
+	if s.proc != p {
+		return nil
+	}
+	s.proc = nil
+	errs := []error{s.stopNotify(p), p.release()}
+	if s.closed {
+		return errors.Join(errs...)
+	}
+	if status == nil {
+		status = errors.New("exit status 0")
+	}
+	if p.failed != nil {
+		status = fmt.Errorf("%w, killed because its window manager failed: %w", status, p.failed)
+	}
+	s.opts.Report(fmt.Errorf("xwayland: Xwayland on %s exited (%w); the next X client starts it again", s.Display(), status))
+	return errors.Join(append(errs, s.arm())...)
+}
+
+func (s *Server) manage(p *process, conn net.Conn) {
+	c, err := claim(conn)
+	if err != nil {
+		_ = conn.Close()
+		s.loop.Hand("a failed X window manager claim", func() error {
+			if s.proc != p {
+				return nil
+			}
+			return s.killFor(p, err)
+		})
+		return
+	}
+	c.report = s.report
+	c.post = func(f func(*wm) error) {
+		s.loop.Hand("an X event", func() error {
+			if s.proc != p || p.wm == nil {
+				return nil
+			}
+			return f(p.wm)
+		})
+	}
+	s.loop.Hand("the claimed X window manager", func() error {
+		if s.proc != p {
+			c.x.Close()
+			return nil
+		}
+		m := &wm{
+			x: c.x, root: c.root, sel: c.sel, proxy: c.proxy, atoms: c.atoms, windows: map[xproto.Window]*Window{}, shell: s.shell,
+			listener: s.opts.Listener, loop: s.loop, client: p.client, outgoing: map[outKey]*outgoing{},
+			report: s.report, transfer: s.opts.TransferTimeout,
+		}
+		var err error
+		if m.stall, err = s.loop.AddTimer(m.stalled); err != nil {
+			return err
+		}
+		if m.reap, err = s.loop.AddTimer(m.reaped); err != nil {
+			return errors.Join(err, m.stall.Remove())
+		}
+		for _, k := range []data.Kind{data.Clipboard, data.Primary} {
+			m.selections[k] = &selection{kind: k, atom: c.atoms[[]atom{atomClipboard, atomPrimary}[k]]}
+		}
+		m.dndSel = &selection{atom: c.atoms[atomXdndSelection]}
+		p.wm = m
+		m.setWorkArea(s.opts.Listener.WorkArea())
+		var errs []error
+		for _, k := range []data.Kind{data.Clipboard, data.Primary} {
+			errs = append(errs, m.selectionChanged(k, s.opts.Listener.CurrentSelection(k)))
+		}
+		return errors.Join(errs...)
+	})
+	c.run()
+	s.loop.Hand("the end of the X connection", func() error {
+		if s.proc != p || s.closed {
+			return nil
+		}
+		return s.killFor(p, errors.New("its X connection ended"))
+	})
+}
+
+func (s *Server) SelectionChanged(k data.Kind, src data.Source) error {
+	if m := s.running(); m != nil {
+		return m.selectionChanged(k, src)
+	}
+	return nil
+}
+
+func (s *Server) WorkAreaChanged(r image.Rectangle) {
+	if m := s.running(); m != nil {
+		m.setWorkArea(r)
+	}
+}
+
+func (s *Server) associated(serial uint64, sf *surface.Surface) error {
+	if m := s.running(); m != nil {
+		return m.associated(serial, sf)
+	}
+	return nil
+}
+
+func (s *Server) dissociated(serial uint64) error {
+	if m := s.running(); m != nil {
+		return m.dissociated(serial)
+	}
+	return nil
+}
+
+func (s *Server) report(err error) {
+	s.loop.Hand("an Xwayland error", func() error {
+		s.opts.Report(err)
+		return nil
+	})
+}
+
+func (s *Server) Close() error {
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	errs := []error{s.disarm()}
+	if p := s.proc; p != nil {
+		errs = append(errs, s.kill(p), s.stopNotify(p), p.release())
+		s.proc = nil
+	}
+	return errors.Join(append(errs, s.shell.close(), s.socks.close())...)
+}
+
+func (s *Server) running() *wm {
+	if s.proc == nil {
+		return nil
+	}
+	return s.proc.wm
+}
+
+func (s *Server) Takes(sf *surface.Surface) bool {
+	return s.running() != nil && s.IsClient(sf.Client())
+}
+
+func (s *Server) DragEnter(d *data.Drag, sf *surface.Surface, x, y float64) error {
+	if m := s.running(); m != nil {
+		return m.dragEnter(d, sf, x, y)
+	}
+	return nil
+}
+
+func (s *Server) DragMotion(x, y float64) error {
+	if m := s.running(); m != nil {
+		return m.dragMotion(x, y)
+	}
+	return nil
+}
+
+func (s *Server) DragLeave() error {
+	if m := s.running(); m != nil {
+		return m.dragLeave()
+	}
+	return nil
+}
+
+func (s *Server) DragDrop() error {
+	if m := s.running(); m != nil {
+		return m.dragDrop()
+	}
+	return nil
+}

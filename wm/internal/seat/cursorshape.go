@@ -1,0 +1,69 @@
+package seat
+
+import (
+	"github.com/stubbedev/lys-lib/xcursor"
+
+	scs "github.com/stubbedev/lys-wm/internal/protocol/server/cursorshape"
+	"github.com/stubbedev/lys-wm/internal/protocol/server/tablet"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+const cursorShapeVersion = 2
+
+func shapeName(shape scs.WpCursorShapeDeviceV1Shape) (string, bool) {
+	if shape < scs.WpCursorShapeDeviceV1ShapeDefault || int(shape) > len(xcursor.Shapes) {
+		return "", false
+	}
+	return xcursor.Shapes[shape-scs.WpCursorShapeDeviceV1ShapeDefault].Name, true
+}
+
+func (s *Seat) bindCursorShape(c *server.Client, id wire.ObjectID, version uint32) error {
+	_, err := scs.NewWpCursorShapeManagerV1(c, id, version, cursorShapeManager{s, c})
+	return err
+}
+
+type cursorShapeManager struct {
+	s *Seat
+	c *server.Client
+}
+
+func (cursorShapeManager) Destroy(*scs.WpCursorShapeManagerV1) error {
+	return nil
+}
+
+func (m cursorShapeManager) GetPointer(_ *scs.WpCursorShapeManagerV1, _ *scs.WpCursorShapeDeviceV1, _ *sw.WlPointer) (scs.WpCursorShapeDeviceV1Handler, error) {
+	return shapeDevice{s: m.s, c: m.c}, nil
+}
+
+func (m cursorShapeManager) GetTabletToolV2(_ *scs.WpCursorShapeManagerV1, _ *scs.WpCursorShapeDeviceV1, tool *tablet.ZwpTabletToolV2) (scs.WpCursorShapeDeviceV1Handler, error) {
+	r, _ := tool.Handler().(toolRequests)
+	return shapeDevice{s: m.s, c: m.c, tool: r.t}, nil
+}
+
+type shapeDevice struct {
+	s    *Seat
+	c    *server.Client
+	tool *tabletTool
+}
+
+func (shapeDevice) Destroy(*scs.WpCursorShapeDeviceV1) error {
+	return nil
+}
+
+func (d shapeDevice) SetShape(obj *scs.WpCursorShapeDeviceV1, serial uint32, shape scs.WpCursorShapeDeviceV1Shape) error {
+	name, ok := shapeName(shape)
+	if !ok || !shape.Valid(obj.Base().Version()) {
+		return obj.ProtocolError(scs.WpCursorShapeDeviceV1ErrorInvalidShape, "invalid shape %d", shape)
+	}
+	p := &d.s.pointer
+	switch {
+	case d.tool != nil && !d.tool.entered(d.c, serial):
+		return nil
+	case d.tool == nil && (p.focus == nil || p.focus.Client() != d.c || serial != p.enterSerial):
+		return nil
+	}
+	p.cursor = clientCursor{client: d.c, want: ShapeCursor{Shape: name}}
+	return d.s.listener.CursorChanged()
+}

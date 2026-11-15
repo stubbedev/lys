@@ -1,0 +1,362 @@
+package server
+
+import (
+	"errors"
+	"fmt"
+	"maps"
+	"slices"
+
+	"github.com/stubbedev/lys-lib/peercred"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/loop"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+type destroyHooks struct {
+	of  wire.Resource
+	run []func() error
+}
+
+type Client struct {
+	display    *Display
+	conn       *wire.Conn
+	source     *loop.Source
+	creds      peercred.Credentials
+	objects    map[wire.ObjectID]wire.Resource
+	lastID     wire.ObjectID
+	reserved   map[wire.ObjectID]struct{}
+	wlDisplay  *sw.WlDisplay
+	registries []*sw.WlRegistry
+	hooks      map[wire.ObjectID]*destroyHooks
+	writable   bool
+	dropping   bool
+	gone       bool
+	context    *SecurityContext
+	journal    journal
+	inerts     int
+	restoring  bool
+	serial     uint64
+	recorded   *protocolRing
+}
+
+func (d *Display) AddClient(fd int) (*Client, error) {
+	return d.addClient(fd, nil)
+}
+
+func (d *Display) addClient(fd int, context *SecurityContext) (*Client, error) {
+	creds, err := peercred.OfFD(fd)
+	if err != nil {
+		return nil, fmt.Errorf("server: add the client of fd %d: %w", fd, err)
+	}
+	if err := unix.SetNonblock(fd, true); err != nil {
+		return nil, fmt.Errorf("server: make client fd %d non-blocking: %w", fd, err)
+	}
+	c := &Client{
+		display: d,
+		conn:    wire.NewConn(fd),
+		creds:   creds,
+		objects: map[wire.ObjectID]wire.Resource{},
+		hooks:   map[wire.ObjectID]*destroyHooks{},
+		lastID:  wire.FirstServerID - 1,
+		context: context,
+		journal: journal{policies: d.policies, records: map[wire.ObjectID]*record{}},
+	}
+	c.conn.DeferSendErrors()
+	d.lastClient++
+	c.serial = d.lastClient
+	c.watchProtocol()
+	if c.wlDisplay, err = sw.NewWlDisplay(c, 1, 1, displayRequests{c}); err != nil {
+		return nil, err
+	}
+	if c.source, err = d.loop.AddFD(fd, loop.Readable, c.handle); err != nil {
+		return nil, err
+	}
+	d.clients = append(d.clients, c)
+	return c, nil
+}
+
+func OnDestroy(r wire.Resource, f func() error) {
+	c := clientOf(r)
+	id := r.Base().ID()
+	h, ok := c.hooks[id]
+	if !ok {
+		h = &destroyHooks{of: r}
+		c.hooks[id] = h
+	}
+	h.run = append(h.run, f)
+}
+
+func Track[T comparable](r wire.Resource, list *[]T, x T) {
+	*list = append(*list, x)
+	OnDestroy(r, func() error {
+		*list = slices.DeleteFunc(*list, func(y T) bool { return y == x })
+		return nil
+	})
+}
+
+func clientOf(r wire.Resource) *Client {
+	c, ok := r.Base().Peer().(*Client)
+	if !ok {
+		panic(fmt.Sprintf("server: %s@%d belongs to %T, not to a server client", r.Base().Interface().Name, r.Base().ID(), r.Base().Peer()))
+	}
+	return c
+}
+
+func (c *Client) runHooks(id wire.ObjectID) []error {
+	h, ok := c.hooks[id]
+	if !ok {
+		return nil
+	}
+	delete(c.hooks, id)
+	var errs []error
+	for _, f := range h.run {
+		if err := f(); err != nil {
+			errs = append(errs, fmt.Errorf("destroy %s@%d: %w", h.of.Base().Interface().Name, id, err))
+		}
+	}
+	return errs
+}
+
+func (c *Client) settle(doing string, errs []error) error {
+	var fatal, reported []error
+	for _, err := range errs {
+		switch {
+		case err == nil, c.gone && addressedToTheClient(err):
+		case backend.Fatal(err):
+			fatal = append(fatal, err)
+		default:
+			reported = append(reported, err)
+		}
+	}
+	if len(reported) > 0 {
+		c.display.report(c.while(doing, errors.Join(reported...)))
+	}
+	if len(fatal) > 0 {
+		return c.while(doing, errors.Join(fatal...))
+	}
+	return nil
+}
+
+func (c *Client) while(doing string, err error) error {
+	return fmt.Errorf("server: %s %v: %w", doing, c, err)
+}
+
+func addressedToTheClient(err error) bool {
+	switch e := err.(type) { //nolint:errorlint // every error in the tree is examined, not just the first match
+	case *wire.ProtocolError:
+		return true
+	case interface{ Unwrap() []error }:
+		return !slices.ContainsFunc(e.Unwrap(), func(err error) bool { return !addressedToTheClient(err) })
+	case interface{ Unwrap() error }:
+		return addressedToTheClient(e.Unwrap())
+	}
+	return false
+}
+
+func (c *Client) String() string {
+	if c.context != nil && c.context.AppID != "" {
+		return fmt.Sprintf("the client of pid %d (%s)", c.creds.PID, c.context.AppID)
+	}
+	return fmt.Sprintf("the client of pid %d", c.creds.PID)
+}
+
+func (c *Client) Fail(err error) error {
+	if c.gone || c.dropping {
+		return nil
+	}
+	c.dropping = true
+	return c.display.loop.Post(func() error { return c.fail(err) })
+}
+
+func (c *Client) Creds() peercred.Credentials {
+	return c.creds
+}
+
+func (c *Client) Conn() *wire.Conn {
+	return c.conn
+}
+
+func (c *Client) Get(id wire.ObjectID) (wire.Resource, bool) {
+	r, ok := c.objects[id]
+	return r, ok
+}
+
+func (c *Client) Add(r wire.Resource) error {
+	id := r.Base().ID()
+	switch {
+	case id == 0:
+		return fmt.Errorf("server: new %s with id 0: %w", r.Base().Interface().Name, wire.ErrInvalidNewID)
+	case id.ServerSide() && !c.restoring:
+		if _, ok := c.reserved[id]; !ok {
+			return fmt.Errorf("server: new %s with server id %d that lys-wm did not hand out: %w", r.Base().Interface().Name, id, wire.ErrInvalidNewID)
+		}
+		delete(c.reserved, id)
+	}
+	if _, used := c.objects[id]; used {
+		return fmt.Errorf("server: new %s with id %d already in use: %w", r.Base().Interface().Name, id, wire.ErrInvalidNewID)
+	}
+	c.objects[id] = r
+	return nil
+}
+
+func (c *Client) Remove(id wire.ObjectID) error {
+	r, ok := c.objects[id]
+	if !ok {
+		return fmt.Errorf("server: remove unknown object %d", id)
+	}
+	r.Base().MarkRemoved()
+	errs := c.runHooks(id)
+	delete(c.objects, id)
+	c.journal.removed(id)
+	if !id.ServerSide() && !c.gone {
+		errs = append(errs, c.wlDisplay.SendDeleteID(uint32(id)))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Client) NewID() (wire.ObjectID, error) {
+	if c.lastID == wire.LastServerID {
+		return 0, errors.New("server: server object ids exhausted for this client")
+	}
+	c.lastID++
+	if c.reserved == nil {
+		c.reserved = map[wire.ObjectID]struct{}{}
+	}
+	c.reserved[c.lastID] = struct{}{}
+	return c.lastID, nil
+}
+
+func (c *Client) handle(ev loop.Events) error {
+	if ev&loop.Writable != 0 {
+		if err := c.flush(); err != nil {
+			return c.destroy()
+		}
+	}
+	if ev&loop.Readable != 0 {
+		err := c.conn.Fill()
+		if served := c.dispatch(); served != nil || c.gone {
+			return served
+		}
+		if err != nil {
+			return c.destroy()
+		}
+	}
+	if ev&(loop.Hangup|loop.Error) != 0 {
+		return c.destroy()
+	}
+	return nil
+}
+
+func (c *Client) dispatch() error {
+	for !c.gone {
+		m, err := c.conn.Next()
+		if err != nil {
+			return c.fail(err)
+		}
+		if m == nil {
+			return nil
+		}
+		r, ok := c.objects[m.ID]
+		if !ok {
+			_ = m.Finish()
+			return c.fail(invalidObject(c.wlDisplay, "invalid object %d", m.ID))
+		}
+		if c.inerts > 0 && c.namesInert(r, m) {
+			if err := c.ignore(r, m); err != nil {
+				return c.fail(err)
+			}
+			continue
+		}
+		if c.display.journaling {
+			if err := c.journal.observe(r, m); err != nil {
+				return c.fail(err)
+			}
+		}
+		if err := r.Dispatch(m); err != nil {
+			return c.fail(err)
+		}
+	}
+	return nil
+}
+
+func (c *Client) fail(err error) error {
+	if c.restoring {
+		c.display.restoreFailed(c, err)
+	}
+	if backend.Fatal(err) {
+		return c.while("serve", err)
+	}
+	c.tell(err)
+	return c.destroy()
+}
+
+func (c *Client) tell(err error) {
+	object, code := wire.Resource(c.wlDisplay), sw.WlDisplayErrorImplementation
+	var pe *wire.ProtocolError
+	var me *wire.MessageError
+	switch {
+	case c.conn.Err() != nil:
+		return
+	case errors.As(err, &pe):
+		_ = c.wlDisplay.SendError(c.resource(pe.Object), pe.Code, pe.Message)
+		return
+	case errors.As(err, &me):
+		object, code = c.resource(me.Object), sw.WlDisplayErrorInvalidMethod
+		for _, target := range []error{wire.ErrUnknownObject, wire.ErrWrongInterface, wire.ErrNullObject, wire.ErrInvalidNewID} {
+			if errors.Is(err, target) {
+				code = sw.WlDisplayErrorInvalidObject
+			}
+		}
+	case errors.Is(err, wire.ErrInvalidNewID):
+		code = sw.WlDisplayErrorInvalidObject
+	}
+	_ = c.wlDisplay.SendError(object, uint32(code), err.Error())
+}
+
+func (c *Client) resource(id wire.ObjectID) wire.Resource {
+	if r, ok := c.objects[id]; ok {
+		return r
+	}
+	return c.wlDisplay
+}
+
+func (c *Client) flush() error {
+	if err := c.conn.Err(); err != nil {
+		return err
+	}
+	err := c.conn.Flush()
+	switch {
+	case errors.Is(err, wire.ErrWouldBlock):
+		if !c.writable {
+			c.writable = true
+			return c.source.Modify(loop.Readable | loop.Writable)
+		}
+		return nil
+	case err != nil:
+		return err
+	}
+	if c.writable {
+		c.writable = false
+		return c.source.Modify(loop.Readable)
+	}
+	return nil
+}
+
+func (c *Client) destroy() error {
+	if c.gone {
+		return nil
+	}
+	c.gone = true
+	var errs []error
+	for _, id := range slices.Sorted(maps.Keys(c.hooks)) {
+		errs = append(errs, c.runHooks(id)...)
+	}
+	_ = c.conn.Flush()
+	c.journal.close()
+	errs = append(errs, c.source.Remove(), c.conn.Close())
+	c.display.removeClient(c)
+	return c.settle("tear down", errs)
+}

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=lys-wm
+Comment=A pure-Go tiling Wayland compositor
+Exec=lys-wm --systemd
+Type=Application
+DesktopNames=lys-wm

@@ -1,0 +1,710 @@
+package harness
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"image"
+	"io"
+	"os"
+	"slices"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"testing"
+	"time"
+
+	"github.com/jezek/xgb"
+	"github.com/jezek/xgb/xproto"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/data"
+)
+
+const xchunk = 16 << 10
+
+var errRefused = errors.New("the paste was refused")
+
+func (c *xclient) intern(names ...string) {
+	c.t.Helper()
+	for _, name := range names {
+		r, err := xproto.InternAtom(c.x, false, uint16(len(name)), name).Reply()
+		if err != nil {
+			c.t.Fatal(err)
+		}
+		c.atoms[name] = r.Atom
+	}
+}
+
+func (c *xclient) inputWindow() xproto.Window {
+	c.t.Helper()
+	win, err := xproto.NewWindowId(c.x)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	screen := xproto.Setup(c.x).DefaultScreen(c.x)
+	if err := xproto.CreateWindowChecked(c.x, 0, win, c.root, 0, 0, 1, 1, 0, xproto.WindowClassInputOnly, screen.RootVisual, xproto.CwEventMask, []uint32{xproto.EventMaskPropertyChange}).Check(); err != nil {
+		c.t.Fatal(err)
+	}
+	return win
+}
+
+func (c *xclient) next(timeout time.Duration) (xgb.Event, error) {
+	type result struct {
+		ev  xgb.Event
+		err error
+	}
+	got := make(chan result, 1)
+	go func() {
+		for {
+			ev, xerr := c.x.WaitForEvent()
+			switch {
+			case ev == nil && xerr == nil:
+				got <- result{err: errors.New("the X connection closed")}
+				return
+			case ev != nil:
+				got <- result{ev: ev}
+				return
+			}
+		}
+	}()
+	select {
+	case r := <-got:
+		return r.ev, r.err
+	case <-time.After(timeout):
+		return nil, errors.New("no X event arrived")
+	}
+}
+
+func (c *xclient) convert(win xproto.Window, selection, target string) (xproto.Atom, []byte, error) {
+	return c.convertWith(win, selection, target, func() {})
+}
+
+func (c *xclient) convertWith(win xproto.Window, selection, target string, notified func()) (xproto.Atom, []byte, error) {
+	prop := c.atoms["XSEL_DATA"]
+	if err := xproto.ConvertSelectionChecked(c.x, win, c.atoms[selection], c.atoms[target], prop, xproto.TimeCurrentTime).Check(); err != nil {
+		return 0, nil, err
+	}
+	read := func() (*xproto.GetPropertyReply, error) {
+		return xproto.GetProperty(c.x, true, win, prop, xproto.GetPropertyTypeAny, 0, 1<<24).Reply()
+	}
+	for {
+		ev, err := c.next(clientTimeout)
+		if err != nil {
+			return 0, nil, err
+		}
+		n, ok := ev.(xproto.SelectionNotifyEvent)
+		if !ok {
+			continue
+		}
+		if n.Property == 0 {
+			return 0, nil, fmt.Errorf("%s: %w", target, errRefused)
+		}
+		notified()
+		r, err := read()
+		if err != nil || r.Type != c.atoms["INCR"] {
+			return r.Type, r.Value, err
+		}
+		var got []byte
+		for {
+			ev, err := c.next(clientTimeout)
+			if err != nil {
+				return 0, nil, err
+			}
+			p, ok := ev.(xproto.PropertyNotifyEvent)
+			if !ok || p.Atom != prop || p.State != xproto.PropertyNewValue {
+				continue
+			}
+			chunk, err := read()
+			if err != nil || len(chunk.Value) == 0 {
+				return chunk.Type, got, err
+			}
+			got = append(got, chunk.Value...)
+		}
+	}
+}
+
+func (c *xclient) paste(win xproto.Window, selection, target string, dispatch func(done <-chan struct{})) (xproto.Atom, []byte) {
+	c.t.Helper()
+	type result struct {
+		typ   xproto.Atom
+		value []byte
+		err   error
+	}
+	got := make(chan result, 1)
+	done := make(chan struct{})
+	go func() {
+		typ, value, err := c.convert(win, selection, target)
+		close(done)
+		got <- result{typ, value, err}
+	}()
+	dispatch(done)
+	r := <-got
+	if r.err != nil {
+		c.t.Fatal(r.err)
+	}
+	return r.typ, r.value
+}
+
+func (c *xclient) names(list []byte) []string {
+	c.t.Helper()
+	var out []string
+	for i := 0; i+4 <= len(list); i += 4 {
+		r, err := xproto.GetAtomName(c.x, xproto.Atom(binary.LittleEndian.Uint32(list[i:]))).Reply()
+		if err != nil {
+			c.t.Fatal(err)
+		}
+		out = append(out, r.Name)
+	}
+	slices.Sort(out)
+	return out
+}
+
+func TestWaylandSelectionsPasteIntoX(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	a := join(t, h, "a")
+	a.seen(t, "a focused", func() bool { return slices.Contains(a.in.Log, "kb_enter a") })
+	big := strings.Repeat("0123456789abcdef", 12<<10)
+	for _, text := range []string{"hello from wayland", big} {
+		src := a.c.DataSource(map[string]string{"text/plain;charset=utf-8": text, "text/html": "<b>hi</b>"})
+		if err := errors.Join(a.cb.Device.SetSelection(src.Data, a.in.Serial), a.c.Display.Roundtrip()); err != nil {
+			t.Fatal(err)
+		}
+		xc := xDial(t, h)
+		xc.intern("CLIPBOARD", "TARGETS", "UTF8_STRING", "INCR", "XSEL_DATA")
+		h.Eventually("the X clipboard owned for Wayland", func(*headless.Backend, *compositor.Compositor) bool {
+			r, err := xproto.GetSelectionOwner(xc.x, xc.atoms["CLIPBOARD"]).Reply()
+			return err == nil && r.Owner != 0
+		})
+		win := xc.inputWindow()
+		serve := func(done <-chan struct{}) {
+			a.seen(t, "the source asked for the text", func() bool { return slices.Contains(src.Log, "send text/plain;charset=utf-8") })
+			<-done
+		}
+		var targets []byte
+		for deadline := time.Now().Add(clientTimeout); ; time.Sleep(10 * time.Millisecond) {
+			_, list, err := xc.convert(win, "CLIPBOARD", "TARGETS")
+			if err == nil {
+				targets = list
+				break
+			}
+			if !errors.Is(err, errRefused) || time.Now().After(deadline) {
+				t.Fatal(err)
+			}
+		}
+		if got := xc.names(targets); !slices.Equal(got, []string{"TARGETS", "UTF8_STRING", "text/html"}) {
+			t.Fatalf("targets %v", got)
+		}
+		typ, got := xc.paste(win, "CLIPBOARD", "UTF8_STRING", serve)
+		if typ != xc.atoms["UTF8_STRING"] || string(got) != text {
+			t.Fatalf("pasted %d bytes of type %d, want %d bytes", len(got), typ, len(text))
+		}
+	}
+
+	selected := a.c.PrimarySource(map[string]string{"text/plain;charset=utf-8": "middle click"})
+	if err := errors.Join(a.cb.Primaries.SetSelection(selected.Primary, a.in.Serial), a.c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	xc := xDial(t, h)
+	xc.intern("PRIMARY", "UTF8_STRING", "INCR", "XSEL_DATA")
+	h.Eventually("the X primary selection owned for Wayland", func(*headless.Backend, *compositor.Compositor) bool {
+		r, err := xproto.GetSelectionOwner(xc.x, xc.atoms["PRIMARY"]).Reply()
+		return err == nil && r.Owner != 0
+	})
+	_, got := xc.paste(xc.inputWindow(), "PRIMARY", "UTF8_STRING", func(done <-chan struct{}) {
+		a.seen(t, "the primary source asked", func() bool { return slices.Contains(selected.Log, "send text/plain;charset=utf-8") })
+		<-done
+	})
+	if string(got) != "middle click" {
+		t.Fatalf("pasted %q from PRIMARY", got)
+	}
+}
+
+type xowner struct {
+	*xclient
+	win     xproto.Window
+	targets []string
+	text    []byte
+	refuse  bool
+	silent  bool
+	ignored chan struct{}
+	done    chan error
+}
+
+func (o *xowner) serve() {
+	sending := map[xproto.Atom][]byte{}
+	for {
+		ev, err := o.x.WaitForEvent()
+		if ev == nil && err == nil {
+			o.done <- nil
+			return
+		}
+		switch e := ev.(type) {
+		case xproto.SelectionRequestEvent:
+			reply := xproto.SelectionNotifyEvent{Time: e.Time, Requestor: e.Requestor, Selection: e.Selection, Target: e.Target, Property: e.Property}
+			switch e.Target {
+			case o.atoms["TARGETS"]:
+				list := binary.LittleEndian.AppendUint32(nil, uint32(o.atoms["TARGETS"]))
+				targets := o.targets
+				if targets == nil {
+					targets = []string{"UTF8_STRING"}
+				}
+				for _, name := range targets {
+					list = binary.LittleEndian.AppendUint32(list, uint32(o.atoms[name]))
+				}
+				xproto.ChangeProperty(o.x, xproto.PropModeReplace, e.Requestor, e.Property, xproto.AtomAtom, 32, uint32(len(list)/4), list)
+			case o.atoms["UTF8_STRING"]:
+				if o.silent {
+					o.silent = false
+					close(o.ignored)
+					continue
+				}
+				if o.refuse {
+					reply.Property = 0
+					break
+				}
+				if len(o.text) <= xchunk {
+					xproto.ChangeProperty(o.x, xproto.PropModeReplace, e.Requestor, e.Property, e.Target, 8, uint32(len(o.text)), o.text)
+					break
+				}
+				xproto.ChangeWindowAttributes(o.x, e.Requestor, xproto.CwEventMask, []uint32{xproto.EventMaskPropertyChange})
+				xproto.ChangeProperty(o.x, xproto.PropModeReplace, e.Requestor, e.Property, o.atoms["INCR"], 32, 1, binary.LittleEndian.AppendUint32(nil, uint32(len(o.text))))
+				sending[e.Property] = o.text
+			default:
+				reply.Property = 0
+			}
+			xproto.SendEvent(o.x, false, e.Requestor, xproto.EventMaskNoEvent, string(reply.Bytes()))
+		case xproto.PropertyNotifyEvent:
+			rest, ok := sending[e.Atom]
+			if !ok || e.State != xproto.PropertyDelete {
+				continue
+			}
+			n := min(xchunk, len(rest))
+			xproto.ChangeProperty(o.x, xproto.PropModeReplace, e.Window, e.Atom, o.atoms["UTF8_STRING"], 8, uint32(n), rest[:n])
+			if n == 0 {
+				delete(sending, e.Atom)
+			} else {
+				sending[e.Atom] = rest[n:]
+			}
+		}
+	}
+}
+
+func receive(t *testing.T, p *party, mime string) string {
+	t.Helper()
+	return askPaste(t, p, mime)()
+}
+
+func askPaste(t *testing.T, p *party, mime string) func() string {
+	t.Helper()
+	var fds [2]int
+	if err := unix.Pipe2(fds[:], unix.O_CLOEXEC); err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.SetNonblock(fds[0], true); err != nil {
+		t.Fatal(err)
+	}
+	r := os.NewFile(uintptr(fds[0]), "paste")
+	t.Cleanup(func() { _ = r.Close() })
+	if err := errors.Join(p.cb.Selection.Data.Receive(mime, fds[1]), unix.Close(fds[1]), p.c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	return func() string {
+		t.Helper()
+		if err := r.SetReadDeadline(time.Now().Add(clientTimeout)); err != nil {
+			t.Fatal(err)
+		}
+		got, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(got)
+	}
+}
+
+func TestXSelectionsPasteIntoWayland(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	big := bytes.Repeat([]byte("fedcba9876543210"), 12<<10)
+	for i, text := range [][]byte{[]byte("hello from x"), big} {
+		xc := xDial(t, h)
+		xc.intern("CLIPBOARD", "TARGETS", "UTF8_STRING", "INCR")
+		o := &xowner{xclient: xc, text: text, done: make(chan error, 1)}
+		o.win = xc.window(image.Rect(0, 0, 40, 40), 0xffffff, false, nil)
+		h.Eventually("the X window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+			ws := windowsOf(c)
+			return len(ws) > 0 && ws[len(ws)-1].Focused && ws[len(ws)-1].AppID == ""
+		})
+		var before data.Source
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			before = c.CurrentSelection(data.Clipboard)
+			return nil
+		})
+		if err := xproto.SetSelectionOwnerChecked(xc.x, o.win, xc.atoms["CLIPBOARD"], xproto.TimeCurrentTime).Check(); err != nil {
+			t.Fatal(err)
+		}
+		go o.serve()
+		h.Eventually("the X selection taken for Wayland", func(_ *headless.Backend, c *compositor.Compositor) bool {
+			src := c.CurrentSelection(data.Clipboard)
+			return src != nil && src != before && slices.Equal(src.Mimes(), []string{"text/plain;charset=utf-8"})
+		})
+		p := join(t, h, []string{"small", "big"}[i])
+		p.seen(t, "the X selection offered", func() bool { return p.cb.Selection != nil })
+		if got := receive(t, p, "text/plain;charset=utf-8"); got != string(text) {
+			t.Fatalf("pasted %d bytes, want %d", len(got), len(text))
+		}
+	}
+}
+
+func TestARefusedXPasteIsReportedNotFatal(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var reported []error
+	h := StartXwayland(t, func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		reported = append(reported, err)
+	}, small)
+	xc := xDial(t, h)
+	xc.intern("CLIPBOARD", "TARGETS", "UTF8_STRING", "INCR")
+	o := &xowner{xclient: xc, text: []byte("never sent"), refuse: true, done: make(chan error, 1)}
+	o.win = xc.window(image.Rect(0, 0, 40, 40), 0xffffff, false, nil)
+	h.Eventually("the X window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) > 0 && ws[len(ws)-1].Focused
+	})
+	if err := xproto.SetSelectionOwnerChecked(xc.x, o.win, xc.atoms["CLIPBOARD"], xproto.TimeCurrentTime).Check(); err != nil {
+		t.Fatal(err)
+	}
+	go o.serve()
+	h.Eventually("the X selection taken for Wayland", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		src := c.CurrentSelection(data.Clipboard)
+		return src != nil && slices.Equal(src.Mimes(), []string{"text/plain;charset=utf-8"})
+	})
+	p := join(t, h, "paster")
+	p.seen(t, "the X selection offered", func() bool { return p.cb.Selection != nil })
+	if got := receive(t, p, "text/plain;charset=utf-8"); got != "" {
+		t.Fatalf("a refused paste delivered %q", got)
+	}
+	h.Eventually("the refusal reported", func(*headless.Backend, *compositor.Compositor) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(reported) == 1 && strings.Contains(reported[0].Error(), "refused the conversion")
+	})
+	survives(t, h)
+}
+
+func TestAnXSelectionDiesWithXwayland(t *testing.T) {
+	t.Parallel()
+	reports := make(chan error, 8)
+	h := StartXwayland(t, func(err error) { reports <- err }, small)
+	xc := xDial(t, h)
+	xc.intern("CLIPBOARD", "TARGETS", "UTF8_STRING", "INCR")
+	o := &xowner{xclient: xc, text: []byte("from x"), done: make(chan error, 1)}
+	o.win = xc.window(image.Rect(0, 0, 40, 40), 0xffffff, false, nil)
+	h.Eventually("the X window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) > 0 && ws[len(ws)-1].Focused
+	})
+	if err := xproto.SetSelectionOwnerChecked(xc.x, o.win, xc.atoms["CLIPBOARD"], xproto.TimeCurrentTime).Check(); err != nil {
+		t.Fatal(err)
+	}
+	go o.serve()
+	h.Eventually("the X selection taken for Wayland", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return c.CurrentSelection(data.Clipboard) != nil
+	})
+	h.Do(func(*headless.Backend, *compositor.Compositor) error {
+		return syscall.Kill(h.xwayland.Pid(), syscall.SIGKILL)
+	})
+	select {
+	case <-reports:
+	case <-time.After(clientTimeout):
+		t.Fatal("the crash was not reported")
+	}
+	h.Eventually("the dead X selection cleared", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return c.CurrentSelection(data.Clipboard) == nil
+	})
+}
+
+func TestASilentXOwnerDoesNotHoldUpLaterPastes(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var reported []error
+	h := StartXwayland(t, func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		reported = append(reported, err)
+	}, small)
+	xc := xDial(t, h)
+	xc.intern("CLIPBOARD", "TARGETS", "UTF8_STRING", "INCR")
+	o := &xowner{xclient: xc, text: []byte("second try"), silent: true, ignored: make(chan struct{}), done: make(chan error, 1)}
+	o.win = xc.window(image.Rect(0, 0, 40, 40), 0xffffff, false, nil)
+	h.Eventually("the X window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) > 0 && ws[len(ws)-1].Focused
+	})
+	if err := xproto.SetSelectionOwnerChecked(xc.x, o.win, xc.atoms["CLIPBOARD"], xproto.TimeCurrentTime).Check(); err != nil {
+		t.Fatal(err)
+	}
+	go o.serve()
+	h.Eventually("the X selection taken for Wayland", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		src := c.CurrentSelection(data.Clipboard)
+		return src != nil && slices.Equal(src.Mimes(), []string{"text/plain;charset=utf-8"})
+	})
+	p := join(t, h, "paster")
+	p.seen(t, "the X selection offered", func() bool { return p.cb.Selection != nil })
+	h.Freeze()
+	read := askPaste(t, p, "text/plain;charset=utf-8")
+	select {
+	case <-o.ignored:
+	case <-time.After(clientTimeout):
+		t.Fatal("the paste never reached the X owner")
+	}
+	mu.Lock()
+	early := slices.Clone(reported)
+	mu.Unlock()
+	if len(early) != 0 {
+		t.Fatalf("an unanswered paste reported %v before its transfer timeout passed", early)
+	}
+	h.Advance(XTransferTimeout)
+	if got := read(); got != "" {
+		t.Fatalf("a paste nobody answered delivered %q", got)
+	}
+	if got := receive(t, p, "text/plain;charset=utf-8"); got != "second try" {
+		t.Fatalf("the paste after a stalled one gave %q", got)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(reported) != 1 || !strings.Contains(reported[0].Error(), "sent nothing") {
+		t.Fatalf("reports %v, want the stalled transfer", reported)
+	}
+}
+
+func TestClipboardAndPrimaryFromXKeepTheirOwnTargets(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	owners := map[string]*xowner{}
+	for name, targets := range map[string][]string{"CLIPBOARD": {"UTF8_STRING"}, "PRIMARY": {"text/html"}} {
+		xc := xDial(t, h)
+		xc.intern("CLIPBOARD", "PRIMARY", "TARGETS", "UTF8_STRING", "INCR", "text/html")
+		o := &xowner{xclient: xc, targets: targets, done: make(chan error, 1)}
+		o.win = xc.window(image.Rect(0, 0, 40, 40), 0xffffff, false, nil)
+		owners[name] = o
+	}
+	h.Eventually("an X window focused", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		ws := windowsOf(c)
+		return len(ws) == 2 && ws[len(ws)-1].Focused
+	})
+	for _, name := range []string{"CLIPBOARD", "PRIMARY"} {
+		o := owners[name]
+		if err := xproto.SetSelectionOwnerChecked(o.x, o.win, o.atoms[name], xproto.TimeCurrentTime).Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, o := range owners {
+		go o.serve()
+	}
+	h.Eventually("each selection with its own targets", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		cb, pr := c.CurrentSelection(data.Clipboard), c.CurrentSelection(data.Primary)
+		return cb != nil && pr != nil && slices.Equal(cb.Mimes(), []string{"text/plain;charset=utf-8"}) && slices.Equal(pr.Mimes(), []string{"text/html"})
+	})
+}
+
+func TestALargeSelectionStreamsIntoXRatherThanBufferingWhole(t *testing.T) {
+	t.Parallel()
+	h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+	a := join(t, h, "a")
+	a.seen(t, "a focused", func() bool { return slices.Contains(a.in.Log, "kb_enter a") })
+	value := bytes.Repeat([]byte("0123456789abcdef"), 1<<16)
+	var written atomic.Int64
+	src := a.c.DataSource(map[string]string{"text/plain;charset=utf-8": ""})
+	src.Send = func(_ string, f *os.File) {
+		go func() {
+			defer f.Close()
+			for off := 0; off < len(value); off += 4096 {
+				n, err := f.Write(value[off : off+4096])
+				written.Add(int64(n))
+				if err != nil {
+					return
+				}
+			}
+		}()
+	}
+	if err := errors.Join(a.cb.Device.SetSelection(src.Data, a.in.Serial), a.c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	xc := xDial(t, h)
+	xc.intern("CLIPBOARD", "TARGETS", "UTF8_STRING", "INCR", "XSEL_DATA")
+	h.Eventually("the X clipboard owned for Wayland", func(*headless.Backend, *compositor.Compositor) bool {
+		r, err := xproto.GetSelectionOwner(xc.x, xc.atoms["CLIPBOARD"]).Reply()
+		return err == nil && r.Owner != 0
+	})
+	win := xc.inputWindow()
+	type result struct {
+		value []byte
+		err   error
+	}
+	got := make(chan result, 1)
+	var atNotify int64
+	go func() {
+		_, v, err := xc.convertWith(win, "CLIPBOARD", "UTF8_STRING", func() { atNotify = written.Load() })
+		got <- result{v, err}
+	}()
+	a.seen(t, "the source asked for the text", func() bool { return slices.Contains(src.Log, "send text/plain;charset=utf-8") })
+	r := <-got
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if !bytes.Equal(r.value, value) {
+		t.Fatalf("pasted %d bytes, want the %d bytes written", len(r.value), len(value))
+	}
+	if atNotify >= int64(len(value))/2 {
+		t.Fatalf("the source had written %d of %d bytes when X was told about the paste, so lys-wm read ahead instead of streaming", atNotify, len(value))
+	}
+}
+
+func TestAStalledTransferToXIsDroppedOnTimeAndReleasesItsSource(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var reported []error
+	h := StartXwayland(t, func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		reported = append(reported, err)
+	}, small)
+	a := join(t, h, "a")
+	a.seen(t, "a focused", func() bool { return slices.Contains(a.in.Log, "kb_enter a") })
+	writeErr := make(chan error, 1)
+	src := a.c.DataSource(map[string]string{"text/plain;charset=utf-8": ""})
+	src.Send = func(_ string, f *os.File) {
+		go func() {
+			defer f.Close()
+			chunk := bytes.Repeat([]byte("x"), 4096)
+			for {
+				if _, err := f.Write(chunk); err != nil {
+					writeErr <- err
+					return
+				}
+			}
+		}()
+	}
+	if err := errors.Join(a.cb.Device.SetSelection(src.Data, a.in.Serial), a.c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	xc := xDial(t, h)
+	xc.intern("CLIPBOARD", "UTF8_STRING", "INCR", "XSEL_DATA")
+	h.Eventually("the X clipboard owned for Wayland", func(*headless.Backend, *compositor.Compositor) bool {
+		r, err := xproto.GetSelectionOwner(xc.x, xc.atoms["CLIPBOARD"]).Reply()
+		return err == nil && r.Owner != 0
+	})
+	h.Hold()
+	stalled := xc.inputWindow()
+	if err := xproto.ConvertSelectionChecked(xc.x, stalled, xc.atoms["CLIPBOARD"], xc.atoms["UTF8_STRING"], xc.atoms["XSEL_DATA"], xproto.TimeCurrentTime).Check(); err != nil {
+		t.Fatal(err)
+	}
+	a.seen(t, "the source asked for the text", func() bool { return slices.Contains(src.Log, "send text/plain;charset=utf-8") })
+	h.Eventually("the transfer to X started incrementally", func(*headless.Backend, *compositor.Compositor) bool {
+		r, err := xproto.GetProperty(xc.x, false, stalled, xc.atoms["XSEL_DATA"], xproto.GetPropertyTypeAny, 0, 1).Reply()
+		return err == nil && r.Type == xc.atoms["INCR"]
+	})
+	dropped := func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.ContainsFunc(reported, func(err error) bool { return strings.Contains(err.Error(), "took nothing of a selection") })
+	}
+	h.Advance(XTransferTimeout - time.Millisecond)
+	select {
+	case err := <-writeErr:
+		t.Fatalf("the source's write failed with %v before the transfer timeout passed on the harness clock", err)
+	default:
+	}
+	if dropped() {
+		t.Fatal("the stalled transfer was dropped before its timeout passed on the harness clock")
+	}
+	h.Advance(time.Millisecond)
+	select {
+	case err := <-writeErr:
+		if !errors.Is(err, syscall.EPIPE) {
+			t.Fatalf("the source's write failed with %v, want EPIPE once the transfer is dropped", err)
+		}
+	case <-time.After(clientTimeout):
+		t.Fatalf("the source still writes %v after the transfer timeout passed on the harness clock", clientTimeout)
+	}
+	h.Eventually("the dropped transfer reported", func(*headless.Backend, *compositor.Compositor) bool { return dropped() })
+}
+
+func TestStalledTransfersToXAreBoundedAndDieWithTheirWindow(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var reported []error
+	h := StartXwayland(t, func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		reported = append(reported, err)
+	}, small)
+	a := join(t, h, "a")
+	a.seen(t, "a focused", func() bool { return slices.Contains(a.in.Log, "kb_enter a") })
+	big := strings.Repeat("0123456789abcdef", 12<<10)
+	src := a.c.DataSource(map[string]string{"text/plain;charset=utf-8": big})
+	if err := errors.Join(a.cb.Device.SetSelection(src.Data, a.in.Serial), a.c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	xc := xDial(t, h)
+	xc.intern("CLIPBOARD", "TARGETS", "UTF8_STRING", "INCR", "XSEL_DATA")
+	h.Eventually("the X clipboard owned for Wayland", func(*headless.Backend, *compositor.Compositor) bool {
+		r, err := xproto.GetSelectionOwner(xc.x, xc.atoms["CLIPBOARD"]).Reply()
+		return err == nil && r.Owner != 0
+	})
+	stalled := xc.inputWindow()
+	const tries = 9
+	for i := range tries {
+		name := fmt.Sprintf("STALLED_%d", i)
+		xc.intern(name)
+		if err := xproto.ConvertSelectionChecked(xc.x, stalled, xc.atoms["CLIPBOARD"], xc.atoms["UTF8_STRING"], xc.atoms[name], xproto.TimeCurrentTime).Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	refused := 0
+	for answered := 0; answered < tries; {
+		a.c.Sync()
+		ev, ok := xc.event(clientTimeout)
+		if !ok {
+			t.Fatalf("%d of %d conversions answered", answered, tries)
+		}
+		if n, ok := ev.(xproto.SelectionNotifyEvent); ok {
+			answered++
+			if n.Property == 0 {
+				refused++
+			}
+		}
+	}
+	if refused != 1 {
+		t.Fatalf("%d conversions refused, want only the one past the limit", refused)
+	}
+	if err := xproto.DestroyWindowChecked(xc.x, stalled).Check(); err != nil {
+		t.Fatal(err)
+	}
+	typ, got := xc.paste(xc.inputWindow(), "CLIPBOARD", "UTF8_STRING", func(done <-chan struct{}) {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				a.c.Sync()
+			}
+		}
+	})
+	if typ != xc.atoms["UTF8_STRING"] || string(got) != big {
+		t.Fatalf("after the stalled requestor went away, pasted %d bytes of type %d", len(got), typ)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(reported) != 1 {
+		t.Fatalf("reports %v, want the one refusal", reported)
+	}
+}

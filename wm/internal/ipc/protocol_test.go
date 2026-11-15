@@ -1,0 +1,231 @@
+package ipc
+
+import (
+	"errors"
+	"image"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys-lib/wmipc"
+
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+func TestParseRequest(t *testing.T) {
+	r, err := parseRequest([]byte(`{"request":"dispatch","action":"workspace 3"}`))
+	if err != nil || r.kind != wmipc.KindDispatch || !slices.Equal(r.actions, []wm.Action{wm.WorkspaceAction{Target: wm.WorkspaceID(3)}}) {
+		t.Fatalf("dispatch parsed to %+v, %v", r, err)
+	}
+	if r, err := parseRequest([]byte(`{"request":"windows"}` + "\n")); err != nil || r.kind != wmipc.KindWindows {
+		t.Fatalf("windows parsed to %+v, %v", r, err)
+	}
+	if r, err := parseRequest([]byte(`{"request":"icon","window":7,"size":32}`)); err != nil || r.kind != wmipc.KindIcon || r.icon != (iconRequest{window: 7, size: 32}) {
+		t.Fatalf("icon parsed to %+v, %v", r, err)
+	}
+	for _, kind := range []wmipc.Kind{wmipc.KindSubmap, wmipc.KindLayout, wmipc.KindLocks, wmipc.KindReducedMotion, wmipc.KindOverview} {
+		if r, err := parseRequest([]byte(`{"request":"` + string(kind) + `"}`)); err != nil || r.kind != kind {
+			t.Fatalf("%s parsed to %+v, %v", kind, r, err)
+		}
+	}
+	if r, err := parseRequest([]byte(`{"request":"createoutput","mode":{"width":800,"height":600,"refresh_mhz":30000}}`)); err != nil || r.output != (OutputSpec{Size: image.Pt(800, 600), RefreshMHz: 30000}) {
+		t.Fatalf("createoutput parsed to %+v, %v", r, err)
+	}
+	if r, err := parseRequest([]byte(`{"request":"removeoutput","name":"VIRT-2"}`)); err != nil || r.output.Name != "VIRT-2" {
+		t.Fatalf("removeoutput parsed to %+v, %v", r, err)
+	}
+	for text, want := range map[string]string{
+		`{"request":"submap","action":"resize"}`:                                         "only dispatch takes an action",
+		`{"request":"teleport"}`:                                                         `unknown request "teleport" (known: version, outputs,`,
+		`{"request":"windows","action":"kill"}`:                                          "only dispatch takes an action",
+		`{"request":"dispatch"}`:                                                         "only dispatch takes an action",
+		`{"request":"dispatch","action":"fly up"}`:                                       `unknown action "fly"`,
+		`{"request":"windows","verbose":true}`:                                           `unknown field "verbose"`,
+		`{"request":"icon","window":7}`:                                                  "only icon takes a window and a size",
+		`{"request":"icon","window":7,"size":-1}`:                                        "only icon takes a window and a size",
+		`{"request":"icon","size":32}`:                                                   "only icon takes a window and a size",
+		`{"request":"windows","window":7}`:                                               "only icon takes a window and a size",
+		`{"request":"windows","size":7}`:                                                 "only icon takes a window and a size",
+		`{"request":"createoutput"}`:                                                     "createoutput needs a mode",
+		`{"request":"createoutput","mode":{"width":800,"height":600}}`:                   "createoutput needs a mode",
+		`{"request":"createoutput","mode":{"width":0,"height":600,"refresh_mhz":60000}}`: "createoutput needs a mode",
+		`{"request":"createoutput","mode":{"width":800,"height":600,"refresh_mhz":60000},"scale":-1}`: "scale -1 is negative",
+		`{"request":"removeoutput"}`:                                          "removeoutput takes the name",
+		`{"request":"removeoutput","name":"VIRT-1","scale":2}`:                "removeoutput takes the name",
+		`{"request":"outputs","name":"VIRT-1"}`:                               "only createoutput and removeoutput take a name",
+		`{"request":"outputs","mode":{"width":1,"height":1,"refresh_mhz":1}}`: "only createoutput and removeoutput take a name",
+		`not json`: "invalid character",
+	} {
+		_, err := parseRequest([]byte(text))
+		if !errors.Is(err, ErrBadRequest) || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v, want %q", text, err, want)
+		}
+	}
+}
+
+func TestEncodeFlattensTheEventName(t *testing.T) {
+	id := wm.WindowID(4)
+	for e, want := range map[Event]string{
+		FocusEvent{Window: &id}: `{"event":"focus","window":4}`,
+		FocusEvent{}:            `{"event":"focus","window":null}`,
+		WorkspaceEvent{Output: "DP-1", Workspace: 2}:                `{"event":"workspace","output":"DP-1","workspace":2}`,
+		DispatchEvent{Action: "exec foot"}:                          `{"event":"dispatch","action":"exec foot"}`,
+		LayoutEvent{Layout: wmipc.Layout{Index: 1, Name: "Danish"}}: `{"event":"layout","layout":{"index":1,"name":"Danish"}}`,
+	} {
+		got, err := Encode(e)
+		if err != nil || string(got) != want+"\n" {
+			t.Errorf("%T: %s, %v; want %s", e, got, err, want)
+		}
+	}
+}
+
+func names(events []Event) []string {
+	out := make([]string, len(events))
+	for i, e := range events {
+		line, err := Encode(e)
+		if err != nil {
+			panic(err)
+		}
+		out[i] = strings.TrimSpace(string(line))
+	}
+	return out
+}
+
+func TestDiff(t *testing.T) {
+	dp1 := Output{Name: "DP-1", Rect: wmipc.Rect{Width: 100, Height: 50}, Scale: 1, Workspace: 1, Focused: true}
+	hdmi := Output{Name: "HDMI-A-1", Rect: wmipc.Rect{X: 100, Width: 100, Height: 50}, Scale: 1, Workspace: 2}
+	a := Window{ID: 1, AppID: "foot", Title: "a", Workspace: 1, Output: "DP-1", Focused: true}
+	b := Window{ID: 2, AppID: "foot", Title: "b", Workspace: 2, Output: "HDMI-A-1"}
+	prev := Snapshot{Outputs: []Output{dp1, hdmi}, Windows: []Window{a, b}, Layout: wmipc.Layout{Name: "English (US)"}}
+	if got := Diff(prev, prev); len(got) != 0 {
+		t.Fatalf("an unchanged snapshot gave %v", names(got))
+	}
+
+	next := prev
+	dp1b, hdmib := dp1, hdmi
+	dp1b.Focused, dp1b.Scale = false, 2
+	hdmib.Focused, hdmib.Workspace = true, 3
+	next.Outputs = []Output{dp1b, hdmib}
+	a2, b2 := a, b
+	a2.Focused, a2.Title, a2.Workspace = false, "a!", 3
+	b2.Urgent, b2.Maximized = true, true
+	b2.AppID, b2.Rect = "footclient", wmipc.Rect{X: 100, Y: 4, Width: 50, Height: 40}
+	b2.Icon = &Icon{Serial: 4, Name: "foot", Sizes: []int{16, 32}}
+	c := Window{ID: 3, AppID: "mpv", Workspace: 3, Output: "HDMI-A-1", Focused: true}
+	next.Windows = []Window{b2, a2, c}
+	next.Submap = "resize"
+	next.Layout = wmipc.Layout{Index: 1, Name: "Danish"}
+	next.Locks = wmipc.Locks{Caps: true}
+	next.ReducedMotion = true
+	next.Overview = true
+	want := []string{
+		`{"event":"output","change":"changed","output":{"name":"DP-1","description":"","rect":{"x":0,"y":0,"width":100,"height":50},"scale":2,"mode":{"width":0,"height":0,"refresh_mhz":0},"workspace":1,"focused":false,"powered":false}}`,
+		`{"event":"workspace","output":"HDMI-A-1","workspace":3}`,
+		`{"event":"focusedoutput","output":"HDMI-A-1"}`,
+		`{"event":"appid","window":2,"app_id":"footclient"}`,
+		`{"event":"rect","window":2,"output":"HDMI-A-1","rect":{"x":100,"y":4,"width":50,"height":40}}`,
+		`{"event":"icon","window":2,"icon":{"serial":4,"name":"foot","sizes":[16,32]}}`,
+		`{"event":"urgent","window":2,"urgent":true}`,
+		`{"event":"mode","window":2,"floating":false,"fullscreen":false,"maximized":true,"client_fullscreen":false}`,
+		`{"event":"move","window":1,"workspace":3}`,
+		`{"event":"title","window":1,"title":"a!"}`,
+		`{"event":"open","window":{"id":3,"app_id":"mpv","title":"","pid":0,"workspace":3,"output":"HDMI-A-1","rect":{"x":0,"y":0,"width":0,"height":0},"floating":false,"fullscreen":false,"maximized":false,"client_fullscreen":false,"pinned":false,"minimized":false,"urgent":false,"unresponsive":false,"focused":true,"inhibits_shortcuts":false,"content_type":"none","content_source":"client","icon":null,"focus_timestamp":0,"group":null}}`,
+		`{"event":"focus","window":3}`,
+		`{"event":"submap","submap":"resize"}`,
+		`{"event":"layout","layout":{"index":1,"name":"Danish"}}`,
+		`{"event":"locks","locks":{"caps":true,"num":false,"scroll":false}}`,
+		`{"event":"reducedmotion","reduced_motion":true}`,
+		`{"event":"overview","open":true}`,
+	}
+	if got := names(Diff(prev, next)); !slices.Equal(got, want) {
+		t.Fatalf("diff\n got %s\nwant %s", strings.Join(got, "\n     "), strings.Join(want, "\n     "))
+	}
+
+	gone := Snapshot{Outputs: []Output{dp1}}
+	want = []string{
+		`{"event":"output","change":"removed","output":{"name":"HDMI-A-1","description":"","rect":{"x":100,"y":0,"width":100,"height":50},"scale":1,"mode":{"width":0,"height":0,"refresh_mhz":0},"workspace":2,"focused":false,"powered":false}}`,
+		`{"event":"close","window":1}`,
+		`{"event":"close","window":2}`,
+		`{"event":"focus","window":null}`,
+		`{"event":"layout","layout":{"index":0,"name":""}}`,
+	}
+	if got := names(Diff(prev, gone)); !slices.Equal(got, want) {
+		t.Fatalf("diff\n got %s\nwant %s", strings.Join(got, "\n     "), strings.Join(want, "\n     "))
+	}
+}
+
+func TestEveryOutputFieldButWorkspaceAndFocusCountsAsAChange(t *testing.T) {
+	base := Output{Name: "DP-1", Description: "d", Rect: wmipc.Rect{Width: 10, Height: 10}, Scale: 1, Mode: wmipc.Mode{Width: 10, Height: 10, RefreshMHz: 60000}, Workspace: 1, Focused: true, Powered: true}
+	changed := func(f func(*Output)) bool {
+		o := base
+		f(&o)
+		return !sameOutput(base, o)
+	}
+	for name, f := range map[string]func(*Output){
+		"description": func(o *Output) { o.Description = "e" },
+		"rect":        func(o *Output) { o.Rect.X = 5 },
+		"scale":       func(o *Output) { o.Scale = 2 },
+		"mode":        func(o *Output) { o.Mode.RefreshMHz = 144000 },
+		"powered":     func(o *Output) { o.Powered = false },
+	} {
+		if !changed(f) {
+			t.Errorf("a different %s was not a change", name)
+		}
+	}
+	if changed(func(o *Output) { o.Workspace, o.Focused = 2, false }) {
+		t.Error("the workspace and focus, which have their own events, counted as an output change")
+	}
+}
+
+func TestAWindowsStackChangeIsAnEvent(t *testing.T) {
+	top, below := 0, 1
+	a := Window{ID: 1, Stack: &top}
+	b := Window{ID: 2, Stack: &below}
+	c := Window{ID: 3, Stack: &below}
+	prev := Snapshot{Windows: []Window{a, b, c}}
+	b2, c2 := b, c
+	b2.Stack = &top
+	c2.Stack = nil
+	a2 := a
+	same := 0
+	a2.Stack = &same
+	next := Snapshot{Windows: []Window{a2, b2, c2}}
+	want := []string{`{"event":"stack","window":2,"stack":0}`, `{"event":"stack","window":3,"stack":null}`}
+	if got := names(Diff(prev, next)); !slices.Equal(got, want) {
+		t.Fatalf("diff\n got %s\nwant %s", strings.Join(got, "\n     "), strings.Join(want, "\n     "))
+	}
+}
+
+func TestAWindowChangingOutputAloneSendsItsRect(t *testing.T) {
+	w := Window{ID: 4, AppID: "foot", Output: "DP-1", Rect: wmipc.Rect{X: 10, Y: 10, Width: 20, Height: 20}}
+	moved := w
+	moved.Output = "HDMI-A-1"
+	want := []string{`{"event":"rect","window":4,"output":"HDMI-A-1","rect":{"x":10,"y":10,"width":20,"height":20}}`}
+	if got := names(Diff(Snapshot{Windows: []Window{w}}, Snapshot{Windows: []Window{moved}})); !slices.Equal(got, want) {
+		t.Fatalf("diff\n got %s\nwant %s", strings.Join(got, "\n     "), strings.Join(want, "\n     "))
+	}
+	focused := w
+	focused.Focused = true
+	for _, e := range Diff(Snapshot{Windows: []Window{w}}, Snapshot{Windows: []Window{focused}}) {
+		if e.Name() == "rect" || e.Name() == "appid" {
+			t.Errorf("a focus change sent %s", e.Name())
+		}
+	}
+}
+
+func TestParseMode(t *testing.T) {
+	for text, want := range map[string]wmipc.Mode{
+		"1920x1080":         {Width: 1920, Height: 1080},
+		"2560x1440@143.912": {Width: 2560, Height: 1440, RefreshMHz: 143912},
+		"800x600@60":        {Width: 800, Height: 600, RefreshMHz: 60000},
+	} {
+		if got, err := ParseMode(text); err != nil || got != want {
+			t.Errorf("%s parsed to %+v, %v", text, got, err)
+		}
+	}
+	for _, text := range []string{"", "1920", "1920x", "x1080", "0x1080", "1920x-1", "1920x1080@", "1920x1080@0", "1920x1080@fast", "1920x1080@3000000"} {
+		if got, err := ParseMode(text); err == nil {
+			t.Errorf("%q parsed to %+v", text, got)
+		}
+	}
+}

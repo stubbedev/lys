@@ -1,0 +1,243 @@
+package drm
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"slices"
+
+	kdrm "github.com/stubbedev/lys-lib/drm"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/render/soft"
+)
+
+type cursorBuffer struct {
+	dumb kdrm.Dumb
+	fb   uint32
+}
+
+type cursor struct {
+	o                       *Output
+	plane                   *plane
+	buffers                 []*cursorBuffer
+	pending, queued, front  *cursorBuffer
+	drawn                   *cursorBuffer
+	hotspot, at             image.Point
+	drawing, visible, dirty bool
+	refused                 error
+	onPlane                 cursorPlaneState
+}
+
+type cursorPlaneState struct {
+	shown       bool
+	fb          uint32
+	at, hotspot image.Point
+}
+
+func (o *Output) CursorPlane() (backend.CursorPlane, error) {
+	if o.cursor == nil {
+		return nil, fmt.Errorf("drm: %s has no free cursor plane that scans out linear ARGB8888", o.Name())
+	}
+	return o.cursor, nil
+}
+
+func (c *cursor) CursorSize() image.Point {
+	return c.o.b.cursor
+}
+
+func (c *cursor) BeginCursor() (backend.Frame, error) {
+	switch {
+	case c.refused != nil:
+		return backend.Frame{}, c.refused
+	case c.drawing:
+		return backend.Frame{}, fmt.Errorf("drm: %s already has a cursor image in progress", c.o.Name())
+	}
+	r, ok := c.o.b.alloc.renderer().(*soft.Renderer)
+	if !ok {
+		return backend.Frame{}, backend.ErrCursorReadback
+	}
+	if err := c.allocate(); err != nil {
+		return backend.Frame{}, err
+	}
+	c.drawing, c.drawn = true, c.idle()
+	size := c.o.b.cursor
+	clear(c.drawn.dumb.Pix)
+	return backend.Frame{Renderer: r, Target: &soft.Buffer{Pix: c.drawn.dumb.Pix, Stride: int(c.drawn.dumb.Pitch), W: size.X, H: size.Y}}, nil
+}
+
+func (c *cursor) allocate() error {
+	b := c.o.b
+	for len(c.buffers) < cursorBuffers {
+		dumb, err := b.dev.CreateDumb(b.cursor)
+		if err != nil {
+			return fmt.Errorf("drm: cursor buffer for %s: %w", c.o.Name(), err)
+		}
+		fb, err := b.dev.AddFB2(kdrm.FB{Width: uint32(b.cursor.X), Height: uint32(b.cursor.Y), Format: cursorFormat, Handles: [4]uint32{dumb.Handle}, Pitches: [4]uint32{dumb.Pitch}}) //nolint:gosec // cursor sizes fit
+		if err != nil {
+			return errors.Join(fmt.Errorf("drm: cursor framebuffer for %s: %w", c.o.Name(), err), b.dev.DestroyDumb(dumb))
+		}
+		c.buffers = append(c.buffers, &cursorBuffer{dumb: dumb, fb: fb})
+	}
+	return nil
+}
+
+func (c *cursor) SetCursor(hotspot image.Point) error {
+	if !c.drawing {
+		return fmt.Errorf("drm: SetCursor on %s without BeginCursor", c.o.Name())
+	}
+	b := c.drawn
+	c.drawing, c.drawn = false, nil
+	return c.show(b, hotspot)
+}
+
+func (c *cursor) LoadCursor(pix []byte, stride int, size, hotspot image.Point) error {
+	switch {
+	case c.refused != nil:
+		return c.refused
+	case c.drawing:
+		return fmt.Errorf("drm: LoadCursor on %s during a cursor image in progress", c.o.Name())
+	case size.X > c.CursorSize().X || size.Y > c.CursorSize().Y:
+		return fmt.Errorf("drm: a %v cursor image does not fit the %v cursor plane of %s", size, c.CursorSize(), c.o.Name())
+	}
+	if err := render.CheckPixels(size, stride, len(pix)); err != nil {
+		return err
+	}
+	if err := c.allocate(); err != nil {
+		return err
+	}
+	b := c.idle()
+	pitch := int(b.dumb.Pitch)
+	clear(b.dumb.Pix)
+	for y := range size.Y {
+		copy(b.dumb.Pix[y*pitch:y*pitch+size.X*4], pix[y*stride:])
+	}
+	return c.show(b, hotspot)
+}
+
+func (c *cursor) idle() *cursorBuffer {
+	idle := func(b *cursorBuffer) bool { return b != c.front && b != c.queued }
+	i := slices.IndexFunc(c.buffers, func(b *cursorBuffer) bool { return idle(b) && b != c.pending })
+	if i < 0 {
+		i = slices.IndexFunc(c.buffers, idle)
+	}
+	return c.buffers[i]
+}
+
+func (c *cursor) show(b *cursorBuffer, hotspot image.Point) error {
+	c.pending, c.hotspot, c.visible, c.dirty = b, hotspot, true, true
+	if err := c.test(); err != nil {
+		return err
+	}
+	return c.flush()
+}
+
+func (c *cursor) flush() error {
+	if err := c.o.flushPlanes(); err != nil {
+		return err
+	}
+	return c.refused
+}
+
+func (c *cursor) test() error {
+	o := c.o
+	if !o.testable() {
+		return nil
+	}
+	o.b.req.Reset()
+	c.add()
+	if err := o.b.dev.Commit(&o.b.req, kdrm.AtomicTestOnly, 0); err != nil {
+		c.refused, c.visible, c.dirty = fmt.Errorf("drm: the cursor plane of %s refuses a %v image: %w", o.Name(), o.b.cursor, err), false, true
+		return c.refused
+	}
+	return nil
+}
+
+func (c *cursor) MoveCursor(at image.Point) error {
+	switch {
+	case c.refused != nil:
+		return c.refused
+	case at == c.at:
+		return nil
+	}
+	c.at = at
+	if !c.visible {
+		return nil
+	}
+	c.dirty = true
+	return c.flush()
+}
+
+func (c *cursor) HideCursor() error {
+	if !c.visible {
+		return nil
+	}
+	c.visible, c.dirty = false, true
+	return c.flush()
+}
+
+func (c *cursor) wanted() cursorPlaneState {
+	if !c.visible {
+		return cursorPlaneState{}
+	}
+	return cursorPlaneState{shown: true, fb: c.pending.fb, at: c.at.Sub(c.hotspot), hotspot: c.hotspot}
+}
+
+func (c *cursor) settled() bool {
+	return c.o.kms == kmsFlip && c.wanted() == c.onPlane
+}
+
+func (c *cursor) clipped() bool {
+	at := c.wanted().at
+	return !image.Rectangle{Min: at, Max: at.Add(c.o.b.cursor)}.In(image.Rectangle{Max: modeOf(c.o.mode).Size})
+}
+
+func (c *cursor) add() {
+	o, p, want, was := c.o, c.plane, c.wanted(), c.onPlane
+	r := &o.b.req
+	whole := o.kms != kmsFlip
+	if !want.shown {
+		if whole || was.shown {
+			p.set(r, "FB_ID", 0)
+			p.set(r, "CRTC_ID", 0)
+		}
+		return
+	}
+	if whole || !was.shown {
+		o.place(p, want.fb, image.Rectangle{Min: want.at, Max: want.at.Add(o.b.cursor)}, -1)
+		c.addHotspot()
+		return
+	}
+	if want.fb != was.fb {
+		p.set(r, "FB_ID", uint64(want.fb))
+	}
+	if want.at != was.at {
+		p.setPosition(r, want.at)
+	}
+	if want.hotspot != was.hotspot {
+		c.addHotspot()
+	}
+}
+
+func (c *cursor) addHotspot() {
+	r := &c.o.b.req
+	c.plane.set(r, "HOTSPOT_X", uint64(int64(c.hotspot.X))) //nolint:gosec // signed plane properties travel as two's complement
+	c.plane.set(r, "HOTSPOT_Y", uint64(int64(c.hotspot.Y))) //nolint:gosec // signed plane properties travel as two's complement
+}
+
+func (c *cursor) sent() {
+	c.queued, c.dirty, c.onPlane = nil, false, c.wanted()
+	if c.visible {
+		c.queued = c.pending
+	}
+}
+
+func (c *cursor) release() error {
+	errs := make([]error, 0, 2*len(c.buffers)+1)
+	for _, b := range c.buffers {
+		errs = append(errs, c.o.b.dev.RemoveFB(b.fb), c.o.b.dev.DestroyDumb(b.dumb))
+	}
+	c.buffers, c.pending, c.queued, c.front, c.drawn, c.drawing = nil, nil, nil, nil, nil, false
+	return errors.Join(errs...)
+}

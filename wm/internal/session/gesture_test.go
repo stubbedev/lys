@@ -1,0 +1,87 @@
+package session
+
+import (
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+)
+
+type fakeGesture struct {
+	typ       int32
+	usec      uint64
+	fingers   int32
+	cancelled int32
+	dx, dy    float64
+	ux, uy    float64
+	scale     float64
+	angle     float64
+}
+
+func TestLibinputGesturesBecomeBackendEvents(t *testing.T) {
+	events := []fakeGesture{
+		{typ: evSwipeBegin, usec: 1000, fingers: 3},
+		{typ: evSwipeUpdate, usec: 2000, dx: 4.5, dy: -1, ux: 3, uy: -0.5},
+		{typ: evSwipeEnd, usec: 3000},
+		{typ: evPinchBegin, usec: 4000, fingers: 2},
+		{typ: evPinchUpdate, usec: 5000, dx: 1, dy: 2, scale: 1.25, angle: -10},
+		{typ: evPinchEnd, usec: 6000, cancelled: 1},
+		{typ: evHoldBegin, usec: 7000, fingers: 4},
+		{typ: evHoldEnd, usec: 8000, cancelled: 1},
+	}
+	at := func(i uintptr) fakeGesture { return events[i-1] }
+	in := &inputReader{fn: libinputFuncs{
+		eventType:        func(ev uintptr) int32 { return at(ev).typ },
+		gestureEvent:     func(ev uintptr) uintptr { return ev },
+		gestureTime:      func(g uintptr) uint64 { return at(g).usec },
+		fingers:          func(g uintptr) int32 { return at(g).fingers },
+		cancelled:        func(g uintptr) int32 { return at(g).cancelled },
+		gestureDX:        func(g uintptr) float64 { return at(g).dx },
+		gestureDY:        func(g uintptr) float64 { return at(g).dy },
+		gestureUnaccelDX: func(g uintptr) float64 { return at(g).ux },
+		gestureUnaccelDY: func(g uintptr) float64 { return at(g).uy },
+		gestureScale:     func(g uintptr) float64 { return at(g).scale },
+		gestureAngle:     func(g uintptr) float64 { return at(g).angle },
+	}}
+	var got []backend.Event
+	for i := range events {
+		got = in.translate(got, &translated{}, &InputDevice{}, uintptr(i+1), in.fn.eventType(uintptr(i+1)))
+	}
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+	want := []backend.Event{
+		backend.GestureBegin{Time: ms(1), Gesture: backend.Swipe, Fingers: 3},
+		&backend.SwipeUpdate{Time: ms(2), DX: 4.5, DY: -1, UnaccelDX: 3, UnaccelDY: -0.5},
+		backend.GestureEnd{Time: ms(3), Gesture: backend.Swipe},
+		backend.GestureBegin{Time: ms(4), Gesture: backend.Pinch, Fingers: 2},
+		&backend.PinchUpdate{Time: ms(5), DX: 1, DY: 2, Scale: 1.25, Rotation: -10},
+		backend.GestureEnd{Time: ms(6), Gesture: backend.Pinch, Cancelled: true},
+		backend.GestureBegin{Time: ms(7), Gesture: backend.Hold, Fingers: 4},
+		backend.GestureEnd{Time: ms(8), Gesture: backend.Hold, Cancelled: true},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("translated\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+func TestOnlyKnownSwitchesBecomeBackendEvents(t *testing.T) {
+	kinds := []int32{switchLid, switchTabletMode, 3}
+	in := &inputReader{fn: libinputFuncs{
+		eventType:   func(uintptr) int32 { return evSwitchToggle },
+		switchEvent: func(ev uintptr) uintptr { return ev },
+		switchKind:  func(s uintptr) int32 { return kinds[s-1] },
+		switchTime:  func(uintptr) uint64 { return 1000 },
+		switchState: func(uintptr) int32 { return 1 },
+	}}
+	var got []backend.Event
+	for i := range kinds {
+		got = in.translate(got, &translated{}, &InputDevice{}, uintptr(i+1), in.fn.eventType(uintptr(i+1)))
+	}
+	want := []backend.Event{
+		backend.Switch{Time: time.Millisecond, Kind: backend.SwitchLid, On: true},
+		backend.Switch{Time: time.Millisecond, Kind: backend.SwitchTabletMode, On: true},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("translated %+v, want %+v: an unknown switch must not act as the lid", got, want)
+	}
+}

@@ -1,0 +1,404 @@
+package harness
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"math"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/output"
+	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys-wm/internal/testenv"
+	"github.com/stubbedev/lys-wm/internal/wm"
+	"github.com/stubbedev/lys-wm/internal/xkb"
+)
+
+type inputRig struct {
+	t            *testing.T
+	h            *Harness
+	c            *testclient.Client
+	seat         *cw.WlSeat
+	in           *testclient.Input
+	w            *testclient.Window
+	seen         int
+	childSub     *cw.WlSubsurface
+	childSurface *cw.WlSurface
+}
+
+func startInput(t *testing.T) *inputRig {
+	return inputOn(t, Start(t, small))
+}
+
+func inputOn(t *testing.T, h *Harness) *inputRig {
+	c := testclient.Connect(t, h.Socket())
+	seat, in := c.Seat()
+	w := c.Window("win", quadrants)
+	in.Name(w.Surface, "win")
+	c.DispatchUntil("the window to map", w.Mapped)
+	return &inputRig{t: t, h: h, c: c, seat: seat, in: in, w: w}
+}
+
+func (r *inputRig) inject(f func(b *headless.Backend, o *headless.Output) error) {
+	r.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		return f(b, b.Outputs()[0])
+	})
+}
+
+func (r *inputRig) expect(want ...string) {
+	r.t.Helper()
+	start := r.seen
+	r.c.DispatchUntil(strings.Join(want, ", "), func() bool { return len(r.in.Log) >= start+len(want) })
+	if got := r.in.Log[start : start+len(want)]; !slices.Equal(got, want) {
+		r.t.Fatalf("events %q, want %q (log %q)", got, want, r.in.Log)
+	}
+	r.seen = start + len(want)
+}
+
+func (r *inputRig) moveTo(x, y float64) {
+	r.inject(func(b *headless.Backend, o *headless.Output) error {
+		if err := b.Pointer().MoveTo(o, x/160, y/100); err != nil {
+			return err
+		}
+		return b.Pointer().Frame()
+	})
+}
+
+func (r *inputRig) moveOn(output int, x, y float64) {
+	r.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		o := b.Outputs()[output]
+		return errors.Join(b.Pointer().MoveTo(o, x/160, y/100), b.Pointer().Frame())
+	})
+}
+
+func TestPointerEntersMovesClicksAndScrolls(t *testing.T) {
+	t.Parallel()
+	r := startInput(t)
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.moveTo(40, 50)
+	r.expect("motion 40,50", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Pointer().Move(10, 5), b.Pointer().Frame())
+	})
+	r.expect("motion 50,55", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame(), b.Pointer().Button(272, false), b.Pointer().Frame())
+	})
+	r.expect("button 272 1", "frame", "button 272 0", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Pointer().Axis(backend.Vertical, backend.Wheel, 15, 120), b.Pointer().Frame())
+	})
+	r.expect("axis_source 0", "axis_value120 0 120", "axis_relative_direction 0 0", "axis 0 15", "frame")
+}
+
+func (r *inputRig) child() {
+	r.t.Helper()
+	child := r.c.Surface()
+	sub, err := r.c.Subcompositor.GetSubsurface(child, r.w.Surface)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	r.in.Name(child, "child")
+	r.childSub, r.childSurface = sub, child
+	if err := errors.Join(sub.SetPosition(80, 0), sub.SetDesync(), child.Attach(r.c.Buffer(image.Pt(80, 100), 0, quadrants), 0, 0), child.Commit(), r.w.Surface.Commit()); err != nil {
+		r.t.Fatal(err)
+	}
+	r.c.Sync()
+	r.h.Eventually("the subsurface on the output", showing(81, 50, [3]byte{0, 0, 0xff}))
+}
+
+func TestSubsurfacesGrabsAndInputRegions(t *testing.T) {
+	t.Parallel()
+	r := startInput(t)
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.child()
+	r.moveTo(40, 50)
+	r.expect("motion 40,50", "frame")
+	r.moveTo(120, 50)
+	r.expect("leave win", "enter child 40,50", "frame")
+	r.moveTo(40, 50)
+	r.expect("leave child", "enter win 40,50", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
+	})
+	r.expect("button 272 1", "frame")
+	r.moveTo(120, 50)
+	r.expect("motion 120,50", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Pointer().Button(272, false), b.Pointer().Frame())
+	})
+	r.expect("button 272 0", "frame")
+	r.moveTo(121, 50)
+	r.expect("leave win", "enter child 41,50", "frame")
+	empty, err := r.c.Compositor.CreateRegion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := errors.Join(r.childSurface.SetInputRegion(empty), r.childSurface.Commit()); err != nil {
+		t.Fatal(err)
+	}
+	r.c.Sync()
+	r.moveTo(122, 50)
+	r.expect("leave child", "enter win 122,50", "frame")
+}
+
+func TestKeyboardFocusFollowsTheMouse(t *testing.T) {
+	t.Parallel()
+	r := startInput(t)
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		return c.Seat().SetKeyboardFocus(nil)
+	})
+	r.expect("kb_leave win")
+	r.moveTo(10, 10)
+	r.expect("motion 10,10", "kb_enter win", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Keyboard().Key(30, true), b.Keyboard().Key(30, false))
+	})
+	r.expect("key 30 1", "key 30 0")
+}
+
+func TestTouchGoesToTheSurfaceUnderThePoint(t *testing.T) {
+	t.Parallel()
+	r := startInput(t)
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.child()
+	r.inject(func(b *headless.Backend, o *headless.Output) error {
+		return errors.Join(b.Touch().Down(1, o, 0.25, 0.5), b.Touch().Down(2, o, 0.75, 0.5), b.Touch().Frame())
+	})
+	r.expect("down 1 win 40,50", "down 2 child 40,50", "touch_frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Motion(1, 0.5, 0.5), b.Touch().Frame())
+	})
+	r.expect("touch_motion 1 80,50", "touch_frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Up(1), b.Touch().Frame(), b.Touch().Cancel(2))
+	})
+	r.expect("up 1", "touch_frame", "cancel")
+}
+
+func TestAbsoluteDevicesWithoutAnOutputSpanTheLayout(t *testing.T) {
+	t.Parallel()
+	r := inputOn(t, Start(t, small, small))
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Pointer().MoveTo(nil, 0.125, 0.25), b.Pointer().Frame())
+	})
+	r.expect("motion 40,25", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Down(1, nil, 0.25, 0.5), b.Touch().Frame())
+	})
+	r.expect("down 1 win 80,50", "touch_frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Motion(1, 0.375, 0.5), b.Touch().Frame())
+	})
+	r.expect("touch_motion 1 120,50", "touch_frame")
+}
+
+func TestAMappedTouchscreenAndTabletStayOnTheirOutput(t *testing.T) {
+	t.Parallel()
+	r := inputOn(t, StartWith(t, func(c *compositor.Config) {
+		c.DeviceOutputs = map[string]wm.OutputMatch{"headless-touch": {Name: "HEADLESS-1"}, "headless-pointer": {Name: "HEADLESS-1"}}
+	}, small, small))
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Down(1, nil, 0.25, 0.5), b.Touch().Frame())
+	})
+	r.expect("down 1 win 40,50", "touch_frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Motion(1, 1, 0.5), b.Touch().Frame())
+	})
+	r.expect("touch_motion 1 159,50", "touch_frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Up(1), b.Touch().Frame(), b.Pointer().MoveTo(nil, 0.5, 0.25), b.Pointer().Frame())
+	})
+	r.expect("up 1", "touch_frame", "motion 80,25", "frame")
+	r.h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		if x, y := c.Cursor(); x != 80 || y != 25 {
+			return fmt.Errorf("an absolute pointer mapped to HEADLESS-1 put the cursor at %g,%g", x, y)
+		}
+		return nil
+	})
+}
+
+func TestADeviceMappedToAnAbsentOutputGoesNowhere(t *testing.T) {
+	t.Parallel()
+	r := inputOn(t, StartWith(t, func(c *compositor.Config) {
+		c.DeviceOutputs = map[string]wm.OutputMatch{"headless-touch": {Name: "eDP-1"}}
+	}, small))
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.inject(func(b *headless.Backend, _ *headless.Output) error {
+		return errors.Join(b.Touch().Down(1, nil, 0.5, 0.5), b.Touch().Frame(), b.Keyboard().Key(30, true))
+	})
+	r.expect("key 30 1")
+}
+
+func TestLeavingToTheDesktopEndsThePointerFrame(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small, small)
+	c := testclient.Connect(t, h.Socket())
+	_, in := c.Seat()
+	w := c.Window("win", quadrants)
+	in.Name(w.Surface, "win")
+	c.DispatchUntil("the window to map", w.Mapped)
+	r := &inputRig{t: t, h: h, c: c, in: in, w: w}
+	r.expect("kb_enter win", "enter win 80,50", "frame")
+	r.moveOn(1, 10, 10)
+	r.expect("leave win", "frame")
+}
+
+func TestTheCursorStaysOnAnOutput(t *testing.T) {
+	t.Parallel()
+	big := backend.Mode{Size: image.Pt(1920, 1080), RefreshMHz: 60000, Preferred: true}
+	h := Start(t, big, small)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		return errors.Join(b.Pointer().Move(5000, 5000), b.Pointer().Frame())
+	})
+	h.Eventually("the cursor on an output", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		x, y := c.Cursor()
+		at := image.Pt(int(math.Floor(x)), int(math.Floor(y)))
+		return slices.ContainsFunc(c.Outputs(), func(o *output.Output) bool { return at.In(o.Logical()) })
+	})
+}
+
+func TestKeyboardLEDsFollowTheLockKeys(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	const capsLock = 58
+	leds := func() (l xkb.Locks) {
+		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			l = b.Keyboard().LEDs()
+			return nil
+		})
+		return l
+	}
+	tap := func() {
+		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			return errors.Join(b.Keyboard().Key(capsLock, true), b.Keyboard().Key(capsLock, false))
+		})
+	}
+	tap()
+	if got := leds(); got != (xkb.Locks{Caps: true}) {
+		t.Fatalf("after Caps Lock the keyboard LEDs are %+v", got)
+	}
+	tap()
+	if got := leds(); got != (xkb.Locks{}) {
+		t.Fatalf("after a second Caps Lock the keyboard LEDs are %+v", got)
+	}
+}
+
+func TestNumLockIsOnAfterStartAndAfterReload(t *testing.T) {
+	t.Parallel()
+	const numLock, mod2 = 69, 1 << 4
+	var cfg compositor.Config
+	h := StartWith(t, func(c *compositor.Config) {
+		c.Seat.NumLock = true
+		cfg = *c
+	}, small)
+	cl := testclient.Connect(t, h.Socket())
+	_, in := cl.Seat()
+	w := cl.Window("win", quadrants)
+	cl.DispatchUntil("the window to map", w.Mapped)
+	on := func(when string, want bool) {
+		t.Helper()
+		h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+			if got := b.Keyboard().LEDs().Num; got != want {
+				return fmt.Errorf("%s: the Num Lock LED is %v", when, got)
+			}
+			if got := c.Seat().Locks().Num; got != want {
+				return fmt.Errorf("%s: the seat's Num Lock is %v", when, got)
+			}
+			return nil
+		})
+		cl.DispatchUntil(when+": the focused client's locked modifiers", func() bool { return (in.Locked&mod2 != 0) == want })
+	}
+	on("after start", true)
+	h.key(numLock, true)
+	h.key(numLock, false)
+	on("after Num Lock was pressed", false)
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error { return c.Reconfigure(cfg) })
+	on("after reload", true)
+}
+
+func TestEachKeyboardTypesItsOwnLayoutAndAKeymapIsSentOnlyOnChange(t *testing.T) {
+	t.Parallel()
+	const keyBracketLeft, bracketLeft, aring = 26, 0x5b, 0xe5
+	set, err := testenv.XKBCompiler(t).CompileSet(xkb.Names{Layout: "us"}, map[string]xkb.Names{
+		"danish board": {Layout: "dk"},
+		"ansi board":   {Layout: "us"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = set.Close() })
+	if set.Devices["ansi board"] != set.Seat || set.Devices["danish board"].Size() == set.Seat.Size() {
+		t.Fatal("the us boards do not share one keymap, or the two keymaps cannot be told apart by size")
+	}
+	h := StartWith(t, func(c *compositor.Config) {
+		c.Seat.Keymap, c.Seat.Devices = set.Seat, set.Devices
+	}, small)
+	boards := map[string]*headless.Keyboard{}
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		boards["laptop"] = b.Keyboard()
+		for _, name := range []string{"danish board", "ansi board"} {
+			k, err := b.PlugKeyboard(name)
+			if err != nil {
+				return err
+			}
+			boards[name] = k
+		}
+		return nil
+	})
+	cl := testclient.Connect(t, h.Socket())
+	_, in := cl.Seat()
+	w := cl.Window("win", quadrants)
+	cl.DispatchUntil("the window to map", w.Mapped)
+	cl.DispatchUntil("the keyboard to enter", func() bool {
+		return slices.ContainsFunc(in.Log, func(l string) bool { return strings.HasPrefix(l, "kb_enter ") })
+	})
+	sent := in.Keymaps
+	typed := 0
+	for i, step := range []struct {
+		board  string
+		keymap *xkb.Keymap
+		keysym uint32
+		sends  int
+	}{
+		{"laptop", set.Seat, bracketLeft, 0},
+		{"danish board", set.Devices["danish board"], aring, 1},
+		{"danish board", set.Devices["danish board"], aring, 0},
+		{"ansi board", set.Seat, bracketLeft, 1},
+		{"laptop", set.Seat, bracketLeft, 0},
+		{"danish board", set.Devices["danish board"], aring, 1},
+	} {
+		var keysym uint32
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			err := boards[step.board].Key(keyBracketLeft, true)
+			keysym = c.Seat().Keysym(keyBracketLeft)
+			return errors.Join(err, boards[step.board].Key(keyBracketLeft, false))
+		})
+		typed += 2
+		cl.DispatchUntil(fmt.Sprintf("step %d: the key from %s", i, step.board), func() bool {
+			n := 0
+			for _, l := range in.Log {
+				if strings.HasPrefix(l, fmt.Sprintf("key %d ", keyBracketLeft)) {
+					n++
+				}
+			}
+			return n == typed
+		})
+		if keysym != step.keysym {
+			t.Fatalf("step %d: %s typed keysym %#x, want %#x", i, step.board, keysym, step.keysym)
+		}
+		if got := in.Keymaps - sent; got != step.sends || in.KeymapSize != step.keymap.Size() {
+			t.Fatalf("step %d: %s sent %d keymaps (now %d bytes), want %d of %d bytes", i, step.board, got, in.KeymapSize, step.sends, step.keymap.Size())
+		}
+		sent = in.Keymaps
+	}
+}

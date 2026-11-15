@@ -1,0 +1,194 @@
+package harness
+
+import (
+	"errors"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	cei "github.com/stubbedev/lys-wm/internal/protocol/client/extidlenotify"
+	cii "github.com/stubbedev/lys-wm/internal/protocol/client/idleinhibit"
+	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+const heldTimeout = 10 * time.Millisecond
+
+type idleLog struct{ log testclient.Log }
+
+func (l *idleLog) Idled(*cei.ExtIdleNotificationV1) error {
+	return l.log.Note("idled")
+}
+
+func (l *idleLog) Resumed(*cei.ExtIdleNotificationV1) error {
+	return l.log.Note("resumed")
+}
+
+type idler struct {
+	t        *testing.T
+	c        *testclient.Client
+	notifier *cei.ExtIdleNotifierV1
+	seat     *cw.WlSeat
+}
+
+func newIdler(t *testing.T, h *Harness) *idler {
+	t.Helper()
+	i := &idler{t: t, c: testclient.Connect(t, h.Socket())}
+	i.seat, _ = i.c.Seat()
+	var err error
+	if i.notifier, err = cei.NewExtIdleNotifierV1(i.c.Display, 2); err != nil {
+		t.Fatal(err)
+	}
+	i.c.Bind(i.notifier)
+	return i
+}
+
+func (i *idler) watch(timeout time.Duration, input bool) *idleLog {
+	i.t.Helper()
+	l := &idleLog{}
+	var err error
+	if input {
+		_, err = i.notifier.GetInputIdleNotification(l, uint32(timeout.Milliseconds()), i.seat)
+	} else {
+		_, err = i.notifier.GetIdleNotification(l, uint32(timeout.Milliseconds()), i.seat)
+	}
+	if err = errors.Join(err, i.c.Display.Flush()); err != nil {
+		i.t.Fatal(err)
+	}
+	return l
+}
+
+func (i *idler) stillHeldOnceInputIdles(held *idleLog) {
+	i.t.Helper()
+	input := i.watch(4*heldTimeout, true)
+	i.c.DispatchUntil("input idle despite the inhibitor", func() bool { return slices.Equal(input.log, []string{"idled"}) })
+	if err := i.c.Display.Roundtrip(); err != nil {
+		i.t.Fatal(err)
+	}
+	if len(held.log) > 0 {
+		i.t.Fatalf("idle events %v with an inhibitor on screen", held.log)
+	}
+}
+
+func inhibitableWindow(t *testing.T) (*Harness, *testclient.Client, *testclient.Window, *cii.ZwpIdleInhibitManagerV1) {
+	t.Helper()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("video", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	h.Eventually("the window on screen", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		return pixel(snapshot(b.Outputs()[0]), 10, 10) != [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
+	})
+	mgr, err := cii.NewZwpIdleInhibitManagerV1(c.Display, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(mgr)
+	return h, c, w, mgr
+}
+
+func move(h *Harness) {
+	movedAt(h)
+}
+
+func movedAt(h *Harness) time.Duration {
+	h.t.Helper()
+	var at time.Duration
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		at = h.loop.Now()
+		return errors.Join(b.Pointer().Move(1, 0), b.Pointer().Frame())
+	})
+	return at
+}
+
+func TestIdleNotificationsFireAndResume(t *testing.T) {
+	t.Parallel()
+	const timeout = 60 * time.Millisecond
+	h := Start(t, small)
+	h.Freeze()
+	advance := h.Advance
+	i := newIdler(t, h)
+	l := i.watch(timeout, false)
+	advance(timeout)
+	i.c.DispatchUntil("idled", func() bool { return slices.Equal(l.log, []string{"idled"}) })
+	move(h)
+	i.c.DispatchUntil("resumed", func() bool { return slices.Equal(l.log, []string{"idled", "resumed"}) })
+	var moved time.Duration
+	for range 10 {
+		advance(timeout / 3)
+		moved = movedAt(h)
+	}
+	h.Eventually("the pointer drawn and no frame owed", quiet)
+	advance(moved + timeout - time.Millisecond - h.Now())
+	if err := i.c.Display.Roundtrip(); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(l.log, []string{"idled", "resumed"}) {
+		t.Fatalf("idle while input kept coming: %v", l.log)
+	}
+	advance(time.Millisecond)
+	i.c.DispatchUntil("idled again", func() bool { return slices.Equal(l.log, []string{"idled", "resumed", "idled"}) })
+}
+
+func TestVisibleInhibitorsHoldOffIdle(t *testing.T) {
+	t.Parallel()
+	h, c, w, mgr := inhibitableWindow(t)
+	inhibitor, err := mgr.CreateInhibitor(w.Surface)
+	if err != nil || c.Display.Roundtrip() != nil {
+		t.Fatal(err)
+	}
+	i := newIdler(t, h)
+	held := i.watch(heldTimeout, false)
+	i.stillHeldOnceInputIdles(held)
+
+	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
+		a, err := wm.ParseAction("workspace 2")
+		if err != nil {
+			return err
+		}
+		return comp.Dispatch(a)
+	})
+	i.c.DispatchUntil("idle once the inhibiting window is hidden", func() bool { return slices.Equal(held.log, []string{"idled"}) })
+	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
+		a, err := wm.ParseAction("workspace 1")
+		if err != nil {
+			return err
+		}
+		return comp.Dispatch(a)
+	})
+	i.c.DispatchUntil("resumed when it shows again", func() bool { return slices.Equal(held.log, []string{"idled", "resumed"}) })
+	if err := errors.Join(inhibitor.Destroy(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	i.c.DispatchUntil("idle after the inhibitor went away", func() bool { return slices.Equal(held.log, []string{"idled", "resumed", "idled"}) })
+}
+
+func TestAnInhibitorStopsHoldingWhenItsSurfaceIsDestroyed(t *testing.T) {
+	t.Parallel()
+	h, c, w, mgr := inhibitableWindow(t)
+	for range 20 {
+		toggled, err := mgr.CreateInhibitor(w.Surface)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := toggled.Destroy(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := mgr.CreateInhibitor(w.Surface); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Display.Roundtrip(); err != nil {
+		t.Fatal(err)
+	}
+	i := newIdler(t, h)
+	held := i.watch(heldTimeout, false)
+	i.stillHeldOnceInputIdles(held)
+	if err := errors.Join(w.Destroy(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	i.c.DispatchUntil("idle once the inhibiting surface is gone", func() bool { return slices.Equal(held.log, []string{"idled"}) })
+}

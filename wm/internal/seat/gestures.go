@@ -1,0 +1,172 @@
+package seat
+
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	spg "github.com/stubbedev/lys-wm/internal/protocol/server/pointergestures"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+const gesturesVersion = 3
+
+type gestureState struct {
+	kind    backend.Gesture
+	surface *surface.Surface
+	serial  uint32
+	at      uint32
+	fingers uint32
+}
+
+type gestureObject interface {
+	SendBegin(serial, time uint32, surface *sw.WlSurface, fingers uint32) error
+}
+
+func (g *gestureState) begin(obj gestureObject) error {
+	return obj.SendBegin(g.serial, g.at, g.surface.Resource(), g.fingers)
+}
+
+func (g *gestureState) join(c *server.Client, kind backend.Gesture, obj gestureObject) error {
+	if g.surface == nil || g.kind != kind || g.surface.Client() != c {
+		return nil
+	}
+	return g.begin(obj)
+}
+
+func (s *Seat) bindGestures(c *server.Client, id wire.ObjectID, version uint32) error {
+	_, err := spg.NewZwpPointerGesturesV1(c, id, version, gestureRequests{s, c})
+	return err
+}
+
+type gestureRequests struct {
+	s *Seat
+	c *server.Client
+}
+
+func (gestureRequests) Release(*spg.ZwpPointerGesturesV1) error { return nil }
+
+func (g gestureRequests) GetSwipeGesture(_ *spg.ZwpPointerGesturesV1, res *spg.ZwpPointerGestureSwipeV1, _ *sw.WlPointer) (spg.ZwpPointerGestureSwipeV1Handler, error) {
+	r := g.s.resources(g.c)
+	track(g.s, r, &r.swipes, res)
+	return swipeObject{}, g.s.gesture.join(g.c, backend.Swipe, res)
+}
+
+func (g gestureRequests) GetPinchGesture(_ *spg.ZwpPointerGesturesV1, res *spg.ZwpPointerGesturePinchV1, _ *sw.WlPointer) (spg.ZwpPointerGesturePinchV1Handler, error) {
+	r := g.s.resources(g.c)
+	track(g.s, r, &r.pinches, res)
+	return pinchObject{}, g.s.gesture.join(g.c, backend.Pinch, res)
+}
+
+func (g gestureRequests) GetHoldGesture(_ *spg.ZwpPointerGesturesV1, res *spg.ZwpPointerGestureHoldV1, _ *sw.WlPointer) (spg.ZwpPointerGestureHoldV1Handler, error) {
+	r := g.s.resources(g.c)
+	track(g.s, r, &r.holds, res)
+	return holdObject{}, g.s.gesture.join(g.c, backend.Hold, res)
+}
+
+type (
+	swipeObject struct{}
+	pinchObject struct{}
+	holdObject  struct{}
+)
+
+func (swipeObject) Destroy(*spg.ZwpPointerGestureSwipeV1) error { return nil }
+func (pinchObject) Destroy(*spg.ZwpPointerGesturePinchV1) error { return nil }
+func (holdObject) Destroy(*spg.ZwpPointerGestureHoldV1) error   { return nil }
+
+func (s *Seat) gestureTarget() *clientResources {
+	_, r := s.resourcesAt(s.gesture.surface)
+	return r
+}
+
+func (s *Seat) GestureBegin(at time.Duration, kind backend.Gesture, fingers uint32) error {
+	if s.gesture.surface != nil {
+		if err := s.GestureEnd(at, s.gesture.kind, true); err != nil {
+			return err
+		}
+	}
+	if s.pointer.focus == nil {
+		return nil
+	}
+	s.gesture = gestureState{kind: kind, surface: s.pointer.focus, serial: s.display.NextSerial(), at: wire.Millis(at), fingers: fingers}
+	r := s.gestureTarget()
+	if r == nil {
+		return nil
+	}
+	g := &s.gesture
+	var errs error
+	switch kind {
+	case backend.Swipe:
+		for _, obj := range r.swipes {
+			errs = errors.Join(errs, g.begin(obj))
+		}
+	case backend.Pinch:
+		for _, obj := range r.pinches {
+			errs = errors.Join(errs, g.begin(obj))
+		}
+	case backend.Hold:
+		for _, obj := range r.holds {
+			errs = errors.Join(errs, g.begin(obj))
+		}
+	default:
+		return fmt.Errorf("seat: gesture %d is neither swipe, pinch nor hold", kind)
+	}
+	return errs
+}
+
+func (s *Seat) SwipeUpdate(at time.Duration, dx, dy float64) error {
+	r := s.gestureTarget()
+	if r == nil || s.gesture.kind != backend.Swipe {
+		return nil
+	}
+	var errs error
+	for _, g := range r.swipes {
+		errs = errors.Join(errs, g.SendUpdate(wire.Millis(at), wire.FixedFromFloat(dx), wire.FixedFromFloat(dy)))
+	}
+	return errs
+}
+
+func (s *Seat) PinchUpdate(at time.Duration, dx, dy, scale, rotation float64) error {
+	r := s.gestureTarget()
+	if r == nil || s.gesture.kind != backend.Pinch {
+		return nil
+	}
+	var errs error
+	for _, g := range r.pinches {
+		errs = errors.Join(errs, g.SendUpdate(wire.Millis(at), wire.FixedFromFloat(dx), wire.FixedFromFloat(dy), wire.FixedFromFloat(scale), wire.FixedFromFloat(rotation)))
+	}
+	return errs
+}
+
+func (s *Seat) GestureEnd(at time.Duration, kind backend.Gesture, cancelled bool) error {
+	r := s.gestureTarget()
+	active := s.gesture.kind
+	s.gesture = gestureState{}
+	if r == nil || active != kind {
+		return nil
+	}
+	serial, ms, flag := s.display.NextSerial(), wire.Millis(at), int32(0)
+	if cancelled {
+		flag = 1
+	}
+	var errs error
+	switch kind {
+	case backend.Swipe:
+		for _, g := range r.swipes {
+			errs = errors.Join(errs, g.SendEnd(serial, ms, flag))
+		}
+	case backend.Pinch:
+		for _, g := range r.pinches {
+			errs = errors.Join(errs, g.SendEnd(serial, ms, flag))
+		}
+	case backend.Hold:
+		for _, g := range r.holds {
+			errs = errors.Join(errs, g.SendEnd(serial, ms, flag))
+		}
+	}
+	return errs
+}

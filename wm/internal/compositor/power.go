@@ -1,0 +1,65 @@
+package compositor
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/output"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+func (c *Compositor) Owner(res *sw.WlOutput) *output.Output {
+	return c.layout.Owner(res)
+}
+
+func (c *Compositor) Powered(o *output.Output) bool {
+	return o.Backend().State().Lit()
+}
+
+func (c *Compositor) SetPower(o *output.Output, on bool) error {
+	b := o.Backend()
+	st := b.State()
+	if !st.Enabled() {
+		return fmt.Errorf("compositor: power %s on=%v: the output is disabled", b.Name(), on)
+	}
+	want := backend.PoweredOff
+	if on {
+		want = backend.PoweredOn
+	}
+	if st.Power == want {
+		return nil
+	}
+	st.Power = want
+	if err := b.Commit(st); err != nil {
+		return fmt.Errorf("compositor: power %s on=%v: %w", b.Name(), on, err)
+	}
+	c.stateChanged()
+	var err error
+	if on {
+		c.sceneOf(o).invalidate()
+		err = c.schedule(o)
+	} else {
+		err = errors.Join(c.fifo.Latched(nil), c.confirmLock(), c.throttleDark(o))
+	}
+	return errors.Join(err, c.power.Changed(o))
+}
+
+func (c *Compositor) dpms(e wm.DPMSAction) error {
+	var targets []*output.Output
+	for _, o := range c.outputs {
+		if e.Output == "" || o.Backend().Name() == e.Output {
+			targets = append(targets, o)
+		}
+	}
+	if len(targets) == 0 {
+		return fmt.Errorf("no output %q", e.Output)
+	}
+	var errs []error
+	for _, o := range targets {
+		on := e.Mode.From(c.Powered(o))
+		errs = append(errs, c.SetPower(o, on))
+	}
+	return errors.Join(errs...)
+}

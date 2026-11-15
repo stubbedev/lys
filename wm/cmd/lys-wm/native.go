@@ -1,0 +1,552 @@
+package main
+
+import (
+	"cmp"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"time"
+
+	kdrm "github.com/stubbedev/lys-lib/drm"
+	"github.com/stubbedev/lys-lib/edid"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	drmbackend "github.com/stubbedev/lys-wm/internal/backend/drm"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/session"
+)
+
+type card struct {
+	name    string
+	device  session.Device
+	dev     *kdrm.Device
+	backend *drmbackend.Backend
+}
+
+type broker interface {
+	Seat() string
+	TakeDevice(path string) (int, session.Device, error)
+	ReleaseDevice(d session.Device) error
+	InhibitLidSwitch() (*os.File, error)
+	LidClosed() (bool, error)
+	Suspend() error
+	SwitchTo(vt uint32) error
+	Close() error
+}
+
+type gpuCard struct {
+	udev    session.UdevDevice
+	name    string
+	bootVGA bool
+	render  bool
+	driver  string
+}
+
+type native struct {
+	sessionWork loop.Serial
+	l           *loop.Loop
+	paths       gpu.Paths
+	vendors     edid.Vendors
+	logind      broker
+	monitor     *session.Monitor
+	input       *session.Libinput
+	handler     backend.Handler
+	cards       []*card
+	report      func(error)
+	vulkan      bool
+	lid         *os.File
+	lidClosed   bool
+	power       func()
+	wake        *loop.Timer
+	holdoff     time.Duration
+}
+
+const lidHoldoff = 30 * time.Second
+
+type nativeOptions struct {
+	input      session.InputConfig
+	gpu        string
+	lidSuspend bool
+	vulkan     bool
+	holder     *session.Holder
+}
+
+func choosePrimary(cards []gpuCard, configured string) (int, string, error) {
+	if configured != "" {
+		if i := slices.IndexFunc(cards, func(c gpuCard) bool { return c.name == configured }); i >= 0 {
+			return i, "set by gpu in the config", nil
+		}
+		names := make([]string, len(cards))
+		for i, c := range cards {
+			names[i] = c.name
+		}
+		return -1, "", fmt.Errorf("the configured gpu %s is not a DRM card on this seat (%s)", configured, strings.Join(names, ", "))
+	}
+	if i := slices.IndexFunc(cards, func(c gpuCard) bool { return c.bootVGA && c.render }); i >= 0 {
+		return i, "the boot VGA device", nil
+	}
+	if i := slices.IndexFunc(cards, func(c gpuCard) bool { return c.render }); i >= 0 {
+		return i, "the first card with a render node", nil
+	}
+	if len(cards) > 0 {
+		return 0, "the first card; none has a render node, so it renders in software", nil
+	}
+	return -1, "", errors.New("no DRM card on this seat")
+}
+
+func driversOf(cards []gpuCard) []string {
+	drivers := make([]string, len(cards))
+	for i, c := range cards {
+		drivers[i] = c.driver
+	}
+	return drivers
+}
+
+func (n *native) gpuCards() ([]gpuCard, error) {
+	devices, err := session.Enumerate(session.SystemRoots, n.logind.Seat(), session.DRM)
+	if err != nil {
+		return nil, err
+	}
+	var cards []gpuCard
+	for _, d := range devices {
+		name := filepath.Base(d.Devnode)
+		if !strings.HasPrefix(name, "card") {
+			continue
+		}
+		boot, err := d.BootVGA()
+		if err != nil {
+			return nil, err
+		}
+		render, err := d.HasRenderNode()
+		if err != nil {
+			return nil, err
+		}
+		driver, err := d.Driver()
+		if err != nil {
+			return nil, err
+		}
+		cards = append(cards, gpuCard{udev: d, name: name, bootVGA: boot, render: render, driver: driver})
+	}
+	slices.SortFunc(cards, func(a, b gpuCard) int { return cmp.Compare(a.udev.Device.Minor, b.udev.Device.Minor) })
+	return cards, nil
+}
+
+func openNative(l *loop.Loop, getenv func(string) string, opts nativeOptions, report func(error)) (_ *native, err error) {
+	n := &native{l: l, paths: gpu.PathsFromEnv(getenv), report: report, vulkan: opts.vulkan}
+	if opts.holder != nil {
+		n.logind, err = opts.holder, opts.holder.Open(n)
+	} else {
+		n.logind, err = session.Open(l, session.SystemBus(getenv), getenv, n)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, n.Close())
+		}
+	}()
+	if closed, lidErr := n.logind.LidClosed(); lidErr != nil {
+		report(fmt.Errorf("%w; lys-wm takes the lid as open until libinput reports it", lidErr))
+	} else {
+		n.lidClosed = closed
+	}
+	if n.vendors, err = edid.LoadVendors(edid.PNPPath(getenv)); err != nil {
+		return nil, err
+	}
+	cards, err := n.gpuCards()
+	if err != nil {
+		return nil, err
+	}
+	primary, why, err := choosePrimary(cards, opts.gpu)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(os.Stderr, "lys-wm: rendering on %s, %s\n", cards[primary].name, why)
+	if err := gpu.WithOwnVendorOnly(driversOf(cards), func() error { return n.add(cards[primary]) }); err != nil {
+		return nil, withRendererHint(err)
+	}
+	for i, c := range cards {
+		if i != primary {
+			n.addSecondary(c)
+		}
+	}
+	if n.input, err = session.OpenLibinput(l, session.LibinputPath(getenv), n.logind, opts.input, report, func(hand func(string, func() error)) func() error {
+		restore, _ := inputThread.raise(session.SystemBus(getenv), hand)
+		return restore
+	}); err != nil {
+		return nil, err
+	}
+	subsystems := []session.Subsystem{session.DRM, session.Input}
+	if opts.lidSuspend {
+		if n.lid, err = n.logind.InhibitLidSwitch(); err != nil {
+			return nil, err
+		}
+		if err := n.recheckAfterWake(lidHoldoff); err != nil {
+			return nil, err
+		}
+		subsystems = append(subsystems, session.PowerSupply)
+	}
+	if n.monitor, err = session.Watch(l, n.logind.Seat(), subsystems, n.udev); err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+func (n *native) lidPolicy() compositor.LidPolicy {
+	if n.lid == nil {
+		return compositor.LidPolicy{}
+	}
+	return compositor.LidPolicy{
+		Suspend:   n.logind.Suspend,
+		OnBattery: func() (bool, error) { return session.OnBattery(session.SystemRoots) },
+	}
+}
+
+func (n *native) recheckAfterWake(holdoff time.Duration) error {
+	t, err := n.l.AddTimer(func() error {
+		n.powerChanged()
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("the lid policy's check after a wake: %w", err)
+	}
+	n.wake, n.holdoff = t, holdoff
+	return nil
+}
+
+func (n *native) onPower(changed func()) {
+	n.power = changed
+}
+
+func (n *native) powerChanged() {
+	if n.power != nil {
+		n.power()
+	}
+}
+
+func (n *native) primary() *card {
+	return n.cards[0]
+}
+
+func (n *native) add(g gpuCard) error {
+	fd, device, err := n.logind.TakeDevice(g.udev.Devnode)
+	if err != nil {
+		return err
+	}
+	c := &card{name: g.name, device: device, dev: kdrm.FromFD(fd, g.udev.Devnode)}
+	if len(n.cards) == 0 {
+		c.backend, err = drmbackend.New(n.l, c.dev, n.drmOptions())
+	} else {
+		var how string
+		if c.backend, how, err = drmbackend.NewSecondary(n.l, c.dev, n.primary().backend, n.drmOptions(), g.render); err == nil {
+			fmt.Fprintf(os.Stderr, "lys-wm: %s renders the outputs of %s; they reach the screen through %s\n", n.primary().name, g.name, how)
+		}
+	}
+	if err != nil {
+		return errors.Join(fmt.Errorf("drm: %s: %w", g.name, err), c.dev.Close(), n.logind.ReleaseDevice(device))
+	}
+	n.cards = append(n.cards, c)
+	return nil
+}
+
+func withRendererHint(err error) error {
+	if errors.Is(err, drmbackend.ErrNoVulkan) {
+		return fmt.Errorf("%w (the drm backend renders with Vulkan unless run with --renderer gles or LYS_WM_RENDERER=gles)", err)
+	}
+	return err
+}
+
+func (n *native) drmOptions() drmbackend.Options {
+	return drmbackend.Options{Paths: n.paths, Vendors: n.vendors, Report: n.report, Vulkan: n.vulkan}
+}
+
+func (n *native) addSecondary(g gpuCard) {
+	if err := n.add(g); err != nil {
+		n.report(fmt.Errorf("%w; its outputs stay dark", err))
+	}
+}
+
+func (n *native) cardOf(d session.Device) *card {
+	if i := slices.IndexFunc(n.cards, func(c *card) bool { return c.device == d }); i >= 0 {
+		return n.cards[i]
+	}
+	return nil
+}
+
+func (n *native) Renderer() render.Renderer {
+	return n.primary().backend.Renderer()
+}
+
+func (n *native) Start(h backend.Handler) error {
+	n.handler = h
+	for _, c := range n.cards {
+		if err := c.backend.Start(n); err != nil {
+			return err
+		}
+	}
+	n.input.Start(n)
+	return n.addInputs()
+}
+
+func (n *native) addInputs() error {
+	devices, err := session.Enumerate(session.SystemRoots, n.logind.Seat(), session.Input)
+	if err != nil {
+		return err
+	}
+	for _, d := range devices {
+		n.addInput(d.Devnode)
+	}
+	return nil
+}
+
+func (n *native) addInput(path string) {
+	n.input.AddLater(path)
+}
+
+func (n *native) switchVT(vt uint32) error {
+	n.sessionWork.Run(func() {
+		err := n.logind.SwitchTo(vt)
+		if err == nil {
+			return
+		}
+		n.l.Hand("a failed VT switch", func() error { n.report(err); return nil })
+	})
+	return nil
+}
+
+func (n *native) Outputs() []*drmbackend.Output {
+	var out []*drmbackend.Output
+	for _, c := range n.cards {
+		out = append(out, c.backend.Outputs()...)
+	}
+	return out
+}
+
+func (n *native) OutputAdded(o backend.Output) error   { return n.handler.OutputAdded(o) }
+func (n *native) OutputRemoved(o backend.Output) error { return n.handler.OutputRemoved(o) }
+func (n *native) OutputChanged(o backend.Output) error { return n.handler.OutputChanged(o) }
+func (n *native) OutputDamaged(o backend.Output) error { return n.handler.OutputDamaged(o) }
+func (n *native) Frame(o backend.Output) error         { return n.handler.Frame(o) }
+func (n *native) DeviceAdded(d backend.Device) error   { return n.handler.DeviceAdded(d) }
+func (n *native) DeviceRemoved(d backend.Device) error { return n.handler.DeviceRemoved(d) }
+
+func (n *native) Presented(o backend.Output, p backend.Presentation) error {
+	return n.handler.Presented(o, p)
+}
+
+func (n *native) Input(d backend.Device, e backend.Event) error {
+	switch ev := e.(type) {
+	case *backend.PointerMotionAbsolute:
+		if ev.Output == nil {
+			o, ok := n.firstOutput()
+			if !ok {
+				return nil
+			}
+			ev.Output = o
+		}
+	case *backend.TouchDown:
+		if ev.Output == nil {
+			o, ok := n.firstOutput()
+			if !ok {
+				return nil
+			}
+			ev.Output = o
+		}
+	}
+	return n.handler.Input(d, e)
+}
+
+func (n *native) firstOutput() (backend.Output, bool) {
+	outputs := n.Outputs()
+	if len(outputs) == 0 {
+		return nil, false
+	}
+	return outputs[0], true
+}
+
+func (n *native) DevicePaused(d session.Device) error {
+	if c := n.cardOf(d); c != nil {
+		c.backend.Pause()
+	}
+	return nil
+}
+
+func (n *native) DeviceResumed(d session.Device, fd int) error {
+	if err := unix.Close(fd); err != nil {
+		return fmt.Errorf("close the resumed device fd: %w", err)
+	}
+	if c := n.cardOf(d); c != nil {
+		return c.backend.Resume()
+	}
+	return nil
+}
+
+func (n *native) PrepareForSleep(sleeping bool) error {
+	if sleeping {
+		if n.wake != nil {
+			return n.wake.Disarm()
+		}
+		return nil
+	}
+	var errs []error
+	for _, c := range n.cards {
+		errs = append(errs, c.backend.Wake())
+	}
+	if n.wake != nil {
+		errs = append(errs, n.wake.Arm(n.holdoff))
+	}
+	return errors.Join(errs...)
+}
+
+func (n *native) ActiveChanged(active bool) error {
+	if n.input == nil {
+		return nil
+	}
+	if !active {
+		n.input.Suspend()
+		return nil
+	}
+	n.input.ResumeLater()
+	return nil
+}
+
+func (n *native) udev(ev session.UdevEvent) error {
+	switch {
+	case ev.Action == session.Overflow:
+		err := errors.Join(n.addInputs(), n.syncCards())
+		n.powerChanged()
+		return err
+	case ev.Subsystem == session.PowerSupply:
+		n.powerChanged()
+		return nil
+	case ev.Subsystem == session.Input && ev.Action == session.Add:
+		n.addInput(ev.Devnode)
+		return nil
+	case ev.Subsystem == session.Input && ev.Action == session.Remove:
+		n.input.Remove(ev.Devnode)
+		return nil
+	case ev.Subsystem != session.DRM:
+		return nil
+	case ev.Action == session.Remove:
+		if c := n.cardOf(ev.Device); c != nil {
+			return n.remove(c)
+		}
+		return nil
+	case ev.Action == session.Add:
+		return n.syncCards()
+	case ev.Properties["HOTPLUG"] == "1":
+		if c := n.cardOf(ev.Device); c != nil {
+			return c.backend.Hotplug()
+		}
+	}
+	return nil
+}
+
+func (n *native) syncCards() error {
+	cards, err := n.gpuCards()
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, c := range slices.Clone(n.cards) {
+		if !slices.ContainsFunc(cards, func(g gpuCard) bool { return g.udev.Device == c.device }) {
+			errs = append(errs, n.remove(c))
+		}
+	}
+	for _, g := range cards {
+		if n.cardOf(g.udev.Device) != nil {
+			continue
+		}
+		before := len(n.cards)
+		n.addSecondary(g)
+		if len(n.cards) > before {
+			errs = append(errs, n.cards[len(n.cards)-1].backend.Attach(n))
+		}
+	}
+	for _, c := range n.cards {
+		errs = append(errs, c.backend.Hotplug())
+	}
+	return errors.Join(errs...)
+}
+
+func (n *native) remove(c *card) error {
+	if c == n.primary() {
+		return fmt.Errorf("drm: the primary GPU %s went away; every output renders on it, so lys-wm cannot go on", c.name)
+	}
+	n.cards = slices.DeleteFunc(n.cards, func(x *card) bool { return x == c })
+	fmt.Fprintf(os.Stderr, "lys-wm: %s went away\n", c.name)
+	if err := errors.Join(c.backend.Unplug(), c.dev.Close()); err != nil {
+		n.report(fmt.Errorf("drm: let go of %s: %w", c.name, err))
+	}
+	return nil
+}
+
+func (n *native) retire() error {
+	var errs []error
+	for _, c := range slices.Backward(n.cards) {
+		errs = append(errs, c.backend.Close())
+	}
+	return errors.Join(errs...)
+}
+
+func (n *native) parkInput() error {
+	if n.input == nil {
+		return nil
+	}
+	return n.input.Park()
+}
+
+func (n *native) displayDevices() []displayDevice {
+	devices := make([]displayDevice, len(n.cards))
+	for i, c := range n.cards {
+		devices[i] = c.backend
+	}
+	return devices
+}
+
+func (n *native) unpark() error {
+	var errs []error
+	for _, c := range n.cards {
+		errs = append(errs, c.backend.Unpark())
+	}
+	if n.input != nil {
+		errs = append(errs, n.input.Unpark())
+	}
+	return errors.Join(errs...)
+}
+
+func (n *native) paused() bool {
+	return slices.ContainsFunc(n.cards, func(c *card) bool { return c.backend.Paused() })
+}
+
+func (n *native) Close() error {
+	var errs []error
+	n.sessionWork.Wait()
+	if n.wake != nil {
+		errs = append(errs, n.wake.Remove())
+	}
+	if n.monitor != nil {
+		errs = append(errs, n.monitor.Close())
+	}
+	if n.input != nil {
+		errs = append(errs, n.input.Close())
+	}
+	for _, c := range slices.Backward(n.cards) {
+		errs = append(errs, c.backend.Close(), c.dev.Close(), n.logind.ReleaseDevice(c.device))
+	}
+	if n.lid != nil {
+		errs = append(errs, n.lid.Close())
+	}
+	if n.logind != nil {
+		errs = append(errs, n.logind.Close())
+	}
+	return errors.Join(errs...)
+}

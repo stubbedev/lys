@@ -1,0 +1,643 @@
+package gpu
+
+import (
+	"errors"
+	"fmt"
+	"runtime"
+	"slices"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"unsafe"
+
+	"github.com/ebitengine/purego"
+	"github.com/stubbedev/lys-lib/fourcc"
+)
+
+const (
+	eglSuccess                 = 0x3000
+	eglNone                    = 0x3038
+	eglExtensions              = 0x3055
+	eglVendor                  = 0x3053
+	eglOpenGLESAPI             = 0x30A0
+	eglContextMajorVersion     = 0x3098
+	eglContextPriorityLevelIMG = 0x3100
+	eglContextPriorityHighIMG  = 0x3101
+	eglPlatformGBM             = 0x31D7
+	eglPlatformSurfaceless     = 0x31DD
+	eglPlatformDevice          = 0x313F
+	eglDeviceEXT               = 0x322C
+	eglDRMRenderNodeFile       = 0x3377
+	eglLinuxDMABUF             = 0x3270
+	eglWidth                   = 0x3057
+	eglHeight                  = 0x3056
+	eglLinuxDRMFourCC          = 0x3271
+	eglImagePreserved          = 0x30D2
+	eglYUVColorSpaceHint       = 0x327B
+	eglSampleRangeHint         = 0x327C
+	eglITURec601               = 0x327F
+	eglITURec709               = 0x3280
+	eglITURec2020              = 0x3281
+	eglYUVFullRange            = 0x3282
+	eglYUVNarrowRange          = 0x3283
+	eglChromaHorizontalSiting  = 0x327D
+	eglChromaVerticalSiting    = 0x327E
+	eglChromaSiting0           = 0x3284
+	eglChromaSitingHalf        = 0x3285
+	eglTrue                    = 1
+	eglSyncNativeFence         = 0x3144
+	eglSyncFence               = 0x30F9
+	eglForever                 = ^uint64(0)
+	eglConditionSatisfied      = 0x30F6
+	eglSyncNativeFenceFD       = 0x3145
+	eglNoNativeFenceFD         = -1
+	eglContextLost             = 0x300E
+	eglResetStrategyEXT        = 0x3138
+	eglLoseContextOnResetEXT   = 0x31BF
+)
+
+var (
+	planeFD       = [4]int32{0x3272, 0x3275, 0x3278, 0x3440}
+	planeOffset   = [4]int32{0x3273, 0x3276, 0x3279, 0x3441}
+	planePitch    = [4]int32{0x3274, 0x3277, 0x327A, 0x3442}
+	planeModLo    = [4]int32{0x3443, 0x3445, 0x3447, 0x3449}
+	planeModHi    = [4]int32{0x3444, 0x3446, 0x3448, 0x344A}
+	eglErrorNames = map[int32]string{
+		0x3001: "EGL_NOT_INITIALIZED", 0x3002: "EGL_BAD_ACCESS", 0x3003: "EGL_BAD_ALLOC",
+		0x3004: "EGL_BAD_ATTRIBUTE", 0x3005: "EGL_BAD_CONFIG", 0x3006: "EGL_BAD_CONTEXT",
+		0x3007: "EGL_BAD_CURRENT_SURFACE", 0x3008: "EGL_BAD_DISPLAY", 0x3009: "EGL_BAD_MATCH",
+		0x300A: "EGL_BAD_NATIVE_PIXMAP", 0x300B: "EGL_BAD_NATIVE_WINDOW", 0x300C: "EGL_BAD_PARAMETER",
+		0x300D: "EGL_BAD_SURFACE", 0x300E: "EGL_CONTEXT_LOST",
+	}
+)
+
+var (
+	ErrUnsupported = errors.New("gpu: unsupported")
+	ErrContextLost = errors.New("gpu: context lost")
+)
+
+type EGLError struct {
+	Op   string
+	Code int32
+}
+
+func (e *EGLError) Is(target error) bool {
+	return target == ErrContextLost && e.Code == eglContextLost
+}
+
+func (e *EGLError) Error() string {
+	if e.Code == eglSuccess {
+		return fmt.Sprintf("gpu: %s failed and set no EGL error", e.Op)
+	}
+	name, ok := eglErrorNames[e.Code]
+	if !ok {
+		name = fmt.Sprintf("0x%x", e.Code)
+	}
+	return fmt.Sprintf("gpu: %s: %s", e.Op, name)
+}
+
+type eglFuncs struct {
+	getError           func() int32
+	getProcAddress     func(name string) uintptr
+	queryString        func(dpy uintptr, name int32) string
+	initialize         func(dpy uintptr, major, minor *int32) uint32
+	terminate          func(dpy uintptr) uint32
+	bindAPI            func(api uint32) uint32
+	createContext      func(dpy, config, share uintptr, attribs *int32) uintptr
+	destroyContext     func(dpy, ctx uintptr) uint32
+	makeCurrent        func(dpy, draw, read, ctx uintptr) uint32
+	pGetCurrentContext uintptr
+	getPlatformDisplay func(platform uint32, native uintptr, attribs *int32) uintptr
+	queryDevices       func(max int32, devices *uintptr, num *int32) uint32
+	queryDeviceString  func(dev uintptr, name int32) string
+	queryDisplayAttrib func(dpy uintptr, attr int32, value *uintptr) uint32
+	createImage        func(dpy, ctx uintptr, target uint32, buffer uintptr, attribs *int32) uintptr
+	destroyImage       func(dpy, image uintptr) uint32
+	queryDMABUFFormats func(dpy uintptr, max int32, formats *int32, num *int32) uint32
+	queryDMABUFMods    func(dpy uintptr, format, max int32, modifiers *uint64, externalOnly *uint32, num *int32) uint32
+	pCreateSync        uintptr
+	pDestroySync       uintptr
+	pDupNativeFenceFD  uintptr
+	waitSync           func(dpy, sync uintptr, flags int32) int32
+	clientWaitSync     func(dpy, sync uintptr, flags int32, timeout uint64) int32
+}
+
+var initialized = struct {
+	sync.Mutex
+	count map[uintptr]int
+}{count: map[uintptr]int{}}
+
+type Library struct {
+	syncAttribs [3]int32
+	switches    atomic.Uint64
+	egl         eglFuncs
+	gl          GL
+	clientExts  []string
+	eglLib      uintptr
+	glesLib     uintptr
+}
+
+func Load(paths Paths) (*Library, error) {
+	eglLib, err := open(paths.EGL, EGLEnv)
+	if err != nil {
+		return nil, err
+	}
+	glesLib, err := open(paths.GLESv2, GLESv2Env)
+	if err != nil {
+		return nil, err
+	}
+	l := &Library{eglLib: eglLib, glesLib: glesLib}
+	e := &l.egl
+	if err := bind(eglLib, paths.EGL, []symbol{
+		{&e.getError, "eglGetError"},
+		{&e.getProcAddress, "eglGetProcAddress"},
+		{&e.queryString, "eglQueryString"},
+		{&e.initialize, "eglInitialize"},
+		{&e.terminate, "eglTerminate"},
+		{&e.bindAPI, "eglBindAPI"},
+		{&e.createContext, "eglCreateContext"},
+		{&e.destroyContext, "eglDestroyContext"},
+		{&e.makeCurrent, "eglMakeCurrent"},
+		{&e.pGetCurrentContext, "eglGetCurrentContext"},
+	}); err != nil {
+		return nil, err
+	}
+	for _, x := range []symbol{
+		{&e.getPlatformDisplay, "eglGetPlatformDisplayEXT"},
+		{&e.queryDevices, "eglQueryDevicesEXT"},
+		{&e.queryDeviceString, "eglQueryDeviceStringEXT"},
+		{&e.queryDisplayAttrib, "eglQueryDisplayAttribEXT"},
+		{&e.createImage, "eglCreateImageKHR"},
+		{&e.destroyImage, "eglDestroyImageKHR"},
+		{&e.queryDMABUFFormats, "eglQueryDmaBufFormatsEXT"},
+		{&e.queryDMABUFMods, "eglQueryDmaBufModifiersEXT"},
+		{&e.pCreateSync, "eglCreateSyncKHR"},
+		{&e.pDestroySync, "eglDestroySyncKHR"},
+		{&e.pDupNativeFenceFD, "eglDupNativeFenceFDANDROID"},
+		{&e.waitSync, "eglWaitSyncKHR"},
+		{&e.clientWaitSync, "eglClientWaitSyncKHR"},
+	} {
+		if err := l.proc(x); err != nil {
+			return nil, err
+		}
+	}
+	if err := l.gl.load(l, paths.GLESv2); err != nil {
+		return nil, err
+	}
+	l.clientExts = strings.Fields(e.queryString(0, eglExtensions))
+	if !slices.Contains(l.clientExts, "EGL_EXT_platform_base") {
+		return nil, fmt.Errorf("gpu: %s lacks EGL_EXT_platform_base", paths.EGL)
+	}
+	return l, nil
+}
+
+func (l *Library) proc(s symbol) error {
+	p := l.egl.getProcAddress(s.name)
+	if p == 0 {
+		return fmt.Errorf("gpu: eglGetProcAddress(%s) found nothing", s.name)
+	}
+	if raw, ok := s.fn.(*uintptr); ok {
+		*raw = p
+		return nil
+	}
+	purego.RegisterFunc(s.fn, p)
+	return nil
+}
+
+func (l *Library) fail(op string) *EGLError {
+	return &EGLError{Op: op, Code: l.egl.getError()}
+}
+
+func (l *Library) requireClient(ext string) error {
+	if !slices.Contains(l.clientExts, ext) {
+		return fmt.Errorf("%w: EGL client extension %s", ErrUnsupported, ext)
+	}
+	return nil
+}
+
+type Device struct {
+	lib *Library
+	h   uintptr
+}
+
+func (l *Library) Devices() ([]Device, error) {
+	if err := l.requireClient("EGL_EXT_device_enumeration"); err != nil {
+		return nil, err
+	}
+	var n int32
+	if l.egl.queryDevices(0, nil, &n) != eglTrue {
+		return nil, l.fail("eglQueryDevicesEXT")
+	}
+	handles := make([]uintptr, n)
+	if n > 0 && l.egl.queryDevices(n, &handles[0], &n) != eglTrue {
+		return nil, l.fail("eglQueryDevicesEXT")
+	}
+	devices := make([]Device, n)
+	for i := range devices {
+		devices[i] = Device{lib: l, h: handles[i]}
+	}
+	return devices, nil
+}
+
+func (d Device) Extensions() []string {
+	return strings.Fields(d.lib.egl.queryDeviceString(d.h, eglExtensions))
+}
+
+func (d Device) Software() bool {
+	return slices.Contains(d.Extensions(), "EGL_MESA_device_software")
+}
+
+func (d Device) RenderNode() string {
+	if !slices.Contains(d.Extensions(), "EGL_EXT_device_drm_render_node") {
+		return ""
+	}
+	return d.lib.egl.queryDeviceString(d.h, eglDRMRenderNodeFile)
+}
+
+type Display struct {
+	thread  atomic.Pointer[pinnedThread]
+	lib     *Library
+	dpy     uintptr
+	ctx     uintptr
+	exts    []string
+	attribs []int32
+	robust  bool
+}
+
+func (l *Library) Surfaceless() (*Display, error) {
+	if err := l.requireClient("EGL_MESA_platform_surfaceless"); err != nil {
+		return nil, err
+	}
+	return l.display("surfaceless", eglPlatformSurfaceless, 0)
+}
+
+func (l *Library) OnDevice(d Device) (*Display, error) {
+	if err := l.requireClient("EGL_EXT_platform_device"); err != nil {
+		return nil, err
+	}
+	return l.display("device", eglPlatformDevice, d.h)
+}
+
+func (l *Library) OnGBM(g *GBM) (*Display, error) {
+	if !slices.Contains(l.clientExts, "EGL_KHR_platform_gbm") && !slices.Contains(l.clientExts, "EGL_MESA_platform_gbm") {
+		return nil, fmt.Errorf("%w: EGL client extension EGL_KHR_platform_gbm", ErrUnsupported)
+	}
+	return l.display("gbm", eglPlatformGBM, g.dev)
+}
+
+func (l *Library) display(platform string, kind uint32, native uintptr) (*Display, error) {
+	none := []int32{eglNone}
+	dpy := l.egl.getPlatformDisplay(kind, native, &none[0])
+	if dpy == 0 {
+		return nil, l.fail("eglGetPlatformDisplayEXT(" + platform + ")")
+	}
+	if err := l.initialize(dpy, platform); err != nil {
+		return nil, err
+	}
+	d := &Display{lib: l, dpy: dpy, exts: strings.Fields(l.egl.queryString(dpy, eglExtensions))}
+	for _, ext := range []string{"EGL_KHR_surfaceless_context", "EGL_KHR_no_config_context"} {
+		if !d.Has(ext) {
+			return nil, errors.Join(fmt.Errorf("%w: %s EGL display without %s", ErrUnsupported, platform, ext), d.Close())
+		}
+	}
+	if l.egl.bindAPI(eglOpenGLESAPI) != eglTrue {
+		return nil, errors.Join(l.fail("eglBindAPI"), d.Close())
+	}
+	d.attribs = []int32{eglContextMajorVersion, 2}
+	if d.Has("EGL_IMG_context_priority") {
+		d.attribs = append(d.attribs, eglContextPriorityLevelIMG, eglContextPriorityHighIMG)
+	}
+	if d.robust = d.Has("EGL_EXT_create_context_robustness"); d.robust {
+		d.attribs = append(d.attribs, eglResetStrategyEXT, eglLoseContextOnResetEXT)
+	}
+	d.attribs = append(d.attribs, eglNone)
+	if d.ctx = l.egl.createContext(dpy, 0, 0, &d.attribs[0]); d.ctx == 0 {
+		return nil, errors.Join(l.fail("eglCreateContext"), d.Close())
+	}
+	return d, nil
+}
+
+func (d *Display) Robust() bool {
+	return d.robust
+}
+
+func (d *Display) Renew() error {
+	err := d.Release()
+	if d.lib.egl.destroyContext(d.dpy, d.ctx) != eglTrue {
+		err = errors.Join(err, d.lib.fail("eglDestroyContext"))
+	}
+	d.ctx = 0
+	if err != nil {
+		return err
+	}
+	if d.ctx = d.lib.egl.createContext(d.dpy, 0, 0, &d.attribs[0]); d.ctx == 0 {
+		return d.lib.fail("eglCreateContext")
+	}
+	return nil
+}
+
+func (l *Library) initialize(dpy uintptr, platform string) error {
+	initialized.Lock()
+	defer initialized.Unlock()
+	var major, minor int32
+	if l.egl.initialize(dpy, &major, &minor) != eglTrue {
+		return l.fail("eglInitialize(" + platform + ")")
+	}
+	initialized.count[dpy]++
+	return nil
+}
+
+func (d *Display) Has(ext string) bool {
+	return slices.Contains(d.exts, ext)
+}
+
+func (d *Display) Extensions() []string {
+	return slices.Clone(d.exts)
+}
+
+func (d *Display) Vendor() string {
+	return d.lib.egl.queryString(d.dpy, eglVendor)
+}
+
+func (d *Display) GL() *GL {
+	return &d.lib.gl
+}
+
+func (d *Display) MakeCurrent() error {
+	d.lib.switches.Add(1)
+	if d.lib.egl.makeCurrent(d.dpy, 0, 0, d.ctx) != eglTrue {
+		return d.lib.fail("eglMakeCurrent")
+	}
+	return nil
+}
+
+func (d *Display) Release() error {
+	forget(d)
+	if d.lib.egl.makeCurrent(d.dpy, 0, 0, 0) != eglTrue {
+		return d.lib.fail("eglMakeCurrent(none)")
+	}
+	return nil
+}
+
+func (l *Library) ContextSwitches() uint64 {
+	return l.switches.Load()
+}
+
+func (d *Display) Device() (Device, error) {
+	if err := d.lib.requireClient("EGL_EXT_device_query"); err != nil {
+		return Device{}, err
+	}
+	var h uintptr
+	if d.lib.egl.queryDisplayAttrib(d.dpy, eglDeviceEXT, &h) != eglTrue {
+		return Device{}, d.lib.fail("eglQueryDisplayAttribEXT(EGL_DEVICE_EXT)")
+	}
+	return Device{lib: d.lib, h: h}, nil
+}
+
+func (d *Display) Close() error {
+	var errs []error
+	if d.ctx != 0 {
+		errs = append(errs, d.Release())
+		if d.lib.egl.destroyContext(d.dpy, d.ctx) != eglTrue {
+			errs = append(errs, d.lib.fail("eglDestroyContext"))
+		}
+	}
+	initialized.Lock()
+	defer initialized.Unlock()
+	if initialized.count[d.dpy]--; initialized.count[d.dpy] == 0 {
+		delete(initialized.count, d.dpy)
+		if d.lib.egl.terminate(d.dpy) != eglTrue {
+			errs = append(errs, d.lib.fail("eglTerminate"))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+type ModifierSupport struct {
+	Modifier     fourcc.Modifier
+	ExternalOnly bool
+}
+
+func (d *Display) DMABUFFormats() ([]fourcc.Format, error) {
+	if !d.Has("EGL_EXT_image_dma_buf_import_modifiers") {
+		return nil, fmt.Errorf("%w: EGL_EXT_image_dma_buf_import_modifiers", ErrUnsupported)
+	}
+	var n int32
+	if d.lib.egl.queryDMABUFFormats(d.dpy, 0, nil, &n) != eglTrue {
+		return nil, d.dmabufQueryFailed("eglQueryDmaBufFormatsEXT")
+	}
+	formats := make([]int32, n)
+	if n > 0 && d.lib.egl.queryDMABUFFormats(d.dpy, n, &formats[0], &n) != eglTrue {
+		return nil, d.dmabufQueryFailed("eglQueryDmaBufFormatsEXT")
+	}
+	out := make([]fourcc.Format, n)
+	for i, f := range formats[:n] {
+		out[i] = fourcc.Format(f) //nolint:gosec // EGL returns DRM fourccs in an EGLint
+	}
+	return out, nil
+}
+
+func (d *Display) dmabufQueryFailed(op string) error {
+	err := d.lib.fail(op)
+	if err.Code != eglSuccess {
+		return err
+	}
+	return fmt.Errorf("%w: %s lists EGL_EXT_image_dma_buf_import_modifiers and its queries do not work: %w", ErrUnsupported, d.Vendor(), err)
+}
+
+func (d *Display) DMABUFModifiers(format fourcc.Format) ([]ModifierSupport, error) {
+	if !d.Has("EGL_EXT_image_dma_buf_import_modifiers") {
+		return nil, fmt.Errorf("%w: EGL_EXT_image_dma_buf_import_modifiers", ErrUnsupported)
+	}
+	f := int32(format) //nolint:gosec // EGL takes DRM fourccs as an EGLint
+	var n int32
+	if d.lib.egl.queryDMABUFMods(d.dpy, f, 0, nil, nil, &n) != eglTrue {
+		return nil, d.dmabufQueryFailed(fmt.Sprintf("eglQueryDmaBufModifiersEXT(%v)", format))
+	}
+	if n == 0 {
+		return nil, nil
+	}
+	mods := make([]uint64, n)
+	external := make([]uint32, n)
+	if d.lib.egl.queryDMABUFMods(d.dpy, f, n, &mods[0], &external[0], &n) != eglTrue {
+		return nil, d.dmabufQueryFailed(fmt.Sprintf("eglQueryDmaBufModifiersEXT(%v)", format))
+	}
+	out := make([]ModifierSupport, n)
+	for i := range out {
+		out[i] = ModifierSupport{Modifier: fourcc.Modifier(mods[i]), ExternalOnly: external[i] == eglTrue}
+	}
+	return out, nil
+}
+
+type Image struct {
+	d *Display
+	h uintptr
+}
+
+func (d *Display) ImportDMABUF(b DMABUF) (*Image, error) {
+	if !d.Has("EGL_EXT_image_dma_buf_import") {
+		return nil, fmt.Errorf("%w: EGL_EXT_image_dma_buf_import", ErrUnsupported)
+	}
+	if len(b.Planes) == 0 || len(b.Planes) > len(planeFD) {
+		return nil, fmt.Errorf("gpu: a dmabuf has 1 to %d planes, not %d", len(planeFD), len(b.Planes))
+	}
+	withModifier := b.Modifier != fourcc.Invalid
+	if withModifier && !d.Has("EGL_EXT_image_dma_buf_import_modifiers") {
+		return nil, fmt.Errorf("%w: EGL_EXT_image_dma_buf_import_modifiers for modifier %v", ErrUnsupported, b.Modifier)
+	}
+	attribs := make([]int32, 0, 7+len(b.Planes)*10+11)
+	attribs = append(attribs, eglWidth, int32(b.Size.X), eglHeight, int32(b.Size.Y), eglLinuxDRMFourCC, int32(b.Format)) //nolint:gosec // sizes and fourccs fit EGLint by the dmabuf protocol
+	for i, p := range b.Planes {
+		attribs = append(attribs, planeFD[i], int32(p.FD), planeOffset[i], int32(p.Offset), planePitch[i], int32(p.Stride)) //nolint:gosec // fds, offsets and strides fit EGLint by the dmabuf protocol
+		if withModifier {
+			attribs = append(attribs, planeModLo[i], int32(uint32(b.Modifier)), planeModHi[i], int32(uint32(b.Modifier>>32))) //nolint:gosec // EGL splits the 64-bit modifier into two EGLint halves
+		}
+	}
+	attribs = appendYUVHints(attribs, b.Format, b.YUV)
+	attribs = append(attribs, eglImagePreserved, eglTrue, eglNone)
+	h := d.lib.egl.createImage(d.dpy, 0, eglLinuxDMABUF, 0, &attribs[0])
+	runtime.KeepAlive(attribs)
+	if h == 0 {
+		return nil, d.lib.fail("eglCreateImageKHR(dmabuf)")
+	}
+	return &Image{d: d, h: h}, nil
+}
+
+func appendYUVHints(attribs []int32, f fourcc.Format, e YUVEncoding) []int32 {
+	if !f.YUV() {
+		return attribs
+	}
+	switch e.Coefficients {
+	case BT601:
+		attribs = append(attribs, eglYUVColorSpaceHint, eglITURec601)
+	case BT709:
+		attribs = append(attribs, eglYUVColorSpaceHint, eglITURec709)
+	case BT2020:
+		attribs = append(attribs, eglYUVColorSpaceHint, eglITURec2020)
+	}
+	switch e.Range {
+	case LimitedRange:
+		attribs = append(attribs, eglSampleRangeHint, eglYUVNarrowRange)
+	case FullRange:
+		attribs = append(attribs, eglSampleRangeHint, eglYUVFullRange)
+	}
+	for _, s := range [2]struct {
+		attrib int32
+		siting Siting
+	}{{eglChromaHorizontalSiting, e.Chroma.Horizontal}, {eglChromaVerticalSiting, e.Chroma.Vertical}} {
+		switch s.siting {
+		case SitedAt0:
+			attribs = append(attribs, s.attrib, eglChromaSiting0)
+		case SitedAtHalf:
+			attribs = append(attribs, s.attrib, eglChromaSitingHalf)
+		}
+	}
+	return attribs
+}
+
+func (i *Image) Destroy() error {
+	if i.d.lib.egl.destroyImage(i.d.dpy, i.h) != eglTrue {
+		return i.d.lib.fail("eglDestroyImageKHR")
+	}
+	return nil
+}
+
+type Sync struct {
+	d *Display
+	h uintptr
+}
+
+func (d *Display) createSync(typ uint32, attribs ...int32) uintptr {
+	gl := &d.lib.gl
+	copy(d.lib.syncAttribs[:], attribs)
+	gl.args[0], gl.args[1], gl.args[2] = d.dpy, uintptr(typ), uintptr(unsafe.Pointer(&d.lib.syncAttribs[0])) //nolint:gosec // a pointer EGL only reads during the call
+	h, _, _ := purego.SyscallN(d.lib.egl.pCreateSync, gl.args[:3]...)
+	return h
+}
+
+func (d *Display) syncCall(fn, sync uintptr) uintptr {
+	gl := &d.lib.gl
+	gl.args[0], gl.args[1] = d.dpy, sync
+	r, _, _ := purego.SyscallN(fn, gl.args[:2]...)
+	return r
+}
+
+func (d *Display) requireFences() error {
+	if !d.Has("EGL_ANDROID_native_fence_sync") {
+		return fmt.Errorf("%w: EGL_ANDROID_native_fence_sync", ErrUnsupported)
+	}
+	return nil
+}
+
+func (d *Display) Fence() (*Sync, error) {
+	if err := d.requireFences(); err != nil {
+		return nil, err
+	}
+	h := d.createSync(eglSyncNativeFence, eglNone)
+	if h == 0 {
+		return nil, d.lib.fail("eglCreateSyncKHR(native fence)")
+	}
+	d.lib.gl.Flush()
+	return &Sync{d: d, h: h}, nil
+}
+
+func (d *Display) PlainFence() (*Sync, error) {
+	if !d.Has("EGL_KHR_fence_sync") {
+		return nil, fmt.Errorf("%w: EGL_KHR_fence_sync", ErrUnsupported)
+	}
+	h := d.createSync(eglSyncFence, eglNone)
+	if h == 0 {
+		return nil, d.lib.fail("eglCreateSyncKHR(fence)")
+	}
+	d.lib.gl.Flush()
+	return &Sync{d: d, h: h}, nil
+}
+
+func (d *Display) ImportFence(fd int) (*Sync, error) {
+	if err := d.requireFences(); err != nil {
+		return nil, err
+	}
+	h := d.createSync(eglSyncNativeFence, eglSyncNativeFenceFD, int32(fd), eglNone) //nolint:gosec // file descriptors fit an EGLint
+	if h == 0 {
+		return nil, d.lib.fail("eglCreateSyncKHR(import fence fd)")
+	}
+	return &Sync{d: d, h: h}, nil
+}
+
+func (s *Sync) FD() (int, error) {
+	fd := int32(s.d.syncCall(s.d.lib.egl.pDupNativeFenceFD, s.h)) //nolint:gosec // EGLint is the low 32 bits
+	if fd == eglNoNativeFenceFD {
+		return -1, s.d.lib.fail("eglDupNativeFenceFDANDROID")
+	}
+	return int(fd), nil
+}
+
+func (s *Sync) Wait() error {
+	if !s.d.Has("EGL_KHR_wait_sync") {
+		return fmt.Errorf("%w: EGL_KHR_wait_sync", ErrUnsupported)
+	}
+	if s.d.lib.egl.waitSync(s.d.dpy, s.h, 0) != eglTrue {
+		return s.d.lib.fail("eglWaitSyncKHR")
+	}
+	return nil
+}
+
+func (s *Sync) ClientWait() error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if s.d.lib.egl.clientWaitSync(s.d.dpy, s.h, 0, eglForever) != eglConditionSatisfied {
+		return s.d.lib.fail("eglClientWaitSyncKHR")
+	}
+	return nil
+}
+
+func (s *Sync) Destroy() error {
+	if uint32(s.d.syncCall(s.d.lib.egl.pDestroySync, s.h)) != eglTrue { //nolint:gosec // EGLBoolean is the low 32 bits
+		return s.d.lib.fail("eglDestroySyncKHR")
+	}
+	return nil
+}
+
+func (i *Image) handle() uintptr {
+	return i.h
+}

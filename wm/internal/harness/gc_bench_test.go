@@ -1,0 +1,125 @@
+package harness
+
+import (
+	"fmt"
+	"image"
+	"runtime"
+	"runtime/debug"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-wm/internal/anim"
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+func BenchmarkGCCountPerThousandFrames(b *testing.B) {
+	for _, percent := range []int{100, 400, 800} {
+		b.Run(fmt.Sprintf("GOGC=%d", percent), func(b *testing.B) {
+			old := debug.SetGCPercent(percent)
+			b.Cleanup(func() { debug.SetGCPercent(old) })
+			mode := backend.Mode{Size: image.Pt(640, 360), RefreshMHz: 60000, Preferred: true}
+			h := start(b, setup{open: softBackend, configure: func(cfg *compositor.Config) {
+				cfg.WM = compositor.DefaultSettings()
+				cfg.Decor = compositor.DefaultDecor(compositor.DefaultAccent)
+				cfg.Animations = anim.MustResolve(anim.DefaultMotion())
+			}}, mode)
+			for i := range 6 {
+				c := testclient.Connect(b, h.Socket())
+				w := c.Window(fmt.Sprintf("w%d", i), quadrants)
+				c.DispatchUntil("map", w.Mapped)
+				w.Stop()
+			}
+			actions := []string{"focus left", "move left", "workspace 2", "workspace 1", "overview toggle", "overview toggle"}
+			h.Hold()
+			var before, after runtime.MemStats
+			runtime.ReadMemStats(&before)
+			frames := 0
+			for b.Loop() {
+				h.doHeld(func(bk *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
+					for i := range 20 {
+						a, err := wm.ParseAction(actions[i%len(actions)])
+						if err != nil {
+							return err
+						}
+						if err := comp.Dispatch(a); err != nil {
+							return err
+						}
+						for range 50 {
+							leap(16 * time.Millisecond)
+							if err := comp.Frame(bk.Outputs()[0]); err != nil {
+								return err
+							}
+							frames++
+						}
+					}
+					return nil
+				})
+			}
+			runtime.ReadMemStats(&after)
+			b.ReportMetric(float64(after.NumGC-before.NumGC)*1000/float64(frames), "gc/1000frames")
+			b.ReportMetric(float64(after.PauseTotalNs-before.PauseTotalNs)/float64(frames), "gcpause-ns/frame")
+			b.ReportMetric(float64(after.Mallocs-before.Mallocs)/float64(frames), "mallocs/frame")
+			b.ReportMetric(float64(after.Sys)/(1<<20), "sys-MiB")
+		})
+	}
+}
+
+const mostMallocsPerAnimatedFrame = 8
+
+func TestAnimatedFramesAllocateAlmostNothing(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the race detector allocates on its own")
+	}
+	mode := backend.Mode{Size: image.Pt(320, 180), RefreshMHz: 60000, Preferred: true}
+	h := start(t, setup{open: softBackend, configure: func(cfg *compositor.Config) {
+		cfg.WM = compositor.DefaultSettings()
+		cfg.Decor = compositor.DefaultDecor(compositor.DefaultAccent)
+		cfg.Animations = anim.MustResolve(anim.DefaultMotion())
+	}}, mode)
+	for i := range 6 {
+		c := testclient.Connect(t, h.Socket())
+		w := c.Window(fmt.Sprintf("w%d", i), quadrants)
+		c.DispatchUntil("map", w.Mapped)
+		w.Stop()
+	}
+	actions := []string{"focus left", "move left", "workspace 2", "workspace 1"}
+	h.Hold()
+	h.doHeld(func(bk *headless.Backend, comp *compositor.Compositor, leap func(time.Duration)) error {
+		for range 4 {
+			leap(time.Second)
+			if err := comp.Frame(bk.Outputs()[0]); err != nil {
+				return err
+			}
+		}
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		frames := 0
+		for i := range 40 {
+			a, err := wm.ParseAction(actions[i%len(actions)])
+			if err != nil {
+				return err
+			}
+			if err := comp.Dispatch(a); err != nil {
+				return err
+			}
+			for range 25 {
+				leap(16 * time.Millisecond)
+				if err := comp.Frame(bk.Outputs()[0]); err != nil {
+					return err
+				}
+				frames++
+			}
+		}
+		runtime.ReadMemStats(&after)
+		got := float64(after.Mallocs-before.Mallocs) / float64(frames)
+		t.Logf("%.2f mallocs a frame", got)
+		if got > mostMallocsPerAnimatedFrame {
+			t.Errorf("%.2f mallocs a frame through focus moves and workspace switches, want at most %d", got, mostMallocsPerAnimatedFrame)
+		}
+		return nil
+	})
+}

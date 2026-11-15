@@ -1,0 +1,989 @@
+package harness
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"image"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/fourcc"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	ccs "github.com/stubbedev/lys-wm/internal/protocol/client/cursorshape"
+	cel "github.com/stubbedev/lys-wm/internal/protocol/client/extforeigntoplevellist"
+	ceis "github.com/stubbedev/lys-wm/internal/protocol/client/extimagecapturesource"
+	ceic "github.com/stubbedev/lys-wm/internal/protocol/client/extimagecopycapture"
+	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+	"github.com/stubbedev/lys-wm/internal/testenv"
+)
+
+type captureView struct {
+	size      image.Point
+	formats   []cw.WlShmFormat
+	modifiers []fourcc.Modifier
+	done      bool
+	stopped   bool
+}
+
+func (v *captureView) BufferSize(_ *ceic.ExtImageCopyCaptureSessionV1, w, h uint32) error {
+	v.size, v.formats, v.modifiers, v.done = image.Pt(int(w), int(h)), nil, nil, false
+	return nil
+}
+
+func (v *captureView) ShmFormat(_ *ceic.ExtImageCopyCaptureSessionV1, f cw.WlShmFormat) error {
+	v.formats = append(v.formats, f)
+	return nil
+}
+
+func (v *captureView) DmabufDevice(*ceic.ExtImageCopyCaptureSessionV1, []byte) error { return nil }
+
+func (v *captureView) DmabufFormat(_ *ceic.ExtImageCopyCaptureSessionV1, format uint32, modifiers []byte) error {
+	if fourcc.Format(format) != fourcc.XRGB8888 {
+		return nil
+	}
+	for at := 0; at+8 <= len(modifiers); at += 8 {
+		v.modifiers = append(v.modifiers, fourcc.Modifier(binary.NativeEndian.Uint64(modifiers[at:])))
+	}
+	return nil
+}
+
+func (v *captureView) Done(*ceic.ExtImageCopyCaptureSessionV1) error {
+	v.done = true
+	return nil
+}
+
+func (v *captureView) Stopped(*ceic.ExtImageCopyCaptureSessionV1) error {
+	v.stopped = true
+	return nil
+}
+
+type capturedFrame struct {
+	ready, failed bool
+	reason        ceic.ExtImageCopyCaptureFrameV1FailureReason
+	damage        image.Rectangle
+}
+
+func (f *capturedFrame) Transform(*ceic.ExtImageCopyCaptureFrameV1, cw.WlOutputTransform) error {
+	return nil
+}
+
+func (f *capturedFrame) Damage(_ *ceic.ExtImageCopyCaptureFrameV1, x, y, w, h int32) error {
+	f.damage = f.damage.Union(image.Rect(int(x), int(y), int(x+w), int(y+h)))
+	return nil
+}
+
+func (f *capturedFrame) PresentationTime(*ceic.ExtImageCopyCaptureFrameV1, uint32, uint32, uint32) error {
+	return nil
+}
+
+func (f *capturedFrame) Ready(*ceic.ExtImageCopyCaptureFrameV1) error {
+	f.ready = true
+	return nil
+}
+
+func (f *capturedFrame) Failed(_ *ceic.ExtImageCopyCaptureFrameV1, reason ceic.ExtImageCopyCaptureFrameV1FailureReason) error {
+	f.failed, f.reason = true, reason
+	return nil
+}
+
+func grab(t *testing.T, c *testclient.Client, session *ceic.ExtImageCopyCaptureSessionV1, size image.Point) (*capturedFrame, *ceic.ExtImageCopyCaptureFrameV1, []byte) {
+	t.Helper()
+	wl, pix := c.Target(size)
+	f, frame := captureInto(t, c, session, wl, size)
+	return f, frame, pix
+}
+
+func captureInto(t *testing.T, c *testclient.Client, session *ceic.ExtImageCopyCaptureSessionV1, wl *cw.WlBuffer, size image.Point) (*capturedFrame, *ceic.ExtImageCopyCaptureFrameV1) {
+	t.Helper()
+	f, frame := requestCapture(t, session, wl, size)
+	if err := c.Display.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	return f, frame
+}
+
+func requestCapture(t *testing.T, session *ceic.ExtImageCopyCaptureSessionV1, wl *cw.WlBuffer, size image.Point) (*capturedFrame, *ceic.ExtImageCopyCaptureFrameV1) {
+	t.Helper()
+	return requestDamagedCapture(t, session, wl, image.Rectangle{Max: size})
+}
+
+func requestDamagedCapture(t *testing.T, session *ceic.ExtImageCopyCaptureSessionV1, wl *cw.WlBuffer, damage ...image.Rectangle) (*capturedFrame, *ceic.ExtImageCopyCaptureFrameV1) {
+	t.Helper()
+	f := &capturedFrame{}
+	frame, err := session.CreateFrame(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	errs := []error{frame.AttachBuffer(wl)}
+	for _, d := range damage {
+		errs = append(errs, frame.DamageBuffer(int32(d.Min.X), int32(d.Min.Y), int32(d.Dx()), int32(d.Dy())))
+	}
+	if err := errors.Join(append(errs, frame.Capture())...); err != nil {
+		t.Fatal(err)
+	}
+	return f, frame
+}
+
+type captureRig struct {
+	t         *testing.T
+	h         *Harness
+	c         *testclient.Client
+	outputs   *ceis.ExtOutputImageCaptureSourceManagerV1
+	toplevels *ceis.ExtForeignToplevelImageCaptureSourceManagerV1
+	mgr       *ceic.ExtImageCopyCaptureManagerV1
+	list      *extWatcher
+}
+
+func newCaptureRig(t *testing.T, h *Harness, c *testclient.Client) *captureRig {
+	t.Helper()
+	r := &captureRig{t: t, h: h, c: c, list: &extWatcher{toplevels: map[*cel.ExtForeignToplevelHandleV1]*extToplevel{}}}
+	var err error
+	if r.outputs, err = ceis.NewExtOutputImageCaptureSourceManagerV1(c.Display, 1); err != nil {
+		t.Fatal(err)
+	}
+	if r.toplevels, err = ceis.NewExtForeignToplevelImageCaptureSourceManagerV1(c.Display, 1); err != nil {
+		t.Fatal(err)
+	}
+	if r.mgr, err = ceic.NewExtImageCopyCaptureManagerV1(c.Display, 1); err != nil {
+		t.Fatal(err)
+	}
+	list, err := cel.NewExtForeignToplevelListV1(c.Display, 1, r.list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(r.outputs)
+	c.Bind(r.toplevels)
+	c.Bind(r.mgr)
+	c.Bind(list)
+	return r
+}
+
+func (r *captureRig) session(src *ceis.ExtImageCaptureSourceV1, options ceic.ExtImageCopyCaptureManagerV1Options) (*ceic.ExtImageCopyCaptureSessionV1, *captureView) {
+	r.t.Helper()
+	view := &captureView{}
+	session, err := r.mgr.CreateSession(view, src, options)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	r.c.DispatchUntil("the capture constraints", func() bool { return view.done })
+	return session, view
+}
+
+func (r *captureRig) outputSession(options ceic.ExtImageCopyCaptureManagerV1Options) (*ceic.ExtImageCopyCaptureSessionV1, *captureView) {
+	r.t.Helper()
+	src, err := r.outputs.CreateSource(r.c.Outputs[0])
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return r.session(src, options)
+}
+
+func (r *captureRig) windowSession() (*ceic.ExtImageCopyCaptureSessionV1, *captureView) {
+	r.t.Helper()
+	r.c.DispatchUntil("the window listed", func() bool { return len(r.list.order) == 1 })
+	src, err := r.toplevels.CreateSource(r.list.order[0])
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return r.session(src, 0)
+}
+
+func (r *captureRig) first(session *ceic.ExtImageCopyCaptureSessionV1, size image.Point) []byte {
+	r.t.Helper()
+	f, frame, pix := grab(r.t, r.c, session, size)
+	r.c.DispatchUntil("the first frame", func() bool { return f.ready || f.failed })
+	if f.failed || f.damage != (image.Rectangle{Max: size}) {
+		r.t.Fatalf("first frame %+v", *f)
+	}
+	if err := errors.Join(frame.Destroy(), r.c.Display.Flush()); err != nil {
+		r.t.Fatal(err)
+	}
+	return pix
+}
+
+func (r *captureRig) waiting(session *ceic.ExtImageCopyCaptureSessionV1, size image.Point) (*capturedFrame, []byte) {
+	r.t.Helper()
+	f, _, pix := grab(r.t, r.c, session, size)
+	settle(r.t, r.h)
+	if err := r.c.Display.Roundtrip(); err != nil || f.ready {
+		r.t.Fatalf("a frame was ready without damage (%v)", err)
+	}
+	return f, pix
+}
+
+func TestImageCopyCaptureOfOutputsAndWindows(t *testing.T) {
+	t.Parallel()
+	onEachRenderer(t, func(t *testing.T, start starter) {
+		h := start(t, small)
+		c := testclient.Connect(t, h.Socket())
+		w := c.Window("captured", quadrants)
+		c.DispatchUntil("the window to map", w.Mapped)
+		quiesce(t, h, c, w)
+		r := newCaptureRig(t, h, c)
+
+		session, view := r.outputSession(0)
+		if view.size != image.Pt(160, 100) || len(view.formats) != 2 {
+			t.Fatalf("constraints %+v", *view)
+		}
+		if pix := r.first(session, view.size); rgbAt(pix, 160*4, 20, 20) != [3]byte{0xff, 0, 0} {
+			t.Fatalf("the output frame shows %v", rgbAt(pix, 160*4, 20, 20))
+		}
+		f, _ := r.waiting(session, view.size)
+		if err := errors.Join(w.Surface.Attach(c.Buffer(w.Logical, 1, quadrants), 0, 0), w.Surface.Damage(0, 0, 4, 4), w.Surface.Commit(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		c.DispatchUntil("the second output frame after damage", func() bool { return f.ready })
+		if !image.Rect(0, 0, 4, 4).In(f.damage) || f.damage == image.Rect(0, 0, 160, 100) {
+			t.Fatalf("the second frame reported damage %v", f.damage)
+		}
+
+		wsession, wview := r.windowSession()
+		if wview.size != image.Pt(160, 100) {
+			t.Fatalf("window constraints %+v", *wview)
+		}
+		if pix := r.first(wsession, wview.size); rgbAt(pix, 160*4, 140, 80) != [3]byte{0xff, 0xff, 0} {
+			t.Fatalf("the window frame shows %v", rgbAt(pix, 160*4, 140, 80))
+		}
+		if err := errors.Join(w.Destroy(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		c.DispatchUntil("the window session stopped", func() bool { return wview.stopped })
+	})
+}
+
+func TestImageCopyCaptureOfAHiddenWindow(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("hidden", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	quiesce(t, h, c, w)
+	r := newCaptureRig(t, h, c)
+	h.dispatch("workspace 2")
+	settle(t, h)
+
+	session, view := r.windowSession()
+	if pix := r.first(session, view.size); rgbAt(pix, 160*4, 140, 80) != [3]byte{0xff, 0xff, 0} {
+		t.Fatalf("the hidden window's frame shows %v", rgbAt(pix, 160*4, 140, 80))
+	}
+	f, pix := r.waiting(session, view.size)
+	presents := presentCount(h)
+	if err := errors.Join(w.Surface.Attach(c.Buffer(w.Logical, 1, testclient.Fill(0xff, 0, 0)), 0, 0), w.Surface.Damage(0, 0, 160, 100), w.Surface.Commit(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("a frame of the hidden window's new content", func() bool { return f.ready || f.failed })
+	if f.failed || rgbAt(pix, 160*4, 140, 80) != [3]byte{0, 0, 0xff} {
+		t.Fatalf("frame %+v shows %v", *f, rgbAt(pix, 160*4, 140, 80))
+	}
+	if n := presentCount(h); n != presents {
+		t.Fatalf("a hidden window's commit presented %d frames", n-presents)
+	}
+}
+
+func TestImageCopyCaptureFollowsAPlaneCursor(t *testing.T) {
+	t.Parallel()
+	h := StartWithCursorPlanes(t, plane, func(*compositor.Config) {}, small)
+	h.Eventually("the arrow on the cursor plane", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		return b.Outputs()[0].Cursor().Visible()
+	})
+	c := testclient.Connect(t, h.Socket())
+	settle(t, h)
+	r := newCaptureRig(t, h, c)
+	session, view := r.outputSession(ceic.ExtImageCopyCaptureManagerV1OptionsPaintCursors)
+	r.first(session, view.size)
+	f, _ := r.waiting(session, view.size)
+	presents := presentCount(h)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		return errors.Join(b.Pointer().MoveTo(b.Outputs()[0], 0.25, 0.2), b.Pointer().Frame())
+	})
+	c.DispatchUntil("a frame after the plane cursor moved", func() bool { return f.ready || f.failed })
+	if f.failed || !image.Pt(80, 50).In(f.damage) || !image.Pt(40, 20).In(f.damage) {
+		t.Fatalf("frame %+v does not cover both cursor positions", *f)
+	}
+	if n := presentCount(h); n != presents {
+		t.Fatalf("moving the plane cursor presented %d frames", n-presents)
+	}
+}
+
+// A cursor drawn into the frame is no change of what an output capture
+// without cursors shows: its session waits through the pointer moving,
+// while one painting cursors gets the frame.
+func TestAMovingFrameCursorWakesOnlyTheCapturesThatPaintIt(t *testing.T) {
+	t.Parallel()
+	theme := testenv.CursorTheme(t)
+	h := StartWith(t, func(cfg *compositor.Config) { cfg.Cursor.Theme = theme }, small)
+	c := testclient.Connect(t, h.Socket())
+	settle(t, h)
+	r := newCaptureRig(t, h, c)
+	bare, bareView := r.outputSession(0)
+	painted, paintedView := r.outputSession(ceic.ExtImageCopyCaptureManagerV1OptionsPaintCursors)
+	r.first(bare, bareView.size)
+	r.first(painted, paintedView.size)
+	f, _ := r.waiting(bare, bareView.size)
+	g, _ := r.waiting(painted, paintedView.size)
+	presents := presentCount(h)
+	for i := range 10 {
+		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			return errors.Join(b.Pointer().MoveTo(b.Outputs()[0], 0.2+float64(i)*0.05, 0.3), b.Pointer().Frame())
+		})
+		settle(t, h)
+	}
+	c.DispatchUntil("a frame of the moved cursor", func() bool { return g.ready || g.failed })
+	if err := c.Display.Roundtrip(); err != nil || f.ready || f.failed {
+		t.Fatalf("the moving cursor finished the frame of a capture without cursors: %+v (%v)", *f, err)
+	}
+	if presentCount(h) == presents {
+		t.Fatal("the cursor moved without a frame drawing it")
+	}
+}
+
+func dmabufCapture(t *testing.T, start gpuStarter) (*testclient.Client, *ceic.ExtImageCopyCaptureSessionV1, *captureView) {
+	t.Helper()
+	h := start(t, func(*compositor.Config) {}, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("captured", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	settle(t, h)
+	session, view := newCaptureRig(t, h, c).outputSession(0)
+	return c, session, view
+}
+
+func TestImageCopyCaptureIntoDMABUFs(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testImageCopyCaptureIntoDMABUFs)
+}
+
+func testImageCopyCaptureIntoDMABUFs(t *testing.T, start gpuStarter) {
+	c, session, view := dmabufCapture(t, start)
+	target := c.RenderTarget(view.size, view.modifiers)
+	f, _ := captureInto(t, c, session, target.WL, view.size)
+	c.DispatchUntil("the dmabuf frame", func() bool { return f.ready || f.failed })
+	if f.failed {
+		t.Fatalf("dmabuf frame %+v", *f)
+	}
+	pix, stride := target.Pixels(), view.size.X*4
+	if rgbAt(pix, stride, 20, 20) != [3]byte{0xff, 0, 0} || rgbAt(pix, stride, 140, 80) != [3]byte{0xff, 0xff, 0} {
+		t.Fatalf("dmabuf frame: %v and %v", rgbAt(pix, stride, 20, 20), rgbAt(pix, stride, 140, 80))
+	}
+}
+
+func TestACaptureIntoADMABUFTheRendererCannotDrawIntoBreaksTheConstraints(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testACaptureIntoADMABUFTheRendererCannotDrawIntoBreaksTheConstraints)
+}
+
+func testACaptureIntoADMABUFTheRendererCannotDrawIntoBreaksTheConstraints(t *testing.T, start gpuStarter) {
+	c, session, view := dmabufCapture(t, start)
+	undrawable, ok := c.DMABUFOutside(view.size, view.modifiers)
+	if !ok {
+		t.Logf("the renderer draws into every modifier it imports %v with, so no buffer it imports breaks the constraints", view.modifiers)
+		f, _ := captureInto(t, c, session, c.RenderTarget(view.size, view.modifiers).WL, view.size)
+		c.DispatchUntil("the frame", func() bool { return f.ready || f.failed })
+		if f.failed {
+			t.Fatalf("frame into a drawable modifier %+v, want it ready", *f)
+		}
+		return
+	}
+	f, _ := captureInto(t, c, session, undrawable.WL, view.size)
+	c.DispatchUntil("the frame", func() bool { return f.ready || f.failed })
+	if !f.failed || f.reason != ceic.ExtImageCopyCaptureFrameV1FailureReasonBufferConstraints {
+		t.Fatalf("frame %+v, want it failed for its buffer constraints", *f)
+	}
+}
+
+type cursorWatch struct{ events testclient.Log }
+
+func (w *cursorWatch) Enter(*ceic.ExtImageCopyCaptureCursorSessionV1) error {
+	return w.events.Note("enter")
+}
+
+func (w *cursorWatch) Leave(*ceic.ExtImageCopyCaptureCursorSessionV1) error {
+	return w.events.Note("leave")
+}
+
+func (w *cursorWatch) Position(_ *ceic.ExtImageCopyCaptureCursorSessionV1, x, y int32) error {
+	return w.events.Note("position %d,%d", x, y)
+}
+
+func (w *cursorWatch) Hotspot(_ *ceic.ExtImageCopyCaptureCursorSessionV1, x, y int32) error {
+	return w.events.Note("hotspot %d,%d", x, y)
+}
+
+func TestCursorSessionsFollowThePointer(t *testing.T) {
+	t.Parallel()
+	theme := testenv.CursorTheme(t)
+	h := StartWith(t, func(cfg *compositor.Config) { cfg.Cursor.Theme = theme }, small, small)
+	c := testclient.Connect(t, h.Socket())
+	_, in := c.Seat()
+	w := c.Window("pointed", testclient.Fill(0x40, 0x40, 0x40))
+	c.DispatchUntil("the window to map", w.Mapped)
+	c.DispatchUntil("the pointer to enter", func() bool { return in.Serial != 0 })
+	quiesce(t, h, c, w)
+	r := newCaptureRig(t, h, c)
+	src, err := r.outputs.CreateSource(c.Outputs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	watch := &cursorWatch{}
+	k, err := r.mgr.CreatePointerCursorSession(watch, src, in.Pointer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the cursor entering the output", func() bool { return len(watch.events) == 3 })
+	if watch.events[0] != "enter" || watch.events[1] != "position 80,50" || !strings.HasPrefix(watch.events[2], "hotspot ") {
+		t.Fatalf("cursor events %q", watch.events)
+	}
+	view := &captureView{}
+	session, err := k.GetCaptureSession(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the cursor image constraints", func() bool { return view.done })
+	pix := r.first(session, view.size)
+	if !slices.ContainsFunc(pix, func(b byte) bool { return b != 0 }) {
+		t.Fatalf("the %v cursor frame is empty", view.size)
+	}
+	f, _ := r.waiting(session, view.size)
+
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		return errors.Join(b.Pointer().MoveTo(b.Outputs()[0], 0.25, 0.2), b.Pointer().Frame())
+	})
+	c.DispatchUntil("the new position", func() bool { return slices.Contains(watch.events, "position 40,20") })
+	settle(t, h)
+	if err := c.Display.Roundtrip(); err != nil || f.ready {
+		t.Fatalf("moving the cursor produced a cursor image frame (%v)", err)
+	}
+	device, err := c.CursorShape.GetPointer(in.Pointer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := errors.Join(device.SetShape(in.Serial, ccs.WpCursorShapeDeviceV1ShapeText), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("a frame of the new cursor image", func() bool { return f.ready || f.failed })
+	if f.failed {
+		t.Fatalf("the cursor image frame failed: %+v", *f)
+	}
+
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		return errors.Join(b.Pointer().MoveTo(b.Outputs()[1], 0.5, 0.5), b.Pointer().Frame())
+	})
+	c.DispatchUntil("the cursor leaving the output", func() bool { return watch.events[len(watch.events)-1] == "leave" })
+}
+
+func TestADestroyedWaitingFrameLeavesTheDamageToTheNext(t *testing.T) {
+	t.Parallel()
+	onEachRenderer(t, func(t *testing.T, start starter) {
+		h := start(t, small)
+		c := testclient.Connect(t, h.Socket())
+		w := c.Window("captured", quadrants)
+		c.DispatchUntil("the window to map", w.Mapped)
+		quiesce(t, h, c, w)
+		r := newCaptureRig(t, h, c)
+		session, view := r.outputSession(0)
+		r.first(session, view.size)
+
+		gone, frame, gonePix := grab(t, c, session, view.size)
+		settle(t, h)
+		if err := errors.Join(frame.Destroy(), c.Display.Roundtrip()); err != nil {
+			t.Fatal(err)
+		}
+		next, _ := r.waiting(session, view.size)
+		if err := errors.Join(w.Surface.Attach(c.Buffer(w.Logical, 1, quadrants), 0, 0), w.Surface.Damage(0, 0, 4, 4), w.Surface.Commit(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		c.DispatchUntil("the next frame after damage", func() bool { return next.ready || next.failed })
+		if next.failed || !image.Rect(0, 0, 4, 4).In(next.damage) {
+			t.Fatalf("the next frame %+v", *next)
+		}
+		if gone.ready || gone.failed || slices.ContainsFunc(gonePix, func(b byte) bool { return b != 0 }) {
+			t.Fatalf("a destroyed frame was completed (%+v) or painted", *gone)
+		}
+	})
+}
+
+func TestAnOutputCaptureNeverDrawsATextureReplacedSinceTheLastFrame(t *testing.T) {
+	t.Parallel()
+	onEachRenderer(t, func(t *testing.T, start starter) {
+		h := start(t, small)
+		c := testclient.Connect(t, h.Socket())
+		w := c.Window("captured", quadrants)
+		c.DispatchUntil("the window to map", w.Mapped)
+		quiesce(t, h, c, w)
+		r := newCaptureRig(t, h, c)
+		session, view := r.outputSession(0)
+
+		half := w.Logical.Div(2)
+		if err := errors.Join(w.Surface.Attach(c.Buffer(half, 1, quadrants), 0, 0), w.Surface.Damage(0, 0, int32(half.X), int32(half.Y)), w.Surface.Commit()); err != nil {
+			t.Fatal(err)
+		}
+		f, _, pix := grab(t, c, session, view.size)
+		c.DispatchUntil("the frame after the texture changed", func() bool { return f.ready || f.failed })
+		if f.failed {
+			t.Fatalf("the capture failed with %v", f.reason)
+		}
+		if got := rgbAt(pix, 160*4, 60, 20); got != [3]byte{0, 0xff, 0} {
+			t.Fatalf("the frame shows %v where the new buffer is green", got)
+		}
+	})
+}
+
+func TestAFrameDestroyedWhileItIsReadBackLeavesFullDamageToTheNext(t *testing.T) {
+	t.Parallel()
+	onEachGPURenderer(t, testAFrameDestroyedWhileItIsReadBackLeavesFullDamageToTheNext)
+}
+
+func testAFrameDestroyedWhileItIsReadBackLeavesFullDamageToTheNext(t *testing.T, start gpuStarter) {
+	h := start(t, func(*compositor.Config) {}, small)
+	async := false
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		r, ok := b.Renderer().(render.AsyncReader)
+		async = ok && r.AsyncReads()
+		return nil
+	})
+	if !async {
+		t.Skip("this renderer reads captures back synchronously")
+	}
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("captured", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	quiesce(t, h, c, w)
+	r := newCaptureRig(t, h, c)
+	session, view := r.outputSession(0)
+	wl, gonePix := c.Target(view.size)
+	gone, frame := requestCapture(t, session, wl, view.size)
+	if err := errors.Join(frame.Destroy(), c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	pix := r.first(session, view.size)
+	if rgbAt(pix, 160*4, 20, 20) != [3]byte{0xff, 0, 0} {
+		t.Fatalf("the frame after an abandoned one shows %v", rgbAt(pix, 160*4, 20, 20))
+	}
+	settle(t, h)
+	if err := c.Display.Roundtrip(); err != nil {
+		t.Fatal(err)
+	}
+	if gone.ready || gone.failed || slices.ContainsFunc(gonePix, func(b byte) bool { return b != 0 }) {
+		t.Fatalf("a frame destroyed while it was read back was completed (%+v) or painted", *gone)
+	}
+}
+
+func TestAnImageCopyFrameCapturesOnce(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		wait bool
+	}{{"while it waits", true}, {"once it is ready", false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := Start(t, small)
+			c := testclient.Connect(t, h.Socket())
+			w := c.Window("captured", quadrants)
+			c.DispatchUntil("the window to map", w.Mapped)
+			quiesce(t, h, c, w)
+			r := newCaptureRig(t, h, c)
+			session, view := r.outputSession(0)
+			var frame *ceic.ExtImageCopyCaptureFrameV1
+			if tc.wait {
+				r.first(session, view.size)
+				f, fr, _ := grab(t, c, session, view.size)
+				settle(t, h)
+				if err := c.Display.Roundtrip(); err != nil || f.ready {
+					t.Fatalf("a frame was ready without damage (%v)", err)
+				}
+				frame = fr
+			} else {
+				f, fr, _ := grab(t, c, session, view.size)
+				c.DispatchUntil("the frame", func() bool { return f.ready || f.failed })
+				frame = fr
+			}
+			if err := frame.Capture(); err != nil {
+				t.Fatal(err)
+			}
+			c.ExpectProtocolError(uint32(ceic.ExtImageCopyCaptureFrameV1ErrorAlreadyCaptured))
+		})
+	}
+}
+
+func TestACaptureOfAClosedToplevelStops(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("closing", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	r := newCaptureRig(t, h, c)
+	c.DispatchUntil("the window listed", func() bool { return len(r.list.order) == 1 })
+	handle := r.list.order[0]
+	if err := errors.Join(w.Destroy(), c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	src, err := r.toplevels.CreateSource(handle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := &captureView{}
+	session, err := r.mgr.CreateSession(view, src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the session stopped", func() bool { return view.stopped })
+	f, _, _ := grab(t, c, session, image.Pt(160, 100))
+	c.DispatchUntil("the frame to fail", func() bool { return f.failed || f.ready })
+	if f.ready || f.reason != ceic.ExtImageCopyCaptureFrameV1FailureReasonStopped {
+		t.Fatalf("a frame of a closed toplevel: %+v", *f)
+	}
+}
+
+func TestShmCapturesLeaveTheLoopFreeOnHardware(t *testing.T) {
+	onEachGPURenderer(t, testShmCapturesLeaveTheLoopFreeOnHardware)
+}
+
+func testShmCapturesLeaveTheLoopFreeOnHardware(t *testing.T, start gpuStarter) {
+	large := backend.Mode{Size: image.Pt(2560, 1440), RefreshMHz: 60000, Preferred: true}
+	h := start(t, func(*compositor.Config) {}, large)
+	hardware := false
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		r, ok := b.Renderer().(interface {
+			render.AsyncReader
+			MainDevice() (uint64, error)
+		})
+		if ok {
+			_, err := r.MainDevice()
+			hardware = err == nil && r.AsyncReads()
+		}
+		return nil
+	})
+	if !hardware {
+		t.Skip("no GPU with a render node reads captures back asynchronously here")
+	}
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("captured", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	quiesce(t, h, c, w)
+	r := newCaptureRig(t, h, c)
+	session, view := r.outputSession(0)
+	r.first(session, view.size)
+	shown := c.Buffer(w.Logical, 1, quadrants)
+	target, _ := c.Target(view.size)
+	const frames = 120
+	syncReads := func() uint64 {
+		var n uint64
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			n = c.ShmSyncReads()
+			return nil
+		})
+		return n
+	}
+	blockingBefore := syncReads()
+	frame := func(i int, done func() bool) time.Duration {
+		t.Helper()
+		before := h.Busy()
+		if err := errors.Join(w.Surface.Attach(shown, 0, 0), w.Surface.Damage(int32(i%64), 0, 4, 4), w.Surface.Commit(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		c.DispatchUntil("the frame", done)
+		return h.Busy() - before
+	}
+	baseline := make([]time.Duration, frames)
+	for i := range baseline {
+		drawn := false
+		if _, err := w.Surface.Frame(frameDone{&drawn}); err != nil {
+			t.Fatal(err)
+		}
+		baseline[i] = frame(i, func() bool { return drawn })
+	}
+	captured := make([]time.Duration, frames)
+	for i := range captured {
+		f, fr := captureInto(t, c, session, target, view.size)
+		captured[i] = frame(i, func() bool { return f.ready || f.failed })
+		if f.failed {
+			t.Fatalf("frame %d failed: %+v", i, *f)
+		}
+		if err := fr.Destroy(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	slices.Sort(baseline)
+	slices.Sort(captured)
+	plain, with := baseline[frames/2], captured[frames/2]
+	t.Logf("the loop was busy a median %v per frame without a capture and %v with a %v shm capture", plain, with, view.size)
+	if blocking := syncReads() - blockingBefore; blocking != 0 {
+		t.Errorf("%d of %d %v shm captures read back on the loop, want none", blocking, frames, view.size)
+	}
+}
+
+func TestACaptureRepaintsOnlyTheDamageSinceTheLastCapture(t *testing.T) {
+	t.Parallel()
+	onEachGPURenderer(t, testACaptureRepaintsOnlyTheDamageSinceTheLastCapture)
+}
+
+func testACaptureRepaintsOnlyTheDamageSinceTheLastCapture(t *testing.T, start gpuStarter) {
+	h := start(t, func(*compositor.Config) {}, small)
+	async := false
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		r, ok := b.Renderer().(render.AsyncReader)
+		async = ok && r.AsyncReads()
+		return nil
+	})
+	if !async {
+		t.Skip("this renderer reads captures back synchronously")
+	}
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("captured", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	quiesce(t, h, c, w)
+	r := newCaptureRig(t, h, c)
+	session, view := r.outputSession(0)
+	r.first(session, view.size)
+	before := capturedPixels(h)
+	next, partial := r.waiting(session, view.size)
+	buf := c.Buffer(w.Logical, 1, testclient.Fill(0, 0xff, 0))
+	if err := errors.Join(w.Surface.Attach(buf, 0, 0), w.Surface.Damage(0, 0, 4, 4), w.Surface.Commit(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the next frame after damage", func() bool { return next.ready || next.failed })
+	if next.failed {
+		t.Fatalf("the next frame %+v", *next)
+	}
+	area := next.damage.Dx() * next.damage.Dy()
+	if got := capturedPixels(h) - before; got == 0 || got > uint64(area) {
+		t.Fatalf("a capture repainted %d pixels for damage %v", got, next.damage)
+	}
+	fresh, freshView := r.outputSession(0)
+	if whole := r.first(fresh, freshView.size); !bytes.Equal(partial, whole) {
+		t.Fatal("the partly repainted capture differs from a whole one")
+	}
+}
+
+func TestASharedWindowKeepsDrawingWhileItIsHidden(t *testing.T) {
+	t.Parallel()
+	h := StartWith(t, func(cfg *compositor.Config) { cfg.HiddenFrame = time.Hour }, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("shared", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	r := newCaptureRig(t, h, c)
+	h.dispatch("workspace 2")
+	settle(t, h)
+	session, view := r.windowSession()
+	before := w.Frames
+	for i := range 5 {
+		f, frame, _ := grab(t, c, session, view.size)
+		c.DispatchUntil("a frame of the hidden window", func() bool { return f.ready || f.failed })
+		if f.failed {
+			t.Fatalf("frame %d of the hidden window failed", i)
+		}
+		if err := errors.Join(frame.Destroy(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := w.Frames - before; got < 4 {
+		t.Fatalf("the hidden shared window got %d frame callbacks over five captures, want one a capture", got)
+	}
+}
+
+func capturedPixels(h *Harness) uint64 {
+	var n uint64
+	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
+		n = comp.CapturedPixels()
+		return nil
+	})
+	return n
+}
+
+func recolorCorner(t *testing.T, c *testclient.Client, w *testclient.Window) {
+	t.Helper()
+	if err := errors.Join(w.Surface.Attach(c.Buffer(w.Logical, 1, testclient.Fill(0, 0xff, 0)), 0, 0), w.Surface.Damage(0, 0, 4, 4), w.Surface.Commit(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAReusedShmBufferIsUpdatedOnlyWhereItIsStale(t *testing.T) {
+	t.Parallel()
+	onEachRenderer(t, func(t *testing.T, start starter) {
+		h := start(t, small)
+		c := testclient.Connect(t, h.Socket())
+		w := c.Window("captured", quadrants)
+		c.DispatchUntil("the window to map", w.Mapped)
+		quiesce(t, h, c, w)
+		r := newCaptureRig(t, h, c)
+		session, view := r.outputSession(0)
+		wl, pix := c.Target(view.size)
+		first, frame := captureInto(t, c, session, wl, view.size)
+		c.DispatchUntil("the first frame", func() bool { return first.ready || first.failed })
+		if err := errors.Join(frame.Destroy(), c.Display.Flush()); first.failed || err != nil {
+			t.Fatalf("the first frame %+v (%v)", *first, err)
+		}
+		const sentinel = 0x5a
+		for i := range pix {
+			pix[i] = sentinel
+		}
+		stale := image.Rect(150, 90, 155, 95)
+		next, _ := requestDamagedCapture(t, session, wl, stale)
+		recolorCorner(t, c, w)
+		c.DispatchUntil("the frame after damage", func() bool { return next.ready || next.failed })
+		if next.failed || next.damage.Empty() || next.damage.Overlaps(stale) {
+			t.Fatalf("the frame after damage %+v", *next)
+		}
+		fresh, freshView := r.outputSession(0)
+		whole := r.first(fresh, freshView.size)
+		stride := view.size.X * 4
+		for y := range view.size.Y {
+			for x := range view.size.X {
+				p, at := image.Pt(x, y), y*stride+x*4
+				got, want := pix[at:at+3], whole[at:at+3]
+				switch {
+				case p.In(stale) && !bytes.Equal(got, want):
+					t.Fatalf("pixel %v the client damaged is %v, want %v", p, got, want)
+				case !p.In(stale) && !p.In(next.damage) && !bytes.Equal(got, []byte{sentinel, sentinel, sentinel}):
+					t.Fatalf("pixel %v neither changed nor stale was copied: %v", p, got)
+				}
+			}
+		}
+	})
+}
+
+func TestADMABUFCaptureRepaintsOnlyWhatChanged(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testADMABUFCaptureRepaintsOnlyWhatChanged)
+}
+
+func testADMABUFCaptureRepaintsOnlyWhatChanged(t *testing.T, start gpuStarter) {
+	h := start(t, func(*compositor.Config) {}, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("captured", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	quiesce(t, h, c, w)
+	r := newCaptureRig(t, h, c)
+	session, view := r.outputSession(0)
+	target := c.RenderTarget(view.size, view.modifiers)
+	first, frame := captureInto(t, c, session, target.WL, view.size)
+	c.DispatchUntil("the first frame", func() bool { return first.ready || first.failed })
+	if err := errors.Join(frame.Destroy(), c.Display.Flush()); first.failed || err != nil {
+		t.Fatalf("the first frame %+v (%v)", *first, err)
+	}
+	before := capturedPixels(h)
+	next, _ := requestDamagedCapture(t, session, target.WL)
+	recolorCorner(t, c, w)
+	c.DispatchUntil("the frame after damage", func() bool { return next.ready || next.failed })
+	if next.failed {
+		t.Fatalf("the frame after damage %+v", *next)
+	}
+	if got := capturedPixels(h) - before; got == 0 || got > uint64(next.damage.Dx()*next.damage.Dy()) {
+		t.Fatalf("a capture into a filled dmabuf repainted %d pixels for damage %v", got, next.damage)
+	}
+	fresh, freshView := r.outputSession(0)
+	whole, pix, stride := r.first(fresh, freshView.size), target.Pixels(), view.size.X*4
+	for y := range view.size.Y {
+		for x := range view.size.X {
+			if got, want := rgbAt(pix, stride, x, y), rgbAt(whole, stride, x, y); got != want {
+				t.Fatalf("pixel %d,%d of the dmabuf is %v, a whole capture %v", x, y, got, want)
+			}
+		}
+	}
+}
+
+// A cursor image of a new size changes a cursor capture session's
+// constraints, and a frame waiting in a buffer of the old size fails with
+// buffer_constraints rather than landing the new image cropped to it; a
+// buffer of the new size then takes the new image.
+func TestANewCursorSizeFailsTheFrameWaitingInTheOldSize(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	_, in := c.Seat()
+	w := c.Window("pointed", testclient.Fill(0x40, 0x40, 0x40))
+	c.DispatchUntil("the window to map", w.Mapped)
+	c.DispatchUntil("the pointer to enter", func() bool { return in.Serial != 0 })
+	quiesce(t, h, c, w)
+	setCursor := func(side int) {
+		t.Helper()
+		s := c.Surface()
+		size := image.Pt(side, side)
+		if err := errors.Join(in.Pointer.SetCursor(in.Serial, s, int32(side/2), int32(side/2)), s.Attach(c.Buffer(size, 1, testclient.Fill(0xff, 0, 0)), 0, 0), s.Damage(0, 0, int32(side), int32(side)), s.Commit(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setCursor(16)
+	settle(t, h)
+	r := newCaptureRig(t, h, c)
+	src, err := r.outputs.CreateSource(c.Outputs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	k, err := r.mgr.CreatePointerCursorSession(&cursorWatch{}, src, in.Pointer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := &captureView{}
+	session, err := k.GetCaptureSession(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the cursor image constraints", func() bool { return view.done })
+	if view.size != image.Pt(16, 16) {
+		t.Fatalf("a 16x16 cursor image constrains %v", view.size)
+	}
+	r.first(session, view.size)
+	f, frame, _ := grab(t, c, session, view.size)
+	settle(t, h)
+	if err := c.Display.Roundtrip(); err != nil || f.ready || f.failed {
+		t.Fatalf("a frame of the still cursor finished: %+v (%v)", *f, err)
+	}
+	setCursor(24)
+	c.DispatchUntil("the waiting frame's verdict", func() bool { return f.ready || f.failed })
+	if !f.failed || f.reason != ceic.ExtImageCopyCaptureFrameV1FailureReasonBufferConstraints {
+		t.Fatalf("a frame in the old size after the cursor grew: %+v", *f)
+	}
+	if !view.done || view.size != image.Pt(24, 24) {
+		t.Fatalf("the grown cursor constrains %+v", *view)
+	}
+	if err := frame.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	g, _, pix := grab(t, c, session, view.size)
+	c.DispatchUntil("a frame of the grown cursor", func() bool { return g.ready || g.failed })
+	if g.failed || rgbAt(pix, 24*4, 20, 20) != [3]byte{0, 0, 0xff} {
+		t.Fatalf("the grown cursor's frame %+v shows %v", *g, rgbAt(pix, 24*4, 20, 20))
+	}
+}
+
+func TestACursorMoveCapturedBeforeItsRepaintIsCapturedOnce(t *testing.T) {
+	t.Parallel()
+	theme := testenv.CursorTheme(t)
+	h := StartWith(t, func(cfg *compositor.Config) { cfg.Cursor.Theme = theme }, small)
+	c := testclient.Connect(t, h.Socket())
+	settle(t, h)
+	r := newCaptureRig(t, h, c)
+	session, view := r.outputSession(ceic.ExtImageCopyCaptureManagerV1OptionsPaintCursors)
+	r.first(session, view.size)
+	for i := range 10 {
+		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+			return errors.Join(b.Pointer().MoveTo(b.Outputs()[0], 0.2+float64(i)*0.05, 0.3), b.Pointer().Frame())
+		})
+		f, fr, _ := grab(t, c, session, view.size)
+		c.DispatchUntil("the frame of the moved cursor", func() bool { return f.ready || f.failed })
+		if f.failed {
+			t.Fatalf("move %d failed its frame", i)
+		}
+		if err := fr.Destroy(); err != nil {
+			t.Fatal(err)
+		}
+		settle(t, h)
+		g, gr, _ := grab(t, c, session, view.size)
+		settle(t, h)
+		if err := c.Display.Roundtrip(); err != nil || g.ready {
+			t.Fatalf("move %d captured a second frame after its repaint (%v)", i, err)
+		}
+		if err := gr.Destroy(); err != nil {
+			t.Fatal(err)
+		}
+		c.Sync()
+	}
+}

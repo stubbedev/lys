@@ -1,0 +1,64 @@
+package gles_test
+
+import (
+	"image"
+	"os"
+	"testing"
+
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-wm/internal/gpu"
+	"github.com/stubbedev/lys-wm/internal/render/gles"
+)
+
+func TestAStackOnARenderNodeDraws(t *testing.T) {
+	fd, err := unix.Open("/dev/dri/renderD128", unix.O_RDWR|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Skipf("no render node here: %v", err)
+	}
+	t.Cleanup(func() { _ = unix.Close(fd) })
+	s, err := gles.OnGBM(fd, gpu.PathsFromEnv(os.Getenv))
+	if err != nil {
+		t.Skipf("no GBM and EGL on the render node: %v", err)
+	}
+	fb, err := s.Renderer.NewFramebuffer(image.Pt(4, 4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fb.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAStackOnNoDeviceFailsWhole(t *testing.T) {
+	if s, err := gles.OnGBM(-1, gpu.PathsFromEnv(os.Getenv)); err == nil || s != nil {
+		t.Fatalf("a GBM stack on fd -1: %v, %v", s, err)
+	}
+}
+
+func TestAStackNamesTheDeviceItWasOpenedOn(t *testing.T) {
+	fd, err := unix.Open("/dev/dri/renderD128", unix.O_RDWR|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Skipf("no render node here: %v", err)
+	}
+	t.Cleanup(func() { _ = unix.Close(fd) })
+	s, err := gles.OnGBM(fd, gpu.PathsFromEnv(os.Getenv))
+	if err != nil {
+		t.Skipf("no GBM and EGL on the render node: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Renderer.MainDevice()
+	if err != nil {
+		t.Fatalf("a GBM stack must name its device: %v", err)
+	}
+	if got != st.Rdev {
+		t.Errorf("main device %#x, want the render node it was opened on, %#x", got, st.Rdev)
+	}
+}

@@ -1,0 +1,72 @@
+package compositor
+
+import (
+	"slices"
+	"time"
+
+	"github.com/stubbedev/lys-wm/internal/committiming"
+	"github.com/stubbedev/lys-wm/internal/contenttype"
+	"github.com/stubbedev/lys-wm/internal/fifo"
+	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/tearingcontrol"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+func (c *Compositor) addPacing(l *loop.Loop, display *server.Display) error {
+	var err error
+	if c.fifo, err = fifo.New(display, c.drawnAnywhere, c.armHidden); err != nil {
+		return err
+	}
+	if c.timing, err = committiming.New(display, l, c.nextFlip); err != nil {
+		return err
+	}
+	if c.tearingHints, err = tearingcontrol.New(display); err != nil {
+		return err
+	}
+	c.contentTypes, err = contenttype.New(display)
+	return err
+}
+
+func (c *Compositor) tears(s *surface.Surface) bool {
+	if !c.tearing {
+		return false
+	}
+	w := c.windowWithSurface(s)
+	if w == nil {
+		return false
+	}
+	switch c.decision(w).Tearing {
+	case wm.TearingAllow:
+		return true
+	case wm.TearingDeny:
+		return false
+	}
+	switch c.tearingHints.Hint(s) {
+	case tearingcontrol.Async:
+		return true
+	case tearingcontrol.Vsync:
+		return false
+	}
+	return c.contentType(s) == wm.ContentGame
+}
+
+func (c *Compositor) nextFlip(s *surface.Surface) (time.Duration, bool) {
+	var next time.Duration
+	found := false
+	for _, o := range c.outputs {
+		last := c.sceneOf(o).last
+		if !c.drawing(o) || last.Time == 0 || !slices.Contains(c.shown[o], s) {
+			continue
+		}
+		if flip := last.Time + last.Refresh; !found || flip < next {
+			next, found = flip, true
+		}
+	}
+	return next, found
+}
+
+func (c *Compositor) CommitTimerArmed() time.Duration {
+	return c.timing.LastArmed()
+}

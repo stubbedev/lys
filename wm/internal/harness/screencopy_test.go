@@ -1,0 +1,321 @@
+package harness
+
+import (
+	"errors"
+	"image"
+	"slices"
+	"testing"
+
+	"github.com/stubbedev/lys-lib/fourcc"
+
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	cw "github.com/stubbedev/lys-wm/internal/protocol/client/wayland"
+	cwsc "github.com/stubbedev/lys-wm/internal/protocol/client/wlrscreencopy"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+)
+
+type copyFrame struct {
+	size          image.Point
+	stride        uint32
+	ready, failed bool
+	damage        image.Rectangle
+	bufferDone    bool
+	dmabuf        fourcc.Format
+	dmabufSize    image.Point
+}
+
+func (f *copyFrame) Buffer(_ *cwsc.ZwlrScreencopyFrameV1, _ cw.WlShmFormat, w, h, stride uint32) error {
+	f.size, f.stride = image.Pt(int(w), int(h)), stride
+	return nil
+}
+
+func (f *copyFrame) Flags(*cwsc.ZwlrScreencopyFrameV1, cwsc.ZwlrScreencopyFrameV1Flags) error {
+	return nil
+}
+
+func (f *copyFrame) Ready(*cwsc.ZwlrScreencopyFrameV1, uint32, uint32, uint32) error {
+	f.ready = true
+	return nil
+}
+
+func (f *copyFrame) Failed(*cwsc.ZwlrScreencopyFrameV1) error {
+	f.failed = true
+	return nil
+}
+
+func (f *copyFrame) Damage(_ *cwsc.ZwlrScreencopyFrameV1, x, y, w, h uint32) error {
+	f.damage = f.damage.Union(image.Rect(int(x), int(y), int(x+w), int(y+h)))
+	return nil
+}
+
+func (f *copyFrame) LinuxDmabuf(_ *cwsc.ZwlrScreencopyFrameV1, format, w, h uint32) error {
+	f.dmabuf, f.dmabufSize = fourcc.Format(format), image.Pt(int(w), int(h))
+	return nil
+}
+
+func (f *copyFrame) BufferDone(*cwsc.ZwlrScreencopyFrameV1) error {
+	f.bufferDone = true
+	return nil
+}
+
+func rgbAt(pix []byte, stride, x, y int) [3]byte {
+	i := y*stride + x*4
+	return [3]byte{pix[i+2], pix[i+1], pix[i]}
+}
+
+func screenshot(t *testing.T, c *testclient.Client, mgr *cwsc.ZwlrScreencopyManagerV1, region image.Rectangle, damage bool) (*copyFrame, *cwsc.ZwlrScreencopyFrameV1, []byte) {
+	t.Helper()
+	f := &copyFrame{}
+	var frame *cwsc.ZwlrScreencopyFrameV1
+	var err error
+	if region == (image.Rectangle{}) {
+		frame, err = mgr.CaptureOutput(f, 0, c.Outputs[0])
+	} else {
+		frame, err = mgr.CaptureOutputRegion(f, 0, c.Outputs[0], int32(region.Min.X), int32(region.Min.Y), int32(region.Dx()), int32(region.Dy()))
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the buffer description", func() bool { return f.bufferDone })
+	wl, pix := c.Target(f.size)
+	if damage {
+		err = frame.CopyWithDamage(wl)
+	} else {
+		err = frame.Copy(wl)
+	}
+	if err = errors.Join(err, c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	return f, frame, pix
+}
+
+func TestScreencopyCapturesOutputsAndRegions(t *testing.T) {
+	t.Parallel()
+	onEachRenderer(t, func(t *testing.T, start starter) {
+		h := start(t, small)
+		c := testclient.Connect(t, h.Socket())
+		w := c.Window("shot", quadrants)
+		c.DispatchUntil("the window to map", w.Mapped)
+		settle(t, h)
+		mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Bind(mgr)
+
+		f, _, pix := screenshot(t, c, mgr, image.Rectangle{}, false)
+		c.DispatchUntil("the full capture", func() bool { return f.ready || f.failed })
+		stride := int(f.stride)
+		if f.failed || f.size != image.Pt(160, 100) || rgbAt(pix, stride, 20, 20) != [3]byte{0xff, 0, 0} || rgbAt(pix, stride, 140, 80) != [3]byte{0xff, 0xff, 0} {
+			t.Fatalf("capture %+v: %v and %v", *f, rgbAt(pix, stride, 20, 20), rgbAt(pix, stride, 140, 80))
+		}
+
+		f, _, pix = screenshot(t, c, mgr, image.Rect(100, 10, 140, 30), false)
+		c.DispatchUntil("the region capture", func() bool { return f.ready || f.failed })
+		if f.failed || f.size != image.Pt(40, 20) || rgbAt(pix, int(f.stride), 5, 5) != [3]byte{0, 0xff, 0} {
+			t.Fatalf("region capture %+v: %v", *f, rgbAt(pix, int(f.stride), 5, 5))
+		}
+
+		quiesce(t, h, c, w)
+		f, _, _ = screenshot(t, c, mgr, image.Rectangle{}, true)
+		settle(t, h)
+		if err := c.Display.Roundtrip(); err != nil || f.ready {
+			t.Fatalf("a damage capture was ready without damage (%v)", err)
+		}
+		if err := errors.Join(w.Surface.Attach(c.Buffer(w.Logical, 1, quadrants), 0, 0), w.Surface.Damage(0, 0, 10, 10), w.Surface.Commit(), c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		c.DispatchUntil("the damage capture", func() bool { return f.ready })
+		if !image.Rect(0, 0, 10, 10).In(f.damage) || f.damage == image.Rect(0, 0, 160, 100) {
+			t.Fatalf("a damage capture reported %v", f.damage)
+		}
+	})
+}
+
+func TestADestroyedWaitingScreencopyIsNeverPainted(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("shot", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	quiesce(t, h, c, w)
+	mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(mgr)
+	gone, frame, gonePix := screenshot(t, c, mgr, image.Rectangle{}, true)
+	settle(t, h)
+	if err := errors.Join(frame.Destroy(), c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	if err := errors.Join(w.Surface.Attach(c.Buffer(w.Logical, 1, quadrants), 0, 0), w.Surface.Damage(0, 0, 10, 10), w.Surface.Commit(), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	settle(t, h)
+	c.Sync()
+	if gone.ready || gone.failed || slices.ContainsFunc(gonePix, func(b byte) bool { return b != 0 }) {
+		t.Fatalf("a destroyed screencopy was completed (%+v) or painted", *gone)
+	}
+}
+
+func TestAScreencopyOfARemovedOutputFails(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(mgr)
+	f := &copyFrame{}
+	frame, err := mgr.CaptureOutput(f, 0, c.Outputs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the buffer description", func() bool { return f.bufferDone })
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error { return b.RemoveOutput(b.Outputs()[0]) })
+	wl, _ := c.Target(f.size)
+	if err := errors.Join(frame.Copy(wl), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the capture to fail", func() bool { return f.ready || f.failed })
+	if f.ready {
+		t.Fatal("a capture of a removed output was ready")
+	}
+}
+
+func TestAScreencopyFrameCopiesOnce(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(mgr)
+	f, frame, _ := screenshot(t, c, mgr, image.Rectangle{}, false)
+	c.DispatchUntil("the capture", func() bool { return f.ready || f.failed })
+	wl, _ := c.Target(f.size)
+	if err := frame.Copy(wl); err != nil {
+		t.Fatal(err)
+	}
+	c.ExpectProtocolError(uint32(cwsc.ZwlrScreencopyFrameV1ErrorAlreadyUsed))
+}
+
+func TestScreencopyIntoDMABUFsOnTheGPURenderers(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testScreencopyIntoDMABUFsOnTheGPURenderers)
+}
+
+func testScreencopyIntoDMABUFsOnTheGPURenderers(t *testing.T, start gpuStarter) {
+	c, _, view := dmabufCapture(t, start)
+	if !c.HasDMABUFFeedback() {
+		t.Skip("the renderer names no main device, so it offers no dmabuf captures")
+	}
+	mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(mgr)
+	f := &copyFrame{}
+	frame, err := mgr.CaptureOutput(f, 0, c.Outputs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the buffer description", func() bool { return f.bufferDone })
+	if f.dmabuf != fourcc.XRGB8888 || f.dmabufSize != view.size {
+		t.Fatalf("linux_dmabuf offered %v at %v, want XRGB8888 at %v", f.dmabuf, f.dmabufSize, view.size)
+	}
+	target := c.RenderTarget(f.dmabufSize, view.modifiers)
+	if err := errors.Join(frame.Copy(target.WL), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the dmabuf copy", func() bool { return f.ready || f.failed })
+	pix, stride := target.Pixels(), view.size.X*4
+	if f.failed || rgbAt(pix, stride, 20, 20) != [3]byte{0xff, 0, 0} || rgbAt(pix, stride, 140, 80) != [3]byte{0xff, 0xff, 0} {
+		t.Fatalf("dmabuf screencopy %+v: %v and %v", *f, rgbAt(pix, stride, 20, 20), rgbAt(pix, stride, 140, 80))
+	}
+}
+
+func dmabufScreencopy(t *testing.T, start gpuStarter) (*testclient.Client, *cwsc.ZwlrScreencopyManagerV1, *captureView) {
+	t.Helper()
+	c, _, view := dmabufCapture(t, start)
+	if !c.HasDMABUFFeedback() {
+		t.Skip("the renderer names no main device, so it offers no dmabuf captures")
+	}
+	mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(mgr)
+	return c, mgr, view
+}
+
+func copyDMABUF(t *testing.T, c *testclient.Client, mgr *cwsc.ZwlrScreencopyManagerV1, target *cw.WlBuffer) *copyFrame {
+	t.Helper()
+	f := &copyFrame{}
+	frame, err := mgr.CaptureOutput(f, 0, c.Outputs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the buffer description", func() bool { return f.bufferDone })
+	if err := errors.Join(frame.Copy(target), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+func TestAScreencopyIntoADMABUFTheRendererCannotDrawIntoFailsAndKeepsTheClient(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testAScreencopyIntoADMABUFTheRendererCannotDrawIntoFailsAndKeepsTheClient)
+}
+
+func testAScreencopyIntoADMABUFTheRendererCannotDrawIntoFailsAndKeepsTheClient(t *testing.T, start gpuStarter) {
+	c, mgr, view := dmabufScreencopy(t, start)
+	if undrawable, ok := c.DMABUFOutside(view.size, view.modifiers); ok {
+		refused := copyDMABUF(t, c, mgr, undrawable.WL)
+		c.DispatchUntil("the refused copy", func() bool { return refused.ready || refused.failed })
+		if !refused.failed {
+			t.Fatalf("copy into an undrawable modifier %+v, want it failed", *refused)
+		}
+	} else {
+		t.Logf("the renderer draws into every modifier it imports %v with, so no buffer it imports is refused", view.modifiers)
+	}
+	next := copyDMABUF(t, c, mgr, c.RenderTarget(view.size, view.modifiers).WL)
+	c.DispatchUntil("the next copy", func() bool { return next.ready || next.failed })
+	if next.failed {
+		t.Fatalf("copy into a drawable modifier after a refused one %+v, want it ready", *next)
+	}
+}
+
+func TestAScreencopyIntoADMABUFOfTheWrongSizeIsAProtocolError(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testAScreencopyIntoADMABUFOfTheWrongSizeIsAProtocolError)
+}
+
+func testAScreencopyIntoADMABUFOfTheWrongSizeIsAProtocolError(t *testing.T, start gpuStarter) {
+	c, mgr, view := dmabufScreencopy(t, start)
+	copyDMABUF(t, c, mgr, c.RenderTarget(view.size.Add(image.Pt(1, 1)), view.modifiers).WL)
+	c.ExpectProtocolError(uint32(cwsc.ZwlrScreencopyFrameV1ErrorInvalidBuffer))
+}
+
+func TestTheSoftRendererOffersNoScreencopyDMABUF(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	mgr, err := cwsc.NewZwlrScreencopyManagerV1(c.Display, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Bind(mgr)
+	f := &copyFrame{}
+	if _, err := mgr.CaptureOutput(f, 0, c.Outputs[0]); err != nil {
+		t.Fatal(err)
+	}
+	c.DispatchUntil("the buffer description", func() bool { return f.bufferDone })
+	if f.dmabuf != 0 {
+		t.Fatalf("the soft renderer offered %v dmabufs it cannot draw into", f.dmabuf)
+	}
+}

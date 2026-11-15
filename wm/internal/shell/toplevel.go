@@ -1,0 +1,370 @@
+package shell
+
+import (
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"image"
+	"slices"
+
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	sxd "github.com/stubbedev/lys-wm/internal/protocol/server/xdgdecoration"
+	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+type ToplevelState = sxdg.XdgToplevelState
+
+type State struct {
+	Size   image.Point
+	Bounds image.Point
+	States []ToplevelState
+}
+
+func (s State) Has(st ToplevelState) bool {
+	return slices.Contains(s.States, st)
+}
+
+type Toplevel struct {
+	xs              *XdgSurface
+	resource        *sxdg.XdgToplevel
+	title           string
+	appID           string
+	tag             string
+	description     string
+	parent          *Toplevel
+	min, max        image.Point
+	pendingMin      image.Point
+	pendingMax      image.Point
+	minSet          bool
+	maxSet          bool
+	current         State
+	configures      configures[State]
+	decoration      *sxd.ZxdgToplevelDecorationV1
+	dialog          bool
+	modal           bool
+	icon            *Icon
+	pendingIcon     *Icon
+	iconSet         bool
+	destroyed       bool
+	wantsFullscreen bool
+	wantsMaximized  bool
+	wireStates      []byte
+}
+
+func (t *Toplevel) Surface() *surface.Surface {
+	return t.xs.surface
+}
+
+func (t *Toplevel) Geometry() image.Rectangle {
+	return t.xs.geometry
+}
+
+func (t *Toplevel) Mapped() bool {
+	return t.xs.life.mapped()
+}
+
+func (t *Toplevel) Title() string {
+	return t.title
+}
+
+func (t *Toplevel) AppID() string {
+	return t.appID
+}
+
+func (t *Toplevel) Tag() string {
+	return t.tag
+}
+
+func (t *Toplevel) Description() string {
+	return t.description
+}
+
+func (t *Toplevel) Icon() *Icon {
+	return t.icon
+}
+
+func (t *Toplevel) Parent() *Toplevel {
+	return t.parent
+}
+
+func (t *Toplevel) MinSize() image.Point {
+	return t.min
+}
+
+func (t *Toplevel) MaxSize() image.Point {
+	return t.max
+}
+
+func (t *Toplevel) Current() State {
+	return t.current
+}
+
+func (t *Toplevel) WantsFullscreen() bool {
+	return t.wantsFullscreen
+}
+
+func (t *Toplevel) WantsMaximized() bool {
+	return t.wantsMaximized
+}
+
+func (t *Toplevel) Requested() State {
+	s, _ := t.configures.last()
+	return s
+}
+
+func (t *Toplevel) LatestSerial() uint32 {
+	return t.configures.latest
+}
+
+func (t *Toplevel) Acked(serial uint32) bool {
+	return !t.configures.waiting(serial)
+}
+
+func (t *Toplevel) Configure(s State) (uint32, error) {
+	if t.destroyed {
+		return 0, errors.New("shell: configure of a destroyed xdg_toplevel")
+	}
+	width, height, err := wire.Size(s.Size)
+	if err != nil {
+		return 0, err
+	}
+	boundsW, boundsH, err := wire.Size(s.Bounds)
+	if err != nil {
+		return 0, err
+	}
+	if t.resource.Base().Version() >= 4 && s.Bounds != (image.Point{}) {
+		if err := t.resource.SendConfigureBounds(boundsW, boundsH); err != nil {
+			return 0, err
+		}
+	}
+	t.wireStates = t.wireStates[:0]
+	for _, st := range s.States {
+		if !st.Valid(t.resource.Base().Version()) {
+			continue
+		}
+		t.wireStates = binary.NativeEndian.AppendUint32(t.wireStates, uint32(st))
+	}
+	if err := t.resource.SendConfigure(width, height, t.wireStates); err != nil {
+		return 0, err
+	}
+	serial, err := t.xs.sendConfigure()
+	if err != nil {
+		return 0, err
+	}
+	t.configures.push(serial, s)
+	return serial, nil
+}
+
+func (t *Toplevel) SendClose() error {
+	return t.resource.SendClose()
+}
+
+func (t *Toplevel) Ping() error {
+	return t.xs.base.Ping()
+}
+
+func (t *Toplevel) applyPending() error {
+	minSize, maxSize := t.min, t.max
+	if t.minSet {
+		minSize = t.pendingMin
+	}
+	if t.maxSet {
+		maxSize = t.pendingMax
+	}
+	if maxSize.X > 0 && minSize.X > maxSize.X || maxSize.Y > 0 && minSize.Y > maxSize.Y {
+		return t.resource.ProtocolError(sxdg.XdgToplevelErrorInvalidSize, "minimum size %v exceeds maximum size %v", minSize, maxSize)
+	}
+	limitsChanged := minSize != t.min || maxSize != t.max
+	t.min, t.max, t.minSet, t.maxSet = minSize, maxSize, false, false
+	if s, ok := t.configures.take(); ok {
+		t.current = s
+	}
+	if limitsChanged {
+		if err := t.xs.base.shell.listener.ToplevelChanged(t, ChangedSizeLimits); err != nil {
+			return err
+		}
+	}
+	if !t.iconSet {
+		return nil
+	}
+	changed := t.icon != t.pendingIcon
+	t.icon, t.pendingIcon, t.iconSet = t.pendingIcon, nil, false
+	if !changed {
+		return nil
+	}
+	return t.xs.base.shell.listener.ToplevelChanged(t, ChangedIcon)
+}
+
+func (t *Toplevel) ack(serial uint32) bool {
+	return t.configures.ack(serial)
+}
+
+func (t *Toplevel) ackAny() {
+	t.configures.ackAny()
+}
+
+func (t *Toplevel) ID() uint32 {
+	return uint32(t.resource.Base().ID())
+}
+
+func (t *Toplevel) initialCommit() error {
+	if err := t.xs.base.shell.listener.ToplevelInitialCommit(t); err != nil {
+		return err
+	}
+	if len(t.configures.pending) == 0 {
+		_, err := t.Configure(t.Requested())
+		return err
+	}
+	return nil
+}
+
+func (t *Toplevel) mapped() error {
+	return t.xs.base.shell.listener.ToplevelMapped(t)
+}
+
+func (t *Toplevel) unmapped() error {
+	t.configures.reset()
+	t.wantsFullscreen, t.wantsMaximized = false, false
+	return t.xs.base.shell.listener.ToplevelUnmapped(t)
+}
+
+func (t *Toplevel) inert() bool {
+	return false
+}
+
+func (t *Toplevel) Popups() []*Popup {
+	return t.xs.Popups()
+}
+
+func (t *Toplevel) destroy() error {
+	t.destroyed = true
+	xs := t.xs
+	var errs []error
+	if xs.life.mapped() {
+		errs = append(errs, xs.unmap())
+	}
+	errs = append(errs, xs.dismissPopups())
+	xs.role = nil
+	xs.life.reset()
+	sh := xs.base.shell
+	sh.toplevels = slices.DeleteFunc(sh.toplevels, func(x *Toplevel) bool { return x == t })
+	for _, o := range sh.toplevels {
+		if o.parent == t {
+			o.parent = t.parent
+			errs = append(errs, sh.listener.ToplevelChanged(o, ChangedParent))
+		}
+	}
+	return errors.Join(append(errs, sh.toplevelGone(t))...)
+}
+
+func (t *Toplevel) Destroy(*sxdg.XdgToplevel) error {
+	if t.decoration != nil {
+		return t.decoration.ProtocolError(sxd.ZxdgToplevelDecorationV1ErrorOrphaned, "the xdg_toplevel was destroyed before its decoration object")
+	}
+	return nil
+}
+
+func (t *Toplevel) SetParent(obj *sxdg.XdgToplevel, parent *sxdg.XdgToplevel) error {
+	if parent == nil {
+		t.parent = nil
+		return t.xs.base.shell.listener.ToplevelChanged(t, ChangedParent)
+	}
+	p, ok := parent.Handler().(*Toplevel)
+	if !ok {
+		return fmt.Errorf("shell: xdg_toplevel@%d has handler %T", parent.Base().ID(), parent.Handler())
+	}
+	for a := p; a != nil; a = a.parent {
+		if a == t {
+			return obj.ProtocolError(sxdg.XdgToplevelErrorInvalidParent, "the parent would make the toplevel its own ancestor")
+		}
+	}
+	t.parent = p
+	return t.xs.base.shell.listener.ToplevelChanged(t, ChangedParent)
+}
+
+func (t *Toplevel) SetTitle(_ *sxdg.XdgToplevel, title string) error {
+	if title == t.title {
+		return nil
+	}
+	t.title = title
+	return t.xs.base.shell.listener.ToplevelChanged(t, ChangedTitle)
+}
+
+func (t *Toplevel) SetAppID(_ *sxdg.XdgToplevel, appID string) error {
+	if appID == t.appID {
+		return nil
+	}
+	t.appID = appID
+	return t.xs.base.shell.listener.ToplevelChanged(t, ChangedAppID)
+}
+
+func (t *Toplevel) request(r Request) error {
+	return t.xs.base.shell.listener.ToplevelRequest(t, r)
+}
+
+func (t *Toplevel) ShowWindowMenu(_ *sxdg.XdgToplevel, _ *sw.WlSeat, serial uint32, x, y int32) error {
+	return t.request(ShowWindowMenu{Serial: serial, At: image.Pt(int(x), int(y))})
+}
+
+func (t *Toplevel) Move(_ *sxdg.XdgToplevel, _ *sw.WlSeat, serial uint32) error {
+	return t.request(Move{Serial: serial})
+}
+
+func (t *Toplevel) Resize(obj *sxdg.XdgToplevel, _ *sw.WlSeat, serial uint32, edges sxdg.XdgToplevelResizeEdge) error {
+	switch edges {
+	case sxdg.XdgToplevelResizeEdgeNone, sxdg.XdgToplevelResizeEdgeTop, sxdg.XdgToplevelResizeEdgeBottom, sxdg.XdgToplevelResizeEdgeLeft,
+		sxdg.XdgToplevelResizeEdgeTopLeft, sxdg.XdgToplevelResizeEdgeBottomLeft, sxdg.XdgToplevelResizeEdgeRight,
+		sxdg.XdgToplevelResizeEdgeTopRight, sxdg.XdgToplevelResizeEdgeBottomRight:
+		return t.request(Resize{Serial: serial, Edges: edges})
+	}
+	return obj.ProtocolError(sxdg.XdgToplevelErrorInvalidResizeEdge, "invalid resize edge %d", edges)
+}
+
+func sizeArg(obj *sxdg.XdgToplevel, w, h int32) (image.Point, error) {
+	if w < 0 || h < 0 {
+		return image.Point{}, obj.ProtocolError(sxdg.XdgToplevelErrorInvalidSize, "size %dx%d is negative", w, h)
+	}
+	return image.Pt(int(w), int(h)), nil
+}
+
+func (t *Toplevel) SetMaxSize(obj *sxdg.XdgToplevel, w, h int32) error {
+	p, err := sizeArg(obj, w, h)
+	t.pendingMax, t.maxSet = p, err == nil
+	return err
+}
+
+func (t *Toplevel) SetMinSize(obj *sxdg.XdgToplevel, w, h int32) error {
+	p, err := sizeArg(obj, w, h)
+	t.pendingMin, t.minSet = p, err == nil
+	return err
+}
+
+func (t *Toplevel) SetMaximized(*sxdg.XdgToplevel) error {
+	t.wantsMaximized = true
+	return t.request(SetMaximized{On: true})
+}
+
+func (t *Toplevel) UnsetMaximized(*sxdg.XdgToplevel) error {
+	t.wantsMaximized = false
+	return t.request(SetMaximized{On: false})
+}
+
+func (t *Toplevel) SetFullscreen(*sxdg.XdgToplevel, *sw.WlOutput) error {
+	t.wantsFullscreen = true
+	return t.request(SetFullscreen{On: true})
+}
+
+func (t *Toplevel) UnsetFullscreen(*sxdg.XdgToplevel) error {
+	t.wantsFullscreen = false
+	return t.request(SetFullscreen{On: false})
+}
+
+func (t *Toplevel) SetMinimized(*sxdg.XdgToplevel) error {
+	return t.request(SetMinimized{})
+}
+
+func (t *Toplevel) placedAt() image.Point {
+	return image.Point{}
+}

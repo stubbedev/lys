@@ -1,0 +1,929 @@
+// Package surface implements wl_compositor, wl_surface, wl_region and
+// wl_subcompositor: double-buffered surface state, subsurface trees and roles.
+package surface
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"iter"
+	"slices"
+
+	sfs "github.com/stubbedev/lys-wm/internal/protocol/server/fractionalscale"
+	spt "github.com/stubbedev/lys-wm/internal/protocol/server/presentationtime"
+	svp "github.com/stubbedev/lys-wm/internal/protocol/server/viewporter"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys-wm/internal/region"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+const (
+	compositorVersion    = 6
+	subcompositorVersion = 1
+)
+
+const CursorRole = "wl_pointer-cursor"
+
+type Role interface {
+	RoleName() string
+	Committed(s *Surface) error
+}
+
+type Listener interface {
+	Committed(s *Surface) error
+	Destroyed(s *Surface) error
+}
+
+type Manager struct {
+	listener Listener
+	display  *server.Display
+}
+
+func New(d *server.Display, l Listener) (*Manager, error) {
+	m := &Manager{listener: l, display: d}
+	if _, err := d.AddGlobal(sw.WlCompositorInterface, compositorVersion, m.bindCompositor); err != nil {
+		return nil, err
+	}
+	if _, err := d.AddGlobal(sw.WlSubcompositorInterface, subcompositorVersion, m.bindSubcompositor); err != nil {
+		return nil, err
+	}
+	if _, err := d.AddGlobal(svp.WpViewporterInterface, viewporterVersion, bindViewporter); err != nil {
+		return nil, err
+	}
+	if _, err := d.AddGlobal(sfs.WpFractionalScaleManagerV1Interface, fractionalVersion, bindFractional); err != nil {
+		return nil, err
+	}
+	if _, err := d.AddGlobal(spt.WpPresentationInterface, presentationVersion, bindPresentation); err != nil {
+		return nil, err
+	}
+	d.OnHandover(m.emit)
+	d.CheckKeepable(m.keepable)
+	return m, nil
+}
+
+func (m *Manager) bindCompositor(c *server.Client, id wire.ObjectID, version uint32) error {
+	_, err := sw.NewWlCompositor(c, id, version, compositorRequests{m, c})
+	return err
+}
+
+func (m *Manager) bindSubcompositor(c *server.Client, id wire.ObjectID, version uint32) error {
+	_, err := sw.NewWlSubcompositor(c, id, version, subcompositorRequests{})
+	return err
+}
+
+type compositorRequests struct {
+	m *Manager
+	c *server.Client
+}
+
+func (r compositorRequests) CreateSurface(_ *sw.WlCompositor, res *sw.WlSurface) (sw.WlSurfaceHandler, error) {
+	s := &Surface{manager: r.m, client: r.c, resource: res}
+	s.current.scale = 1
+	s.order = []*Surface{s}
+	s.pendingOrder = []*Surface{s}
+	server.OnDestroy(res, s.destroy)
+	return surfaceRequests{s}, nil
+}
+
+func (r compositorRequests) CreateRegion(_ *sw.WlCompositor, res *sw.WlRegion) (sw.WlRegionHandler, error) {
+	return &regionObject{}, nil
+}
+
+func (r compositorRequests) Release(*sw.WlCompositor) error {
+	return nil
+}
+
+type regionObject struct {
+	value region.Region
+}
+
+func (g *regionObject) Destroy(*sw.WlRegion) error {
+	return nil
+}
+
+func rect(x, y, w, h int32) image.Rectangle {
+	if w <= 0 || h <= 0 {
+		return image.Rectangle{}
+	}
+	return image.Rect(int(x), int(y), int(x)+int(w), int(y)+int(h))
+}
+
+func (g *regionObject) Add(_ *sw.WlRegion, x, y, w, h int32) error {
+	g.value = g.value.Add(rect(x, y, w, h))
+	return nil
+}
+
+func (g *regionObject) Subtract(_ *sw.WlRegion, x, y, w, h int32) error {
+	g.value = g.value.Subtract(rect(x, y, w, h))
+	return nil
+}
+
+func RegionValue(r *sw.WlRegion) (region.Region, error) {
+	g, ok := r.Handler().(*regionObject)
+	if !ok {
+		return region.Region{}, fmt.Errorf("surface: wl_region@%d has handler %T", r.Base().ID(), r.Handler())
+	}
+	return g.value, nil
+}
+
+type field uint8
+
+const (
+	fieldBuffer field = 1 << iota
+	fieldOffset
+	fieldScale
+	fieldTransform
+	fieldOpaque
+	fieldInput
+	fieldSource
+	fieldDest
+)
+
+type state struct {
+	set          field
+	buffer       Buffer
+	offset       image.Point
+	damage       region.Set
+	bufferDamage region.Set
+	scale        int32
+	transform    render.Transform
+	opaque       region.Region
+	input        opt[region.Region]
+	source       opt[render.FRect]
+	dest         opt[image.Point]
+	frames       []*sw.WlCallback
+	feedbacks    []*spt.WpPresentationFeedback
+}
+
+func (dst *state) overlay(src *state) {
+	if src.set&fieldBuffer != 0 {
+		dst.buffer = src.buffer
+	}
+	if src.set&fieldOffset != 0 {
+		dst.offset = dst.offset.Add(src.offset)
+	}
+	if src.set&fieldScale != 0 {
+		dst.scale = src.scale
+	}
+	if src.set&fieldTransform != 0 {
+		dst.transform = src.transform
+	}
+	if src.set&fieldOpaque != 0 {
+		dst.opaque = src.opaque
+	}
+	if src.set&fieldInput != 0 {
+		dst.input = src.input
+	}
+	if src.set&fieldSource != 0 {
+		dst.source = src.source
+	}
+	if src.set&fieldDest != 0 {
+		dst.dest = src.dest
+	}
+	dst.set |= src.set
+}
+
+func (st *state) geometry() geometry {
+	return geometry{buffer: st.buffer, scale: st.scale, transform: st.transform, source: st.source, dest: st.dest}
+}
+
+func (dst *state) merge(src *state) {
+	dst.overlay(src)
+	dst.damage.AddSet(&src.damage)
+	dst.bufferDamage.AddSet(&src.bufferDamage)
+	dst.frames = append(dst.frames, src.frames...)
+	dst.feedbacks = append(dst.feedbacks, src.feedbacks...)
+	src.reset()
+}
+
+func (st *state) reset() {
+	damage, bufferDamage := st.damage, st.bufferDamage
+	damage.Reset()
+	bufferDamage.Reset()
+	clear(st.frames)
+	clear(st.feedbacks)
+	*st = state{damage: damage, bufferDamage: bufferDamage, frames: st.frames[:0], feedbacks: st.feedbacks[:0]}
+}
+
+type Surface struct {
+	manager          *Manager
+	client           *server.Client
+	resource         *sw.WlSurface
+	pending          state
+	cache            *Update
+	queue            []*Update
+	current          state
+	latchedFeedbacks []*spt.WpPresentationFeedback
+	latchedFrames    []*sw.WlCallback
+	spare            []*Update
+	damage           region.Set
+	bufferDamage     region.Set
+	attached         bool
+	offset           image.Point
+	role             Role
+	roleName         string
+	sub              *Subsurface
+	order            []*Surface
+	pendingOrder     []*Surface
+	viewport         *viewport
+	fractional       *fractional
+	preferred        uint32
+	destroyed        bool
+	hooks            []*Hooks
+	watch            func(*Update)
+	unappliedScratch []*state
+}
+
+type Hooks struct {
+	Commit     func(u *Update) error
+	Applied    func() error
+	Destroying func() error
+	Destroyed  func() error
+	Handover   func(st *server.Stream) error
+}
+
+type Update struct {
+	s        *Surface
+	state    state
+	gates    []func() bool
+	explicit bool
+	applied  []func() error
+	barrier  *Barrier
+}
+
+func (u *Update) Buffer() Buffer {
+	for _, st := range slices.Backward(u.s.unapplied()) {
+		if st.set&fieldBuffer != 0 {
+			return st.buffer
+		}
+	}
+	return u.s.current.buffer
+}
+
+func (u *Update) Surface() *Surface {
+	return u.s
+}
+
+func (u *Update) Gate(ready func() bool) {
+	u.gates = append(u.gates, ready)
+}
+
+func (u *Update) Hold() *Hold {
+	h := &Hold{s: u.s}
+	u.Gate(func() bool { return h.done })
+	return h
+}
+
+func (u *Update) Await() func() error {
+	return u.Hold().Release
+}
+
+func (u *Update) DamagedPixels() int {
+	if u.s.current.buffer == nil {
+		return 0
+	}
+	scale := max(u.s.pending.scale, 1)
+	return u.s.pending.bufferDamage.Area() + u.s.pending.damage.Area()*int(scale)*int(scale)
+}
+
+func (u *Update) ExplicitlySynced() {
+	u.explicit = true
+}
+
+func (u *Update) OnApply(f func() error) {
+	u.applied = append(u.applied, f)
+}
+
+func (u *Update) Park(b *Barrier) {
+	b.s, b.u, b.reached = u.s, u, false
+	u.barrier = b
+}
+
+func (u *Update) gatesOpen() bool {
+	for _, ready := range u.gates {
+		if !ready() {
+			return false
+		}
+	}
+	return true
+}
+
+func (u *Update) ready() bool {
+	return u.barrier == nil && u.gatesOpen()
+}
+
+func (u *Update) absorb(later *Update) error {
+	var replaced Buffer
+	if later.state.set&fieldBuffer != 0 {
+		replaced = u.state.buffer
+	}
+	u.state.merge(&later.state)
+	u.gates = append(u.gates, later.gates...)
+	u.applied = append(u.applied, later.applied...)
+	if later.barrier != nil {
+		u.barrier, later.barrier.u = later.barrier, u
+		later.barrier = nil
+	}
+	u.s.recycle(later)
+	return unlock(replaced)
+}
+
+func (s *Surface) recycle(u *Update) {
+	u.state.reset()
+	clear(u.gates)
+	clear(u.applied)
+	u.gates, u.applied, u.barrier, u.explicit = u.gates[:0], u.applied[:0], nil, false
+	s.spare = append(s.spare, u)
+}
+
+func (s *Surface) newUpdate() *Update {
+	n := len(s.spare)
+	if n == 0 {
+		return &Update{s: s}
+	}
+	u := s.spare[n-1]
+	s.spare[n-1] = nil
+	s.spare = s.spare[:n-1]
+	return u
+}
+
+func (s *Surface) Watch(f func(*Update)) {
+	s.watch = f
+}
+
+func (s *Surface) AddHooks(h *Hooks) {
+	s.hooks = append(slices.Clip(s.hooks), h)
+}
+
+func (s *Surface) RemoveHooks(h *Hooks) {
+	s.hooks = slices.DeleteFunc(slices.Clone(s.hooks), func(x *Hooks) bool { return x == h })
+}
+
+func (s *Surface) HasBuffer() bool {
+	return s.current.buffer != nil || s.pending.set&fieldBuffer != 0 && s.pending.buffer != nil
+}
+
+func (s *Surface) PendingBuffer() (Buffer, bool) {
+	return s.pending.buffer, s.pending.set&fieldBuffer != 0
+}
+
+type Hold struct {
+	s    *Surface
+	done bool
+}
+
+func (h *Hold) Release() error {
+	if h.done {
+		return nil
+	}
+	h.done = true
+	return h.s.Retry()
+}
+
+type Barrier struct {
+	s       *Surface
+	u       *Update
+	arrived func() error
+	reached bool
+}
+
+func NewBarrier(arrived func() error) *Barrier {
+	return &Barrier{arrived: arrived}
+}
+
+func (b *Barrier) Release() error {
+	if b.u == nil {
+		return nil
+	}
+	b.u.barrier, b.u = nil, nil
+	return b.s.Retry()
+}
+
+func (s *Surface) Retry() error {
+	if err := s.drain(); err != nil {
+		return s.client.Fail(err)
+	}
+	return nil
+}
+
+func From(r *sw.WlSurface) (*Surface, error) {
+	h, ok := r.Handler().(surfaceRequests)
+	if !ok {
+		return nil, fmt.Errorf("surface: wl_surface@%d has handler %T", r.Base().ID(), r.Handler())
+	}
+	return h.s, nil
+}
+
+func (s *Surface) Resource() *sw.WlSurface {
+	return s.resource
+}
+
+func (s *Surface) Client() *server.Client {
+	return s.client
+}
+
+func (s *Surface) Buffer() Buffer {
+	return s.current.buffer
+}
+
+func (s *Surface) Scale() int32 {
+	return s.current.scale
+}
+
+func (s *Surface) Transform() render.Transform {
+	return s.current.transform
+}
+
+func (s *Surface) geometry(over ...*state) geometry {
+	st := state{buffer: s.current.buffer, scale: s.current.scale, transform: s.current.transform, source: s.current.source, dest: s.current.dest}
+	for _, o := range over {
+		st.overlay(o)
+	}
+	return st.geometry()
+}
+
+func (s *Surface) Size() image.Point {
+	return s.geometry().size()
+}
+
+func (s *Surface) BufferSource() render.FRect {
+	return s.geometry().bufferSource()
+}
+
+func (s *Surface) SurfaceRect(buffer image.Rectangle) render.FRect {
+	return s.geometry().surfaceRect(buffer)
+}
+
+func (s *Surface) Damage() []image.Rectangle {
+	return s.damage.Rects()
+}
+
+func (s *Surface) BufferDamage() []image.Rectangle {
+	return s.bufferDamage.Rects()
+}
+
+func (s *Surface) Attached() bool {
+	return s.attached
+}
+
+func (s *Surface) Offset() image.Point {
+	return s.offset
+}
+
+func (s *Surface) Opaque() region.Region {
+	return s.current.opaque
+}
+
+func (s *Surface) AcceptsInput(p image.Point) bool {
+	if !p.In(image.Rectangle{Max: s.Size()}) {
+		return false
+	}
+	input, bounded := s.current.input.get()
+	return !bounded || input.Contains(p)
+}
+
+func (s *Surface) Input() region.Region {
+	bounds := image.Rectangle{Max: s.Size()}
+	input, bounded := s.current.input.get()
+	if !bounded {
+		return region.Rect(bounds)
+	}
+	return input.Intersect(bounds)
+}
+
+func (s *Surface) Stack() iter.Seq[*Surface] {
+	return slices.Values(s.order)
+}
+
+func (s *Surface) StackTopDown() iter.Seq[*Surface] {
+	return func(yield func(*Surface) bool) {
+		for _, member := range slices.Backward(s.order) {
+			if !yield(member) {
+				return
+			}
+		}
+	}
+}
+
+func (s *Surface) Subsurface() *Subsurface {
+	return s.sub
+}
+
+func (s *Surface) Role() Role {
+	return s.role
+}
+
+func (s *Surface) SetRole(r Role) error {
+	if s.roleName != "" && s.roleName != r.RoleName() {
+		return fmt.Errorf("wl_surface@%d already has the %s role", s.resource.Base().ID(), s.roleName)
+	}
+	if s.role != nil {
+		return fmt.Errorf("wl_surface@%d already has a live %s role object", s.resource.Base().ID(), s.roleName)
+	}
+	s.role, s.roleName = r, r.RoleName()
+	return nil
+}
+
+func (s *Surface) ClearRole(r Role) {
+	if s.role == r {
+		s.role = nil
+	}
+}
+
+func (s *Surface) Enter(outputs []*sw.WlOutput) error {
+	for _, o := range outputs {
+		if err := s.resource.SendEnter(o); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Surface) Leave(outputs []*sw.WlOutput) error {
+	for _, o := range outputs {
+		if err := s.resource.SendLeave(o); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Surface) SetPreferredScale(scale120 uint32) error {
+	if scale120 == 0 || scale120 == s.preferred || s.destroyed {
+		return nil
+	}
+	s.preferred = scale120
+	if s.fractional != nil {
+		if err := s.fractional.resource.SendPreferredScale(scale120); err != nil {
+			return err
+		}
+	}
+	if s.resource.Base().Version() >= 6 {
+		return s.resource.SendPreferredBufferScale(int32((scale120 + 119) / 120)) //nolint:gosec // at most 2^32/120
+	}
+	return nil
+}
+
+func (s *Surface) WantsFrame() bool {
+	return len(s.latchedFrames) > 0 || len(s.current.frames) > 0
+}
+
+func (s *Surface) FrameDone(msec uint32) error {
+	return sendDone(&s.latchedFrames, msec)
+}
+
+func (s *Surface) FrameDoneUndrawn(msec uint32) error {
+	return errors.Join(sendDone(&s.latchedFrames, msec), sendDone(&s.current.frames, msec))
+}
+
+func sendDone(callbacks *[]*sw.WlCallback, msec uint32) error {
+	frames := *callbacks
+	*callbacks = frames[:0]
+	defer clear(frames)
+	for _, cb := range frames {
+		if err := cb.SendDone(msec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Surface) synchronized() bool {
+	return s.sub != nil && s.sub.parent != nil && (s.sub.sync || s.sub.parent.synchronized())
+}
+
+func (s *Surface) protocolError(code sw.WlSurfaceError, format string, args ...any) error {
+	return s.resource.ProtocolError(code, format, args...)
+}
+
+func (s *Surface) unapplied() []*state {
+	states := s.unappliedScratch[:0]
+	for _, u := range s.queue {
+		states = append(states, &u.state)
+	}
+	if s.cache != nil {
+		states = append(states, &s.cache.state)
+	}
+	s.unappliedScratch = append(states, &s.pending)
+	return s.unappliedScratch
+}
+
+func (s *Surface) checkSize() error {
+	g := s.geometry(s.unapplied()...)
+	err := g.validate(s.roleName == "" || s.roleName == CursorRole)
+	switch {
+	case errors.Is(err, errInvalidSize):
+		return s.protocolError(sw.WlSurfaceErrorInvalidSize, "buffer %v is not a multiple of scale %d", g.buffer.Size(), g.scale)
+	case errors.Is(err, errBadSize):
+		return s.viewport.badSize(g.src())
+	case errors.Is(err, errOutOfBuffer):
+		source, _ := g.source.get()
+		return s.viewport.outOfBuffer(source, g.unscaled())
+	}
+	return err
+}
+
+func (s *Surface) commit() error {
+	if err := s.checkSize(); err != nil {
+		return err
+	}
+	u := s.newUpdate()
+	if s.watch != nil {
+		s.watch(u)
+	}
+	for _, h := range s.hooks {
+		if h.Commit != nil {
+			if err := h.Commit(u); err != nil {
+				return err
+			}
+		}
+	}
+	if b, ok := s.pending.buffer.(Awaited); ok && s.pending.set&fieldBuffer != 0 && !u.explicit {
+		if err := b.AwaitWriter(u); err != nil {
+			return err
+		}
+	}
+	u.state, s.pending = s.pending, u.state
+	if s.synchronized() {
+		if s.cache == nil {
+			s.cache = u
+			return nil
+		}
+		return s.cache.absorb(u)
+	}
+	s.queue = append(s.queue, u)
+	return s.drain()
+}
+
+func (s *Surface) flush() error {
+	if s.cache != nil {
+		s.queue = append(s.queue, s.cache)
+		s.cache = nil
+	}
+	return s.drain()
+}
+
+func (s *Surface) drain() error {
+	for len(s.queue) > 0 && !s.destroyed && s.queue[0].ready() {
+		u := s.queue[0]
+		n := copy(s.queue, s.queue[1:])
+		s.queue[n] = nil
+		s.queue = s.queue[:n]
+		if err := s.apply(u); err != nil {
+			return err
+		}
+		s.recycle(u)
+	}
+	return s.reachBarrier()
+}
+
+func (s *Surface) reachBarrier() error {
+	if len(s.queue) == 0 || s.destroyed {
+		return nil
+	}
+	head := s.queue[0]
+	b := head.barrier
+	if b == nil || b.reached || !head.gatesOpen() {
+		return nil
+	}
+	b.reached = true
+	return b.arrived()
+}
+
+func (s *Surface) apply(u *Update) (err error) {
+	st := &u.state
+	if b := st.buffer; b != nil {
+		defer func() { err = errors.Join(err, b.Unlock()) }()
+	}
+	s.mapDamage(st)
+	s.attached = st.set&fieldBuffer != 0
+	s.offset = image.Point{}
+	if st.set&fieldOffset != 0 {
+		s.offset = st.offset
+	}
+	st.damage.Reset()
+	st.bufferDamage.Reset()
+	st.offset = image.Point{}
+	superseded := s.current.feedbacks
+	s.current.feedbacks = superseded[:0]
+	err = discard(superseded)
+	clear(superseded)
+	if err != nil {
+		return err
+	}
+	s.current.merge(st)
+	s.current.set = 0
+	s.order = append(s.order[:0], s.pendingOrder...)
+	for _, child := range s.order {
+		if child != s {
+			child.sub.position = child.sub.pendingPosition
+		}
+	}
+	if s.role != nil {
+		if err := s.role.Committed(s); err != nil {
+			return err
+		}
+	}
+	if err := s.manager.listener.Committed(s); err != nil {
+		return err
+	}
+	for _, f := range u.applied {
+		if err := f(); err != nil {
+			return err
+		}
+	}
+	for _, h := range s.hooks {
+		if h.Applied != nil {
+			if err := h.Applied(); err != nil {
+				return err
+			}
+		}
+	}
+	for _, child := range s.order {
+		if child != s && child.synchronized() {
+			if err := child.flush(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Surface) mapDamage(st *state) {
+	s.damage.CopyFrom(&st.damage)
+	s.bufferDamage.Reset()
+	g := s.geometry(st)
+	if g.buffer == nil {
+		return
+	}
+	bounds := image.Rectangle{Max: g.buffer.Size()}
+	for _, r := range st.bufferDamage.Rects() {
+		s.damage.Add(g.toSurface(r))
+		s.bufferDamage.Add(r.Intersect(bounds))
+	}
+	for _, r := range st.damage.Rects() {
+		s.bufferDamage.Add(g.toBuffer(r))
+	}
+}
+
+func (s *Surface) destroy() error {
+	var errs []error
+	for _, h := range slices.Clone(s.hooks) {
+		if h.Destroying != nil {
+			errs = append(errs, h.Destroying())
+		}
+	}
+	s.destroyed = true
+	var feedbacks []*spt.WpPresentationFeedback
+	for _, st := range s.unapplied() {
+		errs = append(errs, unlock(st.buffer))
+		st.buffer = nil
+	}
+	for _, st := range append(s.unapplied(), &s.current) {
+		for _, cb := range st.frames {
+			errs = append(errs, s.client.Remove(cb.Base().ID()))
+		}
+		feedbacks = append(feedbacks, st.feedbacks...)
+		st.frames, st.feedbacks = nil, nil
+	}
+	s.cache, s.queue = nil, nil
+	for _, cb := range s.latchedFrames {
+		errs = append(errs, s.client.Remove(cb.Base().ID()))
+	}
+	s.latchedFrames = nil
+	feedbacks = append(feedbacks, s.latchedFeedbacks...)
+	s.latchedFeedbacks = nil
+	errs = append(errs, discard(feedbacks))
+	if s.sub != nil {
+		s.sub.detach()
+	}
+	var orphans []*Surface
+	for _, child := range slices.Concat(s.pendingOrder, s.order) {
+		if child != s && !slices.Contains(orphans, child) {
+			child.sub.parent = nil
+			orphans = append(orphans, child)
+		}
+	}
+	s.order, s.pendingOrder = nil, nil
+	errs = append(errs, s.manager.listener.Destroyed(s))
+	for _, h := range slices.Clone(s.hooks) {
+		if h.Destroyed != nil {
+			errs = append(errs, h.Destroyed())
+		}
+	}
+	for _, child := range orphans {
+		errs = append(errs, child.flushDesynchronized())
+	}
+	return errors.Join(errs...)
+}
+
+type surfaceRequests struct{ s *Surface }
+
+func (r surfaceRequests) Destroy(*sw.WlSurface) error {
+	return nil
+}
+
+func (r surfaceRequests) Attach(obj *sw.WlSurface, buffer *sw.WlBuffer, x, y int32) error {
+	s := r.s
+	if (x != 0 || y != 0) && obj.Base().Version() >= 5 {
+		return s.protocolError(sw.WlSurfaceErrorInvalidOffset, "attach offset (%d, %d) must be 0 since version 5; use wl_surface.offset", x, y)
+	}
+	var b Buffer
+	if buffer != nil {
+		var ok bool
+		if b, ok = buffer.Handler().(Buffer); !ok {
+			return fmt.Errorf("surface: wl_buffer@%d has handler %T, which is not a surface.Buffer", buffer.Base().ID(), buffer.Handler())
+		}
+		b.Lock()
+	}
+	replaced := s.pending.buffer
+	s.pending.set |= fieldBuffer
+	s.pending.buffer = b
+	if x != 0 || y != 0 {
+		s.pending.set |= fieldOffset
+		s.pending.offset = image.Pt(int(x), int(y))
+	}
+	return unlock(replaced)
+}
+
+func (r surfaceRequests) Offset(_ *sw.WlSurface, x, y int32) error {
+	r.s.pending.set |= fieldOffset
+	r.s.pending.offset = image.Pt(int(x), int(y))
+	return nil
+}
+
+const maxDamageRects = 32
+
+func addDamage(g *region.Set, r image.Rectangle) {
+	g.Add(r)
+	if len(g.Rects()) > maxDamageRects {
+		b := g.Bounds()
+		g.Reset()
+		g.Add(b)
+	}
+}
+
+func (r surfaceRequests) Damage(_ *sw.WlSurface, x, y, w, h int32) error {
+	addDamage(&r.s.pending.damage, rect(x, y, w, h))
+	return nil
+}
+
+func (r surfaceRequests) DamageBuffer(_ *sw.WlSurface, x, y, w, h int32) error {
+	addDamage(&r.s.pending.bufferDamage, rect(x, y, w, h))
+	return nil
+}
+
+func (r surfaceRequests) Frame(_ *sw.WlSurface, cb *sw.WlCallback) error {
+	r.s.pending.frames = append(r.s.pending.frames, cb)
+	return nil
+}
+
+func (r surfaceRequests) SetOpaqueRegion(_ *sw.WlSurface, g *sw.WlRegion) error {
+	r.s.pending.set |= fieldOpaque
+	r.s.pending.opaque = region.Region{}
+	if g == nil {
+		return nil
+	}
+	v, err := RegionValue(g)
+	r.s.pending.opaque = v
+	return err
+}
+
+func (r surfaceRequests) SetInputRegion(_ *sw.WlSurface, g *sw.WlRegion) error {
+	r.s.pending.set |= fieldInput
+	r.s.pending.input = opt[region.Region]{}
+	if g == nil {
+		return nil
+	}
+	v, err := RegionValue(g)
+	r.s.pending.input = some(v)
+	return err
+}
+
+func (r surfaceRequests) Commit(*sw.WlSurface) error {
+	return r.s.commit()
+}
+
+func (r surfaceRequests) SetBufferTransform(_ *sw.WlSurface, t sw.WlOutputTransform) error {
+	if t > sw.WlOutputTransformFlipped270 {
+		return r.s.protocolError(sw.WlSurfaceErrorInvalidTransform, "invalid buffer transform %d", t)
+	}
+	r.s.pending.set |= fieldTransform
+	r.s.pending.transform = render.Transform(t)
+	return nil
+}
+
+func (r surfaceRequests) SetBufferScale(_ *sw.WlSurface, scale int32) error {
+	if scale <= 0 {
+		return r.s.protocolError(sw.WlSurfaceErrorInvalidScale, "invalid buffer scale %d", scale)
+	}
+	r.s.pending.set |= fieldScale
+	r.s.pending.scale = scale
+	return nil
+}
+
+func (r surfaceRequests) GetRelease(*sw.WlSurface, *sw.WlCallback) error {
+	return errors.New("surface: get_release needs wl_surface version 7, which is not advertised")
+}

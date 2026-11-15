@@ -1,0 +1,80 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - forbidigo
+    - gosec
+    - intrange
+    - misspell
+    - modernize
+    - nolintlint
+    - perfsprint
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - whitespace
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^math\.(Sin|Cos|Sincos|Tan|Atan|Atan2|Asin|Acos|Exp|Exp2|Log|Log2|Log10|Pow|Cbrt|Hypot|Erf|Erfc)$
+          msg: its result depends on the architecture; use lys-lib's third_party/gomath
+    errcheck:
+      check-type-assertions: true
+      exclude-functions:
+        - (*os.File).Close
+        - (io.Closer).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    perfsprint:
+      strconcat: true
+      sprintf1: true
+    revive:
+      rules:
+        # Stub doc comments are noise; package docs carry the context.
+        - name: exported
+          disabled: true
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - forbidigo
+          - errcheck
+          - gosec
+          - unparam
+      - path: internal/(wire|render/soft)/
+        linters:
+          - gosec
+        text: G115
+      - path: internal/(scanner|harness|golden)/
+        linters:
+          - gosec
+        text: G(204|30[1246])
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/stubbedev/lys-wm)
+  exclusions:
+    generated: lax
+    paths:
+      - third_party/

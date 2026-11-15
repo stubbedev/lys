@@ -1,0 +1,133 @@
+package shell
+
+import (
+	"fmt"
+	"slices"
+
+	skd "github.com/stubbedev/lys-wm/internal/protocol/server/kdeserverdecoration"
+	sw "github.com/stubbedev/lys-wm/internal/protocol/server/wayland"
+	sxd "github.com/stubbedev/lys-wm/internal/protocol/server/xdgdecoration"
+	sxdg "github.com/stubbedev/lys-wm/internal/protocol/server/xdgshell"
+	"github.com/stubbedev/lys-wm/internal/server"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/wire"
+)
+
+const (
+	decorationVersion    = 1
+	kdeDecorationVersion = 1
+)
+
+func (sh *Shell) bindDecoration(c *server.Client, id wire.ObjectID, version uint32) error {
+	_, err := sxd.NewZxdgDecorationManagerV1(c, id, version, decorationManager{})
+	return err
+}
+
+type decorationManager struct{}
+
+func (decorationManager) Destroy(*sxd.ZxdgDecorationManagerV1) error {
+	return nil
+}
+
+func (decorationManager) GetToplevelDecoration(_ *sxd.ZxdgDecorationManagerV1, res *sxd.ZxdgToplevelDecorationV1, top *sxdg.XdgToplevel) (sxd.ZxdgToplevelDecorationV1Handler, error) {
+	t, ok := top.Handler().(*Toplevel)
+	if !ok {
+		return nil, fmt.Errorf("shell: xdg_toplevel@%d has handler %T", top.Base().ID(), top.Handler())
+	}
+	switch {
+	case t.decoration != nil:
+		return nil, res.ProtocolError(sxd.ZxdgToplevelDecorationV1ErrorAlreadyConstructed, "the xdg_toplevel already has a decoration object")
+	case t.xs.surface.HasBuffer():
+		return nil, res.ProtocolError(sxd.ZxdgToplevelDecorationV1ErrorUnconfiguredBuffer, "the xdg_toplevel already has a buffer")
+	}
+	sh := t.xs.base.shell
+	if err := sh.redecorate(t.xs.surface, func() { t.decoration = res }); err != nil {
+		return nil, err
+	}
+	server.OnDestroy(res, func() error {
+		return sh.redecorate(t.xs.surface, func() { t.decoration = nil })
+	})
+	d := decoration{t}
+	return d, d.configure()
+}
+
+type decoration struct{ t *Toplevel }
+
+func (d decoration) configure() error {
+	t := d.t
+	if err := t.decoration.SendConfigure(sxd.ZxdgToplevelDecorationV1ModeServerSide); err != nil {
+		return err
+	}
+	if !t.xs.life.initialSent() {
+		return nil
+	}
+	_, err := t.Configure(t.Requested())
+	return err
+}
+
+func (decoration) Destroy(*sxd.ZxdgToplevelDecorationV1) error {
+	return nil
+}
+
+func (d decoration) SetMode(obj *sxd.ZxdgToplevelDecorationV1, mode sxd.ZxdgToplevelDecorationV1Mode) error {
+	if mode != sxd.ZxdgToplevelDecorationV1ModeClientSide && mode != sxd.ZxdgToplevelDecorationV1ModeServerSide {
+		return obj.ProtocolError(sxd.ZxdgToplevelDecorationV1ErrorInvalidMode, "mode %d", mode)
+	}
+	return d.configure()
+}
+
+func (d decoration) UnsetMode(*sxd.ZxdgToplevelDecorationV1) error {
+	return d.configure()
+}
+
+func (sh *Shell) bindKDEDecoration(c *server.Client, id wire.ObjectID, version uint32) error {
+	res, err := skd.NewOrgKdeKwinServerDecorationManager(c, id, version, kdeDecorationManager{sh})
+	if err != nil {
+		return err
+	}
+	return res.SendDefaultMode(uint32(skd.OrgKdeKwinServerDecorationManagerModeServer))
+}
+
+type kdeDecorationManager struct{ sh *Shell }
+
+func (m kdeDecorationManager) Create(_ *skd.OrgKdeKwinServerDecorationManager, res *skd.OrgKdeKwinServerDecoration, wl *sw.WlSurface) (skd.OrgKdeKwinServerDecorationHandler, error) {
+	s, err := surface.From(wl)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.sh.redecorate(s, func() { m.sh.kdeDecor[s] = struct{}{} }); err != nil {
+		return nil, err
+	}
+	server.OnDestroy(res, func() error {
+		return m.sh.redecorate(s, func() { delete(m.sh.kdeDecor, s) })
+	})
+	return kdeDecoration{}, res.SendMode(uint32(skd.OrgKdeKwinServerDecorationModeServer))
+}
+
+func (sh *Shell) redecorate(s *surface.Surface, change func()) error {
+	i := slices.IndexFunc(sh.toplevels, func(t *Toplevel) bool { return t.xs.surface == s })
+	if i < 0 {
+		change()
+		return nil
+	}
+	t := sh.toplevels[i]
+	was := t.ServerDecorated()
+	change()
+	if t.ServerDecorated() == was {
+		return nil
+	}
+	return sh.listener.ToplevelChanged(t, ChangedDecoration)
+}
+
+func (t *Toplevel) ServerDecorated() bool {
+	_, kde := t.xs.base.shell.kdeDecor[t.xs.surface]
+	return t.decoration != nil || kde
+}
+
+type kdeDecoration struct{}
+
+func (kdeDecoration) Release(*skd.OrgKdeKwinServerDecoration) error { return nil }
+
+func (kdeDecoration) RequestMode(obj *skd.OrgKdeKwinServerDecoration, _ uint32) error {
+	return obj.SendMode(uint32(skd.OrgKdeKwinServerDecorationModeServer))
+}

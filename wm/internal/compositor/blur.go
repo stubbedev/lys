@@ -1,0 +1,572 @@
+package compositor
+
+import (
+	"errors"
+	"fmt"
+	"image"
+	"image/color"
+	"math"
+	"slices"
+
+	"github.com/stubbedev/lys-wm/internal/output"
+	"github.com/stubbedev/lys-wm/internal/region"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/wm"
+)
+
+type Blur struct {
+	Enabled   bool
+	Withhold  bool
+	Size      int
+	Passes    int
+	XRay      bool
+	LiveTiled bool
+	Look      wm.Look
+	Mica      Mica
+}
+
+type Mica struct {
+	Enabled      bool
+	Size, Passes int
+	Tint         color.RGBA
+}
+
+const (
+	micaSize   = 16
+	micaPasses = 4
+)
+
+type chainSpec struct {
+	offset float32
+	passes int
+}
+
+func (s chainSpec) reach() int {
+	return int(math.Ceil(float64(s.offset) * float64(int(1)<<(s.passes+1))))
+}
+
+type blurCache struct {
+	area    image.Rectangle
+	below   []drawOp
+	chain   []render.TextureTarget
+	version uint64
+	touched uint64
+	partial bool
+	used    bool
+	stale   bool
+	to      colorOut
+	spec    chainSpec
+	sizes   []image.Point
+	levels  []render.Region
+}
+
+func (b *blurCache) destroy() error {
+	var errs []error
+	for _, t := range b.chain {
+		errs = append(errs, t.Destroy())
+	}
+	b.chain = nil
+	return errors.Join(errs...)
+}
+
+func (b *blurCache) areaFor(needed, bounds image.Rectangle) image.Rectangle {
+	if len(b.chain) > 0 {
+		if needed.In(b.area) && b.area.Dx()*b.area.Dy() <= textureMostUnused*needed.Dx()*needed.Dy() {
+			return b.area
+		}
+		if size := b.area.Size(); textureHolds(size, needed.Size()) && size.In(image.Rectangle{Max: bounds.Size().Add(image.Pt(1, 1))}) {
+			return placed(size, needed, bounds)
+		}
+	}
+	roomy := roomyTextureSize(needed.Size())
+	return placed(image.Pt(min(roomy.X, bounds.Dx()), min(roomy.Y, bounds.Dy())), needed, bounds)
+}
+
+func placed(size image.Point, needed, bounds image.Rectangle) image.Rectangle {
+	at := image.Pt(max(min(needed.Min.X, bounds.Max.X-size.X), bounds.Min.X), max(min(needed.Min.Y, bounds.Max.Y-size.Y), bounds.Min.Y))
+	return image.Rectangle{Min: at, Max: at.Add(size)}
+}
+
+type blurCaches struct {
+	bySurface map[*surface.Surface]*blurCache
+	xray      *blurCache
+	mica      *blurCache
+	shape     []image.Rectangle
+	keepMica  bool
+}
+
+func (b *blurCache) trim() error {
+	if len(b.chain) < 2 {
+		return nil
+	}
+	var errs []error
+	for _, t := range b.chain[1:] {
+		errs = append(errs, t.Destroy())
+	}
+	b.chain = b.chain[:1]
+	return errors.Join(errs...)
+}
+
+func (bc *blurCaches) dropMica() error {
+	bc.keepMica = false
+	if bc.mica == nil {
+		return nil
+	}
+	err := bc.mica.destroy()
+	bc.mica = nil
+	return err
+}
+
+func (bc *blurCaches) one(r image.Rectangle) []image.Rectangle {
+	bc.shape = append(bc.shape[:0], r)
+	return bc.shape
+}
+
+func (bc *blurCaches) of(s *surface.Surface) *blurCache {
+	b, ok := bc.bySurface[s]
+	if !ok {
+		if bc.bySurface == nil {
+			bc.bySurface = map[*surface.Surface]*blurCache{}
+		}
+		b = &blurCache{}
+		bc.bySurface[s] = b
+	}
+	return b
+}
+
+func (bc *blurCaches) shared() *blurCache {
+	if bc.xray == nil {
+		bc.xray = &blurCache{}
+	}
+	return bc.xray
+}
+
+func (bc *blurCaches) micaChain() *blurCache {
+	if bc.mica == nil {
+		bc.mica = &blurCache{}
+	}
+	return bc.mica
+}
+
+func (bc *blurCaches) dropUnused() error {
+	var errs []error
+	for s, b := range bc.bySurface {
+		if !b.used {
+			errs = append(errs, b.destroy())
+			delete(bc.bySurface, s)
+		}
+		b.used = false
+	}
+	if bc.xray != nil && !bc.xray.used {
+		errs = append(errs, bc.xray.destroy())
+		bc.xray = nil
+	}
+	if bc.xray != nil {
+		bc.xray.used = false
+	}
+	if bc.mica != nil && !bc.mica.used && !bc.keepMica {
+		errs = append(errs, bc.mica.destroy())
+		bc.mica = nil
+	}
+	if bc.mica != nil {
+		bc.mica.used = false
+	}
+	return errors.Join(errs...)
+}
+
+func (bc *blurCaches) invalidate() {
+	for _, b := range bc.bySurface {
+		b.stale = true
+	}
+	for _, b := range []*blurCache{bc.xray, bc.mica} {
+		if b != nil {
+			b.stale = true
+		}
+	}
+}
+
+func (bc *blurCaches) drop() error {
+	var errs []error
+	for s, b := range bc.bySurface {
+		errs = append(errs, b.destroy())
+		delete(bc.bySurface, s)
+	}
+	if bc.xray != nil {
+		errs = append(errs, bc.xray.destroy())
+		bc.xray = nil
+	}
+	bc.keepMica = false
+	if bc.mica != nil {
+		errs = append(errs, bc.mica.destroy())
+		bc.mica = nil
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) BlurRedraws() uint64 {
+	return c.blurGen
+}
+
+func (c *Compositor) FilteredPixels() uint64 {
+	return c.tallied.filterPx
+}
+
+func (c *Compositor) dropBlurs() error {
+	var errs []error
+	for _, sc := range c.scenes {
+		errs = append(errs, sc.blurs.drop())
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Compositor) blurred(w *window) bool {
+	if r := c.decision(w).Blur; r != nil {
+		return *r
+	}
+	return c.decor.Blur.Enabled
+}
+
+func (c *Compositor) honoursBlurRegions(w *window) bool {
+	r := c.decision(w).Blur
+	return r == nil || *r
+}
+
+func (c *Compositor) translucent(s *surface.Surface, opacity float32) bool {
+	return opacity*c.alphaOf(s) < 1 || !c.opaque(s)
+}
+
+func (c *Compositor) blurSpec(o *output.Output) chainSpec {
+	return chainSpec{offset: deviceLength(o, c.decor.Blur.Size), passes: c.decor.Blur.Passes}
+}
+
+func (c *Compositor) micaSpec(o *output.Output) chainSpec {
+	m := c.decor.Blur.Mica
+	if m.Size == 0 {
+		m.Size = micaSize
+	}
+	if m.Passes == 0 {
+		m.Passes = micaPasses
+	}
+	return chainSpec{offset: deviceLength(o, m.Size), passes: m.Passes}
+}
+
+func blurStale(cache *blurCache, spec chainSpec, area image.Rectangle, below []drawOp, to colorOut) bool {
+	return cache.stale || cache.area != area || cache.spec != spec || cache.to != to || !slices.Equal(cache.below, below) || len(cache.chain) == 0
+}
+
+func (c *Compositor) drawBlurRegion(pass *frame, o *output.Output, s *surface.Surface, org origin, m render.Mask, look *wm.Look) {
+	if c.effects.BlurRegion(s).Empty() {
+		return
+	}
+	sc := c.sceneOf(o)
+	sc.blurs.shape = c.appendBlurRegion(sc.blurs.shape[:0], o, s, org)
+	c.drawBlur(pass, o, glassDraw{surface: s, shape: sc.blurs.shape, extent: org.device(o, s.Size()), mask: m, alpha: c.alphaOf(s), look: look})
+}
+
+func (c *Compositor) appendBlurRegion(rects []image.Rectangle, o *output.Output, s *surface.Surface, org origin) []image.Rectangle {
+	shape := c.effects.BlurRegion(s)
+	if shape.Empty() {
+		return rects
+	}
+	alpha := c.alphaOf(s)
+	t, ok := c.textures[s]
+	if alpha == 1 && ok && t.opaque() {
+		return rects
+	}
+	bounds := image.Rectangle{Max: s.Size()}
+	for _, r := range shape.Rects() {
+		r = r.Intersect(bounds)
+		if r.Empty() || alpha == 1 && s.Opaque().Covers(r) {
+			continue
+		}
+		rects = append(rects, org.child(r.Min).device(o, r.Size()))
+	}
+	return rects
+}
+
+type glassDraw struct {
+	surface *surface.Surface
+	shape   []image.Rectangle
+	extent  image.Rectangle
+	mask    render.Mask
+	alpha   float32
+	look    *wm.Look
+	mica    bool
+	tiled   bool
+}
+
+type pendingBlur struct {
+	cache    *blurCache
+	spec     chainSpec
+	area     image.Rectangle
+	from, to int
+	visible  bool
+	resolved bool
+	failed   bool
+}
+
+func (f *frame) pend(b *blurCache, spec chainSpec, area image.Rectangle, ops []drawOp, shared bool) int32 {
+	if shared {
+		for i := range f.blurs {
+			if f.blurs[i].cache == b {
+				return int32(i + 1)
+			}
+		}
+	}
+	from := len(f.below)
+	for _, op := range ops {
+		if op.dst.Overlaps(area) {
+			f.below = append(f.below, op)
+		}
+	}
+	f.blurs = append(f.blurs, pendingBlur{cache: b, spec: spec, area: area, from: from, to: len(f.below)})
+	return int32(len(f.blurs)) //nolint:gosec // one per drawn surface
+}
+
+func (c *Compositor) drawBlur(pass *frame, o *output.Output, g glassDraw) {
+	if g.alpha <= 0 {
+		return
+	}
+	var under image.Rectangle
+	for _, r := range g.shape {
+		under = under.Union(r)
+	}
+	bounds := image.Rectangle{Max: o.PixelSize()}
+	spec := c.blurSpec(o)
+	plain := spec
+	look := *g.look
+	if g.mica {
+		spec = c.micaSpec(o)
+		if t := c.decor.Blur.Mica.Tint; t.A > 0 {
+			look.Tint = t
+		}
+	}
+	glass, handle := c.glassOf(o, look)
+	reach := spec.reach()
+	if glass.Refracts() {
+		reach += int(math.Ceil(float64(glass.Amount)))
+	}
+	area := under.Inset(-reach).Intersect(bounds)
+	if area.Empty() || !under.Overlaps(area) {
+		return
+	}
+	ops := pass.ops
+	sc := c.sceneOf(o)
+	var b *blurCache
+	shared := pass.background >= 0 && (g.mica || c.decor.Blur.XRay || pass.sharedBlur || g.tiled && !c.decor.Blur.LiveTiled || !anyOverlaps(pass.ops[pass.background:], area))
+	switch {
+	case shared && spec != plain:
+		b = sc.blurs.micaChain()
+	case shared:
+		b = sc.blurs.shared()
+	default:
+		b = sc.blurs.of(g.surface)
+		area = b.areaFor(area, bounds)
+	}
+	if shared {
+		area, ops = bounds, pass.ops[:pass.background]
+	}
+	pending := pass.pend(b, spec, area, ops, shared)
+	m := g.mask
+	if glass.Refracts() && m.Keep.Rect.Empty() {
+		m.Keep.Rect = under
+	}
+	tint := scaleColor(render.Color(look.Tint), g.alpha)
+	for _, r := range g.shape {
+		r = r.Intersect(area)
+		if r.Empty() {
+			continue
+		}
+		src := r.Sub(area.Min)
+		pass.ops = append(pass.ops, drawOp{
+			src: render.FRect{X: float64(src.Min.X), Y: float64(src.Min.Y), W: float64(src.Dx()), H: float64(src.Dy())}, dst: r,
+			alpha: g.alpha, mask: m, glass: handle, pending: pending, opaque: g.mica && g.alpha == 1,
+		})
+		if tint.A > 0 {
+			pass.fillMasked(r, tint, m)
+		}
+		if look.Grain > 0 {
+			if err := c.drawGrain(pass, o, r, g.extent.Min, m, g.alpha, look.Grain); err != nil {
+				c.report(fmt.Errorf("compositor: grain over a blur: %w", err))
+			}
+		}
+	}
+	pass.addRim(g, m, under, o)
+}
+
+func (c *Compositor) resolveBlurs(o *output.Output, f *frame, from int) {
+	if len(f.blurs) == 0 {
+		return
+	}
+	sc, to := c.sceneOf(o), c.sceneOut(o)
+	for _, op := range f.ops[from:] {
+		if op.pending != 0 {
+			f.blurs[op.pending-1].visible = true
+		}
+	}
+	for i := len(f.blurs) - 1; i >= 0; i-- {
+		p := &f.blurs[i]
+		if !p.visible || p.resolved {
+			continue
+		}
+		below := frame{ops: f.below[p.from:p.to], cursorFrom: p.to - p.from}
+		below.cull(&sc.covered)
+		p.to = p.from + len(below.ops)
+		for _, op := range below.ops {
+			if op.pending != 0 {
+				f.blurs[op.pending-1].visible = true
+			}
+		}
+	}
+	for i := range f.blurs {
+		p := &f.blurs[i]
+		if !p.visible || p.resolved {
+			continue
+		}
+		p.resolved = true
+		below := f.settle(f.below[p.from:p.to])
+		p.to = p.from + len(below)
+		p.cache.used = true
+		var damage *region.Set
+		if !blurStale(p.cache, p.spec, p.area, below, to) {
+			damage = &sc.blurScratch
+			damage.Reset()
+			sc.contentDamage(below, p.area, func(r image.Rectangle) bool {
+				damage.Add(r.Sub(p.area.Min))
+				return true
+			})
+			if damage.Empty() {
+				continue
+			}
+		}
+		if err := c.renderBlur(func(size image.Point) (render.TextureTarget, error) { return c.newSceneTarget(o, size) }, p, below, to, damage); err != nil {
+			p.failed = true
+			c.report(fmt.Errorf("compositor: redraw a blur: %w", err))
+			continue
+		}
+		if p.cache.partial {
+			for _, r := range p.cache.levels[0] {
+				sc.blurDamage.Add(r.Add(p.area.Min))
+			}
+		}
+	}
+	kept := f.settle(f.ops[from:])
+	removed := len(f.ops) - from - len(kept)
+	f.ops = f.ops[:from+len(kept)]
+	if f.cursorFrom > from {
+		f.cursorFrom -= removed
+	}
+}
+
+func (f *frame) settle(ops []drawOp) []drawOp {
+	kept := ops[:0]
+	for _, op := range ops {
+		if op.pending != 0 {
+			p := &f.blurs[op.pending-1]
+			if p.failed || len(p.cache.chain) == 0 {
+				continue
+			}
+			op.tex, op.version, op.touched, op.pending = p.cache.chain[0].Texture(), p.cache.version, p.cache.touched, 0
+		}
+		kept = append(kept, op)
+	}
+	return kept
+}
+
+func (c *Compositor) renderBlur(newTarget func(image.Point) (render.TextureTarget, error), pb *pendingBlur, below []drawOp, to colorOut, damage *region.Set) error {
+	b, area := pb.cache, pb.area
+	sizes := append(b.sizes[:0], area.Size())
+	for range pb.spec.passes {
+		last := sizes[len(sizes)-1]
+		sizes = append(sizes, image.Pt(max(last.X/2, 1), max(last.Y/2, 1)))
+	}
+	b.sizes = sizes
+	if b.area.Size() != area.Size() || len(b.chain) != len(sizes) || b.to != to {
+		damage = nil
+		if err := b.destroy(); err != nil {
+			return err
+		}
+		for _, s := range sizes {
+			t, err := newTarget(s)
+			if err != nil {
+				return errors.Join(err, b.destroy())
+			}
+			b.chain = append(b.chain, t)
+		}
+	}
+	b.levelsFor(damage, pb.spec)
+	p, err := c.renderer.Begin(b.chain[0], b.levels[0])
+	if err != nil {
+		return err
+	}
+	p.Clear(render.Color{})
+	replayOps(below, p, area.Min, to, false)
+	if err := p.End(); err != nil {
+		return err
+	}
+	step := func(from, into int, up bool) error {
+		p, err := c.renderer.Begin(b.chain[into], b.levels[into])
+		if err != nil {
+			return err
+		}
+		c.kawase(p, b.chain[from].Texture(), image.Rectangle{Max: sizes[into]}, b.levels[into], pb.spec.offset, up)
+		return p.End()
+	}
+	for i := 1; i < len(sizes); i++ {
+		if err := step(i-1, i, false); err != nil {
+			return err
+		}
+	}
+	for i := len(sizes) - 1; i > 0; i-- {
+		if err := step(i, i-1, true); err != nil {
+			return err
+		}
+	}
+	c.blurGen++
+	b.touched, b.partial, b.stale = c.blurGen, damage != nil, false
+	if !b.partial {
+		b.version = c.blurGen
+	}
+	b.area, b.below, b.to, b.spec = area, append(b.below[:0], below...), to, pb.spec
+	return nil
+}
+
+func (b *blurCache) levelsFor(damage *region.Set, spec chainSpec) {
+	b.levels = slices.Grow(b.levels[:0], len(b.sizes))[:len(b.sizes)]
+	for i := range b.levels {
+		b.levels[i] = b.levels[i][:0]
+	}
+	if damage == nil {
+		for i, s := range b.sizes {
+			b.levels[i] = append(b.levels[i], image.Rectangle{Max: s})
+		}
+		return
+	}
+	margin := int(math.Ceil(float64(spec.offset))) + 2
+	last := len(b.sizes) - 1
+	for _, d := range damage.Rects() {
+		r := halved(d.Inset(-spec.reach()), last).Intersect(image.Rectangle{Max: b.sizes[last]})
+		b.levels[last] = append(b.levels[last], r)
+		for i := last; i > 0; i-- {
+			r = image.Rectangle{Min: r.Min.Mul(2), Max: r.Max.Mul(2)}.Inset(-margin).Intersect(image.Rectangle{Max: b.sizes[i-1]})
+			b.levels[i-1] = append(b.levels[i-1], r)
+		}
+	}
+}
+
+func halved(r image.Rectangle, times int) image.Rectangle {
+	k := 1 << times
+	floor := func(v int) int { return int(math.Floor(float64(v) / float64(k))) }
+	ceil := func(v int) int { return int(math.Ceil(float64(v) / float64(k))) }
+	return image.Rect(floor(r.Min.X), floor(r.Min.Y), ceil(r.Max.X), ceil(r.Max.Y))
+}
+
+func anyOverlaps(ops []drawOp, area image.Rectangle) bool {
+	for i := range ops {
+		if ops[i].dst.Overlaps(area) {
+			return true
+		}
+	}
+	return false
+}

@@ -1,0 +1,861 @@
+package loop
+
+import (
+	"errors"
+	"os"
+	"slices"
+	"strings"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
+)
+
+func newLoop(t *testing.T) *Loop {
+	t.Helper()
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := l.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	})
+	return l
+}
+
+func pipe(t *testing.T) (int, int) {
+	t.Helper()
+	var p [2]int
+	if err := unix.Pipe2(p[:], unix.O_CLOEXEC|unix.O_NONBLOCK); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = unix.Close(p[0])
+		_ = unix.Close(p[1])
+	})
+	return p[0], p[1]
+}
+
+func isOpen(fd int) bool {
+	_, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
+	return err == nil
+}
+
+type openFile struct {
+	fd       int
+	dev, ino uint64
+}
+
+func opened(t *testing.T, fd int) openFile {
+	t.Helper()
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		t.Fatalf("fd %d: %v", fd, err)
+	}
+	return openFile{fd: fd, dev: st.Dev, ino: st.Ino}
+}
+
+func (f openFile) stillOpen() bool {
+	var st unix.Stat_t
+	return unix.Fstat(f.fd, &st) == nil && st.Dev == f.dev && st.Ino == f.ino
+}
+
+func run(t *testing.T, l *Loop) {
+	t.Helper()
+	done := make(chan error, 1)
+	go func() { done <- l.Run() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("loop did not stop")
+	}
+}
+
+func TestFDSource(t *testing.T) {
+	l := newLoop(t)
+	r, w := pipe(t)
+	var got []Events
+	src, err := l.AddFD(r, Readable, func(ev Events) error {
+		got = append(got, ev)
+		var buf [16]byte
+		_, _ = unix.Read(r, buf[:])
+		l.Stop()
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := unix.Write(w, []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if len(got) != 1 || got[0]&Readable == 0 {
+		t.Fatalf("events = %v, want one Readable", got)
+	}
+	if err := src.Modify(Writable); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if !isOpen(r) {
+		t.Fatal("removing an fd source closed a descriptor the loop does not own")
+	}
+	if err := src.Modify(Readable); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Modify after Remove = %v, want ErrClosed", err)
+	}
+}
+
+func TestOnceFiresOnceAndClosesItsFD(t *testing.T) {
+	l := newLoop(t)
+	var p [2]int
+	if err := unix.Pipe2(p[:], unix.O_CLOEXEC|unix.O_NONBLOCK); err != nil {
+		t.Fatal(err)
+	}
+	r, w := p[0], p[1]
+	t.Cleanup(func() { _ = unix.Close(w) })
+	file := opened(t, r)
+	fired := 0
+	if err := l.Once(r, func() error {
+		fired++
+		l.Stop()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := unix.Write(w, []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if fired != 1 {
+		t.Fatalf("fired %d times, want once", fired)
+	}
+	if file.stillOpen() {
+		t.Fatal("Once left its fd open after firing")
+	}
+}
+
+func TestWritableSource(t *testing.T) {
+	l := newLoop(t)
+	_, w := pipe(t)
+	var got Events
+	if _, err := l.AddFD(w, Writable, func(ev Events) error {
+		got = ev
+		l.Stop()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if got&Writable == 0 {
+		t.Fatalf("events = %v, want Writable", got)
+	}
+}
+
+func TestTimer(t *testing.T) {
+	l := newLoop(t)
+	fires := 0
+	var timer *Timer
+	timer, err := l.AddTimer(func() error {
+		fires++
+		if fires < 3 {
+			return timer.Arm(time.Millisecond)
+		}
+		l.Stop()
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	if err := timer.Arm(time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if fires != 3 || time.Since(start) < 3*time.Millisecond {
+		t.Fatalf("timer fired %d times in %v, want 3 re-armed one-shots", fires, time.Since(start))
+	}
+	if err := timer.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if err := timer.Arm(time.Millisecond); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Arm after Remove = %v, want ErrClosed", err)
+	}
+}
+
+func TestDisarmedTimerDoesNotFire(t *testing.T) {
+	l := newLoop(t)
+	timer, err := l.AddTimer(func() error { return errors.New("disarmed timer fired") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := timer.Arm(time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if err := timer.Disarm(); err != nil {
+		t.Fatal(err)
+	}
+	stop, err := l.AddTimer(func() error {
+		l.Stop()
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stop.Arm(20 * time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+}
+
+func TestSignals(t *testing.T) {
+	l := newLoop(t)
+	var got []os.Signal
+	sigs, err := l.AddSignals(func(s os.Signal) error {
+		got = append(got, s)
+		l.Stop()
+		return nil
+	}, syscall.SIGUSR1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Kill(os.Getpid(), unix.SIGUSR1); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if !slices.Equal(got, []os.Signal{syscall.SIGUSR1}) {
+		t.Fatalf("signals = %v, want [SIGUSR1]", got)
+	}
+	sigs.Remove()
+	if len(l.signals) != 0 {
+		t.Fatal("Remove left the signal source registered")
+	}
+}
+
+func TestMailboxRunsPostedClosuresInOrderOnTheLoop(t *testing.T) {
+	l := newLoop(t)
+	var got []int
+	go func() {
+		for i := range 100 {
+			if err := l.Post(func() error {
+				got = append(got, i)
+				if i == 99 {
+					l.Stop()
+				}
+				return nil
+			}); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
+	run(t, l)
+	if len(got) != 100 || !slices.IsSorted(got) {
+		t.Fatalf("ran %d closures, sorted %v", len(got), slices.IsSorted(got))
+	}
+}
+
+func TestIdleRunsBeforeBlockingUntilEmpty(t *testing.T) {
+	l := newLoop(t)
+	var got []string
+	l.Idle(func() error {
+		got = append(got, "first")
+		l.Idle(func() error {
+			got = append(got, "added while idle")
+			l.Stop()
+			return nil
+		})
+		return nil
+	})
+	l.Idle(func() error {
+		got = append(got, "second")
+		return nil
+	})
+	run(t, l)
+	if want := []string{"first", "second", "added while idle"}; !slices.Equal(got, want) {
+		t.Fatalf("idle order = %v, want %v", got, want)
+	}
+	if l.wakeups != 0 {
+		t.Fatalf("idle work woke epoll %d times, want 0", l.wakeups)
+	}
+}
+
+func TestBeforeWaitRunsEveryIterationAfterIdle(t *testing.T) {
+	l := newLoop(t)
+	var got []string
+	l.Idle(func() error {
+		got = append(got, "idle")
+		return nil
+	})
+	l.BeforeWait(func() error {
+		got = append(got, "before")
+		if len(got) == 4 {
+			l.Stop()
+		}
+		return nil
+	})
+	if err := l.Post(func() error {
+		got = append(got, "posted")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if want := []string{"idle", "before", "posted", "before"}; !slices.Equal(got, want) {
+		t.Fatalf("order = %v, want %v", got, want)
+	}
+}
+
+func TestHandlerErrorStopsRun(t *testing.T) {
+	l := newLoop(t)
+	boom := errors.New("boom")
+	if err := l.Post(func() error { return boom }); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Run(); !errors.Is(err, boom) {
+		t.Fatalf("Run = %v, want boom", err)
+	}
+}
+
+func TestRemovedSourceSkipsItsPendingEvent(t *testing.T) {
+	l := newLoop(t)
+	r1, w1 := pipe(t)
+	r2, w2 := pipe(t)
+	var a, b *Source
+	calls := 0
+	handler := func(Events) error {
+		calls++
+		if err := a.Remove(); err != nil {
+			return err
+		}
+		if err := b.Remove(); err != nil {
+			return err
+		}
+		l.Stop()
+		return nil
+	}
+	var err error
+	if a, err = l.AddFD(r1, Readable, handler); err != nil {
+		t.Fatal(err)
+	}
+	if b, err = l.AddFD(r2, Readable, handler); err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range []int{w1, w2} {
+		if _, err := unix.Write(w, []byte("x")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run(t, l)
+	if calls != 1 {
+		t.Fatalf("handler ran %d times, want 1: a removed source's pending event was dispatched", calls)
+	}
+}
+
+func TestIdleLoopNeverWakes(t *testing.T) {
+	l := newLoop(t)
+	if _, err := l.AddTimer(func() error { return errors.New("disarmed timer fired") }); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := pipe(t)
+	if _, err := l.AddFD(r, Readable, func(Events) error { return errors.New("silent fd fired") }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.AddSignals(func(os.Signal) error { return nil }, syscall.SIGUSR2); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		if err := l.Post(func() error {
+			l.Stop()
+			return nil
+		}); err != nil {
+			t.Error(err)
+		}
+	}()
+	run(t, l)
+	if l.wakeups != 1 {
+		t.Fatalf("idle loop woke %d times in 500ms, want only the final post", l.wakeups)
+	}
+}
+
+func TestCloseReleasesEverything(t *testing.T) {
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = l.AddTimer(func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, _ := pipe(t)
+	if _, err := l.AddFD(r, Readable, func(Events) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	sigs, err := l.AddSignals(func(os.Signal) error { return nil }, syscall.SIGUSR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owned := []openFile{opened(t, l.epfd), opened(t, l.mailboxFD)}
+	if err := l.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range owned {
+		if f.stillOpen() {
+			t.Errorf("fd %d is still open after Close", f.fd)
+		}
+	}
+	if !isOpen(r) {
+		t.Error("Close closed a descriptor the loop does not own")
+	}
+	select {
+	case <-sigs.done:
+	default:
+		t.Error("signal goroutine still running after Close")
+	}
+	if err := l.Post(func() error { return nil }); !errors.Is(err, ErrClosed) {
+		t.Errorf("Post after Close = %v, want ErrClosed", err)
+	}
+	if _, err := l.AddTimer(func() error { return nil }); !errors.Is(err, ErrClosed) {
+		t.Errorf("AddTimer after Close = %v, want ErrClosed", err)
+	}
+	if err := l.Run(); !errors.Is(err, ErrClosed) {
+		t.Errorf("Run after Close = %v, want ErrClosed", err)
+	}
+	if err := l.Close(); err != nil {
+		t.Errorf("second Close = %v", err)
+	}
+}
+
+func TestBusyCountsWorkButNotWaiting(t *testing.T) {
+	l, clock := newManual(t, time.Second)
+	const work, wait = 30 * time.Millisecond, time.Hour
+	armed(t, l, wait, func() error {
+		time.Sleep(work)
+		l.Stop()
+		return nil
+	})
+	clock.WhenDry(func() {
+		next, ok := clock.NextTimer()
+		if !ok {
+			t.Error("the loop ran dry with no timer armed")
+			l.Stop()
+			return
+		}
+		clock.Set(next)
+	})
+	run(t, l)
+	if busy := l.Busy(); busy < work || busy >= wait {
+		t.Fatalf("busy %v after %v of work and %v of waiting on the loop's clock, want the work and none of the wait", busy, work, wait)
+	}
+}
+
+func expiredTimers(t *testing.T, l *Loop, n int, fired func(int)) []*Timer {
+	t.Helper()
+	timers := make([]*Timer, n)
+	for i := range timers {
+		timer, err := l.AddTimer(func() error {
+			fired(i)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := timer.Arm(1); err != nil {
+			t.Fatal(err)
+		}
+		timers[i] = timer
+	}
+	time.Sleep(5 * time.Millisecond)
+	return timers
+}
+
+func stopAfter(t *testing.T, l *Loop, d time.Duration) {
+	t.Helper()
+	stop, err := l.AddTimer(func() error {
+		l.Stop()
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stop.Arm(d); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestATimerDisarmedEarlierInTheSameWakeupDoesNotFire(t *testing.T) {
+	l := newLoop(t)
+	fires := 0
+	var timers []*Timer
+	timers = expiredTimers(t, l, 2, func(i int) {
+		fires++
+		if err := timers[1-i].Disarm(); err != nil {
+			t.Error(err)
+		}
+	})
+	stopAfter(t, l, 30*time.Millisecond)
+	run(t, l)
+	if fires != 1 {
+		t.Fatalf("%d timers fired, want the other disarmed", fires)
+	}
+}
+
+func TestATimerReArmedEarlierInTheSameWakeupWaitsForItsNewDeadline(t *testing.T) {
+	l := newLoop(t)
+	fires := 0
+	var timers []*Timer
+	timers = expiredTimers(t, l, 2, func(i int) {
+		fires++
+		if err := timers[1-i].Arm(time.Hour); err != nil {
+			t.Error(err)
+		}
+	})
+	stopAfter(t, l, 30*time.Millisecond)
+	run(t, l)
+	if fires != 1 {
+		t.Fatalf("%d timers fired, want the other waiting an hour", fires)
+	}
+}
+
+func TestATimerThatFiredFiresAgainWhenArmedLater(t *testing.T) {
+	l := newLoop(t)
+	fires := 0
+	again, err := l.AddTimer(func() error {
+		fires++
+		if fires == 2 {
+			l.Stop()
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	later, err := l.AddTimer(func() error { return again.Arm(time.Millisecond) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := errors.Join(again.Arm(time.Millisecond), later.Arm(20*time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if fires != 2 {
+		t.Fatalf("timer fired %d times", fires)
+	}
+}
+
+func TestDisarmAfterRemoveIsAnError(t *testing.T) {
+	l := newLoop(t)
+	timer, err := l.AddTimer(func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := timer.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if err := timer.Disarm(); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Disarm after Remove = %v, want ErrClosed", err)
+	}
+}
+
+func TestATimerInTheWakeupThatStopsTheLoopFiresOnTheNextRun(t *testing.T) {
+	l := newLoop(t)
+	fires := 0
+	expiredTimers(t, l, 2, func(int) {
+		fires++
+		l.Stop()
+	})
+	run(t, l)
+	if fires != 1 {
+		t.Fatalf("%d timers fired before the stop, want 1", fires)
+	}
+	stopAfter(t, l, 30*time.Millisecond)
+	run(t, l)
+	if fires != 2 {
+		t.Fatal("a timer whose expiry shared a wakeup with the stop never fired")
+	}
+}
+
+func TestATimerReArmedAfterAStopWaitsForItsNewDeadline(t *testing.T) {
+	l := newLoop(t)
+	fires := 0
+	timers := expiredTimers(t, l, 2, func(int) {
+		fires++
+		l.Stop()
+	})
+	run(t, l)
+	for _, timer := range timers {
+		if err := timer.Arm(time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stopAfter(t, l, 30*time.Millisecond)
+	run(t, l)
+	if fires != 1 {
+		t.Fatalf("%d timers fired, want the other waiting an hour", fires)
+	}
+}
+
+func TestALevelSourceDrainedAfterAStopIsNotCalledAgain(t *testing.T) {
+	l := newLoop(t)
+	calls := 0
+	var reads []int
+	for range 2 {
+		r, w := pipe(t)
+		reads = append(reads, r)
+		if _, err := l.AddFD(r, Readable, func(Events) error {
+			calls++
+			l.Stop()
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := unix.Write(w, []byte{1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run(t, l)
+	if calls != 1 {
+		t.Fatalf("%d sources called before the stop, want 1", calls)
+	}
+	var buf [1]byte
+	for _, r := range reads {
+		if _, err := unix.Read(r, buf[:]); err != nil && !errors.Is(err, unix.EAGAIN) {
+			t.Fatal(err)
+		}
+	}
+	stopAfter(t, l, 10*time.Millisecond)
+	run(t, l)
+	if calls != 1 {
+		t.Fatalf("a source with nothing left to read was called %d times in all", calls)
+	}
+}
+
+func TestAnIdleThatKeepsRepostingDoesNotStarveSources(t *testing.T) {
+	l := newLoop(t)
+	fd, err := unix.Eventfd(1, unix.EFD_CLOEXEC|unix.EFD_NONBLOCK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(fd)
+	const limit = 1000
+	passes, served := 0, false
+	src, err := l.AddFD(fd, Readable, func(Events) error {
+		served = true
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer src.Remove()
+	var repost func() error
+	repost = func() error {
+		passes++
+		if served || passes == limit {
+			l.Stop()
+			return nil
+		}
+		l.Idle(repost)
+		return nil
+	}
+	l.Idle(repost)
+	if err := l.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !served {
+		t.Fatalf("a readable source went unserved through %d idle passes", passes)
+	}
+}
+
+func TestBeforeIdleRunsOnlyAheadOfIdleWork(t *testing.T) {
+	l := newLoop(t)
+	var got []string
+	l.BeforeIdle(func() error {
+		got = append(got, "flush")
+		return nil
+	})
+	l.Idle(func() error {
+		got = append(got, "idle")
+		return nil
+	})
+	l.BeforeWait(func() error {
+		got = append(got, "before")
+		if len(got) == 5 {
+			l.Stop()
+		}
+		return nil
+	})
+	if err := l.Post(func() error {
+		got = append(got, "posted")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if want := []string{"flush", "idle", "before", "posted", "before"}; !slices.Equal(got, want) {
+		t.Fatalf("order = %v, want %v", got, want)
+	}
+}
+
+func TestTimersTakeNoFileDescriptors(t *testing.T) {
+	l := newLoop(t)
+	fds := func() int {
+		entries, err := os.ReadDir("/proc/self/fd")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(entries)
+	}
+	before := fds()
+	timer, err := l.AddTimer(func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := timer.Arm(time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	if got := fds(); got != before {
+		t.Fatalf("a timer went from %d to %d open files, so arming it would be a syscall", before, got)
+	}
+	if allocs := testing.AllocsPerRun(100, func() {
+		if err := timer.Arm(time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}); allocs != 0 {
+		t.Fatalf("%v allocations per arm", allocs)
+	}
+}
+
+func TestAnFDItsOwnerClosedAndTheKernelReusedRemovesCleanly(t *testing.T) {
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, _ := pipe(t)
+	if _, err := l.AddFD(r, Readable, func(Events) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	other, _ := pipe(t)
+	if err := unix.Dup3(other, r, unix.O_CLOEXEC); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Close(); err != nil {
+		t.Fatalf("closing over an fd number reused since it was watched: %v", err)
+	}
+}
+
+func TestAnFDNumberStillWatchedIsRefusedUntilItsSourceIsRemoved(t *testing.T) {
+	l := newLoop(t)
+	r, _ := pipe(t)
+	stale, err := l.AddFD(r, Readable, func(Events) error { return errors.New("the source whose fd was closed was called") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, w := pipe(t)
+	if err := unix.Dup3(other, r, unix.O_CLOEXEC); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.AddFD(r, Readable, func(Events) error { return nil }); !errors.Is(err, errWatched) {
+		t.Fatalf("watching fd %d while an earlier source still holds it = %v, want errWatched", r, err)
+	}
+	if err := stale.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	fired := false
+	fresh, err := l.AddFD(r, Readable, func(Events) error {
+		fired = true
+		l.Stop()
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("watching fd %d after its earlier source was removed: %v", r, err)
+	}
+	if _, err := unix.Write(w, []byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	run(t, l)
+	if !fired {
+		t.Fatal("the source watching the reused fd number never fired")
+	}
+	if err := fresh.Remove(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHandOnAClosedLoopDropsTheWorkWithoutPanicking(t *testing.T) {
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Post(func() error { return nil }); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Post after Close = %v, want ErrClosed", err)
+	}
+	l.Hand("work after Close", func() error {
+		t.Error("work handed to a closed loop ran")
+		return nil
+	})
+}
+
+func TestAFailedMailboxWakeIsNotMistakenForAClosedLoop(t *testing.T) {
+	l := newLoop(t)
+	r, _ := pipe(t)
+	mailbox := l.mailboxFD
+	l.mailboxFD = r
+	t.Cleanup(func() { l.mailboxFD = mailbox })
+	err := l.Post(func() error { return errors.New("work whose wake failed ran") })
+	if err == nil || errors.Is(err, ErrClosed) || !errors.Is(err, unix.EBADF) {
+		t.Fatalf("Post with an unwritable mailbox = %v, want EBADF and not ErrClosed", err)
+	}
+	if len(l.posted) != 0 {
+		t.Fatalf("%d posted closures left queued after the wake failed, want none", len(l.posted))
+	}
+	defer func() {
+		got, ok := recover().(error)
+		if !ok || !errors.Is(got, unix.EBADF) || !strings.Contains(got.Error(), "the failing work") {
+			t.Fatalf("Hand with an unwritable mailbox panicked with %v, want an error naming the work and wrapping EBADF", got)
+		}
+	}()
+	l.Hand("the failing work", func() error { return nil })
+	t.Fatal("Hand with an unwritable mailbox returned")
+}
+
+func TestPostsRacingCloseFailOnlyAsClosed(t *testing.T) {
+	for range 2000 {
+		l, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		errs := make(chan error, 64)
+		for range cap(errs) {
+			wg.Go(func() {
+				<-start
+				if err := l.Post(func() error { return nil }); err != nil && !errors.Is(err, ErrClosed) {
+					errs <- err
+				}
+				l.mu.Lock()
+				l.posted = l.posted[:0]
+				l.mu.Unlock()
+			})
+		}
+		close(start)
+		if err := l.Close(); err != nil {
+			t.Fatal(err)
+		}
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			t.Fatalf("Post racing Close = %v, want nil or ErrClosed", err)
+		}
+	}
+}

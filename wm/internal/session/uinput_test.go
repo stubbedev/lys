@@ -1,0 +1,341 @@
+package session
+
+import (
+	"encoding/binary"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/loop"
+	"github.com/stubbedev/lys-wm/internal/xkb"
+)
+
+const (
+	uiSetEvBit        = 0x40045564
+	uiSetKeyBit       = 0x40045565
+	uiSetRelBit       = 0x40045566
+	uiSetLEDBit       = 0x40045569
+	uiSetSwBit        = 0x4004556d
+	uiDevCreate       = 0x5501
+	uiDevDestroy      = 0x5502
+	uiDevSetup        = 0x405c5503
+	uiGetSysname      = 0x8040552c
+	evSyn             = 0
+	evKey             = 1
+	evRel             = 2
+	evSw              = 5
+	evLED             = 0x11
+	keyCapsLock       = 58
+	ledCapsL          = 1
+	swHeadphoneInsert = 2
+	btnLeft           = 0x110
+	btnRight          = 0x111
+	relX              = 0
+	relY              = 1
+	relWheel          = 8
+	relWheelHi        = 11
+	busVirtual        = 6
+)
+
+const virtualMouse = "lys-wm virtual mouse"
+
+type uinputSetup struct {
+	bustype, vendor, product, version uint16
+	name                              [80]byte
+	ffEffectsMax                      uint32
+}
+
+type virtualDevice struct {
+	f    *os.File
+	node string
+}
+
+func ioctl(fd uintptr, req uintptr, arg uintptr) error {
+	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, fd, req, arg); errno != 0 {
+		return errno
+	}
+	return nil
+}
+
+const virtualKeyboard = "lys-wm virtual keyboard"
+
+type uinputBit struct{ req, v uintptr }
+
+func newVirtualMouse(t testing.TB) *virtualDevice {
+	t.Helper()
+	return newVirtualDevice(t, virtualMouse, []uinputBit{
+		{uiSetEvBit, evKey},
+		{uiSetEvBit, evRel},
+		{uiSetKeyBit, btnLeft},
+		{uiSetKeyBit, btnRight},
+		{uiSetRelBit, relX},
+		{uiSetRelBit, relY},
+		{uiSetRelBit, relWheel},
+		{uiSetRelBit, relWheelHi},
+	})
+}
+
+func newVirtualKeyboard(t *testing.T) *virtualDevice {
+	t.Helper()
+	return newVirtualDevice(t, virtualKeyboard, []uinputBit{
+		{uiSetEvBit, evKey},
+		{uiSetEvBit, evLED},
+		{uiSetKeyBit, keyCapsLock},
+		{uiSetLEDBit, ledCapsL},
+	})
+}
+
+func newVirtualDevice(t testing.TB, devName string, bits []uinputBit) *virtualDevice {
+	t.Helper()
+	f, err := os.OpenFile("/dev/uinput", os.O_RDWR|unix.O_NONBLOCK, 0)
+	if err != nil {
+		t.Skipf("no uinput here: %v", err)
+	}
+	t.Cleanup(func() { _ = f.Close() })
+	fd := f.Fd()
+	for _, b := range bits {
+		if err := ioctl(fd, b.req, b.v); err != nil {
+			t.Fatalf("uinput bit %#x %d: %v", b.req, b.v, err)
+		}
+	}
+	setup := uinputSetup{bustype: busVirtual, vendor: 0x1234, product: 0x5678}
+	copy(setup.name[:], devName)
+	if err := ioctl(fd, uiDevSetup, uintptr(unsafe.Pointer(&setup))); err != nil {
+		t.Fatalf("uinput setup: %v", err)
+	}
+	if err := ioctl(fd, uiDevCreate, 0); err != nil {
+		t.Fatalf("uinput create: %v", err)
+	}
+	t.Cleanup(func() { _ = ioctl(fd, uiDevDestroy, 0) })
+	var name [64]byte
+	if err := ioctl(fd, uiGetSysname, uintptr(unsafe.Pointer(&name))); err != nil {
+		t.Fatalf("uinput sysname: %v", err)
+	}
+	sys := filepath.Join("/sys/devices/virtual/input", strings.TrimRight(string(name[:]), "\x00"))
+	deadline := time.Now().Add(5 * time.Second)
+	var denied error
+	for {
+		events, _ := filepath.Glob(filepath.Join(sys, "event*"))
+		if len(events) == 1 {
+			node := filepath.Join("/dev/input", filepath.Base(events[0]))
+			r, err := os.Open(node)
+			if err == nil {
+				_ = r.Close()
+				return &virtualDevice{f: f, node: node}
+			}
+			if errors.Is(err, os.ErrPermission) {
+				denied = err
+			}
+		}
+		if time.Now().After(deadline) {
+			if denied != nil {
+				t.Skipf("udev never let this user read the event node: %v", denied)
+			}
+			t.Fatalf("no readable event node under %s", sys)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func (v *virtualDevice) awaitLED(t *testing.T, code uint16, value int32) {
+	t.Helper()
+	buf := make([]byte, 24)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		n, err := unix.Read(int(v.f.Fd()), buf)
+		if errors.Is(err, unix.EAGAIN) {
+			time.Sleep(5 * time.Millisecond)
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == len(buf) && binary.NativeEndian.Uint16(buf[16:]) == evLED && binary.NativeEndian.Uint16(buf[18:]) == code && int32(binary.NativeEndian.Uint32(buf[20:])) == value {
+			return
+		}
+	}
+	t.Fatalf("LED %d never became %d", code, value)
+}
+
+func (v *virtualDevice) emit(t testing.TB, events ...[3]int32) {
+	t.Helper()
+	buf := make([]byte, 0, 24*(len(events)+1))
+	for _, e := range append(events, [3]int32{evSyn, 0, 0}) {
+		buf = append(buf, make([]byte, 16)...)
+		buf = binary.NativeEndian.AppendUint16(buf, uint16(e[0]))
+		buf = binary.NativeEndian.AppendUint16(buf, uint16(e[1]))
+		buf = binary.NativeEndian.AppendUint32(buf, uint32(e[2]))
+	}
+	if _, err := v.f.Write(buf); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type inputRecorder struct {
+	backend.Handler
+	devices []backend.Device
+	axes    []backend.PointerAxis
+}
+
+func (r *inputRecorder) DeviceAdded(d backend.Device) error {
+	r.devices = append(r.devices, d)
+	return nil
+}
+
+func (r *inputRecorder) DeviceRemoved(backend.Device) error { return nil }
+
+func (r *inputRecorder) Input(_ backend.Device, e backend.Event) error {
+	if a, ok := e.(*backend.PointerAxis); ok {
+		r.axes = append(r.axes, *a)
+	}
+	return nil
+}
+
+func (in *Libinput) waitAxis(t *testing.T, rec *inputRecorder) backend.PointerAxis {
+	t.Helper()
+	runUntil(t, in.loop, "a scroll event", func() bool { return len(rec.axes) > 0 })
+	a := rec.axes[0]
+	rec.axes = rec.axes[:0]
+	return a
+}
+
+func TestLibinputAppliesAndReappliesPointerSettings(t *testing.T) {
+	mouse := newVirtualMouse(t)
+	in := libinput(t, grabbingOpener{PlainOpener{}})
+	rec := &inputRecorder{}
+	in.Start(rec)
+	if err := in.Reconfigure(InputConfig{Pointer: DeviceConfig{NaturalScroll: new(true), ScrollFactor: new(2.0)}}); err != nil {
+		t.Fatal(err)
+	}
+	in.addNow(t, mouse.node)
+	runUntil(t, in.loop, "the mouse's DeviceAdded", func() bool { return len(rec.devices) > 0 })
+	if len(rec.devices) != 1 || rec.devices[0].Name() != virtualMouse {
+		t.Fatalf("added %v", rec.devices)
+	}
+	click := func() backend.PointerAxis {
+		mouse.emit(t, [3]int32{evRel, relWheel, 1}, [3]int32{evRel, relWheelHi, 120})
+		return in.waitAxis(t, rec)
+	}
+	if a := click(); a.Value120 != 240 || a.Value <= 0 {
+		t.Fatalf("a wheel click up with natural scrolling and factor 2: %+v", a)
+	}
+	if err := in.Reconfigure(InputConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	if a := click(); a.Value120 != -120 || a.Value >= 0 {
+		t.Fatalf("a wheel click up after reloading to the defaults: %+v", a)
+	}
+	err := in.Reconfigure(InputConfig{Devices: map[string]NamedDeviceConfig{virtualMouse: {DeviceConfig: DeviceConfig{Tap: new(true)}}}})
+	if err == nil || !strings.Contains(err.Error(), `"`+virtualMouse+`" has no tap setting`) {
+		t.Fatalf("tapping on a mouse: %v", err)
+	}
+}
+
+func TestLibinputSetsKeyboardLEDs(t *testing.T) {
+	kbd := newVirtualKeyboard(t)
+	in := libinput(t, PlainOpener{})
+	rec := &inputRecorder{}
+	in.Start(rec)
+	in.addNow(t, kbd.node)
+	runUntil(t, in.loop, "the keyboard's DeviceAdded", func() bool { return len(rec.devices) > 0 })
+	if len(rec.devices) != 1 || rec.devices[0].Name() != virtualKeyboard {
+		t.Fatalf("added %v", rec.devices)
+	}
+	leds, ok := rec.devices[0].(backend.KeyboardLEDs)
+	if !ok {
+		t.Fatal("a libinput keyboard has no LEDs to set")
+	}
+	leds.SetLEDs(xkb.Locks{Caps: true})
+	kbd.awaitLED(t, ledCapsL, 1)
+	leds.SetLEDs(xkb.Locks{})
+	kbd.awaitLED(t, ledCapsL, 0)
+}
+
+type motionRecorder struct {
+	backend.Handler
+	motions []backend.PointerMotion
+	frames  int
+	count   int
+	stopAt  int
+	loop    *loop.Loop
+}
+
+func (*motionRecorder) DeviceAdded(backend.Device) error   { return nil }
+func (*motionRecorder) DeviceRemoved(backend.Device) error { return nil }
+
+func TestLibinputPointerMotionBecomesEvents(t *testing.T) {
+	mouse := newVirtualMouse(t)
+	in := libinput(t, grabbingOpener{PlainOpener{}})
+	rec := &motionRecorder{}
+	in.Start(rec)
+	in.addNow(t, mouse.node)
+	mouse.emit(t, [3]int32{evRel, relX, 7}, [3]int32{evRel, relY, -3})
+	runUntil(t, in.loop, "a motion and its frame", func() bool { return len(rec.motions) > 0 && rec.frames > 0 })
+	m := rec.motions[0]
+	if m.Time <= 0 || m.DX <= 0 || m.DY >= 0 || m.UnaccelDX != 7 || m.UnaccelDY != -3 {
+		t.Fatalf("the motion arrived as %+v", m)
+	}
+	if rec.frames != len(rec.motions) {
+		t.Fatalf("%d frames for %d motions", rec.frames, len(rec.motions))
+	}
+}
+
+func BenchmarkLibinputMotion(b *testing.B) {
+	mouse := newVirtualMouse(b)
+	in := libinput(b, grabbingOpener{PlainOpener{}})
+	rec := &motionRecorder{loop: in.loop}
+	in.Start(rec)
+	in.addNow(b, mouse.node)
+	events := binaryMotions(50)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for rec.count < b.N {
+		b.StopTimer()
+		if _, err := mouse.f.Write(events); err != nil {
+			b.Fatal(err)
+		}
+		rec.stopAt = rec.count + 50
+		b.StartTimer()
+		if err := in.loop.Run(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func binaryMotions(n int) []byte {
+	var buf []byte
+	event := func(typ, code uint16, value int32) {
+		buf = append(buf, make([]byte, 16)...)
+		buf = binary.NativeEndian.AppendUint16(buf, typ)
+		buf = binary.NativeEndian.AppendUint16(buf, code)
+		buf = binary.NativeEndian.AppendUint32(buf, uint32(value))
+	}
+	for i := range n {
+		event(evRel, relX, int32(1-2*(i%2)))
+		event(evSyn, 0, 0)
+	}
+	return buf
+}
+
+func (r *motionRecorder) Input(_ backend.Device, e backend.Event) error {
+	switch e := e.(type) {
+	case *backend.PointerMotion:
+		r.count++
+		if r.count == r.stopAt {
+			r.loop.Stop()
+		}
+		if len(r.motions) < 8 {
+			r.motions = append(r.motions, *e)
+		}
+	case *backend.PointerFrame:
+		r.frames++
+	}
+	return nil
+}

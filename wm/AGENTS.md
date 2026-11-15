@@ -1,0 +1,160 @@
+# AGENTS.md
+
+Read `README.md` for what lys-wm is, and `docs/architecture.md` for the
+decisions every change builds on.
+
+## Gates
+
+Run before every commit:
+
+```sh
+just docker gates
+nix build -L
+```
+
+Every test runs in a container (`just docker <recipe>`) or a NixOS VM
+(`nix build .#checks...`), never against the desktop session on the host.
+The container gets KVM, the GPUs' render nodes and GPU drivers at
+`/run/opengl-driver` (the host's on NixOS, the flake's Mesa elsewhere) and the
+host's udev database read-only (libinput declines a device udev has no record
+of, as the CI runner's udevd always has one), but no
+runtime dir, session bus or display socket, and no DRM card node except under
+`just docker hardware`, whose tests open the cards without master and never
+commit.
+
+Verify locally before pushing, push, and check CI once when pushes stop; do not sit polling it. A red `main`
+is fixed before anything else lands.
+
+The dev shell runs the GPU tests on Mesa's llvmpipe. On a machine with a GPU,
+run `just docker hardware` after changes to rendering, DRM, dmabuf, capture or frame
+pacing: it runs the GPU, DRM-without-master, nested dmabuf and GLES harness
+tests on the host's GPU and fails if any of them skips, then measures es2gears
+against headless GLES lys-wm in a private runtime dir (Xwayland off) and reports its
+frame rate, and plays every animation under `lys-wm-pace`
+(`docs/frame-pacing.md`), reporting late frames and failing when a step's
+per-frame counts pass `cmd/lys-wm-pace/baseline.json`. No gate judges time: a
+loaded machine passes the same.
+
+After changes to frame callbacks, presentation feedback, output power or
+capture, run `just docker chromium`: it drives Chromium from nixpkgs, with
+the begin-frame source the Chrome of #397 used, through output power, moves
+between a 60 and a 144 Hz output, power saver and a hidden window's capture,
+and fails when it stops painting. `TestChromium` skips unless
+`LYS_WM_CHROMIUM=1` and `chromium` is on `PATH`.
+
+What only a kernel driver can answer, the DRM tests named `OnASeat` ask real
+ones: `nix build .#checks.x86_64-linux.vm-seat` runs them as DRM master in a VM
+on virtio-gpu and vkms (cursor, overlay planes), counting every atomic request,
+reading the planes back from the kernel and tracing the damage clips it
+holds. They skip unless `LYS_WM_SEAT=1`, which is never set beside a session.
+`nix build .#vm-pace-drm` plays `lys-wm-pace -backend drm` on vkms's vblanks in
+a VM, on llvmpipe, so its late frames are about the latch, not the GPU.
+
+After changes to Xwayland, X11 window management or scaling, run the real X
+applications too. `nix build .#checks.x86_64-linux.vm-xwayland-apps` drives
+IntelliJ IDEA through its first run, dialogs, completion and floating windows
+on a 1.5 output; `just vm-online vm-steam` starts Steam up to its sign-in
+window, which needs the network the build sandbox lacks. Both are unfree and
+stay out of CI.
+
+## The tracker
+
+GitHub is the only tracker. Nothing is planned in local files or chat.
+
+| Thing | Where | Role |
+| --- | --- | --- |
+| Issues | `stubbedev/lys-wm` | One unit of work each; the body is the spec |
+| Milestones | `M0 Foundation` … `M9 Multi-GPU` | Phases; each description holds the exit criteria |
+| Project | [lys-wm board](https://github.com/users/stubbedev/projects/3) | Status of every issue: Todo, In Progress, Done |
+
+Board automation, as configured:
+
+- An issue added to the board starts as **Todo**.
+- Closing an issue moves it to **Done**, and moving an item to Done closes its issue.
+- Nothing adds new issues to the board automatically: always create them with `--project lys-wm`.
+- Nothing sets **In Progress**: run `just start <issue>`.
+
+Views: **Roadmap by milestone** (table grouped by milestone) and **Board**
+(Status columns, a row per milestone). The API cannot update a view. To
+change one, create a new view with
+`POST /users/stubbedev/projectsV2/3/views` (the path takes the login, not the
+numeric user ID), passing `group_by` and `vertical_group_by` as field IDs.
+
+## Picking work
+
+1. Take the lowest open milestone, then `prio:critical` before `prio:high`
+   before `prio:normal`.
+2. Only take an issue whose **Depends on** issues are all closed. Work from a
+   later milestone is fine when it is unblocked and pure; the WM core (#21)
+   does not need the protocol stack, for example.
+3. Read the whole issue, including its **Reference** section, before writing code.
+4. `just start <issue>`.
+
+```sh
+gh issue list -R stubbedev/lys-wm --milestone "M0 Foundation" --state open \
+  --json number,title,labels --jq '.[] | "#\(.number) \(.title) [\([.labels[].name] | join(", "))]"'
+```
+
+## Landing work
+
+- Commit straight to `main`. Subject: `area: change (#N)`, where `area` is the
+  package or the issue's `area:` label. The body says why; the source carries
+  no comments.
+- One logical change per commit. An issue may take several commits, each
+  referencing it.
+- Push, wait for green CI, then close with the commit:
+  `gh issue close N -c "Landed in <sha>: <what landed>"`.
+- If only part of an issue landed, leave it open, comment what landed and what
+  remains, or split the remainder into a new issue and link it.
+- The issue body stays the truth. When implementation changes the scope or
+  the plan, edit the body and say why in a comment.
+
+## New issues
+
+Every bug or gap found while working is filed and fixed, never just
+mentioned. An unrelated find gets its own issue and its own commit; then
+return to the task in progress.
+
+```sh
+gh issue create -R stubbedev/lys-wm --project lys-wm \
+  --milestone "M1 Core protocols" --label "area:protocol,prio:high" \
+  --title "protocol: <what>" --body-file - <<'MD'
+## Goal
+## Scope
+## Done when
+## Depends on
+## Reference
+MD
+```
+
+- **Title**: `area: what`, the same form as commit subjects.
+- **Body**: Goal, Scope, Done when, Depends on (`#N` per blocker), and
+  Reference when a reference implementation exists. Leave out empty sections.
+- **Labels**: at least one `area:*`, exactly one `prio:*`, `bug` for defects,
+  `decision` when it settles a design choice.
+- **Milestone**: the earliest milestone whose exit criteria need it.
+- **Dependencies**: when a new issue blocks an existing one, add it to that
+  issue's **Depends on**.
+
+## Decisions
+
+Issues labelled `decision` are settled before the code that depends on them.
+Comment the outcome and the reasons on the issue, record it in
+`docs/architecture.md`, then implement. Ask the user first when the choice is
+costly to reverse.
+
+## Milestones
+
+- Close a milestone only when all its issues are closed **and** its exit
+  criteria have been exercised. Say how they were verified in the closing
+  comment of its last issue, then
+  `gh api -X PATCH repos/stubbedev/lys-wm/milestones/<number> -f state=closed`.
+- If exit criteria change, edit the milestone description.
+- To move an issue to another milestone, comment why: usually a dependency
+  that was missed.
+
+## References
+
+Issues link Hyprland, aquamarine, hyprwayland-scanner and hy3 at pinned
+commits. When refreshing a link, pin the new commit too. What each licence
+allows is in `docs/architecture.md`; never port hy3 code.

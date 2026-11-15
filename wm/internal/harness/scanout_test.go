@@ -1,0 +1,376 @@
+package harness
+
+import (
+	"errors"
+	"image"
+	"slices"
+	"testing"
+
+	"github.com/stubbedev/lys-lib/fourcc"
+
+	"github.com/stubbedev/lys-wm/internal/backend"
+	"github.com/stubbedev/lys-wm/internal/backend/headless"
+	"github.com/stubbedev/lys-wm/internal/compositor"
+	"github.com/stubbedev/lys-wm/internal/gpu"
+	ccm "github.com/stubbedev/lys-wm/internal/protocol/client/colormanagement"
+	cpt "github.com/stubbedev/lys-wm/internal/protocol/client/presentationtime"
+	cwlr "github.com/stubbedev/lys-wm/internal/protocol/client/wlrlayershell"
+	"github.com/stubbedev/lys-wm/internal/render"
+	"github.com/stubbedev/lys-wm/internal/surface"
+	"github.com/stubbedev/lys-wm/internal/testclient"
+)
+
+func scanouts(h *Harness) uint64 {
+	var n uint64
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		n = b.Outputs()[0].Scanouts()
+		return nil
+	})
+	return n
+}
+
+var primaryPlane = gpu.ScanoutTarget{Device: 0xe201, Formats: []gpu.FormatModifier{
+	{Format: fourcc.XRGB8888, Modifier: fourcc.Linear},
+	{Format: fourcc.ARGB8888, Modifier: fourcc.Linear},
+	{Format: fourcc.XRGB8888, Modifier: 7},
+	{Format: fourcc.XRGB8888, Modifier: fourcc.Invalid},
+	{Format: fourcc.XRGB2101010, Modifier: fourcc.Linear},
+}}
+
+type scanoutScene struct {
+	h *Harness
+	c *testclient.Client
+	w *testclient.Window
+}
+
+func fullscreenScanout(t *testing.T, start gpuStarter, configure func(*compositor.Config)) *scanoutScene {
+	t.Helper()
+	h := start(t, configure, small)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		b.Outputs()[0].AllowScanout(primaryPlane)
+		return nil
+	})
+	c := testclient.Connect(t, h.Socket())
+	_, in := c.Seat()
+	w := c.Window("game", quadrants)
+	c.DispatchUntil("the window to map", w.Mapped)
+	c.DispatchUntil("the pointer to enter", func() bool { return in.Serial != 0 })
+	if err := errors.Join(in.Pointer.SetCursor(in.Serial, nil, 0, 0), c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	h.dispatch("fullscreen")
+	c.DispatchUntil("the fullscreen configure", func() bool { return w.Logical == small.Size })
+	quiesce(t, h, c, w)
+	if n := scanouts(h); n != 0 {
+		t.Fatalf("%d shm frames scanned out", n)
+	}
+	return &scanoutScene{h: h, c: c, w: w}
+}
+
+func (s *scanoutScene) show(t *testing.T, name string, b *testclient.DMABUF) {
+	t.Helper()
+	before := scanouts(s.h)
+	if err := errors.Join(s.w.Surface.Attach(b.WL, 0, 0), s.w.Surface.DamageBuffer(0, 0, 160, 100), s.w.Surface.Commit(), s.c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	s.h.Eventually(name+" scanned out", func(b *headless.Backend, _ *compositor.Compositor) bool { return b.Outputs()[0].Scanouts() == before+1 })
+}
+
+func TestFullscreenDMABUFsScanOutDirectly(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testFullscreenDMABUFsScanOutDirectly)
+}
+
+func testFullscreenDMABUFsScanOutDirectly(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	h, c := s.h, s.c
+	show := func(name string, b *testclient.DMABUF) { t.Helper(); s.show(t, name, b) }
+	first := c.DMABUF(image.Pt(160, 100), testclient.Fill(0xff, 0, 0))
+	show("the first dmabuf", first)
+	second := c.DMABUF(image.Pt(160, 100), testclient.Fill(0, 0xff, 0))
+	show("the second dmabuf", second)
+	c.DispatchUntil("the first dmabuf released once off screen", func() bool { return first.Released })
+	settle(t, h)
+	c.Sync()
+	if second.Released {
+		t.Fatal("the dmabuf on screen was released")
+	}
+
+	h.dispatch("fullscreen")
+	other := c.Window("beside", quadrants)
+	c.DispatchUntil("a second window to map", other.Mapped)
+	before := scanouts(h)
+	c.DispatchUntil("the scanned-out dmabuf released after a composited frame", func() bool { return second.Released })
+	settle(t, h)
+	if n := scanouts(h); n != before {
+		t.Fatalf("a window sharing the output scanned out %d frames", n-before)
+	}
+}
+
+func TestAnHDROutputScansOutOnlyWhatMatchesItsSignal(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testAnHDROutputScansOutOnlyWhatMatchesItsSignal)
+}
+
+func testAnHDROutputScansOutOnlyWhatMatchesItsSignal(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(cfg *compositor.Config) {
+		cfg.Outputs = compositor.OutputRules{Fallback: compositor.OutputRule{HDR: compositor.HDROn}}
+	})
+	before := scanouts(s.h)
+	b := s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0, 0xff, 0))
+	if err := errors.Join(s.w.Surface.Attach(b.WL, 0, 0), s.w.Surface.DamageBuffer(0, 0, 160, 100), s.w.Surface.Commit(), s.c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	settle(t, s.h)
+	if n := scanouts(s.h); n != before {
+		t.Fatalf("an SDR dmabuf scanned out %d frames on an HDR output", n-before)
+	}
+	m := bindColorManager(t, s.c)
+	cs, err := m.GetSurface(s.w.Surface)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cs.SetImageDescription(hdr10Description(t, s.c, m, 1000), ccm.WpColorManagerV1RenderIntentPerceptual); err != nil {
+		t.Fatal(err)
+	}
+	s.show(t, "a dmabuf tagged with what the output carries", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0, 0, 0xff)))
+}
+
+func TestAFullscreenDMABUFScansOutOverAWallpaperAndABar(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testAFullscreenDMABUFScansOutOverAWallpaperAndABar)
+}
+
+func testAFullscreenDMABUFScansOutOverAWallpaperAndABar(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	shell := testclient.Connect(t, s.h.Socket())
+	wallpaper := shell.Layer(testclient.LayerSpec{
+		Layer:  cwlr.ZwlrLayerShellV1LayerBackground,
+		Anchor: cwlr.ZwlrLayerSurfaceV1AnchorTop | cwlr.ZwlrLayerSurfaceV1AnchorBottom | cwlr.ZwlrLayerSurfaceV1AnchorLeft | cwlr.ZwlrLayerSurfaceV1AnchorRight,
+	}, testclient.Fill(0x20, 0x20, 0x20))
+	bar := shell.Layer(topBar(cwlr.ZwlrLayerSurfaceV1KeyboardInteractivityNone), testclient.Fill(barColor[2], barColor[1], barColor[0]))
+	shell.DispatchUntil("the wallpaper and the bar to map", func() bool { return wallpaper.Mapped() && bar.Mapped() })
+	s.show(t, "a fullscreen dmabuf over the wallpaper and the bar", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0, 0, 0xff)))
+}
+
+func TestAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt)
+}
+
+func testAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	before := scanouts(s.h)
+	b := s.c.DMABUFIn(fourcc.ARGB8888, image.Pt(160, 100), testclient.Fill(0, 0xff, 0))
+	if err := errors.Join(s.w.Surface.Attach(b.WL, 0, 0), s.w.Surface.DamageBuffer(0, 0, 160, 100), s.w.Surface.Commit(), s.c.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	settle(t, s.h)
+	if n := scanouts(s.h); n != before {
+		t.Fatalf("an ARGB dmabuf with no opaque region scanned out %d frames", n-before)
+	}
+	region, err := s.c.Compositor.CreateRegion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := errors.Join(region.Add(0, 0, 160, 100), s.w.Surface.SetOpaqueRegion(region), region.Destroy()); err != nil {
+		t.Fatal(err)
+	}
+	s.show(t, "the ARGB dmabuf once its opaque region covers it", b)
+}
+
+func TestATenBitDMABUFScansOutUnconverted(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testATenBitDMABUFScansOutUnconverted)
+}
+
+func testATenBitDMABUFScansOutUnconverted(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	s.show(t, "an XR30 dmabuf", s.c.DMABUFIn(fourcc.XRGB2101010, image.Pt(160, 100), testclient.Fill(0xff, 0, 0)))
+}
+
+func TestDestroyingAReplacedBufferStillOnScreenSendsNoRelease(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testDestroyingAReplacedBufferStillOnScreenSendsNoRelease)
+}
+
+func testDestroyingAReplacedBufferStillOnScreenSendsNoRelease(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	gone := s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0, 0, 0xff))
+	s.show(t, "the dmabuf", gone)
+	next := s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0xff, 0xff, 0))
+	before := scanouts(s.h)
+	if err := errors.Join(s.w.Surface.Attach(next.WL, 0, 0), s.w.Surface.DamageBuffer(0, 0, 160, 100), s.w.Surface.Commit(), gone.WL.Destroy(), s.c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	s.h.Eventually("the next dmabuf scanned out", func(b *headless.Backend, _ *compositor.Compositor) bool { return b.Outputs()[0].Scanouts() == before+1 })
+	settle(t, s.h)
+	s.c.Sync()
+	if gone.Released {
+		t.Fatal("a destroyed buffer was released")
+	}
+}
+
+func TestAFullscreenSurfaceIsOfferedThePlaneFormats(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testAFullscreenSurfaceIsOfferedThePlaneFormats)
+}
+
+func testAFullscreenSurfaceIsOfferedThePlaneFormats(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	var game *surface.Surface
+	var got gpu.ScanoutTarget
+	s.h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		game = c.Seat().PointerFocus()
+		got = c.SurfaceScanout(game)
+		return nil
+	})
+	want := []gpu.FormatModifier{primaryPlane.Formats[0], primaryPlane.Formats[2], primaryPlane.Formats[3], primaryPlane.Formats[4]}
+	if game == nil || got.Device != primaryPlane.Device || !slices.Equal(got.Formats, want) {
+		t.Fatalf("a fullscreen surface is offered %+v, want device %#x and the opaque formats %+v", got, primaryPlane.Device, want)
+	}
+
+	s.h.dispatch("fullscreen")
+	other := s.c.Window("beside", quadrants)
+	s.c.DispatchUntil("a second window to map", other.Mapped)
+	s.h.Eventually("the plane formats withdrawn from a tiled surface", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		return len(c.SurfaceScanout(game).Formats) == 0
+	})
+}
+
+func TestAWindowWhoseBufferWasDestroyedIsDrawnAgainFromItsNextBuffer(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testAWindowWhoseBufferWasDestroyedIsDrawnAgainFromItsNextBuffer)
+}
+
+func testAWindowWhoseBufferWasDestroyedIsDrawnAgainFromItsNextBuffer(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	gone := s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0, 0, 0xff))
+	s.show(t, "the dmabuf", gone)
+	if err := errors.Join(gone.WL.Destroy(), s.c.Display.Flush()); err != nil {
+		t.Fatal(err)
+	}
+	s.c.Sync()
+	settle(t, s.h)
+	s.show(t, "the next dmabuf", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0, 0xff, 0)))
+}
+
+func TestACommitThatChangesNothingScansOutNothingAgain(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testACommitThatChangesNothingScansOutNothingAgain)
+}
+
+func testACommitThatChangesNothingScansOutNothingAgain(t *testing.T, start gpuStarter) {
+	s := fullscreenScanout(t, start, func(*compositor.Config) {})
+	s.show(t, "the dmabuf", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0xff, 0, 0)))
+	settle(t, s.h)
+	before := scanouts(s.h)
+	for range 5 {
+		done := false
+		if _, err := s.w.Surface.Frame(frameDone{&done}); err != nil {
+			t.Fatal(err)
+		}
+		if err := errors.Join(s.w.Surface.Commit(), s.c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		s.c.DispatchUntil("the frame callback", func() bool { return done })
+	}
+	settle(t, s.h)
+	if n := scanouts(s.h); n != before {
+		t.Fatalf("%d commits that only asked for a frame callback flipped the same buffer %d times", 5, n-before)
+	}
+}
+
+func TestAScannedOutFrameIsZeroCopyAndACompositedOneIsNot(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, func(t *testing.T, start gpuStarter) {
+		s := fullscreenScanout(t, start, func(*compositor.Config) {})
+		p, err := cpt.NewWpPresentation(s.c.Display, 2, &presentationEvents{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.c.Bind(p)
+		feedback := func() *feedbackEvents {
+			fb := &feedbackEvents{}
+			if _, err := p.Feedback(s.w.Surface, fb); err != nil {
+				t.Fatal(err)
+			}
+			return fb
+		}
+		direct := feedback()
+		s.show(t, "the dmabuf", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0xff, 0, 0)))
+		s.c.DispatchUntil("the scanned-out frame presented", func() bool { return len(direct.log) > 0 })
+		if direct.flags&cpt.WpPresentationFeedbackKindZeroCopy == 0 {
+			t.Fatalf("a scanned-out frame presented with flags %#x, want zero_copy", direct.flags)
+		}
+		composited := feedback()
+		if err := errors.Join(s.w.Surface.Attach(s.c.Buffer(image.Pt(160, 100), 1, quadrants), 0, 0), s.w.Surface.DamageBuffer(0, 0, 160, 100), s.w.Surface.Commit(), s.c.Display.Flush()); err != nil {
+			t.Fatal(err)
+		}
+		s.c.DispatchUntil("the composited frame presented", func() bool { return len(composited.log) > 0 })
+		if composited.flags&cpt.WpPresentationFeedbackKindZeroCopy != 0 {
+			t.Fatalf("a composited frame presented with flags %#x, want no zero_copy", composited.flags)
+		}
+	})
+}
+
+func composited(h *Harness) uint64 {
+	var n uint64
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		o := b.Outputs()[0]
+		n = o.Presents() - o.Scanouts()
+		return nil
+	})
+	return n
+}
+
+func scannedAt(h *Harness) backend.Placement {
+	var at backend.Placement
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		at = b.Outputs()[0].ScannedAt()
+		return nil
+	})
+	return at
+}
+
+func TestScaledAndLetterboxedFullscreenDMABUFsScanOut(t *testing.T) {
+	t.Parallel()
+	onEachDMABUFRenderer(t, testScaledAndLetterboxedFullscreenDMABUFsScanOut)
+}
+
+func testScaledAndLetterboxedFullscreenDMABUFsScanOut(t *testing.T, start gpuStarter) {
+	for _, tc := range []struct {
+		name     string
+		buffer   image.Point
+		viewport bool
+		want     backend.Placement
+	}{
+		{"a half-size buffer viewported to the output", image.Pt(80, 50), true, backend.Placement{Src: render.FRect{W: 80, H: 50}, Dst: image.Rect(0, 0, 160, 100)}},
+		{"a narrower buffer pillarboxed", image.Pt(120, 100), false, backend.Placement{Src: render.FRect{W: 120, H: 100}, Dst: image.Rect(20, 0, 140, 100)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := fullscreenScanout(t, start, func(*compositor.Config) {})
+			if tc.viewport {
+				vp, err := s.c.Viewporter.GetViewport(s.w.Surface)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := vp.SetDestination(160, 100); err != nil {
+					t.Fatal(err)
+				}
+			}
+			buffers := [2]*testclient.DMABUF{s.c.DMABUF(tc.buffer, testclient.Fill(0xff, 0, 0)), s.c.DMABUF(tc.buffer, testclient.Fill(0, 0xff, 0))}
+			s.show(t, "the first buffer", buffers[0])
+			if at := scannedAt(s.h); at != tc.want {
+				t.Fatalf("scanned out at %+v, want %+v", at, tc.want)
+			}
+			before := composited(s.h)
+			for i := range 100 {
+				s.show(t, "a buffer", buffers[(i+1)%2])
+			}
+			if n := composited(s.h) - before; n != 0 {
+				t.Fatalf("100 commits of a placed fullscreen buffer composited %d frames, want 0", n)
+			}
+		})
+	}
+}
