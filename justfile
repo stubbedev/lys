@@ -24,13 +24,14 @@ default:
 in component +args:
     nix develop .#{{ component }} -c just --justfile {{ component }}/justfile --working-directory {{ component }} {{ args }}
 
-# Build Nix checks for this machine's system: `just checks login-vm wm-module`.
+# Build Nix checks for this machine's system, one after another so each VM test
+# has the machine to itself: `just checks login-vm wm-module`.
 [script("bash")]
 checks +names:
     set -euo pipefail
-    attrs=()
-    for name in {{ names }}; do attrs+=(".#checks.{{ arch() }}-linux.${name}"); done
-    nix build -L --no-link "${attrs[@]}"
+    for name in {{ names }}; do
+        nix build -L --no-link ".#checks.{{ arch() }}-linux.${name}"
+    done
 
 # Build flake packages: `just packages lys-wm lys-shell`.
 [script("bash")]
