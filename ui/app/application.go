@@ -510,6 +510,9 @@ type WindowConfig struct {
 	// take over from the surface it replaces. A reconnect rebuilds the
 	// window, and it runs again for the new one.
 	OnPresented func()
+	// OnOutputs runs on the loop goroutine whenever the outputs the
+	// window is on (Window.Outputs) change.
+	OnOutputs func()
 	// OnClosed runs when the window closed (compositor request accepted,
 	// client Close, or output gone).
 	OnClosed func()
@@ -617,6 +620,7 @@ func (a *Application) openWindow(w *Window, cfg WindowConfig) (*hostWindow, erro
 	if err != nil {
 		return nil, fmt.Errorf("app: create surface: %w", err)
 	}
+	w.trackOutputs(surf, cfg.OnOutputs)
 	width, height := defaultSize(cfg.Root, cfg.Width, cfg.Height, a.sess.Outputs())
 	win, err := window.New(a.sess.WmBase(), surf, window.Config{
 		Title: cfg.Title, AppID: cfg.AppID, Width: width, Height: height,
@@ -1477,6 +1481,7 @@ type Window struct {
 	cfg     WindowConfig
 	kind    surfx.Kind
 	opacity surfaceOpacity
+	outputs *surfaceOutputs
 }
 
 // Close closes the window from the client side; the close-request veto

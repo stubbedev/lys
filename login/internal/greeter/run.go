@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/outputsize"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -77,6 +78,7 @@ func Run(init Init) error {
 	defer power.close()
 	var win *app.Window
 	var held widget.Widget
+	home := homeOutput(sess.Outputs())
 	sheet := Stylesheet(init.Config)
 	s := newScreen(init, font, sheet, deps{
 		connect: func(start auth.Start) (auth.Conversation, error) {
@@ -118,6 +120,7 @@ func Run(init Init) error {
 		nextLayout:   layouts.Switcher("greeter"),
 		labelLayouts: layouts.LabeledOnSystem,
 		splash:       loadSplashFrame,
+		windowOutput: func() string { return windowOutput(win, home) },
 		a11y: a11yDeps{
 			readerFound:  readerFound,
 			startReader:  screenReaders.start(a, readerPath),
@@ -129,20 +132,23 @@ func Run(init Init) error {
 	})
 	defer s.end()
 	icons.start(s.prompt.PreloadIcons)
-	win, err = a.NewWindow(windowConfig(s.root, init.OnPresented, s.captureKey))
+	win, err = a.NewWindow(windowConfig(s.root, init.OnPresented, s.captureKey, s.outputChanged))
 	if err != nil {
 		return err
 	}
-	win.Fullscreen()
+	win.FullscreenOn(home)
 	var covers covering
 	defer covers.end()
 	s.start()
 	err = covers.startAfter(win.WhenPresented, s.markPresented, func() func() {
-		return coverOutputs(sess.LayerShell() != nil, sess.Outputs(), sess.WatchOutputs, func(out *app.Output) {
-			if _, err := a.NewLayer(s.coverOn(out, font, sheet)); err != nil {
-				log.Printf("greeter: cover an output: %v", err)
+		cover := func(layer func(*app.Output, render.Font, *widget.Stylesheet) app.LayerConfig) func(*app.Output) {
+			return func(out *app.Output) {
+				if _, err := a.NewLayer(layer(out, font, sheet)); err != nil {
+					log.Printf("greeter: cover output %s: %v", out.Name, err)
+				}
 			}
-		})
+		}
+		return coverOutputs(sess.LayerShell() != nil, sess.Outputs(), sess.WatchOutputs, cover(s.handOverCoverOn), cover(s.coverOn))
 	})
 	if err != nil {
 		return fmt.Errorf("greeter: wait for the first frame: %w", err)
@@ -187,20 +193,40 @@ func (c *covering) end() {
 	}
 }
 
-func coverOutputs(layerShell bool, outputs []*app.Output, watch func(added, removed func(*app.Output)) func(), cover func(*app.Output)) (stop func()) {
+func coverOutputs(layerShell bool, outputs []*app.Output, watch func(added, removed func(*app.Output)) func(), first, added func(*app.Output)) (stop func()) {
 	if !layerShell {
 		log.Printf("greeter: the compositor has no layer shell, so only the greeter's window covers its outputs")
 		return func() {}
 	}
 	for _, out := range outputs {
-		cover(out)
+		first(out)
 	}
-	return watch(cover, nil)
+	return watch(added, nil)
 }
 
-func windowConfig(root widget.Widget, onPresented func(), capture func(app.Accel) bool) app.WindowConfig {
+func homeOutput(outputs []*app.Output) *app.Output {
+	if len(outputs) == 0 {
+		return nil
+	}
+	return outputs[0]
+}
+
+func windowOutput(win *app.Window, home *app.Output) string {
+	if win != nil {
+		if on := win.Outputs(); len(on) > 0 {
+			return on[0].Name
+		}
+	}
+	if home == nil {
+		return ""
+	}
+	return home.Name
+}
+
+func windowConfig(root widget.Widget, onPresented func(), capture func(app.Accel) bool, onOutputs func()) app.WindowConfig {
 	cfg := app.WindowConfig{
 		KeyCapture: capture,
+		OnOutputs:  onOutputs,
 		Title:      "lys-greeter",
 		AppID:      "dev.stubbe.lys.greeter",
 		Root:       root,
@@ -245,14 +271,25 @@ func (s *screen) applyDebugOps(spec string, after func(time.Duration, func())) {
 // installed from the same palette. The greeter carries no user styles:
 // pre-login there is no user.
 func Stylesheet(cfg *config.Config) *widget.Stylesheet {
-	palette := cfg.Styling.ActivePalette()
-	p, err := styling.PaletteFromHex(palette)
+	palette, p, err := resolvePalette(cfg.Styling.ActivePalette())
 	if err != nil {
-		log.Printf("greeter: palette: %v", err)
-		p = styling.Default()
+		log.Printf("%v; showing the default lys-shell palette", err)
 	}
 	apptheme.InstallWidgetTheme(p, cfg)
 	return widget.NewStylesheet(styling.BundleCSS(cfg, palette, p), apptheme.Priority)
+}
+
+func resolvePalette(configured config.Palette) (config.Palette, *styling.Palette, error) {
+	p, err := styling.PaletteFromHex(configured)
+	if err == nil {
+		return configured, p, nil
+	}
+	fallback := tokens.LysShell()
+	p, fallbackErr := styling.PaletteFromHex(fallback)
+	if fallbackErr != nil {
+		panic(fmt.Sprintf("greeter: the default lys-shell palette: %v", fallbackErr))
+	}
+	return fallback, p, fmt.Errorf("greeter: resolve the configured palette: %w", err)
 }
 
 // systemPower runs the power buttons' actions through logind, which

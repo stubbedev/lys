@@ -244,7 +244,7 @@ func (e *toplevelEvents) HandleZwlrForeignToplevelHandleV1Done(wlr.ZwlrForeignTo
 	tl := e.tl
 	tl.Title, tl.AppID = e.title, e.appID
 	tl.Maximized, tl.Minimized, tl.Activated, tl.Fullscreen = decodeToplevelState(e.states)
-	tl.Outputs = e.sess.outputsOf(e.outputs)
+	tl.Outputs = e.sess.OutputsOf(e.outputs)
 	if e.sess.OnToplevelUpdated != nil {
 		e.sess.OnToplevelUpdated(tl)
 	}
@@ -300,9 +300,10 @@ func (e *toplevelEvents) HandleZwlrForeignToplevelHandleV1OutputLeave(ev wlr.Zwl
 	e.outputs = slices.DeleteFunc(e.outputs, func(o *wl.Output) bool { return o == ev.Output })
 }
 
-// outputsOf is the session's outputs behind the wl_outputs a toplevel
-// entered, in that order; one the session does not list is left out.
-func (s *Session) outputsOf(wls []*wl.Output) []*Output {
+// OutputsOf is the session's outputs behind the wl_outputs wls, a
+// toplevel or a surface entered, in that order; one the session does
+// not list is left out.
+func (s *Session) OutputsOf(wls []*wl.Output) []*Output {
 	out := make([]*Output, 0, len(wls))
 	for _, w := range wls {
 		if i := slices.IndexFunc(s.outputs, func(o *Output) bool { return o.WL == w }); i >= 0 {

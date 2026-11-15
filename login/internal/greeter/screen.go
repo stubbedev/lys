@@ -99,6 +99,7 @@ type deps struct {
 	labelLayouts func(names []string) ([]layouts.Layout, error)
 	a11y         a11yDeps
 	splash       func() (splashFrame, error)
+	windowOutput func() string
 }
 
 type authHandle interface {
@@ -139,7 +140,8 @@ type screen struct {
 
 	presented bool
 	announced bool
-	over      *takeOver
+	splash    *takeOver
+	over      *handOver
 
 	clock *loginscreen.ClockTicker
 
@@ -217,8 +219,9 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	}
 	surface := loginscreen.Build(spec)
 	s.prompt, s.root = surface.Prompt, surface.Root
-	if s.over = takeOverSplash(d.splash); s.over != nil {
-		s.root = s.over.over(surface.Root, init.Config.Animations)
+	if s.splash = takeOverSplash(d.splash); s.splash != nil {
+		s.over = s.splash.over(surface.Root, init.Config.Animations, d.windowOutput)
+		s.root = s.over.root
 	}
 	s.prompt.Username.SetPlaceholder(t("greeter-username"))
 	s.prompt.Username.SetAccessibleName(t("greeter-username"))
@@ -669,6 +672,22 @@ func (s *screen) show() {
 
 func (s *screen) showPrompt() {
 	reveal.Show(s.prompt.Reveal, s.init.Config.Animations, config.AnimLock)
+}
+
+func (s *screen) outputChanged() {
+	if s.over != nil {
+		s.over.outputChanged()
+	}
+}
+
+func (s *screen) handOverCoverOn(out *app.Output, font render.Font, sheet *widget.Stylesheet) app.LayerConfig {
+	cfg := s.coverOn(out, font, sheet)
+	if s.splash == nil {
+		return cfg
+	}
+	h := s.splash.over(cfg.Root, s.init.Config.Animations, func() string { return out.Name })
+	cfg.Root, cfg.OnPresented = h.root, h.start
+	return cfg
 }
 
 func (s *screen) coverOn(out *app.Output, font render.Font, sheet *widget.Stylesheet) app.LayerConfig {

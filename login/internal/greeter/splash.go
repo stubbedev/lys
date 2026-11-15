@@ -41,9 +41,6 @@ type takeOver struct {
 	frame splashframe.LastFrame
 	bgrt  *splashframe.BGRT
 	logos map[int]*render.Icon
-	area  *widget.DrawingArea
-	fade  *widget.Revealer
-	said  bool
 }
 
 func newTakeOver(f splashFrame) (*takeOver, error) {
@@ -64,50 +61,25 @@ func newTakeOver(f splashFrame) (*takeOver, error) {
 	return t, nil
 }
 
-func (t *takeOver) picture(size image.Point) (splashframe.Picture, error) {
-	out, err := t.frame.On(size)
+func (t *takeOver) on(output string) (splashframe.Output, error) {
+	if output == "" {
+		return splashframe.Output{}, errors.New("the greeter does not know the output the frame is on")
+	}
+	return t.frame.Named(output)
+}
+
+func (t *takeOver) picture(output string, size image.Point) (splashframe.Picture, error) {
+	out, err := t.on(output)
 	if err != nil {
 		return splashframe.Picture{}, err
+	}
+	if out.Size != size {
+		return splashframe.Picture{}, fmt.Errorf("the splash drew a %dx%d frame on %s, the greeter's is %dx%d", out.Size.X, out.Size.Y, output, size.X, size.Y)
 	}
 	if t.bgrt != nil {
 		return splashframe.Picture{Background: t.frame.Background, Mark: t.bgrt.Mark(size)}, nil
 	}
 	return splashframe.Picture{Background: t.frame.Background, Mark: splashframe.LysMark(size, out.Scale, t.logos[out.Scale])}, nil
-}
-
-func (t *takeOver) paint(cv *render.Canvas) {
-	full := cv.Rect()
-	size := image.Pt(full.W, full.H)
-	p, err := t.picture(size)
-	if err != nil {
-		cv.ClearDevice(full, t.frame.Background)
-		t.say("greeter: the first frame is the splash's background without its logo: %v", err)
-		return
-	}
-	p.Paint(cv)
-	t.say("greeter: the first frame takes over the splash's: the logo at %v on %dx%d", p.Mark.At, size.X, size.Y)
-}
-
-func (t *takeOver) say(format string, args ...any) {
-	if t.said {
-		return
-	}
-	t.said = true
-	log.Printf(format, args...)
-}
-
-func (t *takeOver) over(content widget.Widget, anims config.AnimationsConfig) widget.Widget {
-	t.area = widget.NewDrawingArea(0, 0)
-	t.area.OnDraw = func(cv *render.Canvas, _ render.Rect) { t.paint(cv) }
-	t.fade = widget.NewRevealer(content)
-	t.fade.SetTransition(widget.RevealFade)
-	t.fade.SetDuration(t.fadeDuration(anims))
-	t.fade.SetOnTransitionDone(func(revealed bool) {
-		if revealed {
-			t.area.SetVisible(false)
-		}
-	})
-	return widget.NewOverlay().Append(t.area).Append(t.fade)
 }
 
 func (t *takeOver) fadeDuration(anims config.AnimationsConfig) time.Duration {
@@ -117,8 +89,62 @@ func (t *takeOver) fadeDuration(anims config.AnimationsConfig) time.Duration {
 	return time.Duration(anims.DurationFor(config.AnimLock, false)) * time.Millisecond
 }
 
-func (t *takeOver) start() {
-	t.fade.SetRevealed(true)
+type handOver struct {
+	t      *takeOver
+	output func() string
+	root   widget.Widget
+	area   *widget.DrawingArea
+	fade   *widget.Revealer
+	said   bool
+}
+
+func (t *takeOver) over(content widget.Widget, anims config.AnimationsConfig, output func() string) *handOver {
+	h := &handOver{t: t, output: output}
+	h.area = widget.NewDrawingArea(0, 0)
+	h.area.OnDraw = func(cv *render.Canvas, _ render.Rect) { h.paint(cv) }
+	h.fade = widget.NewRevealer(content)
+	h.fade.SetTransition(widget.RevealFade)
+	h.fade.SetDuration(t.fadeDuration(anims))
+	h.fade.SetOnTransitionDone(func(revealed bool) {
+		if revealed {
+			h.area.SetVisible(false)
+		}
+	})
+	h.root = widget.NewOverlay().Append(h.area).Append(h.fade)
+	return h
+}
+
+func (h *handOver) paint(cv *render.Canvas) {
+	full := cv.Rect()
+	size := image.Pt(full.W, full.H)
+	p, err := h.t.picture(h.output(), size)
+	if err != nil {
+		cv.ClearDevice(full, h.t.frame.Background)
+		h.say("greeter: the first frame is the splash's background without its logo: %v", err)
+		return
+	}
+	p.Paint(cv)
+	h.say("greeter: the first frame on %s takes over the splash's: the logo at %v on %dx%d", h.output(), p.Mark.At, size.X, size.Y)
+}
+
+func (h *handOver) say(format string, args ...any) {
+	if h.said {
+		return
+	}
+	h.said = true
+	log.Printf(format, args...)
+}
+
+func (h *handOver) outputChanged() {
+	if !h.area.Visible() {
+		return
+	}
+	h.said = false
+	h.area.QueueDraw()
+}
+
+func (h *handOver) start() {
+	h.fade.SetRevealed(true)
 }
 
 func takeOverSplash(load func() (splashFrame, error)) *takeOver {

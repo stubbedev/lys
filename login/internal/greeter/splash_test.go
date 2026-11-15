@@ -6,17 +6,23 @@ import (
 	"image"
 	"image/color"
 	"io/fs"
+	"log"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 func splashRig(t *testing.T, edit func(*Init), f splashFrame) *rig {
 	t.Helper()
-	return buildRig(t, edit, &rig{outputs: []image.Point{{1920, 1080}}, timeout: make(chan time.Time), scale: 1, splash: &f})
+	return buildRig(t, edit, &rig{outputs: []image.Point{{1920, 1080}}, timeout: make(chan time.Time), scale: 1, splash: &f, output: "Virtual-1"})
 }
 
 func lysFrame(size image.Point, scale int) splashFrame {
@@ -174,5 +180,167 @@ func TestAFrameTheSplashDidNotDrawShowsItsBackgroundAlone(t *testing.T) {
 	size := image.Pt(800, 600)
 	if box := ink(painted(r, size), size, f.frame.Background); !box.Empty() {
 		t.Errorf("a frame of a size the splash never drew shows %v besides its background", box)
+	}
+}
+
+func twoOutputFrame(size image.Point) splashFrame {
+	return splashFrame{frame: splashframe.LastFrame{
+		Background: render.RGB(0, 0, 0),
+		Logo:       splashframe.LogoLys,
+		Outputs: []splashframe.Output{
+			{Name: "DP-1", Size: size, Scale: 1},
+			{Name: "DP-2", Size: size, Scale: 2},
+		},
+	}}
+}
+
+func lysPicture(t *testing.T, size image.Point, scale int) []byte {
+	t.Helper()
+	icon, err := splashframe.RasterizeLogo(scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pictureOf(splashframe.Picture{Background: render.RGB(0, 0, 0), Mark: splashframe.LysMark(size, scale, icon)}, size)
+}
+
+func paintedRoot(w widget.Widget, size image.Point) []byte {
+	data := make([]byte, render.Stride(size.X)*size.Y)
+	paintInto(w, size, data)
+	return data
+}
+
+func captureLog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	return &logs
+}
+
+func TestSameSizeOutputsAtDifferentScalesEachGetTheirOwnPicture(t *testing.T) {
+	size := image.Pt(1600, 1200)
+	for _, tc := range []struct {
+		output string
+		scale  int
+	}{{"DP-1", 1}, {"DP-2", 2}} {
+		r := splashRig(t, nil, twoOutputFrame(size))
+		r.output = tc.output
+		if !bytes.Equal(painted(r, size), lysPicture(t, size, tc.scale)) {
+			t.Errorf("on %s the first frame is not the splash's scale %d picture", tc.output, tc.scale)
+		}
+	}
+}
+
+func TestAnOutputTheRecordLacksShowsTheBackgroundAndSaysWhich(t *testing.T) {
+	size := image.Pt(1600, 1200)
+	for _, tc := range []struct {
+		output, logged string
+	}{{"HDMI-A-1", "HDMI-A-1"}, {"", "does not know the output"}} {
+		logs := captureLog(t)
+		r := splashRig(t, nil, twoOutputFrame(size))
+		r.output = tc.output
+		if box := ink(painted(r, size), size, render.RGB(0, 0, 0)); !box.Empty() {
+			t.Errorf("on %q the frame shows %v besides the splash's background", tc.output, box)
+		}
+		if !strings.Contains(logs.String(), tc.logged) {
+			t.Errorf("on %q the log %q does not say %q", tc.output, logs.String(), tc.logged)
+		}
+	}
+}
+
+func TestTheWindowsOutputSettlingRedrawsThePicture(t *testing.T) {
+	size := image.Pt(1600, 1200)
+	logs := captureLog(t)
+	r := splashRig(t, nil, twoOutputFrame(size))
+	r.output = "HDMI-A-1"
+	painted(r, size)
+	r.output = "DP-2"
+	r.s.outputChanged()
+	if !bytes.Equal(painted(r, size), lysPicture(t, size, 2)) {
+		t.Error("once the window is known to be on DP-2 its frame is not DP-2's picture")
+	}
+	if !strings.Contains(logs.String(), "on DP-2 takes over") {
+		t.Errorf("the log %q does not report the picture on DP-2", logs.String())
+	}
+	r.s.markPresented()
+	r.s.over.fade.Finish()
+	r.output = "DP-1"
+	logs.Reset()
+	r.s.outputChanged()
+	if logs.Len() != 0 {
+		t.Errorf("an output change after the fade landed redrew the hand-over: %q", logs.String())
+	}
+}
+
+func TestEveryCoverTakesOverItsOutputsSplashPictureAndFadesIn(t *testing.T) {
+	size := image.Pt(1600, 1200)
+	r := splashRig(t, nil, twoOutputFrame(size))
+	face := treetest.Font(t)
+	for _, tc := range []struct {
+		output string
+		scale  int
+	}{{"DP-1", 1}, {"DP-2", 2}} {
+		out := &app.Output{Name: tc.output}
+		cfg := r.s.handOverCoverOn(out, face, nil)
+		if cfg.Output != out || cfg.Layer != app.LayerBackground {
+			t.Errorf("%s: the hand-over cover is not the cover on its output", tc.output)
+		}
+		before := paintedRoot(cfg.Root, size)
+		if !bytes.Equal(before, lysPicture(t, size, tc.scale)) {
+			t.Errorf("%s: the cover's first frame is not the splash's scale %d picture", tc.output, tc.scale)
+		}
+		if cfg.OnPresented == nil {
+			t.Fatalf("%s: the cover never starts its fade", tc.output)
+		}
+		cfg.OnPresented()
+		fades := treetest.All[*widget.Revealer](cfg.Root)
+		if len(fades) == 0 || !fades[0].Revealed() || fades[0].Progress() == 1 {
+			t.Fatalf("%s: the cover did not start fading in once presented", tc.output)
+		}
+		fades[0].Finish()
+		after := paintedRoot(cfg.Root, size)
+		plain := paintedRoot(r.s.coverOn(out, face, nil).Root, size)
+		if !bytes.Equal(after, plain) {
+			t.Errorf("%s: once faded in, the cover differs from a plain cover", tc.output)
+		}
+	}
+}
+
+func TestReducedMotionCutsEveryCover(t *testing.T) {
+	size := image.Pt(1600, 1200)
+	f := twoOutputFrame(size)
+	f.frame.ReducedMotion = true
+	r := splashRig(t, nil, f)
+	for _, name := range []string{"DP-1", "DP-2"} {
+		cfg := r.s.handOverCoverOn(&app.Output{Name: name}, treetest.Font(t), nil)
+		cfg.OnPresented()
+		fades := treetest.All[*widget.Revealer](cfg.Root)
+		if len(fades) == 0 || fades[0].Progress() != 1 {
+			t.Errorf("%s: with reduced motion the cover fades", name)
+		}
+	}
+}
+
+func TestWithoutASplashACoverIsPlain(t *testing.T) {
+	r := newRig(t, nil)
+	cfg := r.s.handOverCoverOn(&app.Output{Name: "DP-1"}, treetest.Font(t), nil)
+	if cfg.OnPresented != nil || len(treetest.All[*widget.Revealer](cfg.Root)) != 0 {
+		t.Error("with no splash to take over, a cover still hands over")
+	}
+}
+
+func TestTheWindowsOutputIsTheOneItIsOnElseTheOneItAskedFor(t *testing.T) {
+	if got := windowOutput(nil, &app.Output{Name: "DP-2"}); got != "DP-2" {
+		t.Errorf("before the window shows: %q, want the output it asked to be fullscreen on", got)
+	}
+	if got := windowOutput(nil, nil); got != "" {
+		t.Errorf("with no output to ask for: %q", got)
+	}
+	if got := homeOutput(nil); got != nil {
+		t.Errorf("home among no outputs: %+v", got)
+	}
+	first, second := &app.Output{Name: "DP-1"}, &app.Output{Name: "DP-2"}
+	if got := homeOutput([]*app.Output{first, second}); got != first {
+		t.Errorf("home: %+v, want the first output", got)
 	}
 }

@@ -2,6 +2,7 @@ package greeter
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
@@ -19,10 +20,12 @@ import (
 // cursor the user sees (cursor.rs). The record the user's last session
 // handed the display manager comes first (cursorrecord); then the
 // user's own dotfiles, best effort, as only a home the greeter account
-// may enter yields them: the compositor matching the remembered session
-// first (Hyprland env and hyprctl setcursor, niri's cursor block,
-// sway's seat xcursor_theme), then GTK settings.ini and
-// ~/.icons/default/index.theme.
+// may enter yields them: the configuration of the compositor matching
+// the remembered session (niri's cursor block, sway's seat
+// xcursor_theme), the XCURSOR_* variables of the user's
+// ~/.config/environment.d, which every systemd user session (Hyprland's
+// among them) starts with, the other compositors' configuration, then
+// GTK settings.ini and ~/.icons/default/index.theme.
 //
 // Like GTK 4.22, lys-ui asks the compositor to draw the cursor
 // (cursor-shape-v1) when it can; on a host without the protocol (cage)
@@ -52,7 +55,8 @@ func (c Cursor) complete() bool { return c.Theme != "" && c.Size != 0 }
 
 // DetectCursor is the cursor u's session shows: the record under
 // records, then the dotfiles in u's home; session is the remembered
-// session id, whose compositor is consulted first.
+// session id, whose compositor is consulted first. A dotfile the
+// greeter can read but not parse is logged and skipped.
 func DetectCursor(records string, u User, session string) Cursor {
 	home := u.Home
 	read := func(rel string) string {
@@ -63,36 +67,32 @@ func DetectCursor(records string, u User, session string) Cursor {
 	if found.complete() {
 		return found
 	}
-	session = strings.ToLower(session)
-	order := []string{"hypr", "niri", "sway"}
-	for i, c := range order {
-		if strings.Contains(session, c) {
-			order = append([]string{c}, append(order[:i:i], order[i+1:]...)...)
-			break
+	niri := func() Cursor { return parseNiri(read(".config/niri/config.kdl")) }
+	sway := func() Cursor { return parseSway(read(".config/sway/config")) }
+	environment := func() Cursor {
+		c, err := environmentDCursor(filepath.Join(home, environmentDDir))
+		if err != nil {
+			log.Printf("greeter: %v", err)
 		}
+		return c
 	}
-	for _, c := range order {
-		if found.complete() {
-			break
-		}
-		switch c {
-		case "hypr":
-			found = found.or(hyprlandFile(filepath.Join(home, ".config/hypr/hyprland.conf"), home, 0))
-		case "niri":
-			found = found.or(parseNiri(read(".config/niri/config.kdl")))
-		default:
-			found = found.or(parseSway(read(".config/sway/config")))
-		}
+	sources := []func() Cursor{environment, niri, sway}
+	switch session = strings.ToLower(session); {
+	case strings.Contains(session, "niri"):
+		sources = []func() Cursor{niri, environment, sway}
+	case strings.Contains(session, "sway"):
+		sources = []func() Cursor{sway, environment, niri}
 	}
-	for _, text := range []func() Cursor{
+	sources = append(sources,
 		func() Cursor { return parseGTKSettings(read(".config/gtk-4.0/settings.ini")) },
 		func() Cursor { return parseGTKSettings(read(".config/gtk-3.0/settings.ini")) },
 		func() Cursor { return parseIndexTheme(read(".icons/default/index.theme")) },
-	} {
+	)
+	for _, source := range sources {
 		if found.complete() {
 			break
 		}
-		found = found.or(text())
+		found = found.or(source())
 	}
 	return found
 }
@@ -186,80 +186,72 @@ func parseSize(s string) uint32 {
 	return uint32(n)
 }
 
-// hyprlandFile reads a Hyprland config, following `source =` includes
-// up to depth 3 (globs are not expanded).
-func hyprlandFile(path, home string, depth int) Cursor {
-	if depth > 3 {
-		return Cursor{}
-	}
-	data, err := os.ReadFile(path) //nolint:gosec // best-effort dotfile read
-	if err != nil {
-		return Cursor{}
-	}
-	found, sources := parseHyprland(string(data))
-	for _, src := range sources {
-		if found.complete() {
-			break
-		}
-		var resolved string
-		switch {
-		case strings.HasPrefix(src, "~/"):
-			resolved = filepath.Join(home, src[2:])
-		case strings.HasPrefix(src, "$HOME/"):
-			resolved = filepath.Join(home, src[6:])
-		case strings.HasPrefix(src, "/"):
-			resolved = src
-		default:
-			resolved = filepath.Join(filepath.Dir(path), src)
-		}
-		found = found.or(hyprlandFile(resolved, home, depth+1))
-	}
-	return found
-}
+const environmentDDir = ".config/environment.d"
 
-// parseHyprland extracts env = XCURSOR_* lines, exec[-once] = hyprctl
-// setcursor <theme> <size>, and the source includes.
-func parseHyprland(text string) (Cursor, []string) {
+func environmentDCursor(dir string) (Cursor, error) {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
+		return Cursor{}, nil
+	}
+	if err != nil {
+		return Cursor{}, fmt.Errorf("read the cursor from %s: %w", dir, err)
+	}
 	var c Cursor
-	var sources []string
-	for line := range strings.SplitSeq(text, "\n") {
-		line, _, _ = strings.Cut(line, "#")
-		key, value, ok := strings.Cut(strings.TrimSpace(line), "=")
-		if !ok {
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".conf") {
 			continue
 		}
-		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
-		switch key {
-		case "env", "envd":
-			name, val, ok := strings.Cut(value, ",")
-			if !ok {
-				continue
-			}
-			switch strings.TrimSpace(name) {
-			case "XCURSOR_THEME":
-				if c.Theme == "" {
-					c.Theme = strings.TrimSpace(val)
-				}
-			case "XCURSOR_SIZE":
-				if c.Size == 0 {
-					c.Size = parseSize(val)
-				}
-			}
-		case "exec", "exec-once":
-			tok := strings.Fields(value)
-			if len(tok) >= 2 && strings.HasSuffix(tok[0], "hyprctl") && tok[1] == "setcursor" {
-				if len(tok) > 2 && c.Theme == "" {
-					c.Theme = strings.Trim(tok[2], `"`)
-				}
-				if len(tok) > 3 && c.Size == 0 {
-					c.Size = parseSize(tok[3])
-				}
-			}
-		case "source":
-			sources = append(sources, value)
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path) //nolint:gosec // best-effort dotfile read
+		if err != nil {
+			return Cursor{}, fmt.Errorf("read the cursor from %s: %w", path, err)
 		}
+		file, err := parseEnvironmentD(string(data))
+		if err != nil {
+			return Cursor{}, fmt.Errorf("read the cursor from %s: %w", path, err)
+		}
+		c = file.or(c)
 	}
-	return c, sources
+	return c, nil
+}
+
+func parseEnvironmentD(text string) (Cursor, error) {
+	var c Cursor
+	for i, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		key = strings.TrimSpace(key)
+		if !ok || key == "" || strings.ContainsAny(key, " \t") {
+			return Cursor{}, fmt.Errorf("line %d: %q is no KEY=VALUE assignment", i+1, line)
+		}
+		if key != "XCURSOR_THEME" && key != "XCURSOR_SIZE" {
+			continue
+		}
+		value = unquote(strings.TrimSpace(value))
+		if strings.Contains(value, "$") {
+			return Cursor{}, fmt.Errorf("line %d: %s=%s references a variable", i+1, key, value)
+		}
+		if key == "XCURSOR_THEME" {
+			c.Theme = value
+			continue
+		}
+		size, err := strconv.ParseUint(value, 10, 32)
+		if err != nil || size == 0 {
+			return Cursor{}, fmt.Errorf("line %d: XCURSOR_SIZE=%s is no positive size", i+1, value)
+		}
+		c.Size = uint32(size)
+	}
+	return c, nil
+}
+
+func unquote(s string) string {
+	if len(s) >= 2 && (s[0] == '"' || s[0] == '\'') && s[len(s)-1] == s[0] {
+		return s[1 : len(s)-1]
+	}
+	return s
 }
 
 // parseNiri scans niri's KDL for xcursor-theme and xcursor-size.

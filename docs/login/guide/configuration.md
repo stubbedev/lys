@@ -100,10 +100,15 @@ size are resolved separately, first match wins:
    `/var/lib/lys-login/cursor/<uid>`. lys-shell runs it at startup; under other
    sessions run it from the compositor's autostart. Not available under greetd.
 2. **That user's dotfiles**, if the greeter account can enter the home
-   (`chmod o+x "$HOME"`): Hyprland (`env = XCURSOR_*`, `hyprctl setcursor`,
-   following `source =`), niri's `cursor` block, sway's
-   `seat … xcursor_theme` (the remembered session's compositor first), then GTK
-   `settings.ini` and `~/.icons/default/index.theme`.
+   (`chmod o+x "$HOME"`): the remembered session's compositor (niri's `cursor`
+   block, sway's `seat … xcursor_theme`), then `XCURSOR_THEME` and
+   `XCURSOR_SIZE` in `~/.config/environment.d/*.conf`, the files every systemd
+   user session starts with, which is where a Hyprland user sets the cursor,
+   then the other compositor's configuration, then GTK `settings.ini` and
+   `~/.icons/default/index.theme`. An `environment.d` file the greeter cannot
+   parse (a line that is no `KEY=VALUE`, a size that is no positive number, a
+   cursor value referencing another variable) is logged with its path, and
+   `environment.d` then yields nothing.
 3. **`XCURSOR_THEME` and `XCURSOR_SIZE`** in the environment, then the default.
 
 Under the daemon the cursor goes into the greeter's lys-wm kiosk config. The theme

@@ -318,26 +318,17 @@ func TestEncodeRefusesAnUnknownLogo(t *testing.T) {
 	}
 }
 
-func TestOnFindsTheOutputOfAFrame(t *testing.T) {
+func TestNamedFindsTheOutputByItsConnector(t *testing.T) {
 	t.Parallel()
 	f := LastFrame{Outputs: []Output{
-		{Name: "eDP-1", Size: image.Pt(2880, 1800), Scale: 2},
-		{Name: "DP-1", Size: image.Pt(1920, 1080), Scale: 1},
-		{Name: "DP-2", Size: image.Pt(1920, 1080), Scale: 1},
 		{Name: "DP-3", Size: image.Pt(3840, 2160), Scale: 1},
 		{Name: "DP-4", Size: image.Pt(3840, 2160), Scale: 2},
 	}}
-	if o, err := f.On(image.Pt(2880, 1800)); err != nil || o.Name != "eDP-1" {
-		t.Errorf("On(2880x1800) = %+v, %v; want eDP-1", o, err)
+	if o, err := f.Named("DP-4"); err != nil || o.Scale != 2 {
+		t.Errorf("Named(DP-4), one of two same-size outputs, = %+v, %v; want DP-4 at scale 2", o, err)
 	}
-	if o, err := f.On(image.Pt(1920, 1080)); err != nil || o.Scale != 1 {
-		t.Errorf("On(1920x1080), two outputs that agree, = %+v, %v; want scale 1", o, err)
-	}
-	if _, err := f.On(image.Pt(3840, 2160)); err == nil || !strings.Contains(err.Error(), "DP-3") || !strings.Contains(err.Error(), "DP-4") {
-		t.Errorf("On(3840x2160), two outputs that disagree, = %v; want an error naming both", err)
-	}
-	if _, err := f.On(image.Pt(1024, 768)); err == nil || !strings.Contains(err.Error(), "1024x768") {
-		t.Errorf("On(1024x768), no such output, = %v; want an error naming the size", err)
+	if _, err := f.Named("HDMI-A-1"); err == nil || !strings.Contains(err.Error(), "HDMI-A-1") || !strings.Contains(err.Error(), "DP-3") {
+		t.Errorf("Named(HDMI-A-1), not drawn on, = %v; want an error naming it and the outputs drawn on", err)
 	}
 }
 

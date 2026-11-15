@@ -68,22 +68,30 @@ it exits.
 
 The greeter's first frame is that picture drawn again: the background, and the
 logo at the position the splash computed, from the same grid in
-`desktop/splashframe` and at the scale the splash used on an output of that
-size, not the compositor's. The firmware's logo comes from
-`/sys/firmware/acpi/bgrt`, as the splash read it. Once that frame is presented,
-the whole login screen fades in over it for the lock screen's enter duration
+`desktop/splashframe` and at the scale the splash used on that output, not the
+compositor's. The greeter finds its output's entry by connector name: it asks
+to be fullscreen on the first output the compositor lists, and once the
+compositor reports the output the window is on (`wl_surface.enter`) it draws
+that output's entry instead, so two outputs of the same size at different
+scales each get their own picture. Every output's cover gets the same first
+frame from its own entry. The firmware's logo comes from
+`/sys/firmware/acpi/bgrt`, as the splash read it. Once a surface's first frame
+is presented, the login screen (on the greeter's window) or the background (on
+a cover) fades in over it for the lock screen's enter duration
 (`animations.lock`), and the picture underneath is dropped when the fade ends.
-With `reduced-motion` in the splash's theme, or `animations.enabled: false`, the
-login screen replaces the picture in one cut.
+With `reduced-motion` in the splash's theme, or `animations.enabled: false`,
+every surface replaces the picture in one cut. A cover for an output plugged in
+later starts without the picture.
 
 Without a record (no lys-splash, or a greeter started again after a session)
 the greeter starts as before. A record it cannot read, a firmware logo no
-longer in the BGRT table, or a window of a size the splash never drew is logged
-(`greeter: starting without the splash's last frame` or `greeter: the first
-frame is the splash's background without its logo`); the greeter then starts
-without the picture or shows the splash's background alone under the fade.
-The greeter logs where it put the logo (`greeter: the first frame takes over
-the splash's: the logo at ...`).
+longer in the BGRT table, an output the record does not name, or a frame of a
+size other than the one the splash drew on that output is logged (`greeter:
+starting without the splash's last frame` or `greeter: the first frame is the
+splash's background without its logo`, naming the output); the greeter then
+starts without the picture or shows the splash's background alone under the
+fade. The greeter logs where it put the logo (`greeter: the first frame on
+<output> takes over the splash's: the logo at ...`).
 
 ## Switching users
 

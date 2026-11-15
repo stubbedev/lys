@@ -161,24 +161,13 @@ func LoadLastFrame(path string) (LastFrame, error) {
 	return f, nil
 }
 
-// On is the output of a frame of size: the one output of that size the
-// splash drew on, or any of several that agree on the scale. With none,
-// or several that disagree, the frame cannot be told apart and it is an
-// error.
-func (f LastFrame) On(size image.Point) (Output, error) {
-	var on []Output
+// Named is the output the splash drew on under the connector name, an
+// error naming the outputs it did draw on when there is none.
+func (f LastFrame) Named(name string) (Output, error) {
 	for _, o := range f.Outputs {
-		if o.Size == size {
-			on = append(on, o)
+		if o.Name == name {
+			return o, nil
 		}
 	}
-	if len(on) == 0 {
-		return Output{}, fmt.Errorf("splashframe: the splash drew no %dx%d frame, only on %v", size.X, size.Y, f.Outputs)
-	}
-	for _, o := range on[1:] {
-		if o.Scale != on[0].Scale {
-			return Output{}, fmt.Errorf("splashframe: the splash drew %dx%d frames at scales %d and %d, on %s and %s", size.X, size.Y, on[0].Scale, o.Scale, on[0].Name, o.Name)
-		}
-	}
-	return on[0], nil
+	return Output{}, fmt.Errorf("splashframe: the splash drew nothing on %s, only on %v", name, f.Outputs)
 }

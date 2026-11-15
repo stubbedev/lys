@@ -90,6 +90,8 @@ type rig struct {
 	a11y           fakeA11y
 	noReader       bool
 	splash         *splashFrame
+	// output is the connector the greeter's window is on.
+	output string
 }
 
 func newRig(t *testing.T, edit func(*Init)) *rig {
@@ -202,6 +204,7 @@ func buildRig(t *testing.T, edit func(*Init), r *rig) *rig {
 			}
 			return *r.splash, nil
 		},
+		windowOutput: func() string { return r.output },
 	})
 	t.Cleanup(r.s.saving.Wait)
 	return r
@@ -730,16 +733,17 @@ func TestCoverOutputsEveryOutputAndLaterOnes(t *testing.T) {
 	var covered []*app.Output
 	var added func(*app.Output)
 	stopped := false
+	var later []*app.Output
 	stop := coverOutputs(true, []*app.Output{a, b}, func(add, _ func(*app.Output)) func() {
 		added = add
 		return func() { stopped = true }
-	}, func(o *app.Output) { covered = append(covered, o) })
-	if !slices.Equal(covered, []*app.Output{a, b}) {
-		t.Fatalf("covered %d outputs of the 2 there", len(covered))
+	}, func(o *app.Output) { covered = append(covered, o) }, func(o *app.Output) { later = append(later, o) })
+	if !slices.Equal(covered, []*app.Output{a, b}) || len(later) != 0 {
+		t.Fatalf("covered %d outputs of the 2 there, %d as plugged in later", len(covered), len(later))
 	}
 	added(c)
-	if !slices.Equal(covered, []*app.Output{a, b, c}) {
-		t.Fatal("an output plugged in later stays uncovered")
+	if !slices.Equal(covered, []*app.Output{a, b}) || !slices.Equal(later, []*app.Output{c}) {
+		t.Fatal("an output plugged in later is not covered as one")
 	}
 	stop()
 	if !stopped {
@@ -752,7 +756,7 @@ func TestCoverOutputsWithoutALayerShellLeavesThemToTheWindow(t *testing.T) {
 	stop := coverOutputs(false, []*app.Output{{}}, func(_, _ func(*app.Output)) func() {
 		t.Error("watching outputs nothing can cover")
 		return func() {}
-	}, func(*app.Output) { covered++ })
+	}, func(*app.Output) { covered++ }, func(*app.Output) { covered++ })
 	stop()
 	if covered != 0 {
 		t.Errorf("covered %d outputs with no layer shell", covered)

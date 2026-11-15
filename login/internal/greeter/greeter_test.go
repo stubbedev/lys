@@ -1,7 +1,9 @@
 package greeter
 
 import (
+	"bytes"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +14,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/tokens"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -305,12 +309,9 @@ func TestParsePasswd(t *testing.T) {
 }
 
 func TestCursorParsers(t *testing.T) {
-	c, sources := parseHyprland("monitor=,preferred,auto,1\nenv = XCURSOR_THEME,Bibata-Modern-Ice # my cursor\nenv=XCURSOR_SIZE,20\nsource = ~/.config/hypr/extra.conf\n")
-	if c != (Cursor{"Bibata-Modern-Ice", 20}) || !reflect.DeepEqual(sources, []string{"~/.config/hypr/extra.conf"}) {
-		t.Errorf("hyprland env: %+v %v", c, sources)
-	}
-	if c, _ := parseHyprland("exec-once = hyprctl setcursor Adwaita 32\n"); c != (Cursor{"Adwaita", 32}) {
-		t.Errorf("hyprctl setcursor: %+v", c)
+	c, err := parseEnvironmentD("# my cursor\nPATH=$PATH:/opt/bin\nXCURSOR_THEME=\"Bibata-Modern-Ice\"\n\n XCURSOR_SIZE = 20\n")
+	if err != nil || c != (Cursor{"Bibata-Modern-Ice", 20}) {
+		t.Errorf("environment.d: %+v %v", c, err)
 	}
 	if c := parseNiri("cursor {\n    xcursor-theme \"Bibata\" // comment\n    xcursor-size 28\n}\n"); c != (Cursor{"Bibata", 28}) {
 		t.Errorf("niri: %+v", c)
@@ -342,8 +343,7 @@ func TestDetectCursorOrder(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write(".config/hypr/hyprland.conf", "env = XCURSOR_THEME,HyprTheme\nenv = XCURSOR_SIZE,30\nsource = extra.conf\n")
-	write(".config/hypr/extra.conf", "")
+	write(".config/environment.d/10-cursor.conf", "XCURSOR_THEME=HyprTheme\nXCURSOR_SIZE=30\n")
 	write(".config/niri/config.kdl", "xcursor-theme \"NiriTheme\"\nxcursor-size 40\n")
 	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{"HyprTheme", 30}) {
 		t.Errorf("hyprland session: %+v", got)
@@ -365,6 +365,58 @@ func TestDetectCursorOrder(t *testing.T) {
 	}
 	if got := DetectCursor(records, User{Name: "bob", UID: 1002, Home: filepath.Join(home, "absent")}, ""); got != (Cursor{}) {
 		t.Errorf("no record and an unreadable home: %+v", got)
+	}
+}
+
+func TestParseEnvironmentDRejectsWhatItCannotRead(t *testing.T) {
+	for _, text := range []string{
+		"XCURSOR_THEME\n",
+		"export XCURSOR_THEME=Bibata\n",
+		"XCURSOR_SIZE=big\n",
+		"XCURSOR_SIZE=0\n",
+		"XCURSOR_THEME=${CURSOR}\n",
+	} {
+		if c, err := parseEnvironmentD(text); err == nil || !strings.Contains(err.Error(), "line 1") {
+			t.Errorf("%q: %+v, %v; want an error naming line 1", text, c, err)
+		}
+	}
+}
+
+func TestDetectCursorFromEnvironmentD(t *testing.T) {
+	home, records := t.TempDir(), t.TempDir()
+	ada := User{Name: "ada", UID: 1000, Home: home}
+	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{}) {
+		t.Errorf("no setting: %+v", got)
+	}
+	if got := ResolveCursor(config.Defaults().Login.Greeter, DetectCursor(records, ada, "hyprland")); got.Size != config.Defaults().Login.Greeter.CursorSize {
+		t.Errorf("no setting resolves to %+v, want the default size", got)
+	}
+	dir := filepath.Join(home, ".config/environment.d")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("10-cursor.conf", "XCURSOR_THEME=Early\nXCURSOR_SIZE=24\n")
+	write("20-cursor.conf", "XCURSOR_THEME=Bibata\n")
+	write("ignored.txt", "not an assignment\n")
+	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{"Bibata", 24}) {
+		t.Errorf("hyprland session: %+v, want the later file's theme over the earlier's size", got)
+	}
+
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	write("30-broken.conf", "XCURSOR_SIZE=huge\n")
+	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{}) {
+		t.Errorf("a malformed file: %+v, want nothing from environment.d", got)
+	}
+	if want := filepath.Join(dir, "30-broken.conf"); !strings.Contains(logs.String(), want) {
+		t.Errorf("the log %q does not name %s", logs.String(), want)
 	}
 }
 
@@ -502,9 +554,58 @@ func TestStylesheetInstallsTheWidgetTheme(t *testing.T) {
 	}
 }
 
+func TestStylesheetOnAMalformedPaletteLogsItAndShowsTheTokenDefault(t *testing.T) {
+	t.Cleanup(func() { widget.SetTheme(nil) })
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	cfg := config.Defaults()
+	cfg.Styling.Palette.Bg = config.HexColor{}
+	Stylesheet(cfg)
+	want, err := styling.PaletteFromHex(tokens.LysShell())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := widget.Current(); got.Bg != want.Bg || got.Accent != want.Primary {
+		t.Errorf("theme bg %v accent %v, want the token default's %v %v", got.Bg, got.Accent, want.Bg, want.Primary)
+	}
+	if mocha := styling.Default(); widget.Current().Accent == mocha.Primary {
+		t.Error("the greeter fell back to catppuccin-mocha")
+	}
+	if !strings.Contains(logs.String(), "palette bg") {
+		t.Errorf("the log does not name the bad palette slot: %q", logs.String())
+	}
+}
+
+func TestResolvePalette(t *testing.T) {
+	valid := config.Defaults().Styling.ActivePalette()
+	valid.Primary = "#123456"
+	got, p, err := resolvePalette(valid)
+	if err != nil {
+		t.Fatalf("a valid palette: %v", err)
+	}
+	if got != valid || p.Primary != render.RGB(0x12, 0x34, 0x56) {
+		t.Errorf("a valid palette resolved to %+v", got)
+	}
+
+	bad := valid
+	bad.Red = "red"
+	got, p, err = resolvePalette(bad)
+	if err == nil || !strings.Contains(err.Error(), "palette red") || !strings.Contains(err.Error(), "got: red") {
+		t.Fatalf("a malformed palette: err %v, want one naming the red slot and its value", err)
+	}
+	want, werr := styling.PaletteFromHex(tokens.LysShell())
+	if werr != nil {
+		t.Fatal(werr)
+	}
+	if got != tokens.LysShell() || *p != *want {
+		t.Errorf("a malformed palette resolved to %+v, want the token default", got)
+	}
+}
+
 func TestFirstPresentedFrameTakesTheScreenFromTheSplash(t *testing.T) {
 	taken := make(chan struct{})
-	cfg := windowConfig(nil, func() { close(taken) }, nil)
+	cfg := windowConfig(nil, func() { close(taken) }, nil, nil)
 	if cfg.OnPresented == nil {
 		t.Fatal("the greeter's window does not report its first presented frame")
 	}
@@ -513,7 +614,7 @@ func TestFirstPresentedFrameTakesTheScreenFromTheSplash(t *testing.T) {
 }
 
 func TestWithoutDisplayManagerNoFrameIsReported(t *testing.T) {
-	if windowConfig(nil, nil, nil).OnPresented != nil {
+	if windowConfig(nil, nil, nil, nil).OnPresented != nil {
 		t.Error("a greeter with no hand-over to make reports its first frame")
 	}
 }
