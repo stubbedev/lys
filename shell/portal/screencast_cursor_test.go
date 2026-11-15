@@ -225,8 +225,9 @@ func abs(v int64) int64 { return max(v, -v) }
 func TestTheMetadataCursorModeSendsMovesWithoutCapturingFrames(t *testing.T) {
 	r := newCursorRig(t)
 	v := r.stream(cursorMetadata)
-	updates, bitmaps := 0, 0
+	updates, images := 0, 0
 	var lastX, lastY int32 = -1, -1
+	var shown pwtest.Bitmap
 	tally := func(b pwtest.Buffer) {
 		if b.Cursor == nil {
 			t.Fatalf("a buffer without the cursor meta: %+v", b)
@@ -235,16 +236,25 @@ func TestTheMetadataCursorModeSendsMovesWithoutCapturingFrames(t *testing.T) {
 			updates++
 			lastX, lastY = b.Cursor.X, b.Cursor.Y
 		}
-		if bm := b.Cursor.Bitmap; bm != nil && bm.Width > 0 {
-			bitmaps++
+		bm := b.Cursor.Bitmap
+		if bm == nil || bm.Width == 0 {
+			return
+		}
+		if *bm != shown {
+			images++
+			shown = *bm
+			return
+		}
+		if b.Size == 0 {
+			t.Fatalf("the %dx%d image went out again in a buffer without the frame a resend carries: %+v", bm.Width, bm.Height, *b.Cursor)
 		}
 	}
 	v.until("the first frame", func(b pwtest.Buffer) bool { return b.Size > 0 }, tally)
-	if bitmaps != 1 {
+	if images != 1 {
 		v.until("the 16x16 image", bitmapOf(16), tally)
 	}
 	v.settle(tally)
-	updates, bitmaps, metaOnly := 0, 0, 0
+	updates, images, metaOnly := 0, 0, 0
 	const moves = 100
 	for i := range moves {
 		x, y := at(i)
@@ -257,8 +267,8 @@ func TestTheMetadataCursorModeSendsMovesWithoutCapturingFrames(t *testing.T) {
 			metaOnly++
 		}
 	}
-	if updates != moves || bitmaps != 0 {
-		t.Fatalf("%d moves made %d cursor meta updates and %d bitmaps", moves, updates, bitmaps)
+	if updates != moves || images != 0 {
+		t.Fatalf("%d moves made %d cursor meta updates and %d new images", moves, updates, images)
 	}
 	if n := v.captured(); n != 0 {
 		t.Fatalf("%d moves over a still output captured %d frames", moves, n)
@@ -279,8 +289,8 @@ func TestTheMetadataCursorModeSendsMovesWithoutCapturingFrames(t *testing.T) {
 		r.move(x, y)
 		v.until("the pointer moved", pointerAt(x, y), tally)
 	}
-	if bitmaps != len(sides) {
-		t.Fatalf("%d new images wrote %d bitmaps", len(sides), bitmaps)
+	if images != len(sides) {
+		t.Fatalf("%d new images went out as %d", len(sides), images)
 	}
 }
 
