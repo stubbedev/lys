@@ -580,7 +580,7 @@ type LayerConfig struct {
 // layerMotion is a layer surface's animation profile.
 func layerMotion(cfg LayerConfig) surfx.Kind {
 	if cfg.OwnMotion {
-		return surfx.KindMenu
+		return surfx.KindStill
 	}
 	return surfx.KindOverlay
 }
@@ -589,12 +589,12 @@ func layerMotion(cfg LayerConfig) surfx.Kind {
 // adds it to the application. The window joins the loop on the next
 // Run iteration (or immediately when Run is already running).
 func (a *Application) NewWindow(cfg WindowConfig) (*Window, error) {
-	return a.newWindowWindow(cfg, surfx.KindMenu)
+	return a.newWindowWindow(cfg, surfx.KindStill)
 }
 
 // newWindowWindow creates the toplevel and its loop state. animKind
-// is the surface-animation profile: KindMenu (zero) for plain
-// toplevels, which open and close instantly.
+// is the surface-animation profile: KindStill for plain toplevels,
+// which open and close instantly.
 func (a *Application) newWindowWindow(cfg WindowConfig, animKind surfx.Kind) (*Window, error) {
 	w := &Window{app: a, cfg: cfg, kind: animKind}
 	if _, err := a.openWindow(w, cfg); err != nil {
@@ -781,7 +781,7 @@ func (h *layerHost) Size() (int, int) {
 
 // newWindow builds the loop state for one created host and joins it to
 // the application. animKind picks the surface-animation profile:
-// surfx.KindMenu (the zero) means no window-level animation — plain
+// surfx.KindStill means no window-level animation — plain
 // toplevels open and close instantly — while KindOverlay (layer
 // surfaces) and KindDialog get enter/exit tweens whose exit keeps the
 // loop alive until it lands.
@@ -1800,6 +1800,33 @@ func (a *Application) repaintOnIconReset(c *icons.Cache) {
 // so the two do not stack; surfaces then map and close at once, with
 // the same callbacks in the same order.
 func (a *Application) SetSurfaceMotion(on bool) { surfx.SetEnabled(on) }
+
+// PopoverMotion is how every popover - menus, dropdown lists, context
+// menus - enters and exits. A zero duration opens or closes it in the
+// frame it is asked to; a longer one starts already showing, faded in
+// part, so its first frame is readable and takes input. Grow scales it
+// out of its anchor as it fades, else it only fades.
+type PopoverMotion struct {
+	Enter, Exit time.Duration
+	Grow        bool
+}
+
+// popoverMotionFrom is the reveal a timed popover enter starts at.
+const popoverMotionFrom = 0.4
+
+// SetPopoverMotion sets how popovers enter and exit from now on, in
+// place of lys-ui's default spring: the app's own choice, which holds
+// with SetSurfaceMotion off. Reduced motion keeps the durations and
+// drops the growth; LYS_UI_NO_ANIM makes popovers instant. A popover
+// with OwnMotion is never affected.
+func (a *Application) SetPopoverMotion(m PopoverMotion) {
+	surfx.SetStyle(surfx.KindMenu, surfx.Style{
+		Enter: surfx.Spec{Duration: max(m.Enter, 0), Easing: anim.EmphasizedDecelerate},
+		Exit:  surfx.Spec{Duration: max(m.Exit, 0), Easing: anim.EmphasizedAccelerate},
+		Morph: m.Grow,
+		From:  popoverMotionFrom,
+	})
+}
 
 // IdleNotifyAvailable reports whether the compositor can tell the
 // application when the user goes idle (ext-idle-notify-v1).

@@ -34,6 +34,9 @@ settings-animations-indicators = Indicators
 settings-animations-notifications = Notifications
     .description = Per-surface animation override for notification popup cards
 
+settings-animations-menu = Menus
+    .description = Per-surface animation override for menus, context menus, dropdown lists and window previews
+
 settings-animations-osd = OSD
     .description = Per-surface animation override for the OSD (volume/brightness/toggle)
 

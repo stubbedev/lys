@@ -266,7 +266,7 @@ func newHostWindow(sess *wlsession.Session, host surfaceOwner, initialScale int,
 	// morph the coordinator drives; the enter starts lazily — at the
 	// first usable pass, after the configure handshake — so the very
 	// first frame paints at reveal 0, never the finished surface.
-	if animKind != surfx.KindMenu {
+	if animKind != surfx.KindStill {
 		w.morph = widget.NewMorph(root)
 		w.router.Root = w.morph
 		w.fx = surfx.NewCoordinator(clock, animKind, w, func() bool { return widget.Current().Moves() })

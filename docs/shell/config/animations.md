@@ -35,6 +35,7 @@ Enter/exit and change animations for transient surfaces.
 | `print` | [`SurfaceAnimation`](/shell/config/types#surface-animation) | `{...}` | Per-surface override for the portal print surface. |
 | `lock` | [`SurfaceAnimation`](/shell/config/types#surface-animation) | `{...}` | Per-surface override for the lock screen reveal. |
 | `launcher` | [`SurfaceAnimation`](/shell/config/types#surface-animation) | `{...}` | Per-surface override for the application launcher. |
+| `menu` | [`SurfaceAnimation`](/shell/config/types#surface-animation) | `{...}` | Per-surface override for menus, context menus, the lists of dropdown inputs and window previews. Enter and exit durations default to 0, so they open in the frame of the click; a longer one starts already showing. `fade` only fades, any other transition also grows the menu out of what it opened from. |
 
 ## Default configuration
 

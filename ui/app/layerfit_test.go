@@ -70,7 +70,7 @@ func TestLayerMotionIsTheToolkitsUnlessTheSurfaceOwnsIt(t *testing.T) {
 	if got := layerMotion(LayerConfig{}); got != surfx.KindOverlay {
 		t.Errorf("default = %v, want the overlay profile", got)
 	}
-	if got := layerMotion(LayerConfig{OwnMotion: true}); got != surfx.KindMenu {
+	if got := layerMotion(LayerConfig{OwnMotion: true}); got != surfx.KindStill {
 		t.Errorf("own motion = %v, want no window-level animation", got)
 	}
 }

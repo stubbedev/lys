@@ -47,6 +47,18 @@ func (d *recDriver) Destroy() {
 	d.events = append(d.events, "destroy")
 }
 
+// moves reports whether the spec animates at all.
+func (s Spec) moves() bool { return s.Duration > 0 || s.Spring != nil }
+
+// sameStyle compares two styles' shapes; easings are functions, so
+// only whether each has one counts.
+func sameStyle(a, b Style) bool {
+	same := func(x, y Spec) bool {
+		return x.Duration == y.Duration && x.Spring == y.Spring && (x.Easing == nil) == (y.Easing == nil)
+	}
+	return same(a.Enter, b.Enter) && same(a.Exit, b.Exit) && a.Morph == b.Morph && a.From == b.From
+}
+
 // last, without the trailing element.
 func last[T any](s []T) T { return s[len(s)-1] }
 
@@ -247,7 +259,7 @@ func TestInstantPathsRunTheSameMachine(t *testing.T) {
 }
 
 func TestPerKindDefaults(t *testing.T) {
-	menu, tooltip, dialog := Lookup(KindMenu), Lookup(KindTooltip), Lookup(KindDialog)
+	menu, tooltip, dialog := Plan(KindMenu, true), Plan(KindTooltip, true), Plan(KindDialog, true)
 	// Menus and dialogs morph out of their anchor on springs; tooltips
 	// stay a quick fade.
 	if menu.Enter.Spring == nil || !menu.Morph || dialog.Enter.Spring == nil || !dialog.Morph {
@@ -342,18 +354,86 @@ func TestDismissMidEnterReverses(t *testing.T) {
 	}
 }
 
-func TestSetStyleOverridesAndClears(t *testing.T) {
-	defer SetStyle(KindDialog, Style{})
-	SetStyle(KindDialog, Style{Enter: Spec{Duration: 5 * time.Millisecond, Easing: anim.Linear}, Exit: Spec{Duration: 5 * time.Millisecond}})
-	got := Lookup(KindDialog)
-	if got.Enter.Duration != 5*time.Millisecond || got.Enter.Easing == nil {
-		t.Errorf("override not applied: %+v", got)
+// A kind the app styled keeps its profile with the package toggle
+// off, its zero profile opens at once whatever the toggle says, and
+// restoring brings the default back.
+func TestSetStyleOverridesAndRestores(t *testing.T) {
+	t.Cleanup(SetEnabled(true))
+	own := Style{Enter: Spec{Duration: 5 * time.Millisecond, Easing: anim.Linear}, Exit: Spec{Duration: 5 * time.Millisecond}, Morph: true, From: 0.4}
+	restore := SetStyle(KindDialog, own)
+	if got := Plan(KindDialog, true); !sameStyle(got, own) {
+		t.Errorf("styled plan = %+v, want %+v", got, own)
 	}
-	// Zero durations clear the override, restoring the defaults.
-	SetStyle(KindDialog, Style{})
-	want := Defaults[KindDialog]
-	got = Lookup(KindDialog)
-	if got.Enter.Duration != want.Enter.Duration || got.Exit.Duration != want.Exit.Duration || got.Enter.Easing != nil {
-		t.Errorf("cleared override = %+v, want the default durations back", got)
+	t.Cleanup(SetEnabled(false))
+	if got := Plan(KindDialog, true); !sameStyle(got, own) {
+		t.Errorf("styled plan with the toggle off = %+v, want the app's %+v", got, own)
+	}
+	if got := Plan(KindOverlay, true); got.Enter.moves() || got.Exit.moves() {
+		t.Errorf("unstyled plan with the toggle off = %+v, want no motion", got)
+	}
+	SetEnabled(true)
+	instant := SetStyle(KindDialog, Style{})
+	if got := Plan(KindDialog, true); got.Enter.moves() || got.Exit.moves() {
+		t.Errorf("zero style plan = %+v, want no motion with the toggle on", got)
+	}
+	instant()
+	if got := Plan(KindDialog, true); !sameStyle(got, own) {
+		t.Errorf("restored plan = %+v, want the earlier override", got)
+	}
+	restore()
+	if got := Plan(KindDialog, true); !sameStyle(got, Defaults[KindDialog]) {
+		t.Errorf("restored plan = %+v, want the default back", got)
+	}
+}
+
+// Reduced motion keeps an app's durations and drops only the growth;
+// KindStill and LYS_UI_NO_ANIM never move, styled or not.
+func TestStyledPlanUnderReducedMotionAndStill(t *testing.T) {
+	own := Style{Enter: Spec{Duration: 300 * time.Millisecond}, Exit: Spec{Duration: 200 * time.Millisecond}, Morph: true, From: 0.4}
+	t.Cleanup(SetStyle(KindMenu, own))
+	got := Plan(KindMenu, false)
+	if got.Morph || got.Enter.Duration != own.Enter.Duration || got.Exit.Duration != own.Exit.Duration || got.From != own.From {
+		t.Errorf("reduced styled plan = %+v, want the app's durations as a plain fade", got)
+	}
+	t.Cleanup(SetStyle(KindStill, own))
+	if got := Plan(KindStill, true); got.Enter.moves() || got.Exit.moves() {
+		t.Errorf("still plan = %+v, want no motion even when styled", got)
+	}
+	t.Cleanup(anim.SetInstant(true))
+	if got := Plan(KindMenu, true); got.Enter.moves() || got.Exit.moves() {
+		t.Errorf("instant styled plan = %+v, want no motion", got)
+	}
+}
+
+// A styled enter with a From above zero shows the surface on its first
+// frame: synchronously at From, rising to rest over the duration; a
+// zero duration lands at rest before Enter returns.
+func TestStyledEnterStartsAtFrom(t *testing.T) {
+	t.Cleanup(animclock.SetClock(func() time.Time { return time.Unix(1750000000, 0) }))
+	t.Cleanup(SetStyle(KindMenu, Style{Enter: Spec{Duration: 400 * time.Millisecond, Easing: anim.Linear}, Morph: true, From: 0.4}))
+	var clock anim.Clock
+	d := &recDriver{}
+	fx := NewCoordinator(&clock, KindMenu, d, func() bool { return true })
+	fx.Enter()
+	if d.events[0] != "frame 0.400" || fx.Reveal() != 0.4 {
+		t.Fatalf("first frame %v reveal %v, want 0.4", d.events, fx.Reveal())
+	}
+	frames := 0
+	driveClock(t, &clock, func() {
+		frames++
+		if d.reveal < 0.4 {
+			t.Errorf("a frame fell below From: %v", d.reveal)
+		}
+	})
+	if d.reveal != 1 || frames < 10 {
+		t.Errorf("rest %v after %d frames, want 1 after a 400ms rise", d.reveal, frames)
+	}
+
+	SetStyle(KindMenu, Style{From: 0.4})
+	var instant anim.Clock
+	d = &recDriver{}
+	NewCoordinator(&instant, KindMenu, d, func() bool { return true }).Enter()
+	if d.reveal != 1 || instant.Active() {
+		t.Errorf("zero duration: reveal %v, clock active %v; want rest inside Enter", d.reveal, instant.Active())
 	}
 }

@@ -440,6 +440,38 @@ func TestFirstConfigureStartsTheEnter(t *testing.T) {
 	}
 }
 
+// A popover style of zero duration has the popup at rest at its first
+// configure, before its first frame paints; a long one has it already
+// showing at its From there, still rising; KindStill ignores the style.
+func TestFirstConfigureFollowsThePopoverStyle(t *testing.T) {
+	base := time.Unix(1750000000, 0)
+	t.Cleanup(animclock.SetClock(func() time.Time { return base }))
+	configured := func(kind surfx.Kind, style surfx.Style) (*Popup, *anim.Clock) {
+		t.Helper()
+		t.Cleanup(surfx.SetStyle(surfx.KindMenu, style))
+		clock := &anim.Clock{}
+		p := &Popup{clock: clock}
+		p.fx = surfx.NewCoordinator(clock, kind, p, func() bool { return true })
+		p.HandleSurfaceConfigure(xdg.SurfaceConfigureEvent{Serial: 1})
+		return p, clock
+	}
+	if p, clock := configured(surfx.KindMenu, surfx.Style{From: 0.4}); p.Reveal() != 1 || clock.Active() {
+		t.Errorf("instant popover: reveal %v, tween running %v at the first configure; want rest", p.Reveal(), clock.Active())
+	}
+	long := surfx.Style{Enter: surfx.Spec{Duration: time.Hour}, Morph: true, From: 0.4}
+	p, clock := configured(surfx.KindMenu, long)
+	if p.Reveal() != 0.4 || !clock.Active() {
+		t.Errorf("long popover: reveal %v, tween running %v at the first configure; want 0.4, rising", p.Reveal(), clock.Active())
+	}
+	clock.Tick(base.Add(30 * time.Minute))
+	if r := p.Reveal(); r <= 0.4 || r >= 1 {
+		t.Errorf("long popover halfway: reveal %v, want between From and rest", r)
+	}
+	if p, clock := configured(surfx.KindStill, long); p.Reveal() != 1 || clock.Active() {
+		t.Errorf("still popover: reveal %v, tween running %v; want rest whatever the style", p.Reveal(), clock.Active())
+	}
+}
+
 func TestPopupDismissedBeforeItsConfigure(t *testing.T) {
 	base := time.Unix(1750000000, 0)
 	t.Cleanup(animclock.SetClock(func() time.Time { return base }))

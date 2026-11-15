@@ -83,13 +83,19 @@ func Run(session *dbus.Conn) error {
 	return run(svc.Config(), svc, session)
 }
 
-// followReducedMotion keeps the toolkit's reduced motion on while the
-// desktop or the shell's config asks for it: the application follows
-// only the desktop, and without a portal that is never. Under lys-wm the
-// compositor's setting replaces the key's here.
-func followReducedMotion(application *app.Application, cfg *config.Config, svc *config.Service) (stop func()) {
+// followMotion sets the application's motion up and keeps it following
+// the config. Surfaces animate their content through [animations]
+// (shell/reveal), as the Rust shell's revealers do, so lys-ui's own
+// surface motion, which would stack on top of them, stays off;
+// popovers move as animations.menu says. The toolkit's reduced motion
+// is on while the desktop or the shell's config asks for it: the
+// application follows only the desktop, and without a portal that is
+// never. Under lys-wm the compositor's setting replaces the key's here.
+func followMotion(application *app.Application, cfg *config.Config, svc *config.Service) (stop func()) {
+	application.SetSurfaceMotion(false)
 	apply := func(c *config.Config) {
 		widget.SetReducedMotion(application.ReducedMotion() || c.Animations.Reduced())
+		application.SetPopoverMotion(popoverMotion(c.Animations))
 	}
 	apply(cfg)
 	if svc == nil {
@@ -108,6 +114,24 @@ func followReducedMotion(application *app.Application, cfg *config.Config, svc *
 		stopFollow()
 		offConfig()
 		offDesktop()
+	}
+}
+
+// popoverMotion is animations.menu as lys-ui's popover motion: each
+// direction's duration, none for a `none` transition, and growing out
+// of the anchor for any transition but a fade.
+func popoverMotion(a config.AnimationsConfig) app.PopoverMotion {
+	duration := func(exiting bool) time.Duration {
+		if a.TransitionFor(config.AnimMenu, exiting) == config.AnimationNone {
+			return 0
+		}
+		return time.Duration(a.DurationFor(config.AnimMenu, exiting)) * time.Millisecond
+	}
+	enter := a.TransitionFor(config.AnimMenu, false)
+	return app.PopoverMotion{
+		Enter: duration(false),
+		Exit:  duration(true),
+		Grow:  enter != config.AnimationNone && enter != config.AnimationFade,
 	}
 }
 
@@ -132,10 +156,7 @@ func run(cfg *config.Config, svc *config.Service, session *dbus.Conn) error {
 	// lys-ui's Run serves the tree on the accessibility bus while the
 	// desktop asks for assistive technologies (LYS_UI_A11Y=atspi forces it,
 	// as GTK_A11Y does for the Rust shell).
-	// Surfaces animate their content through [animations] (shell/reveal),
-	// as the Rust shell's revealers do; lys-ui's own surface fades would
-	// stack on top of them.
-	application.SetSurfaceMotion(false)
+	defer followMotion(application, cfg, svc)()
 	application.Hold()
 	defer logOutputWait(sess)()
 	// Programmatic copies (the screenshot host) and the ctrl+c/v keys
@@ -501,7 +522,6 @@ func (s *shellStart) mount() {
 	theme.WatchUserStyles(application)
 	s.down.add(apptheme.Setup(application))
 	apptheme.ReportMissingIcons(cfg, config.StderrDiagnostics)
-	s.down.add(followReducedMotion(application, cfg, svc))
 	// rt is what the bars are built from; a config reload or a new
 	// palette re-derives it and rebuilds them.
 	rt := &barRuntime{theme: theme, palette: new(styling.Palette)}

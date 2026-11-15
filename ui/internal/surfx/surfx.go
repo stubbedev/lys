@@ -43,12 +43,15 @@ import (
 type Kind uint8
 
 // Surface kinds. KindMenu is the zero value — the popover default.
+// KindStill is a surface that plays its own enter and exit, or none:
+// it never tweens, whatever the settings.
 const (
 	KindMenu Kind = iota
 	KindTooltip
 	KindToast
 	KindDialog
 	KindOverlay
+	KindStill
 )
 
 // Spec is one motion's shape: a tween's duration and curve, or a
@@ -60,9 +63,6 @@ type Spec struct {
 	Easing   anim.Easing
 	Spring   *anim.SpringParams
 }
-
-// moves reports whether the spec animates at all.
-func (s Spec) moves() bool { return s.Duration > 0 || s.Spring != nil }
 
 // revealPrecision is a reveal spring's settle precision: a reveal is a
 // 0-to-1 fraction, so a thousandth.
@@ -94,10 +94,13 @@ func (s Spec) play(o anim.Owner, fn func(p float64)) anim.Cancel {
 // Style is a kind's enter and exit motion. Morph surfaces grow out of
 // the side facing their anchor - scaling up and unrolling a rounded
 // clip as they fade in - and shrink back into it on the way out;
-// without it they only fade.
+// without it they only fade. From is the reveal the enter starts at:
+// 0 paints nothing on the first frame, above it the first frame
+// already shows the surface.
 type Style struct {
 	Enter, Exit Spec
 	Morph       bool
+	From        float64
 }
 
 // Defaults are the per-kind profiles. Menus and popovers morph out of
@@ -145,34 +148,33 @@ var (
 	enabled   = true
 )
 
-// SetStyle overrides a kind's profile; apps tune curves, springs and
-// durations here instead of forking the state machine. A style that
-// moves neither way clears the override.
-func SetStyle(k Kind, s Style) {
+// SetStyle gives kind k the app's own profile in place of the
+// default; apps tune curves, springs and durations here instead of
+// forking the state machine. The app's profile holds whatever
+// SetEnabled says, and one that moves neither way opens and closes
+// the kind at once. It returns the restore function.
+func SetStyle(k Kind, s Style) (restore func()) {
 	mu.Lock()
-	defer mu.Unlock()
-	if !s.Enter.moves() && !s.Exit.moves() {
-		delete(overrides, k)
-		return
-	}
+	old, had := overrides[k]
 	overrides[k] = s
-}
-
-// Lookup returns the effective profile for k: the override when one
-// is set, else the default.
-func Lookup(k Kind) Style {
-	mu.Lock()
-	defer mu.Unlock()
-	if s, ok := overrides[k]; ok {
-		return s
+	mu.Unlock()
+	return func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if had {
+			overrides[k] = old
+			return
+		}
+		delete(overrides, k)
 	}
-	return Defaults[k]
 }
 
-// SetEnabled turns surface animations on or off — the API toggle beside
-// LYS_UI_NO_ANIM. It returns the restore function. Disabled animations
-// collapse the durations to zero; the state machine still runs, so
-// dismissal, sealing, callbacks, and destroy all behave identically.
+// SetEnabled turns the default surface animations on or off — the API
+// toggle beside LYS_UI_NO_ANIM; a kind the app styled through SetStyle
+// keeps its own profile. It returns the restore function. Disabled
+// animations collapse the durations to zero; the state machine still
+// runs, so dismissal, sealing, callbacks, and destroy all behave
+// identically.
 func SetEnabled(on bool) (restore func()) {
 	mu.Lock()
 	old := enabled
@@ -192,21 +194,36 @@ func Enabled() bool {
 	return enabled
 }
 
-// Plan resolves a kind's effective profile. The package toggle and
+// Plan resolves a kind's effective profile. KindStill and
 // LYS_UI_NO_ANIM collapse it to zero-duration tweens, which deliver
 // their end state once at launch, so the state machine's shape is
-// identical either way. A caller's reduced-motion source such as the
-// theme (motion false) or the desktop's preference (anim.Reduced)
-// degrades it to a short fade with no movement - which is why callers
+// identical either way; so does the package toggle for a kind the app
+// did not style. A caller's reduced-motion source such as the theme
+// (motion false) or the desktop's preference (anim.Reduced) degrades
+// a default profile to a short fade with no movement, and an app's
+// profile to a fade over its own durations - which is why callers
 // pass their theme state here instead of consulting it twice.
 func Plan(k Kind, motion bool) Style {
-	switch {
-	case !Enabled() || anim.NoFades():
+	if k == KindStill || anim.NoFades() {
 		return Style{}
-	case !motion || anim.Reduced():
+	}
+	mu.Lock()
+	own, styled := overrides[k]
+	on := enabled
+	mu.Unlock()
+	reduced := !motion || anim.Reduced()
+	switch {
+	case styled && reduced:
+		own.Morph = false
+		return own
+	case styled:
+		return own
+	case !on:
+		return Style{}
+	case reduced:
 		return reducedMotion
 	}
-	return Lookup(k)
+	return Defaults[k]
 }
 
 // Driver is the surface-side half the coordinator drives. The surface
@@ -319,10 +336,10 @@ func (c *Coordinator) motionOn() bool {
 	return c.motion == nil || c.motion()
 }
 
-// Enter starts the enter tween: the first frame sits at progress 0
-// (applied synchronously, so a surface's very first paint is hidden or
-// offset — never a flash of the final frame), the tween then raises
-// the reveal to rest. Idempotent; a surface that skips Enter opens at
+// Enter starts the enter tween: the first frame sits at the style's
+// From, progress 0 for the defaults (applied synchronously, so a
+// surface's very first paint is hidden or offset — never a flash of the
+// final frame), the tween then raises the reveal to rest. Idempotent; a surface that skips Enter opens at
 // rest.
 //
 // Locking note: the launch happens OUTSIDE c.mp. A zero-duration tween
@@ -339,13 +356,15 @@ func (c *Coordinator) Enter() {
 	c.ph = phaseOpen
 	st := Plan(c.kind, c.motionOn())
 	c.morph = st.Morph
+	c.reveal = st.From
 	c.mp.Unlock()
-	// The first frame applies synchronously at progress 0, whatever the
-	// duration, so the driver's very first paint is the hidden/offset
-	// one — never a flash of the finished surface. (Reduced motion then
-	// lands 1 inside play, on the same call stack.)
-	c.drv.ApplyVisual(0, st.Morph)
-	cancel := c.play(st.Enter, true, 0)
+	// The first frame applies synchronously at the style's From,
+	// whatever the duration, so the driver's very first paint is the
+	// hidden/offset one (or, for a From above 0, an already readable
+	// one) — never a flash of the finished surface. (A zero duration
+	// then lands 1 inside play, on the same call stack.)
+	c.drv.ApplyVisual(st.From, st.Morph)
+	cancel := c.play(st.Enter, true, st.From)
 	c.mp.Lock()
 	if c.ph == phaseOpen && !c.destroyed {
 		c.cancelEnter = cancel

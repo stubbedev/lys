@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -101,5 +102,50 @@ func TestTheOwningCompositorDecidesAndTheKeySaysItHasNoEffect(t *testing.T) {
 	s.SetSessionReducedMotion(false)
 	if len(warnings) != warned+1 {
 		t.Errorf("no warning when a compositor takes the setting over a set key: %v", warnings)
+	}
+}
+
+func TestMenusAreInstantUnlessAnimationsMenuSaysOtherwise(t *testing.T) {
+	a := DefaultsAnimations()
+	a.Duration = 900
+	long := uint32(700)
+	a.EnterDuration, a.ExitDuration = &long, &long
+	for _, exiting := range []bool{false, true} {
+		if got := a.DurationFor(AnimMenu, exiting); got != 0 {
+			t.Errorf("menu exiting %v: %dms by default, want 0 whatever the global durations", exiting, got)
+		}
+		if got := a.DurationFor(AnimDropdown, exiting); got != 700 {
+			t.Errorf("dropdown exiting %v: %dms, want the global 700", exiting, got)
+		}
+	}
+	slide := AnimationSlideDown
+	a.Menu = SurfaceAnimation{EnterDuration: &long, Enter: &slide}
+	if got := a.DurationFor(AnimMenu, false); got != 700 {
+		t.Errorf("a configured menu enter: %dms, want 700", got)
+	}
+	if got := a.TransitionFor(AnimMenu, false); got != AnimationSlideDown {
+		t.Errorf("a configured menu enter: %v, want slide-down", got)
+	}
+	a.Enabled = false
+	if got := a.DurationFor(AnimMenu, false); got != 0 {
+		t.Errorf("animations off: a menu enter of %dms, want 0", got)
+	}
+}
+
+func TestAnInvalidMenuAnimationFailsAndKeepsMenusInstant(t *testing.T) {
+	for raw, wantErr := range map[string]string{
+		"{enter-duration: -5}":   "invalid value: integer `-5`, expected u32",
+		"{enter: wobble}":        "unknown variant `wobble`",
+		"{enter-duration: soon}": `invalid type: string "soon", expected u32`,
+	} {
+		path := writeFile(t, t.TempDir(), "config.yaml", "animations:\n  menu: "+raw+"\n")
+		cfg, err := LoadFile(path)
+		var d Diagnostic
+		if !errors.As(err, &d) || !strings.HasPrefix(d.Field("Field"), "animations.menu") || !strings.Contains(d.Field("Error"), wantErr) {
+			t.Errorf("menu %s: error %v, want %q at animations.menu", raw, err, wantErr)
+		}
+		if got := cfg.Animations.DurationFor(AnimMenu, false); got != 0 {
+			t.Errorf("menu %s: a rejected value left a %dms enter, want the instant default", raw, got)
+		}
 	}
 }

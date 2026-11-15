@@ -109,7 +109,10 @@ func dropdownsPage(*config.Config) pageSpec {
 		}
 		sections = append(sections, sectionSpec{title: title, rows: dropdownSizeRows(path)})
 	}
-	sections = append(sections, sectionSpec{title: "settings-section-animation", rows: surfaceAnimationRows("animations.dropdown")})
+	sections = append(sections,
+		sectionSpec{title: "settings-section-animation", rows: surfaceAnimationRows("animations.dropdown")},
+		sectionSpec{title: "settings-animations-menu", rows: surfaceAnimationRows("animations.menu")},
+	)
 	return pageSpec{
 		id: "dropdowns", navKey: "settings-nav-dropdowns", icon: "ld-panel-top-open-symbolic",
 		header: "settings-page-dropdowns", sections: sections,

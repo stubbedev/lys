@@ -80,7 +80,7 @@ func newExitHarness(t *testing.T, c *animClock, kind surfx.Kind) *exitHarness {
 	ph.wnd.host = host
 	ph.wnd.lastW, ph.wnd.lastH = 200, 100
 	h := &exitHarness{ph: ph, host: host}
-	if kind == surfx.KindMenu {
+	if kind == surfx.KindStill {
 		// Plain toplevels: no animation state at all.
 		return h
 	}
@@ -167,7 +167,7 @@ func TestNonAnimatedWindowClosesImmediately(t *testing.T) {
 	// Plain toplevels carry no coordinator: beginExit is false and the
 	// caller falls through to the raw close, exactly the pre-tween
 	// behavior.
-	h := newExitHarness(t, pinAnimClock(t), surfx.KindMenu)
+	h := newExitHarness(t, pinAnimClock(t), surfx.KindStill)
 	if h.ph.wnd.beginExit() {
 		t.Fatal("a non-animated kind began an exit")
 	}

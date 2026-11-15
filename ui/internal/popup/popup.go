@@ -437,6 +437,10 @@ func (p *Popup) Dismissed() bool { return p != nil && p.fx.Dismissed() }
 // Destroyed reports whether the wire teardown happened.
 func (p *Popup) Destroyed() bool { return p != nil && p.fx.Destroyed() }
 
+// Reveal is how far the popup has entered: 0 until its first
+// configure starts the enter, 1 at rest.
+func (p *Popup) Reveal() float64 { return p.fx.Reveal() }
+
 // Size returns the placed popup size.
 func (p *Popup) Size() (int, int) { return int(p.w), int(p.h) }
 

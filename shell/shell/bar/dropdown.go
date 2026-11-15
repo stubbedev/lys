@@ -584,6 +584,7 @@ func dropdownPopover(cfg *config.Config, anchor widget.Boundser, content widget.
 		Gap:            widget.PopoverGap,
 		Dismissal:      app.PopoverSticky,
 		BackgroundBlur: cfg.Styling.SurfaceOpacity(cfg.Bar.DropdownOpacity) < 100,
+		OwnMotion:      true,
 	}
 	if cfg.Bar.DropdownAutohide {
 		pc.Dismissal = app.PopoverClickAway

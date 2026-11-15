@@ -68,6 +68,12 @@ type AnimationsConfig struct {
 	Lock SurfaceAnimation `cfg:"lock"`
 	// Per-surface override for the application launcher.
 	Launcher SurfaceAnimation `cfg:"launcher"`
+	// Per-surface override for menus, context menus, the lists of
+	// dropdown inputs and window previews. Enter and exit durations
+	// default to 0, so they open in the frame of the click; a longer one
+	// starts already showing. `fade` only fades, any other transition
+	// also grows the menu out of what it opened from.
+	Menu SurfaceAnimation `cfg:"menu"`
 
 	// session is the compositor's say over reduced motion
 	// (Service.SetSessionReducedMotion).
@@ -98,6 +104,7 @@ func (a AnimationsConfig) CompositorOwnsMotion() bool { return a.session != sess
 
 // DefaultsAnimations returns the schema defaults.
 func DefaultsAnimations() AnimationsConfig {
+	enter, exit := uint32(0), uint32(0)
 	return AnimationsConfig{
 		Enabled:             true,
 		Duration:            200,
@@ -105,6 +112,7 @@ func DefaultsAnimations() AnimationsConfig {
 		InteractionDuration: 150,
 		UIDuration:          250,
 		Indicators:          true,
+		Menu:                SurfaceAnimation{EnterDuration: &enter, ExitDuration: &exit},
 	}
 }
 
@@ -136,6 +144,9 @@ const (
 	AnimLock
 	// AnimLauncher is the application launcher overlay.
 	AnimLauncher
+	// AnimMenu is menus, context menus, dropdown input lists and window
+	// previews.
+	AnimMenu
 )
 
 func (a AnimationsConfig) surface(s AnimSurface) SurfaceAnimation {
@@ -160,6 +171,8 @@ func (a AnimationsConfig) surface(s AnimSurface) SurfaceAnimation {
 		return a.Lock
 	case AnimLauncher:
 		return a.Launcher
+	case AnimMenu:
+		return a.Menu
 	}
 	return a.Notifications
 }

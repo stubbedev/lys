@@ -339,6 +339,41 @@ func TestSetSurfaceMotion(t *testing.T) {
 	}
 }
 
+// The app's popover motion holds with surface motion off: a timed one
+// starts already showing, a zero one is instant, a negative duration
+// reads as zero, and reduced motion keeps the durations as a plain fade.
+func TestSetPopoverMotion(t *testing.T) {
+	a := testApp(nil)
+	t.Cleanup(surfx.SetStyle(surfx.KindMenu, surfx.Style{}))
+	t.Cleanup(func() { surfx.SetEnabled(true) })
+	a.SetSurfaceMotion(false)
+	a.SetPopoverMotion(PopoverMotion{Enter: 300 * time.Millisecond, Exit: 100 * time.Millisecond, Grow: true})
+	st := surfx.Plan(surfx.KindMenu, true)
+	if st.Enter.Duration != 300*time.Millisecond || st.Exit.Duration != 100*time.Millisecond || st.Enter.Spring != nil || !st.Morph || st.From <= 0 {
+		t.Errorf("timed popover motion = %+v, want a 300ms growing tween starting above 0", st)
+	}
+	if st := surfx.Plan(surfx.KindMenu, false); st.Morph || st.Enter.Duration != 300*time.Millisecond {
+		t.Errorf("reduced popover motion = %+v, want the 300ms as a plain fade", st)
+	}
+	if st := surfx.Plan(surfx.KindOverlay, true); st.Enter.Duration != 0 || st.Enter.Spring != nil {
+		t.Errorf("popover motion turned the overlay motion back on: %+v", st)
+	}
+	a.SetSurfaceMotion(true)
+	a.SetPopoverMotion(PopoverMotion{Enter: -time.Second})
+	if st := surfx.Plan(surfx.KindMenu, true); st.Enter.Duration != 0 || st.Exit.Duration != 0 || st.Enter.Spring != nil {
+		t.Errorf("zero popover motion = %+v, want no motion with surface motion on", st)
+	}
+}
+
+func TestPopoverMotionIsTheToolkitsUnlessTheContentOwnsIt(t *testing.T) {
+	if got := popoverMotion(PopoverConfig{}); got != surfx.KindMenu {
+		t.Errorf("default = %v, want the popover profile", got)
+	}
+	if got := popoverMotion(PopoverConfig{OwnMotion: true}); got != surfx.KindStill {
+		t.Errorf("own motion = %v, want no toolkit motion", got)
+	}
+}
+
 func TestAnEndedLoopLeavesIconsPaintingInline(t *testing.T) {
 	t.Cleanup(func() { widget.SetInvoker(nil) })
 	a := NewTestApplication(t, &wlsession.Session{})

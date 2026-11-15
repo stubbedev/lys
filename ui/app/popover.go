@@ -15,6 +15,7 @@ import (
 
 	"github.com/stubbedev/lys/ui/internal/popup"
 	"github.com/stubbedev/lys/ui/internal/scale"
+	"github.com/stubbedev/lys/ui/internal/surfx"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -70,6 +71,10 @@ type PopoverConfig struct {
 	// and the surface stays up until Exit calls done. Nil closes through
 	// the popup's own exit tween.
 	Exit func(done func())
+	// OwnMotion is a popover whose content plays its own enter and exit
+	// (Exit), so the toolkit adds none, whatever SetPopoverMotion says:
+	// the surface maps at rest and closes at once.
+	OwnMotion bool
 	// MaxWidth and MaxHeight cap the content when measured, in place
 	// of the default ceiling, the largest output's size - a list held
 	// shorter than the output; a wide one wrapping its text. Zero keeps
@@ -282,6 +287,11 @@ func (p *Popover) dropCatchers() {
 	}
 }
 
+// Reveal is how far the popover has entered: 0 until the compositor
+// placed it, 1 at rest, between while its enter plays
+// (SetPopoverMotion). Loop goroutine only.
+func (p *Popover) Reveal() float64 { return p.pop.Reveal() }
+
 // Closed reports whether the popover has gone away.
 func (p *Popover) Closed() bool {
 	p.mu.Lock()
@@ -430,6 +440,15 @@ type LayerSurfacer interface {
 	LayerPopupSurface() *wlr.ZwlrLayerSurfaceV1
 }
 
+// popoverMotion is a popover's animation profile: the popover one,
+// unless its content plays its own.
+func popoverMotion(cfg PopoverConfig) surfx.Kind {
+	if cfg.OwnMotion {
+		return surfx.KindStill
+	}
+	return surfx.KindMenu
+}
+
 // OpenPopover opens content beside anchor on the given host, on the
 // side gravity asks for, flipping inside the host when the anchor sits
 // near an edge. Opening a second popover on the same host re-anchors:
@@ -571,6 +590,7 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 		_, basePlaced = a.originOf(parent)
 	}
 	pcfg.NoEnter = basePlaced && widget.SharedMorphPending(cfg.Content)
+	pcfg.Kind = popoverMotion(cfg)
 	pop, err := popup.New(a.sess, &a.anim, pcfg)
 	if err != nil {
 		restoreKeys()

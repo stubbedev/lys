@@ -297,7 +297,7 @@ func (a *Application) newLockWindow(lock *sessionlock.Lock, out *Output, content
 	if scale == 0 {
 		scale = 1
 	}
-	// KindMenu: no enter/exit tween. The first frame must be the
+	// KindStill: no enter/exit tween. The first frame must be the
 	// finished lock content, and teardown on unlock is immediate.
 	hw := a.newWindow(&lockHost{s: ls}, scale, content.Root, windowHooks{
 		background: content.Background,
@@ -305,7 +305,7 @@ func (a *Application) newLockWindow(lock *sessionlock.Lock, out *Output, content
 		onPress:    content.OnPress,
 		onMove:     content.OnPointerMove,
 		onKey:      content.OnKey,
-	}, content.OnClosed, surfx.KindMenu)
+	}, content.OnClosed, surfx.KindStill)
 	if out.Transform != 0 && hw.sc != nil {
 		_ = hw.sc.SetTransform(out.Transform)
 	}
