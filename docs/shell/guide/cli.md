@@ -40,9 +40,12 @@ See [Editing config](/shell/guide/editing-config).
 ```sh
 lys-shell brightness +10
 lys-shell brightness 50 --output DP-1
+lys-shell brightness auto
 ```
 
 `N` sets, `+N` raises, `-N` lowers, in percent, on the focused output or `--output`/`-o`. Never below `modules.brightness.min-brightness`. Laptop panels change through logind (no root needed); external monitors over DDC/CI when `modules.brightness.enable-external` is on. The shell applies the change, so the OSD and the bar module follow.
+
+`auto` hands the backlight back to [lys-power's automatic brightness](/power/#automatic-brightness) after a manual change paused it. It fails when automatic brightness is not running.
 
 ## media
 
