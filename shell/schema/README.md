@@ -29,5 +29,5 @@ your own file:
 Or point at the published copy:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/stubbedev/lys-shell/master/schema/lys-shell-config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/stubbedev/lys/main/shell/schema/lys-shell-config.schema.json
 ```
