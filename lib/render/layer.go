@@ -1,0 +1,342 @@
+package render
+
+import (
+	"fmt"
+	"math"
+	"runtime"
+
+	memory "github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys-lib/third_party/gomath"
+)
+
+// Affine is a 2-D affine map in device pixels: (x, y) goes to
+// (A·x + C·y + E, B·x + D·y + F). The zero value maps everything to the
+// origin; Identity leaves points where they are.
+type Affine struct{ A, B, C, D, E, F float64 }
+
+// Identity is the affine map that moves nothing.
+var Identity = Affine{A: 1, D: 1}
+
+// Translate is the map moving by (dx, dy).
+func Translate(dx, dy float64) Affine { return Affine{A: 1, D: 1, E: dx, F: dy} }
+
+// Scale is the map scaling about the origin.
+func Scale(sx, sy float64) Affine { return Affine{A: sx, D: sy} }
+
+// Rotate is the map rotating about the origin by deg degrees, clockwise
+// on screen (y grows downward), as a GSK snapshot rotation does.
+func Rotate(deg float64) Affine {
+	s, c := gomath.Sincos(deg * math.Pi / 180)
+	return Affine{A: c, B: s, C: -s, D: c}
+}
+
+// Mul is m∘n: the map applying n first, then m. A chain of snapshot
+// operations t1, t2, t3 on a point is t1.Mul(t2).Mul(t3).
+func (m Affine) Mul(n Affine) Affine {
+	return Affine{
+		A: float64(m.A*n.A) + float64(m.C*n.B),
+		B: float64(m.B*n.A) + float64(m.D*n.B),
+		C: float64(m.A*n.C) + float64(m.C*n.D),
+		D: float64(m.B*n.C) + float64(m.D*n.D),
+		E: float64(m.A*n.E) + float64(m.C*n.F) + m.E,
+		F: float64(m.B*n.E) + float64(m.D*n.F) + m.F,
+	}
+}
+
+// About is m applied about the pivot (px, py) instead of the origin.
+func (m Affine) About(px, py float64) Affine {
+	return Translate(px, py).Mul(m).Mul(Translate(-px, -py))
+}
+
+// Apply maps the point (x, y).
+func (m Affine) Apply(x, y float64) (float64, float64) {
+	return float64(m.A*x) + float64(m.C*y) + m.E, float64(m.B*x) + float64(m.D*y) + m.F
+}
+
+// Invert returns the inverse map; false when m collapses an axis.
+func (m Affine) Invert() (Affine, bool) {
+	det := float64(m.A*m.D) - float64(m.B*m.C)
+	if det == 0 || math.IsNaN(det) || math.IsInf(det, 0) {
+		return Affine{}, false
+	}
+	return Affine{
+		A: m.D / det,
+		B: -m.B / det,
+		C: -m.C / det,
+		D: m.A / det,
+		E: (float64(m.C*m.F) - float64(m.D*m.E)) / det,
+		F: (float64(m.B*m.E) - float64(m.A*m.F)) / det,
+	}, true
+}
+
+// MapBounds is the smallest pixel rect covering r's image under m.
+func (m Affine) MapBounds(r Rect) Rect {
+	if r.Empty() {
+		return Rect{}
+	}
+	x0, y0 := math.Inf(1), math.Inf(1)
+	x1, y1 := math.Inf(-1), math.Inf(-1)
+	for _, p := range [4][2]float64{
+		{float64(r.X), float64(r.Y)},
+		{float64(r.X + r.W), float64(r.Y)},
+		{float64(r.X), float64(r.Y + r.H)},
+		{float64(r.X + r.W), float64(r.Y + r.H)},
+	} {
+		x, y := m.Apply(p[0], p[1])
+		x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+	}
+	if math.IsNaN(x0) || math.IsNaN(y0) || math.IsNaN(x1) || math.IsNaN(y1) {
+		return Rect{}
+	}
+	l, t := int(math.Floor(x0)), int(math.Floor(y0))
+	return Rect{X: l, Y: t, W: int(math.Ceil(x1)) - l, H: int(math.Ceil(y1)) - t}
+}
+
+// isTranslate reports a whole-pixel translation, which composites as a
+// straight copy.
+func (m Affine) isTranslate() (dx, dy int, ok bool) {
+	if m.A != 1 || m.B != 0 || m.C != 0 || m.D != 1 || m.E != math.Trunc(m.E) || m.F != math.Trunc(m.F) {
+		return 0, 0, false
+	}
+	return int(m.E), int(m.F), true
+}
+
+// Layer is an offscreen buffer shaped like a canvas: the same device
+// size and scale, so a widget subtree paints into it exactly as it
+// would onto the canvas, to be drawn back transformed by Composite.
+type Layer struct {
+	buf []byte
+	// mem holds buf off the Go heap for a layer that allocated it;
+	// zero for one over a canvas's own pixels (LayerOf) or a recording.
+	mem layerMem
+	cv  *Canvas
+	// blurA and blurB are the blur passes' ping-pong buffers, blurS
+	// the downsampled copy a heavy blur runs on, and blurAcc the
+	// vertical pass's per-column sums, all kept with the layer so a
+	// backdrop blurred every frame allocates once.
+	blurA, blurB, blurS, blurRow []Color
+	blurAcc                      []uint32
+	blurCols                     []upCol
+	// scratch marks a pooled layer (ScratchLayer), which Release
+	// returns.
+	scratch bool
+	// backing is what a player keeps for a recorded layer (SetBacking).
+	backing any
+	// need is what the rest of a recorded scratch layer's life reads of
+	// it, while needing, as List.cull walks the List backwards.
+	need    Rect
+	needing bool
+	ready   layerGeom
+}
+
+type layerGeom struct{ w, h, num, denom int }
+
+type heldBacking interface {
+	Holds(w, h int) bool
+}
+
+// Layer returns a layer the size and scale of c whose region (device
+// pixels) is transparent and is the layer's clip; drawing lands only
+// there. old's buffer is reused whenever it is big enough, so a layer
+// kept across frames allocates once, and again only when it grows.
+func (c *Canvas) Layer(old *Layer, region Rect) *Layer {
+	if c.rec != nil {
+		return c.recordLayer(old, region, false)
+	}
+	n := c.stride * c.h
+	l := old
+	switch {
+	case l == nil || cap(l.buf) < n:
+		if l != nil {
+			l.Free()
+		}
+		l = newLayer(n)
+		l.cv = NewScaled(l.buf, c.stride, c.w, c.h, c.num, c.denom)
+	case len(l.buf) != n || l.cv.stride != c.stride || l.cv.w != c.w || l.cv.h != c.h || l.cv.num != c.num || l.cv.denom != c.denom:
+		l.buf = l.buf[:n]
+		l.cv = NewScaled(l.buf, c.stride, c.w, c.h, c.num, c.denom)
+	}
+	l.cv.alpha, l.cv.bright = 1, 0
+	l.cv.rescaleAlpha()
+	l.cv.clip = l.cv.Rect()
+	l.cv.ClearDevice(region, 0)
+	l.cv.clip = l.cv.Rect().Intersect(region)
+	return l
+}
+
+// ReuseLayer readies l to be composited again as it was last painted,
+// without clearing or repainting it, and reports whether it could: a
+// false return leaves l to Layer and a repaint. On a raster canvas l
+// must be live, not a scratch layer, and of c's stride, size and scale.
+// On a recording canvas the player that last readied l must still hold
+// its backing at c's size and scale; no call is recorded, so the List
+// composites l from that backing, and it is that player that is to
+// play the List.
+func (c *Canvas) ReuseLayer(l *Layer, region Rect) bool {
+	if l == nil || l.cv == nil || l.scratch {
+		return false
+	}
+	if c.rec != nil {
+		if l.cv.rec == nil || !l.holds(c.geom()) {
+			return false
+		}
+		l.cv.rec = c.rec
+		l.cv.resetFrame(c.w, c.h, c.num, c.denom)
+		l.cv.clip = l.cv.Rect().Intersect(region)
+		return true
+	}
+	if l.buf == nil || l.cv.rec != nil || len(l.buf) != c.stride*c.h || l.cv.stride != c.stride || l.cv.geom() != c.geom() {
+		return false
+	}
+	l.cv.alpha, l.cv.bright = 1, 0
+	l.cv.rescaleAlpha()
+	l.cv.clip = l.cv.Rect().Intersect(region)
+	return true
+}
+
+func (c *Canvas) geom() layerGeom { return layerGeom{c.w, c.h, c.num, c.denom} }
+
+func (l *Layer) holds(g layerGeom) bool {
+	if l.ready != g {
+		return false
+	}
+	switch b := l.backing.(type) {
+	case *Layer:
+		return b.buf != nil && b.cv.geom() == g
+	case heldBacking:
+		return b.Holds(g.w, g.h)
+	}
+	return false
+}
+
+// layerPixels holds the CPU layers' buffers off the Go heap: a layer is
+// a whole canvas (33 MB at 1080p 2x), and its pages go back to the
+// system when it is freed, rather than raising the GC's heap goal while
+// it lives and lingering until a collection after.
+var layerPixels memory.Shared
+
+// layerMem is a layer buffer's memory and the cleanup that frees it
+// should the layer be dropped without Free.
+type layerMem struct {
+	s       memory.Slice[byte]
+	cleanup runtime.Cleanup
+}
+
+// newLayer is a layer over n fresh, zeroed bytes off the Go heap. Like
+// make, it panics when the system has no memory left.
+func newLayer(n int) *Layer {
+	s, err := memory.MakeSlice[byte](&layerPixels, n)
+	if err != nil {
+		panic(fmt.Sprintf("render: a layer of %d bytes: %v", n, err))
+	}
+	l := &Layer{buf: s.Elems()}
+	l.mem = layerMem{s: s, cleanup: runtime.AddCleanup(l, freeLayerPixels, s)}
+	return l
+}
+
+// freeLayerPixels hands a layer buffer's pages back.
+func freeLayerPixels(s memory.Slice[byte]) {
+	if err := memory.FreeSlice(&layerPixels, s); err != nil {
+		panic(fmt.Sprintf("render: free a layer: %v", err))
+	}
+}
+
+// Free hands l's buffer back now, for a layer its owner is done with
+// (a transition that landed): l must not be used after. Off the Go heap
+// a dropped layer's buffer otherwise waits for a collection, which its
+// own size no longer brings on. A layer over a canvas's pixels has none
+// to free; a recorded layer drops its backing, a raster one freed with
+// it.
+func (l *Layer) Free() {
+	if b, ok := l.backing.(*Layer); ok {
+		b.Free()
+	}
+	l.backing, l.ready = nil, layerGeom{}
+	if l.mem.s.Len() == 0 {
+		return
+	}
+	l.mem.cleanup.Stop()
+	freeLayerPixels(l.mem.s)
+	l.mem, l.buf = layerMem{}, nil
+}
+
+// LayerOf is a layer whose pixels are c's own, for the layer
+// operations (ApplyFilters, masks, CrossFade, DrawLayer) on pixels a
+// player holds in a canvas of its own.
+func LayerOf(c *Canvas) *Layer {
+	if c.rec != nil {
+		panic("render: LayerOf a recording canvas")
+	}
+	return &Layer{buf: c.data, cv: c}
+}
+
+// Canvas is the layer's canvas to paint into.
+func (l *Layer) Canvas() *Canvas { return l.cv }
+
+// Composite draws the src device rect of l onto c through m (layer
+// device pixels to canvas device pixels), bilinearly filtered, blended
+// through c's opacity times alpha and clipped to c's clip. Pixels of l
+// outside src count as transparent, so the drawn edge antialiases. A
+// whole-pixel translation copies without filtering.
+func (c *Canvas) Composite(l *Layer, src Rect, m Affine, alpha float64) {
+	if l == nil || src.Empty() {
+		return
+	}
+	if c.rec != nil {
+		c.record(opArgs{kind: opComposite, layer: l, r: src, aff: m, f: [6]float64{alpha}})
+		return
+	}
+	src = src.Intersect(l.cv.Rect())
+	prev := c.PushAlpha(alpha)
+	defer c.PopAlpha(prev)
+	if c.alphaScale == 0 {
+		return
+	}
+	dst := m.MapBounds(src).Intersect(c.clip).Intersect(c.Rect())
+	if dst.Empty() {
+		return
+	}
+	if dx, dy, ok := m.isTranslate(); ok {
+		for y := dst.Y; y < dst.Y+dst.H; y++ {
+			for x := dst.X; x < dst.X+dst.W; x++ {
+				sx, sy := x-dx, y-dy
+				if sx < src.X || sy < src.Y || sx >= src.X+src.W || sy >= src.Y+src.H {
+					continue
+				}
+				if col := l.cv.get(sx, sy); col != 0 {
+					c.blend(x, y, col)
+				}
+			}
+		}
+		return
+	}
+	mp, ok := MappedOf(Affine3(m))
+	if !ok {
+		return
+	}
+	c.blendMapped(dst, src, &mp, l.cv.get)
+}
+
+// CrossFade blends other into l over region: each pixel becomes
+// l·(1−t) + other·t, premultiplied channels alike - GSK's cross-fade,
+// exact where drawing one over the other at partial opacity is not.
+func (l *Layer) CrossFade(other *Layer, region Rect, t float64) {
+	if l.cv.rec != nil {
+		l.cv.record(opArgs{kind: opCrossFade, layer: l, other: other, r: region, f: [6]float64{t}})
+		return
+	}
+	region = region.Intersect(l.cv.Rect()).Intersect(other.cv.Rect())
+	t = min(1, max(0, t))
+	w := uint32(math.Round(t * 255))
+	for y := region.Y; y < region.Y+region.H; y++ {
+		for x := region.X; x < region.X+region.W; x++ {
+			a, b := l.cv.get(x, y), other.cv.get(x, y)
+			if a == b {
+				continue
+			}
+			mix := func(ca, cb uint8) uint32 { return (uint32(ca)*(255-w) + uint32(cb)*w + 127) / 255 }
+			l.cv.set(x, y, Color(mix(a.A(), b.A())<<24|mix(a.R(), b.R())<<16|mix(a.G(), b.G())<<8|mix(a.B(), b.B())))
+		}
+	}
+}

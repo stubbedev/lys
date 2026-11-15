@@ -1,0 +1,67 @@
+# github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c, patched for lys-lib
+
+A copy of github.com/srwiley/oksvg at be6e8873101c (BSD 3-Clause,
+LICENSE), its non-test sources only, carried as a package of the lys-lib
+module and imported as `github.com/stubbedev/lys-lib/third_party/oksvg`.
+`render` rasterizes SVG icons and OT-SVG glyphs through it.
+
+## Why it lives inside the module
+
+Go ignores a dependency's `replace` directives, so a patched copy wired
+in through go.mod would reach lys-lib's own builds and none of its
+consumers'. As a package of the lys-lib module, the patches reach every
+application importing lys-lib.
+
+## Patches
+
+### Strokes scale with the transform
+
+`svg_path.go`, `SvgPath.DrawTransformed`: upstream hands the dasher
+`stroke-width`, `stroke-dasharray` and `stroke-dashoffset` as device
+pixels while the path itself goes through the full transform (viewBox
+fit and element transforms), so a stroke kept its user-unit width at
+any icon size. The patch scales all three by the transform's area
+scale, sqrt(|det|), exact for uniform scales and rotations
+(lys-ui#189).
+
+### Stroke defaults are SVG's
+
+`path_style.go`, `DefaultStyle`: upstream defaults `stroke-width` to 2
+and `stroke-linejoin` to bevel; SVG's initial values are 1 and miter
+(stubbedev/lys-ui#191).
+
+### userSpaceOnUse gradients follow the transform
+
+`svg_path.go`, `SvgPath.DrawTransformed`: upstream builds gradient
+paints with rasterx's `GetColorFunction`, the identity transform, so a
+`gradientUnits="userSpaceOnUse"` gradient was placed at its user-space
+coordinates read as device pixels. The patch passes the path's full
+transform to `GetColorFunctionUS`. rasterx maps the gradient's
+geometry forward through it, which is exact for scales and
+translations (the viewBox fit) but not for a radial gradient under a
+rotation or skew (stubbedev/lys-ui#190).
+
+### Products round the same on every architecture
+
+`svg_path.go`, `public.go`, `utils.go`, `draw.go`: the Go spec lets the compiler fuse
+`x*y + z` into one FMA instruction, which skips the rounding of the product, and it
+does so on arm64 and not on amd64. Each such product is now converted first, as in
+`third_party/rasterx`, which also has the numbers. amd64's results are unchanged.
+Pinned by the family's goldens and by `just no-fused`. Imports `third_party/rasterx`
+in place of github.com/srwiley/rasterx.
+
+No initialisation: importing the package runs no code
+(`TestImportingCostsNothing`). Upstream built the `drawFuncs` map when the
+package was imported and added `use` to it from an `init` function, to get
+around the cycle between the map and `useF`; here `drawFunc` is a switch and
+`useF` a function. `DefaultStyle` is a function returning the style, where
+upstream's variable was built at import.
+
+## Upstream status
+
+Each patch is offered upstream; once one is merged, the copy is
+rebased onto it and the patch dropped.
+
+- Strokes scale with the transform: srwiley/oksvg#54
+- Stroke defaults are SVG's: srwiley/oksvg#55
+- userSpaceOnUse gradients follow the transform: srwiley/oksvg#56

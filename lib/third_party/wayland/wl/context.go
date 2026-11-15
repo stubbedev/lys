@@ -1,0 +1,451 @@
+package wl
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"path/filepath"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"golang.org/x/sys/unix"
+
+	sys "github.com/stubbedev/lys-lib/third_party/wayland/os"
+)
+
+// Context wraps the wayland connection together with the map of all Context objects (proxies)
+type Context struct {
+	mu sync.RWMutex
+	// conn and sock are set once, by newContext, and never change, so
+	// every goroutine reaches them without a lock; closed says whether
+	// Close has closed them.
+	conn      *net.UnixConn
+	currentId ProxyId
+	objects   map[ProxyId]Proxy
+	zombies   map[ProxyId]Proxy
+	fds       []int
+	in        []byte
+	inStart   int
+	control   []byte
+	sock      socketIO
+	pollFn    func(fd uintptr)
+	pollFds   [1]unix.PollFd
+	pollErr   error
+	closed    atomic.Bool
+
+	// The compositor requires client-allocated ids to arrive in the order
+	// they were allocated: libwayland's wl_map rejects a new id that is
+	// not the next free slot ("not a valid new object id"). Register hands
+	// out ids in order, but the request that carries an id to the wire is
+	// written later, by whichever goroutine created the proxy, so two
+	// goroutines can write their requests in the wrong order. sendMu
+	// serialises writes, unsent holds the ids Register has handed out
+	// that no request has carried yet, and sendCond lets a writer wait
+	// until every smaller id has gone.
+	sendMu   sync.Mutex
+	sendCond *sync.Cond
+	unsent   map[ProxyId]struct{}
+	// out and outOOB are requests encoded but not yet written, under
+	// sendMu; see CommitDeferred.
+	out    []byte
+	outOOB []byte
+	// outFDs are the fds outOOB names, the context's own duplicates, as a
+	// caller closes its fd when the request returns.
+	outFDs []int
+	// buffered holds every request for a flush (SetBuffered); sends counts
+	// the sendmsg calls.
+	buffered bool
+	sends    int
+	// sendErr is what ended writing on this connection, for good.
+	sendErr error
+	// free holds the Reusable proxies delete_id retired, by type.
+	free map[reflect.Type][]Reusable
+}
+
+// markUnsent records a freshly allocated client id as not yet on the wire.
+func (ctx *Context) markUnsent(id ProxyId) {
+	ctx.sendMu.Lock()
+	if ctx.unsent == nil {
+		ctx.unsent = make(map[ProxyId]struct{})
+		ctx.sendCond = sync.NewCond(&ctx.sendMu)
+	}
+	ctx.unsent[id] = struct{}{}
+	ctx.sendMu.Unlock()
+}
+
+// forgetUnsent drops an id from the unsent set and wakes any writer that
+// was waiting for it. Called once the id is on the wire, or when the proxy
+// is unregistered without ever being sent, so nobody waits for it forever.
+func (ctx *Context) forgetUnsent(id ProxyId) {
+	ctx.sendMu.Lock()
+	ctx.forgetUnsentLocked(id)
+	ctx.sendMu.Unlock()
+}
+
+func (ctx *Context) forgetUnsentLocked(id ProxyId) {
+	if ctx.unsent == nil {
+		return
+	}
+	if _, ok := ctx.unsent[id]; !ok {
+		return
+	}
+	delete(ctx.unsent, id)
+	ctx.sendCond.Broadcast()
+}
+
+// smallerUnsentLocked reports whether some id below id is still unsent.
+// Callers hold sendMu.
+func (ctx *Context) smallerUnsentLocked(id ProxyId) bool {
+	for other := range ctx.unsent {
+		if other < id {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *Context) RegisterMapped(proxy Proxy, num uint32) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	proxy.SetId(ProxyId(num))
+	proxy.SetContext(ctx)
+	if ctx.closed.Load() {
+		return
+	}
+	ctx.objects[ProxyId(num)] = proxy
+	delete(ctx.zombies, ProxyId(num))
+}
+
+// Register registers a proxy in the map of all Context objects (proxies)
+func (ctx *Context) Register(proxy Proxy) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+
+	// avoid colliding with server side mapped proxy id?
+	startId := ctx.currentId
+	for {
+		ctx.currentId += 1
+		if _, ok := ctx.objects[ctx.currentId]; !ok {
+			break
+		}
+		// Prevent infinite loop if all IDs are exhausted
+		if ctx.currentId == startId {
+			panic("proxy ID space exhausted")
+		}
+	}
+	proxy.SetId(ctx.currentId)
+	proxy.SetContext(ctx)
+	if c, ok := proxy.(*Registry); ok {
+		SetUserData(c, &ctx)
+	}
+	if ctx.closed.Load() {
+		return
+	}
+	ctx.objects[ctx.currentId] = proxy
+	delete(ctx.zombies, ctx.currentId)
+	// The display is the one client-side proxy the compositor already
+	// knows: its id (1) is fixed by the protocol and no request ever
+	// carries it as a new_id. Tracking it as unsent would leave every
+	// later new id -- starting with wl_display.get_registry -- waiting
+	// for a write that never comes.
+	if _, isDisplay := proxy.(*Display); !isDisplay {
+		ctx.markUnsent(ctx.currentId)
+	}
+}
+
+// Unregister unregisters a proxy in the map of all Context objects (proxies).
+// Until its id is deleted or reused, events the compositor already sent it
+// are ignored and their fds closed instead of reaching another object's event.
+func (ctx *Context) Unregister(id ProxyId) {
+	ctx.mu.Lock()
+	if !ctx.closed.Load() {
+		if ctx.zombies == nil {
+			ctx.zombies = make(map[ProxyId]Proxy)
+		}
+		ctx.zombies[id] = ctx.objects[id]
+		delete(ctx.objects, id)
+	}
+	ctx.mu.Unlock()
+	ctx.forgetUnsent(id)
+}
+
+func (ctx *Context) isZombie(id ProxyId) bool {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	_, ok := ctx.zombies[id]
+	return ok
+}
+
+// idReaper forgets every id wl_display.delete_id retires: the zombie of a
+// proxy the client destroyed, and the proxy of an object the server
+// destroyed, such as the frame callback of a destroyed surface, whose
+// done never comes and whose handlers would otherwise stay reachable.
+type idReaper struct{ ctx *Context }
+
+func (r idReaper) HandleDisplayDeleteId(ev DisplayDeleteIdEvent) {
+	id := ProxyId(ev.Id)
+	r.ctx.mu.Lock()
+	p, live := r.ctx.objects[id]
+	if !live {
+		p = r.ctx.zombies[id]
+	}
+	delete(r.ctx.zombies, id)
+	delete(r.ctx.objects, id)
+	r.ctx.mu.Unlock()
+	r.ctx.forgetUnsent(id)
+	r.ctx.retire(p)
+}
+
+// LookupProxy looks up a specific proxy by it's Id in the map of all Context objects (proxies)
+func (ctx *Context) LookupProxy(id ProxyId) Proxy {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	proxy, ok := ctx.objects[id]
+	if !ok {
+		return nil
+	}
+	return proxy
+}
+
+// ErrXdgRuntimeDirNotSet is returned by Connect when the operating system does not provide the required
+// XDG_RUNTIME_DIR environment variable
+var ErrXdgRuntimeDirNotSet = errors.New("variable XDG_RUNTIME_DIR not set in the environment")
+
+// Connect connects to a Wayland compositor running on a specific wayland unix socket.
+// An empty addr means WAYLAND_DISPLAY, else wayland-0. As in libwayland's
+// wl_display_connect, an absolute addr is the socket's path as is, and a
+// relative one names a socket in XDG_RUNTIME_DIR.
+func Connect(addr string) (ret *Display, err error) {
+	addr, err = socketPath(addr)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: addr, Net: "unix"})
+	if err != nil {
+		return nil, err
+	}
+	c, err := newContext(conn)
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	//DON'T dispatch events in separate goroutine
+	//go c.Run()
+	return c.newDisplay(), nil
+}
+
+// newContext is a context on conn, a connected socket.
+func newContext(conn *net.UnixConn) (*Context, error) {
+	c := &Context{conn: conn, objects: make(map[ProxyId]Proxy)}
+	if err := c.openSocket(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (ctx *Context) newDisplay() *Display {
+	d := NewDisplay(ctx)
+	d.AddDeleteIdHandler(idReaper{ctx})
+	return d
+}
+
+// socketPath resolves the socket Connect dials for addr.
+func socketPath(addr string) (string, error) {
+	if addr == "" {
+		addr = os.Getenv("WAYLAND_DISPLAY")
+	}
+	if addr == "" {
+		addr = "wayland-0"
+	}
+	if filepath.IsAbs(addr) {
+		return addr, nil
+	}
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir == "" {
+		return "", ErrXdgRuntimeDirNotSet
+	}
+	return filepath.Join(runtimeDir, addr), nil
+}
+
+var errFoundMyCallback = errors.New("run found my callback")
+
+// RunTill (Context RunTill) runs until a specific callback or an error occurs, see Context Run
+// for a description of a likely errors
+func (ctx *Context) RunTill(cb *Callback) (err error) {
+	for {
+		err = ctx.run(cb)
+		if err == errFoundMyCallback {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+// ErrContextRunEventReadingError (Context Run event reading error), use InternalError to get the underlying cause
+var ErrContextRunEventReadingError = errors.New("event reading error")
+
+// ErrContextRunConnectionClosed (Context Run connection closed)
+var ErrContextRunConnectionClosed = errors.New("connection closed")
+
+// ErrContextRunTimeout (Context Run timeout error)
+var ErrContextRunTimeout = errors.New("timeout error")
+
+// ErrContextRunProtocolError (Context Run protocol error), use InternalError to get the underlying cause
+var ErrContextRunProtocolError = errors.New("protocol error")
+
+// ErrContextRunNotDispatched (Context Run not dispatched)
+var ErrContextRunNotDispatched = errors.New("not dispatched")
+
+// ErrContextRunProxyNil (Context Run proxy nil)
+var ErrContextRunProxyNil = errors.New("proxy nil")
+
+// Run (Context Run) reads and processes one event, a specific ErrContextRunXXX error
+// may be returned in case of failure
+func (ctx *Context) Run() error {
+	return ctx.run(nil)
+}
+
+// ErrContextNil (Error context is nil) occurs if the thread closes context and then
+// it wants to run, another thread probably cannot close it safely
+var ErrContextNil = errors.New("context is nil")
+
+// ErrContextConnNil (Error context conn is nil) occurs if the thread closes context and then
+// it wants to run, another thread probably cannot close it safely
+var ErrContextConnNil = errors.New("context conn is nil")
+
+func (ctx *Context) run(cb *Callback) (err error) {
+	// ctx := context.Background()
+
+	if ctx == nil {
+		return ErrContextNil
+	}
+
+	ev, err := ctx.readEvent()
+	if err != nil {
+		if err == io.EOF {
+			return ErrContextRunConnectionClosed
+		}
+
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			return ErrContextRunTimeout
+		}
+
+		return combinedError{ErrContextRunEventReadingError, err}
+	}
+
+	proxy := ctx.LookupProxy(ev.Pid)
+	if err := ctx.claimFDs(ev, proxy); err != nil {
+		return combinedError{ErrContextRunProtocolError, err}
+	}
+	defer func() {
+		if cerr := ev.closeUnclaimedFDs(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		*ev = Event{}
+		eventPool.Put(ev)
+	}()
+	if proxy != nil {
+		if dispatcher, ok := proxy.(Dispatcher); dispatcher != nil && ok {
+			if foundCb, ok := dispatcher.(*Callback); ok {
+				if foundCb == cb {
+					return errFoundMyCallback
+				}
+			}
+			dispatcher.Dispatch(ev)
+
+			if ev.err != nil {
+				return combinedError{ErrContextRunProtocolError, ev.err}
+			}
+		} else {
+			return ErrContextRunNotDispatched
+		}
+	} else if !ctx.isZombie(ev.Pid) {
+		return ErrContextRunProxyNil
+	}
+	return nil
+}
+
+// SetReadDeadline makes reads blocked in Run or ReadReady, and later ones,
+// fail with a timeout at t, leaving a partly read event in place for the next
+// read: a loop parked in Run wakes for its own timer without a request to the
+// compositor. A zero t clears it. Safe from any goroutine.
+func (ctx *Context) SetReadDeadline(t time.Time) error {
+	if err := ctx.unusable(); err != nil {
+		return err
+	}
+	if err := ctx.setReadDeadline(t); err != nil {
+		return fmt.Errorf("wl: set the read deadline: %w", ctx.closedOr(err))
+	}
+	return nil
+}
+
+// ErrContextClosed is what every request, read and wait on a closed
+// context fails with.
+var ErrContextClosed error = closedError{}
+
+type closedError struct{}
+
+func (closedError) Error() string { return "wl: the context is closed: " + ErrContextConnNil.Error() }
+
+func (closedError) Unwrap() error { return ErrContextConnNil }
+
+// unusable is ErrContextConnNil for a context that never had a
+// connection and ErrContextClosed for one Close ended. conn is set once,
+// before the context is shared, so reading it needs no lock.
+func (ctx *Context) unusable() error {
+	if ctx.conn == nil {
+		return ErrContextConnNil
+	}
+	if ctx.closed.Load() {
+		return ErrContextClosed
+	}
+	return nil
+}
+
+// closedOr is err, marked ErrContextClosed once the context is closed: a
+// call Close cuts short fails as one made after it. Close marks the
+// context before it closes the socket, so an error the closed socket
+// caused always finds the mark.
+func (ctx *Context) closedOr(err error) error {
+	if err == nil || !ctx.closed.Load() {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrContextClosed, err)
+}
+
+// Close (Context Close) closes Wayland connection. A proxy made on the
+// context afterwards is not tracked, and every request fails with
+// ErrContextClosed, or with the error that ended writing before. Every
+// read and wait fails with ErrContextClosed, one blocked on another
+// goroutine included.
+func (ctx *Context) Close() (err error) {
+	if ctx == nil {
+		return
+	}
+	ctx.sendMu.Lock()
+	if ctx.sendErr == nil {
+		ctx.failSendLocked(ErrContextClosed)
+	}
+	ctx.out = nil
+	ctx.sendMu.Unlock()
+	ctx.mu.Lock()
+	if !ctx.closed.Swap(true) && ctx.conn != nil {
+		err = errors.Join(ctx.closeSocket(), ctx.conn.Close())
+	}
+	ctx.objects = nil
+	ctx.zombies = nil
+	ctx.free = nil
+	for _, fd := range ctx.fds {
+		err = errors.Join(err, sys.Close(fd))
+	}
+	ctx.fds = nil
+	ctx.mu.Unlock()
+	CleanContextData(ctx)
+	return err
+}

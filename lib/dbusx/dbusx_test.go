@@ -1,0 +1,384 @@
+package dbusx_test
+
+import (
+	"errors"
+	"os"
+	"strings"
+	"syscall"
+	"testing"
+
+	"github.com/stubbedev/lys-lib/dbustest"
+	"github.com/stubbedev/lys-lib/dbusx"
+	dbus "github.com/stubbedev/lys-lib/third_party/godbus"
+)
+
+type echo struct{}
+
+func (echo) Echo(s string) (string, *dbus.Error) { return s, nil }
+
+func (echo) Fail() *dbus.Error { return dbusx.Failed("it broke") }
+
+const (
+	name  = "dev.stubbe.lys.Test1"
+	iface = "dev.stubbe.lys.Test1"
+	path  = dbus.ObjectPath("/dev/stubbe/lys/Test")
+)
+
+func serve(t *testing.T, conn *dbus.Conn, count *dbustest.Var[uint32]) func() {
+	t.Helper()
+	release, err := dbusx.Serve(conn, dbusx.Service{
+		Name: name, Path: path, Interface: iface, Methods: echo{},
+		Properties: dbusx.Getters{"Count": func() any { return count.Load() }},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return release
+}
+
+func TestServeMethodsAndLiveProperties(t *testing.T) {
+	dbustest.Session(t)
+	var count dbustest.Var[uint32]
+	count.Store(1)
+	defer serve(t, dbustest.SessionConn(t), &count)()
+
+	obj := dbustest.SessionConn(t).Object(name, path)
+	var out string
+	if err := obj.Call(iface+".Echo", 0, "hi").Store(&out); err != nil || out != "hi" {
+		t.Fatalf("Echo = %q, %v", out, err)
+	}
+	err := obj.Call(iface+".Fail", 0).Err
+	var de dbus.Error
+	if !errors.As(err, &de) || de.Name != dbusx.ErrFailed || de.Body[0] != "it broke" {
+		t.Fatalf("Fail = %#v", err)
+	}
+
+	// Getters are computed per read, like zbus property getters.
+	for _, want := range []uint32{1, 5} {
+		count.Store(want)
+		v, err := obj.GetProperty(iface + ".Count")
+		if err != nil || v.Value() != want {
+			t.Fatalf("Count = %v, %v; want %d", v, err, want)
+		}
+	}
+	var all map[string]dbus.Variant
+	if err := obj.Call("org.freedesktop.DBus.Properties.GetAll", 0, iface).Store(&all); err != nil || all["Count"].Value() != uint32(5) {
+		t.Fatalf("GetAll = %v, %v", all, err)
+	}
+}
+
+func TestServeRejectsUnknownAndWrites(t *testing.T) {
+	dbustest.Session(t)
+	var count dbustest.Var[uint32]
+	defer serve(t, dbustest.SessionConn(t), &count)()
+	obj := dbustest.SessionConn(t).Object(name, path)
+
+	if _, err := obj.GetProperty(iface + ".Nope"); !isDBusError(err, dbusx.ErrUnknownProperty) {
+		t.Errorf("unknown property: %v", err)
+	}
+	if err := obj.Call("org.freedesktop.DBus.Properties.Get", 0, "com.other", "Count").Err; !isDBusError(err, dbusx.ErrUnknownIface) {
+		t.Errorf("unknown interface: %v", err)
+	}
+	if err := obj.SetProperty(iface+".Count", dbus.MakeVariant(uint32(3))); !isDBusError(err, dbusx.ErrPropertyRO) {
+		t.Errorf("write: %v", err)
+	}
+}
+
+func TestServeRefusesAnOwnedName(t *testing.T) {
+	dbustest.Session(t)
+	var count dbustest.Var[uint32]
+	defer serve(t, dbustest.SessionConn(t), &count)()
+	second, client := dbustest.SessionConn(t), dbustest.SessionConn(t)
+	_, err := dbusx.Serve(second, dbusx.Service{
+		Name: name, Path: path, Interface: iface, Methods: echo{}, Properties: dbusx.Getters{},
+	})
+	if !errors.Is(err, dbusx.ErrNameTaken) {
+		t.Fatalf("second owner = %v, want ErrNameTaken", err)
+	}
+	if err := client.Object(second.Names()[0], path).Call(iface+".Echo", 0, "hi").Err; !isDBusError(err, dbusx.ErrUnknownIface) {
+		t.Errorf("Echo on the refused server = %v, want UnknownInterface", err)
+	}
+}
+
+func TestServeReleaseUnexports(t *testing.T) {
+	dbustest.Session(t)
+	server, client := dbustest.SessionConn(t), dbustest.SessionConn(t)
+	var count dbustest.Var[uint32]
+	release := serve(t, server, &count)
+	obj := client.Object(server.Names()[0], path)
+	if err := obj.Call(iface+".Echo", 0, "hi").Err; err != nil {
+		t.Fatalf("Echo while served: %v", err)
+	}
+	release()
+	if err := obj.Call(iface+".Echo", 0, "hi").Err; !isDBusError(err, dbusx.ErrUnknownIface) {
+		t.Errorf("Echo after release = %v, want UnknownInterface", err)
+	}
+	if err := client.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, name).Err; err == nil {
+		t.Errorf("%s still owned after release", name)
+	}
+}
+
+func isDBusError(err error, name string) bool {
+	var de dbus.Error
+	return errors.As(err, &de) && de.Name == name
+}
+
+type other struct{}
+
+func (other) Ping() (string, *dbus.Error) { return "pong", nil }
+
+func TestExportServesSeveralInterfacesOnOnePath(t *testing.T) {
+	bus := dbustest.Start(t)
+	server, client := bus.Conn(t), bus.Conn(t)
+	unexport, err := dbusx.Export(server, path,
+		dbusx.Interface{Name: iface, Methods: echo{}, Properties: dbusx.Getters{"version": func() any { return uint32(2) }}},
+		dbusx.Interface{Name: "dev.stubbe.lys.Other1", Methods: other{}, Properties: dbusx.Getters{"version": func() any { return uint32(1) }}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obj := client.Object(server.Names()[0], path)
+	var out string
+	if err := obj.Call(iface+".Echo", 0, "hi").Store(&out); err != nil || out != "hi" {
+		t.Fatalf("Echo = %q, %v", out, err)
+	}
+	if err := obj.Call("dev.stubbe.lys.Other1.Ping", 0).Store(&out); err != nil || out != "pong" {
+		t.Fatalf("Ping = %q, %v", out, err)
+	}
+	// One Properties object answers for each interface with its own values.
+	for name, want := range map[string]uint32{iface: 2, "dev.stubbe.lys.Other1": 1} {
+		v, err := obj.GetProperty(name + ".version")
+		if err != nil || v.Value() != want {
+			t.Errorf("%s.version = %v, %v; want %d", name, v, err, want)
+		}
+	}
+	var all map[string]dbus.Variant
+	err = obj.Call("org.freedesktop.DBus.Properties.GetAll", 0, "dev.stubbe.lys.Missing1").Store(&all)
+	var de dbus.Error
+	if !errors.As(err, &de) || de.Name != dbusx.ErrUnknownIface {
+		t.Errorf("GetAll of an unexported interface = %v", err)
+	}
+	var xml string
+	if err := obj.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xml); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{iface, "dev.stubbe.lys.Other1"} {
+		if !strings.Contains(xml, `<interface name="`+name+`">`) {
+			t.Errorf("introspection lacks %s:\n%s", name, xml)
+		}
+	}
+
+	// Unexporting removes every interface again.
+	unexport()
+	if err := obj.Call("dev.stubbe.lys.Other1.Ping", 0).Err; err == nil {
+		t.Error("Ping still answers after unexport")
+	}
+	if _, err := obj.GetProperty(iface + ".version"); err == nil {
+		t.Error("properties still answer after unexport")
+	}
+}
+
+func TestFileRefusesANegativeDescriptor(t *testing.T) {
+	if f, err := dbusx.File(-1, "doc"); err == nil {
+		_ = f.Close()
+		t.Fatal("fd -1 became a file")
+	}
+}
+
+func TestFileWrapsAReceivedDescriptor(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+	fd, err := syscall.Dup(int(r.Fd()))
+	_ = r.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := dbusx.File(dbus.UnixFD(fd), "doc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if _, err := w.WriteString("x"); err != nil {
+		t.Fatal(err)
+	}
+	b := make([]byte, 1)
+	if _, err := f.Read(b); err != nil || b[0] != 'x' {
+		t.Fatalf("read %q %v", b, err)
+	}
+	if f.Name() != "doc" {
+		t.Errorf("name %q", f.Name())
+	}
+}
+
+func TestSettersWriteTheirPropertyOnly(t *testing.T) {
+	dbustest.Session(t)
+	conn := dbustest.SessionConn(t)
+	var label dbustest.Var[string]
+	label.Store("old")
+	const wpath = dbus.ObjectPath("/dev/stubbe/lys/Writable")
+	unexport, err := dbusx.Export(conn, wpath, dbusx.Interface{
+		Name: iface, Methods: echo{},
+		Properties: dbusx.Getters{
+			"Label": func() any { return label.Load() },
+			"Fixed": func() any { return uint32(7) },
+		},
+		Setters: dbusx.Setters{"Label": func(v dbus.Variant) *dbus.Error {
+			s, ok := v.Value().(string)
+			if !ok {
+				return dbusx.InvalidArgs("Label is a string")
+			}
+			label.Store(s)
+			return nil
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unexport()
+	obj := dbustest.SessionConn(t).Object(conn.Names()[0], wpath)
+
+	if err := obj.SetProperty(iface+".Label", dbus.MakeVariant("new")); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := obj.GetProperty(iface + ".Label"); err != nil || v.Value() != "new" {
+		t.Errorf("Label = %v, %v; want new", v, err)
+	}
+	if err := obj.SetProperty(iface+".Label", dbus.MakeVariant(uint32(1))); !isDBusError(err, dbusx.ErrInvalidArgs) {
+		t.Errorf("wrong type: %v", err)
+	}
+	if err := obj.SetProperty(iface+".Fixed", dbus.MakeVariant(uint32(1))); !isDBusError(err, dbusx.ErrPropertyRO) {
+		t.Errorf("read-only: %v", err)
+	}
+	if err := obj.SetProperty(iface+".Nope", dbus.MakeVariant("x")); !isDBusError(err, dbusx.ErrUnknownProperty) {
+		t.Errorf("unknown: %v", err)
+	}
+	var xml string
+	if err := obj.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xml); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(xml, `<property name="Label" type="s" access="readwrite">`) || !strings.Contains(xml, `<property name="Fixed" type="u" access="read">`) {
+		t.Errorf("introspection does not mark the access:\n%s", xml)
+	}
+}
+
+func TestExportRefusesASetterWithoutAGetter(t *testing.T) {
+	dbustest.Session(t)
+	_, err := dbusx.Export(dbustest.SessionConn(t), "/dev/stubbe/lys/Bad", dbusx.Interface{
+		Name: iface, Methods: echo{},
+		Setters: dbusx.Setters{"Ghost": func(dbus.Variant) *dbus.Error { return nil }},
+	})
+	if err == nil || !strings.Contains(err.Error(), "Ghost") {
+		t.Errorf("Export = %v, want an error naming Ghost", err)
+	}
+}
+
+// An interface Export refuses leaves nothing at the path, not even the
+// interfaces given before it.
+func TestExportIsAllOrNothing(t *testing.T) {
+	bus := dbustest.Start(t)
+	server, client := bus.Conn(t), bus.Conn(t)
+	const bad = dbus.ObjectPath("/dev/stubbe/lys/Half")
+	for _, tc := range []struct {
+		what   string
+		second dbusx.Interface
+	}{
+		{"a setter without a getter", dbusx.Interface{Name: "dev.stubbe.lys.Other1", Methods: other{}, Setters: dbusx.Setters{"Ghost": func(dbus.Variant) *dbus.Error { return nil }}}},
+		{"a signal of another interface", dbusx.Interface{Name: "dev.stubbe.lys.Other1", Methods: other{}, Signals: []dbusx.SignalDecl{dbusx.NewSignal[struct{}](iface, "Stray")}}},
+		{"a repeated interface", dbusx.Interface{Name: iface, Methods: other{}}},
+		{"a Properties interface", dbusx.Interface{Name: "org.freedesktop.DBus.Properties", Methods: other{}}},
+	} {
+		what := tc.what
+		if _, err := dbusx.Export(server, bad, dbusx.Interface{Name: iface, Methods: echo{}}, tc.second); err == nil {
+			t.Fatalf("%s: Export succeeded", what)
+		}
+		obj := client.Object(server.Names()[0], bad)
+		if err := obj.Call(iface+".Echo", 0, "hi").Err; !isDBusError(err, dbusx.ErrUnknownIface) {
+			t.Errorf("%s: Echo after a refused Export = %v, want UnknownInterface", what, err)
+		}
+		if err := obj.Call("org.freedesktop.DBus.Properties.GetAll", 0, iface).Err; !isDBusError(err, dbusx.ErrUnknownIface) {
+			t.Errorf("%s: GetAll after a refused Export = %v, want UnknownInterface", what, err)
+		}
+		var xml string
+		if err := obj.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xml); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(xml, iface) {
+			t.Errorf("%s: introspection after a refused Export lists %s:\n%s", what, iface, xml)
+		}
+	}
+}
+
+type labelled struct{ label string }
+
+func (l *labelled) Label() (string, *dbus.Error) { return l.label, nil }
+
+// Objects of one type share what reflection found, not their receivers,
+// and each serves its own calls and introspection.
+func TestExportedObjectsOfATypeKeepTheirReceivers(t *testing.T) {
+	bus := dbustest.Start(t)
+	srv, cli := bus.Conn(t), bus.Conn(t)
+	const iface = "x.Labelled"
+	for _, name := range []string{"a", "b", "c"} {
+		off, err := dbusx.Export(srv, dbus.ObjectPath("/o/"+name), dbusx.Interface{Name: iface, Methods: &labelled{name}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(off)
+	}
+	for _, name := range []string{"a", "b", "c"} {
+		obj := cli.Object(srv.Names()[0], dbus.ObjectPath("/o/"+name))
+		var got string
+		if err := obj.Call(iface+".Label", 0).Store(&got); err != nil {
+			t.Fatal(err)
+		}
+		if got != name {
+			t.Errorf("/o/%s answered %q", name, got)
+		}
+		var xml string
+		if err := obj.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xml); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(xml, `"Label"`) {
+			t.Errorf("/o/%s introspects as %s", name, xml)
+		}
+		if call := obj.Call(iface+".Missing", 0); call.Err == nil {
+			t.Errorf("/o/%s served a method it does not have", name)
+		}
+	}
+}
+
+func TestExportServesAnInterfaceOfPropertiesAlone(t *testing.T) {
+	bus := dbustest.Start(t)
+	server, client := bus.Conn(t), bus.Conn(t)
+	unexport, err := dbusx.Export(server, path, dbusx.Interface{
+		Name:       "dev.stubbe.lys.State1",
+		Properties: dbusx.Getters{"LidClosed": func() any { return true }},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unexport()
+	obj := client.Object(server.Names()[0], path)
+	v, err := obj.GetProperty("dev.stubbe.lys.State1.LidClosed")
+	if err != nil || v.Value() != true {
+		t.Fatalf("LidClosed = %v, %v; want true", v, err)
+	}
+	var xml string
+	if err := obj.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xml); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(xml, `<interface name="dev.stubbe.lys.State1">`) {
+		t.Errorf("introspection lacks the interface:\n%s", xml)
+	}
+}
+
+func TestExportRefusesAnEmptyInterface(t *testing.T) {
+	dbustest.Session(t)
+	_, err := dbusx.Export(dbustest.SessionConn(t), "/dev/stubbe/lys/Empty", dbusx.Interface{Name: "dev.stubbe.lys.Empty1"})
+	if err == nil || !strings.Contains(err.Error(), "dev.stubbe.lys.Empty1") {
+		t.Errorf("Export = %v, want an error naming the interface", err)
+	}
+}

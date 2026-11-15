@@ -1,0 +1,156 @@
+// Package nal writes and reads H.264 and H.265 NAL units: the bit
+// writer and reader with the Exp-Golomb codes the syntax uses, the
+// escaping of start-code-like byte runs and its removal, the parameter
+// sets an encoder that does not write its own (VA-API's, given packed
+// headers) puts in the stream, and the parsing of the parameter sets and
+// slice headers a decoder that manages its own reference pictures (Vulkan
+// Video's) needs.
+package nal
+
+import (
+	"errors"
+	"fmt"
+	"math"
+
+	"github.com/stubbedev/lys-lib/intconv"
+)
+
+// ErrUnsupported marks a header that is well formed and uses coding
+// tools the parser does not read, beside the ErrH264 or ErrHEVC it
+// wraps: an unsupported stream, where those alone are a malformed one.
+var ErrUnsupported = errors.New("coding tools that are not decoded")
+
+// Writer collects a NAL unit's RBSP bits, most significant first.
+type Writer struct {
+	buf  []byte
+	cur  uint64
+	bits uint
+}
+
+// Reset empties the writer for another unit, keeping its storage: a
+// Writer kept between units writes them without allocating.
+func (w *Writer) Reset() { w.buf, w.cur, w.bits = w.buf[:0], 0, 0 }
+
+// U writes v's low n bits, n up to 32.
+func (w *Writer) U(n uint, v uint32) {
+	w.cur = w.cur<<n | uint64(v)&(1<<n-1)
+	w.bits += n
+	for w.bits >= 8 {
+		w.bits -= 8
+		w.buf = append(w.buf, byte(w.cur>>w.bits&0xff))
+	}
+}
+
+// Flag writes one bit.
+func (w *Writer) Flag(b bool) {
+	if b {
+		w.U(1, 1)
+	} else {
+		w.U(1, 0)
+	}
+}
+
+// UE writes v as an unsigned Exp-Golomb code, ue(v).
+func (w *Writer) UE(v uint32) {
+	x := uint64(v) + 1
+	n := uint(0)
+	for x>>n > 1 {
+		n++
+	}
+	w.U(n, 0)
+	w.U(n+1, uint32(x&math.MaxUint32))
+}
+
+// UEInt writes v as ue(v) where the syntax element is held as a Go
+// int; a v below 0 or above 2^32-2 is a caller bug, and panics.
+func (w *Writer) UEInt(v int) {
+	if v < 0 || int64(v) >= math.MaxUint32 {
+		panic(fmt.Sprintf("nal: %d does not fit ue(v)", v))
+	}
+	w.UE(uint32(v))
+}
+
+// SEInt writes v as se(v) where the syntax element is held as a Go
+// int; a v outside int32 is a caller bug, and panics.
+func (w *Writer) SEInt(v int) {
+	if v < math.MinInt32 || v > math.MaxInt32 {
+		panic(fmt.Sprintf("nal: %d does not fit se(v)", v))
+	}
+	w.SE(int32(v))
+}
+
+// UInt writes v as u(n) where the syntax element is held as a Go int;
+// a v outside what n bits hold is a caller bug, and panics.
+func (w *Writer) UInt(n uint, v int) {
+	u, err := intconv.Exact[uint32](v)
+	if err != nil || n > 32 || uint64(u) >= 1<<n {
+		panic(fmt.Sprintf("nal: %d does not fit u(%d)", v, n))
+	}
+	w.U(n, u)
+}
+
+// SE writes v as a signed Exp-Golomb code, se(v).
+func (w *Writer) SE(v int32) {
+	if v > 0 {
+		w.UE(uint32(2*v - 1))
+	} else {
+		w.UE(uint32(-2 * v))
+	}
+}
+
+// Trailing writes rbsp_trailing_bits: a one, then zeros to the byte.
+func (w *Writer) Trailing() {
+	w.U(1, 1)
+	if w.bits > 0 {
+		w.U(8-w.bits, 0)
+	}
+}
+
+// Unit is the NAL unit of header bytes and the RBSP written so far
+// (byte-aligned by Trailing), emulation prevention bytes inserted.
+func (w *Writer) Unit(header ...byte) []byte { return w.AppendUnit(nil, header...) }
+
+// AppendUnit appends Unit to dst.
+func (w *Writer) AppendUnit(dst []byte, header ...byte) []byte {
+	out := append(dst, header...)
+	zeros := 0
+	for _, b := range w.buf {
+		if zeros == 2 && b <= 3 {
+			out = append(out, 3)
+			zeros = 0
+		}
+		out = append(out, b)
+		if b == 0 {
+			zeros++
+		} else {
+			zeros = 0
+		}
+	}
+	return out
+}
+
+// AppendPacked appends to dst the NAL unit of header bytes and the bits
+// written so far for a driver to continue (a slice header before its
+// slice data): escaped, its last byte zero-padded. It returns dst so
+// grown and how many of the bits appended are the unit's.
+func (w *Writer) AppendPacked(dst []byte, header ...byte) (out []byte, bits int) {
+	pad := 0
+	if w.bits > 0 {
+		pad = int(8 - w.bits)
+		w.U(uint(pad), 0)
+	}
+	out = w.AppendUnit(dst, header...)
+	return out, (len(out)-len(dst))*8 - pad
+}
+
+// AnnexB joins NAL units, each behind a four-byte start code.
+func AnnexB(units ...[]byte) []byte { return AppendAnnexB(nil, units...) }
+
+// AppendAnnexB appends AnnexB to dst.
+func AppendAnnexB(dst []byte, units ...[]byte) []byte {
+	for _, u := range units {
+		dst = append(dst, 0, 0, 0, 1)
+		dst = append(dst, u...)
+	}
+	return dst
+}

@@ -1,0 +1,46 @@
+package gpu
+
+import (
+	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+)
+
+// TestShadersAreCurrent pins the embedded SPIR-V to the GLSL beside
+// it: a shader edited without go generate ./gpu fails here. It needs
+// glslangValidator, which the dev shell (and CI's) provides.
+func TestShadersAreCurrent(t *testing.T) {
+	if _, err := exec.LookPath("glslangValidator"); err != nil {
+		t.Skip("no glslangValidator: run inside the dev shell")
+	}
+	for name, embedded := range map[string][]byte{"prim.vert": primVert, "prim.frag": primFrag, "nv12.comp": nv12Comp, "grain.comp": grainComp, "comp.vert": compVert, "comp.frag": compFrag, "fill.frag": fillFrag, "grad.frag": gradFrag, "kawase.frag": kawaseFrag, "goo.frag": gooFrag, "glass.frag": glassFrag, "ycbcr444.frag": ycbcr444Frag, "ycbcrplanes.frag": ycbcrPlanesFrag} {
+		out := filepath.Join(t.TempDir(), name+".spv")
+		cmd := exec.Command("glslangValidator", "-V", "--quiet", "-o", out, filepath.Join("shaders", name))
+		if msg, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("compiling %s: %v\n%s", name, err, msg)
+		}
+		got, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, embedded) {
+			t.Errorf("shaders/%s.spv is stale: run go generate ./gpu", name)
+		}
+	}
+	for name, embedded := range map[string][]byte{"comp": compColorFrag, "glass": glassColorFrag, "grad": gradColorFrag, "ycbcr444": ycbcr444ColorFrag, "ycbcrplanes": ycbcrPlanesColorFrag} {
+		out := filepath.Join(t.TempDir(), name+".spv")
+		cmd := exec.Command("glslangValidator", "-V", "--quiet", "-DCOLOR", "-o", out, filepath.Join("shaders", name+".frag"))
+		if msg, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("compiling %s with COLOR: %v\n%s", name, err, msg)
+		}
+		got, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, embedded) {
+			t.Errorf("shaders/%s.color.frag.spv is stale: run go generate ./gpu", name)
+		}
+	}
+}

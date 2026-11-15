@@ -1,0 +1,87 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - forbidigo
+    - gosec
+    - intrange
+    - misspell
+    - modernize
+    - nolintlint
+    - perfsprint
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - whitespace
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^math\.(Sin|Cos|Sincos|Tan|Atan|Atan2|Asin|Acos|Exp|Exp2|Log|Log2|Log10|Pow|Cbrt|Hypot|Erf|Erfc)$
+          msg: its result depends on the architecture; use third_party/gomath
+    errcheck:
+      check-type-assertions: true
+      exclude-functions:
+        - (*os.File).Close
+        - (io.Closer).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    perfsprint:
+      strconcat: true
+      sprintf1: true
+    revive:
+      rules:
+        # Enforced since the API-consistency pass (#52): every
+        # exported symbol carries a doc comment starting with its
+        # name, so godoc and the API stay complete.
+        - name: exported
+  exclusions:
+    generated: lax
+    # Upstream code carried verbatim (third_party/*/README.lys-lib.md).
+    paths:
+      - third_party/
+    rules:
+      - path: _test\.go
+        linters:
+          - forbidigo
+          - errcheck
+          - gosec
+          - unparam
+      # packages gpu and internal/va are the Vulkan and VA-API FFI
+      # boundaries: every create-info chain, parameter buffer and
+      # out-parameter crosses them as an unsafe pointer by design.
+      - path: ^(gpu|internal/va)/
+        linters:
+          - gosec
+        text: G103
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^math\.(Sin|Cos|Sincos|Tan|Atan|Atan2|Asin|Acos|Exp|Exp2|Log|Log2|Log10|Pow|Cbrt|Hypot|Erf|Erfc)$
+          msg: its result depends on the architecture; use third_party/gomath
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/stubbedev/lys-lib)
+  exclusions:
+    generated: lax
+    paths:
+      - third_party/

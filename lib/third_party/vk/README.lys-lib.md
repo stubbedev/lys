@@ -1,0 +1,242 @@
+# github.com/gogpu/wgpu hal/vulkan/vk at 3e9824c, patched for lys-lib
+
+A copy of the `hal/vulkan/vk` package of github.com/gogpu/wgpu at
+3e9824c (MIT, LICENSE), its non-test sources only, carried as a package
+of the lys-lib module and imported as
+`github.com/stubbedev/lys-lib/third_party/vk`. These are pure-Go Vulkan
+bindings generated from vk.xml, loading libvulkan at runtime through
+purego (upstream uses goffi, see below), so lys-lib stays
+`CGO_ENABLED=0`. The GPU renderer (lys-ui#298) draws through it.
+
+## Why it lives inside the module
+
+As with `third_party/oksvg`: Go ignores a dependency's `replace`
+directives, so a patched copy wired in through go.mod would reach lys-lib's
+own builds and none of its consumers' (lys-shell, lys-wm). As a package
+of the lys-lib module, the patches reach every application importing it.
+Only this package is carried: it depends on nothing of gogpu but goffi,
+which it no longer uses either (below).
+
+## Patches
+
+Each bug fix goes upstream as its own pull request; drop it here once
+merged.
+
+### Calls go through purego, not goffi
+
+`internal/ffi` is the slice of goffi's API the bindings use
+(`PrepareCallInterface`, `CallFunction`, `LoadLibrary`, `GetSymbol`,
+`FreeLibrary` and the type descriptors), carried out by
+github.com/ebitengine/purego. Every source imports it in place of
+`goffi/ffi` and `goffi/types`. goffi and purego each link a runtime
+shim (`internal/fakecgo`), so a cgo-free program holding both fails to
+link with a duplicated `_cgo_init`. The family's other native libraries
+load through purego too (`clib`, `internal/va`). Vulkan's arguments and
+results are integers, handles and pointers; a float argument (vkCmdSetLineWidth and a few
+others, which lys-lib does not call) panics, since purego.SyscallN
+passes integer registers only. gpu's TestOneFakecgo keeps a second
+shim out. This is a lys-lib integration choice rather than an upstream
+bug.
+
+### C `int` is `int32`
+
+Upstream: https://github.com/gogpu/wgpu/pull/372
+
+`commands_gen.go`, `types_gen.go`: vk-gen has no mapping for C `int`, so
+it passed through as Go's 64-bit `int`. `vkGetMemoryFdKHR`,
+`vkGetSemaphoreFdKHR` and `vkGetFenceFdKHR` wrote a 32-bit fd through a
+pointer to a 64-bit int, leaving its upper half garbage. The `Fd` fields
+of the import-fd structs, and `VkNativeBufferANDROID`'s `int` fields,
+also had the wrong size and so a wrong struct layout. All are `int32`.
+
+### The dmabuf export device functions load
+
+Upstream: https://github.com/gogpu/wgpu/pull/373
+
+`commands.go`, `LoadDevice`: `vkGetMemoryFdKHR`,
+`vkGetMemoryFdPropertiesKHR` and `vkGetImageDrmFormatModifierPropertiesEXT`
+had fields and wrappers but were never loaded, so calling them jumped to
+nil.
+
+### vkGetPhysicalDeviceFormatProperties2 loads
+
+Upstream: https://github.com/gogpu/wgpu/pull/373
+
+`commands.go`, `LoadInstance`: it had a field and a wrapper but was
+never loaded, so the DRM-modifier query (a format's modifier list
+chained into its properties) jumped to nil.
+
+### Surface-less instances load
+
+Upstream: https://github.com/gogpu/wgpu/pull/374
+
+`commands.go`, `LoadInstance`: it failed unless the VK_KHR_surface query
+functions loaded, though an instance rendering offscreen or into
+exported memory enables no surface extension. Surface users check
+`HasWSIQueries`, which already existed.
+
+### Commands vk-gen has no signature for
+
+Upstream: https://github.com/gogpu/wgpu/pull/376 and, for
+`vkCmdPushConstants`, https://github.com/gogpu/wgpu/pull/377
+
+`commands_lysui.go`: wrappers for `vkGetImageSubresourceLayout` (a dmabuf
+plane's offset and stride), `vkCmdClearColorImage`,
+`vkGetMemoryFdPropertiesKHR` (the memory types an imported dmabuf binds
+as) and `vkCmdPushConstants`, which vk-gen skips as unsupported
+signatures.
+
+### Core 1.1 structure types
+
+Upstream: https://github.com/gogpu/wgpu/pull/375
+
+`const_lysui.go`: vk-gen emits only the extension aliases of the
+external-memory, dedicated-allocation and format-properties structure
+types, so the core names were missing. Upstream found the cause: vk-gen read
+enum values from the extensions section only and ignored `extnumber`,
+so about 60 other constants here carry wrong values too (lys-lib uses
+none of them).
+
+### 64-bit flag types
+
+`types_gen.go`: vk-gen typed thirteen `VkFlags64` types as 32-bit
+`Flags` (among them `PipelineStageFlags2`, `AccessFlags2` and
+`FormatFeatureFlags2`, so every synchronization2 barrier was laid out
+short) and four 32-bit `VkFlags` types as `Flags64` (the H.264 encode
+capability, std-syntax and rate-control flags, and the H.264 decode
+picture layout). Each now has its header's width;
+`TestVideoStructSizes` pins the sizes of the structures the GPU
+encoder passes against a C compiler's.
+
+### Video coding and synchronization2 functions load
+
+`commands.go`: `LoadInstance` loads
+`vkGetPhysicalDeviceQueueFamilyProperties2` and the video capability,
+format and quality-level queries; `LoadDevice` loads
+`vkCmdPipelineBarrier2`, `vkQueueSubmit2` and the
+VK_KHR_video_queue and VK_KHR_video_encode_queue commands. All had
+fields and wrappers and were never loaded.
+
+### vkGetQueryPoolResults
+
+`commands_lysui.go`: a wrapper vk-gen skipped (its eight arguments
+had no signature template), for the encoder's feedback queries.
+
+### H.264 and H.265 StdVideo structures
+
+`stdvideo_lysui.go`, `stdvideo_h265_lysui.go`: vk-gen carries the codec
+headers' structures as opaque byte arrays of guessed sizes. The H.264
+parameter sets and encode structures, and every structure of
+`vulkan_video_codec_h265std.h` and `vulkan_video_codec_h265std_encode.h`,
+are laid out as the headers lay them out, their arrays dropped from
+`types_gen.go`; `TestStdVideoH264Layouts` and `TestStdVideoH265Layouts`
+pin every size and field offset against a C compiler's.
+
+### Core 1.1 and 1.3 values the encoder names
+
+`const_lysui.go`: the queue family properties and 1.3 feature
+structure types, synchronization2's structure types, the two-plane
+4:2:0 format and its plane aspects, all left out of `const_gen.go`.
+
+### vkGetPhysicalDeviceImageFormatProperties2 loads
+
+`commands.go`, `LoadInstance`: it had a field and a wrapper but was
+never loaded; the dmabuf export checks ask it whether a modifier
+exports. Its structure types, and the external image format ones,
+join the core values in `const_lysui.go`.
+
+### Calls keep their arguments alive; vkGetDeviceProcAddr is per instance
+
+`internal/ffi`: `CallFunction` hands C its arguments as integers, which
+keep nothing alive; it now keeps the argument array, and through it
+every structure an argument points at, reachable until the call
+returns. A collection during a long call (`vkCreateInstance`) freed what
+the driver was reading, and another goroutine's allocation overwrote
+it: devices opened on several goroutines at once crashed.
+
+`loader.go`, `commands.go`: `vkGetDeviceProcAddr` was one process-wide
+pointer, fetched through whichever instance came first and kept after
+that instance was destroyed. `LoadDevice` now looks device functions up
+through its own instance's, which `LoadInstance` already loaded.
+
+### Importing dmabufs
+
+`commands.go`, `LoadDevice`: `vkBindImageMemory2` and
+`vkGetImageMemoryRequirements2` load (fields and wrappers existed),
+for binding a disjoint imported image plane by plane.
+`const_lysui.go`: the core 1.1 bind and memory-requirement structure
+types, the disjoint format feature and the disjoint image create flag.
+
+### Explicit sync and calibrated timestamps
+
+`commands.go`: `LoadInstance` loads
+`vkGetPhysicalDeviceExternalSemaphoreProperties` and
+`vkGetPhysicalDeviceCalibrateableTimeDomainsKHR` (its EXT name where
+the KHR one is missing); `LoadDevice` loads `vkImportSemaphoreFdKHR`,
+`vkGetSemaphoreFdKHR` and `vkGetCalibratedTimestampsKHR` (or EXT).
+All had fields and wrappers. `const_gen.go`:
+`StructureTypeCalibratedTimestampInfoKhr` is 1000184000, the header's,
+not vk-gen's 1000543000 (one of the extnumber values above).
+`const_lysui.go`: the core 1.1 external semaphore structure types.
+
+### Sampler YCbCr conversion
+
+`commands.go`, `LoadDevice`: `vkCreateSamplerYcbcrConversion` and
+`vkDestroySamplerYcbcrConversion` load (fields and wrappers existed).
+`const_lysui.go`: the conversion's structure types, the 1.1 feature
+block's, P010's format and the chroma format features.
+
+### Dmabufs as buffers
+
+`const_lysui.go`: `StructureTypeExternalMemoryBufferCreateInfo`, the
+core 1.1 structure type a buffer imported from a dmabuf is made with.
+
+### The loader path can be pinned
+
+`LYS_LIBVULKAN` names the loader to open, and on Linux the default
+`libvulkan.so.1` is the package variable `defaultLibrary`, which a
+build can pin with `-ldflags '-X
+github.com/stubbedev/lys-lib/third_party/vk.defaultLibrary=/nix/store/…/libvulkan.so.1'`.
+A Nix-built `CGO_ENABLED=0` program then finds the loader without
+`LD_LIBRARY_PATH`, which a compositor would otherwise leak into every
+client it spawns. This is a lys-lib integration choice rather than an
+upstream bug.
+
+### Video decoding
+
+`commands.go`, `LoadDevice`: `vkCmdDecodeVideoKHR` loads (field and
+wrapper existed). `stdvideo_decode_lysui.go`: the H.264 and H.265
+decode picture and reference structures, H.264's scaling lists and the
+parameter set flag bits the decoder sets, laid out as
+`vulkan_video_codec_h264std_decode.h` and
+`vulkan_video_codec_h265std_decode.h` lay them out, their opaque arrays
+dropped from `types_gen.go`; `TestStdVideoDecodeH264Layouts` and
+`TestStdVideoDecodeH265Layouts` pin them. `const_gen.go`:
+`VideoDecodeH264PictureLayoutFlagBitsKHR` is a 32-bit enum, not
+vk-gen's 64 bits, which laid `VkVideoDecodeH264ProfileInfoKHR` out
+eight bytes long with the layout where the driver reads padding;
+`TestVideoDecodeStructSizes` pins the decode structures' sizes.
+`const_decode_lysui.go`: the core 1.1
+`StructureTypeImageViewUsageCreateInfo`, which the decoder's coding views
+of sampled pictures need. The core 1.2
+`StructureTypePhysicalDeviceDriverProperties`, by which the decoder
+knows the driver.
+
+`stdvideo_av1_lysui.go`: the AV1 sequence header, colour config, timing
+info, tile info, quantization, segmentation, loop filter, CDEF, loop
+restoration, global motion and film grain structures and the AV1 decode
+picture and reference structures, with their flag bits, laid out as
+`vulkan_video_codec_av1std.h` and `vulkan_video_codec_av1std_decode.h`
+lay them out, their opaque arrays dropped from `types_gen.go`;
+`TestStdVideoAV1Layouts` pins them.
+
+`stdvideo_vp9_lysui.go`: the VP9 colour config, loop filter,
+segmentation and decode picture structures, with their flag bits, laid
+out as `vulkan_video_codec_vp9std.h` and
+`vulkan_video_codec_vp9std_decode.h` lay them out, their opaque array
+dropped from `types_gen.go`; `TestStdVideoVP9Layouts` pins them.
+`types_gen.go`: `VkVideoDecodeVP9PictureInfoKHR::referenceNameSlotIndices`
+is an array of `VK_MAX_VIDEO_VP9_REFERENCES_PER_FRAME_KHR` (3) indices,
+not vk-gen's single `int32`, which laid the header offsets after it where
+the driver reads the indices. `stdvideo_decode_lysui.go`:
+`StdVideoH265ProfileIdcMain10`.

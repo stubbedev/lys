@@ -1,0 +1,41 @@
+package opus
+
+import (
+	"testing"
+
+	"github.com/stubbedev/lys-lib/testbuild"
+)
+
+func TestImportingCostsNothing(t *testing.T) { testbuild.RequireNoInit(t) }
+
+func TestCodersShareTheTables(t *testing.T) {
+	e, err := NewEncoder(2, 96000, CBR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := NewDecoder(e.AppendHead(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, when := range []string{"a new decoder", "a reset decoder"} {
+		celt := d.streams[0].celt
+		if e.tables == nil || celt.tables != e.tables {
+			t.Errorf("%s holds the tables %p, the encoder %p, want the one set built once", when, celt.tables, e.tables)
+		}
+		if e.pvq.u != &e.tables.pvqU || celt.bands.pvq.u != &e.tables.pvqU {
+			t.Errorf("%s codes pulses by the table %p, the encoder by %p, want %p", when, celt.bands.pvq.u, e.pvq.u, &e.tables.pvqU)
+		}
+		d.Reset()
+	}
+}
+
+func TestTheResamplerTapsMirrorAcrossThePhases(t *testing.T) {
+	for phase, taps := range silkResamplerFIR {
+		mirrored := silkResamplerFIR[len(silkResamplerFIR)-1-phase]
+		for k := range silkFIROrder / 2 {
+			if taps[1][k] != mirrored[0][silkFIROrder/2-1-k] {
+				t.Errorf("phase %d tap %d is %d, want %d: the reference's row for phase %d, reversed", phase, silkFIROrder/2+k, taps[1][k], mirrored[0][silkFIROrder/2-1-k], len(silkResamplerFIR)-1-phase)
+			}
+		}
+	}
+}
