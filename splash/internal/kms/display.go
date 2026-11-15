@@ -45,6 +45,7 @@ type Event struct {
 	err    error
 	lit    *litCard
 	scan   *scanResult
+	lost   bool
 }
 
 // Display is every DRM card's outputs. It is not safe for concurrent use:
@@ -226,6 +227,12 @@ func (d *Display) readUevents() {
 		if errors.Is(err, os.ErrClosed) {
 			return
 		}
+		if errors.Is(err, unix.ENOBUFS) {
+			if !d.send(Event{lost: true}) {
+				return
+			}
+			continue
+		}
 		if err != nil {
 			d.send(Event{err: err})
 			return
@@ -254,6 +261,8 @@ func (d *Display) Handle(e Event) (bool, error) {
 		return false, e.err
 	case e.uevent != nil:
 		return d.uevent(e.uevent)
+	case e.lost:
+		return d.resync()
 	case e.lit != nil:
 		if e.lit.gen != d.workers[e.lit.card.name].gen {
 			return false, nil
@@ -307,6 +316,38 @@ func (d *Display) uevent(msg []byte) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// resync stands in for uevents the socket dropped when its buffer overflowed:
+// a card node that appeared is opened as an add would, one that went is removed,
+// and every card still there is probed again for hotplugs.
+func (d *Display) resync() (bool, error) {
+	entries, err := os.ReadDir(d.paths.Dev)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, fmt.Errorf("kms: list %s after lost uevents: %w", d.paths.Dev, err)
+	}
+	present := map[string]bool{}
+	for _, e := range entries {
+		if isCard(e.Name()) {
+			present[e.Name()] = true
+		}
+	}
+	changed := false
+	for _, c := range d.sortedCards() {
+		if !present[c.name] {
+			changed = d.remove(c.name) || changed
+		}
+	}
+	until := d.clock.now().Add(busyRetryFor)
+	for name := range present {
+		if _, ok := d.cards[name]; !ok {
+			d.worker(name).ask(func(j *cardJobs) { j.open, j.until = true, until })
+		} else if !d.paused {
+			d.worker(name).ask(func(j *cardJobs) { j.rescan = true })
+		}
+	}
+	d.log.Warn("uevents were lost, so the cards were listed again", "cards", len(present))
+	return changed, nil
 }
 
 // remove forgets a card at once, so nothing more is drawn on it, and leaves its

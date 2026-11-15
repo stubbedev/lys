@@ -122,7 +122,10 @@ func aboutDRM(msg []byte) bool {
 	return false
 }
 
-const kernelGroup = 1
+const (
+	kernelGroup  = 1
+	ueventBuffer = 4 << 20
+)
 
 // ueventSocket is a NETLINK_KOBJECT_UEVENT socket subscribed to the kernel's
 // uevents, read through the runtime's poller so Close unblocks a read.
@@ -138,6 +141,11 @@ func openUevents() (*ueventSocket, error) {
 	}
 	if err := unix.Bind(fd, &unix.SockaddrNetlink{Family: unix.AF_NETLINK, Groups: kernelGroup}); err != nil {
 		return nil, errors.Join(fmt.Errorf("kms: subscribe to kernel uevents: %w", err), unix.Close(fd))
+	}
+	if err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVBUFFORCE, ueventBuffer); err != nil {
+		if err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVBUF, ueventBuffer); err != nil {
+			return nil, errors.Join(fmt.Errorf("kms: size the uevent socket's buffer: %w", err), unix.Close(fd))
+		}
 	}
 	return &ueventSocket{f: os.NewFile(uintptr(fd), "uevent"), buf: make([]byte, 1<<16)}, nil
 }

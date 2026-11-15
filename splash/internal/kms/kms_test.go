@@ -1504,3 +1504,37 @@ func TestNoFrameCanBeCommittedWhileMasterChanges(t *testing.T) {
 		t.Errorf("%d frames could have been committed while master was changing", during)
 	}
 }
+
+func TestLostUeventsListTheCardsAgain(t *testing.T) {
+	t.Parallel()
+	firmware := newFakeDevice("/dev/dri/card0", 1)
+	firmware.connect(40, [2]uint32{531, 299}, mode(64, 32, true))
+	devs := map[string]*fakeDevice{"card0": firmware}
+	disp, paths := fakeDisplay(t, devs, nil)
+	if got := len(disp.Outputs()); got != 1 {
+		t.Fatalf("%d outputs before the uevents were lost, want 1", got)
+	}
+	native := newFakeDevice("/dev/dri/card1", 1)
+	native.connect(50, [2]uint32{531, 299}, mode(64, 32, true))
+	devs["card1"] = native
+	if err := os.WriteFile(filepath.Join(paths.Dev, "card1"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(paths.Dev, "card0")); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := disp.Handle(Event{lost: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Error("forgetting the card whose node went did not change the outputs")
+	}
+	pump(t, disp, func() bool {
+		outs := disp.Outputs()
+		return len(outs) == 1 && outs[0].card.name == "card1"
+	})
+	if err := disp.Close(false); err != nil {
+		t.Fatal(err)
+	}
+}
