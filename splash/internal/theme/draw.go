@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
-	"github.com/stubbedev/lys/splash/internal/protocol"
 )
 
 //go:embed assets/Cantarell-Regular.ttf
@@ -42,8 +42,7 @@ type Prompt struct {
 	Retry bool
 }
 
-// State is what the splash shows. Progress is the update's while Updating,
-// and else the boot's while Booting.
+// State is what the splash shows.
 type State struct {
 	Hidden   bool
 	Message  string
@@ -52,8 +51,7 @@ type State struct {
 	Ask      Ask
 	Hints    Hints
 	Updating bool
-	Booting  bool
-	Progress protocol.Percent
+	Progress Progress
 	Phase    int
 }
 
@@ -65,6 +63,7 @@ type Hints struct {
 const (
 	CapsLockHint = "Caps Lock is on"
 	EscHint      = "Esc: boot messages"
+	UpdateHint   = "Do not turn off"
 	hintGap      = " · "
 	keymapLabel  = "Keymap: "
 )
@@ -139,7 +138,6 @@ type layout struct {
 	group     image.Rectangle
 	busy      image.Rectangle
 	throb     image.Rectangle
-	boot      image.Rectangle
 	title     image.Rectangle
 	secondary image.Rectangle
 	notice    image.Rectangle
@@ -149,13 +147,10 @@ type layout struct {
 }
 
 const (
-	lysLogoSize   = 112
-	throbberSize  = 40
-	dotCount      = 3
-	barWidth      = 240
-	barHeight     = 8
-	bootBarHeight = 4
-	entryWidth    = 320
+	lysLogoSize  = 112
+	throbberSize = 40
+	dotCount     = 3
+	entryWidth   = 320
 )
 
 func space(r tokens.Rem, scale int) int {
@@ -204,9 +199,7 @@ func (r *Renderer) layout(size image.Point, scale int) layout {
 	margin := sp(tokens.SpaceXL)
 	c := column{minX: margin, maxX: size.X - margin, y: l.logo.Max.Y + sp(tokens.SpaceXL)}
 	top := c.y
-	l.busy = centred(c.row(s(throbberSize)), s(max(throbberSize, barWidth)))
-	c.gap(sp(tokens.SpaceSM))
-	l.boot = centred(c.row(s(bootBarHeight)), s(barWidth))
+	l.busy = c.row(s(throbberSize))
 	c.gap(sp(tokens.SpaceLG))
 	l.title = c.row(sp(tokens.SpaceXL))
 	l.secondary = c.row(sp(tokens.SpaceLG))
@@ -220,7 +213,7 @@ func (r *Renderer) layout(size image.Point, scale int) layout {
 	overflow := l.group.Max.Y - (size.Y - sp(tokens.SpaceSM))
 	room := l.group.Min.Y - (l.logo.Max.Y + sp(tokens.SpaceSM))
 	if up := image.Pt(0, min(overflow, room)); up.Y > 0 {
-		for _, at := range []*image.Rectangle{&l.group, &l.busy, &l.boot, &l.title, &l.secondary, &l.notice, &l.field, &l.entry, &l.hints} {
+		for _, at := range []*image.Rectangle{&l.group, &l.busy, &l.title, &l.secondary, &l.notice, &l.field, &l.entry, &l.hints} {
 			*at = at.Sub(up)
 		}
 	}
@@ -250,7 +243,6 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 			return kms.Damage{}, err
 		}
 		r.indicator(cv, l, cur)
-		r.bootProgress(cv, l, cur)
 		for _, row := range r.textRows(l, cur) {
 			r.line(cv, row.box, row.text, row.px, render.AlignCenter)
 		}
@@ -263,14 +255,6 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 	}
 	var damage kms.Damage
 	r.redrawIndicator(f, cv, l, *prev, cur, &damage)
-	switch {
-	case bootShown(*prev) != bootShown(cur):
-		r.clear(cv, l.boot)
-		r.bootProgress(cv, l, cur)
-		damage.Add(l.boot)
-	case bootShown(cur) && prev.Progress != cur.Progress:
-		damage.Add(r.moveBar(cv, l.boot, prev.Progress, cur.Progress))
-	}
 	from, to := r.textRows(l, *prev), r.textRows(l, cur)
 	for i := range to {
 		if from[i].text != to[i].text {
@@ -299,9 +283,13 @@ type textRow struct {
 func (r *Renderer) textRows(l layout, s State) [3]textRow {
 	title, secondary := textPx(tokens.Title, l.scale), textPx(tokens.Caption, l.scale)
 	if s.Prompt.Kind == NoPrompt {
+		status := s.Status
+		if s.Updating {
+			status = UpdateHint
+		}
 		return [3]textRow{
 			{l.title, title, rowText{s.Message, r.theme.Foreground}},
-			{l.secondary, secondary, rowText{s.Status, r.theme.Secondary}},
+			{l.secondary, secondary, rowText{status, r.theme.Secondary}},
 			{l.notice, secondary, rowText{}},
 		}
 	}
@@ -321,16 +309,11 @@ func (r *Renderer) hintsText(h [3]string) rowText {
 	return rowText{hintsLine(h), r.theme.Secondary}
 }
 
-// fillEnd is the column a bar's fill reaches at p.
-func fillEnd(track image.Rectangle, p protocol.Percent) int {
-	return track.Min.X + track.Dx()*int(p)/int(protocol.MaxPercent)
-}
-
 // moveBar brings a bar from one fill to another and returns the columns that
 // changed: those between the two ends and the rounded end of the shorter fill,
 // or from the track's start when that fill is too short to have a straight
 // middle, since then its left end changes shape too.
-func (r *Renderer) moveBar(cv *render.Canvas, track image.Rectangle, from, to protocol.Percent) image.Rectangle {
+func (r *Renderer) moveBar(cv *render.Canvas, track image.Rectangle, from, to Fill) image.Rectangle {
 	a, b := fillEnd(track, from), fillEnd(track, to)
 	if a > b {
 		a, b = b, a
@@ -459,17 +442,21 @@ func (r *Renderer) fieldBorder() render.Color {
 	return mix(r.fieldFill(), r.theme.Foreground, uint32(tokens.FieldBorder), 100)
 }
 
-func (l layout) updateBar() image.Rectangle {
-	c := l.busy.Min.Add(l.busy.Max).Div(2)
-	w, h := barWidth*l.scale, barHeight*l.scale
-	return image.Rect(c.X-w/2, c.Y-h/2, c.X+w/2, c.Y+h/2)
+func (l layout) bar() image.Rectangle {
+	h := space(tokens.SpaceSM, l.scale)
+	y := (l.busy.Min.Y + l.busy.Max.Y - h) / 2
+	return image.Rect(l.entry.Min.X, y, l.entry.Max.X, y+h)
+}
+
+func (l layout) percent() image.Rectangle {
+	return image.Rect(l.bar().Max.X+space(tokens.SpaceSM, l.scale), l.busy.Min.Y, l.busy.Max.X, l.busy.Max.Y)
 }
 
 type indicator uint8
 
 const (
 	throbberShown indicator = iota
-	updateBarShown
+	barShown
 	lockShown
 )
 
@@ -477,21 +464,35 @@ func indicatorOf(s State) indicator {
 	switch {
 	case s.Prompt.Kind != NoPrompt:
 		return lockShown
-	case s.Updating:
-		return updateBarShown
+	case s.Progress.Known:
+		return barShown
 	}
 	return throbberShown
+}
+
+func (s State) percentShown() rowText {
+	if !s.Updating || indicatorOf(s) != barShown {
+		return rowText{}
+	}
+	return rowText{text: strconv.Itoa(int(s.Progress.Percent())) + "%"}
 }
 
 func (r *Renderer) indicator(cv *render.Canvas, l layout, s State) {
 	switch indicatorOf(s) {
 	case lockShown:
 		r.lock(cv, l, s.Ask)
-	case updateBarShown:
-		r.bar(cv, l.updateBar(), s.Progress)
+	case barShown:
+		r.bar(cv, l.bar(), s.Progress.Shown())
+		r.line(cv, l.percent(), r.percentText(s), textPx(tokens.Caption, l.scale), render.AlignStart)
 	case throbberShown:
 		r.throbber(cv, l, s.Phase)
 	}
+}
+
+func (r *Renderer) percentText(s State) rowText {
+	t := s.percentShown()
+	t.col = r.theme.Secondary
+	return t
 }
 
 func (r *Renderer) redrawIndicator(f kms.Frame, cv *render.Canvas, l layout, prev, cur State, damage *kms.Damage) {
@@ -501,8 +502,13 @@ func (r *Renderer) redrawIndicator(f kms.Frame, cv *render.Canvas, l layout, pre
 		r.clear(cv, l.busy)
 		r.indicator(cv, l, cur)
 		damage.Add(l.busy)
-	case to == updateBarShown && prev.Progress != cur.Progress:
-		damage.Add(r.moveBar(cv, l.updateBar(), prev.Progress, cur.Progress))
+	case to == barShown:
+		if a, b := prev.Progress.Shown(), cur.Progress.Shown(); a != b {
+			damage.Add(r.moveBar(cv, l.bar(), a, b))
+		}
+		if prev.Updating != cur.Updating || prev.Progress.Percent() != cur.Progress.Percent() {
+			damage.Add(r.redrawLine(cv, l.percent(), r.percentText(prev), r.percentText(cur), textPx(tokens.Caption, l.scale), render.AlignStart))
+		}
 	case to == throbberShown && r.step(prev.Phase) != r.step(cur.Phase):
 		r.stepThrobber(f, cv, l, prev.Phase, cur.Phase, damage)
 	case to == lockShown && prev.Ask.breath() != cur.Ask.breath():
@@ -512,15 +518,15 @@ func (r *Renderer) redrawIndicator(f kms.Frame, cv *render.Canvas, l layout, pre
 	}
 }
 
-func (r *Renderer) PhasesToNextPicture(s State) int {
+func (r *Renderer) PhasesToNextPicture(s State, size image.Point, scale int) int {
 	if s.Hidden {
 		return 0
 	}
 	switch indicatorOf(s) {
 	case lockShown:
 		return s.Ask.phasesToNextPicture()
-	case updateBarShown:
-		return 0
+	case barShown:
+		return s.Progress.phasesToNextPicture(r.layout(size, scale).bar())
 	case throbberShown:
 		return r.throbberPhasesToNextPicture(s.Phase)
 	}
@@ -574,13 +580,26 @@ func (r *Renderer) stepThrobber(f kms.Frame, cv *render.Canvas, l layout, from, 
 		damage.Add(at)
 		return
 	}
-	for _, step := range [...]int{r.step(from), r.step(to)} {
-		dot := l.dot(step)
+	for i := range dotCount {
+		if r.dotColor(i, r.step(from)) == r.dotColor(i, r.step(to)) {
+			continue
+		}
+		dot := l.dot(i)
 		if cached {
 			restore(f, saved, at, dot)
 		}
 		damage.Add(dot)
 	}
+}
+
+func (r *Renderer) dotColor(i, step int) render.Color {
+	switch i {
+	case step:
+		return r.theme.Accent
+	case (step + dotCount - 1) % dotCount:
+		return mix(r.dim(), r.theme.Accent, 1, 2)
+	}
+	return r.dim()
 }
 
 // restore copies region of the picture saved of rectangle at back to the frame.
@@ -614,31 +633,29 @@ func (r *Renderer) throbber(cv *render.Canvas, l layout, phase int) {
 	case Spinner:
 		width := float64(size / 8)
 		radius := float64(size/2) - width
-		cv.Arc(float64(c.X), float64(c.Y), radius, width, 0, 2*math.Pi, dim)
-		cv.Arc(float64(c.X), float64(c.Y), radius, width, 2*math.Pi*float64(step)/Frames-math.Pi/2, math.Pi/2, r.theme.Accent)
+		cx, cy := float64(c.X), float64(c.Y)
+		cv.Arc(cx, cy, radius, width, 0, 2*math.Pi, dim)
+		head := 2 * math.Pi * float64(step) / Frames
+		segment := tailSweep / tailSegments
+		for i := range uint32(tailSegments) {
+			start := head - tailSweep + float64(float64(i)*segment)
+			w := width * float64(i+2) / (tailSegments + 1)
+			cv.Arc(cx, cy, radius, w, start, segment, mix(dim, r.theme.Accent, i+1, tailSegments))
+		}
 	case Dots:
 		d := l.dotSize()
 		for i := range dotCount {
-			col := dim
-			if i == step {
-				col = r.theme.Accent
-			}
-			cv.RoundedRect(rect(l.dot(i)), d/2, col)
+			cv.RoundedRect(rect(l.dot(i)), d/2, r.dotColor(i, step))
 		}
 	}
 }
 
-func bootShown(s State) bool {
-	return s.Booting && !s.Updating && s.Prompt.Kind == NoPrompt
-}
+const (
+	tailSegments = 8
+	tailSweep    = 3 * math.Pi / 4
+)
 
-func (r *Renderer) bootProgress(cv *render.Canvas, l layout, s State) {
-	if bootShown(s) {
-		r.bar(cv, l.boot, s.Progress)
-	}
-}
-
-func (r *Renderer) bar(cv *render.Canvas, track image.Rectangle, p protocol.Percent) {
+func (r *Renderer) bar(cv *render.Canvas, track image.Rectangle, p Fill) {
 	radius := track.Dy() / 2
 	cv.RoundedRect(rect(track), radius, r.dim())
 	fill := track

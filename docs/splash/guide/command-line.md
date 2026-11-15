@@ -53,7 +53,7 @@ Exactly one runs, instead of a command:
 | `show-splash`, `hide-splash` | Shows or hides the splash |
 | `display-message --text=TEXT`, `message --text=TEXT` | Shows a message |
 | `hide-message --text=TEXT` | Hides that message if it is the one showing |
-| `change-mode --MODE` | `--updates`, `--system-upgrade`, `--firmware-upgrade`: update progress bar. `--boot-up`, `--shutdown`, `--reboot`, `--system-reset`: throbber |
+| `change-mode --MODE` | `--updates`, `--system-upgrade`, `--firmware-upgrade`: update mode, the throbber until `system-update --progress` reports a percentage, then the bar. `--boot-up`, `--shutdown`, `--reboot`, `--system-reset`: throbber |
 | `system-update --progress=N` | Update progress bar at N percent |
 | `update --status=STATUS` | Sends a boot status |
 | `update-root-fs --new-root-dir=DIR` | Moves the daemon into the root at DIR |

@@ -225,8 +225,6 @@ func TestGoldenFrames(t *testing.T) {
 	t.Parallel()
 	size := image.Pt(800, 600)
 	bgrt := &BGRT{Image: testLogo(), Offset: image.Pt(352, 205)}
-	dots := Default()
-	dots.Throbber = Dots
 	tests := []struct {
 		name  string
 		theme Theme
@@ -235,16 +233,10 @@ func TestGoldenFrames(t *testing.T) {
 		size  image.Point
 		state State
 	}{
-		{"boot", Default(), nil, 1, size, State{Phase: 3}},
 		{"boot-bgrt", Default(), bgrt, 1, size, State{Phase: 3}},
-		{"boot-dots", dots, nil, 1, size, State{Phase: 14}},
 		{"message", Default(), nil, 1, size, State{Message: "Starting Disk Encryption", Phase: 9}},
 		{"units", Default(), nil, 1, size, State{Message: "Starting Disk Encryption", Status: "systemd-cryptsetup@root.service", Phase: 9}},
 		{"shutdown", Default(), nil, 1, size, State{Message: "Powering off", Phase: 21}},
-		{"update", Default(), nil, 1, size, State{Updating: true, Progress: 42, Message: "Installing updates"}},
-		{"boot-progress-0", Default(), nil, 1, size, State{Booting: true, Progress: 0, Phase: 3}},
-		{"boot-progress-50", Default(), nil, 1, size, State{Booting: true, Progress: 50, Phase: 3}},
-		{"boot-progress-99", Default(), nil, 1, size, State{Booting: true, Progress: 99, Phase: 3}},
 		{"scale2", Default(), nil, 2, image.Pt(1600, 1200), State{Message: "Starting Disk Encryption", Status: "systemd-cryptsetup@root.service", Phase: 3}},
 	}
 	for _, tc := range tests {
@@ -362,13 +354,13 @@ func TestEveryPartialRedrawMatchesAFullOne(t *testing.T) {
 		{Phase: 2, Message: "Starting", Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk:", Shown: "•"}},
 		{Phase: 2, Message: "Starting", Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk:", Shown: "••"}},
 		{Phase: 3, Message: "Starting"},
-		{Updating: true, Progress: 10},
-		{Updating: true, Progress: 90, Phase: 5},
+		{Updating: true, Progress: known(10)},
+		{Updating: true, Progress: known(90), Phase: 5},
 		{Phase: 6},
-		{Phase: 6, Booting: true},
-		{Phase: 7, Booting: true, Progress: 40},
-		{Phase: 7, Booting: true, Progress: 40, Updating: true},
-		{Phase: 8, Booting: true, Progress: 60},
+		{Phase: 6, Progress: known(0)},
+		{Phase: 7, Progress: known(40)},
+		{Phase: 7, Progress: known(40), Updating: true},
+		{Phase: 8, Progress: known(60)},
 		{Phase: 8, Message: "a"},
 		{Phase: 8, Message: "a much longer message with fjgyQ overhanging glyphs"},
 		{Phase: 8, Message: "jjj"},
@@ -398,16 +390,16 @@ func TestEveryPartialRedrawMatchesAFullOne(t *testing.T) {
 		{Phase: 8, Prompt: Prompt{Kind: QuestionPrompt, Text: "Go on?"}, Ask: Ask{Caret: caretPhases + 1}},
 		{Phase: 8, Prompt: Prompt{Kind: QuestionPrompt, Text: "Go on?", Shown: strings.Repeat("long answer ", 10)}},
 		{Phase: 8, Prompt: Prompt{Kind: PasswordPrompt, Text: strings.Repeat("an unparseable prompt far too long ", 10)}},
-		{Updating: true, Progress: 30, Prompt: Prompt{Kind: PasswordPrompt, Text: "x"}},
-		{Updating: true, Progress: 30},
-		{Updating: true, Progress: 0},
-		{Updating: true, Progress: 1},
-		{Updating: true, Progress: 2},
-		{Updating: true, Progress: 3},
-		{Updating: true, Progress: 7},
-		{Updating: true, Progress: 3},
-		{Updating: true, Progress: 100},
-		{Updating: true, Progress: 0},
+		{Updating: true, Progress: known(30), Prompt: Prompt{Kind: PasswordPrompt, Text: "x"}},
+		{Updating: true, Progress: known(30)},
+		{Updating: true, Progress: known(0)},
+		{Updating: true, Progress: known(1)},
+		{Updating: true, Progress: known(2)},
+		{Updating: true, Progress: known(3)},
+		{Updating: true, Progress: known(7)},
+		{Updating: true, Progress: known(3)},
+		{Updating: true, Progress: known(100)},
+		{Updating: true, Progress: known(0)},
 	}
 	f := frame(size)
 	var prev *State
@@ -427,19 +419,19 @@ func TestBootProgressDamagesOnlyItsBar(t *testing.T) {
 	size := image.Pt(640, 400)
 	r := renderer(t, Default(), nil)
 	f := frame(size)
-	prev := State{Booting: true, Progress: 10, Phase: 4}
+	prev := State{Progress: known(10), Phase: 4}
 	draw(t, r, f, 1, nil, prev)
 	next := prev
-	next.Progress = 11
+	next.Progress = known(11)
 	l := r.layout(size, 1)
-	if d := bounds(draw(t, r, f, 1, &prev, next)); d.Empty() || !d.In(l.boot) {
-		t.Errorf("a boot progress step damaged %v, want part of the bar's %v", d, l.boot)
+	if d := bounds(draw(t, r, f, 1, &prev, next)); d.Empty() || !d.In(l.bar()) {
+		t.Errorf("a boot progress step damaged %v, want part of the bar's %v", d, l.bar())
 	}
-	if l.boot.Overlaps(l.busy) || l.boot.Overlaps(l.title) {
-		t.Errorf("the boot progress bar %v overlaps the throbber %v or the message %v", l.boot, l.busy, l.title)
+	if !l.bar().In(l.busy) || l.bar().Overlaps(l.title) {
+		t.Errorf("the progress bar %v leaves the indicator's slot %v or overlaps the message %v", l.bar(), l.busy, l.title)
 	}
 	without := frame(size)
-	draw(t, r, without, 1, nil, State{Progress: 10, Phase: 4})
+	draw(t, r, without, 1, nil, State{Phase: 4})
 	if bytes.Equal(without.Pix, f.Pix) {
 		t.Error("the boot progress draws nothing")
 	}
@@ -530,7 +522,7 @@ func TestPhasesToNextPictureLandOnTheNextPicture(t *testing.T) {
 		th.Throbber = throbber
 		r := renderer(t, th, nil)
 		for phase := range Frames {
-			n := r.PhasesToNextPicture(State{Phase: phase})
+			n := r.PhasesToNextPicture(State{Phase: phase}, image.Pt(800, 600), 1)
 			for i := 1; i < n; i++ {
 				if r.step(phase+i) != r.step(phase) {
 					t.Fatalf("throbber %v: phase %d changes after %d phases, not %d", throbber, phase, i, n)
@@ -552,7 +544,7 @@ func TestBarMovesMatchAFullRedraw(t *testing.T) {
 		for _, booting := range []bool{true, false} {
 			f := frame(size)
 			at := func(p protocol.Percent) State {
-				return State{Booting: booting, Updating: !booting, Progress: p}
+				return State{Updating: !booting, Progress: known(p)}
 			}
 			prev := at(0)
 			draw(t, r, f, scale, nil, prev)
@@ -562,7 +554,7 @@ func TestBarMovesMatchAFullRedraw(t *testing.T) {
 				fresh := frame(size)
 				draw(t, full, fresh, scale, nil, cur)
 				if !bytes.Equal(fresh.Pix, f.Pix) {
-					t.Errorf("scale %d, booting %v, %d%% to %d%% differs from a full redraw", scale, booting, prev.Progress, p)
+					t.Errorf("scale %d, booting %v, %d%% to %d%% differs from a full redraw", scale, booting, prev.Progress.Percent(), p)
 				}
 				prev = cur
 			}
@@ -598,14 +590,14 @@ func TestDamageIsOnlyWhatChanged(t *testing.T) {
 		within   image.Rectangle
 		most     int
 	}{
-		{"a dots step is the two dots that swap", State{Phase: 0}, State{Phase: 12}, 2, l.throb, 2 * dot},
+		{"a dots step is the dots that change", State{Phase: 0}, State{Phase: 12}, dotCount, l.throb, dotCount * dot},
 		{"a key typed is the entry's inside", prompt("•"), prompt("••"), 1, inside(l.entry), area(inside(l.entry))},
 		{"a short message is its text", State{}, State{Message: "Starting"}, 1, l.title, 150 * l.title.Dy()},
 		{"a unit name is its text on the status line", State{Message: "Starting"}, State{Message: "Starting", Status: "udev.service"}, 1, l.secondary, 150 * l.secondary.Dy()},
 		{"the prompt's text is its extent", prompt("•"), State{Prompt: Prompt{Kind: PasswordPrompt, Text: "Disk two:", Shown: "•"}}, 1, l.title, 150 * l.title.Dy()},
-		{"a percent of boot is its columns", State{Booting: true, Progress: 50}, State{Booting: true, Progress: 51}, 1, l.boot, barArea(l.boot) / 10},
-		{"a percent of update is its columns", State{Updating: true, Progress: 50}, State{Updating: true, Progress: 51}, 1, l.updateBar(), barArea(l.updateBar()) / 10},
-		{"a message and a boot step stay apart", State{Booting: true, Progress: 50}, State{Booting: true, Progress: 51, Message: "m"}, 2, l.busy.Union(l.title).Union(l.boot), barArea(l.boot)/10 + 50*l.title.Dy()},
+		{"a percent of boot is its columns", State{Progress: known(50)}, State{Progress: known(51)}, 1, l.bar(), barArea(l.bar()) / 10},
+		{"a percent of update is its columns and its number", State{Updating: true, Progress: known(50)}, State{Updating: true, Progress: known(51)}, 2, l.busy, barArea(l.bar())/10 + area(l.percent())},
+		{"a message and a boot step stay apart", State{Progress: known(50)}, State{Progress: known(51), Message: "m"}, 2, l.busy.Union(l.title), barArea(l.bar())/10 + 50*l.title.Dy()},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -676,7 +668,7 @@ func TestTheGridRowsStackInOrderWithoutOverlap(t *testing.T) {
 		scale int
 	}{{image.Pt(800, 600), 1}, {image.Pt(1600, 1200), 2}, {image.Pt(1920, 1080), 1}, {image.Pt(1920, 1080), 2}, {image.Pt(1280, 720), 1}} {
 		l := renderer(t, Default(), nil).layout(tc.size, tc.scale)
-		rows := []image.Rectangle{l.logo, l.busy, l.boot, l.title, l.secondary, l.field, l.hints, l.notice}
+		rows := []image.Rectangle{l.logo, l.busy, l.title, l.secondary, l.field, l.hints, l.notice}
 		for i := 1; i < len(rows); i++ {
 			if rows[i].Min.Y < rows[i-1].Max.Y {
 				t.Errorf("%v at scale %d: row %d %v starts above row %d's end %v", tc.size, tc.scale, i, rows[i], i-1, rows[i-1])
@@ -724,4 +716,8 @@ func TestSwitchingStatesNeverMovesTheLogoOrTheThrobber(t *testing.T) {
 			}
 		}
 	}
+}
+
+func known(p protocol.Percent) Progress {
+	return Progress{}.Toward(p)
 }

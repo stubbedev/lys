@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 func TestLoadBootDurationMissing(t *testing.T) {
@@ -82,21 +83,25 @@ func TestSaveBootDurationFailureLeavesNoTemporary(t *testing.T) {
 	}
 }
 
-func TestBootProgress(t *testing.T) {
+func TestBootFill(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		elapsed, total time.Duration
 		want           protocol.Percent
+		hundredths     theme.Fill
 	}{
-		{0, 10 * time.Second, 0},
-		{5 * time.Second, 10 * time.Second, 50},
-		{9990 * time.Millisecond, 10 * time.Second, 99},
-		{20 * time.Second, 10 * time.Second, 99},
-		{1000 * 24 * time.Hour, 2000 * 24 * time.Hour, 50},
+		{0, 10 * time.Second, 0, 0},
+		{5 * time.Second, 10 * time.Second, 50, 0},
+		{513 * time.Second, 1024 * time.Second, 50, 9},
+		{7500 * time.Millisecond, 8 * time.Second, 93, 75},
+		{9990 * time.Millisecond, 10 * time.Second, 99, 0},
+		{20 * time.Second, 10 * time.Second, 99, 0},
+		{1000 * 24 * time.Hour, 2000 * 24 * time.Hour, 50, 0},
 	}
 	for _, tc := range tests {
-		if got := bootProgress(tc.elapsed, tc.total); got != tc.want {
-			t.Errorf("bootProgress(%v, %v) = %d, want %d", tc.elapsed, tc.total, got, tc.want)
+		want := theme.FillOf(tc.want) + tc.hundredths
+		if got := bootFill(tc.elapsed, tc.total); got != want {
+			t.Errorf("bootFill(%v, %v) = %d, want %d", tc.elapsed, tc.total, got, want)
 		}
 	}
 }
@@ -277,22 +282,22 @@ func TestBootShowsProgressOnlyWithAPreviousBoot(t *testing.T) {
 	}
 	quiet := slog.New(slog.DiscardHandler)
 	for path, want := range map[string]bool{recorded: true, filepath.Join(dir, "missing"): false} {
-		d := &daemon{cfg: Config{BootDuration: path, Log: quiet}}
+		d := &daemon{cfg: Config{BootDuration: path, Log: quiet, Clock: SystemClock{}}, started: time.Now()}
 		total, err := LoadBootDuration(path)
 		d.previousLoaded(&previousBoot{total: total, err: err})
-		if d.state.Booting != want || d.previous > 0 != want {
-			t.Errorf("%s: Booting = %v with previous %v, want %v", path, d.state.Booting, d.previous, want)
+		if d.state.Progress.Known != want || d.previous > 0 != want {
+			t.Errorf("%s: progress known %v with previous %v, want %v", path, d.state.Progress.Known, d.previous, want)
 		}
 	}
 }
 
-func TestNextPercentAtIsWhereTheProgressMoves(t *testing.T) {
+func TestFillAtIsWhereTheBootFillArrives(t *testing.T) {
 	t.Parallel()
 	for _, total := range []time.Duration{time.Second, 7 * time.Second, 12345678 * time.Microsecond, time.Hour} {
-		for p := range protocol.MaxPercent - 1 {
-			at := nextPercentAt(p, total)
-			if bootProgress(at, total) <= p || bootProgress(at-1, total) > p {
-				t.Fatalf("total %v: progress %d leaves at %v, where it is %d and just before %d", total, p, at, bootProgress(at, total), bootProgress(at-1, total))
+		for f := theme.Fill(1); f <= lastBootFill; f += 37 {
+			at := fillAt(f, total)
+			if bootFill(at, total) < f || bootFill(at-1, total) >= f {
+				t.Fatalf("total %v: fill %d arrives at %v, where it is %d and just before %d", total, f, at, bootFill(at, total), bootFill(at-1, total))
 			}
 		}
 	}

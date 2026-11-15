@@ -199,7 +199,7 @@ func TestTheShakeEndsStill(t *testing.T) {
 	offsets := map[int]bool{}
 	frames := 0
 	for s.Ask.Shake > 0 {
-		if n := r.PhasesToNextPicture(s); n != 1 {
+		if n := r.PhasesToNextPicture(s, size, 1); n != 1 {
 			t.Fatalf("mid-shake the next picture is %d phases away, want 1", n)
 		}
 		next := s.Advance(1)
@@ -224,7 +224,7 @@ func TestTheShakeEndsStill(t *testing.T) {
 	if l.entryAt(s.Ask) != l.entry {
 		t.Errorf("after the shake the field rests at %v, want %v", l.entryAt(s.Ask), l.entry)
 	}
-	if n := r.PhasesToNextPicture(s); n <= 1 {
+	if n := r.PhasesToNextPicture(s, size, 1); n <= 1 {
 		t.Errorf("after the shake the next picture is %d phases away, want the caret's or the breath's", n)
 	}
 	still := frame(size)
@@ -240,7 +240,7 @@ func TestTheShakeEndsStill(t *testing.T) {
 
 func TestWithPrompt(t *testing.T) {
 	t.Parallel()
-	s := State{Phase: 7, Progress: 40, Booting: true}
+	s := State{Phase: 7, Progress: known(40)}
 	asked := s.WithPrompt(password(rootPrompt, 0))
 	if asked.Ask != (Ask{}) || asked.Phase != 7 {
 		t.Errorf("a new prompt starts at %+v, phase %d", asked.Ask, asked.Phase)
@@ -265,9 +265,9 @@ func TestWithPrompt(t *testing.T) {
 func TestAnsweringReturnsToTheBootState(t *testing.T) {
 	t.Parallel()
 	for _, boot := range []State{
-		{Phase: 7, Booting: true, Progress: 40, Message: "Starting"},
+		{Phase: 7, Progress: known(40), Message: "Starting"},
 		{Phase: 11},
-		{Updating: true, Progress: 30},
+		{Updating: true, Progress: known(30)},
 	} {
 		size := image.Pt(800, 600)
 		r := renderer(t, Default(), nil)
@@ -296,7 +296,7 @@ func TestAPromptAnimatesAtAFewFramesASecond(t *testing.T) {
 	period := 2 * caretPhases * breathSteps * breathPhases
 	wakes := 0
 	for elapsed := 0; elapsed < period; wakes++ {
-		n := r.PhasesToNextPicture(s)
+		n := r.PhasesToNextPicture(s, image.Pt(800, 600), 1)
 		if n < min(caretPhases, breathPhases)/2 {
 			t.Fatalf("a waiting prompt asks for a picture %d phases on", n)
 		}
@@ -307,7 +307,7 @@ func TestAPromptAnimatesAtAFewFramesASecond(t *testing.T) {
 		t.Errorf("%d pictures in %d phases, want at most %d", wakes, period, most)
 	}
 	hidden := State{Hidden: true, Prompt: password(rootPrompt, 0)}
-	if n := r.PhasesToNextPicture(hidden); n != 0 {
+	if n := r.PhasesToNextPicture(hidden, image.Pt(800, 600), 1); n != 0 {
 		t.Errorf("a hidden prompt asks for a picture %d phases on, want none", n)
 	}
 }

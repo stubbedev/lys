@@ -50,7 +50,7 @@ func TestAPromptWakesTheLoopOnlyForItsCaretAndBreath(t *testing.T) {
 	}
 	want, phases := 0, 0
 	for st := d.state; phases < 4*theme.Frames*8; want++ {
-		n := d.renderer.PhasesToNextPicture(st)
+		n := d.renderer.PhasesToNextPicture(st, s.frame.Size, 1)
 		st = st.Advance(n)
 		phases += n
 	}
@@ -85,6 +85,9 @@ func TestAPromptDoesNotAnimateWhileHiddenPausedOrInactive(t *testing.T) {
 	d, _ := clockedDaemon(t, clock)
 	d.graphics = true
 	d.showPrompt(diskPrompt)
+	if err := d.redraw(); err != nil {
+		t.Fatal(err)
+	}
 	if !d.animating() {
 		t.Fatal("a prompt on screen does not animate")
 	}
@@ -105,12 +108,12 @@ func TestAPromptDoesNotAnimateWhileHiddenPausedOrInactive(t *testing.T) {
 func TestBootProgressHoldsWhileAPromptWaits(t *testing.T) {
 	clock := newFakeClock()
 	d, _ := clockedDaemon(t, clock)
-	d.previous, d.state.Booting, d.ticking, d.phaseAt = 10*time.Second, true, true, clock.Now()
+	d.previous, d.ticking, d.phaseAt = 10*time.Second, true, clock.Now()
 	at := func(what string, want protocol.Percent) {
 		t.Helper()
 		d.step()
-		if d.state.Progress != want {
-			t.Errorf("%s: progress %d%%, want %d%%", what, d.state.Progress, want)
+		if got := d.state.Progress.Percent(); got != want {
+			t.Errorf("%s: progress %d%%, want %d%%", what, got, want)
 		}
 	}
 	clock.advance(2 * time.Second)

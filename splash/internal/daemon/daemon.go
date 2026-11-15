@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -179,6 +180,8 @@ type themeLoad struct {
 // zero wait means its last frame reached the display.
 type drawnScreen struct {
 	state   theme.State
+	size    image.Point
+	scale   int
 	wait    time.Duration
 	retryAt time.Time
 }
@@ -334,7 +337,8 @@ func (d *daemon) previousLoaded(p *previousBoot) {
 	case err != nil:
 		d.cfg.Log.Warn("showing no boot progress", "err", err)
 	default:
-		d.previous, d.state.Booting, d.rearm = p.total, true, true
+		d.previous, d.rearm = p.total, true
+		d.estimate(d.cfg.Clock.Now())
 	}
 }
 
@@ -369,9 +373,11 @@ func (d *daemon) untilNextChange() time.Duration {
 		next = earliest(next, d.capsAt)
 	}
 	if d.ticking {
-		next = earliest(next, d.phaseAt.Add(time.Duration(d.renderer.PhasesToNextPicture(d.state))*FrameInterval))
-		if d.bootClockRuns() && d.state.Progress < protocol.MaxPercent-1 {
-			next = earliest(next, d.started.Add(nextPercentAt(d.state.Progress, d.previous)))
+		if n := d.phasesToNextPicture(); n > 0 {
+			next = earliest(next, d.phaseAt.Add(time.Duration(n)*FrameInterval))
+		}
+		if f := d.nextFill(); f > 0 {
+			next = earliest(next, d.started.Add(fillAt(f, d.previous)))
 		}
 	}
 	return max(next.Sub(d.cfg.Clock.Now()), 0)
@@ -397,13 +403,42 @@ func (d *daemon) step() {
 	phases := now.Sub(d.phaseAt) / FrameInterval
 	d.state = d.state.Advance(int(phases))
 	d.phaseAt = d.phaseAt.Add(phases * FrameInterval)
-	if d.bootClockRuns() {
-		d.state.Progress = bootProgress(now.Sub(d.started), d.previous)
-	}
+	d.estimate(now)
 }
 
 func (d *daemon) bootClockRuns() bool {
-	return d.previous > 0 && d.state.Prompt.Kind == theme.NoPrompt
+	return d.previous > 0 && !d.state.Updating && d.state.Prompt.Kind == theme.NoPrompt
+}
+
+func (d *daemon) nextFill() theme.Fill {
+	if !d.bootClockRuns() {
+		return 0
+	}
+	var f theme.Fill
+	for _, shown := range d.drawn {
+		g := d.renderer.NextFill(d.state, shown.size, shown.scale)
+		if g > 0 && g <= lastBootFill && (f == 0 || g < f) {
+			f = g
+		}
+	}
+	return f
+}
+
+func (d *daemon) estimate(now time.Time) {
+	if d.bootClockRuns() {
+		d.state.Progress = d.state.Progress.At(bootFill(now.Sub(d.started), d.previous))
+	}
+}
+
+func (d *daemon) phasesToNextPicture() int {
+	n := 0
+	for _, shown := range d.drawn {
+		m := d.renderer.PhasesToNextPicture(d.state, shown.size, shown.scale)
+		if m > 0 && (n == 0 || m < n) {
+			n = m
+		}
+	}
+	return n
 }
 
 func (d *daemon) showPrompt(p theme.Prompt) {
@@ -586,7 +621,7 @@ func (d *daemon) toggleDetails() error {
 }
 
 func (d *daemon) animating() bool {
-	return !d.paused && !d.inactive && d.graphics && d.renderer.PhasesToNextPicture(d.state) > 0
+	return !d.paused && !d.inactive && d.graphics && (d.phasesToNextPicture() > 0 || d.nextFill() > 0)
 }
 
 func (d *daemon) canAsk() bool {
@@ -647,9 +682,14 @@ func (d *daemon) apply(req protocol.Request) error {
 			d.state.Status = r.Status
 		}
 	case protocol.ChangeMode:
-		d.state.Updating = slices.Contains(updatingModes, r.Mode)
+		if updating := slices.Contains(updatingModes, r.Mode); updating != d.state.Updating {
+			d.state.Updating, d.state.Progress = updating, theme.Progress{}
+		}
 	case protocol.SystemUpdate:
-		d.state.Updating, d.state.Progress = true, r.Progress
+		if !d.state.Updating {
+			d.state.Updating, d.state.Progress = true, theme.Progress{}
+		}
+		d.state.Progress = d.state.Progress.Toward(r.Progress)
 	case protocol.ShowMessage:
 		d.state.Message = r.Text
 	case protocol.HideMessage:
@@ -851,12 +891,13 @@ func (d *daemon) drawScreen(s Screen) error {
 	if !known {
 		from = nil
 	}
-	damage, err := d.renderer.Draw(s.Frame(), s.Scale(), from, d.state)
+	f := s.Frame()
+	damage, err := d.renderer.Draw(f, s.Scale(), from, d.state)
 	if err != nil {
 		d.stale = true
 		return err
 	}
-	shown.state = d.state
+	shown.state, shown.size, shown.scale = d.state, f.Size, s.Scale()
 	if known && shown.wait == 0 && damage.Empty() {
 		d.drawn[s] = shown
 		return nil

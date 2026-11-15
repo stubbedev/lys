@@ -29,8 +29,11 @@ On quit, the splash writes how long it showed to
 the real root and the root became writable. The file is replaced atomically and
 written after the screen, VT and console are released, so a slow disk delays
 only the daemon's exit (and `--wait`), not the hand-over. The next boot's
-progress bar runs against it; if the initrd lacks the file, the bar appears
-after the switch to the real root.
+progress bar runs against it; if the initrd lacks the file, the bar replaces
+the throbber after the switch to the real root. The boot's bar redraws only
+when its end reaches the next pixel; an update's bar eases to each reported
+value over 0.4 s, drawing only the frames in which its end moves, and neither
+moves back.
 
 ## Units
 

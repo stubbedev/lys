@@ -75,6 +75,7 @@ func (s State) Advance(n int) State {
 		return s
 	}
 	s.Phase = (s.Phase + n%Frames) % Frames
+	s.Progress = s.Progress.advance(n)
 	return s
 }
 

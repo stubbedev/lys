@@ -26,14 +26,15 @@ func (t TextView) Show(prev *theme.State, cur theme.State) error {
 	}
 	var out []byte
 	open := before.Prompt.Kind != theme.NoPrompt
-	if open && (cur.Message != before.Message || cur.Updating && cur.Progress != before.Progress) {
+	percent := cur.Updating && cur.Progress.Known && (!before.Updating || !before.Progress.Known || cur.Progress.Percent() != before.Progress.Percent())
+	if open && (cur.Message != before.Message || percent) {
 		out = append(out, clearLine...)
 	}
 	if cur.Message != before.Message && cur.Message != "" {
 		out = append(append(out, cur.Message...), "\r\n"...)
 	}
-	if cur.Updating && (!before.Updating || cur.Progress != before.Progress) {
-		out = append(append(out, strconv.Itoa(int(cur.Progress))...), "%\r\n"...)
+	if percent {
+		out = append(append(out, strconv.Itoa(int(cur.Progress.Percent()))...), "%\r\n"...)
 	}
 	switch {
 	case cur.Prompt.Kind == theme.NoPrompt && open:

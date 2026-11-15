@@ -197,8 +197,8 @@ func TestTheLoopWakesOnlyForAPictureThatChanges(t *testing.T) {
 	}{
 		{"dots", theme.Dots, 0, 3},
 		{"spinner", theme.Spinner, 0, theme.Frames},
-		{"dots with no percent in the turn", theme.Dots, 100*turn + 50*FrameInterval, 3},
-		{"dots with four percents in the turn", theme.Dots, 20*turn + 10*FrameInterval, 3 + 4},
+		{"a bar with its next pixel turns away", theme.Dots, 1000 * turn, 1},
+		{"a bar moving four pixels in the turn", theme.Spinner, 256 * turn / 4, 4},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -222,7 +222,7 @@ func TestTheLoopWakesOnlyForAPictureThatChanges(t *testing.T) {
 				started:  clock.Now(),
 				previous: tc.previous,
 			}
-			d.state.Booting = tc.previous > 0
+			d.estimate(clock.Now())
 			if err := d.redraw(); err != nil {
 				t.Fatal(err)
 			}

@@ -11,7 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/atomicfile"
 
-	"github.com/stubbedev/lys/splash/internal/protocol"
+	"github.com/stubbedev/lys/splash/internal/theme"
 )
 
 // BootDurationFile is where a boot records how long its splash showed, for
@@ -56,21 +56,22 @@ func encodeBootDuration(d time.Duration) []byte {
 	return []byte(strconv.FormatFloat(d.Seconds(), 'f', 3, 64) + "\n")
 }
 
-// bootProgress is how far along a boot is after elapsed when the previous
-// one took total: proportional, and short of done until the splash quits.
-func bootProgress(elapsed, total time.Duration) protocol.Percent {
+const lastBootFill = theme.FullFill - theme.FillPerPercent
+
+func bootFill(elapsed, total time.Duration) theme.Fill {
 	if elapsed >= total {
-		return protocol.MaxPercent - 1
+		return lastBootFill
 	}
-	return protocol.Percent(float64(max(elapsed, 0)) / float64(total) * float64(protocol.MaxPercent))
+	return min(theme.Fill(float64(max(elapsed, 0))/float64(total)*float64(theme.FullFill)), lastBootFill)
 }
 
-// nextPercentAt is the elapsed time at which bootProgress leaves p, which is
-// short of the last percent bootProgress reaches.
-func nextPercentAt(p protocol.Percent, total time.Duration) time.Duration {
-	at := time.Duration(float64(total) * float64(p+1) / float64(protocol.MaxPercent))
-	for bootProgress(at, total) <= p {
+func fillAt(f theme.Fill, total time.Duration) time.Duration {
+	at := time.Duration(float64(total) * float64(f) / float64(theme.FullFill))
+	for at < total && bootFill(at, total) < f {
 		at++
+	}
+	for at > 0 && bootFill(at-1, total) >= f {
+		at--
 	}
 	return at
 }
