@@ -19,18 +19,23 @@ import (
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
+// batteryCharging reports whether power flows into the battery: a
+// battery plugged in but held (pending charge, as at a charge limit)
+// is not charging.
 func batteryCharging(state upower.DeviceState) bool {
-	return state == upower.StateCharging || state == upower.StatePendingCharge
+	return state == upower.StateCharging
 }
 
 // batteryStateLabel reads critical first, then
-// charging, plugged in, or on battery.
+// charging, plugged in but not charging, full, or on battery.
 func batteryStateLabel(dev upower.Device) string {
 	switch {
 	case dev.WarningLevel.Low():
 		return i18n.T("dropdown-battery-critical")
 	case batteryCharging(dev.State):
 		return i18n.T("dropdown-battery-charging")
+	case dev.State == upower.StatePendingCharge:
+		return i18n.T("dropdown-battery-not-charging")
 	case dev.State == upower.StateFullyCharged:
 		return i18n.T("dropdown-battery-plugged-in")
 	default:
@@ -160,6 +165,8 @@ type batteryView struct {
 	charge                                  *widget.Item
 	chargeUnsupported                       *widget.Alert
 	chargeSwitch                            *widget.Switch
+	// chargeFailed says why the last charge-limit write failed.
+	chargeFailed *widget.Alert
 	// syncing marks programmatic switch moves.
 	syncing bool
 
@@ -167,7 +174,13 @@ type batteryView struct {
 	// marking blocks the toggles' handler while the view sets them: only a user's toggle selects a profile.
 	marking             bool
 	profilesUnavailable *widget.Alert
-	activeProfile       string
+	// profileFailed says why the last profile write failed.
+	profileFailed *widget.Alert
+	activeProfile string
+	// profileSnap is the daemon's last read (nil: none), and
+	// profileBusy holds every segment insensitive while a write runs.
+	profileSnap *powerprofiles.Snapshot
+	profileBusy bool
 
 	devicesSection *widget.Box
 	devices        *widget.Box
@@ -286,7 +299,8 @@ func (v *batteryView) batterySection() widget.Widget {
 	v.chargeCard.AddClass(css.Card)
 	v.chargeCard.Append(v.charge, false)
 	v.chargeUnsupported = v.infoNote("charge-limit-not-supported", i18n.T("dropdown-battery-charge-limit-not-supported"))
-	col.Append(dropdownSection(sectionLabel(v.font, i18n.T("dropdown-battery-charge-limit")), v.chargeCard, v.chargeUnsupported), false)
+	v.chargeFailed = writeAlert(v.font, "charge-limit-failed")
+	col.Append(dropdownSection(sectionLabel(v.font, i18n.T("dropdown-battery-charge-limit")), v.chargeCard, v.chargeUnsupported, v.chargeFailed), false)
 	return col
 }
 
@@ -373,7 +387,8 @@ func (v *batteryView) profileSection() widget.Widget {
 		seg.Append(b, true)
 	}
 	v.profilesUnavailable = v.infoNote("power-profile-not-available", i18n.T("dropdown-battery-power-profile-not-available"))
-	return dropdownSection(sectionLabel(v.font, i18n.T("dropdown-battery-power-profile")), seg, v.profilesUnavailable)
+	v.profileFailed = writeAlert(v.font, "power-profile-failed")
+	return dropdownSection(sectionLabel(v.font, i18n.T("dropdown-battery-power-profile")), seg, v.profilesUnavailable, v.profileFailed)
 }
 
 func (v *batteryView) readDevice(ctx context.Context) (upower.Device, bool) {
@@ -439,18 +454,20 @@ func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
 	v.syncing = false
 }
 
-// chargeToggled writes the charge limit off the loop, and the section
-// re-reads after it.
+// chargeToggled writes the charge limit off the loop, the switch
+// insensitive meanwhile. A failure says why under it, and the re-read
+// after the write puts the switch back where the battery holds it.
 func (v *batteryView) chargeToggled(enabled bool) {
 	if v.syncing || v.ctx.Battery == nil {
 		return
 	}
 	src := v.ctx.Battery
-	v.ctx.Go(func() {
-		ctx := context.Background()
-		if err := src.EnableChargeThreshold(ctx, enabled); err != nil {
-			log.Printf("battery: charge threshold toggle: %v", err)
-		}
+	v.chargeSwitch.SetEnabled(false)
+	serviceWrite(v.ctx, func(ctx context.Context) error {
+		return src.EnableChargeThreshold(ctx, enabled)
+	}, func(err error) {
+		v.chargeSwitch.SetEnabled(true)
+		reportWrite(v.chargeFailed, "battery", i18n.T("dropdown-battery-charge-limit-failed"), err)
 		if v.device != nil {
 			v.device.request()
 		}
@@ -473,18 +490,34 @@ func (v *batteryView) readProfiles(ctx context.Context) *powerprofiles.Snapshot 
 // applyProfiles marks the active segment and disables the ones the
 // daemon does not offer; none offered shows the note.
 func (v *batteryView) applyProfiles(snap *powerprofiles.Snapshot) {
-	var available []string
+	v.profileSnap = snap
 	v.activeProfile = powerprofiles.ProfileBalanced
 	if snap != nil {
-		available = snap.Profiles
 		v.activeProfile = snap.Active
 	}
+	available := v.availableProfiles()
 	for _, p := range batteryProfiles {
-		has := slices.Contains(available, p.name)
-		v.profileButtons[p.name].SetEnabled(has)
-		v.markProfile(p.name, has && p.name == v.activeProfile)
+		v.markProfile(p.name, slices.Contains(available, p.name) && p.name == v.activeProfile)
 	}
+	v.senseProfiles()
 	v.profilesUnavailable.SetVisible(len(available) == 0)
+}
+
+// availableProfiles are the profiles the daemon offers.
+func (v *batteryView) availableProfiles() []string {
+	if v.profileSnap == nil {
+		return nil
+	}
+	return v.profileSnap.Profiles
+}
+
+// senseProfiles makes the segments the daemon offers sensitive, unless
+// a write runs.
+func (v *batteryView) senseProfiles() {
+	available := v.availableProfiles()
+	for _, p := range batteryProfiles {
+		v.profileButtons[p.name].SetEnabled(!v.profileBusy && slices.Contains(available, p.name))
+	}
 }
 
 // markProfile sets a segment's toggle without selecting anything;
@@ -496,26 +529,36 @@ func (v *batteryView) markProfile(name string, active bool) {
 	v.marking = false
 }
 
-// selectProfile toggles the segment at once, the write runs off the
-// loop, and the daemon's answer settles it.
+// selectProfile toggles the segment at once and the write runs off the
+// loop, every segment insensitive meanwhile. A failure says why under
+// the segments, and the re-read after the write marks the profile the
+// daemon holds.
 func (v *batteryView) selectProfile(name string) {
 	src := v.ctx.PowerProfiles
-	if src == nil || name == v.activeProfile {
+	if src == nil || name == v.activeProfile || v.profileBusy {
 		return
 	}
-	for _, p := range batteryProfiles {
-		v.markProfile(p.name, p.name == name)
-	}
-	v.activeProfile = name
-	v.ctx.Go(func() {
-		ctx := context.Background()
-		if err := src.SetActive(ctx, name); err != nil {
-			log.Printf("battery: power profile switch: %v", err)
-		}
+	v.markActiveProfile(name)
+	v.profileBusy = true
+	v.senseProfiles()
+	serviceWrite(v.ctx, func(ctx context.Context) error {
+		return src.SetActive(ctx, name)
+	}, func(err error) {
+		v.profileBusy = false
+		v.senseProfiles()
+		reportWrite(v.profileFailed, "battery", i18n.T("power-profiles-switch-failed"), err)
 		if v.profiles != nil {
 			v.profiles.request()
 		}
 	})
+}
+
+// markActiveProfile marks name as the active segment alone.
+func (v *batteryView) markActiveProfile(name string) {
+	for _, p := range batteryProfiles {
+		v.markProfile(p.name, p.name == name)
+	}
+	v.activeProfile = name
 }
 
 // follow tracks both services until the dropdown closes.

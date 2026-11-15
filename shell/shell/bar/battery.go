@@ -61,8 +61,8 @@ func (m *battery) apply(dev upower.Device) {
 }
 
 // setIcon picks the icon: alert when absent
-// or unknown, charging when charging or pending charge, else the
-// level list bucketed by percentage.
+// or unknown, charging when charging, else the level list bucketed by
+// percentage, a battery held at its charge limit among them.
 func (m *battery) setIcon(cfg config.BatteryConfig, dev upower.Device) {
 	setter := m.icon
 	if setter == nil {
@@ -72,7 +72,7 @@ func (m *battery) setIcon(cfg config.BatteryConfig, dev upower.Device) {
 	switch {
 	case !dev.IsPresent || dev.State == upower.StateUnknown:
 		name = cfg.AlertIcon
-	case dev.State == upower.StateCharging || dev.State == upower.StatePendingCharge:
+	case batteryCharging(dev.State):
 		name = cfg.ChargingIcon
 	case len(cfg.LevelIcons) == 0:
 		name = cfg.AlertIcon

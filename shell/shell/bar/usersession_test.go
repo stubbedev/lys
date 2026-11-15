@@ -10,9 +10,12 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/useraccount"
+	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/shell/powermenu"
 )
 
 // sessionCardTree walks the section into its session Item, its avatar
@@ -57,18 +60,19 @@ func TestUserSessionIsAnItem(t *testing.T) {
 	if got := itemText(row, "title"); got != "lys-shell" {
 		t.Errorf("username = %q, want $USER", got)
 	}
-	want := []config.SessionAction{config.SessionActionLock, config.SessionActionLogOut, config.SessionActionReboot, config.SessionActionPowerOff}
-	keys := []string{"dropdown-dashboard-lock", "dropdown-dashboard-logout", "dropdown-dashboard-reboot", "dropdown-dashboard-power-off"}
+	want := []powermenu.Action{powermenu.Lock, powermenu.LogOut, powermenu.Reboot, powermenu.ShutDown}
 	if len(btns) != len(want) {
 		t.Fatalf("session buttons = %d, want %d", len(btns), len(want))
 	}
 	for i, b := range btns {
-		spec := sessionButtonFor(want[i], cfg.Dashboard)
 		if !b.HasClass("icon") || !b.HasClass("ghost") {
 			t.Errorf("button %d carries classes %v, want a ghost icon button", i, b.Classes())
 		}
-		if got := b.TooltipText(); got != i18n.T(keys[i]) || spec.tooltip != got {
-			t.Errorf("button %d tooltip = %q, want %q", i, got, i18n.T(keys[i]))
+		if got := b.TooltipText(); got != want[i].Label() {
+			t.Errorf("button %d tooltip = %q, want the power menu's %q", i, got, want[i].Label())
+		}
+		if glyphs := treetest.All[*widget.Icon](b); len(glyphs) != 1 || glyphs[0].Name() != want[i].Icon() {
+			t.Errorf("button %d glyphs = %v, want the power menu's %s", i, glyphs, want[i].Icon())
 		}
 	}
 }
@@ -86,8 +90,8 @@ func TestUserSessionButtonsFollowTheConfig(t *testing.T) {
 	if len(btns) != 1 {
 		t.Fatalf("buttons = %d, want 1", len(btns))
 	}
-	if got := btns[0].TooltipText(); got != i18n.T("dropdown-dashboard-lock") {
-		t.Errorf("tooltip = %q, want %q", got, i18n.T("dropdown-dashboard-lock"))
+	if got := btns[0].TooltipText(); got != powermenu.Lock.Label() {
+		t.Errorf("tooltip = %q, want %q", got, powermenu.Lock.Label())
 	}
 
 	cfg.Dashboard.UserSession.Actions = nil
@@ -150,4 +154,93 @@ func accountAt(t *testing.T, home string) {
 		return useraccount.Account{Name: "lys-shell-test", RealName: "Test", Home: home}, nil
 	}
 	t.Cleanup(func() { currentAccount = prev })
+}
+
+type sessionMenuWindow struct{ closed *bool }
+
+func (w sessionMenuWindow) Close() { *w.closed = true }
+
+func (sessionMenuWindow) SetFocus(widget.Widget) error { return nil }
+
+// sessionHarness is the session card with a power menu that records
+// what it maps and runs.
+type sessionHarness struct {
+	cfg    *config.Config
+	btns   []*widget.Button
+	opened []app.LayerConfig
+	ran    []string
+	closed bool
+}
+
+func newSessionHarness(t *testing.T, actions ...config.SessionAction) *sessionHarness {
+	t.Helper()
+	t.Setenv("USER", "lys-shell")
+	t.Setenv("HOME", t.TempDir())
+	h := &sessionHarness{cfg: config.Defaults()}
+	h.cfg.Animations.Enabled = false
+	h.cfg.Dashboard.UserSession.Actions = actions
+	ctx := newTestContext(t, h.cfg)
+	ctx.PowerMenu = powermenu.New(powermenu.Deps{
+		Config: func() *config.Config { return h.cfg },
+		Open: func(cfg app.LayerConfig) (powermenu.Window, error) {
+			h.opened = append(h.opened, cfg)
+			return sessionMenuWindow{&h.closed}, nil
+		},
+		Run:  func(cmd string) { h.ran = append(h.ran, cmd) },
+		Font: ctx.Font,
+	})
+	_, _, h.btns = sessionCardTree(t, userSessionSection(ctx))
+	return h
+}
+
+func (h *sessionHarness) key(t *testing.T, name string) {
+	t.Helper()
+	a, err := app.ParseAccel(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !h.opened[len(h.opened)-1].KeyCapture(a) {
+		t.Fatalf("the power menu did not take %s", name)
+	}
+}
+
+func TestOneClickOnASessionEndingActionRunsNothing(t *testing.T) {
+	for _, action := range []config.SessionAction{config.SessionActionLogOut, config.SessionActionReboot, config.SessionActionPowerOff} {
+		h := newSessionHarness(t, action)
+		h.btns[0].OnClick()
+		if len(h.ran) != 0 {
+			t.Errorf("%s: one click ran %v", action, h.ran)
+		}
+		if len(h.opened) != 1 {
+			t.Errorf("%s: one click opened %d power menus, want one asking", action, len(h.opened))
+		}
+	}
+}
+
+func TestConfirmingRebootRunsThePowerModulesCommand(t *testing.T) {
+	h := newSessionHarness(t, config.SessionActionReboot)
+	h.cfg.Power.RebootCommand = "power-reboot"
+	h.btns[0].OnClick()
+	h.key(t, "Return")
+	if len(h.ran) != 1 || h.ran[0] != "power-reboot" {
+		t.Errorf("confirming ran %v, want modules.power.reboot-command", h.ran)
+	}
+}
+
+func TestDismissingTheConfirmationRunsNothing(t *testing.T) {
+	h := newSessionHarness(t, config.SessionActionPowerOff)
+	h.btns[0].OnClick()
+	h.key(t, "Escape")
+	if len(h.ran) != 0 || !h.closed {
+		t.Errorf("Escape: ran %v, closed %v; want nothing run and the menu closed", h.ran, h.closed)
+	}
+}
+
+func TestLockRunsThePowerModulesCommandAtOnce(t *testing.T) {
+	h := newSessionHarness(t, config.SessionActionLock)
+	h.cfg.Power.LockCommand = "power-lock"
+	h.btns[0].OnClick()
+	if len(h.opened) != 0 || len(h.ran) != 1 || h.ran[0] != "power-lock" {
+		t.Errorf("lock: opened %d menus, ran %v; want modules.power.lock-command at once", len(h.opened), h.ran)
+	}
 }

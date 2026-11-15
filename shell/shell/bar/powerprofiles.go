@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -84,16 +85,21 @@ func (m *powerProfilesModule) RunAction(action config.ClickAction) {
 }
 
 // cycle writes the next profile off the loop; the daemon's
-// PropertiesChanged tick redraws.
+// PropertiesChanged tick redraws, and a failure toasts why.
 func (m *powerProfilesModule) cycle() {
 	next := powerprofiles.NextProfile(m.snap.Active, m.snap.Profiles)
-	go func() {
-		ctx, cancel := context.WithTimeout(m.ctx.Life(), offLoopTimeout)
-		defer cancel()
-		if err := m.src.SetActive(ctx, next); err != nil {
-			log.Printf("power-profiles: cycle to %s: %v", next, err)
+	serviceWrite(m.ctx, func(ctx context.Context) error {
+		return m.src.SetActive(ctx, next)
+	}, func(err error) {
+		if err == nil {
+			return
 		}
-	}()
+		title := i18n.T("power-profiles-switch-failed")
+		log.Printf("power-profiles: %s (%s): %v", title, next, err)
+		if m.ctx.Toast != nil {
+			m.ctx.Toast(title+": "+err.Error(), "ld-alert-triangle-symbolic")
+		}
+	})
 }
 
 func (m *powerProfilesModule) Root() widget.Widget { return m.btn }

@@ -95,6 +95,9 @@ type fakeBattery struct {
 	threshold   []bool
 	peripherals []upower.Peripheral
 	pticks      chan struct{}
+	// thresholdErr fails EnableChargeThreshold, leaving the limit as
+	// it was.
+	thresholdErr error
 }
 
 func newFakeBattery(dev upower.Device) *fakeBattery {
@@ -124,8 +127,12 @@ func (f *fakeBattery) Subscribe(ctx context.Context) (<-chan struct{}, func() er
 
 func (f *fakeBattery) EnableChargeThreshold(_ context.Context, enabled bool) error {
 	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.threshold = append(f.threshold, enabled)
-	f.mu.Unlock()
+	if f.thresholdErr != nil {
+		return f.thresholdErr
+	}
+	f.dev.ChargeThresholdEnabled = enabled
 	return nil
 }
 
@@ -240,6 +247,15 @@ func TestBatteryStateIcon(t *testing.T) {
 	if got := icon.Name(); got != cfg.Battery.ChargingIcon {
 		t.Errorf("charging icon = %q", got)
 	}
+	// Held at the charge limit: plugged in, not charging, so the level
+	// list again.
+	source.update(func(d *upower.Device) { d.State, d.Percentage = upower.StatePendingCharge, 80 })
+	if err := readAndApply(m.source.Read, m.apply); err != nil {
+		t.Fatal(err)
+	}
+	if got := icon.Name(); got != "ld-battery-full-symbolic" {
+		t.Errorf("pending-charge icon at 80%% = %q, want the level icon", got)
+	}
 	// Absent falls back to the alert icon.
 	source.update(func(d *upower.Device) { d.State, d.Percentage, d.IsPresent = upower.StateUnknown, 0, false })
 	if err := readAndApply(m.source.Read, m.apply); err != nil {
@@ -335,7 +351,7 @@ func testFont(t *testing.T) render.Font { return treetest.Font(t) }
 func TestBatteryDropdownStateAndTime(t *testing.T) {
 	for state, id := range map[upower.DeviceState]string{
 		upower.StateCharging:         "dropdown-battery-charging",
-		upower.StatePendingCharge:    "dropdown-battery-charging",
+		upower.StatePendingCharge:    "dropdown-battery-not-charging",
 		upower.StateFullyCharged:     "dropdown-battery-plugged-in",
 		upower.StateDischarging:      "dropdown-battery-on-battery",
 		upower.StateUnknown:          "dropdown-battery-on-battery",

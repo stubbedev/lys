@@ -1,42 +1,36 @@
 package bar
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
-	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/shell/shell/powermenu"
 )
 
 // avatarPx is the user avatar's logical box in the session row.
 const avatarPx = 32
 
-// sessionButton is one session action's glyph, tooltip, and command.
-type sessionButton struct {
-	icon    string
-	tooltip string
-	command string
-}
-
-// sessionButtonFor maps an action onto its button; the commands come
-// from the dashboard's dropdown-*-command keys and the tooltips are
-// the factory's i18n keys.
-func sessionButtonFor(action config.SessionAction, cfg config.DashboardConfig) sessionButton {
+// sessionPowerAction is the power-menu action a dashboard session
+// action runs.
+func sessionPowerAction(action config.SessionAction) powermenu.Action {
 	switch action {
 	case config.SessionActionLock:
-		return sessionButton{"ld-lock-symbolic", i18n.T("dropdown-dashboard-lock"), cfg.DropdownLockCommand}
+		return powermenu.Lock
 	case config.SessionActionLogOut:
-		return sessionButton{"ld-log-out-symbolic", i18n.T("dropdown-dashboard-logout"), cfg.DropdownLogoutCommand}
+		return powermenu.LogOut
 	case config.SessionActionReboot:
-		return sessionButton{"ld-refresh-cw-symbolic", i18n.T("dropdown-dashboard-reboot"), cfg.DropdownRebootCommand}
-	default:
-		return sessionButton{"ld-power-symbolic", i18n.T("dropdown-dashboard-power-off"), cfg.DropdownPoweroffCommand}
+		return powermenu.Reboot
+	case config.SessionActionPowerOff:
+		return powermenu.ShutDown
 	}
+	panic(fmt.Sprintf("dashboard: session action %q has no power-menu action", action))
 }
 
 // sessionUsername is $USER, "user" when unset.
@@ -75,7 +69,9 @@ func setAvatar(tile *widget.Box) {
 // userSessionSection is the dashboard's user-session card: the card over the session row — the avatar
 // (the account's avatar, else the user glyph) and the username in .user-info, one
 // icon button per configured action in .session-actions pinned to the
-// row's end. The face is read when the dropdown opens. The stylesheet inks
+// row's end, each the power menu's action: its glyph and label, and
+// a click requests it of the power menu, which asks before ending the
+// session. The face is read when the dropdown opens. The stylesheet inks
 // everything through the classes (user-avatar image, user-name,
 // button.icon.session-btn image), so nothing carries a tint here.
 func userSessionSection(ctx ModuleContext) widget.Widget {
@@ -93,14 +89,12 @@ func userSessionSection(ctx ModuleContext) widget.Widget {
 	tile.Append(widget.NewThemeIcon("ld-user-symbolic", avatarPx), false)
 	row.SetMedia(tile, true)
 	for _, action := range cfg.UserSession.Actions {
-		spec := sessionButtonFor(action, cfg)
-		glyph := widget.NewThemeIcon(spec.icon, itemIconPx)
+		power := sessionPowerAction(action)
+		glyph := widget.NewThemeIcon(power.Icon(), itemIconPx)
 		button := widget.NewButton(glyph, 0, 0)
 		button.AddClass(css.Ghost, css.Icon, css.Small, "session-btn")
-		button.SetTooltip(spec.tooltip)
-		command := spec.command
-		// An empty command is a no-op.
-		button.OnClick = func() { spawn.Quiet(command) }
+		button.SetTooltip(power.Label())
+		button.OnClick = func() { ctx.PowerMenu.Request(power) }
 		row.AddAction(button)
 	}
 	card.Append(row, false)

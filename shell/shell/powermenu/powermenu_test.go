@@ -2,6 +2,7 @@ package powermenu
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -141,7 +142,7 @@ func TestArrowsWalkTheButtonsAndWrap(t *testing.T) {
 	for i, step := range []struct {
 		key  string
 		want int
-	}{{"Right", 0}, {"Right", 1}, {"Left", 0}, {"Left", len(buttons) - 1}, {"Right", 0}} {
+	}{{"Right", 1}, {"Right", 2}, {"Left", 1}, {"Left", 0}, {"Left", len(buttons) - 1}, {"Right", 0}, {"Down", 1}, {"Up", 0}, {"Up", len(buttons) - 1}} {
 		if !press(step.key) {
 			t.Fatalf("step %d: %s was not taken", i, step.key)
 		}
@@ -282,5 +283,214 @@ func TestTheMenuAsksForNoBlurWithReducedTransparency(t *testing.T) {
 	h.m.Show()
 	if h.opened[0].BackgroundBlur {
 		t.Error("reduce-transparency still asks for the blur")
+	}
+}
+
+func (h *harness) press(t *testing.T, name string) bool {
+	t.Helper()
+	a, err := app.ParseAccel(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h.opened[len(h.opened)-1].KeyCapture(a)
+}
+
+func TestTheFirstButtonHasTheKeyboardOnOpen(t *testing.T) {
+	h := newHarness(t)
+	h.m.Show()
+	if h.windows[0].focused != widget.Widget(h.buttons(t)[0]) {
+		t.Errorf("focused %v on open, want the first button", h.windows[0].focused)
+	}
+}
+
+func TestReturnRightAfterShowRunsTheFirstAction(t *testing.T) {
+	for _, key := range []string{"Return", "KP_Enter"} {
+		h := newHarness(t)
+		h.cfg.Animations.Enabled = false
+		h.m.Show()
+		if !h.press(t, key) {
+			t.Fatalf("%s was not taken", key)
+		}
+		if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.LockCommand {
+			t.Errorf("%s ran %v, want the lock command alone", key, h.ran)
+		}
+	}
+}
+
+func TestReturnRunsTheButtonTheArrowsReached(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.m.Show()
+	h.press(t, "Left")
+	h.press(t, "Return")
+	if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.ShutdownCommand {
+		t.Errorf("ran %v, want the shut-down command", h.ran)
+	}
+}
+
+func TestEscapeRunsNothingAndReturnAfterItNeither(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.m.Show()
+	h.press(t, "Escape")
+	h.press(t, "Return")
+	if len(h.ran) != 0 {
+		t.Errorf("ran %v after Escape", h.ran)
+	}
+}
+
+func TestReturnOnAMenuWithNoButtonsRunsNothing(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.cfg.Power.ShowLock, h.cfg.Power.ShowLogout, h.cfg.Power.ShowSuspend = false, false, false
+	h.cfg.Power.ShowReboot, h.cfg.Power.ShowShutdown = false, false
+	h.m.Show()
+	if len(h.buttons(t)) != 0 {
+		t.Fatalf("buttons = %d, want none", len(h.buttons(t)))
+	}
+	h.press(t, "Return")
+	h.press(t, "Right")
+	if len(h.ran) != 0 {
+		t.Errorf("ran %v", h.ran)
+	}
+}
+
+func TestTheTilesFollowTheStylingScale(t *testing.T) {
+	for _, c := range []struct {
+		scale config.ScaleFactor
+		tile  int
+	}{{1, 96}, {2, 192}, {0.5, 48}} {
+		h := newHarness(t)
+		h.cfg.Styling.Scale = c.scale
+		h.m.Show()
+		root := h.opened[0].Root
+		root.Arrange(render.Rect{W: 2000, H: 1200})
+		for _, b := range h.buttons(t) {
+			if got := b.Bounds(); got.W != c.tile || got.H != c.tile {
+				t.Errorf("scale %v: a tile is %dx%d, want %d", c.scale, got.W, got.H, c.tile)
+			}
+		}
+		chipSide := c.tile / 2
+		for _, chip := range treetest.WithClass(root, "power-menu-chip") {
+			if got := chip.(widget.Boundser).Bounds(); got.W != chipSide || got.H != chipSide {
+				t.Errorf("scale %v: a chip is %dx%d, want %d", c.scale, got.W, got.H, chipSide)
+			}
+		}
+		for _, icon := range treetest.All[*widget.Icon](root) {
+			if got, want := icon.Measure(widget.Row, widget.Unknown).Nat, c.tile/4; got != want {
+				t.Errorf("scale %v: a glyph is %d px, want %d", c.scale, got, want)
+			}
+		}
+	}
+}
+
+func TestLabelsEllipsizeInsideTheirTile(t *testing.T) {
+	h := newHarness(t)
+	h.m.Show()
+	root := h.opened[0].Root
+	labels := treetest.All[*widget.Label](root)
+	labels[0].SetText("An action whose name is far wider than any tile could ever hold")
+	root.Arrange(render.Rect{W: 2000, H: 1200})
+	for i, l := range labels {
+		if l.Ellipsize() != widget.EllipsizeEnd {
+			t.Errorf("label %d does not ellipsize", i)
+		}
+	}
+	tile := h.buttons(t)[0].Bounds()
+	if got := labels[0].Bounds(); got.W > tile.W {
+		t.Errorf("a long label is %d wide in a %d tile", got.W, tile.W)
+	}
+	for i, b := range h.buttons(t) {
+		if b.Bounds().W != buttonPx {
+			t.Errorf("button %d is %d wide, want %d despite the long label", i, b.Bounds().W, buttonPx)
+		}
+	}
+}
+
+func TestEveryActionHasItsOwnIconAndATranslatedLabel(t *testing.T) {
+	icons := map[string]Action{}
+	for _, a := range actions {
+		if prev, dup := icons[a.Icon()]; dup {
+			t.Errorf("actions %d and %d share %s", prev, a, a.Icon())
+		}
+		icons[a.Icon()] = a
+		if a.Label() == "" || a.Label() == specs[a].labelID {
+			t.Errorf("action %d label = %q, want its message", a, a.Label())
+		}
+	}
+	h := newHarness(t)
+	h.m.Show()
+	for i, b := range h.buttons(t) {
+		if b.TooltipText() != actions[i].Label() {
+			t.Errorf("button %d tooltip = %q, want %q", i, b.TooltipText(), actions[i].Label())
+		}
+	}
+}
+
+func TestARequestForASafeActionRunsAtOnce(t *testing.T) {
+	h := newHarness(t)
+	h.m.Request(Lock)
+	h.m.Request(Suspend)
+	if len(h.opened) != 0 {
+		t.Error("a safe request opened the menu")
+	}
+	if want := []string{h.cfg.Power.LockCommand, h.cfg.Power.SuspendCommand}; !slices.Equal(h.ran, want) {
+		t.Errorf("ran %v, want %v", h.ran, want)
+	}
+	h.cfg.Power.LockCommand = ""
+	h.m.Request(Lock)
+	if len(h.ran) != 2 {
+		t.Errorf("an empty command ran: %v", h.ran)
+	}
+}
+
+func TestARequestToEndTheSessionWaitsForConfirmation(t *testing.T) {
+	for _, a := range []Action{LogOut, Reboot, ShutDown} {
+		h := newHarness(t)
+		h.cfg.Animations.Enabled = false
+		h.m.Request(a)
+		if len(h.ran) != 0 {
+			t.Fatalf("action %d ran on the request: %v", a, h.ran)
+		}
+		if !h.m.Open() {
+			t.Fatalf("action %d did not open the menu", a)
+		}
+		if got := h.windows[0].focused; got != widget.Widget(h.buttons(t)[slices.Index(actions[:], a)]) {
+			t.Errorf("action %d: the menu opened on another button", a)
+		}
+		h.press(t, "Return")
+		if want := a.Command(h.cfg.Power); len(h.ran) != 1 || h.ran[0] != want {
+			t.Errorf("action %d confirmed ran %v, want %q", a, h.ran, want)
+		}
+	}
+}
+
+func TestARequestToEndTheSessionCancelledRunsNothing(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.m.Request(Reboot)
+	h.press(t, "Escape")
+	if len(h.ran) != 0 || h.m.Open() {
+		t.Errorf("after Escape: ran %v, open %v", h.ran, h.m.Open())
+	}
+}
+
+func TestARequestShowsTheActionTheConfigHides(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.cfg.Power.ShowReboot = false
+	h.cfg.Power.RebootCommand = "reboot-now"
+	h.m.Request(Reboot)
+	buttons := h.buttons(t)
+	if len(buttons) != 5 || h.windows[0].focused != widget.Widget(buttons[3]) {
+		t.Fatalf("buttons %d, focused %v; want all five with reboot focused", len(buttons), h.windows[0].focused)
+	}
+	buttons[3].OnClick()
+	if len(h.ran) != 1 || h.ran[0] != "reboot-now" {
+		t.Errorf("ran %v", h.ran)
+	}
+	h.m.Show()
+	if got := len(h.buttons(t)); got != 4 {
+		t.Errorf("a plain Show after the request has %d buttons, want the four shown", got)
 	}
 }

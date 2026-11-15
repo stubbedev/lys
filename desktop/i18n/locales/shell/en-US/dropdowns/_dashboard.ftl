@@ -10,6 +10,10 @@ dropdown-dashboard-airplane = Airplane Mode
 dropdown-dashboard-dnd = Do Not Disturb
 dropdown-dashboard-idle-inhibit = Idle Inhibit
 dropdown-dashboard-power-saver = Power Saver
+dropdown-dashboard-wifi-failed = Couldn't switch WiFi
+dropdown-dashboard-bluetooth-failed = Couldn't switch Bluetooth
+dropdown-dashboard-volume-failed = Couldn't change the volume
+dropdown-dashboard-media-failed = Couldn't control the player
 
 ## Controls
 dropdown-dashboard-volume = Volume
@@ -50,9 +54,3 @@ dropdown-dashboard-cpu = CPU
 dropdown-dashboard-ram = RAM
 dropdown-dashboard-disk = Disk
 dropdown-dashboard-temp = CPU Temp
-
-## User Session
-dropdown-dashboard-lock = Lock
-dropdown-dashboard-logout = Log Out
-dropdown-dashboard-reboot = Reboot
-dropdown-dashboard-power-off = Power Off

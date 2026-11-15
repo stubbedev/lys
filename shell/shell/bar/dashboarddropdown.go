@@ -230,36 +230,44 @@ func (v *dashboardView) quickActions() widget.Widget {
 		grid.Attach(b, col, row, 1, 1)
 		return toggle{b, icon}
 	}
-	bctx := context.Background()
+	failed := writeAlert(v.font, "quick-action-failed")
+	card.Append(failed, false)
 	var wifi, bt, airplane, dnd, idle, saver toggle
 	var state struct {
 		hasWifi, wifiOn, hasBT, btOn, dndOn, idleOn, hasPP, saverOn bool
 	}
+	// busy holds a toggle insensitive while its write runs; the
+	// re-read after it brings back what the service holds.
+	var busy struct{ wifi, bt, saver bool }
+	write := func(t *toggle, flag *bool, title string, w func(context.Context) error) {
+		*flag = true
+		t.btn.SetEnabled(false)
+		serviceWrite(v.ctx, w, func(err error) {
+			*flag = false
+			reportWrite(failed, "dashboard", title, err)
+			v.refreshAll()
+		})
+	}
 	wifiDev := func() bool { return v.ctx.Networking != nil && v.ctx.Networking.Wifi != nil }
 	setWifi := func(on bool) {
-		if !wifiDev() {
+		if !wifiDev() || busy.wifi {
 			return
 		}
-		v.ctx.Go(func() {
-			if err := v.ctx.Networking.Wifi.SetEnabled(bctx, on); err != nil {
-				log.Printf("dashboard: wifi toggle failed: %v", err)
-			}
+		wifiSrc := v.ctx.Networking.Wifi
+		write(&wifi, &busy.wifi, i18n.T("dropdown-dashboard-wifi-failed"), func(c context.Context) error {
+			return wifiSrc.SetEnabled(c, on)
 		})
 	}
 	setBT := func(on bool) {
-		if v.ctx.Bluetooth == nil {
+		if v.ctx.Bluetooth == nil || busy.bt {
 			return
 		}
-		v.ctx.Go(func() {
-			var err error
+		btSrc := v.ctx.Bluetooth
+		write(&bt, &busy.bt, i18n.T("dropdown-dashboard-bluetooth-failed"), func(c context.Context) error {
 			if on {
-				err = v.ctx.Bluetooth.Enable(bctx)
-			} else {
-				err = v.ctx.Bluetooth.Disable(bctx)
+				return btSrc.Enable(c)
 			}
-			if err != nil {
-				log.Printf("dashboard: bluetooth toggle failed: %v", err)
-			}
+			return btSrc.Disable(c)
 		})
 	}
 	wifi = make1(0, 0, "ld-wifi-symbolic", "dropdown-dashboard-wifi", func() { setWifi(!state.wifiOn) })
@@ -304,17 +312,16 @@ func (v *dashboardView) quickActions() widget.Widget {
 		}
 	})
 	saver = make1(2, 1, "ld-leaf-symbolic", "dropdown-dashboard-power-saver", func() {
-		if v.ctx.PowerProfiles == nil {
+		if v.ctx.PowerProfiles == nil || busy.saver {
 			return
 		}
 		target := powerprofiles.ProfilePowerSaver
 		if state.saverOn {
 			target = powerprofiles.ProfileBalanced
 		}
-		v.ctx.Go(func() {
-			if err := v.ctx.PowerProfiles.SetActive(bctx, target); err != nil {
-				log.Printf("dashboard: power profile toggle failed: %v", err)
-			}
+		src := v.ctx.PowerProfiles
+		write(&saver, &busy.saver, i18n.T("power-profiles-switch-failed"), func(c context.Context) error {
+			return src.SetActive(c, target)
 		})
 	})
 
@@ -342,9 +349,9 @@ func (v *dashboardView) quickActions() widget.Widget {
 			setClass(t.btn, "active", active)
 			t.btn.SetEnabled(sensitive)
 		}
-		apply(wifi, state.wifiOn, state.hasWifi && !air)
+		apply(wifi, state.wifiOn, state.hasWifi && !air && !busy.wifi)
 		wifi.icon.SetThemeName(dashboardGlyph(state.wifiOn, "ld-wifi-symbolic", "ld-wifi-off-symbolic"))
-		apply(bt, state.btOn, state.hasBT && !air)
+		apply(bt, state.btOn, state.hasBT && !air && !busy.bt)
 		bt.icon.SetThemeName(dashboardGlyph(state.btOn, "ld-bluetooth-symbolic", "ld-bluetooth-off-symbolic"))
 		apply(airplane, air, state.hasWifi || state.hasBT)
 		apply(dnd, state.dndOn, v.ctx.Notifications != nil)
@@ -353,7 +360,7 @@ func (v *dashboardView) quickActions() widget.Widget {
 		}
 		dnd.icon.SetThemeName(dashboardGlyph(state.dndOn, "ld-bell-off-symbolic", "ld-bell-symbolic"))
 		apply(idle, state.idleOn, true)
-		apply(saver, state.saverOn, state.hasPP)
+		apply(saver, state.saverOn, state.hasPP && !busy.saver)
 	})
 	return card
 }
@@ -369,14 +376,17 @@ func (v *dashboardView) controls() widget.Widget {
 	row.AddClass("dashboard-slider-row")
 	muteIcon := widget.NewThemeIcon("ld-volume-2-symbolic", itemIconPx)
 	var muted bool
-	bctx := context.Background()
+	failed := writeAlert(v.font, "volume-failed")
+	written := func(err error) {
+		reportWrite(failed, "dashboard", i18n.T("dropdown-dashboard-volume-failed"), err)
+		if err != nil {
+			v.refreshAll()
+		}
+	}
 	mute := dropdownButton(muteIcon, func() {
 		target := !muted
-		v.ctx.Go(func() {
-			if err := v.ctx.Pulse.SetMuted(bctx, target); err != nil {
-				log.Printf("dashboard: mute toggle failed: %v", err)
-			}
-		})
+		src := v.ctx.Pulse
+		serviceWrite(v.ctx, func(c context.Context) error { return src.SetMuted(c, target) }, written)
 	}, css.Ghost, css.Icon, css.Small)
 	mute.AddClass("dashboard-volume-icon")
 	row.AppendAligned(mute, false, widget.AlignCenter)
@@ -384,10 +394,10 @@ func (v *dashboardView) controls() widget.Widget {
 	slider.ValueLabel().AddClass("dashboard-slider-value", css.Numeric)
 	slider.Knob.AddClass("dashboard-slider")
 	slider.Write = func(pct float64) func() {
+		src := v.ctx.Pulse
 		return func() {
-			if err := v.ctx.Pulse.SetVolume(bctx, pct); err != nil {
-				log.Printf("dashboard: volume set failed: %v", err)
-			}
+			err := boundedWrite(v.ctx, func(c context.Context) error { return src.SetVolume(c, pct) })
+			v.ctx.Invoke(func() { written(err) })
 		}
 	}
 	row.Append(slider, true)
@@ -398,6 +408,7 @@ func (v *dashboardView) controls() widget.Widget {
 	device.SetAlignment(render.AlignEnd)
 	controls.Append(device, false)
 	card.Append(controls, false)
+	card.Append(failed, false)
 	v.refreshers = append(v.refreshers, func(dashboardReadings) {
 		// No service: the no-device state, like ControlsSection without
 		// an AudioService.
@@ -407,7 +418,9 @@ func (v *dashboardView) controls() widget.Widget {
 			muteIcon.SetThemeName("ld-volume-x-symbolic")
 			return
 		}
-		sink, err := v.ctx.Pulse.DefaultSink(bctx)
+		readCtx, cancel := context.WithTimeout(v.ctx.Life(), dashboardReadTimeout)
+		sink, err := v.ctx.Pulse.DefaultSink(readCtx)
+		cancel()
 		has := err == nil
 		row.SetEnabled(has)
 		if !has {
@@ -428,7 +441,11 @@ func (v *dashboardView) controls() widget.Widget {
 func (v *dashboardView) media() widget.Widget {
 	var current mpris.Player
 	var has bool
-	bctx := context.Background()
+	failed := writeAlert(v.font, "media-failed")
+	written := func(err error) {
+		reportWrite(failed, "dashboard", i18n.T("dropdown-dashboard-media-failed"), err)
+	}
+	control := func(write func(context.Context) error) { serviceWrite(v.ctx, write, written) }
 	switchBtn := dropdownButton(widget.NewThemeIcon("ld-arrow-left-right-symbolic", itemIconPx), func() {
 		// The next player after the active one.
 		src := v.ctx.Media
@@ -445,9 +462,7 @@ func (v *dashboardView) media() widget.Widget {
 				i = j
 			}
 		}
-		if err := src.SetActive(players[(i+1)%len(players)].BusName); err != nil {
-			log.Printf("dashboard: switch player failed: %v", err)
-		}
+		written(src.SetActive(players[(i+1)%len(players)].BusName))
 	}, css.Ghost, css.Icon, css.Small)
 	switchBtn.AddClass("media-switch-btn")
 	card := v.card("ld-disc-3-symbolic", i18n.T("dropdown-dashboard-now-playing"), switchBtn)
@@ -472,24 +487,20 @@ func (v *dashboardView) media() widget.Widget {
 	info.AddClass("media-info")
 	info.Append(title, false)
 	info.Append(artist, false)
-	fire := func(what string, cmd func(mpris.Source, context.Context, string) error) {
+	fire := func(cmd func(mpris.Source, context.Context, string) error) {
 		src := v.ctx.Media
 		if src == nil {
 			return
 		}
 		bus := current.BusName
-		v.ctx.Go(func() {
-			if err := cmd(src, bctx, bus); err != nil {
-				log.Printf("dashboard: %s failed: %v", what, err)
-			}
-		})
+		control(func(c context.Context) error { return cmd(src, c, bus) })
 	}
-	prev := dropdownButton(widget.NewThemeIcon("ld-skip-back-symbolic", itemIconPx), func() { fire("previous", mpris.Source.Previous) }, css.Ghost, css.Icon, css.Small)
+	prev := dropdownButton(widget.NewThemeIcon("ld-skip-back-symbolic", itemIconPx), func() { fire(mpris.Source.Previous) }, css.Ghost, css.Icon, css.Small)
 	prev.AddClass("media-btn")
 	playIcon := widget.NewThemeIcon("ld-play-symbolic", itemIconPx)
-	play := dropdownButton(playIcon, func() { fire("play-pause", mpris.Source.PlayPause) }, css.SuggestedAction, css.Icon, css.Small)
+	play := dropdownButton(playIcon, func() { fire(mpris.Source.PlayPause) }, css.SuggestedAction, css.Icon, css.Small)
 	play.AddClass("media-btn", "play")
-	next := dropdownButton(widget.NewThemeIcon("ld-skip-forward-symbolic", itemIconPx), func() { fire("next", mpris.Source.Next) }, css.Ghost, css.Icon, css.Small)
+	next := dropdownButton(widget.NewThemeIcon("ld-skip-forward-symbolic", itemIconPx), func() { fire(mpris.Source.Next) }, css.Ghost, css.Icon, css.Small)
 	next.AddClass("media-btn")
 	controls := widget.NewBox(widget.Row, th.Spacing/2, 0)
 	controls.AddClass("media-controls")
@@ -514,13 +525,11 @@ func (v *dashboardView) media() widget.Widget {
 		}
 		target := time.Duration(pct / 100 * float64(current.Length))
 		bus := current.BusName
-		v.ctx.Go(func() {
-			if src := v.ctx.Media; src != nil {
-				if err := src.SetPosition(bctx, bus, target); err != nil {
-					log.Printf("dashboard: seek failed: %v", err)
-				}
-			}
-		})
+		src := v.ctx.Media
+		if src == nil {
+			return
+		}
+		control(func(c context.Context) error { return src.SetPosition(c, bus, target) })
 	}
 	times := widget.NewBox(widget.Row, 0, 0)
 	times.AddClass("media-progress-times")
@@ -542,6 +551,7 @@ func (v *dashboardView) media() widget.Widget {
 	body.Add("player", player)
 	body.Add("empty", emptyPage)
 	card.Append(body, false)
+	card.Append(failed, false)
 
 	var polledBus atomic.Value
 	setPosition := func(pos time.Duration) {
@@ -588,7 +598,7 @@ func (v *dashboardView) media() widget.Widget {
 		if src == nil || bus == "" {
 			return nil
 		}
-		ctx, cancel := context.WithTimeout(bctx, time.Second)
+		ctx, cancel := context.WithTimeout(v.ctx.Life(), time.Second)
 		defer cancel()
 		pos, err := src.Position(ctx, bus)
 		if err != nil || pos == shownPos {
@@ -695,7 +705,7 @@ func (v *dashboardView) battery() widget.Widget {
 		// The thresholds are state classes: .battery-icon, .battery-percent,
 		// and .battery-detail carry warning/critical, the gauge success,
 		// warning, or error.
-		icon.SetThemeName(dashboardBatteryIcon(pct, dev.State == upower.StateCharging))
+		icon.SetThemeName(dashboardBatteryIcon(pct, batteryCharging(dev.State)))
 		setClass(icon, "warning", warning)
 		setClass(icon, "critical", critical)
 		percent.SetText(strconv.FormatFloat(pct, 'f', 0, 64) + "%")

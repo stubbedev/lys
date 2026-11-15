@@ -2,16 +2,20 @@
 // full-screen dimmed overlay with a centered pane of frosted glass
 // holding lock, log out, suspend, reboot and shut-down buttons, each
 // running its [modules.power] command. The power module's `:menu`
-// binding opens it; the left and right arrows walk the buttons and
-// Escape dismisses it. It enters and leaves through the power
-// surface's transition, and a button's command runs once the menu is
-// gone.
+// binding opens it, and the dashboard's session buttons go through it
+// (Request). It opens with a button focused; the arrows walk the
+// buttons, Return presses the focused one and Escape dismisses it. It
+// enters and leaves through the power surface's transition, and a
+// button's command runs once the menu is gone.
 package powermenu
 
 import (
 	"log"
+	"math"
+	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -21,32 +25,82 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 )
 
-// iconPx is an action glyph's size.
-const iconPx = 24
-
-// escape dismisses the menu; left and right walk its buttons.
-var (
-	escape, _ = app.ParseAccel("Escape")
-	left, _   = app.ParseAccel("Left")
-	right, _  = app.ParseAccel("Right")
+const (
+	// iconPx is an action glyph's size at scale 1.
+	iconPx = 24
+	// buttonPx is an action tile's side at scale 1.
+	buttonPx = 96
+	// chipPx is the side of the disc behind an action's glyph at
+	// scale 1.
+	chipPx = 48
 )
 
-// action is one button: its icon, label, command and visibility, and
+// escape dismisses the menu; the arrows walk its buttons, and Return
+// presses the focused one.
+var (
+	escape, _  = app.ParseAccel("Escape")
+	left, _    = app.ParseAccel("Left")
+	right, _   = app.ParseAccel("Right")
+	up, _      = app.ParseAccel("Up")
+	down, _    = app.ParseAccel("Down")
+	enter, _   = app.ParseAccel("Return")
+	kpEnter, _ = app.ParseAccel("KP_Enter")
+)
+
+// Action is one of the menu's power actions.
+type Action int
+
+// The actions, in the menu's order.
+const (
+	Lock Action = iota
+	LogOut
+	Suspend
+	Reboot
+	ShutDown
+)
+
+// actions are every Action, in the menu's order.
+var actions = [...]Action{Lock, LogOut, Suspend, Reboot, ShutDown}
+
+// spec is an action's icon, label, command and visibility, and
 // whether it ends the session.
-type action struct {
-	icon, label string
-	danger      bool
-	command     func(config.PowerConfig) string
-	visible     func(config.PowerConfig) bool
+type spec struct {
+	icon, labelID string
+	danger        bool
+	command       func(config.PowerConfig) string
+	visible       func(config.PowerConfig) bool
 }
 
-// actions are ACTIONS, in their order.
-var actions = []action{
-	{"ld-lock-symbolic", "Lock", false, func(c config.PowerConfig) string { return c.LockCommand }, func(c config.PowerConfig) bool { return c.ShowLock }},
-	{"ld-log-out-symbolic", "Log out", true, func(c config.PowerConfig) string { return c.LogoutCommand }, func(c config.PowerConfig) bool { return c.ShowLogout }},
-	{"ld-moon-symbolic", "Suspend", false, func(c config.PowerConfig) string { return c.SuspendCommand }, func(c config.PowerConfig) bool { return c.ShowSuspend }},
-	{"ld-rotate-ccw-symbolic", "Reboot", true, func(c config.PowerConfig) string { return c.RebootCommand }, func(c config.PowerConfig) bool { return c.ShowReboot }},
-	{"ld-power-symbolic", "Shut down", true, func(c config.PowerConfig) string { return c.ShutdownCommand }, func(c config.PowerConfig) bool { return c.ShowShutdown }},
+var specs = [...]spec{
+	Lock:     {"ld-lock-symbolic", "power-menu-lock", false, func(c config.PowerConfig) string { return c.LockCommand }, func(c config.PowerConfig) bool { return c.ShowLock }},
+	LogOut:   {"ld-log-out-symbolic", "power-menu-log-out", true, func(c config.PowerConfig) string { return c.LogoutCommand }, func(c config.PowerConfig) bool { return c.ShowLogout }},
+	Suspend:  {"ld-moon-symbolic", "power-menu-suspend", false, func(c config.PowerConfig) string { return c.SuspendCommand }, func(c config.PowerConfig) bool { return c.ShowSuspend }},
+	Reboot:   {"ld-rotate-ccw-symbolic", "power-menu-reboot", true, func(c config.PowerConfig) string { return c.RebootCommand }, func(c config.PowerConfig) bool { return c.ShowReboot }},
+	ShutDown: {"ld-power-symbolic", "power-menu-shut-down", true, func(c config.PowerConfig) string { return c.ShutdownCommand }, func(c config.PowerConfig) bool { return c.ShowShutdown }},
+}
+
+// Icon is the action's glyph.
+func (a Action) Icon() string { return specs[a].icon }
+
+// Label is the action's name in the user's language.
+func (a Action) Label() string { return i18n.T(specs[a].labelID) }
+
+// Danger reports whether the action ends the session.
+func (a Action) Danger() bool { return specs[a].danger }
+
+// Command is the action's [modules.power] command.
+func (a Action) Command(c config.PowerConfig) string { return specs[a].command(c) }
+
+// shownActions are the actions c shows, in order, with also among
+// them wherever c hides it.
+func shownActions(c config.PowerConfig, also ...Action) []Action {
+	out := make([]Action, 0, len(actions))
+	for _, a := range actions {
+		if specs[a].visible(c) || slices.Contains(also, a) {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // Window is the overlay surface the menu maps (app.LayerWindow).
@@ -75,7 +129,7 @@ type Menu struct {
 	win Window
 	rev *widget.Revealer
 	// buttons are the shown actions, in order; focused indexes the one
-	// with the keyboard, -1 before the first arrow.
+	// with the keyboard.
 	buttons []*widget.Button
 	focused int
 	// closing: the exit is playing; a Show reopens a fresh surface.
@@ -85,23 +139,39 @@ type Menu struct {
 // New builds the menu; nothing maps until Show.
 func New(d Deps) *Menu { return &Menu{d: d} }
 
-// Show opens the menu with the current config's buttons, or does
-// nothing while it is already up.
+// Show opens the menu with the current config's buttons and the first
+// focused, or does nothing while it is already up.
 func (m *Menu) Show() {
+	cfg := m.d.Config()
+	m.open(cfg, shownActions(cfg.Power), 0)
+}
+
+// Request runs a the way the menu would: an action that ends the
+// session opens the menu on it, shown though the config hides it, so
+// only a second press runs it; any other runs at once. While the menu
+// is up a request that needs it does nothing.
+func (m *Menu) Request(a Action) {
+	cfg := m.d.Config()
+	if !a.Danger() {
+		m.run(a.Command(cfg.Power))
+		return
+	}
+	shown := shownActions(cfg.Power, a)
+	m.open(cfg, shown, slices.Index(shown, a))
+}
+
+func (m *Menu) open(cfg *config.Config, shown []Action, focus int) {
 	if m.win != nil && !m.closing {
 		return
 	}
-	cfg := m.d.Config()
+	scale := float64(cfg.Styling.Scale)
 	th := widget.Current()
 	row := widget.NewBox(widget.Row, th.Spacing, 3*th.Padding)
 	row.AddClass(css.Glass, "power-menu-surface")
 	row.SetHomogeneous(true)
-	m.buttons, m.focused = m.buttons[:0], -1
-	for _, a := range actions {
-		if !a.visible(cfg.Power) {
-			continue
-		}
-		b := m.button(a)
+	m.buttons = m.buttons[:0]
+	for _, a := range shown {
+		b := m.button(a, scale)
 		m.buttons = append(m.buttons, b)
 		row.Append(b, false)
 	}
@@ -124,10 +194,12 @@ func (m *Menu) Show() {
 			switch a.Sym { // whatever modifiers are held
 			case escape.Sym:
 				m.Cancel()
-			case left.Sym:
+			case left.Sym, up.Sym:
 				m.step(-1)
-			case right.Sym:
+			case right.Sym, down.Sym:
 				m.step(1)
+			case enter.Sym, kpEnter.Sym:
+				m.press()
 			default:
 				return false
 			}
@@ -139,61 +211,69 @@ func (m *Menu) Show() {
 		return
 	}
 	m.win, m.closing = win, false
+	m.focus(focus)
 	reveal.Show(m.rev, cfg.Animations, config.AnimPower)
 }
 
-// step moves the keyboard along the buttons, wrapping at the ends. The
-// first step lands on the end it walks from.
+// step moves the keyboard along the buttons, wrapping at the ends.
 func (m *Menu) step(by int) {
 	if m.win == nil || m.closing || len(m.buttons) == 0 {
 		return
 	}
 	n := len(m.buttons)
-	if m.focused < 0 && by < 0 {
-		m.focused = 0
+	m.focus((m.focused + by + n) % n)
+}
+
+// focus hands the keyboard to button i.
+func (m *Menu) focus(i int) {
+	if i < 0 || i >= len(m.buttons) {
+		return
 	}
-	m.focused = (m.focused + by + n) % n
-	if err := m.win.SetFocus(m.buttons[m.focused]); err != nil {
-		log.Printf("power menu: focus a button: %v", err)
+	m.focused = i
+	if err := m.win.SetFocus(m.buttons[i]); err != nil {
+		log.Printf("power menu: focus button %d: %v", i, err)
 	}
 }
 
-const (
-	// buttonPx is an action tile's side.
-	buttonPx = 96
-	// chipPx is the side of the disc behind an action's glyph.
-	chipPx = 48
-)
+// press clicks the focused button.
+func (m *Menu) press() {
+	if m.win == nil || m.closing || m.focused >= len(m.buttons) {
+		return
+	}
+	m.buttons[m.focused].OnClick()
+}
 
-// button is one action: a borderless square tile with the glyph on a
-// disc over the label, its command re-read on click.
-func (m *Menu) button(a action) *widget.Button {
-	icon := widget.NewThemeIcon(a.icon, iconPx)
+// scaled is px at the styling scale.
+func scaled(px int, scale float64) int { return int(math.Round(float64(px) * scale)) }
+
+// button is one action: a borderless square tile, pinned to its side
+// at the styling scale, with the glyph on a disc over the label, which
+// ellipsizes; its command is re-read on click.
+func (m *Menu) button(a Action, scale float64) *widget.Button {
+	icon := widget.NewThemeIcon(a.Icon(), scaled(iconPx, scale))
 	icon.AddClass("power-menu-icon")
-	label := widget.NewLabel(m.d.Font, widgets.TextPx(styling.Body, 1), a.label, 0)
+	label := widget.NewLabel(m.d.Font, widgets.TextPx(styling.Body, scale), a.Label(), 0)
 	label.AddClass("power-menu-label", css.DimLabel)
 	label.SetAlignment(render.AlignCenter)
+	label.SetEllipsize(widget.EllipsizeEnd)
 	content := widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	content.SetVExpand(true)
 	chip := widget.NewBox(widget.Column, 0, 0)
 	chip.AddClass("power-menu-chip")
-	chip.SetSizeRequest(chipPx, chipPx)
+	widgets.Pin(chip, scaled(chipPx, scale), scaled(chipPx, scale))
 	chip.Append(widgets.Center(icon), true)
 	content.AppendAligned(chip, false, widget.AlignCenter)
 	content.Append(label, false)
 	b := widget.NewButton(widgets.Center(content), 0, 0)
 	b.AddClass("power-menu-button", css.Flat)
-	if a.danger {
+	if a.Danger() {
 		b.AddClass("danger")
 	}
-	b.SetSizeRequest(buttonPx, buttonPx)
-	b.OnClick = func() { m.Run(a.command(m.d.Config().Power)) }
+	b.SetTooltip(a.Label())
+	widgets.Pin(b, scaled(buttonPx, scale), scaled(buttonPx, scale))
+	b.OnClick = func() { m.hide(a.Command(m.d.Config().Power)) }
 	return b
 }
-
-// Run plays the exit, closes the menu, then runs cmd (an empty one
-// runs nothing).
-func (m *Menu) Run(cmd string) { m.hide(cmd) }
 
 // Cancel plays the exit and closes the menu.
 func (m *Menu) Cancel() { m.hide("") }
@@ -209,10 +289,15 @@ func (m *Menu) hide(then string) {
 		if m.win == win {
 			m.win, m.rev, m.closing = nil, nil, false
 		}
-		if then != "" {
-			m.d.Run(then)
-		}
+		m.run(then)
 	})
+}
+
+// run runs cmd; an empty one runs nothing.
+func (m *Menu) run(cmd string) {
+	if cmd != "" {
+		m.d.Run(cmd)
+	}
 }
 
 // Open reports whether the menu is up (its exit not begun).

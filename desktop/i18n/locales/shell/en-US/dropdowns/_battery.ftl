@@ -6,6 +6,7 @@ dropdown-battery-title = Battery
 dropdown-battery-on-battery = On Battery
 dropdown-battery-charging = Charging
 dropdown-battery-plugged-in = Plugged In
+dropdown-battery-not-charging = Plugged In, Not Charging
 dropdown-battery-critical = Critical
 
 ## Time Display
@@ -27,6 +28,7 @@ dropdown-battery-charge-limit = Charge Limit
 dropdown-battery-limit-to = Limit to { $threshold }%
 dropdown-battery-resumes-at = Resumes charging at { $threshold }%
 dropdown-battery-charge-limit-not-supported = Charge limit not supported on this device
+dropdown-battery-charge-limit-failed = Couldn't change the charge limit
 
 ## Power Profile
 dropdown-battery-power-profile = Power Profile

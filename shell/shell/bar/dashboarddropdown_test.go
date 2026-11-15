@@ -1,6 +1,9 @@
 package bar
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
+	"github.com/stubbedev/lys/shell/service/bluetooth"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
@@ -548,5 +552,225 @@ func TestDashboardGrowsToItsSections(t *testing.T) {
 	sections := widget.SizeWithinAsChild(treetest.WithClass(v, "dashboard-scroll")[0].(*widget.Scroll).Children()[0], widget.Size{W: w, H: 4000})
 	if h > 0 || sz.H < sections.H {
 		t.Errorf("the dashboard (height %d) measures %dpx over %dpx of sections, want it grown to fit them", h, sz.H, sections.H)
+	}
+}
+
+// quickActionButtons are the dashboard's quick actions in grid order:
+// wifi, bluetooth, airplane, dnd, idle inhibit, power saver.
+func quickActionButtons(t *testing.T, v *dashboardView) []*widget.Button {
+	t.Helper()
+	var actions []*widget.Button
+	walkTree(v, func(w widget.Widget) bool {
+		if b, ok := w.(*widget.Button); ok && b.HasClass("quick-action") {
+			actions = append(actions, b)
+		}
+		return true
+	})
+	if len(actions) != 6 {
+		t.Fatalf("quick actions = %d, want 6", len(actions))
+	}
+	return actions
+}
+
+func quickActionAlert(t *testing.T, v *dashboardView) *widget.Alert {
+	t.Helper()
+	found := treetest.WithClass(v, "quick-action-failed")
+	if len(found) != 1 {
+		t.Fatalf("quick-action alerts = %d, want 1", len(found))
+	}
+	return found[0].(*widget.Alert)
+}
+
+func TestTheSaverToggleHoldsWhileItsWriteRunsAndSaysWhyItFailed(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	pp := &fakePPSource{snap: powerprofiles.Snapshot{
+		Available: true, Active: powerprofiles.ProfileBalanced,
+		Profiles: []string{powerprofiles.ProfilePowerSaver, powerprofiles.ProfileBalanced},
+	}}
+	pp.setGate = make(chan struct{})
+	pp.setErr = errors.New("net.hadess.PowerProfiles: denied")
+	ctx.PowerProfiles = pp
+	v := dashboardDropdown(ctx).(*dashboardView)
+	defer v.dropdownClosed()
+	saver := quickActionButtons(t, v)[5]
+	alert := quickActionAlert(t, v)
+	if !saver.Enabled() || alert.Visible() {
+		t.Fatalf("before the write: saver enabled %v, alert %v", saver.Enabled(), alert.Visible())
+	}
+	onHeadlessLoop(func() bool { saver.OnClick(); return true })
+	onHeadlessLoop(func() bool {
+		if saver.Enabled() {
+			t.Error("the saver toggle is sensitive while its write runs")
+		}
+		v.apply(v.read())
+		if saver.Enabled() {
+			t.Error("a refresh made the saver toggle sensitive while its write runs")
+		}
+		saver.OnClick()
+		return true
+	})
+	close(pp.setGate)
+	waitHeadless(t, "the failure shown", func() bool { return alert.Visible() })
+	onHeadlessLoop(func() bool {
+		if got := pp.sets(); len(got) != 1 {
+			t.Errorf("writes = %v, want one: a click while busy writes nothing", got)
+		}
+		if !saver.Enabled() || saver.HasClass("active") {
+			t.Errorf("after the failed write: enabled %v, active %v; want sensitive and the old value", saver.Enabled(), saver.HasClass("active"))
+		}
+		if alert.Title() != i18n.T("power-profiles-switch-failed") || alert.Description() != pp.setErr.Error() {
+			t.Errorf("the alert reads %q / %q", alert.Title(), alert.Description())
+		}
+		return true
+	})
+}
+
+func TestAQuickActionWriteThatGoesThroughClearsTheAlert(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	bt := newFakeBluetooth(bluetooth.State{Available: true})
+	bt.fail["enable"] = errors.New("org.bluez.Error.Blocked")
+	ctx.Bluetooth = bt
+	v := dashboardDropdown(ctx).(*dashboardView)
+	defer v.dropdownClosed()
+	v.refreshAll()
+	btn := quickActionButtons(t, v)[1]
+	alert := quickActionAlert(t, v)
+	onHeadlessLoop(func() bool { btn.OnClick(); return true })
+	waitHeadless(t, "the failure shown", func() bool { return alert.Visible() })
+	if got := onHeadlessLoop(alert.Title); got != i18n.T("dropdown-dashboard-bluetooth-failed") {
+		t.Errorf("the alert reads %q", got)
+	}
+	bt.mu.Lock()
+	delete(bt.fail, "enable")
+	bt.mu.Unlock()
+	onHeadlessLoop(func() bool { btn.OnClick(); return true })
+	waitHeadless(t, "the alert cleared", func() bool { return !alert.Visible() && btn.Enabled() })
+}
+
+// writeOutcome answers every write a fake makes with err and records
+// whether the write ran under a deadline.
+type writeOutcome struct {
+	err      error
+	deadline chan bool
+}
+
+func (w *writeOutcome) write(c context.Context) error {
+	_, ok := c.Deadline()
+	w.deadline <- ok
+	return w.err
+}
+
+type failingPulse struct {
+	*fakePulseSource
+	*writeOutcome
+}
+
+func (f failingPulse) SetMuted(c context.Context, _ bool) error { return f.write(c) }
+
+func (f failingPulse) SetVolume(c context.Context, _ float64) error { return f.write(c) }
+
+type failingMedia struct {
+	*fakeMediaSource
+	*writeOutcome
+}
+
+func (f failingMedia) PlayPause(c context.Context, _ string) error { return f.write(c) }
+
+func (f failingMedia) SetPosition(c context.Context, _ string, _ time.Duration) error {
+	return f.write(c)
+}
+
+func classedButton(t *testing.T, root widget.Widget, class string) *widget.Button {
+	t.Helper()
+	found := treetest.WithClass(root, class)
+	if len(found) != 1 {
+		t.Fatalf("%s = %d widgets, want 1", class, len(found))
+	}
+	return found[0].(*widget.Button)
+}
+
+func classedAlert(t *testing.T, root widget.Widget, class string) *widget.Alert {
+	t.Helper()
+	found := treetest.WithClass(root, class)
+	if len(found) != 1 {
+		t.Fatalf("%s = %d widgets, want 1", class, len(found))
+	}
+	return found[0].(*widget.Alert)
+}
+
+func TestTheVolumeAndMediaCardsSayWhyAWriteFailed(t *testing.T) {
+	for _, c := range []struct {
+		button, alert, title string
+	}{
+		{"dashboard-volume-icon", "volume-failed", "dropdown-dashboard-volume-failed"},
+		{"play", "media-failed", "dropdown-dashboard-media-failed"},
+	} {
+		ctx := newTestContext(t, config.Defaults())
+		src := &writeOutcome{errors.New("org.freedesktop.DBus.Error.NoReply"), make(chan bool, 4)}
+		ctx.Pulse = failingPulse{&fakePulseSource{dev: pulse.Device{Name: "out", Description: "Speakers", Volume: pct(42)}, ticks: make(chan struct{}, 2)}, src}
+		ctx.Media = failingMedia{newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", State: mpris.StatePlaying}), src}
+		v := dashboardDropdown(ctx).(*dashboardView)
+		v.refreshAll()
+		alert := classedAlert(t, v, c.alert)
+		if onHeadlessLoop(alert.Visible) {
+			t.Fatalf("%s shows before any write", c.alert)
+		}
+		onHeadlessLoop(func() bool { classedButton(t, v, c.button).OnClick(); return true })
+		if !<-src.deadline {
+			t.Errorf("%s: the write ran without a deadline", c.button)
+		}
+		waitHeadless(t, c.alert+" shown", alert.Visible)
+		onHeadlessLoop(func() bool {
+			if alert.Title() != i18n.T(c.title) || alert.Description() != src.err.Error() {
+				t.Errorf("%s reads %q / %q", c.alert, alert.Title(), alert.Description())
+			}
+			return true
+		})
+		src.err = nil
+		onHeadlessLoop(func() bool { classedButton(t, v, c.button).OnClick(); return true })
+		<-src.deadline
+		waitHeadless(t, c.alert+" cleared", func() bool { return !alert.Visible() })
+		v.dropdownClosed()
+	}
+}
+
+type unswitchableMedia struct{ *fakeMediaSource }
+
+func (unswitchableMedia) SetActive(bus string) error {
+	return fmt.Errorf("activate %s: %w", bus, mpris.ErrNoPlayer)
+}
+
+func TestSwitchingThePlayerSaysWhyItFailed(t *testing.T) {
+	players := []mpris.Player{
+		{BusName: "org.mpris.MediaPlayer2.a", Title: "A", State: mpris.StatePlaying},
+		{BusName: "org.mpris.MediaPlayer2.b", Title: "B", State: mpris.StatePaused},
+	}
+	for _, c := range []struct {
+		name   string
+		src    mpris.Source
+		failed bool
+	}{
+		{"switchable", newFakeMedia(players...), false},
+		{"unswitchable", unswitchableMedia{newFakeMedia(players...)}, true},
+	} {
+		ctx := newTestContext(t, config.Defaults())
+		ctx.Media = c.src
+		v := dashboardDropdown(ctx).(*dashboardView)
+		v.refreshAll()
+		alert := classedAlert(t, v, "media-failed")
+		onHeadlessLoop(func() bool { classedButton(t, v, "media-switch-btn").OnClick(); return true })
+		onHeadlessLoop(func() bool {
+			if alert.Visible() != c.failed {
+				t.Errorf("%s: alert visible %v, want %v", c.name, alert.Visible(), c.failed)
+			}
+			if c.failed && (alert.Title() != i18n.T("dropdown-dashboard-media-failed") || !strings.Contains(alert.Description(), mpris.ErrNoPlayer.Error())) {
+				t.Errorf("%s: alert reads %q / %q", c.name, alert.Title(), alert.Description())
+			}
+			if active, _ := c.src.Active(); !c.failed && active.BusName != players[1].BusName {
+				t.Errorf("%s: active player %s, want the next one", c.name, active.BusName)
+			}
+			return true
+		})
+		v.dropdownClosed()
 	}
 }

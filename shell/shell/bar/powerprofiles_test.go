@@ -2,12 +2,14 @@ package bar
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
@@ -22,6 +24,10 @@ type fakePPSource struct {
 	set   []string
 	err   error
 	ticks chan struct{}
+	// setErr fails SetActive, leaving the profile as it was; setGate,
+	// when set, keeps SetActive waiting until it closes.
+	setErr  error
+	setGate chan struct{}
 }
 
 func (f *fakePPSource) Read(context.Context) (powerprofiles.Snapshot, error) {
@@ -31,9 +37,15 @@ func (f *fakePPSource) Read(context.Context) (powerprofiles.Snapshot, error) {
 }
 
 func (f *fakePPSource) SetActive(_ context.Context, profile string) error {
+	if f.setGate != nil {
+		<-f.setGate
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.set = append(f.set, profile)
+	if f.setErr != nil {
+		return f.setErr
+	}
 	f.snap.Active = profile
 	return nil
 }
@@ -180,4 +192,44 @@ func TestPowerProfilesCycleLeavesTheLoop(t *testing.T) {
 	apptest.Answer(t, "the write reached the daemon", h.started)
 	h.free()
 	waitHeadless(t, "the write finished", func() bool { return len(src.sets()) == 1 })
+}
+
+func cycleModule(t *testing.T, src *fakePPSource) (*powerProfilesModule, chan string) {
+	t.Helper()
+	ctx := newTestContext(t, config.Defaults())
+	toasts := make(chan string, 2)
+	ctx.Toast = func(label, _ string) { toasts <- label }
+	src.snap = powerprofiles.Snapshot{
+		Available: true, Active: powerprofiles.ProfileBalanced,
+		Profiles: []string{powerprofiles.ProfileBalanced, powerprofiles.ProfilePerformance},
+	}
+	return &powerProfilesModule{ctx: ctx, src: src, snap: src.snap}, toasts
+}
+
+func TestAFailedCycleToastsWhy(t *testing.T) {
+	src := &fakePPSource{setErr: errors.New("net.hadess.PowerProfiles: denied")}
+	m, toasts := cycleModule(t, src)
+	m.cycle()
+	awaitWork(t, "the cycle's write", m.ctx.gen.waitWork)
+	var got string
+	select {
+	case got = <-toasts:
+	default:
+	}
+	if want := i18n.T("power-profiles-switch-failed") + ": " + src.setErr.Error(); got != want {
+		t.Errorf("toast = %q, want %q", got, want)
+	}
+}
+
+func TestACycleThatGoesThroughToastsNothing(t *testing.T) {
+	src := &fakePPSource{}
+	m, toasts := cycleModule(t, src)
+	m.cycle()
+	waitHeadless(t, "the write", func() bool { return len(src.sets()) == 1 })
+	awaitWork(t, "the cycle's write", m.ctx.gen.waitWork)
+	select {
+	case got := <-toasts:
+		t.Errorf("a good cycle toasted %q", got)
+	default:
+	}
 }

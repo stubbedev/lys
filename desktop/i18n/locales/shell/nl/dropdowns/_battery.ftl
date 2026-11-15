@@ -3,6 +3,7 @@ dropdown-battery-title = Accu
 dropdown-battery-on-battery = Op accu
 dropdown-battery-charging = Aan het opladen
 dropdown-battery-plugged-in = Aangesloten
+dropdown-battery-not-charging = Aangesloten, laadt niet op
 dropdown-battery-critical = Kritiek
 
 dropdown-battery-duration-hm = { $hours }u { $minutes }m
@@ -21,6 +22,7 @@ dropdown-battery-charge-limit = Laadlimiet
 dropdown-battery-limit-to = Beperken tot { $threshold }%
 dropdown-battery-resumes-at = Hervat opladen bij { $threshold }%
 dropdown-battery-charge-limit-not-supported = Laadlimiet wordt op dit apparaat niet ondersteund
+dropdown-battery-charge-limit-failed = Kan de laadlimiet niet wijzigen
 
 dropdown-battery-power-profile = Energieprofiel
 dropdown-battery-profile-saver = Besparing

@@ -7,6 +7,10 @@ dropdown-dashboard-airplane = Vliegtuigmodus
 dropdown-dashboard-dnd = Niet storen
 dropdown-dashboard-idle-inhibit = Inactiviteit blokkeren
 dropdown-dashboard-power-saver = Energiebesparing
+dropdown-dashboard-wifi-failed = Kan wifi niet schakelen
+dropdown-dashboard-bluetooth-failed = Kan Bluetooth niet schakelen
+dropdown-dashboard-volume-failed = Kan het volume niet wijzigen
+dropdown-dashboard-media-failed = Kan de speler niet bedienen
 
 dropdown-dashboard-volume = Volume
 dropdown-dashboard-no-device = Geen uitvoerapparaat
@@ -42,8 +46,3 @@ dropdown-dashboard-cpu = CPU
 dropdown-dashboard-ram = RAM
 dropdown-dashboard-disk = Schijf
 dropdown-dashboard-temp = CPU-temp.
-
-dropdown-dashboard-lock = Vergrendelen
-dropdown-dashboard-logout = Afmelden
-dropdown-dashboard-reboot = Herstarten
-dropdown-dashboard-power-off = Uitschakelen

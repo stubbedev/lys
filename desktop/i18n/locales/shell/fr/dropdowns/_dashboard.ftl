@@ -10,6 +10,10 @@ dropdown-dashboard-airplane = Mode avion
 dropdown-dashboard-dnd = Ne pas déranger
 dropdown-dashboard-idle-inhibit = Inhiber la veille
 dropdown-dashboard-power-saver = Économie d'énergie
+dropdown-dashboard-wifi-failed = Impossible de basculer le Wi-Fi
+dropdown-dashboard-bluetooth-failed = Impossible de basculer le Bluetooth
+dropdown-dashboard-volume-failed = Impossible de modifier le volume
+dropdown-dashboard-media-failed = Impossible de contrôler le lecteur
 
 ## Contrôles
 dropdown-dashboard-volume = Volume
@@ -50,9 +54,3 @@ dropdown-dashboard-cpu = Processeur
 dropdown-dashboard-ram = Mémoire
 dropdown-dashboard-disk = Disque
 dropdown-dashboard-temp = Temp. proc.
-
-## Session utilisateur
-dropdown-dashboard-lock = Verrouiller
-dropdown-dashboard-logout = Fermer la session
-dropdown-dashboard-reboot = Redémarrer
-dropdown-dashboard-power-off = Éteindre

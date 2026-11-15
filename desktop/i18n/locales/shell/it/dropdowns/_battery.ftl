@@ -6,6 +6,7 @@ dropdown-battery-title = Batteria
 dropdown-battery-on-battery = A batteria
 dropdown-battery-charging = In carica
 dropdown-battery-plugged-in = Collegato
+dropdown-battery-not-charging = Collegato, non in carica
 dropdown-battery-critical = Critico
 
 ## Time Display
@@ -27,6 +28,7 @@ dropdown-battery-charge-limit = Limite di carica
 dropdown-battery-limit-to = Limita al { $threshold }%
 dropdown-battery-resumes-at = Riprende la carica al { $threshold }%
 dropdown-battery-charge-limit-not-supported = Limite di carica non supportato su questo dispositivo
+dropdown-battery-charge-limit-failed = Impossibile modificare il limite di carica
 
 ## Power Profile
 dropdown-battery-power-profile = Profilo energetico

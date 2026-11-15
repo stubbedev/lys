@@ -13,6 +13,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/shell/powermenu"
 )
 
 func TestParseOSRelease(t *testing.T) {
@@ -121,16 +123,23 @@ func TestLoadFileAppliesDashboard(t *testing.T) {
 	}
 }
 
-func TestSessionButtonsFollowTheActions(t *testing.T) {
-	cfg := config.DefaultsDashboard()
-	cfg.DropdownRebootCommand = "my-reboot"
-	b := sessionButtonFor(config.SessionActionReboot, cfg)
-	if b.icon != "ld-refresh-cw-symbolic" || b.command != "my-reboot" {
-		t.Errorf("reboot button = %+v", b)
+func TestSessionActionsAreThePowerMenusActions(t *testing.T) {
+	for action, want := range map[config.SessionAction]powermenu.Action{
+		config.SessionActionLock:     powermenu.Lock,
+		config.SessionActionLogOut:   powermenu.LogOut,
+		config.SessionActionReboot:   powermenu.Reboot,
+		config.SessionActionPowerOff: powermenu.ShutDown,
+	} {
+		if got := sessionPowerAction(action); got != want {
+			t.Errorf("%s = power-menu action %d, want %d", action, got, want)
+		}
 	}
-	if b := sessionButtonFor(config.SessionActionLogOut, cfg); b.icon != "ld-log-out-symbolic" || b.command != cfg.DropdownLogoutCommand {
-		t.Errorf("log-out button = %+v", b)
-	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an unknown session action mapped onto a power-menu action")
+		}
+	}()
+	sessionPowerAction("hibernate")
 }
 
 func TestUserSessionSectionRendersConfiguredActions(t *testing.T) {

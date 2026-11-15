@@ -10,6 +10,10 @@ dropdown-dashboard-airplane = Flugmodus
 dropdown-dashboard-dnd = Nicht stören
 dropdown-dashboard-idle-inhibit = Leerlaufsperre
 dropdown-dashboard-power-saver = Energiesparen
+dropdown-dashboard-wifi-failed = WLAN konnte nicht umgeschaltet werden
+dropdown-dashboard-bluetooth-failed = Bluetooth konnte nicht umgeschaltet werden
+dropdown-dashboard-volume-failed = Lautstärke konnte nicht geändert werden
+dropdown-dashboard-media-failed = Player konnte nicht gesteuert werden
 
 ## Controls
 dropdown-dashboard-volume = Lautstärke
@@ -50,9 +54,3 @@ dropdown-dashboard-cpu = CPU
 dropdown-dashboard-ram = RAM
 dropdown-dashboard-disk = Datenträger
 dropdown-dashboard-temp = CPU-Temperatur
-
-## User Session
-dropdown-dashboard-lock = Sperren
-dropdown-dashboard-logout = Abmelden
-dropdown-dashboard-reboot = Neu starten
-dropdown-dashboard-power-off = Ausschalten

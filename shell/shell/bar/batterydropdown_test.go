@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -63,6 +64,9 @@ func TestBatteryClasses(t *testing.T) {
 	}
 	if got := heroStateClass(upower.Device{State: upower.StateDischarging}); got != "" {
 		t.Errorf("hero discharging = %q, want none", got)
+	}
+	if got := heroStateClass(upower.Device{State: upower.StatePendingCharge}); got != "" {
+		t.Errorf("hero held at the charge limit = %q, want none", got)
 	}
 	for in, want := range map[float64]string{92: "good", 80: "good", 68: "fair", 50: "fair", 30: "poor", 0: "unknown"} {
 		if got := healthClass(in); got != want {
@@ -556,4 +560,144 @@ func TestBatteryDropdownListsPeripherals(t *testing.T) {
 	}
 	src.setPeripherals()
 	waitHeadless(t, "the section hidden", func() bool { return !v.devicesSection.Visible() })
+}
+
+func TestABatteryHeldAtItsChargeLimitIsNotCharging(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	v := batteryDropdown(ctx).(*batteryView)
+	held := presentBattery()
+	held.State, held.Percentage, held.EnergyRate, held.ChargeThresholdEnabled = upower.StatePendingCharge, 80, 3, true
+	v.applyDevice(held, true)
+	if got := v.heroState.Text(); got != i18n.T("dropdown-battery-not-charging") || got == i18n.T("dropdown-battery-charging") {
+		t.Errorf("held at the limit the hero reads %q, want %q", got, i18n.T("dropdown-battery-not-charging"))
+	}
+	if v.heroState.HasClass("good") {
+		t.Error("held at the limit the hero state carries good")
+	}
+	if widget.IsVisible(v.heroInput) {
+		t.Error("held at the limit the hero shows a charging input")
+	}
+	if got := v.drawLabel.Text(); got != i18n.T("dropdown-battery-draw") {
+		t.Errorf("held at the limit the draw detail reads %q", got)
+	}
+
+	charging := presentBattery()
+	charging.State, charging.EnergyRate = upower.StateCharging, 30
+	v.applyDevice(charging, true)
+	if got := v.heroState.Text(); got != i18n.T("dropdown-battery-charging") {
+		t.Errorf("charging the hero reads %q", got)
+	}
+	if !v.heroState.HasClass("good") || !widget.IsVisible(v.heroInput) {
+		t.Error("charging the hero is not good or shows no input")
+	}
+}
+
+func chargeLimitBattery() upower.Device {
+	dev := presentBattery()
+	dev.ChargeThresholdSupported, dev.ChargeThresholdEnabled = true, true
+	return dev
+}
+
+func TestAFailedChargeLimitWritePutsTheSwitchBackAndSaysWhy(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	src := newFakeBattery(chargeLimitBattery())
+	src.thresholdErr = errors.New("org.freedesktop.UPower.Error: not authorized")
+	ctx.Battery = src
+	v := batteryDropdown(ctx).(*batteryView)
+	defer v.dropdownClosed()
+	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
+	onHeadlessLoop(func() bool { v.chargeSwitch.Toggle(); return true })
+	waitHeadless(t, "the failure shown", func() bool { return v.chargeFailed.Visible() })
+	onHeadlessLoop(func() bool {
+		if !v.chargeSwitch.On() {
+			t.Error("the switch stayed off though the write failed")
+		}
+		if !v.chargeSwitch.Enabled() {
+			t.Error("the switch stayed insensitive after the write")
+		}
+		if v.chargeFailed.Title() != i18n.T("dropdown-battery-charge-limit-failed") || v.chargeFailed.Description() != src.thresholdErr.Error() {
+			t.Errorf("the alert reads %q / %q", v.chargeFailed.Title(), v.chargeFailed.Description())
+		}
+		return true
+	})
+}
+
+func TestAChargeLimitWriteThatGoesThroughShowsNoAlert(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	src := newFakeBattery(chargeLimitBattery())
+	ctx.Battery = src
+	v := batteryDropdown(ctx).(*batteryView)
+	defer v.dropdownClosed()
+	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
+	onHeadlessLoop(func() bool { v.chargeSwitch.Toggle(); return true })
+	waitHeadless(t, "the write", func() bool { return len(src.thresholdCalls()) == 1 && v.chargeSwitch.Enabled() })
+	onHeadlessLoop(func() bool {
+		if v.chargeFailed.Visible() || v.chargeSwitch.On() {
+			t.Errorf("after a good write: alert %v, switch on %v", v.chargeFailed.Visible(), v.chargeSwitch.On())
+		}
+		return true
+	})
+}
+
+func profilesSource() *fakePPSource {
+	return &fakePPSource{snap: powerprofiles.Snapshot{
+		Available: true, Active: powerprofiles.ProfileBalanced,
+		Profiles: []string{powerprofiles.ProfilePowerSaver, powerprofiles.ProfileBalanced},
+	}, ticks: make(chan struct{}, 1)}
+}
+
+func TestAProfileWriteHoldsTheSegmentsThenAFailureBringsTheOldOneBack(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	pp := profilesSource()
+	pp.setGate = make(chan struct{})
+	pp.setErr = errors.New("net.hadess.PowerProfiles: denied")
+	ctx.PowerProfiles = pp
+	v := batteryDropdown(ctx).(*batteryView)
+	defer v.dropdownClosed()
+	onHeadlessLoop(func() bool { v.selectProfile(powerprofiles.ProfilePowerSaver); return true })
+	onHeadlessLoop(func() bool {
+		for name, b := range v.profileButtons {
+			if b.Enabled() {
+				t.Errorf("%s is sensitive while the write runs", name)
+			}
+		}
+		if !v.profileButtons[powerprofiles.ProfilePowerSaver].HasState(widget.StateChecked) {
+			t.Error("the chosen segment is not marked while the write runs")
+		}
+		return true
+	})
+	close(pp.setGate)
+	waitHeadless(t, "the failure shown", func() bool { return v.profileFailed.Visible() })
+	onHeadlessLoop(func() bool {
+		if !v.profileButtons[powerprofiles.ProfileBalanced].HasState(widget.StateChecked) ||
+			v.profileButtons[powerprofiles.ProfilePowerSaver].HasState(widget.StateChecked) {
+			t.Error("the profile that was active is not marked again")
+		}
+		if !v.profileButtons[powerprofiles.ProfileBalanced].Enabled() || v.profileButtons[powerprofiles.ProfilePerformance].Enabled() {
+			t.Error("after the write the segments are not sensitive by what the daemon offers")
+		}
+		if v.profileFailed.Title() != i18n.T("power-profiles-switch-failed") || v.profileFailed.Description() != pp.setErr.Error() {
+			t.Errorf("the alert reads %q / %q", v.profileFailed.Title(), v.profileFailed.Description())
+		}
+		return true
+	})
+}
+
+func TestAProfileWriteThatGoesThroughShowsNoAlert(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	pp := profilesSource()
+	ctx.PowerProfiles = pp
+	v := batteryDropdown(ctx).(*batteryView)
+	defer v.dropdownClosed()
+	onHeadlessLoop(func() bool { v.selectProfile(powerprofiles.ProfilePowerSaver); return true })
+	waitHeadless(t, "the write settled", func() bool { return len(pp.sets()) == 1 && !v.profileBusy })
+	onHeadlessLoop(func() bool {
+		if v.profileFailed.Visible() {
+			t.Error("a good write shows the alert")
+		}
+		if !v.profileButtons[powerprofiles.ProfilePowerSaver].HasState(widget.StateChecked) {
+			t.Error("the chosen profile is not marked after a good write")
+		}
+		return true
+	})
 }
