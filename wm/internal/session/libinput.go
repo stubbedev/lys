@@ -138,7 +138,7 @@ type InputDevice struct {
 	name         string
 	caps         backend.Capability
 	h            uintptr
-	touchpad     bool
+	class        *DeviceClass
 	scrollFactor float64
 	reader       *inputReader
 	tablet       bool
@@ -849,12 +849,13 @@ func (r *inputReader) event(ev uintptr) {
 	typ := f.eventType(ev)
 	switch typ {
 	case evDeviceAdded:
-		d := &InputDevice{name: f.deviceName(h), h: f.deviceRef(h), touchpad: f.config.tapFingers(h) > 0, scrollFactor: 1, reader: r}
+		d := &InputDevice{name: f.deviceName(h), h: f.deviceRef(h), scrollFactor: 1, reader: r}
 		for c, flag := range map[int32]backend.Capability{capKeyboard: backend.Keyboard, capPointer: backend.Pointer, capTouch: backend.Touch} {
 			if f.deviceHasCap(h, c) != 0 {
 				d.caps |= flag
 			}
 		}
+		d.class = classify(f.config.tapFingers(h), d.caps)
 		d.group = f.pad.deviceGroup(h)
 		if f.deviceHasCap(h, capTabletTool) != 0 {
 			d.tablet, d.tabletID = true, tabletinput.ID{Vendor: f.tablet.vendor(h), Product: f.tablet.product(h)}

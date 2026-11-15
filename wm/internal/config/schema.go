@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/seat"
+	"github.com/stubbedev/lys/wm/internal/session"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -133,11 +134,11 @@ func short(v float32) float64 {
 	return f
 }
 
-func device(prefix string) map[string]annotation {
+func device(prefix string, accel any) map[string]annotation {
 	return map[string]annotation{
 		prefix + ".click_method":   {enum: slices.Sorted(maps.Keys(clickMethods))},
 		prefix + ".scroll_method":  {enum: slices.Sorted(maps.Keys(scrollMethods))},
-		prefix + ".accel_profile":  {enum: slices.Sorted(maps.Keys(accelProfiles))},
+		prefix + ".accel_profile":  {enum: slices.Sorted(maps.Keys(accelProfiles)), def: accel},
 		prefix + ".tap_button_map": {enum: slices.Sorted(maps.Keys(tapButtonMaps))},
 		prefix + ".accel_speed":    at(-1, 1, nil),
 		prefix + ".scroll_factor":  above(0, 100, nil),
@@ -286,10 +287,11 @@ func annotations() map[string]annotation {
 		out["titlebars.lights."+light] = colorAnn(nil)
 	}
 	saturation := short(d.Blur.Look.SaturationShift + 1)
+	for _, k := range session.DeviceClasses() {
+		maps.Copy(out, device(classKey(k), k.DefaultAccel().String()))
+	}
 	for _, group := range []map[string]annotation{
-		device("input.pointer"),
-		device("input.touchpad"),
-		device("input.devices.*"),
+		device("input.devices.*", nil),
 		{
 			"input.devices.*.calibration": {minItems: new(6), maxItems: new(6)},
 			"input.devices.*.region":      {minItems: new(4), maxItems: new(4)},

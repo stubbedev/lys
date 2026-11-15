@@ -211,7 +211,9 @@ func TestLibinputAppliesAndReappliesPointerSettings(t *testing.T) {
 	in := libinput(t, grabbingOpener{PlainOpener{}})
 	rec := &inputRecorder{}
 	in.Start(rec)
-	if err := in.Reconfigure(InputConfig{Pointer: DeviceConfig{NaturalScroll: new(true), ScrollFactor: new(2.0)}}); err != nil {
+	scrolling := DefaultInputConfig()
+	scrolling.Classes[ClassPointer].DeviceConfig = DeviceConfig{NaturalScroll: new(true), ScrollFactor: new(2.0)}
+	if err := in.Reconfigure(scrolling); err != nil {
 		t.Fatal(err)
 	}
 	in.addNow(t, mouse.node)
@@ -226,13 +228,15 @@ func TestLibinputAppliesAndReappliesPointerSettings(t *testing.T) {
 	if a := click(); a.Value120 != 240 || a.Value <= 0 {
 		t.Fatalf("a wheel click up with natural scrolling and factor 2: %+v", a)
 	}
-	if err := in.Reconfigure(InputConfig{}); err != nil {
+	if err := in.Reconfigure(DefaultInputConfig()); err != nil {
 		t.Fatal(err)
 	}
 	if a := click(); a.Value120 != -120 || a.Value >= 0 {
 		t.Fatalf("a wheel click up after reloading to the defaults: %+v", a)
 	}
-	err := in.Reconfigure(InputConfig{Devices: map[string]NamedDeviceConfig{virtualMouse: {DeviceConfig: DeviceConfig{Tap: new(true)}}}})
+	tapping := DefaultInputConfig()
+	tapping.Devices = map[string]NamedDeviceConfig{virtualMouse: {DeviceConfig: DeviceConfig{Tap: new(true)}}}
+	err := in.Reconfigure(tapping)
 	if err == nil || !strings.Contains(err.Error(), `"`+virtualMouse+`" has no tap setting`) {
 		t.Fatalf("tapping on a mouse: %v", err)
 	}

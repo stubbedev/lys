@@ -206,7 +206,7 @@ func openInputThread(t *testing.T, bus string) (in *session.Libinput, tid int) {
 	}
 	t.Cleanup(func() { _ = l.Close() })
 	path := session.LibinputPath(os.Getenv)
-	in, err = session.OpenLibinput(l, path, noDevices{}, session.InputConfig{}, func(err error) { t.Errorf("reported: %v", err) }, func(hand func(string, func() error)) func() error {
+	in, err = session.OpenLibinput(l, path, noDevices{}, session.DefaultInputConfig(), func(err error) { t.Errorf("reported: %v", err) }, func(hand func(string, func() error)) func() error {
 		tid = unix.Gettid()
 		restore, _ := inputThread.raise(bus, hand)
 		return restore

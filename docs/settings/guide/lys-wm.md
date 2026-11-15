@@ -41,8 +41,10 @@ reason. The row's reset button discards a draft.
 ## Displayed values
 
 A key without an override shows the value lys-wm uses: its built-in config, else
-its schema's default. Keys lys-wm leaves to the system, such as the keyboard layout
-or a touchpad setting libinput decides, show **Inherited**. The focus border
+its schema's default. The acceleration profile is one such key per device class:
+**Mouse** shows `flat` and **Touchpad** `adaptive` until either is changed. Keys
+lys-wm leaves to the system, such as the keyboard layout or a touchpad setting
+libinput decides, show **Inherited**. The focus border
 defaults to `accent`, which follows the desktop accent set on the **Theme** page.
 
 Without a `config.yaml`, lys-wm's built-in config applies under the overrides, so

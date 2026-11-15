@@ -68,11 +68,12 @@ func TestExampleConfig(t *testing.T) {
 		t.Error("xwayland.enabled: false left Xwayland on")
 	}
 	in := cfg.Input
-	if *in.Pointer.AccelProfile != session.AccelFlat || *in.Pointer.AccelSpeed != -0.5 || *in.Pointer.ScrollFactor != 1.5 || in.Pointer.Tap != nil {
-		t.Errorf("pointer %+v", in.Pointer)
+	pointer, touchpad := in.Classes[session.ClassPointer], in.Classes[session.ClassTouchpad]
+	if pointer.AccelProfile != session.AccelFlat || *pointer.AccelSpeed != -0.5 || *pointer.ScrollFactor != 1.5 || pointer.Tap != nil {
+		t.Errorf("pointer %+v", pointer)
 	}
-	if !*in.Touchpad.Tap || !*in.Touchpad.NaturalScroll || *in.Touchpad.ClickMethod != session.ClickFinger || *in.Touchpad.ScrollMethod != session.ScrollTwoFinger || in.Touchpad.AccelSpeed != nil {
-		t.Errorf("touchpad %+v", in.Touchpad)
+	if !*touchpad.Tap || !*touchpad.NaturalScroll || *touchpad.ClickMethod != session.ClickFinger || *touchpad.ScrollMethod != session.ScrollTwoFinger || touchpad.AccelSpeed != nil {
+		t.Errorf("touchpad %+v", touchpad)
 	}
 	if mx := in.Devices["Logitech MX Master 3"]; len(in.Devices) != 1 || *mx.AccelProfile != session.AccelAdaptive || !*mx.NaturalScroll {
 		t.Errorf("devices %+v", in.Devices)
@@ -211,7 +212,7 @@ func TestEmptyConfigIsTheDefaults(t *testing.T) {
 			t.Fatalf("%q gives gpu %q, %v", text, c.GPU, err)
 		}
 	}
-	if cfg.Input.Devices != nil || cfg.Input.Pointer != (session.DeviceConfig{}) || cfg.Input.Touchpad != (session.DeviceConfig{}) {
+	if cfg.Input.Devices != nil || cfg.Input.Classes != session.DefaultInputConfig().Classes {
 		t.Fatalf("input %+v", cfg.Input)
 	}
 	if cfg.Animations != anim.MustResolve(anim.DefaultMotion()) {
@@ -1343,7 +1344,7 @@ func TestDeviceSettingsParseIntoTypedValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, tp, d := cfg.Input.Pointer, cfg.Input.Touchpad, cfg.Input.Devices
+	p, tp, d := cfg.Input.Classes[session.ClassPointer], cfg.Input.Classes[session.ClassTouchpad], cfg.Input.Devices
 	if !*p.LeftHanded || *p.ScrollButton != 0x113 || !*p.ScrollButtonLock || p.AccelProfile.String() != custom.String() {
 		t.Errorf("pointer %+v", p)
 	}
@@ -1369,6 +1370,61 @@ func TestDeviceSettingsParseIntoTypedValues(t *testing.T) {
 	} {
 		if _, err := Parse("t.yaml", []byte(text)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v, want %q", text, err, want)
+		}
+	}
+}
+
+func TestAFreshConfigAcceleratesTouchpadsAndNotMice(t *testing.T) {
+	for _, text := range []string{"", "input:\n  touchpad:\n    tap: true\n  pointer:\n    natural_scroll: true\n"} {
+		cfg, err := Parse("t.yaml", []byte(text))
+		if err != nil {
+			t.Fatalf("%q: %v", text, err)
+		}
+		if p := cfg.Input.Classes[session.ClassPointer].AccelProfile; p != session.AccelFlat {
+			t.Errorf("%q: input.pointer.accel_profile is %v, want flat", text, p)
+		}
+		if p := cfg.Input.Classes[session.ClassTouchpad].AccelProfile; p != session.AccelAdaptive {
+			t.Errorf("%q: input.touchpad.accel_profile is %v, want adaptive", text, p)
+		}
+	}
+}
+
+func TestEachClassTakesItsOwnAccelerationProfile(t *testing.T) {
+	cfg, err := Parse("t.yaml", []byte("input:\n  pointer:\n    accel_profile: adaptive\n  touchpad:\n    accel_profile: flat\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := cfg.Input.Classes[session.ClassPointer].AccelProfile; p != session.AccelAdaptive {
+		t.Errorf("input.pointer.accel_profile adaptive parsed to %v", p)
+	}
+	if p := cfg.Input.Classes[session.ClassTouchpad].AccelProfile; p != session.AccelFlat {
+		t.Errorf("input.touchpad.accel_profile flat parsed to %v", p)
+	}
+	for text, want := range map[string]string{
+		"input:\n  pointer:\n    accel_profile: fast\n":  `t.yaml:3: input.pointer.accel_profile: "fast" is not one of adaptive, flat`,
+		"input:\n  touchpad:\n    accel_profile: none\n": `t.yaml:3: input.touchpad.accel_profile: "none" is not one of adaptive, flat`,
+	} {
+		if _, err := Parse("t.yaml", []byte(text)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: %v, want %q", text, err, want)
+		}
+	}
+	cfg, err = Parse("t.yaml", []byte("input:\n  mouse:\n    accel_profile: adaptive\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "t.yaml:2: input.mouse: unknown key (known: devices, keyboard, pointer, touchpad)"; len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0].Error(), want) {
+		t.Errorf("a class lys-wm does not have warned %v, want %q", cfg.Warnings, want)
+	}
+	if p := cfg.Input.Classes[session.ClassPointer].AccelProfile; p != session.AccelFlat {
+		t.Errorf("input.mouse changed input.pointer.accel_profile to %v", p)
+	}
+}
+
+func TestEveryDeviceClassIsAnInputKey(t *testing.T) {
+	keys := fieldNames(reflect.TypeFor[rawInput]())
+	for _, k := range session.DeviceClasses() {
+		if _, ok := keys[k.String()]; !ok {
+			t.Errorf("class %s has no input.%s key", k, k)
 		}
 	}
 }

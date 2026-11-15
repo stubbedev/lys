@@ -63,6 +63,7 @@ type AccelProfile struct {
 var (
 	AccelFlat     = AccelProfile{kind: accelFlat}
 	AccelAdaptive = AccelProfile{kind: accelAdaptive}
+	AccelProfiles = []AccelProfile{AccelFlat, AccelAdaptive}
 )
 
 const (
@@ -137,19 +138,73 @@ type DeviceConfig struct {
 	ScrollMethod                                                      *ScrollMethod
 	ScrollButton                                                      *uint32
 	TapButtonMap                                                      *TapButtonMap
-	AccelProfile                                                      *AccelProfile
 	AccelSpeed, ScrollFactor                                          *float64
+}
+
+type ClassConfig struct {
+	DeviceConfig
+	AccelProfile AccelProfile
 }
 
 type NamedDeviceConfig struct {
 	DeviceConfig
-	Calibration *Calibration
-	Area        *Area
+	AccelProfile *AccelProfile
+	Calibration  *Calibration
+	Area         *Area
+}
+
+type DeviceClass uint8
+
+const (
+	ClassPointer DeviceClass = iota
+	ClassTouchpad
+)
+
+var deviceClassNames = [...]string{ClassPointer: "pointer", ClassTouchpad: "touchpad"}
+
+var deviceClassAccel = [len(deviceClassNames)]AccelProfile{ClassPointer: AccelFlat, ClassTouchpad: AccelAdaptive}
+
+func DeviceClasses() []DeviceClass {
+	out := make([]DeviceClass, len(deviceClassNames))
+	for i := range out {
+		out[i] = DeviceClass(i)
+	}
+	return out
+}
+
+func (c DeviceClass) String() string { return deviceClassNames[c] }
+
+func (c DeviceClass) DefaultAccel() AccelProfile { return deviceClassAccel[c] }
+
+func classify(tapFingers int32, caps backend.Capability) *DeviceClass {
+	switch {
+	case tapFingers > 0:
+		return new(ClassTouchpad)
+	case caps&backend.Pointer != 0:
+		return new(ClassPointer)
+	}
+	return nil
 }
 
 type InputConfig struct {
-	Pointer, Touchpad DeviceConfig
-	Devices           map[string]NamedDeviceConfig
+	Classes [len(deviceClassNames)]ClassConfig
+	Devices map[string]NamedDeviceConfig
+}
+
+func DefaultInputConfig() InputConfig {
+	var c InputConfig
+	for _, k := range DeviceClasses() {
+		c.Classes[k].AccelProfile = k.DefaultAccel()
+	}
+	return c
+}
+
+func (c InputConfig) class(k *DeviceClass) (DeviceConfig, *AccelProfile) {
+	if k == nil {
+		return DeviceConfig{}, nil
+	}
+	class := c.Classes[*k]
+	return class.DeviceConfig, &class.AccelProfile
 }
 
 type configFuncs struct {
@@ -323,18 +378,9 @@ func externalMouse(off *bool) *sendEvents {
 	return &mode
 }
 
-func (r *inputReader) class(d *InputDevice) DeviceConfig {
-	switch {
-	case d.touchpad:
-		return r.config.Touchpad
-	case d.caps&backend.Pointer != 0:
-		return r.config.Pointer
-	}
-	return DeviceConfig{}
-}
-
 func (r *inputReader) configure(d *InputDevice) error {
-	f, h, c, o := &r.fn.config, d.h, r.class(d), r.config.Devices[d.name]
+	f, h, o := &r.fn.config, d.h, r.config.Devices[d.name]
+	c, classAccel := r.config.class(d.class)
 	tap, accel, buttonScroll := f.tapFingers(h) > 0, f.hasAccel(h) != 0, f.scrollMethods(h)&ScrollOnButtonDown != 0
 	toggles := []struct {
 		name          string
@@ -397,7 +443,7 @@ func (r *inputReader) configure(d *InputDevice) error {
 		scroll.apply(d.name, c.ScrollMethod, o.ScrollMethod),
 		button.apply(d.name, c.ScrollButton, o.ScrollButton),
 		tapMap.apply(d.name, c.TapButtonMap, o.TapButtonMap),
-		profile.apply(d.name, c.AccelProfile, o.AccelProfile),
+		profile.apply(d.name, classAccel, o.AccelProfile),
 		speed.apply(d.name, c.AccelSpeed, o.AccelSpeed),
 		send.apply(d.name, externalMouse(c.DisabledOnExternalMouse), externalMouse(o.DisabledOnExternalMouse)),
 		calibration.apply(d.name, nil, o.Calibration),

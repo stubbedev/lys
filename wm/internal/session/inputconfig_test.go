@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"unsafe"
+
+	"github.com/stubbedev/lys/wm/internal/backend"
 )
 
 func probe(available bool, def float64, status int32) (*knob[float64], *[]float64) {
@@ -199,18 +201,18 @@ func TestEveryLibinputSettingAppliesOnHotplugAndRevertsWhenRemoved(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	in.config = InputConfig{
-		Touchpad: DeviceConfig{Tap: new(true), TapButtonMap: new(TapLMR), DisabledOnExternalMouse: new(true)},
-		Devices: map[string]NamedDeviceConfig{fakeDevice: {
-			DeviceConfig: DeviceConfig{
-				DragLock: new(true), NaturalScroll: new(true), DisableWhileTyping: new(false), MiddleEmulation: new(true),
-				LeftHanded: new(true), ScrollMethod: new(ScrollOnButtonDown), ScrollButton: new(uint32(0x113)), ScrollButtonLock: new(true),
-				ClickMethod: new(ClickFinger), AccelProfile: &custom, AccelSpeed: new(0.5),
-			},
-			Calibration: &calibration,
-			Area:        &area,
-		}},
-	}
+	in.config = DefaultInputConfig()
+	in.config.Classes[ClassTouchpad].DeviceConfig = DeviceConfig{Tap: new(true), TapButtonMap: new(TapLMR), DisabledOnExternalMouse: new(true)}
+	in.config.Devices = map[string]NamedDeviceConfig{fakeDevice: {
+		DeviceConfig: DeviceConfig{
+			DragLock: new(true), NaturalScroll: new(true), DisableWhileTyping: new(false), MiddleEmulation: new(true),
+			LeftHanded: new(true), ScrollMethod: new(ScrollOnButtonDown), ScrollButton: new(uint32(0x113)), ScrollButtonLock: new(true),
+			ClickMethod: new(ClickFinger), AccelSpeed: new(0.5),
+		},
+		AccelProfile: &custom,
+		Calibration:  &calibration,
+		Area:         &area,
+	}}
 	in.event(7)
 	if r := in.filling.records; len(r) != 1 || r[0].kind != deviceAdded || r[0].dev.Name() != fakeDevice {
 		t.Fatalf("hotplug recorded %+v, want one added %s and no configuration error", r, fakeDevice)
@@ -224,14 +226,16 @@ func TestEveryLibinputSettingAppliesOnHotplugAndRevertsWhenRemoved(t *testing.T)
 	if !reflect.DeepEqual(*now, want) {
 		t.Fatalf("after hotplug the device holds\n%+v\nwant\n%+v", *now, want)
 	}
-	if err := in.reconfigure(InputConfig{}); err != nil {
+	if err := in.reconfigure(DefaultInputConfig()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(*now, def) {
 		t.Fatalf("after the settings left the config the device holds\n%+v\nwant its defaults\n%+v", *now, def)
 	}
-	flat := AccelFlat
-	if err := in.reconfigure(InputConfig{Pointer: DeviceConfig{AccelProfile: &flat}, Touchpad: DeviceConfig{AccelProfile: &custom}}); err != nil {
+	classes := DefaultInputConfig()
+	classes.Classes[ClassPointer].AccelProfile = AccelFlat
+	classes.Classes[ClassTouchpad].AccelProfile = custom
+	if err := in.reconfigure(classes); err != nil {
 		t.Fatal(err)
 	}
 	if now.profile != accelCustom || now.step != 0.5 {
@@ -260,5 +264,87 @@ func TestCustomAccelerationIsValidatedBeforeLibinputSeesIt(t *testing.T) {
 	}
 	if _, err := NewCalibration([6]float64{1, 0, math.Inf(1), 0, 1, 0}); err == nil {
 		t.Error("an infinite calibration was accepted")
+	}
+}
+
+func hotplugAccel(t *testing.T, tapFingers int32, libinputDefault accelKind, config InputConfig) accelKind {
+	t.Helper()
+	in, now := fakeConfigurable(fakeSettings{profile: libinputDefault, tapMap: TapLRM, click: ClickButtonAreas, scroll: ScrollTwoFinger, button: 0x112, area: Area{X2: 1, Y2: 1}})
+	in.fn.config.tapFingers = func(uintptr) int32 { return tapFingers }
+	in.config = config
+	in.event(7)
+	if r := in.filling.records; len(r) != 1 || r[0].kind != deviceAdded {
+		t.Fatalf("hotplug recorded %+v, want one added device and no configuration error", r)
+	}
+	return now.profile
+}
+
+func TestAFreshConfigAcceleratesATouchpadAndNotAMouse(t *testing.T) {
+	if got := hotplugAccel(t, 3, accelFlat, DefaultInputConfig()); got != accelAdaptive {
+		t.Errorf("a touchpad whose libinput default is flat holds profile %d, want adaptive", got)
+	}
+	if got := hotplugAccel(t, 0, accelAdaptive, DefaultInputConfig()); got != accelFlat {
+		t.Errorf("a mouse whose libinput default is adaptive holds profile %d, want flat", got)
+	}
+}
+
+func TestAClassProfileReplacesItsDefaultAndADeviceProfileReplacesTheClass(t *testing.T) {
+	swapped := DefaultInputConfig()
+	swapped.Classes[ClassPointer].AccelProfile = AccelAdaptive
+	swapped.Classes[ClassTouchpad].AccelProfile = AccelFlat
+	if got := hotplugAccel(t, 3, accelAdaptive, swapped); got != accelFlat {
+		t.Errorf("input.touchpad.accel_profile flat left the touchpad at profile %d", got)
+	}
+	if got := hotplugAccel(t, 0, accelFlat, swapped); got != accelAdaptive {
+		t.Errorf("input.pointer.accel_profile adaptive left the mouse at profile %d", got)
+	}
+	named := DefaultInputConfig()
+	named.Devices = map[string]NamedDeviceConfig{fakeDevice: {AccelProfile: new(AccelAdaptive)}}
+	if got := hotplugAccel(t, 0, accelFlat, named); got != accelAdaptive {
+		t.Errorf("a device's own adaptive profile lost to its class's flat: profile %d", got)
+	}
+}
+
+func TestADeviceOfNoClassKeepsLibinputsProfile(t *testing.T) {
+	in, now := fakeConfigurable(fakeSettings{profile: accelAdaptive})
+	in.fn.config.tapFingers = func(uintptr) int32 { return 0 }
+	in.fn.deviceHasCap = func(_ uintptr, c int32) int32 { return b2i(c == capKeyboard) }
+	in.config = DefaultInputConfig()
+	if err := in.configure(&InputDevice{name: fakeDevice, h: 7, class: classify(0, 0)}); err != nil {
+		t.Fatal(err)
+	}
+	if now.profile != accelAdaptive {
+		t.Errorf("a device that is neither a pointer nor a touchpad took profile %d from a class", now.profile)
+	}
+}
+
+func TestDevicesAreClassedByTappingThenByPointing(t *testing.T) {
+	for _, c := range []struct {
+		tapFingers int32
+		caps       backend.Capability
+		want       *DeviceClass
+	}{
+		{3, backend.Pointer, new(ClassTouchpad)},
+		{0, backend.Pointer, new(ClassPointer)},
+		{0, backend.Pointer | backend.Keyboard, new(ClassPointer)},
+		{0, backend.Keyboard, nil},
+		{0, backend.Touch, nil},
+	} {
+		if got := classify(c.tapFingers, c.caps); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%d tap fingers, capabilities %v: class %v, want %v", c.tapFingers, c.caps, got, c.want)
+		}
+	}
+}
+
+func TestEveryClassHasANameAndADefaultProfile(t *testing.T) {
+	seen := map[string]bool{}
+	for _, k := range DeviceClasses() {
+		if k.String() == "" || seen[k.String()] {
+			t.Errorf("class %d is named %q", k, k.String())
+		}
+		seen[k.String()] = true
+		if p := k.DefaultAccel(); p != AccelFlat && p != AccelAdaptive {
+			t.Errorf("class %s defaults to %v", k, p)
+		}
 	}
 }

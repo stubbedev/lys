@@ -1387,7 +1387,7 @@ func (p *parser) filePath(a At[string], key, what string) string {
 var (
 	clickMethods     = map[string]session.ClickMethod{"none": session.ClickNone, "button_areas": session.ClickButtonAreas, "clickfinger": session.ClickFinger}
 	scrollMethods    = map[string]session.ScrollMethod{"none": session.ScrollNone, "two_finger": session.ScrollTwoFinger, "edge": session.ScrollEdge, "on_button_down": session.ScrollOnButtonDown}
-	accelProfiles    = map[string]session.AccelProfile{"flat": session.AccelFlat, "adaptive": session.AccelAdaptive}
+	accelProfiles    = byString(session.AccelProfiles)
 	tapButtonMaps    = map[string]session.TapButtonMap{"lrm": session.TapLRM, "lmr": session.TapLMR}
 	vrrPolicies      = map[string]compositor.VRRPolicy{"off": compositor.VRROff, "on": compositor.VRROn, "fullscreen": compositor.VRRFullscreen}
 	hdrPolicies      = map[string]compositor.HDRPolicy{"false": compositor.HDROff, "true": compositor.HDROn, "fullscreen": compositor.HDRFullscreen}
@@ -1406,6 +1406,14 @@ func byName[E interface {
 }](last E) map[string]E {
 	names := make(map[string]E, int(last)+1)
 	for e := range last + 1 {
+		names[e.String()] = e
+	}
+	return names
+}
+
+func byString[E fmt.Stringer](values []E) map[string]E {
+	names := make(map[string]E, len(values))
+	for _, e := range values {
 		names[e.String()] = e
 	}
 	return names
@@ -1484,7 +1492,6 @@ func (p *parser) device(r rawDevice, key string) session.DeviceConfig {
 		ScrollMethod: choice(p, r.ScrollMethod, key+".scroll_method", scrollMethods),
 		ScrollButton: p.button(r.ScrollButton, key+".scroll_button"),
 		TapButtonMap: choice(p, r.TapButtonMap, key+".tap_button_map", tapButtonMaps),
-		AccelProfile: p.accel(r, key),
 		AccelSpeed:   p.between(r.AccelSpeed, key+".accel_speed", -1, 1, false),
 		ScrollFactor: p.between(r.ScrollFactor, key+".scroll_factor", 0, 100, true),
 	}
@@ -1502,7 +1509,7 @@ func (p *parser) floats(a *At[[]float64], key string, n int) []float64 {
 }
 
 func (p *parser) namedDevice(r rawNamedDevice, key string) session.NamedDeviceConfig {
-	c := session.NamedDeviceConfig{DeviceConfig: p.device(r.rawDevice, key)}
+	c := session.NamedDeviceConfig{DeviceConfig: p.device(r.rawDevice, key), AccelProfile: p.accel(r.rawDevice, key)}
 	if m := p.floats(r.Calibration, key+".calibration", 6); m != nil {
 		cal, err := session.NewCalibration([6]float64(m))
 		if err != nil {
@@ -1556,8 +1563,21 @@ func (p *parser) deviceOutputs(devices map[string]rawNamedDevice) map[string]wm.
 	return out
 }
 
+func (r rawInput) classes() [len(session.InputConfig{}.Classes)]rawDevice {
+	return [...]rawDevice{session.ClassPointer: r.Pointer, session.ClassTouchpad: r.Touchpad}
+}
+
+func classKey(k session.DeviceClass) string { return "input." + k.String() }
+
 func (p *parser) input(r rawInput) session.InputConfig {
-	c := session.InputConfig{Pointer: p.device(r.Pointer, "input.pointer"), Touchpad: p.device(r.Touchpad, "input.touchpad")}
+	c := session.DefaultInputConfig()
+	for i, raw := range r.classes() {
+		k := session.DeviceClass(i)
+		c.Classes[k].DeviceConfig = p.device(raw, classKey(k))
+		if accel := p.accel(raw, classKey(k)); accel != nil {
+			c.Classes[k].AccelProfile = *accel
+		}
+	}
 	if len(r.Devices) > 0 {
 		c.Devices = make(map[string]session.NamedDeviceConfig, len(r.Devices))
 	}

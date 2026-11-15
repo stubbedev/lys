@@ -29,7 +29,8 @@ const wmSchema = `{"type":"object","properties":{
 "rules":{"type":"array","items":{"type":"object","properties":{"animation":{"oneOf":[{"type":"boolean","enum":[false]},{"type":"object","properties":{"in":{"type":"string"},"out":{"type":"string"}},"additionalProperties":false}]},"app_id":{"type":"string"},"float":{"type":"boolean"},"look":{"type":"object","properties":{"grain":{"type":"number"}}}}}},
 "borders":{"type":"object","properties":{"active":{"default":"accent","oneOf":[{"type":"string","format":"lys-wm-color"},{"type":"object","properties":{"angle":{"type":"number"},"colors":{"type":"array","minItems":1,"maxItems":3,"items":{"type":"string"}}}}]}}},
 "decoration":{"type":"object","properties":{"active_opacity":{"type":"number","minimum":0,"maximum":1,"default":1},"shadow":{"type":"object","properties":{"color":{"type":"string","format":"lys-wm-color","default":"#00000060"}}}}},
-"input":{"type":"object","properties":{"touchpad":{"type":"object","properties":{"tap":{"type":"boolean"},"click_method":{"type":"string","enum":["none","clickfinger"]}}},
+"input":{"type":"object","properties":{"touchpad":{"type":"object","properties":{"tap":{"type":"boolean"},"click_method":{"type":"string","enum":["none","clickfinger"]},"accel_profile":{"type":"string","enum":["adaptive","flat"],"default":"adaptive"}}},
+"pointer":{"type":"object","properties":{"accel_profile":{"type":"string","enum":["adaptive","flat"],"default":"flat"}}},
 "keyboard":{"type":"object","properties":{"layout":{"type":"string","format":"lys-wm-xkb-layout"},"variant":{"type":"string","format":"lys-wm-xkb-variant"},"options":{"type":"string","format":"lys-wm-xkb-options"},"model":{"type":"string","format":"lys-wm-xkb-model"},"rules":{"type":"string","format":"lys-wm-xkb-rules"}}}}},
 "gpu":{"type":"string","format":"lys-wm-drm-device"},
 "palette":{"type":"object","additionalProperties":{"type":"string"},"default":{"red":"#f38ba8","blue":"#89b4fa"}},
@@ -148,6 +149,31 @@ func TestWMRowsFollowTheSchemasTypes(t *testing.T) {
 	}
 	if got := w.value("tabs.font"); got != nil {
 		t.Errorf("no default and no key: %#v", got)
+	}
+}
+
+func TestEachDeviceClassShowsItsOwnAccelerationDefault(t *testing.T) {
+	k, w, _, _ := wmKit(t, "")
+	for path, want := range map[string]string{"input.pointer.accel_profile": "flat", "input.touchpad.accel_profile": "adaptive"} {
+		if c := fieldControl(k, w, wmField(path)); fmt.Sprintf("%T", c) != fmt.Sprintf("%T", &segmentedEnum{}) {
+			t.Errorf("%s: %T, want a choice of profiles with no unset entry", path, c)
+		}
+		if got := w.value(path); got != want {
+			t.Errorf("%s on a fresh config: %#v, want %q", path, got, want)
+		}
+		if !w.isDefault(path) {
+			t.Errorf("%s holding lys-wm's default is not shown as the default", path)
+		}
+	}
+	_, w, _, _ = wmKit(t, "input: {pointer: {accel_profile: adaptive}}\n")
+	if got := w.value("input.pointer.accel_profile"); got != "adaptive" {
+		t.Errorf("a mouse made adaptive in the config shows %#v", got)
+	}
+	if w.isDefault("input.pointer.accel_profile") {
+		t.Error("an adaptive mouse is shown as lys-wm's default")
+	}
+	if got := w.value("input.touchpad.accel_profile"); got != "adaptive" {
+		t.Errorf("the touchpad followed the mouse's profile: %#v", got)
 	}
 }
 

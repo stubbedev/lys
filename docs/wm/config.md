@@ -218,8 +218,15 @@ the next reload.
 ## input.pointer, input.touchpad and input.devices
 
 `input.touchpad` applies to touchpads (devices that can tap), `input.pointer` to
-other pointing devices. `input.devices` maps a libinput device name (as
-`libinput list-devices` prints it) to settings that override both.
+other pointing devices (mice, trackballs, trackpoints). `input.devices` maps a
+libinput device name (as `libinput list-devices` prints it) to settings that
+override both.
+
+Each class has its own acceleration default, without any device rule: a
+touchpad accelerates (`accel_profile: adaptive`), a mouse moves as far as the
+hand does (`accel_profile: flat`). Setting `accel_profile` or `accel_points` on a
+class replaces its default; a device under `input.devices` overrides its class.
+Every other key left unset keeps libinput's default for the device.
 
 ```yaml
 input:
@@ -245,7 +252,7 @@ input:
 | `scroll_button` | Button for `on_button_down`: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`, `task`, or an evdev code above 0 (`275`) |
 | `scroll_button_lock` | Bool: a click on `scroll_button` toggles scrolling |
 | `tap_button_map` | `lrm` or `lmr`: buttons for one-, two-, three-finger taps |
-| `accel_profile` | `adaptive` or `flat` |
+| `accel_profile` | `adaptive` or `flat`. Default `flat` under `input.pointer`, `adaptive` under `input.touchpad`; under `input.devices` the device's class |
 | `accel_points` | `{step, points}`: libinput custom curve, pointer speeds at device speeds 0, `step`, 2·`step`, … `step` above 0 up to 10000; 2 to 64 `points`, each 0 to 10000. Not with `accel_profile` |
 | `accel_speed` | -1 to 1 |
 | `scroll_factor` | Above 0, up to 100. Default 1 |
