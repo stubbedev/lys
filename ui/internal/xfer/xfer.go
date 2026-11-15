@@ -1,0 +1,354 @@
+// Package xfer moves selection and drag-and-drop payloads through the
+// pipes Wayland hands the two ends of a transfer. Both ends are
+// foreign clients — the offer we read from, the consumer we write to —
+// and either may be hostile or broken: an app on the machine can offer
+// a text payload and stream gigabytes into a paste, or request our
+// selection and never read it. Every transfer here is therefore
+// bounded twice: in size, so a peer cannot grow our memory without
+// limit, and in time, so a stalled peer cannot hang a paste or the
+// event loop.
+package xfer
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"sync"
+	"syscall"
+	"time"
+)
+
+// MaxPayload caps one transfer at 16 MiB: orders of magnitude above
+// any honest text selection or drop payload, yet small enough that a
+// peer streaming at the cap cannot crowd the rest of the process out
+// of memory. Reading past the cap truncates the transfer — the bytes
+// that fit come back alongside an error, and the fd is drained (under
+// the same deadline) so the peer's pipe never blocks forever.
+const MaxPayload = 16 << 20
+
+// DefaultTimeout bounds one transfer against a peer that stalls: long
+// enough for an honest but slow peer, short enough that a hung paste
+// surfaces as an error instead of a frozen window. Callers keep it in
+// a var so tests can shorten it.
+const DefaultTimeout = 5 * time.Second
+
+var (
+	// ErrTooLarge reports that the peer streamed past MaxPayload; the
+	// bytes that fit were returned with it. Callers decide what a
+	// truncated payload is worth — lys-ui's app layer treats the error
+	// as a rejected paste.
+	ErrTooLarge = errors.New("xfer: peer streamed past the payload budget")
+
+	// ErrTimeout reports that the peer stalled — never wrote, stopped
+	// mid-stream, or stopped reading — and the deadline cut the
+	// transfer off.
+	ErrTimeout = errors.New("xfer: peer stalled and the deadline cut the transfer off")
+)
+
+var chunks = sync.Pool{New: func() any {
+	chunk := make([]byte, 32<<10)
+	return &chunk
+}}
+
+// Read drains r up to limit bytes, under a deadline, into a fresh
+// slice: Copy into memory Read owns.
+//
+// A payload past limit is truncated: the bytes that fit are returned
+// together with an error wrapping ErrTooLarge. A failed read returns no
+// bytes.
+func Read(r *os.File, limit int64, timeout time.Duration) ([]byte, error) {
+	var b bytes.Buffer
+	_, err := Copy(&b, r, limit, timeout)
+	if err != nil && !errors.Is(err, ErrTooLarge) {
+		return nil, err
+	}
+	return b.Bytes(), err
+}
+
+// Copy drains r into w up to limit bytes, under a deadline, and reports
+// the bytes written: the streaming form of Read, for a caller that
+// owns the memory a transfer lands in (reused, or off the Go heap). The
+// deadline is a timer that closes r: a read blocked on a silent peer
+// wakes with our own close error, which reports as ErrTimeout.
+// time.AfterFunc creates no goroutine until it fires and the defer
+// stops it when the transfer finishes early, so nothing is created
+// for, or leaks after, a normal transfer.
+//
+// A payload past limit is truncated: the bytes that fit are written,
+// and the error wraps ErrTooLarge, after the rest of the stream is
+// drained into the void (still under the deadline) so the peer's
+// writes to the shared pipe never block on a full buffer. A write w
+// refuses ends the transfer with its error.
+func Copy(w io.Writer, r *os.File, limit int64, timeout time.Duration) (int64, error) {
+	timer := time.AfterFunc(timeout, func() { _ = r.Close() })
+	defer timer.Stop()
+
+	chunkp, _ := chunks.Get().(*[]byte)
+	defer chunks.Put(chunkp)
+	chunk := *chunkp
+	var written int64
+	overrun := false
+	readErr := error(nil)
+	for readErr == nil && !overrun {
+		var n int
+		n, readErr = r.Read(chunk)
+		if room := limit - written; n > 0 && int64(n) > room {
+			n = int(max(room, 0))
+			overrun = true
+		}
+		if n > 0 {
+			if _, err := w.Write(chunk[:n]); err != nil {
+				return written, fmt.Errorf("xfer: write: %w", err)
+			}
+			written += int64(n)
+		}
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				// EOF is the honest end of the transfer.
+				readErr = nil
+			}
+			break
+		}
+	}
+	if overrun {
+		if readErr == nil {
+			// The peer streamed past the cap. Keep discarding — the
+			// deadline still applies, the timer closes r when the
+			// peer will not stop — so the peer is never left
+			// blocked on the pipe.
+			if _, derr := io.Copy(io.Discard, r); derr != nil && !errors.Is(derr, io.EOF) {
+				return written, errors.Join(oversize(limit), readFailure(derr))
+			}
+		} else if !errors.Is(readErr, io.EOF) {
+			return written, errors.Join(oversize(limit), readFailure(readErr))
+		}
+		return written, oversize(limit)
+	}
+	if readErr != nil {
+		return written, readFailure(readErr)
+	}
+	return written, nil
+}
+
+// DeadlineWriter prepares the pipe write end a consumer handed over —
+// the compositor dup'ed it out of the requesting client's pipe — for a
+// bounded source write: a consumer that stops reading cannot stall the
+// writer forever, the deadline breaks the write, and EPIPE from a
+// consumer that closed early ends it at once. Close the writer when
+// the transfer ends, whatever the outcome, so the consumer sees EOF
+// rather than a hang; a write cut short by the deadline or EPIPE
+// leaves the consumer a short payload plus EOF — evidence the transfer
+// broke, not a puzzle about where it stopped.
+//
+// The descriptor arrives in blocking mode, and a blocking os.File is
+// invisible to the runtime poller — no deadline could touch it and a
+// stuck write would be unstoppable. Flipping the descriptor to
+// non-blocking first hands NewFile a pollable file whose write takes
+// the deadline. The flag lives on the open file description, but the
+// requesting client closed its hold on that description when it handed
+// the end over, so nothing else observes the switch.
+func DeadlineWriter(fd uintptr, timeout time.Duration) (*os.File, error) {
+	if err := syscall.SetNonblock(int(fd), true); err != nil {
+		return nil, fmt.Errorf("xfer: unblock send descriptor %d: %w", fd, err)
+	}
+	f := os.NewFile(fd, "wayland-payload-send")
+	if f == nil {
+		return nil, errors.New("xfer: bad send descriptor")
+	}
+	if err := f.SetWriteDeadline(time.Now().Add(timeout)); err != nil {
+		// The poller refused the descriptor. A descriptor flipped
+		// non-blocking but left outside the poller would misreport
+		// EAGAIN on every write, so restore the original blocking
+		// mode and hand back an unguarded writer: in a running lys-ui
+		// the Wayland socket itself needs the poller, so this is
+		// nearly unreachable, and an unbounded write still beats
+		// failing every send.
+		_ = syscall.SetNonblock(int(fd), false)
+		return f, nil
+	}
+	return f, nil
+}
+
+// oversize reports the truncation of a transfer capped at limit.
+func oversize(limit int64) error {
+	return fmt.Errorf("%w: capped at %d bytes", ErrTooLarge, limit)
+}
+
+// readFailure maps a pipe read that died into the transfer's error
+// vocabulary: our deadline timer closing the fd is the stall signal,
+// anything else is the failure itself.
+func readFailure(err error) error {
+	if errors.Is(err, os.ErrClosed) {
+		return fmt.Errorf("xfer: read: %w", ErrTimeout)
+	}
+	return fmt.Errorf("xfer: read: %w", err)
+}
+
+// MaxTransfers bounds the transfers a Transfers runs at once. A foreign
+// client can ask for a selection in a loop, and each stalled transfer
+// holds a goroutine and a descriptor until its deadline.
+const MaxTransfers = 8
+
+// ErrBusy reports a transfer refused because MaxTransfers already run.
+var ErrBusy = errors.New("xfer: too many transfers in flight")
+
+// ErrStopped reports a transfer refused after Stop.
+var ErrStopped = errors.New("xfer: transfers stopped")
+
+// Transfers runs payload transfers off the event loop: each on its own
+// goroutine, at most MaxTransfers at once, every one ended and joined
+// by Stop. The zero value is ready.
+type Transfers struct {
+	mu      sync.Mutex
+	files   map[*os.File]struct{}
+	running int
+	stopped bool
+	wg      sync.WaitGroup
+}
+
+func (t *Transfers) acquire() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.stopped {
+		return ErrStopped
+	}
+	if t.running >= MaxTransfers {
+		return ErrBusy
+	}
+	t.running++
+	t.wg.Add(1)
+	return nil
+}
+
+func (t *Transfers) release() {
+	t.mu.Lock()
+	t.running--
+	t.mu.Unlock()
+	t.wg.Done()
+}
+
+func (t *Transfers) track(f *os.File) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.stopped {
+		return false
+	}
+	if t.files == nil {
+		t.files = make(map[*os.File]struct{}, MaxTransfers)
+	}
+	t.files[f] = struct{}{}
+	return true
+}
+
+func (t *Transfers) untrack(f *os.File) {
+	t.mu.Lock()
+	delete(t.files, f)
+	t.mu.Unlock()
+	_ = f.Close()
+}
+
+// Go runs fn on a transfer goroutine, or refuses with ErrBusy or
+// ErrStopped.
+func (t *Transfers) Go(fn func()) error {
+	if err := t.acquire(); err != nil {
+		return err
+	}
+	go func() {
+		defer t.release()
+		fn()
+	}()
+	return nil
+}
+
+// Receive starts one offer read: a pipe, receive handing its write end
+// to the wire, then Read of the read end on a transfer goroutine, which
+// calls done with Read's result. The write end closes as soon as
+// receive returns, so a request that has left the client by then is all
+// receive may rely on: the kernel dups the descriptor when the request
+// is written. An error return means the transfer never started and done
+// will not run.
+func (t *Transfers) Receive(limit int64, timeout time.Duration, receive func(fd uintptr) error, done func([]byte, error)) error {
+	if err := t.acquire(); err != nil {
+		return err
+	}
+	r, err := t.requestPipe(receive)
+	if err != nil {
+		t.release()
+		return err
+	}
+	go func() {
+		defer t.release()
+		defer t.untrack(r)
+		if !t.track(r) {
+			done(nil, ErrStopped)
+			return
+		}
+		done(Read(r, limit, timeout))
+	}()
+	return nil
+}
+
+func (t *Transfers) requestPipe(receive func(fd uintptr) error) (*os.File, error) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		return nil, fmt.Errorf("xfer: pipe: %w", err)
+	}
+	defer func() { _ = w.Close() }()
+	if err := receive(w.Fd()); err != nil {
+		return nil, errors.Join(fmt.Errorf("xfer: receive: %w", err), r.Close())
+	}
+	return r, nil
+}
+
+// Send takes over fd, the pipe end a consumer handed over, and runs
+// write on a transfer goroutine under the deadline (DeadlineWriter),
+// closing fd whatever the outcome so the consumer sees EOF. A refused
+// send closes fd at once and reports why. write's failure goes to
+// report, on the transfer goroutine.
+func (t *Transfers) Send(fd uintptr, timeout time.Duration, write func(io.Writer) error, report func(error)) error {
+	if err := t.acquire(); err != nil {
+		return errors.Join(err, closeDescriptor(fd))
+	}
+	go func() {
+		defer t.release()
+		w, err := DeadlineWriter(fd, timeout)
+		if err != nil {
+			report(errors.Join(err, closeDescriptor(fd)))
+			return
+		}
+		defer t.untrack(w)
+		if !t.track(w) {
+			report(ErrStopped)
+			return
+		}
+		if err := write(w); err != nil {
+			report(err)
+		}
+	}()
+	return nil
+}
+
+func closeDescriptor(fd uintptr) error {
+	if err := syscall.Close(int(fd)); err != nil {
+		return fmt.Errorf("xfer: close send descriptor %d: %w", fd, err)
+	}
+	return nil
+}
+
+// Stop ends every running transfer, closing its descriptor so a blocked
+// read or write returns now rather than at its deadline, waits for them
+// all, and refuses later ones. A transfer's done or report may still run
+// during Stop; it must not wait on the goroutine calling Stop.
+func (t *Transfers) Stop() {
+	t.mu.Lock()
+	t.stopped = true
+	files := t.files
+	t.files = nil
+	t.mu.Unlock()
+	for f := range files {
+		_ = f.Close()
+	}
+	t.wg.Wait()
+}

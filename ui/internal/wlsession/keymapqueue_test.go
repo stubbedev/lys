@@ -1,0 +1,290 @@
+package wlsession
+
+import (
+	"errors"
+	"os"
+	"os/exec"
+	"runtime"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/testbuild"
+	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys-lib/xkb"
+	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys-ui/internal/fdtest"
+	"github.com/stubbedev/lys-ui/internal/waittest"
+)
+
+func goroutineID() string {
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	id, _, _ := strings.Cut(strings.TrimPrefix(string(buf[:n]), "goroutine "), " ")
+	return id
+}
+
+type blockedCompile struct {
+	release chan compiledKeymap
+	ran     chan string
+}
+
+var errCompileAbandoned = errors.New("the test ended with the keymap compile held")
+
+func holdCompiles(t *testing.T, s *Session) *blockedCompile {
+	b := &blockedCompile{release: make(chan compiledKeymap), ran: make(chan string, 8)}
+	ended := make(chan struct{})
+	t.Cleanup(func() { close(ended) })
+	s.compileKeymap = func(uintptr, uint32, uint32) compiledKeymap {
+		select {
+		case b.ran <- goroutineID():
+		case <-ended:
+			return compiledKeymap{err: errCompileAbandoned}
+		}
+		select {
+		case compiled := <-b.release:
+			return compiled
+		case <-ended:
+			return compiledKeymap{err: errCompileAbandoned}
+		}
+	}
+	return b
+}
+
+func (b *blockedCompile) started(t *testing.T) string {
+	t.Helper()
+	return waittest.For(t, b.ran, "a keymap compile to start")
+}
+
+func (b *blockedCompile) finish(t *testing.T, compiled compiledKeymap) {
+	t.Helper()
+	timer := time.NewTimer(backgroundPatience)
+	defer timer.Stop()
+	select {
+	case b.release <- compiled:
+		return
+	case <-timer.C:
+	}
+	t.Fatalf("no keymap compile was there to finish within %v", backgroundPatience)
+}
+
+// keymapEvent is a keymap event handing over the read end of a pipe,
+// which the handler then owns.
+func keymapEvent(t *testing.T) wl.KeyboardKeymapEvent {
+	t.Helper()
+	var ends [2]int
+	if err := unix.Pipe2(ends[:], unix.O_CLOEXEC); err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Close(ends[1]); err != nil {
+		t.Fatal(err)
+	}
+	return wl.KeyboardKeymapEvent{Format: 1, Fd: uintptr(ends[0]), Size: 1}
+}
+
+func compiledLayout(t *testing.T, layout string) compiledKeymap {
+	t.Helper()
+	t.Setenv("XKB_CONFIG_ROOT", findXKBData(t))
+	km, err := xkb.NewContext(os.Getenv).NewKeymapFromNames(xkb.Names{Layout: layout})
+	if err != nil {
+		t.Skipf("%s keymap unavailable: %v", layout, err)
+	}
+	return compiledKeymap{keymap: km, state: km.NewState()}
+}
+
+const (
+	evdevY = 21
+	evdevZ = 44
+)
+
+func TestKeymapCompilesOffTheLoop(t *testing.T) {
+	s := usKeymap(t)
+	held := holdCompiles(t, s)
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	if ran := held.started(t); ran == goroutineID() {
+		t.Error("the keymap compiled on the loop goroutine")
+	}
+	if !s.KeymapPending() {
+		t.Error("a keymap compiling is not reported pending")
+	}
+	held.finish(t, compiledLayout(t, "de"))
+	settleBackground(t, s)
+	if s.KeymapPending() {
+		t.Error("a settled keymap still reports pending")
+	}
+}
+
+func TestKeysBehindACompilingKeymapTranslateThroughIt(t *testing.T) {
+	s := usKeymap(t)
+	var typed []string
+	s.OnKey = func(code uint32, _ Mods) { typed = append(typed, s.KeyUTF8(code)) }
+	held := holdCompiles(t, s)
+	german := compiledLayout(t, "de")
+
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1, Serial: 1})
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	held.started(t)
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1, Serial: 2})
+	s.HandleKeyboardModifiers(wl.KeyboardModifiersEvent{ModsDepressed: 1})
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevZ, State: 1, Serial: 3})
+	s.HandleKeyboardModifiers(wl.KeyboardModifiersEvent{})
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevZ, State: 1, Serial: 4})
+	if !slices.Equal(typed, []string{"y"}) {
+		t.Fatalf("delivered %q with the keymap compiling, want only the key ahead of it", typed)
+	}
+	if s.InputSerial() != 1 {
+		t.Errorf("input serial %d moved ahead of its event", s.InputSerial())
+	}
+
+	held.finish(t, german)
+	settleBackground(t, s)
+	if want := []string{"y", "z", "Y", "y"}; !slices.Equal(typed, want) {
+		t.Errorf("typed %q, want %q: the old keymap ahead of the event, the new one behind it", typed, want)
+	}
+	if s.InputSerial() != 4 {
+		t.Errorf("input serial %d, want the last key's", s.InputSerial())
+	}
+}
+
+func TestKeymapsInARowEachKeepTheirKeys(t *testing.T) {
+	s := usKeymap(t)
+	var typed []string
+	s.OnKey = func(code uint32, _ Mods) { typed = append(typed, s.KeyUTF8(code)) }
+	held := holdCompiles(t, s)
+	german, american := compiledLayout(t, "de"), compiledLayout(t, "us")
+
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1, Serial: 1})
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1, Serial: 2})
+
+	held.started(t)
+	held.finish(t, german)
+	held.started(t)
+	held.finish(t, american)
+	settleBackground(t, s)
+	if want := []string{"z", "y"}; !slices.Equal(typed, want) {
+		t.Errorf("typed %q, want %q", typed, want)
+	}
+}
+
+func TestFocusWaitsWithTheKeys(t *testing.T) {
+	s := usKeymap(t)
+	held := holdCompiles(t, s)
+	first, second := &wl.Surface{}, &wl.Surface{}
+	var focusAtKey []*wl.Surface
+	s.OnKey = func(uint32, Mods) { focusAtKey = append(focusAtKey, s.KeyboardFocus()) }
+
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	held.started(t)
+	s.HandleKeyboardEnter(wl.KeyboardEnterEvent{Surface: first})
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1})
+	s.HandleKeyboardLeave(wl.KeyboardLeaveEvent{})
+	s.HandleKeyboardEnter(wl.KeyboardEnterEvent{Surface: second})
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1})
+	if s.KeyboardFocus() != nil {
+		t.Error("focus moved ahead of the keymap")
+	}
+	held.finish(t, compiledLayout(t, "us"))
+	settleBackground(t, s)
+	if len(focusAtKey) != 2 || focusAtKey[0] != first || focusAtKey[1] != second {
+		t.Errorf("keys saw focus %v, want first then second", focusAtKey)
+	}
+}
+
+func TestKeysBehindAFailedKeymapStayUntranslated(t *testing.T) {
+	s := usKeymap(t)
+	var typed []string
+	s.OnKey = func(code uint32, _ Mods) { typed = append(typed, s.KeyUTF8(code)) }
+	held := holdCompiles(t, s)
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1})
+	held.started(t)
+	held.finish(t, compiledKeymap{err: os.ErrInvalid})
+	settleBackground(t, s)
+	if !slices.Equal(typed, []string{""}) {
+		t.Errorf("typed %q, want one untranslated key", typed)
+	}
+}
+
+func TestKeyQueueIsBounded(t *testing.T) {
+	s := usKeymap(t)
+	delivered := 0
+	s.OnKey = func(uint32, Mods) { delivered++ }
+	held := holdCompiles(t, s)
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	held.started(t)
+	for range maxQueuedKeyEvents + 10 {
+		s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1})
+	}
+	if got := len(s.keyQueue); got != maxQueuedKeyEvents {
+		t.Errorf("queue holds %d, want the bound %d", got, maxQueuedKeyEvents)
+	}
+	held.finish(t, compiledLayout(t, "us"))
+	settleBackground(t, s)
+	if delivered != maxQueuedKeyEvents-1 {
+		t.Errorf("delivered %d, want the %d queued behind the keymap", delivered, maxQueuedKeyEvents-1)
+	}
+}
+
+const isolatedTestEnv = "LYS_UI_ISOLATED_TEST"
+
+func runIsolated(t *testing.T) bool {
+	t.Helper()
+	if os.Getenv(isolatedTestEnv) == t.Name() {
+		return false
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^"+t.Name()+"$", "-test.count=1")
+	cmd.Env = append(os.Environ(), isolatedTestEnv+"="+t.Name())
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("running %s in its own process: %v\n%s", t.Name(), err, out)
+	}
+	return true
+}
+
+func TestKeyWithNoKeymapPendingAllocatesNothing(t *testing.T) {
+	testbuild.SkipAllocBudget(t)
+	if runIsolated(t) {
+		return
+	}
+	s := &Session{}
+	s.OnKey = func(uint32, Mods) {}
+	if got := testing.AllocsPerRun(100, func() {
+		s.HandleKeyboardKey(wl.KeyboardKeyEvent{Key: evdevY, State: 1})
+	}); got != 0 {
+		t.Errorf("a key allocates %.1f times", got)
+	}
+}
+
+// Every keymap event's fd is closed: one compiled, one whose compile
+// fails, and one the background queue refuses because it is full, which
+// it is once one compile runs and backgroundQueue more wait behind it.
+func TestKeymapEventsCloseTheirFds(t *testing.T) {
+	t.Setenv("XKB_CONFIG_ROOT", findXKBData(t))
+	s := usKeymap(t)
+	deliverKeymap(t, s, wtypeKeymap)
+	before := fdtest.Own(t)
+	deliverKeymap(t, s, wtypeKeymap)
+	deliverKeymap(t, s, "xkb_keymap { this does not compile")
+	fdtest.RequireNoneBeyond(t, before, "compiling a keymap and failing to")
+	held := holdCompiles(t, s)
+	s.HandleKeyboardKeymap(keymapEvent(t))
+	held.started(t)
+	const refused = 16
+	for range backgroundQueue + refused {
+		s.HandleKeyboardKeymap(keymapEvent(t))
+	}
+	if taken := len(fdtest.Beyond(fdtest.Own(t), before)); taken != 1+backgroundQueue {
+		t.Errorf("with one keymap compiling, %d queued and %d refused the process holds %d descriptors beyond what it did, want the %d taken", backgroundQueue, refused, taken, 1+backgroundQueue)
+	}
+	failed := compiledKeymap{err: os.ErrInvalid}
+	held.finish(t, failed)
+	for range backgroundQueue {
+		held.started(t)
+		held.finish(t, failed)
+	}
+	settleBackground(t, s)
+	fdtest.RequireNoneBeyond(t, before, "keymaps compiled behind each other and keymaps the background queue refused")
+}

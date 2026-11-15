@@ -1,0 +1,23 @@
+# Syscalls in a 5s window after 3s of settling, strace -f -ttt under private
+# headless sway (bench/baseline.md, Steady-state syscalls). Resume lines are
+# excluded. nanosleep and futex are the Go runtime under strace's timing.
+hello         101 syscalls
+gallery      4056 syscalls
+multi          39 syscalls
+bar           158 syscalls
+panel          11 syscalls
+states       1375 syscalls
+popover      5034 syscalls
+settings        0 syscalls
+messages        0 syscalls
+launcher        9 syscalls
+draw         7405 syscalls
+glass        3358 syscalls
+dialogs         0 syscalls
+dnd            29 syscalls
+columns         0 syscalls
+ime           684 syscalls
+i18n            0 syscalls
+a11y            0 syscalls
+invoke        467 syscalls
+multilist     958 syscalls

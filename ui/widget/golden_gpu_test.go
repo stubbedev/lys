@@ -1,0 +1,77 @@
+package widget
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys-lib/gputest"
+	"github.com/stubbedev/lys-lib/render"
+)
+
+// goldenDevice is the GPU the goldens also render on when
+// LYS_TEST_GPU asks for it, opened once for the run.
+var goldenDevice = sync.OnceValues(func() (*gpu.Device, error) {
+	if _, err := gputest.Setup(os.Setenv); err != nil {
+		return nil, err
+	}
+	return gpu.Open()
+})
+
+const goldenBusyLimit = 30 * time.Second
+
+// checkGoldenGPU renders the recorded golden on the GPU and fails on
+// any pixel differing from want, the CPU's: the GPU's shaders run the
+// CPU's integer and float32 arithmetic step for step.
+func checkGoldenGPU(t *testing.T, name string, l *render.List, want []byte, w, h int) {
+	t.Helper()
+	d, err := goldenDevice()
+	if err != nil {
+		t.Fatalf("%s: GPU for LYS_TEST_GPU=%s: %v", name, os.Getenv("LYS_TEST_GPU"), err)
+	}
+	tg, err := d.NewOffscreen(w, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tg.Close()
+	for deadline := time.Now().Add(goldenBusyLimit); ; time.Sleep(time.Millisecond) {
+		err = d.Render(l, tg)
+		if !errors.Is(err, gpu.ErrBusy) || time.Now().After(deadline) {
+			break
+		}
+	}
+	if err != nil {
+		t.Fatalf("%s: rendering on the GPU: %v", name, err)
+	}
+	got, err := tg.ReadPixels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stride := render.Stride(w)
+	bad := 0
+	var first string
+	for y := range h {
+		for x := range w {
+			c := render.ColorFromBytes(want[y*stride+x*4:])
+			g := got.RGBAAt(x, y)
+			cpu := [4]int{int(c.R()), int(c.G()), int(c.B()), int(c.A())}
+			gp := [4]int{int(g.R), int(g.G), int(g.B), int(g.A)}
+			for i := range cpu {
+				if cpu[i] != gp[i] {
+					if bad == 0 {
+						first = fmt.Sprintf("(%d, %d): gpu %v cpu %v", x, y, gp, cpu)
+					}
+					bad++
+					break
+				}
+			}
+		}
+	}
+	if bad > 0 {
+		t.Errorf("%s: the GPU's pixels differ from the CPU's at %d pixels, first %s", name, bad, first)
+	}
+}

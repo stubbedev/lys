@@ -1,0 +1,667 @@
+package widget
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"image"
+	"io"
+	"math"
+	"net/http"
+	"strconv"
+	"sync/atomic"
+	"time"
+
+	"github.com/stubbedev/lys-lib/logutil"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-lib/third_party/gomath"
+
+	"github.com/stubbedev/lys-ui/internal/imgcache"
+	"github.com/stubbedev/lys-ui/internal/style"
+	"github.com/stubbedev/lys-ui/transfer"
+)
+
+// ImageScale picks how an Image fills its arranged box. It aliases the
+// render type so call sites never need render just for the constant.
+type ImageScale = render.ImageScale
+
+const (
+	// ImageFit scales the image to fit the box with its aspect ratio
+	// kept; the default.
+	ImageFit = render.ImageFit
+	// ImageCover fills the box completely, cropping the overflow.
+	ImageCover = render.ImageCover
+	// ImageNone draws the image at its natural size, one source pixel
+	// per device pixel, centered and clipped.
+	ImageNone = render.ImageNone
+	// ImageStretch fills the box exactly, ignoring the aspect ratio.
+	ImageStretch = render.ImageStretch
+	// ImageScaleDown draws the natural size when it fits and shrinks to
+	// fit (aspect kept) when it does not; it never enlarges.
+	ImageScaleDown = render.ImageScaleDown
+)
+
+// imageKind says where an image's pixels come from, and with it
+// whether decoding is synchronous or asynchronous.
+type imageKind uint8
+
+const (
+	imageRaster imageKind = iota // decoded by the caller
+	imageFile                    // fetched from a file path, async
+	imageURL                     // fetched over http(s), async
+	imageBytes                   // fetched from memory, decoded synchronously
+)
+
+// imageSource is one Image's pixel source. It is an immutable snapshot:
+// the async decode goroutine reads a copy of it off the loop goroutine.
+type imageSource struct {
+	kind imageKind
+	img  image.Image // imageRaster
+	path string      // imageFile
+	url  string      // imageURL
+	data []byte      // imageBytes
+	name string      // imageBytes: a name for decode error messages
+	key  string      // imgcache source key; empty until a load resolves it
+}
+
+// imageFetchLimit caps how much of a URL body or an image file is read,
+// so a runaway source cannot balloon the pixel cache.
+const imageFetchLimit = 64 << 20
+
+// imageHTTP bounds URL fetches; media servers stall more often than
+// they lie about Content-Length.
+var imageHTTP = &http.Client{Timeout: 15 * time.Second}
+
+// memSourceSeq hands every in-memory source a distinct cache key.
+// Pointers would alias after a garbage collection cycle; a fresh id
+// cannot, and the entry dies with the source via InvalidateSource.
+var memSourceSeq atomic.Uint64
+
+// invoker delivers asynchronous load results onto the event-loop
+// goroutine. Application creation installs Application.Invoke - the
+// only sanctioned bridge (docs/threading.md). Without an invoker there
+// is no loop to deliver to, and file/URL sources settle synchronously
+// at their first paint instead.
+var invoker atomic.Pointer[func(func())]
+
+// SetInvoker installs the function asynchronous image loads use to run
+// their completion on the event-loop goroutine; app calls it with
+// Application.Invoke. Nil removes the bridge. The returned function
+// removes this one and leaves a later install in place.
+func SetInvoker(fn func(func())) (remove func()) {
+	return installHook(&invoker, fn, fn == nil)
+}
+
+func hasInvoker() bool { return invoker.Load() != nil }
+
+func loopInvoker() (deliver func(func()), ok bool) {
+	p := invoker.Load()
+	if p == nil {
+		return nil, false
+	}
+	return *p, true
+}
+
+// Image paints a raster image - album art, an avatar, a rendered
+// snapshot - into its arranged box. It is the raster counterpart of
+// Icon, which covers the SVG side.
+//
+// Sources come in two decoding flavors:
+//
+//   - Synchronous: NewImage (a decoded image.Image) and NewBytesImage
+//     decode where they are constructed and simply paint from the
+//     first frame on.
+//   - Asynchronous: NewFileImage and NewURLImage fetch and decode on a
+//     goroutine the first time they paint. Until the load settles they
+//     paint their placeholder color (transparent by default), and the
+//     result lands back on the loop goroutine through the invoker -
+//     Application.Invoke, the only sanctioned bridge (see
+//     docs/threading.md). OnLoaded then fires exactly once for that
+//     load, success or failure; check Err when it fires. Sources
+//     settle synchronously when no invoker is installed (no
+//     application running), and still fire OnLoaded - inline, on the
+//     goroutine that painted.
+//
+// Pixels are resampled with the CatmullRom kernel to the device rect
+// the policy places them in, so fractional scales stay crisp
+// (stubbedev/lys-ui#14). Resamples are cached per (source, source rect,
+// device size) in a shared LRU with a byte budget
+// (internal/imgcache): painting the same image at the same size hits
+// the cache and never rescales, and SetImage drops the old source's
+// entries. A policy of ImageNone skips the cache entirely - nothing
+// resamples. A file or URL source decodes divided by a power of two
+// down to what its box shows, so a 96 px cover tile keeps no 3000 px
+// picture, and decodes finer if the box outgrows that; it still
+// measures at its natural size.
+type Image struct {
+	node
+	src imageSource
+
+	// scale is the fit policy; fit-contain by default.
+	scale ImageScale
+	// placeholder fills the bounds while an async load is in flight;
+	// the zero color paints nothing.
+	placeholder Color
+	// OnLoaded fires on the loop goroutine once per settled
+	// asynchronous load, with the settled widget; check Err. It does
+	// not fire for synchronous sources, which are ready at
+	// construction.
+	OnLoaded func(img *Image)
+	// OnPasteImage fires on the loop goroutine when a pasted image
+	// (the ctrl+v payload it takes as a ContentPaster) finished decoding:
+	// the widget has already taken it as its source. The Image is the
+	// paste surface — Entry and TextArea are text-only by design.
+	OnPasteImage func(img image.Image)
+
+	// load state: img is the decoded source, loadErr the sticky decode
+	// failure, loaded/loading where the load stands, and gen bumps on
+	// every source change so a result landing after SetImage is
+	// dropped instead of overwriting the new source.
+	img     image.Image
+	loadErr error
+	loaded  bool
+	loading bool
+	gen     uint64
+	// natural is a loaded file or URL source's size as encoded, and
+	// shrink the power of two its decode was divided by to fit the
+	// largest box it has been drawn in (sourceShrink): a cover shown as
+	// a 96 px tile keeps no 3000 px decode.
+	natural image.Point
+	shrink  int
+
+	// play steps an animated source (image_anim.go).
+	play imagePlayback
+}
+
+// NewImage returns an image widget around a decoded image. The widget
+// keeps the reference; treat it as read-only after handoff. To show
+// changed pixels, SetImage the raster again, as a render.VersionedImage
+// at its next version and with the ID it keeps for the raster
+// (render.NewImageID), so a GPU renderer updates its texture in place.
+// A nil img paints nothing.
+func NewImage(img image.Image) *Image {
+	im := &Image{}
+	im.setSource(imageSource{kind: imageRaster, img: img, key: memKey()})
+	return im
+}
+
+// NewFileImage returns an image widget that loads an image file (png,
+// jpeg, gif) on a goroutine at its first paint and draws it scaled by
+// the widget's policy.
+func NewFileImage(path string) *Image {
+	return &Image{src: imageSource{kind: imageFile, path: path}}
+}
+
+// NewURLImage returns an image widget that fetches an image over
+// http(s) on a goroutine at its first paint and draws it scaled by the
+// widget's policy.
+func NewURLImage(url string) *Image {
+	return &Image{src: imageSource{kind: imageURL, url: url}}
+}
+
+// NewBytesImage returns an image widget around encoded image bytes
+// (png, jpeg, gif), decoded synchronously from the cache when possible.
+// name only labels decode errors.
+func NewBytesImage(data []byte, name string) *Image {
+	im := &Image{}
+	im.setSource(imageSource{kind: imageBytes, data: data, name: name, key: hashKey(data)})
+	return im
+}
+
+// SetImage swaps the source for a decoded image, dropping the previous
+// source's cache entries and the measure caches that still describe
+// the old size. The image is handed over as to NewImage.
+func (im *Image) SetImage(img image.Image) {
+	im.setSource(imageSource{kind: imageRaster, img: img, key: memKey()})
+}
+
+// SetFile swaps the source for a file path, reloaded asynchronously at
+// the next paint.
+func (im *Image) SetFile(path string) {
+	im.setSource(imageSource{kind: imageFile, path: path})
+}
+
+// SetURL swaps the source for a URL, fetched asynchronously at the
+// next paint.
+func (im *Image) SetURL(url string) {
+	im.setSource(imageSource{kind: imageURL, url: url})
+}
+
+// setSource installs src: in-flight results for the old source are
+// dropped, the old source's cache entries go away, synchronous sources
+// settle now, and the frame remeasures and repaints.
+func (im *Image) setSource(src imageSource) {
+	old := im.src.key
+	if old != "" && old != src.key {
+		imgcache.Default().InvalidateSource(old)
+	}
+	im.src = src
+	im.gen++
+	im.img, im.loadErr = nil, nil
+	im.loaded, im.loading = false, false
+	switch src.kind {
+	case imageRaster:
+		im.img, im.loaded = heldImage(src.img), true
+	case imageBytes:
+		img, err := imgcache.Default().Source(src.key, func() (image.Image, error) {
+			return decodeImageData(src.data, src.name)
+		})
+		im.img, im.loadErr, im.loaded = img, err, true
+	}
+	im.restartPlayback()
+	im.InvalidateLayout()
+}
+
+// SetScale selects how the image fills its box: ImageFit (the
+// default), ImageCover, or ImageNone.
+func (im *Image) SetScale(s ImageScale) {
+	if s == im.scale {
+		return
+	}
+	im.scale = s
+	im.Invalidate()
+}
+
+// Scale returns the fit policy.
+func (im *Image) Scale() ImageScale { return im.scale }
+
+// SetPlaceholderColor sets what fills the bounds while an asynchronous
+// load is in flight; the zero color (the default) paints nothing.
+func (im *Image) SetPlaceholderColor(c Color) {
+	if c == im.placeholder {
+		return
+	}
+	im.placeholder = c
+	im.Invalidate()
+}
+
+// PlaceholderColor returns what fills the bounds while an asynchronous
+// load is in flight; the zero color paints nothing.
+func (im *Image) PlaceholderColor() Color { return im.placeholder }
+
+// Err returns the load failure of the current source: a missing or
+// undecodable file, a failed fetch, or undecodable bytes. Nil until a
+// load tried and failed, and sticky until SetImage or friends replace
+// the source.
+func (im *Image) Err() error { return im.loadErr }
+
+// Loaded reports whether the current source has settled. Synchronous
+// sources are loaded from construction on.
+func (im *Image) Loaded() bool { return im.loaded }
+
+// Measure is the decoded image's pictureRequest. An unsettled source
+// measures 0 x 0; when the load lands, InvalidateLayout drops this cache
+// so the next frame remeasures.
+func (im *Image) Measure(axis Axis, forSize int) Sizes {
+	if sz, ok := im.measureHit(axis, forSize); ok {
+		return sz
+	}
+	w, h := 0, 0
+	switch {
+	case im.natural != image.Point{}:
+		w, h = im.natural.X, im.natural.Y
+	case im.img != nil:
+		b := im.img.Bounds()
+		w, h = b.Dx(), b.Dy()
+	}
+	return im.measureStore(axis, forSize, pictureRequest(Size{W: w, H: h}, axis, forSize))
+}
+
+// pictureRequest is the request of a picture that scales into its box
+// (GtkPicture's): it needs nothing, and wants its natural size along
+// axis, scaled to keep its aspect ratio when the extent across is
+// smaller than its natural one.
+func pictureRequest(nat Size, axis Axis, forSize int) Sizes {
+	along, across := nat.Along(axis), nat.Along(otherAxis(axis))
+	if forSize == Unknown || across == 0 || forSize >= across {
+		return Sizes{Nat: along}
+	}
+	return Sizes{Nat: (along*forSize + across/2) / across}
+}
+
+// Paint settles the source if needed, then draws: the placeholder
+// while an async load is in flight, nothing after a failure, and
+// otherwise the cached resample for the device rect the policy picked.
+func (im *Image) Paint(cv *render.Canvas) {
+	box := cv.MapRect(im.bounds)
+	fit, pos := im.placement(cv, box)
+	im.ensureSettled(box, fit)
+	if im.img == nil {
+		if im.placeholder != 0 {
+			cv.FillRect(im.bounds, im.placeholder)
+		}
+		return
+	}
+	pic, frame := im.currentFrame()
+	b := pic.Bounds()
+	srcRect, dst := render.PlaceImage(b.Dx(), b.Dy(), box.W, box.H, fit, pos)
+	if dst.Empty() {
+		return
+	}
+	dw, dh, dx, dy := dst.W, dst.H, box.X+dst.X, box.Y+dst.Y
+	if srcRect.Dx() == dw && srcRect.Dy() == dh {
+		// Natural pixels land one-to-one (ImageNone, a fitting
+		// ImageScaleDown, any 1:1 fit); no resample, no cache entry.
+		if sub, ok := pic.(interface {
+			SubImage(r image.Rectangle) image.Image
+		}); ok {
+			cv.DrawImageDevice(sub.SubImage(srcRect), dx, dy)
+			return
+		}
+	}
+	if im.src.key == "" {
+		cv.DrawImageDevice(render.Resample(pic, srcRect, dw, dh), dx, dy)
+		return
+	}
+	raster, err := imgcache.Default().Raster(imgcache.RasterKey{
+		Source: im.src.key,
+		Frame:  frame,
+		Src:    srcRect,
+		W:      dw,
+		H:      dh,
+	}, func(dst *image.RGBA) error {
+		return render.ResampleTo(dst, pic, srcRect)
+	})
+	if err != nil {
+		imageWarn(err)
+		return
+	}
+	cv.DrawImageDevice(raster, dx, dy)
+}
+
+// detach drops the rasters resampled from a source only this widget
+// holds: an in-memory image's key is its own, so nothing could hit
+// them once it leaves the screen. A file, URL or bytes source's are
+// keyed by content, which other widgets share, and stay cached.
+func (im *Image) detach() {
+	if im.src.kind == imageRaster && im.src.key != "" {
+		imgcache.Default().InvalidateSource(im.src.key)
+	}
+}
+
+// imageWarn reports an image that could not paint this frame.
+var imageWarn = func(err error) { logutil.L().Warn("widget: image paint", "err", err) }
+
+// placement is the scale policy and position the image draws by in
+// the device rect box: object-fit and object-position where the
+// stylesheet declares them (CSS wins), else SetScale's policy
+// centered. A position's pixel offsets map to device pixels.
+func (im *Image) placement(cv *render.Canvas, box render.Rect) (render.ImageScale, render.ImagePos) {
+	v := im.style(im)
+	fit, pos := im.scale, render.ImageCentered
+	if v.Has(style.PropObjectFit) {
+		fit = v.Layout.ObjectFit
+	}
+	if v.Has(style.PropObjectPosition) {
+		x, y := v.Layout.ObjectPosition[0], v.Layout.ObjectPosition[1]
+		off := cv.MapRect(render.Rect{X: im.bounds.X + int(math.Round(x.Px)), Y: im.bounds.Y + int(math.Round(y.Px))})
+		pos = render.ImagePos{X: x.Frac, Y: y.Frac, OffX: off.X - box.X, OffY: off.Y - box.Y}
+	}
+	return fit, pos
+}
+
+// HitTest returns the image when p is inside its bounds.
+func (im *Image) HitTest(p Point) Widget {
+	return im.HitLeaf(im, p)
+}
+
+// PasteMimes implements ContentPaster: the image types, best first.
+func (im *Image) PasteMimes() []string { return transfer.ImageMimes }
+
+// PasteContent implements ContentPaster through PasteImage.
+func (im *Image) PasteContent(mime string, data []byte) { im.PasteImage(data, mime) }
+
+// PasteImage is the ctrl+v image path: the pasted encoded bytes (with
+// the mime they arrived as, for error messages) become the widget's
+// source, decoded off the loop goroutine through the same invoker
+// bridge as file loads — a large PNG never stalls the loop — and then
+// handed to OnPasteImage. Without an invoker the decode settles
+// synchronously, like every other source.
+func (im *Image) PasteImage(data []byte, mime string) {
+	gen := im.gen + 1
+	im.gen = gen
+	im.img, im.loadErr = nil, nil
+	im.loaded = false
+	im.InvalidateLayout()
+	deliver, ok := loopInvoker()
+	if !ok {
+		img, err := decodeImageData(data, "pasted "+mime)
+		im.applyPaste(gen, img, err)
+		return
+	}
+	im.loading = true
+	settle := owe(styleRootOf(&im.node))
+	go func() {
+		img, err := decodeImageData(data, "pasted "+mime)
+		deliver(func() {
+			settle()
+			im.applyPaste(gen, img, err)
+		})
+	}()
+}
+
+// applyPaste records a settled paste on the loop goroutine and fires
+// OnPasteImage; a superseded source drops the result, like
+// applyLoad.
+func (im *Image) applyPaste(gen uint64, img image.Image, err error) {
+	if gen != im.gen {
+		return
+	}
+	im.img, im.loadErr, im.loaded, im.loading = img, err, true, false
+	im.restartPlayback()
+	if err == nil && im.OnPasteImage != nil {
+		im.OnPasteImage(img)
+	}
+	im.InvalidateLayout()
+}
+
+// KeyAction implements KeyActionHandler: an Image with an
+// OnPasteImage hook is a paste target, so it joins focus traversal —
+// the actions themselves are none of its own.
+func (im *Image) KeyAction(KeyAction, Mods) {}
+
+// focusable implements focusOptOut: only a paste target takes the
+// focus; a picture alone is no Tab stop.
+func (im *Image) focusable() bool { return im.OnPasteImage != nil }
+
+// ensureSettled kicks the first load of a file/URL source, decoded for
+// the device box it paints in under fit, and loads it again at a finer
+// shrink once the box outgrows the decode it has. Without an invoker
+// installed there is no loop goroutine to deliver through, so the load
+// settles synchronously instead - the paint itself is loop-goroutine
+// code whenever it runs inside Run.
+func (im *Image) ensureSettled(box render.Rect, fit render.ImageScale) {
+	if im.loading || im.src.kind != imageFile && im.src.kind != imageURL {
+		return
+	}
+	if im.loaded && (im.loadErr != nil || sourceShrink(im.natural, box, fit) >= im.shrink) {
+		return
+	}
+	src, gen := im.src, im.gen
+	deliver, ok := loopInvoker()
+	if !ok {
+		im.applyLoad(gen, loadImage(src, box, fit))
+		return
+	}
+	im.loading = true
+	settle := owe(styleRootOf(&im.node))
+	go func() {
+		res := loadImage(src, box, fit)
+		deliver(func() {
+			settle()
+			im.applyLoad(gen, res)
+		})
+	}()
+}
+
+// applyLoad records a settled load on the loop goroutine. Results for
+// a superseded source (the gen moved on via SetImage and friends) are
+// dropped: they must not overwrite the new source's state. A finer
+// decode of the same source replaces the coarser one, whose cache
+// entries go.
+func (im *Image) applyLoad(gen uint64, res loadResult) {
+	if gen != im.gen {
+		return
+	}
+	if old := im.src.key; old != "" && old != res.key {
+		imgcache.Default().InvalidateSource(old)
+	}
+	reload := im.loaded
+	im.loading = false
+	im.loaded = true
+	im.src.key = res.key
+	im.img, im.loadErr = res.img, res.err
+	im.natural, im.shrink = res.natural, res.shrink
+	if reload && res.err == nil {
+		im.Invalidate()
+		return
+	}
+	im.restartPlayback()
+	// The natural size may have appeared or changed: drop the measure
+	// caches up the tree and owe the frame a repaint.
+	im.InvalidateLayout()
+	if fn := im.OnLoaded; fn != nil {
+		fn(im)
+	}
+}
+
+// loadResult is a settled file or URL load: the cache key, the decoded
+// image, its encoded size and the shrink it was decoded at.
+type loadResult struct {
+	key     string
+	img     image.Image
+	natural image.Point
+	shrink  int
+	err     error
+}
+
+// sourceShrink is the power of two a natural-sized source can be
+// divided by and still give a box-sized device rect, placed by fit,
+// every pixel it shows: the decode a tile keeps instead of the whole
+// picture. ImageNone draws source pixels one to one and keeps them
+// all; an unknown size or box (no layout yet) keeps them all too.
+func sourceShrink(natural image.Point, box render.Rect, fit render.ImageScale) int {
+	if natural.X <= 0 || natural.Y <= 0 || box.Empty() || fit == render.ImageNone {
+		return 0
+	}
+	sx, sy := float64(box.W)/float64(natural.X), float64(box.H)/float64(natural.Y)
+	s := max(sx, sy)
+	if fit == render.ImageFit || fit == render.ImageScaleDown {
+		s = min(sx, sy)
+	}
+	if s >= 0.5 {
+		return 0
+	}
+	return int(math.Floor(gomath.Log2(1 / s)))
+}
+
+// loadImage fetches and decodes src off the loop goroutine, divided by
+// the sourceShrink of a box-sized draw under fit; it reads only its
+// snapshot and the shared cache, never widget state. Each shrink of a
+// source is its own cache entry.
+func loadImage(src imageSource, box render.Rect, fit render.ImageScale) loadResult {
+	data, err := fetchSource(src)
+	if err != nil {
+		return loadResult{err: err}
+	}
+	var res loadResult
+	if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+		res.natural = image.Pt(cfg.Width, cfg.Height)
+	}
+	res.shrink = sourceShrink(res.natural, box, fit)
+	res.key = hashKey(data)
+	if res.shrink > 0 {
+		res.key = fmt.Sprintf("%s@%d", res.key, res.shrink)
+	}
+	res.img, res.err = imgcache.Default().Source(res.key, func() (image.Image, error) {
+		img, err := decodeImageData(data, src.name)
+		if err != nil || res.shrink == 0 {
+			return img, err
+		}
+		return shrunk(img, res.shrink), nil
+	})
+	return res
+}
+
+// shrunk is a still img divided by 2^shrink, rounded up, so it keeps
+// at least the resolution sourceShrink promised; an animation stays
+// whole.
+func shrunk(img image.Image, shrink int) image.Image {
+	if _, ok := img.(*render.Animation); ok {
+		return img
+	}
+	b := img.Bounds()
+	d := 1 << shrink
+	return render.NewStillImage(render.Resample(img, b, (b.Dx()+d-1)/d, (b.Dy()+d-1)/d))
+}
+
+func fetchSource(src imageSource) ([]byte, error) {
+	switch src.kind {
+	case imageFile:
+		return readAssetFile(src.path, imageFetchLimit)
+	case imageURL:
+		return fetchURL(src.url)
+	default:
+		return src.data, nil
+	}
+}
+
+func fetchURL(url string) ([]byte, error) {
+	resp, err := imageHTTP.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("image: fetch %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("image: fetch %s: status %s", url, resp.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, imageFetchLimit))
+	if err != nil {
+		return nil, fmt.Errorf("image: fetch %s: %w", url, err)
+	}
+	return data, nil
+}
+
+// decodeImageData decodes image bytes - PNG, JPEG, GIF, WebP, and
+// animated GIF and APNG as a render.Animation (render.DecodeImage).
+func decodeImageData(data []byte, name string) (image.Image, error) {
+	img, err := render.DecodeImage(data)
+	if err != nil {
+		return nil, fmt.Errorf("image: decode %s: %w", name, err)
+	}
+	return heldImage(img), nil
+}
+
+// heldImage is img as a widget holds an image handed to it read-only,
+// each raster with the identity a GPU renderer keeps its texture by: a
+// versioned or animated image as it is (their owners keep the
+// identity), a still image or an *image.RGBA as a still image over the
+// same pixels with an identity of its own when it has none, and any
+// other image converted once (render.Still).
+func heldImage(img image.Image) image.Image {
+	switch v := img.(type) {
+	case nil, render.VersionedImage, *render.Animation:
+		return img
+	case render.StillImage:
+		if v.ID == 0 {
+			v.ID = render.NewImageID()
+		}
+		return v
+	case *image.RGBA:
+		return render.NewStillImage(v)
+	}
+	return render.Still(img)
+}
+
+// hashKey builds a source key from content: a changed file or URL body
+// gets a fresh key and a fresh decode without any invalidation
+// protocol. 128 bits of digest keep collisions theoretical.
+func hashKey(data []byte) string {
+	sum := sha256.Sum256(data)
+	return "raw:" + hex.EncodeToString(sum[:16])
+}
+
+func memKey() string {
+	return "mem:" + strconv.FormatUint(memSourceSeq.Add(1), 10)
+}

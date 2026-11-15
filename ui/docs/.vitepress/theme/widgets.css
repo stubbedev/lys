@@ -1,0 +1,17 @@
+.widgets .widget {
+    margin: 40px 0;
+}
+
+.widgets .widget h2 {
+    margin: 0 0 16px;
+    padding-top: 0;
+    border-top: none;
+}
+
+.widgets .widget img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 12px;
+}

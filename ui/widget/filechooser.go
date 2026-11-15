@@ -1,0 +1,568 @@
+package widget
+
+import (
+	"cmp"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/stubbedev/lys-lib/render"
+
+	"github.com/stubbedev/lys-ui/widget/css"
+)
+
+// FileChooser is the pure-Go file picker behind app.OpenFileDialog and
+// app.SaveFileDialog (#82): a places row, the current directory's
+// listing, filters, a name row in save mode, and Apply validation. It
+// is the whole picker lys-ui needs - List, Entry, Dropdown, and Button
+// are the parts - so it works on any compositor with no portal in
+// sight; the directory listing comes from an injected source, the seam
+// tests and any future portal backend plug into.
+//
+// Navigation: Up climbs one directory, the place buttons jump home, to
+// the filesystem root, or into the recents view, and activating a row
+// enters a directory or applies a file. Apply validates: an empty
+// selection, an empty name, or a name carrying a path separator sets
+// the status line and applies nothing.
+//
+// Listing a directory waits on the disk, so it runs off the loop: the
+// view clears at once and fills when the answer comes, and an answer to a
+// view left since is dropped. Without an invoker (no loop to answer on,
+// the state before an Application exists) it runs inline.
+type FileChooser struct {
+	composite
+	face   render.Font
+	sizePx float64
+
+	mode    FileMode
+	filters []FileFilter
+	filter  int
+	source  DirSource
+	stat    StatSource
+	recents func() []string
+
+	dir         string
+	all         []FileEntry
+	listing     []FileEntry
+	recentAt    []string
+	inRecents   bool
+	viewGen     uint64
+	listings    int
+	listingOwed bool
+
+	column     *Box
+	places     *Box
+	path       *Label
+	list       *List
+	model      *chooserModel
+	name       *Entry
+	filterDrop *Dropdown
+	status     *Label
+
+	// OnApply, when set, receives every validated apply: the chosen
+	// absolute paths (one in save and single-open mode, the selection
+	// in multiple mode, a directory in folder mode).
+	OnApply func(paths []string)
+}
+
+// FileMode is what a FileChooser is picking.
+type FileMode uint8
+
+const (
+	// FileModeOpen picks one existing file.
+	FileModeOpen FileMode = iota
+	// FileModeOpenMultiple picks any set of existing files.
+	FileModeOpenMultiple
+	// FileModeOpenFolder picks one directory (the current one when no
+	// row is selected).
+	FileModeOpenFolder
+	// FileModeSave names a file in the current directory; overwrite
+	// confirmation is the caller's policy on the absolute path Apply
+	// returned.
+	FileModeSave
+)
+
+// FileFilter names one set of acceptable files: Patterns are shell
+// globs matched against the base name, case-insensitively ("*.png",
+// "Makefile"). Directories always pass; an empty pattern list accepts
+// every file.
+type FileFilter struct {
+	Name     string
+	Patterns []string
+}
+
+// FileEntry is one row of a listing: its name and whether it is a
+// directory.
+type FileEntry struct {
+	Name string
+	Dir  bool
+}
+
+// DirSource lists one directory; the default walks the filesystem,
+// hiding dot files. Tests and portal backends substitute their own. It
+// runs off the loop goroutine and must touch no widget.
+type DirSource func(dir string) ([]FileEntry, error)
+
+// StatSource reports whether a path exists by returning nil; like a
+// DirSource it runs off the loop goroutine and must touch no widget.
+type StatSource func(path string) error
+
+func osStatSource(path string) error {
+	_, err := os.Stat(path)
+	return err
+}
+
+const maxChooserListings = 8
+
+// osDirSource is the default listing: os.ReadDir with dot files
+// hidden, directories first, names compared case-insensitively.
+func osDirSource(dir string) ([]FileEntry, error) {
+	dirents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]FileEntry, 0, len(dirents))
+	for _, d := range dirents {
+		if strings.HasPrefix(d.Name(), ".") {
+			continue
+		}
+		entries = append(entries, FileEntry{Name: d.Name(), Dir: d.IsDir()})
+	}
+	slices.SortStableFunc(entries, func(a, b FileEntry) int {
+		if a.Dir != b.Dir {
+			if a.Dir {
+				return -1
+			}
+			return 1
+		}
+		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
+	return entries, nil
+}
+
+func runOffLoop(load, done func()) {
+	deliver, ok := loopInvoker()
+	if !ok {
+		load()
+		done()
+		return
+	}
+	go func() {
+		load()
+		deliver(done)
+	}()
+}
+
+// NewFileChooser returns a chooser in mode starting at startDir (the
+// home directory when empty), filtered by filters (a nil or empty list
+// accepts everything; more than one shows a dropdown).
+func NewFileChooser(face render.Font, sizePx float64, mode FileMode, startDir string, filters []FileFilter) *FileChooser {
+	face = requireFace("widget.NewFileChooser", face)
+	if startDir == "" {
+		startDir, _ = os.UserHomeDir()
+	}
+	if len(filters) == 0 {
+		filters = []FileFilter{{Name: Tr("All files")}}
+	}
+	c := &FileChooser{
+		face: face, sizePx: sizePx, mode: mode,
+		filters: filters, source: osDirSource, stat: osStatSource,
+		dir: startDir,
+	}
+	th := Current()
+	c.model = &chooserModel{face: face, sizePx: sizePx}
+	c.list = NewList(c.model, int(sizePx)+14)
+	switch mode {
+	case FileModeOpenMultiple:
+		c.list.SetSelectionMode(SelectionMultiple)
+	case FileModeOpenFolder:
+		c.list.SetSelectionMode(SelectionBrowse)
+	}
+	c.list.OnSelect = func(int) { c.syncFromSelection() }
+	c.list.OnActivate = func(i int) { c.activate(i) }
+	c.path = NewLabel(face, sizePx, "", 0)
+	c.path.AddClass(css.DimLabel)
+	c.status = NewLabel(face, sizePx-2, "", 0)
+	c.status.AddClass(css.Accent)
+	c.buildPlaces()
+	c.column = NewBox(Column, 10, 0)
+	c.column.Append(c.places, false)
+	c.column.Append(c.path, false)
+	c.column.Append(c.list, true)
+	if mode == FileModeSave {
+		c.name = NewEntry(face, sizePx, th.Text)
+		nameRow := NewBox(Row, 8, 0)
+		nameRow.Append(NewLabel(face, sizePx, Tr("Name:"), th.Text), false)
+		nameRow.Append(c.name, true)
+		c.column.Append(nameRow, true)
+	}
+	if len(filters) > 1 {
+		names := make([]string, len(filters))
+		for i, f := range filters {
+			names[i] = f.Name
+		}
+		c.filterDrop = NewDropdown(face, sizePx, names, 0)
+		c.filterDrop.OnSelect = func(i int) { c.setFilter(i) }
+		filterRow := NewBox(Row, 8, 0)
+		filterRow.Append(NewLabel(face, sizePx, Tr("Filter:"), th.Text), false)
+		filterRow.Append(c.filterDrop, false)
+		c.column.Append(filterRow, false)
+	}
+	c.column.Append(c.status, false)
+	c.initComposite(c, c.column)
+	c.navigate(startDir)
+	return c
+}
+
+// SetSaveName pre-fills the save name row (save mode only).
+func (c *FileChooser) SetSaveName(name string) {
+	if c.name != nil {
+		c.name.SetText(name)
+	}
+}
+
+// SetSource replaces the directory listing source (tests, portals).
+func (c *FileChooser) SetSource(src DirSource) {
+	if src == nil {
+		src = osDirSource
+	}
+	c.source = src
+	c.refresh()
+}
+
+// SetStatSource replaces the existence check ProbeExists runs (tests,
+// portals).
+func (c *FileChooser) SetStatSource(src StatSource) {
+	if src == nil {
+		src = osStatSource
+	}
+	c.stat = src
+}
+
+// ProbeExists checks off the loop whether path exists, as a save asks
+// before replacing a file, and calls done on the loop with the answer.
+func (c *FileChooser) ProbeExists(path string, done func(exists bool)) {
+	stat := c.stat
+	var err error
+	runOffLoop(func() { err = stat(path) }, func() { done(err == nil) })
+}
+
+// SetRecentsSource wires the recents view: paths lists the recent
+// files (most recent first) and the Recent place appears; without it
+// the picker is a plain browser. Like a DirSource, paths runs off the
+// loop goroutine and must touch no widget.
+func (c *FileChooser) SetRecentsSource(paths func() []string) {
+	c.recents = paths
+	c.buildPlaces()
+	c.InvalidateLayout()
+}
+
+// Dir reports the directory being browsed ("" in the recents view).
+func (c *FileChooser) Dir() string { return c.dir }
+
+// Apply validates and applies the current selection: in open modes the
+// selected files, in folder mode the selected or current directory, in
+// save mode the name row joined onto the directory. It returns the
+// absolute paths and reports whether the apply was valid; an invalid
+// apply sets the status line instead.
+func (c *FileChooser) Apply() ([]string, bool) {
+	switch c.mode {
+	case FileModeOpen:
+		if i := c.list.Selected(); i >= 0 && !c.listing[i].Dir {
+			if paths, ok := c.applyOne(i); ok {
+				return paths, true
+			}
+			return nil, false
+		}
+		c.SetStatus(Tr("choose a file"))
+	case FileModeOpenMultiple:
+		picked := c.pickedFiles()
+		if len(picked) > 0 {
+			return picked, true
+		}
+		c.SetStatus(Tr("choose at least one file"))
+	case FileModeOpenFolder:
+		if i := c.list.Selected(); i >= 0 && c.listing[i].Dir {
+			return []string{c.rowPath(i)}, true
+		}
+		if c.dir != "" {
+			return []string{c.dir}, true
+		}
+		c.SetStatus(Tr("choose a folder"))
+	case FileModeSave:
+		if c.dir == "" {
+			c.SetStatus(Tr("save needs a directory"))
+			break
+		}
+		name := strings.TrimSpace(c.name.Text())
+		if name == "" {
+			c.SetStatus(Tr("enter a file name"))
+			break
+		}
+		if strings.ContainsRune(name, '/') || strings.ContainsRune(name, os.PathSeparator) {
+			c.SetStatus(Tr("the name cannot contain a path separator"))
+			break
+		}
+		return []string{filepath.Join(c.dir, name)}, true
+	}
+	return nil, false
+}
+
+// pickedFiles collects the selected file rows of a multiple chooser.
+func (c *FileChooser) pickedFiles() []string {
+	var picked []string
+	for _, i := range c.list.Selection() {
+		if i >= 0 && i < len(c.listing) && !c.listing[i].Dir {
+			picked = append(picked, c.rowPath(i))
+		}
+	}
+	return picked
+}
+
+// climb moves one directory up, staying put at the filesystem root.
+func (c *FileChooser) climb() {
+	if c.dir == "" {
+		return
+	}
+	c.navigate(filepath.Dir(c.dir))
+}
+
+// activate enters a directory row or applies a file row.
+func (c *FileChooser) activate(i int) {
+	if i < 0 || i >= len(c.listing) {
+		return
+	}
+	if c.listing[i].Dir {
+		if !c.inRecents {
+			c.navigate(c.rowPath(i))
+		}
+		return
+	}
+	if c.mode == FileModeSave {
+		c.name.SetText(c.listing[i].Name)
+		c.list.Select(i)
+		return
+	}
+	if c.mode == FileModeOpenFolder {
+		return
+	}
+	if paths, ok := c.applyOne(i); ok {
+		c.emitApply(paths)
+	}
+}
+
+// applyOne validates a single file row against the active filter.
+func (c *FileChooser) applyOne(i int) ([]string, bool) {
+	if !c.passes(c.listing[i].Name) {
+		c.SetStatus("\"" + c.listing[i].Name + "\" " + Tr("does not match") + " " + c.filters[c.filter].Name)
+		return nil, false
+	}
+	return []string{c.rowPath(i)}, true
+}
+
+func (c *FileChooser) rowPath(i int) string {
+	if c.inRecents {
+		return c.recentAt[i]
+	}
+	return filepath.Join(c.dir, c.listing[i].Name)
+}
+
+// emitApply hands a valid result to the OnApply hook.
+func (c *FileChooser) emitApply(paths []string) {
+	c.SetStatus("")
+	if c.OnApply != nil {
+		c.OnApply(paths)
+	}
+}
+
+// syncFromSelection mirrors a single-selection file pick into the save
+// name row.
+func (c *FileChooser) syncFromSelection() {
+	if c.mode != FileModeSave {
+		return
+	}
+	if i := c.list.Selected(); i >= 0 && i < len(c.listing) && !c.listing[i].Dir {
+		c.name.SetText(c.listing[i].Name)
+	}
+}
+
+// setFilter switches the active filter over the listing in hand.
+func (c *FileChooser) setFilter(i int) {
+	if i < 0 || i >= len(c.filters) {
+		return
+	}
+	c.filter = i
+	c.show()
+}
+
+// passes reports whether a file name matches the active filter.
+func (c *FileChooser) passes(name string) bool {
+	patterns := c.filters[c.filter].Patterns
+	if len(patterns) == 0 {
+		return true
+	}
+	folded := strings.ToLower(name)
+	for _, p := range patterns {
+		if ok, _ := filepath.Match(strings.ToLower(p), folded); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// navigate browses dir ("" jumps to the recents view when a source is
+// wired).
+func (c *FileChooser) navigate(dir string) {
+	c.dir = dir
+	c.refresh()
+}
+
+// refresh clears the view and lists it anew off the loop.
+func (c *FileChooser) refresh() {
+	c.inRecents = c.dir == ""
+	c.path.SetText(c.dirLabel())
+	c.viewGen++
+	c.all, c.recentAt = nil, nil
+	c.show()
+	c.SetStatus("")
+	c.startListing()
+}
+
+func (c *FileChooser) startListing() {
+	if c.listings == maxChooserListings {
+		c.listingOwed = true
+		return
+	}
+	c.listings++
+	gen, dir, inRecents, source, recents := c.viewGen, c.dir, c.inRecents, c.source, c.recents
+	var (
+		entries []FileEntry
+		paths   []string
+		err     error
+	)
+	runOffLoop(func() {
+		switch {
+		case !inRecents:
+			entries, err = source(dir)
+		case recents != nil:
+			paths = recents()
+			entries = make([]FileEntry, len(paths))
+			for i, p := range paths {
+				entries[i].Name = filepath.Base(p)
+			}
+		}
+	}, func() {
+		c.listings--
+		if gen == c.viewGen {
+			c.all, c.recentAt = entries, paths
+			c.show()
+			c.showListingStatus(err, inRecents && recents == nil)
+		}
+		if c.listingOwed {
+			c.listingOwed = false
+			c.startListing()
+		}
+	})
+}
+
+func (c *FileChooser) showListingStatus(err error, noRecents bool) {
+	switch {
+	case err != nil:
+		c.SetStatus(err.Error())
+	case noRecents:
+		c.SetStatus(Tr("no recent files"))
+	}
+}
+
+func (c *FileChooser) show() {
+	c.listing = c.listing[:0]
+	for _, e := range c.all {
+		if c.inRecents || e.Dir || c.passes(e.Name) {
+			c.listing = append(c.listing, e)
+		}
+	}
+	c.model.set(c.listing)
+	c.list.Reset()
+	c.InvalidateLayout()
+}
+
+// dirLabel titles the current view.
+func (c *FileChooser) dirLabel() string {
+	if c.inRecents {
+		return Tr("Recent files")
+	}
+	return c.dir
+}
+
+// SetStatus shows or clears the status line.
+func (c *FileChooser) SetStatus(text string) {
+	c.status.SetText(text)
+}
+
+// buildPlaces rebuilds the place buttons for the wired sources into
+// the places row, keeping the row's slot in the layout.
+func (c *FileChooser) buildPlaces() {
+	th := Current()
+	if c.places == nil {
+		c.places = NewBox(Row, 6, 0)
+	} else {
+		c.places.Clear()
+	}
+	climb := NewButton(NewLabel(c.face, c.sizePx, Tr("Up"), th.OnAccent), 8, 4)
+	climb.OnClick = c.climb
+	home := NewButton(NewLabel(c.face, c.sizePx, Tr("Home"), th.OnAccent), 8, 4)
+	home.OnClick = func() {
+		dir, _ := os.UserHomeDir()
+		c.navigate(dir)
+	}
+	root := NewButton(NewLabel(c.face, c.sizePx, Tr("Filesystem"), th.OnAccent), 8, 4)
+	root.OnClick = func() { c.navigate("/") }
+	c.places.Append(climb, false)
+	c.places.Append(home, false)
+	c.places.Append(root, false)
+	if c.recents != nil {
+		recent := NewButton(NewLabel(c.face, c.sizePx, Tr("Recent"), th.OnAccent), 8, 4)
+		recent.OnClick = func() { c.navigate("") }
+		c.places.Append(recent, false)
+	}
+}
+
+// chooserModel is the List model over the current listing; rows are
+// labels built once per listing, directories marked with a trailing
+// separator and dimmed.
+type chooserModel struct {
+	face    render.Font
+	sizePx  float64
+	entries []FileEntry
+	rows    []Widget
+}
+
+func (m *chooserModel) set(entries []FileEntry) {
+	m.entries = entries
+	m.rows = m.rows[:0]
+}
+
+// Len implements ListModel.
+func (m *chooserModel) Len() int { return len(m.entries) }
+
+// Row implements ListModel.
+func (m *chooserModel) Row(i int) Widget {
+	if i < 0 || i >= len(m.entries) {
+		return nil
+	}
+	for len(m.rows) < i+1 {
+		m.rows = append(m.rows, nil)
+	}
+	if m.rows[i] == nil {
+		th := Current()
+		name := m.entries[i].Name
+		color := th.Text
+		if m.entries[i].Dir {
+			name += string(filepath.Separator)
+			color = th.TextMuted
+		}
+		m.rows[i] = NewLabel(m.face, m.sizePx, name, color)
+	}
+	return m.rows[i]
+}

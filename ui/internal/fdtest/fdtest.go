@@ -1,0 +1,161 @@
+// Package fdtest reads what a process's file descriptors refer to, for
+// tests that hold a component to closing every descriptor it is
+// handed.
+package fdtest
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"regexp"
+	"slices"
+	"strconv"
+	"syscall"
+	"testing"
+	"time"
+)
+
+var numberedInode = regexp.MustCompile(`^(socket|pipe):\[\d+\]$`)
+
+// Held is what process pid's open file descriptors refer to, in order:
+// the path each /proc/<pid>/fd entry links to, a socket and a pipe
+// without their inode numbers, so that two readings compare by what is
+// open rather than by which descriptor numbers hold it.
+func Held(t testing.TB, pid int) []string {
+	t.Helper()
+	dir := "/proc/" + strconv.Itoa(pid) + "/fd"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	held := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		target, err := os.Readlink(dir + "/" + entry.Name())
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		held = append(held, numberedInode.ReplaceAllString(target, "$1"))
+	}
+	slices.Sort(held)
+	return held
+}
+
+// Own is Held for the test's own process.
+func Own(t testing.TB) []string {
+	t.Helper()
+	return Held(t, os.Getpid())
+}
+
+// Beyond lists what held has more of than baseline, both in order.
+func Beyond(held, baseline []string) []string {
+	var extra []string
+	for _, target := range held {
+		for len(baseline) > 0 && baseline[0] < target {
+			baseline = baseline[1:]
+		}
+		if len(baseline) > 0 && baseline[0] == target {
+			baseline = baseline[1:]
+			continue
+		}
+		extra = append(extra, target)
+	}
+	return extra
+}
+
+// RequireNoneBeyond fails the test when its own process holds anything
+// beyond baseline, naming what it holds and after what.
+func RequireNoneBeyond(t testing.TB, baseline []string, after string) {
+	t.Helper()
+	if extra := Beyond(Own(t), baseline); len(extra) != 0 {
+		t.Errorf("after %s the process holds %q beyond what it did", after, extra)
+	}
+}
+
+// RawPipe is a pipe whose write end the Go runtime has never seen, as a
+// compositor hands a source client the write end of a consumer's: w is
+// a plain blocking descriptor, never registered with the poller, and the
+// handler's under test to close. The test reads r, which takes
+// deadlines, and closes it.
+func RawPipe(t testing.TB) (r *os.File, w uintptr) {
+	t.Helper()
+	var fds [2]int
+	if err := syscall.Pipe2(fds[:], syscall.O_CLOEXEC); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.SetNonblock(fds[0], true); err != nil {
+		t.Fatalf("make the read end of a raw pipe pollable: %v", err)
+	}
+	return os.NewFile(uintptr(fds[0]), "raw-pipe-r"), uintptr(fds[1])
+}
+
+const receiveLimit = 10 * time.Second
+
+// Receive hands send the write end of a fresh RawPipe and returns what
+// was written to it by the time every write end closed, failing the test
+// when one is still open after receiveLimit.
+func Receive(t testing.TB, send func(w uintptr)) []byte {
+	t.Helper()
+	r, w := RawPipe(t)
+	defer r.Close()
+	if err := r.SetReadDeadline(time.Now().Add(receiveLimit)); err != nil {
+		t.Fatalf("bound the read of %s: %v", r.Name(), err)
+	}
+	send(w)
+	got, err := io.ReadAll(r)
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("the raw pipe's write end was still open %v after it was handed over, %d bytes read", receiveLimit, len(got))
+	}
+	if err != nil {
+		t.Fatalf("read what was sent through %s: %v", r.Name(), err)
+	}
+	return got
+}
+
+// Stream plays the foreign client at the far end of a transfer: it dups
+// fd, the way the compositor hands one out, writes payload to the dup
+// from its own goroutine and closes it. wait reports the write's error,
+// or that the peer was still blocked on the pipe after receiveLimit;
+// it returns an error rather than failing the test so that it can be
+// called from any goroutine.
+func Stream(t testing.TB, fd uintptr, payload []byte) (wait func() error) {
+	t.Helper()
+	f := dupPeer(t, fd, "fdtest-peer")
+	done := make(chan error, 1)
+	go func() {
+		_, err := f.Write(payload)
+		_ = f.Close()
+		done <- err
+	}()
+	return func() error {
+		timeout := time.NewTimer(receiveLimit)
+		defer timeout.Stop()
+		select {
+		case err := <-done:
+			return err
+		case <-timeout.C:
+			return fmt.Errorf("the peer was still blocked on the pipe after %v", receiveLimit)
+		}
+	}
+}
+
+// HoldSilent dups fd and keeps the dup open and silent until the test
+// ends, so that only a deadline can end a read of the other end.
+func HoldSilent(t testing.TB, fd uintptr) {
+	t.Helper()
+	f := dupPeer(t, fd, "fdtest-silent-peer")
+	t.Cleanup(func() { _ = f.Close() })
+}
+
+func dupPeer(t testing.TB, fd uintptr, name string) *os.File {
+	t.Helper()
+	d, err := syscall.Dup(int(fd))
+	if err != nil {
+		t.Fatalf("dup the peer's end of descriptor %d: %v", fd, err)
+	}
+	return os.NewFile(uintptr(d), name)
+}

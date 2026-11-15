@@ -1,0 +1,224 @@
+// Package recentfiles tracks recently used files in the XDG
+// recently-used.xbel format (TOML-free, XML as the spec says), so lys-ui
+// apps share the recents list with the desktop's other citizens. The
+// manager keeps the list bounded, most-recent first, and writes
+// atomically; a missing or corrupt file starts an empty list.
+//
+// Load, Save, Add and Remove wait on the disk. An application drives a
+// Manager through Post, which runs everything in order off the loop.
+package recentfiles
+
+import (
+	"encoding/xml"
+	"errors"
+	"os"
+	"path/filepath"
+	"slices"
+	"time"
+
+	"github.com/stubbedev/lys-lib/atomicfile"
+	"github.com/stubbedev/lys-lib/xdg"
+
+	"github.com/stubbedev/lys-ui/internal/worker"
+	"github.com/stubbedev/lys-ui/transfer"
+)
+
+// Entry is one recently used file: its path (decoded from the file://
+// URI on disk), the owning application's name, and when it was last
+// used.
+type Entry struct {
+	Path string
+	App  string
+	When time.Time
+}
+
+// maxEntries bounds the list: the spec's consumers show a handful, and
+// an unbounded file grows forever.
+const maxEntries = 100
+
+// queueDepth bounds what a stuck disk can pile up behind the worker.
+const queueDepth = 64
+
+// Manager reads and writes one recents list. It is not safe for
+// concurrent use: whoever posts to it touches it only through Post.
+type Manager struct {
+	path    string
+	entries []Entry
+	work    *worker.Queue
+}
+
+// ErrNoDataHome is an environment that names no user data directory
+// for the list to live in.
+var ErrNoDataHome = errors.New("recentfiles: neither XDG_DATA_HOME nor HOME is an absolute path")
+
+// DefaultPath is the spec's location under env's user data directory,
+// $XDG_DATA_HOME or ~/.local/share. An environment with neither is
+// ErrNoDataHome: the list is never kept relative to the working
+// directory.
+func DefaultPath(env xdg.Env) (string, error) {
+	base, ok := env.DataHome()
+	if !ok {
+		return "", ErrNoDataHome
+	}
+	return filepath.Join(base, "recently-used.xbel"), nil
+}
+
+// New returns the manager for the given xbel path (DefaultPath for the
+// desktop's shared list).
+func New(path string) *Manager {
+	return &Manager{path: path, work: worker.New(queueDepth)}
+}
+
+// Post queues work to run off the caller's goroutine, in order, and
+// reports whether it was taken: a full or stopped queue refuses it.
+func (m *Manager) Post(work func()) bool { return m.work.Post(work) }
+
+// Stop refuses later posts, lets queued work finish within limit, and
+// reports whether it did.
+func (m *Manager) Stop(limit time.Duration) bool { return m.work.Stop(limit) }
+
+// List returns the entries, most recent first.
+func (m *Manager) List() []Entry {
+	out := make([]Entry, len(m.entries))
+	copy(out, m.entries)
+	return out
+}
+
+// Add moves paths to the front of the list under app, the last one
+// first, stamps them now, and persists once. Errors persisting are
+// reported once here; a failed write never loses the in-memory list.
+func (m *Manager) Add(app string, paths ...string) error {
+	now := time.Now()
+	for _, path := range paths {
+		path = filepath.Clean(path)
+		m.entries = slices.DeleteFunc(m.entries, func(e Entry) bool { return e.Path == path })
+		m.entries = slices.Insert(m.entries, 0, Entry{Path: path, App: app, When: now})
+	}
+	if len(m.entries) > maxEntries {
+		m.entries = m.entries[:maxEntries]
+	}
+	return m.Save()
+}
+
+// Remove drops path from the list and persists.
+func (m *Manager) Remove(path string) error {
+	path = filepath.Clean(path)
+	m.entries = slices.DeleteFunc(m.entries, func(e Entry) bool {
+		return e.Path == path
+	})
+	return m.Save()
+}
+
+// Load reads the xbel file; a missing file is an empty list, a corrupt
+// one is an empty list plus the error (the next Add rewrites it
+// clean). Entries whose URIs are not local file:// paths are skipped.
+func (m *Manager) Load() error {
+	data, err := os.ReadFile(m.path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			m.entries = nil
+			return nil
+		}
+		return err
+	}
+	var doc xbel
+	if err := xml.Unmarshal(data, &doc); err != nil {
+		m.entries = nil
+		return err
+	}
+	m.entries = m.entries[:0]
+	for _, b := range doc.Bookmarks {
+		path, ok := transfer.URIPath(b.Href)
+		if !ok {
+			continue
+		}
+		when, err := time.Parse(time.RFC3339, b.Modified)
+		if err != nil {
+			when = time.Time{}
+		}
+		app := ""
+		if len(b.Infos) > 0 && len(b.Infos[0].Metadatas) > 0 {
+			app = b.Infos[0].Metadatas[0].App.Name
+		}
+		m.entries = append(m.entries, Entry{Path: path, App: app, When: when})
+	}
+	slices.SortStableFunc(m.entries, func(a, b Entry) int {
+		if a.When.After(b.When) {
+			return -1
+		}
+		if a.When.Before(b.When) {
+			return 1
+		}
+		// Ties keep the file's order, which the writer emits newest
+		// first - RFC3339 stamps have second resolution, so a burst of
+		// adds lands tied and the stable sort preserves the truth.
+		return 0
+	})
+	if len(m.entries) > maxEntries {
+		m.entries = m.entries[:maxEntries]
+	}
+	return nil
+}
+
+// Save writes the list atomically (temp file + rename); an empty list
+// writes an empty xbel, not a deletion, so a shared desktop list does
+// not flap between present and absent.
+func (m *Manager) Save() error {
+	doc := xbel{Version: "1.0", XMLNSBookmark: "http://www.freedesktop.org/standards/desktop-bookmarks"}
+	for _, e := range m.entries {
+		doc.Bookmarks = append(doc.Bookmarks, xbelBookmark{
+			Href:     transfer.FileURI(e.Path),
+			Added:    e.When.Format(time.RFC3339),
+			Modified: e.When.Format(time.RFC3339),
+			Visited:  e.When.Format(time.RFC3339),
+			Infos: []xbelInfo{{
+				Metadatas: []xbelMetadata{{
+					Owner: "lys-ui",
+					App:   xbelApp{Name: e.App},
+				}},
+			}},
+		})
+	}
+	data, err := xml.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	body := append([]byte(xml.Header), data...)
+	body = append(body, '\n')
+	dir := filepath.Dir(m.path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	return atomicfile.WriteFile(m.path, body, 0o600)
+}
+
+// xbel is the on-disk document; only the fields lys-ui writes and reads
+// are modeled, unknown content is dropped on rewrite.
+type xbel struct {
+	XMLName       xml.Name       `xml:"xbel"`
+	Version       string         `xml:"version,attr"`
+	XMLNSBookmark string         `xml:"xmlns:bookmark,attr"`
+	Bookmarks     []xbelBookmark `xml:"bookmark"`
+}
+
+type xbelBookmark struct {
+	Href     string     `xml:"href,attr"`
+	Added    string     `xml:"added,attr,omitempty"`
+	Modified string     `xml:"modified,attr,omitempty"`
+	Visited  string     `xml:"visited,attr,omitempty"`
+	Infos    []xbelInfo `xml:"info"`
+}
+
+type xbelInfo struct {
+	Metadatas []xbelMetadata `xml:"metadata"`
+}
+
+type xbelMetadata struct {
+	Owner string  `xml:"owner,attr"`
+	App   xbelApp `xml:"app"`
+}
+
+type xbelApp struct {
+	Name string `xml:"name,attr,omitempty"`
+	Exec string `xml:"exec,attr,omitempty"`
+}

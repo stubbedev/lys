@@ -1,0 +1,69 @@
+package headlesstest
+
+import (
+	"testing"
+
+	"github.com/stubbedev/lys-lib/capture"
+
+	"github.com/stubbedev/lys-ui/app"
+	"github.com/stubbedev/lys-ui/internal/waittest"
+)
+
+// Two connections in one process (an application and a capture client,
+// as a shell taking a screenshot holds) each bind a hotplugged output
+// on their own connection. The binding once kept the registry's
+// connection in a process-wide map keyed by proxy id, so the first
+// connection's registry (id 2, like every registry) resolved to the
+// second connection: the output it bound took an id there that never
+// went out, and every later request creating an object on the second
+// connection waited for it forever.
+func TestTwoConnectionsBindAHotpluggedOutput(t *testing.T) {
+	requireEnv(t)
+	if testEnv.Compositor().Name() != "sway" {
+		t.Skip("output hotplug drives sway's IPC")
+	}
+	sess, err := app.Connect()
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	t.Cleanup(sess.Close)
+	c, err := capture.Connect()
+	if err != nil {
+		t.Fatalf("capture connect: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	before := len(sess.Outputs())
+
+	if err := swayIPCCommand(testEnv.Dir, "create_output"); err != nil {
+		t.Fatalf("create_output: %v", err)
+	}
+	name := ""
+	waittest.Until(t, func() bool {
+		if len(sess.Outputs()) > before {
+			return true
+		}
+		if err := sess.Roundtrip(); err != nil {
+			t.Fatalf("application roundtrip after the hotplug: %v", err)
+		}
+		return false
+	}, "the application to see the hotplugged output")
+	if err := sess.Roundtrip(); err != nil {
+		t.Fatalf("application roundtrip: %v", err)
+	}
+	outs := sess.Outputs()
+	name = outs[len(outs)-1].Name
+	t.Cleanup(func() { _ = swayIPCCommand(testEnv.Dir, "output "+name+" unplug") })
+
+	done := make(chan error, 1)
+	go func() {
+		if err := c.Refresh(); err != nil {
+			done <- err
+			return
+		}
+		_, err := c.CaptureOutput(c.Outputs()[0], capture.Options{})
+		done <- err
+	}()
+	if err := waittest.For(t, done, "the capture connection to finish after the application bound the hotplugged output"); err != nil {
+		t.Fatalf("capture after the hotplug: %v", err)
+	}
+}

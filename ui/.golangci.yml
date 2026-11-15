@@ -1,0 +1,76 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - forbidigo
+    - gosec
+    - intrange
+    - misspell
+    - modernize
+    - nolintlint
+    - perfsprint
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - whitespace
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^math\.(Sin|Cos|Sincos|Tan|Atan|Atan2|Asin|Acos|Exp|Exp2|Log|Log2|Log10|Pow|Cbrt|Hypot|Erf|Erfc)$
+          msg: its result depends on the architecture; use lys-lib's third_party/gomath
+    errcheck:
+      check-type-assertions: true
+      exclude-functions:
+        - (*os.File).Close
+        - (io.Closer).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    perfsprint:
+      strconcat: true
+      sprintf1: true
+    revive:
+      rules:
+        # Enforced since the API-consistency pass (#52): every
+        # exported symbol carries a doc comment starting with its
+        # name, so godoc and the wayle-facing API stay complete.
+        - name: exported
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - forbidigo
+          - errcheck
+          - gosec
+          - unparam
+      # package atspitest is test support: it starts the at-spi2-core
+      # daemons a test names and reads /proc for any left behind.
+      - path: ^atspitest/
+        linters:
+          - gosec
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/stubbedev/lys-ui)
+  exclusions:
+    generated: lax

@@ -1,0 +1,216 @@
+package widget
+
+import (
+	"testing"
+
+	"github.com/stubbedev/lys-lib/render"
+
+	"github.com/stubbedev/lys-ui/anim"
+)
+
+// pileOf is a pile of n cards, each a stub h tall, the pile 200 wide.
+func pileOf(t *testing.T, h ...int) (*Pile, []*stub) {
+	t.Helper()
+	t.Cleanup(anim.SetInstant(true))
+	p := NewPile()
+	var cards []*stub
+	for _, hh := range h {
+		c := newStub(200, hh)
+		cards = append(cards, c)
+		p.Append(c)
+	}
+	return p, cards
+}
+
+// Collapsed, the front card shows whole at the top and two cards peek
+// below it, each scaled down about its middle by the peek scale per
+// level, its bottom a step lower; the rest lie buried under the last
+// peek. Only the front takes the pointer (#332, #338).
+func TestPileCollapsed(t *testing.T) {
+	p, cards := pileOf(t, 40, 60, 30, 50)
+	settle(t, p, 200, 400)
+	if sz := SizeWithin(p, Size{W: 200, H: 400}); sz != (Size{W: 200, H: 40 + 2*pilePeekOffset}) {
+		t.Errorf("collapsed size %v, want the front plus two steps", sz)
+	}
+	want := []render.Rect{
+		{X: 0, Y: 0, W: 200, H: 40},
+		{X: 6, Y: 10, W: 188, H: 38},
+		{X: 11, Y: 21, W: 177, H: 35},
+		{X: 11, Y: 21, W: 177, H: 35},
+	}
+	for i, c := range cards {
+		if c.Bounds() != want[i] {
+			t.Errorf("card %d at %v, want %v", i, c.Bounds(), want[i])
+		}
+	}
+	for i, class := range []string{pileFrontClass, pilePeekClass, pilePeekClass, pileBuriedClass} {
+		if !cards[i].HasClass(class) {
+			t.Errorf("card %d lacks %q", i, class)
+		}
+	}
+	if p.HasClass(pileOpenClass) {
+		t.Error("a collapsed pile is expanded")
+	}
+	if hit := p.HitTest(Point{X: 100, Y: 50}); hit == Widget(cards[1]) || hit == Widget(cards[2]) {
+		t.Errorf("a peeking card took the pointer: %T", hit)
+	}
+	if hit := p.HitTest(Point{X: 100, Y: 10}); hit != Widget(cards[0]) {
+		t.Errorf("the front did not take the pointer: %T", hit)
+	}
+}
+
+// Expanded, the cards lay out as a column at their own heights with
+// the gap, every one taking the pointer; peeking past the top edge the
+// front sits lowest, collapsed and expanded.
+func TestPileExpanded(t *testing.T) {
+	p, cards := pileOf(t, 40, 60, 30)
+	p.SetExpanded(true)
+	settle(t, p, 200, 400)
+	if sz := SizeWithin(p, Size{W: 200, H: 400}); sz.H != 40+60+30+2*pileSpacing {
+		t.Errorf("expanded height %d", sz.H)
+	}
+	if b := cards[2].Bounds(); b != (render.Rect{X: 0, Y: 40 + 60 + 2*pileSpacing, W: 200, H: 30}) {
+		t.Errorf("third card at %v", b)
+	}
+	if !p.HasClass(pileOpenClass) || cards[1].HasClass(pilePeekClass) {
+		t.Error("expanded classes wrong")
+	}
+	if hit := p.HitTest(Point{X: 100, Y: 60}); hit != Widget(cards[1]) {
+		t.Errorf("an expanded card did not take the pointer: %T", hit)
+	}
+	p.SetPeekEdge(EdgeTop)
+	settle(t, p, 200, 146)
+	if b := cards[0].Bounds(); b.Y+b.H != 146 {
+		t.Errorf("expanded from the bottom, the front ends at %d, want 146", b.Y+b.H)
+	}
+	p.SetExpanded(false)
+	settle(t, p, 200, 56)
+	if f, k := cards[0].Bounds(), cards[1].Bounds(); f.Y != 16 || k.Y != 8 {
+		t.Errorf("peeking up: front at %d, first peek at %d; want 16 and 8", f.Y, k.Y)
+	}
+}
+
+// A peeking card paints only its own box, fainter by the peek opacity
+// per level: its background shows past the front, its content never
+// does.
+func TestPilePeeksPaintTheirBoxOnly(t *testing.T) {
+	loadCSS(t, `.card { background-color: #0000ff; }`)
+	t.Cleanup(anim.SetInstant(true))
+	p := NewPile()
+	for range 2 {
+		card := NewBox(Column, 0, 0)
+		card.AddClass("card")
+		card.Append(&solidLeaf{sz: Size{W: 200, H: 40}, col: render.RGB(255, 0, 0)}, false)
+		p.Append(card)
+	}
+	settle(t, p, 200, 60)
+	data := paintTree(p, 200, 60)
+	at := func(x, y int) render.Color { return render.ColorFromBytes(data[y*render.Stride(200)+x*4:]) }
+	if got := at(100, 20); got != render.RGB(255, 0, 0) {
+		t.Errorf("front content %#08x, want red", uint32(got))
+	}
+	if got := at(100, 44); got.R() != 0 || got.G() != 0 || got.B() != got.A() || got.A() < 175 || got.A() > 181 {
+		t.Errorf("past the front, the peek shows %#08x, want its blue box at 70%%, not its red content", uint32(got))
+	}
+}
+
+// A peek wrapped in box-less single-child wrappers (#332: a SwipeDismiss
+// around a Revealer around the card) shows the card's box inside them.
+func TestPilePeekShowsTheBoxInsideWrappers(t *testing.T) {
+	loadCSS(t, `.card { background-color: #0000ff; }`)
+	t.Cleanup(anim.SetInstant(true))
+	p := NewPile()
+	for range 2 {
+		card := NewBox(Column, 0, 0)
+		card.AddClass("card")
+		card.Append(&solidLeaf{sz: Size{W: 200, H: 40}, col: render.RGB(255, 0, 0)}, false)
+		rv := NewRevealer(card)
+		rv.SetRevealed(true)
+		p.Append(NewSwipeDismiss(rv))
+	}
+	settle(t, p, 200, 60)
+	data := paintTree(p, 200, 60)
+	if got := render.ColorFromBytes(data[44*render.Stride(200)+100*4:]); got.R() != 0 || got.G() != 0 || got.B() == 0 {
+		t.Errorf("past the front, the wrapped peek shows %#08x, want the card's blue box", uint32(got))
+	}
+}
+
+// Expanding moves the cards on their layout spring: mid-flight a card
+// shows between its stacked and its column place.
+func TestPileExpandAnimates(t *testing.T) {
+	c := pinAnimClock(t)
+	p := NewPile()
+	c.host(t, p)
+	cards := []*stub{newStub(200, 40), newStub(200, 40)}
+	for _, card := range cards {
+		p.Append(card)
+	}
+	settle(t, p, 200, 400)
+	paintTree(p, 200, 400)
+	from := ShownRect(cards[1]).Y
+	p.SetExpanded(true)
+	settle(t, p, 200, 400)
+	paintTree(p, 200, 400)
+	c.step()
+	c.step()
+	paintTree(p, 200, 400)
+	to := cards[1].Bounds().Y
+	if y := ShownRect(cards[1]).Y; y <= from || y >= to {
+		t.Errorf("mid-flight the second card shows at %d, want between %d and %d", y, from, to)
+	}
+}
+
+// A card buried past the peek unfolds like the peeking ones: it sets
+// out from under the pile, neither snapping to its place nor growing
+// there from nothing.
+func TestPileBuriedCardsUnfoldFromUnderThePile(t *testing.T) {
+	c := pinAnimClock(t)
+	p := NewPile()
+	c.host(t, p)
+	cards := []*stub{newStub(200, 40), newStub(200, 40), newStub(200, 40), newStub(200, 40), newStub(200, 40)}
+	for _, card := range cards {
+		p.Append(card)
+	}
+	settle(t, p, 200, 400)
+	paintTree(p, 200, 400)
+	paintTree(p, 200, 400)
+	buried := cards[4]
+	from := ShownRect(buried)
+	p.SetExpanded(true)
+	settle(t, p, 200, 400)
+	paintTree(p, 200, 400)
+	to := buried.Bounds()
+	first := ShownRect(buried)
+	if first.Y >= to.Y || first.H == 0 {
+		t.Errorf("the expanding frame shows it at %v, want on its way from %v to %v", first, from, to)
+	}
+	c.step()
+	c.step()
+	paintTree(p, 200, 400)
+	if mid := ShownRect(buried); mid.Y <= from.Y || mid.Y >= to.Y || mid.H == 0 {
+		t.Errorf("mid-flight it shows at %v, want between %v and %v", mid, from, to)
+	}
+}
+
+// At rest, a buried card shows nothing: the last peek keeps its depth's
+// opacity however many cards lie under it.
+func TestPileBuriedCardsPaintNothingAtRest(t *testing.T) {
+	loadCSS(t, `.card { background-color: #0000ff; }`)
+	t.Cleanup(anim.SetInstant(true))
+	shape := func(n int) render.Color {
+		p := NewPile()
+		for range n {
+			card := NewBox(Column, 0, 0)
+			card.AddClass("card")
+			card.Append(&solidLeaf{sz: Size{W: 200, H: 40}, col: render.RGB(255, 0, 0)}, false)
+			p.Append(card)
+		}
+		settle(t, p, 200, 80)
+		paintTree(p, 200, 80)
+		data := paintTree(p, 200, 80)
+		return render.ColorFromBytes(data[52*render.Stride(200)+100*4:])
+	}
+	if with, without := shape(5), shape(3); with != without {
+		t.Errorf("past the front, buried cards change the pile: %#08x, want %#08x", uint32(with), uint32(without))
+	}
+}

@@ -1,0 +1,171 @@
+package dragdrop
+
+import (
+	"bytes"
+	"errors"
+	"io"
+	"testing"
+	"time"
+
+	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+
+	"github.com/stubbedev/lys-ui/internal/fdtest"
+	"github.com/stubbedev/lys-ui/internal/waittest"
+	"github.com/stubbedev/lys-ui/internal/xfer"
+	"github.com/stubbedev/lys-ui/transfer"
+)
+
+// capturingOffer plays a foreign drag offer and hands a test the write
+// end Receive was given, so it can attach a peer while the end is open.
+type capturingOffer struct {
+	fakeOffer
+	onReceive func(fd uintptr)
+}
+
+func (c *capturingOffer) Receive(mimeType string, fd uintptr) error {
+	c.onReceive(fd)
+	return c.receiveErr
+}
+
+// fakeSourceWriter adapts a payload into the Content provider shape.
+func fakeSourceWriter(payload []byte) func(string, io.Writer) error {
+	return func(_ string, w io.Writer) error {
+		_, err := w.Write(payload)
+		return err
+	}
+}
+
+// shortTransferTimeout shrinks the transfer deadline for one test.
+func shortTransferTimeout(t *testing.T) {
+	t.Helper()
+	orig := transferTimeout
+	transferTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { transferTimeout = orig })
+}
+
+type receiveResult struct {
+	data []byte
+	err  error
+}
+
+func awaitReceive(t *testing.T, c *Controller, offer offerAPI, mime string) receiveResult {
+	t.Helper()
+	ch := make(chan receiveResult, 1)
+	c.receive(offer, mime, func(data []byte, err error) { ch <- receiveResult{data, err} })
+	return waittest.For(t, ch, "the drop payload")
+}
+
+// A cross-process drop keeps working for an honest source, and a
+// successful transfer still finishes the drag transaction.
+func TestReceivePayloadRoundtripsASmallDrop(t *testing.T) {
+	var wait func() error
+	offer := &capturingOffer{onReceive: func(fd uintptr) { wait = fdtest.Stream(t, fd, []byte("dropped text")) }}
+	r := awaitReceive(t, newTestController(), offer, "text/plain")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if string(r.data) != "dropped text" {
+		t.Errorf("payload = %q, want the source's payload", r.data)
+	}
+	if offer.finished != 1 {
+		t.Errorf("finish calls = %d, want 1 after a full transfer", offer.finished)
+	}
+	if err := wait(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A source streaming past xfer.MaxPayload gets its transfer refused
+// with an error, the fd is drained past the cap so the source never
+// blocks, and the truncated transfer is not finished: the drag
+// transaction unwinds instead of completing.
+func TestReceivePayloadRefusesAnOversizeSource(t *testing.T) {
+	payload := bytes.Repeat([]byte{0xD5}, xfer.MaxPayload+64)
+	var wait func() error
+	offer := &capturingOffer{onReceive: func(fd uintptr) { wait = fdtest.Stream(t, fd, payload) }}
+	r := awaitReceive(t, newTestController(), offer, "text/plain")
+	if !errors.Is(r.err, xfer.ErrTooLarge) {
+		t.Fatalf("read = %v, want xfer.ErrTooLarge", r.err)
+	}
+	if r.data != nil {
+		t.Errorf("payload = %d bytes, want none: a capped drop is refused whole", len(r.data))
+	}
+	if offer.finished != 0 {
+		t.Error("a truncated transfer was finished")
+	}
+	if err := wait(); err != nil {
+		t.Errorf("source blocked or errored past the cap: %v", err)
+	}
+}
+
+// A source that never writes leaves the drop pending, never the caller:
+// the deadline ends it, unfinished.
+func TestReceivePayloadCutsOffASilentSource(t *testing.T) {
+	shortTransferTimeout(t)
+	offer := &capturingOffer{onReceive: func(fd uintptr) { fdtest.HoldSilent(t, fd) }}
+	r := awaitReceive(t, newTestController(), offer, "text/plain")
+	if !errors.Is(r.err, xfer.ErrTimeout) {
+		t.Fatalf("read = %v, want xfer.ErrTimeout", r.err)
+	}
+	if offer.finished != 0 {
+		t.Error("a timed-out transfer was finished")
+	}
+}
+
+func TestDropReturnsBeforeASilentSource(t *testing.T) {
+	c := newTestController()
+	offer := &capturingOffer{onReceive: func(fd uintptr) { fdtest.HoldSilent(t, fd) }}
+	c.dragOffer, c.accepted = offer, "text/plain"
+	delivered := make(chan error, 1)
+	c.ReadPayload("text/plain", func(_ []byte, err error) { delivered <- err })
+	select {
+	case err := <-delivered:
+		t.Fatalf("a silent source's drop delivered %v, want it pending", err)
+	default:
+	}
+	c.Stop()
+	if err := waittest.For(t, delivered, "the stopped drop's result"); err == nil {
+		t.Error("a stopped transfer delivered no error")
+	}
+	if offer.finished != 0 {
+		t.Error("a stopped transfer was finished")
+	}
+}
+
+// A consumer that never reads holds a transfer goroutine, never the
+// handler; Stop ends the write.
+func TestSourceSendToAStuckConsumerIsBounded(t *testing.T) {
+	c := newTestController()
+	c.srcData = transfer.Drag{Mimes: []string{"text/plain"}, Write: fakeSourceWriter(bytes.Repeat([]byte("d"), 1<<20))}
+	r, w := fdtest.RawPipe(t)
+	defer r.Close()
+	c.HandleDataSourceSend(wl.DataSourceSendEvent{MimeType: "text/plain", Fd: w})
+	c.Stop()
+}
+
+// Every send request's fd is closed: one served, one for a drag
+// without content, one whose provider fails, and one past Stop.
+func TestSourceSendClosesEveryFd(t *testing.T) {
+	c := newTestController()
+	request := func(c *Controller, mime string) {
+		t.Helper()
+		fdtest.Receive(t, func(w uintptr) { c.HandleDataSourceSend(wl.DataSourceSendEvent{MimeType: mime, Fd: w}) })
+	}
+	empty := newTestController()
+	failing := newTestController()
+	failing.srcData = transfer.Drag{Mimes: []string{"text/plain"}, Write: func(string, io.Writer) error { return io.ErrShortWrite }}
+	c.srcData = transfer.Drag{Mimes: []string{"text/plain"}, Write: fakeWriter}
+	request(c, "text/plain")
+	before := fdtest.Own(t)
+	const events = 16
+	for range events {
+		request(c, "text/plain")
+		request(empty, "text/plain")
+		request(failing, "text/plain")
+	}
+	c.Stop()
+	for range events {
+		request(c, "text/plain")
+	}
+	fdtest.RequireNoneBeyond(t, before, "serving, failing and stopping drag send requests")
+}

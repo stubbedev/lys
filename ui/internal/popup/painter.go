@@ -1,0 +1,414 @@
+// The per-frame paint pipeline for a popup surface, driven by the
+// application loop: a surface never dispatches itself (see
+// docs/threading.md: one event-loop goroutine owns the connection).
+package popup
+
+import (
+	"errors"
+	"sync/atomic"
+	"time"
+
+	"github.com/stubbedev/lys-lib/debug"
+	"github.com/stubbedev/lys-lib/gpu"
+	"github.com/stubbedev/lys-lib/intconv"
+	"github.com/stubbedev/lys-lib/render"
+	"github.com/stubbedev/lys-lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys-lib/third_party/wayland/wlclient"
+
+	"github.com/stubbedev/lys-ui/anim"
+	"github.com/stubbedev/lys-ui/internal/blursync"
+	"github.com/stubbedev/lys-ui/internal/buffer"
+	"github.com/stubbedev/lys-ui/internal/repaint"
+	"github.com/stubbedev/lys-ui/internal/scale"
+	"github.com/stubbedev/lys-ui/internal/wlsession"
+	"github.com/stubbedev/lys-ui/widget"
+)
+
+// Renderer draws a popup's frames on the GPU, as its window's are: the
+// buffers it renders into, the frame a paint becomes there, and the
+// copy that brings a reused buffer forward. A frame that fails reports
+// false, after which Failed holds and the popup draws on the CPU; an
+// error ends the popup.
+type Renderer interface {
+	NewBuffer(sess *wlsession.Session, bufW, bufH, scale int) (*buffer.Buffer, error)
+	Frame(b *buffer.Buffer, num int, carry []gpu.Carry, paint func(cv *render.Canvas)) (buffer.FrameOutcome, error)
+	Failed() bool
+}
+
+// Painter owns one popup surface's buffer pool and frame pacing.
+// Pass drives at most one frame per call; the owning loop calls it
+// once per pass and parks however it likes between passes.
+type Painter struct {
+	p      *Popup
+	clock  *anim.Clock
+	unhost func()
+
+	sess    *wlsession.Session
+	gpu     Renderer // nil draws on the CPU
+	pool    *buffer.Pool
+	surf    *wl.Surface
+	sync    buffer.SurfaceSync
+	frac120 uint32
+	bg      render.Color
+	noPlate bool          // Config.NoPlate: the content paints its own look
+	gutter  int           // the shadow margin the content is inset by
+	visual  widget.Widget // the morph wrapper around the content, plate included
+	// w, h is the size the pool's buffers have, so a resize retires
+	// them.
+	w, h int
+	// damage is what the visual owes the next frame.
+	damage repaint.Region
+
+	frameDone    wlsession.FrameDone
+	framePending bool
+	mapped       bool
+	dirty        atomic.Bool
+	// blur is the compositor blur behind the content; fade is the
+	// surface opacity last sent to go with it, fading set whether one
+	// went out.
+	blur   blursync.Sync
+	fade   float64
+	fading bool
+}
+
+// blurSurface is the popup surface's wire half for blursync.
+type blurSurface struct {
+	sess *wlsession.Session
+	surf *wl.Surface
+}
+
+// BlurAvailable implements blursync.Surface.
+func (b blurSurface) BlurAvailable() bool { return b.sess.BlurAvailable() }
+
+// SetBlurRegion implements blursync.Surface.
+func (b blurSurface) SetBlurRegion(rects []render.Rect) error {
+	return b.sess.SetBlurRegion(b.surf, rects)
+}
+
+// NewPainter wraps root in the tween view (seeded from the
+// coordinator, so the first frame is the hidden or offset one, never a
+// flash of the finished surface) and returns the frame driver. A
+// non-nil gpu draws the frames on the GPU.
+func (p *Popup) NewPainter(sess *wlsession.Session, gpu Renderer, frac120 uint32, root widget.Widget, bg render.Color) *Painter {
+	if frac120 == 0 {
+		frac120 = scale.Denom
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	pc := &Painter{
+		p:       p,
+		clock:   p.clock,
+		sess:    sess,
+		gpu:     gpu,
+		surf:    p.WLSurface,
+		frac120: frac120,
+		bg:      bg,
+		noPlate: p.cfg.NoPlate,
+		gutter:  p.gutter,
+	}
+	pc.pool = buffer.New(pc.create, 2)
+	reveal, morph := p.fx.Visual()
+	p.anim = newAnimView(root, reveal, morph, p.gravity, p.gutter, pc.paintPlate)
+	p.anim.morph.SetPlateOpaque(!pc.noPlate && bg.A() == 0xff)
+	pc.visual = p.anim.morph
+	pc.unhost = widget.Host(pc.visual, pc.clock)
+	pc.w, pc.h = p.Size()
+	pc.dirty.Store(true)
+	p.painter = pc
+	return pc
+}
+
+// create allocates a buffer at the popup's current size: a GPU target
+// while the popup draws on the GPU, shared memory otherwise.
+func (pc *Painter) create() (*buffer.Buffer, error) {
+	w, h := pc.p.Size()
+	dw, dh, s := scale.DeviceSize(w, pc.frac120), scale.DeviceSize(h, pc.frac120), scale.IntegerScale(pc.frac120)
+	if pc.gpu != nil {
+		return pc.gpu.NewBuffer(pc.sess, dw, dh, s)
+	}
+	return buffer.NewFile(pc.sess.Shm(), dw, dh, s)
+}
+
+// dropGPU turns the popup to the CPU after a GPU frame failed: the pool
+// retires its targets for shared-memory buffers.
+func (pc *Painter) dropGPU() {
+	pc.gpu = nil
+	pc.pool.Resize(pc.create)
+	pc.damage.Full(render.Rect{W: pc.w, H: pc.h})
+}
+
+// Collect drains the visual's invalidations into what the next frame
+// owes and reports whether it owed any: the owner refits the popup to
+// its content then and marks the frame.
+func (pc *Painter) Collect() bool {
+	w, h := pc.p.Size()
+	return pc.collect(render.Rect{W: w, H: h})
+}
+
+// collect is Collect within bounds, logging under LYS_DEBUG=damage
+// what owed its whole bounds.
+func (pc *Painter) collect(bounds render.Rect) bool {
+	if !pc.damage.Collect(pc.visual, bounds) {
+		return false
+	}
+	if report := widget.DamageReport(); report != "" {
+		debug.Log("damage", "%dx%d popup owes bounds: %s", bounds.W, bounds.H, report)
+	}
+	return true
+}
+
+// Owes reports whether the painter has a frame to paint: a tween
+// callback or content change marked it. Owners skip the Pass call
+// while it reads false, the popover-style gate.
+func (pc *Painter) Owes() bool { return pc.dirty.Load() }
+
+// TakeFrame reports the frame callback that came back since the last call, by
+// the compositor's timestamp, and whether one is still awaited.
+func (pc *Painter) TakeFrame() (ms uint32, arrived, pending bool) {
+	if pc.frameDone.Ready {
+		pc.frameDone.Ready = false
+		pc.framePending = false
+		return pc.frameDone.MS, true, false
+	}
+	return 0, false, pc.framePending
+}
+
+// Pass paints at most one frame: when a repaint is owed and the
+// compositor has taken the previous one, measure, arrange, paint what
+// the visual owes under the current reveal (plus what the reused
+// buffer is stale in), commit, and arm the next frame callback. The
+// whole wire sequence holds p.mu, serialized against the dismissal
+// state machine's SealInput and Destroy. While the popup waits on its
+// first configure the frame stays owed and nothing goes out. It returns
+// false when the popup is destroyed and the painter is spent.
+func (pc *Painter) Pass() (bool, error) {
+	if pc.p.Destroyed() {
+		return false, nil
+	}
+	if !pc.p.configured {
+		return true, nil
+	}
+	if pc.p.dirty.CompareAndSwap(true, false) {
+		pc.dirty.Store(true)
+	}
+	pc.TakeFrame()
+	if !pc.dirty.Load() || pc.framePending {
+		return true, nil
+	}
+	pc.dirty.Store(false)
+	if pc.gpu != nil && pc.gpu.Failed() {
+		pc.dropGPU()
+	}
+	if w, h := pc.p.Size(); w != pc.w || h != pc.h {
+		// The popup was re-placed at a new size: buffers of the old one
+		// retire as they come back.
+		pc.pool.Resize(pc.create)
+		pc.w, pc.h = w, h
+		pc.damage.Full(render.Rect{W: w, H: h})
+	}
+	committed, live, err := pc.frame()
+	if !committed || err != nil {
+		return live, err
+	}
+	if !pc.mapped {
+		pc.mapped = true
+		_, h := pc.p.Size()
+		pc.p.checkSide(intconv.Clamp[int32](h))
+	}
+	return true, nil
+}
+
+// frame is Pass's wire sequence under p.mu: lay out, paint what is
+// owed, and commit. It reports whether a frame went out, and live as
+// Pass does.
+func (pc *Painter) frame() (committed, live bool, err error) {
+	p := pc.p
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.Destroyed() {
+		return false, false, nil
+	}
+	w, h := p.Size()
+	_ = p.sc.Apply(pc.frac120, w, h)
+	pc.visual.Arrange(render.Rect{W: w, H: h})
+	pc.syncBlur()
+	bounds := render.Rect{W: w, H: h}
+	pc.collect(bounds)
+	if !pc.mapped {
+		pc.damage.Full(bounds)
+	}
+	if pc.damage.Empty() {
+		return false, true, nil
+	}
+
+	b, err := pc.pool.Acquire()
+	if errors.Is(err, buffer.ErrBusy) {
+		// The release event (dispatched by the owning loop) wakes it;
+		// the owed region waits in damage.
+		debug.Log("frame", "popup frame deferred: pool busy (a buffer held, or its import pending)")
+		pc.dirty.Store(true)
+		return false, true, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	start := time.Now()
+	front := pc.pool.Front()
+	pc.damage.PlanBlits(b, front, int(pc.frac120))
+	pc.damage.DropCovered(b, int(pc.frac120))
+	carryFrom := pc.pool.CopyForward(b)
+	carry := pc.damage.Blit(b, front, carryFrom)
+	rects, changed, regions := pc.damage.Plan(b, int(pc.frac120), carryFrom != nil)
+	outcome, err := pc.paint(b, carry, regions)
+	if err != nil {
+		return false, false, err
+	}
+	if outcome != buffer.FrameDrawn && outcome != buffer.FrameIncomplete {
+		pc.dirty.Store(true)
+		return false, true, nil
+	}
+
+	if err := pc.surf.Attach(b.WL, 0, 0); err != nil {
+		return false, false, err
+	}
+	if err := pc.sync.Points(pc.sess.SyncobjManager(), pc.surf, b); err != nil {
+		return false, false, err
+	}
+	for _, r := range rects {
+		if err := pc.surf.DamageBuffer(intconv.Clamp[int32](r.X), intconv.Clamp[int32](r.Y), intconv.Clamp[int32](r.W), intconv.Clamp[int32](r.H)); err != nil {
+			return false, false, err
+		}
+	}
+	// The frame request is double-buffered state: it must precede the
+	// commit it rides on. Requested after, it would wait for a commit
+	// that never comes - this pass only commits again once the callback
+	// it is waiting for has fired.
+	cb, err := pc.surf.Frame()
+	if err != nil {
+		return false, false, err
+	}
+	wlclient.CallbackAddListener(cb, &pc.frameDone)
+	if err := pc.surf.Commit(); err != nil {
+		return false, false, err
+	}
+	if err := pc.presented(b, changed, outcome); err != nil {
+		return false, false, err
+	}
+	if debug.Enabled {
+		painted := 0
+		for _, r := range regions {
+			painted += r.W * r.H
+		}
+		debug.Log("frame", "popup %d committed %dx%d: %d region(s), %d px in %v", pc.surf.Id(), b.Width, b.Height, len(regions), painted, time.Since(start))
+	}
+	return true, true, nil
+}
+
+func (pc *Painter) presented(b *buffer.Buffer, changed *buffer.Region, outcome buffer.FrameOutcome) error {
+	pc.pool.Presented(b, changed)
+	if outcome == buffer.FrameIncomplete {
+		pc.damage.Refuse()
+		pc.dirty.Store(true)
+	}
+	pc.framePending = true
+	if pc.clock.Active() {
+		return pc.pool.Prepare()
+	}
+	return nil
+}
+
+// syncBlur publishes the blur for this frame, on the commit that shows
+// it, so the first paint and every motion frame carry their own region.
+// While the blur is on the surface fades through the compositor, which
+// fades the blur along, where the compositor can; elsewhere the paint
+// fades and the blur shows from the frame the shape does.
+func (pc *Painter) syncBlur() {
+	if !pc.p.cfg.BackgroundBlur {
+		return
+	}
+	morph := pc.p.anim.morph
+	pc.blur.Update(blurSurface{pc.sess, pc.surf}, true, pc.p.cfg.BlurRoot, morph.BackdropRegion)
+	if !pc.sess.BlurAvailable() {
+		morph.SetCompositorFade(false)
+		return
+	}
+	fade := morph.Fade()
+	if pc.fading && fade == pc.fade {
+		return
+	}
+	if err := pc.sess.SetSurfaceAlpha(pc.surf, fade); err != nil {
+		debug.Log("frame", "popup fade: %v", err)
+		morph.SetCompositorFade(false)
+		return
+	}
+	morph.SetCompositorFade(true)
+	pc.fade, pc.fading = fade, true
+}
+
+// paint draws the visual into b within the device region: through the
+// GPU renderer into a target, after the copies carry makes into it,
+// onto shared memory otherwise. A GPU frame that did not go out never
+// reaches the compositor and b goes back: a refused one stays owed for
+// the renderer's retry, and after a failed one the popup turns to the
+// CPU, for the next pass to repaint.
+func (pc *Painter) paint(b *buffer.Buffer, carry []gpu.Carry, regions []render.Rect) (buffer.FrameOutcome, error) {
+	// The region raw-clears to transparent: with a shadow gutter the
+	// falloff must blend over whatever the popup floats above, and a
+	// recycled buffer must not leak its last frame through. The morph
+	// paints shadow, plate and content together, so the motion carries
+	// the elevation with the popup.
+	draw := func(cv *render.Canvas) {
+		for _, region := range regions {
+			prev := cv.PushClipDevice(region)
+			cv.ClearDevice(region, render.Color(0))
+			pc.visual.Paint(cv)
+			cv.PopClip(prev)
+		}
+	}
+	if b.Target == nil {
+		draw(render.NewScaled(b.Data, b.Stride, b.Width, b.Height, int(pc.frac120), scale.Denom))
+		return buffer.FrameDrawn, nil
+	}
+	outcome, err := pc.gpu.Frame(b, int(pc.frac120), carry, draw)
+	if err != nil {
+		return outcome, err
+	}
+	switch outcome {
+	case buffer.FrameRefused:
+		debug.Log("frame", "popup frame deferred: GPU busy")
+		b.Release()
+		pc.damage.Refuse()
+	case buffer.FrameLost:
+		b.Release()
+		pc.dropGPU()
+	case buffer.FrameDrawn, buffer.FrameIncomplete:
+	}
+	return outcome, nil
+}
+
+// Close releases the painter's pool storage back to the session arena.
+func (pc *Painter) Close() {
+	pc.unhost()
+	if err := pc.sync.Close(); err != nil {
+		debug.Log("frame", "popup: destroy the explicit sync object: %v", err)
+	}
+	pc.pool.Close()
+}
+
+// paintPlate fills the content rect with the popup background and,
+// when the theme reserves a shadow gutter, paints the elevation around
+// it first - unless the content paints its own (Config.NoPlate) — the shared elevation look every popup carries, content
+// kind aside. The plate rounds at the theme radius, matching the
+// shadow silhouette and the menu plates painted on top of it.
+func (pc *Painter) paintPlate(cv *render.Canvas, content render.Rect) {
+	if pc.noPlate {
+		return
+	}
+	t := widget.Current()
+	if pc.gutter > 0 {
+		t.DrawShadow(cv, content, t.Radius)
+		cv.RoundedRect(content, t.Radius, pc.bg)
+		return
+	}
+	cv.FillRect(content, pc.bg)
+}
