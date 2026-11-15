@@ -129,7 +129,7 @@ func LoadLocation(dir string) (nightschedule.Location, error) {
 	}
 	loc, err := nightschedule.NewLocation(latitude, longitude)
 	if err != nil {
-		return nightschedule.Location{}, fmt.Errorf("%s: %w", path, err)
+		return nightschedule.Location{}, fmt.Errorf("%w, read from %s", err, path)
 	}
 	return loc, nil
 }

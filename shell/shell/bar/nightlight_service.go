@@ -121,7 +121,7 @@ func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 	s := &nightlightService{ctx: ctx, env: env, cfg: cfg}
 	ctx.OnRetire(s.stop)
 	if s.night, s.nightErr = nightlight.NewSetting(int(cfg.Temperature), int(cfg.Gamma)); s.nightErr != nil {
-		log.Printf("nightlight: %v", s.nightErr)
+		log.Print(s.nightErr)
 		s.refused = s.nightErr
 	}
 	if cfg.AutoSchedule {
@@ -130,7 +130,7 @@ func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 	s.onOwner(func() {
 		filter, err := env.open(func() { s.onOwner(s.readRefusal) })
 		if err != nil {
-			log.Printf("nightlight: %v", err)
+			log.Print(err)
 			s.onLoop(func() {
 				s.unavailable = err
 				s.notify()
@@ -245,10 +245,10 @@ func (s *nightlightService) resolvePinnedLocation() {
 	pinned, ok, err := s.cfg.PinnedLocation()
 	switch {
 	case errors.Is(err, nightschedule.ErrNullIsland):
-		log.Printf("nightlight: ignoring latitude and longitude: %v; using GeoClue", err)
+		log.Printf("%v: ignoring latitude and longitude, using GeoClue", err)
 	case err != nil:
 		s.pinned, s.locationErr = true, err
-		log.Printf("nightlight: the auto-schedule has no location: %v", err)
+		log.Printf("%v: the auto-schedule has no location", err)
 	case ok:
 		s.pinned, s.location = true, &pinned
 	}
@@ -260,7 +260,7 @@ func (s *nightlightService) readRememberedLocation() *nightschedule.Location {
 	case err == nil:
 		return &remembered
 	case !errors.Is(err, fs.ErrNotExist):
-		log.Printf("nightlight: %v", err)
+		log.Print(err)
 	}
 	return nil
 }
@@ -367,7 +367,7 @@ func (s *nightlightService) refreshRefusal(refused error) {
 		return
 	}
 	if refused != nil {
-		log.Printf("nightlight: %v", refused)
+		log.Print(refused)
 	}
 	s.refused = refused
 	s.notify()
@@ -382,7 +382,7 @@ func (s *nightlightService) setLocation(loc nightschedule.Location) {
 	log.Printf("nightlight: the location changed, following GeoClue")
 	s.onOwner(func() {
 		if err := nightlight.SaveLocation(s.env.stateDir, loc); err != nil {
-			log.Printf("nightlight: %v", err)
+			log.Print(err)
 		}
 	})
 	s.evaluate()
@@ -425,7 +425,7 @@ func (s *nightlightService) evaluate() {
 		s.manualOverride = false
 		s.onOwner(func() {
 			if err := nightlight.ClearOverride(s.env.stateDir); err != nil {
-				log.Printf("nightlight: a restart can replay the ended toggle: %v", err)
+				log.Printf("%v: a restart can replay the ended toggle", err)
 			}
 		})
 	}
@@ -470,7 +470,7 @@ func (s *nightlightService) switchTo(on bool) {
 	override, at := nightlight.Override{Phase: s.autoPhase, Enabled: on}, s.env.now()
 	s.onOwner(func() {
 		if err := nightlight.SaveOverride(s.env.stateDir, override, at); err != nil {
-			log.Printf("nightlight: the toggle will not survive a restart: %v", err)
+			log.Printf("%v: the toggle will not survive a restart", err)
 		}
 	})
 	if on {
@@ -499,7 +499,7 @@ func (s *nightlightService) reconfigure(cfg config.NightlightConfig) {
 		s.applyTemperature(cfg.Temperature, night)
 		return
 	}
-	log.Printf("nightlight: %v", err)
+	log.Print(err)
 	s.cfg.Temperature, s.nightErr = cfg.Temperature, err
 	if s.enabled {
 		s.stopFilter()
@@ -544,7 +544,7 @@ func (s *nightlightService) applyFilter(setting nightlight.Setting) {
 			err = s.filter.Refused()
 		}
 		if err != nil {
-			log.Printf("nightlight: %v", err)
+			log.Print(err)
 			s.onLoop(func() {
 				s.refused = err
 				s.notify()
@@ -563,7 +563,7 @@ func (s *nightlightService) stopFilter() {
 			return
 		}
 		if err := s.filter.Clear(); err != nil {
-			log.Printf("nightlight: %v", err)
+			log.Print(err)
 		} else {
 			log.Printf("nightlight: off")
 		}

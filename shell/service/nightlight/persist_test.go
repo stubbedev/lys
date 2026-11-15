@@ -179,5 +179,8 @@ func TestLoadLocationSaysWhyThereIsNone(t *testing.T) {
 		if err == nil || errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), locationFile) {
 			t.Errorf("%q: err = %v, want one naming the record", bad, err)
 		}
+		if err != nil && (!strings.HasPrefix(err.Error(), "nightlight: ") || strings.Count(err.Error(), "nightlight:") != 1) {
+			t.Errorf("%q: err = %v, want it to name the night light exactly once, first", bad, err)
+		}
 	}
 }

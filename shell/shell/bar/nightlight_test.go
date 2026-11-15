@@ -1,7 +1,10 @@
 package bar
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -65,6 +68,32 @@ func TestLoadFileAppliesNightlight(t *testing.T) {
 		}
 		if _, err := config.LoadFile(path); err == nil {
 			t.Errorf("%q: want a load error", bad)
+		}
+	}
+}
+
+func TestNightlightLogsTheServiceErrorsAsTheyAre(t *testing.T) {
+	logged := captureLog(t)
+	fake := &fakeSunset{clock: sunsetDay}
+	env := fake.env(t)
+	refusal := errors.New("nightlight: set the ramps of output DP-1: refused")
+	env.open = func(func()) (colourFilter, error) { return &refusingSunset{fake, refusal}, nil }
+	blocker := filepath.Join(env.stateDir, "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env.stateDir = filepath.Join(blocker, "state")
+	m := newTestNightlight(t, sunsetConfig(false), env)
+	m.svc.toggle()
+	got := logged.String()
+	for _, want := range []string{refusal.Error(), "will not survive a restart"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("log %q, want %q", got, want)
+		}
+	}
+	for line := range strings.Lines(got) {
+		if n := strings.Count(line, "nightlight:"); n > 1 {
+			t.Errorf("%q names the night light %d times, want once", line, n)
 		}
 	}
 }
