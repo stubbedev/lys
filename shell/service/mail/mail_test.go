@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 )
 
 // fakeNotmuch serves counts by query and records calls.
@@ -231,7 +233,7 @@ func TestAccountsCountSeparatelyAndFallBackToACountOnlyNotification(t *testing.T
 	nm.set("folder:work", 10)
 	touch(t, maildir, "new")
 	waitTick(t, ticks, "after a write")
-	want := []sent{{"Work", "8 new (10 unread)", "si-gmail-symbolic"}}
+	want := []sent{{"Work", i18n.T("mail-notification-arrived", i18n.Int("new", 8), i18n.Int("count", 10)), "si-gmail-symbolic"}}
 	if got := notifier.all(); !reflect.DeepEqual(got, want) {
 		t.Errorf("notifications = %+v, want %+v", got, want)
 	}
@@ -443,5 +445,71 @@ func TestNotificationsRenderExactlyTheirDeclaredPlaceholders(t *testing.T) {
 	m := newMail{sender: "Ada", subject: "{{ count }}", count: 3, new: 1}
 	if got := renderNotification("{{ sender }}: {{ subject }} ({{ new }}/{{ count }}) {{ pending }}", m); got != "Ada: {{ count }} (1/3) {{ pending }}" {
 		t.Errorf("rendered %q: a value is substituted once and an undeclared placeholder stays literal", got)
+	}
+}
+
+func TestACountOnlyNotificationIsTranslatedWithItsPluralCategories(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	unisolated := strings.NewReplacer("\u2068", "", "\u2069", "")
+	cases := []struct {
+		lang            string
+		previous, total uint32
+		summary, body   string
+	}{
+		{"en-US", 0, 1, "New mail", "1 new message (1 unread)"},
+		{"en-US", 3, 5, "New mail", "2 new messages (5 unread)"},
+		{"fr", 0, 1, "Nouveau courrier", "1 nouveau message (1 non lu)"},
+		{"fr", 1, 3, "Nouveau courrier", "2 nouveaux messages (3 non lus)"},
+		{"fr", 0, 1_000_000, "Nouveau courrier", "1000000 de nouveaux messages (1000000 non lus)"},
+		{"pt", 4, 5, "Correio novo", "1 mensagem nova (5 por ler)"},
+		{"pt", 0, 2, "Correio novo", "2 mensagens novas (2 por ler)"},
+		{"pt", 1, 1_000_001, "Correio novo", "1000000 de mensagens novas (1000001 por ler)"},
+		{"it", 0, 1, "Nuova posta", "1 nuovo messaggio (1 non letto)"},
+		{"it", 0, 1_000_000, "Nuova posta", "1000000 di nuovi messaggi (1000000 non letti)"},
+		{"es", 0, 1_000_000, "Correo nuevo", "1000000 de mensajes nuevos (1000000 sin leer)"},
+		{"de", 0, 1, "Neue E-Mail", "1 neue Nachricht (1 ungelesen)"},
+		{"nl", 0, 2, "Nieuwe e-mail", "2 nieuwe berichten (2 ongelezen)"},
+	}
+	for _, c := range cases {
+		messages, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID(c.lang)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		nm := &fakeNotmuch{counts: map[string]uint32{"tag:unread": c.previous}, newest: map[string][]Message{}}
+		notifier := &fakeNotifier{}
+		cfg := notifyConfig()
+		cfg.NotifySummary = "{{ sender }}"
+		cfg.NotifyBody = "{{ subject }}"
+		svc := New(cfg, nm, notifier)
+		svc.messages = messages
+		svc.recompute(t.Context(), false)
+		nm.set("tag:unread", c.total)
+		svc.recompute(t.Context(), true)
+		got := notifier.all()
+		if len(got) != 1 {
+			t.Errorf("%s %d->%d: notifications = %+v, want one count-only notification", c.lang, c.previous, c.total, got)
+			continue
+		}
+		if summary, body := unisolated.Replace(got[0].summary), unisolated.Replace(got[0].body); summary != c.summary || body != c.body {
+			t.Errorf("%s %d->%d: notified %q / %q, want %q / %q", c.lang, c.previous, c.total, summary, body, c.summary, c.body)
+		}
+	}
+}
+
+func TestANotificationWithReadableMessagesUsesThemNotTheCountText(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	nm := &fakeNotmuch{counts: map[string]uint32{"tag:unread": 0}, newest: map[string][]Message{
+		"tag:unread": {{Sender: "Alice", Subject: "Lunch"}},
+	}}
+	notifier := &fakeNotifier{}
+	cfg := notifyConfig()
+	cfg.NotifySummary = "{{ sender }}"
+	cfg.NotifyBody = "{{ subject }}"
+	svc := New(cfg, nm, notifier)
+	svc.recompute(t.Context(), false)
+	nm.set("tag:unread", 1)
+	svc.recompute(t.Context(), true)
+	if got, want := notifier.all(), []sent{{"Alice", "Lunch", "ld-mail-symbolic"}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("notifications = %+v, want %+v", got, want)
 	}
 }

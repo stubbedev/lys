@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/icons"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -75,6 +76,7 @@ type Service struct {
 	cfg      config.MailConfig
 	notmuch  Notmuch
 	notifier Notifier
+	messages *i18n.Loader
 	debounce time.Duration
 
 	mu    sync.Mutex
@@ -89,6 +91,7 @@ func New(cfg config.MailConfig, notmuch Notmuch, notifier Notifier) *Service {
 		cfg:      cfg,
 		notmuch:  notmuch,
 		notifier: notifier,
+		messages: i18n.Shell(),
 		debounce: Debounce,
 		ticks:    feed.NewTick(),
 	}
@@ -182,7 +185,7 @@ func (s *Service) recompute(ctx context.Context, notify bool) {
 		if err != nil {
 			failures = append(failures, err)
 		} else if notify && previous.Err == nil && count > previous.Total {
-			batch = s.buildBatch(ctx, s.cfg.Query, s.cfg.IconName, "New mail", previous.Total, count)
+			batch = s.buildBatch(ctx, s.cfg.Query, s.cfg.IconName, s.messages.Get("mail-notification-sender"), previous.Total, count)
 		}
 	} else {
 		prevCounts := make(map[string]uint32, len(previous.Accounts))
@@ -249,7 +252,7 @@ func (s *Service) buildBatch(ctx context.Context, query, icon, fallbackSender st
 		return []newMail{{
 			icon:    icon,
 			sender:  fallbackSender,
-			subject: strconv.FormatUint(uint64(arrived), 10) + " new (" + strconv.FormatUint(uint64(total), 10) + " unread)",
+			subject: s.messages.Get("mail-notification-arrived", i18n.Int("new", int64(arrived)), i18n.Int("count", int64(total))),
 			count:   total,
 			new:     arrived,
 		}}
