@@ -99,19 +99,18 @@ type operands struct {
 // part and on fraction digits beyond uint64.
 func (n number) pluralOperands() (operands, bool) {
 	s := strings.TrimPrefix(n.String(), "-")
-	dot := strings.IndexByte(s, '.')
-	if dot < 0 {
+	whole, fraction, hasDot := strings.Cut(s, ".")
+	if !hasDot {
 		abs, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			return operands{}, false
 		}
 		return operands{i: saturatingUint(abs)}, true
 	}
-	i, err := strconv.ParseUint(s[:dot], 10, 64)
+	i, err := strconv.ParseUint(whole, 10, 64)
 	if err != nil {
 		return operands{}, false
 	}
-	fraction := s[dot+1:]
 	if fraction == "" {
 		return operands{i: i}, true
 	}

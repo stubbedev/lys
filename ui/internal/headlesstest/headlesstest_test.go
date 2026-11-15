@@ -203,7 +203,7 @@ func TestHyprlandVMRecipePinsTheShowcase(t *testing.T) {
 		rule(class(StatesAppID), fmt.Sprintf(`size = "%d %d", move = "40 40"`, statesW, statesH)),
 		rule(class(MultilistAppID), fmt.Sprintf(`size = "%d %d", move = "0 0"`, multilistW, multilistH)),
 		rule("title = [[^modal dialog$]]", `move = "340 0"`),
-		fmt.Sprintf("${runtimeDir}/%s", hyprlandCompositor{}.ConfigName()),
+		"${runtimeDir}/" + hyprlandCompositor{}.ConfigName(),
 	} {
 		if !strings.Contains(cfg, want) {
 			t.Errorf("Hyprland VM config lacks %q; keep it in sync with internal/headlesstest:\n%s", want, cfg)

@@ -160,9 +160,9 @@ func TestEmbeddedMessagesResolve(t *testing.T) {
 		got, want string
 	}{
 		{shellEN.Get("osd-brightness"), "Brightness"},
-		{shellEN.Get("bar-bluetooth-connected-count", Int("count", 3)), "⁨3⁩ Connected"},
-		{shellEN.Get("osd-toggle-on", Str("label", "Caps Lock")), "⁨Caps Lock⁩ On"},
-		{shellFR.Get("osd-toggle-on", Str("label", "Verr. Maj")), "⁨Verr. Maj⁩ activé"},
+		{shellEN.Get("bar-bluetooth-connected-count", Int("count", 3)), "\u20683\u2069 Connected"},
+		{shellEN.Get("osd-toggle-on", Str("label", "Caps Lock")), "\u2068Caps Lock\u2069 On"},
+		{shellFR.Get("osd-toggle-on", Str("label", "Verr. Maj")), "\u2068Verr. Maj\u2069 activé"},
 		{shellFR.Get("bar-bluetooth-disabled"), "Désactivé"},
 		{settings.Get("settings-bar-scale"), "Scale"},
 		{settings.Attr("settings-bar-scale", "description"), "Bar-specific scale multiplier for spacing, radius, and other elements"},
