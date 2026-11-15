@@ -48,7 +48,7 @@ func startLockFade(t *testing.T, table anim.Table) *lockFadeRig {
 	c.DispatchUntil("the window to map", w.Mapped)
 	r := &lockFadeRig{inputRig: &inputRig{t: t, h: h, c: c, seat: seat, in: in, w: w}}
 	r.h.Eventually("the window faded in", showing(10, 10, lockDesktop))
-	r.h.Hold()
+	r.h.holdQuiet()
 	return r
 }
 
@@ -78,6 +78,8 @@ func TestTheLockFadesInOverTheDesktopBeforeItIsConfirmed(t *testing.T) {
 	t.Parallel()
 	r := startLockFade(t, lockFades(t, time.Second))
 	l := r.lockAndCover()
+	l.c.Sync()
+	r.h.frameNow()
 	r.h.Eventually("the lock still transparent at its start", showing(10, 10, lockDesktop))
 	r.h.Advance(500 * time.Millisecond)
 	r.h.Eventually("the lock halfway over the desktop", halfLocked)
@@ -120,8 +122,10 @@ func TestTheUnlockFadesASnapshotOfTheLockOutOverTheDesktop(t *testing.T) {
 	r.h.Advance(time.Second + small.Interval())
 	l.seen("locked")
 	r.h.Eventually("the lock opaque", showing(10, 10, lockCover))
+	r.h.holdQuiet()
 	r.unlock(l)
 	r.expect("kb_enter win")
+	r.h.frameNow()
 	r.h.Eventually("the lock still covering at the unlock", showing(10, 10, lockCover))
 	r.h.Advance(500 * time.Millisecond)
 	r.h.Eventually("the desktop halfway through the lock", halfUnlocked)

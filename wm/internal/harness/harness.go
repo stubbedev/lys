@@ -480,8 +480,8 @@ func (h *Harness) Ended() error {
 	case err := <-h.done:
 		h.done <- nil
 		return err
-	case <-time.After(5 * time.Second):
-		h.t.Fatal("harness: the compositor loop is still running")
+	case <-time.After(testenv.HangLimit):
+		h.t.Fatalf("harness: the compositor loop is still running after %v", testenv.HangLimit)
 		return nil
 	}
 }

@@ -41,6 +41,13 @@ func (h *Harness) idleFor(d time.Duration, what string) {
 	}
 }
 
+func (h *Harness) holdQuiet() time.Duration {
+	h.t.Helper()
+	h.AdvanceTo(h.Hold() + time.Minute)
+	h.idleFor(time.Minute, "in the quiet minute before an animation starts")
+	return h.Now()
+}
+
 func (h *Harness) frameNow() {
 	h.t.Helper()
 	h.Do(func(b *headless.Backend, comp *compositor.Compositor) error { return comp.Frame(b.Outputs()[0]) })
@@ -182,17 +189,18 @@ func testWindowsPopInAndOutWhileTheyFade(t *testing.T, start gpuStarter) {
 		return func(x *headless.Backend, c *compositor.Compositor) bool { return a(x, c) && b(x, c) }
 	}
 	c := testclient.Connect(t, h.Socket())
-	opened := h.Hold()
+	opened := h.holdQuiet()
 	w := c.Window("popping", testclient.Fill(0xff, 0xff, 0xff))
 	c.DispatchUntil("the window to map", w.Mapped)
+	c.Sync()
+	h.frameNow()
 	h.Eventually("nothing drawn at the start of the open", both(showingNear(25, 20, bg), showingNear(100, 80, bg)))
 	h.AdvanceTo(opened + 500*time.Millisecond)
 	h.Eventually("the window three quarters grown and half faded in", both(halfway(25, 20), showingNear(5, 5, bg)))
 	h.AdvanceTo(opened + time.Second + tall.Interval())
 	h.Eventually("the window open and opaque", showingNear(5, 5, white))
 
-	closing := opened + time.Minute
-	h.AdvanceTo(closing)
+	closing := h.holdQuiet()
 	open := h.Snapshot(0)
 	if err := errors.Join(w.Destroy(), c.Display.Roundtrip()); err != nil {
 		t.Fatal(err)
@@ -322,8 +330,9 @@ func testAFocusChangeFadesTheOpacityOfBothWindows(t *testing.T, start gpuStarter
 	c.DispatchUntil("right to map", r.Mapped)
 	c.DispatchUntil("both windows drawn at their tiles", func() bool { return l.Logical == image.Pt(80, 120) && r.Logical == image.Pt(80, 120) })
 	h.Eventually("left faded to inactive, right focused", look(0.5, 1))
-	focused := h.Hold()
+	focused := h.holdQuiet()
 	h.dispatch("focus left")
+	h.frameNow()
 	h.Eventually("the focus change starting from what was shown", look(0.5, 1))
 	h.AdvanceTo(focused + 500*time.Millisecond)
 	h.Eventually("both halfway", func(b *headless.Backend, _ *compositor.Compositor) bool {

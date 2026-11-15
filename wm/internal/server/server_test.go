@@ -96,8 +96,8 @@ func (h *harness) ended() error {
 	case <-h.stopped:
 		h.ending = true
 		return h.ran
-	case <-time.After(5 * time.Second):
-		h.t.Fatal("the loop is still running")
+	case <-time.After(testenv.HangLimit):
+		h.t.Fatalf("the loop is still running after %v", testenv.HangLimit)
 		return nil
 	}
 }
@@ -133,7 +133,7 @@ func (h *harness) clients() int {
 
 func (h *harness) waitClients(n int) {
 	h.t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(testenv.HangLimit)
 	for h.clients() != n {
 		if time.Now().After(deadline) {
 			h.t.Fatalf("server has %d clients, want %d", h.clients(), n)
