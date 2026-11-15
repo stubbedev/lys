@@ -102,7 +102,7 @@ func TestTreemanDropdownListAndCollapse(t *testing.T) {
 
 	// A row is the worktree's Item, its path as the tooltip and its
 	// trailing slot showing the state badge at rest.
-	row := treetest.WithClass(treetest.WithClass(v.list, "treeman-repo")[1], "treeman-wt")[0].(*widget.Item)
+	row := treetest.WithClass(treetest.WithClass(v.list, "treeman-repo")[1], "treeman-wt")[0].(*revealItem)
 	if row.TooltipText() != "/w/lys-ui" {
 		t.Errorf("tooltip = %q", row.TooltipText())
 	}
@@ -125,7 +125,7 @@ func TestTreemanRowHoverSwapsTheActions(t *testing.T) {
 	widget.SizeWithin(v, widget.Size{W: 440, H: 460})
 	v.Arrange(render.Rect{W: 440, H: 460})
 
-	row := treetest.WithClass(v.list, "treeman-wt")[0].(*widget.Item)
+	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)
 	slot := treetest.First[*widget.Stack](t, row)
 	r := &widget.Router{Root: v}
 	b := row.Bounds()
@@ -164,8 +164,8 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 		t.Errorf("fields = %d, want repo, bucket, slug, path", len(fields))
 	}
 
-	// Prepare and teardown run at once; reset asks first, in a modal
-	// alert naming the worktree.
+	// Prepare runs at once; reset asks first, in a modal alert naming
+	// the worktree.
 	v.run(treeman.ActionPrepare, "/w/feat")
 	v.confirmReset("/w/feat")
 	if len(alerts.specs) != 1 || alerts.specs[0].detail != "/w/feat" ||
@@ -206,5 +206,77 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 	waitHeadless(t, "back to the list", func() bool { return v.pages.Visible() == "list" })
 	if itemText(v.title, "title") != i18n.T("dropdown-treeman-title") || v.back.Visible() {
 		t.Error("the header kept the detail state")
+	}
+}
+
+func TestTreemanTeardownRunsOnlyWhenAccepted(t *testing.T) {
+	src := &fakeTreeman{status: treemanFixture(), ticks: make(chan struct{}, 1)}
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Treeman = src
+	alerts := &fakeAlert{}
+	ctx.Alert = alerts.ask
+	v := treemanDropdown(ctx).(*treemanView)
+	defer v.dropdownClosed()
+	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)
+	slot := treetest.First[*widget.Stack](t, row)
+	path := row.TooltipText()
+	treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-teardown")).OnClick()
+	if len(alerts.specs) != 1 || alerts.specs[0].message != i18n.T("dropdown-treeman-confirm-teardown-title") ||
+		!strings.Contains(alerts.specs[0].detail, path) || alerts.specs[0].accept != i18n.T("dropdown-treeman-confirm-teardown-accept") ||
+		alerts.specs[0].cancel != i18n.T("dropdown-treeman-confirm-cancel") {
+		t.Fatalf("alerts = %+v, want the teardown question naming %s", alerts.specs, path)
+	}
+	alerts.answers[0](false)
+	if ran := src.ran(); len(ran) != 0 {
+		t.Fatalf("a cancelled teardown ran %q", ran)
+	}
+	v.confirmTeardown(path)
+	alerts.answers[1](true)
+	waitHeadless(t, "the teardown", func() bool { return slices.Equal(src.ran(), []string{"worktree delete " + path + " --yes"}) })
+}
+
+func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
+	ctx := styledContext(t, config.Defaults())
+	src := &fakeTreeman{status: treemanFixture()}
+	ctx.Treeman = src
+	alerts := &fakeAlert{}
+	ctx.Alert = alerts.ask
+	v := treemanDropdown(ctx).(*treemanView)
+	defer v.dropdownClosed()
+	ctx.Theme.Attach(v)
+	layoutForKeys(v)
+	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)
+	slot := treetest.First[*widget.Stack](t, row)
+	if slot.Visible() != "state" {
+		t.Fatalf("at rest the slot shows %q, want the state", slot.Visible())
+	}
+	router := &widget.Router{Root: v}
+	tabUntil(t, router, v, row)
+	if slot.Visible() != "actions" {
+		t.Fatalf("Tab onto the row shows %q, want the actions", slot.Visible())
+	}
+	teardown := treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-teardown"))
+	if got := teardown.AccessibleName(); got != i18n.T("dropdown-treeman-action-teardown") {
+		t.Errorf("the teardown button reads %q to assistive technology", got)
+	}
+	tabUntil(t, router, v, teardown)
+	router.KeyAction(widget.KeyEnter, 0)
+	if len(alerts.specs) != 1 || alerts.specs[0].accept != i18n.T("dropdown-treeman-confirm-teardown-accept") {
+		t.Fatalf("alerts = %+v, want Enter on teardown to ask", alerts.specs)
+	}
+	router.FocusNext()
+	layoutForKeys(v)
+	if treetest.Contains(row, router.Focused()) {
+		t.Fatalf("Tab past the last action stayed in the row on %T", router.Focused())
+	}
+	if slot.Visible() != "state" {
+		t.Errorf("focus leaving the row shows %q, want the state", slot.Visible())
+	}
+	if err := router.SetFocus(row); err != nil {
+		t.Fatal(err)
+	}
+	router.KeyAction(widget.KeyEnter, 0)
+	if v.pages.Visible() != "detail" || v.detail != row.TooltipText() {
+		t.Errorf("Enter on the row opened %q for %q, want its details", v.pages.Visible(), v.detail)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -26,6 +27,7 @@ const (
 	netPasswordEntry
 	netConnecting
 	netScanning
+	netHiddenEntry
 )
 
 // netState is one read of NetworkManager for the dropdown.
@@ -61,6 +63,7 @@ type networkView struct {
 	scanBtn      *widget.Button
 	wifiSwitch   *widget.Switch
 	syncing      bool
+	actionErr    *widget.Label
 	active       *netActive
 	secret       *netSecretForm
 	saveOffer    *netSaveOffer
@@ -69,6 +72,8 @@ type networkView struct {
 	body         *widget.Stack
 	availSection *widget.Box
 	password     *netPasswordForm
+	hidden       *netHiddenForm
+	hiddenCard   *widget.Box
 	listCard     *widget.Box
 	list         *widget.ItemGroup
 	noNetworks   *widget.StatusPage
@@ -76,6 +81,7 @@ type networkView struct {
 	state        netListState
 	cur          netState
 	cache        []apSnapshot
+	listed       []apSnapshot
 	selection    *apSnapshot
 	pendingSSID  string
 	progress     netProgress
@@ -97,8 +103,9 @@ type wifiControl interface {
 	KnownSSIDs() map[string]bool
 	ScanAndWait(ctx context.Context, timeout time.Duration)
 	ConnectAndWait(ctx context.Context, ap dbus.ObjectPath, password string, progress func(network.DeviceState)) error
+	JoinHiddenAndWait(ctx context.Context, net network.HiddenNetwork, password string, progress func(network.DeviceState)) error
 	Disconnect(ctx context.Context) error
-	Forget(ctx context.Context, ssid string)
+	Forget(ctx context.Context, ssid string) error
 	SetEnabled(ctx context.Context, on bool) error
 }
 
@@ -186,6 +193,9 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	// The content wraps the active connections, the secret form, and
 	// the body stack.
 	content := dropdownContent("network-content")
+	v.actionErr = v.errorLabel()
+	v.actionErr.AddClass("network-action-error")
+	content.Append(v.actionErr, false)
 	content.Append(v.active, false)
 	content.Append(v.secret, false)
 	content.Append(v.saveOffer, false)
@@ -198,7 +208,18 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	v.listCard = widget.NewBox(widget.Column, 0, 0)
 	v.listCard.AddClass(css.Card, "network-list")
 	v.listCard.Append(dropdownScroll(v.list, "network-list-scroll"), true)
-	v.availSection = dropdownSection(sectionLabel(v.font, i18n.T("dropdown-network-available")), v.password, v.listCard)
+	v.hidden = newNetHiddenForm(v)
+	hiddenCard, hiddenGroup := itemCard()
+	hiddenCard.AddClass("network-hidden-entry")
+	hiddenRow := widget.NewItem(font, i18n.T("dropdown-network-hidden-join"), "")
+	hiddenRow.SetSmall(true)
+	hiddenRow.SetEllipsize(true)
+	hiddenRow.AddClass("network-hidden-join")
+	hiddenRow.SetMedia(widget.NewThemeIcon(iconEyeOff, itemIconPx), false)
+	hiddenRow.SetOnActivate(v.openHidden)
+	hiddenGroup.Append(hiddenRow)
+	v.hiddenCard = hiddenCard
+	v.availSection = dropdownSection(sectionLabel(v.font, i18n.T("dropdown-network-available")), v.password, v.hidden, v.listCard, v.hiddenCard)
 	browse.Append(v.availSection, true)
 	noNetworks := widgets.EmptyState(font, px, "ld-wifi-off-symbolic", i18n.T("dropdown-network-no-networks-title"), i18n.T("dropdown-network-no-networks-description"))
 	v.noNetworks = noNetworks
@@ -297,12 +318,17 @@ func (v *networkView) rebuildList() {
 	if len(live) > 0 || len(v.cache) == 0 || v.state != netScanning {
 		v.cache = mergeWithCache(live, v.cache, connected, v.cur.known)
 	}
-	v.list.Clear()
-	for _, ap := range v.cache {
-		v.list.Append(v.row(ap))
+	if !slices.Equal(v.cache, v.listed) {
+		v.listed = slices.Clone(v.cache)
+		v.list.Clear()
+		for _, ap := range v.cache {
+			v.list.Append(v.row(ap))
+		}
 	}
 	v.availSection.SetVisible(wifiAvail)
 	v.password.SetVisible(wifiAvail && v.state == netPasswordEntry)
+	v.hidden.SetVisible(wifiAvail && v.state == netHiddenEntry)
+	v.hiddenCard.SetVisible(wifiAvail && v.cur.snap.WifiEnabled && v.state != netHiddenEntry)
 	v.listCard.SetVisible(wifiAvail && len(v.cache) > 0)
 	v.noNetworks.SetVisible(wifiAvail && len(v.cache) == 0)
 	v.noAdapter.SetVisible(!wifiAvail)
@@ -310,10 +336,10 @@ func (v *networkView) rebuildList() {
 
 // row is a network on lys-ui's Item: the signal icon as the media,
 // the name over the security, and on a saved network the forget
-// button, shown while hovered, as the action. Activating the row - any
-// part of it but the forget button, which keeps its own click - selects
-// the network.
-func (v *networkView) row(ap apSnapshot) *widget.Item {
+// button, shown while hovered or focused, as the action. Activating the
+// row - any part of it but the forget button, which keeps its own
+// click - selects the network.
+func (v *networkView) row(ap apSnapshot) widget.Widget {
 	ssid := ap.ssid
 	row := widget.NewItem(v.font, ap.ssid, rowSecurityLabel(ap))
 	row.SetSmall(true)
@@ -324,27 +350,18 @@ func (v *networkView) row(ap apSnapshot) *widget.Item {
 	}
 	row.SetOnActivate(func() { v.selectNetwork(ssid) })
 	row.SetMedia(newGlyphRing("ld-wifi-symbolic", ap.strength), true)
-
-	if ap.known {
-		forgetBtn := v.ghostText(i18n.T("dropdown-network-forget"), "network-item-forget", func() { v.forget(ssid) })
-		// The forget button shows while the row is hovered; the empty
-		// page keeps its width so hovering never shifts the row.
-		trailing := widget.NewStack()
-		trailing.AddClass("network-item-trailing")
-		trailing.SetTransition(widget.StackCrossfade, hoverTransition)
-		trailing.Add("idle", widget.NewBox(widget.Row, 0, 0))
-		trailing.Add("actions", forgetBtn)
-		trailing.Show("idle")
-		row.SetOnHoverWithin(func(on bool) {
-			if on {
-				trailing.Show("actions")
-			} else {
-				trailing.Show("idle")
-			}
-		})
-		row.AddAction(trailing)
+	if !ap.known {
+		return row
 	}
-	return row
+	forgetBtn := v.ghostText(i18n.T("dropdown-network-forget"), "network-item-forget", func() { v.askForget(ssid, v.forget) })
+	trailing := widget.NewStack()
+	trailing.AddClass("network-item-trailing")
+	trailing.SetTransition(widget.StackCrossfade, hoverTransition)
+	trailing.Add("idle", widget.NewBox(widget.Row, 0, 0))
+	trailing.Add("actions", forgetBtn)
+	trailing.Show("idle")
+	row.AddAction(trailing)
+	return newRevealSlot(row, trailing, "idle", "actions")
 }
 
 // find is the cached entry for ssid.
@@ -384,19 +401,45 @@ func (v *networkView) selectNetwork(ssid string) {
 	v.connect("")
 }
 
-// connect runs the watch off the loop and reports each step and the outcome back.
+// connect joins the selected network.
 func (v *networkView) connect(password string) {
 	w, sel := v.wifi(), v.selection
 	if w == nil || sel == nil {
 		return
 	}
+	path := sel.path
+	v.watchConnect(sel.ssid, func(ctx context.Context, progress func(network.DeviceState)) error {
+		return w.ConnectAndWait(ctx, path, password, progress)
+	})
+}
+
+func (v *networkView) openHidden() {
+	if v.wifi() == nil {
+		return
+	}
+	v.state, v.selection = netHiddenEntry, nil
+	v.hidden.show()
+	v.rebuildList()
+}
+
+func (v *networkView) joinHidden(net network.HiddenNetwork, password string) {
+	w := v.wifi()
+	if w == nil {
+		return
+	}
+	v.selection = nil
+	v.watchConnect(net.Name(), func(ctx context.Context, progress func(network.DeviceState)) error {
+		return w.JoinHiddenAndWait(ctx, net, password, progress)
+	})
+}
+
+func (v *networkView) watchConnect(ssid string, join func(context.Context, func(network.DeviceState)) error) {
 	v.state = netConnecting
-	v.progress = netProgress{ssid: sel.ssid}
+	v.progress = netProgress{ssid: ssid}
 	v.active.apply(v.cur.snap, v.progress)
 	v.rebuildList()
-	path := sel.path
 	v.ctx.Go(func() {
-		err := w.ConnectAndWait(context.Background(), path, password, func(state network.DeviceState) {
+		err := join(context.Background(), func(state network.DeviceState) {
 			if step := connectionStep(state); step != "" {
 				v.ctx.Invoke(func() {
 					v.progress.step = step
@@ -491,15 +534,47 @@ func (v *networkView) scanDone() {
 	v.active.apply(v.cur.snap, v.progress)
 }
 
+func (v *networkView) askForget(ssid string, forget func(ssid string)) {
+	v.ctx.showAlert(alertSpec{
+		message: i18n.T("dropdown-network-forget-confirm", i18n.Str("name", ssid)),
+		detail:  i18n.T("dropdown-network-forget-confirm-detail"),
+		cancel:  i18n.T("dropdown-network-cancel"),
+		accept:  i18n.T("dropdown-network-forget"),
+	}, func(accepted bool) {
+		if accepted {
+			forget(ssid)
+		}
+	})
+}
+
 func (v *networkView) forget(ssid string) {
+	v.forgetThen(ssid, nil)
+}
+
+func (v *networkView) forgetThen(ssid string, then func(w wifiControl)) {
 	w := v.wifi()
 	if w == nil {
 		return
 	}
+	v.showActionError("")
 	v.ctx.Go(func() {
-		w.Forget(context.Background(), ssid)
-		v.refresh()
+		defer v.refresh()
+		if err := w.Forget(context.Background(), ssid); err != nil {
+			log.Printf("network: forget %q: %v", ssid, err)
+			v.ctx.Invoke(func() {
+				v.showActionError(i18n.T("dropdown-network-error-forget", i18n.Str("name", ssid), i18n.Str("error", err.Error())))
+			})
+			return
+		}
+		if then != nil {
+			then(w)
+		}
 	})
+}
+
+func (v *networkView) showActionError(text string) {
+	v.actionErr.SetText(text)
+	v.actionErr.SetVisible(text != "")
 }
 
 // refresh re-reads off the loop and applies, through the view's reader.
@@ -542,19 +617,18 @@ func (v *networkView) follow(life context.Context) {
 }
 
 // netActive is a section of the wired and the wifi
-// rows, whose hover swaps the wifi status for the disconnect/forget (or
-// dismiss) actions.
+// rows, whose hover or keyboard focus swaps the wifi status for the
+// disconnect/forget (or dismiss) actions.
 type netActive struct {
 	*widget.Box
 	v                  *networkView
 	label              *widget.Label
 	wired              *widget.Item
-	wifi               *widget.Item
+	wifi               *revealItem
 	wifiSignal         *glyphRing
 	wifiStatus         *widget.Label
 	badge              *widget.Badge
 	trailing           *widget.Stack
-	hovered            bool
 	connected, wifiErr bool
 	ssid               string
 }
@@ -574,7 +648,7 @@ func newNetActive(v *networkView) *netActive {
 	a.wired.AddAction(v.statusLabel())
 	group.Append(a.wired)
 
-	a.wifi = widget.NewItem(v.font, "", "")
+	a.wifi = newRevealItem(widget.NewItem(v.font, "", ""), a.syncTrailing)
 	a.wifi.SetSmall(true)
 	a.wifi.SetEllipsize(true)
 	a.wifi.AddClass("network-active", "wifi")
@@ -602,10 +676,6 @@ func newNetActive(v *networkView) *netActive {
 	a.trailing.Add("actions", actions)
 	a.trailing.Add("error-actions", v.ghostText(i18n.T("dropdown-network-dismiss"), "network-action-dismiss", a.dismiss))
 	a.wifi.AddAction(a.trailing)
-	a.wifi.SetOnHoverWithin(func(on bool) {
-		a.hovered = on
-		a.syncTrailing()
-	})
 	group.Append(a.wifi)
 	return a
 }
@@ -726,15 +796,28 @@ func (a *netActive) apply(s network.Snapshot, p netProgress) {
 	a.syncTrailing()
 }
 
-// syncTrailing picks the hover stack's page.
+// syncTrailing picks the hover stack's page; a row with actions takes
+// the keyboard, and Enter on it moves the focus to its first action.
 func (a *netActive) syncTrailing() {
+	revealed := a.wifi.revealed()
 	switch {
-	case a.hovered && a.connected:
+	case revealed && a.connected:
 		a.trailing.Show("actions")
-	case a.hovered && a.wifiErr:
+	case revealed && a.wifiErr:
 		a.trailing.Show("error-actions")
 	default:
 		a.trailing.Show("status")
+	}
+	if a.connected || a.wifiErr {
+		a.wifi.SetOnActivate(a.focusActions)
+	} else {
+		a.wifi.SetOnActivate(nil)
+	}
+}
+
+func (a *netActive) focusActions() {
+	if first := widget.FirstFocusable(a.trailing.Page(a.trailing.Visible())); first != nil {
+		a.v.focus(first)
 	}
 }
 
@@ -752,15 +835,15 @@ func (a *netActive) disconnect() {
 
 // forget is the saved profiles go, then the link.
 func (a *netActive) forget() {
-	w, ssid := a.v.wifi(), a.ssid
-	if w == nil || ssid == "" {
+	if a.ssid == "" {
 		return
 	}
-	a.v.ctx.Go(func() {
-		w.Forget(context.Background(), ssid)
-		if err := w.Disconnect(context.Background()); err != nil {
-			log.Printf("network: wifi disconnect after forget: %v", err)
-		}
+	a.v.askForget(a.ssid, func(ssid string) {
+		a.v.forgetThen(ssid, func(w wifiControl) {
+			if err := w.Disconnect(context.Background()); err != nil {
+				log.Printf("network: wifi disconnect after forget: %v", err)
+			}
+		})
 	})
 }
 

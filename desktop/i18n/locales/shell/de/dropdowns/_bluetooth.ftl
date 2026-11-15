@@ -150,3 +150,12 @@ dropdown-bluetooth-pairing-enter-legacy-pin = Geben Sie die PIN für dieses Ger�
 dropdown-bluetooth-pairing-pin-placeholder = PIN
 dropdown-bluetooth-pairing-common-pins = Übliche PINs: 0000, 1234, 1111
 dropdown-bluetooth-pairing-failed = Kopplung fehlgeschlagen. Die PIN ist möglicherweise falsch oder die Anfrage ist abgelaufen.
+
+## Fehler
+dropdown-bluetooth-error-power-on = Bluetooth konnte nicht eingeschaltet werden: { $error }
+dropdown-bluetooth-error-power-off = Bluetooth konnte nicht ausgeschaltet werden: { $error }
+dropdown-bluetooth-error-scan = Die Gerätesuche konnte nicht gestartet werden: { $error }
+
+## Ein Gerät vergessen
+dropdown-bluetooth-forget-confirm = { $name } vergessen?
+dropdown-bluetooth-forget-confirm-detail = Die Kopplung wird entfernt. Um das Gerät wieder zu verwenden, koppeln Sie es erneut.

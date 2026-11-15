@@ -11,6 +11,9 @@ dropdown-treeman-action-failed = treeman-actie mislukt
 dropdown-treeman-confirm-cancel = Annuleren
 dropdown-treeman-confirm-reset-title = De databases van deze worktree resetten?
 dropdown-treeman-confirm-reset-accept = Resetten
+dropdown-treeman-confirm-teardown-title = Deze worktree verwijderen?
+dropdown-treeman-confirm-teardown-detail = { $path } en al het niet-gecommitte werk erin worden verwijderd.
+dropdown-treeman-confirm-teardown-accept = Verwijderen
 
 dropdown-treeman-bucket-stable = gereed
 dropdown-treeman-bucket-up = voorbereiden

@@ -168,3 +168,18 @@ dropdown-network-save-title = Salvare in Bitwarden?
 dropdown-network-save-body = { $name } si è connessa con i dati inseriti. Conservali nella cartella di rete della cassaforte per connetterti senza richieste la prossima volta.
 dropdown-network-save = Salva
 dropdown-network-save-not-now = Non ora
+
+## Dimenticare una rete
+dropdown-network-forget-confirm = Dimenticare { $name }?
+dropdown-network-forget-confirm-detail = La password e le impostazioni salvate verranno eliminate. Per riconnettersi verrà chiesta la password.
+dropdown-network-error-forget = Impossibile dimenticare { $name }: { $error }
+
+## Reti nascoste
+dropdown-network-hidden-join = Connetti a una rete nascosta
+dropdown-network-hidden-title = Rete nascosta
+dropdown-network-hidden-name = Nome della rete
+dropdown-network-hidden-security = Sicurezza
+dropdown-network-hidden-password = Password
+dropdown-network-hidden-error-name-empty = Inserisci il nome della rete
+dropdown-network-hidden-error-name-too-long = Questo nome è troppo lungo per una rete
+dropdown-network-hidden-error-password = Inserisci la password della rete

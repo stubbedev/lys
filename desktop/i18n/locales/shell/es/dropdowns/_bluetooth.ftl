@@ -150,3 +150,12 @@ dropdown-bluetooth-pairing-enter-legacy-pin = Introduzca el PIN de este disposit
 dropdown-bluetooth-pairing-pin-placeholder = PIN
 dropdown-bluetooth-pairing-common-pins = PIN habituales: 0000, 1234, 1111
 dropdown-bluetooth-pairing-failed = El emparejamiento ha fallado. Puede que el PIN sea incorrecto o que la solicitud haya caducado.
+
+## Errores
+dropdown-bluetooth-error-power-on = No se ha podido activar el Bluetooth: { $error }
+dropdown-bluetooth-error-power-off = No se ha podido desactivar el Bluetooth: { $error }
+dropdown-bluetooth-error-scan = No se han podido buscar dispositivos: { $error }
+
+## Olvidar un dispositivo
+dropdown-bluetooth-forget-confirm = ¿Olvidar { $name }?
+dropdown-bluetooth-forget-confirm-detail = Se eliminará el emparejamiento. Para volver a usar el dispositivo, emparéjelo de nuevo.

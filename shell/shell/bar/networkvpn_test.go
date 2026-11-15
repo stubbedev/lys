@@ -589,3 +589,28 @@ func TestVPNFormWireGuard(t *testing.T) {
 func vpnRows(v *networkView) []*widget.Item {
 	return treetest.All[*widget.Item](v.vpns.rows)
 }
+
+func TestVPNListKeepsItsRowsWhenNothingChanged(t *testing.T) {
+	vpn := &fakeVPN{entries: []network.VPN{{UUID: "u1", Name: "Corp", State: network.VPNDisconnected}}}
+	v, _ := newVPNTestView(t, vpn, nil)
+	settleNetReads(t, v)
+	rows := func() []*widget.Item { return onHeadlessLoop(func() []*widget.Item { return vpnRows(v) }) }
+	before := rows()
+	v.refresh()
+	settleNetReads(t, v)
+	if after := rows(); !slices.Equal(after, before) {
+		t.Error("a read that changed no VPN rebuilt the rows")
+	}
+	vpn.mu.Lock()
+	vpn.entries = []network.VPN{{UUID: "u1", Name: "Corp", State: network.VPNConnected}}
+	vpn.mu.Unlock()
+	v.refresh()
+	settleNetReads(t, v)
+	after := rows()
+	if len(after) != 2 || after[0] == before[0] || !after[0].HasClass("connected") {
+		t.Error("a VPN coming up kept its old row")
+	}
+	if after[1] != before[1] {
+		t.Error("the add row was replaced")
+	}
+}

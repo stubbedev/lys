@@ -191,15 +191,16 @@ func (s *Settings) ForSSID(ssid []byte) []Profile {
 	return out
 }
 
-// DeleteForSSID deletes every saved profile of a wifi network:
-// one refusal is logged and does not
-// stop the rest.
-func (s *Settings) DeleteForSSID(ctx context.Context, ssid []byte) {
+// DeleteForSSID deletes every saved profile of a wifi network: one
+// refusal does not stop the rest, and every refusal is returned.
+func (s *Settings) DeleteForSSID(ctx context.Context, ssid []byte) error {
+	var errs []error
 	for _, p := range s.ForSSID(ssid) {
 		if err := s.Delete(ctx, p.Path); err != nil {
-			log.Printf("network: failed to delete saved wifi profile: %v", err)
+			errs = append(errs, fmt.Errorf("delete saved profile %s of %q: %w", p.Path, ssid, err))
 		}
 	}
+	return errors.Join(errs...)
 }
 
 // Add saves a new profile to disk (AddConnection).

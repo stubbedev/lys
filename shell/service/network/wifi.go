@@ -90,7 +90,8 @@ func (s SecurityType) String() string {
 }
 
 // RequiresPassword reports whether connecting asks for a password
-// first; enterprise networks need more than one and are not offered.
+// first; an enterprise network needs more than one, so it joins only
+// through a saved profile.
 func (s SecurityType) RequiresPassword() bool {
 	return s != SecurityNone && s != SecurityEnterprise
 }
@@ -314,8 +315,8 @@ func (w *Wifi) KnownSSIDs() map[string]bool {
 }
 
 // Forget deletes every saved profile of a network.
-func (w *Wifi) Forget(ctx context.Context, ssid string) {
-	w.settings.DeleteForSSID(ctx, []byte(ssid))
+func (w *Wifi) Forget(ctx context.Context, ssid string) error {
+	return w.settings.DeleteForSSID(ctx, []byte(ssid))
 }
 
 // Connect joins an access point. A saved profile for its SSID is reused
@@ -327,22 +328,74 @@ func (w *Wifi) Connect(ctx context.Context, apPath dbus.ObjectPath, password str
 	if err != nil {
 		return "", fmt.Errorf("cannot get ssid: %w", err)
 	}
-	if saved := w.settings.ForSSID(ap.SSID); len(saved) > 0 {
-		profile := saved[0]
+	return w.join(ctx, ap.SSID, ap.Security, apPath, password, newWifiProfile(ap, password))
+}
+
+// MaxSSIDBytes is the longest SSID 802.11 carries.
+const MaxSSIDBytes = 32
+
+// Hidden network refusals.
+var (
+	ErrHiddenNameEmpty      = errors.New("a hidden network needs a name")
+	ErrHiddenNameTooLong    = errors.New("a network name is at most 32 bytes")
+	ErrHiddenEnterprise     = errors.New("an enterprise network cannot be joined by name and password")
+	ErrHiddenPasswordNeeded = errors.New("a secured hidden network needs a password")
+)
+
+// HiddenNetwork is a network that does not broadcast its name, as the
+// user named it: 1 to MaxSSIDBytes bytes, secured by nothing or by a
+// password alone.
+type HiddenNetwork struct {
+	ssid     []byte
+	security SecurityType
+}
+
+// NewHiddenNetwork validates a hidden network the user named.
+func NewHiddenNetwork(name string, security SecurityType) (HiddenNetwork, error) {
+	switch {
+	case name == "":
+		return HiddenNetwork{}, ErrHiddenNameEmpty
+	case len(name) > MaxSSIDBytes:
+		return HiddenNetwork{}, fmt.Errorf("%w: %q is %d", ErrHiddenNameTooLong, name, len(name))
+	case security == SecurityEnterprise:
+		return HiddenNetwork{}, fmt.Errorf("%w: %q", ErrHiddenEnterprise, name)
+	}
+	return HiddenNetwork{ssid: []byte(name), security: security}, nil
+}
+
+// Name is the network's name.
+func (h HiddenNetwork) Name() string { return string(h.ssid) }
+
+// Security is how the network is secured.
+func (h HiddenNetwork) Security() SecurityType { return h.security }
+
+// JoinHidden joins a network that does not broadcast its name: a saved
+// profile for it is reused (its password updated when one is given);
+// otherwise a new hidden profile is made, which a secured network
+// needs a password for. It returns the active connection.
+func (w *Wifi) JoinHidden(ctx context.Context, net HiddenNetwork, password string) (dbus.ObjectPath, error) {
+	if net.security.RequiresPassword() && password == "" && len(w.settings.ForSSID(net.ssid)) == 0 {
+		return "", fmt.Errorf("%w: %q", ErrHiddenPasswordNeeded, net.Name())
+	}
+	return w.join(ctx, net.ssid, net.security, rootPath, password, hiddenWifiProfile(net, password))
+}
+
+func (w *Wifi) join(ctx context.Context, ssid []byte, security SecurityType, specific dbus.ObjectPath, password string, profile ConnectionDict) (dbus.ObjectPath, error) {
+	if saved := w.settings.ForSSID(ssid); len(saved) > 0 {
+		path := saved[0].Path
 		if password != "" {
-			if err := w.updatePassword(ctx, profile.Path, password, ap.Security); err != nil {
+			if err := w.updatePassword(ctx, path, password, security); err != nil {
 				return "", err
 			}
 		}
-		active, err := w.nm.activate(ctx, profile.Path, w.Device, apPath)
+		active, err := w.nm.activate(ctx, path, w.Device, specific)
 		if err != nil {
 			return "", fmt.Errorf("cannot activate existing connection: %w", err)
 		}
 		return active, nil
 	}
-	dict := newWifiProfile(ap, password)
 	var settingsPath, active dbus.ObjectPath
-	if err := w.nm.manager().CallWithContext(ctx, nmIface+".AddAndActivateConnection", 0, dict, w.Device, apPath).Store(&settingsPath, &active); err != nil {
+	if err := w.nm.manager().CallWithContext(ctx, nmIface+".AddAndActivateConnection", 0, profile, w.Device, specific).Store(&settingsPath, &active); err != nil {
 		return "", fmt.Errorf("cannot add and activate connection: %w", err)
 	}
 	return active, nil
@@ -356,17 +409,26 @@ func newWifiProfile(ap AccessPoint, password string) ConnectionDict {
 			wireless["bssid"] = dbus.MakeVariant(mac)
 		}
 	}
+	return wifiProfile(ap.Name(), wireless, ap.Security, password)
+}
+
+func hiddenWifiProfile(net HiddenNetwork, password string) ConnectionDict {
+	wireless := map[string]dbus.Variant{"ssid": dbus.MakeVariant(net.ssid), "hidden": dbus.MakeVariant(true)}
+	return wifiProfile(net.Name(), wireless, net.security, password)
+}
+
+func wifiProfile(name string, wireless map[string]dbus.Variant, security SecurityType, password string) ConnectionDict {
 	dict := ConnectionDict{
 		"connection": {
 			"type": dbus.MakeVariant("802-11-wireless"),
-			"id":   dbus.MakeVariant(ap.Name()),
+			"id":   dbus.MakeVariant(name),
 		},
 		"802-11-wireless": wireless,
 	}
 	if password != "" {
 		dict["802-11-wireless-security"] = map[string]dbus.Variant{
-			"key-mgmt":              dbus.MakeVariant(ap.Security.keyMgmt()),
-			ap.Security.secretKey(): dbus.MakeVariant(password),
+			"key-mgmt":           dbus.MakeVariant(security.keyMgmt()),
+			security.secretKey(): dbus.MakeVariant(password),
 		}
 	}
 	return dict
@@ -462,11 +524,29 @@ type deviceTransition struct {
 
 var deviceStateChanged = dbusx.NewSignal[deviceTransition](deviceIface, "StateChanged")
 
-// ConnectAndWait connects and follows the device until it is up, fails,
-// or ConnectTimeout passes, reporting each intermediate state to
-// progress (the connection watcher) from the caller's goroutine.
-// Subscribed before connecting, so a fast activation is not missed.
+// ConnectAndWait connects to an access point and follows the device
+// until it is up, fails, or ConnectTimeout passes (watchJoin).
 func (w *Wifi) ConnectAndWait(ctx context.Context, apPath dbus.ObjectPath, password string, progress func(DeviceState)) error {
+	return w.watchJoin(ctx, progress, func(ctx context.Context) error {
+		_, err := w.Connect(ctx, apPath, password)
+		return err
+	})
+}
+
+// JoinHiddenAndWait joins a hidden network and follows the device as
+// ConnectAndWait does.
+func (w *Wifi) JoinHiddenAndWait(ctx context.Context, net HiddenNetwork, password string, progress func(DeviceState)) error {
+	return w.watchJoin(ctx, progress, func(ctx context.Context) error {
+		_, err := w.JoinHidden(ctx, net, password)
+		return err
+	})
+}
+
+// watchJoin runs join and follows the device until it is up, fails, or
+// ConnectTimeout passes, reporting each intermediate state to progress
+// (the connection watcher) from the caller's goroutine. Subscribed
+// before joining, so a fast activation is not missed.
+func (w *Wifi) watchJoin(ctx context.Context, progress func(DeviceState), join func(context.Context) error) error {
 	ctx, cancel := context.WithTimeout(ctx, ConnectTimeout)
 	defer cancel()
 	transitions := make(chan deviceTransition, 32)
@@ -488,7 +568,7 @@ func (w *Wifi) ConnectAndWait(ctx context.Context, apPath dbus.ObjectPath, passw
 			log.Printf("network: %v", err)
 		}
 	}()
-	if _, err := w.Connect(ctx, apPath, password); err != nil {
+	if err := join(ctx); err != nil {
 		return err
 	}
 	for {

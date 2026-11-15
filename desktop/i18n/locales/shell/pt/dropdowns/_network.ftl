@@ -154,3 +154,18 @@ dropdown-network-save-title = Guardar no Bitwarden?
 dropdown-network-save-body = { $name } ligou-se com o que escreveu. Guarde-o na pasta de redes do cofre para ligar sem perguntar da próxima vez.
 dropdown-network-save = Guardar
 dropdown-network-save-not-now = Agora não
+
+## Esquecer uma rede
+dropdown-network-forget-confirm = Esquecer { $name }?
+dropdown-network-forget-confirm-detail = A palavra-passe e as definições guardadas serão eliminadas. Para voltar a ligar-se, será pedida a palavra-passe.
+dropdown-network-error-forget = Não foi possível esquecer { $name }: { $error }
+
+## Redes ocultas
+dropdown-network-hidden-join = Ligar a uma rede oculta
+dropdown-network-hidden-title = Rede oculta
+dropdown-network-hidden-name = Nome da rede
+dropdown-network-hidden-security = Segurança
+dropdown-network-hidden-password = Palavra-passe
+dropdown-network-hidden-error-name-empty = Introduza o nome da rede
+dropdown-network-hidden-error-name-too-long = Esse nome é demasiado longo para uma rede
+dropdown-network-hidden-error-password = Introduza a palavra-passe da rede

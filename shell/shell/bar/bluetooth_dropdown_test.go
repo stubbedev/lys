@@ -276,7 +276,13 @@ func TestBtDropdownDisconnectAndForget(t *testing.T) {
 	}
 	mouse := rowNamed(t, d, "Mouse")
 	forget := mouse.actions.Children()[1].(*widget.Button)
+	alerts := &fakeAlert{}
+	d.ctx.Alert = alerts.ask
 	forget.OnClick()
+	if len(alerts.specs) != 1 {
+		t.Fatalf("alerts = %+v, want the forget asked first", alerts.specs)
+	}
+	alerts.answers[0](true)
 	if got := src.Calls(); len(got) != 2 || got[1] != "forget "+string(pathMouse) {
 		t.Fatalf("calls = %v, want a forget", got)
 	}
@@ -892,5 +898,169 @@ func TestConnectedDeviceBatteryIsARing(t *testing.T) {
 		if icons := treetest.WithClass(row, "bluetooth-icon"); len(icons) != 1 {
 			t.Errorf("%s shows %d device icons, want its plain icon", name, len(icons))
 		}
+	}
+}
+
+func TestBtDropdownRefusedPowerOnPutsTheSwitchBack(t *testing.T) {
+	off := btState()
+	off.Enabled = false
+	d, src := newTestBtDropdown(t, off)
+	src.fail["enable"] = errors.New("org.bluez.Error.Blocked")
+	d.toggle.SetOn(true)
+	if !slices.Equal(src.Calls(), []string{"enable"}) {
+		t.Fatalf("calls = %v, want one enable", src.Calls())
+	}
+	if d.toggle.On() || d.enabled {
+		t.Error("a refused power-on left the switch on")
+	}
+	if !visible(d.emptyOff) {
+		t.Error("a refused power-on hid the off state")
+	}
+	if !visible(d.errLabel) || plain(d.errLabel.Text()) != "Could not turn Bluetooth on: org.bluez.Error.Blocked" {
+		t.Errorf("error = %q (shown %v), want the refusal", d.errLabel.Text(), visible(d.errLabel))
+	}
+	delete(src.fail, "enable")
+	d.toggle.SetOn(true)
+	if !d.toggle.On() || visible(d.errLabel) {
+		t.Errorf("a power-on that went through: switch %v, error shown %v; want on and no error", d.toggle.On(), visible(d.errLabel))
+	}
+}
+
+func TestBtDropdownRefusedPowerOffPutsTheSwitchBack(t *testing.T) {
+	d, src := newTestBtDropdown(t, btState())
+	src.fail["disable"] = errors.New("org.bluez.Error.Failed")
+	d.toggle.SetOn(false)
+	if !d.toggle.On() || !d.enabled {
+		t.Error("a refused power-off left the switch off")
+	}
+	if plain(d.errLabel.Text()) != "Could not turn Bluetooth off: org.bluez.Error.Failed" {
+		t.Errorf("error = %q, want the refusal", d.errLabel.Text())
+	}
+}
+
+func TestBtDropdownPowerOnThatGoesThroughShowsNoError(t *testing.T) {
+	off := btState()
+	off.Enabled = false
+	d, _ := newTestBtDropdown(t, off)
+	d.toggle.SetOn(true)
+	if !d.toggle.On() || !d.enabled {
+		t.Error("a power-on that went through turned the switch back off")
+	}
+	if visible(d.errLabel) || d.errLabel.Text() != "" {
+		t.Errorf("a power-on that went through shows %q", d.errLabel.Text())
+	}
+}
+
+func TestBtDropdownRefusedScanEndsAtOnce(t *testing.T) {
+	d, src := newTestBtDropdown(t, btState())
+	src.fail["scan"] = errors.New("org.bluez.Error.NotReady")
+	d.scanBtn.OnClick()
+	if d.scanning || !d.scanBtn.Enabled() || widget.HasClass(d.scanBtn, "scanning") {
+		t.Error("a refused scan keeps the button scanning")
+	}
+	if !visible(d.errLabel) || plain(d.errLabel.Text()) != "Could not search for devices: org.bluez.Error.NotReady" {
+		t.Errorf("error = %q (shown %v), want the refusal", d.errLabel.Text(), visible(d.errLabel))
+	}
+	if visible(d.scanningHint) || !visible(d.emptyNoDevices) {
+		t.Error("a refused scan still shows the scanning hint")
+	}
+	delete(src.fail, "scan")
+	d.scanBtn.OnClick()
+	if !d.scanning || d.scanBtn.Enabled() || visible(d.errLabel) {
+		t.Errorf("the retry: scanning %v, button enabled %v, error shown %v; want scanning without the old error", d.scanning, d.scanBtn.Enabled(), visible(d.errLabel))
+	}
+	d.finishScan(d.scanGen)
+	if d.scanning || !d.scanBtn.Enabled() {
+		t.Error("the timer did not end the scan that started")
+	}
+}
+
+func layoutForKeys(root widget.Widget) {
+	widget.SizeWithin(root, widget.Size{W: 400, H: 300})
+	root.Arrange(render.Rect{X: 0, Y: 0, W: 400, H: 300})
+}
+
+func tabTo(t *testing.T, r *widget.Router, root widget.Widget, want widget.Widget) {
+	t.Helper()
+	r.FocusNext()
+	layoutForKeys(root)
+	if r.Focused() != want {
+		t.Fatalf("Tab focused %T, want %T", r.Focused(), want)
+	}
+}
+
+func TestBtDeviceRowKeyboardFocusRevealsTheActions(t *testing.T) {
+	d, src := newTestBtDropdown(t, btWorld())
+	row := rowNamed(t, d, "Headset")
+	after := widget.NewButton(widget.NewLabel(d.font, d.px, "after", 0), 4, 2)
+	list := widget.NewBox(widget.Column, 0, 0).Append(row, false).Append(after, false)
+	layoutForKeys(list)
+	router := &widget.Router{Root: list}
+	tabTo(t, router, list, row)
+	if row.slot.Visible() != btSlotActions {
+		t.Fatal("Tab onto the row kept its status, hiding the actions from the keyboard")
+	}
+	disconnect := row.actions.Children()[0].(*widget.Button)
+	tabTo(t, router, list, disconnect)
+	if row.slot.Visible() != btSlotActions {
+		t.Fatal("focus on an action hid the actions")
+	}
+	tabTo(t, router, list, row.actions.Children()[1])
+	router.FocusPrev()
+	router.KeyAction(widget.KeyEnter, 0)
+	if !slices.Equal(src.Calls(), []string{"disconnect " + string(pathHeadset)}) {
+		t.Errorf("calls = %v, want Enter on Disconnect to disconnect the headset", src.Calls())
+	}
+}
+
+func TestBtDeviceRowShowsItsStatusWithNeitherPointerNorFocus(t *testing.T) {
+	d, _ := newTestBtDropdown(t, btWorld())
+	row := rowNamed(t, d, "Headset")
+	before := widget.NewButton(widget.NewLabel(d.font, d.px, "before", 0), 4, 2)
+	clicked := rowNamed(t, d, "Mouse")
+	list := widget.NewBox(widget.Column, 0, 0).Append(before, false).Append(row, false).Append(clicked, false)
+	layoutForKeys(list)
+	router := &widget.Router{Root: list}
+	tabTo(t, router, list, before)
+	if row.slot.Visible() != btSlotStatus {
+		t.Error("focus outside the row revealed its actions")
+	}
+	tabTo(t, router, list, row)
+	router.FocusPrev()
+	layoutForKeys(list)
+	if row.slot.Visible() != btSlotStatus || !visible(row.status) {
+		t.Error("focus leaving the row kept its actions")
+	}
+	if err := router.SetFocus(clicked); err != nil {
+		t.Fatal(err)
+	}
+	if clicked.slot.Visible() != btSlotStatus {
+		t.Error("a pointer focus on the row, not the keyboard's, pinned its actions")
+	}
+}
+
+func TestBtDropdownForgetRunsOnlyWhenAccepted(t *testing.T) {
+	d, src := newTestBtDropdown(t, btWorld())
+	alerts := &fakeAlert{}
+	d.ctx.Alert = alerts.ask
+	rowNamed(t, d, "Mouse").actions.Children()[1].(*widget.Button).OnClick()
+	if len(alerts.specs) != 1 || plain(alerts.specs[0].message) != "Forget Mouse?" ||
+		alerts.specs[0].accept != "Forget" || alerts.specs[0].cancel != "Cancel" {
+		t.Fatalf("alerts = %+v, want the forget question", alerts.specs)
+	}
+	if calls := src.Calls(); len(calls) != 0 {
+		t.Fatalf("calls = %v before the answer, want none", calls)
+	}
+	alerts.answers[0](false)
+	if calls := src.Calls(); len(calls) != 0 {
+		t.Fatalf("a cancelled forget called %v", calls)
+	}
+	if row := rowNamed(t, d, "Mouse"); row.pending || row.status.Text() != "Paired" {
+		t.Error("a cancelled forget changed the row")
+	}
+	rowNamed(t, d, "Mouse").actions.Children()[1].(*widget.Button).OnClick()
+	alerts.answers[1](true)
+	if !slices.Equal(src.Calls(), []string{"forget " + string(pathMouse)}) {
+		t.Errorf("calls = %v, want the accepted forget", src.Calls())
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -124,6 +125,8 @@ type mediaView struct {
 	// (buttons hide their subtrees from the tree walks, so the view
 	// carries it, like every other stateful widget here).
 	check *widget.Icon
+
+	pickerRows []mediaPickerRow
 
 	lyrics       *lyricsPanel
 	lyricsButton *widget.Button
@@ -424,10 +427,31 @@ func (v *mediaView) showPicker() {
 	v.buildPicker()
 }
 
+type mediaPickerRow struct {
+	bus, identity, icon string
+	selected            bool
+}
+
+func (v *mediaView) pickerRowsNow() []mediaPickerRow {
+	active, _ := v.src.Active()
+	players := v.src.Players()
+	rows := make([]mediaPickerRow, len(players))
+	for i, p := range players {
+		rows[i] = mediaPickerRow{bus: p.BusName, identity: p.Identity, icon: mediaSourceIcon(p), selected: p.BusName == active.BusName}
+	}
+	return rows
+}
+
 // buildPicker lists every player as an Item in an item card under the
 // back and title row; picking one makes it active and returns to the
-// player view.
+// player view. A refresh that changes no row keeps the rows.
 func (v *mediaView) buildPicker() {
+	rows := v.pickerRowsNow()
+	if v.pickerRows != nil && slices.Equal(rows, v.pickerRows) {
+		v.pages.Show("sources")
+		return
+	}
+	v.pickerRows = rows
 	font, px := dropdownFont(v.ctx)
 	th := widget.Current()
 	col := dropdownContent("media-source-picker")
@@ -442,22 +466,21 @@ func (v *mediaView) buildPicker() {
 	card, list := itemCard()
 	card.AddClass("media-source-list")
 	col.Append(scrolledCard(card, "picker-body"), true)
-	active, _ := v.src.Active()
 	v.check = nil
-	for _, p := range v.src.Players() {
+	for _, p := range rows {
 		// The row shows the identity as-is.
-		row := widget.NewItem(font, p.Identity, "")
+		row := widget.NewItem(font, p.identity, "")
 		row.SetSmall(true)
 		row.SetEllipsize(true)
 		row.AddClass("media-source-option")
-		row.SetMedia(widget.NewThemeIcon(mediaSourceIcon(p), itemIconPx), false)
-		setClass(row, "selected", p.BusName == active.BusName)
-		if p.BusName == active.BusName {
+		row.SetMedia(widget.NewThemeIcon(p.icon, itemIconPx), false)
+		setClass(row, "selected", p.selected)
+		if p.selected {
 			v.check = widget.NewThemeIcon("ld-check-symbolic", itemIconPx)
 			v.check.AddClass("media-source-option-check")
 			row.AddAction(v.check)
 		}
-		bus := p.BusName
+		bus := p.bus
 		row.SetOnActivate(func() {
 			if err := v.src.SetActive(bus); err != nil {
 				log.Printf("media: select %s: %v", bus, err)

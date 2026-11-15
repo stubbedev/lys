@@ -2,8 +2,10 @@ package bar
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -47,8 +49,10 @@ type fakeWifiCtl struct {
 	scans     int
 	scanGate  chan struct{}
 	connects  []fakeConnect
+	hidden    []fakeHiddenJoin
 	connectFn func(progress func(network.DeviceState)) error
 	forgotten []string
+	forgetErr error
 	enabled   []bool
 	disconn   int
 }
@@ -94,6 +98,28 @@ func (f *fakeWifiCtl) ConnectAndWait(_ context.Context, ap dbus.ObjectPath, pass
 	return nil
 }
 
+type fakeHiddenJoin struct {
+	net      network.HiddenNetwork
+	password string
+}
+
+func (f *fakeWifiCtl) JoinHiddenAndWait(_ context.Context, net network.HiddenNetwork, password string, progress func(network.DeviceState)) error {
+	f.mu.Lock()
+	f.hidden = append(f.hidden, fakeHiddenJoin{net, password})
+	fn := f.connectFn
+	f.mu.Unlock()
+	if fn != nil {
+		return fn(progress)
+	}
+	return nil
+}
+
+func (f *fakeWifiCtl) hiddenJoins() []fakeHiddenJoin {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.hidden)
+}
+
 func (f *fakeWifiCtl) Disconnect(context.Context) error {
 	f.mu.Lock()
 	f.disconn++
@@ -101,10 +127,11 @@ func (f *fakeWifiCtl) Disconnect(context.Context) error {
 	return nil
 }
 
-func (f *fakeWifiCtl) Forget(_ context.Context, ssid string) {
+func (f *fakeWifiCtl) Forget(_ context.Context, ssid string) error {
 	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.forgotten = append(f.forgotten, ssid)
-	f.mu.Unlock()
+	return f.forgetErr
 }
 
 func (f *fakeWifiCtl) SetEnabled(_ context.Context, on bool) error {
@@ -292,7 +319,7 @@ func TestNetworkDropdownListsAndConnects(t *testing.T) {
 		if detail := itemText(v.active.wifi, "description"); detail != i18n.T("dropdown-network-error-timeout") || !v.active.badge.Visible() || v.active.wifiSignal.glyph.Name() != "ld-wifi-off-symbolic" || v.active.wifiSignal.Value() != 0 {
 			t.Errorf("error card = %q badge %v", detail, v.active.badge.Visible())
 		}
-		v.active.hovered = true
+		v.active.wifi.focusWithin = true
 		v.active.syncTrailing()
 		if v.active.trailing.Visible() != "error-actions" {
 			t.Errorf("hovered error card shows %q", v.active.trailing.Visible())
@@ -415,13 +442,13 @@ func TestNetworkRowsActivateAndForget(t *testing.T) {
 		known: map[string]bool{"saved": true},
 	}
 	v, _, pop := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
-	rows := treetest.All[*widget.Item](v.list)
+	rows := treetest.WithClass(v.list, "network-ap")
 	if len(rows) != 2 {
 		t.Fatalf("rows = %d, want cafe and saved", len(rows))
 	}
 	// Strongest first: the saved network outranks the unknown one.
 	saved, cafe := rows[0], rows[1]
-	if !cafe.HasClass("network-ap") {
+	if !widget.HasClass(cafe, "network-ap") {
 		t.Error("the row lacks its network-ap class")
 	}
 
@@ -465,7 +492,13 @@ func TestNetworkRowsActivateAndForget(t *testing.T) {
 	if !widget.HasClass(forget, css.Ghost) || widget.HasClass(forget, css.Icon) {
 		t.Error("the forget button is not GhostButton + network-item-forget")
 	}
+	alerts := &fakeAlert{}
+	v.ctx.Alert = alerts.ask
 	clickAt(t, saved, forget)
+	if len(alerts.specs) != 1 {
+		t.Fatalf("alerts = %+v, want the forget asked first", alerts.specs)
+	}
+	alerts.answers[0](true)
 	waitHeadless(t, "the forget", func() bool { _, f, _, _, _ := wifi.calls(); return len(f) == 1 && f[0] == "saved" })
 	if v.selection != nil && v.selection.ssid == "saved" {
 		t.Error("the forget button also selected the row")
@@ -517,13 +550,13 @@ func TestNetworkDropdownContentOnTheRootWrapper(t *testing.T) {
 		t.Fatalf(".dropdown-content boxes = %d, want the one root wrapper", found)
 	}
 	kids := content.Children()
-	if len(kids) != 4 {
-		t.Fatalf("content children = %d, want active, secret, the save offer, and the body stack", len(kids))
+	if len(kids) != 5 {
+		t.Fatalf("content children = %d, want the action error, active, secret, the save offer, and the body stack", len(kids))
 	}
-	if kids[0] != widget.Widget(v.active) || kids[1] != widget.Widget(v.secret) || kids[2] != widget.Widget(v.saveOffer) {
-		t.Error("the active connections, secret form and save offer are not under the content wrapper")
+	if kids[0] != widget.Widget(v.actionErr) || kids[1] != widget.Widget(v.active) || kids[2] != widget.Widget(v.secret) || kids[3] != widget.Widget(v.saveOffer) {
+		t.Error("the action error, active connections, secret form and save offer are not under the content wrapper")
 	}
-	if kids[3] != widget.Widget(v.body) {
+	if kids[4] != widget.Widget(v.body) {
 		t.Error("the body stack is not under the content wrapper")
 	}
 }
@@ -638,7 +671,7 @@ func TestNetworkRowsShowTheirStrengthAsARing(t *testing.T) {
 			t.Fatalf("%d available rows, want %d", len(rows), len(want))
 		}
 		for _, w := range rows {
-			row := w.(*widget.Item)
+			row := w
 			title := itemText(row, "title")
 			rings := treetest.All[*glyphRing](row)
 			if len(rings) != 1 {
@@ -677,4 +710,354 @@ func TestNetworkActiveStatusesEndTogether(t *testing.T) {
 		}
 		return true
 	})
+}
+
+func tabUntil(t *testing.T, r *widget.Router, root, want widget.Widget) {
+	t.Helper()
+	for range 64 {
+		r.FocusNext()
+		layoutForKeys(root)
+		if r.Focused() == want {
+			return
+		}
+	}
+	t.Fatalf("Tab never reached the %T", want)
+}
+
+func savedRow(t *testing.T, v *networkView, ssid string) *revealItem {
+	t.Helper()
+	for _, w := range treetest.WithClass(v.list, "network-ap") {
+		if r, ok := w.(*revealItem); ok && itemText(r, "title") == ssid {
+			return r
+		}
+	}
+	t.Fatalf("no saved row %q", ssid)
+	return nil
+}
+
+func TestNetworkSavedRowForgetIsReachedByTab(t *testing.T) {
+	wifi := &fakeWifiCtl{
+		aps:   []network.AccessPoint{netAP("saved", 70, network.SecurityWPA2, "/ap/3")},
+		known: map[string]bool{"saved": true},
+	}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	alerts := &fakeAlert{}
+	onHeadlessLoop(func() bool {
+		v.ctx.Alert = alerts.ask
+		row := savedRow(t, v, "saved")
+		trailing := treetest.First[*widget.Stack](t, row)
+		layoutForKeys(v)
+		if trailing.Visible() != "idle" {
+			t.Errorf("at rest the saved row shows %q, want nothing", trailing.Visible())
+		}
+		router := &widget.Router{Root: v}
+		tabUntil(t, router, v, row)
+		if trailing.Visible() != "actions" {
+			t.Fatalf("Tab onto the saved row shows %q, want its forget button", trailing.Visible())
+		}
+		forget := findButton(trailing, "network-item-forget")
+		tabUntil(t, router, v, forget)
+		router.KeyAction(widget.KeyEnter, 0)
+		return true
+	})
+	if len(alerts.specs) != 1 || !strings.Contains(alerts.specs[0].message, "saved") {
+		t.Fatalf("alerts = %+v, want Enter on Forget to ask about the network", alerts.specs)
+	}
+}
+
+func TestNetworkActiveRowActionsAreReachedByTab(t *testing.T) {
+	wifi := &fakeWifiCtl{}
+	v, _, pop := newNetTestView(t, network.Snapshot{WifiEnabled: true, Wifi: network.StatusConnected, WifiSSID: "home"}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	onHeadlessLoop(func() bool {
+		a := v.active
+		layoutForKeys(v)
+		if a.trailing.Visible() != "status" {
+			t.Errorf("at rest the connection shows %q, want its status", a.trailing.Visible())
+		}
+		router := &widget.Router{Root: v}
+		tabUntil(t, router, v, a.wifi)
+		if a.trailing.Visible() != "actions" {
+			t.Fatalf("Tab onto the connection shows %q, want its actions", a.trailing.Visible())
+		}
+		disconnect := findButton(a.trailing, "network-action-disconnect")
+		router.KeyAction(widget.KeyEnter, 0)
+		if pop.focused != widget.Widget(disconnect) {
+			t.Errorf("Enter on the connection focused %T, want its Disconnect", pop.focused)
+		}
+		tabUntil(t, router, v, disconnect)
+		router.KeyAction(widget.KeyEnter, 0)
+		return true
+	})
+	waitHeadless(t, "the disconnect", func() bool { _, _, _, _, d := wifi.calls(); return d == 1 })
+}
+
+func TestNetworkConnectingRowHasNoActionsForTheKeyboard(t *testing.T) {
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, Wifi: network.StatusConnecting, WifiSSID: "home"}, netDeps{wifiCtl: &fakeWifiCtl{}})
+	settleNetReads(t, v)
+	onHeadlessLoop(func() bool {
+		layoutForKeys(v)
+		router := &widget.Router{Root: v}
+		for range 64 {
+			router.FocusNext()
+			layoutForKeys(v)
+			if router.Focused() == widget.Widget(v.active.wifi) {
+				t.Fatal("Tab landed on a connection with no actions")
+			}
+		}
+		if v.active.trailing.Visible() != "status" {
+			t.Errorf("a connecting row shows %q, want its status", v.active.trailing.Visible())
+		}
+		return true
+	})
+}
+
+func TestNetworkForgetRunsOnlyWhenAccepted(t *testing.T) {
+	wifi := &fakeWifiCtl{
+		aps:   []network.AccessPoint{netAP("saved", 70, network.SecurityWPA2, "/ap/3")},
+		known: map[string]bool{"saved": true},
+	}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	alerts := &fakeAlert{}
+	onHeadlessLoop(func() bool {
+		v.ctx.Alert = alerts.ask
+		findButton(treetest.First[*widget.Stack](t, savedRow(t, v, "saved")).Page("actions"), "network-item-forget").OnClick()
+		return true
+	})
+	if len(alerts.specs) != 1 || plain(alerts.specs[0].message) != "Forget saved?" || alerts.specs[0].accept != i18n.T("dropdown-network-forget") || alerts.specs[0].cancel != i18n.T("dropdown-network-cancel") {
+		t.Fatalf("alerts = %+v, want the forget question", alerts.specs)
+	}
+	onHeadlessLoop(func() bool { alerts.answers[0](false); return true })
+	settleNetReads(t, v)
+	if _, f, _, _, _ := wifi.calls(); len(f) != 0 {
+		t.Fatalf("a cancelled forget forgot %v", f)
+	}
+	onHeadlessLoop(func() bool { v.askForget("saved", v.forget); alerts.answers[1](true); return true })
+	waitHeadless(t, "the forget", func() bool { _, f, _, _, _ := wifi.calls(); return slices.Equal(f, []string{"saved"}) })
+	settleNetReads(t, v)
+	if onHeadlessLoop(func() bool { return v.actionErr.Visible() }) {
+		t.Error("a forget that went through shows an error")
+	}
+}
+
+func TestNetworkRefusedForgetShowsWhy(t *testing.T) {
+	wifi := &fakeWifiCtl{
+		aps:       []network.AccessPoint{netAP("saved", 70, network.SecurityWPA2, "/ap/3")},
+		known:     map[string]bool{"saved": true},
+		forgetErr: errors.New("not allowed"),
+	}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	onHeadlessLoop(func() bool { v.forget("saved"); return true })
+	waitHeadless(t, "the refusal", func() bool { return v.actionErr.Visible() })
+	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not forget saved: not allowed" {
+		t.Errorf("error = %q, want the refusal", got)
+	}
+}
+
+func TestNetworkActiveForgetAsksThenForgetsAndDisconnects(t *testing.T) {
+	wifi := &fakeWifiCtl{known: map[string]bool{"home": true}}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, Wifi: network.StatusConnected, WifiSSID: "home"}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	alerts := &fakeAlert{}
+	onHeadlessLoop(func() bool {
+		v.ctx.Alert = alerts.ask
+		findButton(v.active.trailing.Page("actions"), "network-action-forget").OnClick()
+		return true
+	})
+	if len(alerts.specs) != 1 || plain(alerts.specs[0].message) != "Forget home?" {
+		t.Fatalf("alerts = %+v, want the forget question", alerts.specs)
+	}
+	onHeadlessLoop(func() bool { alerts.answers[0](false); return true })
+	settleNetReads(t, v)
+	if _, f, _, _, d := wifi.calls(); len(f) != 0 || d != 0 {
+		t.Fatalf("a cancelled forget forgot %v and disconnected %d times", f, d)
+	}
+	onHeadlessLoop(func() bool { v.active.forget(); alerts.answers[1](true); return true })
+	waitHeadless(t, "the forget and disconnect", func() bool { _, f, _, _, d := wifi.calls(); return slices.Equal(f, []string{"home"}) && d == 1 })
+}
+
+func TestNetworkActiveForgetRefusedKeepsTheConnection(t *testing.T) {
+	wifi := &fakeWifiCtl{known: map[string]bool{"home": true}, forgetErr: errors.New("not allowed")}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, Wifi: network.StatusConnected, WifiSSID: "home"}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	alerts := &fakeAlert{}
+	onHeadlessLoop(func() bool { v.ctx.Alert = alerts.ask; v.active.forget(); alerts.answers[0](true); return true })
+	waitHeadless(t, "the refusal", func() bool { return v.actionErr.Visible() })
+	if _, _, _, _, d := wifi.calls(); d != 0 {
+		t.Error("a refused forget still disconnected")
+	}
+}
+
+func TestNetworkListKeepsItsRowsWhenNothingChanged(t *testing.T) {
+	wifi := &fakeWifiCtl{
+		aps:   []network.AccessPoint{netAP("cafe", 60, network.SecurityWPA2, "/ap/2"), netAP("saved", 70, network.SecurityWPA2, "/ap/3")},
+		known: map[string]bool{"saved": true},
+	}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	rows := func() []widget.Widget {
+		return onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(v.list, "network-ap") })
+	}
+	before := rows()
+	v.refresh()
+	settleNetReads(t, v)
+	if after := rows(); !slices.Equal(after, before) {
+		t.Error("a read that changed no network rebuilt the rows")
+	}
+	wifi.setAPs(netAP("cafe", 30, network.SecurityWPA2, "/ap/2"), netAP("saved", 70, network.SecurityWPA2, "/ap/3"))
+	v.refresh()
+	settleNetReads(t, v)
+	after := rows()
+	if len(after) != 2 || slices.Contains(before, after[0]) || slices.Contains(before, after[1]) {
+		t.Error("a weaker signal kept the old rows")
+	}
+}
+
+func TestNetworkSavedEnterpriseConnectsByItsProfile(t *testing.T) {
+	wifi := &fakeWifiCtl{
+		aps:   []network.AccessPoint{netAP("eduroam", 80, network.SecurityEnterprise, "/ap/7"), netAP("corp", 90, network.SecurityEnterprise, "/ap/8")},
+		known: map[string]bool{"eduroam": true},
+	}
+	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	titles := onHeadlessLoop(func() []string {
+		var out []string
+		for _, w := range treetest.WithClass(v.list, "network-ap") {
+			out = append(out, itemText(w, "title"))
+		}
+		return out
+	})
+	if !slices.Equal(titles, []string{"eduroam"}) {
+		t.Fatalf("rows = %v, want the saved eduroam only", titles)
+	}
+	onHeadlessLoop(func() bool { v.selectNetwork("eduroam"); return true })
+	waitHeadless(t, "the connect", func() bool { c, _, _, _, _ := wifi.calls(); return len(c) == 1 })
+	if c, _, _, _, _ := wifi.calls(); c[0].path != "/ap/7" || c[0].password != "" {
+		t.Errorf("connect = %+v, want eduroam's access point with no password, so its profile is used", c[0])
+	}
+	if onHeadlessLoop(func() bool { return v.password.Visible() }) {
+		t.Error("a saved enterprise network asked for a password")
+	}
+}
+
+func openHiddenForm(t *testing.T, wifi *fakeWifiCtl) (*networkView, *fakePopover) {
+	t.Helper()
+	v, _, pop := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
+	settleNetReads(t, v)
+	row := onHeadlessLoop(func() widget.Widget {
+		if !v.hiddenCard.Visible() || v.hidden.Visible() {
+			t.Error("at rest: want the hidden-network row, not its form")
+		}
+		return treetest.WithClass(v.hiddenCard, "network-hidden-join")[0]
+	})
+	clickAt(t, v, row)
+	return v, pop
+}
+
+func TestNetworkHiddenFormJoinsByNameAndPassword(t *testing.T) {
+	wifi := &fakeWifiCtl{}
+	v, pop := openHiddenForm(t, wifi)
+	onHeadlessLoop(func() bool {
+		if !v.hidden.Visible() || v.hiddenCard.Visible() || v.state != netHiddenEntry {
+			t.Fatalf("after the row: form %v, row %v, state %d; want the form", v.hidden.Visible(), v.hiddenCard.Visible(), v.state)
+		}
+		if pop.focused != widget.Widget(v.hidden.name) {
+			t.Errorf("focus = %T, want the name box", pop.focused)
+		}
+		if v.hidden.security.Value() != network.SecurityWPA2 || !v.hidden.passwordField.Visible() {
+			t.Error("the form does not start on WPA2 with its password")
+		}
+		v.hidden.name.SetText("lab")
+		v.hidden.password.entry.SetText("correct horse")
+		findButton(v.hidden, "network-hidden-connect").OnClick()
+		return true
+	})
+	waitHeadless(t, "the join", func() bool { return len(wifi.hiddenJoins()) == 1 })
+	j := wifi.hiddenJoins()[0]
+	if j.net.Name() != "lab" || j.net.Security() != network.SecurityWPA2 || j.password != "correct horse" {
+		t.Errorf("joined %q (%v) with %q, want lab, WPA2, the typed password", j.net.Name(), j.net.Security(), j.password)
+	}
+	waitHeadless(t, "the join finished", func() bool { return v.state == netNormal })
+	if onHeadlessLoop(func() bool { return v.hidden.Visible() || v.hidden.password.entry.Text() != "" }) {
+		t.Error("the form or its password outlived the join")
+	}
+}
+
+func TestNetworkHiddenFormRefusesWhatCannotBeJoined(t *testing.T) {
+	wifi := &fakeWifiCtl{}
+	v, _ := openHiddenForm(t, wifi)
+	onHeadlessLoop(func() bool {
+		f := v.hidden
+		connect := findButton(f, "network-hidden-connect")
+		connect.OnClick()
+		if !f.errLabel.Visible() || f.errLabel.Text() != i18n.T("dropdown-network-hidden-error-name-empty") {
+			t.Errorf("no name: error %q", f.errLabel.Text())
+		}
+		f.name.SetText(strings.Repeat("x", network.MaxSSIDBytes+1))
+		connect.OnClick()
+		if f.errLabel.Text() != i18n.T("dropdown-network-hidden-error-name-too-long") {
+			t.Errorf("a 33-byte name: error %q", f.errLabel.Text())
+		}
+		f.name.SetText("lab")
+		connect.OnClick()
+		if f.errLabel.Text() != i18n.T("dropdown-network-hidden-error-password") {
+			t.Errorf("no password: error %q", f.errLabel.Text())
+		}
+		if !f.Visible() || v.state != netHiddenEntry {
+			t.Error("a refused join left the form")
+		}
+		return true
+	})
+	if joins := wifi.hiddenJoins(); len(joins) != 0 {
+		t.Fatalf("refused forms joined %+v", joins)
+	}
+	onHeadlessLoop(func() bool {
+		f := v.hidden
+		f.security.SetSelected(slices.Index(hiddenSecurities, network.SecurityNone))
+		if f.passwordField.Visible() {
+			t.Error("an open network still asks for a password")
+		}
+		findButton(f, "network-hidden-connect").OnClick()
+		return true
+	})
+	waitHeadless(t, "the open join", func() bool { return len(wifi.hiddenJoins()) == 1 })
+	if j := wifi.hiddenJoins()[0]; j.net.Security() != network.SecurityNone || j.password != "" {
+		t.Errorf("joined %+v, want an open network with no password", j)
+	}
+}
+
+func TestNetworkHiddenFormCancelGoesBack(t *testing.T) {
+	wifi := &fakeWifiCtl{}
+	v, _ := openHiddenForm(t, wifi)
+	onHeadlessLoop(func() bool {
+		v.hidden.password.entry.SetText("secret")
+		findButton(v.hidden, "network-hidden-cancel").OnClick()
+		if v.hidden.Visible() || !v.hiddenCard.Visible() || v.state != netNormal || v.hidden.password.entry.Text() != "" {
+			t.Errorf("cancel: form %v, row %v, state %d, password %q", v.hidden.Visible(), v.hiddenCard.Visible(), v.state, v.hidden.password.entry.Text())
+		}
+		return true
+	})
+	if len(wifi.hiddenJoins()) != 0 {
+		t.Error("cancel joined")
+	}
+}
+
+func TestNetworkHiddenFormJoinsASavedNetworkWithoutAPassword(t *testing.T) {
+	wifi := &fakeWifiCtl{known: map[string]bool{"lab": true}}
+	v, _ := openHiddenForm(t, wifi)
+	onHeadlessLoop(func() bool {
+		v.hidden.name.SetText("lab")
+		findButton(v.hidden, "network-hidden-connect").OnClick()
+		if v.hidden.errLabel.Visible() {
+			t.Errorf("a saved hidden network asked for its password: %q", v.hidden.errLabel.Text())
+		}
+		return true
+	})
+	waitHeadless(t, "the join", func() bool { return len(wifi.hiddenJoins()) == 1 })
+	if j := wifi.hiddenJoins()[0]; j.net.Name() != "lab" || j.password != "" {
+		t.Errorf("joined %q with %q, want lab by its saved profile", j.net.Name(), j.password)
+	}
 }

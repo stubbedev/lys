@@ -254,10 +254,10 @@ func treemanChevron(expanded bool) string {
 	return "ld-chevron-right-symbolic"
 }
 
-// worktreeRow is the worktree's Item, whose trailing
-// slot shows its state badge at rest and, while hovered, its action
-// cluster in the badge's place.
-func (v *treemanView) worktreeRow(wt treeman.Worktree) *widget.Item {
+// worktreeRow is the worktree's Item, whose trailing slot shows its
+// state badge at rest and, while hovered or focused, its action cluster
+// in the badge's place; activating the row opens its details.
+func (v *treemanView) worktreeRow(wt treeman.Worktree) widget.Widget {
 	bucket := treeman.ParseBucket(wt.Bucket)
 	row := v.worktreeItem(wt)
 	row.AddClass("treeman-wt")
@@ -267,31 +267,28 @@ func (v *treemanView) worktreeRow(wt treeman.Worktree) *widget.Item {
 		row.AddAction(state)
 		return row
 	}
-	cluster := v.actions(wt.Path)
-	cluster.InsertAt(0, v.ghostIcon("ld-info-symbolic", i18n.T("dropdown-treeman-action-info"), func() { v.openDetail(wt.Path) }), false)
+	path := wt.Path
+	cluster := v.actions(path)
+	cluster.InsertAt(0, v.ghostIcon("ld-info-symbolic", i18n.T("dropdown-treeman-action-info"), func() { v.openDetail(path) }), false)
 	slot := widget.NewStack()
 	slot.SetTransition(widget.StackCrossfade, hoverTransition)
 	slot.Add("state", atEnd(state))
 	slot.Add("actions", cluster)
-	row.SetOnHoverWithin(func(on bool) {
-		if on {
-			slot.Show("actions")
-		} else {
-			slot.Show("state")
-		}
-	})
+	row.SetOnActivate(func() { v.openDetail(path) })
 	row.AddAction(slot)
-	return row
+	return newRevealSlot(row, slot, "state", "actions")
 }
 
 func (v *treemanView) ghostIcon(icon, tooltip string, onClick func()) *widget.Button {
 	glyph := widget.NewThemeIcon(icon, itemIconPx)
 	b := dropdownButton(glyph, onClick, css.Ghost, css.Icon, css.Small)
 	b.SetTooltip(tooltip)
+	b.SetAccessibleName(tooltip)
 	return b
 }
 
-// actions are the row's buttons: prepare, reset (confirmed), teardown.
+// actions are the row's buttons: prepare, then reset and teardown,
+// both confirmed.
 func (v *treemanView) actions(path string) *widget.Box {
 	row := widget.NewBox(widget.Row, widget.Current().Spacing/2, 0)
 	row.AddClass("treeman-actions")
@@ -299,10 +296,8 @@ func (v *treemanView) actions(path string) *widget.Box {
 		func() { v.run(treeman.ActionPrepare, path) }), false)
 	row.Append(v.ghostIcon("ld-rotate-ccw-symbolic", i18n.T("dropdown-treeman-action-reset"),
 		func() { v.confirmReset(path) }), false)
-	// Deliberately unconfirmed: a worktree is cheap to
-	// recreate from its branch.
 	row.Append(v.ghostIcon("ld-trash-2-symbolic", i18n.T("dropdown-treeman-action-teardown"),
-		func() { v.run(treeman.ActionTeardown, path) }), false)
+		func() { v.confirmTeardown(path) }), false)
 	return row
 }
 
@@ -326,14 +321,26 @@ func (v *treemanView) run(action treeman.Action, path string) {
 // reset title and the worktree path, Cancel the default, and the
 // action runs only when the accept button answers.
 func (v *treemanView) confirmReset(path string) {
-	v.ctx.showAlert(alertSpec{
+	v.confirmThenRun(treeman.ActionReset, path, alertSpec{
 		message: i18n.T("dropdown-treeman-confirm-reset-title"),
 		detail:  path,
-		cancel:  i18n.T("dropdown-treeman-confirm-cancel"),
 		accept:  i18n.T("dropdown-treeman-confirm-reset-accept"),
-	}, func(accepted bool) {
+	})
+}
+
+func (v *treemanView) confirmTeardown(path string) {
+	v.confirmThenRun(treeman.ActionTeardown, path, alertSpec{
+		message: i18n.T("dropdown-treeman-confirm-teardown-title"),
+		detail:  i18n.T("dropdown-treeman-confirm-teardown-detail", i18n.Str("path", path)),
+		accept:  i18n.T("dropdown-treeman-confirm-teardown-accept"),
+	})
+}
+
+func (v *treemanView) confirmThenRun(action treeman.Action, path string, spec alertSpec) {
+	spec.cancel = i18n.T("dropdown-treeman-confirm-cancel")
+	v.ctx.showAlert(spec, func(accepted bool) {
 		if accepted {
-			v.run(treeman.ActionReset, path)
+			v.run(action, path)
 		}
 	})
 }

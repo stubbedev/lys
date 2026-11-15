@@ -154,3 +154,18 @@ dropdown-network-save-title = Opslaan in Bitwarden?
 dropdown-network-save-body = { $name } is verbonden met wat je hebt ingevoerd. Bewaar het in de netwerkmap van de kluis om de volgende keer zonder vragen te verbinden.
 dropdown-network-save = Opslaan
 dropdown-network-save-not-now = Niet nu
+
+## Een netwerk vergeten
+dropdown-network-forget-confirm = { $name } vergeten?
+dropdown-network-forget-confirm-detail = Het opgeslagen wachtwoord en de instellingen worden verwijderd. Bij opnieuw verbinden wordt om het wachtwoord gevraagd.
+dropdown-network-error-forget = Kan { $name } niet vergeten: { $error }
+
+## Verborgen netwerken
+dropdown-network-hidden-join = Verbinden met een verborgen netwerk
+dropdown-network-hidden-title = Verborgen netwerk
+dropdown-network-hidden-name = Netwerknaam
+dropdown-network-hidden-security = Beveiliging
+dropdown-network-hidden-password = Wachtwoord
+dropdown-network-hidden-error-name-empty = Voer de naam van het netwerk in
+dropdown-network-hidden-error-name-too-long = Die naam is te lang voor een netwerk
+dropdown-network-hidden-error-password = Voer het wachtwoord van het netwerk in

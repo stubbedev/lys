@@ -168,3 +168,18 @@ dropdown-network-save-title = ¿Guardar en Bitwarden?
 dropdown-network-save-body = { $name } se ha conectado con lo que ha escrito. Guárdelo en la carpeta de redes de la caja fuerte para conectarse sin preguntar la próxima vez.
 dropdown-network-save = Guardar
 dropdown-network-save-not-now = Ahora no
+
+## Olvidar una red
+dropdown-network-forget-confirm = ¿Olvidar { $name }?
+dropdown-network-forget-confirm-detail = Se eliminarán su contraseña y su configuración guardadas. Para volver a conectarse se pedirá la contraseña.
+dropdown-network-error-forget = No se ha podido olvidar { $name }: { $error }
+
+## Redes ocultas
+dropdown-network-hidden-join = Conectarse a una red oculta
+dropdown-network-hidden-title = Red oculta
+dropdown-network-hidden-name = Nombre de la red
+dropdown-network-hidden-security = Seguridad
+dropdown-network-hidden-password = Contraseña
+dropdown-network-hidden-error-name-empty = Introduzca el nombre de la red
+dropdown-network-hidden-error-name-too-long = Ese nombre es demasiado largo para una red
+dropdown-network-hidden-error-password = Introduzca la contraseña de la red

@@ -47,6 +47,7 @@ type btDropdown struct {
 	scanIcon   *widget.Icon
 	toggle     *widget.Switch
 	card       *btPairingCard
+	errLabel   *widget.Label
 
 	mySection, availSection *widget.Box
 	myCard, availCard       *widget.Box
@@ -162,6 +163,11 @@ func newBtDropdown(ctx ModuleContext, src bluetooth.Source) *btDropdown {
 
 	// The content column, scrolled.
 	col := dropdownContent("bluetooth-content")
+	d.errLabel = widget.NewLabel(font, px, "", 0)
+	d.errLabel.AddClass("bluetooth-error", css.Error)
+	d.errLabel.SetWrap(true)
+	d.errLabel.SetVisible(false)
+	col.Append(d.errLabel, false)
 	d.card = newBtPairingCard(ctx)
 	d.card.onOutput = d.onPairingOutput
 	col.Append(d.card.root, false)
@@ -327,7 +333,8 @@ func (d *btDropdown) buildRow(s deviceSnapshot) *btDeviceRow {
 	if s.battery != nil {
 		detail += " " + btDetailSeparator + " " + batteryText(s.battery)
 	}
-	row := &btDeviceRow{Item: widget.NewItem(font, s.name, detail), hoverSwaps: s.category != categoryAvailable, pending: pending != 0}
+	row := &btDeviceRow{hoverSwaps: s.category != categoryAvailable, pending: pending != 0}
+	row.revealItem = newRevealItem(widget.NewItem(font, s.name, detail), row.syncSlot)
 	row.SetSmall(true)
 	row.SetEllipsize(true)
 	row.AddClass("bluetooth-device")
@@ -344,7 +351,6 @@ func (d *btDropdown) buildRow(s deviceSnapshot) *btDeviceRow {
 	}
 	row.onClick = func() { d.onDeviceClick(s) }
 	row.SetOnActivate(func() { row.onClick() })
-	row.SetOnHoverWithin(func(bool) { row.syncSlot() })
 	if s.connected && s.battery != nil {
 		ring := newGlyphRing(s.icon, *s.battery)
 		ring.glyph.AddClass("bluetooth-icon")
@@ -355,7 +361,6 @@ func (d *btDropdown) buildRow(s deviceSnapshot) *btDeviceRow {
 		row.SetMedia(icon, false)
 	}
 
-	// The trailing slot: status, or the actions while hovered.
 	if s.category != categoryAvailable || pending != 0 {
 		status := widget.NewLabel(font, px*styling.Caption.Ratio(), statusLabel(s, pending), 0)
 		status.AddClass("bluetooth-device-status", css.Caption, css.DimLabel)
@@ -462,26 +467,48 @@ func setVisible(w widget.Widget, on bool) {
 
 func (d *btDropdown) onToggle(active bool) {
 	d.enabled = active
+	d.clearError()
 	if !active {
 		d.scanGen++
 		d.scanning = false
 	}
 	d.render()
+	var err error
 	d.async(func() {
-		var err error
 		if active {
 			err = d.src.Enable(context.Background())
 		} else {
 			err = d.src.Disable(context.Background())
 		}
-		if err != nil {
-			log.Printf("bluetooth toggle failed: %v", err)
-		}
-	}, nil)
+	}, func() { d.toggleDone(active, err) })
 }
 
-// onScan is a timed discovery, with the button
-// held in its scanning state for the scan's length.
+func (d *btDropdown) toggleDone(active bool, err error) {
+	if err == nil {
+		return
+	}
+	log.Printf("bluetooth: set powered %v: %v", active, err)
+	key := "dropdown-bluetooth-error-power-off"
+	if active {
+		key = "dropdown-bluetooth-error-power-on"
+	}
+	d.enabled = d.src.State().Enabled
+	d.showError(btText(key, "error", err.Error()))
+	d.render()
+}
+
+func (d *btDropdown) showError(text string) {
+	d.errLabel.SetText(text)
+	d.errLabel.SetVisible(true)
+}
+
+func (d *btDropdown) clearError() {
+	d.errLabel.SetText("")
+	d.errLabel.SetVisible(false)
+}
+
+// onScan is a timed discovery, with the button held in its scanning
+// state for the scan's length, or until the discovery is refused.
 func (d *btDropdown) onScan() {
 	if d.scanning {
 		return
@@ -489,15 +516,24 @@ func (d *btDropdown) onScan() {
 	d.scanning = true
 	d.scanGen++
 	gen := d.scanGen
+	d.clearError()
 	d.render()
+	var err error
 	d.async(func() {
-		if err := d.src.StartTimedDiscovery(context.Background(), btScanDuration); err != nil {
-			log.Printf("bluetooth scan failed: %v", err)
-		}
-	}, nil)
+		err = d.src.StartTimedDiscovery(context.Background(), btScanDuration)
+	}, func() { d.scanStarted(gen, err) })
 	if d.ctx.App != nil {
 		time.AfterFunc(btScanDuration, func() { d.ctx.Invoke(func() { d.finishScan(gen) }) })
 	}
+}
+
+func (d *btDropdown) scanStarted(gen int, err error) {
+	if err == nil || gen != d.scanGen {
+		return
+	}
+	log.Printf("bluetooth: start discovery: %v", err)
+	d.showError(btText("dropdown-bluetooth-error-scan", "error", err.Error()))
+	d.finishScan(gen)
 }
 
 // finishScan is ScanComplete for the scan gen started; a toggle-off in
@@ -538,8 +574,18 @@ func (d *btDropdown) onForget(s deviceSnapshot) {
 	if d.pending[s.path] != 0 {
 		return
 	}
-	d.startAction(s.path, pendingForgetting, func(ctx context.Context) error {
-		return d.src.Forget(ctx, s.path)
+	d.ctx.showAlert(alertSpec{
+		message: btText("dropdown-bluetooth-forget-confirm", "name", s.name),
+		detail:  btText("dropdown-bluetooth-forget-confirm-detail"),
+		cancel:  btText("dropdown-bluetooth-cancel"),
+		accept:  btText("dropdown-bluetooth-forget"),
+	}, func(accepted bool) {
+		if !accepted || d.pending[s.path] != 0 {
+			return
+		}
+		d.startAction(s.path, pendingForgetting, func(ctx context.Context) error {
+			return d.src.Forget(ctx, s.path)
+		})
 	})
 }
 

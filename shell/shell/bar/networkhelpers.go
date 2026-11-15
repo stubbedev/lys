@@ -59,16 +59,20 @@ func formatWiredSpeed(mbps uint32) string {
 	return strconv.FormatUint(uint64(mbps), 10) + " Mbps"
 }
 
-// sortedUniqueAccessPoints is one entry
-// per SSID (the strongest), hidden and enterprise networks and the
-// connected SSID dropped, strongest first.
+func listable(security network.SecurityType, known bool) bool {
+	return security != network.SecurityEnterprise || known
+}
+
+// sortedUniqueAccessPoints is one entry per SSID (the strongest),
+// hidden networks, unsaved enterprise ones and the connected SSID
+// dropped, strongest first.
 func sortedUniqueAccessPoints(aps []network.AccessPoint, connected string, known map[string]bool) []apSnapshot {
 	best := map[string]apSnapshot{}
 	for _, ap := range aps {
-		if len(ap.SSID) == 0 || ap.Security == network.SecurityEnterprise {
+		ssid := ap.Name()
+		if len(ap.SSID) == 0 || !listable(ap.Security, known[ssid]) {
 			continue
 		}
-		ssid := ap.Name()
 		if ssid == connected && connected != "" {
 			continue
 		}
@@ -90,9 +94,9 @@ func sortedUniqueAccessPoints(aps []network.AccessPoint, connected string, known
 	return out
 }
 
-// mergeWithCache is the live list first, then the
-// cached networks it lacks, marked stale, connected dropped, known
-// recomputed.
+// mergeWithCache is the live list first, then the cached networks it
+// lacks, marked stale, connected and no longer listable ones dropped,
+// known recomputed.
 func mergeWithCache(live, cached []apSnapshot, connected string, known map[string]bool) []apSnapshot {
 	liveSSIDs := map[string]bool{}
 	for _, ap := range live {
@@ -104,6 +108,9 @@ func mergeWithCache(live, cached []apSnapshot, connected string, known map[strin
 			continue
 		}
 		ap.known = known[ap.ssid]
+		if !listable(ap.security, ap.known) {
+			continue
+		}
 		ap.stale = true
 		out = append(out, ap)
 	}
@@ -133,7 +140,7 @@ func rowSecurityLabel(ap apSnapshot) string {
 	switch {
 	case ap.stale:
 		return i18n.T("dropdown-network-security-stale", i18n.Str("security", base))
-	case ap.known && ap.security.RequiresPassword():
+	case ap.known && ap.security != network.SecurityNone:
 		return i18n.T("dropdown-network-security-saved", i18n.Str("security", base))
 	}
 	return base

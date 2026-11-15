@@ -160,3 +160,12 @@ dropdown-bluetooth-pairing-pin-placeholder = PIN
 dropdown-bluetooth-pairing-common-pins = Common PINs: 0000, 1234, 1111
 # Pairing failure
 dropdown-bluetooth-pairing-failed = Pairing failed. The PIN may be incorrect or the request timed out.
+
+## Errors
+dropdown-bluetooth-error-power-on = Could not turn Bluetooth on: { $error }
+dropdown-bluetooth-error-power-off = Could not turn Bluetooth off: { $error }
+dropdown-bluetooth-error-scan = Could not search for devices: { $error }
+
+## Forgetting a device
+dropdown-bluetooth-forget-confirm = Forget { $name }?
+dropdown-bluetooth-forget-confirm-detail = The pairing is removed. To use the device again, pair it again.

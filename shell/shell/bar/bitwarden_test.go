@@ -64,6 +64,7 @@ type fakeVault struct {
 	created   []vault.NewTextSend
 	deleted   []vault.SendID
 	sendErr   error
+	syncGate  chan struct{}
 }
 
 func (f *fakeVault) Status() vault.Status {
@@ -126,8 +127,12 @@ func (f *fakeVault) Unlock(_ context.Context, password string) error {
 
 func (f *fakeVault) Sync(context.Context) error {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.syncs++
+	gate := f.syncGate
+	f.mu.Unlock()
+	if gate != nil {
+		<-gate
+	}
 	return nil
 }
 
@@ -993,5 +998,49 @@ func TestBitwardenLiveTOTPRow(t *testing.T) {
 	onHeadlessLoop(func() bool { view.refreshTOTP(); return true })
 	if onHeadlessLoop(func() bool { return view.totpSt.Visible() == "code" }) {
 		t.Error("the live code shows on a locked vault")
+	}
+}
+
+func TestBitwardenLogoutRunsOnlyWhenAccepted(t *testing.T) {
+	v := unlockedVault()
+	view, _ := bitwardenTestView(t, v, config.Defaults())
+	alerts := &fakeAlert{}
+	onHeadlessLoop(func() struct{} { view.ctx.Alert = alerts.ask; view.logoutBtn.OnClick(); return struct{}{} })
+	if len(alerts.specs) != 1 || alerts.specs[0].message != i18n.T("dropdown-bitwarden-logout-confirm") ||
+		alerts.specs[0].accept != i18n.T("dropdown-bitwarden-logout") || alerts.specs[0].cancel != i18n.T("dropdown-bitwarden-cancel") {
+		t.Fatalf("alerts = %+v, want the logout question", alerts.specs)
+	}
+	onHeadlessLoop(func() struct{} { alerts.answers[0](false); return struct{}{} })
+	if view.busy || v.Status().State != vault.StateUnlocked || page(view) != bwPageVault {
+		t.Fatalf("a cancelled logout: busy %v, state %v, page %s; want the vault still open", view.busy, v.Status().State, page(view))
+	}
+	onHeadlessLoop(func() struct{} { view.logoutBtn.OnClick(); alerts.answers[1](true); return struct{}{} })
+	waitIdle(t, view)
+	if v.Status().State != vault.StateLoggedOut || page(view) != bwPageLogin {
+		t.Errorf("an accepted logout: state %v, page %s; want logged out at the login", v.Status().State, page(view))
+	}
+}
+
+func TestBitwardenLockAndLogoutWaitForTheOperation(t *testing.T) {
+	v := unlockedVault()
+	v.syncGate = make(chan struct{})
+	view, _ := bitwardenTestView(t, v, config.Defaults())
+	alerts := &fakeAlert{}
+	onHeadlessLoop(func() struct{} { view.ctx.Alert = alerts.ask; return struct{}{} })
+	if !onHeadlessLoop(func() bool { return view.lockBtn.Enabled() && view.logoutBtn.Enabled() }) {
+		t.Fatal("idle, lock or logout is disabled")
+	}
+	onHeadlessLoop(func() struct{} { view.sync(); return struct{}{} })
+	if onHeadlessLoop(func() bool { return view.lockBtn.Enabled() || view.logoutBtn.Enabled() }) {
+		t.Error("lock or logout stays enabled while the vault is busy")
+	}
+	onHeadlessLoop(func() struct{} { view.askLogout(); return struct{}{} })
+	if len(alerts.specs) != 0 {
+		t.Errorf("a logout asked while busy: %+v", alerts.specs)
+	}
+	close(v.syncGate)
+	waitIdle(t, view)
+	if !onHeadlessLoop(func() bool { return view.lockBtn.Enabled() && view.logoutBtn.Enabled() }) {
+		t.Error("lock or logout stays disabled after the operation")
 	}
 }

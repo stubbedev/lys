@@ -172,3 +172,18 @@ dropdown-network-save-title = Enregistrer dans Bitwarden ?
 dropdown-network-save-body = { $name } s'est connecté avec ce que vous avez saisi. Gardez-le dans le dossier réseau du coffre pour vous connecter sans saisie la prochaine fois.
 dropdown-network-save = Enregistrer
 dropdown-network-save-not-now = Plus tard
+
+## Oublier un réseau
+dropdown-network-forget-confirm = Oublier { $name } ?
+dropdown-network-forget-confirm-detail = Son mot de passe et ses paramètres enregistrés seront supprimés. Pour le rejoindre à nouveau, le mot de passe sera demandé.
+dropdown-network-error-forget = Impossible d'oublier { $name } : { $error }
+
+## Réseaux masqués
+dropdown-network-hidden-join = Rejoindre un réseau masqué
+dropdown-network-hidden-title = Réseau masqué
+dropdown-network-hidden-name = Nom du réseau
+dropdown-network-hidden-security = Sécurité
+dropdown-network-hidden-password = Mot de passe
+dropdown-network-hidden-error-name-empty = Saisissez le nom du réseau
+dropdown-network-hidden-error-name-too-long = Ce nom est trop long pour un réseau
+dropdown-network-hidden-error-password = Saisissez le mot de passe du réseau

@@ -16,6 +16,9 @@ dropdown-treeman-action-failed = la acción de treeman ha fallado
 dropdown-treeman-confirm-cancel = Cancelar
 dropdown-treeman-confirm-reset-title = ¿Restablecer las bases de datos de este árbol de trabajo?
 dropdown-treeman-confirm-reset-accept = Restablecer
+dropdown-treeman-confirm-teardown-title = ¿Eliminar este árbol de trabajo?
+dropdown-treeman-confirm-teardown-detail = Se eliminarán { $path } y todo el trabajo sin confirmar que contenga.
+dropdown-treeman-confirm-teardown-accept = Eliminar
 
 ## Bucket names (summary chips)
 dropdown-treeman-bucket-stable = listo

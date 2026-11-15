@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -182,10 +183,31 @@ func TestForgetDeletesEveryProfileOfTheNetwork(t *testing.T) {
 	if known := w.KnownSSIDs(); !known["home"] || !known["cafe"] || known["other"] {
 		t.Errorf("known = %v", known)
 	}
-	w.Forget(t.Context(), "home")
+	if err := w.Forget(t.Context(), "home"); err != nil {
+		t.Fatalf("forget: %v", err)
+	}
 	waitFor(t, "the profiles to go", func() bool { return len(fx.svc.Settings.ForSSID([]byte("home"))) == 0 })
 	if len(fx.svc.Settings.ForSSID([]byte("cafe"))) != 1 {
 		t.Error("forgetting home deleted another network's profile")
+	}
+}
+
+func TestForgetReportsARefusedDeleteAndDeletesTheRest(t *testing.T) {
+	fx, w := wifiFixture(t, withProfiles(
+		wifiConnection("a", "Home", []byte("home")),
+		wifiConnection("b", "Home 2", []byte("home")),
+	))
+	refused := fx.svc.Settings.ForSSID([]byte("home"))[0].Path
+	fx.nm.mu.Lock()
+	fx.nm.deleteErr = map[dbus.ObjectPath]*dbus.Error{refused: dbus.NewError("org.freedesktop.NetworkManager.Settings.PermissionDenied", []any{"not allowed"})}
+	fx.nm.mu.Unlock()
+	err := w.Forget(t.Context(), "home")
+	if err == nil || !strings.Contains(err.Error(), "not allowed") || !strings.Contains(err.Error(), string(refused)) {
+		t.Fatalf("forget = %v, want the refusal naming the profile", err)
+	}
+	waitFor(t, "the other profile to go", func() bool { return len(fx.svc.Settings.ForSSID([]byte("home"))) == 1 })
+	if left := fx.svc.Settings.ForSSID([]byte("home")); left[0].Path != refused {
+		t.Errorf("left %s, want only the refused %s", left[0].Path, refused)
 	}
 }
 
@@ -211,6 +233,129 @@ func TestTheRadioAndTheScan(t *testing.T) {
 	}
 	// No active connection: disconnecting is a no-op.
 	must(t, w.Disconnect(t.Context()))
+}
+
+func TestNewHiddenNetworkRefusesWhatANameAndPasswordCannotJoin(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		security SecurityType
+		want     error
+	}{
+		{"", SecurityWPA2, ErrHiddenNameEmpty},
+		{strings.Repeat("x", MaxSSIDBytes+1), SecurityWPA2, ErrHiddenNameTooLong},
+		{strings.Repeat("é", MaxSSIDBytes/2+1), SecurityNone, ErrHiddenNameTooLong},
+		{"corp", SecurityEnterprise, ErrHiddenEnterprise},
+	} {
+		if _, err := NewHiddenNetwork(tc.name, tc.security); !errors.Is(err, tc.want) {
+			t.Errorf("NewHiddenNetwork(%q, %v) = %v, want %v", tc.name, tc.security, err, tc.want)
+		}
+	}
+	net, err := NewHiddenNetwork(strings.Repeat("x", MaxSSIDBytes), SecurityWPA3)
+	if err != nil || net.Name() != strings.Repeat("x", MaxSSIDBytes) || net.Security() != SecurityWPA3 {
+		t.Errorf("a 32-byte WPA3 name = %+v, %v; want it accepted", net, err)
+	}
+}
+
+func hiddenNetwork(t *testing.T, name string, security SecurityType) HiddenNetwork {
+	t.Helper()
+	net, err := NewHiddenNetwork(name, security)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return net
+}
+
+func TestAHiddenNetworkGetsAProfileNMProbesForByName(t *testing.T) {
+	fx, w := wifiFixture(t, nil)
+	if _, err := w.JoinHidden(t.Context(), hiddenNetwork(t, "lab", SecurityWPA2), "correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	fx.nm.mu.Lock()
+	added, specifics := slices.Clone(fx.nm.addAndActive), slices.Clone(fx.nm.specifics)
+	fx.nm.mu.Unlock()
+	if len(added) != 1 || !slices.Equal(specifics, []dbus.ObjectPath{rootPath}) {
+		t.Fatalf("added %d profiles for %v, want one with no access point named", len(added), specifics)
+	}
+	dict := added[0]
+	wireless := dict["802-11-wireless"]
+	if ssid, _ := wireless["ssid"].Value().([]byte); string(ssid) != "lab" {
+		t.Errorf("ssid = %q", ssid)
+	}
+	if hidden, _ := wireless["hidden"].Value().(bool); !hidden {
+		t.Error("the profile is not marked hidden, so NM never probes for it")
+	}
+	security := dict["802-11-wireless-security"]
+	if variantString(security["key-mgmt"]) != "wpa-psk" || variantString(security["psk"]) != "correct horse" {
+		t.Errorf("security = %v", security)
+	}
+	if dictReader(dict).str("connection", "id") != "lab" {
+		t.Errorf("connection = %v", dict["connection"])
+	}
+}
+
+func TestAnOpenHiddenNetworkGetsNoSecurity(t *testing.T) {
+	fx, w := wifiFixture(t, nil)
+	if _, err := w.JoinHidden(t.Context(), hiddenNetwork(t, "guest", SecurityNone), ""); err != nil {
+		t.Fatal(err)
+	}
+	fx.nm.mu.Lock()
+	dict := fx.nm.addAndActive[0]
+	fx.nm.mu.Unlock()
+	if _, ok := dict["802-11-wireless-security"]; ok {
+		t.Error("an open hidden network got a security section")
+	}
+}
+
+func TestASecuredHiddenNetworkNeedsAPasswordUnlessSaved(t *testing.T) {
+	fx, w := wifiFixture(t, withProfiles(wifiConnection("lab-uuid", "Lab", []byte("lab"))))
+	if _, err := w.JoinHidden(t.Context(), hiddenNetwork(t, "other", SecurityWPA2), ""); !errors.Is(err, ErrHiddenPasswordNeeded) {
+		t.Errorf("an unsaved secured network without a password = %v, want %v", err, ErrHiddenPasswordNeeded)
+	}
+	if _, err := w.JoinHidden(t.Context(), hiddenNetwork(t, "lab", SecurityWPA2), ""); err != nil {
+		t.Fatalf("the saved network: %v", err)
+	}
+	fx.nm.mu.Lock()
+	created, activated, specifics := len(fx.nm.addAndActive), slices.Clone(fx.nm.activations), slices.Clone(fx.nm.specifics)
+	fx.nm.mu.Unlock()
+	if created != 0 || !slices.Equal(activated, []dbus.ObjectPath{settingPath(1)}) || !slices.Equal(specifics, []dbus.ObjectPath{rootPath}) {
+		t.Errorf("created %d, activated %v on %v; want the saved profile reused with no access point named", created, activated, specifics)
+	}
+}
+
+func TestJoinHiddenAndWaitFollowsTheDeviceUp(t *testing.T) {
+	fx, w := wifiFixture(t, nil)
+	done := make(chan error, 1)
+	go func() {
+		done <- w.JoinHiddenAndWait(t.Context(), hiddenNetwork(t, "lab", SecurityNone), "", func(DeviceState) {})
+	}()
+	waitFor(t, "the activation", func() bool { fx.nm.mu.Lock(); defer fx.nm.mu.Unlock(); return len(fx.nm.addAndActive) == 1 })
+	fx.nm.wifi.deviceState(DeviceFailed, DeviceReasonSSIDNotFound)
+	select {
+	case err := <-done:
+		if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureNotFound {
+			t.Fatalf("a hidden network that never answered = %v, want not found", err)
+		}
+	case <-time.After(liveness):
+		t.Fatal("the join never finished")
+	}
+}
+
+func TestASavedEnterpriseNetworkConnectsByItsProfile(t *testing.T) {
+	fx, w := wifiFixture(t, withProfiles(wifiConnection("edu-uuid", "eduroam", []byte("eduroam"))))
+	ap := fx.nm.wifi.addAP(fakeAP{ssid: "eduroam", strength: 70, flags: apFlagPrivacy, rsn: secKeyMgmt8021X})
+	if _, err := w.Connect(t.Context(), ap, ""); err != nil {
+		t.Fatal(err)
+	}
+	fx.nm.mu.Lock()
+	created, activated, specifics := len(fx.nm.addAndActive), slices.Clone(fx.nm.activations), slices.Clone(fx.nm.specifics)
+	fx.nm.mu.Unlock()
+	if created != 0 || !slices.Equal(activated, []dbus.ObjectPath{settingPath(1)}) || !slices.Equal(specifics, []dbus.ObjectPath{ap}) {
+		t.Errorf("created %d, activated %v on %v; want the saved profile on its access point", created, activated, specifics)
+	}
+	stored, _ := fx.nm.profile(settingPath(1))
+	if _, rewritten := stored["802-11-wireless-security"]; rewritten {
+		t.Error("connecting a saved enterprise network rewrote its security")
+	}
 }
 
 func TestConnectAndWaitReportsStepsUntilActivated(t *testing.T) {

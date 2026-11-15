@@ -314,9 +314,10 @@ func readWgQuick(path string) (map[string]string, bool) {
 // the "Add VPN" row that gives a machine with none its first.
 type netVPNs struct {
 	*widget.Box
-	v    *networkView
-	rows *widget.ItemGroup
-	add  *widget.Item
+	v      *networkView
+	rows   *widget.ItemGroup
+	add    *widget.Item
+	listed []network.VPN
 }
 
 func newNetVPNs(v *networkView) *netVPNs {
@@ -337,8 +338,12 @@ func newNetVPNs(v *networkView) *netVPNs {
 }
 
 // apply rebuilds the rows from one read of the profiles, the add row
-// last.
+// last; a read that changes no row keeps them.
 func (s *netVPNs) apply(rows []network.VPN) {
+	if slices.Equal(rows, s.listed) {
+		return
+	}
+	s.listed = slices.Clone(rows)
 	s.rows.Clear()
 	for _, row := range rows {
 		s.rows.Append(s.row(row))

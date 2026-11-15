@@ -171,3 +171,18 @@ dropdown-network-save-title = Save to Bitwarden?
 dropdown-network-save-body = { $name } connected with what you typed. Keep it in the vault's network folder to connect without asking next time.
 dropdown-network-save = Save
 dropdown-network-save-not-now = Not now
+
+## Forgetting a network
+dropdown-network-forget-confirm = Forget { $name }?
+dropdown-network-forget-confirm-detail = Its saved password and settings are deleted. Joining it again asks for the password.
+dropdown-network-error-forget = Could not forget { $name }: { $error }
+
+## Hidden networks
+dropdown-network-hidden-join = Join a hidden network
+dropdown-network-hidden-title = Hidden network
+dropdown-network-hidden-name = Network name
+dropdown-network-hidden-security = Security
+dropdown-network-hidden-password = Password
+dropdown-network-hidden-error-name-empty = Enter the network's name
+dropdown-network-hidden-error-name-too-long = That name is too long for a network
+dropdown-network-hidden-error-password = Enter the network's password

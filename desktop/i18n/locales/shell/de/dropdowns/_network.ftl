@@ -168,3 +168,18 @@ dropdown-network-save-title = In Bitwarden speichern?
 dropdown-network-save-body = { $name } wurde mit Ihren Eingaben verbunden. Speichern Sie sie im Netzwerkordner des Tresors, um sich beim nächsten Mal ohne Nachfrage zu verbinden.
 dropdown-network-save = Speichern
 dropdown-network-save-not-now = Nicht jetzt
+
+## Ein Netzwerk vergessen
+dropdown-network-forget-confirm = { $name } vergessen?
+dropdown-network-forget-confirm-detail = Das gespeicherte Passwort und die Einstellungen werden gelöscht. Beim erneuten Verbinden wird das Passwort abgefragt.
+dropdown-network-error-forget = { $name } konnte nicht vergessen werden: { $error }
+
+## Versteckte Netzwerke
+dropdown-network-hidden-join = Mit verstecktem Netzwerk verbinden
+dropdown-network-hidden-title = Verstecktes Netzwerk
+dropdown-network-hidden-name = Netzwerkname
+dropdown-network-hidden-security = Sicherheit
+dropdown-network-hidden-password = Passwort
+dropdown-network-hidden-error-name-empty = Geben Sie den Namen des Netzwerks ein
+dropdown-network-hidden-error-name-too-long = Dieser Name ist für ein Netzwerk zu lang
+dropdown-network-hidden-error-password = Geben Sie das Passwort des Netzwerks ein

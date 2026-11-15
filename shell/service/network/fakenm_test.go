@@ -35,6 +35,8 @@ type fakeNM struct {
 	nextProfile   int
 	nextActive    int
 	activateErr   *dbus.Error
+	deleteErr     map[dbus.ObjectPath]*dbus.Error
+	specifics     []dbus.ObjectPath
 	activations   []dbus.ObjectPath
 	deactivations []dbus.ObjectPath
 	added         []ConnectionDict
@@ -373,12 +375,15 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 
 type fakeManager struct{ f *fakeNM }
 
-func (m fakeManager) ActivateConnection(profile, _, _ dbus.ObjectPath) (dbus.ObjectPath, *dbus.Error) {
+func (m fakeManager) ActivateConnection(profile, _, specific dbus.ObjectPath) (dbus.ObjectPath, *dbus.Error) {
 	done, refused := m.f.serve()
 	if refused != nil {
 		return "", refused
 	}
 	defer done()
+	m.f.mu.Lock()
+	m.f.specifics = append(m.f.specifics, specific)
+	m.f.mu.Unlock()
 	return m.f.activate(profile)
 }
 
@@ -440,7 +445,7 @@ func (m fakeManager) GetDevices() ([]dbus.ObjectPath, *dbus.Error) {
 	return devices, nil
 }
 
-func (m fakeManager) AddAndActivateConnection(dict ConnectionDict, _, _ dbus.ObjectPath) (dbus.ObjectPath, dbus.ObjectPath, *dbus.Error) {
+func (m fakeManager) AddAndActivateConnection(dict ConnectionDict, _, specific dbus.ObjectPath) (dbus.ObjectPath, dbus.ObjectPath, *dbus.Error) {
 	f := m.f
 	done, refused := f.serve()
 	if refused != nil {
@@ -449,6 +454,7 @@ func (m fakeManager) AddAndActivateConnection(dict ConnectionDict, _, _ dbus.Obj
 	defer done()
 	f.mu.Lock()
 	f.addAndActive = append(f.addAndActive, dict)
+	f.specifics = append(f.specifics, specific)
 	f.mu.Unlock()
 	if _, ok := dict["connection"]["uuid"]; !ok {
 		dict["connection"]["uuid"] = dbus.MakeVariant(fmt.Sprintf("generated-%d", time.Now().UnixNano()))
@@ -512,6 +518,12 @@ func (c fakeConnection) Delete() *dbus.Error {
 		return refused
 	}
 	defer done()
+	c.f.mu.Lock()
+	refused = c.f.deleteErr[c.path]
+	c.f.mu.Unlock()
+	if refused != nil {
+		return refused
+	}
 	c.f.removeProfile(c.path)
 	return nil
 }

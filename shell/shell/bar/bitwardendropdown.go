@@ -264,7 +264,7 @@ func bitwardenDropdown(ctx ModuleContext) widget.Widget {
 	v.sendBtn = v.iconButton("ld-send-symbolic", i18n.T("dropdown-bitwarden-sends"), v.toggleSends)
 	v.syncBtn = v.iconButton("ld-refresh-cw-symbolic", i18n.T("dropdown-bitwarden-sync"), v.sync)
 	v.lockBtn = v.iconButton("ld-lock-symbolic", i18n.T("dropdown-bitwarden-lock"), v.lock)
-	v.logoutBtn = v.iconButton("ld-log-out-symbolic", i18n.T("dropdown-bitwarden-logout"), v.logout)
+	v.logoutBtn = v.iconButton("ld-log-out-symbolic", i18n.T("dropdown-bitwarden-logout"), v.askLogout)
 	v.Append(dropdownHeader(font, "ld-shield-check-symbolic", i18n.T("dropdown-bitwarden-title"), v.spinner, v.genBtn, v.sendBtn, v.syncBtn, v.lockBtn, v.logoutBtn), false)
 	content := dropdownContent()
 	v.errLabel = v.caption(css.Error)
@@ -600,6 +600,8 @@ func (v *bitwardenView) apply() {
 	v.lockBtn.SetVisible(st.State == vault.StateUnlocked)
 	v.logoutBtn.SetVisible(st.State != vault.StateLoggedOut)
 	v.syncBtn.SetEnabled(!v.busy && !st.Syncing)
+	v.lockBtn.SetEnabled(!v.busy)
+	v.logoutBtn.SetEnabled(!v.busy)
 	v.pages.SetEnabled(!v.busy)
 	if !v.busy {
 		v.setError(st.Err)
@@ -838,6 +840,22 @@ func (v *bitwardenView) sync() {
 
 func (v *bitwardenView) lock() {
 	v.run(func(ctx context.Context) error { return v.vault.Lock(ctx) }, nil)
+}
+
+func (v *bitwardenView) askLogout() {
+	if v.busy {
+		return
+	}
+	v.ctx.showAlert(alertSpec{
+		message: i18n.T("dropdown-bitwarden-logout-confirm"),
+		detail:  i18n.T("dropdown-bitwarden-logout-confirm-detail"),
+		cancel:  i18n.T("dropdown-bitwarden-cancel"),
+		accept:  i18n.T("dropdown-bitwarden-logout"),
+	}, func(accepted bool) {
+		if accepted {
+			v.logout()
+		}
+	})
 }
 
 func (v *bitwardenView) logout() {
