@@ -510,7 +510,7 @@ func (o Options) serveGreeter(conn net.Conn, r greeterRequests) (*pendingLogin, 
 		}
 		select {
 		case in := <-requests:
-			if errors.Is(in.err, io.EOF) {
+			if errors.Is(in.err, io.EOF) || errors.Is(in.err, net.ErrClosed) {
 				return nil, nil
 			}
 			if in.err != nil {

@@ -697,3 +697,48 @@ func TestAFingerprintThatDoesNotMatchLeavesThePasswordToLogIn(t *testing.T) {
 		finishLogin(t, login)
 	}
 }
+
+func unixPair(t *testing.T) (server, client net.Conn) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "greeter.sock")
+	ln, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	client, err = net.Dial("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, err = ln.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = server.Close(); _ = client.Close() })
+	return server, client
+}
+
+func TestAConnectionTheDaemonClosesEndsWithoutAnError(t *testing.T) {
+	server, _ := unixPair(t)
+	if err := server.Close(); err != nil {
+		t.Fatal(err)
+	}
+	l, err := testOptions().serveGreeter(server, testRequests())
+	if l != nil || err != nil {
+		t.Fatalf("a connection the daemon closed ended with login %v, error %v; want neither", l, err)
+	}
+}
+
+func TestAMalformedGreeterRequestIsAnError(t *testing.T) {
+	server, client := unixPair(t)
+	frame := []byte("{x")
+	header := make([]byte, 4)
+	binary.NativeEndian.PutUint32(header, uint32(len(frame)))
+	if _, err := client.Write(append(header, frame...)); err != nil {
+		t.Fatal(err)
+	}
+	l, err := testOptions().serveGreeter(server, testRequests())
+	if l != nil || err == nil || !strings.Contains(err.Error(), "read the greeter's request") {
+		t.Fatalf("a malformed request ended with login %v, error %v; want the read error", l, err)
+	}
+}
