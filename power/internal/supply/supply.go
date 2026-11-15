@@ -4,7 +4,9 @@
 package supply
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -103,14 +105,23 @@ func (b Battery) Thresholds() (Thresholds, error) {
 	return Thresholds{Start: start, End: end}, nil
 }
 
-// Writable reports whether the charge thresholds can be written, which is
-// false on desktops and batteries whose EC does not expose them.
-func (b Battery) Writable() bool {
-	f, err := os.OpenFile(filepath.Join(b.Path, endAttr), os.O_WRONLY, 0)
-	if err != nil {
-		return false
+// Writable reports whether the charge thresholds can be written. A
+// battery whose EC exposes no thresholds is false; a threshold that is
+// there but cannot be opened for writing, such as on a read-only mount,
+// is an error.
+func (b Battery) Writable() (bool, error) {
+	path := filepath.Join(b.Path, endAttr)
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
 	}
-	return f.Close() == nil
+	if err != nil {
+		return false, fmt.Errorf("opening %s for writing: %w", path, err)
+	}
+	if err := f.Close(); err != nil {
+		return false, fmt.Errorf("closing %s: %w", path, err)
+	}
+	return true, nil
 }
 
 // SetThresholds moves both charge thresholds to want and reports whether

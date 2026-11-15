@@ -127,7 +127,14 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 	if err != nil {
 		return result, fmt.Errorf("finding battery: %w", err)
 	}
-	if battery == nil || !battery.Writable() {
+	if battery == nil {
+		return result, nil
+	}
+	writable, err := battery.Writable()
+	if err != nil {
+		return result, fmt.Errorf("checking %s charge thresholds: %w", battery.Name, err)
+	}
+	if !writable {
 		return result, nil
 	}
 

@@ -3,6 +3,7 @@ package supply
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -126,8 +127,8 @@ func TestSetThresholdsOrder(t *testing.T) {
 	if err != nil || battery == nil {
 		t.Fatalf("Battery() = (%v, %v)", battery, err)
 	}
-	if !battery.Writable() {
-		t.Fatal("battery should be writable")
+	if writable, err := battery.Writable(); err != nil || !writable {
+		t.Fatalf("Writable() = (%v, %v), want (true, nil)", writable, err)
 	}
 	want := Thresholds{Start: 75, End: 80}
 	if changed, err := battery.SetThresholds(want); err != nil || !changed {
@@ -159,5 +160,35 @@ func TestSetThresholdsNoopAtTarget(t *testing.T) {
 	}
 	if changed, err := battery.SetThresholds(Thresholds{Start: 75, End: 80}); err != nil || changed {
 		t.Errorf("SetThresholds() at target = (%v, %v), want (false, nil)", changed, err)
+	}
+}
+
+func TestWritableWithoutThresholdsIsFalse(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "BAT0")
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	battery := Battery{Name: "BAT0", Path: path}
+	if writable, err := battery.Writable(); err != nil || writable {
+		t.Errorf("Writable() without thresholds = (%v, %v), want (false, nil)", writable, err)
+	}
+}
+
+func TestWritableThresholdThatWillNotOpenIsAnError(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "BAT0")
+	if err := os.MkdirAll(filepath.Join(path, endAttr), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	battery := Battery{Name: "BAT0", Path: path}
+	writable, err := battery.Writable()
+	if err == nil || writable {
+		t.Fatalf("Writable() on an end threshold that will not open = (%v, %v), want an error", writable, err)
+	}
+	if !strings.Contains(err.Error(), filepath.Join(path, endAttr)) {
+		t.Errorf("Writable() error %q does not name %s", err, filepath.Join(path, endAttr))
 	}
 }

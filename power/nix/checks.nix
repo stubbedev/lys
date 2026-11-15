@@ -43,7 +43,9 @@
       grep -qxF "Restart=on-failure" $unit
       grep -qxF "RestartSec=10s" $unit
       grep -qxF "ProtectSystem=strict" $unit
-      grep -qxF "ReadWritePaths=/sys/class/power_supply -/run/battery-charge" $unit
+      grep -qxF "ReadWritePaths=-/run/battery-charge" $unit
+      grep -qxF "ReadOnlyPaths=/proc/sys -/proc/sysrq-trigger -/proc/acpi -/proc/fs -/proc/irq -/sys/kernel -/sys/module -/sys/power -/sys/firmware -/sys/fs" $unit
+      if grep -qx "ProtectKernelTunables=.*" $unit; then echo "lys-power.service sets ProtectKernelTunables, which makes the charge thresholds read-only" >&2; exit 1; fi
       grep -qxF "d /run/battery-charge 0775 root users -" ${pkg}/lib/tmpfiles.d/lys-power.conf
       grep -qxF "WantedBy=graphical.target" $unit
       ${fail (wants != ["graphical.target"]) "lys-power is wanted by ${toString wants}, not graphical.target alone"}
