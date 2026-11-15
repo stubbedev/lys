@@ -12,33 +12,23 @@ import (
 	"strings"
 )
 
-// JSON Schema generation by reflection over the Config tree, producing
-// what schemars 1.x derives from the Rust types
-// (crates/wayle-config/src/infrastructure/schema.rs): the same $defs
-// names (Array_of_T, Nullable_T, Map_of_T, the primitive names), the
-// same inline-vs-$ref choices, per-property defaults taken from each
-// type's default instance, and descriptions from the doc comments
-// (schemadoc_gen.go). A section added to Config is covered by
-// construction; schema_test.go holds the output against the Rust
-// schema in schema/.
-
 // Schema is one JSON Schema object.
 type Schema = map[string]any
 
 // schemaProvider is implemented by leaf types with a hand-written
-// schema (the Rust types with a manual JsonSchema impl). Such types
-// are defined under their name, deduplicated by name only.
+// schema. Such types are defined under their name, deduplicated by
+// name only.
 type schemaProvider interface {
 	configSchema(g *schemaGen) Schema
 }
 
-// schemaNamer overrides a type's def name when the Go name differs
-// from the Rust one.
+// schemaNamer overrides the def name a type would get from its Go
+// name.
 type schemaNamer interface {
 	configSchemaName() string
 }
 
-// noStructDefault marks a value struct without #[serde(default)]: its
+// noStructDefault marks a value struct without a default instance: its
 // properties carry no defaults unless tagged `default`, and plain
 // fields are required unless optional.
 type noStructDefault interface {
@@ -52,7 +42,7 @@ var (
 )
 
 // implements reports whether values of the non-pointer type t (or
-// their address) implement iface; an Option (*T) never does itself.
+// their address) implement iface; a pointer type never does itself.
 func implements(t, iface reflect.Type) bool {
 	if t.Kind() == reflect.Pointer {
 		return false
@@ -63,7 +53,7 @@ func implements(t, iface reflect.Type) bool {
 // zeroOf returns an addressable zero value of t.
 func zeroOf(t reflect.Type) reflect.Value { return reflect.New(t).Elem() }
 
-// schemaName is the schemars schema_name of t.
+// schemaName is the $defs name of t.
 func schemaName(t reflect.Type) string {
 	if implements(t, schemaNamerType) {
 		n, _ := reflect.TypeAssert[schemaNamer](zeroOf(t).Addr())
@@ -87,7 +77,7 @@ func schemaName(t reflect.Type) string {
 	return primitiveFormat(t.Kind())
 }
 
-// primitiveFormat is schemars' name (and "format") of a numeric kind.
+// primitiveFormat is the $defs name (and "format") of a numeric kind.
 func primitiveFormat(k reflect.Kind) string {
 	switch k {
 	case reflect.Int8:
@@ -187,8 +177,8 @@ func collectContainerDefaults(v reflect.Value, out map[reflect.Type]reflect.Valu
 
 // define returns the $ref to the def with the given identity,
 // generating it on first use. Names collide only between distinct
-// identities (a derived type and a ConfigProperty of it), which get
-// schemars' numeric suffix in first-come order.
+// identities (a type and a property wrapping it), which get a
+// numeric suffix in first-come order.
 func (g *schemaGen) define(id, name string, build func() Schema) Schema {
 	if existing, ok := g.ids[id]; ok {
 		return Schema{"$ref": "#/$defs/" + existing}
@@ -204,8 +194,8 @@ func (g *schemaGen) define(id, name string, build func() Schema) Schema {
 	return Schema{"$ref": "#/$defs/" + final}
 }
 
-// propertyRef is the schema of a ConfigProperty<T> field: always a
-// def named after T, keyed by that name.
+// propertyRef is the schema of a property field of type t: always a
+// def named after t, keyed by that name.
 func (g *schemaGen) propertyRef(t reflect.Type) Schema {
 	name := schemaName(t)
 	return g.define("prop:"+name, name, func() Schema { return g.plainSchema(t) })
@@ -260,7 +250,7 @@ func (g *schemaGen) plainSchema(t reflect.Type) Schema {
 	panic(fmt.Sprintf("config: no schema for %s", t))
 }
 
-// nullable is schemars' Option<T>: a $ref becomes anyOf [ref, null],
+// nullable makes s accept null: a $ref becomes anyOf [ref, null],
 // an inline type gains "null".
 func nullable(s Schema) Schema {
 	if _, isRef := s["$ref"]; isRef {
@@ -376,8 +366,8 @@ func copySchema(s Schema) Schema {
 	return out
 }
 
-// jsonValue serializes a typed value the way serde_json::to_value
-// does for schemars defaults: None is null, f32 widens to f64.
+// jsonValue serializes a typed value as a schema default: a nil
+// pointer is null, a float32 widens to float64.
 func jsonValue(v reflect.Value) any {
 	return toJSONTree(encodeValueMode(v, true))
 }
@@ -404,8 +394,8 @@ func toJSONTree(v any) any {
 	return v
 }
 
-// marshalJSON writes compact JSON with sorted keys and serde_json's
-// number forms (a float always carries a fraction or exponent).
+// marshalJSON writes compact JSON with sorted keys; a float always
+// carries a fraction or exponent.
 func marshalJSON(v any) string {
 	var b strings.Builder
 	writeJSON(&b, v)
@@ -460,7 +450,7 @@ func writeJSON(b *strings.Builder, v any) {
 	}
 }
 
-// jsonFloat formats like serde_json (ryu): shortest round-trip digits,
+// jsonFloat formats shortest round-trip digits,
 // integral values with ".0", exponent form outside 1e-5..1e16.
 func jsonFloat(f float64) string {
 	if math.IsNaN(f) || math.IsInf(f, 0) {
@@ -515,8 +505,7 @@ func writeJSONString(b *strings.Builder, s string) {
 }
 
 // propsOrderKey records a properties map's declaration order inside the
-// map (the order schemars keeps with preserve_order, which the docs
-// pages follow). The JSON writer never emits it.
+// map, which the docs pages follow. The JSON writer never emits it.
 const propsOrderKey = "\x00order"
 
 // withOrder records keys as props' declaration order.
