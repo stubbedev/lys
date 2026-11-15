@@ -1,7 +1,6 @@
 package config
 
-// BarConfig is the `bar` section
-// (crates/wayle-config/src/schemas/bar/mod.rs).
+// BarConfig is the `bar` section.
 //
 // Bar chrome: per-monitor layout, spacing, colors, and button styling.
 type BarConfig struct {
@@ -200,11 +199,9 @@ func PlainBar() BarConfig {
 	}
 }
 
-// BarLayout is the bar layout for one monitor
-// (crates/wayle-config/src/schemas/bar/types/mod.rs). Keys a layout
-// entry omits take BarLayout's own defaults (#[serde(default)] with the
-// default layout's sections), so only an explicitly empty section
-// inherits through `extends` — the Rust behavior.
+// BarLayout is the bar layout for one monitor. Keys a layout entry
+// omits take BarLayout's own defaults (the default layout's sections),
+// so only an explicitly empty section inherits through `extends`.
 type BarLayout struct {
 	// Monitor connector name (e.g., `"DP-1"`) or `"*"` for all monitors.
 	Monitor string `cfg:"monitor"`
@@ -222,7 +219,7 @@ type BarLayout struct {
 	Right []BarItem `cfg:"right"`
 }
 
-// DefaultBarLayout is BarLayout::default(): every monitor, the workspaces
+// DefaultBarLayout is the default layout: every monitor, the workspaces
 // and media left, clock centered, the status modules right.
 func DefaultBarLayout() BarLayout {
 	return BarLayout{
@@ -290,8 +287,7 @@ const (
 
 var _ = registerEnum(IconStart, IconEnd)
 
-// ShadowPreset is the bar shadow style
-// (crates/wayle-config/src/schemas/bar/types/shadow.rs).
+// ShadowPreset is the bar shadow style.
 //
 // Shadow style for the bar.
 type ShadowPreset string
@@ -365,8 +361,7 @@ func (s ShadowPreset) CSSShadow(loc Location) string {
 	return "none"
 }
 
-// FontWeightClass is a typography weight
-// (crates/wayle-config/src/schemas/styling/types/typography.rs).
+// FontWeightClass is a typography weight.
 //
 // Font weight class for typography.
 //

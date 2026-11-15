@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ErrorKind is service.rs WeatherErrorKind: what the UI shows for a
+// ErrorKind is what the UI shows for a
 // failed fetch, without implementation details.
 type ErrorKind int
 
@@ -18,7 +18,7 @@ const (
 	ErrRateLimited
 )
 
-// Error is error.rs's Error: one failed geocode or fetch.
+// Error is one failed geocode or fetch.
 type Error struct {
 	Kind ErrorKind
 	// Provider names the failing endpoint ("open-meteo", "geocoding").
@@ -40,7 +40,7 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.cause }
 
-// Retryable is error.rs is_retryable: transport failures, server
+// Retryable reports whether a fetch is retried: transport failures, server
 // errors, and rate limits are retried; parse, location, and key errors
 // are not.
 func (e *Error) Retryable() bool {
@@ -77,7 +77,7 @@ func locationNotFound(query string) *Error {
 	return &Error{Kind: ErrLocationNotFound, Query: query, msg: "location '" + query + "' not found"}
 }
 
-// kindOf is WeatherErrorKind::from: the UI category of any error.
+// kindOf is the UI category of any error.
 func kindOf(err error) ErrorKind {
 	if e, ok := errors.AsType[*Error](err); ok {
 		return e.Kind

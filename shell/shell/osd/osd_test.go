@@ -144,7 +144,7 @@ func TestOsdFollowsTheConfiguredMonitor(t *testing.T) {
 }
 
 // A second event reuses the mapped surface and re-applies its anchor,
-// margin, and layer (apply_position per event); a config change
+// margin, and layer; a config change
 // re-anchors it.
 func TestOneSurfaceReanchored(t *testing.T) {
 	h := readyHarness(t, quietConfig())

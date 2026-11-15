@@ -19,8 +19,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/notifyui"
 )
 
-// Notification dropdown constants (notification_group/methods.rs,
-// notification_item/methods.rs, watchers.rs).
+// Notification dropdown constants.
 const (
 	notifMaxVisibleItems = 3
 	notifIconPx          = 32
@@ -31,7 +30,6 @@ const (
 	notifPageAhead = 200
 )
 
-// notifTimeLabel is time_to_string.
 func notifTimeLabel(age notifyui.Age) string { return notifyui.TimeLabel(age, "notification-dropdown") }
 
 // notificationView is the notification dropdown: the header (bell or
@@ -54,7 +52,7 @@ type notificationView struct {
 	dndItem               *widget.Item
 	syncing               bool
 	// body is the content: the empty state and the list swap by
-	// visibility, no Stack (the Rust tree sets visible in place).
+	// visibility, no Stack.
 	body   *widget.Box
 	empty  *widget.StatusPage
 	scroll *widget.Scroll
@@ -116,8 +114,8 @@ func notificationDropdown(ctx ModuleContext) widget.Widget {
 	return v
 }
 
-// syncDND is DndChanged: the switch (without writing back) and the
-// bell icons.
+// syncDND follows the do-not-disturb state: the switch (without
+// writing back) and the bell icons.
 func (v *notificationView) syncDND() {
 	var focus notifications.Focus
 	if v.svc != nil {
@@ -151,7 +149,6 @@ func (v *notificationView) dismissAll() {
 	}
 }
 
-// dismiss is Notification::dismiss.
 func (v *notificationView) dismiss(id uint32) {
 	v.svc.Close(id, notifications.Dismissed)
 }
@@ -229,7 +226,7 @@ func (v *notificationView) loadMore() {
 	v.readInto(slices.Clone(v.notifs), notifPageSize)
 }
 
-// regroup is rebuild_groups over what has been read: stale groups go,
+// regroup rebuilds the groups over what has been read: stale groups go,
 // existing ones take their new notifications (keeping their
 // expansion), new ones are added, and the list takes the newest-first
 // order.
@@ -259,7 +256,6 @@ func (v *notificationView) regroup() {
 	}
 }
 
-// refreshTimes is TimeTick.
 func (v *notificationView) refreshTimes() {
 	for _, g := range v.groups {
 		for _, it := range g.items {
@@ -319,7 +315,7 @@ func (v *notificationView) follow(life context.Context) {
 	})
 }
 
-// notifGroup is NotificationGroup: lys-ui's card whose header Item
+// notifGroup: lys-ui's card whose header Item
 // (the app's icon and name, the newest summary while collapsed, the
 // count, clear, and the chevron) toggles the group, over the visible
 // items and the "N more" link.
@@ -383,8 +379,8 @@ func newNotifGroup(v *notificationView, data notifyui.Group) *notifGroup {
 	return g
 }
 
-// update is UpdateNotifications: the group icon (always the mapped one
-// of the newest) and reconcile_items.
+// update refreshes the group icon (always the mapped one of the newest)
+// and reconciles the items.
 func (g *notifGroup) update(notifs []*notifications.Notification) {
 	g.icon.SetThemeName(notifyui.ResolveIcon(config.IconSourceMapped, notifs[0]).Name)
 	g.notifs = notifs
@@ -415,7 +411,7 @@ func (g *notifGroup) appendItems(notifs []*notifications.Notification) {
 	}
 }
 
-// sync applies the #[watch]es on expanded and overflow.
+// sync follows expanded and overflow.
 func (g *notifGroup) sync() {
 	g.itemsBox.SetVisible(g.expanded)
 	if g.expanded {
@@ -432,8 +428,8 @@ func (g *notifGroup) sync() {
 	g.moreRow.SetVisible(g.overflow > 0)
 }
 
-// toggle is ToggleExpanded: collapsing drops back to the default cap
-// (reset_to_default_cap).
+// toggle expands or collapses the group: collapsing drops back to the
+// default cap.
 func (g *notifGroup) toggle() {
 	g.expanded = !g.expanded
 	if !g.expanded && len(g.items) > notifMaxVisibleItems {
@@ -447,7 +443,6 @@ func (g *notifGroup) toggle() {
 	g.sync()
 }
 
-// showAll is show_all_items.
 func (g *notifGroup) showAll() {
 	g.appendItems(g.notifs[len(g.items):])
 	g.overflow = 0
@@ -464,7 +459,7 @@ func (g *notifGroup) clear() {
 	svc.Detach(func() { svc.Dismiss(ids) })
 }
 
-// notifItem is NotificationItem: the notification as lys-ui's Item
+// notifItem is the notification as lys-ui's Item
 // (its icon, the summary, the relative time and the dismiss button)
 // over the two-line body and the non-default actions in rows of three.
 // A default action makes the item a control that closes the dropdown
@@ -478,7 +473,7 @@ type notifItem struct {
 }
 
 // itemIcon builds the item's icon: an unloadable file picture falls
-// back to the themed bell (apply_icon's load failure) and reports
+// back to the themed bell and reports
 // whether the glyph still draws a picture, so it sits bare, without
 // the media tile, only when the file actually shows.
 func itemIcon(icon notifyui.Icon, size int, post func(func()), fileShows func()) (*widget.Icon, bool) {
@@ -518,7 +513,7 @@ func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem
 	dismiss := dropdownButton(widget.NewThemeIcon("ld-x-symbolic", itemIconPx), func() { v.dismiss(id) }, "notification-dropdown-item-dismiss", css.Ghost, css.Icon, css.Small)
 	it.main.AddAction(dismiss)
 	// A default action makes the item open on a click anywhere the
-	// dismiss button does not take (setup_default_action's gesture).
+	// dismiss button does not take.
 	if _, ok := n.DefaultAction(); ok {
 		it.main.AddClass("notification-dropdown-item-default")
 		it.main.SetCursorName("pointer")
@@ -552,7 +547,8 @@ func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem
 	return it
 }
 
-// actionRows is build_action_buttons; nil without visible actions.
+// actionRows are the notification's action buttons, nil without
+// visible actions.
 func (it *notifItem) actionRows() widget.Widget {
 	visible := notifyui.VisibleActions(it.n)
 	if len(visible) == 0 {
@@ -582,8 +578,7 @@ func (it *notifItem) actionRows() widget.Widget {
 }
 
 // invoke runs an action with a token from the press and dismisses the
-// notification, as the Rust button does (invoke, then dismiss,
-// resident or not).
+// notification (invoke, then dismiss, resident or not).
 func (it *notifItem) invoke(key string) {
 	svc, id := it.view.svc, it.n.ID
 	notifyui.WithActivationToken(it.view.minter, func(token string) {
@@ -595,13 +590,12 @@ func (it *notifItem) invoke(key string) {
 }
 
 // invokeDefault closes the dropdown first: the default action usually
-// raises another window (setup_default_action).
+// raises another window.
 func (it *notifItem) invokeDefault() {
 	it.view.popdown()
 	it.invoke(notifications.DefaultActionID)
 }
 
-// refreshTime is RefreshTime.
 func (it *notifItem) refreshTime() {
 	it.time.SetText(notifTimeLabel(notifyui.RelativeTime(it.view.now(), it.n.Added)))
 }

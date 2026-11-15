@@ -1,6 +1,6 @@
 // Package glob is the blocklist matcher: case-insensitive `*`
 // wildcards, shared by the notification blocklist and the systray
-// blacklist (wayle-core's glob.rs).
+// blacklist.
 package glob
 
 import (
@@ -36,11 +36,9 @@ func Match(pattern, name string) bool {
 	return true
 }
 
-// Wildcard is wayle-shell-core's glob::matches (the wildcard crate):
-// case-sensitive, byte-wise, `*` for any run and `?` for exactly one
-// byte, `\` escaping one of `*`, `?`, `\`. A malformed pattern (a
-// dangling or needless escape) never matches, as the crate's
-// constructor error does.
+// Wildcard matches case-sensitively and byte-wise: `*` for any run and
+// `?` for exactly one byte, `\` escaping one of `*`, `?`, `\`. A
+// malformed pattern (a dangling or needless escape) never matches.
 func Wildcard(pattern, text string) bool {
 	type token struct {
 		lit  byte
@@ -90,7 +88,7 @@ func Wildcard(pattern, text string) bool {
 	return pi == len(tokens)
 }
 
-// FindWildcard is glob::find_match: the value of the first pattern
+// FindWildcard is the value of the first pattern
 // that matches text, in the given order.
 func FindWildcard(patterns []string, values []string, text string) (string, bool) {
 	for i, pattern := range patterns {
@@ -101,15 +99,15 @@ func FindWildcard(patterns []string, values []string, text string) (string, bool
 	return "", false
 }
 
-// globToken is one compiled token of the glob crate's Pattern.
+// globToken is one compiled token of a Pattern.
 type globToken struct {
 	kind   byte // 'c' char, '?' any char, '*' any sequence, '[' within, '!' except
 	char   rune
 	ranges [][2]rune
 }
 
-// compileGlob is glob::Pattern::new. A `***`, a `**` that is not a
-// whole path component, or an unterminated `[` is a syntax error.
+// compileGlob compiles pattern. A `***`, a `**` that is not a whole
+// path component, or an unterminated `[` is a syntax error.
 func compileGlob(pattern string) ([]globToken, bool) {
 	chars := []rune(pattern)
 	var tokens []globToken
@@ -221,8 +219,8 @@ func charsEq(a, b rune, caseSensitive bool) bool {
 	return a == b
 }
 
-// matchGlob is Pattern::matches_with with `*` crossing separators and
-// no leading-dot rule; caseSensitive is MatchOptions.case_sensitive.
+// matchGlob matches with `*` crossing separators and no leading-dot
+// rule.
 func matchGlob(tokens []globToken, text []rune, caseSensitive bool) bool {
 	if len(tokens) == 0 {
 		return len(text) == 0
@@ -254,27 +252,26 @@ func matchGlob(tokens []globToken, text []rune, caseSensitive bool) bool {
 	return ok && matchGlob(tokens[1:], text[1:], caseSensitive)
 }
 
-// Pattern is a compiled glob crate Pattern, for callers that match one
+// Pattern is a compiled glob, for callers that match one
 // pattern against many texts (the launcher's glob matching).
 type Pattern struct {
 	tokens []globToken
 }
 
-// Compile is glob::Pattern::new: false for a syntax error (a `***`, a
+// Compile compiles pattern: false for a syntax error (a `***`, a
 // `**` that is not a whole path component, an unterminated `[`).
 func Compile(pattern string) (Pattern, bool) {
 	tokens, ok := compileGlob(pattern)
 	return Pattern{tokens: tokens}, ok
 }
 
-// Matches is Pattern::matches_with: `*` crosses separators, no
-// leading-dot rule, and case folding (ASCII only, as the crate does)
-// unless caseSensitive.
+// Matches reports whether text matches: `*` crosses separators, no
+// leading-dot rule, and ASCII-only case folding unless caseSensitive.
 func (p Pattern) Matches(text string, caseSensitive bool) bool {
 	return matchGlob(p.tokens, []rune(text), caseSensitive)
 }
 
-// Glob is the glob crate's Pattern::new(pattern).matches(text), as the
+// Glob reports whether text matches pattern case-sensitively, as the
 // hyprland workspace ignore list uses it: an invalid pattern never
 // matches.
 func Glob(pattern, text string) bool {
@@ -282,7 +279,7 @@ func Glob(pattern, text string) bool {
 	return ok && matchGlob(tokens, []rune(text), true)
 }
 
-// Fold is shell-core icons.rs's matches_glob: the text lowercased,
+// Fold reports whether the text lowercased is
 // equal to the (already lowercased) pattern, or matching it as a glob.
 func Fold(text, pattern string) bool {
 	lower := strings.ToLower(text)

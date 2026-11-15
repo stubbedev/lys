@@ -1,6 +1,5 @@
-// Package upower reads battery state from UPower over the system D-Bus,
-// the Go counterpart of crates/wayle-battery's zbus proxy: the
-// DisplayDevice aggregate, the peripherals UPower enumerates beside it,
+// Package upower reads battery state from UPower over the system D-Bus:
+// the DisplayDevice aggregate, the peripherals UPower enumerates beside it,
 // and live updates through PropertiesChanged, DeviceAdded and
 // DeviceRemoved.
 package upower
@@ -17,8 +16,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// DeviceState mirrors UPower's device state enum
-// (types.rs's DeviceState/From<u32>).
+// DeviceState mirrors UPower's device state enum.
 type DeviceState uint8
 
 // Device states.
@@ -51,8 +49,7 @@ func StateFromUint32(v uint32) DeviceState {
 	return StateUnknown
 }
 
-// WarningLevel mirrors UPower's warning level enum
-// (types.rs's WarningLevel/From<u32>).
+// WarningLevel mirrors UPower's warning level enum.
 type WarningLevel uint8
 
 // Warning levels.
@@ -73,8 +70,7 @@ func WarningFromUint32(v uint32) WarningLevel {
 	return WarningUnknown
 }
 
-// Low reports Low, Critical, or Action: the levels the dropdown flags
-// (helpers.rs's is_low_battery).
+// Low reports Low, Critical, or Action: the levels the dropdown flags.
 func (w WarningLevel) Low() bool {
 	return w == WarningLow || w == WarningCritical || w == WarningAction
 }
@@ -270,7 +266,7 @@ type Source interface {
 	// the channel closes then, or on ctx completion.
 	Subscribe(ctx context.Context) (<-chan struct{}, func() error, error)
 	// EnableChargeThreshold turns the charge limit on or off
-	// (Device::enable_charge_threshold).
+	// (the device's EnableChargeThreshold method).
 	EnableChargeThreshold(ctx context.Context, enabled bool) error
 	// Peripherals returns the peripherals UPower enumerates, ordered by
 	// object path.

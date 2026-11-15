@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
-// D-Bus identity (wayle-ipc's share_picker proxy).
+// D-Bus identity.
 const (
 	ServiceName = "dev.stubbe.lys.SharePicker1"
 	ServicePath = "/dev/stubbe/lys/SharePicker"

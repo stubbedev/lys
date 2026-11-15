@@ -5,7 +5,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
 )
 
-// microphoneSources is microphone_sources over the in-process audio
+// microphoneSources lists the microphones of the in-process audio
 // service.
 func microphoneSources(src pulse.Source) []devicechoice.DeviceChoice {
 	if src == nil {

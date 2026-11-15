@@ -14,7 +14,7 @@ func classOf(major, minor uint32) *uint32 {
 	return &c
 }
 
-func TestDeviceIconMatchesRust(t *testing.T) {
+func TestDeviceIconFromHintAndClass(t *testing.T) {
 	for _, c := range []struct {
 		hint  *string
 		class *uint32
@@ -51,7 +51,7 @@ func TestDeviceIconMatchesRust(t *testing.T) {
 	}
 }
 
-func TestDeviceTypeKeyMatchesRust(t *testing.T) {
+func TestDeviceTypeKeyFromHintAndClass(t *testing.T) {
 	for _, c := range []struct {
 		hint  *string
 		class *uint32
@@ -136,8 +136,7 @@ func TestBtText(t *testing.T) {
 	if got := plain(btText("dropdown-bluetooth-pairing-entering", "entered", 2, "total", 6)); got != "2 of 6 digits entered" {
 		t.Errorf("entering = %q", got)
 	}
-	// An unknown key renders the loader's "No localization" marker, as
-	// the Rust lookup does.
+	// An unknown key renders the loader's "No localization" marker.
 	if got := btText("dropdown-bluetooth-nope"); got != `No localization for id: "dropdown-bluetooth-nope"` {
 		t.Errorf("unknown key = %q", got)
 	}

@@ -1,5 +1,5 @@
-// Package launcher is the launcher engine, the rofi-replacement core
-// (crates/wayle-launcher): the Mode contract, the matching and ranking
+// Package launcher is the launcher engine, the rofi-replacement core:
+// the Mode contract, the matching and ranking
 // engine, run history with frecency, the rofi hook and template
 // grammar, and the Session that ties them together. Pure logic, no
 // widgets - the surface lives in shell/launcher. The modes themselves

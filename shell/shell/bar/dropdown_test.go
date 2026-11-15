@@ -37,7 +37,7 @@ func TestDropdownBuildersCoverRegistryNames(t *testing.T) {
 			t.Errorf("default-referenced dropdown %q missing", name)
 		}
 	}
-	// Power is a menu overlay, not a dropdown (the Rust registry has none).
+	// Power is a menu overlay, not a dropdown.
 	if _, ok := r.builders["power"]; ok {
 		t.Error("a power dropdown is registered")
 	}
@@ -168,7 +168,7 @@ func TestDropdownScrollIsVerticalOnly(t *testing.T) {
 	}
 }
 
-// TestDropdownDismissPlaysTheExit pins animate_out: whatever closes it,
+// TestDropdownDismissPlaysTheExit pins the exit: whatever closes it,
 // the popover stays through the card's exit and goes
 // when that lands; disabled animations end it at once.
 func TestDropdownDismissPlaysTheExit(t *testing.T) {

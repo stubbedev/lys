@@ -5,9 +5,7 @@ import "fmt"
 // CssToken names a design token a ColorValue can reference; the values
 // are the config strings ("bg-surface", "border-accent", ...). The
 // palette-side resolution lives in the styling package; the numeric mix
-// percentages each token resolves through live in styling/tokens.go,
-// ported from styling/css/tokens
-// (crates/wayle-config/src/schemas/styling/types/color.rs CssToken).
+// percentages each token resolves through live in styling/tokens.go.
 type CssToken string
 
 // The styling tokens, grouped as in the schema.
@@ -98,7 +96,7 @@ var _ = registerEnum(
 // ColorKind distinguishes the ColorValue variants.
 type ColorKind uint8
 
-// ColorValue kinds, mirroring the Rust enum: the context-aware Auto
+// ColorValue kinds: the context-aware Auto
 // that defers to its consumer (resolved as the accent), a token
 // reference that follows the theme, a fixed hex color, or fully
 // transparent. Auto is the zero kind, so a zero ColorValue defers
@@ -135,8 +133,7 @@ func (c ColorValue) String() string {
 }
 
 // ParseColorValue decodes one config color string. Unknown token names
-// and malformed hex are errors, with the Rust messages
-// (InvalidCssToken, InvalidHexColor).
+// and malformed hex are errors.
 func ParseColorValue(s string) (ColorValue, error) {
 	switch s {
 	case "transparent":
@@ -206,14 +203,12 @@ func mustColor(s string) ColorValue {
 	return cv
 }
 
-// CSSVar is the token's CSS variable reference, "var(--accent)": the
-// Rust CssToken::css_var.
+// CSSVar is the token's CSS variable reference, "var(--accent)".
 func (t CssToken) CSSVar() string { return "var(--" + string(t) + ")" }
 
 // ToCSS is the value for an inline declaration: a token is its var(),
 // a custom color its hex, transparent the keyword, and Auto the accent
-// var — consumers resolve Auto before calling it. This is the Rust
-// ColorValue::to_css.
+// var — consumers resolve Auto before calling it.
 func (c ColorValue) ToCSS() string {
 	switch c.Kind {
 	case ColorToken:

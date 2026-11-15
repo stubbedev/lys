@@ -6,7 +6,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// loadUserConfig is the CLI's one-shot ConfigService::load: the user's
+// loadUserConfig is the CLI's one-shot config load: the user's
 // config directory with its config and runtime layers, diagnostics on
 // stderr, no watcher.
 func loadUserConfig() (*config.Service, error) {

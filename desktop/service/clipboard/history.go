@@ -1,5 +1,5 @@
-// Package clipboard is the session's clipboard history
-// (crates/wayle-clipboard): what gets remembered, how it is labelled,
+// Package clipboard is the session's clipboard history: what gets
+// remembered, how it is labelled,
 // what is refused, and the service that keeps it current from the
 // Wayland selection over lys-ui's data-control device.
 //
@@ -34,7 +34,7 @@ import (
 )
 
 // DefaultCapacity is how many entries are kept before the oldest is
-// dropped (history.rs DEFAULT_CAPACITY).
+// dropped.
 const DefaultCapacity = 200
 
 // TextMimes are the mime types a plain-text selection arrives under,

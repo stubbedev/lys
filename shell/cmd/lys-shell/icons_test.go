@@ -15,10 +15,10 @@ import (
 	"github.com/stubbedev/lys/desktop/resources"
 )
 
-// TestIconsCLIMatchesRust replays testdata/icons/steps.txt, the session
-// capture.sh recorded from the Rust binary, in a fresh home: every
-// step's stdout, stderr and exit code must match.
-func TestIconsCLIMatchesRust(t *testing.T) {
+// TestIconsCLISession replays testdata/icons/steps.txt, the session
+// capture.sh records, in a fresh home: every step's stdout, stderr and
+// exit code must match.
+func TestIconsCLISession(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("HOME", filepath.Join(root, "home"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(root, "data"))
@@ -78,8 +78,7 @@ func TestIconsCLIMatchesRust(t *testing.T) {
 	}
 }
 
-// TestIconsInstallAndSync installs through a fake CDN (the Rust capture
-// needs the network for these): what installs is reported and on disk,
+// TestIconsInstallAndSync installs through a fake CDN: what installs is reported and on disk,
 // a failed fetch is reported on stderr without failing the command,
 // and sync installs only what the config references and lacks.
 func TestIconsInstallAndSync(t *testing.T) {
@@ -134,8 +133,7 @@ func TestIconsInstallAndSync(t *testing.T) {
 }
 
 // TestIconsSetupInstallsTheBundledIcons pins setup to the embedded
-// resources (the packaged Rust binary looks for them at its build path,
-// which a nix build does not keep, and fails): every bundled SVG lands
+// resources: every bundled SVG lands
 // in the icons directory, reported one per line, then the count.
 func TestIconsSetupInstallsTheBundledIcons(t *testing.T) {
 	root := t.TempDir()

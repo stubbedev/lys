@@ -308,11 +308,9 @@ func TestVPNSection(t *testing.T) {
 	waitHeadless(t, "the toggle", func() bool { _, _, _, tg := vpn.writes(); return slices.Equal(tg, []string{"u2"}) })
 }
 
-// The VPN rows are lys-ui's activatable Items (vpn_item.rs:82-197): a
-// click on the row's state glyph toggles the tunnel, the edit button
+// The VPN rows are lys-ui's activatable Items: a click on the row's state glyph toggles the tunnel, the edit button
 // keeps its own click, and a failed profile carries its reason as the
-// tooltip. The add row activates to open the editor
-// (vpn_connections/mod.rs:75-107).
+// tooltip. The add row activates to open the editor.
 func TestVPNRowsActivate(t *testing.T) {
 	vpn := &fakeVPN{
 		entries: []network.VPN{
@@ -508,8 +506,7 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 	}
 
 	// An unreadable profile never opens the editor, and nothing appears
-	// in the list: the reason is the log's (Rust's SettingsOf failure
-	// only warns).
+	// in the list: the reason is the log's.
 	v.vpnCloseForm()
 	v.vpnEdit("missing")
 	time.Sleep(50 * time.Millisecond)

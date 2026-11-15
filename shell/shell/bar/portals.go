@@ -54,9 +54,8 @@ const printerRefresh = 3 * time.Second
 
 // servePortalHosts hosts the shell's halves of the portal backend on
 // the shell's session bus connection: dev.stubbe.lys.PortalDialogs1 (access,
-// account, app chooser, dynamic launcher and the wallpaper preview;
-// services/portal_dialogs), dev.stubbe.lys.FileChooser1 (services/
-// file_chooser) and dev.stubbe.lys.Print1 (services/print, spooling over
+// account, app chooser, dynamic launcher and the wallpaper preview),
+// dev.stubbe.lys.FileChooser1 and dev.stubbe.lys.Print1 (spooling over
 // CUPS' IPP). Without a bus the portal answers those requests
 // "other". The returned stop ends the hosts once the loop has ended,
 // freeing what the file chooser still holds.

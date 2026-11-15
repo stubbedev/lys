@@ -3,6 +3,8 @@ package widgetipc
 import (
 	"bufio"
 	"context"
+	"errors"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -143,13 +145,13 @@ func TestServerRepliesLikeRust(t *testing.T) {
 	}
 }
 
-func TestClientErrorsMatchRust(t *testing.T) {
+func TestClientErrorsNameTheSocket(t *testing.T) {
 	dir := sockdir.Dir(t)
 	t.Setenv("XDG_RUNTIME_DIR", dir)
 	path := filepath.Join(dir, "lys-shell", "widget.sock")
 	err := SendWidgetUpdate(context.Background(), "a", "b")
-	want := "cannot connect to lys-shell widget socket at " + path + ": No such file or directory (os error 2)"
-	if err == nil || err.Error() != want {
+	want := "cannot connect to lys-shell widget socket at " + path + ": dial unix " + path + ": connect: no such file or directory"
+	if err == nil || err.Error() != want || !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("no shell: %v\nwant %s", err, want)
 	}
 

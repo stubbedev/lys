@@ -1,5 +1,5 @@
 // Package appicons is the application icon table shared across bar
-// components (wayle-shell-core's bar/icons.rs). Order matters: the
+// components. Order matters: the
 // first matching pattern wins.
 package appicons
 
@@ -9,7 +9,7 @@ type Entry struct {
 	Icon    string
 }
 
-// Default is DEFAULT_APP_ICON_MAP, verbatim and in order.
+// Default is the built-in pattern table, in match order.
 var Default = []Entry{
 	// Browsers
 	{"brave-browser", "si-brave-symbolic"},

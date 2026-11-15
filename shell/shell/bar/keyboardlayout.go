@@ -19,7 +19,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/sway"
 )
 
-// The Hyprland source logic from keyboard_input/sources/hyprland.rs:
 // Hyprland names the throwaway keyboards that wtype and friends create
 // for a single synthetic keystroke, and reports placeholder keymaps
 // while a keyboard has no usable xkb state.
@@ -30,7 +29,7 @@ const (
 	errorKeymap = "error"
 )
 
-// unknownLayout is component.rs's UNKNOWN_LAYOUT: the layout shown
+// unknownLayout is the layout shown
 // while the source knows none, or could not be read at start.
 const unknownLayout = "?"
 
@@ -67,7 +66,7 @@ func keyboardLayoutVars(layout string, aliasMap map[string]string) map[string]an
 	return map[string]any{"layout": layout, "alias": alias}
 }
 
-// layoutSource is sources/mod.rs's KeyboardLayoutSource: where the
+// layoutSource is where the
 // active layout comes from on this compositor. read re-queries it;
 // each tick from subscribe is the cue to read again.
 type layoutSource struct {
@@ -79,8 +78,8 @@ type layoutSource struct {
 	next func(ctx context.Context) error
 }
 
-// keyboardLayoutSource is factory.rs's build_source: the compositor's
-// source in Compositor::detect order (Hyprland, niri, mango, sway).
+// keyboardLayoutSource is the compositor's source in detection order
+// (Hyprland, niri, mango, sway).
 func keyboardLayoutSource(ctx ModuleContext) (layoutSource, error) {
 	switch {
 	case ctx.Hyprland != nil:
@@ -169,8 +168,7 @@ func (s layoutSource) Subscribe(ctx context.Context) (<-chan struct{}, func(), e
 }
 
 // hyprlandLayoutSource reads hyprland's devices on every event: the
-// event payload is not trustworthy (per-device quirks), so the Rust
-// watcher re-reads too.
+// event payload is not trustworthy (per-device quirks).
 func hyprlandLayoutSource(conn *hyprland.Connection) layoutSource {
 	return layoutSource{
 		read: func() (string, error) {

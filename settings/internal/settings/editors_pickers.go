@@ -318,10 +318,10 @@ func (c *fileEditor) dirtyBadge() *widget.Badge { return c.entry.badge }
 
 func (c *fileEditor) refresh() { c.entry.refresh() }
 
-// filePath is file_picker::file_path for a row.
+// filePath is a file picker row.
 var filePath = withEditor(func(k *kit, s slot, _ config.FieldMeta) control { return newFileEditor(k, s) })
 
-// fontRow is font::font for a row; monoFontRow offers monospace
+// fontRow is a font picker row; monoFontRow offers monospace
 // families only.
 var (
 	fontRow     = withEditor(func(k *kit, s slot, _ config.FieldMeta) control { return newFontEditor(k, s, false) })
@@ -356,7 +356,7 @@ func iconPickerWidth() int { return iconGridExtent(iconPickerColumns) + 2*widget
 
 // iconNames lists the icons the picker offers: every one the icon
 // theme's search path resolves from lys-shell's directory (a seam for
-// tests; IconManager::list). A root that cannot be read is logged; the
+// tests). A root that cannot be read is logged; the
 // others' icons are still offered.
 var iconNames = func() []string {
 	names, err := apptheme.IconNames()
@@ -496,7 +496,7 @@ var iconCell = func(name string) widget.Widget {
 	return cell
 }
 
-// iconRow is icon::icon for a row.
+// iconRow is an icon picker row.
 var iconRow = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newIconEditor(k, s)
 })

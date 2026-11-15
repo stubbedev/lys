@@ -7,7 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fileuri"
 )
 
-// application/x-www-form-urlencoded encoding (form.rs). Both the login
+// application/x-www-form-urlencoded encoding. Both the login
 // body and the session cookie are this format, and openconnect
 // URL-decodes the cookie it is handed — so a username containing \ or a
 // password containing & has to arrive escaped or the pairs run together.
@@ -47,7 +47,7 @@ func formEncode(pairs ...pair) string {
 }
 
 // decodeComponent is the inverse of formEscape for one component, with
-// invalid UTF-8 replaced rather than refused (decode_component).
+// invalid UTF-8 replaced rather than refused.
 func decodeComponent(value string) string {
 	return fileuri.DecodeString(value)
 }

@@ -70,8 +70,7 @@ var sampleFormatNames = [...]string{
 	SampleS24_32LE: "S24_32LE", SampleS24_32BE: "S24_32BE",
 }
 
-// String names the format like wayle-audio's SampleFormat variants;
-// anything else is "Unknown" (conversion/format.rs's fallback).
+// String names a known format; anything else is "Unknown".
 func (f SampleFormat) String() string {
 	if f.Known() {
 		return sampleFormatNames[f]
@@ -149,9 +148,8 @@ var channelNames = [...]string{
 	ChannelTopRearCenter: "TopRearCenter",
 }
 
-// String names the position like wayle-audio's ChannelPosition; the
-// aux positions and anything unassigned are "Unknown"
-// (conversion/format.rs's fallback).
+// String names the position; the aux positions and anything unassigned
+// are "Unknown".
 func (p ChannelPosition) String() string {
 	if int(p) < len(channelNames) && channelNames[p] != "" {
 		return channelNames[p]
@@ -181,8 +179,8 @@ func LinearVolume(level float64) Volume { return Volume(level * float64(VolumeNo
 type CVolume []Volume
 
 // PropList is a pa_proplist restricted to its string entries: binary
-// values are dropped on decode, as libpulse's pa_proplist_gets (and
-// wayle-audio's collect_proplist) never returns them.
+// values are dropped on decode, as libpulse's pa_proplist_gets never
+// returns them.
 type PropList map[string]string
 
 // Encoding is a PA_ENCODING_* format encoding.
@@ -207,8 +205,7 @@ var encodingNames = []string{
 	"DTS_IEC61937", "MPEG2_AAC_IEC61937", "TRUEHD_IEC61937", "DTSHD_IEC61937",
 }
 
-// String is the libpulse-binding Encoding debug name wayle-audio
-// stores in its format strings; out-of-range values are "Invalid".
+// String is the encoding's name; out-of-range values are "Invalid".
 func (e Encoding) String() string {
 	if int(e) < len(encodingNames) {
 		return encodingNames[e]
@@ -504,8 +501,7 @@ func (r *Reader) Usec() uint64 {
 func (r *Reader) Bool() bool { return r.tag(tagTrue, tagFalse) == tagTrue }
 
 // String reads a 't' or 'N' field; ok is false for the null string.
-// Invalid UTF-8 is replaced lossily, as libpulse-binding's
-// to_string_lossy does for wayle-audio.
+// Invalid UTF-8 is replaced lossily.
 func (r *Reader) String() (string, bool) {
 	switch r.tag(tagString, tagStringNull) {
 	case tagStringNull:

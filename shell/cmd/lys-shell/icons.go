@@ -2,8 +2,8 @@ package main
 
 import "github.com/stubbedev/lys/shell/internal/cli"
 
-// examplesHeader is style.rs's styled_header!("Examples:"): raw ANSI
-// that the help writer strips when the stream is not colored.
+// examplesHeader is the styled "Examples:" header: raw ANSI that the
+// help writer strips when the stream is not colored.
 const examplesHeader = "\x1b[1;33mExamples:\x1b[0m"
 
 const iconsInstallHelp = examplesHeader + "\n" +
@@ -35,7 +35,6 @@ const iconsSyncHelp = examplesHeader + "\n" +
 	"Useful when sharing dotfiles across machines. User-imported `cm-` icons\n" +
 	"cannot be auto-installed and are listed as skipped."
 
-// iconsCommand is lys-shell/src/cli/icons/commands.rs.
 func iconsCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "icons",

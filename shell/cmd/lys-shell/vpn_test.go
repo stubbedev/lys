@@ -66,7 +66,7 @@ func TestVPNSSOCallbackWithNoShellRunningFails(t *testing.T) {
 func TestVPNArgumentsAreChecked(t *testing.T) {
 	for _, args := range [][]string{nil, {"sso-callback"}, {"sso-callback", "a", "b"}, {"connect"}} {
 		if _, _, code := runCaptured(t, false, append([]string{"vpn"}, args...)...); code != 2 {
-			t.Errorf("lys-shell vpn %v exited %d, want clap's usage error 2", args, code)
+			t.Errorf("lys-shell vpn %v exited %d, want the usage error 2", args, code)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 package config
 
-// PowerProfilesConfig is ported from crates/wayle-config/src/schemas/modules/power_profiles/mod.rs.
+// PowerProfilesConfig configures the power-profiles module.
 //
 // Power profile indicator and switcher (power-profiles-daemon).
 //

@@ -210,7 +210,7 @@ func (b Background) ImagePath(wallpaper string) string {
 }
 
 // LockBackground is how the lock screen and the greeter draw their
-// background (lock/types.rs).
+// background.
 //
 // How the lock screen background is rendered.
 type LockBackground string

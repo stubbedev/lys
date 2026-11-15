@@ -10,8 +10,8 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// Service is the network service beyond the bar's status read
-// (service.rs's NetworkService): saved profiles, the wifi device, the
+// Service is the network service beyond the bar's status read:
+// saved profiles, the wifi device, the
 // secret agent, and the VPNs.
 type Service struct {
 	// Settings is the live list of saved profiles.

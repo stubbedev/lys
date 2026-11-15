@@ -11,7 +11,7 @@ import (
 
 const typeSectionDepth = 2
 
-// typeSlug is type_slug: CamelCase as kebab-case anchors.
+// typeSlug is a CamelCase name as a kebab-case anchor.
 func typeSlug(name string) string {
 	var b strings.Builder
 	for i, c := range name {
@@ -23,7 +23,7 @@ func typeSlug(name string) string {
 	return b.String()
 }
 
-// collectTypeDefs is collect_type_defs: the union of every section's
+// collectTypeDefs is the union of every section's
 // $defs, the first section (by name) to define a name winning, the
 // synthetic wrappers and primitives left out.
 func collectTypeDefs(sections []config.DocSection) map[string]config.Schema {
@@ -59,7 +59,7 @@ func syntheticWrapper(name string) bool {
 	return false
 }
 
-// typesPage is render_types_page.
+// typesPage is the shared types page.
 func typesPage(defs map[string]config.Schema) string {
 	var b strings.Builder
 	b.WriteString("---\ntitle: Types\noutline: [2, 3]\n---\n\n<div v-pre>\n\n# Types\n\n")
@@ -81,7 +81,7 @@ func typeSection(name string, def config.Schema) string {
 	fmt.Fprintf(&b, "## %s {#%s}\n\n", name, typeSlug(name))
 	desc, _ := def["description"].(string)
 	if trimmed := strings.TrimSpace(desc); trimmed != "" {
-		b.WriteString(rehostRustdoc(trimmed, typeSectionDepth))
+		b.WriteString(rehostHeadings(trimmed, typeSectionDepth))
 		b.WriteByte('\n')
 	}
 	if body, ok := typeBody(def); ok {
@@ -95,7 +95,7 @@ func typeSection(name string, def config.Schema) string {
 	return b.String()
 }
 
-// typeBody is render_type_body: the first renderer that applies.
+// typeBody is the first renderer that applies.
 func typeBody(def config.Schema) (string, bool) {
 	if s, ok := anyOfBranches(def); ok {
 		return s, true
@@ -238,8 +238,8 @@ func objectShape(def config.Schema) (string, bool) {
 	return b.String(), true
 }
 
-// jsonLiteral is render_json_literal: a string quoted but unescaped,
-// the rest as serde_json writes it.
+// jsonLiteral is a string quoted but unescaped, the rest as compact
+// JSON.
 func jsonLiteral(v any) string {
 	if s, ok := v.(string); ok {
 		return "\"" + s + "\""

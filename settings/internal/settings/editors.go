@@ -19,8 +19,7 @@ import (
 // editorFunc builds the control for the field at path.
 type editorFunc func(k *kit, s slot, meta config.FieldMeta) control
 
-// autoEditor is the control a field's type calls for, the editor the
-// Rust page picks for it: toggle, enum_select, number_*, text, size,
+// autoEditor is the control a field's type calls for: toggle, enum_select, number_*, text, size,
 // color, and the optional (inherit) forms.
 func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, error) {
 	switch {
@@ -61,8 +60,6 @@ func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, er
 		if fitsSlider(meta) {
 			return newSlider(k, s, meta.Min, meta.Max, false, decimals(2)), nil
 		}
-		// scale(): the only float the Rust pages edit without explicit
-		// bounds is a ScaleFactor.
 		return newNumber(k, s, meta.Min, meta.Max, 0.05, 2), nil
 	case config.FieldText:
 		return newText(k, s, meta.Optional), nil
@@ -285,25 +282,23 @@ func (c *slider) refresh() {
 	}
 }
 
-// normalized is slider::normalized: a 0-1 NormalizedF64, labeled "{:.2}".
+// normalized is a 0-1 slider labeled with two decimals.
 var normalized = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newSlider(k, s, 0, 1, false, decimals(2))
 })
 
-// signedNormalized is slider::signed_normalized: a -1-1 value, labeled
-// "{:.2}".
+// signedNormalized is a -1-1 slider labeled with two decimals.
 var signedNormalized = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newSlider(k, s, -1, 1, false, decimals(2))
 })
 
-// percentage is slider::percentage: a 0-100 Percentage, labeled
-// "{:.0}%".
+// percentage is a 0-100 slider labeled in whole percent.
 var percentage = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newSlider(k, s, 0, 100, true, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" })
 })
 
-// milliseconds is slider::milliseconds: whole milliseconds over
-// [lo, hi], labeled in seconds ("{:.1}s").
+// milliseconds is a slider of whole milliseconds over [lo, hi],
+// labeled in seconds with one decimal.
 func milliseconds(lo, hi float64) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 		return newSlider(k, s, lo, hi, true, func(v float64) string { return strconv.FormatFloat(v/1000, 'f', 1, 64) + "s" })

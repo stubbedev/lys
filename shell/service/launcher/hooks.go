@@ -6,7 +6,7 @@ import (
 )
 
 // Hooks are the commands run when something happens in the menu (rofi
-// -on-*), hooks.rs. rofi's contract, pinned against rofi 2.0.0:
+// -on-*). rofi's contract, pinned against rofi 2.0.0:
 //
 //   - the command string is shell-parsed and exec'd directly, never
 //     handed to `sh -c`: a $HOME stays literal and a `;` is one more

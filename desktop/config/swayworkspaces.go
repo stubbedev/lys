@@ -1,6 +1,6 @@
 package config
 
-// SwayWorkspacesConfig is ported from crates/wayle-config/src/schemas/modules/sway_workspaces/mod.rs.
+// SwayWorkspacesConfig configures the sway-workspaces module.
 //
 // sway workspace indicators with click-to-switch.
 type SwayWorkspacesConfig struct {

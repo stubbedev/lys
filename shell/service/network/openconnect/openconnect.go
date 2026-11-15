@@ -1,6 +1,5 @@
 // Package openconnect produces the NetworkManager openconnect plugin's
-// secrets without an openconnect binary, the Go counterpart of
-// crates/wayle-network/src/vpn/openconnect.
+// secrets without an openconnect binary.
 //
 // NetworkManager's openconnect plugin does not ask for a password. It
 // asks for a cookie, a gateway and a gwcert — the output of an

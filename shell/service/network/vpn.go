@@ -20,7 +20,7 @@ import (
 )
 
 // This file is VPN state and control with NetworkManager as the single
-// source of truth (vpn/mod.rs). Every VPN is an NM profile, a plugin
+// source of truth. Every VPN is an NM profile, a plugin
 // VPN or a native WireGuard one; nothing is declared in lys-shell's config,
 // so a VPN added from the widget shows up with no restart.
 //
@@ -314,8 +314,7 @@ func (s *VPNService) entry(uuid string) (*vpnEntry, error) {
 	return nil, errNoProfile(uuid)
 }
 
-// errNoProfile is the Rust service's wording for a UUID that names no
-// profile (Error::ServiceInitializationFailed).
+// errNoProfile is the error for a UUID that names no profile.
 func errNoProfile(uuid string) error {
 	return fmt.Errorf("cannot initialize network service: no VPN profile with uuid %s", uuid)
 }

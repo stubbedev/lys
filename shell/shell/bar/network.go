@@ -18,7 +18,7 @@ type vpnView struct {
 	state      network.VPNState
 }
 
-// networkDisplay is compute_display: the link's icon and label, the VPN
+// networkDisplay is the link's icon and label, the VPN
 // icon taking the icon over while the VPN is shown.
 func networkDisplay(cfg config.NetworkConfig, snap network.Snapshot, vpn vpnView) (icon, label string) {
 	icon, label = linkDisplay(cfg, snap)
@@ -43,7 +43,7 @@ func vpnIcon(cfg config.NetworkConfig, vpn vpnView) (string, bool) {
 	return cfg.VpnDisconnectedIcon, true
 }
 
-// linkDisplay is compute_link_display: the primary connection's device,
+// linkDisplay is the primary connection's device,
 // "No Wi-Fi"/"No Ethernet" when it has none, offline without a primary
 // connection, and otherwise wifi before wired.
 func linkDisplay(cfg config.NetworkConfig, snap network.Snapshot) (icon, label string) {
@@ -70,7 +70,7 @@ func linkDisplay(cfg config.NetworkConfig, snap network.Snapshot) (icon, label s
 	return cfg.WifiOfflineIcon, i18n.T("bar-network-offline")
 }
 
-// wifiIcon is helpers.rs's wifi_icon: disabled, acquiring, offline, or
+// wifiIcon is disabled, acquiring, offline, or
 // the signal list bucketed over the strength.
 func wifiIcon(cfg config.NetworkConfig, snap network.Snapshot) string {
 	if !snap.WifiEnabled {
@@ -88,7 +88,7 @@ func wifiIcon(cfg config.NetworkConfig, snap network.Snapshot) string {
 	return cfg.WifiSignalIcons[network.SignalIndex(snap.WifiStrength, len(cfg.WifiSignalIcons))]
 }
 
-// wifiLabel is wifi_label: the SSID (the _bar.ftl fallback when
+// wifiLabel is the SSID (the _bar.ftl fallback when
 // hidden), connecting, or disconnected.
 func wifiLabel(snap network.Snapshot) string {
 	switch snap.Wifi {
@@ -103,7 +103,6 @@ func wifiLabel(snap network.Snapshot) string {
 	return i18n.T("bar-network-disconnected")
 }
 
-// wiredIcon is wired_icon.
 func wiredIcon(cfg config.NetworkConfig, s network.Status) string {
 	switch s {
 	case network.StatusConnected:
@@ -114,7 +113,6 @@ func wiredIcon(cfg config.NetworkConfig, s network.Status) string {
 	return cfg.WiredDisconnectedIcon
 }
 
-// wiredLabel is wired_label.
 func wiredLabel(s network.Status) string {
 	switch s {
 	case network.StatusConnected:

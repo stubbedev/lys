@@ -1,7 +1,6 @@
 package config
 
-// ThresholdEntry maps a numeric range to color overrides
-// (crates/wayle-config/src/schemas/styling/types/threshold.rs).
+// ThresholdEntry maps a numeric range to color overrides.
 //
 // A threshold entry that maps a numeric value range to color overrides.
 //
@@ -66,8 +65,7 @@ func (c ThresholdColors) IsEmpty() bool {
 }
 
 // ResolveOr is one slot's CSS: the override's value when set, else the
-// module's configured color already resolved for the theme
-// (ThresholdColors::resolve_or).
+// module's configured color already resolved for the theme.
 func ResolveOr(override *ColorValue, configCSS string) string {
 	if override != nil {
 		return override.ToCSS()

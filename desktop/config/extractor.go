@@ -3,7 +3,7 @@ package config
 import "reflect"
 
 // ColorExtractorConfig is the slice of [styling] that drives wallpaper
-// color extraction (crates/lys-shell/src/watchers/color_extractor.rs):
+// color extraction:
 // the provider, the theming monitor, and the matugen-/wallust-/pywal-
 // tool parameters. It is an inline group: its keys sit directly in
 // [styling].
@@ -58,7 +58,7 @@ func DefaultsColorExtractor() ColorExtractorConfig {
 	}
 }
 
-// MatugenScheme is a color-extractor parameter (styling/types/extractor.rs).
+// MatugenScheme is a color-extractor parameter.
 //
 // Matugen color scheme type.
 type MatugenScheme string
@@ -85,7 +85,7 @@ const (
 	MatugenSchemeVibrant MatugenScheme = "vibrant"
 )
 
-// WallustPalette is a color-extractor parameter (styling/types/extractor.rs).
+// WallustPalette is a color-extractor parameter.
 //
 // Wallust palette mode.
 type WallustPalette string
@@ -138,7 +138,7 @@ const (
 	WallustPaletteAnsidark16 WallustPalette = "ansidark16"
 )
 
-// WallustBackend is a color-extractor parameter (styling/types/extractor.rs).
+// WallustBackend is a color-extractor parameter.
 //
 // Wallust image sampling backend.
 type WallustBackend string
@@ -159,7 +159,7 @@ const (
 	WallustBackendKmeans WallustBackend = "kmeans"
 )
 
-// WallustColorspace is a color-extractor parameter (styling/types/extractor.rs).
+// WallustColorspace is a color-extractor parameter.
 //
 // Wallust color space for dominant color selection.
 type WallustColorspace string
@@ -206,13 +206,13 @@ func (p WallustPalette) IsLight() bool {
 	return false
 }
 
-// SignedNormalizedF64 is a -1..1 float (styling/types/extractor.rs).
+// SignedNormalizedF64 is a -1..1 float.
 //
 // Floating-point value clamped to -1.0 to 1.0.
 type SignedNormalizedF64 float64
 
-// UnmarshalConfig implements Unmarshaler: out of range clamps with the
-// Rust warning.
+// UnmarshalConfig implements Unmarshaler: out of range clamps with a
+// warning.
 func (n *SignedNormalizedF64) UnmarshalConfig(v any) error {
 	raw, err := decodeClamped(v, SignedNormalizedF64(-1), SignedNormalizedF64(1), "signed normalized value")
 	*n = raw
@@ -226,14 +226,13 @@ func (SignedNormalizedF64) configSchema(*schemaGen) Schema {
 	return rangedSchema(reflect.TypeFor[SignedNormalizedF64](), -1.0, 1.0)
 }
 
-// PywalContrast is pywal's minimum contrast ratio, the WCAG range
-// (styling/types/extractor.rs).
+// PywalContrast is pywal's minimum contrast ratio, the WCAG range.
 //
 // Pywal contrast ratio clamped to 1.0-21.0 (WCAG range).
 type PywalContrast float64
 
-// UnmarshalConfig implements Unmarshaler: out of range clamps with the
-// Rust warning.
+// UnmarshalConfig implements Unmarshaler: out of range clamps with a
+// warning.
 func (c *PywalContrast) UnmarshalConfig(v any) error {
 	raw, err := decodeClamped(v, PywalContrast(1), PywalContrast(21), "pywal contrast")
 	*c = raw

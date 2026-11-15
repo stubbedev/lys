@@ -522,7 +522,7 @@ func TestFiltersHiddenAndSort(t *testing.T) {
 	if got := hs.shown(); !slices.Contains(got, ".dot.txt") {
 		t.Errorf("hidden shown = %v", got)
 	}
-	// The header toggles are gtk::ToggleButtons: pressed while on.
+	// The header toggles are toggle buttons: pressed while on.
 	if st := widget.Describe(hs.c.ui.hiddenTg); st.Role != widget.RoleToggleButton || !st.Pressed {
 		t.Errorf("hidden toggle reads %s pressed %v, want a pressed toggle button", st.Role, st.Pressed)
 	}

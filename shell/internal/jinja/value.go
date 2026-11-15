@@ -1,13 +1,12 @@
 // Package jinja renders minijinja templates: the format-string engine
-// behind every bar module's format key (wayle-shell-core's template.rs,
-// minijinja 2 with its builtins and default settings).
+// behind every bar module's format key (minijinja 2 with its builtins
+// and default settings).
 //
 // It covers what a format string can use: {{ }} expressions with the
 // full operator set, attribute and item access, slicing, filters and
 // tests, if/elif/else, for loops with the loop variable, set, raw
 // blocks, comments, and whitespace control. Macros, includes, and
-// template inheritance are not part of the Rust build (its minijinja
-// has default features off) and are not here either.
+// template inheritance are not supported.
 //
 // Values are Go data: nil (none), bool, the integer and float kinds,
 // string, slices, and string-keyed maps. Undefined is its own value:
@@ -103,7 +102,7 @@ func normalize(v any) any {
 	return v
 }
 
-// truthy is Value::is_true.
+// truthy is whether v counts as true in a condition.
 func truthy(v any) bool {
 	switch x := normalize(v).(type) {
 	case nil, undefined:
@@ -124,7 +123,7 @@ func truthy(v any) bool {
 	return true
 }
 
-// display is Value's Display: what {{ v }} prints.
+// display is what {{ v }} prints.
 func display(v any) string {
 	switch x := normalize(v).(type) {
 	case undefined:
@@ -156,8 +155,8 @@ func display(v any) string {
 	return fmt.Sprint(v)
 }
 
-// formatFloat is the f64 display: Rust's shortest form, with ".0" on
-// a whole number.
+// formatFloat is the f64 display: the shortest form, with ".0" on a
+// whole number.
 func formatFloat(f float64) string {
 	switch {
 	case math.IsNaN(f):
@@ -215,7 +214,7 @@ func kind(v any) string {
 	return "plain object"
 }
 
-// iterate is try_iter: sequences item by item, maps by sorted key,
+// iterate walks v: sequences item by item, maps by sorted key,
 // strings by character, undefined as empty.
 func iterate(v any) ([]any, error) {
 	switch x := normalize(v).(type) {
@@ -240,7 +239,7 @@ func iterate(v any) ([]any, error) {
 	return nil, errorf("%s is not iterable", kind(v))
 }
 
-// length is Value::len.
+// length is v's length, ok=false when v has none.
 func length(v any) (int, bool) {
 	switch x := normalize(v).(type) {
 	case string:

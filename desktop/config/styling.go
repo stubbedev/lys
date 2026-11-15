@@ -1,7 +1,6 @@
 package config
 
-// StylingConfig is the [styling] section
-// (crates/wayle-config/src/schemas/styling/mod.rs).
+// StylingConfig is the [styling] section.
 //
 // Theme, palette, and rounding tokens applied shell-wide. Changes recompile the stylesheet.
 type StylingConfig struct {
@@ -64,8 +63,7 @@ func DefaultsStyling() StylingConfig {
 // ActivePalette is the palette the static (lys-shell) provider renders:
 // the configured [styling.palette], or — when the appearance forces
 // light or dark and palette-base-theme names a built-in family with
-// that variant — the variant's palette (theme_provider.rs
-// resolve_static_palette).
+// that variant — the variant's palette.
 func (s StylingConfig) ActivePalette() Palette {
 	base := Palette{
 		Bg: s.Palette.Bg.String(), Surface: s.Palette.Surface.String(), Elevated: s.Palette.Elevated.String(),
@@ -85,7 +83,7 @@ func (s StylingConfig) ActivePalette() Palette {
 	return base
 }
 
-// PaletteConfig is the [styling.palette] table (styling/palette.rs).
+// PaletteConfig is the [styling.palette] table.
 //
 // Color palette configuration for the active theme.
 type PaletteConfig struct {
@@ -111,7 +109,7 @@ type PaletteConfig struct {
 	Blue HexColor `cfg:"blue"`
 }
 
-// Appearance is the light/dark mode (styling/types/color.rs).
+// Appearance is the light/dark mode.
 //
 // Light/dark appearance mode.
 //
@@ -145,7 +143,7 @@ func (a Appearance) ForcedLight() (light, ok bool) {
 	return false, false
 }
 
-// ThemeProvider is where palette values come from (styling/types/color.rs).
+// ThemeProvider is where palette values come from.
 //
 // Source of color palette values.
 //

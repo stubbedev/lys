@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// staticMode is session.rs's StaticMode test double.
+// staticMode is a Mode test double with fixed rows.
 type staticMode struct {
 	name      string
 	entries   []string

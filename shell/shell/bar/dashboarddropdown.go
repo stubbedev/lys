@@ -35,9 +35,8 @@ const dashboardDiskPolls = 30
 
 const dashboardReadTimeout = 2 * time.Second
 
-// dashboardArtInstances numbers the media art's per-instance class
-// (media_section's dashboard-media-art-instance-N); the stylesheet
-// hangs the cover's background-image off it per section.
+// dashboardArtInstances numbers the media art's per-instance class,
+// dashboard-media-art-instance-N.
 var dashboardArtInstances atomic.Uint64
 
 // dashboardView is the dashboard dropdown (dropdowns/dashboard): quick
@@ -105,13 +104,13 @@ func dashboardDropdown(ctx ModuleContext) widget.Widget {
 	v.root.AddClass("dropdown", "dashboard-dropdown")
 	v.root.Append(v.header(), false)
 	// The content's inset sits outside the scroll: .dropdown-content >
-	// .dashboard-scroll > .dashboard-content-box (dashboard/mod.rs).
+	// .dashboard-scroll > .dashboard-content-box.
 	content := dropdownContent()
 	sections := widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	sections.AddClass("dashboard-content-box")
 	sections.Append(v.quickActions(), false)
 	// The volume and media cards are always present; their no-device
-	// and empty states live inside (controls/mod.rs, media_section).
+	// and empty states live inside.
 	sections.Append(v.controls(), false)
 	sections.Append(v.media(), false)
 	sections.Append(v.infoRow(), false)
@@ -191,7 +190,7 @@ func (v *dashboardView) card(iconName, heading string, extra ...widget.Widget) *
 	return card
 }
 
-// header is the DropdownHeader with the open-settings action.
+// header is the dropdown header with the open-settings action.
 func (v *dashboardView) header() widget.Widget {
 	settings := dropdownButton(widget.NewThemeIcon("ld-settings-symbolic", itemIconPx), func() {
 		spawn.Quiet(settingspage.Program)
@@ -208,7 +207,7 @@ var quickActionsState struct {
 	airplane, preWifi, preBT bool
 }
 
-// quickActions is quick_actions: wifi, bluetooth, airplane, do not
+// quickActions: wifi, bluetooth, airplane, do not
 // disturb, idle inhibit, and power saver toggles.
 func (v *dashboardView) quickActions() widget.Widget {
 	card := dashboardCard()
@@ -266,7 +265,7 @@ func (v *dashboardView) quickActions() widget.Widget {
 	wifi = make1(0, 0, "ld-wifi-symbolic", "dropdown-dashboard-wifi", func() { setWifi(!state.wifiOn) })
 	bt = make1(1, 0, "ld-bluetooth-symbolic", "dropdown-dashboard-bluetooth", func() { setBT(!state.btOn) })
 	airplane = make1(2, 0, "ld-plane-symbolic", "dropdown-dashboard-airplane", func() {
-		// toggle_airplane: going on remembers and switches the radios
+		// Going on remembers and switches the radios
 		// off; going off restores the ones that were on.
 		s := &quickActionsState
 		s.Lock()
@@ -424,14 +423,14 @@ func (v *dashboardView) controls() widget.Widget {
 	return card
 }
 
-// media is media_section: the active player's art, track, transport,
+// media is the active player's art, track, transport,
 // and progress, or the empty state when no player is active.
 func (v *dashboardView) media() widget.Widget {
 	var current mpris.Player
 	var has bool
 	bctx := context.Background()
 	switchBtn := dropdownButton(widget.NewThemeIcon("ld-arrow-left-right-symbolic", itemIconPx), func() {
-		// cycle_player: the next player after the active one.
+		// The next player after the active one.
 		src := v.ctx.Media
 		if src == nil {
 			return
@@ -456,10 +455,6 @@ func (v *dashboardView) media() widget.Widget {
 	art := widget.NewBox(widget.Row, 0, 0)
 	widgets.Pin(art, artPx, artPx)
 	art.AddClass("dashboard-media-art")
-	// The per-instance class the Rust section hangs its cover rule on.
-	// The art itself is a cover-scaled image child rather than that
-	// rule: Rust's rule names the file wayle-media downloaded, and here
-	// the image loads remote art itself.
 	art.AddClass("dashboard-media-art-instance-" + strconv.FormatUint(dashboardArtInstances.Add(1), 10))
 	artURL := "\x00"
 	title := v.label("")
@@ -468,8 +463,7 @@ func (v *dashboardView) media() widget.Widget {
 	artist.AddClass("media-artist", css.DimLabel)
 	for _, l := range []*widget.Label{title, artist} {
 		l.SetEllipsize(widget.EllipsizeEnd)
-		// xalign 0 under a natural-width cap of one character
-		// (media_section's max-width-chars pair).
+		// xalign 0 under a natural-width cap of one character.
 		l.SetAlignment(render.AlignStart)
 		l.SetMaxWidthChars(1)
 	}
@@ -618,7 +612,6 @@ func (v *dashboardView) infoRow() widget.Widget {
 	return row
 }
 
-// dashboardBatteryIcon is battery_icon.
 func dashboardBatteryIcon(percent float64, charging bool) string {
 	switch {
 	case charging:
@@ -633,7 +626,7 @@ func dashboardBatteryIcon(percent float64, charging bool) string {
 	return "ld-battery-warning-symbolic"
 }
 
-// dashboardBatteryTime is time_remaining_label: "~1h 5m" or "~5m",
+// dashboardBatteryTime is "~1h 5m" or "~5m",
 // empty without an estimate.
 func dashboardBatteryTime(secs int64) string {
 	if secs <= 0 {
@@ -646,7 +639,7 @@ func dashboardBatteryTime(secs int64) string {
 	return i18n.T("dropdown-dashboard-battery-time-m", i18n.Str("minutes", strconv.FormatInt(m, 10)))
 }
 
-// dashboardProfile is power_profile_label and power_profile_icon.
+// dashboardProfile is the active power profile's label and icon.
 func dashboardProfile(active string) (label, icon string) {
 	switch active {
 	case powerprofiles.ProfilePowerSaver:
@@ -657,10 +650,9 @@ func dashboardProfile(active string) (label, icon string) {
 	return i18n.T("dropdown-dashboard-battery-profile-balanced"), "ld-scale-symbolic"
 }
 
-// battery is battery_section: icon, percent, gauge, time left, and the
+// battery is the battery card: icon, percent, gauge, time left, and the
 // power profile, tinted by the dashboard's battery thresholds. The card
-// shows only while a battery is present (the Rust dashboard builds it
-// only for a present device): a desktop's UPower display device, or
+// shows only while a battery is present: a desktop's UPower display device, or
 // none at all, leaves the network card the row.
 func (v *dashboardView) battery() widget.Widget {
 	card := v.card("ld-battery-full-symbolic", i18n.T("dropdown-dashboard-battery"))
@@ -723,7 +715,7 @@ func (v *dashboardView) battery() widget.Widget {
 		remaining.SetText(dashboardBatteryTime(secs))
 		remaining.SetVisible(secs > 0)
 		// battery-detail carries the thresholds like the icon and the
-		// percent (battery_section/mod.rs).
+		// percent.
 		setClass(remaining, "warning", warning)
 		setClass(remaining, "critical", critical)
 		profileRow.SetVisible(r.profiles.Available)
@@ -736,7 +728,7 @@ func (v *dashboardView) battery() widget.Widget {
 	return card
 }
 
-// dashboardSpeed is format_speed: KB/s with one decimal under 1024,
+// dashboardSpeed: KB/s with one decimal under 1024,
 // else MB/s.
 func dashboardSpeed(bytesPerSec uint64) (value string, mega bool) {
 	kbps := float64(bytesPerSec) / 1024
@@ -746,7 +738,7 @@ func dashboardSpeed(bytesPerSec uint64) (value string, mega bool) {
 	return strconv.FormatFloat(kbps/1024, 'f', 1, 64), true
 }
 
-// network is network_section: upload and download across every
+// network: upload and download across every
 // interface, "--" while disconnected.
 func (v *dashboardView) network() widget.Widget {
 	card := v.card("ld-wifi-symbolic", i18n.T("dropdown-dashboard-network"))
@@ -838,7 +830,7 @@ func (v *dashboardView) network() widget.Widget {
 	return card
 }
 
-// dashboardThresholdClass is threshold_color: the ring variant class —
+// dashboardThresholdClass is the ring variant class —
 // error at or past the error mark, warning at or past the warning mark,
 // else success.
 func dashboardThresholdClass(value, warning, errorAt float32) string {
@@ -851,7 +843,7 @@ func dashboardThresholdClass(value, warning, errorAt float32) string {
 	return "success"
 }
 
-// systemStats is system_stats: CPU, RAM, root disk, and CPU temperature
+// systemStats: CPU, RAM, root disk, and CPU temperature
 // rings.
 func (v *dashboardView) systemStats() widget.Widget {
 	card := v.card("ld-activity-symbolic", i18n.T("dropdown-dashboard-system"))
@@ -1250,7 +1242,7 @@ func roundedPercent(v float32) dashboardStat {
 
 type dashboardStats struct{ cpu, mem, disk, temp dashboardStat }
 
-// dashboardConnected is the network section's resolve_connected: the
+// dashboardConnected is the network section's connected device: the
 // primary connection's device, nothing without one, and either device
 // for other primary types. Wifi counts as connected while enabled with
 // an SSID.

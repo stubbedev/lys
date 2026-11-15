@@ -15,8 +15,7 @@ const (
 )
 
 // Window is what the resolver reads off a compositor window. The Has
-// flags distinguish an unset field from an empty one, as the Rust
-// Option does.
+// flags distinguish an unset field from an empty one.
 type Window struct {
 	AppID    string
 	Title    string
@@ -24,11 +23,10 @@ type Window struct {
 	HasTitle bool
 }
 
-// Resolve is the sway/niri/mango helpers.rs resolve_app_icon:
-// title-prefixed user patterns against the title first, then app- or
+// Resolve picks a window's icon: title-prefixed user patterns against the title first, then app- or
 // un-prefixed user patterns against the app id, then the Default
-// table, then fallback. User patterns are tried in sorted key order
-// (the BTreeMap order). Matching is glob.Wildcard: case-sensitive.
+// table, then fallback. User patterns are tried in sorted key order.
+// Matching is glob.Wildcard: case-sensitive.
 func Resolve(w Window, userMap map[string]string, fallback string) string {
 	keys := make([]string, 0, len(userMap))
 	for key := range userMap {

@@ -60,8 +60,7 @@ func TestMainKeyboardLayoutSkipsPlaceholderKeymaps(t *testing.T) {
 	}
 }
 
-func TestKeyboardLayoutLabelMatchesRustAssertions(t *testing.T) {
-	// helpers.rs's tests.
+func TestKeyboardLayoutLabel(t *testing.T) {
 	if got := keyboardLayoutLabel("us", "{{ layout }}", nil); got != "us" {
 		t.Errorf("= %q, want us", got)
 	}
@@ -246,8 +245,8 @@ func TestKeyboardLayoutFollowsSwayInputEvents(t *testing.T) {
 	// An input event re-reads the inputs.
 	events <- `[{"type":"keyboard","xkb_active_layout_name":"English (US)"}]`
 	waitLabel(t, label, "English (US)")
-	// A keyboard without a layout shows the unknown layout
-	// (component.rs UNKNOWN_LAYOUT) rather than keeping the stale one.
+	// A keyboard without a layout shows the unknown layout rather than
+	// keeping the stale one.
 	events <- `[{"type":"keyboard"}]`
 	waitLabel(t, label, "?")
 }
@@ -266,7 +265,7 @@ func TestKeyboardLayoutStartsUnknownWithoutAKeyboard(t *testing.T) {
 }
 
 // A first read that fails builds the module on the unknown layout
-// (the Rust snapshot warns and shows "?") instead of dropping it.
+// (shown as "?") instead of dropping it.
 func TestKeyboardLayoutSurvivesAFailedFirstRead(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Hyprland = newFakeDevicesConn(t, `{"keyboards": not json`)

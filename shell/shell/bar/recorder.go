@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/recorder"
 )
 
-// recorderLabel is helpers.rs's build_label: Idle/Replay armed/Paused/
+// recorderLabel renders Idle/Replay armed/Paused/
 // Recording for {{ state }}, the H:MM:SS (or M:SS) clock for
 // {{ elapsed }}, a dash while idle.
 func recorderLabel(format string, snap recorder.Change) string {
@@ -35,7 +35,7 @@ func recorderVars(snap recorder.Change) map[string]any {
 	return map[string]any{"state": state, "elapsed": elapsed}
 }
 
-// recorderIconName is helpers.rs's select_icon over the states: a
+// recorderIconName picks the icon over the states: a
 // recording wins over an armed replay.
 func recorderIconName(cfg config.RecorderConfig, snap recorder.Change) string {
 	switch {

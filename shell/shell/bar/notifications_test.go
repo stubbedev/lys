@@ -10,7 +10,7 @@ import (
 )
 
 func TestNotificationLabel(t *testing.T) {
-	// helpers.rs: zero-padded to two digits, three digits for 100.
+	// Zero-padded to two digits, three digits for 100.
 	for _, tc := range []struct {
 		count int
 		want  string

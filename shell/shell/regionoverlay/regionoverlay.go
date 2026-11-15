@@ -105,7 +105,7 @@ func pick(p image.Point, windows []image.Rectangle, mons []Monitor) (image.Recta
 	return image.Rectangle{}, false
 }
 
-// Paint constants of region_overlay/mod.rs's draw func.
+// Paint constants of the overlay's drawing.
 const (
 	// dimAlpha is the wash: rgba(0, 0, 0, 0.45).
 	dimAlpha    = 115

@@ -8,8 +8,7 @@ import (
 	"slices"
 )
 
-// WallpaperConfig is the `wallpaper` section
-// (crates/wayle-config/src/schemas/wallpaper): what each monitor shows
+// WallpaperConfig is the `wallpaper` section: what each monitor shows
 // and how. Resolution order: a cycling directory, else the single
 // Wallpaper image; Monitors entries apply on top.
 //
@@ -106,7 +105,7 @@ type MonitorWallpaperConfig struct {
 
 func (MonitorWallpaperConfig) noStructDefault() {}
 
-// FitMode is how an image is scaled to its monitor (types/fit_mode.rs).
+// FitMode is how an image is scaled to its monitor.
 //
 // Image scaling mode.
 type FitMode string
@@ -128,7 +127,7 @@ var _ = registerEnum(FitFill, FitFit, FitCenter, FitStretch)
 // FitModes is every fit mode, in schema order.
 var FitModes = []FitMode{FitFill, FitFit, FitCenter, FitStretch}
 
-// CyclingMode is the order images cycle in (types/cycling.rs).
+// CyclingMode is the order images cycle in.
 //
 // Wallpaper cycling order.
 type CyclingMode string
@@ -146,8 +145,7 @@ var _ = registerEnum(CyclingSequential, CyclingShuffle)
 // CyclingModes is every cycling mode, in schema order.
 var CyclingModes = []CyclingMode{CyclingSequential, CyclingShuffle}
 
-// CyclingInterval is the cycling period in minutes, at least 1
-// (types/cycling.rs CyclingInterval).
+// CyclingInterval is the cycling period in minutes, at least 1.
 //
 // Cycling interval in minutes, minimum 1.
 type CyclingInterval uint64
@@ -159,7 +157,7 @@ const (
 )
 
 // UnmarshalConfig implements Unmarshaler: below the floor clamps with
-// the Rust warning rather than failing.
+// a warning rather than failing.
 func (c *CyclingInterval) UnmarshalConfig(v any) error {
 	n, err := decodeClamped[uint64](v, 0, math.MaxUint64, "cycling interval")
 	if err != nil {
@@ -180,7 +178,7 @@ func (CyclingInterval) configSchema(*schemaGen) Schema {
 	return rangedSchema(reflect.TypeFor[CyclingInterval](), int64(CyclingIntervalMin), nil)
 }
 
-// setDefaults is the entry's serde field defaults: fit-mode is Fill.
+// setDefaults is the entry's field defaults: fit-mode is Fill.
 func (m *MonitorWallpaperConfig) setDefaults() { m.FitMode = FitFill }
 
 // String is the config spelling.

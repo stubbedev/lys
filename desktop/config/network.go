@@ -1,6 +1,6 @@
 package config
 
-// NetworkConfig is ported from crates/wayle-config/src/schemas/modules/network/mod.rs.
+// NetworkConfig configures the network module.
 //
 // Network connection status with a dropdown for switching connections.
 type NetworkConfig struct {
@@ -109,7 +109,7 @@ func (c NetworkConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// VpnShow is ported from crates/wayle-config/src/schemas/modules/network/vpn.rs.
+// VpnShow is part of the network module's configuration.
 //
 // Whether the VPN indicator is part of the network module.
 type VpnShow string

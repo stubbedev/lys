@@ -51,12 +51,12 @@ type RunConfig struct {
 	IgnoredPrefixes []string
 }
 
-// DefaultRunConfig is RunConfig::default.
+// DefaultRunConfig is the run mode without any flag or config.
 func DefaultRunConfig() RunConfig {
 	return RunConfig{RunCommand: "{cmd}", ShellCommand: "{terminal} -e {cmd}", MaxHistory: 25}
 }
 
-// Run executes commands found on $PATH (run.rs).
+// Run executes commands found on $PATH.
 type Run struct {
 	cfg      RunConfig
 	history  *launcher.History
@@ -179,9 +179,7 @@ func scanPath(ctx context.Context) map[string]bool {
 }
 
 // collectExecutables adds dir's executable files. Symlinks are
-// followed: on NixOS nearly every PATH entry is one (the Rust scan's
-// DirEntry metadata did not follow them, which left run mode close to
-// empty there).
+// followed: on NixOS nearly every PATH entry is one.
 func collectExecutables(ctx context.Context, dir string, names map[string]bool) {
 	if ctx.Err() != nil {
 		return

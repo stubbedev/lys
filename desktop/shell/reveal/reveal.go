@@ -1,7 +1,6 @@
 // Package reveal plays the [animations] config on lys-ui revealers: the
 // transition style and duration each transient surface resolves for
-// entering or exiting (the per-surface, global, base cascade), the job
-// of the Rust shell's surface_anim helper.
+// entering or exiting (the per-surface, global, base cascade).
 package reveal
 
 import (

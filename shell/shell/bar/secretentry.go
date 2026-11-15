@@ -5,14 +5,14 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// Reveal toggle glyphs (helpers.rs's ICON_EYE / ICON_EYE_OFF).
+// Reveal toggle glyphs.
 const (
 	iconEye    = "ld-eye-symbolic"
 	iconEyeOff = "ld-eye-off-symbolic"
 )
 
 // secretEntry is a masked Entry with the peek icon every secret box
-// carries (attach_reveal_toggle): a mistyped key or password is
+// carries: a mistyped key or password is
 // otherwise only fixable by retyping it. The eye is the entry's
 // trailing icon, the entry > image node. The entry itself goes into
 // the tree; the network forms add their own class to it.
@@ -40,7 +40,7 @@ func (s *secretEntry) toggle() {
 	}
 }
 
-// reset is reset_reveal_toggle: masked again, and emptied.
+// reset: masked again, and emptied.
 func (s *secretEntry) reset() {
 	s.entry.SetText("")
 	s.entry.EchoReveal(false)

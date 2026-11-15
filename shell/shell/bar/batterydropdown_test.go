@@ -283,7 +283,7 @@ func TestBatteryHeroAndGaugeKeepTheirGaps(t *testing.T) {
 	}
 }
 
-// set_homogeneous: the three segments measure equal though their
+// The three segments measure equal though their
 // labels differ, the seg equalizing them — no hand-set min-widths.
 func TestBatteryProfileSegmentsEqualWidth(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())

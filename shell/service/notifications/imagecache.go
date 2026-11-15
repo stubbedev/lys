@@ -14,7 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/xdg"
 )
 
-// cacheImage is image_cache.rs's cache_image_data: inline pixels become
+// cacheImage caches a notification's inline pixels: they become
 // $XDG_CACHE_HOME/lys-shell/notifications/<content hash>.png, written once.
 // Only 8-bit RGB and RGBA are supported; anything else, or a buffer too
 // short for its geometry, caches nothing.
@@ -54,8 +54,7 @@ func cacheImageIn(dir string, img imageData) (string, bool) {
 	return path, true
 }
 
-// imageRGBA unpacks the rows, dropping any rowstride padding
-// (strip_rowstride_padding).
+// imageRGBA unpacks the rows, dropping any rowstride padding.
 func imageRGBA(img imageData) (*image.NRGBA, bool) {
 	w, hgt, ch, stride := int(img.width), int(img.height), int(img.channels), int(img.rowstride)
 	if w <= 0 || hgt <= 0 || stride < w*ch || len(img.data) < (hgt-1)*stride+w*ch {

@@ -17,7 +17,7 @@ func TestMicrophoneLabel(t *testing.T) {
 	if got := microphoneLabel(0); got != "0%" {
 		t.Errorf("= %q, want 0%%", got)
 	}
-	// Rounded like the Rust module, not truncated.
+	// Rounded, not truncated.
 	if got := microphoneLabel(37.6); got != "38%" {
 		t.Errorf("= %q, want 38%%", got)
 	}
@@ -76,8 +76,7 @@ func TestLoadFileAppliesMicrophone(t *testing.T) {
 	}
 }
 
-// The thresholds color the button by input volume (evaluate_thresholds,
-// last match wins) and clear below them.
+// The thresholds color the button by input volume (last match wins) and clear below them.
 func TestMicrophoneThresholds(t *testing.T) {
 	cfg := config.Defaults()
 	warn, err := config.ParseColorValue("status-warning")

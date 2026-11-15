@@ -9,8 +9,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// lys-shell's own interface over the tray, which `lys-shell systray` drives
-// (wayle-systray/src/dbus).
+// lys-shell's own interface over the tray, which `lys-shell systray` drives.
 const (
 	DaemonName = "dev.stubbe.lys.SystemTray1"
 	DaemonPath = dbus.ObjectPath("/dev/stubbe/lys/SystemTray")
@@ -61,7 +60,7 @@ func (d *Daemon) Activate(id string) *dbus.Error {
 	return dbusx.InvalidArgs("Tray item not found: " + id)
 }
 
-// activateError is controls.rs's mapping: an item without Activate is
+// activateError maps an Activate failure: an item without Activate is
 // "not supported", anything else a failed operation.
 func activateError(err error) string {
 	var de dbus.Error

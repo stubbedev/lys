@@ -18,8 +18,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/appicons"
 )
 
-// The filtering cases are niri/sway filtering.rs's tests.
-
 func occupiedWS(id uint64, num int, output string) cwsWorkspace {
 	return cwsWorkspace{id: id, num: num, output: output, hasOutput: true, hasWindows: true}
 }

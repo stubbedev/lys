@@ -1,9 +1,9 @@
-// Package config loads lys-shell's user configuration: the same files the
-// Rust shell reads, with the same discovery order, imports, key names,
-// defaults, layering (defaults < config file < runtime overrides), and
-// failure behavior. The schema is declared once on the Go types
-// through `cfg` tags (see fields.go); loading, the runtime layer, the
-// CLI's get/set/reset/default, and the JSON Schema all derive from it.
+// Package config loads lys-shell's user configuration: file discovery,
+// imports, key names, defaults, layering (defaults < config file <
+// runtime overrides), and failure behavior. The schema is declared once
+// on the Go types through `cfg` tags (see fields.go); loading, the
+// runtime layer, the CLI's get/set/reset/default, and the JSON Schema
+// all derive from it.
 package config
 
 //go:generate go run ./internal/schemadoc/cmd

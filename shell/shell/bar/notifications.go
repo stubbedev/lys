@@ -19,7 +19,7 @@ func notificationLabel(count int) string {
 	return strconv.Itoa(count)
 }
 
-// notificationIconName is helpers.rs's select_icon: dnd wins, then
+// notificationIconName picks the icon: dnd wins, then
 // the unread dot, then the resting bell.
 func notificationIconName(cfg config.NotificationConfig, count int, dnd bool) string {
 	if dnd {
@@ -72,8 +72,8 @@ func (m *notificationModule) refresh() {
 
 func (m *notificationModule) Root() widget.Widget { return m.btn }
 
-// RunAction handles the dnd toggle the Rust module exposes through
-// `lys-shell notify dnd`; the shell command path routes here.
+// RunAction handles the dnd toggle exposed through `lys-shell notify
+// dnd`; the shell command path routes here.
 func (m *notificationModule) RunAction(action config.ClickAction) {
 	if action.Command == "toggle-dnd" {
 		m.src.ToggleDND()

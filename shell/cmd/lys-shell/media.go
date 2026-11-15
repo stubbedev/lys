@@ -8,10 +8,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/internal/rustparse"
 )
 
-// mediaCommand is lys-shell/src/cli/media/commands.rs.
 func mediaCommand() *cli.Command {
 	player := func(help string) *cli.Arg {
 		return &cli.Arg{ID: "player", ValueName: "PLAYER_ID", Help: help}
@@ -67,7 +65,7 @@ func listPlayers(p *daemonProxy) ([]mpris.PlayerRow, error) {
 	return players, err
 }
 
-// resolvePlayer is media/resolve.rs: a 1-based index or a
+// resolvePlayer resolves a 1-based index or a
 // case-insensitive substring of the id or identity; "" or absent means
 // the active player.
 func resolvePlayer(p *daemonProxy, input string) (string, error) {
@@ -81,7 +79,7 @@ func resolvePlayer(p *daemonProxy, input string) (string, error) {
 	if len(players) == 0 {
 		return "", cliMessage("No media players available")
 	}
-	if index, err := rustparse.Uint(input, 64); err == nil {
+	if index, err := strconv.ParseUint(input, 10, 64); err == nil {
 		if index == 0 {
 			return "", cliMessage("Player numbers start at 1")
 		}
@@ -128,7 +126,6 @@ func mediaList(m *cli.Matches, p *daemonProxy) error {
 	return nil
 }
 
-// mediaTransport is play_pause.rs / next.rs / previous.rs.
 func mediaTransport(op, method string) func(*cli.Matches, *daemonProxy) error {
 	return func(m *cli.Matches, p *daemonProxy) error {
 		player, err := resolvePlayer(p, playerArg(m))
@@ -206,7 +203,6 @@ func mediaActive(m *cli.Matches, p *daemonProxy) error {
 	return nil
 }
 
-// mediaInfo is info.rs.
 func mediaInfo(m *cli.Matches, p *daemonProxy) error {
 	player, err := resolvePlayer(p, playerArg(m))
 	if err != nil {

@@ -10,14 +10,13 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// lys-shell's own interface over the service, which `lys-shell power` drives
-// (wayle-power-profiles/src/dbus).
+// lys-shell's own interface over the service, which `lys-shell power` drives.
 const (
 	ServiceName = "dev.stubbe.lys.PowerProfiles1"
 	ServicePath = dbus.ObjectPath("/dev/stubbe/lys/PowerProfiles")
 )
 
-// profileName is PowerProfile's From<&str> + Display: the three known
+// profileName normalizes a profile name: the three known
 // names, anything else "unknown".
 func profileName(raw string) string {
 	switch raw {
@@ -38,7 +37,7 @@ func degradedName(raw string) string {
 	}
 }
 
-// cycleNext is dbus/server.rs's cycle: the fixed three-step order, an
+// cycleNext is the fixed three-step order, an
 // unknown profile going to balanced (unlike NextProfile it ignores
 // which profiles the hardware offers).
 func cycleNext(current string) string {
@@ -102,8 +101,8 @@ func (d *Daemon) ListProfiles() ([]string, *dbus.Error) {
 	return out, nil
 }
 
-// ServeDaemon exports the interface for the service over src. Like the
-// Rust builder it is only served when power-profiles-daemon answered:
+// ServeDaemon exports the interface for the service over src. It is
+// only served when power-profiles-daemon answered:
 // without it the CLI reports the service as not running.
 func ServeDaemon(conn *dbus.Conn, src Source) (func(), error) {
 	d := &Daemon{src: src}

@@ -26,7 +26,7 @@ const hotplugSettle = 500 * time.Millisecond
 // touch the attribute through a write); a var so tests can quiet it.
 var driftInterval = time.Second
 
-// System is the real source (backend/mod.rs): sysfs devices written
+// System is the real source: sysfs devices written
 // through logind with a sysfs fallback, plus, when external monitors
 // are enabled, DDC/CI monitors found by a detached scan and re-scanned
 // on DRM hotplug.
@@ -213,7 +213,7 @@ func (s *System) loop(probe *levelProbe) {
 }
 
 // scanDDC re-scans detached after settle and ticks subscribers when
-// the monitor set changed (scan_ddc).
+// the monitor set changed.
 func (s *System) scanDDC(m *ddcManager, settle time.Duration) {
 	s.done.Go(func() {
 		if settle > 0 {
@@ -276,7 +276,7 @@ func rawLevel(percent float64, top uint32) uint32 {
 // its writer goroutine and Set returns at once: DDC I/O takes tens of
 // milliseconds a transaction, and a slider drag coalesces to the
 // latest value instead of queueing every step. Write failures are
-// logged, as the Rust caller does with the error it gets back.
+// logged.
 func (s *System) Set(ctx context.Context, name string, percent float64) error {
 	if m := s.ddc.Load(); m != nil {
 		if d, ok := m.display(name); ok {

@@ -71,12 +71,12 @@ func enumTypes(visit func(t reflect.Type)) {
 	walk(typeOf[Config]())
 }
 
-// unlabeledEnums have no variant labels in Rust either: their options
-// show as raw values.
+// unlabeledEnums have no variant labels: their options show as raw
+// values.
 var unlabeledEnums = []string{"RestartPolicy", "VpnShow"}
 
-// Every enum value has its label in the settings FTL, as Rust's
-// EnumVariants fluent keys do, and no override is dead.
+// Every enum value has its label in the settings FTL, and no override
+// is dead.
 func TestEveryEnumValueHasItsLabel(t *testing.T) {
 	loader := i18n.Settings()
 	used := map[string]bool{}

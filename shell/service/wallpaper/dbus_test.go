@@ -47,7 +47,7 @@ func TestDaemonRoundTrip(t *testing.T) {
 		t.Errorf("WallpaperForMonitor = %q", got)
 	}
 	if got, _ := client.WallpaperForMonitor(ctx, ""); got != "" {
-		t.Errorf(`WallpaperForMonitor("") = %q, want "" as the Rust daemon answers`, got)
+		t.Errorf(`WallpaperForMonitor("") = %q, want ""`, got)
 	}
 	if err := client.SetFitMode(ctx, "CENTER", "DP-1"); err != nil {
 		t.Fatal(err)

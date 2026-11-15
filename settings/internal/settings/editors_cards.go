@@ -497,7 +497,7 @@ func optionalColor(k *kit, s slot) control {
 	})
 }
 
-// thresholdList is threshold_list::threshold_list.
+// thresholdList edits a list of thresholds.
 var thresholdList = cardRow(cardSpec{
 	classes: []string{"threshold-editor"}, listCls: "threshold-list", rowClass: "threshold-row", labelCls: "threshold-label",
 	blank: func() map[string]any { return map[string]any{} },
@@ -550,7 +550,7 @@ func thresholdTitle(item map[string]any, number int) string {
 	return locale.T().Get("settings-threshold-card-title") + " " + strconv.Itoa(number)
 }
 
-// liveText is card_form::entry: an entry writing as it is typed.
+// liveText is an entry writing as it is typed.
 type liveText struct {
 	*widget.Entry
 	slot    slot

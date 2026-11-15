@@ -1,6 +1,6 @@
 package config
 
-// WeekStart is ported from crates/wayle-config/src/schemas/modules/clock/mod.rs.
+// WeekStart is part of the clock module's configuration.
 //
 // Which day appears in the first column of the calendar dropdown.
 type WeekStart string
@@ -25,7 +25,7 @@ const (
 
 var _ = registerEnum(WeekStartMonday, WeekStartTuesday, WeekStartWednesday, WeekStartThursday, WeekStartFriday, WeekStartSaturday, WeekStartSunday)
 
-// ClockConfig is ported from crates/wayle-config/src/schemas/modules/clock/mod.rs.
+// ClockConfig configures the clock module.
 //
 // Clock module configuration.
 type ClockConfig struct {

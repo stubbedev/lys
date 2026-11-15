@@ -10,12 +10,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Hotplug over kernel uevents, the Go counterpart of backend/hotplug.rs's
-// two udev monitors (backlight add/remove, DRM connector hotplug). The
-// Rust uses libudev's monitor; pure Go reads the kernel's own uevent
-// netlink group instead, which carries the same ACTION/SUBSYSTEM and
-// the DRM HOTPLUG=1 flag without depending on udevd having processed
-// the event.
+// Hotplug over kernel uevents: backlight add/remove and DRM connector
+// hotplug. It reads the kernel's own uevent netlink group, which
+// carries the ACTION/SUBSYSTEM and the DRM HOTPLUG=1 flag without
+// depending on udevd having processed the event.
 
 // uevent is one kernel uevent.
 type uevent struct {
@@ -53,7 +51,7 @@ func parseUevent(msg []byte) (uevent, error) {
 	return ev, nil
 }
 
-// isDRMHotplug is is_drm_hotplug: a connector hotplug is a DRM
+// isDRMHotplug reports a connector hotplug: a DRM
 // "change" carrying HOTPLUG=1; other changes (mode sets, DPMS, EDID
 // property updates) omit it and must not trigger a DDC re-scan.
 func (ev uevent) isDRMHotplug() bool {

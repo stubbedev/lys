@@ -8,8 +8,8 @@ import (
 )
 
 // Output is where a run writes, and whether each stream takes ANSI
-// styling (clap colors help on stdout and errors on stderr
-// independently).
+// styling: help on stdout and errors on stderr are colored
+// independently.
 type Output struct {
 	Stdout      io.Writer
 	Stderr      io.Writer
@@ -35,8 +35,8 @@ func (e ExitError) Error() string { return fmt.Sprintf("exit status %d", e.Code)
 
 // Run parses args (without argv[0]) against root, runs the matched
 // command, and returns the process exit status: 0 on success and for
-// help/version, 2 for a usage error (clap's), 1 when the handler fails
-// (printed as "Error: <err>", as lys-shell's main.rs does).
+// help/version, 2 for a usage error, 1 when the handler fails (printed
+// as "Error: <err>").
 func Run(root *Command, args []string, out Output) int {
 	c := build(root, nil, false)
 	m, perr := parse(c, args)

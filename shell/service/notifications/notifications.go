@@ -40,10 +40,10 @@ const (
 var ServerVersion = buildinfo.Version()
 
 // DefaultPopupDuration is the popup display time until the shell sets
-// its configured one (builder.rs's popup_duration default).
+// its configured one.
 const DefaultPopupDuration = 5000 * time.Millisecond
 
-// Capabilities the server advertises (daemon.rs).
+// Capabilities the server advertises.
 var Capabilities = []string{
 	"body",
 	"body-markup",
@@ -162,8 +162,8 @@ const (
 // EventKind names a change.
 type EventKind string
 
-// popupTimer is one popup's pausable countdown (popup_timer.rs's
-// PopupTimer): running while stop is set, paused with the remaining
+// popupTimer is one popup's pausable countdown: running while stop is
+// set, paused with the remaining
 // time held in duration.
 type popupTimer struct {
 	started  time.Time
@@ -390,7 +390,7 @@ func (s *Service) insertLocked(n *Notification) {
 }
 
 // Popups snapshots the visible popup list, newest first. DND keeps
-// new notifications off it (handle_popup_added); popups already shown
+// new notifications off it; popups already shown
 // when DND turns on stay until they time out or are dismissed.
 func (s *Service) Popups() []*Notification {
 	s.mu.Lock()
@@ -400,7 +400,7 @@ func (s *Service) Popups() []*Notification {
 	return out
 }
 
-// SetPopupDuration sets how long a popup shows (set_popup_duration);
+// SetPopupDuration sets how long a popup shows;
 // it applies to popups that arrive afterwards.
 func (s *Service) SetPopupDuration(d time.Duration) {
 	s.mu.Lock()
@@ -429,9 +429,9 @@ func (s *Service) Notify(appName string, replacesID uint32, appIcon, summary, bo
 
 // NotifyHints receives a notification (the D-Bus Notify call). An app
 // may only replace an id it owns, in memory or in the store; any other
-// replaces_id gets a new id (resolve_id). A blocked app name consumes
+// replaces_id gets a new id. A blocked app name consumes
 // the notification and still returns an id. A transient notification
-// pops up but skips the history (handle_notification_added). The hints
+// pops up but skips the history. The hints
 // are parsed into the typed fields and not kept.
 func (s *Service) NotifyHints(appName string, replacesID uint32, appIcon, summary, body string, actions []string, rawHints map[string]dbus.Variant, expireTimeout int32) uint32 {
 	h := decodeHints(rawHints, s.cacheImage)
@@ -548,7 +548,7 @@ func (s *Service) storedOnly(id uint32) (*Notification, bool) {
 	return n, ok
 }
 
-// addPopupLocked is handle_popup_added: unless do-not-disturb holds it
+// addPopupLocked shows n as a popup: unless do-not-disturb holds it
 // back (Verdict), the notification goes to the front of the popup list (a replacement moves up) and
 // gets its countdown — the popup duration, capped by the sender's
 // positive expire_timeout; a zero timeout sticks until dismissed. The
@@ -571,7 +571,7 @@ func (s *Service) addPopupLocked(n *Notification) {
 // Close removes a notification, in memory or only in the store,
 // emitting the closed signal. Every reason but Expired also takes it
 // off the popup list; an expired history entry leaves its popup to its
-// own countdown (handle_notification_removed).
+// own countdown.
 func (s *Service) Close(id uint32, reason ClosedReason) {
 	s.close([]uint32{id}, reason)
 }
@@ -697,7 +697,7 @@ func (s *Service) announce(c *closing) {
 }
 
 // InvokeAction emits ActionInvoked and, unless the notification is
-// resident, closes it with the closed reason (Notification::invoke).
+// resident, closes it with the closed reason.
 // A token minted from the press goes first as ActivationToken, as the
 // spec orders them, so the app can raise its window; "" sends none.
 // An entry only in the store is read from it.
@@ -726,8 +726,7 @@ func (s *Service) InvokeAction(id uint32, key, token string) {
 	s.notify(Event{Kind: EventAction, ID: id})
 }
 
-// DismissPopup hides a popup, keeping the notification in the history
-// (dismiss_popup).
+// DismissPopup hides a popup, keeping the notification in the history.
 func (s *Service) DismissPopup(id uint32) {
 	s.mu.Lock()
 	dropped := s.dropPopupLocked(id)
@@ -737,8 +736,8 @@ func (s *Service) DismissPopup(id uint32) {
 	}
 }
 
-// InhibitPopup pauses a popup's countdown, keeping the time left
-// (inhibit_popup: the pointer is over the card).
+// InhibitPopup pauses a popup's countdown, keeping the time left, while
+// the pointer is over the card.
 func (s *Service) InhibitPopup(id uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -752,7 +751,7 @@ func (s *Service) InhibitPopup(id uint32) {
 }
 
 // ReleasePopup resumes a paused countdown with the time it had left,
-// dropping the popup at once when none remained (release_popup). A
+// dropping the popup at once when none remained. A
 // running or unknown countdown is left alone.
 func (s *Service) ReleasePopup(id uint32) {
 	s.mu.Lock()
@@ -949,8 +948,8 @@ func (s *Service) findLocked(id uint32) *Notification {
 	return nil
 }
 
-// AttachStore persists the history in st and restores what it holds
-// (builder.rs's load_stored_notifications), before the first
+// AttachStore persists the history in st and restores what it holds,
+// before the first
 // notification arrives: with remove-expired, what expired while
 // lys-shell was down leaves the store, and the rest arms its expiry;
 // the newest entries up to the memory limit fill the in-memory window,
@@ -1141,7 +1140,7 @@ func (q *writeQueue) run() {
 }
 
 // storeErr logs a failed write: the in-memory history stays right, the
-// next restart misses the change (the Rust store ignores these too).
+// next restart misses the change.
 func storeErr(op string, err error) {
 	if err != nil {
 		log.Printf("notifications: store %s: %v", op, err)

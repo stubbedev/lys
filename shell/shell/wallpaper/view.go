@@ -10,14 +10,11 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// TransitionKind is how one wallpaper replaces the previous one: the
-// gtk::Stack transitions the Rust surface flips between its two
-// pictures (stack_transition).
+// TransitionKind is how one wallpaper replaces the previous one.
 type TransitionKind uint8
 
 // Transitions. The [animations] types a Stack cannot do (swing,
-// bounce, genie, zoom, rotate, flip) fall back to Crossfade, as in
-// Rust.
+// bounce, genie, zoom, rotate, flip) fall back to Crossfade.
 const (
 	TransitionNone TransitionKind = iota
 	TransitionCrossfade
@@ -34,7 +31,7 @@ type Transition struct {
 }
 
 // transitionOf is the wallpaper surface's resolved [animations] entry
-// as the stack transition it can play (stack_transition).
+// as the stack transition it can play.
 func transitionOf(a config.AnimationsConfig) Transition {
 	return Transition{
 		Kind:     stackTransition(a.TransitionFor(config.AnimWallpaper, false)),
@@ -79,7 +76,7 @@ type shown struct {
 }
 
 // view shows the current wallpaper and, mid-transition, the previous
-// one: the Go counterpart of the surface's two-picture gtk::Stack.
+// one.
 type view struct {
 	widget.Base
 	cur, prev *shown

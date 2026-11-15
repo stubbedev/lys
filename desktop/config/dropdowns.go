@@ -2,8 +2,7 @@ package config
 
 import "math"
 
-// DropdownsConfig is the [dropdowns] section
-// (crates/wayle-config/src/schemas/dropdowns/mod.rs).
+// DropdownsConfig is the [dropdowns] section.
 //
 // Per-dropdown foldout panel sizing.
 //
@@ -73,8 +72,7 @@ func (d DropdownsConfig) ByName(name string) (DropdownSize, bool) {
 	return DropdownSize{}, false
 }
 
-// DropdownSize is one panel's size override
-// (crates/wayle-config/src/schemas/dropdowns/types.rs).
+// DropdownSize is one panel's size override.
 //
 // Size override for a dropdown foldout panel.
 //
@@ -97,7 +95,7 @@ func (DropdownSize) configValue() {}
 
 // ResolveDimension applies an optional override to a built-in base
 // size in pixels: unset scales the base, a multiplier scales it
-// further, pixels replace it (wayle-shell-core bar::resolve_dimension).
+// further, pixels replace it.
 func ResolveDimension(override *Size, base, scale float64) int {
 	if override == nil {
 		return int(math.Round(base * scale))

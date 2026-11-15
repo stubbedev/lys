@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 
-// keybindModeLabel is helpers.rs's format_label: an empty submap
+// keybindModeLabel renders format: an empty submap
 // renders the "default" vocabulary word through the mode placeholder.
 func keybindModeLabel(format, submap string) string {
 	return jinja.RenderOr(format, keybindModeVars(submap))
@@ -26,7 +26,7 @@ func keybindModeVars(submap string) map[string]any {
 	return map[string]any{"mode": mode}
 }
 
-// keybindModeVisible is helpers.rs's compute_visibility: auto-hide
+// keybindModeVisible reports visibility: auto-hide
 // collapses the module on the default submap.
 func keybindModeVisible(submap string, autoHide bool) bool {
 	return !autoHide || submap != ""

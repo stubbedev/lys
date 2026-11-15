@@ -20,7 +20,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/sway"
 )
 
-// windowTitleLabel is helpers.rs's format_label: the template over
+// windowTitleLabel renders the template over
 // title/app, falling back to the _bar.ftl "Desktop" when the render is
 // blank.
 func windowTitleLabel(format, title, appID string) string {
@@ -39,7 +39,7 @@ func windowTitleVars(title, appID string) map[string]any {
 // rather than its class.
 const titlePrefix = "title:"
 
-// windowTitleIcon is helpers.rs's resolve_icon: the user's title:
+// windowTitleIcon picks the icon: the user's title:
 // mappings against the title, then the user's other mappings and the
 // built-in ones against the app id, then icon-name.
 func windowTitleIcon(cfg config.WindowTitleConfig, title, appID string) string {
@@ -62,13 +62,13 @@ func windowTitleIcon(cfg config.WindowTitleConfig, title, appID string) string {
 	return cfg.IconName
 }
 
-// focusedWindow is sources/mod.rs's FocusedWindow: the focused window's
+// focusedWindow is the focused window's
 // title and app id, either possibly unset.
 type focusedWindow struct {
 	title, appID string
 }
 
-// focusSource is FocusedWindowSource: read is the focused window now
+// focusSource: read is the focused window now
 // (false while none has focus); each tick from subscribe is the cue to
 // read again.
 type focusSource struct {
@@ -81,8 +81,8 @@ func focusAvailable(ctx ModuleContext) bool {
 	return ctx.Hyprland != nil || compositorHasClient()
 }
 
-// windowTitleSource is factory.rs's build_source: the compositor's
-// source in Compositor::detect order (Hyprland, niri, mango, sway).
+// windowTitleSource is the compositor's source in detection order
+// (Hyprland, niri, mango, sway).
 func windowTitleSource(ctx ModuleContext) (focusSource, error) {
 	switch {
 	case ctx.Hyprland != nil:
@@ -260,7 +260,7 @@ func (m *windowTitleModule) apply(w focusedWindow) {
 	m.reveal()
 }
 
-// render is update_display: the label and the resolved icon.
+// render shows the label and the resolved icon.
 func (m *windowTitleModule) render() {
 	cfg := m.ctx.Config.WindowTitle
 	text := windowTitleLabel(cfg.Format, m.window.title, m.window.appID)

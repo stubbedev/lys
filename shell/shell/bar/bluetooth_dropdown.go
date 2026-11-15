@@ -17,11 +17,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
-// The bluetooth dropdown, ported from
-// crates/wayle-bar-network/src/dropdowns/bluetooth: the header with the
-// scan button and power switch, the pairing card, my devices and the
-// available devices, and the empty states.
-
 const (
 	btScanDuration  = 30 * time.Second
 	btActionTimeout = 30 * time.Second
@@ -29,7 +24,7 @@ const (
 	btDetailSeparator = "•"
 )
 
-// btPending is PendingAction: a device action in flight.
+// btPending is a device action in flight.
 type btPending uint8
 
 const (
@@ -80,7 +75,7 @@ type btDropdown struct {
 
 // btDropdownRoot is the popover content; it releases the subscription
 // when the popover closes, and takes the popover handle so the passkey
-// boxes can move the keyboard focus (grab_focus).
+// boxes can move the keyboard focus.
 type btDropdownRoot struct {
 	*widget.Box
 	d *btDropdown
@@ -120,7 +115,7 @@ func btNoAdapterDropdown(ctx ModuleContext) widget.Widget {
 }
 
 // btShell is the frame the two entries share: the header over the
-// scrolled content (mod.rs:55-72); the registry gives it the popover's
+// scrolled content; the registry gives it the popover's
 // size, as for every dropdown.
 func btShell(font render.Font, icon string, scroll widget.Widget) widget.Widget {
 	header, _, _ := dropdownHeaderParts(font, icon, btText("dropdown-bluetooth-title"))
@@ -135,7 +130,7 @@ func btShell(font render.Font, icon string, scroll widget.Widget) widget.Widget 
 // "bluetooth" builder.
 func bluetoothDropdown(ctx ModuleContext) widget.Widget {
 	if ctx.Bluetooth == nil {
-		// No adapter (mod.rs:303-326): the same shell — header above the
+		// No adapter: the same shell — header above the
 		// no-adapter empty state — without a service to follow.
 		return btNoAdapterDropdown(ctx)
 	}
@@ -152,11 +147,11 @@ func newBtDropdown(ctx ModuleContext, src bluetooth.Source) *btDropdown {
 		ctx: ctx, src: src, font: font, px: px,
 		pending: make(map[dbus.ObjectPath]btPending),
 	}
-	// The header (DropdownHeader): icon, title, scan button, switch. The
+	// The header: icon, title, scan button, switch. The
 	// template's `.dropdown-title` box lets the stylesheet ink the icon
 	// and title.
 	d.scanIcon = widget.NewThemeIcon("ld-refresh-cw-symbolic", int(px))
-	// GhostIconButton: lys-ui's ghost icon square (mod.rs:95-121).
+	// lys-ui's ghost icon square.
 	d.scanBtn = dropdownButton(d.scanIcon, nil, css.Ghost, css.Icon)
 	d.scanBtn.AddClass("bluetooth-scan-btn")
 	d.scanBtn.OnClick = d.onScan
@@ -185,8 +180,7 @@ func newBtDropdown(ctx ModuleContext, src bluetooth.Source) *btDropdown {
 		btText("dropdown-bluetooth-off-title"), btText("dropdown-bluetooth-off-description"))
 	d.emptyNoAdapter = widgets.EmptyState(font, px, "ld-bluetooth-off-symbolic",
 		btText("dropdown-bluetooth-no-adapter-title"), btText("dropdown-bluetooth-no-adapter-description"))
-	// The EmptyState template expands and centers itself
-	// (empty_state/mod.rs:13-14).
+	// The empty state expands and centers itself.
 	col.AppendAligned(d.emptyNoDevices, true, widget.AlignCenter)
 	col.AppendAligned(d.emptyOff, true, widget.AlignCenter)
 	col.AppendAligned(d.emptyNoAdapter, true, widget.AlignCenter)
@@ -239,7 +233,7 @@ func (d *btDropdown) async(work func(), then func()) {
 	})
 }
 
-// sync folds the service state into the view (the update_cmd arms).
+// sync folds the service state into the view.
 func (d *btDropdown) sync() {
 	st := d.src.State()
 	if !d.seen || st.Enabled != d.svcEnabled {
@@ -260,8 +254,7 @@ func (d *btDropdown) sync() {
 	d.render()
 }
 
-// showPairing is handle_pairing_request: the card shows the request
-// for the device it names.
+// showPairing shows the request in the card, for the device it names.
 func (d *btDropdown) showPairing(st bluetooth.State) {
 	d.shownPairing = st.Pairing
 	if st.Pairing == nil {
@@ -275,8 +268,8 @@ func (d *btDropdown) showPairing(st bluetooth.State) {
 	d.card.set(st.Pairing, display)
 }
 
-// settlePending drops the pending marks the new state completed
-// (update_from_snapshot); a forget completes by the row vanishing.
+// settlePending drops the pending marks the new state completed;
+// a forget completes by the row vanishing.
 func (d *btDropdown) settlePending(lists ...[]deviceSnapshot) {
 	present := map[dbus.ObjectPath]deviceSnapshot{}
 	for _, list := range lists {
@@ -295,9 +288,8 @@ func (d *btDropdown) settlePending(lists ...[]deviceSnapshot) {
 	}
 }
 
-// rebuildList re-renders a list when a row's view changed (the Rust
-// reconcile keeps rows; here unchanged lists keep theirs, so RSSI churn
-// does not reset a hovered row).
+// rebuildList re-renders a list when a row's view changed; unchanged
+// lists keep their rows, so RSSI churn does not reset a hovered row.
 func (d *btDropdown) rebuildList(list *widget.ItemGroup, snaps []deviceSnapshot, old []string) []string {
 	keys := make([]string, len(snaps))
 	for i, s := range snaps {
@@ -389,7 +381,7 @@ func (d *btDropdown) buildRow(s deviceSnapshot) *btDeviceRow {
 		actions.Append(toggle, false)
 		actions.Append(forget, false)
 		row.actions = actions
-		// The hover stack crossfades between them (HOVER_TRANSITION_MS),
+		// The hover stack crossfades between them,
 		// as wide as the wider page so hovering never shifts the row.
 		row.slot = widget.NewStack()
 		row.slot.SetTransition(widget.StackCrossfade, hoverTransition)
@@ -410,7 +402,7 @@ func btActionButton(px float64, icon, label string, onClick func(), class string
 	return b
 }
 
-// statusLabel is status_label: the pending action, else connected or
+// statusLabel is the pending action, else connected or
 // paired.
 func statusLabel(s deviceSnapshot, pending btPending) string {
 	switch pending {
@@ -430,7 +422,7 @@ func statusLabel(s deviceSnapshot, pending btPending) string {
 	return ""
 }
 
-// render applies the view's visibility rules (the #[watch] bindings).
+// render applies the view's visibility rules.
 func (d *btDropdown) render() {
 	icon := "ld-bluetooth-off-symbolic"
 	if d.enabled {
@@ -444,7 +436,7 @@ func (d *btDropdown) render() {
 	} else {
 		d.scanBtn.RemoveClass("scanning")
 	}
-	// set_active under block_signal: a state sync is not a user toggle.
+	// A state sync is not a user toggle.
 	onChanged := d.toggle.OnChanged
 	d.toggle.OnChanged = nil
 	d.toggle.SetOn(d.enabled)
@@ -468,7 +460,6 @@ func setVisible(w widget.Widget, on bool) {
 	}
 }
 
-// onToggle is handle_bluetooth_toggled.
 func (d *btDropdown) onToggle(active bool) {
 	d.enabled = active
 	if !active {
@@ -489,7 +480,7 @@ func (d *btDropdown) onToggle(active bool) {
 	}, nil)
 }
 
-// onScan is handle_scan_requested: a timed discovery, with the button
+// onScan is a timed discovery, with the button
 // held in its scanning state for the scan's length.
 func (d *btDropdown) onScan() {
 	if d.scanning {
@@ -519,8 +510,8 @@ func (d *btDropdown) finishScan(gen int) {
 	d.render()
 }
 
-// onDeviceClick is DeviceItem::handle_click: disconnect a connected
-// device, connect (and so pair) any other.
+// onDeviceClick disconnects a connected device and connects (and so
+// pairs) any other.
 func (d *btDropdown) onDeviceClick(s deviceSnapshot) {
 	if d.pending[s.path] != 0 {
 		return
@@ -543,7 +534,6 @@ func (d *btDropdown) onDeviceClick(s deviceSnapshot) {
 	})
 }
 
-// onForget is DeviceItem::handle_forget.
 func (d *btDropdown) onForget(s deviceSnapshot) {
 	if d.pending[s.path] != 0 {
 		return
@@ -553,8 +543,8 @@ func (d *btDropdown) onForget(s deviceSnapshot) {
 	})
 }
 
-// startAction is handle_device_action: mark the row pending, run the
-// action under ACTION_TIMEOUT, and clear the mark on failure.
+// startAction: mark the row pending, run the
+// action under btActionTimeout, and clear the mark on failure.
 func (d *btDropdown) startAction(path dbus.ObjectPath, action btPending, run func(context.Context) error) {
 	d.pending[path] = action
 	d.sync()
@@ -572,14 +562,13 @@ func (d *btDropdown) startAction(path dbus.ObjectPath, action btPending, run fun
 	})
 }
 
-// trustPaired is trust_paired_device.
 func trustPaired(ctx context.Context, src bluetooth.Source, path dbus.ObjectPath) {
 	if err := src.TrustPaired(ctx, path); err != nil {
 		log.Printf("bluetooth device trust failed: %v", err)
 	}
 }
 
-// onPairingOutput is handle_pairing_output. The answers go to the
+// onPairingOutput sends the card's answer. The answers go to the
 // service on the loop (they only hand the value to the waiting agent
 // call), so the next sync sees the request gone; a refused answer
 // leaves the request pending and the card shows it again.

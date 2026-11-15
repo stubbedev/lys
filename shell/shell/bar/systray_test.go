@@ -506,7 +506,7 @@ func TestSystrayFollowsTheStore(t *testing.T) {
 		t.Fatal("a tray with a button should show its module wrapper")
 	}
 	if !onHeadlessLoop(m.root.Visible) {
-		t.Error("the item box itself stays visible, as in Rust")
+		t.Error("the item box itself stays visible")
 	}
 }
 
@@ -575,7 +575,7 @@ func (f *fakeAccels) press(keys string) bool {
 	return ok
 }
 
-// TestSystrayMenuShortcutsFire pins register_accelerators: an open
+// TestSystrayMenuShortcutsFire pins the menu shortcuts: an open
 // menu's enabled leaves fire their clicked event on their shortcut, a
 // disabled or hidden one does not, a rebuilt menu rebinds, and a taken
 // key is skipped without losing the rest.

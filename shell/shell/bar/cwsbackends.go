@@ -185,8 +185,8 @@ func (b *swayBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 	return workspaces, windows, nil
 }
 
-// focus is focus_workspace(WorkspaceRef::Id): resolved against the
-// snapshot, or a con_id focus for an id the snapshot lost.
+// focus focuses ws by id: resolved against the snapshot, or a con_id
+// focus for an id the snapshot lost.
 func (b *swayBackend) focus(ctx context.Context, ws cwsWorkspace) error {
 	b.mu.Lock()
 	reply, ok := b.byID[ws.id]
@@ -279,7 +279,7 @@ func (b *niriBackend) subscribe() (<-chan struct{}, func(), error) { return niri
 func (b *niriBackend) close()                                      { _ = b.conn.Close() }
 
 // newMangoWorkspaces is the mango-workspaces factory: the watcher runs
-// from construction, like MangoService::new's start_monitoring.
+// from construction.
 func newMangoWorkspaces(ctx ModuleContext) (Module, error) {
 	if err := requireCompositor("mango-workspaces", compositorMango); err != nil {
 		return nil, err
@@ -294,7 +294,7 @@ func newMangoWorkspaces(ctx ModuleContext) (Module, error) {
 	}}), nil
 }
 
-// mangoBackend selects one monitor's tags (rebuild_tags): the bar's
+// mangoBackend selects one monitor's tags: the bar's
 // own monitor, else the active one, else the first; hide-empty keeps
 // occupied, active, and the first min-tag-count tags. Clients map to
 // one window per tag they sit on, in mango's list order.
@@ -305,7 +305,6 @@ type mangoBackend struct {
 	minTagCount int
 }
 
-// chooseMonitor is chosen_monitor.
 func chooseMonitor(monitors []mango.Monitor, connector string) (mango.Monitor, bool) {
 	if connector != "" {
 		for _, m := range monitors {
@@ -333,7 +332,6 @@ func (b *mangoBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 	}
 	tags := make([]cwsWorkspace, 0, len(monitor.Tags))
 	for _, tag := range monitor.Tags {
-		// displayed_tags
 		if b.hideEmpty && tag.ClientCount == 0 && !tag.IsActive && int(tag.Index) > b.minTagCount {
 			continue
 		}

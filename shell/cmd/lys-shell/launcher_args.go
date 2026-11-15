@@ -15,7 +15,7 @@ import (
 // launcherLocal is a command resolved entirely in the CLI.
 type launcherLocal uint8
 
-// Local commands (lys-shell/src/cli/launcher/args.rs LocalCmd).
+// Local commands.
 const (
 	localNone launcherLocal = iota
 	localHelp
@@ -53,7 +53,7 @@ var ignoredBare = []string{
 	"drun-use-desktop-cache", "drun-reload-desktop-cache",
 }
 
-// parseLauncherArgs maps rofi's single-dash long flags (args.rs parse).
+// parseLauncherArgs maps rofi's single-dash long flags.
 // Session options travel to the shell, unsupported flags warn on
 // stderr and are skipped (friendlier than rofi's hard error for a
 // shim), and a few are handled locally. A value flag missing its value

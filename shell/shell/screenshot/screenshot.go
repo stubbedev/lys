@@ -1,5 +1,4 @@
-// Package screenshot is the screenshot host
-// (crates/lys-shell/src/shell/screenshot) behind the
+// Package screenshot is the screenshot host behind the
 // dev.stubbe.lys.Screenshot1 D-Bus service: it resolves the capture target
 // (opening the freeze-frame region overlay for region mode), captures
 // a full-resolution image, saves a PNG, optionally copies it to the

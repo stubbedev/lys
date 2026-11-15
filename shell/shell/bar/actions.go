@@ -10,18 +10,13 @@ import (
 	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
-// runClickAction dispatches one binding, the Go counterpart of
-// dropdown_registry.rs's dispatch_action: dropdown panels open through
-// the registry (not ported yet, so they log), brightness steps and
-// toggles drive every backlight natively, lys-shell builtins run
-// in-process, and everything else shells out.
+// runClickAction dispatches one binding: brightness steps and toggles
+// drive every backlight natively, lys-shell builtins run in-process,
+// and everything else shells out.
 func runClickAction(ctx ModuleContext, action config.ClickAction) {
 	switch action.Kind {
 	case config.ClickNone:
 	case config.ClickDropdown:
-		// The dropdown panels arrive with the OSD shell; until then
-		// the binding is a no-op, exactly like an unregistered
-		// dropdown in the Rust registry.
 		log.Printf("click: dropdown %q not available yet", action.Dropdown)
 	case config.ClickShell:
 		runShellBuiltin(ctx, action.Command)
@@ -32,9 +27,8 @@ func runClickAction(ctx ModuleContext, action config.ClickAction) {
 	}
 }
 
-// runShellBuiltin handles the `lys-shell …` verbs in-process (the Rust
-// try_builtin path), falling back to a real subprocess for anything
-// else.
+// runShellBuiltin handles the `lys-shell …` verbs in-process, falling
+// back to a real subprocess for anything else.
 func runShellBuiltin(ctx ModuleContext, cmd string) {
 	verb, _ := splitBuiltin(cmd)
 	if mode, target, ok := screenshotBuiltin(verb); ok && ctx.Screenshot != nil {

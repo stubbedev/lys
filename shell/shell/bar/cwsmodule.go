@@ -18,7 +18,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// cwsBlinkInterval is BLINK_INTERVAL: the urgent pulse half-period.
+// cwsBlinkInterval is the urgent pulse half-period.
 const cwsBlinkInterval = 500 * time.Millisecond
 
 // cwsBackend is one compositor's side of the module: the snapshot,
@@ -149,8 +149,7 @@ func (m *cwsModule) read(context.Context) (cwsSnapshot, error) {
 	return cwsSnapshot{workspaces, windows}, err
 }
 
-// apply takes a snapshot on the loop and rebuilds (the WorkspacesChanged
-// arm of update_cmd).
+// apply takes a snapshot on the loop and rebuilds.
 func (m *cwsModule) apply(s cwsSnapshot) {
 	m.workspaces, m.windows = s.workspaces, s.windows
 	m.rebuild()
@@ -181,7 +180,7 @@ func (m *cwsModule) rebuild() {
 	m.setSegments(m.models)
 }
 
-// syncBlink is sync_blink: the pulse runs exactly while something
+// syncBlink runs the pulse exactly while something
 // displayed is urgent.
 func (m *cwsModule) syncBlink() {
 	switch {
@@ -192,7 +191,7 @@ func (m *cwsModule) syncBlink() {
 	}
 }
 
-// startBlink is start_blink_timer: on immediately, then toggling.
+// startBlink: on immediately, then toggling.
 func (m *cwsModule) startBlink() {
 	m.stopBlink()
 	m.blinkOn = true
@@ -232,17 +231,17 @@ func (m *cwsView) vertical() bool {
 
 func (m *cwsView) scale() float64 { return float64(m.ctx.Config.Bar.Scale) }
 
-// labelPx is label-size resolved against LABEL_BASE_REM.
+// labelPx is label-size resolved against the workspace label base.
 func (m *cwsView) labelPx() float64 {
 	return math.Round(m.cfg.LabelSize.ResolvePx(config.WorkspaceLabelBaseRem*styling.RemBase, m.scale()))
 }
 
-// iconPx is icon-size resolved against ICON_BASE_REM.
+// iconPx is icon-size resolved against the workspace icon base.
 func (m *cwsView) iconPx() int {
 	return int(math.Round(m.cfg.IconSize.ResolvePx(config.WorkspaceIconBaseRem*styling.RemBase, m.scale())))
 }
 
-// iconGapPx is methods.rs's icon_gap_px: a scale is rem without the
+// iconGapPx is the icon gap in pixels: a scale is rem without the
 // bar scale, pixels are literal.
 func (m *cwsView) iconGapPx() int {
 	if m.cfg.IconGap.Unit == config.SizePixels {
@@ -256,7 +255,7 @@ func (m *cwsView) paddingPx() int {
 	return int(math.Round(m.cfg.WorkspacePad.ResolvePx(styling.RemBase, m.scale())))
 }
 
-// dispatchClick is dispatch_click_action for a clicked workspace.
+// dispatchClick runs action for a clicked workspace.
 func (m *cwsView) dispatchClick(action config.WorkspaceClickAction, ws cwsWorkspace) {
 	if action.Kind == config.WorkspaceClickFocusThis {
 		m.run(m.actions.focus(ws))
@@ -265,7 +264,7 @@ func (m *cwsView) dispatchClick(action config.WorkspaceClickAction, ws cwsWorksp
 	m.dispatchScroll(action)
 }
 
-// dispatchScroll is dispatch_scroll_action: focus:this needs a clicked
+// dispatchScroll: focus:this needs a clicked
 // workspace, so scrolling ignores it.
 func (m *cwsView) dispatchScroll(action config.WorkspaceClickAction) {
 	switch action.Kind {
@@ -289,8 +288,8 @@ func (m *cwsView) dispatchScroll(action config.WorkspaceClickAction) {
 	}
 }
 
-// run fires one compositor request off the loop goroutine, like the
-// Rust tokio::spawn, logging a failure.
+// run fires one compositor request off the loop goroutine, logging a
+// failure.
 func (m *cwsView) run(fn func(context.Context) error) {
 	go func() {
 		if err := fn(context.Background()); err != nil {
@@ -302,7 +301,7 @@ func (m *cwsView) run(fn func(context.Context) error) {
 func (m *cwsModule) Root() widget.Widget { return m.segs }
 
 // ownsChrome opts out of the module-button wrapper: the workspaces
-// component is not a BarButton in the Rust shell.
+// component draws its own segments.
 func (m *cwsModule) ownsChrome() {}
 
 // Stop releases the timer and the IPC.

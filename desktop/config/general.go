@@ -1,7 +1,6 @@
 package config
 
-// GeneralConfig is the [general] section
-// (crates/wayle-config/src/schemas/general/mod.rs).
+// GeneralConfig is the [general] section.
 //
 // Shell-wide settings that don't belong to any specific module.
 type GeneralConfig struct {

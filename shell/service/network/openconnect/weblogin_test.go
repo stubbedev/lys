@@ -234,7 +234,7 @@ func TestThereIsABoundOnHowLongAGatewayMayKeepAsking(t *testing.T) {
 	}
 }
 
-// Against the fake web-login gateways (the Rust had none for these).
+// Against the fake web-login gateways.
 
 func TestAJuniperSignInWorksThroughTheLoginTheInterstitialAndTheRedirect(t *testing.T) {
 	for _, protocol := range []string{"nc", "pulse"} {

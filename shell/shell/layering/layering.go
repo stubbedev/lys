@@ -1,5 +1,5 @@
-// Package layering maps a configured layer onto the layer-shell stack
-// (wayle-shell-core helpers/layer_shell.rs apply_layer): every shell
+// Package layering maps a configured layer onto the layer-shell stack:
+// every shell
 // surface with a layer key goes through For, so general.tearing-mode
 // demotes them all the same way.
 package layering
@@ -35,8 +35,7 @@ type Monitor interface {
 	Connector() string
 }
 
-// Output picks a surface's monitor (layer_shell.rs
-// apply_primary_monitor, apply_monitor_by_connector): "primary" is the
+// Output picks a surface's monitor: "primary" is the
 // first output, a connector its output, falling back to the first when
 // that connector is not connected. Nil only when there are no outputs.
 func Output(outputs []*app.Output, monitor Monitor) *app.Output {

@@ -17,8 +17,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
-// runPortal is `lys-shell portal` / `lys-shell portal run` (cli/portal/
-// backend.rs): the backend serves until SIGTERM or SIGINT, then clears
+// runPortal is `lys-shell portal` / `lys-shell portal run`: the backend serves until SIGTERM or SIGINT, then clears
 // the live sessions and exits 0; a failure to start is exit 1.
 func runPortal(m *cli.Matches) error {
 	fail := func(err error) error {
@@ -54,8 +53,8 @@ func runPortal(m *cli.Matches) error {
 	return nil
 }
 
-// runSharePicker is `lys-shell portal share-picker` (cli/portal/
-// share_picker.rs), the xdg-desktop-portal-hyprland custom picker: it
+// runSharePicker is `lys-shell portal share-picker`, the
+// xdg-desktop-portal-hyprland custom picker: it
 // forwards XDPH_WINDOW_SHARING_LIST to the shell's picker and prints
 // only the `[SELECTION]` line on stdout, which xdph parses; a cancel
 // prints nothing.

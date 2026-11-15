@@ -6,8 +6,8 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// dropdownGeometry is a dropdown's built-in width, each Rust
-// dropdown's BASE_WIDTH at scale 1; its height is its content's.
+// dropdownGeometry is a dropdown's built-in width at scale 1; its
+// height is its content's.
 // size picks its [dropdowns.<name>] override; nil for a dropdown with
 // none (the recorder).
 type dropdownGeometry struct {
@@ -71,8 +71,7 @@ type panelBox struct {
 	// height is the configured height the scrolls give way to; <= 0
 	// lets the content grow to the monitor.
 	height int
-	// maxH caps the card (the monitor less 100, the registry's
-	// max_allowed_height); <= 0 leaves it to the host.
+	// maxH caps the card (the monitor less 100); <= 0 leaves it to the host.
 	maxH int
 }
 
@@ -80,17 +79,17 @@ func newPanelBox(child widget.Widget, width, height int) *panelBox {
 	return &panelBox{child: child, width: width, height: height}
 }
 
-// The registry's clamp_height margins below the monitor height: the
+// The margins below the monitor height: the
 // card's, and the scrolled content's within it.
 const (
 	panelMonitorMargin = 100
 	panelScrollMargin  = 80
 )
 
-// clamp is clamp_height for a monitor monH tall: the card caps at the
+// clamp sizes the card for a monitor monH tall: it caps at the
 // monitor less its margin, and every scroll the content holds now asks
 // for its content's natural height up to the card cap less the
-// scrolled margin (find_and_clamp_scrolled_windows), so a list sizes
+// scrolled margin, so a list sizes
 // the card instead of scrolling inside a fixed one.
 func (p *panelBox) clamp(monH int) {
 	p.maxH = monH - panelMonitorMargin
@@ -129,9 +128,7 @@ func capWrapping(content widget.Widget, width int) {
 }
 
 // walkPages visits w and everything under it, every page of a stack
-// included (the Rust walks follow GTK's child list, where a stack's
-// hidden pages are children too; a lys-ui Stack lists only its visible
-// page).
+// included (a lys-ui Stack lists only its visible page).
 func walkPages(w widget.Widget, visit func(widget.Widget)) {
 	visit(w)
 	if s, ok := w.(*widget.Stack); ok {

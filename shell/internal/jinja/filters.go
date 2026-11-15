@@ -454,8 +454,6 @@ func orderValues(a, b any, caseSensitive bool) int {
 	if !caseSensitive {
 		if x, ok := normalize(a).(string); ok {
 			if y, ok := normalize(b).(string); ok {
-				// ASCII folding: the Rust build has minijinja's unicode
-				// feature off.
 				return strings.Compare(asciiLower(x), asciiLower(y))
 			}
 		}
@@ -624,7 +622,7 @@ func indentFilter(_ *evaluator, v any, args []any, _ map[string]any) (any, error
 	return stripNewline(b.String()), nil
 }
 
-// path is get_path: a dotted attribute (or index) path, undefined on a
+// path resolves a dotted attribute (or index) path, undefined on a
 // miss.
 func path(v any, dotted string) any {
 	for part := range strings.SplitSeq(dotted, ".") {
@@ -732,7 +730,7 @@ func uniqueFilter(_ *evaluator, v any, _ []any, kwargs map[string]any) (any, err
 	return out, nil
 }
 
-// asciiLower is str::to_ascii_lowercase.
+// asciiLower folds ASCII case only.
 func asciiLower(s string) string {
 	b := []byte(s)
 	for i, c := range b {
@@ -747,7 +745,5 @@ func formatFilter(_ *evaluator, v any, args []any, _ map[string]any) (any, error
 	return printf(asString(v), args)
 }
 
-// upper and lower are Rust's str::to_uppercase/to_lowercase: the full
-// Unicode mappings ("ß" uppercases to "SS"), not Go's simple ones.
 func upper(s string) string { return cases.Upper(language.Und).String(s) }
 func lower(s string) string { return cases.Lower(language.Und).String(s) }

@@ -1,6 +1,6 @@
 package config
 
-// KeybindModeConfig is ported from crates/wayle-config/src/schemas/modules/keybind_mode/mod.rs.
+// KeybindModeConfig configures the keybind-mode module.
 //
 // Current keybind-mode indicator for modal compositors.
 type KeybindModeConfig struct {

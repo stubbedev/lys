@@ -1,5 +1,4 @@
-// Package keytoggles watches the keyboards' lock keys through evdev
-// (the Rust shell's osd/toggles.rs): a Caps, Num, or Scroll Lock
+// Package keytoggles watches the keyboards' lock keys through evdev: a Caps, Num, or Scroll Lock
 // release reports the key and its LED state once the kernel settled it.
 package keytoggles
 
@@ -64,7 +63,7 @@ func ioc(nr, size uintptr) uintptr {
 	return iocRead<<iocDirShift | size<<iocSizeShift | evdevIocType<<iocTypeShift | nr
 }
 
-// detect is detect_toggle: a key release (value 0) of a lock key.
+// detect recognizes a key release (value 0) of a lock key.
 func detect(typ, code uint16, value int32) (Key, bool) {
 	if typ != evKey || value != 0 {
 		return 0, false
@@ -119,7 +118,7 @@ func ioctlBytes(f *os.File, req uintptr, buf []byte) error {
 	return nil
 }
 
-// isKeyboard is find_keyboards' filter: a device with keys and LEDs.
+// isKeyboard reports a device with keys and LEDs.
 func isKeyboard(f *os.File) bool {
 	types := make([]byte, evMaxBytes)
 	if err := ioctlBytes(f, ioc(eviocgbitBase, evMaxBytes), types); err != nil {
@@ -128,7 +127,7 @@ func isKeyboard(f *os.File) bool {
 	return hasBit(types, evKey) && hasBit(types, evLed)
 }
 
-// ledOn is read_led_state: whether k's LED is lit; false when it
+// ledOn reports whether k's LED is lit; false when it
 // cannot be read.
 func ledOn(f *os.File, k Key) bool {
 	leds := make([]byte, ledMaxBytes)
@@ -140,7 +139,7 @@ func ledOn(f *os.File, k Key) bool {
 
 // Watch opens every keyboard under /dev/input and calls fn, from the
 // device's goroutine, for each lock key release. With none readable it
-// logs how to grant access, as the Rust shell does. stop closes the
+// logs how to grant access. stop closes the
 // devices and waits for the readers.
 func Watch(fn func(Event)) (stop func()) {
 	return watchDir("/dev/input", fn)

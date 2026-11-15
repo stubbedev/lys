@@ -29,14 +29,13 @@ const (
 	FieldText
 )
 
-// spinMax is the largest whole number a float64 spin keeps exact
-// (U64_SPIN_MAX in the Rust number editor).
+// spinMax is the largest whole number a float64 spin keeps exact.
 const spinMax = 1 << 53
 
 // FieldMeta describes the leaf at a path for an editor.
 type FieldMeta struct {
 	Kind FieldKind
-	// Type is the Rust schema name of the leaf's type (OsdPosition,
+	// Type is the schema name of the leaf's type (OsdPosition,
 	// uint32, ...).
 	Type string
 	// Variants are an enum's values in schema order, or the special
@@ -45,7 +44,7 @@ type FieldMeta struct {
 	// Min and Max bound a number: the type's own range, narrowed by a
 	// validated newtype's (Percentage 0-100, ScaleFactor 0.25-3).
 	Min, Max float64
-	// Optional is an Option<T> leaf, which may be unset.
+	// Optional is a pointer leaf, which may be unset.
 	Optional bool
 	// Elem describes a list's items (nil for anything else).
 	Elem *FieldMeta
@@ -173,12 +172,10 @@ func encodesAsString(t reflect.Type) bool {
 	return newSchemaGen().plainSchema(t)["type"] == "string"
 }
 
-// EnumLabelKey is the Fluent key labeling one enum value
-// (EnumVariant::fluent_key): enum-<type>-<variant>, kebab-cased from
-// the Rust names. Serde's kebab-case rename makes the value the
-// variant's kebab name, except for the variants enumIdents lists. The
-// key may be missing from the bundle; the Rust GUI then shows the raw
-// value.
+// EnumLabelKey is the Fluent key labeling one enum value:
+// enum-<type>-<variant>, the type kebab-cased and the variant its
+// value, except for the variants enumIdents lists. The key may be
+// missing from the bundle; the settings GUI then shows the raw value.
 func EnumLabelKey(enumType, value string) string {
 	variant := value
 	if ident, ok := enumIdents[enumType+"."+value]; ok {
@@ -187,8 +184,7 @@ func EnumLabelKey(enumType, value string) string {
 	return "enum-" + pascalToKebab(enumType) + "-" + variant
 }
 
-// enumIdents are the variants whose serde value is not the kebab form
-// of the Rust identifier.
+// enumIdents are the variants whose label key differs from their value.
 var enumIdents = map[string]string{
 	"SessionAction.log-out": "logout",
 	"TimeFormat.12h":        "twelve-hour",

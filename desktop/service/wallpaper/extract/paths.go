@@ -14,13 +14,13 @@ import (
 // HOME is an absolute path.
 var errNoHome = errors.New("neither the XDG base directory nor HOME is an absolute path")
 
-// created creates an XDG lookup's directory when absent, as
-// ConfigPaths::cache_dir / data_dir do; a failed lookup is errNoHome.
+// created creates an XDG lookup's directory when absent; a failed
+// lookup is errNoHome.
 func created(dir string, ok bool) (string, error) {
 	if !ok {
 		return "", errNoHome
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // matches create_dir_all's default mode
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the umask narrows it, as for every created directory
 		return "", err
 	}
 	return dir, nil

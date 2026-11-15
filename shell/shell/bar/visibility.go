@@ -17,8 +17,7 @@ import (
 
 // surfaceSet tracks each output's surface of one kind, a bar or a dock,
 // built from a per-output layout L, for config reloads and, for the bars,
-// `lys-shell panel hide|show|toggle` (the Rust shell's BarMap plus the
-// hidden_bars watcher). lys-ui cannot unmap a layer surface, so hiding
+// `lys-shell panel hide|show|toggle`. lys-ui cannot unmap a layer surface, so hiding
 // closes the layer and showing builds a fresh one with open.
 type surfaceSet[L any] struct {
 	open  func(*app.Output, L) (surfaceLayer[L], error)
@@ -219,8 +218,8 @@ func (b *surfaceSet[L]) drop(name string) {
 }
 
 // followOutputs gives every named output of sess its bar from
-// layoutFor, the startup outputs and each one plugged or renamed later,
-// the Rust SyncMonitors; unplugged runs once an unplugged output's bar
+// layoutFor, the startup outputs and each one plugged or renamed later;
+// unplugged runs once an unplugged output's bar
 // is gone. The returned stop ends the watch. It runs on the loop
 // goroutine.
 func (b *surfaceSet[L]) followOutputs(sess outputSource, layoutFor func(connector string) (L, bool), unplugged func(*app.Output)) (stop func()) {

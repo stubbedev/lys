@@ -14,7 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/sockdir"
 )
 
-// monitorsFrame is types.rs's ALL_MONITORS_FRAME fixture.
+// monitorsFrame is one all-monitors watch frame.
 const monitorsFrame = `{"monitors":[{"name":"eDP-1","active":true,"x":0,"y":0,"width":1920,"height":1080,"scale":1,"layout_index":0,"layout_symbol":"T","last_open_surface":"foot","tags":[{"index":1,"is_active":true,"is_urgent":false,"layout":"T","client_count":2},{"index":2,"is_active":false,"is_urgent":true,"layout":"DW","client_count":0}],"active_tags":[1],"active_client":{"id":42,"title":"nvim","appid":"foot"},"keymode":"default","keyboardlayout":"English (US)"}]}`
 
 const clientsFrame = `{"clients":[{"id":42,"title":"nvim","appid":"foot","monitor":"eDP-1","tags":[1,3],"is_urgent":false,"is_focused":true},{"id":7,"title":"","appid":"","monitor":"eDP-1","tags":[2],"is_urgent":true,"is_focused":false}]}`

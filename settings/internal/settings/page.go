@@ -98,7 +98,7 @@ type settingsPage struct {
 	releases  []func()
 }
 
-// buildPage lays out a page (pages/layout.rs).
+// buildPage lays out a page.
 func buildPage(k *kit, spec pageSpec) *settingsPage {
 	t := locale.T()
 	th := widget.Current()

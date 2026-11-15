@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
-// powerProfilesLabel is helpers.rs's format_label: the only variable
+// powerProfilesLabel renders format: the only variable
 // is the active profile's name.
 func powerProfilesLabel(format, profile string) string {
 	return jinja.ReplaceVars(format, powerProfilesVars(profile))
@@ -62,7 +62,7 @@ func (m *powerProfilesModule) apply(snap powerprofiles.Snapshot) {
 	m.btn.SetThresholds(config.ThresholdColors{IconColor: &color, LabelColor: &color})
 }
 
-// profileOf is select_icon/select_colors' profile: power-saver and
+// profileOf is the profile the icon and colors use: power-saver and
 // performance as they are, balanced for anything else (Unknown).
 func profileOf(active string) string {
 	switch active {

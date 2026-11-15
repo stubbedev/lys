@@ -23,7 +23,7 @@ import (
 // SocketPath reads $SWAYSOCK; empty when sway is not running.
 func SocketPath() string { return os.Getenv("SWAYSOCK") }
 
-// message types (protocol.rs's MessageType).
+// message types.
 const (
 	msgRunCommand    = 0
 	msgGetWorkspaces = 1
@@ -38,7 +38,7 @@ const eventBit = 0x80000000
 // magic is the fixed i3-ipc header.
 const magic = "i3-ipc"
 
-// Workspace is one workspace snapshot (types.rs's WorkspaceReply).
+// Workspace is one workspace snapshot.
 type Workspace struct {
 	ID      int64  `json:"id"`
 	Num     int    `json:"num"`
@@ -156,7 +156,7 @@ func (c *Conn) Workspaces() ([]Workspace, error) {
 	return out, nil
 }
 
-// Input is one GET_INPUTS entry (types.rs's InputReply), the fields
+// Input is one GET_INPUTS entry, the fields
 // the keyboard layout reads.
 type Input struct {
 	Type                string  `json:"type"`
@@ -176,7 +176,7 @@ func (c *Conn) Inputs() ([]Input, error) {
 	return out, nil
 }
 
-// KeyboardLayout is refresh_keyboard_layout: the active layout of the
+// KeyboardLayout is the active layout of the
 // first keyboard reporting one; "" when none does.
 func KeyboardLayout(inputs []Input) string {
 	for _, in := range inputs {
@@ -209,13 +209,13 @@ func (c *Conn) RunCommand(ctx context.Context, command string) error {
 	return nil
 }
 
-// Quote is service.rs's quote: a double-quoted workspace name with
+// Quote is a double-quoted workspace name with
 // embedded backslashes and quotes escaped.
 func Quote(name string) string {
 	return `"` + strings.ReplaceAll(strings.ReplaceAll(name, `\`, `\\`), `"`, `\"`) + `"`
 }
 
-// FocusCommand is focus_command for a workspace the snapshot knows:
+// FocusCommand focuses a workspace the snapshot knows:
 // by number when it has one, else by quoted name.
 func FocusCommand(ws Workspace) string {
 	if ws.Num >= 0 {
@@ -244,8 +244,7 @@ func (c *Conn) FocusBackAndForth(ctx context.Context) error {
 	return c.RunCommand(ctx, "workspace back_and_forth")
 }
 
-// Window is one leaf window of the container tree (core/window.rs's
-// snapshot), tagged with the enclosing workspace's id.
+// Window is one leaf window of the container tree, tagged with the enclosing workspace's id.
 type Window struct {
 	ID          int64
 	Title       string
@@ -265,7 +264,7 @@ type Window struct {
 	Rect    image.Rectangle
 }
 
-// treeNode is types.rs's TreeNode.
+// treeNode is one GET_TREE node.
 type treeNode struct {
 	ID      int64   `json:"id"`
 	Type    string  `json:"type"`
@@ -287,12 +286,12 @@ type treeNode struct {
 	FloatingNodes []treeNode `json:"floating_nodes"`
 }
 
-// isWindow is TreeNode::is_window: a con/floating_con leaf.
+// isWindow reports a con/floating_con leaf.
 func (n *treeNode) isWindow() bool {
 	return (n.Type == "con" || n.Type == "floating_con") && len(n.Nodes) == 0 && len(n.FloatingNodes) == 0
 }
 
-// collectWindows is refresh.rs's collect_windows.
+// collectWindows appends n's leaf windows to out, each tagged with its workspace.
 func collectWindows(n *treeNode, workspace int64, hasWorkspace bool, out *[]Window) {
 	if n.Type == "workspace" {
 		workspace, hasWorkspace = n.ID, true
@@ -307,7 +306,7 @@ func collectWindows(n *treeNode, workspace int64, hasWorkspace bool, out *[]Wind
 		if n.Name != nil {
 			w.Title, w.HasTitle = *n.Name, true
 		}
-		// resolved_app_id: the Wayland app_id, else the X11 class.
+		// The Wayland app_id, else the X11 class.
 		switch {
 		case n.AppID != nil:
 			w.AppID, w.HasAppID = *n.AppID, true

@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
-// powerCommand is lys-shell/src/cli/power/commands.rs.
 func powerCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "power",
@@ -28,7 +27,7 @@ func powerCommand() *cli.Command {
 	}
 }
 
-// withPower is power/proxy.rs's connect around a handler.
+// withPower connects to the power profiles daemon around a handler.
 func withPower(run func(*cli.Matches, *daemonProxy) error) func(*cli.Matches) error {
 	return withDaemon("Power profiles", powerprofiles.ServiceName, powerprofiles.ServicePath, powerprofiles.ServiceName, run)
 }

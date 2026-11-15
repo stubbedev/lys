@@ -18,7 +18,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
-// This file is lys-shell as NetworkManager's secret agent (agent/mod.rs).
+// This file is lys-shell as NetworkManager's secret agent.
 //
 // NM does not store every credential: a VPN password can be marked
 // not-saved, a 2FA challenge is new each time, and an OpenConnect

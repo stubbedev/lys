@@ -254,8 +254,7 @@ func (m *cwsView) pointer(i int, e widget.PointerEvent) bool {
 	return true
 }
 
-// scroll is attach_scroll: discrete vertical steps, always consumed
-// (Propagation::Stop).
+// scroll takes discrete vertical steps, always consumed.
 func (m *cwsView) scroll(e widget.ScrollEvent) bool {
 	switch {
 	case e.DY > 0:

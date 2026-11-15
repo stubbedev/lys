@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,13 +14,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
-// recordRust, when set to the Rust lys-shell binary, re-records
-// testdata/wallpaper-cli.golden from it (against the Go daemon, the
-// same private bus and the same scenarios) instead of checking the Go
-// CLI:
-//
-//	go test ./cmd/lys-shell -run TestWallpaperCLIMatchesRust -record-rust "$(command -v lys-shell)"
-var recordRust = flag.String("record-rust", "", "record the wallpaper CLI golden from this Rust lys-shell binary")
+var updateWallpaperGolden = flag.Bool("update-wallpaper-golden", false, "rewrite testdata/wallpaper-cli.golden from the CLI's output")
 
 // wallpaperScenarios run against a fresh daemon each: DP-1 and DP-2
 // registered, @DIR@ holding a.png and b.png, @EMPTY@ holding no image.
@@ -94,48 +85,22 @@ func runScenario(t *testing.T, sc struct {
 			args[i] = strings.NewReplacer("@DIR@", dir, "@EMPTY@", empty).Replace(a)
 		}
 		fmt.Fprintf(&log, "$ wallpaper %q\n", step)
-		var stdout, stderr string
-		code := 0
-		if *recordRust != "" {
-			stdout, stderr, code = runRust(t, args)
-		} else {
-			stdout, stderr, code = runCaptured(t, false, append([]string{"wallpaper"}, args...)...)
-		}
+		stdout, stderr, code := runCaptured(t, false, append([]string{"wallpaper"}, args...)...)
 		fmt.Fprintf(&log, "%s[stderr] %s[exit %d]\n", stdout, stderr, code)
 	}
 	return strings.NewReplacer(dir, "@DIR@", empty, "@EMPTY@").Replace(log.String())
 }
 
-func runRust(t *testing.T, args []string) (stdout, stderr string, code int) {
-	t.Helper()
-	home := t.TempDir()
-	cmd := exec.Command(*recordRust, append([]string{"wallpaper"}, args...)...)
-	cmd.Env = append(os.Environ(), "HOME="+home, "XDG_CONFIG_HOME="+home+"/config",
-		"XDG_CACHE_HOME="+home+"/cache", "XDG_DATA_HOME="+home+"/data", "XDG_STATE_HOME="+home+"/state", "RUST_LOG=off")
-	var o, e bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &o, &e
-	err := cmd.Run()
-	var exitErr *exec.ExitError
-	switch {
-	case errors.As(err, &exitErr):
-		code = exitErr.ExitCode()
-	case err != nil:
-		t.Fatal(err)
-	}
-	return o.String(), e.String(), code
-}
-
-// TestWallpaperCLIMatchesRust replays the scenarios through the Go CLI
-// and compares stdout, the error line, and the exit code with what the
-// Rust CLI printed against the same daemon state.
-func TestWallpaperCLIMatchesRust(t *testing.T) {
+// TestWallpaperCLIGolden replays the scenarios through the CLI and
+// compares stdout, the error line, and the exit code with the golden.
+func TestWallpaperCLIGolden(t *testing.T) {
 	golden := filepath.Join("testdata", "wallpaper-cli.golden")
 	var all strings.Builder
 	for _, sc := range wallpaperScenarios {
 		fmt.Fprintf(&all, "### %s\n", sc.name)
 		t.Run(sc.name, func(t *testing.T) { all.WriteString(runScenario(t, sc)) })
 	}
-	if *recordRust != "" {
+	if *updateWallpaperGolden {
 		if err := os.MkdirAll("testdata", 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -149,13 +114,13 @@ func TestWallpaperCLIMatchesRust(t *testing.T) {
 		t.Fatal(err)
 	}
 	if all.String() != string(want) {
-		t.Errorf("Go wallpaper CLI output differs from the Rust recording:\n--- got\n%s\n--- want\n%s", all.String(), want)
+		t.Errorf("wallpaper CLI output differs from the golden:\n--- got\n%s\n--- want\n%s", all.String(), want)
 	}
 }
 
 func TestWallpaperCLIRejectsBadArgsBeforeDialing(t *testing.T) {
-	// No bus at all: every case must fail in parsing (clap's exit 2),
-	// not connecting.
+	// No bus at all: every case must fail in parsing (exit 2), not
+	// connecting.
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/bus")
 	for _, args := range [][]string{
 		{},

@@ -18,7 +18,7 @@ func (f *fakeAlert) ask(spec alertSpec, answer func(bool)) {
 	f.answers = append(f.answers, answer)
 }
 
-// The alert is gtk::AlertDialog's shape in lys-ui's look: modal, the
+// The alert in lys-ui's look: modal, the
 // message as the title, [cancel, accept] with accept destructive, and
 // cancel both the default and the cancel button - Enter and Esc never
 // accept, and the default response does not take the primary fill.

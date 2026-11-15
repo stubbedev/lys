@@ -86,7 +86,7 @@ func (calendarNames) FormatDate(d widget.Date) string {
 		i18n.Str("year", strconv.Itoa(d.Year)))
 }
 
-// calendarIs12h is is_12h_format: the clock format uses %I or %p.
+// calendarIs12h reports whether the clock format uses %I or %p.
 func calendarIs12h(format string) bool {
 	return strings.Contains(format, "%I") || strings.Contains(format, "%p")
 }
@@ -208,10 +208,10 @@ func (v *calendarView) calendar() widget.Widget {
 	return col
 }
 
-// goToToday is GoToToday: back to this month, today picked.
+// goToToday goes back to this month, today picked.
 func (v *calendarView) goToToday() { v.cal.Select(v.today) }
 
-// tick is TimeTick: the hero's fields and, across midnight, today.
+// tick refreshes the hero's fields and, across midnight, today.
 func (v *calendarView) tick() {
 	now := v.now()
 	clock := v.ctx.Config.Clock

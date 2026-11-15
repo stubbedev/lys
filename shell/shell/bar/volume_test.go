@@ -59,7 +59,7 @@ func TestVolumeLabelRounds(t *testing.T) {
 }
 
 func TestVolumePercentAveragesAndRounds(t *testing.T) {
-	// Uneven channels show their rounded mean (average_percentage).
+	// Uneven channels show their rounded mean.
 	if got := volumePercent(pulse.Device{Volume: pulse.StereoVolume(0.3, 0.505)}); got != 40 {
 		t.Errorf("percent = %v, want 40", got)
 	}

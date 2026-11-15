@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// The per-profile credential cache for the openconnect family (cache.rs).
+// The per-profile credential cache for the openconnect family.
 //
 // Two things are kept, both keyed by NM profile UUID:
 //
@@ -19,8 +19,8 @@ import (
 // Neither belongs in NetworkManager's store: they are lys-shell's own
 // artifacts in a shape no other NM client can interpret. They live in
 // $XDG_STATE_HOME/lys-shell/vpn as <uuid>.cookie (three lines: cookie,
-// host, gwcert) and <uuid>.password (the password as typed), plain text
-// like the Rust's. The directory is created 0700 and the files written
+// host, gwcert) and <uuid>.password (the password as typed), plain
+// text. The directory is created 0700 and the files written
 // 0600 through the open mode rather than a chmod afterwards, so there is
 // no window in which a session cookie is world-readable.
 

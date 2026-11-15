@@ -10,7 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/feed"
 )
 
-// This file brings tunnels back after a suspend (vpn/resume.rs).
+// This file brings tunnels back after a suspend.
 //
 // NetworkManager tears a VPN down when the machine sleeps (unless its
 // profile is persistent, as the openconnect profiles lys-shell makes are)
@@ -26,7 +26,7 @@ import (
 // stays off, and nothing is recorded across a reboot, so this can never
 // become a VPN that dials itself unattended.
 
-// resumeTiming is resume.rs's constants, injectable for tests.
+// resumeTiming is the resume's timing, injectable for tests.
 type resumeTiming struct {
 	// networkWait is how long to wait for the network after a wake;
 	// wifi reassociating plus DHCP take tens of seconds.
@@ -43,11 +43,10 @@ type resumeTiming struct {
 	// NM that just came back; both follow the same bus signal.
 	agentSettle time.Duration
 	// underlayLook is how often the network under an up tunnel is
-	// looked at (underlay.rs's LOOK_EVERY).
+	// looked at.
 	underlayLook time.Duration
 }
 
-// defaultResumeTiming is the Rust service's timing.
 var defaultResumeTiming = resumeTiming{
 	networkWait:  90 * time.Second,
 	attempts:     5,

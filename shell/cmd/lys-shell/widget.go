@@ -8,7 +8,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/widgetipc"
 )
 
-// widgetCommand is lys-shell/src/cli/widget/commands.rs.
 func widgetCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "widget",
@@ -31,7 +30,6 @@ func widgetCommand() *cli.Command {
 // socketTimeout bounds one widget-socket exchange.
 const socketTimeout = 5 * time.Second
 
-// runWidgetUpdate is widget/update.rs.
 func runWidgetUpdate(m *cli.Matches) error {
 	id, _ := cli.Value[string](m, "id")
 	output, _ := cli.Value[string](m, "output")

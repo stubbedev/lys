@@ -17,10 +17,10 @@ const (
 )
 
 // Diagnostic is a user-facing config problem: a title, aligned
-// label/value fields, and an optional hint (crates/wayle-config/src/
-// diagnostic.rs). A bad value in one field is a diagnostic, not a
-// failed load: the field keeps its default and the rest applies, the
-// way ApplyConfigLayer skips a field that fails to deserialize.
+// label/value fields, and an optional hint. A bad value in one field is
+// a diagnostic, not a failed load: the field keeps its default and the
+// rest applies, the way ApplyConfigLayer skips a field that fails to
+// deserialize.
 type Diagnostic struct {
 	Kind   DiagnosticKind
 	Title  string
@@ -46,8 +46,8 @@ func (d Diagnostic) Field(label string) string {
 // Plain renders the diagnostic without color (to_plain).
 func (d Diagnostic) Plain() string { return d.render(false) }
 
-// String renders the diagnostic with the ANSI colors the Rust Display
-// uses (owo-colors: red/yellow bold title, cyan labels, green hint).
+// String renders the diagnostic with ANSI colors: a red or yellow bold
+// title, cyan labels and a green hint.
 func (d Diagnostic) String() string { return d.render(true) }
 
 // Error lets a diagnostic travel as an error.
@@ -83,7 +83,7 @@ func (d Diagnostic) render(color bool) string {
 }
 
 // DiagnosticSink receives diagnostics as layers apply. The default
-// writes them colored to stderr, like Diagnostic::emit.
+// writes them colored to stderr.
 type DiagnosticSink func(Diagnostic)
 
 // StderrDiagnostics emits to stderr.

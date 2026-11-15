@@ -308,8 +308,8 @@ func FilterLabel(f Filter) string {
 }
 
 // mimeExts are the canonical extensions of the types apps put in
-// file chooser filters (the Rust host's mime2ext table, with its media
-// overrides); shared-mime-info lists extensions in no useful order.
+// file chooser filters; shared-mime-info lists extensions in no useful
+// order.
 var mimeExts = map[string]string{
 	"application/epub+zip":                            "epub",
 	"application/gzip":                                "gz",

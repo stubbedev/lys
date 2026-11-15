@@ -1,5 +1,4 @@
-// Package pulse is the audio service, the Go port of
-// crates/wayle-audio: sinks, sources, and per-application streams kept
+// Package pulse is the audio service: sinks, sources, and per-application streams kept
 // live from PulseAudio's subscription events, the default devices,
 // per-channel volume and mute, ports, stream routing, and record
 // streams, all over the native protocol (package native), so it works
@@ -20,10 +19,10 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
-// clientName is the application.name the Rust backend's context used.
+// clientName is the application.name the service connects as.
 const clientName = "lys-shell-pulse"
 
-// subscriptionMask is backend/events's interest set.
+// subscriptionMask is the service's subscription interest set.
 const subscriptionMask = native.MaskSink | native.MaskSource | native.MaskSinkInput |
 	native.MaskSourceOutput | native.MaskServer | native.MaskCard
 
@@ -299,11 +298,10 @@ func (s *Service) currentLocked() (*native.Conn, error) {
 	return s.sess.conn, nil
 }
 
-// handleEvent folds one subscription event of sess (backend/events):
+// handleEvent folds one subscription event of sess:
 // a removal drops the object, a new or changed object is re-queried
 // by index, a server change re-reads the defaults. Queries that race a
-// removal (no such entity) are dropped, as the Rust callbacks never
-// fire for them, and so is anything from a connection since replaced.
+// removal (no such entity) are dropped, and so is anything from a connection since replaced.
 func (s *Service) handleEvent(sess *session, ev native.SubscribeEvent) {
 	select {
 	case <-sess.ready:

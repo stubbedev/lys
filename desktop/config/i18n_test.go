@@ -26,8 +26,7 @@ func leafPaths(t reflect.Type, prefix string, visit func(path string, holder ref
 	}
 }
 
-// Every field of a prefixed struct has its label in the settings FTL,
-// as wayle-config's all_i18n_keys_are_populated pins in Rust.
+// Every field of a prefixed struct has its label in the settings FTL.
 func TestEveryLabeledFieldHasItsFTLKey(t *testing.T) {
 	loader := i18n.Settings()
 	labeled := 0

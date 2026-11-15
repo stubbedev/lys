@@ -159,7 +159,7 @@ func TestBarCenterSectionIsCentered(t *testing.T) {
 	}
 }
 
-func TestBarRootCarriesTheRustTreeAndClasses(t *testing.T) {
+func TestBarRootCarriesItsTreeAndClasses(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Bar = config.PlainBar()
 	layout := config.BarLayout{Monitor: "*", Center: []config.BarItem{{Module: "clock", Class: "mine"}}}
@@ -234,7 +234,7 @@ func TestGroupsAreBarItemsWithModules(t *testing.T) {
 	}
 }
 
-func TestBarPaintsFromTheRustStylesheet(t *testing.T) {
+func TestBarPaintsFromTheStylesheet(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Bar = config.PlainBar()
 	cfg.Bar.BorderLocation = config.BorderBottom

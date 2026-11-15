@@ -7,11 +7,10 @@ import (
 	"github.com/stubbedev/lys/lib/intconv"
 )
 
-// Bar-button views: the bar_button key set (wayle-derive's
-// BAR_BUTTON fields) read from a module section by key, so every
-// module carrying the keys gets the same view without a per-module
-// accessor. The keys interleave with each module's own keys in the
-// Rust declaration order, so they stay flat fields on the sections.
+// Bar-button views: the bar_button key set read from a module section
+// by key, so every module carrying the keys gets the same view without
+// a per-module accessor. The keys interleave with each module's own
+// keys, so they stay flat fields on the sections.
 
 // ButtonColors are the five color slots of a bar button.
 type ButtonColors struct {
@@ -34,8 +33,7 @@ type ButtonConfig struct {
 	Colors         ButtonColors
 	Defaults       ButtonColors
 	// AutoIconColor is the token an auto icon color resolves to under
-	// the basic variant: a widget constant per module in Rust
-	// (BarButtonColors::auto_icon_color), never read from a file.
+	// the basic variant: a constant per module, never read from a file.
 	AutoIconColor CssToken
 }
 

@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 )
 
-// GlobalProtect SAML sign-in through the system browser (gp_sso.rs).
+// GlobalProtect SAML sign-in through the system browser.
 //
 // A SAML gateway answers prelogin with saml-auth-method and
 // saml-request instead of field labels. Completing that is a browser's

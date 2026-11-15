@@ -10,7 +10,7 @@ import (
 // actionChoice is ActionChoice: a labeled preset command.
 type actionChoice struct{ label, command string }
 
-// Action editor texts (editors/action: English in Rust too).
+// Action editor texts.
 const (
 	actionNoneLabel   = "None"
 	actionCustomLabel = "Custom command…"
@@ -121,7 +121,7 @@ func (c *actionEditor) refresh() {
 	c.syncing = false
 }
 
-// actions is action::action for a row.
+// actions is an action picker row offering choices.
 func actions(choices []actionChoice) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 		return newActionEditor(k, s, choices)

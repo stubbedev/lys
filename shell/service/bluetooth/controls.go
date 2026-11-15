@@ -6,7 +6,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// AdapterRef drives one adapter by path (core/adapter/controls.rs).
+// AdapterRef drives one adapter by path.
 type AdapterRef struct {
 	conn *dbus.Conn
 	// Path is the adapter's object path.
@@ -117,7 +117,7 @@ func (a AdapterRef) ConnectDevice(ctx context.Context, properties map[string]dbu
 	return path, nil
 }
 
-// DeviceRef drives one device by path (core/device/controls.rs).
+// DeviceRef drives one device by path.
 type DeviceRef struct {
 	conn *dbus.Conn
 	// Path is the device's object path.

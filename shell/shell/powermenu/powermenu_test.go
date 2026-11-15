@@ -242,7 +242,7 @@ func TestShowWhenTheOverlayCannotMap(t *testing.T) {
 	h.m.Cancel() // nothing to close
 }
 
-// The row is shell/power_menu's: homogeneous, so every button takes
+// The row is homogeneous, so every button takes
 // the widest's width without stretching the row, and the labels take
 // their ink from the stylesheet.
 func TestRowIsHomogeneousAndUnpinned(t *testing.T) {

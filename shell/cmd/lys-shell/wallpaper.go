@@ -12,9 +12,9 @@ import (
 // wallpaperService names the service in "not running" errors.
 const wallpaperService = "Wallpaper"
 
-// wallpaperCommand is lys-shell/src/cli/wallpaper/commands.rs. The fit and
-// mode values are validated by the parser before the daemon is dialed;
-// "tile" passes the CLI and is refused by the daemon, as in Rust.
+// wallpaperCommand's fit and mode values are validated by the parser
+// before the daemon is dialed; "tile" passes the CLI and is refused by
+// the daemon.
 func wallpaperCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "wallpaper",
@@ -158,9 +158,9 @@ func wallpaperThemingMonitor(ctx context.Context, m *cli.Matches, client *wallpa
 	return nil
 }
 
-// wallpaperInfo prints info.rs's block. Without --monitor it queries
-// the "" monitor, which the daemon answers with no wallpaper and the
-// default fit - the Rust CLI's behavior.
+// wallpaperInfo prints the wallpaper block. Without --monitor it
+// queries the "" monitor, which the daemon answers with no wallpaper
+// and the default fit.
 func wallpaperInfo(ctx context.Context, m *cli.Matches, client *wallpaper.Client, out io.Writer) error {
 	monitor, hasMonitor := cli.Value[string](m, "monitor")
 	path, err := client.WallpaperForMonitor(ctx, monitor)

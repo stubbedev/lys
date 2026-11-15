@@ -1,7 +1,7 @@
-// Package niri is the niri IPC client (wayle-niri): newline-delimited
-// JSON requests and replies over $NIRI_SOCKET in niri-ipc's serde
-// shapes, workspace and window snapshots, actions, and the event
-// stream on a second socket.
+// Package niri is the niri IPC client: newline-delimited JSON
+// requests and replies over $NIRI_SOCKET in niri-ipc's JSON shapes,
+// workspace and window snapshots, actions, and the event stream on a
+// second socket.
 package niri
 
 import (
@@ -19,7 +19,7 @@ import (
 // SocketEnv is niri_ipc::socket::SOCKET_PATH_ENV.
 const SocketEnv = "NIRI_SOCKET"
 
-// ErrNotRunning is Error::NiriNotRunning: $NIRI_SOCKET is unset.
+// ErrNotRunning is the error when $NIRI_SOCKET is unset.
 var ErrNotRunning = errors.New("niri: NIRI_SOCKET is not set")
 
 // SocketPath reads $NIRI_SOCKET; empty when niri is not running.
@@ -70,12 +70,12 @@ type Window struct {
 	FocusTimestamp *Timestamp   `json:"focus_timestamp"`
 }
 
-// RejectedError is Error::NiriRejected: niri replied Err(message).
+// RejectedError is niri replying Err(message).
 type RejectedError struct{ Message string }
 
 func (e *RejectedError) Error() string { return "niri rejected the request: " + e.Message }
 
-// reply is Result<Response, String> as serde tags it.
+// reply is niri's {"Ok": response} or {"Err": message}.
 type reply struct {
 	Ok  json.RawMessage `json:"Ok"`
 	Err *string         `json:"Err"`
@@ -219,7 +219,7 @@ func (c *Conn) KeyboardLayouts() (KeyboardLayouts, error) {
 	return *out.KeyboardLayouts, nil
 }
 
-// Action dispatches one niri_ipc::Action, given as its serde form:
+// Action dispatches one niri_ipc::Action, given as its JSON form:
 // the variant name and its (struct) payload.
 func (c *Conn) Action(ctx context.Context, name string, payload any) error {
 	if payload == nil {

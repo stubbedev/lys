@@ -200,7 +200,7 @@ func yamlScalar(n *yaml.Node) (any, error) {
 }
 
 // mergeTrees overlays one tree on another: tables merge key by key,
-// anything else is replaced by the overlay (merging.rs).
+// anything else is replaced by the overlay.
 func mergeTrees(base, overlay any) any {
 	baseTable, baseOK := base.(map[string]any)
 	overTable, overOK := overlay.(map[string]any)
@@ -228,8 +228,7 @@ func mergeAll(imports []any, main any) any {
 	return mergeTrees(acc, main)
 }
 
-// InvalidFieldError is the Rust Error::InvalidConfigField: a path
-// segment that does not resolve.
+// InvalidFieldError is a path segment that does not resolve.
 type InvalidFieldError struct {
 	Field     string
 	Component string
@@ -262,7 +261,7 @@ func (e *InvalidFieldError) Error() string {
 
 // InsertPath sets value at a dot-separated path, creating intermediate
 // tables; a non-table in the way is an *InvalidFieldError. An empty
-// path inserts the "" key, like the Rust split on '.'.
+// path inserts the "" key.
 func InsertPath(root map[string]any, path string, value any) error {
 	segments := strings.Split(path, ".")
 	final := segments[len(segments)-1]
@@ -342,15 +341,15 @@ func toPlain(v any) any {
 func debugValue(v any) string {
 	switch t := v.(type) {
 	case string:
-		return "String(" + rustDebugString(t) + ")"
+		return "String(" + quoteDebug(t) + ")"
 	case int64:
 		return "Integer(" + strconv.FormatInt(t, 10) + ")"
 	case uint64:
 		return "Integer(" + strconv.FormatUint(t, 10) + ")"
 	case float64:
-		return "Float(" + rustFloatDebug(t, 64) + ")"
+		return "Float(" + formatFloatDebug(t, 64) + ")"
 	case float32:
-		return "Float(" + rustFloatDebug(float64(t), 32) + ")"
+		return "Float(" + formatFloatDebug(float64(t), 32) + ")"
 	case bool:
 		return "Boolean(" + strconv.FormatBool(t) + ")"
 	case []any:
@@ -366,13 +365,14 @@ func debugValue(v any) string {
 	}
 	parts := make([]string, len(keys))
 	for i, k := range keys {
-		parts[i] = rustDebugString(k) + ": " + debugValue(get(k))
+		parts[i] = quoteDebug(k) + ": " + debugValue(get(k))
 	}
 	return "Table({" + strings.Join(parts, ", ") + "})"
 }
 
-// rustDebugString quotes s like Rust's str Debug.
-func rustDebugString(s string) string {
+// quoteDebug quotes s in double quotes, escaping quotes, backslashes
+// and control characters.
+func quoteDebug(s string) string {
 	var b strings.Builder
 	b.WriteByte('"')
 	for _, r := range s {
@@ -401,9 +401,9 @@ func rustDebugString(s string) string {
 	return b.String()
 }
 
-// rustFloat formats a float like Rust's Display: the shortest
-// round-tripping decimal for its width, never in exponent form.
-func rustFloat(f float64, bits int) string {
+// formatFloat formats a float as the shortest round-tripping decimal
+// for its width, never in exponent form.
+func formatFloat(f float64, bits int) string {
 	switch {
 	case math.IsNaN(f):
 		return "NaN"
@@ -415,10 +415,9 @@ func rustFloat(f float64, bits int) string {
 	return strconv.FormatFloat(f, 'f', -1, bits)
 }
 
-// rustFloatDebug is Rust's float Debug: Display plus a ".0" on
-// integral values.
-func rustFloatDebug(f float64, bits int) string {
-	s := rustFloat(f, bits)
+// formatFloatDebug is formatFloat plus a ".0" on integral values.
+func formatFloatDebug(f float64, bits int) string {
+	s := formatFloat(f, bits)
 	if !math.IsNaN(f) && !math.IsInf(f, 0) && !strings.ContainsRune(s, '.') {
 		s += ".0"
 	}

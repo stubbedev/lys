@@ -59,9 +59,7 @@ func TestOpenFrameRoundTrips(t *testing.T) {
 	}
 }
 
-func TestSerdeRequiredFieldsAreAlwaysWritten(t *testing.T) {
-	// serde rejects an open frame without replace and a rows frame
-	// without items, so a Go CLI must still talk to a Rust shell.
+func TestRequiredFieldsAreAlwaysWritten(t *testing.T) {
 	open, _ := json.Marshal(ClientFrame{Type: FrameOpen})
 	if !strings.Contains(string(open), `"replace":false`) || !strings.Contains(string(open), `"options":{}`) {
 		t.Errorf("open = %s", open)

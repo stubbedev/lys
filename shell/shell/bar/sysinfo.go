@@ -15,7 +15,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
-// pad2 is Rust's "{:02.0}" of an f32: whole number, zero-padded to two.
+// pad2 renders v as a whole number, zero-padded to two.
 func pad2(v float32) string {
 	s := strconv.FormatFloat(float64(v), 'f', 0, 32)
 	if len(s) < 2 {
@@ -33,16 +33,15 @@ const (
 	tib = gib * 1024
 )
 
-// bytesIn is ByteSize::as_kib/as_mib/... at a Rust "{:.N}" precision:
-// the byte columns of the ram, storage, and netstat contexts.
+// bytesIn is b in unit at a fixed precision: the byte columns of the ram, storage, and netstat contexts.
 func bytesIn(b uint64, unit float64, precision int) string { return fixed(float64(b)/unit, precision) }
 
-// The ram and storage precisions (helpers.rs gib/tib/mib).
+// The ram and storage precisions.
 func gibStr(b uint64) string { return bytesIn(b, gib, 1) }
 func tibStr(b uint64) string { return bytesIn(b, tib, 2) }
 func mibStr(b uint64) string { return bytesIn(b, mib, 0) }
 
-// cpuContext is cpu helpers.rs's format_label context.
+// cpuContext is the cpu format context.
 func cpuContext(cpu sysinfo.CPU) map[string]any {
 	tempC := float32(0)
 	if cpu.HasTemperature {
@@ -58,7 +57,7 @@ func cpuContext(cpu sysinfo.CPU) map[string]any {
 	}
 }
 
-// memoryPercents are the f32 usage figures of polling/memory.rs.
+// memoryPercents are the memory and swap usage figures.
 func memoryPercents(m sysinfo.Memory) (usage, swap float32) {
 	if m.Total > 0 {
 		usage = float32(m.Used()) / float32(m.Total) * 100
@@ -69,7 +68,7 @@ func memoryPercents(m sysinfo.Memory) (usage, swap float32) {
 	return usage, swap
 }
 
-// ramContext is ram helpers.rs's format_label context.
+// ramContext is the ram format context.
 func ramContext(m sysinfo.Memory) map[string]any {
 	usage, swap := memoryPercents(m)
 	return map[string]any{
@@ -83,7 +82,7 @@ func ramContext(m sysinfo.Memory) map[string]any {
 	}
 }
 
-// storageContext is storage helpers.rs's format_label context.
+// storageContext is the storage format context.
 func storageContext(s sysinfo.Storage) map[string]any {
 	fs := s.Filesystem
 	if s.Multiple {
@@ -198,7 +197,7 @@ func (m *pollModule) show(s shown) {
 	m.btn.SetThresholds(s.colors)
 }
 
-// newCpu builds the cpu module (polling/cpu.rs and helpers.rs).
+// newCpu builds the cpu module.
 func newCpu(ctx ModuleContext) (Module, error) {
 	c := ctx.Config.CPU
 	reader := &sysinfo.CPUReader{
@@ -217,7 +216,7 @@ func newCpu(ctx ModuleContext) (Module, error) {
 	return newPollModule(ctx, "cpu", pollConfig{c.Format, c.Thresholds, c.Icon(), c.PollIntervalMs}, initial, read, reader.Close)
 }
 
-// newRam builds the ram module (polling/memory.rs and helpers.rs).
+// newRam builds the ram module.
 func newRam(ctx ModuleContext) (Module, error) {
 	c := ctx.Config.RAM
 	reader := &sysinfo.MemoryReader{}

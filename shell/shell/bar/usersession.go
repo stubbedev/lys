@@ -16,8 +16,7 @@ import (
 // avatarPx is the user avatar's logical box in the session row.
 const avatarPx = 32
 
-// sessionButton is one session action's glyph, tooltip, and command
-// (user_session/factory.rs make_session_btn's per-action arguments).
+// sessionButton is one session action's glyph, tooltip, and command.
 type sessionButton struct {
 	icon    string
 	tooltip string
@@ -40,7 +39,7 @@ func sessionButtonFor(action config.SessionAction, cfg config.DashboardConfig) s
 	}
 }
 
-// sessionUsername is $USER, "user" when unset (dashboard mod.rs).
+// sessionUsername is $USER, "user" when unset.
 func sessionUsername() string {
 	if user := os.Getenv("USER"); user != "" {
 		return user
@@ -62,8 +61,7 @@ func facePath() string {
 	return useraccount.FindAvatar(acct.Name, acct.Home)
 }
 
-// setAvatar paints the face onto the tile as its background image —
-// the Rust avatar's `background-image: url(file://…)` inline style —
+// setAvatar paints the face onto the tile as its background image,
 // cover-fit inside the rounded box. The tile shows the user glyph
 // when the file is absent.
 func setAvatar(tile *widget.Box) {
@@ -74,12 +72,10 @@ func setAvatar(tile *widget.Box) {
 	tile.SetInlineStylePriority("background-image: url('"+path+"');", apptheme.ComponentPriority)
 }
 
-// userSessionSection is the dashboard's user-session card
-// (user_session/mod.rs): the card over the session row — the avatar
+// userSessionSection is the dashboard's user-session card: the card over the session row — the avatar
 // (the account's avatar, else the user glyph) and the username in .user-info, one
 // icon button per configured action in .session-actions pinned to the
-// row's end. The face is read when the dropdown opens, which is when
-// the Rust watcher's change would next be seen. The stylesheet inks
+// row's end. The face is read when the dropdown opens. The stylesheet inks
 // everything through the classes (user-avatar image, user-name,
 // button.icon.session-btn image), so nothing carries a tint here.
 func userSessionSection(ctx ModuleContext) widget.Widget {
@@ -103,7 +99,7 @@ func userSessionSection(ctx ModuleContext) widget.Widget {
 		button.AddClass(css.Ghost, css.Icon, css.Small, "session-btn")
 		button.SetTooltip(spec.tooltip)
 		command := spec.command
-		// process::run_if_set: an empty command is a no-op.
+		// An empty command is a no-op.
 		button.OnClick = func() { spawn.Quiet(command) }
 		row.AddAction(button)
 	}

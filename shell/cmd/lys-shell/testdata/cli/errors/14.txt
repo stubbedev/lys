@@ -1,0 +1,7 @@
+args: notify dismiss 99999999999
+code: 2
+--- stdout
+--- stderr
+error: invalid value '99999999999' for '<ID>': parse "99999999999" as an unsigned 32-bit integer: strconv.ParseUint: parsing "99999999999": value out of range
+
+For more information, try '--help'.

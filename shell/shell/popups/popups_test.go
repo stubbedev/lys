@@ -1200,8 +1200,7 @@ func TestZeroPopupDurationSticks(t *testing.T) {
 }
 
 func TestPopupAnchors(t *testing.T) {
-	// notification_popup/methods.rs apply_position: corners take both
-	// edges, the centered positions one.
+	// Corners take both edges, the centered positions one.
 	for pos, want := range map[config.PopupPosition]app.Anchor{
 		config.PopupPositionTopRight:     app.AnchorTop | app.AnchorRight,
 		config.PopupPositionBottomLeft:   app.AnchorBottom | app.AnchorLeft,

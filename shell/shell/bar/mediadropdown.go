@@ -22,7 +22,7 @@ const (
 	mediaPositionPollEvery = time.Second
 )
 
-// formatMediaDuration is helpers.rs format_duration: m:ss, or h:mm:ss
+// formatMediaDuration renders m:ss, or h:mm:ss
 // from an hour up.
 func formatMediaDuration(d time.Duration) string {
 	total := int(d / time.Second)
@@ -33,7 +33,7 @@ func formatMediaDuration(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
-// mediaProgress is helpers.rs progress_fraction as a 0..100 percent.
+// mediaProgress is the played fraction as a 0..100 percent.
 func mediaProgress(pos, length time.Duration) float64 {
 	if length <= 0 {
 		return 0
@@ -41,7 +41,7 @@ func mediaProgress(pos, length time.Duration) float64 {
 	return min(max(float64(pos)/float64(length), 0), 1) * 100
 }
 
-// mediaSourceIcon is helpers.rs resolve_source_icon: the app table on
+// mediaSourceIcon is the player's icon: the app table on
 // the identity, then the bus name, then the desktop entry; else the
 // entry's -symbolic name, or the music glyph without one.
 func mediaSourceIcon(p mpris.Player) string {
@@ -59,8 +59,7 @@ func mediaSourceIcon(p mpris.Player) string {
 	return "ld-music-symbolic"
 }
 
-// mediaPlayPauseIcon and mediaLoopIcon are player_view methods.rs's
-// glyph picks.
+// mediaPlayPauseIcon and mediaLoopIcon are the transport glyph picks.
 func mediaPlayPauseIcon(state mpris.PlaybackState) string {
 	if state == mpris.StatePlaying {
 		return "ld-pause-symbolic"
@@ -95,7 +94,7 @@ type mediaView struct {
 	// state, in main) and the source picker (sources).
 	pages *widget.Stack
 	// main holds the player and the empty state as pages of one
-	// homogeneous stack (the relm4 if/else's gtk::Stack), so the card
+	// homogeneous stack, so the card
 	// keeps the player's height with no player.
 	main    *widget.Stack
 	sources *widget.Box
@@ -133,8 +132,8 @@ type mediaView struct {
 	current mpris.Player
 	has     bool
 	// seekBus is the player the seek knob last followed: a switch or a
-	// clear resets it, the way methods.rs refresh_from_player and
-	// clear_fields re-set the slider from the (new) player's progress.
+	// clear resets it, re-setting the slider from the (new) player's
+	// progress.
 	seekBus string
 
 	*openFollow
@@ -217,8 +216,7 @@ func (v *mediaView) buildPlayer(font render.Font, px float64) {
 	v.player.Append(dropdownHeader(font, "ld-disc-3-symbolic", i18n.T("dropdown-media-title"), v.lyricsButton, sourceButton), false)
 
 	body := dropdownContent("media-player")
-	// The artwork takes the panel's leftover height (player_view
-	// mod.rs:123-127).
+	// The artwork takes the panel's leftover height.
 	v.art = widget.NewBox(widget.Row, 0, 0)
 	v.art.AddClass("media-artwork")
 	v.panel = widget.NewStack()
@@ -235,7 +233,7 @@ func (v *mediaView) buildPlayer(font render.Font, px float64) {
 	v.album = widget.NewLabel(font, px, "", 0)
 	v.album.AddClass("media-album", css.DimLabel)
 	// The info rows fill the panel and ellipsize at its edge, centered
-	// text (xalign 0.5) like player_view mod.rs:158-184.
+	// text (xalign 0.5).
 	for _, l := range []*widget.Label{v.title, v.artist, v.album} {
 		l.SetEllipsize(widget.EllipsizeEnd)
 		l.SetAlignment(render.AlignCenter)
@@ -280,8 +278,7 @@ func (v *mediaView) buildPlayer(font render.Font, px float64) {
 	v.player.Append(body, true)
 }
 
-// fire runs one transport command off the loop; failures log, as the
-// Rust fire_player_command does.
+// fire runs one transport command off the loop; failures log.
 func (v *mediaView) fire(what string, cmd func(context.Context, string) error) {
 	if !v.has {
 		return
@@ -296,7 +293,7 @@ func (v *mediaView) fire(what string, cmd func(context.Context, string) error) {
 	})
 }
 
-// seekTo is SeekCommitted: the percent of the track length; nothing
+// seekTo seeks to the percent of the track length; nothing
 // without a known length.
 func (v *mediaView) seekTo(percent float64) {
 	if !v.has || v.current.Length <= 0 {
@@ -325,7 +322,7 @@ func (v *mediaView) refresh() {
 	v.current, v.has = p, ok
 	// A player switch (or clearing) retires the old knob position: the
 	// slider follows the new player's progress from zero until the next
-	// position read (methods.rs:164,200).
+	// position read.
 	bus := ""
 	if ok {
 		bus = p.BusName
@@ -388,8 +385,7 @@ func (v *mediaView) setArt(url string) {
 		v.art.Append(art, true)
 		return
 	}
-	// The placeholder tile centers in the panel (Rust halign/valign
-	// center on the placeholder box).
+	// The placeholder tile centers in the panel.
 	row := widget.NewBox(widget.Row, 0, 0)
 	row.Append(widget.NewSpacer(0, 0), true)
 	row.Append(art, false)
@@ -422,7 +418,7 @@ func (v *mediaView) setPosition(pos time.Duration) {
 	}
 }
 
-// showPicker is ShowSourcePicker: the list of players.
+// showPicker shows the list of players.
 func (v *mediaView) showPicker() {
 	v.mode = "picker"
 	v.buildPicker()
@@ -430,7 +426,7 @@ func (v *mediaView) showPicker() {
 
 // buildPicker lists every player as an Item in an item card under the
 // back and title row; picking one makes it active and returns to the
-// player view (source_picker/mod.rs).
+// player view.
 func (v *mediaView) buildPicker() {
 	font, px := dropdownFont(v.ctx)
 	th := widget.Current()
@@ -449,7 +445,7 @@ func (v *mediaView) buildPicker() {
 	active, _ := v.src.Active()
 	v.check = nil
 	for _, p := range v.src.Players() {
-		// The row shows the identity as-is (methods.rs:39).
+		// The row shows the identity as-is.
 		row := widget.NewItem(font, p.Identity, "")
 		row.SetSmall(true)
 		row.SetEllipsize(true)
@@ -478,7 +474,7 @@ func (v *mediaView) buildPicker() {
 
 // follow keeps the view current while open: service ticks refresh,
 // and the position polls once a second (MPRIS signals no position
-// changes; the Rust player polls at position_poll_interval).
+// changes).
 func (v *mediaView) follow(life context.Context) {
 	v.refresh()
 	ticks, unsubscribe := v.src.Subscribe()

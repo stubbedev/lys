@@ -4,8 +4,7 @@ import (
 	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
-// completionsCommand is app.rs's Completions: clap_complete's script
-// for the named shell, generated from the same tree that parses.
+// completionsCommand prints the completion script for the named shell, generated from the same tree that parses.
 func completionsCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "completions",

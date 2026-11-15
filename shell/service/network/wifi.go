@@ -16,9 +16,8 @@ import (
 )
 
 // This file is the wifi half of the service: the device's access
-// points, scanning, and connecting (wifi/mod.rs, wifi/controls.rs,
-// core/device/wifi), plus the dropdown's view of the list
-// (dropdowns/network/helpers.rs).
+// points, scanning, and connecting, plus the dropdown's view of the
+// list.
 
 // DeviceState is NMDeviceState.
 type DeviceState uint32
@@ -73,7 +72,7 @@ const (
 	SecurityEnterprise
 )
 
-// String is the English name (SecurityType::as_str).
+// String is the English name.
 func (s SecurityType) String() string {
 	switch s {
 	case SecurityWEP:
@@ -132,8 +131,7 @@ const (
 	secKeyMgmtEAPSuiteB = 0x2000
 )
 
-// securityFromFlags derives the strongest security an AP supports
-// (SecurityType::from_flags).
+// securityFromFlags derives the strongest security an AP supports.
 func securityFromFlags(flags, wpa, rsn uint32) SecurityType {
 	const (
 		enterprise = secKeyMgmt8021X | secKeyMgmtEAPSuiteB
@@ -181,7 +179,7 @@ type AccessPoint struct {
 	BSSID string
 }
 
-// Name is the SSID as text, invalid UTF-8 replaced (to_string_lossy).
+// Name is the SSID as text, invalid UTF-8 replaced.
 func (ap AccessPoint) Name() string { return strings.ToValidUTF8(string(ap.SSID), "�") }
 
 // Wifi is the wireless device and its controls.
@@ -192,8 +190,7 @@ type Wifi struct {
 	Device dbus.ObjectPath
 }
 
-// findWifiDevice is the first wireless device NM manages
-// (discovery.rs's wifi_device_path).
+// findWifiDevice is the first wireless device NM manages.
 func findWifiDevice(ctx context.Context, n nm) (dbus.ObjectPath, bool) {
 	var devices []dbus.ObjectPath
 	if err := n.manager().CallWithContext(ctx, nmIface+".GetDevices", 0).Store(&devices); err != nil {
@@ -351,8 +348,7 @@ func (w *Wifi) Connect(ctx context.Context, apPath dbus.ObjectPath, password str
 	return active, nil
 }
 
-// newWifiProfile is a new profile for an access point
-// (build_connection_settings).
+// newWifiProfile is a new profile for an access point.
 func newWifiProfile(ap AccessPoint, password string) ConnectionDict {
 	wireless := map[string]dbus.Variant{"ssid": dbus.MakeVariant(ap.SSID)}
 	if slices.Contains(manufacturerDefaultSSIDs, ap.Name()) {
@@ -564,7 +560,7 @@ type ListedNetwork struct {
 
 // SortedUniqueNetworks deduplicates by SSID (strongest wins), drops
 // hidden and enterprise networks and the connected SSID, and sorts by
-// strength descending (sorted_unique_access_points).
+// strength descending.
 func SortedUniqueNetworks(aps []AccessPoint, connected string, known map[string]bool) []ListedNetwork {
 	best := map[string]ListedNetwork{}
 	var order []string

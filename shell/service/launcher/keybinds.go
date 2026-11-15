@@ -8,7 +8,7 @@ type Binding struct {
 	Keys   string
 }
 
-// DefaultKeybindings is rofi's default table (keybinds.rs DEFAULTS):
+// DefaultKeybindings is rofi's default table:
 // action names are rofi's kb- names without the prefix, keys are
 // comma-separated GTK accelerator names.
 var DefaultKeybindings = []Binding{
@@ -99,8 +99,7 @@ func EffectiveMouseBindings(overrides map[string]string) []Binding {
 }
 
 // withOverrides keeps the default table's actions and order; an
-// override for an action the table does not name is ignored, as the
-// Rust table walk ignores it.
+// override for an action the table does not name is ignored.
 func withOverrides(defaults []Binding, overrides map[string]string) []Binding {
 	out := make([]Binding, len(defaults))
 	for i, b := range defaults {

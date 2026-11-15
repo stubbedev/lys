@@ -17,8 +17,8 @@ import (
 	"github.com/stubbedev/lys/desktop/shlex"
 )
 
-// Thumbnails for row icons (rofi -preview-cmd and thumbnail://),
-// thumbnail.rs. rofi-thumbnails(5)'s contract:
+// Thumbnails for row icons (rofi -preview-cmd and thumbnail://).
+// rofi-thumbnails(5)'s contract:
 //
 //   - a row asks for one by prefixing its icon with thumbnail://;
 //   - the image is cached as the md5 of the file's URI under

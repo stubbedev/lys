@@ -27,7 +27,6 @@ func TestWildcard(t *testing.T) {
 		pattern, text string
 		want          bool
 	}{
-		// wayle-shell-core glob.rs's cases.
 		{"*spotify*", "org.mpris.MediaPlayer2.spotify", true},
 		{"*spotify*", "spotify.instance1", true},
 		{"firefox*", "firefox.instance12345", true},

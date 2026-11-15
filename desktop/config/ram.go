@@ -1,6 +1,6 @@
 package config
 
-// RamConfig is ported from crates/wayle-config/src/schemas/modules/ram/mod.rs.
+// RamConfig configures the ram module.
 //
 // Memory and swap usage.
 type RamConfig struct {

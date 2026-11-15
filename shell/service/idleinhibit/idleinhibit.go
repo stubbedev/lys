@@ -289,7 +289,7 @@ func (s *State) stopTimerLocked() {
 }
 
 // FormatDuration renders seconds as H:MM:SS above the hour and M:SS
-// within it (helpers.rs's format_duration).
+// within it.
 func FormatDuration(totalSecs uint32) string {
 	hours := totalSecs / 3600
 	minutes := (totalSecs % 3600) / 60

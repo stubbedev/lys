@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Matches holds one command's parsed values (clap's ArgMatches).
+// Matches holds one command's parsed values.
 type Matches struct {
 	values  map[string][]any
 	present map[string]bool // set on the command line (not a default)
@@ -109,15 +109,15 @@ const (
 	statePos
 )
 
-// parser is clap's Parser for one command level.
+// parser parses one command level.
 type parser struct {
 	c       *cmd
 	m       *Matches
 	pending *pendingArg
 }
 
-// parse is Parser::get_matches_with: parse the level (recursing into
-// a subcommand), resolve the pending value, add defaults, validate.
+// parse parses the level (recursing into a subcommand), resolves the
+// pending value, adds defaults and validates.
 func parse(c *cmd, args []string) (*Matches, *Error) {
 	p := &parser{c: c, m: newMatches(c)}
 	if err := p.parseArgs(args); err != nil {
@@ -311,7 +311,7 @@ func (p *parser) parseShort(body string, state parseState, stateArg *arg, posCou
 	return ret, nil
 }
 
-// parseOptValue is Parser::parse_opt_value: an attached value
+// parseOptValue reads an option's value: an attached value
 // completes the option; otherwise the next argument is its value.
 func (p *parser) parseOptValue(ident identifier, a *arg, value string, attached bool) (parseResult, *Error) {
 	if attached {
@@ -333,7 +333,7 @@ func (p *parser) resolvePending() *Error {
 	return p.react(pending.ident, pending.arg, pending.raws)
 }
 
-// react is Parser::react for the actions the tree uses.
+// react applies an arg's action to its raw values.
 func (p *parser) react(ident identifier, a *arg, raws []string) *Error {
 	if err := p.resolvePending(); err != nil {
 		return err
@@ -395,7 +395,7 @@ func (p *parser) addDefaults() *Error {
 	return nil
 }
 
-// validate is Validator::validate: a bare invocation of a command that
+// validate checks the parsed level: a bare invocation of a command that
 // needs a subcommand prints its help to stderr; a missing required arg
 // is an error naming every missing one.
 func (p *parser) validate() *Error {
@@ -423,7 +423,7 @@ func (p *parser) validate() *Error {
 	return missingRequiredError(p.c, names, usageWithTitle(p.c, used))
 }
 
-// matchArgError is Parser::match_arg_error for a stray argument.
+// matchArgError is the error for a stray argument.
 func (p *parser) matchArgError(raw string, trailing bool) *Error {
 	flagLike := strings.HasPrefix(raw, "-") && raw != "-"
 	trailingTip := !trailing && p.c.hasPositionals() && flagLike
@@ -438,7 +438,7 @@ func (p *parser) matchArgError(raw string, trailing bool) *Error {
 	return unknownArgumentError(p.c, raw, "", trailingTip, usageWithTitle(p.c, nil))
 }
 
-// didYouMeanError is Parser::did_you_mean_error for an unknown --long.
+// didYouMeanError is the error for an unknown --long.
 func (p *parser) didYouMeanError(name string, trailing bool) *Error {
 	_ = p.resolvePending()
 	suggestion := ""
@@ -463,8 +463,8 @@ func (p *parser) didYouMeanError(name string, trailing bool) *Error {
 	return unknownArgumentError(p.c, "--"+name, suggestion, trailingTip, usageWithTitle(p.c, used))
 }
 
-// parseHelpSubcommand is Parser::parse_help_subcommand: walk the named
-// path and print that command's long help.
+// parseHelpSubcommand walks the named path and prints that command's
+// long help.
 func (p *parser) parseHelpSubcommand(path []string) *Error {
 	target := p.c
 	for _, name := range path {

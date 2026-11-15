@@ -14,8 +14,7 @@ func TestLookup(t *testing.T) {
 	if icon, ok := Lookup("com.obsproject.Studio"); !ok || icon != "si-obsstudio-symbolic" {
 		t.Errorf("obs = %q, %v", icon, ok)
 	}
-	// Mixed-case patterns match in either case, as icons.rs lowercases
-	// the compiled table too.
+	// Mixed-case patterns match in either case.
 	for _, name := range []string{"Slack", "slack", "Tor Browser", "tor browser"} {
 		if _, ok := Lookup(name); !ok {
 			t.Errorf("%q did not resolve against its mixed-case pattern", name)

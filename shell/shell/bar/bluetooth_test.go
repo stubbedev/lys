@@ -13,8 +13,8 @@ import (
 	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
-func TestBluetoothLabelMatchesRustAssertions(t *testing.T) {
-	// helpers.rs's cases: disabled, none, one alias, count.
+func TestBluetoothLabel(t *testing.T) {
+	// Disabled, none, one alias, count.
 	if got := bluetoothLabel(bluetooth.Snapshot{Available: true}); got != i18n.T("bar-bluetooth-disabled") {
 		t.Errorf("unpowered = %q, want Off", got)
 	}
@@ -45,7 +45,7 @@ func btState(connected ...string) bluetooth.State {
 }
 
 // The label reads the alias or disconnected in label-color, idle or
-// not: Rust dims nothing.
+// not.
 func TestBluetoothModuleLabel(t *testing.T) {
 	cfg := config.Defaults()
 	style := computeStyle(cfg, styling.Default()).forModules()
@@ -90,7 +90,7 @@ func TestBluetoothStateIcon(t *testing.T) {
 	if got := icon.Name(); got != cfg.Bluetooth.ConnectedIcon {
 		t.Errorf("connected icon = %q", got)
 	}
-	// Idle, searching, and disabled follow select_icon's order.
+	// Idle, searching, and disabled follow the icon order.
 	source.setState(btState())
 	m.refresh()
 	if got := icon.Name(); got != cfg.Bluetooth.DisconnectedIcon {

@@ -13,27 +13,19 @@ import (
 	"github.com/stubbedev/lys/shell/internal/appicons"
 )
 
-// The sway and niri workspace modules are one Rust design twice over
-// (sway_workspaces/ and niri_workspaces/ differ only in the IPC
-// types): this file is their shared, pure half — filtering.rs,
-// helpers.rs, and methods.rs's button model — and cwsmodule.go is the
-// widget half. The backends map their compositor's snapshot onto
-// cwsWorkspace/cwsWindow.
-
-// cwsFlavor picks between the two Rust button families: the sway/niri
-// workspace buttons and mango's tag buttons (mango_workspaces/), which
-// differ in the label/icon rules, the CSS classes, and the tag set.
+// cwsFlavor picks between the two button families: the sway/niri
+// workspace buttons and mango's tag buttons, which differ in the label/icon rules, the CSS classes, and the tag set.
 type cwsFlavor int
 
 const (
 	cwsWorkspaces cwsFlavor = iota
 	cwsTags
-	// cwsHyprland is hyprland_workspaces/: the module builds its own
+	// cwsHyprland is the hyprland module, which builds its own
 	// models; the flavor picks its identity rules and custom-icon class.
 	cwsHyprland
 )
 
-// cwsWorkspace is filtering.rs's WorkspaceSnapshot. num is sway's
+// cwsWorkspace is one workspace of a snapshot. num is sway's
 // workspace number (-1 for a purely named workspace) or niri's idx.
 type cwsWorkspace struct {
 	id         uint64
@@ -49,7 +41,7 @@ type cwsWorkspace struct {
 }
 
 // cwsWindow is one compositor window as the button model reads it.
-// order is the backend's windows_on_workspace sort key ahead of the
+// order is the backend's window sort key ahead of the
 // id: niri's scrolling (column, tile), zero for sway (id order).
 type cwsWindow struct {
 	id           uint64
@@ -60,7 +52,6 @@ type cwsWindow struct {
 	order        [2]int
 }
 
-// cwsFilter is filtering.rs's FilterContext.
 type cwsFilter struct {
 	monitorSpecific   bool
 	barMonitor        string
@@ -68,7 +59,7 @@ type cwsFilter struct {
 	ignore            []string
 }
 
-// cwsCollectDisplayed is collect_displayed: trailing empties computed
+// cwsCollectDisplayed picks the displayed workspaces: trailing empties computed
 // over the full set, then monitor scoping, ignore patterns, and the
 // trailing drop, ordered by output then number.
 func cwsCollectDisplayed(all []cwsWorkspace, f cwsFilter) []cwsWorkspace {
@@ -118,7 +109,7 @@ func cwsVisibleOnMonitor(ws cwsWorkspace, f cwsFilter) bool {
 	return ws.hasOutput && ws.output == f.barMonitor
 }
 
-// cwsTrailingEmpties is compute_trailing_empties: per output, the
+// cwsTrailingEmpties: per output, the
 // highest-numbered workspace, when it has no windows.
 func cwsTrailingEmpties(all []cwsWorkspace) map[uint64]bool {
 	type tail struct {
@@ -145,7 +136,7 @@ func cwsTrailingEmpties(all []cwsWorkspace) map[uint64]bool {
 	return out
 }
 
-// cwsIgnored is is_ignored: each pattern against the name, then the
+// cwsIgnored: each pattern against the name, then the
 // number, then the stable id.
 func cwsIgnored(ws cwsWorkspace, patterns []string) bool {
 	num := strconv.Itoa(ws.num)
@@ -161,8 +152,8 @@ func cwsIgnored(ws cwsWorkspace, patterns []string) bool {
 	return false
 }
 
-// cwsLabel is sway helpers.rs's label_for, which niri's is a special
-// case of (niri's idx is never negative): the number shows only when
+// cwsLabel is a workspace's label (niri's idx is never negative, so
+// niri never hits the negative case): the number shows only when
 // non-negative, and the result is absent for name-only without a name
 // or index on an unnumbered workspace.
 func cwsLabel(num int, name string, hasName bool, strategy config.LabelStrategy) (string, bool) {
@@ -193,7 +184,7 @@ func cwsLabel(num int, name string, hasName bool, strategy config.LabelStrategy)
 	return "", false
 }
 
-// cwsStyleFor is helpers.rs's workspace_style: the workspace-map entry
+// cwsStyleFor is the workspace-map entry
 // for the name first, then for the stable id. It drives the label and
 // icon overrides.
 func cwsStyleFor(ws cwsWorkspace, m map[string]config.WorkspaceStyle) (config.WorkspaceStyle, bool) {
@@ -206,13 +197,11 @@ func cwsStyleFor(ws cwsWorkspace, m map[string]config.WorkspaceStyle) (config.Wo
 	return style, ok
 }
 
-// cwsTagClass is mango's tag_css_class.
 func cwsTagClass(index uint64) string { return "tag-" + strconv.FormatUint(index, 10) }
 
-// cwsIDClass is workspace_id_css_class.
 func cwsIDClass(id uint64) string { return "ws-id-" + strconv.FormatUint(id, 10) }
 
-// cwsNameClass is workspace_name_css_class: non-identifier characters
+// cwsNameClass: non-identifier characters
 // become underscores.
 func cwsNameClass(name string) string {
 	var b strings.Builder
@@ -227,8 +216,7 @@ func cwsNameClass(name string) string {
 	return b.String()
 }
 
-// cwsOverrideColor resolves the --ws-override-color the styling.rs
-// provider would give this button: every workspace-map key with a
+// cwsOverrideColor resolves this button's --ws-override-color: every workspace-map key with a
 // color emits rules for ws-name-<key> (and ws-id-<key> when numeric),
 // in key order, so the last matching key wins the cascade.
 func cwsOverrideColor(classes []string, m map[string]config.WorkspaceStyle) (config.ColorValue, bool) {
@@ -256,7 +244,7 @@ func cwsOverrideColor(classes []string, m map[string]config.WorkspaceStyle) (con
 		if id, err := strconv.Atoi(key); err == nil && has[hyprIDClass(id)] {
 			match = true
 		}
-		// mango's tag_map_css_class: a numeric key targets tag-N.
+		// A numeric key targets tag-N.
 		if index, err := strconv.ParseUint(key, 10, 32); err == nil && has[cwsTagClass(index)] {
 			match = true
 		}
@@ -267,8 +255,8 @@ func cwsOverrideColor(classes []string, m map[string]config.WorkspaceStyle) (con
 	return out, found
 }
 
-// cwsAppIcon is button/mod.rs's AppIconInit plus the urgency the
-// populate pass resolves.
+// cwsAppIcon is a window's app icon plus the urgency the populate pass
+// resolves.
 type cwsAppIcon struct {
 	name      string
 	windowIDs []uint64
@@ -310,7 +298,7 @@ func cwsFollowsTitles(cfg config.CompositorWorkspacesConfig) bool {
 	return false
 }
 
-// cwsWindowsOn is windows_on_workspace: the workspace's windows in the
+// cwsWindowsOn is the workspace's windows in the
 // backend's order, id breaking ties.
 func cwsWindowsOn(windows []cwsWindow, workspace uint64) []cwsWindow {
 	out := make([]cwsWindow, 0, 4)
@@ -332,8 +320,7 @@ func cwsWindowsOn(windows []cwsWindow, workspace uint64) []cwsWindow {
 	return out
 }
 
-// cwsCollectAppIcons is collect_app_icons plus populate_app_icons's
-// urgency: one icon per window, or per distinct icon under dedupe.
+// cwsCollectAppIcons is the windows' icons with their urgency: one icon per window, or per distinct icon under dedupe.
 func cwsCollectAppIcons(windows []cwsWindow, cfg config.CompositorWorkspacesConfig, urgent map[uint64]bool) []cwsAppIcon {
 	out := make([]cwsAppIcon, 0, len(windows))
 	for _, w := range windows {
@@ -357,7 +344,7 @@ func cwsCollectAppIcons(windows []cwsWindow, cfg config.CompositorWorkspacesConf
 	return out
 }
 
-// cwsAnyUrgent is any_urgent: a displayed workspace, or a window on
+// cwsAnyUrgent reports whether a displayed workspace, or a window on
 // one, wants attention.
 func cwsAnyUrgent(displayed []cwsWorkspace, windows []cwsWindow) bool {
 	ids := make(map[uint64]bool, len(displayed))
@@ -375,9 +362,9 @@ func cwsAnyUrgent(displayed []cwsWorkspace, windows []cwsWindow) bool {
 	return false
 }
 
-// cwsBuildModels is rebuild_buttons's model pass: filter, then one
-// button init per displayed workspace. Tags arrive already selected
-// and ordered (the mango backend's displayed_tags).
+// cwsBuildModels is the model pass: filter, then one button init per
+// displayed workspace. Tags arrive already selected and ordered by the
+// mango backend.
 func cwsBuildModels(flavor cwsFlavor, all []cwsWorkspace, windows []cwsWindow, cfg config.CompositorWorkspacesConfig, barMonitor string, vertical, blinkOn bool) []cwsButtonModel {
 	displayed := all
 	if flavor == cwsWorkspaces {
@@ -406,7 +393,7 @@ func cwsBuildModels(flavor cwsFlavor, all []cwsWorkspace, windows []cwsWindow, c
 		var style config.WorkspaceStyle
 		var styled bool
 		if flavor == cwsTags {
-			// tag_style: the tag-map entry for the index; the label
+			// The tag-map entry for the index; the label
 			// falls back to the index itself.
 			style, styled = cfg.WorkspaceMap[strconv.FormatUint(ws.id, 10)]
 		} else {
@@ -429,7 +416,6 @@ func cwsBuildModels(flavor cwsFlavor, all []cwsWorkspace, windows []cwsWindow, c
 	return out
 }
 
-// cwsClasses is compute_css_classes.
 func cwsClasses(m cwsButtonModel, cfg config.CompositorWorkspacesConfig, vertical bool) []string {
 	classes := []string{"workspace", cwsState(m.ws)}
 	if m.ws.focused && m.flavor == cwsWorkspaces {
@@ -469,7 +455,7 @@ func cwsState(ws cwsWorkspace) string {
 // hasClass reports whether classes carries name.
 func hasClass(classes []string, name string) bool { return slices.Contains(classes, name) }
 
-// showLabel is button/methods.rs's show_label. Workspaces: a mapped
+// showLabel reports whether the label shows. Workspaces: a mapped
 // icon replaces the label, display-mode none hides it. Tags: label
 // mode always shows it, icon mode only without a mapped icon.
 func (m cwsButtonModel) showLabel(mode config.DisplayMode) bool {
@@ -477,8 +463,7 @@ func (m cwsButtonModel) showLabel(mode config.DisplayMode) bool {
 		return false
 	}
 	if m.flavor == cwsHyprland {
-		// populate_identity: a mapped icon, else the label; nothing
-		// under display-mode none.
+		// A mapped icon, else the label; nothing under display-mode none.
 		return mode != config.DisplayModeNone && m.icon == ""
 	}
 	if m.flavor == cwsTags {
@@ -493,7 +478,7 @@ func (m cwsButtonModel) showLabel(mode config.DisplayMode) bool {
 	return m.icon == "" && mode != config.DisplayModeNone
 }
 
-// showIcon is show_icon. Workspaces: a mapped icon shows in every mode
+// showIcon reports whether the icon shows. Workspaces: a mapped icon shows in every mode
 // but none. Tags: only in icon mode.
 func (m cwsButtonModel) showIcon(mode config.DisplayMode) bool {
 	if m.flavor == cwsTags {
@@ -505,8 +490,7 @@ func (m cwsButtonModel) showIcon(mode config.DisplayMode) bool {
 	return m.icon != "" && mode != config.DisplayModeNone
 }
 
-// showDivider is show_divider (hyprland: should_show_divider, which
-// only looks at the display mode).
+// showDivider reports whether the divider shows.
 func (m cwsButtonModel) showDivider(cfg config.CompositorWorkspacesConfig) bool {
 	if m.flavor == cwsHyprland {
 		return cfg.AppIconsShow && cfg.Divider != "" && cfg.DisplayMode != config.DisplayModeNone

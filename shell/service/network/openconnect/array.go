@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Array Networks sign-in (array.rs), the shortest of the family; the
+// Array Networks sign-in, the shortest of the family; the
 // shapes come from openconnect's array.c:
 //
 //  1. POST prx/000/http/localhost/login, form-urlencoded, with method

@@ -18,8 +18,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/weather"
 )
 
-// The dropdown's list lengths and the temperature bar track
-// (hourly_forecast MAX_ITEMS, daily_forecast MAX_DAYS, BAR_WIDTH_REM).
+// The dropdown's list lengths and the temperature bar track.
 const (
 	weatherHourlyItems  = 5
 	weatherDailyDays    = 5
@@ -27,7 +26,7 @@ const (
 	weatherUpdatedEvery = time.Minute
 )
 
-// weatherHourLabel is hourly_time_label: "3PM" or "15:00".
+// weatherHourLabel is "3PM" or "15:00".
 func weatherHourLabel(t time.Time, format config.TimeFormat) string {
 	if format == config.TimeFormat24h {
 		return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
@@ -35,7 +34,7 @@ func weatherHourLabel(t time.Time, format config.TimeFormat) string {
 	return t.Format("3PM")
 }
 
-// weatherSunTime is sun_times format_time: "6:05 AM" or "06:05".
+// weatherSunTime is "6:05 AM" or "06:05".
 func weatherSunTime(t weather.TimeOfDay, format config.TimeFormat) string {
 	if format == config.TimeFormat24h {
 		return t.String()
@@ -51,7 +50,7 @@ func weatherSunTime(t weather.TimeOfDay, format config.TimeFormat) string {
 	return fmt.Sprintf("%d:%02d %s", hour, t.Minute, period)
 }
 
-// weatherDayLabel is day_label: the weekday's abbreviation.
+// weatherDayLabel is the weekday's abbreviation.
 func weatherDayLabel(date time.Time) string {
 	ids := [...]string{
 		"dropdown-weather-day-sun", "dropdown-weather-day-mon", "dropdown-weather-day-tue",
@@ -61,7 +60,7 @@ func weatherDayLabel(date time.Time) string {
 	return i18n.T(ids[date.Weekday()])
 }
 
-// weatherLocationDisplay is location_display: "city, region", else
+// weatherLocationDisplay is "city, region", else
 // "city, country".
 func weatherLocationDisplay(l weather.Location) string {
 	if l.Region != "" {
@@ -76,7 +75,7 @@ func weatherUpdatedAgo(updated, now time.Time) string {
 	return i18n.T("dropdown-weather-updated-ago", i18n.Str("minutes", strconv.FormatInt(minutes, 10)))
 }
 
-// weatherTempRange is temp_range: the coldest low and warmest high,
+// weatherTempRange is the coldest low and warmest high,
 // (0, 0) without days.
 func weatherTempRange(days []weather.Daily) (lo, hi float32) {
 	if len(days) == 0 {
@@ -90,7 +89,7 @@ func weatherTempRange(days []weather.Daily) (lo, hi float32) {
 	return lo, hi
 }
 
-// weatherBarOffsets is temp_bar_offsets: where a day's low-to-high
+// weatherBarOffsets: where a day's low-to-high
 // span sits on the week's range, in percent, at least 5% wide; a flat
 // range fills the bar.
 func weatherBarOffsets(low, high, rangeMin, rangeMax float32) (leftPct, widthPct float32) {
@@ -104,7 +103,6 @@ func weatherBarOffsets(low, high, rangeMin, rangeMax float32) (leftPct, widthPct
 	return left, max(right-left, 5)
 }
 
-// weatherErrorText is error_description.
 func weatherErrorText(st weather.Status) string {
 	switch st.Error {
 	case weather.ErrAPIKeyMissing:
@@ -158,11 +156,11 @@ func weatherDropdown(ctx ModuleContext) widget.Widget {
 	v.pages.Add("loading", v.loadingPage())
 	v.pages.Add("error", v.errorPage())
 	v.loaded = widget.NewBox(widget.Column, 2*widget.Current().Spacing, 0)
-	// The loaded child is vexpand inside the scroll (weather/mod.rs):
+	// The loaded child is vexpand inside the scroll:
 	// the sections fill the viewport, top-anchored.
 	scroll := dropdownScroll(v.loaded, "weather-scroll")
 	scroll.FillY = true
-	// propagate_natural_height (weather/mod.rs:119): the panel grows to
+	// The panel grows to
 	// the content's height instead of scrolling at the base height.
 	scroll.PropagateNaturalHeight = true
 	v.pages.Add("loaded", scroll)
@@ -190,9 +188,8 @@ func (v *weatherView) label(text string, role styling.TextRole, class string) *w
 	return l
 }
 
-// header is the DropdownHeader: the title and the refresh action. It is
-// the one header that leaves the template's icon hidden (weather/mod.rs
-// never sets it visible).
+// header is the dropdown header: the title and the refresh action. It
+// is the one header that leaves the template's icon hidden.
 func (v *weatherView) header() widget.Widget {
 	refresh := widget.NewButton(v.icon("ld-refresh-cw-symbolic", 1), 0, 0)
 	refresh.AddClass(css.Ghost, css.Icon)
@@ -245,8 +242,8 @@ func (v *weatherView) errorPage() widget.Widget {
 // loaded page keeps its last render until the new data lands.
 func (v *weatherView) refresh() {
 	if v.svc == nil {
-		// No service: nothing to read (the Rust factory never builds the
-		// dropdown without one; the builders sweep must not panic).
+		// No service: nothing to read (the builders sweep must not
+		// panic).
 		return
 	}
 	st := v.svc.Status()
@@ -272,7 +269,7 @@ func (v *weatherView) condIcon(c weather.Condition, isDay bool, scale float64) *
 	return v.icon(weatherConditionIcon(c, isDay), scale, "weather-cond", weatherConditionClass(c))
 }
 
-// currentHeader is weather_header: the condition icon, the
+// currentHeader is the condition icon, the
 // temperature in the display size over the condition, and the place
 // and the data's age on the right.
 func (v *weatherView) currentHeader(w *weather.Weather, imperial bool) widget.Widget {
@@ -339,7 +336,7 @@ func tile(class string, parts ...widget.Widget) *widget.Box {
 	return cell
 }
 
-// statsGrid is stats_grid: humidity, wind, UV, and today's rain chance.
+// statsGrid: humidity, wind, UV, and today's rain chance.
 func (v *weatherView) statsGrid(w *weather.Weather, imperial bool) widget.Widget {
 	rain := "--"
 	if len(w.Daily) > 0 {
@@ -364,7 +361,7 @@ func (v *weatherView) statsGrid(w *weather.Weather, imperial bool) widget.Widget
 	return tileRow("weather-stats", cells...)
 }
 
-// hourly is hourly_forecast: "Now" then the next four hours.
+// hourly is "Now" then the next four hours.
 func (v *weatherView) hourly(w *weather.Weather, imperial bool, format config.TimeFormat) widget.Widget {
 	var cells []widget.Widget
 	for i, h := range w.Hourly[:min(len(w.Hourly), weatherHourlyItems)] {
@@ -381,12 +378,11 @@ func (v *weatherView) hourly(w *weather.Weather, imperial bool, format config.Ti
 	return dropdownSection(sectionLabel(v.font, i18n.T("dropdown-weather-hourly")), tileRow("hourly-forecast", cells...))
 }
 
-// daily is daily_forecast: five days in an item card, each day an Item
+// daily: five days in an item card, each day an Item
 // (its condition icon, the day over the condition) with its span on
 // the week's temperature range and its high and low. The span is a
 // .daily-bar track with a .daily-bar-fill the stylesheet paints; the
-// fill's offset and width are per-day geometry, the Rust
-// set_margin_start/set_width_request pair.
+// fill's offset and width are per-day geometry.
 func (v *weatherView) daily(w *weather.Weather, imperial bool) widget.Widget {
 	card, list := itemCard()
 	card.AddClass("daily-forecast")
@@ -432,7 +428,7 @@ func (v *weatherView) daily(w *weather.Weather, imperial bool) widget.Widget {
 // weatherBarPx is the temperature span bar's thickness.
 const weatherBarPx = 4
 
-// sunTimes is sun_times: today's sunrise and sunset, two tiles.
+// sunTimes: today's sunrise and sunset, two tiles.
 func (v *weatherView) sunTimes(w *weather.Weather, format config.TimeFormat) widget.Widget {
 	var cells []widget.Widget
 	for _, s := range []struct {
@@ -452,7 +448,7 @@ func (v *weatherView) sunTimes(w *weather.Weather, format config.TimeFormat) wid
 }
 
 // follow keeps the view current while open: service changes rebuild
-// it, and the data age re-renders every minute (UPDATED_AGO_INTERVAL).
+// it, and the data age re-renders every minute.
 func (v *weatherView) follow(life context.Context) {
 	if v.ctx.App == nil || v.svc == nil {
 		v.refresh()

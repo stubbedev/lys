@@ -28,8 +28,8 @@ type outcome struct {
 	said    dbus.Sequence
 }
 
-// Ask posts a notification with buttons and waits for the user
-// (notify.rs's notify_with_actions + NotifyReceipt::action): the key of
+// Ask posts a notification with buttons and waits for the user:
+// the key of
 // the button pressed, or ok=false when the notification closed or
 // expired without one, or ctx ended first. timeout is the daemon's
 // expire timeout. The icon also goes in the image-path hint, as

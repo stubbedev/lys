@@ -1,28 +1,22 @@
-// Package cli is lys-shell's declarative command tree: a port of the clap
-// subset the Rust CLI (lys-shell/src/cli) uses, so the Go binary keeps its
-// help text, flags, error messages, exit codes, and shell completions
-// byte-for-byte.
+// Package cli is lys-shell's declarative command tree.
 //
 // A tree is plain data: Commands holding Args and child Commands, each
 // leaf naming a Run handler. Parsing, help, usage, errors, and the
 // completion scripts all derive from that one declaration; nothing is
-// restated per subcommand. The rendering ports clap_builder 4.5
-// (output/help_template.rs, output/usage.rs, error/format.rs,
-// parser/parser.rs) and clap_complete 4.6 (aot/shells).
+// restated per subcommand.
 package cli
 
 import "strings"
 
-// Command is one node of the tree (a clap Command). The zero value of
-// every optional field is clap's default.
+// Command is one node of the tree. The zero value of every optional
+// field is the default.
 type Command struct {
 	// Name is the subcommand token; for the root it is the binary name.
 	Name string
 	// About is the one-line description shown in parent listings and
 	// in short (-h) help.
 	About string
-	// LongAbout replaces About in --help when set (a multi-paragraph
-	// doc comment in clap derive).
+	// LongAbout replaces About in --help when set.
 	LongAbout string
 	// AfterLongHelp is appended to --help only.
 	AfterLongHelp string
@@ -33,11 +27,11 @@ type Command struct {
 	// Subcommands are the children in declaration order.
 	Subcommands []*Command
 	// SubcommandOptional lets a command with subcommands run without
-	// one (clap derive's Option<Subcommand>). Otherwise a subcommand is
+	// one. Otherwise a subcommand is
 	// required and a bare invocation prints help to stderr, exit 2.
 	SubcommandOptional bool
 	// AllowHyphenValues lets every value-taking arg accept values that
-	// start with '-' (clap's Command::allow_hyphen_values).
+	// start with '-'.
 	AllowHyphenValues bool
 	// DisableHelpFlag drops the generated -h/--help.
 	DisableHelpFlag bool
@@ -46,9 +40,9 @@ type Command struct {
 	Run func(*Matches) error
 }
 
-// Arg is one argument (a clap Arg). An arg with neither Short nor
-// Long is positional. A named arg without a Value parser is a boolean
-// flag (ArgAction::SetTrue); with one it takes a single value.
+// Arg is one argument. An arg with neither Short nor Long is
+// positional. A named arg without a Value parser is a boolean flag;
+// with one it takes a single value.
 type Arg struct {
 	// ID keys the parsed value in Matches; its upper-case form is the
 	// default value name.
@@ -65,14 +59,13 @@ type Arg struct {
 	Value ValueParser
 	// Required makes the arg mandatory.
 	Required bool
-	// Multiple makes a positional collect every remaining value
-	// (a clap derive Vec<T>).
+	// Multiple makes a positional collect every remaining value.
 	Multiple bool
 	// Defaults are the values used when the arg is absent; a nil slice
 	// means no default (an empty-string default is []string{""}).
 	Defaults []string
 	// TrailingVarArg makes the positional swallow everything after it,
-	// flags included (clap's trailing_var_arg + allow_hyphen_values).
+	// flags included.
 	TrailingVarArg bool
 	// AllowHyphenValues lets this arg's values start with '-'.
 	AllowHyphenValues bool
@@ -87,7 +80,7 @@ func (a *Arg) valueName() string {
 	return strings.ToUpper(a.ID)
 }
 
-// action is clap's ArgAction for the kinds the tree uses.
+// action is what parsing an arg does.
 type action int
 
 const (
@@ -112,8 +105,8 @@ func (a *arg) takesValue() bool { return a.action == actionSet || a.action == ac
 
 func (a *arg) multiple() bool { return a.action == actionAppend }
 
-// cmd is a Command as built (clap's _build_self): the generated help
-// flag, version flag, and help subcommand added, positionals indexed.
+// cmd is a Command as built: the generated help flag, version flag,
+// and help subcommand added, positionals indexed.
 type cmd struct {
 	decl           *Command
 	name           string
@@ -126,7 +119,7 @@ type cmd struct {
 	subs           []*cmd
 	parent         *cmd
 	subRequired    bool
-	elseHelp       bool // arg_required_else_help
+	elseHelp       bool
 	helpFlagOff    bool
 	helpSubOff     bool
 	longHelpExists bool
@@ -204,7 +197,7 @@ func buildArg(a *Arg, cmdHyphen bool) *arg {
 	return built
 }
 
-// helpSubcommand is clap's generated `help` subcommand.
+// helpSubcommand is the generated `help` subcommand.
 func (c *cmd) helpSubcommand(expandHelp bool) *cmd {
 	h := &cmd{
 		name:        "help",
@@ -236,7 +229,8 @@ func (c *cmd) helpSubcommand(expandHelp bool) *cmd {
 	return h
 }
 
-// copyForHelp is clap's _copy_subtree_for_help: names and abouts only.
+// copyForHelp copies a subtree for the help subcommand: names and
+// abouts only.
 func copyForHelp(src, parent *cmd) *cmd {
 	c := &cmd{
 		name: src.name, about: src.about, bin: parent.bin + " " + src.name,
@@ -251,9 +245,9 @@ func copyForHelp(src, parent *cmd) *cmd {
 	return c
 }
 
-// computeLongHelpExists is clap's long_help_exists_: --help differs
-// from -h when there is a long about, an after-long-help, an arg long
-// help, or possible values with help text.
+// computeLongHelpExists reports whether --help differs from -h: there
+// is a long about, an after-long-help, an arg long help, or possible
+// values with help text.
 func (c *cmd) computeLongHelpExists() bool {
 	if c.longAbout != "" || c.afterLongHelp != "" {
 		return true

@@ -198,12 +198,6 @@ func TestErrorTexts(t *testing.T) {
 			t.Errorf("%T: %q, want %q", tc.err, got, tc.want)
 		}
 	}
-	if got := IOErrorString(&os.PathError{Op: "open", Path: "/x", Err: syscall.ENOENT}); got != "No such file or directory (os error 2)" {
-		t.Errorf("IOErrorString(ENOENT) = %q", got)
-	}
-	if got := IOErrorString(errors.New("plain")); got != "plain" {
-		t.Errorf("IOErrorString(plain) = %q", got)
-	}
 }
 
 func TestSources(t *testing.T) {

@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
-// notifyCommand is lys-shell/src/cli/notify/commands.rs.
 func notifyCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "notify",

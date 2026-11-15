@@ -4,9 +4,8 @@ import (
 	"strings"
 )
 
-// Help layout constants (clap output/mod.rs, help_template.rs). clap
-// is built without wrap_help, so the terminal width is always 100 and
-// only the next-line heuristic consults it.
+// Help layout constants. Help is never wrapped to the terminal, so the
+// width is always 100 and only the next-line heuristic consults it.
 const (
 	tab            = "  "
 	tabWidth       = 2
@@ -15,11 +14,11 @@ const (
 	termWidth      = 100
 )
 
-// String is clap's Display for Arg: the unstyled usage form, e.g.
+// String is the arg's unstyled usage form, e.g.
 // "--icon <ICON>", "<ID>", "[MINUTES]".
 func (a *arg) String() string { return strip(a.stylized(nil)) }
 
-// stylized is Arg::stylized: the flag name and its value suffix.
+// stylized is the flag name and its value suffix.
 // required overrides the arg's own requiredness for the brackets.
 func (a *arg) stylized(required *bool) string {
 	var b strings.Builder
@@ -33,7 +32,7 @@ func (a *arg) stylized(required *bool) string {
 	return b.String()
 }
 
-// suffix is Arg::stylize_arg_suffix.
+// suffix is the styled value placeholder after a flag name.
 func (a *arg) suffix(required *bool) string {
 	var b strings.Builder
 	if a.takesValue() && !a.positional() {
@@ -49,7 +48,7 @@ func (a *arg) suffix(required *bool) string {
 	return b.String()
 }
 
-// renderValue is Arg::render_arg_val for single-name args.
+// renderValue is the value placeholder of a single-name arg.
 func (a *arg) renderValue(required bool) string {
 	name := a.valueName()
 	var v string
@@ -64,8 +63,8 @@ func (a *arg) renderValue(required bool) string {
 	return v
 }
 
-// usage is Usage::create_usage_no_title. With used args it is clap's
-// "smart" usage: no [OPTIONS] tag, the used args shown as required.
+// usage is the usage line without its title. With used args it has
+// no [OPTIONS] tag and shows the used args as required.
 func usage(c *cmd, used []*arg) string {
 	var b strings.Builder
 	if len(used) == 0 {
@@ -86,12 +85,13 @@ func usage(c *cmd, used []*arg) string {
 	return strings.TrimRight(b.String(), " \n")
 }
 
-// usageWithTitle is Usage::create_usage_with_title.
+// usageWithTitle is the usage line with its "Usage:" title.
 func usageWithTitle(c *cmd, used []*arg) string {
 	return styleUsage.wrap("Usage:") + " " + usage(c, used)
 }
 
-// writeArgUsage is Usage::write_arg_usage with incl_reqs.
+// writeArgUsage writes the args part of a usage line, required args
+// included.
 func (c *cmd) writeArgUsage(b *strings.Builder, used []*arg) {
 	b.WriteString(styleLiteral.wrap(c.bin))
 	b.WriteString(" ")
@@ -137,7 +137,7 @@ func (c *cmd) requiredArgs() []*arg {
 	return req
 }
 
-// needsOptionsTag is Usage::needs_options_tag: any optional named arg
+// needsOptionsTag reports whether there is any optional named arg
 // other than help and version.
 func (c *cmd) needsOptionsTag() bool {
 	for _, a := range c.args {
@@ -149,9 +149,8 @@ func (c *cmd) needsOptionsTag() bool {
 	return false
 }
 
-// renderHelp is Command::write_help_err: the auto help template, then
-// the leading blank line and trailing whitespace trimmed and a single
-// newline restored.
+// renderHelp is the help template, then the leading blank line and
+// trailing whitespace trimmed and a single newline restored.
 func renderHelp(c *cmd, useLong bool) string {
 	useLong = useLong && c.longHelpExists
 	h := helpWriter{c: c, useLong: useLong}
@@ -215,9 +214,8 @@ func (h helpWriter) writeAllArgs(b *strings.Builder) {
 	}
 }
 
-// writeArgs is HelpTemplate::write_args. Named args keep declaration
-// order with help and version last (clap derive's display order);
-// positionals are in index order, which is declaration order too.
+// writeArgs writes an args section. Named args keep declaration
+// order with help and version last; positionals are in index order, which is declaration order too.
 func (h helpWriter) writeArgs(b *strings.Builder, args []*arg) {
 	longest := 2
 	for _, a := range args {
@@ -251,8 +249,8 @@ func (h helpWriter) argNextLineHelp(a *arg, longest int) bool {
 	return forceNextLine(displayWidth(a.help(false))+displayWidth(h.specVals(a)), longest)
 }
 
-// forceNextLine is clap's heuristic for a help column too narrow to
-// hold the text.
+// forceNextLine reports whether the help column is too narrow to hold
+// the text.
 func forceNextLine(helpWidth, longest int) bool {
 	taken := longest + tabWidth*2
 	return termWidth >= taken && float32(taken)/float32(termWidth) > 0.40 && helpWidth > termWidth-taken
@@ -296,7 +294,7 @@ func (h helpWriter) writeArg(b *strings.Builder, a *arg, nextLine bool, longest 
 	h.writeHelp(b, a, a.help(h.useLong), h.specVals(a), nextLine, longest)
 }
 
-// writeHelp is HelpTemplate::help: the text, the possible-values block
+// writeHelp writes one arg's help: the text, the possible-values block
 // in long help, and the [default: ...]/[possible values: ...] specs.
 func (h helpWriter) writeHelp(b *strings.Builder, a *arg, about, specVals string, nextLine bool, longest int) {
 	if nextLine {
@@ -354,7 +352,7 @@ func (h helpWriter) useLongPV(a *arg) bool {
 	return h.useLong && pvsHaveHelp(a.possibleValues())
 }
 
-// specVals is HelpTemplate::spec_vals for defaults and possible values.
+// specVals renders the [default: ...] and [possible values: ...] specs.
 func (h helpWriter) specVals(a *arg) string {
 	var specs []string
 	if a.takesValue() && len(a.Defaults) > 0 {
@@ -378,7 +376,7 @@ func (h helpWriter) specVals(a *arg) string {
 	return strings.Join(specs, sep)
 }
 
-// writeSubcommands is HelpTemplate::write_subcommands.
+// writeSubcommands writes the Commands section.
 func (h helpWriter) writeSubcommands(b *strings.Builder) {
 	longest := 2
 	for _, s := range h.c.subs {

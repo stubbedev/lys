@@ -1,6 +1,6 @@
 package config
 
-// BluetoothConfig is ported from crates/wayle-config/src/schemas/modules/bluetooth/mod.rs.
+// BluetoothConfig configures the bluetooth module.
 //
 // Bluetooth connection status with a dropdown for pairing and managing devices.
 type BluetoothConfig struct {

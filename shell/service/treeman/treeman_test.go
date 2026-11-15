@@ -135,7 +135,7 @@ func TestStatusComesFromTheJSONStatusCommand(t *testing.T) {
 }
 
 // Without the binary the service idles: no status, no ticks, and no
-// re-spawning (service.rs's Fetch::Unavailable).
+// re-spawning.
 func TestAMissingTreemanIdles(t *testing.T) {
 	s := New(filepath.Join(t.TempDir(), "missing-treeman"))
 	if _, outcome := s.fetch(context.Background()); outcome != fetchUnavailable {
@@ -153,7 +153,7 @@ func TestAMissingTreemanIdles(t *testing.T) {
 }
 
 // A failed or unparsable run keeps the last status and publishes
-// nothing (Fetch::Empty).
+// nothing.
 func TestAFailedRunKeepsTheLastStatus(t *testing.T) {
 	s := New(fakeTreemanBin(t, `{"total":2}`, "FAIL", "not json", `{"total":2}`))
 	ticks, stop := s.changes.Subscribe()

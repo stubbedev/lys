@@ -19,8 +19,7 @@ import (
 )
 
 // Focus resolves what the output and window modes capture: the focused
-// output and the active window, from whichever compositor is running
-// (screenshot/mod.rs's focused_output_name and active_window_target).
+// output and the active window, from whichever compositor is running.
 type Focus interface {
 	// FocusedOutput is the focused output's connector name; false lets
 	// the capture fall back to the first output.
@@ -31,7 +30,7 @@ type Focus interface {
 }
 
 // CompositorFocus asks Hyprland (when Hyprland is set), then lys-wm,
-// then mango, then niri - the Rust host's order with lys-wm added. The
+// then mango, then niri. The
 // focused output also comes from sway's and niri's focused workspace.
 type CompositorFocus struct {
 	Hyprland *hyprland.Connection

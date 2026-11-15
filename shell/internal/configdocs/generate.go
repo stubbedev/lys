@@ -12,7 +12,7 @@ import (
 const base = "/shell/config/"
 
 // Generate writes every page under dir: one per section (bar modules
-// in modules/), types.md, and index.md (generate_all).
+// in modules/), types.md, and index.md.
 func Generate(dir string) error {
 	sections := config.DocSections()
 	known := knownTypes(sections)
@@ -27,8 +27,7 @@ func Generate(dir string) error {
 	return writePage(filepath.Join(dir, "index.md"), indexPage(sections))
 }
 
-// GenerateOne writes the named section's page only
-// (generate_module_by_name).
+// GenerateOne writes the named section's page only.
 func GenerateOne(dir, name string) error {
 	sections := config.DocSections()
 	for _, sec := range sections {
@@ -65,7 +64,7 @@ func writePage(path, content string) error {
 	return nil
 }
 
-// indexPage is render_config_index.
+// indexPage is the config reference's index page.
 func indexPage(sections []config.DocSection) string {
 	var b strings.Builder
 	b.WriteString("---\ntitle: Config reference\noutline: [2]\n---\n\n<div v-pre>\n\n# Config reference\n\n")
@@ -89,7 +88,7 @@ func indexPage(sections []config.DocSection) string {
 	return b.String()
 }
 
-// hook is module_hook: the description's first non-blank line.
+// hook is the description's first non-blank line.
 func hook(sec config.DocSection) string {
 	desc, _ := sec.Schema["description"].(string)
 	for _, l := range lines(desc) {

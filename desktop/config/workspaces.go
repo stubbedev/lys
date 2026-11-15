@@ -9,10 +9,9 @@ import (
 	"strings"
 )
 
-// Types the four workspace modules share
-// (crates/wayle-config/src/schemas/modules/{hyprland,niri,sway,mango}_workspaces).
+// Types the four workspace modules share.
 
-// CSSClass is ActiveIndicator::css_class.
+// CSSClass is the indicator's CSS class.
 func (a ActiveIndicator) CSSClass() string {
 	if a == ActiveUnderline {
 		return "indicator-underline"
@@ -45,8 +44,8 @@ type WorkspaceClickAction struct {
 	Arg string
 }
 
-// ParseWorkspaceClickAction parses the schema string; like the Rust
-// from_str it never fails, anything unrecognized is a shell command.
+// ParseWorkspaceClickAction parses the schema string. It never fails:
+// anything unrecognized is a shell command.
 func ParseWorkspaceClickAction(s string) WorkspaceClickAction {
 	switch s {
 	case "":
@@ -156,7 +155,7 @@ func (m *WorkspaceMap) UnmarshalConfig(v any) error {
 	return nil
 }
 
-// parseIntError renders strconv's failure as Rust's ParseIntError.
+// parseIntError describes why a workspace-map key is not an integer.
 func parseIntError(key string, err error) error {
 	switch {
 	case key == "":
@@ -170,8 +169,7 @@ func parseIntError(key string, err error) error {
 	return errors.New("invalid digit found in string")
 }
 
-// MarshalConfig implements Marshaler: keys in numeric order, as the
-// Rust BTreeMap<i32, _> iterates them.
+// MarshalConfig implements Marshaler: keys in numeric order.
 func (m WorkspaceMap) MarshalConfig() any {
 	out := newTable()
 	for _, id := range slices.Sorted(maps.Keys(m)) {
@@ -197,7 +195,7 @@ func (m WorkspaceMap) Lookup(id int32) (WorkspaceStyle, bool) {
 
 // NamedWorkspaceMap is the niri/sway workspace-map: styles keyed by
 // workspace name or stable id. Its schema shares the WorkspaceMap
-// definition, as the two Rust types share one name.
+// definition.
 type NamedWorkspaceMap map[string]WorkspaceStyle
 
 func (NamedWorkspaceMap) configSchemaName() string { return "WorkspaceMap" }
@@ -304,8 +302,7 @@ func (c HyprlandWorkspacesConfig) View() CompositorWorkspacesConfig {
 	}
 }
 
-// AppIconMapKeys returns the app-icon-map patterns in the order the
-// Rust BTreeMap iterates them: sorted.
+// AppIconMapKeys returns the app-icon-map patterns sorted.
 func (c CompositorWorkspacesConfig) AppIconMapKeys() []string {
 	keys := make([]string, 0, len(c.AppIconMap))
 	for key := range c.AppIconMap {

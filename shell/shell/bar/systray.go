@@ -29,7 +29,7 @@ import (
 // store RunWith owns.
 var errSystrayNoStore = errors.New("systray: no SNI store available")
 
-// Tray icon constants (systray/item/helpers.rs).
+// Tray icon constants.
 const (
 	// trayFallbackIcon is the glyph for an item with no icon at all.
 	trayFallbackIcon = "ld-app-window-symbolic"
@@ -65,8 +65,7 @@ type TrayService interface {
 // NewTrayService adapts a running SNI host.
 func NewTrayService(h *sni.Host) TrayService { return hostTray{h: h, a: h.Actions()} }
 
-// hostTray is the live TrayService; activations carry (0, 0) as the
-// Rust tray sends.
+// hostTray is the live TrayService; activations carry (0, 0).
 type hostTray struct {
 	h *sni.Host
 	a *sni.Actions
@@ -104,13 +103,12 @@ func (t hostTray) WatchMenu(key string) (<-chan struct{}, func()) { return t.h.W
 
 func (t hostTray) WantPixmapSize(px int) func() { return t.h.WantPixmapSize(px) }
 
-// systrayMatches is helpers.rs's pattern test against an item's Id and
+// systrayMatches tests pattern against an item's Id and
 // Title: case-sensitive globs.
 func systrayMatches(pattern string, it sni.Item) bool {
 	return glob.Wildcard(pattern, it.ID) || glob.Wildcard(pattern, it.Title)
 }
 
-// systrayBlacklisted is is_blacklisted.
 func systrayBlacklisted(patterns []string, it sni.Item) bool {
 	for _, p := range patterns {
 		if systrayMatches(p, it) {
@@ -120,7 +118,7 @@ func systrayBlacklisted(patterns []string, it sni.Item) bool {
 	return false
 }
 
-// systrayOverride is find_override: the first entry whose name matches.
+// systrayOverride is the first entry whose name matches.
 func systrayOverride(overrides []config.TrayItemOverride, it sni.Item) (config.TrayItemOverride, bool) {
 	for _, o := range overrides {
 		if systrayMatches(o.Name, it) {
@@ -130,7 +128,7 @@ func systrayOverride(overrides []config.TrayItemOverride, it sni.Item) (config.T
 	return config.TrayItemOverride{}, false
 }
 
-// themePathIcon is find_icon_in_theme_path: <path>/<name>.<ext>.
+// themePathIcon: <path>/<name>.<ext>.
 func themePathIcon(themePath, name string) (string, bool) {
 	if themePath == "" {
 		return "", false
@@ -161,7 +159,7 @@ const (
 )
 
 // trayIconSource is the resolved source of a glyph, and its identity
-// for change detection (item/mod.rs IconSignature).
+// for change detection.
 type trayIconSource struct {
 	kind   trayIconKind
 	name   string
@@ -207,7 +205,7 @@ func (l trayLook) same(o trayLook) bool {
 	return l.icon.same(o.icon) && l.hasOverlay == o.hasOverlay && (!l.hasOverlay || l.overlay.same(o.overlay))
 }
 
-// resolveTrayLook is update_icon's source pick. A NeedsAttention item
+// resolveTrayLook picks the icon source. A NeedsAttention item
 // draws its AttentionIconName, else its AttentionIconPixmap, over an
 // override's icon. Otherwise, or without either, it draws the override
 // icon or its IconName, else its IconPixmap, else the fallback glyph.
@@ -378,8 +376,8 @@ type systrayModule struct {
 
 	entries map[string]*trayEntry
 	root    *widget.Box
-	// chrome is the module wrapper, hidden while the tray is empty as
-	// mod.rs hides the root's parent; shown mirrors its visibility for
+	// chrome is the module wrapper, hidden while the tray is empty; shown
+	// mirrors its visibility for
 	// a chrome that arrives later.
 	chrome moduleChrome
 	shown  bool
@@ -546,7 +544,7 @@ func (m *systrayModule) read(context.Context) ([]trayView, error) {
 	return views, nil
 }
 
-// apply reconciles the buttons with the store (update_items): each icon
+// apply reconciles the buttons with the store: each icon
 // rebuilds only when its source changed, and the row only when its order did.
 func (m *systrayModule) apply(views []trayView) {
 	live := make(map[string]bool, len(views))
@@ -655,8 +653,7 @@ func (m *systrayModule) buildLook(e *trayEntry, look trayLook) {
 	e.slot.Append(stack, true)
 }
 
-// call runs one item control off the loop, logging failures as the
-// Rust tray's warn! does.
+// call runs one item control off the loop, logging failures.
 func (m *systrayModule) call(what string, key string, fn func(ctx context.Context, it sni.Item) error) {
 	e, ok := m.entries[key]
 	if !ok || m.tray == nil {
@@ -693,8 +690,8 @@ func (m *systrayModule) middleClick(key string) {
 	}
 }
 
-// rightClick is request_menu_show: a second right-click closes the
-// open menu; otherwise AboutToShow and a fresh layout, then the menu -
+// rightClick toggles the menu: a second right-click closes the open
+// menu; otherwise AboutToShow and a fresh layout, then the menu -
 // or the item's own ContextMenu when it publishes none. The menu's
 // change feed starts before AboutToShow, so a layout the app changes in
 // answer to it still reaches the open menu.
@@ -738,8 +735,7 @@ func (m *systrayModule) showMenu(open *trayMenu, menu sni.MenuItem, err error) {
 	open.items = m.menuRows(it, menu.Children)
 	if m.ctx.App != nil && m.host != nil {
 		font, px := dropdownFont(m.ctx)
-		// Submenus open as their own popovers beside their rows, as the
-		// Rust tray's PopoverMenu with the NESTED flag does.
+		// Submenus open as their own popovers beside their rows.
 		pop, err := m.ctx.App.OpenMenuPopover(m.host, trayMenuConfig(e.button, font, px, open.items, func() {
 			open.stop()
 			m.unbindAccels()
@@ -828,7 +824,7 @@ func (m *systrayModule) closeMenu() {
 	m.menu = nil
 }
 
-// menuRows is the gtk4 adapter's build_model: invisible rows drop,
+// menuRows builds the menu model: invisible rows drop,
 // separators split sections (never leading, trailing, or doubled),
 // labels lose their leading mnemonic underscores, toggles become
 // check/radio rows, disabled rows stay visible but inert, submenus
@@ -893,7 +889,7 @@ func (m *systrayModule) binder() accelBinder {
 	return nil
 }
 
-// bindAccels is register_accelerators: every visible, enabled leaf with
+// bindAccels is every visible, enabled leaf with
 // a shortcut fires its clicked event on that key while the menu is
 // open. A rebuilt menu drops the previous bindings first; a key already
 // taken is skipped.
@@ -928,7 +924,6 @@ func (m *systrayModule) bindAccels(it sni.Item, nodes []sni.MenuItem) {
 	walk(nodes)
 }
 
-// unbindAccels is clear_accelerators.
 func (m *systrayModule) unbindAccels() {
 	if b := m.binder(); b != nil {
 		for _, spec := range m.accelKeys {
@@ -938,7 +933,7 @@ func (m *systrayModule) unbindAccels() {
 	m.accelKeys = nil
 }
 
-// trayAccelSpec is to_gtk_accelerator: the first shortcut as a GTK
+// trayAccelSpec is the first shortcut as a GTK
 // accelerator ("<Control><Shift>q"), modifiers outside Control, Shift,
 // Alt and Super dropped; empty without one.
 func trayAccelSpec(shortcut [][]string) string {
@@ -971,8 +966,7 @@ func trayMenuIcon(n sni.MenuItem, px int) *widget.Icon {
 }
 
 // trayAccel renders the first shortcut as an accelerator label
-// (to_gtk_accelerator's modifier set: Control, Shift, Alt, Super; other
-// modifiers drop).
+// (Control, Shift, Alt, Super; other modifiers drop).
 func trayAccel(shortcut [][]string) string {
 	if len(shortcut) == 0 || len(shortcut[0]) == 0 {
 		return ""

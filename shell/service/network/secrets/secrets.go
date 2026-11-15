@@ -1,7 +1,5 @@
 // Package secrets holds the credential-prompt contract shared by the
-// NetworkManager secret agent and the VPN sign-ins that run inside it,
-// the Go counterpart of crates/wayle-network's types/agent.rs and the
-// VPN variants of error.rs.
+// NetworkManager secret agent and the VPN sign-ins that run inside it.
 //
 // It exists on its own so the sign-in protocols (package openconnect)
 // and the agent (package network) depend on one definition of what a
@@ -74,7 +72,7 @@ type ProtocolUnsupportedError struct{ Reason string }
 func (e *ProtocolUnsupportedError) Error() string { return e.Reason }
 
 // DiscreditsPassword reports whether err is evidence against a stored
-// password: only a refusal is (discredits_password).
+// password: only a refusal is.
 func DiscreditsPassword(err error) bool {
 	var refused *AuthenticationFailedError
 	return errors.As(err, &refused)

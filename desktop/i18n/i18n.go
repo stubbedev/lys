@@ -1,17 +1,17 @@
-// Package i18n is lys-shell's Fluent localization: a port of the runtime
-// the Rust crates get from i18n-embed 0.16 (FluentLanguageLoader),
-// fluent-bundle 0.16, fluent-syntax 0.12, and fluent-langneg 0.13.
+// Package i18n is lys's Fluent localization: a loader, bundle, parser
+// and language negotiation following i18n-embed 0.16
+// (FluentLanguageLoader), fluent-bundle 0.16, fluent-syntax 0.12, and
+// fluent-langneg 0.13.
 //
-// Three domains exist, as in Rust:
+// Three domains exist:
 //
-//   - the shell domain (crates/wayle-shell-core/src/i18n.rs, the t!/td!
-//     macros): bar labels, dropdowns, OSD, notification popups. T and
-//     Attr read it.
-//   - the settings domain (crates/wayle-i18n/src/lib.rs, t/t_attr): the
-//     config's field labels, which lys-settings adds its own messages to
-//     (ConfigAssets). Settings returns it.
-//   - the greeter domain (crates/lys-greeter/src/i18n.rs, t!): the
-//     login screen's labels. Greeter returns it.
+//   - the shell domain: bar labels, dropdowns, OSD, notification
+//     popups. T and Attr read it.
+//   - the settings domain: the config's field labels, which
+//     lys-settings adds its own messages to (ConfigAssets). Settings
+//     returns it.
+//   - the greeter domain: the login screen's labels. Greeter returns
+//     it.
 //
 // Each domain negotiates the desktop locale (LANGUAGE, LC_ALL,
 // LC_MESSAGES, LANG) against its embedded locales once, on first use,
@@ -33,8 +33,7 @@ import (
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 )
 
-// domain lazily builds one loader from the desktop locale, like the
-// Rust OnceLock<FluentLanguageLoader>.
+// domain lazily builds one loader from the desktop locale.
 type domain struct {
 	assets Assets
 	once   sync.Once
@@ -46,7 +45,7 @@ func (d *domain) get() *Loader {
 		l, err := Select(d.assets, requestedLanguages(os.Getenv))
 		if err != nil {
 			// The embedded fallback is validated by tests; failing here
-			// is a build defect, as the Rust expect() treats it.
+			// is a build defect.
 			panic(err)
 		}
 		d.loader = l
@@ -60,10 +59,10 @@ var (
 	greeterDomain  = &domain{assets: NewFileAssets(greeterlocales.FS, "lys-greeter.ftl")}
 )
 
-// Shell returns the shell-domain loader (wayle-shell-core's loader()).
+// Shell returns the shell-domain loader.
 func Shell() *Loader { return shellDomain.get() }
 
-// Settings returns the settings-domain loader (wayle-i18n's loader()).
+// Settings returns the settings-domain loader.
 func Settings() *Loader { return settingsDomain.get() }
 
 // ConfigAssets is the config's field labels and common messages, for
@@ -74,10 +73,10 @@ func ConfigAssets() Assets { return settingsDomain.assets }
 // domain negotiates them.
 func RequestedLanguages() []LangID { return requestedLanguages(os.Getenv) }
 
-// Greeter returns the greeter-domain loader (lys-greeter's loader()).
+// Greeter returns the greeter-domain loader.
 func Greeter() *Loader { return greeterDomain.get() }
 
-// T formats a shell message: wayle-shell-core's t!/td!.
+// T formats a shell message.
 func T(id string, args ...Arg) string { return Shell().Get(id, args...) }
 
 // Attr formats a shell message attribute.

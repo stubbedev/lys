@@ -13,8 +13,8 @@ import (
 	"github.com/stubbedev/lys/shell/service/mail"
 )
 
-// startMail builds and runs the shared mail service, as the Rust
-// bootstrap does whether or not a mail module is placed. Without a
+// startMail builds and runs the shared mail service, whether or not a
+// mail module is placed. Without a
 // session bus it still counts; it only cannot notify. The returned function
 // stops it.
 func startMail(ctx *ModuleContext, conn *dbus.Conn) func() {
@@ -29,7 +29,7 @@ func startMail(ctx *ModuleContext, conn *dbus.Conn) func() {
 	return cancel
 }
 
-// mailLabel is format_label: {{ count }} replaced, not a template.
+// mailLabel: {{ count }} replaced, not a template.
 func mailLabel(format string, count uint32) string {
 	return jinja.ReplaceVars(format, mailVars(count))
 }
@@ -79,7 +79,6 @@ func newMail(ctx ModuleContext) (Module, error) {
 	return m, nil
 }
 
-// apply is update_display for one count.
 func (m *mailModule) apply(count uint32) {
 	cfg := m.ctx.Config.Mail
 	m.count = count

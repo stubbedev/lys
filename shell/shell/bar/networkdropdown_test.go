@@ -231,7 +231,7 @@ func TestNetworkDropdownListsAndConnects(t *testing.T) {
 		t.Error("a populated list scanned on open")
 	}
 	// Reopening the cached instance still scans nothing while the list
-	// has networks (NetworkDropdownMsg::Opened).
+	// has networks.
 	v.dropdownOpened()
 	if _, _, _, scans, _ := wifi.calls(); scans != 0 {
 		t.Error("a populated list scanned on reopen")
@@ -402,7 +402,7 @@ func TestNetworkSecretForm(t *testing.T) {
 	}
 }
 
-// The wifi rows are lys-ui's activatable Items (network_item.rs:49-190):
+// The wifi rows are lys-ui's activatable Items:
 // a click anywhere in the row selects it. A saved row's hover reveals
 // the forget button, which keeps its own click and does not select the
 // row; an unsaved one has no forget slot.
@@ -494,7 +494,7 @@ func TestNetworkRowsActivateAndForget(t *testing.T) {
 
 // .dropdown-content is on the root content wrapper — active
 // connections, secret form, and body stack under one padded box — and
-// nowhere else in the tree (network/mod.rs:129-183).
+// nowhere else in the tree.
 func TestNetworkDropdownContentOnTheRootWrapper(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{}, netDeps{})
 	if widget.HasClass(v.Box, "dropdown-content") {
@@ -528,8 +528,7 @@ func TestNetworkDropdownContentOnTheRootWrapper(t *testing.T) {
 	}
 }
 
-// The scan button is GhostIconButton: lys-ui's ghost icon square, not
-// a filled variant (network/mod.rs:97-109).
+// The scan button is lys-ui's ghost icon square, not a filled variant.
 func TestNetworkScanButtonGhostIcon(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: &fakeWifiCtl{}})
 	// The empty list scans on open; its completion restyles the button
@@ -547,8 +546,7 @@ func TestNetworkScanButtonGhostIcon(t *testing.T) {
 	}
 }
 
-// The empty states' icons carry the sm size class (available_networks/
-// mod.rs:114,137).
+// The empty states' icons carry the sm size class.
 func TestNetworkEmptyStatesCarryTheSmIcon(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{}, netDeps{})
 	for _, empty := range []*widget.StatusPage{v.noAdapter, v.noNetworks} {
@@ -565,8 +563,7 @@ func TestNetworkEmptyStatesCarryTheSmIcon(t *testing.T) {
 	}
 }
 
-// The wifi tile swaps wifi for error; it never wears both
-// (active_connections/methods.rs:100-110).
+// The wifi tile swaps wifi for error; it never wears both.
 func TestNetworkWifiTileSwapsWifiForError(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: &fakeWifiCtl{}})
 	onHeadlessLoop(func() bool {

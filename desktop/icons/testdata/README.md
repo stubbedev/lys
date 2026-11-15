@@ -1,16 +1,14 @@
 # Icon transform goldens
 
 `symbolic/` holds SVGs and what the symbolic transform makes of each.
-The goldens were captured from lys-shell's original Rust transform (on usvg
-0.46), which the Go port reproduces byte for byte, and are now the
-reference:
+They are the reference the transform reproduces byte for byte:
 
 - `<name>.svg.golden`: `to_symbolic`'s output, or `NONE` when it gives
   up;
 - `<name>.svg.parse`: `OK`, or `ERR: ` and the error the parser rejects
   the file with.
 
-`TestToSymbolicMatchesRust` holds the transform to both.
+`TestToSymbolicMatchesGoldens` holds the transform to both.
 
 The inputs are a sample of the four icon sets lys-shell installs from
 (Simple Icons `si-`, CC0; Lucide `ld-`, ISC; Tabler outline `tb-` and

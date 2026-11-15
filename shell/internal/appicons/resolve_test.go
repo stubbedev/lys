@@ -4,7 +4,6 @@ import "testing"
 
 func app(id string) Window { return Window{AppID: id, HasAppID: true} }
 
-// The cases are niri helpers.rs's resolve_app_icon tests.
 func TestResolveUnprefixedMatchesAppID(t *testing.T) {
 	user := map[string]string{"*firefox*": "user-firefox"}
 	if got := Resolve(app("org.mozilla.firefox"), user, "fb"); got != "user-firefox" {
@@ -55,7 +54,7 @@ func TestResolveBuiltinDefaultAndUserOverride(t *testing.T) {
 	if got := Resolve(app("firefox"), map[string]string{"firefox": "mine"}, "fb"); got != "mine" {
 		t.Errorf("user override: got %q", got)
 	}
-	// The builtin table is case-sensitive, as the wildcard crate is.
+	// The builtin table is case-sensitive.
 	if got := Resolve(app("Firefox"), nil, "fb"); got == "si-firefox-symbolic" {
 		t.Error("builtin matched with different case")
 	}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Captures the Rust `lys-shell icons` behavior the Go CLI is held to
-# (TestIconsCLIMatchesRust): each step's stdout, stderr and exit code,
-# run in a throwaway home with no network access needed.
+# Captures the `lys-shell icons` session TestIconsCLISession replays:
+# each step's stdout, stderr and exit code, run in a throwaway home with
+# no network access needed.
 #
 #   cmd/lys-shell/testdata/icons/capture.sh "$(command -v lys-shell)" cmd/lys-shell/testdata/icons
 set -eu

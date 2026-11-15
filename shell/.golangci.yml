@@ -68,7 +68,7 @@ linters:
         linters:
           - gosec
         text: "G115: integer overflow conversion (uint16 -> int16|uint32 -> int32|uint64 -> int64|int64 -> uint64)$"
-      # Workspace and window ids keep Rust's `as u64` mapping: a negative
+      # Workspace and window ids map int64 to uint64 bit for bit: a negative
       # Hyprland special-workspace id stays a distinct id, and the
       # ws-id-N CSS classes users style are derived from it.
       - path: ^shell/bar/(cwsbackends|hyprland)\.go$

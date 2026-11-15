@@ -1,6 +1,6 @@
 package config
 
-// BrightnessConfig is ported from crates/wayle-config/src/schemas/modules/brightness/mod.rs.
+// BrightnessConfig configures the brightness module.
 //
 // Backlight control bar module.
 type BrightnessConfig struct {

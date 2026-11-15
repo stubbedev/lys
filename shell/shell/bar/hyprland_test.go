@@ -39,7 +39,6 @@ func filteredIDs(list []hyprFiltered) []int {
 	return out
 }
 
-// The cases are filtering.rs's tests.
 func TestHyprFilterWorkspaces(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

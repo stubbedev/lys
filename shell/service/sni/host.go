@@ -26,7 +26,7 @@ const (
 	ProtocolVersion = int32(0)
 )
 
-// Discovery cadences (watcher/discovery.rs, core/item/monitoring.rs).
+// Discovery cadences.
 var (
 	// orphanScanSchedule re-scans the bus for items that registered with
 	// a previous watcher (a shell restart) and never re-register.
@@ -520,7 +520,7 @@ func (h *Host) resync() {
 	}
 }
 
-// orphanScan is discovery.rs spawn_orphan_scan: on the schedule,
+// orphanScan runs on the schedule:
 // probe every other unique name for a StatusNotifierItem and register
 // the ones that answer - items that registered with a watcher that has
 // since gone away do not re-register on their own.
@@ -857,7 +857,7 @@ func (h *Host) Close() error {
 	return h.release()
 }
 
-// watcher is the exported StatusNotifierWatcher (watcher/mod.rs).
+// watcher is the exported StatusNotifierWatcher.
 // A registration asks the bus whether its name still has an owner
 // before the item is recorded: checking counts the registrations of a
 // name under way, and lost is when the bus announced, during one, that
@@ -888,8 +888,8 @@ func (w *watcher) askOwner(name string) (dbus.Sequence, error) {
 }
 
 // RegisterStatusNotifierItem accepts an item. A bare object path is
-// the sender's own (sender + path), as the spec and the Rust watcher
-// allow; anything else is a bus name.
+// the sender's own (sender + path), as the spec allows; anything else
+// is a bus name.
 func (w *watcher) RegisterStatusNotifierItem(sender dbus.Sender, service string) *dbus.Error {
 	if strings.HasPrefix(service, "/") {
 		service = string(sender) + service
@@ -954,8 +954,8 @@ func (w *watcher) registered(name string) bool {
 	return false
 }
 
-// nameVanished is unregister_item + unregister_host for a connection
-// that left the bus.
+// nameVanished unregisters the items and hosts of a connection that
+// left the bus.
 func (w *watcher) nameVanished(loss nameLoss) {
 	name := loss.name
 	w.mu.Lock()
@@ -1063,6 +1063,5 @@ func (a *Actions) Scroll(ctx context.Context, it Item, delta int32, orientation 
 	return a.conn.Object(it.Bus, dbus.ObjectPath(it.Path)).CallWithContext(ctx, ItemIface+".Scroll", 0, delta, orientation).Err
 }
 
-// IsWatcher reports whether this process serves the watcher role (the
-// Rust service in TrayMode::Auto having claimed it).
+// IsWatcher reports whether this process serves the watcher role.
 func (h *Host) IsWatcher() bool { return h.watcher != nil }

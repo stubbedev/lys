@@ -14,10 +14,10 @@ import (
 	"github.com/stubbedev/lys/shell/internal/walltimer"
 )
 
-// worldClockTemplate is helpers.rs's format_world_clock over one format:
+// worldClockTemplate renders one format:
 // the format renders as a template with tz(zone, strftime) formatting now in
-// that zone. An unknown zone fails the render, which shows as nothing
-// (format_world_clock(...).unwrap_or_default()). Each zone and layout loads
+// that zone. An unknown zone fails the render, which shows as nothing.
+// Each zone and layout loads
 // once; one goroutine renders it.
 type worldClockTemplate struct {
 	format  string
@@ -56,7 +56,7 @@ func (t *worldClockTemplate) tz(args []any, _ map[string]any) (any, error) {
 	if !ok {
 		compiled, err := strftime.Compile(layout)
 		if err != nil {
-			return "", nil //nolint:nilerr // a bad layout renders as nothing, as the Rust module does
+			return "", nil //nolint:nilerr // a bad layout renders as nothing
 		}
 		formatted = compiled
 		t.layouts[layout] = compiled

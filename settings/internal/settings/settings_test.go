@@ -166,7 +166,7 @@ func TestEnumSelectLabelsAndWrites(t *testing.T) {
 	if v := k.store.value("osd.position"); v != "top-left" {
 		t.Errorf("value = %v, want top-left", v)
 	}
-	// An enum Rust leaves unlabeled shows its raw values.
+	// An enum without labels shows its raw values.
 	vpn, _ := config.Field("modules.network.vpn-show")
 	raw := newEnumSelect(k, pathSlot(k.store, "modules.network.vpn-show"), vpn)
 	if raw.Selection() != "auto" {
@@ -488,7 +488,7 @@ func TestResetAllConfirmation(t *testing.T) {
 }
 
 // A field of a value struct writes, reads, unsets and resets through
-// its leaf (Rust's field projections).
+// its leaf.
 func TestValueStructFields(t *testing.T) {
 	k := testKit(t, "animations:\n  osd:\n    enter: zoom\n")
 	if got := k.store.value("animations.osd.enter"); got != "zoom" {

@@ -14,7 +14,7 @@ import (
 	"github.com/stubbedev/lys/shell/internal/jinja"
 )
 
-// The status glyphs helpers.rs embeds (Nerd Font media icons).
+// The status glyphs (Nerd Font media icons).
 const (
 	mediaPlayGlyph  = "󰐊"
 	mediaPauseGlyph = "󰏤"
@@ -46,8 +46,8 @@ func mediaStatusGlyph(state mpris.PlaybackState) string {
 	return mediaStopGlyph
 }
 
-// mediaLabel is helpers.rs format_label: title, artist, album, status,
-// and status_icon.
+// mediaLabel renders format over title, artist, album, status, and
+// status_icon.
 func mediaLabel(format string, p mpris.Player) string {
 	return jinja.RenderOr(format, mediaVars(p))
 }
@@ -125,7 +125,6 @@ func (m *desktopIconMemo) resolve(entry string) {
 	}
 }
 
-// resolveMediaIcon is helpers.rs resolve_icon.
 func resolveMediaIcon(cfg config.MediaConfig, p mpris.Player) string {
 	entrySymbolic := func() string {
 		if p.DesktopEntry != "" {
@@ -154,7 +153,7 @@ func resolveMediaIcon(cfg config.MediaConfig, p mpris.Player) string {
 	return entrySymbolic()
 }
 
-// mediaIconName is helpers.rs build_icon: application mode reads the
+// mediaIconName picks the icon: application mode reads the
 // desktop entry's icon; the other modes resolve and keep the result
 // only when the theme has it, application-mapped trying the desktop
 // entry next; icon-name is the last resort.
@@ -221,8 +220,8 @@ func (m *mediaModule) setChrome(c moduleChrome) {
 	m.refresh()
 }
 
-// refresh is update_cmd's PlayerChanged/MetadataChanged/
-// PlaybackStateChanged: label, icon, and the disc classes.
+// refresh follows a player, metadata or playback change: label, icon,
+// and the disc classes.
 func (m *mediaModule) refresh() {
 	cfg := m.ctx.Config.Media
 	p, ok := m.source.Active()
@@ -247,8 +246,8 @@ type classer interface {
 	RemoveClass(names ...string)
 }
 
-// moduleChrome is a module's wrapper box, the Rust module root: its
-// classes and its visibility.
+// moduleChrome is a module's wrapper box: its classes and its
+// visibility.
 type moduleChrome interface {
 	classer
 	SetVisible(on bool)

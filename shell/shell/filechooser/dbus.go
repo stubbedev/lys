@@ -11,7 +11,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// D-Bus identity (wayle-ipc file_chooser.rs).
+// D-Bus identity.
 const (
 	ServiceName = "dev.stubbe.lys.FileChooser1"
 	ServicePath = dbus.ObjectPath("/dev/stubbe/lys/FileChooser")

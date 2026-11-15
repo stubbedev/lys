@@ -13,8 +13,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
-// screenshotCommand is lys-shell/src/cli/screenshot/commands.rs: each
-// subcommand asks the running shell to capture, then reports where the
+// screenshotCommand's subcommands each ask the running shell to capture, then reports where the
 // shot landed.
 func screenshotCommand() *cli.Command {
 	return &cli.Command{
@@ -44,7 +43,7 @@ func captureScreenshot(mode string) func(*cli.Matches) error {
 		target, _ := cli.Value[string](m, "name")
 		conn, err := dbus.ConnectSessionBus()
 		if err != nil {
-			return fmt.Errorf("Failed to connect to D-Bus session bus: %w", err) //nolint:staticcheck // the Rust CLI's message
+			return fmt.Errorf("Failed to connect to D-Bus session bus: %w", err) //nolint:staticcheck // the CLI's capitalized message
 		}
 		defer func() { _ = conn.Close() }()
 		// No timeout: a region capture waits for the user's drag.
@@ -70,7 +69,7 @@ func readScreen(kind screenshot.ReadKind) func(*cli.Matches) error {
 	return func(m *cli.Matches) error {
 		conn, err := dbus.ConnectSessionBus()
 		if err != nil {
-			return fmt.Errorf("Failed to connect to D-Bus session bus: %w", err) //nolint:staticcheck // the Rust CLI's message
+			return fmt.Errorf("Failed to connect to D-Bus session bus: %w", err) //nolint:staticcheck // the CLI's capitalized message
 		}
 		defer func() { _ = conn.Close() }()
 		text, err := screenshot.NewClient(conn).Read(context.Background(), portaldialogs.Caller{}, kind)

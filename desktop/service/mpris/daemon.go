@@ -10,12 +10,10 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
-	"github.com/stubbedev/lys/desktop/rusterr"
 )
 
 // lys-shell's own interface over the media service, which `lys-shell media`
-// drives (wayle-media/src/dbus).
+// drives.
 const (
 	DaemonName = "dev.stubbe.lys.Media1"
 	DaemonPath = dbus.ObjectPath("/dev/stubbe/lys/Media")
@@ -23,8 +21,7 @@ const (
 
 const daemonTimeout = 25 * time.Second
 
-// Daemon is the dev.stubbe.lys.Media1 object (dbus/server.rs MediaDaemon)
-// over the shell's media service.
+// Daemon is the dev.stubbe.lys.Media1 object over the shell's media service.
 type Daemon struct {
 	s *Service
 }
@@ -44,9 +41,9 @@ func (d *Daemon) resolve(player string) (string, *dbus.Error) {
 	return "", dbusx.Failed("No active player")
 }
 
-// failed is the daemon's fdo::Error::Failed(e.to_string()) over the
-// MediaError spellings: an untracked player is PlayerNotFound, any
-// other failure the Control error naming its action.
+// failed is the D-Bus Failed error for a media failure: an untracked
+// player is PlayerNotFound, any other failure the Control error naming
+// its action.
 func failed(action, name string, err error) *dbus.Error {
 	switch {
 	case err == nil:
@@ -54,7 +51,7 @@ func failed(action, name string, err error) *dbus.Error {
 	case errors.Is(err, ErrNoPlayer):
 		return dbusx.Failed("player " + name + " not found")
 	}
-	return dbusx.Failed("cannot control player: " + action + ": " + rusterr.Zbus(err))
+	return dbusx.Failed("cannot control player: " + action + ": " + err.Error())
 }
 
 func (d *Daemon) control(player, action string, run func(context.Context, string) error) *dbus.Error {
@@ -98,8 +95,8 @@ func (d *Daemon) SetShuffle(player, state string) *dbus.Error {
 	case "off":
 		run = func(ctx context.Context, name string) error { return d.s.SetShuffle(ctx, name, false) }
 	case "toggle":
-		// Rust reads the mode and writes its opposite, so a player
-		// without Shuffle answers with its own error.
+		// Reading the mode and writing its opposite lets a player
+		// without Shuffle answer with its own error.
 		run = func(ctx context.Context, name string) error {
 			p, err := d.s.lookup(name)
 			if err != nil {
@@ -163,8 +160,7 @@ func (d *Daemon) SetActivePlayer(player string) *dbus.Error {
 	return failed("set active player", player, d.s.SetActive(player))
 }
 
-// GetPlayerInfo is the player's snapshot as a string map (Player::get
-// with the Rust enums' Debug spellings).
+// GetPlayerInfo is the player's snapshot as a string map.
 func (d *Daemon) GetPlayerInfo(player string) (map[string]string, *dbus.Error) {
 	name, derr := d.resolve(player)
 	if derr != nil {

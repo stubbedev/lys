@@ -22,11 +22,11 @@ const (
 	ProfilePerformance = "performance"
 )
 
-// Canonical cycle order (helpers.rs): power-saver → balanced →
+// Canonical cycle order: power-saver → balanced →
 // performance.
 var order = []string{ProfilePowerSaver, ProfileBalanced, ProfilePerformance}
 
-// NextProfile is helpers.rs's next_profile: the successor of current
+// NextProfile is the successor of current
 // in the canonical order restricted to available (empty available
 // means all three), falling back to balanced.
 func NextProfile(current string, available []string) string {

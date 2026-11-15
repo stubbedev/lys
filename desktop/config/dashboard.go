@@ -1,6 +1,6 @@
 package config
 
-// DashboardConfig is ported from crates/wayle-config/src/schemas/modules/dashboard/mod.rs.
+// DashboardConfig configures the dashboard module.
 //
 // Quick-access button with a distro icon; opens the dashboard dropdown.
 //
@@ -95,7 +95,7 @@ func (c DashboardConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// UserSessionConfig is ported from crates/wayle-config/src/schemas/modules/dashboard/mod.rs.
+// UserSessionConfig is part of the dashboard module's configuration.
 //
 // Settings for user session the in dashboard
 // ## Examples
@@ -120,7 +120,7 @@ func DefaultsUserSession() UserSessionConfig {
 	}
 }
 
-// SessionAction is ported from crates/wayle-config/src/schemas/bar/dropdowns/dashboard/user_session.rs.
+// SessionAction is part of the dashboard module's configuration.
 //
 // One action the dashboard session actions
 type SessionAction string

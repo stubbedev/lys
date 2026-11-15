@@ -28,7 +28,7 @@ const (
 	recorderPathReplay    = "modules.recorder.replay.enable"
 )
 
-// previewGeometry is preview_geometry: the 16:9 screen frame across the
+// previewGeometry is the 16:9 screen frame across the
 // width the preview is given and the webcam frame at its configured
 // size.
 func previewGeometry(width int32, sizePct uint8) (pw, ph, cw, ch int32) {
@@ -39,7 +39,6 @@ func previewGeometry(width int32, sizePct uint8) (pw, ph, cw, ch int32) {
 	return pw, ph, cw, ch
 }
 
-// pctFromPx is pct_from_px.
 func pctFromPx(px, margin, travel int32) uint8 {
 	if travel <= 0 {
 		return 0
@@ -86,7 +85,6 @@ func (p *webcamPreview) travel() (margin, w, h int32) {
 	return margin, max(p.pw-p.cw-2*margin, 0), max(p.ph-p.ch-2*margin, 0)
 }
 
-// place is reposition_cam.
 func (p *webcamPreview) place(x, y uint8) {
 	p.x, p.y = min(x, 100), min(y, 100)
 	p.reposition()
@@ -384,7 +382,6 @@ func (v *recorderView) picker(list []devicechoice.DeviceChoice, saved, path stri
 	return d
 }
 
-// webcamMoved is WebcamMoved.
 func (v *recorderView) webcamMoved(x, y uint8) {
 	v.ctx.setConfig(recorderPathWebcamX, int64(x))
 	v.ctx.setConfig(recorderPathWebcamY, int64(y))
@@ -397,7 +394,7 @@ func (v *recorderView) snapshot() recorder.Change {
 	return v.ctx.Recorder.Snapshot()
 }
 
-// applyState is StateChanged plus the view's #[watch]es. The record
+// applyState follows a state change. The record
 // button's `primary`/`danger` classes and the status dot's `paused`
 // class carry the colors; the stylesheet paints them.
 func (v *recorderView) applyState(c recorder.Change) {
@@ -435,7 +432,7 @@ func (v *recorderView) applyState(c recorder.Change) {
 	}
 }
 
-// syncMics is MicrophonesUpdated: a changed source list rebuilds the
+// syncMics follows the microphones: a changed source list rebuilds the
 // picker, keeping the saved selection when it is still there.
 func (v *recorderView) syncMics(mics []devicechoice.DeviceChoice) {
 	if slices.Equal(mics, v.mics) {

@@ -1,6 +1,6 @@
 package config
 
-// CustomModuleDefinition is ported from crates/wayle-config/src/schemas/modules/custom/mod.rs.
+// CustomModuleDefinition is part of the custom module's configuration.
 //
 // User-defined module that runs a shell command and renders the output in the bar.
 //
@@ -305,7 +305,7 @@ func (c CustomModuleDefinition) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// ExecutionMode is ported from crates/wayle-config/src/schemas/modules/custom/types.rs.
+// ExecutionMode is part of the custom module's configuration.
 //
 // Execution mode for custom module commands.
 type ExecutionMode string
@@ -327,7 +327,7 @@ const (
 
 var _ = registerEnum(ExecutionModePoll, ExecutionModeWatch)
 
-// RestartPolicy is ported from crates/wayle-config/src/schemas/modules/custom/types.rs.
+// RestartPolicy is part of the custom module's configuration.
 //
 // Restart behavior for watch-mode custom modules.
 type RestartPolicy string
@@ -344,7 +344,7 @@ const (
 
 var _ = registerEnum(RestartPolicyNever, RestartPolicyOnExit, RestartPolicyOnFailure)
 
-// StateColors is ported from crates/wayle-config/src/schemas/modules/custom/types.rs.
+// StateColors is part of the custom module's configuration.
 //
 // Per-state color overrides for a custom module.
 //

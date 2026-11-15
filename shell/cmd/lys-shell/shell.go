@@ -15,7 +15,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/bar"
 )
 
-// shellCommand is app.rs's Shell: the desktop shell in the foreground.
+// shellCommand runs the desktop shell in the foreground.
 func shellCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "shell",
@@ -51,8 +51,7 @@ func refreshSchema() {
 	}
 }
 
-// runShell is wayle_shell::run's single-instance guard on the session
-// connection the shell then runs on: a second shell, refused the
+// runShell is the single-instance guard on the session connection the shell then runs on: a second shell, refused the
 // application id, says so and exits successfully instead of fighting over
 // the bus names.
 func runShell(stderr io.Writer, start func(*dbus.Conn) error) error {

@@ -8,9 +8,7 @@ import (
 )
 
 // BarItem is one entry in a bar layout section: a bare module name, a
-// module with a per-instance CSS class, or a named group of modules
-// (the untagged BarItem/ModuleRef enums in
-// crates/wayle-config/src/schemas/bar/types/mod.rs).
+// module with a per-instance CSS class, or a named group of modules.
 type BarItem struct {
 	// Module is the module ("clock", "battery", "custom-submap").
 	Module BarModule
@@ -31,10 +29,10 @@ type BarGroup struct {
 	Modules []BarItem
 }
 
-// UnmarshalConfig implements Unmarshaler with serde's untagged order:
+// UnmarshalConfig implements Unmarshaler, trying in order:
 // a {module, class} table, then a module name, then a {name, modules}
 // group. Anything else — including a table missing a required key or
-// naming an unknown module — is serde's untagged error.
+// naming an unknown module — is an untagged-enum error.
 func (b *BarItem) UnmarshalConfig(v any) error {
 	if ref, ok := decodeModuleRef(v); ok {
 		*b = ref

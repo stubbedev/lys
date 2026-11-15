@@ -8,10 +8,9 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 )
 
-// alertSpec is the gtk::AlertDialog the dropdowns build for a
-// destructive action: the message, its detail, and the buttons
-// [cancel, accept] with cancel as both the default and the cancel
-// button (cancel_button(0), default_button(0)).
+// alertSpec is the alert dialog the dropdowns build for a destructive
+// action: the message, its detail, and the buttons [cancel, accept]
+// with cancel as both the default and the cancel button.
 type alertSpec struct {
 	message, detail string
 	cancel, accept  string

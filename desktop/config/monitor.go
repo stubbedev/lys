@@ -3,8 +3,7 @@ package config
 import "strings"
 
 // monitorTarget is "primary" (the zero value) or a connector name; the
-// OSD and the notification popups share it (osd/types.rs OsdMonitor,
-// notification/types.rs PopupMonitor). "primary" matches
+// OSD and the notification popups share it. "primary" matches
 // case-insensitively and serializes back as "primary".
 type monitorTarget struct {
 	connector string

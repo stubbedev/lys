@@ -124,7 +124,7 @@ func (f *FifoInput) run() {
 	}
 }
 
-// open is open_fifo with its reads non-blocking. libcava opens
+// open opens the FIFO with its reads non-blocking. libcava opens
 // blocking, which parks the thread until a writer appears and leaves it
 // unjoinable; opening non-blocking reads nothing until then instead,
 // so Stop always returns. Like libcava it keeps no error: a path that

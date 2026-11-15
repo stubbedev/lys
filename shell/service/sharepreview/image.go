@@ -1,5 +1,5 @@
-// Package sharepreview is the capture half of wayle-share-preview on
-// top of lys-lib's capture package: turning captured frames into images
+// Package sharepreview is the share preview's capture half on top of
+// lys-lib's capture package: turning captured frames into images
 // (the output-transform correction, the preview downscale) and the XDPH
 // window list the share picker reads.
 package sharepreview
@@ -12,8 +12,7 @@ import (
 )
 
 // FrameImage converts a captured frame to an image and applies the
-// output transform, the Image::new → into_rgb → transform chain of
-// image.rs. Frames without alpha come out opaque.
+// output transform. Frames without alpha come out opaque.
 func FrameImage(f *capture.Frame, t capture.Transform) (*image.RGBA, error) {
 	img, err := f.Image()
 	if err != nil {
@@ -22,9 +21,8 @@ func FrameImage(f *capture.Frame, t capture.Transform) (*image.RGBA, error) {
 	return Transform(img, t), nil
 }
 
-// Transform applies an output transform to a captured frame the way
-// image.rs's Image::transform does: the 90/270 variants rotate
-// clockwise (image's rotate90/rotate270), and the flipped variants
+// Transform applies an output transform to a captured frame: the
+// 90/270 variants rotate clockwise, and the flipped variants
 // flip vertically first. TransformNormal returns img itself.
 func Transform(img *image.RGBA, t capture.Transform) *image.RGBA {
 	if t == capture.TransformNormal {
@@ -83,8 +81,7 @@ func sourceOf(t capture.Transform, w, h int) func(x, y int) (int, int) {
 	return func(x, y int) (int, int) { return x, y }
 }
 
-// Resize scales the image to w x h with a triangle (bilinear) filter,
-// image's FilterType::Triangle.
+// Resize scales the image to w x h with a triangle (bilinear) filter.
 func Resize(src *image.RGBA, w, h int) *image.RGBA {
 	dst := image.NewRGBA(image.Rect(0, 0, w, h))
 	xdraw.BiLinear.Scale(dst, dst.Bounds(), src, src.Bounds(), xdraw.Src, nil)
@@ -92,8 +89,7 @@ func Resize(src *image.RGBA, w, h int) *image.RGBA {
 }
 
 // ResizeToFit downscales the image so its smaller dimension is at most
-// size, keeping the aspect ratio - image.rs's resize_to_fit, including
-// its quirks: a portrait image scales when its width exceeds size, a
+// size, keeping the aspect ratio: a portrait image scales when its width exceeds size, a
 // landscape one when its height does, and a square image never scales.
 func ResizeToFit(src *image.RGBA, size int) *image.RGBA {
 	w, h := src.Bounds().Dx(), src.Bounds().Dy()

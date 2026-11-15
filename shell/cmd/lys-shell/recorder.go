@@ -8,7 +8,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
-// recorderCommand is lys-shell/src/cli/recorder/commands.rs.
 func recorderCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "recorder",
@@ -37,7 +36,6 @@ func withRecorder(run func(*cli.Matches, *daemonProxy) error) func(*cli.Matches)
 	return withDaemon("Recorder", recorder.ServiceName, recorder.ServicePath, recorder.ServiceName, run)
 }
 
-// recorderAction is start.rs / stop.rs / pause.rs / resume.rs.
 func recorderAction(op, method, done string) func(*cli.Matches, *daemonProxy) error {
 	return func(m *cli.Matches, p *daemonProxy) error {
 		if err := p.call(op, method, nil); err != nil {

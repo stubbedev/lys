@@ -93,11 +93,10 @@ type ModuleContext struct {
 	// System is the shell's one system bus connection, nil without one;
 	// what reads it never closes it.
 	System *dbus.Conn
-	// SetConfig writes a runtime override and persists it (the Rust
-	// ConfigService property set the dropdowns use); nil without a
-	// config service.
+	// SetConfig writes a runtime override and persists it; nil without
+	// a config service.
 	SetConfig func(path string, value any)
-	// Toast shows an OSD toast (the Rust ToastBus); nil without an OSD.
+	// Toast shows an OSD toast; nil without an OSD.
 	Toast func(label, icon string)
 	// Clipboard is the session clipboard history, nil when the
 	// compositor has no data-control protocol (the launcher's
@@ -371,8 +370,8 @@ var factories = map[string]Factory{
 // Create builds the module named by a layout entry. Custom modules
 // (custom-*) resolve through the [modules.custom] definitions; a name
 // outside both is an error, logged by the caller while the rest of the
-// bar builds - as the Rust factory warns "module not implemented" for a
-// schema module without one (updates).
+// bar builds; a schema module without one (updates) is "not
+// implemented".
 func Create(name string, ctx ModuleContext) (Module, error) {
 	if def, ok := customDefinition(name, ctx.Config); ok {
 		return newCustomByID(ctx, def.Id)
@@ -385,15 +384,14 @@ func Create(name string, ctx ModuleContext) (Module, error) {
 }
 
 // appendItems builds every item of one layout section into a bar
-// zone: one box.bar-item per layout item (bar/factory.rs
-// BarItemFactory), a group's carrying the bar-group class and the
+// zone: one box.bar-item per layout item, a group's carrying the bar-group class and the
 // group name as its id, each module inside classed `module` plus its
 // per-instance class. The zone spaces its items by the module gap and
 // a group its modules by the group module gap: box gaps, not margins.
 //
 // A module that cannot be built (its service is unavailable on this
-// system, its compositor is not running) is logged and left out, like
-// module_registry.rs require_service: one missing daemon never takes
+// system, its compositor is not running) is logged and left out: one
+// missing daemon never takes
 // the bar down.
 func appendItems(zone *widget.Box, items []config.BarItem, ctx ModuleContext) {
 	axis := widget.Row
@@ -429,8 +427,8 @@ func appendModule(row *widget.Box, item config.BarItem, ctx ModuleContext) error
 		*ctx.Attachers = append(*ctx.Attachers, a)
 	}
 	root := module.Root()
-	// Components that are not BarButtons in the Rust shell (the
-	// workspace rows) carry their own chrome and input handling.
+	// Components that are not bar buttons (the workspace rows) carry
+	// their own chrome and input handling.
 	if _, ok := module.(interface{ ownsChrome() }); ok {
 		if n, ok := root.(interface{ AddClass(...string) }); ok {
 			n.AddClass("module", item.Class)
@@ -441,8 +439,7 @@ func appendModule(row *widget.Box, item config.BarItem, ctx ModuleContext) error
 		row.Append(root, false)
 		return nil
 	}
-	// Every button module wraps in the module box the Rust factory
-	// builds: `module`, the module's own type class (battery, clock,
+	// Every button module wraps in a module box: `module`, the module's own type class (battery, clock,
 	// media, ... — the layout name, overridable by the module), and the
 	// layout entry's instance class, so ancestor selectors like
 	// `.media-disc button.bar-button ...` reach the button.

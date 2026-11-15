@@ -11,7 +11,7 @@ import (
 )
 
 func TestLevelIndexFloor(t *testing.T) {
-	// battery helpers.rs: floor(percent/100*n), clamped.
+	// floor(percent/100*n), clamped.
 	for _, tc := range []struct {
 		percent float64
 		n       int
@@ -32,9 +32,8 @@ func TestLevelIndexFloor(t *testing.T) {
 }
 
 func TestLevelIndexSpan(t *testing.T) {
-	// volume helpers.rs: 0% takes the first, then floor((p-1)/step).
-	// The Rust tests pin 15% -> icons[0], 50% -> icons[1], 100% ->
-	// icons[2] with n=3.
+	// 0% takes the first, then floor((p-1)/step): 15% -> icons[0],
+	// 50% -> icons[1], 100% -> icons[2] with n=3.
 	for _, tc := range []struct {
 		percent int
 		n       int

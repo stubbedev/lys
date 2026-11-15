@@ -19,12 +19,11 @@ import (
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
-// batteryCharging is battery_section/methods.rs's is_charging.
 func batteryCharging(state upower.DeviceState) bool {
 	return state == upower.StateCharging || state == upower.StatePendingCharge
 }
 
-// batteryStateLabel is methods.rs's state_label: critical first, then
+// batteryStateLabel reads critical first, then
 // charging, plugged in, or on battery.
 func batteryStateLabel(dev upower.Device) string {
 	switch {
@@ -39,7 +38,7 @@ func batteryStateLabel(dev upower.Device) string {
 	}
 }
 
-// batteryTimeDisplay is methods.rs's time_display: the time until full
+// batteryTimeDisplay is the time until full
 // while charging, else the time remaining; empty when unknown.
 func batteryTimeDisplay(dev upower.Device) string {
 	remaining, id := dev.TimeToEmpty, "dropdown-battery-time-remaining"
@@ -60,7 +59,7 @@ func batteryTimeDisplay(dev upower.Device) string {
 	return i18n.T(id, i18n.Str("duration", duration))
 }
 
-// formatWatts is helpers.rs's format_watts: one decimal under 10W.
+// formatWatts renders one decimal under 10W.
 func formatWatts(watts float64) string {
 	if watts < 10 {
 		return strconv.FormatFloat(watts, 'f', 1, 64) + "W"
@@ -68,7 +67,6 @@ func formatWatts(watts float64) string {
 	return strconv.FormatFloat(watts, 'f', 0, 64) + "W"
 }
 
-// formatWattHours is format_watt_hours.
 func formatWattHours(wh float64) string {
 	if wh < 10 {
 		return strconv.FormatFloat(wh, 'f', 1, 64) + " Wh"
@@ -76,7 +74,7 @@ func formatWattHours(wh float64) string {
 	return strconv.FormatFloat(wh, 'f', 0, 64) + " Wh"
 }
 
-// batteryLevelClass is gauge_class and hero_pct_class: "crit" at a low
+// batteryLevelClass is the gauge and hero percentage class: "crit" at a low
 // warning level, "warn" at or under 20%, else fallback ("good" for the
 // gauge, "" for the hero percentage).
 func batteryLevelClass(dev upower.Device, fallback string) string {
@@ -89,7 +87,6 @@ func batteryLevelClass(dev upower.Device, fallback string) string {
 	return fallback
 }
 
-// heroStateClass is hero_state_class.
 func heroStateClass(dev upower.Device) string {
 	switch {
 	case dev.WarningLevel.Low():
@@ -100,7 +97,6 @@ func heroStateClass(dev upower.Device) string {
 	return ""
 }
 
-// healthClass is health_class.
 func healthClass(capacity float64) string {
 	switch {
 	case capacity <= 0:
@@ -113,7 +109,6 @@ func healthClass(capacity float64) string {
 	return "poor"
 }
 
-// healthValue is health_value.
 func healthValue(capacity float64) string {
 	if capacity <= 0 {
 		return "--"
@@ -121,7 +116,7 @@ func healthValue(capacity float64) string {
 	return strconv.FormatFloat(capacity, 'f', 0, 64) + "%"
 }
 
-// resumeThreshold is resume_threshold: five under the limit, floored
+// resumeThreshold: five under the limit, floored
 // at zero.
 func resumeThreshold(end uint32) uint32 {
 	if end < 5 {
@@ -165,12 +160,11 @@ type batteryView struct {
 	charge                                  *widget.Item
 	chargeUnsupported                       *widget.Alert
 	chargeSwitch                            *widget.Switch
-	// syncing marks programmatic switch moves (block_signal).
+	// syncing marks programmatic switch moves.
 	syncing bool
 
 	profileButtons map[string]*widget.ToggleButton
-	// marking blocks the toggles' handler while the view sets them
-	// (block_signal): only a user's toggle selects a profile.
+	// marking blocks the toggles' handler while the view sets them: only a user's toggle selects a profile.
 	marking             bool
 	profilesUnavailable *widget.Alert
 	activeProfile       string
@@ -246,7 +240,7 @@ func (v *batteryView) setVariant(w classed, class string) {
 	}
 }
 
-// batterySection builds battery_content on lys-ui's parts: the hero's
+// batterySection builds the battery content on lys-ui's parts: the hero's
 // h1 percentage beside its state, the level bar, the details under it,
 // and the charge limit as an Item in a card, or an alert where the
 // battery has none.
@@ -266,7 +260,7 @@ func (v *batteryView) batterySection() widget.Widget {
 	meta.Append(v.heroState, false)
 	meta.Append(v.heroTime, false)
 	meta.Append(v.heroInput, false)
-	hero.AppendAligned(meta, true, widget.AlignCenter) // set_valign Center
+	hero.AppendAligned(meta, true, widget.AlignCenter)
 
 	v.gauge = widget.NewLevelBar(0)
 	v.gauge.AddClass("battery-gauge")
@@ -304,9 +298,8 @@ func (v *batteryView) detailLabels() (value, label *widget.Label) {
 	return value, label
 }
 
-// detail is one battery-detail column: the value over the label, the
-// text alignment set where Rust sets set_halign. The capacity column
-// keeps the default — the CenterBox centers the slot, not the text.
+// detail is one battery-detail column: the value over the label, with
+// the given text alignment. The capacity column keeps the default — the CenterBox centers the slot, not the text.
 func (v *batteryView) detail(value, label *widget.Label, align render.Alignment) *widget.Box {
 	box := widget.NewBox(widget.Column, 0, 0)
 	box.AddClass("battery-detail")
@@ -322,23 +315,22 @@ func (v *batteryView) detail(value, label *widget.Label, align render.Alignment)
 // both end-aligned.
 func (v *batteryView) healthDetail() *widget.Box {
 	th := widget.Current()
-	health := widget.NewBox(widget.Row, th.Spacing/2, 0) // health_indicator
+	health := widget.NewBox(widget.Row, th.Spacing/2, 0)
 	v.healthDot = statusDot("health-dot")
 	var healthLabel *widget.Label
 	v.healthText, healthLabel = v.detailLabels()
 	healthLabel.SetText(i18n.T("dropdown-battery-health"))
-	health.AppendAligned(v.healthDot, false, widget.AlignCenter) // set_valign Center
+	health.AppendAligned(v.healthDot, false, widget.AlignCenter)
 	health.Append(v.healthText, false)
 	box := widget.NewBox(widget.Column, 0, 0)
 	box.AddClass("battery-detail")
-	box.AppendAligned(health, false, widget.AlignEnd) // set_halign End
+	box.AppendAligned(health, false, widget.AlignEnd)
 	healthLabel.SetAlignment(render.AlignEnd)
 	box.Append(healthLabel, false)
 	return box
 }
 
-// infoNote is the note the Rust sections show when a feature is
-// missing: lys-ui's alert with the info icon.
+// infoNote is the note a section shows when a feature is missing: lys-ui's alert with the info icon.
 func (v *batteryView) infoNote(class, text string) *widget.Alert {
 	a := widget.NewAlert(v.font, text, "")
 	a.SetIcon(widget.NewThemeIcon("ld-info-symbolic", itemIconPx))
@@ -355,8 +347,7 @@ func (v *batteryView) profileSection() widget.Widget {
 	seg := widget.NewBox(widget.Row, 0, 0)
 	seg.SetElement("togglegroup")
 	seg.AddClass("profile-seg")
-	// set_homogeneous (power_profile/mod.rs:49): the segments equalize
-	// to the widest.
+	// The segments equalize to the widest.
 	seg.SetHomogeneous(true)
 	v.profileButtons = make(map[string]*widget.ToggleButton, len(batteryProfiles))
 	var first *widget.ToggleButton
@@ -364,7 +355,7 @@ func (v *batteryView) profileSection() widget.Widget {
 		content := widget.NewLabel(v.font, v.px, i18n.T(p.label), 0)
 		content.SetAlignment(render.AlignCenter)
 		name := p.name
-		// Grouped gtk::ToggleButtons: activating one releases the
+		// Grouped toggle buttons: activating one releases the
 		// others, and the toggled handler selects on activation only.
 		b := widget.NewToggleButton(content, 0, 0)
 		b.AddClass("profile-seg-btn")
@@ -403,7 +394,6 @@ type batteryRead struct {
 	ok  bool
 }
 
-// applyDevice is refresh_battery_state plus the view's #[watch]es.
 func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
 	if !ok || !dev.IsPresent {
 		v.body.Show("empty")
@@ -449,8 +439,8 @@ func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
 	v.syncing = false
 }
 
-// chargeToggled is handle_charge_limit_toggled: the write runs off the
-// loop and the section re-reads after it.
+// chargeToggled writes the charge limit off the loop, and the section
+// re-reads after it.
 func (v *batteryView) chargeToggled(enabled bool) {
 	if v.syncing || v.ctx.Battery == nil {
 		return
@@ -497,8 +487,8 @@ func (v *batteryView) applyProfiles(snap *powerprofiles.Snapshot) {
 	v.profilesUnavailable.SetVisible(len(available) == 0)
 }
 
-// markProfile sets a segment's toggle without selecting anything (the
-// #[block_signal] set_active); :checked selects the sheet's accent
+// markProfile sets a segment's toggle without selecting anything;
+// :checked selects the sheet's accent
 // rule.
 func (v *batteryView) markProfile(name string, active bool) {
 	v.marking = true
@@ -506,8 +496,8 @@ func (v *batteryView) markProfile(name string, active bool) {
 	v.marking = false
 }
 
-// selectProfile is select_profile: the segment toggles at once, the
-// write runs off the loop, and the daemon's answer settles it.
+// selectProfile toggles the segment at once, the write runs off the
+// loop, and the daemon's answer settles it.
 func (v *batteryView) selectProfile(name string) {
 	src := v.ctx.PowerProfiles
 	if src == nil || name == v.activeProfile {

@@ -1,6 +1,6 @@
 package config
 
-// WorldClockConfig is ported from crates/wayle-config/src/schemas/modules/world_clock/mod.rs.
+// WorldClockConfig configures the world-clock module.
 //
 // Multiple timezones shown together in a dropdown.
 type WorldClockConfig struct {

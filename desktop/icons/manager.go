@@ -18,11 +18,10 @@ import (
 	"github.com/stubbedev/lys/desktop/icons/usvg"
 )
 
-// This file ports manager.rs: install from a CDN, remove, list, and
-// import local SVGs.
+// This file installs icons from a CDN, removes, lists, and imports
+// local SVGs.
 
-// dirPerm and filePerm are what Rust's create_dir_all and fs::write
-// request; the umask trims them the same way.
+// dirPerm and filePerm are the requested modes; the umask trims them.
 const (
 	dirPerm  os.FileMode = 0o777
 	filePerm os.FileMode = 0o666
@@ -182,8 +181,8 @@ func List(roots []string) ([]string, error) {
 	return out, errors.Join(errs...)
 }
 
-// svgStem is Path::file_stem for a file whose extension is exactly
-// "svg" (a leading-dot name like ".svg" has no extension).
+// svgStem is name without its extension, for a file whose extension is
+// exactly "svg" (a leading-dot name like ".svg" has no extension).
 func svgStem(name string) (string, bool) {
 	ext := filepath.Ext(name)
 	if ext != ".svg" || name == ext {
@@ -197,7 +196,7 @@ func (m *Manager) IsInstalled(name string) bool {
 	return exists(filepath.Join(m.registry.IconsDir(), name+".svg"))
 }
 
-// readUTF8 is fs::read_to_string: invalid UTF-8 is an error.
+// readUTF8 reads path as text: invalid UTF-8 is an error.
 func readUTF8(path string) (string, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // the user names the file to import
 	if err != nil {

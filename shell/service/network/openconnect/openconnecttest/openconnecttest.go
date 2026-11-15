@@ -1,6 +1,5 @@
 // Package openconnecttest holds the fakes the NM secret agent's tests
-// need from the openconnect sign-in (the Rust's
-// openconnect::testing::{silent_gateway, reached}).
+// need from the openconnect sign-in.
 package openconnecttest
 
 import (

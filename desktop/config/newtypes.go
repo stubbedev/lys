@@ -5,10 +5,9 @@ import (
 	"reflect"
 )
 
-// Clamped numeric newtypes. Each Rust type deserializes its primitive,
-// warns when the value is out of range, and clamps rather than failing
-// (validated/*.rs, modules/cava/types.rs, modules/custom/types.rs); the
-// schema is the primitive with its range.
+// Clamped numeric newtypes. Each decodes its primitive, warns when the
+// value is out of range, and clamps rather than failing; the schema is
+// the primitive with its range.
 
 type number interface {
 	~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64
@@ -24,7 +23,7 @@ var basicTypes = map[reflect.Kind]reflect.Type{
 }
 
 // decodeClamped decodes the primitive of N and clamps it to [lo, hi],
-// logging the Rust warning when it had to.
+// logging a warning when it had to.
 func decodeClamped[N number](v any, lo, hi N, what string) (N, error) {
 	// Decode the underlying primitive: N itself is the Unmarshaler.
 	prim := reflect.New(basicTypes[reflect.TypeFor[N]().Kind()]).Elem()
@@ -59,7 +58,7 @@ func rangedSchema(t reflect.Type, lo, hi any) Schema {
 	return s
 }
 
-// Percentage is a 0-100 value (validated/percentage.rs).
+// Percentage is a 0-100 value.
 //
 // Percentage value clamped to 0-100.
 type Percentage uint8
@@ -78,7 +77,7 @@ func (Percentage) configSchema(*schemaGen) Schema {
 	return rangedSchema(typeOf[Percentage](), int64(0), int64(100))
 }
 
-// ScaleFactor is a 0.25-3.0 multiplier (validated/scale.rs).
+// ScaleFactor is a 0.25-3.0 multiplier.
 //
 // Scale multiplier clamped to 0.25-3.0.
 type ScaleFactor float32
@@ -97,7 +96,7 @@ func (ScaleFactor) configSchema(*schemaGen) Schema {
 	return rangedSchema(typeOf[ScaleFactor](), 0.25, 3.0)
 }
 
-// NormalizedF64 is a 0-1 float (validated/normalized.rs).
+// NormalizedF64 is a 0-1 float.
 //
 // Floating-point value clamped to 0.0-1.0.
 type NormalizedF64 float64
@@ -116,7 +115,7 @@ func (NormalizedF64) configSchema(*schemaGen) Schema {
 	return rangedSchema(typeOf[NormalizedF64](), 0.0, 1.0)
 }
 
-// BarCount is the cava bar count (modules/cava/types.rs).
+// BarCount is the cava bar count.
 //
 // Frequency bar count clamped to 1-256.
 type BarCount uint16
@@ -135,7 +134,7 @@ func (BarCount) configSchema(*schemaGen) Schema {
 	return rangedSchema(typeOf[BarCount](), int64(1), int64(256))
 }
 
-// Framerate is the cava frame rate (modules/cava/types.rs).
+// Framerate is the cava frame rate.
 //
 // Visualization framerate clamped to 1-360 fps.
 type Framerate uint32
@@ -154,7 +153,7 @@ func (Framerate) configSchema(*schemaGen) Schema {
 	return rangedSchema(typeOf[Framerate](), int64(1), int64(360))
 }
 
-// FrequencyHz is a cava cutoff frequency (modules/cava/types.rs).
+// FrequencyHz is a cava cutoff frequency.
 //
 // Frequency value in Hz, minimum 1 Hz.
 //
@@ -176,8 +175,7 @@ func (FrequencyHz) configSchema(*schemaGen) Schema {
 	return rangedSchema(typeOf[FrequencyHz](), int64(1), nil)
 }
 
-// RestartDelay is a custom module's restart delay in ms
-// (modules/custom/types.rs).
+// RestartDelay is a custom module's restart delay in ms.
 //
 // Restart delay in milliseconds, clamped to >= 1.
 type RestartDelay uint64

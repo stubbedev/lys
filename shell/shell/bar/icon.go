@@ -22,7 +22,7 @@ func moduleIcon(_ ModuleContext, icon config.IconConfig) *widget.Icon {
 	return widget.NewThemeIcon(icon.Name, iconPx)
 }
 
-// levelIndexFloor is battery helpers.rs's level math: the percentage
+// levelIndexFloor is the battery's level math: the percentage
 // divided evenly across n icons from the top, empty first.
 func levelIndexFloor(percent float64, n int) int {
 	if n <= 0 {
@@ -32,7 +32,7 @@ func levelIndexFloor(percent float64, n int) int {
 	return min(idx, n-1)
 }
 
-// levelIndexSpan is volume helpers.rs's level math: with n icons,
+// levelIndexSpan is the volume's level math: with n icons,
 // percent 0 takes the first and 1..100 divide the rest evenly, so
 // 1-33% lands on icons[0] with n=3, 34-66% on icons[1], 67-100% on
 // icons[2].

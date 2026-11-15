@@ -56,7 +56,7 @@ type DrunConfig struct {
 	IgnoredPrefixes []string
 }
 
-// DefaultDrunConfig is DrunConfig::default.
+// DefaultDrunConfig is the drun mode without any flag or config.
 func DefaultDrunConfig() DrunConfig {
 	return DrunConfig{
 		MatchFields:   []DrunField{DrunFieldName, DrunFieldGeneric, DrunFieldExec, DrunFieldCategories, DrunFieldKeywords},
@@ -80,7 +80,7 @@ type drunRow struct {
 	entry drunEntry
 }
 
-// Drun launches applications from desktop entries (drun.rs).
+// Drun launches applications from desktop entries.
 type Drun struct {
 	cfg     DrunConfig
 	history *launcher.History

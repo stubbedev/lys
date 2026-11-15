@@ -43,7 +43,7 @@ func TestNotificationServiceRunsOnlyWhenEnabled(t *testing.T) {
 	}
 }
 
-// TestNotificationHistorySurvivesARestart pins init_store: a second
+// TestNotificationHistorySurvivesARestart pins the store: a second
 // service started over the same home reads the first one's history; a
 // store that cannot open leaves the service running in memory.
 func TestNotificationHistorySurvivesARestart(t *testing.T) {

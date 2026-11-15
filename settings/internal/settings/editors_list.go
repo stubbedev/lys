@@ -212,7 +212,7 @@ type textItem struct{ *widget.Entry }
 
 func (t textItem) itemValue() any { return t.Text() }
 
-// stringList is string_list::string_list.
+// stringList edits a list of strings.
 var stringList = listRow(func(config.FieldMeta) listSpec { return stringListSpec() })
 
 // stringListSpec is a list of words, an entry per item.
@@ -237,7 +237,7 @@ type iconItem struct {
 
 func (i iconItem) itemValue() any { return *i.value }
 
-// iconList is icon_list::icon_list.
+// iconList edits a list of icon names.
 var iconList = listRow(func(config.FieldMeta) listSpec {
 	return listSpec{
 		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: "",
@@ -261,7 +261,7 @@ type enumItem struct {
 
 func (e *enumItem) itemValue() any { return e.variants[max(e.Selected(), 0)] }
 
-// enumList is enum_list::enum_list over the list's element enum.
+// enumList edits a list of the list's element enum.
 var enumList = listRow(func(meta config.FieldMeta) listSpec {
 	var elem config.FieldMeta
 	if meta.Elem != nil {
@@ -307,7 +307,7 @@ type mapItem struct {
 
 func (m mapItem) itemValue() any { return [2]string{m.key.Text(), m.value.Text()} }
 
-// stringMap is string_map::string_map: key/value rows, an empty key
+// stringMap edits a string map: key/value rows, an empty key
 // dropped on write, the stored map shown sorted by key.
 var stringMap = listRow(func(config.FieldMeta) listSpec { return stringMapSpec() })
 

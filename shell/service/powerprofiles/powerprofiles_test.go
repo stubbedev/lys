@@ -29,8 +29,7 @@ func TestNextProfileRestricted(t *testing.T) {
 	if got := NextProfile(ProfileBalanced, available); got != ProfilePerformance {
 		t.Errorf("balanced -> %q, want performance", got)
 	}
-	// A cycle with no matching profiles falls back to balanced (the
-	// Rust empty-cycle guard).
+	// A cycle with no matching profiles falls back to balanced.
 	if got := NextProfile(ProfileBalanced, []string{"turbo"}); got != ProfileBalanced {
 		t.Errorf("no matches -> %q", got)
 	}

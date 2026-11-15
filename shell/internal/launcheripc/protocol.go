@@ -1,5 +1,4 @@
-// Package launcheripc is the launcher socket (wayle-ipc
-// launcher_socket.rs): the protocol between `lys-shell launcher` (the rofi
+// Package launcheripc is the launcher socket: the protocol between `lys-shell launcher` (the rofi
 // shim) and the launcher surface in the shell, with both halves - the
 // CLI's client and the shell's server.
 //
@@ -7,8 +6,7 @@
 // frames, and the connection doubles as the session's lifetime: when
 // the CLI dies the server sees EOF and closes the surface; when the
 // server replies with a terminal frame, the CLI prints it and exits
-// with rofi's code. The wire is the Rust shell's byte for byte, so
-// either CLI talks to either shell.
+// with rofi's code.
 package launcheripc
 
 import (
@@ -75,7 +73,7 @@ func ParseWidth(raw string) (Width, error) {
 	return Width{Unit: WidthPercent, Value: v}, nil
 }
 
-// MarshalJSON writes serde's externally tagged form: {"percent":60.0},
+// MarshalJSON writes the externally tagged form: {"percent":60.0},
 // {"chars":30}, {"pixels":600}.
 func (w Width) MarshalJSON() ([]byte, error) {
 	switch w.Unit {
@@ -115,7 +113,7 @@ func (w *Width) UnmarshalJSON(data []byte) error {
 
 // SessionOptions is the open frame's per-invocation options: rofi's
 // flag surface. Every field is optional; the shell merges the set ones
-// over [launcher] (launcher_socket.rs SessionOptions, kebab-case).
+// over [launcher].
 type SessionOptions struct {
 	Mode         *string  `json:"mode,omitempty"`
 	Modes        []string `json:"modes,omitempty"`
@@ -242,8 +240,8 @@ type ClientFrame struct {
 	Items []string `json:"items,omitempty"`
 }
 
-// MarshalJSON writes the variant's fields, all of them: serde requires
-// an open frame's replace and a rows frame's items.
+// MarshalJSON writes the variant's fields, all of them, an open frame's
+// replace and a rows frame's items included.
 func (f ClientFrame) MarshalJSON() ([]byte, error) {
 	switch f.Type {
 	case FrameOpen:
@@ -286,8 +284,7 @@ type ServerFrame struct {
 	Items  []string `json:"items,omitempty"`
 }
 
-// MarshalJSON writes only the fields the frame's variant carries, as
-// serde's tagged enum does.
+// MarshalJSON writes only the fields the frame's variant carries.
 func (f ServerFrame) MarshalJSON() ([]byte, error) {
 	switch f.Type {
 	case FrameOpened, FrameBusy:

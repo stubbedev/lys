@@ -23,7 +23,7 @@ type Settings struct {
 	WeatherAPIKey     string
 }
 
-// ParseLocation is the shell's parse_location: "lat,lon" when both
+// ParseLocation reads "lat,lon" when both
 // halves are numbers, otherwise a city name.
 func ParseLocation(s string) LocationQuery {
 	if lat, lon, ok := strings.Cut(s, ","); ok {
@@ -36,7 +36,7 @@ func ParseLocation(s string) LocationQuery {
 	return City(s)
 }
 
-// StatusKind is the fetch lifecycle (service.rs WeatherStatus).
+// StatusKind is the fetch lifecycle.
 type StatusKind int
 
 // Statuses.
@@ -55,7 +55,7 @@ type Status struct {
 	Query    string
 }
 
-// retry policy (polling.rs).
+// retry policy.
 const (
 	maxRetries        = 3
 	initialRetryDelay = 5 * time.Second
@@ -67,7 +67,7 @@ type FetchFunc func(ctx context.Context, s Settings, now time.Time) (*Weather, e
 
 // Service polls the configured provider and caches the last successful
 // fetch. After the first poll it only fetches while something is
-// subscribed (polling.rs skips ticks without subscribers).
+// subscribed.
 type Service struct {
 	mu       sync.Mutex
 	settings Settings
@@ -114,7 +114,7 @@ func (s *Service) Configure(next Settings) {
 	s.restartLocked(next)
 }
 
-// restartLocked is restart_polling: status back to loading, the old
+// restartLocked restarts polling: status back to loading, the old
 // poll canceled, a new one started.
 func (s *Service) restartLocked(next Settings) {
 	s.settings = next
@@ -203,7 +203,7 @@ func (s *Service) publish(ctx context.Context, weather *Weather, err error) {
 	feed.Notify(s.changes)
 }
 
-// failedStatus is WeatherStatus::Error with the kind's details.
+// failedStatus is the error status with the kind's details.
 func failedStatus(err error) Status {
 	st := Status{Kind: Failed, Error: ErrOther}
 	if e, ok := errors.AsType[*Error](err); ok {
@@ -212,7 +212,7 @@ func failedStatus(err error) Status {
 	return st
 }
 
-// fetchWithRetry is fetch_with_retry: retryable failures back off and
+// fetchWithRetry fetches; retryable failures back off and
 // retry up to three attempts.
 func (s *Service) fetchWithRetry(ctx context.Context, settings Settings) (*Weather, error) {
 	for attempt := 1; ; attempt++ {

@@ -30,10 +30,10 @@ func fakeProc(t *testing.T, stat, meminfo string) {
 	t.Cleanup(func() { ProcRoot = old })
 }
 
-// The sysinfo crate's reduction: guest leaves user (and guest_nice
+// The reduction: guest leaves user (and guest_nice
 // leaves nice), work is user+nice+system+irq+softirq, and the total adds
 // idle, iowait, steal, and the guest time once.
-func TestReadCPUStatReducesLikeSysinfo(t *testing.T) {
+func TestReadCPUStatTakesGuestOutOfUserAndNice(t *testing.T) {
 	fakeProc(t, "cpu  100 20 200 1000 50 7 3 9 40 10\ncpu0 60 0 100 500 0 0 0 0 0 0\ncpu1 40 0 100 500 0 0 0 0 0\nintr 1\n", "")
 	stat, err := ReadCPUStat()
 	if err != nil {

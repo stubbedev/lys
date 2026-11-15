@@ -11,9 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 )
 
-// The wallpaper palette providers, ported from
-// crates/wayle-styling/src/palette_provider/{matugen,pywal,wallust}.rs:
-// each reads the JSON its extractor wrote, picks the light or dark
+// The wallpaper palette providers: each reads the JSON its extractor wrote, picks the light or dark
 // variant, and derives the three background layers from the one
 // background color.
 
@@ -37,7 +35,7 @@ func readPaletteJSON(path string, into any) error {
 	return nil
 }
 
-// required checks that every field serde would require was present.
+// required checks that every required field was present.
 func required(path string, fields map[string]*string) error {
 	for name, v := range fields {
 		if v == nil {
@@ -48,7 +46,7 @@ func required(path string, fields map[string]*string) error {
 }
 
 // matugenColor is matugen's color value: a bare string (older matugen)
-// or {"color": "..."} (newer), the untagged Rust ColorValue.
+// or {"color": "..."} (newer).
 type matugenColor string
 
 func (c *matugenColor) UnmarshalJSON(data []byte) error {
@@ -198,8 +196,7 @@ func LoadWallust(path string, isLight bool) (config.Palette, error) {
 // extractors load the file extract.ColorsPath names for their tool, with
 // the forced appearance overriding the tool's own light setting. A
 // provider that fails yields fallback and the failure, which the caller
-// logs — the palette is always usable, as in Rust, which logs and falls
-// back. The wallpaper provider without a palette (no wallpaper is set)
+// logs — the palette is always usable. The wallpaper provider without a palette (no wallpaper is set)
 // is fallback, as that is no failure.
 func ResolvePalette(fallback config.Palette, s config.StylingConfig) (config.Palette, error) {
 	ce := s.ColorExtractor

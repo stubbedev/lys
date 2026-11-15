@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/spawn"
 )
 
-// RunShell spawns `sh -c command`, detached (spawn.rs run_shell).
+// RunShell spawns `sh -c command`, detached.
 // Failures are logged, not returned: the surface has already closed by
 // the time a child could fail. A blank command runs nothing.
 func RunShell(command string) {
@@ -24,7 +24,7 @@ func RunShell(command string) {
 	}
 }
 
-// RunArgv spawns an argv directly, no shell, detached (run_argv).
+// RunArgv spawns an argv directly, no shell, detached.
 func RunArgv(argv []string) {
 	if len(argv) == 0 {
 		return

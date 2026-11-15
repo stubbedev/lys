@@ -1,6 +1,6 @@
 package config
 
-// BatteryConfig is ported from crates/wayle-config/src/schemas/modules/battery/mod.rs.
+// BatteryConfig configures the battery module.
 //
 // Battery level, charging state, and a dropdown with the batteries of
 // peripherals UPower reports (wireless mice, keyboards, controllers,

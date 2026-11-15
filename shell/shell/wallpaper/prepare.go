@@ -26,10 +26,9 @@ type target struct {
 // source rect and the size it is resampled to, so the surface blits it
 // 1:1 instead of rescaling a multi-megapixel source on the frame path.
 // It is shown with ImageScaleDown, which draws it at its natural size
-// once it fits the box. The fits mirror the GTK ContentFit the Rust
-// shell maps each FitMode to (content_fit): Fill is Cover, Fit is
-// Contain, Stretch is Fill, and Center is ScaleDown with the natural
-// size in logical pixels, as GTK measures a texture.
+// once it fits the box. The fits follow GTK's ContentFit: Fill is
+// Cover, Fit is Contain, Stretch is Fill, and Center is ScaleDown with
+// the natural size in logical pixels.
 func plan(b image.Rectangle, fit wallpaper.FitMode, box target) (image.Rectangle, image.Point) {
 	sw, sh := b.Dx(), b.Dy()
 	if sw <= 0 || sh <= 0 || box.w <= 0 || box.h <= 0 {

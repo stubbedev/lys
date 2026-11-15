@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// This file ports sync.rs: find every icon name a config references and
-// install the ones missing on disk.
+// This file finds every icon name a config references and
+// installs the ones missing on disk.
 
 // MissingIcon is a referenced icon not on disk.
 type MissingIcon struct {
@@ -66,7 +66,7 @@ func isIconNameChar(r rune) bool {
 	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_'
 }
 
-// classify is MissingIcon::from_name: <prefix>-<slug>-symbolic with a
+// classify parses <prefix>-<slug>-symbolic with a
 // non-empty slug and a known prefix; Source is empty for the custom
 // prefix, whose icons only exist where they were imported.
 func classify(name string) (MissingIcon, bool) {

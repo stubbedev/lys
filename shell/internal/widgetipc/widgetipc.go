@@ -1,8 +1,6 @@
 // Package widgetipc is the widget socket: the shell's JSON-RPC
 // listener for out-of-process pushes (`lys-shell toast`, `lys-shell widget
-// update`) and the client half those CLIs drive. It ports
-// wayle-ipc/src/widget_socket.rs (protocol and client) and
-// wayle-shell-core/src/services/widget_ipc.rs (the listener).
+// update`) and the client half those CLIs drive.
 package widgetipc
 
 import (
@@ -16,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys/desktop/rusterr"
 	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/shell/internal/runtimesock"
@@ -49,8 +46,7 @@ type WidgetUpdate struct {
 	Output string `json:"output"`
 }
 
-// request is the JSON-RPC 2.0 envelope (Request); every field is
-// required, as serde derives it.
+// request is the JSON-RPC 2.0 envelope; every field is required.
 type request struct {
 	JSONRPC string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
@@ -58,7 +54,7 @@ type request struct {
 	ID      uint64          `json:"id"`
 }
 
-// response is the JSON-RPC reply (Response).
+// response is the JSON-RPC reply.
 type response struct {
 	JSONRPC string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result,omitempty"`
@@ -116,7 +112,7 @@ func (s *Server) Listen() (func(), error) {
 	_ = os.Remove(path)
 	ln, err := net.Listen("unix", path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to bind widget socket at %s: %s", path, rusterr.IO(err))
+		return nil, fmt.Errorf("failed to bind widget socket at %s: %w", path, err)
 	}
 	_ = os.Chmod(path, 0o600)
 	s.mu.Lock()
@@ -159,7 +155,7 @@ func (s *Server) serve(conn net.Conn) {
 	}
 }
 
-// process is widget_ipc.rs's process_request.
+// process answers one request line.
 func (s *Server) process(line string) response {
 	var req request
 	if err := decodeStrict([]byte(line), &req, "jsonrpc", "method", "params", "id"); err != nil {
@@ -191,8 +187,8 @@ func (s *Server) process(line string) response {
 	}
 }
 
-// decodeStrict decodes a JSON object requiring the named fields, as a
-// serde derive without defaults does ("missing field `id`").
+// decodeStrict decodes a JSON object requiring the named fields
+// ("missing field `id`").
 func decodeStrict(raw []byte, into any, required ...string) error {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
@@ -206,18 +202,17 @@ func decodeStrict(raw []byte, into any, required ...string) error {
 	return json.Unmarshal(raw, into)
 }
 
-// SendToast pushes one toast to the running shell (send_toast).
+// SendToast pushes one toast to the running shell.
 func SendToast(ctx context.Context, req ToastRequest) error {
 	return send(ctx, MethodToastShow, req)
 }
 
-// SendWidgetUpdate pushes output to the widget whose config id is id
-// (send_widget_update).
+// SendWidgetUpdate pushes output to the widget whose config id is id.
 func SendWidgetUpdate(ctx context.Context, id, output string) error {
 	return send(ctx, MethodWidgetUpdate, WidgetUpdate{ID: id, Output: output})
 }
 
-// ClientError is widget_socket.rs's ClientError, with its messages.
+// ClientError is a failure to deliver a request to the running shell.
 type ClientError struct {
 	msg string
 	err error
@@ -235,7 +230,7 @@ func send(ctx context.Context, method string, params any) error {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "unix", path)
 	if err != nil {
-		return &ClientError{msg: "cannot connect to lys-shell widget socket at " + path + ": " + rusterr.IO(err), err: err}
+		return &ClientError{msg: "cannot connect to lys-shell widget socket at " + path + ": " + err.Error(), err: err}
 	}
 	defer func() { _ = conn.Close() }()
 	body, err := json.Marshal(params)
@@ -247,7 +242,7 @@ func send(ctx context.Context, method string, params any) error {
 		return &ClientError{msg: "widget socket protocol error: " + err.Error(), err: err}
 	}
 	if _, err := conn.Write(append(line, '\n')); err != nil {
-		return &ClientError{msg: "widget socket I/O failed: " + rusterr.IO(err), err: err}
+		return &ClientError{msg: "widget socket I/O failed: " + err.Error(), err: err}
 	}
 	reply, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil && reply == "" {

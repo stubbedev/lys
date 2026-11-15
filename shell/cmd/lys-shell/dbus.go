@@ -10,16 +10,15 @@ import (
 	"github.com/stubbedev/lys/shell/internal/dbuscli"
 )
 
-// cliMessage is a user-facing CLI error: the Rust CLI's exact text,
-// printed as "Error: <text>".
+// cliMessage is a user-facing CLI error, printed as "Error: <text>".
 type cliMessage = dbuscli.Message
 
-// callTimeout bounds one D-Bus round trip (zbus's default method
-// timeout is 25s, dbus-daemon's own reply timeout).
+// callTimeout bounds one D-Bus round trip: dbus-daemon's own reply
+// timeout.
 const callTimeout = 25 * time.Second
 
 // daemonProxy is one of the shell's session-bus daemons as the CLI
-// sees it (a zbus proxy plus lys-shell/src/cli/dbus.rs's error mapping).
+// sees it: a proxy plus the CLI's error mapping.
 type daemonProxy struct {
 	label string // the service name in "... service not running"
 	iface string
@@ -27,7 +26,7 @@ type daemonProxy struct {
 	obj   dbus.BusObject
 }
 
-// connectDaemon is dbus.rs's session() plus the proxy.
+// connectDaemon connects to the session bus and makes the proxy.
 func connectDaemon(label, name string, path dbus.ObjectPath, iface string) (*daemonProxy, error) {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
@@ -38,8 +37,7 @@ func connectDaemon(label, name string, path dbus.ObjectPath, iface string) (*dae
 
 func (p *daemonProxy) Close() { _ = p.conn.Close() }
 
-// withDaemon connects to one daemon around a handler (each Rust
-// command's `let (_connection, proxy) = connect().await?`).
+// withDaemon connects to one daemon around a handler.
 func withDaemon(label, name string, path dbus.ObjectPath, iface string, run func(*cli.Matches, *daemonProxy) error) func(*cli.Matches) error {
 	return func(m *cli.Matches) error {
 		p, err := connectDaemon(label, name, path, iface)
@@ -78,7 +76,7 @@ func (p *daemonProxy) prop(op, name string, out any) error {
 	return nil
 }
 
-// dbusError is dbus.rs's format_error for a method (property false) or
+// dbusError describes a failed method call (property false) or
 // a property read.
 func dbusError(service, op string, err error, property bool) error {
 	if property {

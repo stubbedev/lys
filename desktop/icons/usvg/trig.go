@@ -7,9 +7,8 @@ import (
 	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
-// The Rust code's f64 sin, cos, tan and atan2 come from the system
-// libm, which returns the correctly rounded result for the arguments
-// arcs produce; Go's math package can be an ulp off, enough to flip the
+// The correctly rounded sin, cos, tan and atan2 are needed for the
+// arguments arcs produce; Go's math package can be an ulp off, enough to flip the
 // sign of a coordinate that should be zero ("-0.00" vs "0.00" in the
 // emitted icon). These evaluate in 320-bit floats and round once.
 

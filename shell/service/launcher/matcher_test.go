@@ -179,7 +179,7 @@ func TestEmptyQueryMatchesAllInOrder(t *testing.T) {
 	}
 }
 
-// nucleo's own scoring examples (lib.rs doc tests) pin the port.
+// nucleo's own scoring examples pin the port.
 func TestNucleoScoresMatchTheCrate(t *testing.T) {
 	cfg := matchConfig{ignoreCase: true, normalize: true}
 	fuzzy := func(hay, needle string) int {

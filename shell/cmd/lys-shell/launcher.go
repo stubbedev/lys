@@ -19,7 +19,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// launcherHelp is lys-shell/src/cli/launcher/mod.rs HELP, verbatim.
 const launcherHelp = `lys-shell launcher — rofi-compatible application launcher / dmenu
 
 USAGE:
@@ -77,8 +76,7 @@ const launcherDumpTheme = `# lys-shell does not use rasi themes; the launcher is
 // runLauncher is `lys-shell launcher` (and the whole argv of a `rofi`
 // symlink): rofi's flag surface against the shell's launcher socket.
 // It returns the process exit code: rofi's 0 accept, 1 cancel, 10-28
-// kb-custom-N; a usage error prints "Error: ..." and is 1, as the Rust
-// binary does.
+// kb-custom-N; a usage error prints "Error: ..." and is 1.
 func runLauncher(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		args = []string{"-show", "search"}
@@ -294,7 +292,7 @@ func printLauncherResult(w io.Writer, format string, selected []launcheripc.Sele
 	}
 }
 
-// launcherCommand is app.rs's Launcher: every argument, flags
+// launcherCommand passes every argument, flags
 // included, passes through raw to the rofi-compatible parser, and the
 // session's rofi exit code is the process's.
 func launcherCommand() *cli.Command {

@@ -14,7 +14,7 @@ type waCondition struct {
 	Code int `json:"code"`
 }
 
-// waHour is a WeatherAPI current or hourly record (weatherapi/types.rs).
+// waHour is a WeatherAPI current or hourly record.
 type waHour struct {
 	Time         string      `json:"time"`
 	TempC        float64     `json:"temp_c"`
@@ -68,7 +68,7 @@ type waResponse struct {
 	} `json:"forecast"`
 }
 
-// fetchWeatherAPI is WeatherApi::fetch: seven days, no air quality or
+// fetchWeatherAPI fetches from WeatherAPI.com: seven days, no air quality or
 // alerts.
 func fetchWeatherAPI(ctx context.Context, key string, q LocationQuery, resolved Location, now time.Time) (*Weather, error) {
 	query := url.Values{"key": {key}, "q": {q.providerPath()}, "days": {"7"}, "aqi": {"no"}, "alerts": {"no"}}
@@ -199,7 +199,7 @@ func wa12h(s string) (TimeOfDay, error) {
 	return TimeOfDay{Hour: t.Hour(), Minute: t.Minute()}, nil
 }
 
-// waConditionFor is condition_from_code over WeatherAPI's codes.
+// waConditionFor maps a WeatherAPI condition code to its condition.
 func waConditionFor(code int) Condition {
 	switch code {
 	case 1000:

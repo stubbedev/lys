@@ -1,8 +1,8 @@
 // Package skpath is a port of the parts of tiny-skia-path 0.11
 // (Skia's SkPath, SkStroke and SkDashPath) the icon transform needs:
 // path building, affine transforms, stroking into fill outlines, and
-// dashing. Arithmetic stays in float32 with the same operation order as
-// the Rust code so the emitted coordinates match it.
+// dashing. Arithmetic stays in float32 with tiny-skia's operation order
+// so the emitted coordinates match the goldens.
 package skpath
 
 import "math"
@@ -98,7 +98,7 @@ func sqrtf(f float32) float32 { return float32(math.Sqrt(float64(f))) }
 
 func absf(f float32) float32 { return float32(math.Abs(float64(f))) }
 
-// minf and maxf are Rust's f32::min/max: a NaN argument yields the other.
+// minf and maxf are min and max where a NaN argument yields the other.
 func minf(a, b float32) float32 {
 	switch {
 	case a != a:

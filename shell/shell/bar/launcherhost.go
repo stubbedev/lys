@@ -25,8 +25,8 @@ import (
 	"github.com/stubbedev/lys/shell/shell/launcher"
 )
 
-// startLauncher serves the launcher socket from the shell, as the Rust
-// shell's launcher service does: `lys-shell launcher` sessions open the
+// startLauncher serves the launcher socket from the shell: `lys-shell
+// launcher` sessions open the
 // surface on the UI loop, which reads the live config on every session
 // (so a reload reaches the next one). The returned stop closes the
 // socket; open toggles the search panel in process, as a bare

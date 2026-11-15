@@ -13,7 +13,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/keytoggles"
 )
 
-// level is a slider's dedupe key (last_volume): the rounded level and
+// level is a slider's dedupe key: the rounded level and
 // the mute state.
 type level struct {
 	percent uint32
@@ -25,8 +25,7 @@ func levelOf(percent float64, muted bool) level {
 	return level{percent: uint32(math.Round(max(percent, 0))), muted: muted, set: true}
 }
 
-// audioEvents is handle_volume_changed and handle_input_volume_changed:
-// the default devices' levels, each flashed only when its rounded level
+// audioEvents follows the default devices' levels, each flashed only when its rounded level
 // or mute state moved.
 type audioEvents struct {
 	out, in level
@@ -53,7 +52,7 @@ func (a *audioEvents) next(ctx context.Context, src pulse.Source) []Event {
 	return evs
 }
 
-// brightnessEvents is handle_brightness_changed per device: the average
+// brightnessEvents follows each device's brightness: the average
 // over the devices whose rounded level moved, so changing one output
 // shows that output's level. A device appearing is not a change.
 type brightnessEvents struct{ last map[string]level }
@@ -116,9 +115,9 @@ type Tracks interface {
 type LockKeys func(fn func(keytoggles.Event)) (stop func(), err error)
 
 // Watch follows the audio, brightness, keyboard layout, track
-// change, and lock-key sources until ctx ends (watchers.rs spawn). A nil source is skipped. The levels at
-// start seed the dedupe without flashing, as the Rust watchers' first
-// emission lands inside the quiet period. The lock-key source runs only
+// change, and lock-key sources until ctx ends. A nil source is skipped.
+// The levels at start seed the dedupe without flashing. The lock-key
+// source runs only
 // while the OSD is enabled, since it holds input devices open.
 func (o *Osd) Watch(ctx context.Context, audio pulse.Source, light brightness.Source, layouts Layouts, tracks Tracks, locks LockKeys) {
 	if tracks != nil {

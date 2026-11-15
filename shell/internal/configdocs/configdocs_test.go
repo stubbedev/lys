@@ -8,11 +8,7 @@ import (
 	"testing"
 )
 
-// TestPagesMatchTheRustGenerator holds every generated page to
-// docs/shell/config, which the Rust generator (`lys-shell config docs`) wrote from
-// the same config: byte for byte, so the reference reads the same
-// whichever binary regenerates it.
-func TestPagesMatchTheRustGenerator(t *testing.T) {
+func TestCommittedPagesAreCurrent(t *testing.T) {
 	dir := t.TempDir()
 	if err := Generate(dir); err != nil {
 		t.Fatal(err)
@@ -27,11 +23,11 @@ func TestPagesMatchTheRustGenerator(t *testing.T) {
 		got, _ := os.ReadFile(path)
 		want, err := os.ReadFile(filepath.Join("../../../docs/shell/config", rel))
 		if err != nil {
-			t.Errorf("%s: no Rust page to compare with", rel)
+			t.Errorf("%s: not in docs/shell/config", rel)
 			return nil
 		}
 		if string(got) != string(want) {
-			t.Errorf("%s differs from the Rust page:\n%s", rel, firstDiff(string(want), string(got)))
+			t.Errorf("%s differs from docs/shell/config:\n%s", rel, firstDiff(string(want), string(got)))
 		}
 		return nil
 	})

@@ -18,8 +18,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 )
 
-func TestBatteryLabelMatchesRustAssertions(t *testing.T) {
-	// The exact cases from helpers.rs's format_label tests.
+func TestBatteryLabel(t *testing.T) {
 	if got := batteryLabel("{{ percent }}%", 75.0, true); got != "75%" {
 		t.Errorf("= %q, want 75%%", got)
 	}
@@ -41,7 +40,7 @@ func TestBatteryLabelMatchesRustAssertions(t *testing.T) {
 }
 
 func TestThresholdMatching(t *testing.T) {
-	// threshold.rs matches: value >= above, value <= below, inclusive.
+	// Thresholds match value >= above, value <= below, inclusive.
 	above := config.ThresholdEntry{Above: ptrF(70)}
 	if !above.Matches(80) || !above.Matches(70) {
 		t.Error("above=70: 80 and 70 should match (inclusive)")
@@ -333,7 +332,6 @@ func TestStateFromUint32(t *testing.T) {
 
 func testFont(t *testing.T) render.Font { return treetest.Font(t) }
 
-// The dropdown hero follows methods.rs's state_label and time_display.
 func TestBatteryDropdownStateAndTime(t *testing.T) {
 	for state, id := range map[upower.DeviceState]string{
 		upower.StateCharging:         "dropdown-battery-charging",

@@ -1,8 +1,7 @@
 // Command emojigen extracts GTK's emoji tables for the launcher's emoji
 // mode. GTK compiles them into libgtk-4 as the GResource entries
 // /org/gtk/libgtk/emoji/<lang>.data (GVariant a(aussasasu), per
-// gtkemojichooser.c); the Rust shell reads them from the loaded
-// library, and the Go shell, which loads no GTK, embeds them instead.
+// gtkemojichooser.c); lys-shell loads no GTK, so it embeds them.
 //
 //	go run ./internal/tools/emojigen /path/to/libgtk-4.so.1 service/launcher/modes/emojidata
 //

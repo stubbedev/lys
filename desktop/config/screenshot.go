@@ -1,6 +1,6 @@
 package config
 
-// ScreenshotConfig is ported from crates/wayle-config/src/schemas/modules/screenshot/mod.rs.
+// ScreenshotConfig configures the screenshot module.
 //
 // Screenshot capture button.
 //

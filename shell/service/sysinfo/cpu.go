@@ -15,8 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// CPUTimes is one /proc/stat cpu line reduced the way the sysinfo
-// crate does: work is user, nice, system, irq, and softirq (with guest
+// CPUTimes is one /proc/stat cpu line reduced: work is user, nice, system, irq, and softirq (with guest
 // time taken out of user and nice, where the kernel already counts
 // it); total adds idle, iowait, steal, and the guest time back.
 type CPUTimes struct {
@@ -144,7 +143,7 @@ func Usage(prev, cur CPUTimes) float32 {
 	return min(work/total*100, 100)
 }
 
-// CoreFrequencyMHz is get_cpu_frequency: the core's cpufreq
+// CoreFrequencyMHz is the core's cpufreq
 // scaling_cur_freq (kHz), else cpuinfo, the first MHz line of
 // /proc/cpuinfo (cpuinfoMHz), else 0. Read passes one cpuinfo for all
 // its cores, so a machine without cpufreq reads /proc/cpuinfo once per
@@ -191,7 +190,7 @@ type Core struct {
 	FrequencyMHz uint64
 }
 
-// CPU is polling/cpu.rs's CpuData.
+// CPU is one CPU poll's reading.
 type CPU struct {
 	UsagePercent       float32
 	AvgFrequencyMHz    uint64
@@ -204,8 +203,7 @@ type CPU struct {
 	Cores          []Core
 }
 
-// CPUReader keeps the previous counters between polls, as the Rust
-// poll loop keeps its System.
+// CPUReader keeps the previous counters between polls.
 type CPUReader struct {
 	prev CPUStat
 	// spare is the older counters' storage, for the next read.
@@ -252,7 +250,7 @@ func (r *CPUReader) Read() (CPU, error) {
 		out.Cores = append(out.Cores, core)
 		sum += core.FrequencyMHz
 		out.MaxFrequencyMHz = max(out.MaxFrequencyMHz, core.FrequencyMHz)
-		// max_by keeps the last of equal maxima.
+		// The last of equal maxima wins.
 		if busiest < 0 || core.UsagePercent >= out.Cores[busiest].UsagePercent {
 			busiest = i
 		}
@@ -292,8 +290,7 @@ func (r *CPUReader) temperature() (float32, bool) {
 // cpuTempPatterns are CPU_TEMP_PATTERNS, tried in order for "auto".
 var cpuTempPatterns = []string{"tctl", "tdie", "tccd", "k10temp", "coretemp", "package id", "cpu"}
 
-// sensorInput is one hwmon temperature input, labeled the way the
-// sysinfo crate labels its components, not yet read.
+// sensorInput is one labeled hwmon temperature input, not yet read.
 type sensorInput struct {
 	label string
 	path  string
@@ -341,7 +338,7 @@ func sensorInputs() []sensorInput {
 	return out
 }
 
-// CPUTemperature is find_cpu_temperature: a named sensor by label
+// CPUTemperature reads a named sensor by label
 // substring (case-insensitive), or for "auto" the first sensor matching
 // each pattern in turn. A sensor is an input that reads; of inputs
 // sharing a label the first that reads is the sensor. Without any

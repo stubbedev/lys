@@ -74,8 +74,8 @@ func TestStoreRoundTrip(t *testing.T) {
 	if n.Urgency != UrgencyCritical || n.DesktopEntry != "org.mail" || n.ImagePath != want || want == "" || want == "/tmp/pic.png" || !n.Resident {
 		t.Errorf("decoded hints: urgency %v entry %q image %q resident %v", n.Urgency, n.DesktopEntry, n.ImagePath, n.Resident)
 	}
-	// The hints column holds the typed hints only, in the Rust store's
-	// form: no inline pixels, no hint nothing reads.
+	// The hints column holds the typed hints only: no inline pixels, no
+	// hint nothing reads.
 	var column string
 	if err := st.db.QueryRow(`SELECT hints FROM notifications WHERE id = ?`, id).Scan(&column); err != nil {
 		t.Fatal(err)
@@ -132,10 +132,7 @@ func TestStoreFollowsAnExpiryRacingTheArrival(t *testing.T) {
 	}
 }
 
-// TestStoreReadsTheRustRows pins compatibility with the file the Rust
-// shell wrote: its zvariant hint JSON, NULL columns, and the image_path
-// column restoring the image-path hint.
-func TestStoreReadsTheRustRows(t *testing.T) {
+func TestStoreReadsSignedHintsNullColumnsAndTheImagePath(t *testing.T) {
 	st, _ := openTestStore(t)
 	_, err := st.db.Exec(`INSERT INTO notifications
 		(id, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout, timestamp, image_path)
@@ -449,8 +446,8 @@ func queryPlan(t *testing.T, db *sql.DB, query string, args ...any) string {
 	return strings.Join(lines, "\n")
 }
 
-// oldSchema is the table as the Rust store and every lys-shell before
-// the history was bounded created it: no index but the primary key.
+// oldSchema is the table as every lys-shell before the history was
+// bounded created it: no index but the primary key.
 const oldSchema = `CREATE TABLE notifications (
 	id INTEGER PRIMARY KEY,
 	app_name TEXT,

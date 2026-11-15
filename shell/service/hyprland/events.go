@@ -52,7 +52,7 @@ const (
 	EventConfigReloaded   EventKind = "configreloaded"
 )
 
-// NormalizeAddress is Address::new: window addresses arrive with a 0x
+// NormalizeAddress strips the 0x prefix: window addresses arrive with a 0x
 // prefix from j/clients and without one in events; both compare equal
 // once stripped.
 func NormalizeAddress(address string) string { return strings.TrimPrefix(address, "0x") }
@@ -78,8 +78,7 @@ type Event struct {
 }
 
 // ParseEvent splits one socket2 line into an Event. Lines without the
-// ">>" separator fail the parse — the Rust shell warns and drops those,
-// and so does the caller here (ok=false).
+// ">>" separator fail the parse (ok=false).
 func ParseEvent(line string) (Event, bool) {
 	kind, data, found := strings.Cut(line, ">>")
 	if !found {
@@ -97,7 +96,7 @@ func ParseEvent(line string) (Event, bool) {
 		monitor, ws, _ := strings.Cut(data, ",")
 		ev.Name, ev.ID = monitor, wsNameToID(ws)
 	case EventFocusedMonV2:
-		// "name,workspace_id" (monitor.rs's handle_focused_mon_v2).
+		// "name,workspace_id".
 		monitor, id, found := strings.Cut(data, ",")
 		if !found {
 			return ev, false
@@ -137,7 +136,7 @@ func ParseEvent(line string) (Event, bool) {
 		// payload only
 	case EventActiveWindow:
 		// "class,title" - the title runs to the end of the line and may
-		// carry commas itself (the Rust split_once semantics).
+		// carry commas itself.
 		class, title, found := strings.Cut(data, ",")
 		if !found {
 			return ev, false

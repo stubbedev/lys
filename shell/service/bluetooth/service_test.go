@@ -69,7 +69,7 @@ func TestDiscoveryReadsTheTree(t *testing.T) {
 	if len(st.Adapters) != 2 || len(st.Devices) != 2 {
 		t.Fatalf("adapters %d devices %d, want 2 and 2", len(st.Adapters), len(st.Devices))
 	}
-	// find_best_adapter: the powered adapter wins over the first.
+	// The powered adapter wins over the first.
 	if st.Primary == nil || st.Primary.Path != hci1 {
 		t.Fatalf("primary = %+v, want hci1", st.Primary)
 	}
@@ -249,7 +249,7 @@ func TestPrimaryAdapterFollowsTheAdapterList(t *testing.T) {
 	if st.Primary == nil || st.Primary.Path != hci0 || st.Enabled {
 		t.Fatalf("state = %+v", st)
 	}
-	// A powered adapter appears: select_primary_adapter prefers it.
+	// A powered adapter appears: the primary selection prefers it.
 	f.add(hci1, adapterIface, adapterProps("00:00:00:00:00:01", true), true)
 	waitFor(t, "the powered adapter as primary", func() bool {
 		p := s.State().Primary

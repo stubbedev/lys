@@ -1,5 +1,4 @@
-// Package launcher is the launcher surface (crates/lys-shell/src/
-// shell/launcher): a layer-shell overlay per `lys-shell launcher` session,
+// Package launcher is the launcher surface: a layer-shell overlay per `lys-shell launcher` session,
 // hosting the service/launcher engine. Sessions arrive over the
 // launcher socket; the engine runs on its own goroutine and this
 // package only renders and forwards input.
@@ -21,7 +20,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher/search"
 )
 
-// uiSettings are one session's resolved UI knobs (setup.rs UiSettings).
+// uiSettings are one session's resolved UI knobs.
 type uiSettings struct {
 	// width is [launcher] width in pixels; widthOverride is -width,
 	// resolved late because percent and chars need the monitor and the
@@ -93,7 +92,7 @@ func deref[T any](p *T, fallback T) T {
 }
 
 // buildSession resolves a session from the CLI's options merged over
-// the live config (setup.rs build). rows is the dmenu row stream.
+// the live config. rows is the dmenu row stream.
 func buildSession(opts launcheripc.SessionOptions, cfg *config.Config, rows <-chan []string, deps setupDeps) sessionSetup {
 	l := cfg.Launcher
 	var history *engine.History
@@ -388,9 +387,8 @@ func runConfig(opts launcheripc.SessionOptions, l config.LauncherConfig) modes.R
 	}
 }
 
-// matcherOptions merges the matching flags over [launcher]. The CLI's
-// strings keep the Rust leniency: an unknown -matching is normal, an
-// unknown -sorting-method levenshtein.
+// matcherOptions merges the matching flags over [launcher]. An unknown
+// -matching is normal, an unknown -sorting-method levenshtein.
 func matcherOptions(opts launcheripc.SessionOptions, l config.LauncherConfig) engine.MatcherOptions {
 	methods := map[string]engine.MatchMethod{
 		"normal": engine.MatchNormal, "regex": engine.MatchRegex, "glob": engine.MatchGlob,

@@ -2,10 +2,9 @@ package styling
 
 import "testing"
 
-// Expected values are the Rust derive_layers / hex_to_rgba output for
-// the same inputs (the probe in crates/wayle-styling), so the float32
-// port is pinned byte for byte, rounding included.
-func TestDeriveLayersMatchesRust(t *testing.T) {
+// The expected values pin the float32 arithmetic byte for byte,
+// rounding included.
+func TestDeriveLayersIsPinned(t *testing.T) {
 	for _, tc := range []struct {
 		in         string
 		dark, lite layers
@@ -61,8 +60,7 @@ func TestHexToRGBAMatchesRust(t *testing.T) {
 }
 
 func TestParseChannelsIsTotal(t *testing.T) {
-	// Where the Rust slice would panic (fewer than six digits), the
-	// missing channels read as 0 instead.
+	// With fewer than six digits, the missing channels read as 0.
 	for in, want := range map[string][3]uint8{
 		"#abc":     {0xab, 0, 0},
 		"":         {0, 0, 0},

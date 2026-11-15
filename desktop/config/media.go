@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// MediaConfig is ported from crates/wayle-config/src/schemas/modules/media/mod.rs.
+// MediaConfig configures the media module.
 //
 // Now-playing title and playback controls for the active MPRIS player.
 type MediaConfig struct {
@@ -136,7 +136,7 @@ func (c MediaConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// MediaIconType is ported from crates/wayle-config/src/schemas/modules/media/mod.rs.
+// MediaIconType is part of the media module's configuration.
 //
 // Icon display mode for the media module.
 type MediaIconType string
@@ -184,12 +184,11 @@ var MediaBuiltinIcons = []IconMapping{
 	{"*helium*", "si-heliumbrowser-symbolic"},
 }
 
-// PlayerIconMappings is player-icons in pattern order, the BTreeMap
-// order the Rust lookup walks.
+// PlayerIconMappings is player-icons in pattern order, the order the
+// lookup walks.
 func (c MediaConfig) PlayerIconMappings() []IconMapping { return sortedIconMappings(c.PlayerIcons) }
 
-// sortedIconMappings is a pattern -> icon map in pattern order: the
-// BTreeMap the Rust schema holds it in.
+// sortedIconMappings is a pattern -> icon map in pattern order.
 func sortedIconMappings(m map[string]string) []IconMapping {
 	out := make([]IconMapping, 0, len(m))
 	for pattern, icon := range m {

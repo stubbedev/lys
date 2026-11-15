@@ -14,8 +14,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// FitMode is how an image is scaled to its monitor
-// (types/fit_mode.rs): the [wallpaper] schema enum.
+// FitMode is how an image is scaled to its monitor:
+// the [wallpaper] schema enum.
 type FitMode = config.FitMode
 
 // Fit modes; Fill is the default.
@@ -26,16 +26,16 @@ const (
 	FitStretch = config.FitStretch
 )
 
-// ParseFitMode reads a mode case-insensitively, as FitMode::from_str
-// does for the D-Bus interface.
+// ParseFitMode reads a mode case-insensitively, for the D-Bus
+// interface.
 func ParseFitMode(s string) (FitMode, error) {
 	if i := slices.Index(config.FitModes, FitMode(strings.ToLower(s))); i >= 0 {
 		return config.FitModes[i], nil
 	}
-	return "", fmt.Errorf("Invalid fit mode: %s", s) //nolint:staticcheck // the Rust message, verbatim
+	return "", fmt.Errorf("Invalid fit mode: %s", s) //nolint:staticcheck // a user-facing CLI message
 }
 
-// CyclingMode is the order images cycle in (types/cycling.rs).
+// CyclingMode is the order images cycle in.
 type CyclingMode = config.CyclingMode
 
 // Cycling modes; Sequential is the default.
@@ -44,16 +44,16 @@ const (
 	Shuffle    = config.CyclingShuffle
 )
 
-// ParseCyclingMode reads a mode case-insensitively (CyclingMode::from_str).
+// ParseCyclingMode reads a mode case-insensitively.
 func ParseCyclingMode(s string) (CyclingMode, error) {
 	if i := slices.Index(config.CyclingModes, CyclingMode(strings.ToLower(s))); i >= 0 {
 		return config.CyclingModes[i], nil
 	}
-	return "", fmt.Errorf("Invalid cycling mode: %s", s) //nolint:staticcheck // the Rust message, verbatim
+	return "", fmt.Errorf("Invalid cycling mode: %s", s) //nolint:staticcheck // a user-facing CLI message
 }
 
-// MonitorState is one monitor's wallpaper, scaling, and cycle position
-// (types/monitor_state.rs). An empty Wallpaper means none is set.
+// MonitorState is one monitor's wallpaper, scaling, and cycle position.
+// An empty Wallpaper means none is set.
 type MonitorState struct {
 	Wallpaper  string
 	FitMode    FitMode
@@ -135,8 +135,7 @@ type ImageNotFoundError struct{ Path string }
 
 func (e *ImageNotFoundError) Error() string { return "image not found: " + e.Path }
 
-// newCycling scans directory into a pool ordered by mode
-// (CyclingConfig::new).
+// newCycling scans directory into a pool ordered by mode.
 func newCycling(directory string, mode CyclingMode, interval time.Duration, rng *rand.Rand) (*Cycling, error) {
 	if !exists(directory) {
 		return nil, &DirectoryNotFoundError{Path: directory}
@@ -152,7 +151,7 @@ func newCycling(directory string, mode CyclingMode, interval time.Duration, rng 
 	return &Cycling{Directory: directory, Images: images, Mode: mode, Interval: interval}, nil
 }
 
-// refreshed is the pool rescanned (CyclingConfig::refresh): an emptied
+// refreshed is the pool rescanned: an emptied
 // directory empties the pool rather than failing.
 func (c *Cycling) refreshed(rng *rand.Rand) (*Cycling, error) {
 	images, err := ScanImages(c.Directory)
@@ -175,8 +174,8 @@ func orderImages(images []string, mode CyclingMode, rng *rand.Rand) {
 }
 
 // ScanImages lists the directory's entries with a supported extension
-// (scan_directory_for_images); like the Rust scan it does not look at
-// the entry type, so a directory named x.png is listed too.
+// without looking at the entry type, so a directory named x.png is
+// listed too.
 func ScanImages(directory string) ([]string, error) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
@@ -191,7 +190,7 @@ func ScanImages(directory string) ([]string, error) {
 	return images, nil
 }
 
-// extension is Path::extension: the text after the last dot, where a
+// extension is the text after the last dot, where a
 // leading dot alone (".png") names the file rather than starting an
 // extension.
 func extension(name string) (string, bool) {
@@ -202,7 +201,7 @@ func extension(name string) (string, bool) {
 	return name[i+1:], true
 }
 
-// exists is Path::exists: stat succeeds, following symlinks.
+// exists reports whether stat succeeds, following symlinks.
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil

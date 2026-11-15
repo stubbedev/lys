@@ -16,8 +16,7 @@ import (
 
 // Clipboard is the session's clipboard history, kept current: it
 // watches the regular selection, remembers what lands on it, and puts
-// an entry back when asked (service.rs). The primary selection is not
-// remembered, as in the Rust service.
+// an entry back when asked. The primary selection is not remembered.
 //
 // Entries, Forget, Clear and SetBudget are safe from any goroutine.
 // Copy hops onto the loop goroutine itself, since claiming the

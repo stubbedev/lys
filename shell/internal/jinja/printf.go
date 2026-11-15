@@ -8,8 +8,8 @@ import (
 	"github.com/stubbedev/lys/lib/intconv"
 )
 
-// printf is the format filter: minijinja's printf_style formatter
-// (format_utils.rs). Conversions d i o x X e E f F g G s, flags
+// printf is the format filter: minijinja's printf_style formatter.
+// Conversions d i o x X e E f F g G s, flags
 // "#0- +", width, precision, a length modifier, "%(key)s" against a
 // mapping argument, and "%%".
 func printf(format string, args []any) (string, error) {
@@ -158,7 +158,7 @@ func (s fmtSpec) prec() int {
 	return s.precision
 }
 
-// format dispatches like FormatSpec::format: bools, then integers,
+// format dispatches by kind: bools, then integers,
 // then floats, then everything else as its display.
 func (s fmtSpec) format(v any) (string, error) {
 	switch x := normalize(v).(type) {
@@ -226,7 +226,7 @@ func typeDescription(ty byte) string {
 	return "string format ('s')"
 }
 
-// mantissaExp is mantissa_and_exp: "{val:.p$e}" split at the e.
+// mantissaExp is v in scientific notation with precision digits, split at the e.
 func mantissaExp(v float64, precision int) (string, int) {
 	e := strconv.FormatFloat(v, 'e', precision, 64)
 	i := strings.LastIndexByte(e, 'e')
@@ -264,7 +264,7 @@ func expSuffix(exp int, upper bool) string {
 	return e + sign + digits
 }
 
-// general is number_in_general_format.
+// general is the %g conversion of v.
 func (s fmtSpec) general(v float64, isInt bool, upper bool) string {
 	precision := s.prec()
 	if precision == 0 {
@@ -275,7 +275,6 @@ func (s fmtSpec) general(v float64, isInt bool, upper bool) string {
 		places := precision - 1 - exp
 		num := strconv.FormatFloat(v, 'f', places, 64)
 		if isInt {
-			// Rust ignores a precision on an integer's Display.
 			num = strconv.FormatFloat(v, 'f', 0, 64)
 		}
 		return s.removeInsignificants(num)
@@ -416,8 +415,8 @@ func (s fmtSpec) formatNumber(number, sign string) string {
 	return s.pad(sign+radix+number, false)
 }
 
-// pad is apply_padding: right-aligned unless "-" (or a default left
-// alignment) asks for left; widths count bytes, as in Rust.
+// pad is right-aligned unless "-" (or a default left
+// alignment) asks for left; widths count bytes.
 func (s fmtSpec) pad(text string, defaultLeft bool) string {
 	if s.width < 0 || len(text) >= s.width {
 		return text

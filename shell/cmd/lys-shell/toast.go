@@ -8,7 +8,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/widgetipc"
 )
 
-// toastCommand is app.rs's Toast.
 func toastCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "toast",
@@ -25,7 +24,7 @@ func toastCommand() *cli.Command {
 	}
 }
 
-// runToast sends one custom toast (lys-shell/src/cli/toast.rs). Either a
+// runToast sends one custom toast. Either a
 // label or --preset must be given.
 func runToast(m *cli.Matches) error {
 	req := widgetipc.ToastRequest{
@@ -44,8 +43,7 @@ func runToast(m *cli.Matches) error {
 	return widgetipc.SendToast(ctx, req)
 }
 
-// optional is an arg's value as a pointer, nil when absent (a Rust
-// Option<T> field).
+// optional is an arg's value as a pointer, nil when absent.
 func optional[T any](m *cli.Matches, id string) *T {
 	v, ok := cli.Value[T](m, id)
 	if !ok {

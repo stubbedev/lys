@@ -11,7 +11,7 @@ import (
 )
 
 // This file turns form values into a NetworkManager connection profile,
-// and back (vpn/profile.rs). That is the whole of configuring a VPN:
+// and back. That is the whole of configuring a VPN:
 // AddConnection takes a nested dictionary, and every VPN, plugin or
 // native WireGuard, is that same call with a different middle section.
 

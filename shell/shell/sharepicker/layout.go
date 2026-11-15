@@ -11,8 +11,7 @@ type outputSlot struct {
 	x, y, width, height int
 }
 
-// monitorArea is the pixel bounding box across every output
-// (views.rs's MonitorArea).
+// monitorArea is the pixel bounding box across every output.
 type monitorArea struct {
 	minX, maxX, minY, maxY int
 	width, height          int
@@ -35,7 +34,7 @@ func newMonitorArea(slots []outputSlot) monitorArea {
 
 // place maps a slot into a w x h container: the whole map scales to
 // fit (by width when it is wider than the container, else by height)
-// and centers in the slack (append_output_on_allocation).
+// and centers in the slack.
 func (a monitorArea) place(s outputSlot, w, h int) render.Rect {
 	containerAspect := float64(w) / float64(max(h, 1))
 	mw, mh := float64(max(a.width, 1)), float64(max(a.height, 1))
@@ -88,8 +87,8 @@ type outputMap struct {
 	spacing int
 }
 
-// Measure asks for nothing of its own (the Rust Fixed fills its
-// scrolled page): the map takes whatever the page gives it.
+// Measure asks for nothing of its own: the map takes whatever the page
+// gives it.
 func (m *outputMap) Measure(widget.Axis, int) widget.Sizes { return widget.Sizes{} }
 
 func (m *outputMap) Arrange(r render.Rect) {

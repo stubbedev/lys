@@ -14,7 +14,7 @@ import (
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 )
 
-// CLI runs the notmuch binary, as the Rust service does.
+// CLI runs the notmuch binary.
 type CLI struct{}
 
 func notmuch(ctx context.Context, args ...string) ([]byte, bool) {
@@ -22,7 +22,7 @@ func notmuch(ctx context.Context, args ...string) ([]byte, bool) {
 	return out, err == nil
 }
 
-// Count is `notmuch count <query>`, 0 on any failure (query_count).
+// Count is `notmuch count <query>`, 0 on any failure.
 func (CLI) Count(ctx context.Context, query string) uint32 {
 	out, ok := notmuch(ctx, "count", query)
 	if !ok {
@@ -37,7 +37,7 @@ func (CLI) Count(ctx context.Context, query string) uint32 {
 
 // Newest is `notmuch search --format=json --sort=newest-first
 // --limit=N <query>`, one (sender, subject) per thread, empty on any
-// failure (query_new_messages).
+// failure.
 func (CLI) Newest(ctx context.Context, query string, limit int) []Message {
 	if limit <= 0 {
 		return nil

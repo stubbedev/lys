@@ -5,7 +5,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/sounds/soundpolicy"
 )
 
-// NotificationConfig is ported from crates/wayle-config/src/schemas/modules/notification/mod.rs.
+// NotificationConfig configures the notification module.
 //
 // Notification center: icon in the bar, dropdown with history, DND toggle.
 type NotificationConfig struct {
@@ -202,7 +202,7 @@ func (c NotificationConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// PopupPosition is ported from crates/wayle-config/src/schemas/modules/notification/types.rs.
+// PopupPosition is part of the notification module's configuration.
 //
 // Screen position for notification popups.
 type PopupPosition string
@@ -229,7 +229,7 @@ const (
 
 var _ = registerEnum(PopupPositionTopLeft, PopupPositionTopCenter, PopupPositionTopRight, PopupPositionBottomLeft, PopupPositionBottomCenter, PopupPositionBottomRight, PopupPositionCenterLeft, PopupPositionCenterRight)
 
-// StackingOrder is ported from crates/wayle-config/src/schemas/modules/notification/types.rs.
+// StackingOrder is part of the notification module's configuration.
 //
 // Order in which popups are stacked on screen.
 type StackingOrder string
@@ -259,7 +259,7 @@ const (
 
 var _ = registerEnum(PopupStackPerApp, PopupStackAll, PopupStackOff)
 
-// PopupCloseBehavior is ported from crates/wayle-config/src/schemas/modules/notification/types.rs.
+// PopupCloseBehavior is part of the notification module's configuration.
 //
 // Behavior when the close button is clicked on a popup card.
 type PopupCloseBehavior string
@@ -274,7 +274,7 @@ const (
 
 var _ = registerEnum(PopupCloseBehaviorDismiss, PopupCloseBehaviorRemove)
 
-// UrgencyBarThreshold is ported from crates/wayle-config/src/schemas/modules/notification/types.rs.
+// UrgencyBarThreshold is part of the notification module's configuration.
 //
 // Minimum urgency level that shows a colored urgency bar on popup cards.
 //
@@ -296,7 +296,7 @@ const (
 
 var _ = registerEnum(UrgencyBarThresholdLow, UrgencyBarThresholdNormal, UrgencyBarThresholdCritical, UrgencyBarThresholdNone)
 
-// IconSource is ported from crates/wayle-config/src/schemas/modules/notification/types.rs.
+// IconSource is part of the notification module's configuration.
 //
 // Source for resolving notification icons.
 type IconSource string

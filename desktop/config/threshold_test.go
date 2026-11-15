@@ -14,7 +14,6 @@ func iconEntry(above, below *float64, color string) ThresholdEntry {
 	return ThresholdEntry{Above: above, Below: below, IconColor: cvp(color)}
 }
 
-// The threshold.rs test suite, ported.
 func TestEvaluateThresholds(t *testing.T) {
 	warning := func(above float64) ThresholdEntry {
 		e := iconEntry(new(above), nil, "status-warning")

@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
-// DeviceType is input (source) or output (sink) (types/device.rs).
+// DeviceType is input (source) or output (sink).
 type DeviceType int
 
 // Device types.
@@ -37,8 +37,7 @@ type DeviceKey struct {
 // DeviceState is the device's run state.
 type DeviceState int
 
-// Device states; an invalid PulseAudio state reads as Offline
-// (conversion/device.rs's fallback).
+// Device states; an invalid PulseAudio state reads as Offline.
 const (
 	StateRunning DeviceState = iota
 	StateIdle
@@ -48,7 +47,7 @@ const (
 
 var deviceStateNames = [...]string{"Running", "Idle", "Suspended", "Offline"}
 
-// String is the Rust variant name the DBus info map carries.
+// String is the state name the D-Bus info map carries.
 func (s DeviceState) String() string { return deviceStateNames[s] }
 
 func deviceState(raw uint32) DeviceState {
@@ -86,7 +85,7 @@ type SampleSpec = native.SampleSpec
 type ChannelMap = native.ChannelMap
 
 // OptIndex is an object index that may be absent (PA_INVALID_INDEX on
-// the wire, Option<u32> in wayle-audio).
+// the wire).
 type OptIndex struct {
 	index uint32
 	ok    bool
@@ -102,8 +101,7 @@ func IndexOf(index uint32) OptIndex { return OptIndex{index: index, ok: true} }
 // Get returns the index and whether it is set.
 func (o OptIndex) Get() (uint32, bool) { return o.index, o.ok }
 
-// Device is what sinks and sources share (types/device.rs's
-// DeviceInfo).
+// Device is what sinks and sources share.
 type Device struct {
 	Key               DeviceKey
 	Name              string
@@ -193,7 +191,7 @@ type StreamKey struct {
 
 // StreamState is a stream's state. PulseAudio's introspection only
 // distinguishes corked from running, so those are the two the service
-// produces (conversion/stream.rs).
+// produces.
 type StreamState int
 
 // Stream states.
@@ -253,7 +251,7 @@ func (s AudioStream) clone() AudioStream {
 }
 
 // DeviceNotFoundError reports a lookup of a device the service does
-// not hold (error.rs's DeviceNotFound).
+// not hold.
 type DeviceNotFoundError struct {
 	Key DeviceKey
 }
@@ -311,7 +309,7 @@ func fromDevice(d native.DeviceInfo, t DeviceType) Device {
 	}
 }
 
-// fromSink is conversion/device.rs's from_sink.
+// fromSink converts a sink's info.
 func fromSink(d native.DeviceInfo) OutputDevice {
 	return OutputDevice{
 		Device:            fromDevice(d, DeviceOutput),
@@ -320,7 +318,7 @@ func fromSink(d native.DeviceInfo) OutputDevice {
 	}
 }
 
-// fromSource is from_source: a source is a monitor exactly when it
+// fromSource converts a source's info: a source is a monitor exactly when it
 // names the sink it monitors.
 func fromSource(d native.DeviceInfo) InputDevice {
 	in := InputDevice{Device: fromDevice(d, DeviceInput), MonitorOfSink: optIndex(d.Monitor)}
@@ -330,8 +328,7 @@ func fromSource(d native.DeviceInfo) InputDevice {
 	return in
 }
 
-// fromStream is conversion/stream.rs's from_sink_input /
-// from_source_output.
+// fromStream converts a sink input's or source output's info.
 func fromStream(s native.StreamInfo, t StreamType) AudioStream {
 	state := StreamRunning
 	if s.Corked {

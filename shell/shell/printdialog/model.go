@@ -267,15 +267,14 @@ type form struct {
 	output string
 }
 
-// The copies bounds (the Rust spin button's adjustment).
+// The copies bounds.
 const (
 	minCopies = 1
 	maxCopies = 999
 )
 
 // pageRanges parses "1-5, 8" into 1-based ranges, each low to high;
-// false for an empty input or one that does not parse
-// (shell/print's parse_page_ranges).
+// false for an empty input or one that does not parse.
 func pageRanges(input string) ([][2]int32, bool) {
 	var out [][2]int32
 	for tok := range strings.SplitSeq(input, ",") {

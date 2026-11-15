@@ -1,5 +1,5 @@
-// Package styling resolves lys-shell's design tokens to concrete colors:
-// the Go counterpart of crates/wayle-styling. The palette is the
+// Package styling resolves lys-shell's design tokens to concrete colors.
+// The palette is the
 // runtime source of truth and every token is a color-mix derivation
 // from it, defined once in Palette.Token: TokensCSS hands the
 // stylesheet the same colors lys-ui's theme and the painters use.
@@ -16,8 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/tokens"
 )
 
-// RemBase is the rem the stylesheet's base values multiply: styling.rs's
-// REM_BASE.
+// RemBase is the rem the stylesheet's base values multiply.
 const RemBase = tokens.RemPx
 
 // Palette is the runtime color palette — the --palette-* custom
@@ -161,7 +160,7 @@ func (p *Palette) Token(t config.CssToken) (render.Color, bool) {
 }
 
 // ResolveColor resolves a config ColorValue against the palette: Auto
-// defers to the accent (ColorValue::to_css's documented fallback),
+// defers to the accent,
 // transparent is fully transparent, custom hex parses, tokens go
 // through the token table. An invalid hex or unknown token is a load-
 // time error by construction; the bool return covers the custom hex

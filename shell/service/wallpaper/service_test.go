@@ -51,7 +51,7 @@ func TestParseModes(t *testing.T) {
 		}
 	}
 	if _, err := ParseFitMode("tile"); err == nil || err.Error() != "Invalid fit mode: tile" {
-		t.Errorf("tile err = %v, want the Rust message", err)
+		t.Errorf("tile err = %v, want \"Invalid fit mode: tile\"", err)
 	}
 	if m, err := ParseCyclingMode("Shuffle"); err != nil || m != Shuffle {
 		t.Errorf("Shuffle = %v %v", m, err)

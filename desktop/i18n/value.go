@@ -9,7 +9,7 @@ import (
 )
 
 // valueKind is the closed set of fluent-bundle FluentValue variants the
-// resolver produces (types/mod.rs); Custom has no FTL source.
+// resolver produces; Custom has no FTL source.
 type valueKind int
 
 const (
@@ -55,10 +55,9 @@ func tryNumber(raw string) value {
 	return numberValue(number{v: f, minFD: mfd})
 }
 
-// rustFloat formats f64 the way Rust's Display does: the shortest
-// round-tripping digits, never an exponent, "inf"/"NaN" for the
-// non-finite values.
-func rustFloat(v float64) string {
+// formatFloat formats f64 as the shortest round-tripping digits, never
+// an exponent, "inf"/"NaN" for the non-finite values.
+func formatFloat(v float64) string {
 	switch {
 	case math.IsInf(v, 1):
 		return "inf"
@@ -73,7 +72,7 @@ func rustFloat(v float64) string {
 // String is FluentNumber::as_string: the plain digits, padded with
 // zeros up to the minimum fraction digits.
 func (n number) String() string {
-	s := rustFloat(n.v)
+	s := formatFloat(n.v)
 	if n.minFD < 0 {
 		return s
 	}
@@ -94,11 +93,11 @@ type operands struct {
 	v int
 }
 
-// pluralOperands ports intl_pluralrules' TryFrom<&str> over the Rust
-// Display string plus fluent-bundle's minimum-fraction-digits bump. It
-// fails where Rust's does (an unparsable integer part).
+// pluralOperands derives the operands from formatFloat's string plus
+// fluent-bundle's minimum-fraction-digits bump. It fails on an
+// unparsable integer part.
 func (n number) pluralOperands() (operands, bool) {
-	s := strings.TrimPrefix(rustFloat(n.v), "-")
+	s := strings.TrimPrefix(formatFloat(n.v), "-")
 	var ops operands
 	if dot := strings.IndexByte(s, '.'); dot >= 0 {
 		i, err := strconv.ParseUint(s[:dot], 10, 64)
@@ -119,8 +118,7 @@ func (n number) pluralOperands() (operands, bool) {
 	return ops, true
 }
 
-// saturatingUint is Rust's `f64 as u64`: NaN to 0, out of range
-// clamped.
+// saturatingUint converts f to uint64: NaN to 0, out of range clamped.
 func saturatingUint(f float64) uint64 {
 	switch {
 	case math.IsNaN(f) || f <= 0:

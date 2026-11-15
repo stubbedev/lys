@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
-// D-Bus identity (crates/wayle-audio/src/dbus/mod.rs).
+// D-Bus identity.
 const (
 	ServiceName = "dev.stubbe.lys.Audio1"
 	ServicePath = "/dev/stubbe/lys/Audio"
@@ -26,9 +26,8 @@ const (
 	errFailed           = "org.freedesktop.DBus.Error.Failed"
 )
 
-// Daemon serves the audio service on the session bus
-// (dbus/server.rs's AudioDaemon) for the `lys-shell audio` CLI and
-// scripts.
+// Daemon serves the audio service on the session bus for the
+// `lys-shell audio` CLI and scripts.
 type Daemon struct {
 	svc *Service
 }
@@ -66,7 +65,6 @@ type audioObject struct {
 }
 
 var (
-	// The Rust daemon's fdo::Error::Failed messages.
 	errNoOutput = dbus.NewError(errFailed, []any{"No default output device"})
 	errNoInput  = dbus.NewError(errFailed, []any{"No default input device"})
 )
@@ -209,8 +207,7 @@ type DeviceEntry struct {
 	Description string
 }
 
-// ListSinks lists the outputs by index (the Rust daemon walks a
-// HashMap, so its order is arbitrary; index order is the stable one).
+// ListSinks lists the outputs by index.
 func (o *audioObject) ListSinks() ([]DeviceEntry, *dbus.Error) {
 	var out []DeviceEntry
 	for _, d := range o.svc.OutputDevices() {
@@ -254,8 +251,9 @@ func (o *audioObject) GetDefaultSourceInfo() (map[string]string, *dbus.Error) {
 	return deviceInfoMap(d.Device), nil
 }
 
-// deviceInfoMap is get_default_sink_info's dictionary: the volume is
-// the rounded average percentage ({:.0}), the state its variant name.
+// deviceInfoMap is GetDefaultSinkInfo's and GetDefaultSourceInfo's
+// dictionary: the volume is the rounded average percentage, the state
+// its name.
 func deviceInfoMap(d Device) map[string]string {
 	info := map[string]string{
 		"index":       strconv.FormatUint(uint64(d.Key.Index), 10),
@@ -272,7 +270,7 @@ func deviceInfoMap(d Device) map[string]string {
 }
 
 // audioProperties is org.freedesktop.DBus.Properties for the object:
-// every property is computed on read, like the zbus getters.
+// every property is computed on read.
 type audioProperties struct {
 	svc *Service
 }
@@ -393,7 +391,7 @@ func introspection() *introspect.Node {
 	}
 }
 
-// Client is the CLI side (dbus/client.rs's AudioProxy).
+// Client is the CLI side.
 type Client struct {
 	obj dbus.BusObject
 }

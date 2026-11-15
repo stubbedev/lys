@@ -37,7 +37,8 @@ func TestWidgetUpdateWithoutShellFails(t *testing.T) {
 	dir := sockdir.Dir(t)
 	t.Setenv("XDG_RUNTIME_DIR", dir)
 	_, stderr, code := runCaptured(t, false, "widget", "update", "gpu", "42")
-	want := "Error: cannot connect to lys-shell widget socket at " + filepath.Join(dir, "lys-shell", "widget.sock") + ": No such file or directory (os error 2)\n"
+	path := filepath.Join(dir, "lys-shell", "widget.sock")
+	want := "Error: cannot connect to lys-shell widget socket at " + path + ": dial unix " + path + ": connect: no such file or directory\n"
 	if code != 1 || stderr != want {
 		t.Errorf("code %d stderr %q, want %q", code, stderr, want)
 	}

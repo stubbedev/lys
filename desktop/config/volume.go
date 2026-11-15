@@ -1,6 +1,6 @@
 package config
 
-// AppIconSource is ported from crates/wayle-config/src/schemas/modules/volume/mod.rs.
+// AppIconSource is part of the volume module's configuration.
 //
 // Icon source for app volume entries in the dropdown.
 type AppIconSource string
@@ -15,7 +15,7 @@ const (
 
 var _ = registerEnum(AppIconSourceMapped, AppIconSourceNative)
 
-// VolumeConfig is ported from crates/wayle-config/src/schemas/modules/volume/mod.rs.
+// VolumeConfig configures the volume module.
 //
 // Output volume control with a dropdown for device and app volumes.
 type VolumeConfig struct {

@@ -11,26 +11,21 @@ import (
 // The config schema is declared once, on the Go types, through `cfg`
 // struct tags; loading, runtime overrides, `lys-shell config get/set/
 // reset/default`, and the JSON Schema all walk the same metadata, so a
-// key added to a struct is covered everywhere by construction. This is
-// the Go counterpart of the #[lys_shell_config] derive
-// (crates/wayle-derive/src/{lys_shell_config,derives,field_utils}.rs).
+// key added to a struct is covered everywhere by construction.
 //
 // Tag grammar: `cfg:"key[,option...]"`.
 //
-//	key               the canonical YAML key (serde rename)
-//	alias=<k>         an extra key accepted on read (serde alias)
+//	key               the canonical YAML key
+//	alias=<k>         an extra key accepted on read
 //	deprecated=<k>    a legacy key accepted on read with a warning
-//	                  (#[lys-shell(deprecated_alias)])
 //	inline            a Go-only grouping struct whose fields belong to
 //	                  the parent table (no key of its own)
 //	required          inside a value struct: a missing key is an error
-//	                  (a serde field without #[serde(default)])
-//	default           inside a value struct without #[serde(default)]:
-//	                  this field has a field-level serde default
+//	default           inside a value struct without struct defaults:
+//	                  this field has a default of its own
 //	nolayer           serialized and in the schema, but never applied
-//	                  from a layer (#[lys-shell(skip)] with serde, i.e.
-//	                  `imports`)
-//	noi18n            no settings label of its own (#[i18n(skip)])
+//	                  from a layer (`imports`)
+//	noi18n            no settings label of its own
 //	type=<T>          a string field holding a T (semanticStrings): the
 //	                  type an editor and the schema name it by
 //
@@ -38,12 +33,11 @@ import (
 // Every exported field of a schema struct carries one of the two; the
 // schema tests enforce it.
 
-// Leaf types are decoded wholesale: a layer replaces the whole value,
-// the way a ConfigProperty<T> holds one T. Every non-struct type is a
+// Leaf types are decoded wholesale: a layer replaces the whole value.
+// Every non-struct type is a
 // leaf; a struct is a leaf when it implements Unmarshaler or is marked
-// as a value struct (a plain serde struct held by one ConfigProperty,
-// like SurfaceAnimation or DropdownSize). Any other struct is a
-// container whose fields are properties of their own.
+// as a value struct (like SurfaceAnimation or DropdownSize). Any other
+// struct is a container whose fields are properties of their own.
 type valueStruct interface {
 	// configValue marks a struct decoded as one value.
 	configValue()
@@ -51,8 +45,7 @@ type valueStruct interface {
 
 // Unmarshaler is implemented by leaf types with their own decoding
 // from the layer tree: string | int64 | float64 | bool | []any |
-// map[string]any. The error text becomes the diagnostic's Error line,
-// so it follows serde's wording where the Rust type is a serde type.
+// map[string]any. The error text becomes the diagnostic's Error line.
 type Unmarshaler interface {
 	UnmarshalConfig(v any) error
 }

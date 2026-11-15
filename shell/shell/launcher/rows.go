@@ -12,7 +12,7 @@ import (
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// rowDisplay is RowDisplay: which columns of a row show, split on what,
+// rowDisplay is which columns of a row show, split on what,
 // and where a long row truncates.
 type rowDisplay struct {
 	// columns are 1-based (-display-columns); nil shows the whole text.

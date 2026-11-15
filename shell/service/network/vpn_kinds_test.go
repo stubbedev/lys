@@ -182,7 +182,6 @@ func TestTheProtocolFieldIsAPickerOverWhatOpenconnectSpeaks(t *testing.T) {
 			t.Errorf("%s: the choice disagrees with the sign-in's own verdict", c.Value)
 		}
 	}
-	// The order the picker offers, the Rust PROTOCOLS order.
 	if !slices.Equal(values, []string{"gp", "anyconnect", "fortinet", "array", "nc", "pulse", "f5"}) {
 		t.Errorf("protocols = %v", values)
 	}

@@ -59,7 +59,7 @@ func TestRequireCompositorNamesBothSides(t *testing.T) {
 }
 
 // A Hyprland session that also exports SWAYSOCK is Hyprland: the sway
-// module is skipped, as Compositor::detect decides it.
+// module is skipped.
 func TestSwayWorkspacesSkippedUnderHyprland(t *testing.T) {
 	fakeI3(t, "[]", `{"id":1,"type":"root","nodes":[],"floating_nodes":[]}`)
 	ctx := newTestContext(t, config.Defaults())

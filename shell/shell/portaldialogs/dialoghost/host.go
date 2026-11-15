@@ -25,8 +25,8 @@ import (
 	"github.com/stubbedev/lys/shell/shell/keys"
 )
 
-// The surface's sizes (shell/portal_dialogs: set_width_request,
-// pixel sizes, the app list's min-content-height).
+// The surface's sizes: widths, pixel sizes, the app list's
+// min-content-height.
 const (
 	surfaceWidth = 420
 	headerPx     = 64
@@ -563,8 +563,7 @@ func (h *Dialogs) accept(text string, onClick func()) *widget.Button {
 
 // chooser lists the request's apps in a ListBox of icon + name rows,
 // the last choice selected; activating one answers its app id. The
-// search hides the rows whose name lacks the query (the list's filter,
-// as set_filter_func does).
+// search hides the rows whose name lacks the query.
 func (h *Dialogs) chooser(answer func(bool, string), ac *appChooser) *widget.Card {
 	contentType := ac.req.ContentType
 	list := widget.NewListBox()
@@ -604,8 +603,7 @@ func (h *Dialogs) chooser(answer func(bool, string), ac *appChooser) *widget.Car
 		return query == "" || strings.Contains(names[r.Index()], query)
 	})
 	ac.refresh()
-	// gtk::SearchEntry: the list filters on search-changed, after the
-	// default delay.
+	// The list filters on search-changed, after the default delay.
 	search := widget.NewSearchEntry(h.d.Font, widgets.TextPx(styling.Body, 1), "Search applications…")
 	search.AddClass("portal-dialog-search")
 	search.OnSearchChanged = func(q string) {
@@ -632,7 +630,7 @@ func (h *Dialogs) chooser(answer func(bool, string), ac *appChooser) *widget.Car
 	return h.surface("Open With", target, []widget.Widget{search, scroll, rememberRow}, h.cancel("Cancel", answer), open)
 }
 
-// appRow is app_row: the app icon and its name over the ellipsized
+// appRow is the app icon and its name over the ellipsized
 // description, inset by the theme's padding.
 func (h *Dialogs) appRow(a desktopentry.App) widget.Widget {
 	th := widget.Current()
@@ -719,7 +717,7 @@ func (h *Dialogs) hide() {
 	})
 }
 
-// CandidateApps is the chooser's list (candidate_apps): the given
+// CandidateApps is the chooser's list: the given
 // app ids' entries, else the apps recommended for the type, else every app.
 func CandidateApps(choices []string, contentType string) []desktopentry.App {
 	dirs := desktopentry.ApplicationDirs()

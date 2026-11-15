@@ -43,11 +43,10 @@ const (
 // skip the check.
 var clientRoots *x509.CertPool
 
-// client is the HTTPS client the sign-in runs on (client() in mod.rs).
+// client is the HTTPS client the sign-in runs on.
 // No overall timeout: the per-request ones differ by an order of
 // magnitude and a client-wide one would cap them all at the shortest.
-// No cookie jar, and HTTP/1.1 only, like the Rust's reqwest client;
-// redirects are followed.
+// No cookie jar, and HTTP/1.1 only; redirects are followed.
 type client struct{ transport http.RoundTripper }
 
 func newClient() *client {
@@ -185,8 +184,8 @@ func (r reply) namedCookie(want string) (string, bool) {
 	return name + "=" + value, true
 }
 
-// statusText renders a status the way the Rust's reqwest StatusCode
-// does: "404 Not Found", "512 <unknown status code>".
+// statusText renders a status as "404 Not Found", or
+// "512 <unknown status code>" for one without a reason phrase.
 func statusText(status int) string {
 	text := http.StatusText(status)
 	if text == "" {

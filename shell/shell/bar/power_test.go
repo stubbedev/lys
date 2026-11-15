@@ -48,7 +48,7 @@ func (powerMenuWindow) Close() {}
 
 func (powerMenuWindow) SetFocus(widget.Widget) error { return nil }
 
-// TestPowerMenuVerbOpensTheMenu pins show_power_menu: :menu opens the
+// TestPowerMenuVerbOpensTheMenu pins the :menu verb: it opens the
 // native power menu, and with none it does nothing (no dropdown).
 func TestPowerMenuVerbOpensTheMenu(t *testing.T) {
 	cfg := config.Defaults()

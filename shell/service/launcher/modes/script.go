@@ -1,5 +1,5 @@
-// Package modes holds the launch modes (crates/wayle-launcher/src/
-// modes): drun, run, window, ssh, the file browsers, script and dmenu,
+// Package modes holds the launch modes: drun, run, window, ssh, the
+// file browsers, script and dmenu,
 // combi, and the lys-shell-only calc, emoji, clipboard, and keys modes.
 package modes
 
@@ -16,8 +16,8 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// Script is a custom script mode speaking the rofi-script(5) protocol
-// (script.rs): the script runs with no argument to produce the list,
+// Script is a custom script mode speaking the rofi-script(5) protocol:
+// the script runs with no argument to produce the list,
 // and again with the selected entry as argv[1] on every interaction.
 // ROFI_RETV says why (0 init, 1 select, 2 custom, 3 delete, 10..28
 // kb-custom-N); ROFI_INFO, ROFI_DATA, and ROFI_INPUT carry the row's
@@ -83,8 +83,8 @@ func (s *Script) invoke(ctx context.Context, arg *string, retv int, info *string
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	if err := cmd.Run(); err != nil {
-		// A non-zero exit still hands back its output, as tokio's
-		// output() does; only a failure to run at all is empty.
+		// A non-zero exit still hands back its output; only a failure to
+		// run at all is empty.
 		if exitErr := (*exec.ExitError)(nil); !errors.As(err, &exitErr) {
 			log.Printf("launcher: script mode %s exec failed: %v", s.script, err)
 			return scriptEmpty{}

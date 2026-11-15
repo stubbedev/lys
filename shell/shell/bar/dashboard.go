@@ -9,7 +9,7 @@ import (
 )
 
 // dashboardFallbackIcon is the dashboard glyph shown when no distro icon
-// resolves (dashboard helpers.rs FALLBACK_ICON).
+// resolves.
 const dashboardFallbackIcon = "ld-layout-dashboard-symbolic"
 
 // osReleasePaths are read in order; the first readable one wins.
@@ -22,7 +22,7 @@ type distroInfo struct {
 }
 
 // parseOSRelease reads ID and LOGO from an os-release body; ok is false
-// without an ID (detect_distro's `id?`).
+// without an ID.
 func parseOSRelease(body string) (distroInfo, bool) {
 	var info distroInfo
 	hasID := false
@@ -54,7 +54,7 @@ func detectDistro() (distroInfo, bool) {
 }
 
 // bundledDistroIcons maps os-release IDs onto the bundled icon set
-// (helpers.rs bundled_icon_for_distro), verbatim.
+// verbatim.
 var bundledDistroIcons = map[string]string{
 	"alpine":              "si-alpinelinux-symbolic",
 	"almalinux":           "si-almalinux-symbolic",
@@ -95,7 +95,7 @@ var bundledDistroIcons = map[string]string{
 	"zorin":               "si-zorin-symbolic",
 }
 
-// dashboardIcon is helpers.rs build_icon: the override when set;
+// dashboardIcon is the override when set;
 // otherwise the bundled distro icon, the os-release LOGO, then
 // distributor-logo-<id>, each only when the theme has it; the dashboard
 // glyph last.

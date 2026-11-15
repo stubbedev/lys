@@ -27,9 +27,9 @@ func FormatGetValue(v any) string {
 	case uint64:
 		return strconv.FormatUint(t, 10)
 	case float64:
-		return rustFloat(t, 64)
+		return formatFloat(t, 64)
 	case float32:
-		return rustFloat(float64(t), 32)
+		return formatFloat(float64(t), 32)
 	case bool:
 		return strconv.FormatBool(t)
 	}

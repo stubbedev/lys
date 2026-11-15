@@ -61,8 +61,7 @@ func MustLangID(s string) LangID {
 	return id
 }
 
-// splitSubtags splits on '-' and '_', keeping empty subtags the way
-// Rust's slice::split does.
+// splitSubtags splits on '-' and '_', keeping empty subtags.
 func splitSubtags(s string) []string {
 	return strings.Split(strings.ReplaceAll(s, "_", "-"), "-")
 }

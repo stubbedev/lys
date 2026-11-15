@@ -31,8 +31,7 @@ func mailDropdown(ctx ModuleContext) widget.Widget {
 	font, px := dropdownFont(ctx)
 	v := &mailView{ctx: ctx, font: font, px: px}
 	v.openFollow = newOpenFollow(ctx, v.follow)
-	// The popover frame: the header strip full width over the content
-	// (mail/mod.rs:36-78).
+	// The popover frame: the header strip full width over the content.
 	v.Box = widget.NewBox(widget.Column, 0, 0)
 	v.AddClass("dropdown", "mail-dropdown")
 	v.Append(dropdownHeader(font, "ld-mail-symbolic", i18n.T("dropdown-mail-title")), false)
@@ -56,7 +55,6 @@ func (v *mailView) accounts() []mail.AccountUnread {
 	return v.ctx.Mail.State().Accounts
 }
 
-// rebuild is rebuild_list.
 func (v *mailView) rebuild() {
 	v.list.Clear()
 	accounts := v.accounts()
@@ -70,7 +68,7 @@ func (v *mailView) rebuild() {
 	v.pages.Show("accounts")
 }
 
-// row is account_row on lys-ui's Item: the provider icon as the
+// row is an account on lys-ui's Item: the provider icon as the
 // media, the account's name, and the unread count as a badge, the
 // secondary one at zero.
 func (v *mailView) row(a mail.AccountUnread) *widget.Item {

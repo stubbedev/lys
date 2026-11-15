@@ -24,14 +24,14 @@ import (
 	"github.com/stubbedev/lys/shell/internal/jinja"
 )
 
-// Custom module limits (watchers/command.rs, events.rs, helpers.rs).
+// Custom module limits.
 const (
 	commandTimeout     = 30 * time.Second
 	customScrollWait   = 50 * time.Millisecond
 	maxCustomJSONBytes = 64 * 1024
 )
 
-// parsedOutput is helpers.rs's ParsedOutput: the trimmed raw output,
+// parsedOutput is the trimmed raw output,
 // the reserved JSON fields, and the JSON itself for the template.
 type parsedOutput struct {
 	raw        string
@@ -43,10 +43,9 @@ type parsedOutput struct {
 	json       any
 }
 
-// parseCustomOutput is ParsedOutput::parse: output starting with "{"
-// or "[" (at most 64 KiB) that is valid JSON parses; anything else is
-// raw text. The reserved fields decode all together as serde would, so
-// one of the wrong type (a non-string text, a fractional percentage)
+// parseCustomOutput parses output starting with "{" or "[" (at most
+// 64 KiB) that is valid JSON; anything else is raw text. The reserved
+// fields decode all together, so one of the wrong type (a non-string text, a fractional percentage)
 // leaves them all unset.
 func parseCustomOutput(out string) parsedOutput {
 	trimmed := strings.TrimSpace(out)
@@ -67,7 +66,7 @@ func parseCustomOutput(out string) parsedOutput {
 	return p
 }
 
-// applyReserved is serde's ReservedFields decode: all fields or none.
+// applyReserved decodes the reserved fields: all fields or none.
 func applyReserved(p *parsedOutput, m map[string]any) {
 	var r parsedOutput
 	optString := func(key string) (*string, bool) {
@@ -119,7 +118,7 @@ func applyReserved(p *parsedOutput, m map[string]any) {
 }
 
 // jsonValue maps decoded JSON onto template values: numbers become
-// integers when serde_json would (no fraction or exponent, in range).
+// integers when they have no fraction or exponent and are in range.
 func jsonValue(v any) any {
 	switch x := v.(type) {
 	case json.Number:
@@ -155,7 +154,7 @@ func renderCustom(format string, p parsedOutput) string {
 	return jinja.RenderOr(format, p.templateContext())
 }
 
-// formatCustomLabel is format_label: the JSON text wins over the
+// formatCustomLabel is the JSON text wins over the
 // rendered format.
 func formatCustomLabel(def config.CustomModuleDefinition, p parsedOutput) string {
 	if p.text != nil {
@@ -164,7 +163,7 @@ func formatCustomLabel(def config.CustomModuleDefinition, p parsedOutput) string
 	return renderCustom(def.Format, p)
 }
 
-// formatCustomTooltip is format_tooltip: the JSON tooltip, else the
+// formatCustomTooltip is the JSON tooltip, else the
 // rendered tooltip-format, else none.
 func formatCustomTooltip(def config.CustomModuleDefinition, p parsedOutput) (string, bool) {
 	if p.tooltip != nil {
@@ -176,7 +175,7 @@ func formatCustomTooltip(def config.CustomModuleDefinition, p parsedOutput) (str
 	return renderCustom(*def.TooltipFormat, p), true
 }
 
-// resolveCustomIcon is resolve_icon: icon-map[alt], then icon-names by
+// resolveCustomIcon: icon-map[alt], then icon-names by
 // percentage, then icon-map["default"], then icon-name.
 func resolveCustomIcon(def config.CustomModuleDefinition, p parsedOutput) string {
 	if def.IconMap != nil && p.alt != nil {
@@ -198,7 +197,7 @@ func resolveCustomIcon(def config.CustomModuleDefinition, p parsedOutput) string
 	return def.IconName
 }
 
-// resolveCustomColors is resolve_colors: the color-map state for alt
+// resolveCustomColors is the color-map state for alt
 // (else "default"), each unset color falling back to the static one.
 // Nothing without a color-map.
 func resolveCustomColors(def config.CustomModuleDefinition, p parsedOutput) (config.ThresholdColors, bool) {
@@ -227,7 +226,7 @@ func resolveCustomColors(def config.CustomModuleDefinition, p parsedOutput) (con
 	}, true
 }
 
-// resolveCustomClasses is resolve_classes: the JSON classes, then the
+// resolveCustomClasses is the JSON classes, then the
 // rendered class-format split on whitespace, without repeats.
 func resolveCustomClasses(def config.CustomModuleDefinition, p parsedOutput) []string {
 	classes := slices.Clone(p.class)
@@ -241,7 +240,7 @@ func resolveCustomClasses(def config.CustomModuleDefinition, p parsedOutput) []s
 	return classes
 }
 
-// shouldHideCustom is helpers.rs's should_hide: empty, "0", or "false"
+// shouldHideCustom reports whether empty, "0", or "false"
 // (any case) hides the module when hide-if-empty is set.
 func shouldHideCustom(output string, hideIfEmpty bool) bool {
 	if !hideIfEmpty {
@@ -251,7 +250,7 @@ func shouldHideCustom(output string, hideIfEmpty bool) bool {
 }
 
 // customUpdates routes widget.update pushes to every module with the
-// target id (one per bar, as every Rust instance hears the bus) and
+// target id (one per bar) and
 // keeps each id's last output, so a module rebuilt by a reload starts
 // from it.
 type customUpdates struct {
@@ -395,7 +394,7 @@ func (m *customModule) followCommand(command string) error {
 	return joinSampler(m.life, m.ctx.Polls, spec, m.deliver)
 }
 
-// runCommand is run_command_async: the command through sh -c, replacing any
+// runCommand is the command through sh -c, replacing any
 // command still in flight.
 func (m *customModule) runCommand(command string) {
 	ctx, cancel := context.WithCancel(m.life)
@@ -437,13 +436,13 @@ func (m *customModule) commandOutput(parent context.Context, command string) (st
 }
 
 // exitedWithOutput reports a command that ran and exited nonzero: its
-// stdout still counts (tokio's output() keeps it).
+// stdout still counts.
 func exitedWithOutput(err error) bool {
 	var exit *exec.ExitError
 	return errors.As(err, &exit)
 }
 
-// supervise is spawn_command_watcher: each stdout line of the running
+// supervise: each stdout line of the running
 // command is an output; on exit the restart policy decides, after
 // restart-interval-ms, whether it runs again.
 func (m *customModule) supervise(ctx context.Context, command string, line func(string)) {
@@ -491,7 +490,7 @@ func (m *customModule) watchOnce(ctx context.Context, command string, line func(
 	return cmd.Wait(), true
 }
 
-// followAction is the on-action hook (mod.rs update): after a shell
+// followAction is the on-action hook: after a shell
 // binding, the on-action command runs and its output applies; scrolls
 // debounce it by 50ms.
 func (m *customModule) followAction(action config.ClickAction, scroll bool) {
@@ -529,7 +528,7 @@ func (m *customModule) deliver(output string) {
 	m.views.give(m.view(output))
 }
 
-// customView is apply_output's result: what one output shows.
+// customView is what one output shows.
 type customView struct {
 	label     string
 	icon      string
@@ -560,7 +559,6 @@ func (m *customModule) view(output string) customView {
 	return v
 }
 
-// apply is apply_output on the loop.
 func (m *customModule) apply(output string) { m.show(m.view(output)) }
 
 func (m *customModule) show(v customView) {

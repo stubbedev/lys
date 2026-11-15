@@ -23,7 +23,7 @@ type ClipboardHistory interface {
 	Unpin(id uint64) error
 }
 
-// Row icons, one per clipboard.Kind (clipboard.rs).
+// Row icons, one per clipboard.Kind.
 const (
 	iconText  = "ld-file-text-symbolic"
 	iconFiles = "ld-folder-symbolic"
@@ -44,7 +44,7 @@ const (
 	togglePin uint8 = 3
 )
 
-// Clipboard lists the session's clipboard history (clipboard.rs): the
+// Clipboard lists the session's clipboard history: the
 // cliphist | rofi -dmenu | wl-copy pipeline without a second daemon.
 // Accepting a row puts it back under the mime it arrived with, so a
 // copied file goes back as a file and an image as an image.

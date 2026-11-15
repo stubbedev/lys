@@ -17,10 +17,8 @@ import (
 	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
-// netScanTimeout is SCAN_TIMEOUT.
 const netScanTimeout = 30 * time.Second
 
-// netListState is ListState.
 type netListState int
 
 const (
@@ -42,7 +40,7 @@ type netState struct {
 	vpns     []network.VPN
 }
 
-// netProgress is ConnectionProgress: the network being joined, its
+// netProgress is the network being joined, its
 // current step, and the failure that ended it.
 type netProgress struct {
 	ssid, step, err string
@@ -169,8 +167,7 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	v := &networkView{ctx: ctx, font: font, px: px, netDeps: deps}
 	v.openFollow = newOpenFollow(ctx, v.follow)
 	v.reads = newRefresher(ctx, v.life, v.read, v.apply)
-	// The popover frame: the header strip full width over the content
-	// (network/mod.rs:63-183).
+	// The popover frame: the header strip full width over the content.
 	v.Box = widget.NewBox(widget.Column, 0, 0)
 	v.AddClass("dropdown", "network-dropdown")
 
@@ -187,7 +184,7 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	v.saveOffer = newNetSaveOffer(v)
 
 	// The content wraps the active connections, the secret form, and
-	// the body stack (network/mod.rs:129-183).
+	// the body stack.
 	content := dropdownContent("network-content")
 	content.Append(v.active, false)
 	content.Append(v.secret, false)
@@ -288,7 +285,6 @@ func (v *networkView) apply(s netState) {
 	}
 }
 
-// rebuildList is rebuild_network_list.
 func (v *networkView) rebuildList() {
 	wifiAvail := v.wifi() != nil
 	connected := ""
@@ -312,11 +308,11 @@ func (v *networkView) rebuildList() {
 	v.noAdapter.SetVisible(!wifiAvail)
 }
 
-// row is NetworkItem on lys-ui's Item: the signal icon as the media,
+// row is a network on lys-ui's Item: the signal icon as the media,
 // the name over the security, and on a saved network the forget
 // button, shown while hovered, as the action. Activating the row - any
 // part of it but the forget button, which keeps its own click - selects
-// the network (network_item.rs:181-190).
+// the network.
 func (v *networkView) row(ap apSnapshot) *widget.Item {
 	ssid := ap.ssid
 	row := widget.NewItem(v.font, ap.ssid, rowSecurityLabel(ap))
@@ -361,8 +357,7 @@ func (v *networkView) find(ssid string) (apSnapshot, bool) {
 	return apSnapshot{}, false
 }
 
-// selectNetwork is select_network: a stale row scans for its network
-// first; a secured unknown one asks for its password; anything else
+// selectNetwork picks ssid: a stale row scans for its network first; a secured unknown one asks for its password; anything else
 // connects.
 func (v *networkView) selectNetwork(ssid string) {
 	ap, ok := v.find(ssid)
@@ -389,8 +384,7 @@ func (v *networkView) selectNetwork(ssid string) {
 	v.connect("")
 }
 
-// connect is connect_to_selected: the watch runs off the loop and
-// reports each step and the outcome back.
+// connect runs the watch off the loop and reports each step and the outcome back.
 func (v *networkView) connect(password string) {
 	w, sel := v.wifi(), v.selection
 	if w == nil || sel == nil {
@@ -440,29 +434,28 @@ func (v *networkView) connectDone(err error) {
 	v.refresh()
 }
 
-// fail is handle_connection_failure.
 func (v *networkView) fail(message string) {
 	v.state, v.selection = netNormal, nil
 	v.progress = netProgress{err: message}
 }
 
-// dropdownOpened is NetworkDropdownMsg::Opened: every open of the
+// dropdownOpened makes every open of the
 // cached instance scans an empty list.
 func (v *networkView) dropdownOpened() {
 	v.openFollow.dropdownOpened()
 	v.scanIfEmpty()
 }
 
-// scanIfEmpty is scan_if_empty: an empty list is never the first thing
-// seen.
+// scanIfEmpty scans an empty list, so an empty list is never the first
+// thing seen.
 func (v *networkView) scanIfEmpty() {
 	if v.wifi() != nil && v.cur.snap.WifiEnabled && len(v.cache) == 0 && v.state == netNormal {
 		v.startScan()
 	}
 }
 
-// startScan is start_scan: the scan runs off the loop until NM bumps
-// LastScan or SCAN_TIMEOUT passes.
+// startScan runs the scan off the loop until NM bumps LastScan or
+// netScanTimeout passes.
 func (v *networkView) startScan() {
 	w := v.wifi()
 	if w == nil || v.state == netScanning {
@@ -498,7 +491,6 @@ func (v *networkView) scanDone() {
 	v.active.apply(v.cur.snap, v.progress)
 }
 
-// forget is forget_network.
 func (v *networkView) forget(ssid string) {
 	w := v.wifi()
 	if w == nil {
@@ -513,7 +505,6 @@ func (v *networkView) forget(ssid string) {
 // refresh re-reads off the loop and applies, through the view's reader.
 func (v *networkView) refresh() { v.reads.request() }
 
-// wifiToggled is toggle_wifi.
 func (v *networkView) wifiToggled(on bool) {
 	w := v.wifi()
 	if v.syncing || w == nil {
@@ -550,7 +541,7 @@ func (v *networkView) follow(life context.Context) {
 	}
 }
 
-// netActive is ActiveConnections: a section of the wired and the wifi
+// netActive is a section of the wired and the wifi
 // rows, whose hover swaps the wifi status for the disconnect/forget (or
 // dismiss) actions.
 type netActive struct {
@@ -655,7 +646,7 @@ func (v *networkView) errorLabel() *widget.Label {
 	return l
 }
 
-// apply is the cards' #[watch]es over the snapshot and the progress.
+// apply updates the cards from the snapshot and the progress.
 func (a *netActive) apply(s network.Snapshot, p netProgress) {
 	connecting := p.ssid != "" || s.Wifi == network.StatusConnecting
 	a.connected = s.Wifi == network.StatusConnected
@@ -680,8 +671,7 @@ func (a *netActive) apply(s network.Snapshot, p netProgress) {
 
 	a.wifi.SetVisible(s.Wifi == network.StatusConnected || connecting || p.err != "")
 	if a.wifiErr {
-		// The row swaps wifi for error, it never wears both
-		// (active_connections/methods.rs:100-110).
+		// The row swaps wifi for error, it never wears both.
 		a.wifiSignal.glyph.SetThemeName("ld-wifi-off-symbolic")
 		a.wifiSignal.SetValue(0)
 		a.wifiSignal.AddClass("error")
@@ -760,7 +750,7 @@ func (a *netActive) disconnect() {
 	})
 }
 
-// forget is forget_wifi: the saved profiles go, then the link.
+// forget is the saved profiles go, then the link.
 func (a *netActive) forget() {
 	w, ssid := a.v.wifi(), a.ssid
 	if w == nil || ssid == "" {
@@ -774,13 +764,12 @@ func (a *netActive) forget() {
 	})
 }
 
-// dismiss is DismissError.
 func (a *netActive) dismiss() {
 	a.v.progress.err = ""
 	a.apply(a.v.cur.snap, a.v.progress)
 }
 
-// netPasswordForm is PasswordForm: the network as the form card's
+// netPasswordForm is the network as the form card's
 // subject, the masked password box, the error from a refused attempt,
 // Cancel and Connect.
 type netPasswordForm struct {
@@ -808,7 +797,7 @@ func newNetPasswordForm(v *networkView) *netPasswordForm {
 	return f
 }
 
-// show is PasswordFormInput::Show: the box takes the keyboard at once.
+// show opens the form; the box takes the keyboard at once.
 func (f *netPasswordForm) show(ap apSnapshot, errMessage string) {
 	f.icon.SetThemeName(signalStrengthIcon(ap.strength))
 	f.head.SetTitle(ap.ssid)
@@ -832,7 +821,7 @@ func (f *netPasswordForm) cancel() {
 	f.v.rebuildList()
 }
 
-// netSecretForm is SecretForm: NetworkManager's pending credential
+// netSecretForm: NetworkManager's pending credential
 // prompt (a VPN password, a 2FA code), answered through the agent: the
 // connection as the form card's subject, the challenge, and a field per
 // asked secret.
@@ -857,8 +846,7 @@ func newNetSecretForm(v *networkView) *netSecretForm {
 	f.message = widget.NewLabel(v.font, v.px, "", 0)
 	f.message.AddClass("network-secret-message", css.DimLabel)
 	f.message.SetWrap(true)
-	// The challenge must not drive the popover's width
-	// (secret_form/mod.rs:118-128).
+	// The challenge must not drive the popover's width.
 	f.message.SetMaxWidthChars(32)
 	f.body.Append(f.message, false)
 	f.fields = widget.NewBox(widget.Column, widget.Current().Spacing, 0)
@@ -871,7 +859,7 @@ func newNetSecretForm(v *networkView) *netSecretForm {
 	return f
 }
 
-// secretFieldLabel is label_for: the dropdown's own wording for the
+// secretFieldLabel is the dropdown's own wording for the
 // common keys, else the service's label.
 func secretFieldLabel(field secrets.Field) string {
 	switch field.Key {

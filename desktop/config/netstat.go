@@ -1,6 +1,6 @@
 package config
 
-// NetstatConfig is ported from crates/wayle-config/src/schemas/modules/netstat/mod.rs.
+// NetstatConfig configures the netstat module.
 //
 // Network traffic counters (up/down rates).
 type NetstatConfig struct {

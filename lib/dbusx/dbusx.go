@@ -1,8 +1,7 @@
 // Package dbusx holds the D-Bus plumbing every lys process shares, on
 // lys-lib's patched godbus: exporting interfaces at a path and under a
-// well-known name the way zbus's object_server().at + request_name
-// does, serving zbus-style #[zbus(property)] getters (computed on every
-// read) and setters over org.freedesktop.DBus.Properties, introspection
+// well-known name, serving property getters (computed on every read)
+// and setters over org.freedesktop.DBus.Properties, introspection
 // built on demand, watching a name for its owner and a peer for its
 // signals, and dialing the system bus within a bound.
 package dbusx
@@ -20,8 +19,7 @@ import (
 	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
-// Error names of the standard org.freedesktop.DBus errors (zbus's
-// fdo::Error variants).
+// Error names of the standard org.freedesktop.DBus errors.
 const (
 	ErrFailed          = "org.freedesktop.DBus.Error.Failed"
 	ErrInvalidArgs     = "org.freedesktop.DBus.Error.InvalidArgs"
@@ -147,8 +145,7 @@ type Interface struct {
 }
 
 // Export puts ifaces at path on conn, with one Properties object serving
-// all of their properties and introspection listing them all, as zbus's
-// object_server().at does for each interface it mounts at a path. The
+// all of their properties and introspection listing them all. The
 // returned unexport removes them again (a Request or Session object
 // ending). Export is all or nothing: every interface is checked before
 // any is exported, and a failure leaves none of them at path.
@@ -229,8 +226,8 @@ func unexportAll(conn *dbus.Conn, path dbus.ObjectPath, objects []exported) {
 
 // Serve exports s on conn and takes its well-known name; the returned
 // release drops the name and unexports s. A name already owned is
-// ErrNameTaken, as zbus's request_name with DoNotQueue, and leaves
-// nothing exported.
+// ErrNameTaken (the request does not queue), and leaves nothing
+// exported.
 func Serve(conn *dbus.Conn, s Service) (func(), error) {
 	unexport, err := Export(conn, s.Path, Interface{Name: s.Interface, Methods: s.Methods, Properties: s.Properties, Signals: s.Signals})
 	if err != nil {
@@ -248,8 +245,7 @@ func Serve(conn *dbus.Conn, s Service) (func(), error) {
 }
 
 // Own takes a well-known name; the returned release drops it. A name
-// already owned is ErrNameTaken, as zbus's request_name with
-// DoNotQueue.
+// already owned is ErrNameTaken: the request does not queue.
 func Own(conn *dbus.Conn, name string) (func(), error) {
 	reply, err := conn.RequestName(name, dbus.NameFlagDoNotQueue)
 	if err != nil {

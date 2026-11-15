@@ -8,10 +8,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// dirWatcher reports file-level changes in one cycling directory
-// (tasks/watcher.rs): a file created or deleted, or any entry renamed
-// in or out. Data writes and subdirectory creation do not count, as
-// they are not the notify events the Rust watcher filters for.
+// dirWatcher reports file-level changes in one cycling directory:
+// a file created or deleted, or any entry renamed
+// in or out. Data writes and subdirectory creation do not count.
 type dirWatcher struct {
 	file   *os.File
 	events chan struct{}

@@ -46,7 +46,7 @@ func TestPanelIsItsVisiblePage(t *testing.T) {
 }
 
 // Clamped to a monitor, every scroll propagates its content's natural
-// height up to the scrolled cap (find_and_clamp_scrolled_windows): a
+// height up to the scrolled cap: a
 // list sizes the card instead of scrolling inside a fixed one, and
 // scrolls only past the cap.
 func TestClampedPanelScrollsSizeTheCard(t *testing.T) {

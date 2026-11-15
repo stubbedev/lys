@@ -18,8 +18,7 @@ import (
 
 // dropdownRegistry maps the `dropdown:<name>` actions to content
 // builders and owns the open popover per output host. RunWith creates
-// one; the builders live next to their modules (calendar, audio, ...)
-// exactly as the Rust dropdowns do.
+// one; the builders live next to their modules (calendar, audio, ...).
 type dropdownRegistry struct {
 	app      *app.Application
 	cfg      *config.Config
@@ -37,8 +36,7 @@ type dropdownRegistry struct {
 	// monH is each connector's monitor height in logical pixels, the
 	// popover ceiling's input (GTK keeps a popover on its output).
 	monH map[string]int
-	// instances is each dropdown's built content, the Rust registry's
-	// DropdownInstance cache: built on the first open and reused by
+	// instances is each dropdown's built content: built on the first open and reused by
 	// every later one on any output, so its state (the visible page,
 	// the scroll, a half-filled form) and its service subscriptions
 	// persist across open and close. A change to what they are built
@@ -79,8 +77,7 @@ func lookOf(style *barStyle) dropdownLook {
 const dropdownPrebuildDelay = 500 * time.Millisecond
 
 // dropdownOpener is content that acts each time its popover opens
-// (the Rust dropdowns' connect_map: the network list scanning when
-// empty), not only when it is built.
+// (the network list scanning when empty), not only when it is built.
 type dropdownOpener interface{ dropdownOpened() }
 
 // dropdownFocuser is content with an input that takes the keyboard as
@@ -104,7 +101,7 @@ type dropdownAnchor interface {
 type dropdownCloser interface{ dropdownClosed() }
 
 // popoverHandle is what open dropdown content may do to its popover:
-// close it (GTK's popdown) and move its keyboard focus (grab_focus).
+// close it and move its keyboard focus.
 // *app.Popover implements it.
 type popoverHandle interface {
 	Dismiss()
@@ -228,7 +225,7 @@ func (r *dropdownRegistry) toggleDashboard(connector, preferred string) error {
 }
 
 // instance is name's content, built on first use with the registry's
-// context (get_or_create).
+// context.
 func (r *dropdownRegistry) instance(name string, build func(ModuleContext) widget.Widget) widget.Widget {
 	r.mu.Lock()
 	content, ok := r.instances[name]
@@ -252,8 +249,7 @@ func (r *dropdownRegistry) instance(name string, build func(ModuleContext) widge
 }
 
 // dropdownPanel readies name's built content for its popover: the card
-// tweens its height when a page of another size shows (watch_pages,
-// dropdown_resize::animate_height), so every stack sized to its visible
+// tweens its height when a page of another size shows, so every stack sized to its visible
 // page interpolates, and a sized dropdown sits in its panel.
 func dropdownPanel(name string, cfg *config.Config, content widget.Widget) widget.Widget {
 	walkPages(content, func(w widget.Widget) {
@@ -438,8 +434,8 @@ func (r *dropdownRegistry) Names() []string {
 
 // open shows one dropdown anchored to the module's root widget on the
 // connector's host. Re-clicking the same module dismisses; opening
-// another while one is up dismisses it and opens the new (the Rust
-// registry's reparent_and_show), so the bar never shows two.
+// another while one is up dismisses it and opens the new, so the bar
+// never shows two.
 func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget) error {
 	r.mu.Lock()
 	host := r.hosts[connector]
@@ -471,7 +467,7 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget) er
 		return fmt.Errorf("dropdown %q anchor cannot be measured", name)
 	}
 	// The instance is shown in one popover at a time: open on another
-	// output, it moves here (reparent_and_show).
+	// output, it moves here.
 	r.mu.Lock()
 	for other, shown := range r.openName {
 		if shown == name && other != connector {
@@ -487,8 +483,7 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget) er
 	if content == nil {
 		return fmt.Errorf("dropdown %q has no content", name)
 	}
-	// The panel is clamped to the monitor as the Rust registry's
-	// clamp_height does at every popup.
+	// The panel is clamped to the monitor at every popup.
 	if panel, ok := content.(*panelBox); ok && monH > 0 {
 		panel.clamp(monH)
 	}
@@ -570,8 +565,8 @@ func (r *dropdownRegistry) closeAll() {
 	}
 }
 
-// dropdownPopover declares a dropdown's popover (apply_style,
-// clamp_height): opening away from the bar's edge, clamped to the
+// dropdownPopover declares a dropdown's popover, its card playing its own motion (animations.dropdown)
+// rather than the menus': opening away from the bar's edge, clamped to the
 // monitor less 100, as wide as its configured width at most (width > 0),
 // closing on a click elsewhere without taking the keyboard from the
 // focused window, or with dropdown-autohide off staying open. The width
@@ -602,8 +597,8 @@ func dropdownPopover(cfg *config.Config, anchor widget.Boundser, content widget.
 	return pc
 }
 
-// dropdownExit is animate_out, whatever closes the popover: the card
-// plays its exit, then the popover goes.
+// dropdownExit runs whatever closes the popover: the card plays its
+// exit, then the popover goes.
 func dropdownExit(rev *widget.Revealer, anims config.AnimationsConfig) func(done func()) {
 	return func(done func()) { reveal.Hide(rev, anims, config.AnimDropdown, done) }
 }
@@ -632,7 +627,7 @@ func (r *dropdownRegistry) setConfig(cfg *config.Config) {
 }
 
 // dropdownTree is the popover's tree around content: the revealer the
-// card enters through (animate_in) inside the card (lys-ui's popover
+// card enters through inside the card (lys-ui's popover
 // surface in the dropdown's color). The theme reaches it through the
 // bar button it opens from: lys-ui styles a popover as a child of its
 // anchor, as GTK's popover CSS node is, so it inherits the bar window's

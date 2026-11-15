@@ -15,14 +15,13 @@ import (
 // The pairing card lives inside the dropdown, so a request that arrives
 // while the dropdown is closed would go unseen: the agent waits, BlueZ
 // times out, and the connection silently fails. The notifier pushes a
-// desktop notification for it instead (notify_closed_popover_request).
+// desktop notification for it instead.
 
 // btAgentTimeout is how long BlueZ waits on the agent: buttons past it
 // are dead.
 const btAgentTimeout = 60 * time.Second
 
-// btOpen counts the open bluetooth dropdowns per source
-// (popover_visible).
+// btOpen counts the open bluetooth dropdowns per source.
 var btOpen = struct {
 	sync.Mutex
 	n map[bluetooth.Source]int

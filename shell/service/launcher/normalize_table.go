@@ -3,7 +3,7 @@
 package launcher
 
 // normalizeTable maps latin letters that are variants of an ASCII
-// letter to that letter (nucleo chars::normalize).
+// letter to that letter.
 var normalizeTable = map[rune]rune{
 	0x00C0: 'A',
 	0x00C1: 'A',

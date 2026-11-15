@@ -10,17 +10,16 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// formatF32 prints a float32 as Rust's f32 Display does: the shortest
-// decimal that round-trips, never in exponent form ("1", "1.01").
+// formatF32 prints a float32 as the shortest decimal that round-trips,
+// never in exponent form ("1", "1.01").
 func formatF32(v float32) string { return strconv.FormatFloat(float64(v), 'f', -1, 32) }
 
-// formatF64 is Rust's f64 Display.
+// formatF64 is formatF32 for a float64.
 func formatF64(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 
 // pxOverride is one bar-button size override declaration: a pixel size
 // sets "<name>: <n>px;" so the stylesheet's var(--…-override, calc(…)) prefers
 // it; a scale size emits nothing and the calc fallback applies
-// (lib.rs px_override).
 func pxOverride(name string, size config.Size) string {
 	px, ok := size.PxValue()
 	if !ok {
@@ -38,13 +37,11 @@ func scaleOr1(size config.Size) string {
 	return "1"
 }
 
-// ThemeCSS is the runtime theme block, byte for byte the Rust theme_css
-// (crates/wayle-styling/src/lib.rs): the :root custom properties for the
-// palette, the dropdown surface, fonts, scales, the bar-button pixel
-// overrides, and the rounding tokens. Rust resolves the palette inside
-// theme_css; here the caller passes the result of ResolvePalette, so the
-// provider failure surfaces as an error to log instead of a hidden log
-// line. The output is the full ":root { ... }" rule.
+// ThemeCSS is the runtime theme block: the :root custom properties for
+// the palette, the dropdown surface, fonts, scales, the bar-button pixel
+// overrides, and the rounding tokens. The caller passes the result of
+// ResolvePalette, so the provider failure surfaces as an error to log.
+// The output is the full ":root { ... }" rule.
 func ThemeCSS(p config.Palette, general config.GeneralConfig, bar config.BarConfig, s config.StylingConfig) string {
 	global := s.Rounding.CSSValues()
 	barValues := bar.Rounding.BarCSSValues()

@@ -105,9 +105,9 @@ func TestAudioErrors(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"audio", "output-volume", "loud"}, "Error: Invalid volume level: loud\n"},
-		{[]string{"audio", "output-volume", "+a"}, "Error: Invalid volume delta: +a\n"},
-		{[]string{"audio", "input-volume", "-"}, "Error: Invalid volume delta: -\n"},
+		{[]string{"audio", "output-volume", "loud"}, "Error: parse volume level \"loud\": strconv.ParseFloat: parsing \"loud\": invalid syntax\n"},
+		{[]string{"audio", "output-volume", "+a"}, "Error: parse volume delta \"+a\": strconv.ParseFloat: parsing \"a\": invalid syntax\n"},
+		{[]string{"audio", "input-volume", "-"}, "Error: parse volume delta \"-\": strconv.ParseFloat: parsing \"\": invalid syntax\n"},
 	} {
 		if _, stderr, code := runCaptured(t, false, c.args...); code != 1 || stderr != c.want {
 			t.Errorf("%v: code %d %q, want %q", c.args, code, stderr, c.want)
@@ -126,7 +126,7 @@ func TestAudioWithoutADefaultInput(t *testing.T) {
 	if _, stderr, _ := runCaptured(t, false, "audio", "input-mute"); stderr != "Error: Failed to toggle input mute: No default input device\n" {
 		t.Errorf("no default: %q", stderr)
 	}
-	// Properties degrade to zero values without a default, as in Rust.
+	// Properties degrade to zero values without a default.
 	if stdout, _, _ := runUntil(t, "Volume: 0%\n", "audio", "input-volume"); stdout != "Volume: 0%\n" {
 		t.Errorf("no default volume: %q", stdout)
 	}

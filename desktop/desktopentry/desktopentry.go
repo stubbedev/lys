@@ -7,9 +7,8 @@ import "strings"
 
 // Icon returns the Icon key of the desktop entry with the given id
 // (with or without the .desktop suffix), searching dirs in order; false
-// when no entry loads or it names no icon. It is the lookup gio's
-// DesktopAppInfo::new does for the media module's application icons
-// (media helpers.rs lookup_desktop_entry).
+// when no entry loads or it names no icon. The media module resolves
+// application icons with it.
 func Icon(id string, dirs []string) (string, bool) {
 	if id == "" {
 		return "", false

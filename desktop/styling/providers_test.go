@@ -20,7 +20,7 @@ func writeJSON(t *testing.T, path, body string) {
 	}
 }
 
-// The matugen.rs test fixtures: the old bare-string shape and the new
+// The matugen fixtures: the old bare-string shape and the new
 // {"color": ...} shape.
 const matugenOld = `{
   "colors": {

@@ -1,6 +1,6 @@
 // Package hyprland speaks Hyprland's IPC: the command socket for
 // queries and dispatches, and the event socket for the live stream.
-// The wire formats match crates/wayle-hyprland: one request per
+// The wire formats: one request per
 // connection on the command socket, answered up to an EOT byte (0x04),
 // and newline-terminated "event>>payload" lines on the event socket.
 package hyprland

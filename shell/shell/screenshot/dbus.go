@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/colorpicker"
 )
 
-// D-Bus identity (wayle-ipc's screenshot proxy).
+// D-Bus identity.
 const (
 	ServiceName = "dev.stubbe.lys.Screenshot1"
 	ServicePath = "/dev/stubbe/lys/Screenshot"

@@ -2,17 +2,15 @@ package extract
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// Tool is the external program that extracts a palette from an image
-// (ColorExtractor in crates/wayle-wallpaper/src/types/color_extractor).
+// Tool is the external program that extracts a palette from an image.
 // None disables extraction.
 type Tool uint8
 
-// Extraction tools. Wallust is the Rust default.
+// Extraction tools. Wallust is the default.
 const (
 	Wallust Tool = iota
 	Matugen
@@ -23,7 +21,7 @@ const (
 	Material
 )
 
-// String is the tool's lowercase name, as the Rust Display writes it.
+// String is the tool's lowercase name.
 func (t Tool) String() string {
 	switch t {
 	case Wallust:
@@ -38,24 +36,6 @@ func (t Tool) String() string {
 		return "material"
 	}
 	return fmt.Sprintf("Tool(%d)", uint8(t))
-}
-
-// ParseTool reads a tool name case-insensitively, accepting the Rust
-// FromStr aliases "wal" (pywal) and "disabled" (none).
-func ParseTool(s string) (Tool, error) {
-	switch strings.ToLower(s) {
-	case "wallust":
-		return Wallust, nil
-	case "matugen":
-		return Matugen, nil
-	case "pywal", "wal":
-		return Pywal, nil
-	case "none", "disabled":
-		return None, nil
-	case "material":
-		return Material, nil
-	}
-	return 0, fmt.Errorf("Invalid color extractor: %s", s) //nolint:staticcheck // the Rust message, verbatim
 }
 
 // The tool parameters are the [styling] schema enums themselves, so the

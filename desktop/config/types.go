@@ -102,15 +102,12 @@ const (
 	SizePixels
 )
 
-// sizePxMax is the largest absolute size (Size::px clamps to it).
+// sizePxMax is the largest absolute size (Px clamps to it).
 const sizePxMax = 10_000
 
 // Size is a lys-shell config size: a bare number is a multiplier, a string
-// like "4px" is absolute pixels
-// (crates/wayle-config/src/schemas/styling/types/validated/size.rs).
-// A negative multiplier clamps to 0 and pixels clamp to 0-10000, as
-// the Rust type does; a string that is neither form fails to load,
-// where the Rust type fell back to the 1.0 multiplier.
+// like "4px" is absolute pixels. A negative multiplier clamps to 0 and
+// pixels clamp to 0-10000; a string that is neither form fails to load.
 type Size struct {
 	Value float32
 	Unit  SizeUnit
@@ -124,7 +121,7 @@ func Px(v float32) Size { return Size{Value: min(max(v, 0), sizePxMax), Unit: Si
 
 // ResolvePx converts the size to pixels: multipliers scale with
 // remBase and the surface scale factor, pixel values are taken
-// literally ignoring both. This is the Rust Size::resolve_px.
+// literally ignoring both.
 func (s Size) ResolvePx(remBase, scale float64) float64 {
 	if s.Unit == SizePixels {
 		return float64(s.Value)
@@ -144,7 +141,7 @@ func (s Size) String() string {
 	return v
 }
 
-// ParseSize is Size::parse: "Npx" is pixels, a bare number a
+// ParseSize parses a size: "Npx" is pixels, a bare number a
 // multiplier; anything else is not a size.
 func ParseSize(raw string) (Size, bool) {
 	trimmed := strings.TrimSpace(raw)
@@ -243,12 +240,12 @@ func (PixelLength) configSchema(*schemaGen) Schema {
 	}
 }
 
-// errUntagged is serde's failure for an untagged enum no variant took.
+// errUntagged is the failure for an untagged enum no variant took.
 func errUntagged(name string) error {
 	return fmt.Errorf("data did not match any variant of untagged enum %s", name)
 }
 
-// TimeFormat is ported from crates/wayle-config/src/schemas/modules/types.rs.
+// TimeFormat is a module time setting.
 //
 // Time display format.
 type TimeFormat string

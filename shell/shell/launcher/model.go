@@ -7,7 +7,7 @@ import (
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// matchModel is match_model.rs: the mode's rows and the matcher's
+// matchModel is the mode's rows and the matcher's
 // order over them. A list position indexes matched; matched holds item
 // indices.
 type matchModel struct {
@@ -52,7 +52,7 @@ func (m *matchModel) findPosition(needle string) (int, bool) {
 }
 
 // textAt is the row's text as the user reads it: markup stripped to
-// its text (pango_parse_markup), the display verbatim otherwise or when
+// its text, the display verbatim otherwise or when
 // the markup does not parse; "" past the list.
 func (m *matchModel) textAt(pos int) string {
 	it, ok := m.item(pos)

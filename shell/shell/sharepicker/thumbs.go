@@ -33,7 +33,7 @@ func fallbackToplevels() []sharepreview.Toplevel {
 
 // outputInfo is one output as the outputs page lays it out: the
 // wl_output geometry position and the mode with the transform's axis
-// swap applied (util.rs's OutputInfo).
+// swap applied.
 type outputInfo struct {
 	name          string
 	x, y          int
@@ -70,7 +70,7 @@ func applyScaling(infos []outputInfo) {
 }
 
 // outputThumb captures an output preview: downscaled first, then the
-// output transform applied (request_output_frame's order).
+// output transform applied.
 func outputThumb(name string, size int) (*image.RGBA, error) {
 	c, err := capture.Connect()
 	if err != nil {

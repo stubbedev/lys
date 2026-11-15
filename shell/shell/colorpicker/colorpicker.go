@@ -1,5 +1,5 @@
-// Package colorpicker is the magnifier-loupe color picker
-// (crates/lys-shell/src/shell/color_picker): a frozen-frame layer
+// Package colorpicker is the magnifier-loupe color picker:
+// a frozen-frame layer
 // surface per monitor with a zoom loupe that follows the pointer - the
 // magnified pixels around it, a crosshair on the exact pixel a click
 // picks, and the color's readout in the chosen format, which Tab cycles -
@@ -35,7 +35,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
-// Card geometry of color_picker/mod.rs, around the loupe's grid.
+// Card geometry around the loupe's grid.
 const (
 	// historyMax is the most swatches kept.
 	historyMax = 8
@@ -277,7 +277,7 @@ func saveHistory(path string, h []RGB) {
 	if path == "" {
 		return
 	}
-	_ = os.MkdirAll(filepath.Dir(path), 0o755) //nolint:gosec // a plain data directory, like the Rust create_dir_all
+	_ = os.MkdirAll(filepath.Dir(path), 0o755) //nolint:gosec // a plain data directory
 	var b strings.Builder
 	for _, c := range h {
 		b.WriteString(c.Hex())

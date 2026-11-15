@@ -12,8 +12,8 @@ import (
 	"github.com/stubbedev/lys/desktop/identity"
 )
 
-// This file ports registry.rs minus the GTK IconTheme wiring: the icon
-// directory layout, index.theme, and the system icon paths.
+// This file holds the icon directory layout, index.theme, and the
+// system icon paths.
 
 const rootName = "icons"
 
@@ -160,7 +160,8 @@ func systemIconRoots(env xdg.Env) []string {
 	return roots
 }
 
-// exists is Path::exists: any stat failure reads as absent.
+// exists reports whether p can be stat'ed: any stat failure reads as
+// absent.
 func exists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil

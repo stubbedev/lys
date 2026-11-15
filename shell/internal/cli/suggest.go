@@ -2,9 +2,8 @@ package cli
 
 import "sort"
 
-// didYouMean is clap's suggestions::did_you_mean: every candidate with
-// a Jaro similarity above 0.7, least similar first (callers take the
-// last for a single suggestion).
+// didYouMean is every candidate with a Jaro similarity above 0.7,
+// least similar first (callers take the last for a single suggestion).
 func didYouMean(value string, candidates []string) []string {
 	type scored struct {
 		score float64
@@ -24,7 +23,7 @@ func didYouMean(value string, candidates []string) []string {
 	return out
 }
 
-// jaro is strsim::jaro over chars.
+// jaro is the Jaro similarity of a and b over runes.
 func jaro(a, b string) float64 {
 	ar, br := []rune(a), []rune(b)
 	if len(ar) == 0 && len(br) == 0 {

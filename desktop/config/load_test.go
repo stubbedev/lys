@@ -346,8 +346,7 @@ bar:
 	if len(left) != 3 || left[0].Module != ModuleClock || left[1].Class != "primary" || !left[2].IsGroup() {
 		t.Fatalf("left = %+v", left)
 	}
-	// An unset section takes BarLayout's own default, as serde(default)
-	// fills it.
+	// An unset section takes BarLayout's own default.
 	if right := cfg.Bar.Layout[0].Right; len(right) != len(DefaultBarLayout().Right) {
 		t.Errorf("right = %+v, want the default layout's right section", right)
 	}

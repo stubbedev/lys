@@ -44,8 +44,7 @@ func Render(src string, ctx any) (string, error) {
 	return e.Render(src, ctx)
 }
 
-// RenderOr is Render that renders failure as "": the Rust callers'
-// render(...).unwrap_or_default().
+// RenderOr is Render that renders failure as "".
 func RenderOr(src string, ctx any) string {
 	out, err := Render(src, ctx)
 	if err != nil {
@@ -231,8 +230,8 @@ func loopValue(items []any, i int) map[string]any {
 		"revindex": int64(n - i), "revindex0": int64(n - i - 1),
 		"first": i == 0, "last": i == n-1, "length": int64(n), "depth": int64(1), "depth0": int64(0),
 	}
-	// previtem/nextitem are the adjacent_loop_items feature, off in the
-	// Rust build.
+	// previtem/nextitem are minijinja's adjacent_loop_items feature,
+	// which the pinned build has off.
 	loop["cycle"] = Func(func(args []any, _ map[string]any) (any, error) {
 		if len(args) == 0 {
 			return Undefined, nil
@@ -724,7 +723,7 @@ func intArith(op string, a, b int64, l, r any) (any, error) {
 	return fail()
 }
 
-// euclidDiv is i128::div_euclid: the quotient whose remainder is never
+// euclidDiv is the Euclidean quotient, whose remainder is never
 // negative.
 func euclidDiv(a, b int64) int64 {
 	q := a / b

@@ -53,7 +53,7 @@ func TestServeMethodsAndLiveProperties(t *testing.T) {
 		t.Fatalf("Fail = %#v", err)
 	}
 
-	// Getters are computed per read, like zbus property getters.
+	// Getters are computed per read.
 	for _, want := range []uint32{1, 5} {
 		count.Store(want)
 		v, err := obj.GetProperty(iface + ".Count")

@@ -6,21 +6,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-func TestParseToolAcceptsTheRustAliases(t *testing.T) {
-	for in, want := range map[string]Tool{
-		"wallust": Wallust, "MATUGEN": Matugen, "pywal": Pywal, "wal": Pywal,
-		"none": None, "Disabled": None,
-	} {
-		got, err := ParseTool(in)
-		if err != nil || got != want {
-			t.Errorf("ParseTool(%q) = %v, %v; want %v", in, got, err, want)
-		}
-	}
-	if _, err := ParseTool("lys-shell"); err == nil || err.Error() != "Invalid color extractor: lys-shell" {
-		t.Errorf("ParseTool(lys-shell) err = %v, want the Rust message", err)
-	}
-}
-
 func TestMatugenSchemeCLIValue(t *testing.T) {
 	if got := config.MatugenSchemeFruitSalad.CLIValue(); got != "scheme-fruit-salad" {
 		t.Errorf("CLIValue = %q", got)
@@ -57,7 +42,7 @@ func TestFromConfigPicksTheProvidersTool(t *testing.T) {
 	}
 }
 
-func TestFormatFloatMatchesRustDisplay(t *testing.T) {
+func TestFormatFloatIsShortestPlainDecimal(t *testing.T) {
 	for in, want := range map[float64]string{3: "3", 0: "0", 0.05: "0.05", -0.25: "-0.25", 21: "21", 1e-7: "0.0000001"} {
 		if got := formatFloat(in); got != want {
 			t.Errorf("formatFloat(%v) = %q, want %q", in, got, want)

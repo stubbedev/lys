@@ -1,6 +1,5 @@
 // Package desktopnotify sends freedesktop notifications over the
-// session bus, the Go counterpart of crates/wayle-shell-core's
-// notify.rs: D-Bus directly rather than notify-send, whose absence
+// session bus: D-Bus directly rather than notify-send, whose absence
 // from PATH would silently drop every notification.
 package desktopnotify
 

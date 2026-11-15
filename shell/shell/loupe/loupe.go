@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 )
 
-// Grid geometry of color_picker/mod.rs.
+// Grid geometry.
 const (
 	// Zoom is the size of one magnified source pixel.
 	Zoom = 11

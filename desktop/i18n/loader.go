@@ -17,13 +17,14 @@ type Arg struct {
 // Str is a string argument.
 func Str(name, v string) Arg { return Arg{name: name, value: stringValue(v)} }
 
-// Int is a numeric argument; it formats and selects plural variants
-// like a Rust integer passed to fl!.
+// Int is a numeric argument; it formats as its decimal digits and
+// selects plural variants by its value.
 func Int(name string, v int64) Arg {
 	return Arg{name: name, value: numberValue(codeNumber(float64(v)))}
 }
 
-// Float is a numeric argument with Rust f64 formatting.
+// Float is a numeric argument, formatted as its shortest round-tripping
+// decimal digits.
 func Float(name string, v float64) Arg { return Arg{name: name, value: numberValue(codeNumber(v))} }
 
 func argMap(args []Arg) map[string]value {
@@ -80,7 +81,7 @@ func (a Assets) trees() []fs.FS { return append([]fs.FS{a.fsys}, a.more...) }
 func NewFileAssets(fsys fs.FS, file string) Assets { return Assets{fsys: fsys, file: file} }
 
 // Available lists the locales that carry at least one partial, sorted
-// like rust-embed's file list, with the fallback first when missing
+// by name, with the fallback first when missing
 // (i18n-embed's available_languages).
 func (a Assets) Available() ([]LangID, error) {
 	var names []string
@@ -117,8 +118,8 @@ func (a Assets) Available() ([]LangID, error) {
 	return ids, nil
 }
 
-// partials lists a locale's `_*.ftl` files in the order the Rust build
-// scripts concatenate them: PathBuf order, compared component-wise.
+// partials lists a locale's `_*.ftl` files in concatenation order: by
+// path, compared component-wise.
 func (a Assets) partials(locale string) ([]partial, error) {
 	if a.file != "" {
 		p := locale + "/" + a.file
@@ -170,9 +171,8 @@ func treePartials(tree fs.FS, locale string) ([]partial, error) {
 	return files, nil
 }
 
-// Source is a locale's combined FTL, exactly as wayle-shell-core's and
-// wayle-i18n's build.rs write it (each partial followed by a newline),
-// with CRLF folded to LF as i18n-embed does before parsing.
+// Source is a locale's combined FTL, each partial followed by a
+// newline, with CRLF folded to LF before parsing.
 func (a Assets) Source(locale string) (string, error) {
 	files, err := a.partials(locale)
 	if err != nil {

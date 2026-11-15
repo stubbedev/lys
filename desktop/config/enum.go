@@ -41,7 +41,7 @@ func enumVariants(t reflect.Type) []string {
 	return nil
 }
 
-// decodeEnum validates s against the variants with serde's wording.
+// decodeEnum validates s against the variants.
 func decodeEnum(variants []string, v any) (string, error) {
 	s, ok := v.(string)
 	if !ok {
@@ -59,7 +59,7 @@ func typeOf[T any]() reflect.Type { return reflect.TypeFor[T]() }
 // valueOf returns the addressable value behind a pointer.
 func valueOf[T any](p *T) reflect.Value { return reflect.ValueOf(p).Elem() }
 
-// expectedOneOf renders serde's OneOf list.
+// expectedOneOf renders the accepted variants for an error message.
 func expectedOneOf(names []string) string {
 	quoted := make([]string, len(names))
 	for i, n := range names {

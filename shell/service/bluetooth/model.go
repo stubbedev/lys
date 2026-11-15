@@ -38,8 +38,8 @@ type DeviceSet struct {
 }
 
 // Device is one org.bluez.Device1 plus its Battery1 percentage
-// (core/device). Optional BlueZ properties are nil when absent, as the
-// Rust Option fields; a nil map or slice is an absent property.
+// Optional BlueZ properties are nil when absent; a nil map or slice is
+// an absent property.
 type Device struct {
 	Path              dbus.ObjectPath
 	Address           string
@@ -72,8 +72,8 @@ type Device struct {
 	PreferredBearer   *PreferredBearer
 }
 
-// DisplayName is the alias, falling back to the name (the UI's
-// resolve_device_display); empty when BlueZ has neither.
+// DisplayName is the alias, falling back to the name; empty when BlueZ
+// has neither.
 func (d Device) DisplayName() string {
 	if d.Alias != "" {
 		return d.Alias
@@ -136,7 +136,7 @@ func applyAdapter(a *Adapter, props map[string]dbus.Variant, invalidated []strin
 	setFrom(props, "PairableTimeout", &a.PairableTimeout)
 	setFrom(props, "UUIDs", &a.UUIDs)
 	if v, ok := props["Modalias"]; ok {
-		// monitoring.rs: an empty modalias is no modalias.
+		// An empty modalias is no modalias.
 		if s, ok := variantAs[string](v); ok && s != "" {
 			a.Modalias = &s
 		} else {
@@ -273,7 +273,7 @@ func bytesMap[K comparable](m map[K]dbus.Variant) map[K][]byte {
 	return out
 }
 
-// deviceSets is DeviceSet::from_dbus over the a{oa{sv}} property.
+// deviceSets reads the a{oa{sv}} Sets property.
 func deviceSets(m map[dbus.ObjectPath]map[string]dbus.Variant) []DeviceSet {
 	sets := make([]DeviceSet, 0, len(m))
 	for path, props := range m {

@@ -5,9 +5,7 @@ import (
 	"strings"
 )
 
-// parser is a byte-for-byte port of fluent-syntax 0.12's runtime
-// parser (parser/{runtime,core,pattern,expression,helper}.rs), the one
-// fluent-bundle's FluentResource::try_new runs: comments are skipped,
+// parser is the Fluent syntax 0.12 runtime parser: comments are skipped,
 // an entry that fails to parse becomes junk up to the next line that
 // starts with a letter, '-', or '#', and parsing carries on.
 type parser struct {
@@ -344,7 +342,7 @@ func isPatternContinuation(b byte) bool {
 }
 
 // textPosition tracks where a text element sits, which drives the
-// dedent (pattern.rs TextElementPosition).
+// dedent.
 type textPosition int
 
 const (
@@ -467,7 +465,7 @@ func (p *parser) pattern() (*pattern, *parseError) {
 	return out, nil
 }
 
-// trimFluentWS trims trailing ' ', '\r', and '\n' (slice.rs trim).
+// trimFluentWS trims trailing ' ', '\r', and '\n'.
 func trimFluentWS(s string) string {
 	end := len(s)
 	for end > 0 && (s[end-1] == ' ' || s[end-1] == '\r' || s[end-1] == '\n') {

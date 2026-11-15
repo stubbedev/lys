@@ -9,8 +9,8 @@ import (
 )
 
 // TestMatchesMinijinja replays testdata/corpus.jsonl against the
-// outputs minijinja 2.15.1 (the Rust shell's build: builtins and serde,
-// default features off) produced for it in corpus.golden.jsonl: the same
+// outputs minijinja 2.15.1 (builtins and serde, default features off)
+// produced for it in corpus.golden.jsonl: the same
 // text, or an error where minijinja errors. Regenerate the golden file
 // with the oracle program described in testdata/README.
 func TestMatchesMinijinja(t *testing.T) {
@@ -49,7 +49,7 @@ func TestMatchesMinijinja(t *testing.T) {
 }
 
 // jsonNumbers turns JSON's float64 numbers back into integers where
-// serde_json would: a number written without a fraction or exponent.
+// the oracle reads them: a number written without a fraction or exponent.
 // encoding/json loses that, so the corpus marks integers by value.
 func jsonNumbers(v any) any {
 	switch x := v.(type) {
@@ -106,7 +106,7 @@ func TestEnvFunctionsAndRenderOr(t *testing.T) {
 	if _, err := Render(`{{ shout("hi") }}`, nil); err == nil {
 		t.Error("an unregistered function was callable")
 	}
-	// RenderOr is unwrap_or_default: a failed render is "".
+	// A failed RenderOr is "".
 	if got := RenderOr(`{{ missing.attr }}`, nil); got != "" {
 		t.Errorf("RenderOr on an error = %q", got)
 	}

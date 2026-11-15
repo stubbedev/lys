@@ -36,7 +36,7 @@ const (
 	BucketFailed
 )
 
-// Worktree is one active worktree (model.rs's TreemanWorktree).
+// Worktree is one active worktree.
 type Worktree struct {
 	// Branch is the branch name ("-" when detached or unknown).
 	Branch string `json:"branch"`
@@ -57,7 +57,7 @@ type Repo struct {
 	Worktrees []Worktree `json:"worktrees"`
 }
 
-// ParseBucket is Bucket::parse: up, down, failed, anything else stable.
+// ParseBucket reads a bucket name: up, down, failed, anything else stable.
 func ParseBucket(s string) Bucket {
 	switch s {
 	case "up":
@@ -70,7 +70,7 @@ func ParseBucket(s string) Bucket {
 	return BucketStable
 }
 
-// FindWorktree is find_worktree: the worktree at path and its repo.
+// FindWorktree is the worktree at path and its repo.
 func (s Status) FindWorktree(path string) (Repo, Worktree, bool) {
 	for _, r := range s.Repos {
 		for _, wt := range r.Worktrees {
@@ -82,7 +82,7 @@ func (s Status) FindWorktree(path string) (Repo, Worktree, bool) {
 	return Repo{}, Worktree{}, false
 }
 
-// Action is a worktree mutation (service.rs's Action).
+// Action is a worktree mutation.
 type Action int
 
 // Actions.
@@ -118,7 +118,7 @@ type Status struct {
 	Repos  []Repo `json:"repos"`
 }
 
-// WorstBucket is model.rs's worst_bucket: failed > down > up > stable.
+// WorstBucket is the worst bucket across worktrees: failed > down > up > stable.
 func (s Status) WorstBucket() Bucket {
 	switch {
 	case s.Failed > 0:
@@ -156,8 +156,7 @@ const subscribeRequest = `{"method":"event_subscribe","event_subscribe":{}}` + "
 
 // Source is the module's seam.
 type Source interface {
-	// Status is the latest snapshot (the Rust service's status
-	// property): nil until treeman reported one, and for good when
+	// Status is the latest snapshot: nil until treeman reported one, and for good when
 	// treeman is not installed.
 	Status() *Status
 	// Subscribe ticks when Status changes. The channel closes when the
@@ -208,8 +207,7 @@ func (s *System) Status() *Status {
 	return s.status
 }
 
-// fetchOutcome classifies one `treeman status` run (service.rs's
-// Fetch).
+// fetchOutcome classifies one `treeman status` run.
 type fetchOutcome int
 
 const (
@@ -278,7 +276,7 @@ func (s *System) Subscribe(ctx context.Context) (<-chan struct{}, func(), error)
 	return ticks, stop, nil
 }
 
-// run is service.rs's run: fetch (which works with the daemon down),
+// run is the service loop: fetch (which works with the daemon down),
 // follow the daemon's events, and after the stream drops or the daemon
 // is absent wait for its socket or the next look at the status.
 func (s *System) run() {
@@ -388,7 +386,7 @@ func (s *System) Stop() {
 	})
 }
 
-// RunAction implements Source (run_action): the CLI's stderr is the
+// RunAction implements Source: the CLI's stderr is the
 // error on a non-zero exit.
 func (s *System) RunAction(ctx context.Context, action Action, path string) error {
 	var stderr strings.Builder

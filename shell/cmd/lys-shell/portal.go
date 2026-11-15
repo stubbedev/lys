@@ -2,8 +2,7 @@ package main
 
 import "github.com/stubbedev/lys/shell/internal/cli"
 
-// portalCommand is lys-shell/src/cli/portal/commands.rs. The subcommand is
-// optional: a bare `lys-shell portal` runs the backend, so the installed
+// portalCommand's subcommand is optional: a bare `lys-shell portal` runs the backend, so the installed
 // D-Bus/systemd units can keep execing it.
 func portalCommand() *cli.Command {
 	allowToken := &cli.Arg{ID: "allow_token", Long: "allow-token", Help: `Pre-check the "allow restore token" box`}

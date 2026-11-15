@@ -1,6 +1,6 @@
 package config
 
-// CavaConfig is ported from crates/wayle-config/src/schemas/modules/cava/mod.rs.
+// CavaConfig configures the cava module.
 //
 // Audio frequency bars visualising the output stream.
 type CavaConfig struct {
@@ -90,7 +90,7 @@ func (c CavaConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// CavaStyle is ported from crates/wayle-config/src/schemas/modules/cava/types.rs.
+// CavaStyle is part of the cava module's configuration.
 //
 // Visualization rendering style.
 type CavaStyle string
@@ -107,7 +107,7 @@ const (
 
 var _ = registerEnum(CavaStyleBars, CavaStyleWave, CavaStylePeaks)
 
-// CavaDirection is ported from crates/wayle-config/src/schemas/modules/cava/types.rs.
+// CavaDirection is part of the cava module's configuration.
 //
 // Bar growth direction relative to the bar's attached screen edge.
 type CavaDirection string
@@ -124,7 +124,7 @@ const (
 
 var _ = registerEnum(CavaDirectionNormal, CavaDirectionReverse, CavaDirectionMirror)
 
-// CavaInput is ported from crates/wayle-config/src/schemas/modules/cava/types.rs.
+// CavaInput is part of the cava module's configuration.
 //
 // Audio capture backend.
 type CavaInput string

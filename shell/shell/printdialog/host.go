@@ -369,7 +369,7 @@ func labelsOf[T comparable](items []T, label func(T) string) []string {
 	return out
 }
 
-// printerRow is printer_row: the name over the location and status as
+// printerRow is the name over the location and status as
 // a dim caption, inset by the theme's padding; the caption hides while
 // there is nothing to say.
 func (h *Dialog) printerRow(q queue) (widget.Widget, *widget.Label) {

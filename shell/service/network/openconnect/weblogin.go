@@ -10,8 +10,8 @@ import (
 
 // Sign-in for the protocols that authenticate through an HTML login
 // page — Juniper (nc), Pulse Connect Secure (pulse) and F5 BIG-IP (f5)
-// — the port of form_login.rs (endpoints, cookie names, the exchange)
-// and web_login.rs (reading a page's form and filling it).
+// — the endpoints, cookie names and exchange, and reading a page's form
+// and filling it.
 //
 // These gateways are configured by their administrators: the realm
 // picker, the second-factor page, the role-selection page and the "you

@@ -19,7 +19,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 )
 
-// idleInhibitLabel is helpers.rs's build_label: On/Off state, the
+// idleInhibitLabel renders format over the On/Off state, the
 // remaining time (H:MM:SS or M:SS, "∞" when indefinite, "-" when
 // off), and the stored duration ("∞" when indefinite).
 func idleInhibitLabel(format string, active bool, duration inhibitduration.Duration, remainingSecs uint32) string {

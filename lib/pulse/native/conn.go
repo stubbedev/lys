@@ -1,7 +1,6 @@
 // Package native is a PulseAudio native-protocol client in pure Go:
 // the pstream framing, the tagstruct encoding, the handshake, the
-// introspection and control commands wayle-audio drives through
-// libpulse, the subscription events, record and playback streams, and
+// introspection and control commands, the subscription events, record and playback streams, and
 // the sample cache. PipeWire's pipewire-pulse serves the same protocol,
 // so this is also how the lys programs talk to PipeWire.
 //

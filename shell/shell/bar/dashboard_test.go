@@ -23,7 +23,7 @@ func TestParseOSRelease(t *testing.T) {
 	if info, ok := parseOSRelease("ID=\"nixos\"\n"); !ok || info.id != "nixos" || info.logo != "" {
 		t.Errorf("quoted id = %+v, %v", info, ok)
 	}
-	// No ID line: no distro (detect_distro's id?).
+	// No ID line: no distro.
 	if _, ok := parseOSRelease("NAME=Something\nLOGO=x\n"); ok {
 		t.Error("an os-release without ID must not detect a distro")
 	}
@@ -183,8 +183,7 @@ func TestUserSessionUsesTheFaceImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = f.Close()
-	// The face rides on the tile as its background image, the Rust
-	// avatar's inline url().
+	// The face rides on the tile as its background image.
 	tile := widget.NewBox(widget.Row, 0, 0)
 	tile.AddClass("user-avatar")
 	setAvatar(tile)

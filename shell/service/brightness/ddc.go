@@ -16,8 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// DDC/CI over i2c-dev, the Go counterpart of backend/ddc.rs and the
-// ddc / ddc-i2c crates' raw VCP get/set it is built on. External
+// DDC/CI over i2c-dev with raw VCP get/set. External
 // monitors are driven through the VESA DDC/CI protocol on the
 // monitor's I²C bus: the i2c-dev kernel module and read/write access
 // to /dev/i2c-* (usually the i2c group) are required.
@@ -47,7 +46,7 @@ const (
 	// getVCPResponseDelay is the wait between a Get VCP Feature
 	// request and reading its reply; commandDelay and failedDelay are
 	// the quiet time the display needs before the next command after
-	// a success or a failure (the ddc crate's Delay).
+	// a success or a failure.
 	getVCPResponseDelay = 40 * time.Millisecond
 	commandDelay        = 50 * time.Millisecond
 	failedDelay         = 40 * time.Millisecond

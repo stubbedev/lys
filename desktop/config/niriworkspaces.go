@@ -1,6 +1,6 @@
 package config
 
-// LabelStrategy is ported from crates/wayle-config/src/schemas/modules/niri_workspaces/mod.rs.
+// LabelStrategy is part of the niri-workspaces module's configuration.
 //
 // What identifies each workspace's label.
 type LabelStrategy string
@@ -19,7 +19,7 @@ const (
 
 var _ = registerEnum(LabelIndex, LabelNameOrIndex, LabelNameOnly, LabelIndexAndName)
 
-// NiriWorkspacesConfig is ported from crates/wayle-config/src/schemas/modules/niri_workspaces/mod.rs.
+// NiriWorkspacesConfig configures the niri-workspaces module.
 //
 // Niri workspace indicators with click-to-switch.
 type NiriWorkspacesConfig struct {

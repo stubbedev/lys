@@ -7,8 +7,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// dropdownBuilders maps the Rust registry's names onto content
-// builders; each returns the popover's card tree.
+// dropdownBuilders maps the dropdown names onto content builders; each returns the popover's card tree.
 func dropdownBuilders() map[string]func(ctx ModuleContext) widget.Widget {
 	return map[string]func(ctx ModuleContext) widget.Widget{
 		"calendar":        calendarDropdown,

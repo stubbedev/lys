@@ -10,7 +10,7 @@ import (
 // means absent.
 type Lookup func(key string) (string, bool)
 
-// Render fills a rofi-style template (template.rs): {key} is replaced
+// Render fills a rofi-style template: {key} is replaced
 // by its value, and a [...] block is emitted only when every {key}
 // inside it resolved non-empty - rofi's PATTERN semantics for
 // drun-display-format, window-format, ssh-command, and combi. An

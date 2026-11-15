@@ -31,8 +31,7 @@ func (r trayOverrideItem) itemValue() any {
 	return v
 }
 
-// trayOverrideList is tray_override_list::tray_override_list: an
-// override per row, a nameless one not written, an empty icon unset.
+// trayOverrideList edits the tray overrides: an override per row, a nameless one not written, an empty icon unset.
 var trayOverrideList = listRow(func(config.FieldMeta) listSpec {
 	t := locale.T()
 	return listSpec{
@@ -88,8 +87,7 @@ var trayOverrideList = listRow(func(config.FieldMeta) listSpec {
 	}
 })
 
-// mailAccountList is mail_account_list::mail_account_list: a card per
-// account, its name in the header; a nameless account is not written,
+// mailAccountList edits the mail accounts: a card per account, its name in the header; a nameless account is not written,
 // an empty icon is unset (the provider's default).
 var mailAccountList = cardRow(cardSpec{
 	identity: &cardField{key: "name", label: "settings-mail-account-name", editor: func(k *kit, s slot) control {

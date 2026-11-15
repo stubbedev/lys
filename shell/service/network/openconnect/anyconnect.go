@@ -8,8 +8,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
-// AnyConnect (Cisco) gateway authentication, spoken natively over HTTPS
-// (anyconnect.rs).
+// AnyConnect (Cisco) gateway authentication, spoken natively over HTTPS.
 //
 // The same shape as GlobalProtect and a different dialect: AnyConnect
 // posts XML and is told what to ask. The gateway answers with a <form>

@@ -131,8 +131,8 @@ func (s *Service) Subscribe(fn func(old, new *Config)) (cancel func()) {
 	}
 }
 
-// Watch calls fn with the selected value whenever it changes, the Go
-// form of ConfigProperty::watch for one field or section.
+// Watch calls fn with the selected value whenever it changes, for one
+// field or section.
 func Watch[T any](s *Service, selector func(*Config) T, fn func(T)) (cancel func()) {
 	return s.Subscribe(func(old, new *Config) {
 		next := selector(new)

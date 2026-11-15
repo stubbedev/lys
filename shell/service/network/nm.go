@@ -9,7 +9,7 @@ import (
 
 // The NetworkManager D-Bus surface the service uses beyond network.go's
 // status read: settings, active connections, the agent manager, and
-// the wireless device (crates/wayle-network/src/proxy).
+// the wireless device.
 const (
 	settingsPath      = "/org/freedesktop/NetworkManager/Settings"
 	settingsIface     = "org.freedesktop.NetworkManager.Settings"
@@ -22,8 +22,7 @@ const (
 	rootPath          = dbus.ObjectPath("/")
 )
 
-// ConnectionDict is a connection profile in NM's a{sa{sv}} shape
-// (profile.rs's ConnectionDict).
+// ConnectionDict is a connection profile in NM's a{sa{sv}} shape.
 type ConnectionDict = map[string]map[string]dbus.Variant
 
 // ActiveState is NMActiveConnectionState.
@@ -100,7 +99,7 @@ func (n nm) activeConnections(ctx context.Context) ([]dbus.ObjectPath, error) {
 }
 
 // activeByUUID maps every active connection's profile UUID to its
-// object (nm.rs's active_by_uuid). An object that vanished mid-sweep
+// object. An object that vanished mid-sweep
 // is skipped.
 func (n nm) activeByUUID(ctx context.Context) (map[string]dbus.ObjectPath, error) {
 	paths, err := n.activeConnections(ctx)

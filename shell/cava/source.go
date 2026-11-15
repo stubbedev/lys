@@ -10,12 +10,10 @@ import (
 	"github.com/stubbedev/lys/lib/intconv"
 )
 
-// sampleRate is cava's fixed capture rate (service.rs's
-// DEFAULT_SAMPLERATE); the plan is built for it.
+// sampleRate is cava's fixed capture rate; the plan is built for it.
 const sampleRate = 44100
 
-// fragmentFrames is libcava's per-read chunk (PER_READ_CHUNK_SIZE in
-// ffi/wrappers/audio_input.rs).
+// fragmentFrames is libcava's per-read chunk.
 const fragmentFrames = 512
 
 // Capturer is the record-stream seam; *pulse.Service implements it.

@@ -1,6 +1,6 @@
 package config
 
-// CpuConfig is ported from crates/wayle-config/src/schemas/modules/cpu/mod.rs.
+// CpuConfig configures the cpu module.
 //
 // CPU usage, frequency, and temperature.
 type CpuConfig struct {

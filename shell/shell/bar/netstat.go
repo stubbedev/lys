@@ -12,8 +12,8 @@ import (
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
-// netstatLabel is helpers.rs's format_label over one interface's
-// rates (kib "{:.0}", mib "{:.1}", gib "{:.2}", and the bytesize display).
+// netstatLabel renders format over one interface's rates (kib at no
+// decimals, mib at one, gib at two, and the scaled byte size).
 func netstatLabel(format string, rate sysinfo.Rate) string {
 	return jinja.RenderOr(format, netstatVars(rate))
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// Window geometry and the page switch (app/mod.rs, app/window.rs).
+// Window geometry and the page switch.
 const (
 	defaultSidebarWidth = 220
 	// minSidebarWidth is the narrowest the sidebar drags to.

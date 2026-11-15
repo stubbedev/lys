@@ -1,12 +1,11 @@
 // Package dbuscli turns D-Bus call failures into the CLI's
-// user-facing messages (lys-shell/src/cli/dbus.rs's format_error).
+// user-facing messages.
 //
-// zbus surfaces a method's error reply as a MethodError: a name
-// containing ServiceUnknown means the shell is down, anything else
-// reads "Failed to <op>: <message>". A property read fails with an
-// fdo::Error instead: ServiceUnknown and NameHasNoOwner mean down,
-// NoReply and Timeout a timeout, and other fdo errors print their name
-// before the message.
+// A method's error reply whose name contains ServiceUnknown means the
+// shell is down, anything else reads "Failed to <op>: <message>". For
+// a property read, ServiceUnknown and NameHasNoOwner mean down, NoReply
+// and Timeout a timeout, and other org.freedesktop.DBus errors print
+// their name before the message.
 package dbuscli
 
 import (
@@ -17,8 +16,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// Message is a user-facing CLI error: the Rust CLI's exact text,
-// printed as "Error: <text>".
+// Message is a user-facing CLI error, printed as "Error: <text>".
 type Message string
 
 func (m Message) Error() string { return string(m) }

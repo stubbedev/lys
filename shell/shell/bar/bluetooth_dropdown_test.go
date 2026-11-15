@@ -423,9 +423,8 @@ func TestBtPairingPasskeyEntry(t *testing.T) {
 	if !slices.Equal(src.Calls(), []string{"passkey 123456"}) {
 		t.Errorf("calls = %v", src.Calls())
 	}
-	// A partial passkey still submits, the Rust build_confirm_output's
-	// PinSubmitted(passkey) over whatever the boxes spell — its provider
-	// does the refusing.
+	// A partial passkey still submits whatever the boxes spell; the
+	// provider does the refusing.
 	st.Pairing = bluetooth.RequestPasskey{Device: pathSpeaker}
 	src.setState(st)
 	d.sync()
@@ -693,7 +692,7 @@ func findButton(w widget.Widget, class string) *widget.Button {
 }
 
 // The no-adapter state is the whole dropdown shell — the header stays
-// above the empty state (mod.rs:73-147,303-326); the early return of a
+// above the empty state; the early return of a
 // bare empty state is the regression.
 func TestBtNoAdapterDropdownKeepsTheHeader(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
@@ -726,8 +725,8 @@ func TestBtNoAdapterDropdownKeepsTheHeader(t *testing.T) {
 	}
 }
 
-// The passkey prompt is lys-ui's code input of six digit slots
-// (pairing_card/mod.rs:147-190), which only the RequestPasskey variant
+// The passkey prompt is lys-ui's code input of six digit slots, which
+// only the RequestPasskey variant
 // shows; the legacy PIN is a plain entry.
 func TestBtPairingCardPasskeyInput(t *testing.T) {
 	st := btWorld()
@@ -755,8 +754,8 @@ func TestBtPairingCardPasskeyInput(t *testing.T) {
 	}
 }
 
-// fluent renders placeables wrapped in Unicode isolation marks (the
-// Rust fluent-rs defaults to isolating): tests compare the plain text.
+// fluent renders placeables wrapped in Unicode isolation marks: tests
+// compare the plain text.
 func plain(s string) string {
 	return strings.Map(func(r rune) rune {
 		if r == '\u2068' || r == '\u2069' {
@@ -766,8 +765,7 @@ func plain(s string) string {
 	}, s)
 }
 
-// Icon buttons are lys-ui's ghost icon square (mod.rs:95-121,
-// pairing_card/mod.rs:94-100).
+// Icon buttons are lys-ui's ghost icon square.
 func TestBtGhostClassesAreExact(t *testing.T) {
 	d, _ := newTestBtDropdown(t, btWorld())
 	for _, class := range []string{css.Ghost, css.Icon, "bluetooth-scan-btn"} {
@@ -819,8 +817,7 @@ func TestBluetoothRowsAreInThePanel(t *testing.T) {
 }
 
 // At rest the status hugs the row's end: the slot is as wide as the
-// actions page, and the status page sits at its end (the Rust status
-// box's halign End), so a short "Paired" never floats mid-row.
+// actions page, and the status page sits at its end, so a short "Paired" never floats mid-row.
 func TestBtDeviceStatusSitsAtTheRowsEnd(t *testing.T) {
 	d, _ := newTestBtDropdown(t, btWorld())
 	row := rowNamed(t, d, "Mouse")

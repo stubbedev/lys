@@ -54,7 +54,7 @@ func TestParseEventActiveWindow(t *testing.T) {
 	if !ok || event.Class != "" || event.Title != "" {
 		t.Errorf("= %+v ok=%v, want an empty window", event, ok)
 	}
-	// No comma at all fails like the Rust dispatcher's parse error.
+	// No comma at all fails to parse.
 	if _, ok := hyprland.ParseEvent("activewindow>>"); ok {
 		t.Error("missing comma: want ok=false")
 	}
@@ -100,7 +100,7 @@ func TestWindowTitleModuleFollowsTheFocusedWindow(t *testing.T) {
 	}
 }
 
-// resolve_icon's order: the user's title: patterns against the title,
+// The icon order: the user's title: patterns against the title,
 // the user's class patterns (pattern order) and then the built-ins
 // against the class, then icon-name.
 func TestWindowTitleIcon(t *testing.T) {

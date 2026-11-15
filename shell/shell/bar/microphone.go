@@ -10,8 +10,8 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// microphoneLabel is helpers.rs's format_label: the rounded percentage. A
-// muted mic dims via the color, like the Rust icon-muted semantics.
+// microphoneLabel is the rounded percentage. A muted mic dims via the
+// color.
 func microphoneLabel(percent float64) string {
 	return strconv.Itoa(int(math.Round(percent))) + "%"
 }
@@ -65,8 +65,8 @@ func (m *microphoneModule) apply(r microphoneRead) {
 	dev := r.dev
 	cfg := m.ctx.Config.Microphone
 	label := microphoneLabel(volumePercent(dev.Device))
-	// The thresholds read the unrounded average, as the Rust watcher
-	// does (the volume module rounds first).
+	// The thresholds read the unrounded average (the volume module
+	// rounds first).
 	m.btn.applyThresholds(dev.Volume.AveragePercentage(), cfg.Thresholds)
 	m.btn.SetLabel(label)
 	if setter := m.icon; setter != nil {

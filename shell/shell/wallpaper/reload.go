@@ -12,10 +12,9 @@ import (
 	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
-// SetConfig applies a reloaded config: the extraction settings
-// (color_extractor.rs) and the [wallpaper] changes (watchers/
-// wallpaper.rs). Monitors that appear later take their state from the
-// new snapshot, and the next swap plays the new [animations]
+// SetConfig applies a reloaded config: the extraction settings and the
+// [wallpaper] changes. Monitors that appear later take their state from
+// the new snapshot, and the next swap plays the new [animations]
 // transition. Call it on the loop goroutine.
 func (s *Shell) SetConfig(cfg *config.Config) {
 	old := s.cfg
@@ -32,7 +31,7 @@ func applyStyling(svc *wallpaper.Service, cfg config.ColorExtractorConfig) {
 }
 
 // applyWallpaperChange applies what changed between two [wallpaper]
-// snapshots, each field the way its Rust watcher does: the global fit
+// snapshots: the global fit
 // mode to every monitor; a new single image unless a cycling directory
 // takes precedence; cycling started (or, with the directory cleared,
 // stopped and the per-monitor and single images restored) when the
@@ -77,7 +76,7 @@ func cyclingInterval(cfg config.WallpaperConfig) time.Duration {
 	return intconv.Duration(cfg.CyclingIntervalMins, time.Minute)
 }
 
-// applyMonitorEntry is apply_monitor_config_change: the entry's fit
+// applyMonitorEntry applies the entry's fit
 // mode, then its image when it names one.
 func applyMonitorEntry(svc *wallpaper.Service, m config.MonitorWallpaperConfig) {
 	if m.Name == "" {

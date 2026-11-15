@@ -20,11 +20,9 @@ import (
 )
 
 // store is the config the window edits. Every write is a runtime
-// override saved at once, as the Rust app's PersistenceWatcher saves on
-// every change. A path inside a value struct (animations.osd.enter)
+// override saved at once. A path inside a value struct (animations.osd.enter)
 // edits that field of its leaf: the leaf is what the layers hold, so
-// the write is the whole leaf with the field changed (Rust's field
-// projections, with_field_source and with_field_reset).
+// the write is the whole leaf with the field changed.
 type store struct{ svc *config.Service }
 
 // value is the effective value at path, plain; nil for an unset
@@ -192,8 +190,8 @@ func (s store) save() {
 	}
 }
 
-// sourceInfo is what a row shows about where its value comes from
-// (row/methods.rs): the badge, its color class and tooltip, and
+// sourceInfo is what a row shows about where its value comes from:
+// the badge, its color class and tooltip, and
 // whether the reset button is live (the value differs from its default).
 type sourceInfo struct {
 	label, tooltip, class string

@@ -18,8 +18,8 @@ import (
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
-// The compositor-agnostic capture half of the host
-// (screenshot/capture.rs): whole outputs through wlr-screencopy with
+// The compositor-agnostic capture half of the host:
+// whole outputs through wlr-screencopy with
 // the transform read from wl_output, freeze-frame captures of every
 // output for the region overlay and the color picker, and window
 // capture through Hyprland's toplevel-export when a Hyprland handle is
@@ -361,8 +361,8 @@ func cropAcross(frames map[string]render.StillImage, monitors []regionoverlay.Mo
 	return out
 }
 
-// clampNonNeg converts a rounded float to int the way Rust's `as u32`
-// saturates negatives to zero.
+// clampNonNeg converts a rounded float to int, saturating negatives
+// and NaN to zero.
 func clampNonNeg(v float64) int {
 	if v < 0 || math.IsNaN(v) {
 		return 0

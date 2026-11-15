@@ -1,6 +1,6 @@
 package config
 
-// WindowTitleConfig is ported from crates/wayle-config/src/schemas/modules/window_title/mod.rs.
+// WindowTitleConfig configures the window-title module.
 //
 // Active window title with optional app-icon prefix.
 type WindowTitleConfig struct {

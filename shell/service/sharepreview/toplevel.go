@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Toplevel is one shareable window (toplevel.rs): an entry of the
+// Toplevel is one shareable window: an entry of the
 // XDPH_WINDOW_SHARING_LIST xdg-desktop-portal-hyprland hands the share
 // picker, or of the generic ext-foreign-toplevel-list fallback.
 type Toplevel struct {
@@ -38,9 +38,8 @@ const (
 // (`<id>[HC>]<class>[HT>]<title>[HE>]<address>[HA>]...`, see XDPH's
 // ScreencopyShared.cpp). The address field is optional for older
 // Hyprland releases. Parsing stops at the first malformed entry,
-// keeping what came before, and logs why - toplevel.rs's behavior,
-// including its reading of separators from the start of the remaining
-// text.
+// keeping what came before, and logs why. Separators are read from the
+// start of the remaining text.
 func ParseList(list string) []Toplevel {
 	var out []Toplevel
 	rest := list

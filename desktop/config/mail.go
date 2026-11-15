@@ -1,6 +1,6 @@
 package config
 
-// MailProvider is ported from crates/wayle-config/src/schemas/modules/mail/account.rs.
+// MailProvider is part of the mail module's configuration.
 //
 // Mail provider, used to pick a default brand icon for an account.
 type MailProvider string
@@ -25,7 +25,7 @@ const (
 
 var _ = registerEnum(MailProviderGeneric, MailProviderGmail, MailProviderOutlook, MailProviderIcloud, MailProviderProton, MailProviderFastmail, MailProviderYahoo)
 
-// MailAccount is ported from crates/wayle-config/src/schemas/modules/mail/account.rs.
+// MailAccount is part of the mail module's configuration.
 //
 // One mail account in the `modules.mail` per-account breakdown.
 //
@@ -55,7 +55,7 @@ func DefaultsMailAccount() MailAccount {
 	}
 }
 
-// MailConfig is ported from crates/wayle-config/src/schemas/modules/mail/mod.rs.
+// MailConfig configures the mail module.
 //
 // Unread mail count, backed by a notmuch query.
 //
@@ -187,7 +187,7 @@ func (p MailProvider) DefaultIcon() string {
 }
 
 // ResolvedIcon is the account's icon: its own when set and non-empty,
-// else the provider's (MailAccount::resolved_icon).
+// else the provider's.
 func (a MailAccount) ResolvedIcon() string {
 	if a.Icon != nil && *a.Icon != "" {
 		return *a.Icon

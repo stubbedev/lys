@@ -12,7 +12,7 @@ import (
 )
 
 // This file is what kinds of VPN this machine can run and what each
-// needs to be asked for (vpn/kinds.rs). WireGuard is always available:
+// needs to be asked for. WireGuard is always available:
 // NetworkManager carries it natively. Everything else needs a plugin,
 // and NM advertises those as .name files, one INI per plugin naming its
 // D-Bus service; reading them means the type picker offers exactly what

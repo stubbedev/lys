@@ -6,8 +6,7 @@ import (
 	"github.com/stubbedev/lys/desktop/glob"
 )
 
-// lowered is Default with every pattern lowercased (icons.rs
-// compiled_map): Lookup lowercases the name, so the table must match in
+// lowered is Default with every pattern lowercased: Lookup lowercases the name, so the table must match in
 // the same case or a mixed-case entry ("Slack", "Tor Browser") never
 // does.
 var lowered = func() []Entry {
@@ -18,9 +17,8 @@ var lowered = func() []Entry {
 	return out
 }()
 
-// Lookup is icons.rs lookup_app_icon: the first Default pattern that
-// matches the name, both lowercased (an exact match counts too, as
-// matches_glob's shortcut does). Callers pass app ids, window classes,
+// Lookup is the first Default pattern that matches the name, both
+// lowercased (an exact match counts too). Callers pass app ids, window classes,
 // or player identities alike.
 func Lookup(name string) (string, bool) {
 	lower := strings.ToLower(name)

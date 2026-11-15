@@ -14,9 +14,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Hot reload over inotify (crates/wayle-config/src/infrastructure/
-// watcher.rs): the config directory is watched recursively, plus the
-// real parent of a symlinked main config (never the /nix/store root).
+// Hot reload over inotify: the config directory is watched recursively,
+// plus the real parent of a symlinked main config (never the /nix/store
+// root).
 // Events debounce for 100ms, capped at 2s after the first pending one
 // so a continuous stream still flushes; a flush reloads what changed:
 // .env files, themes/, runtime.yaml alone, or everything.

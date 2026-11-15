@@ -10,7 +10,7 @@ import (
 	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
-// D-Bus identity (dbus/mod.rs, dbus.md).
+// D-Bus identity.
 const (
 	ServiceName = "dev.stubbe.lys.Wallpaper1"
 	ServicePath = dbus.ObjectPath("/dev/stubbe/lys/Wallpaper")
@@ -35,7 +35,7 @@ func invalidArgs(err error) *dbus.Error {
 	return &dbus.Error{Name: errInvalidArgs, Body: []any{err.Error()}}
 }
 
-// Daemon serves a Service as dev.stubbe.lys.Wallpaper1 (dbus/server.rs). An
+// Daemon serves a Service as dev.stubbe.lys.Wallpaper1. An
 // empty monitor argument targets every monitor.
 type Daemon struct {
 	svc *Service
@@ -196,8 +196,7 @@ func (d *Daemon) ListMonitors() ([]string, *dbus.Error) {
 }
 
 // properties serves the interface's read-only properties, computed on
-// each read like the zbus property getters (which never emit
-// PropertiesChanged).
+// each read; they never emit PropertiesChanged.
 type properties struct{ svc *Service }
 
 func (p properties) values() map[string]dbus.Variant {
@@ -242,7 +241,7 @@ type Client struct {
 func Connect() (*Client, error) {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connect to D-Bus session bus: %w", err) //nolint:staticcheck // the Rust CLI message
+		return nil, fmt.Errorf("Failed to connect to D-Bus session bus: %w", err) //nolint:staticcheck // a user-facing CLI message
 	}
 	return NewClient(conn), nil
 }

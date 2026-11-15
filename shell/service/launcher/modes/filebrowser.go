@@ -45,7 +45,7 @@ type FileBrowserConfig struct {
 	Recursive bool
 }
 
-// DefaultFileBrowserConfig is FileBrowserConfig::default.
+// DefaultFileBrowserConfig is the file browser without any flag or config.
 func DefaultFileBrowserConfig() FileBrowserConfig {
 	return FileBrowserConfig{DirectoriesFirst: true}
 }
@@ -63,7 +63,7 @@ type fileEntry struct {
 	path string
 }
 
-// FileBrowser is filebrowser and recursivebrowser (filebrowser.rs).
+// FileBrowser is filebrowser and recursivebrowser.
 type FileBrowser struct {
 	cfg     FileBrowserConfig
 	current string
@@ -268,7 +268,7 @@ func sortEntries(entries []listed, sorting FileSort, dirsFirst bool) {
 	})
 }
 
-// asciiLower folds ASCII case only, as OsStr::to_ascii_lowercase.
+// asciiLower folds ASCII case only.
 func asciiLower(s string) string {
 	b := []byte(s)
 	for i, c := range b {

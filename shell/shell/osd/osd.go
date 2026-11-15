@@ -97,16 +97,15 @@ func New(d Deps, cfg *config.Config) *Osd {
 	return o
 }
 
-// Show flashes ev (show_event).
+// Show flashes ev.
 func (o *Osd) Show(ev Event) { o.d.Invoke(func() { o.show(ev) }) }
 
-// ShowToast flashes a `lys-shell toast` request (handle_show_toast).
+// ShowToast flashes a `lys-shell toast` request.
 func (o *Osd) ShowToast(req widgetipc.ToastRequest) {
 	o.d.Invoke(func() { o.show(toastEvent(req, o.cfg.Osd)) })
 }
 
-// SetConfig takes a reloaded config; a mapped OSD re-anchors to it
-// (OsdCmd::ConfigChanged).
+// SetConfig takes a reloaded config; a mapped OSD re-anchors to it.
 func (o *Osd) SetConfig(cfg *config.Config) {
 	if o.lockKeysWanted.Swap(cfg.Osd.Enabled) != cfg.Osd.Enabled {
 		select {
@@ -176,7 +175,7 @@ func (o *Osd) closeFace() {
 	o.idle = f
 }
 
-// place is apply_position and apply_layer: the surface sits on the
+// place positions the surface: it sits on the
 // configured monitor, anchored and inset per osd.position, on its
 // layer. A surface on another output is replaced. It reports whether
 // a surface is mapped.
@@ -222,7 +221,7 @@ func (o *Osd) place() bool {
 	return true
 }
 
-// anchors is apply_position's edges: corners take both, the centered
+// anchors are the surface's edges: corners take both, the centered
 // positions only their own edge (the surface centers along the other).
 func anchors(p config.OsdPosition) app.Anchor {
 	switch p {
@@ -244,8 +243,8 @@ func anchors(p config.OsdPosition) app.Anchor {
 	return app.AnchorBottom
 }
 
-// margins is apply_position's insets: osd.margin (rem base 150px at the
-// styling scale, truncated as the Rust `as i32`) on each anchored edge.
+// margins are the surface's insets: osd.margin (rem base 150px at the
+// styling scale, truncated toward zero) on each anchored edge.
 func margins(cfg *config.Config) app.Margins {
 	m := int32(cfg.Osd.Margin.ResolvePx(config.OsdMarginBaseRem*styling.RemBase, float64(cfg.Styling.Scale)))
 	a := anchors(cfg.Osd.Position)
@@ -265,7 +264,7 @@ func margins(cfg *config.Config) app.Margins {
 	return out
 }
 
-// genieEdge is the edge a genie collapses toward (genie_edge).
+// genieEdge is the edge a genie collapses toward.
 func genieEdge(p config.OsdPosition) widget.Edge {
 	switch p {
 	case config.OsdTop, config.OsdTopLeft, config.OsdTopRight:

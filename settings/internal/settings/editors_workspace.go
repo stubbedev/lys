@@ -36,8 +36,7 @@ func (w workspaceStyleItem) itemValue() any {
 	return s
 }
 
-// workspaceStyleMap is workspace_style_map::workspace_style_map over
-// a map of WorkspaceStyle: numeric keys (a Hyprland workspace id, the
+// workspaceStyleMap edits a map of WorkspaceStyle: numeric keys (a Hyprland workspace id, the
 // map's order numeric, a key that does not parse dropped on write) or
 // names (sorted, an empty one dropped).
 func workspaceStyleMap(numeric bool) rowOpt {

@@ -8,14 +8,13 @@ import (
 	"strings"
 )
 
-// CompletionShells are clap_complete's Shell values, the accepted
-// arguments of a completions command.
+// CompletionShells are the shells a completions command accepts.
 var CompletionShells = []PossibleValue{
 	{Name: "bash"}, {Name: "elvish"}, {Name: "fish"}, {Name: "powershell"}, {Name: "zsh"},
 }
 
-// WriteCompletions writes clap_complete's script for shell, generated
-// from root (clap_complete::generate with the root name as bin name).
+// WriteCompletions writes the completion script for shell, generated
+// from root with the root name as the binary name.
 func WriteCompletions(w io.Writer, root *Command, shell string) error {
 	c := build(root, nil, true)
 	var script string
@@ -37,8 +36,8 @@ func WriteCompletions(w io.Writer, root *Command, shell string) error {
 	return err
 }
 
-// valueHint is the subset of clap's ValueHint the tree produces: a
-// PathBuf arg completes files (AnyPath), everything else is Unknown.
+// valueHint is how an arg's value completes: a Path arg completes
+// files, everything else is unknown.
 type valueHint int
 
 const (
@@ -53,7 +52,7 @@ func (a *arg) hint() valueHint {
 	return hintUnknown
 }
 
-// opts are the named args taking a value (Command::get_opts).
+// opts are the named args taking a value.
 func (c *cmd) opts() []*arg {
 	var out []*arg
 	for _, a := range c.args {
@@ -64,7 +63,7 @@ func (c *cmd) opts() []*arg {
 	return out
 }
 
-// flags are the named args taking no value (utils::flags).
+// flags are the named args taking no value.
 func (c *cmd) flags() []*arg {
 	var out []*arg
 	for _, a := range c.args {
@@ -85,7 +84,7 @@ func (c *cmd) positionals() []*arg {
 	return out
 }
 
-// allSubcommands is utils::all_subcommands: the children, then every
+// allSubcommands is the children, then every
 // descendant, as (name, bin name) pairs.
 func allSubcommands(c *cmd) []*cmd {
 	out := append([]*cmd{}, c.subs...)
@@ -95,7 +94,7 @@ func allSubcommands(c *cmd) []*cmd {
 	return out
 }
 
-// findByBin is zsh.rs's parser_of.
+// findByBin finds the command at or under c whose usage name is bin.
 func findByBin(c *cmd, bin string) *cmd {
 	if c.bin == bin {
 		return c
@@ -119,7 +118,7 @@ func sortedUnique(in []string) []string {
 	return out
 }
 
-// ---- bash (aot/shells/bash.rs) ----
+// ---- bash ----
 
 func bashScript(c *cmd) string {
 	name := c.bin
@@ -234,7 +233,7 @@ func bashSubcommandDetails(root *cmd) string {
 	return strings.Join(dets, "\n        ")
 }
 
-// bashFind is utils::find_subcommand_with_path over a "__" path whose
+// bashFind finds the command named by a "__" path whose
 // first element is the binary.
 func bashFind(root *cmd, path string) *cmd {
 	c := root
@@ -291,7 +290,7 @@ func bashValues(o *arg) string {
 	return `$(compgen -f "${cur}")`
 }
 
-// ---- fish (aot/shells/fish.rs) ----
+// ---- fish ----
 
 func fishEscape(s string, comma bool) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
@@ -430,7 +429,7 @@ func fishValueCompletion(o *arg) string {
 	return " -r"
 }
 
-// ---- zsh (aot/shells/zsh.rs) ----
+// ---- zsh ----
 
 func zshScript(c *cmd) string {
 	name := c.bin
@@ -626,7 +625,7 @@ func zshPositionals(c *cmd) string {
 	return strings.Join(ret, "\n")
 }
 
-// ---- elvish (aot/shells/elvish.rs) ----
+// ---- elvish ----
 
 func elvishScript(c *cmd) string {
 	return `
@@ -688,7 +687,7 @@ func elvishInner(c *cmd, previous string) string {
 	return out.String()
 }
 
-// ---- powershell (aot/shells/powershell.rs) ----
+// ---- powershell ----
 
 func powershellScript(c *cmd) string {
 	return `

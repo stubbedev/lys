@@ -14,7 +14,7 @@ import (
 // on.
 const MenuIface = "com.canonical.dbusmenu"
 
-// ToggleType is a menu row's toggle kind (types/menu.rs ToggleType).
+// ToggleType is a menu row's toggle kind.
 type ToggleType uint8
 
 // Toggle types.
@@ -56,8 +56,7 @@ func parseToggleState(v int32) ToggleState {
 	return ToggleUnknown
 }
 
-// MenuItem is one DBusMenu node with its children (types/menu.rs
-// MenuItem). The root is the invisible container whose children are
+// MenuItem is one DBusMenu node with its children. The root is the invisible container whose children are
 // the menu's rows.
 type MenuItem struct {
 	ID          int32
@@ -188,8 +187,8 @@ func (a *Actions) MenuLayout(ctx context.Context, it Item) (MenuItem, error) {
 	return parseMenuNode(layout.ID, layout.Props, layout.Children), nil
 }
 
-// MenuClicked sends the clicked event for a row (menu_event with
-// MenuEvent::Clicked, data 0, the Unix time).
+// MenuClicked sends the clicked event for a row (Event "clicked", data
+// 0, the Unix time).
 func (a *Actions) MenuClicked(ctx context.Context, it Item, id int32) error {
 	obj, err := a.menuObject(it)
 	if err != nil {

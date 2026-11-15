@@ -3,15 +3,15 @@ package bluetooth
 import "fmt"
 
 // NoPrimaryAdapterError is a service-level operation with no adapter to
-// run on (Error::NoPrimaryAdapter).
+// run on.
 type NoPrimaryAdapterError struct{ Operation string }
 
 func (e *NoPrimaryAdapterError) Error() string {
 	return "bluetooth: cannot " + e.Operation + ": no primary adapter available"
 }
 
-// OperationError is a failed BlueZ call (Error::AdapterOperation, and
-// the device controls' D-Bus errors).
+// OperationError is a failed BlueZ call: an adapter operation or a
+// device control's D-Bus error.
 type OperationError struct {
 	// Operation names the call, e.g. "start discovery".
 	Operation string
@@ -25,7 +25,7 @@ func (e *OperationError) Error() string {
 func (e *OperationError) Unwrap() error { return e.Err }
 
 // NoPendingRequestError is an answer to a pairing request that is not
-// the pending one (Error::NoPendingRequest): a PIN while BlueZ asks for
+// the pending one: a PIN while BlueZ asks for
 // a confirmation, or any answer with nothing pending.
 type NoPendingRequestError struct{ RequestType string }
 

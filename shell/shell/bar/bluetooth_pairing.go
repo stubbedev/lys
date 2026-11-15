@@ -11,8 +11,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
-// pairingVariant is PairingVariant: which prompt the card shows. The
-// Rust Failed variant is never entered there and is not carried.
+// pairingVariant is which prompt the card shows.
 type pairingVariant uint8
 
 const (
@@ -26,7 +25,6 @@ const (
 	variantRequestPinCode
 )
 
-// pairingOutputKind is PairingCardOutput.
 type pairingOutputKind uint8
 
 const (
@@ -48,10 +46,10 @@ type pairingOutput struct {
 	passkey uint32
 }
 
-// passkeyTotal is the passkey's digit count (passkey_total).
+// passkeyTotal is the passkey's digit count.
 const passkeyTotal = 6
 
-// btPairingCard is pairing_card: the prompt for the pending agent
+// btPairingCard is the prompt for the pending agent
 // request, above the device lists.
 type btPairingCard struct {
 	root    *widget.Box
@@ -84,7 +82,7 @@ type cardSection struct {
 
 // newBtPairingCard builds the card on lys-ui's parts: the form card with
 // the device as its subject, the passkey as an InputOTP, and the dim,
-// title and monospace classes for the text (pairing_card/mod.rs:47-101).
+// title and monospace classes for the text.
 func newBtPairingCard(ctx ModuleContext) *btPairingCard {
 	font, px := dropdownFont(ctx)
 	c := &btPairingCard{}
@@ -123,8 +121,7 @@ func newBtPairingCard(ctx ModuleContext) *btPairingCard {
 	add(message("dropdown-bluetooth-pairing-allow-pairing"), variantRequestAuthorization)
 	add(message("dropdown-bluetooth-pairing-enter-shown-pin"), variantRequestPasskey)
 
-	// The passkey prompt: lys-ui's code input, six digit slots
-	// (pairing_card/mod.rs:147-190).
+	// The passkey prompt: lys-ui's code input, six digit slots.
 	c.passkey = widget.NewInputOTP(font, widget.OTPDigits, passkeyTotal)
 	c.passkey.SetHAlign(widget.AlignCenter)
 	add(c.passkey, variantRequestPasskey)
@@ -170,8 +167,7 @@ func newBtPairingCard(ctx ModuleContext) *btPairingCard {
 	return c
 }
 
-// limitEntry keeps an entry to max runes that pass keep (set_max_length
-// plus the Rust key filter).
+// limitEntry keeps an entry to max runes that pass keep.
 func limitEntry(e *widget.Entry, maxRunes int, keep func(rune) bool) func(string) {
 	return func(text string) {
 		var b strings.Builder
@@ -197,7 +193,7 @@ func (c *btPairingCard) emit(out pairingOutput) {
 	}
 }
 
-// set shows req for the device (SetRequest + apply_request).
+// set shows req for the device.
 func (c *btPairingCard) set(req bluetooth.PairingRequest, display deviceDisplay) {
 	c.device.SetTitle(display.name)
 	c.device.SetDescription(btText(display.typeKey))
@@ -234,7 +230,7 @@ func (c *btPairingCard) set(req bluetooth.PairingRequest, display deviceDisplay)
 	c.apply()
 }
 
-// clear hides the card (PairingCardMsg::Clear).
+// clear hides the card.
 func (c *btPairingCard) clear() {
 	c.variant = variantNone
 	c.apply()
@@ -259,7 +255,6 @@ func (c *btPairingCard) apply() {
 	c.right.SetVisible(c.hasConfirmAction())
 }
 
-// leftActionKey is left_action_label.
 func (c *btPairingCard) leftActionKey() string {
 	switch c.variant {
 	case variantRequestConfirmation, variantRequestPasskey:
@@ -270,7 +265,6 @@ func (c *btPairingCard) leftActionKey() string {
 	return "dropdown-bluetooth-cancel"
 }
 
-// rightActionKey is right_action_label.
 func (c *btPairingCard) rightActionKey() string {
 	switch c.variant {
 	case variantRequestPasskey, variantRequestPinCode:
@@ -281,8 +275,8 @@ func (c *btPairingCard) rightActionKey() string {
 	return "dropdown-bluetooth-confirm"
 }
 
-// hasConfirmAction is has_confirm_action: the display requests only
-// have a cancel.
+// hasConfirmAction is false for the display requests, which only have
+// a cancel.
 func (c *btPairingCard) hasConfirmAction() bool {
 	switch c.variant {
 	case variantDisplayPin, variantDisplayPasskey, variantNone:
@@ -291,9 +285,8 @@ func (c *btPairingCard) hasConfirmAction() bool {
 	return true
 }
 
-// confirmOutput is build_confirm_output. The code input answers
-// RequestPasskey with the number it spells (the Rust sends it as a
-// PIN, which its own provider refuses); an incomplete passkey has
+// confirmOutput is the card's answer. The code input answers
+// RequestPasskey with the number it spells; an incomplete passkey has
 // nothing to send.
 func (c *btPairingCard) confirmOutput() (pairingOutput, bool) {
 	switch c.variant {
@@ -315,7 +308,7 @@ func (c *btPairingCard) confirmOutput() (pairingOutput, bool) {
 	return pairingOutput{}, false
 }
 
-// rejectOutput is build_reject_output: the yes/no prompts reject, the
+// rejectOutput is the yes/no prompts reject, the
 // rest cancel.
 func (c *btPairingCard) rejectOutput() pairingOutput {
 	switch c.variant {

@@ -2,10 +2,10 @@ package icons
 
 import "strings"
 
-// CustomPrefix marks user-imported icons (sources/mod.rs CUSTOM_PREFIX).
+// CustomPrefix marks user-imported icons.
 const CustomPrefix = "cm"
 
-// Source is one icon CDN (sources/mod.rs's IconSource).
+// Source is one icon CDN.
 type Source struct {
 	DisplayName string
 	CLIName     string
@@ -59,10 +59,10 @@ var (
 	}
 )
 
-// Sources are all sources in sources::all order.
+// Sources are all sources, in listing order.
 var Sources = []Source{Tabler, TablerFilled, SimpleIcons, Material, Lucide}
 
-// SourceByCLIName is sources::from_cli_name.
+// SourceByCLIName looks a source up by its CLI name.
 func SourceByCLIName(name string) (Source, error) {
 	for _, s := range Sources {
 		if s.CLIName == name {

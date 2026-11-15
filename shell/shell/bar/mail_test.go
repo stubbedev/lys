@@ -51,7 +51,7 @@ func TestMailModuleShowsTheServiceTotal(t *testing.T) {
 	if got := mm.btn.Label().Text(); got != "7" {
 		t.Errorf("label = %q, want the service's 7", got)
 	}
-	// A bar button with the mail icon, as the Rust BarButton is.
+	// A bar button with the mail icon.
 	if _, ok := mm.Root().(*barButton); !ok || mm.icon == nil || mm.icon.Name() != cfg.Mail.IconName {
 		t.Errorf("root %T icon %v, want a bar button with %q", mm.Root(), mm.icon, cfg.Mail.IconName)
 	}

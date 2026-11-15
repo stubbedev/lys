@@ -1,6 +1,5 @@
-// Package apptheme is what every lys-shell GTK-era surface loads at start
-// (bootstrap.rs, lys-settings app/css.rs): the Rust stylesheet
-// bundle with its hot reload, the stylesheet font resolver, and the
+// Package apptheme is what every lys-shell surface loads at start: the
+// stylesheet bundle with its hot reload, the stylesheet font resolver, and the
 // lys-shell icon registry on the icon search path.
 package apptheme
 
@@ -22,17 +21,14 @@ import (
 	"github.com/stubbedev/lys/desktop/styling"
 )
 
-// Priority is the bundle's provider priority: bootstrap.rs loads it at
-// STYLE_PROVIDER_PRIORITY_USER + 100, above the per-widget variable
-// providers (STYLE_PROVIDER_PRIORITY_USER).
+// Priority is the bundle's provider priority: user priority + 100,
+// above the per-widget variable providers (user priority).
 const Priority = widget.StylePriorityUser + 100
 
 // ComponentPriority is a widget's own dynamic CSS - an album art or
 // avatar background - above the bundle, so no bundle
-// rule overrides it (wayle-styling's COMPONENT_CSS_PRIORITY, GTK
-// priority 1000). A widget's plain inline
-// style sits at user priority, under the bundle, as a GTK per-widget
-// provider does.
+// rule overrides it. A widget's plain inline style sits at user
+// priority, under the bundle.
 const ComponentPriority = widget.StylePriorityUser + 200
 
 // Theme owns the stylesheet: the bundle — the built-in CSS, the
@@ -84,8 +80,7 @@ type CompiledBundle struct {
 
 // New resolves the palette, compiles the bundle and installs lys-ui's
 // theme from the palette (WidgetTheme). A provider or user-stylesheet
-// failure logs and falls back (the configured palette, no user CSS),
-// the Rust shell's behavior.
+// failure logs and falls back (the configured palette, no user CSS).
 func New(cfg *config.Config) *Theme {
 	t := &Theme{cfg: cfg}
 	t.loaded = t.Bundle()
@@ -104,7 +99,7 @@ func (t *Theme) installWidgetTheme() {
 	widget.SetMediaContrast(t.cfg.Styling.HighContrast)
 }
 
-// Bundle builds init_css_provider's CSS (bootstrap.rs): static, theme,
+// Bundle builds the bundle's CSS: static, theme,
 // the [animations] overrides (the --duration-* tokens and, with
 // indicators off, the frozen looping animations), then user styles,
 // resolving the palette on the way.
@@ -172,8 +167,7 @@ func (t *Theme) RenderPalette() *styling.Palette { return t.rendered }
 
 // FollowDesktopFontSize makes 1rem what it is in a GTK app on this
 // desktop - the desktop font's size, GTK's "Sans 10" without one - now
-// and on every change: the bundle sizes its text in rem, and every
-// Rust surface resolved it through GTK.
+// and on every change: the bundle sizes its text in rem.
 func FollowDesktopFontSize(a *app.Application) {
 	widget.SetRootFontSize(a.DesktopFontSize())
 	a.OnDesktopFontSizeChange(widget.SetRootFontSize)

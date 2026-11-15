@@ -179,8 +179,8 @@ type Chooser struct {
 	navigating bool
 	// size is the panel's size as the user left it, kept across
 	// requests. at is where it was moved to on the output placedOn,
-	// which sticks across requests there, as the Rust window does;
-	// moved is false while it centres.
+	// which sticks across requests there; moved is false while it
+	// centres.
 	size     widget.Size
 	at       widget.Point
 	moved    bool
@@ -545,7 +545,7 @@ func section(dir widget.Axis, class string) *widget.Box {
 	return b
 }
 
-// iconToggle is a gtk::ToggleButton with an icon: on starts it
+// iconToggle is a toggle button with an icon: on starts it
 // active, and onToggled hears every later change.
 func (c *Chooser) iconToggle(icon, tooltip string, on bool, onToggled func(bool)) *widget.ToggleButton {
 	holder := widget.NewBox(widget.Row, 0, 0)
@@ -623,7 +623,7 @@ func (c *Chooser) build(r request) {
 	u.location.OnEscape = func() bool { c.hideLocation(); return true }
 	u.location.SetVisible(false)
 	crumbBar.Append(u.location, true)
-	// gtk::SearchEntry with no debounce: filtering the cached listing
+	// No debounce: filtering the cached listing
 	// is an in-memory scan, and a recursive walk is cancelled by its
 	// generation instead.
 	u.search = widget.NewSearchEntry(c.d.Font, widgets.TextPx(styling.Body, 1), "Filter this folder")

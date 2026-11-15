@@ -1,5 +1,4 @@
-// Package bluetooth is the BlueZ service, the Go counterpart of
-// crates/wayle-bluetooth: the adapter and device model kept live from
+// Package bluetooth is the BlueZ service: the adapter and device model kept live from
 // the ObjectManager and PropertiesChanged signals, the adapter and
 // device controls, and the org.bluez.Agent1 pairing agent whose
 // requests the UI answers.
@@ -123,7 +122,7 @@ type Service struct {
 
 // New starts the service on conn, which stays the caller's: it exports
 // and registers the agent, reads the object tree, and follows BlueZ's
-// signals (BluetoothService::new). Close takes back what it put there.
+// signals. Close takes back what it put there.
 func New(conn *dbus.Conn) (*Service, error) {
 	s := &Service{
 		conn:     conn,
@@ -236,7 +235,7 @@ func (s *Service) Close() error {
 
 type managedObjects map[dbus.ObjectPath]map[string]map[string]dbus.Variant
 
-// discover reads the object tree once (discovery.rs), in path order so
+// discover reads the object tree once, in path order so
 // the first adapter is stable.
 func (s *Service) discover() error {
 	var objects managedObjects
@@ -260,7 +259,7 @@ func (s *Service) discover() error {
 
 // addInterfacesLocked adds the adapter/device at path, or the battery
 // of a known device; it reports whether an adapter was added. Known
-// objects are left alone (handle_device_added's existence check).
+// objects are left alone.
 func (s *Service) addInterfacesLocked(path dbus.ObjectPath, ifaces map[string]map[string]dbus.Variant) bool {
 	added := false
 	if props, ok := ifaces[adapterIface]; ok && s.adapterLocked(path) == nil {
@@ -334,7 +333,7 @@ func (s *Service) deviceLocked(path dbus.ObjectPath) *Device {
 	return nil
 }
 
-// bestAdapter is find_best_adapter: the first powered adapter, else
+// bestAdapter is the first powered adapter, else
 // the first; "" when there are none.
 func bestAdapter(adapters []*Adapter) dbus.ObjectPath {
 	for _, a := range adapters {
@@ -348,7 +347,7 @@ func bestAdapter(adapters []*Adapter) dbus.ObjectPath {
 	return ""
 }
 
-// selectPrimary is select_primary_adapter, run when the adapter list
+// selectPrimary picks the primary adapter, run when the adapter list
 // changes: keep a current adapter that is still present and powered,
 // else prefer a powered one, else keep the present current one.
 func selectPrimary(current dbus.ObjectPath, adapters []*Adapter) dbus.ObjectPath {
@@ -508,8 +507,7 @@ func (s *Service) SetTrusted(ctx context.Context, device dbus.ObjectPath, truste
 // TrustPaired marks a paired, untrusted device trusted, so BlueZ stops
 // asking the agent to authorize its services on every reconnect; an
 // unpaired device is left alone (a stray trust would linger). It reads
-// Paired and Trusted live, as the UI's trust_paired_device does, since
-// the model may not have folded the pairing's signals in yet.
+// Paired and Trusted live, since the model may not have folded the pairing's signals in yet.
 func (s *Service) TrustPaired(ctx context.Context, device dbus.ObjectPath) error {
 	var props map[string]dbus.Variant
 	call := s.conn.Object(BusName, device).CallWithContext(ctx, propertiesIface+".GetAll", 0, deviceIface)
@@ -527,8 +525,7 @@ func (s *Service) TrustPaired(ctx context.Context, device dbus.ObjectPath) error
 	return s.Device(device).SetTrusted(ctx, true)
 }
 
-// Disconnected streams the device's Disconnected signals until stop
-// (Device::disconnected_signal).
+// Disconnected streams the device's Disconnected signals until stop.
 func (s *Service) Disconnected(device dbus.ObjectPath) (<-chan DisconnectedEvent, func()) {
 	ch := make(chan DisconnectedEvent, 4)
 	s.mu.Lock()

@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/network"
 )
 
-// apSnapshot is AccessPointSnapshot: one listed network.
+// apSnapshot is one listed network.
 type apSnapshot struct {
 	ssid     string
 	strength uint8
@@ -34,7 +34,7 @@ func signalStrengthIcon(strength uint8) string {
 	return wifiSignalIcons[network.SignalIndex(strength, len(wifiSignalIcons))]
 }
 
-// frequencyBand is frequency_to_band; "" when unknown.
+// frequencyBand is the band of mhz, "" when unknown.
 func frequencyBand(mhz uint32) string {
 	switch {
 	case mhz >= 2400 && mhz <= 2500:
@@ -49,7 +49,6 @@ func frequencyBand(mhz uint32) string {
 	return ""
 }
 
-// formatWiredSpeed is format_wired_speed.
 func formatWiredSpeed(mbps uint32) string {
 	switch {
 	case mbps >= 1000 && mbps%1000 == 0:
@@ -60,7 +59,7 @@ func formatWiredSpeed(mbps uint32) string {
 	return strconv.FormatUint(uint64(mbps), 10) + " Mbps"
 }
 
-// sortedUniqueAccessPoints is sorted_unique_access_points: one entry
+// sortedUniqueAccessPoints is one entry
 // per SSID (the strongest), hidden and enterprise networks and the
 // connected SSID dropped, strongest first.
 func sortedUniqueAccessPoints(aps []network.AccessPoint, connected string, known map[string]bool) []apSnapshot {
@@ -91,7 +90,7 @@ func sortedUniqueAccessPoints(aps []network.AccessPoint, connected string, known
 	return out
 }
 
-// mergeWithCache is merge_with_cache: the live list first, then the
+// mergeWithCache is the live list first, then the
 // cached networks it lacks, marked stale, connected dropped, known
 // recomputed.
 func mergeWithCache(live, cached []apSnapshot, connected string, known map[string]bool) []apSnapshot {
@@ -111,7 +110,6 @@ func mergeWithCache(live, cached []apSnapshot, connected string, known map[strin
 	return out
 }
 
-// securityLabel is translate_security_type.
 func securityLabel(s network.SecurityType) string {
 	switch s {
 	case network.SecurityWEP:
@@ -128,7 +126,7 @@ func securityLabel(s network.SecurityType) string {
 	return i18n.T("dropdown-network-security-open")
 }
 
-// rowSecurityLabel is the row's second line (network_item init_model):
+// rowSecurityLabel is the row's second line:
 // stale beats saved, saved only for a secured network.
 func rowSecurityLabel(ap apSnapshot) string {
 	base := securityLabel(ap.security)
@@ -141,8 +139,7 @@ func rowSecurityLabel(ap apSnapshot) string {
 	return base
 }
 
-// connectionStep is translate_connection_step; "" for states without
-// a step to show.
+// connectionStep is the step a state shows, "" for states without one.
 func connectionStep(state network.DeviceState) string {
 	switch state {
 	case network.DevicePrepare:
@@ -159,7 +156,7 @@ func connectionStep(state network.DeviceState) string {
 	return ""
 }
 
-// connectFailureMessage is translate_device_failure's text; auth and
+// connectFailureMessage is a failure's text; auth and
 // superseded failures are handled before it (re-prompt, nothing).
 func connectFailureMessage(f network.ConnectFailure) string {
 	switch f {

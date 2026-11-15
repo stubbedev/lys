@@ -1,6 +1,5 @@
 // Package sysinfo reads the kernel's own counters: /proc/stat for CPU
-// time, /proc/meminfo for memory, and statfs for storage. The pure-Go
-// counterpart of crates/wayle-sysinfo's read path.
+// time, /proc/meminfo for memory, and statfs for storage.
 package sysinfo
 
 import (
@@ -115,7 +114,7 @@ func (m Memory) SwapPercent() float64 {
 	return float64(m.SwapTotal-m.SwapFree) / float64(m.SwapTotal) * 100
 }
 
-// GiB renders a byte count the way the Rust module does: one decimal.
+// GiB renders a byte count in GiB with one decimal.
 func GiB(bytes uint64) string {
 	const gib = 1024.0 * 1024.0 * 1024.0
 	return strconv.FormatFloat(float64(bytes)/gib, 'f', 1, 64)

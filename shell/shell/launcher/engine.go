@@ -7,7 +7,7 @@ import (
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// The engine actor (engine_actor.rs): one goroutine per session owns
+// The engine actor: one goroutine per session owns
 // the engine.Session - mode loads run scripts and read the disk, so
 // they stay off the UI loop - and talks to the surface over a command
 // channel in and delivered closures out.
@@ -98,7 +98,7 @@ type engineSink interface {
 }
 
 // actor is one session's engine goroutine. Its queue is unbounded and
-// ordered, as the Rust actor's channel is: a query typed while a mode
+// ordered: a query typed while a mode
 // loads must still arrive, after the keys before it.
 type actor struct {
 	mu     sync.Mutex

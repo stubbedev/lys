@@ -4,7 +4,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 )
 
-// IdleInhibitConfig is ported from crates/wayle-config/src/schemas/modules/idle_inhibit/mod.rs.
+// IdleInhibitConfig configures the idle-inhibit module.
 //
 // Toggle that prevents screen dim, lock, and suspend while active.
 //

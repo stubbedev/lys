@@ -11,14 +11,14 @@ import (
 
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/lib/xdg"
-	_ "modernc.org/sqlite" // the pure-Go sqlite driver: launcher.db stays the Rust file
+	_ "modernc.org/sqlite" // the pure-Go sqlite driver
 )
 
 const day = 86_400
 
 // History is the persistent launch history, (mode, entry) -> uses and
-// last use, in the same sqlite file and schema the Rust shell writes
-// ($XDG_DATA_HOME/lys-shell/launcher.db), so an upgrade keeps it.
+// last use, in a sqlite file ($XDG_DATA_HOME/lys-shell/launcher.db)
+// whose schema an upgrade keeps.
 type History struct {
 	db       *sql.DB
 	deferred func() (*History, error)
@@ -30,13 +30,13 @@ type History struct {
 var errHistoryClosed = errors.New("history database: closed")
 
 // DataDir resolves lys-shell's data directory, $XDG_DATA_HOME/lys-shell or
-// ~/.local/share/lys-shell, creating it (wayle-core ConfigPaths::data_dir).
+// ~/.local/share/lys-shell, creating it.
 func DataDir() (string, error) {
 	dir, ok := xdg.OS.DataDir(identity.Name)
 	if !ok {
 		return "", errors.New("launcher: neither XDG_DATA_HOME nor HOME is an absolute path")
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the shared data dir, as the Rust shell creates it
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the shared data dir
 		return "", err
 	}
 	return dir, nil

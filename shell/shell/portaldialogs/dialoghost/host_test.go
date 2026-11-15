@@ -315,7 +315,7 @@ func TestAppChooserFiltersAndPicks(t *testing.T) {
 		got <- hs.h.ChooseApplication(portaldialogs.Caller{Handle: "/r/test"}, portaldialogs.ChooserRequest{ContentType: "image/png"})
 	}()
 	c := hs.open(t)
-	// The search is a gtk::SearchEntry; its search-changed delay runs
+	// The search is a search entry; its search-changed delay runs
 	// instantly here.
 	defer widget.SetAnimationsInstant(true)()
 	var search *widget.SearchEntry

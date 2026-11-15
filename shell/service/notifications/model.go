@@ -7,7 +7,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// Urgency is the spec's urgency hint (types/notification.rs's Urgency).
+// Urgency is the spec's urgency hint.
 type Urgency uint8
 
 // Urgency levels.
@@ -17,7 +17,7 @@ const (
 	UrgencyCritical
 )
 
-// UrgencyFromByte is From<u8>: 0 low, 2 critical, anything else normal.
+// UrgencyFromByte reads the urgency hint: 0 low, 2 critical, anything else normal.
 func UrgencyFromByte(v byte) Urgency {
 	switch v {
 	case 0:
@@ -29,7 +29,7 @@ func UrgencyFromByte(v byte) Urgency {
 }
 
 // Action is one notification action: the id ActionInvoked reports, its
-// label (core/types.rs's Action), and what the button does when the
+// label, and what the button does when the
 // sender said (ActionPurposesHint), which styles it.
 type Action struct {
 	ID      string
@@ -45,7 +45,7 @@ const ActionPurposesHint = "x-lys-action-purposes"
 // DefaultActionID is the spec's body-click action.
 const DefaultActionID = "default"
 
-// ParseActions is parse_dbus_actions: the flat id, label, ... list as
+// ParseActions reads the flat id, label, ... list as
 // pairs; a trailing id without a label labels itself.
 func ParseActions(raw []string) []Action {
 	actions := make([]Action, 0, (len(raw)+1)/2)
@@ -59,7 +59,7 @@ func ParseActions(raw []string) []Action {
 	return actions
 }
 
-// hints are the decoded Notify hints the shell reads (from_props).
+// hints are the decoded Notify hints the shell reads.
 type hints struct {
 	urgency          Urgency
 	imagePath        string
@@ -78,7 +78,7 @@ type hints struct {
 // decodeHints reads the spec hints; a missing or mistyped hint keeps
 // its default. Inline image data (image-data, then the deprecated
 // image_data and icon_data) is cached as a PNG whose path replaces
-// image-path, as normalize_hints does; cache turns pixels into a path.
+// image-path; cache turns pixels into a path.
 func decodeHints(raw map[string]dbus.Variant, cache func(imageData) (string, bool)) hints {
 	h := hints{urgency: UrgencyNormal}
 	if v, ok := raw["urgency"].Value().(byte); ok {

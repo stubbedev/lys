@@ -10,7 +10,7 @@ import (
 )
 
 // The agent's withdrawal and budget contracts against the real
-// sign-in, as the Rust tests run them: a GlobalProtect profile that has
+// sign-in: a GlobalProtect profile that has
 // signed in before, pointed at a gateway that takes the connection and
 // never answers.
 

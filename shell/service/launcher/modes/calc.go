@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// Calc is the calculator mode (calc.rs): the query is an expression and
+// Calc is the calculator mode: the query is an expression and
 // the first row is its result. rofi needs rofi-calc, a plugin, and qalc
 // for this; here it is a mode like any other. Enter copies the result,
 // Shift+Enter puts it back in the input so the next expression builds

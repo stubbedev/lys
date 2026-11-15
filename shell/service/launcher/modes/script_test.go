@@ -73,7 +73,7 @@ func TestDataAndSwitchModeHeaders(t *testing.T) {
 
 func TestACustomDelimiter(t *testing.T) {
 	// The header line ends in its own delimiter so the first row does
-	// not start with the newline (script.rs splits the same way).
+	// not start with the newline.
 	p := parseOutput("\x00delim\x1f|\n|a|b|c")
 	var texts []string
 	for _, r := range p.rows {

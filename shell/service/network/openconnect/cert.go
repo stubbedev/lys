@@ -7,8 +7,7 @@ import (
 	"net/http"
 )
 
-// The gateway certificate pin the openconnect plugin asks for as gwcert
-// (cert.rs).
+// The gateway certificate pin the openconnect plugin asks for as gwcert.
 //
 // nm-openconnect passes that secret straight to openconnect
 // --servercert, and the plugin's need_secrets counts the key as missing
@@ -19,8 +18,8 @@ import (
 // of the certificate itself; sha1:/sha256: are hex hashes of the public
 // key, which is why hashing the whole DER and prefixing it sha256: is
 // rejected. The pin is RFC 7469's: SHA-256 over the certificate's whole
-// encoded SubjectPublicKeyInfo. The Rust walks the DER by hand to find
-// it; crypto/x509 hands it over as RawSubjectPublicKeyInfo.
+// encoded SubjectPublicKeyInfo, which crypto/x509 hands over as
+// RawSubjectPublicKeyInfo.
 
 // certPin is the pin-sha256: fingerprint of a DER-encoded certificate,
 // or false when the bytes are not a certificate this can read.

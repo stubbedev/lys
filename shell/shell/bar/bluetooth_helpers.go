@@ -14,16 +14,9 @@ import (
 	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
-// The bluetooth dropdown's pure helpers, ported from
-// crates/wayle-bar-network/src/dropdowns/bluetooth/helpers.rs. Labels
-// travel as their Fluent keys (the Rust t!/td! arguments) and resolve
-// through btText, over the same shell-domain bundle the Rust loader
-// reads (crates/wayle-shell-core/locales).
-
-// btText resolves a key through the shell domain (the Rust t!/td!
-// sites) with its Fluent arguments as name/value pairs. An unknown key
-// is a programming error and renders the loader's "No localization"
-// marker, as the Rust lookup does.
+// btText resolves a key through the shell domain with its Fluent
+// arguments as name/value pairs. An unknown key is a programming error
+// and renders the loader's "No localization" marker.
 func btText(key string, args ...any) string {
 	var fluent []i18n.Arg
 	for i := 0; i+1 < len(args); i += 2 {
@@ -65,7 +58,7 @@ func majorClass(raw uint32) uint32 { return (raw >> 8) & 0x1F }
 func minorClass(raw uint32) uint32 { return (raw >> 2) & 0x3F }
 
 // deviceIcon picks the row icon from BlueZ's icon hint, else the class
-// of device (device_icon).
+// of device.
 func deviceIcon(hint *string, class *uint32) string {
 	if hint != nil {
 		switch *hint {
@@ -165,7 +158,7 @@ func batteryLevelIcon(percent uint8) string {
 	return batteryLevelIcons[levelIndexFloor(float64(percent), len(batteryLevelIcons))]
 }
 
-// deviceTypeKey is device_type_key: the Fluent key naming the device's
+// deviceTypeKey is the Fluent key naming the device's
 // kind.
 func deviceTypeKey(hint *string, class *uint32) string {
 	if hint != nil {
@@ -272,7 +265,7 @@ func formatPasskey(passkey uint32) string { return fmt.Sprintf("%06d", passkey) 
 const btBaseUUIDSuffix = "-0000-1000-8000-00805f9b34fb"
 
 // serviceNameKey maps a service UUID to its Fluent key via the SIG
-// assigned 16-bit numbers (service_name_key).
+// assigned 16-bit numbers.
 func serviceNameKey(uuid string) string {
 	lower := strings.ToLower(uuid)
 	hexPart, ok := strings.CutPrefix(lower, "0000")
@@ -321,18 +314,17 @@ func serviceNameKey(uuid string) string {
 	return "dropdown-bluetooth-service-" + name
 }
 
-// deviceDisplay is DeviceDisplayInfo: what the pairing card shows.
+// deviceDisplay is what the pairing card shows.
 type deviceDisplay struct {
 	name    string
 	icon    string
 	typeKey string
 }
 
-// unknownDisplay is DeviceDisplayInfo::default, for a request about a
+// unknownDisplay is the display for a request about a
 // device the model has not seen.
 var unknownDisplay = deviceDisplay{name: "-", icon: "ld-bluetooth-symbolic", typeKey: "dropdown-bluetooth-type-unknown"}
 
-// resolveDeviceDisplay is resolve_device_display.
 func resolveDeviceDisplay(d bluetooth.Device) deviceDisplay {
 	name := d.Alias
 	if name == "" {
@@ -365,7 +357,7 @@ type deviceSnapshot struct {
 	category  deviceCategory
 }
 
-// categorizeDevice is categorize_device: nil for a device with nothing
+// categorizeDevice is nil for a device with nothing
 // to call it, and for an unnamed unpaired one (an alias BlueZ derived
 // from the address).
 func categorizeDevice(d bluetooth.Device) *deviceSnapshot {
@@ -397,7 +389,7 @@ func categorizeDevice(d bluetooth.Device) *deviceSnapshot {
 	}
 }
 
-// splitDeviceLists is build_split_device_lists: my devices (connected
+// splitDeviceLists: my devices (connected
 // and paired) and the rest, each by category then name.
 func splitDeviceLists(devices []bluetooth.Device) (mine, available []deviceSnapshot) {
 	for _, d := range devices {

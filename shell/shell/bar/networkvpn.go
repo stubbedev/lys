@@ -25,9 +25,9 @@ import (
 )
 
 // This file is the network dropdown's VPNs: the section listing NM's
-// VPN profiles (dropdowns/network/vpn_connections), each row toggling
-// its tunnel and opening it in the editor, and the editor itself
-// (vpn_form), the dropdown's second page. The form is built from the
+// VPN profiles, each row toggling
+// its tunnel and opening it in the editor, and the editor itself, the
+// dropdown's second page. The form is built from the
 // picked kind's fields rather than drawn per VPN type, so a plugin
 // lys-shell has never heard of still gets the free-form key = value
 // editor and lands in NetworkManager the same way.
@@ -56,7 +56,7 @@ func openFileOnSessionBus(ctx context.Context, title string, filters ...portal.F
 	return portal.OpenFile(ctx, conn, title, filters...)
 }
 
-// vpnFieldsMaxHeight is FIELDS_MAX_HEIGHT: WireGuard's nine fields run
+// vpnFieldsMaxHeight caps the form: WireGuard's nine fields run
 // past the popover, so the form scrolls past this instead.
 const vpnFieldsMaxHeight = 260
 
@@ -67,7 +67,7 @@ const (
 	iconGenerateKey     = "ld-refresh-cw-symbolic"
 )
 
-// vpnStateIcon is a row's glyph (vpn_item.rs's state_icon): the
+// vpnStateIcon is a row's glyph: the
 // dropdown's own, not the bar icon the user themes. A failed attempt
 // reads as not connected; the reason is the row's second line.
 func vpnStateIcon(state network.VPNState) string {
@@ -80,7 +80,6 @@ func vpnStateIcon(state network.VPNState) string {
 	return "ld-unplug-symbolic"
 }
 
-// vpnStateLabel is state_label.
 func vpnStateLabel(state network.VPNState) string {
 	switch state {
 	case network.VPNConnected:
@@ -102,7 +101,7 @@ func vpnRowCaption(row network.VPN) string {
 	return vpnStateLabel(row.State)
 }
 
-// sentence capitalises a reason for its own line (vpn_item.rs): lys-shell's
+// sentence capitalises a reason for its own line: lys-shell's
 // errors are written lowercase to read mid-sentence in a log; only the
 // first letter is touched.
 func sentence(reason string) string {
@@ -139,12 +138,11 @@ func vpnTranslated(id, fallback string) string {
 	return fallback
 }
 
-// vpnFieldName is label_for.
 func vpnFieldName(f network.VPNField) string {
 	return vpnTranslated("dropdown-network-vpn-field-"+vpnSlug(f.Key), f.Label)
 }
 
-// vpnFieldLabel is field_label: the name, required ones marked.
+// vpnFieldLabel is the name, required ones marked.
 func vpnFieldLabel(f network.VPNField) string {
 	if f.Required {
 		return vpnFieldName(f) + " *"
@@ -152,12 +150,11 @@ func vpnFieldLabel(f network.VPNField) string {
 	return vpnFieldName(f)
 }
 
-// vpnSectionHeading is section_heading's text.
 func vpnSectionHeading(section string) string {
 	return vpnTranslated("dropdown-network-vpn-section-"+section, section)
 }
 
-// vpnChoiceLabel is choice_label: a choice lys-shell cannot sign into says
+// vpnChoiceLabel is a choice lys-shell cannot sign into says
 // so before it is picked.
 func vpnChoiceLabel(c network.VPNChoice) string {
 	if c.NativeSignIn {
@@ -166,7 +163,7 @@ func vpnChoiceLabel(c network.VPNChoice) string {
 	return c.Label + " — " + i18n.T("dropdown-network-vpn-no-native-sign-in")
 }
 
-// parseRaw is parse_raw: one key = value per line, # comments, blank
+// parseRaw is one key = value per line, # comments, blank
 // lines and lines without a key ignored.
 func parseRaw(text string) map[string]string {
 	out := map[string]string{}
@@ -214,7 +211,7 @@ func vpnLeftovers(values map[string]string, kind network.VPNKind) map[string]str
 	return out
 }
 
-// renderRaw is render_raw: the values as the raw editor shows them,
+// renderRaw is the values as the raw editor shows them,
 // sorted.
 func renderRaw(values map[string]string) string {
 	lines := make([]string, 0, len(values))
@@ -225,7 +222,7 @@ func renderRaw(values map[string]string) string {
 	return strings.Join(lines, "\n")
 }
 
-// vpnMalformedMessage is malformed_message: what the box wanted.
+// vpnMalformedMessage is what the box wanted.
 func vpnMalformedMessage(f network.VPNField) string {
 	id := map[network.VPNFormat]string{
 		network.FormatText:     "dropdown-network-vpn-invalid-text",
@@ -254,7 +251,7 @@ func vpnMalformed(kind network.VPNKind, values map[string]string) []network.VPNF
 	return out
 }
 
-// vpnMissingRequired is missing_required: every required field left
+// vpnMissingRequired is every required field left
 // empty, all at once, in drawing order.
 func vpnMissingRequired(kind network.VPNKind, values map[string]string) []network.VPNField {
 	var out []network.VPNField
@@ -266,7 +263,7 @@ func vpnMissingRequired(kind network.VPNKind, values map[string]string) []networ
 	return out
 }
 
-// vpnRawHint is raw_hint: for a typed kind the keys it covers, for an
+// vpnRawHint: for a typed kind the keys it covers, for an
 // untyped one the plugin's service its documentation is indexed by.
 func vpnRawHint(kind network.VPNKind, ok bool) string {
 	switch {
@@ -282,7 +279,7 @@ func vpnRawHint(kind network.VPNKind, ok bool) string {
 	return i18n.T("dropdown-network-vpn-raw-hint-typed", i18n.Str("covered", strings.Join(keys, ", ")))
 }
 
-// publicKeyReadout is attach_key_generation's readout: the public key
+// publicKeyReadout is the public key
 // for the private key typed, and nothing for a half-typed or mistyped
 // one (an old public key would hand the other end a key that opens
 // nothing).
@@ -313,7 +310,7 @@ func readWgQuick(path string) (map[string]string, bool) {
 	return network.ParseWgQuick(string(data), filepath.Base(path))
 }
 
-// netVPNs is VpnConnections: the VPN label, one row per profile, and
+// netVPNs is the VPN label, one row per profile, and
 // the "Add VPN" row that gives a machine with none its first.
 type netVPNs struct {
 	*widget.Box
@@ -328,7 +325,7 @@ func newNetVPNs(v *networkView) *netVPNs {
 	card.AddClass("network-list")
 	s.rows = rows
 	s.Box = dropdownSection(sectionLabel(v.font, i18n.T("dropdown-network-vpn")), card)
-	// The add row activates as a whole (vpn_connections/mod.rs:75-107).
+	// The add row activates as a whole.
 	s.add = widget.NewItem(v.font, i18n.T("dropdown-network-vpn-add"), "")
 	s.add.SetSmall(true)
 	s.add.AddClass("vpn-item", "vpn-add")
@@ -349,10 +346,9 @@ func (s *netVPNs) apply(rows []network.VPN) {
 	s.rows.Append(s.add)
 }
 
-// row is VpnItem on lys-ui's Item: the state glyph as the media, the
+// row is a VPN on lys-ui's Item: the state glyph as the media, the
 // name over the state or the gateway's reason, and the edit button as
-// the action. Activating the row toggles the tunnel (vpn_item.rs:
-// 190-197); the edit button keeps its own click. The name and a
+// the action. Activating the row toggles the tunnel; the edit button keeps its own click. The name and a
 // reason keep to one line each, the tooltip holding the reason whole.
 func (s *netVPNs) row(r network.VPN) *widget.Item {
 	v := s.v
@@ -395,7 +391,7 @@ type vpnPicker struct {
 	values []string
 }
 
-// netVPNForm is VpnForm: the editor page. The header goes back and, for
+// netVPNForm is the editor page. The header goes back and, for
 // WireGuard, imports a wg-quick file; the scrolled body holds the name,
 // the type picker (creating only: another type is another profile),
 // the kind's fields, and the raw editor; the footer holds the error and
@@ -423,8 +419,8 @@ type netVPNForm struct {
 	rawOpen    bool
 	errLabel   *widget.Label
 	deleteBtn  *widget.Button
-	// confirming is confirming_delete: the alert is up, a second
-	// Delete click asks nothing more.
+	// confirming is set while the alert is up; a second Delete click asks
+	// nothing more.
 	confirming bool
 }
 
@@ -434,7 +430,7 @@ func newNetVPNForm(v *networkView) *netVPNForm {
 	f.AddClass(css.Card, "network-vpn-form")
 
 	// The header goes back, names the page, and imports. Its title is
-	// always "New VPN" (vpn_form/mod.rs:341-346): creating and editing
+	// always "New VPN": creating and editing
 	// share it.
 	f.head = widget.NewItem(v.font, i18n.T("dropdown-network-vpn-new"), "")
 	f.head.SetSmall(true)
@@ -529,18 +525,18 @@ func (f *netVPNForm) open(uuid, name, kind string, values map[string]string) {
 	f.rebuild(values)
 }
 
-// showNew is VpnFormInput::ShowNew: empty, the name box focused.
+// showNew opens the form empty, the name box focused.
 func (f *netVPNForm) showNew() {
 	f.open("", "", "", nil)
 	f.v.focus(f.name)
 }
 
-// showEdit is VpnFormInput::ShowEdit: prefilled from what is stored.
+// showEdit opens the form prefilled from what is stored.
 func (f *netVPNForm) showEdit(uuid, name, kind string, values map[string]string) {
 	f.open(uuid, name, kind, values)
 }
 
-// kindSelected is KindSelected: another type, other fields.
+// kindSelected switches the type: another type, other fields.
 func (f *netVPNForm) kindSelected(i int) {
 	if i < 0 || i >= len(f.kinds) || i == f.selected {
 		return
@@ -625,11 +621,9 @@ func (f *netVPNForm) entry(kind network.VPNKind, field network.VPNField, current
 	entry.SetText(current)
 	entry.OnActivate = func(string) { f.save() }
 	var readout *widget.RichLabel
-	// WireGuard's key generation is the entry's primary icon in Rust
 	if kind.ID == network.WireGuard && field.Key == wireGuardPrivateKey {
-		// The entry's primary icon generates a keypair
-		// (vpn_form/mod.rs:147-160); the reveal toggle keeps the
-		// secondary slot.
+		// The entry's primary icon generates a keypair; the reveal
+		// toggle keeps the secondary slot.
 		entry.SetLeadingIcon(iconGenerateKey, f.v.px, func() {
 			entry.SetText(network.GenerateKeyPair().Private)
 		})
@@ -725,7 +719,7 @@ func (f *netVPNForm) markBad(bad []network.VPNField) {
 	}
 }
 
-// fail is VpnFormInput::Failed: NM refused; the form stays, values
+// fail shows that NM refused; the form stays, values
 // intact, so the user can correct what it refused.
 func (f *netVPNForm) fail(reason string) { f.setError(reason) }
 
@@ -738,7 +732,7 @@ func (f *netVPNForm) cancel() {
 	f.v.vpnCloseForm()
 }
 
-// askDelete is confirm_delete: a profile is recoverable from nowhere
+// askDelete confirms a deletion: a profile is recoverable from nowhere
 // else (a WireGuard private key lives only in NM), so Delete asks in a
 // modal alert - Cancel the default - and nothing goes until it is
 // accepted.
@@ -761,7 +755,7 @@ func (f *netVPNForm) askDelete() {
 	})
 }
 
-// importFile is ImportClicked: a wg-quick file through the portal's
+// importFile imports a wg-quick file through the portal's
 // chooser, its outcome handled back on the loop.
 func (f *netVPNForm) importFile() {
 	open := f.v.openFile
@@ -776,8 +770,8 @@ func (f *netVPNForm) importFile() {
 	}()
 }
 
-// importDone reads the picked file here rather than off the loop, as
-// the Rust form does: a wg-quick file is a few hundred bytes on local
+// importDone reads the picked file here rather than off the loop: a
+// wg-quick file is a few hundred bytes on local
 // disk. Dismissing the chooser is not a failure, and saying so would
 // be noise.
 func (f *netVPNForm) importDone(path string, err error) {
@@ -795,7 +789,7 @@ func (f *netVPNForm) importDone(path string, err error) {
 	}
 }
 
-// imported is Imported: the file's values, and its interface as the
+// imported applies the file's values, and its interface as the
 // name unless one is typed already.
 func (f *netVPNForm) imported(name string, values map[string]string) {
 	f.setError("")
@@ -833,8 +827,7 @@ func (v *networkView) vpnAdd() {
 
 // vpnEdit reads the saved profile (not what the row shows) and opens
 // the editor on it. A profile that cannot be read stays closed: an
-// editor open on stale values could save them over it. (Rust logs and
-// keeps the list, as here.)
+// editor open on stale values could save them over it.
 func (v *networkView) vpnEdit(uuid string) {
 	vpn := v.vpn
 	if vpn == nil {
@@ -900,5 +893,4 @@ func (v *networkView) vpnWritten(err error, what string) {
 	})
 }
 
-// vpnCloseForm is VpnFormOutput::Cancel.
 func (v *networkView) vpnCloseForm() { v.body.Show(netPageBrowse) }

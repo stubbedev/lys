@@ -13,8 +13,8 @@ import (
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
-func TestSysinfoContextsMatchTheRustHelpers(t *testing.T) {
-	// helpers.rs: "{:02.0}" pads single digits (rounding), leaves the rest.
+func TestSysinfoContexts(t *testing.T) {
+	// Single digits pad (rounding), the rest stay.
 	for v, want := range map[float32]string{7.2: "07", 42.9: "43", 100: "100", 0: "00", 2.5: "02"} {
 		if got := pad2(v); got != want {
 			t.Errorf("pad2(%v) = %q, want %q", v, got, want)
@@ -25,7 +25,7 @@ func TestSysinfoContextsMatchTheRustHelpers(t *testing.T) {
 	if got != "07% 3.5/2.0/5.0 46C 114F" {
 		t.Errorf("cpu = %q", got)
 	}
-	// No sensor reads as 0 degrees, as unwrap_or(0.0).
+	// No sensor reads as 0 degrees.
 	if got := jinja.RenderOr("{{ temp_c }}/{{ temp_f }}", cpuContext(sysinfo.CPU{})); got != "00/32" {
 		t.Errorf("no sensor = %q", got)
 	}

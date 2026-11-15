@@ -37,7 +37,7 @@ func TestFuncParsesIntoItsTypeAndReportsItsError(t *testing.T) {
 	}
 }
 
-func TestJaroMatchesStrsim(t *testing.T) {
+func TestJaroSimilarity(t *testing.T) {
 	cases := []struct {
 		a, b string
 		want float64
@@ -173,7 +173,11 @@ func TestRunRejectsBadValuesWithUsageExit(t *testing.T) {
 		t.Errorf("negative count: code %d %q", code, stderr)
 	}
 	_, _, stderr, code = runTool(t, "go", "--count=-1")
-	if code != 2 || !strings.Contains(stderr, "-1 is not in 0..=4294967295") {
+	if code != 2 || !strings.Contains(stderr, `invalid value '-1' for '--count <COUNT>': parse "-1" as an unsigned 32-bit integer: strconv.ParseUint: parsing "-1": invalid syntax`) {
+		t.Errorf("negative: code %d %q", code, stderr)
+	}
+	_, _, stderr, code = runTool(t, "go", "--count", "4294967296")
+	if code != 2 || !strings.Contains(stderr, `parsing "4294967296": value out of range`) {
 		t.Errorf("range: code %d %q", code, stderr)
 	}
 	_, _, stderr, code = runTool(t, "go", "--mode", "medium")
@@ -202,6 +206,34 @@ func TestRunHandlerOutcomes(t *testing.T) {
 	_, _, stderr, code = runTool(t, "go", "-V")
 	if code != 2 || !strings.Contains(stderr, "unexpected argument '-V' found") {
 		t.Errorf("version is root-only: code %d %q", code, stderr)
+	}
+}
+
+func TestNumberParsersParseAndWrapTheirError(t *testing.T) {
+	a := &arg{Arg: &Arg{ID: "n", Long: "n"}, action: actionSet}
+	if v, err := U32.parse(nil, a, "4294967295"); err != nil || v != uint32(4294967295) {
+		t.Errorf("u32 max: %v %v", v, err)
+	}
+	if v, err := F64.parse(nil, a, "-0.5"); err != nil || v != -0.5 {
+		t.Errorf("f64: %v %v", v, err)
+	}
+	cases := []struct {
+		parser ValueParser
+		raw    string
+		want   error
+	}{
+		{U32, "", strconv.ErrSyntax},
+		{U32, "+-1", strconv.ErrSyntax},
+		{U32, "1.5", strconv.ErrSyntax},
+		{U32, "4294967296", strconv.ErrRange},
+		{F64, "", strconv.ErrSyntax},
+		{F64, "loud", strconv.ErrSyntax},
+	}
+	for _, c := range cases {
+		_, err := c.parser.parse(nil, a, c.raw)
+		if err == nil || !errors.Is(err, c.want) || !strings.Contains(err.Error(), strconv.Quote(c.raw)) {
+			t.Errorf("parse %q: %v, want an error naming the input and wrapping %v", c.raw, err, c.want)
+		}
 	}
 }
 

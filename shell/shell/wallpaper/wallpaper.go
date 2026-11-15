@@ -1,6 +1,5 @@
-// Package wallpaper renders the wallpaper service natively
-// (crates/lys-shell/src/shell/wallpaper, bootstrap/wallpaper.rs, and
-// the hotplug half of watchers/wallpaper.rs): one Background layer
+// Package wallpaper renders the wallpaper service natively: one
+// Background layer
 // surface per output, reconciled against the service's per-monitor
 // state, each swapping images with the wallpaper transition. lys-shell is
 // the wallpaper provider; no swww or other tool is involved.
@@ -73,11 +72,10 @@ func newShell(ui loop, svc *wallpaper.Service, cfg *config.Config, d rasterDeps)
 	}
 }
 
-// Start builds the service from config (build_wallpaper_service),
+// Start builds the service from config,
 // registers the outputs that have a connector name, serves
 // dev.stubbe.lys.Wallpaper1 on conn, and starts the cycling and extraction
-// loops and the surfaces. It fails like the Rust service init when
-// the D-Bus name is taken (another shell is running): no wallpaper is
+// loops and the surfaces. It fails when the D-Bus name is taken (another shell is running): no wallpaper is
 // drawn then. The returned stop function ends the loops, releases the
 // name, and lets go of the wallpapers once the loop has ended.
 func Start(application *app.Application, outputs []*app.Output, cfg *config.Config, conn *dbus.Conn) (*Shell, func(), error) {
@@ -177,10 +175,8 @@ func (s *Shell) Service() *wallpaper.Service { return s.svc }
 // Bootstrap applies the config to freshly registered monitors: the
 // global fit mode, then cycling when a directory is set (else the
 // single image), then the [[wallpaper.monitors]] entries on top.
-//
-// The Rust bootstrap leaves the service fit at fill and has the
-// surfaces read fit-mode from config instead; seeding it here keeps the
-// service, the D-Bus getters, and the pixels in agreement.
+// Seeding the fit mode keeps the service, the D-Bus getters, and the
+// pixels in agreement.
 func Bootstrap(svc *wallpaper.Service, cfg config.WallpaperConfig) {
 	svc.SetFitMode(cfg.FitMode, "")
 	cycling := false
@@ -236,7 +232,7 @@ func hotplugWallpaper(cfg config.WallpaperConfig, name string, cycling bool) (st
 }
 
 // AddOutput registers an output once its connector name is known and
-// applies the config a hotplugged monitor gets (spawn_hotplug_watcher).
+// applies the config a hotplugged monitor gets.
 func (s *Shell) AddOutput(out *app.Output) {
 	if out.Name == "" {
 		return
@@ -284,8 +280,8 @@ func resolve(cfg config.WallpaperConfig, name string, st wallpaper.MonitorState)
 }
 
 // reconcile creates, updates, and removes surfaces to match the
-// service state and the known outputs (keeps_surface: both sides must
-// know a monitor for its surface to live).
+// service state and the known outputs: both sides must know a monitor
+// for its surface to live.
 func (s *Shell) reconcile() {
 	monitors := s.svc.Monitors()
 	for name, surf := range s.surfaces {

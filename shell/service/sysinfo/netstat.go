@@ -16,7 +16,7 @@ type NetTotals struct {
 	Tx uint64
 }
 
-// SelectInterface is netstat's helpers.rs select_interface: "auto"
+// SelectInterface resolves the configured interface: "auto"
 // picks the busiest non-loopback interface, anything else matches by
 // exact name (ok=false when absent).
 func SelectInterface(totals map[string]NetTotals, iface string) (string, bool) {
@@ -65,9 +65,9 @@ func NetRate(name string, prev, now NetTotals, elapsed float64) (Rate, error) {
 	}, nil
 }
 
-// AutoBytes is bytesize 2's Display: IEC (1024-based) units with one
+// AutoBytes renders a byte count in IEC (1024-based) units with one
 // decimal, "KiB" through "EiB", plain bytes below a kibibyte. The unit
-// is picked from ln(size)/ln(1024), as its std build does.
+// is picked from ln(size)/ln(1024).
 func AutoBytes(bytes uint64) string {
 	const kib = 1024
 	if bytes < kib {

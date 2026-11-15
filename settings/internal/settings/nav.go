@@ -21,7 +21,7 @@ type navSection struct {
 	pages []pageSpec
 }
 
-// layout is pages/nav.rs layout(): the sidebar's sections in order,
+// layout is the sidebar's sections in order,
 // each page built from the config (a page may list what the config
 // holds).
 func layout(cfg *config.Config) []navSection {
@@ -71,7 +71,7 @@ func firstPage(sections []navSection) string {
 	return ""
 }
 
-// barDropdownPage is pages/bar/dropdown.rs.
+// barDropdownPage is the bar dropdown page.
 func barDropdownPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: "bar-dropdown", navKey: "settings-nav-bar-dropdown", icon: "ld-panel-bottom-symbolic",

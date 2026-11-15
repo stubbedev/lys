@@ -411,9 +411,8 @@ func TestWeatherHeaderAndDailyRows(t *testing.T) {
 // The loaded trees: the stats and hourly rows are homogeneous with no
 // gaps between their cells, the cells center their image and text as
 // GTK's fill-width image and labels do, the header leaves its icon
-// hidden, and the forecast temperatures carry no degree sign
-// (format_temp_value).
-func TestWeatherDropdownTreesMatchRust(t *testing.T) {
+// hidden, and the forecast temperatures carry no degree sign.
+func TestWeatherDropdownTrees(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ok := fixedWeather(&weather.Weather{
 		Zone:    time.Local,
@@ -448,7 +447,7 @@ func TestWeatherDropdownTreesMatchRust(t *testing.T) {
 	}
 	header := classedBox(t, v, "dropdown-header")
 	if icons := treetest.WithClass(header, "dropdown-icon"); len(icons) != 1 || icons[0].(*widget.Icon).Visible() {
-		t.Error("the weather header shows its icon; the Rust header leaves it hidden")
+		t.Error("the weather header shows its icon; it should stay hidden")
 	}
 }
 

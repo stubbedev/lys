@@ -1,4 +1,4 @@
-// Package mango is the MangoWM IPC client (wayle-mango): one-shot
+// Package mango is the MangoWM IPC client: one-shot
 // "dispatch <command>" requests and the "watch all-monitors" /
 // "watch all-clients" streams, each line a full-state JSON frame.
 // Mango is dwm-derived: every monitor carries a fixed set of tags.
@@ -18,7 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
-// SocketEnv is constants.rs's SOCKET_PATH_ENV.
+// SocketEnv names the variable that locates the mango instance.
 const SocketEnv = "MANGO_INSTANCE_SIGNATURE"
 
 // The watch subscriptions.
@@ -27,7 +27,7 @@ const (
 	watchClients  = "watch all-clients"
 )
 
-// ErrNotRunning is Error::MangoNotRunning.
+// ErrNotRunning is the error when MANGO_INSTANCE_SIGNATURE is unset.
 var ErrNotRunning = errors.New("mango: MANGO_INSTANCE_SIGNATURE is not set")
 
 // SocketPath reads the socket path; empty when mango is not running.
@@ -36,7 +36,7 @@ func SocketPath() string { return os.Getenv(SocketEnv) }
 // IsRunning reports whether a mango socket is advertised.
 func IsRunning() bool { return SocketPath() != "" }
 
-// Tag is types.rs's Tag.
+// Tag is one tag of a monitor.
 type Tag struct {
 	Index       uint32 `json:"index"`
 	IsActive    bool   `json:"is_active"`
@@ -45,7 +45,7 @@ type Tag struct {
 	ClientCount uint32 `json:"client_count"`
 }
 
-// Monitor is core/monitor.rs's Monitor.
+// Monitor is one monitor of an all-monitors frame.
 type Monitor struct {
 	Name       string   `json:"name"`
 	IsActive   bool     `json:"active"`
@@ -56,7 +56,7 @@ type Monitor struct {
 	KeyboardLayout string `json:"keyboardlayout"`
 }
 
-// KeyboardLayout is refresh_globals' keyboard_layout: the active
+// KeyboardLayout is the active
 // monitor's layout; "" when no monitor is active or it reports none.
 func KeyboardLayout(monitors []Monitor) string {
 	for _, m := range monitors {
@@ -67,8 +67,8 @@ func KeyboardLayout(monitors []Monitor) string {
 	return ""
 }
 
-// Client is core/client.rs's Client; empty title/app id read as
-// unset, as from_snapshot filters them.
+// Client is a monitor's active client; empty title/app id read as
+// unset.
 type Client struct {
 	ID        uint32
 	Title     string
@@ -91,7 +91,7 @@ type clientSnapshot struct {
 	IsFocused bool     `json:"is_focused"`
 }
 
-// RejectedError is Error::MangoRejected.
+// RejectedError is mango refusing a dispatch.
 type RejectedError struct{ Message string }
 
 func (e *RejectedError) Error() string { return "mango rejected the request: " + e.Message }
@@ -141,7 +141,7 @@ func Dispatch(command string) error {
 	return request(ipcsock.Standard, "dispatch "+command)
 }
 
-// ViewTag is view_tag: "view,<index>".
+// ViewTag shows the tag at index: "view,<index>".
 func ViewTag(index uint32) error { return Dispatch("view," + strconv.FormatUint(uint64(index), 10)) }
 
 // FocusClient focuses a client by id, showing its tag.
@@ -154,10 +154,10 @@ func dispatchClient(function string, id uint32) error {
 	return Dispatch(function + " client," + strconv.FormatUint(uint64(id), 10))
 }
 
-// ViewLeft is view_left (focus:previous).
+// ViewLeft shows the tag to the left (focus:previous).
 func ViewLeft() error { return Dispatch("viewtoleft") }
 
-// ViewRight is view_right (focus:next).
+// ViewRight shows the tag to the right (focus:next).
 func ViewRight() error { return Dispatch("viewtoright") }
 
 // Watcher holds the latest monitor and client frames from the two
@@ -173,7 +173,7 @@ type Watcher struct {
 	once                    sync.Once
 }
 
-// Watch connects both watch streams (start_monitoring).
+// Watch connects both watch streams.
 func Watch() (*Watcher, error) { return watch(ipcsock.Standard) }
 
 func watch(timeout ipcsock.Timeout) (*Watcher, error) {
@@ -224,7 +224,7 @@ func (w *Watcher) pump(conn net.Conn, sub string, wg *sync.WaitGroup) {
 }
 
 // apply parses one frame; a frame that does not parse leaves the
-// previous state in place (the Rust warn-and-continue).
+// previous state in place.
 func (w *Watcher) apply(sub string, line []byte) error {
 	switch sub {
 	case watchMonitors:

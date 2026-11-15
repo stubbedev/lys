@@ -39,7 +39,7 @@ func TestReadSnapshotWifiAndWired(t *testing.T) {
 	}
 }
 
-// Device states map as NetworkStatus::from_device_state does: only
+// Device states map to statuses: only
 // prepare through secondaries is connecting.
 func TestStatusOf(t *testing.T) {
 	for state, want := range map[DeviceState]Status{

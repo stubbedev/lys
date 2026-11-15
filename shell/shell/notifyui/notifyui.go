@@ -1,6 +1,5 @@
 // Package notifyui is what the notification popups and the bar's
-// notification dropdown share (wayle-shell-core notification_icons.rs):
-// icon resolution, urgency classes, relative times, and body text.
+// notification dropdown share: icon resolution, urgency classes, relative times, and body text.
 package notifyui
 
 import (
@@ -37,7 +36,7 @@ type Icon struct {
 	File string
 }
 
-// ResolveIcon is resolve_icon: Mapped is the curated icon for the app
+// ResolveIcon picks a notification's icon: Mapped is the curated icon for the app
 // name; Automatic prefers the image; Application prefers the image,
 // then the app icon, then the desktop entry; each falls back to Mapped,
 // and Mapped to the bell.
@@ -61,7 +60,7 @@ func ResolveIcon(source config.IconSource, n *notifications.Notification) Icon {
 	return mappedIcon(n.AppName)
 }
 
-// iconString is try_icon_string: an absolute path (file:// stripped) is
+// iconString reads an icon hint: an absolute path (file:// stripped) is
 // a file, unless it is a -symbolic.svg, which resolves to its theme
 // name so it recolors; anything else is a theme name.
 func iconString(value string) (Icon, bool) {
@@ -87,7 +86,7 @@ func mappedIcon(appName string) Icon {
 	return Icon{Name: FallbackIcon}
 }
 
-// UrgencyClass is urgency_css_class.
+// UrgencyClass is the CSS class of an urgency: low, normal, or critical.
 func UrgencyClass(u notifications.Urgency) string {
 	switch u {
 	case notifications.UrgencyLow:
@@ -98,7 +97,7 @@ func UrgencyClass(u notifications.Urgency) string {
 	return "normal"
 }
 
-// UrgencyBarVisible is urgency_bar_visible.
+// UrgencyBarVisible reports whether an urgency reaches the bar's threshold.
 func UrgencyBarVisible(u notifications.Urgency, threshold config.UrgencyBarThreshold) bool {
 	switch threshold {
 	case config.UrgencyBarThresholdLow:
@@ -121,7 +120,7 @@ type Age struct {
 // JustNow reports the under-a-minute case.
 func (a Age) JustNow() bool { return a.Minutes == 0 && a.Hours == 0 }
 
-// RelativeTime is relative_time from ts to now.
+// RelativeTime is the age of ts at now.
 func RelativeTime(now, ts time.Time) Age {
 	d := now.Sub(ts)
 	minutes := int64(d / time.Minute)
@@ -134,7 +133,7 @@ func RelativeTime(now, ts time.Time) Age {
 	return Age{Hours: int64(d / time.Hour)}
 }
 
-// BodyMarkup is the sanitized body (the Rust sanitize_markup): markup
+// BodyMarkup is the sanitized body: markup
 // lys-ui's parser accepts passes through with its tags intact, anything
 // else escapes to the literal characters.
 func BodyMarkup(body string) string {
@@ -201,7 +200,7 @@ func AppLabel(appName string) string {
 // AppKey groups notifications by the name they show under.
 func AppKey(n *notifications.Notification) string { return AppLabel(n.AppName) }
 
-// GroupBy is group_by_app over any key: one group per key, each newest
+// GroupBy groups by any key: one group per key, each newest
 // first, the groups ordered by their newest notification; ties keep the
 // order of notifs.
 func GroupBy(notifs []*notifications.Notification, key func(*notifications.Notification) string) []Group {
@@ -227,10 +226,10 @@ func GroupBy(notifs []*notifications.Notification, key func(*notifications.Notif
 	return groups
 }
 
-// ActionsPerRow is how many action buttons share a row (MAX_PER_ROW).
+// ActionsPerRow is how many action buttons share a row.
 const ActionsPerRow = 3
 
-// TimeLabel is time_to_string / format_time_label in a surface's own
+// TimeLabel renders an age in a surface's own
 // strings: domain is "notification-popup" or "notification-dropdown",
 // whose -time-just-now, -time-minutes-ago and -time-hours-ago messages
 // it reads.

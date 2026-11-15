@@ -24,7 +24,7 @@ const (
 	kindMedia
 )
 
-// Event is one OSD flash (messages.rs OsdEvent): a slider (volume,
+// Event is one OSD flash: a slider (volume,
 // microphone, brightness), a lock-key toggle, or a toast pushed over
 // the widget socket. Build one with Slider, Toggle, or from a toast
 // request.
@@ -59,7 +59,7 @@ func Toggle(label, icon string, active bool) Event {
 	return Event{kind: kindToggle, label: label, icon: icon, active: active}
 }
 
-// toggleEvent is handle_toggle_changed: the key's name and glyph.
+// toggleEvent is a lock key's flash: the key's name and glyph.
 func toggleEvent(e keytoggles.Event) Event {
 	switch e.Key {
 	case keytoggles.NumLock:
@@ -78,7 +78,7 @@ func layoutEvent(name string) Event {
 	return Event{kind: kindToast, label: name, icon: LayoutIcon}
 }
 
-// toastEvent is handle_show_toast: the named preset supplies the label
+// toastEvent is a toast's flash: the named preset supplies the label
 // and icon, explicit request fields override them; percentage,
 // duration, and class are per invocation.
 func toastEvent(req widgetipc.ToastRequest, presets config.OsdConfig) Event {
@@ -116,7 +116,7 @@ func deref(s *string) string {
 	return *s
 }
 
-// classes is osd_classes: osd, then muted (a muted slider), toggle-off
+// classes are the surface's CSS classes: osd, then muted (a muted slider), toggle-off
 // (a toggle turned off), bordered (osd.border), and a toast's class.
 func classes(ev Event, border bool) []string {
 	out := []string{"osd", css.Glass}
@@ -135,7 +135,7 @@ func classes(ev Event, border bool) []string {
 	return out
 }
 
-// headerLabel is event_label for the toggle header: a toggle reads
+// headerLabel is the toggle header: a toggle reads
 // "<label> On/Off", a toast its label.
 func headerLabel(ev Event) string {
 	if ev.kind != kindToggle {
@@ -147,15 +147,15 @@ func headerLabel(ev Event) string {
 	return i18n.T("osd-toggle-off", i18n.Str("label", ev.label))
 }
 
-// valueText is event_value: the rounded percentage.
+// valueText is the rounded percentage.
 func valueText(ev Event) string {
 	return strconv.FormatInt(int64(math.Round(ev.percent)), 10) + "%"
 }
 
-// fraction is event_fraction: the bar's fill, clamped.
+// fraction is the bar's fill, clamped.
 func fraction(ev Event) float64 { return min(max(ev.percent/100, 0), 1) }
 
-// VolumeIcon is the output slider's glyph (methods.rs volume_icon).
+// VolumeIcon is the output slider's glyph.
 func VolumeIcon(percent float64, muted bool) string {
 	switch {
 	case muted || percent <= 0:
@@ -176,7 +176,7 @@ func MicrophoneIcon(muted bool) string {
 	return "ld-mic-symbolic"
 }
 
-// BrightnessIcon is the brightness slider's glyph (BRIGHTNESS_ICON).
+// BrightnessIcon is the brightness slider's glyph.
 const BrightnessIcon = "ld-sun-symbolic"
 
 // NowPlaying is the active player's new track: its art, title and

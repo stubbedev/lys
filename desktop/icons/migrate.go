@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 )
 
-// This file ports migrate.rs: rewrite icons written in an older format
+// This file rewrites icons written in an older format
 // (Grappa stroke attributes, or an older gpa:version) in place, then
-// drop a sentinel so later runs skip the scan.
+// drops a sentinel so later runs skip the scan.
 
 const (
 	sentinelFilename   = ".format-version"
@@ -57,7 +57,7 @@ func upToDate(dir string) bool {
 	if err != nil {
 		return false
 	}
-	v, err := parseRustU32(strings.TrimSpace(string(data)))
+	v, err := parseU32(strings.TrimSpace(string(data)))
 	return err == nil && v >= FormatVersion
 }
 
@@ -147,12 +147,12 @@ func fileFormatVersion(content string) (uint64, bool) {
 	if !ok0 {
 		return 0, false
 	}
-	v, err := parseRustU32(before0)
+	v, err := parseU32(before0)
 	return v, err == nil
 }
 
-// parseRustU32 is str::parse::<u32>: ASCII digits with an optional '+'.
-func parseRustU32(s string) (uint64, error) {
+// parseU32 parses decimal digits with an optional '+' as a uint32.
+func parseU32(s string) (uint64, error) {
 	return strconv.ParseUint(strings.TrimPrefix(s, "+"), 10, 32)
 }
 

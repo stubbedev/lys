@@ -15,8 +15,8 @@ import (
 // lockTimeout bounds the wait for the running shell's lock screen.
 const lockTimeout = 25 * time.Second
 
-// Command is app.rs's Lock under name: lock the session through the
-// running shell's lock screen (lys-shell/src/cli/lock.rs). The session
+// Command is the lock command under name: lock the session through the
+// running shell's lock screen. The session
 // bus is dialed only when it runs, so -h and --help never touch it.
 func Command(name string) *cli.Command {
 	return &cli.Command{

@@ -2,9 +2,8 @@ package config
 
 import "reflect"
 
-// ModulesConfig is the `modules` mapping, one section per bar module
-// (crates/wayle-config/src/schemas/modules/mod.rs). Config embeds it,
-// so cfg.Battery reads cfg.ModulesConfig.Battery.
+// ModulesConfig is the `modules` mapping, one section per bar module.
+// Config embeds it, so cfg.Battery reads cfg.ModulesConfig.Battery.
 //
 // Configuration for all available lys-shell modules.
 type ModulesConfig struct {

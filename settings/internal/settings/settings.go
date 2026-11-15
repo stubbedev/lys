@@ -22,8 +22,8 @@ import (
 // desktop entry's name).
 const appID = "dev.stubbe.lys.settings"
 
-// Run loads the config and shows the settings window until it closes
-// (main.rs). A config that cannot load is an error: the window edits
+// Run loads the config and shows the settings window until it closes.
+// A config that cannot load is an error: the window edits
 // it, so there is nothing to show without it.
 func Run(page, setting string) error {
 	// raise is set once the window exists; forwarded launches buffer

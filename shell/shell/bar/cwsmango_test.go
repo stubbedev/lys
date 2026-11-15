@@ -15,7 +15,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// nineTags is methods.rs's nine_tags as a mango frame fragment.
+// nineTags is nine tags as a mango frame fragment.
 func nineTags(active, occupied int) string {
 	parts := make([]string, 0, 9)
 	for i := 1; i <= 9; i++ {

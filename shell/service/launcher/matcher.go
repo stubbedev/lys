@@ -52,7 +52,7 @@ const (
 	SortLevenshtein
 )
 
-// MatcherOptions are the matching knobs (matcher.rs MatcherOptions).
+// MatcherOptions are the matching knobs.
 type MatcherOptions struct {
 	Method MatchMethod
 	Case   CaseMode
@@ -69,7 +69,7 @@ type MatcherOptions struct {
 	SortMethod SortMethod
 }
 
-// DefaultMatcherOptions is MatcherOptions::default.
+// DefaultMatcherOptions are the matching knobs without any flag or config.
 func DefaultMatcherOptions() MatcherOptions {
 	return MatcherOptions{Tokenize: true, Normalize: true, NegationChar: '-', SortMethod: SortFzf}
 }
@@ -262,8 +262,7 @@ func (e *MatchEngine) scanRegex() []uint32 {
 	return out
 }
 
-// scanGlob matches each token as `*token*` (glob crate semantics, `*`
-// crossing separators); a malformed token matches nothing.
+// scanGlob matches each token as `*token*` (`*` crossing separators); a malformed token matches nothing.
 func (e *MatchEngine) scanGlob() []uint32 {
 	if e.query == "" {
 		return e.all()
@@ -283,8 +282,8 @@ func (e *MatchEngine) scanGlob() []uint32 {
 		if rest, ok := strings.CutPrefix(tok, string(e.opts.NegationChar)); ok && rest != "" {
 			negated, body = true, rest
 		}
-		// Wrap for substring semantics without forming `**`, which the
-		// glob crate rejects outside a path component.
+		// Wrap for substring semantics without forming `**`, which
+		// glob.Compile rejects outside a path component.
 		lead, trail := "*", "*"
 		if strings.HasPrefix(body, "*") {
 			lead = ""

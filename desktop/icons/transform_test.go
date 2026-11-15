@@ -10,13 +10,12 @@ import (
 	"github.com/stubbedev/lys/desktop/icons/usvg"
 )
 
-// TestToSymbolicMatchesRust holds ToSymbolic and usvg.Parse to what the
-// Rust transform makes of every SVG in testdata/symbolic (see
-// testdata/README.md): the same bytes out, or no icon (NONE) where Rust
-// gives up, and the same files rejected by the parser with the same
-// error. SYMBOLIC_CORPUS
-// adds a directory laid out the same way.
-func TestToSymbolicMatchesRust(t *testing.T) {
+// TestToSymbolicMatchesGoldens holds ToSymbolic and usvg.Parse to the
+// goldens of every SVG in testdata/symbolic (see testdata/README.md):
+// the same bytes out, or no icon (NONE), and the same files rejected by
+// the parser with the same error. SYMBOLIC_CORPUS adds a directory laid
+// out the same way.
+func TestToSymbolicMatchesGoldens(t *testing.T) {
 	dirs := []string{filepath.Join("testdata", "symbolic")}
 	if extra := os.Getenv("SYMBOLIC_CORPUS"); extra != "" {
 		dirs = append(dirs, extra)
@@ -33,18 +32,18 @@ func TestToSymbolicMatchesRust(t *testing.T) {
 				got, ok := ToSymbolic(src)
 				switch {
 				case golden == "NONE" && ok:
-					t.Errorf("got an icon where Rust gives up:\n%s", got)
+					t.Errorf("got an icon where the golden has none:\n%s", got)
 				case golden != "NONE" && !ok:
-					t.Error("no icon where Rust makes one")
+					t.Error("no icon where the golden has one")
 				case ok && got != golden:
-					t.Errorf("output differs from Rust:\n%s", firstDifference(got, golden))
+					t.Errorf("output differs from the golden:\n%s", firstDifference(got, golden))
 				}
 				gotParse := "OK"
 				if _, err := usvg.Parse(src); err != nil {
 					gotParse = "ERR: " + err.Error()
 				}
 				if want := readFile(t, file+".parse"); gotParse != want {
-					t.Errorf("parse = %q, Rust: %q", gotParse, want)
+					t.Errorf("parse = %q, want %q", gotParse, want)
 				}
 			})
 		}

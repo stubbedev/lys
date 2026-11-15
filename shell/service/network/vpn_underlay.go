@@ -11,7 +11,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// This file watches the network a tunnel rides on (vpn/underlay.rs).
+// This file watches the network a tunnel rides on.
 //
 // NetworkManager keeps a VPN activated for as long as its plugin process
 // runs, and openconnect keeps running while it retries a gateway it

@@ -14,8 +14,8 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// Profile is one saved NetworkManager connection, the fields of
-// core/settings_connection's ConnectionSettings the service reads.
+// Profile is one saved NetworkManager connection, the fields the
+// service reads.
 type Profile struct {
 	// Path is the Settings.Connection object, which activation takes.
 	Path dbus.ObjectPath
@@ -178,8 +178,7 @@ func (s *Settings) byUUID(uuid string) (Profile, bool) {
 	return Profile{}, false
 }
 
-// ForSSID lists the saved profiles for a wifi network
-// (connections_for_ssid).
+// ForSSID lists the saved profiles for a wifi network.
 func (s *Settings) ForSSID(ssid []byte) []Profile {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -192,8 +191,8 @@ func (s *Settings) ForSSID(ssid []byte) []Profile {
 	return out
 }
 
-// DeleteForSSID deletes every saved profile of a wifi network
-// (delete_connections_for_ssid): one refusal is logged and does not
+// DeleteForSSID deletes every saved profile of a wifi network:
+// one refusal is logged and does not
 // stop the rest.
 func (s *Settings) DeleteForSSID(ctx context.Context, ssid []byte) {
 	for _, p := range s.ForSSID(ssid) {

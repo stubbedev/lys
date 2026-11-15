@@ -27,7 +27,7 @@ type colorValueEditor struct {
 	syncing bool
 }
 
-// Row ids that are not tokens (tokens.rs).
+// Row ids that are not tokens.
 const (
 	colorAuto        = "auto"
 	colorTransparent = "transparent"
@@ -119,8 +119,7 @@ func (c *colorValueEditor) refresh() {
 	}
 }
 
-// cssTokenMeta is token_meta: each token's label and group in the
-// dropdown (English in Rust too).
+// cssTokenMeta is each token's label and group in the dropdown.
 var cssTokenMeta = map[config.CssToken]struct{ label, group string }{
 	config.TokenBgBase: {"Base", "Backgrounds"}, config.TokenBgSurface: {"Surface", "Backgrounds"},
 	config.TokenBgSurfaceElevated: {"Surface Elevated", "Backgrounds"}, config.TokenBgElevated: {"Elevated", "Backgrounds"},

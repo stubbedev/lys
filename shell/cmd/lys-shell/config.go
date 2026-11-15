@@ -11,7 +11,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/configdocs"
 )
 
-// configCommand is lys-shell/src/cli/config/commands.rs.
 func configCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "config",
@@ -113,7 +112,7 @@ func configGet(dir, path string, stdout io.Writer) error {
 	svc := config.Load(dir, config.StderrDiagnostics)
 	value, err := svc.GetByPath(path)
 	if err != nil {
-		return fmt.Errorf("Failed to get config at '%s': %w", path, err) //nolint:staticcheck // the Rust CLI's capitalized message
+		return fmt.Errorf("Failed to get config at '%s': %w", path, err) //nolint:staticcheck // the CLI's capitalized message
 	}
 	_, err = fmt.Fprintln(stdout, config.FormatGetValue(value))
 	return err
@@ -122,14 +121,14 @@ func configGet(dir, path string, stdout io.Writer) error {
 func configSet(dir, path, raw string, stdout io.Writer) error {
 	svc := config.Load(dir, config.StderrDiagnostics)
 	if err := svc.SetByPath(path, config.ParseCLIValue(raw)); err != nil {
-		return fmt.Errorf("Failed to set config at '%s': %w", path, err) //nolint:staticcheck // the Rust CLI's capitalized message
+		return fmt.Errorf("Failed to set config at '%s': %w", path, err) //nolint:staticcheck // the CLI's capitalized message
 	}
 	if err := svc.Save(); err != nil {
-		return fmt.Errorf("Failed to save config: %w", err) //nolint:staticcheck // the Rust CLI's capitalized message
+		return fmt.Errorf("Failed to save config: %w", err) //nolint:staticcheck // the CLI's capitalized message
 	}
 	stored, err := svc.GetByPath(path)
 	if err != nil {
-		return fmt.Errorf("Failed to read back value: %w", err) //nolint:staticcheck // the Rust CLI's capitalized message
+		return fmt.Errorf("Failed to read back value: %w", err) //nolint:staticcheck // the CLI's capitalized message
 	}
 	_, err = fmt.Fprintf(stdout, "Set %s = %s\n", path, config.YAMLInline(stored))
 	return err
@@ -162,7 +161,7 @@ func configSchema(dir string, toStdout bool, stdout io.Writer) error {
 		return err
 	}
 	if err := config.EnsureSchemaCurrent(dir); err != nil {
-		return fmt.Errorf("Failed to write schema files: %w", err) //nolint:staticcheck // the Rust CLI's capitalized message
+		return fmt.Errorf("Failed to write schema files: %w", err) //nolint:staticcheck // the CLI's capitalized message
 	}
 	_, err := fmt.Fprintf(stdout, "Written:\n  %s\n", config.SchemaPath(dir))
 	return err
@@ -179,10 +178,10 @@ func configDefault(dir string, toStdout bool, stdout io.Writer) error {
 	}
 	path := config.ExamplePath(dir)
 	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the user's config dir
-		return fmt.Errorf("Failed to create config directory: %w", err) //nolint:staticcheck // the Rust CLI's capitalized message
+		return fmt.Errorf("Failed to create config directory: %w", err) //nolint:staticcheck // the CLI's capitalized message
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint:gosec // a reference file, not secret
-		return fmt.Errorf("Failed to write example config: %w", err) //nolint:staticcheck // the Rust CLI's capitalized message
+		return fmt.Errorf("Failed to write example config: %w", err) //nolint:staticcheck // the CLI's capitalized message
 	}
 	_, err = fmt.Fprintf(stdout, "Written:\n  %s\n", path)
 	return err

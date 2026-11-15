@@ -374,8 +374,8 @@ func TestNotificationItemCursor(t *testing.T) {
 	}
 }
 
-// TestNotificationItemFileIconFallsBack pins apply_icon's load
-// failure: an unloadable file picture shows the themed bell and its
+// TestNotificationItemFileIconFallsBack pins the icon's load failure:
+// an unloadable file picture shows the themed bell and its
 // tile never takes the file-icon class; a loadable one keeps the file
 // icon and the class.
 func TestNotificationItemFileIconFallsBack(t *testing.T) {

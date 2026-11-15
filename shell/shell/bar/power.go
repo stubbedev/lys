@@ -26,7 +26,7 @@ func newPower(ctx ModuleContext) (Module, error) {
 func (m *powerModule) Root() widget.Widget { return m.icon }
 
 // RunAction intercepts the native :menu verb: it opens the power menu
-// in-process (show_power_menu).
+// in-process.
 func (m *powerModule) RunAction(action config.ClickAction) {
 	if action.Kind == config.ClickShell && action.Command == ":menu" {
 		if m.ctx.PowerMenu != nil {

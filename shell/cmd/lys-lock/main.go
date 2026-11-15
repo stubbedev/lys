@@ -1,4 +1,4 @@
-// Command lys-lock is a single-token `lys-shell lock` (lys-lock.rs):
+// Command lys-lock is a single-token `lys-shell lock`:
 // the same dispatch as its own executable, for contexts that exec one
 // token without splitting on whitespace - a systemd ExecStart=, an idle
 // daemon, a compositor spawn - so locking needs no wrapper script.

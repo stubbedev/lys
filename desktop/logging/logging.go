@@ -1,5 +1,4 @@
-// Package logging is lys-shell's log setup (lys-shell/src/core/tracing.rs and
-// lys-shell's tracing_init): a daily file in the state directory,
+// Package logging is lys-shell's log setup: a daily file in the state directory,
 // "<prefix>.<YYYY-MM-DD>.log", keeping the newest seven, behind the
 // standard log package. The CLI logs to the file only, so its output
 // stays clean; the shell also echoes to a console writer.
@@ -22,10 +21,10 @@ import (
 	"github.com/stubbedev/lys/desktop/identity"
 )
 
-// daysToKeep is tracing.rs's DAYS_TO_KEEP.
+// daysToKeep is how many daily log files are kept.
 const daysToKeep = 7
 
-// Dir is ConfigPaths::log_dir: $XDG_STATE_HOME/lys-shell, or
+// Dir is the log directory: $XDG_STATE_HOME/lys-shell, or
 // ~/.local/state/lys-shell when XDG_STATE_HOME is not an absolute path.
 func Dir() (string, error) {
 	dir, ok := xdg.OS.StateDir(identity.Name)

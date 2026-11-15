@@ -16,15 +16,15 @@ import (
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
-	_ "modernc.org/sqlite" // the pure-Go sqlite driver: notifications.db stays the Rust file
+	_ "modernc.org/sqlite" // the pure-Go sqlite driver
 )
 
 // deleteBatch is the most rows one retention or expiry DELETE removes,
 // so a large sweep never holds the write lock for long.
 const deleteBatch = 500
 
-// schema is the Rust store's table, plus the indexes the history pages
-// and sweeps by. Each CREATE is idempotent, so opening a file in the old
+// schema is the notifications table, plus the indexes the history
+// pages and sweeps by. Each CREATE is idempotent, so opening a file in the old
 // schema migrates it in place.
 const schema = `CREATE TABLE IF NOT EXISTS notifications (
 		id INTEGER PRIMARY KEY,
@@ -61,9 +61,8 @@ const (
 	removeAllSQL = `DELETE FROM notifications`
 )
 
-// Store is the notification history on disk (persistence.rs): the same
-// sqlite file, table, and column encodings the Rust shell writes, so
-// the history survives a restart and a switch between the two.
+// Store is the notification history on disk, a sqlite file, so the
+// history survives a restart.
 type Store struct {
 	db *sql.DB
 }
@@ -82,7 +81,7 @@ func StorePath() (string, error) {
 // OpenStore opens (creating or migrating if needed) the history at
 // path; tests pass a temporary file.
 func OpenStore(path string) (*Store, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // the shared data dir, as the Rust store creates it
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // the shared data dir
 		return nil, fmt.Errorf("notification store %s: %w", path, err)
 	}
 	db, err := sql.Open("sqlite", path)
@@ -354,8 +353,8 @@ func scanNotification(row interface{ Scan(...any) error }) (*Notification, error
 	return n, nil
 }
 
-// encodeHints writes the typed hints in the Rust store's hints column
-// form; image-path has its own column.
+// encodeHints writes the typed hints in the hints column's form;
+// image-path has its own column.
 func encodeHints(n *Notification) (string, error) {
 	out := map[string]storedHint{
 		"urgency": {Signature: "y", Value: json.RawMessage(strconv.Itoa(int(n.Urgency)))},
@@ -387,16 +386,16 @@ func encodeHints(n *Notification) (string, error) {
 	return string(b), err
 }
 
-// storedHint is zvariant's serde form of a value, which the Rust store
-// writes: {"signature": "y", "value": 2}.
+// storedHint is the hints column's form of one value:
+// {"signature": "y", "value": 2}.
 type storedHint struct {
 	Signature string          `json:"signature"`
 	Value     json.RawMessage `json:"value"`
 }
 
 // decodeStoredHints reads the hints column back into variants,
-// dropping what it cannot read (the Rust store warns and keeps none of
-// a broken map, one broken value).
+// dropping what it cannot read: none of a broken map, one broken
+// value.
 func decodeStoredHints(id uint32, text string) map[string]dbus.Variant {
 	out := map[string]dbus.Variant{}
 	var stored map[string]storedHint
@@ -492,6 +491,5 @@ func nullString(s string) sql.NullString { return sql.NullString{String: s, Vali
 
 func nullID(id uint32) sql.NullInt64 { return sql.NullInt64{Int64: int64(id), Valid: id != 0} }
 
-// nullTimeout is the Rust Option<u32>: a negative (server default)
-// timeout is none.
+// nullTimeout stores a negative (server default) timeout as NULL.
 func nullTimeout(ms int32) sql.NullInt64 { return sql.NullInt64{Int64: int64(ms), Valid: ms >= 0} }

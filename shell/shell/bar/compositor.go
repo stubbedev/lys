@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/sway"
 )
 
-// compositor is compositor.rs's Compositor: the session's compositor
+// compositor is the session's compositor
 // as its environment advertises it.
 type compositor int
 
@@ -41,8 +41,8 @@ func (c compositor) String() string {
 	return "unknown"
 }
 
-// detectCompositor is Compositor::detect: the first advertised socket
-// in the order lys-wm, then Rust's (Hyprland, niri, mango, sway), so a
+// detectCompositor picks the first advertised socket in the order
+// lys-wm, Hyprland, niri, mango, sway, so a
 // session that exports more than one is still a single compositor. An
 // empty variable advertises nothing.
 func detectCompositor() compositor {
@@ -71,8 +71,7 @@ func compositorHasClient() bool {
 	return false
 }
 
-// requireCompositor is module_registry.rs's require_hyprland and
-// siblings: module builds only under want.
+// requireCompositor lets module build only under want.
 func requireCompositor(module string, want compositor) error {
 	if got := detectCompositor(); got != want {
 		return fmt.Errorf("%s: requires %s, the compositor is %s", module, want, got)

@@ -11,10 +11,9 @@ import (
 	"github.com/stubbedev/lys/desktop/tokens"
 )
 
-// Palette is a theme's ten colors as the CSS generation consumes them
-// (crates/wayle-config/src/infrastructure/themes/mod.rs). The values are
-// the strings a theme or provider supplied; the [styling.palette]
-// section's validated form is PaletteConfig.
+// Palette is a theme's ten colors as the CSS generation consumes them.
+// The values are the strings a theme or provider supplied; the
+// [styling.palette] section's validated form is PaletteConfig.
 type Palette = tokens.Palette
 
 // ThemeEntry is one theme available for selection: a built-in, or a
@@ -25,7 +24,7 @@ type ThemeEntry struct {
 	Builtin bool
 }
 
-// lysShellTheme is the default palette (palettes.rs lys_shell_theme).
+// lysShellTheme is the default palette.
 var lysShellTheme = tokens.LysShell()
 
 // palette is a Palette from its ten colors in field order.
@@ -46,8 +45,7 @@ func paletteConfigOf(p Palette) PaletteConfig {
 	}
 }
 
-// builtinThemes is the built-in theme table in the Rust order
-// (palettes.rs builtins).
+// builtinThemes is the built-in theme table in presentation order.
 var builtinThemes = []struct {
 	name    string
 	palette Palette
@@ -99,7 +97,7 @@ var builtinThemes = []struct {
 	{"tokyo-night-day", palette("#e1e2e7", "#d0d5e3", "#c4c8da", "#3760bf", "#6172b0", "#2e7de9", "#f52a65", "#8c6c3e", "#587539", "#007197")},
 }
 
-// BuiltinThemes returns every built-in theme, in the Rust order.
+// BuiltinThemes returns every built-in theme, in presentation order.
 func BuiltinThemes() []ThemeEntry {
 	out := make([]ThemeEntry, len(builtinThemes))
 	for i, t := range builtinThemes {
@@ -153,8 +151,7 @@ var darkSubvariantLight = [][2]string{
 }
 
 // AppearanceVariant names theme's light (wantLight) or dark sibling; ok
-// is false when theme already has the requested mode or has no pair
-// (palettes.rs appearance_variant).
+// is false when theme already has the requested mode or has no pair.
 func AppearanceVariant(theme string, wantLight bool) (string, bool) {
 	if wantLight {
 		for _, p := range themePairs {
@@ -189,9 +186,8 @@ func AppearanceVariant(theme string, wantLight bool) (string, bool) {
 // ThemesDir is the user themes directory inside the config dir.
 func ThemesDir(configDir string) string { return filepath.Join(configDir, "themes") }
 
-// themeFileDoc is a user theme file: every palette key is required, as
-// the Rust Palette deserializes without defaults; note fg_muted is the
-// serde field name, not kebab-case.
+// themeFileDoc is a user theme file: every palette key is required,
+// and fg_muted is snake_case, not kebab-case.
 type themeFileDoc struct {
 	Bg       *string `yaml:"bg"`
 	Surface  *string `yaml:"surface"`
@@ -209,8 +205,7 @@ type themeFileDoc struct {
 // every <dir>/*.yaml (or .yml) theme file named by its file stem. A missing or
 // unreadable directory yields the built-ins alone. A file that cannot be
 // read or parsed, or whose name is already taken, is skipped; each skip
-// comes back in skipped for the caller to log, as load_themes logs them
-// (infrastructure/themes/utils.rs). Files load in name order.
+// comes back in skipped for the caller to log. Files load in name order.
 func LoadThemes(dir string) (themes []ThemeEntry, skipped []error) {
 	themes = BuiltinThemes()
 	entries, err := os.ReadDir(dir)

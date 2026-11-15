@@ -117,8 +117,7 @@ func writeFace(t *testing.T, home string) {
 	}
 }
 
-// The avatar tile is the face's background image (the Rust avatar's
-// inline url()); without a face file it carries none and the glyph
+// The avatar tile is the face's background image; without a face file it carries none and the glyph
 // shows.
 func TestUserSessionAvatarTakesTheFaceAsItsBackground(t *testing.T) {
 	home := t.TempDir()

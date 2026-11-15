@@ -1,6 +1,6 @@
 package config
 
-// StorageConfig is ported from crates/wayle-config/src/schemas/modules/storage/mod.rs.
+// StorageConfig configures the storage module.
 //
 // Disk usage for a mount point.
 type StorageConfig struct {
@@ -116,7 +116,7 @@ type StorageMountPoint struct {
 }
 
 // UnmarshalConfig implements Unmarshaler: a string, then an array of
-// strings; anything else is serde's untagged error.
+// strings; anything else is an untagged-enum error.
 func (m *StorageMountPoint) UnmarshalConfig(v any) error {
 	if s, ok := v.(string); ok {
 		*m = StorageMountPoint{Paths: []string{s}}

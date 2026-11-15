@@ -1,6 +1,6 @@
 package config
 
-// SystrayConfig is ported from crates/wayle-config/src/schemas/modules/systray/mod.rs.
+// SystrayConfig configures the systray module.
 //
 // System tray icons via the StatusNotifierItem protocol.
 type SystrayConfig struct {
@@ -53,7 +53,7 @@ func DefaultsSystray() SystrayConfig {
 	}
 }
 
-// TrayItemOverride is ported from crates/wayle-config/src/schemas/modules/systray/mod.rs.
+// TrayItemOverride is part of the systray module's configuration.
 //
 // Custom icon and color override for tray items matching a pattern.
 type TrayItemOverride struct {

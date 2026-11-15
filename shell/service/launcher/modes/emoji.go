@@ -18,10 +18,9 @@ import (
 )
 
 // emojiData holds GTK's emoji tables, extracted from libgtk-4 by
-// internal/tools/emojigen. The Rust mode reads the same GResource
-// entries (/org/gtk/libgtk/emoji/<lang>.data) from the loaded library;
-// libgtk-4 itself carries only the English table, so English is what
-// both shells find. The GVariant shape is a(aussasasu): per emoji the
+// internal/tools/emojigen from the GResource entries
+// (/org/gtk/libgtk/emoji/<lang>.data); libgtk-4 itself carries only
+// the English table. The GVariant shape is a(aussasasu): per emoji the
 // codepoints (0 stands for a variation selector or skin tone), the
 // English name, the localized name, the English keywords, the
 // localized keywords, and the group.

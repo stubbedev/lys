@@ -7,7 +7,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// BlueZ names (types/mod.rs).
+// BlueZ names.
 const (
 	// BusName is BlueZ's well-known name on the system bus.
 	BusName         = "org.bluez"
@@ -22,8 +22,8 @@ const (
 	propertiesIface = dbusx.PropertiesInterface
 )
 
-// AddressType is the Bluetooth address type (types/adapter.rs). BlueZ
-// reports it; unknown values read as public, as in the Rust From<&str>.
+// AddressType is the Bluetooth address type. BlueZ reports it; unknown
+// values read as public.
 type AddressType uint8
 
 // The address types.
@@ -152,8 +152,7 @@ func (d DiscoveryTransport) String() string {
 }
 
 // DiscoveryFilterOptions is SetDiscoveryFilter's argument; nil fields
-// are left out of the filter (DiscoveryFilterOptions in
-// types/adapter.rs). The zero value clears the filter.
+// are left out of the filter. The zero value clears the filter.
 type DiscoveryFilterOptions struct {
 	UUIDs         []string
 	RSSI          *int16
@@ -165,7 +164,7 @@ type DiscoveryFilterOptions struct {
 	AutoConnect   *bool
 }
 
-// Filter builds the a{sv} dictionary BlueZ takes (to_filter).
+// Filter builds the a{sv} dictionary BlueZ takes.
 func (o DiscoveryFilterOptions) Filter() map[string]dbus.Variant {
 	filter := make(map[string]dbus.Variant)
 	if o.UUIDs != nil {
@@ -195,7 +194,7 @@ func (o DiscoveryFilterOptions) Filter() map[string]dbus.Variant {
 	return filter
 }
 
-// PreferredBearer is the device's preferred bearer (types/device.rs).
+// PreferredBearer is the device's preferred bearer.
 type PreferredBearer uint8
 
 // The preferred bearers.
@@ -266,7 +265,7 @@ func ParseDisconnectReason(s string) DisconnectReason {
 	}
 }
 
-// String is the Rust Display text.
+// String is the reason's user-facing text.
 func (r DisconnectReason) String() string {
 	switch r {
 	case DisconnectTimeout:
@@ -291,11 +290,10 @@ type DisconnectedEvent struct {
 	Message string
 }
 
-// AgentCapability is the IO capability the agent registers with
-// (types/agent.rs).
+// AgentCapability is the IO capability the agent registers with.
 type AgentCapability uint8
 
-// The agent capabilities. KeyboardDisplay is the Rust default.
+// The agent capabilities. KeyboardDisplay is the default.
 const (
 	CapabilityKeyboardDisplay AgentCapability = iota
 	CapabilityDisplayYesNo
@@ -305,7 +303,7 @@ const (
 )
 
 // ParseAgentCapability maps the capability name; empty or unknown reads
-// as KeyboardDisplay, as in the Rust From<&str>.
+// as KeyboardDisplay.
 func ParseAgentCapability(s string) AgentCapability {
 	switch s {
 	case "DisplayYesNo":

@@ -24,7 +24,7 @@ type field struct {
 	refType string
 }
 
-// modulePage is generate_module_page.
+// modulePage is one section's page.
 func modulePage(sec config.DocSection, known map[string]bool) string {
 	fields := collectFields(sec.Schema, known)
 	buckets := bucketFields(fields, sec.Groups)
@@ -35,7 +35,7 @@ func modulePage(sec config.DocSection, known map[string]bool) string {
 	if d, ok := sec.Schema["description"].(string); ok {
 		description = d
 	}
-	b.WriteString(rehostRustdoc(strings.TrimSpace(description), pageH1Depth))
+	b.WriteString(rehostHeadings(strings.TrimSpace(description), pageH1Depth))
 	b.WriteByte('\n')
 	if id := sec.LayoutID; id != "" {
 		fmt.Fprintf(&b, "Add it to your layout with `%s`:\n\n```yaml\nbar:\n  layout:\n    - monitor: \"*\"\n      right: [%s]\n```\n\n", id, id)
@@ -68,7 +68,7 @@ func collectFields(schema config.Schema, known map[string]bool) []field {
 	return out
 }
 
-// refTypeName is extract_ref_type_name: $ref, else allOf[0].$ref.
+// refTypeName is the referenced type: $ref, else allOf[0].$ref.
 func refTypeName(prop config.Schema) string {
 	if ref, ok := prop["$ref"].(string); ok {
 		return refTail(ref)
@@ -90,7 +90,7 @@ func refTail(ref string) string {
 	return ref
 }
 
-// defaultCell is render_default_cell.
+// defaultCell is a field's Default column.
 func defaultCell(v any, has bool) string {
 	if !has {
 		return "required"
@@ -130,10 +130,9 @@ func defaultCell(v any, has bool) string {
 	return "`" + config.JSONText(v) + "`"
 }
 
-// formatNumber is format_number for a float: a value that was an f32
-// before schemars widened it prints as that f32 (0.35, not
-// 0.3499999940395355), the rest at f64 precision, both in Rust's
-// Display form (no exponent, no ".0").
+// formatNumber prints a float without exponent or ".0": a value that
+// round-trips through float32 prints at float32 precision (0.35, not
+// 0.3499999940395355), the rest at float64 precision.
 func formatNumber(f float64) string {
 	narrowed := float32(f)
 	if math.Abs(float64(narrowed)-f) < 2.220446049250313e-16*64 {
@@ -142,7 +141,7 @@ func formatNumber(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
-// typeCell is render_type_cell.
+// typeCell is a field's Type column.
 func typeCell(prop config.Schema, known map[string]bool) string {
 	if name := refTypeName(prop); name != "" {
 		return typeLink(name, known)
@@ -158,7 +157,7 @@ func typeCell(prop config.Schema, known map[string]bool) string {
 	return schemaType
 }
 
-// typeLink is render_type_link.
+// typeLink is a type name, linked to the types page when it is known.
 func typeLink(name string, known map[string]bool) string {
 	if p, ok := primitiveAlias(name); ok {
 		return p
@@ -178,7 +177,7 @@ func typeLink(name string, known map[string]bool) string {
 	return "`" + name + "`"
 }
 
-// primitiveName is primitive_name.
+// primitiveName is the display name of a JSON Schema type and format.
 func primitiveName(schemaType, format string) (string, bool) {
 	switch schemaType {
 	case "boolean":
@@ -217,7 +216,7 @@ func primitiveName(schemaType, format string) (string, bool) {
 	return "", false
 }
 
-// primitiveAlias is primitive_name_from_alias.
+// primitiveAlias is the display name of a primitive $defs name.
 func primitiveAlias(name string) (string, bool) {
 	p, ok := map[string]string{
 		"boolean": "bool", "string": "string",
@@ -228,7 +227,7 @@ func primitiveAlias(name string) (string, bool) {
 	return p, ok
 }
 
-// bucketFields is bucket_fields: each field to the first non-catch-all
+// bucketFields assigns each field to the first non-catch-all
 // group whose rule matches, else the catch-all, else nowhere.
 func bucketFields(fields []field, groups []config.DocGroup) [][]field {
 	catchAll := -1
@@ -282,7 +281,7 @@ func renderGroup(b *strings.Builder, g config.DocGroup, fields []field) {
 			continue
 		}
 		fmt.Fprintf(b, "::: details More about `%s`\n\n", f.name)
-		b.WriteString(rehostRustdoc(strings.TrimSpace(body), fieldSubsectionDepth))
+		b.WriteString(rehostHeadings(strings.TrimSpace(body), fieldSubsectionDepth))
 		b.WriteString("\n:::\n\n")
 	}
 }
@@ -316,7 +315,7 @@ func renderDefaults(b *strings.Builder, sec config.DocSection) {
 	b.WriteString("```\n\n")
 }
 
-// summaryLine is summary_line: the first paragraph joined on one line.
+// summaryLine is the first paragraph joined on one line.
 func summaryLine(description string) string {
 	var parts []string
 	started := false
@@ -350,12 +349,13 @@ func paragraphsAfterFirst(description string) []string {
 	return ls[i:]
 }
 
-// bodyAfterSummary is body_after_summary.
+// bodyAfterSummary is the description after its first paragraph.
 func bodyAfterSummary(description string) string {
 	return strings.Join(paragraphsAfterFirst(description), "\n")
 }
 
-// hasRichBody is has_rich_body.
+// hasRichBody reports whether the description has text after its
+// first paragraph.
 func hasRichBody(description string) bool {
 	for _, l := range paragraphsAfterFirst(description) {
 		if strings.TrimSpace(l) != "" {

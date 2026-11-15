@@ -13,9 +13,8 @@ import (
 func fontPx() float64 { return widgets.TextPx(styling.Body, 1) }
 
 // sessionCSSPriority puts a session's -font/-style CSS above the
-// shell's own stylesheet, as the Rust provider sits above the shell's
-// (PRIORITY_USER + 200 over + 100): at anything below, a -font simply
-// lost to [styling] and looked like it did nothing.
+// shell's own stylesheet: at anything below, a -font simply lost to
+// [styling] and looked like it did nothing.
 const sessionCSSPriority = 100
 
 // views is one session's widget tree: the frame and chrome every session
@@ -31,7 +30,7 @@ type views struct {
 	width int
 }
 
-// buildViews builds and fills the tree for session a (apply_ui).
+// buildViews builds and fills the tree for session a.
 func (s *Surface) buildViews(a *active) *views {
 	ui := a.ui
 	cfg := s.d.Config()

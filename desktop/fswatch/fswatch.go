@@ -1,7 +1,6 @@
-// Package fswatch turns inotify events into coalesced change ticks, the
-// Go counterpart of the `notify` crate watchers the Rust services use
-// (the mail service's recursive maildir watch, the brightness sysfs
-// watch). Most consumers only need "something under here changed": each
+// Package fswatch turns inotify events into coalesced change ticks (the
+// mail service's recursive maildir watch, the brightness sysfs watch).
+// Most consumers only need "something under here changed": each
 // burst is one tick. A named watcher (NewNamed) also keeps the names
 // that changed, coalesced per name, for a consumer that applies each
 // change instead of reading everything again.

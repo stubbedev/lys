@@ -7,10 +7,9 @@ import (
 )
 
 // The config reference pages (`lys-shell config docs`) document every
-// schema the Rust crate registers with register_module!: a section's
-// own schema (schema_for! of its type), the groups its fields are laid
-// out in, and its defaults. This file is that registry over the Go
-// types; the pages themselves are rendered by internal/configdocs.
+// registered schema: a section's own schema, the groups its fields are
+// laid out in, and its defaults. This file is that registry; the pages
+// themselves are rendered by internal/configdocs.
 
 // DocGroupRule is how a docs group claims fields (GroupRule).
 type DocGroupRule uint8
@@ -49,10 +48,10 @@ func docStandalone(title, field string) DocGroup {
 	return DocGroup{Title: title, Rule: DocStandalone, Arg: field}
 }
 
-// docStandard is GroupDefaults::standard.
+// docStandard is the groups of a plain section.
 func docStandard() []DocGroup { return []DocGroup{docGeneral()} }
 
-// docBarButton is GroupDefaults::bar_button.
+// docBarButton is the groups of a bar-button module section.
 func docBarButton() []DocGroup {
 	return []DocGroup{docGeneral(), docColors(), docClick(), docPrefix("Dropdown", "dropdown-")}
 }
@@ -191,8 +190,7 @@ func docSpecs() []docSpec {
 	}
 }
 
-// DocSections is every documented schema, sorted by name as the Rust
-// registry orders them.
+// DocSections is every documented schema, sorted by name.
 func DocSections() []DocSection {
 	cfg := Defaults()
 	specs := docSpecs()

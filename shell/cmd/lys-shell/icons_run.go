@@ -20,8 +20,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// newIconManager is the handlers' IconManager::new (a variable so tests
-// can point it at a fake CDN).
+// newIconManager is a variable so tests can point it at a fake CDN.
 var newIconManager = icons.NewManager
 
 // cliError is an error whose text is printed verbatim after "Error: ".
@@ -29,9 +28,8 @@ type cliError string
 
 func (e cliError) Error() string { return string(e) }
 
-// iconsSetup is icons/setup.rs: copy the bundled icons into the icons
-// directory. The icons are embedded in the binary, where the Rust CLI
-// reads them from its build-time source path.
+// iconsSetup copies the icons embedded in the binary into the icons
+// directory.
 func iconsSetup(m *cli.Matches) error {
 	registry, err := icons.NewRegistry()
 	if err != nil {
@@ -39,7 +37,7 @@ func iconsSetup(m *cli.Matches) error {
 	}
 	dest := registry.IconsDir()
 	if err := os.MkdirAll(dest, 0o777); err != nil { //nolint:gosec // create_dir_all's mode, trimmed by the umask
-		return cliError("Failed to create icons directory: " + icons.IOErrorString(err))
+		return cliError("Failed to create icons directory: " + err.Error())
 	}
 	entries, err := fs.ReadDir(resources.Icons, resources.IconsDir)
 	if err != nil {
@@ -53,10 +51,10 @@ func iconsSetup(m *cli.Matches) error {
 		src := path.Join(resources.IconsDir, e.Name())
 		data, err := resources.Icons.ReadFile(src)
 		if err == nil {
-			err = os.WriteFile(filepath.Join(dest, e.Name()), data, 0o666) //nolint:gosec // fs::copy's mode, trimmed by the umask
+			err = os.WriteFile(filepath.Join(dest, e.Name()), data, 0o666) //nolint:gosec // world-readable icons, trimmed by the umask
 		}
 		if err != nil {
-			return cliError(fmt.Sprintf("Failed to copy resources/%s: %s", src, icons.IOErrorString(err)))
+			return cliError(fmt.Sprintf("Failed to copy resources/%s: %s", src, err.Error()))
 		}
 		fmt.Fprintf(m.Stdout(), "Installed: %s\n", strings.TrimSuffix(e.Name(), ".svg"))
 		count++
@@ -65,7 +63,6 @@ func iconsSetup(m *cli.Matches) error {
 	return nil
 }
 
-// iconsInstall is icons/install.rs.
 func iconsInstall(m *cli.Matches) error {
 	name, _ := cli.Value[string](m, "source")
 	source, err := icons.SourceByCLIName(name)
@@ -92,7 +89,6 @@ func iconsInstall(m *cli.Matches) error {
 	return nil
 }
 
-// iconsImport is icons/import.rs.
 func iconsImport(m *cli.Matches) error {
 	src, _ := cli.Value[string](m, "path")
 	manager, err := newIconManager()
@@ -132,7 +128,7 @@ func iconsImport(m *cli.Matches) error {
 	return nil
 }
 
-// iconsRemove is icons/remove.rs: stop at the first failure.
+// iconsRemove stops at the first failure.
 func iconsRemove(m *cli.Matches) error {
 	manager, err := newIconManager()
 	if err != nil {
@@ -147,7 +143,6 @@ func iconsRemove(m *cli.Matches) error {
 	return nil
 }
 
-// iconsSources is icons/sources.rs.
 func iconsSources(m *cli.Matches) error {
 	out := m.Stdout()
 	fmt.Fprint(out, "\nAvailable icon sources:\n\n")
@@ -158,7 +153,6 @@ func iconsSources(m *cli.Matches) error {
 	return nil
 }
 
-// iconsList is icons/list.rs.
 func iconsList(m *cli.Matches) error {
 	manager, err := newIconManager()
 	if err != nil {
@@ -195,8 +189,7 @@ func iconsList(m *cli.Matches) error {
 	return nil
 }
 
-// runFzf is list.rs's run_fzf: pick one name, copy it through the
-// running shell.
+// runFzf picks one name and copies it through the running shell.
 func runFzf(out io.Writer, names []string) error {
 	cmd := exec.Command("fzf", "--prompt", "Search icons: ")
 	var stdout bytes.Buffer
@@ -217,7 +210,7 @@ func runFzf(out io.Writer, names []string) error {
 		if _, ok := errors.AsType[*exec.ExitError](err); ok {
 			return nil
 		}
-		return cliError(icons.IOErrorString(err))
+		return cliError(err.Error())
 	}
 	selected := strings.TrimSpace(stdout.String())
 	if selected == "" {
@@ -230,8 +223,8 @@ func runFzf(out io.Writer, names []string) error {
 	return nil
 }
 
-// iconsOpen is icons/open.rs: set the directory up, open it with the
-// default app for directories without waiting.
+// iconsOpen sets the directory up and opens it with the default app
+// for directories without waiting.
 func iconsOpen(m *cli.Matches) error {
 	registry, err := icons.NewRegistry()
 	if err != nil {
@@ -248,8 +241,8 @@ func iconsOpen(m *cli.Matches) error {
 	return nil
 }
 
-// iconsExport is icons/export.rs. Like Rust, it lists system icons too
-// but copies from the user directory, so those report a failed copy.
+// iconsExport lists system icons too but copies from the user
+// directory, so those report a failed copy.
 func iconsExport(m *cli.Matches) error {
 	dest, _ := cli.Value[string](m, "destination")
 	manager, err := newIconManager()
@@ -265,13 +258,13 @@ func iconsExport(m *cli.Matches) error {
 		return nil
 	}
 	if err := os.MkdirAll(dest, 0o777); err != nil { //nolint:gosec // create_dir_all's mode, trimmed by the umask
-		return cliError(fmt.Sprintf("cannot create %s: %s", dest, icons.IOErrorString(err)))
+		return cliError(fmt.Sprintf("cannot create %s: %s", dest, err.Error()))
 	}
 	src := manager.Registry().IconsDir()
 	copied := 0
 	for _, n := range names {
 		if err := copyFile(filepath.Join(src, n+".svg"), filepath.Join(dest, n+".svg")); err != nil {
-			fmt.Fprintf(m.Stderr(), "Failed to copy %s: %s\n", n, icons.IOErrorString(err))
+			fmt.Fprintf(m.Stderr(), "Failed to copy %s: %s\n", n, err.Error())
 			continue
 		}
 		copied++
@@ -280,7 +273,7 @@ func iconsExport(m *cli.Matches) error {
 	return nil
 }
 
-// copyFile is fs::copy: contents and permission bits.
+// copyFile copies contents and permission bits.
 func copyFile(from, to string) error {
 	in, err := os.Open(from) //nolint:gosec // inside the icons directory
 	if err != nil {
@@ -306,7 +299,6 @@ func copyFile(from, to string) error {
 	return out.Close()
 }
 
-// iconsSync is icons/sync.rs.
 func iconsSync(m *cli.Matches) error {
 	referenced, err := referencedIcons()
 	if err != nil {
@@ -355,8 +347,8 @@ func iconsSync(m *cli.Matches) error {
 	return nil
 }
 
-// referencedIcons is the icon names the effective config mentions (sync.rs:
-// every string leaf of the serialized config).
+// referencedIcons is the icon names the effective config mentions:
+// every string leaf of the serialized config.
 func referencedIcons() (map[string]bool, error) {
 	svc, err := loadUserConfig()
 	if err != nil {

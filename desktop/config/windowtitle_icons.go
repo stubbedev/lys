@@ -1,7 +1,7 @@
 package config
 
-// WindowTitleBuiltinIcons is the window-title schema's BUILTIN_MAPPINGS
-// (window_title/icons.rs), verbatim and in order: the first pattern
+// WindowTitleBuiltinIcons are the window-title module's built-in icon
+// mappings, in order: the first pattern
 // matching the window class wins, after the user's icon-mappings.
 var WindowTitleBuiltinIcons = []IconMapping{
 	{"*brave*", "si-brave-symbolic"},
@@ -68,8 +68,8 @@ var WindowTitleBuiltinIcons = []IconMapping{
 	{"*qbittorrent*", "si-qbittorrent-symbolic"},
 }
 
-// IconMappingsSorted is icon-mappings in pattern order, the BTreeMap
-// order the Rust lookup walks.
+// IconMappingsSorted is icon-mappings in pattern order, the order the
+// lookup walks.
 func (c WindowTitleConfig) IconMappingsSorted() []IconMapping {
 	return sortedIconMappings(c.IconMappings)
 }

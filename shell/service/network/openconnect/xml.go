@@ -7,8 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-// A reader for the handful of tiny XML documents the gateways speak
-// (xml.rs). These responses are a flat <jnlp> of <argument> elements,
+// A reader for the handful of tiny XML documents the gateways speak.
+// These responses are a flat <jnlp> of <argument> elements,
 // a <challenge> of two fields, or a one-line error: pulling the text
 // out of named elements is the entire requirement, so that is all this
 // does. encoding/xml is deliberately not used: it refuses the
@@ -44,8 +44,7 @@ func xmlValue(doc, tag string) (string, bool) {
 	return decodeEntities(body), true
 }
 
-// xmlNonEmpty is xmlValue with an empty element read as absent, the
-// `.filter(|v| !v.is_empty())` the Rust applies at most call sites.
+// xmlNonEmpty is xmlValue with an empty element read as absent.
 func xmlNonEmpty(doc, tag string) (string, bool) { return nonEmpty(xmlValue(doc, tag)) }
 
 // nonEmpty filters a (value, ok) lookup to non-empty values.
@@ -263,7 +262,6 @@ func numericEntity(entity string) (rune, bool) {
 	if hex, isHex := cutAnyPrefix(digits, "x", "X"); isHex {
 		digits, base = hex, 16
 	}
-	// Rust's u32 parsing takes a leading plus sign; so does this.
 	digits = strings.TrimPrefix(digits, "+")
 	if digits == "" || strings.HasPrefix(digits, "+") || strings.HasPrefix(digits, "-") {
 		return 0, false
@@ -301,7 +299,7 @@ func asciiLower(s string) string {
 	return string(b)
 }
 
-// asciiEqualFold is Rust's eq_ignore_ascii_case.
+// asciiEqualFold compares a and b case-insensitively over ASCII only.
 func asciiEqualFold(a, b string) bool {
 	return len(a) == len(b) && asciiLower(a) == asciiLower(b)
 }

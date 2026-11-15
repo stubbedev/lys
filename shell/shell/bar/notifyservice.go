@@ -8,8 +8,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
-// startNotifications builds the notification service the way the Rust
-// bootstrap does: only when [modules.notification] is enabled, so
+// startNotifications builds the notification service only when [modules.notification] is enabled, so
 // another daemon can own the bus name otherwise (and the module, its
 // dropdown, and the popups are absent), seeded with the blocklist.
 func startNotifications(cfg config.NotificationConfig) *notifications.Service {
@@ -23,8 +22,8 @@ func startNotifications(cfg config.NotificationConfig) *notifications.Service {
 }
 
 // applyNotificationConfig hands a running service the reloadable keys
-// (notification.rs's blocklist watcher, and the history limits); a disabled service stays off
-// until the next start, as in the Rust shell.
+// (the blocklist and the history limits); a disabled service stays off
+// until the next start.
 func applyNotificationConfig(svc *notifications.Service, cfg config.NotificationConfig) {
 	if svc == nil {
 		return
@@ -34,9 +33,9 @@ func applyNotificationConfig(svc *notifications.Service, cfg config.Notification
 	svc.SetHistoryLimits(cfg.HistoryMemory.Limit(), cfg.HistoryStored.Limit())
 }
 
-// attachNotificationStore persists the history in the Rust store's file
-// (init_store): a store that cannot open leaves the history in memory,
-// as the Rust service carries on without persistence.
+// attachNotificationStore persists the history in the store's file: a
+// store that cannot open leaves the history in memory, without
+// persistence.
 func attachNotificationStore(svc *notifications.Service, path func() (string, error)) {
 	p, err := path()
 	if err == nil {

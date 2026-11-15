@@ -36,12 +36,12 @@ var (
 	errUnreachableToken = errors.New("unreachable tokenizer state")
 )
 
-// rustChar is a byte shown as Rust's `u8 as char`.
-func rustChar(b byte) string { return string(rune(b)) }
+// byteChar is a byte shown as the code point of the same value.
+func byteChar(b byte) string { return string(rune(b)) }
 
-// rustCharDebug is Rust's {:?} of a char roxmltree rejects as non-XML
-// (a control character or U+FFFE/U+FFFF, none of them printable).
-func rustCharDebug(c rune) string {
+// charDebug quotes a char the parser rejects as non-XML (a control
+// character or U+FFFE/U+FFFF, none of them printable) as an escape.
+func charDebug(c rune) string {
 	switch c {
 	case 0:
 		return `'\0'`
@@ -123,7 +123,7 @@ func (s *xmlStream) consumeByte(c byte) error {
 		return err
 	}
 	if curr != c {
-		return xmlErr("expected '%s' not '%s' at %s", rustChar(c), rustChar(curr), s.genTextPos())
+		return xmlErr("expected '%s' not '%s' at %s", byteChar(c), byteChar(curr), s.genTextPos())
 	}
 	s.advance(1)
 	return nil
@@ -171,7 +171,7 @@ func (s *xmlStream) skipChars(f func(*xmlStream, rune) bool) error {
 		c, w := s.char()
 		switch {
 		case !isXMLChar(c):
-			return xmlErr("a non-XML character %s found at %s", rustCharDebug(c), s.genTextPos())
+			return xmlErr("a non-XML character %s found at %s", charDebug(c), s.genTextPos())
 		case f(s, c):
 			s.advance(w)
 		default:
@@ -194,7 +194,7 @@ func (s *xmlStream) consumeSpaces() error {
 		return errUnexpectedEOS
 	}
 	if !s.startsWithSpace() {
-		return xmlErr("expected a whitespace not '%s' at %s", rustChar(s.text[s.pos]), s.genTextPos())
+		return xmlErr("expected a whitespace not '%s' at %s", byteChar(s.text[s.pos]), s.genTextPos())
 	}
 	s.skipSpaces()
 	return nil
@@ -356,7 +356,7 @@ func (s *xmlStream) consumeQuote() (byte, error) {
 		return 0, err
 	}
 	if c != '\'' && c != '"' {
-		return 0, xmlErr("expected a quote not '%s' at %s", rustChar(c), s.genTextPos())
+		return 0, xmlErr("expected a quote not '%s' at %s", byteChar(c), s.genTextPos())
 	}
 	s.advance(1)
 	return c, nil
@@ -541,7 +541,7 @@ func parseDeclaration(s *xmlStream) error {
 		if s.startsWithSpace() {
 			s.skipSpaces()
 		} else if !s.startsWith("?>") && !s.atEnd() {
-			return xmlErr("expected a whitespace not '%s' at %s", rustChar(s.text[s.pos]), s.genTextPos())
+			return xmlErr("expected a whitespace not '%s' at %s", byteChar(s.text[s.pos]), s.genTextPos())
 		}
 		return nil
 	}
@@ -672,7 +672,7 @@ func (p *xmlParser) parseDoctype(s *xmlStream) error {
 				return errUnexpectedEOS
 			}
 			if c != '>' {
-				return xmlErr("expected '>' not '%s' at %s", rustChar(c), s.genTextPos())
+				return xmlErr("expected '>' not '%s' at %s", byteChar(c), s.genTextPos())
 			}
 			s.advance(1)
 			return nil
@@ -710,7 +710,7 @@ func parseDoctypeStart(s *xmlStream) error {
 		return err
 	}
 	if c != '[' && c != '>' {
-		return xmlErr("expected '[' or '>' not '%s' at %s", rustChar(c), s.genTextPos())
+		return xmlErr("expected '[' or '>' not '%s' at %s", byteChar(c), s.genTextPos())
 	}
 	return nil
 }
@@ -809,7 +809,7 @@ func parseEntityDef(s *xmlStream, general bool) (span, bool, error) {
 		}
 		return span{}, false, nil
 	}
-	return span{}, false, xmlErr("expected a quote, SYSTEM or PUBLIC not '%s' at %s", rustChar(c), s.genTextPos())
+	return span{}, false, xmlErr("expected a quote, SYSTEM or PUBLIC not '%s' at %s", byteChar(c), s.genTextPos())
 }
 
 // element ::= EmptyElemTag | STag content ETag

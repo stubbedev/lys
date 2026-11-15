@@ -3,7 +3,7 @@ package config
 // LauncherWidthBaseRem is the rem the width multiplier scales (720px).
 const LauncherWidthBaseRem = 45
 
-// LauncherConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherConfig is part of the launcher configuration.
 //
 // Application launcher / dmenu (rofi replacement).
 type LauncherConfig struct {
@@ -130,7 +130,7 @@ const (
 	SkinToneDark LauncherSkinTone = "dark"
 )
 
-// LauncherHistoryConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherHistoryConfig is part of the launcher configuration.
 //
 // Launch history / frecency settings.
 type LauncherHistoryConfig struct {
@@ -140,7 +140,7 @@ type LauncherHistoryConfig struct {
 	MaxSize uint32 `cfg:"max-size"`
 }
 
-// LauncherDrunConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherDrunConfig is part of the launcher configuration.
 //
 // drun (application) mode settings.
 type LauncherDrunConfig struct {
@@ -158,7 +158,7 @@ type LauncherDrunConfig struct {
 	URLLauncher string `cfg:"url-launcher,type=Program"`
 }
 
-// LauncherRunConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherRunConfig is part of the launcher configuration.
 //
 // run (command) mode settings.
 type LauncherRunConfig struct {
@@ -170,7 +170,7 @@ type LauncherRunConfig struct {
 	ListCommand string `cfg:"list-command,type=Command"`
 }
 
-// LauncherWindowConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherWindowConfig is part of the launcher configuration.
 //
 // window switcher mode settings.
 type LauncherWindowConfig struct {
@@ -184,7 +184,7 @@ type LauncherWindowConfig struct {
 	CloseOnDelete bool `cfg:"close-on-delete"`
 }
 
-// LauncherSSHConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherSSHConfig is part of the launcher configuration.
 //
 // ssh mode settings.
 type LauncherSSHConfig struct {
@@ -198,7 +198,7 @@ type LauncherSSHConfig struct {
 	ParseKnownHosts bool `cfg:"parse-known-hosts"`
 }
 
-// LauncherFilebrowserConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherFilebrowserConfig is part of the launcher configuration.
 //
 // file browser mode settings.
 type LauncherFilebrowserConfig struct {
@@ -214,7 +214,7 @@ type LauncherFilebrowserConfig struct {
 	Command string `cfg:"command,type=Command"`
 }
 
-// LauncherCombiConfig is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherCombiConfig is part of the launcher configuration.
 //
 // combi mode settings.
 type LauncherCombiConfig struct {
@@ -328,7 +328,7 @@ const (
 	SearchWeb LauncherSearchProvider = "web"
 )
 
-// LauncherLocation is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherLocation is part of the launcher configuration.
 //
 // Launcher surface position (rofi `-location` 0-8 grid).
 type LauncherLocation string
@@ -355,7 +355,7 @@ const (
 	LauncherWest LauncherLocation = "west"
 )
 
-// LauncherMatching is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherMatching is part of the launcher configuration.
 //
 // Matching method (rofi `-matching`).
 type LauncherMatching string
@@ -374,7 +374,7 @@ const (
 	MatchingPrefix LauncherMatching = "prefix"
 )
 
-// LauncherSorting is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherSorting is part of the launcher configuration.
 //
 // Result sorting method (rofi `-sorting-method`).
 type LauncherSorting string
@@ -387,7 +387,7 @@ const (
 	SortingFzf LauncherSorting = "fzf"
 )
 
-// LauncherCase is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherCase is part of the launcher configuration.
 //
 // Case handling (collapses rofi `-case-sensitive`/`-case-smart`).
 type LauncherCase string
@@ -402,7 +402,7 @@ const (
 	CaseSensitive LauncherCase = "sensitive"
 )
 
-// LauncherDrunField is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherDrunField is part of the launcher configuration.
 //
 // Desktop-entry fields searched by drun (rofi `-drun-match-fields`).
 type LauncherDrunField string
@@ -423,7 +423,7 @@ const (
 	DrunFieldKeywords LauncherDrunField = "keywords"
 )
 
-// LauncherWindowField is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherWindowField is part of the launcher configuration.
 //
 // Window fields searched by window mode (rofi `-window-match-fields`).
 type LauncherWindowField string
@@ -442,7 +442,7 @@ const (
 	WindowFieldDesktop LauncherWindowField = "desktop"
 )
 
-// LauncherFileSort is a [launcher] schema type (launcher/mod.rs, launcher/types.rs).
+// LauncherFileSort is part of the launcher configuration.
 //
 // File sorting in the file browser (rofi filebrowser `sorting-method`).
 type LauncherFileSort string
@@ -557,5 +557,4 @@ func DefaultsLauncher() LauncherConfig {
 	}
 }
 
-// configSchemaName keeps the Rust def name.
 func (LauncherSSHConfig) configSchemaName() string { return "LauncherSshConfig" }

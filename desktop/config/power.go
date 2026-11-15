@@ -1,6 +1,6 @@
 package config
 
-// PowerConfig is ported from crates/wayle-config/src/schemas/modules/power/mod.rs.
+// PowerConfig configures the power module.
 //
 // Shutdown, reboot, and logout menu.
 type PowerConfig struct {

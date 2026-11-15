@@ -1,6 +1,5 @@
-// Package network reads NetworkManager state over the system D-Bus,
-// the Go counterpart of crates/wayle-network's zbus proxy: overall
-// state, wifi (enabled flag, active AP ssid and strength), wired
+// Package network reads NetworkManager state over the system D-Bus:
+// overall state, wifi (enabled flag, active AP ssid and strength), wired
 // (activated device), with StateChanged/PropertiesChanged ticks.
 package network
 
@@ -47,7 +46,7 @@ const (
 	StatusConnected
 )
 
-// statusOf is NetworkStatus::from_device_state: activated is
+// statusOf maps a device state to a status: activated is
 // connected, prepare through secondaries is connecting, and every
 // other state (unmanaged, unavailable, disconnected, deactivating,
 // failed) is disconnected.
@@ -61,8 +60,7 @@ func statusOf(s DeviceState) Status {
 	return StatusDisconnected
 }
 
-// ConnectionType is NM's PrimaryConnectionType
-// (ConnectionType::from_nm_type).
+// ConnectionType is NM's PrimaryConnectionType.
 type ConnectionType int
 
 // Connection types; ConnectionOther is any type without its own.
@@ -238,8 +236,7 @@ func managerRoutes(changed func()) []dbusx.Route {
 	}
 }
 
-// SignalIndex is helpers.rs's signal_to_index: the wifi strength
-// bucketed over the icon list length. Exported for the module; pure.
+// SignalIndex is the wifi strength bucketed over the icon list length. Exported for the module; pure.
 func SignalIndex(strength uint8, numIcons int) int {
 	if numIcons == 0 {
 		return 0

@@ -1,6 +1,6 @@
 package config
 
-// TreemanConfig is ported from crates/wayle-config/src/schemas/modules/treeman/mod.rs.
+// TreemanConfig configures the treeman module.
 //
 // treeman worktree health across all registered repos, in a dropdown.
 type TreemanConfig struct {

@@ -8,8 +8,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// screenshotModule is the screenshot capture button
-// (wayle-bar-hardware/src/modules/screenshot): an icon and an optional
+// screenshotModule is the screenshot capture button: an icon and an optional
 // static label whose bindings run `lys-shell screenshot region|output|window`
 // (in-process through the builtin) by default.
 type screenshotModule struct {
@@ -31,8 +30,8 @@ func newScreenshot(ctx ModuleContext) (Module, error) {
 
 func (m *screenshotModule) Root() widget.Widget { return m.btn }
 
-// screenshotBuiltin reads a `screenshot [mode [target]]` builtin verb
-// the way dropdown_registry.rs's try_screenshot does: the mode defaults
+// screenshotBuiltin reads a `screenshot [mode [target]]` builtin verb:
+// the mode defaults
 // to region, the target to none. ok is false for any other verb.
 func screenshotBuiltin(verb string) (mode, target string, ok bool) {
 	parts := strings.Fields(verb)

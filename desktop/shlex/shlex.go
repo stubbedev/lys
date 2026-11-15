@@ -1,6 +1,5 @@
-// Package shlex splits and quotes command lines the way the Rust shlex
-// crate (1.3) does, byte for byte: the launcher's hooks, templates, and
-// `-format q` output have to agree with what the Rust shell produced.
+// Package shlex splits and quotes command lines for the launcher's
+// hooks, templates, and `-format q` output.
 //
 // Splitting is POSIX-shell word splitting without expansion: single and
 // double quotes, backslash escapes, and `#` comments at a word start.
@@ -35,7 +34,7 @@ func Split(in string) ([]string, bool) {
 	return words, true
 }
 
-// lexer walks the input once (shlex::bytes::Shlex).
+// lexer walks the input once.
 type lexer struct {
 	in     string
 	pos    int
@@ -152,7 +151,7 @@ func (l *lexer) single(sb *strings.Builder) bool {
 	}
 }
 
-// Quote returns in quoted for a POSIX shell (shlex::try_quote): bare
+// Quote returns in quoted for a POSIX shell: bare
 // when every byte is safe, otherwise in single- or double-quoted chunks.
 // A NUL byte cannot be quoted and is ErrNul.
 func Quote(in string) (string, error) {
@@ -176,7 +175,7 @@ func Quote(in string) (string, error) {
 }
 
 // MustQuote is Quote with the input returned unchanged when it cannot be
-// quoted - the `.unwrap_or_else(|_| text.clone())` the Rust callers use.
+// quoted.
 func MustQuote(in string) string {
 	q, err := Quote(in)
 	if err != nil {

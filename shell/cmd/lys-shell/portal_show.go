@@ -16,7 +16,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
-// The `lys-shell portal show <dialog>` previews (cli/portal/show.rs): each
+// The `lys-shell portal show <dialog>` previews: each
 // calls the shell service the real backend delegates to, with
 // placeholder arguments, and prints the answer — `cancelled` for an
 // empty one. The calls wait on the user, so they carry no timeout.

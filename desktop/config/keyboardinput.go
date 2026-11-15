@@ -3,7 +3,7 @@ package config
 // KeyboardNextLayoutAction is the module's own click verb: the next layout.
 const KeyboardNextLayoutAction = ":next-layout"
 
-// KeyboardInputConfig is ported from crates/wayle-config/src/schemas/modules/keyboard_input/mod.rs.
+// KeyboardInputConfig configures the keyboard-input module.
 //
 // Active keyboard layout indicator.
 type KeyboardInputConfig struct {

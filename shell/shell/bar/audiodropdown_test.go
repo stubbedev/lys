@@ -309,9 +309,8 @@ func sameWidgets(a, b []widget.Widget) bool {
 	return true
 }
 
-// Both empty states sit centered in their stack page (the Rust
-// vexpand wrappers), the app one's icon carries the sm size modifier
-// and the main one does not (main_section/mod.rs has no modifier).
+// Both empty states sit centered in their stack page, the app one's
+// icon carries the sm size modifier and the main one does not.
 func TestAudioEmptyStatesCenterVertically(t *testing.T) {
 	restore := widget.SetAnimationsInstant(true)
 	t.Cleanup(restore)
@@ -340,7 +339,7 @@ func TestAudioEmptyStatesCenterVertically(t *testing.T) {
 	}
 }
 
-// The picker's back button is the GhostIconButton (icon-sized beside
+// The picker's back button is the ghost icon button (icon-sized beside
 // picker-back), and an option is lys-ui's Item with the device icon as
 // its media: the check rides only the active one, and activating it
 // goes back to the main page.
@@ -371,7 +370,7 @@ func TestAudioPickerBackAndOptionItems(t *testing.T) {
 }
 
 // The picker title keeps its natural width: the free width after it
-// stays empty, as the Rust label without hexpand does.
+// stays empty.
 func TestAudioPickerTitleKeepsNaturalWidth(t *testing.T) {
 	v := audioDropdown(newTestContext(t, config.Defaults())).(*audioView)
 	p := v.pickers[audioOutput]
@@ -386,9 +385,9 @@ func TestAudioPickerTitleKeepsNaturalWidth(t *testing.T) {
 }
 
 // Picker rows rebuild only when the list or the default changed: a
-// no-op tick — even one that only moved a device's volume, which the
-// Rust DeviceInfo does not carry — keeps the row widgets (their hover
-// state with them), while a real change rebuilds.
+// no-op tick — even one that only moved a device's volume — keeps the
+// row widgets (their hover state with them), while a real change
+// rebuilds.
 func TestAudioPickerRowsRebuildOnlyOnChange(t *testing.T) {
 	srv, svc := audioFixture(t)
 	ctx := newTestContext(t, config.Defaults())

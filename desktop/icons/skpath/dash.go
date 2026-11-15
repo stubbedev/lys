@@ -137,8 +137,7 @@ type measureSegment struct {
 	kind       segKind
 }
 
-// maxTReciprocal is 1/kMaxTValue with the divisor rounded to f32 first,
-// as the Rust constant is.
+// maxTReciprocal is 1/kMaxTValue with the divisor rounded to f32 first.
 var maxTReciprocal = 1 / float32(maxTValue)
 
 func (s measureSegment) scalarT() float32 { return float32(float32(s.tValue) * maxTReciprocal) }
@@ -151,7 +150,7 @@ type contourMeasure struct {
 }
 
 // next is ContourMeasureIter::next; a non-finite length or an empty
-// contour ends the iteration, as in Rust.
+// contour ends the iteration.
 func (it *contourMeasureIter) next() (*contourMeasure, bool) {
 	c := &contourMeasure{}
 	pointIndex := 0

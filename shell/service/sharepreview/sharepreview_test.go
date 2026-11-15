@@ -135,7 +135,7 @@ func TestParseList(t *testing.T) {
 	})
 }
 
-// Every output transform lands each pixel where image.rs puts it, into
+// Every output transform lands each pixel where it belongs, into
 // a fresh image and into one the caller owns at an offset origin.
 func TestTransformInto(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 3, 2))

@@ -26,7 +26,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// AnyConnect single sign-on through the system browser (sso.rs): the
+// AnyConnect single sign-on through the system browser: the
 // SAML path that does not need an embedded webview. The shapes come
 // from openconnect's auth.c, cstp.c and hpke.c.
 //

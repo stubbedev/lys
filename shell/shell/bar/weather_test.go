@@ -32,8 +32,8 @@ func TestWorldClockRender(t *testing.T) {
 	if got := worldClockRender("plain", now); got != "plain" {
 		t.Errorf("= %q, want plain", got)
 	}
-	// Any failure fails the whole render, which shows as nothing
-	// (unwrap_or_default): an unknown zone, a bad expression, a syntax
+	// Any failure fails the whole render, which shows as nothing: an
+	// unknown zone, a bad expression, a syntax
 	// error.
 	for _, bad := range []string{"x{{ tz('Nope/Zone', '%H') }}y", "x{{ not-a-call }}y", "a{{ b", "{{ tz('UTC') }}"} {
 		if got := worldClockRender(bad, now); got != "" {

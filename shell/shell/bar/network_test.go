@@ -14,13 +14,13 @@ import (
 	"github.com/stubbedev/lys/shell/service/network"
 )
 
-func TestSignalIndexBucketsLikeRust(t *testing.T) {
+func TestSignalIndexBuckets(t *testing.T) {
 	for _, tc := range []struct {
 		strength uint8
 		icons    int
 		want     int
 	}{
-		// Rust: bucket = 100/icons (integer division), idx =
+		// bucket = 100/icons (integer division), idx =
 		// strength/bucket, clamped to icons-1. 33/(100/3=33) = 1;
 		// 100/(100/3=33) = 3 → clamped to 2.
 		{0, 3, 0},
@@ -72,7 +72,7 @@ func newTestNetworkModule(t *testing.T, cfg *config.Config, snap network.Snapsho
 	return m
 }
 
-// compute_link_display: the primary connection's device decides, a
+// The link display: the primary connection's device decides, a
 // missing device says so, no primary connection is offline, and other
 // primaries prefer wifi to wired.
 func TestLinkDisplayFollowsThePrimaryConnection(t *testing.T) {
@@ -105,7 +105,7 @@ func TestLinkDisplayFollowsThePrimaryConnection(t *testing.T) {
 	}
 }
 
-// wifi_icon and wifi_label over the radio and device states; a
+// The wifi icon and label over the radio and device states; a
 // disconnected card reads disconnected, never connecting.
 func TestWifiStates(t *testing.T) {
 	cfg := config.Defaults().Network

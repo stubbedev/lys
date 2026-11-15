@@ -11,8 +11,8 @@ import (
 // barStyle is what the Go-painted surfaces (the dropdown panels, the
 // workspace buttons, the popups) read to match the bar: the resolved
 // palette, the text ink and size, and the dropdown button shades. The
-// bar itself is styled by the Rust stylesheet (apptheme.Theme); nothing here
-// re-derives its cascade.
+// bar itself is styled by the app stylesheet (apptheme.Theme); nothing
+// here re-derives its cascade.
 type barStyle struct {
 	palette *styling.Palette
 
@@ -28,9 +28,6 @@ type barStyle struct {
 	buttonBgActive render.Color
 }
 
-// computeStyle resolves the Go-painted surfaces' parameters: sizes
-// through Size::resolve_px (rem base times bar scale, pixels literal)
-// and colors through the token table.
 // forModules is the modules' copy: their ink is left to the
 // stylesheet (--bar-btn-label-color, the label-color option).
 func (s barStyle) forModules() barStyle {
@@ -38,6 +35,9 @@ func (s barStyle) forModules() barStyle {
 	return s
 }
 
+// computeStyle resolves the Go-painted surfaces' parameters: sizes in
+// pixels (rem base times bar scale, pixels literal) and colors through
+// the token table.
 func computeStyle(cfg *config.Config, palette *styling.Palette) barStyle {
 	bar := cfg.Bar
 	scale := float64(bar.Scale)

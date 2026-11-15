@@ -1,0 +1,7 @@
+args: toast --percentage abc
+code: 2
+--- stdout
+--- stderr
+error: invalid value 'abc' for '--percentage <PERCENTAGE>': parse "abc" as a number: strconv.ParseFloat: parsing "abc": invalid syntax
+
+For more information, try '--help'.

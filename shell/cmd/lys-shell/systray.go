@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/sni"
 )
 
-// systrayCommand is lys-shell/src/cli/systray/commands.rs.
 func systrayCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "systray",

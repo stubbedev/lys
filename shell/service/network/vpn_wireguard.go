@@ -10,7 +10,7 @@ import (
 )
 
 // This file holds the two WireGuard helpers the form leans on: key
-// generation (vpn/wg_keys.rs) and wg-quick import (vpn/wg_quick.rs).
+// generation and wg-quick import.
 
 // KeyPair is a freshly generated private key and the public key derived
 // from it, both base64 as WireGuard writes them.

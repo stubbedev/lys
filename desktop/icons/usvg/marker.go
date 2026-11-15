@@ -287,7 +287,7 @@ func curvesAngle(prev, c1, p, c2, next skpath.Point) float32 {
 }
 
 // angle4 is calc_angle: the direction halfway between a1->a2 and
-// b1->b2, in degrees within [0, 360), all in f32 as Rust computes it.
+// b1->b2, in degrees within [0, 360), all in f32.
 func angle4(a1, a2, b1, b2 skpath.Point) float32 {
 	const twoPi = float32(math.Pi) * 2
 	normalize := func(rad float32) float32 {
@@ -327,8 +327,7 @@ func fromRotate(angle float32) skpath.Transform {
 	return skpath.FromRow(cos, sin, -sin, cos, 0, 0)
 }
 
-// f32mod is Rust's f32 %, fmod: exact, so computing it in f64 loses
-// nothing.
+// f32mod is fmod: exact, so computing it in f64 loses nothing.
 func f32mod(a, b float32) float32 { return float32(math.Mod(float64(a), float64(b))) }
 
 func subpathStart(segs []markerSeg, idx int) skpath.Point {

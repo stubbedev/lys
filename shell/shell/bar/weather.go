@@ -13,7 +13,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/weather"
 )
 
-// weatherConditionIDs is helpers.rs's condition_label vocabulary: one
+// weatherConditionIDs is the condition vocabulary: one
 // _weather.ftl message per condition.
 var weatherConditionIDs = map[weather.Condition]string{
 	weather.CondClear:        "weather-clear",
@@ -36,7 +36,6 @@ var weatherConditionIDs = map[weather.Condition]string{
 	weather.CondUnknown:      "weather-unknown",
 }
 
-// weatherConditionLabel is helpers.rs's condition_label.
 func weatherConditionLabel(c weather.Condition) string {
 	id, ok := weatherConditionIDs[c]
 	if !ok {
@@ -45,7 +44,7 @@ func weatherConditionLabel(c weather.Condition) string {
 	return i18n.T(id)
 }
 
-// weatherConditionIcon is helpers.rs's condition_icon: day and night
+// weatherConditionIcon picks the condition glyph: day and night
 // variants where the glyph set has them.
 func weatherConditionIcon(c weather.Condition, isDay bool) string {
 	switch c {
@@ -88,7 +87,7 @@ func weatherConditionIcon(c weather.Condition, isDay bool) string {
 	return "ld-cloud-symbolic"
 }
 
-// weatherConditionClass is condition_color_class: the dropdown's
+// weatherConditionClass is the dropdown's
 // condition tint.
 func weatherConditionClass(c weather.Condition) string {
 	switch c {
@@ -104,7 +103,7 @@ func weatherConditionClass(c weather.Condition) string {
 	return "cloudy"
 }
 
-// weatherTemp is format_temp_value: whole degrees in the unit system
+// weatherTemp: whole degrees in the unit system
 // ({:.0} of the f32).
 func weatherTemp(t weather.Temperature, imperial bool) string {
 	v := t.Celsius()
@@ -114,7 +113,6 @@ func weatherTemp(t weather.Temperature, imperial bool) string {
 	return strconv.FormatFloat(float64(v), 'f', 0, 32)
 }
 
-// weatherUnitSymbol is temp_unit_symbol.
 func weatherUnitSymbol(imperial bool) string {
 	if imperial {
 		return "°F"
@@ -122,7 +120,6 @@ func weatherUnitSymbol(imperial bool) string {
 	return "°C"
 }
 
-// weatherSpeed is format_speed.
 func weatherSpeed(s weather.Speed, imperial bool) string {
 	if imperial {
 		return strconv.FormatFloat(float64(s.Mph()), 'f', 0, 32) + " mph"
@@ -130,7 +127,7 @@ func weatherSpeed(s weather.Speed, imperial bool) string {
 	return strconv.FormatFloat(float64(s.Kmh()), 'f', 0, 32) + " km/h"
 }
 
-// weatherFormatLabel is helpers.rs's format_label over the schema's
+// weatherFormatLabel renders format over the schema's
 // nine placeholders; today's high and low render empty without a
 // daily forecast.
 func weatherFormatLabel(format string, w *weather.Weather, imperial bool) string {
@@ -157,7 +154,7 @@ func weatherVars(w *weather.Weather, imperial bool) map[string]any {
 }
 
 // weatherSettings maps [modules.weather] onto the service, resolving
-// the API keys ($NAME reads the environment, as secrets::resolve).
+// the API keys ($NAME reads the environment).
 func weatherSettings(cfg config.WeatherConfig) weather.Settings {
 	s := weather.Settings{
 		Interval: time.Duration(cfg.RefreshIntervalSeconds) * time.Second,

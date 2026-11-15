@@ -14,8 +14,7 @@ import (
 )
 
 func TestRecorderLabel(t *testing.T) {
-	// helpers.rs's assertions: idle shows a dash, recording shows the
-	// clock.
+	// Idle shows a dash, recording shows the clock.
 	if got := recorderLabel("{{ elapsed }}", recorder.Change{}); got != "-" {
 		t.Errorf("idle = %q", got)
 	}
@@ -44,11 +43,11 @@ func TestRecorderIconPriority(t *testing.T) {
 	if got := recorderIconName(cfg, recorder.Change{Active: true, Paused: true}); got != cfg.Icons()[config.RecorderPaused].Name {
 		t.Errorf("paused icon = %q", got)
 	}
-	// Preparing keeps the recording glyph (the Rust pulse class).
+	// Preparing keeps the recording glyph.
 	if got := recorderIconName(cfg, recorder.Change{Preparing: true}); got != cfg.Icons()[config.RecorderRecording].Name {
 		t.Errorf("preparing icon = %q", got)
 	}
-	// Paused only counts once recording: select_icon checks active first.
+	// Paused only counts once recording: active is checked first.
 	if got := recorderIconName(cfg, recorder.Change{Preparing: true, Paused: true}); got != cfg.Icons()[config.RecorderRecording].Name {
 		t.Errorf("preparing while paused icon = %q, want the recording icon", got)
 	}

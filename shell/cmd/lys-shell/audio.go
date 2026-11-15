@@ -8,10 +8,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/pulse"
 
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/internal/rustparse"
 )
 
-// audioCommand is lys-shell/src/cli/audio/commands.rs.
 func audioCommand() *cli.Command {
 	level := func() []*cli.Arg {
 		return []*cli.Arg{{ID: "level", ValueName: "LEVEL", Help: "Volume level (0-100) or relative adjustment (+5, -10)"}}
@@ -37,8 +35,7 @@ func withAudio(run func(*cli.Matches, *daemonProxy) error) func(*cli.Matches) er
 
 // audioSide is one direction of the Audio1 interface: the output and
 // input commands are the same code over different member names and
-// operation texts (output_volume.rs / input_volume.rs, *_mute.rs,
-// sinks.rs / sources.rs).
+// operation texts.
 type audioSide struct {
 	member      string // "Output" / "Input"
 	opQualifier string // "" / "input " in the get texts
@@ -97,9 +94,9 @@ func (s audioSide) volume(m *cli.Matches, p *daemonProxy) error {
 	var next float64
 	switch {
 	case strings.HasPrefix(value, "+") || strings.HasPrefix(value, "-"):
-		delta, err := rustparse.Float(value[1:])
+		delta, err := strconv.ParseFloat(value[1:], 64)
 		if err != nil {
-			return cliMessage("Invalid volume delta: " + value)
+			return fmt.Errorf("parse volume delta %q: %w", value, err)
 		}
 		if value[0] == '-' {
 			delta = -delta
@@ -108,9 +105,9 @@ func (s audioSide) volume(m *cli.Matches, p *daemonProxy) error {
 			return err
 		}
 	default:
-		level, err := rustparse.Float(value)
+		level, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return cliMessage("Invalid volume level: " + value)
+			return fmt.Errorf("parse volume level %q: %w", value, err)
 		}
 		if err := p.call("set "+s.opQualifier+"volume", "Set"+s.member+"Volume", []any{&next}, level); err != nil {
 			return err
@@ -161,7 +158,6 @@ func (s audioSide) list(m *cli.Matches, p *daemonProxy) error {
 	return nil
 }
 
-// audioStatus is status.rs.
 func audioStatus(m *cli.Matches, p *daemonProxy) error {
 	volume, muted, err := outputSide.readVolume(p)
 	if err != nil {

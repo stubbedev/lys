@@ -21,10 +21,9 @@ type iconSearch struct {
 
 var lysUIIcons = iconSearch{paths: widget.IconSearchPaths, set: widget.SetIconSearchPaths, refresh: widget.RefreshIcons, namespace: widget.SetIconNamespace}
 
-// initIcons is bootstrap.rs's init_icons (IconRegistry::init): the
-// icons directory and index.theme set up, stale icons migrated, the
-// registry's roots put first on the icon search path, and the directory
-// watched so icons `lys-shell icons install` writes while the shell runs
+// initIcons sets up the icons directory and index.theme, migrates stale
+// icons, puts the registry's roots first on the icon search path, and
+// watches the directory so icons `lys-shell icons install` writes while the shell runs
 // resolve without a restart. lys-shell's prefixes are declared its own, so
 // neither drawing them nor checking them in ReportMissingIcons lists the
 // theme chain. A failure is logged and the shell runs on

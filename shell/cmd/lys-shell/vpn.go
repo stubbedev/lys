@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
-// vpnCommand is lys-shell/src/cli/vpn.rs: the browser's answer to a
+// vpnCommand takes the browser's answer to a
 // GlobalProtect SAML sign-in. Not something to run by hand: lys-shell
 // registers a desktop entry for the globalprotectcallback: scheme
 // pointing at `lys-shell vpn sso-callback`, so the identity provider's

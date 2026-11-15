@@ -27,7 +27,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/notifyui"
 )
 
-// Card geometry (templates.rs, card/methods.rs).
+// Card geometry.
 const (
 	cardMaxWidthChars = 40
 	// cardBodyLines clamps a resting card's body; an expanded card
@@ -494,7 +494,7 @@ func (st *stack) liveIDs() []uint32 {
 	return ids
 }
 
-// newCard builds one card (card/mod.rs) on lys-ui's parts: a card
+// newCard builds one card on lys-ui's parts: a card
 // holding the top row as an Item, then the summary, the body and the
 // action rows inset in line with it.
 func (p *Popups) newCard(n *notifications.Notification) *card {
@@ -578,7 +578,7 @@ func (p *Popups) newCard(n *notifications.Notification) *card {
 	c.setFull(false)
 
 	// A default action opens the card on a click anywhere its buttons
-	// do not take (setup_default_action's gesture on the root): the
+	// do not take: the
 	// Item's own activation, and the root's click for the text under it.
 	if _, ok := n.DefaultAction(); ok {
 		c.root.SetCursorName("pointer")
@@ -607,7 +607,7 @@ func (c *card) setFull(full bool) {
 }
 
 // popupAtTop is whether the popups sit along the top edge, the edge a
-// genie collapses toward (genie_edge).
+// genie collapses toward.
 func popupAtTop(position config.PopupPosition) bool {
 	switch position {
 	case config.PopupPositionTopLeft, config.PopupPositionTopCenter, config.PopupPositionTopRight:
@@ -625,7 +625,7 @@ func peekEdge(position config.PopupPosition) widget.Edge {
 	return widget.EdgeTop
 }
 
-// actionRows is setup_action_buttons: the non-default actions as
+// actionRows lays out the non-default actions as
 // lys-ui's small outline buttons, three to a row, each row homogeneous
 // so its buttons split its width evenly.
 func (p *Popups) actionRows(n *notifications.Notification, px float64) *widget.Box {
@@ -667,7 +667,7 @@ func (p *Popups) closeCard(id uint32) {
 
 // invokeAction is an action button: the popup goes, the action is
 // invoked with a token from the press, and the notification is
-// dismissed (build_action_button).
+// dismissed.
 func (p *Popups) invokeAction(id uint32, key string) {
 	notifyui.WithActivationToken(p.minter, func(token string) {
 		p.svc.DismissPopup(id)
@@ -775,9 +775,9 @@ func (p *Popups) newHost() (host, list *widget.Box) {
 	return host, list
 }
 
-// popupMargins is apply_position's margins: popup-margin-y on the
+// popupMargins are the surface's insets: popup-margin-y on the
 // anchored top or bottom edge, popup-margin-x on the anchored side,
-// truncated as the Rust `as i32`.
+// truncated toward zero.
 func popupMargins(cfg config.NotificationConfig, scale float64) app.Margins {
 	mx := int32(cfg.PopupMarginX.ResolvePx(popupMarginBasePx, scale))
 	my := int32(cfg.PopupMarginY.ResolvePx(popupMarginBasePx, scale))
@@ -798,8 +798,8 @@ func popupMargins(cfg config.NotificationConfig, scale float64) app.Margins {
 	return m
 }
 
-// popupAnchors maps the position onto layer-shell anchors
-// (notification_popup/methods.rs apply_position): corners take both
+// popupAnchors maps the position onto layer-shell anchors:
+// corners take both
 // edges, centered positions only the one edge.
 func popupAnchors(position config.PopupPosition) app.Anchor {
 	switch position {

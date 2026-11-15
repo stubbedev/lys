@@ -22,7 +22,7 @@ type DmenuConfig struct {
 }
 
 // Dmenu is dmenu mode: rows arrive from the CLI over a channel, and an
-// accept exits the session with the selection (dmenu.rs).
+// accept exits the session with the selection.
 type Dmenu struct {
 	cfg   DmenuConfig
 	rows  <-chan []string

@@ -6,11 +6,10 @@ import (
 )
 
 // ClickAction is one module input binding, parsed from the schema's
-// ClickAction strings (crates/wayle-config/src/click_action.rs):
-// "dropdown:<name>", "brightness:<delta>" or "brightness:toggle", an
-// empty string for no action, and anything else runs as a shell
-// command. Like the Rust type every string parses: a brightness delta
-// that is not an i32 is no action.
+// ClickAction strings: "dropdown:<name>", "brightness:<delta>" or
+// "brightness:toggle", an empty string for no action, and anything
+// else runs as a shell command. Every string parses: a brightness
+// delta that is not an int32 is no action.
 type ClickAction struct {
 	Kind       ClickKind
 	Dropdown   string
@@ -30,7 +29,7 @@ const (
 	ClickBrightnessToggle
 )
 
-// ParseClickAction parses one schema string (ClickAction::from_str).
+// ParseClickAction parses one schema string.
 func ParseClickAction(s string) ClickAction {
 	if s == "" {
 		return ClickAction{Kind: ClickNone}

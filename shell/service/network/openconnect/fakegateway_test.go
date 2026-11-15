@@ -17,8 +17,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
-// The fake gateways: the Go port of crates/wayle-network/tests/
-// mock-gateway/gateway.py, one httptest TLS server per MODE, serving the
+// The fake gateways: one httptest TLS server per MODE, serving the
 // committed mock certificate (testdata/gateway.crt, signed by
 // testdata/ca.crt) so the gwcert pin is a constant. The client trusts
 // the CA through clientRoots and verifies the fake for real. Nothing

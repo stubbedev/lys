@@ -1,9 +1,8 @@
-// Package imagedecode opens raster images in the formats the Rust
-// shell's `image` crate decodes by default for wallpapers: PNG, JPEG,
-// GIF, BMP, TIFF, WebP (stdlib and golang.org/x/image), plus farbfeld,
-// PNM (P1-P6), and TGA, which Go has no decoder for and this package
-// registers itself. SVG, JPEG XL, and AVIF are listed as wallpaper
-// extensions but the Rust decoder rejects them as well.
+// Package imagedecode opens raster images in the formats wallpapers can
+// use: PNG, JPEG, GIF, BMP, TIFF, WebP (stdlib and golang.org/x/image),
+// plus farbfeld, PNM (P1-P6), and TGA, which Go has no decoder for and
+// this package registers itself. SVG, JPEG XL, and AVIF are listed as
+// wallpaper extensions but are not decoded.
 package imagedecode
 
 import (

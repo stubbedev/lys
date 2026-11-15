@@ -59,13 +59,13 @@ func TestIdleCommands(t *testing.T) {
 		{[]string{"idle", "status"}, "Active (10:00 remaining, 45 min duration)\n"},
 		{[]string{"idle", "remaining", "-4"}, "Subtracted 4 minutes from remaining\n"},
 		{[]string{"idle", "duration", "+15"}, "Added 15 minutes to duration\n"},
-		{[]string{"idle", "duration", "x"}, "Error: Invalid minutes: x\n"},
-		{[]string{"idle", "duration", "+x"}, "Error: Invalid delta: +x\n"},
+		{[]string{"idle", "duration", "x"}, "Error: parse duration minutes \"x\": strconv.ParseUint: parsing \"x\": invalid syntax\n"},
+		{[]string{"idle", "duration", "+x"}, "Error: parse duration delta \"+x\": strconv.ParseInt: parsing \"+x\": invalid syntax\n"},
 		{[]string{"idle", "toggle"}, "Disabled\n"},
 		{[]string{"idle", "toggle", "-i"}, "Enabled (indefinite)\n"},
-		// "Indefinite" is a zero duration (state.rs's indefinite()): with
-		// a duration stored, an --indefinite run still takes timer edits,
-		// as in Rust; with none, they are refused.
+		// "Indefinite" is a zero duration: with a duration stored, an
+		// --indefinite run still takes timer edits; with none, they are
+		// refused.
 		{[]string{"idle", "remaining", "5"}, "Set remaining to 5 minutes\n"},
 		{[]string{"idle", "off"}, "Disabled\n"},
 		{[]string{"idle", "duration", "0"}, "Set duration to 0 minutes\n"},

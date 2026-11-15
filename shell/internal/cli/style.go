@@ -9,17 +9,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// style is one anstyle Style from lys-shell/src/cli/app.rs's get_styles:
-// an optional bold effect and an optional ANSI foreground. It renders
-// the way anstyle does (effects first, then the color, one SGR each).
+// style is an optional bold effect and an optional ANSI foreground. It
+// renders the effects first, then the color, one SGR each.
 type style struct {
 	bold bool
 	fg   int // 30-37, 0 for none
 }
 
-// The palette from app.rs's get_styles. clap's context styles stay
-// plain there, so the [possible values: ...] / [default: ...] spec
-// values carry no color.
+// The palette. The [possible values: ...] / [default: ...] spec values
+// carry no color.
 var (
 	styleHeader      = style{bold: true, fg: 33}
 	styleError       = style{bold: true, fg: 31}
@@ -49,9 +47,8 @@ func (s style) wrap(text string) string {
 	return b.String()
 }
 
-// strip drops every ANSI escape sequence (anstream's StripStream),
-// including raw ones embedded in help text such as the icons
-// after_long_help's styled "Examples:" header.
+// strip drops every ANSI escape sequence, including raw ones embedded
+// in help text such as the icons long help's styled "Examples:" header.
 func strip(s string) string {
 	if !strings.Contains(s, "\x1b") {
 		return s
@@ -75,12 +72,11 @@ func strip(s string) string {
 }
 
 // displayWidth is the rendered width: the rune count with the styling
-// removed (clap without the unicode feature counts chars).
+// removed.
 func displayWidth(s string) int { return utf8.RuneCountInString(strip(s)) }
 
-// ColorEnabled reports whether output to f should be colored, with
-// anstream's auto choice: NO_COLOR wins, then CLICOLOR_FORCE, then
-// CLICOLOR=0; otherwise a terminal colors when TERM is set to
+// ColorEnabled reports whether output to f should be colored: NO_COLOR
+// wins, then CLICOLOR_FORCE, then CLICOLOR=0; otherwise a terminal colors when TERM is set to
 // something other than dumb, CLICOLOR is on, or CI is set.
 func ColorEnabled(f *os.File) bool {
 	return colorChoice(isTerminal(f), os.LookupEnv)

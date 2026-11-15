@@ -108,13 +108,11 @@ func waitCalls(t *testing.T, f *fakeMediaSource, n int) []string {
 	return f.Calls()
 }
 
-func TestMediaLabelPlaceholdersMatchRustAssertions(t *testing.T) {
+func TestMediaLabelPlaceholders(t *testing.T) {
 	playing := mpris.Player{Title: "Song Name", Artist: "Artist Name", Album: "Album Name", State: mpris.StatePlaying}
-	// helpers.rs format_label_basic_placeholders.
 	if got := mediaLabel("{{ title }} - {{ artist }}", playing); got != "Song Name - Artist Name" {
 		t.Errorf("= %q, want the title-artist join", got)
 	}
-	// format_label_all_placeholders, with helpers.rs's PLAY_ICON.
 	if got := mediaLabel("{{ status_icon }} {{ title }} by {{ artist }} from {{ album }} ({{ status }})", playing); got != mediaPlayGlyph+" Song Name by Artist Name from Album Name (Playing)" {
 		t.Errorf("= %q", got)
 	}
@@ -425,10 +423,9 @@ func TestMediaDropdownPaintsFromTheStylesheet(t *testing.T) {
 	}
 }
 
-// The picker's chrome is the Rust tree: the header is the ghost-icon
-// picker-back chain over the title, the rows scroll in a .picker-body,
-// and the active row checks with ld-check-symbolic while the others
-// carry none (source_item.rs:75, source_picker/mod.rs:36-65).
+// The picker's chrome: the header is the ghost-icon picker-back chain
+// over the title, the rows scroll in a .picker-body, and the active row
+// checks with ld-check-symbolic while the others carry none.
 func TestMediaPickerChrome(t *testing.T) {
 	source := newFakeMedia(
 		mpris.Player{BusName: "org.mpris.MediaPlayer2.vlc", Identity: "VLC"},
@@ -464,7 +461,7 @@ func TestMediaPickerChrome(t *testing.T) {
 	if body == nil {
 		t.Error("the rows do not scroll in a .picker-body")
 	}
-	// The active row checks with ld-check-symbolic (source_item.rs:75);
+	// The active row checks with ld-check-symbolic;
 	// buttons hide their subtrees from the walks, so the view carries
 	// the icon.
 	if v.check == nil || v.check.Name() != "ld-check-symbolic" || !v.check.HasClass("media-source-option-check") {
@@ -484,7 +481,7 @@ func TestMediaPickerChrome(t *testing.T) {
 		t.Error("another picker button wears the ghost icon chrome")
 	}
 
-	// Back is NavigateBack: the player (or empty) page returns.
+	// Back returns to the player (or empty) page.
 	back.OnClick()
 	if v.mode == "picker" || v.pages.Visible() != "main" {
 		t.Errorf("after back = mode %q page %q, want the main page", v.mode, v.pages.Visible())
@@ -492,7 +489,7 @@ func TestMediaPickerChrome(t *testing.T) {
 }
 
 // The transport buttons carry no programmatic padding (button.media-control
-// paints the box, modules/media_dropdown/player_view.css): each measures as a button of
+// paints the box): each measures as a button of
 // its classes built with none. They get the pointer cursor every button
 // gets.
 func TestMediaTransportButtonsAreUnpaddedPointers(t *testing.T) {
@@ -522,15 +519,14 @@ func TestMediaTransportButtonsAreUnpaddedPointers(t *testing.T) {
 			t.Errorf("%s cursor = %q, want pointer", tc.glyph, got)
 		}
 	}
-	// Negative: the constructor padding the Rust tree leaves out would
-	// show up as a padded measure.
+	// Negative: constructor padding would show up as a padded measure.
 	padded := widget.NewButton(widget.NewThemeIcon("ld-play-symbolic", int(px)), 6, 6)
 	if widget.SizeWithin(padded, availSize(200, 200)) == widget.SizeWithin(widget.NewThemeIcon("ld-play-symbolic", int(px)), availSize(200, 200)) {
 		t.Error("a padded button measures like its icon; the test cannot see padding")
 	}
 }
 
-// A player switch retires the old knob position (methods.rs:164,200):
+// A player switch retires the old knob position:
 // the slider restarts from zero for the new player, a clear zeroes it,
 // and a same-player refresh keeps the polled position.
 func TestMediaSeekResetsOnPlayerSwitch(t *testing.T) {
@@ -567,8 +563,7 @@ func TestMediaSeekResetsOnPlayerSwitch(t *testing.T) {
 }
 
 // The card keeps one height whichever page shows: the player and the
-// empty state are pages of one homogeneous stack (the relm4 if/else's
-// gtk::Stack), so a player appearing or leaving never resizes the
+// empty state are pages of one homogeneous stack, so a player appearing or leaving never resizes the
 // dropdown.
 func TestMediaEmptyStateKeepsThePlayersHeight(t *testing.T) {
 	source := newFakeMedia()

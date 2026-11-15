@@ -116,7 +116,7 @@ func (ev *evaluator) applyTest(name string, v any, args []any) (bool, error) {
 	case "ge", ">=":
 		return cmp(func(c int) bool { return c >= 0 })
 	case "lower", "upper":
-		// Every character has the case (is_lowercase / is_uppercase), so
+		// Every character has the case, so
 		// digits and spaces fail both.
 		is := unicode.IsLower
 		if name == "upper" {

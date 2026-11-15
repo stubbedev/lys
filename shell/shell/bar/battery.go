@@ -14,8 +14,8 @@ import (
 	"github.com/stubbedev/lys/shell/internal/jinja"
 )
 
-// batteryLabel renders the format template: the only variable the Rust
-// module's context carries is "percent" (rounded), and the braces are
+// batteryLabel renders the format template: the only variable its
+// context carries is "percent" (rounded), and the braces are
 // whitespace-insensitive. No battery maps to the unavailable label.
 func batteryLabel(format string, percentage float64, present bool) string {
 	if !present {
@@ -29,7 +29,7 @@ func batteryVars(percentage float64) map[string]any {
 }
 
 // thresholdColor returns the label-color override the thresholds
-// resolve for value (evaluate_thresholds: last match wins).
+// resolve for value (last match wins).
 func thresholdColor(value float64, thresholds []config.ThresholdEntry, palette *styling.Palette) (render.Color, bool) {
 	return resolveOverride(config.EvaluateThresholds(value, thresholds).LabelColor, palette)
 }
@@ -76,7 +76,7 @@ func (m *battery) apply(dev upower.Device) {
 	m.setIcon(cfg, dev)
 }
 
-// setIcon follows battery helpers.rs's select_icon: alert when absent
+// setIcon picks the icon: alert when absent
 // or unknown, charging when charging or pending charge, else the
 // level list bucketed by percentage.
 func (m *battery) setIcon(cfg config.BatteryConfig, dev upower.Device) {

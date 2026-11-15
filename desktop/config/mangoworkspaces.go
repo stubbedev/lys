@@ -1,6 +1,6 @@
 package config
 
-// MangoWorkspacesConfig is ported from crates/wayle-config/src/schemas/modules/mango_workspaces/mod.rs.
+// MangoWorkspacesConfig configures the mango-workspaces module.
 //
 // MangoWM tag switcher module configuration.
 type MangoWorkspacesConfig struct {

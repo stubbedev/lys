@@ -4,7 +4,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// btDeviceRow is one device row (device_item) on lys-ui's Item: the
+// btDeviceRow is one device row on lys-ui's Item: the
 // whole row activates (the action buttons keep their own clicks), and
 // hovering swaps the status label for the actions (SetOnHoverWithin;
 // the buttons are descendants, so moving onto one holds the swap).
@@ -13,7 +13,7 @@ type btDeviceRow struct {
 	// status and actions are the hover stack's two pages.
 	slot   *widget.Stack
 	status *widget.Label
-	// statusShown is status_visible: connected, paired, or pending.
+	// statusShown: connected, paired, or pending.
 	statusShown bool
 	actions     *widget.Box
 	// hoverSwaps is set for my devices: only they carry the swap.
@@ -23,8 +23,7 @@ type btDeviceRow struct {
 	onClick func()
 }
 
-// syncSlot shows the actions while hovered and idle, else the status
-// (set_visible_child_name).
+// syncSlot shows the actions while hovered and idle, else the status.
 func (r *btDeviceRow) syncSlot() {
 	if r.actions == nil {
 		return

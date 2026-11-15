@@ -666,7 +666,7 @@ func TestMatchModel(t *testing.T) {
 	}
 }
 
-// TestAcceptBindingAcceptsTheRowItLandedOn pins on_mouse: an accept
+// TestAcceptBindingAcceptsTheRowItLandedOn pins clicks: an accept
 // bound alone (no select binding beside it) still accepts the clicked
 // row, not the one selected when the press came.
 func TestAcceptBindingAcceptsTheRowItLandedOn(t *testing.T) {
@@ -700,7 +700,7 @@ func TestALateEventFromAnEndedSessionIsDropped(t *testing.T) {
 	}
 }
 
-// TestSurfacePlaysItsExit pins the enter and hide_animated: a session
+// TestSurfacePlaysItsExit pins the enter and exit transitions: a session
 // opens its surface entering with the launcher transition; when it
 // ends the surface stays mapped through its exit and closes when that
 // lands, while a replacing session already has its own.

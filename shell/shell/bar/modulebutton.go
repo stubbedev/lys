@@ -88,7 +88,7 @@ func newBarButtonOf(ctx ModuleContext, lead widget.Widget) *barButton {
 }
 
 // SetLabel is the module's label text: shown at once, or on thaw while
-// the label is frozen (pending_label).
+// the label is frozen.
 func (b *barButton) SetLabel(text string) {
 	b.text = text
 	b.showLabel()
@@ -199,8 +199,7 @@ func (b *barButton) holdOpen(freezeLabel bool) func() {
 // to.
 func (b *barButton) configure(title string, button config.ButtonConfig, binding config.ClickConfig, onRun func(action config.ClickAction, scroll bool)) {
 	b.title, b.button, b.binding, b.onRun = title, button, binding, onRun
-	// label-max-length is BarButtonBehavior's label_max_chars: the
-	// label's width caps at that many characters and ellipsizes there.
+	// label-max-length caps the label's width caps at that many characters and ellipsizes there.
 	b.Label().SetMaxWidthChars(button.LabelMaxLength)
 	if button.LabelMaxLength > 0 {
 		b.Label().SetEllipsize(widget.EllipsizeEnd)
@@ -212,7 +211,7 @@ func (b *barButton) configure(title string, button config.ButtonConfig, binding 
 }
 
 // SetThresholds applies threshold color overrides over the config
-// colors (BarButtonInput::SetThresholdColors): the per-button variables
+// colors: the per-button variables
 // rebuild when they changed.
 func (b *barButton) SetThresholds(t config.ThresholdColors) {
 	if thresholdsEqual(t, b.thresholds) {
@@ -222,8 +221,8 @@ func (b *barButton) SetThresholds(t config.ThresholdColors) {
 	b.refresh()
 }
 
-// applyThresholds evaluates value against the module's thresholds
-// (evaluate_thresholds) and applies the matching colors.
+// applyThresholds evaluates value against the module's thresholds and
+// applies the matching colors.
 func (b *barButton) applyThresholds(value float64, entries []config.ThresholdEntry) {
 	b.SetThresholds(config.EvaluateThresholds(value, entries))
 }
@@ -275,7 +274,7 @@ func restyleButtons(w widget.Widget, cfg *config.Config) {
 	}
 }
 
-// classes is BarButton::css_classes beyond lys-ui's bar-button and
+// classes are the CSS classes beyond lys-ui's bar-button and
 // vertical: the variant and the modifiers.
 func (b *barButton) classes() []string {
 	bar := b.cfg.Bar
@@ -323,8 +322,7 @@ func (b *barButton) HitTest(p widget.Point) widget.Widget {
 	return nil
 }
 
-// SetPressed fires the primary binding on the press, the Rust
-// GestureClick's connect_pressed: the dropdown appears under the
+// SetPressed fires the primary binding on the press: the dropdown appears under the
 // button-down, and a press that slides off before the release still
 // opened it. The release's click opens nothing: the button has no
 // popover of its own, the binding opens the dropdown.
@@ -367,8 +365,7 @@ func (b *barButton) pointer(e widget.PointerEvent) bool {
 }
 
 // scroll maps vertical steps to the up/down bindings, positive DY
-// scrolling down. The step is always consumed, the Rust helper's
-// Propagation::Stop: an unbound action no-ops in run, and content
+// scrolling down. The step is always consumed: an unbound action no-ops in run, and content
 // behind the bar never scrolls through a module.
 func (b *barButton) scroll(e widget.ScrollEvent) bool {
 	switch {
@@ -383,8 +380,7 @@ func (b *barButton) scroll(e widget.ScrollEvent) bool {
 }
 
 // inlineDecls strips a `selector { ... }` rule down to its declaration
-// list: the Rust per-widget providers are `* { ... }` rules, which in
-// lys-ui are the widget's inline declarations.
+// list, the widget's inline declarations.
 func inlineDecls(rule string) string {
 	open, end := strings.IndexByte(rule, '{'), strings.LastIndexByte(rule, '}')
 	if open < 0 || end < open {

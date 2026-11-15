@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
-// selfManaged are the commands main.rs runs outside the shared CLI
+// selfManaged are the commands that run outside the shared CLI
 // setup: the shell and the portal set up their own logging, and
 // completions only print.
 var selfManaged = map[string]bool{"shell": true, "portal": true, "completions": true}
@@ -23,10 +23,9 @@ const (
 	cliLogPrefix   = "lys-shell-cli"
 )
 
-// withCLIMode wraps every other command's handler in main.rs's CLI
-// setup: file-only logging (tracing.rs's init_cli_mode, "lys-shell-cli.<day>.log")
-// and init.rs's ensure_directories. Failures are reported and ignored,
-// as in Rust.
+// withCLIMode wraps every other command's handler in the CLI setup:
+// file-only logging ("lys-shell-cli.<day>.log") and the config
+// directory. Failures are reported and ignored.
 func withCLIMode(root *cli.Command) *cli.Command {
 	for _, sub := range root.Subcommands {
 		if !selfManaged[sub.Name] {
@@ -56,7 +55,7 @@ func wrapRuns(c *cli.Command) {
 	}
 }
 
-// ensureDirectories is init.rs's: the config directory exists.
+// ensureDirectories makes sure the config directory exists.
 func ensureDirectories() error {
 	dir, err := config.Dir()
 	if err != nil {

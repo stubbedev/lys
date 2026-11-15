@@ -1,7 +1,7 @@
 package config
 
-// The rem bases the share picker's Size multipliers resolve against
-// (share_picker/mod.rs): Scale(1) is the default pixel size.
+// The rem bases the share picker's Size multipliers resolve against:
+// Scale(1) is the default pixel size.
 const (
 	SharePickerWidthBaseRem          = 62.5
 	SharePickerHeightBaseRem         = 31.25
@@ -10,8 +10,7 @@ const (
 	SharePickerOutputsSpacingBaseRem = 0.375
 )
 
-// SharePickerConfig is the [share-picker] section
-// (crates/wayle-config/src/schemas/share_picker/mod.rs).
+// SharePickerConfig is the [share-picker] section.
 //
 // Screen-share picker shown by xdg-desktop-portal when an app requests a
 // window, output, or region to capture.
@@ -63,8 +62,7 @@ func DefaultsSharePicker() SharePickerConfig {
 	}
 }
 
-// SharePickerPage is the page the share picker opens on
-// (share_picker/types.rs).
+// SharePickerPage is the page the share picker opens on.
 //
 // Page shown when the screen-share picker opens.
 type SharePickerPage string

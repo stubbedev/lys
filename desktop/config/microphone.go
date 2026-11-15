@@ -1,6 +1,6 @@
 package config
 
-// MicrophoneConfig is ported from crates/wayle-config/src/schemas/modules/microphone/mod.rs.
+// MicrophoneConfig configures the microphone module.
 //
 // Microphone input level and mute toggle.
 type MicrophoneConfig struct {

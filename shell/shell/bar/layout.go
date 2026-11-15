@@ -31,8 +31,7 @@ func findByMonitor(layouts []config.BarLayout, monitor string) (config.BarLayout
 
 // mergeParent walks the extends chain, filling the sections the child
 // left empty from the first ancestor that has them. A cycle or a
-// missing parent stops the walk and keeps what was resolved so far —
-// matching the Rust shell's warn-and-skip behavior.
+// missing parent stops the walk and keeps what was resolved so far.
 func mergeParent(layout config.BarLayout, all []config.BarLayout, visited map[string]bool) config.BarLayout {
 	resolved := layout
 	extends, ok := resolved.ExtendsName()

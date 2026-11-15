@@ -24,7 +24,7 @@ import (
 	"github.com/stubbedev/lys/desktop/identity"
 )
 
-// Status is the lifecycle gate (state.rs's Status), updated
+// Status is the lifecycle gate, updated
 // synchronously so rapid clicks never double-start.
 type Status int
 
@@ -49,7 +49,7 @@ func (s Status) String() string {
 	return "idle"
 }
 
-// Toast and notification constants (state.rs).
+// Toast and notification constants.
 const (
 	toastIcon      = "ld-circle-dot-symbolic"
 	errorIcon      = "ld-alert-triangle-symbolic"
@@ -208,7 +208,7 @@ func (s *State) snapshotLocked() Change {
 func (s *State) notify() { s.changes.Publish(s.Snapshot()) }
 
 // Toggle keys off the lifecycle, not active: during the start delay a
-// toggle cancels the pending start (state.rs's toggle).
+// toggle cancels the pending start.
 func (s *State) Toggle() {
 	s.mu.Lock()
 	idle := s.status == StatusIdle
@@ -241,7 +241,7 @@ func (s *State) Start() {
 	go s.runStart(ctx, gen)
 }
 
-// runStart is run_start: the output directory, the capture session
+// runStart starts a recording: the output directory, the capture session
 // (first, so the picker answers the click), the announced start delay,
 // then the recording.
 func (s *State) runStart(ctx context.Context, gen uint64) {
@@ -279,7 +279,7 @@ func (s *State) runStart(ctx context.Context, gen uint64) {
 	s.commit(ctx, rec, session, opts.OutputPath)
 }
 
-// commit is commit_recording: Recording, unless a stop cancelled the
+// commit moves to Recording, unless a stop cancelled the
 // start meanwhile, which tears the fresh recording back down.
 func (s *State) commit(ctx context.Context, rec Recording, session Session, path string) {
 	s.mu.Lock()
@@ -313,7 +313,7 @@ func endCapture(c interface{ Stop() error }, session Session) error {
 	return errors.Join(c.Stop(), session.Close())
 }
 
-// failStart is fail_start.
+// failStart logs a failed start and settles to Idle with its error.
 func (s *State) failStart(err error) {
 	log.Printf("recorder: failed to start recording: %v", err)
 	s.fail(err.Error())
@@ -328,7 +328,7 @@ func (s *State) fail(reason string) {
 	s.showError(fmt.Sprintf("%s: %s", i18n.T("recorder-toast-failed"), reason))
 }
 
-// unexpectedStop is handle_unexpected_stop: a live recording that died
+// unexpectedStop handles a recording that stopped by itself: a live recording that died
 // on its own is torn down and reported.
 func (s *State) unexpectedStop(gen uint64, reason string) {
 	s.mu.Lock()
@@ -409,7 +409,7 @@ func (s *State) SetPaused(paused bool) {
 	s.notify()
 }
 
-// resetIdle is reset_idle.
+// resetIdle returns to Idle, dropping the recording, its session, and its timer.
 func (s *State) resetIdle() {
 	s.mu.Lock()
 	s.stopTimerLocked()
@@ -421,8 +421,8 @@ func (s *State) resetIdle() {
 	s.notify()
 }
 
-// startTimerLocked counts recorded seconds, skipping paused ones
-// (start_timer). The caller holds mu.
+// startTimerLocked counts recorded seconds, skipping paused ones.
+// The caller holds mu.
 func (s *State) startTimerLocked() {
 	stop := make(chan struct{})
 	s.timerStop = stop
@@ -465,7 +465,7 @@ func (s *State) toast(label, icon string, ms uint32) {
 	}
 }
 
-// showError is show_error: a toast and a desktop notification.
+// showError reports message as a toast and a desktop notification.
 func (s *State) showError(message string) {
 	s.toast(message, errorIcon, stopToastMS)
 	if s.hooks.Notify != nil {
@@ -473,7 +473,7 @@ func (s *State) showError(message string) {
 	}
 }
 
-// BuildOptions is build_options: the recording's options from the
+// BuildOptions is the recording's options from the
 // config, the output named for now.
 func BuildOptions(cfg config.RecorderConfig, now time.Time) Options {
 	opts := Options{
@@ -496,7 +496,7 @@ func BuildOptions(cfg config.RecorderConfig, now time.Time) Options {
 	return opts
 }
 
-// OutputPath is output_path: lys-shell-<local timestamp>.<format> in
+// OutputPath is lys-shell-<local timestamp>.<format> in
 // the configured directory, else the videos directory; a format's name
 // is its extension.
 func OutputPath(configuredDir string, format config.RecorderFormat, now time.Time) string {
@@ -529,7 +529,7 @@ func VideosDir() string {
 	return "."
 }
 
-// FormatElapsed is format_elapsed: H:MM:SS above the hour, M:SS within.
+// FormatElapsed renders H:MM:SS above the hour, M:SS within.
 func FormatElapsed(totalSecs uint32) string {
 	hours := totalSecs / 3600
 	minutes := (totalSecs % 3600) / 60

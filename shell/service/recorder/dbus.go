@@ -5,14 +5,13 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// D-Bus identity (the Rust RecorderService's registration).
+// D-Bus identity.
 const (
 	ServiceName = "dev.stubbe.lys.Recorder1"
 	ServicePath = "/dev/stubbe/lys/Recorder"
 )
 
-// Daemon is the dev.stubbe.lys.Recorder1 object
-// (wayle-shell-core/src/services/recorder/dbus.rs).
+// Daemon is the dev.stubbe.lys.Recorder1 object.
 type Daemon struct {
 	state *State
 }

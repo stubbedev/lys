@@ -1,6 +1,6 @@
 package config
 
-// DisplayMode is ported from crates/wayle-config/src/schemas/modules/hyprland_workspaces/mod.rs.
+// DisplayMode is part of the hyprland-workspaces module's configuration.
 //
 // What identifies a workspace in the UI.
 type DisplayMode string
@@ -17,7 +17,7 @@ const (
 
 var _ = registerEnum(DisplayModeLabel, DisplayModeIcon, DisplayModeNone)
 
-// Numbering is ported from crates/wayle-config/src/schemas/modules/hyprland_workspaces/mod.rs.
+// Numbering is part of the hyprland-workspaces module's configuration.
 //
 // How workspace numbers are displayed.
 type Numbering string
@@ -35,7 +35,7 @@ const (
 
 var _ = registerEnum(NumberingAbsolute, NumberingRelative)
 
-// UrgentMode is ported from crates/wayle-config/src/schemas/modules/hyprland_workspaces/mod.rs.
+// UrgentMode is part of the hyprland-workspaces module's configuration.
 //
 // Where the urgent pulse animation is applied.
 type UrgentMode string
@@ -52,7 +52,7 @@ const (
 
 var _ = registerEnum(UrgentWorkspace, UrgentApplication)
 
-// ActiveIndicator is ported from crates/wayle-config/src/schemas/modules/hyprland_workspaces/mod.rs.
+// ActiveIndicator is part of the hyprland-workspaces module's configuration.
 //
 // Visual indicator style for the active workspace.
 type ActiveIndicator string
@@ -67,7 +67,7 @@ const (
 
 var _ = registerEnum(ActiveBackground, ActiveUnderline)
 
-// WorkspaceStyle is ported from crates/wayle-config/src/schemas/modules/hyprland_workspaces/mod.rs.
+// WorkspaceStyle is part of the hyprland-workspaces module's configuration.
 //
 // Per-workspace styling override.
 type WorkspaceStyle struct {
@@ -81,7 +81,7 @@ type WorkspaceStyle struct {
 	Label *string `cfg:"label"`
 }
 
-// HyprlandWorkspacesConfig is ported from crates/wayle-config/src/schemas/modules/hyprland_workspaces/mod.rs.
+// HyprlandWorkspacesConfig configures the hyprland-workspaces module.
 //
 // Hyprland workspace indicators with click-to-switch.
 type HyprlandWorkspacesConfig struct {

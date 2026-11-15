@@ -24,8 +24,8 @@ func Decode(s string) []byte {
 	return out
 }
 
-// DecodeString is Decode with invalid UTF-8 replaced, as Rust's
-// from_utf8_lossy does.
+// DecodeString is Decode with each invalid UTF-8 sequence replaced by
+// U+FFFD.
 func DecodeString(s string) string { return strings.ToValidUTF8(string(Decode(s)), "�") }
 
 // Encode keeps RFC 3986's unreserved bytes and those in keep, and

@@ -11,8 +11,7 @@ import (
 // Events subscribes to the event socket and returns a stream of parsed
 // events. The returned channel closes when the context is canceled or
 // the compositor closes the socket. Lines that fail to parse are
-// dropped, matching the Rust
-// shell's warn-and-drop.
+// dropped.
 func (c *Connection) Events(ctx context.Context) (<-chan Event, error) {
 	conn, err := ipcsock.Dial(c.eventPath)
 	if err != nil {

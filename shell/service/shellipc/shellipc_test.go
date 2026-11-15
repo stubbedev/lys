@@ -70,7 +70,6 @@ func TestShell1DaemonProperties(t *testing.T) {
 		t.Errorf("Connectors = %v, %v", v, err)
 	}
 
-	// Without the lock screen and VPN hooks the calls fail as in Rust.
 	for method, want := range map[string]string{
 		"Lock":           "lock screen not ready (shell UI not initialized)",
 		"VpnSsoCallback": "no VPN browser sign-in is waiting for a callback",

@@ -2,16 +2,13 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys/lib/intconv"
-
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/internal/rustparse"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 )
 
-// idleCommand is lys-shell/src/cli/idle/commands.rs.
 func idleCommand() *cli.Command {
 	adjust := []*cli.Arg{{ID: "value", ValueName: "VALUE", Required: true, Help: "+N to add, -N to subtract, N to set absolute"}}
 	return &cli.Command{
@@ -47,8 +44,8 @@ func withIdle(run func(*cli.Matches, *daemonProxy) error) func(*cli.Matches) err
 	return withDaemon("IdleInhibit", idleinhibit.ServiceName, idleinhibit.ServicePath, idleinhibit.ServiceName, run)
 }
 
-// idleEnable is on.rs / toggle.rs's enable tail: the duration read is
-// best-effort, as Rust's unwrap_or(0).
+// idleEnable enables idle inhibit and reports it; the duration read is
+// best-effort, zero when it fails.
 func idleEnable(m *cli.Matches, p *daemonProxy, indefinite bool) error {
 	if err := p.call("enable idle inhibit", "Enable", nil, indefinite); err != nil {
 		return err
@@ -91,8 +88,8 @@ func idleToggle(m *cli.Matches, p *daemonProxy) error {
 	return idleEnable(m, p, m.Flag("indefinite"))
 }
 
-// idleAdjuster is duration.rs / remaining.rs: "+N" adds, "-N"
-// subtracts, a bare N sets.
+// idleAdjuster edits the duration or the remaining time: "+N" adds,
+// "-N" subtracts, a bare N sets.
 type idleAdjuster struct {
 	noun   string // "duration" / "remaining"
 	member string // "Duration" / "Remaining"
@@ -103,18 +100,11 @@ func (a idleAdjuster) run(m *cli.Matches, p *daemonProxy) error {
 	value := strings.TrimSpace(raw)
 	switch {
 	case strings.HasPrefix(value, "+") || strings.HasPrefix(value, "-"):
-		digits := value
-		if value[0] == '+' {
-			digits = value[1:]
-		}
-		parsed, err := rustparse.Int(digits, 32)
+		parsed, err := strconv.ParseInt(value, 10, 32)
 		if err != nil {
-			return cliMessage("Invalid delta: " + value)
+			return fmt.Errorf("parse %s delta %q: %w", a.noun, value, err)
 		}
-		delta, err := intconv.Exact[int32](parsed)
-		if err != nil {
-			return cliMessage("Invalid delta: " + value)
-		}
+		delta := int32(parsed)
 		if err := p.call("adjust "+a.noun, "Adjust"+a.member, nil, delta); err != nil {
 			return err
 		}
@@ -124,14 +114,11 @@ func (a idleAdjuster) run(m *cli.Matches, p *daemonProxy) error {
 			fmt.Fprintf(m.Stdout(), "Subtracted %d minutes from %s\n", -parsed, a.noun)
 		}
 	default:
-		parsed, err := rustparse.Uint(value, 32)
+		parsed, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
-			return cliMessage("Invalid minutes: " + value)
+			return fmt.Errorf("parse %s minutes %q: %w", a.noun, value, err)
 		}
-		minutes, err := intconv.Exact[uint32](parsed)
-		if err != nil {
-			return cliMessage("Invalid minutes: " + value)
-		}
+		minutes := uint32(parsed)
 		if err := p.call("set "+a.noun, "Set"+a.member, nil, minutes); err != nil {
 			return err
 		}

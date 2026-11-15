@@ -9,9 +9,7 @@ import (
 )
 
 // Layer application: a parsed tree applied onto a typed config, field
-// by field, the way the derived ApplyConfigLayer/ApplyRuntimeLayer
-// walk a #[lys_shell_config] tree (crates/wayle-derive/src/derives.rs,
-// crates/wayle-config/src/property/config.rs):
+// by field:
 //
 //   - keys are matched canonical first, then aliases, then deprecated
 //     aliases (which log a deprecation warning);
@@ -37,8 +35,8 @@ type layerApply struct {
 	kind layerKind
 	sink DiagnosticSink
 	// staged collects the runtime leaves that applied, at their
-	// canonical paths, as encoded values — the ConfigProperty runtime
-	// slots ExtractRuntimeValues persists.
+	// canonical paths, as encoded values — what ExtractRuntimeValues
+	// persists.
 	staged *table
 	// overridden reports whether a runtime override is active at a
 	// path; the config layer warns that its value is shadowed.

@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/treeman"
 )
 
-// treemanLabel is helpers.rs's format_label: plain replacements of
+// treemanLabel renders format by plain replacements of
 // the exact "{{ name }}" spellings, not a template.
 func treemanLabel(format string, status *treeman.Status) string {
 	return jinja.ReplaceVars(format, treemanVars(status))

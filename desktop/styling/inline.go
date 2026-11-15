@@ -9,13 +9,11 @@ import (
 )
 
 // The per-widget inline variable blocks. Each function returns the full
-// rule text exactly as the Rust component's build_css formats it
-// (".bar { ... }" or "* { ... }"), for loading as that widget's own
+// rule text (".bar { ... }" or "* { ... }"), for loading as that widget's own
 // stylesheet. They live here rather than in shell/bar because they are
 // pure config→CSS functions over the same resolution rules as ThemeCSS.
 
-// ResolveColorCSS is a color field's CSS (resolve_color in
-// crates/wayle-widgets/src/styling.rs): tokens, transparent, and auto
+// ResolveColorCSS is a color field's CSS: tokens, transparent, and auto
 // pass through as CSS so a palette swap follows; a custom hex is used
 // under the lys-shell provider but falls back to the field's schema default
 // under an extractor, where a fixed hex has no mapping.
@@ -26,9 +24,7 @@ func ResolveColorCSS(value, fieldDefault config.ColorValue, provider config.Them
 	return value.ToCSS()
 }
 
-// ResolveIconColor is a bar button's icon color (resolve_icon_color in
-// crates/wayle-widgets/src/components/bar_buttons/component.rs): the
-// custom-hex fallback of ResolveColorCSS, then auto resolves to the
+// ResolveIconColor is a bar button's icon color: the custom-hex fallback of ResolveColorCSS, then auto resolves to the
 // module's accent token under the basic variant and to fg-on-accent on
 // the block-prefix and icon-square chrome.
 func ResolveIconColor(b config.ButtonConfig, variant config.BarButtonVariant, provider config.ThemeProvider) string {
@@ -63,8 +59,7 @@ func ResolveLabelColor(b config.ButtonConfig, s config.StylingConfig, t config.T
 	return ResolveColorCSS(color, b.Defaults.Label, s.ColorExtractor.ThemeProvider)
 }
 
-// ButtonCSS is one bar button's variable block (bar_buttons/styling.rs
-// build_css): the five colors, each a threshold override when one is
+// ButtonCSS is one bar button's variable block: the five colors, each a threshold override when one is
 // active, and the bar's button border width.
 func ButtonCSS(b config.ButtonConfig, bar config.BarConfig, s config.StylingConfig, t config.ThresholdColors) string {
 	provider := s.ColorExtractor.ThemeProvider
@@ -78,8 +73,7 @@ func ButtonCSS(b config.ButtonConfig, bar config.BarConfig, s config.StylingConf
 		"}"
 }
 
-// ContainerCSS is a bar container's variable block
-// (bar_container/styling.rs build_css): background, border color, and
+// ContainerCSS is a bar container's variable block: background, border color, and
 // the bar's button border width, zero while border-show is off.
 func ContainerCSS(c config.ContainerConfig, bar config.BarConfig, provider config.ThemeProvider) string {
 	width := 0
@@ -119,7 +113,7 @@ func WorkspacesCSS(c config.CompositorWorkspacesConfig, otherMonitor *config.Col
 	return b.String()
 }
 
-// barRemBase is the bar's px per rem (bar/styling.rs REM_BASE).
+// barRemBase is the bar's px per rem.
 const barRemBase float32 = 16
 
 // remToPxRounded rounds rem × scale × 16 to whole pixels, keeping icons
@@ -156,8 +150,7 @@ func borderSides(location config.BorderLocation, width int) (top, bottom, left, 
 	return 0, 0, 0, 0
 }
 
-// BarCSS is the bar's variable block (crates/lys-shell/src/shell/bar/
-// styling.rs build_css): scale, colors, borders, the pixel-rounded
+// BarCSS is the bar's variable block: scale, colors, borders, the pixel-rounded
 // spacing, the button opacity and weight, the group chrome, and the
 // shadow. The background opacity is the one the styling lets surfaces
 // show.

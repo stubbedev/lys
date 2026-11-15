@@ -117,8 +117,7 @@ func (s *captureServices) serve(conn *dbus.Conn) (stop func()) {
 }
 
 // trigger is the `lys-shell screenshot ...` builtin: a fire-and-forget
-// capture whose reply nobody awaits, like the Rust trigger's dropped
-// oneshot. A press refused during an open overlay is only logged.
+// capture whose reply nobody awaits. A press refused during an open overlay is only logged.
 func (s *captureServices) trigger(mode, target string) {
 	go func() {
 		if _, err := s.host.Capture(portaldialogs.Caller{}, mode, target); err != nil {

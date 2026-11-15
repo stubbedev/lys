@@ -11,7 +11,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// agentPath is where the pairing agent lives on the bus (service.rs).
+// agentPath is where the pairing agent lives on the bus.
 const agentPath = dbus.ObjectPath("/dev/stubbe/lys/BluetoothAgent")
 
 const agentUnregisterTimeout = 2 * time.Second
@@ -26,8 +26,7 @@ const (
 	errCanceled = "org.bluez.Error.Canceled"
 )
 
-// PairingRequest is one agent prompt awaiting the user (PairingRequest
-// in types/agent.rs). The concrete types are the seven variants; the
+// PairingRequest is one agent prompt awaiting the user. The concrete types are the seven variants; the
 // interface is sealed.
 type PairingRequest interface {
 	// DevicePath is the device the request is about.
@@ -129,8 +128,8 @@ type pending struct {
 }
 
 // asksYesNo reports whether the request's refusal is a rejection rather
-// than a cancellation (cancel_pending_request sends false to the bool
-// responders and drops the value ones).
+// than a cancellation: a cancel sends false to the yes/no responders and
+// drops the value ones.
 func asksYesNo(r PairingRequest) bool {
 	switch r.(type) {
 	case RequestConfirmation, RequestAuthorization, RequestServiceAuthorization:
@@ -139,7 +138,7 @@ func asksYesNo(r PairingRequest) bool {
 	return false
 }
 
-// agent is the exported org.bluez.Agent1 (agent/mod.rs). Each method
+// agent is the exported org.bluez.Agent1. Each method
 // runs on its own goroutine (godbus dispatches calls concurrently), so
 // the prompting ones block until the UI answers.
 type agent struct{ s *Service }
@@ -196,7 +195,7 @@ func (a *agent) Cancel() *dbus.Error {
 }
 
 // registerAgent exports the agent and registers it with BlueZ as the
-// default agent (service.rs: RegisterAgent with DisplayYesNo). The
+// default agent. The
 // default-agent request is best effort: pairing started from lys-shell
 // still reaches the agent without it.
 func (s *Service) registerAgent() error {
@@ -241,7 +240,7 @@ func (s *Service) setPending(p *pending) {
 }
 
 // withdraw clears the on-screen request, resolving a blocked call with
-// refuse's answer (event_processor.rs's Cancelled arm).
+// refuse's answer.
 func (s *Service) withdraw(refuse func(pending) agentAnswer) {
 	s.mu.Lock()
 	p := s.pairing
@@ -256,8 +255,8 @@ func (s *Service) withdraw(refuse func(pending) agentAnswer) {
 	s.changed()
 }
 
-// resolve answers the pending request when match accepts it
-// (providers.rs); anything else is NoPendingRequestError and leaves the
+// resolve answers the pending request when match accepts it;
+// anything else is NoPendingRequestError and leaves the
 // request in place.
 func (s *Service) resolve(requestType string, match func(PairingRequest) bool, ans agentAnswer) error {
 	s.mu.Lock()
@@ -324,7 +323,7 @@ func (s *Service) ProvideServiceAuthorization(allowed bool) error {
 
 // CancelPendingRequest dismisses whatever is on screen: the yes/no
 // requests are rejected, the PIN/passkey entries cancelled, a display
-// request just cleared (cancel_pending_request).
+// request just cleared.
 func (s *Service) CancelPendingRequest() {
 	s.withdraw(func(p pending) agentAnswer {
 		if asksYesNo(p.request) {

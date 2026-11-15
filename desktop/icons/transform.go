@@ -8,9 +8,9 @@ import (
 	"github.com/stubbedev/lys/desktop/icons/usvg"
 )
 
-// This file ports crates/wayle-icons/src/transform.rs: re-emit an
-// arbitrary symbolic-style SVG as a filled-path-only GTK Grappa
-// symbolic icon, outlining strokes into filled polygons.
+// This file re-emits an arbitrary symbolic-style SVG as a
+// filled-path-only GTK Grappa symbolic icon, outlining strokes into
+// filled polygons.
 
 const (
 	targetSize float32 = 16
@@ -25,8 +25,8 @@ type scaledPath struct {
 	isBoundingBox bool
 }
 
-// ToSymbolic is transform::to_symbolic; false when nothing can be
-// extracted.
+// ToSymbolic converts svg to a symbolic icon; false when nothing can
+// be extracted.
 func ToSymbolic(svg string) (string, bool) {
 	tree, err := usvg.Parse(svg)
 	if err != nil {
@@ -180,9 +180,9 @@ func writeCommand(b *strings.Builder, cmd byte, coords ...float32) {
 	}
 }
 
-// formatCoord is Rust's `{:.2}` for an f32: the exact binary value
-// rounded half-to-even at two decimals, "-0.00" for small negatives,
-// "NaN"/"inf" spelled as Rust does.
+// formatCoord prints an f32 at two decimals: the exact binary value
+// rounded half-to-even, "-0.00" for small negatives, "NaN"/"inf" for
+// the non-finite values.
 func formatCoord(f float32) string {
 	switch {
 	case f != f:

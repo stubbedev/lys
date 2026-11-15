@@ -1,6 +1,6 @@
 package config
 
-// WeatherConfig is ported from crates/wayle-config/src/schemas/modules/weather/mod.rs.
+// WeatherConfig configures the weather module.
 //
 // Current conditions with hourly and daily forecasts in a dropdown.
 type WeatherConfig struct {
@@ -95,7 +95,7 @@ func (c WeatherConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// WeatherProvider is ported from crates/wayle-config/src/schemas/modules/weather/mod.rs.
+// WeatherProvider is part of the weather module's configuration.
 //
 // Weather data provider selection.
 type WeatherProvider string
@@ -112,7 +112,7 @@ const (
 
 var _ = registerEnum(WeatherProviderOpenMeteo, WeatherProviderVisualCrossing, WeatherProviderWeatherApi)
 
-// TemperatureUnit is ported from crates/wayle-config/src/schemas/modules/weather/mod.rs.
+// TemperatureUnit is part of the weather module's configuration.
 //
 // Temperature unit for display.
 type TemperatureUnit string

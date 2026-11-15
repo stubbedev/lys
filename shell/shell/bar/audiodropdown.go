@@ -20,7 +20,7 @@ import (
 	"github.com/stubbedev/lys/shell/internal/appicons"
 )
 
-// PulseAudio property keys the dropdown reads (helpers.rs).
+// PulseAudio property keys the dropdown reads.
 const (
 	paStreamRestoreID  = "module-stream-restore.id"
 	paRoleEvent        = "sink-input-by-media-role:event"
@@ -30,12 +30,12 @@ const (
 	paFormFactor       = "device.form_factor"
 )
 
-// isEventStream is is_event_stream: event sounds have no app row.
+// isEventStream: event sounds have no app row.
 func isEventStream(props map[string]string) bool {
 	return props[paStreamRestoreID] == paRoleEvent
 }
 
-// streamIcon is stream_icon: Mapped tries the curated map on the app
+// streamIcon: Mapped tries the curated map on the app
 // name, binary, then icon name, falling back to the icon name made
 // symbolic; Native is the icon name, else the binary. "" is none.
 func streamIcon(props map[string]string, source config.AppIconSource) string {
@@ -62,7 +62,7 @@ func streamIcon(props map[string]string, source config.AppIconSource) string {
 	return name + "-symbolic"
 }
 
-// resolveStreamIcon is resolve_stream_icon: a Native icon the theme
+// resolveStreamIcon is the stream's icon; a Native icon the theme
 // lacks falls back to the Mapped one.
 func resolveStreamIcon(props map[string]string, source config.AppIconSource, exists func(string) bool) string {
 	icon := streamIcon(props, source)
@@ -72,7 +72,6 @@ func resolveStreamIcon(props map[string]string, source config.AppIconSource, exi
 	return icon
 }
 
-// audioVolumeIcon is helpers.rs's volume_icon.
 func audioVolumeIcon(percentage float64, muted bool) string {
 	switch {
 	case muted || percentage <= 0:
@@ -85,7 +84,6 @@ func audioVolumeIcon(percentage float64, muted bool) string {
 	return "ld-volume-2-symbolic"
 }
 
-// audioInputIcon is input_icon.
 func audioInputIcon(muted bool) string {
 	if muted {
 		return "ld-mic-off-symbolic"
@@ -93,7 +91,7 @@ func audioInputIcon(muted bool) string {
 	return "ld-mic-symbolic"
 }
 
-// appDisplayName is app_display_name: the application name, else the
+// appDisplayName is the application name, else the
 // stream name, first rune uppercased.
 func appDisplayName(applicationName, streamName string) string {
 	name := applicationName
@@ -107,7 +105,7 @@ func appDisplayName(applicationName, streamName string) string {
 	return string(unicode.ToUpper(r)) + name[size:]
 }
 
-// outputDeviceIcon is output_device_icon: the form factor, else a guess
+// outputDeviceIcon is the form factor, else a guess
 // from the name and description.
 func outputDeviceIcon(name, description string, props map[string]string) string {
 	switch props[paFormFactor] {
@@ -138,7 +136,6 @@ func outputDeviceIcon(name, description string, props map[string]string) string 
 	return "ld-speaker-symbolic"
 }
 
-// inputDeviceIcon is input_device_icon.
 func inputDeviceIcon(name, description string, props map[string]string) string {
 	switch props[paFormFactor] {
 	case "internal", "microphone":
@@ -162,8 +159,8 @@ func inputDeviceIcon(name, description string, props map[string]string) string {
 	return "ld-mic-symbolic"
 }
 
-// activePortDescription is active_port_description; "" when the device
-// has no active port or it is not listed.
+// activePortDescription is the active port's description, "" when
+// the device has no active port or it is not listed.
 func activePortDescription(active string, ports []pulse.DevicePort) string {
 	if active == "" {
 		return ""
@@ -176,7 +173,6 @@ func activePortDescription(active string, ports []pulse.DevicePort) string {
 	return ""
 }
 
-// audioKind is VolumeSectionKind.
 type audioKind int
 
 const (
@@ -321,8 +317,8 @@ func (v *audioView) apply(s audioState) {
 // showPage switches the page stack ("main", "output", "input").
 func (v *audioView) showPage(name string) { v.pages.Show(name) }
 
-// write runs a service control off the loop, as the Rust command
-// futures do; the follow loop picks up the result.
+// write runs a service control off the loop; the follow loop picks up
+// the result.
 func (v *audioView) write(what string, fn func(context.Context, pulse.Source) error) {
 	if call := v.call(what, fn); call != nil {
 		v.ctx.Go(call)
@@ -349,7 +345,7 @@ func (v *audioView) follow(life context.Context) {
 	}
 }
 
-// volumeSection is VolumeSection: the default device as an Item (its
+// volumeSection is the default device as an Item (its
 // icon, its name over the kind, the row opening the picker, the mute
 // button) over its labeled slider, or the no-device row.
 type volumeSection struct {
@@ -431,7 +427,6 @@ func (s *volumeSection) setMuted(muted bool) {
 	s.syncMuteIcon()
 }
 
-// syncMuteIcon is mute_icon.
 func (s *volumeSection) syncMuteIcon() {
 	muted := s.device != nil && s.device.muted
 	if s.kind == audioInput {
@@ -441,7 +436,7 @@ func (s *volumeSection) syncMuteIcon() {
 	s.muteIcon.SetThemeName(audioVolumeIcon(s.slider.Value(), muted))
 }
 
-// volumeWrite is commit_volume: the device write the slider runs off
+// volumeWrite is the device write the slider runs off
 // the loop, nil without a device.
 func (s *volumeSection) volumeWrite(pct float64) func() {
 	if s.device == nil {
@@ -453,7 +448,6 @@ func (s *volumeSection) volumeWrite(pct float64) func() {
 	})
 }
 
-// toggleMute is toggle_mute.
 func (s *volumeSection) toggleMute() {
 	if s.device == nil {
 		return
@@ -473,7 +467,7 @@ type appVolume struct {
 	muted bool
 }
 
-// appVolumeRows is sync_app_volumes's filter: no event streams, one row
+// appVolumeRows filters the streams: no event streams, one row
 // per process, sorted by name.
 func appVolumeRows(streams []pulse.AudioStream, source config.AppIconSource, exists func(string) bool) []appVolume {
 	seen := map[uint32]bool{}
@@ -500,7 +494,7 @@ func appVolumeRows(streams []pulse.AudioStream, source config.AppIconSource, exi
 	return rows
 }
 
-// appVolumes is AppVolumes: the scrolled rows or the no-apps state.
+// appVolumes is the scrolled rows or the no-apps state.
 type appVolumes struct {
 	*widget.Stack
 	view  *audioView
@@ -520,8 +514,7 @@ func newAppVolumes(v *audioView) *appVolumes {
 }
 
 // apply rebuilds when the rows' identity changed (the stream list),
-// otherwise pushes each stream's volume and mute into its row
-// (sync_single_app_volume).
+// otherwise pushes each stream's volume and mute into its row.
 func (a *appVolumes) apply(streams []pulse.AudioStream) {
 	rows := appVolumeRows(streams, a.view.ctx.Config.Volume.DropdownAppIcons, widget.ThemeIconExists)
 	same := a.items != nil && slices.EqualFunc(rows, a.rows, func(x, y appVolume) bool {
@@ -548,7 +541,7 @@ func (a *appVolumes) apply(streams []pulse.AudioStream) {
 	}
 }
 
-// appVolumeItem is AppVolumeItem: the app as an Item (its icon, its
+// appVolumeItem is the app as an Item (its icon, its
 // name, the value and the mute button) over its slider.
 type appVolumeItem struct {
 	*widget.Box
@@ -591,14 +584,13 @@ func newAppVolumeItem(v *audioView, r appVolume) *appVolumeItem {
 	return it
 }
 
-// apply is SetBackendState.
 func (it *appVolumeItem) apply(r appVolume) {
 	it.row = r
 	it.slider.Set(r.vol.AveragePercentage())
 	it.sync()
 }
 
-// sync refreshes the #[watch]ed value label, mute icon, and classes.
+// sync refreshes the value label, mute icon, and classes.
 func (it *appVolumeItem) sync() {
 	pct := it.slider.Value()
 	it.value.SetText(strconv.FormatFloat(pct, 'f', 0, 64) + "%")
@@ -612,7 +604,7 @@ func (it *appVolumeItem) sync() {
 	}
 }
 
-// volumeWrite is commit_app_volume: the stream write the slider runs
+// volumeWrite is the stream write the slider runs
 // off the loop.
 func (it *appVolumeItem) volumeWrite(pct float64) func() {
 	key, volume := it.row.key, pulse.VolumeFromPercentage(pct, it.row.vol.Channels())
@@ -621,7 +613,6 @@ func (it *appVolumeItem) volumeWrite(pct float64) func() {
 	})
 }
 
-// toggleMute is toggle_app_mute.
 func (it *appVolumeItem) toggleMute() {
 	key, muted := it.row.key, !it.row.muted
 	it.view.write("toggle app mute", func(ctx context.Context, src pulse.Source) error {
@@ -629,7 +620,7 @@ func (it *appVolumeItem) toggleMute() {
 	})
 }
 
-// devicePicker is DevicePicker: the back button and title over one row
+// devicePicker is the back button and title over one row
 // per physical device of the kind, the default checked.
 type devicePicker struct {
 	*widget.Box
@@ -654,7 +645,7 @@ func newDevicePicker(v *audioView, kind audioKind, title string) *devicePicker {
 	header.AppendAligned(backBtn, false, widget.AlignCenter)
 	titleLabel := widget.NewLabel(v.font, v.px, title, 0)
 	titleLabel.AddClass("picker-title", css.Heading)
-	header.AppendAligned(titleLabel, false, widget.AlignCenter) // natural width (device_picker/mod.rs:47)
+	header.AppendAligned(titleLabel, false, widget.AlignCenter)
 	p.Append(header, false)
 	card, list := itemCard()
 	card.AddClass("audio-device-list")
@@ -663,8 +654,7 @@ func newDevicePicker(v *audioView, kind audioKind, title string) *devicePicker {
 	return p
 }
 
-// apply is apply_device_list: the rows rebuild only when the list or
-// the default changed, so no-op ticks keep the row widgets alive.
+// apply rebuilds the rows only when the list or the default changed, so no-op ticks keep the row widgets alive.
 func (p *devicePicker) apply(devices []audioDevice, def *audioDevice) {
 	active, hasActive := pulse.DeviceKey{}, false
 	if def != nil {
@@ -689,7 +679,7 @@ func (p *devicePicker) apply(devices []audioDevice, def *audioDevice) {
 // row is DeviceOptionItem on lys-ui's Item: the device icon as the
 // media, the description over the subtitle, the check on the active
 // one. Activating it returns to the main page and makes the device the
-// default (select_device).
+// default.
 func (p *devicePicker) row(d audioDevice, active bool) *widget.Item {
 	v := p.view
 	key := d.key

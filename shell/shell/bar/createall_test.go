@@ -50,9 +50,8 @@ func TestAppendItemsSkipsUnknownModule(t *testing.T) {
 	}
 }
 
-// updates is in the schema without a module in either shell: its slot
-// is skipped as "not implemented" (the Rust factory's warning) and the
-// rest of the section builds.
+// updates is in the schema without a module: its slot is skipped as
+// "not implemented" and the rest of the section builds.
 func TestUnimplementedSchemaModuleIsSkipped(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	if _, err := createOnHeadlessLoop("updates", ctx); err == nil || !strings.Contains(err.Error(), "not implemented") {
@@ -64,7 +63,7 @@ func TestUnimplementedSchemaModuleIsSkipped(t *testing.T) {
 	}
 }
 
-// Modules that show an icon in Rust carry it: the clock assembles its
+// Modules that show an icon carry it: the clock assembles its
 // icon-name beside the time, and a bare icon root (power, dashboard)
 // becomes an icon-only button with the icon as its .bar-button-icon.
 func TestModulesCarryTheirIcons(t *testing.T) {

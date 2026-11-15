@@ -63,8 +63,7 @@ type Deps struct {
 	// Outputs lists the connected outputs, for launcher.monitor.
 	Outputs func() []*app.Output
 	// MonitorWidth is the width a percent -width resolves against (the
-	// compositor picks the output, so the first one stands in, as the
-	// Rust surface's fallback does before it is realized).
+	// compositor picks the output, so the first one stands in).
 	MonitorWidth func() int
 	// Clipboard is the history the clipboard mode reads (nil: none).
 	Clipboard modes.ClipboardHistory
@@ -147,7 +146,7 @@ type rowPreviewRequest struct {
 	ctx context.Context
 }
 
-// Surface is the launcher (shell/launcher/mod.rs): it serves the
+// Surface is the launcher: it serves the
 // launcher socket's sessions on the UI loop.
 type Surface struct {
 	d   Deps
@@ -214,7 +213,7 @@ func (s *Surface) ClientGone(id uint64) {
 	})
 }
 
-// openSession is open_session.
+// openSession shows sess, replacing or refusing the current one.
 func (s *Surface) openSession(sess *launcheripc.Session) {
 	if s.picker != nil {
 		switch {
@@ -349,7 +348,7 @@ func (k *sessionSink) onPreview(p enginePreview) {
 	}
 }
 
-// onMatches is EngineEvent::Matches: the list swaps, the selection
+// onMatches applies new matches: the list swaps, the selection
 // lands where the session asked, -select/-selected-row apply once, and
 // -auto-select accepts a lone result.
 func (s *Surface) onMatches(m engineMatches) {
@@ -380,7 +379,7 @@ func (s *Surface) onMatches(m engineMatches) {
 	s.armDump()
 }
 
-// onState is on_state: prompt, message, tabs, the selection intent, the
+// onState applies the session state: prompt, message, tabs, the selection intent, the
 // multi-select flag, and the filter a script reload clears.
 func (s *Surface) onState(st engineState) {
 	a := s.cur
@@ -435,7 +434,7 @@ func (s *Surface) onState(st engineState) {
 	s.resize()
 }
 
-// onAction is EngineEvent::Action: the terminal and input actions.
+// onAction applies the engine's terminal and input actions.
 func (s *Surface) onAction(act engine.Action) {
 	filter := s.cur.views.entry.Text()
 	switch v := act.(type) {
@@ -466,7 +465,7 @@ func (s *Surface) onAction(act engine.Action) {
 	}
 }
 
-// applyOneShotSelection is apply_one_shot_selection: -selected-row,
+// applyOneShotSelection applies -selected-row,
 // else -select, on the session's first populated list.
 func (s *Surface) applyOneShotSelection() {
 	a := s.cur
@@ -536,7 +535,7 @@ func (s *Surface) onPreview(p enginePreview) {
 	})
 }
 
-// fireSelectionHook is fire_selection_hook.
+// fireSelectionHook runs -on-selection-changed for the selected row.
 func (s *Surface) fireSelectionHook() {
 	a := s.cur
 	if a.decided || a.ui.hooks.SelectionChanged == "" {
@@ -555,7 +554,7 @@ func (a *active) hookInput() string {
 	return a.views.entry.Text()
 }
 
-// fireDecisionHook is fire_decision_hook: -on-entry-accepted and
+// fireDecisionHook runs -on-entry-accepted and
 // -on-menu-canceled, fired before the decision tears the session down.
 func (s *Surface) fireDecisionHook(action keyAction) {
 	a := s.cur
@@ -586,7 +585,7 @@ func (s *Surface) fireDecisionHook(action keyAction) {
 	s.d.FireHook(command, engine.HookContext{Input: typed, Entry: entry, Mode: a.modeName})
 }
 
-// onKey is on_key.
+// onKey runs a key binding's action.
 func (s *Surface) onKey(b keyBinding) {
 	a := s.cur
 	if a == nil {
@@ -660,7 +659,7 @@ func (s *Surface) onKey(b keyBinding) {
 	}
 }
 
-// onMouse is on_mouse: a click accepts the row it landed on, not
+// onMouse runs a mouse action: a click accepts the row it landed on, not
 // whatever was selected when the press came.
 func (s *Surface) onMouse(action mouseAction, row int) {
 	switch action {
@@ -736,7 +735,7 @@ func (s *Surface) togglePicked() {
 	s.cur.views.list.refresh(s.sel)
 }
 
-// moveSelection is move_selection: single steps wrap under -cycle, the
+// moveSelection moves the selection: single steps wrap under -cycle, the
 // rest clamp.
 func (s *Surface) moveSelection(delta int) {
 	n := s.model.len()
@@ -787,7 +786,7 @@ func (s *Surface) armDump() {
 	})
 }
 
-// end is end_session: stop the engine, answer the CLI (or release it),
+// end ends the session: stop the engine, answer the CLI (or release it),
 // close the surface.
 func (s *Surface) end(frame *launcheripc.ServerFrame) {
 	a := s.cur
@@ -897,7 +896,7 @@ func (s *Surface) resize() {
 	}
 }
 
-// resolveWidth is resolve_width: [launcher] width unless -width
+// resolveWidth is [launcher] width unless -width
 // overrode it, a percent against the monitor and a character count
 // against the font's advance of "0".
 func (s *Surface) resolveWidth(ui uiSettings) int {
@@ -923,7 +922,7 @@ func (s *Surface) resolveWidth(ui uiSettings) int {
 	return max(ui.width, 1)
 }
 
-// rebuildTabs is rebuild_tabs: one button per mode, the active one
+// rebuildTabs makes one button per mode, the active one
 // marked.
 func (s *Surface) rebuildTabs(names []string, activeMode int) {
 	v := s.cur.views

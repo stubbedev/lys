@@ -115,7 +115,7 @@ func (s *scope) writePattern(w *strings.Builder, p *pattern) {
 }
 
 // needsIsolation exempts message references, term references, and
-// string literals, as pattern.rs does.
+// string literals.
 func needsIsolation(e expression) bool {
 	switch e.(type) {
 	case messageRef, termRef, stringLiteral:

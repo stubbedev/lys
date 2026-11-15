@@ -6,14 +6,14 @@ import (
 )
 
 // This file ports the parts of nucleo-matcher 0.3.1 the launcher's
-// matching runs on: the fzf pattern syntax (pattern.rs), the fuzzy,
+// matching runs on: the fzf pattern syntax, the fuzzy,
 // substring, prefix, postfix, and exact matchers (lib.rs, exact.rs,
 // fuzzy_optimal.rs, fuzzy_greedy.rs, prefilter.rs), and the fzf-style
-// scoring (score.rs) with nucleo's default config. One generic path
+// scoring with nucleo's default config. One generic path
 // over runes replaces nucleo's ASCII/Unicode specializations; the ASCII
 // path's semantics are the ones kept.
 
-// Scoring constants (score.rs), with Config::DEFAULT's boundaries.
+// Scoring constants, with Config::DEFAULT's boundaries.
 const (
 	scoreMatch               = 16
 	penaltyGapStart          = 3
@@ -26,7 +26,7 @@ const (
 	bonusBoundaryWhite       = bonusBoundary + 2
 	bonusBoundaryDelimiter   = bonusBoundary + 1
 	// maxMatrixSize caps the optimal matcher's cells; past it the
-	// greedy matcher scores instead (matrix.rs).
+	// greedy matcher scores instead.
 	maxMatrixSize = 100 * 1024
 )
 

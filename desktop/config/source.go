@@ -7,8 +7,8 @@ import (
 )
 
 // ValueSource is the layer a field's effective value comes from: the
-// built-in default, the config file, or a runtime override
-// (wayle-config's ValueSource) - what the settings GUI badges.
+// built-in default, the config file, or a runtime override - what the
+// settings GUI badges.
 type ValueSource int
 
 // The layers, lowest first.

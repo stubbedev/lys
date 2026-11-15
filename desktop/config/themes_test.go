@@ -11,7 +11,7 @@ import (
 func TestBuiltinThemesTable(t *testing.T) {
 	themes := BuiltinThemes()
 	if len(themes) != 45 {
-		t.Fatalf("builtins = %d, want the 45 Rust themes", len(themes))
+		t.Fatalf("builtins = %d, want 45", len(themes))
 	}
 	if themes[0].Name != "lys-shell" || themes[0].Palette != lysShellTheme {
 		t.Errorf("first builtin = %+v, want the lys-shell theme", themes[0])
@@ -32,7 +32,7 @@ func TestBuiltinThemesTable(t *testing.T) {
 			}
 		}
 	}
-	// Spot-check a palette field by field against palettes.rs.
+	// Spot-check a palette field by field.
 	nord, ok := PaletteByName("nord")
 	want := palette("#2e3440", "#3b4252", "#434c5e", "#eceff4", "#d8dee9", "#88c0d0", "#bf616a", "#ebcb8b", "#a3be8c", "#81a1c1")
 	if !ok || nord != want {

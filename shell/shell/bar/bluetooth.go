@@ -10,7 +10,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
-// bluetoothLabel is helpers.rs's format_label: Off when unavailable or
+// bluetoothLabel is Off when unavailable or
 // disabled, Disconnected with no devices, one device's alias, else the
 // count.
 func bluetoothLabel(snap bluetooth.Snapshot) string {
@@ -27,7 +27,7 @@ func bluetoothLabel(snap bluetooth.Snapshot) string {
 	}
 }
 
-// bluetoothIconName is helpers.rs's select_icon: disabled when the
+// bluetoothIconName is disabled when the
 // adapter is absent or off, searching while discovering, then the
 // connected states.
 func bluetoothIconName(cfg config.BluetoothConfig, snap bluetooth.Snapshot) string {

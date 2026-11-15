@@ -1,7 +1,6 @@
 package config
 
-// OsdConfig is the `osd` section
-// (crates/wayle-config/src/schemas/osd/mod.rs).
+// OsdConfig is the `osd` section.
 //
 // On-screen display overlay for transient events like volume and brightness.
 type OsdConfig struct {
@@ -61,8 +60,7 @@ func (o OsdConfig) Preset(id string) (ToastPreset, bool) {
 	return ToastPreset{}, false
 }
 
-// OsdPosition is the OSD's screen anchor
-// (crates/wayle-config/src/schemas/osd/types.rs).
+// OsdPosition is the OSD's screen anchor.
 //
 // Screen anchor for the OSD overlay.
 type OsdPosition string

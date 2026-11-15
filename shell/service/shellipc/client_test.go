@@ -56,7 +56,7 @@ func TestVPNSSOCallbackWithNoShellRunningIsAnError(t *testing.T) {
 }
 
 // TestLockMethod pins the Lock round trip over a real bus: a ready
-// lock screen succeeds, a not-ready one (or none) fails with the Rust
+// lock screen succeeds, a not-ready one (or none) fails with the
 // daemon's Failed error.
 func TestLockMethod(t *testing.T) {
 	bus := dbustest.Start(t)

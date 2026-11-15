@@ -119,7 +119,7 @@ func yamlFloat(f float64, bits int) string {
 	case math.IsInf(f, -1):
 		return "-.inf"
 	}
-	s := rustFloat(f, bits)
+	s := formatFloat(f, bits)
 	if !strings.ContainsRune(s, '.') {
 		s += ".0"
 	}

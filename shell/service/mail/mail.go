@@ -1,5 +1,4 @@
-// Package mail is the unread-mail service, the Go counterpart of
-// crates/wayle-shell-core's services/mail: notmuch queries (one per
+// Package mail is the unread-mail service: notmuch queries (one per
 // account, or the single query), re-run when the notmuch maildir
 // changes, with optional desktop notifications for newly-arrived
 // messages. The bar module and the dropdown both read one Service.
@@ -102,7 +101,7 @@ func (s *Service) Subscribe() (<-chan struct{}, func()) { return s.ticks.Subscri
 // Run seeds the counts without notifying (existing unread mail at
 // startup is not "new"), then re-queries after each settled burst of
 // maildir changes until ctx ends. Without a notmuch database the seed
-// is all there is, as in the Rust service. The watch is armed before
+// is all there is. The watch is armed before
 // the seed query so a change during it is not lost.
 func (s *Service) Run(ctx context.Context) {
 	watcher := s.watchMaildir(ctx)

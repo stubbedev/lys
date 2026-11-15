@@ -13,15 +13,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
-// The goldens under testdata/clap are the CLI's contract, first
-// captured from the Rust lys-shell 0.8.53 binary (clap 4.5): every
-// command's -h and --help, a battery of parse errors with their exit
-// codes, colored (tty) renderings, and the five completion scripts.
-// The binary must reproduce them byte for byte; a deliberate CLI
-// change edits them in the same commit. {{ version }} in an error
-// golden stands for internal/version's release version, which a
-// release bumps.
-
 func runCaptured(t *testing.T, color bool, args ...string) (stdout, stderr string, code int) {
 	t.Helper()
 	var out, errOut bytes.Buffer
@@ -31,8 +22,8 @@ func runCaptured(t *testing.T, color bool, args ...string) (stdout, stderr strin
 	return out.String(), errOut.String(), code
 }
 
-func TestHelpMatchesClap(t *testing.T) {
-	files, err := filepath.Glob("testdata/clap/help/*.txt")
+func TestHelpMatchesGoldens(t *testing.T) {
+	files, err := filepath.Glob("testdata/cli/help/*.txt")
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no help goldens: %v", err)
 	}
@@ -89,8 +80,8 @@ func readGolden(t *testing.T, file string) golden {
 	return g
 }
 
-func TestParseErrorsMatchClap(t *testing.T) {
-	files, err := filepath.Glob("testdata/clap/errors/*.txt")
+func TestParseErrorsMatchGoldens(t *testing.T) {
+	files, err := filepath.Glob("testdata/cli/errors/*.txt")
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no error goldens: %v", err)
 	}
@@ -111,8 +102,8 @@ func TestParseErrorsMatchClap(t *testing.T) {
 	}
 }
 
-func TestColoredOutputMatchesClap(t *testing.T) {
-	files, err := filepath.Glob("testdata/clap/tty/*.txt")
+func TestColoredOutputMatchesGoldens(t *testing.T) {
+	files, err := filepath.Glob("testdata/cli/tty/*.txt")
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no tty goldens: %v", err)
 	}
@@ -132,10 +123,10 @@ func TestColoredOutputMatchesClap(t *testing.T) {
 	}
 }
 
-func TestCompletionsMatchClap(t *testing.T) {
+func TestCompletionsMatchGoldens(t *testing.T) {
 	for _, shell := range []string{"bash", "elvish", "fish", "powershell", "zsh"} {
 		t.Run(shell, func(t *testing.T) {
-			want, err := os.ReadFile("testdata/clap/completions/lys-shell." + shell)
+			want, err := os.ReadFile("testdata/cli/completions/lys-shell." + shell)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -156,8 +147,6 @@ func TestCompletionsMatchClap(t *testing.T) {
 	}
 }
 
-// `lys-shell -V` reports the Cargo workspace version, so the two binaries
-// cannot drift apart silently.
 // The binary invoked as `rofi` hands its whole argv to the launcher,
 // flags included; under its own name the same flags are lys-shell's.
 func TestRofiInvocationRoutesToLauncher(t *testing.T) {

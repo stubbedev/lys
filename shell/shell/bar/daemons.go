@@ -11,8 +11,7 @@ import (
 )
 
 // serveCLIDaemons exports the session-bus interfaces the `lys-shell` CLI
-// drives (the Rust services' with_daemon registrations in
-// lys-shell/src/bootstrap). Each is optional, as in Rust: a service
+// drives. Each is optional: a service
 // that cannot start is logged and its CLI reports it as not running.
 // They share the shell's session connection; the returned release drops
 // every name.

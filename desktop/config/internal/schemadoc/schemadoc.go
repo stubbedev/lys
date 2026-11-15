@@ -1,10 +1,9 @@
 // Package schemadoc extracts the config schema descriptions from the
-// config package's doc comments, the way schemars reads Rust doc
-// comments: a type's description is its doc after the first paragraph
-// (the Go sentence naming the type, which revive requires), a field's
-// is its whole doc, and an enum variant's is its constant's doc. The
-// text is kept verbatim (markdown), one leading space stripped per
-// line.
+// config package's doc comments: a type's description is its doc after
+// the first paragraph (the Go sentence naming the type, which revive
+// requires), a field's is its whole doc, and an enum variant's is its
+// constant's doc. The text is kept verbatim (markdown), one leading
+// space stripped per line.
 //
 // Generate renders the result as schemadoc_gen.go; `go generate
 // ./config` writes it and config's tests fail when it is stale.

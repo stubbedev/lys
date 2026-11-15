@@ -1,14 +1,14 @@
-// Package configdocs renders the config reference pages (`lys-shell config
-// docs`, lys-shell/src/docs): one VitePress page per documented schema, the
-// shared types page, and the index, from config.DocSections.
+// Package configdocs renders the config reference pages (`lys-shell
+// config docs`): one VitePress page per documented schema, the shared
+// types page, and the index, from config.DocSections.
 package configdocs
 
 import "strings"
 
-// rehostRustdoc is rehost_rustdoc: ATX headings shift to sit below
-// enclosingDepth (never shallower than one below it, never deeper than
-// six); fenced code passes through.
-func rehostRustdoc(description string, enclosingDepth int) string {
+// rehostHeadings shifts ATX headings to sit below enclosingDepth
+// (never shallower than one below it, never deeper than six); fenced
+// code passes through.
+func rehostHeadings(description string, enclosingDepth int) string {
 	const maxDepth = 6
 	shift := max(enclosingDepth-1, 0)
 	minDepth := min(enclosingDepth+1, maxDepth)
@@ -34,13 +34,13 @@ func rehostRustdoc(description string, enclosingDepth int) string {
 	return b.String()
 }
 
-// isFenceLine is is_fence_line.
+// isFenceLine reports whether line opens or closes a code fence.
 func isFenceLine(line string) bool {
 	t := strings.TrimLeft(line, " \t")
 	return strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")
 }
 
-// parseATXHeading is parse_atx_heading: the depth and the body from the
+// parseATXHeading is the depth and the body from the
 // space after the hashes; bare hashes, seven or more, or no space are
 // no heading.
 func parseATXHeading(line string) (int, string, bool) {
@@ -55,7 +55,7 @@ func parseATXHeading(line string) (int, string, bool) {
 	return n, t[n:], true
 }
 
-// lines is str::lines: split on \n, a trailing \r dropped, no final
+// lines splits on \n, a trailing \r dropped, no final
 // empty line for a trailing newline.
 func lines(s string) []string {
 	if s == "" {

@@ -1,0 +1,7 @@
+args: toast --duration abc
+code: 2
+--- stdout
+--- stderr
+error: invalid value 'abc' for '--duration <DURATION>': parse "abc" as an unsigned 32-bit integer: strconv.ParseUint: parsing "abc": invalid syntax
+
+For more information, try '--help'.

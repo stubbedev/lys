@@ -230,7 +230,7 @@ func TestDashboardMediaAndBatterySections(t *testing.T) {
 	}
 }
 
-// The Rust content box pads outside the scroll: .dropdown-content >
+// The content box pads outside the scroll: .dropdown-content >
 // .dashboard-scroll > .dashboard-content-box, with the cards in the
 // inner box.
 func TestDashboardContentPadsOutsideTheScroll(t *testing.T) {
@@ -270,7 +270,7 @@ func TestDashboardContentPadsOutsideTheScroll(t *testing.T) {
 }
 
 // The volume and media cards are always in the tree; their no-device
-// and empty states live inside (Rust builds them unconditionally).
+// and empty states live inside.
 func TestDashboardAlwaysShowsTheVolumeAndMediaCards(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg) // no Pulse, no Media
@@ -484,8 +484,7 @@ func TestDashboardQuickActionTiles(t *testing.T) {
 	}
 }
 
-// The battery card shows only for a present battery (the Rust
-// dashboard builds it only then): a desktop's UPower display device
+// The battery card shows only for a present battery: a desktop's UPower display device
 // reports none, and the card follows a battery arriving or leaving.
 func TestDashboardBatteryCardFollowsPresence(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())

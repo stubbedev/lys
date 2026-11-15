@@ -27,12 +27,12 @@ type SSHConfig struct {
 	MaxHistory uint32
 }
 
-// DefaultSSHConfig is SshConfig::default.
+// DefaultSSHConfig is the ssh mode without any flag or config.
 func DefaultSSHConfig() SSHConfig {
 	return SSHConfig{Client: "ssh", Command: "{terminal} -e {ssh-client} {host}", ParseKnownHosts: true, MaxHistory: 25}
 }
 
-// SSH connects to known hosts in a terminal (ssh.rs).
+// SSH connects to known hosts in a terminal.
 type SSH struct {
 	cfg     SSHConfig
 	history *launcher.History

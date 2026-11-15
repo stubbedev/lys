@@ -1,7 +1,6 @@
-// Package mpris is the media player service over MPRIS2 (D-Bus), the
-// Go counterpart of crates/wayle-media: it discovers players by bus
-// name, keeps each one's snapshot current from PropertiesChanged,
-// picks the active player the way selection.rs does, and drives the
+// Package mpris is the media player service over MPRIS2 (D-Bus): it
+// discovers players by bus name, keeps each one's snapshot current from
+// PropertiesChanged, picks the active player (SelectBest), and drives the
 // transport (play/pause, next, previous, seek, loop, shuffle).
 package mpris
 
@@ -31,7 +30,7 @@ const (
 	RootIface     = "org.mpris.MediaPlayer2"
 	PlayerIface   = "org.mpris.MediaPlayer2.Player"
 	// noTrack is the MPRIS "no track" object path SetPosition takes when
-	// the player publishes no mpris:trackid (player/mod.rs NULL_PATH).
+	// the player publishes no mpris:trackid.
 	noTrack = dbus.ObjectPath("/org/mpris/MediaPlayer2/TrackList/NoTrack")
 
 	playerNames = "org.mpris.MediaPlayer2"
@@ -63,7 +62,7 @@ func StateFromString(status string) PlaybackState {
 }
 
 // LoopMode is the player's LoopStatus; LoopUnsupported marks a player
-// without the property or with an unknown value (types.rs LoopMode).
+// without the property or with an unknown value.
 type LoopMode uint8
 
 // Loop modes.
@@ -139,18 +138,16 @@ type Player struct {
 	CanGoPrevious bool
 	CanSeek       bool
 	// CanLoop and CanShuffle report whether the player publishes the
-	// LoopStatus and Shuffle properties at all (player/mod.rs probes
-	// the reads the same way).
+	// LoopStatus and Shuffle properties at all.
 	CanLoop    bool
 	CanShuffle bool
 	// Volume is the player's Volume property, 0..1 (0 when unpublished).
 	Volume float64
 }
 
-// SelectBest is selection.rs select_best_player: the first priority
-// pattern (in order) that matches a player's bus name, else the first
-// playing player, else the first player. Patterns are wayle-media's
-// case-sensitive wildcards.
+// SelectBest picks the player of the first priority pattern (in order)
+// that matches a player's bus name, else the first playing player, else
+// the first player. Patterns are case-sensitive glob.Wildcard patterns.
 func SelectBest(players []Player, priority []string) (Player, bool) {
 	for _, pattern := range priority {
 		for _, p := range players {
@@ -170,7 +167,7 @@ func SelectBest(players []Player, priority []string) (Player, bool) {
 	return Player{}, false
 }
 
-// Ignored is monitoring.rs should_ignore: a plain substring match of
+// Ignored is a plain substring match of
 // any pattern against the bus name.
 func Ignored(busName string, patterns []string) bool {
 	for _, pattern := range patterns {
@@ -324,7 +321,7 @@ func (s *Service) Close() error {
 }
 
 // ownerChanged adds, removes, or replaces a player as its bus name
-// changes owner (monitoring.rs spawn_name_monitoring).
+// changes owner.
 func (s *Service) ownerChanged(change dbusx.OwnerChange, _ dbus.Sequence) error {
 	if !strings.HasPrefix(change.Name, BusNamePrefix) {
 		return nil
@@ -552,7 +549,7 @@ func (s *Service) Active() (Player, bool) {
 	return Player{}, false
 }
 
-// SetActive implements Source (service.rs set_active_player).
+// SetActive implements Source.
 // An empty bus name clears the active player.
 func (s *Service) SetActive(busName string) error {
 	s.mu.Lock()
@@ -718,7 +715,7 @@ func variantBool(v dbus.Variant) bool {
 }
 
 // variantMicros reads an MPRIS microsecond count (x or t); zero for
-// anything non-positive or absent (metadata types.rs duration).
+// anything non-positive or absent.
 func variantMicros(v dbus.Variant) time.Duration {
 	switch value := v.Value().(type) {
 	case int64:

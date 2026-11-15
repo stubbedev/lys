@@ -1,4 +1,4 @@
-// Package wallpaper ports crates/wayle-wallpaper: per-monitor wallpaper
+// Package wallpaper is the wallpaper service: per-monitor wallpaper
 // state, fit modes, directory cycling (sequential or shuffled, shared
 // or per monitor, rescanned on directory changes), color extraction
 // for theming, and the dev.stubbe.lys.Wallpaper1 D-Bus interface the
@@ -6,8 +6,7 @@
 //
 // The service only tracks state; the shell renders it (shell/wallpaper)
 // by subscribing to Changes and reading Monitors. The shell also feeds
-// it the outputs it sees (RegisterMonitor/UnregisterMonitor), where the
-// Rust service ran a second Wayland connection of its own for that.
+// it the outputs it sees (RegisterMonitor/UnregisterMonitor).
 package wallpaper
 
 import (
@@ -62,9 +61,8 @@ type Service struct {
 	sample    Sampler
 	rng       *rand.Rand
 
-	// extractMu serializes extractions (the Rust extractor task and the
-	// D-Bus ExtractColors method both reach extract_colors); it also
-	// guards lastExtracted, extractedAny and native.
+	// extractMu serializes extractions; it also guards lastExtracted,
+	// extractedAny and native.
 	extractMu     sync.Mutex
 	lastExtracted string
 	extractedAny  bool
@@ -100,7 +98,7 @@ func New(opts Options) *Service {
 func (s *Service) Changes() (<-chan struct{}, func()) { return s.changes.Subscribe() }
 
 // Extracted ticks after every color extraction pass, including passes
-// that found nothing new to extract (watch_extraction): theme providers
+// that found nothing new to extract: theme providers
 // re-read the palette cache on it.
 func (s *Service) Extracted() (<-chan struct{}, func()) { return s.extracted.Subscribe() }
 
@@ -209,7 +207,7 @@ func (s *Service) ThemingMonitor() string {
 
 // updateMonitors applies fn to a copy of the monitor map under s.mu
 // (fn may read the other fields and use s.rng, but must not lock) and
-// publishes it when it changed (Property::set's equality check).
+// publishes it when it changed.
 func (s *Service) updateMonitors(fn func(map[string]MonitorState)) {
 	s.mu.Lock()
 	next := maps.Clone(s.monitors)
@@ -327,8 +325,7 @@ func (s *Service) SetCyclingInterval(interval time.Duration) {
 }
 
 // setCycling publishes a cycling config. A change (or force) renders
-// the current indices and restarts the timer in Run
-// (handle_cycling_change).
+// the current indices and restarts the timer in Run.
 func (s *Service) setCycling(cfg *Cycling, force bool) {
 	s.mu.Lock()
 	changed := force || !s.cycling.equal(cfg)
@@ -344,7 +341,7 @@ func (s *Service) setCycling(cfg *Cycling, force bool) {
 }
 
 // renderCycle stores each monitor's current cycle image as its
-// wallpaper (render_cycle / render_current).
+// wallpaper.
 func (s *Service) renderCycle() {
 	s.step(func(*MonitorState, int) {})
 }
@@ -379,7 +376,7 @@ func (s *Service) Rewind() { s.step((*MonitorState).previous) }
 
 // SetSharedCycle toggles shared shuffle cycling. In an active shuffle
 // cycle, turning it on moves every monitor to one index and off gives
-// each a random one (handle_shared_cycle_change).
+// each a random one.
 func (s *Service) SetSharedCycle(shared bool) {
 	s.mu.Lock()
 	if s.sharedCycle == shared {
@@ -455,9 +452,8 @@ func (s *Service) RegisterMonitor(monitor string) {
 	})
 }
 
-// startingIndexLocked is new_monitor_starting_index; s.mu is held. The
-// shared index is the lowest-named monitor's, where Rust took whichever
-// the map iterated first.
+// startingIndexLocked is a new monitor's starting index; s.mu is held.
+// The shared index is the lowest-named monitor's.
 func (s *Service) startingIndexLocked(m map[string]MonitorState) int {
 	cfg := s.cycling
 	if cfg == nil || cfg.ImageCount() == 0 || cfg.Mode == Sequential {
@@ -479,8 +475,8 @@ func (s *Service) UnregisterMonitor(monitor string) {
 }
 
 // themingPath resolves the monitor and wallpaper extraction reads: the
-// configured theming monitor's, or the lowest-named monitor's
-// (theming_fallback). skip is true while a configured theming monitor is
+// configured theming monitor's, or the lowest-named monitor's.
+// skip is true while a configured theming monitor is
 // unplugged: theming must not hop to another monitor for the length of a
 // dock cycle.
 func themingPath(monitors map[string]MonitorState, theming string) (monitor, path string, skip bool) {
@@ -499,7 +495,7 @@ func themingPath(monitors map[string]MonitorState, theming string) (monitor, pat
 }
 
 // ExtractColors extracts the palette from the theming wallpaper unless
-// it was already extracted (extract_colors). Every call ends with an
+// it was already extracted. Every call ends with an
 // Extracted tick, whether or not a tool ran.
 func (s *Service) ExtractColors(ctx context.Context) error {
 	return s.extract(ctx, false)
@@ -545,8 +541,8 @@ func (s *Service) extractNative(ctx context.Context, cfg extract.Config, monitor
 }
 
 // Run drives the service until ctx ends: the cycling timer and
-// directory watcher (tasks/cycle_runner.rs) and the extraction loop
-// (spawn_color_extractor), which extracts once at start.
+// directory watcher and the extraction loop,
+// which extracts once at start.
 func (s *Service) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	wg.Go(func() { s.runCycling(ctx) })
@@ -625,7 +621,7 @@ func (s *Service) runCycling(ctx context.Context) {
 	}
 }
 
-// tick is handle_timer_fired: advance (or, in independent shuffle,
+// tick is one cycling step: advance (or, in independent shuffle,
 // jump to a random index), render, and report the next interval. An
 // empty pool stops the timer until the pool changes.
 func (s *Service) tick() (time.Duration, bool) {
@@ -643,8 +639,7 @@ func (s *Service) tick() (time.Duration, bool) {
 	return cfg.Interval, true
 }
 
-// refreshCycling rescans the watched directory into the active pool
-// (handle_directory_changed).
+// refreshCycling rescans the watched directory into the active pool.
 func (s *Service) refreshCycling(directory string) {
 	cfg := s.CyclingConfig()
 	if cfg == nil || cfg.Directory != directory {

@@ -134,17 +134,16 @@ func (s *stream) parseNumberImpl() (float64, error) {
 			}
 		}
 	}
-	n, err := parseRustFloat(s.text[start:s.pos])
+	n, err := parseValidatedFloat(s.text[start:s.pos])
 	if err != nil || math.IsInf(n, 0) || math.IsNaN(n) {
 		return 0, errParse
 	}
 	return n, nil
 }
 
-// parseRustFloat is f64::from_str over the already-validated number
-// grammar (strconv agrees with it there, except that Rust takes a
-// trailing-dot "1." and a leading-dot ".5", which strconv also does).
-func parseRustFloat(t string) (float64, error) {
+// parseValidatedFloat parses t, already validated against the number
+// grammar, including a trailing-dot "1." and a leading-dot ".5".
+func parseValidatedFloat(t string) (float64, error) {
 	body := strings.TrimLeft(t, "+-")
 	if body == "" || body == "." || strings.HasPrefix(body, ".e") || strings.HasPrefix(body, ".E") {
 		return 0, errParse

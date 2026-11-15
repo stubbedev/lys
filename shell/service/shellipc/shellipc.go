@@ -1,6 +1,5 @@
 // Package shellipc is the shell's own session-bus surface: the
-// dev.stubbe.lys.Shell1 control interface (wayle-shell-core's shell_ipc:
-// bar visibility per monitor, the lock and VPN sign-in hooks) and the
+// dev.stubbe.lys.Shell1 control interface (bar visibility per monitor, the lock and VPN sign-in hooks) and the
 // GApplication identity dev.stubbe.lys.shell with its org.gtk.Actions
 // (quit, inspector), which `lys-shell panel` and single-instance checks use.
 package shellipc
@@ -16,7 +15,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// dev.stubbe.lys.Shell1 (wayle-ipc/src/shell_ipc.rs).
+// dev.stubbe.lys.Shell1.
 const (
 	ServiceName       = "dev.stubbe.lys.Shell1"
 	ServicePath       = dbus.ObjectPath("/dev/stubbe/lys/Shell")
@@ -44,7 +43,7 @@ func NewState(onHidden func(hidden map[string]bool)) *State {
 	return &State{hidden: map[string]bool{}, onHidden: onHidden}
 }
 
-// SetConnectors is monitors.rs's sync_ipc_state: the bars that exist,
+// SetConnectors records the bars that exist,
 // with hidden entries for vanished connectors dropped. Call it on every
 // change of the set, startup's and each hotplug's.
 func (s *State) SetConnectors(connectors []string) {
@@ -116,7 +115,7 @@ func (s *State) update(fn func() bool) {
 	s.changed(false, changed)
 }
 
-// Hide is bar.rs's hide: "" hides every bar; an unknown connector is
+// Hide hides a bar: "" hides every bar; an unknown connector is
 // ignored.
 func (s *State) Hide(monitor string) {
 	s.update(func() bool {
@@ -134,7 +133,7 @@ func (s *State) Hide(monitor string) {
 	})
 }
 
-// Show is bar.rs's show: "" shows every bar.
+// Show shows a bar: "" shows every bar.
 func (s *State) Show(monitor string) {
 	s.update(func() bool {
 		switch {
@@ -149,7 +148,7 @@ func (s *State) Show(monitor string) {
 	})
 }
 
-// Toggle is bar.rs's toggle: "" hides all when none is hidden and
+// Toggle flips a bar: "" hides all when none is hidden and
 // shows all otherwise.
 func (s *State) Toggle(monitor string) {
 	s.update(func() bool {
@@ -193,7 +192,7 @@ func (s *State) connectorList() []string {
 }
 
 // Hooks are the actions other parts of the shell provide. A nil hook
-// answers as the Rust shell does before its component exists.
+// fails the call as if its component did not exist yet.
 type Hooks struct {
 	// Lock shows the lock screen; false means it is not ready.
 	Lock func() bool

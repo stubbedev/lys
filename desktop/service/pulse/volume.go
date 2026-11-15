@@ -8,14 +8,14 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
-// Volume limits (volume/types.rs): 1.0 is 100%, above 2.0 may damage
+// Volume limits: 1.0 is 100%, above 2.0 may damage
 // hardware, 4.0 is the ceiling every constructor clamps to.
 const (
 	volumeSafeMax = 2.0
 	volumeMax     = 4.0
 )
 
-// Volume is a per-channel linear volume (volume/types.rs's Volume):
+// Volume is a per-channel linear volume:
 // 0.0 is silent, 1.0 normal, up to 4.0 amplified. It is immutable;
 // the With* methods return a changed copy.
 type Volume struct {
@@ -23,7 +23,7 @@ type Volume struct {
 }
 
 // NewVolume clamps each channel into 0..4, logging the clamps and the
-// levels past the safe 2.0, as Volume::new does.
+// levels past the safe 2.0.
 func NewVolume(levels []float64) Volume {
 	out := make([]float64, len(levels))
 	for i, v := range levels {
@@ -46,7 +46,7 @@ func clampLevel(v float64) float64 {
 	return v
 }
 
-// InvalidVolumeError rejects an out-of-range level (volume/error.rs).
+// InvalidVolumeError rejects an out-of-range level.
 type InvalidVolumeError struct {
 	Channel int
 	Volume  float64
@@ -65,8 +65,7 @@ func (e *InvalidChannelError) Error() string {
 	return fmt.Sprintf("invalid channel index %d", e.Channel)
 }
 
-// VolumeWithAmplification validates instead of clamping
-// (Volume::with_amplification): any level outside 0..4 is an error.
+// VolumeWithAmplification validates instead of clamping: any level outside 0..4 is an error.
 func VolumeWithAmplification(levels []float64) (Volume, error) {
 	for i, v := range levels {
 		if v < 0 || v > volumeMax {
@@ -176,7 +175,7 @@ func (v Volume) IsNormal() bool {
 // Equal compares channel by channel.
 func (v Volume) Equal(o Volume) bool { return slices.Equal(v.levels, o.levels) }
 
-// volumeFromPulse is conversion/volume.rs's from_pulse: raw / NORM
+// volumeFromPulse is raw / NORM
 // per channel, through NewVolume's clamp.
 func volumeFromPulse(cv native.CVolume) Volume {
 	levels := make([]float64, len(cv))

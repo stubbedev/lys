@@ -12,7 +12,7 @@ import (
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// keyAction is a surface action a key can trigger (views.rs KeyAction).
+// keyAction is a surface action a key can trigger.
 type keyAction uint8
 
 const (
@@ -44,7 +44,7 @@ type keyBinding struct {
 
 // actionFromName maps rofi kb- names onto the actions the surface
 // implements. Entry editing (move-word, remove-char, paste) stays with
-// the entry's own editing keys, as in the Rust surface.
+// the entry's own editing keys.
 func actionFromName(name string) (keyAction, uint8, bool) {
 	switch name {
 	case "accept-entry":
@@ -108,7 +108,7 @@ func compileKeys(bindings []engine.Binding) []keyBinding {
 }
 
 // lookupKey finds the binding for a press; the accelerator form
-// already folds letters, which is the Rust lookup's lowercase match.
+// already folds letters, so the match is case-insensitive.
 func lookupKey(table []keyBinding, press app.Accel) (keyBinding, bool) {
 	for _, b := range table {
 		if b.accel == press {

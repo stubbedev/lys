@@ -77,14 +77,13 @@ func (s *Server) GetServerInformation() (string, string, string, string, *dbus.E
 	return ServerName, ServerVendor, ServerVersion, SpecVersion, nil
 }
 
-// lys-shell's control extension, which `lys-shell notify` drives
-// (wayle-notification/src/lys_shell_daemon.rs).
+// lys-shell's control extension, which `lys-shell notify` drives.
 const (
 	LysShellName = "dev.stubbe.lys.Notifications1"
 	LysShellPath = dbus.ObjectPath("/dev/stubbe/lys/Notifications")
 )
 
-// defaultPopupDuration is the service builder's popup_duration.
+// defaultPopupDuration is how long a popup shows, in milliseconds, until configured.
 const defaultPopupDuration = 5000
 
 // lysShellDaemon is the dev.stubbe.lys.Notifications1 object (LysShellDaemon).

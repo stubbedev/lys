@@ -1,10 +1,5 @@
 package config
 
-// The bar styling enums and the CSS mappings their consumers read,
-// ported from crates/wayle-config/src/schemas/bar/types (mod.rs,
-// shadow.rs) and crates/wayle-config/src/schemas/styling/types
-// (rounding.rs, typography.rs).
-
 // OppositeMargin is the margin on the edge opposite the anchor, where
 // the shadow extends.
 func (s ShadowPreset) OppositeMargin() uint32 { return s.MarginPx() }
@@ -96,14 +91,12 @@ func (r RoundingLevel) scopedCSSValues(prefix string) RoundingCSSValues {
 	}
 }
 
-// ScaleValue is the multiplier of a scale size; ok is false for pixels
-// (Size::scale_value).
+// ScaleValue is the multiplier of a scale size; ok is false for pixels.
 func (s Size) ScaleValue() (float64, bool) {
 	return float64(s.Value), s.Unit == SizeMultiplier
 }
 
-// PxValue is the length of a pixel size; ok is false for a multiplier
-// (Size::px_value).
+// PxValue is the length of a pixel size; ok is false for a multiplier.
 func (s Size) PxValue() (float64, bool) {
 	return float64(s.Value), s.Unit == SizePixels
 }

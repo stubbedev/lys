@@ -21,7 +21,7 @@ const (
 // primary, 2 middle, 3 secondary, 8 back, 9 forward, ExtraN beyond).
 type MouseButton uint32
 
-// Named buttons (mouse.rs MouseButton::number).
+// Named buttons.
 const (
 	MousePrimary   MouseButton = 1
 	MouseMiddle    MouseButton = 2

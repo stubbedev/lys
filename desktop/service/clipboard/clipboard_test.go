@@ -300,9 +300,8 @@ func TestCopyingTextOffersEveryTextAlias(t *testing.T) {
 	}
 }
 
-// The Rust service stops recording for the rest of the session after
-// its first restore (its serving slot is never cleared); here only the
-// restore's own offer is skipped, and the next foreign copy counts.
+// Only the restore's own offer is skipped; the next foreign copy is
+// remembered.
 func TestACopyAfterARestoreIsRememberedAgain(t *testing.T) {
 	c, dev := newTestClipboard(t, nil)
 	first := &fakeOffer{mimes: []string{textMime}}

@@ -1,6 +1,6 @@
 package config
 
-// SeparatorConfig is ported from crates/wayle-config/src/schemas/modules/separator/mod.rs.
+// SeparatorConfig configures the separator module.
 //
 // A vertical rule between bar modules.
 type SeparatorConfig struct {

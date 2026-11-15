@@ -594,9 +594,8 @@ func Links(dirs []string) []Link {
 	return out
 }
 
-// walkFlat lists the top-level .desktop files of each dir (drun.rs
-// collect_links reads each dir without recursing), the earlier dir
-// winning a file name.
+// walkFlat lists the top-level .desktop files of each dir, without
+// recursing, the earlier dir winning a file name.
 func walkFlat(dirs []string) []entryFile {
 	seen := map[string]bool{}
 	var out []entryFile

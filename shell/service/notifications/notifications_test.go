@@ -123,7 +123,7 @@ func TestDNDSuppressesPopups(t *testing.T) {
 		t.Fatal("no dnd event")
 	}
 	// A popup already up stays; DND keeps new ones off the list while
-	// the history still takes them (handle_popup_added).
+	// the history still takes them.
 	s.Notify("app", 0, "", "quiet", "", nil, 0)
 	<-feed
 	if got := len(s.Popups()); got != 1 {

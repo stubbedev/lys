@@ -54,7 +54,7 @@ type WindowConfig struct {
 	CurrentDesktopOnly bool
 }
 
-// DefaultWindowConfig is WindowConfig::default.
+// DefaultWindowConfig is the window mode without any flag or config.
 func DefaultWindowConfig() WindowConfig {
 	return WindowConfig{
 		Format:        "{w}   {c}   {t}",
@@ -120,9 +120,7 @@ func (win WindowInfo) Preview() launcher.Preview {
 	return launcher.Preview{Image: win.Capture, Facts: facts}
 }
 
-// WindowBackend talks to one compositor. The Rust mode shelled out to
-// hyprctl, niri msg, and swaymsg; the Go shell already has native IPC
-// clients for every compositor, so the same JSON arrives over the sockets.
+// WindowBackend talks to one compositor over its native IPC client.
 type WindowBackend interface {
 	List(ctx context.Context) ([]WindowInfo, error)
 	Focus(ctx context.Context, id string) error
@@ -147,7 +145,7 @@ func DetectWindows() WindowBackend {
 	return nil
 }
 
-// Window switches between open windows (window.rs).
+// Window switches between open windows.
 type Window struct {
 	cfg     WindowConfig
 	backend WindowBackend
@@ -442,8 +440,7 @@ func (swayBackend) List(context.Context) ([]WindowInfo, error) {
 }
 
 // swayNode is the part of a GET_TREE node the walk reads; raw fields
-// keep "present and a string" distinct from absent or null, as the
-// Rust walk tests them.
+// keep "present and a string" distinct from absent or null.
 type swayNode struct {
 	Type             string            `json:"type"`
 	ID               int64             `json:"id"`
@@ -483,7 +480,7 @@ func parseSwayTree(raw []byte) ([]WindowInfo, error) {
 
 // walkSway collects view nodes, carrying the nearest workspace name. A
 // view is a con or floating_con leaf with a string name and either an
-// app_id string or window_properties object (window.rs walk_sway).
+// app_id string or window_properties object.
 func walkSway(raw json.RawMessage, workspace string, hasWS bool, out *[]WindowInfo) error {
 	var n swayNode
 	if err := json.Unmarshal(raw, &n); err != nil {

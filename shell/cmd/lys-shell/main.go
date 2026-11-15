@@ -1,9 +1,7 @@
-// Command lys-shell is the Go rewrite's entry point: the lys-shell/src/main.rs
-// CLI with the same clap tree (help, flags, errors, exit codes, shell
-// completions), declared once in internal/cli form. Each top-level
-// subcommand lives in its own file as a <name>Command constructor;
-// anything not ported yet keeps its full argument tree and exits 1
-// naming itself instead of silently doing nothing.
+// Command lys-shell is the lys-shell CLI: its command tree (help,
+// flags, errors, exit codes, shell completions) is declared once in
+// internal/cli form. Each top-level subcommand lives in its own file as
+// a <name>Command constructor.
 package main
 
 import (
@@ -15,8 +13,8 @@ import (
 	"github.com/stubbedev/lys/shell/internal/cli"
 )
 
-// rootCommand is lys-shell/src/cli/app.rs's Cli: the subcommands in the
-// Rust enum's order, which is the order help and completions list.
+// rootCommand is the CLI: the subcommands in the order help and
+// completions list them.
 func rootCommand() *cli.Command {
 	return &cli.Command{
 		Name:    "lys-shell",
@@ -55,8 +53,7 @@ func main() {
 }
 
 // run is main without the process exit. Invoked as `rofi` (a symlink
-// or hardlink), the whole argument vector is rofi-style launcher flags
-// (main.rs's invoked_as_rofi).
+// or hardlink), the whole argument vector is rofi-style launcher flags.
 func run(argv []string, out cli.Output) int {
 	args := argv[1:]
 	if len(argv) > 0 && filepath.Base(argv[0]) == "rofi" {

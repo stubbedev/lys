@@ -77,8 +77,7 @@ func TestReloadClearingTheCycleRestoresTheConfiguredImages(t *testing.T) {
 	if svc.CyclingConfig() != nil {
 		t.Fatal("clearing cycling-directory left cycling on")
 	}
-	// The single image is applied last, to every monitor (the Rust
-	// watcher's order).
+	// The single image is applied last, to every monitor.
 	for _, m := range []string{"DP-1", "DP-2"} {
 		if got, _ := svc.Wallpaper(m); got != cycling.Wallpaper {
 			t.Errorf("%s = %q, want the restored single image", m, got)

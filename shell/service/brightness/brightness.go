@@ -1,5 +1,4 @@
-// Package brightness reads and sets backlight levels, the Go
-// counterpart of crates/wayle-brightness: sysfs enumeration and reads,
+// Package brightness reads and sets backlight levels: sysfs enumeration and reads,
 // logind SetBrightness as the write path with a direct sysfs fallback,
 // and external monitors over DDC/CI (ddc.go) with kernel-uevent
 // hotplug (uevent.go).
@@ -21,8 +20,7 @@ import (
 // var so tests can repoint it at a fake tree.
 var BacklightDir = "/sys/class/backlight"
 
-// Type distinguishes firmware, platform, and raw backlights
-// (types/backlight.rs's BacklightType).
+// Type distinguishes firmware, platform, and raw backlights.
 type Type uint8
 
 // Backlight types.
@@ -34,8 +32,7 @@ const (
 	TypeDDC
 )
 
-// TypeFromSysfs parses the sysfs `type` file; unknown values are Raw,
-// matching BacklightType::from_sysfs's None fallback.
+// TypeFromSysfs parses the sysfs `type` file; unknown values are Raw.
 func TypeFromSysfs(value string) Type {
 	switch strings.TrimSpace(value) {
 	case "firmware":
@@ -119,7 +116,7 @@ func ReadDevice(name string) (Device, error) {
 }
 
 // Enumerate lists every backlight device; an unreadable class
-// directory yields an empty list, the Rust shell's warn-and-continue.
+// directory yields an empty list.
 func Enumerate() []Device {
 	entries, err := os.ReadDir(BacklightDir)
 	if err != nil {
@@ -141,8 +138,8 @@ func writeSysfs(name string, value uint32) error {
 		[]byte(strconv.FormatUint(uint64(value), 10)), 0o644)
 }
 
-// logindBacklight drives logind's SetBrightness for the user's session
-// (backend/logind.rs's primary write path), resolving the session once,
+// logindBacklight drives logind's SetBrightness for the user's session,
+// resolving the session once,
 // on the first write that can: "auto" is the display
 // session for a shell outside any session, a service of the systemd
 // user manager, where "self" is none. Its caller serialises set.
@@ -162,7 +159,7 @@ func (l *logindBacklight) set(ctx context.Context, name string, value uint32) er
 	return l.session.SetBrightness(ctx, logind.Backlight, name, value)
 }
 
-// AveragePercentage is the mean level across devices (helpers.rs): what
+// AveragePercentage is the mean level across devices: what
 // the bar label and the OSD show, since a brightness action drives every
 // device at once. False when there is none.
 func AveragePercentage(devices []Device) (float64, bool) {

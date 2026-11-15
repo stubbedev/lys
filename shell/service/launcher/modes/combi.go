@@ -7,8 +7,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// Combi merges several modes into one list, !bang filterable
-// (combi.rs).
+// Combi merges several modes into one list, !bang filterable.
 type Combi struct {
 	children      []launcher.Mode
 	displayFormat string

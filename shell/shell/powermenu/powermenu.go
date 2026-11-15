@@ -1,4 +1,4 @@
-// Package powermenu is the native power menu (shell/power_menu): a
+// Package powermenu is the native power menu: a
 // full-screen dimmed overlay with a centered pane of frosted glass
 // holding lock, log out, suspend, reboot and shut-down buttons, each
 // running its [modules.power] command. The power module's `:menu`

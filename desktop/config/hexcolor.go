@@ -6,15 +6,14 @@ import (
 )
 
 // HexColor is a validated GTK4 CSS hex color: #rgb, #rgba, #rrggbb, or
-// #rrggbbaa (wayle-config's styling HexColor). Construct it through
+// #rrggbbaa. Construct it through
 // ParseHexColor or config decoding; the zero value reads as opaque black.
 type HexColor struct {
 	s string
 }
 
 // ParseHexColor validates a hex color string. A missing '#', a digit
-// count other than 3, 4, 6, or 8, or a non-hex character is an error,
-// mirroring the Rust newtype's three failure cases.
+// count other than 3, 4, 6, or 8, or a non-hex character is an error.
 func ParseHexColor(s string) (HexColor, error) {
 	if !strings.HasPrefix(s, "#") {
 		return HexColor{}, fmt.Errorf("hex color must start with '#', got: %s", s)
@@ -98,7 +97,6 @@ func (c *HexColor) UnmarshalConfig(v any) error {
 // MarshalConfig implements Marshaler.
 func (c HexColor) MarshalConfig() any { return c.s }
 
-// configSchema is hex_color.rs's hand-written JsonSchema.
 func (HexColor) configSchema(*schemaGen) Schema {
 	return Schema{
 		"description": "GTK4 CSS hex color (#rgb, #rgba, #rrggbb, or #rrggbbaa)",

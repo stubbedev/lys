@@ -2,7 +2,7 @@ package config
 
 import "time"
 
-// RecorderConfig is ported from crates/wayle-config/src/schemas/modules/recorder/mod.rs.
+// RecorderConfig configures the recorder module.
 //
 // Native screen recorder encoding on the GPU's video encoder.
 //
@@ -136,7 +136,7 @@ func (c RecorderConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
 
-// RecorderFormat is ported from crates/wayle-config/src/schemas/modules/recorder/types.rs.
+// RecorderFormat is part of the recorder module's configuration.
 //
 // Container format / codec preset for recordings.
 type RecorderFormat string

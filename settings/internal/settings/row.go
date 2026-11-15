@@ -15,10 +15,10 @@ import (
 )
 
 // hiddenPriority puts the reset button's hidden opacity above every
-// stylesheet: Rust sets the widget's opacity, which no CSS overrides.
+// stylesheet, so no CSS overrides it.
 const hiddenPriority = apptheme.Priority + 1
 
-// Row text limits (row/mod.rs).
+// Row text limits.
 const (
 	descriptionMaxChars        = 120
 	descriptionTooltipMinChars = 80
@@ -263,7 +263,7 @@ func (r *settingRow) showProblem(err error) {
 	}
 }
 
-// newSettingRow lays a row out (row/mod.rs view): a full-width control
+// newSettingRow lays a row out: a full-width control
 // stacks under the text, with the reset button beside the label.
 func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *settingRow {
 	t := locale.T()

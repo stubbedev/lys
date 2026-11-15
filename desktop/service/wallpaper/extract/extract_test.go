@@ -12,12 +12,9 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// goldenCases mirror testdata/rust/generator.rs.txt: the Rust
-// ColorExtractorConfig each golden directory was recorded from. The
-// recordings are the Rust extractor run against testdata/fake-tool.sh
-// (argv, generated wallust config and template, saved matugen cache),
-// so a match here means the real tool sees an identical invocation and
-// writes an identical palette.
+// goldenCases are the Config each directory under testdata/golden
+// holds the recording of: the extractor run against testdata/fake-tool.sh
+// (argv, generated wallust config and template, saved matugen cache).
 var goldenCases = map[string]func(*Config){
 	"wallust-default": func(c *Config) { c.Tool = Wallust },
 	"wallust-custom": func(c *Config) {
@@ -103,7 +100,7 @@ func TestExtractMatchesRustGolden(t *testing.T) {
 			if cache := filepath.Join(root, "cache", "lys-shell", "matugen-colors.json"); fileExists(cache) {
 				copyFile(t, cache, filepath.Join(out, "matugen-colors.json"))
 			}
-			compareDir(t, filepath.Join("testdata", "rust", name), out, root)
+			compareDir(t, filepath.Join("testdata", "golden", name), out, root)
 		})
 	}
 }
@@ -118,9 +115,9 @@ func TestExtractFailureCarriesTrimmedStderr(t *testing.T) {
 	if _, ok := errors.AsType[*FailedError](err); !ok {
 		t.Fatalf("err = %v, want a FailedError", err)
 	}
-	want, _ := os.ReadFile("testdata/rust/pywal-fail/result")
+	want, _ := os.ReadFile("testdata/golden/pywal-fail/result")
 	if got := resultLine(err); got != string(want) {
-		t.Errorf("error = %q, want the Rust %q", got, want)
+		t.Errorf("error = %q, want %q", got, want)
 	}
 }
 
@@ -134,9 +131,9 @@ func TestExtractMissingToolIsACommandError(t *testing.T) {
 	if !errors.As(err, &cmdErr) || cmdErr.Tool != Matugen {
 		t.Fatalf("err = %v, want a matugen CommandError", err)
 	}
-	want, _ := os.ReadFile("testdata/rust/matugen-missing/result")
+	want, _ := os.ReadFile("testdata/golden/matugen-missing/result")
 	if got := resultLine(err); got != string(want) {
-		t.Errorf("error = %q, want the Rust %q", got, want)
+		t.Errorf("error = %q, want %q", got, want)
 	}
 	if cmdErr.Unwrap() == nil {
 		t.Error("the exec cause is dropped")
@@ -244,7 +241,7 @@ func compareDir(t *testing.T, want, got, root string) {
 			continue
 		}
 		if expect := strings.ReplaceAll(string(w), "@ROOT@", root); string(g) != expect {
-			t.Errorf("%s differs from the Rust recording:\n got: %q\nwant: %q", e.Name(), g, expect)
+			t.Errorf("%s differs from the recording:\n got: %q\nwant: %q", e.Name(), g, expect)
 		}
 	}
 }

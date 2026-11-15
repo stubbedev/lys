@@ -11,9 +11,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// The testdata/theme_*.css goldens are the output of the Rust
-// theme_css for the same inputs, captured from a probe test in
-// crates/wayle-styling.
+// The testdata/theme_*.css goldens are ThemeCSS's output for the
+// inputs each test names.
 func golden(t *testing.T, name string) string {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("testdata", name))
@@ -97,8 +96,7 @@ func TestThemeCSSPixelOverridesOnlyForPixelSizes(t *testing.T) {
 	}
 }
 
-func TestFormatF32MatchesRustDisplay(t *testing.T) {
-	// Rust's f32 Display for the same values (probe output).
+func TestFormatF32IsShortestPlainDecimal(t *testing.T) {
 	for v, want := range map[float32]string{
 		1: "1", 1.01: "1.01", 0.9: "0.9", 1.3: "1.3", 0.25: "0.25", 3: "3",
 		1.25: "1.25", 3.5: "3.5", 24: "24", 0.1: "0.1", 1e-7: "0.0000001", 123456.7: "123456.7",

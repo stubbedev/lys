@@ -1,5 +1,5 @@
-// Package widgets is wayle-widgets: the controls the shell surfaces and
-// the settings app share.
+// Package widgets holds the controls the shell surfaces and the
+// settings app share.
 package widgets
 
 import (
@@ -11,14 +11,13 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// DebouncedSlider's cadences (wayle-widgets slider/debounced).
+// DebouncedSlider's cadences.
 const (
 	sliderThrottle = 100 * time.Millisecond
 	sliderGrace    = 150 * time.Millisecond
 )
 
-// DebouncedSlider is wayle-widgets' DebouncedSlider: a slider with an optional value
-// label that commits (backend writes) at most every 100ms while
+// DebouncedSlider is a slider with an optional value label that commits (backend writes) at most every 100ms while
 // dragged, with a trailing commit of the last value and one on release,
 // and ignores external values while held and for 150ms after.
 type DebouncedSlider struct {
@@ -26,7 +25,7 @@ type DebouncedSlider struct {
 	// Knob is the slider itself (class it, read it).
 	Knob  *pressSlider
 	label *widget.Label
-	// Format renders the value label (default "{:.0}%").
+	// Format renders the value label (default: whole percent, "42%").
 	Format func(float64) string
 	invoke func(func())
 
@@ -90,7 +89,7 @@ func (s *pressSlider) SetPressed(on bool) {
 
 // NewDebouncedSlider builds a 0-100 slider (every lys-shell slider is a
 // percentage); with a font the
-// value label shows (format, default "{:.0}%"). invoke runs the
+// value label shows (Format, default whole percent). invoke runs the
 // trailing commit on the loop.
 func NewDebouncedSlider(value float64, font render.Font, px float64, color render.Color, invoke func(func())) *DebouncedSlider {
 	return NewRangedSlider(0, 100, value, font, px, color, invoke)

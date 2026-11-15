@@ -7,7 +7,7 @@ import (
 )
 
 // This file turns "NM wants secrets for setting X, hinting at keys Y"
-// into a prompt (agent/fields.rs). The hints are the point of the
+// into a prompt. The hints are the point of the
 // VPN-hints capability: a plugin says exactly which keys it is missing,
 // so the prompt asks for those rather than guessing that every VPN
 // wants a username and a password.
@@ -73,7 +73,7 @@ func describe(key string) (label string, secret bool) {
 }
 
 // fieldsFor is what to ask the user for, or nil when there is nothing
-// a person could usefully type (for_request).
+// a person could usefully type.
 func fieldsFor(setting string, hints []string) []secrets.Field {
 	var keys []string
 	if len(hints) == 0 {

@@ -14,7 +14,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/treeman"
 )
 
-// treemanBucketLabel is bucket_label.
 func treemanBucketLabel(b treeman.Bucket) string {
 	switch b {
 	case treeman.BucketUp:
@@ -27,7 +26,7 @@ func treemanBucketLabel(b treeman.Bucket) string {
 	return i18n.T("dropdown-treeman-bucket-stable")
 }
 
-// treemanVariant is dot_variant: the status-dot and badge color class.
+// treemanVariant is the status-dot and badge color class.
 func treemanVariant(b treeman.Bucket) string {
 	switch b {
 	case treeman.BucketUp:
@@ -103,7 +102,8 @@ func (v *treemanView) read(context.Context) *treeman.Status {
 	return v.ctx.Treeman.Status()
 }
 
-// apply is StatusChanged: the list re-renders and the page resyncs.
+// apply follows a status change: the list re-renders and the page
+// resyncs.
 func (v *treemanView) apply(s *treeman.Status) {
 	v.status = s
 	v.renderList()
@@ -116,7 +116,7 @@ func (v *treemanView) openDetail(path string) {
 	v.syncPage()
 }
 
-// syncPage is sync_page: the detail page while its worktree exists,
+// syncPage is the detail page while its worktree exists,
 // else back to the list (a teardown finishing under the open page).
 func (v *treemanView) syncPage() {
 	if v.detail != "" && v.status != nil {
@@ -170,7 +170,6 @@ func (v *treemanView) worktreeItem(wt treeman.Worktree) *widget.Item {
 	return it
 }
 
-// renderList is render_list.
 func (v *treemanView) renderList() {
 	v.list.Clear()
 	if v.status == nil || len(v.status.Repos) == 0 {
@@ -207,7 +206,7 @@ func (v *treemanView) summary() widget.Widget {
 	return row
 }
 
-// repoCard is repo_card: lys-ui's card whose header Item (the chevron,
+// repoCard: lys-ui's card whose header Item (the chevron,
 // the repo, its worktree count) folds the worktree rows into a
 // slide-down revealer, the fold kept across status refreshes.
 func (v *treemanView) repoCard(repo treeman.Repo) widget.Widget {
@@ -218,8 +217,7 @@ func (v *treemanView) repoCard(repo treeman.Repo) widget.Widget {
 		rows.Append(v.worktreeRow(wt))
 	}
 	expanded := !v.collapsed[repo.Repo]
-	// The accordion: a revealer sliding the rows in and out, the Rust
-	// Revealer's SlideDown.
+	// The accordion: a revealer sliding the rows in and out.
 	fold := widget.NewRevealer(rows)
 	fold.SetTransition(widget.RevealSlideDown)
 	fold.SetRevealed(expanded)
@@ -256,7 +254,7 @@ func treemanChevron(expanded bool) string {
 	return "ld-chevron-right-symbolic"
 }
 
-// worktreeRow is worktree_row: the worktree's Item, whose trailing
+// worktreeRow is the worktree's Item, whose trailing
 // slot shows its state badge at rest and, while hovered, its action
 // cluster in the badge's place.
 func (v *treemanView) worktreeRow(wt treeman.Worktree) *widget.Item {
@@ -293,7 +291,7 @@ func (v *treemanView) ghostIcon(icon, tooltip string, onClick func()) *widget.Bu
 	return b
 }
 
-// actions is Actions::buttons: prepare, reset (confirmed), teardown.
+// actions are the row's buttons: prepare, reset (confirmed), teardown.
 func (v *treemanView) actions(path string) *widget.Box {
 	row := widget.NewBox(widget.Row, widget.Current().Spacing/2, 0)
 	row.AddClass("treeman-actions")
@@ -301,7 +299,7 @@ func (v *treemanView) actions(path string) *widget.Box {
 		func() { v.run(treeman.ActionPrepare, path) }), false)
 	row.Append(v.ghostIcon("ld-rotate-ccw-symbolic", i18n.T("dropdown-treeman-action-reset"),
 		func() { v.confirmReset(path) }), false)
-	// Deliberately unconfirmed, as in Rust: a worktree is cheap to
+	// Deliberately unconfirmed: a worktree is cheap to
 	// recreate from its branch.
 	row.Append(v.ghostIcon("ld-trash-2-symbolic", i18n.T("dropdown-treeman-action-teardown"),
 		func() { v.run(treeman.ActionTeardown, path) }), false)
@@ -324,7 +322,7 @@ func (v *treemanView) run(action treeman.Action, path string) {
 	})
 }
 
-// confirmReset is confirm_then_run for reset: a modal alert with the
+// confirmReset asks before a reset: a modal alert with the
 // reset title and the worktree path, Cancel the default, and the
 // action runs only when the accept button answers.
 func (v *treemanView) confirmReset(path string) {
@@ -340,7 +338,7 @@ func (v *treemanView) confirmReset(path string) {
 	})
 }
 
-// renderDetail is detail_page: an item card with the worktree as its
+// renderDetail is an item card with the worktree as its
 // subject (its dot, branch and badges) over a row per field, and the
 // actions under it at the end.
 func (v *treemanView) renderDetail(repo treeman.Repo, wt treeman.Worktree) {

@@ -93,7 +93,7 @@ func TestSpectrumPaintsBarsByDirection(t *testing.T) {
 func TestSpectrumSilentBarsKeepTheirMinimum(t *testing.T) {
 	px := paintSpectrum(newSpectrum(cavaTestConfig(1), 1, cavaRed, 1, false), 10, 20, 0)
 	if px(1, 19) != cavaRed || px(1, 18) != cavaRed || px(1, 17) != cavaBlack {
-		t.Error("a silent bar must still draw MIN_BAR_HEIGHT (2px)")
+		t.Error("a silent bar must still draw the minimum bar height (2px)")
 	}
 	// Before the first frame nothing paints.
 	empty := newSpectrum(cavaTestConfig(0), 0, cavaRed, 1, false)

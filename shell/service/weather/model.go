@@ -1,4 +1,4 @@
-// Package weather is wayle-weather: forward geocoding, the Open-Meteo,
+// Package weather is the weather service: forward geocoding, the Open-Meteo,
 // Visual Crossing, and WeatherAPI.com providers behind one model, and
 // the polling service the bar module and dropdown read.
 package weather
@@ -132,7 +132,7 @@ func (q LocationQuery) providerPath() string {
 	return q.City
 }
 
-// Condition is model.rs WeatherCondition.
+// Condition is the weather condition a provider reports.
 type Condition int
 
 // Conditions.
@@ -192,7 +192,7 @@ func FromWmoCode(code uint8) Condition {
 	return CondUnknown
 }
 
-// ProviderKind is model.rs WeatherProviderKind.
+// ProviderKind is the configured weather provider.
 type ProviderKind int
 
 // Providers.
@@ -294,7 +294,7 @@ func (u UVIndex) RiskLevel() string {
 
 // The measurement constructors are the providers' parse helpers: the
 // saturating kinds clamp, the rest reject a non-finite (or negative)
-// reading as a parse error, as types.rs's new() does.
+// reading as a parse error.
 
 func percentage(v float64) Percentage { return Percentage(math.Max(0, math.Min(100, v))) }
 
@@ -340,7 +340,7 @@ func precipitation(provider string, mm float64) (Precipitation, error) {
 	return Precipitation(v), err
 }
 
-// buildWeather is provider/mod.rs build_weather: today's sun times come
+// buildWeather assembles a provider's readings: today's sun times come
 // from the first forecast day, 06:00/18:00 without one.
 func buildWeather(current Current, hourly []Hourly, daily []Daily, location Location, zone *time.Location, now time.Time) *Weather {
 	astro := Astronomy{Sunrise: TimeOfDay{Hour: 6}, Sunset: TimeOfDay{Hour: 18}}

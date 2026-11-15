@@ -46,7 +46,7 @@ func TestParseCustomOutputJSON(t *testing.T) {
 	}
 }
 
-// serde decodes the reserved fields together: one of the wrong type
+// The reserved fields decode together: one of the wrong type
 // leaves every one unset, while the JSON still feeds the template.
 func TestParseCustomOutputReservedFieldsAreAllOrNothing(t *testing.T) {
 	for _, bad := range []string{`{"text":5,"alt":"x"}`, `{"percentage":75.5,"alt":"x"}`, `{"percentage":300,"alt":"x"}`, `{"class":[1],"alt":"x"}`, `{"class":{},"alt":"x"}`} {
@@ -186,7 +186,7 @@ func TestCustomCommandOutputApplies(t *testing.T) {
 	def.Id = "t"
 	m := newTestCustom(t, def)
 	m.runCommand(`printf '{"text":"hi","class":"c1"}'; exit 3`)
-	// A nonzero exit still delivers its output (tokio output()).
+	// A nonzero exit still delivers its output.
 	waitForText(t, m.btn.Label(), "hi")
 	waitHeadless(t, "the JSON class", func() bool { return m.btn.HasClass("c1") })
 	m.runCommand(`printf plain`)

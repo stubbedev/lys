@@ -7,7 +7,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
-// Fortinet SSL VPN sign-in (fortinet.rs). The wire shapes come from
+// Fortinet SSL VPN sign-in. The wire shapes come from
 // openconnect's fortinet.c:
 //
 //  1. POST /remote/logincheck with username, credential, realm and

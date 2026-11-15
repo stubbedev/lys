@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-// errKind is the clap ErrorKind subset the tree can raise.
+// errKind is what ended a parse.
 type errKind int
 
 const (
@@ -24,8 +24,7 @@ const (
 )
 
 // Error is a parse outcome that ends the run before a handler: help
-// or version output (exit 0), or a usage error (exit 2). It renders
-// as clap's RichFormatter does.
+// or version output (exit 0), or a usage error (exit 2).
 type Error struct {
 	kind errKind
 	// message is the pre-rendered help or version text.
@@ -41,14 +40,17 @@ type Error struct {
 	tips           []string // styled "tip:" suggestions
 	usage          string   // styled "Usage: ..." line, "" for none
 	required       []string
-	source         string // the value parser's message
+	source         error  // the value parser's error
 	helpFlag       string // the "try '--help'" hint, "" for none
 }
 
 // Error renders without styling so an *Error reads as a plain error.
 func (e *Error) Error() string { return strip(e.render()) }
 
-// ExitCode is clap's: 0 for help/version, 2 for everything else.
+// Unwrap returns the value parser's error behind an invalid value.
+func (e *Error) Unwrap() error { return e.source }
+
+// ExitCode is 0 for help/version, 2 for everything else.
 func (e *Error) ExitCode() int {
 	if e.kind == kindDisplayHelp || e.kind == kindDisplayVersion {
 		return 0
@@ -59,7 +61,6 @@ func (e *Error) ExitCode() int {
 // toStdout reports whether the output belongs on stdout.
 func (e *Error) toStdout() bool { return e.ExitCode() == 0 }
 
-// helpFlagFor is clap's get_help_flag.
 func helpFlagFor(c *cmd) string {
 	switch {
 	case !c.helpFlagOff:
@@ -106,7 +107,7 @@ func invalidValueError(c *cmd, value string, valid []string, argument string) *E
 }
 
 // valueValidationError has no command yet; the parser attaches it.
-func valueValidationError(argument, value, source string) *Error {
+func valueValidationError(argument, value string, source error) *Error {
 	return &Error{kind: kindValueValidation, invalidArg: argument, invalidValue: value, source: source}
 }
 
@@ -144,7 +145,6 @@ func displayError(kind errKind, message string) *Error {
 	return &Error{kind: kind, message: message}
 }
 
-// render is RichFormatter::format_error.
 func (e *Error) render() string {
 	if e.kind == kindDisplayHelp || e.kind == kindDisplayHelpOnMissing || e.kind == kindDisplayVersion {
 		return e.message
@@ -230,7 +230,7 @@ func (e *Error) dynamicContext() string {
 	case kindTooManyValues:
 		return "unexpected value '" + styleInvalid.wrap(e.invalidValue) + "' for '" + styleLiteral.wrap(e.invalidArg) + "' found; no more were expected"
 	case kindValueValidation:
-		return "invalid value '" + styleInvalid.wrap(e.invalidValue) + "' for '" + styleLiteral.wrap(e.invalidArg) + "': " + e.source
+		return "invalid value '" + styleInvalid.wrap(e.invalidValue) + "' for '" + styleLiteral.wrap(e.invalidArg) + "': " + e.source.Error()
 	case kindUnknownArgument:
 		return "unexpected argument '" + styleInvalid.wrap(e.invalidArg) + "' found"
 	default:
@@ -238,7 +238,6 @@ func (e *Error) dynamicContext() string {
 	}
 }
 
-// writeValuesList is format.rs's write_values_list.
 func writeValuesList(b *strings.Builder, name string, values []string) {
 	if len(values) == 0 {
 		return
@@ -253,8 +252,7 @@ func writeValuesList(b *strings.Builder, name string, values []string) {
 	b.WriteString("]")
 }
 
-// quoteIfSpaced is clap's Escape: a value containing whitespace is
-// shown Debug-quoted.
+// quoteIfSpaced quotes a value containing whitespace.
 func quoteIfSpaced(v string) string {
 	if strings.IndexFunc(v, unicode.IsSpace) >= 0 {
 		return strconv.Quote(v)

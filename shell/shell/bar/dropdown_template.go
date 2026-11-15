@@ -414,8 +414,7 @@ func iconTile(icon *widget.Icon, imgClass string, boxClasses ...string) *widget.
 	return tile
 }
 
-// dropdownScroll is a dropdown's ScrolledWindow: vertical only, as
-// every Rust dropdown sets hscrollbar-policy never, so its content is
+// dropdownScroll is a dropdown's scroll: vertical only, so its content is
 // the dropdown's width and wrapping or ellipsized text fits it. class
 // is the scroll's style class, "" for none.
 func dropdownScroll(child widget.Widget, class string) *widget.Scroll {
@@ -432,7 +431,7 @@ func dropdownScroll(child widget.Widget, class string) *widget.Scroll {
 }
 
 // Stack transition timings: a GtkStack's default duration, the hover
-// swaps' HOVER_TRANSITION_MS, and the page slides' interaction-duration.
+// swaps', and the page slides' interaction-duration.
 const (
 	gtkStackDuration = 200 * time.Millisecond
 	hoverTransition  = 150 * time.Millisecond

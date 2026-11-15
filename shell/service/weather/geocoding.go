@@ -7,7 +7,7 @@ import (
 
 const geocodingProvider = "geocoding"
 
-// resolve is geocoding.rs resolve: coordinates pass through with no
+// resolve locates a query: coordinates pass through with no
 // place name; a city is forward-geocoded through Open-Meteo, the first
 // hit winning.
 func resolve(ctx context.Context, q LocationQuery) (Location, error) {

@@ -12,7 +12,6 @@ import (
 )
 
 func TestParseClickActionForms(t *testing.T) {
-	// click_action.rs's from_str cases.
 	if action := config.ParseClickAction(""); action.Kind != config.ClickNone {
 		t.Errorf("empty = %+v, want none", action)
 	}
@@ -38,7 +37,7 @@ func TestParseClickActionForms(t *testing.T) {
 		}
 	}
 	if got := config.ParseClickAction("brightness:louder"); got.Kind != config.ClickNone {
-		t.Errorf("bad delta = %+v, want no action (click_action.rs from_str)", got)
+		t.Errorf("bad delta = %+v, want no action", got)
 	}
 }
 
@@ -97,8 +96,7 @@ func TestBarButtonRoutesAllFiveBindings(t *testing.T) {
 	}
 	button, rec := newWrappedModule(t, binding)
 
-	// The primary fires on the press, the Rust GestureClick's
-	// connect_pressed; the release fires nothing more.
+	// The primary fires on the press; the release fires nothing more.
 	router, p := treetest.Pointer(button, button, 200, 40)
 	router.Press(widget.BTNLeft, p, 0)
 	router.Release(widget.BTNLeft, p)
@@ -128,8 +126,8 @@ func TestUnboundBarButtonConsumesScroll(t *testing.T) {
 	reached := 0
 	behind.SetOnScroll(func(widget.ScrollEvent) bool { reached++; return true })
 	router, p := treetest.Pointer(behind, button, 200, 40)
-	// Scroll steps are always consumed (the Rust helper's
-	// Propagation::Stop); the unbound action no-ops in run.
+	// Scroll steps are always consumed; the unbound action no-ops in
+	// run.
 	router.Axis(0, 1, 0)
 	if reached != 0 {
 		t.Error("scroll passed through the bar button; content behind it scrolls")
@@ -144,8 +142,7 @@ func TestUnboundBarButtonConsumesScroll(t *testing.T) {
 
 // The module wrapper: `module` plus the module's own type class sit on
 // a box ABOVE the bar button, so ancestor selectors like
-// `.media-disc button.bar-button ... image` match, the Rust factory's
-// shape.
+// `.media-disc button.bar-button ... image` match.
 func TestModuleWrapsTheButtonInModuleClasses(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
@@ -339,7 +336,7 @@ func TestLoadFileAppliesAndRejectsClickBindings(t *testing.T) {
 	if err := os.WriteFile(path, []byte("modules:\n  battery:\n    scroll-up: \"brightness:sideways\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// Every string parses: a bad delta is no action (click_action.rs).
+	// Every string parses: a bad delta is no action.
 	if c, err := config.LoadFile(path); err != nil || c.Battery.Clicks().ScrollUp.Kind != config.ClickNone {
 		t.Errorf("bad delta: want no action and no error, got %v", err)
 	}
@@ -394,9 +391,8 @@ func TestBarButtonKeepsTheModulesClasses(t *testing.T) {
 	}
 }
 
-// The bar button is named by its label for assistive technology, as
-// GTK names the Rust shell's menu button; a button with no label has
-// no name to give.
+// The bar button is named by its label for assistive technology; a
+// button with no label has no name to give.
 func TestBarButtonAccessibleNameIsItsLabel(t *testing.T) {
 	cfg := config.Defaults()
 	b := newBarButton(newTestContext(t, cfg), widget.NewThemeIcon("x", 16), "12:30")
@@ -413,7 +409,7 @@ func TestBarButtonAccessibleNameIsItsLabel(t *testing.T) {
 // While its dropdown is open the bar button is :checked and shaded, as
 // a BarButton is under its own popover, and with dropdown-freeze-label
 // its label holds still (FreezeSize), the module's updates landing on
-// the close (pending_label); the close ends both. Without the freeze
+// the close; the close ends both. Without the freeze
 // the label keeps following the module.
 func TestBarButtonHoldsOpenWhileItsDropdownIs(t *testing.T) {
 	for _, freeze := range []bool{true, false} {

@@ -20,7 +20,7 @@ func TestMailAccountResolvedIcon(t *testing.T) {
 	}
 }
 
-// TestMailProviderDefaultIcons pins MailProvider::default_icon for
+// TestMailProviderDefaultIcons pins the default icon for
 // every provider: the brand glyph its slug installs, the generic one
 // for the rest.
 func TestMailProviderDefaultIcons(t *testing.T) {

@@ -15,8 +15,8 @@ import (
 	"github.com/stubbedev/lys/lib/sockdir"
 )
 
-// The launcher socket's lifetime contract (lys-shell/tests/
-// launcher_session.rs), against the real CLI process: the shell treats
+// The launcher socket's lifetime contract, against the real CLI
+// process: the shell treats
 // EOF on the session socket as the client dying and tears the surface
 // down, so the CLI must hold its write half open for the whole session
 // and close it only when it exits. A regression makes every -show

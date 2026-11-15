@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/rusterr"
 	"github.com/stubbedev/lys/desktop/settingspage"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -18,7 +17,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
-// panelCommand is lys-shell/src/cli/panel/commands.rs.
 func panelCommand() *cli.Command {
 	monitor := func(verb string) []*cli.Arg {
 		return []*cli.Arg{{ID: "monitor", Help: `Monitor connector name (e.g., "DP-1"). Omit to ` + verb + " all"}}
@@ -44,7 +42,6 @@ func panelCommand() *cli.Command {
 	}
 }
 
-// panelConnect is panel/proxy.rs's connect.
 func panelConnect() (*dbus.Conn, error) {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
@@ -53,7 +50,6 @@ func panelConnect() (*dbus.Conn, error) {
 	return conn, nil
 }
 
-// panelRunning is proxy.rs's is_running.
 func panelRunning() (bool, error) {
 	conn, err := panelConnect()
 	if err != nil {
@@ -81,14 +77,14 @@ func panelStart(m *cli.Matches) error {
 		if errors.Is(err, fs.ErrPermission) {
 			return cliMessage("Permission denied when starting panel")
 		}
-		return cliMessage("Failed to start panel: " + rusterr.IO(err))
+		return cliMessage("Failed to start panel: " + err.Error())
 	}
 	_ = cmd.Process.Release()
 	fmt.Fprintln(m.Stdout(), "Panel started")
 	return nil
 }
 
-// shutdownTimeout is proxy.rs's SHUTDOWN_TIMEOUT.
+// shutdownTimeout bounds the wait for the panel to stop.
 const shutdownTimeout = 5 * time.Second
 
 func panelStop(m *cli.Matches) error {
@@ -107,7 +103,7 @@ func panelStop(m *cli.Matches) error {
 	}
 	defer func() { _ = watch.Stop() }()
 	if err := activateAction(conn, shellipc.ActionQuit); err != nil {
-		return cliMessage("Failed to stop panel: " + rusterr.Zbus(err))
+		return cliMessage("Failed to stop panel: " + err.Error())
 	}
 	select {
 	case <-released:
@@ -120,7 +116,7 @@ func panelStop(m *cli.Matches) error {
 	return nil
 }
 
-// watchRelease is proxy.rs's wait_for_shutdown subscription: it tells
+// watchRelease tells
 // released once the application id has no owner, and failed of an
 // announcement of the bus's it could not read.
 func watchRelease(conn *dbus.Conn, released chan<- struct{}, failed chan<- error) (*dbusx.Watch, error) {
@@ -177,7 +173,7 @@ func panelSettings(*cli.Matches) error {
 		case errors.Is(err, fs.ErrPermission):
 			return cliMessage("Permission denied when starting lys-settings")
 		default:
-			return cliMessage("Failed to launch settings: " + rusterr.IO(err))
+			return cliMessage("Failed to launch settings: " + err.Error())
 		}
 	}
 	_ = cmd.Process.Release()
@@ -194,7 +190,7 @@ func panelInspect(m *cli.Matches) error {
 	}
 	defer func() { _ = conn.Close() }()
 	if err := activateAction(conn, shellipc.ActionInspect); err != nil {
-		return cliMessage("Failed to open inspector: " + rusterr.Zbus(err))
+		return cliMessage("Failed to open inspector: " + err.Error())
 	}
 	fmt.Fprintln(m.Stdout(), "Inspector opened")
 	return nil
@@ -215,7 +211,6 @@ func panelOnMonitor(op, method string) func(*cli.Matches) error {
 	}
 }
 
-// barVisibility is hide.rs / show.rs / toggle.rs.
 func barVisibility(op, method, all, one string) func(*cli.Matches) error {
 	return func(m *cli.Matches) error {
 		conn, err := panelConnect()

@@ -1,4 +1,4 @@
-// Package icons ports crates/wayle-icons: the icon sources (Tabler,
+// Package icons manages lys-shell's icons: the icon sources (Tabler,
 // Simple Icons, Material, Lucide), fetching from their CDNs, the SVG to
 // GTK-symbolic transform, local imports, the on-disk icon directory,
 // format migration, and the config-driven sync behind `lys-shell icons`.
@@ -7,15 +7,11 @@ package icons
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
-	"strings"
-	"syscall"
 )
 
-// Error messages match error.rs's thiserror Display strings: the
-// underlying cause of the I/O variants is carried but, as in Rust's
-// to_string, not printed.
+// The underlying cause of the I/O variants is carried for errors.Is and
+// errors.As but not printed.
 
 // FetchError is a non-success HTTP status from the CDN.
 type FetchError struct {
@@ -93,7 +89,7 @@ func (e *InvalidSVGError) Error() string {
 	return fmt.Sprintf("invalid SVG content for '%s': %s", e.Slug, e.Reason)
 }
 
-// reasonNoPaths is SvgValidationError::NoExtractablePaths.
+// reasonNoPaths is the reason for an SVG with no extractable paths.
 const reasonNoPaths = "no extractable paths"
 
 // DirectoryError is an icon directory that could not be created.
@@ -107,20 +103,19 @@ func (e *DirectoryError) Error() string {
 }
 func (e *DirectoryError) Unwrap() error { return e.Err }
 
-// ErrHomeNotSet is HomeNotSet.
+// ErrHomeNotSet is a missing $HOME.
 var ErrHomeNotSet = errors.New("$HOME environment variable not set")
 
-// rustStatusReasons are the http crate's canonical reasons where they
-// differ from net/http's StatusText.
-var rustStatusReasons = map[int]string{
+// statusReasons override net/http's StatusText for these codes.
+var statusReasons = map[int]string{
 	http.StatusRequestEntityTooLarge:        "Payload Too Large",
 	http.StatusRequestURITooLong:            "URI Too Long",
 	http.StatusRequestedRangeNotSatisfiable: "Range Not Satisfiable",
 }
 
-// statusText is http::StatusCode's Display: "404 Not Found".
+// statusText is a status code and its reason: "404 Not Found".
 func statusText(code int) string {
-	reason, ok := rustStatusReasons[code]
+	reason, ok := statusReasons[code]
 	if !ok {
 		reason = http.StatusText(code)
 	}
@@ -128,20 +123,4 @@ func statusText(code int) string {
 		reason = "<unknown status code>"
 	}
 	return fmt.Sprintf("%d %s", code, reason)
-}
-
-// IOErrorString renders err the way Rust's std::io::Error displays: an
-// OS error as "<strerror> (os error N)".
-func IOErrorString(err error) string {
-	if errno, ok := errors.AsType[syscall.Errno](err); ok {
-		msg := errno.Error()
-		if msg != "" {
-			msg = strings.ToUpper(msg[:1]) + msg[1:]
-		}
-		return fmt.Sprintf("%s (os error %d)", msg, int(errno))
-	}
-	if pe, ok := errors.AsType[*fs.PathError](err); ok {
-		return IOErrorString(pe.Err)
-	}
-	return err.Error()
 }

@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Disk is one mounted filesystem from the sysinfo crate's disk list.
+// Disk is one mounted filesystem.
 type Disk struct {
 	MountPoint     string
 	Filesystem     string
@@ -18,16 +18,15 @@ type Disk struct {
 	UsedBytes      uint64
 }
 
-// ignoredFilesystems are the pseudo and special filesystems the sysinfo
-// crate leaves out (tmpfs and network filesystems too: the Rust build
-// has its linux-tmpfs and linux-netdevs features off).
+// ignoredFilesystems are the pseudo, special, tmpfs, and network
+// filesystems storage leaves out.
 var ignoredFilesystems = map[string]bool{
 	"rootfs": true, "sysfs": true, "proc": true, "devtmpfs": true, "cgroup": true, "cgroup2": true,
 	"pstore": true, "squashfs": true, "rpc_pipefs": true, "iso9660": true, "devpts": true,
 	"hugetlbfs": true, "mqueue": true, "tmpfs": true, "cifs": true, "nfs": true, "nfs4": true,
 }
 
-// Disks reads /proc/mounts the way sysinfo's get_all_list does: the
+// Disks reads /proc/mounts: the
 // ignored filesystems and mount points under /sys, /proc, and /run
 // (except /run/media) are skipped, one disk per mount point, and a
 // filesystem statvfs reports as empty is left out.
@@ -78,7 +77,7 @@ var mountEscapes = strings.NewReplacer(`\134`, `\`, `\040`, " ", `\011`, "\t", `
 
 func unescapeMount(s string) string { return mountEscapes.Replace(s) }
 
-// statvfs is load_statvfs_values: block size times blocks and times
+// statvfs is block size times blocks and times
 // available blocks; a zero total is no disk.
 var statvfs = func(path string) (total, available uint64, ok bool) {
 	var st unix.Statfs_t
@@ -93,7 +92,7 @@ var statvfs = func(path string) (total, available uint64, ok bool) {
 	return total, bsize * st.Bavail, true
 }
 
-// Storage is helpers.rs's StorageSnapshot: the mount points together.
+// Storage is the mount points together.
 type Storage struct {
 	UsagePercent   float32
 	UsedBytes      uint64
@@ -104,7 +103,7 @@ type Storage struct {
 	Multiple   bool
 }
 
-// AggregateStorage is aggregate_storage: the disks whose mount point
+// AggregateStorage is the disks whose mount point
 // is one of paths exactly, summed; false when none is (or no path is
 // given).
 func AggregateStorage(disks []Disk, paths []string) (Storage, bool) {

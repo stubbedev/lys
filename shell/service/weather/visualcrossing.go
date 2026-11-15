@@ -10,7 +10,7 @@ import (
 const visualCrossingProvider = "visual-crossing"
 
 // vcConditions are the fields a Visual Crossing current, hour, or day
-// record shares (visual_crossing/types.rs).
+// record shares.
 type vcConditions struct {
 	Datetime   string   `json:"datetime"`
 	Temp       float64  `json:"temp"`
@@ -47,7 +47,7 @@ type vcResponse struct {
 	Days              []vcDay      `json:"days"`
 }
 
-// fetchVisualCrossing is VisualCrossing::fetch: the timeline API with
+// fetchVisualCrossing fetches from Visual Crossing: the timeline API with
 // the query in the path, metric, current + hours + days.
 func fetchVisualCrossing(ctx context.Context, key string, q LocationQuery, resolved Location, now time.Time) (*Weather, error) {
 	query := url.Values{"key": {key}, "unitGroup": {"metric"}, "include": {"current,hours,days"}, "iconSet": {"icons2"}}
@@ -168,7 +168,7 @@ func vcTime(s string) (TimeOfDay, error) {
 	return TimeOfDay{}, parseError(visualCrossingProvider, "invalid time "+s)
 }
 
-// vcIsDay is is_daytime: between sunrise (inclusive) and sunset; any
+// vcIsDay reports a time between sunrise (inclusive) and sunset; any
 // unparsable time counts as day.
 func vcIsDay(current, sunrise, sunset string) bool {
 	c, err1 := vcTime(current)
@@ -180,7 +180,7 @@ func vcIsDay(current, sunrise, sunset string) bool {
 	return c.minutes() >= rise.minutes() && c.minutes() < set.minutes()
 }
 
-// vcCondition is condition_from_icon over the icons2 set.
+// vcCondition maps a Visual Crossing icons2 name to its condition.
 func vcCondition(icon string) Condition {
 	switch icon {
 	case "clear-day", "clear-night":

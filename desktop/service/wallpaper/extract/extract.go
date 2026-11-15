@@ -1,18 +1,16 @@
 // Package extract runs the external color extractor that feeds
 // theming: wallust, matugen, or pywal over the theming monitor's
-// wallpaper (crates/wayle-wallpaper/src/types/color_extractor).
+// wallpaper.
 //
 // lys-shell does not compute palettes itself. It invokes the configured
-// tool with exactly the arguments (and, for wallust, exactly the
-// generated config and template) the Rust shell does, so the tool
-// writes the same palette to the same cache file:
+// tool with fixed arguments (and, for wallust, a generated config and
+// template), so the tool writes its palette to a known cache file:
 //
 //	matugen -> MatugenColorsPath (the tool's --json stdout, saved by lys-shell)
 //	wallust -> WallustColorsPath (written by wallust through the template)
 //	pywal   -> PywalColorsPath   (pywal's own ~/.cache/wal/colors.json)
 //
-// Theme providers read those files (crates/wayle-styling
-// palette_provider) and re-read them whenever the wallpaper service
+// Theme providers read those files and re-read them whenever the wallpaper service
 // reports a finished extraction (wallpaper.Service.Extracted and the
 // ColorsExtracted D-Bus signal).
 package extract
@@ -32,13 +30,12 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// matugenMaxSourceColor clamps --source-color-index (MATUGEN_MAX_SOURCE_COLOR).
+// matugenMaxSourceColor clamps --source-color-index.
 const matugenMaxSourceColor = 3
 
-// Config is the tool and its parameters (ColorExtractorConfig). The
-// ranged fields hold values the config loader already clamped to the
-// schema ranges; MatugenSourceColor is clamped to 0-3 here, as the
-// Rust extract does.
+// Config is the tool and its parameters. The ranged fields hold values
+// the config loader already clamped to the schema ranges;
+// MatugenSourceColor is clamped to 0-3 here.
 type Config struct {
 	Tool Tool
 
@@ -60,7 +57,7 @@ type Config struct {
 	PywalApplyGlobally bool
 }
 
-// DefaultConfig is ColorExtractorConfig::default().
+// DefaultConfig is the configuration with every default.
 func DefaultConfig() Config {
 	return Config{
 		Tool:                 Wallust,
@@ -129,12 +126,12 @@ func Extract(ctx context.Context, cfg Config, image string) error {
 	return fmt.Errorf("extract: unknown tool %v", cfg.Tool)
 }
 
-// formatFloat renders like Rust's f64 Display: shortest round-trip
-// digits, never an exponent ("3", "0.05", "-0.25").
+// formatFloat renders the shortest round-trip digits, never an
+// exponent ("3", "0.05", "-0.25").
 func formatFloat(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 
-// run executes one tool and returns its stdout; failures map to the
-// Rust error variants.
+// run executes one tool; a non-zero exit is a FailedError, a failure to
+// start a CommandError.
 func run(ctx context.Context, tool Tool, program string, args []string) error {
 	_, err := output(ctx, tool, program, args)
 	return err
@@ -156,7 +153,7 @@ func output(ctx context.Context, tool Tool, program string, args []string) ([]by
 	}
 }
 
-// pywalArgs is pywal::extract's argument list.
+// pywalArgs is pywal's argument list.
 func pywalArgs(cfg Config, image string) []string {
 	args := []string{
 		"-i", image,
@@ -173,7 +170,7 @@ func pywalArgs(cfg Config, image string) []string {
 	return args
 }
 
-// matugenArgs is matugen::extract's argument list.
+// matugenArgs is matugen's argument list.
 func matugenArgs(cfg Config, image string) []string {
 	mode := "dark"
 	if cfg.MatugenLight {
@@ -191,7 +188,7 @@ func matugenArgs(cfg Config, image string) []string {
 
 // extractMatugen runs matugen and saves its JSON for the matugen theme
 // provider. A cache that cannot be written is logged, not returned:
-// the extraction itself succeeded (matugen::save_output).
+// the extraction itself succeeded.
 func extractMatugen(ctx context.Context, cfg Config, image string) error {
 	stdout, err := output(ctx, Matugen, "matugen", matugenArgs(cfg, image))
 	if err != nil {
@@ -234,8 +231,7 @@ const wallustTemplate = `{
 }
 `
 
-// wallustConfig renders lys-shell's wallust.toml, byte for byte the Rust
-// write_config format.
+// wallustConfig renders lys-shell's wallust.toml.
 func wallustConfig(cfg Config, colorsOutput string) string {
 	saturation := ""
 	if cfg.WallustSaturation > 0 {

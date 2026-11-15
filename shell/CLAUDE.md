@@ -41,7 +41,7 @@ processes run the real binary or a private bus (see
 `lib/dbustest` for private session buses, and `portal/frontend_test.go`
 for the real xdg-desktop-portal frontend in front of the backend). The CLI's
 help, errors and completions are pinned byte for byte by the goldens under
-`cmd/lys-shell/testdata/clap`; a deliberate CLI change edits them in the same
+`cmd/lys-shell/testdata/cli`; a deliberate CLI change edits them in the same
 commit.
 
 A package whose tests dial a bus, connect to a compositor or a sound server,

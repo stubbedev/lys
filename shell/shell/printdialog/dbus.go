@@ -12,7 +12,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// D-Bus identity (wayle-ipc print.rs).
+// D-Bus identity.
 const (
 	ServiceName = "dev.stubbe.lys.Print1"
 	ServicePath = dbus.ObjectPath("/dev/stubbe/lys/Print")

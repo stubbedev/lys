@@ -141,7 +141,7 @@ func (f *face) apply(ev Event, cfg config.OsdConfig) {
 	f.toggleLabel.SetText(headerLabel(ev))
 }
 
-// textAlign is toast_align.
+// textAlign is the widget alignment of a configured text alignment.
 func textAlign(a config.OsdTextAlign) widget.Align {
 	switch a {
 	case config.OsdTextAlignStart:

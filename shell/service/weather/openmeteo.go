@@ -19,7 +19,7 @@ const (
 		"precipitation_probability_max,wind_speed_10m_max"
 )
 
-// openMeteoResponse is open_meteo/types.rs ApiResponse: parallel arrays
+// openMeteoResponse is the Open-Meteo forecast reply: parallel arrays
 // per hour and per day.
 type openMeteoResponse struct {
 	// Timezone and UTCOffsetSeconds name the location's zone, the one
@@ -63,7 +63,7 @@ type openMeteoDaily struct {
 	WindSpeed10mMax             []float64 `json:"wind_speed_10m_max"`
 }
 
-// fetchOpenMeteo is OpenMeteo::fetch: metric units, the location's own
+// fetchOpenMeteo fetches from Open-Meteo: metric units, the location's own
 // timezone, seven days.
 func fetchOpenMeteo(ctx context.Context, resolved Location, now time.Time) (*Weather, error) {
 	query := url.Values{
@@ -123,7 +123,7 @@ func (h Hourly) current() Current {
 	}
 }
 
-// currentHourIndex is find_current_hour_index: the hour before the
+// currentHourIndex is the hour before the
 // first one still ahead of now, or 0 when the forecast lags behind. The
 // stamps are wall times in zone, the location's.
 func currentHourIndex(times []string, now time.Time, zone *time.Location) int {
@@ -162,7 +162,7 @@ func openMeteoHour(h *openMeteoHourly, i int) (Hourly, error) {
 	return out, r.err
 }
 
-// openMeteoDays is build_daily: the first count days, each with its
+// openMeteoDays is the first count days, each with its
 // sun times and the mean of the high and low.
 func openMeteoDays(data *openMeteoResponse, count int, zone *time.Location) ([]Daily, error) {
 	d := &data.Daily

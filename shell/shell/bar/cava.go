@@ -21,23 +21,21 @@ import (
 // token, $base-icon-lg).
 const spectrumHeightRem = 1.6
 
-// cavaRate is the fixed capture rate the plan is built for
-// (service.rs's DEFAULT_SAMPLERATE).
+// cavaRate is the fixed capture rate the plan is built for.
 const cavaRate = 44100
 
 // Renderer constants (rendering/*.rs).
 const (
-	cavaMinBarHeight  = 2.0   // MIN_BAR_HEIGHT
-	cavaMinWaveHeight = 2.0   // MIN_WAVE_HEIGHT
-	cavaPeakCap       = 2.0   // PEAK_CAP_HEIGHT
-	cavaPeakGravity   = 0.015 // PEAK_GRAVITY, per frame
+	cavaMinBarHeight  = 2.0
+	cavaMinWaveHeight = 2.0
+	cavaPeakCap       = 2.0
+	cavaPeakGravity   = 0.015 // per frame
 	// cavaStill is the change in a bar, as a fraction of its height,
 	// too small to reach a pixel on any bar.
 	cavaStill = 1.0 / 1024
 )
 
-// spectrum paints the analyzer frame the way the Rust module's cairo
-// draw func does: bars, a filled wave, or bars with falling peak caps,
+// spectrum paints the analyzer frame: bars, a filled wave, or bars with falling peak caps,
 // laid along the bar (rotated a quarter turn on a vertical bar) with
 // the internal padding at both ends.
 type spectrum struct {
@@ -70,7 +68,7 @@ func newSpectrum(cfg config.CavaConfig, bars int, color render.Color, scale floa
 	}
 }
 
-// cavaWidgetLength is calculate_widget_length: every bar and gap plus
+// cavaWidgetLength is every bar and gap plus
 // the padding at both ends, at least one pixel.
 func cavaWidgetLength(bars, barWidth, barGap int, padding float64) int {
 	total := float64(bars*barWidth) + float64(max(bars-1, 0)*barGap) + float64(2*padding)
@@ -89,7 +87,7 @@ func newSpectrumFrame(bars int, style config.CavaStyle) spectrumFrame {
 }
 
 // advance swaps in the latest values and, in the peaks style, lets each cap
-// rise to its bar or fall by the gravity (update_peak). It reports whether the
+// rise to its bar or fall by the gravity. It reports whether the
 // frame moved what is on screen; one that did not keeps the painted values, so
 // a slow drift still repaints once it adds up.
 func (f *spectrumFrame) advance(values []float64) bool {
@@ -182,7 +180,6 @@ func (c spectrumCanvas) fillRect(cv *render.Canvas, u, v, w, h float64, col rend
 	cv.FillPath(&p, col)
 }
 
-// barOrigin is bar_origin_y.
 func barOrigin(dir config.CavaDirection, barHeight, canvasHeight float64) float64 {
 	switch dir {
 	case config.CavaDirectionReverse:
@@ -208,7 +205,7 @@ func (s *spectrum) Paint(cv *render.Canvas) {
 	}
 }
 
-// paintBars is draw_bars, and draw_peak_bars's caps in the peaks style.
+// paintBars paints the bars, with falling caps in the peaks style.
 func (s *spectrum) paintBars(cv *render.Canvas, c spectrumCanvas) {
 	stride := s.width + s.gap
 	for i, amp := range s.values {
@@ -236,7 +233,7 @@ func (s *spectrum) paintBars(cv *render.Canvas, c spectrumCanvas) {
 	}
 }
 
-// paintWave is draw_wave: a curve through each value, the control
+// paintWave is a curve through each value, the control
 // points halfway between neighbors, closed along the base (or, mirrored,
 // back along its reflection).
 func (s *spectrum) paintWave(cv *render.Canvas, c spectrumCanvas) {
@@ -458,7 +455,7 @@ func (a *cavaAnalyzer) tick() {
 
 // cavaBars is the bar count and channel count the service runs with:
 // stereo splits the bars between left and right, so an odd count is
-// rounded up (adjusted_for_stereo).
+// rounded up.
 func cavaBars(cfg config.CavaConfig) (bars, channels int) {
 	bars, channels = int(cfg.Bars), 1
 	if cfg.Stereo {
@@ -471,12 +468,10 @@ func cavaBars(cfg config.CavaConfig) (bars, channels int) {
 	return bars, channels
 }
 
-// cavaInputSupported reports the inputs the Go shell captures, the set
-// the Rust shell's libcava is built with: PipeWire and PulseAudio (both
-// through the PulseAudio protocol, pipewire-pulse on a PipeWire
-// system), a FIFO and squeezelite's shared memory. libcava's others
-// are compiled out there, and selecting one exits the Rust shell; here
-// the module fails to load with the reason.
+// cavaInputSupported reports the inputs the shell captures: PipeWire
+// and PulseAudio (both through the PulseAudio protocol, pipewire-pulse
+// on a PipeWire system), a FIFO and squeezelite's shared memory. With
+// any other input the module fails to load with the reason.
 func cavaInputSupported(input config.CavaInput) bool {
 	switch input {
 	case config.CavaInputPipeWire, config.CavaInputPulse, config.CavaInputFifo, config.CavaInputShmem:
@@ -504,9 +499,8 @@ func newCava(ctx ModuleContext) (Module, error) {
 	if !cavaInputSupported(cfg.Input) {
 		return nil, fmt.Errorf("cava: the %q input is not built in (pipe-wire, pulse, fifo and shmem are)", cfg.Input)
 	}
-	// monstercat and waves are passed to libcava's config by the Rust
-	// service but only its output stage (never run there) reads them,
-	// so they change nothing in either shell.
+	// monstercat and waves only affect libcava's output stage, which the
+	// analyzer does not run, so they change nothing.
 	bars, channels := cavaBars(cfg)
 	plan, err := analyzer.NewPlan(bars/channels, cavaRate, channels, float64(cfg.NoiseReduction), true, int(cfg.LowCutoff), int(cfg.HighCutoff))
 	if err != nil {

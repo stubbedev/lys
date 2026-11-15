@@ -12,7 +12,7 @@ import (
 // ErrNoModes is a session asked to run with no modes.
 var ErrNoModes = errors.New("launcher: a session needs at least one mode")
 
-// Session is one open launcher invocation (session.rs): the loaded
+// Session is one open launcher invocation: the loaded
 // modes, the active one, its match state, and the multi-select set. The
 // surface drives it from one goroutine: query edits, accepts, deletes,
 // and mode switches.

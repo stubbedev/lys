@@ -14,13 +14,13 @@ import (
 
 // volumeLabel renders the format; "percent" like the other level
 // modules. A muted sink keeps its percent label: mute shows through
-// the icon (icon-muted), exactly as methods.rs's update_display.
+// the icon (icon-muted).
 func volumeLabel(format string, percent float64) string {
 	return jinja.RenderOr(format, percentVars(percent))
 }
 
-// volumePercent is the level the Rust modules display: the channel
-// average as a percentage, rounded (average_percentage().round()).
+// volumePercent is the level the modules display: the channel average
+// as a percentage, rounded.
 func volumePercent(dev pulse.Device) float64 {
 	return math.Round(dev.Volume.AveragePercentage())
 }
@@ -103,10 +103,9 @@ func (m *volumeModule) apply(r volumeRead) {
 	}
 }
 
-// volumeIconName is volume helpers.rs's select_icon: the muted icon
-// wins, then the level list spans 1..100 across icons 0..n-1 (0%
-// takes the first). The percentage is the rounded average the Rust
-// module feeds in.
+// volumeIconName picks the icon: the muted icon wins, then the level
+// list spans 1..100 across icons 0..n-1 (0% takes the first), over the
+// rounded average.
 func volumeIconName(cfg config.VolumeConfig, dev pulse.Device) string {
 	if dev.Muted || len(cfg.LevelIcons) == 0 {
 		return cfg.IconMuted

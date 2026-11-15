@@ -9,14 +9,12 @@ import (
 	"strconv"
 )
 
-// Leaf decoding: one layer-tree value into one typed value, with
-// serde's acceptance rules (an integer is a valid float, a float is
-// never an integer, integers are range-checked) and serde's error
-// wording, since that wording is what the Rust diagnostics print.
+// Leaf decoding: one layer-tree value into one typed value. An integer
+// is a valid float, a float is never an integer, and integers are
+// range-checked.
 
 // defaulter is implemented by value structs whose missing keys take
-// something other than the zero value (a serde struct with
-// #[serde(default)] and a hand-written Default).
+// something other than the zero value.
 type defaulter interface {
 	setDefaults()
 }
@@ -60,29 +58,28 @@ func decodeInto(dst reflect.Value, v any) error {
 	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
 		i, ok := v.(int64)
 		if !ok {
-			return invalidType(v, rustIntName(t))
+			return invalidType(v, primitiveName(t))
 		}
 		if dst.OverflowInt(i) {
-			return fmt.Errorf("invalid value: integer `%d`, expected %s", i, rustIntName(t))
+			return fmt.Errorf("invalid value: integer `%d`, expected %s", i, primitiveName(t))
 		}
 		dst.SetInt(i)
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
 		i, ok := v.(int64)
 		if !ok {
-			return invalidType(v, rustIntName(t))
+			return invalidType(v, primitiveName(t))
 		}
 		if i < 0 || dst.OverflowUint(uint64(i)) {
-			return fmt.Errorf("invalid value: integer `%d`, expected %s", i, rustIntName(t))
+			return fmt.Errorf("invalid value: integer `%d`, expected %s", i, primitiveName(t))
 		}
 		dst.SetUint(uint64(i))
 	case reflect.Float32, reflect.Float64:
 		f, ok := asFloat(v)
 		if !ok {
-			return invalidType(v, rustIntName(t))
+			return invalidType(v, primitiveName(t))
 		}
 		dst.SetFloat(f)
 	case reflect.Pointer:
-		// Option<T> from a present key is always Some.
 		elem := reflect.New(t.Elem())
 		if err := decodeInto(elem.Elem(), v); err != nil {
 			return err
@@ -122,9 +119,9 @@ func decodeInto(dst reflect.Value, v any) error {
 	return nil
 }
 
-// decodeValueStruct decodes a plain serde struct: defaults first,
-// then each present key; unknown keys are ignored and a missing
-// required key is serde's "missing field".
+// decodeValueStruct decodes a value struct: defaults first, then each
+// present key; unknown keys are ignored and a missing required key is
+// a "missing field" error.
 func decodeValueStruct(dst reflect.Value, v any) error {
 	t := dst.Type()
 	if !isTable(v) {
@@ -188,12 +185,12 @@ func asFloat(v any) (float64, bool) {
 	return 0, false
 }
 
-// invalidType is serde's invalid_type error.
+// invalidType is the error for a value of the wrong type.
 func invalidType(v any, expected string) error {
 	return fmt.Errorf("invalid type: %s, expected %s", unexpected(v), expected)
 }
 
-// unexpected renders a tree value as serde's Unexpected.
+// unexpected describes a tree value for a decode error.
 func unexpected(v any) string {
 	switch t := v.(type) {
 	case bool:
@@ -201,17 +198,18 @@ func unexpected(v any) string {
 	case int64:
 		return "integer `" + strconv.FormatInt(t, 10) + "`"
 	case float64:
-		return "floating point `" + rustFloatDebug(t, 64) + "`"
+		return "floating point `" + formatFloatDebug(t, 64) + "`"
 	case string:
-		return "string " + rustDebugString(t)
+		return "string " + quoteDebug(t)
 	case []any:
 		return "sequence"
 	}
 	return "map"
 }
 
-// rustIntName is the Rust primitive a Go numeric kind stands for.
-func rustIntName(t reflect.Type) string {
+// primitiveName is the short type name (i32, u64, f64, ...) a numeric
+// kind is reported as in decode errors.
+func primitiveName(t reflect.Type) string {
 	switch t.Kind() {
 	case reflect.Int8:
 		return "i8"

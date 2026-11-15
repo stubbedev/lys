@@ -6,16 +6,13 @@ import (
 	"strings"
 )
 
-// The palette-provider color math, ported from
-// crates/wayle-styling/src/palette_provider/color.rs. The Rust side runs
-// on the palette crate in f32; this port reproduces its arithmetic step
-// for step in float32 (u8<->f32 stimulus conversions, the RGB<->HSL
-// formulas, the clamps), so derived hex strings are byte-identical.
-// Every product is wrapped in an explicit float32 conversion, which the
+// The palette-provider color math runs in float32 (u8<->f32 stimulus
+// conversions, the RGB<->HSL formulas, the clamps), so derived hex
+// strings are stable to the byte. Every product is wrapped in an explicit float32 conversion, which the
 // Go spec guarantees is rounded on its own and never fused into an FMA.
 
 // layerOffset is the lightness step between the derived bg, surface,
-// and elevated layers (color.rs OFFSET).
+// and elevated layers.
 const layerOffset float32 = 0.04
 
 // layers are the three background tones a provider palette derives from
@@ -58,9 +55,8 @@ func lighten(hex string, amount float32) string {
 }
 
 // parseChannels reads the first three byte pairs after the leading '#'s
-// as hex channels; a pair that does not parse is 0, as color.rs's
-// unwrap_or(0). A string too short for a pair (where the Rust slice
-// panics) reads that channel as 0 too.
+// as hex channels; a pair that does not parse is 0, and so is a channel
+// the string is too short for.
 func parseChannels(hex string) (r, g, b uint8) {
 	digits := strings.TrimLeft(hex, "#")
 	ch := func(i int) uint8 {
@@ -72,8 +68,8 @@ func parseChannels(hex string) (r, g, b uint8) {
 	return ch(0), ch(2), ch(4)
 }
 
-// parseByteRadix16 is u8::from_str_radix(s, 16).unwrap_or(0): an
-// optional leading '+', then hex digits.
+// parseByteRadix16 parses an optional leading '+', then hex digits, as a
+// byte; anything else is 0.
 func parseByteRadix16(s string) uint8 {
 	s = strings.TrimPrefix(s, "+")
 	if s == "" {
@@ -116,9 +112,8 @@ func f32ToU8(x float32) uint8 {
 	return uint8((bits - c23) & 0xff)
 }
 
-// rgbToHSL is palette's Hsl::from_color for an Rgb<f32>: the scalar
-// branch of FromColorUnclamped, then the saturation/lightness clamp.
-// The hue stays unnormalized (it may be negative), as in the crate.
+// rgbToHSL converts RGB to HSL, then clamps saturation and lightness.
+// The hue stays unnormalized (it may be negative).
 func rgbToHSL(red, green, blue float32) (hue, sat, light float32) {
 	red, green, blue = max(red, 0), max(green, 0), max(blue, 0)
 	var hi, lo, sep, coeff float32
@@ -146,8 +141,8 @@ func rgbToHSL(red, green, blue float32) (hue, sat, light float32) {
 	return hue, clampUnit(sat), clampUnit(light)
 }
 
-// hslToRGB is palette's Rgb::from_color for an Hsl<f32>: the zone
-// selection of FromColorUnclamped, then the 0-1 channel clamp.
+// hslToRGB converts HSL to RGB by hue zone, then clamps each channel to
+// 0-1.
 func hslToRGB(hue, sat, light float32) (red, green, blue float32) {
 	c := float32(1-abs32(float32(light*2)-1)) * sat
 	positive := hue - float32(floor32(hue/360)*360)
@@ -185,7 +180,7 @@ func hslToRGB(hue, sat, light float32) (red, green, blue float32) {
 	return clampUnit(red + m), clampUnit(green + m), clampUnit(blue + m)
 }
 
-// clampUnit is Rust's f32::clamp(v, 0.0, 1.0) for ordinary (non-NaN) values.
+// clampUnit clamps v to 0-1.
 func clampUnit(v float32) float32 { return min(max(v, 0), 1) }
 
 func abs32(v float32) float32 { return float32(math.Abs(float64(v))) }

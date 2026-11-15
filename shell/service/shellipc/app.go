@@ -20,8 +20,7 @@ const (
 	ActionInspect = "inspector"
 )
 
-// IsRunning is bootstrap.rs's is_already_running / the CLI's
-// is_running: whether a shell owns the application id.
+// IsRunning reports whether a shell owns the application id.
 func IsRunning(conn *dbus.Conn) (bool, error) {
 	var owned bool
 	err := conn.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0, AppID).Store(&owned)

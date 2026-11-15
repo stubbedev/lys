@@ -9,11 +9,10 @@ import (
 	"strings"
 )
 
-// Secrets from .env files (crates/wayle-config/src/infrastructure/
-// secrets.rs): `.env` and `.*.env` in the config directory load into
-// the environment at startup and on change, and a config value of
-// "$NAME" resolves to that variable. Like dotenvy::from_path, a
-// variable already set in the environment is never overridden.
+// Secrets from .env files: `.env` and `.*.env` in the config directory
+// load into the environment at startup and on change, and a config
+// value of "$NAME" resolves to that variable. A variable already set in
+// the environment is never overridden.
 
 // isEnvFile reports whether path names a secrets file (".env",
 // ".api.env", ...).
@@ -102,7 +101,7 @@ func parseEnvLine(line string) (key, value string, ok bool) {
 
 // ResolveSecret resolves a "$NAME" config value from the environment;
 // any other value is literal. An unset variable is (_, false) and
-// logs, as secrets::resolve warns.
+// logs a warning.
 func ResolveSecret(value string) (string, bool) {
 	name, ref := strings.CutPrefix(value, "$")
 	if !ref {

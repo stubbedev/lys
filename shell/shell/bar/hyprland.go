@@ -20,7 +20,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 
-// The hyprland-workspaces module (hyprland_workspaces/): the filter
+// The hyprland-workspaces module: the filter
 // with min-workspace-count placeholders and workspace rules, absolute
 // or relative numbering, per-monitor active tracking with the
 // active-on-other-monitor state, urgency tracked by window address
@@ -28,14 +28,12 @@ import (
 // focus dispatch through hl.dsp.focus with the legacy fallback. The
 // buttons render through the shared workspace widgets.
 
-// hyprFiltered is filtering.rs's FilteredWorkspace.
 type hyprFiltered struct {
 	id      int
 	name    string
 	windows int
 }
 
-// hyprFilter is filtering.rs's FilterContext.
 type hyprFilter struct {
 	showSpecial     bool
 	monitorSpecific bool
@@ -46,7 +44,7 @@ type hyprFilter struct {
 	rules           map[int]string
 }
 
-// hyprIgnored is matches_ignore_patterns: glob patterns against the id.
+// hyprIgnored: glob patterns against the id.
 func hyprIgnored(id int, patterns []string) bool {
 	idStr := strconv.Itoa(id)
 	for _, pattern := range patterns {
@@ -57,7 +55,6 @@ func hyprIgnored(id int, patterns []string) bool {
 	return false
 }
 
-// hyprFilterWorkspaces is filter_workspaces.
 func hyprFilterWorkspaces(all []hyprland.Workspace, f hyprFilter) []hyprFiltered {
 	maxID := f.minCount
 	out := make([]hyprFiltered, 0, len(all))
@@ -68,11 +65,9 @@ func hyprFilterWorkspaces(all []hyprland.Workspace, f hyprFilter) []hyprFiltered
 		if ws.ID < 0 && !f.showSpecial {
 			continue
 		}
-		// exceeds_min_count_limit
 		if f.minCount > 0 && ws.ID > 0 && ws.ID > maxID && ws.ID != f.activeID && ws.Windows == 0 {
 			continue
 		}
-		// belongs_to_different_monitor
 		if f.monitorSpecific && f.barMonitor != "" && ws.Monitor != f.barMonitor {
 			continue
 		}
@@ -85,7 +80,7 @@ func hyprFilterWorkspaces(all []hyprland.Workspace, f hyprFilter) []hyprFiltered
 	return out
 }
 
-// hyprAddPlaceholders is add_placeholder_workspaces: empty buttons for
+// hyprAddPlaceholders is empty buttons for
 // the ids up to the count this bar should own, and one for an active
 // workspace Hyprland has not created yet.
 func hyprAddPlaceholders(out []hyprFiltered, all []hyprland.Workspace, f hyprFilter, maxID int) []hyprFiltered {
@@ -119,7 +114,6 @@ func hyprAddPlaceholders(out []hyprFiltered, all []hyprland.Workspace, f hyprFil
 	return out
 }
 
-// hyprIncludeActivePlaceholder is should_include_active_workspace_placeholder.
 func hyprIncludeActivePlaceholder(all []hyprland.Workspace, f hyprFilter) bool {
 	if !f.monitorSpecific || f.barMonitor == "" {
 		return true
@@ -137,7 +131,7 @@ func hyprIncludeActivePlaceholder(all []hyprland.Workspace, f hyprFilter) bool {
 	return !found || monitor == f.barMonitor
 }
 
-// hyprMonitorWorkspaces is monitor_workspaces_sorted: the positive
+// hyprMonitorWorkspaces is the positive
 // rule ids bound to one monitor.
 func hyprMonitorWorkspaces(barMonitor string, rules map[int]string) []int {
 	var out []int
@@ -150,7 +144,6 @@ func hyprMonitorWorkspaces(barMonitor string, rules map[int]string) []int {
 	return out
 }
 
-// hyprDisplayID is compute_display_id with relative_workspace_number.
 func hyprDisplayID(id int, numbering config.Numbering, barMonitor string, monitorWorkspaces []int) int {
 	if numbering != config.NumberingRelative || id <= 0 || barMonitor == "" || len(monitorWorkspaces) == 0 {
 		return id
@@ -163,7 +156,7 @@ func hyprDisplayID(id int, numbering config.Numbering, barMonitor string, monito
 	return id
 }
 
-// hyprLabel is format_workspace_label, except for special workspaces:
+// hyprLabel is a workspace's label, except for special workspaces:
 // Hyprland numbers those -99 upward in creation order, an id nobody
 // chose or recognizes, so a scratchpad shows its name ("special:magic"
 // as "magic") instead.
@@ -177,7 +170,6 @@ func hyprLabel(displayID, id int, name string, useName bool) string {
 	return strconv.Itoa(displayID)
 }
 
-// hyprIDClass is workspace_id_css_class.
 func hyprIDClass(id int) string {
 	if id < 0 {
 		return "workspace-id-neg" + strconv.Itoa(-id)
@@ -185,7 +177,6 @@ func hyprIDClass(id int) string {
 	return "workspace-id-" + strconv.Itoa(id)
 }
 
-// hyprState is determine_workspace_state.
 func hyprState(active, activeAnyMonitor bool, windows int) string {
 	switch {
 	case active:
@@ -198,7 +189,6 @@ func hyprState(active, activeAnyMonitor bool, windows int) string {
 	return "empty"
 }
 
-// hyprNavigate is calculate_navigation_index.
 func hyprNavigate(current, direction, total int) int {
 	switch {
 	case direction > 0:
@@ -209,7 +199,7 @@ func hyprNavigate(current, direction, total int) int {
 	return current - 1
 }
 
-// hyprResolveIcon is hyprland helpers.rs's resolve_app_icon: user
+// hyprResolveIcon resolves a window's icon: user
 // patterns (title:, class:, or bare class) in key order, then the
 // default table against the class, case-folded.
 func hyprResolveIcon(class, title string, userMap map[string]string, fallback string) string {
@@ -240,7 +230,7 @@ func hyprResolveIcon(class, title string, userMap map[string]string, fallback st
 	return fallback
 }
 
-// hyprWorkspaceIcons is resolve_workspace_icons: one icon per client on
+// hyprWorkspaceIcons is one icon per client on
 // the workspace, or per case-folded class under dedupe (the first
 // client of a class picks the icon).
 func hyprWorkspaceIcons(id int, clients []hyprland.Client, cfg config.CompositorWorkspacesConfig, urgent map[string]bool) []cwsAppIcon {
@@ -268,8 +258,8 @@ func hyprWorkspaceIcons(id int, clients []hyprland.Client, cfg config.Compositor
 	return out
 }
 
-// hyprlandWorkspaces is the component's state (mod.rs's
-// HyprlandWorkspaces) over a cached compositor snapshot.
+// hyprlandWorkspaces is the component's state over a cached compositor
+// snapshot.
 type hyprlandWorkspaces struct {
 	cwsView
 	hcfg config.HyprlandWorkspacesConfig
@@ -443,7 +433,7 @@ func (m *hyprlandWorkspaces) apply(s hyprSnapshot) {
 	}
 }
 
-// readRules is spawn_load_workspace_rules: positive numeric rules
+// readRules: positive numeric rules
 // bound to a monitor; a failed load leaves no rules.
 func (m *hyprlandWorkspaces) readRules() map[int]string {
 	out := map[int]string{}
@@ -468,8 +458,8 @@ func (m *hyprlandWorkspaces) trackActive() bool {
 	return m.cfg.MonitorSpecific || m.hcfg.HighlightActiveOnOtherMonitor
 }
 
-// initActive is initial_active_workspace, the other-monitor set, and
-// the focused monitor.
+// initActive sets the initial active workspace, the other-monitor set,
+// and the focused monitor.
 func (m *hyprlandWorkspaces) initActive(active int, activeOK bool) {
 	m.activeID = 1
 	m.activeAny = map[int]bool{}
@@ -488,7 +478,6 @@ func (m *hyprlandWorkspaces) initActive(active int, activeOK bool) {
 	}
 }
 
-// refreshActive is refresh_active_workspace.
 func (m *hyprlandWorkspaces) refreshActive() {
 	m.activeAny = map[int]bool{}
 	for _, mon := range m.monitors {
@@ -522,15 +511,14 @@ func (m *hyprlandWorkspaces) filter() hyprFilter {
 	}
 }
 
-// rebuild is rebuild_buttons.
 func (m *hyprlandWorkspaces) rebuild() {
 	m.refreshActive()
 	m.filtered = hyprFilterWorkspaces(m.workspaces, m.filter())
 	m.render()
 }
 
-// render is the button pass shared by rebuild_buttons and
-// update_active_state: states and urgency over the current filter.
+// render is the button pass shared by a rebuild and an active change:
+// states and urgency over the current filter.
 func (m *hyprlandWorkspaces) render() {
 	monitorWorkspaces := hyprMonitorWorkspaces(m.ctx.Connector, m.rules)
 	perIcon := m.cfg.AppIconsShow && m.cfg.UrgentMode == config.UrgentApplication
@@ -566,7 +554,7 @@ func (m *hyprlandWorkspaces) render() {
 		if m.cfg.AppIconsShow {
 			model.appIcons = hyprWorkspaceIcons(ws.id, m.clients, m.cfg, urgentAddrs)
 		}
-		// apply_urgency: with urgent addresses and icons to carry them
+		// With urgent addresses and icons to carry them
 		// the icons pulse and the button does not; otherwise the button
 		// takes the workspace's urgency (the icons were resolved without
 		// addresses, so none of them is marked).
@@ -577,7 +565,6 @@ func (m *hyprlandWorkspaces) render() {
 	m.setSegments(m.models)
 }
 
-// classes is compute_static_css_classes + collect_button_css_classes.
 func (m *hyprlandWorkspaces) classes(id int, state string, urgent bool) []string {
 	classes := []string{"workspace", m.cfg.ActiveIndicator.CSSClass()}
 	if id < 0 {
@@ -593,7 +580,6 @@ func (m *hyprlandWorkspaces) classes(id int, state string, urgent bool) []string
 	return classes
 }
 
-// hasUrgentWindow is workspace_has_urgent_window.
 func (m *hyprlandWorkspaces) hasUrgentWindow(id int) bool {
 	if len(m.urgent) == 0 {
 		return false
@@ -606,7 +592,6 @@ func (m *hyprlandWorkspaces) hasUrgentWindow(id int) bool {
 	return false
 }
 
-// clearUrgentFor is clear_urgent_windows_for_workspace.
 func (m *hyprlandWorkspaces) clearUrgentFor(id int) {
 	for _, c := range m.clients {
 		if c.Workspace.ID == id {
@@ -615,7 +600,6 @@ func (m *hyprlandWorkspaces) clearUrgentFor(id int) {
 	}
 }
 
-// pruneUrgent is prune_stale_urgent_windows.
 func (m *hyprlandWorkspaces) pruneUrgent() {
 	live := map[string]bool{}
 	for _, c := range m.clients {
@@ -655,7 +639,6 @@ func (m *hyprlandWorkspaces) stopBlinkIfNoUrgent() {
 	}
 }
 
-// workspaceMonitor is workspace_monitor_name.
 func (m *hyprlandWorkspaces) workspaceMonitor(id int) (string, bool) {
 	for _, ws := range m.workspaces {
 		if ws.ID == id {
@@ -666,7 +649,6 @@ func (m *hyprlandWorkspaces) workspaceMonitor(id int) (string, bool) {
 	return monitor, ok
 }
 
-// applyWorkspaceEvent is should_apply_workspace_event.
 func (m *hyprlandWorkspaces) applyWorkspaceEvent() bool {
 	if m.ctx.Connector == "" {
 		return true
@@ -682,7 +664,6 @@ func (m *hyprlandWorkspaces) applyWorkspaceEvent() bool {
 	return true
 }
 
-// applyActiveChange is should_apply_active_workspace_change.
 func (m *hyprlandWorkspaces) applyActiveChange(id int, tracked bool) bool {
 	if !tracked {
 		return true
@@ -696,8 +677,8 @@ func (m *hyprlandWorkspaces) applyActiveChange(id int, tracked bool) bool {
 	return m.applyWorkspaceEvent()
 }
 
-// syncAfterActiveChange is sync_after_active_workspace_change: a
-// placeholder set may change with the active id, so min-workspace-count
+// syncAfterActiveChange follows an active change: a placeholder set
+// may change with the active id, so min-workspace-count
 // re-filters; otherwise only the states move.
 func (m *hyprlandWorkspaces) syncAfterActiveChange() {
 	if int(m.hcfg.MinWorkspaceCount) > 0 {
@@ -707,7 +688,7 @@ func (m *hyprlandWorkspaces) syncAfterActiveChange() {
 	m.render()
 }
 
-// relevant reports whether an event reaches update_cmd, so the frequent
+// relevant reports whether an event needs handling, so the frequent
 // ones it ignores (titles without title: patterns, focus of a window
 // that was never urgent, everything unwatched) cost no query.
 func (m *hyprlandWorkspaces) relevant(ev hyprland.Event) bool {
@@ -740,7 +721,7 @@ func (m *hyprlandWorkspaces) worthPosting(ev hyprland.Event) bool {
 	return false
 }
 
-// handle is update_cmd over the watched events, on a fresh snapshot.
+// handle applies the watched events, on a fresh snapshot.
 func (m *hyprlandWorkspaces) handle(ev hyprland.Event) {
 	switch ev.Kind {
 	case hyprland.EventWorkspaceV2:
@@ -817,8 +798,7 @@ func (m *hyprlandWorkspaces) switchTo(id int) cwsAction {
 	}
 }
 
-// navigate is navigate_workspace: the next or previous displayed
-// workspace, wrapping.
+// navigate picks the next or previous displayed workspace, wrapping.
 func (m *hyprlandWorkspaces) navigate(direction int) cwsAction {
 	list := hyprFilterWorkspaces(m.workspaces, m.filter())
 	if len(list) == 0 {

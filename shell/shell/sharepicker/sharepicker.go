@@ -1,6 +1,5 @@
-// Package sharepicker is the screencast source picker
-// (crates/lys-shell/src/shell/share_picker) the portal pops over
-// dev.stubbe.lys.SharePicker1: a dialog with Windows, Outputs, Region
+// Package sharepicker is the screencast source picker the portal pops
+// over dev.stubbe.lys.SharePicker1: a dialog with Windows, Outputs, Region
 // and, where the compositor offers its cast target, Dynamic pages. A card
 // or region confirms at once in single-select
 // mode; in multi-select mode cards toggle into a pending set the Share
@@ -91,8 +90,7 @@ type Picker struct {
 	picksMu sync.Mutex
 	picks   map[string]context.CancelFunc
 
-	// cfg, anims, and scale are the request's config snapshot
-	// (PickerConfig::from_config).
+	// cfg, anims, and scale are the request's config snapshot.
 	cfg   config.SharePickerConfig
 	anims config.AnimationsConfig
 	scale float64
@@ -329,7 +327,7 @@ func (p *Picker) snapshot() {
 }
 
 // px resolves a share-picker size against its rem base at the styling
-// scale, truncated as the Rust `as i32`.
+// scale, truncated toward zero.
 func (p *Picker) px(s config.Size, baseRem float64) int {
 	return int(s.ResolvePx(baseRem*styling.RemBase, p.scale))
 }
@@ -463,7 +461,7 @@ func (p *Picker) hide() {
 	}
 }
 
-// dismiss plays the exit transition, then unmaps (hide_animated).
+// dismiss plays the exit transition, then unmaps.
 func (p *Picker) dismiss() {
 	layer := p.layer
 	if layer == nil || p.rev == nil {
@@ -648,7 +646,7 @@ func (p *Picker) placeholder(icon, text string) widget.Widget {
 	return page(widgets.Center(empty))
 }
 
-// appendPage adds a page under its page_label: a centered
+// appendPage adds a page under its tab label: a centered
 // .share-picker-tab-label filling the tab, the pointer over all of it.
 func (p *Picker) appendPage(nb *widget.Notebook, name, title string, page widget.Widget) {
 	l := p.label(title)
@@ -683,8 +681,7 @@ func (p *Picker) cardLabel(text string, classes ...string) *widget.Label {
 // FlowBox does: every row holds cols cells of one width, a short last
 // row padded with empty ones, so a card there sits in its column. The
 // XDPH list feeds it; without one, the generic ext enumeration does.
-// Cards run in reverse list order, as the Rust FlowBox inserted each at
-// the front.
+// Cards run in reverse list order.
 func (p *Picker) windowsPage(toplevels []sharepreview.Toplevel) widget.Widget {
 	if len(toplevels) == 0 {
 		enumerate := p.windows
@@ -717,7 +714,7 @@ func (p *Picker) windowsPage(toplevels []sharepreview.Toplevel) widget.Widget {
 	return page(grid)
 }
 
-// windowCard is build_window_card: lys-ui's card around the preview, at
+// windowCard is lys-ui's card around the preview, at
 // the configured height whatever the window's shape (a
 // spinner over it until the capture lands), the title (the class when
 // the title is blank), and the class as a caption, in a flat button
@@ -761,7 +758,7 @@ func cardTitle(tl sharepreview.Toplevel) string {
 	return tl.Title
 }
 
-// loadPreview is update_frame_lazily: the capture runs off the loop and
+// loadPreview captures a window's preview: the capture runs off the loop and
 // lands back on it; the spinner goes and the card drops its loading
 // class either way. grab gets the request's resize size, read on the
 // loop since the next request re-snapshots the config; the loop's
@@ -812,7 +809,7 @@ func (p *Picker) outputsPage(read outputsRead) widget.Widget {
 	return page(m)
 }
 
-// outputCard is build_output_card: a button around the card with the
+// outputCard is a button around the card with the
 // output's frame filling it, and the connector name when configured.
 func (p *Picker) outputCard(o outputInfo, thumb <-chan outputThumbResult) widget.Widget {
 	preview := widget.NewImage(nil)
@@ -836,7 +833,7 @@ func (p *Picker) outputCard(o outputInfo, thumb <-chan outputThumbResult) widget
 	return button
 }
 
-// regionPage is build_region_page: the Select region button. The picker
+// regionPage is the Select region button. The picker
 // steps aside while the live overlay is up, then comes back to take the
 // selection (or to stay open after a cancel, or when another capture
 // refuses the overlay).

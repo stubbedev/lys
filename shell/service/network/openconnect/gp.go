@@ -10,8 +10,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
-// GlobalProtect gateway authentication, spoken natively over HTTPS
-// (gp.rs).
+// GlobalProtect gateway authentication, spoken natively over HTTPS.
 //
 // Authenticating to a GlobalProtect gateway is a form POST that answers
 // with either a challenge (2FA) or a session cookie. The wire details —

@@ -2,7 +2,7 @@ package settings
 
 import "github.com/stubbedev/lys/desktop/config"
 
-// The module pages (pages/modules), in modules::factories order.
+// The module pages, in the order the sidebar lists them.
 
 func modulePages(cfg *config.Config) []pageSpec {
 	return []pageSpec{
