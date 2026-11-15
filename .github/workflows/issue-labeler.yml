@@ -45,6 +45,7 @@ jobs:
                           'Login, greeter or lock screen (lys-login)': 'component:login',
                           'Settings app (lys-settings)': 'component:settings',
                           'Polkit agent (lys-polkit)': 'component:polkit',
+                          'Battery and power profiles (lys-power)': 'component:power',
                           'Secret Service and vault (lys-secrets)': 'component:secrets',
                           'Boot splash (lys-splash)': 'component:splash',
                           'UI toolkit (lys-ui)': 'component:ui',

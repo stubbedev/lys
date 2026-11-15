@@ -41,6 +41,7 @@ body:
               - "Login, greeter or lock screen (lys-login)"
               - Settings app (lys-settings)
               - "Polkit agent (lys-polkit)"
+              - "Battery and power profiles (lys-power)"
               - Secret Service and vault (lys-secrets)
               - "Boot splash (lys-splash)"
               - UI toolkit (lys-ui)

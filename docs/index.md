@@ -42,6 +42,11 @@ features:
     link: /polkit/
     icon:
       src: /lys-polkit.svg
+  - title: lys-power
+    details: Battery charge limits that learn when you unplug, and power profiles that follow the power source.
+    link: /power/
+    icon:
+      src: /lys-power.svg
   - title: lys-secrets
     details: The freedesktop Secret Service, with collections encrypted at rest, and your Bitwarden vault for lys-shell.
     link: /secrets/
@@ -66,6 +71,7 @@ with the others under one version.
 | [lys-login](/login/) | Display manager, greeter and lock screen | `lys-login` |
 | [lys-settings](/settings/) | Settings app for lys-shell and lys-wm | `lys-settings` |
 | [lys-polkit](/polkit/) | Polkit authentication agent | `lys-polkit` |
+| [lys-power](/power/) | Battery charging and power profile policy | `lys-power` |
 | [lys-secrets](/secrets/) | Secret Service and Bitwarden vault | `lys-secrets` |
 | [lys-splash](/splash/) | Boot splash | `lys-splash` |
 
