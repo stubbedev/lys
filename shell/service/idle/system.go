@@ -47,7 +47,10 @@ type System struct {
 var ErrNoLogind = errors.New("idle: logind is not connected")
 
 // Dim lowers every backlight to share of its level; the restore puts back
-// each level exactly as it was.
+// each level exactly as it was. The dim is announced as logind's IdleHint
+// for the session, set before the first backlight lowers and cleared
+// after the last is restored, so automatic brightness tells it from a
+// change of the user's; without logind there is no one to announce it to.
 func (s System) Dim(share idlepolicy.DimPercent) (func() error, error) {
 	if s.Backlights == nil {
 		return nil, nil
@@ -58,6 +61,7 @@ func (s System) Dim(share idlepolicy.DimPercent) (func() error, error) {
 	if err != nil {
 		return nil, fmt.Errorf("idle: read the backlights: %w", err)
 	}
+	err = s.setIdleHint(ctx, true)
 	for _, d := range devices {
 		if e := s.Backlights.Set(ctx, d.Name, share.Of(d.Percentage())); e != nil {
 			err = errors.Join(err, fmt.Errorf("idle: dim %s: %w", d.Name, e))
@@ -75,7 +79,17 @@ func (s System) restoreLevels(devices []brightness.Device) error {
 			err = errors.Join(err, fmt.Errorf("idle: restore %s: %w", d.Name, e))
 		}
 	}
-	return err
+	return errors.Join(err, s.setIdleHint(ctx, false))
+}
+
+func (s System) setIdleHint(ctx context.Context, idle bool) error {
+	if s.Login == nil {
+		return nil
+	}
+	if err := s.Login.Session.SetIdleHint(ctx, idle); err != nil {
+		return fmt.Errorf("idle: set the session's IdleHint to %v: %w", idle, err)
+	}
+	return nil
 }
 
 // Lock asks logind to lock the session.

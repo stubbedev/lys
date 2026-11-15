@@ -45,6 +45,8 @@ const (
 	EventLock              Event = "lock"
 	EventLockedHint        Event = "locked-hint"
 	EventUnlockedHint      Event = "unlocked-hint"
+	EventIdleHint          Event = "idle-hint"
+	EventActiveHint        Event = "active-hint"
 	EventInhibit           Event = "inhibit"
 	EventInhibitorReleased Event = "inhibitor-released"
 	EventSuspend           Event = "suspend"
@@ -63,7 +65,8 @@ type Call struct {
 
 // Logind is the fake. Its manager resolves "auto" to Own, else Display,
 // and "self" to Own; the /session/auto and /session/self aliases and
-// /user/self are served likewise. Sessions start active and unlocked.
+// /user/self are served likewise. Sessions start active, unlocked
+// and not idle.
 //
 // The methods that have logind announce something (SetLockedHint,
 // SetActive, PrepareForSleep, Lock, Unlock, PauseDevice, ResumeDevice)
@@ -75,8 +78,9 @@ type Logind struct {
 	Bus *dbustest.Bus
 	// Calls lists every method call, in order.
 	Calls dbustest.Var[[]Call]
-	// Events lists the locks, LockedHint changes, inhibitors taken and
-	// released and power actions, in the order they happened.
+	// Events lists the locks, LockedHint and IdleHint changes,
+	// inhibitors taken and released and power actions, in the order they
+	// happened.
 	Events dbustest.Var[[]Event]
 	// Inhibitors counts the inhibitors held now.
 	Inhibitors dbustest.Var[int]
@@ -127,6 +131,7 @@ type session struct {
 	path   dbus.ObjectPath
 	active bool
 	locked bool
+	idle   bool
 }
 
 // Start runs the fake for cfg on a private bus of its own.
@@ -187,6 +192,7 @@ func Serve(t testing.TB, bus *dbustest.Bus, cfg Config) *Logind {
 				"Id":         func() any { return string(s.id) },
 				"Active":     func() any { return l.state(func() bool { return s.active }) },
 				"LockedHint": func() any { return l.state(func() bool { return s.locked }) },
+				"IdleHint":   func() any { return l.state(func() bool { return s.idle }) },
 				"Seat":       func() any { return objectRef{ID: string(Seat), Path: SeatPath} },
 			},
 			Signals: []dbusx.SignalDecl{logind.Lock, logind.Unlock, logind.PauseDevice, logind.ResumeDevice},
@@ -315,6 +321,18 @@ func (l *Logind) setLockedHint(s *session, locked bool) error {
 	}
 	l.record(event)
 	return l.propertyChanged(s, "LockedHint", locked)
+}
+
+func (l *Logind) setIdleHint(s *session, idle bool) error {
+	l.mu.Lock()
+	s.idle = idle
+	l.mu.Unlock()
+	event := EventActiveHint
+	if idle {
+		event = EventIdleHint
+	}
+	l.record(event)
+	return l.propertyChanged(s, "IdleHint", idle)
 }
 
 // SetLidClosed sets the lid state the Manager's LidClosed reports.
@@ -590,6 +608,16 @@ func (o sessionObject) SetLockedHint(locked bool) *dbus.Error {
 		return err
 	}
 	if err := o.l.setLockedHint(o.s, locked); err != nil {
+		return failed(err)
+	}
+	return nil
+}
+
+func (o sessionObject) SetIdleHint(idle bool) *dbus.Error {
+	if err := o.enter("SetIdleHint", idle); err != nil {
+		return err
+	}
+	if err := o.l.setIdleHint(o.s, idle); err != nil {
 		return failed(err)
 	}
 	return nil

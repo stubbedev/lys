@@ -13,14 +13,26 @@ type Level struct {
 	Raw  uint32
 }
 
+// Presence is what logind's IdleHint says of the session as a change of
+// the backlight is read: the idle policy sets the hint before it dims and
+// clears it after it restores.
+type Presence uint8
+
+// The presences.
+const (
+	Attended Presence = iota + 1
+	Idle
+)
+
 // Owner decides whether the backlight is still automatic brightness's
 // to set. While following, a backlight at any level but the one last
 // set (or adopted) is someone else's change, and pauses. A pause by a
-// change that lowered the backlight is an excursion that ends when every
-// backlight is back at a level the last transition set: that is the
-// idle dim and its restore, which puts back the level it found. Any
-// further change while paused, a raise, or Resume confirm or end the
-// pause: a manual change holds until Resume.
+// change that lowered the backlight while the session was Idle is the
+// idle dim, an excursion that ends when every backlight is back at a
+// level the last transition set: its restore puts back the level it
+// found. Any further change while paused, a lower while Attended, a
+// raise, or Resume confirm or end the pause: a manual change holds until
+// Resume.
 type Owner struct {
 	keep   int
 	state  autobrightness.State
@@ -44,9 +56,10 @@ func NewOwner(keep int) *Owner {
 // State is who holds the backlight.
 func (o *Owner) State() autobrightness.State { return o.state }
 
-// Observe takes the backlights as read and reports whether the state
-// changed. A backlight not seen before is adopted at its level.
-func (o *Owner) Observe(levels []Level) bool {
+// Observe takes the backlights as read, with the session's presence read
+// after them, and reports whether the state changed. A backlight not seen
+// before is adopted at its level.
+func (o *Owner) Observe(levels []Level, presence Presence) bool {
 	moved, lowered := false, true
 	for _, l := range levels {
 		latest, known := o.latest[l.Name]
@@ -67,7 +80,7 @@ func (o *Owner) Observe(levels []Level) bool {
 		if !moved {
 			return false
 		}
-		o.state, o.dip, o.seen = autobrightness.Paused, lowered, snapshot(levels)
+		o.state, o.dip, o.seen = autobrightness.Paused, lowered && presence == Idle, snapshot(levels)
 		return true
 	case autobrightness.Paused:
 		if o.dip && o.restored(levels) {

@@ -40,6 +40,13 @@ func (s Session) LockedHint(ctx context.Context) (bool, error) {
 	return locked, err
 }
 
+// IdleHint reads whether the session says it is idle.
+func (s Session) IdleHint(ctx context.Context) (bool, error) {
+	var idle bool
+	err := s.obj.property(ctx, SessionInterface, "IdleHint", &idle)
+	return idle, err
+}
+
 // Seat reads the seat the session is on; a session on none is an error.
 func (s Session) Seat(ctx context.Context) (Seat, error) {
 	var ref struct {
@@ -58,6 +65,11 @@ func (s Session) Seat(ctx context.Context) (Seat, error) {
 // SetLockedHint tells logind whether the session is locked.
 func (s Session) SetLockedHint(ctx context.Context, locked bool) error {
 	return s.obj.call(ctx, SessionInterface, "SetLockedHint", nil, locked)
+}
+
+// SetIdleHint tells logind whether the session is idle.
+func (s Session) SetIdleHint(ctx context.Context, idle bool) error {
+	return s.obj.call(ctx, SessionInterface, "SetIdleHint", nil, idle)
 }
 
 // Lock asks logind to lock the session: logind sends the session's Lock

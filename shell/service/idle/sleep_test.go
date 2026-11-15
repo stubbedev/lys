@@ -3,11 +3,16 @@ package idle
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+
+	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
 const display logind.SessionID = "c1"
@@ -95,6 +100,70 @@ func TestStopLetsGoOfTheInhibitor(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if got := fake.Events.Load(); slices.Contains(got, logindtest.EventLock) {
 		t.Errorf("a stopped lock-before-sleep still locked: %v", got)
+	}
+}
+
+func TestDimIsAnnouncedAsTheSessionIdleUntilItsRestore(t *testing.T) {
+	fake, login := startLogin(t)
+	var hints []bool
+	b := &fakeBacklights{devices: map[string]brightness.Device{
+		"intel_backlight": {Name: "intel_backlight", Brightness: 400, Max: 1000},
+		"ddcci7":          {Name: "ddcci7", Brightness: 37, Max: 100},
+	}}
+	b.onSet = func() {
+		idle, err := login.Session.IdleHint(t.Context())
+		if err != nil {
+			t.Errorf("read IdleHint: %v", err)
+		}
+		hints = append(hints, idle)
+	}
+	share, err := idlepolicy.NewDimPercent(30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restore, err := System{Backlights: b, Login: &login}.Dim(share)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if want := []bool{true, true, true, true}; !slices.Equal(hints, want) {
+		t.Errorf("IdleHint as each backlight was dimmed and restored: %v, want %v", hints, want)
+	}
+	if idle, err := login.Session.IdleHint(t.Context()); err != nil || idle {
+		t.Errorf("IdleHint after the restore = %v, %v; want false", idle, err)
+	}
+	if got, want := fake.Events.Load(), []logindtest.Event{logindtest.EventIdleHint, logindtest.EventActiveHint}; !slices.Equal(got, want) {
+		t.Errorf("logind saw %v, want %v", got, want)
+	}
+}
+
+func TestADimLogindRefusesToAnnounceStillDimsAndSaysSo(t *testing.T) {
+	fake, login := startLogin(t)
+	fake.Refuse("Session.SetIdleHint", dbus.NewError("org.freedesktop.DBus.Error.AccessDenied", []any{"not allowed"}))
+	b := &fakeBacklights{devices: map[string]brightness.Device{
+		"intel_backlight": {Name: "intel_backlight", Brightness: 400, Max: 1000},
+	}}
+	share, err := idlepolicy.NewDimPercent(30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restore, err := System{Backlights: b, Login: &login}.Dim(share)
+	if err == nil || !strings.Contains(err.Error(), "IdleHint to true") {
+		t.Errorf("Dim = %v, want logind's refusal of the hint", err)
+	}
+	if got := b.devices["intel_backlight"].Brightness; got != 120 {
+		t.Errorf("dimmed to %d, want 120", got)
+	}
+	if restore == nil {
+		t.Fatal("a dim without its announcement has no restore")
+	}
+	if err := restore(); err == nil || !strings.Contains(err.Error(), "IdleHint to false") {
+		t.Errorf("restore = %v, want logind's refusal of the hint", err)
+	}
+	if got := b.devices["intel_backlight"].Brightness; got != 400 {
+		t.Errorf("restored to %d, want 400", got)
 	}
 }
 

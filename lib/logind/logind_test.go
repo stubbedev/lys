@@ -154,6 +154,47 @@ func TestSessionProperties(t *testing.T) {
 	}
 }
 
+func TestSessionIdleHint(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	ctx := t.Context()
+	s := session(t, m, logind.AutoSession)
+	if idle, err := s.IdleHint(ctx); err != nil || idle {
+		t.Fatalf("IdleHint of a new session = %v, %v; want false", idle, err)
+	}
+	if err := s.SetIdleHint(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if idle, err := s.IdleHint(ctx); err != nil || !idle {
+		t.Errorf("IdleHint after SetIdleHint(true) = %v, %v", idle, err)
+	}
+	if err := s.SetIdleHint(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if idle, err := s.IdleHint(ctx); err != nil || idle {
+		t.Errorf("IdleHint after SetIdleHint(false) = %v, %v", idle, err)
+	}
+	path := logind.SessionPath(display)
+	want := []logindtest.Call{
+		{Method: "Session.SetIdleHint", Path: path, Args: []any{true}},
+		{Method: "Session.SetIdleHint", Path: path, Args: []any{false}},
+	}
+	if got := fake.CallsTo("Session.SetIdleHint"); !reflect.DeepEqual(got, want) {
+		t.Errorf("logind saw %v, want %v", got, want)
+	}
+	if got, want := fake.Events.Load(), []logindtest.Event{logindtest.EventIdleHint, logindtest.EventActiveHint}; !slices.Equal(got, want) {
+		t.Errorf("logind's timeline %v, want %v", got, want)
+	}
+
+	fake.Refuse("Session.SetIdleHint", dbus.NewError("org.freedesktop.DBus.Error.AccessDenied", []any{"not allowed"}))
+	if err := s.SetIdleHint(ctx, true); err == nil || !strings.Contains(err.Error(), "Session.SetIdleHint(true) on "+string(path)) {
+		t.Errorf("a refused SetIdleHint = %v, want logind's refusal naming the call", err)
+	}
+	if idle, err := s.IdleHint(ctx); err != nil || idle {
+		t.Errorf("IdleHint after a refused SetIdleHint = %v, %v; want false", idle, err)
+	}
+}
+
 func TestUserDisplay(t *testing.T) {
 	t.Parallel()
 	_, m := manager(t, logindtest.Config{Own: own, Display: display})

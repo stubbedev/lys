@@ -25,11 +25,15 @@ type Light interface {
 	Sample(ctx context.Context) (ambient.Lux, error)
 }
 
-// Session is the logind session whose backlight is driven.
+// Session is the logind session whose backlight is driven. Its IdleHint,
+// read after the backlights, tells the idle policy's dim from someone
+// lowering the backlight: the policy sets it before it dims and clears it
+// after it restores.
 type Session interface {
 	Path() dbus.ObjectPath
 	Active(ctx context.Context) (bool, error)
 	LockedHint(ctx context.Context) (bool, error)
+	IdleHint(ctx context.Context) (bool, error)
 }
 
 // Sessions resolves the user's display session as it is now.
@@ -238,7 +242,11 @@ func (d *Daemon) observe(ctx context.Context, pub Publisher) ([]backlight.Device
 	if err != nil {
 		return nil, err
 	}
-	if !d.owner.Observe(raw(devices)) {
+	presence, err := d.presence(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !d.owner.Observe(raw(devices), presence) {
 		return devices, nil
 	}
 	state := d.owner.State()
@@ -252,6 +260,17 @@ func (d *Daemon) observe(ctx context.Context, pub Publisher) ([]backlight.Device
 		return nil, err
 	}
 	return devices, nil
+}
+
+func (d *Daemon) presence(ctx context.Context) (ambient.Presence, error) {
+	idle, err := d.session.IdleHint(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("read whether the session is idle: %w", err)
+	}
+	if idle {
+		return ambient.Idle, nil
+	}
+	return ambient.Attended, nil
 }
 
 func (d *Daemon) sample(ctx context.Context, pub Publisher) error {

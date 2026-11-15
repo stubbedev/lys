@@ -12,6 +12,7 @@ type step struct {
 	wrote   []Level
 	observe []Level
 	resume  []Level
+	idle    bool
 	want    autobrightness.State
 	changed bool
 }
@@ -26,8 +27,10 @@ func run(t *testing.T, steps []step) {
 			o.Wrote(s.wrote)
 		case s.resume != nil:
 			changed = o.Resume(s.resume)
+		case s.idle:
+			changed = o.Observe(s.observe, Idle)
 		default:
-			changed = o.Observe(s.observe)
+			changed = o.Observe(s.observe, Attended)
 		}
 		if o.State() != s.want || changed != s.changed {
 			t.Fatalf("step %d: %v (changed %v), want %v (changed %v)", i, o.State(), changed, s.want, s.changed)
@@ -69,7 +72,7 @@ func TestOwnerPausesOnAManualLowerThatStays(t *testing.T) {
 func TestOwnerTakesAnIdleDimAndItsRestoreAsAnExcursion(t *testing.T) {
 	run(t, []step{
 		{wrote: panel(400), want: following},
-		{observe: panel(120), want: paused, changed: true},
+		{observe: panel(120), idle: true, want: paused, changed: true},
 		{observe: panel(400), want: following, changed: true},
 		{observe: panel(400), want: following},
 		{observe: panel(410), want: paused, changed: true},
@@ -81,7 +84,7 @@ func TestOwnerTakesARestoreToAnEarlierStepOfItsTransition(t *testing.T) {
 		{wrote: panel(400), want: following},
 		{wrote: panel(420), want: following},
 		{wrote: panel(440), want: following},
-		{observe: panel(126), want: paused, changed: true},
+		{observe: panel(126), idle: true, want: paused, changed: true},
 		{observe: panel(420), want: following, changed: true},
 		{observe: panel(420), want: following},
 	})
@@ -96,11 +99,29 @@ func TestOwnerHoldsAManualLowerThatComesBackInSteps(t *testing.T) {
 	})
 }
 
+func TestOwnerHoldsAManualLowerAndRaiseBackToItsLevel(t *testing.T) {
+	run(t, []step{
+		{wrote: panel(400), want: following},
+		{observe: panel(360), want: paused, changed: true},
+		{observe: panel(400), want: paused},
+		{observe: panel(400), idle: true, want: paused},
+	})
+}
+
+func TestOwnerHoldsAnIdleDimThatMovesBeforeItsRestore(t *testing.T) {
+	run(t, []step{
+		{wrote: panel(400), want: following},
+		{observe: panel(120), idle: true, want: paused, changed: true},
+		{observe: panel(90), idle: true, want: paused},
+		{observe: panel(400), idle: true, want: paused},
+	})
+}
+
 func TestOwnerHoldsAManualRaiseThroughAnIdleDim(t *testing.T) {
 	run(t, []step{
 		{wrote: panel(400), want: following},
 		{observe: panel(600), want: paused, changed: true},
-		{observe: panel(180), want: paused},
+		{observe: panel(180), idle: true, want: paused},
 		{observe: panel(600), want: paused},
 		{observe: panel(400), want: paused},
 	})
@@ -124,9 +145,9 @@ func TestOwnerPausesWhenAnyBacklightMoves(t *testing.T) {
 	run(t, []step{
 		{wrote: both(40, 400), want: following},
 		{observe: both(40, 400), want: following},
-		{observe: both(40, 380), want: paused, changed: true},
+		{observe: both(40, 380), idle: true, want: paused, changed: true},
 		{observe: both(40, 400), want: following, changed: true},
-		{observe: both(12, 400), want: paused, changed: true},
+		{observe: both(12, 400), idle: true, want: paused, changed: true},
 		{observe: both(12, 120), want: paused},
 		{observe: both(40, 400), want: paused},
 	})
@@ -139,7 +160,7 @@ func TestOwnerForgetsLevelsOlderThanItKeeps(t *testing.T) {
 		{wrote: panel(120), want: following},
 		{wrote: panel(130), want: following},
 		{wrote: panel(140), want: following},
-		{observe: panel(30), want: paused, changed: true},
+		{observe: panel(30), idle: true, want: paused, changed: true},
 		{observe: panel(100), want: paused},
 	})
 }

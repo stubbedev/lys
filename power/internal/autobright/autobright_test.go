@@ -128,9 +128,10 @@ func (b *fakeBacklight) level(name string) uint32 {
 }
 
 type session struct {
-	mu             sync.Mutex
-	path           dbus.ObjectPath
-	active, locked bool
+	mu                   sync.Mutex
+	path                 dbus.ObjectPath
+	active, locked, idle bool
+	idleErr              error
 }
 
 func (s *session) Path() dbus.ObjectPath { return s.path }
@@ -145,6 +146,24 @@ func (s *session) LockedHint(context.Context) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.locked, nil
+}
+
+func (s *session) IdleHint(context.Context) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.idle, s.idleErr
+}
+
+func (s *session) setIdle(idle bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.idle = idle
+}
+
+func (s *session) failIdleHint(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.idleErr = err
 }
 
 func (s *session) set(active, locked bool) {
@@ -442,12 +461,14 @@ func TestAnIdleDimAndItsRestoreKeepFollowing(t *testing.T) {
 	h := start(t)
 	next := h.follow(100)
 	ours := h.back.level("intel_backlight")
+	h.session.setIdle(true)
 	h.back.setAll(ours * 30 / 100)
 	h.changed()
 	h.published(autobrightness.Paused)
 	h.back.setAll(ours)
 	h.changed()
 	h.published(autobrightness.Following)
+	h.session.setIdle(false)
 
 	h.clock.now = h.clock.now.Add(time.Hour)
 	h.sampleWith(next, 10000)
@@ -461,6 +482,7 @@ func TestADimThatMovesAgainHoldsEvenBackAtOurLevel(t *testing.T) {
 	h := start(t)
 	next := h.follow(100)
 	ours := h.back.level("intel_backlight")
+	h.session.setIdle(true)
 	h.back.setAll(ours / 2)
 	h.changed()
 	h.published(autobrightness.Paused)
@@ -470,6 +492,34 @@ func TestADimThatMovesAgainHoldsEvenBackAtOurLevel(t *testing.T) {
 	h.changed()
 	h.quiet()
 	h.tick(next)
+	h.quiet()
+}
+
+func TestAManualLowerAndRaiseBackToOurLevelHoldsThePause(t *testing.T) {
+	h := start(t)
+	next := h.follow(100)
+	ours := h.back.level("intel_backlight")
+	h.back.setAll(ours - 50)
+	h.changed()
+	h.published(autobrightness.Paused)
+	h.back.setAll(ours)
+	h.changed()
+	h.quiet()
+	h.tick(next)
+	h.quiet()
+}
+
+func TestAnUnreadableIdleHintStopsTheDaemon(t *testing.T) {
+	h := start(t)
+	h.follow(100)
+	fail := errors.New("org.freedesktop.DBus.Error.NoReply")
+	h.session.failIdleHint(fail)
+	h.back.setAll(900)
+	h.back.ticks <- struct{}{}
+	err := h.stopped()
+	if !errors.Is(err, fail) || !strings.Contains(err.Error(), "read whether the session is idle") {
+		t.Fatalf("the daemon stopped with %v, want %v saying what it read", err, fail)
+	}
 	h.quiet()
 }
 

@@ -189,6 +189,7 @@ func TestAWatchThatCannotBeMadeIsTheError(t *testing.T) {
 type fakeBacklights struct {
 	devices map[string]brightness.Device
 	sets    int
+	onSet   func()
 }
 
 func (f *fakeBacklights) Devices(context.Context) ([]brightness.Device, error) {
@@ -203,6 +204,9 @@ func (f *fakeBacklights) Devices(context.Context) ([]brightness.Device, error) {
 
 func (f *fakeBacklights) Set(_ context.Context, name string, percent float64) error {
 	f.sets++
+	if f.onSet != nil {
+		f.onSet()
+	}
 	d := f.devices[name]
 	d.Brightness = uint32(min(max(percent, 0), 100)/100*float64(d.Max) + 0.5)
 	f.devices[name] = d

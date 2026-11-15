@@ -118,11 +118,13 @@ program, automatic brightness pauses and leaves the backlight alone. The
 shell's brightness widget shows whether automatic brightness is following the
 room or paused, and its "follow the room again" action hands control back: the
 backlight then goes to the level for the current light at once. The idle dim
-does not count as a change: when the shell dims the screen after a period of
-inactivity and puts it back when you return, automatic brightness carries on.
-A dim that you then change yourself keeps it paused. lys-power neither samples
-nor writes while the session is locked or another session is in the
-foreground. When your display session ends, or another of your sessions
+does not count as a change: the shell marks the session idle in logind (its
+`IdleHint`) before it dims the screen after a period of inactivity and clears
+the mark once it has put the screen back when you return, so automatic
+brightness carries on. Lowering the backlight yourself and raising it back to
+exactly where it was keeps it paused, as does changing a dim yourself before
+it is put back. lys-power neither samples nor writes while the session is
+locked or another session is in the foreground. When your display session ends, or another of your sessions
 becomes it, the service exits with an error naming the session, and systemd
 starts it again for the session now in front.
 
