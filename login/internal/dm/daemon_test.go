@@ -2,6 +2,7 @@ package dm
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -957,7 +958,7 @@ func TestAnInvalidFingerprintSettingIsAConfigErrorAndKeepsTheDefault(t *testing.
 
 func unixPair(t *testing.T) (server, client net.Conn) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "greeter.sock")
+	path := "@lys-dm-test-" + rand.Text()
 	ln, err := net.Listen("unix", path)
 	if err != nil {
 		t.Fatal(err)
