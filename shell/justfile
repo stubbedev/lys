@@ -137,22 +137,24 @@ docker recipe="check" memory="10g":
 
 # The shell on a live Hyprland in a NixOS VM (needs KVM): bars on every
 # output and hotplug, the Hyprland modules, launcher, popups, and the
-# session lock across a shell restart. Screenshots of every state land
-# in ./result.
-hyprland-vm:
-    nix build -L .#checks.{{ arch() }}-{{ os() }}.shell-hyprland-vm
+# session lock across a shell restart, then lys-ui's compositor-in-the-loop
+# suite on a Hyprland of its own in the same boot. Screenshots of every
+# state land in ./result.
+hyprland-vms:
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.shell-hyprland-vms
 
 # The shell on lys-wm in a NixOS VM (needs KVM): bars on both outputs,
 # the lys-wm workspaces, window title, keybind mode and keyboard layout
 # modules following lys-wm's IPC, the layout toast, screenshots and the
 # session lock. Screenshots of every state land in ./result.
 lys-wm-vm:
-    nix build -L .#checks.{{ arch() }}-{{ os() }}.shell-lys-wm-vm
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.desktop-vms-session
 
 # The wall-clock jump watcher on a real kernel in a NixOS VM (needs KVM):
-# clock steps and the kernel's suspend and resume.
+# clock steps and the kernel's suspend and resume, the last scenario of the
+# shared system VM.
 clockwatch-vm:
-    nix build -L .#checks.{{ arch() }}-{{ os() }}.shell-clockwatch-vm
+    nix build -L .#checks.{{ arch() }}-{{ os() }}.desktop-vms-system
 
 # Every release gate: the ones CI runs in `plain` and the race detector, which
 # it runs as a separate job.

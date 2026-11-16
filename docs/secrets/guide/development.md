@@ -30,9 +30,10 @@ Everything else is under `internal/`.
 tools, dbus for the tests' private buses, and the clients tested against
 (secret-tool, python-secretstorage, Chromium, git's libsecret helper).
 
-`just checks secrets-package secrets-hm-module secrets-nixos-module secrets-activation-vm`
-builds the package, evaluates both modules and boots a NixOS VM that checks
-D-Bus activation under dbus-broker. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
+`just checks secrets-package secrets-hm-module secrets-nixos-module`
+builds the package and evaluates both modules. D-Bus activation under
+dbus-broker (`nix/tests/activation-vm.nix`) is a scenario of the shared NixOS
+VM `just checks desktop-vms-system`. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 
 ## Releases
 

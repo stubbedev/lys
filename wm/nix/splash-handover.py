@@ -15,14 +15,15 @@ def vkms_after_marker():
 
 
 def wait_for_outputs():
-    machine.wait_until_succeeds(f"{lys_wmctl_outputs} | jq -e 'length == 2'", timeout=timedelta(seconds=120))
-    return {o["name"]: o for o in json.loads(machine.succeed(lys_wmctl_outputs))}
+    outputs = as_alice("lys-wmctl outputs")
+    machine.wait_until_succeeds(f"{outputs} | jq -e 'length == 2'", timeout=timedelta(seconds=120))
+    return {o["name"]: o for o in json.loads(machine.succeed(outputs))}
 
 
 def background_only(output):
-    display = machine.succeed("ls /run/user/1000 | grep -m1 '^wayland-[0-9]*$'").strip()
+    display = machine.succeed(f"ls {RUNTIME} | grep -m1 '^wayland-[0-9]*$'").strip()
     shot = f"WAYLAND_DISPLAY={display} grim -t ppm -o {output} -"
-    pixels = machine.succeed(f"su alice -c 'XDG_RUNTIME_DIR=/run/user/1000 {shot}' | tail -n +4 | od -An -v -tx1 -w3 | sort -u").split("\n")
+    pixels = machine.succeed(f"{as_alice(shot)} | tail -n +4 | od -An -v -tx1 -w3 | sort -u").split("\n")
     pixels = [p.strip() for p in pixels if p.strip()]
     assert pixels == ["1e 1e 2e"], f"{output} shows {pixels[:4]}"
 

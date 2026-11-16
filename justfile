@@ -26,13 +26,192 @@ in component +args:
     nix develop .#{{ component }} -c just --justfile {{ component }}/justfile --working-directory {{ component }} {{ args }}
 
 # Build Nix checks for this machine's system, one after another so each VM test
-# has the machine to itself: `just checks login-vm wm-module`.
+# has the machine to itself: `just checks login-vms-greeter wm-module`.
 [script("bash")]
 checks +names:
     set -euo pipefail
     for name in {{ names }}; do
         nix build -L --no-link ".#checks.{{ arch() }}-linux.${name}"
     done
+
+# Run NixOS VM checks, one after another, on closures built beforehand: their
+# drivers first, which CI's max-jobs = 0 only lets come from the binary cache
+# the build stage filled, then each test alone: `just vm-checks login-vms-greeter`.
+[script("bash")]
+vm-checks +names:
+    set -euo pipefail
+    drivers=()
+    for name in {{ names }}; do drivers+=(".#checks.{{ arch() }}-linux.${name}.driver"); done
+    if ! nix build -L --no-link "${drivers[@]}"; then
+        echo "vm-checks: the closures of {{ names }} neither built nor came from a substituter; in CI the build stage builds and pushes them" >&2
+        exit 1
+    fi
+    NIX_CONFIG="max-jobs = 1" just checks {{ names }}
+
+# CI's build stage for this machine's system, in one nix build: every package,
+# non-VM check and dev shell of the components, and the closures of the VM
+# checks the later jobs run. Prints the store paths for the binary cache:
+# `just build-stage "wm shell" "wm-vms-desktop shell-hyprland-vms"`.
+[script("bash")]
+build-stage components vms="":
+    set -euo pipefail
+    read -ra components <<< {{ quote(components) }}
+    read -ra vms <<< {{ quote(vms) }}
+    for name in "${components[@]}" "${vms[@]}"; do
+        if [[ ! "$name" =~ ^[a-z0-9-]+$ ]]; then
+            echo "build-stage: ${name} is no component or check name" >&2
+            exit 1
+        fi
+    done
+    list() { for name; do printf '"%s" ' "$name"; done; }
+    dir=$(mktemp -d)
+    trap 'rm -rf "$dir"' EXIT
+    just eval-jobs "flake: let
+        lib = flake.inputs.nixpkgs.lib;
+        system = \"{{ arch() }}-linux\";
+        components = [ $(list "${components[@]}") ];
+        owned = set: owns: lib.filterAttrs (name: _: lib.any (owns name) components) set.\${system};
+      in {
+        packages = owned flake.outputs.packages (name: c: name == \"lys-\${c}\" || lib.hasPrefix \"lys-\${c}-\" name);
+        checks = lib.filterAttrs (_: check: !(check ? driver)) (owned flake.outputs.checks (name: c: lib.hasPrefix \"\${c}-\" name));
+        devShells = owned flake.outputs.devShells (name: c: name == c);
+        vms = lib.genAttrs [ $(list "${vms[@]}") ] (name: flake.outputs.checks.\${system}.\${name}.driver);
+      }" > "${dir}/jobs"
+    mapfile -t drvs < <(jq -r '.drvPath + "^*"' "${dir}/jobs")
+    if (( ${#drvs[@]} == 0 )); then
+        echo "build-stage: ${components[*]} have nothing to build on {{ arch() }}-linux" >&2
+        exit 1
+    fi
+    nix build -L --no-link --print-out-paths "${drvs[@]}"
+    for shell in $(jq -r 'select(.attr | startswith("devShells.")) | .attr | ltrimstr("devShells.")' "${dir}/jobs"); do
+        nix print-dev-env --profile "${dir}/${shell}" ".#${shell}" >/dev/null
+        readlink -f "${dir}/${shell}"
+    done
+
+# Evaluate the derivations a nix-eval-jobs selection of the flake picks, on as
+# many workers as cores and memory allow, and print them as JSON lines; any
+# evaluation error fails it, naming the attribute.
+[private]
+[script("bash")]
+eval-jobs select:
+    set -euo pipefail
+    memory=$(awk '/^MemTotal:/ { print int($2 / 1048576) }' /proc/meminfo)
+    workers=$(( memory / 4 < $(nproc) ? memory / 4 : $(nproc) ))
+    out=$(mktemp)
+    trap 'rm -f "$out"' EXIT
+    nix run --inputs-from . nixpkgs#nix-eval-jobs -- --flake . --force-recurse --workers "$(( workers > 0 ? workers : 1 ))" --max-memory-size 3072 --select {{ quote(select) }} > "$out"
+    if jq -e -s 'any(.[]; has("error") and .error != null)' "$out" >/dev/null; then
+        jq -r 'select(.error != null) | "eval-jobs: \(.attr) does not evaluate:\n\(.error)"' "$out" >&2
+        exit 1
+    fi
+    cat "$out"
+
+# Run the Go gates and race suites of the components (every one when none is
+# named) in parallel, each gate recipe in its own process in its component's
+# dev shell, sharing one Go build cache, as many at once as cores and memory
+# allow, and print the wall clock: `just gates`, `just gates wm shell`.
+gates *components: (run-gates "gates race" components)
+
+# The Go gates alone, as CI's Go job runs them on each architecture.
+go-gates *components: (run-gates "gates" components)
+
+# The race suites alone, as CI's race job runs them.
+race-gates *components: (run-gates "race" components)
+
+[private]
+[script("bash")]
+run-gates kinds components:
+    set -euo pipefail
+    start=$SECONDS
+    read -ra kinds <<< {{ quote(kinds) }}
+    read -ra components <<< {{ quote(components) }}
+    if (( ${#components[@]} == 0 )); then
+        mapfile -t components < <(jq -r 'to_entries[] | select(.value.gates or .value.race) | .key' ci/components.json)
+    fi
+    tasks=()
+    for c in "${components[@]}"; do
+        if ! jq -e --arg c "$c" 'has($c)' ci/components.json >/dev/null; then
+            echo "gates: ${c} is no component of ci/components.json" >&2
+            exit 1
+        fi
+        for kind in "${kinds[@]}"; do
+            mapfile -t -O "${#tasks[@]}" tasks < <(jq -r --arg c "$c" --arg kind "$kind" '
+                .[$c] | if $kind == "race" then (select(.race) | "race") else (.gates // [])[] end | "\($c) \(.)"
+            ' ci/components.json)
+        done
+    done
+    if (( ${#tasks[@]} == 0 )); then
+        echo "gates: ${components[*]} run no ${kinds[*]}" >&2
+        exit 1
+    fi
+    dir=$(mktemp -d)
+    trap 'jobs -pr | xargs -r kill 2>/dev/null; wait; rm -rf "$dir"' EXIT
+    declare -A running=() started=() envs=()
+    for c in $(printf '%s\n' "${tasks[@]}" | cut -d' ' -f1 | sort -u); do
+        envs[$c]="${dir}/env-${#envs[@]}"
+        nix print-dev-env ".#${c}" > "${envs[$c]}" 2> "${envs[$c]}.log" &
+        running[$!]=$c
+    done
+    for pid in "${!running[@]}"; do
+        if ! wait "$pid"; then
+            echo "gates: the ${running[$pid]} dev shell did not evaluate:" >&2
+            cat "${envs[${running[$pid]}]}.log" >&2
+            exit 1
+        fi
+    done
+    running=()
+    if [[ " ${kinds[*]} " == *" gates "* ]]; then
+        # shellcheck source=/dev/null
+        if ! (set +euo pipefail; source "${envs[${tasks[0]%% *}]}" && set -e && go build ./...) > "${dir}/build.log" 2>&1; then
+            echo "gates: the module does not compile:" >&2
+            cat "${dir}/build.log" >&2
+            exit 1
+        fi
+    fi
+    memory=$(awk '/^MemAvailable:/ { print int($2 / 3145728) }' /proc/meminfo)
+    slots=$(( memory < $(nproc) ? memory : $(nproc) ))
+    slots=$(( slots > 0 ? slots : 1 ))
+    mapfile -t tasks < <(printf '%s\n' "${tasks[@]}" | awk '{ print ($2 == "race" ? 0 : $2 == "lint" ? 1 : $2 ~ /^test/ ? 2 : 3), $0 }' | sort -s -k1,1n | cut -d' ' -f2-)
+    echo "gates: ready in $((SECONDS - start))s, running ${#tasks[@]} recipes, ${slots} at a time"
+    failed=()
+    reap() {
+        local pid status=0 task
+        wait -n -p pid "${!running[@]}" || status=$?
+        task=${running[$pid]}
+        unset "running[$pid]"
+        if (( status == 0 )); then
+            printf 'ok    %-26s %4ss\n' "$task" "$((SECONDS - started[$pid]))"
+        else
+            printf 'FAIL  %-26s %4ss  exit %s\n' "$task" "$((SECONDS - started[$pid]))" "$status"
+            failed+=("$task")
+        fi
+    }
+    for task in "${tasks[@]}"; do
+        while (( ${#running[@]} >= slots )); do reap; done
+        read -r c recipe <<< "$task"
+        (
+            set +euo pipefail
+            # shellcheck source=/dev/null
+            source "${envs[$c]}"
+            exec just --justfile "${c}/justfile" --working-directory "$c" "$recipe"
+        ) > "${dir}/${c}-${recipe}.log" 2>&1 &
+        running[$!]=$task
+        started[$!]=$SECONDS
+    done
+    while (( ${#running[@]} )); do reap; done
+    if [[ "${GITHUB_ACTIONS-}" == true ]]; then
+        for task in "${tasks[@]}"; do
+            echo "::group::${task}"
+            cat "${dir}/${task/ /-}.log"
+            echo "::endgroup::"
+        done
+    fi
+    for task in "${failed[@]}"; do
+        printf '\n===== %s =====\n' "$task"
+        cat "${dir}/${task/ /-}.log"
+    done
+    printf '\ngates: %d recipes, %d failed, %ss wall clock\n' "${#tasks[@]}" "${#failed[@]}" "$((SECONDS - start))"
+    (( ${#failed[@]} == 0 ))
 
 # Build flake packages: `just packages lys-wm lys-shell`.
 [script("bash")]
@@ -46,23 +225,63 @@ packages +names:
 affected base="origin/main":
     go run ./ci/affected -base {{ base }}
 
-# The repository's own gate: a tidy go.mod, the CI planner's tests and lint, and
-# every package, dev shell and check evaluating on both systems, each in its own
-# process so no evaluation holds them all at once.
+# The repository's own gate, its parts at the same time: a tidy go.mod, the CI
+# planner's tests and lint, every package, dev shell and check evaluating on
+# both systems, spread over nix-eval-jobs' workers so no evaluation holds them
+# all at once, the NixOS modules evaluating, and the VM jobs covering every VM
+# check. Prints each part's result and the wall clock.
 [script("bash")]
 repository-check:
     set -euo pipefail
-    nix develop .#lib -c go mod tidy -diff
-    nix develop .#lib -c go test ./ci/...
-    nix develop .#lib -c golangci-lint run --config lib/.golangci.yml ./ci/...
-    for system in x86_64-linux aarch64-linux; do
-        for output in packages devShells checks; do
-            for name in $(nix eval --raw ".#${output}.${system}" --apply 'set: builtins.concatStringsSep " " (builtins.attrNames set)'); do
-                nix eval --raw ".#${output}.${system}.${name}.drvPath" >/dev/null
-            done
-        done
+    start=$SECONDS
+    dir=$(mktemp -d)
+    trap 'jobs -pr | xargs -r kill 2>/dev/null; wait; rm -rf "$dir"' EXIT
+    declare -A parts=()
+    nix develop .#lib -c bash -euo pipefail -c 'go mod tidy -diff && go test ./ci/... && golangci-lint run --config lib/.golangci.yml ./ci/...' > "${dir}/go" 2>&1 &
+    parts[$!]=go
+    # shellcheck disable=SC2016
+    just eval-jobs 'flake: flake.inputs.nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (system: { packages = flake.outputs.packages.${system}; devShells = flake.outputs.devShells.${system}; checks = flake.outputs.checks.${system}; })' > /dev/null 2> "${dir}/outputs" &
+    parts[$!]=outputs
+    nix eval --raw .#nixosModules --apply 'm: builtins.concatStringsSep " " (builtins.attrNames m)' > /dev/null 2> "${dir}/modules" &
+    parts[$!]=modules
+    just vm-coverage > "${dir}/vm-coverage" 2>&1 &
+    parts[$!]=vm-coverage
+    failed=0
+    while (( ${#parts[@]} )); do
+        status=0
+        wait -n -p pid "${!parts[@]}" || status=$?
+        part=${parts[$pid]}
+        unset "parts[$pid]"
+        if (( status == 0 )); then
+            printf 'ok    %-12s %4ss\n' "$part" "$((SECONDS - start))"
+            continue
+        fi
+        printf 'FAIL  %-12s %4ss  exit %s\n' "$part" "$((SECONDS - start))" "$status"
+        cat "${dir}/${part}"
+        failed=1
     done
-    nix eval --raw .#nixosModules --apply 'm: builtins.concatStringsSep " " (builtins.attrNames m)' >/dev/null
+    printf 'repository-check: %ss wall clock\n' "$((SECONDS - start))"
+    (( failed == 0 ))
+
+# Fail unless the VM jobs of ci/components.json run every NixOS VM check of the
+# flake on x86_64-linux, each once, and name no check the flake lacks.
+[private]
+[script("bash")]
+vm-coverage:
+    set -euo pipefail
+    # shellcheck disable=SC2016
+    flake=$(nix eval --json .#checks.x86_64-linux --apply 'checks: builtins.filter (name: checks.${name} ? driver) (builtins.attrNames checks)')
+    problems=$(jq -r -n --argjson flake "$flake" --slurpfile components ci/components.json '
+        [$components[0][] | .vms[]?] as $ci
+        | ($flake - $ci | map("vm-coverage: the flake VM check \(.) is in no VM job of ci/components.json"))
+        + ($ci - $flake | map("vm-coverage: ci/components.json runs \(.), which is no VM check of the flake on x86_64-linux"))
+        + ($ci | group_by(.) | map(select(length > 1) | "vm-coverage: ci/components.json runs \(.[0]) in \(length) jobs"))
+        | .[]
+    ')
+    if [[ -n "$problems" ]]; then
+        printf '%s\n' "$problems" >&2
+        exit 1
+    fi
 
 # Fail, showing the diff, when go.mod or go.sum is not tidy.
 tidy-check:

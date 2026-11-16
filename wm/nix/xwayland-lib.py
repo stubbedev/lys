@@ -7,10 +7,6 @@ TABLET_MAX = 0x7FFF
 TABLET_OUTPUT = "Virtual-1"
 
 
-def as_alice(command):
-    return params["as_alice"].format(command)
-
-
 def in_x(command):
     return as_alice(f"DISPLAY=:0 {command}")
 

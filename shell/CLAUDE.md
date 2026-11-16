@@ -13,8 +13,9 @@ just in shell vet           # go vet ./...
 just in shell lint          # golangci-lint fmt --diff + golangci-lint run
 just in shell check         # vet + lint + test + race + schema-check + dist, run before every commit
 just shell::docker check    # any recipe in the dev shell inside a container, away from the desktop session
-just shell::hyprland-vm     # the shell on a live Hyprland in a NixOS VM (KVM)
-just shell::clockwatch-vm   # the clock-jump watcher on a real kernel in a NixOS VM (KVM): clock steps and suspend
+just shell::hyprland-vms    # the shell, then lys-ui's suite, on Hyprland in one NixOS VM boot (KVM)
+just shell::lys-wm-vm       # the shell on lys-wm in a NixOS VM (KVM): desktop-vms-session
+just shell::clockwatch-vm   # the clock-jump watcher on a real kernel in the shared system VM (KVM): clock steps and suspend
 ```
 
 After a `go.mod` change, or the first import of a module package nothing

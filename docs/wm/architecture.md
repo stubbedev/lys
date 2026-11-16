@@ -441,7 +441,7 @@ foreign-toplevel activate all call it. Nothing else mutates WM state.
 | Renderer | Selected by | Notes |
 | --- | --- | --- |
 | GLES2 | default for nested; `-renderer gles` on drm | glvnd picks the vendor; GBM, device or surfaceless platform; one configless context per display, no surfaces. The drm path for a card without a Vulkan driver |
-| Vulkan | default for drm; `-renderer vulkan` elsewhere | Peer of GLES in every path. On drm it needs a Vulkan driver for the primary card: without one lys-wm stops at startup with `drm.ErrNoVulkan`, naming the card, `-renderer gles` and `LYS_WM_RENDERER=gles`, and never falls back to GLES by itself. lavapipe drives no DRM node, so vkms and virtio-gpu without venus run `-renderer gles` on llvmpipe, as the NixOS VM checks do (`nix/vm.nix`). On drm it takes its scanout buffers from GBM with `GBM_BO_USE_SCANOUT` and imports them to render, since xe refuses ADDFB2 for memory Mesa's Vulkan driver allocates (it binds it into its VM before the scanout flag can be set); it loads no EGL or GLES unless a secondary card has no Vulkan driver (`TestStartOnEveryCardWithoutMaster`, with those two libraries unloadable). Nested: renders into memory it exports, on the device the host's dmabuf feedback names. Headless: tries render nodes first |
+| Vulkan | default for drm; `-renderer vulkan` elsewhere | Peer of GLES in every path. On drm it needs a Vulkan driver for the primary card: without one lys-wm stops at startup with `drm.ErrNoVulkan`, naming the card, `-renderer gles` and `LYS_WM_RENDERER=gles`, and never falls back to GLES by itself. lavapipe drives no DRM node, so vkms and virtio-gpu without venus run `-renderer gles` on llvmpipe, as the NixOS VM checks do (`nix/session-vm.nix`). On drm it takes its scanout buffers from GBM with `GBM_BO_USE_SCANOUT` and imports them to render, since xe refuses ADDFB2 for memory Mesa's Vulkan driver allocates (it binds it into its VM before the scanout flag can be set); it loads no EGL or GLES unless a secondary card has no Vulkan driver (`TestStartOnEveryCardWithoutMaster`, with those two libraries unloadable). Nested: renders into memory it exports, on the device the host's dmabuf feedback names. Headless: tries render nodes first |
 | Software | default for headless | Reference for every pixel test |
 
 Scanout memory is GBM's under both renderers (`gpuAllocator` over
@@ -828,7 +828,7 @@ none of this runs. [Upgrade](./guide/upgrade) is the user guide.
   that take DRM master `OnASeat`. `just test` and `just race` skip all four
   (`host_skip` in the justfile), so a run beside a desktop session never opens
   a card; `just hardware` refuses to run outside the container `just docker
-  hardware` builds, and `vm-seat` runs the seat tests.
+  hardware` builds, and the `wm-vms-go-tests` check runs the seat tests.
 - Commands the compositor execs write to `Config.ExecOutput`, which
   `PlainConfig` sets to the process's stdout and stderr. A test that reads an
   exec's output names a pipe there: the harness tests share one process and
@@ -837,8 +837,8 @@ none of this runs. [Upgrade](./guide/upgrade) is the user guide.
   `LIBGL_ALWAYS_SOFTWARE=1`) and `VK_DRIVER_FILES` at lavapipe. Unset them to
   test on the machine's driver.
 - dmabuf paths need `/dev/udmabuf` on lavapipe, so they run in the
-  `vm-gpu-tests` NixOS check; `just docker hardware` runs them on a real GPU
-  with both renderers. `vm-xdnd` drags files between Wayland and X both ways.
+  `wm-vms-go-tests` NixOS check; `just docker hardware` runs them on a real GPU
+  with both renderers. The `xdnd` scenario of `wm-vms-share` drags files between Wayland and X both ways.
 - The DRM backend's tests run a fake device on a loop from `loop.NewManual`,
   whose clock stands still unless a test sets it: with nothing ready and no
   work off the loop on its way back, the rig moves it to the next armed timer,

@@ -12,8 +12,10 @@ their Go imports and the dependencies `ci/components.json` declares. Before
 every commit, run their gates the way CI does, through `just`:
 
 ```sh
-just in <component> check     # or the component's plain/race/docker recipes
+just gates <component>...     # its Go gates and race suite in parallel, as CI's Go and race jobs
+just in <component> <recipe>  # one recipe in its dev shell, or its docker recipes
 just packages lys-<component> # the Nix package, for a component that has one
+just vm-checks <check>...     # its VM checks, the `vms` of ci/components.json
 just repository-check         # after a change to go.mod, the flake, nix/ or ci/
 ```
 

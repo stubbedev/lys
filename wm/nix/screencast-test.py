@@ -27,10 +27,6 @@ SELECT_SOURCES_RESTORES = re.compile(r'string "restore_data"')
 SHARE_FIELDS = re.compile(r"^shared (\d+x\d+) frames (\d+) seconds ([\d.]+) fps ([\d.]+) gap (\d+) distinct (\d+) background ([\d.]+)")
 
 
-def as_alice(command):
-    return params["as_alice"].format(command)
-
-
 def windows():
     return json.loads(machine.succeed(as_alice("lys-wmctl windows")))
 

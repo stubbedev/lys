@@ -24,10 +24,14 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 
 | Recipe | Effect |
 | --- | --- |
-| `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vm wm-module`. |
+| `just gates [component]...` | Every Go gate and race suite of the components (default all) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. |
+| `just go-gates [component]...`, `just race-gates [component]...` | The Go gates alone, or the race suites alone, as CI's Go and race jobs run them. |
+| `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vms-greeter wm-module`. |
+| `just vm-checks <name>...` | Run NixOS VM checks one after another on closures built first: the drivers, then each test alone. |
+| `just build-stage <components> [vms]` | CI's build stage for this machine: every package, non-VM check and dev shell of the components, and the named VM checks' closures, in one `nix build`; prints the store paths. |
 | `just packages <name>...` | Build flake packages: `just packages lys-wm`. |
 | `just affected [base]` | The components and CI jobs a change since `base` (default `origin/main`) touches. |
-| `just repository-check` | A tidy `go.mod`, the CI planner's tests, and every flake output evaluating. |
+| `just repository-check` | At the same time: a tidy `go.mod`, the CI planner's tests and lint, every flake output evaluating, spread over nix-eval-jobs workers, and the `vms` lists of `ci/components.json` naming every VM check of the flake once; prints each part's result and the wall clock. |
 | `just update` | Update every Go dependency, then the vendor hash. |
 | `just vendor-hash` | Recompute the one `vendorHash` in `nix/go.nix` after a `go.mod` change. |
 | `just release-patch`, `release-minor`, `release-major` | Tag the next release once CI passed on the commit. |
@@ -39,20 +43,64 @@ The root flake builds every component from one source tree with one
 `packages.lys-<component>`, `nixosModules.lys-<component>`,
 `homeModules.lys-<component>`, `overlays.default`, one dev shell per
 component, and every check as `checks.<system>.<component>-<check>`.
+Components' VM scenarios that run on the same machine are subtests of one
+NixOS test, one boot for all of them: `nix/desktop-vms.nix` gathers them into
+`desktop-vms-session` (lys-shell on lys-wm, then a screen shared through
+lys-shell's portal, each in a fresh session of the same boot) and
+`desktop-vms-system` (KMS, accounts-daemon, lys-secrets activation, lys-polkit,
+then the clock steps and suspend of `shell/internal/clockwatch`), a CI job each.
 
 ## CI
 
-`ci/components.json` lists each component's CI jobs, each a `just` command, and
-what besides its Go imports it depends on (a VM test that boots another
-component's package). On every push and pull request the plan job runs
-`ci/affected`, which takes the changed files, adds every component importing or
-depending on a changed one, and runs only their jobs. A change to the shared
-files (`go.mod`, the flake, `nix/`, `ci/`, the root justfile) runs every job, as
-do the weekly scheduled run and a manual one. The `ci` job is the one status to
-require: it passes when every planned job passed.
+Every CI job, and every local gate run, finishes in under ten minutes of wall
+clock; a job that grows past that is split or made cheaper, never given a longer
+timeout. Every job's `timeout-minutes` is 10.
+
+`ci/components.json` says, per component, which recipes of its justfile are its
+Go gates (`gates`), whether it has a race suite (`race`), its further jobs (each
+a `run` command on named runners), its NixOS VM checks (`vms`, with
+`free-disk` when their disk images need the runner's preinstalled toolchains
+gone), and what besides its Go imports it depends on (a VM test that boots
+another component's package). On
+every push and pull request the plan job runs `ci/affected`, which takes the
+changed files, adds every component importing or depending on a changed one, and
+plans only their work. A change to the shared files (`go.mod`, the flake, `nix/`,
+`ci/`, the root justfile, the CI workflow and its setup action) plans every
+component, as do the weekly scheduled run and a manual one.
+
+The jobs run in two stages:
+
+1. **Build**, one job per architecture: `just build-stage` builds, in a single
+   `nix build`, every package, every non-VM check and every dev shell of the
+   affected components, and the closures of the VM checks the planned VM jobs
+   run, then pushes it all to the binary cache (`nix.stubbe.dev`, through
+   `XILO_TOKEN`; without the token the build stage fails, since nothing could
+   be shared). Every derivation is built here once per architecture.
+2. **Jobs**, each on the build stage's outputs. Their Nix runs with
+   `max-jobs = 0`: it only substitutes, so a job that would build a lys
+   derivation fails instead of building it again.
+   - **Go gates**, one job per architecture: `just go-gates` with every affected
+     component, each gate recipe in its own process in its component's dev
+     shell, as many at once as cores and memory allow, after one
+     `go build ./...` fills the shared Go build cache.
+   - **race**, one job on x86_64: `just race-gates`, the race suites in
+     parallel the same way.
+   - **Further jobs**, each a job of its own so they run side by side: lib's
+     and ui's GPU and headless suites, wm's GLES and Vulkan pacing gates,
+     splash's initramfs-tools image, and one job per VM check, which
+     runs `just vm-checks <check>` on the closure the build stage built, so
+     the VM checks run side by side. The `vms` lists in `ci/components.json`
+     are the one place the checks are named. VM jobs run on x86_64, the only
+     runner with KVM, and `just repository-check` fails unless the lists hold
+     every VM check the flake has there, each exactly once, and none it
+     lacks.
+   - **package**: each packaged component's archive, `.deb` and `.rpm`.
+
+The `ci` job is the one status to require: it passes when every planned job
+passed.
 
 A new component needs an entry in `ci/components.json`; a test fails until it
-has one.
+has one, and another until every gate it names is a recipe of its justfile.
 
 ## Releases
 

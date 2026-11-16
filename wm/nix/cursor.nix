@@ -1,17 +1,8 @@
-{
-  pkgs,
-  module,
-}:
-import ./vm.nix {
-  inherit pkgs module;
-  name = "lys-wm-cursor";
-  devices = ["virtio-gpu-pci" "virtio-mouse-pci"];
-  kernelModules = ["vkms"];
+pkgs: {
+  name = "cursor";
   outputs = ["Virtual-1" "Virtual-2"];
+  kernelModules.vkms = "enable_cursor=0";
   framedCursors = ["Virtual-2"];
-  machineConfig = {
-    boot.extraModprobeConfig = "options vkms enable_cursor=0";
-    environment.systemPackages = [pkgs.drm_info];
-  };
-  extraTest = _: import ./vm-scripts.nix [./cursor.py];
+  machineConfig.environment.systemPackages = [pkgs.drm_info];
+  scripts = [./cursor.py];
 }

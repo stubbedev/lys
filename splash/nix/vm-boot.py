@@ -21,8 +21,6 @@ def recorded_duration(m):
 
 explained = "journalctl -b --no-pager -o short-monotonic -u 'lys-splash*' -u 'ask-*' -u greeter; echo '--- tty1'; tr -s ' ' < /dev/vcs1"
 
-start_all()
-
 with logs_on_failure(text, explained):
     booted(text)
     text.succeed("test ! -e /dev/dri/card0", "lys-splash --ping")

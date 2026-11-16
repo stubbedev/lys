@@ -1,36 +1,20 @@
 { self, inputs, ... }:
 {
   perSystem =
-    { pkgs, lib, ... }:
+    {
+      pkgs,
+      lib,
+      lysGo,
+      ...
+    }:
     let
       pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-shell;
     in
     {
       checks =
         lib.optionalAttrs pkgs.stdenv.hostPlatform.isx86_64 {
-          # The shell on a live Hyprland in a NixOS VM (needs KVM); see
-          # tests/hyprland-vm.nix.
-          lys-shell-hyprland-vm = pkgs.callPackage ../tests/hyprland-vm.nix {
-            inherit self;
-          };
-          # internal/clockwatch on a real kernel, stepping the clock and
-          # suspending, in a NixOS VM (needs KVM); see
-          # tests/clockwatch-vm.nix.
-          lys-shell-clockwatch-vm = pkgs.callPackage ../tests/clockwatch-vm.nix {
-            inherit self;
-          };
-          # The shell on lys-wm in a NixOS VM (needs KVM); see
-          # tests/lys-wm-vm.nix.
-          lys-shell-lys-wm-vm = pkgs.callPackage ../tests/lys-wm-vm.nix {
-            inherit self;
-          };
-          # A screen shared through this shell's portal, on lys-wm's harness.
-          lys-shell-lys-wm-screencast-vm = self.lib.screencast {
-            inherit pkgs;
-            module = self.nixosModules.lys-wm;
-            lysShell = self.nixosModules.lys-shell;
-            portal = "lys-shell";
-            seconds = 10;
+          lys-shell-hyprland-vms = pkgs.callPackage ../tests/hyprland-vm.nix {
+            inherit self lysGo;
           };
         }
         // {

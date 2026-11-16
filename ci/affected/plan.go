@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"maps"
@@ -9,7 +8,6 @@ import (
 	"strings"
 )
 
-// Runner is a GitHub-hosted runner architecture a job runs on.
 type Runner string
 
 const (
@@ -17,35 +15,30 @@ const (
 	AArch64 Runner = "aarch64"
 )
 
+var runners = []Runner{X86_64, AArch64}
+
 var runnerLabels = map[Runner]string{X86_64: "ubuntu-latest", AArch64: "ubuntu-24.04-arm"}
 
-// Job is one CI job of a component, run once per runner.
+const vmRunner = X86_64
+
 type Job struct {
-	Name     string   `json:"name"`
-	Runners  []Runner `json:"runners"`
-	Run      string   `json:"run"`
-	KVM      bool     `json:"kvm"`
-	UserNS   bool     `json:"userns"`
-	FreeDisk bool     `json:"free-disk"`
-	Timeout  int      `json:"timeout"`
+	Name    string   `json:"name"`
+	Runners []Runner `json:"runners"`
+	Run     string   `json:"run"`
 }
 
-// Component is one entry of ci/components.json.
 type Component struct {
-	// Paths outside the component's directory whose change affects it;
-	// a path ending in / is a directory.
-	Paths []string `json:"paths"`
-	// Depends names the components its checks run beyond what its Go code
-	// imports: a VM test that boots another component's package.
-	Depends []string `json:"depends"`
-	// AffectsAll marks the repository's shared files: a change to them
-	// affects every component.
-	AffectsAll bool  `json:"affects-all"`
-	Package    bool  `json:"package"`
-	Jobs       []Job `json:"jobs"`
+	Paths      []string `json:"paths"`
+	Depends    []string `json:"depends"`
+	AffectsAll bool     `json:"affects-all"`
+	Package    bool     `json:"package"`
+	Gates      []string `json:"gates"`
+	Race       bool     `json:"race"`
+	Jobs       []Job    `json:"jobs"`
+	VMs        []string `json:"vms"`
+	FreeDisk   bool     `json:"free-disk"`
 }
 
-// Matrix is one entry of the CI job matrix.
 type Matrix struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
@@ -54,29 +47,40 @@ type Matrix struct {
 	KVM      bool   `json:"kvm"`
 	UserNS   bool   `json:"userns"`
 	FreeDisk bool   `json:"free-disk"`
-	Timeout  int    `json:"timeout"`
 }
 
-// Plan is what CI runs for a change.
+type Build struct {
+	Arch       Runner `json:"arch"`
+	Runner     string `json:"runner"`
+	Components string `json:"components"`
+	VMs        string `json:"vms"`
+}
+
 type Plan struct {
 	Components []string `json:"components"`
+	Builds     []Build  `json:"builds"`
 	Jobs       []Matrix `json:"jobs"`
 	Packages   []string `json:"packages"`
 }
 
-const defaultTimeout = 45
-
 func validate(components map[string]Component) error {
 	var errs []error
-	for name, c := range components {
+	for _, name := range slices.Sorted(maps.Keys(components)) {
+		c := components[name]
 		for _, dep := range c.Depends {
 			if _, ok := components[dep]; !ok {
 				errs = append(errs, fmt.Errorf("%s depends on %q, which is no component", name, dep))
 			}
 		}
 		for _, j := range c.Jobs {
-			if j.Name == "" || j.Run == "" || len(j.Runners) == 0 {
-				errs = append(errs, fmt.Errorf("%s has a job without a name, a command or a runner", name))
+			if j.Name == "" {
+				errs = append(errs, fmt.Errorf("%s has a job without a name", name))
+			}
+			if j.Run == "" {
+				errs = append(errs, fmt.Errorf("%s / %s has no command", name, j.Name))
+			}
+			if len(j.Runners) == 0 {
+				errs = append(errs, fmt.Errorf("%s / %s runs on no runner", name, j.Name))
 			}
 			for _, r := range j.Runners {
 				if _, ok := runnerLabels[r]; !ok {
@@ -84,14 +88,18 @@ func validate(components map[string]Component) error {
 				}
 			}
 		}
+		for _, vm := range c.VMs {
+			if !strings.HasPrefix(vm, name+"-") {
+				errs = append(errs, fmt.Errorf("%s runs VM check %q, which is not %s's", name, vm, name))
+			}
+		}
+		if c.FreeDisk && len(c.VMs) == 0 {
+			errs = append(errs, fmt.Errorf("%s frees disk for VM checks it does not have", name))
+		}
 	}
 	return errors.Join(errs...)
 }
 
-// affected is every component a change to the changed files touches:
-// those the files are in or name, and every component depending on one of
-// them through its Go imports (imports maps a component to the components
-// its packages import) or its declared Depends.
 func affected(components map[string]Component, imports map[string][]string, changed []string) []string {
 	hit := map[string]bool{}
 	for _, file := range changed {
@@ -126,28 +134,68 @@ func matches(path, file string) bool {
 }
 
 func plan(components map[string]Component, names []string) Plan {
-	p := Plan{Components: names, Jobs: []Matrix{}, Packages: []string{}}
+	p := Plan{Components: names, Builds: []Build{}, Jobs: []Matrix{}, Packages: []string{}}
+	var gated, raced, vms []string
 	for _, name := range names {
 		c := components[name]
 		if c.Package {
 			p.Packages = append(p.Packages, name)
 		}
-		for _, j := range c.Jobs {
-			for _, r := range j.Runners {
-				p.Jobs = append(p.Jobs, Matrix{
-					ID:       slug(name + "-" + j.Name + "-" + string(r)),
-					Name:     fmt.Sprintf("%s / %s (%s)", name, j.Name, r),
-					Runner:   runnerLabels[r],
-					Run:      j.Run,
-					KVM:      j.KVM,
-					UserNS:   j.UserNS,
-					FreeDisk: j.FreeDisk,
-					Timeout:  cmp.Or(j.Timeout, defaultTimeout),
-				})
-			}
+		if len(c.Gates) > 0 {
+			gated = append(gated, name)
+		}
+		if c.Race {
+			raced = append(raced, name)
 		}
 	}
+	for _, r := range runners {
+		if len(gated) > 0 {
+			p.Jobs = append(p.Jobs, userNS(matrix("go", "Go gates", r, "just go-gates "+strings.Join(gated, " "))))
+		}
+		if r == X86_64 && len(raced) > 0 {
+			p.Jobs = append(p.Jobs, userNS(matrix("race", "race", r, "just race-gates "+strings.Join(raced, " "))))
+		}
+	}
+	for _, name := range names {
+		c := components[name]
+		for _, j := range c.Jobs {
+			for _, r := range j.Runners {
+				p.Jobs = append(p.Jobs, matrix(name+"-"+j.Name, name+" / "+j.Name, r, j.Run))
+			}
+		}
+		for _, vm := range c.VMs {
+			m := matrix(vm, vm, vmRunner, "just vm-checks "+vm)
+			m.KVM, m.FreeDisk = true, c.FreeDisk
+			p.Jobs = append(p.Jobs, m)
+			vms = append(vms, vm)
+		}
+	}
+	for _, r := range runners {
+		packaged := r == X86_64 && len(p.Packages) > 0
+		if !packaged && !slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.Runner == runnerLabels[r] }) {
+			continue
+		}
+		b := Build{Arch: r, Runner: runnerLabels[r], Components: strings.Join(names, " ")}
+		if r == vmRunner {
+			b.VMs = strings.Join(vms, " ")
+		}
+		p.Builds = append(p.Builds, b)
+	}
 	return p
+}
+
+func userNS(m Matrix) Matrix {
+	m.UserNS = true
+	return m
+}
+
+func matrix(id, name string, r Runner, run string) Matrix {
+	return Matrix{
+		ID:     slug(id + "-" + string(r)),
+		Name:   fmt.Sprintf("%s (%s)", name, r),
+		Runner: runnerLabels[r],
+		Run:    run,
+	}
 }
 
 func slug(s string) string {

@@ -1,6 +1,6 @@
 {
   "repository": {
-    "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml"],
+    "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml", ".github/workflows/package.yml"],
     "affects-all": true,
     "jobs": [
       {
@@ -10,255 +10,116 @@
       }
     ]
   },
-  "packaging": {
-    "jobs": []
-  },
+  "packaging": {},
   "lib": {
     "paths": ["docs/lib/xkb.md"],
+    "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build"],
+    "race": true,
     "jobs": [
       {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in lib fmt-check check"
+        "name": "GPU",
+        "runners": ["x86_64"],
+        "run": "just in lib gpu"
       },
       {
-        "name": "race, GPU, headless",
+        "name": "headless",
         "runners": ["x86_64"],
-        "run": "just in lib race gpu headless"
+        "run": "just in lib headless"
       }
     ]
   },
   "ui": {
     "paths": ["docs/ui/css.md"],
+    "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "test-lysdebug", "atspi", "atspi-verify"],
+    "race": true,
     "jobs": [
       {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in ui fmt-check check test-lysdebug atspi atspi-verify"
-      },
-      {
-        "name": "race, GPU, headless",
+        "name": "GPU",
         "runners": ["x86_64"],
-        "run": "just in ui race gpu headless"
+        "run": "just in ui gpu"
       },
       {
-        "name": "package",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just checks ui-package"
-      },
-      {
-        "name": "Hyprland VM",
+        "name": "headless",
         "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks ui-hyprland-vm"
+        "run": "just in ui headless"
       }
     ]
   },
   "desktop": {
-    "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "userns": true,
-        "run": "just in desktop plain"
-      },
-      {
-        "name": "race",
-        "runners": ["x86_64"],
-        "userns": true,
-        "run": "just in desktop race"
-      }
-    ]
+    "gates": ["vet", "lint", "no-fused", "test", "build"],
+    "race": true
   },
   "wm": {
     "depends": ["ui", "packaging"],
     "paths": ["docs/wm/actions.md", "docs/wm/shaders/"],
     "package": true,
+    "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "vuln"],
+    "race": true,
     "jobs": [
       {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in wm plain && just packages lys-wm && just checks wm-module"
+        "name": "pacing, GLES",
+        "runners": ["x86_64"],
+        "run": "just in wm pace-gate gles"
       },
       {
-        "name": "race",
+        "name": "pacing, Vulkan",
         "runners": ["x86_64"],
-        "run": "just in wm race"
-      },
-      {
-        "name": "pacing (GLES, Vulkan)",
-        "runners": ["x86_64"],
-        "timeout": 25,
-        "run": "just in wm pace-gate gles && just in wm pace-gate vulkan"
-      },
-      {
-        "name": "VMs: GPUs and outputs",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks wm-vm wm-vm-two-gpus wm-vm-display-only wm-vm-configured-gpu"
-      },
-      {
-        "name": "VMs: cursor, Xwayland, GPU tests, rtkit",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks wm-vm-cursor wm-vm-xwayland wm-vm-gpu-tests wm-vm-rtkit"
-      },
-      {
-        "name": "VMs: everyday clients, screen sharing",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks wm-vm-apps wm-vm-screencast"
+        "run": "just in wm pace-gate vulkan"
       }
-    ]
+    ],
+    "vms": ["wm-vms-desktop", "wm-vms-go-tests", "wm-vms-gpus", "wm-vms-share", "wm-vms-vkms", "wm-vms-xwayland-idea"]
   },
   "shell": {
     "depends": ["wm", "login", "secrets", "settings", "packaging"],
     "paths": ["docs/shell/config/"],
     "package": true,
-    "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "userns": true,
-        "run": "just in shell plain"
-      },
-      {
-        "name": "race",
-        "runners": ["x86_64"],
-        "userns": true,
-        "run": "just in shell race"
-      },
-      {
-        "name": "Nix package and modules",
-        "runners": ["x86_64"],
-        "run": "just packages lys-shell && just checks shell-settings-app shell-wrapper-vulkan"
-      },
-      {
-        "name": "VMs: Hyprland, lys-wm, screen sharing",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks shell-hyprland-vm shell-lys-wm-vm shell-lys-wm-screencast-vm"
-      }
-    ]
+    "gates": ["vet", "lint", "no-fused", "test", "schema-check", "dist"],
+    "race": true,
+    "vms": ["shell-hyprland-vms"]
   },
   "login": {
     "depends": ["wm", "secrets", "packaging"],
     "package": true,
-    "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in login check && just checks login-package"
-      },
-      {
-        "name": "VMs: login, keyring, upgrade",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks login-vm login-keyring-vm login-upgrade-vm"
-      },
-      {
-        "name": "VMs: greetd, wall clock, X11 session",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks login-greetd-vm login-wallclock-vm login-x11-session-vm"
-      }
-    ]
+    "gates": ["vet", "lint", "no-fused", "test", "build"],
+    "race": true,
+    "vms": ["login-vms-autologin", "login-vms-greetd", "login-vms-greeter", "login-vms-sessions"]
   },
   "settings": {
     "depends": ["wm", "packaging"],
     "package": true,
-    "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in settings vet lint no-fused test build && just packages lys-settings"
-      },
-      {
-        "name": "race",
-        "runners": ["x86_64"],
-        "run": "just in settings race"
-      },
-      {
-        "name": "Nix modules and the app on lys-wm",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks settings-hm-module settings-wrapper-vulkan settings-vm-accounts"
-      }
-    ]
+    "gates": ["vet", "lint", "no-fused", "test", "build"],
+    "race": true
   },
   "polkit": {
-    "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in polkit check && just packages lys-polkit"
-      },
-      {
-        "name": "home-manager module and a real polkitd",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks polkit-hm-module polkit-vm"
-      }
-    ]
+    "gates": ["vet", "lint", "test", "build"]
   },
   "power": {
     "depends": ["packaging"],
     "package": true,
-    "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in power check && just packages lys-power && just checks power-nixos-module"
-      }
-    ]
+    "gates": ["vet", "lint", "test", "build"],
+    "race": true
   },
   "secrets": {
+    "depends": ["packaging"],
     "package": true,
-    "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in secrets check && just packages lys-secrets"
-      },
-      {
-        "name": "Nix modules and activation VM",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "run": "just checks secrets-package secrets-hm-module secrets-nixos-module secrets-activation-vm"
-      }
-    ],
-    "depends": ["packaging"]
+    "gates": ["vet", "lint", "test", "build"],
+    "race": true
   },
   "splash": {
     "depends": ["wm", "login"],
+    "gates": ["vet", "lint", "no-fused", "test", "build"],
     "jobs": [
-      {
-        "name": "check",
-        "runners": ["x86_64", "aarch64"],
-        "run": "just in splash check && just packages lys-splash && just checks splash-units splash-module splash-plymouth-client"
-      },
       {
         "name": "initramfs-tools image",
         "runners": ["x86_64"],
-        "timeout": 30,
         "run": "just splash::initramfs-tools"
-      },
-      {
-        "name": "VMs: LUKS boot to the greeter, boot, journal",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "free-disk": true,
-        "timeout": 60,
-        "run": "just checks splash-vm-e2e splash-vm-boot splash-vm-journal"
-      },
-      {
-        "name": "VMs: greeter, splash",
-        "runners": ["x86_64"],
-        "kvm": true,
-        "free-disk": true,
-        "timeout": 60,
-        "run": "just checks splash-vm-greeter splash-vm-splash"
       }
-    ]
+    ],
+    "vms": ["splash-vms-firmware", "splash-vms-greeter"],
+    "free-disk": true
+  },
+  "desktop-vms": {
+    "depends": ["lib", "polkit", "secrets", "settings", "shell"],
+    "vms": ["desktop-vms-session", "desktop-vms-system"]
   }
 }

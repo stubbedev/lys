@@ -1,11 +1,3 @@
-// Command affected plans a CI run: from the files a change touches, the
-// components it affects (directly, through Go imports, or through the
-// dependencies ci/components.json declares) and the jobs and packages to
-// build for them.
-//
-//	affected -base origin/main          what a branch changes, as text
-//	affected -base SHA -github          the plan as GitHub step outputs
-//	affected -all -github               every component, as a scheduled run
 package main
 
 import (
@@ -99,8 +91,6 @@ func git(root string, args ...string) ([]string, error) {
 	return strings.Fields(string(out)), nil
 }
 
-// goImports maps each component to the components its packages and their
-// tests import, from one `go list` of the module.
 func goImports(root, module string) (map[string][]string, error) {
 	cmd := exec.Command("go", "list", "-test", "-deps=false", "-f", "{{.ImportPath}} {{join .Deps \" \"}}", "./...")
 	cmd.Dir = root
@@ -145,8 +135,13 @@ func writeText(w io.Writer, p Plan) error {
 	if _, err := fmt.Fprintf(w, "components: %s\npackages: %s\n", strings.Join(p.Components, " "), strings.Join(p.Packages, " ")); err != nil {
 		return err
 	}
+	for _, b := range p.Builds {
+		if _, err := fmt.Fprintf(w, "  build (%s): %s\n", b.Arch, b.VMs); err != nil {
+			return err
+		}
+	}
 	for _, j := range p.Jobs {
-		if _, err := fmt.Fprintf(w, "  %s\n", j.Name); err != nil {
+		if _, err := fmt.Fprintf(w, "  %s: %s\n", j.Name, j.Run); err != nil {
 			return err
 		}
 	}
@@ -162,7 +157,7 @@ func writeGitHub(p Plan) error {
 	for _, entry := range []struct {
 		key string
 		v   any
-	}{{"components", p.Components}, {"jobs", p.Jobs}, {"packages", p.Packages}} {
+	}{{"components", p.Components}, {"builds", p.Builds}, {"jobs", p.Jobs}, {"packages", p.Packages}} {
 		data, err := json.Marshal(entry.v)
 		if err != nil {
 			return fmt.Errorf("encode %s: %w", entry.key, err)

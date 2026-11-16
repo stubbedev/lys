@@ -17,6 +17,8 @@ import (
 // cache compiles it in seconds, a cold one needs the slack.
 const buildTimeout = 3 * time.Minute
 
+const prebuiltClientsEnv = "LYS_UI_TEST_CLIENTS"
+
 // ComponentDir is lys-ui's directory in the source tree, found from the
 // current directory (the tests run inside it), so the harness can build
 // cmd targets without assuming a working directory.
@@ -36,6 +38,9 @@ func BuildShowcase(dir string) (string, error) {
 // (trace calls are compiled out otherwise) into dir/bin and returns the
 // binary path.
 func BuildClient(dir, pkg, bin string) (string, error) {
+	if prebuilt := os.Getenv(prebuiltClientsEnv); prebuilt != "" {
+		return prebuiltClient(prebuilt, bin)
+	}
 	root, err := ComponentDir()
 	if err != nil {
 		return "", err
@@ -50,6 +55,18 @@ func BuildClient(dir, pkg, bin string) (string, error) {
 		return "", fmt.Errorf("build %s: %w\n%s", pkg, err, out)
 	}
 	return filepath.Join(dir, bin), nil
+}
+
+func prebuiltClient(dir, bin string) (string, error) {
+	path := filepath.Join(dir, bin)
+	info, err := os.Stat(path) //nolint:gosec // the VM recipe names the prebuilt client directory, the suite the binary
+	if err != nil {
+		return "", fmt.Errorf("prebuilt client %s from %s=%s: %w", bin, prebuiltClientsEnv, dir, err)
+	}
+	if info.IsDir() || info.Mode().Perm()&0o111 == 0 {
+		return "", fmt.Errorf("prebuilt client %s from %s=%s is not an executable file (mode %s)", path, prebuiltClientsEnv, dir, info.Mode())
+	}
+	return path, nil
 }
 
 // goTool prefers the go in PATH; GOROOT-built test binaries (go test

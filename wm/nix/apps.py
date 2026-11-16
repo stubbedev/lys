@@ -3,10 +3,6 @@ import json
 BAR = 30
 
 
-def as_alice(command):
-    return params["as_alice"].format(command)
-
-
 def windows():
     return {w["id"]: w for w in json.loads(machine.succeed(as_alice("lys-wmctl windows")))}
 
@@ -75,7 +71,7 @@ def check_windows():
 def check_notification():
     dispatch("workspace", "1")
     launch("mako")
-    machine.wait_until_succeeds("pgrep -u alice mako", timeout=60)
+    machine.wait_until_succeeds(f"pgrep -u {USER} mako", timeout=60)
     digest, _, _ = region(880, BAR, 400, 200)
     launch("notify")
     wait_for_region(880, BAR, 400, 200, f"$1 != \"{digest}\"", 60)
@@ -87,15 +83,15 @@ def check_launcher(name):
     wait_for_region(0, BAR, 1280, 800 - BAR, f"$1 != \"{digest}\"", 120)
     machine.sleep(2)
     machine.send_key("esc")
-    machine.wait_until_fails(f"pgrep -u alice {name}", timeout=60)
+    machine.wait_until_fails(f"pgrep -u {USER} {name}", timeout=60)
 
 
 def check_lock():
     launch("swaylock")
     wait_for_region(2, 2, 4, 4, "$2 == 1 && $3 == \"336699\"", 120)
     machine.sleep(2)
-    machine.send_chars("alice\n")
-    machine.wait_until_fails("pgrep -u alice swaylock", timeout=60)
+    machine.send_chars(f"{PASSWORD}\n")
+    machine.wait_until_fails(f"pgrep -u {USER} swaylock", timeout=60)
     bar_drawn()
 
 

@@ -1,11 +1,5 @@
 import json
 
-RUNTIME = "/run/user/1000"
-
-
-def as_alice(command):
-    return params["as_alice"].format(command)
-
 
 def wmctl(args):
     return as_alice(f"lys-wmctl {args}")

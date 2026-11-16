@@ -30,7 +30,8 @@ setuid transports.
 | Command | Effect |
 | --- | --- |
 | `just packages lys-polkit` | Builds the package with the user unit in `lib/systemd/user` (`nix/lys-polkit.nix`) |
-| `just checks polkit-hm-module polkit-vm` | The home-manager module's unit wiring, and on x86_64 the NixOS VM test `tests/polkit-vm.nix` |
+| `just checks polkit-hm-module` | The home-manager module's unit wiring |
+| `just checks desktop-vms-system` | On x86_64, the shared NixOS VM whose scenarios include `tests/polkit-vm.nix` |
 | `nix fmt` | Formats nix files with alejandra |
 
 Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).

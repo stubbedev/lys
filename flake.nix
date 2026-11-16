@@ -76,10 +76,10 @@
         ./splash/nix/shell.nix
         ./splash/nix/module.nix
         (checks "splash" ./splash/nix/checks.nix)
+        (checks "desktop-vms" ./nix/desktop-vms.nix)
       ];
       flake.lib = {
         gpuDriverEnv = import ./lib/nix/gpu-drivers.nix;
-        screencast = import ./wm/nix/screencast.nix;
       };
     };
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -10,9 +12,9 @@ import (
 
 var testComponents = map[string]Component{
 	"repository": {Paths: []string{"go.mod", "nix/"}, AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
-	"lib":        {Paths: []string{"docs/lib/xkb.md"}, Jobs: []Job{{Name: "check", Runners: []Runner{X86_64, AArch64}, Run: "just checks lib-package"}}},
-	"ui":         {Jobs: []Job{{Name: "check", Runners: []Runner{X86_64}, Run: "just ui::check"}}},
-	"wm":         {Depends: []string{"ui"}, Package: true, Jobs: []Job{{Name: "VM", Runners: []Runner{X86_64}, Run: "nix build .#checks.x86_64-linux.wm-vm", KVM: true, Timeout: 20}}},
+	"lib":        {Paths: []string{"docs/lib/xkb.md"}, Gates: []string{"vet", "test"}, Race: true},
+	"ui":         {Gates: []string{"test"}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
+	"wm":         {Depends: []string{"ui"}, Package: true, VMs: []string{"wm-vm", "wm-vm-apps"}, FreeDisk: true},
 	"login":      {Depends: []string{"wm"}, Package: true},
 	"polkit":     {},
 }
@@ -58,40 +60,85 @@ func TestADirectoryPathNeedsItsSlash(t *testing.T) {
 	}
 }
 
-func TestThePlanRunsEachJobOnEachRunner(t *testing.T) {
-	p := plan(testComponents, []string{"lib", "login", "wm"})
+func TestThePlanRunsTheGoGatesOncePerRunnerAndRaceOnce(t *testing.T) {
+	p := plan(testComponents, []string{"lib", "polkit", "ui"})
+	want := []Matrix{
+		{ID: "go-x86-64", Name: "Go gates (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates lib ui", UserNS: true},
+		{ID: "race-x86-64", Name: "race (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates lib", UserNS: true},
+		{ID: "go-aarch64", Name: "Go gates (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates lib ui", UserNS: true},
+		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
+	}
+	if !slices.Equal(p.Jobs, want) {
+		t.Fatalf("jobs\n%+v\nwant\n%+v", p.Jobs, want)
+	}
+}
+
+func TestEachVMCheckRunsInItsOwnJobOnTheBuildStagesClosures(t *testing.T) {
+	p := plan(testComponents, []string{"login", "wm"})
 	if !slices.Equal(p.Packages, []string{"login", "wm"}) {
 		t.Errorf("packages %v, want login and wm", p.Packages)
 	}
-	if len(p.Jobs) != 3 {
-		t.Fatalf("%d jobs, want lib's on two runners and wm's VM: %+v", len(p.Jobs), p.Jobs)
+	want := []Matrix{
+		{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true, FreeDisk: true},
+		{ID: "wm-vm-apps-x86-64", Name: "wm-vm-apps (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps", KVM: true, FreeDisk: true},
 	}
-	arm := p.Jobs[1]
-	if arm.ID != "lib-check-aarch64" || arm.Runner != "ubuntu-24.04-arm" || arm.Run != "just checks lib-package" || arm.Timeout != defaultTimeout {
-		t.Errorf("lib on aarch64: %+v", arm)
+	if !slices.Equal(p.Jobs, want) {
+		t.Fatalf("jobs %+v, want %+v", p.Jobs, want)
 	}
-	if vm := p.Jobs[2]; !vm.KVM || vm.Timeout != 20 || vm.Name != "wm / VM (x86_64)" {
-		t.Errorf("wm's VM: %+v", vm)
+	builds := []Build{{Arch: X86_64, Runner: "ubuntu-latest", Components: "login wm", VMs: "wm-vm wm-vm-apps"}}
+	if !slices.Equal(p.Builds, builds) {
+		t.Fatalf("builds %+v, want %+v", p.Builds, builds)
+	}
+}
+
+func TestEachArchitectureWithAJobGetsOneBuildOfEveryAffectedComponent(t *testing.T) {
+	p := plan(testComponents, []string{"lib", "ui"})
+	want := []Build{
+		{Arch: X86_64, Runner: "ubuntu-latest", Components: "lib ui"},
+		{Arch: AArch64, Runner: "ubuntu-24.04-arm", Components: "lib ui"},
+	}
+	if !slices.Equal(p.Builds, want) {
+		t.Fatalf("builds %+v, want %+v", p.Builds, want)
+	}
+}
+
+func TestAPlanWithoutJobsBuildsNothing(t *testing.T) {
+	if p := plan(testComponents, []string{"polkit"}); len(p.Builds) != 0 || len(p.Jobs) != 0 {
+		t.Fatalf("polkit has no jobs, yet the plan builds %+v and runs %+v", p.Builds, p.Jobs)
 	}
 }
 
 func TestAnEmptyPlanIsEmptyListsNotNull(t *testing.T) {
 	p := plan(testComponents, nil)
-	if p.Jobs == nil || p.Packages == nil {
+	if p.Jobs == nil || p.Packages == nil || p.Builds == nil {
 		t.Fatalf("an empty plan has nil lists, which GitHub reads as null: %+v", p)
 	}
 }
 
 func TestValidateRefusesUnknownNames(t *testing.T) {
-	bad := map[string]Component{"wm": {Depends: []string{"wn"}, Jobs: []Job{{Name: "x", Runners: []Runner{"riscv"}, Run: "true"}, {Name: "", Runners: []Runner{X86_64}, Run: "true"}}}}
+	bad := map[string]Component{
+		"wm": {Depends: []string{"wn"}, VMs: []string{"login-vm"}, Jobs: []Job{
+			{Name: "x", Runners: []Runner{"riscv"}, Run: "true"},
+			{Name: "", Runners: []Runner{X86_64}, Run: "true"},
+			{Name: "idle", Runners: []Runner{X86_64}},
+			{Name: "nowhere", Run: "true"},
+		}},
+		"ui": {FreeDisk: true},
+	}
 	err := validate(bad)
 	if err == nil {
-		t.Fatal("validate accepted an unknown dependency, runner and an unnamed job")
+		t.Fatal("validate accepted an unknown dependency, runner, an unnamed job and a foreign VM check")
 	}
-	for _, want := range []string{`"wn"`, `"riscv"`, "without a name"} {
-		if !containsText(err.Error(), want) {
+	for _, want := range []string{`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`, "ui frees disk for VM checks it does not have"} {
+		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %s", err, want)
 		}
+	}
+}
+
+func TestValidateAcceptsWellFormedJobs(t *testing.T) {
+	if err := validate(testComponents); err != nil {
+		t.Fatalf("validate refused the test components: %v", err)
 	}
 }
 
@@ -124,4 +171,48 @@ func TestTheRepositorysComponentsAreValid(t *testing.T) {
 	}
 }
 
-func containsText(s, sub string) bool { return strings.Contains(s, sub) }
+var recipeLine = regexp.MustCompile(`(?m)^@?([a-z][a-z0-9_-]*)([^\n]*?):(?:[ \t]|$)`)
+
+func recipesOf(justfile string) []string {
+	var recipes []string
+	for _, m := range recipeLine.FindAllStringSubmatch(justfile, -1) {
+		if rest := strings.TrimSpace(m[2]); !strings.HasPrefix(rest, ":=") && !strings.Contains(rest, " := ") {
+			recipes = append(recipes, m[1])
+		}
+	}
+	return recipes
+}
+
+func TestEveryGateIsARecipeOfItsComponent(t *testing.T) {
+	components, err := load(filepath.Join("..", "components.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range slices.Sorted(maps.Keys(components)) {
+		c := components[name]
+		want := slices.Clone(c.Gates)
+		if c.Race {
+			want = append(want, "race")
+		}
+		if len(want) == 0 {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join("..", "..", name, "justfile"))
+		if err != nil {
+			t.Fatalf("%s runs gates, but its justfile does not read: %v", name, err)
+		}
+		have := recipesOf(string(data))
+		for _, recipe := range want {
+			if !slices.Contains(have, recipe) {
+				t.Errorf("ci/components.json runs %s's gate %q, which %s/justfile has no recipe for", name, recipe, name)
+			}
+		}
+	}
+}
+
+func TestTheRecipeMatcherFindsRecipesAndSkipsAssignments(t *testing.T) {
+	justfile := "set shell := [\"bash\", \"-c\"]\ntest_dir := \"/tmp/a: b\"\ntest *args:\n    go test\nrace:\n    go test -race\n[private]\nwrite-baselines args=\"\":\ninitramfs-tools image=\"ubuntu:24.04\":\n"
+	if got, want := recipesOf(justfile), []string{"test", "race", "write-baselines", "initramfs-tools"}; !slices.Equal(got, want) {
+		t.Fatalf("recipes %v, want %v", got, want)
+	}
+}

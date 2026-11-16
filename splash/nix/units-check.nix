@@ -1,7 +1,7 @@
 # Every unit conflicts with the plymouth unit it stands in for, and every unit
 # and the initramfs-tools script read the kernel command line the same way:
 # each row of the table below is put to systemd's own condition code and to the
-# script. systemd-analyze verify needs a running system's /run, so vm-boot runs
+# script. systemd-analyze verify needs a running system's /run, so vms-greeter runs
 # it.
 {
   pkgs,

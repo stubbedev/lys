@@ -14,15 +14,6 @@ headless_test_dir := "/tmp/lys-ui-test-env-24"
 # Run every release gate in order: vet, lint, test, build.
 check: vet lint no-fused test build
 
-# The Hyprland side of the compositor-in-the-loop gate: boots Hyprland
-# inside a private NixOS VM (own kernel, own virtio-gpu DRM node, own
-# seatd - aquamarine cannot boot without a real DRM node and the
-# developer's card belongs to their live session) and runs the same
-# suite just headless runs, driven by LYS_UI_TEST_COMPOSITOR=hyprland.
-# Needs KVM; a required CI gate alongside sway.
-hyprland-vm:
-    nix build -L .#checks.{{ arch() }}-{{ os() }}.ui-hyprland-vm
-
 # The AT-SPI bridge's bus-level tests (#65, #114): a private
 # dbus-daemon plays the accessibility bus, a second connection plays
 # the registry and the assistive technology. No compositor, no

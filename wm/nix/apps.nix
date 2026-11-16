@@ -1,7 +1,4 @@
-{
-  pkgs,
-  module,
-}: let
+pkgs: let
   launch = import ./launch.nix pkgs;
   region = pkgs.writeShellScript "region" ''
     set -euo pipefail
@@ -47,30 +44,17 @@
     swaylock = "${pkgs.swaylock}/bin/swaylock -c 336699";
     vkcube = "${vkcube}";
   };
-in
-  import ./vm.nix {
-    inherit pkgs module;
-    name = "lys-wm-apps";
-    devices = ["virtio-gpu-pci"];
-    outputs = ["Virtual-1"];
-    machineConfig = {
-      virtualisation.memorySize = pkgs.lib.mkForce 4096;
-      users.users.alice.password = "alice";
-      security.pam.services.swaylock = {};
-      fonts.packages = [pkgs.dejavu_fonts];
-    };
-    extraTest = run: let
-      params = builtins.toJSON {
-        as_alice = run "{}";
-        region = "${region}";
-        wlr_randr = "${pkgs.wlr-randr}/bin/wlr-randr";
-        windows = builtins.attrNames windows;
-        launchers = builtins.mapAttrs launch (windows // others);
-      };
-    in
-      ''
-        import json
-        params = json.loads(${builtins.toJSON params})
-      ''
-      + import ./vm-scripts.nix [./apps.py];
-  }
+in {
+  name = "apps";
+  machineConfig = {
+    security.pam.services.swaylock = {};
+    fonts.packages = [pkgs.dejavu_fonts];
+  };
+  params = {
+    region = "${region}";
+    wlr_randr = "${pkgs.wlr-randr}/bin/wlr-randr";
+    windows = builtins.attrNames windows;
+    launchers = builtins.mapAttrs launch (windows // others);
+  };
+  scripts = [./apps.py];
+}

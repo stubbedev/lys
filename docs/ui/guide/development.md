@@ -14,11 +14,14 @@ just check         # go vet, golangci-lint, go test, build
 just race          # the suite under the race detector
 just gpu           # the GPU renderer's tests on lavapipe
 just headless      # the compositor-in-the-loop suite on a private headless sway
-just hyprland-vm   # the same suite against Hyprland in a private NixOS VM (needs KVM)
 just atspi         # the AT-SPI bridge on a private accessibility bus
 just atspi-verify  # the bridge against real at-spi2-core
 just package       # the Nix package with its sandboxed tests
 ```
+
+The same compositor-in-the-loop suite runs against Hyprland in
+`just checks shell-hyprland-vms` (needs KVM): one NixOS VM boot that tests the
+shell on Hyprland, then hands the outputs to a Hyprland of the suite's own.
 
 `just docker <recipe>` runs a recipe in a container that sees only the
 dev shell's store paths, the checkout, its own Go caches, `/dev/kvm` and

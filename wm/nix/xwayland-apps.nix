@@ -1,6 +1,5 @@
 {
   pkgs,
-  module,
   app,
 }: let
   launch = import ./launch.nix pkgs;
@@ -36,44 +35,24 @@
       params.launchers.steam = launch "steam" "steam";
     };
   };
-in
-  import ./vm.nix {
-    inherit pkgs module;
-    name = "lys-wm-xwayland-${app}";
-    devices = ["virtio-gpu-pci"];
-    outputs = ["Virtual-1"];
-    lysWMConfig = ''
-      gaps: {inner: 0, outer: 0}
-      outputs:
-        - {match: Virtual-1, scale: 1.5}
-      binds:
-        - {chord: SUPER + mouse:272, action: movewindow}
-      rules:
-        - {app_id: ^steam$, float: true}
-        - {app_id: ^steam$, title: ^Steam$, tile: true}
-        - {app_id: ^steam$, title: ^Friends List$, size: 400x900}
-    '';
-    timeout = 1800;
-    machineConfig = {
-      virtualisation = {
-        memorySize = pkgs.lib.mkForce 6144;
-        cores = pkgs.lib.mkForce 4;
-        diskSize = 8192;
-      };
-      programs.steam.enable = app == "steam";
-      fonts.packages = [pkgs.dejavu_fonts];
-      environment.systemPackages = [pkgs.xwininfo pkgs.xdotool];
-    };
-    extraTest = run: let
-      params = builtins.toJSON ({
-          as_alice = run "{}";
-          xwindows = import ./xwindows.nix pkgs;
-        }
-        // apps.${app}.params);
-    in
-      ''
-        import json
-        params = json.loads(${builtins.toJSON params})
-      ''
-      + import ./vm-scripts.nix [./xwayland-lib.py apps.${app}.script];
-  }
+in {
+  name = app;
+  lysWMConfig = ''
+    gaps: {inner: 0, outer: 0}
+    outputs:
+      - {match: Virtual-1, scale: 1.5}
+    binds:
+      - {chord: SUPER + mouse:272, action: movewindow}
+    rules:
+      - {app_id: ^steam$, float: true}
+      - {app_id: ^steam$, title: ^Steam$, tile: true}
+      - {app_id: ^steam$, title: ^Friends List$, size: 400x900}
+  '';
+  machineConfig = {
+    programs.steam.enable = app == "steam";
+    fonts.packages = [pkgs.dejavu_fonts];
+    environment.systemPackages = [pkgs.xwininfo pkgs.xdotool];
+  };
+  params = {xwindows = import ./xwindows.nix pkgs;} // apps.${app}.params;
+  scripts = [./xwayland-lib.py apps.${app}.script];
+}

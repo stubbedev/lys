@@ -260,3 +260,40 @@ func TestMaxGapSinceCountsTheSilenceAfterTheLastMatch(t *testing.T) {
 		t.Fatalf("MaxGapSince = %.2fs, want the 0.76s of silence after the last commit", got)
 	}
 }
+
+func TestBuildClientTakesThePrebuiltClient(t *testing.T) {
+	dir := t.TempDir()
+	want := filepath.Join(dir, "lys-ui-states")
+	if err := os.WriteFile(want, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(prebuiltClientsEnv, dir)
+	got, err := BuildClient(t.TempDir(), "./cmd/lys-ui-states", "lys-ui-states")
+	if err != nil {
+		t.Fatalf("BuildClient with %s=%s: %v", prebuiltClientsEnv, dir, err)
+	}
+	if got != want {
+		t.Errorf("BuildClient = %s, want the prebuilt %s", got, want)
+	}
+}
+
+func TestBuildClientRefusesAMissingPrebuiltClient(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(prebuiltClientsEnv, dir)
+	_, err := BuildClient(t.TempDir(), "./cmd/lys-ui-states", "lys-ui-states")
+	if err == nil || !strings.Contains(err.Error(), prebuiltClientsEnv) || !strings.Contains(err.Error(), "lys-ui-states") {
+		t.Errorf("BuildClient without the prebuilt binary = %v, want an error naming %s and lys-ui-states", err, prebuiltClientsEnv)
+	}
+}
+
+func TestBuildClientRefusesANonExecutablePrebuiltClient(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "lys-ui-states"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(prebuiltClientsEnv, dir)
+	_, err := BuildClient(t.TempDir(), "./cmd/lys-ui-states", "lys-ui-states")
+	if err == nil || !strings.Contains(err.Error(), "not an executable file") {
+		t.Errorf("BuildClient with a non-executable prebuilt binary = %v, want a not-executable error", err)
+	}
+}

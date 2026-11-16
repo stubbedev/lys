@@ -27,11 +27,13 @@ def load(path):
 
 
 def screenshot(machine, name):
+    name = f"{machine.name}-{name}"
     machine.screenshot(name)
     return load(machine.out_dir / f"{name}.png")
 
 
 def grab(machine, card, name):
+    name = f"{machine.name}-{name}"
     machine.succeed("rm -rf /tmp/grab && mkdir /tmp/grab")
     paths = machine.succeed(f"drm-grab {card} /tmp/grab").split()
     shots = {}
@@ -40,6 +42,13 @@ def grab(machine, card, name):
         output = path.removeprefix("/tmp/grab/").removesuffix(".ppm")
         shots[output] = load(machine.out_dir / name / f"{output}.ppm")
     return shots
+
+
+def no_splash(machine):
+    if machine.execute("lys-splash --ping")[0] == 0:
+        machine.succeed("lys-splash quit")
+    machine.wait_until_fails("lys-splash --ping", timeout=seconds(10))
+    machine.wait_until_fails("systemctl is-active splash", timeout=seconds(10))
 
 
 def differences(a, b):

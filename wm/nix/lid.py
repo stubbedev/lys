@@ -5,7 +5,7 @@ import time
 SETTLE = dt.timedelta(seconds=5)
 HOLDOFF = dt.timedelta(seconds=30)
 LOGIN1 = "org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager"
-SUSPENDS = f"journalctl -b -q -o cat -t {suspend_tag} | wc -l"
+SUSPENDS = f"journalctl -b -q -o cat -t {params['suspend_tag']} | wc -l"
 
 
 def suspends():
@@ -13,7 +13,7 @@ def suspends():
 
 
 def set_lid(state):
-    machine.succeed(f"echo {state} > {lid_fifo}")
+    machine.succeed(f"echo {state} > {params['lid_fifo']}")
     closed = {"open": "false", "closed": "true"}[state]
     machine.wait_until_succeeds(f"busctl get-property {LOGIN1} LidClosed | grep -qx 'b {closed}'", timeout=30)
 
@@ -25,8 +25,8 @@ def set_ac(state):
 
 
 def unplug_external():
-    machine.succeed(f"echo 1 > /sys/class/drm/{external_card}/device/remove")
-    machine.wait_until_succeeds(f"{lys_wmctl_outputs} | jq -e 'length == 0'", timeout=60)
+    machine.succeed(f"echo 1 > /sys/class/drm/{params['external_card']}/device/remove")
+    machine.wait_until_succeeds(f"{as_alice('lys-wmctl outputs')} | jq -e 'length == 0'", timeout=60)
 
 
 def stays_awake(why, change):
@@ -67,7 +67,7 @@ def stays_awake_through_the_holdoff(why, change):
     assert after == before, f"{why}: suspended {after - before} times"
 
 
-machine.wait_until_succeeds(f"test -p {lid_fifo}", timeout=30)
+machine.wait_until_succeeds(f"test -p {params['lid_fifo']}", timeout=30)
 inhibitors = json.loads(machine.succeed(f"busctl --json=short call {LOGIN1} ListInhibitors"))["data"][0]
 assert any(what == "handle-lid-switch" and who == "lys-wm" and mode == "block" for what, who, _, mode, _, _ in inhibitors), f"lys-wm holds no blocking handle-lid-switch inhibitor: {inhibitors}"
 machine.succeed("grep -qx Mains /sys/class/power_supply/test_ac/type", "grep -qx 1 /sys/class/power_supply/test_ac/online")

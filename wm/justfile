@@ -19,7 +19,7 @@ plain: fmt-check check vuln
 card_tests := "OnHardware|WithoutMaster|OnARenderNode"
 
 # What every recipe that tests ./... leaves out: the card tests, and the tests
-# that take DRM master on a seat, which only the vm-seat check runs.
+# that take DRM master on a seat, which only the wm-vms-go-tests check runs.
 host_skip := card_tests + "|OnASeat"
 
 # The dev shell's driver pins (nix/test-env.nix): the recipes that measure the

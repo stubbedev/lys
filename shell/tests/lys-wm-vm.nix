@@ -1,6 +1,5 @@
 {
   pkgs,
-  lib,
   self,
 }:
 
@@ -17,8 +16,16 @@ let
       ''
         magick -size 64x64 xc:'#20242c' "png:$out"
       '';
+in
+{
+  name = "lys-shell";
+  outputs = [
+    "Virtual-1"
+    "Virtual-2"
+  ];
+  backgroundOnly = false;
 
-  wmConfig = (pkgs.formats.yaml { }).generate "lys-wm.yaml" {
+  lysWMConfig = builtins.toJSON {
     input.keyboard = {
       layout = "us,de";
       options = "grp:alt_shift_toggle";
@@ -38,7 +45,7 @@ let
     ];
   };
 
-  shellConfig = (pkgs.formats.yaml { }).generate "config.yaml" {
+  home.".config/lys-shell/config.yaml" = builtins.toJSON {
     login.lock = {
       enabled = true;
       pam-service = "lys-shell";
@@ -62,107 +69,66 @@ let
       }
     ];
   };
-in
-pkgs.testers.nixosTest {
-  name = "lys-shell-lys-wm-vm";
 
-  nodes.machine =
-    { ... }:
-    {
-      imports = [
-        self.nixosModules.lys-shell
-        self.nixosModules.lys-wm
-        self.nixosModules.lys-login
-      ];
+  machineConfig = {
+    imports = [
+      self.nixosModules.lys-shell
+      self.nixosModules.lys-login
+    ];
 
-      programs.lys-shell = {
-        enable = true;
-        systemd.enable = true;
-      };
-      programs.lys-login = {
-        enable = true;
-        lock.enable = true;
-      };
-      programs.lys-wm.enable = true;
-
-      virtualisation.graphics = true;
-      virtualisation.cores = 4;
-      virtualisation.memorySize = 4096;
-      virtualisation.qemu.options = [
-        "-vga none"
-        "-device virtio-gpu-pci"
-        "-device virtio-gpu-pci"
-      ];
-
-      services.getty.autologinUser = user;
-      environment.loginShellInit = ''
-        if [ "$(tty)" = /dev/tty1 ]; then
-          exec lys-wm --systemd > /tmp/lys/lys-wm.log 2>&1
-        fi
-      '';
-      environment.sessionVariables = {
-        LIBGL_ALWAYS_SOFTWARE = "1";
-        LYS_WM_RENDERER = "gles";
-      };
-      systemd.tmpfiles.rules = [
-        "d /tmp/lys 0777 root root -"
-        "d /home/${user}/.config 0755 ${user} users -"
-        "d /home/${user}/.config/lys-wm 0755 ${user} users -"
-        "d /home/${user}/.config/lys-shell 0755 ${user} users -"
-        "L+ /home/${user}/.config/lys-wm/config.yaml - - - - ${wmConfig}"
-        "C /home/${user}/.config/lys-shell/config.yaml 0644 ${user} users - ${shellConfig}"
-      ];
-      hardware.graphics.enable = true;
-      hardware.graphics.extraPackages = [ pkgs.mesa ];
-      fonts.packages = [ pkgs.inter ];
-
-      users.users.${user} = {
-        isNormalUser = true;
-        uid = lib.mkForce uid;
-        inherit password;
-        extraGroups = [
-          "video"
-          "render"
-          "input"
-        ];
-      };
-
-      services.pipewire.enable = true;
-
-      security.auditd.enable = true;
-      security.audit.enable = true;
-      security.audit.rules = [
-        "-a always,exit -F arch=b64 -S execve,execveat -F uid=${toString uid} -k user-exec"
-      ];
-
-      environment.systemPackages = [
-        portalClient
-        testApp
-        vmclick
-        pkgs.foot
-        pkgs.grim
-        pkgs.file
-        pkgs.libnotify
-      ];
+    programs.lys-shell = {
+      enable = true;
+      systemd.enable = true;
+    };
+    programs.lys-login = {
+      enable = true;
+      lock.enable = true;
     };
 
-  testScript = ''
+    environment.sessionVariables.LIBGL_ALWAYS_SOFTWARE = "1";
+    hardware.graphics.extraPackages = [ pkgs.mesa ];
+    fonts.packages = [ pkgs.inter ];
+
+    users.users.${user}.extraGroups = [
+      "video"
+      "render"
+      "input"
+    ];
+
+    services.pipewire.enable = true;
+
+    security.auditd.enable = true;
+    security.audit.enable = true;
+    security.audit.rules = [
+      "-a always,exit -F arch=b64 -S execve,execveat -F uid=${toString uid} -k user-exec"
+    ];
+
+    environment.systemPackages = [
+      portalClient
+      testApp
+      vmclick
+      pkgs.foot
+      pkgs.grim
+      pkgs.file
+      pkgs.libnotify
+    ];
+  };
+
+  scripts = [
+    (pkgs.writeText "lys-shell.py" ''
     import json
     import os
     import time
 
-    start_all()
-    machine.wait_for_unit("multi-user.target")
+    machine.succeed("install -d -m 0777 /tmp/lys", "echo ${user}:${password} | chpasswd")
 
     def shell_log():
-        # lys-login logs to the shell's stream from a scope of its own:
-        # the stream's identifier finds both, the unit only the shell.
         return machine.execute("journalctl --no-pager -o cat SYSLOG_IDENTIFIER=lys-shell")[1]
 
     bus = "XDG_RUNTIME_DIR=${runtimeDir} DBUS_SESSION_BUS_ADDRESS=unix:path=${runtimeDir}/bus"
 
     def logs():
-        print(machine.execute("cat /tmp/lys/*.log | tail -n 80; tail -n 40 /tmp/lys/events.jsonl")[1])
+        print(machine.execute("journalctl -b --no-pager -t lys-wm | tail -n 80; tail -n 80 /tmp/lys/*.log; tail -n 40 /tmp/lys/events.jsonl")[1])
         print(shell_log()[-8000:])
         print(machine.execute(f"su - ${user} -c '{bus} systemctl --user status --no-pager lys-shell.service lys-wm-session.target graphical-session.target'")[1])
 
@@ -379,12 +345,9 @@ pkgs.testers.nixosTest {
         wait("the dropdown to reopen for Esc beside it", lambda: region(*below_clock) != closed, tries=20)
         reopened = settled(below_clock)
         machine.send_key("esc")
-        # Not compared with closed: the pointer still rests on the clock, whose
-        # tooltip then shows there.
         wait("Esc beside the dropdown to close it", lambda: region(*below_clock) != reopened, tries=20)
         if (wmctl("activewindow") or {}).get("app_id") != "foot":
             raise Exception("Esc beside the dropdown took the focus from foot")
-        # Readline reads a leaked ESC and the next t as M-t, so the touch fails.
         typed_reaches_foot("esc-beside")
 
         click(centre, bar_y)
@@ -444,14 +407,10 @@ pkgs.testers.nixosTest {
 
         run("lys-shell lock")
         wait("the second lock", lambda: count("lock: session locked (2 monitors)") == 2)
-        # A lock client that dies leaves the session locked; the shell starts
-        # lys-login again, which re-acquires it.
         machine.succeed("pkill -KILL -f 'lys-login lock'")
         wait("the shell to re-acquire the lock", lambda: "still locked; re-acquiring" in shell_log() and count("lock: session locked (2 monitors)") == 3, tries=60)
         time.sleep(1)
         shot("12-relocked-after-the-lock-client-died")
-        # A shell restarted while locked leaves the lock to the lys-login
-        # holding it, in a scope of its own.
         run("systemctl --user kill --signal=KILL lys-shell.service")
         wait("the restarted shell to find the lock held", lambda: count("another lys-login already holds the session locked") >= 1, tries=60)
         machine.send_chars("${password}\n")
@@ -490,10 +449,6 @@ pkgs.testers.nixosTest {
                     still.discard(e["id"])
             return still
 
-        # A portal dialog answers its request first and plays its exit after,
-        # so the app has its answer while the dialog is still fading: the
-        # screen a later step compares against is captured once the dialog's
-        # surface is gone, not once the answer is in.
         def calm_capture(name):
             wait("the portal dialogs to leave the screen", lambda: not layers_open("lys-shell-portal-dialog"), tries=30)
             return capture(name, out)
@@ -522,9 +477,6 @@ pkgs.testers.nixosTest {
             raise Exception(f"the screenshot portal answered {answer}")
         machine.succeed(f"test -s '{uri[len('file://'):]}'")
 
-        # lys-wm offers xx_hotkey_v1 (client_hotkeys): the bind shows the
-        # shortcuts editor with the app's preferred trigger, saved as is, and
-        # the real key fires the shortcut.
         allow("globalshortcuts", "shortcuts.json", "14-shortcut-editor")
         wait("the bound shortcut", lambda: machine.execute("grep -q bound /tmp/lys/shortcuts.json")[0] == 0, tries=30)
         bound = json.loads(machine.succeed("head -n1 /tmp/lys/shortcuts.json"))
@@ -564,5 +516,6 @@ pkgs.testers.nixosTest {
 
     finally:
         logs()
-  '';
+    '')
+  ];
 }

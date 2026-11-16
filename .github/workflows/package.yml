@@ -1,10 +1,5 @@
 name: package
 
-# One component's release archive, .deb and .rpm, each installed and run where
-# the component has a smoke test, all through its justfile. ci.yml builds them
-# on x86_64 for the components a change touches; release.yml builds every one,
-# on both architectures, for a tag.
-
 on:
   workflow_call:
     inputs:
@@ -20,6 +15,10 @@ on:
         description: The architectures to build for, as JSON runner entries.
         type: string
         default: '[{"runner": "ubuntu-latest", "arch": "x86_64", "deb": "amd64"}, {"runner": "ubuntu-24.04-arm", "arch": "aarch64", "deb": "arm64"}]'
+      substitute-only:
+        description: Let Nix only substitute, when a build stage built the component's dev shell.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,7 +31,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(inputs.arches) }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 10
     env:
       COMPONENT: ${{ inputs.component }}
       VERSION: ${{ inputs.version }}
@@ -44,7 +43,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache-key: package-${{ inputs.component }}
+          go-cache: package-${{ inputs.component }}
+          substitute-only: ${{ inputs.substitute-only }}
       - name: Build the binaries and the archive
         run: just in "${COMPONENT}" dist archive "${VERSION}"
       - name: Build the Debian package
@@ -76,7 +76,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(inputs.arches) }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 10
     container:
       image: fedora:latest
     env:

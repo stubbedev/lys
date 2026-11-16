@@ -13,7 +13,7 @@ def whole_output(m, command):
 
 
 def dump(m, i):
-    path = m.out_dir / f"handover-{i:04d}.ppm"
+    path = m.out_dir / f"{m.name}-handover-{i:04d}.ppm"
     m.send_monitor_command(f"screendump {path}")
     return path
 
@@ -25,7 +25,7 @@ def black(img):
     return all(high < 16 for _, high in img.getextrema())
 
 
-taken_over = re.compile(r"greeter: the first frame takes over the splash's: the logo at \((\d+),(\d+)\)-\((\d+),(\d+)\) on (\d+)x(\d+)")
+taken_over = re.compile(r"greeter: the first frame on \S+ takes over the splash's: the logo at \((\d+),(\d+)\)-\((\d+),(\d+)\) on (\d+)x(\d+)")
 
 
 def taken_over_logo(m):

@@ -1,18 +1,23 @@
 name: Nix, caches and the runner's switches
 description: >-
-  Installs Nix with the xilo substituters and just, and restores the job's Nix store and
-  Go caches under its own key, so the jobs of one matrix do not overwrite each
-  other's caches. Gives the runner KVM, unprivileged user namespaces or free
-  disk when the job asks. Go reuses a test result only while nothing it depends
-  on changed; the weekly scheduled run reruns everything.
+  Installs Nix with the xilo substituters, just and jq. A job after the build
+  stage sets substitute-only: its Nix then only substitutes (max-jobs = 0), so
+  anything the build stage did not build and push fails the job instead of
+  building again. Restores the job's Go build cache under its own key, and gives
+  the runner KVM, unprivileged user namespaces or free disk when the job asks.
+  Go reuses a test result only while nothing it depends on changed; the weekly
+  scheduled run reruns everything.
 
 inputs:
   github-token:
     description: Token for the Nix fetches GitHub rate-limits.
     required: true
-  cache-key:
-    description: The job's own cache key.
-    required: true
+  go-cache:
+    description: The job's own Go build cache key; empty for a job that compiles no Go.
+    default: ""
+  substitute-only:
+    description: Let Nix only substitute, for a job that runs on the build stage's outputs.
+    default: "false"
   kvm:
     description: Give the runner KVM, for NixOS VM checks.
     default: "false"
@@ -20,7 +25,7 @@ inputs:
     description: Allow the unprivileged user namespaces bwrap needs.
     default: "false"
   free-disk:
-    description: Remove the runner's preinstalled toolchains, for VM disk images.
+    description: Remove the runner's preinstalled toolchains, for VM closures and disk images.
     default: "false"
 
 runs:
@@ -47,33 +52,31 @@ runs:
         extra_nix_config: |
           experimental-features = nix-command flakes
           accept-flake-config = true
+          always-allow-substitutes = true
           extra-substituters = https://nix.stubbe.dev/c/default/default https://nix.stubbe.dev/c/default/flakes
           extra-trusted-public-keys = default:6uWvXutL9cXjV3lii+Ur5ff+ArQoG4kMBKNXWrIxhHg= flakes:0Dr9MyPOvA6va2GVzflJcbrChNoZUeIZflyrww3O+YM=
+          max-jobs = ${{ inputs.substitute-only == 'true' && '0' || 'auto' }}
 
-    - name: just, from the flake's nixpkgs
+    - name: just and jq, from the flake's nixpkgs
       shell: bash
       run: |
-        nix build --inputs-from . nixpkgs#just --out-link "${RUNNER_TEMP}/just"
-        echo "${RUNNER_TEMP}/just/bin" >> "$GITHUB_PATH"
+        nix build --inputs-from . --no-link --print-out-paths nixpkgs#just nixpkgs#jq^bin | sed 's|$|/bin|' >> "$GITHUB_PATH"
 
-    - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
-      with:
-        primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-${{ hashFiles('flake.lock') }}
-        restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-
-        gc-max-store-size-linux: 6G
-
-    - id: cache-day
+    - if: inputs.go-cache != ''
+      id: cache-day
       shell: bash
       run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    - if: inputs.go-cache != ''
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           ~/.cache/go-build
+          ~/.cache/golangci-lint
           ~/go/pkg/mod
-        key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-${{ steps.cache-day.outputs.day }}-${{ hashFiles('flake.lock', 'go.sum') }}
+        key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-${{ steps.cache-day.outputs.day }}-${{ hashFiles('flake.lock', 'go.sum') }}
         restore-keys: |
-          go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key }}-
+          go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-
 
     - name: Reuse unchanged test results, apart from the weekly full run
       shell: bash

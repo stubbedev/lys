@@ -4,26 +4,38 @@
   ...
 }: {
   perSystem = {
-    inputs',
     pkgs,
     self',
     system,
     ...
   }: let
     module = self.nixosModules.lys-wm;
-    vm = args: import ./vm.nix ({inherit pkgs module;} // args);
-    screencast = portal:
-      import ./screencast.nix {
-        inherit pkgs module portal;
-        seconds = 10;
+    vms = args: import ./session-vm.nix ({inherit pkgs module;} // args);
+    desktop = group: scenarios:
+      vms {
+        name = "lys-wm-vms-${group}";
+        memorySize = 4096;
+        inherit scenarios;
       };
+    unfree = import inputs.nixpkgs {
+      inherit system;
+      config.allowUnfreePredicate = p: builtins.elem (pkgs.lib.getName p) ["intellij-idea" "steam" "steam-unwrapped"];
+    };
     xwaylandApp = app:
-      import ./xwayland-apps.nix {
-        inherit module app;
-        pkgs = import inputs.nixpkgs {
-          inherit system;
-          config.allowUnfreePredicate = p: builtins.elem (pkgs.lib.getName p) ["intellij-idea" "steam" "steam-unwrapped"];
-        };
+      import ./session-vm.nix {
+        inherit module;
+        pkgs = unfree;
+        name = "lys-wm-vms-xwayland-${app}";
+        memorySize = 6144;
+        cores = 4;
+        diskSize = 8192;
+        timeout = 1800;
+        scenarios = [
+          (import ./xwayland-apps.nix {
+            inherit app;
+            pkgs = unfree;
+          })
+        ];
       };
   in {
     legacyPackages.vm-steam = xwaylandApp "steam";
@@ -32,122 +44,93 @@
       inherit (self'.packages) lys-wm;
     };
     checks = {
-      vm = vm {
-        name = "lys-wm-drm";
-        devices = ["virtio-gpu-pci"];
-        outputs = ["Virtual-1"];
+      vms-desktop = desktop "desktop" [
+        {name = "drm";}
+        {
+          name = "hdr-refused";
+          lysWMConfig = ''
+            outputs:
+              - match: "*"
+                hdr: true
+          '';
+          scripts = [
+            (pkgs.writeText "hdr-refused.py" ''
+              machine.succeed("journalctl -b --no-pager -t lys-wm | grep 'output Virtual-1 stays SDR'")
+            '')
+          ];
+        }
+        {
+          name = "rtkit";
+          machineConfig = {lib, ...}: {
+            security.pam.loginLimits = lib.mkForce [];
+            security.rtkit.enable = true;
+          };
+          scripts = [./rtkit.py];
+        }
+        (import ./autostart.nix pkgs)
+        (import ./upgrade.nix pkgs)
+        (import ./apps.nix pkgs)
+      ];
+      vms-share = desktop "share" [
+        (import ./xdnd.nix pkgs)
+        (import ./screencast-scenario.nix {
+          inherit pkgs;
+          portal = "wlr";
+          seconds = 10;
+        })
+      ];
+      vms-gpus = vms {
+        name = "lys-wm-vms-gpus";
+        devices = ["virtio-gpu-pci,id=gpu0" "virtio-gpu-pci,id=gpu1"];
+        scenarios = [
+          {
+            name = "configured-gpu";
+            lysWMConfig = "gpu: card1";
+            rendersOn = "card1";
+            outputs = ["Virtual-1" "Virtual-2"];
+          }
+          (import ./xwayland.nix pkgs)
+          {
+            name = "two-gpus";
+            outputs = ["Virtual-1" "Virtual-2"];
+            unplug = {
+              card = "card1";
+              outputs = ["Virtual-1"];
+            };
+            scripts = [
+              (pkgs.writeText "two-gpus.py" ''
+                machine.succeed("journalctl -b --no-pager -t lys-wm | grep 'Virtual-2 in .* scans out no linear buffer of the primary GPU, so its frames take a CPU copy'")
+              '')
+            ];
+          }
+          (import ./lid.nix pkgs)
+        ];
       };
-      vm-two-gpus = vm {
-        name = "lys-wm-two-gpus";
-        devices = ["virtio-gpu-pci" "virtio-gpu-pci"];
-        outputs = ["Virtual-1" "Virtual-2"];
-        unplug = {
-          card = "card1";
-          outputs = ["Virtual-1"];
-        };
-        extraTest = _: ''
-          machine.succeed("journalctl -b --no-pager -t lys-wm | grep 'Virtual-2 in .* scans out no linear buffer of the primary GPU, so its frames take a CPU copy'")
-        '';
+      vms-vkms = vms {
+        name = "lys-wm-vms-vkms";
+        devices = ["virtio-gpu-pci" "virtio-mouse-pci"];
+        kernelParams = ["log_buf_len=64M"];
+        scenarios = [
+          (import ./splash-handover.nix pkgs)
+          {
+            name = "display-only";
+            outputs = ["Virtual-1" "Virtual-2"];
+            kernelModules.vkms = "";
+            scripts = [
+              (pkgs.writeText "display-only.py" ''
+                machine.succeed("journalctl -b --no-pager -t lys-wm | grep 'reach the screen through the primary GPU.s linear buffers'")
+                machine.fail("journalctl -b --no-pager -t lys-wm | grep 'scans out no linear buffer'")
+              '')
+            ];
+          }
+          (import ./cursor.nix pkgs)
+        ];
       };
-      vm-configured-gpu = vm {
-        name = "lys-wm-configured-gpu";
-        devices = ["virtio-gpu-pci" "virtio-gpu-pci"];
-        lysWMConfig = "gpu: card1";
-        rendersOn = "card1";
-        outputs = ["Virtual-1" "Virtual-2"];
-      };
-      vm-display-only = vm {
-        name = "lys-wm-display-only";
-        devices = ["virtio-gpu-pci"];
-        kernelModules = ["vkms"];
-        outputs = ["Virtual-1" "Virtual-2"];
-        extraTest = _: ''
-          machine.succeed("journalctl -b --no-pager -t lys-wm | grep 'reach the screen through the primary GPU.s linear buffers'")
-          machine.fail("journalctl -b --no-pager -t lys-wm | grep 'scans out no linear buffer'")
-        '';
-      };
-      vm-hdr-refused = vm {
-        name = "lys-wm-hdr-refused";
-        devices = ["virtio-gpu-pci"];
-        lysWMConfig = ''
-          outputs:
-            - match: "*"
-              hdr: true
-        '';
-        outputs = ["Virtual-1"];
-        extraTest = _: ''
-          machine.succeed("journalctl -b --no-pager -t lys-wm | grep 'output Virtual-1 stays SDR'")
-        '';
-      };
-      vm-rtkit = vm {
-        name = "lys-wm-rtkit";
-        devices = ["virtio-gpu-pci"];
-        outputs = ["Virtual-1"];
-        machineConfig = {lib, ...}: {
-          security.pam.loginLimits = lib.mkForce [];
-          security.rtkit.enable = true;
-        };
-        extraTest = run: ''
-          [compositor] = machine.succeed("pgrep -x lys-wm").split()
-          machine.succeed(f"grep -E '^Max realtime priority +0 +0 ' /proc/{compositor}/limits")
-          machine.succeed(f"grep -E '^Max nice priority +0 +0 ' /proc/{compositor}/limits")
-          machine.succeed("journalctl -b --no-pager -t lys-wm | grep 'the compositor thread runs at SCHED_RR through rtkit'")
-          machine.succeed(f"grep -E '^Max realtime timeout +[0-9]+ +[0-9]+ ' /proc/{compositor}/limits")
-          rr = f"ps -L -o cls=,rtprio= -p {compositor} | grep -Eq '^ *RR +1$'"
-          def realtime():
-              try:
-                  machine.wait_until_succeeds(rr, timeout=30)
-              except Exception:
-                  print(machine.execute(f"ps -L -o tid=,cls=,rtprio= -p {compositor}; journalctl -b --no-pager -t lys-wm -t rtkit-daemon")[1])
-                  raise
-          realtime()
-          machine.succeed(f"ps -L -o cls=,rtprio= -p {compositor} | grep -Eq '^ *RR +2$'")
-          [spawner] = machine.succeed("pgrep -x lys-wm-spawner").split()
-          assert machine.succeed(f"ps -o ppid= -p {spawner}").strip() == compositor, "the spawner is not lys-wm's child"
-          machine.succeed(f"grep -E '^Max realtime timeout +unlimited +unlimited ' /proc/{spawner}/limits")
-          machine.succeed("${run "lys-wmctl dispatch exec sleep 4242"}")
-          [client] = machine.wait_until_succeeds("pgrep -f '^sleep 4242$'", timeout=30).split()
-          limits = machine.succeed(f"grep -E '^Max realtime timeout ' /proc/{client}/limits")
-          assert limits.split()[3:5] == ["unlimited", "unlimited"], f"a client lys-wm spawned under its lowered RLIMIT_RTTIME got {limits!r}, not the unlimited one lys-wm started with"
-          machine.succeed(f"kill {client}")
-          demoted = "journalctl -b --no-pager -t lys-wm | grep -E 'the compositor thread ran [^ ]+ at SCHED_RR without blocking, past the 20ms its guard allows under RLIMIT_RTTIME'"
-          ordinary = machine.execute(demoted)[1]
-          if ordinary:
-              print(machine.execute("journalctl -b --no-pager -t lys-wm -t rtkit-daemon")[1])
-          assert not ordinary, f"the compositor thread was demoted while it drew ordinary frames: {ordinary}"
-          threads = f"ps -L -o cls=,rtprio= -p {compositor} | grep -Ec '^ *RR +1$'"
-          raised = machine.succeed(threads).strip()
-          machine.succeed("${run "lys-wmctl dispatch debug spin 500"}")
-          try:
-              machine.wait_until_succeeds(f"{demoted} | grep -c . | grep -qx 1", timeout=30)
-              machine.succeed("journalctl -b --no-pager -t lys-wm | grep -E 'internal/compositor\\.spinPreemptibly\\('")
-              assert machine.succeed("pgrep -x lys-wm").split() == [compositor], "lys-wm did not survive a 500 ms realtime spin under rtkit's 200 ms RLIMIT_RTTIME"
-              machine.wait_until_succeeds("journalctl -b --no-pager -t lys-wm | grep -q 'the compositor thread runs at SCHED_RR again'", timeout=30)
-              machine.wait_until_succeeds(f"{threads} | grep -qx {raised}", timeout=30)
-          except Exception:
-              print(machine.execute(f"ps -L -o tid=,cls=,rtprio= -p {compositor}; journalctl -b --no-pager -t lys-wm -t rtkit-daemon")[1])
-              raise
-        '';
-      };
-      vm-screencast = screencast "wlr";
-      vm-apps = import ./apps.nix {inherit pkgs module;};
-      vm-upgrade = import ./upgrade.nix {inherit pkgs module;};
-      vm-cursor = import ./cursor.nix {inherit pkgs module;};
-      vm-seat = import ./seat.nix {
+      vms-go-tests = import ./go-test-vms.nix {
         inherit pkgs;
-        inherit (self'.packages) lys-wm;
+        inherit (self'.packages) lys-wm lys-ui;
       };
-      vm-lid = import ./lid.nix {inherit pkgs module;};
-      vm-autostart = import ./autostart.nix {inherit pkgs module;};
-      vm-splash-handover = import ./splash-handover.nix {inherit pkgs module;};
-      vm-xwayland = import ./xwayland.nix {inherit pkgs module;};
-      vm-xdnd = import ./xdnd.nix {inherit pkgs module;};
-      vm-xwayland-apps = xwaylandApp "idea";
-      vm-gpu-tests = import ./gpu-tests.nix {
-        inherit pkgs;
-        inherit (self'.packages) lys-wm;
-        inherit (self'.packages) lys-ui;
-      };
+      vms-xwayland-idea = xwaylandApp "idea";
       headless = pkgs.callPackage ./headless.nix {
         inherit (self'.packages) lys-wm;
         inherit (self'.packages) lys-ui;

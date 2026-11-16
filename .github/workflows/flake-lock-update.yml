@@ -1,7 +1,7 @@
 name: flake-lock-update
 
 # Keeps flake.lock current with the inputs this flake declares.
-# Runs weekly and on demand. Commits straight to master with `[skip ci]`.
+# Runs weekly and on demand. Commits straight to main with `[skip ci]`.
 
 on:
   schedule:
@@ -14,6 +14,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,4 +50,4 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add flake.lock
           git commit -m 'chore: weekly flake.lock update [skip ci]'
-          git push origin HEAD:master
+          git push origin HEAD:main

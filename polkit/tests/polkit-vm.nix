@@ -1,8 +1,16 @@
 {
   pkgs,
   lys-polkit,
-  fakedialogs,
 }: let
+  fakedialogs = lys-polkit.overrideAttrs (old: {
+    pname = "lys-polkit-fakedialogs";
+    subPackages = ["polkit/internal/vmtest/fakedialogs"];
+    ldflags = [];
+    doCheck = false;
+    postInstall = "";
+    doInstallCheck = false;
+    meta = old.meta // {mainProgram = "fakedialogs";};
+  });
   directoryUID = 1500;
   keepAction = "dev.stubbe.lys.test.keep";
   keepSeconds = 20;
@@ -28,11 +36,9 @@
     gid = directoryUID;
     disposition = "regular";
   };
-in
-pkgs.testers.runNixOSTest {
-  name = "lys-polkit";
-
-  nodes.machine = {
+in {
+  name = "lys-polkit authenticates pkexec and pkcheck against a real polkitd";
+  module = {
     security.polkit = {
       enable = true;
       enablePkexecWrapper = true;
@@ -60,7 +66,7 @@ pkgs.testers.runNixOSTest {
     systemd.tmpfiles.rules = ["d /tmp/vm 0777 root root -"];
   };
 
-  testScript = ''
+  script = ''
     def pkexec():
         return machine.execute("systemd-run --machine=alice@ --user --pipe --wait --quiet /run/wrappers/bin/pkexec --disable-internal-agent true </dev/null 2>&1")
 

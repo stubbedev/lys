@@ -43,7 +43,7 @@ and fails when it stops painting. `TestChromium` skips unless
 `LYS_WM_CHROMIUM=1` and `chromium` is on `PATH`.
 
 What only a kernel driver can answer, the DRM tests named `OnASeat` ask real
-ones: `just checks wm-vm-seat` runs them as DRM master in a VM
+ones: `just checks wm-vms-go-tests` runs them as DRM master in a VM
 on virtio-gpu and vkms (cursor, overlay planes), counting every atomic request,
 reading the planes back from the kernel and tracing the damage clips it
 holds. They skip unless `LYS_WM_SEAT=1`, which is never set beside a session.
@@ -51,7 +51,7 @@ holds. They skip unless `LYS_WM_SEAT=1`, which is never set beside a session.
 a VM, on llvmpipe, so its late frames are about the latch, not the GPU.
 
 After changes to Xwayland, X11 window management or scaling, run the real X
-applications too. `just checks wm-vm-xwayland-apps` drives
+applications too. `just checks wm-vms-xwayland-idea` drives
 IntelliJ IDEA through its first run, dialogs, completion and floating windows
 on a 1.5 output; `just wm::vm-online vm-steam` starts Steam up to its sign-in
 window, which needs the network the build sandbox lacks. Both are unfree and

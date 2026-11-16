@@ -1,6 +1,5 @@
 {
   self,
-  inputs,
   ...
 }: {
   perSystem = {
@@ -31,54 +30,16 @@
     failedAssertions = system: map (a: a.message) (lib.filter (a: !a.assertion) system.assertions);
   in {
     checks =
-      lib.optionalAttrs pkgs.stdenv.hostPlatform.isx86_64 {
-        # lys-login as the display manager in a NixOS VM (needs KVM); see
-        # nix/tests/login-vm.nix.
-        login-vm = pkgs.callPackage ./tests/login-vm.nix {
-          inherit self;
-        };
-        # The login keyring with the real gnome-keyring; see nix/tests/keyring-vm.nix.
-        keyring-vm = pkgs.callPackage ./tests/keyring-vm.nix {
-          inherit self;
-        };
-        upgrade-vm = pkgs.callPackage ./tests/upgrade-vm.nix {
-          inherit self;
-        };
-        # The greeter under greetd in cage; see nix/tests/greetd-vm.nix.
-        greetd-vm = pkgs.callPackage ./tests/greetd-vm.nix {inherit self;};
-        # Setting the wall clock wakes the login screen's clock; see
-        # nix/tests/wallclock-vm.nix.
-        wallclock-vm = pkgs.callPackage ./tests/wallclock-vm.nix {inherit pkg;};
-        # The greeter types with the system keyboard layout and switches between
-        # several; see nix/tests/keyboard-vm.nix.
-        keyboard-vm = pkgs.callPackage ./tests/keyboard-vm.nix {
-          inherit self;
-        };
-        # The greeter's accessibility menu; see nix/tests/accessibility-vm.nix.
-        accessibility-vm = pkgs.callPackage ./tests/accessibility-vm.nix {
-          inherit self;
-        };
-        # Fast user switching; see nix/tests/switch-vm.nix.
-        switch-vm = pkgs.callPackage ./tests/switch-vm.nix {
-          inherit self;
-        };
-        # Autologin and the disk passphrase as the keyring's; see nix/tests/autologin-vm.nix.
-        autologin-vm = pkgs.callPackage ./tests/autologin-vm.nix {
-          inherit self;
-        };
-        # A changed password re-keys the login collection; see nix/tests/rekey-vm.nix.
-        rekey-vm = pkgs.callPackage ./tests/rekey-vm.nix {
-          inherit self;
-        };
-        # The lock screen's status row and fingerprint; see nix/tests/lock-vm.nix.
-        lock-vm = pkgs.callPackage ./tests/lock-vm.nix {
-          inherit self;
-        };
-        # An X11 session reaches logind as x11; see nix/tests/x11-session-vm.nix.
-        x11-session-vm = pkgs.callPackage ./tests/x11-session-vm.nix {
-          inherit self;
-        };
-      }
+      lib.optionalAttrs pkgs.stdenv.hostPlatform.isx86_64 (let
+        vm = import ./tests/vm.nix {inherit pkgs lib;};
+        args = {inherit pkgs lib self vm;};
+        greeter = import ./tests/greeter.nix args;
+      in {
+        vms-greeter = greeter "greeter" ["login" "accessibility" "x11_session" "keyboard_german" "keyboard_switching" "keyring" "no_keyring"];
+        vms-sessions = greeter "sessions" ["lock" "rekey" "switch" "upgrade"];
+        vms-greetd = import ./tests/greetd.nix args;
+        vms-autologin = import ./tests/autologin.nix args;
+      })
       // {
         upgrade-unit = let
           unit = (daemonSystem {session.environment = ["A=b c"];}).systemd.services.lys-login;
@@ -88,7 +49,7 @@
             ${lib.optionalString (!unit.reloadIfChanged) ''echo "a switch does not reload the changed unit" >&2; exit 1''}
             ${lib.optionalString unit.restartIfChanged ''echo "a switch may restart the display manager under a session" >&2; exit 1''}
             grep -qF -- ${lib.escapeShellArg " upgrade -- ${daemonArgs} "} ${unit.serviceConfig.ExecReload} || { echo "ExecReload upgrades to other arguments than ExecStart runs with" >&2; exit 1; }
-            touch $out
+            touch "$out"
           '';
         splash-unit = let
           splash = pkgs.writeShellScriptBin "lys-splash" "";
@@ -104,7 +65,7 @@
           pkgs.runCommand "lys-login-splash-unit" {} ''
             ${lib.optionalString (!handsOver (unit splash)) ''echo "with splashPackage the unit does not take the screen from lys-splash" >&2; exit 1''}
             ${lib.optionalString (touchesSplash (unit null)) ''echo "without splashPackage the unit names lys-splash" >&2; exit 1''}
-            touch $out
+            touch "$out"
           '';
         greeter-sessions-assertion = let
           rejects = session: lib.any (lib.hasInfix "offers no session to log into") (failedAssertions (daemonSystem {inherit session;}));
@@ -124,7 +85,7 @@
               dirs = [];
               x11Dirs = ["/x"];
             }) ''echo "x11Dirs alone was rejected" >&2; exit 1''}
-            touch $out
+            touch "$out"
           '';
         greetd-software-render = let
           command = renderer:
@@ -137,7 +98,7 @@
           pkgs.runCommand "lys-login-greetd-software-render" {} ''
             ${lib.optionalString (!(has "LYS_UI_RENDERER=cpu" "software") || !(has "WLR_RENDERER=pixman" "software")) ''echo "renderer = software leaves cage or the greeter on the GPU" >&2; exit 1''}
             ${lib.optionalString (has "LYS_UI_RENDERER" "auto" || has "WLR_RENDERER" "auto") ''echo "renderer = auto forces a software path" >&2; exit 1''}
-            touch $out
+            touch "$out"
           '';
         daemon-software-render = let
           envLysWm = pkgs.writeShellScriptBin "lys-wm" ''echo "LYS_WM_RENDERER=''${LYS_WM_RENDERER-} LYS_UI_RENDERER=''${LYS_UI_RENDERER-}"'';
@@ -155,7 +116,7 @@
             [ "$(${compositor "auto"})" = "LYS_WM_RENDERER= LYS_UI_RENDERER=" ] || { echo "renderer = auto forces a software path on the daemon's lys-wm" >&2; exit 1; }
             ${lib.optionalString (!rejects {graphicsWrapper = ["nixGL"];} "greeter.graphicsWrapper") ''echo "a graphicsWrapper passed evaluation under the lys-login display manager" >&2; exit 1''}
             ${lib.optionalString (rejects {} "greeter.graphicsWrapper") ''echo "the default graphicsWrapper was rejected" >&2; exit 1''}
-            touch $out
+            touch "$out"
           '';
         fingerprint-pam = let
           system =
@@ -172,7 +133,7 @@
             ${lib.optionalString (lib.hasInfix "pam_fprintd" fingerprint || lib.hasInfix "pam_unix" fingerprint) ''echo "lys-login-fingerprint authenticates again after the daemon verified the fingerprint" >&2; exit 1''}
             ${lib.optionalString (!lib.hasInfix "pam_permit.so" fingerprint || !lib.hasInfix "pam_nologin.so" fingerprint || !lib.hasInfix "pam_systemd_loadkey.so" fingerprint) ''echo "lys-login-fingerprint is not nologin, the disk key, then permit" >&2; exit 1''}
             ${lib.optionalString (!lib.hasInfix "account  include   lys-login" fingerprint || !lib.hasInfix "session  include   lys-login" fingerprint) ''echo "lys-login-fingerprint skips the account or session stack of lys-login" >&2; exit 1''}
-            touch $out
+            touch "$out"
           '';
         default-display-manager = let
           system = greeterSystem {};
@@ -190,7 +151,7 @@
             ${lib.optionalString (!(runsDaemonIn fakeLysWm (daemonSystem {}))) ''echo "compositorPackage does not reach the daemon" >&2; exit 1''}
             ${lib.optionalString (!greetd.services.greetd.enable || greetd.systemd.services ? lys-login) ''echo "displayManager = greetd does not run greetd instead of the daemon" >&2; exit 1''}
             ${lib.optionalString (!system.security.polkit.enable) ''echo "the lys-login daemon runs without polkit, which authorizes apply-config" >&2; exit 1''}
-            touch $out
+            touch "$out"
           '';
         # The package wraps the binary with the libraries it dlopens, libpam
         # above all.
@@ -199,7 +160,7 @@
           grep -q "${pkgs.xkeyboard-config}/share/X11/xkb" ${pkg}/bin/.lys-login-wrapped || { echo "lys-login lacks the keyboard data path" >&2; exit 1; }
           grep -q "${pkgs.libX11}/share/X11/locale" ${pkg}/bin/.lys-login-wrapped || { echo "lys-login lacks the locale data path" >&2; exit 1; }
           grep -q '<action id="dev.stubbe.lys.login.apply-config">' ${pkg}/share/polkit-1/actions/dev.stubbe.lys.login.policy || { echo "lys-login does not install its polkit action" >&2; exit 1; }
-          touch $out
+          touch "$out"
         '';
       };
   };

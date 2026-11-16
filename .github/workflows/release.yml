@@ -14,7 +14,7 @@ permissions:
 jobs:
   plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     outputs:
       packages: ${{ steps.plan.outputs.packages }}
       version: ${{ steps.version.outputs.version }}
