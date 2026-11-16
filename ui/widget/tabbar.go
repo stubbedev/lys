@@ -176,7 +176,7 @@ func (b *TabBar) Drop(mime string, data []byte, p Point) {
 	if err != nil {
 		return
 	}
-	page := tabPageByID(id)
+	page := pageDroppedOn(b.view, id)
 	if page == nil {
 		return
 	}

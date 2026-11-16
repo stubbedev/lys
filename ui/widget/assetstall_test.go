@@ -29,7 +29,7 @@ func TestAStuckReadAndAPipeHoldUpNoOtherIcon(t *testing.T) {
 		close(stuck)
 		onTime(t, "the stuck load's release", WaitAssetLoads)
 	})
-	loadAsset("dead mount", func() { <-stuck }, func() {})
+	loadAsset("dead mount", currentLoop(), func() { <-stuck }, func() {})
 
 	pipeFile := NewFileIcon(pipe, 16)
 	pipeTheme := NewThemeIconFallback(pipe, 16)

@@ -185,3 +185,72 @@ func TestSharedElementAcrossSurfaces(t *testing.T) {
 		t.Error("an unplaced popover started a morph; want its own reveal")
 	}
 }
+
+func shotsOn(clock *anim.Clock) int {
+	sharedShots.mu.Lock()
+	defer sharedShots.mu.Unlock()
+	n := 0
+	for k := range sharedShots.shots {
+		if k.clock == clock {
+			n++
+		}
+	}
+	return n
+}
+
+func paintHero(t *testing.T, clock *anim.Clock, tag string) (unhost func()) {
+	t.Helper()
+	root := NewBox(Column, 0, 0)
+	hero := NewBox(Column, 0, 0)
+	hero.AddClass("small")
+	hero.SetSharedElement(tag)
+	root.Append(hero, false)
+	unhost = Host(root, clock)
+	SizeWithin(root, Size{W: 60, H: 60})
+	root.Arrange(render.Rect{W: 60, H: 60})
+	paintTree(root, 60, 60)
+	return unhost
+}
+
+func TestAClocksSharedShotsGoWhenItsLastHostedTreeEnds(t *testing.T) {
+	loadCSS(t, `.small { min-width: 20px; min-height: 20px; background-color: #ff0000; }`)
+	t.Cleanup(sharedShots.reset)
+	var ending, staying anim.Clock
+	first := paintHero(t, &ending, "first")
+	second := paintHero(t, &ending, "second")
+	other := paintHero(t, &staying, "first")
+	t.Cleanup(other)
+	if n := shotsOn(&ending); n != 2 {
+		t.Fatalf("two tagged widgets painted on a clock left %d shots, want 2", n)
+	}
+	first()
+	if n := shotsOn(&ending); n != 2 {
+		t.Errorf("with a tree still hosted on the clock, %d shots are left, want both", n)
+	}
+	second()
+	if n := shotsOn(&ending); n != 0 {
+		t.Errorf("after the clock's last tree ended, %d shots keep their layers and widgets alive", n)
+	}
+	if n := shotsOn(&staying); n != 1 {
+		t.Errorf("another clock's trees ending left this clock %d shots, want its 1", n)
+	}
+}
+
+func TestATreeHostedAgainOnAnotherClockTakesNoShotsWithIt(t *testing.T) {
+	loadCSS(t, `.small { min-width: 20px; min-height: 20px; background-color: #ff0000; }`)
+	t.Cleanup(sharedShots.reset)
+	var before, after anim.Clock
+	root := NewBox(Column, 0, 0)
+	hero := NewBox(Column, 0, 0)
+	hero.AddClass("small")
+	hero.SetSharedElement("moving")
+	root.Append(hero, false)
+	Host(root, &before)
+	SizeWithin(root, Size{W: 60, H: 60})
+	root.Arrange(render.Rect{W: 60, H: 60})
+	paintTree(root, 60, 60)
+	t.Cleanup(Host(root, &after))
+	if n := shotsOn(&before); n != 0 {
+		t.Errorf("a clock no tree is hosted on any more keeps %d shots", n)
+	}
+}

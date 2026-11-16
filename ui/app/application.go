@@ -253,8 +253,10 @@ func NewApplication(sess *wlsession.Session, opts ...Option) *Application {
 	a.OnStop(func() { a.dnd.Stop() })
 	a.OnStop(startFontWarm(warmFonts))
 	a.widgetHooks = []func(){
-		// Async image loads (widget.Image file/URL sources) deliver through
-		// the loop queue - the only sanctioned bridge (docs/threading.md).
+		// What the widgets built on this goroutine ask for off the loop
+		// (images, icons, stylesheet files) answers through the loop queue,
+		// the only sanctioned bridge (docs/threading.md); Run binds the loop
+		// goroutine too.
 		widget.SetInvoker(a.Invoke),
 		// Stylesheet files hot-reload through an inotify watch on the loop:
 		// the widget package cannot reach it, so the app lends it one, and
@@ -282,7 +284,7 @@ func NewApplication(sess *wlsession.Session, opts ...Option) *Application {
 		// drop-target state for the removed subtree, so no KeyAction reaches
 		// a dead widget — and, through router.Hovered(), no tooltip dwells
 		// on a ghost (tooltipCtl opens and closes on the router's hover).
-		// One hook per process, like SetInvoker; it covers the window
+		// One hook per process; it covers the window
 		// routers — popups run transient routers over short-lived trees.
 		widget.SetRemovedHook(func(w widget.Widget) {
 			for _, win := range a.windows {
@@ -889,13 +891,16 @@ func (a *Application) teardown() {
 // goroutine is the event-loop goroutine of the threading contract
 // (docs/threading.md): widget and callback work happens here, and
 // other goroutines reach it only through Invoke and Every. Run marks
-// the goroutine for the off-loop debug hook, pumps the queued work at
+// the goroutine for the off-loop debug hook, binds it as the loop the
+// widgets' off-loop loads answer through Invoke, pumps the queued work at
 // the top of every pass, and folds the periodic-timer deadlines into
 // the wake computation, so a pending poller wakes the park exactly
 // once per tick. Run closes the application (Close) when it returns.
 func (a *Application) Run() error {
 	unmark := widget.MarkLoop()
+	unbind := widget.SetInvoker(a.Invoke)
 	defer func() {
+		unbind()
 		unmark()
 		a.Close()
 	}()

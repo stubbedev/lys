@@ -1,10 +1,6 @@
 package widget
 
-import (
-	"slices"
-	"sync"
-	"sync/atomic"
-)
+import "slices"
 
 // Politeness is how urgently an announcement interrupts an assistive
 // technology: AT-SPI's live politeness, ARIA's aria-live.
@@ -25,76 +21,64 @@ type Announcement struct {
 	Politeness Politeness
 }
 
-// announcing is whether an assistive technology listens: the AT-SPI
-// bridge turns it on while it serves the application. Off, Announce
-// does nothing at all.
-var announcing atomic.Bool
+type announceQueue struct{ pending []Announcement }
 
-// announcements are what waits for the bridge's next pass, one per
-// widget: a live region changing again before it is spoken replaces its
-// text.
-var announcements struct {
-	mu      sync.Mutex
-	pending []Announcement
-}
+var listeners perLoop[announceQueue]
 
 // SetAnnouncementsHeard tells the toolkit whether an assistive technology
-// listens to announcements; the accessibility bridge sets it as it
-// starts and stops. Turning it off drops what waits. Loop goroutine
-// only.
+// listens to the announcements made on the calling loop goroutine; the
+// accessibility bridge of the application running there sets it as it
+// starts and stops, so each application's bridge hears its own
+// announcements and stopping one leaves the others speaking. Turning it
+// off drops what waits. Loop goroutine only.
 func SetAnnouncementsHeard(on bool) {
 	checkLoop("SetAnnouncementsHeard")
-	announcing.Store(on)
 	if !on {
-		dropAnnouncements()
+		listeners.unbindCurrent()
+		return
+	}
+	if listeners.current() == nil {
+		listeners.bind(&announceQueue{})
 	}
 }
 
 // Announce has assistive technology speak text for w without moving the
 // focus: a notification appearing, a value the user asked for. It costs
-// nothing while no assistive technology listens. Call it on the loop
-// goroutine.
+// nothing while no assistive technology listens to the calling loop.
+// Call it on the loop goroutine.
 func Announce(w Widget, text string, p Politeness) {
-	if !announcing.Load() || text == "" || w == nil {
+	if text == "" || w == nil {
+		return
+	}
+	q := listeners.current()
+	if q == nil {
 		return
 	}
 	checkLoop("Announce")
-	queueAnnouncement(Announcement{Widget: w, Text: text, Politeness: p})
+	q.add(Announcement{Widget: w, Text: text, Politeness: p})
 }
 
-// queueAnnouncement adds a, replacing what its widget still has
-// waiting.
-func queueAnnouncement(a Announcement) {
-	announcements.mu.Lock()
-	if i := slices.IndexFunc(announcements.pending, func(o Announcement) bool { return o.Widget == a.Widget }); i >= 0 {
-		announcements.pending[i] = a
+func (q *announceQueue) add(a Announcement) {
+	if i := slices.IndexFunc(q.pending, func(o Announcement) bool { return o.Widget == a.Widget }); i >= 0 {
+		q.pending[i] = a
 	} else {
-		announcements.pending = append(announcements.pending, a)
+		q.pending = append(q.pending, a)
 	}
-	announcements.mu.Unlock()
 	MarkA11yChanged()
 }
 
-// TakeAnnouncements appends what waits to buf, in the order it was
-// announced, and empties the queue: the bridge's pass speaks each once.
-// Loop goroutine only.
+// TakeAnnouncements appends what waits on the calling loop to buf, in the
+// order it was announced, and empties the queue: the bridge's pass speaks
+// each once. Loop goroutine only.
 func TakeAnnouncements(buf []Announcement) []Announcement {
-	announcements.mu.Lock()
-	defer announcements.mu.Unlock()
-	buf = append(buf, announcements.pending...)
-	emptyAnnouncementsLocked()
+	q := listeners.current()
+	if q == nil {
+		return buf
+	}
+	buf = append(buf, q.pending...)
+	clear(q.pending)
+	q.pending = q.pending[:0]
 	return buf
-}
-
-func dropAnnouncements() {
-	announcements.mu.Lock()
-	defer announcements.mu.Unlock()
-	emptyAnnouncementsLocked()
-}
-
-func emptyAnnouncementsLocked() {
-	clear(announcements.pending)
-	announcements.pending = announcements.pending[:0]
 }
 
 // SetLiveRegion makes w a live region: text changing inside it (a
@@ -119,12 +103,16 @@ func LiveRegion(w Widget) Politeness {
 // liveTextChanged announces text when w is in a live region: the region
 // is w itself or its nearest live ancestor.
 func liveTextChanged(w Widget, text string) {
-	if !announcing.Load() || text == "" {
+	if text == "" {
+		return
+	}
+	q := listeners.current()
+	if q == nil {
 		return
 	}
 	for cur := w; cur != nil; cur = parentOf(cur) {
 		if n := nodeOf(cur); n != nil && n.live != 0 {
-			queueAnnouncement(Announcement{Widget: cur, Text: text, Politeness: n.live})
+			q.add(Announcement{Widget: cur, Text: text, Politeness: n.live})
 			return
 		}
 	}

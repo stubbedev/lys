@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"maps"
 	"sync"
 
 	"github.com/stubbedev/lys/lib/icons"
@@ -13,116 +12,102 @@ import (
 	"github.com/stubbedev/lys/ui/internal/style"
 )
 
-// cssImage is one stylesheet url() file: decoded at its natural size off
-// the loop, nil once settled if it does not load. cssImages.mu guards
-// its fields: every tree that styles with the file shares it.
 type cssImage struct {
-	icon    *render.Icon
-	settled bool
-	waiters []cssWaiter
-}
-
-type cssWaiter struct {
-	w      Widget
-	settle func()
+	icon      *render.Icon
+	published bool
 }
 
 type cssImageCache struct {
 	mu   sync.Mutex
-	imgs map[string]*cssImage
+	imgs map[string]cssImage
 }
 
-var cssImages = cssImageCache{imgs: map[string]*cssImage{}}
+var cssImages = cssImageCache{imgs: map[string]cssImage{}}
+
+type cssImageKey string
 
 // bgImageFor is the decoded image of a url() file, nil while it decodes
 // and for one that does not load: the box then paints its background
 // color alone. It reads nothing; the restyle that saw the url asked for
 // the file.
 func bgImageFor(path string) *render.Icon {
-	cssImages.mu.Lock()
-	defer cssImages.mu.Unlock()
-	if img, ok := cssImages.imgs[path]; ok {
-		return img.icon
+	icon, _ := cssImages.settled(path)
+	return icon
+}
+
+func (c *cssImageCache) settled(path string) (*render.Icon, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	img := c.imgs[path]
+	return img.icon, img.published
+}
+
+func (c *cssImageCache) decoded(path string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, ok := c.imgs[path]
+	return ok
+}
+
+func (c *cssImageCache) decode(path string) error {
+	if c.decoded(path) {
+		return nil
 	}
-	return nil
+	icon, err := decodeCSSImage(path)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.imgs[path]; !ok {
+		c.imgs[path] = cssImage{icon: icon}
+	}
+	return err
+}
+
+func (c *cssImageCache) publish(path string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	img, ok := c.imgs[path]
+	if !ok {
+		return false
+	}
+	img.published = true
+	c.imgs[path] = img
+	return true
 }
 
 func requestCSSImage(path string, w Widget) {
 	if path == "" {
 		return
 	}
-	img, load := cssImages.await(path, w, hasInvoker())
-	if load {
-		img.load(path)
-	}
-}
-
-func (c *cssImageCache) await(path string, w Widget, async bool) (img *cssImage, load bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	img, ok := c.imgs[path]
-	if !ok {
-		img = &cssImage{}
-		c.imgs[path] = img
-	}
-	if img.settled {
-		return img, false
-	}
-	if !async {
-		return img, true
-	}
-	waiter := cssWaiter{w: w}
-	if n := nodeOf(w); n != nil {
-		waiter.settle = owe(styleRootOf(n))
-	}
-	img.waiters = append(img.waiters, waiter)
-	return img, !ok
-}
-
-func (c *cssImageCache) dropUnsettled() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	maps.DeleteFunc(c.imgs, func(_ string, img *cssImage) bool { return !img.settled })
-}
-
-func (img *cssImage) load(path string) {
-	var decoded *render.Icon
-	var failed error
-	loaded := false
-	loadAsset(path, func() {
-		decoded, failed = decodeCSSImage(path)
-		loaded = true
-	}, func() {
-		if !loaded {
-			img.load(path)
-			return
-		}
-		img.settle(decoded, failed, path)
-	})
-}
-
-func (img *cssImage) settle(decoded *render.Icon, failed error, path string) {
-	cssImages.mu.Lock()
-	img.icon, img.settled = decoded, true
-	waiters := img.waiters
-	img.waiters = nil
-	cssImages.mu.Unlock()
-	if failed != nil {
-		style.Warn(fmt.Sprintf("url(%s): %v", path, failed))
-	}
-	for _, w := range waiters {
-		if w.settle != nil {
-			w.settle()
-		}
-	}
-	if !hasInvoker() {
+	if _, ok := cssImages.settled(path); ok {
 		return
 	}
-	for _, w := range waiters {
-		if inv, ok := w.w.(interface{ Invalidate() }); ok {
+	l := currentLoop()
+	var owed func()
+	if n := nodeOf(w); n != nil && l != nil {
+		owed = owe(styleRootOf(n))
+	}
+	loadCSSImage(path, w, l, owed)
+}
+
+func loadCSSImage(path string, w Widget, l *eventLoop, owed func()) {
+	var failed error
+	loadAsset(cssImageKey(path), l, func() {
+		failed = cssImages.decode(path)
+	}, func() {
+		if !cssImages.publish(path) {
+			loadCSSImage(path, w, l, owed)
+			return
+		}
+		if failed != nil {
+			style.Warn(fmt.Sprintf("url(%s): %v", path, failed))
+		}
+		if owed != nil {
+			owed()
+		}
+		if inv, ok := w.(interface{ Invalidate() }); ok && l != nil {
 			inv.Invalidate()
 		}
-	}
+	})
 }
 
 // decodeCSSImage reads and decodes a url() file at its natural size,

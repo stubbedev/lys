@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -195,36 +196,58 @@ func TestTwoTabViewsOpenAndClosePagesAtOnce(t *testing.T) {
 	})
 }
 
-func TestTwoTreesAnnounceAtOnce(t *testing.T) {
-	SetAnnouncementsHeard(true)
-	t.Cleanup(func() { SetAnnouncementsHeard(false) })
+func TestTwoLoopsAnnounceAtOnceAndEachBridgeTakesItsOwn(t *testing.T) {
 	const each = 40
-	speakers := [2]*Box{NewBox(Row, 0, 0), NewBox(Row, 0, 0)}
-	atOnce(t, len(speakers), func(w int) error {
-		for i := range each {
-			Announce(speakers[w], fmt.Sprintf("tree %d says %d", w, i), Polite)
+	loops := [2]*testLoop{newTestLoop(t), newTestLoop(t)}
+	var speakers [2]*Box
+	for i, l := range loops {
+		l.do(t, func() {
+			SetAnnouncementsHeard(true)
+			speakers[i] = NewBox(Row, 0, 0)
+		})
+		t.Cleanup(func() { l.do(t, func() { SetAnnouncementsHeard(false) }) })
+	}
+	var wg sync.WaitGroup
+	for i, l := range loops {
+		wg.Go(func() {
+			l.do(t, func() {
+				for n := range each {
+					Announce(speakers[i], fmt.Sprintf("loop %d says %d", i, n), Polite)
+				}
+			})
+		})
+	}
+	wg.Wait()
+	for i, l := range loops {
+		var got, left []Announcement
+		l.do(t, func() {
+			got = TakeAnnouncements(nil)
+			left = TakeAnnouncements(nil)
+		})
+		if len(got) != 1 || got[0].Widget != Widget(speakers[i]) || got[0].Text != fmt.Sprintf("loop %d says %d", i, each-1) {
+			t.Errorf("loop %d took %v, want its own widget's latest announcement alone", i, got)
 		}
-		return nil
+		if len(left) != 0 {
+			t.Errorf("loop %d: a second take found %v, want the queue emptied", i, left)
+		}
+	}
+
+	var stoppedLeft, heard []Announcement
+	loops[0].do(t, func() {
+		Announce(speakers[0], "dropped", Polite)
+		SetAnnouncementsHeard(false)
+		stoppedLeft = TakeAnnouncements(nil)
+		Announce(speakers[0], "unheard", Polite)
+		stoppedLeft = TakeAnnouncements(stoppedLeft)
 	})
-	got := TakeAnnouncements(nil)
-	if len(got) != len(speakers) {
-		t.Fatalf("took %d announcements, want one per speaking widget: %v", len(got), got)
+	loops[1].do(t, func() {
+		Announce(speakers[1], "still heard", Assertive)
+		heard = TakeAnnouncements(nil)
+	})
+	if len(stoppedLeft) != 0 {
+		t.Errorf("the loop whose bridge stopped kept %v", stoppedLeft)
 	}
-	for _, a := range got {
-		w := 0
-		if a.Widget == Widget(speakers[1]) {
-			w = 1
-		}
-		if want := fmt.Sprintf("tree %d says %d", w, each-1); a.Text != want {
-			t.Errorf("a widget's announcement says %q, want its latest %q", a.Text, want)
-		}
-	}
-	if left := TakeAnnouncements(nil); len(left) != 0 {
-		t.Errorf("a second take found %v, want the queue emptied", left)
-	}
-	Announce(speakers[0], "dropped", Polite)
-	SetAnnouncementsHeard(false)
-	if left := TakeAnnouncements(nil); len(left) != 0 {
-		t.Errorf("turning announcements off left %v waiting", left)
+	if len(heard) != 1 || heard[0].Text != "still heard" {
+		t.Errorf("after the other loop's bridge stopped, this one took %v, want its announcement", heard)
 	}
 }

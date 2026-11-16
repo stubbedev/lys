@@ -12,8 +12,12 @@ const maxAssetQueue = 1024
 type assetJob struct {
 	key     any
 	load    func()
-	waiters []func()
-	deliver func(func())
+	waiters []assetWaiter
+}
+
+type assetWaiter struct {
+	loop *eventLoop
+	done func()
 }
 
 const maxAssetWorkers = 8
@@ -36,23 +40,22 @@ func newAssetQueue() *assetQueue {
 	return q
 }
 
-func loadAsset(key any, load, done func()) {
-	deliver, ok := loopInvoker()
-	if !ok {
+func loadAsset(key any, l *eventLoop, load, done func()) {
+	if l == nil {
 		load()
 		done()
 		return
 	}
-	if dropped := assets.add(key, load, done, deliver); dropped != nil {
+	if dropped := assets.add(key, load, assetWaiter{loop: l, done: done}); dropped != nil {
 		answer(dropped)
 	}
 }
 
-func (q *assetQueue) add(key any, load, done func(), deliver func(func())) (dropped *assetJob) {
+func (q *assetQueue) add(key any, load func(), w assetWaiter) (dropped *assetJob) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if j, ok := q.jobs[key]; ok {
-		j.waiters = append(j.waiters, done)
+		j.waiters = append(j.waiters, w)
 		return nil
 	}
 	if len(q.queue) >= maxAssetQueue {
@@ -61,7 +64,7 @@ func (q *assetQueue) add(key any, load, done func(), deliver func(func())) (drop
 		delete(q.jobs, oldest.key)
 		dropped = oldest
 	}
-	j := &assetJob{key: key, load: load, waiters: []func(){done}, deliver: deliver}
+	j := &assetJob{key: key, load: load, waiters: []assetWaiter{w}}
 	q.jobs[key] = j
 	q.queue = append(q.queue, j)
 	if q.running < maxAssetWorkers {
@@ -92,20 +95,32 @@ func (q *assetQueue) run() {
 }
 
 func answer(j *assetJob) {
-	j.deliver(func() {
-		for _, w := range j.waiters {
-			w()
+	for i, w := range j.waiters {
+		if slices.ContainsFunc(j.waiters[:i], func(o assetWaiter) bool { return o.loop == w.loop }) {
+			continue
 		}
-	})
+		mine := j.waiters[i:]
+		w.loop.invoke(func() {
+			for _, o := range mine {
+				if o.loop == w.loop {
+					o.done()
+				}
+			}
+		})
+	}
 }
 
-func (q *assetQueue) stop() {
+func (q *assetQueue) forget(l *eventLoop) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	for _, j := range q.queue {
+	q.queue = slices.DeleteFunc(q.queue, func(j *assetJob) bool {
+		j.waiters = slices.DeleteFunc(j.waiters, func(w assetWaiter) bool { return w.loop == l })
+		if len(j.waiters) > 0 {
+			return false
+		}
 		delete(q.jobs, j.key)
-	}
-	q.queue = nil
+		return true
+	})
 }
 
 func (q *assetQueue) wait() {
@@ -114,14 +129,6 @@ func (q *assetQueue) wait() {
 	for q.running > 0 {
 		q.idle.Wait()
 	}
-}
-
-// StopAssetLoads drops the icon, stylesheet image and font loads that
-// have not started. Application calls it when its loop ends; answers from
-// here on go nowhere, so nothing stays asked for.
-func StopAssetLoads() {
-	assets.stop()
-	cssImages.dropUnsettled()
 }
 
 // WaitAssetLoads blocks until every icon, stylesheet image and font load

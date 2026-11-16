@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"maps"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -45,7 +46,8 @@ type sharedShot struct {
 // sharedShots holds each tag's last rendering under each animation
 // clock, so the trees of one application, which share its clock, morph
 // into each other and never into another application's. Tags are few -
-// a handful of hero elements - so the map stays small.
+// a handful of hero elements - so the map stays small, and a clock's
+// shots go when the last tree hosted on it ends.
 var sharedShots = sharedShotCache{shots: map[sharedShotKey]*sharedShot{}}
 
 type sharedShotKey struct {
@@ -68,6 +70,12 @@ func (c *sharedShotCache) put(k sharedShotKey, shot *sharedShot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.shots[k] = shot
+}
+
+func (c *sharedShotCache) dropClock(clock *anim.Clock) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	maps.DeleteFunc(c.shots, func(k sharedShotKey, _ *sharedShot) bool { return k.clock == clock })
 }
 
 func (c *sharedShotCache) reset() {

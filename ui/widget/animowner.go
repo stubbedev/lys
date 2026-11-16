@@ -59,15 +59,22 @@ func Host(root Widget, clock *anim.Clock) (unhost func()) {
 }
 
 func unlistHosted(t *treeTop) {
+	c := t.host.clock
+	if lastOnClock(t, c) {
+		sharedShots.dropClock(c)
+	}
+}
+
+func lastOnClock(t *treeTop, c *anim.Clock) bool {
 	hostedTops.mu.Lock()
 	defer hostedTops.mu.Unlock()
-	c := t.host.clock
 	tops := slices.DeleteFunc(hostedTops.byClock[c], func(o *treeTop) bool { return o == t })
 	if len(tops) == 0 {
 		delete(hostedTops.byClock, c)
-		return
+		return true
 	}
 	hostedTops.byClock[c] = tops
+	return false
 }
 
 func hostKey(w Widget) any {

@@ -1,9 +1,11 @@
 package widget
 
 import (
+	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
+	"weak"
 
 	"github.com/stubbedev/lys/lib/render"
 )
@@ -86,8 +88,21 @@ var tabPageIDs atomic.Uint64
 
 var tabPages = struct {
 	mu    sync.Mutex
-	pages map[uint64]*TabPage
-}{pages: map[uint64]*TabPage{}}
+	pages map[uint64]weak.Pointer[TabPage]
+}{pages: map[uint64]weak.Pointer[TabPage]{}}
+
+func registerTabPage(p *TabPage) {
+	tabPages.mu.Lock()
+	tabPages.pages[p.id] = weak.Make(p)
+	tabPages.mu.Unlock()
+	runtime.AddCleanup(p, forgetTabPage, p.id)
+}
+
+func forgetTabPage(id uint64) {
+	tabPages.mu.Lock()
+	defer tabPages.mu.Unlock()
+	delete(tabPages.pages, id)
+}
 
 // TabView is libadwaita's AdwTabView: a stack of pages, one visible,
 // whose tabs a TabBar (and a TabOverview) present. Pinned pages sit
@@ -152,9 +167,7 @@ func (v *TabView) Prepend(child Widget, title string) *TabPage {
 // Insert adds child at position i, kept among the unpinned pages.
 func (v *TabView) Insert(i int, child Widget, title string) *TabPage {
 	p := &TabPage{id: tabPageIDs.Add(1), child: child, title: title}
-	tabPages.mu.Lock()
-	tabPages.pages[p.id] = p
-	tabPages.mu.Unlock()
+	registerTabPage(p)
 	v.attach(p, i)
 	return p
 }
@@ -207,9 +220,7 @@ func (v *TabView) ClosePage(p *TabPage) bool {
 		return false
 	}
 	v.detach(p)
-	tabPages.mu.Lock()
-	delete(tabPages.pages, p.id)
-	tabPages.mu.Unlock()
+	forgetTabPage(p.id)
 	return true
 }
 
@@ -377,5 +388,13 @@ func (v *TabView) HitTest(p Point) Widget {
 func tabPageByID(id uint64) *TabPage {
 	tabPages.mu.Lock()
 	defer tabPages.mu.Unlock()
-	return tabPages.pages[id]
+	return tabPages.pages[id].Value()
+}
+
+func pageDroppedOn(v *TabView, id uint64) *TabPage {
+	p := tabPageByID(id)
+	if p == nil || p.view == nil || p.view.hostClock() != v.hostClock() {
+		return nil
+	}
+	return p
 }

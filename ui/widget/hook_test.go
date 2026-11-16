@@ -54,7 +54,6 @@ func TestAHookIsRemovedByWhoInstalledItAndSurvivesAnEarlierRemoval(t *testing.T)
 		return func([]string, func()) (func(), error) { return func() {}, nil }
 	}
 	for _, c := range []hookCase{
-		hookOf("invoker", &invoker, SetInvoker, func(func()) {}, func(func()) {}, nil),
 		hookOf("stylesheet watcher", &watcherHook, SetStylesheetWatcher, watch(), watch(), nil),
 		hookOf("error bell", &errorBell, SetErrorBell, func(Widget) {}, func(Widget) {}, nil),
 		hookOf("surface fade", &surfaceFade, SetSurfaceFade, func(Widget, float64) bool { return true }, func(Widget, float64) bool { return false }, nil),

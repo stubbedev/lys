@@ -142,15 +142,15 @@ func osDirSource(dir string) ([]FileEntry, error) {
 }
 
 func runOffLoop(load, done func()) {
-	deliver, ok := loopInvoker()
-	if !ok {
+	l := currentLoop()
+	if l == nil {
 		load()
 		done()
 		return
 	}
 	go func() {
 		load()
-		deliver(done)
+		l.invoke(done)
 	}()
 }
 

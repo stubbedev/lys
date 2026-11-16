@@ -1,11 +1,15 @@
 package widget
 
 import (
+	"runtime"
 	"slices"
 	"strconv"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
+
+	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 func titles(v *TabView) []string {
@@ -118,5 +122,53 @@ func TestTabOverviewSnapshotsPagesAndSelects(t *testing.T) {
 	o.grid.ChildAt(1).Child().(*Button).OnClick()
 	if v.Selected() != two || o.Open() {
 		t.Errorf("clicking a thumbnail: selected two=%v, open=%v", v.Selected() == two, o.Open())
+	}
+}
+
+func tabPageListed(id uint64) bool {
+	tabPages.mu.Lock()
+	defer tabPages.mu.Unlock()
+	_, ok := tabPages.pages[id]
+	return ok
+}
+
+func TestADroppedTabViewsPagesLeaveTheRegistry(t *testing.T) {
+	dropped := func() []uint64 {
+		v := NewTabView()
+		return []uint64{v.Append(NewSpacer(1, 1), "a").id, v.Append(NewSpacer(1, 1), "b").id}
+	}()
+	kept := NewTabView()
+	held := kept.Append(NewSpacer(1, 1), "held")
+	waittest.Until(t, func() bool {
+		runtime.GC()
+		return !slices.ContainsFunc(dropped, tabPageListed)
+	}, "a dropped view's pages to leave the registry")
+	if tabPageByID(held.id) != held {
+		t.Error("a page its view still holds no longer resolves by its id")
+	}
+	runtime.KeepAlive(kept)
+}
+
+func TestATabDropsOnlyIntoAViewOfItsOwnApplication(t *testing.T) {
+	face := testFace(t)
+	var mine, theirs anim.Clock
+	src, sibling, foreign := NewTabView(), NewTabView(), NewTabView()
+	t.Cleanup(Host(src, &mine))
+	t.Cleanup(Host(sibling, &mine))
+	t.Cleanup(Host(foreign, &theirs))
+	src.Append(NewSpacer(10, 10), "stays")
+	moving := src.Append(NewSpacer(10, 10), "moving")
+	payload := []byte(strconv.FormatUint(moving.id, 10))
+
+	foreignBar := NewTabBar(face, 12, foreign)
+	foreignBar.Drop(TabMime, payload, Point{})
+	if moving.View() != src || foreign.NPages() != 0 {
+		t.Errorf("a tab dropped into another application's view moved there: view is src %v, foreign has %d pages", moving.View() == src, foreign.NPages())
+	}
+
+	siblingBar := NewTabBar(face, 12, sibling)
+	siblingBar.Drop(TabMime, payload, Point{})
+	if moving.View() != sibling || sibling.Selected() != moving {
+		t.Errorf("a tab dropped into a view of its own application did not move: view is sibling %v", moving.View() == sibling)
 	}
 }

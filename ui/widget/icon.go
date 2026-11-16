@@ -483,21 +483,22 @@ func (i *Icon) peek(box iconBox) (icons.Raster, bool) {
 
 func (i *Icon) request(box iconBox, root *node) {
 	settle := owe(root)
+	l := currentLoop()
 	answered := func() {
 		settle()
-		if hasInvoker() {
+		if l != nil {
 			i.Invalidate()
 		}
 	}
 	if i.kind == iconTheme {
 		fallbacks := i.fallbacks
-		loadAsset(iconThemeKey{box, fallbacks}, func() { preloadThemeBox(box, fallbacks) }, answered)
+		loadAsset(iconThemeKey{box, fallbacks}, l, func() { preloadThemeBox(box, fallbacks) }, answered)
 		return
 	}
 	kind, path, svg := i.kind, i.path, i.svg
 	var raster icons.Raster
 	loaded := false
-	loadAsset(iconSelfKey{i, box}, func() {
+	loadAsset(iconSelfKey{i, box}, l, func() {
 		raster, loaded = decodeIconSource(kind, path, svg, box), true
 	}, func() {
 		if loaded {

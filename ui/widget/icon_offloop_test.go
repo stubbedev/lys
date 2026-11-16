@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"testing"
 
@@ -38,8 +37,12 @@ func settleAssets(t *testing.T, f *fakeInvoker) {
 func onTime(t *testing.T, what string, fn func()) {
 	t.Helper()
 	done := make(chan struct{})
+	l := currentLoop()
 	go func() {
 		defer close(done)
+		if l != nil {
+			defer adoptLoop(l)()
+		}
 		fn()
 	}()
 	waittest.For(t, done, what+" to return without blocking on the disk")
@@ -216,9 +219,9 @@ func TestAssetQueueBoundsAndAnswersWhatItDrops(t *testing.T) {
 	run := collectingInvoker(t)
 	hold := make(chan struct{})
 	answered := map[int]bool{}
-	loadAsset(-1, func() { <-hold }, func() { answered[-1] = true })
+	loadAsset(-1, currentLoop(), func() { <-hold }, func() { answered[-1] = true })
 	for i := range maxAssetQueue + 3 {
-		loadAsset(i, func() {}, func() { answered[i] = true })
+		loadAsset(i, currentLoop(), func() {}, func() { answered[i] = true })
 	}
 	assets.mu.Lock()
 	queued := len(assets.queue)
@@ -233,22 +236,6 @@ func TestAssetQueueBoundsAndAnswersWhatItDrops(t *testing.T) {
 		if !answered[i] {
 			t.Fatalf("job %d never answered: its asker would stay blank", i)
 		}
-	}
-}
-
-func TestStopDropsWhatHasNotStarted(t *testing.T) {
-	collectingInvoker(t)
-	hold := make(chan struct{})
-	var ran atomic.Bool
-	for i := range maxAssetWorkers {
-		loadAsset(i, func() { <-hold }, func() {})
-	}
-	loadAsset("queued", func() { ran.Store(true) }, func() {})
-	StopAssetLoads()
-	close(hold)
-	onTime(t, "the queue", WaitAssetLoads)
-	if ran.Load() {
-		t.Error("a decode ran after the stop")
 	}
 }
 

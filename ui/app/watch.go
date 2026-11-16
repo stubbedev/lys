@@ -9,8 +9,6 @@ import (
 
 	"github.com/stubbedev/lys/lib/intconv"
 	"golang.org/x/sys/unix"
-
-	"github.com/stubbedev/lys/ui/widget"
 )
 
 // File descriptors and paths watched on the application loop: a
@@ -243,5 +241,4 @@ func (a *Application) endLoop() {
 		remove()
 	}
 	a.anim.Stop()
-	widget.StopAssetLoads()
 }

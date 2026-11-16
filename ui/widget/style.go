@@ -905,7 +905,7 @@ func (s *Stylesheet) reloadIfChanged() {
 	var now []styleFile
 	var err error
 	moved := false
-	loadAsset(s, func() {
+	loadAsset(s, currentLoop(), func() {
 		if !slices.ContainsFunc(files, styleFile.changed) {
 			return
 		}
@@ -1001,14 +1001,15 @@ type fontFaceEntry struct {
 
 func requestFontFace(family, src string) {
 	var failed error
-	loadAsset(fontFaceKey(src), func() {
+	l := currentLoop()
+	loadAsset(fontFaceKey(src), l, func() {
 		_, failed = sysfont.FaceFile(src)
 	}, func() {
 		if failed != nil {
 			style.Warn(fmt.Sprintf("@font-face %s: load %s: %v", family, src, failed))
 			return
 		}
-		if hasInvoker() {
+		if l != nil {
 			relayer()
 		}
 	})

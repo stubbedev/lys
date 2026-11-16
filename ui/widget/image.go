@@ -78,31 +78,6 @@ var imageHTTP = &http.Client{Timeout: 15 * time.Second}
 // cannot, and the entry dies with the source via InvalidateSource.
 var memSourceSeq atomic.Uint64
 
-// invoker delivers asynchronous load results onto the event-loop
-// goroutine. Application creation installs Application.Invoke - the
-// only sanctioned bridge (docs/threading.md). Without an invoker there
-// is no loop to deliver to, and file/URL sources settle synchronously
-// at their first paint instead.
-var invoker atomic.Pointer[func(func())]
-
-// SetInvoker installs the function asynchronous image loads use to run
-// their completion on the event-loop goroutine; app calls it with
-// Application.Invoke. Nil removes the bridge. The returned function
-// removes this one and leaves a later install in place.
-func SetInvoker(fn func(func())) (remove func()) {
-	return installHook(&invoker, fn, fn == nil)
-}
-
-func hasInvoker() bool { return invoker.Load() != nil }
-
-func loopInvoker() (deliver func(func()), ok bool) {
-	p := invoker.Load()
-	if p == nil {
-		return nil, false
-	}
-	return *p, true
-}
-
 // Image paints a raster image - album art, an avatar, a rendered
 // snapshot - into its arranged box. It is the raster counterpart of
 // Icon, which covers the SVG side.
@@ -115,12 +90,12 @@ func loopInvoker() (deliver func(func()), ok bool) {
 //   - Asynchronous: NewFileImage and NewURLImage fetch and decode on a
 //     goroutine the first time they paint. Until the load settles they
 //     paint their placeholder color (transparent by default), and the
-//     result lands back on the loop goroutine through the invoker -
-//     Application.Invoke, the only sanctioned bridge (see
+//     result lands back on the loop goroutine that painted through its
+//     invoker - Application.Invoke, the only sanctioned bridge (see
 //     docs/threading.md). OnLoaded then fires exactly once for that
 //     load, success or failure; check Err when it fires. Sources
-//     settle synchronously when no invoker is installed (no
-//     application running), and still fire OnLoaded - inline, on the
+//     settle synchronously on a goroutine with no invoker (no
+//     application loop), and still fire OnLoaded - inline, on the
 //     goroutine that painted.
 //
 // Pixels are resampled with the CatmullRom kernel to the device rect
@@ -424,8 +399,8 @@ func (im *Image) PasteImage(data []byte, mime string) {
 	im.img, im.loadErr = nil, nil
 	im.loaded = false
 	im.InvalidateLayout()
-	deliver, ok := loopInvoker()
-	if !ok {
+	l := currentLoop()
+	if l == nil {
 		img, err := decodeImageData(data, "pasted "+mime)
 		im.applyPaste(gen, img, err)
 		return
@@ -434,7 +409,7 @@ func (im *Image) PasteImage(data []byte, mime string) {
 	settle := owe(styleRootOf(&im.node))
 	go func() {
 		img, err := decodeImageData(data, "pasted "+mime)
-		deliver(func() {
+		l.invoke(func() {
 			settle()
 			im.applyPaste(gen, img, err)
 		})
@@ -467,8 +442,8 @@ func (im *Image) focusable() bool { return im.OnPasteImage != nil }
 
 // ensureSettled kicks the first load of a file/URL source, decoded for
 // the device box it paints in under fit, and loads it again at a finer
-// shrink once the box outgrows the decode it has. Without an invoker
-// installed there is no loop goroutine to deliver through, so the load
+// shrink once the box outgrows the decode it has. Without an invoker on
+// the painting goroutine there is no loop to deliver through, so the load
 // settles synchronously instead - the paint itself is loop-goroutine
 // code whenever it runs inside Run.
 func (im *Image) ensureSettled(box render.Rect, fit render.ImageScale) {
@@ -479,8 +454,8 @@ func (im *Image) ensureSettled(box render.Rect, fit render.ImageScale) {
 		return
 	}
 	src, gen := im.src, im.gen
-	deliver, ok := loopInvoker()
-	if !ok {
+	l := currentLoop()
+	if l == nil {
 		im.applyLoad(gen, loadImage(src, box, fit))
 		return
 	}
@@ -488,7 +463,7 @@ func (im *Image) ensureSettled(box render.Rect, fit render.ImageScale) {
 	settle := owe(styleRootOf(&im.node))
 	go func() {
 		res := loadImage(src, box, fit)
-		deliver(func() {
+		l.invoke(func() {
 			settle()
 			im.applyLoad(gen, res)
 		})
