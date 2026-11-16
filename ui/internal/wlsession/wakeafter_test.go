@@ -83,9 +83,8 @@ func newSyncSession(t *testing.T) (*Session, net.Conn, *atomic.Int32) {
 	return s, srv, answered
 }
 
-func stepWithin(t *testing.T, s *Session, limit time.Duration) time.Duration {
+func stepWithin(t *testing.T, s *Session, limit time.Duration) time.Time {
 	t.Helper()
-	start := time.Now()
 	done := make(chan error, 1)
 	go func() { done <- s.Step() }()
 	select {
@@ -96,13 +95,14 @@ func stepWithin(t *testing.T, s *Session, limit time.Duration) time.Duration {
 	case <-time.After(limit):
 		t.Fatalf("a loop parked in Step did not wake within %v", limit)
 	}
-	return time.Since(start)
+	return time.Now()
 }
 
 func TestWakeAfterWakesTheLoopWithoutTheCompositor(t *testing.T) {
 	s, _, answered := newSyncSession(t)
+	asked := time.Now()
 	s.WakeAfter(10 * time.Millisecond)
-	if got := stepWithin(t, s, 5*time.Second); got < 9*time.Millisecond {
+	if got := stepWithin(t, s, 5*time.Second).Sub(asked); got < 10*time.Millisecond {
 		t.Errorf("woke after %v, before the 10ms it asked for", got)
 	}
 	if n := answered.Load(); n != 0 {
@@ -125,7 +125,8 @@ func TestEveryPendingWakeFiresInOrder(t *testing.T) {
 	s, _, _ := newSyncSession(t)
 	s.WakeAfter(60 * time.Millisecond)
 	s.WakeAfter(5 * time.Millisecond)
-	if got := stepWithin(t, s, 5*time.Second); got >= 60*time.Millisecond {
+	parked := time.Now()
+	if got := stepWithin(t, s, 5*time.Second).Sub(parked); got >= 60*time.Millisecond {
 		t.Errorf("the nearer wake came after %v", got)
 	}
 	start := time.Now()
