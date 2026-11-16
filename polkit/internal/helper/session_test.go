@@ -1,10 +1,13 @@
 package helper_test
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/sockdir"
@@ -275,4 +278,54 @@ func TestRespondRefusesANewline(t *testing.T) {
 	}
 	s.Cancel()
 	fake.AssertNoneLeft(t)
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func TestTheHelpersDiagnosticsAreLoggedAndTheResponseNeverIs(t *testing.T) {
+	var logs syncBuffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	const response = "not-" + helpertest.Password
+	for _, tr := range transports {
+		t.Run(tr.name, func(t *testing.T) {
+			before := len(logs.String())
+			fake := helpertest.New(t, helpertest.Answer)
+			s := start(t, tr.make(t, fake))
+			next(t, s)
+			if err := s.Respond(response); err != nil {
+				t.Fatalf("Respond: %v", err)
+			}
+			next(t, s)
+			if _, ok := next(t, s).(helper.Failure); !ok {
+				t.Fatal("no Failure for a wrong response")
+			}
+			s.Cancel()
+			fake.AssertNoneLeft(t)
+			got := logs.String()[before:]
+			if !strings.Contains(got, `message="pam_authenticate failed: Authentication failure"`) {
+				t.Errorf("logs %q lack the helper's diagnostic", got)
+			}
+			if strings.Contains(got, response) {
+				t.Errorf("logs %q carry the response", got)
+			}
+		})
+	}
 }

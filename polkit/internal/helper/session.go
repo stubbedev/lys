@@ -2,13 +2,13 @@ package helper
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
-	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -133,7 +133,7 @@ func (s *Session) read() {
 			s.end(ev)
 			return
 		case Diagnostic:
-			slog.Warn("polkit agent helper", "message", ev.Text)
+			ev.log()
 			continue
 		}
 		if !s.send(ev) {
@@ -193,6 +193,7 @@ type processLink struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
+	stderr *stderrLines
 	wait   sync.Once
 	exit   error
 }
@@ -210,7 +211,8 @@ func spawnFirst(programs []string, user string) (*processLink, error) {
 
 func spawn(program, user string) (*processLink, error) {
 	cmd := exec.Command(program, user) //nolint:gosec // the helper path is fixed at build time
-	cmd.Stderr = os.Stderr
+	stderr := &stderrLines{}
+	cmd.Stderr = stderr
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("helper %s stdin: %w", program, err)
@@ -222,7 +224,7 @@ func spawn(program, user string) (*processLink, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start helper %s: %w", program, err)
 	}
-	return &processLink{cmd: cmd, stdin: stdin, stdout: stdout}, nil
+	return &processLink{cmd: cmd, stdin: stdin, stdout: stdout, stderr: stderr}, nil
 }
 
 func (l *processLink) Read(p []byte) (int, error)  { return l.stdout.Read(p) }
@@ -239,6 +241,41 @@ func (l *processLink) finish() error {
 		if err := l.cmd.Wait(); err != nil {
 			l.exit = fmt.Errorf("helper %s: %w", l.cmd.Path, err)
 		}
+		l.stderr.flush()
 	})
 	return l.exit
+}
+
+func (d Diagnostic) log() { slog.Warn("polkit agent helper", "message", d.Text) }
+
+// stderrLines logs the setuid helper's stderr a line at a time as the
+// Diagnostics the socket-activated helper sends among its protocol
+// lines. A line past bufio.MaxScanTokenSize is logged in pieces.
+type stderrLines struct{ pending []byte }
+
+func (w *stderrLines) Write(p []byte) (int, error) {
+	w.pending = append(w.pending, p...)
+	for {
+		i := bytes.IndexByte(w.pending, '\n')
+		if i < 0 {
+			break
+		}
+		w.emit(w.pending[:i])
+		w.pending = w.pending[i+1:]
+	}
+	if len(w.pending) >= bufio.MaxScanTokenSize {
+		w.flush()
+	}
+	return len(p), nil
+}
+
+func (w *stderrLines) flush() {
+	if len(w.pending) > 0 {
+		w.emit(w.pending)
+	}
+	w.pending = nil
+}
+
+func (w *stderrLines) emit(line []byte) {
+	Diagnostic{Text: strings.TrimPrefix(string(line), diagnostic)}.log()
 }

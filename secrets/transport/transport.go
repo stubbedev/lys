@@ -38,6 +38,22 @@ var Generator = big.NewInt(2)
 // encoding.
 const PrimeLen = 128
 
+// MaxSecretLen is the longest secret a transport carries, the D-Bus
+// specification's maximum message length: no longer secret fits in the
+// message that carries it.
+const MaxSecretLen = 1 << 27
+
+// maxCiphertextLen is the AES encoding of a MaxSecretLen secret, a whole
+// block of padding past it.
+const maxCiphertextLen = MaxSecretLen + aes.BlockSize
+
+func checkLen(what string, n, maxLen int) error {
+	if n > maxLen {
+		return fmt.Errorf("the secret's %s is %d bytes, past the %d a transport carries", what, n, maxLen)
+	}
+	return nil
+}
+
 // Transport encrypts a secret for the other end and decrypts what it
 // sends. Plain is the identity.
 type Transport interface {
@@ -50,6 +66,9 @@ type Plain struct{}
 
 // Encode implements Transport.
 func (Plain) Encode(secret []byte) ([]byte, []byte, error) {
+	if err := checkLen("plaintext", len(secret), MaxSecretLen); err != nil {
+		return nil, nil, err
+	}
 	return []byte{}, bytes.Clone(secret), nil
 }
 
@@ -57,6 +76,9 @@ func (Plain) Encode(secret []byte) ([]byte, []byte, error) {
 func (Plain) Decode(params, value []byte) ([]byte, error) {
 	if len(params) != 0 {
 		return nil, fmt.Errorf("a plain session's secret has %d bytes of parameters, want none", len(params))
+	}
+	if err := checkLen("value", len(value), MaxSecretLen); err != nil {
+		return nil, err
 	}
 	return bytes.Clone(value), nil
 }
@@ -78,6 +100,9 @@ func NewAES(shared []byte) (AES, error) {
 
 // Encode implements Transport.
 func (a AES) Encode(secret []byte) ([]byte, []byte, error) {
+	if err := checkLen("plaintext", len(secret), MaxSecretLen); err != nil {
+		return nil, nil, err
+	}
 	block, err := aes.NewCipher(a.key)
 	if err != nil {
 		return nil, nil, err
@@ -100,6 +125,9 @@ func (a AES) Encode(secret []byte) ([]byte, []byte, error) {
 func (a AES) Decode(params, value []byte) ([]byte, error) {
 	if len(params) != aes.BlockSize {
 		return nil, fmt.Errorf("the secret's IV is %d bytes, want %d", len(params), aes.BlockSize)
+	}
+	if err := checkLen("ciphertext", len(value), maxCiphertextLen); err != nil {
+		return nil, err
 	}
 	if len(value) == 0 || len(value)%aes.BlockSize != 0 {
 		return nil, fmt.Errorf("the secret's ciphertext is %d bytes, not a whole number of blocks", len(value))

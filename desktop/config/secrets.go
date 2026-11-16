@@ -100,8 +100,9 @@ func parseEnvLine(line string) (key, value string, ok bool) {
 }
 
 // ResolveSecret resolves a "$NAME" config value from the environment;
-// any other value is literal. An unset variable is (_, false) and
-// logs a warning.
+// any other value is literal. An unset variable is (_, false) and logs a
+// warning without the name, which is a literal secret that happens to
+// start with "$" as often as it is a reference.
 func ResolveSecret(value string) (string, bool) {
 	name, ref := strings.CutPrefix(value, "$")
 	if !ref {
@@ -109,7 +110,7 @@ func ResolveSecret(value string) (string, bool) {
 	}
 	resolved, ok := os.LookupEnv(name)
 	if !ok {
-		log.Printf("config: environment variable %s not set", name)
+		log.Print("config: a secret's \"$NAME\" environment variable is not set")
 		return "", false
 	}
 	return resolved, true
