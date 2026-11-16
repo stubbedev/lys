@@ -449,14 +449,19 @@ func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
 		i18n.Str("threshold", strconv.FormatUint(uint64(dev.ChargeEndThreshold), 10))))
 	v.charge.SetDescription(i18n.T("dropdown-battery-resumes-at",
 		i18n.Str("threshold", strconv.FormatUint(uint64(resumeThreshold(dev.ChargeEndThreshold)), 10))))
+	v.syncChargeSwitch(dev.ChargeThresholdEnabled)
+}
+
+func (v *batteryView) syncChargeSwitch(on bool) {
 	v.syncing = true
-	v.chargeSwitch.SetOn(dev.ChargeThresholdEnabled)
+	v.chargeSwitch.SetOn(on)
 	v.syncing = false
 }
 
 // chargeToggled writes the charge limit off the loop, the switch
-// insensitive meanwhile. A failure says why under it, and the re-read
-// after the write puts the switch back where the battery holds it.
+// insensitive meanwhile. A failure puts the switch back and says why
+// under it in the same turn of the loop, and the re-read after the
+// write then sets the switch where the battery holds it.
 func (v *batteryView) chargeToggled(enabled bool) {
 	if v.syncing || v.ctx.Battery == nil {
 		return
@@ -467,6 +472,9 @@ func (v *batteryView) chargeToggled(enabled bool) {
 		return src.EnableChargeThreshold(ctx, enabled)
 	}, func(err error) {
 		v.chargeSwitch.SetEnabled(true)
+		if err != nil {
+			v.syncChargeSwitch(!enabled)
+		}
 		reportWrite(v.chargeFailed, "battery", i18n.T("dropdown-battery-charge-limit-failed"), err)
 		if v.device != nil {
 			v.device.request()
@@ -530,14 +538,16 @@ func (v *batteryView) markProfile(name string, active bool) {
 }
 
 // selectProfile toggles the segment at once and the write runs off the
-// loop, every segment insensitive meanwhile. A failure says why under
-// the segments, and the re-read after the write marks the profile the
-// daemon holds.
+// loop, every segment insensitive meanwhile. A failure marks the
+// profile that was active again and says why under the segments in the
+// same turn of the loop, and the re-read after the write then marks the
+// profile the daemon holds.
 func (v *batteryView) selectProfile(name string) {
 	src := v.ctx.PowerProfiles
 	if src == nil || name == v.activeProfile || v.profileBusy {
 		return
 	}
+	previous := v.activeProfile
 	v.markActiveProfile(name)
 	v.profileBusy = true
 	v.senseProfiles()
@@ -545,6 +555,9 @@ func (v *batteryView) selectProfile(name string) {
 		return src.SetActive(ctx, name)
 	}, func(err error) {
 		v.profileBusy = false
+		if err != nil {
+			v.markActiveProfile(previous)
+		}
 		v.senseProfiles()
 		reportWrite(v.profileFailed, "battery", i18n.T("power-profiles-switch-failed"), err)
 		if v.profiles != nil {

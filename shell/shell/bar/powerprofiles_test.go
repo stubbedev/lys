@@ -28,9 +28,11 @@ type fakePPSource struct {
 	// when set, keeps SetActive waiting until it closes.
 	setErr  error
 	setGate chan struct{}
+	reads   readHold
 }
 
 func (f *fakePPSource) Read(context.Context) (powerprofiles.Snapshot, error) {
+	f.reads.wait()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.snap, f.err

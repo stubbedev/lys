@@ -606,6 +606,7 @@ func TestAFailedChargeLimitWritePutsTheSwitchBackAndSaysWhy(t *testing.T) {
 	v := batteryDropdown(ctx).(*batteryView)
 	defer v.dropdownClosed()
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
+	defer src.reads.hold()()
 	onHeadlessLoop(func() bool { v.chargeSwitch.Toggle(); return true })
 	waitHeadless(t, "the failure shown", func() bool { return v.chargeFailed.Visible() })
 	onHeadlessLoop(func() bool {
@@ -654,6 +655,8 @@ func TestAProfileWriteHoldsTheSegmentsThenAFailureBringsTheOldOneBack(t *testing
 	ctx.PowerProfiles = pp
 	v := batteryDropdown(ctx).(*batteryView)
 	defer v.dropdownClosed()
+	waitHeadless(t, "the profiles read", func() bool { return v.profileSnap != nil })
+	defer pp.reads.hold()()
 	onHeadlessLoop(func() bool { v.selectProfile(powerprofiles.ProfilePowerSaver); return true })
 	onHeadlessLoop(func() bool {
 		for name, b := range v.profileButtons {

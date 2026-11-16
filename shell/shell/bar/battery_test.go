@@ -98,6 +98,29 @@ type fakeBattery struct {
 	// thresholdErr fails EnableChargeThreshold, leaving the limit as
 	// it was.
 	thresholdErr error
+	reads        readHold
+}
+
+type readHold struct {
+	mu   sync.Mutex
+	gate chan struct{}
+}
+
+func (h *readHold) hold() (release func()) {
+	gate := make(chan struct{})
+	h.mu.Lock()
+	h.gate = gate
+	h.mu.Unlock()
+	return sync.OnceFunc(func() { close(gate) })
+}
+
+func (h *readHold) wait() {
+	h.mu.Lock()
+	gate := h.gate
+	h.mu.Unlock()
+	if gate != nil {
+		<-gate
+	}
 }
 
 func newFakeBattery(dev upower.Device) *fakeBattery {
@@ -109,6 +132,7 @@ func (f *fakeBattery) Read(context.Context) (upower.Device, error) {
 	case f.read <- struct{}{}:
 	default:
 	}
+	f.reads.wait()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.dev, nil
