@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -32,6 +33,7 @@ import (
 // loop invoke running inline.
 func testKit(t *testing.T, configYAML string) *kit {
 	t.Helper()
+	lyswmtest.OnPath(t)
 	s := testStore(t, configYAML)
 	face := treetest.Font(t)
 	// The device lists never reach the session's audio daemon or the
