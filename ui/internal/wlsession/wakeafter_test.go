@@ -15,23 +15,24 @@ import (
 )
 
 // answerSync plays the compositor's half of one request on c: a
-// wl_display.sync is answered with its callback's done and the
-// display's delete_id, and reported true; any other request is read
-// and skipped.
-func answerSync(c net.Conn) (bool, error) {
+// wl_display.sync is counted in answered, then answered with its
+// callback's done and the display's delete_id; any other request is
+// read and skipped.
+func answerSync(c net.Conn, answered *atomic.Int32) error {
 	var head [8]byte
 	if _, err := io.ReadFull(c, head[:]); err != nil {
-		return false, err
+		return err
 	}
 	obj := binary.NativeEndian.Uint32(head[0:4])
 	word := binary.NativeEndian.Uint32(head[4:8])
 	body := make([]byte, word>>16-8)
 	if _, err := io.ReadFull(c, body); err != nil {
-		return false, err
+		return err
 	}
 	if obj != 1 || word&0xffff != displaySyncOpcode {
-		return false, nil
+		return nil
 	}
+	answered.Add(1)
 	id := binary.NativeEndian.Uint32(body[0:4])
 	const eventSize, doneOpcode, deleteIDOpcode = 12, 0, 1
 	var ev [2 * eventSize]byte
@@ -41,23 +42,14 @@ func answerSync(c net.Conn) (bool, error) {
 	binary.NativeEndian.PutUint32(ev[12:], 1)
 	binary.NativeEndian.PutUint32(ev[16:], eventSize<<16+deleteIDOpcode)
 	binary.NativeEndian.PutUint32(ev[20:], id)
-	if _, err := c.Write(ev[:]); err != nil {
-		return false, err
-	}
-	return true, nil
+	_, err := c.Write(ev[:])
+	return err
 }
 
 // syncCompositor answers every sync on c, counting them, and returns
 // when c closes.
 func syncCompositor(c net.Conn, answered *atomic.Int32) {
-	for {
-		synced, err := answerSync(c)
-		if err != nil {
-			return
-		}
-		if synced {
-			answered.Add(1)
-		}
+	for answerSync(c, answered) == nil {
 	}
 }
 
@@ -209,8 +201,9 @@ func TestADueWakeStillDispatchesTheEventsWaiting(t *testing.T) {
 	if _, err := s.Display.Context().Flush(); err != nil {
 		t.Fatal(err)
 	}
-	if synced, err := answerSync(srv); err != nil || !synced {
-		t.Fatalf("the compositor did not answer the sync: %v, %v", synced, err)
+	var synced atomic.Int32
+	if err := answerSync(srv, &synced); err != nil || synced.Load() != 1 {
+		t.Fatalf("the compositor did not answer the sync: %d syncs, %v", synced.Load(), err)
 	}
 	s.WakeAfter(0)
 	stepWithin(t, s, 5*time.Second)
