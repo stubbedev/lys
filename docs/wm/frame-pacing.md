@@ -94,7 +94,7 @@ reported in one run.
 | `damage_rects_per_frame` | Rects in the worst frame's damage or repaint region (cap 32) | Damage outgrowing its cap |
 | `allocs_per_frame` | Heap allocations in the costliest frame of a play, from the play where that is lowest | Allocation added to a per-play path |
 | `file_io_per_frame` | Median read/write syscalls per frame on the loop thread (`/proc/thread-self/io`; ioctls and socket calls are not counted) | File I/O every frame |
-| RSS growth (1024 KiB, fixed) | Smallest per-round rise in resident size after 2 warm-up rounds; needs at least 5 rounds | A leak that repeats with the animation |
+| RSS growth (1024 KiB, fixed) | Smallest per-round rise in resident size after 2 warm-up rounds; needs at least 5 rounds. The compositor runs with glibc's `mmap_threshold` pinned at its 128 KiB default, so a software rasteriser's freed images go back to the system instead of growing malloc's heap for the first rounds | A leak that repeats with the animation |
 
 `just pace-gate gles` and `just pace-gate vulkan` run the gate on the dev
 shell's software rasterisers, as CI does; `just docker hardware` runs it on the

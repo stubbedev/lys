@@ -188,6 +188,32 @@ func TestOnlyGrowthThatRepeatsCounts(t *testing.T) {
 	}
 }
 
+func TestTheCompositorsMallocHandsLargeBlocksBackOnFree(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		environ []string
+		want    string
+	}{
+		{"no tunables", []string{"HOME=/home/u"}, "GLIBC_TUNABLES=glibc.malloc.mmap_threshold=131072"},
+		{"empty tunables", []string{"GLIBC_TUNABLES="}, "GLIBC_TUNABLES=glibc.malloc.mmap_threshold=131072"},
+		{"the caller's tunables", []string{"GLIBC_TUNABLES=glibc.malloc.arena_max=2"}, "GLIBC_TUNABLES=glibc.malloc.arena_max=2:glibc.malloc.mmap_threshold=131072"},
+	} {
+		env := childEnv(append(c.environ, "WAYLAND_DISPLAY=wayland-1"), "/run/pace")
+		var tunables []string
+		for _, kv := range env {
+			if strings.HasPrefix(kv, "GLIBC_TUNABLES=") {
+				tunables = append(tunables, kv)
+			}
+			if strings.HasPrefix(kv, "WAYLAND_DISPLAY=") {
+				t.Errorf("%s: the compositor inherits %s", c.name, kv)
+			}
+		}
+		if !slices.Equal(tunables, []string{c.want}) {
+			t.Errorf("%s: %v, want [%s]", c.name, tunables, c.want)
+		}
+	}
+}
+
 func TestALimitNeedsRoundsForGrowthToRepeat(t *testing.T) {
 	for _, args := range [][]string{{"-gate", "-rounds", "4"}, {"-write-baseline", "b.json", "-rounds", "4"}} {
 		if _, err := parseOptions(args, io.Discard); err == nil || !strings.Contains(err.Error(), "needs at least") {

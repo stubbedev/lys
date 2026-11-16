@@ -33,6 +33,9 @@ const (
 	stopTimeout  = 5 * time.Second
 	logTailBytes = 4096
 	compositorID = "lys-wm"
+
+	glibcTunables      = "GLIBC_TUNABLES"
+	fixedMmapThreshold = "glibc.malloc.mmap_threshold=131072"
 )
 
 var (
@@ -160,12 +163,16 @@ func tail(path string) string {
 	return string(data)
 }
 
-func childEnv(run string) []string {
-	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
-		name, _, _ := strings.Cut(kv, "=")
-		return slices.Contains([]string{"WAYLAND_DISPLAY", "DISPLAY", "XDG_RUNTIME_DIR", "XDG_STATE_HOME", "XDG_CACHE_HOME"}, name)
+func childEnv(environ []string, run string) []string {
+	tunables := []string{fixedMmapThreshold}
+	env := slices.DeleteFunc(slices.Clone(environ), func(kv string) bool {
+		name, value, _ := strings.Cut(kv, "=")
+		if name == glibcTunables && value != "" {
+			tunables = []string{value, fixedMmapThreshold}
+		}
+		return slices.Contains([]string{"WAYLAND_DISPLAY", "DISPLAY", "XDG_RUNTIME_DIR", "XDG_STATE_HOME", "XDG_CACHE_HOME", glibcTunables}, name)
 	})
-	return append(env, "XDG_RUNTIME_DIR="+run, "XDG_STATE_HOME="+filepath.Join(run, "state"), "XDG_CACHE_HOME="+filepath.Join(run, "cache"))
+	return append(env, "XDG_RUNTIME_DIR="+run, "XDG_STATE_HOME="+filepath.Join(run, "state"), "XDG_CACHE_HOME="+filepath.Join(run, "cache"), glibcTunables+"="+strings.Join(tunables, ":"))
 }
 
 func startCompositor(o options, binary, run string) (*compositor, error) {
@@ -190,7 +197,7 @@ func startCompositor(o options, binary, run string) (*compositor, error) {
 		args = append(args, "-cpu-profile", o.cpuProfile)
 	}
 	c.cmd = exec.Command(binary, args...) //nolint:gosec // the binary is what the user asked to measure
-	c.cmd.Env = childEnv(run)
+	c.cmd.Env = childEnv(os.Environ(), run)
 	c.cmd.Stdout, c.cmd.Stderr = logFile, logFile
 	if o.backend == "headless" {
 		if c.swipes, err = c.cmd.StdinPipe(); err != nil {
