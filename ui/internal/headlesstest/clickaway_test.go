@@ -18,7 +18,7 @@ func startDropdownBesideWindow(t *testing.T) (window *LogWatcher, in *VirtualInp
 	_, window, _ = startShowcase(t)
 	in = newInput(t)
 	waitKeyboard(t, window)
-	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-popover")
+	bin, err := clienttest.Path("lys-ui-popover")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,7 +20,7 @@ func TestHeadlessReconnectRebuildsWindows(t *testing.T) {
 	if !testEnv.CanRestartCompositor() {
 		t.Skip("the compositor driver cannot boot the compositor again, which a reconnect needs")
 	}
-	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-states")
+	bin, err := clienttest.Path("lys-ui-states")
 	if err != nil {
 		t.Fatal(err)
 	}

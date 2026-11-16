@@ -205,8 +205,6 @@ var xwaylandStarts atomic.Int32
 
 const uiClientPrefix = "lys-ui-"
 
-var uiClients clienttest.Set
-
 func StartXwayland(t *testing.T, report func(error), modes ...backend.Mode) *Harness {
 	t.Helper()
 	return StartXwaylandWith(t, func(*compositor.Config) {}, report, modes...)
@@ -691,7 +689,7 @@ func (h *Harness) binary(name string) string {
 	if !strings.HasPrefix(name, uiClientPrefix) {
 		return testenv.Require(h.t, name)
 	}
-	path, err := uiClients.Path(name)
+	path, err := clienttest.Path(name)
 	if err != nil {
 		h.t.Fatalf("harness: %v", err)
 	}

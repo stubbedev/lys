@@ -5,48 +5,32 @@
 package clienttest
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
-	"time"
 
-	"github.com/stubbedev/lys/lib/srcroot"
+	"github.com/stubbedev/lys/lib/buildtest"
 )
 
 // PrebuiltEnv names a directory of lysdebug lys-ui commands built ahead
 // of the tests, by the Nix builds that have no Go toolchain to run.
 const PrebuiltEnv = "LYS_UI_TEST_CLIENTS"
 
-const buildTimeout = 3 * time.Minute
+const family = "lys-ui-clients"
 
-// Build compiles ./ui/cmd/<name> with the lysdebug tag into dir/<name>
-// and returns the binary's path, or returns the prebuilt one when
-// PrebuiltEnv is set.
-func Build(dir, name string) (string, error) {
+var clients set
+
+// Path is the binary of the named command of ./ui/cmd, the prebuilt one
+// when PrebuiltEnv is set. Otherwise the first call that asks for it
+// builds it with the lysdebug tag, into a directory the process holds
+// until it ends; later calls, concurrent ones included, share its
+// result.
+func Path(name string) (string, error) {
 	if prebuilt := os.Getenv(PrebuiltEnv); prebuilt != "" {
 		return prebuiltClient(prebuilt, name)
 	}
-	root, _, err := srcroot.Module(".")
-	if err != nil {
-		return "", fmt.Errorf("clienttest: build %s: %w", name, err)
-	}
-	goTool, err := exec.LookPath("go")
-	if err != nil {
-		return "", fmt.Errorf("clienttest: build %s: set %s or put a go toolchain on PATH: %w", name, PrebuiltEnv, err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), buildTimeout)
-	defer cancel()
-	out := filepath.Join(dir, name)
-	cmd := exec.CommandContext(ctx, goTool, "build", "-tags", "lysdebug", "-o", out, "./ui/cmd/"+name) //nolint:gosec // the go command on PATH building a command of this module
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("clienttest: go build -tags lysdebug ./ui/cmd/%s in %s: %w\n%s", name, root, err, output)
-	}
-	return out, nil
+	return clients.path(name)
 }
 
 func prebuiltClient(dir, name string) (string, error) {
@@ -61,13 +45,11 @@ func prebuiltClient(dir, name string) (string, error) {
 	return path, nil
 }
 
-// Set builds each client at most once, into one temporary directory it
-// makes on first use, for every test of the process that asks for it.
-// The zero Set is ready to use.
-type Set struct {
-	mu     sync.Mutex
-	dir    string
-	builds map[string]*build
+type set struct {
+	hold   sync.Once
+	dir    *buildtest.Dir
+	err    error
+	builds sync.Map
 }
 
 type build struct {
@@ -76,32 +58,20 @@ type build struct {
 	err  error
 }
 
-// Path is the binary of the named client, built by the first call that
-// asks for it; later calls, concurrent ones included, share its result.
-func (s *Set) Path(name string) (string, error) {
-	b, err := s.entry(name)
-	if err != nil {
-		return "", err
-	}
-	b.once.Do(func() { b.path, b.err = Build(s.dir, name) })
+func (s *set) path(name string) (string, error) {
+	v, _ := s.builds.LoadOrStore(name, &build{})
+	b, _ := v.(*build)
+	b.once.Do(func() { b.path, b.err = s.build(name) })
 	return b.path, b.err
 }
 
-func (s *Set) entry(name string) (*build, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.dir == "" {
-		dir, err := os.MkdirTemp("", "lys-ui-clients-")
-		if err != nil {
-			return nil, fmt.Errorf("clienttest: make the directory for %s: %w", name, err)
-		}
-		s.dir = dir
-		s.builds = map[string]*build{}
+func (s *set) build(name string) (string, error) {
+	s.hold.Do(func() { s.dir, s.err = buildtest.Hold(family) })
+	if s.err != nil {
+		return "", fmt.Errorf("clienttest: build %s: %w", name, s.err)
 	}
-	b, ok := s.builds[name]
-	if !ok {
-		b = &build{}
-		s.builds[name] = b
+	if err := s.dir.Build("-tags", "lysdebug", "./ui/cmd/"+name); err != nil {
+		return "", fmt.Errorf("clienttest: build %s: %w", name, err)
 	}
-	return b, nil
+	return filepath.Join(s.dir.Path(), name), nil
 }

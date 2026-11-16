@@ -1,14 +1,12 @@
 package lyswmtest
 
 import (
-	"errors"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"syscall"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/buildtest"
 )
 
 func TestBinariesBuildsLysWMAndLysWMCtlOncePerProcess(t *testing.T) {
@@ -39,48 +37,14 @@ func TestBinariesBuildsLysWMAndLysWMCtlOncePerProcess(t *testing.T) {
 	}
 }
 
-func TestTheBuiltDirectoryIsHeldWhileTheProcessRuns(t *testing.T) {
-	live, err := held(Binaries(t))
-	if err != nil {
-		t.Fatal(err)
+func TestTheBuiltDirectoryOutlivesTheNextHoldOfItsFamily(t *testing.T) {
+	built := Binaries(t)
+	if _, err := buildtest.Hold(family); err != nil {
+		t.Fatalf("Hold(%s): %v", family, err)
 	}
-	if !live {
-		t.Errorf("%s is not held, so the next build would remove it under this process", Binaries(t))
-	}
-}
-
-func TestASweepRemovesOnlyTheBuildsOfEndedProcesses(t *testing.T) {
-	base := t.TempDir()
-	dir := func(name string) string {
-		d := filepath.Join(base, name)
-		if err := os.Mkdir(d, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		return d
-	}
-	ended := dir(binPrefix + "ended")
-	if err := os.WriteFile(filepath.Join(ended, holdName), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	unheld := dir(binPrefix + "unheld")
-	live := dir(binPrefix + "live")
-	hold, err := lockFile(filepath.Join(live, holdName), syscall.LOCK_SH)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = hold.Close() })
-	other := dir("other")
-	if err := sweep(base); err != nil {
-		t.Fatalf("sweep(%s): %v", base, err)
-	}
-	for _, gone := range []string{ended, unheld} {
-		if _, err := os.Stat(gone); !errors.Is(err, fs.ErrNotExist) {
-			t.Errorf("%s of an ended process survived the sweep: %v", gone, err)
-		}
-	}
-	for _, kept := range []string{live, other} {
-		if _, err := os.Stat(kept); err != nil {
-			t.Errorf("the sweep removed %s: %v", kept, err)
+	for _, name := range commands {
+		if _, err := os.Stat(filepath.Join(built, name)); err != nil {
+			t.Errorf("the next Hold of %s removed %s of this running process: %v", family, name, err)
 		}
 	}
 }
@@ -95,31 +59,6 @@ func TestOnPathRunsTheBuiltLysWMByName(t *testing.T) {
 		}
 		if want := filepath.Join(Binaries(t), name); got != want {
 			t.Errorf("LookPath(%s) = %s, want the built %s", name, got, want)
-		}
-	}
-}
-
-func TestABrokenTreeFailsTheBuildWithItsOutput(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/broken\n\ngo 1.27\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range commands {
-		cmd := filepath.Join(root, "wm", "cmd", name)
-		if err := os.MkdirAll(cmd, 0o750); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(cmd, "main.go"), []byte("package main\n\nfunc main() { undefinedSymbol() }\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	err := build(root, t.TempDir())
-	if err == nil {
-		t.Fatal("build of a tree whose lys-wm and lys-wmctl do not compile succeeded")
-	}
-	for _, want := range []string{"./wm/cmd/lys-wm", root, "undefinedSymbol"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("build error %q does not name %s", err, want)
 		}
 	}
 }
