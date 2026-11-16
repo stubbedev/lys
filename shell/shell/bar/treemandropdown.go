@@ -2,7 +2,6 @@ package bar
 
 import (
 	"context"
-	"log"
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -299,10 +298,7 @@ func (v *treemanView) run(action treeman.Action, path string) {
 	}
 	v.ctx.Go(func() {
 		if err := src.RunAction(context.Background(), action, path); err != nil {
-			log.Printf("treeman: action failed: %v", err)
-			if v.ctx.Toast != nil {
-				v.ctx.Toast(i18n.T("dropdown-treeman-action-failed")+": "+err.Error(), "ld-alert-triangle-symbolic")
-			}
+			toastFailure(v.ctx.Toast, "treeman", i18n.T("dropdown-treeman-action-failed")+": "+err.Error())
 		}
 	})
 }

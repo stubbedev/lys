@@ -84,7 +84,7 @@ func TestTheWorldClockPlaceholderRendersItsSample(t *testing.T) {
 	if len(ps) != 1 {
 		t.Fatalf("world clock placeholders = %+v", ps)
 	}
-	if got := worldClockRender(ps[0].Token, time.Date(2026, 3, 5, 14, 30, 0, 0, time.UTC)); got != ps[0].Sample {
-		t.Errorf("%s rendered %q, want the sample %q", ps[0].Token, got, ps[0].Sample)
+	if got, err := worldClockRender(ps[0].Token, time.Date(2026, 3, 5, 14, 30, 0, 0, time.UTC)); err != nil || got != ps[0].Sample {
+		t.Errorf("%s rendered %q (%v), want the sample %q", ps[0].Token, got, err, ps[0].Sample)
 	}
 }

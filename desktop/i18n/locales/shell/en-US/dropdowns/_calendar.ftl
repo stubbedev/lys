@@ -35,6 +35,9 @@ cal-month-short-october = Oct
 cal-month-short-november = Nov
 cal-month-short-december = Dec
 
+cal-period-am = AM
+cal-period-pm = PM
+
 # { $month } - localized month name, { $day } - day number, { $year } - four-digit year
 cal-clock-date-rest = , { $month } { $day }, { $year }
 

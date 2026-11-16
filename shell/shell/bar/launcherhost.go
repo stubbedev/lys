@@ -167,12 +167,6 @@ func panelDeps(current func() *config.Config, live func() ModuleContext, browser
 	}
 }
 
-func savedOnLoop(set func(path string, value any, done func(error)), invoke func(func())) func(path string, value any, done func(error)) {
-	return func(path string, value any, done func(error)) {
-		set(path, value, func(err error) { invoke(func() { done(err) }) })
-	}
-}
-
 // skinTonePath is where a skin tone picked from an emoji's actions is kept.
 const skinTonePath = "launcher.emoji.skin-tone"
 

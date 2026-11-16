@@ -9,8 +9,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
-	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -63,10 +63,10 @@ func TestWeatherConditionIconsHaveDayAndNight(t *testing.T) {
 
 func TestWeatherTimeLabels(t *testing.T) {
 	at := time.Date(2026, 10, 1, 15, 0, 0, 0, time.Local)
-	if got := plain(weatherHourLabel(at, config.TimeFormat12h)); got != "3 PM" {
+	if got := weatherHourLabel(at, config.TimeFormat12h, strftime.English); got != "3 PM" {
 		t.Errorf("12h hour = %q", got)
 	}
-	if got := weatherHourLabel(at, config.TimeFormat24h); got != "15:00" {
+	if got := weatherHourLabel(at, config.TimeFormat24h, strftime.English); got != "15:00" {
 		t.Errorf("24h hour = %q", got)
 	}
 	for _, tc := range []struct {
@@ -77,31 +77,27 @@ func TestWeatherTimeLabels(t *testing.T) {
 		{weather.TimeOfDay{Hour: 12, Minute: 0}, "12:00 PM"},
 		{weather.TimeOfDay{Hour: 18, Minute: 41}, "6:41 PM"},
 	} {
-		if got := plain(weatherSunTime(tc.at, config.TimeFormat12h)); got != tc.want {
+		if got := weatherSunTime(tc.at, config.TimeFormat12h, strftime.English); got != tc.want {
 			t.Errorf("12h %v = %q, want %q", tc.at, got, tc.want)
 		}
 	}
-	if got := weatherSunTime(weather.TimeOfDay{Hour: 6, Minute: 5}, config.TimeFormat24h); got != "06:05" {
+	if got := weatherSunTime(weather.TimeOfDay{Hour: 6, Minute: 5}, config.TimeFormat24h, strftime.English); got != "06:05" {
 		t.Errorf("24h sun = %q", got)
 	}
 }
 
-// The 12-hour period comes from the shell's language, not Go's
-// fixed English layout.
+// The 12-hour period comes from the clock's names in the shell's
+// language, not Go's fixed English layout.
 func TestWeatherTwelveHourPeriodIsTranslated(t *testing.T) {
-	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.Local)
-	if got, want := weatherHourLabel(at, config.TimeFormat12h), i18n.T("dropdown-weather-time-am", i18n.Str("time", "9")); got != want {
+	spanish := clockNamesIn(t, "es")
+	if got, want := weatherHourLabel(time.Date(2026, 10, 1, 9, 0, 0, 0, time.Local), config.TimeFormat12h, spanish), "9 a. m."; got != want {
 		t.Errorf("9 in the morning = %q, want %q", got, want)
 	}
-	if got, want := weatherSunTime(weather.TimeOfDay{Hour: 20, Minute: 15}, config.TimeFormat12h), i18n.T("dropdown-weather-time-pm", i18n.Str("time", "8:15")); got != want {
+	if got, want := weatherSunTime(weather.TimeOfDay{Hour: 20, Minute: 15}, config.TimeFormat12h, spanish), "8:15 p. m."; got != want {
 		t.Errorf("a quarter past eight at night = %q, want %q", got, want)
 	}
-	es, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID("es")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if am, pm := es.Get("dropdown-weather-time-am", i18n.Str("time", "9")), es.Get("dropdown-weather-time-pm", i18n.Str("time", "9")); am == pm || am == "" || am == "9 AM" {
-		t.Errorf("Spanish periods %q and %q, want two distinct Spanish translations", am, pm)
+	if got, want := weatherSunTime(weather.TimeOfDay{Hour: 20, Minute: 15}, config.TimeFormat24h, spanish), "20:15"; got != want {
+		t.Errorf("the 24-hour sunset = %q, want %q, without a period", got, want)
 	}
 }
 

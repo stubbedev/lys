@@ -47,6 +47,8 @@ type shotUI struct {
 	focused func() (string, bool)
 	font    render.Font
 	copy    func(transfer.Content) (func(), error)
+	// toast shows a failure the user acted on; nil without an OSD.
+	toast func(label, icon string)
 
 	thumb   *shotthumb.Thumbnail
 	holders map[render.ImageID]int
@@ -54,10 +56,10 @@ type shotUI struct {
 }
 
 // newShotUI shows saved captures; copyOnLoop puts content on the
-// clipboard and is called on the loop.
-func newShotUI(application *app.Application, outputs func() []*app.Output, current func() *config.Config, focused func() (string, bool), font render.Font, copyOnLoop func(transfer.Content) (func(), error)) *shotUI {
+// clipboard and is called on the loop, and toast shows what failed.
+func newShotUI(application *app.Application, outputs func() []*app.Output, current func() *config.Config, focused func() (string, bool), font render.Font, copyOnLoop func(transfer.Content) (func(), error), toast func(label, icon string)) *shotUI {
 	u := &shotUI{
-		app: application, outputs: outputs, current: current, focused: focused, font: font, copy: copyOnLoop,
+		app: application, outputs: outputs, current: current, focused: focused, font: font, copy: copyOnLoop, toast: toast,
 		holders: map[render.ImageID]int{}, saved: map[render.ImageID]screenshot.Saved{},
 	}
 	u.thumb = shotthumb.New(shotthumb.Deps{
@@ -103,7 +105,7 @@ func (u *shotUI) present(s screenshot.Saved) {
 			}
 		}
 		if err := u.thumb.Show(shot, out, u.current().Screenshot); err != nil {
-			log.Printf("screenshot: thumbnail: %v", err)
+			u.failed("screenshot-thumbnail-failed", err)
 		}
 	})
 }
@@ -132,7 +134,7 @@ func (u *shotUI) discard(shot shotthumb.Shot) {
 	}
 	go func() {
 		if err := s.Discard(); err != nil {
-			log.Printf("screenshot: %v", err)
+			u.failed("screenshot-delete-failed", err)
 		}
 	}()
 }
@@ -149,14 +151,19 @@ func (u *shotUI) edit(shot shotthumb.Shot) {
 		Closed:  func() { u.release(shot) },
 	}, shot.Image, shot.Path)
 	if err != nil {
-		log.Printf("screenshot: markup editor: %v", err)
+		u.failed("screenshot-editor-failed", err)
 		u.release(shot)
 	}
 }
 
+// failed toasts the message key names with err as its error.
+func (u *shotUI) failed(key string, err error) {
+	toastFailure(u.toast, "screenshot", i18n.T(key, i18n.Str("error", err.Error())))
+}
+
 // writer encodes and writes an edited image off the loop and, when
 // copies, puts it on the clipboard back on the loop. A failed copy is
-// logged: the image is saved all the same.
+// toasted: the image is saved all the same.
 func (u *shotUI) writer(copies bool) markup.Writer {
 	return func(img *image.RGBA, path string, done func(error)) {
 		go func() {
@@ -182,7 +189,7 @@ func (u *shotUI) copyEdited(content transfer.Content, encodeErr error) {
 		_, err = u.copy(content)
 	}
 	if err != nil {
-		log.Printf("screenshot: copying the edited image: %v", err)
+		u.failed("screenshot-copy-edited-failed", err)
 	}
 }
 

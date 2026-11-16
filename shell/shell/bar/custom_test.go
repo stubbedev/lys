@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -201,6 +202,61 @@ func TestCustomCommandOutputApplies(t *testing.T) {
 	}
 }
 
+func TestACustomCommandThatTimesOutMarksTheButtonFailedUntilTheNextOutput(t *testing.T) {
+	def := config.DefaultsCustomModuleDefinition()
+	def.Id = "t"
+	m := newTestCustom(t, def)
+	m.deliver("hi")
+	waitForText(t, m.btn.Label(), "hi")
+	if onHeadlessLoop(func() bool { return m.btn.HasClass(failedClass) }) {
+		t.Fatal("a module with output shows failed")
+	}
+
+	expiring, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	s, ok := m.commandOutput(expiring, "sleep 5")
+	if want := i18n.T("bar-custom-command-timed-out"); !ok || s.failure != want || s.output != "" {
+		t.Fatalf("a timed out command gave %+v (%v), want the failure %q", s, ok, want)
+	}
+	m.take(s)
+	waitHeadless(t, "the failed mark", func() bool { return m.btn.HasClass(failedClass) })
+	label, tip := onHeadlessLoop(m.btn.Label().Text), onHeadlessLoop(m.btn.TooltipText)
+	if label != "hi" || !strings.Contains(tip, s.failure) {
+		t.Errorf("a failed module shows %q with tooltip %q, want the last output and the failure", label, tip)
+	}
+
+	m.take(customSample{output: "hi"})
+	waitHeadless(t, "the failed mark to go", func() bool { return !m.btn.HasClass(failedClass) })
+	if tip := onHeadlessLoop(m.btn.TooltipText); strings.Contains(tip, s.failure) {
+		t.Errorf("the tooltip %q still says the failure once the command gave output", tip)
+	}
+
+	canceled, stop := context.WithCancel(context.Background())
+	stop()
+	if s, ok := m.commandOutput(canceled, "sleep 5"); ok {
+		t.Errorf("a command canceled with its module gave %+v, want nothing", s)
+	}
+}
+
+func TestAFailedCustomModuleShowsThoughHideIfEmptyHidesItsOutput(t *testing.T) {
+	def := config.DefaultsCustomModuleDefinition()
+	def.Id = "t"
+	def.HideIfEmpty = true
+	m := newTestCustom(t, def)
+	m.apply("")
+	if onHeadlessLoop(m.btn.Visible) {
+		t.Fatal("an empty output left the button visible")
+	}
+	failure := i18n.T("bar-custom-command-failed", i18n.Str("error", "fork/exec /bin/sh: no such file or directory"))
+	m.take(customSample{failure: failure})
+	waitHeadless(t, "the failed button shown", func() bool { return m.btn.Visible() && m.btn.HasClass(failedClass) })
+	if got, want := onHeadlessLoop(m.btn.Label().Text), i18n.T("bar-module-failed"); got != want {
+		t.Errorf("a failed module without output shows %q, want %q", got, want)
+	}
+	m.take(customSample{})
+	waitHeadless(t, "the empty output hidden again", func() bool { return !m.btn.Visible() && !m.btn.HasClass(failedClass) })
+}
+
 func TestCustomHideIfEmptyHidesTheButton(t *testing.T) {
 	def := config.DefaultsCustomModuleDefinition()
 	def.HideIfEmpty = true
@@ -329,7 +385,7 @@ func TestCustomWatchStopsItsScriptWithTheModule(t *testing.T) {
 	def := config.DefaultsCustomModuleDefinition()
 	def.Id = "w"
 	m := newTestCustom(t, def)
-	go m.supervise(m.life, "sleep 30 & echo $! > "+pidFile+"; wait", m.deliver)
+	go m.supervise(m.life, "sleep 30 & echo $! > "+pidFile+"; wait", m.take)
 	var child int
 	waitHeadless(t, "the script's child", func() bool {
 		data, _ := os.ReadFile(pidFile)

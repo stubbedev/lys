@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -16,9 +17,8 @@ import (
 
 // worldClockTemplate renders one format:
 // the format renders as a template with tz(zone, strftime) formatting now in
-// that zone. An unknown zone fails the render, which shows as nothing.
-// Each zone and layout loads
-// once; one goroutine renders it.
+// that zone. An unknown zone or layout fails the render. Each zone and
+// layout loads once; one goroutine renders it.
 type worldClockTemplate struct {
 	format  string
 	env     jinja.Env
@@ -36,18 +36,49 @@ func newWorldClockTemplate(format string, names strftime.Names, load func(string
 	return t
 }
 
+// unknownZoneError is a tz() zone the time zone database does not have.
+type unknownZoneError struct {
+	zone string
+	err  error
+}
+
+func (e unknownZoneError) Error() string {
+	return fmt.Sprintf("unknown time zone %q: %v", e.zone, e.err)
+}
+
+func (e unknownZoneError) Unwrap() error { return e.err }
+
+// badLayoutError is a tz() layout strftime cannot compile.
+type badLayoutError struct {
+	layout string
+	err    error
+}
+
+func (e badLayoutError) Error() string {
+	return fmt.Sprintf("layout %q: %v", e.layout, e.err)
+}
+
+func (e badLayoutError) Unwrap() error { return e.err }
+
+var errTZArguments = errors.New("tz takes a time zone name and a layout")
+
 func (t *worldClockTemplate) tz(args []any, _ map[string]any) (any, error) {
 	if len(args) != 2 {
-		return nil, errors.New("tz takes a timezone and a format")
+		return nil, errTZArguments
 	}
-	zone, _ := args[0].(string)
-	layout, _ := args[1].(string)
+	zone, zoneOK := args[0].(string)
+	layout, layoutOK := args[1].(string)
+	if !zoneOK || !layoutOK {
+		return nil, errTZArguments
+	}
 	location, ok := t.zones[zone]
 	if !ok {
+		if zone == "" {
+			return nil, unknownZoneError{zone: zone, err: errors.New("empty name")}
+		}
 		loaded, err := t.load(zone)
-		if err != nil || zone == "" {
-			log.Printf("world-clock: invalid timezone identifier %q", zone)
-			return nil, fmt.Errorf("invalid timezone: %s", zone)
+		if err != nil {
+			return nil, unknownZoneError{zone: zone, err: err}
 		}
 		location = loaded
 		t.zones[zone] = loaded
@@ -56,7 +87,7 @@ func (t *worldClockTemplate) tz(args []any, _ map[string]any) (any, error) {
 	if !ok {
 		compiled, err := strftime.Compile(layout)
 		if err != nil {
-			return "", nil //nolint:nilerr // a bad layout renders as nothing
+			return nil, badLayoutError{layout: layout, err: err}
 		}
 		formatted = compiled
 		t.layouts[layout] = compiled
@@ -65,17 +96,32 @@ func (t *worldClockTemplate) tz(args []any, _ map[string]any) (any, error) {
 	return formatted.FormatIn(t.now.In(location), t.names), nil
 }
 
-func (t *worldClockTemplate) render(now time.Time) string {
+func (t *worldClockTemplate) render(now time.Time) (string, error) {
 	t.now = now
-	out, err := t.env.Render(t.format, nil)
-	if err != nil {
-		return ""
-	}
-	return out
+	return t.env.Render(t.format, nil)
 }
 
-func worldClockRender(format string, now time.Time) string {
+func worldClockRender(format string, now time.Time) (string, error) {
 	return newWorldClockTemplate(format, shellClockNames(), time.LoadLocation).render(now)
+}
+
+// worldClockFailure is what the button says of a format that cannot
+// render.
+func worldClockFailure(err error) string {
+	if zone, ok := errors.AsType[unknownZoneError](err); ok {
+		return i18n.T("bar-world-clock-invalid-zone", i18n.Str("zone", zone.zone))
+	}
+	if layout, ok := errors.AsType[badLayoutError](err); ok {
+		return i18n.T("bar-world-clock-invalid-layout", i18n.Str("layout", layout.layout))
+	}
+	return i18n.T("bar-world-clock-invalid-format", i18n.Str("error", err.Error()))
+}
+
+// worldClockShown is one render of the format: its text, or why it has
+// none.
+type worldClockShown struct {
+	text    string
+	failure string
 }
 
 // worldClock is the module: the format re-renders when its text can
@@ -92,7 +138,8 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 	m := &worldClockModule{}
 	m.btn = newBarButton(ctx, moduleIcon(ctx, cfg.Icon()), "")
 	template := newWorldClockTemplate(cfg.Format, shellClockNames(), time.LoadLocation)
-	spec := samplerSpec[string]{
+	var lastErr string
+	spec := samplerSpec[worldClockShown]{
 		key:   configKey("world-clock", ctx.Config),
 		pause: pauseLocked,
 		source: func(life context.Context, spawn func(func()), fire func()) error {
@@ -104,13 +151,30 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 			})
 			return nil
 		},
-		sample: func() (string, bool) { return template.render(time.Now()), true },
-		same:   func(a, b string) bool { return a == b },
+		sample: func() (worldClockShown, bool) {
+			text, err := template.render(time.Now())
+			if err == nil {
+				lastErr = ""
+				return worldClockShown{text: text}, true
+			}
+			if err.Error() != lastErr {
+				lastErr = err.Error()
+				log.Printf("world-clock: %v", err)
+			}
+			return worldClockShown{failure: worldClockFailure(err)}, true
+		},
+		same: func(a, b worldClockShown) bool { return a == b },
 	}
-	if err := joinSampler(ctx.Life(), ctx.Polls, spec, func(text string) { ctx.Invoke(func() { m.btn.SetLabel(text) }) }); err != nil {
+	if err := joinSampler(ctx.Life(), ctx.Polls, spec, func(s worldClockShown) { ctx.Invoke(func() { m.show(s) }) }); err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+// show puts a render on the button: its text, or its failure marked.
+func (m *worldClockModule) show(s worldClockShown) {
+	m.btn.SetLabel(s.text)
+	m.btn.setFailure(s.failure)
 }
 
 func (m *worldClockModule) Root() widget.Widget { return m.btn }

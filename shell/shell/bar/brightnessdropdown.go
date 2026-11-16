@@ -202,7 +202,7 @@ func (v *brightnessView) item(d brightness.Device, multi bool) widget.Widget {
 func (v *brightnessView) write(name string, pct float64) func() {
 	src := v.ctx.Brightness
 	return func() {
-		if err := src.Set(context.Background(), name, pct); err != nil {
+		if err := boundedWrite(v.ctx, func(c context.Context) error { return src.Set(c, name, pct) }); err != nil {
 			log.Printf("brightness: set %s: %v", name, err)
 		}
 	}
@@ -268,9 +268,7 @@ func (c *brightnessAutoCard) apply(control brightness.Control) {
 // once automatic brightness announces it follows again.
 func (c *brightnessAutoCard) resumeAuto() {
 	c.ctx.Go(func() {
-		ctx, cancel := context.WithTimeout(c.ctx.Life(), offLoopTimeout)
-		defer cancel()
-		if err := c.src.Resume(ctx); err != nil {
+		if err := boundedWrite(c.ctx, c.src.Resume); err != nil {
 			log.Printf("brightness: %v", err)
 		}
 	})

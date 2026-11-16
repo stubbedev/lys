@@ -191,7 +191,7 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 	if len(v.mics) != 2 {
 		t.Fatalf("mics = %v", v.mics)
 	}
-	v.micPicker.SetSelected(1)
+	v.mic.dropdown.SetSelected(1)
 	if log.get(recorderPathMicDevice) != "mic" {
 		t.Errorf("mic device write = %v", log.get(recorderPathMicDevice))
 	}
@@ -201,16 +201,16 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 	}
 
 	// A hotplugged microphone rebuilds the picker.
-	old := v.micPicker
+	old := v.mic.dropdown
 	srv.PutSource(pulsetest.Source(11, "usb", "USB Mic", native.InvalidIndex, ""))
 	waitHeadless(t, "the new source", func() bool { return len(v.mics) == 3 })
-	if v.micPicker == old {
+	if v.mic.dropdown == old {
 		t.Error("the picker was not rebuilt")
 	}
 	// An unchanged list keeps the picker.
-	same := v.micPicker
+	same := v.mic.dropdown
 	v.syncMics(append([]devicechoice.DeviceChoice(nil), v.mics...))
-	if v.micPicker != same {
+	if v.mic.dropdown != same {
 		t.Error("an unchanged list rebuilt the picker")
 	}
 }
@@ -335,7 +335,7 @@ func TestRecorderLongCameraSelectNarrowsToItsRow(t *testing.T) {
 	arrangeDropdown(t, v, 360, 1000)
 	audio := treetest.WithClass(v, "recorder-card")[0]
 	sw := boundsOf(treetest.First[*widget.Switch](t, audio))
-	if mb := v.micPicker.Bounds(); mb.X+mb.W != sw.X+sw.W {
+	if mb := v.mic.dropdown.Bounds(); mb.X+mb.W != sw.X+sw.W {
 		t.Errorf("the source select ends at %d, the rows' content at %d", mb.X+mb.W, sw.X+sw.W)
 	}
 }
@@ -357,6 +357,58 @@ func TestRecorderShortCameraSelectKeepsItsWidth(t *testing.T) {
 // recordText is the record button's label.
 func recordText(v *recorderView) string {
 	return treetest.All[*widget.Label](v.recordFace)[0].Text()
+}
+
+func TestRecorderDevicePickersAreEnabledOnlyWhileTheirCaptureIsOn(t *testing.T) {
+	ctx, log, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "cam", Label: "Cam"}})
+	ctx.Config.Recorder.Microphone, ctx.Config.Recorder.WebcamEnabled = false, true
+	v := recorderDropdown(ctx).(*recorderView)
+	defer v.dropdownClosed()
+	rows := treetest.WithClass(v, "recorder-row")
+	micSwitch := treetest.First[*widget.Switch](t, rows[0])
+	if v.mic.dropdown.Enabled() || !v.cam.dropdown.Enabled() {
+		t.Fatalf("with the microphone off and the webcam on: mic picker enabled %v, camera picker enabled %v", v.mic.dropdown.Enabled(), v.cam.dropdown.Enabled())
+	}
+
+	micSwitch.SetOn(true)
+	if !v.mic.dropdown.Enabled() {
+		t.Error("the microphone picker stays disabled once the microphone is on")
+	}
+	v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "usb", Label: "USB Mic"}})
+	if !v.mic.dropdown.Enabled() {
+		t.Error("a rebuilt microphone picker is disabled while the microphone is on")
+	}
+
+	log.failWith(errors.New("config: save: no space left on device"))
+	micSwitch.SetOn(false)
+	if !micSwitch.On() || !v.mic.dropdown.Enabled() {
+		t.Errorf("a refused switch-off: switch on %v, picker enabled %v; want both back on", micSwitch.On(), v.mic.dropdown.Enabled())
+	}
+	log.failWith(nil)
+	micSwitch.SetOn(false)
+	v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
+	if v.mic.dropdown.Enabled() {
+		t.Error("a rebuilt microphone picker is enabled while the microphone is off")
+	}
+}
+
+func TestRecorderDropdownShowsAFailedSaveWhoseWriteRemountedTheBars(t *testing.T) {
+	ctx, _, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
+	ctx.SetConfig = func(_ string, _ any, done func(error)) {
+		ctx.gen.retire()
+		done(errors.New("config: save: no space left on device"))
+	}
+	v := recorderDropdown(ctx).(*recorderView)
+	defer v.dropdownClosed()
+	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
+	was := sw.On()
+	sw.SetOn(!was)
+	if !v.failure.Visible() || v.failure.Text() != "config: save: no space left on device" {
+		t.Errorf("error shown %v %q, want the failed save", v.failure.Visible(), v.failure.Text())
+	}
+	if sw.On() != was {
+		t.Error("the switch stays on the value that was not saved")
+	}
 }
 
 func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {

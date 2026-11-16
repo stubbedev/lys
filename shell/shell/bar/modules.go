@@ -153,19 +153,24 @@ var headlessLoop sync.Mutex
 // runs it inline under headlessLoop. A retired generation's work is
 // dropped either way.
 func (c ModuleContext) Invoke(fn func()) {
-	if c.App == nil {
-		headlessLoop.Lock()
-		defer headlessLoop.Unlock()
-		if !c.gen.retiredNow() {
-			fn()
-		}
-		return
-	}
-	c.App.Invoke(func() {
+	c.onLoop(func() {
 		if !c.gen.retiredNow() {
 			fn()
 		}
 	})
+}
+
+// onLoop marshals fn onto the loop goroutine, or for a headless context
+// runs it inline under headlessLoop, whether or not the context's
+// generation has retired since.
+func (c ModuleContext) onLoop(fn func()) {
+	if c.App == nil {
+		headlessLoop.Lock()
+		defer headlessLoop.Unlock()
+		fn()
+		return
+	}
+	c.App.Invoke(fn)
 }
 
 // configKey names what a snapshot's module samples: bars of one snapshot share

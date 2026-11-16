@@ -53,10 +53,10 @@ var (
 	}
 )
 
-// clockNames is the weekday and month names a strftime format renders, in
-// the loader's language.
+// clockNames is the weekday, month and period names a strftime format
+// renders, in the loader's language.
 func clockNames(l *i18n.Loader) strftime.Names {
-	var n strftime.Names
+	n := strftime.Names{AM: l.Get("cal-period-am"), PM: l.Get("cal-period-pm")}
 	for d := range n.Weekdays {
 		n.Weekdays[d], n.ShortWeekdays[d] = l.Get(calendarDayIDs[d]), l.Get(calendarShortDayIDs[d])
 	}
@@ -86,26 +86,38 @@ func (calendarNames) FormatDate(d widget.Date) string {
 		i18n.Str("year", strconv.Itoa(d.Year)))
 }
 
-// hourLayout is the hour every calendar clock shows: unpadded on the
-// 12-hour clock, two digits on the 24-hour one.
-func hourLayout(use12h bool) string {
+// clockTimes is how every calendar clock shows a time: the hero's
+// hour, unpadded on the 12-hour clock and two digits on the 24-hour
+// one, and the agenda's time, which shows the hour the same way.
+type clockTimes struct{ hour, time *strftime.Layout }
+
+func newClockTimes(hour, period string) clockTimes {
+	return clockTimes{hour: strftime.MustCompile(hour), time: strftime.MustCompile(hour + ":%M" + period)}
+}
+
+const (
+	clockHour12h = "%-I"
+	clockPeriod  = " %p"
+)
+
+var (
+	clock12h     = newClockTimes(clockHour12h, clockPeriod)
+	clock24h     = newClockTimes("%H", "")
+	minuteLayout = strftime.MustCompile("%M")
+	secondLayout = strftime.MustCompile("%S")
+	periodLayout = strftime.MustCompile("%p")
+)
+
+func calendarClock(use12h bool) clockTimes {
 	if use12h {
-		return "%-I"
+		return clock12h
 	}
-	return "%H"
+	return clock24h
 }
 
 // calendarIs12h reports whether the clock format uses %I or %p.
 func calendarIs12h(format string) bool {
 	return strings.Contains(format, "%I") || strings.Contains(format, "%p")
-}
-
-func strftimeOf(layout string, t time.Time) string {
-	f, err := strftime.Compile(layout)
-	if err != nil {
-		return ""
-	}
-	return f.Format(t)
 }
 
 // calendarView is the calendar dropdown: the clock hero over the month
@@ -225,10 +237,11 @@ func (v *calendarView) tick() {
 	now := v.now()
 	clock := v.ctx.Config.Clock
 	use12h := calendarIs12h(clock.Format.String())
-	v.hours.SetText(strftimeOf(hourLayout(use12h), now))
-	v.minutes.SetText(strftimeOf("%M", now))
-	v.seconds.SetText(strftimeOf("%S", now))
-	v.ampm.SetText(strftimeOf("%p", now))
+	names := shellClockNames()
+	v.hours.SetText(calendarClock(use12h).hour.FormatIn(now, names))
+	v.minutes.SetText(minuteLayout.FormatIn(now, names))
+	v.seconds.SetText(secondLayout.FormatIn(now, names))
+	v.ampm.SetText(periodLayout.FormatIn(now, names))
 	v.seconds.SetVisible(clock.DropdownShowSeconds)
 	v.secSep.SetVisible(clock.DropdownShowSeconds)
 	v.ampm.SetVisible(use12h)
@@ -330,7 +343,7 @@ func (v *calendarView) showAgenda() {
 	if day.IsZero() {
 		day = v.today
 	}
-	v.agenda.show(v.day(day), calendarIs12h(v.ctx.Config.Clock.Format.String()))
+	v.agenda.show(v.day(day), calendarIs12h(v.ctx.Config.Clock.Format.String()), shellClockNames())
 }
 
 func (v *calendarView) dayDetail(d widget.Date) string { return dayDetail(v.day(d)) }

@@ -3,7 +3,6 @@ package bar
 import (
 	"context"
 	"errors"
-	"log"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -94,11 +93,7 @@ func (m *powerProfilesModule) cycle() {
 		if err == nil {
 			return
 		}
-		title := i18n.T("power-profiles-switch-failed")
-		log.Printf("power-profiles: %s (%s): %v", title, next, err)
-		if m.ctx.Toast != nil {
-			m.ctx.Toast(title+": "+err.Error(), "ld-alert-triangle-symbolic")
-		}
+		toastFailure(m.ctx.Toast, "power-profiles", i18n.T("power-profiles-switch-failed")+": "+err.Error())
 	})
 }
 

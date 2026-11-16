@@ -31,6 +31,16 @@ func Compile(format string) (*Layout, error) {
 	return &Layout{src: format}, nil
 }
 
+// MustCompile is Compile for a format fixed in the source, panicking
+// when it is invalid.
+func MustCompile(format string) *Layout {
+	l, err := Compile(format)
+	if err != nil {
+		panic(err)
+	}
+	return l
+}
+
 // Resolution is how often the rendered text can change: a second with
 // a seconds field in the format, otherwise a minute.
 func (l *Layout) Resolution() time.Duration {
@@ -49,10 +59,12 @@ func (l *Layout) String() string { return l.src }
 func (l *Layout) Format(t time.Time) string { return l.FormatIn(t, English) }
 
 // Names are the weekday and month names %A, %a, %B and %b render,
-// indexed by time.Weekday and by time.Month minus one.
+// indexed by time.Weekday and by time.Month minus one, and the periods
+// %p renders before and after noon.
 type Names struct {
 	Weekdays, ShortWeekdays [7]string
 	Months, ShortMonths     [12]string
+	AM, PM                  string
 }
 
 // English is the C locale's names.
@@ -61,6 +73,8 @@ var English = Names{
 	ShortWeekdays: [7]string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
 	Months:        [12]string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"},
 	ShortMonths:   [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"},
+	AM:            "AM",
+	PM:            "PM",
 }
 
 // FormatIn renders t through the compiled format with the given names.
@@ -184,17 +198,22 @@ var layouts = map[byte]string{
 	'I': "03",
 	'M': "04",
 	'S': "05",
-	'p': "PM",
 	'Z': "MST",
 	'z': "-0700",
 }
 
-// named maps the specifiers that render a weekday or month name.
+// named maps the specifiers that render a weekday, month or period name.
 var named = map[byte]func(Names, time.Time) string{
 	'a': func(n Names, t time.Time) string { return n.ShortWeekdays[t.Weekday()] },
 	'A': func(n Names, t time.Time) string { return n.Weekdays[t.Weekday()] },
 	'b': func(n Names, t time.Time) string { return n.ShortMonths[t.Month()-1] },
 	'B': func(n Names, t time.Time) string { return n.Months[t.Month()-1] },
+	'p': func(n Names, t time.Time) string {
+		if t.Hour() < 12 {
+			return n.AM
+		}
+		return n.PM
+	},
 }
 
 // custom maps specifiers needing arithmetic beyond a Go layout.

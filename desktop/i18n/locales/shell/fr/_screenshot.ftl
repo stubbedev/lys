@@ -18,3 +18,7 @@ screenshot-tool-pixelate = Pixeliser
 screenshot-action-copy = Copier
 screenshot-action-open = Ouvrir
 screenshot-reading-text = Lecture du texte… Échap annule
+screenshot-thumbnail-failed = La capture d’écran a été enregistrée mais ne peut pas être affichée : { $error }
+screenshot-delete-failed = La capture d’écran n’a pas été supprimée : { $error }
+screenshot-editor-failed = Impossible d’ouvrir l’éditeur : { $error }
+screenshot-copy-edited-failed = La capture d’écran modifiée a été enregistrée mais pas copiée : { $error }

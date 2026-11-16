@@ -124,3 +124,11 @@ bar-audio-mic-muted = microfono silenziato
 bar-audio-capture-mic = un'app registra dal microfono
 bar-audio-capture-camera = un'app usa una fotocamera
 bar-audio-capture-screen = un'app condivide lo schermo
+
+## Errori che un modulo mostra sul suo pulsante
+bar-module-failed = Errore
+bar-custom-command-timed-out = Il comando ha impiegato troppo tempo ed è stato interrotto
+bar-custom-command-failed = Impossibile eseguire il comando: { $error }
+bar-world-clock-invalid-zone = Fuso orario sconosciuto «{ $zone }»
+bar-world-clock-invalid-layout = Formato dell’ora non supportato «{ $layout }»
+bar-world-clock-invalid-format = Impossibile mostrare il formato: { $error }

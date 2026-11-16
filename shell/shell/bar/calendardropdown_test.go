@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -170,7 +171,7 @@ func TestCalendarHeroAndAgendaShowTheSameHour(t *testing.T) {
 			t.Errorf("%s: the hero shows the hour %q, want %q", c.format, got, c.hero)
 		}
 		use12h := calendarIs12h(c.format)
-		if got := clockText(at, use12h); got != c.agenda {
+		if got := clockText(at, use12h, strftime.English); got != c.agenda {
 			t.Errorf("%s: the agenda shows %q, want %q", c.format, got, c.agenda)
 		}
 	}

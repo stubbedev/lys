@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -38,6 +39,9 @@ type barButton struct {
 	// module describes itself with, the label text while it sets none.
 	// Both make the accessible name and the tooltip.
 	title, detail string
+	// failure says why the module cannot show its state, empty while it
+	// can; it stands in for detail.
+	failure string
 
 	cfg        *config.Config
 	button     config.ButtonConfig
@@ -104,11 +108,32 @@ func (b *barButton) SetDescription(detail string) {
 	b.describe()
 }
 
+// setFailure marks the button failed with message, which its accessible
+// name and tooltip say in place of the module's state and a blank label
+// stands in for; empty clears it.
+func (b *barButton) setFailure(message string) {
+	b.failure = message
+	if message == "" {
+		b.RemoveClass(failedClass)
+	} else {
+		b.AddClass(failedClass)
+	}
+	b.showLabel()
+	b.describe()
+}
+
+// failedClass marks a module's button while it fails.
+const failedClass = "failed"
+
 // describe names the button for assistive technology and, unless the
 // module's tooltip key is off, as its tooltip: the title, then the
 // state. Equal text marks nothing.
 func (b *barButton) describe() {
-	name := moduleDescription(b.title, b.detail, b.text)
+	detail := b.detail
+	if b.failure != "" {
+		detail = b.failure
+	}
+	name := moduleDescription(b.title, detail, b.text)
 	b.SetAccessibleName(name)
 	if !b.button.Tooltip {
 		name = ""
@@ -140,6 +165,9 @@ func (b *barButton) showLabel() {
 		return
 	}
 	shown := b.text
+	if strings.TrimSpace(shown) == "" && b.failure != "" {
+		shown = i18n.T("bar-module-failed")
+	}
 	if !b.button.LabelShow || strings.TrimSpace(shown) == "" {
 		shown = ""
 	}

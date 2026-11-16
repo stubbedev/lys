@@ -18,3 +18,7 @@ screenshot-tool-pixelate = Pixela
 screenshot-action-copy = Copia
 screenshot-action-open = Apri
 screenshot-reading-text = Lettura del testo… Esc annulla
+screenshot-thumbnail-failed = Lo screenshot è stato salvato ma non può essere mostrato: { $error }
+screenshot-delete-failed = Lo screenshot non è stato eliminato: { $error }
+screenshot-editor-failed = Impossibile aprire l’editor: { $error }
+screenshot-copy-edited-failed = Lo screenshot modificato è stato salvato ma non copiato: { $error }

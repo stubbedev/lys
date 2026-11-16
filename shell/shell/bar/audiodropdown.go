@@ -422,7 +422,7 @@ func newVolumeSection(v *audioView, kind audioKind) *volumeSection {
 	s.noDevice = widget.NewItem(v.font, i18n.T("dropdown-audio-no-device"), title)
 	s.noDevice.SetSmall(true)
 	s.noDevice.AddClass("audio-no-device")
-	s.noDevice.SetMedia(widget.NewThemeIcon("ld-alert-triangle-symbolic", itemIconPx), false)
+	s.noDevice.SetMedia(widget.NewThemeIcon(alertIcon, itemIconPx), false)
 	s.Append(s.noDevice, false)
 	return s
 }

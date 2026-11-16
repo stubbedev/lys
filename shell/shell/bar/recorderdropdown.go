@@ -208,10 +208,7 @@ type recorderView struct {
 	recordFace *widget.ButtonContent
 	pause      *widget.Button
 	pauseIcon  *widget.Icon
-	// micSlot holds the microphone picker, swapped when the device
-	// list changes.
-	micSlot    *widget.Box
-	micPicker  *widget.Dropdown
+	mic, cam   *captureDevicePicker
 	mics, cams []devicechoice.DeviceChoice
 	webcam     *widget.Box
 	preview    *webcamPreview
@@ -219,7 +216,6 @@ type recorderView struct {
 	*openFollow
 	micReads     *refresher[[]devicechoice.DeviceChoice]
 	camReads     *refresher[[]devicechoice.DeviceChoice]
-	camSlot      *widget.Box
 	replayMemory *widget.Label
 	replaySave   *widget.Button
 	failure      *widget.Label
@@ -255,25 +251,22 @@ func recorderDropdown(ctx ModuleContext) widget.Widget {
 
 	audioCard, audio := itemCard()
 	audioCard.AddClass("recorder-card")
-	audio.Append(v.switchRow(i18n.T("dropdown-recorder-microphone"), cfg.Microphone, recorderPathMic))
 	v.mics = microphoneSources(nil)
+	v.mic = newCaptureDevicePicker(v.picker(v.mics, cfg.MicrophoneDevice, recorderPathMicDevice, func() []devicechoice.DeviceChoice { return v.mics }), cfg.Microphone)
+	audio.Append(v.switchRow(i18n.T("dropdown-recorder-microphone"), cfg.Microphone, recorderPathMic, v.mic.setOn))
 	micRow := v.row(i18n.T("dropdown-recorder-microphone-device"))
-	v.micPicker = v.picker(v.mics, cfg.MicrophoneDevice, recorderPathMicDevice, func() []devicechoice.DeviceChoice { return v.mics })
-	v.micSlot = widget.NewBox(widget.Row, 0, 0)
-	v.micSlot.Append(v.micPicker, false)
-	micRow.AddAction(v.micSlot)
+	micRow.AddAction(v.mic.slot)
 	audio.Append(micRow)
-	audio.Append(v.switchRow(i18n.T("dropdown-recorder-system-audio"), cfg.SystemAudio, recorderPathSystem))
+	audio.Append(v.switchRow(i18n.T("dropdown-recorder-system-audio"), cfg.SystemAudio, recorderPathSystem, nil))
 	content.Append(dropdownGroup(v.sectionHeader("ld-mic-symbolic", i18n.T("dropdown-recorder-section-audio")), audioCard), false)
 
 	v.cams = devicechoice.NoCameras()
 	webcamCard, webcam := itemCard()
 	webcamCard.AddClass("recorder-card")
-	webcam.Append(v.switchRow(i18n.T("dropdown-recorder-webcam"), cfg.WebcamEnabled, recorderPathWebcam))
+	v.cam = newCaptureDevicePicker(v.picker(v.cams, cfg.WebcamDevice, recorderPathCamDevice, func() []devicechoice.DeviceChoice { return v.cams }), cfg.WebcamEnabled)
+	webcam.Append(v.switchRow(i18n.T("dropdown-recorder-webcam"), cfg.WebcamEnabled, recorderPathWebcam, v.cam.setOn))
 	camRow := v.row(i18n.T("dropdown-recorder-webcam-device"))
-	v.camSlot = widget.NewBox(widget.Row, 0, 0)
-	v.camSlot.Append(v.picker(v.cams, cfg.WebcamDevice, recorderPathCamDevice, func() []devicechoice.DeviceChoice { return v.cams }), false)
-	camRow.AddAction(v.camSlot)
+	camRow.AddAction(v.cam.slot)
 	webcam.Append(camRow)
 	position := v.row(i18n.T("dropdown-recorder-position"))
 	position.AddClass("recorder-position")
@@ -287,7 +280,7 @@ func recorderDropdown(ctx ModuleContext) widget.Widget {
 
 	replayCard, replay := itemCard()
 	replayCard.AddClass("recorder-card")
-	replay.Append(v.switchRow(i18n.T("dropdown-recorder-replay"), cfg.Replay.Enable, recorderPathReplay))
+	replay.Append(v.switchRow(i18n.T("dropdown-recorder-replay"), cfg.Replay.Enable, recorderPathReplay, nil))
 	memory := v.row(i18n.T("dropdown-recorder-replay-memory"))
 	v.replayMemory = widget.NewLabel(font, px, "", 0)
 	v.replayMemory.AddClass("recorder-replay-memory", css.Numeric)
@@ -370,11 +363,15 @@ func (v *recorderView) row(title string) *widget.Item {
 	return r
 }
 
-// switchRow is a labeled switch writing a boolean config key.
-func (v *recorderView) switchRow(title string, on bool, path string) *widget.Item {
+// switchRow is a labeled switch writing a boolean config key; follow,
+// when not nil, hears every value the switch takes, a reverted one too.
+func (v *recorderView) switchRow(title string, on bool, path string, follow func(on bool)) *widget.Item {
 	r := v.row(title)
 	sw := namedSwitch(title, on)
 	sw.OnChanged = func(on bool) {
+		if follow != nil {
+			follow(on)
+		}
 		if v.reverting {
 			return
 		}
@@ -382,6 +379,33 @@ func (v *recorderView) switchRow(title string, on bool, path string) *widget.Ite
 	}
 	r.AddAction(sw)
 	return r
+}
+
+// captureDevicePicker is a device selector in its row's slot, enabled only
+// while the capture it picks for is on; a changed device list swaps the
+// selector, which keeps that.
+type captureDevicePicker struct {
+	slot     *widget.Box
+	dropdown *widget.Dropdown
+	on       bool
+}
+
+func newCaptureDevicePicker(d *widget.Dropdown, on bool) *captureDevicePicker {
+	p := &captureDevicePicker{slot: widget.NewBox(widget.Row, 0, 0), on: on}
+	p.replace(d)
+	return p
+}
+
+func (p *captureDevicePicker) replace(d *widget.Dropdown) {
+	d.SetEnabled(p.on)
+	p.slot.Clear()
+	p.slot.Append(d, false)
+	p.dropdown = d
+}
+
+func (p *captureDevicePicker) setOn(on bool) {
+	p.on = on
+	p.dropdown.SetEnabled(on)
 }
 
 // picker is a device selector writing the chosen id; choices reads the
@@ -474,11 +498,7 @@ func (v *recorderView) syncMics(mics []devicechoice.DeviceChoice) {
 		return
 	}
 	v.mics = mics
-	saved := v.ctx.Config.Recorder.MicrophoneDevice
-	next := v.picker(mics, saved, recorderPathMicDevice, func() []devicechoice.DeviceChoice { return v.mics })
-	v.micSlot.Clear()
-	v.micSlot.Append(next, false)
-	v.micPicker = next
+	v.mic.replace(v.picker(mics, v.ctx.Config.Recorder.MicrophoneDevice, recorderPathMicDevice, func() []devicechoice.DeviceChoice { return v.mics }))
 }
 
 func (v *recorderView) syncCams(cams []devicechoice.DeviceChoice) {
@@ -486,8 +506,7 @@ func (v *recorderView) syncCams(cams []devicechoice.DeviceChoice) {
 		return
 	}
 	v.cams = cams
-	v.camSlot.Clear()
-	v.camSlot.Append(v.picker(cams, v.ctx.Config.Recorder.WebcamDevice, recorderPathCamDevice, func() []devicechoice.DeviceChoice { return v.cams }), false)
+	v.cam.replace(v.picker(cams, v.ctx.Config.Recorder.WebcamDevice, recorderPathCamDevice, func() []devicechoice.DeviceChoice { return v.cams }))
 	v.webcam.SetVisible(len(cams) > 1)
 }
 

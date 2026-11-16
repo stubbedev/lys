@@ -184,7 +184,9 @@ type dock struct {
 	shown   []dockApp
 	host    app.Host
 	rects   *rectOwner
-	launch  func(taskApp)
+	// launch starts an app off the loop and hands a failure to failed,
+	// on whichever goroutine it meets it.
+	launch func(app taskApp, failed func(error))
 	// hide is the dock's reveal controller, the bar's too.
 	hide *autoHide
 	// preview shows an app's windows on a hover rest over its entry.
@@ -358,11 +360,22 @@ func (d *dock) activate(a dockApp) {
 		return
 	}
 	app, ok := d.hub.apps.get(a.appID)
-	if !ok || !app.found {
-		log.Printf("dock: %s has no desktop entry to launch", a.appID)
+	if !ok {
+		log.Printf("dock: %s is still being looked up", a.appID)
 		return
 	}
-	d.launch(app)
+	if !app.found {
+		toastFailure(d.ctx.Toast, "dock", i18n.T("dock-no-desktop-entry", i18n.Str("app", a.appID)))
+		return
+	}
+	d.start(app)
+}
+
+// start launches app, toasting a launch that fails.
+func (d *dock) start(app taskApp) {
+	d.launch(app, func(err error) {
+		toastFailure(d.ctx.Toast, "dock", i18n.T("dock-launch-failed", i18n.Str("app", app.name), i18n.Str("error", err.Error())))
+	})
 }
 
 // menuItems lists the app's windows, offers to open another, to pin or
@@ -373,12 +386,12 @@ func (d *dock) menuItems(a dockApp) []widget.MenuItem {
 		items = append(items, menuItem(d.hub.windowTooltip(w), w.Activate))
 	}
 	if app, ok := d.hub.apps.get(a.appID); ok && app.found {
-		items = append(items, menuItem(i18n.T("bar-task-launch"), func() { d.launch(app) }))
+		items = append(items, menuItem(i18n.T("bar-task-launch"), func() { d.start(app) }))
 	}
 	if a.pinned {
-		items = append(items, menuItem(i18n.T("dock-unpin"), func() { d.ctx.setConfig(dockPathPinned, dockUnpin(d.cfg.Pinned, a.appID), logConfigFailure) }))
+		items = append(items, menuItem(i18n.T("dock-unpin"), func() { d.writePinned(dockUnpin(d.cfg.Pinned, a.appID), "dock-unpin-failed", a.appID) }))
 	} else {
-		items = append(items, menuItem(i18n.T("dock-pin"), func() { d.ctx.setConfig(dockPathPinned, dockPin(d.cfg.Pinned, a.appID), logConfigFailure) }))
+		items = append(items, menuItem(i18n.T("dock-pin"), func() { d.writePinned(dockPin(d.cfg.Pinned, a.appID), "dock-pin-failed", a.appID) }))
 	}
 	if a.running() {
 		items = append(items, menuItem(i18n.T("bar-task-close"), a.close))
@@ -386,11 +399,21 @@ func (d *dock) menuItems(a dockApp) []widget.MenuItem {
 	return items
 }
 
+// writePinned saves pinned as the dock's pinned apps, toasting the
+// message failed names, about appID, when the save fails.
+func (d *dock) writePinned(pinned []any, failed, appID string) {
+	d.ctx.setConfig(dockPathPinned, pinned, func(err error) {
+		if err != nil {
+			toastFailure(d.ctx.Toast, "dock", i18n.T(failed, i18n.Str("app", appID), i18n.Str("error", err.Error())))
+		}
+	})
+}
+
 // launchApp starts an app from its desktop entry off the loop.
-func launchApp(app taskApp) {
+func launchApp(app taskApp, failed func(error)) {
 	go func() {
 		if err := app.entry.Launch(); err != nil {
-			log.Printf("dock: launch %s: %v", app.entry.ID, err)
+			failed(fmt.Errorf("launch %s: %w", app.entry.ID, err))
 		}
 	}()
 }

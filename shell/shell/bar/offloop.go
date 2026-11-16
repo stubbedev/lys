@@ -47,6 +47,24 @@ func returnToLoop(ctx ModuleContext, fn func()) {
 	ctx.Invoke(fn)
 }
 
+// serviceWrite is a control's write to a service: write runs off the
+// loop, bounded as boundedWrite bounds it, and its error, nil on
+// success, comes back to done on the loop.
+func serviceWrite(ctx ModuleContext, write func(context.Context) error, done func(error)) {
+	ctx.Go(func() {
+		err := boundedWrite(ctx, write)
+		ctx.Invoke(func() { done(err) })
+	})
+}
+
+// boundedWrite runs write, off the loop, under offLoopTimeout within
+// the module's life.
+func boundedWrite(ctx ModuleContext, write func(context.Context) error) error {
+	c, cancel := context.WithTimeout(ctx.Life(), offLoopTimeout)
+	defer cancel()
+	return write(c)
+}
+
 type offLoopRead[T any] struct {
 	ctx    ModuleContext
 	module string

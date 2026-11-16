@@ -96,20 +96,21 @@ func (w *configWriter) flush(timeout time.Duration) {
 
 // setConfig writes a runtime override through ctx.SetConfig and hands done
 // its outcome on the loop: the error that refused or lost it, or nil once
-// it is saved.
+// it is saved. done hears it even when the write itself remounted the
+// bars and so retired the context's generation.
 func (c ModuleContext) setConfig(path string, value any, done func(error)) {
 	if c.SetConfig == nil {
 		done(fmt.Errorf("config: set %s: the shell runs without a config service", path))
 		return
 	}
-	c.SetConfig(path, value, func(err error) { c.Invoke(func() { done(err) }) })
+	savedOnLoop(c.SetConfig, c.onLoop)(path, value, done)
 }
 
-// logConfigFailure is the done of a write whose caller has nowhere to
-// show a failure.
-func logConfigFailure(err error) {
-	if err != nil {
-		log.Print(err)
+// savedOnLoop is set with each write's outcome handed to its done through
+// invoke, which must run it on the loop whatever generation is mounted.
+func savedOnLoop(set func(path string, value any, done func(error)), invoke func(func())) func(path string, value any, done func(error)) {
+	return func(path string, value any, done func(error)) {
+		set(path, value, func(err error) { invoke(func() { done(err) }) })
 	}
 }
 

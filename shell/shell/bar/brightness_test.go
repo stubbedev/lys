@@ -49,6 +49,8 @@ type fakeBrightnessSource struct {
 	devices []brightness.Device
 	ticks   chan struct{}
 	sets    []brightnessSet
+	// deadlines is each Set's time left when it began, zero for none.
+	deadlines []time.Duration
 	// gate, when set, holds each Set until it receives: a slow display.
 	gate chan struct{}
 }
@@ -75,15 +77,26 @@ func (f *fakeBrightnessSource) Subscribe(context.Context) (<-chan struct{}, func
 	return f.ticks, func() {}, nil
 }
 
-func (f *fakeBrightnessSource) Set(_ context.Context, name string, percent float64) error {
+func (f *fakeBrightnessSource) Set(ctx context.Context, name string, percent float64) error {
 	f.mu.Lock()
 	f.sets = append(f.sets, brightnessSet{name, percent})
+	var left time.Duration
+	if d, ok := ctx.Deadline(); ok {
+		left = time.Until(d)
+	}
+	f.deadlines = append(f.deadlines, left)
 	gate := f.gate
 	f.mu.Unlock()
 	if gate != nil {
 		<-gate
 	}
 	return nil
+}
+
+func (f *fakeBrightnessSource) recordedDeadlines() []time.Duration {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.deadlines)
 }
 
 func (f *fakeBrightnessSource) recorded() []brightnessSet {

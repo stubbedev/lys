@@ -209,43 +209,6 @@ func (c *captureSection) button(label string, run func(), classes ...string) *wi
 	return dropdownButton(widget.NewLabel(c.font, c.px, label, 0), run, append(classes, css.Small)...)
 }
 
-type stopButtons[K comparable] struct {
-	ctx     ModuleContext
-	module  string
-	pending map[K]struct{}
-	done    func()
-}
-
-func newStopButtons[K comparable](ctx ModuleContext, module string, done func()) *stopButtons[K] {
-	return &stopButtons[K]{ctx: ctx, module: module, pending: map[K]struct{}{}, done: done}
-}
-
-func (s *stopButtons[K]) button(font render.Font, px float64, label string, key K, class string, failed func(error) string, stop func(context.Context) error) *widget.Button {
-	b := dropdownButton(widget.NewLabel(font, px, label, 0), nil, class, css.DestructiveAction, css.Small)
-	_, running := s.pending[key]
-	b.SetEnabled(!running)
-	b.OnClick = func() {
-		s.pending[key] = struct{}{}
-		b.SetEnabled(false)
-		s.ctx.Go(func() {
-			life, cancel := context.WithTimeout(s.ctx.Life(), offLoopTimeout)
-			err := stop(life)
-			cancel()
-			s.ctx.Invoke(func() {
-				delete(s.pending, key)
-				if err != nil {
-					log.Printf("%s: %v", s.module, err)
-					if s.ctx.Toast != nil {
-						s.ctx.Toast(failed(err), "ld-alert-triangle-symbolic")
-					}
-				}
-				s.done()
-			})
-		})
-	}
-	return b
-}
-
 // shareApp names the app sharing: its id, or "An app" for one outside a
 // sandbox, which the portal knows no id of.
 func shareApp(s screenshare.Share) string {

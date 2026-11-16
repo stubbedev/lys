@@ -225,7 +225,7 @@ func TestHeadlessScreenshotCopyFailureReachesTheNotification(t *testing.T) {
 }
 
 func startCapture(application *app.Application, outputs func() []*app.Output, current func() *config.Config, hypr *hyprland.Connection, clip *clipboard.Clipboard, sans render.Font, sheet *widget.Stylesheet) *captureServices {
-	s := newCaptureServices(application, outputs, current, hypr, clip, sans, sheet)
+	s := newCaptureServices(application, outputs, current, hypr, clip, sans, sheet, nil)
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		panic(err)

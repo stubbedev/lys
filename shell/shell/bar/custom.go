@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/ui/widget"
@@ -311,6 +312,14 @@ type customModule struct {
 	views   latestOnLoop[customView]
 	lastRaw string
 	hasRaw  bool
+	failing bool
+}
+
+// customSample is one run of the module's command: its output, or the
+// failure that left it none.
+type customSample struct {
+	output  string
+	failure string
 }
 
 // newCustomByID resolves the definition behind a "custom-<id>" layout
@@ -356,31 +365,31 @@ func newCustom(ctx ModuleContext, def config.CustomModuleDefinition) (Module, er
 // followCommand shares the definition's command across the bars: a watch
 // command's lines, or its output at the start and on the interval.
 func (m *customModule) followCommand(command string) error {
-	spec := samplerSpec[string]{
+	spec := samplerSpec[customSample]{
 		key:  configKey("custom/"+m.def.Id, m.ctx.Config),
-		same: func(a, b string) bool { return a == b },
+		same: func(a, b customSample) bool { return a == b },
 	}
 	if m.def.Mode == config.ExecutionModeWatch {
-		var latest atomic.Pointer[string]
+		var latest atomic.Pointer[customSample]
 		spec.source = func(life context.Context, spawn func(func()), fire func()) error {
 			spawn(func() {
-				m.supervise(life, command, func(line string) {
-					latest.Store(&line)
+				m.supervise(life, command, func(s customSample) {
+					latest.Store(&s)
 					fire()
 				})
 			})
 			return nil
 		}
-		spec.sample = func() (string, bool) {
-			line := latest.Load()
-			if line == nil {
-				return "", false
+		spec.sample = func() (customSample, bool) {
+			s := latest.Load()
+			if s == nil {
+				return customSample{}, false
 			}
-			return *line, true
+			return *s, true
 		}
 	} else {
 		var running context.Context
-		spec.sample = func() (string, bool) { return m.commandOutput(running, command) }
+		spec.sample = func() (customSample, bool) { return m.commandOutput(running, command) }
 		grid := pollGrid(intconv.Duration(m.def.IntervalMs, time.Millisecond))
 		spec.source = func(life context.Context, spawn func(func()), fire func()) error {
 			running = life
@@ -391,7 +400,7 @@ func (m *customModule) followCommand(command string) error {
 			return nil
 		}
 	}
-	return joinSampler(m.life, m.ctx.Polls, spec, m.deliver)
+	return joinSampler(m.life, m.ctx.Polls, spec, m.take)
 }
 
 // runCommand is the command through sh -c, replacing any
@@ -406,15 +415,16 @@ func (m *customModule) runCommand(command string) {
 	m.mu.Unlock()
 	go func() {
 		defer cancel()
-		if output, ok := m.commandOutput(ctx, command); ok {
-			m.deliver(output)
+		if s, ok := m.commandOutput(ctx, command); ok {
+			m.take(s)
 		}
 	}()
 }
 
 // commandOutput runs the command with the 30s timeout; its trimmed stdout is
-// the module's output. A failure or timeout gives none.
-func (m *customModule) commandOutput(parent context.Context, command string) (string, bool) {
+// the module's output, and a command that could not run or timed out
+// gives its failure instead. One canceled with parent gives nothing.
+func (m *customModule) commandOutput(parent context.Context, command string) (customSample, bool) {
 	ctx, cancel := context.WithTimeout(parent, commandTimeout)
 	defer cancel()
 	cmd := spawn.Owned(ctx, command)
@@ -423,16 +433,21 @@ func (m *customModule) commandOutput(parent context.Context, command string) (st
 	if err := cmd.Run(); err != nil {
 		switch {
 		case errors.Is(ctx.Err(), context.DeadlineExceeded):
-			log.Printf("custom %s: command timed out after %s", m.def.Id, commandTimeout)
-			return "", false
+			return m.failed(i18n.T("bar-custom-command-timed-out"), fmt.Errorf("timed out after %s", commandTimeout)), true
 		case ctx.Err() != nil:
-			return "", false
+			return customSample{}, false
 		case !exitedWithOutput(err):
-			log.Printf("custom %s: command execution failed: %v", m.def.Id, err)
-			return "", false
+			return m.failed(i18n.T("bar-custom-command-failed", i18n.Str("error", err.Error())), err), true
 		}
 	}
-	return strings.TrimSpace(strings.ToValidUTF8(out.String(), "�")), true
+	return customSample{output: strings.TrimSpace(strings.ToValidUTF8(out.String(), "�"))}, true
+}
+
+// failed logs err as the command's failure and is the sample showing
+// message.
+func (m *customModule) failed(message string, err error) customSample {
+	log.Printf("custom %s: command: %v", m.def.Id, err)
+	return customSample{failure: message}
 }
 
 // exitedWithOutput reports a command that ran and exited nonzero: its
@@ -445,10 +460,10 @@ func exitedWithOutput(err error) bool {
 // supervise: each stdout line of the running
 // command is an output; on exit the restart policy decides, after
 // restart-interval-ms, whether it runs again.
-func (m *customModule) supervise(ctx context.Context, command string, line func(string)) {
+func (m *customModule) supervise(ctx context.Context, command string, sample func(customSample)) {
 	delay := intconv.Duration(m.def.RestartIntervalMs, time.Millisecond)
 	for {
-		exitErr, ran := m.watchOnce(ctx, command, line)
+		exitErr, ran := m.watchOnce(ctx, command, sample)
 		if !ran || ctx.Err() != nil {
 			return
 		}
@@ -469,23 +484,24 @@ func (m *customModule) supervise(ctx context.Context, command string, line func(
 	}
 }
 
-// watchOnce runs the command once, streaming its lines; ran is false
-// when it could not start.
-func (m *customModule) watchOnce(ctx context.Context, command string, line func(string)) (exitErr error, ran bool) {
+// watchOnce runs the command once, streaming its lines as outputs; ran is
+// false when it could not start, which it hands sample as the failure.
+func (m *customModule) watchOnce(ctx context.Context, command string, sample func(customSample)) (exitErr error, ran bool) {
 	cmd := spawn.Owned(ctx, command)
 	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Printf("custom %s: watch command started without stdout: %v", m.def.Id, err)
-		return nil, false
+	if err == nil {
+		err = cmd.Start()
 	}
-	if err := cmd.Start(); err != nil {
-		log.Printf("custom %s: failed to spawn watch command: %v", m.def.Id, err)
+	if err != nil {
+		if ctx.Err() == nil {
+			sample(m.failed(i18n.T("bar-custom-command-failed", i18n.Str("error", err.Error())), fmt.Errorf("start watch command: %w", err)))
+		}
 		return nil, false
 	}
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 64*1024), 1<<20)
 	for scanner.Scan() {
-		line(scanner.Text())
+		sample(customSample{output: scanner.Text()})
 	}
 	return cmd.Wait(), true
 }
@@ -514,18 +530,39 @@ func (m *customModule) followAction(action config.ClickAction, scroll bool) {
 	})
 }
 
+// take shows one run of the command: its output, or its failure.
+func (m *customModule) take(s customSample) {
+	if s.failure != "" {
+		m.fail(s.failure)
+		return
+	}
+	m.deliver(s.output)
+}
+
 // deliver takes one output on the producing goroutine: an output equal to the
-// last costs a compare, any other is parsed and rendered here and reaches the
-// loop latest-only.
+// last shown costs a compare, any other is parsed and rendered here and
+// reaches the loop latest-only.
 func (m *customModule) deliver(output string) {
 	m.mu.Lock()
-	same := m.hasRaw && m.lastRaw == output
-	m.lastRaw, m.hasRaw = output, true
+	same := m.hasRaw && m.lastRaw == output && !m.failing
+	m.lastRaw, m.hasRaw, m.failing = output, true, false
 	m.mu.Unlock()
 	if same {
 		return
 	}
 	m.views.give(m.view(output))
+}
+
+// fail shows the last output marked failed with message, shown even when
+// hide-if-empty would hide that output: the next output clears it.
+func (m *customModule) fail(message string) {
+	m.mu.Lock()
+	last := m.lastRaw
+	m.failing = true
+	m.mu.Unlock()
+	v := m.view(last)
+	v.failure, v.visible = message, true
+	m.views.give(v)
 }
 
 // customView is what one output shows.
@@ -537,6 +574,7 @@ type customView struct {
 	colors    config.ThresholdColors
 	hasColors bool
 	classes   []string
+	failure   string
 }
 
 func (m *customModule) view(output string) customView {
@@ -568,6 +606,7 @@ func (m *customModule) show(v customView) {
 		m.icon.SetThemeName(v.icon)
 	}
 	btn.SetDescription(v.tooltip)
+	btn.setFailure(v.failure)
 	btn.SetVisible(v.visible)
 	if v.hasColors {
 		btn.SetThresholds(v.colors)

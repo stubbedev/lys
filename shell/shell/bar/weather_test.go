@@ -20,29 +20,71 @@ func osWrite(path, content string) error {
 
 func TestWorldClockRender(t *testing.T) {
 	now := time.Date(2026, 9, 29, 14, 5, 0, 0, time.UTC)
-	if got := worldClockRender("{{ tz('UTC', '%H:%M %Z') }}", now); got != "14:05 UTC" {
+	render := func(format string) string {
+		t.Helper()
+		got, err := worldClockRender(format, now)
+		if err != nil {
+			t.Errorf("%q: %v", format, err)
+		}
+		return got
+	}
+	if got := render("{{ tz('UTC', '%H:%M %Z') }}"); got != "14:05 UTC" {
 		t.Errorf("= %q, want 14:05 UTC", got)
 	}
 	// Two zones in one format.
-	got := worldClockRender("{{ tz('UTC', '%H:%M') }} | {{ tz('Asia/Tokyo', '%H:%M') }}", now)
+	got := render("{{ tz('UTC', '%H:%M') }} | {{ tz('Asia/Tokyo', '%H:%M') }}")
 	if !strings.Contains(got, "14:05") || !strings.Contains(got, "23:05") {
 		t.Errorf("= %q, want UTC 14:05 and Tokyo 23:05", got)
 	}
 	// Plain text passes through untouched.
-	if got := worldClockRender("plain", now); got != "plain" {
+	if got := render("plain"); got != "plain" {
 		t.Errorf("= %q, want plain", got)
 	}
-	// Any failure fails the whole render, which shows as nothing: an
-	// unknown zone, a bad expression, a syntax
-	// error.
-	for _, bad := range []string{"x{{ tz('Nope/Zone', '%H') }}y", "x{{ not-a-call }}y", "a{{ b", "{{ tz('UTC') }}"} {
-		if got := worldClockRender(bad, now); got != "" {
-			t.Errorf("%q = %q, want nothing", bad, got)
+	// Any failure fails the whole render with its error: an unknown or
+	// empty zone, a bad layout, a bad expression, a syntax error, wrong
+	// arguments.
+	for _, bad := range []string{"x{{ tz('Nope/Zone', '%H') }}y", "{{ tz('', '%H') }}", "{{ tz('UTC', '%Q') }}", "x{{ not-a-call }}y", "a{{ b", "{{ tz('UTC') }}", "{{ tz(1, '%H') }}"} {
+		if got, err := worldClockRender(bad, now); err == nil || got != "" {
+			t.Errorf("%q = %q (%v), want an error and nothing", bad, got, err)
 		}
 	}
 	// The format is a full template: filters apply to tz() results.
-	if got := worldClockRender("{{ tz('UTC', '%a') | upper }}", now); got != "TUE" {
+	if got := render("{{ tz('UTC', '%a') | upper }}"); got != "TUE" {
 		t.Errorf("filtered = %q, want TUE", got)
+	}
+}
+
+func TestAWorldClockFailureSaysWhatIsWrong(t *testing.T) {
+	now := time.Date(2026, 9, 29, 14, 5, 0, 0, time.UTC)
+	for format, want := range map[string]string{
+		"{{ tz('Mars/Olympus', '%H') }}": i18n.T("bar-world-clock-invalid-zone", i18n.Str("zone", "Mars/Olympus")),
+		"{{ tz('', '%H') }}":             i18n.T("bar-world-clock-invalid-zone", i18n.Str("zone", "")),
+		"{{ tz('UTC', '%Q') }}":          i18n.T("bar-world-clock-invalid-layout", i18n.Str("layout", "%Q")),
+	} {
+		_, err := worldClockRender(format, now)
+		if got := worldClockFailure(err); got != want {
+			t.Errorf("%q fails as %q, want %q", format, got, want)
+		}
+	}
+	_, err := worldClockRender("{{ tz('UTC') }}", now)
+	if got, want := worldClockFailure(err), i18n.T("bar-world-clock-invalid-format", i18n.Str("error", errTZArguments.Error())); got != want {
+		t.Errorf("wrong arguments fail as %q, want %q", got, want)
+	}
+}
+
+func TestTheWorldClockButtonShowsAFailedFormatAndClearsIt(t *testing.T) {
+	m := &worldClockModule{btn: newBarButton(newTestContext(t, config.Defaults()), nil, "")}
+	failure := i18n.T("bar-world-clock-invalid-zone", i18n.Str("zone", "Mars/Olympus"))
+	m.show(worldClockShown{failure: failure})
+	if got, want := m.btn.Label().Text(), i18n.T("bar-module-failed"); got != want || !m.btn.HasClass(failedClass) {
+		t.Errorf("a failed format shows %q (failed %v), want %q marked failed", got, m.btn.HasClass(failedClass), want)
+	}
+	if tip := m.btn.TooltipText(); !strings.Contains(tip, failure) {
+		t.Errorf("the tooltip %q does not say %q", tip, failure)
+	}
+	m.show(worldClockShown{text: "14:05"})
+	if got := m.btn.Label().Text(); got != "14:05" || m.btn.HasClass(failedClass) || strings.Contains(m.btn.TooltipText(), failure) {
+		t.Errorf("a render after the failure shows %q, failed %v, tooltip %q", got, m.btn.HasClass(failedClass), m.btn.TooltipText())
 	}
 }
 
@@ -169,7 +211,7 @@ func TestWorldClockResolutionIsTheFinestLayoutUsed(t *testing.T) {
 
 func worldClockFinest(format string) time.Duration {
 	template := newWorldClockTemplate(format, strftime.English, time.LoadLocation)
-	template.render(time.Now())
+	_, _ = template.render(time.Now())
 	return template.finest
 }
 
@@ -180,8 +222,10 @@ func TestWorldClockLoadsEachZoneOnceAndRendersWithinItsBudget(t *testing.T) {
 		return time.LoadLocation(zone)
 	})
 	now := time.Date(2026, 9, 29, 14, 5, 0, 0, time.UTC)
-	template.render(now)
-	allocs := testing.AllocsPerRun(50, func() { template.render(now) })
+	if _, err := template.render(now); err != nil {
+		t.Fatal(err)
+	}
+	allocs := testing.AllocsPerRun(50, func() { _, _ = template.render(now) })
 	for zone, n := range loads {
 		if n != 1 {
 			t.Errorf("%s loaded %d times, want once", zone, n)

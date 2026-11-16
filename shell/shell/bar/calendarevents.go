@@ -33,7 +33,7 @@ func startCalendar(cfg config.ClockConfig, current func() *config.Config) *calen
 		log.Print(err)
 	}
 	store.RunReminders(func(r calendar.Reminder) {
-		desktopnotify.Notify(i18n.T("dropdown-calendar-title"), r.Summary, reminderBody(r.Occurrence, calendarIs12h(current().Clock.Format.String())), "ld-calendar-symbolic")
+		desktopnotify.Notify(i18n.T("dropdown-calendar-title"), r.Summary, reminderBody(r.Occurrence, calendarIs12h(current().Clock.Format.String()), shellClockNames()), "ld-calendar-symbolic")
 	})
 	return store
 }
@@ -59,26 +59,22 @@ func sameCalendars(a, b []config.CalendarSource) bool {
 	return true
 }
 
-func clockText(t time.Time, use12h bool) string {
-	text := strftimeOf(hourLayout(use12h)+":%M", t)
-	if use12h {
-		return text + " " + strftimeOf("%p", t)
-	}
-	return text
+func clockText(t time.Time, use12h bool, names strftime.Names) string {
+	return calendarClock(use12h).time.FormatIn(t, names)
 }
 
-func eventTimeText(o calendar.Occurrence, use12h bool) string {
+func eventTimeText(o calendar.Occurrence, use12h bool, names strftime.Names) string {
 	if o.AllDay {
 		return i18n.T("dropdown-calendar-all-day")
 	}
 	if o.End.Equal(o.Start) {
-		return clockText(o.Start, use12h)
+		return clockText(o.Start, use12h, names)
 	}
-	return clockText(o.Start, use12h) + " – " + clockText(o.End, use12h)
+	return clockText(o.Start, use12h, names) + " – " + clockText(o.End, use12h, names)
 }
 
-func reminderBody(o calendar.Occurrence, use12h bool) string {
-	body := eventTimeText(o, use12h)
+func reminderBody(o calendar.Occurrence, use12h bool, names strftime.Names) string {
+	body := eventTimeText(o, use12h, names)
 	if o.Location != "" {
 		body += "\n" + o.Location
 	}
@@ -93,7 +89,7 @@ func nextEventText(store *calendar.Store, now time.Time, use12h bool, names strf
 	if !ok {
 		return ""
 	}
-	when := clockText(o.Start, use12h)
+	when := clockText(o.Start, use12h, names)
 	if y, m, d := o.Start.Date(); y != now.Year() || m != now.Month() || d != now.Day() {
 		when = names.ShortWeekdays[o.Start.Weekday()] + " " + when
 	}
@@ -120,7 +116,7 @@ func newCalendarAgenda(font render.Font, px float64) *calendarAgenda {
 	return a
 }
 
-func (a *calendarAgenda) show(events []calendar.Occurrence, use12h bool) {
+func (a *calendarAgenda) show(events []calendar.Occurrence, use12h bool, names strftime.Names) {
 	a.Clear()
 	if len(events) == 0 {
 		empty := widget.NewLabel(a.font, a.px, i18n.T("dropdown-calendar-no-events"), 0)
@@ -137,7 +133,7 @@ func (a *calendarAgenda) show(events []calendar.Occurrence, use12h bool) {
 		stripe.SetInlineStyle("background-color: " + o.Color + ";")
 		stripe.SetSizeRequest(int(styling.RemBase/4), 0)
 		text := widget.NewBox(widget.Column, th.Spacing/4, 0)
-		when := widget.NewLabel(a.font, a.px*styling.Caption.Ratio(), eventTimeText(o, use12h), 0)
+		when := widget.NewLabel(a.font, a.px*styling.Caption.Ratio(), eventTimeText(o, use12h, names), 0)
 		when.AddClass("cal-event-time", css.Caption, css.DimLabel, css.Numeric)
 		summary := widget.NewLabel(a.font, a.px, o.Summary, 0)
 		summary.AddClass("cal-event-summary")

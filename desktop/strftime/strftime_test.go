@@ -171,3 +171,34 @@ func TestFormatInRendersTheGivenNames(t *testing.T) {
 		t.Errorf("Format = %q, want %q", got, want)
 	}
 }
+
+func TestFormatInRendersTheGivenPeriods(t *testing.T) {
+	names := English
+	names.AM, names.PM = "a. m.", "p. m."
+	layout := MustCompile("%-I:%M %p")
+	for _, tc := range []struct {
+		at               time.Time
+		given, inEnglish string
+	}{
+		{time.Date(2026, 9, 29, 0, 0, 0, 0, time.UTC), "12:00 a. m.", "12:00 AM"},
+		{time.Date(2026, 9, 29, 11, 59, 0, 0, time.UTC), "11:59 a. m.", "11:59 AM"},
+		{time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC), "12:00 p. m.", "12:00 PM"},
+		{time.Date(2026, 9, 29, 23, 59, 0, 0, time.UTC), "11:59 p. m.", "11:59 PM"},
+	} {
+		if got := layout.FormatIn(tc.at, names); got != tc.given {
+			t.Errorf("FormatIn(%v) = %q, want %q", tc.at, got, tc.given)
+		}
+		if got := layout.Format(tc.at); got != tc.inEnglish {
+			t.Errorf("Format(%v) = %q, want %q", tc.at, got, tc.inEnglish)
+		}
+	}
+}
+
+func TestMustCompilePanicsOnAnUnsupportedSpecifier(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("MustCompile(%Q) did not panic")
+		}
+	}()
+	MustCompile("%Q")
+}

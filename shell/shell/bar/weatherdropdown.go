@@ -2,7 +2,6 @@ package bar
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -26,37 +26,23 @@ const (
 	weatherUpdatedEvery = time.Minute
 )
 
-// weatherHourLabel is "3 PM" or "15:00", the period in the shell's
-// language.
-func weatherHourLabel(t time.Time, format config.TimeFormat) string {
+// weatherHour12h is the 12-hour forecast's hour and period, "3 PM".
+var weatherHour12h = strftime.MustCompile(clockHour12h + clockPeriod)
+
+// weatherHourLabel is "3 PM" or "15:00", the period in the given
+// names' language.
+func weatherHourLabel(t time.Time, format config.TimeFormat, names strftime.Names) string {
 	if format == config.TimeFormat24h {
-		return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
+		return clock24h.time.FormatIn(t, names)
 	}
-	return weather12h(t.Hour(), strconv.Itoa(twelveHour(t.Hour())))
+	return weatherHour12h.FormatIn(t, names)
 }
 
-// weatherSunTime is "6:05 AM" or "06:05", the period in the shell's
-// language.
-func weatherSunTime(t weather.TimeOfDay, format config.TimeFormat) string {
-	if format == config.TimeFormat24h {
-		return t.String()
-	}
-	return weather12h(t.Hour, fmt.Sprintf("%d:%02d", twelveHour(t.Hour), t.Minute))
-}
-
-func twelveHour(hour int) int {
-	if h := hour % 12; h != 0 {
-		return h
-	}
-	return 12
-}
-
-func weather12h(hour int, clock string) string {
-	id := "dropdown-weather-time-am"
-	if hour >= 12 {
-		id = "dropdown-weather-time-pm"
-	}
-	return i18n.T(id, i18n.Str("time", clock))
+// weatherSunTime is "6:05 AM" or "06:05", the period in the given
+// names' language.
+func weatherSunTime(t weather.TimeOfDay, format config.TimeFormat, names strftime.Names) string {
+	at := time.Date(0, time.January, 1, t.Hour, t.Minute, 0, 0, time.UTC)
+	return calendarClock(format == config.TimeFormat12h).time.FormatIn(at, names)
 }
 
 // weatherDayLabel is the weekday's abbreviation.
@@ -385,7 +371,7 @@ func (v *weatherView) hourly(w *weather.Weather, imperial bool, format config.Ti
 	for i, h := range w.Hourly[:min(len(w.Hourly), weatherHourlyItems)] {
 		when := i18n.T("dropdown-weather-now")
 		if i > 0 {
-			when = weatherHourLabel(h.Time, format)
+			when = weatherHourLabel(h.Time, format, shellClockNames())
 		}
 		at := v.label(when, styling.Body, "hourly-time")
 		at.AddClass(css.Caption, css.DimLabel)
@@ -456,7 +442,7 @@ func (v *weatherView) sunTimes(w *weather.Weather, format config.TimeFormat) wid
 		{"ld-sunrise-symbolic", "dropdown-weather-sunrise", "sunrise", w.Astronomy.Sunrise},
 		{"ld-sunset-symbolic", "dropdown-weather-sunset", "sunset", w.Astronomy.Sunset},
 	} {
-		at := v.label(weatherSunTime(s.at, format), styling.Body, "sun-value")
+		at := v.label(weatherSunTime(s.at, format, shellClockNames()), styling.Body, "sun-value")
 		at.AddClass(css.Heading)
 		name := v.label(i18n.T(s.label), styling.Body, "sun-label")
 		name.AddClass(css.Caption, css.DimLabel)

@@ -35,6 +35,9 @@ cal-month-short-october = Okt
 cal-month-short-november = Nov
 cal-month-short-december = Dez
 
+cal-period-am = AM
+cal-period-pm = PM
+
 cal-clock-date-rest = , { $day }. { $month } { $year }
 
 ## Calendar Widget

@@ -42,7 +42,7 @@ type captureServices struct {
 // newCaptureServices builds the overlays and the host on the application;
 // serve puts the host and the share picker on the session bus, and a bus
 // failure leaves the in-process builtin working.
-func newCaptureServices(application *app.Application, outputs func() []*app.Output, current func() *config.Config, hypr *hyprland.Connection, clip *clipboard.Clipboard, sans render.Font, sheet *widget.Stylesheet) *captureServices {
+func newCaptureServices(application *app.Application, outputs func() []*app.Output, current func() *config.Config, hypr *hyprland.Connection, clip *clipboard.Clipboard, sans render.Font, sheet *widget.Stylesheet, toast func(label, icon string)) *captureServices {
 	cfg := current()
 	var font render.Font
 	if face, err := app.FontWeighted(cfg.General.FontMono, overlayLabelPx, 700, false); err == nil {
@@ -76,6 +76,7 @@ func newCaptureServices(application *app.Application, outputs func() []*app.Outp
 		Region:   region,
 		Picker:   colorpicker.New(application, gate, outputs, font, colorpicker.HistoryPath(), func() config.ColorFormat { return current().ColorPicker.Format }),
 		Focus:    focus,
+		Toast:    toast,
 		Copy:     awaitLoop(application, copyImage),
 		CopyText: copyTextOffLoop(application, clip),
 		Forget: func(ids []render.ImageID) {
@@ -86,7 +87,7 @@ func newCaptureServices(application *app.Application, outputs func() []*app.Outp
 			})
 		},
 	}}
-	s.shots = newShotUI(application, outputs, current, focus.FocusedOutput, sans, put)
+	s.shots = newShotUI(application, outputs, current, focus.FocusedOutput, sans, put, toast)
 	s.shots.wire(s.host)
 	windows := regionoverlay.NewWindowPick(application, gate, outputs, font, sheet)
 	s.picker = sharepicker.New(application, sharepicker.Deps{Config: current, Font: sans, Sheet: sheet, Describe: describeApp}, gate, region, windows)

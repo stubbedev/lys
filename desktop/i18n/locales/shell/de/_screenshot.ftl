@@ -18,3 +18,7 @@ screenshot-tool-pixelate = Verpixeln
 screenshot-action-copy = Kopieren
 screenshot-action-open = Öffnen
 screenshot-reading-text = Text wird gelesen … Esc bricht ab
+screenshot-thumbnail-failed = Das Bildschirmfoto wurde gespeichert, kann aber nicht angezeigt werden: { $error }
+screenshot-delete-failed = Das Bildschirmfoto wurde nicht gelöscht: { $error }
+screenshot-editor-failed = Der Editor konnte nicht geöffnet werden: { $error }
+screenshot-copy-edited-failed = Das bearbeitete Bildschirmfoto wurde gespeichert, aber nicht kopiert: { $error }

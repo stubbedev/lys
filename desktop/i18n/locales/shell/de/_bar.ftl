@@ -123,3 +123,11 @@ bar-audio-mic-muted = Mikrofon stummgeschaltet
 bar-audio-capture-mic = eine App nimmt das Mikrofon auf
 bar-audio-capture-camera = eine App verwendet eine Kamera
 bar-audio-capture-screen = eine App gibt den Bildschirm frei
+
+## Fehler, die ein Modul auf seiner Schaltfläche zeigt
+bar-module-failed = Fehler
+bar-custom-command-timed-out = Der Befehl hat zu lange gedauert und wurde beendet
+bar-custom-command-failed = Der Befehl konnte nicht ausgeführt werden: { $error }
+bar-world-clock-invalid-zone = Unbekannte Zeitzone „{ $zone }“
+bar-world-clock-invalid-layout = Nicht unterstütztes Zeitformat „{ $layout }“
+bar-world-clock-invalid-format = Das Format kann nicht angezeigt werden: { $error }

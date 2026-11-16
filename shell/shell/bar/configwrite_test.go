@@ -117,6 +117,28 @@ func TestSetConfigHandsTheOutcomeToTheLoop(t *testing.T) {
 	}
 }
 
+func TestASaveIsHeardAfterItsOwnWriteRetiredTheGeneration(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	failure := errors.New("config: save: disk full")
+	ctx.SetConfig = func(_ string, _ any, done func(error)) {
+		ctx.gen.retire()
+		go done(failure)
+	}
+	heard := make(chan error, 1)
+	onHeadlessLoop(func() bool {
+		ctx.setConfig(dockPathPinned, []any{"firefox"}, func(err error) { heard <- err })
+		return true
+	})
+	if got := apptest.Answer(t, "the outcome of a write that remounted the bars", heard); !errors.Is(got, failure) {
+		t.Errorf("done heard %v, want %v", got, failure)
+	}
+	ran := false
+	ctx.Invoke(func() { ran = true })
+	if ran {
+		t.Error("work other than a save's outcome ran for the retired generation")
+	}
+}
+
 type failingConfigStore struct {
 	setErr  map[string]error
 	saveErr error
@@ -220,9 +242,14 @@ func (s *heldConfigStore) Save() error {
 func TestConfigWriterCoalescesSavesAndNeverHoldsItsCaller(t *testing.T) {
 	store := &heldConfigStore{entered: make(chan struct{}, 8), release: make(chan struct{})}
 	w := &configWriter{store: store}
-	w.set("a", 1, logConfigFailure)
+	saved := func(err error) {
+		if err != nil {
+			t.Errorf("a held save failed: %v", err)
+		}
+	}
+	w.set("a", 1, saved)
 	apptest.Answer(t, "the first set reached the store", store.entered)
-	w.set("b", 2, logConfigFailure)
+	w.set("b", 2, saved)
 	close(store.release)
 	w.flush(10 * time.Second)
 	store.mu.Lock()

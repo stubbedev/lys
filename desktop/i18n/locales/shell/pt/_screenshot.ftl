@@ -18,3 +18,7 @@ screenshot-tool-pixelate = Pixelizar
 screenshot-action-copy = Copiar
 screenshot-action-open = Abrir
 screenshot-reading-text = A ler o texto… Esc cancela
+screenshot-thumbnail-failed = A captura de ecrã foi guardada, mas não pode ser mostrada: { $error }
+screenshot-delete-failed = A captura de ecrã não foi eliminada: { $error }
+screenshot-editor-failed = Não foi possível abrir o editor: { $error }
+screenshot-copy-edited-failed = A captura de ecrã editada foi guardada, mas não copiada: { $error }

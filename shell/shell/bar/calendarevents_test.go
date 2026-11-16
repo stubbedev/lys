@@ -163,16 +163,19 @@ func TestClockLabelShowsTheNextEvent(t *testing.T) {
 	}
 }
 
+// clockNamesIn is clockNames in one of the shell's languages.
+func clockNamesIn(t *testing.T, lang string) strftime.Names {
+	t.Helper()
+	l, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID(lang)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return clockNames(l)
+}
+
 func TestTheClockLabelNamesDaysAndMonthsInTheShellLanguage(t *testing.T) {
 	_, store := calendarFixture(t)
-	names := func(lang string) strftime.Names {
-		l, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID(lang)})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return clockNames(l)
-	}
-	french, english := names("fr"), names("en-US")
+	french, english := clockNamesIn(t, "fr"), clockNamesIn(t, "en-US")
 	if english != strftime.English {
 		t.Errorf("the en-US names %+v are not strftime's English %+v", english, strftime.English)
 	}
@@ -188,5 +191,43 @@ func TestTheClockLabelNamesDaysAndMonthsInTheShellLanguage(t *testing.T) {
 	cfg.Format = mustStrftimeFormat(t, "%A %-d %B {{ next_event }}")
 	if got, want := clockLabel(cfg, store, time.Date(2027, time.March, 9, 20, 0, 0, 0, time.Local), french), "mardi 9 mars mer. 09:00 Standup"; got != want {
 		t.Errorf("fr label with the next event = %q, want %q", got, want)
+	}
+}
+
+func TestTheClockPeriodIsInTheShellLanguage(t *testing.T) {
+	cfg := config.DefaultsClock()
+	cfg.Format = mustStrftimeFormat(t, "%I:%M %p")
+	morning := time.Date(2026, time.November, 7, 7, 55, 0, 0, time.Local)
+	evening := time.Date(2026, time.November, 7, 19, 55, 0, 0, time.Local)
+	for _, tc := range []struct {
+		lang, morning, evening string
+	}{
+		{"en-US", "07:55 AM", "07:55 PM"},
+		{"fr", "07:55 AM", "07:55 PM"},
+		{"es", "07:55 a. m.", "07:55 p. m."},
+		{"pt", "07:55 a.m.", "07:55 p.m."},
+		{"nl", "07:55 a.m.", "07:55 p.m."},
+	} {
+		names := clockNamesIn(t, tc.lang)
+		if got := clockLabel(cfg, nil, morning, names); got != tc.morning {
+			t.Errorf("%s morning label = %q, want %q", tc.lang, got, tc.morning)
+		}
+		if got := clockLabel(cfg, nil, evening, names); got != tc.evening {
+			t.Errorf("%s evening label = %q, want %q", tc.lang, got, tc.evening)
+		}
+	}
+}
+
+func TestTheAgendaTimeCarriesTheShellLanguagesPeriod(t *testing.T) {
+	at := time.Date(2026, time.March, 4, 15, 7, 0, 0, time.UTC)
+	spanish := clockNamesIn(t, "es")
+	if got, want := clockText(at, true, spanish), "3:07 p. m."; got != want {
+		t.Errorf("Spanish 12-hour agenda time = %q, want %q", got, want)
+	}
+	if got, want := clockText(at, false, spanish), "15:07"; got != want {
+		t.Errorf("Spanish 24-hour agenda time = %q, want %q, without a period", got, want)
+	}
+	if got, want := clockText(at, true, clockNamesIn(t, "en-US")), "3:07 PM"; got != want {
+		t.Errorf("English 12-hour agenda time = %q, want %q", got, want)
 	}
 }

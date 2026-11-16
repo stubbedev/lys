@@ -43,5 +43,3 @@ dropdown-weather-error-rate-limit = Zu viele Anfragen. Versuchen Sie es später 
 dropdown-weather-error-unknown = Etwas ist schiefgelaufen. Versuchen Sie es später erneut.
 dropdown-weather-retry = Erneut versuchen
 dropdown-weather-stale-title = Wetter konnte nicht aktualisiert werden
-dropdown-weather-time-am = { $time } AM
-dropdown-weather-time-pm = { $time } PM

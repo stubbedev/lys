@@ -611,8 +611,7 @@ func (s *shellStart) mount() {
 		Font:    font,
 	}, cfg)
 	osdRef.Store(osdSrv)
-	captureSvc := newCaptureServices(application, sess.Outputs, current.Load, baseCtx.Hyprland, baseCtx.Clipboard, font, theme.Sheet)
-	captureSvc.host.Toast = baseCtx.Toast
+	captureSvc := newCaptureServices(application, sess.Outputs, current.Load, baseCtx.Hyprland, baseCtx.Clipboard, font, theme.Sheet, baseCtx.Toast)
 	s.down.add(captureSvc.close)
 	s.down.addAsync(func() func() { return captureSvc.serve(s.session) })
 	s.down.addAsync(func() func() { return serveClipboardCopy(s.session, copyTextOffLoop(application, baseCtx.Clipboard)) })

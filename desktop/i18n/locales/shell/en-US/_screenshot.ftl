@@ -18,3 +18,7 @@ screenshot-tool-pixelate = Pixelate
 screenshot-action-copy = Copy
 screenshot-action-open = Open
 screenshot-reading-text = Reading text… Esc cancels
+screenshot-thumbnail-failed = The screenshot was saved but cannot be shown: { $error }
+screenshot-delete-failed = The screenshot was not deleted: { $error }
+screenshot-editor-failed = The editor could not open: { $error }
+screenshot-copy-edited-failed = The edited screenshot was saved but not copied: { $error }

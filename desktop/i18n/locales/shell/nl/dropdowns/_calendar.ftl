@@ -31,6 +31,9 @@ cal-month-short-october = okt
 cal-month-short-november = nov
 cal-month-short-december = dec
 
+cal-period-am = a.m.
+cal-period-pm = p.m.
+
 cal-clock-date-rest = {" "}{ $day } { $month } { $year }
 
 cal-today = Vandaag

@@ -49,6 +49,21 @@ func TestBrightnessListIsNotInAScroll(t *testing.T) {
 	}
 }
 
+func TestABrightnessSliderWriteIsBoundedByTheOffLoopTimeout(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	source := &fakeBrightnessSource{devices: []brightness.Device{
+		{Name: "intel_backlight", Type: brightness.TypeFirmware, Brightness: 50, Max: 100},
+	}}
+	ctx.Brightness = source
+	v := brightnessDropdown(ctx).(*brightnessView)
+	defer v.dropdownClosed()
+	v.write("intel_backlight", 30)()
+	deadlines := source.recordedDeadlines()
+	if len(deadlines) != 1 || deadlines[0] <= 0 || deadlines[0] > offLoopTimeout {
+		t.Errorf("the write ran with %v left, want one write with a deadline within %v", deadlines, offLoopTimeout)
+	}
+}
+
 // The empty state follows mod.rs:96-111: the description wraps,
 // centers, and caps at 32 characters — only the description; the
 // title stays as the template builds it.

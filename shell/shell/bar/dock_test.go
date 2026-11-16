@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,11 +23,12 @@ type fakeGeometry struct{ windows []wmipc.Window }
 func (g *fakeGeometry) Windows() []wmipc.Window { return g.windows }
 
 type dockRig struct {
-	d        *dock
-	src      *fakeToplevels
-	geom     *fakeGeometry
-	timers   []*pendingTimer
-	launched []string
+	d         *dock
+	src       *fakeToplevels
+	geom      *fakeGeometry
+	timers    []*pendingTimer
+	launched  []string
+	launchErr error
 }
 
 func newDockRig(t *testing.T, cfg config.DockConfig, windows ...*fakeWindow) *dockRig {
@@ -43,7 +45,12 @@ func newDockRig(t *testing.T, cfg config.DockConfig, windows ...*fakeWindow) *do
 		r.timers = append(r.timers, t)
 		return func() { t.stopped = true }
 	})
-	r.d.launch = func(a taskApp) { r.launched = append(r.launched, a.name) }
+	r.d.launch = func(a taskApp, failed func(error)) {
+		r.launched = append(r.launched, a.name)
+		if r.launchErr != nil {
+			failed(r.launchErr)
+		}
+	}
 	r.d.attach(namedHost{name: "dock"})
 	t.Cleanup(r.d.close)
 	return r
@@ -494,5 +501,63 @@ func TestTheDockClosesAnAppsWindows(t *testing.T) {
 	middle(r.d.entries["firefox"])
 	if len(r.launched) != 0 || other.closes != 1 || a.closes != 1 {
 		t.Errorf("middle click on an app with no window: launched %v, closes %d/%d; want nothing", r.launched, other.closes, a.closes)
+	}
+}
+
+func TestTheDockToastsALaunchThatFailsAndAnAppWithoutAnEntry(t *testing.T) {
+	cfg := config.DefaultsDock()
+	cfg.Pinned = []string{"firefox", "org.example.Gone"}
+	r := newDockRig(t, cfg)
+	r.d.hub.apps.known["org.example.Gone"] = taskApp{}
+	shown := &toasts{}
+	r.d.ctx.Toast = shown.record
+
+	r.d.entries["firefox"].ClickAt(widget.Point{})
+	if got := shown.list(); len(got) != 0 {
+		t.Fatalf("a launch that went through toasted %q", got)
+	}
+	r.launchErr = errors.New("exec: firefox: not found")
+	r.d.entries["firefox"].ClickAt(widget.Point{})
+	failed := i18n.T("dock-launch-failed", i18n.Str("app", "Firefox"), i18n.Str("error", "exec: firefox: not found"))
+	if got := shown.list(); !slices.Equal(got, []string{failed}) {
+		t.Errorf("toasts %q, want %q", got, failed)
+	}
+
+	r.d.entries["org.example.Gone"].ClickAt(widget.Point{})
+	missing := i18n.T("dock-no-desktop-entry", i18n.Str("app", "org.example.Gone"))
+	if got := shown.list(); len(got) != 2 || got[1] != missing {
+		t.Errorf("toasts %q, want %q last", got, missing)
+	}
+	if !slices.Equal(r.launched, []string{"Firefox", "Firefox"}) {
+		t.Errorf("launched %v, want Firefox twice and nothing for the app without an entry", r.launched)
+	}
+}
+
+func TestTheDockToastsAPinThatIsNotSavedEvenWhenItRemountedTheDock(t *testing.T) {
+	cfg := config.DefaultsDock()
+	cfg.Pinned = []string{"firefox"}
+	foot := &fakeWindow{appID: "foot", outputs: []string{"DP-1"}}
+	r := newDockRig(t, cfg, foot)
+	shown := &toasts{}
+	r.d.ctx.Toast = shown.record
+	var saveErr error
+	r.d.ctx.SetConfig = func(_ string, _ any, done func(error)) {
+		r.d.ctx.gen.retire()
+		done(saveErr)
+	}
+
+	menuLabel(r.d.menuItems(r.d.entries["foot"].app), i18n.T("dock-pin")).OnClick()
+	if got := shown.list(); len(got) != 0 {
+		t.Fatalf("a saved pin toasted %q", got)
+	}
+	saveErr = errors.New("config: save: read-only file system")
+	menuLabel(r.d.menuItems(r.d.entries["foot"].app), i18n.T("dock-pin")).OnClick()
+	menuLabel(r.d.menuItems(r.d.entries["firefox"].app), i18n.T("dock-unpin")).OnClick()
+	want := []string{
+		i18n.T("dock-pin-failed", i18n.Str("app", "foot"), i18n.Str("error", "config: save: read-only file system")),
+		i18n.T("dock-unpin-failed", i18n.Str("app", "firefox"), i18n.Str("error", "config: save: read-only file system")),
+	}
+	if got := shown.list(); !slices.Equal(got, want) {
+		t.Errorf("toasts %q, want %q", got, want)
 	}
 }

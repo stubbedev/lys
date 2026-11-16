@@ -18,3 +18,7 @@ screenshot-tool-pixelate = Pixeleren
 screenshot-action-copy = Kopiëren
 screenshot-action-open = Openen
 screenshot-reading-text = Tekst lezen… Esc annuleert
+screenshot-thumbnail-failed = De schermafbeelding is opgeslagen maar kan niet worden getoond: { $error }
+screenshot-delete-failed = De schermafbeelding is niet verwijderd: { $error }
+screenshot-editor-failed = De editor kon niet worden geopend: { $error }
+screenshot-copy-edited-failed = De bewerkte schermafbeelding is opgeslagen maar niet gekopieerd: { $error }
