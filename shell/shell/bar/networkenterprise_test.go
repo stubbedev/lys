@@ -189,33 +189,33 @@ func TestNetworkRefusedEnterpriseSignInAsksAgain(t *testing.T) {
 }
 
 func TestNetworkEnterpriseCertificateComesFromTheFileChooser(t *testing.T) {
-	var answer struct {
+	type answer struct {
 		path string
 		err  error
 	}
 	opened := make(chan string, 4)
+	answers := make(chan answer, 1)
 	open := func(_ context.Context, title string, filters ...portal.FileFilter) (string, error) {
 		if len(filters) != 1 || !slices.Contains(filters[0].Patterns, "*.pem") {
 			return "", fmt.Errorf("filters %+v", filters)
 		}
 		opened <- title
-		return answer.path, answer.err
+		a := <-answers
+		return a.path, a.err
 	}
 	v, _ := openEnterpriseForm(t, netDeps{wifiCtl: enterpriseWifi(), openFile: open}, "corp")
-	choose := func() {
+	choose := func(a answer) {
 		t.Helper()
+		answers <- a
 		onHeadlessLoop(func() bool { findButton(v.enterprise, "network-enterprise-ca-cert-browse").OnClick(); return true })
 		if title := <-opened; title != i18n.T("dropdown-network-enterprise-ca-cert") {
 			t.Errorf("chooser title %q", title)
 		}
 	}
-	answer.path = "/etc/ssl/campus-ca.pem"
-	choose()
+	choose(answer{path: "/etc/ssl/campus-ca.pem"})
 	waitHeadless(t, "the picked path", func() bool { return v.enterprise.caCert.Text() == "/etc/ssl/campus-ca.pem" })
-	answer.path, answer.err = "", fmt.Errorf("open: %w", portal.ErrCancelled)
-	choose()
-	answer.err = errors.New("no portal")
-	choose()
+	choose(answer{err: fmt.Errorf("open: %w", portal.ErrCancelled)})
+	choose(answer{err: errors.New("no portal")})
 	waitHeadless(t, "the chooser's failure", func() bool { return v.enterprise.errLabel.Visible() })
 	onHeadlessLoop(func() bool {
 		f := v.enterprise
