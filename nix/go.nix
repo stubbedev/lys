@@ -104,7 +104,7 @@ in {
         build = args:
           buildGoModule (finalAttrs:
             {
-              vendorHash = "sha256-qfi2oHcO6KggNDRIi9Ni3whcR2KZvhpKwb18TW1Hb0c=";
+              vendorHash = "sha256-uo4p97UD2RgrzAYnAW4OunOamjWkCxmwIU50nIZ3neg=";
               proxyVendor = true;
               overrideModAttrs = _: {
                 name = "lys-go-modules";
