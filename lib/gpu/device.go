@@ -313,6 +313,10 @@ func (d *Device) pick(p vk.PhysicalDevice, exporting bool, node *drmNode) error 
 		if f.QueueFlags&vk.QueueFlags(vk.QueueGraphicsBit|vk.QueueComputeBit) == vk.QueueFlags(vk.QueueGraphicsBit|vk.QueueComputeBit) {
 			d.phys, d.family, d.name, d.exports, d.maxDim = p, uint32(i), name, exporting, int(props.Limits.MaxImageDimension2D)
 			d.cacheUUID = props.PipelineCacheUUID
+			d.work = nil
+			if props.DeviceType == vk.PhysicalDeviceTypeCpu {
+				d.work = processCPUTime
+			}
 			d.renderNode, d.renderDev = "", 0
 			if drm.HasRender != 0 {
 				d.renderNode = fmt.Sprintf("/dev/dri/renderD%d", drm.RenderMinor)

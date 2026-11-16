@@ -1,10 +1,6 @@
 package gpu
 
-import (
-	"math"
-
-	"github.com/stubbedev/lys/lib/intconv"
-)
+import "math"
 
 type destroyer interface{ destroy() }
 
@@ -77,7 +73,7 @@ func (t *Target) destroy() {
 func (r *Readback) destroy() {
 	d := r.d
 	if r.copied {
-		d.cmds.WaitForFences(d.device, 1, &r.fence, 1, intconv.Must[uint64](d.waitLimit.Nanoseconds()))
+		_ = d.awaitWork(r.waitRound)
 	}
 	d.cmds.DestroyFence(d.device, r.fence, nil)
 	r.buf.close()

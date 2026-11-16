@@ -104,10 +104,61 @@ func TestAWaitForAHungGPUEndsInAnError(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { d.spareFences = append(d.spareFences, never) }()
-	d.waitLimit = time.Millisecond
-	if err := d.waitFence(never); err == nil {
-		t.Error("a wait for a fence that never signals reported no error")
+	d.waitLimit, d.work = time.Millisecond, nil
+	if err := d.waitFence(never); !errors.Is(err, ErrTimeout) {
+		t.Errorf("a wait for a fence that never signals: %v, want ErrTimeout", err)
 	} else if !strings.Contains(err.Error(), "1ms") {
 		t.Errorf("the error %q does not say how long it waited", err)
 	}
+}
+
+func TestAWaitOnADeviceThatDoesNoWorkEndsInATimeout(t *testing.T) {
+	d := openDevice(t)
+	never, err := d.spareFence()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { d.spareFences = append(d.spareFences, never) }()
+	samples := 0
+	d.waitLimit = time.Millisecond
+	d.work = func() (time.Duration, error) {
+		samples++
+		return time.Second + time.Duration(samples)*(d.waitLimit/idleShare-1), nil
+	}
+	err = d.waitFence(never)
+	if !errors.Is(err, ErrTimeout) || !strings.Contains(err.Error(), "did no work in 1ms") {
+		t.Errorf("a wait for a fence that never signals on a device that does no work: %v, want ErrTimeout saying so", err)
+	}
+	if samples != 2 {
+		t.Errorf("the device's work was sampled %d times, want once before the round and once after", samples)
+	}
+}
+
+func TestAWaitOnACPUDeviceOutlastsRoundsWhileTheDeviceWorks(t *testing.T) {
+	d := openDevice(t)
+	if !isCPUDevice(d) {
+		t.Skip("a hardware GPU keeps a fixed wait limit")
+	}
+	const w, h, layers = 1024, 1024, 16
+	tg := newTarget(t, d, w, h)
+	rec := render.NewRecorder(w, h, 1, 1)
+	for i := range layers {
+		rec.FillRect(rec.Rect(), render.RGBA(uint8(i), 0x40, 0x80, 0x10))
+	}
+	cpu, rounds := d.work, -1
+	d.work = func() (time.Duration, error) {
+		rounds++
+		return cpu()
+	}
+	d.waitLimit = 20 * time.Millisecond
+	if err := d.Render(rec.Recording(), tg); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Finish(); err != nil {
+		t.Fatalf("a wait for %d blended layers of %dx%d on %s: %v", layers, w, h, d.Name(), err)
+	}
+	if rounds < 1 {
+		t.Fatalf("%d blended layers of %dx%d finished within one %v round, so no wait outlasted one", layers, w, h, d.waitLimit)
+	}
+	t.Logf("the wait outlasted %d rounds of %v", rounds, d.waitLimit)
 }

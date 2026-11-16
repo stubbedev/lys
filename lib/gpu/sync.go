@@ -33,6 +33,8 @@ const queryRing = 64
 // wait is an error instead of a frozen process.
 const fenceTimeout = 10 * time.Second
 
+const idleShare = 100
+
 type timing struct {
 	timingExts []string
 	syncFiles  bool
@@ -55,6 +57,7 @@ type timing struct {
 	reaps          uint64
 	incomplete     bool
 	waitLimit      time.Duration
+	work           func() (time.Duration, error)
 	waits          []vk.Semaphore
 	passes         uint64
 	done           uint64
@@ -552,11 +555,12 @@ func (d *Device) waitTimeline(s vk.Semaphore, value uint64) error {
 	a := &d.args
 	a.timelineSemaphore, a.timelineValue = s, value
 	a.waitInfo = vk.SemaphoreWaitInfo{SType: vk.StructureTypeSemaphoreWaitInfo, SemaphoreCount: 1, PSemaphores: &a.timelineSemaphore, PValues: &a.timelineValue}
-	if r := d.cmds.WaitSemaphores(d.device, &a.waitInfo, intconv.Must[uint64](d.waitLimit.Nanoseconds())); r != vk.Success {
-		if r == vk.ErrorDeviceLost {
-			d.lost = true
-		}
-		return fmt.Errorf("gpu: vkWaitSemaphores for value %d, %v at most: %w", value, d.waitLimit, resultError(r))
+	err := d.awaitWork(func(timeout uint64) vk.Result {
+		return d.cmds.WaitSemaphores(d.device, &a.waitInfo, timeout)
+	})
+	if err != nil {
+		d.lost = d.lost || errors.Is(err, ErrDeviceLost)
+		return fmt.Errorf("gpu: vkWaitSemaphores for value %d: %w", value, err)
 	}
 	return nil
 }
@@ -901,24 +905,63 @@ func (d *Device) waitFence(f vk.Fence) error {
 		return err
 	}
 	d.blockingWaits++
-	if r := d.awaitFence(f); r != vk.Success {
-		if r == vk.ErrorDeviceLost {
-			d.lost = true
-		}
-		return fmt.Errorf("gpu: vkWaitForFences, %d submissions in flight, %v at most: %w", len(d.inflight), d.waitLimit, resultError(r))
+	if err := d.awaitFence(f); err != nil {
+		d.lost = d.lost || errors.Is(err, ErrDeviceLost)
+		return fmt.Errorf("gpu: vkWaitForFences, %d submissions in flight: %w", len(d.inflight), err)
 	}
 	return nil
 }
 
-// awaitFence waits for f, the device's wait limit at most, unless a test
-// armed waitFault, which this wait then times out in place of.
-func (d *Device) awaitFence(f vk.Fence) vk.Result {
+// awaitFence waits for f as awaitWork does, unless a test armed
+// waitFault, which this wait then times out in place of.
+func (d *Device) awaitFence(f vk.Fence) error {
 	if d.waitFault {
 		d.waitFault = false
-		return vk.Timeout
+		return fmt.Errorf("a fault a test armed: %w", resultError(vk.Timeout))
 	}
 	d.args.fence = f
-	return d.cmds.WaitForFences(d.device, 1, &d.args.fence, vk.True, intconv.Must[uint64](d.waitLimit.Nanoseconds()))
+	return d.awaitWork(func(timeout uint64) vk.Result {
+		return d.cmds.WaitForFences(d.device, 1, &d.args.fence, vk.True, timeout)
+	})
+}
+
+func (d *Device) awaitWork(round func(timeout uint64) vk.Result) error {
+	timeout := intconv.Must[uint64](d.waitLimit.Nanoseconds())
+	if d.work == nil {
+		if r := round(timeout); r != vk.Success {
+			return fmt.Errorf("%v at most: %w", d.waitLimit, resultError(r))
+		}
+		return nil
+	}
+	worked, err := d.work()
+	if err != nil {
+		return err
+	}
+	for {
+		r := round(timeout)
+		if r == vk.Success {
+			return nil
+		}
+		if r != vk.Timeout {
+			return resultError(r)
+		}
+		work, err := d.work()
+		if err != nil {
+			return errors.Join(resultError(r), err)
+		}
+		if spent := work - worked; spent < d.waitLimit/idleShare {
+			return fmt.Errorf("the device did no work in %v, its process spending %v of CPU time: %w", d.waitLimit, spent, resultError(r))
+		}
+		worked = work
+	}
+}
+
+func processCPUTime() (time.Duration, error) {
+	var ru unix.Rusage
+	if err := unix.Getrusage(unix.RUSAGE_SELF, &ru); err != nil {
+		return 0, fmt.Errorf("gpu: read the CPU time of the process a CPU device works in: %w", err)
+	}
+	return time.Duration(ru.Utime.Nano() + ru.Stime.Nano()), nil
 }
 
 func (d *Device) waitOldest() error {
