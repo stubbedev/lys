@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/render"
 
+	"github.com/stubbedev/lys/splash/internal/kms"
 	"github.com/stubbedev/lys/splash/internal/protocol"
 	"github.com/stubbedev/lys/splash/internal/theme"
 )
@@ -232,6 +233,51 @@ func TestARetainedQuitAtTheEndOfAShutdownFadesOutOnceAndTheSplashStays(t *testin
 			}
 			if got := r.presents(); got != faded || !r.display.retained {
 				t.Errorf("%d presents and retained %v on the SIGTERM after the fade, want the frame kept as it was", got-faded, r.display.retained)
+			}
+		})
+	}
+}
+
+func (r *run) awaitRemovals(t *testing.T, n int32) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for r.display.removed.Load() < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("the display handled %d removals in 5s, want %d", r.display.removed.Load(), n)
+		}
+		time.Sleep(FrameInterval)
+	}
+}
+
+func TestACardGoingAwayBeforeTheResetLeavesTheSplashInText(t *testing.T) {
+	t.Parallel()
+	r := pausedRun(t, setup{mode: Reboot})
+	r.display.removals <- kms.Event{}
+	r.awaitRemovals(t, 1)
+	r.vtSettled(t)
+	if _, graphics := r.vt.reclaimed(); graphics {
+		t.Error("the VT stayed in graphics with no screen left before the reset")
+	}
+}
+
+func TestACardGoingAwayOnceTheFrameStaysUntilTheResetIsLeftAlone(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []Mode{Shutdown, Reboot, Kexec} {
+		t.Run(mode.String(), func(t *testing.T) {
+			t.Parallel()
+			r := pausedRun(t, setup{mode: mode})
+			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
+			r.display.removals <- kms.Event{}
+			time.Sleep(10 * FrameInterval)
+			r.vtSettled(t)
+			if n := r.display.removed.Load(); n != 0 {
+				t.Errorf("the display handled %d removals after the frame was left until the reset, want none", n)
+			}
+			if len(r.display.removals) != 1 {
+				t.Error("the splash read the display's event after the frame was left until the reset")
+			}
+			if _, graphics := r.vt.reclaimed(); !graphics {
+				t.Error("the VT went to text after the frame was left until the reset")
 			}
 		})
 	}

@@ -73,10 +73,19 @@ type fakeDisplay struct {
 	deactivated bool
 	closeErr    error
 	onDeactive  func()
+	removals    chan kms.Event
+	removed     atomic.Int32
 }
 
-func (d *fakeDisplay) Events() <-chan kms.Event       { return nil }
-func (d *fakeDisplay) Handle(kms.Event) (bool, error) { return false, nil }
+func (d *fakeDisplay) Events() <-chan kms.Event { return d.removals }
+
+func (d *fakeDisplay) Handle(kms.Event) (bool, error) {
+	d.removed.Add(1)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.screens = nil
+	return true, nil
+}
 
 func (d *fakeDisplay) Screens() []Screen {
 	d.mu.Lock()
@@ -338,7 +347,7 @@ func saveUnsynced(path string, d time.Duration) error {
 
 func start(t *testing.T, s setup) *run {
 	t.Helper()
-	r := &run{socket: "@lys-splash-daemon-test-" + rand.Text(), display: &fakeDisplay{}, done: make(chan error, 1), roots: make(chan string, 4), duration: s.duration, console: newConsole(), frames: &lastFrames{}}
+	r := &run{socket: "@lys-splash-daemon-test-" + rand.Text(), display: &fakeDisplay{removals: make(chan kms.Event, 1)}, done: make(chan error, 1), roots: make(chan string, 4), duration: s.duration, console: newConsole(), frames: &lastFrames{}}
 	if r.duration == "" {
 		r.duration = filepath.Join(t.TempDir(), "boot-duration")
 	}

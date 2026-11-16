@@ -22,6 +22,14 @@ with stage(machine, "survival"):
     assert machine.succeed(f"head -c1 /proc/{pid}/cmdline") == "@", "the splash in the real root is not marked to survive the switch"
     machine.succeed(f"test \"$(readlink /proc/{pid}/root)\" = /")
 
+with stage(machine, "memory lock"):
+    locked = machine.succeed(f"grep ^VmLck: /proc/{pid}/status").split()
+    assert locked[1] == "0", f"the boot splash locked {locked[1:]} of its memory"
+    out = machine.succeed(f"{splash_test} -test.v -test.count=1 -test.run '^TestOnlyTheStoppingModesLockTheirMemory$' 2>&1")
+    print(out)
+    for mode in ["boot", "updates", "shutdown", "reboot", "kexec"]:
+        assert f"--- PASS: TestOnlyTheStoppingModesLockTheirMemory/{mode} " in out, f"the memory lock test did not pass in {mode} mode"
+
 with stage(machine, "compatibility"):
     machine.succeed(f"{plymouth} --ping", f"{plymouth} display-message --text='nixpkgs plymouth'")
     machine.succeed("journalctl -b -u lys-splash-ask-password.service -g 'Started '")

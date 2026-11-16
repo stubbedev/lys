@@ -38,9 +38,9 @@ func (m Mode) String() string {
 	return fmt.Sprintf("Mode(%d)", m)
 }
 
-// stopping reports whether the machine goes down in m, so the splash stays
+// Stopping reports whether the machine goes down in m, so the splash stays
 // until the power goes rather than waiting for a quit.
-func (m Mode) stopping() bool {
+func (m Mode) Stopping() bool {
 	return m == Shutdown || m == Reboot || m == Kexec
 }
 
@@ -67,7 +67,7 @@ func NeedsReexec(mode Mode, argv0 string, initrd, closeBeforeRemoval bool) bool 
 	if strings.HasPrefix(argv0, string(RootStorageMarker)) {
 		return false
 	}
-	if mode.stopping() {
+	if mode.Stopping() {
 		return !closeBeforeRemoval
 	}
 	return mode == Boot && initrd

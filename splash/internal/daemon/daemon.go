@@ -277,6 +277,7 @@ type daemon struct {
 	capsWatched bool
 	capsAt      time.Time
 	leave       *leave
+	untilReset  bool
 }
 
 // Run serves the splash until a quit request or ctx ends. ctx ending is a
@@ -499,7 +500,7 @@ func (d *daemon) loop(ctx context.Context) error {
 		select {
 		case <-stopped:
 			stopped = nil
-			if !d.cfg.Mode.stopping() {
+			if !d.cfg.Mode.Stopping() {
 				return errors.Join(d.quit(false), d.recordDuration())
 			}
 			d.leaveFor(func(l *leave) { l.stop = true })
@@ -510,7 +511,7 @@ func (d *daemon) loop(ctx context.Context) error {
 				switch {
 				case quit && !q.Retain:
 					return errors.Join(d.quit(false), e.call.Reply(protocol.Ack{}), d.recordDuration())
-				case quit && d.cfg.Mode.stopping():
+				case quit && d.cfg.Mode.Stopping():
 					d.cfg.Log.Info("fading the status group out for the reset", "mode", d.cfg.Mode)
 					d.leaveFor(func(l *leave) { l.holds = append(l.holds, e.call) })
 				case quit:
@@ -535,7 +536,7 @@ func (d *daemon) loop(ctx context.Context) error {
 				err = d.typed(e.keys)
 			}
 			d.showPrompt(d.asker.Prompt())
-		case e := <-d.display.Events():
+		case e := <-d.displayEvents():
 			var changed bool
 			changed, err = d.display.Handle(e)
 			d.stale = d.stale || changed
@@ -570,6 +571,13 @@ func (d *daemon) loop(ctx context.Context) error {
 			d.cfg.Log.Warn("handling an event", "err", err)
 		}
 	}
+}
+
+func (d *daemon) displayEvents() <-chan kms.Event {
+	if d.untilReset {
+		return nil
+	}
+	return d.display.Events()
 }
 
 func (d *daemon) post(e event) {
@@ -704,7 +712,7 @@ func (d *daemon) finishLeave() (bool, error) {
 	l := d.leave
 	d.leave = nil
 	var errs []error
-	if d.showsPicture() && !d.cfg.Mode.stopping() {
+	if d.showsPicture() && !d.cfg.Mode.Stopping() {
 		errs = append(errs, d.recordLastFrame())
 	}
 	if len(l.deactivations) > 0 {
@@ -712,6 +720,7 @@ func (d *daemon) finishLeave() (bool, error) {
 		errs = append(errs, ack(l.deactivations)...)
 	}
 	if len(l.holds) > 0 {
+		d.untilReset = true
 		errs = append(errs, d.unbindFramebufferConsoles())
 		d.cfg.Log.Info("the status group is gone, the frame stays until the reset", "mode", d.cfg.Mode)
 	}

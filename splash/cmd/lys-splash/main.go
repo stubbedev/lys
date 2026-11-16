@@ -100,7 +100,24 @@ func shutdownHookMain(c client.Client, argv []string) (code int) {
 			fmt.Fprintf(os.Stderr, "%s: closing %s: %v\n", argv[0], kmsg.Path, err)
 		}
 	}()
-	return runShutdownHook(c, argv, slog.New(logHandler(stderr, target, slog.LevelInfo)))
+	log := slog.New(logHandler(stderr, target, slog.LevelInfo))
+	lockMemory(unix.Mlockall, log)
+	return runShutdownHook(c, argv, log)
+}
+
+const memoryLockFlags = unix.MCL_CURRENT | unix.MCL_FUTURE
+
+func lockMemory(mlockall func(flags int) error, log *slog.Logger) {
+	if err := mlockall(memoryLockFlags); err != nil {
+		log.Error("running with memory that can be paged out, so code not yet read faults once the storage it is paged in from is gone",
+			"err", fmt.Errorf("lock every page with mlockall(MCL_CURRENT|MCL_FUTURE): %w", err))
+	}
+}
+
+func lockMemoryFor(mode daemon.Mode, mlockall func(flags int) error, log *slog.Logger) {
+	if mode.Stopping() {
+		lockMemory(mlockall, log.With("mode", mode))
+	}
 }
 
 // runShutdownHook runs as systemd-shutdown runs a hook: it asks the splash
@@ -191,6 +208,7 @@ func runDaemon(argv []string, plymouthd bool) int {
 		}
 		return 0
 	}
+	lockMemoryFor(o.mode, unix.Mlockall, log)
 	if err := serve(o, log); err != nil {
 		log.Error("the splash failed", "err", err)
 		return 1

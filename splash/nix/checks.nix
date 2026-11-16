@@ -6,28 +6,31 @@
     self',
     ...
   }: let
-    testBinary = name: pkg:
+    testBinaries = binaries:
       self'.packages.lys-splash.overrideAttrs {
-        pname = "lys-splash-${name}-test";
-        goTests = ["splash/${pkg}"];
+        pname = "lys-splash-tests";
+        goTests = map (pkg: "splash/${pkg}") (lib.attrValues binaries);
         outputs = ["out"];
         postInstall = "";
         buildPhase = ''
           runHook preBuild
-          go test -c -o ${name}.test ./splash/${pkg}
+          ${lib.concatStrings (lib.mapAttrsToList (name: pkg: "go test -c -o ${name}.test ./splash/${pkg}\n") binaries)}
           runHook postBuild
         '';
         doCheck = false;
         installPhase = ''
           runHook preInstall
-          install -Dm755 ${name}.test $out/bin/${name}.test
+          ${lib.concatStrings (lib.mapAttrsToList (name: _: "install -Dm755 ${name}.test $out/bin/${name}.test\n") binaries)}
           runHook postInstall
         '';
       };
     module = self.nixosModules.lys-splash;
     splash = self'.packages.lys-splash;
     wmPackage = self'.packages.lys-wm;
-    kms = testBinary "kms" "internal/kms";
+    tests = testBinaries {
+      kms = "internal/kms";
+      lys-splash = "cmd/lys-splash";
+    };
     grab = pkgs.callPackage ./drm-grab.nix {};
     greeter = import ./greeter.nix {inherit pkgs splash self wmPackage;};
     plymouthLink = pkgs.runCommand "lys-splash-plymouth-link" {} ''
@@ -239,7 +242,8 @@
             ''
               import traceback
 
-              kms_test = "${kms}/bin/kms.test"
+              kms_test = "${tests}/bin/kms.test"
+              splash_test = "${tests}/bin/lys-splash.test"
               units = "${splash}/lib/systemd/system"
               plymouth = "${lib.getExe' pkgs.plymouth "plymouth"}"
               passphrase = "${passphrase}"

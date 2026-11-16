@@ -11,10 +11,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/splash/internal/client"
 	"github.com/stubbedev/lys/splash/internal/daemon"
@@ -253,5 +257,129 @@ func TestTheShutdownHookWithoutASplashHasNothingToFade(t *testing.T) {
 	want := `level=INFO msg="no splash runs, so there is no status group to fade out" args=[reboot]`
 	if !strings.Contains(logs.String(), want) || strings.Contains(logs.String(), "level=ERROR") {
 		t.Errorf("the hook with no splash running logged %q, want %s and no error", logs.String(), want)
+	}
+}
+
+const memoryLockHelper = "LYS_SPLASH_TEST_LOCK_MODE"
+
+func mayLockEveryPage(t *testing.T) bool {
+	t.Helper()
+	var limit unix.Rlimit
+	if err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &limit); err != nil {
+		t.Fatalf("reading RLIMIT_MEMLOCK: %v", err)
+	}
+	if limit.Cur == unix.RLIM_INFINITY {
+		return true
+	}
+	var caps [2]unix.CapUserData
+	if err := unix.Capget(&unix.CapUserHeader{Version: unix.LINUX_CAPABILITY_VERSION_3}, &caps[0]); err != nil {
+		t.Fatalf("reading this process's capabilities: %v", err)
+	}
+	return caps[unix.CAP_IPC_LOCK/32].Effective&(1<<(unix.CAP_IPC_LOCK%32)) != 0
+}
+
+func lockedKiB(t *testing.T, mode daemon.Mode) int {
+	t.Helper()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestMemoryLockHelper$")
+	cmd.Env = append(os.Environ(), memoryLockHelper+"="+mode.String())
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("the %s helper: %v; stderr:\n%s", mode, err, stderr.String())
+	}
+	if stderr.Len() > 0 {
+		t.Errorf("the %s helper logged:\n%s", mode, stderr.String())
+	}
+	kib, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		t.Fatalf("the %s helper printed %q, not VmLck in kB: %v", mode, out, err)
+	}
+	return kib
+}
+
+func TestOnlyTheStoppingModesLockTheirMemory(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []daemon.Mode{daemon.Boot, daemon.Updates} {
+		t.Run(mode.String(), func(t *testing.T) {
+			t.Parallel()
+			if kib := lockedKiB(t, mode); kib != 0 {
+				t.Errorf("the splash in %s mode locked %d kB, want none", mode, kib)
+			}
+		})
+	}
+	for _, mode := range []daemon.Mode{daemon.Shutdown, daemon.Reboot, daemon.Kexec} {
+		t.Run(mode.String(), func(t *testing.T) {
+			t.Parallel()
+			if !mayLockEveryPage(t) {
+				t.Skip("locking every page of a Go process takes CAP_IPC_LOCK or an unlimited RLIMIT_MEMLOCK; checks.vms-luks runs this as root")
+			}
+			if kib := lockedKiB(t, mode); kib == 0 {
+				t.Errorf("the splash in %s mode locked no memory", mode)
+			}
+		})
+	}
+}
+
+func TestMemoryLockHelper(t *testing.T) {
+	name := os.Getenv(memoryLockHelper)
+	if name == "" {
+		t.Skip("run by TestOnlyTheStoppingModesLockTheirMemory")
+	}
+	mode, err := daemon.ParseMode(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockMemoryFor(mode, unix.Mlockall, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	status, err := os.ReadFile("/proc/self/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for line := range strings.SplitSeq(string(status), "\n") {
+		if value, ok := strings.CutPrefix(line, "VmLck:"); ok {
+			fmt.Println(strings.TrimSuffix(strings.TrimSpace(value), " kB"))
+			os.Exit(0)
+		}
+	}
+	t.Fatalf("no VmLck in /proc/self/status:\n%s", status)
+}
+
+func TestTheModesThatOutliveTheFilesystemsAskToLockEveryPage(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		mode daemon.Mode
+		want []int
+	}{
+		{daemon.Boot, nil},
+		{daemon.Updates, nil},
+		{daemon.Shutdown, []int{unix.MCL_CURRENT | unix.MCL_FUTURE}},
+		{daemon.Reboot, []int{unix.MCL_CURRENT | unix.MCL_FUTURE}},
+		{daemon.Kexec, []int{unix.MCL_CURRENT | unix.MCL_FUTURE}},
+	}
+	for _, tc := range tests {
+		var asked []int
+		logs, buf := hookLog()
+		lockMemoryFor(tc.mode, func(flags int) error {
+			asked = append(asked, flags)
+			return nil
+		}, logs)
+		if !slices.Equal(asked, tc.want) {
+			t.Errorf("%s mode asked mlockall for %#x, want %#x", tc.mode, asked, tc.want)
+		}
+		if buf.Len() > 0 {
+			t.Errorf("%s mode logged a lock that succeeded:\n%s", tc.mode, buf.String())
+		}
+	}
+}
+
+func TestARefusedMemoryLockIsLoggedAsAnError(t *testing.T) {
+	t.Parallel()
+	logs, buf := hookLog()
+	lockMemoryFor(daemon.Reboot, func(int) error { return unix.EPERM }, logs)
+	got := buf.String()
+	for _, want := range []string{"level=ERROR", "mode=reboot", "mlockall(MCL_CURRENT|MCL_FUTURE)", unix.EPERM.Error()} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the refused lock logged %q, missing %q", got, want)
+		}
 	}
 }
