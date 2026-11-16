@@ -3,7 +3,6 @@ version: "2"
 run:
   allow-parallel-runners: true
   relative-path-mode: cfg
-  timeout: 5m
 
 linters:
   default: standard
