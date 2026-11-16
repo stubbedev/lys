@@ -37,7 +37,7 @@ func workingFrames(id uint64) []string {
 				continue
 			}
 			fn, _, _ := strings.CutLast(line, "(")
-			if strings.HasPrefix(fn, "runtime.") || strings.HasPrefix(fn, native.RoutineExit) {
+			if strings.HasPrefix(fn, "runtime.") || strings.HasPrefix(fn, native.RoutineExit()) {
 				continue
 			}
 			frames = append(frames, fn)

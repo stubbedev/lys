@@ -5,4 +5,6 @@ import (
 	"runtime"
 )
 
-var RoutineExit = runtime.FuncForPC(reflect.ValueOf((*routine).run).Pointer()).Name()
+func RoutineExit() string {
+	return runtime.FuncForPC(reflect.ValueOf((*routine).run).Pointer()).Name()
+}
