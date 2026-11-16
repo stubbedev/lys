@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 )
@@ -31,7 +33,7 @@ type Job struct {
 
 type Component struct {
 	Paths      []string   `json:"paths"`
-	Exclude    []string   `json:"exclude"`
+	GoPackages string     `json:"go-packages"`
 	Depends    []string   `json:"depends"`
 	AffectsAll bool       `json:"affects-all"`
 	Package    bool       `json:"package"`
@@ -93,11 +95,6 @@ func validate(components map[string]Component) error {
 		if c.FreeDisk && len(c.VMs) == 0 {
 			errs = append(errs, fmt.Errorf("%s frees disk for VM checks it does not have", name))
 		}
-		for _, e := range c.Exclude {
-			if !slices.ContainsFunc(c.Paths, func(p string) bool { return matches(p, e) }) {
-				errs = append(errs, fmt.Errorf("%s excludes %q, which none of its paths holds", name, e))
-			}
-		}
 		errs = append(errs, validateShards(name, c)...)
 	}
 	return errors.Join(errs...)
@@ -130,22 +127,28 @@ func validateShards(name string, c Component) []error {
 }
 
 func owns(name string, c Component, file string) bool {
-	if slices.ContainsFunc(c.Exclude, func(e string) bool { return matches(e, file) }) {
-		return false
-	}
 	return strings.HasPrefix(file, name+"/") || slices.ContainsFunc(c.Paths, func(p string) bool { return matches(p, file) })
 }
 
-func affected(components map[string]Component, imports map[string][]string, changed []string) []string {
+func affected(components map[string]Component, imports map[string][]string, changed, goPackages []string) []string {
 	hit := map[string]bool{}
 	for _, file := range changed {
 		for name, c := range components {
-			if owns(name, c, file) {
+			switch {
+			case file == c.GoPackages:
+				hit[name] = true
+			case owns(name, c, file):
 				if c.AffectsAll {
 					return slices.Sorted(maps.Keys(components))
 				}
 				hit[name] = true
 			}
+		}
+	}
+	for _, dir := range goPackages {
+		name := componentOfDir(dir)
+		if _, ok := components[name]; ok {
+			hit[name] = true
 		}
 	}
 	for grew := true; grew; {
@@ -160,6 +163,33 @@ func affected(components map[string]Component, imports map[string][]string, chan
 		}
 	}
 	return slices.Sorted(maps.Keys(hit))
+}
+
+func componentOfDir(dir string) string {
+	name, _, _ := strings.Cut(dir, "/")
+	return name
+}
+
+func changedGoPackages(path string, old, current []byte) ([]string, error) {
+	var before, after map[string]any
+	if err := json.Unmarshal(old, &before); err != nil {
+		return nil, fmt.Errorf("parse %s at the base: %w", path, err)
+	}
+	if err := json.Unmarshal(current, &after); err != nil {
+		return nil, fmt.Errorf("parse %s at HEAD: %w", path, err)
+	}
+	var dirs []string
+	for _, dir := range slices.Sorted(maps.Keys(after)) {
+		if entry, ok := before[dir]; !ok || !reflect.DeepEqual(entry, after[dir]) {
+			dirs = append(dirs, dir)
+		}
+	}
+	for _, dir := range slices.Sorted(maps.Keys(before)) {
+		if _, ok := after[dir]; !ok {
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs, nil
 }
 
 func matches(path, file string) bool {

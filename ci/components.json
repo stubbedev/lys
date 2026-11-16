@@ -1,7 +1,7 @@
 {
   "repository": {
     "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml", ".github/workflows/package.yml"],
-    "exclude": ["nix/go-packages.json"],
+    "go-packages": "nix/go-packages.json",
     "affects-all": true,
     "jobs": [
       {

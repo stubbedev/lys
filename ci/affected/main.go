@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"slices"
@@ -68,9 +69,9 @@ func load(path string) (map[string]Component, error) {
 
 func choose(root, module string, components map[string]Component, base string, all bool) ([]string, error) {
 	if all || base == "" || strings.Trim(base, "0") == "" {
-		return affected(components, nil, []string{"go.mod"}), nil
+		return affected(components, nil, []string{"go.mod"}, nil), nil
 	}
-	changed, err := git(root, "diff", "--name-only", "--no-renames", base+"...HEAD")
+	changed, err := gitLines(root, "diff", "--name-only", "--no-renames", base+"...HEAD")
 	if err != nil {
 		return nil, err
 	}
@@ -78,17 +79,60 @@ func choose(root, module string, components map[string]Component, base string, a
 	if err != nil {
 		return nil, err
 	}
-	return affected(components, imports, changed), nil
+	goPackages, err := goPackagesChangedSince(root, components, base, changed)
+	if err != nil {
+		return nil, err
+	}
+	return affected(components, imports, changed, goPackages), nil
 }
 
-func git(root string, args ...string) ([]string, error) {
-	cmd := exec.Command("git", args...) //nolint:gosec // git diff of a base the workflow names
+func goPackagesChangedSince(root string, components map[string]Component, base string, changed []string) ([]string, error) {
+	var dirs []string
+	var mergeBase string
+	for _, name := range slices.Sorted(maps.Keys(components)) {
+		path := components[name].GoPackages
+		if path == "" || !slices.Contains(changed, path) {
+			continue
+		}
+		if mergeBase == "" {
+			out, err := git(root, "merge-base", base, "HEAD")
+			if err != nil {
+				return nil, err
+			}
+			mergeBase = strings.TrimSpace(string(out))
+		}
+		old, err := git(root, "show", mergeBase+":"+path)
+		if err != nil {
+			return nil, err
+		}
+		current, err := git(root, "show", "HEAD:"+path)
+		if err != nil {
+			return nil, err
+		}
+		changedDirs, err := changedGoPackages(path, old, current)
+		if err != nil {
+			return nil, err
+		}
+		dirs = append(dirs, changedDirs...)
+	}
+	return dirs, nil
+}
+
+func gitLines(root string, args ...string) ([]string, error) {
+	out, err := git(root, args...)
+	return strings.Fields(string(out)), err
+}
+
+func git(root string, args ...string) ([]byte, error) {
+	cmd := exec.Command("git", args...) //nolint:gosec // git reads of a base the workflow names
 	cmd.Dir = root
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+		return nil, fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, bytes.TrimSpace(stderr.Bytes()))
 	}
-	return strings.Fields(string(out)), nil
+	return out, nil
 }
 
 func goImports(root, module string) (map[string][]string, error) {
@@ -126,8 +170,7 @@ func componentOf(module, importPath string) string {
 	if !ok {
 		return ""
 	}
-	name, _, _ := strings.Cut(rest, "/")
-	name, _, _ = strings.Cut(name, " ")
+	name, _, _ := strings.Cut(componentOfDir(rest), " ")
 	return name
 }
 

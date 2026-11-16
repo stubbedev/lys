@@ -11,7 +11,7 @@ import (
 )
 
 var testComponents = map[string]Component{
-	"repository": {Paths: []string{"go.mod", "nix/"}, Exclude: []string{"nix/go-packages.json"}, AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
+	"repository": {Paths: []string{"go.mod", "nix/"}, GoPackages: "nix/go-packages.json", AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
 	"lib":        {Paths: []string{"docs/lib/xkb.md"}, Gates: []string{"vet", "test"}, Race: true},
 	"ui":         {Gates: []string{"test"}, Shards: [][]string{{"./widget"}, {"./app", "./anim/..."}}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
 	"wm":         {Depends: []string{"ui"}, Package: true, VMs: []string{"wm-vm", "wm-vm-apps"}, FreeDisk: true},
@@ -32,7 +32,7 @@ func TestAChangeAffectsItsComponentAndWhatDependsOnIt(t *testing.T) {
 		{[]string{"lib/dbusx/watch.go"}, []string{"lib", "login", "polkit", "ui", "wm"}},
 		{[]string{"docs/lib/xkb.md"}, []string{"lib", "login", "polkit", "ui", "wm"}},
 	} {
-		if got := affected(testComponents, testImports, tc.changed); !slices.Equal(got, tc.want) {
+		if got := affected(testComponents, testImports, tc.changed, nil); !slices.Equal(got, tc.want) {
 			t.Errorf("affected(%v) = %v, want %v", tc.changed, got, tc.want)
 		}
 	}
@@ -40,7 +40,7 @@ func TestAChangeAffectsItsComponentAndWhatDependsOnIt(t *testing.T) {
 
 func TestDocsAndProseAffectNothing(t *testing.T) {
 	for _, changed := range [][]string{{"docs/ui/widgets.md"}, {"README.md"}, {"docs/index.md", "AGENTS.md"}, nil} {
-		if got := affected(testComponents, testImports, changed); len(got) != 0 {
+		if got := affected(testComponents, testImports, changed, nil); len(got) != 0 {
 			t.Errorf("affected(%v) = %v, want nothing", changed, got)
 		}
 	}
@@ -48,36 +48,93 @@ func TestDocsAndProseAffectNothing(t *testing.T) {
 
 func TestASharedFileAffectsEverything(t *testing.T) {
 	for _, changed := range [][]string{{"go.mod"}, {"nix/go.nix"}, {"README.md", "nix/shell.nix"}} {
-		if got := affected(testComponents, testImports, changed); len(got) != len(testComponents) {
+		if got := affected(testComponents, testImports, changed, nil); len(got) != len(testComponents) {
 			t.Errorf("affected(%v) = %v, want every component", changed, got)
 		}
 	}
 }
 
 func TestADirectoryPathNeedsItsSlash(t *testing.T) {
-	if got := affected(testComponents, nil, []string{"nixos/x"}); len(got) != 0 {
+	if got := affected(testComponents, nil, []string{"nixos/x"}, nil); len(got) != 0 {
 		t.Fatalf("nixos/x matched the nix/ path: %v", got)
 	}
 }
 
-func TestAChangeToTheGoPackageIndexAffectsOnlyTheChangedGoPackagesComponents(t *testing.T) {
+func TestAChangeToTheGoPackageIndexAffectsTheRepositoryAndTheChangedGoPackagesComponents(t *testing.T) {
 	for _, tc := range []struct {
 		changed []string
 		want    []string
 	}{
-		{[]string{"nix/go-packages.json", "polkit/main.go"}, []string{"polkit"}},
-		{[]string{"nix/go-packages.json", "ui/widget/box.go"}, []string{"login", "ui", "wm"}},
-		{[]string{"nix/go-packages.json"}, nil},
+		{[]string{"nix/go-packages.json", "polkit/main.go"}, []string{"polkit", "repository"}},
+		{[]string{"nix/go-packages.json", "ui/widget/box.go"}, []string{"login", "repository", "ui", "wm"}},
+		{[]string{"nix/go-packages.json"}, []string{"repository"}},
 	} {
-		if got := affected(testComponents, testImports, tc.changed); !slices.Equal(got, tc.want) {
+		if got := affected(testComponents, testImports, tc.changed, nil); !slices.Equal(got, tc.want) {
 			t.Errorf("affected(%v) = %v, want %v", tc.changed, got, tc.want)
 		}
 	}
 }
 
-func TestAnExclusionLeavesTheRestOfItsDirectoryShared(t *testing.T) {
+const goPackagesBefore = `{
+  "ci/affected": {"imports": ["lib/srcroot"]},
+  "lib/peercred": {},
+  "lib/wmipc": {},
+  "polkit/agent": {"imports": ["lib/wmipc"]},
+  "wm/internal/ipc": {"imports": ["lib/wmipc"]}
+}
+`
+
+func goPackagesAffected(t *testing.T, before, after string) []string {
+	t.Helper()
+	dirs, err := changedGoPackages("nix/go-packages.json", []byte(before), []byte(after))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return affected(testComponents, testImports, []string{"nix/go-packages.json"}, dirs)
+}
+
+func TestAGoPackageIndexChangeToAComponentsEntryAffectsItAndWhatDependsOnIt(t *testing.T) {
+	for _, tc := range []struct {
+		after string
+		want  []string
+	}{
+		{strings.Replace(goPackagesBefore, `"wm/internal/ipc": {"imports": ["lib/wmipc"]}`, `"wm/internal/ipc": {"imports": ["lib/peercred", "lib/wmipc"]}`, 1), []string{"login", "repository", "wm"}},
+		{strings.Replace(goPackagesBefore, `"lib/peercred": {},`, ``, 1), []string{"lib", "login", "polkit", "repository", "ui", "wm"}},
+		{strings.Replace(goPackagesBefore, `"lib/wmipc": {},`, `"lib/wmipc": {}, "polkit/rules": {},`, 1), []string{"polkit", "repository"}},
+	} {
+		if got := goPackagesAffected(t, goPackagesBefore, tc.after); !slices.Equal(got, tc.want) {
+			t.Errorf("index\n%s\naffects %v, want %v", tc.after, got, tc.want)
+		}
+	}
+}
+
+func TestAGoPackageIndexRegenerationNoComponentBuildsFromAffectsOnlyTheRepository(t *testing.T) {
+	for _, after := range []string{
+		goPackagesBefore,
+		strings.ReplaceAll(goPackagesBefore, "\n  ", "\n    "),
+		strings.Replace(goPackagesBefore, `"ci/affected": {"imports": ["lib/srcroot"]}`, `"ci/affected": {"imports": ["lib/atomicfile", "lib/srcroot"]}`, 1),
+	} {
+		if got := goPackagesAffected(t, goPackagesBefore, after); !slices.Equal(got, []string{"repository"}) {
+			t.Errorf("index\n%s\naffects %v, want only repository", after, got)
+		}
+	}
+}
+
+func TestAGoPackageIndexThatDoesNotParseFailsNamingTheSide(t *testing.T) {
+	for _, tc := range []struct{ before, after, want string }{
+		{"{", goPackagesBefore, "parse nix/go-packages.json at the base"},
+		{goPackagesBefore, "[]", "parse nix/go-packages.json at HEAD"},
+	} {
+		_, err := changedGoPackages("nix/go-packages.json", []byte(tc.before), []byte(tc.after))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("changedGoPackages(%q, %q) = %v, want an error naming %q", tc.before, tc.after, err, tc.want)
+		}
+	}
+}
+
+func TestTheGoPackageIndexLeavesTheRestOfItsDirectoryShared(t *testing.T) {
 	for _, changed := range [][]string{{"nix/go.nix"}, {"nix/go-packages.json", "nix/go.nix"}, {"polkit/main.go", "nix/go-packages.jsonx"}} {
-		if got := affected(testComponents, testImports, changed); len(got) != len(testComponents) {
+		if got := affected(testComponents, testImports, changed, nil); len(got) != len(testComponents) {
 			t.Errorf("affected(%v) = %v, want every component", changed, got)
 		}
 	}
@@ -178,7 +235,7 @@ func TestValidateRefusesUnknownNames(t *testing.T) {
 			{Name: "idle", Runners: []Runner{X86_64}},
 			{Name: "nowhere", Run: "true"},
 		}},
-		"ui":    {FreeDisk: true, Paths: []string{"nix/"}, Exclude: []string{"nixos/x", "nix/go.nix"}},
+		"ui":    {FreeDisk: true},
 		"shell": {Gates: []string{"test"}, Shards: [][]string{{"./bar", "./..."}, {}, {"bar", "./bar"}}},
 		"lib":   {Gates: []string{"vet"}, Shards: [][]string{{"./xkb"}}},
 	}
@@ -188,15 +245,12 @@ func TestValidateRefusesUnknownNames(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`, "ui frees disk for VM checks it does not have",
-		`ui excludes "nixos/x", which none of its paths holds`, `shell shard 1 names "./...", which is no package directory`, "shell shard 2 names no packages",
+		`shell shard 1 names "./...", which is no package directory`, "shell shard 2 names no packages",
 		`shell shard 3 names "bar", which is no package directory`, `shell names "./bar" in two shards`, "lib has shards but neither a test gate nor a race suite",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %s", err, want)
 		}
-	}
-	if strings.Contains(err.Error(), "nix/go.nix") {
-		t.Errorf("error %q refuses the exclusion of nix/go.nix, which ui's nix/ path holds", err)
 	}
 }
 

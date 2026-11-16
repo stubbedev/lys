@@ -76,11 +76,14 @@ every push and pull request the plan job runs `ci/affected`, which takes the
 changed files, adds every component importing or depending on a changed one, and
 plans only their work. A change to the shared files (`go.mod`, the flake, `nix/`,
 `ci/`, the root justfile, the CI workflow and its setup action) plans every
-component, as do the weekly scheduled run and a manual one. A component's
-`exclude` takes single files back out of its `paths`: the repository component
-excludes `nix/go-packages.json`, which every change to the in-module imports
-rewrites, so such a change plans only the components whose Go files it touched
-and their importers, as the Go import analysis already finds them.
+component, as do the weekly scheduled run and a manual one, with one exception:
+the repository component's `go-packages` names `nix/go-packages.json`, which
+every change to the in-module imports rewrites. A change to it plans the
+repository job, which checks the file against the tree, and, from the entries
+that differ between the file at the merge base and at `HEAD`, the components
+owning the changed package directories and their importers, since those entries
+decide what their Nix packages build from. A regeneration that changes no
+component's entry plans only the repository job.
 
 The jobs run in two stages:
 
