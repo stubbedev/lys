@@ -14,6 +14,7 @@ import (
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 
 	"github.com/stubbedev/lys/shell/service/sharepreview"
@@ -127,7 +128,7 @@ func (h *Host) readCode(img image.Image) (string, error) {
 			switch a {
 			case ActionCopy:
 				if err := h.CopyText(payload); err != nil {
-					h.Toast("Not copied: "+err.Error(), "ld-scan-qr-code-symbolic")
+					h.Toast(i18n.T("screenshot-qr-copy-failed", i18n.Str("error", err.Error())), "ld-scan-qr-code-symbolic")
 				}
 			case ActionOpen:
 				h.OpenURL(payload)

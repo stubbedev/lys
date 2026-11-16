@@ -22,3 +22,4 @@ screenshot-thumbnail-failed = Das Bildschirmfoto wurde gespeichert, kann aber ni
 screenshot-delete-failed = Das Bildschirmfoto wurde nicht gelöscht: { $error }
 screenshot-editor-failed = Der Editor konnte nicht geöffnet werden: { $error }
 screenshot-copy-edited-failed = Das bearbeitete Bildschirmfoto wurde gespeichert, aber nicht kopiert: { $error }
+screenshot-qr-copy-failed = Der QR-Code wurde nicht kopiert: { $error }

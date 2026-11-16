@@ -18,6 +18,7 @@ import (
 
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 
@@ -156,6 +157,29 @@ func TestReadQRAnnouncesTheCodeAndCopiesOnlyWhenAsked(t *testing.T) {
 	}
 	if acts := (*notified)[0].Actions; !slices.Equal(acts, []Action{ActionCopy}) {
 		t.Fatalf("a non-URL code offers %v, want Copy only", acts)
+	}
+}
+
+func TestReadQRToastsATranslatedCopyFailureAndNothingOnSuccess(t *testing.T) {
+	const payload = "WIFI:S:home;;"
+	h, rec, notified, _ := readHost(t, onWhite(200, 100, qrImage(t, payload, 96), image.Pt(52, 2)))
+	if _, err := h.Read(portaldialogs.Caller{}, ReadQR); err != nil {
+		t.Fatal(err)
+	}
+	(*notified)[0].Respond(ActionCopy)
+	if !slices.Equal(rec.copied, []string{payload}) || len(rec.toasts) != 0 {
+		t.Fatalf("a successful copy: copied %q toasts %q, want the payload and no toast", rec.copied, rec.toasts)
+	}
+
+	copyErr := errors.New("clipboard owner vanished")
+	h.CopyText = func(string) error { return copyErr }
+	(*notified)[0].Respond(ActionCopy)
+	want := i18n.T("screenshot-qr-copy-failed", i18n.Str("error", copyErr.Error()))
+	if strings.HasPrefix(want, "No localization") || !strings.Contains(want, copyErr.Error()) {
+		t.Fatalf("the catalogue renders %q, want the message carrying the error", want)
+	}
+	if !slices.Equal(rec.toasts, []string{want}) {
+		t.Fatalf("a failed copy toasts %q, want %q", rec.toasts, want)
 	}
 }
 

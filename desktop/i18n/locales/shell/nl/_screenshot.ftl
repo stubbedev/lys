@@ -22,3 +22,4 @@ screenshot-thumbnail-failed = De schermafbeelding is opgeslagen maar kan niet wo
 screenshot-delete-failed = De schermafbeelding is niet verwijderd: { $error }
 screenshot-editor-failed = De editor kon niet worden geopend: { $error }
 screenshot-copy-edited-failed = De bewerkte schermafbeelding is opgeslagen maar niet gekopieerd: { $error }
+screenshot-qr-copy-failed = De QR-code is niet gekopieerd: { $error }
