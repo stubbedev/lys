@@ -2,6 +2,7 @@ package compositor
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"math"
 	"slices"
@@ -260,9 +261,21 @@ func (c *Compositor) XWindowRequest(w *xwayland.Window, r xwayland.Request) erro
 		if !c.wm.Floats(win.id) {
 			return nil
 		}
-		return c.update(c.wm.SetFloatingRect(win.id, c.floatingInsets(c.wm, win).frame(c.fromX(r.Rect))))
+		return c.update(c.xConfigured(c.wm, win, w, r.Rect))
 	}
 	return nil
+}
+
+func (c *Compositor) xConfigured(s wm.State, win *window, w *xwayland.Window, asked image.Rectangle) (wm.State, error) {
+	was, _ := s.FloatingRect(win.id)
+	s, err := s.SetFloatingRect(win.id, c.floatingInsets(s, win).frame(c.fromX(asked)))
+	if err != nil {
+		return wm.State{}, fmt.Errorf("compositor: float %q at its configure request %v: %w", w.Class().Class, asked, err)
+	}
+	if asked.Min != w.Rect().Min {
+		return s, nil
+	}
+	return c.recentred(s, win, was)
 }
 
 func (c *Compositor) drawUnmanaged(pass *frame, o *output.Output, shown []*surface.Surface) []*surface.Surface {

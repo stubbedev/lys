@@ -569,8 +569,15 @@ func (c *Compositor) reframed(s wm.State, w *window) (wm.State, error) {
 		}
 	}
 	w.framed = insets
+	if !floating {
+		return s, nil
+	}
+	return c.recentred(s, w, was)
+}
+
+func (c *Compositor) recentred(s wm.State, w *window, was image.Rectangle) (wm.State, error) {
 	now, _ := s.FloatingRect(w.id)
-	if over := c.floatArea(w.top); floating && now != was && was == wm.Centered(over, was.Size()) {
+	if over := c.floatArea(w.top); now != was && was == wm.Centered(over, was.Size()) {
 		return s.SetFloatingRect(w.id, wm.Centered(over, now.Size()))
 	}
 	return s, nil

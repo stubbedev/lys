@@ -917,3 +917,82 @@ func TestAFloatingXWindowWhoseMinimumArrivesAfterItsMapStaysCentred(t *testing.T
 		})
 	})
 }
+
+func TestAnXTransientThatGrowsAfterItsMapIsCentredOverItsParent(t *testing.T) {
+	t.Parallel()
+	byApp := func(ws []ipc.Window, app string) (ipc.Window, bool) {
+		i := slices.IndexFunc(ws, func(w ipc.Window) bool { return w.AppID == app })
+		if i < 0 {
+			return ipc.Window{}, false
+		}
+		return ws[i], true
+	}
+	open := func(t *testing.T) (*Harness, *xclient, xproto.Window) {
+		h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
+		xc := xDial(t, h)
+		project := xc.window(image.Rect(0, 0, 80, 60), 0xff0000, false, map[string][]byte{
+			"WM_CLASS": []byte("xtest\x00project\x00"),
+		})
+		h.Eventually("the project window tiled", func(_ *headless.Backend, c *compositor.Compositor) bool { return len(windowsOf(c)) == 1 })
+		tour := xc.window(image.Rect(0, 0, 1, 1), 0x0000ff, false, map[string][]byte{
+			"WM_CLASS":            []byte("xtest\x00tour\x00"),
+			"WM_TRANSIENT_FOR":    binary.LittleEndian.AppendUint32(nil, uint32(project)),
+			"_NET_WM_WINDOW_TYPE": xc.atom("_NET_WM_WINDOW_TYPE_DIALOG"),
+		})
+		h.Eventually("the tour floating", func(_ *headless.Backend, c *compositor.Compositor) bool {
+			w, ok := byApp(windowsOf(c), "tour")
+			return ok && w.Floating
+		})
+		return h, xc, tour
+	}
+	grow := func(t *testing.T, xc *xclient, win xproto.Window) {
+		t.Helper()
+		at := xc.geometry(win).Min
+		if err := xproto.ConfigureWindowChecked(xc.x, win, xproto.ConfigWindowX|xproto.ConfigWindowY|xproto.ConfigWindowWidth|xproto.ConfigWindowHeight,
+			[]uint32{uint32(at.X), uint32(at.Y), 60, 45}).Check(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grown := func(_ *headless.Backend, c *compositor.Compositor) bool {
+		w, ok := byApp(windowsOf(c), "tour")
+		return ok && w.Rect.Width == 60 && w.Rect.Height == 45
+	}
+	t.Run("placed by lys-wm", func(t *testing.T) {
+		h, xc, tour := open(t)
+		grow(t, xc, tour)
+		h.Eventually("the tour at its real size", grown)
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			ws := windowsOf(c)
+			p, _ := byApp(ws, "project")
+			r, _ := byApp(ws, "tour")
+			if r.Rect.X != p.Rect.X+(p.Rect.Width-r.Rect.Width)/2 || r.Rect.Y != p.Rect.Y+(p.Rect.Height-r.Rect.Height)/2 {
+				t.Errorf("the grown tour at %+v is not centred over its parent at %+v", r.Rect, p.Rect)
+			}
+			return nil
+		})
+	})
+	t.Run("moved by the user", func(t *testing.T) {
+		h, xc, tour := open(t)
+		var moved wmipc.Rect
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			a, err := wm.ParseAction("move left")
+			if err != nil {
+				return err
+			}
+			return c.Dispatch(a)
+		})
+		h.Eventually("the tour moved", func(_ *headless.Backend, c *compositor.Compositor) bool {
+			w, ok := byApp(windowsOf(c), "tour")
+			moved = w.Rect
+			return ok && xc.geometry(tour).Min.X < 80
+		})
+		grow(t, xc, tour)
+		h.Eventually("the tour at its real size", grown)
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+			if r, _ := byApp(windowsOf(c), "tour"); r.Rect.X != moved.X || r.Rect.Y != moved.Y {
+				t.Errorf("the tour the user moved went from %+v to %+v when it grew", moved, r.Rect)
+			}
+			return nil
+		})
+	})
+}
