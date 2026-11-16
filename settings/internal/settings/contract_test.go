@@ -12,12 +12,11 @@ import (
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
+	"github.com/stubbedev/lys/settings/internal/wmtest"
 )
 
 func TestEveryWMRowIsAKeyOfTheInstalledLysWM(t *testing.T) {
-	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
-		t.Skip("needs the dev shell's lys-wm; set by `just test`")
-	}
+	wmtest.Need(t)
 	f, err := wmconfig.Open(os.Getenv, wmconfig.Exec)
 	if err != nil {
 		t.Fatal(err)
@@ -34,9 +33,7 @@ func TestEveryWMRowIsAKeyOfTheInstalledLysWM(t *testing.T) {
 }
 
 func TestNoWMRowFallsBackToPlainText(t *testing.T) {
-	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
-		t.Skip("needs the dev shell's lys-wm; set by `just test`")
-	}
+	wmtest.Need(t)
 	k := testKit(t, "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	w, err := openWM(k, wmconfig.Exec)
@@ -50,9 +47,7 @@ func TestNoWMRowFallsBackToPlainText(t *testing.T) {
 }
 
 func TestEveryWMRowBuildsWithLabelsAgainstTheInstalledLysWM(t *testing.T) {
-	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
-		t.Skip("needs the dev shell's lys-wm; set by `just test`")
-	}
+	wmtest.Need(t)
 	k := testKit(t, "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	w, err := openWM(k, wmconfig.Exec)
@@ -74,9 +69,7 @@ func TestEveryWMRowBuildsWithLabelsAgainstTheInstalledLysWM(t *testing.T) {
 }
 
 func TestEveryDisplayFieldHasItsLabelAgainstTheInstalledLysWM(t *testing.T) {
-	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
-		t.Skip("needs the dev shell's lys-wm; set by `just test`")
-	}
+	wmtest.Need(t)
 	k := testKit(t, "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	w, err := openWM(k, wmconfig.Exec)
@@ -137,9 +130,7 @@ var systemDefaulted = []string{
 }
 
 func TestEveryWMRowShowsTheValueLysWMUsesUnlessTheSystemDecides(t *testing.T) {
-	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
-		t.Skip("needs the dev shell's lys-wm; set by `just test`")
-	}
+	wmtest.Need(t)
 	k := testKit(t, "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	w, err := openWM(k, wmconfig.Exec)
@@ -155,9 +146,7 @@ func TestEveryWMRowShowsTheValueLysWMUsesUnlessTheSystemDecides(t *testing.T) {
 }
 
 func TestARefusedListItemNamesItsRuntimeLine(t *testing.T) {
-	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
-		t.Skip("needs the dev shell's lys-wm; set by `just test`")
-	}
+	wmtest.Need(t)
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	f, err := wmconfig.Open(os.Getenv, wmconfig.Exec)
 	if err != nil {

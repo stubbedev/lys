@@ -4,24 +4,14 @@
   ...
 }: {
   perSystem = {
-    buildGoModule,
     go,
     lib,
     pkgs,
     testFontsConf,
     ...
   }: let
-    # Rebuild a nixpkgs Go tool against the pinned toolchain: every
-    # buildGo*Module argument its override takes (gopls asks for
-    # buildGoLatestModule, the rest for buildGoModule) gets ours, so
-    # gopls, delve and the editor tools understand go 1.27 sources.
-    withPinnedGo = pkg:
-      pkg.override (lib.mapAttrs (_: _: buildGoModule)
-        (lib.filterAttrs (name: _: lib.match "buildGo.*Module" name != null)
-          (lib.functionArgs pkg.override)));
     gpuDrivers = self.lib.gpuDriverEnv pkgs;
   in {
-
     devShells.ui = pkgs.mkShellNoCC ({
         packages =
           [
@@ -47,19 +37,6 @@
             # the accessibility bus and skip when it is missing; shipping it
             # keeps that gate honest wherever the dev shell runs.
             pkgs.dbus
-          ]
-          # Editor tooling (gopls, delve, and the tools vscode-go and
-          # vim-go install), built against the pinned Go: vscode-go
-          # expects every tool compiled with the Go it drives.
-          ++ map withPinnedGo [
-            pkgs.gopls
-            pkgs.delve
-            pkgs.gotools
-            pkgs.gomodifytags
-            pkgs.impl
-            pkgs.go-tools
-            pkgs.gotests
-            pkgs.iferr
           ];
 
         # lys-ui is pure Go by design; keep accidental cgo out. The

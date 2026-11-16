@@ -22,13 +22,11 @@ const headlessConfig = "xwayland:\n  enabled: false\nanimations:\n  enabled: fal
 // Headless runs a real lys-wm on its headless backend with the software
 // renderer in a private runtime directory, without Xwayland or a session
 // bus, and points WAYLAND_DISPLAY, XDG_RUNTIME_DIR and the lys-wm socket
-// at it for the test. Its log is shown when the test fails. A host
-// without lys-wm skips the test.
+// at it for the test. Its log is shown when the test fails. lys-wm is
+// the one Binaries builds.
 func Headless(t *testing.T) {
 	t.Helper()
-	if _, err := exec.LookPath("lys-wm"); err != nil {
-		t.Skip("lys-wm is not installed (the nix dev shell carries it)")
-	}
+	wm := filepath.Join(Binaries(t), "lys-wm")
 	dir := sockdir.Dir(t)
 	config := filepath.Join(dir, "config.yaml")
 	if err := os.WriteFile(config, []byte(headlessConfig), 0o600); err != nil {
@@ -43,7 +41,7 @@ func Headless(t *testing.T) {
 		defer mu.Unlock()
 		return logs.Write(p)
 	})
-	cmd := exec.Command("lys-wm", "-backend", "headless", "-renderer", "soft", "-config", config) //nolint:gosec // lys-wm from PATH, for a test
+	cmd := exec.Command(wm, "-backend", "headless", "-renderer", "soft", "-config", config) //nolint:gosec // the lys-wm Binaries built, for a test
 	cmd.Stdout, cmd.Stderr = out, out
 	cmd.Env = append(testhome.WithoutSession(os.Environ()), "XDG_RUNTIME_DIR="+dir, "DBUS_SESSION_BUS_ADDRESS=unix:path="+filepath.Join(dir, "no-bus"))
 	if err := cmd.Start(); err != nil {

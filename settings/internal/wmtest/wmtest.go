@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
@@ -24,17 +26,14 @@ const Bound = 60 * time.Second
 const poll = 50 * time.Millisecond
 
 // Need skips t outside `just test`, which sets LYS_SETTINGS_HEADLESS away
-// from the desktop session, and fails it without lys-wm and lys-wmctl.
+// from the desktop session, and puts lys-wm and lys-wmctl, built from this
+// source tree, first on PATH.
 func Need(t *testing.T) {
 	t.Helper()
 	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
 		t.Skip("set by `just test`, which runs away from the desktop session")
 	}
-	for _, program := range []string{"lys-wm", "lys-wmctl"} {
-		if _, err := exec.LookPath(program); err != nil {
-			t.Fatalf("the dev shell provides %s: %v", program, err)
-		}
-	}
+	lyswmtest.OnPath(t)
 }
 
 // Private points HOME, the config home and the runtime directory at a

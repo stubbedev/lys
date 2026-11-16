@@ -42,9 +42,6 @@
           systemd
           # ffprobe, which the recorder tests read their files back with.
           ffmpeg-headless
-          # The compositor the minimized-windows module and dock tests run on
-          # headless (service/lyswm/lyswmtest.Headless).
-          (self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm.overrideAttrs {doCheck = false;})
           # wl-paste, the out-of-process data-control reader the screenshot
           # clipboard tests read the selection back with.
           wl-clipboard
@@ -88,6 +85,7 @@
         ATSPI_LIBEXEC = "${pkgs.at-spi2-core}/libexec";
         ATSPI_GSETTINGS_SCHEMA_DIR = pkgs.glib.getSchemaPath pkgs.gsettings-desktop-schemas;
         LYS_SHELL_TEST_EMOJI_FONT = "${pkgs.noto-fonts-color-emoji}/share/fonts/noto/NotoColorEmoji.ttf";
+        inherit (import ../../wm/nix/test-env.nix pkgs) LYS_WM_FONT;
         XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
         XLOCALEDIR = "${pkgs.libX11}/share/X11/locale";
 
