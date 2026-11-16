@@ -78,8 +78,8 @@ in
           seat.wait_until_succeeds("pgrep -x bpftrace && sleep 2")
           seat.succeed("echo 0x10 > /sys/module/drm/parameters/debug", "dmesg -C")
           seat.succeed(
-              "(cd ${tests}/bin && LYS_WM_SEAT=1 HOME=/tmp TMPDIR=/tmp timeout 240 ./drm.test -test.count=1 -test.v -test.run 'OnASeat' > /tmp/seat.log 2>&1; "
-              "echo $? > /tmp/seat.status) > /dev/null 2>&1 &"
+              "(status=0; cd ${tests}/bin && LYS_WM_SEAT=1 HOME=/tmp TMPDIR=/tmp timeout -s QUIT -k 10 240 ./drm.test -test.count=1 -test.v -test.run 'OnASeat' > /tmp/seat.log 2>&1 || status=$?; "
+              "echo $status > /tmp/seat.status) > /dev/null 2>&1 &"
           )
 
       def ran(name, command):
@@ -113,7 +113,12 @@ in
           )
 
       with subtest("seat"):
-          seat.wait_until_succeeds("test -s /tmp/seat.status", timeout=300)
+          try:
+              seat.wait_until_succeeds("test -s /tmp/seat.status", timeout=300)
+          except Exception:
+              print(seat.execute("cat /tmp/seat.log")[1])
+              print(seat.execute("for p in $(pgrep -x drm.test); do for t in /proc/$p/task/*; do echo \"== $t $(cat $t/comm) $(grep State $t/status)\"; cat $t/stack; done; done")[1])
+              raise
           status = int(seat.succeed("cat /tmp/seat.status"))
           seat.succeed("echo 0 > /sys/module/drm/parameters/debug", "pkill -INT bpftrace || true")
           results = seat.succeed("cat /tmp/seat.log")

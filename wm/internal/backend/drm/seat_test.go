@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"unsafe"
 
@@ -386,8 +387,7 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 		t.Run(driver, func(t *testing.T) {
 			s, o := onASeat(t, driver)
 			mode := modeOf(o.mode)
-			n := len(s.dev.commits)
-			s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.PoweredOff, Mode: mode}) })
+			n := s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.PoweredOff, Mode: mode}) })
 			s.until("the output off", func() bool { return o.off && !o.flipping && !o.offDue })
 			if active := s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE"); active != 0 {
 				t.Fatalf("CRTC %d is still active after power-off", o.crtc.id)
@@ -404,8 +404,7 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 			s.until("a frame after power-on", func() bool {
 				return !o.off && s.h.presents > 0 && !o.flipping && s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE") == 1
 			})
-			n = len(s.dev.commits)
-			s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.Disabled, Mode: mode}) })
+			n = s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.Disabled, Mode: mode}) })
 			if o.enabled {
 				t.Fatal("the output is still enabled")
 			}
@@ -420,6 +419,9 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 				}
 			}
 			t.Logf("disable during a flip: commits with flags %#x, errors %v", flags, s.dev.errs[n:])
+			if len(flags) == 0 {
+				t.Fatal("the disable during a flip committed nothing")
+			}
 			if flags[0]&kdrm.AtomicNonblock == 0 {
 				t.Fatalf("the disable did not try a nonblocking commit first: %#x", flags)
 			}
@@ -427,13 +429,15 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 	}
 }
 
-func (s *seat) duringAFlip(o *Output, act func() error) {
+func (s *seat) duringAFlip(o *Output, act func() error) int {
 	s.t.Helper()
-	ran, flipping := false, false
+	ran, flipping, acted := false, false, 0
 	s.h.then = func() error {
-		ran, flipping = true, o.flipping
+		ran, flipping, acted = true, o.flipping, len(s.dev.commits)
 		return act()
 	}
+	clear(o.tested)
+	framed := len(s.dev.commits)
 	if err := o.ScheduleFrame(); err != nil {
 		s.t.Fatal(err)
 	}
@@ -441,6 +445,10 @@ func (s *seat) duringAFlip(o *Output, act func() error) {
 	if !flipping {
 		s.t.Fatal("the frame was not flipping when the test acted behind it")
 	}
+	if !slices.ContainsFunc(s.dev.commits[framed:acted], func(c commit) bool { return c.flags&kdrm.AtomicTestOnly != 0 }) {
+		s.t.Fatal("the frame the test acted behind committed without testing its planes first")
+	}
+	return acted
 }
 
 func (s *seat) unstackedOverlay(o *Output) *plane {
