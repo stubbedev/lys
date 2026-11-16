@@ -220,6 +220,34 @@ func TestEveryDeadlineJoinsWakeBudget(t *testing.T) {
 	}
 }
 
+func TestEveryWakesTheParkedLoopByItsFirstTick(t *testing.T) {
+	woke := make(chan time.Duration, 1)
+	a := &Application{wake: func(d time.Duration) { woke <- d }}
+	const every = 50 * time.Millisecond
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		a.Every(every, func() {})
+	}()
+	<-done
+	select {
+	case d := <-woke:
+		if d > every {
+			t.Errorf("Every woke the loop after %v, past its first tick at %v", d, every)
+		}
+	default:
+		t.Fatal("Every left the parked loop asleep; its timer would never fire")
+	}
+
+	a.queues.shutdown()
+	a.Every(every, func() {})
+	select {
+	case d := <-woke:
+		t.Errorf("Every on a dead loop woke it after %v", d)
+	default:
+	}
+}
+
 // TestEveryAnchorsAtFireTime checks that a late pass fires one tick
 // and rolls the deadline from the fire time, instead of bursting to
 // catch up the missed intervals. The timer's first fire is seeded on

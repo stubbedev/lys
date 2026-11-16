@@ -57,15 +57,17 @@ func (q *loopQueues) pending() int {
 	return q.box.Pending()
 }
 
-// addTimer registers one periodic timer.
-func (q *loopQueues) addTimer(t *loopTimer) {
+// addTimer registers one periodic timer and reports whether it did: a
+// dead loop takes no new timers.
+func (q *loopQueues) addTimer(t *loopTimer) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if q.dead {
 		t.stopped = true
-		return
+		return false
 	}
 	q.timers = append(q.timers, t)
+	return true
 }
 
 // killTimer marks a timer stopped; the loop reaps it on its next pass.
@@ -190,7 +192,9 @@ func (a *Application) Every(d time.Duration, fn func()) (cancel func()) {
 		return func() {}
 	}
 	t := &loopTimer{every: d, fn: fn, next: time.Now().Add(d)}
-	a.queues.addTimer(t)
+	if a.queues.addTimer(t) && a.wake != nil {
+		a.wake(d)
+	}
 	return sync.OnceFunc(func() { a.queues.killTimer(t) })
 }
 
