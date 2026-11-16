@@ -132,8 +132,9 @@ def hand_over(m):
 def reboot_shows_splash(m, splash, logo):
     m.execute("systemctl --no-block reboot", check_return=False, check_output=False)
     m.wait_for_console_text(r'msg="showing the splash" mode=reboot', timeout=seconds(30))
-    m.wait_for_console_text(r"reboot: Restarting system", timeout=seconds(60))
-    await_until(10, lambda: (None, None if "paused" in m.send_monitor_command("info status") else "the VM has not paused at the reset"))
+    await_until(180, lambda: (None, None if "paused" in m.send_monitor_command("info status") else "the VM has not paused at the reset"))
+    stopped = m.wait_for_qmp_event(lambda e: e["event"] == "SHUTDOWN", timeout=seconds(10))
+    assert stopped["data"]["reason"] == "guest-reset", f"the VM stopped for {stopped['data']}, not for the guest's reset"
     rebooting = screenshot(m, "rebooting")
     console = m.get_console_log()
     assert 'msg="fading the status group out for the reset" mode=reboot' in console, "systemd-shutdown's hook never asked the reboot splash to fade its status group out"
