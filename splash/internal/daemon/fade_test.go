@@ -181,16 +181,29 @@ func TestARetainedQuitAtTheEndOfAShutdownFadesOutOnceAndTheSplashStays(t *testin
 	for _, mode := range []Mode{Shutdown, Reboot, Kexec} {
 		t.Run(mode.String(), func(t *testing.T) {
 			t.Parallel()
-			r := pausedRun(t, setup{mode: mode})
+			var logs lockedBuffer
+			r := pausedRun(t, setup{mode: mode, log: slog.New(slog.NewTextHandler(&logs, nil))})
 			r.call(t, protocol.ShowMessage{Text: "Rebooting"}, protocol.Ack{})
 			r.settles(t)
 			from := r.presents()
 			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
+			for _, want := range []string{
+				fmt.Sprintf(`msg="fading the status group out for the reset" mode=%s`, mode),
+				`msg="unbound the kernel's framebuffer console, so a switch to text mode leaves the frame on screen" vtconsoles=[vtcon1]`,
+				fmt.Sprintf(`msg="the status group is gone, the frame stays until the reset" mode=%s`, mode),
+			} {
+				if n := strings.Count(logs.String(), want); n != 1 {
+					t.Errorf("logged %d times %s by the quit's answer, want once; logged:\n%s", n, want, logs.String())
+				}
+			}
 			if got := r.presents() - from; got < 1 || got > theme.LeavePhases {
 				t.Errorf("%d presents for the leave, want 1 to %d", got, theme.LeavePhases)
 			}
 			if !bytes.Equal(r.screen().picture(), lysPicture(t)) {
 				t.Error("the frame after the quit is not the logo alone")
+			}
+			if n := r.unbinds.Load(); n != 1 {
+				t.Errorf("unbound the framebuffer consoles %d times by the quit's answer, want once", n)
 			}
 			faded := r.presents()
 			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
@@ -233,6 +246,9 @@ func TestARetainedQuitAtShutdownWithoutAPictureIsAnsweredAtOnce(t *testing.T) {
 	case err := <-r.done:
 		t.Fatalf("the text splash ended on a retained quit at reboot: %v", err)
 	default:
+	}
+	if n := r.unbinds.Load(); n != 0 {
+		t.Errorf("the text splash unbound the framebuffer consoles it shows on %d times", n)
 	}
 }
 

@@ -149,12 +149,13 @@ type Config struct {
 	// LoadTheme reads the theme Reload shows.
 	LoadTheme func(path string) (theme.Theme, error)
 	// RasterizeLogo draws the logo for a scale in a colour off the loop.
-	RasterizeLogo   func(scale int, c render.Color) (*theme.LogoRaster, error)
-	SaveLastFrame   func(splashframe.LastFrame) error
-	ForgetLastFrame func() error
-	LoadKeymap      func() (string, error)
-	Clock           Clock
-	Log             *slog.Logger
+	RasterizeLogo             func(scale int, c render.Color) (*theme.LogoRaster, error)
+	SaveLastFrame             func(splashframe.LastFrame) error
+	ForgetLastFrame           func() error
+	UnbindFramebufferConsoles func() ([]string, error)
+	LoadKeymap                func() (string, error)
+	Clock                     Clock
+	Log                       *slog.Logger
 	// started hands a test the daemon as Run makes it.
 	started func(*daemon)
 }
@@ -510,6 +511,7 @@ func (d *daemon) loop(ctx context.Context) error {
 				case quit && !q.Retain:
 					return errors.Join(d.quit(false), e.call.Reply(protocol.Ack{}), d.recordDuration())
 				case quit && d.cfg.Mode.stopping():
+					d.cfg.Log.Info("fading the status group out for the reset", "mode", d.cfg.Mode)
 					d.leaveFor(func(l *leave) { l.holds = append(l.holds, e.call) })
 				case quit:
 					d.leaveFor(func(l *leave) { l.quits = append(l.quits, e.call) })
@@ -709,6 +711,10 @@ func (d *daemon) finishLeave() (bool, error) {
 		errs = append(errs, d.deactivate())
 		errs = append(errs, ack(l.deactivations)...)
 	}
+	if len(l.holds) > 0 {
+		errs = append(errs, d.unbindFramebufferConsoles())
+		d.cfg.Log.Info("the status group is gone, the frame stays until the reset", "mode", d.cfg.Mode)
+	}
 	errs = append(errs, ack(l.holds)...)
 	if !l.ends() {
 		return false, errors.Join(errs...)
@@ -716,6 +722,20 @@ func (d *daemon) finishLeave() (bool, error) {
 	errs = append(errs, d.quit(true))
 	errs = append(errs, ack(l.quits)...)
 	return true, errors.Join(append(errs, d.recordDuration())...)
+}
+
+func (d *daemon) unbindFramebufferConsoles() error {
+	if !d.showsPicture() {
+		return nil
+	}
+	unbound, err := d.cfg.UnbindFramebufferConsoles()
+	if len(unbound) > 0 {
+		d.cfg.Log.Info("unbound the kernel's framebuffer console, so a switch to text mode leaves the frame on screen", "vtconsoles", unbound)
+	}
+	if err != nil {
+		return fmt.Errorf("daemon: unbind the kernel's framebuffer consoles: %w", err)
+	}
+	return nil
 }
 
 func ack(calls []*server.Call) []error {

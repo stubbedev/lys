@@ -62,11 +62,17 @@ pkgs.runCommand "lys-splash-units-check" {nativeBuildInputs = [pkgs.systemd];} '
   expect off 'nosplashy'
   expect off 'splashy'
 
-  hook=${splash.compat}/lib/systemd/system-shutdown/lys-splash
-  if [ "$(readlink "$hook")" != ../../../bin/lys-splash ] || [ ! -x "$hook" ]; then
-    echo "the compat output's system-shutdown hook is not a link to its lys-splash" >&2
-    exit 1
-  fi
+  for hook in ${splash}/lib/systemd/system-shutdown/${splash.shutdownHook} ${splash.compat}/lib/systemd/system-shutdown/${splash.shutdownHook}; do
+    if [ "$(readlink "$hook")" != ../../../bin/lys-splash ] || [ ! -x "$hook" ]; then
+      echo "$hook is not a link to its output's lys-splash" >&2
+      exit 1
+    fi
+    if ! "$hook" reboot > hook.log 2>&1 || ! grep -q 'no splash runs, so there is no status group to fade out' hook.log; then
+      echo "$hook reboot with no splash running did not succeed saying there is nothing to fade:" >&2
+      cat hook.log >&2
+      exit 1
+    fi
+  done
 
   for unit in ${splash}/lib/systemd/system/* ${splash.compat}/lib/systemd/system/*; do
     name=$(basename "$unit")

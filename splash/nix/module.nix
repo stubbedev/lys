@@ -57,7 +57,6 @@
       };
 
       systemd.packages = [cfg.package];
-      systemd.shutdown.lys-splash = lib.getExe cfg.package;
       systemd.services = lib.recursiveUpdate (lib.recursiveUpdate (enable "service" null) (askPassword config.systemd.package)) {
         lys-splash-start.restartIfChanged = false;
       };

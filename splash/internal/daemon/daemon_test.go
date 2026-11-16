@@ -221,6 +221,14 @@ type run struct {
 	console  *fakeConsole
 	d        *daemon
 	frames   *lastFrames
+	unbinds  atomic.Int32
+}
+
+func (r *run) unbind() ([]string, error) {
+	if r.unbinds.Add(1) > 1 {
+		return nil, nil
+	}
+	return []string{"vtcon1"}, nil
 }
 
 func keepNoFrame(splashframe.LastFrame) error { return nil }
@@ -389,7 +397,7 @@ func start(t *testing.T, s setup) *run {
 		clock = SystemClock{}
 	}
 	started := make(chan *daemon, 1)
-	cfg := Config{started: func(d *daemon) { started <- d }, LoadKeymap: keymap, Mode: s.mode, Server: listen(t, r.socket), Chroot: chroot, BootDuration: r.duration, LoadBootDuration: load, SaveBootDuration: save, LoadTheme: loadTheme, RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: r.frames.save, ForgetLastFrame: r.frames.forget, Clock: clock, Log: log}
+	cfg := Config{started: func(d *daemon) { started <- d }, LoadKeymap: keymap, Mode: s.mode, Server: listen(t, r.socket), Chroot: chroot, BootDuration: r.duration, LoadBootDuration: load, SaveBootDuration: save, LoadTheme: loadTheme, RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: r.frames.save, ForgetLastFrame: r.frames.forget, UnbindFramebufferConsoles: r.unbind, Clock: clock, Log: log}
 	go func() {
 		r.done <- Run(ctx, cfg, th, s.bgrt, Devices{Display: r.display, VT: vt, Console: r.console})
 	}()

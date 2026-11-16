@@ -1,6 +1,6 @@
 // Command lys-splash is the lys desktop's boot splash. Run as plymouthd, or
-// as lys-splash with --mode first, it is the daemon; run from a
-// system-shutdown directory, it is systemd-shutdown's last word to the
+// as lys-splash with --mode first, it is the daemon; run as
+// lys-splash-shutdown-hook, it is systemd-shutdown's last word to the
 // splash; run as plymouth, or as lys-splash with anything else, it is the
 // client.
 package main
@@ -19,7 +19,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -49,12 +48,8 @@ const (
 	readyTimeout  = 30 * time.Second
 	logFlushWait  = 2 * time.Second
 	selfExe       = "/proc/self/exe"
-	// shutdownHooks is the base name of the directories whose executables
-	// systemd-shutdown runs just before the reset, each with its verb.
-	shutdownHooks = "system-shutdown"
+	shutdownHook  = "lys-splash-shutdown-hook"
 )
-
-var shutdownVerbs = []string{"halt", "poweroff", "reboot", "kexec"}
 
 func main() {
 	os.Exit(run(os.Args))
@@ -71,7 +66,7 @@ const (
 
 func roleOf(argv []string) role {
 	switch name := filepath.Base(strings.TrimPrefix(argv[0], string(daemon.RootStorageMarker))); {
-	case filepath.Base(filepath.Dir(argv[0])) == shutdownHooks:
+	case name == shutdownHook:
 		return shutdownHookRole
 	case name == "plymouthd":
 		return plymouthdRole
@@ -89,7 +84,7 @@ func run(argv []string) int {
 	case clientRole:
 		return c.Main(argv[1:])
 	case shutdownHookRole:
-		return shutdownHook(c, argv)
+		return shutdownHookMain(c, argv)
 	case daemonRole:
 		return runDaemon(argv, false)
 	case plymouthdRole:
@@ -98,23 +93,35 @@ func run(argv []string) int {
 	panic(fmt.Sprintf("lys-splash: role %d of %q", roleOf(argv), argv))
 }
 
-// shutdownHook runs as systemd-shutdown runs a hook, with the verb the
-// machine goes down by: it asks the splash spared from the killing to fade
-// its group out, and returns once the frame is the logo alone.
-func shutdownHook(c client.Client, argv []string) int {
-	if len(argv) != 2 || !slices.Contains(shutdownVerbs, argv[1]) {
-		fmt.Fprintf(c.Stderr, "%s: as a systemd-shutdown hook, want one argument of %s, got %q\n", argv[0], strings.Join(shutdownVerbs, ", "), argv[1:])
-		return client.ExitFailed
-	}
+func shutdownHookMain(c client.Client, argv []string) (code int) {
+	stderr, target, closeStderr := detachedStderr(kmsg.Path, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	defer func() {
+		if err := closeStderr(); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: closing %s: %v\n", argv[0], kmsg.Path, err)
+		}
+	}()
+	return runShutdownHook(c, argv, slog.New(logHandler(stderr, target, slog.LevelInfo)))
+}
+
+// runShutdownHook runs as systemd-shutdown runs a hook: it asks the splash
+// spared from the killing to fade its group out, and returns once the frame
+// is the logo alone.
+func runShutdownHook(c client.Client, argv []string, log *slog.Logger) int {
 	var stderr bytes.Buffer
-	real := c.Stderr
 	c.Stderr = &stderr
-	code := c.Main([]string{"quit", "--retain-splash"})
-	if code == client.ExitNoDaemon {
+	log = log.With("args", argv[1:])
+	log.Info("asking the splash to fade its status group out")
+	switch code := c.Main([]string{"quit", "--retain-splash"}); code {
+	case client.ExitOK:
+		log.Info("the splash faded its status group out")
+		return code
+	case client.ExitNoDaemon:
+		log.Info("no splash runs, so there is no status group to fade out")
 		return client.ExitOK
+	default:
+		log.Error("asking the splash to fade its status group out", "exit", code, "err", strings.TrimSpace(stderr.String()))
+		return code
 	}
-	_, _ = real.Write(stderr.Bytes())
-	return code
 }
 
 type options struct {
@@ -160,7 +167,7 @@ func runDaemon(argv []string, plymouthd bool) int {
 	if o.debug {
 		level = slog.LevelDebug
 	}
-	log := slog.New(logHandler(os.Getenv(daemonizedEnv), level))
+	log := slog.New(logHandler(os.Stderr, os.Getenv(daemonizedEnv), level))
 	initrd, err := daemon.InInitrd()
 	if err != nil {
 		log.Error("starting", "err", err)
@@ -191,12 +198,12 @@ func runDaemon(argv []string, plymouthd bool) int {
 	return 0
 }
 
-// logHandler logs as the parent's daemonize set the daemon's standard error up.
-func logHandler(daemonized string, level slog.Level) slog.Handler {
-	if daemonized == logsToKmsg {
-		return kmsg.NewHandler(os.Stderr, os.Getpid(), level)
+// logHandler logs to w as a log target of detachedStderr's.
+func logHandler(w io.Writer, target string, level slog.Level) slog.Handler {
+	if target == logsToKmsg {
+		return kmsg.NewHandler(w, os.Getpid(), level)
 	}
-	return slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})
+	return slog.NewTextHandler(w, &slog.HandlerOptions{Level: level})
 }
 
 func daemonize(argv []string, log *slog.Logger) error {
@@ -212,13 +219,13 @@ func daemonize(argv []string, log *slog.Logger) error {
 	return err
 }
 
-// detachedStderr opens where a detached daemon's standard error goes: the
+// detachedStderr opens where a detached daemon or the shutdown hook logs: the
 // kernel's log buffer, with this process's own standard error for a kernel
-// without one. It names the log target for the daemon's handler.
+// without one. It names the log target for logHandler.
 func detachedStderr(path string, log *slog.Logger) (stderr *os.File, target string, closeFile func() error) {
 	f, err := os.OpenFile(path, os.O_WRONLY, 0) //nolint:gosec // the path is the kernel's device
 	if err != nil {
-		log.Warn("the detached daemon logs to this standard error", "err", err)
+		log.Warn("logging to this standard error, not the kernel's log", "err", err)
 		return os.Stderr, logsToStderr, func() error { return nil }
 	}
 	return f, logsToKmsg, f.Close
@@ -363,9 +370,12 @@ func serve(o options, base *slog.Logger) (err error) {
 		RasterizeLogo:    theme.RasterizeLogo,
 		SaveLastFrame:    func(f splashframe.LastFrame) error { return splashframe.SaveLastFrame(splashframe.LastFramePath, f) },
 		ForgetLastFrame:  forgetLastFrame,
-		LoadKeymap:       func() (string, error) { return keymap.Load("/") },
-		Clock:            daemon.SystemClock{},
-		Log:              log,
+		UnbindFramebufferConsoles: func() ([]string, error) {
+			return console.UnbindFramebufferConsoles(console.VTConsoles)
+		},
+		LoadKeymap: func() (string, error) { return keymap.Load("/") },
+		Clock:      daemon.SystemClock{},
+		Log:        log,
 	}
 	return daemon.Run(ctx, cfg, t, bgrt, daemon.Devices{Display: &daemon.KMS{Display: display}, VT: vt, Console: capture})
 }

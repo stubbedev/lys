@@ -135,10 +135,15 @@ def reboot_shows_splash(m, splash, logo):
     m.wait_for_console_text(r"reboot: Restarting system", timeout=seconds(60))
     await_until(10, lambda: (None, None if "paused" in m.send_monitor_command("info status") else "the VM has not paused at the reset"))
     rebooting = screenshot(m, "rebooting")
+    console = m.get_console_log()
+    assert 'msg="fading the status group out for the reset" mode=reboot' in console, "systemd-shutdown's hook never asked the reboot splash to fade its status group out"
+    assert 'msg="the status group is gone, the frame stays until the reset" mode=reboot' in console, "the reboot splash did not finish fading its status group out before the reset"
+    assert 'msg="the splash faded its status group out"' in console, "systemd-shutdown's hook did not hear the reboot splash finish its fade"
+    assert "msg=\"unbound the kernel's framebuffer console, so a switch to text mode leaves the frame on screen\"" in console, "the reboot splash left the kernel's framebuffer console bound, so the exitrd's switch to text mode takes the screen"
     assert_same(rebooting.crop(logo), splash.crop(logo), f"the logo in {logo} at the reset against the splash's")
     shown = content(rebooting, background)
     assert inside(shown, logo), f"at the reset the screen shows {shown}, more than the logo in {logo}: the status group did not fade out"
-    assert "msg=quitting mode=reboot" not in m.get_console_log(), "the reboot splash quit before the reset"
+    assert "msg=quitting mode=reboot" not in console, "the reboot splash quit before the reset"
 
 
 def journal_entries(out):

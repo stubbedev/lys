@@ -192,10 +192,19 @@ re-execute with `@` prefixed to `argv[0]` so `systemd-shutdown` spares them,
 and the power goes with the frame on screen. Spared, they get no `SIGTERM`, so
 `systemd-shutdown` itself tells them it is done: just before the reset it runs
 every executable in its `system-shutdown` directories, and the binary linked
-there as `lys-splash` sends `quit --retain-splash`. In these modes that quit
+there as `lys-splash-shutdown-hook` sends `quit --retain-splash`. The hook
+knows its role by that file name alone: systemd resolves the directory, so on
+NixOS the hook runs from a `/nix/store/…-system-shutdown` directory, not from
+`/etc/systemd/system-shutdown`. It ignores its arguments: the splash knows
+from its mode what is ending, and systemd 262 hands its hooks an empty verb
+(the forked runner's process title overwrites the string). In these modes that quit
 fades the status group out once, answers when the frame is the logo alone, and
 leaves the splash running with its cards open; the hook returns on that answer,
-so the reset comes after the fade. A later retained quit or a message changes
+so the reset comes after the fade. Before answering, the splash unbinds the
+kernel's framebuffer console from the VTs: entering its exitrd,
+`systemd-shutdown` switches the console to text mode, which makes the kernel
+put its console on the display over a DRM master, and an idle splash would not
+take it back. A later retained quit or a message changes
 nothing on screen. `SIGTERM` in these modes also fades the group out and keeps
 the frame; in `boot` and `updates`, `SIGTERM` and `SIGINT` quit as `quit` does.
 

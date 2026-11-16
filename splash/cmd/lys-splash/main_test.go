@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -37,11 +38,12 @@ func TestRoleOf(t *testing.T) {
 		{[]string{"lys-splash", "quit", "--retain-splash"}, clientRole},
 		{[]string{"lys-splash", "--ping"}, clientRole},
 		{[]string{"lys-splash"}, clientRole},
-		{[]string{"/usr/lib/systemd/system-shutdown/lys-splash", "reboot"}, shutdownHookRole},
-		{[]string{"/etc/systemd/system-shutdown/lys-splash", "poweroff"}, shutdownHookRole},
-		{[]string{"/usr/lib/systemd/system-shutdown/plymouth", "kexec"}, shutdownHookRole},
+		{[]string{"/usr/lib/systemd/system-shutdown/lys-splash-shutdown-hook", "reboot"}, shutdownHookRole},
+		{[]string{"/nix/store/kqg81gwxr25s9ggxqi0m6hqiz9k6lj8w-system-shutdown/lys-splash-shutdown-hook", "reboot"}, shutdownHookRole},
+		{[]string{"lys-splash-shutdown-hook", "poweroff"}, shutdownHookRole},
+		{[]string{"/usr/lib/systemd/system-shutdown/lys-splash", "reboot"}, clientRole},
+		{[]string{"/usr/lib/systemd/system-shutdown/plymouth", "kexec"}, clientRole},
 		{[]string{"/usr/bin/lys-splash", "reboot"}, clientRole},
-		{[]string{"/run/system-shutdown-not/lys-splash", "halt"}, clientRole},
 	}
 	for _, tc := range tests {
 		if got := roleOf(tc.argv); got != tc.want {
@@ -173,10 +175,15 @@ func (h recordingHandler) Request(c *server.Call) {
 
 func (recordingHandler) HangUp(*server.Conn) {}
 
-func TestTheShutdownHookAsksTheSplashToRetainItsFrame(t *testing.T) {
-	t.Parallel()
+func hookLog() (*slog.Logger, *bytes.Buffer) {
+	var logs bytes.Buffer
+	return slog.New(slog.NewTextHandler(&logs, nil)), &logs
+}
+
+func listenFor(t *testing.T, owner uint32) (string, chan protocol.Request) {
+	t.Helper()
 	socket := "@lys-splash-main-hook-" + rand.Text()
-	srv, err := server.Listen(socket, uint32(os.Getuid()), slog.New(slog.DiscardHandler))
+	srv, err := server.Listen(socket, owner, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,38 +196,62 @@ func TestTheShutdownHookAsksTheSplashToRetainItsFrame(t *testing.T) {
 		}
 		<-served
 	})
-	var stderr bytes.Buffer
-	c := client.Client{Socket: socket, Stdout: io.Discard, Stderr: &stderr}
-	for _, verb := range shutdownVerbs {
-		if got := shutdownHook(c, []string{"/usr/lib/systemd/system-shutdown/lys-splash", verb}); got != client.ExitOK {
-			t.Fatalf("the hook for %s exited %d: %s", verb, got, stderr.String())
+	return socket, h.requests
+}
+
+const hookPath = "/nix/store/kqg81gwxr25s9ggxqi0m6hqiz9k6lj8w-system-shutdown/" + shutdownHook
+
+func TestTheShutdownHookAsksTheSplashToRetainItsFrame(t *testing.T) {
+	t.Parallel()
+	socket, requests := listenFor(t, uint32(os.Getuid()))
+	c := client.Client{Socket: socket, Stdout: io.Discard, Stderr: io.Discard}
+	for _, args := range [][]string{{"reboot"}, {"poweroff"}, {""}, {}} {
+		log, logs := hookLog()
+		if got := runShutdownHook(c, append([]string{hookPath}, args...), log); got != client.ExitOK {
+			t.Fatalf("the hook with %q exited %d: %s", args, got, logs.String())
 		}
-		if got := <-h.requests; got != (protocol.Quit{Retain: true}) {
-			t.Errorf("the hook for %s sent %#v, want a quit retaining the splash", verb, got)
+		if got := <-requests; got != (protocol.Quit{Retain: true}) {
+			t.Errorf("the hook with %q sent %#v, want a quit retaining the splash", args, got)
+		}
+		for _, want := range []string{
+			fmt.Sprintf(`level=INFO msg="asking the splash to fade its status group out" args=%v`, args),
+			fmt.Sprintf(`level=INFO msg="the splash faded its status group out" args=%v`, args),
+		} {
+			if !strings.Contains(logs.String(), want) {
+				t.Errorf("the hook with %q did not log %s; logged:\n%s", args, want, logs.String())
+			}
 		}
 	}
-	for _, argv := range [][]string{
-		{"/usr/lib/systemd/system-shutdown/lys-splash"},
-		{"/usr/lib/systemd/system-shutdown/lys-splash", "suspend"},
-		{"/usr/lib/systemd/system-shutdown/lys-splash", "reboot", "now"},
-	} {
-		stderr.Reset()
-		if got := shutdownHook(c, argv); got != client.ExitFailed || !strings.Contains(stderr.String(), "halt, poweroff, reboot, kexec") {
-			t.Errorf("the hook run as %q exited %d with %q, want a failure naming the verbs", argv, got, stderr.String())
-		}
+}
+
+func TestTheShutdownHookLogsASplashRefusingIt(t *testing.T) {
+	t.Parallel()
+	socket, requests := listenFor(t, uint32(os.Getuid())+1)
+	log, logs := hookLog()
+	c := client.Client{Socket: socket, Stdout: io.Discard, Stderr: io.Discard}
+	if got := runShutdownHook(c, []string{hookPath, "reboot"}, log); got != client.ExitFailed {
+		t.Errorf("the hook refused by the splash exited %d, want %d", got, client.ExitFailed)
+	}
+	want := `level=ERROR msg="asking the splash to fade its status group out" args=[reboot] exit=1`
+	if !strings.Contains(logs.String(), want) {
+		t.Errorf("the hook refused by the splash did not log %s; logged:\n%s", want, logs.String())
 	}
 	select {
-	case r := <-h.requests:
-		t.Errorf("a hook with a wrong verb sent %#v", r)
+	case r := <-requests:
+		t.Errorf("a refused request reached the splash: %#v", r)
 	default:
 	}
 }
 
 func TestTheShutdownHookWithoutASplashHasNothingToFade(t *testing.T) {
 	t.Parallel()
-	var stderr bytes.Buffer
-	c := client.Client{Socket: "@lys-splash-main-hook-absent-" + rand.Text(), Stdout: io.Discard, Stderr: &stderr}
-	if got := shutdownHook(c, []string{"/usr/lib/systemd/system-shutdown/lys-splash", "reboot"}); got != client.ExitOK || stderr.Len() != 0 {
-		t.Errorf("the hook with no splash running exited %d with %q, want 0 and nothing said", got, stderr.String())
+	log, logs := hookLog()
+	c := client.Client{Socket: "@lys-splash-main-hook-absent-" + rand.Text(), Stdout: io.Discard, Stderr: io.Discard}
+	if got := runShutdownHook(c, []string{hookPath, "reboot"}, log); got != client.ExitOK {
+		t.Errorf("the hook with no splash running exited %d, want 0", got)
+	}
+	want := `level=INFO msg="no splash runs, so there is no status group to fade out" args=[reboot]`
+	if !strings.Contains(logs.String(), want) || strings.Contains(logs.String(), "level=ERROR") {
+		t.Errorf("the hook with no splash running logged %q, want %s and no error", logs.String(), want)
 	}
 }
