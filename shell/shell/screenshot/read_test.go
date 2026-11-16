@@ -223,7 +223,11 @@ func spawns(t *testing.T, calls string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return strings.Split(strings.TrimSpace(string(data)), "\n")
+	text := strings.TrimSpace(string(data))
+	if text == "" {
+		return nil
+	}
+	return strings.Split(text, "\n")
 }
 
 func TestReadTextCopiesWhatTesseractReadOnceAndToastsTheFirstLine(t *testing.T) {
