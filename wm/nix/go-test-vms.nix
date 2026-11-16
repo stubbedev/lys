@@ -21,6 +21,7 @@
       cp -R docs/wm/shaders "$out/docs/wm/shaders"
       runHook postInstall
     '';
+    postInstall = "";
     postFixup = "";
   };
   env = import ./test-env.nix pkgs;
