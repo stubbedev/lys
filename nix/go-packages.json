@@ -431,6 +431,8 @@
   "desktop/swaytest": {
     "imports": [
       "lib/dbustest",
+      "lib/intconv",
+      "lib/procstat",
       "lib/sockdir",
       "lib/testhome"
     ]
@@ -891,6 +893,7 @@
       "lib/intconv",
       "lib/logind",
       "lib/peercred",
+      "lib/procstat",
       "lib/third_party/godbus"
     ],
     "testImports": [
@@ -933,6 +936,11 @@
       "lib/internal/goroutine",
       "lib/testbuild",
       "lib/testhome"
+    ]
+  },
+  "lib/procstat": {
+    "testImports": [
+      "lib/testbuild"
     ]
   },
   "lib/protocols": {
@@ -5032,6 +5040,7 @@
   "wm/internal/ipc": {
     "imports": [
       "lib/peercred",
+      "lib/procstat",
       "lib/wmipc",
       "wm/internal/binds",
       "wm/internal/loop",

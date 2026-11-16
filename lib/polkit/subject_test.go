@@ -7,24 +7,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/peercred"
+	"github.com/stubbedev/lys/lib/procstat"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
-
-func TestStartTimeIsReadPastACommandNameWithSpacesAndParentheses(t *testing.T) {
-	stat := []byte("4242 (a) b (c)) S 1 4242 4242 0 -1 4194560 100 0 0 0 1 2 0 0 20 0 1 0 987654 12345 67 18446744073709551615\n")
-	if got, err := startTime(stat); err != nil || got != 987654 {
-		t.Errorf("startTime = %d, %v; want 987654", got, err)
-	}
-	for name, bad := range map[string]string{
-		"no command name": "4242 sh S 1",
-		"truncated":       "4242 (sh) S 1 4242",
-		"not a number":    "4242 (sh) S 1 4242 4242 0 -1 4194560 100 0 0 0 1 2 0 0 20 0 1 0 soon 1",
-	} {
-		if got, err := startTime([]byte(bad)); err == nil {
-			t.Errorf("%s: startTime = %d, want an error", name, got)
-		}
-	}
-}
 
 func TestProcessOfReadsTheKernelsStartTime(t *testing.T) {
 	me := peercred.Credentials{UID: uint32(os.Getuid()), GID: uint32(os.Getgid()), PID: int32(os.Getpid())}
@@ -32,14 +17,11 @@ func TestProcessOfReadsTheKernelsStartTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stat, err := os.ReadFile("/proc/self/stat")
+	self, err := procstat.Read("/proc/self/stat")
 	if err != nil {
 		t.Fatal(err)
 	}
-	start, err := startTime(stat)
-	if err != nil {
-		t.Fatal(err)
-	}
+	start := self.StartTime
 	if want := (UnixProcess{PID: uint32(os.Getpid()), StartTime: start, UID: me.UID}); p != want || start == 0 {
 		t.Errorf("ProcessOf = %+v, want %+v", p, want)
 	}

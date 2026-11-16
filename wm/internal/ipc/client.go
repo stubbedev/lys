@@ -2,18 +2,16 @@ package ipc
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/stubbedev/lys/lib/peercred"
+	"github.com/stubbedev/lys/lib/procstat"
 	"github.com/stubbedev/lys/lib/wmipc"
 )
 
@@ -91,42 +89,11 @@ func (cn *conn) peerWork() (uint64, error) {
 		}
 		cn.pid = cred.PID
 	}
-	path := "/proc/" + strconv.Itoa(int(cn.pid)) + "/stat"
-	stat, err := os.ReadFile(path) //nolint:gosec // procfs of the pid the kernel named as the socket's peer
+	st, err := procstat.Of(int(cn.pid))
 	if err != nil {
 		return 0, fmt.Errorf("ipc: read how much work lys-wm has done: %w", err)
 	}
-	ticks, err := cpuTicks(stat)
-	if err != nil {
-		return 0, fmt.Errorf("ipc: %s: %w", path, err)
-	}
-	return ticks, nil
-}
-
-const (
-	firstAfterComm = 3
-	utimeField     = 14
-	stimeField     = 15
-)
-
-func cpuTicks(stat []byte) (uint64, error) {
-	_, afterComm, ok := bytes.CutLast(stat, []byte(")"))
-	if !ok {
-		return 0, fmt.Errorf("no (comm) in %q", stat)
-	}
-	fields := strings.Fields(string(afterComm))
-	if len(fields) <= stimeField-firstAfterComm {
-		return 0, fmt.Errorf("%d fields after (comm), want at least %d, in %q", len(fields), stimeField-firstAfterComm+1, stat)
-	}
-	var ticks uint64
-	for _, field := range []int{utimeField, stimeField} {
-		n, err := strconv.ParseUint(fields[field-firstAfterComm], 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf("field %d: %w", field, err)
-		}
-		ticks += n
-	}
-	return ticks, nil
+	return st.CPUTicks, nil
 }
 
 func send(path string, req Request, idle time.Duration) (*conn, error) {

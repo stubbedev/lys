@@ -53,15 +53,3 @@ func TestARequestFailsWhenLysWMDoesNoWork(t *testing.T) {
 		t.Fatalf("a dispatch to a compositor thread that is blocked: %v", err)
 	}
 }
-
-func TestTheWorkOfAProcessIsItsUserAndSystemTicks(t *testing.T) {
-	got, err := cpuTicks([]byte("4242 (lys-wm) odd)) S 1 2 3 4 5 6 7 8 9 10 31 11 0 0 20 0 9 0 100 0 0\n"))
-	if err != nil || got != 42 {
-		t.Fatalf("ticks %d, %v; want 31 user + 11 system", got, err)
-	}
-	for _, stat := range []string{"4242 lys-wm S 1", "4242 (lys-wm) S 1 2 3", "4242 (lys-wm) S 1 2 3 4 5 6 7 8 9 10 x 11"} {
-		if _, err := cpuTicks([]byte(stat)); err == nil {
-			t.Errorf("%q was read as ticks", stat)
-		}
-	}
-}

@@ -84,7 +84,7 @@ Test helpers load `libpipewire-0.3.so.0` (`pipewire/pwtest`) and `libei.so.1`
 | [`i18n`](/lib/system#i18n) | gettext catalogs in pure Go |
 | [`glibclocale`](/lib/system#glibclocale) | glibc's compiled locale data and strftime in pure Go |
 | `vaultserver` | A validated Bitwarden server address |
-| [`clib`, `intconv`, `atomicfile`, `assetfile`, `xdg`, `peercred`, `debug`, `logutil`, `testbuild`](/lib/system#small-helpers) | Shared helpers |
+| [`clib`, `intconv`, `atomicfile`, `assetfile`, `xdg`, `peercred`, `procstat`, `debug`, `logutil`, `testbuild`](/lib/system#small-helpers) | Shared helpers |
 
 ### Test support
 

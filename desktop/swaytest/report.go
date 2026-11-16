@@ -15,6 +15,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/procstat"
 )
 
 const (
@@ -35,12 +38,6 @@ type watch struct {
 type cpuSample struct {
 	time time.Duration
 	err  error
-}
-
-type procStat struct {
-	comm  string
-	state string
-	ticks int64
 }
 
 func watchSway(pid int, event string) watch {
@@ -80,11 +77,11 @@ func cpuDelta(from, to cpuSample) string {
 }
 
 func sampleCPU(pid int) cpuSample {
-	st, err := readStat(procPath(pid, "stat"))
+	st, err := procstat.Of(pid)
 	if err != nil {
 		return cpuSample{err: err}
 	}
-	d, err := ticksDuration(st.ticks)
+	d, err := ticksDuration(st.CPUTicks)
 	return cpuSample{time: d, err: err}
 }
 
@@ -116,12 +113,12 @@ func writeThreads(b *strings.Builder, pid int) {
 
 func threadLine(dir string, tid int) string {
 	wchan := orError(readTrimmed(filepath.Join(dir, "wchan")))
-	st, err := readStat(filepath.Join(dir, "stat"))
+	st, err := procstat.Read(filepath.Join(dir, "stat"))
 	if err != nil {
 		return fmt.Sprintf("%d: error: %v, wchan %s", tid, err, wchan)
 	}
-	cpu, err := ticksDuration(st.ticks)
-	return fmt.Sprintf("%d %s: state %s, wchan %s, CPU %s", tid, st.comm, st.state, wchan, cpuSample{time: cpu, err: err})
+	cpu, err := ticksDuration(st.CPUTicks)
+	return fmt.Sprintf("%d %s: state %s, wchan %s, CPU %s", tid, st.Comm, st.State, wchan, cpuSample{time: cpu, err: err})
 }
 
 func procPath(pid int, name string) string {
@@ -157,44 +154,12 @@ func statusState(pid int) (string, error) {
 	return "", fmt.Errorf("no State line in %s", name)
 }
 
-func readStat(name string) (procStat, error) {
-	b, err := os.ReadFile(name) //nolint:gosec // a /proc file
-	if err != nil {
-		return procStat{}, err
-	}
-	st, err := parseStat(string(b))
-	if err != nil {
-		return procStat{}, fmt.Errorf("parse %s: %w", name, err)
-	}
-	return st, nil
-}
-
-func parseStat(s string) (procStat, error) {
-	open, end := strings.IndexByte(s, '('), strings.LastIndexByte(s, ')')
-	if open < 0 || end < open {
-		return procStat{}, fmt.Errorf("no (comm) in %q", s)
-	}
-	fields := strings.Fields(s[end+1:])
-	if len(fields) < 13 {
-		return procStat{}, fmt.Errorf("%d fields after (comm), want at least 13, in %q", len(fields), s)
-	}
-	utime, err := strconv.ParseInt(fields[11], 10, 64)
-	if err != nil {
-		return procStat{}, fmt.Errorf("utime: %w", err)
-	}
-	stime, err := strconv.ParseInt(fields[12], 10, 64)
-	if err != nil {
-		return procStat{}, fmt.Errorf("stime: %w", err)
-	}
-	return procStat{comm: s[open+1 : end], state: fields[0], ticks: utime + stime}, nil
-}
-
-func ticksDuration(ticks int64) (time.Duration, error) {
+func ticksDuration(ticks uint64) (time.Duration, error) {
 	tick, err := clockTick()
 	if err != nil {
 		return 0, err
 	}
-	return time.Duration(ticks) * tick, nil
+	return intconv.Duration(ticks, tick), nil
 }
 
 var clockTick = sync.OnceValues(readClockTick)

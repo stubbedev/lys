@@ -1,15 +1,14 @@
 package polkit
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/peercred"
+	"github.com/stubbedev/lys/lib/procstat"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -156,16 +155,11 @@ func ProcessOf(c peercred.Credentials) (UnixProcess, error) {
 	if err != nil || pid == 0 {
 		return UnixProcess{}, fmt.Errorf("polkit: the peer of uid %d has no pid in this pid namespace (%d)", c.UID, c.PID)
 	}
-	path := "/proc/" + strconv.FormatUint(uint64(pid), 10) + "/stat"
-	stat, err := os.ReadFile(path) //nolint:gosec // procfs of a pid the kernel named
+	st, err := procstat.Of(int(c.PID))
 	if err != nil {
 		return UnixProcess{}, fmt.Errorf("polkit: read the start time of pid %d: %w", pid, err)
 	}
-	start, err := startTime(stat)
-	if err != nil {
-		return UnixProcess{}, fmt.Errorf("polkit: %s: %w", path, err)
-	}
-	return UnixProcess{PID: pid, StartTime: start, UID: c.UID}, nil
+	return UnixProcess{PID: pid, StartTime: st.StartTime, UID: c.UID}, nil
 }
 
 // ProcessOfPIDFD is the unix-process subject for the peer pidfd names,
@@ -186,29 +180,4 @@ func ProcessOfPIDFD(pidfd *peercred.PIDFD) (UnixProcess, error) {
 	}
 	p.PIDFD = pidfd
 	return p, nil
-}
-
-// startTimeField is starttime's place in /proc/pid/stat, counted from 1
-// (proc_pid_stat(5)), and firstAfterComm that of the first field after
-// the command name, which may itself hold spaces and parentheses.
-const (
-	startTimeField = 22
-	firstAfterComm = 3
-)
-
-func startTime(stat []byte) (uint64, error) {
-	_, afterComm, ok := bytes.CutLast(stat, []byte(")"))
-	if !ok {
-		return 0, errors.New("no command name in the process's stat")
-	}
-	fields := bytes.Fields(afterComm)
-	i := startTimeField - firstAfterComm
-	if len(fields) <= i {
-		return 0, fmt.Errorf("the process's stat has %d fields after its command name, want over %d", len(fields), i)
-	}
-	start, err := strconv.ParseUint(string(fields[i]), 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("start time: %w", err)
-	}
-	return start, nil
 }
