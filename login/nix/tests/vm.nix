@@ -134,22 +134,27 @@ in {
                       print(m.execute("for f in /tmp/lys-login/*.err; do [ -e \"$f\" ] && echo \"--- $f\" && cat \"$f\"; done")[1])
 
           def run_scenarios(machine, scenarios):
-              machine.start()
-              failures = []
-              for i, (name, specialisation, run) in enumerate(scenarios):
-                  if i > 0 or specialisation is not None:
+              try:
+                  machine.start()
+                  failures = []
+                  for i, (name, specialisation, run) in enumerate(scenarios):
+                      if i > 0 or specialisation is not None:
+                          try:
+                              reset(machine, specialisation)
+                          except Exception as e:
+                              raise Exception(f"resetting the machine for scenario {name} failed: {e}" + "".join(f"\nscenario {f}" for f in failures)) from e
+                      print(f"=== scenario {name}")
                       try:
-                          reset(machine, specialisation)
+                          run()
                       except Exception as e:
-                          raise Exception(f"resetting the machine for scenario {name} failed: {e}" + "".join(f"\nscenario {f}" for f in failures)) from e
-                  print(f"=== scenario {name}")
-                  try:
-                      run()
-                  except Exception as e:
-                      diagnose(name)
-                      failures.append(f"{name} failed: {e}")
-              if failures:
-                  raise Exception("\n".join(f"scenario {f}" for f in failures))
+                          diagnose(name)
+                          failures.append(f"{name} failed: {e}")
+                  if failures:
+                      raise Exception("\n".join(f"scenario {f}" for f in failures))
+              finally:
+                  for m in machines:
+                      if m.is_up():
+                          m.shutdown()
 
         ''
         + lib.concatMapStrings (s: "def ${s.name}():\n" + lib.concatMapStrings (line: "    ${line}\n") (lib.splitString "\n" (s.script nodes)) + "\n") scenarios
