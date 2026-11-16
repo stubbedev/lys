@@ -184,17 +184,23 @@ func greetdPrompt(kind, text string) (Prompt, error) {
 // and a peer must not make the other side allocate gigabytes.
 const maxGreetdFrame = 1 << 20
 
+var errGreetdFrameTooLarge = fmt.Errorf("over the %d-byte limit", maxGreetdFrame)
+
+func greetdFrameTooLarge[N int | uint32](size N) error {
+	return fmt.Errorf("greetd: a %d-byte message: %w", size, errGreetdFrameTooLarge)
+}
+
 // writeGreetdFrame writes one length-prefixed JSON message.
 func writeGreetdFrame(w io.Writer, msg any) error {
 	payload, err := json.Marshal(msg)
 	if err != nil {
-		return err
+		return fmt.Errorf("greetd: encode a %T: %w", msg, err)
 	}
-	size, err := intconv.Exact[uint32](len(payload))
-	if err != nil {
-		return fmt.Errorf("message too large: %w", err)
+	size := len(payload)
+	if size > maxGreetdFrame {
+		return greetdFrameTooLarge(size)
 	}
-	frame := binary.NativeEndian.AppendUint32(make([]byte, 0, 4+len(payload)), size)
+	frame := binary.NativeEndian.AppendUint32(make([]byte, 0, 4+size), intconv.Must[uint32](size))
 	frame = append(frame, payload...)
 	_, err = w.Write(frame)
 	return err
@@ -208,7 +214,7 @@ func readGreetdFrame(r io.Reader, v any) error {
 	}
 	n := binary.NativeEndian.Uint32(head[:])
 	if n > maxGreetdFrame {
-		return fmt.Errorf("greetd: a %d-byte message is over the %d-byte limit", n, maxGreetdFrame)
+		return greetdFrameTooLarge(n)
 	}
 	buf := make([]byte, n)
 	if _, err := io.ReadFull(r, buf); err != nil {

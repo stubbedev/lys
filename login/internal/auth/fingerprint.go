@@ -5,7 +5,7 @@ import "sync"
 type Scanner func(user string) (matched <-chan struct{}, halt func())
 
 type FingerprintServices struct {
-	Password, Fingerprint string
+	Typed, Fingerprint string
 }
 
 const passwordPrompt = "Password: "
@@ -38,7 +38,7 @@ func authenticateOrFingerprint(lib pamLib, services FingerprintServices, user st
 	}
 	stop()
 	typed := &password
-	return authenticate(lib, services.Password, user, &pamConversation{ask: func(p Prompt) (string, bool) {
+	return authenticate(lib, services.Typed, user, &pamConversation{ask: func(p Prompt) (string, bool) {
 		if typed == nil || !p.WantsInput() {
 			return ask(p, nil)
 		}

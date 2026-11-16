@@ -1,6 +1,8 @@
 package dm
 
 import (
+	"errors"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,5 +69,28 @@ func TestTheLastSessionTypeInAStartRequestWins(t *testing.T) {
 func TestAStartRequestWithoutASessionTypeIsRefused(t *testing.T) {
 	if _, err := (WorkerOptions{VT: 1}).loginEnv([]string{"LANG=C"}); err == nil || !strings.Contains(err.Error(), "XDG_SESSION_TYPE") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestParseIDTakesEveryIDASignedConsumerCanHold(t *testing.T) {
+	for s, want := range map[string]uint32{"0": 0, "1000": 1000, "65534": 65534, "2147483647": math.MaxInt32} {
+		if got, err := parseID(s); err != nil || got != want {
+			t.Errorf("parseID(%q) = %d, %v; want %d", s, got, err, want)
+		}
+	}
+}
+
+func TestParseIDRefusesWhatAnIntCannotHold(t *testing.T) {
+	for s, want := range map[string]error{
+		"2147483648":           strconv.ErrRange,
+		"4294967294":           strconv.ErrRange,
+		"18446744073709551616": strconv.ErrRange,
+		"-1":                   errNegativeID,
+		"1000x":                strconv.ErrSyntax,
+		"":                     strconv.ErrSyntax,
+	} {
+		if got, err := parseID(s); !errors.Is(err, want) {
+			t.Errorf("parseID(%q) = %d, %v; want %v", s, got, err, want)
+		}
 	}
 }

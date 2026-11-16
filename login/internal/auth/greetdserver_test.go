@@ -3,8 +3,11 @@ package auth
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"math"
 	"net"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -83,10 +86,48 @@ func TestReadGreetdRequestRefusesBadFrames(t *testing.T) {
 	if _, err := ReadGreetdRequest(frame(`{"type":"reboot"}`)); err == nil {
 		t.Error("an unknown request type was accepted")
 	}
-	if _, err := ReadGreetdRequest(bytes.NewBuffer(binary.NativeEndian.AppendUint32(nil, maxGreetdFrame+1))); err == nil || !strings.Contains(err.Error(), "limit") {
-		t.Errorf("an oversized frame = %v", err)
+	if _, err := ReadGreetdRequest(bytes.NewBuffer(binary.NativeEndian.AppendUint32(nil, maxGreetdFrame+1))); !errors.Is(err, errGreetdFrameTooLarge) {
+		t.Errorf("an oversized frame = %v, want %v", err, errGreetdFrameTooLarge)
 	}
 	if err := WriteGreetdPrompt(&bytes.Buffer{}, Prompt{Kind: 99}); err == nil {
 		t.Error("a prompt of no known kind was sent")
+	}
+}
+
+func TestAGreetdFrameAtTheLimitIsWrittenAndReadBack(t *testing.T) {
+	var buf bytes.Buffer
+	overhead := len(`""`)
+	body := strings.Repeat("a", maxGreetdFrame-overhead)
+	if err := writeGreetdFrame(&buf, body); err != nil {
+		t.Fatalf("a %d-byte message: %v", maxGreetdFrame, err)
+	}
+	var got string
+	if err := readGreetdFrame(&buf, &got); err != nil || got != body {
+		t.Fatalf("read back %d bytes, %v; want the message at the limit", len(got), err)
+	}
+}
+
+func TestAnOversizedGreetdFrameIsNeverWritten(t *testing.T) {
+	var buf bytes.Buffer
+	err := writeGreetdFrame(&buf, strings.Repeat("a", maxGreetdFrame))
+	if !errors.Is(err, errGreetdFrameTooLarge) {
+		t.Fatalf("a message over the limit = %v, want %v", err, errGreetdFrameTooLarge)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("wrote %d bytes of a refused message", buf.Len())
+	}
+}
+
+func TestAnOversizedGreetdLengthIsRefusedWithoutAllocatingIt(t *testing.T) {
+	head := binary.NativeEndian.AppendUint32(nil, math.MaxUint32)
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	err := readGreetdFrame(bytes.NewReader(head), new(json.RawMessage))
+	runtime.ReadMemStats(&after)
+	if !errors.Is(err, errGreetdFrameTooLarge) {
+		t.Fatalf("a %d-byte length = %v, want %v", uint32(math.MaxUint32), err, errGreetdFrameTooLarge)
+	}
+	if grew := after.TotalAlloc - before.TotalAlloc; grew >= maxGreetdFrame {
+		t.Errorf("refusing the length allocated %d bytes", grew)
 	}
 }

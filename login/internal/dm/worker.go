@@ -2,6 +2,7 @@ package dm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -90,11 +91,11 @@ func lookupAccount(name string) (account, error) {
 	if err != nil {
 		return account{}, fmt.Errorf("look up %s: %w", name, err)
 	}
-	uid, err := strconv.ParseUint(u.Uid, 10, 32)
+	uid, err := parseID(u.Uid)
 	if err != nil {
 		return account{}, fmt.Errorf("%s's uid %q: %w", name, u.Uid, err)
 	}
-	gid, err := strconv.ParseUint(u.Gid, 10, 32)
+	gid, err := parseID(u.Gid)
 	if err != nil {
 		return account{}, fmt.Errorf("%s's gid %q: %w", name, u.Gid, err)
 	}
@@ -104,17 +105,30 @@ func lookupAccount(name string) (account, error) {
 	}
 	groups := make([]uint32, 0, len(ids))
 	for _, id := range ids {
-		g, err := strconv.ParseUint(id, 10, 32)
+		g, err := parseID(id)
 		if err != nil {
 			return account{}, fmt.Errorf("%s's group %q: %w", name, id, err)
 		}
-		groups = append(groups, uint32(g))
+		groups = append(groups, g)
 	}
 	shell, err := loginShell(name)
 	if err != nil {
 		return account{}, err
 	}
-	return account{name: name, home: u.HomeDir, shell: shell, uid: uint32(uid), gid: uint32(gid), groups: groups}, nil
+	return account{name: name, home: u.HomeDir, shell: shell, uid: uid, gid: gid, groups: groups}, nil
+}
+
+var errNegativeID = errors.New("an account id is never negative")
+
+func parseID(s string) (uint32, error) {
+	id, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	if id < 0 {
+		return 0, errNegativeID
+	}
+	return uint32(id), nil
 }
 
 // passwdFile is the account database the shell is read from, as
@@ -333,7 +347,7 @@ func (o WorkerOptions) authenticate(user string, ask auth.AskUntil, ch *channel)
 	case o.Autologin:
 		return auth.Passwordless(o.Service, user)
 	case o.FingerprintService != "":
-		return auth.AuthenticateOrFingerprint(auth.FingerprintServices{Password: o.Service, Fingerprint: o.FingerprintService}, user, ask, fingerprintScanner(ch))
+		return auth.AuthenticateOrFingerprint(auth.FingerprintServices{Typed: o.Service, Fingerprint: o.FingerprintService}, user, ask, fingerprintScanner(ch))
 	}
 	return auth.Authenticate(o.Service, user, func(p auth.Prompt) (string, bool) { return ask(p, nil) })
 }

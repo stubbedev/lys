@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,12 +24,12 @@ func (s *servicesPAM) start(service, user string, converse func([]pamMessage) ([
 	return f.start(service, user, converse)
 }
 
-var raceServices = FingerprintServices{Password: "lys-login", Fingerprint: "lys-login-fingerprint"}
+var raceServices = FingerprintServices{Typed: "lys-login", Fingerprint: "lys-login-fingerprint"}
 
 func racePAM() (*servicesPAM, *fakePAM, *fakePAM) {
 	password := &fakePAM{password: "pw", batches: [][]pamMessage{{{style: pamPromptEchoOff, text: "Password: "}}}}
 	fingerprint := &fakePAM{permit: true}
-	return &servicesPAM{byService: map[string]*fakePAM{raceServices.Password: password, raceServices.Fingerprint: fingerprint}}, password, fingerprint
+	return &servicesPAM{byService: map[string]*fakePAM{raceServices.Typed: password, raceServices.Fingerprint: fingerprint}}, password, fingerprint
 }
 
 type fakeScan struct {
@@ -92,7 +93,7 @@ func TestAPasswordTypedWhileTheReaderListensLogsInAndStopsTheScan(t *testing.T) 
 	if !scan.wasHalted() || scan.user != "alice" {
 		t.Errorf("halted %v for %q; the password's login must stop alice's scan", scan.wasHalted(), scan.user)
 	}
-	if !slices.Equal(lib.started, []string{raceServices.Password}) {
+	if !slices.Equal(lib.started, []string{raceServices.Typed}) {
 		t.Errorf("transactions %v, want the password's alone", lib.started)
 	}
 }
@@ -112,7 +113,7 @@ func TestAWrongPasswordWhileTheReaderListensIsRefusedWithoutWaitingForIt(t *test
 	if !scan.wasHalted() {
 		t.Error("the refused password left the scan running")
 	}
-	if !slices.Equal(lib.started, []string{raceServices.Password}) || password.endStatus != fakeAuthErr {
+	if !slices.Equal(lib.started, []string{raceServices.Typed}) || password.endStatus != fakeAuthErr {
 		t.Errorf("transactions %v ending %d, want the password's alone, refused", lib.started, password.endStatus)
 	}
 }
@@ -201,7 +202,7 @@ func TestAPasswordAnsweredBeforeTheMatchKeepsTheLaterPrompts(t *testing.T) {
 		{{style: pamPromptEchoOff, text: "Password: "}},
 		{{style: pamPromptEchoOn, text: "OTP: "}},
 	}}
-	lib := &servicesPAM{byService: map[string]*fakePAM{raceServices.Password: password, raceServices.Fingerprint: {permit: true}}}
+	lib := &servicesPAM{byService: map[string]*fakePAM{raceServices.Typed: password, raceServices.Fingerprint: {permit: true}}}
 	scan := newFakeScan()
 	var withdrawable []bool
 	l, err := authenticateOrFingerprint(lib, raceServices, "alice", func(p Prompt, withdrawn <-chan struct{}) (string, bool) {
@@ -218,7 +219,7 @@ func TestAPasswordAnsweredBeforeTheMatchKeepsTheLaterPrompts(t *testing.T) {
 	if !l.Typed() || !slices.Equal(withdrawable, []bool{true, false}) {
 		t.Errorf("typed %v, withdrawable prompts %v; after the password the race is over", l.Typed(), withdrawable)
 	}
-	if !slices.Equal(lib.started, []string{raceServices.Password}) {
+	if !slices.Equal(lib.started, []string{raceServices.Typed}) {
 		t.Errorf("transactions %v, want the password's alone", lib.started)
 	}
 }
@@ -232,5 +233,32 @@ func TestACancelledPasswordWithNoMatchLogsNobodyIn(t *testing.T) {
 	}
 	if len(lib.started) != 0 || !scan.wasHalted() {
 		t.Errorf("transactions %v, halted %v; a cancelled login starts none and stops the scan", lib.started, scan.wasHalted())
+	}
+}
+
+func TestAFailedTypedLoginsErrorNeverCarriesThePassword(t *testing.T) {
+	const typed = "correct horse battery staple"
+	prompt := [][]pamMessage{{{style: pamPromptEchoOff, text: "Password: "}}}
+	for _, c := range []struct {
+		name, says string
+		pam        *fakePAM
+	}{
+		{"a wrong password", "pam_authenticate", &fakePAM{password: "something else", batches: prompt}},
+		{"a refused account", "pam_acct_mgmt", &fakePAM{password: typed, acctRC: fakeAcctErr, batches: prompt}},
+		{"an unstartable stack", "start PAM transaction " + raceServices.Typed + " for alice", &fakePAM{startErr: errors.New("no such PAM service")}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			lib := &servicesPAM{byService: map[string]*fakePAM{raceServices.Typed: c.pam, raceServices.Fingerprint: {permit: true}}}
+			_, err := authenticateOrFingerprint(lib, raceServices, "alice", typing(typed), newFakeScan().scanner, diskKey("luks"))
+			if err == nil {
+				t.Fatal("the login succeeded, want it refused")
+			}
+			if strings.Contains(err.Error(), typed) {
+				t.Errorf("the refusal %q carries the typed password", err)
+			}
+			if !strings.Contains(err.Error(), c.says) {
+				t.Errorf("the refusal %q, want it to say %q", err, c.says)
+			}
+		})
 	}
 }
