@@ -40,6 +40,7 @@ func (w *headlessWalls) Commit(_, _ string, saved func(error)) error {
 	saved(nil)
 	return nil
 }
+
 func (w *headlessWalls) LoadThumbnail(path string) (image.Image, error) {
 	img, decoded, err := w.thumbs.Load(path)
 	if decoded {
