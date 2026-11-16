@@ -53,6 +53,8 @@ var (
 	ErrNoCode = errors.New("no code found")
 	// ErrNoText answers a text reading of a region tesseract found no text in.
 	ErrNoText = errors.New("no text found")
+
+	errOCRTimeout = fmt.Errorf("%s did not finish within %s", Tesseract, ocrTimeout)
 )
 
 // OCRAvailable reports whether tesseract is on PATH.
@@ -94,6 +96,8 @@ func (h *Host) Read(c portaldialogs.Caller, kind ReadKind) (string, error) {
 func (h *Host) readText(c portaldialogs.Caller, img *image.RGBA, langs []string) (string, error) {
 	ctx, done := h.dismissable(c.Handle)
 	defer done()
+	ctx, cancel := context.WithTimeoutCause(ctx, ocrTimeout, errOCRTimeout)
+	defer cancel()
 	if h.Working != nil {
 		finished := h.Working(done)
 		defer finished()
@@ -169,8 +173,6 @@ func recognize(ctx context.Context, img *image.RGBA, langs []string) (string, er
 	if err := encodePNG(&in, ocrImage(img)); err != nil {
 		return "", fmt.Errorf("cannot hand the region to %s: %w", Tesseract, err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, ocrTimeout)
-	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "stdin", "stdout", "-l", strings.Join(langs, "+")) //nolint:gosec // tesseract from PATH, languages from the config
 	cmd.Stdin = &in
 	var out, stderr bytes.Buffer
@@ -178,10 +180,8 @@ func recognize(ctx context.Context, img *image.RGBA, langs []string) (string, er
 	cmd.WaitDelay = time.Second
 	err = cmd.Run()
 	switch {
-	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		return "", fmt.Errorf("%s did not finish within %s", Tesseract, ocrTimeout)
 	case ctx.Err() != nil:
-		return "", context.Canceled
+		return "", context.Cause(ctx)
 	case err != nil:
 		return "", fmt.Errorf("%s -l %s: %w: %s", Tesseract, strings.Join(langs, "+"), err, strings.TrimSpace(stderr.String()))
 	}

@@ -320,6 +320,21 @@ func TestDismissStopsTesseract(t *testing.T) {
 	}
 }
 
+func TestRecognizeEndsWithTheCauseItsContextWasStoppedWith(t *testing.T) {
+	calls := fakeTesseract(t, "exec sleep 30\n")
+	ctx, stop := context.WithCancelCause(t.Context())
+	read := make(chan error, 1)
+	go func() {
+		_, err := recognize(ctx, solid(200, 100, color.RGBA{255, 255, 255, 255}), []string{"eng"})
+		read <- err
+	}()
+	waittest.Until(t, func() bool { return len(spawns(t, calls)) > 0 }, "tesseract to start")
+	stop(errOCRTimeout)
+	if err := waittest.For(t, read, "the stopped recognition to end"); !errors.Is(err, errOCRTimeout) || err.Error() != "tesseract did not finish within 30s" {
+		t.Fatalf("recognize = %v, want the timeout named", err)
+	}
+}
+
 func TestTesseractReadsAFixtureLine(t *testing.T) {
 	if !OCRAvailable() {
 		t.Skip("tesseract is not installed (the nix dev shell carries it)")
@@ -337,7 +352,7 @@ func TestTesseractReadsAFixtureLine(t *testing.T) {
 	for i := 0; i < len(data); i += 4 {
 		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = data[i+2], data[i+1], data[i], data[i+3]
 	}
-	got, err := recognize(context.Background(), img, []string{"eng"})
+	got, err := recognize(t.Context(), img, []string{"eng"})
 	if err != nil || got != "Disk quota exceeded" {
 		t.Fatalf("tesseract read %q, %v", got, err)
 	}
