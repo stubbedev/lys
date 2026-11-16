@@ -112,6 +112,7 @@ func newDashboardRig(t *testing.T) *dashboardRig {
 	t.Helper()
 	cfg := config.Defaults()
 	ctx := styledContext(t, cfg)
+	withoutCompose(t)
 	a := apptest.Run(t)
 	apptest.On(a, func() bool { a.SetSurfaceMotion(false); return true })
 	restore := widget.SetAnimationsInstant(true)
@@ -183,7 +184,7 @@ func (r *dashboardRig) measureOpen() (uint64, time.Duration) {
 			return false
 		}
 		b, ok := findByClass(content, "quick-actions").(widget.Boundser)
-		return ok && b.Bounds().W > 0
+		return ok && b.Bounds().W > 0 && widget.TreeAssetsOwed(content) == 0
 	})
 	elapsed := time.Since(start)
 	runtime.ReadMemStats(&after)
@@ -203,6 +204,15 @@ func warmDashboard(t *testing.T) {
 	if _, err := app.Font("sans-serif", 12); err != nil {
 		t.Fatalf("the system fonts: %v", err)
 	}
+}
+
+func withoutCompose(t *testing.T) {
+	t.Helper()
+	empty := filepath.Join(t.TempDir(), "XCompose")
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
+		t.Fatalf("write an empty compose file: %v", err)
+	}
+	t.Setenv("XCOMPOSEFILE", empty)
 }
 
 func (r *dashboardRig) awaitReads(n int64) {
