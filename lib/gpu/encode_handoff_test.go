@@ -255,14 +255,13 @@ func testConvertsAgainAfterAConversionWaitTimedOut(t *testing.T, d *Device, ffmp
 	}
 	c.pkts = append(c.pkts, out...)
 	c.frames++
-	d.waitFault = true
-	out, _, err = encode(bufs[1])
-	if !errors.Is(err, ErrTimeout) || len(out) != 0 {
-		t.Fatalf("frame 1 whose conversion wait times out: %d packets, %v, want ErrTimeout", len(out), err)
-	}
-	if d.waitFault {
-		t.Fatal("frame 1 waited for nothing, so its conversion wait could not time out")
-	}
+	timeOutNextWait(t, d, "frame 1's conversion", func() error {
+		out, _, err := encode(bufs[1])
+		if len(out) != 0 {
+			t.Errorf("frame 1 whose conversion wait times out gave %d packets", len(out))
+		}
+		return err
+	})
 	out, waited, err := encode(bufs[2])
 	if err != nil {
 		t.Fatalf("frame 1 again, from another buffer: %v", err)

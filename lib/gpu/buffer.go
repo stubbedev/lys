@@ -87,14 +87,13 @@ func (d *Device) newMappedBuffer(size int, usage vk.BufferUsageFlagBits, next un
 }
 
 // fit returns b when it holds size bytes, else a buffer twice the size
-// needed with b closed: the caller replaces b with the result. The
-// device must be idle with b.
+// needed with b retired: the caller replaces b with the result.
 func (b *buffer) fit(size int) (*buffer, error) {
-	if b != nil && len(b.mapped) >= size {
+	if len(b.mapped) >= size {
 		return b, nil
 	}
 	d, usage, read := b.d, b.usage, b.read
-	b.close()
+	d.retire(b)
 	if read {
 		return d.newReadBuffer(max(2*size, 1<<16), usage, nil)
 	}

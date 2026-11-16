@@ -1,6 +1,7 @@
 package gpu
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"runtime"
@@ -200,5 +201,63 @@ func TestAClosedTexturesUpdateFinishesBeforeItIsDestroyed(t *testing.T) {
 	}
 	if len(d.graves) != 0 {
 		t.Errorf("%d queued after the batch finished", len(d.graves))
+	}
+}
+
+func timeOutNextWait(t *testing.T, d *Device, what string, run func() error) {
+	t.Helper()
+	d.waitFault = true
+	if err := run(); !errors.Is(err, ErrTimeout) {
+		t.Fatalf("%s whose wait times out: %v, want ErrTimeout", what, err)
+	}
+	if d.waitFault {
+		t.Fatalf("%s submitted nothing to wait for, so its wait could not time out", what)
+	}
+}
+
+func TestAGrownOverlayStagingKeepsTheOneATimedOutUploadStillReads(t *testing.T) {
+	d := openDevice(t)
+	e := &Encoder{d: d}
+	t.Cleanup(func() { closeEncoder(t, e) })
+	timeOutNextWait(t, d, "an overlay upload", func() error { return e.uploadOverlay(solid(8, 8, color.RGBA{R: 0xff, A: 0xff})) })
+	big := solid(256, 256, color.RGBA{B: 0xff, A: 0xff})
+	if err := e.uploadOverlay(big); err != nil {
+		t.Fatalf("an overlay upload outgrowing the staging of a timed-out one: %v", err)
+	}
+	if len(e.overlayStaging.mapped) < len(big.Pix) {
+		t.Errorf("the overlay staging holds %d bytes, want at least %d", len(e.overlayStaging.mapped), len(big.Pix))
+	}
+}
+
+func TestAGrownFrameReadbackKeepsTheOneATimedOutFrameStillCopiesInto(t *testing.T) {
+	d := openDevice(t)
+	const w, h = 160, 140
+	tg := newTarget(t, d, w, h)
+	rec := render.NewRecorder(w, h, 1, 1)
+	white := render.RGBA(0xff, 0xff, 0xff, 0xff)
+	draw := func(area render.Rect) error {
+		rec.ResetRecorder(w, h, 1, 1)
+		rec.Clear(rec.Rect(), render.RGBA(0x40, 0x40, 0x40, 0xff))
+		a := rec.ScratchLayer(area)
+		a.Canvas().Clear(area, white)
+		var fl render.Filters
+		fl.Append(render.FilterOp{Kind: render.FilterBrightness, Amount: 200})
+		render.ApplyFilters(a, area, &fl, render.FilterShape{})
+		rec.DrawLayer(a, area, render.BlendNormal)
+		a.Release()
+		return d.Render(rec.Recording(), tg)
+	}
+	timeOutNextWait(t, d, "a frame reading back", func() error { return draw(render.Rect{W: 8, H: 8}) })
+	d.pollFault = true
+	err := draw(rec.Rect())
+	d.pollFault = false
+	if err != nil {
+		t.Fatalf("a frame outgrowing the readback of a timed-out one still running: %v", err)
+	}
+	if d.frame.stats.readbacks == 0 {
+		t.Fatal("the frame read nothing back")
+	}
+	if got, want := len(d.readback.mapped), w*h*4; got < want {
+		t.Errorf("the readback holds %d bytes, want at least %d", got, want)
 	}
 }

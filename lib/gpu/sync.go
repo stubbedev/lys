@@ -85,6 +85,7 @@ type timing struct {
 	// time out, as if the driver had answered VK_TIMEOUT, in place of
 	// waiting.
 	waitFault bool
+	pollFault bool
 	// spareFences, spareBuffers and spareSemaphores are the objects of
 	// finished submissions, for the next ones.
 	spareFences     []vk.Fence
@@ -957,6 +958,9 @@ func (d *Device) finished() int {
 // fenceFinished asks whether f signalled. A device lost on the way is
 // remembered for the next call that can report it.
 func (d *Device) fenceFinished(f vk.Fence) bool {
+	if d.pollFault {
+		return false
+	}
 	r := d.cmds.GetFenceStatus(d.device, f)
 	if r == vk.ErrorDeviceLost {
 		d.lost = true

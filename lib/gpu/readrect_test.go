@@ -1,7 +1,6 @@
 package gpu
 
 import (
-	"errors"
 	"image"
 	"image/color"
 	"testing"
@@ -52,13 +51,13 @@ func TestAReadBackWhoseWaitTimesOutKeepsItsStagingUntilTheCopyFinishes(t *testin
 	if err := d.Finish(); err != nil {
 		t.Fatal(err)
 	}
-	d.waitFault = true
-	if img, err := tg.ReadPixels(); !errors.Is(err, ErrTimeout) || img != nil {
-		t.Fatalf("a read back whose wait times out: %v, %v, want ErrTimeout", img, err)
-	}
-	if d.waitFault {
-		t.Fatal("the read back submitted nothing to wait for, so its wait could not time out")
-	}
+	timeOutNextWait(t, d, "a read back", func() error {
+		img, err := tg.ReadPixels()
+		if img != nil {
+			t.Errorf("a read back whose wait times out returned %v", img)
+		}
+		return err
+	})
 	if err := d.Finish(); err != nil {
 		t.Fatalf("finishing the copy the timed-out read back submitted: %v", err)
 	}
