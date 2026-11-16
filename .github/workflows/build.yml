@@ -55,10 +55,20 @@ jobs:
       - id: store
         name: The store before the build
         run: ls /nix/store > "${RUNNER_TEMP}/store"
+      - id: watch
+        name: Push each path as the build finishes it
+        run: |
+          xilo watch default/default > "${RUNNER_TEMP}/watch.log" 2>&1 &
+          echo "$!" > "${RUNNER_TEMP}/watch.pid"
       - name: The entry's Nix outputs
         timeout-minutes: 6
         run: ${{ matrix.run }}
-      - name: Push what the build built or substituted, also after it failed or timed out
+      - name: Push what the watch has not, also after the build failed or timed out
         if: always() && steps.store.outcome == 'success'
         timeout-minutes: 2
-        run: just new-store-paths "${RUNNER_TEMP}/store" | xilo push default/default -
+        run: |
+          if [ "${{ steps.watch.outcome }}" = success ]; then
+            kill "$(cat "${RUNNER_TEMP}/watch.pid")"
+            cat "${RUNNER_TEMP}/watch.log"
+          fi
+          just new-store-paths "${RUNNER_TEMP}/store" | xilo push default/default -

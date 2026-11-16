@@ -116,11 +116,13 @@ The jobs run in two lanes, each a stage of builds and the jobs on them:
    so they start a minute or so after the plan instead of after the slowest
    component build.
 
-Every build job stops building after six minutes, and the next step pushes
-every store path that appeared during the job to the binary cache
-(`nix.stubbe.dev`, through `XILO_TOKEN`; without the token the job fails, since
-nothing could be shared), whether the build passed, failed or timed out, so a
-re-run continues from what was built instead of starting over. Derivations two
+Every build job pushes each store path to the binary cache (`nix.stubbe.dev`,
+through `XILO_TOKEN`; without the token the job fails, since nothing could be
+shared) as the build finishes it, with `xilo watch`, so uploads overlap the
+build. The build stops after six minutes, and the next step pushes whatever
+the watch has not, whether the build passed, failed or timed out; uploads are
+chunked and deduplicated, so a re-run continues from what was built and
+uploaded instead of starting over. Derivations two
 VM components share, such as `lys-wm` in the VM closures of wm, login and
 splash, are built by each of their jobs on a cold cache, side by side, and
 substituted once one of them pushed. Both kinds of build job run
