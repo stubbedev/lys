@@ -115,7 +115,6 @@ modules:
         icon-bg-color: transparent
         button-bg-color: bg-hover
         border-color: auto
-        unknown: ignored
 `)
 	cfg, err := LoadFile(path)
 	if err != nil {
@@ -139,6 +138,7 @@ func TestThresholdDecodeRejectsBadEntries(t *testing.T) {
 		{"above: 5\n        label-color: nope", "label-color"},
 		{"above: 5\n        border-color: 3", "border-color"},
 		{"above: high", "above"},
+		{"above: 5\n        abov: 6", "unknown field"},
 	} {
 		// Every module shares the one decoder; cpu goes through the
 		// sysinfo path, battery through its own table.

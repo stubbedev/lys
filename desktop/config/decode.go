@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 )
@@ -120,12 +121,16 @@ func decodeInto(dst reflect.Value, v any) error {
 }
 
 // decodeValueStruct decodes a value struct: defaults first, then each
-// present key; unknown keys are ignored and a missing required key is
-// a "missing field" error.
+// present key. A key that names no field is an "unknown field" error at
+// that key, and a missing required key is a "missing field" error.
 func decodeValueStruct(dst reflect.Value, v any) error {
 	t := dst.Type()
-	if !isTable(v) {
+	keys, _, ok := tableEntries(v)
+	if !ok {
 		return invalidType(v, "struct "+schemaName(t))
+	}
+	if err := rejectUnknownKeys(t, keys); err != nil {
+		return err
 	}
 	if d, ok := reflect.TypeAssert[defaulter](dst.Addr()); ok {
 		d.setDefaults()
@@ -149,6 +154,23 @@ func decodeValueStruct(dst reflect.Value, v any) error {
 		if !found && f.required {
 			return fmt.Errorf("missing field `%s`", f.key)
 		}
+	}
+	return nil
+}
+
+// rejectUnknownKeys is a fieldError at the first of keys that no field
+// of the value struct t reads under any of its keys.
+func rejectUnknownKeys(t reflect.Type, keys []string) error {
+	fields := fieldsOf(t)
+	for _, key := range keys {
+		if slices.ContainsFunc(fields, func(f fieldInfo) bool { return slices.Contains(f.lookupKeys(), key) }) {
+			continue
+		}
+		canonical := make([]string, len(fields))
+		for i, f := range fields {
+			canonical[i] = f.key
+		}
+		return &fieldError{Key: key, Err: errors.New("unknown field, " + expectedOneOf(canonical))}
 	}
 	return nil
 }

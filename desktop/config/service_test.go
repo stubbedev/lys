@@ -134,6 +134,29 @@ func TestSetRejectsAPathThatNamesNoField(t *testing.T) {
 	}
 }
 
+func TestSetRejectsAnUnknownKeyInAValueStruct(t *testing.T) {
+	sink, diags := collectDiags()
+	svc := Load(t.TempDir(), sink)
+	t.Cleanup(svc.Close)
+	err := svc.SetByPath("animations.osd", map[string]any{"entr": "fade"})
+	var rv *RuntimeValueError
+	if !errors.As(err, &rv) || rv.Path != "animations.osd.entr" || !strings.HasPrefix(rv.Err.Error(), "unknown field, expected one of `enter`, `exit`") {
+		t.Fatalf("err = %v, want an unknown field at animations.osd.entr", err)
+	}
+	if d := diags(); len(d) != 1 || d[0].Field("Field") != "animations.osd.entr" {
+		t.Errorf("diagnostics = %+v, want one naming animations.osd.entr", d)
+	}
+	if doc, err := svc.runtimeDocument(); err != nil || len(bytes.TrimSpace(doc)) != 0 {
+		t.Errorf("a refused table left runtime overrides %q, %v", doc, err)
+	}
+	if err := svc.SetByPath("animations.osd", map[string]any{"enter": "fade"}); err != nil {
+		t.Fatalf("a known key: %v", err)
+	}
+	if got := svc.Config().Animations.Osd.Enter; got == nil || *got != AnimationFade {
+		t.Errorf("osd enter = %v, want fade", got)
+	}
+}
+
 func TestGetByPath(t *testing.T) {
 	svc := Load(t.TempDir(), DiscardDiagnostics)
 	v, err := svc.GetByPath("bar.location")

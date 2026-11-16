@@ -13,8 +13,9 @@ import (
 //
 //   - keys are matched canonical first, then aliases, then deprecated
 //     aliases (which log a deprecation warning);
-//   - unknown keys are ignored, and a section given a non-table value
-//     is ignored; a key the shell no longer reads (removedKeys) is an
+//   - unknown section keys are ignored, and a section given a non-table
+//     value is ignored, but an unknown key inside a leaf's value struct
+//     fails that leaf's decode; a key the shell no longer reads (removedKeys) is an
 //     error diagnostic naming where its setting went;
 //   - a leaf that fails to decode is a diagnostic and keeps its lower
 //     layer's value. On the config layer the rest still applies; on the
