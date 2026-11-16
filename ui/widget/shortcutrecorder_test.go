@@ -12,7 +12,7 @@ import (
 
 func recorderKeycaps(r *ShortcutRecorder) []string {
 	var out []string
-	walkTree(r.display, 0, func(w Widget, _ int) {
+	walkTree(r.display, func(w Widget, _ int) {
 		if l, ok := w.(*Label); ok && l.hasClass(css.Keycap) {
 			out = append(out, l.Text())
 		}
@@ -22,7 +22,7 @@ func recorderKeycaps(r *ShortcutRecorder) []string {
 
 func recorderPrompt(r *ShortcutRecorder) string {
 	var out string
-	walkTree(r.display, 0, func(w Widget, _ int) {
+	walkTree(r.display, func(w Widget, _ int) {
 		if l, ok := w.(*Label); ok && l.hasClass(css.DimLabel) {
 			out = l.Text()
 		}

@@ -28,19 +28,18 @@ func loadCSS(t *testing.T, css string) {
 func bareTheme(t *testing.T) {
 	t.Helper()
 	ensureThemeSheet()
-	themeSheet.Load("")
+	themeSheet.Load().Load("")
 	t.Cleanup(func() { syncThemeSheet(Current()) })
 }
 
 var themeSheetBuiltAtInit bool
 
-func init() { themeSheetBuiltAtInit = themeSheet != nil }
+func init() { themeSheetBuiltAtInit = themeSheet.Load() != nil }
 
 func unbuiltThemeSheet(t *testing.T) {
 	t.Helper()
-	if themeSheet != nil {
-		themeSheet.Remove()
-		themeSheet = nil
+	if ts := themeSheet.Swap(nil); ts != nil {
+		ts.Remove()
 	}
 	t.Cleanup(ensureThemeSheet)
 }
@@ -56,7 +55,8 @@ func TestThemeSheetBuildsOnFirstResolve(t *testing.T) {
 	parses := countParsesOnLoop(t)
 	b := NewBox(Row, 0, 0)
 	nodeOf(b).style(b)
-	if themeSheet == nil || !slices.ContainsFunc(layersNow, func(l style.Layer) bool { return l.Sheet == themeSheet.sheet }) {
+	ts := themeSheet.Load()
+	if ts == nil || !slices.ContainsFunc(cascadeOf().layers, func(l style.Layer) bool { return l.Sheet == ts.sheet.Load() }) {
 		t.Fatal("the first style resolution did not install the theme stylesheet")
 	}
 	if *parses != 1 {
@@ -75,7 +75,7 @@ func TestSetThemeBeforeFirstResolveParsesOnce(t *testing.T) {
 	if *parses != 1 {
 		t.Errorf("SetTheme then the first resolve parsed %d sheets, want 1", *parses)
 	}
-	if layersNow[0].Sheet != themeSheet.sheet {
+	if cascadeOf().layers[0].Sheet != themeSheet.Load().sheet.Load() {
 		t.Error("the theme stylesheet is not the first installed layer")
 	}
 }

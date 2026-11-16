@@ -11,7 +11,7 @@ import (
 func calendarIn(t *testing.T, host *fakeSurfaceHost) *Calendar {
 	t.Helper()
 	var cal *Calendar
-	walkTree(host.popovers[len(host.popovers)-1], 0, func(w Widget, _ int) {
+	walkTree(host.popovers[len(host.popovers)-1], func(w Widget, _ int) {
 		if c, ok := w.(*Calendar); ok && cal == nil {
 			cal = c
 		}

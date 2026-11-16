@@ -16,41 +16,28 @@ type ScrollMove struct {
 	DX, DY int
 }
 
-var (
-	arrangeShifted bool
-	arrangeCulling bool
-	arrangeCull    render.Rect
-	shiftBroken    bool
-	culledNodes    int
-)
-
 type viewShift struct{ dx, dy int }
 
 func (s viewShift) moved() bool { return s.dx != 0 || s.dy != 0 }
 
-type shiftState struct {
-	shifted, culling bool
-	cull             render.Rect
-}
-
-func beginShift(view render.Rect, culling bool) shiftState {
-	st := shiftState{arrangeShifted, arrangeCulling, arrangeCull}
-	arrangeShifted, shiftBroken = true, false
+func (t *treeState) beginShift(view render.Rect, culling bool) shiftState {
+	st := t.shift
+	t.shift.shifted, t.shiftBroken = true, false
 	if !culling {
 		return st
 	}
 	cull := render.UniformInsets(scrollOverscan).Grow(view)
-	if arrangeCulling {
-		cull = cull.Intersect(arrangeCull)
+	if t.shift.culling {
+		cull = cull.Intersect(t.shift.cull)
 	}
-	arrangeCulling, arrangeCull = true, cull
+	t.shift.culling, t.shift.cull = true, cull
 	return st
 }
 
-func endShift(st shiftState) (broken bool) {
-	broken = shiftBroken
-	arrangeShifted, arrangeCulling, arrangeCull = st.shifted, st.culling, st.cull
-	shiftBroken = st.shifted && broken
+func (t *treeState) endShift(st shiftState) (broken bool) {
+	broken = t.shiftBroken
+	t.shift = st
+	t.shiftBroken = st.shifted && broken
 	return broken
 }
 
@@ -66,7 +53,7 @@ func (n *node) cullBy(dx, dy int) {
 	n.solidBox = shifted(n.solidBox, dx, dy)
 	if !n.culled {
 		n.culled = true
-		culledNodes++
+		n.scratch().culled++
 	}
 }
 
@@ -80,12 +67,13 @@ func (n *node) settleCulled() {
 	if top == nil || top.self == nil {
 		return
 	}
-	st := beginShift(render.Rect{}, false)
-	wasCulling := arrangeCulling
-	arrangeCulling = false
+	t := top.scratch()
+	st := t.beginShift(render.Rect{}, false)
+	wasCulling := t.shift.culling
+	t.shift.culling = false
 	top.self.Arrange(top.slot)
-	arrangeCulling = wasCulling
-	endShift(st)
+	t.shift.culling = wasCulling
+	t.endShift(st)
 }
 
 func (b *Box) settleShiftable(inner render.Rect) {
@@ -105,10 +93,10 @@ func (b *Box) settleShiftable(inner render.Rect) {
 
 func (b *Box) canShift() bool {
 	s := b.arranged
-	return !b.arrangeStale && b.shiftable && !s.volatile && s.style == styleGen && s.theme == themeGen
+	return !b.arrangeStale && b.shiftable && !s.volatile && s.style == styleGen.Load() && s.theme == themeGen.Load()
 }
 
-func (b *Box) shiftTo(r render.Rect) {
+func (b *Box) shiftTo(t *treeState, r render.Rect) {
 	dx, dy := r.X-b.arranged.rect.X, r.Y-b.arranged.rect.Y
 	b.arranged.rect = r
 	border, _ := boxRects(b.box(b.style(b)), r)
@@ -123,7 +111,7 @@ func (b *Box) shiftTo(r render.Rect) {
 			continue
 		}
 		n.slot = shifted(n.slot, dx, dy)
-		if arrangeCulling && n.inkClosed && shifted(n.inkBox, dx, dy).Intersect(arrangeCull).Empty() {
+		if t.shift.culling && n.inkClosed && shifted(n.inkBox, dx, dy).Intersect(t.shift.cull).Empty() {
 			n.cullBy(dx, dy)
 			n.bubbleInk()
 			continue
@@ -138,7 +126,7 @@ func (b *Box) shiftTo(r render.Rect) {
 // view's damage also owes where the copy carried them.
 func restick(w Widget, n *node, dx, dy int) {
 	before := n.bounds
-	arrangeStickiness++
+	n.scratch().stickiness++
 	arrangeAt(w, n.style(w), shifted(n.stickyFlow, dx, dy))
 	if n.bounds == shifted(before, dx, dy) {
 		return
@@ -281,9 +269,10 @@ func (s *Scroll) arrangeContent(to render.Rect) {
 	same := s.viewAt == s.view && to.W == s.childAt.W && to.H == s.childAt.H && (dx != 0 || dy != 0)
 	s.viewAt, s.childAt = s.view, to
 	if b, ok := s.child.(*Box); ok && same && offsetMoved && b.canShift() {
-		st := beginShift(s.view, true)
+		t := s.scratch()
+		st := t.beginShift(s.view, true)
 		arrangeChild(s.child, to)
-		if endShift(st) {
+		if t.endShift(st) {
 			s.Invalidate()
 			return
 		}

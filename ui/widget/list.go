@@ -429,9 +429,10 @@ func (l *List) setOffset(y int) {
 	if l.offY == from {
 		return
 	}
-	st := beginShift(l.view, false)
+	t := l.scratch()
+	st := t.beginShift(l.view, false)
 	l.layoutRows()
-	if endShift(st) {
+	if t.endShift(st) {
 		l.Invalidate()
 		return
 	}

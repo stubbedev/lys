@@ -70,7 +70,7 @@ func naturalChild(parent, child Widget) Size {
 // natural goes in equal shares to the children expand marks. Short of
 // the sum of the minimums, each child keeps its minimum and the content
 // overflows.
-func allocate(req []Sizes, expand []bool, extent int, out []int) {
+func (t *treeState) allocate(req []Sizes, expand []bool, extent int, out []int) {
 	extra := extent
 	for i, r := range req {
 		out[i] = r.Min
@@ -79,14 +79,14 @@ func allocate(req []Sizes, expand []bool, extent int, out []int) {
 	if extra <= 0 {
 		return
 	}
-	order := allocateOrder[:0]
+	order := t.order[:0]
 	for i := range req {
 		order = append(order, i)
 	}
 	slices.SortStableFunc(order, func(a, b int) int {
 		return (req[a].Nat - req[a].Min) - (req[b].Nat - req[b].Min)
 	})
-	allocateOrder = order
+	t.order = order
 	for k, i := range order {
 		give := min(req[i].Nat-req[i].Min, extra/(len(order)-k))
 		out[i] += give
@@ -113,7 +113,3 @@ func allocate(req []Sizes, expand []bool, extent int, out []int) {
 		}
 	}
 }
-
-// allocateOrder is allocate's reusable sort buffer (loop-goroutine
-// only, like the other layout scratch).
-var allocateOrder []int

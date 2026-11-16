@@ -43,7 +43,7 @@ func (im *Image) Frame() int { return im.play.frame }
 // visibility.
 func (im *Image) Arrange(r render.Rect) {
 	if im.animation() != nil {
-		arrangeVolatility++
+		im.scratch().volatility++
 	}
 	im.node.Arrange(r)
 	im.syncPlayback()

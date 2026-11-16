@@ -111,7 +111,7 @@ type Color = render.Color
 
 // themeGen bumps on every SetTheme so the damage collector repaints
 // each widget once after a restyle (node.takeDamage compares stamps).
-var themeGen uint64 = 1
+var themeGen = startedGeneration()
 
 var current = DarkTheme()
 
@@ -129,7 +129,7 @@ func SetTheme(t *Theme) {
 		t = DarkTheme()
 	}
 	current = t
-	themeGen++
+	themeGen.Add(1)
 	markDamage()
 	syncThemeSheet(t)
 	for _, w := range t.contrastWarnings() {
@@ -394,7 +394,7 @@ func SetReducedMotion(on bool) {
 		return
 	}
 	anim.SetReduced(on)
-	themeGen++
+	themeGen.Add(1)
 	markDamage()
 	syncThemeSheet(current)
 	bumpStyleGen("reduced motion")

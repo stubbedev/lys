@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -24,26 +26,43 @@ import (
 // color; an application stylesheet outranks every rule here.
 
 // themeSheet is the installed theme layer, built on the first style
-// resolution or SetTheme.
-var themeSheet *Stylesheet
+// resolution or SetTheme; themeSheetMu serializes its builds.
+var (
+	themeSheetMu sync.Mutex
+	themeSheet   atomic.Pointer[Stylesheet]
+)
 
 func ensureThemeSheet() {
-	if themeSheet == nil {
-		syncThemeSheet(current)
+	if themeSheet.Load() != nil {
+		return
+	}
+	themeSheetMu.Lock()
+	defer themeSheetMu.Unlock()
+	if themeSheet.Load() == nil {
+		syncThemeSheetLocked(current)
 	}
 }
 
 // syncThemeSheet (re)generates the theme layer from t.
 func syncThemeSheet(t *Theme) {
+	themeSheetMu.Lock()
+	defer themeSheetMu.Unlock()
+	syncThemeSheetLocked(t)
+}
+
+func syncThemeSheetLocked(t *Theme) {
 	syncSystemColors(t)
 	src := themeCSS(t)
-	if themeSheet == nil {
-		themeSheet = &Stylesheet{sheet: ParseStylesheet(src).rules(), priority: StylePriorityTheme, live: true}
-		sheets = slices.Insert(sheets, 0, themeSheet)
-		relayer()
+	if ts := themeSheet.Load(); ts != nil {
+		ts.Load(src)
 		return
 	}
-	themeSheet.Load(src)
+	ts := newStylesheet(ParseStylesheet(src).rules(), StylePriorityTheme, true)
+	cascadeMu.Lock()
+	sheets = slices.Insert(sheets, 0, ts)
+	cascadeMu.Unlock()
+	themeSheet.Store(ts)
+	relayer()
 }
 
 // syncSystemColors maps the CSS system color keywords onto the theme,

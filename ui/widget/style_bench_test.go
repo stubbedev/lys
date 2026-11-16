@@ -55,7 +55,7 @@ func loadGalleryCSS(b *testing.B) {
 // galleryWidgets counts the showcase tree for the per-widget metric.
 func galleryWidgets(root Widget) int {
 	n := 0
-	walkTree(root, 0, func(Widget, int) { n++ })
+	walkTree(root, func(Widget, int) { n++ })
 	return n
 }
 
@@ -74,8 +74,8 @@ func BenchmarkStyleGalleryFullRestyle(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		styleGen++ // the load's stamp, without re-parsing the sheet
-		walkTree(show.root, 0, func(w Widget, _ int) {
+		styleGen.Add(1) // the load's stamp, without re-parsing the sheet
+		walkTree(show.root, func(w Widget, _ int) {
 			if n := nodeOf(w); n != nil {
 				n.style(w)
 			}
@@ -99,7 +99,7 @@ func BenchmarkStyleGalleryClassToggle(b *testing.B) {
 	// A leaf label with a live ancestor chain: the gallery's most
 	// numerous widget.
 	var lbl *Label
-	walkTree(show.root, 0, func(w Widget, _ int) {
+	walkTree(show.root, func(w Widget, _ int) {
 		if l, ok := w.(*Label); ok && lbl == nil && nodeOf(w).parent != nil {
 			lbl = l
 		}

@@ -510,13 +510,13 @@ func TestSetThemeComposedThemeRepaints(t *testing.T) {
 
 	SetTheme(DarkTheme())
 	before := paintSwitchTrack(t)
-	gen := themeGen
+	gen := themeGen.Load()
 
 	green := render.RGB(0, 200, 0)
 	SetTheme(DarkTheme().WithInput(green))
 
-	if themeGen != gen+1 {
-		t.Errorf("themeGen = %d after SetTheme, want %d: a theme swap must bump the generation so damage repaints", themeGen, gen+1)
+	if themeGen.Load() != gen+1 {
+		t.Errorf("themeGen = %d after SetTheme, want %d: a theme swap must bump the generation so damage repaints", themeGen.Load(), gen+1)
 	}
 	if got := paintSwitchTrack(t); got != green {
 		t.Errorf("switch track = %v after the composed theme, want the custom input color %v", got, green)

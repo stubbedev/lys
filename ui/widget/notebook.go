@@ -494,7 +494,7 @@ func (n *Notebook) expandTabs(s *notebookStrip) {
 	for i, t := range n.tabs {
 		req[i], expand[i] = FixedSizes(s.tabW[i]), n.tabExpands(t)
 	}
-	allocate(req, expand, s.row.W, s.tabW)
+	n.scratch().allocate(req, expand, s.row.W, s.tabW)
 	x := 0
 	for i := range n.tabs {
 		s.tabX[i] = x

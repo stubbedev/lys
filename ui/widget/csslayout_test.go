@@ -823,7 +823,7 @@ func TestCSSLayoutSteadyFrameAllocatesNothing(t *testing.T) {
 	cssTree(t, `.b { display: block; } .f { display: flex; flex-wrap: wrap; gap: 4px; } .g { flex: 1; z-index: 1; }
 		.fl { order: -1; } .ib { display: inline-block; }`, root, 300, 200)
 	frame := func() {
-		styleGen++
+		styleGen.Add(1)
 		SizeWithin(root, Size{W: 300, H: 200})
 		root.Arrange(render.Rect{W: 300, H: 200})
 	}
@@ -885,10 +885,10 @@ func TestOnlyAQueryContainerResizeRestyles(t *testing.T) {
 	if got := inside.style(inside).Color; got == render.RGB(0xff, 0, 0) {
 		t.Fatal("the container query matched at 50px wide")
 	}
-	before := styleGen
+	before := styleGen.Load()
 	plain.Arrange(render.Rect{W: 80, H: 10})
-	if styleGen != before {
-		t.Errorf("a plain widget's resize restyled everything (styleGen %d -> %d)", before, styleGen)
+	if styleGen.Load() != before {
+		t.Errorf("a plain widget's resize restyled everything (styleGen %d -> %d)", before, styleGen.Load())
 	}
 	query.Arrange(render.Rect{X: 30, W: 120, H: 20})
 	if got := inside.style(inside).Color; got != render.RGB(0xff, 0, 0) {

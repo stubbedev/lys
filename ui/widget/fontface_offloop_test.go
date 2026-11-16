@@ -73,13 +73,13 @@ func TestFontFaceNeverOpensOnTheLoop(t *testing.T) {
 func TestFontFaceArrivesWithARelayer(t *testing.T) {
 	f := newFakeInvoker(t)
 	path := writeFont(t)
-	before := styleGen
+	before := styleGen.Load()
 	s := AddStylesheet(fontFaceCSS("Late Face", path), 900)
 	t.Cleanup(s.Remove)
 	if fontFaceOf("Late Face", 400) != nil {
 		t.Fatal("resolved before its answer")
 	}
-	stamped := styleGen
+	stamped := styleGen.Load()
 	if stamped == before {
 		t.Fatal("installing the sheet stamped nothing")
 	}
@@ -87,7 +87,7 @@ func TestFontFaceArrivesWithARelayer(t *testing.T) {
 	if fontFaceOf("Late Face", 400) == nil {
 		t.Fatal("the answer did not bring the family in")
 	}
-	if styleGen == stamped {
+	if styleGen.Load() == stamped {
 		t.Error("widgets were not told to restyle in the new face")
 	}
 }

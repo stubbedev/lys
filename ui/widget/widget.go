@@ -145,6 +145,7 @@ type node struct {
 	// measureMisses tallies the measures the cache could not answer;
 	// the static-tree pin test reads it.
 	measureMisses  int
+	measureGen     uint64
 	arranges       int
 	arrangeStale   bool
 	damageStale    bool
@@ -260,6 +261,7 @@ type node struct {
 	stickyFlow  render.Rect
 	sticky      bool
 	culled      bool
+	tree        *treeState
 	inkClosed   bool
 	inkClips    bool
 	inkNodeless bool
@@ -493,7 +495,7 @@ func shown(w Widget) bool {
 // computed style goes stale with it — the effective disabled state
 // changed subtree-wide, so :disabled rules may match now.
 func invalidateTree(self Widget) {
-	walkTree(self, 0, func(w Widget, _ int) {
+	walkTree(self, func(w Widget, _ int) {
 		if v, ok := w.(interface{ Invalidate() }); ok {
 			v.Invalidate()
 		}
@@ -578,7 +580,7 @@ func (n *node) markSubInvalid() {
 // schedules a repaint of the bounds (a size change usually alters the
 // painting too).
 func (n *node) InvalidateLayout() {
-	shapeGen++
+	shapeGen.Add(1)
 	n.measureDirty = true
 	n.dropMeasureCache()
 	n.layout.dropExpand()
@@ -633,7 +635,7 @@ func (n *node) dropMeasureCache() {
 // the static-tree fast path. A stale or marked cascade misses too: a
 // stylesheet load relayouts the tree by stamp, with no walk.
 func (n *node) measureHit(axis Axis, forSize int) (Sizes, bool) {
-	if !n.measureFresh || n.measureDirty || n.styleDirty || n.styleSeen != styleGen {
+	if !n.measureFresh || n.measureDirty || n.styleDirty || n.styleSeen != styleGen.Load() {
 		n.measureMiss(axis, forSize)
 		// Every entry predates the invalidation: none may come back
 		// once the recompute below stamps the cache fresh.
@@ -658,6 +660,7 @@ func (n *node) measureHit(axis Axis, forSize int) (Sizes, bool) {
 // measureMiss counts a measure the cache could not answer, and names it
 // in a lysdebug build.
 func (n *node) measureMiss(axis Axis, forSize int) {
+	n.measureGen = styleGen.Load()
 	n.measureMisses++
 	if debug.Enabled {
 		noteMeasureMiss(n, axis, forSize)
@@ -684,7 +687,7 @@ func (n *node) measureStore(axis Axis, forSize int, s Sizes) Sizes {
 	n.measureFresh = true
 	n.measureDirty = false
 	n.subStyle = false
-	n.styleSeen = styleGen
+	n.styleSeen = n.measureGen
 	return s
 }
 
@@ -695,11 +698,12 @@ func (n *node) measureStore(axis Axis, forSize int, s Sizes) Sizes {
 // strips beside a viewport, say - do not drag the whole bounds in. The
 // damage collector calls it walking down the tree.
 func (n *node) takeDamage() (bounds render.Rect, extra []render.Rect, dirty bool) {
-	boundsDirty := n.invalid || n.subInvalid || n.themeSeen != themeGen || n.styleDmg != styleGen
-	n.styleDmg = styleGen
+	style, theme := styleGen.Load(), themeGen.Load()
+	boundsDirty := n.invalid || n.subInvalid || n.themeSeen != theme || n.styleDmg != style
+	n.styleDmg = style
 	n.invalid = false
 	n.subInvalid = false
-	n.themeSeen = themeGen
+	n.themeSeen = theme
 	extra, n.extras = n.extras, n.extras[:0]
 	if !boundsDirty && len(extra) == 0 {
 		return render.Rect{}, nil, false
@@ -715,21 +719,22 @@ func (n *node) takeDamage() (bounds render.Rect, extra []render.Rect, dirty bool
 // damage does not leave the widget's old paint behind.
 func (n *node) Arrange(r render.Rect) {
 	n.arranges++
+	t := n.scratch()
 	if n.culled {
 		n.culled = false
-		culledNodes--
+		t.culled--
 	}
 	if r != n.bounds {
-		shapeGen++
+		shapeGen.Add(1)
 	}
-	if !arrangeShifted && !n.bounds.Empty() && r != n.bounds {
+	if !t.shift.shifted && !n.bounds.Empty() && r != n.bounds {
 		n.InvalidateRect(n.ink.Grow(n.bounds))
 		n.Invalidate()
 	}
 	// A resized query container's descendants recompute their
 	// @container conditions and container units against the new
 	// bounds; any other widget's resize leaves every style as it was.
-	if (r.W != n.bounds.W || r.H != n.bounds.H) && sensNow.containers && !n.unseen() && n.queryContainer() {
+	if (r.W != n.bounds.W || r.H != n.bounds.H) && cascadeOf().sens.containers && !n.unseen() && n.queryContainer() {
 		restyleSubtree(n.self)
 	}
 	n.place(r)
@@ -739,7 +744,7 @@ func (n *node) Arrange(r render.Rect) {
 func (n *node) place(r render.Rect) {
 	n.bounds = r
 	if n.anims != nil {
-		arrangeVolatility++
+		n.scratch().volatility++
 		n.resumeAnimations()
 	}
 }
@@ -759,7 +764,7 @@ func (n *node) queryContainer() bool {
 // and that includes a widget built but never put in a tree — it is the
 // zero rect, a defined value, never a panic and never stale geometry.
 func (n *node) Bounds() render.Rect {
-	if culledNodes > 0 {
+	if t := n.knownTree(); t != nil && t.culled > 0 {
 		n.settleCulled()
 	}
 	return n.bounds
@@ -784,6 +789,7 @@ func (n *node) setParent(p, self Widget) {
 		b.endDepartureOf(n)
 	}
 	if n.parent != p {
+		n.leaveTree()
 		n.markBranchStale()
 		defer n.markBranchStale()
 		defer n.bubbleInk()
@@ -814,7 +820,7 @@ func (n *node) setParent(p, self Widget) {
 // (their sibling forms walk across it). Without :has() selectors
 // loaded it is free.
 func hasRelink(p Widget) {
-	if !sensNow.has {
+	if !cascadeOf().sens.has {
 		return
 	}
 	for a := nodeOf(p); a != nil; a = parentNodeOf(a) {
@@ -833,7 +839,7 @@ func hasRelink(p Widget) {
 // just arranged it must measure and arrange again before painting.
 func LayoutPending(w Widget) bool {
 	if n := nodeOf(w); n != nil {
-		return n.measureDirty || n.styleDirty || n.styleSeen != styleGen
+		return n.measureDirty || n.styleDirty || n.styleSeen != styleGen.Load()
 	}
 	// A pass-through wrapper (the inspector overlay) owns no cache:
 	// what it wraps decides.

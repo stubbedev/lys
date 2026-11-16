@@ -162,6 +162,7 @@ func (ax *gridAxis) areaOf(sp gridSpan) (start, size int) {
 // gridPass is one grid layout run over a cssPass's items. It holds the
 // pass's parts rather than the pass, which stays on its caller's stack.
 type gridPass struct {
+	t     *treeState
 	items []cssItem
 	b     *Box
 	v     *style.Values
@@ -173,15 +174,6 @@ type gridPass struct {
 	base    int
 	hasBase bool
 }
-
-// The grid passes' buffers, one per nesting level: the tracks of both
-// axes, the auto-placement occupancy bits, and the sparse cursors of
-// the items locked to a row (or column).
-var (
-	gridTracks  depthStack[gridTrack]
-	gridCells   depthStack[uint64]
-	gridCursors depthStack[int]
-)
 
 var inf = math.Inf(1)
 
@@ -211,7 +203,7 @@ func (p *cssPass) gridMeasure(axis Axis, forSize int) Sizes {
 // definite). It returns the content size the tracks and gutters take.
 func (p *cssPass) grid(size Size, sizing [2]gridSizing) Size {
 	l := &p.v.Layout
-	g := gridPass{items: p.items, b: p.b, v: p.v, rtl: p.rtl, flow: l.GridAutoFlow, areas: l.GridTemplateAreas}
+	g := gridPass{t: p.t, items: p.items, b: p.b, v: p.v, rtl: p.rtl, flow: l.GridAutoFlow, areas: l.GridTemplateAreas}
 	for _, a := range [2]Axis{Row, Column} {
 		ax := &g.ax[a]
 		ax.sizing, ax.size = sizing[a], size.Along(a)
@@ -246,8 +238,8 @@ func (p *cssPass) grid(size Size, sizing [2]gridSizing) Size {
 		slices.SortStableFunc(p.items, func(a, b cssItem) int { return a.v.Layout.Order - b.v.Layout.Order })
 	}
 	cols, rows := g.place()
-	tracks := gridTracks.push(cols + rows)
-	defer gridTracks.pop()
+	tracks := g.t.gridTracks.push(cols + rows)
+	defer g.t.gridTracks.pop()
 	g.ax[Row].tracks, g.ax[Column].tracks = tracks[:cols], tracks[cols:]
 	g.initTracks(Row)
 	g.initTracks(Column)
@@ -554,16 +546,16 @@ func (g *gridPass) place() (cols, rows int) {
 	// own span, which bounds the map.
 	stride := max(hi[minor]+locked, widest)
 	majors := hi[major] + autoMajor
-	occ := gridOccupancy{bits: gridCells.push((stride*majors + 63) / 64), stride: stride}
-	defer gridCells.pop()
+	occ := gridOccupancy{bits: g.t.gridCells.push((stride*majors + 63) / 64), stride: stride}
+	defer g.t.gridCells.pop()
 	for i := range g.items {
 		if it := &g.items[i]; it.kind == itemFlow && it.grid.fixed[minor] && it.grid.fixed[major] {
 			occ.mark(it.grid.area[major], it.grid.area[minor])
 		}
 	}
 	dense := g.flow.Dense
-	cursors := gridCursors.push(majors)
-	defer gridCursors.pop()
+	cursors := g.t.gridCursors.push(majors)
+	defer g.t.gridCursors.pop()
 	for i := range g.items {
 		it := &g.items[i]
 		gi := &it.grid

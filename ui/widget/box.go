@@ -110,8 +110,6 @@ type arrangeStamp struct {
 	sticky bool
 }
 
-var arrangeVolatility, arrangeStickiness uint64
-
 // Children exposes the box's children in append order for focus
 // traversal.
 func (b *Box) Children() []Widget {
@@ -325,8 +323,9 @@ func (b *Box) Measure(axis Axis, forSize int) Sizes {
 // mainRequest is the content's request along the axis at cross, its
 // extent across: the flowing children end to end with the spacing.
 func (b *Box) mainRequest(v *style.Values, cross int) Sizes {
-	kinds := b.flows()
-	defer boxFlows.pop()
+	t := b.scratch()
+	kinds := b.flows(t)
+	defer t.boxFlows.pop()
 	var sum, largest Sizes
 	shown := 0
 	for i, c := range b.child {
@@ -350,10 +349,11 @@ func (b *Box) mainRequest(v *style.Values, cross int) Sizes {
 // along the axis (Unknown for none): the largest child's at its share,
 // and a row's baseline group's span.
 func (b *Box) crossRequest(v *style.Values, main int) Sizes {
-	kinds := b.flows()
-	defer boxFlows.pop()
-	shares := boxShares.push(len(b.child))
-	defer boxShares.pop()
+	t := b.scratch()
+	kinds := b.flows(t)
+	defer t.boxFlows.pop()
+	shares := t.boxShares.push(len(b.child))
+	defer t.boxShares.pop()
 	b.split(v, main, Unknown, kinds, shares)
 	cross := otherAxis(b.axis)
 	var req Sizes
@@ -376,18 +376,8 @@ func (b *Box) crossRequest(v *style.Values, main int) Sizes {
 	return req
 }
 
-// boxShares holds split's main-axis shares per layout depth: a box
-// keeps its level while it measures or arranges its children, whose
-// own splits run a level deeper.
-var (
-	boxShares  depthStack[int]
-	boxReqs    depthStack[Sizes]
-	boxExpands depthStack[bool]
-	boxFlows   depthStack[flow]
-)
-
-func (b *Box) flows() []flow {
-	kinds := boxFlows.push(len(b.child))
+func (b *Box) flows(t *treeState) []flow {
+	kinds := t.boxFlows.push(len(b.child))
 	for i, c := range b.child {
 		setParents(b, c.w)
 		kinds[i] = flowOf(c.w)
@@ -401,6 +391,7 @@ func (b *Box) flows() []flow {
 // allocate's split of their requests at cross, the extent across, the
 // expanders sharing what is left past every natural.
 func (b *Box) split(v *style.Values, main, cross int, kinds []flow, out []int) {
+	t := b.scratch()
 	shown := 0
 	for _, k := range kinds {
 		if k == flowIn {
@@ -424,12 +415,12 @@ func (b *Box) split(v *style.Values, main, cross int, kinds []flow, out []int) {
 		}
 		return
 	}
-	reqs := boxReqs.push(shown)
-	defer boxReqs.pop()
-	expand := boxExpands.push(shown)
-	defer boxExpands.pop()
-	shares := boxShares.push(shown)
-	defer boxShares.pop()
+	reqs := t.boxReqs.push(shown)
+	defer t.boxReqs.pop()
+	expand := t.boxExpands.push(shown)
+	defer t.boxExpands.pop()
+	shares := t.boxShares.push(shown)
+	defer t.boxShares.pop()
 	k := 0
 	for i, c := range b.child {
 		if kinds[i] == flowIn {
@@ -438,7 +429,7 @@ func (b *Box) split(v *style.Values, main, cross int, kinds []flow, out []int) {
 			k++
 		}
 	}
-	allocate(reqs, expand, avail, shares)
+	t.allocate(reqs, expand, avail, shares)
 	k = 0
 	for i := range b.child {
 		if kinds[i] == flowIn {
@@ -469,8 +460,9 @@ func (b *Box) baselineGroup(kinds []flow, tall []int) (above, below int, ok bool
 // crossExtents writes each flowing child's natural extent across at
 // its share of main, the content's extent along the axis, to out.
 func (b *Box) crossExtents(v *style.Values, main int, kinds []flow, out []int) {
-	shares := boxShares.push(len(b.child))
-	defer boxShares.pop()
+	t := b.scratch()
+	shares := t.boxShares.push(len(b.child))
+	defer t.boxShares.pop()
 	b.split(v, main, Unknown, kinds, shares)
 	for i, c := range b.child {
 		if kinds[i] == flowIn {
@@ -485,6 +477,7 @@ func (b *Box) crossExtents(v *style.Values, main int, kinds []flow, out []int) {
 // child's. The children sit at their shares of the box's arranged
 // width, or of its natural width before it is arranged.
 func (b *Box) Baseline() (int, bool) {
+	t := b.scratch()
 	v := b.style(b)
 	box := b.box(v)
 	top := box.outer().Top
@@ -500,10 +493,10 @@ func (b *Box) Baseline() (int, bool) {
 	if b.axis == Column {
 		main = Unknown
 	}
-	kinds := b.flows()
-	defer boxFlows.pop()
-	tall := boxShares.push(len(b.child))
-	defer boxShares.pop()
+	kinds := b.flows(t)
+	defer t.boxFlows.pop()
+	tall := t.boxShares.push(len(b.child))
+	defer t.boxShares.pop()
 	b.crossExtents(v, main, kinds, tall)
 	cross := 0
 	for i := range b.child {
@@ -593,25 +586,27 @@ func (b *Box) Spacing() int { return b.spacing }
 // orders them for paint and hit testing by their stacking keys. r is
 // the margin box; Bounds records the border box.
 func (b *Box) Arrange(r render.Rect) {
-	if !b.arrangeStale && b.arranged == (arrangeStamp{rect: r, style: styleGen, theme: themeGen}) {
+	stamp := arrangeStamp{rect: r, style: styleGen.Load(), theme: themeGen.Load()}
+	if !b.arrangeStale && b.arranged == stamp {
 		b.bubbleInk()
 		return
 	}
-	if arrangeShifted && r.W == b.arranged.rect.W && r.H == b.arranged.rect.H && b.canShift() {
-		b.shiftTo(r)
+	t := b.scratch()
+	if t.shift.shifted && r.W == b.arranged.rect.W && r.H == b.arranged.rect.H && b.canShift() {
+		b.shiftTo(t, r)
 		return
 	}
-	if arrangeShifted {
-		shiftBroken = true
-		arrangeShifted = false
-		defer func() { arrangeShifted = true }()
+	if t.shift.shifted {
+		t.shiftBroken = true
+		t.shift.shifted = false
+		defer func() { t.shift.shifted = true }()
 	}
-	volatility, stickiness := arrangeVolatility, arrangeStickiness
+	volatility, stickiness := t.volatility, t.stickiness
 	b.arrangeStale = false
-	b.arranged = arrangeStamp{rect: r, style: styleGen, theme: themeGen}
+	b.arranged = stamp
 	defer func() {
-		b.arranged.volatile = arrangeVolatility != volatility
-		b.arranged.sticky = arrangeStickiness != stickiness
+		b.arranged.volatile = t.volatility != volatility
+		b.arranged.sticky = t.stickiness != stickiness
 	}()
 	v := b.style(b)
 	border, inner := boxRects(b.box(v), r)
@@ -644,18 +639,19 @@ func (b *Box) Arrange(r render.Rect) {
 // there. Out-of-flow children take no space; they are placed from where
 // the flow reached.
 func (b *Box) arrangeBox(v *style.Values, inner render.Rect) {
+	t := b.scratch()
 	spacing := b.gap(v)
 	main, cross := inner.W, inner.H
 	if b.axis == Column {
 		main, cross = inner.H, inner.W
 	}
-	kinds := b.flows()
-	defer boxFlows.pop()
-	sizes := boxShares.push(len(b.child))
-	defer boxShares.pop()
+	kinds := b.flows(t)
+	defer t.boxFlows.pop()
+	sizes := t.boxShares.push(len(b.child))
+	defer t.boxShares.pop()
 	b.split(v, main, cross, kinds, sizes)
-	tall := boxArranged.push(len(b.child))
-	defer boxArranged.pop()
+	tall := t.boxArranged.push(len(b.child))
+	defer t.boxArranged.pop()
 	if b.axis == Row {
 		for i, c := range b.child {
 			if kinds[i] == flowIn {
@@ -713,9 +709,6 @@ func (b *Box) arrangeBox(v *style.Values, inner render.Rect) {
 		pos += size + spacing
 	}
 }
-
-// boxArranged holds arrangeBox's cross extents per layout depth.
-var boxArranged depthStack[int]
 
 // ArrangeRoot records the box's own rect.
 func (b *Box) ArrangeRoot(r render.Rect) {

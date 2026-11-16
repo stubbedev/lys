@@ -5,8 +5,8 @@ package widget
 // across its whole loop while the passes it runs for its children sit
 // one level deeper, so no buffer is rewritten while it is still read,
 // and a steady frame allocates nothing once the buffers have grown.
-// Layout runs on the loop goroutine (docs/threading.md); one stack per
-// buffer kind serves the process.
+// Each widget tree keeps its own stacks (treeState), so trees laid out
+// on different goroutines never share one.
 type depthStack[T any] struct {
 	bufs  [][]T
 	depth int
@@ -40,8 +40,8 @@ func (s *depthStack[T]) pop() {
 // level of each keeps its own buffer across walks, a visit that
 // recurses into each works one level deeper, and a level is cleared as
 // its loop ends, so no widget stays reachable from a buffer after the
-// walk that snapshotted it. Tree walks run on the loop goroutine
-// (docs/threading.md).
+// walk that snapshotted it. A walk takes a stack of its own
+// (withKidStack), so walks on different goroutines never share one.
 type kidStack struct {
 	levels [][]Widget
 	depth  int

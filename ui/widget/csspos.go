@@ -52,8 +52,8 @@ func arrangeAt(w Widget, v *style.Values, r render.Rect) {
 		case style.PositionRelative:
 			r = relativeRect(w, v, r)
 		case style.PositionSticky:
-			arrangeStickiness++
 			if n != nil {
+				n.scratch().stickiness++
 				n.stickyFlow, n.sticky = r, true
 			}
 			r = stickyRect(w, v, r)
@@ -169,7 +169,7 @@ func ownContainingBlock(w Widget, v *style.Values) render.Rect {
 // from its side, left and top first; with neither set the box keeps its
 // static position, the corner the container's flow left for it.
 func placeOutOfFlow(w Widget, v *style.Values, static Point, cb render.Rect) {
-	arrangeVolatility++
+	nodeOf(w).scratch().volatility++
 	ws := resolveAxis(w, v, Row, cb.W)
 	hs := resolveAxis(w, v, Column, cb.H)
 	left, hasL := insetOf(v, 3, cb.W)

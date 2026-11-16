@@ -220,6 +220,7 @@ type cssItem struct {
 // cssPass is one CSS layout run over a Box's children; measure and
 // arrange share it, arrange placing what measure only sizes.
 type cssPass struct {
+	t         *treeState
 	b         *Box
 	v         *style.Values
 	mode      layoutMode
@@ -234,20 +235,17 @@ type cssPass struct {
 	hasBase bool
 }
 
-// cssItems are the passes' item buffers, one per nesting level.
-var cssItems depthStack[cssItem]
-
 // beginPass collects the box's children for a pass; the caller ends it.
 func (b *Box) beginPass(v *style.Values, mode layoutMode, measuring bool) cssPass {
-	p := cssPass{b: b, v: v, mode: mode, measuring: measuring, rtl: b.rtl(v), height: indefinite}
-	p.items = cssItems.push(countItems(b))
+	p := cssPass{t: b.scratch(), b: b, v: v, mode: mode, measuring: measuring, rtl: b.rtl(v), height: indefinite}
+	p.items = p.t.cssItems.push(countItems(b))
 	n := 0
 	p.collect(b, &n)
 	return p
 }
 
 // end releases the pass's buffer.
-func (p *cssPass) end() { cssItems.pop() }
+func (p *cssPass) end() { p.t.cssItems.pop() }
 
 // dissolves reports whether c dissolves into its parent's pass.
 func dissolves(c Widget) (*Box, bool) {

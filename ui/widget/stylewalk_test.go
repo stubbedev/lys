@@ -87,7 +87,7 @@ func TestStyleWalkReachesComposites(t *testing.T) {
 		data := make([]byte, render.Stride(400)*1200)
 		root.Paint(render.New(data, render.Stride(400), 400, 1200))
 	}
-	walkTree(root, 0, func(w Widget, _ int) {
+	walkTree(root, func(w Widget, _ int) {
 		p := parentOf(w)
 		if p == nil || w == Widget(root) {
 			return

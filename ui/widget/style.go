@@ -61,7 +61,7 @@ const (
 // (AttachStylesheet) it applies to those subtrees only — one surface's
 // styling that must not reach another's. The zero value is not usable.
 type Stylesheet struct {
-	sheet    *style.Sheet
+	sheet    atomic.Pointer[style.Sheet]
 	priority int
 	live     bool
 	// scoped marks a NewStylesheet sheet: it styles only the subtrees it
@@ -75,18 +75,40 @@ type Stylesheet struct {
 	files []styleFile
 }
 
-// sheets is every installed stylesheet in install order; layersNow is
-// the snapshot the cascade reads, rebuilt on every change. Both are
-// loop-goroutine state, like the widget tree.
+// sheets is every installed stylesheet in install order, scopedSheets
+// those attached to at least one widget, and appSheet the one
+// LoadStylesheet manages. inlineUnits is every size-relative unit an
+// inline style has named so far: inline blocks die with their widgets
+// unannounced, so it only grows, and a later resize costs an unneeded
+// restyle at worst. cascadeMu guards them and every Stylesheet's live
+// and attached; the cascade reads only the snapshot cascadeNow holds,
+// rebuilt from them on every change, so trees restyling on any
+// goroutine see one consistent set.
 var (
-	sheets    []*Stylesheet
-	layersNow []style.Layer
-	sensNow   sensitivity
-	// inlineUnits is every size-relative unit an inline style has named
-	// so far. Inline blocks die with their widgets unannounced, so it
-	// only grows: a later resize costs an unneeded restyle at worst.
-	inlineUnits style.UnitReads
+	cascadeMu    sync.Mutex
+	sheets       []*Stylesheet
+	scopedSheets []*Stylesheet
+	appSheet     *Stylesheet
+	inlineUnits  style.UnitReads
+	cascadeNow   atomic.Pointer[cascade]
 )
+
+type cascade struct {
+	layers []style.Layer
+	sens   sensitivity
+	inline style.UnitReads
+	scoped bool
+	faces  []fontFaceEntry
+}
+
+var noCascade cascade
+
+func cascadeOf() *cascade {
+	if c := cascadeNow.Load(); c != nil {
+		return c
+	}
+	return &noCascade
+}
 
 // sensitivity is the union of the loaded sheets' selector summaries.
 type sensitivity struct {
@@ -150,12 +172,30 @@ func (s *sensitivity) noteUnits(u style.UnitReads) {
 // against it, so a load restyles and relayouts the whole tree without
 // walking it, and the damage collector repaints each widget once (the
 // themeGen pattern).
-var styleGen uint64 = 1
+var styleGen = startedGeneration()
+
+func startedGeneration() *atomic.Uint64 {
+	g := new(atomic.Uint64)
+	g.Store(1)
+	return g
+}
 
 // NewStylesheet parses css into a stylesheet at priority without
 // installing it: attach it to the widgets whose subtrees it styles.
 func NewStylesheet(css string, priority int) *Stylesheet {
-	return &Stylesheet{sheet: ParseStylesheet(css).rules(), priority: priority, scoped: true}
+	return newStylesheet(ParseStylesheet(css).rules(), priority, false)
+}
+
+func newStylesheet(sheet *style.Sheet, priority int, live bool) *Stylesheet {
+	s := &Stylesheet{priority: priority, live: live, scoped: !live}
+	s.sheet.Store(sheet)
+	return s
+}
+
+func install(s *Stylesheet) {
+	cascadeMu.Lock()
+	sheets = append(sheets, s)
+	cascadeMu.Unlock()
 }
 
 // SetParseWarn installs f as the CSS engine's parse-warning sink; nil
@@ -172,8 +212,8 @@ func SetParseWarn(f func(msg string)) {
 // event-loop goroutine, like SetTheme. Malformed rules are skipped with
 // a warning on the library logger — the valid remainder still applies.
 func AddStylesheet(css string, priority int) *Stylesheet {
-	s := &Stylesheet{sheet: ParseStylesheet(css).rules(), priority: priority, live: true}
-	sheets = append(sheets, s)
+	s := newStylesheet(ParseStylesheet(css).rules(), priority, true)
+	install(s)
 	relayer()
 	return s
 }
@@ -213,12 +253,14 @@ func ParseStylesheet(css string) *ParsedStylesheet {
 // LoadParsed is Load with the parse already done: installing p costs no
 // parse, and restyles exactly what Load of the same text would.
 func (s *Stylesheet) LoadParsed(p *ParsedStylesheet) {
-	s.sheet = p.rules()
+	s.sheet.Store(p.rules())
 	unwatch(s)
+	cascadeMu.Lock()
 	if !s.live && !s.scoped && s.attached == 0 {
 		s.live = true
 		sheets = append(sheets, s)
 	}
+	cascadeMu.Unlock()
 	relayer()
 }
 
@@ -227,11 +269,14 @@ func (s *Stylesheet) LoadParsed(p *ParsedStylesheet) {
 // longer reloads); removing twice is a no-op.
 func (s *Stylesheet) Remove() {
 	unwatch(s)
+	cascadeMu.Lock()
 	if !s.live {
+		cascadeMu.Unlock()
 		return
 	}
 	s.live = false
 	sheets = slices.DeleteFunc(sheets, func(o *Stylesheet) bool { return o == s })
+	cascadeMu.Unlock()
 	relayer()
 }
 
@@ -249,33 +294,60 @@ func relayer() {
 // from the stylesheets in use, installed and attached, and loads their
 // font faces. It restyles nothing.
 func resensitize() {
-	layersNow = layersNow[:0]
-	sensNow = sensitivity{}
-	sensNow.noteUnits(inlineUnits)
-	for _, s := range sheets {
-		layersNow = append(layersNow, style.Layer{Sheet: s.sheet, Priority: s.priority})
+	missing := publishCascade()
+	if len(missing) == 0 {
+		return
 	}
-	for _, s := range append(slices.Clone(sheets), scopedSheets...) {
-		sn := s.sheet.Sensitivity()
-		sensNow.noteUnits(sn.Units)
-		if s.sheet.ContainerQueries() > 0 {
-			sensNow.media, sensNow.containers = true, true
-		}
-		if s.sheet.MediaQueries() > 0 {
-			sensNow.media = true
-		}
-		sensNow.ancestor.add(sn.AncestorStates, sn.AncestorClasses)
-		sensNow.sibling.add(sn.SiblingStates, sn.SiblingClasses)
-		sensNow.structural = sensNow.structural || sn.Structural
-		sensNow.has = sensNow.has || sn.HasRelational
-		sensNow.pseudo = sensNow.pseudo || sn.Pseudo
-		sensNow.counters = sensNow.counters || sn.Counters
+	for _, f := range missing {
+		requestFontFace(f.Family, f.Src)
 	}
-	loadFontFaces()
+	if slices.ContainsFunc(missing, func(f *style.FontFace) bool {
+		_, ok := sysfont.PeekFaceFile(f.Src)
+		return ok
+	}) {
+		publishCascade()
+	}
 }
 
-// scopedSheets are the stylesheets attached to at least one widget.
-var scopedSheets []*Stylesheet
+func publishCascade() (missing []*style.FontFace) {
+	cascadeMu.Lock()
+	defer cascadeMu.Unlock()
+	c := &cascade{inline: inlineUnits, scoped: len(scopedSheets) > 0}
+	c.sens.noteUnits(inlineUnits)
+	for _, s := range sheets {
+		c.layers = append(c.layers, style.Layer{Sheet: s.sheet.Load(), Priority: s.priority})
+	}
+	for _, s := range slices.Concat(sheets, scopedSheets) {
+		sheet := s.sheet.Load()
+		sn := sheet.Sensitivity()
+		c.sens.noteUnits(sn.Units)
+		if sheet.ContainerQueries() > 0 {
+			c.sens.media, c.sens.containers = true, true
+		}
+		if sheet.MediaQueries() > 0 {
+			c.sens.media = true
+		}
+		c.sens.ancestor.add(sn.AncestorStates, sn.AncestorClasses)
+		c.sens.sibling.add(sn.SiblingStates, sn.SiblingClasses)
+		c.sens.structural = c.sens.structural || sn.Structural
+		c.sens.has = c.sens.has || sn.HasRelational
+		c.sens.pseudo = c.sens.pseudo || sn.Pseudo
+		c.sens.counters = c.sens.counters || sn.Counters
+		for _, f := range sheet.FontFaces() {
+			tf, ok := sysfont.PeekFaceFile(f.Src)
+			if !ok {
+				missing = append(missing, f)
+				continue
+			}
+			c.faces = append(c.faces, fontFaceEntry{
+				family: f.Family, weightLo: f.WeightLo, weightHi: f.WeightHi,
+				italic: f.Italic, face: tf,
+			})
+		}
+	}
+	cascadeNow.Store(c)
+	return missing
+}
 
 // AttachStylesheet applies s to this widget and its descendants, on top
 // of the installed stylesheets (a tie at equal priority and specificity
@@ -288,8 +360,14 @@ func (n *node) AttachStylesheet(s *Stylesheet) {
 		return
 	}
 	n.sheets = append(n.sheets, s)
-	if s.attached++; s.attached == 1 {
+	cascadeMu.Lock()
+	s.attached++
+	first := s.attached == 1
+	if first {
 		scopedSheets = append(scopedSheets, s)
+	}
+	cascadeMu.Unlock()
+	if first {
 		resensitize()
 	}
 	n.restyleTree()
@@ -304,8 +382,14 @@ func (n *node) DetachStylesheet(s *Stylesheet) {
 		return
 	}
 	n.sheets = slices.Delete(n.sheets, i, i+1)
-	if s.attached--; s.attached == 0 {
+	cascadeMu.Lock()
+	s.attached--
+	last := s.attached == 0
+	if last {
 		scopedSheets = slices.DeleteFunc(scopedSheets, func(o *Stylesheet) bool { return o == s })
+	}
+	cascadeMu.Unlock()
+	if last {
 		resensitize()
 	}
 	n.restyleTree()
@@ -323,45 +407,46 @@ func (n *node) restyleTree() {
 	restyleSubtree(n.self)
 }
 
-// layerBuf is layersFor's reusable buffer (loop-goroutine only).
-var layerBuf []style.Layer
-
 // layersFor returns the cascade layers for n: the installed sheets,
 // then the sheets attached to n and its ancestors, outermost first.
-func layersFor(n *node) []style.Layer {
-	if len(scopedSheets) == 0 {
-		return layersNow
+func (t *treeState) layersFor(c *cascade, n *node) []style.Layer {
+	if !c.scoped {
+		return c.layers
 	}
-	layerBuf = append(layerBuf[:0], layersNow...)
-	mark := len(layerBuf)
+	t.layers = append(t.layers[:0], c.layers...)
+	mark := len(t.layers)
 	for p := n; p != nil; p = styleParentNodeOf(p) {
 		for _, s := range slices.Backward(p.sheets) {
-			layerBuf = append(layerBuf, style.Layer{Sheet: s.sheet, Priority: s.priority})
+			t.layers = append(t.layers, style.Layer{Sheet: s.sheet.Load(), Priority: s.priority})
 		}
 	}
-	slices.Reverse(layerBuf[mark:])
-	return layerBuf
+	slices.Reverse(t.layers[mark:])
+	return t.layers
 }
-
-// appSheet is the stylesheet LoadStylesheet manages.
-var appSheet *Stylesheet
 
 // LoadStylesheet parses css and installs it as the application
 // stylesheet (StylePriorityApplication), replacing whatever
 // LoadStylesheet loaded before. An empty string removes it. Other
 // stylesheets added with AddStylesheet are untouched.
 func LoadStylesheet(css string) {
-	if css == "" {
-		if appSheet != nil {
-			appSheet.Remove()
-		}
+	cascadeMu.Lock()
+	app := appSheet
+	if app == nil && css != "" {
+		app = newStylesheet(ParseStylesheet(css).rules(), StylePriorityApplication, true)
+		appSheet = app
+		sheets = append(sheets, app)
+		cascadeMu.Unlock()
+		relayer()
 		return
 	}
-	if appSheet == nil {
-		appSheet = AddStylesheet(css, StylePriorityApplication)
-		return
+	cascadeMu.Unlock()
+	switch {
+	case app == nil:
+	case css == "":
+		app.Remove()
+	default:
+		app.Load(css)
 	}
-	appSheet.Load(css)
 }
 
 // styleEnv is the unit environment: what 1rem is, and the font size a
@@ -406,7 +491,7 @@ func SetMediaViewport(w, h int) {
 		return
 	}
 	mediaViewport.w, mediaViewport.h = w, h
-	if !sensNow.media {
+	if !cascadeOf().sens.media {
 		return
 	}
 	bumpStyleGen("media viewport")
@@ -429,7 +514,7 @@ func SetMediaViewportFor(root Widget, w, h int) {
 		return
 	}
 	n.viewport.w, n.viewport.h = w, h
-	if sensNow.media {
+	if cascadeOf().sens.media {
 		n.restyleTree()
 	}
 }
@@ -453,7 +538,7 @@ func SetMediaContrast(on bool) {
 		return
 	}
 	mediaContrast = on
-	if !sensNow.media {
+	if !cascadeOf().sens.media {
 		return
 	}
 	bumpStyleGen("media contrast")
@@ -466,7 +551,7 @@ func SetMediaResolution(dpi float64) {
 		return
 	}
 	mediaDPI = dpi
-	if !sensNow.media {
+	if !cascadeOf().sens.media {
 		return
 	}
 	bumpStyleGen("media resolution")
@@ -513,7 +598,7 @@ func envNow() style.Env {
 		Width: float64(mediaViewport.w), Height: float64(mediaViewport.h),
 		DPI: mediaDPI, Dark: currentDark(), HighContrast: mediaContrast,
 		ReducedMotion: !current.Moves(),
-	}, InlineContainerUnits: inlineUnits.Container}
+	}, InlineContainerUnits: cascadeOf().inline.Container}
 	env.RootLineHeight = env.Rem * ratioOr(m.LineHeight, 1.2)
 	return env
 }
@@ -524,12 +609,12 @@ func envNow() style.Env {
 // line-height, when it declares them (SetRootFontSize is the initial
 // value). The root itself resolves them against the initial values,
 // and its style is fresh here: a node's ancestry computes first.
-func envFor(n *node) style.Env {
+func envFor(n *node, gen uint64) style.Env {
 	env := envNow()
 	r := styleRootOf(n)
 	vp := rootViewport(r)
 	env.Media.Width, env.Media.Height = float64(vp.w), float64(vp.h)
-	if r == n || r.csGen != styleGen {
+	if r == n || r.csGen != gen {
 		return env
 	}
 	if r.cs.Has(style.PropFontSize) && r.cs.FontSize > 0 {
@@ -658,8 +743,8 @@ func AddStylesheetFile(path string, priority int) (*Stylesheet, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Stylesheet{sheet: sheet, priority: priority, live: true}
-	sheets = append(sheets, s)
+	s := newStylesheet(sheet, priority, true)
+	install(s)
 	watchSheet(s, f)
 	relayer()
 	return s, nil
@@ -676,7 +761,7 @@ func NewStylesheetFile(path string, priority int) (*Stylesheet, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Stylesheet{sheet: sheet, priority: priority, scoped: true}
+	s := newStylesheet(sheet, priority, false)
 	watchSheet(s, f)
 	return s, nil
 }
@@ -690,10 +775,13 @@ func LoadStylesheetFile(path string) error {
 	if err != nil {
 		return err
 	}
-	if appSheet != nil {
-		appSheet.Remove()
-	}
+	cascadeMu.Lock()
+	old := appSheet
 	appSheet = s
+	cascadeMu.Unlock()
+	if old != nil {
+		old.Remove()
+	}
 	return nil
 }
 
@@ -824,7 +912,7 @@ func (s *Stylesheet) applyReload(sheet *style.Sheet, now []styleFile, err error)
 	removed := len(s.files) == 0
 	if !removed && err == nil {
 		s.files = now
-		s.sheet = sheet
+		s.sheet.Store(sheet)
 		rearmWatchLocked()
 	}
 	watchMu.Unlock()
@@ -900,34 +988,6 @@ type fontFaceEntry struct {
 	face               render.Font
 }
 
-// fontFaceList is the loaded @font-face registry, rebuilt on every
-// relayer. Loop-goroutine state, like sheets.
-var fontFaceList []fontFaceEntry
-
-// loadFontFaces rebuilds the family registry the font-family resolver
-// consults first from the @font-face src files already loaded, and asks
-// for the others off the loop. A src that cannot be read or parsed reports
-// through the parse-warning sink naming the family and path, and that
-// face alone drops — the same policy a failing hot reload follows.
-func loadFontFaces() {
-	fontFaceList = fontFaceList[:0]
-	for _, s := range append(slices.Clone(sheets), scopedSheets...) {
-		for _, f := range s.sheet.FontFaces() {
-			tf, ok := sysfont.PeekFaceFile(f.Src)
-			if !ok {
-				requestFontFace(f.Family, f.Src)
-				if tf, ok = sysfont.PeekFaceFile(f.Src); !ok {
-					continue
-				}
-			}
-			fontFaceList = append(fontFaceList, fontFaceEntry{
-				family: f.Family, weightLo: f.WeightLo, weightHi: f.WeightHi,
-				italic: f.Italic, face: tf,
-			})
-		}
-	}
-}
-
 func requestFontFace(family, src string) {
 	var failed error
 	loadAsset(fontFaceKey(src), func() {
@@ -953,7 +1013,7 @@ func fontFaceOf(family string, weight int) render.Font {
 		weight = 400
 	}
 	var first render.Font
-	for _, e := range fontFaceList {
+	for _, e := range cascadeOf().faces {
 		if !strings.EqualFold(e.family, family) {
 			continue
 		}
@@ -1072,12 +1132,23 @@ func (n *node) SetInlineStylePriority(css string, priority int) {
 		n.inline = nil
 	} else {
 		n.inline = style.ParseDeclarations(css)
-		u := n.inline.Units()
-		inlineUnits.Viewport = inlineUnits.Viewport || u.Viewport
-		inlineUnits.Container = inlineUnits.Container || u.Container
-		sensNow.noteUnits(u)
+		noteInlineUnits(n.inline.Units())
 	}
 	n.invalidateStyle()
+}
+
+func noteInlineUnits(u style.UnitReads) {
+	cascadeMu.Lock()
+	defer cascadeMu.Unlock()
+	grown := style.UnitReads{Viewport: inlineUnits.Viewport || u.Viewport, Container: inlineUnits.Container || u.Container}
+	if grown == inlineUnits {
+		return
+	}
+	inlineUnits = grown
+	c := *cascadeOf()
+	c.inline = grown
+	c.sens.noteUnits(grown)
+	cascadeNow.Store(&c)
 }
 
 // InlineStyle returns the inline declarations as set.
@@ -1538,7 +1609,7 @@ type modelPositioner interface {
 // not once per restyled widget. Membership and visibility changes all
 // mark damage (Append through InvalidateLayout, SetVisible through
 // the parent's relayout), so a mark cannot be missed; the memo is
-// loop-goroutine state like every other walk buffer.
+// the parent node's own, like the rest of its tree's state.
 func visibleSiblings(n *node, w Widget) ([]Widget, int) {
 	if n.parent == nil {
 		return nil, -1
@@ -1819,19 +1890,6 @@ func hoverActiveOf(w Widget) style.State {
 	return s
 }
 
-// styleScratch is the matcher's shared workspace, styleSelf its
-// shared adapter, and styleNext the values a restyle computes into:
-// style work runs on the event-loop goroutine (docs/threading.md), so
-// one buffer serves the process. styleBusy guards styleNext: a node's
-// ancestry restyles before its compute starts, so nothing may restyle
-// while one is in flight.
-var (
-	styleScratch style.Scratch
-	styleSelf    styleTargeter
-	styleNext    style.Values
-	styleBusy    bool
-)
-
 // style returns the widget's computed style — the paint path's entry
 // point, called exactly where Theme fields are read. Steady state is
 // two integer compares; after an invalidation the first read
@@ -1839,7 +1897,7 @@ var (
 // whose layout changed (a progress bar's trough min-height) then drops
 // the widget's measure before the widget answers from it.
 func (n *node) style(w Widget) *style.Values {
-	if !n.styleDirty && n.csGen == styleGen {
+	if !n.styleDirty && n.csGen == n.scratch().styleGenNow() {
 		return &n.cs
 	}
 	v := n.restyle(w)
@@ -1847,16 +1905,14 @@ func (n *node) style(w Widget) *style.Values {
 	return v
 }
 
-// partStack is restyleParts' kid buffers, reused across restyles like
-// styleStack; a part's restyle refreshes its own parts a level down.
-var partStack kidStack
-
 // restyleParts refreshes w's style parts after w restyled.
 func restyleParts(w Widget) {
-	partStack.each(func(kids []Widget) []Widget { return appendStyleKids(w, kids) }, func(k Widget) {
-		if p, ok := k.(styleParter); ok {
-			p.partNode().style(k)
-		}
+	withKidStack(func(s *kidStack) {
+		s.each(func(kids []Widget) []Widget { return appendStyleKids(w, kids) }, func(k Widget) {
+			if p, ok := k.(styleParter); ok {
+				p.partNode().style(k)
+			}
+		})
 	})
 }
 
@@ -1867,6 +1923,10 @@ func restyleParts(w Widget) {
 // the compute and one comparison, and touches nothing.
 func (n *node) restyle(w Widget) *style.Values {
 	ensureThemeSheet()
+	t := n.scratch()
+	t.pinStyleGen()
+	defer t.unpinStyleGen()
+	gen := t.styleGenNow()
 	n.restyles++
 	w = styleOwner(w)
 	if n.self == nil {
@@ -1885,43 +1945,44 @@ func (n *node) restyle(w Widget) *style.Values {
 	inherits := parent != nil && (!parent.Set.Empty() || parent.Vars != nil)
 	// The counter inputs read other widgets' styles, so they resolve
 	// before the layers and the shared adapter are taken.
+	c := cascadeOf()
 	var prevCounters, srcCounters *style.CounterScope
-	if sensNow.counters {
+	if c.sens.counters {
 		prevCounters, srcCounters = prevCountersOf(n, w)
 	}
-	if styleBusy {
+	if t.styleBusy {
 		panic("widget: a restyle started inside another's compute")
 	}
-	styleBusy = true
-	v := &styleNext
-	if layers := layersFor(n); len(layers) > 0 || n.inline != nil || inherits {
-		styleSelf.n, styleSelf.w = n, w
-		styleScratch.SetPrevCounters(prevCounters, srcCounters)
-		style.Compute(layers, &styleSelf, parent, &n.cs, envFor(n), &styleScratch, v)
-		if sensNow.pseudo {
-			n.computePseudos(layers, v)
+	t.styleBusy = true
+	v := &t.styleNext
+	if layers := t.layersFor(c, n); len(layers) > 0 || n.inline != nil || inherits {
+		t.styleSelf.n, t.styleSelf.w = n, w
+		t.styleScratch.SetPrevCounters(prevCounters, srcCounters)
+		style.Compute(layers, &t.styleSelf, parent, &n.cs, envFor(n, gen), &t.styleScratch, v)
+		if c.sens.pseudo {
+			n.computePseudos(t, gen, layers, v)
 		}
-		styleSelf.forget()
+		t.styleSelf.forget()
 	} else {
 		*v = style.Values{}
-		if n.pseudoGen != styleGen {
+		if n.pseudoGen != gen {
 			n.pseudo = nil
-			n.pseudoGen = styleGen
+			n.pseudoGen = gen
 		}
 	}
-	n.csGen = styleGen
-	n.styleSeen = styleGen
+	n.csGen = gen
+	n.styleSeen = gen
 	n.styleDirty = false
-	if sensNow.pseudo {
+	if c.sens.pseudo {
 		n.requestPseudoImages(w)
 	}
 	if !firstStyle && n.trCancel == nil && n.anims == nil && n.cs.Equal(v) {
-		styleBusy = false
+		t.styleBusy = false
 		return &n.cs
 	}
 	old := n.cs
 	n.cs = *v
-	styleBusy = false
+	t.styleBusy = false
 	requestStyleImages(&n.cs, w)
 	n.ink = inkOf(&n.cs)
 	n.transitionValues(&old, &n.cs, firstStyle)
@@ -1943,7 +2004,7 @@ func (n *node) restyle(w Widget) *style.Values {
 	if inheritedKey(&n.cs) != inheritedKey(&old) {
 		restyleSubtree(w)
 	}
-	if sensNow.counters && !n.cs.Counters.Equal(old.Counters) {
+	if c.sens.counters && !n.cs.Counters.Equal(old.Counters) {
 		restyleCountersAfter(w)
 	}
 	return &n.cs
@@ -1976,10 +2037,6 @@ func restyleCountersAfter(w Widget) {
 
 // pseudoNames are the painted pseudo-elements, in cache order.
 var pseudoNames = [...]string{"before", "after", "first-letter"}
-
-// pseudoNext is what computePseudos cascades into before it keeps or
-// drops a node's set (loop-goroutine only, like styleNext).
-var pseudoNext [len(pseudoNames)]style.Values
 
 // prevCountersOf reads the two counter sets CSS counter inheritance
 // takes beside the parent's: the previous visible sibling's, and the
@@ -2018,14 +2075,14 @@ func lastStyleKid(w Widget) Widget {
 // computePseudos cascades the pseudo-element rules of this widget,
 // inheriting from its own computed style, and repaints when one moved.
 // A widget no rule addresses keeps no set at all.
-func (n *node) computePseudos(layers []style.Layer, self *style.Values) {
+func (n *node) computePseudos(t *treeState, gen uint64, layers []style.Layer, self *style.Values) {
 	addressed := false
 	for i, name := range pseudoNames {
-		if style.ComputePseudo(layers, &styleSelf, self, envFor(n), &styleScratch, &pseudoNext[i], name) {
+		if style.ComputePseudo(layers, &t.styleSelf, self, envFor(n, gen), &t.styleScratch, &t.pseudoNext[i], name) {
 			addressed = true
 		}
 	}
-	n.pseudoGen = styleGen
+	n.pseudoGen = gen
 	if !addressed {
 		if n.pseudo != nil {
 			n.pseudo = nil
@@ -2038,13 +2095,13 @@ func (n *node) computePseudos(layers []style.Layer, self *style.Values) {
 		n.Invalidate()
 	} else {
 		for i := range pseudoNames {
-			if !n.pseudo[i].Equal(&pseudoNext[i]) {
+			if !n.pseudo[i].Equal(&t.pseudoNext[i]) {
 				n.Invalidate()
 				break
 			}
 		}
 	}
-	*n.pseudo = pseudoNext
+	*n.pseudo = t.pseudoNext
 }
 
 // PseudoStyle returns w's computed ::before/::after/::first-letter
@@ -2054,15 +2111,13 @@ func (n *node) computePseudos(layers []style.Layer, self *style.Values) {
 // only after a restyle; paint paths read them through PaintBoxLayers.
 func PseudoStyle(w Widget, pseudo string) *style.Values {
 	n := nodeOf(w)
-	if n == nil || !sensNow.pseudo {
+	if n == nil || !cascadeOf().sens.pseudo {
 		return nil
 	}
 	for i, name := range pseudoNames {
 		if name == pseudo {
-			if n.pseudoGen != styleGen || n.styleDirty {
-				n.style(w)
-			}
-			if n.pseudo == nil {
+			n.style(w)
+			if n.pseudoGen != n.csGen || n.pseudo == nil {
 				return nil
 			}
 			return &n.pseudo[i]
@@ -2094,7 +2149,7 @@ type pseudoFacer interface {
 // then its content string — before at the content start, after at the
 // content end. Content needs a face; box layers paint for any widget.
 func paintPseudos(cv *render.Canvas, w Widget, n *node, v *style.Values) {
-	if !sensNow.pseudo || n.pseudoGen != styleGen || n.pseudo == nil {
+	if !cascadeOf().sens.pseudo || n.pseudoGen != n.csGen || n.pseudo == nil {
 		return
 	}
 	b := boxOf(v, render.Insets{})
@@ -2133,7 +2188,7 @@ func paintPseudos(cv *render.Canvas, w Widget, n *node, v *style.Values) {
 // the content start (::before) or end (::after), vertically centered
 // at its natural size beside any text content.
 func paintPseudoImage(cv *render.Canvas, n *node, v *style.Values) {
-	if !sensNow.pseudo || n.pseudoGen != styleGen || n.pseudo == nil {
+	if !cascadeOf().sens.pseudo || n.pseudoGen != n.csGen || n.pseudo == nil {
 		return
 	}
 	b := boxOf(v, render.Insets{})
@@ -2322,17 +2377,17 @@ func inkOf(v *style.Values) render.Insets {
 	return ink
 }
 
-// styleStack is restyleSubtree's snapshot buffers, reused across passes
-// like a DamageCollector's kidStack.
-var styleStack kidStack
-
 // restyleSubtree marks every descendant's computed style stale:
 // something above them changed what they match or inherit, so each
 // recomputes on its next read — the damage walk reaches them
 // pre-order — and repaints only if its values actually moved (the
 // restyle diff invalidates).
 func restyleSubtree(w Widget) {
-	styleStack.each(func(kids []Widget) []Widget {
+	withKidStack(func(s *kidStack) { restyleBelow(s, w) })
+}
+
+func restyleBelow(s *kidStack, w Widget) {
+	s.each(func(kids []Widget) []Widget {
 		kids = appendStyleKids(w, kids)
 		if n := nodeOf(w); n != nil {
 			kids = append(kids, n.anchored...)
@@ -2342,7 +2397,7 @@ func restyleSubtree(w Widget) {
 		if n := nodeOf(k); n != nil {
 			n.markStyleDirty()
 		}
-		restyleSubtree(k)
+		restyleBelow(s, k)
 	})
 	markDamage()
 }
@@ -2374,7 +2429,7 @@ func appendStyleKids(w Widget, buf []Widget) []Widget {
 // structural selector may now match differently. Without one it is
 // free.
 func restyleChildren(w Widget) {
-	if !sensNow.structural {
+	if !cascadeOf().sens.structural {
 		return
 	}
 	restyleSubtree(w)
@@ -2431,12 +2486,14 @@ func (n *node) restyleState(changed style.State) {
 // them on an ancestor (or a :has() reads anything), its parent's
 // subtree when one reads them on a sibling.
 func stateScope(changed style.State) (sub, sib bool) {
-	return sensNow.ancestor.states&changed != 0 || sensNow.has, sensNow.sibling.states&changed != 0
+	sens := &cascadeOf().sens
+	return sens.ancestor.states&changed != 0 || sens.has, sens.sibling.states&changed != 0
 }
 
 // invalidateClasses is invalidateState for a class-list change.
 func (n *node) invalidateClasses(changed []string) {
-	n.invalidateScope(sensNow.ancestor.readsClass(changed) || sensNow.has, sensNow.sibling.readsClass(changed))
+	sens := &cascadeOf().sens
+	n.invalidateScope(sens.ancestor.readsClass(changed) || sens.has, sens.sibling.readsClass(changed))
 }
 
 // invalidateScope marks n stale, and its subtree when sub, and its
@@ -2446,7 +2503,7 @@ func (n *node) invalidateClasses(changed []string) {
 // yet: its first restyle happens anyway.
 func (n *node) invalidateScope(sub, sib bool) {
 	n.invalidateStyle()
-	if sensNow.has && !n.unseen() {
+	if cascadeOf().sens.has && !n.unseen() {
 		for p := parentNodeOf(n); p != nil; p = parentNodeOf(p) {
 			p.markStyleDirty()
 		}

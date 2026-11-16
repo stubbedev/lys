@@ -65,17 +65,17 @@ func TestAFallbackSettlesInlineWithoutALoop(t *testing.T) {
 
 func TestFallbackAnswersShareOneRelayout(t *testing.T) {
 	f := newFakeInvoker(t)
-	gen := styleGen
+	gen := styleGen.Load()
 	FontFaceResolved()
 	FontFaceResolved()
 	FontFaceResolved()
 	f.drain(t, 1)
-	if styleGen != gen+1 {
-		t.Errorf("three answers before the loop's pass bumped the style %d times, want 1", styleGen-gen)
+	if styleGen.Load() != gen+1 {
+		t.Errorf("three answers before the loop's pass bumped the style %d times, want 1", styleGen.Load()-gen)
 	}
 	FontFaceResolved()
 	f.drain(t, 1)
-	if styleGen != gen+2 {
-		t.Errorf("an answer after the pass bumped the style %d times in all, want 2", styleGen-gen)
+	if styleGen.Load() != gen+2 {
+		t.Errorf("an answer after the pass bumped the style %d times in all, want 2", styleGen.Load()-gen)
 	}
 }

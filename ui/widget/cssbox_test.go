@@ -754,14 +754,14 @@ func TestHoverChainKeepsTheRootOverAGap(t *testing.T) {
 	if root.HitTest(gap) != nil {
 		t.Fatalf("the gap hits %T, want nothing", root.HitTest(gap))
 	}
-	gen := styleGen
+	gen := styleGen.Load()
 	r.Move(gap)
 	if !root.hoverChain {
 		t.Error("the root left the hover chain over a gap")
 	}
 	r.Move(Point{X: b.Bounds().X + 2, Y: 5})
-	if styleGen != gen {
-		t.Errorf("crossing a gap restyled the whole tree (styleGen %d -> %d)", gen, styleGen)
+	if styleGen.Load() != gen {
+		t.Errorf("crossing a gap restyled the whole tree (styleGen %d -> %d)", gen, styleGen.Load())
 	}
 	if rects, _ := CollectDamage(root); len(rects) > 0 && rects[0] == root.Bounds() {
 		t.Errorf("crossing a gap repainted the root's whole box: %v", rects)
@@ -771,13 +771,13 @@ func TestHoverChainKeepsTheRootOverAGap(t *testing.T) {
 		t.Error("the pointer outside the root's bounds kept it hovered")
 	}
 	r.Move(gap)
-	gen = styleGen
+	gen = styleGen.Load()
 	r.Leave()
 	if root.hoverChain {
 		t.Error("leave kept the root hovered")
 	}
-	if styleGen != gen {
-		t.Errorf("the pointer leaving restyled every tree, not the root's (styleGen %d -> %d)", gen, styleGen)
+	if styleGen.Load() != gen {
+		t.Errorf("the pointer leaving restyled every tree, not the root's (styleGen %d -> %d)", gen, styleGen.Load())
 	}
 }
 

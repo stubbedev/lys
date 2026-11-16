@@ -90,7 +90,7 @@ func TestMeasureCacheDropsEveryEntryOnAStyleChange(t *testing.T) {
 	c := &computeCounter{}
 	c.Measure(Column, 100)
 	c.Measure(Column, 200)
-	styleGen++
+	styleGen.Add(1)
 	c.Measure(Column, 100)
 	if got := c.Measure(Column, 200); got.Nat != 4 {
 		t.Errorf("width 200 after the style change returned the old request %v, want a fresh measure", got)
@@ -147,10 +147,10 @@ func TestAttachStylesheetRestylesOnlyItsSubtree(t *testing.T) {
 	arrangeTree(t, root, 200, 40)
 	CollectDamage(other)
 	CollectDamage(root)
-	gen := styleGen
+	gen := styleGen.Load()
 
 	inner.AttachStylesheet(NewStylesheet(`label { color: #ff0000; }`, StylePriorityUser))
-	if styleGen != gen {
+	if styleGen.Load() != gen {
 		t.Error("attaching a sheet to one subtree bumped the style generation")
 	}
 	if rects, _ := CollectDamage(other); len(rects) != 0 {
@@ -163,7 +163,7 @@ func TestAttachStylesheetRestylesOnlyItsSubtree(t *testing.T) {
 	fresh := NewBox(Column, 0, 0)
 	fresh.Append(NewLabel(face, 14, "unstyled", 0), false)
 	fresh.AttachStylesheet(NewStylesheet(`label { color: #00ff00; }`, StylePriorityUser))
-	if styleGen != gen {
+	if styleGen.Load() != gen {
 		t.Error("attaching a sheet to a root never styled bumped the style generation")
 	}
 }
@@ -185,10 +185,10 @@ func TestRootStateFlipRestylesOnlyItsTree(t *testing.T) {
 	root.Append(label, false)
 	arrangeTree(t, root, 200, 40)
 	CollectDamage(other)
-	gen := styleGen
+	gen := styleGen.Load()
 
 	root.AddClass("picked")
-	if styleGen != gen {
+	if styleGen.Load() != gen {
 		t.Error("a class flip on a root bumped the style generation")
 	}
 	if rects, _ := CollectDamage(other); len(rects) != 0 {

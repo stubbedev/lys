@@ -85,7 +85,7 @@ func TestBoxRemove(t *testing.T) {
 			t.Errorf("parent = %v after removal, want nil", parentOf(w))
 		}
 		// The old tree must not reach the detached widget.
-		walkTree(boxA, 0, func(v Widget, _ int) {
+		walkTree(boxA, func(v Widget, _ int) {
 			if v == w {
 				t.Error("removed widget still walked from its old parent")
 			}
@@ -346,7 +346,7 @@ func TestStackRemove(t *testing.T) {
 			t.Errorf("removal hook saw %v, want the replaced child", *repl)
 		}
 		s.Arrange(render.Rect{X: 0, Y: 0, W: 10, H: 10})
-		walkTree(s, 0, func(w Widget, _ int) {
+		walkTree(s, func(w Widget, _ int) {
 			if w == old {
 				t.Error("replaced child still walked from the stack")
 			}
@@ -378,7 +378,7 @@ func TestScrollSetChild(t *testing.T) {
 			t.Error("old child kept its parent link")
 		}
 		var seen []Widget
-		walkTree(s, 0, func(w Widget, _ int) { seen = append(seen, w) })
+		walkTree(s, func(w Widget, _ int) { seen = append(seen, w) })
 		if slices.Contains(seen, old) || !slices.Contains(seen, fresh) {
 			t.Errorf("traversal after swap saw %v, want the new child only", seen)
 		}
@@ -424,7 +424,7 @@ func TestScrollSetChild(t *testing.T) {
 			t.Errorf("empty scroll hit = %v, want the scroll itself", hit)
 		}
 		var seen []Widget
-		walkTree(s, 0, func(w Widget, _ int) { seen = append(seen, w) })
+		walkTree(s, func(w Widget, _ int) { seen = append(seen, w) })
 		if len(seen) != 1 || seen[0] != s {
 			t.Errorf("empty scroll walk saw %v, want just the scroll", seen)
 		}
@@ -592,7 +592,7 @@ func TestRemoveMidTraversal(t *testing.T) {
 		b.Append(t3, false)
 
 		var visited []Widget
-		walkTree(b, 0, func(w Widget, _ int) {
+		walkTree(b, func(w Widget, _ int) {
 			visited = append(visited, w)
 			if w == t1 {
 				b.RemoveAt(1) // detach t2 mid-traversal

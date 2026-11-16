@@ -272,7 +272,7 @@ func (p *videoView) changed() {
 // Arrange places the offload surface over the fitted frame, opening
 // it the first time the view lands on screen.
 func (p *videoView) Arrange(r render.Rect) {
-	arrangeVolatility++
+	p.scratch().volatility++
 	p.node.Arrange(r)
 	p.place()
 }

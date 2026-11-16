@@ -5,15 +5,16 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/stubbedev/lys/lib/debug"
 	"github.com/stubbedev/lys/lib/render"
 )
 
-// measureMisses counts, in lysdebug builds, the measures that missed
-// their cache since the last MeasureMissReport, keyed by reason and
-// widget type.
-var measureMisses = map[string]int{}
+var trace = struct {
+	mu                                      sync.Mutex
+	measureMisses, boundsDamage, styleBumps map[string]int
+}{measureMisses: map[string]int{}, boundsDamage: map[string]int{}, styleBumps: map[string]int{}}
 
 // noteMeasureMiss records why n's measure along axis at forSize missed
 // its cache.
@@ -26,7 +27,7 @@ func noteMeasureMiss(n *node, axis Axis, forSize int) {
 		reason = "dirty"
 	case n.styleDirty:
 		reason = "style"
-	case n.styleSeen != styleGen:
+	case n.styleSeen != styleGen.Load():
 		reason = "stylegen"
 	case n.subStyle:
 		reason = "substyle"
@@ -43,7 +44,9 @@ func noteMeasureMiss(n *node, axis Axis, forSize int) {
 	if n.self != nil {
 		kind = fmt.Sprintf("%T", n.self)
 	}
-	measureMisses[reason+" "+kind]++
+	trace.mu.Lock()
+	defer trace.mu.Unlock()
+	trace.measureMisses[reason+" "+kind]++
 }
 
 // MeasureMissReport returns the measure-cache misses since the last
@@ -51,7 +54,13 @@ func noteMeasureMiss(n *node, axis Axis, forSize int) {
 // them; "" when there were none or the build lacks the lysdebug tag.
 // The app logs it per frame under LYS_DEBUG=measure.
 func MeasureMissReport() string {
-	if !debug.Enabled || len(measureMisses) == 0 {
+	if !debug.Enabled {
+		return ""
+	}
+	trace.mu.Lock()
+	defer trace.mu.Unlock()
+	measureMisses := trace.measureMisses
+	if len(measureMisses) == 0 {
 		return ""
 	}
 	keys := slices.SortedFunc(maps.Keys(measureMisses), func(a, b string) int {
@@ -68,11 +77,6 @@ func MeasureMissReport() string {
 	return strings.Join(parts, ", ")
 }
 
-// boundsDamage records, in lysdebug builds, the widgets that owed their
-// whole bounds since the last DamageReport and why, keyed by size,
-// type and reason.
-var boundsDamage = map[string]int{}
-
 // damageReasons is why n would owe its whole bounds now, read before
 // takeDamage clears the marks.
 func damageReasons(n *node) string {
@@ -86,32 +90,33 @@ func damageReasons(n *node) string {
 	if n.subInvalid {
 		why = append(why, "descendant")
 	}
-	if n.themeSeen != themeGen {
+	if n.themeSeen != themeGen.Load() {
 		why = append(why, "theme")
 	}
-	if n.styleDmg != styleGen {
+	if n.styleDmg != styleGen.Load() {
 		why = append(why, "stylegen")
 	}
 	return strings.Join(why, "+")
 }
 
-// styleBumps records, in lysdebug builds, what stamped every style
-// stale since the last DamageReport, keyed by reason.
-var styleBumps = map[string]int{}
-
 // bumpStyleGen stamps every widget's style stale and owes the repaint;
 // why names the change in the LYS_DEBUG=damage report.
 func bumpStyleGen(why string) {
-	styleGen++
+	styleGen.Add(1)
 	markDamage()
 	if debug.Enabled {
-		styleBumps[why]++
+		trace.mu.Lock()
+		trace.styleBumps[why]++
+		trace.mu.Unlock()
 	}
 }
 
 // noteDamage records that w owed its whole bounds this frame, and why.
 func noteDamage(w Widget, bounds render.Rect, why string) {
-	boundsDamage[fmt.Sprintf("%dx%d %T %s", bounds.W, bounds.H, w, why)]++
+	key := fmt.Sprintf("%dx%d %T %s", bounds.W, bounds.H, w, why)
+	trace.mu.Lock()
+	defer trace.mu.Unlock()
+	trace.boundsDamage[key]++
 }
 
 // DamageReport returns the widgets that owed their whole bounds since
@@ -119,7 +124,13 @@ func noteDamage(w Widget, bounds render.Rect, why string) {
 // and clears them; "" when there were none or the build lacks the
 // lysdebug tag. The app logs it per frame under LYS_DEBUG=damage.
 func DamageReport() string {
-	if !debug.Enabled || len(boundsDamage) == 0 && len(styleBumps) == 0 {
+	if !debug.Enabled {
+		return ""
+	}
+	trace.mu.Lock()
+	defer trace.mu.Unlock()
+	boundsDamage, styleBumps := trace.boundsDamage, trace.styleBumps
+	if len(boundsDamage) == 0 && len(styleBumps) == 0 {
 		return ""
 	}
 	area := func(k string) int {

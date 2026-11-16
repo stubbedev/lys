@@ -46,7 +46,7 @@ func (l *loop) set(on bool) {
 // never restarts a cycle.
 func (l *loop) arranged() {
 	if l.on {
-		arrangeVolatility++
+		nodeOf(l.owner).scratch().volatility++
 	}
 	switch {
 	case !onScreen(l.owner):

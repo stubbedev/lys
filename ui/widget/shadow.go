@@ -100,7 +100,7 @@ type shadowTracker struct {
 // bounds, same generation — is a no-op, so hovering a menu never
 // re-invalidates the falloff.
 func (s *shadowTracker) syncRing(n *node, ring render.Rect) {
-	if ring == s.last && s.gen == themeGen {
+	if ring == s.last && s.gen == themeGen.Load() {
 		return
 	}
 	if !s.last.Empty() {
@@ -109,7 +109,7 @@ func (s *shadowTracker) syncRing(n *node, ring render.Rect) {
 	if !ring.Empty() {
 		n.InvalidateRect(ring)
 	}
-	s.last, s.gen = ring, themeGen
+	s.last, s.gen = ring, themeGen.Load()
 }
 
 // Elevation wraps a widget and paints the theme's box shadow around

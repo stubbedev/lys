@@ -50,9 +50,6 @@ type flexLine struct {
 	used         float64
 }
 
-// flexLines are the flex passes' line buffers, one per nesting level.
-var flexLines depthStack[flexLine]
-
 // flexAxes is a flex container's resolved geometry.
 type flexAxes struct {
 	main, cross Axis
@@ -277,8 +274,8 @@ func (p *cssPass) flex(size Size, mainDef, crossDef bool) Size {
 		slices.SortStableFunc(p.items, func(a, b cssItem) int { return a.v.Layout.Order - b.v.Layout.Order })
 	}
 
-	lines := flexLines.push(max(1, flows))
-	defer flexLines.pop()
+	lines := p.t.flexLines.push(max(1, flows))
+	defer p.t.flexLines.pop()
 	lines = p.flexBreak(lines, f, mainDef, mainSize)
 	natMain := 0.0
 	for li := range lines {

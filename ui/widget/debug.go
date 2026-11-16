@@ -56,7 +56,7 @@ type NodeInfo struct {
 // may be nil, which leaves the input flags false.
 func InspectTree(root Widget, r *Router) []NodeInfo {
 	var out []NodeInfo
-	walkTree(root, 0, func(w Widget, depth int) {
+	walkTree(root, func(w Widget, depth int) {
 		ni := NodeInfo{
 			A11yState: Describe(w),
 			TypeName:  fmt.Sprintf("%T", w),

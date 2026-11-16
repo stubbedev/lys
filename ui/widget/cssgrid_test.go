@@ -636,7 +636,7 @@ func TestCSSGridSteadyFrameAllocatesNothing(t *testing.T) {
 		.abs { position: absolute; grid-area: 1 / 2 / 3 / 3; inset: 0; } .f { display: flex; }
 		.fill { display: grid; grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)); grid-column: 1 / -1; }`, root, 400, 300)
 	frame := func() {
-		styleGen++
+		styleGen.Add(1)
 		SizeWithin(root, Size{W: 400, H: 300})
 		root.Arrange(render.Rect{W: 400, H: 300})
 	}

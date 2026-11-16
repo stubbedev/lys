@@ -167,7 +167,7 @@ func markUnlinked(w, kid Widget) {
 // walk.
 func (c *DamageCollector) collectInto(w Widget) render.Rect {
 	if n := nodeOf(w); n != nil {
-		if !n.damageStale && !n.damageVolatile && !n.styleDirty && n.themeSeen == themeGen && n.styleDmg == styleGen && n.damageIcons == c.icons {
+		if !n.damageStale && !n.damageVolatile && !n.styleDirty && n.themeSeen == themeGen.Load() && n.styleDmg == styleGen.Load() && n.damageIcons == c.icons {
 			return render.Rect{}
 		}
 		n.damageStale, n.damageIcons = false, c.icons

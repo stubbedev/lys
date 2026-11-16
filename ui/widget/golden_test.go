@@ -527,7 +527,7 @@ func TestGoldenLightTheme(t *testing.T) {
 // the shot paints their carets; the returned func restores them.
 func caretsForShot(w Widget) (restore func()) {
 	var marked []*node
-	walkTree(w, 0, func(k Widget, _ int) {
+	walkTree(w, func(k Widget, _ int) {
 		switch k.(type) {
 		case *Entry, *TextArea:
 			if n := nodeOf(k); n != nil && !n.focused {

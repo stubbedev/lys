@@ -582,7 +582,7 @@ func (r *Revealer) showing() bool { return r.child != nil && (r.reveal || r.prog
 
 // stampOf is what a layer recorded for dev on cv depends on.
 func (r *Revealer) stampOf(cv *render.Canvas, dev render.Rect) layerStamp {
-	return layerStamp{dev: dev, list: cv.Recording(), style: styleGen, theme: themeGen, icons: icons.Default().Generation(), kept: keptLayerGen.Load()}
+	return layerStamp{dev: dev, list: cv.Recording(), style: styleGen.Load(), theme: themeGen.Load(), icons: icons.Default().Generation(), kept: keptLayerGen.Load()}
 }
 
 // reuses reports whether layer still holds the child as cv would paint

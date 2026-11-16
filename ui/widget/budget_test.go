@@ -45,8 +45,8 @@ func TestAllocBudgetStyleFullRestyle(t *testing.T) {
 	show.root.Arrange(render.Rect{X: 0, Y: 0, W: showW, H: showH})
 	CollectDamage(show.root)
 	restyle := func() {
-		styleGen++
-		walkTree(show.root, 0, func(w Widget, _ int) {
+		styleGen.Add(1)
+		walkTree(show.root, func(w Widget, _ int) {
 			if n := nodeOf(w); n != nil {
 				n.style(w)
 			}
@@ -81,7 +81,7 @@ func TestAllocBudgetSiblingRestyle(t *testing.T) {
 	toggle := func() {
 		on = !on
 		spacers[12].SetVisible(on)
-		walkTree(row, 0, func(w Widget, _ int) {
+		walkTree(row, func(w Widget, _ int) {
 			if n := nodeOf(w); n != nil {
 				n.style(w)
 			}

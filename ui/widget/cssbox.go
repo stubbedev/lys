@@ -9,6 +9,7 @@ package widget
 
 import (
 	"slices"
+	"sync/atomic"
 
 	"github.com/stubbedev/lys/lib/render"
 
@@ -231,12 +232,12 @@ func BackdropRegion(root Widget) []render.Rect {
 		n.backdrop = &backdropCache{}
 	}
 	c := n.backdrop
-	now := func() backdropStamp { return backdropStamp{shapeGen, styleGen, themeGen} }
-	if c.ok && c.at == now() {
+	at := backdropStamp{shapeGen.Load(), styleGen.Load(), themeGen.Load()}
+	if c.ok && c.at == at {
 		return c.rects
 	}
 	c.rects = backdropShape(root)
-	c.at, c.ok = now(), true
+	c.at, c.ok = at, true
 	return c.rects
 }
 
@@ -248,16 +249,16 @@ type backdropCache struct {
 
 type backdropStamp struct{ shape, style, theme uint64 }
 
-var shapeGen uint64
+var shapeGen atomic.Uint64
 
-var backdropWalks int
+var backdropWalks atomic.Int64
 
 // BackdropWalks counts the tree walks BackdropRegion made; tests use it
 // to pin that a frame changing no shape walks nothing.
-func BackdropWalks() int { return backdropWalks }
+func BackdropWalks() int { return int(backdropWalks.Load()) }
 
 func backdropShape(root Widget) []render.Rect {
-	backdropWalks++
+	backdropWalks.Add(1)
 	var shape []render.Rect
 	walkWidgets(root, func(w Widget) bool {
 		n := nodeOf(w)

@@ -12,12 +12,12 @@ func testDot() *Icon {
 // generation and the damage, so every window restyled and painted again.
 func TestDecoratingAnUnseenWidgetIsFree(t *testing.T) {
 	ic := testDot()
-	gen, dmg := styleGen, DamageGeneration()
+	gen, dmg := styleGen.Load(), DamageGeneration()
 	ic.AddClass("token-accent")
 	ic.SetState(StateSelected, true)
 	ic.Invalidate()
-	if styleGen != gen || DamageGeneration() != dmg {
-		t.Errorf("style generation %d→%d, damage %d→%d; want both unmoved", gen, styleGen, dmg, DamageGeneration())
+	if styleGen.Load() != gen || DamageGeneration() != dmg {
+		t.Errorf("style generation %d→%d, damage %d→%d; want both unmoved", gen, styleGen.Load(), dmg, DamageGeneration())
 	}
 	_ = ic.style(ic)
 	ic.AddClass("other")
