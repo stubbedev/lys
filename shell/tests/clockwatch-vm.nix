@@ -8,6 +8,7 @@ let
   pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-shell;
   probe = pkg.overrideAttrs (_: {
     pname = "lys-shell-clockwatch-test";
+    goTests = [ "shell/internal/clockwatch" ];
     buildPhase = ''
       runHook preBuild
       go test -c -o clockwatch.test ./shell/internal/clockwatch

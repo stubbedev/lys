@@ -12,6 +12,12 @@
 
         subPackages = ["wm/cmd/lys-wm" "wm/cmd/lys-wmctl"];
 
+        resources = [
+          "wm/packaging/systemd/lys-wm-session.target"
+          "wm/packaging/xdg-desktop-portal/lys-wm-portals.conf"
+          "wm/packaging/wayland-sessions/lys-wm.desktop"
+        ];
+
         # purego loads these at runtime; the store paths are baked in so the
         # binary needs no library search path.
         ldflags = with pkgs; [

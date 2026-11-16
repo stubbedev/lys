@@ -16,6 +16,10 @@ in
 
     subPackages = ["settings/cmd/lys-settings"];
 
+    goPackages = ["desktop/cmd/install-icons"];
+
+    resources = ["settings/resources/dev.stubbe.lys.settings.desktop" "settings/resources/lys-settings.svg" "settings/resources/icons.txt"];
+
     ldflags = [
       "-s"
       "-w"
@@ -42,7 +46,7 @@ in
     installCheckPhase = ''
       runHook preInstallCheck
       export HOME=$TMPDIR XDG_CONFIG_HOME=$TMPDIR/config
-      $out/bin/lys-settings --version | grep -qxF "lys-settings ${lysGo.version}"
+      $out/bin/lys-settings --version | grep -qxF "lys-settings $version"
       $out/bin/lys-settings --list-pages | grep -qF '"id":"bar-general"'
       if $out/bin/lys-settings --bogus 2>/dev/null; then
         echo "an unknown flag was accepted" >&2

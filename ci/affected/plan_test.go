@@ -11,9 +11,9 @@ import (
 )
 
 var testComponents = map[string]Component{
-	"repository": {Paths: []string{"go.mod", "nix/"}, AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
+	"repository": {Paths: []string{"go.mod", "nix/"}, Exclude: []string{"nix/go-packages.json"}, AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
 	"lib":        {Paths: []string{"docs/lib/xkb.md"}, Gates: []string{"vet", "test"}, Race: true},
-	"ui":         {Gates: []string{"test"}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
+	"ui":         {Gates: []string{"test"}, Shards: [][]string{{"./widget"}, {"./app", "./anim/..."}}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
 	"wm":         {Depends: []string{"ui"}, Package: true, VMs: []string{"wm-vm", "wm-vm-apps"}, FreeDisk: true},
 	"login":      {Depends: []string{"wm"}, Package: true},
 	"polkit":     {},
@@ -60,13 +60,56 @@ func TestADirectoryPathNeedsItsSlash(t *testing.T) {
 	}
 }
 
-func TestThePlanRunsTheGoGatesOncePerRunnerAndRaceOnce(t *testing.T) {
+func TestAChangeToTheGoPackageIndexAffectsOnlyTheChangedGoPackagesComponents(t *testing.T) {
+	for _, tc := range []struct {
+		changed []string
+		want    []string
+	}{
+		{[]string{"nix/go-packages.json", "polkit/main.go"}, []string{"polkit"}},
+		{[]string{"nix/go-packages.json", "ui/widget/box.go"}, []string{"login", "ui", "wm"}},
+		{[]string{"nix/go-packages.json"}, nil},
+	} {
+		if got := affected(testComponents, testImports, tc.changed); !slices.Equal(got, tc.want) {
+			t.Errorf("affected(%v) = %v, want %v", tc.changed, got, tc.want)
+		}
+	}
+}
+
+func TestAnExclusionLeavesTheRestOfItsDirectoryShared(t *testing.T) {
+	for _, changed := range [][]string{{"nix/go.nix"}, {"nix/go-packages.json", "nix/go.nix"}, {"polkit/main.go", "nix/go-packages.jsonx"}} {
+		if got := affected(testComponents, testImports, changed); len(got) != len(testComponents) {
+			t.Errorf("affected(%v) = %v, want every component", changed, got)
+		}
+	}
+}
+
+func TestThePlanRunsEachComponentsGoGatesOnEveryRunnerAndItsRaceSuiteOnce(t *testing.T) {
 	p := plan(testComponents, []string{"lib", "polkit", "ui"})
 	want := []Matrix{
-		{ID: "go-x86-64", Name: "Go gates (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates lib ui", UserNS: true},
-		{ID: "race-x86-64", Name: "race (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates lib", UserNS: true},
-		{ID: "go-aarch64", Name: "Go gates (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates lib ui", UserNS: true},
+		{ID: "go-lib-x86-64", Name: "Go gates lib (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates lib", UserNS: true},
+		{ID: "race-lib-x86-64", Name: "race lib (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates lib", UserNS: true},
+		{ID: "go-ui-1-x86-64", Name: "Go gates ui 1/3 (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates ui/1", UserNS: true},
+		{ID: "go-ui-2-x86-64", Name: "Go gates ui 2/3 (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates ui/2", UserNS: true},
+		{ID: "go-ui-3-x86-64", Name: "Go gates ui 3/3 (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates ui/3", UserNS: true},
+		{ID: "go-lib-aarch64", Name: "Go gates lib (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates lib", UserNS: true},
+		{ID: "go-ui-1-aarch64", Name: "Go gates ui 1/3 (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates ui/1", UserNS: true},
+		{ID: "go-ui-2-aarch64", Name: "Go gates ui 2/3 (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates ui/2", UserNS: true},
+		{ID: "go-ui-3-aarch64", Name: "Go gates ui 3/3 (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates ui/3", UserNS: true},
 		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
+	}
+	if !slices.Equal(p.Jobs, want) {
+		t.Fatalf("jobs\n%+v\nwant\n%+v", p.Jobs, want)
+	}
+}
+
+func TestShardsSplitOnlyTheTestGateAndTheRaceSuite(t *testing.T) {
+	components := map[string]Component{"shell": {Gates: []string{"vet", "lint"}, Race: true, Shards: [][]string{{"./bar"}}}}
+	p := plan(components, []string{"shell"})
+	want := []Matrix{
+		{ID: "go-shell-x86-64", Name: "Go gates shell (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates shell", UserNS: true},
+		{ID: "race-shell-1-x86-64", Name: "race shell 1/2 (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates shell/1", UserNS: true},
+		{ID: "race-shell-2-x86-64", Name: "race shell 2/2 (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates shell/2", UserNS: true},
+		{ID: "go-shell-aarch64", Name: "Go gates shell (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates shell", UserNS: true},
 	}
 	if !slices.Equal(p.Jobs, want) {
 		t.Fatalf("jobs\n%+v\nwant\n%+v", p.Jobs, want)
@@ -135,16 +178,25 @@ func TestValidateRefusesUnknownNames(t *testing.T) {
 			{Name: "idle", Runners: []Runner{X86_64}},
 			{Name: "nowhere", Run: "true"},
 		}},
-		"ui": {FreeDisk: true},
+		"ui":    {FreeDisk: true, Paths: []string{"nix/"}, Exclude: []string{"nixos/x", "nix/go.nix"}},
+		"shell": {Gates: []string{"test"}, Shards: [][]string{{"./bar", "./..."}, {}, {"bar", "./bar"}}},
+		"lib":   {Gates: []string{"vet"}, Shards: [][]string{{"./xkb"}}},
 	}
 	err := validate(bad)
 	if err == nil {
 		t.Fatal("validate accepted an unknown dependency, runner, an unnamed job and a foreign VM check")
 	}
-	for _, want := range []string{`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`, "ui frees disk for VM checks it does not have"} {
+	for _, want := range []string{
+		`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`, "ui frees disk for VM checks it does not have",
+		`ui excludes "nixos/x", which none of its paths holds`, `shell shard 1 names "./...", which is no package directory`, "shell shard 2 names no packages",
+		`shell shard 3 names "bar", which is no package directory`, `shell names "./bar" in two shards`, "lib has shards but neither a test gate nor a race suite",
+	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %s", err, want)
 		}
+	}
+	if strings.Contains(err.Error(), "nix/go.nix") {
+		t.Errorf("error %q refuses the exclusion of nix/go.nix, which ui's nix/ path holds", err)
 	}
 }
 
@@ -182,6 +234,104 @@ func TestTheRepositorysComponentsAreValid(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryShardNamesTestedPackagesOfItsComponent(t *testing.T) {
+	components, err := load(filepath.Join("..", "components.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range slices.Sorted(maps.Keys(components)) {
+		for _, shard := range components[name].Shards {
+			for _, pattern := range shard {
+				dir := filepath.Join("..", "..", name, strings.TrimSuffix(pattern, "/..."))
+				tests, err := filepath.Glob(filepath.Join(dir, "*_test.go"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.HasSuffix(pattern, "/...") {
+					tests, err = testFilesUnder(dir)
+					if err != nil {
+						t.Fatalf("%s shard %s: %v", name, pattern, err)
+					}
+				}
+				if len(tests) == 0 {
+					t.Errorf("%s's shard names %s, which holds no test", name, pattern)
+				}
+			}
+		}
+	}
+}
+
+func testFilesUnder(dir string) ([]string, error) {
+	var tests []string
+	err := filepath.WalkDir(dir, func(path string, _ os.DirEntry, err error) error {
+		if err == nil && strings.HasSuffix(path, "_test.go") {
+			tests = append(tests, path)
+		}
+		return err
+	})
+	return tests, err
+}
+
+func TestEveryShardedRecipeTestsTheShardsPackages(t *testing.T) {
+	components, err := load(filepath.Join("..", "components.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range slices.Sorted(maps.Keys(components)) {
+		c := components[name]
+		if len(c.Shards) == 0 {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join("..", "..", name, "justfile"))
+		if err != nil {
+			t.Fatalf("%s has shards, but its justfile does not read: %v", name, err)
+		}
+		var sharded []string
+		if slices.Contains(c.Gates, shardedGate) {
+			sharded = append(sharded, shardedGate)
+		}
+		if c.Race {
+			sharded = append(sharded, "race")
+		}
+		for _, recipe := range sharded {
+			body := recipeBody(string(data), recipe)
+			if !strings.Contains(body, testPackages) || strings.Contains(body, " ./...") {
+				t.Errorf("%s/justfile's %s recipe does not test exactly $%s, so its shards would not split it:\n%s", name, recipe, testPackages, body)
+			}
+		}
+	}
+}
+
+func recipeBody(justfile, recipe string) string {
+	var body strings.Builder
+	in := false
+	for line := range strings.Lines(justfile) {
+		if m := recipeLine.FindStringSubmatch(line); m != nil && !strings.HasPrefix(line, " ") {
+			in = m[1] == recipe
+			continue
+		}
+		if in && line != "\n" && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
+			in = false
+		}
+		if in {
+			body.WriteString(line)
+		}
+	}
+	return body.String()
+}
+
+func TestTheRecipeBodyIsTheIndentedLinesUnderItsHeader(t *testing.T) {
+	justfile := "test:\n    go test ./...\n\n    echo done\n# race\nrace:\n    go test -race $X\nbuild:\n    go build\n"
+	if got, want := recipeBody(justfile, "race"), "    go test -race $X\n"; got != want {
+		t.Fatalf("race body %q, want %q", got, want)
+	}
+	if got, want := recipeBody(justfile, "test"), "    go test ./...\n\n    echo done\n"; got != want {
+		t.Fatalf("test body %q, want %q", got, want)
+	}
+}
+
+const testPackages = "LYS_TEST_PACKAGES"
 
 var recipeLine = regexp.MustCompile(`(?m)^@?([a-z][a-z0-9_-]*)([^\n]*?):(?:[ \t]|$)`)
 

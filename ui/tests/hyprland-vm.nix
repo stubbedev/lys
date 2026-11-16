@@ -26,6 +26,8 @@
 
   suite = lysGo.build {
     pname = "lys-ui-headless-suite";
+    goPackages = ["ui/cmd/..."];
+    goTests = ["ui/internal/headlesstest"];
     doCheck = false;
     buildPhase = ''
       runHook preBuild

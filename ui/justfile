@@ -58,7 +58,7 @@ gpu-host:
 # (LYS_UI_RACE_CC); allocation budgets skip under -race, whose
 # instrumentation allocates.
 race:
-    CC="$LYS_UI_RACE_CC" CGO_ENABLED=1 go test -race ./...
+    CC="$LYS_UI_RACE_CC" CGO_ENABLED=1 go test -race ${LYS_TEST_PACKAGES:-./...}
 
 # The bridge against real at-spi2-core (#114) - the scripted
 # accerciser pass: at-spi-bus-launcher on a private session bus, the
@@ -141,7 +141,7 @@ lint:
 
 # Run the test suite for every package.
 test:
-    go test ./...
+    go test ${LYS_TEST_PACKAGES:-./...}
 
 # Run the test suite as lys-wm builds lys-ui, with the lysdebug tag.
 test-lysdebug:

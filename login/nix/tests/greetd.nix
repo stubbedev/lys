@@ -14,6 +14,7 @@
 
   screenTest = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login.overrideAttrs {
     pname = "lys-login-screen-test";
+    goTests = ["login/internal/screen"];
     postFixup = "";
     buildPhase = ''
       runHook preBuild

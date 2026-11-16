@@ -9,6 +9,7 @@
     testBinary = name: pkg:
       self'.packages.lys-splash.overrideAttrs {
         pname = "lys-splash-${name}-test";
+        goTests = ["splash/${pkg}"];
         outputs = ["out"];
         postInstall = "";
         buildPhase = ''
@@ -48,6 +49,9 @@
       environment.systemPackages = [plymouthLink];
       virtualisation.qemu.virtioKeyboard = false;
     };
+    rebootLogsOnConsole = {
+      systemd.services.lys-splash-reboot.serviceConfig.StandardError = "file:/dev/kmsg";
+    };
     noTty1 = {
       systemd.services."getty@tty1".enable = false;
       systemd.services."autovt@tty1".enable = false;
@@ -82,11 +86,10 @@
 
     nodes = {
       boot = {
-        imports = [accentSplash];
+        imports = [accentSplash rebootLogsOnConsole];
         virtualisation.qemu.options = ["-vga none" "-device virtio-gpu-pci" "-action shutdown=pause"];
         boot.initrd.kernelModules = ["virtio_gpu"];
         console.keyMap = "de-latin1";
-        systemd.services.lys-splash-reboot.serviceConfig.StandardError = "file:/dev/kmsg";
         systemd.services.greeter = {
           wantedBy = ["multi-user.target"];
           after = ["lys-splash-start.service" "getty@tty1.service" "lys-splash-quit.service" "systemd-user-sessions.service"];
@@ -145,7 +148,7 @@
         };
       };
       luks = {
-        imports = [(luks ["/dev/vdb" "/dev/vdc"]) greeter];
+        imports = [(luks ["/dev/vdb" "/dev/vdc"]) greeter rebootLogsOnConsole];
         virtualisation.qemu.options = ["-vga none" "-device virtio-vga" "-action shutdown=pause"];
         boot.kernelParams = ["modprobe.blacklist=virtio_gpu"];
         systemd.services.native-gpu = {
@@ -272,6 +275,7 @@
         package = self'.packages.lys-splash;
         plymouth-client = self'.packages.lys-splash.overrideAttrs (old: {
           pname = "lys-splash-plymouth-client";
+          goTests = ["splash/internal/server"];
           env = old.env // {LYS_SPLASH_PLYMOUTH = lib.getExe' pkgs.plymouth "plymouth";};
           doCheck = true;
           checkPhase = lysGo.test ["-run=^TestPlymouthClient$" "-v" "./splash/internal/server"];
@@ -312,15 +316,21 @@
             file = ./vm-journal.py;
           }
         ];
-        vms-firmware = vms "firmware" [
+        vms-luks = vms "luks" [
           {
             name = "e2e";
-            on = {
-              machine = "luks";
-              text = "headless";
-            };
+            on.machine = "luks";
             file = ./vm-e2e.py;
           }
+        ];
+        vms-luks-headless = vms "luks-headless" [
+          {
+            name = "e2e-headless";
+            on.machine = "headless";
+            file = ./vm-e2e-headless.py;
+          }
+        ];
+        vms-firmware = vms "firmware" [
           {
             name = "kms-switch";
             on.machine = "firmware";

@@ -5,6 +5,8 @@
   gpuPackages = ["render/vulkan" "render/gles" "harness"];
   tests = lys-wm.overrideAttrs {
     pname = "lys-wm-vm-tests";
+    goTests = map (p: "wm/internal/${p}") (gpuPackages ++ ["backend/drm"]);
+    resources = ["wm/internal" "docs/wm/shaders"];
     doCheck = false;
     buildPhase = ''
       runHook preBuild

@@ -15,6 +15,8 @@
 
       subPackages = ["login/cmd/lys-login"];
 
+      resources = ["login/resources/dev.stubbe.lys.login.policy"];
+
       ldflags = [
         "-s"
         "-w"

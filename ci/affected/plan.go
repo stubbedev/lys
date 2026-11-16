@@ -21,6 +21,8 @@ var runnerLabels = map[Runner]string{X86_64: "ubuntu-latest", AArch64: "ubuntu-2
 
 const vmRunner = X86_64
 
+const shardedGate = "test"
+
 type Job struct {
 	Name    string   `json:"name"`
 	Runners []Runner `json:"runners"`
@@ -28,15 +30,17 @@ type Job struct {
 }
 
 type Component struct {
-	Paths      []string `json:"paths"`
-	Depends    []string `json:"depends"`
-	AffectsAll bool     `json:"affects-all"`
-	Package    bool     `json:"package"`
-	Gates      []string `json:"gates"`
-	Race       bool     `json:"race"`
-	Jobs       []Job    `json:"jobs"`
-	VMs        []string `json:"vms"`
-	FreeDisk   bool     `json:"free-disk"`
+	Paths      []string   `json:"paths"`
+	Exclude    []string   `json:"exclude"`
+	Depends    []string   `json:"depends"`
+	AffectsAll bool       `json:"affects-all"`
+	Package    bool       `json:"package"`
+	Gates      []string   `json:"gates"`
+	Race       bool       `json:"race"`
+	Jobs       []Job      `json:"jobs"`
+	VMs        []string   `json:"vms"`
+	FreeDisk   bool       `json:"free-disk"`
+	Shards     [][]string `json:"shards"`
 }
 
 type Matrix struct {
@@ -89,15 +93,54 @@ func validate(components map[string]Component) error {
 		if c.FreeDisk && len(c.VMs) == 0 {
 			errs = append(errs, fmt.Errorf("%s frees disk for VM checks it does not have", name))
 		}
+		for _, e := range c.Exclude {
+			if !slices.ContainsFunc(c.Paths, func(p string) bool { return matches(p, e) }) {
+				errs = append(errs, fmt.Errorf("%s excludes %q, which none of its paths holds", name, e))
+			}
+		}
+		errs = append(errs, validateShards(name, c)...)
 	}
 	return errors.Join(errs...)
+}
+
+func validateShards(name string, c Component) []error {
+	if len(c.Shards) == 0 {
+		return nil
+	}
+	var errs []error
+	if !slices.Contains(c.Gates, shardedGate) && !c.Race {
+		errs = append(errs, fmt.Errorf("%s has shards but neither a %s gate nor a race suite to split", name, shardedGate))
+	}
+	seen := map[string]bool{}
+	for i, shard := range c.Shards {
+		if len(shard) == 0 {
+			errs = append(errs, fmt.Errorf("%s shard %d names no packages", name, i+1))
+		}
+		for _, pattern := range shard {
+			if !strings.HasPrefix(pattern, "./") || pattern == "./..." {
+				errs = append(errs, fmt.Errorf("%s shard %d names %q, which is no package directory under %s/", name, i+1, pattern, name))
+			}
+			if seen[pattern] {
+				errs = append(errs, fmt.Errorf("%s names %q in two shards", name, pattern))
+			}
+			seen[pattern] = true
+		}
+	}
+	return errs
+}
+
+func owns(name string, c Component, file string) bool {
+	if slices.ContainsFunc(c.Exclude, func(e string) bool { return matches(e, file) }) {
+		return false
+	}
+	return strings.HasPrefix(file, name+"/") || slices.ContainsFunc(c.Paths, func(p string) bool { return matches(p, file) })
 }
 
 func affected(components map[string]Component, imports map[string][]string, changed []string) []string {
 	hit := map[string]bool{}
 	for _, file := range changed {
 		for name, c := range components {
-			if strings.HasPrefix(file, name+"/") || slices.ContainsFunc(c.Paths, func(p string) bool { return matches(p, file) }) {
+			if owns(name, c, file) {
 				if c.AffectsAll {
 					return slices.Sorted(maps.Keys(components))
 				}
@@ -128,25 +171,20 @@ func matches(path, file string) bool {
 
 func plan(components map[string]Component, names []string) Plan {
 	p := Plan{Components: names, Builds: []Matrix{}, Jobs: []Matrix{}, Packages: []string{}}
-	var gated, raced []string
 	for _, name := range names {
-		c := components[name]
-		if c.Package {
+		if components[name].Package {
 			p.Packages = append(p.Packages, name)
-		}
-		if len(c.Gates) > 0 {
-			gated = append(gated, name)
-		}
-		if c.Race {
-			raced = append(raced, name)
 		}
 	}
 	for _, r := range runners {
-		if len(gated) > 0 {
-			p.Jobs = append(p.Jobs, userNS(matrix("go", "Go gates", r, "just go-gates "+strings.Join(gated, " "))))
-		}
-		if r == X86_64 && len(raced) > 0 {
-			p.Jobs = append(p.Jobs, userNS(matrix("race", "race", r, "just race-gates "+strings.Join(raced, " "))))
+		for _, name := range names {
+			c := components[name]
+			if len(c.Gates) > 0 {
+				p.Jobs = append(p.Jobs, gateJobs("go", "Go gates", "go-gates", name, c, slices.Contains(c.Gates, shardedGate), r)...)
+			}
+			if r == X86_64 && c.Race {
+				p.Jobs = append(p.Jobs, gateJobs("race", "race", "race-gates", name, c, true, r)...)
+			}
 		}
 	}
 	for _, name := range names {
@@ -183,6 +221,19 @@ func build(name string, c Component, r Runner) (Matrix, bool) {
 	m := matrix("build-"+name, name, r, strings.Join(append([]string{"just build-stage", name}, vms...), " "))
 	m.FreeDisk = len(vms) > 0
 	return m, true
+}
+
+func gateJobs(id, title, recipe, name string, c Component, sharded bool, r Runner) []Matrix {
+	if !sharded || len(c.Shards) == 0 {
+		return []Matrix{userNS(matrix(id+"-"+name, title+" "+name, r, "just "+recipe+" "+name))}
+	}
+	parts := len(c.Shards) + 1
+	jobs := make([]Matrix, 0, parts)
+	for part := 1; part <= parts; part++ {
+		target := fmt.Sprintf("%s/%d", name, part)
+		jobs = append(jobs, userNS(matrix(id+"-"+target, fmt.Sprintf("%s %s %d/%d", title, name, part, parts), r, "just "+recipe+" "+target)))
+	}
+	return jobs
 }
 
 func userNS(m Matrix) Matrix {

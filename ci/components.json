@@ -1,6 +1,7 @@
 {
   "repository": {
     "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml", ".github/workflows/package.yml"],
+    "exclude": ["nix/go-packages.json"],
     "affects-all": true,
     "jobs": [
       {
@@ -15,6 +16,7 @@
     "paths": ["docs/lib/xkb.md"],
     "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build"],
     "race": true,
+    "shards": [["./xkb"]],
     "jobs": [
       {
         "name": "GPU",
@@ -32,6 +34,7 @@
     "paths": ["docs/ui/css.md"],
     "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "test-lysdebug", "atspi", "atspi-verify"],
     "race": true,
+    "shards": [["./widget"]],
     "jobs": [
       {
         "name": "GPU",
@@ -55,6 +58,7 @@
     "package": true,
     "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "vuln"],
     "race": true,
+    "shards": [["./cmd/lys-wm"], ["./internal/compositor"]],
     "jobs": [
       {
         "name": "pacing, GLES",
@@ -75,6 +79,7 @@
     "package": true,
     "gates": ["vet", "lint", "no-fused", "test", "schema-check", "dist"],
     "race": true,
+    "shards": [["./shell/bar", "./shell/dialogsurface", "./cava"], ["./shell/filechooser", "./shell/launcher", "./service/recorder", "./cmd/lys-shell"]],
     "vms": ["shell-hyprland-vms"]
   },
   "login": {
@@ -88,7 +93,8 @@
     "depends": ["wm", "packaging"],
     "package": true,
     "gates": ["vet", "lint", "no-fused", "test", "build"],
-    "race": true
+    "race": true,
+    "shards": [["./internal/settings"]]
   },
   "polkit": {
     "gates": ["vet", "lint", "test", "build"]
@@ -115,7 +121,7 @@
         "run": "just splash::initramfs-tools"
       }
     ],
-    "vms": ["splash-vms-firmware", "splash-vms-greeter"],
+    "vms": ["splash-vms-firmware", "splash-vms-greeter", "splash-vms-luks", "splash-vms-luks-headless"],
     "free-disk": true
   },
   "desktop-vms": {

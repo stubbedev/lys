@@ -2,6 +2,7 @@
   perSystem = {lysGo, ...}: {
     packages.drm-tests = lysGo.build {
       pname = "lys-lib-drm-tests";
+      goTests = ["lib/drm"];
       buildPhase = ''
         runHook preBuild
         go test -c -o drm.test ./lib/drm

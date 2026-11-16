@@ -9,6 +9,8 @@
 
       subPackages = ["secrets/cmd/lys-secrets"];
 
+      resources = ["secrets/resources"];
+
       ldflags = ["-s" "-w"];
 
       # The suite runs in `just check`: it needs private D-Bus sessions and

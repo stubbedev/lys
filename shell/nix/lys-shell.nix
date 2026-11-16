@@ -38,6 +38,10 @@ lysGo.build {
     "shell/cmd/lys-lock"
   ];
 
+  goPackages = [ "desktop/cmd/install-icons" ];
+
+  resources = [ "shell/resources" ];
+
   ldflags = [
     "-s"
     "-w"

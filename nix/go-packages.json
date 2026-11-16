@@ -1,0 +1,6392 @@
+{
+  "ci/affected": {
+    "imports": [
+      "lib/srcroot"
+    ]
+  },
+  "ci/gopackages": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/srcroot"
+    ]
+  },
+  "desktop/cmd/install-icons": {
+    "imports": [
+      "desktop/resources",
+      "lib/atomicfile"
+    ]
+  },
+  "desktop/config": {
+    "imports": [
+      "desktop/i18n",
+      "desktop/identity",
+      "desktop/service/bitwarden/generator",
+      "desktop/service/clipboard/historybudget",
+      "desktop/service/idle/idlepolicy",
+      "desktop/service/idleinhibit/inhibitduration",
+      "desktop/service/nightlight/nightschedule",
+      "desktop/service/notifications/notifypolicy",
+      "desktop/service/sounds/soundpolicy",
+      "desktop/strftime",
+      "desktop/tokens",
+      "lib/atomicfile",
+      "lib/intconv",
+      "lib/vaultserver",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "desktop/config/internal/schemadoc",
+      "desktop/spawn",
+      "lib/logind",
+      "lib/logind/logindtest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/config/internal/schemadoc": {},
+  "desktop/config/internal/schemadoc/cmd": {
+    "imports": [
+      "desktop/config/internal/schemadoc"
+    ]
+  },
+  "desktop/desktopentry": {
+    "imports": [
+      "desktop/fileuri",
+      "desktop/shlex",
+      "desktop/spawn",
+      "lib/atomicfile",
+      "lib/third_party/godbus",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/drmconn": {},
+  "desktop/fakeclock": {},
+  "desktop/feed": {},
+  "desktop/fileuri": {},
+  "desktop/fswatch": {
+    "imports": [
+      "lib/intconv"
+    ]
+  },
+  "desktop/glob": {},
+  "desktop/i18n": {
+    "imports": [
+      "desktop/i18n/locales/greeter",
+      "desktop/i18n/locales/settings",
+      "desktop/i18n/locales/shell",
+      "lib/intconv"
+    ]
+  },
+  "desktop/i18n/locales/greeter": {
+    "embeds": [
+      "desktop/i18n/locales/greeter"
+    ]
+  },
+  "desktop/i18n/locales/settings": {
+    "embeds": [
+      "desktop/i18n/locales/settings"
+    ]
+  },
+  "desktop/i18n/locales/shell": {
+    "embeds": [
+      "desktop/i18n/locales/shell"
+    ]
+  },
+  "desktop/icons": {
+    "imports": [
+      "desktop/fswatch",
+      "desktop/icons/skpath",
+      "desktop/icons/usvg",
+      "desktop/identity",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "desktop/icons/icontest"
+    ]
+  },
+  "desktop/icons/icontest": {},
+  "desktop/icons/skpath": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/gomath"
+    ]
+  },
+  "desktop/icons/usvg": {
+    "imports": [
+      "desktop/icons/skpath",
+      "lib/third_party/gomath"
+    ]
+  },
+  "desktop/identity": {},
+  "desktop/imagedecode": {
+    "imports": [
+      "desktop/offheap",
+      "desktop/third_party/jpeg",
+      "lib/intconv"
+    ]
+  },
+  "desktop/ipcsock": {
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir"
+    ]
+  },
+  "desktop/ipcsock/ipcsocktest": {
+    "imports": [
+      "desktop/ipcsock",
+      "lib/sockdir"
+    ]
+  },
+  "desktop/logging": {
+    "imports": [
+      "desktop/identity",
+      "lib/xdg"
+    ]
+  },
+  "desktop/mime": {
+    "imports": [
+      "lib/xdg"
+    ]
+  },
+  "desktop/offheap": {},
+  "desktop/opener": {
+    "imports": [
+      "desktop/desktopentry",
+      "desktop/fileuri",
+      "desktop/mime"
+    ],
+    "testImports": [
+      "desktop/opener/openertest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/opener/openertest": {
+    "imports": [
+      "lib/dbustest"
+    ]
+  },
+  "desktop/outputsize": {
+    "imports": [
+      "ui/app"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "desktop/portal/permissions": {
+    "imports": [
+      "desktop/identity",
+      "lib/atomicfile",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "desktop/portal/permissions/permstoretest",
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/portal/permissions/permstoretest": {
+    "imports": [
+      "desktop/portal/permissions",
+      "lib/dbustest",
+      "lib/third_party/godbus"
+    ]
+  },
+  "desktop/resources": {
+    "embeds": [
+      "desktop/resources/icons/hicolor/scalable/actions"
+    ]
+  },
+  "desktop/service/backlight": {
+    "imports": [
+      "desktop/drmconn",
+      "desktop/fswatch",
+      "desktop/uevent",
+      "lib/logind",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "desktop/service/backlight/backlighttest",
+      "lib/logind/logindtest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/service/backlight/backlighttest": {
+    "imports": [
+      "desktop/service/backlight"
+    ]
+  },
+  "desktop/service/bitwarden/generator": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "embeds": [
+      "desktop/service/bitwarden/generator/eff_large_wordlist.txt"
+    ]
+  },
+  "desktop/service/clipboard": {
+    "imports": [
+      "desktop/fileuri",
+      "desktop/offheap",
+      "desktop/service/clipboard/historybudget",
+      "lib/atomicfile",
+      "ui/app",
+      "ui/transfer"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "desktop/service/clipboard/historybudget": {},
+  "desktop/service/idle/idlepolicy": {},
+  "desktop/service/idleinhibit/inhibitduration": {},
+  "desktop/service/lyswm": {
+    "imports": [
+      "desktop/ipcsock",
+      "lib/wmipc"
+    ],
+    "testImports": [
+      "desktop/service/lyswm/lyswmtest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/service/lyswm/lyswmtest": {
+    "imports": [
+      "desktop/service/lyswm",
+      "lib/buildtest",
+      "lib/sockdir",
+      "lib/testhome",
+      "lib/wmipc"
+    ]
+  },
+  "desktop/service/mpris": {
+    "imports": [
+      "desktop/feed",
+      "desktop/glob",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/third_party/godbus/prop"
+    ]
+  },
+  "desktop/service/nightlight/nightschedule": {},
+  "desktop/service/notifications/notifypolicy": {},
+  "desktop/service/pulse": {
+    "imports": [
+      "lib/intconv",
+      "lib/pulse/native",
+      "lib/third_party/godbus",
+      "lib/third_party/godbus/introspect"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/pulse/pulsetest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/service/recorder/devicechoice": {
+    "imports": [
+      "lib/v4l2"
+    ]
+  },
+  "desktop/service/sounds/soundpolicy": {},
+  "desktop/service/upower": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "desktop/service/upower/upowertest",
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/service/upower/upowertest": {
+    "imports": [
+      "desktop/service/upower",
+      "lib/third_party/godbus"
+    ]
+  },
+  "desktop/service/wallpaper/extract": {
+    "imports": [
+      "desktop/config",
+      "desktop/identity",
+      "desktop/styling/material",
+      "lib/atomicfile",
+      "lib/xdg"
+    ]
+  },
+  "desktop/settingspage": {},
+  "desktop/shell/apptheme": {
+    "imports": [
+      "desktop/config",
+      "desktop/icons",
+      "desktop/styling",
+      "lib/render",
+      "ui/app",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "ui/widget/css"
+    ]
+  },
+  "desktop/shell/lockclient": {
+    "imports": [
+      "desktop/config",
+      "desktop/identity",
+      "desktop/spawn",
+      "lib/logind",
+      "lib/third_party/godbus",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/shell/reveal": {
+    "imports": [
+      "desktop/config",
+      "ui/widget"
+    ]
+  },
+  "desktop/shell/treetest": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/widget"
+    ]
+  },
+  "desktop/shell/widgets": {
+    "imports": [
+      "desktop/styling",
+      "lib/portaldialogs",
+      "lib/render",
+      "ui/highlight",
+      "ui/widget"
+    ],
+    "testImports": [
+      "desktop/config",
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/testhome",
+      "ui/widget/css"
+    ]
+  },
+  "desktop/shlex": {},
+  "desktop/spawn": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/splashframe": {
+    "imports": [
+      "desktop/tokens",
+      "lib/atomicfile",
+      "lib/intconv",
+      "lib/render"
+    ],
+    "embeds": [
+      "desktop/splashframe/lys.svg"
+    ]
+  },
+  "desktop/strftime": {},
+  "desktop/styling": {
+    "imports": [
+      "desktop/config",
+      "desktop/service/wallpaper/extract",
+      "desktop/tokens",
+      "lib/render",
+      "ui/widget"
+    ],
+    "embeds": [
+      "desktop/styling/css"
+    ],
+    "testImports": [
+      "desktop/styling/material"
+    ]
+  },
+  "desktop/styling/material": {
+    "imports": [
+      "lib/third_party/gomath"
+    ]
+  },
+  "desktop/swaytest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "desktop/third_party/jpeg": {},
+  "desktop/tokens": {},
+  "desktop/uevent": {},
+  "desktop/useraccount": {},
+  "lib/appearance": {
+    "imports": [
+      "lib/render"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/assetfile": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/atomicfile": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/audiomix": {},
+  "lib/buildinfo": {},
+  "lib/buildtest": {
+    "imports": [
+      "lib/srcroot"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/capture": {
+    "imports": [
+      "lib/dmabuf",
+      "lib/dmabufwl",
+      "lib/fourcc",
+      "lib/intconv",
+      "lib/third_party/wayland/os",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/wlr"
+    ],
+    "testImports": [
+      "lib/gpu",
+      "lib/testbuild",
+      "lib/testhome",
+      "lib/udmabuf",
+      "lib/vinput",
+      "lib/wltest"
+    ]
+  },
+  "lib/clib": {},
+  "lib/dbustest": {
+    "imports": [
+      "lib/intconv",
+      "lib/sockdir",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/testhome"
+    ]
+  },
+  "lib/dbusx": {
+    "imports": [
+      "lib/third_party/godbus",
+      "lib/third_party/godbus/introspect"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/sockdir",
+      "lib/testbuild",
+      "lib/testhome"
+    ]
+  },
+  "lib/debug": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/dmabuf": {
+    "imports": [
+      "lib/fourcc"
+    ],
+    "testImports": [
+      "lib/drm",
+      "lib/testbuild",
+      "lib/udmabuf"
+    ]
+  },
+  "lib/dmabufprobe": {
+    "imports": [
+      "lib/fourcc"
+    ]
+  },
+  "lib/dmabufwl": {
+    "imports": [
+      "lib/dmabuf",
+      "lib/fourcc",
+      "lib/intconv",
+      "lib/wlr"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/testhome",
+      "lib/third_party/wayland/wl",
+      "lib/wltest"
+    ]
+  },
+  "lib/drm": {
+    "imports": [
+      "lib/fourcc"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/udmabuf"
+    ]
+  },
+  "lib/edid": {
+    "imports": [
+      "lib/third_party/gomath"
+    ]
+  },
+  "lib/eis": {
+    "testImports": [
+      "lib/eis/eistest"
+    ]
+  },
+  "lib/eis/eistest": {
+    "imports": [
+      "lib/clib",
+      "lib/intconv"
+    ]
+  },
+  "lib/fourcc": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/glibclocale": {
+    "imports": [
+      "lib/assetfile",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/glibclocale/glibclocaletest"
+    ]
+  },
+  "lib/glibclocale/glibclocaletest": {
+    "embeds": [
+      "lib/glibclocale/glibclocaletest/data"
+    ]
+  },
+  "lib/golden": {},
+  "lib/gpu": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/debug",
+      "lib/dmabuf",
+      "lib/drm",
+      "lib/fourcc",
+      "lib/intconv",
+      "lib/internal/av1",
+      "lib/internal/nal",
+      "lib/internal/va",
+      "lib/internal/vp9",
+      "lib/media/demux",
+      "lib/render",
+      "lib/third_party/gomath",
+      "lib/third_party/typesetting/font",
+      "lib/third_party/vk",
+      "lib/xdg"
+    ],
+    "embeds": [
+      "lib/gpu/shaders/color.glsl",
+      "lib/gpu/shaders/comp.color.frag.spv",
+      "lib/gpu/shaders/comp.cut.color.frag.spv",
+      "lib/gpu/shaders/comp.cut.frag.spv",
+      "lib/gpu/shaders/comp.frag.spv",
+      "lib/gpu/shaders/comp.vert.spv",
+      "lib/gpu/shaders/cut.glsl",
+      "lib/gpu/shaders/fill.cut.frag.spv",
+      "lib/gpu/shaders/fill.frag.spv",
+      "lib/gpu/shaders/glass.color.frag.spv",
+      "lib/gpu/shaders/glass.cut.color.frag.spv",
+      "lib/gpu/shaders/glass.cut.frag.spv",
+      "lib/gpu/shaders/glass.frag.spv",
+      "lib/gpu/shaders/glass.glsl",
+      "lib/gpu/shaders/goo.frag.spv",
+      "lib/gpu/shaders/grad.color.frag.spv",
+      "lib/gpu/shaders/grad.frag.spv",
+      "lib/gpu/shaders/grain.comp.spv",
+      "lib/gpu/shaders/kawase.frag.spv",
+      "lib/gpu/shaders/mask.glsl",
+      "lib/gpu/shaders/nv12.comp.spv",
+      "lib/gpu/shaders/prim.frag.spv",
+      "lib/gpu/shaders/prim.vert.spv",
+      "lib/gpu/shaders/ycbcr444.color.frag.spv",
+      "lib/gpu/shaders/ycbcr444.frag.spv",
+      "lib/gpu/shaders/ycbcrplanes.color.frag.spv",
+      "lib/gpu/shaders/ycbcrplanes.frag.spv"
+    ],
+    "testImports": [
+      "lib/gputest",
+      "lib/internal/nal/naltest",
+      "lib/internal/vp9/vp9test",
+      "lib/media/mux",
+      "lib/testbuild",
+      "lib/udmabuf"
+    ],
+    "testEmbeds": [
+      "lib/gpu/testdata/fragment_test.frag.spv"
+    ]
+  },
+  "lib/gputest": {},
+  "lib/i18n": {
+    "imports": [
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/icons": {
+    "imports": [
+      "lib/assetfile",
+      "lib/logutil",
+      "lib/render",
+      "lib/xdg"
+    ],
+    "embeds": [
+      "lib/icons/lucide"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/icontheme": {
+    "imports": [
+      "lib/icons",
+      "lib/render"
+    ]
+  },
+  "lib/intconv": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/internal/av1": {
+    "imports": [
+      "lib/intconv",
+      "lib/internal/nal"
+    ]
+  },
+  "lib/internal/goroutine": {},
+  "lib/internal/isobmff": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/internal/matroska": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/internal/nal": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "testImports": [
+      "lib/internal/nal/naltest",
+      "lib/testbuild"
+    ]
+  },
+  "lib/internal/nal/naltest": {},
+  "lib/internal/va": {
+    "imports": [
+      "lib/clib",
+      "lib/intconv"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/internal/vp9": {
+    "imports": [
+      "lib/intconv",
+      "lib/internal/nal"
+    ],
+    "testImports": [
+      "lib/internal/vp9/vp9test"
+    ]
+  },
+  "lib/internal/vp9/vp9test": {
+    "imports": [
+      "lib/internal/vp9"
+    ]
+  },
+  "lib/keymapfd": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/logind": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "lib/logind/logindtest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/logind",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "lib/logutil": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/media/aac": {
+    "imports": [
+      "lib/intconv",
+      "lib/media/internal/mp4audio",
+      "lib/media/internal/pcm",
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/media/demux",
+      "lib/testbuild"
+    ]
+  },
+  "lib/media/demux": {
+    "imports": [
+      "lib/intconv",
+      "lib/internal/isobmff",
+      "lib/internal/matroska",
+      "lib/media/internal/mp4audio"
+    ],
+    "testImports": [
+      "lib/media/mux",
+      "lib/testbuild"
+    ]
+  },
+  "lib/media/internal/mp4audio": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/media/internal/pcm": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/media/mux": {
+    "imports": [
+      "lib/intconv",
+      "lib/internal/isobmff",
+      "lib/internal/matroska",
+      "lib/internal/nal"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/media/opus": {
+    "imports": [
+      "lib/intconv",
+      "lib/media/internal/pcm",
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/media/demux",
+      "lib/media/mux",
+      "lib/testbuild"
+    ]
+  },
+  "lib/media/vorbis": {
+    "imports": [
+      "lib/intconv",
+      "lib/media/internal/pcm",
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/media/demux",
+      "lib/testbuild"
+    ]
+  },
+  "lib/motion": {
+    "imports": [
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/pam": {
+    "imports": [
+      "lib/clib"
+    ]
+  },
+  "lib/peercred": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "testImports": [
+      "lib/peercred/peercredtest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "lib/peercred/peercredtest": {
+    "imports": [
+      "lib/sockdir"
+    ]
+  },
+  "lib/pipewire": {
+    "imports": [
+      "lib/fourcc",
+      "lib/intconv"
+    ],
+    "testImports": [
+      "lib/pipewire/pwtest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "lib/pipewire/pwtest": {
+    "imports": [
+      "lib/clib",
+      "lib/sockdir"
+    ],
+    "testImports": [
+      "lib/pipewire",
+      "lib/testhome"
+    ]
+  },
+  "lib/polkit": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/logind",
+      "lib/peercred",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/peercred/peercredtest",
+      "lib/polkit/polkittest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "lib/polkit/polkittest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/dbusx",
+      "lib/polkit",
+      "lib/third_party/godbus"
+    ]
+  },
+  "lib/portaldialogs": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/third_party/godbus/introspect"
+    ]
+  },
+  "lib/portalsettings": {
+    "imports": [
+      "lib/appearance",
+      "lib/dbusx",
+      "lib/logutil",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/icons",
+      "lib/internal/goroutine",
+      "lib/testbuild",
+      "lib/testhome"
+    ]
+  },
+  "lib/protocols": {
+    "embeds": [
+      "lib/protocols"
+    ]
+  },
+  "lib/protocols/cmd/fetch-protocols": {
+    "imports": [
+      "lib/atomicfile"
+    ]
+  },
+  "lib/pulse/native": {
+    "imports": [
+      "lib/intconv",
+      "lib/internal/goroutine"
+    ],
+    "testImports": [
+      "lib/pulse/pulsetest",
+      "lib/sockdir",
+      "lib/testbuild",
+      "lib/testhome"
+    ]
+  },
+  "lib/pulse/pulsetest": {
+    "imports": [
+      "lib/intconv",
+      "lib/pulse/native",
+      "lib/sockdir"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/testhome"
+    ]
+  },
+  "lib/render": {
+    "imports": [
+      "lib/intconv",
+      "lib/text",
+      "lib/third_party/gomath",
+      "lib/third_party/oksvg",
+      "lib/third_party/rasterx",
+      "lib/third_party/typesetting/di",
+      "lib/third_party/typesetting/font",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/font/opentype/tables",
+      "lib/third_party/typesetting/segmenter",
+      "lib/third_party/typesetting/shaping",
+      "lib/third_party/vector"
+    ],
+    "embeds": [
+      "lib/render/testdata/Cantarell-Regular.ttf",
+      "lib/render/testdata/NotoSansHebrew-Regular.ttf"
+    ],
+    "testImports": [
+      "lib/golden",
+      "lib/testbuild",
+      "lib/third_party/typesetting/fontscan"
+    ]
+  },
+  "lib/sockdir": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/srcroot": {},
+  "lib/testbuild": {
+    "imports": [
+      "lib/debug"
+    ]
+  },
+  "lib/testhome": {
+    "imports": [
+      "lib/dbusx",
+      "lib/pulse/native",
+      "lib/third_party/godbus",
+      "lib/third_party/wayland/wl",
+      "lib/wltest",
+      "lib/wmipc"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/pulse/pulsetest",
+      "lib/sockdir"
+    ]
+  },
+  "lib/text": {
+    "imports": [
+      "lib/third_party/typesetting/bidi",
+      "lib/third_party/typesetting/segmenter"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/godbus": {
+    "testImports": [
+      "lib/dbustest",
+      "lib/testbuild",
+      "lib/testhome"
+    ]
+  },
+  "lib/third_party/godbus/introspect": {
+    "imports": [
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/godbus/prop": {
+    "imports": [
+      "lib/third_party/godbus",
+      "lib/third_party/godbus/introspect"
+    ]
+  },
+  "lib/third_party/gomath": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/oksvg": {
+    "imports": [
+      "lib/third_party/rasterx"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/rasterx": {
+    "imports": [
+      "lib/third_party/gomath",
+      "lib/third_party/vector"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/bidi": {
+    "imports": [
+      "lib/third_party/typesetting/internal/unicodedata"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/di": {
+    "imports": [
+      "lib/third_party/typesetting/harfbuzz"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/font": {
+    "imports": [
+      "lib/third_party/typesetting/font/cff",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/font/opentype/tables"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/font/cff": {
+    "imports": [
+      "lib/third_party/typesetting/font/cff/interpreter",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/font/opentype/tables"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/font/cff/interpreter": {
+    "imports": [
+      "lib/third_party/typesetting/font/opentype"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/font/opentype": {
+    "imports": [
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/font/opentype/tables": {
+    "imports": [
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/language"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/fontscan": {
+    "imports": [
+      "lib/third_party/typesetting/font",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/font/opentype/tables",
+      "lib/third_party/typesetting/language"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/harfbuzz": {
+    "imports": [
+      "lib/third_party/typesetting/font",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/font/opentype/tables",
+      "lib/third_party/typesetting/internal/unicodedata",
+      "lib/third_party/typesetting/language"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/internal/unicodedata": {
+    "imports": [
+      "lib/third_party/typesetting/language"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/language": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/segmenter": {
+    "imports": [
+      "lib/third_party/typesetting/internal/unicodedata"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/typesetting/shaping": {
+    "imports": [
+      "lib/third_party/typesetting/bidi",
+      "lib/third_party/typesetting/di",
+      "lib/third_party/typesetting/font",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/harfbuzz",
+      "lib/third_party/typesetting/internal/unicodedata",
+      "lib/third_party/typesetting/language",
+      "lib/third_party/typesetting/segmenter"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/vector": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/vk": {
+    "imports": [
+      "lib/third_party/vk/internal/ffi"
+    ]
+  },
+  "lib/third_party/vk/internal/ffi": {},
+  "lib/third_party/wayland/cmd/wayland-scanner": {},
+  "lib/third_party/wayland/os": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/wayland/unstable/text-input-v3": {
+    "imports": [
+      "lib/third_party/wayland/wl"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/wayland/unstable/xdg-decoration-v1": {
+    "imports": [
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/xdg"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/wayland/wl": {
+    "imports": [
+      "lib/third_party/wayland/os"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/wayland/wlclient": {
+    "imports": [
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/xdg"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/third_party/wayland/xdg": {
+    "imports": [
+      "lib/third_party/wayland/wl"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/udmabuf": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/v4l2": {
+    "imports": [
+      "lib/intconv"
+    ]
+  },
+  "lib/vaultserver": {},
+  "lib/vinput": {
+    "imports": [
+      "lib/intconv",
+      "lib/keymapfd",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/wlr"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/testhome",
+      "lib/wltest"
+    ]
+  },
+  "lib/wlr": {
+    "imports": [
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/xdg"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/testhome",
+      "lib/wltest"
+    ]
+  },
+  "lib/wltest": {
+    "imports": [
+      "lib/fourcc",
+      "lib/intconv",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/third_party/wayland/xdg",
+      "lib/wlr"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/wmipc": {},
+  "lib/xcursor": {
+    "imports": [
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/xdg": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/xkb": {
+    "imports": [
+      "lib/glibclocale"
+    ],
+    "testImports": [
+      "lib/clib",
+      "lib/testbuild"
+    ]
+  },
+  "lib/xkb/internal/genkeysyms": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/clib"
+    ]
+  },
+  "lib/xkb/registry": {
+    "imports": [
+      "lib/xkb"
+    ],
+    "testImports": [
+      "lib/clib"
+    ]
+  },
+  "lib/xkb/x11": {
+    "testImports": [
+      "lib/clib",
+      "lib/xkb"
+    ]
+  },
+  "login/cmd/lys-login": {
+    "imports": [
+      "desktop/config",
+      "desktop/shell/lockclient",
+      "lib/xdg",
+      "login/dmsocket",
+      "login/greeterconfig",
+      "login/internal/auth",
+      "login/internal/cursorrecord",
+      "login/internal/dm",
+      "login/internal/greeter",
+      "login/internal/keyboard",
+      "login/internal/lock"
+    ],
+    "testImports": [
+      "desktop/swaytest",
+      "lib/logind",
+      "lib/logind/logindtest",
+      "lib/testhome"
+    ]
+  },
+  "login/dmsocket": {
+    "imports": [
+      "login/greeterconfig"
+    ],
+    "testImports": [
+      "lib/sockdir"
+    ]
+  },
+  "login/greeterconfig": {
+    "imports": [
+      "desktop/config",
+      "lib/atomicfile"
+    ]
+  },
+  "login/internal/auth": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/pam",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "login/internal/fprint",
+      "secrets/control",
+      "secrets/vault"
+    ],
+    "testImports": [
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "login/internal/cursorrecord": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/xdg"
+    ]
+  },
+  "login/internal/dm": {
+    "imports": [
+      "desktop/config",
+      "desktop/shlex",
+      "lib/dbusx",
+      "lib/drm",
+      "lib/logind",
+      "lib/peercred",
+      "lib/polkit",
+      "lib/xdg",
+      "lib/xkb",
+      "login/dmsocket",
+      "login/greeterconfig",
+      "login/internal/auth",
+      "login/internal/cursorrecord",
+      "login/internal/fprint",
+      "login/internal/greeter",
+      "login/internal/keyboard"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/polkit/polkittest",
+      "lib/sockdir",
+      "lib/testhome",
+      "login/internal/keyboard/keyboardtest"
+    ]
+  },
+  "login/internal/fprint": {
+    "imports": [
+      "lib/dbusx",
+      "lib/logind",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/intconv",
+      "lib/logind/logindtest",
+      "lib/testhome"
+    ]
+  },
+  "login/internal/greeter": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/imagedecode",
+      "desktop/logging",
+      "desktop/outputsize",
+      "desktop/resources",
+      "desktop/service/lyswm",
+      "desktop/shell/apptheme",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/splashframe",
+      "desktop/styling",
+      "desktop/tokens",
+      "desktop/useraccount",
+      "lib/atomicfile",
+      "lib/dbusx",
+      "lib/logind",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "lib/xkb",
+      "login/internal/auth",
+      "login/internal/cursorrecord",
+      "login/internal/fprint",
+      "login/internal/layouts",
+      "login/internal/screen",
+      "ui/app",
+      "ui/gtksettings",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "embeds": [
+      "login/internal/greeter/assets"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/testbuild",
+      "lib/testhome"
+    ]
+  },
+  "login/internal/keyboard": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/xkb"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "login/internal/keyboard/keyboardtest"
+    ]
+  },
+  "login/internal/keyboard/keyboardtest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/third_party/godbus",
+      "lib/xkb"
+    ]
+  },
+  "login/internal/layouts": {
+    "imports": [
+      "desktop/service/lyswm",
+      "lib/xkb"
+    ]
+  },
+  "login/internal/lock": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/imagedecode",
+      "desktop/logging",
+      "desktop/outputsize",
+      "desktop/service/mpris",
+      "desktop/service/upower",
+      "desktop/shell/apptheme",
+      "desktop/shell/lockclient",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "desktop/useraccount",
+      "lib/dbusx",
+      "lib/logind",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "login/dmsocket",
+      "login/internal/auth",
+      "login/internal/dm",
+      "login/internal/fprint",
+      "login/internal/greeter",
+      "login/internal/layouts",
+      "login/internal/screen",
+      "secrets/vault",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/dbustest",
+      "lib/sockdir",
+      "lib/testbuild",
+      "lib/testhome",
+      "lib/third_party/godbus/prop"
+    ]
+  },
+  "login/internal/screen": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/imagedecode",
+      "desktop/offheap",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/intconv",
+      "lib/render",
+      "login/internal/auth",
+      "login/internal/fprint",
+      "login/internal/layouts",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/srcroot",
+      "lib/testhome"
+    ]
+  },
+  "polkit/cmd/lys-polkit": {
+    "imports": [
+      "lib/buildinfo",
+      "lib/intconv",
+      "lib/polkit",
+      "lib/portaldialogs",
+      "lib/third_party/godbus",
+      "polkit/internal/agent",
+      "polkit/internal/helper",
+      "polkit/internal/locale",
+      "polkit/internal/passwd",
+      "polkit/internal/polkit",
+      "polkit/internal/proc",
+      "polkit/internal/tracker",
+      "polkit/retained"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/logind",
+      "lib/logind/logindtest",
+      "lib/polkit/polkittest"
+    ]
+  },
+  "polkit/internal/agent": {
+    "imports": [
+      "lib/polkit",
+      "lib/portaldialogs",
+      "lib/third_party/godbus",
+      "polkit/internal/helper",
+      "polkit/internal/locale",
+      "polkit/internal/polkit"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/polkit/polkittest",
+      "polkit/internal/helper/helpertest"
+    ]
+  },
+  "polkit/internal/helper": {
+    "testImports": [
+      "lib/sockdir",
+      "polkit/internal/helper/helpertest"
+    ]
+  },
+  "polkit/internal/helper/helpertest": {
+    "imports": [
+      "lib/sockdir",
+      "polkit/internal/helper"
+    ]
+  },
+  "polkit/internal/locale": {
+    "imports": [
+      "lib/i18n"
+    ],
+    "embeds": [
+      "polkit/internal/locale"
+    ]
+  },
+  "polkit/internal/passwd": {},
+  "polkit/internal/polkit": {
+    "imports": [
+      "lib/dbusx",
+      "lib/logind",
+      "lib/polkit",
+      "lib/third_party/godbus",
+      "polkit/retained"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/polkit/polkittest"
+    ]
+  },
+  "polkit/internal/proc": {
+    "imports": [
+      "polkit/internal/polkit"
+    ]
+  },
+  "polkit/internal/tracker": {
+    "imports": [
+      "polkit/retained"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/polkit",
+      "lib/polkit/polkittest",
+      "lib/third_party/godbus",
+      "polkit/internal/polkit"
+    ]
+  },
+  "polkit/internal/vmtest/fakedialogs": {
+    "imports": [
+      "lib/portaldialogs",
+      "lib/third_party/godbus"
+    ]
+  },
+  "polkit/retained": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ]
+  },
+  "power/autobrightness": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest"
+    ]
+  },
+  "power/cmd/lys-power": {
+    "imports": [
+      "lib/buildinfo",
+      "lib/dbusx",
+      "power/internal/autobright",
+      "power/internal/config",
+      "power/internal/daemon",
+      "power/internal/history",
+      "power/internal/predict",
+      "power/internal/profiles",
+      "power/internal/supply"
+    ]
+  },
+  "power/internal/ambient": {
+    "imports": [
+      "power/autobrightness"
+    ]
+  },
+  "power/internal/autobright": {
+    "imports": [
+      "desktop/service/backlight",
+      "lib/dbusx",
+      "lib/logind",
+      "lib/third_party/godbus",
+      "power/autobrightness",
+      "power/internal/ambient",
+      "power/internal/camlight",
+      "power/internal/config",
+      "power/internal/lightsensor"
+    ],
+    "testImports": [
+      "lib/logind/logindtest",
+      "lib/testhome"
+    ]
+  },
+  "power/internal/camlight": {
+    "imports": [
+      "lib/v4l2",
+      "power/internal/ambient"
+    ]
+  },
+  "power/internal/config": {},
+  "power/internal/daemon": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "power/internal/config",
+      "power/internal/history",
+      "power/internal/predict",
+      "power/internal/profiles",
+      "power/internal/statefile",
+      "power/internal/supply"
+    ]
+  },
+  "power/internal/history": {
+    "imports": [
+      "power/internal/statefile"
+    ]
+  },
+  "power/internal/lightsensor": {
+    "imports": [
+      "power/internal/ambient"
+    ]
+  },
+  "power/internal/predict": {
+    "imports": [
+      "power/internal/history"
+    ]
+  },
+  "power/internal/profiles": {
+    "imports": [
+      "lib/third_party/godbus"
+    ]
+  },
+  "power/internal/statefile": {},
+  "power/internal/supply": {},
+  "secrets/client": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "secrets/secretbus",
+      "secrets/transport"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "secrets/secretstest"
+    ]
+  },
+  "secrets/cmd/lys-secrets": {
+    "imports": [
+      "lib/dbusx",
+      "lib/logind",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "secrets/client",
+      "secrets/control",
+      "secrets/internal/bitwarden",
+      "secrets/internal/keyring",
+      "secrets/internal/pinentry",
+      "secrets/internal/prompt",
+      "secrets/internal/service",
+      "secrets/internal/sshagent",
+      "secrets/internal/usersock",
+      "secrets/vault"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/portaldialogs",
+      "lib/sockdir",
+      "secrets/internal/dialogtest"
+    ]
+  },
+  "secrets/control": {
+    "imports": [
+      "lib/xdg",
+      "secrets/internal/usersock"
+    ],
+    "testImports": [
+      "lib/sockdir"
+    ]
+  },
+  "secrets/internal/bitwarden": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/intconv",
+      "lib/vaultserver",
+      "secrets/vault"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "secrets/client",
+      "secrets/secretstest"
+    ]
+  },
+  "secrets/internal/dialogtest": {
+    "imports": [
+      "lib/portaldialogs",
+      "lib/third_party/godbus"
+    ]
+  },
+  "secrets/internal/keyring": {
+    "imports": [
+      "secrets/internal/lockedmem"
+    ]
+  },
+  "secrets/internal/lockedmem": {},
+  "secrets/internal/pinentry": {},
+  "secrets/internal/prompt": {
+    "imports": [
+      "lib/portaldialogs",
+      "lib/third_party/godbus",
+      "secrets/internal/keyring",
+      "secrets/internal/pinentry",
+      "secrets/internal/service",
+      "secrets/internal/sshagent"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "secrets/internal/dialogtest"
+    ]
+  },
+  "secrets/internal/service": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "secrets/control",
+      "secrets/internal/keyring",
+      "secrets/internal/lockedmem",
+      "secrets/secretbus",
+      "secrets/transport",
+      "secrets/vault"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "secrets/client"
+    ]
+  },
+  "secrets/internal/sshagent": {
+    "imports": [
+      "secrets/internal/lockedmem",
+      "secrets/internal/usersock"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/sockdir",
+      "secrets/internal/keyring",
+      "secrets/internal/service"
+    ]
+  },
+  "secrets/internal/usersock": {
+    "imports": [
+      "lib/peercred",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/sockdir"
+    ]
+  },
+  "secrets/secretbus": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ]
+  },
+  "secrets/secretstest": {
+    "imports": [
+      "lib/third_party/godbus",
+      "secrets/internal/keyring",
+      "secrets/internal/service"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "secrets/client"
+    ]
+  },
+  "secrets/transport": {},
+  "secrets/vault": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/vaultserver"
+    ],
+    "testImports": [
+      "lib/dbustest"
+    ]
+  },
+  "settings/cmd/lys-settings": {
+    "imports": [
+      "desktop/settingspage",
+      "lib/buildinfo",
+      "settings/internal/settings"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "settings/e2e": {
+    "testImports": [
+      "desktop/settingspage",
+      "lib/testhome",
+      "settings/internal/wmconfig",
+      "settings/internal/wmtest",
+      "ui/app"
+    ]
+  },
+  "settings/internal/displays": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/wlr"
+    ]
+  },
+  "settings/internal/locale": {
+    "imports": [
+      "desktop/i18n"
+    ],
+    "embeds": [
+      "settings/internal/locale/locales"
+    ]
+  },
+  "settings/internal/settings": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/i18n",
+      "desktop/logging",
+      "desktop/portal/permissions",
+      "desktop/service/clipboard",
+      "desktop/service/pulse",
+      "desktop/service/recorder/devicechoice",
+      "desktop/settingspage",
+      "desktop/shell/apptheme",
+      "desktop/shell/widgets",
+      "desktop/strftime",
+      "desktop/styling",
+      "lib/atomicfile",
+      "lib/dbusx",
+      "lib/glibclocale",
+      "lib/intconv",
+      "lib/pam",
+      "lib/pulse/native",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/xcursor",
+      "lib/xdg",
+      "lib/xkb",
+      "lib/xkb/registry",
+      "login/dmsocket",
+      "login/greeterconfig",
+      "secrets/client",
+      "secrets/control",
+      "settings/internal/displays",
+      "settings/internal/locale",
+      "settings/internal/wmconfig",
+      "ui/app",
+      "ui/highlight",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "embeds": [
+      "settings/internal/settings/avatars"
+    ],
+    "testImports": [
+      "desktop/resources",
+      "desktop/service/lyswm/lyswmtest",
+      "desktop/shell/treetest",
+      "lib/dbustest",
+      "lib/glibclocale/glibclocaletest",
+      "lib/pulse/pulsetest",
+      "lib/sockdir",
+      "lib/testhome",
+      "secrets/secretstest",
+      "settings/internal/wmtest",
+      "ui/transfer"
+    ]
+  },
+  "settings/internal/wmconfig": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/xdg"
+    ]
+  },
+  "settings/internal/wmtest": {
+    "imports": [
+      "desktop/service/lyswm/lyswmtest",
+      "settings/internal/wmconfig"
+    ]
+  },
+  "shell/cava": {
+    "imports": [
+      "desktop/service/pulse",
+      "lib/intconv",
+      "lib/third_party/gomath",
+      "shell/third_party/fourier"
+    ],
+    "testImports": [
+      "lib/pulse/native",
+      "lib/pulse/pulsetest",
+      "lib/testhome"
+    ]
+  },
+  "shell/cmd/lys-lock": {
+    "imports": [
+      "lib/buildinfo",
+      "shell/internal/cli",
+      "shell/internal/lockcli"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "shell/cmd/lys-shell": {
+    "imports": [
+      "desktop/config",
+      "desktop/icons",
+      "desktop/identity",
+      "desktop/logging",
+      "desktop/portal/permissions",
+      "desktop/resources",
+      "desktop/service/lyswm",
+      "desktop/service/mpris",
+      "desktop/service/notifications/notifypolicy",
+      "desktop/service/pulse",
+      "desktop/settingspage",
+      "desktop/shlex",
+      "lib/buildinfo",
+      "lib/dbusx",
+      "lib/logind",
+      "lib/portaldialogs",
+      "lib/third_party/godbus",
+      "shell/internal/audiolevel",
+      "shell/internal/cli",
+      "shell/internal/configdocs",
+      "shell/internal/dbuscli",
+      "shell/internal/launcheripc",
+      "shell/internal/lockcli",
+      "shell/internal/widgetipc",
+      "shell/portal",
+      "shell/service/brightness",
+      "shell/service/clipboardipc",
+      "shell/service/idleinhibit",
+      "shell/service/launcher",
+      "shell/service/launcher/modes",
+      "shell/service/notifications",
+      "shell/service/powerprofiles",
+      "shell/service/recorder",
+      "shell/service/shellipc",
+      "shell/service/sni",
+      "shell/service/sysinfo",
+      "shell/service/wallpaper",
+      "shell/shell/bar",
+      "shell/shell/filechooser",
+      "shell/shell/printdialog",
+      "shell/shell/screenshot",
+      "shell/shell/sharepicker"
+    ],
+    "testImports": [
+      "desktop/fileuri",
+      "desktop/icons/icontest",
+      "desktop/opener/openertest",
+      "desktop/portal/permissions/permstoretest",
+      "desktop/service/idleinhibit/inhibitduration",
+      "desktop/service/lyswm/lyswmtest",
+      "desktop/service/wallpaper/extract",
+      "desktop/shell/treetest",
+      "desktop/swaytest",
+      "lib/capture",
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/pulse/native",
+      "lib/pulse/pulsetest",
+      "lib/sockdir",
+      "lib/testhome",
+      "lib/third_party/godbus/prop",
+      "lib/wmipc",
+      "power/autobrightness",
+      "shell/internal/notifytest",
+      "shell/service/mango",
+      "shell/service/niri",
+      "shell/service/recorder/recordertest",
+      "shell/service/sharepreview",
+      "shell/shell/colorpicker",
+      "shell/shell/osd",
+      "shell/shell/regionoverlay",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/internal/appicons": {
+    "imports": [
+      "desktop/glob"
+    ]
+  },
+  "shell/internal/apptest": {
+    "imports": [
+      "desktop/swaytest",
+      "lib/third_party/wayland/wl",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/internal/audiolevel": {},
+  "shell/internal/bussignal": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/internal/bussignal/bussignaltest": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ]
+  },
+  "shell/internal/cli": {},
+  "shell/internal/clock": {},
+  "shell/internal/clockwatch": {},
+  "shell/internal/configdocs": {
+    "imports": [
+      "desktop/config"
+    ]
+  },
+  "shell/internal/dbuscli": {
+    "imports": [
+      "lib/third_party/godbus"
+    ]
+  },
+  "shell/internal/desktopnotify": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus",
+      "shell/service/notifications"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "shell/internal/notifytest"
+    ]
+  },
+  "shell/internal/gpuhost": {
+    "imports": [
+      "lib/gpu",
+      "lib/gputest"
+    ]
+  },
+  "shell/internal/gvariant": {
+    "imports": [
+      "lib/intconv"
+    ]
+  },
+  "shell/internal/handoff": {},
+  "shell/internal/i18nids": {
+    "testImports": [
+      "desktop/i18n",
+      "desktop/i18n/locales/shell"
+    ]
+  },
+  "shell/internal/iconscheck": {
+    "testImports": [
+      "desktop/resources",
+      "lib/srcroot"
+    ]
+  },
+  "shell/internal/ipp": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "testImports": [
+      "lib/sockdir"
+    ]
+  },
+  "shell/internal/ipp/ipptest": {
+    "imports": [
+      "shell/internal/ipp"
+    ]
+  },
+  "shell/internal/jinja": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/gomath"
+    ]
+  },
+  "shell/internal/keytest": {
+    "imports": [
+      "lib/vinput",
+      "shell/internal/apptest",
+      "ui/app"
+    ]
+  },
+  "shell/internal/launcheripc": {
+    "imports": [
+      "desktop/ipcsock",
+      "lib/xdg",
+      "shell/internal/runtimesock"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir"
+    ]
+  },
+  "shell/internal/lockcli": {
+    "imports": [
+      "lib/third_party/godbus",
+      "shell/internal/cli",
+      "shell/service/shellipc"
+    ]
+  },
+  "shell/internal/notifytest": {
+    "imports": [
+      "shell/service/notifications"
+    ]
+  },
+  "shell/internal/pango": {},
+  "shell/internal/portal": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/internal/runtimesock": {
+    "imports": [
+      "desktop/identity",
+      "lib/xdg"
+    ]
+  },
+  "shell/internal/statefile": {
+    "imports": [
+      "lib/atomicfile"
+    ]
+  },
+  "shell/internal/tools/distcheck": {},
+  "shell/internal/tools/emojigen": {
+    "imports": [
+      "shell/internal/gvariant"
+    ]
+  },
+  "shell/internal/tools/unicodegen": {
+    "imports": [
+      "lib/intconv",
+      "shell/service/launcher/charnames"
+    ]
+  },
+  "shell/internal/tools/vmclick": {
+    "imports": [
+      "lib/vinput"
+    ]
+  },
+  "shell/internal/toplevels": {
+    "imports": [
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/wlr"
+    ],
+    "testImports": [
+      "desktop/swaytest",
+      "lib/testhome",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/internal/walltimer": {},
+  "shell/internal/widgetipc": {
+    "imports": [
+      "lib/xdg",
+      "shell/internal/runtimesock"
+    ],
+    "testImports": [
+      "lib/sockdir"
+    ]
+  },
+  "shell/portal": {
+    "imports": [
+      "desktop/config",
+      "desktop/drmconn",
+      "desktop/fileuri",
+      "desktop/fswatch",
+      "desktop/identity",
+      "desktop/imagedecode",
+      "desktop/logging",
+      "desktop/portal/permissions",
+      "desktop/service/lyswm",
+      "desktop/settingspage",
+      "desktop/styling",
+      "desktop/useraccount",
+      "lib/atomicfile",
+      "lib/capture",
+      "lib/dbusx",
+      "lib/dmabuf",
+      "lib/dmabufprobe",
+      "lib/edid",
+      "lib/eis",
+      "lib/fourcc",
+      "lib/gpu",
+      "lib/intconv",
+      "lib/logind",
+      "lib/pipewire",
+      "lib/portaldialogs",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/vinput",
+      "lib/wmipc",
+      "lib/xdg",
+      "lib/xkb",
+      "secrets/client",
+      "secrets/vault",
+      "shell/internal/toplevels",
+      "shell/service/idleinhibit",
+      "shell/service/launcher",
+      "shell/service/notifications",
+      "shell/service/screenshare",
+      "shell/service/wallpaper",
+      "shell/shell/filechooser",
+      "shell/shell/printdialog",
+      "shell/shell/regionoverlay",
+      "shell/shell/screenshot",
+      "shell/shell/sharepicker",
+      "ui/app",
+      "ui/gtksettings"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "desktop/portal/permissions/permstoretest",
+      "desktop/resources",
+      "desktop/service/lyswm/lyswmtest",
+      "desktop/service/wallpaper/extract",
+      "desktop/shell/treetest",
+      "desktop/swaytest",
+      "lib/dbustest",
+      "lib/eis/eistest",
+      "lib/logind/logindtest",
+      "lib/pipewire/pwtest",
+      "lib/testhome",
+      "lib/wltest",
+      "secrets/secretstest",
+      "shell/internal/apptest",
+      "shell/internal/bussignal/bussignaltest",
+      "shell/internal/gpuhost",
+      "shell/internal/ipp",
+      "shell/internal/ipp/ipptest",
+      "shell/internal/notifytest",
+      "shell/internal/portal",
+      "shell/shell/dialogsurface",
+      "ui/widget"
+    ]
+  },
+  "shell/service/backgroundapps": {
+    "imports": [
+      "desktop/desktopentry",
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/batteryalert": {
+    "imports": [
+      "desktop/i18n",
+      "desktop/service/upower",
+      "lib/third_party/godbus",
+      "shell/service/powerprofiles"
+    ],
+    "testImports": [
+      "desktop/service/upower/upowertest",
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/bluetooth": {
+    "imports": [
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/brightness": {
+    "imports": [
+      "desktop/drmconn",
+      "desktop/feed",
+      "desktop/service/backlight",
+      "desktop/uevent",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus",
+      "power/autobrightness"
+    ],
+    "testImports": [
+      "desktop/service/backlight/backlighttest",
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/calendar": {
+    "imports": [
+      "desktop/feed",
+      "desktop/fswatch"
+    ],
+    "testImports": [
+      "desktop/fakeclock"
+    ]
+  },
+  "shell/service/clipboardipc": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/dnssd": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "shell/service/dnssd/dnssdtest"
+    ]
+  },
+  "shell/service/dnssd/dnssdtest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/intconv",
+      "lib/third_party/godbus",
+      "shell/service/dnssd"
+    ]
+  },
+  "shell/service/hyprland": {
+    "imports": [
+      "desktop/ipcsock"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/idle": {
+    "imports": [
+      "desktop/feed",
+      "desktop/service/idle/idlepolicy",
+      "lib/intconv",
+      "lib/logind",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/wlr",
+      "shell/service/brightness"
+    ],
+    "testImports": [
+      "desktop/swaytest",
+      "lib/logind/logindtest",
+      "lib/testhome",
+      "lib/third_party/godbus",
+      "lib/vinput"
+    ]
+  },
+  "shell/service/idleinhibit": {
+    "imports": [
+      "desktop/feed",
+      "desktop/service/idleinhibit/inhibitduration",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/keytoggles": {},
+  "shell/service/launcher": {
+    "imports": [
+      "desktop/desktopentry",
+      "desktop/fileuri",
+      "desktop/glob",
+      "desktop/identity",
+      "desktop/imagedecode",
+      "desktop/mime",
+      "desktop/opener",
+      "desktop/shlex",
+      "desktop/spawn",
+      "lib/atomicfile",
+      "lib/intconv",
+      "lib/render",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "desktop/opener/openertest",
+      "shell/service/launcher/launchertest"
+    ]
+  },
+  "shell/service/launcher/answer": {
+    "imports": [
+      "lib/atomicfile"
+    ]
+  },
+  "shell/service/launcher/charnames": {
+    "imports": [
+      "lib/intconv",
+      "shell/service/launcher"
+    ],
+    "embeds": [
+      "shell/service/launcher/charnames/names.bin.gz"
+    ],
+    "testImports": [
+      "shell/service/launcher/modes"
+    ]
+  },
+  "shell/service/launcher/launchertest": {},
+  "shell/service/launcher/modes": {
+    "imports": [
+      "desktop/desktopentry",
+      "desktop/i18n",
+      "desktop/service/clipboard",
+      "desktop/service/lyswm",
+      "desktop/shlex",
+      "lib/third_party/gomath",
+      "lib/wmipc",
+      "shell/internal/gvariant",
+      "shell/internal/pango",
+      "shell/service/hyprland",
+      "shell/service/launcher",
+      "shell/service/mango",
+      "shell/service/niri",
+      "shell/service/sharepreview",
+      "shell/service/sway"
+    ],
+    "embeds": [
+      "shell/service/launcher/modes/emojidata"
+    ],
+    "testImports": [
+      "desktop/config",
+      "desktop/fileuri",
+      "desktop/opener/openertest",
+      "desktop/service/clipboard/historybudget",
+      "lib/sockdir",
+      "shell/service/launcher/launchertest"
+    ]
+  },
+  "shell/service/launcher/search": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/i18n",
+      "desktop/identity",
+      "desktop/service/clipboard",
+      "desktop/settingspage",
+      "desktop/shlex",
+      "lib/atomicfile",
+      "lib/intconv",
+      "lib/peercred",
+      "lib/third_party/gomath",
+      "lib/xdg",
+      "shell/internal/pango",
+      "shell/service/launcher",
+      "shell/service/launcher/answer",
+      "shell/service/launcher/charnames",
+      "shell/service/launcher/modes",
+      "shell/service/sysinfo"
+    ],
+    "testImports": [
+      "desktop/service/clipboard/historybudget",
+      "shell/service/launcher/launchertest"
+    ]
+  },
+  "shell/service/launcher/typetext": {
+    "imports": [
+      "lib/vinput"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/internal/keytest",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/service/lyrics": {
+    "imports": [
+      "desktop/identity",
+      "lib/atomicfile",
+      "lib/buildinfo"
+    ]
+  },
+  "shell/service/mail": {
+    "imports": [
+      "desktop/config",
+      "desktop/feed",
+      "desktop/fswatch",
+      "desktop/i18n",
+      "desktop/icons",
+      "shell/internal/desktopnotify",
+      "shell/internal/jinja"
+    ],
+    "testImports": [
+      "desktop/i18n/locales/shell"
+    ]
+  },
+  "shell/service/mango": {
+    "imports": [
+      "desktop/ipcsock"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/network": {
+    "imports": [
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/logind",
+      "lib/third_party/godbus",
+      "shell/internal/bussignal",
+      "shell/service/network/openconnect",
+      "shell/service/network/secrets"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/logind/logindtest",
+      "lib/testhome",
+      "lib/third_party/godbus/prop",
+      "shell/internal/bussignal/bussignaltest",
+      "shell/service/network/openconnect/openconnecttest"
+    ]
+  },
+  "shell/service/network/openconnect": {
+    "imports": [
+      "desktop/fileuri",
+      "lib/third_party/godbus",
+      "shell/service/launcher",
+      "shell/service/network/secrets"
+    ],
+    "testImports": [
+      "desktop/opener/openertest",
+      "shell/service/network/openconnect/openconnecttest"
+    ]
+  },
+  "shell/service/network/openconnect/openconnecttest": {},
+  "shell/service/network/secrets": {},
+  "shell/service/nightlight": {
+    "imports": [
+      "desktop/identity",
+      "desktop/service/nightlight/nightschedule",
+      "lib/atomicfile",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/third_party/godbus/prop",
+      "lib/third_party/gomath",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/wlr"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/wltest"
+    ]
+  },
+  "shell/service/niri": {
+    "imports": [
+      "desktop/ipcsock"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/notifications": {
+    "imports": [
+      "desktop/feed",
+      "desktop/fileuri",
+      "desktop/glob",
+      "desktop/identity",
+      "desktop/service/notifications/notifypolicy",
+      "lib/atomicfile",
+      "lib/buildinfo",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "shell/internal/clock"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "lib/dbustest",
+      "lib/testhome",
+      "shell/internal/bussignal/bussignaltest"
+    ]
+  },
+  "shell/service/powerprofiles": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus",
+      "shell/internal/bussignal"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/third_party/godbus/prop"
+    ]
+  },
+  "shell/service/privacy": {
+    "imports": [
+      "desktop/feed",
+      "desktop/fswatch",
+      "desktop/service/pulse"
+    ]
+  },
+  "shell/service/recorder": {
+    "imports": [
+      "desktop/config",
+      "desktop/feed",
+      "desktop/i18n",
+      "desktop/identity",
+      "desktop/service/pulse",
+      "desktop/service/recorder/devicechoice",
+      "lib/atomicfile",
+      "lib/audiomix",
+      "lib/capture",
+      "lib/dbusx",
+      "lib/dmabufprobe",
+      "lib/fourcc",
+      "lib/gpu",
+      "lib/intconv",
+      "lib/media/mux",
+      "lib/media/opus",
+      "lib/portaldialogs",
+      "lib/third_party/godbus",
+      "lib/v4l2",
+      "shell/shell/sharepicker"
+    ],
+    "testImports": [
+      "desktop/swaytest",
+      "lib/gputest",
+      "lib/pulse/native",
+      "lib/pulse/pulsetest",
+      "lib/testhome",
+      "shell/internal/gpuhost",
+      "shell/service/recorder/recordertest"
+    ]
+  },
+  "shell/service/recorder/recordertest": {
+    "imports": [
+      "desktop/config",
+      "shell/service/recorder"
+    ]
+  },
+  "shell/service/rfkill": {},
+  "shell/service/screenshare": {
+    "imports": [
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/sharepreview": {
+    "imports": [
+      "lib/capture"
+    ]
+  },
+  "shell/service/shellipc": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/third_party/godbus/introspect"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/sni": {
+    "imports": [
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/third_party/godbus/prop"
+    ]
+  },
+  "shell/service/sounds": {
+    "imports": [
+      "desktop/glob",
+      "desktop/service/sounds/soundpolicy",
+      "lib/intconv",
+      "lib/media/vorbis",
+      "lib/pulse/native",
+      "shell/service/notifications"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "desktop/service/notifications/notifypolicy",
+      "desktop/service/pulse",
+      "lib/pulse/pulsetest",
+      "lib/sockdir",
+      "lib/testhome",
+      "lib/third_party/godbus",
+      "shell/internal/notifytest"
+    ]
+  },
+  "shell/service/sway": {
+    "imports": [
+      "desktop/ipcsock",
+      "lib/intconv"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "shell/service/sysinfo": {
+    "imports": [
+      "lib/third_party/gomath"
+    ]
+  },
+  "shell/service/treeman": {
+    "imports": [
+      "desktop/feed",
+      "desktop/fswatch",
+      "desktop/ipcsock",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/sockdir"
+    ]
+  },
+  "shell/service/udisks": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "shell/service/udisks/udiskstest"
+    ]
+  },
+  "shell/service/udisks/udiskstest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "shell/service/udisks"
+    ]
+  },
+  "shell/service/wallpaper": {
+    "imports": [
+      "desktop/config",
+      "desktop/feed",
+      "desktop/service/wallpaper/extract",
+      "desktop/styling/material",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/third_party/godbus/introspect"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "shell/internal/bussignal/bussignaltest"
+    ]
+  },
+  "shell/service/weather": {
+    "imports": [
+      "desktop/feed"
+    ]
+  },
+  "shell/shell/bar": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/feed",
+      "desktop/fileuri",
+      "desktop/glob",
+      "desktop/i18n",
+      "desktop/identity",
+      "desktop/logging",
+      "desktop/mime",
+      "desktop/service/bitwarden/generator",
+      "desktop/service/clipboard",
+      "desktop/service/idle/idlepolicy",
+      "desktop/service/idleinhibit/inhibitduration",
+      "desktop/service/lyswm",
+      "desktop/service/mpris",
+      "desktop/service/nightlight/nightschedule",
+      "desktop/service/pulse",
+      "desktop/service/recorder/devicechoice",
+      "desktop/service/upower",
+      "desktop/settingspage",
+      "desktop/shell/apptheme",
+      "desktop/shell/lockclient",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/spawn",
+      "desktop/strftime",
+      "desktop/styling",
+      "desktop/useraccount",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/logind",
+      "lib/portaldialogs",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/wlr",
+      "lib/wmipc",
+      "lib/xdg",
+      "secrets/vault",
+      "shell/cava",
+      "shell/internal/appicons",
+      "shell/internal/audiolevel",
+      "shell/internal/clock",
+      "shell/internal/clockwatch",
+      "shell/internal/desktopnotify",
+      "shell/internal/ipp",
+      "shell/internal/jinja",
+      "shell/internal/launcheripc",
+      "shell/internal/pango",
+      "shell/internal/portal",
+      "shell/internal/walltimer",
+      "shell/internal/widgetipc",
+      "shell/service/backgroundapps",
+      "shell/service/batteryalert",
+      "shell/service/bluetooth",
+      "shell/service/brightness",
+      "shell/service/calendar",
+      "shell/service/clipboardipc",
+      "shell/service/dnssd",
+      "shell/service/hyprland",
+      "shell/service/idle",
+      "shell/service/idleinhibit",
+      "shell/service/keytoggles",
+      "shell/service/launcher",
+      "shell/service/launcher/answer",
+      "shell/service/launcher/modes",
+      "shell/service/launcher/search",
+      "shell/service/launcher/typetext",
+      "shell/service/lyrics",
+      "shell/service/mail",
+      "shell/service/mango",
+      "shell/service/network",
+      "shell/service/network/secrets",
+      "shell/service/nightlight",
+      "shell/service/niri",
+      "shell/service/notifications",
+      "shell/service/powerprofiles",
+      "shell/service/privacy",
+      "shell/service/recorder",
+      "shell/service/rfkill",
+      "shell/service/screenshare",
+      "shell/service/sharepreview",
+      "shell/service/shellipc",
+      "shell/service/sni",
+      "shell/service/sounds",
+      "shell/service/sway",
+      "shell/service/sysinfo",
+      "shell/service/treeman",
+      "shell/service/udisks",
+      "shell/service/weather",
+      "shell/shell/colorpicker",
+      "shell/shell/dialogsurface",
+      "shell/shell/filechooser",
+      "shell/shell/keys",
+      "shell/shell/launcher",
+      "shell/shell/layering",
+      "shell/shell/markup",
+      "shell/shell/notifyui",
+      "shell/shell/osd",
+      "shell/shell/popups",
+      "shell/shell/portaldialogs/dialoghost",
+      "shell/shell/powermenu",
+      "shell/shell/printdialog",
+      "shell/shell/regionoverlay",
+      "shell/shell/screenshot",
+      "shell/shell/sharepicker",
+      "shell/shell/shotthumb",
+      "shell/shell/wallpaper",
+      "ui/app",
+      "ui/gtksettings",
+      "ui/transfer",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "desktop/i18n/locales/shell",
+      "desktop/resources",
+      "desktop/service/clipboard/historybudget",
+      "desktop/service/lyswm/lyswmtest",
+      "desktop/service/notifications/notifypolicy",
+      "desktop/shell/treetest",
+      "desktop/styling/material",
+      "desktop/swaytest",
+      "lib/dbustest",
+      "lib/pulse/native",
+      "lib/pulse/pulsetest",
+      "lib/sockdir",
+      "lib/testhome",
+      "lib/third_party/godbus/prop",
+      "lib/third_party/wayland/wl",
+      "lib/vinput",
+      "shell/internal/apptest",
+      "shell/internal/bussignal/bussignaltest",
+      "shell/internal/keytest",
+      "shell/internal/notifytest",
+      "shell/service/recorder/recordertest",
+      "ui/anim",
+      "ui/atspitest"
+    ]
+  },
+  "shell/shell/colorpicker": {
+    "imports": [
+      "desktop/config",
+      "desktop/identity",
+      "lib/render",
+      "lib/third_party/gomath",
+      "lib/xdg",
+      "lib/xkb",
+      "shell/shell/keys",
+      "shell/shell/loupe",
+      "shell/shell/regionoverlay",
+      "ui/app",
+      "ui/widget"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/internal/keytest"
+    ]
+  },
+  "shell/shell/dialogqueue": {},
+  "shell/shell/dialogsurface": {
+    "imports": [
+      "desktop/shell/apptheme",
+      "lib/intconv",
+      "lib/portaldialogs",
+      "lib/third_party/wayland/wl",
+      "ui/app",
+      "ui/widget"
+    ],
+    "testImports": [
+      "desktop/config",
+      "desktop/shell/treetest",
+      "desktop/shell/widgets",
+      "lib/render",
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/shell/dialogsurface/surfacetest"
+    ]
+  },
+  "shell/shell/dialogsurface/surfacetest": {
+    "imports": [
+      "desktop/service/lyswm",
+      "desktop/service/lyswm/lyswmtest",
+      "lib/render",
+      "lib/wmipc",
+      "shell/internal/apptest",
+      "shell/internal/toplevels",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/shell/dialogsurface/surfacetest/probe": {
+    "imports": [
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/shell/filechooser": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/fileuri",
+      "desktop/fswatch",
+      "desktop/glob",
+      "desktop/imagedecode",
+      "desktop/mime",
+      "desktop/offheap",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/shlex",
+      "desktop/styling",
+      "lib/atomicfile",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/portaldialogs",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "lib/xkb",
+      "shell/internal/handoff",
+      "shell/internal/statefile",
+      "shell/service/udisks",
+      "shell/shell/dialogqueue",
+      "shell/shell/dialogsurface",
+      "shell/shell/keys",
+      "ui/app",
+      "ui/transfer",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/internal/keytest",
+      "shell/service/udisks/udiskstest",
+      "shell/shell/dialogsurface/surfacetest"
+    ]
+  },
+  "shell/shell/keys": {
+    "imports": [
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/shell/launcher": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "shell/internal/launcheripc",
+      "shell/internal/pango",
+      "shell/service/launcher",
+      "shell/service/launcher/charnames",
+      "shell/service/launcher/modes",
+      "shell/service/launcher/search",
+      "ui/anim",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/desktopentry",
+      "desktop/icons",
+      "desktop/imagedecode",
+      "desktop/resources",
+      "desktop/service/clipboard",
+      "desktop/service/clipboard/historybudget",
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/capture",
+      "lib/motion",
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/internal/keytest"
+    ]
+  },
+  "shell/shell/layering": {
+    "imports": [
+      "desktop/config",
+      "ui/app"
+    ]
+  },
+  "shell/shell/loupe": {
+    "imports": [
+      "lib/render"
+    ]
+  },
+  "shell/shell/markup": {
+    "imports": [
+      "desktop/i18n",
+      "lib/intconv",
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/internal/keytest"
+    ]
+  },
+  "shell/shell/notifyui": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/identity",
+      "desktop/shell/widgets",
+      "lib/render",
+      "shell/internal/appicons",
+      "shell/service/launcher",
+      "shell/service/notifications",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/opener/openertest",
+      "desktop/shell/treetest",
+      "lib/testhome"
+    ]
+  },
+  "shell/shell/osd": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/service/mpris",
+      "desktop/service/pulse",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "shell/internal/widgetipc",
+      "shell/service/brightness",
+      "shell/service/keytoggles",
+      "shell/shell/layering",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/testhome"
+    ]
+  },
+  "shell/shell/popups": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "shell/service/notifications",
+      "shell/shell/layering",
+      "shell/shell/notifyui",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/testhome",
+      "lib/third_party/godbus",
+      "shell/internal/notifytest",
+      "ui/anim"
+    ]
+  },
+  "shell/shell/portaldialogs/dialoghost": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/fileuri",
+      "desktop/imagedecode",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/portaldialogs",
+      "lib/render",
+      "shell/shell/dialogqueue",
+      "shell/shell/dialogsurface",
+      "shell/shell/keys",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/testhome",
+      "lib/xkb",
+      "shell/internal/apptest",
+      "shell/internal/keytest",
+      "shell/shell/dialogsurface/surfacetest"
+    ]
+  },
+  "shell/shell/powermenu": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/testhome"
+    ]
+  },
+  "shell/shell/printdialog": {
+    "imports": [
+      "desktop/config",
+      "desktop/fileuri",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/atomicfile",
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/portaldialogs",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "shell/internal/ipp",
+      "shell/internal/statefile",
+      "shell/service/dnssd",
+      "shell/shell/dialogqueue",
+      "shell/shell/dialogsurface",
+      "shell/shell/keys",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/xkb",
+      "shell/internal/apptest",
+      "shell/internal/ipp/ipptest",
+      "shell/internal/keytest",
+      "shell/service/dnssd/dnssdtest",
+      "shell/shell/dialogsurface/surfacetest"
+    ]
+  },
+  "shell/shell/regionoverlay": {
+    "imports": [
+      "desktop/i18n",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "lib/third_party/wayland/wl",
+      "lib/xkb",
+      "shell/shell/keys",
+      "shell/shell/loupe",
+      "ui/app",
+      "ui/widget"
+    ],
+    "testImports": [
+      "desktop/config",
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/internal/keytest"
+    ]
+  },
+  "shell/shell/screenshot": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/i18n",
+      "desktop/identity",
+      "desktop/offheap",
+      "desktop/service/lyswm",
+      "lib/atomicfile",
+      "lib/capture",
+      "lib/portaldialogs",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/wmipc",
+      "lib/xdg",
+      "shell/internal/desktopnotify",
+      "shell/service/hyprland",
+      "shell/service/mango",
+      "shell/service/niri",
+      "shell/service/sharepreview",
+      "shell/service/sway",
+      "shell/shell/colorpicker",
+      "shell/shell/regionoverlay"
+    ],
+    "testImports": [
+      "desktop/i18n/locales/shell",
+      "lib/dbustest",
+      "lib/testhome",
+      "shell/internal/apptest",
+      "shell/internal/keytest",
+      "shell/portal",
+      "ui/app"
+    ]
+  },
+  "shell/shell/sharepicker": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/capture",
+      "lib/intconv",
+      "lib/portaldialogs",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/xkb",
+      "shell/service/sharepreview",
+      "shell/shell/dialogqueue",
+      "shell/shell/dialogsurface",
+      "shell/shell/keys",
+      "shell/shell/regionoverlay",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/third_party/wayland/wl",
+      "shell/internal/apptest",
+      "shell/internal/keytest",
+      "shell/shell/dialogsurface/surfacetest"
+    ]
+  },
+  "shell/shell/shotthumb": {
+    "imports": [
+      "desktop/config",
+      "lib/render",
+      "shell/internal/clock",
+      "shell/shell/keys",
+      "ui/app",
+      "ui/transfer",
+      "ui/widget"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "lib/testhome",
+      "lib/third_party/wayland/wl",
+      "lib/vinput",
+      "shell/internal/apptest"
+    ]
+  },
+  "shell/shell/wallpaper": {
+    "imports": [
+      "desktop/config",
+      "desktop/identity",
+      "desktop/imagedecode",
+      "desktop/offheap",
+      "desktop/outputsize",
+      "desktop/service/wallpaper/extract",
+      "desktop/styling/material",
+      "lib/atomicfile",
+      "lib/intconv",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/third_party/gomath",
+      "lib/xdg",
+      "shell/internal/handoff",
+      "shell/service/launcher",
+      "shell/service/wallpaper",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "shell/third_party/fourier": {
+    "imports": [
+      "shell/third_party/fourier/internal/fftpack"
+    ]
+  },
+  "shell/third_party/fourier/internal/fftpack": {
+    "imports": [
+      "lib/third_party/gomath"
+    ]
+  },
+  "splash/cmd/lys-splash": {
+    "imports": [
+      "desktop/splashframe",
+      "lib/atomicfile",
+      "splash/internal/asynclog",
+      "splash/internal/client",
+      "splash/internal/console",
+      "splash/internal/daemon",
+      "splash/internal/keymap",
+      "splash/internal/kms",
+      "splash/internal/kmsg",
+      "splash/internal/protocol",
+      "splash/internal/server",
+      "splash/internal/theme"
+    ]
+  },
+  "splash/internal/ask": {
+    "imports": [
+      "splash/internal/key",
+      "splash/internal/protocol",
+      "splash/internal/theme"
+    ]
+  },
+  "splash/internal/asynclog": {},
+  "splash/internal/client": {
+    "imports": [
+      "splash/internal/protocol"
+    ],
+    "testImports": [
+      "splash/internal/server"
+    ]
+  },
+  "splash/internal/console": {
+    "imports": [
+      "splash/internal/theme"
+    ]
+  },
+  "splash/internal/daemon": {
+    "imports": [
+      "desktop/splashframe",
+      "lib/atomicfile",
+      "lib/drm",
+      "lib/render",
+      "splash/internal/ask",
+      "splash/internal/console",
+      "splash/internal/key",
+      "splash/internal/kms",
+      "splash/internal/protocol",
+      "splash/internal/server",
+      "splash/internal/theme"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "splash/internal/key": {},
+  "splash/internal/keymap": {},
+  "splash/internal/kms": {
+    "imports": [
+      "lib/drm",
+      "lib/fourcc",
+      "lib/intconv",
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "splash/internal/kmsg": {},
+  "splash/internal/protocol": {
+    "imports": [
+      "lib/intconv"
+    ]
+  },
+  "splash/internal/server": {
+    "imports": [
+      "lib/peercred",
+      "splash/internal/protocol"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "splash/internal/theme": {
+    "imports": [
+      "desktop/splashframe",
+      "desktop/tokens",
+      "lib/render",
+      "splash/internal/kms",
+      "splash/internal/protocol"
+    ],
+    "embeds": [
+      "splash/internal/theme/assets/Inter-Regular.ttf"
+    ],
+    "testImports": [
+      "desktop/config",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/golden",
+      "lib/third_party/typesetting/font"
+    ]
+  },
+  "ui": {},
+  "ui/anim": {
+    "imports": [
+      "lib/motion",
+      "ui/internal/animclock"
+    ]
+  },
+  "ui/app": {
+    "imports": [
+      "lib/appearance",
+      "lib/atomicfile",
+      "lib/capture",
+      "lib/dbusx",
+      "lib/debug",
+      "lib/dmabuf",
+      "lib/dmabufwl",
+      "lib/drm",
+      "lib/fourcc",
+      "lib/gpu",
+      "lib/icons",
+      "lib/intconv",
+      "lib/logutil",
+      "lib/portalsettings",
+      "lib/render",
+      "lib/third_party/godbus",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/third_party/wayland/xdg",
+      "lib/udmabuf",
+      "lib/wlr",
+      "lib/xdg",
+      "lib/xkb",
+      "ui/anim",
+      "ui/gtksettings",
+      "ui/internal/animclock",
+      "ui/internal/atspi",
+      "ui/internal/blursync",
+      "ui/internal/buffer",
+      "ui/internal/clipboard",
+      "ui/internal/compose",
+      "ui/internal/datacontrol",
+      "ui/internal/dragdrop",
+      "ui/internal/emoji",
+      "ui/internal/imgcache",
+      "ui/internal/inspect",
+      "ui/internal/layersurface",
+      "ui/internal/mailbox",
+      "ui/internal/notify",
+      "ui/internal/popup",
+      "ui/internal/recentfiles",
+      "ui/internal/repaint",
+      "ui/internal/scale",
+      "ui/internal/sessionlock",
+      "ui/internal/surfx",
+      "ui/internal/sysfont",
+      "ui/internal/touchinput",
+      "ui/internal/window",
+      "ui/internal/wlsession",
+      "ui/internal/worker",
+      "ui/internal/xfer",
+      "ui/media",
+      "ui/pdf",
+      "ui/transfer",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/gputest",
+      "lib/media/demux",
+      "lib/testbuild",
+      "lib/testhome",
+      "lib/vinput",
+      "lib/wltest",
+      "ui/internal/fdtest",
+      "ui/internal/headlesstest",
+      "ui/internal/headlesstest/inproc",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/atspitest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/third_party/godbus",
+      "ui/internal/atspi/proto"
+    ]
+  },
+  "ui/clienttest": {
+    "imports": [
+      "lib/buildtest"
+    ]
+  },
+  "ui/cmd/lys-ui-a11y": {
+    "imports": [
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-bar": {
+    "imports": [
+      "lib/render",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-capture": {
+    "imports": [
+      "lib/capture"
+    ]
+  },
+  "ui/cmd/lys-ui-columns": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-dialogs": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-dnd": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/transfer",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-draw": {
+    "imports": [
+      "lib/render",
+      "lib/third_party/gomath",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-gallery": {
+    "imports": [
+      "lib/capture",
+      "lib/render",
+      "lib/vinput",
+      "ui/anim",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget",
+      "ui/widget/css"
+    ]
+  },
+  "ui/cmd/lys-ui-glass": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ]
+  },
+  "ui/cmd/lys-ui-gpu": {
+    "imports": [
+      "lib/render",
+      "lib/third_party/gomath",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-hello": {
+    "imports": [
+      "lib/render",
+      "ui/anim",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget"
+    ],
+    "testImports": [
+      "ui/component/componenttest"
+    ]
+  },
+  "ui/cmd/lys-ui-i18n": {
+    "imports": [
+      "lib/i18n",
+      "lib/render",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget"
+    ],
+    "embeds": [
+      "ui/cmd/lys-ui-i18n/locale"
+    ]
+  },
+  "ui/cmd/lys-ui-ime": {
+    "imports": [
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-invoke": {
+    "imports": [
+      "lib/render",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-launcher": {
+    "imports": [
+      "lib/capture",
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-lock": {
+    "imports": [
+      "lib/render",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-messages": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/component",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-multi": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-multilist": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/component",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-osd": {
+    "imports": [
+      "lib/render",
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-panel": {
+    "imports": [
+      "lib/render",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-popover": {
+    "imports": [
+      "lib/render",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-settings": {
+    "imports": [
+      "lib/render",
+      "ui/app",
+      "ui/component",
+      "ui/ui",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-states": {
+    "imports": [
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/lys-ui-video": {
+    "imports": [
+      "lib/render",
+      "ui/app",
+      "ui/component",
+      "ui/media",
+      "ui/ui",
+      "ui/widget"
+    ]
+  },
+  "ui/cmd/wlpointer": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient"
+    ]
+  },
+  "ui/cmd/zz-vpclick": {
+    "imports": [
+      "lib/intconv",
+      "ui/internal/headlesstest"
+    ]
+  },
+  "ui/component": {
+    "imports": [
+      "ui/app",
+      "ui/internal/mailbox",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/render",
+      "lib/testhome",
+      "ui/component/componenttest",
+      "ui/internal/wlsession",
+      "ui/ui"
+    ]
+  },
+  "ui/component/componenttest": {},
+  "ui/gtksettings": {
+    "imports": [
+      "lib/xdg"
+    ]
+  },
+  "ui/highlight": {
+    "imports": [
+      "lib/render",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/golden",
+      "lib/testbuild"
+    ]
+  },
+  "ui/internal/animclock": {},
+  "ui/internal/atspi": {
+    "imports": [
+      "lib/dbusx",
+      "lib/debug",
+      "lib/intconv",
+      "lib/render",
+      "lib/third_party/godbus",
+      "ui/internal/atspi/proto",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testbuild",
+      "lib/testhome",
+      "ui/atspitest",
+      "ui/internal/fdtest",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/internal/atspi/proto": {
+    "imports": [
+      "lib/third_party/godbus"
+    ]
+  },
+  "ui/internal/blursync": {
+    "imports": [
+      "lib/debug",
+      "lib/render",
+      "ui/widget",
+      "ui/widget/css"
+    ]
+  },
+  "ui/internal/buffer": {
+    "imports": [
+      "lib/debug",
+      "lib/dmabufwl",
+      "lib/drm",
+      "lib/fourcc",
+      "lib/gpu",
+      "lib/intconv",
+      "lib/logutil",
+      "lib/render",
+      "lib/third_party/wayland/os",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/wlr"
+    ]
+  },
+  "ui/internal/clipboard": {
+    "imports": [
+      "lib/debug",
+      "lib/third_party/wayland/wl",
+      "lib/wlr",
+      "ui/internal/wlsession",
+      "ui/internal/xfer",
+      "ui/transfer"
+    ],
+    "testImports": [
+      "ui/internal/fdtest",
+      "ui/internal/headlesstest",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/internal/cmd/uigen": {
+    "imports": [
+      "lib/atomicfile",
+      "ui/internal/uigen"
+    ]
+  },
+  "ui/internal/compose": {
+    "imports": [
+      "lib/xkb"
+    ]
+  },
+  "ui/internal/datacontrol": {
+    "imports": [
+      "lib/debug",
+      "lib/wlr",
+      "ui/internal/wlsession",
+      "ui/internal/xfer"
+    ],
+    "testImports": [
+      "ui/internal/fdtest",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/internal/dragdrop": {
+    "imports": [
+      "lib/debug",
+      "lib/third_party/wayland/wl",
+      "ui/internal/wlsession",
+      "ui/internal/xfer",
+      "ui/transfer"
+    ],
+    "testImports": [
+      "ui/internal/fdtest",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/internal/emoji": {},
+  "ui/internal/fdtest": {},
+  "ui/internal/headlesstest": {
+    "imports": [
+      "lib/intconv",
+      "lib/srcroot",
+      "lib/vinput",
+      "lib/wltest"
+    ],
+    "embeds": [
+      "ui/internal/headlesstest/testdata/us.xkb"
+    ],
+    "testImports": [
+      "lib/capture",
+      "lib/render",
+      "lib/testhome",
+      "ui/app",
+      "ui/clienttest",
+      "ui/internal/fdtest",
+      "ui/internal/waittest",
+      "ui/widget"
+    ]
+  },
+  "ui/internal/headlesstest/inproc": {
+    "imports": [
+      "lib/capture",
+      "lib/render",
+      "lib/wltest",
+      "ui/app"
+    ]
+  },
+  "ui/internal/imgcache": {
+    "imports": [
+      "lib/render"
+    ]
+  },
+  "ui/internal/inspect": {
+    "imports": [
+      "lib/render",
+      "ui/internal/buffer",
+      "ui/internal/sysfont",
+      "ui/internal/wlsession",
+      "ui/widget"
+    ]
+  },
+  "ui/internal/layersurface": {
+    "imports": [
+      "lib/third_party/wayland/wl",
+      "lib/wlr"
+    ]
+  },
+  "ui/internal/mailbox": {
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "ui/internal/notify": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/logutil",
+      "lib/third_party/godbus",
+      "ui/internal/worker"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "ui/internal/fdtest",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/internal/popup": {
+    "imports": [
+      "lib/debug",
+      "lib/gpu",
+      "lib/intconv",
+      "lib/render",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/third_party/wayland/xdg",
+      "lib/wlr",
+      "ui/anim",
+      "ui/internal/blursync",
+      "ui/internal/buffer",
+      "ui/internal/repaint",
+      "ui/internal/scale",
+      "ui/internal/surfx",
+      "ui/internal/touchinput",
+      "ui/internal/wlsession",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/gputest",
+      "ui/internal/animclock"
+    ]
+  },
+  "ui/internal/publicapi": {},
+  "ui/internal/recentfiles": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/xdg",
+      "ui/internal/worker",
+      "ui/transfer"
+    ]
+  },
+  "ui/internal/repaint": {
+    "imports": [
+      "lib/gpu",
+      "lib/render",
+      "ui/internal/buffer",
+      "ui/internal/scale",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "ui/internal/scale": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/wayland/wl",
+      "lib/wlr",
+      "ui/internal/wlsession"
+    ]
+  },
+  "ui/internal/sessionlock": {
+    "imports": [
+      "lib/debug",
+      "lib/third_party/wayland/wl",
+      "lib/wlr"
+    ]
+  },
+  "ui/internal/style": {
+    "imports": [
+      "lib/assetfile",
+      "lib/intconv",
+      "lib/logutil",
+      "lib/motion",
+      "lib/render",
+      "lib/third_party/gomath",
+      "ui/anim"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "ui/internal/surfx": {
+    "imports": [
+      "ui/anim"
+    ],
+    "testImports": [
+      "ui/internal/animclock"
+    ]
+  },
+  "ui/internal/sysfont": {
+    "imports": [
+      "lib/assetfile",
+      "lib/render",
+      "lib/third_party/typesetting/font",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/fontscan",
+      "lib/third_party/typesetting/language",
+      "ui/internal/uifont"
+    ],
+    "testImports": [
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/internal/touchinput": {
+    "imports": [
+      "ui/internal/wlsession",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/render",
+      "ui/anim"
+    ]
+  },
+  "ui/internal/uifont": {
+    "embeds": [
+      "ui/internal/uifont/Geist-Variable.ttf",
+      "ui/internal/uifont/GeistMono-Variable.ttf"
+    ]
+  },
+  "ui/internal/uigen": {},
+  "ui/internal/waittest": {},
+  "ui/internal/window": {
+    "imports": [
+      "lib/debug",
+      "lib/intconv",
+      "lib/third_party/wayland/unstable/xdg-decoration-v1",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/xdg",
+      "lib/wlr"
+    ],
+    "testImports": [
+      "ui/internal/headlesstest"
+    ]
+  },
+  "ui/internal/wlsession": {
+    "imports": [
+      "lib/debug",
+      "lib/dmabufwl",
+      "lib/fourcc",
+      "lib/intconv",
+      "lib/keymapfd",
+      "lib/logutil",
+      "lib/render",
+      "lib/third_party/wayland/os",
+      "lib/third_party/wayland/unstable/text-input-v3",
+      "lib/third_party/wayland/unstable/xdg-decoration-v1",
+      "lib/third_party/wayland/wl",
+      "lib/third_party/wayland/wlclient",
+      "lib/third_party/wayland/xdg",
+      "lib/wlr",
+      "lib/xcursor",
+      "lib/xdg",
+      "lib/xkb",
+      "ui/internal/buffer",
+      "ui/internal/compose",
+      "ui/internal/worker"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/wltest",
+      "ui/internal/fdtest",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/internal/worker": {},
+  "ui/internal/xfer": {
+    "testImports": [
+      "ui/internal/fdtest"
+    ]
+  },
+  "ui/media": {
+    "imports": [
+      "lib/debug",
+      "lib/gpu",
+      "lib/intconv",
+      "lib/media/aac",
+      "lib/media/demux",
+      "lib/media/opus",
+      "lib/media/vorbis",
+      "lib/pulse/native",
+      "lib/render",
+      "lib/third_party/gomath",
+      "ui/anim",
+      "ui/internal/animclock",
+      "ui/internal/worker"
+    ],
+    "testImports": [
+      "lib/gputest",
+      "lib/pulse/pulsetest",
+      "lib/testbuild",
+      "lib/testhome",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/pdf": {},
+  "ui/transfer": {},
+  "ui/ui": {
+    "imports": [
+      "lib/render",
+      "ui/component",
+      "ui/media",
+      "ui/widget"
+    ],
+    "testImports": [
+      "ui/component/componenttest",
+      "ui/internal/uigen"
+    ]
+  },
+  "ui/widget": {
+    "imports": [
+      "lib/assetfile",
+      "lib/debug",
+      "lib/dmabuf",
+      "lib/gpu",
+      "lib/icons",
+      "lib/intconv",
+      "lib/logutil",
+      "lib/render",
+      "lib/text",
+      "lib/third_party/gomath",
+      "lib/xkb",
+      "ui/anim",
+      "ui/internal/animclock",
+      "ui/internal/imgcache",
+      "ui/internal/style",
+      "ui/internal/surfx",
+      "ui/internal/sysfont",
+      "ui/internal/uifont",
+      "ui/media",
+      "ui/transfer",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "lib/golden",
+      "lib/gputest",
+      "lib/i18n",
+      "lib/media/demux",
+      "lib/testbuild",
+      "lib/testhome",
+      "ui/internal/waittest"
+    ]
+  },
+  "ui/widget/css": {},
+  "wm/cmd/lys-wm": {
+    "imports": [
+      "lib/appearance",
+      "lib/drm",
+      "lib/edid",
+      "lib/portalsettings",
+      "lib/render",
+      "lib/wmipc",
+      "lib/xcursor",
+      "lib/xdg",
+      "wm/internal/backend",
+      "wm/internal/backend/drm",
+      "wm/internal/backend/headless",
+      "wm/internal/backend/nested",
+      "wm/internal/compositor",
+      "wm/internal/config",
+      "wm/internal/frametrace",
+      "wm/internal/gpu",
+      "wm/internal/handover",
+      "wm/internal/ipc",
+      "wm/internal/loop",
+      "wm/internal/powerprofile",
+      "wm/internal/render",
+      "wm/internal/rtkit",
+      "wm/internal/server",
+      "wm/internal/session",
+      "wm/internal/spawn",
+      "wm/internal/systemd",
+      "wm/internal/wlclient",
+      "wm/internal/wm",
+      "wm/internal/xkb",
+      "wm/internal/xwayland"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/third_party/godbus",
+      "wm/internal/protocol/client/colormanagement",
+      "wm/internal/protocol/client/extforeigntoplevellist",
+      "wm/internal/protocol/client/extsessionlock",
+      "wm/internal/protocol/client/securitycontext",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/wlrlayershell",
+      "wm/internal/protocol/client/wlrscreencopy",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/rtkit/rtkittest",
+      "wm/internal/testclient",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/cmd/lys-wm-pace": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/wmipc",
+      "wm/internal/frametrace",
+      "wm/internal/ipc",
+      "wm/internal/loop",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/testclient"
+    ],
+    "embeds": [
+      "wm/cmd/lys-wm-pace/baseline.json"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/cmd/lys-wmctl": {
+    "imports": [
+      "lib/wmipc",
+      "wm/internal/ipc",
+      "wm/internal/wm"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/loop",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/alphamodifier": {
+    "imports": [
+      "wm/internal/protocol/server/alphamodifier",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/anim": {
+    "imports": [
+      "lib/motion",
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/backend": {
+    "imports": [
+      "lib/edid",
+      "lib/gpu",
+      "wm/internal/gpu",
+      "wm/internal/render",
+      "wm/internal/wm",
+      "wm/internal/xkb"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/backend/drm": {
+    "imports": [
+      "lib/drm",
+      "lib/edid",
+      "lib/fourcc",
+      "lib/gpu",
+      "wm/internal/backend",
+      "wm/internal/gpu",
+      "wm/internal/loop",
+      "wm/internal/render",
+      "wm/internal/render/gles",
+      "wm/internal/render/soft",
+      "wm/internal/render/vulkan",
+      "wm/internal/wm"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testclient",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/backend/headless": {
+    "imports": [
+      "lib/drm",
+      "lib/edid",
+      "wm/internal/backend",
+      "wm/internal/gpu",
+      "wm/internal/loop",
+      "wm/internal/render",
+      "wm/internal/render/gles",
+      "wm/internal/render/soft",
+      "wm/internal/render/vulkan",
+      "wm/internal/wm",
+      "wm/internal/xkb"
+    ],
+    "testImports": [
+      "lib/fourcc",
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/backend/nested": {
+    "imports": [
+      "lib/edid",
+      "lib/fourcc",
+      "wm/internal/backend",
+      "wm/internal/gpu",
+      "wm/internal/loop",
+      "wm/internal/protocol/client/linuxdmabuf",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/render",
+      "wm/internal/render/gles",
+      "wm/internal/render/soft",
+      "wm/internal/render/vulkan",
+      "wm/internal/wire",
+      "wm/internal/wlclient",
+      "wm/internal/wlclient/feedback"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/compositor",
+      "wm/internal/server",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/backend/virtual": {
+    "imports": [
+      "lib/edid",
+      "wm/internal/backend",
+      "wm/internal/loop",
+      "wm/internal/render"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/render/soft",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/backgroundeffect": {
+    "imports": [
+      "wm/internal/protocol/server/backgroundeffect",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/region",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/binds": {
+    "imports": [
+      "wm/internal/backend",
+      "wm/internal/wm"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/colormanager": {
+    "imports": [
+      "wm/internal/colorspace",
+      "wm/internal/output",
+      "wm/internal/protocol/server/colormanagement",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/colorrep": {
+    "imports": [
+      "wm/internal/gpu",
+      "wm/internal/protocol/server/colorrepresentation",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/colorspace": {
+    "imports": [
+      "lib/gpu",
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/committiming": {
+    "imports": [
+      "wm/internal/loop",
+      "wm/internal/protocol/server/committiming",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/compositor": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/drm",
+      "lib/edid",
+      "lib/fourcc",
+      "lib/gpu",
+      "lib/icontheme",
+      "lib/render",
+      "lib/third_party/gomath",
+      "lib/wmipc",
+      "lib/xcursor",
+      "wm/internal/alphamodifier",
+      "wm/internal/anim",
+      "wm/internal/backend",
+      "wm/internal/backend/virtual",
+      "wm/internal/backgroundeffect",
+      "wm/internal/binds",
+      "wm/internal/colormanager",
+      "wm/internal/colorrep",
+      "wm/internal/colorspace",
+      "wm/internal/committiming",
+      "wm/internal/contenttype",
+      "wm/internal/ctmcontrol",
+      "wm/internal/data",
+      "wm/internal/dmabuf",
+      "wm/internal/fifo",
+      "wm/internal/frametrace",
+      "wm/internal/gammacontrol",
+      "wm/internal/gpu",
+      "wm/internal/handover",
+      "wm/internal/hyprlandsurface",
+      "wm/internal/idle",
+      "wm/internal/inputmethod",
+      "wm/internal/ipc",
+      "wm/internal/loop",
+      "wm/internal/output",
+      "wm/internal/outputmanagement",
+      "wm/internal/outputpower",
+      "wm/internal/protocol/server/extdatacontrol",
+      "wm/internal/protocol/server/extforeigntoplevellist",
+      "wm/internal/protocol/server/extimagecapturesource",
+      "wm/internal/protocol/server/extimagecopycapture",
+      "wm/internal/protocol/server/extsessionlock",
+      "wm/internal/protocol/server/extworkspace",
+      "wm/internal/protocol/server/hyprlandfocusgrab",
+      "wm/internal/protocol/server/hyprlandglobalshortcuts",
+      "wm/internal/protocol/server/hyprlandtoplevelexport",
+      "wm/internal/protocol/server/keyboardshortcutsinhibit",
+      "wm/internal/protocol/server/lyscapturehint",
+      "wm/internal/protocol/server/lysdynamiccapture",
+      "wm/internal/protocol/server/lysescape",
+      "wm/internal/protocol/server/lysvirtualtouch",
+      "wm/internal/protocol/server/pointerconstraints",
+      "wm/internal/protocol/server/pointerwarp",
+      "wm/internal/protocol/server/presentationtime",
+      "wm/internal/protocol/server/systembell",
+      "wm/internal/protocol/server/virtualkeyboard",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrdatacontrol",
+      "wm/internal/protocol/server/wlrforeigntoplevel",
+      "wm/internal/protocol/server/wlrlayershell",
+      "wm/internal/protocol/server/wlroutputmanagement",
+      "wm/internal/protocol/server/wlroutputpower",
+      "wm/internal/protocol/server/wlrscreencopy",
+      "wm/internal/protocol/server/wlrvirtualpointer",
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/protocol/server/xdgtopleveldrag",
+      "wm/internal/protocol/server/xxhotkey",
+      "wm/internal/region",
+      "wm/internal/render",
+      "wm/internal/render/soft",
+      "wm/internal/seat",
+      "wm/internal/securitycontext",
+      "wm/internal/server",
+      "wm/internal/shader",
+      "wm/internal/shell",
+      "wm/internal/shm",
+      "wm/internal/singlepixel",
+      "wm/internal/spawn",
+      "wm/internal/surface",
+      "wm/internal/syncobj",
+      "wm/internal/tabletinput",
+      "wm/internal/tearingcontrol",
+      "wm/internal/wire",
+      "wm/internal/wm",
+      "wm/internal/xkb",
+      "wm/internal/xwayland"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/backend/headless",
+      "wm/internal/protocol/client/kdeserverdecoration",
+      "wm/internal/protocol/client/linuxdmabuf",
+      "wm/internal/protocol/client/linuxdrmsyncobj",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/xdgdecoration",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/render/gles",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/config": {
+    "imports": [
+      "lib/icontheme",
+      "lib/render",
+      "lib/wmipc",
+      "wm/internal/anim",
+      "wm/internal/backend",
+      "wm/internal/binds",
+      "wm/internal/colorspace",
+      "wm/internal/compositor",
+      "wm/internal/ipc",
+      "wm/internal/output",
+      "wm/internal/render",
+      "wm/internal/seat",
+      "wm/internal/session",
+      "wm/internal/wm",
+      "wm/internal/xkb"
+    ],
+    "embeds": [
+      "wm/internal/config/default.yaml"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/contenttype": {
+    "imports": [
+      "wm/internal/protocol/server/contenttype",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire",
+      "wm/internal/wm"
+    ]
+  },
+  "wm/internal/ctmcontrol": {
+    "imports": [
+      "wm/internal/backend",
+      "wm/internal/output",
+      "wm/internal/protocol/server/hyprlandctmcontrol",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/data": {
+    "imports": [
+      "wm/internal/protocol/server/extdatacontrol",
+      "wm/internal/protocol/server/primaryselection",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrdatacontrol",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/dmabuf": {
+    "imports": [
+      "lib/fourcc",
+      "wm/internal/gpu",
+      "wm/internal/loop",
+      "wm/internal/protocol/server/linuxdmabuf",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/linuxdmabuf",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/testenv",
+      "wm/internal/wlclient",
+      "wm/internal/wlclient/feedback"
+    ]
+  },
+  "wm/internal/fdmsg": {
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/fifo": {
+    "imports": [
+      "wm/internal/protocol/server/fifo",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/frametrace": {
+    "imports": [
+      "wm/internal/backend",
+      "wm/internal/render"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/gammacontrol": {
+    "imports": [
+      "wm/internal/backend",
+      "wm/internal/output",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrgammacontrol",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/golden": {
+    "imports": [
+      "wm/internal/render/soft"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/gpu": {
+    "imports": [
+      "lib/dmabuf",
+      "lib/fourcc"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/handover": {},
+  "wm/internal/harness": {
+    "imports": [
+      "lib/wmipc",
+      "ui/clienttest",
+      "wm/internal/backend",
+      "wm/internal/backend/headless",
+      "wm/internal/compositor",
+      "wm/internal/gpu",
+      "wm/internal/ipc",
+      "wm/internal/loop",
+      "wm/internal/render/soft",
+      "wm/internal/server",
+      "wm/internal/spawn",
+      "wm/internal/testenv",
+      "wm/internal/xwayland"
+    ],
+    "testImports": [
+      "lib/capture",
+      "lib/fourcc",
+      "lib/gpu",
+      "lib/icontheme",
+      "lib/logind",
+      "lib/render",
+      "lib/testhome",
+      "lib/vinput",
+      "lib/xcursor",
+      "wm/internal/anim",
+      "wm/internal/backend/nested",
+      "wm/internal/backend/virtual",
+      "wm/internal/binds",
+      "wm/internal/colorspace",
+      "wm/internal/config",
+      "wm/internal/data",
+      "wm/internal/frametrace",
+      "wm/internal/golden",
+      "wm/internal/handover",
+      "wm/internal/output",
+      "wm/internal/outputmanagement",
+      "wm/internal/protocol/client/alphamodifier",
+      "wm/internal/protocol/client/backgroundeffect",
+      "wm/internal/protocol/client/colormanagement",
+      "wm/internal/protocol/client/colorrepresentation",
+      "wm/internal/protocol/client/committiming",
+      "wm/internal/protocol/client/contenttype",
+      "wm/internal/protocol/client/cursorshape",
+      "wm/internal/protocol/client/extdatacontrol",
+      "wm/internal/protocol/client/extforeigntoplevellist",
+      "wm/internal/protocol/client/extidlenotify",
+      "wm/internal/protocol/client/extimagecapturesource",
+      "wm/internal/protocol/client/extimagecopycapture",
+      "wm/internal/protocol/client/extsessionlock",
+      "wm/internal/protocol/client/extworkspace",
+      "wm/internal/protocol/client/fifo",
+      "wm/internal/protocol/client/hyprlandctmcontrol",
+      "wm/internal/protocol/client/hyprlandfocusgrab",
+      "wm/internal/protocol/client/hyprlandglobalshortcuts",
+      "wm/internal/protocol/client/hyprlandsurface",
+      "wm/internal/protocol/client/hyprlandtoplevelexport",
+      "wm/internal/protocol/client/idleinhibit",
+      "wm/internal/protocol/client/inputmethod",
+      "wm/internal/protocol/client/keyboardshortcutsinhibit",
+      "wm/internal/protocol/client/linuxdmabuf",
+      "wm/internal/protocol/client/lyscapturehint",
+      "wm/internal/protocol/client/lysdynamiccapture",
+      "wm/internal/protocol/client/lysescape",
+      "wm/internal/protocol/client/lysvirtualtouch",
+      "wm/internal/protocol/client/pointerconstraints",
+      "wm/internal/protocol/client/pointergestures",
+      "wm/internal/protocol/client/pointerwarp",
+      "wm/internal/protocol/client/presentationtime",
+      "wm/internal/protocol/client/relativepointer",
+      "wm/internal/protocol/client/securitycontext",
+      "wm/internal/protocol/client/singlepixelbuffer",
+      "wm/internal/protocol/client/systembell",
+      "wm/internal/protocol/client/tablet",
+      "wm/internal/protocol/client/tearingcontrol",
+      "wm/internal/protocol/client/textinput",
+      "wm/internal/protocol/client/textinputv1",
+      "wm/internal/protocol/client/viewporter",
+      "wm/internal/protocol/client/virtualkeyboard",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/wlrdatacontrol",
+      "wm/internal/protocol/client/wlrforeigntoplevel",
+      "wm/internal/protocol/client/wlrgammacontrol",
+      "wm/internal/protocol/client/wlrlayershell",
+      "wm/internal/protocol/client/wlroutputmanagement",
+      "wm/internal/protocol/client/wlroutputpower",
+      "wm/internal/protocol/client/wlrscreencopy",
+      "wm/internal/protocol/client/wlrvirtualpointer",
+      "wm/internal/protocol/client/xdgactivation",
+      "wm/internal/protocol/client/xdgdecoration",
+      "wm/internal/protocol/client/xdgdialog",
+      "wm/internal/protocol/client/xdgforeignv1",
+      "wm/internal/protocol/client/xdgforeignv2",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/protocol/client/xdgtopleveldrag",
+      "wm/internal/protocol/client/xdgtoplevelicon",
+      "wm/internal/protocol/client/xdgtopleveltag",
+      "wm/internal/protocol/client/xxhotkey",
+      "wm/internal/region",
+      "wm/internal/render",
+      "wm/internal/seat",
+      "wm/internal/shell",
+      "wm/internal/surface",
+      "wm/internal/tabletinput",
+      "wm/internal/testclient",
+      "wm/internal/wire",
+      "wm/internal/wlclient",
+      "wm/internal/wlclient/feedback",
+      "wm/internal/wm",
+      "wm/internal/xkb",
+      "wm/internal/xsync",
+      "wm/third_party/xgb",
+      "wm/third_party/xgb/xproto"
+    ]
+  },
+  "wm/internal/hyprlandsurface": {
+    "imports": [
+      "wm/internal/protocol/server/hyprlandsurface",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/region",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/idle": {
+    "imports": [
+      "wm/internal/loop",
+      "wm/internal/protocol/server/extidlenotify",
+      "wm/internal/protocol/server/idleinhibit",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/inputmethod": {
+    "imports": [
+      "wm/internal/protocol/server/inputmethod",
+      "wm/internal/protocol/server/textinput",
+      "wm/internal/protocol/server/textinputv1",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/seat",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire",
+      "wm/internal/xkb"
+    ]
+  },
+  "wm/internal/ipc": {
+    "imports": [
+      "lib/wmipc",
+      "wm/internal/binds",
+      "wm/internal/loop",
+      "wm/internal/wm"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/loop": {
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/output": {
+    "imports": [
+      "wm/internal/backend",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/xdgoutput",
+      "wm/internal/render",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/edid",
+      "lib/testhome",
+      "wm/internal/loop",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/xdgoutput",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/outputmanagement": {
+    "imports": [
+      "wm/internal/backend",
+      "wm/internal/output",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlroutputmanagement",
+      "wm/internal/render",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/outputpower": {
+    "imports": [
+      "wm/internal/output",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlroutputpower",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/powerprofile": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "wm/internal/loop"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/protocol/client/alphamodifier": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/backgroundeffect": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/colormanagement": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/colorrepresentation": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/committiming": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/contenttype": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/cursorshape": {
+    "imports": [
+      "wm/internal/protocol/client/tablet",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/extdatacontrol": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/extforeigntoplevellist": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/extidlenotify": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/extimagecapturesource": {
+    "imports": [
+      "wm/internal/protocol/client/extforeigntoplevellist",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/extimagecopycapture": {
+    "imports": [
+      "wm/internal/protocol/client/extimagecapturesource",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/extsessionlock": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/extworkspace": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/fifo": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/fractionalscale": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/hyprlandctmcontrol": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/hyprlandfocusgrab": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/hyprlandglobalshortcuts": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/hyprlandsurface": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/hyprlandtoplevelexport": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/wlrforeigntoplevel",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/idleinhibit": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/inputmethod": {
+    "imports": [
+      "wm/internal/protocol/client/textinput",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/kdeserverdecoration": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/keyboardshortcutsinhibit": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/linuxdmabuf": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/linuxdrmsyncobj": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/lyscapturehint": {
+    "imports": [
+      "wm/internal/protocol/client/extimagecopycapture",
+      "wm/internal/protocol/client/wlrscreencopy",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/lysdynamiccapture": {
+    "imports": [
+      "wm/internal/protocol/client/extimagecapturesource",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/lysescape": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/lysvirtualtouch": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/pointerconstraints": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/pointergestures": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/pointerwarp": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/presentationtime": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/primaryselection": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/relativepointer": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/securitycontext": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/singlepixelbuffer": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/systembell": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/tablet": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/tearingcontrol": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/textinput": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/textinputv1": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/viewporter": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/virtualkeyboard": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wayland": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlrdatacontrol": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlrforeigntoplevel": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlrgammacontrol": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlrlayershell": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlroutputmanagement": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlroutputpower": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlrscreencopy": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/wlrvirtualpointer": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgactivation": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgdecoration": {
+    "imports": [
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgdialog": {
+    "imports": [
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgforeignv1": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgforeignv2": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgoutput": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgshell": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgtopleveldrag": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgtoplevelicon": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xdgtopleveltag": {
+    "imports": [
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xwaylandshell": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/client/xxhotkey": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/alphamodifier": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/backgroundeffect": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/colormanagement": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/colorrepresentation": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/committiming": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/contenttype": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/cursorshape": {
+    "imports": [
+      "wm/internal/protocol/server/tablet",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/extdatacontrol": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/extforeigntoplevellist": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/extidlenotify": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/extimagecapturesource": {
+    "imports": [
+      "wm/internal/protocol/server/extforeigntoplevellist",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/extimagecopycapture": {
+    "imports": [
+      "wm/internal/protocol/server/extimagecapturesource",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/extsessionlock": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/extworkspace": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/fifo": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/fractionalscale": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/hyprlandctmcontrol": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/hyprlandfocusgrab": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/hyprlandglobalshortcuts": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/hyprlandsurface": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/hyprlandtoplevelexport": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrforeigntoplevel",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/idleinhibit": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/inputmethod": {
+    "imports": [
+      "wm/internal/protocol/server/textinput",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/kdeserverdecoration": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/keyboardshortcutsinhibit": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/linuxdmabuf": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/linuxdrmsyncobj": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/lyscapturehint": {
+    "imports": [
+      "wm/internal/protocol/server/extimagecopycapture",
+      "wm/internal/protocol/server/wlrscreencopy",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/lysdynamiccapture": {
+    "imports": [
+      "wm/internal/protocol/server/extimagecapturesource",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/lysescape": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/lysvirtualtouch": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/pointerconstraints": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/pointergestures": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/pointerwarp": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/presentationtime": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/primaryselection": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/relativepointer": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/securitycontext": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/singlepixelbuffer": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/systembell": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/tablet": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/tearingcontrol": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/textinput": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/textinputv1": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/viewporter": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/virtualkeyboard": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wayland": {
+    "imports": [
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlrdatacontrol": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlrforeigntoplevel": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlrgammacontrol": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlrlayershell": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlroutputmanagement": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlroutputpower": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlrscreencopy": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/wlrvirtualpointer": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgactivation": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgdecoration": {
+    "imports": [
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgdialog": {
+    "imports": [
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgforeignv1": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgforeignv2": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgoutput": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgshell": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgtopleveldrag": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgtoplevelicon": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xdgtopleveltag": {
+    "imports": [
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xwaylandshell": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/protocol/server/xxhotkey": {
+    "imports": [
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/region": {
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/render": {
+    "imports": [
+      "lib/gpu",
+      "lib/intconv",
+      "lib/third_party/gomath",
+      "wm/internal/region",
+      "wm/internal/shader"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/render/soft"
+    ]
+  },
+  "wm/internal/render/gles": {
+    "imports": [
+      "lib/fourcc",
+      "lib/gpu",
+      "wm/internal/gpu",
+      "wm/internal/region",
+      "wm/internal/render",
+      "wm/internal/shader"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/render/rendertest",
+      "wm/internal/render/soft",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/render/rendertest": {
+    "imports": [
+      "lib/drm",
+      "lib/fourcc",
+      "lib/gpu",
+      "wm/internal/colorspace",
+      "wm/internal/gpu",
+      "wm/internal/loop",
+      "wm/internal/render",
+      "wm/internal/render/soft",
+      "wm/internal/shader"
+    ]
+  },
+  "wm/internal/render/soft": {
+    "imports": [
+      "lib/gpu",
+      "wm/internal/region",
+      "wm/internal/render",
+      "wm/internal/shader"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/golden",
+      "wm/internal/render/rendertest"
+    ]
+  },
+  "wm/internal/render/vulkan": {
+    "imports": [
+      "lib/fourcc",
+      "lib/gpu",
+      "wm/internal/gpu",
+      "wm/internal/render",
+      "wm/internal/shader"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/render/rendertest",
+      "wm/internal/render/soft",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/rtkit": {
+    "imports": [
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "wm/internal/rtkit/rtkittest"
+    ]
+  },
+  "wm/internal/rtkit/rtkittest": {
+    "imports": [
+      "lib/dbustest",
+      "lib/third_party/godbus",
+      "lib/third_party/godbus/prop",
+      "wm/internal/rtkit"
+    ]
+  },
+  "wm/internal/scanner": {
+    "imports": [
+      "lib/protocols",
+      "lib/srcroot",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/server/cursorshape",
+      "wm/internal/protocol/server/presentationtime",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrlayershell",
+      "wm/internal/protocol/server/xdgshell"
+    ]
+  },
+  "wm/internal/seat": {
+    "imports": [
+      "lib/xcursor",
+      "wm/internal/backend",
+      "wm/internal/protocol/server/cursorshape",
+      "wm/internal/protocol/server/pointergestures",
+      "wm/internal/protocol/server/relativepointer",
+      "wm/internal/protocol/server/tablet",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/tabletinput",
+      "wm/internal/wire",
+      "wm/internal/xkb"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/handover",
+      "wm/internal/loop",
+      "wm/internal/protocol/client/pointergestures",
+      "wm/internal/protocol/client/tablet",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/securitycontext": {
+    "imports": [
+      "wm/internal/protocol/server/securitycontext",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/server": {
+    "imports": [
+      "lib/peercred",
+      "wm/internal/backend",
+      "wm/internal/handover",
+      "wm/internal/loop",
+      "wm/internal/protocol/server/extdatacontrol",
+      "wm/internal/protocol/server/extforeigntoplevellist",
+      "wm/internal/protocol/server/extimagecopycapture",
+      "wm/internal/protocol/server/extworkspace",
+      "wm/internal/protocol/server/hyprlandfocusgrab",
+      "wm/internal/protocol/server/hyprlandtoplevelexport",
+      "wm/internal/protocol/server/inputmethod",
+      "wm/internal/protocol/server/linuxdmabuf",
+      "wm/internal/protocol/server/primaryselection",
+      "wm/internal/protocol/server/tablet",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrdatacontrol",
+      "wm/internal/protocol/server/wlrforeigntoplevel",
+      "wm/internal/protocol/server/wlrgammacontrol",
+      "wm/internal/protocol/server/wlroutputmanagement",
+      "wm/internal/protocol/server/wlroutputpower",
+      "wm/internal/protocol/server/wlrscreencopy",
+      "wm/internal/protocol/server/xdgactivation",
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/protocol/server/xdgtopleveldrag",
+      "wm/internal/protocol/server/xxhotkey",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/session": {
+    "imports": [
+      "lib/clib",
+      "lib/intconv",
+      "lib/logind",
+      "lib/third_party/godbus",
+      "wm/internal/backend",
+      "wm/internal/fdmsg",
+      "wm/internal/loop",
+      "wm/internal/tabletinput",
+      "wm/internal/xkb"
+    ],
+    "testImports": [
+      "lib/logind/logindtest",
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/shader": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/shell": {
+    "imports": [
+      "wm/internal/loop",
+      "wm/internal/protocol/server/extsessionlock",
+      "wm/internal/protocol/server/kdeserverdecoration",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrlayershell",
+      "wm/internal/protocol/server/xdgactivation",
+      "wm/internal/protocol/server/xdgdecoration",
+      "wm/internal/protocol/server/xdgdialog",
+      "wm/internal/protocol/server/xdgforeignv1",
+      "wm/internal/protocol/server/xdgforeignv2",
+      "wm/internal/protocol/server/xdgshell",
+      "wm/internal/protocol/server/xdgtoplevelicon",
+      "wm/internal/protocol/server/xdgtopleveltag",
+      "wm/internal/server",
+      "wm/internal/shm",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/kdeserverdecoration",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/wlrlayershell",
+      "wm/internal/protocol/client/xdgdecoration",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/protocol/client/xdgtopleveltag",
+      "wm/internal/render",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/shm": {
+    "imports": [
+      "wm/internal/loop",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/render",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/singlepixel": {
+    "imports": [
+      "wm/internal/protocol/server/singlepixelbuffer",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/spawn": {
+    "imports": [
+      "wm/internal/fdmsg"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/rtkit/rtkittest"
+    ]
+  },
+  "wm/internal/surface": {
+    "imports": [
+      "wm/internal/protocol/server/fractionalscale",
+      "wm/internal/protocol/server/presentationtime",
+      "wm/internal/protocol/server/viewporter",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/region",
+      "wm/internal/render",
+      "wm/internal/server",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/loop",
+      "wm/internal/protocol/client/fractionalscale",
+      "wm/internal/protocol/client/viewporter",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/syncobj": {
+    "imports": [
+      "lib/drm",
+      "wm/internal/dmabuf",
+      "wm/internal/loop",
+      "wm/internal/protocol/server/linuxdrmsyncobj",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/fourcc",
+      "lib/testhome",
+      "wm/internal/gpu",
+      "wm/internal/protocol/client/linuxdmabuf",
+      "wm/internal/protocol/client/linuxdrmsyncobj",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/internal/systemd": {
+    "imports": [
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/tabletinput": {
+    "imports": [
+      "wm/internal/backend"
+    ]
+  },
+  "wm/internal/tearingcontrol": {
+    "imports": [
+      "wm/internal/protocol/server/tearingcontrol",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/server",
+      "wm/internal/surface",
+      "wm/internal/wire"
+    ]
+  },
+  "wm/internal/testclient": {
+    "imports": [
+      "lib/fourcc",
+      "wm/internal/gpu",
+      "wm/internal/protocol/client/cursorshape",
+      "wm/internal/protocol/client/fractionalscale",
+      "wm/internal/protocol/client/linuxdmabuf",
+      "wm/internal/protocol/client/primaryselection",
+      "wm/internal/protocol/client/viewporter",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/wlrlayershell",
+      "wm/internal/protocol/client/xdgshell",
+      "wm/internal/render",
+      "wm/internal/render/gles",
+      "wm/internal/testenv",
+      "wm/internal/wire",
+      "wm/internal/wlclient",
+      "wm/internal/wlclient/feedback"
+    ]
+  },
+  "wm/internal/testenv": {
+    "imports": [
+      "lib/render",
+      "lib/xcursor",
+      "wm/internal/gpu",
+      "wm/internal/render/vulkan",
+      "wm/internal/xkb"
+    ],
+    "testImports": [
+      "lib/srcroot",
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/wire": {
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/wlclient": {
+    "imports": [
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/wire"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/wlclient/feedback": {
+    "imports": [
+      "lib/fourcc",
+      "wm/internal/gpu",
+      "wm/internal/protocol/client/linuxdmabuf",
+      "wm/internal/wlclient"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/wm": {
+    "imports": [
+      "wm/internal/anim",
+      "wm/internal/render"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
+  "wm/internal/xkb": {
+    "imports": [
+      "lib/xkb"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/testenv"
+    ]
+  },
+  "wm/internal/xsync": {
+    "imports": [
+      "wm/third_party/xgb",
+      "wm/third_party/xgb/xproto"
+    ]
+  },
+  "wm/internal/xwayland": {
+    "imports": [
+      "wm/internal/data",
+      "wm/internal/handover",
+      "wm/internal/loop",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/xwaylandshell",
+      "wm/internal/server",
+      "wm/internal/spawn",
+      "wm/internal/surface",
+      "wm/internal/wire",
+      "wm/internal/xsync",
+      "wm/third_party/xgb",
+      "wm/third_party/xgb/composite",
+      "wm/third_party/xgb/xfixes",
+      "wm/third_party/xgb/xproto"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/client/xwaylandshell",
+      "wm/internal/testenv",
+      "wm/internal/wlclient"
+    ]
+  },
+  "wm/third_party/xgb": {},
+  "wm/third_party/xgb/composite": {
+    "imports": [
+      "wm/third_party/xgb",
+      "wm/third_party/xgb/xfixes",
+      "wm/third_party/xgb/xproto"
+    ]
+  },
+  "wm/third_party/xgb/render": {
+    "imports": [
+      "wm/third_party/xgb",
+      "wm/third_party/xgb/xproto"
+    ]
+  },
+  "wm/third_party/xgb/shape": {
+    "imports": [
+      "wm/third_party/xgb",
+      "wm/third_party/xgb/xproto"
+    ]
+  },
+  "wm/third_party/xgb/xfixes": {
+    "imports": [
+      "wm/third_party/xgb",
+      "wm/third_party/xgb/render",
+      "wm/third_party/xgb/shape",
+      "wm/third_party/xgb/xproto"
+    ]
+  },
+  "wm/third_party/xgb/xproto": {
+    "imports": [
+      "wm/third_party/xgb"
+    ]
+  }
+}

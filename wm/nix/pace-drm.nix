@@ -8,7 +8,7 @@
 }: let
   pace = lys-wm.overrideAttrs (old: {
     pname = "lys-wm-pace";
-    subPackages = old.subPackages ++ ["cmd/lys-wm-pace"];
+    subPackages = old.subPackages ++ ["wm/cmd/lys-wm-pace"];
     doCheck = false;
   });
   user = "alice";

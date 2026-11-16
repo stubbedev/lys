@@ -29,7 +29,7 @@ no-fused:
 
 # Run the test suite for every package.
 test:
-    go test ./...
+    go test ${LYS_TEST_PACKAGES:-./...}
 
 # Compile-check every package; the output is discarded.
 build:
@@ -152,7 +152,7 @@ docker recipe="gates" memory="10g":
 # recipe enables it, with the dev shell's pinned C compiler
 # (LYS_RACE_CC).
 race:
-    CC="$LYS_RACE_CC" CGO_ENABLED=1 go test -race ./...
+    CC="$LYS_RACE_CC" CGO_ENABLED=1 go test -race ${LYS_TEST_PACKAGES:-./...}
 
 # The compositor-in-the-loop tests: boots a private headless sway with
 # the test-env recipe, then runs capture and virtual input against it

@@ -17,6 +17,7 @@
     packages.lys-splash = lysGo.build {
       pname = "lys-splash";
       subPackages = ["splash/cmd/lys-splash"];
+      resources = ["splash/units" "splash/initramfs-tools"];
 
       doCheck = false;
 

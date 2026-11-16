@@ -7,6 +7,8 @@ lysGo.build {
 
   subPackages = ["polkit/cmd/lys-polkit"];
 
+  resources = ["polkit/dist/lys-polkit.service.in"];
+
   ldflags = [
     "-s"
   ];
@@ -21,7 +23,7 @@ lysGo.build {
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
-    $out/bin/lys-polkit --version | grep -qxF "lys-polkit ${lysGo.version}"
+    $out/bin/lys-polkit --version | grep -qxF "lys-polkit $version"
     grep -qxF "ExecStart=$out/bin/lys-polkit" $out/lib/systemd/user/lys-polkit.service
     runHook postInstallCheck
   '';

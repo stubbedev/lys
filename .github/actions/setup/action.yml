@@ -5,8 +5,11 @@ description: >-
   anything the build jobs did not build and push fails the job instead of
   building again. Restores the job's Go build cache under its own key, and gives
   the runner KVM, unprivileged user namespaces or free disk when the job asks.
-  Go reuses a test result only while nothing it depends on changed; the weekly
-  scheduled run reruns everything.
+  The job saves the Go build cache itself, with actions/cache/save on the
+  go-cache-path and go-cache-key outputs under if: always() && go-cache-save,
+  so a job that failed or timed out still leaves its compiled packages to the
+  next run. Go reuses a test result only while nothing it depends on changed;
+  the weekly scheduled run reruns everything.
 
 inputs:
   github-token:
@@ -27,6 +30,17 @@ inputs:
   free-disk:
     description: Remove the runner's preinstalled toolchains, for VM closures and disk images.
     default: "false"
+
+outputs:
+  go-cache-path:
+    description: The directories the Go build cache holds.
+    value: ${{ steps.go-cache-path.outputs.path }}
+  go-cache-key:
+    description: The key to save the Go build cache under.
+    value: ${{ steps.go-cache.outputs.cache-primary-key }}
+  go-cache-save:
+    description: Whether the job is to save the Go build cache, "true" unless it restored that exact key.
+    value: ${{ inputs.go-cache != '' && steps.go-cache.outputs.cache-hit != 'true' }}
 
 runs:
   using: composite
@@ -68,12 +82,20 @@ runs:
       run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
     - if: inputs.go-cache != ''
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      id: go-cache-path
+      shell: bash
+      run: |
+        {
+          echo 'path<<EOF'
+          printf '%s\n' ~/.cache/go-build ~/.cache/golangci-lint ~/go/pkg/mod
+          echo EOF
+        } >> "$GITHUB_OUTPUT"
+
+    - if: inputs.go-cache != ''
+      id: go-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: |
-          ~/.cache/go-build
-          ~/.cache/golangci-lint
-          ~/go/pkg/mod
+        path: ${{ steps.go-cache-path.outputs.path }}
         key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-${{ steps.cache-day.outputs.day }}-${{ hashFiles('flake.lock', 'go.sum') }}
         restore-keys: |
           go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-

@@ -7,6 +7,8 @@ lysGo.build {
 
   subPackages = ["power/cmd/lys-power"];
 
+  resources = ["power/dist/lys-power.service" "power/dist/lys-power-brightness.service" "power/dist/lys-power.tmpfiles"];
+
   ldflags = [
     "-s"
   ];
@@ -25,7 +27,7 @@ lysGo.build {
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
-    $out/bin/lys-power version | grep -qxF "lys-power ${lysGo.version}"
+    $out/bin/lys-power version | grep -qxF "lys-power $version"
     grep -qxF "ExecStart=$out/bin/lys-power run" $out/lib/systemd/system/lys-power.service
     grep -qxF "ExecStart=$out/bin/lys-power brightness" $out/lib/systemd/user/lys-power-brightness.service
     grep -qxF "d /run/battery-charge 0775 root users -" $out/lib/tmpfiles.d/lys-power.conf
