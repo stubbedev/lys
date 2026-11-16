@@ -8,9 +8,7 @@ import (
 )
 
 func TestBeginningARenderPassAllocatesNothing(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	d := openDevice(t)
 	tg, err := d.NewOffscreen(8, 8)
 	if err != nil {

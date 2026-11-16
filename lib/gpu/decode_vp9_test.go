@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // libvpx is ffmpeg's arguments for libvpx-vp9 at speed 4 with args.
@@ -116,6 +117,7 @@ func TestDecodeVP9CropsToTheFrame(t *testing.T) {
 // them out and releasing them allocates nothing once the decoder has
 // its frames.
 func TestDecodeVP9DoesNotAllocate(t *testing.T) {
+	testbuild.SkipAllocBudget(t)
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegPasses(t, "a.webm", 192, 128, 4, libvpxTwoPass("-b:v", "200k", "-g", "250", "-auto-alt-ref", "1", "-lag-in-frames", "16")...)
 	track, pkts := packets(t, cl.path)

@@ -206,9 +206,7 @@ func TestAnUpdateLargerThanTheRingGrowsIt(t *testing.T) {
 }
 
 func TestASteadyUpdateDoesNotWaitOrAllocate(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	d := openDevice(t)
 	tx, err := d.NewTexture(fourcc.ARGB8888, 64, 64)
 	if err != nil {

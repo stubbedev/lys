@@ -14,9 +14,7 @@ import (
 // calls, parameter buffers and coded buffer, point at nothing on the
 // heap. Key frames and predicted ones both run.
 func TestEncodeAllocatesOnlyItsPacket(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	for _, codec := range []Codec{H264, H265} {
 		t.Run(codec.String(), func(t *testing.T) {
 			d := exportingDevice(t)

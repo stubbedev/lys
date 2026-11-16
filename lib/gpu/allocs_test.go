@@ -9,9 +9,7 @@ import (
 )
 
 func TestAFramesAllocations(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	d := openDevice(t)
 	const w, h = 640, 480
 	tg := newTarget(t, d, w, h)

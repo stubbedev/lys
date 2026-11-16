@@ -321,9 +321,7 @@ func TestDecodeVP9RetriesASuperframeWhoseShownFrameFailed(t *testing.T) {
 // Showing a picture again, copied out of its reference picture into a
 // frame of its own, allocates nothing once the decoder has its frames.
 func TestDecodeVP9ShowingAFrameAgainDoesNotAllocate(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates")
-	}
+	testbuild.SkipAllocBudget(t)
 	d := decodingDevice(t, demux.VP9)
 	cl := ffmpegClip(t, "a.webm", 192, 128, 4, libvpx("-g", "250")...)
 	track, pkts := packets(t, cl.path)

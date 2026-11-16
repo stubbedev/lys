@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
@@ -671,6 +672,7 @@ func chromaAt(pic samples, from, cw, ch int, x, y float64) (u, v float64) {
 // Decoding a frame, handing it out and releasing it allocates nothing
 // once the decoder has its frames.
 func TestDecodeDoesNotAllocate(t *testing.T) {
+	testbuild.SkipAllocBudget(t)
 	for _, c := range []struct {
 		codec demux.Codec
 		args  []string

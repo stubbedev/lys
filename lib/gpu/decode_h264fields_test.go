@@ -554,9 +554,7 @@ func TestDecodeH264RefusesAMalformedPacketBeforeDecodingIt(t *testing.T) {
 // device decodes from, which name the ones their slices' reference
 // picture lists hold, some moving the oldest to the front.
 func TestDecodeH264FieldsDoNotAllocate(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates")
-	}
+	testbuild.SkipAllocBudget(t)
 	for _, c := range []struct {
 		name string
 		cut  func(t *testing.T) *h264Cut

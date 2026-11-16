@@ -144,9 +144,7 @@ func TestClosedDecoderHandsOutNothing(t *testing.T) {
 // Decoding a frame, drawing it and handing it back allocates nothing
 // once the decoder has its frames.
 func TestDrawnFramesDoNotAllocate(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	d := decodingDevice(t, demux.H264)
 	cl := ffmpegClip(t, "a.mp4", 160, 144, 4, "-c:v", "libx264", "-bf", "2", "-x264-params", "keyint=250")
 	track, pkts := packets(t, cl.path)

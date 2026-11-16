@@ -146,9 +146,7 @@ func TestDecodeAV1FilmGrain(t *testing.T) {
 // once the decoder has its frames and its grain pass, and a frame has
 // not finished decoding before its grain is in it.
 func TestDecodeAV1FilmGrainDoesNotAllocate(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	d := decodingDevice(t, demux.AV1)
 	cl := ffmpegClip(t, "a.mp4", 192, 128, 4, libaom("film-grain-test=1", "-g", "250", "-lag-in-frames", "0")...)
 	track, pkts := packets(t, cl.path)
@@ -240,6 +238,7 @@ func TestDecodeAV1CropsToTheFrame(t *testing.T) {
 // Decoding AV1 frames, hidden ones among them, handing them out and
 // releasing them allocates nothing once the decoder has its frames.
 func TestDecodeAV1DoesNotAllocate(t *testing.T) {
+	testbuild.SkipAllocBudget(t)
 	d := decodingDevice(t, demux.AV1)
 	cl := ffmpegClip(t, "a.mp4", 192, 128, 4, libaom("", "-g", "250", "-lag-in-frames", "19")...)
 	track, pkts := packets(t, cl.path)

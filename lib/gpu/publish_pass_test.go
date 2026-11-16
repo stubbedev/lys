@@ -165,9 +165,7 @@ func TestPublishRefusesMisuse(t *testing.T) {
 // without. Each frame finishes before the next, so the semaphores it
 // signals are there to use again whatever the GPU's pace.
 func TestPublishDoesNotAllocate(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	for _, fenced := range []bool{true, false} {
 		name := "waiting"
 		if fenced {

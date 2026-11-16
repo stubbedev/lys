@@ -305,9 +305,7 @@ func TestDisjointCoversTheDamageOnce(t *testing.T) {
 }
 
 func TestASteadyPassDoesNotAllocate(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector allocates on its own")
-	}
+	testbuild.SkipAllocBudget(t)
 	d := openDevice(t)
 	tg, err := d.NewOffscreen(32, 32)
 	if err != nil {
