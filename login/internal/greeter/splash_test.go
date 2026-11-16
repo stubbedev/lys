@@ -369,3 +369,24 @@ func TestTheWindowsOutputIsTheOneItIsOnElseTheOneItAskedFor(t *testing.T) {
 		t.Errorf("home: %+v, want the first output", got)
 	}
 }
+
+func TestTheHandOverIsAnnouncedOnceForAnOutputThatDoesNotChange(t *testing.T) {
+	size := image.Pt(1600, 1200)
+	logs := captureLog(t)
+	r := splashRig(t, nil, twoOutputFrame(size))
+	r.output = "DP-2"
+	painted(r, size)
+	r.s.outputChanged()
+	painted(r, size)
+	r.s.outputChanged()
+	painted(r, size)
+	if n := strings.Count(logs.String(), "takes over"); n != 1 {
+		t.Errorf("three paints on an unchanged DP-2 announced the take-over %d times, want once: %q", n, logs.String())
+	}
+	r.output = "DP-1"
+	r.s.outputChanged()
+	painted(r, size)
+	if !strings.Contains(logs.String(), "on DP-1 takes over") {
+		t.Errorf("a move to DP-1 was not announced: %q", logs.String())
+	}
+}

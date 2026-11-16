@@ -95,7 +95,7 @@ type handOver struct {
 	root   widget.Widget
 	area   *widget.DrawingArea
 	fade   *widget.Revealer
-	said   bool
+	said   string
 }
 
 func (t *takeOver) over(content widget.Widget, anims config.AnimationsConfig, output func() string) *handOver {
@@ -128,18 +128,18 @@ func (h *handOver) paint(cv *render.Canvas) {
 }
 
 func (h *handOver) say(format string, args ...any) {
-	if h.said {
+	line := fmt.Sprintf(format, args...)
+	if line == h.said {
 		return
 	}
-	h.said = true
-	log.Printf(format, args...)
+	h.said = line
+	log.Print(line)
 }
 
 func (h *handOver) outputChanged() {
 	if !h.area.Visible() {
 		return
 	}
-	h.said = false
 	h.area.QueueDraw()
 }
 
