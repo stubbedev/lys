@@ -5,6 +5,7 @@
 package pwtest
 
 import (
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -81,9 +82,13 @@ func Start(t *testing.T) *Daemon {
 	t.Cleanup(d.Kill)
 	sock := filepath.Join(dir, "pipewire-0")
 	waittest.Until(t, func() bool {
-		_, err := os.Stat(sock)
-		return err == nil
-	}, "pipewire to create its socket")
+		conn, err := net.Dial("unix", sock)
+		if err != nil {
+			return false
+		}
+		_ = conn.Close()
+		return true
+	}, "pipewire to accept connections on its socket")
 	return d
 }
 
