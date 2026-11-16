@@ -508,6 +508,9 @@ func hostNamesItsDevice(h *Harness) bool {
 }
 
 func TestNestedFrameCost(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the race detector slows every frame, so the costs it would log measure the detector")
+	}
 	if !testenv.Vulkan(t).Device().Exports() {
 		t.Skip("this Vulkan device shares no dmabufs with a host; lavapipe needs /dev/udmabuf")
 	}
