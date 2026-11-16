@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 
 
@@ -24,14 +25,18 @@ def screen_hash():
 
 
 def steady_hash():
-    seen = screen_hash()
-    for _ in range(30):
-        machine.sleep(1)
-        now = screen_hash()
-        if now == seen:
-            return now
-        seen = now
-    raise Exception("the screen never settled")
+    seen = [screen_hash()]
+
+    def settled(_):
+        seen.append(screen_hash())
+        return seen[-1] == seen[-2]
+
+    retry(settled, timeout=dt.timedelta(seconds=30))
+    return seen[-1]
+
+
+def wait_keyboards(count):
+    machine.wait_until_succeeds(wmctl("devices") + f" | jq -e 'map(select(.capabilities | index(\"keyboard\"))) | length {count}'", timeout=60)
 
 
 def worker():
@@ -56,10 +61,9 @@ def check_kept(before, why):
 
 try:
     machine.succeed(wmctl(f"dispatch exec {params['mako']}"))
-    machine.wait_until_succeeds("pgrep -u alice mako", timeout=60)
-    machine.sleep(2)
+    machine.wait_until_succeeds(as_alice("busctl --user status org.freedesktop.Notifications"), timeout=60)
     machine.succeed(wmctl(f"dispatch exec {params['notify']}"))
-    machine.sleep(2)
+    machine.wait_until_succeeds(wmctl("layers") + " | jq -e 'any(.[]; .namespace == \"notifications\")'", timeout=60)
     machine.succeed(as_alice(f"lys-wmctl dispatch exec {params['typed']}"))
     machine.wait_until_succeeds(wmctl("windows") + " | jq -e 'map(select(.app_id == \"typed\")) | length == 1'", timeout=60)
     machine.wait_until_succeeds("test -e /tmp/typed", timeout=30)
@@ -67,7 +71,7 @@ try:
     machine.succeed(as_alice(f"lys-wmctl dispatch exec {params['idle']}"))
     machine.wait_until_succeeds(wmctl("windows") + " | jq -e 'length == 2'", timeout=60)
     machine.succeed(wmctl("dispatch workspace 1"))
-    machine.sleep(2)
+    machine.wait_until_succeeds(wmctl("activewindow") + " | jq -e '.app_id == \"typed\"'", timeout=60)
     type_into_focused("beforeupgrade")
     typed_contains("beforeupgrade")
 
@@ -108,9 +112,9 @@ try:
     machine.send_key("meta_l-ret")
     machine.wait_until_succeeds(wmctl("windows") + " | jq -e 'length == 3'", timeout=60)
     machine.send_key("ctrl-alt-f2")
-    machine.sleep(3)
+    wait_keyboards("== 0")
     machine.send_key("ctrl-alt-f1")
-    machine.sleep(3)
+    wait_keyboards("> 0")
     machine.wait_until_succeeds(as_alice(f"WAYLAND_DISPLAY={display} grim -o Virtual-1 /tmp/after-vt.png"), timeout=30)
     machine.send_key("meta_l-ret")
     machine.wait_until_succeeds(wmctl("windows") + " | jq -e 'length == 4'", timeout=60)

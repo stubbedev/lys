@@ -1,6 +1,9 @@
+import datetime as dt
 import json
 
 BAR = 30
+INSET = 8
+WORK_AREA = (0, BAR, 1280, 800 - BAR)
 
 
 def windows():
@@ -38,6 +41,20 @@ def dump():
     print(machine.execute(as_alice("lys-wmctl windows") + " | jq -c '.[] | {id, app_id, title, rect}'")[1])
 
 
+def inset(window):
+    rect = window["rect"]
+    return rect["x"] + INSET, rect["y"] + INSET, rect["width"] - 2 * INSET, rect["height"] - 2 * INSET
+
+
+def drawn(name, id):
+    def check(_):
+        current = windows()
+        assert id in current, f"{name} closed its window before drawing"
+        return region(*inset(current[id]))[1] > 1
+
+    retry(check, timeout=dt.timedelta(seconds=120))
+
+
 def bar_drawn():
     wait_for_region(0, 0, 1280, BAR, "$2 > 1", 300)
 
@@ -46,19 +63,20 @@ def check_windows():
     checked = {}
     for workspace, name in enumerate(params["windows"], start=2):
         dispatch("workspace", str(workspace))
+        wait_for_region(*WORK_AREA, "$2 == 1", 60)
         before = set(windows())
         launch(name)
         machine.wait_until_succeeds(
             as_alice("lys-wmctl windows") + f" | jq -e 'map(.id) - {json.dumps(sorted(before))} | length > 0'",
             timeout=300,
         )
-        machine.sleep(5)
-        [window] = [w for i, w in windows().items() if i not in before]
+        [id] = [i for i in windows() if i not in before]
+        drawn(name, id)
+        window = windows()[id]
         rect = window["rect"]
         print(f"{name}: window {window['id']} {window['app_id']!r} {window['title']!r} at {rect}")
         assert rect["y"] >= BAR, f"{name} overlaps the bar's exclusive zone: {rect}"
-        inset = 8
-        _, colors, _ = region(rect["x"] + inset, rect["y"] + inset, rect["width"] - 2 * inset, rect["height"] - 2 * inset)
+        _, colors, _ = region(*inset(window))
         assert colors > 1, f"{name} drew nothing: its region has {colors} colour"
         checked[name] = window["id"]
     still = windows()
@@ -78,10 +96,10 @@ def check_notification():
 
 
 def check_launcher(name):
-    digest, _, _ = region(0, BAR, 1280, 800 - BAR)
+    digest, _, _ = region(*WORK_AREA)
     launch(name)
-    wait_for_region(0, BAR, 1280, 800 - BAR, f"$1 != \"{digest}\"", 120)
-    machine.sleep(2)
+    wait_for_region(*WORK_AREA, f"$1 != \"{digest}\"", 120)
+    machine.wait_until_succeeds(as_alice("lys-wmctl layers") + " | jq -e 'any(.[]; .keyboard_interactivity == \"exclusive\")'", timeout=60)
     machine.send_key("esc")
     machine.wait_until_fails(f"pgrep -u {USER} {name}", timeout=60)
 
@@ -89,7 +107,6 @@ def check_launcher(name):
 def check_lock():
     launch("swaylock")
     wait_for_region(2, 2, 4, 4, "$2 == 1 && $3 == \"336699\"", 120)
-    machine.sleep(2)
     machine.send_chars(f"{PASSWORD}\n")
     machine.wait_until_fails(f"pgrep -u {USER} swaylock", timeout=60)
     bar_drawn()

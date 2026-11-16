@@ -35,7 +35,7 @@ def drop_case(source_name, target_name, path):
     wait_for(f"the {target_name} window tiled", lambda: not window_titled(target["title"], target["app_id"])["floating"])
     target = window_titled(target["title"], target["app_id"])
     source = open_window(source_name)
-    time.sleep(2)
+    wait_drawn(to_x(source["rect"]), f"the {source_name} window")
     try:
         drag_between(source, target)
         dropped(f"/tmp/{target_name}.log", path)
