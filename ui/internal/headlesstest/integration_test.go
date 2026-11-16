@@ -9,6 +9,8 @@ import (
 
 	"github.com/stubbedev/lys/lib/testhome"
 	"github.com/stubbedev/lys/lib/wltest"
+
+	"github.com/stubbedev/lys/ui/clienttest"
 )
 
 // The compositor-in-the-loop suite: attaches to the private headless
@@ -34,7 +36,7 @@ func run(m *testing.M) int {
 		return 1
 	}
 	testEnv = env
-	bin, err := BuildShowcase(env.Dir)
+	bin, err := clienttest.Build(env.Dir, "lys-ui-hello")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "headlesstest: %v\n", err)
 		return 1
@@ -704,7 +706,7 @@ func TestHeadlessClipboardRoundtrip(t *testing.T) {
 // window's own state-change traces) on, and attaches a watcher.
 func startStatesClient(t *testing.T) (*Client, *LogWatcher) {
 	t.Helper()
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-states", "lys-ui-states")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-states")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -847,7 +849,7 @@ func TestHeadlessWindowStates(t *testing.T) {
 // centers the client traced after mapping at the pinned size.
 func startMultilistClient(t *testing.T) (*Client, *LogWatcher, [][2]int) {
 	t.Helper()
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-multilist", "lys-ui-multilist")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-multilist")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1058,7 +1060,7 @@ func TestHeadlessDialogModality(t *testing.T) {
 // timer (no input arriving), and Esc dismisses it with focus inside.
 func TestHeadlessPopoverTakesTypingAndRepaints(t *testing.T) {
 	requireEnv(t)
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-popover", "lys-ui-popover")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-popover")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1161,7 +1163,7 @@ func TestHeadlessPopoverTakesTypingAndRepaints(t *testing.T) {
 // lives on to open the menu again.
 func TestHeadlessNestedMenuPopover(t *testing.T) {
 	requireEnv(t)
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-popover", "lys-ui-popover")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-popover")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1564,7 +1566,7 @@ func TestHeadlessToplevelExport(t *testing.T) {
 // The clip loops, so its three seconds cannot run out mid-check.
 func TestHeadlessVideoPlays(t *testing.T) {
 	requireEnv(t)
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-video", "lys-ui-video")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-video")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1632,7 +1634,7 @@ func videoFrame(tr Trace) (int, bool) {
 // frame callbacks and presents each one.
 func TestHeadlessGPUAreaPaces(t *testing.T) {
 	requireEnv(t)
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-gpu", "lys-ui-gpu")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-gpu")
 	if err != nil {
 		t.Fatal(err)
 	}

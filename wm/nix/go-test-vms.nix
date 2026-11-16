@@ -1,7 +1,6 @@
 {
   pkgs,
   lys-wm,
-  lys-ui,
 }: let
   gpuPackages = ["render/vulkan" "render/gles" "harness"];
   tests = lys-wm.overrideAttrs {
@@ -57,7 +56,7 @@ in
         };
         environment = {
           variables = env;
-          systemPackages = import ./test-programs.nix {inherit pkgs lys-ui;};
+          systemPackages = import ./test-programs.nix pkgs;
         };
       };
     };

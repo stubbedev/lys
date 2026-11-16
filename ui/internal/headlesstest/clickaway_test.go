@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/ui/clienttest"
 )
 
 // startDropdownBesideWindow runs lys-ui-popover beside a focused
@@ -16,7 +18,7 @@ func startDropdownBesideWindow(t *testing.T) (window *LogWatcher, in *VirtualInp
 	_, window, _ = startShowcase(t)
 	in = newInput(t)
 	waitKeyboard(t, window)
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-popover", "lys-ui-popover")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-popover")
 	if err != nil {
 		t.Fatal(err)
 	}

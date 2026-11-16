@@ -1,81 +1,20 @@
 package headlesstest
 
 import (
-	"bytes"
-	"fmt"
-	"go/build"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/stubbedev/lys/lib/srcroot"
 )
 
-// buildTimeout bounds one `go build` of the client under test; a warm
-// cache compiles it in seconds, a cold one needs the slack.
-const buildTimeout = 3 * time.Minute
-
-const prebuiltClientsEnv = "LYS_UI_TEST_CLIENTS"
-
 // ComponentDir is lys-ui's directory in the source tree, found from the
-// current directory (the tests run inside it), so the harness can build
-// cmd targets without assuming a working directory.
+// current directory (the tests run inside it), so tests can read the
+// component's recipes without assuming a working directory.
 func ComponentDir() (string, error) {
 	dir, _, err := srcroot.Component(".")
 	return dir, err
-}
-
-// BuildShowcase compiles the widget showcase with the lysdebug tag
-// (its trace calls are compiled out otherwise) into dir/lys-ui-hello and
-// returns the binary path.
-func BuildShowcase(dir string) (string, error) {
-	return BuildClient(dir, "./cmd/lys-ui-hello", "lys-ui-hello")
-}
-
-// BuildClient compiles one lys-ui command package with the lysdebug tag
-// (trace calls are compiled out otherwise) into dir/bin and returns the
-// binary path.
-func BuildClient(dir, pkg, bin string) (string, error) {
-	if prebuilt := os.Getenv(prebuiltClientsEnv); prebuilt != "" {
-		return prebuiltClient(prebuilt, bin)
-	}
-	root, err := ComponentDir()
-	if err != nil {
-		return "", err
-	}
-	// goTool and dir come from the module tree this test binary runs in,
-	// not from any untrusted source.
-	cmd := exec.Command(goTool(), "build", "-tags", "lysdebug", "-o", filepath.Join(dir, bin), pkg) //nolint:gosec // fixed subcommand, module-local paths
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	out, err := runWithTimeout(cmd, buildTimeout)
-	if err != nil {
-		return "", fmt.Errorf("build %s: %w\n%s", pkg, err, out)
-	}
-	return filepath.Join(dir, bin), nil
-}
-
-func prebuiltClient(dir, bin string) (string, error) {
-	path := filepath.Join(dir, bin)
-	info, err := os.Stat(path) //nolint:gosec // the VM recipe names the prebuilt client directory, the suite the binary
-	if err != nil {
-		return "", fmt.Errorf("prebuilt client %s from %s=%s: %w", bin, prebuiltClientsEnv, dir, err)
-	}
-	if info.IsDir() || info.Mode().Perm()&0o111 == 0 {
-		return "", fmt.Errorf("prebuilt client %s from %s=%s is not an executable file (mode %s)", path, prebuiltClientsEnv, dir, info.Mode())
-	}
-	return path, nil
-}
-
-// goTool prefers the go in PATH; GOROOT-built test binaries (go test
-// run by the toolchain itself) still find it there.
-func goTool() string {
-	if _, err := exec.LookPath("go"); err == nil {
-		return "go"
-	}
-	return filepath.Join(build.Default.GOROOT, "bin", "go")
 }
 
 // Client is one run of the client under test inside an Env, with its
@@ -170,22 +109,4 @@ func (c *Client) Stop() {
 	}
 	<-c.Exited()
 	_ = c.logFile.Close()
-}
-
-func runWithTimeout(cmd *exec.Cmd, timeout time.Duration) (string, error) {
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Start(); err != nil {
-		return out.String(), err
-	}
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
-	select {
-	case err := <-done:
-		return out.String(), err
-	case <-time.After(timeout):
-		_ = cmd.Process.Kill()
-		return out.String(), fmt.Errorf("timed out after %s: %w", timeout, <-done)
-	}
 }

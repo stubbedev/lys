@@ -113,6 +113,25 @@ func TestFootMapsAndTakesInput(t *testing.T) {
 	}
 }
 
+func TestALysUIClientIsBuiltOncePerTestBinary(t *testing.T) {
+	first := Start(t, small).binary("lys-ui-hello")
+	second := Start(t, small).binary("lys-ui-hello")
+	a, err := os.Stat(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.Stat(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Mode().Perm()&0o111 == 0 {
+		t.Fatalf("%s is not executable (mode %s)", first, a.Mode())
+	}
+	if first != second || !os.SameFile(a, b) || !a.ModTime().Equal(b.ModTime()) {
+		t.Errorf("the second harness got lys-ui-hello built again: %s (%v) after %s (%v)", second, b.ModTime(), first, a.ModTime())
+	}
+}
+
 func TestLysUIHelloMenu(t *testing.T) {
 	t.Setenv("GOELM_DEBUG", "demo")
 	h := Start(t, desktop, desktop)

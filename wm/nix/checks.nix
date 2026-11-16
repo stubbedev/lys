@@ -128,7 +128,7 @@
       };
       vms-go-tests = import ./go-test-vms.nix {
         inherit pkgs;
-        inherit (self'.packages) lys-wm lys-ui;
+        inherit (self'.packages) lys-wm;
       };
       vms-xwayland-idea = xwaylandApp "idea";
       headless = pkgs.callPackage ./headless.nix {

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/wmipc"
+	"github.com/stubbedev/lys/ui/clienttest"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -201,6 +202,10 @@ const (
 )
 
 var xwaylandStarts atomic.Int32
+
+const uiClientPrefix = "lys-ui-"
+
+var uiClients clienttest.Set
 
 func StartXwayland(t *testing.T, report func(error), modes ...backend.Mode) *Harness {
 	t.Helper()
@@ -665,8 +670,7 @@ func (h *Harness) RunOn(runtimeDir, display, binary string, args ...string) *Cli
 
 func (h *Harness) run(runtimeDir, display string, env []string, binary string, args ...string) *Client {
 	h.t.Helper()
-	path := testenv.Require(h.t, binary)
-	cmd := exec.CommandContext(context.Background(), path, args...)
+	cmd := exec.CommandContext(context.Background(), h.binary(binary), args...)
 	socket, err := ipc.SocketPath(runtimeDir, display)
 	if err != nil {
 		h.t.Fatalf("harness: %v", err)
@@ -680,6 +684,18 @@ func (h *Harness) run(runtimeDir, display string, env []string, binary string, a
 	go func() { c.exited <- cmd.Wait() }()
 	h.clients = append(h.clients, c)
 	return c
+}
+
+func (h *Harness) binary(name string) string {
+	h.t.Helper()
+	if !strings.HasPrefix(name, uiClientPrefix) {
+		return testenv.Require(h.t, name)
+	}
+	path, err := uiClients.Path(name)
+	if err != nil {
+		h.t.Fatalf("harness: %v", err)
+	}
+	return path
 }
 
 func (c *Client) Output() string {

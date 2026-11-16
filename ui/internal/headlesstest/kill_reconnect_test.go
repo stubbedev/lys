@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/ui/clienttest"
 	"github.com/stubbedev/lys/ui/internal/fdtest"
 )
 
@@ -19,7 +20,7 @@ func TestHeadlessReconnectRebuildsWindows(t *testing.T) {
 	if !testEnv.CanRestartCompositor() {
 		t.Skip("the compositor driver cannot boot the compositor again, which a reconnect needs")
 	}
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-states", "lys-ui-states")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-states")
 	if err != nil {
 		t.Fatal(err)
 	}

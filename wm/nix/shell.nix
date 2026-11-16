@@ -23,10 +23,7 @@
           gh
         ]
         ++ ["${inputs.lys-ci}"]
-        ++ import ./test-programs.nix {
-          inherit pkgs;
-          lys-ui = self'.packages.lys-ui.overrideAttrs {doCheck = false;};
-        };
+        ++ import ./test-programs.nix pkgs;
 
       env =
         import ./test-env.nix pkgs

@@ -1,7 +1,4 @@
-{
-  pkgs,
-  lys-ui,
-}:
+pkgs:
 with pkgs; [
   just
   wayland-utils
@@ -18,6 +15,5 @@ with pkgs; [
   spirv-tools
   gtk3.dev
   gtk4.dev
-  (import ./lys-ui-debug.nix lys-ui)
   (import ./alacritty-swrast.nix pkgs)
 ]

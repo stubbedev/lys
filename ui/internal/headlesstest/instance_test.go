@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/wltest"
 
+	"github.com/stubbedev/lys/ui/clienttest"
 	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
@@ -18,7 +19,7 @@ func TestSingleInstanceForwardsToPrimary(t *testing.T) {
 	if os.Getenv(wltest.HeadlessEnv) == "" {
 		t.Skip("LYS_TEST_HEADLESS is not set; compositor input tests run under just check-headless")
 	}
-	bin, err := BuildClient(testEnv.Dir, "./cmd/lys-ui-messages", "lys-ui-messages")
+	bin, err := clienttest.Build(testEnv.Dir, "lys-ui-messages")
 	if err != nil {
 		t.Fatal(err)
 	}
