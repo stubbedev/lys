@@ -95,11 +95,11 @@ type handOver struct {
 	root   widget.Widget
 	area   *widget.DrawingArea
 	fade   *widget.Revealer
-	said   string
+	said   map[string]bool
 }
 
 func (t *takeOver) over(content widget.Widget, anims config.AnimationsConfig, output func() string) *handOver {
-	h := &handOver{t: t, output: output}
+	h := &handOver{t: t, output: output, said: map[string]bool{}}
 	h.area = widget.NewDrawingArea(0, 0)
 	h.area.OnDraw = func(cv *render.Canvas, _ render.Rect) { h.paint(cv) }
 	h.fade = widget.NewRevealer(content)
@@ -129,10 +129,10 @@ func (h *handOver) paint(cv *render.Canvas) {
 
 func (h *handOver) say(format string, args ...any) {
 	line := fmt.Sprintf(format, args...)
-	if line == h.said {
+	if h.said[line] {
 		return
 	}
-	h.said = line
+	h.said[line] = true
 	log.Print(line)
 }
 

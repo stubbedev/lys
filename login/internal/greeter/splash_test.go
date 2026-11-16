@@ -389,4 +389,10 @@ func TestTheHandOverIsAnnouncedOnceForAnOutputThatDoesNotChange(t *testing.T) {
 	if !strings.Contains(logs.String(), "on DP-1 takes over") {
 		t.Errorf("a move to DP-1 was not announced: %q", logs.String())
 	}
+	r.output = "DP-2"
+	r.s.outputChanged()
+	painted(r, size)
+	if n := strings.Count(logs.String(), "on DP-2 takes over"); n != 1 {
+		t.Errorf("settling back on DP-2 announced its picture %d times in all, want once: %q", n, logs.String())
+	}
 }
