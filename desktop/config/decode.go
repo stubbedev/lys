@@ -94,7 +94,7 @@ func decodeInto(dst reflect.Value, v any) error {
 		out := reflect.MakeSlice(t, len(arr), len(arr))
 		for i, elem := range arr {
 			if err := decodeInto(out.Index(i), elem); err != nil {
-				return err
+				return &indexError{Index: i, Err: err}
 			}
 		}
 		dst.Set(out)
@@ -107,7 +107,7 @@ func decodeInto(dst reflect.Value, v any) error {
 		for _, k := range keys {
 			elem := reflect.New(t.Elem()).Elem()
 			if err := decodeInto(elem, get(k)); err != nil {
-				return err
+				return &fieldError{Key: k, Err: err}
 			}
 			out.SetMapIndex(reflect.ValueOf(k).Convert(t.Key()), elem)
 		}
@@ -163,21 +163,39 @@ func decodeValueStruct(dst reflect.Value, v any) error {
 func rejectUnknownKeys(t reflect.Type, keys []string) error {
 	fields := fieldsOf(t)
 	for _, key := range keys {
-		if slices.ContainsFunc(fields, func(f fieldInfo) bool { return slices.Contains(f.lookupKeys(), key) }) {
-			continue
+		if !readsKey(fields, key) {
+			return &fieldError{Key: key, Err: unknownFieldError(fields)}
 		}
-		canonical := make([]string, len(fields))
-		for i, f := range fields {
-			canonical[i] = f.key
-		}
-		return &fieldError{Key: key, Err: errors.New("unknown field, " + expectedOneOf(canonical))}
 	}
 	return nil
 }
 
-// fieldError is a value struct's field that failed to decode: the
-// field's key and why, so a diagnostic names the key itself rather
-// than only the struct holding it.
+// readsKey reports whether one of fields reads key, canonical or alias.
+func readsKey(fields []fieldInfo, key string) bool {
+	return slices.ContainsFunc(fields, func(f fieldInfo) bool { return slices.Contains(f.lookupKeys(), key) })
+}
+
+// unknownFieldError is why a key none of fields reads is refused,
+// listing their canonical keys.
+func unknownFieldError(fields []fieldInfo) error {
+	canonical := make([]string, len(fields))
+	for i, f := range fields {
+		canonical[i] = f.key
+	}
+	return errors.New("unknown field, " + expectedOneOf(canonical))
+}
+
+// pathStep is a decode error one step below where it is caught: the
+// step it adds to the key path, and the error beneath it.
+type pathStep interface {
+	error
+	under(path string) string
+	cause() error
+}
+
+// fieldError is a value struct's field or a map's entry that failed to
+// decode: its key and why, so a diagnostic names the key itself rather
+// than only the table holding it.
 type fieldError struct {
 	Key string
 	Err error
@@ -187,12 +205,32 @@ func (e *fieldError) Error() string { return e.Key + ": " + e.Err.Error() }
 
 func (e *fieldError) Unwrap() error { return e.Err }
 
+func (e *fieldError) under(path string) string { return joinPath(path, e.Key) }
+
+func (e *fieldError) cause() error { return e.Err }
+
+// indexError is a sequence element that failed to decode: its index
+// and why, so a diagnostic names the element among its siblings.
+type indexError struct {
+	Index int
+	Err   error
+}
+
+func (e *indexError) Error() string { return "[" + strconv.Itoa(e.Index) + "]: " + e.Err.Error() }
+
+func (e *indexError) Unwrap() error { return e.Err }
+
+func (e *indexError) under(path string) string { return path + "[" + strconv.Itoa(e.Index) + "]" }
+
+func (e *indexError) cause() error { return e.Err }
+
 // failedPath is the key path under path where err arose, through the
-// value structs it passed, and the error at that key.
+// value structs, maps and sequences it passed, and the error at that
+// key.
 func failedPath(path string, err error) (string, error) {
-	var fe *fieldError
-	for errors.As(err, &fe) {
-		path, err = joinPath(path, fe.Key), fe.Err
+	var step pathStep
+	for errors.As(err, &step) {
+		path, err = step.under(path), step.cause()
 	}
 	return path, err
 }

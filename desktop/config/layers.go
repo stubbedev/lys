@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -13,10 +14,11 @@ import (
 //
 //   - keys are matched canonical first, then aliases, then deprecated
 //     aliases (which log a deprecation warning);
-//   - unknown section keys are ignored, and a section given a non-table
-//     value is ignored, but an unknown key inside a leaf's value struct
-//     fails that leaf's decode; a key the shell no longer reads (removedKeys) is an
-//     error diagnostic naming where its setting went;
+//   - a config file key no field of its section reads is a warning
+//     diagnostic at its path, and a section given a non-table value is
+//     ignored, but an unknown key inside a leaf's value struct fails
+//     that leaf's decode; a key the shell no longer reads (removedKeys)
+//     is an error diagnostic naming where its setting went;
 //   - a leaf that fails to decode is a diagnostic and keeps its lower
 //     layer's value. On the config layer the rest still applies; on the
 //     runtime layer the first failure stops the walk and is returned,
@@ -70,6 +72,9 @@ func (a *layerApply) applyContainer(dst reflect.Value, v any, path string) error
 		return nil
 	}
 	a.reportRemoved(v, path)
+	if a.kind == configLayer {
+		a.reportUnknown(dst.Type(), v, path)
+	}
 	for _, f := range fieldsOf(dst.Type()) {
 		if f.nolayer {
 			continue
@@ -97,6 +102,22 @@ func (a *layerApply) applyContainer(dst reflect.Value, v any, path string) error
 		}
 	}
 	return nil
+}
+
+// reportUnknown sinks a warning for each key of the section tree at
+// path that no field of the container t reads and that is not a
+// removed key, which reportRemoved already names.
+func (a *layerApply) reportUnknown(t reflect.Type, tree any, path string) {
+	fields := fieldsOf(t)
+	keys, _, _ := tableEntries(tree)
+	for _, key := range keys {
+		if readsKey(fields, key) || slices.ContainsFunc(removedKeys[path], func(r removedKey) bool { return r.key == key }) {
+			continue
+		}
+		a.sink(Diagnostic{Kind: DiagnosticWarning, Title: "unknown config key"}.
+			field("Field", joinPath(path, key)).
+			field("Error", unknownFieldError(fields).Error()))
+	}
 }
 
 func (a *layerApply) applyLeaf(dst reflect.Value, v any, path string) error {

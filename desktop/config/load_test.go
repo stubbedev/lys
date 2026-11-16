@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -172,10 +173,19 @@ func TestDropdownHeightTakesPixelsOnly(t *testing.T) {
 	}
 }
 
-func TestUnknownKeysAndNonTableSectionsAreIgnored(t *testing.T) {
+func TestUnknownKeysWarnAndNonTableSectionsAreIgnored(t *testing.T) {
 	path := writeFile(t, t.TempDir(), "config.yaml", "osd: 5\nbar:\n  not-in-the-schema: 3\nmodules:\n  clock:\n    also-unknown: 1\n")
-	if _, err := LoadFile(path); err != nil {
-		t.Fatalf("unknown keys: %v", err)
+	_, err := LoadFile(path)
+	var fields []string
+	for _, e := range unwrapJoined(err) {
+		d, ok := errors.AsType[Diagnostic](e)
+		if !ok || d.Kind != DiagnosticWarning || d.Title != "unknown config key" {
+			t.Fatalf("diagnostic %v, want only unknown-key warnings", e)
+		}
+		fields = append(fields, d.Field("Field"))
+	}
+	if want := []string{"bar.not-in-the-schema", "modules.clock.also-unknown"}; !slices.Equal(fields, want) {
+		t.Errorf("unknown-key warnings at %v, want %v and nothing for the non-table osd", fields, want)
 	}
 }
 

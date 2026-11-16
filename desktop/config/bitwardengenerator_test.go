@@ -63,39 +63,39 @@ func TestGeneratorPresetsRefuseBadValues(t *testing.T) {
 	for _, c := range []struct{ name, body, field, err string }{
 		{
 			"length 0", "    generator-passwords: [{name: x, length: 0}]\n",
-			"modules.bitwarden.generator-passwords.length", "password length out of range: 0, valid 5-128",
+			"modules.bitwarden.generator-passwords[0].length", "password length out of range: 0, valid 5-128",
 		},
 		{
 			"length above", "    generator-passwords: [{name: x, length: 129}]\n",
-			"modules.bitwarden.generator-passwords.length", "password length out of range: 129, valid 5-128",
+			"modules.bitwarden.generator-passwords[0].length", "password length out of range: 129, valid 5-128",
 		},
 		{
 			"no charset", "    generator-passwords: [{name: x, charsets: []}]\n",
-			"modules.bitwarden.generator-passwords.charsets", "no character set selected, expected one of `lowercase`, `uppercase`, `digits`, `symbols`",
+			"modules.bitwarden.generator-passwords[0].charsets", "no character set selected, expected one of `lowercase`, `uppercase`, `digits`, `symbols`",
 		},
 		{
 			"unknown charset", "    generator-passwords: [{name: x, charsets: [emoji]}]\n",
-			"modules.bitwarden.generator-passwords.charsets", "unknown variant `emoji`",
+			"modules.bitwarden.generator-passwords[0].charsets[0]", "unknown variant `emoji`",
 		},
 		{
 			"no name", "    generator-passwords: [{length: 12}]\n",
-			"modules.bitwarden.generator-passwords", "missing field `name`",
+			"modules.bitwarden.generator-passwords[0]", "missing field `name`",
 		},
 		{
 			"too few words", "    generator-passphrases: [{name: x, words: 2}]\n",
-			"modules.bitwarden.generator-passphrases.words", "passphrase word count out of range: 2, valid 3-20",
+			"modules.bitwarden.generator-passphrases[0].words", "passphrase word count out of range: 2, valid 3-20",
 		},
 		{
 			"too many words", "    generator-passphrases: [{name: x, words: 21}]\n",
-			"modules.bitwarden.generator-passphrases.words", "passphrase word count out of range: 21, valid 3-20",
+			"modules.bitwarden.generator-passphrases[0].words", "passphrase word count out of range: 21, valid 3-20",
 		},
 		{
 			"fractional words", "    generator-passphrases: [{name: x, words: 4.5}]\n",
-			"modules.bitwarden.generator-passphrases.words", "invalid type: floating point `4.5`, expected u32",
+			"modules.bitwarden.generator-passphrases[0].words", "invalid type: floating point `4.5`, expected u32",
 		},
 		{
 			"negative length", "    generator-passwords: [{name: x, length: -5}]\n",
-			"modules.bitwarden.generator-passwords.length", "invalid value: integer `-5`, expected u32",
+			"modules.bitwarden.generator-passwords[0].length", "invalid value: integer `-5`, expected u32",
 		},
 	} {
 		cfg, err := loadBitwarden(t, c.body)

@@ -49,3 +49,44 @@ func TestAConfigFileKeyUnknownToAValueStructIsADiagnostic(t *testing.T) {
 		t.Errorf("menu enter = %v, want the valid sibling applied", got)
 	}
 }
+
+func TestAListElementThatFailsToDecodeIsNamedByItsIndex(t *testing.T) {
+	for _, tc := range []struct {
+		entries, field string
+	}{
+		{"      - {abov: 70}\n      - {above: 90}\n", "modules.audio.thresholds[0].abov"},
+		{"      - {above: 70}\n      - {abov: 90}\n", "modules.audio.thresholds[1].abov"},
+	} {
+		_, err := LoadFile(writeConfig(t, "modules:\n  audio:\n    thresholds:\n"+tc.entries))
+		diags := diagnosticsTitled(err, "invalid config value")
+		if len(diags) != 1 || diags[0].Field("Field") != tc.field || !strings.HasPrefix(diags[0].Field("Error"), "unknown field") {
+			t.Errorf("diagnostics %+v from %v, want one unknown field at %s", diags, err, tc.field)
+		}
+	}
+}
+
+func TestAMapEntryThatFailsToDecodeIsNamedByItsKey(t *testing.T) {
+	_, err := LoadFile(writeConfig(t, "modules:\n  mango-workspaces:\n    tag-map:\n      \"1\": {label: web}\n      \"2\": {lable: term}\n"))
+	diags := diagnosticsTitled(err, "invalid config value")
+	if len(diags) != 1 || diags[0].Field("Field") != "modules.mango-workspaces.tag-map.2.lable" {
+		t.Errorf("diagnostics %+v from %v, want one at modules.mango-workspaces.tag-map.2.lable", diags, err)
+	}
+}
+
+func TestAValidListAndMapDecodeWithoutADiagnostic(t *testing.T) {
+	cfg, err := LoadFile(writeConfig(t, "modules:\n  audio:\n    thresholds:\n      - {above: 70}\n      - {below: 10}\n  mango-workspaces:\n    tag-map:\n      \"1\": {label: web}\n"))
+	if err != nil {
+		t.Fatalf("a valid list and map: %v", err)
+	}
+	if len(cfg.Audio.Thresholds) != 2 || *cfg.Audio.Thresholds[1].Below != 10 || *cfg.MangoWorkspaces.TagMap["1"].Label != "web" {
+		t.Errorf("thresholds %+v, tag-map %+v", cfg.Audio.Thresholds, cfg.MangoWorkspaces.TagMap)
+	}
+}
+
+func TestFailedPathRendersEachStepItPassed(t *testing.T) {
+	err := &fieldError{Key: "list", Err: &indexError{Index: 2, Err: &fieldError{Key: "key", Err: errors.New("bad")}}}
+	at, cause := failedPath("section", err)
+	if at != "section.list[2].key" || cause == nil || cause.Error() != "bad" {
+		t.Errorf("failed at %q with %v, want section.list[2].key: bad", at, cause)
+	}
+}
