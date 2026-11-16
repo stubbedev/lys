@@ -252,6 +252,7 @@ type node struct {
 	// node runs no animation.
 	anims    *nodeAnim
 	awaiting []*anim.Launch
+	top      *treeTop
 	inkBox   render.Rect
 	solidBox render.Rect
 	slot     render.Rect
@@ -877,7 +878,9 @@ func setParents(parent Widget, kids ...Widget) {
 			continue
 		}
 		if s, ok := k.(interface{ setParent(p, self Widget) }); ok {
+			waiting := waitingTopMoving(k, parent)
 			s.setParent(parent, k)
+			refileWaiting(waiting)
 		} else if pn := nodeOf(parent); pn != nil {
 			pn.inkNodeless, pn.inkClosed = true, false
 			pn.bubbleInk()
@@ -895,7 +898,9 @@ func clearParents(ws ...Widget) {
 			continue
 		}
 		if s, ok := w.(interface{ setParent(p, self Widget) }); ok {
+			waiting := waitingTopMoving(w, nil)
 			s.setParent(nil, nil)
+			refileWaiting(waiting)
 		}
 	}
 }

@@ -27,6 +27,9 @@ type Env struct {
 	// Its Width and Height also resolve the vw/vh unit family and its
 	// Dark flag picks light-dark()'s half.
 	Media Media
+	// System maps the CSS system color keywords; nil computes them
+	// with the neutral defaults.
+	System *SystemColors
 	// InlineContainerUnits reports that an inline style names a
 	// container-query unit, which no sheet's summary shows: the
 	// container resolution runs for every node, since a custom property
@@ -98,7 +101,7 @@ func (sc *Scratch) computeAll(layers []Layer, n Node, parent, old *Values, env E
 	sc.cx = ctx{
 		rem: env.Rem, em: env.FontPx, weight: 400, self: &sc.self,
 		vpW: env.Media.Width, vpH: env.Media.Height,
-		font: env.Font, rlh: env.RootLineHeight, dark: env.Media.Dark, dpi: env.Media.DPI,
+		font: env.Font, rlh: env.RootLineHeight, dark: env.Media.Dark, sys: env.System, dpi: env.Media.DPI,
 		conts: sc.conts,
 	}
 	if sc.cx.rlh == 0 {

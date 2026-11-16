@@ -80,11 +80,7 @@ func TestInvokeRunsInOrderOnPump(t *testing.T) {
 // pumps - the loop goroutine. A direct touch from the same foreign
 // goroutine trips it, which is what makes the contract testable.
 func TestInvokeRunsOnLoopGoroutine(t *testing.T) {
-	widget.UnmarkLoop()
-	defer func() {
-		widget.UnmarkLoop()
-		widget.SetOffLoopHook(nil)
-	}()
+	defer widget.SetOffLoopHook(nil)
 	var hits atomic.Int32
 	widget.SetOffLoopHook(func(string) { hits.Add(1) })
 
@@ -99,9 +95,10 @@ func TestInvokeRunsOnLoopGoroutine(t *testing.T) {
 	kicks := make(chan struct{})
 	started := make(chan struct{})
 	done := make(chan struct{})
+	var unmark func()
 	go func() { // the fake loop goroutine
 		defer close(done)
-		widget.MarkLoop()
+		unmark = widget.MarkLoop()
 		close(started)
 		for range passes {
 			<-kicks // the park
@@ -109,6 +106,7 @@ func TestInvokeRunsOnLoopGoroutine(t *testing.T) {
 		}
 	}()
 	<-started
+	defer unmark()
 	for i := range passes {
 		// From the producer goroutine: the sanctioned path.
 		a.Invoke(func() { label.SetText(fmt.Sprintf("tick %d", i)) })

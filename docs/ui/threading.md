@@ -58,7 +58,7 @@ When `Run` returns, timers stop and queued `Invoke`s are dropped.
 
 ## Off-loop detection
 
-`Run` marks its goroutine (`widget.MarkLoop`). `Invalidate`,
+each Application's `Run` marks its own goroutine, and the guard tracks all of them (`widget.MarkLoop`). `Invalidate`,
 `InvalidateRect`, `SetTooltip`, and every setter that invalidates, check
 it. A call from another goroutine fires the hook set with
 `widget.SetOffLoopHook`. This samples common entry points; it is not a

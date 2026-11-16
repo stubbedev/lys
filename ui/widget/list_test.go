@@ -285,7 +285,7 @@ func frameOn(t *testing.T, clock *anim.Clock, host Widget, w, h int) {
 	for range 2 {
 		SizeWithin(host, Size{W: w, H: h})
 		host.Arrange(render.Rect{W: w, H: h})
-		AttachAnimations()
+		AttachAnimations(clock)
 		data := make([]byte, render.Stride(w)*h)
 		host.Paint(render.New(data, render.Stride(w), w, h))
 	}

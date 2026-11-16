@@ -831,7 +831,7 @@ func attrColor(args []token, cx *ctx) (colorVal, bool) {
 }
 
 // SystemColors are the CSS system color keywords mapped to the active
-// theme; SetSystemColors installs the mapping, so a theme swap
+// theme; Env.System carries the mapping into a compute, so a theme swap
 // re-derives every system color the way the theme layer re-derives
 // the named colors.
 type SystemColors struct {
@@ -840,7 +840,8 @@ type SystemColors struct {
 	ButtonFace, ButtonText, ButtonBorder, Field, FieldText render.Color
 }
 
-// defaultSystemColors is the neutral mapping SetSystemColors resets to.
+// defaultSystemColors is the neutral mapping an Env without System
+// computes with.
 var defaultSystemColors = SystemColors{
 	Canvas:        render.RGB(0xff, 0xff, 0xff),
 	CanvasText:    render.RGB(0x00, 0x00, 0x00),
@@ -858,23 +859,14 @@ var defaultSystemColors = SystemColors{
 	FieldText:     render.RGB(0x00, 0x00, 0x00),
 }
 
-// sysColors is the installed system color mapping.
-var sysColors = defaultSystemColors
-
-// SetSystemColors installs the system color mapping; the zero value
-// restores the defaults. One mapping per process, like the theme
-// layer.
-func SetSystemColors(s SystemColors) {
-	if s == (SystemColors{}) {
-		s = defaultSystemColors
-	}
-	sysColors = s
-}
-
 // sysColor resolves one system color keyword, marking the node
 // dependence.
 func (cx *ctx) sysColor(name string) (render.Color, bool) {
 	cx.dep = true
+	sysColors := cx.sys
+	if sysColors == nil {
+		sysColors = &defaultSystemColors
+	}
 	switch name {
 	case "canvas":
 		return sysColors.Canvas, true

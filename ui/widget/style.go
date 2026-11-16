@@ -449,9 +449,44 @@ func LoadStylesheet(css string) {
 	}
 }
 
-// styleEnv is the unit environment: what 1rem is, and the font size a
-// widget computes when nothing in its ancestry sets one.
-var styleEnv = style.Env{Rem: 16, FontPx: 16}
+type environment struct {
+	theme    *Theme
+	dark     bool
+	system   style.SystemColors
+	rem      float64
+	viewport struct{ w, h int }
+	contrast bool
+	dpi      float64
+}
+
+func themedEnvironment(e environment, t *Theme) environment {
+	e.theme, e.dark, e.system = t, t.IsDark(), systemColorsOf(t)
+	return e
+}
+
+var (
+	environMu          sync.Mutex
+	environNow         atomic.Pointer[environment]
+	defaultEnvironment = themedEnvironment(environment{rem: 16, dpi: 96}, DarkTheme())
+)
+
+func environ() *environment {
+	if e := environNow.Load(); e != nil {
+		return e
+	}
+	return &defaultEnvironment
+}
+
+func changeEnviron(change func(e *environment) bool) bool {
+	environMu.Lock()
+	defer environMu.Unlock()
+	next := *environ()
+	if !change(&next) {
+		return false
+	}
+	environNow.Store(&next)
+	return true
+}
 
 // SetRootFontSize sets the root font size stylesheet units resolve
 // against: 1rem, and the default font size (CSS's `medium`) of widgets
@@ -459,39 +494,30 @@ var styleEnv = style.Env{Rem: 16, FontPx: 16}
 // default; GTK derives its own from the desktop font setting. The whole
 // tree restyles.
 func SetRootFontSize(px float64) {
-	if px <= 0 || px == styleEnv.Rem {
+	if px <= 0 || !changeEnviron(func(e *environment) bool {
+		changed := e.rem != px
+		e.rem = px
+		return changed
+	}) {
 		return
 	}
-	styleEnv = style.Env{Rem: px, FontPx: px}
 	bumpStyleGen("root font size")
 }
 
 // RootFontSize returns the current root font size.
-func RootFontSize() float64 { return styleEnv.Rem }
-
-// mediaViewport is the @media viewport (SetMediaViewport) a tree
-// computes against when its style root reports none of its own
-// (SetMediaViewportFor). mediaContrast and mediaDPI are the appearance
-// inputs SetTheme cannot derive: prefers-contrast and resolution. All
-// loop-goroutine state, like styleEnv.
-var (
-	mediaViewport struct{ w, h int }
-	mediaContrast bool
-	mediaDPI      = 96.0
-)
+func RootFontSize() float64 { return environ().rem }
 
 // SetMediaViewport sets the size @media width/height/aspect-ratio/
 // orientation conditions evaluate against for trees whose window
 // reported no viewport of its own — the window's logical size, which
 // the app layer feeds from its resize callback. The whole tree
-// restyles when the size changes. Call it from the event-loop
-// goroutine, like SetTheme.
+// restyles when the size changes.
 func SetMediaViewport(w, h int) {
-	if w == mediaViewport.w && h == mediaViewport.h {
-		return
-	}
-	mediaViewport.w, mediaViewport.h = w, h
-	if !cascadeOf().sens.media {
+	if !changeEnviron(func(e *environment) bool {
+		changed := e.viewport.w != w || e.viewport.h != h
+		e.viewport.w, e.viewport.h = w, h
+		return changed
+	}) || !cascadeOf().sens.media {
 		return
 	}
 	bumpStyleGen("media viewport")
@@ -523,9 +549,10 @@ func SetMediaViewportFor(root Widget, w, h int) {
 // against: its style root's own size, else the global one; 0×0 until
 // either is set.
 func MediaViewportOf(w Widget) (int, int) {
-	vp := mediaViewport
+	e := environ()
+	vp := e.viewport
 	if n := nodeOf(w); n != nil {
-		vp = rootViewport(styleRootOf(n))
+		vp = rootViewport(e, styleRootOf(n))
 	}
 	return vp.w, vp.h
 }
@@ -534,11 +561,11 @@ func MediaViewportOf(w Widget) (int, int) {
 // off; the desktop's contrast preference, which no Theme field
 // carries. The whole tree restyles on a change.
 func SetMediaContrast(on bool) {
-	if on == mediaContrast {
-		return
-	}
-	mediaContrast = on
-	if !cascadeOf().sens.media {
+	if !changeEnviron(func(e *environment) bool {
+		changed := e.contrast != on
+		e.contrast = on
+		return changed
+	}) || !cascadeOf().sens.media {
 		return
 	}
 	bumpStyleGen("media contrast")
@@ -547,11 +574,11 @@ func SetMediaContrast(on bool) {
 // SetMediaResolution sets the resolution the @media resolution feature
 // reports, in dpi. The default is 96.
 func SetMediaResolution(dpi float64) {
-	if dpi <= 0 || dpi == mediaDPI {
-		return
-	}
-	mediaDPI = dpi
-	if !cascadeOf().sens.media {
+	if dpi <= 0 || !changeEnviron(func(e *environment) bool {
+		changed := e.dpi != dpi
+		e.dpi = dpi
+		return changed
+	}) || !cascadeOf().sens.media {
 		return
 	}
 	bumpStyleGen("media resolution")
@@ -570,35 +597,18 @@ var defaultFontMetrics = sync.OnceValue(func() style.FontMetrics {
 	return style.FontMetrics{Ch: m.Ch, Ex: m.Ex, Cap: m.Cap, Ic: m.Ic, LineHeight: m.LineHeight}
 })
 
-// themeDark memoizes the active theme's polarity by its background:
-// every compute reads it, and the WCAG luminance behind it linearizes
-// three channels.
-var themeDark struct {
-	bg   render.Color
-	dark bool
-	ok   bool
-}
-
-// currentDark reports whether the active theme is dark.
-func currentDark() bool {
-	if !themeDark.ok || themeDark.bg != current.Bg {
-		themeDark.bg, themeDark.dark, themeDark.ok = current.Bg, current.IsDark(), true
-	}
-	return themeDark.dark
-}
-
 // envNow is the compute environment: the unit state plus the @media
 // environment, its appearance half derived from the active Theme
 // (prefers-color-scheme from the palette's polarity, reduced motion
 // from the animation gate) so a theme swap re-evaluates every
 // prefers-* rule.
-func envNow() style.Env {
+func envNow(e *environment) style.Env {
 	m := defaultFontMetrics()
-	env := style.Env{Rem: styleEnv.Rem, FontPx: styleEnv.FontPx, Font: m, Media: style.Media{
-		Width: float64(mediaViewport.w), Height: float64(mediaViewport.h),
-		DPI: mediaDPI, Dark: currentDark(), HighContrast: mediaContrast,
-		ReducedMotion: !current.Moves(),
-	}, InlineContainerUnits: cascadeOf().inline.Container}
+	env := style.Env{Rem: e.rem, FontPx: e.rem, Font: m, Media: style.Media{
+		Width: float64(e.viewport.w), Height: float64(e.viewport.h),
+		DPI: e.dpi, Dark: e.dark, HighContrast: e.contrast,
+		ReducedMotion: !e.theme.Moves(),
+	}, System: &e.system, InlineContainerUnits: cascadeOf().inline.Container}
 	env.RootLineHeight = env.Rem * ratioOr(m.LineHeight, 1.2)
 	return env
 }
@@ -610,9 +620,10 @@ func envNow() style.Env {
 // value). The root itself resolves them against the initial values,
 // and its style is fresh here: a node's ancestry computes first.
 func envFor(n *node, gen uint64) style.Env {
-	env := envNow()
+	e := environ()
+	env := envNow(e)
 	r := styleRootOf(n)
-	vp := rootViewport(r)
+	vp := rootViewport(e, r)
 	env.Media.Width, env.Media.Height = float64(vp.w), float64(vp.h)
 	if r == n || r.csGen != gen {
 		return env
@@ -628,12 +639,12 @@ func envFor(n *node, gen uint64) style.Env {
 }
 
 // rootViewport is the @media viewport the tree under style root r
-// computes against: r's own size, else the global one.
-func rootViewport(r *node) struct{ w, h int } {
+// computes against: r's own size, else e's.
+func rootViewport(e *environment, r *node) struct{ w, h int } {
 	if r.viewport.w > 0 && r.viewport.h > 0 {
 		return r.viewport
 	}
-	return mediaViewport
+	return e.viewport
 }
 
 // styleRootOf is n's style root: the topmost node of its styling

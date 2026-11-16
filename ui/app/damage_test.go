@@ -170,7 +170,7 @@ func (h *paintHarness) frame() (int, []render.Rect) {
 	if !h.wnd.draw() {
 		panic(h.wnd.drawErr)
 	}
-	widget.AttachAnimations()
+	widget.AttachAnimations(h.wnd.anim)
 	for _, b := range h.stale {
 		b.Release()
 	}

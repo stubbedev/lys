@@ -2,6 +2,7 @@ package widget
 
 import (
 	"math"
+	"sync"
 	"sync/atomic"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -41,9 +42,39 @@ type sharedShot struct {
 	dev render.Rect
 }
 
-// sharedShots holds each tag's last rendering. Tags are few - a handful
-// of hero elements - so the map stays small.
-var sharedShots = map[string]*sharedShot{}
+// sharedShots holds each tag's last rendering under each animation
+// clock, so the trees of one application, which share its clock, morph
+// into each other and never into another application's. Tags are few -
+// a handful of hero elements - so the map stays small.
+var sharedShots = sharedShotCache{shots: map[sharedShotKey]*sharedShot{}}
+
+type sharedShotKey struct {
+	clock *anim.Clock
+	tag   string
+}
+
+type sharedShotCache struct {
+	mu    sync.Mutex
+	shots map[sharedShotKey]*sharedShot
+}
+
+func (c *sharedShotCache) get(k sharedShotKey) *sharedShot {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.shots[k]
+}
+
+func (c *sharedShotCache) put(k sharedShotKey, shot *sharedShot) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.shots[k] = shot
+}
+
+func (c *sharedShotCache) reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	clear(c.shots)
+}
 
 // sharedTransition is a running shared-element morph into a widget.
 type sharedTransition struct {
@@ -59,7 +90,8 @@ type sharedTransition struct {
 // rendering for the tag, and through a running morph when it has
 // just appeared after another widget with the tag.
 func (n *node) paintShared(cv *render.Canvas, w Widget) {
-	shot := sharedShots[n.sharedTag]
+	key := sharedShotKey{clock: n.hostClock(), tag: n.sharedTag}
+	shot := sharedShots.get(key)
 	root := RootOf(w)
 	// Another widget's rendering under the tag means it was shown since
 	// this one last painted: this one takes over from it, out of the
@@ -73,7 +105,7 @@ func (n *node) paintShared(cv *render.Canvas, w Widget) {
 	}
 	if shot == nil || shot.owner != n {
 		shot = &sharedShot{owner: n}
-		sharedShots[n.sharedTag] = shot
+		sharedShots.put(key, shot)
 	}
 	dev := cv.MapRect(n.bounds)
 	if dev.Empty() {
@@ -134,11 +166,11 @@ func surfaceOrigin(root Widget) (Point, bool) {
 }
 
 // SharedMorphPending reports whether a tree about to show on a surface
-// of its own holds a tagged widget that will morph out of another
-// surface's: a widget whose tag last showed, placed, on a different
-// surface. A popover opening with one skips its own reveal, since the
-// morph carries the opening.
-func SharedMorphPending(tree Widget) bool {
+// of its own, hosted on clock, holds a tagged widget that will morph out
+// of another surface's: a widget whose tag last showed, placed, on a
+// different surface whose tree runs on the same clock. A popover opening
+// with one skips its own reveal, since the morph carries the opening.
+func SharedMorphPending(tree Widget, clock *anim.Clock) bool {
 	root := RootOf(tree)
 	pending := false
 	walkWidgets(tree, func(w Widget) bool {
@@ -146,7 +178,7 @@ func SharedMorphPending(tree Widget) bool {
 		if n == nil || n.sharedTag == "" {
 			return !pending
 		}
-		if shot := sharedShots[n.sharedTag]; shot != nil && shot.owner != n && shot.layer != nil && shot.placed && shot.root != root {
+		if shot := sharedShots.get(sharedShotKey{clock: clock, tag: n.sharedTag}); shot != nil && shot.owner != n && shot.layer != nil && shot.placed && shot.root != root {
 			pending = true
 		}
 		return !pending

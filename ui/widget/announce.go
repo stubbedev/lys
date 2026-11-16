@@ -2,6 +2,7 @@ package widget
 
 import (
 	"slices"
+	"sync"
 	"sync/atomic"
 )
 
@@ -31,8 +32,11 @@ var announcing atomic.Bool
 
 // announcements are what waits for the bridge's next pass, one per
 // widget: a live region changing again before it is spoken replaces its
-// text. Loop goroutine only.
-var announcements []Announcement
+// text.
+var announcements struct {
+	mu      sync.Mutex
+	pending []Announcement
+}
 
 // SetAnnouncementsHeard tells the toolkit whether an assistive technology
 // listens to announcements; the accessibility bridge sets it as it
@@ -42,8 +46,7 @@ func SetAnnouncementsHeard(on bool) {
 	checkLoop("SetAnnouncementsHeard")
 	announcing.Store(on)
 	if !on {
-		clear(announcements)
-		announcements = announcements[:0]
+		dropAnnouncements()
 	}
 }
 
@@ -62,11 +65,13 @@ func Announce(w Widget, text string, p Politeness) {
 // queueAnnouncement adds a, replacing what its widget still has
 // waiting.
 func queueAnnouncement(a Announcement) {
-	if i := slices.IndexFunc(announcements, func(o Announcement) bool { return o.Widget == a.Widget }); i >= 0 {
-		announcements[i] = a
+	announcements.mu.Lock()
+	if i := slices.IndexFunc(announcements.pending, func(o Announcement) bool { return o.Widget == a.Widget }); i >= 0 {
+		announcements.pending[i] = a
 	} else {
-		announcements = append(announcements, a)
+		announcements.pending = append(announcements.pending, a)
 	}
+	announcements.mu.Unlock()
 	MarkA11yChanged()
 }
 
@@ -74,10 +79,22 @@ func queueAnnouncement(a Announcement) {
 // announced, and empties the queue: the bridge's pass speaks each once.
 // Loop goroutine only.
 func TakeAnnouncements(buf []Announcement) []Announcement {
-	buf = append(buf, announcements...)
-	clear(announcements)
-	announcements = announcements[:0]
+	announcements.mu.Lock()
+	defer announcements.mu.Unlock()
+	buf = append(buf, announcements.pending...)
+	emptyAnnouncementsLocked()
 	return buf
+}
+
+func dropAnnouncements() {
+	announcements.mu.Lock()
+	defer announcements.mu.Unlock()
+	emptyAnnouncementsLocked()
+}
+
+func emptyAnnouncementsLocked() {
+	clear(announcements.pending)
+	announcements.pending = announcements.pending[:0]
 }
 
 // SetLiveRegion makes w a live region: text changing inside it (a

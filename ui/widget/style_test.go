@@ -29,7 +29,7 @@ func bareTheme(t *testing.T) {
 	t.Helper()
 	ensureThemeSheet()
 	themeSheet.Load().Load("")
-	t.Cleanup(func() { syncThemeSheet(Current()) })
+	t.Cleanup(refreshTheme)
 }
 
 var themeSheetBuiltAtInit bool
@@ -92,7 +92,7 @@ func arrangeTreeOn(t *testing.T, clock *anim.Clock, root Widget, w, h int) {
 	t.Cleanup(Host(root, clock))
 	SizeWithin(root, Size{W: w, H: h})
 	root.Arrange(render.Rect{X: 0, Y: 0, W: w, H: h})
-	AttachAnimations()
+	AttachAnimations(clock)
 	CollectDamage(root)
 }
 

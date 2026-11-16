@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -15,11 +16,7 @@ import (
 // hook. This is the test that fails when a callback touches widgets
 // off-loop.
 func TestOffLoopMutationTripsHook(t *testing.T) {
-	UnmarkLoop()
-	defer func() {
-		UnmarkLoop()
-		SetOffLoopHook(nil)
-	}()
+	defer SetOffLoopHook(nil)
 	var hits atomic.Int32
 	SetOffLoopHook(func(what string) { hits.Add(1) })
 
@@ -28,7 +25,8 @@ func TestOffLoopMutationTripsHook(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	MarkLoop() // this goroutine plays the loop
+	unmark := MarkLoop()
+	defer unmark()
 	label := NewLabel(face, 14, "one", render.RGB(255, 255, 255))
 	label.SetText("two")
 	box := NewBox(Column, 4, 4)
@@ -61,9 +59,7 @@ func TestOffLoopMutationTripsHook(t *testing.T) {
 		t.Error("off-loop InvalidateRect was not detected")
 	}
 
-	// Disarming silences the guard: post-Run teardown may touch
-	// widgets from any goroutine.
-	UnmarkLoop()
+	unmark()
 	done3 := make(chan struct{})
 	go func() {
 		defer close(done3)
@@ -75,12 +71,8 @@ func TestOffLoopMutationTripsHook(t *testing.T) {
 	}
 }
 
-// TestMarkLoopReArms checks that marking a different goroutine moves
-// the guard: lys-ui-hello style tests mark whichever goroutine drives
-// the tree.
 func TestMarkLoopReArms(t *testing.T) {
-	UnmarkLoop()
-	defer UnmarkLoop()
+	defer SetOffLoopHook(nil)
 	var hits atomic.Int32
 	SetOffLoopHook(func(string) { hits.Add(1) })
 
@@ -89,12 +81,12 @@ func TestMarkLoopReArms(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	MarkLoop()
+	defer MarkLoop()()
 	entered := make(chan struct{})
 	done := make(chan struct{})
-	go func() { // a new "loop" goroutine takes over
+	go func() {
 		defer close(done)
-		MarkLoop()
+		defer MarkLoop()()
 		close(entered)
 		label := NewLabel(face, 12, "new loop owns the tree", render.RGB(255, 255, 255))
 		label.SetText("moved")
@@ -104,4 +96,49 @@ func TestMarkLoopReArms(t *testing.T) {
 		t.Errorf("re-marked loop goroutine tripped the hook %d times", got)
 	}
 	<-done
+}
+
+func TestTwoLoopGoroutinesEachChangeTheirOwnTree(t *testing.T) {
+	defer SetOffLoopHook(nil)
+	var hits atomic.Int32
+	SetOffLoopHook(func(string) { hits.Add(1) })
+	const loops = 2
+	var marked, changed, checked sync.WaitGroup
+	marked.Add(loops)
+	changed.Add(loops)
+	checked.Add(1)
+	var onLoops, offLoop int32
+	atOnce(t, loops, func(w int) error {
+		defer MarkLoop()()
+		box := NewBox(Column, 0, 0)
+		count := NewBinding(0)
+		marked.Done()
+		marked.Wait()
+		for i := range 50 {
+			count.Set(w*100 + i)
+			box.Invalidate()
+		}
+		changed.Done()
+		changed.Wait()
+		if w != 0 {
+			checked.Wait()
+			return nil
+		}
+		defer checked.Done()
+		onLoops = hits.Load()
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			box.Invalidate()
+		}()
+		<-done
+		offLoop = hits.Load() - onLoops
+		return nil
+	})
+	if onLoops != 0 {
+		t.Errorf("two marked loops changing their own trees tripped the hook %d times", onLoops)
+	}
+	if offLoop == 0 {
+		t.Error("a mutation from a goroutine no loop marked, with both loops marked, did not trip the hook")
+	}
 }

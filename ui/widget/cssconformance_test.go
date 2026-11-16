@@ -201,7 +201,7 @@ func (f *confFixture) values(id string) *style.Values {
 func (f *confFixture) settle() {
 	f.t.Helper()
 	settle(f.t, f.root, f.vp.W, f.vp.H)
-	AttachAnimations()
+	AttachAnimations(&f.clock.clock)
 	stride := render.Stride(f.vp.W)
 	f.frame = make([]byte, stride*f.vp.H)
 	cv := render.New(f.frame, stride, f.vp.W, f.vp.H)

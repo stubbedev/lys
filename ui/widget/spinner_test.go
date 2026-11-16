@@ -288,7 +288,7 @@ func TestUnhostedTreeSchedulesNoFrames(t *testing.T) {
 	l.AddClass("pulse")
 	page := NewScroll(NewBox(Column, 0, 0).Append(s, false).Append(l, false))
 	layout(page, 200, 100)
-	AttachAnimations()
+	AttachAnimations(&c.clock)
 	if c.scheduled() {
 		t.Error("a tree arranged without a host schedules frames")
 	}

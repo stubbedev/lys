@@ -234,16 +234,12 @@ func TestBindingTwoWidgetsOneValueNoEcho(t *testing.T) {
 // foreign goroutine trips the same off-loop hook a widget mutation
 // does, and an on-loop Set does not.
 func TestBindingOffLoopTripsHook(t *testing.T) {
-	UnmarkLoop()
-	defer func() {
-		UnmarkLoop()
-		SetOffLoopHook(nil)
-	}()
+	defer SetOffLoopHook(nil)
 	var hits atomic.Int32
 	SetOffLoopHook(func(string) { hits.Add(1) })
 
 	b := NewBinding(0)
-	MarkLoop()
+	defer MarkLoop()()
 	b.Set(1)
 	if got := hits.Load(); got != 0 {
 		t.Errorf("on-loop Set tripped the hook %d times", got)

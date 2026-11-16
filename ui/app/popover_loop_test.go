@@ -438,7 +438,7 @@ func TestPopoverShrinkWaitsForTheContent(t *testing.T) {
 			t.Fatal(err)
 		}
 		op.keyRoot.Arrange(render.Rect{X: 2, Y: 2, W: surf.w - 4, H: surf.h - 4})
-		widget.AttachAnimations()
+		widget.AttachAnimations(&clock)
 		widget.CollectDamage(op.keyRoot)
 		op.keyRoot.Paint(cv)
 	}

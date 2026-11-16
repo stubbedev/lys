@@ -28,7 +28,7 @@ func TestReducedMotionStopsMotionAndKeepsFades(t *testing.T) {
 	if anim.NoFades() {
 		t.Error("fades collapse with motion")
 	}
-	if !envNow().Media.ReducedMotion {
+	if !envNow(environ()).Media.ReducedMotion {
 		t.Error("prefers-reduced-motion does not match")
 	}
 	plan := surfx.Plan(surfx.KindToast, theme.Moves())

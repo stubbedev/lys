@@ -26,6 +26,10 @@ func paintTree(root Widget, w, h int) []byte {
 	return data
 }
 
+func centerOf(data []byte, w, h int) render.Color {
+	return render.ColorFromBytes(data[h/2*render.Stride(w)+w/2*4:])
+}
+
 func TestBoxModelMarginBorderPadding(t *testing.T) {
 	loadCSS(t, `.b { margin: 1px 2px 3px 4px; padding: 5px 6px 7px 8px; border: 1px solid #ffffff; }`)
 	child := NewSpacer(10, 10)

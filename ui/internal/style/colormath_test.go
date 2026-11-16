@@ -1,7 +1,9 @@
 package style
 
 import (
+	"fmt"
 	"math"
+	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -175,19 +177,47 @@ func TestSystemColors(t *testing.T) {
 		Highlight: render.RGB(0x0f, 0x0e, 0x0d), GrayText: render.RGB(0x77, 0x77, 0x77),
 		ButtonFace: render.RGB(0x01, 0x02, 0x03),
 	}
-	SetSystemColors(custom)
-	t.Cleanup(func() { SetSystemColors(SystemColors{}) })
 	s := parseOne(t, `
 		a { color: Canvas; background-color: Highlight; }
 		b { color: ButtonFace; border-color: GrayText; }
 	`)
-	v := computeTree(s, el("a"))
+	env := Env{Rem: 16, System: &custom}
+	v := computeEnv(s, el("a"), env)
 	if v.Color != custom.Canvas || v.Background != custom.Highlight {
 		t.Errorf("system colors: %08x %08x", uint32(v.Color), uint32(v.Background))
 	}
-	v = computeTree(s, el("b"))
+	v = computeEnv(s, el("b"), env)
 	if v.Color != custom.ButtonFace || v.BorderColor[0] != custom.GrayText {
 		t.Errorf("system colors 2: %08x %08x", uint32(v.Color), uint32(v.BorderColor[0]))
+	}
+	v = computeEnv(s, el("a"), Env{Rem: 16})
+	if v.Color != defaultSystemColors.Canvas || v.Background != defaultSystemColors.Highlight {
+		t.Errorf("an environment without system colors: %08x %08x, want the neutral defaults", uint32(v.Color), uint32(v.Background))
+	}
+}
+
+func TestTwoEnvironmentsComputeTheirOwnSystemColorsAtOnce(t *testing.T) {
+	s := parseOne(t, `a { color: Canvas; background-color: Highlight; }`)
+	envs := [2]SystemColors{
+		{Canvas: render.RGB(1, 2, 3), Highlight: render.RGB(4, 5, 6)},
+		{Canvas: render.RGB(7, 8, 9), Highlight: render.RGB(10, 11, 12)},
+	}
+	errs := make(chan error, 2*100)
+	var wg sync.WaitGroup
+	for i := range envs {
+		wg.Go(func() {
+			for range 100 {
+				v := computeEnv(s, el("a"), Env{Rem: 16, System: &envs[i]})
+				if v.Color != envs[i].Canvas || v.Background != envs[i].Highlight {
+					errs <- fmt.Errorf("environment %d computed %08x %08x", i, uint32(v.Color), uint32(v.Background))
+				}
+			}
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
 	}
 }
 

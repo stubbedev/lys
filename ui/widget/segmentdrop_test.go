@@ -41,7 +41,7 @@ func newDropRig(t *testing.T, edge BarEdge, n int) *dropRig {
 func (r *dropRig) frame() {
 	SizeWithin(r.bar, Size{W: r.w, H: r.h})
 	r.bar.Arrange(render.Rect{W: r.w, H: r.h})
-	AttachAnimations()
+	AttachAnimations(&r.clock.clock)
 	CollectDamage(r.bar)
 }
 

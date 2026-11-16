@@ -99,7 +99,7 @@ func TestStylesheetImageDecodesOnceForEveryWidget(t *testing.T) {
 			t.Errorf("box %d was not repainted by the one decode", i)
 		}
 	}
-	if img := cssImages[path]; img == nil || !img.settled || img.icon == nil || len(img.waiters) != 0 {
+	if img := cssImages.imgs[path]; img == nil || !img.settled || img.icon == nil || len(img.waiters) != 0 {
 		t.Errorf("after the decode: %+v", img)
 	}
 }
@@ -119,7 +119,7 @@ func TestStylesheetImageFailureSettlesAndWarns(t *testing.T) {
 	if got := render.ColorFromBytes(data[5*render.Stride(10)+5*4:]); got != render.RGB(0, 0, 255) {
 		t.Errorf("center = %v, want the background color alone", got)
 	}
-	if img := cssImages[path]; img == nil || !img.settled {
+	if img := cssImages.imgs[path]; img == nil || !img.settled {
 		t.Error("a file that does not load stays asked for")
 	}
 }

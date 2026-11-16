@@ -894,9 +894,9 @@ func (a *Application) teardown() {
 // the wake computation, so a pending poller wakes the park exactly
 // once per tick. Run closes the application (Close) when it returns.
 func (a *Application) Run() error {
-	widget.MarkLoop()
+	unmark := widget.MarkLoop()
 	defer func() {
-		widget.UnmarkLoop()
+		unmark()
 		a.Close()
 	}()
 	if _, err := a.renderer(); err != nil {
@@ -1094,7 +1094,7 @@ func (a *Application) tick(step func() error, now time.Time) error {
 	if err := a.drivePopovers(); err != nil {
 		return a.loopError(err)
 	}
-	widget.AttachAnimations()
+	widget.AttachAnimations(&a.anim)
 	if a.quit {
 		return ErrClosed
 	}

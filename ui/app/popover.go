@@ -589,7 +589,7 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 	if parent != nil {
 		_, basePlaced = a.originOf(parent)
 	}
-	pcfg.NoEnter = basePlaced && widget.SharedMorphPending(cfg.Content)
+	pcfg.NoEnter = basePlaced && widget.SharedMorphPending(cfg.Content, &a.anim)
 	pcfg.Kind = popoverMotion(cfg)
 	pop, err := popup.New(a.sess, &a.anim, pcfg)
 	if err != nil {

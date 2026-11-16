@@ -1,6 +1,9 @@
 package widget
 
-import "reflect"
+import (
+	"reflect"
+	"sync"
+)
 
 // widgetPkg is this package's import path: the types whose values own
 // their nodes.
@@ -8,9 +11,8 @@ var widgetPkg = reflect.TypeFor[Base]().PkgPath()
 
 // ownerPaths caches, per wrapper type, the embedded-field path to the
 // lys-ui widget that owns its node; nil for a type that is its own
-// owner. Styling runs on the event-loop goroutine, like the rest of
-// the cascade, so the cache needs no lock.
-var ownerPaths = map[reflect.Type][]int{}
+// owner. Every tree styling on any goroutine shares it.
+var ownerPaths sync.Map
 
 // styleOwner is the widget a node styles as: w itself, or, for a
 // struct that embeds a lys-ui widget to add behavior (type toggle
@@ -21,11 +23,11 @@ var ownerPaths = map[reflect.Type][]int{}
 // methods are its behavior.
 func styleOwner(w Widget) Widget {
 	t := reflect.TypeOf(w)
-	path, ok := ownerPaths[t]
+	cached, ok := ownerPaths.Load(t)
 	if !ok {
-		path = ownerPath(t)
-		ownerPaths[t] = path
+		cached, _ = ownerPaths.LoadOrStore(t, ownerPath(t))
 	}
+	path, _ := cached.([]int)
 	if path == nil {
 		return w
 	}

@@ -20,7 +20,7 @@ func TestSharedElementMorphs(t *testing.T) {
 	now := time.Unix(1750000000, 0)
 	t.Cleanup(animclock.SetClock(func() time.Time { return now }))
 	var clock anim.Clock
-	t.Cleanup(func() { clear(sharedShots) })
+	t.Cleanup(sharedShots.reset)
 
 	const w, h = 120, 120
 	data := make([]byte, render.Stride(w)*h)
@@ -30,7 +30,7 @@ func TestSharedElementMorphs(t *testing.T) {
 	frame := func() {
 		SizeWithin(root, Size{W: w, H: h})
 		root.Arrange(render.Rect{W: w, H: h})
-		AttachAnimations()
+		AttachAnimations(&clock)
 		CollectDamage(root)
 		cv.Clear(cv.Rect(), 0)
 		root.Paint(cv)
@@ -89,7 +89,7 @@ func TestSharedElementReducedMotionCrossFades(t *testing.T) {
 	now := time.Unix(1750000000, 0)
 	t.Cleanup(animclock.SetClock(func() time.Time { return now }))
 	var clock anim.Clock
-	t.Cleanup(func() { clear(sharedShots) })
+	t.Cleanup(sharedShots.reset)
 	const w, h = 120, 120
 	data := make([]byte, render.Stride(w)*h)
 	cv := render.New(data, render.Stride(w), w, h)
@@ -98,7 +98,7 @@ func TestSharedElementReducedMotionCrossFades(t *testing.T) {
 	frame := func() {
 		SizeWithin(root, Size{W: w, H: h})
 		root.Arrange(render.Rect{W: w, H: h})
-		AttachAnimations()
+		AttachAnimations(&clock)
 		CollectDamage(root)
 		cv.Clear(cv.Rect(), 0)
 		root.Paint(cv)
@@ -132,7 +132,7 @@ func TestSharedElementAcrossSurfaces(t *testing.T) {
 	loadCSS(t, `.hero { min-width: 20px; min-height: 20px; margin: 10px; background-color: #ff0000; }`)
 	now := time.Unix(1750000000, 0)
 	t.Cleanup(animclock.SetClock(func() time.Time { return now }))
-	t.Cleanup(func() { clear(sharedShots) })
+	t.Cleanup(sharedShots.reset)
 	window, popover := NewBox(Column, 0, 0), NewBox(Column, 0, 0)
 	placed := true
 	SetSurfaceOriginResolver(func(root Widget) (Point, bool) {
@@ -161,7 +161,7 @@ func TestSharedElementAcrossSurfaces(t *testing.T) {
 	card.AddClass("hero")
 	card.SetSharedElement("open")
 	popover.Append(card, false)
-	if !SharedMorphPending(popover) {
+	if !SharedMorphPending(popover, nil) {
 		t.Error("the popover's content does not report a morph pending")
 	}
 	paint(popover)
@@ -173,7 +173,7 @@ func TestSharedElementAcrossSurfaces(t *testing.T) {
 	}
 
 	placed = false
-	clear(sharedShots)
+	sharedShots.reset()
 	paint(window)
 	other := NewBox(Column, 0, 0)
 	other.AddClass("hero")

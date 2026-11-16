@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"maps"
+	"sync"
 
 	"github.com/stubbedev/lys/lib/icons"
 	"github.com/stubbedev/lys/lib/render"
@@ -12,8 +14,8 @@ import (
 )
 
 // cssImage is one stylesheet url() file: decoded at its natural size off
-// the loop, nil once settled if it does not load. Loop-goroutine state,
-// like the cascade.
+// the loop, nil once settled if it does not load. cssImages.mu guards
+// its fields: every tree that styles with the file shares it.
 type cssImage struct {
 	icon    *render.Icon
 	settled bool
@@ -25,14 +27,21 @@ type cssWaiter struct {
 	settle func()
 }
 
-var cssImages = map[string]*cssImage{}
+type cssImageCache struct {
+	mu   sync.Mutex
+	imgs map[string]*cssImage
+}
+
+var cssImages = cssImageCache{imgs: map[string]*cssImage{}}
 
 // bgImageFor is the decoded image of a url() file, nil while it decodes
 // and for one that does not load: the box then paints its background
 // color alone. It reads nothing; the restyle that saw the url asked for
 // the file.
 func bgImageFor(path string) *render.Icon {
-	if img, ok := cssImages[path]; ok {
+	cssImages.mu.Lock()
+	defer cssImages.mu.Unlock()
+	if img, ok := cssImages.imgs[path]; ok {
 		return img.icon
 	}
 	return nil
@@ -42,22 +51,38 @@ func requestCSSImage(path string, w Widget) {
 	if path == "" {
 		return
 	}
-	img, ok := cssImages[path]
+	img, load := cssImages.await(path, w, hasInvoker())
+	if load {
+		img.load(path)
+	}
+}
+
+func (c *cssImageCache) await(path string, w Widget, async bool) (img *cssImage, load bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	img, ok := c.imgs[path]
 	if !ok {
 		img = &cssImage{}
-		cssImages[path] = img
+		c.imgs[path] = img
 	}
 	if img.settled {
-		return
+		return img, false
+	}
+	if !async {
+		return img, true
 	}
 	waiter := cssWaiter{w: w}
 	if n := nodeOf(w); n != nil {
 		waiter.settle = owe(styleRootOf(n))
 	}
 	img.waiters = append(img.waiters, waiter)
-	if !ok {
-		img.load(path)
-	}
+	return img, !ok
+}
+
+func (c *cssImageCache) dropUnsettled() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	maps.DeleteFunc(c.imgs, func(_ string, img *cssImage) bool { return !img.settled })
 }
 
 func (img *cssImage) load(path string) {
@@ -77,12 +102,14 @@ func (img *cssImage) load(path string) {
 }
 
 func (img *cssImage) settle(decoded *render.Icon, failed error, path string) {
+	cssImages.mu.Lock()
 	img.icon, img.settled = decoded, true
+	waiters := img.waiters
+	img.waiters = nil
+	cssImages.mu.Unlock()
 	if failed != nil {
 		style.Warn(fmt.Sprintf("url(%s): %v", path, failed))
 	}
-	waiters := img.waiters
-	img.waiters = nil
 	for _, w := range waiters {
 		if w.settle != nil {
 			w.settle()

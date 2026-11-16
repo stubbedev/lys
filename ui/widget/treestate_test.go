@@ -1,8 +1,8 @@
 package widget
 
 import (
+	"errors"
 	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -101,26 +101,14 @@ func TestTwoTreesArrangeAndRestyleAtOnce(t *testing.T) {
 		newLaidTree(t, render.Rect{X: 1000, W: 300, H: 240}, [2]int{11, 13}),
 	}
 	const rounds = 120
-	errs := make(chan error, 2*rounds)
-	start := make(chan struct{})
-	var wg sync.WaitGroup
-	for _, tr := range trees {
-		wg.Go(func() {
-			var damage DamageCollector
-			<-start
-			for i := range rounds {
-				if err := tr.round(i, &damage); err != nil {
-					errs <- err
-				}
-			}
-		})
-	}
-	close(start)
-	wg.Wait()
-	close(errs)
-	for err := range errs {
-		t.Error(err)
-	}
+	atOnce(t, len(trees), func(w int) error {
+		var damage DamageCollector
+		var errs []error
+		for i := range rounds {
+			errs = append(errs, trees[w].round(i, &damage))
+		}
+		return errors.Join(errs...)
+	})
 }
 
 func TestATreeKeepsItsScratchUntilItMoves(t *testing.T) {

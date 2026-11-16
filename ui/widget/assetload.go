@@ -1,7 +1,6 @@
 package widget
 
 import (
-	"maps"
 	"slices"
 	"sync"
 
@@ -122,7 +121,7 @@ func (q *assetQueue) wait() {
 // here on go nowhere, so nothing stays asked for.
 func StopAssetLoads() {
 	assets.stop()
-	maps.DeleteFunc(cssImages, func(_ string, img *cssImage) bool { return !img.settled })
+	cssImages.dropUnsettled()
 }
 
 // WaitAssetLoads blocks until every icon, stylesheet image and font load

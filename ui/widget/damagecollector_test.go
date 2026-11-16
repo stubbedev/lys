@@ -1,9 +1,9 @@
 package widget
 
 import (
+	"errors"
 	"fmt"
 	"slices"
-	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -57,33 +57,27 @@ func TestDamageWalksOfTwoTreesRunAtOnce(t *testing.T) {
 		}
 	}
 	const rounds = 300
-	errs := make(chan error, 3*2*rounds)
-	var wg sync.WaitGroup
-	for i, tr := range trees {
-		wg.Go(func() {
-			var damage DamageCollector
-			var buf []render.Rect
-			var any bool
-			for range rounds {
-				tr.label.Invalidate()
-				if buf, any = damage.Collect(tr.root); !any || !slices.Equal(buf, tr.labelOwes) {
-					errs <- fmt.Errorf("tree %d: an invalidated label drained %v, want %v", i, buf, tr.labelOwes)
-				}
-				tr.glass.Invalidate()
-				if buf, any = damage.Collect(tr.root); !any || !slices.Equal(buf, tr.glassOwes) {
-					errs <- fmt.Errorf("tree %d: an invalidated backdrop box drained %v, want %v", i, buf, tr.glassOwes)
-				}
-				if buf, any = damage.Collect(tr.root); any {
-					errs <- fmt.Errorf("tree %d: a tree nothing marked drained %v", i, buf)
-				}
+	atOnce(t, len(trees), func(i int) error {
+		tr := trees[i]
+		var damage DamageCollector
+		var buf []render.Rect
+		var any bool
+		var errs []error
+		for range rounds {
+			tr.label.Invalidate()
+			if buf, any = damage.Collect(tr.root); !any || !slices.Equal(buf, tr.labelOwes) {
+				errs = append(errs, fmt.Errorf("tree %d: an invalidated label drained %v, want %v", i, buf, tr.labelOwes))
 			}
-		})
-	}
-	wg.Wait()
-	close(errs)
-	for err := range errs {
-		t.Error(err)
-	}
+			tr.glass.Invalidate()
+			if buf, any = damage.Collect(tr.root); !any || !slices.Equal(buf, tr.glassOwes) {
+				errs = append(errs, fmt.Errorf("tree %d: an invalidated backdrop box drained %v, want %v", i, buf, tr.glassOwes))
+			}
+			if buf, any = damage.Collect(tr.root); any {
+				errs = append(errs, fmt.Errorf("tree %d: a tree nothing marked drained %v", i, buf))
+			}
+		}
+		return errors.Join(errs...)
+	})
 }
 
 func TestAKeptDamageCollectorDrainsWithoutAllocating(t *testing.T) {

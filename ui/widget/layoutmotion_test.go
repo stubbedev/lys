@@ -40,7 +40,7 @@ func swatch(classes ...string) *Box {
 func (s *motionScene) frame() {
 	SizeWithin(s.root, Size{W: 100, H: 120})
 	s.root.Arrange(render.Rect{W: 100, H: 120})
-	AttachAnimations()
+	AttachAnimations(&s.clock)
 	CollectDamage(s.root)
 	s.cv.Clear(s.cv.Rect(), 0)
 	s.root.Paint(s.cv)

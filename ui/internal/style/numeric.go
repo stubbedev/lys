@@ -115,6 +115,7 @@ type ctx struct {
 	font     FontMetrics
 	lh, rlh  float64
 	dark     bool
+	sys      *SystemColors
 	// dpi is the device resolution image-set() picks a candidate for.
 	dpi float64
 	// conts are the node's query containers, nearest first, the

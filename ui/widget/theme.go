@@ -113,10 +113,8 @@ type Color = render.Color
 // each widget once after a restyle (node.takeDamage compares stamps).
 var themeGen = startedGeneration()
 
-var current = DarkTheme()
-
 // Current returns the active theme.
-func Current() *Theme { return current }
+func Current() *Theme { return environ().theme }
 
 // SetTheme replaces the active theme. Passing nil restores DarkTheme.
 // The next frame repaints every widget with the new palette. Any
@@ -128,10 +126,7 @@ func SetTheme(t *Theme) {
 	if t == nil {
 		t = DarkTheme()
 	}
-	current = t
-	themeGen.Add(1)
-	markDamage()
-	syncThemeSheet(t)
+	installTheme(t)
 	for _, w := range t.contrastWarnings() {
 		themeWarn(w)
 	}
@@ -394,9 +389,7 @@ func SetReducedMotion(on bool) {
 		return
 	}
 	anim.SetReduced(on)
-	themeGen.Add(1)
-	markDamage()
-	syncThemeSheet(current)
+	refreshTheme()
 	bumpStyleGen("reduced motion")
 }
 

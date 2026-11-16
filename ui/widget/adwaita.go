@@ -26,7 +26,8 @@ import (
 // color; an application stylesheet outranks every rule here.
 
 // themeSheet is the installed theme layer, built on the first style
-// resolution or SetTheme; themeSheetMu serializes its builds.
+// resolution or SetTheme; themeSheetMu serializes its builds and keeps
+// it in step with the environment's theme.
 var (
 	themeSheetMu sync.Mutex
 	themeSheet   atomic.Pointer[Stylesheet]
@@ -39,19 +40,33 @@ func ensureThemeSheet() {
 	themeSheetMu.Lock()
 	defer themeSheetMu.Unlock()
 	if themeSheet.Load() == nil {
-		syncThemeSheetLocked(current)
+		syncThemeSheetLocked(Current())
 	}
 }
 
-// syncThemeSheet (re)generates the theme layer from t.
-func syncThemeSheet(t *Theme) {
+func installTheme(t *Theme) {
 	themeSheetMu.Lock()
 	defer themeSheetMu.Unlock()
-	syncThemeSheetLocked(t)
+	changeEnviron(func(e *environment) bool {
+		*e = themedEnvironment(*e, t)
+		return true
+	})
+	themeChangedLocked()
+}
+
+func refreshTheme() {
+	themeSheetMu.Lock()
+	defer themeSheetMu.Unlock()
+	themeChangedLocked()
+}
+
+func themeChangedLocked() {
+	themeGen.Add(1)
+	markDamage()
+	syncThemeSheetLocked(Current())
 }
 
 func syncThemeSheetLocked(t *Theme) {
-	syncSystemColors(t)
 	src := themeCSS(t)
 	if ts := themeSheet.Load(); ts != nil {
 		ts.Load(src)
@@ -65,21 +80,21 @@ func syncThemeSheetLocked(t *Theme) {
 	relayer()
 }
 
-// syncSystemColors maps the CSS system color keywords onto the theme,
-// the same re-derivation a palette swap gives the named colors.
-func syncSystemColors(t *Theme) {
+// systemColorsOf maps the CSS system color keywords onto t, the same
+// re-derivation a palette swap gives the named colors.
+func systemColorsOf(t *Theme) style.SystemColors {
 	gray := Color(0)
 	if a := t.Text.Straight(); a[3] > 0 {
 		gray = render.RGBA(a[0], a[1], a[2], a[3]/2)
 	}
-	style.SetSystemColors(style.SystemColors{
+	return style.SystemColors{
 		Canvas: t.Bg, CanvasText: t.Text,
 		LinkText: t.Accent, VisitedText: t.Accent, GrayText: gray,
 		Highlight: t.Accent, HighlightText: t.OnAccent,
 		Mark: t.Accent, MarkText: t.OnAccent,
 		ButtonFace: t.Surface, ButtonText: t.Text, ButtonBorder: t.Border,
 		Field: t.Surface, FieldText: t.Text,
-	})
+	}
 }
 
 // namedColors maps each Adwaita named color to its value under t.
