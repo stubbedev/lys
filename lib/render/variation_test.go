@@ -2,6 +2,7 @@ package render
 
 import (
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -52,6 +53,49 @@ func TestVariations(t *testing.T) {
 	static, _ := NewFixtureTypeface()
 	if static.Weighted(700) != static || static.HasAxis("wght") {
 		t.Error("a static face varied")
+	}
+}
+
+// TestVariationsConcurrent pins that trees restyling one fresh shared
+// face on several goroutines agree: every goroutine probes the same
+// axes and gets the one memoized instance per setting, distinct
+// settings stay distinct, and a static face stays untouched.
+func TestVariationsConcurrent(t *testing.T) {
+	const workers = 8
+	for range 16 {
+		vf := loadVF(t)
+		static, _ := NewFixtureTypeface()
+		start := make(chan struct{})
+		bold := make([]*Typeface, workers)
+		light := make([]*Typeface, workers)
+		axes := make([]bool, workers)
+		flat := make([]*Typeface, workers)
+		var wg sync.WaitGroup
+		for i := range workers {
+			wg.Go(func() {
+				<-start
+				axes[i] = vf.HasAxis("wght") && !vf.HasAxis("wdth")
+				bold[i] = vf.WithVariations(Variation{"wght", 700})
+				light[i] = vf.Weighted(300)
+				flat[i] = static.Weighted(700)
+			})
+		}
+		close(start)
+		wg.Wait()
+		for i := range workers {
+			if !axes[i] {
+				t.Fatalf("worker %d probed the axes wrong", i)
+			}
+			if bold[i] != bold[0] || light[i] != light[0] {
+				t.Fatalf("worker %d got its own instance of a shared setting", i)
+			}
+			if flat[i] != static {
+				t.Fatalf("worker %d varied a static face", i)
+			}
+		}
+		if bold[0] == light[0] || bold[0] == vf || bold[0].base != vf {
+			t.Fatal("distinct settings collapsed or an instance lost its default face")
+		}
 	}
 }
 

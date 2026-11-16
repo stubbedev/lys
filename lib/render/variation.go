@@ -29,9 +29,16 @@ type instances struct {
 	axes  map[string]bool
 }
 
+// familyMu guards the lazy creation of every default face's
+// bookkeeping, so trees restyling one shared face on several goroutines
+// agree on a single instances.
+var familyMu sync.Mutex
+
 // family returns t's shared bookkeeping, creating it on the default
 // face.
 func (t *Typeface) family() *instances {
+	familyMu.Lock()
+	defer familyMu.Unlock()
 	if t.inst == nil {
 		t.inst = &instances{byKey: map[string]*Typeface{}, axes: map[string]bool{}}
 	}
