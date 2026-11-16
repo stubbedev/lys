@@ -50,7 +50,7 @@
     scripts = map (script: "${script}") s.scripts;
   };
   session = config: args: {
-    command = "${pkgs.bash}/bin/bash -c '${config.programs.lys-wm.package}/bin/lys-wm --systemd --renderer gles ${args} 2>&1 | ${pkgs.systemd}/bin/systemd-cat -t lys-wm'";
+    command = "${pkgs.systemd}/bin/systemd-cat -t lys-wm ${config.programs.lys-wm.package}/bin/lys-wm --systemd --renderer gles ${args}";
     inherit user;
   };
 in
