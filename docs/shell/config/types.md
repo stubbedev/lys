@@ -976,6 +976,7 @@ Greeter mode: the login screen before login, as the display manager.
 | `cursor-theme` | Xcursor theme used on the login screen (empty = system default). |
 | `cursor-size` | Logical cursor size on the login screen. Scaled automatically per |
 | `screen-reader` | Screen reader the accessibility menu and Super+Alt+S start: a |
+| `fingerprint` | Accept an enrolled fingerprint (fprintd) alongside the password: |
 
 ## LoginLockConfig {#login-lock-config}
 
@@ -1432,6 +1433,7 @@ One action the dashboard session actions
 |---|---|
 | `"lock"` | Lock the session |
 | `"log-out"` | Logout of the current session |
+| `"suspend"` | Suspend the machine |
 | `"reboot"` | Reboot the machine |
 | `"power-off"` | Power off the machine |
 

@@ -58,6 +58,7 @@ login:
     cursor-theme: ""
     cursor-size: 24
     screen-reader: orca
+    fingerprint: true
 ```
 
 

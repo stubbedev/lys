@@ -37,6 +37,7 @@ modules:
     actions:
       - lock
       - log-out
+      - suspend
       - reboot
       - power-off
 ```

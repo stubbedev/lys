@@ -2879,26 +2879,6 @@
           "default": false,
           "description": "Display border around button."
         },
-        "dropdown-lock-command": {
-          "$ref": "#/$defs/Command",
-          "default": "loginctl lock-session",
-          "description": "Shell command for the lock button in the dashboard dropdown."
-        },
-        "dropdown-logout-command": {
-          "$ref": "#/$defs/Command",
-          "default": "lys-shell logout",
-          "description": "Shell command for the logout button in the dashboard dropdown."
-        },
-        "dropdown-poweroff-command": {
-          "$ref": "#/$defs/Command",
-          "default": "systemctl poweroff",
-          "description": "Shell command for the power-off button in the dashboard dropdown."
-        },
-        "dropdown-reboot-command": {
-          "$ref": "#/$defs/Command",
-          "default": "systemctl reboot",
-          "description": "Shell command for the reboot button in the dashboard dropdown."
-        },
         "icon-bg-color": {
           "$ref": "#/$defs/ColorValue",
           "default": "yellow",
@@ -2965,6 +2945,7 @@
             "actions": [
               "lock",
               "log-out",
+              "suspend",
               "reboot",
               "power-off"
             ]
@@ -5218,6 +5199,7 @@
           "default": {
             "cursor-size": 24,
             "cursor-theme": "",
+            "fingerprint": true,
             "screen-reader": "orca",
             "show-power-buttons": true,
             "show-user-list": true
@@ -5269,6 +5251,11 @@
           "$ref": "#/$defs/CursorTheme",
           "default": "",
           "description": "Xcursor theme used on the login screen (empty = system default)."
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Accept an enrolled fingerprint (fprintd) alongside the password:\nwhichever comes first logs in. Turn it off to log in with the\npassword alone, which also opens the login keyring. Nothing changes\nwithout fprintd or an enrolled finger."
         },
         "screen-reader": {
           "$ref": "#/$defs/Program",
@@ -6458,10 +6445,6 @@
             "battery-warning": 30.0,
             "border-color": "yellow",
             "border-show": false,
-            "dropdown-lock-command": "loginctl lock-session",
-            "dropdown-logout-command": "lys-shell logout",
-            "dropdown-poweroff-command": "systemctl poweroff",
-            "dropdown-reboot-command": "systemctl reboot",
             "icon-bg-color": "yellow",
             "icon-color": "auto",
             "icon-override": "",
@@ -6478,6 +6461,7 @@
               "actions": [
                 "lock",
                 "log-out",
+                "suspend",
                 "reboot",
                 "power-off"
               ]
@@ -9589,6 +9573,11 @@
           "type": "string"
         },
         {
+          "const": "suspend",
+          "description": "Suspend the machine",
+          "type": "string"
+        },
+        {
           "const": "reboot",
           "description": "Reboot the machine",
           "type": "string"
@@ -10806,6 +10795,7 @@
           "default": [
             "lock",
             "log-out",
+            "suspend",
             "reboot",
             "power-off"
           ],
@@ -12081,6 +12071,7 @@
         "greeter": {
           "cursor-size": 24,
           "cursor-theme": "",
+          "fingerprint": true,
           "screen-reader": "orca",
           "show-power-buttons": true,
           "show-user-list": true
@@ -12356,10 +12347,6 @@
           "battery-warning": 30.0,
           "border-color": "yellow",
           "border-show": false,
-          "dropdown-lock-command": "loginctl lock-session",
-          "dropdown-logout-command": "lys-shell logout",
-          "dropdown-poweroff-command": "systemctl poweroff",
-          "dropdown-reboot-command": "systemctl reboot",
           "icon-bg-color": "yellow",
           "icon-color": "auto",
           "icon-override": "",
@@ -12376,6 +12363,7 @@
             "actions": [
               "lock",
               "log-out",
+              "suspend",
               "reboot",
               "power-off"
             ]

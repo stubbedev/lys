@@ -58,15 +58,6 @@ bar:
 | `scroll-down` | [`ClickAction`](/shell/config/types#click-action) | `""` | Action on scroll down. |
 | `left-click` | [`ClickAction`](/shell/config/types#click-action) | `"dropdown:dashboard"` | Action on left click. |
 
-## Dropdown
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `dropdown-lock-command` | [`Command`](/shell/config/types#command) | `"loginctl lock-session"` | Shell command for the lock button in the dashboard dropdown. |
-| `dropdown-logout-command` | [`Command`](/shell/config/types#command) | `"lys-shell logout"` | Shell command for the logout button in the dashboard dropdown. |
-| `dropdown-reboot-command` | [`Command`](/shell/config/types#command) | `"systemctl reboot"` | Shell command for the reboot button in the dashboard dropdown. |
-| `dropdown-poweroff-command` | [`Command`](/shell/config/types#command) | `"systemctl poweroff"` | Shell command for the power-off button in the dashboard dropdown. |
-
 ## Default configuration
 
 ```yaml
@@ -82,10 +73,6 @@ modules:
     scroll-up: ""
     scroll-down: ""
     left-click: dropdown:dashboard
-    dropdown-lock-command: loginctl lock-session
-    dropdown-logout-command: lys-shell logout
-    dropdown-reboot-command: systemctl reboot
-    dropdown-poweroff-command: systemctl poweroff
     usage-warning: 60.0
     usage-error: 85.0
     temp-warning: 65.0
@@ -96,6 +83,7 @@ modules:
       actions:
         - lock
         - log-out
+        - suspend
         - reboot
         - power-off
 ```
