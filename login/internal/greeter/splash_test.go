@@ -396,3 +396,16 @@ func TestTheHandOverIsAnnouncedOnceForAnOutputThatDoesNotChange(t *testing.T) {
 		t.Errorf("settling back on DP-2 announced its picture %d times in all, want once: %q", n, logs.String())
 	}
 }
+
+func TestAPictureShownByTheWindowAndACoverIsAnnouncedOnce(t *testing.T) {
+	size := image.Pt(1600, 1200)
+	logs := captureLog(t)
+	r := splashRig(t, nil, twoOutputFrame(size))
+	r.output = "DP-2"
+	painted(r, size)
+	cover := r.s.splash.over(widget.NewBox(widget.Column, 0, 0), config.Defaults().Animations, func() string { return "DP-2" })
+	cover.paint(render.New(make([]byte, render.Stride(size.X)*size.Y), render.Stride(size.X), size.X, size.Y))
+	if n := strings.Count(logs.String(), "on DP-2 takes over"); n != 1 {
+		t.Errorf("the window and a cover on DP-2 announced the take-over %d times, want once: %q", n, logs.String())
+	}
+}

@@ -41,10 +41,11 @@ type takeOver struct {
 	frame splashframe.LastFrame
 	bgrt  *splashframe.BGRT
 	logos map[int]*render.Icon
+	said  map[string]bool
 }
 
 func newTakeOver(f splashFrame) (*takeOver, error) {
-	t := &takeOver{frame: f.frame, bgrt: f.bgrt, logos: map[int]*render.Icon{}}
+	t := &takeOver{frame: f.frame, bgrt: f.bgrt, logos: map[int]*render.Icon{}, said: map[string]bool{}}
 	if f.bgrt != nil {
 		return t, nil
 	}
@@ -95,11 +96,10 @@ type handOver struct {
 	root   widget.Widget
 	area   *widget.DrawingArea
 	fade   *widget.Revealer
-	said   map[string]bool
 }
 
 func (t *takeOver) over(content widget.Widget, anims config.AnimationsConfig, output func() string) *handOver {
-	h := &handOver{t: t, output: output, said: map[string]bool{}}
+	h := &handOver{t: t, output: output}
 	h.area = widget.NewDrawingArea(0, 0)
 	h.area.OnDraw = func(cv *render.Canvas, _ render.Rect) { h.paint(cv) }
 	h.fade = widget.NewRevealer(content)
@@ -129,10 +129,10 @@ func (h *handOver) paint(cv *render.Canvas) {
 
 func (h *handOver) say(format string, args ...any) {
 	line := fmt.Sprintf(format, args...)
-	if h.said[line] {
+	if h.t.said[line] {
 		return
 	}
-	h.said[line] = true
+	h.t.said[line] = true
 	log.Print(line)
 }
 
