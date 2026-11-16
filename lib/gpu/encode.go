@@ -582,6 +582,7 @@ func (e *Encoder) uploadOverlay(img *image.RGBA) error {
 		e.overlay = s
 	}
 	staging := e.overlayStaging
+	e.overlayStaging = nil
 	if staging == nil {
 		b, err := d.newBuffer(max(w*h*4, 1<<16), vk.BufferUsageTransferSrcBit)
 		if err != nil {
@@ -590,9 +591,7 @@ func (e *Encoder) uploadOverlay(img *image.RGBA) error {
 		staging = b
 	}
 	staging, err := staging.fit(w * h * 4)
-	e.overlayStaging = staging
 	if err != nil {
-		e.overlayStaging = nil
 		return err
 	}
 	for y := range h {
@@ -602,10 +601,16 @@ func (e *Encoder) uploadOverlay(img *image.RGBA) error {
 			out[i], out[i+1], out[i+2], out[i+3] = row[i+2], row[i+1], row[i], 0xff
 		}
 	}
-	return d.submit(func(cb vk.CommandBuffer) {
+	err = d.submit(func(cb vk.CommandBuffer) {
 		e.overlay.upload(cb, image.Rect(0, 0, w, h), staging, 0, w)
 		e.overlay.to(cb, vk.ImageLayoutShaderReadOnlyOptimal)
 	})
+	if err != nil {
+		d.retire(staging)
+		return err
+	}
+	e.overlayStaging = staging
+	return nil
 }
 
 // Flush waits for the frames in flight and returns their packets,

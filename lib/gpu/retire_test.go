@@ -1,6 +1,7 @@
 package gpu
 
 import (
+	"bytes"
 	"errors"
 	"image"
 	"image/color"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/third_party/vk"
 )
 
 func TestFreeingResourcesNeverWaitsForTheGPU(t *testing.T) {
@@ -226,6 +228,56 @@ func TestAGrownOverlayStagingKeepsTheOneATimedOutUploadStillReads(t *testing.T) 
 	}
 	if len(e.overlayStaging.mapped) < len(big.Pix) {
 		t.Errorf("the overlay staging holds %d bytes, want at least %d", len(e.overlayStaging.mapped), len(big.Pix))
+	}
+}
+
+func TestAnOverlayUploadAfterATimedOutOneLeavesItsStagingToTheCopy(t *testing.T) {
+	d := openDevice(t)
+	e := &Encoder{d: d}
+	t.Cleanup(func() { closeEncoder(t, e) })
+	red, blue := solid(8, 8, color.RGBA{R: 0xff, A: 0xff}), solid(8, 8, color.RGBA{B: 0xff, A: 0xff})
+	upload := func(img *image.RGBA) func() error { return func() error { return e.uploadOverlay(img) } }
+	readOverlay := func(s *surface) []byte {
+		t.Helper()
+		r := image.Rect(0, 0, s.w, s.h)
+		img, err := d.readPixels(r, s.vf, false, func(cb vk.CommandBuffer, staging *buffer) {
+			s.download(cb, r, staging, 0)
+			d.hostReadBarrier(cb)
+		})
+		if err != nil {
+			t.Fatalf("read the overlay back: %v", err)
+		}
+		return img.Pix
+	}
+	if err := upload(blue)(); err != nil {
+		t.Fatal(err)
+	}
+	staging := e.overlayStaging
+	if err := upload(red)(); err != nil {
+		t.Fatal(err)
+	}
+	if e.overlayStaging != staging {
+		t.Error("an overlay upload after one whose wait succeeded made a new staging buffer")
+	}
+	timeOutNextWait(t, d, "an overlay upload", upload(red))
+	first := e.overlay
+	t.Cleanup(func() { d.retire(first) })
+	e.overlay = nil
+	copied := bytes.Clone(staging.mapped)
+	d.pollFault = true
+	timeOutNextWait(t, d, "an overlay upload after a timed-out one", upload(blue))
+	d.pollFault = false
+	if !bytes.Equal(staging.mapped, copied) {
+		t.Error("an overlay upload overwrote the staging a timed-out copy still reads")
+	}
+	if err := d.Finish(); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(readOverlay(first), red.Pix) {
+		t.Error("the timed-out upload's overlay does not hold its pixels")
+	}
+	if !bytes.Equal(readOverlay(e.overlay), blue.Pix) {
+		t.Error("the upload after it does not hold its pixels")
 	}
 }
 
