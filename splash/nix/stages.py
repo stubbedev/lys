@@ -134,7 +134,10 @@ def reboot_shows_splash(m, splash, logo):
     m.wait_for_console_text(r'msg="showing the splash" mode=reboot', timeout=seconds(30))
     m.wait_for_console_text(r"reboot: Restarting system", timeout=seconds(60))
     await_until(10, lambda: (None, None if "paused" in m.send_monitor_command("info status") else "the VM has not paused at the reset"))
-    assert_same(screenshot(m, "rebooting").crop(logo), splash.crop(logo), f"the logo in {logo} at the reset against the splash's")
+    rebooting = screenshot(m, "rebooting")
+    assert_same(rebooting.crop(logo), splash.crop(logo), f"the logo in {logo} at the reset against the splash's")
+    shown = content(rebooting, background)
+    assert inside(shown, logo), f"at the reset the screen shows {shown}, more than the logo in {logo}: the status group did not fade out"
     assert "msg=quitting mode=reboot" not in m.get_console_log(), "the reboot splash quit before the reset"
 
 

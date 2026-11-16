@@ -40,6 +40,7 @@ in
     + expect "splash is not on the kernel command line" (builtins.elem "splash" enabled.boot.kernelParams)
     + expect "the system does not start lys-splash-quit" (builtins.elem "multi-user.target" enabled.systemd.services.lys-splash-quit.wantedBy)
     + expect "switching configuration restarts the boot splash on the running system" (!enabled.systemd.services.lys-splash-start.restartIfChanged)
+    + expect "systemd-shutdown does not run lys-splash as its last hook, so a shutdown splash keeps its status group to the reset" (enabled.systemd.shutdown.lys-splash or null == lib.getExe splash)
     + ''
       mkdir root
       zstd -dc ${enabled.system.build.initialRamdisk}/${enabled.system.boot.loader.initrdFile} | (cd root && cpio -idm --quiet)

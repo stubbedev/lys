@@ -41,6 +41,8 @@
         ln -s lys-splash $compat/bin/plymouth
         mkdir -p $compat/sbin $compat/share
         ln -s ../bin/lys-splash $compat/sbin/plymouthd
+        mkdir -p $compat/lib/systemd/system-shutdown
+        ln -s ../../../bin/lys-splash $compat/lib/systemd/system-shutdown/lys-splash
         installUnits $compat/lib/systemd/system /usr/bin/lys-splash /usr/bin/systemd-tty-ask-password-agent
         cp -r splash/initramfs-tools $compat/share/initramfs-tools
 

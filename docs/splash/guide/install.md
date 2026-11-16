@@ -42,6 +42,7 @@ sudo update-initramfs -u
 | `bin/lys-splash` | The binary |
 | `bin/plymouth`, `sbin/plymouthd` | Symlinks to it that select the [role](/splash/guide/command-line) |
 | `lib/systemd/system/` | The [units](/splash/guide/how-it-works#units), with `/usr` paths |
+| `lib/systemd/system-shutdown/lys-splash` | A symlink to the binary that systemd-shutdown runs just before the reset, so a shutdown or reboot splash fades its status group out and ends on the logo |
 | `share/initramfs-tools/` | The hook (copies the binary, the links and `/etc/lys-splash/theme.yaml` into the image) and the `init-premount`, `init-bottom` and `panic` scripts |
 
 cryptsetup's initramfs scripts call `plymouth` and so ask through the splash.

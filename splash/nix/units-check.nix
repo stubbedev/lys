@@ -62,6 +62,12 @@ pkgs.runCommand "lys-splash-units-check" {nativeBuildInputs = [pkgs.systemd];} '
   expect off 'nosplashy'
   expect off 'splashy'
 
+  hook=${splash.compat}/lib/systemd/system-shutdown/lys-splash
+  if [ "$(readlink "$hook")" != ../../../bin/lys-splash ] || [ ! -x "$hook" ]; then
+    echo "the compat output's system-shutdown hook is not a link to its lys-splash" >&2
+    exit 1
+  fi
+
   for unit in ${splash}/lib/systemd/system/* ${splash.compat}/lib/systemd/system/*; do
     name=$(basename "$unit")
     case $name in
