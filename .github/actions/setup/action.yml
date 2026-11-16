@@ -29,7 +29,7 @@ inputs:
     description: Allow the unprivileged user namespaces bwrap needs.
     default: "false"
   free-disk:
-    description: Put the Nix store on the runner's second disk (/mnt), for VM closures and disk images.
+    description: Remove the runner's preinstalled toolchains, for VM closures and disk images.
     default: "false"
 
 outputs:
@@ -49,13 +49,7 @@ runs:
     - if: inputs.free-disk == 'true'
       shell: bash
       run: |
-        if ! mountpoint -q /mnt; then
-          echo "::error::free-disk puts the Nix store on the runner's second disk, but /mnt is no mount point on this runner"
-          exit 1
-        fi
-        sudo mkdir -p /mnt/nix /nix
-        sudo mount --bind /mnt/nix /nix
-        df -h / /nix
+        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
 
     - if: inputs.kvm == 'true'
       shell: bash

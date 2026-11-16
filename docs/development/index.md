@@ -105,9 +105,8 @@ The jobs run in two lanes, each a stage of builds and the jobs on them:
 
 1. **Build**, per architecture: each component with VM checks there (on
    x86_64) builds in its own job, `just build-stage wm wm-vms-desktop ...`,
-   its packages, non-VM checks, dev shell and VM closures, putting the Nix
-   store on the runner's second disk first only when the component sets
-   `free-disk`; every other component with Go suites builds in one shared job,
+   its packages, non-VM checks, dev shell and VM closures, first removing the
+   runner's preinstalled toolchains only when the component sets `free-disk`; every other component with Go suites builds in one shared job,
    `just build-stage lib ui ...`, its packages, non-VM checks and dev shell. A
    component with neither (`repository`, `packaging`) builds nothing. The VM
    jobs and the further jobs marked `after-build` wait for these.
