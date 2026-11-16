@@ -126,10 +126,12 @@ in {
                   "systemctl start ${displayManager}",
               )
 
-          def diagnose(machine, name):
-              machine.screenshot(f"failure-{name}")
-              print(machine.execute("scenario-journal -b --no-pager -n 300")[1])
-              print(machine.execute("for f in /tmp/lys-login/*.err; do [ -e \"$f\" ] && echo \"--- $f\" && cat \"$f\"; done")[1])
+          def diagnose(name):
+              for m in machines:
+                  if m.is_up():
+                      m.screenshot(f"failure-{name}")
+                      print(m.execute("scenario-journal -b --no-pager -n 300")[1])
+                      print(m.execute("for f in /tmp/lys-login/*.err; do [ -e \"$f\" ] && echo \"--- $f\" && cat \"$f\"; done")[1])
 
           def run_scenarios(machine, scenarios):
               machine.start()
@@ -144,7 +146,7 @@ in {
                   try:
                       run()
                   except Exception as e:
-                      diagnose(machine, name)
+                      diagnose(name)
                       failures.append(f"{name} failed: {e}")
               if failures:
                   raise Exception("\n".join(f"scenario {f}" for f in failures))

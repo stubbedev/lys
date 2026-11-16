@@ -14,6 +14,18 @@ pkgs: let
     height = 30;
     modules-left = ["clock"];
   });
+  fuzzel = pkgs.fuzzel.overrideAttrs (old: {
+    patches =
+      (old.patches or [])
+      ++ [
+        (pkgs.fetchpatch {
+          name = "fuzzel-xdg-double-close.patch";
+          url = "https://codeberg.org/dnkl/fuzzel/commit/38e34e1de7dd69b5cfed3d31b6b83e03b6ce6280.patch";
+          excludes = ["CHANGELOG.md"];
+          hash = "sha256-jlON37m1tcqOf1usQwNV0lfMb6xTuCXuWBqdVXgs6Uc=";
+        })
+      ];
+  });
   image = "${pkgs.nixos-icons}/share/icons/hicolor/256x256/apps/nix-snowflake.png";
   vkcube = pkgs.writeShellScript "vkcube-fifo" ''
     set -euo pipefail
@@ -39,7 +51,7 @@ pkgs: let
     waybar = "${pkgs.waybar}/bin/waybar --config ${waybarConfig}";
     mako = "${pkgs.mako}/bin/mako";
     notify = "${pkgs.libnotify}/bin/notify-send lys-wm hello";
-    fuzzel = "${pkgs.fuzzel}/bin/fuzzel";
+    fuzzel = "${fuzzel}/bin/fuzzel";
     rofi = "${pkgs.rofi}/bin/rofi -show drun";
     swaylock = "${pkgs.swaylock}/bin/swaylock -c 336699";
     vkcube = "${vkcube}";

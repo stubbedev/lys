@@ -32,13 +32,7 @@ in
         self.nixosModules.lys-secrets
         vm.module
       ];
-      virtualisation = {
-        emptyDiskImages = [1024];
-        useBootLoader = true;
-        useEFIBoot = true;
-        mountHostNixStore = true;
-      };
-      boot.loader.systemd-boot.enable = true;
+      virtualisation.emptyDiskImages = [1024];
       boot.tmp.cleanOnBoot = true;
       environment.systemPackages = [pkgs.cryptsetup pkgs.keyutils pkgs.libsecret];
       programs.lys-wm.enable = true;
@@ -63,6 +57,13 @@ in
         inherit password;
       };
       specialisation.luks.configuration = {
+        config,
+        pkgs,
+        ...
+      }: {
+        testing.initrdBackdoor = true;
+        boot.initrd.systemd.initrdBin = [pkgs.gnugrep];
+        boot.initrd.systemd.storePaths = ["${config.boot.initrd.systemd.package}/lib/systemd/systemd-reply-password"];
         boot.initrd.luks.devices = lib.mkVMOverride {cryptroot.device = "/dev/vdb";};
         virtualisation.rootDevice = "/dev/mapper/cryptroot";
       };
@@ -70,15 +71,21 @@ in
     scenarios = [
       {
         name = "autologin";
-        script = nodes: ''
-          import datetime
+        script = nodes: let
+          luksNode = nodes.machine.specialisation.luks.configuration;
+        in ''
           import shlex
           import time
 
           SECRETS = ("${password}", "${otherPassphrase}")
+          ASK = "grep -l '^Message=Please enter passphrase for disk cryptroot' /run/systemd/ask-password/ask.*"
+
+          luks = create_machine("${lib.getExe luksNode.system.build.vm}", name=machine.name, keep_machine_state=True)
+          machines.append(luks)
+          vm = machine
 
           def journal():
-              return machine.succeed("scenario-journal -b -o cat --no-pager")
+              return vm.succeed("scenario-journal -b -o cat --no-pager")
 
           def as_alice(command):
               return "su alice -s /bin/sh -c " + shlex.quote(f"export XDG_RUNTIME_DIR=/run/user/$(id -u alice); {command}")
@@ -87,8 +94,8 @@ in
               return as_alice(f"busctl --user get-property org.freedesktop.secrets /org/freedesktop/secrets/collection/login org.freedesktop.Secret.Collection Locked | grep -qx 'b {state}'")
 
           def await_session():
-              machine.wait_until_succeeds("test -s /tmp/lys-login/session", timeout=120)
-              return machine.succeed("cat /tmp/lys-login/session").strip()
+              vm.wait_until_succeeds("test -s /tmp/lys-login/session", timeout=120)
+              return vm.succeed("cat /tmp/lys-login/session").strip()
 
           def no_greeter_before_the_session():
               log = journal()
@@ -101,46 +108,47 @@ in
               for secret in SECRETS:
                   if secret in journal():
                       raise Exception("a passphrase is in the journal")
-                  machine.succeed(f"printf '%s\\n' {secret} > /tmp/lys-login/pattern")
-                  hits = machine.execute("grep -l -a -F -f /tmp/lys-login/pattern /proc/[0-9]*/cmdline /proc/[0-9]*/environ 2>/dev/null")[1].strip()
-                  machine.succeed("rm /tmp/lys-login/pattern")
+                  vm.succeed(f"printf '%s\\n' {secret} > /tmp/lys-login/pattern")
+                  hits = vm.execute("grep -l -a -F -f /tmp/lys-login/pattern /proc/[0-9]*/cmdline /proc/[0-9]*/environ 2>/dev/null")[1].strip()
+                  vm.succeed("rm /tmp/lys-login/pattern")
                   if hits:
                       raise Exception(f"a passphrase is in {hits}")
 
           def boot_luks(passphrase):
-              machine.succeed("sync")
-              machine.crash()
-              machine.start()
-              machine.wait_for_console_text("Please enter passphrase for disk cryptroot", timeout=datetime.timedelta(minutes=3))
-              machine.send_console(passphrase + "\n")
-              machine.wait_for_unit("multi-user.target")
-              machine.succeed("install -D -o alice -m 0644 ${vm.lockConfig} /home/alice/.config/lys-shell/config.yaml")
+              vm.succeed("sync")
+              vm.crash()
+              luks.start()
+              luks.wait_until_succeeds(ASK, timeout=180)
+              luks.succeed(f"ask=$({ASK}) && socket=$(grep -h '^Socket=' \"$ask\") && echo {passphrase} | ${luksNode.boot.initrd.systemd.package}/lib/systemd/systemd-reply-password 1 \"''${{socket#Socket=}}\"")
+              luks.switch_root()
+              luks.wait_for_unit("multi-user.target")
+              luks.succeed("install -D -o alice -m 0644 ${vm.lockConfig} /home/alice/.config/lys-shell/config.yaml")
 
-          machine.wait_for_unit("lys-login.service")
+          vm.wait_for_unit("lys-login.service")
           sid = await_session()
           no_greeter_before_the_session()
           if "no disk passphrase in the kernel keyring" not in journal():
               raise Exception("the worker did not say the keyring stays locked without a passphrase")
-          machine.screenshot("autologin-01-autologin")
-          machine.succeed("touch /tmp/lys-login/session-over")
-          machine.succeed("kill -TERM $(pgrep -u alice -x lys-wm || pgrep -u alice -f 'lys-wm --config')")
-          machine.wait_until_succeeds(f"! loginctl show-session {sid}", timeout=60)
-          await_ready(machine, "username", 1)
-          machine.screenshot("autologin-02-greeter-after-logout")
+          vm.screenshot("autologin-01-autologin")
+          vm.succeed("touch /tmp/lys-login/session-over")
+          vm.succeed("kill -TERM $(pgrep -u alice -x lys-wm || pgrep -u alice -f 'lys-wm --config')")
+          vm.wait_until_succeeds(f"! loginctl show-session {sid}", timeout=60)
+          await_ready(vm, "username", 1)
+          vm.screenshot("autologin-02-greeter-after-logout")
           if journal().count("dm: autologin of alice into") != 1:
               raise Exception("the autologin ran again after the logout")
 
-          machine.succeed("echo -n ${password} | cryptsetup luksFormat -q --iter-time=1 /dev/vdb -")
-          machine.succeed("echo -n ${otherPassphrase} > /tmp/other && echo -n ${password} | cryptsetup luksAddKey -q --iter-time=1 --key-file=- /dev/vdb /tmp/other && rm /tmp/other")
-          machine.succeed("echo -n ${password} | cryptsetup luksOpen -q /dev/vdb cryptroot")
-          machine.succeed("mkfs.ext4 -q /dev/mapper/cryptroot && cryptsetup luksClose cryptroot")
-          machine.succeed("${nodes.machine.specialisation.luks.configuration.system.build.toplevel}/bin/switch-to-configuration boot")
+          vm.succeed("echo -n ${password} | cryptsetup luksFormat -q --iter-time=1 /dev/vdb -")
+          vm.succeed("echo -n ${otherPassphrase} > /tmp/other && echo -n ${password} | cryptsetup luksAddKey -q --iter-time=1 --key-file=- /dev/vdb /tmp/other && rm /tmp/other")
+          vm.succeed("echo -n ${password} | cryptsetup luksOpen -q /dev/vdb cryptroot")
+          vm.succeed("mkfs.ext4 -q /dev/mapper/cryptroot && cryptsetup luksClose cryptroot")
 
           boot_luks("${password}")
+          vm = luks
           await_session()
           no_greeter_before_the_session()
-          machine.wait_until_succeeds(collection("false"), timeout=60)
-          machine.succeed(as_alice("printf lys-secret | secret-tool store --label=vm service lys-vm key k"))
+          vm.wait_until_succeeds(collection("false"), timeout=60)
+          vm.succeed(as_alice("printf lys-secret | secret-tool store --label=vm service lys-vm key k"))
           secrets_nowhere()
 
           boot_luks("${password}")
@@ -148,29 +156,29 @@ in
           no_greeter_before_the_session()
           if "the disk passphrase from the kernel keyring goes to the login keyring" not in journal():
               raise Exception("the worker did not say it hands the passphrase over")
-          machine.wait_until_succeeds(as_alice("secret-tool lookup service lys-vm key k | grep -qx lys-secret"), timeout=60)
-          machine.screenshot("autologin-03-keyring-open")
+          vm.wait_until_succeeds(as_alice("secret-tool lookup service lys-vm key k | grep -qx lys-secret"), timeout=60)
+          vm.screenshot("autologin-03-keyring-open")
           secrets_nowhere()
 
           boot_luks("${otherPassphrase}")
           sid = await_session()
           no_greeter_before_the_session()
-          machine.wait_until_succeeds("scenario-journal -b -u lys-login -p warning -o cat --no-pager | grep -q 'the login keyring of alice stays locked'", timeout=60)
-          warnings = machine.succeed("scenario-journal -b -u lys-login -p warning -o cat --no-pager | grep 'login keyring'").strip().splitlines()
+          vm.wait_until_succeeds("scenario-journal -b -u lys-login -p warning -o cat --no-pager | grep -q 'the login keyring of alice stays locked'", timeout=60)
+          warnings = vm.succeed("scenario-journal -b -u lys-login -p warning -o cat --no-pager | grep 'login keyring'").strip().splitlines()
           if len(warnings) != 1:
               raise Exception(f"want one warning naming the mismatch, got {warnings}")
-          if machine.execute(collection("true"))[0] != 0:
+          if vm.execute(collection("true"))[0] != 0:
               raise Exception("a passphrase that is not the keyring's opened it")
-          machine.succeed("touch /tmp/lys-login/lock-now")
-          machine.wait_until_succeeds("grep -qx locked /tmp/lys-login/lock.out", timeout=60)
-          machine.wait_until_succeeds("grep -q 'lock: session locked' /tmp/lys-login/lock.err", timeout=10)
+          vm.succeed("touch /tmp/lys-login/lock-now")
+          vm.wait_until_succeeds("grep -qx locked /tmp/lys-login/lock.out", timeout=60)
+          vm.wait_until_succeeds("grep -q 'lock: session locked' /tmp/lys-login/lock.err", timeout=10)
           end = time.monotonic() + 60
-          while machine.execute("test -e /tmp/lys-login/lock.rc")[0] != 0:
+          while vm.execute("test -e /tmp/lys-login/lock.rc")[0] != 0:
               if time.monotonic() >= end:
-                  raise Exception("the lock screen did not unlock:\n" + machine.succeed("cat /tmp/lys-login/lock.err"))
-              machine.send_chars("${password}\n")
+                  raise Exception("the lock screen did not unlock:\n" + vm.succeed("cat /tmp/lys-login/lock.err"))
+              vm.send_chars("${password}\n")
               time.sleep(2)
-          machine.wait_until_succeeds(as_alice("secret-tool lookup service lys-vm key k | grep -qx lys-secret"), timeout=60)
+          vm.wait_until_succeeds(as_alice("secret-tool lookup service lys-vm key k | grep -qx lys-secret"), timeout=60)
           secrets_nowhere()
           print(journal()[-3000:])
         '';
