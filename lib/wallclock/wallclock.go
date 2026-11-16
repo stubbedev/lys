@@ -1,4 +1,7 @@
-package screen
+// Package wallclock is the time a clock on screen shows, which unlike the timers
+// of the runtime is what the user reads off their wall: it moves on through a
+// suspend, and jumps when NTP or an administrator sets it or the time zone changes.
+package wallclock
 
 import (
 	"errors"
@@ -15,25 +18,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// WallClock is the time a clock on screen shows, which unlike the timers of the
-// runtime is what the user reads off their wall: it moves on through a suspend, and
-// jumps when NTP or an administrator sets it or the time zone changes.
-type WallClock interface {
-	// Now is the time in the current zone.
-	Now() time.Time
-	// Arm runs fn on the loop when the wall clock reaches at, or at once when it
-	// or the zone jumps, replacing what was armed.
-	Arm(at time.Time, fn func())
-	// Disarm forgets what was armed; a firing on its way finds nothing.
-	Disarm()
-}
+// LocaltimePath is the file the machine's time zone is set in.
+const LocaltimePath = "/etc/localtime"
 
-const localtimePath = "/etc/localtime"
-
-// SystemClock is the WallClock of this machine. An absolute timer on
+// SystemClock is the wall clock of this machine. An absolute timer on
 // CLOCK_REALTIME fires on the wall clock's time however long the machine slept, and
 // TFD_TIMER_CANCEL_ON_SET fails its read the moment the clock is set; a watch on
-// /etc/localtime reloads the zone, which the runtime only reads once.
+// the zone file reloads the zone, which the runtime only reads once. With TZ set
+// the zone is the one TZ names, and the file is not watched.
 type SystemClock struct {
 	invoke func(func())
 	timer  *os.File
@@ -45,22 +37,19 @@ type SystemClock struct {
 	fn     func()
 }
 
-// NewSystemClock starts a clock that runs what is armed through invoke, on the loop.
-func NewSystemClock(invoke func(func())) (*SystemClock, error) {
-	return newSystemClock(invoke, localtimePath)
-}
-
-func newSystemClock(invoke func(func()), zonePath string) (*SystemClock, error) {
+// NewSystemClock starts a clock that follows the zone set in zonePath and runs what
+// is armed through invoke, on the loop.
+func NewSystemClock(invoke func(func()), zonePath string) (*SystemClock, error) {
 	fd, err := unix.TimerfdCreate(unix.CLOCK_REALTIME, unix.TFD_CLOEXEC|unix.TFD_NONBLOCK)
 	if err != nil {
-		return nil, fmt.Errorf("screen: create a wall clock timer: %w", err)
+		return nil, fmt.Errorf("wallclock: create a wall clock timer: %w", err)
 	}
 	c := &SystemClock{invoke: invoke, fd: fd, timer: os.NewFile(uintptr(fd), "timerfd"), path: zonePath}
 	c.zone.Store(time.Local)
 	c.wg.Go(c.readTimer)
 	if _, fixed := os.LookupEnv("TZ"); !fixed {
 		if err := c.watchZone(); err != nil {
-			log.Printf("screen: the clock will not follow a change of time zone: %v", err)
+			log.Printf("wallclock: the clock will not follow a change of time zone: %v", err)
 		}
 	}
 	return c, nil
@@ -71,20 +60,21 @@ func (c *SystemClock) Now() time.Time {
 	return time.Now().In(c.zone.Load())
 }
 
-// Arm runs fn on the loop at at, or when the clock or the zone jumps.
+// Arm runs fn on the loop when the wall clock reaches at, or at once when it or
+// the zone jumps, replacing what was armed.
 func (c *SystemClock) Arm(at time.Time, fn func()) {
 	c.fn = fn
 	spec := unix.ItimerSpec{Value: unix.NsecToTimespec(at.UnixNano())}
 	if err := unix.TimerfdSettime(c.fd, unix.TFD_TIMER_ABSTIME|unix.TFD_TIMER_CANCEL_ON_SET, &spec, nil); err != nil {
-		log.Printf("screen: arm the wall clock timer for %v: %v", at, err)
+		log.Printf("wallclock: arm the wall clock timer for %v: %v", at, err)
 	}
 }
 
-// Disarm forgets what was armed.
+// Disarm forgets what was armed; a firing on its way finds nothing.
 func (c *SystemClock) Disarm() {
 	c.fn = nil
 	if err := unix.TimerfdSettime(c.fd, 0, &unix.ItimerSpec{}, nil); err != nil {
-		log.Printf("screen: disarm the wall clock timer: %v", err)
+		log.Printf("wallclock: disarm the wall clock timer: %v", err)
 	}
 }
 
@@ -106,7 +96,7 @@ func (c *SystemClock) readTimer() {
 		case errors.Is(err, os.ErrClosed):
 			return
 		default:
-			log.Printf("screen: read the wall clock timer: %v", err)
+			log.Printf("wallclock: read the wall clock timer: %v", err)
 			return
 		}
 	}
@@ -136,14 +126,14 @@ func (c *SystemClock) readZone() {
 			return
 		}
 		if err != nil {
-			log.Printf("screen: watch the time zone: %v", err)
+			log.Printf("wallclock: watch the time zone in %s: %v", c.path, err)
 			return
 		}
 		if !namesFile(buf[:n], name) {
 			continue
 		}
 		if err := c.reloadZone(); err != nil {
-			log.Printf("screen: the clock stays in its time zone: %v", err)
+			log.Printf("wallclock: the clock stays in its time zone: %v", err)
 			continue
 		}
 		c.invoke(c.fire)
@@ -163,7 +153,6 @@ func (c *SystemClock) reloadZone() error {
 	return nil
 }
 
-// namesFile says whether inotify events in buf name file.
 func namesFile(buf []byte, file string) bool {
 	for len(buf) >= unix.SizeofInotifyEvent {
 		event := (*unix.InotifyEvent)(unsafe.Pointer(&buf[0])) //nolint:gosec // the kernel writes whole, aligned events

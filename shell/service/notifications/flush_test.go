@@ -10,6 +10,8 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/fakeclock"
 )
 
 // captureLog collects the process log until the test ends.
@@ -28,7 +30,7 @@ func captureLog(t *testing.T) *bytes.Buffer {
 func TestFlushWritesWaitsForDetachedChangesAndTheirWrites(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	synctest.Test(t, func(t *testing.T) {
-		s := NewService()
+		s := NewService(fakeclock.New())
 		first, second := make(chan struct{}), make(chan struct{})
 		s.Detach(func() { <-first })
 		s.Detach(func() {
@@ -50,7 +52,7 @@ func TestFlushWritesWaitsForDetachedChangesAndTheirWrites(t *testing.T) {
 			close(release)
 		}
 		<-flushed
-		if !NewService().DND() {
+		if !NewService(fakeclock.New()).DND() {
 			t.Error("the write the detached change queued had not landed when FlushWrites returned")
 		}
 	})
@@ -62,7 +64,7 @@ func TestFlushWritesGivesUpOnADetachedChangeThatHangs(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	synctest.Test(t, func(t *testing.T) {
 		logged := captureLog(t)
-		s := NewService()
+		s := NewService(fakeclock.New())
 		hung := make(chan struct{})
 		defer close(hung)
 		s.Detach(func() { <-hung })

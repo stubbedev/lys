@@ -11,11 +11,11 @@ import (
 // startNotifications builds the notification service only when [modules.notification] is enabled, so
 // another daemon can own the bus name otherwise (and the module, its
 // dropdown, and the popups are absent), seeded with the blocklist.
-func startNotifications(cfg config.NotificationConfig) *notifications.Service {
+func startNotifications(cfg config.NotificationConfig, clk notifications.Clock) *notifications.Service {
 	if !cfg.Enabled {
 		return nil
 	}
-	svc := notifications.NewService()
+	svc := notifications.NewService(clk)
 	applyNotificationConfig(svc, cfg)
 	attachNotificationStore(svc, notifications.StorePath)
 	return svc

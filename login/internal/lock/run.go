@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/logind"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/wallclock"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/app"
 	"golang.org/x/sys/unix"
@@ -68,7 +69,7 @@ func Run(cfg *config.Config, stdout io.Writer, vaultHelper []string) error {
 	if err != nil {
 		return fmt.Errorf("lock: font %q: %w", cfg.General.FontSans, err)
 	}
-	wall, err := loginscreen.NewSystemClock(a.Invoke)
+	wall, err := wallclock.NewSystemClock(a.Invoke, wallclock.LocaltimePath)
 	if err != nil {
 		return fmt.Errorf("lock: %w", err)
 	}

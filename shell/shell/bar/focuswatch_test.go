@@ -23,7 +23,7 @@ func TestAFullscreenWindowTurnsDoNotDisturbOnWhileItIs(t *testing.T) {
 		window *app.Window
 	)
 	apptest.On(a, func() error {
-		stop = followFocusInputs(a, svc, nil, nil)
+		stop = followFocusInputs(a, testWall(t), svc, nil, nil)
 		var err error
 		window, err = a.NewWindow(app.WindowConfig{Title: "video", AppID: "org.example.Player", Root: widget.NewDrawingArea(64, 64)})
 		return err
@@ -49,7 +49,7 @@ func TestAPortalShareTurnsDoNotDisturbOnAndItsEndRestoresIt(t *testing.T) {
 	svc := notifytest.NewService(t)
 	svc.SetFocusRules(notifypolicy.FocusRules{WhileSharing: true})
 	var stop func()
-	apptest.On(a, func() bool { stop = followFocusInputs(a, svc, shares, nil); return true })
+	apptest.On(a, func() bool { stop = followFocusInputs(a, testWall(t), svc, shares, nil); return true })
 	t.Cleanup(func() { apptest.On(a, func() bool { stop(); return true }) })
 	if svc.DND() {
 		t.Fatal("do-not-disturb on with nothing shared")

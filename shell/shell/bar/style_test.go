@@ -6,13 +6,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -63,7 +63,7 @@ func newTestContext(t *testing.T, cfg *config.Config) ModuleContext {
 	t.Helper()
 	style := computeStyle(cfg, styling.Default()).forModules()
 	face := treetest.Font(t)
-	return ModuleContext{Config: cfg, Font: face, Style: &style, gen: testGen(t)}
+	return ModuleContext{Config: cfg, Font: face, Style: &style, Clock: testWall(t), gen: testGen(t)}
 }
 
 func testGen(t *testing.T) *mountGen {
@@ -75,22 +75,20 @@ func testGen(t *testing.T) *mountGen {
 func retireAndWait(t *testing.T, gen *mountGen) {
 	t.Helper()
 	onHeadlessLoop(func() bool { gen.retire(); return true })
-	awaitWork(t, "the modules' work outlives their generations", gen.waitWork)
+	awaitWork(t, "the modules' work to end with their generations", gen.waitWork)
 }
 
 func testPollHub(t *testing.T) *pollHub {
 	h := newPollHub()
-	t.Cleanup(func() { awaitWork(t, "the samplers outlive the test", h.waitWork) })
+	t.Cleanup(func() { awaitWork(t, "the samplers to end with the test", h.waitWork) })
 	return h
 }
 
 func testSpawn(t *testing.T) func(func()) {
 	var work sync.WaitGroup
-	t.Cleanup(func() { awaitWork(t, "the test's goroutines outlive it", work.Wait) })
+	t.Cleanup(func() { awaitWork(t, "the test's goroutines to end", work.Wait) })
 	return work.Go
 }
-
-const hangGuard = 2 * time.Minute
 
 func awaitWork(t *testing.T, what string, wait func()) {
 	t.Helper()
@@ -99,12 +97,15 @@ func awaitWork(t *testing.T, what string, wait func()) {
 		wait()
 		close(done)
 	}()
-	select {
-	case <-done:
-	case <-time.After(hangGuard):
-		stacks := make([]byte, 1<<20)
-		t.Errorf("%s:\n%s", what, stacks[:runtime.Stack(stacks, true)])
-	}
+	defer func() {
+		select {
+		case <-done:
+		default:
+			stacks := make([]byte, 1<<20)
+			t.Logf("%s:\n%s", what, stacks[:runtime.Stack(stacks, true)])
+		}
+	}()
+	waittest.ForSlow(t, done, what)
 }
 
 // styledContext is newTestContext with the bar stylesheet attached, as

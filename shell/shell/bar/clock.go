@@ -23,38 +23,50 @@ func newClock(ctx ModuleContext) (Module, error) {
 	if layout == nil {
 		return nil, errors.New("clock: no format")
 	}
-	cfg, store := ctx.Config.Clock, ctx.Calendar
-	btn := newBarButton(ctx, moduleIcon(ctx, cfg.Icon()), clockLabel(cfg, store, time.Now(), shellClockNames()))
+	spec := clockSampler(ctx, layout.Resolution())
+	label, _ := spec.sample()
+	btn := newBarButton(ctx, moduleIcon(ctx, ctx.Config.Clock.Icon()), label)
 	if ctx.App == nil {
 		return &clock{btn: btn}, nil
-	}
-	spec := samplerSpec[string]{
-		key:   configKey("clock", ctx.Config),
-		pause: pauseLocked,
-		source: func(life context.Context, spawn func(func()), fire func()) error {
-			if store != nil && strings.Contains(cfg.Format.String(), nextEventPlaceholder) {
-				changes, stop := store.Changes()
-				spawn(func() {
-					defer stop()
-					for {
-						select {
-						case <-life.Done():
-							return
-						case <-changes:
-							fire()
-						}
-					}
-				})
-			}
-			return walltimer.Start(life, spawn, layout.Resolution(), fire)
-		},
-		sample: func() (string, bool) { return clockLabel(cfg, store, time.Now(), shellClockNames()), true },
-		same:   func(a, b string) bool { return a == b },
 	}
 	if err := joinSampler(ctx.Life(), ctx.Polls, spec, func(text string) { ctx.Invoke(func() { btn.SetLabel(text) }) }); err != nil {
 		return nil, err
 	}
 	return &clock{btn: btn}, nil
+}
+
+func clockSampler(ctx ModuleContext, resolution time.Duration) samplerSpec[string] {
+	cfg, store, wall := ctx.Config.Clock, ctx.Calendar, ctx.Clock
+	return samplerSpec[string]{
+		key:   configKey("clock", ctx.Config),
+		pause: pauseLocked,
+		source: func(life context.Context, spawn func(func()), fire func()) error {
+			if store != nil && strings.Contains(cfg.Format.String(), nextEventPlaceholder) {
+				changes, stop := store.Changes()
+				spawn(func() { fireOnTicks(life, changes, stop, fire) })
+			}
+			changes, stop := wall.Changes()
+			spawn(func() { fireOnTicks(life, changes, stop, fire) })
+			return walltimer.Start(life, spawn, resolution, fire)
+		},
+		sample: func() (string, bool) { return clockLabel(cfg, store, wall.Now(), shellClockNames()), true },
+		same:   func(a, b string) bool { return a == b },
+	}
+}
+
+func fireOnTicks(life context.Context, ticks <-chan struct{}, stop func(), fire func()) {
+	defer stop()
+	for {
+		select {
+		case <-life.Done():
+			return
+		case _, open := <-ticks:
+			if !open {
+				return
+			}
+			fire()
+		}
+	}
 }
 
 func (c *clock) Root() widget.Widget { return c.btn }

@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 )
@@ -76,7 +75,7 @@ func (s *State) StartReplay() {
 
 func (s *State) runReplay(gen uint64) {
 	cfg := s.config()
-	opts := BuildOptions(cfg, time.Now())
+	opts := BuildOptions(cfg, s.now())
 	session, err := s.engine.OpenOutput(cfg.Replay.Output, opts.ShowCursor)
 	if err != nil {
 		s.replayFailed(gen, err.Error())
@@ -180,7 +179,7 @@ func (s *State) SaveReplay() (string, error) {
 	s.notify()
 	defer s.replaySaved(saving)
 	cfg := s.config()
-	path := ReplayPath(cfg.OutputDirectory, cfg.OutputFormat, time.Now())
+	path := ReplayPath(cfg.OutputDirectory, cfg.OutputFormat, s.now())
 	if err := os.MkdirAll(filepath.Dir(path), outputDirPerms); err != nil {
 		return "", fmt.Errorf("recorder: the output directory: %w", err)
 	}

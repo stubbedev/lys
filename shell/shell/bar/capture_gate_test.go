@@ -3,6 +3,7 @@ package bar
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -35,7 +37,7 @@ func TestHeadlessCaptureServicesAdmitOneOverlaySession(t *testing.T) {
 	cfg.Screenshot.CopyToClipboard = false
 	cfg.Screenshot.Notify = false
 	ctx := styledContext(t, cfg)
-	svc := startCapture(application, sess.Outputs, func() *config.Config { return cfg }, nil, nil, ctx.Font, ctx.Theme.Sheet)
+	svc := startCapture(application, sess.Outputs, func() *config.Config { return cfg }, nil, nil, ctx.Font, ctx.Theme.Sheet, ctx.Clock)
 	defer svc.close()
 	runLoop(t, application)
 	open := func() bool {
@@ -43,11 +45,7 @@ func TestHeadlessCaptureServicesAdmitOneOverlaySession(t *testing.T) {
 	}
 	awaitOpen := func(want bool) {
 		t.Helper()
-		for deadline := time.Now().Add(10 * time.Second); open() != want; time.Sleep(10 * time.Millisecond) {
-			if time.Now().After(deadline) {
-				t.Fatalf("an overlay session open never became %v", want)
-			}
-		}
+		waittest.Until(t, func() bool { return open() == want }, fmt.Sprintf("an overlay session open to become %v", want))
 	}
 	call, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

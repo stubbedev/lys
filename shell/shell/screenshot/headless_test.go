@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -91,6 +92,7 @@ func TestHeadlessHostRegionSavesTheCrop(t *testing.T) {
 		},
 		Region: &fakeRegion{sel: regionoverlay.Selection{Output: frozen[0].connector, X: 5, Y: 5, Width: 30, Height: 20}, ok: true},
 		Notify: func(Notice) {},
+		Now:    time.Now,
 	}
 	path, err := h.Capture(portaldialogs.Caller{}, ModeRegion, "")
 	if err != nil {

@@ -134,6 +134,7 @@ type State struct {
 	engine Engine
 	config func() config.RecorderConfig
 	hooks  Hooks
+	now    func() time.Time
 
 	mu          sync.Mutex
 	status      Status
@@ -167,9 +168,10 @@ type State struct {
 }
 
 // NewState builds the service over an engine, reading options from
-// cfg at each start.
-func NewState(engine Engine, cfg func() config.RecorderConfig, hooks Hooks) *State {
-	return &State{engine: engine, config: cfg, hooks: hooks, changes: feed.New[Change](8), newTicker: systemTicker}
+// cfg at each start and naming the files it saves by the wall time now
+// reads.
+func NewState(engine Engine, cfg func() config.RecorderConfig, hooks Hooks, now func() time.Time) *State {
+	return &State{engine: engine, config: cfg, hooks: hooks, now: now, changes: feed.New[Change](8), newTicker: systemTicker}
 }
 
 // systemTicker is a time.Ticker as the channel and stop newTicker
@@ -249,7 +251,7 @@ func (s *State) Start() {
 // then the recording.
 func (s *State) runStart(ctx context.Context, gen uint64) {
 	cfg := s.config()
-	opts := BuildOptions(cfg, time.Now())
+	opts := BuildOptions(cfg, s.now())
 	if err := os.MkdirAll(filepath.Dir(opts.OutputPath), outputDirPerms); err != nil {
 		s.failStart(err)
 		return

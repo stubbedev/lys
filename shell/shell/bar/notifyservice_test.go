@@ -17,14 +17,14 @@ func TestNotificationServiceRunsOnlyWhenEnabled(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	cfg := config.Defaults().Notification
 	cfg.Enabled = false
-	if svc := startNotifications(cfg); svc != nil {
+	if svc := startNotifications(cfg, testWall(t)); svc != nil {
 		t.Fatal("a disabled [modules.notification] started the service (it would own the bus name)")
 	}
 	applyNotificationConfig(nil, cfg) // a reload with the service off is a no-op
 
 	cfg.Enabled = true
 	cfg.Blocklist = []string{"noisy*"}
-	svc := startNotifications(cfg)
+	svc := startNotifications(cfg, testWall(t))
 	if svc == nil {
 		t.Fatal("an enabled [modules.notification] has no service")
 	}
@@ -52,12 +52,12 @@ func TestNotificationHistorySurvivesARestart(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	cfg := config.Defaults().Notification
 	cfg.Enabled = true
-	first := startNotifications(cfg)
+	first := startNotifications(cfg, testWall(t))
 	first.Notify("mail", 0, "", "Kept", "body", nil, 0)
 	if err := first.Shutdown(10 * time.Second); err != nil {
 		t.Fatal(err)
 	}
-	again := startNotifications(cfg)
+	again := startNotifications(cfg, testWall(t))
 	shutDownAtEnd(t, again)
 	if again.Count() != 1 || notifytest.History(t, again)[0].Summary != "Kept" {
 		t.Fatalf("restarted history = %v, want the stored notification", notifytest.History(t, again))

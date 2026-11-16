@@ -44,7 +44,7 @@ func TestEditorSaveWritesAndCopiesWithoutStallingTheLoop(t *testing.T) {
 	}
 	t.Cleanup(func() { apptest.On(a, func() bool { clip.Close(); return true }) })
 	svc := apptest.On(a, func() *captureServices {
-		return newCaptureServices(a, a.Session().Outputs, func() *config.Config { return cfg }, nil, clip, ctx.Font, ctx.Theme.Sheet, nil)
+		return newCaptureServices(a, a.Session().Outputs, func() *config.Config { return cfg }, nil, clip, ctx.Font, ctx.Theme.Sheet, nil, ctx.Clock)
 	})
 	t.Cleanup(func() { apptest.On(a, func() bool { svc.close(); return true }) })
 

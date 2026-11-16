@@ -16,6 +16,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/fswatch"
+
+	"github.com/stubbedev/lys/shell/internal/clock"
 )
 
 const (
@@ -49,19 +51,7 @@ type Reminder struct {
 }
 
 // Clock is the time source reminders are scheduled on.
-type Clock interface {
-	Now() time.Time
-	AfterFunc(d time.Duration, fn func()) (stop func() bool)
-}
-
-type wallClock struct{}
-
-func (wallClock) Now() time.Time { return time.Now() }
-
-func (wallClock) AfterFunc(d time.Duration, fn func()) func() bool { return time.AfterFunc(d, fn).Stop }
-
-// WallClock is the real clock.
-var WallClock Clock = wallClock{}
+type Clock = clock.Clock
 
 type calFile struct {
 	source int
@@ -165,6 +155,22 @@ func (s *Store) Configure(sources []Source) error {
 	s.mu.Unlock()
 	feed.Notify(s.changes)
 	return errors.Join(errs...)
+}
+
+// Rezone reads the events again in loc, the times without a zone of their own
+// and the days every event falls on, and reschedules the reminders.
+func (s *Store) Rezone(loc *time.Location) {
+	s.mu.Lock()
+	s.loc = loc
+	s.files = map[string]calFile{}
+	for i := range s.sources {
+		if err := s.loadDirLocked(i); err != nil {
+			log.Print(err)
+		}
+	}
+	s.changedLocked()
+	s.mu.Unlock()
+	feed.Notify(s.changes)
 }
 
 // Close stops following the directories and the reminders.

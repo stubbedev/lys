@@ -101,13 +101,13 @@ type Host struct {
 	// Forget drops the GPU textures of the frozen frames with these
 	// identities, once the overlay that drew them has closed.
 	Forget func(ids []render.ImageID)
+	Now    func() time.Time
 
 	// mem holds the frozen frames' pixels off the Go heap.
 	mem memory.Shared
 
-	// now and frozen stand in for the clock and the all-outputs
-	// capture (with the pointer or not) in tests.
-	now    func() time.Time
+	// frozen stands in for the all-outputs capture (with the pointer
+	// or not) in tests.
 	frozen func(pointer bool) ([]frozenOutput, error)
 
 	// interactive is every overlay request running, so Dismiss can take
@@ -221,7 +221,7 @@ func (h *Host) save(img *image.RGBA) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the user's pictures directory
 		return "", fmt.Errorf("cannot create %s: %w", dir, err)
 	}
-	path, err := saveNew(img, filepath.Join(dir, cfg.FilenameFormat.Layout().Format(h.clock())))
+	path, err := saveNew(img, filepath.Join(dir, cfg.FilenameFormat.Layout().Format(h.Now())))
 	if err != nil {
 		return "", err
 	}
@@ -362,13 +362,6 @@ func ask(source string, n Notice) (Action, error) {
 		return "", err
 	}
 	return Action(key), nil
-}
-
-func (h *Host) clock() time.Time {
-	if h.now != nil {
-		return h.now()
-	}
-	return time.Now()
 }
 
 func (h *Host) captureAll(pointer bool) ([]frozenOutput, error) {
@@ -585,7 +578,7 @@ func (h *Host) savePrivate(img image.Image) (string, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("cannot create %s: %w", dir, err)
 	}
-	f, err := os.CreateTemp(dir, h.clock().UTC().Format("screenshot-20060102-150405-*.png"))
+	f, err := os.CreateTemp(dir, h.Now().UTC().Format("screenshot-20060102-150405-*.png"))
 	if err != nil {
 		return "", fmt.Errorf("cannot create a screenshot in %s: %w", dir, err)
 	}

@@ -84,11 +84,11 @@ Test helpers load `libpipewire-0.3.so.0` (`pipewire/pwtest`) and `libei.so.1`
 | [`i18n`](/lib/system#i18n) | gettext catalogs in pure Go |
 | [`glibclocale`](/lib/system#glibclocale) | glibc's compiled locale data and strftime in pure Go |
 | `vaultserver` | A validated Bitwarden server address |
-| [`clib`, `intconv`, `atomicfile`, `assetfile`, `xdg`, `peercred`, `procstat`, `debug`, `logutil`, `testbuild`](/lib/system#small-helpers) | Shared helpers |
+| [`clib`, `intconv`, `atomicfile`, `assetfile`, `xdg`, `peercred`, `procstat`, `debug`, `logutil`, `testbuild`, `wallclock`](/lib/system#small-helpers) | Shared helpers |
 
 ### Test support
 
-[`golden`, `gputest`, `wltest`, `pipewire/pwtest`, `eis/eistest`, `dbustest`, `pulse/pulsetest`, `logind/logindtest`, `polkit/polkittest`, `peercred/peercredtest`, `sockdir`](/lib/development#test-support)
+[`golden`, `gputest`, `wltest`, `pipewire/pwtest`, `eis/eistest`, `dbustest`, `pulse/pulsetest`, `logind/logindtest`, `polkit/polkittest`, `peercred/peercredtest`, `wallclock/wallclocktest`, `sockdir`](/lib/development#test-support)
 can be imported from any test.
 
 ### Third party

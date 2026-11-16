@@ -15,6 +15,9 @@ import (
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
+
+	"github.com/stubbedev/lys/shell/internal/clock/clocktest"
 )
 
 func openTestStore(t *testing.T) (*Store, string) {
@@ -941,11 +944,7 @@ func TestServiceCallsReturnWhileTheStoreHolds(t *testing.T) {
 		s.DismissAll()
 		s.SetDND(true)
 	}()
-	select {
-	case <-returned:
-	case <-time.After(10 * time.Second):
-		t.Fatal("a service call waited on the held store")
-	}
+	waittest.For(t, returned, "the service calls to return while the store is held")
 	close(release)
 	s.FlushWrites(10 * time.Second)
 }
@@ -962,7 +961,7 @@ func newService(tb testing.TB) *Service {
 
 func restartedService(tb testing.TB) *Service {
 	tb.Helper()
-	s := NewService()
+	s := NewService(clocktest.Wall(tb, filepath.Join(tb.TempDir(), "localtime")))
 	tb.Cleanup(func() { settle(s) })
 	return s
 }
@@ -990,7 +989,7 @@ func TestShutdownLandsTheWritesAndClosesTheStore(t *testing.T) {
 	if n, err := reopened.Count(); err != nil || n != 1 {
 		t.Errorf("the store kept %d (%v), want the one queued before Shutdown", n, err)
 	}
-	if err := NewService().Shutdown(time.Second); err != nil {
+	if err := NewService(fakeclock.New()).Shutdown(time.Second); err != nil {
 		t.Errorf("a service without a store: %v", err)
 	}
 }

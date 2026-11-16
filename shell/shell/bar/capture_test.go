@@ -24,10 +24,12 @@ import (
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 
+	timeclock "github.com/stubbedev/lys/shell/internal/clock"
 	"github.com/stubbedev/lys/shell/service/hyprland"
 	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
@@ -102,7 +104,7 @@ func TestHeadlessScreenshotOverDBusLandsOnTheClipboardWithoutInput(t *testing.T)
 	cfg := config.Defaults()
 	cfg.Screenshot.OutputDirectory = t.TempDir()
 	ctx := styledContext(t, cfg)
-	svc := startCapture(application, sess.Outputs, func() *config.Config { return cfg }, nil, clip, ctx.Font, ctx.Theme.Sheet)
+	svc := startCapture(application, sess.Outputs, func() *config.Config { return cfg }, nil, clip, ctx.Font, ctx.Theme.Sheet, ctx.Clock)
 	defer svc.close()
 	notices := make(chan screenshot.Notice, 1)
 	svc.host.Notify = func(n screenshot.Notice) { notices <- n }
@@ -127,13 +129,8 @@ func TestHeadlessScreenshotOverDBusLandsOnTheClipboardWithoutInput(t *testing.T)
 	if err != nil {
 		t.Fatalf("Capture over D-Bus: %v", err)
 	}
-	select {
-	case n := <-notices:
-		if n.Body != path {
-			t.Fatalf("the notification reads %q, want just the path", n.Body)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no notification")
+	if n := waittest.For(t, notices, "the notification"); n.Body != path {
+		t.Fatalf("the notification reads %q, want just the path", n.Body)
 	}
 	saved, err := os.ReadFile(path)
 	if err != nil {
@@ -196,7 +193,7 @@ func TestHeadlessScreenshotCopyFailureReachesTheNotification(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Screenshot.OutputDirectory = t.TempDir()
 	ctx := styledContext(t, cfg)
-	svc := startCapture(application, sess.Outputs, func() *config.Config { return cfg }, nil, nil, ctx.Font, ctx.Theme.Sheet)
+	svc := startCapture(application, sess.Outputs, func() *config.Config { return cfg }, nil, nil, ctx.Font, ctx.Theme.Sheet, ctx.Clock)
 	defer svc.close()
 	notices := make(chan screenshot.Notice, 1)
 	svc.host.Notify = func(n screenshot.Notice) { notices <- n }
@@ -216,18 +213,13 @@ func TestHeadlessScreenshotCopyFailureReachesTheNotification(t *testing.T) {
 		t.Fatalf("a failed copy lost the saved file: %v", err)
 	}
 	notCopied, _, _ := strings.Cut(i18n.T("screenshot-not-copied", i18n.Str("error", "\x00")), "\x00")
-	select {
-	case n := <-notices:
-		if n.Summary != i18n.T("screenshot-saved") || !strings.HasPrefix(n.Body, path+"\n"+notCopied) {
-			t.Fatalf("the notification reads %q / %q, want the path and the failed copy", n.Summary, n.Body)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no notification")
+	if n := waittest.For(t, notices, "the notification"); n.Summary != i18n.T("screenshot-saved") || !strings.HasPrefix(n.Body, path+"\n"+notCopied) {
+		t.Fatalf("the notification reads %q / %q, want the path and the failed copy", n.Summary, n.Body)
 	}
 }
 
-func startCapture(application *app.Application, outputs func() []*app.Output, current func() *config.Config, hypr *hyprland.Connection, clip *clipboard.Clipboard, sans render.Font, sheet *widget.Stylesheet) *captureServices {
-	s := newCaptureServices(application, outputs, current, hypr, clip, sans, sheet, nil)
+func startCapture(application *app.Application, outputs func() []*app.Output, current func() *config.Config, hypr *hyprland.Connection, clip *clipboard.Clipboard, sans render.Font, sheet *widget.Stylesheet, clk *timeclock.Wall) *captureServices {
+	s := newCaptureServices(application, outputs, current, hypr, clip, sans, sheet, nil, clk)
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		panic(err)

@@ -198,7 +198,6 @@ type Service struct {
 	timers        map[uint32]*popupTimer
 	popupDuration time.Duration
 	focus         focusInputs
-	focusLoc      *time.Location
 	focusShown    Focus
 	focusStop     func() bool
 	removeExpired bool
@@ -239,8 +238,9 @@ func (s *Service) UseClock(c Clock) {
 // expiryTimer is one history entry's armed expiry.
 type expiryTimer struct{ stop func() bool }
 
-// NewService restores the manual do-not-disturb flag from the state dir.
-func NewService() *Service {
+// NewService restores the manual do-not-disturb flag from the state dir and
+// keeps time by c, whose zone the do-not-disturb schedule is read in.
+func NewService(c Clock) *Service {
 	idle := make(chan struct{})
 	close(idle)
 	dnd := stateDNDFile()
@@ -254,13 +254,12 @@ func NewService() *Service {
 		timers:        make(map[uint32]*popupTimer),
 		popupDuration: DefaultPopupDuration,
 		focus:         focusInputs{manual: dnd.load()},
-		focusLoc:      time.Local,
 		removeExpired: true,
 		owners:        make(map[uint32]string),
 		cacheImage:    cacheImage,
 		events:        feed.New[Event](32),
 		history:       feed.NewTick(),
-		clock:         clock.Wall{},
+		clock:         c,
 	}
 }
 

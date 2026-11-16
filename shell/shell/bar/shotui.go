@@ -57,7 +57,7 @@ type shotUI struct {
 
 // newShotUI shows saved captures; copyOnLoop puts content on the
 // clipboard and is called on the loop, and toast shows what failed.
-func newShotUI(application *app.Application, outputs func() []*app.Output, current func() *config.Config, focused func() (string, bool), font render.Font, copyOnLoop func(transfer.Content) (func(), error), toast func(label, icon string)) *shotUI {
+func newShotUI(application *app.Application, outputs func() []*app.Output, current func() *config.Config, focused func() (string, bool), font render.Font, copyOnLoop func(transfer.Content) (func(), error), toast func(label, icon string), clk *timeclock.Wall) *shotUI {
 	u := &shotUI{
 		app: application, outputs: outputs, current: current, focused: focused, font: font, copy: copyOnLoop, toast: toast,
 		holders: map[render.ImageID]int{}, saved: map[render.ImageID]screenshot.Saved{},
@@ -72,7 +72,7 @@ func newShotUI(application *app.Application, outputs func() []*app.Output, curre
 		},
 		KeySym: application.KeySym,
 		Invoke: application.Invoke,
-		Clock:  timeclock.Wall{},
+		Clock:  clk,
 		Edit:   u.edit,
 		Delete: u.discard,
 		Done:   u.release,

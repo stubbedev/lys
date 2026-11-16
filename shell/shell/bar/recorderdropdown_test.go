@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -133,7 +134,7 @@ func recorderTestCtx(t *testing.T, cams []devicechoice.DeviceChoice) (ModuleCont
 	log := &configLog{}
 	ctx.SetConfig = log.set
 	engine := &recordertest.Engine{}
-	ctx.Recorder = recorder.NewState(engine, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{})
+	ctx.Recorder = recorder.NewState(engine, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{}, time.Now)
 	return ctx, log, engine
 }
 

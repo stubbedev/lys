@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/shell/internal/clock/clocktest"
 	"github.com/stubbedev/lys/shell/service/notifications"
 )
 
@@ -27,7 +28,7 @@ type Store struct {
 func NewService(tb testing.TB) *notifications.Service {
 	tb.Helper()
 	tb.Setenv("XDG_STATE_HOME", tb.TempDir())
-	svc := notifications.NewService()
+	svc := notifications.NewService(clocktest.Wall(tb, filepath.Join(tb.TempDir(), "localtime")))
 	tb.Cleanup(func() { svc.FlushWrites(settleTimeout) })
 	return svc
 }

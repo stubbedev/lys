@@ -60,7 +60,27 @@ func (e badLayoutError) Error() string {
 
 func (e badLayoutError) Unwrap() error { return e.err }
 
+const localZone = "Local"
+
 var errTZArguments = errors.New("tz takes a time zone name and a layout")
+
+func (t *worldClockTemplate) location(zone string) (*time.Location, error) {
+	if zone == localZone {
+		return t.now.Location(), nil
+	}
+	if location, ok := t.zones[zone]; ok {
+		return location, nil
+	}
+	if zone == "" {
+		return nil, unknownZoneError{zone: zone, err: errors.New("empty name")}
+	}
+	loaded, err := t.load(zone)
+	if err != nil {
+		return nil, unknownZoneError{zone: zone, err: err}
+	}
+	t.zones[zone] = loaded
+	return loaded, nil
+}
 
 func (t *worldClockTemplate) tz(args []any, _ map[string]any) (any, error) {
 	if len(args) != 2 {
@@ -71,17 +91,9 @@ func (t *worldClockTemplate) tz(args []any, _ map[string]any) (any, error) {
 	if !zoneOK || !layoutOK {
 		return nil, errTZArguments
 	}
-	location, ok := t.zones[zone]
-	if !ok {
-		if zone == "" {
-			return nil, unknownZoneError{zone: zone, err: errors.New("empty name")}
-		}
-		loaded, err := t.load(zone)
-		if err != nil {
-			return nil, unknownZoneError{zone: zone, err: err}
-		}
-		location = loaded
-		t.zones[zone] = loaded
+	location, err := t.location(zone)
+	if err != nil {
+		return nil, err
 	}
 	formatted, ok := t.layouts[layout]
 	if !ok {
@@ -143,6 +155,8 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 		key:   configKey("world-clock", ctx.Config),
 		pause: pauseLocked,
 		source: func(life context.Context, spawn func(func()), fire func()) error {
+			changes, stop := ctx.Clock.Changes()
+			spawn(func() { fireOnTicks(life, changes, stop, fire) })
 			spawn(func() {
 				fire()
 				if err := walltimer.Start(life, spawn, template.finest, fire); err != nil {
@@ -152,7 +166,7 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 			return nil
 		},
 		sample: func() (worldClockShown, bool) {
-			text, err := template.render(time.Now())
+			text, err := template.render(ctx.Clock.Now())
 			if err == nil {
 				lastErr = ""
 				return worldClockShown{text: text}, true

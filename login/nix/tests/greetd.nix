@@ -12,20 +12,20 @@
     sleep 2
   '';
 
-  screenTest = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login.overrideAttrs {
-    pname = "lys-login-screen-test";
-    goTests = ["login/internal/screen"];
+  wallclockTest = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login.overrideAttrs {
+    pname = "lys-login-wallclock-test";
+    goTests = ["lib/wallclock"];
     postInstall = "";
     postFixup = "";
     buildPhase = ''
       runHook preBuild
-      go test -c -o screen.test ./login/internal/screen
+      go test -c -o wallclock.test ./lib/wallclock
       runHook postBuild
     '';
     doCheck = false;
     installPhase = ''
       runHook preInstall
-      install -Dm755 screen.test $out/bin/screen.test
+      install -Dm755 wallclock.test $out/bin/wallclock.test
       runHook postInstall
     '';
   };
@@ -128,7 +128,7 @@
       module = {};
       script = _: ''
         machine.succeed(
-            "cd /tmp && LYS_LOGIN_WALLCLOCK_VM=1 ${screenTest}/bin/screen.test "
+            "cd /tmp && LYS_WALLCLOCK_VM=1 ${wallclockTest}/bin/wallclock.test "
             + "-test.v -test.count=1 -test.run '^TestSettingTheClockWakesTheTimer$' >&2"
         )
       '';

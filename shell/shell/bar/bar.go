@@ -28,11 +28,13 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/wallclock"
 	"github.com/stubbedev/lys/lib/wlr"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
+	timeclock "github.com/stubbedev/lys/shell/internal/clock"
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/internal/widgetipc"
 	"github.com/stubbedev/lys/shell/service/bluetooth"
@@ -164,7 +166,16 @@ func run(cfg *config.Config, svc *config.Service, session *dbus.Conn) error {
 	if application.Clipboard() == nil {
 		application.SetClipboard(app.NewClipboard(sess))
 	}
-	s := newShellStart(application, sess, cfg, svc, session)
+	clk, err := timeclock.NewWall(wallclock.LocaltimePath)
+	if err != nil {
+		return fmt.Errorf("bar: %w", err)
+	}
+	defer func() {
+		if err := clk.Close(); err != nil {
+			log.Printf("bar: %v", err)
+		}
+	}()
+	s := newShellStart(application, sess, cfg, svc, session, clk)
 	defer s.down.run()
 	wall, stopWallpaper := wallpapershell.Launch(application, sess.Outputs(), cfg, session, sess)
 	defer stopWallpaper()
@@ -249,12 +260,12 @@ type shellStart struct {
 	err          error
 }
 
-func newShellStart(application *app.Application, sess shellSession, cfg *config.Config, svc *config.Service, session *dbus.Conn) *shellStart {
+func newShellStart(application *app.Application, sess shellSession, cfg *config.Config, svc *config.Service, session *dbus.Conn, clk *timeclock.Wall) *shellStart {
 	s := &shellStart{
 		application: application, sess: sess, cfg: cfg, svc: svc, session: session,
 		current: &atomic.Pointer[config.Config]{},
 		osdRef:  &atomic.Pointer[osd.Osd]{},
-		ctx:     ModuleContext{Config: cfg, App: application, gen: newMountGen()},
+		ctx:     ModuleContext{Config: cfg, App: application, Clock: clk, gen: newMountGen()},
 	}
 	s.current.Store(cfg)
 	s.down.add(s.ctx.gen.retire)
@@ -308,7 +319,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	starts.Go(func() { bt, btErr = startBluetooth(s.system) })
 	starts.Go(func() { netSvc, stopNet, netErr = startNetworkService(s.system, networkVault) })
 	starts.Go(func() { media, mediaErr = startMedia(s.session, s.cfg.Media) })
-	starts.Go(func() { notifs = startNotifications(s.cfg.Notification) })
+	starts.Go(func() { notifs = startNotifications(s.cfg.Notification, s.ctx.Clock) })
 	starts.Wait()
 
 	s.ctx.Hyprland = hypr
@@ -367,8 +378,9 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	} else {
 		log.Printf("media: %v", mediaErr)
 	}
-	s.ctx.Calendar = startCalendar(s.cfg.Clock, s.current.Load)
-	s.down.add(s.ctx.Calendar.Close)
+	calendarStore, stopCalendar := startCalendar(s.cfg.Clock, s.current.Load, s.ctx.Clock)
+	s.ctx.Calendar = calendarStore
+	s.down.add(stopCalendar)
 	if dir, ok := xdg.OS.CacheDir(identity.Name); ok {
 		s.ctx.Lyrics = lyrics.New(lyrics.Endpoint, filepath.Join(dir, "lyrics"))
 		s.down.add(s.ctx.Lyrics.Close)
@@ -440,7 +452,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 				if o := s.osdRef.Load(); o != nil {
 					o.ShowToast(widgetipc.ToastRequest{Label: &label, Icon: &icon, DurationMS: &ms})
 				}
-			}, Notify: desktopnotify.Notify})
+			}, Notify: desktopnotify.Notify}, s.ctx.Clock.Now)
 		s.ctx.Recorder = recState
 		recState.ConfigureReplay(s.current.Load().Recorder.Replay.Enable)
 		if release, err := recorder.NewDaemon(recState).Export(conn); err == nil {
@@ -611,7 +623,7 @@ func (s *shellStart) mount() {
 		Font:    font,
 	}, cfg)
 	osdRef.Store(osdSrv)
-	captureSvc := newCaptureServices(application, sess.Outputs, current.Load, baseCtx.Hyprland, baseCtx.Clipboard, font, theme.Sheet, baseCtx.Toast)
+	captureSvc := newCaptureServices(application, sess.Outputs, current.Load, baseCtx.Hyprland, baseCtx.Clipboard, font, theme.Sheet, baseCtx.Toast, baseCtx.Clock)
 	s.down.add(captureSvc.close)
 	s.down.addAsync(func() func() { return captureSvc.serve(s.session) })
 	s.down.addAsync(func() func() { return serveClipboardCopy(s.session, copyTextOffLoop(application, baseCtx.Clipboard)) })
@@ -651,7 +663,7 @@ func (s *shellStart) mount() {
 	if s.notifSvc != nil {
 		popupHost = popups.New(application, s.notifSvc, cfg, font, theme.Sheet, sess.Outputs)
 		s.ctx.Go(func() { popupHost.Run(s.ctx.Life()) })
-		s.down.add(followFocusInputs(application, s.notifSvc, s.ctx.ScreenShares, s.ctx.Recorder))
+		s.down.add(followFocusInputs(application, s.ctx.Clock, s.notifSvc, s.ctx.ScreenShares, s.ctx.Recorder))
 	}
 	host := &barHost{app: application, rt: rt, holder: holder}
 	awaitWallpaper := awaitFirstFrame(noWallpaper)

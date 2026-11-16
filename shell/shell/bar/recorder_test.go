@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -73,7 +74,7 @@ func TestRecorderPreparingClass(t *testing.T) {
 	ctx.gen = newMountGen()
 	t.Cleanup(func() { onHeadlessLoop(func() bool { ctx.gen.retire(); return true }) })
 	gate := make(chan struct{})
-	ctx.Recorder = recorder.NewState(&recordertest.Engine{Gate: gate}, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{})
+	ctx.Recorder = recorder.NewState(&recordertest.Engine{Gate: gate}, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{}, time.Now)
 	module, err := createOnHeadlessLoop("recorder", ctx)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -110,7 +111,7 @@ func TestRecorderFailedState(t *testing.T) {
 	t.Cleanup(func() { onHeadlessLoop(func() bool { ctx.gen.retire(); return true }) })
 	noEncoder := fmt.Errorf("recorder: %w: llvmpipe encodes no H.264", recorder.ErrNoVideoEncoder)
 	engine := &recordertest.Engine{StartErr: noEncoder}
-	ctx.Recorder = recorder.NewState(engine, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{})
+	ctx.Recorder = recorder.NewState(engine, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{}, time.Now)
 	module, err := createOnHeadlessLoop("recorder", ctx)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -165,7 +166,7 @@ func TestRecorderModuleFollowsState(t *testing.T) {
 	// A recording lands in a temp dir, never the user's ~/Videos.
 	cfg.Recorder.OutputDirectory = t.TempDir()
 	ctx := newTestContext(t, cfg)
-	ctx.Recorder = recorder.NewState(&recordertest.Engine{}, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{})
+	ctx.Recorder = recorder.NewState(&recordertest.Engine{}, func() config.RecorderConfig { return cfg.Recorder }, recorder.Hooks{}, time.Now)
 
 	module, err := createOnHeadlessLoop("recorder", ctx)
 	if err != nil {

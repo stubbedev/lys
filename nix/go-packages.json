@@ -39,7 +39,8 @@
       "desktop/spawn",
       "lib/logind",
       "lib/logind/logindtest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/config/internal/schemadoc": {},
@@ -59,7 +60,8 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/drmconn": {},
@@ -69,6 +71,9 @@
   "desktop/fswatch": {
     "imports": [
       "lib/intconv"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "desktop/glob": {},
@@ -104,7 +109,8 @@
       "lib/xdg"
     ],
     "testImports": [
-      "desktop/icons/icontest"
+      "desktop/icons/icontest",
+      "lib/waittest"
     ]
   },
   "desktop/icons/icontest": {},
@@ -137,7 +143,8 @@
   "desktop/ipcsock/ipcsocktest": {
     "imports": [
       "desktop/ipcsock",
-      "lib/sockdir"
+      "lib/sockdir",
+      "lib/waittest"
     ]
   },
   "desktop/logging": {
@@ -165,7 +172,8 @@
   },
   "desktop/opener/openertest": {
     "imports": [
-      "lib/dbustest"
+      "lib/dbustest",
+      "lib/waittest"
     ]
   },
   "desktop/outputsize": {
@@ -187,14 +195,16 @@
     "testImports": [
       "desktop/portal/permissions/permstoretest",
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/portal/permissions/permstoretest": {
     "imports": [
       "desktop/portal/permissions",
       "lib/dbustest",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "lib/waittest"
     ]
   },
   "desktop/resources": {
@@ -213,7 +223,8 @@
     "testImports": [
       "desktop/service/backlight/backlighttest",
       "lib/logind/logindtest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/service/backlight/backlighttest": {
@@ -239,7 +250,8 @@
       "ui/transfer"
     ],
     "testImports": [
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/service/clipboard/historybudget": {},
@@ -252,7 +264,8 @@
     ],
     "testImports": [
       "desktop/service/lyswm/lyswmtest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/service/lyswm/lyswmtest": {
@@ -261,6 +274,7 @@
       "lib/buildtest",
       "lib/sockdir",
       "lib/testhome",
+      "lib/waittest",
       "lib/wmipc"
     ]
   },
@@ -276,7 +290,8 @@
       "desktop/fakeclock",
       "lib/dbustest",
       "lib/testhome",
-      "lib/third_party/godbus/prop"
+      "lib/third_party/godbus/prop",
+      "lib/waittest"
     ]
   },
   "desktop/service/nightlight/nightschedule": {},
@@ -291,7 +306,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/pulse/pulsetest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/service/recorder/devicechoice": {
@@ -308,7 +324,8 @@
     "testImports": [
       "desktop/service/upower/upowertest",
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/service/upower/upowertest": {
@@ -338,6 +355,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "ui/widget/css"
     ]
   },
@@ -353,7 +371,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/logind/logindtest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/shell/reveal": {
@@ -365,6 +384,7 @@
   "desktop/shell/treetest": {
     "imports": [
       "lib/render",
+      "lib/waittest",
       "lib/xkb",
       "ui/widget"
     ]
@@ -382,6 +402,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/testhome",
+      "lib/waittest",
       "ui/widget/css"
     ]
   },
@@ -393,7 +414,8 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/splashframe": {
@@ -434,12 +456,17 @@
       "lib/intconv",
       "lib/procstat",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "desktop/third_party/jpeg": {},
   "desktop/tokens": {},
-  "desktop/uevent": {},
+  "desktop/uevent": {
+    "testImports": [
+      "lib/waittest"
+    ]
+  },
   "desktop/useraccount": {},
   "lib/appearance": {
     "imports": [
@@ -451,7 +478,8 @@
   },
   "lib/assetfile": {
     "testImports": [
-      "lib/testbuild"
+      "lib/testbuild",
+      "lib/waittest"
     ]
   },
   "lib/atomicfile": {
@@ -486,6 +514,7 @@
       "lib/testhome",
       "lib/udmabuf",
       "lib/vinput",
+      "lib/waittest",
       "lib/wltest"
     ]
   },
@@ -494,7 +523,8 @@
     "imports": [
       "lib/intconv",
       "lib/sockdir",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "lib/waittest"
     ],
     "testImports": [
       "lib/testbuild",
@@ -510,7 +540,8 @@
       "lib/dbustest",
       "lib/sockdir",
       "lib/testbuild",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/debug": {
@@ -563,13 +594,15 @@
   },
   "lib/eis": {
     "testImports": [
-      "lib/eis/eistest"
+      "lib/eis/eistest",
+      "lib/waittest"
     ]
   },
   "lib/eis/eistest": {
     "imports": [
       "lib/clib",
-      "lib/intconv"
+      "lib/intconv",
+      "lib/waittest"
     ]
   },
   "lib/fourcc": {
@@ -646,7 +679,8 @@
       "lib/internal/vp9/vp9test",
       "lib/media/mux",
       "lib/testbuild",
-      "lib/udmabuf"
+      "lib/udmabuf",
+      "lib/waittest"
     ],
     "testEmbeds": [
       "lib/gpu/testdata/fragment_test.frag.spv"
@@ -672,7 +706,8 @@
       "lib/icons/lucide"
     ],
     "testImports": [
-      "lib/testbuild"
+      "lib/testbuild",
+      "lib/waittest"
     ]
   },
   "lib/icontheme": {
@@ -750,7 +785,8 @@
       "lib/dbustest",
       "lib/logind/logindtest",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/logind/logindtest": {
@@ -762,7 +798,8 @@
       "lib/third_party/godbus"
     ],
     "testImports": [
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/logutil": {
@@ -874,13 +911,15 @@
     "testImports": [
       "lib/pipewire/pwtest",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/pipewire/pwtest": {
     "imports": [
       "lib/clib",
-      "lib/sockdir"
+      "lib/sockdir",
+      "lib/waittest"
     ],
     "testImports": [
       "lib/pipewire",
@@ -901,7 +940,8 @@
       "lib/peercred/peercredtest",
       "lib/polkit/polkittest",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/polkit/polkittest": {
@@ -920,7 +960,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
-      "lib/third_party/godbus/introspect"
+      "lib/third_party/godbus/introspect",
+      "lib/waittest"
     ]
   },
   "lib/portalsettings": {
@@ -935,7 +976,8 @@
       "lib/icons",
       "lib/internal/goroutine",
       "lib/testbuild",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/procstat": {
@@ -962,14 +1004,16 @@
       "lib/pulse/pulsetest",
       "lib/sockdir",
       "lib/testbuild",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/pulse/pulsetest": {
     "imports": [
       "lib/intconv",
       "lib/pulse/native",
-      "lib/sockdir"
+      "lib/sockdir",
+      "lib/waittest"
     ],
     "testImports": [
       "lib/testbuild",
@@ -998,7 +1042,8 @@
     "testImports": [
       "lib/golden",
       "lib/testbuild",
-      "lib/third_party/typesetting/fontscan"
+      "lib/third_party/typesetting/fontscan",
+      "lib/waittest"
     ]
   },
   "lib/sockdir": {
@@ -1040,7 +1085,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/testbuild",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "lib/third_party/godbus/introspect": {
@@ -1269,6 +1315,9 @@
   "lib/v4l2": {
     "imports": [
       "lib/intconv"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "lib/vaultserver": {},
@@ -1284,6 +1333,19 @@
       "lib/testbuild",
       "lib/testhome",
       "lib/wltest"
+    ]
+  },
+  "lib/waittest": {},
+  "lib/wallclock": {
+    "testImports": [
+      "lib/testhome",
+      "lib/waittest",
+      "lib/wallclock/wallclocktest"
+    ]
+  },
+  "lib/wallclock/wallclocktest": {
+    "imports": [
+      "lib/intconv"
     ]
   },
   "lib/wlr": {
@@ -1304,6 +1366,7 @@
       "lib/third_party/wayland/wl",
       "lib/third_party/wayland/wlclient",
       "lib/third_party/wayland/xdg",
+      "lib/waittest",
       "lib/wlr"
     ],
     "testImports": [
@@ -1350,6 +1413,7 @@
   "lib/xkb/x11": {
     "testImports": [
       "lib/clib",
+      "lib/waittest",
       "lib/xkb"
     ]
   },
@@ -1371,7 +1435,8 @@
       "desktop/swaytest",
       "lib/logind",
       "lib/logind/logindtest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "login/dmsocket": {
@@ -1401,7 +1466,8 @@
     ],
     "testImports": [
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "login/internal/cursorrecord": {
@@ -1435,6 +1501,7 @@
       "lib/polkit/polkittest",
       "lib/sockdir",
       "lib/testhome",
+      "lib/waittest",
       "login/internal/keyboard/keyboardtest"
     ]
   },
@@ -1448,7 +1515,8 @@
       "lib/dbustest",
       "lib/intconv",
       "lib/logind/logindtest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "login/internal/greeter": {
@@ -1472,6 +1540,7 @@
       "lib/logind",
       "lib/render",
       "lib/third_party/godbus",
+      "lib/wallclock",
       "lib/xdg",
       "lib/xkb",
       "login/internal/auth",
@@ -1492,7 +1561,8 @@
       "lib/dbustest",
       "lib/logind/logindtest",
       "lib/testbuild",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "login/internal/keyboard": {
@@ -1538,6 +1608,7 @@
       "lib/logind",
       "lib/render",
       "lib/third_party/godbus",
+      "lib/wallclock",
       "lib/xdg",
       "login/dmsocket",
       "login/internal/auth",
@@ -1557,7 +1628,8 @@
       "lib/sockdir",
       "lib/testbuild",
       "lib/testhome",
-      "lib/third_party/godbus/prop"
+      "lib/third_party/godbus/prop",
+      "lib/waittest"
     ]
   },
   "login/internal/screen": {
@@ -1581,7 +1653,8 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/srcroot",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "polkit/cmd/lys-polkit": {
@@ -1604,7 +1677,8 @@
       "lib/dbustest",
       "lib/logind",
       "lib/logind/logindtest",
-      "lib/polkit/polkittest"
+      "lib/polkit/polkittest",
+      "lib/waittest"
     ]
   },
   "polkit/internal/agent": {
@@ -1619,18 +1693,21 @@
     "testImports": [
       "lib/dbustest",
       "lib/polkit/polkittest",
+      "lib/waittest",
       "polkit/internal/helper/helpertest"
     ]
   },
   "polkit/internal/helper": {
     "testImports": [
       "lib/sockdir",
+      "lib/waittest",
       "polkit/internal/helper/helpertest"
     ]
   },
   "polkit/internal/helper/helpertest": {
     "imports": [
       "lib/sockdir",
+      "lib/waittest",
       "polkit/internal/helper"
     ]
   },
@@ -1654,7 +1731,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/logind/logindtest",
-      "lib/polkit/polkittest"
+      "lib/polkit/polkittest",
+      "lib/waittest"
     ]
   },
   "polkit/internal/proc": {
@@ -1671,6 +1749,7 @@
       "lib/polkit",
       "lib/polkit/polkittest",
       "lib/third_party/godbus",
+      "lib/waittest",
       "polkit/internal/polkit"
     ]
   },
@@ -1693,7 +1772,8 @@
       "lib/third_party/godbus"
     ],
     "testImports": [
-      "lib/dbustest"
+      "lib/dbustest",
+      "lib/waittest"
     ]
   },
   "power/cmd/lys-power": {
@@ -1728,7 +1808,8 @@
     ],
     "testImports": [
       "lib/logind/logindtest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "power/internal/camlight": {
@@ -1748,6 +1829,9 @@
       "power/internal/profiles",
       "power/internal/statefile",
       "power/internal/supply"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "power/internal/history": {
@@ -1781,6 +1865,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/waittest",
       "secrets/secretstest"
     ]
   },
@@ -1806,6 +1891,7 @@
       "lib/logind/logindtest",
       "lib/portaldialogs",
       "lib/sockdir",
+      "lib/waittest",
       "secrets/internal/dialogtest"
     ]
   },
@@ -1827,6 +1913,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/waittest",
       "secrets/client",
       "secrets/secretstest"
     ]
@@ -1872,6 +1959,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/waittest",
       "secrets/client"
     ]
   },
@@ -1883,6 +1971,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/sockdir",
+      "lib/waittest",
       "secrets/internal/keyring",
       "secrets/internal/service"
     ]
@@ -1921,7 +2010,8 @@
       "lib/vaultserver"
     ],
     "testImports": [
-      "lib/dbustest"
+      "lib/dbustest",
+      "lib/waittest"
     ]
   },
   "settings/cmd/lys-settings": {
@@ -1938,6 +2028,7 @@
     "testImports": [
       "desktop/settingspage",
       "lib/testhome",
+      "lib/waittest",
       "settings/internal/wmconfig",
       "settings/internal/wmtest",
       "ui/app"
@@ -2010,6 +2101,7 @@
       "lib/pulse/pulsetest",
       "lib/sockdir",
       "lib/testhome",
+      "lib/waittest",
       "secrets/secretstest",
       "settings/internal/wmtest",
       "ui/transfer"
@@ -2024,6 +2116,7 @@
   "settings/internal/wmtest": {
     "imports": [
       "desktop/service/lyswm/lyswmtest",
+      "lib/waittest",
       "settings/internal/wmconfig"
     ]
   },
@@ -2037,7 +2130,8 @@
     "testImports": [
       "lib/pulse/native",
       "lib/pulse/pulsetest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/cmd/lys-lock": {
@@ -2113,6 +2207,7 @@
       "lib/sockdir",
       "lib/testhome",
       "lib/third_party/godbus/prop",
+      "lib/waittest",
       "lib/wmipc",
       "power/autobrightness",
       "shell/internal/notifytest",
@@ -2136,6 +2231,7 @@
     "imports": [
       "desktop/swaytest",
       "lib/third_party/wayland/wl",
+      "lib/waittest",
       "ui/app",
       "ui/widget"
     ]
@@ -2148,7 +2244,8 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/internal/bussignal/bussignaltest": {
@@ -2158,8 +2255,27 @@
     ]
   },
   "shell/internal/cli": {},
-  "shell/internal/clock": {},
-  "shell/internal/clockwatch": {},
+  "shell/internal/clock": {
+    "imports": [
+      "desktop/feed",
+      "lib/wallclock"
+    ],
+    "testImports": [
+      "lib/waittest",
+      "lib/wallclock/wallclocktest",
+      "shell/internal/clock/clocktest"
+    ]
+  },
+  "shell/internal/clock/clocktest": {
+    "imports": [
+      "shell/internal/clock"
+    ]
+  },
+  "shell/internal/clockwatch": {
+    "testImports": [
+      "lib/waittest"
+    ]
+  },
   "shell/internal/configdocs": {
     "imports": [
       "desktop/config"
@@ -2180,6 +2296,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
+      "lib/waittest",
       "shell/internal/notifytest"
     ]
   },
@@ -2241,7 +2358,8 @@
     ],
     "testImports": [
       "desktop/ipcsock/ipcsocktest",
-      "lib/sockdir"
+      "lib/sockdir",
+      "lib/waittest"
     ]
   },
   "shell/internal/lockcli": {
@@ -2253,6 +2371,7 @@
   },
   "shell/internal/notifytest": {
     "imports": [
+      "shell/internal/clock/clocktest",
       "shell/service/notifications"
     ]
   },
@@ -2304,18 +2423,24 @@
     "testImports": [
       "desktop/swaytest",
       "lib/testhome",
+      "lib/waittest",
       "ui/app",
       "ui/widget"
     ]
   },
-  "shell/internal/walltimer": {},
+  "shell/internal/walltimer": {
+    "testImports": [
+      "lib/waittest"
+    ]
+  },
   "shell/internal/widgetipc": {
     "imports": [
       "lib/xdg",
       "shell/internal/runtimesock"
     ],
     "testImports": [
-      "lib/sockdir"
+      "lib/sockdir",
+      "lib/waittest"
     ]
   },
   "shell/portal": {
@@ -2380,6 +2505,7 @@
       "lib/logind/logindtest",
       "lib/pipewire/pwtest",
       "lib/testhome",
+      "lib/waittest",
       "lib/wltest",
       "secrets/secretstest",
       "shell/internal/apptest",
@@ -2403,7 +2529,8 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/batteryalert": {
@@ -2416,7 +2543,8 @@
     "testImports": [
       "desktop/service/upower/upowertest",
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/bluetooth": {
@@ -2427,7 +2555,8 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/brightness": {
@@ -2444,16 +2573,19 @@
     "testImports": [
       "desktop/service/backlight/backlighttest",
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/calendar": {
     "imports": [
       "desktop/feed",
-      "desktop/fswatch"
+      "desktop/fswatch",
+      "shell/internal/clock"
     ],
     "testImports": [
-      "desktop/fakeclock"
+      "desktop/fakeclock",
+      "lib/waittest"
     ]
   },
   "shell/service/clipboardipc": {
@@ -2474,6 +2606,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
+      "lib/waittest",
       "shell/service/dnssd/dnssdtest"
     ]
   },
@@ -2492,7 +2625,8 @@
     "testImports": [
       "desktop/ipcsock/ipcsocktest",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/idle": {
@@ -2511,7 +2645,8 @@
       "lib/logind/logindtest",
       "lib/testhome",
       "lib/third_party/godbus",
-      "lib/vinput"
+      "lib/vinput",
+      "lib/waittest"
     ]
   },
   "shell/service/idleinhibit": {
@@ -2524,10 +2659,15 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
-  "shell/service/keytoggles": {},
+  "shell/service/keytoggles": {
+    "testImports": [
+      "lib/waittest"
+    ]
+  },
   "shell/service/launcher": {
     "imports": [
       "desktop/desktopentry",
@@ -2546,12 +2686,16 @@
     ],
     "testImports": [
       "desktop/opener/openertest",
+      "lib/waittest",
       "shell/service/launcher/launchertest"
     ]
   },
   "shell/service/launcher/answer": {
     "imports": [
       "lib/atomicfile"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "shell/service/launcher/charnames": {
@@ -2620,6 +2764,7 @@
     ],
     "testImports": [
       "desktop/service/clipboard/historybudget",
+      "lib/waittest",
       "shell/service/launcher/launchertest"
     ]
   },
@@ -2640,6 +2785,9 @@
       "desktop/identity",
       "lib/atomicfile",
       "lib/buildinfo"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "shell/service/mail": {
@@ -2653,7 +2801,8 @@
       "shell/internal/jinja"
     ],
     "testImports": [
-      "desktop/i18n/locales/shell"
+      "desktop/i18n/locales/shell",
+      "lib/waittest"
     ]
   },
   "shell/service/mango": {
@@ -2663,7 +2812,8 @@
     "testImports": [
       "desktop/ipcsock/ipcsocktest",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/network": {
@@ -2681,6 +2831,7 @@
       "lib/logind/logindtest",
       "lib/testhome",
       "lib/third_party/godbus/prop",
+      "lib/waittest",
       "shell/internal/bussignal/bussignaltest",
       "shell/service/network/openconnect/openconnecttest"
     ]
@@ -2694,10 +2845,15 @@
     ],
     "testImports": [
       "desktop/opener/openertest",
+      "lib/waittest",
       "shell/service/network/openconnect/openconnecttest"
     ]
   },
-  "shell/service/network/openconnect/openconnecttest": {},
+  "shell/service/network/openconnect/openconnecttest": {
+    "imports": [
+      "lib/waittest"
+    ]
+  },
   "shell/service/network/secrets": {},
   "shell/service/nightlight": {
     "imports": [
@@ -2715,6 +2871,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
+      "lib/waittest",
       "lib/wltest"
     ]
   },
@@ -2725,7 +2882,8 @@
     "testImports": [
       "desktop/ipcsock/ipcsocktest",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/notifications": {
@@ -2747,7 +2905,9 @@
       "desktop/fakeclock",
       "lib/dbustest",
       "lib/testhome",
-      "shell/internal/bussignal/bussignaltest"
+      "lib/waittest",
+      "shell/internal/bussignal/bussignaltest",
+      "shell/internal/clock/clocktest"
     ]
   },
   "shell/service/powerprofiles": {
@@ -2760,7 +2920,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
-      "lib/third_party/godbus/prop"
+      "lib/third_party/godbus/prop",
+      "lib/waittest"
     ]
   },
   "shell/service/privacy": {
@@ -2768,6 +2929,9 @@
       "desktop/feed",
       "desktop/fswatch",
       "desktop/service/pulse"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "shell/service/recorder": {
@@ -2799,6 +2963,7 @@
       "lib/pulse/native",
       "lib/pulse/pulsetest",
       "lib/testhome",
+      "lib/waittest",
       "shell/internal/gpuhost",
       "shell/service/recorder/recordertest"
     ]
@@ -2818,7 +2983,8 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/sharepreview": {
@@ -2847,7 +3013,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
-      "lib/third_party/godbus/prop"
+      "lib/third_party/godbus/prop",
+      "lib/waittest"
     ]
   },
   "shell/service/sounds": {
@@ -2867,6 +3034,7 @@
       "lib/sockdir",
       "lib/testhome",
       "lib/third_party/godbus",
+      "lib/waittest",
       "shell/internal/notifytest"
     ]
   },
@@ -2878,12 +3046,16 @@
     "testImports": [
       "desktop/ipcsock/ipcsocktest",
       "lib/sockdir",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/service/sysinfo": {
     "imports": [
       "lib/third_party/gomath"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "shell/service/treeman": {
@@ -2894,7 +3066,8 @@
       "lib/xdg"
     ],
     "testImports": [
-      "lib/sockdir"
+      "lib/sockdir",
+      "lib/waittest"
     ]
   },
   "shell/service/udisks": {
@@ -2905,6 +3078,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
+      "lib/waittest",
       "shell/service/udisks/udiskstest"
     ]
   },
@@ -2929,12 +3103,16 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
+      "lib/waittest",
       "shell/internal/bussignal/bussignaltest"
     ]
   },
   "shell/service/weather": {
     "imports": [
       "desktop/feed"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "shell/shell/bar": {
@@ -2973,6 +3151,7 @@
       "lib/portaldialogs",
       "lib/render",
       "lib/third_party/godbus",
+      "lib/wallclock",
       "lib/wlr",
       "lib/wmipc",
       "lib/xdg",
@@ -3070,8 +3249,11 @@
       "lib/third_party/godbus/prop",
       "lib/third_party/wayland/wl",
       "lib/vinput",
+      "lib/waittest",
+      "lib/wallclock/wallclocktest",
       "shell/internal/apptest",
       "shell/internal/bussignal/bussignaltest",
+      "shell/internal/clock/clocktest",
       "shell/internal/keytest",
       "shell/internal/notifytest",
       "shell/service/recorder/recordertest",
@@ -3125,6 +3307,7 @@
       "desktop/service/lyswm",
       "desktop/service/lyswm/lyswmtest",
       "lib/render",
+      "lib/waittest",
       "lib/wmipc",
       "shell/internal/apptest",
       "shell/internal/toplevels",
@@ -3175,6 +3358,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/testhome",
+      "lib/waittest",
       "shell/internal/apptest",
       "shell/internal/keytest",
       "shell/service/udisks/udiskstest",
@@ -3219,6 +3403,7 @@
       "lib/capture",
       "lib/motion",
       "lib/testhome",
+      "lib/waittest",
       "shell/internal/apptest",
       "shell/internal/keytest"
     ]
@@ -3289,7 +3474,8 @@
     ],
     "testImports": [
       "desktop/shell/treetest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ]
   },
   "shell/shell/popups": {
@@ -3313,6 +3499,7 @@
       "desktop/shell/treetest",
       "lib/testhome",
       "lib/third_party/godbus",
+      "lib/waittest",
       "shell/internal/notifytest",
       "ui/anim"
     ]
@@ -3338,6 +3525,7 @@
     "testImports": [
       "desktop/shell/treetest",
       "lib/testhome",
+      "lib/waittest",
       "lib/xkb",
       "shell/internal/apptest",
       "shell/internal/keytest",
@@ -3390,6 +3578,7 @@
       "desktop/shell/treetest",
       "lib/dbustest",
       "lib/testhome",
+      "lib/waittest",
       "lib/xkb",
       "shell/internal/apptest",
       "shell/internal/ipp/ipptest",
@@ -3416,6 +3605,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/testhome",
+      "lib/waittest",
       "shell/internal/apptest",
       "shell/internal/keytest"
     ]
@@ -3448,6 +3638,7 @@
       "desktop/i18n/locales/shell",
       "lib/dbustest",
       "lib/testhome",
+      "lib/waittest",
       "shell/internal/apptest",
       "shell/internal/keytest",
       "shell/portal",
@@ -3482,6 +3673,7 @@
       "lib/dbustest",
       "lib/testhome",
       "lib/third_party/wayland/wl",
+      "lib/waittest",
       "shell/internal/apptest",
       "shell/internal/keytest",
       "shell/shell/dialogsurface/surfacetest"
@@ -3525,6 +3717,9 @@
       "shell/service/wallpaper",
       "ui/app",
       "ui/widget"
+    ],
+    "testImports": [
+      "lib/waittest"
     ]
   },
   "shell/third_party/fourier": {
@@ -3560,7 +3755,11 @@
       "splash/internal/theme"
     ]
   },
-  "splash/internal/asynclog": {},
+  "splash/internal/asynclog": {
+    "testImports": [
+      "lib/waittest"
+    ]
+  },
   "splash/internal/client": {
     "imports": [
       "splash/internal/protocol"
@@ -3589,7 +3788,8 @@
       "splash/internal/theme"
     ],
     "testImports": [
-      "lib/testbuild"
+      "lib/testbuild",
+      "lib/waittest"
     ]
   },
   "splash/internal/key": {},
@@ -3602,7 +3802,8 @@
       "lib/third_party/gomath"
     ],
     "testImports": [
-      "lib/testbuild"
+      "lib/testbuild",
+      "lib/waittest"
     ]
   },
   "splash/internal/kmsg": {},
@@ -3617,7 +3818,8 @@
       "splash/internal/protocol"
     ],
     "testImports": [
-      "lib/testbuild"
+      "lib/testbuild",
+      "lib/waittest"
     ]
   },
   "splash/internal/theme": {
@@ -3712,17 +3914,18 @@
       "lib/testbuild",
       "lib/testhome",
       "lib/vinput",
+      "lib/waittest",
       "lib/wltest",
       "ui/internal/fdtest",
       "ui/internal/headlesstest",
-      "ui/internal/headlesstest/inproc",
-      "ui/internal/waittest"
+      "ui/internal/headlesstest/inproc"
     ]
   },
   "ui/atspitest": {
     "imports": [
       "lib/dbustest",
       "lib/third_party/godbus",
+      "lib/waittest",
       "ui/internal/atspi/proto"
     ]
   },
@@ -4010,9 +4213,9 @@
       "lib/dbustest",
       "lib/testbuild",
       "lib/testhome",
+      "lib/waittest",
       "ui/atspitest",
-      "ui/internal/fdtest",
-      "ui/internal/waittest"
+      "ui/internal/fdtest"
     ]
   },
   "ui/internal/atspi/proto": {
@@ -4054,9 +4257,9 @@
       "ui/transfer"
     ],
     "testImports": [
+      "lib/waittest",
       "ui/internal/fdtest",
-      "ui/internal/headlesstest",
-      "ui/internal/waittest"
+      "ui/internal/headlesstest"
     ]
   },
   "ui/internal/cmd/uigen": {
@@ -4078,8 +4281,8 @@
       "ui/internal/xfer"
     ],
     "testImports": [
-      "ui/internal/fdtest",
-      "ui/internal/waittest"
+      "lib/waittest",
+      "ui/internal/fdtest"
     ]
   },
   "ui/internal/dragdrop": {
@@ -4091,8 +4294,8 @@
       "ui/transfer"
     ],
     "testImports": [
-      "ui/internal/fdtest",
-      "ui/internal/waittest"
+      "lib/waittest",
+      "ui/internal/fdtest"
     ]
   },
   "ui/internal/emoji": {},
@@ -4102,6 +4305,7 @@
       "lib/intconv",
       "lib/srcroot",
       "lib/vinput",
+      "lib/waittest",
       "lib/wltest"
     ],
     "embeds": [
@@ -4114,7 +4318,6 @@
       "ui/app",
       "ui/clienttest",
       "ui/internal/fdtest",
-      "ui/internal/waittest",
       "ui/widget"
     ]
   },
@@ -4122,6 +4325,7 @@
     "imports": [
       "lib/capture",
       "lib/render",
+      "lib/waittest",
       "lib/wltest",
       "ui/app"
     ]
@@ -4162,8 +4366,8 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
-      "ui/internal/fdtest",
-      "ui/internal/waittest"
+      "lib/waittest",
+      "ui/internal/fdtest"
     ]
   },
   "ui/internal/popup": {
@@ -4260,7 +4464,7 @@
       "ui/internal/uifont"
     ],
     "testImports": [
-      "ui/internal/waittest"
+      "lib/waittest"
     ]
   },
   "ui/internal/touchinput": {
@@ -4280,7 +4484,6 @@
     ]
   },
   "ui/internal/uigen": {},
-  "ui/internal/waittest": {},
   "ui/internal/window": {
     "imports": [
       "lib/debug",
@@ -4319,14 +4522,15 @@
     ],
     "testImports": [
       "lib/testbuild",
+      "lib/waittest",
       "lib/wltest",
-      "ui/internal/fdtest",
-      "ui/internal/waittest"
+      "ui/internal/fdtest"
     ]
   },
   "ui/internal/worker": {},
   "ui/internal/xfer": {
     "testImports": [
+      "lib/waittest",
       "ui/internal/fdtest"
     ]
   },
@@ -4351,7 +4555,7 @@
       "lib/pulse/pulsetest",
       "lib/testbuild",
       "lib/testhome",
-      "ui/internal/waittest"
+      "lib/waittest"
     ]
   },
   "ui/pdf": {},
@@ -4399,7 +4603,7 @@
       "lib/media/demux",
       "lib/testbuild",
       "lib/testhome",
-      "ui/internal/waittest"
+      "lib/waittest"
     ]
   },
   "ui/widget/css": {},
@@ -4440,6 +4644,8 @@
       "lib/dbustest",
       "lib/testhome",
       "lib/third_party/godbus",
+      "lib/waittest",
+      "wm/internal/looptest",
       "wm/internal/protocol/client/colormanagement",
       "wm/internal/protocol/client/extforeigntoplevellist",
       "wm/internal/protocol/client/extsessionlock",
@@ -4531,6 +4737,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "wm/internal/looptest",
       "wm/internal/testclient",
       "wm/internal/testenv"
     ]
@@ -4552,7 +4759,7 @@
     "testImports": [
       "lib/fourcc",
       "lib/testhome",
-      "wm/internal/testenv"
+      "wm/internal/looptest"
     ]
   },
   "wm/internal/backend/nested": {
@@ -4575,6 +4782,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/compositor",
       "wm/internal/server",
       "wm/internal/testenv"
@@ -4746,6 +4954,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/backend/headless",
       "wm/internal/protocol/client/kdeserverdecoration",
       "wm/internal/protocol/client/linuxdmabuf",
@@ -4828,6 +5037,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/protocol/client/linuxdmabuf",
       "wm/internal/protocol/client/wayland",
       "wm/internal/testenv",
@@ -4889,6 +5099,7 @@
   "wm/internal/handover": {},
   "wm/internal/harness": {
     "imports": [
+      "lib/waittest",
       "lib/wmipc",
       "ui/clienttest",
       "wm/internal/backend",
@@ -5048,13 +5259,23 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/testenv"
     ]
   },
   "wm/internal/loop": {
     "testImports": [
       "lib/testhome",
-      "wm/internal/testenv"
+      "lib/waittest"
+    ]
+  },
+  "wm/internal/looptest": {
+    "imports": [
+      "lib/waittest",
+      "wm/internal/loop"
+    ],
+    "testImports": [
+      "lib/testhome"
     ]
   },
   "wm/internal/output": {
@@ -5105,7 +5326,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
-      "wm/internal/testenv"
+      "wm/internal/looptest"
     ]
   },
   "wm/internal/protocol/client/alphamodifier": {
@@ -6093,6 +6314,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/protocol/client/wayland",
       "wm/internal/testenv",
       "wm/internal/wlclient"
@@ -6113,6 +6335,8 @@
     "testImports": [
       "lib/logind/logindtest",
       "lib/testhome",
+      "lib/waittest",
+      "wm/internal/looptest",
       "wm/internal/testenv"
     ]
   },
@@ -6148,6 +6372,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/protocol/client/kdeserverdecoration",
       "wm/internal/protocol/client/wayland",
       "wm/internal/protocol/client/wlrlayershell",
@@ -6155,7 +6380,6 @@
       "wm/internal/protocol/client/xdgshell",
       "wm/internal/protocol/client/xdgtopleveltag",
       "wm/internal/render",
-      "wm/internal/testenv",
       "wm/internal/wlclient"
     ]
   },
@@ -6170,6 +6394,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/protocol/client/wayland",
       "wm/internal/testenv",
       "wm/internal/wlclient"
@@ -6205,6 +6430,7 @@
     ],
     "testImports": [
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/loop",
       "wm/internal/protocol/client/fractionalscale",
       "wm/internal/protocol/client/viewporter",
@@ -6227,6 +6453,7 @@
     "testImports": [
       "lib/fourcc",
       "lib/testhome",
+      "lib/waittest",
       "wm/internal/gpu",
       "wm/internal/protocol/client/linuxdmabuf",
       "wm/internal/protocol/client/linuxdrmsyncobj",

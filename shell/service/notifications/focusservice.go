@@ -31,9 +31,7 @@ func (s *Service) verdictLocked(n *Notification) Verdict {
 	return HistoryOnly
 }
 
-func (s *Service) nowLocal() time.Time { return s.clock.Now().In(s.focusLoc) }
-
-func (s *Service) focusLocked() Focus { return s.focus.evaluate(s.nowLocal()) }
+func (s *Service) focusLocked() Focus { return s.focus.evaluate(s.clock.Now()) }
 
 // DND reports whether do-not-disturb is on, by hand or by a rule.
 func (s *Service) DND() bool { return s.Focus().On }
@@ -51,7 +49,7 @@ func (s *Service) Focus() Focus {
 // state, persisted across restarts.
 func (s *Service) SetDND(on bool) {
 	s.mu.Lock()
-	now := s.nowLocal()
+	now := s.clock.Now()
 	if s.focus.automatic(now) {
 		until, _ := s.focus.rules.NextBoundary(now)
 		s.focus.override = &focusOverride{on: on, until: until}
@@ -120,13 +118,6 @@ func (s *Service) ClockJumped() {
 	s.refocusUnlock(false)
 }
 
-// UseLocation evaluates the schedule in loc instead of the local zone.
-func (s *Service) UseLocation(loc *time.Location) {
-	s.mu.Lock()
-	s.focusLoc = loc
-	s.refocusUnlock(false)
-}
-
 func (s *Service) endOpenOverrideLocked() {
 	if s.focus.override != nil && s.focus.override.until.IsZero() {
 		s.focus.override = nil
@@ -135,7 +126,7 @@ func (s *Service) endOpenOverrideLocked() {
 
 func (s *Service) focusWake() {
 	s.mu.Lock()
-	if o := s.focus.override; o != nil && !o.until.IsZero() && !s.nowLocal().Before(o.until) {
+	if o := s.focus.override; o != nil && !o.until.IsZero() && !s.clock.Now().Before(o.until) {
 		s.focus.override = nil
 	}
 	s.focusStop = nil
@@ -147,7 +138,7 @@ func (s *Service) refocusUnlock(always bool) {
 		s.focusStop()
 		s.focusStop = nil
 	}
-	now := s.nowLocal()
+	now := s.clock.Now()
 	if wake, ok := s.focus.wake(now); ok {
 		s.focusStop = s.clock.AfterFunc(wake.Sub(now), s.focusWake)
 	}

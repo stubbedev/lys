@@ -20,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
+	timeclock "github.com/stubbedev/lys/shell/internal/clock"
 	"github.com/stubbedev/lys/shell/service/bluetooth"
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/calendar"
@@ -54,6 +55,7 @@ type ModuleContext struct {
 	Brightness brightness.Source
 	Pulse      pulse.Source
 	Media      mpris.Source
+	Clock      *timeclock.Wall
 	// Calendar holds the vdir calendars the calendar dropdown and the
 	// clock read; nil in headless construction.
 	Calendar *calendar.Store

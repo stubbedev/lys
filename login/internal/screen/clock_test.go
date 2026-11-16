@@ -1,14 +1,8 @@
 package screen
 
 import (
-	"bytes"
-	"encoding/binary"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 // clockRig is a ticker over a fake wall clock that runs what it armed when the test
@@ -134,126 +128,5 @@ func TestAStoppedClockStaysQuiet(t *testing.T) {
 	r.run(time.Hour)
 	if r.shown != 0 || r.wakes != 0 {
 		t.Errorf("a stopped clock: shown %d times, %d wakes", r.shown, r.wakes)
-	}
-}
-
-// tzif is a TZif file of one fixed zone.
-func tzif(name string, offset int32) []byte {
-	var b bytes.Buffer
-	b.WriteString("TZif")
-	b.Write(make([]byte, 16))
-	for _, n := range []uint32{0, 0, 0, 0, 1, uint32(len(name) + 1)} {
-		_ = binary.Write(&b, binary.BigEndian, n)
-	}
-	_ = binary.Write(&b, binary.BigEndian, offset)
-	b.Write([]byte{0, 0})
-	b.WriteString(name)
-	b.WriteByte(0)
-	return b.Bytes()
-}
-
-func onLoop(calls chan func()) func(func()) {
-	return func(fn func()) { calls <- fn }
-}
-
-func TestTheSystemClockFiresOnTheWallClock(t *testing.T) {
-	calls := make(chan func(), 4)
-	c, err := newSystemClock(onLoop(calls), filepath.Join(t.TempDir(), "localtime"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := c.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	fired := false
-	c.Arm(c.Now().Add(10*time.Millisecond), func() { fired = true })
-	select {
-	case fn := <-calls:
-		fn()
-	case <-time.After(5 * time.Second):
-		t.Fatal("the timer never fired")
-	}
-	if !fired {
-		t.Error("what was armed did not run")
-	}
-	c.Arm(c.Now().Add(time.Hour), func() { t.Error("a disarmed timer ran") })
-	c.Disarm()
-	c.fire()
-}
-
-func TestTheSystemClockFollowsAChangeOfTimeZone(t *testing.T) {
-	t.Setenv("TZ", "")
-	if err := os.Unsetenv("TZ"); err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "localtime")
-	calls := make(chan func(), 4)
-	c, err := newSystemClock(onLoop(calls), path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := c.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	fired := false
-	c.Arm(c.Now().Add(time.Hour), func() { fired = true })
-	const offset = 5*3600 + 1800
-	if err := os.WriteFile(path+".new", tzif("XST", offset), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Rename(path+".new", path); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case fn := <-calls:
-		fn()
-	case <-time.After(5 * time.Second):
-		t.Fatal("the change of time zone woke nothing")
-	}
-	if !fired {
-		t.Error("what was armed did not run on the change")
-	}
-	if _, got := c.Now().Zone(); got != offset {
-		t.Errorf("the clock is at offset %d after the change, want %d", got, offset)
-	}
-}
-
-// Setting the clock takes CAP_SYS_TIME and changes the machine's time, so only
-// checks.wallclock-vm runs this.
-func TestSettingTheClockWakesTheTimer(t *testing.T) {
-	if os.Getenv("LYS_LOGIN_WALLCLOCK_VM") == "" {
-		t.Skip("LYS_LOGIN_WALLCLOCK_VM is unset: this sets the clock, so only checks.wallclock-vm runs it")
-	}
-	calls := make(chan func(), 4)
-	c, err := newSystemClock(onLoop(calls), filepath.Join(t.TempDir(), "localtime"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := c.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	for _, jump := range []time.Duration{time.Hour, -2 * time.Hour} {
-		fired := false
-		c.Arm(c.Now().Add(24*time.Hour), func() { fired = true })
-		ts := unix.NsecToTimeval(time.Now().Add(jump).UnixNano())
-		if err := unix.Settimeofday(&ts); err != nil {
-			t.Fatal(err)
-		}
-		select {
-		case fn := <-calls:
-			fn()
-		case <-time.After(30 * time.Second):
-			t.Fatalf("setting the clock by %v woke nothing", jump)
-		}
-		if !fired {
-			t.Errorf("setting the clock by %v did not run what was armed", jump)
-		}
 	}
 }

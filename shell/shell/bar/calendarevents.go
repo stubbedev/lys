@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
+	timeclock "github.com/stubbedev/lys/shell/internal/clock"
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/service/calendar"
 )
@@ -27,15 +28,27 @@ func calendarSources(cfg config.ClockConfig) []calendar.Source {
 	return out
 }
 
-func startCalendar(cfg config.ClockConfig, current func() *config.Config) *calendar.Store {
-	store := calendar.NewStore(calendar.WallClock, time.Local)
+func startCalendar(cfg config.ClockConfig, current func() *config.Config, clk *timeclock.Wall) (*calendar.Store, func()) {
+	store := calendar.NewStore(clk, clk.Now().Location())
 	if err := store.Configure(calendarSources(cfg)); err != nil {
 		log.Print(err)
 	}
 	store.RunReminders(func(r calendar.Reminder) {
 		desktopnotify.Notify(i18n.T("dropdown-calendar-title"), r.Summary, reminderBody(r.Occurrence, calendarIs12h(current().Clock.Format.String()), shellClockNames()), "ld-calendar-symbolic")
 	})
-	return store
+	changes, stop := clk.Changes()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range changes {
+			store.Rezone(clk.Now().Location())
+		}
+	}()
+	return store, func() {
+		stop()
+		<-done
+		store.Close()
+	}
 }
 
 func reconfigureCalendar(store *calendar.Store, old, next config.ClockConfig) {

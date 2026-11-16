@@ -65,8 +65,21 @@ func TestAnAllowedAppPopsUpThroughDoNotDisturb(t *testing.T) {
 type countingClock struct {
 	*fakeclock.Clock
 	mu   sync.Mutex
+	loc  *time.Location
 	live int
 	made int
+}
+
+func (c *countingClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.Clock.Now().In(c.loc)
+}
+
+func (c *countingClock) setZone(loc *time.Location) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.loc = loc
 }
 
 func (c *countingClock) AfterFunc(d time.Duration, fn func()) func() bool {
@@ -96,10 +109,9 @@ func scheduledService(t *testing.T, start time.Time, loc *time.Location, windows
 	t.Helper()
 	fc := fakeclock.New()
 	fc.Advance(start.Sub(fc.Now()))
-	clock := &countingClock{Clock: fc}
+	clock := &countingClock{Clock: fc, loc: loc}
 	s := newService(t)
 	s.UseClock(clock)
-	s.UseLocation(loc)
 	s.SetFocusRules(notifypolicy.FocusRules{Schedule: windows})
 	return s, clock
 }
@@ -165,6 +177,23 @@ func TestAScheduleCrossesMidnightAndADaylightSavingChange(t *testing.T) {
 	step(time.Date(2026, 3, 30, 7, 0, 0, 0, berlin), false)
 	if _, made := clock.counts(); made > 6 {
 		t.Errorf("%d timers armed over four boundaries: polling", made)
+	}
+}
+
+func TestAChangeOfTimeZoneMovesTheSchedule(t *testing.T) {
+	s, clock := scheduledService(t, time.Date(2026, 1, 5, 21, 30, 0, 0, time.UTC), time.UTC, mustWindow(t, everyDay(), "22:00", "07:00"))
+	if s.DND() {
+		t.Fatal("on at 21:30 before the window")
+	}
+	clock.setZone(time.FixedZone("CET", 3600))
+	s.ClockJumped()
+	if f := s.Focus(); !f.On || f.Reason != FocusScheduled {
+		t.Fatalf("at 22:30 in the new zone focus = %+v, want scheduled on", f)
+	}
+	clock.setZone(time.FixedZone("GMT-1", -3600))
+	s.ClockJumped()
+	if s.DND() {
+		t.Fatal("on at 20:30 in a zone west of the first")
 	}
 }
 

@@ -225,7 +225,7 @@ func testHost(t *testing.T, region *fakeRegion) (*Host, *[]Notice, *int) {
 		Copy:   func(image.Image) (func(), error) { copies++; return nil, nil },
 		Notify: func(n Notice) { notified = append(notified, n) },
 		Forget: func([]render.ImageID) {},
-		now:    func() time.Time { return time.Date(2026, 9, 30, 12, 34, 56, 0, time.Local) },
+		Now:    func() time.Time { return time.Date(2026, 9, 30, 12, 34, 56, 0, time.Local) },
 	}
 	h.frozen = func(bool) ([]frozenOutput, error) {
 		return []frozenOutput{offHeap(t, h, "DP-1", solid(200, 100, red)), offHeap(t, h, "DP-2", solid(100, 50, green))}, nil

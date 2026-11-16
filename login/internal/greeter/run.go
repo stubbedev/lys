@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/wallclock"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -65,7 +66,7 @@ func Run(init Init) error {
 	}
 	font := app.FontFallback(base)
 
-	wall, err := loginscreen.NewSystemClock(a.Invoke)
+	wall, err := wallclock.NewSystemClock(a.Invoke, wallclock.LocaltimePath)
 	if err != nil {
 		return fmt.Errorf("greeter: %w", err)
 	}

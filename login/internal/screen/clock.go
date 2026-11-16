@@ -2,6 +2,18 @@ package screen
 
 import "time"
 
+// WallClock is the time a clock on screen shows: wallclock.SystemClock, or a fake
+// in tests.
+type WallClock interface {
+	// Now is the time in the current zone.
+	Now() time.Time
+	// Arm runs fn on the loop when the wall clock reaches at, or at once when it
+	// or the zone jumps, replacing what was armed.
+	Arm(at time.Time, fn func())
+	// Disarm forgets what was armed; a firing on its way finds nothing.
+	Disarm()
+}
+
 // clockUnit is the finest thing a clock's formats show.
 type clockUnit int
 

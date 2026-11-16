@@ -5,11 +5,13 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
@@ -164,7 +166,7 @@ func TestRecorderCommands(t *testing.T) {
 	runSteps(t, []step{{[]string{"recorder", "status"}, "Error: Recorder service not running. Start lys-shell shell first.\n"}})
 	cfg := config.Defaults().Recorder
 	cfg.OutputDirectory, cfg.StartDelayMs = t.TempDir(), 0
-	state := recorder.NewState(&recordertest.Engine{}, func() config.RecorderConfig { return cfg }, recorder.Hooks{})
+	state := recorder.NewState(&recordertest.Engine{}, func() config.RecorderConfig { return cfg }, recorder.Hooks{}, time.Now)
 	release, err := recorder.NewDaemon(state).Export(dbustest.SessionConn(t))
 	if err != nil {
 		t.Fatal(err)
@@ -174,7 +176,7 @@ func TestRecorderCommands(t *testing.T) {
 		{[]string{"recorder", "status"}, "Idle\n"},
 		{[]string{"recorder", "start"}, "Recording started\n"},
 	})
-	waitFor(t, func() bool { return state.Snapshot().Active })
+	waittest.Until(t, func() bool { return state.Snapshot().Active }, "the recording to start")
 	stdout, _, _ := runCaptured(t, false, "recorder", "status")
 	if !strings.HasPrefix(stdout, "Recording (0:0") || !strings.Contains(stdout, " -> ") {
 		t.Errorf("status while recording: %q", stdout)
@@ -187,7 +189,7 @@ func TestRecorderCommands(t *testing.T) {
 		{[]string{"recorder", "resume"}, "Resumed\n"},
 		{[]string{"recorder", "toggle"}, "Recording stopped\n"},
 	})
-	waitFor(t, func() bool { return !state.Snapshot().Active })
+	waittest.Until(t, func() bool { return !state.Snapshot().Active }, "the recording to stop")
 	runSteps(t, []step{{[]string{"recorder", "stop"}, "Recording stopped\n"}})
 }
 

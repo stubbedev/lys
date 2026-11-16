@@ -81,11 +81,11 @@ func TestMountMakesNoBlockingBusCallOnTheLoop(t *testing.T) {
 	session, system := dial(sessionBus), dial(systemBus)
 	t.Cleanup(func() { _ = session.Close() })
 	a := apptest.Run(t)
-	s := newShellStart(a, a.Session(), config.Defaults(), nil, session)
+	s := newShellStart(a, a.Session(), config.Defaults(), nil, session, testWall(t))
 	s.startServices(system)
 	t.Cleanup(func() {
 		apptest.On(a, func() bool { s.down.run(); return true })
-		awaitWork(t, "the shell's work outlives its teardown", func() {
+		awaitWork(t, "the shell's work to end with its teardown", func() {
 			s.ctx.gen.waitWork()
 			s.polls.waitWork()
 		})
