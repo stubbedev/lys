@@ -25,13 +25,23 @@ func parseColorValue(v string) (uint8, error) {
 		if err != nil {
 			return 0, err
 		}
-		return uint8(n * 0xFF / 100), nil
+		return clampedColorValue(min(n, 100) * 0xFF / 100), nil
 	}
 	n, err := strconv.Atoi(strings.TrimSpace(v))
-	if n > 255 {
-		n = 255
+	if err != nil {
+		return 0, err
 	}
-	return uint8(n), err
+	return clampedColorValue(n), nil
+}
+
+func clampedColorValue(n int) uint8 {
+	if n <= 0 {
+		return 0
+	}
+	if n >= 0xFF {
+		return 0xFF
+	}
+	return uint8(n)
 }
 
 // trimSuffixes removes unitSuffixes from any number that is not just numeric

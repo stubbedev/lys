@@ -1,8 +1,10 @@
 package drm
 
 import (
+	"errors"
 	"image"
 	"slices"
+	"strconv"
 	"testing"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
@@ -40,6 +42,21 @@ func TestATileBlobPlacesItsTile(t *testing.T) {
 	for _, bad := range []string{"", "7:1:2:1:0:0:1920", "0:1:2:1:0:0:1920:2160", "7:1:2:1:2:0:1920:2160", "7:1:2:1:0:0:x:2160", "7:1:2:1:0:0:-1:2160"} {
 		if _, err := parseTile([]byte(bad)); err == nil {
 			t.Errorf("%q parsed", bad)
+		}
+	}
+}
+
+func TestATileBlobFieldIsA32BitCount(t *testing.T) {
+	got, err := parseTile([]byte("4294967295:1:2:1:1:0:1920:2160"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.group != 4294967295 {
+		t.Fatalf("group %d, want 4294967295", got.group)
+	}
+	for _, bad := range []string{"4294967296:1:2:1:1:0:1920:2160", "4294967297:1:2:1:1:0:1920:2160", "7:1:2:1:1:0:4294967297:2160"} {
+		if _, err := parseTile([]byte(bad)); !errors.Is(err, strconv.ErrRange) {
+			t.Errorf("%q parsed with %v, want %v", bad, err, strconv.ErrRange)
 		}
 	}
 }

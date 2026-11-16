@@ -33,15 +33,15 @@ func parseTile(blob []byte) (tileInfo, error) {
 	if len(fields) != 8 {
 		return tileInfo{}, fmt.Errorf("drm: a TILE blob of %d fields, want 8: %q", len(fields), blob)
 	}
-	var v [8]int
+	var v [8]uint32
 	for i, f := range fields {
-		n, err := strconv.Atoi(string(f))
-		if err != nil || n < 0 {
-			return tileInfo{}, fmt.Errorf("drm: field %d of the TILE blob %q is not a count", i, blob)
+		n, err := strconv.ParseUint(string(f), 10, 32)
+		if err != nil {
+			return tileInfo{}, fmt.Errorf("drm: field %d of the TILE blob %q is not a 32-bit count: %w", i, blob, err)
 		}
-		v[i] = n
+		v[i] = uint32(n)
 	}
-	t := tileInfo{group: uint32(v[0]), cols: v[2], rows: v[3], col: v[4], row: v[5], size: image.Pt(v[6], v[7])} //nolint:gosec // tile group IDs are 32-bit
+	t := tileInfo{group: v[0], cols: int(v[2]), rows: int(v[3]), col: int(v[4]), row: int(v[5]), size: image.Pt(int(v[6]), int(v[7]))}
 	if t.group == 0 || t.cols <= 0 || t.rows <= 0 || t.col >= t.cols || t.row >= t.rows || t.size.X <= 0 || t.size.Y <= 0 {
 		return tileInfo{}, fmt.Errorf("drm: the TILE blob %q places no tile", blob)
 	}

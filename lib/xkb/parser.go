@@ -1331,21 +1331,23 @@ func (p *parser) parseKeysymLit() (Keysym, error) {
 	case tokSection:
 		return KeySection, p.advance()
 	case tokDigit:
-		sym := Key0 + Keysym(p.tok.num) //nolint:gosec // bounded by the check above
-		return sym, p.advance()
+		return p.numericKeysym(int64(Key0) + p.tok.num), p.advance()
 	case tokInteger:
-		sym := KeyNoSymbol
-		if p.tok.num >= 0 && p.tok.num <= keysymMax {
-			sym = Keysym(p.tok.num)
-			if p.ctx.LogVerbosity() >= minVerbosityDeprecated && checkDeprecatedValue(sym) {
-				p.warnf(warnDeprecatedKeysym, "deprecated keysym \"%#06x\".", uint32(sym))
-			}
-		} else {
-			p.warnf(errInvalidNumericKeysym, "unrecognized keysym \"%#06x\" (%d)", p.tok.num, p.tok.num)
-		}
-		return sym, p.advance()
+		return p.numericKeysym(p.tok.num), p.advance()
 	}
 	return 0, p.errorf("syntax error: expected a keysym")
+}
+
+func (p *parser) numericKeysym(n int64) Keysym {
+	if n < 0 || n > keysymMax {
+		p.warnf(errInvalidNumericKeysym, "unrecognized keysym \"%#06x\" (%d)", n, n)
+		return KeyNoSymbol
+	}
+	sym := Keysym(n)
+	if p.ctx.LogVerbosity() >= minVerbosityDeprecated && checkDeprecatedValue(sym) {
+		p.warnf(warnDeprecatedKeysym, "deprecated keysym \"%#06x\".", uint32(sym))
+	}
+	return sym
 }
 
 func resolveKeysymName(name string) (Keysym, bool) {

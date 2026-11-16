@@ -258,14 +258,18 @@ func (p *parser) parseChar(c byte) bool {
 	return true
 }
 
-func (p *parser) parseUint32() (uint32, bool) {
+func (p *parser) parseUint32() (uint32, bool, error) {
 	start := p.pos
 	// go to the next space
 	for p.pos < len(p.data) && isAlnum(p.data[p.pos]) {
 		p.pos++
 	}
-	out, err := strconv.Atoi(string(p.data[start:p.pos]))
-	return uint32(out), err == nil
+	s := string(p.data[start:p.pos])
+	out, err := strconv.ParseUint(s, 10, 32)
+	if errors.Is(err, strconv.ErrRange) {
+		return 0, false, fmt.Errorf("feature number %q does not fit 32 bits: %w", s, err)
+	}
+	return uint32(out), err == nil, nil
 }
 
 func (p *parser) parseBool() (uint32, bool) {
@@ -359,11 +363,18 @@ func (p *parser) parseFeatureIndices() (start, end int, err error) {
 		return start, end, nil
 	}
 
-	startU, hasStart := p.parseUint32()
+	startU, hasStart, err := p.parseUint32()
+	if err != nil {
+		return 0, 0, err
+	}
 	start = int(startU)
 
 	if p.parseChar(':') || p.parseChar(';') {
-		if endU, ok := p.parseUint32(); ok {
+		endU, ok, err := p.parseUint32()
+		if err != nil {
+			return 0, 0, err
+		}
+		if ok {
 			end = int(endU)
 		}
 	} else {
@@ -380,19 +391,22 @@ func (p *parser) parseFeatureIndices() (start, end int, err error) {
 }
 
 // return true if a value was specified
-func (p *parser) parseFeatureValuePostfix() (uint32, bool) {
+func (p *parser) parseFeatureValuePostfix() (uint32, bool, error) {
 	/* CSS doesn't use equal-sign between tag and value.
 	 * If there was an equal-sign, then there *must* be a value.
 	 * A value without an equal-sign is ok, but not required. */
 	p.parseChar('=')
 
 	pos := p.pos
-	val, hadValue := p.parseUint32()
+	val, hadValue, err := p.parseUint32()
+	if err != nil {
+		return 0, false, err
+	}
 	if !hadValue { // retry for a bool
 		p.pos = pos
 		val, hadValue = p.parseBool()
 	}
-	return val, hadValue
+	return val, hadValue, nil
 }
 
 func (p *parser) parseFeatureValuePrefix() uint32 {
@@ -414,7 +428,11 @@ func (p *parser) parseOneFeature() (feature Feature, err error) {
 	if err != nil {
 		return feature, err
 	}
-	if val, ok := p.parseFeatureValuePostfix(); ok {
+	val, ok, err := p.parseFeatureValuePostfix()
+	if err != nil {
+		return feature, err
+	}
+	if ok {
 		feature.Value = val
 	}
 	p.skipSpaces()
@@ -459,7 +477,11 @@ func (p *parser) parseOneFeature() (feature Feature, err error) {
 //	  "aalt[3:5]=2" 2         3         5         // Turn 2nd alternate on for range
 func ParseFeature(feature string) (Feature, error) {
 	pr := parser{data: []byte(feature)}
-	return pr.parseOneFeature()
+	f, err := pr.parseOneFeature()
+	if err != nil {
+		return f, fmt.Errorf("harfbuzz: parsing the feature %q: %w", feature, err)
+	}
+	return f, nil
 }
 
 func min(a, b int) int {

@@ -368,30 +368,38 @@ func varParseString(s string) (string, error) {
 			buf.WriteRune('\t')
 		case '\n':
 		case 'u':
-			if len(s) < 4 {
-				return "", errors.New("short unicode escape")
-			}
-			r, err := strconv.ParseUint(s[:4], 16, 32)
+			r, err := varParseUnicodeEscape(s, 4)
 			if err != nil {
 				return "", err
 			}
-			buf.WriteRune(rune(r))
+			buf.WriteRune(r)
 			s = s[4:]
 		case 'U':
-			if len(s) < 8 {
-				return "", errors.New("short unicode escape")
-			}
-			r, err := strconv.ParseUint(s[:8], 16, 32)
+			r, err := varParseUnicodeEscape(s, 8)
 			if err != nil {
 				return "", err
 			}
-			buf.WriteRune(rune(r))
+			buf.WriteRune(r)
 			s = s[8:]
 		default:
 			buf.WriteRune(r)
 		}
 	}
 	return buf.String(), nil
+}
+
+func varParseUnicodeEscape(s string, digits int) (rune, error) {
+	if len(s) < digits {
+		return 0, fmt.Errorf("short unicode escape %q, want %d hex digits", s, digits)
+	}
+	v, err := strconv.ParseUint(s[:digits], 16, 32)
+	if err != nil {
+		return 0, fmt.Errorf("unicode escape %q: %w", s[:digits], err)
+	}
+	if v > utf8.MaxRune || !utf8.ValidRune(rune(v)) {
+		return 0, fmt.Errorf("unicode escape %q is not a code point", s[:digits])
+	}
+	return rune(v), nil
 }
 
 // lys-lib patch: built on use, not when the package is imported.

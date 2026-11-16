@@ -425,11 +425,11 @@ func (l *lexer) tryUnicodeEscape(b *strings.Builder) bool {
 		return false
 	}
 	l.pos += end + 1
-	if r := rune(v); v > 0 && utf8.ValidRune(r) { //nolint:gosec // ValidRune checks it
-		b.WriteRune(r)
-		return true
+	if v == 0 || v > utf8.MaxRune || !utf8.ValidRune(rune(v)) {
+		return false
 	}
-	return false
+	b.WriteRune(rune(v))
+	return true
 }
 
 func octal(s string) (byte, int) {

@@ -146,10 +146,13 @@ func KeysymFromName(name string, flags KeysymFlags) Keysym {
 		if !ok {
 			return KeyNoSymbol
 		}
-		if v > 0xff && v <= 0x10ffff {
+		if v > utf8.MaxRune {
+			return KeyNoSymbol
+		}
+		if v > 0xff {
 			return Keysym(keysymUnicode + v)
 		}
-		return UTF32ToKeysym(rune(v)) //nolint:gosec // above MaxRune stays invalid, which gives no keysym
+		return UTF32ToKeysym(rune(v))
 	}
 	if strings.HasPrefix(name, "0x") || (icase && strings.HasPrefix(name, "0X")) {
 		v, ok := parseKeysymHex(name[2:])
