@@ -42,7 +42,7 @@ settings-animations-osd = OSD
 settings-animations-dropdown = Desplegable
     .description = Animación específica para los desplegables de los widgets de la barra
 
-settings-animations-share-picker = Animación
+settings-animations-share-picker = Selector de pantalla compartida
     .description = Animación específica para la superposición del selector de pantalla compartida
 
 settings-animations-wallpaper = Fondo de escritorio

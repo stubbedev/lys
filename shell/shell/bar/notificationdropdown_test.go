@@ -110,7 +110,7 @@ func TestNotificationDropdownGroups(t *testing.T) {
 	if len(mail.items) != notifMaxVisibleItems || mail.overflow != 2 || !mail.moreRow.Visible() {
 		t.Errorf("mail: %d items, overflow %d", len(mail.items), mail.overflow)
 	}
-	if mail.moreLabel.Text() != i18n.T("notification-dropdown-group-more", i18n.Str("count", "2")) {
+	if mail.moreLabel.Text() != i18n.T("notification-dropdown-group-more", i18n.Int("count", 2)) {
 		t.Errorf("more = %q", mail.moreLabel.Text())
 	}
 

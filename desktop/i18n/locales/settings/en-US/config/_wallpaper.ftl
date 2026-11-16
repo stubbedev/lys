@@ -14,7 +14,7 @@ settings-wallpaper-cycling-directory = Cycling Directory
     .description = Folder of images to cycle through; set it to enable cycling, leave empty to disable
 
 settings-wallpaper-cycling-options = Cycling Options
-    .description = Order, interval, and multi-monitor behaviour while cycling
+    .description = Order, interval, and multi-monitor behavior while cycling
 
 settings-wallpaper-cycling-mode = Cycling Mode
     .description = Wallpaper cycling order (sequential or shuffle)

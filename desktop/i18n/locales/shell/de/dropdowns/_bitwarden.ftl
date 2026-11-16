@@ -41,7 +41,10 @@ dropdown-bitwarden-logout-confirm = Von Bitwarden abmelden?
 dropdown-bitwarden-logout-confirm-detail = Zum erneuten Anmelden brauchen Sie Ihre E-Mail-Adresse, Ihr Master-Passwort und gegebenenfalls einen Code der zweistufigen Anmeldung.
 dropdown-bitwarden-search = Tresor durchsuchen
 dropdown-bitwarden-no-items = Keine Einträge
-dropdown-bitwarden-more = { $shown } von { $total } Einträgen werden angezeigt. Suchen Sie, um sie einzugrenzen.
+dropdown-bitwarden-more = { $total ->
+    [one] { $shown } von { $total } Eintrag wird angezeigt. Suchen Sie, um sie einzugrenzen.
+   *[other] { $shown } von { $total } Einträgen werden angezeigt. Suchen Sie, um sie einzugrenzen.
+}
 dropdown-bitwarden-undecryptable = Konnte nicht entschlüsselt werden
 dropdown-bitwarden-copy = Kopieren
 dropdown-bitwarden-copy-reprompt-tooltip = Master-Passwort prüfen und das geschützte Feld kopieren
@@ -62,8 +65,14 @@ dropdown-bitwarden-field-notes = Notiz
 dropdown-bitwarden-field-passphrase = Passphrase
 dropdown-bitwarden-generator = Passwort generieren
 dropdown-bitwarden-generate = Neues Feld „{ $field }“ generieren und kopieren
-dropdown-bitwarden-generator-password-caption = { $length } Zeichen: { $charsets }
-dropdown-bitwarden-generator-passphrase-caption = { $words } Wörter
+dropdown-bitwarden-generator-password-caption = { $length ->
+    [one] { $length } Zeichen: { $charsets }
+   *[other] { $length } Zeichen: { $charsets }
+}
+dropdown-bitwarden-generator-passphrase-caption = { $words ->
+    [one] { $words } Wort
+   *[other] { $words } Wörter
+}
 dropdown-bitwarden-generator-empty = Keine Generator-Vorlagen
 dropdown-bitwarden-generator-empty-hint = Fügen Sie sie unter modules.bitwarden.generator-passwords und generator-passphrases hinzu.
 dropdown-bitwarden-error-wrong-password = Falsches Master-Passwort.
@@ -104,7 +113,10 @@ dropdown-bitwarden-send-accesses = { $count ->
     [one] einmal aufgerufen
    *[other] { $count }-mal aufgerufen
 }
-dropdown-bitwarden-send-accesses-of = { $count } von { $max } Mal aufgerufen
+dropdown-bitwarden-send-accesses-of = { $max ->
+    [one] { $opened } von { $max } Mal aufgerufen
+   *[other] { $opened } von { $max } Mal aufgerufen
+}
 dropdown-bitwarden-send-deletes = wird gelöscht am { $date }
 dropdown-bitwarden-send-protected = Passwort
 dropdown-bitwarden-send-disabled = deaktiviert

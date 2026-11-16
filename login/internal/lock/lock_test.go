@@ -674,6 +674,14 @@ func TestFailureTextIsLocalized(t *testing.T) {
 	if got := failedAttempts(3); !strings.Contains(got, "3") || strings.HasPrefix(got, "No localization") {
 		t.Errorf("failed attempts = %q, want the message with the count", got)
 	}
+	for _, n := range []uint32{1, 3} {
+		if got, want := failedAttempts(n), i18n.T("lock-failed-attempts", i18n.Int("count", int64(n))); got != want {
+			t.Errorf("failed attempts(%d) = %q, want the plural form for the number, %q", n, got, want)
+		}
+	}
+	if failedAttempts(1) == i18n.T("lock-failed-attempts", i18n.Int("count", 2)) {
+		t.Errorf("one failed attempt reads as several: %q", failedAttempts(1))
+	}
 	for _, id := range []string{"lock-incorrect", "lock-locked-out", "lock-failed-attempts"} {
 		if got := i18n.T(id); strings.HasPrefix(got, "No localization") {
 			t.Errorf("%s has no message: %q", id, got)

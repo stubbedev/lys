@@ -8,4 +8,7 @@ mail-notification-sender = New mail
 mail-notification-arrived = { $new ->
     [one] { $new } new message
    *[other] { $new } new messages
-} ({ $count } unread)
+} ({ $count ->
+    [one] { $count } unread
+   *[other] { $count } unread
+})

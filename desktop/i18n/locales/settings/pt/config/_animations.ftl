@@ -42,7 +42,7 @@ settings-animations-osd = OSD
 settings-animations-dropdown = Menu pendente
     .description = Substituição da animação para os menus pendentes dos widgets da barra
 
-settings-animations-share-picker = Animação
+settings-animations-share-picker = Seletor de partilha
     .description = Substituição da animação para a sobreposição do seletor de partilha de ecrã
 
 settings-animations-wallpaper = Imagem de fundo

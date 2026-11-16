@@ -42,7 +42,7 @@ settings-animations-osd = OSD
 settings-animations-dropdown = Menu a discesa
     .description = Animazione specifica per i menu a discesa dei widget della barra
 
-settings-animations-share-picker = Animazione
+settings-animations-share-picker = Selettore di condivisione
     .description = Animazione specifica per il selettore di condivisione schermo
 
 settings-animations-wallpaper = Sfondo

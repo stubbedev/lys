@@ -143,7 +143,10 @@ dropdown-bluetooth-pairing-enter-pin = Geben Sie diese PIN auf dem Gerät ein
 dropdown-bluetooth-pairing-type-on-device = Geben Sie die PIN auf dem Gerät ein und drücken Sie dann Eingabe
 dropdown-bluetooth-pairing-enter-shown-pin = Geben Sie die auf dem Gerät angezeigte PIN ein
 dropdown-bluetooth-pairing-confirm-code = Bestätigen Sie, dass dieser Code mit dem auf dem Gerät übereinstimmt:
-dropdown-bluetooth-pairing-entering = { $entered } von { $total } Ziffern eingegeben
+dropdown-bluetooth-pairing-entering = { $total ->
+    [one] { $entered } von { $total } Ziffer eingegeben
+   *[other] { $entered } von { $total } Ziffern eingegeben
+}
 dropdown-bluetooth-pairing-allow-pairing = Kopplung mit diesem Gerät erlauben?
 dropdown-bluetooth-pairing-service-allow = Diesem Gerät den Zugriff auf den angeforderten Dienst erlauben?
 dropdown-bluetooth-pairing-enter-legacy-pin = Geben Sie die PIN für dieses Gerät ein

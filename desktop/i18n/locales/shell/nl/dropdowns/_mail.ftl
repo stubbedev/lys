@@ -6,4 +6,7 @@ mail-notification-sender = Nieuwe e-mail
 mail-notification-arrived = { $new ->
     [one] { $new } nieuw bericht
    *[other] { $new } nieuwe berichten
-} ({ $count } ongelezen)
+} ({ $count ->
+    [one] { $count } ongelezen
+   *[other] { $count } ongelezen
+})

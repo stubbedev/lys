@@ -314,9 +314,9 @@ type Notice struct {
 }
 
 func savedNotice(path string, copyErr error) Notice {
-	n := Notice{Summary: "Screenshot saved", Body: path, Icon: path}
+	n := Notice{Summary: i18n.T("screenshot-saved"), Body: path, Icon: path}
 	if copyErr != nil {
-		n.Body += "\nNot copied to the clipboard: " + copyErr.Error()
+		n.Body += "\n" + i18n.T("screenshot-not-copied", i18n.Str("error", copyErr.Error()))
 	}
 	return n
 }

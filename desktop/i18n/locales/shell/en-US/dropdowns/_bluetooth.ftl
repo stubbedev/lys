@@ -148,7 +148,10 @@ dropdown-bluetooth-pairing-enter-shown-pin = Enter the PIN displayed on the devi
 # RequestConfirmation: both sides show same code, user confirms match
 dropdown-bluetooth-pairing-confirm-code = Confirm that this code matches the one on the device:
 # DisplayPasskey: progress while other device types passkey
-dropdown-bluetooth-pairing-entering = { $entered } of { $total } digits entered
+dropdown-bluetooth-pairing-entering = { $total ->
+    [one] { $entered } of { $total } digit entered
+   *[other] { $entered } of { $total } digits entered
+}
 # RequestAuthorization: "Just Works" pairing, user accepts or denies
 dropdown-bluetooth-pairing-allow-pairing = Allow this device to pair?
 # AuthorizeService: post-pairing service authorization

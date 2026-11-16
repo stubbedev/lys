@@ -1,5 +1,9 @@
 lock-incorrect = Mot de passe incorrect
-lock-failed-attempts = Mot de passe incorrect — { $count } tentatives échouées
+lock-failed-attempts = { $count ->
+    [one] Mot de passe incorrect — { $count } tentative échouée
+    [many] Mot de passe incorrect — { $count } de tentatives échouées
+   *[other] Mot de passe incorrect — { $count } tentatives échouées
+}
 lock-locked-out = Trop de tentatives échouées
 lock-caps-lock = Verr. Maj activé
 lock-password = Saisir le mot de passe

@@ -17,7 +17,6 @@ import (
 	"image"
 	"log"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -623,7 +622,7 @@ func (s *Screen) failureText(r auth.Refusal) string {
 }
 
 func failedAttempts(n uint32) string {
-	return i18n.T("lock-failed-attempts", i18n.Str("count", strconv.FormatUint(uint64(n), 10)))
+	return i18n.T("lock-failed-attempts", i18n.Int("count", int64(n)))
 }
 
 // exhausted reports the configured attempt cap reached (0 is no cap).

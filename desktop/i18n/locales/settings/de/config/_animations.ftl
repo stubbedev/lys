@@ -42,7 +42,7 @@ settings-animations-osd = OSD
 settings-animations-dropdown = Dropdown
     .description = Animationsüberschreibung für die Dropdowns der Leistenmodule
 
-settings-animations-share-picker = Animation
+settings-animations-share-picker = Freigabeauswahl
     .description = Animationsüberschreibung für die Auswahl der Bildschirmfreigabe
 
 settings-animations-wallpaper = Hintergrundbild

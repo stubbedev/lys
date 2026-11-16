@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/offheap"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -271,7 +272,7 @@ func TestHostRegionCapture(t *testing.T) {
 	if b := img.Bounds(); b.Dx() != 40 || b.Dy() != 20 {
 		t.Fatalf("saved %v, want the 2x-scaled 40x20 crop", b)
 	}
-	if *copies != 1 || len(*notified) != 1 || plain((*notified)[0]) != plain(Notice{Summary: "Screenshot saved", Body: path, Icon: path}) {
+	if *copies != 1 || len(*notified) != 1 || plain((*notified)[0]) != plain(Notice{Summary: i18n.T("screenshot-saved"), Body: path, Icon: path}) {
 		t.Fatalf("copies %d notified %v", *copies, *notified)
 	}
 }
@@ -287,8 +288,8 @@ func TestHostReportsAFailedCopyInTheNotification(t *testing.T) {
 		t.Fatalf("a failed copy lost the saved file: %v", err)
 	}
 	want := Notice{
-		Summary: "Screenshot saved",
-		Body:    path + "\nNot copied to the clipboard: no data-control and no input serial",
+		Summary: i18n.T("screenshot-saved"),
+		Body:    path + "\n" + i18n.T("screenshot-not-copied", i18n.Str("error", "no data-control and no input serial")),
 		Icon:    path,
 	}
 	if len(*notified) != 1 || plain((*notified)[0]) != plain(want) {

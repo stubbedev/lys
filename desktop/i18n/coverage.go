@@ -12,8 +12,8 @@ import (
 // sorted: a message, term or attribute en-US has and it lacks, one it
 // has and en-US does not, a placeable set that differs from en-US's,
 // a variant key naming a plural category its language does not have,
-// and a catalogue without a plural rule set. Each names the locale,
-// the file and the id.
+// a count shown without a plural select on it, and a catalogue without
+// a plural rule set. Each names the locale, the file and the id.
 func (a Assets) Gaps() ([]string, error) {
 	available, err := a.Available()
 	if err != nil {
@@ -32,6 +32,7 @@ func (a Assets) Gaps() ([]string, error) {
 			}
 			problems = append(problems, compareCatalogues(locale, reference, entries)...)
 		}
+		problems = append(problems, countGaps(locale, entries)...)
 		rules, err := cardinalRulesFor(locale)
 		if err != nil {
 			problems = append(problems, err.Error())
@@ -44,13 +45,17 @@ func (a Assets) Gaps() ([]string, error) {
 }
 
 // catalogued is one message, term or attribute of a catalogue: the file
-// defining it, the sorted placeables it references and the variant
-// keys naming a plural category.
+// defining it, the sorted placeables it references, the variant keys
+// naming a plural category and the counts it shows without selecting
+// on them.
 type catalogued struct {
-	file       string
-	placeables []string
-	pluralKeys []pluralCategory
+	file             string
+	placeables       []string
+	pluralKeys       []pluralCategory
+	unselectedCounts []string
 }
+
+var countVariables = []string{"count", "length", "max", "new", "total", "words"}
 
 func compareCatalogues(locale LangID, reference, translated map[string]catalogued) []string {
 	var problems []string
@@ -69,6 +74,17 @@ func compareCatalogues(locale LangID, reference, translated map[string]catalogue
 	for _, id := range slices.Sorted(maps.Keys(translated)) {
 		if _, ok := reference[id]; !ok {
 			problems = append(problems, fmt.Sprintf("%s: %s: %s: not in %s", locale, translated[id].file, id, Fallback))
+		}
+	}
+	return problems
+}
+
+func countGaps(locale LangID, entries map[string]catalogued) []string {
+	var problems []string
+	for _, id := range slices.Sorted(maps.Keys(entries)) {
+		for _, count := range entries[id].unselectedCounts {
+			problems = append(problems, fmt.Sprintf("%s: %s: %s: count $%s is shown without a plural select on it",
+				locale, entries[id].file, id, count))
 		}
 	}
 	return problems
@@ -116,9 +132,10 @@ func (a Assets) catalogueOf(locale LangID) (map[string]catalogued, error) {
 					continue
 				}
 				entries[field] = catalogued{
-					file:       file,
-					placeables: placeablesOf(fields[field]),
-					pluralKeys: pluralKeysOf(fields[field]),
+					file:             file,
+					placeables:       placeablesOf(fields[field]),
+					pluralKeys:       pluralKeysOf(fields[field]),
+					unselectedCounts: unselectedCountsOf(fields[field]),
 				}
 			}
 		}
@@ -213,4 +230,34 @@ func pluralKeysOf(p *pattern) []pluralCategory {
 		}
 	})
 	return keys
+}
+
+func unselectedCountsOf(p *pattern) []string {
+	var shown, selected []string
+	walkPattern(p, func(e expression) {
+		switch x := e.(type) {
+		case variableRef:
+			if slices.Contains(countVariables, x.id) {
+				shown = append(shown, x.id)
+			}
+		case selectExpr:
+			if id, ok := selectorVariable(x.selector); ok {
+				selected = append(selected, id)
+			}
+		}
+	})
+	slices.Sort(shown)
+	return slices.DeleteFunc(slices.Compact(shown), func(id string) bool { return slices.Contains(selected, id) })
+}
+
+func selectorVariable(e inlineExpr) (string, bool) {
+	switch x := e.(type) {
+	case variableRef:
+		return x.id, true
+	case functionRef:
+		if x.id == "NUMBER" && len(x.args.positional) > 0 {
+			return selectorVariable(x.args.positional[0])
+		}
+	}
+	return "", false
 }

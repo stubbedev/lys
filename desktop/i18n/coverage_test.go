@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"io/fs"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -98,6 +99,94 @@ func TestEnglishOwnPluralKeysAreChecked(t *testing.T) {
 	}
 	if want := []string{"en-US: _a.ftl: x: variant [many] is no plural category of en-US"}; !slices.Equal(got, want) {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestGapsNameACountShownWithoutAPluralSelect(t *testing.T) {
+	got, err := mapAssets(map[string]string{
+		"en-US/_a.ftl": "bare = { $count } items\n" +
+			"selected = { $count ->\n    [one] { $count } item\n   *[other] { $count } items\n}\n" +
+			"number = { NUMBER($total) ->\n    [one] { $shown } of { $total } item\n   *[other] { $shown } of { $total } items\n}\n" +
+			"nested = { $new ->\n    [one] { $new } message\n   *[other] { $new } messages\n} ({ $count } unread)\n" +
+			"other-var = { $count ->\n    [one] one\n   *[other] { $max } of { $count }\n}\n" +
+			"unit = { $minutes }m ago\n" +
+			"attr = Label\n    .description = { $words } words\n",
+		"de/_a.ftl": "bare = { $count ->\n    [one] { $count } Eintrag\n   *[other] { $count } Einträge\n}\n" +
+			"selected = { $count } Einträge\n" +
+			"number = { NUMBER($total) ->\n    [one] { $shown } von { $total } Eintrag\n   *[other] { $shown } von { $total } Einträgen\n}\n" +
+			"nested = { $new ->\n    [one] { $new } Nachricht\n   *[other] { $new } Nachrichten\n} ({ $count ->\n    [one] { $count } ungelesen\n   *[other] { $count } ungelesen\n})\n" +
+			"other-var = { $count ->\n    [one] eins\n   *[other] { $max } von { $count }\n}\n" +
+			"unit = vor { $minutes } min\n" +
+			"attr = Bezeichnung\n    .description = { $words ->\n        [one] { $words } Wort\n       *[other] { $words } Wörter\n    }\n",
+	}).Gaps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"de: _a.ftl: other-var: count $max is shown without a plural select on it",
+		"de: _a.ftl: selected: count $count is shown without a plural select on it",
+		"en-US: _a.ftl: attr.description: count $words is shown without a plural select on it",
+		"en-US: _a.ftl: bare: count $count is shown without a plural select on it",
+		"en-US: _a.ftl: nested: count $count is shown without a plural select on it",
+		"en-US: _a.ftl: other-var: count $max is shown without a plural select on it",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestNoIDIsDefinedInTwoDomains(t *testing.T) {
+	names := slices.Sorted(maps.Keys(domains))
+	defined := map[string]string{}
+	for _, name := range names {
+		entries, err := domains[name].catalogueOf(Fallback)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		for _, id := range slices.Sorted(maps.Keys(entries)) {
+			if first, dup := defined[id]; dup {
+				t.Errorf("%s is defined in both the %s and the %s domain", id, first, name)
+				continue
+			}
+			defined[id] = name
+		}
+	}
+}
+
+func TestEmbeddedCountsFollowEachLanguagesPluralRules(t *testing.T) {
+	load := func(tree, lang string) *Loader {
+		l, err := Select(trees[tree], []LangID{MustLangID(lang)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+	en, de, es, it := load("lys-shell-core", "en-US"), load("lys-shell-core", "de"), load("lys-shell-core", "es"), load("lys-shell-core", "it")
+	iso := func(n string) string { return "\u2068" + n + "\u2069" }
+	cases := []struct {
+		got, want string
+	}{
+		{en.Get("lock-failed-attempts", Int("count", 1)), "Incorrect password — " + iso("1") + " failed attempt"},
+		{en.Get("lock-failed-attempts", Int("count", 3)), "Incorrect password — " + iso("3") + " failed attempts"},
+		{de.Get("lock-failed-attempts", Int("count", 1)), "Falsches Passwort – " + iso("1") + " Fehlversuch"},
+		{es.Get("lock-failed-attempts", Int("count", 1000000)), "Contraseña incorrecta — " + iso("1000000") + " de intentos fallidos"},
+		{en.Get("dropdown-bitwarden-generator-passphrase-caption", Int("words", 1)), iso("1") + " word"},
+		{en.Get("dropdown-bitwarden-generator-password-caption", Int("length", 1), Str("charsets", "a-z")), iso("1") + " character: " + iso("a-z")},
+		{en.Get("dropdown-bitwarden-more", Int("shown", 50), Int("total", 51)), "Showing " + iso("50") + " of " + iso("51") + " items. Search to narrow them down."},
+		{en.Get("dropdown-bitwarden-send-accesses-of", Int("opened", 0), Int("max", 1)), "opened " + iso("0") + " of " + iso("1") + " time"},
+		{en.Get("dropdown-bluetooth-pairing-entering", Int("entered", 0), Int("total", 1)), iso("0") + " of " + iso("1") + " digit entered"},
+		{it.Get("notification-dropdown-group-more", Int("count", 1)), "Ancora " + iso("1")},
+		{it.Get("notification-dropdown-group-more", Int("count", 2)), "Altre " + iso("2")},
+		{de.Get("mail-notification-arrived", Int("new", 1), Int("count", 1)), iso(iso("1")+" neue Nachricht") + " (" + iso(iso("1")+" ungelesen") + ")"},
+		{load("lys-shell-i18n", "en-US").Get("settings-animations-share-picker"), "Share Picker"},
+	}
+	for _, c := range cases {
+		if c.got != c.want {
+			t.Errorf("got %q, want %q", c.got, c.want)
+		}
+	}
+	if got, other := en.Get("lock-failed-attempts", Str("count", "1")), en.Get("lock-failed-attempts", Int("count", 1)); got == other {
+		t.Errorf("a count passed as text %q selects like a number", got)
 	}
 }
 

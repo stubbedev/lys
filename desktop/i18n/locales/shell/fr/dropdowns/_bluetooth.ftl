@@ -148,7 +148,11 @@ dropdown-bluetooth-pairing-enter-shown-pin = Entrez le NIP affiché sur l'appare
 # RequestConfirmation : les deux côtés affichent le même code, l'utilisateur confirme
 dropdown-bluetooth-pairing-confirm-code = Confirmez que ce code correspond à celui affiché sur l'appareil :
 # DisplayPasskey : progression pendant que l'autre appareil tape le code
-dropdown-bluetooth-pairing-entering = { $entered } sur { $total } chiffres entrés
+dropdown-bluetooth-pairing-entering = { $total ->
+    [one] { $entered } sur { $total } chiffre entré
+    [many] { $entered } sur { $total } chiffres entrés
+   *[other] { $entered } sur { $total } chiffres entrés
+}
 # RequestAuthorization : jumelage simple, l'utilisateur accepte ou refuse
 dropdown-bluetooth-pairing-allow-pairing = Autoriser le jumelage de cet appareil ?
 # AuthorizeService : autorisation de service après le jumelage

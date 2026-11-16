@@ -16,7 +16,10 @@ notification-dnd-reason-scheduled-open = Geplant
 notification-dnd-reason-sharing = Bildschirm freigegeben
 notification-dnd-reason-fullscreen = Ein Fenster ist im Vollbild
 notification-dropdown-group-clear = Löschen
-notification-dropdown-group-more = { $count } weitere
+notification-dropdown-group-more = { $count ->
+    [one] { $count } weitere
+   *[other] { $count } weitere
+}
 notification-dropdown-unknown-app = Unbekannt
 notification-dropdown-time-just-now = Gerade eben
 notification-dropdown-time-minutes-ago = vor { $minutes } min

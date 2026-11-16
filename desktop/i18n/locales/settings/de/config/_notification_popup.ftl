@@ -58,12 +58,6 @@ settings-modules-notifications-popup-close-behavior = Schließverhalten
 settings-modules-notifications-popup-urgency-bar = Dringlichkeitsbalken
     .description = Einen farbigen Balken auf Popups anzeigen, die eine Mindestdringlichkeit erreichen
 
-## Relative Time
-
-notification-popup-time-just-now = Gerade eben
-notification-popup-time-minutes-ago = vor { $minutes } min
-notification-popup-time-hours-ago = vor { $hours } h
-
 settings-modules-notifications-sounds = Töne
     .description = Welche Benachrichtigungen einen Ton abspielen; stumm bei „Nicht stören“, während der Bildschirmfreigabe und bei Stummschaltung
 

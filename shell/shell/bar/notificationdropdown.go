@@ -444,7 +444,7 @@ func (g *notifGroup) sync() {
 	} else {
 		g.chevron.SetThemeName("ld-chevron-down-symbolic")
 	}
-	g.moreLabel.SetText(i18n.T("notification-dropdown-group-more", i18n.Str("count", strconv.Itoa(g.overflow))))
+	g.moreLabel.SetText(i18n.T("notification-dropdown-group-more", i18n.Int("count", int64(g.overflow))))
 	g.moreRow.SetVisible(g.overflow > 0)
 }
 

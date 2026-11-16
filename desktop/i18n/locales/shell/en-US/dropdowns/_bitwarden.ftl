@@ -41,7 +41,10 @@ dropdown-bitwarden-logout-confirm = Log out of Bitwarden?
 dropdown-bitwarden-logout-confirm-detail = Signing in again takes your email, master password and any two-step login code.
 dropdown-bitwarden-search = Search the vault
 dropdown-bitwarden-no-items = No items
-dropdown-bitwarden-more = Showing { $shown } of { $total } items. Search to narrow them down.
+dropdown-bitwarden-more = { $total ->
+    [one] Showing { $shown } of { $total } item. Search to narrow them down.
+   *[other] Showing { $shown } of { $total } items. Search to narrow them down.
+}
 dropdown-bitwarden-undecryptable = Could not be decrypted
 dropdown-bitwarden-copy = Copy
 dropdown-bitwarden-copy-reprompt-tooltip = Check the master password and copy the protected field
@@ -62,8 +65,14 @@ dropdown-bitwarden-field-notes = note
 dropdown-bitwarden-field-passphrase = passphrase
 dropdown-bitwarden-generator = Generate a password
 dropdown-bitwarden-generate = Generate and copy a new { $field }
-dropdown-bitwarden-generator-password-caption = { $length } characters: { $charsets }
-dropdown-bitwarden-generator-passphrase-caption = { $words } words
+dropdown-bitwarden-generator-password-caption = { $length ->
+    [one] { $length } character: { $charsets }
+   *[other] { $length } characters: { $charsets }
+}
+dropdown-bitwarden-generator-passphrase-caption = { $words ->
+    [one] { $words } word
+   *[other] { $words } words
+}
 dropdown-bitwarden-generator-empty = No generator presets
 dropdown-bitwarden-generator-empty-hint = Add them under modules.bitwarden.generator-passwords and generator-passphrases.
 dropdown-bitwarden-error-wrong-password = Wrong master password.
@@ -104,7 +113,10 @@ dropdown-bitwarden-send-accesses = { $count ->
     [one] opened once
    *[other] opened { $count } times
 }
-dropdown-bitwarden-send-accesses-of = opened { $count } of { $max } times
+dropdown-bitwarden-send-accesses-of = { $max ->
+    [one] opened { $opened } of { $max } time
+   *[other] opened { $opened } of { $max } times
+}
 dropdown-bitwarden-send-deletes = deleted { $date }
 dropdown-bitwarden-send-protected = password
 dropdown-bitwarden-send-disabled = disabled

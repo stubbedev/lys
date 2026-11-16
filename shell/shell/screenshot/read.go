@@ -120,7 +120,7 @@ func (h *Host) readCode(img image.Image) (string, error) {
 		actions = []Action{ActionOpen, ActionCopy}
 	}
 	h.announce(Notice{
-		Summary: "QR code",
+		Summary: i18n.T("screenshot-qr-code"),
 		Body:    payload,
 		Icon:    "ld-scan-qr-code-symbolic",
 		Actions: actions,

@@ -1,5 +1,8 @@
 lock-incorrect = Onjuist wachtwoord
-lock-failed-attempts = Onjuist wachtwoord — { $count } mislukte pogingen
+lock-failed-attempts = { $count ->
+    [one] Onjuist wachtwoord — { $count } mislukte poging
+   *[other] Onjuist wachtwoord — { $count } mislukte pogingen
+}
 lock-locked-out = Te veel mislukte pogingen
 lock-caps-lock = Caps Lock staat aan
 lock-password = Voer wachtwoord in

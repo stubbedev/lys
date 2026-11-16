@@ -1,5 +1,8 @@
 lock-incorrect = Incorrect password
-lock-failed-attempts = Incorrect password — { $count } failed attempts
+lock-failed-attempts = { $count ->
+    [one] Incorrect password — { $count } failed attempt
+   *[other] Incorrect password — { $count } failed attempts
+}
 lock-locked-out = Too many failed attempts
 lock-caps-lock = Caps Lock is on
 lock-password = Enter Password

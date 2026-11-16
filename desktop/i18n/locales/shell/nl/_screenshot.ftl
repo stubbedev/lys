@@ -23,3 +23,6 @@ screenshot-delete-failed = De schermafbeelding is niet verwijderd: { $error }
 screenshot-editor-failed = De editor kon niet worden geopend: { $error }
 screenshot-copy-edited-failed = De bewerkte schermafbeelding is opgeslagen maar niet gekopieerd: { $error }
 screenshot-qr-copy-failed = De QR-code is niet gekopieerd: { $error }
+screenshot-saved = Schermafbeelding opgeslagen
+screenshot-not-copied = Niet naar het klembord gekopieerd: { $error }
+screenshot-qr-code = QR-code

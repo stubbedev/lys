@@ -42,7 +42,7 @@ settings-animations-osd = OSD
 settings-animations-dropdown = Uitklapmenu
     .description = Animatie-overschrijving per oppervlak voor de uitklapmenu's van balkwidgets
 
-settings-animations-share-picker = Animatie
+settings-animations-share-picker = Deelkiezer
     .description = Animatie-overschrijving per oppervlak voor de overlay van de schermdeelkiezer
 
 settings-animations-wallpaper = Achtergrond

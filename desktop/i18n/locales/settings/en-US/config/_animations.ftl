@@ -43,7 +43,7 @@ settings-animations-osd = OSD
 settings-animations-dropdown = Dropdown
     .description = Per-surface animation override for bar widget dropdown foldouts
 
-settings-animations-share-picker = Animation
+settings-animations-share-picker = Share Picker
     .description = Per-surface animation override for the screen-share picker overlay
 
 settings-animations-wallpaper = Wallpaper

@@ -2,20 +2,20 @@
 
 ## Network Module Configuration
 
-settings-modules-network-wifi-disabled-icon = WiFi Disabled Icon
-    .description = Icon when WiFi is disabled
+settings-modules-network-wifi-disabled-icon = Wi-Fi Disabled Icon
+    .description = Icon when Wi-Fi is disabled
 
-settings-modules-network-wifi-acquiring-icon = WiFi Connecting Icon
-    .description = Icon when WiFi is connecting
+settings-modules-network-wifi-acquiring-icon = Wi-Fi Connecting Icon
+    .description = Icon when Wi-Fi is connecting
 
-settings-modules-network-wifi-offline-icon = WiFi Offline Icon
-    .description = Icon when WiFi is disconnected
+settings-modules-network-wifi-offline-icon = Wi-Fi Offline Icon
+    .description = Icon when Wi-Fi is disconnected
 
-settings-modules-network-wifi-connected-icon = WiFi Connected Icon
+settings-modules-network-wifi-connected-icon = Wi-Fi Connected Icon
     .description = Icon when connected but signal strength unavailable
 
 settings-modules-network-wifi-signal-icons = Signal Icons
-    .description = Icons shown at different WiFi signal strengths, from weak to strong
+    .description = Icons shown at different Wi-Fi signal strengths, from weak to strong
 
 settings-modules-network-wired-connected-icon = Wired Connected Icon
     .description = Icon when ethernet is connected
@@ -36,7 +36,7 @@ settings-modules-network-vpn-disconnected-icon = VPN Disconnected Icon
     .description = Icon when a VPN is configured but disconnected
 
 settings-modules-network-vpn-show = Show VPN State
-    .description = When the VPN state replaces the WiFi/wired icon
+    .description = When the VPN state replaces the Wi-Fi/wired icon
 
 
 settings-modules-network-border-show = Show Border

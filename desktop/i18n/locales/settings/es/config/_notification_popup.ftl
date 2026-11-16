@@ -58,12 +58,6 @@ settings-modules-notifications-popup-close-behavior = Comportamiento al cerrar
 settings-modules-notifications-popup-urgency-bar = Barra de urgencia
     .description = Muestra una barra de color en las ventanas emergentes que alcanzan un nivel mínimo de urgencia
 
-## Relative Time
-
-notification-popup-time-just-now = Ahora mismo
-notification-popup-time-minutes-ago = hace { $minutes } min
-notification-popup-time-hours-ago = hace { $hours } h
-
 settings-modules-notifications-sounds = Sonidos
     .description = Qué notificaciones reproducen un sonido; silencio en No molestar, al compartir la pantalla y con el sonido silenciado
 

@@ -1,5 +1,9 @@
 lock-incorrect = Password errata
-lock-failed-attempts = Password errata: { $count } tentativi falliti
+lock-failed-attempts = { $count ->
+    [one] Password errata: { $count } tentativo fallito
+    [many] Password errata: { $count } di tentativi falliti
+   *[other] Password errata: { $count } tentativi falliti
+}
 lock-locked-out = Troppi tentativi falliti
 lock-caps-lock = Bloc Maiusc è attivo
 lock-password = Inserisci la password

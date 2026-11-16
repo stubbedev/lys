@@ -52,10 +52,6 @@ settings-modules-notifications-popup-close-behavior = Sluitgedrag
 settings-modules-notifications-popup-urgency-bar = Urgentiebalk
     .description = Een gekleurde balk tonen op pop-ups die een minimaal urgentieniveau halen
 
-notification-popup-time-just-now = Zojuist
-notification-popup-time-minutes-ago = { $minutes } min. geleden
-notification-popup-time-hours-ago = { $hours } u geleden
-
 settings-modules-notifications-sounds = Geluiden
     .description = Welke meldingen een geluid afspelen; stil bij niet storen, tijdens het delen van het scherm en als het geluid gedempt is
 

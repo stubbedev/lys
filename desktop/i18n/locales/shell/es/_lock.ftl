@@ -1,5 +1,9 @@
 lock-incorrect = Contraseña incorrecta
-lock-failed-attempts = Contraseña incorrecta — { $count } intentos fallidos
+lock-failed-attempts = { $count ->
+    [one] Contraseña incorrecta — { $count } intento fallido
+    [many] Contraseña incorrecta — { $count } de intentos fallidos
+   *[other] Contraseña incorrecta — { $count } intentos fallidos
+}
 lock-locked-out = Demasiados intentos fallidos
 lock-caps-lock = Bloq Mayús está activado
 lock-password = Introduzca la contraseña

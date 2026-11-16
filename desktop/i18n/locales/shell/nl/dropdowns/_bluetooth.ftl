@@ -127,7 +127,10 @@ dropdown-bluetooth-pairing-enter-pin = Voer deze pincode in op het apparaat
 dropdown-bluetooth-pairing-type-on-device = Typ de pincode op het apparaat en druk daarna op Enter
 dropdown-bluetooth-pairing-enter-shown-pin = Voer de pincode in die op het apparaat wordt getoond
 dropdown-bluetooth-pairing-confirm-code = Bevestig dat deze code overeenkomt met die op het apparaat:
-dropdown-bluetooth-pairing-entering = { $entered } van { $total } cijfers ingevoerd
+dropdown-bluetooth-pairing-entering = { $total ->
+    [one] { $entered } van { $total } cijfer ingevoerd
+   *[other] { $entered } van { $total } cijfers ingevoerd
+}
 dropdown-bluetooth-pairing-allow-pairing = Dit apparaat toestaan te koppelen?
 dropdown-bluetooth-pairing-service-allow = Dit apparaat toegang geven tot de gevraagde dienst?
 dropdown-bluetooth-pairing-enter-legacy-pin = Voer de pincode voor dit apparaat in

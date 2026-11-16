@@ -23,3 +23,6 @@ screenshot-delete-failed = La captura no se eliminó: { $error }
 screenshot-editor-failed = No se pudo abrir el editor: { $error }
 screenshot-copy-edited-failed = La captura editada se guardó, pero no se copió: { $error }
 screenshot-qr-copy-failed = El código QR no se copió: { $error }
+screenshot-saved = Captura guardada
+screenshot-not-copied = No se copió al portapapeles: { $error }
+screenshot-qr-code = Código QR

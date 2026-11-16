@@ -39,7 +39,10 @@ dropdown-bitwarden-logout-confirm = Afmelden bij Bitwarden?
 dropdown-bitwarden-logout-confirm-detail = Om opnieuw aan te melden zijn je e-mailadres, je hoofdwachtwoord en eventueel een code voor aanmelden in twee stappen nodig.
 dropdown-bitwarden-search = In de kluis zoeken
 dropdown-bitwarden-no-items = Geen items
-dropdown-bitwarden-more = { $shown } van { $total } items getoond. Zoek om ze te beperken.
+dropdown-bitwarden-more = { $total ->
+    [one] { $shown } van { $total } item getoond. Zoek om ze te beperken.
+   *[other] { $shown } van { $total } items getoond. Zoek om ze te beperken.
+}
 dropdown-bitwarden-undecryptable = Kon niet worden ontsleuteld
 dropdown-bitwarden-copy = Kopiëren
 dropdown-bitwarden-copy-reprompt-tooltip = Het hoofdwachtwoord controleren en het beveiligde veld kopiëren
@@ -60,8 +63,14 @@ dropdown-bitwarden-field-notes = notitie
 dropdown-bitwarden-field-passphrase = wachtwoordzin
 dropdown-bitwarden-generator = Een wachtwoord genereren
 dropdown-bitwarden-generate = Een nieuwe { $field } genereren en kopiëren
-dropdown-bitwarden-generator-password-caption = { $length } tekens: { $charsets }
-dropdown-bitwarden-generator-passphrase-caption = { $words } woorden
+dropdown-bitwarden-generator-password-caption = { $length ->
+    [one] { $length } teken: { $charsets }
+   *[other] { $length } tekens: { $charsets }
+}
+dropdown-bitwarden-generator-passphrase-caption = { $words ->
+    [one] { $words } woord
+   *[other] { $words } woorden
+}
 dropdown-bitwarden-generator-empty = Geen generatorvoorinstellingen
 dropdown-bitwarden-generator-empty-hint = Voeg ze toe onder modules.bitwarden.generator-passwords en generator-passphrases.
 dropdown-bitwarden-error-wrong-password = Verkeerd hoofdwachtwoord.
@@ -102,7 +111,10 @@ dropdown-bitwarden-send-accesses = { $count ->
     [one] één keer geopend
    *[other] { $count } keer geopend
 }
-dropdown-bitwarden-send-accesses-of = { $count } van { $max } keer geopend
+dropdown-bitwarden-send-accesses-of = { $max ->
+    [one] { $opened } van { $max } keer geopend
+   *[other] { $opened } van { $max } keer geopend
+}
 dropdown-bitwarden-send-deletes = verwijderd op { $date }
 dropdown-bitwarden-send-protected = wachtwoord
 dropdown-bitwarden-send-disabled = uitgeschakeld

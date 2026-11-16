@@ -4,8 +4,8 @@
 bar-network-connecting = Connecting...
 bar-network-disconnected = Disconnected
 bar-network-wired = Wired
-bar-network-wifi-fallback = WiFi
-bar-network-no-wifi = No WiFi
+bar-network-wifi-fallback = Wi-Fi
+bar-network-no-wifi = No Wi-Fi
 bar-network-no-ethernet = No Ethernet
 bar-network-offline = Offline
 

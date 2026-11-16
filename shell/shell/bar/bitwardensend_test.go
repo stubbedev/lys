@@ -144,3 +144,16 @@ func TestBitwardenSendFollowsTheLock(t *testing.T) {
 		t.Errorf("hidden: sending %v, password %q, page %s", view.sending, view.sendPw.entry.Text(), page(view))
 	}
 }
+
+func TestBitwardenSendCaptionCountsTheAccessLimit(t *testing.T) {
+	for _, limit := range []uint32{1, 5} {
+		got := bwSendCaption(vault.Send{AccessCount: 0, MaxAccessCount: limit})
+		want := i18n.T("dropdown-bitwarden-send-accesses-of", i18n.Int("opened", 0), i18n.Int("max", int64(limit)))
+		if got != want || strings.Contains(got, "{") {
+			t.Errorf("caption for 0 of %d = %q, want %q", limit, got, want)
+		}
+	}
+	if got := bwSendCaption(vault.Send{AccessCount: 2}); got != i18n.T("dropdown-bitwarden-send-accesses", i18n.Int("count", 2)) {
+		t.Errorf("caption without a limit = %q", got)
+	}
+}

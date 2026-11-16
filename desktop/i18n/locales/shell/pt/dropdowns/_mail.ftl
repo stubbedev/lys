@@ -7,4 +7,8 @@ mail-notification-arrived = { $new ->
     [one] { $new } mensagem nova
     [many] { $new } de mensagens novas
    *[other] { $new } mensagens novas
-} ({ $count } por ler)
+} ({ $count ->
+    [one] { $count } por ler
+    [many] { $count } por ler
+   *[other] { $count } por ler
+})

@@ -14,7 +14,10 @@ notification-dnd-reason-scheduled-open = Gepland
 notification-dnd-reason-sharing = Scherm gedeeld
 notification-dnd-reason-fullscreen = Een venster is schermvullend
 notification-dropdown-group-clear = Wissen
-notification-dropdown-group-more = Nog { $count }
+notification-dropdown-group-more = { $count ->
+    [one] Nog { $count }
+   *[other] Nog { $count }
+}
 notification-dropdown-unknown-app = Onbekend
 notification-dropdown-time-just-now = Zojuist
 notification-dropdown-time-minutes-ago = { $minutes } min. geleden

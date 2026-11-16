@@ -142,7 +142,7 @@ func TestReadQRAnnouncesTheCodeAndCopiesOnlyWhenAsked(t *testing.T) {
 		t.Fatalf("copied %v before asked, notified %d", rec.copied, len(*notified))
 	}
 	n := (*notified)[0]
-	if !slices.Equal(n.Actions, []Action{ActionOpen, ActionCopy}) || n.Body != payload {
+	if !slices.Equal(n.Actions, []Action{ActionOpen, ActionCopy}) || n.Body != payload || n.Summary != i18n.T("screenshot-qr-code") {
 		t.Fatalf("notice %+v", n)
 	}
 	n.Respond(ActionOpen)

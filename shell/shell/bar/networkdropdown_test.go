@@ -1193,7 +1193,7 @@ func TestNetworkRefusedSwitchAndDisconnectShowWhy(t *testing.T) {
 	settleNetReads(t, v)
 	onHeadlessLoop(func() bool { v.wifiToggled(false); return true })
 	waitHeadless(t, "the refused switch", v.actionErr.Visible)
-	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not turn WiFi off: rfkill blocked" {
+	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not turn Wi-Fi off: rfkill blocked" {
 		t.Errorf("a refused switch says %q", got)
 	}
 	settleNetReads(t, v)

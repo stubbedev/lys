@@ -36,7 +36,7 @@ settings-modules-network-vpn-disconnected-icon = Icône VPN déconnecté
     .description = Icône lorsqu'un VPN est configuré mais déconnecté
 
 settings-modules-network-vpn-show = Afficher l'état du VPN
-    .description = Quand l'état du VPN remplace l'icône WiFi/Ethernet
+    .description = Quand l'état du VPN remplace l'icône Wi-Fi/Ethernet
 
 
 settings-modules-network-border-show = Afficher la bordure

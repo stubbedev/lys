@@ -39,7 +39,11 @@ dropdown-bitwarden-logout-confirm = Terminar sessão no Bitwarden?
 dropdown-bitwarden-logout-confirm-detail = Para voltar a iniciar sessão, precisará do seu e-mail, da palavra-passe mestra e, se aplicável, de um código de início de sessão em dois passos.
 dropdown-bitwarden-search = Pesquisar no cofre
 dropdown-bitwarden-no-items = Sem itens
-dropdown-bitwarden-more = A mostrar { $shown } de { $total } itens. Pesquise para os filtrar.
+dropdown-bitwarden-more = { $total ->
+    [one] A mostrar { $shown } de { $total } item. Pesquise para os filtrar.
+    [many] A mostrar { $shown } de { $total } de itens. Pesquise para os filtrar.
+   *[other] A mostrar { $shown } de { $total } itens. Pesquise para os filtrar.
+}
 dropdown-bitwarden-undecryptable = Não foi possível desencriptar
 dropdown-bitwarden-copy = Copiar
 dropdown-bitwarden-copy-reprompt-tooltip = Verificar a palavra-passe mestra e copiar o campo protegido
@@ -60,8 +64,16 @@ dropdown-bitwarden-field-notes = nota
 dropdown-bitwarden-field-passphrase = frase-passe
 dropdown-bitwarden-generator = Gerar uma palavra-passe
 dropdown-bitwarden-generate = Gerar e copiar: { $field }
-dropdown-bitwarden-generator-password-caption = { $length } caracteres: { $charsets }
-dropdown-bitwarden-generator-passphrase-caption = { $words } palavras
+dropdown-bitwarden-generator-password-caption = { $length ->
+    [one] { $length } carácter: { $charsets }
+    [many] { $length } de caracteres: { $charsets }
+   *[other] { $length } caracteres: { $charsets }
+}
+dropdown-bitwarden-generator-passphrase-caption = { $words ->
+    [one] { $words } palavra
+    [many] { $words } de palavras
+   *[other] { $words } palavras
+}
 dropdown-bitwarden-generator-empty = Sem predefinições do gerador
 dropdown-bitwarden-generator-empty-hint = Adicione-as em modules.bitwarden.generator-passwords e generator-passphrases.
 dropdown-bitwarden-error-wrong-password = Palavra-passe mestra errada.
@@ -105,7 +117,11 @@ dropdown-bitwarden-send-accesses = { $count ->
     [many] aberto { $count } vezes
    *[other] aberto { $count } vezes
 }
-dropdown-bitwarden-send-accesses-of = aberto { $count } de { $max } vezes
+dropdown-bitwarden-send-accesses-of = { $max ->
+    [one] aberto { $opened } de { $max } vez
+    [many] aberto { $opened } de { $max } vezes
+   *[other] aberto { $opened } de { $max } vezes
+}
 dropdown-bitwarden-send-deletes = eliminado a { $date }
 dropdown-bitwarden-send-protected = palavra-passe
 dropdown-bitwarden-send-disabled = desativado

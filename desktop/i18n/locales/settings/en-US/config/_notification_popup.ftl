@@ -58,12 +58,6 @@ settings-modules-notifications-popup-close-behavior = Close Behavior
 settings-modules-notifications-popup-urgency-bar = Urgency Bar
     .description = Show a colored bar on popups that meet a minimum urgency level
 
-## Relative Time
-
-notification-popup-time-just-now = Just now
-notification-popup-time-minutes-ago = { $minutes }m ago
-notification-popup-time-hours-ago = { $hours }h ago
-
 settings-modules-notifications-sounds = Sounds
     .description = Which notifications play a sound; silent in do-not-disturb, while sharing the screen and while muted
 

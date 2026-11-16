@@ -14,10 +14,10 @@ dropdown-network-error = Error
 dropdown-network-cancel = Cancel
 dropdown-network-password-placeholder = Enter password
 dropdown-network-ethernet = Ethernet
-dropdown-network-wifi = WiFi
+dropdown-network-wifi = Wi-Fi
 dropdown-network-no-networks-title = No Networks Found
-dropdown-network-no-networks-description = Make sure WiFi is enabled and try scanning again
-dropdown-network-no-adapter-title = No WiFi Adapter
+dropdown-network-no-networks-description = Make sure Wi-Fi is enabled and try scanning again
+dropdown-network-no-adapter-title = No Wi-Fi Adapter
 dropdown-network-no-adapter-description = No wireless adapter was detected on this system
 
 ## Security Types
@@ -187,8 +187,8 @@ dropdown-network-hidden-error-name-empty = Enter the network's name
 dropdown-network-hidden-error-name-too-long = That name is too long for a network
 dropdown-network-hidden-error-password = Enter the network's password
 dropdown-network-scan = Scan for networks
-dropdown-network-error-wifi-on = Could not turn WiFi on: { $error }
-dropdown-network-error-wifi-off = Could not turn WiFi off: { $error }
+dropdown-network-error-wifi-on = Could not turn Wi-Fi on: { $error }
+dropdown-network-error-wifi-off = Could not turn Wi-Fi off: { $error }
 dropdown-network-error-disconnect = Could not disconnect from { $name }: { $error }
 dropdown-network-vpn-import-error = Could not open a file: { $error }
 dropdown-network-vpn-error-toggle = Could not switch { $name }: { $error }

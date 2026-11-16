@@ -35,7 +35,7 @@ func bwSendLifetimeLabel(d time.Duration) string {
 func bwSendCaption(s vault.Send) string {
 	accesses := i18n.T("dropdown-bitwarden-send-accesses", i18n.Int("count", int64(s.AccessCount)))
 	if s.MaxAccessCount > 0 {
-		accesses = i18n.T("dropdown-bitwarden-send-accesses-of", i18n.Int("count", int64(s.AccessCount)), i18n.Int("max", int64(s.MaxAccessCount)))
+		accesses = i18n.T("dropdown-bitwarden-send-accesses-of", i18n.Int("opened", int64(s.AccessCount)), i18n.Int("max", int64(s.MaxAccessCount)))
 	}
 	line := accesses
 	if !s.Deletion.IsZero() {

@@ -4,13 +4,13 @@ dropdown-dashboard-title = Dashboard
 dropdown-dashboard-open-settings = Open Settings
 
 ## Quick Actions
-dropdown-dashboard-wifi = WiFi
+dropdown-dashboard-wifi = Wi-Fi
 dropdown-dashboard-bluetooth = Bluetooth
 dropdown-dashboard-airplane = Airplane Mode
 dropdown-dashboard-dnd = Do Not Disturb
 dropdown-dashboard-idle-inhibit = Idle Inhibit
 dropdown-dashboard-power-saver = Power Saver
-dropdown-dashboard-wifi-failed = Couldn't switch WiFi
+dropdown-dashboard-wifi-failed = Couldn't switch Wi-Fi
 dropdown-dashboard-bluetooth-failed = Couldn't switch Bluetooth
 dropdown-dashboard-airplane-failed = Couldn't switch airplane mode
 dropdown-dashboard-volume-failed = Couldn't change the volume
@@ -45,7 +45,7 @@ dropdown-dashboard-network = Network
 dropdown-dashboard-network-disconnected = Disconnected
 dropdown-dashboard-network-connecting = Connecting...
 dropdown-dashboard-network-ethernet = Ethernet
-dropdown-dashboard-network-wifi-off = WiFi Off
+dropdown-dashboard-network-wifi-off = Wi-Fi Off
 dropdown-dashboard-network-speed-kbs = KB/s
 dropdown-dashboard-network-speed-mbs = MB/s
 
