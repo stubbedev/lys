@@ -2,13 +2,18 @@ package ipc
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/lib/peercred"
 	"github.com/stubbedev/lys/lib/wmipc"
 )
 
@@ -39,11 +44,92 @@ const (
 
 type conn struct {
 	wait time.Duration
+	idle time.Duration
+	pid  int32
 	c    *net.UnixConn
 	r    *bufio.Reader
 }
 
-func send(path string, req Request) (*conn, error) {
+func (cn *conn) readResponse() ([]byte, error) {
+	if cn.wait > 0 {
+		if err := cn.c.SetReadDeadline(time.Now().Add(cn.wait)); err != nil {
+			return nil, err
+		}
+		return cn.r.ReadBytes('\n')
+	}
+	var line []byte
+	var worked uint64
+	sampled := false
+	for {
+		if err := cn.c.SetReadDeadline(time.Now().Add(cn.idle)); err != nil {
+			return nil, err
+		}
+		part, err := cn.r.ReadBytes('\n')
+		line = append(line, part...)
+		if !errors.Is(err, os.ErrDeadlineExceeded) {
+			return line, err
+		}
+		work, werr := cn.peerWork()
+		if werr != nil {
+			return nil, errors.Join(err, werr)
+		}
+		if sampled && work == worked {
+			return nil, fmt.Errorf("lys-wm (pid %d) did no work in %v: %w", cn.pid, cn.idle, err)
+		}
+		worked, sampled = work, true
+	}
+}
+
+func (cn *conn) peerWork() (uint64, error) {
+	if cn.pid == 0 {
+		cred, err := peercred.Of(cn.c)
+		if err != nil {
+			return 0, fmt.Errorf("ipc: find the lys-wm process behind the socket: %w", err)
+		}
+		if cred.PID <= 0 {
+			return 0, fmt.Errorf("ipc: lys-wm has no pid in this client's pid namespace (%d), so whether it is working cannot be read", cred.PID)
+		}
+		cn.pid = cred.PID
+	}
+	path := "/proc/" + strconv.Itoa(int(cn.pid)) + "/stat"
+	stat, err := os.ReadFile(path) //nolint:gosec // procfs of the pid the kernel named as the socket's peer
+	if err != nil {
+		return 0, fmt.Errorf("ipc: read how much work lys-wm has done: %w", err)
+	}
+	ticks, err := cpuTicks(stat)
+	if err != nil {
+		return 0, fmt.Errorf("ipc: %s: %w", path, err)
+	}
+	return ticks, nil
+}
+
+const (
+	firstAfterComm = 3
+	utimeField     = 14
+	stimeField     = 15
+)
+
+func cpuTicks(stat []byte) (uint64, error) {
+	_, afterComm, ok := bytes.CutLast(stat, []byte(")"))
+	if !ok {
+		return 0, fmt.Errorf("no (comm) in %q", stat)
+	}
+	fields := strings.Fields(string(afterComm))
+	if len(fields) <= stimeField-firstAfterComm {
+		return 0, fmt.Errorf("%d fields after (comm), want at least %d, in %q", len(fields), stimeField-firstAfterComm+1, stat)
+	}
+	var ticks uint64
+	for _, field := range []int{utimeField, stimeField} {
+		n, err := strconv.ParseUint(fields[field-firstAfterComm], 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("field %d: %w", field, err)
+		}
+		ticks += n
+	}
+	return ticks, nil
+}
+
+func send(path string, req Request, idle time.Duration) (*conn, error) {
 	c, err := net.DialTimeout("unix", path, ioTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("ipc: connect to %s: %w", path, err)
@@ -61,18 +147,11 @@ func send(path string, req Request) (*conn, error) {
 		_ = c.Close()
 		return nil, fmt.Errorf("ipc: send %s: %w", req.Request, err)
 	}
-	return &conn{c: uc, r: bufio.NewReader(uc)}, nil
+	return &conn{idle: idle, c: uc, r: bufio.NewReader(uc)}, nil
 }
 
 func (cn *conn) response() (json.RawMessage, error) {
-	wait := ioTimeout
-	if cn.wait > 0 {
-		wait = cn.wait
-	}
-	if err := cn.c.SetReadDeadline(time.Now().Add(wait)); err != nil {
-		return nil, err
-	}
-	line, err := cn.r.ReadBytes('\n')
+	line, err := cn.readResponse()
 	if err != nil {
 		return nil, fmt.Errorf("ipc: read the response: %w", err)
 	}
@@ -96,14 +175,18 @@ func (cn *conn) close() error {
 	return nil
 }
 
-func Do(path string, req Request) (result json.RawMessage, err error) {
+func Do(path string, req Request) (json.RawMessage, error) {
+	return do(path, req, ioTimeout)
+}
+
+func do(path string, req Request, idle time.Duration) (result json.RawMessage, err error) {
 	if req.Request == wmipc.KindWatch {
 		return nil, fmt.Errorf("%w: use Watch for the event stream", ErrBadRequest)
 	}
 	if req.Request == wmipc.KindCapture {
 		return nil, fmt.Errorf("%w: use OpenCapture for an input capture", ErrBadRequest)
 	}
-	cn, err := send(path, req)
+	cn, err := send(path, req, idle)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +205,7 @@ type Stream struct {
 }
 
 func Subscribe(path string, snapshot bool) (*Stream, error) {
-	cn, err := send(path, Request{Request: wmipc.KindWatch, Snapshot: snapshot})
+	cn, err := send(path, Request{Request: wmipc.KindWatch, Snapshot: snapshot}, ioTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +235,7 @@ type CaptureConn struct {
 }
 
 func OpenCapture(path string) (*CaptureConn, error) {
-	cn, err := send(path, Request{Request: wmipc.KindCapture})
+	cn, err := send(path, Request{Request: wmipc.KindCapture}, ioTimeout)
 	if err != nil {
 		return nil, err
 	}
