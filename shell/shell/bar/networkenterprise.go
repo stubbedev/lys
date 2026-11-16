@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/portal"
@@ -13,6 +14,42 @@ import (
 )
 
 var certificatePatterns = []string{"*.pem", "*.crt", "*.cer", "*.der", "*.key", "*.p12", "*.pfx"}
+
+// eapTarget is the network an enterprise sign-in joins: a listed
+// access point or a hidden network named in the hidden form.
+type eapTarget interface {
+	ssid() string
+	icon() string
+	join(w wifiControl, eap network.EAPSettings) func(context.Context, func(network.DeviceState)) error
+}
+
+type listedEAP struct {
+	path     dbus.ObjectPath
+	name     string
+	strength uint8
+}
+
+func (t listedEAP) ssid() string { return t.name }
+
+func (t listedEAP) icon() string { return signalStrengthIcon(t.strength) }
+
+func (t listedEAP) join(w wifiControl, eap network.EAPSettings) func(context.Context, func(network.DeviceState)) error {
+	return func(ctx context.Context, progress func(network.DeviceState)) error {
+		return w.ConnectEnterpriseAndWait(ctx, t.path, eap, progress)
+	}
+}
+
+type hiddenEAP struct{ net network.HiddenNetwork }
+
+func (t hiddenEAP) ssid() string { return t.net.Name() }
+
+func (t hiddenEAP) icon() string { return hiddenNetworkIcon }
+
+func (t hiddenEAP) join(w wifiControl, eap network.EAPSettings) func(context.Context, func(network.DeviceState)) error {
+	return func(ctx context.Context, progress func(network.DeviceState)) error {
+		return w.JoinHiddenEnterpriseAndWait(ctx, t.net, eap, progress)
+	}
+}
 
 type netPhase2Choice struct {
 	method   network.EAPMethod
@@ -28,7 +65,7 @@ type netPhase2Choice struct {
 type netEnterpriseForm struct {
 	*formCard
 	v              *networkView
-	ssid           string
+	target         eapTarget
 	method         *widget.DropdownOf[network.EAPMethod]
 	phase2s        []netPhase2Choice
 	identity       *widget.Entry
@@ -130,11 +167,10 @@ func (f *netEnterpriseForm) pathField(label, class string) (*widget.Entry, *widg
 	return e, widget.NewField(f.v.font, label, row)
 }
 
-// show opens the form for ap, keeping what was typed for the same
+// show opens the form for target, keeping what was typed for the same
 // network but its secrets, and saying errMessage when there is one.
-func (f *netEnterpriseForm) show(ap apSnapshot, errMessage string) {
-	if ap.ssid != f.ssid {
-		f.ssid = ap.ssid
+func (f *netEnterpriseForm) show(target eapTarget, errMessage string) {
+	if f.target == nil || target.ssid() != f.target.ssid() {
 		f.method.SetSelected(0)
 		for _, c := range f.phase2s {
 			c.dropdown.SetSelected(0)
@@ -143,10 +179,11 @@ func (f *netEnterpriseForm) show(ap apSnapshot, errMessage string) {
 			e.SetText("")
 		}
 	}
+	f.target = target
 	f.resetSecrets()
-	f.icon.SetThemeName(signalStrengthIcon(ap.strength))
-	f.head.SetTitle(ap.ssid)
-	f.head.SetDescription(securityLabel(ap.security))
+	f.icon.SetThemeName(target.icon())
+	f.head.SetTitle(target.ssid())
+	f.head.SetDescription(securityLabel(network.SecurityEnterprise))
 	f.showError(errMessage)
 	f.syncMethod()
 	f.SetVisible(true)
@@ -207,7 +244,7 @@ func (f *netEnterpriseForm) connect() {
 		return
 	}
 	f.resetSecrets()
-	f.v.connectEnterprise(eap)
+	f.v.connectEnterprise(f.target, eap)
 }
 
 func (f *netEnterpriseForm) cancel() {
@@ -238,16 +275,22 @@ func (f *netEnterpriseForm) browsed(target *widget.Entry, path string, err error
 	target.SetText(path)
 }
 
-// connectEnterprise joins the selected enterprise network with eap.
-func (v *networkView) connectEnterprise(eap network.EAPSettings) {
-	w, sel := v.wifi(), v.selection
-	if w == nil || sel == nil {
+// connectEnterprise joins target with eap; a refused sign-in opens
+// the form for it again.
+func (v *networkView) connectEnterprise(target eapTarget, eap network.EAPSettings) {
+	w := v.wifi()
+	if w == nil {
 		return
 	}
-	path := sel.path
-	v.watchConnect(sel.ssid, func(ctx context.Context, progress func(network.DeviceState)) error {
-		return w.ConnectEnterpriseAndWait(ctx, path, eap, progress)
-	})
+	v.signIn = target
+	v.watchConnect(target.ssid(), target.join(w, eap))
+}
+
+// askSignIn opens the enterprise sign-in for target.
+func (v *networkView) askSignIn(target eapTarget, errMessage string) {
+	v.state = netEnterpriseEntry
+	v.enterprise.show(target, errMessage)
+	v.rebuildList()
 }
 
 // authFailureMessage is what a refused sign-in says when its form opens

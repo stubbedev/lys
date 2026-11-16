@@ -1,7 +1,6 @@
 package network
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -16,8 +15,7 @@ import (
 )
 
 // This file is the wifi half of the service: the device's access
-// points, scanning, and connecting, plus the dropdown's view of the
-// list.
+// points, scanning, and connecting.
 
 // DeviceState is NMDeviceState.
 type DeviceState uint32
@@ -343,13 +341,13 @@ const MaxSSIDBytes = 32
 var (
 	ErrHiddenNameEmpty      = errors.New("a hidden network needs a name")
 	ErrHiddenNameTooLong    = errors.New("a network name is at most 32 bytes")
-	ErrHiddenEnterprise     = errors.New("an enterprise network cannot be joined by name and password")
+	ErrHiddenEnterprise     = errors.New("an unsaved hidden enterprise network signs in with EAP settings")
 	ErrHiddenPasswordNeeded = errors.New("a secured hidden network needs a password")
 )
 
 // HiddenNetwork is a network that does not broadcast its name, as the
-// user named it: 1 to MaxSSIDBytes bytes, secured by nothing or by a
-// password alone.
+// user named it: 1 to MaxSSIDBytes bytes, secured by nothing, by a
+// password, or by an enterprise sign-in.
 type HiddenNetwork struct {
 	ssid     []byte
 	security SecurityType
@@ -362,8 +360,6 @@ func NewHiddenNetwork(name string, security SecurityType) (HiddenNetwork, error)
 		return HiddenNetwork{}, ErrHiddenNameEmpty
 	case len(name) > MaxSSIDBytes:
 		return HiddenNetwork{}, fmt.Errorf("%w: %q is %d", ErrHiddenNameTooLong, name, len(name))
-	case security == SecurityEnterprise:
-		return HiddenNetwork{}, fmt.Errorf("%w: %q", ErrHiddenEnterprise, name)
 	}
 	return HiddenNetwork{ssid: []byte(name), security: security}, nil
 }
@@ -376,10 +372,18 @@ func (h HiddenNetwork) Security() SecurityType { return h.security }
 
 // JoinHidden joins a network that does not broadcast its name: a saved
 // profile for it is reused (its password updated when one is given);
-// otherwise a new hidden profile is made, which a secured network
-// needs a password for. It returns the active connection.
+// otherwise a new hidden profile is made, which a password-secured
+// network needs a password for. An enterprise network takes no
+// password here: it joins by its saved profile, or through
+// JoinHiddenEnterprise. It returns the active connection.
 func (w *Wifi) JoinHidden(ctx context.Context, net HiddenNetwork, password string) (dbus.ObjectPath, error) {
-	if net.security.RequiresPassword() && password == "" && len(w.settings.ForSSID(net.ssid)) == 0 {
+	saved := len(w.settings.ForSSID(net.ssid)) > 0
+	switch {
+	case net.security == SecurityEnterprise && password != "":
+		return "", fmt.Errorf("%w: %q", ErrEnterprisePassword, net.Name())
+	case net.security == SecurityEnterprise && !saved:
+		return "", fmt.Errorf("%w: %q", ErrHiddenEnterprise, net.Name())
+	case net.security.RequiresPassword() && password == "" && !saved:
 		return "", fmt.Errorf("%w: %q", ErrHiddenPasswordNeeded, net.Name())
 	}
 	return w.join(ctx, net.ssid, rootPath, hiddenWifiProfile(net), passwordSecurity(net.security, password))
@@ -647,59 +651,4 @@ func classifyDeviceFailure(reason DeviceReason) ConnectFailure {
 		return FailureSuperseded
 	}
 	return FailureGeneric
-}
-
-// ListedNetwork is one row of the dropdown's network list.
-type ListedNetwork struct {
-	AccessPoint
-	// Known is a network with a saved profile: it connects without
-	// asking for the password.
-	Known bool
-	// Stale was seen by an earlier scan but NM has pruned it; its path
-	// is dead, and connecting means scanning for it first.
-	Stale bool
-}
-
-// SortedUniqueNetworks deduplicates by SSID (strongest wins), drops
-// hidden and enterprise networks and the connected SSID, and sorts by
-// strength descending.
-func SortedUniqueNetworks(aps []AccessPoint, connected string, known map[string]bool) []ListedNetwork {
-	best := map[string]ListedNetwork{}
-	var order []string
-	for _, ap := range aps {
-		name := ap.Name()
-		if len(ap.SSID) == 0 || ap.Security == SecurityEnterprise || name == connected {
-			continue
-		}
-		existing, seen := best[name]
-		if !seen {
-			order = append(order, name)
-		}
-		if !seen || ap.Strength > existing.Strength {
-			best[name] = ListedNetwork{AccessPoint: ap, Known: known[name]}
-		}
-	}
-	out := make([]ListedNetwork, 0, len(order))
-	for _, name := range order {
-		out = append(out, best[name])
-	}
-	slices.SortStableFunc(out, func(a, b ListedNetwork) int { return cmp.Compare(b.Strength, a.Strength) })
-	return out
-}
-
-// MergeWithCache folds the live list over the one already shown, so a
-// network NM pruned stays listed (stale) instead of vanishing. Live
-// entries win and come first; the rest follow in their previous order;
-// the connected SSID is dropped from both; Known is recomputed.
-func MergeWithCache(live, cached []ListedNetwork, connected string, known map[string]bool) []ListedNetwork {
-	out := slices.Clone(live)
-	for _, ap := range cached {
-		name := ap.Name()
-		if name == connected || slices.ContainsFunc(live, func(l ListedNetwork) bool { return l.Name() == name }) {
-			continue
-		}
-		ap.Known, ap.Stale = known[name], true
-		out = append(out, ap)
-	}
-	return out
 }

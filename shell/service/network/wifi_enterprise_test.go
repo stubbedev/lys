@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 	"testing"
+	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
@@ -191,5 +192,83 @@ func TestAnEnterpriseSignInGoesToEnterpriseNetworksOnly(t *testing.T) {
 	defer fx.nm.mu.Unlock()
 	if len(fx.nm.addAndActive) != 0 || len(fx.nm.activations) != 0 {
 		t.Error("a refused sign-in reached NetworkManager")
+	}
+}
+
+func TestAHiddenPEAPJoinBuildsAHiddenProfileWithItsSignIn(t *testing.T) {
+	fx, w := wifiFixture(t, nil)
+	if _, err := w.JoinHiddenEnterprise(t.Context(), hiddenNetwork(t, "corp", SecurityEnterprise), eapSettings(t, peapInput())); err != nil {
+		t.Fatal(err)
+	}
+	dict, specifics := addedProfile(t, fx)
+	if !slices.Equal(specifics, []dbus.ObjectPath{rootPath}) {
+		t.Errorf("activated on %v, want no access point named", specifics)
+	}
+	wireless := dict["802-11-wireless"]
+	if ssid, _ := wireless["ssid"].Value().([]byte); string(ssid) != "corp" {
+		t.Errorf("ssid = %q", ssid)
+	}
+	if hidden, _ := wireless["hidden"].Value().(bool); !hidden {
+		t.Error("the profile is not marked hidden, so NM never probes for it")
+	}
+	if security := dict["802-11-wireless-security"]; variantString(security["key-mgmt"]) != "wpa-eap" || len(security) != 1 {
+		t.Errorf("security = %v, want wpa-eap key management only", security)
+	}
+	eap := dict["802-1x"]
+	if methods, _ := eap["eap"].Value().([]string); !slices.Equal(methods, []string{"peap"}) {
+		t.Errorf("eap = %v", methods)
+	}
+	if variantString(eap["identity"]) != "alice@example.edu" || variantString(eap["password"]) != "correct horse" || variantString(eap["phase2-auth"]) != "mschapv2" {
+		t.Errorf("802-1x = %v, want the typed sign-in", eap)
+	}
+}
+
+func TestAHiddenEnterpriseNetworkJoinsBySignInOrSavedProfileOnly(t *testing.T) {
+	fx, w := wifiFixture(t, withProfiles(wifiConnection("corp-uuid", "corp", []byte("corp"))))
+	if _, err := w.JoinHiddenEnterprise(t.Context(), hiddenNetwork(t, "lab", SecurityWPA2), eapSettings(t, peapInput())); !errors.Is(err, ErrNotEnterprise) {
+		t.Errorf("an EAP sign-in to a hidden WPA2 network = %v, want %v", err, ErrNotEnterprise)
+	}
+	if _, err := w.JoinHidden(t.Context(), hiddenNetwork(t, "other", SecurityEnterprise), ""); !errors.Is(err, ErrHiddenEnterprise) {
+		t.Errorf("an unsaved hidden enterprise network without a sign-in = %v, want %v", err, ErrHiddenEnterprise)
+	}
+	if _, err := w.JoinHidden(t.Context(), hiddenNetwork(t, "corp", SecurityEnterprise), "a password"); !errors.Is(err, ErrEnterprisePassword) {
+		t.Errorf("a password alone for a hidden enterprise network = %v, want %v", err, ErrEnterprisePassword)
+	}
+	fx.nm.mu.Lock()
+	refusedReached := len(fx.nm.addAndActive) != 0 || len(fx.nm.activations) != 0
+	fx.nm.mu.Unlock()
+	if refusedReached {
+		t.Fatal("a refused hidden join reached NetworkManager")
+	}
+	if _, err := w.JoinHidden(t.Context(), hiddenNetwork(t, "corp", SecurityEnterprise), ""); err != nil {
+		t.Fatalf("the saved hidden enterprise network: %v", err)
+	}
+	fx.nm.mu.Lock()
+	created, activated := len(fx.nm.addAndActive), slices.Clone(fx.nm.activations)
+	fx.nm.mu.Unlock()
+	if created != 0 || !slices.Equal(activated, []dbus.ObjectPath{settingPath(1)}) {
+		t.Errorf("created %d, activated %v; want the saved profile reused", created, activated)
+	}
+	stored, _ := fx.nm.profile(settingPath(1))
+	if _, rewritten := stored["802-11-wireless-security"]; rewritten {
+		t.Error("joining a saved hidden enterprise network rewrote its security")
+	}
+}
+
+func TestJoinHiddenEnterpriseAndWaitFollowsTheDeviceUp(t *testing.T) {
+	fx, w := wifiFixture(t, nil)
+	done := make(chan error, 1)
+	go func() {
+		done <- w.JoinHiddenEnterpriseAndWait(t.Context(), hiddenNetwork(t, "corp", SecurityEnterprise), eapSettings(t, peapInput()), func(DeviceState) {})
+	}()
+	waitFor(t, "the activation", func() bool { fx.nm.mu.Lock(); defer fx.nm.mu.Unlock(); return len(fx.nm.addAndActive) == 1 })
+	fx.nm.wifi.deviceState(DeviceFailed, DeviceReasonSupplicantFailed)
+	select {
+	case err := <-done:
+		if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureAuth {
+			t.Fatalf("a refused hidden sign-in = %v, want an auth failure", err)
+		}
+	case <-time.After(liveness):
+		t.Fatal("the join never finished")
 	}
 }

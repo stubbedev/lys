@@ -85,6 +85,7 @@ type networkView struct {
 	cache        []apSnapshot
 	listed       []apSnapshot
 	selection    *apSnapshot
+	signIn       eapTarget
 	pendingSSID  string
 	progress     netProgress
 
@@ -106,6 +107,7 @@ type wifiControl interface {
 	ScanAndWait(ctx context.Context, timeout time.Duration)
 	ConnectAndWait(ctx context.Context, ap dbus.ObjectPath, password string, progress func(network.DeviceState)) error
 	JoinHiddenAndWait(ctx context.Context, net network.HiddenNetwork, password string, progress func(network.DeviceState)) error
+	JoinHiddenEnterpriseAndWait(ctx context.Context, net network.HiddenNetwork, eap network.EAPSettings, progress func(network.DeviceState)) error
 	ConnectEnterpriseAndWait(ctx context.Context, ap dbus.ObjectPath, eap network.EAPSettings, progress func(network.DeviceState)) error
 	Disconnect(ctx context.Context) error
 	Forget(ctx context.Context, ssid string) error
@@ -409,12 +411,11 @@ func (v *networkView) selectNetwork(ssid string) {
 // sign-in for an enterprise network, the password otherwise.
 func (v *networkView) askCredentials(ap apSnapshot, errMessage string) {
 	if ap.security == network.SecurityEnterprise {
-		v.state = netEnterpriseEntry
-		v.enterprise.show(ap, errMessage)
-	} else {
-		v.state = netPasswordEntry
-		v.password.show(ap, errMessage)
+		v.askSignIn(listedEAP{path: ap.path, name: ap.ssid, strength: ap.strength}, errMessage)
+		return
 	}
+	v.state = netPasswordEntry
+	v.password.show(ap, errMessage)
 	v.rebuildList()
 }
 
@@ -470,11 +471,16 @@ func (v *networkView) watchConnect(ssid string, join func(context.Context, func(
 
 // connectDone is the connection watcher's verdict.
 func (v *networkView) connectDone(err error) {
+	signIn := v.signIn
+	v.signIn = nil
 	var ce *network.ConnectError
 	switch {
 	case err == nil:
 		v.state, v.selection = netNormal, nil
 		v.progress = netProgress{}
+	case errors.As(err, &ce) && ce.Failure == network.FailureAuth && signIn != nil:
+		v.progress = netProgress{}
+		v.askSignIn(signIn, authFailureMessage(network.SecurityEnterprise))
 	case errors.As(err, &ce) && ce.Failure == network.FailureAuth && v.selection != nil:
 		v.progress = netProgress{}
 		v.askCredentials(*v.selection, authFailureMessage(v.selection.security))

@@ -235,3 +235,118 @@ func TestNetworkEnterprisePathsHaveNoChooserWithoutAPortal(t *testing.T) {
 		t.Error("a chooser button with no chooser behind it")
 	}
 }
+
+func chooseHiddenEnterprise(t *testing.T, v *networkView, name string) {
+	t.Helper()
+	onHeadlessLoop(func() bool {
+		f := v.hidden
+		f.name.SetText(name)
+		f.security.SetSelected(slices.Index(hiddenSecurities, network.SecurityEnterprise))
+		if f.passwordField.Visible() {
+			t.Error("an enterprise network asks for a password alone")
+		}
+		findButton(f, "network-hidden-connect").OnClick()
+		return true
+	})
+}
+
+func fillPEAP(f *netEnterpriseForm, password string) {
+	f.identity.SetText("alice@example.edu")
+	f.password.entry.SetText(password)
+	f.domain.SetText("radius.example.edu")
+}
+
+func TestNetworkHiddenEnterpriseJoinsThroughItsSignIn(t *testing.T) {
+	wifi := &fakeWifiCtl{}
+	v, pop := openHiddenForm(t, wifi)
+	chooseHiddenEnterprise(t, v, "corp")
+	onHeadlessLoop(func() bool {
+		f := v.enterprise
+		if !f.Visible() || v.hidden.Visible() || v.state != netEnterpriseEntry {
+			t.Fatalf("after Connect: enterprise form %v, hidden form %v, state %d; want the enterprise sign-in", f.Visible(), v.hidden.Visible(), v.state)
+		}
+		if f.target.ssid() != "corp" || pop.focused != widget.Widget(f.identity) {
+			t.Errorf("sign-in for %q focusing %T, want corp's sign-in on its identity box", f.target.ssid(), pop.focused)
+		}
+		fillPEAP(f, "correct horse")
+		findButton(f, "network-enterprise-connect").OnClick()
+		return true
+	})
+	waitHeadless(t, "the join", func() bool { return len(wifi.hiddenEnterpriseJoins()) == 1 })
+	j := wifi.hiddenEnterpriseJoins()[0]
+	if j.net.Name() != "corp" || j.net.Security() != network.SecurityEnterprise || j.eap.Method() != network.EAPPEAP {
+		t.Errorf("joined %q (%v) over %v, want the hidden corp over PEAP", j.net.Name(), j.net.Security(), j.eap.Method())
+	}
+	waitHeadless(t, "the join finished", func() bool { return v.state == netNormal })
+	if onHeadlessLoop(func() bool { return v.enterprise.Visible() || v.enterprise.password.entry.Text() != "" }) {
+		t.Error("the form or its password outlived the join")
+	}
+	if len(wifi.hiddenJoins()) != 0 || len(wifi.enterpriseJoins()) != 0 {
+		t.Errorf("the hidden sign-in also joined by name %+v or as a listed network %+v", wifi.hiddenJoins(), wifi.enterpriseJoins())
+	}
+}
+
+func TestNetworkHiddenEnterpriseWithoutANameOpensNoSignIn(t *testing.T) {
+	wifi := &fakeWifiCtl{}
+	v, _ := openHiddenForm(t, wifi)
+	chooseHiddenEnterprise(t, v, "")
+	onHeadlessLoop(func() bool {
+		if v.enterprise.Visible() || !v.hidden.Visible() || v.state != netHiddenEntry {
+			t.Errorf("no name: enterprise form %v, hidden form %v, state %d; want the hidden form", v.enterprise.Visible(), v.hidden.Visible(), v.state)
+		}
+		if v.hidden.errLabel.Text() != i18n.T("dropdown-network-hidden-error-name-empty") {
+			t.Errorf("no name: error %q", v.hidden.errLabel.Text())
+		}
+		return true
+	})
+	if len(wifi.hiddenJoins()) != 0 || len(wifi.hiddenEnterpriseJoins()) != 0 {
+		t.Error("a nameless enterprise network was joined")
+	}
+}
+
+func TestNetworkSavedHiddenEnterpriseJoinsByItsProfile(t *testing.T) {
+	wifi := &fakeWifiCtl{known: map[string]bool{"corp": true}}
+	v, _ := openHiddenForm(t, wifi)
+	chooseHiddenEnterprise(t, v, "corp")
+	waitHeadless(t, "the join", func() bool { return len(wifi.hiddenJoins()) == 1 })
+	if j := wifi.hiddenJoins()[0]; j.net.Name() != "corp" || j.net.Security() != network.SecurityEnterprise || j.password != "" {
+		t.Errorf("joined %+v, want corp by its saved profile", j)
+	}
+	if onHeadlessLoop(func() bool { return v.enterprise.Visible() }) || len(wifi.hiddenEnterpriseJoins()) != 0 {
+		t.Error("a saved hidden enterprise network asked for a sign-in")
+	}
+}
+
+func TestNetworkRefusedHiddenEnterpriseSignInAsksAgain(t *testing.T) {
+	wifi := &fakeWifiCtl{connectFn: func(func(network.DeviceState)) error {
+		return &network.ConnectError{Failure: network.FailureAuth, Reason: network.DeviceReasonSupplicantFailed}
+	}}
+	v, _ := openHiddenForm(t, wifi)
+	chooseHiddenEnterprise(t, v, "corp")
+	onHeadlessLoop(func() bool {
+		fillPEAP(v.enterprise, "wrong")
+		findButton(v.enterprise, "network-enterprise-connect").OnClick()
+		return true
+	})
+	waitHeadless(t, "the refusal", func() bool { return len(wifi.hiddenEnterpriseJoins()) == 1 })
+	waitHeadless(t, "the form back", func() bool { return v.state == netEnterpriseEntry })
+	onHeadlessLoop(func() bool {
+		f := v.enterprise
+		if !f.Visible() || f.target.ssid() != "corp" || f.errLabel.Text() != i18n.T("dropdown-network-enterprise-error-auth") {
+			t.Errorf("after a refused sign-in: form %v for %q saying %q; want corp's sign-in saying it was refused", f.Visible(), f.target.ssid(), f.errLabel.Text())
+		}
+		if f.password.entry.Text() != "" || f.identity.Text() != "alice@example.edu" {
+			t.Errorf("asking again: password %q, identity %q; want the password cleared and the identity kept", f.password.entry.Text(), f.identity.Text())
+		}
+		fillPEAP(f, "correct horse")
+		return true
+	})
+	wifi.mu.Lock()
+	wifi.connectFn = nil
+	wifi.mu.Unlock()
+	onHeadlessLoop(func() bool { findButton(v.enterprise, "network-enterprise-connect").OnClick(); return true })
+	waitHeadless(t, "the second join", func() bool { return len(wifi.hiddenEnterpriseJoins()) == 2 })
+	if j := wifi.hiddenEnterpriseJoins()[1]; j.net.Name() != "corp" {
+		t.Errorf("asked again, then joined %q, want the hidden corp", j.net.Name())
+	}
+}

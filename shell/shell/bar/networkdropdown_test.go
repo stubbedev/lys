@@ -51,6 +51,7 @@ type fakeWifiCtl struct {
 	connects  []fakeConnect
 	hidden    []fakeHiddenJoin
 	eapJoins  []fakeEnterpriseJoin
+	hiddenEAP []fakeHiddenEnterpriseJoin
 	connectFn func(progress func(network.DeviceState)) error
 	forgotten []string
 	forgetErr error
@@ -131,6 +132,28 @@ func (f *fakeWifiCtl) ConnectEnterpriseAndWait(_ context.Context, ap dbus.Object
 		return fn(progress)
 	}
 	return nil
+}
+
+type fakeHiddenEnterpriseJoin struct {
+	net network.HiddenNetwork
+	eap network.EAPSettings
+}
+
+func (f *fakeWifiCtl) JoinHiddenEnterpriseAndWait(_ context.Context, net network.HiddenNetwork, eap network.EAPSettings, progress func(network.DeviceState)) error {
+	f.mu.Lock()
+	f.hiddenEAP = append(f.hiddenEAP, fakeHiddenEnterpriseJoin{net, eap})
+	fn := f.connectFn
+	f.mu.Unlock()
+	if fn != nil {
+		return fn(progress)
+	}
+	return nil
+}
+
+func (f *fakeWifiCtl) hiddenEnterpriseJoins() []fakeHiddenEnterpriseJoin {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.hiddenEAP)
 }
 
 func (f *fakeWifiCtl) enterpriseJoins() []fakeEnterpriseJoin {

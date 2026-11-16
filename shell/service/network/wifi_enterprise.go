@@ -112,7 +112,7 @@ var (
 	ErrEAPPrivateKeyMissing = errors.New("EAP-TLS needs a private key")
 	ErrEAPFieldUnused       = errors.New("a field the EAP method does not use is set")
 	ErrEAPPathInvalid       = errors.New("a certificate or key path has a control character")
-	ErrNotEnterprise        = errors.New("the access point is not an enterprise network")
+	ErrNotEnterprise        = errors.New("the network is not an enterprise network")
 	ErrEnterprisePassword   = errors.New("an enterprise network signs in with EAP settings, not a password alone")
 )
 
@@ -266,6 +266,26 @@ func (w *Wifi) ConnectEnterprise(ctx context.Context, apPath dbus.ObjectPath, ea
 func (w *Wifi) ConnectEnterpriseAndWait(ctx context.Context, apPath dbus.ObjectPath, eap EAPSettings, progress func(DeviceState)) error {
 	return w.watchJoin(ctx, progress, func(ctx context.Context) error {
 		_, err := w.ConnectEnterprise(ctx, apPath, eap)
+		return err
+	})
+}
+
+// JoinHiddenEnterprise joins an enterprise network that does not
+// broadcast its name with eap: a saved profile for it gets eap as its
+// sign-in; otherwise a new hidden profile is made. It returns the
+// active connection.
+func (w *Wifi) JoinHiddenEnterprise(ctx context.Context, net HiddenNetwork, eap EAPSettings) (dbus.ObjectPath, error) {
+	if net.security != SecurityEnterprise {
+		return "", fmt.Errorf("%w: %q is %v", ErrNotEnterprise, net.Name(), net.security)
+	}
+	return w.join(ctx, net.ssid, rootPath, hiddenWifiProfile(net), eap.secure)
+}
+
+// JoinHiddenEnterpriseAndWait joins a hidden enterprise network and
+// follows the device as ConnectAndWait does.
+func (w *Wifi) JoinHiddenEnterpriseAndWait(ctx context.Context, net HiddenNetwork, eap EAPSettings, progress func(DeviceState)) error {
+	return w.watchJoin(ctx, progress, func(ctx context.Context) error {
+		_, err := w.JoinHiddenEnterprise(ctx, net, eap)
 		return err
 	})
 }

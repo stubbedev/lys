@@ -9,7 +9,9 @@ import (
 	"github.com/stubbedev/lys/shell/service/network"
 )
 
-var hiddenSecurities = []network.SecurityType{network.SecurityWPA2, network.SecurityWPA3, network.SecurityWEP, network.SecurityNone}
+var hiddenSecurities = []network.SecurityType{network.SecurityWPA2, network.SecurityWPA3, network.SecurityEnterprise, network.SecurityWEP, network.SecurityNone}
+
+const hiddenNetworkIcon = "ld-wifi-symbolic"
 
 type netHiddenForm struct {
 	*formCard
@@ -23,7 +25,7 @@ type netHiddenForm struct {
 
 func newNetHiddenForm(v *networkView) *netHiddenForm {
 	f := &netHiddenForm{v: v}
-	f.formCard = newFormCard(v.font, v.px, "ld-wifi-symbolic", i18n.T("dropdown-network-cancel"), f.cancel, "network-password-card", "network-hidden-card")
+	f.formCard = newFormCard(v.font, v.px, hiddenNetworkIcon, i18n.T("dropdown-network-cancel"), f.cancel, "network-password-card", "network-hidden-card")
 	f.head.SetTitle(i18n.T("dropdown-network-hidden-title"))
 	f.name = widget.NewEntry(v.font, v.px, 0)
 	f.name.AddClass("network-hidden-name")
@@ -74,6 +76,11 @@ func (f *netHiddenForm) join() {
 	net, err := network.NewHiddenNetwork(f.name.Text(), f.security.Value())
 	if err != nil {
 		f.showError(hiddenNetworkError(err))
+		return
+	}
+	if net.Security() == network.SecurityEnterprise && !f.v.cur.known[net.Name()] {
+		f.password.reset()
+		f.v.askSignIn(hiddenEAP{net}, "")
 		return
 	}
 	password := ""

@@ -51,63 +51,6 @@ func TestSecurityIsTheStrongestTheAPOffers(t *testing.T) {
 	}
 }
 
-func listed(ssid string, strength uint8) ListedNetwork {
-	return ListedNetwork{AccessPoint{SSID: []byte(ssid), Strength: strength, Security: SecurityWPA2}, false, false}
-}
-
-func names(list []ListedNetwork) []string {
-	out := make([]string, 0, len(list))
-	for _, n := range list {
-		suffix := ""
-		if n.Stale {
-			suffix = "~"
-		}
-		out = append(out, n.Name()+suffix)
-	}
-	return out
-}
-
-func TestTheListIsUniqueStrongestFirstWithoutHiddenEnterpriseOrConnected(t *testing.T) {
-	aps := []AccessPoint{
-		{SSID: []byte("home"), Strength: 40},
-		{SSID: []byte("home"), Strength: 80, Path: "/strong"},
-		{SSID: []byte("cafe"), Strength: 60},
-		{SSID: nil, Strength: 99},
-		{SSID: []byte("corp"), Strength: 90, Security: SecurityEnterprise},
-		{SSID: []byte("mine"), Strength: 70},
-	}
-	got := SortedUniqueNetworks(aps, "mine", map[string]bool{"cafe": true})
-	if !slices.Equal(names(got), []string{"home", "cafe"}) {
-		t.Fatalf("list = %v", names(got))
-	}
-	if got[0].Path != "/strong" || got[0].Known || !got[1].Known {
-		t.Errorf("list = %+v", got)
-	}
-}
-
-func TestANetworkNMPrunedStaysListedAsStale(t *testing.T) {
-	cached := []ListedNetwork{listed("home", 80), listed("cafe", 40)}
-	if got := names(MergeWithCache([]ListedNetwork{listed("home", 75)}, cached, "", nil)); !slices.Equal(got, []string{"home", "cafe~"}) {
-		t.Errorf("merged = %v", got)
-	}
-	merged := MergeWithCache([]ListedNetwork{listed("home", 30)}, []ListedNetwork{listed("home", 80)}, "", nil)
-	if len(merged) != 1 || merged[0].Strength != 30 || merged[0].Stale {
-		t.Errorf("a live network was duplicated or kept its stale reading: %+v", merged)
-	}
-	if got := names(MergeWithCache([]ListedNetwork{listed("weak", 10)}, []ListedNetwork{listed("strong-but-gone", 99)}, "", nil)); !slices.Equal(got, []string{"weak", "strong-but-gone~"}) {
-		t.Errorf("live first: %v", got)
-	}
-	if got := names(MergeWithCache(nil, cached, "home", nil)); !slices.Equal(got, []string{"cafe~"}) {
-		t.Errorf("the connected network was resurrected: %v", got)
-	}
-	saved := listed("cafe", 40)
-	saved.Known = true
-	merged = MergeWithCache(nil, []ListedNetwork{saved, listed("home", 80)}, "", map[string]bool{"home": true})
-	if merged[0].Known || !merged[1].Known {
-		t.Errorf("known not recomputed: %+v", merged)
-	}
-}
-
 func TestANewNetworkGetsAProfileWithItsKey(t *testing.T) {
 	fx, w := wifiFixture(t, nil)
 	ap := fx.nm.wifi.addAP(fakeAP{ssid: "cafe", strength: 70, flags: apFlagPrivacy, rsn: secKeyMgmtPSK, bssid: "AA:BB:CC:DD:EE:FF"})
@@ -244,7 +187,7 @@ func TestNewHiddenNetworkRefusesWhatANameAndPasswordCannotJoin(t *testing.T) {
 		{"", SecurityWPA2, ErrHiddenNameEmpty},
 		{strings.Repeat("x", MaxSSIDBytes+1), SecurityWPA2, ErrHiddenNameTooLong},
 		{strings.Repeat("é", MaxSSIDBytes/2+1), SecurityNone, ErrHiddenNameTooLong},
-		{"corp", SecurityEnterprise, ErrHiddenEnterprise},
+		{"", SecurityEnterprise, ErrHiddenNameEmpty},
 	} {
 		if _, err := NewHiddenNetwork(tc.name, tc.security); !errors.Is(err, tc.want) {
 			t.Errorf("NewHiddenNetwork(%q, %v) = %v, want %v", tc.name, tc.security, err, tc.want)
@@ -253,6 +196,9 @@ func TestNewHiddenNetworkRefusesWhatANameAndPasswordCannotJoin(t *testing.T) {
 	net, err := NewHiddenNetwork(strings.Repeat("x", MaxSSIDBytes), SecurityWPA3)
 	if err != nil || net.Name() != strings.Repeat("x", MaxSSIDBytes) || net.Security() != SecurityWPA3 {
 		t.Errorf("a 32-byte WPA3 name = %+v, %v; want it accepted", net, err)
+	}
+	if net, err := NewHiddenNetwork("corp", SecurityEnterprise); err != nil || net.Security() != SecurityEnterprise {
+		t.Errorf("a hidden enterprise network = %+v, %v; want it accepted", net, err)
 	}
 }
 
