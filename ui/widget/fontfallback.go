@@ -21,13 +21,9 @@ func FontFaceResolved() {
 		return
 	}
 	for _, l := range all {
-		if l.faceOwed.Swap(true) {
-			continue
-		}
-		l.invoke(func() {
-			l.faceOwed.Store(false)
+		l.queueOnce(&l.faceOwed, func() {
 			faceEpoch.Add(1)
-			bumpStyleGen("font fallback")
+			stampStyleGen("font fallback")
 		})
 	}
 }

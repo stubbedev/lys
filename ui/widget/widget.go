@@ -34,7 +34,6 @@ package widget
 
 import (
 	"slices"
-	"sync/atomic"
 
 	"github.com/stubbedev/lys/lib/debug"
 	"github.com/stubbedev/lys/lib/render"
@@ -911,15 +910,16 @@ func clearParents(ws ...Widget) {
 // drops the widget from every window router's hover, press, focus, and
 // drop-target state, so input never reaches a ghost — and through
 // router.Hovered() neither does a tooltip dwell (app's tooltipCtl).
-var removedHook atomic.Pointer[func(Widget)]
+var removedHook perLoop[func(Widget)]
 
 // SetRemovedHook installs the hook fired when a widget is detached from
-// its container; nil disables. One hook per process, like SetInvoker —
-// the last install wins. It runs on the goroutine that mutated the tree
-// (the loop goroutine, per docs/threading.md), while the widget is
-// still linked to its container, so a router can find the focus
-// traversal neighbor of a removed focus. The returned function removes
-// this hook and leaves a later install in place.
+// its container on the calling goroutine; nil disables the calling
+// goroutine's. Like SetInvoker it serves the loop it is installed on, so
+// applications sharing a process each hear their own trees' removals.
+// It runs while the widget is still linked to its container, so a
+// router can find the focus traversal neighbor of a removed focus. The
+// returned function removes this hook and leaves a later install in
+// place.
 func SetRemovedHook(fn func(Widget)) (remove func()) {
 	return installHook(&removedHook, fn, fn == nil)
 }
@@ -927,7 +927,7 @@ func SetRemovedHook(fn func(Widget)) (remove func()) {
 // notifyRemoved detaches every non-nil ws's tree (Detach) and fires
 // the removal hook for it.
 func notifyRemoved(ws ...Widget) {
-	fn := removedHook.Load()
+	fn := removedHook.current()
 	for _, w := range ws {
 		if w == nil {
 			continue

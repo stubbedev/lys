@@ -99,9 +99,10 @@ func damageReasons(n *node) string {
 	return strings.Join(why, "+")
 }
 
-// bumpStyleGen stamps every widget's style stale and owes the repaint;
-// why names the change in the LYS_DEBUG=damage report.
-func bumpStyleGen(why string) {
+// stampStyleGen stamps every widget's style stale and owes the repaint
+// on the calling loop; why names the change in the LYS_DEBUG=damage
+// report.
+func stampStyleGen(why string) {
 	styleGen.Add(1)
 	markDamage()
 	if debug.Enabled {

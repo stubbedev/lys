@@ -69,8 +69,31 @@ func (r *perLoop[T]) all() []*T {
 }
 
 type eventLoop struct {
-	invoke   func(func())
-	faceOwed atomic.Bool
+	invoke    func(func())
+	faceOwed  atomic.Bool
+	styleOwed atomic.Bool
+}
+
+func (l *eventLoop) queueOnce(owed *atomic.Bool, fn func()) {
+	if owed.Swap(true) {
+		return
+	}
+	l.invoke(func() {
+		owed.Store(false)
+		fn()
+	})
+}
+
+func restyleOtherLoops() {
+	if eventLoops.n.Load() == 0 {
+		return
+	}
+	here := currentLoop()
+	for _, l := range eventLoops.all() {
+		if l != here {
+			l.queueOnce(&l.styleOwed, func() {})
+		}
+	}
 }
 
 var eventLoops perLoop[eventLoop]

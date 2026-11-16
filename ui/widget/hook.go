@@ -1,12 +1,10 @@
 package widget
 
-import "sync/atomic"
-
-func installHook[F any](slot *atomic.Pointer[F], fn F, none bool) (remove func()) {
+func installHook[F any](hooks *perLoop[F], fn F, none bool) (remove func()) {
 	if none {
-		slot.Store(nil)
+		hooks.unbindCurrent()
 		return func() {}
 	}
-	slot.Store(&fn)
-	return func() { slot.CompareAndSwap(&fn, nil) }
+	id := hooks.bind(&fn)
+	return func() { hooks.unbind(id, &fn) }
 }

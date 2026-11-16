@@ -3,7 +3,6 @@ package widget
 import (
 	"errors"
 	"image"
-	"sync/atomic"
 
 	"github.com/stubbedev/lys/lib/dmabuf"
 	"github.com/stubbedev/lys/lib/render"
@@ -46,11 +45,12 @@ type GPUSurface interface {
 	Close()
 }
 
-var gpuHost atomic.Pointer[func(*GPUArea) (GPUSurface, error)]
+var gpuHost perLoop[func(*GPUArea) (GPUSurface, error)]
 
-// SetGPUHost installs the function that gives an on-screen GPUArea its
-// surface; package app installs it. nil disables. The returned function
-// removes this one and leaves a later install in place.
+// SetGPUHost installs the function that gives a GPUArea arranged on the
+// calling goroutine its surface; package app installs it on its loop.
+// nil disables the calling goroutine's. The returned function removes
+// this one and leaves a later install in place.
 func SetGPUHost(fn func(a *GPUArea) (GPUSurface, error)) (remove func()) {
 	return installHook(&gpuHost, fn, fn == nil)
 }
@@ -136,7 +136,7 @@ func (a *GPUArea) Arrange(r render.Rect) {
 		return
 	}
 	if a.surface == nil {
-		host := gpuHost.Load()
+		host := gpuHost.current()
 		if host == nil {
 			return
 		}

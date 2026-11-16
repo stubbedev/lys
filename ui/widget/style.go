@@ -174,6 +174,11 @@ func (s *sensitivity) noteUnits(u style.UnitReads) {
 // themeGen pattern).
 var styleGen = startedGeneration()
 
+func bumpStyleGen(why string) {
+	stampStyleGen(why)
+	restyleOtherLoops()
+}
+
 func startedGeneration() *atomic.Uint64 {
 	g := new(atomic.Uint64)
 	g.Store(1)
@@ -698,45 +703,59 @@ func (f styleFile) changed() bool {
 }
 
 // watches are the file-backed stylesheets, in load order; watchStop ends
-// the watch over watchDirs, their directories. watchMu guards them and
-// each sheet's file.
+// the watch over watchDirs, their directories, run by the latest of the
+// installed watchers still in place. watchMu guards them and each
+// sheet's file.
 var (
 	watchMu   sync.Mutex
 	watches   []*Stylesheet
 	watchDirs []string
 	watchStop func()
+	watchers  []*StylesheetWatcher
 )
 
 // StylesheetWatcher reports changes in dirs: changed runs on the
 // event-loop goroutine after anything in them changed, until stop.
 type StylesheetWatcher func(dirs []string, changed func()) (stop func(), err error)
 
-// watcherHook is the app-installed file watch hot reload rides. Widget
-// code cannot reach the loop itself, and no watch exists until a file is
-// loaded.
-var watcherHook atomic.Pointer[StylesheetWatcher]
-
 // SetStylesheetWatcher installs what tells the stylesheet files' hot
-// reload that something changed, and watches the files already loaded.
-// One hook per process, like SetRemovedHook; the app installs it once at
-// startup. Without a hook (no running Application) a loaded file simply
-// never hot-reloads. The returned function removes this hook, ending
-// its watch, and leaves a later install in place.
+// reload that something changed, and moves the watch of the files
+// already loaded onto it. Every Application installs one at startup; the
+// latest still installed runs the watch, so the files keep reloading for
+// every application while any one of them runs. Without a watcher a
+// loaded file simply never hot-reloads. nil removes every watcher. The
+// returned function removes this one, moving the watch onto the latest
+// left, and leaves a later install in place.
 func SetStylesheetWatcher(watch StylesheetWatcher) (remove func()) {
-	unhook := installHook(&watcherHook, watch, watch == nil)
-	rewatch()
-	return func() {
-		installed := watcherHook.Load()
-		unhook()
-		if watcherHook.Load() != installed {
-			rewatch()
-		}
-	}
-}
-
-func rewatch() {
 	watchMu.Lock()
 	defer watchMu.Unlock()
+	if watch == nil {
+		watchers = nil
+		restartWatchLocked()
+		return func() {}
+	}
+	w := &watch
+	watchers = append(watchers, w)
+	restartWatchLocked()
+	return sync.OnceFunc(func() {
+		watchMu.Lock()
+		defer watchMu.Unlock()
+		running := activeWatcherLocked() == w
+		watchers = slices.DeleteFunc(watchers, func(o *StylesheetWatcher) bool { return o == w })
+		if running {
+			restartWatchLocked()
+		}
+	})
+}
+
+func activeWatcherLocked() *StylesheetWatcher {
+	if len(watchers) == 0 {
+		return nil
+	}
+	return watchers[len(watchers)-1]
+}
+
+func restartWatchLocked() {
 	if watchStop != nil {
 		watchStop()
 		watchStop, watchDirs = nil, nil
@@ -868,7 +887,7 @@ func rearmWatchLocked() {
 		watchStop = nil
 	}
 	watchDirs = nil
-	h := watcherHook.Load()
+	h := activeWatcherLocked()
 	if h == nil || len(dirs) == 0 {
 		return
 	}

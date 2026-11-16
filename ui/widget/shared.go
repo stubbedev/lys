@@ -4,7 +4,6 @@ import (
 	"maps"
 	"math"
 	"sync"
-	"sync/atomic"
 
 	"github.com/stubbedev/lys/lib/render"
 
@@ -150,23 +149,24 @@ func shotIn(shot sharedShot, root Widget) (sharedShot, bool) {
 
 // originResolver is the host's answer to where a surface's widget tree
 // sits: the root's surface origin in its toplevel's coordinates.
-var originResolver atomic.Pointer[func(root Widget) (Point, bool)]
+var originResolver perLoop[func(root Widget) (Point, bool)]
 
 // SetSurfaceOriginResolver installs the host's surface placement:
 // resolve maps a widget tree's root (RootOf) to where its surface's
 // (0,0) sits in its toplevel surface's coordinates, false while the
 // compositor has not placed it. Shared-element morphs cross surfaces
-// through it, a button into the popover it opens; one process-wide
-// resolver, nil for none (morphs then stay inside one surface). The
-// returned function removes this resolver and leaves a later install in
-// place.
+// through it, a button into the popover it opens. It serves the morphs
+// run on the calling goroutine, the loop of the application whose
+// surfaces it places; nil removes the calling goroutine's (morphs then
+// stay inside one surface). The returned function removes this resolver
+// and leaves a later install in place.
 func SetSurfaceOriginResolver(resolve func(root Widget) (Point, bool)) (remove func()) {
 	return installHook(&originResolver, resolve, resolve == nil)
 }
 
 // surfaceOrigin asks the host where root's surface sits.
 func surfaceOrigin(root Widget) (Point, bool) {
-	resolve := originResolver.Load()
+	resolve := originResolver.current()
 	if resolve == nil || root == nil {
 		return Point{}, false
 	}

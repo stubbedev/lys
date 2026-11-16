@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 
+	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 	"github.com/stubbedev/lys/ui/media"
 	"github.com/stubbedev/lys/ui/widget"
@@ -86,5 +87,101 @@ func TestCloseTakesOutTheWidgetHooksOfItsApplicationAndNoOther(t *testing.T) {
 	second.Close()
 	if got := hooksOf(t, second); got != (widgetHooks{}) {
 		t.Errorf("closing the second application left the hooks %+v, want none", got)
+	}
+}
+
+type appLoop struct {
+	work   chan func()
+	exited chan struct{}
+}
+
+func newAppLoop(t *testing.T) *appLoop {
+	t.Helper()
+	l := &appLoop{work: make(chan func()), exited: make(chan struct{})}
+	go func() {
+		defer close(l.exited)
+		for fn := range l.work {
+			fn()
+		}
+	}()
+	t.Cleanup(func() {
+		close(l.work)
+		waittest.For(t, l.exited, "an application loop to exit")
+	})
+	return l
+}
+
+func (l *appLoop) do(t *testing.T, fn func()) {
+	t.Helper()
+	ran := make(chan struct{})
+	l.work <- func() {
+		defer close(ran)
+		fn()
+	}
+	waittest.For(t, ran, "work on an application loop")
+}
+
+type hookedApp struct {
+	loop   *appLoop
+	app    *Application
+	box    *widget.Box
+	target *tipTarget
+	router *widget.Router
+}
+
+func newHookedApp(t *testing.T) *hookedApp {
+	t.Helper()
+	s := &hookedApp{loop: newAppLoop(t)}
+	s.loop.do(t, func() {
+		s.app = NewTestApplication(t, &wlsession.Session{})
+		s.target = newTipTarget("")
+		s.box = widget.NewBox(widget.Row, 0, 0)
+		s.box.Append(s.target, false)
+		h := newPaintHarness(s.box, 100, 20)
+		s.app.windows = append(s.app.windows, h.wnd)
+		widget.SizeWithin(s.box, widget.Size{W: 100, H: 20})
+		s.box.Arrange(render.Rect{W: 100, H: 20})
+		s.router = h.wnd.router
+		s.router.Move(widget.Point{X: 5, Y: 5})
+	})
+	if s.router.Hovered() != s.target {
+		t.Fatal("the pointer over the window's widget hovers nothing")
+	}
+	return s
+}
+
+func TestTwoApplicationsOnTwoLoopsEachHearTheirOwnWidgets(t *testing.T) {
+	first, second := newHookedApp(t), newHookedApp(t)
+
+	first.loop.do(t, func() { first.box.Remove(first.target) })
+	if first.router.Hovered() != nil {
+		t.Error("removing a widget on the first application's loop left its window hovering the removed widget")
+	}
+	if second.router.Hovered() != second.target {
+		t.Error("removing a widget on the first application's loop dropped the hover of the second's window")
+	}
+
+	watchedByLatest := allWidgetHooks
+	watchedByLatest.stylesheetWatcher = false
+	for _, c := range []struct {
+		s    *hookedApp
+		want widgetHooks
+	}{{first, watchedByLatest}, {second, allWidgetHooks}} {
+		var got widgetHooks
+		c.s.loop.do(t, func() { got = hooksOf(t, c.s.app) })
+		if got != c.want {
+			t.Errorf("with two applications on two loops a loop's widgets reach its application through %+v, want %+v", got, c.want)
+		}
+	}
+
+	second.app.Close()
+	var got widgetHooks
+	first.loop.do(t, func() { got = hooksOf(t, first.app) })
+	if got != allWidgetHooks {
+		t.Errorf("closing the application installed last left the first's hooks as %+v, want every one in place", got)
+	}
+	second.loop.do(t, func() { got = hooksOf(t, second.app) })
+	if got != (widgetHooks{}) {
+		t.Errorf("the closed application's loop still reaches hooks %+v, want none", got)
 	}
 }

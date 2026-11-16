@@ -212,3 +212,53 @@ func TestEndingALoopDropsItsLoadsThatHaveNotStartedAndNoOthers(t *testing.T) {
 		t.Errorf("the loop still running heard %d answers, want 2", answered)
 	}
 }
+
+func TestAStyleChangeOnOneLoopQueuesOnePassOnEveryOther(t *testing.T) {
+	changing, other := newTestLoop(t), newTestLoop(t)
+	rem := RootFontSize()
+	t.Cleanup(func() { SetRootFontSize(rem) })
+	var sheet *Stylesheet
+	changing.do(t, func() {
+		sheet = AddStylesheet(".wake-a { color: red; }", 0)
+		AddStylesheet(".wake-b { color: blue; }", 0).Remove()
+		SetRootFontSize(rem + 1)
+	})
+	t.Cleanup(sheet.Remove)
+	gen := styleGen.Load()
+	if n := other.pump(t); n != 1 {
+		t.Errorf("three style changes on another loop queued %d passes here, want 1", n)
+	}
+	if styleGen.Load() != gen {
+		t.Error("the queued pass changed the style generation itself")
+	}
+	if n := changing.pump(t); n != 0 {
+		t.Errorf("the loop that changed the style queued %d passes for itself, want none", n)
+	}
+	if n := other.pump(t); n != 0 {
+		t.Errorf("with no change since its pass the other loop has %d more queued, want none", n)
+	}
+
+	changing.do(t, sheet.Remove)
+	if n := other.pump(t); n != 1 {
+		t.Errorf("a change after the other loop's pass queued %d passes there, want 1", n)
+	}
+}
+
+func TestAFontAnswerQueuesOnePassOnEachLoopAndNoMore(t *testing.T) {
+	loops := [2]*testLoop{newTestLoop(t), newTestLoop(t)}
+	gen := styleGen.Load()
+	FontFaceResolved()
+	for i, l := range loops {
+		if n := l.pump(t); n != 1 {
+			t.Errorf("loop %d heard the answer through %d passes, want 1", i, n)
+		}
+	}
+	for i, l := range loops {
+		if n := l.pump(t); n != 0 {
+			t.Errorf("loop %d has %d more passes queued after the answer, want none", i, n)
+		}
+	}
+	if got := styleGen.Load() - gen; got != 2 {
+		t.Errorf("the answer bumped the style %d times over two loops, want 2", got)
+	}
+}

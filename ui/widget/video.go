@@ -3,7 +3,6 @@ package widget
 import (
 	"errors"
 	"image"
-	"sync/atomic"
 
 	"github.com/stubbedev/lys/lib/debug"
 	"github.com/stubbedev/lys/lib/gpu"
@@ -76,22 +75,24 @@ type VideoHost func(v *Video, format VideoFormat, wake func()) (VideoSurface, er
 type TextureHost func(v *Video, width, height int, wake, lost func()) (TextureSurface, error)
 
 var (
-	videoHost   atomic.Pointer[VideoHost]
-	textureHost atomic.Pointer[TextureHost]
+	videoHost   perLoop[VideoHost]
+	textureHost perLoop[TextureHost]
 )
 
-// SetVideoHost installs the host that gives on-screen Videos their
-// surfaces; package app installs it. nil disables, and Videos paint
-// their frames into the window. The returned function removes this host
-// and leaves a later install in place.
+// SetVideoHost installs the host that gives Videos shown on the calling
+// goroutine their surfaces; package app installs it on its loop. nil
+// disables the calling goroutine's, and its Videos paint their frames
+// into the window. The returned function removes this host and leaves a
+// later install in place.
 func SetVideoHost(fn VideoHost) (remove func()) {
 	return installHook(&videoHost, fn, fn == nil)
 }
 
-// SetTextureHost installs the host that gives on-screen Videos of
-// streams decoding on the GPU their surfaces; package app installs it.
-// nil disables, and such Videos fail their streams. The returned
-// function removes this host and leaves a later install in place.
+// SetTextureHost installs the host that gives Videos of streams decoding
+// on the GPU shown on the calling goroutine their surfaces; package app
+// installs it on its loop. nil disables the calling goroutine's, and
+// such Videos fail their streams. The returned function removes this
+// host and leaves a later install in place.
 func SetTextureHost(fn TextureHost) (remove func()) {
 	return installHook(&textureHost, fn, fn == nil)
 }
@@ -315,7 +316,7 @@ func (p *videoView) openOffload() {
 		p.openTextureOffload()
 		return
 	}
-	host := videoHost.Load()
+	host := videoHost.current()
 	if host == nil {
 		p.offloadErr = errNoVideoHost
 		return
@@ -351,7 +352,7 @@ func (p *videoView) openOffload() {
 // its frames are drawn onto and the device they decode on. A stream
 // that gets none has nowhere to show its frames: it fails.
 func (p *videoView) openTextureOffload() {
-	host := textureHost.Load()
+	host := textureHost.current()
 	if host == nil {
 		p.failTextures(errNoTextureHost)
 		return

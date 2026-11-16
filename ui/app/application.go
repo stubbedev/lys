@@ -252,46 +252,14 @@ func NewApplication(sess *wlsession.Session, opts ...Option) *Application {
 	a.dnd = dragdrop.New(sess, a.Invoke)
 	a.OnStop(func() { a.dnd.Stop() })
 	a.OnStop(startFontWarm(warmFonts))
-	a.widgetHooks = []func(){
-		// What the widgets built on this goroutine ask for off the loop
-		// (images, icons, stylesheet files) answers through the loop queue,
-		// the only sanctioned bridge (docs/threading.md); Run binds the loop
-		// goroutine too.
-		widget.SetInvoker(a.Invoke),
+	a.widgetHooks = append(a.bindLoopHooks(),
 		// Stylesheet files hot-reload through an inotify watch on the loop:
 		// the widget package cannot reach it, so the app lends it one, and
 		// nothing polls.
 		widget.SetStylesheetWatcher(func(dirs []string, changed func()) (func(), error) {
 			return a.WatchFiles(dirs, false, changed)
 		}),
-		// Rejected input (a key into a read-only field, a value that does
-		// not parse) rings the system bell for the widget's window.
-		widget.SetErrorBell(a.ringFor),
-		widget.SetSurfaceFade(a.fadeSurface),
-		// A GPUArea arranged on screen asks for its presentation surface: a
-		// subsurface of its window (gpuarea.go).
-		widget.SetGPUHost(a.gpuSurfaceFor),
-		// A Video of a YUV stream arranged on screen asks for a subsurface of
-		// its window its frames go to as YUV dmabufs (video.go).
-		widget.SetVideoHost(a.videoSurfaceFor),
-		// A Video of a stream decoding on the GPU asks for a subsurface its
-		// frames are drawn onto, on the renderer's device (videotexture.go).
-		widget.SetTextureHost(a.textureSurfaceFor),
-		widget.SetSurfaceOriginResolver(a.surfaceOrigin),
-		// Tree mutations (Box.Remove/RemoveAt/Clear/InsertAt, Stack.Remove,
-		// Scroll.SetChild, ...) must not leave a window's router pointing at
-		// a detached widget: the hook drops hover, press, focus, and
-		// drop-target state for the removed subtree, so no KeyAction reaches
-		// a dead widget — and, through router.Hovered(), no tooltip dwells
-		// on a ghost (tooltipCtl opens and closes on the router's hover).
-		// One hook per process; it covers the window
-		// routers — popups run transient routers over short-lived trees.
-		widget.SetRemovedHook(func(w widget.Widget) {
-			for _, win := range a.windows {
-				win.router.Forget(w)
-			}
-		}),
-	}
+	)
 	// Icon lookups start on settings.ini's gtk-icon-theme-name, for a
 	// session without a settings portal, and follow the portal's live
 	// icon-theme setting: a switch swaps the resolution theme (an empty
@@ -320,6 +288,42 @@ func NewApplication(sess *wlsession.Session, opts ...Option) *Application {
 		fmt.Fprint(os.Stdout, inspect.Doctor(sess, inspect.DoctorOptions{}))
 	}
 	return a
+}
+
+func (a *Application) bindLoopHooks() []func() {
+	return []func(){
+		// What the widgets ask for off the loop (images, icons, stylesheet
+		// files) answers through the loop queue, the only sanctioned bridge
+		// (docs/threading.md).
+		widget.SetInvoker(a.Invoke),
+		// Rejected input (a key into a read-only field, a value that does
+		// not parse) rings the system bell for the widget's window.
+		widget.SetErrorBell(a.ringFor),
+		widget.SetSurfaceFade(a.fadeSurface),
+		// A GPUArea arranged on screen asks for its presentation surface: a
+		// subsurface of its window (gpuarea.go).
+		widget.SetGPUHost(a.gpuSurfaceFor),
+		// A Video of a YUV stream arranged on screen asks for a subsurface of
+		// its window its frames go to as YUV dmabufs (video.go).
+		widget.SetVideoHost(a.videoSurfaceFor),
+		// A Video of a stream decoding on the GPU asks for a subsurface its
+		// frames are drawn onto, on the renderer's device (videotexture.go).
+		widget.SetTextureHost(a.textureSurfaceFor),
+		widget.SetSurfaceOriginResolver(a.surfaceOrigin),
+		// Tree mutations (Box.Remove/RemoveAt/Clear/InsertAt, Stack.Remove,
+		// Scroll.SetChild, ...) must not leave a window's router pointing at
+		// a detached widget: the hook drops hover, press, focus, and
+		// drop-target state for the removed subtree, so no KeyAction reaches
+		// a dead widget — and, through router.Hovered(), no tooltip dwells
+		// on a ghost (tooltipCtl opens and closes on the router's hover).
+		// It covers the window routers — popups run transient routers over
+		// short-lived trees.
+		widget.SetRemovedHook(func(w widget.Widget) {
+			for _, win := range a.windows {
+				win.router.Forget(w)
+			}
+		}),
+	}
 }
 
 // Clipboard returns the clipboard SetClipboard installed, nil before.
@@ -891,16 +895,18 @@ func (a *Application) teardown() {
 // goroutine is the event-loop goroutine of the threading contract
 // (docs/threading.md): widget and callback work happens here, and
 // other goroutines reach it only through Invoke and Every. Run marks
-// the goroutine for the off-loop debug hook, binds it as the loop the
-// widgets' off-loop loads answer through Invoke, pumps the queued work at
+// the goroutine for the off-loop debug hook, binds the application's
+// widget hooks to it (bindLoopHooks), pumps the queued work at
 // the top of every pass, and folds the periodic-timer deadlines into
 // the wake computation, so a pending poller wakes the park exactly
 // once per tick. Run closes the application (Close) when it returns.
 func (a *Application) Run() error {
 	unmark := widget.MarkLoop()
-	unbind := widget.SetInvoker(a.Invoke)
+	unbind := a.bindLoopHooks()
 	defer func() {
-		unbind()
+		for _, remove := range unbind {
+			remove()
+		}
 		unmark()
 		a.Close()
 	}()
