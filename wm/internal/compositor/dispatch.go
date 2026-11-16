@@ -106,7 +106,7 @@ func (c *Compositor) perform(e wm.Effect, trigger binds.Trigger) error {
 	case wm.DebugProtocolDumpAction:
 		return c.dumpProtocol(e.Path)
 	case wm.DebugSpinAction:
-		return spinWithoutBlocking(e.For)
+		return spinWithoutBlocking(e.For, runtime.Gosched)
 	case wm.CastTargetAction:
 		return c.castTargetAction(e)
 	case wm.ReloadAction:
@@ -171,12 +171,12 @@ func (c *Compositor) spawnWith(command string, env []string, started func(pid in
 
 const spinLeastProcs = 2
 
-func spinWithoutBlocking(d time.Duration) error {
+func spinWithoutBlocking(d time.Duration, yield func()) error {
 	if procs := runtime.GOMAXPROCS(0); procs < spinLeastProcs {
 		return fmt.Errorf("compositor: debug spin %v: GOMAXPROCS is %d, and a spin holds its processor until it ends, so nothing else, a priority guard included, could run", d, procs)
 	}
 	return withoutGC(func() error {
-		if errno := spinThenPreemptibly(d.Nanoseconds()); errno != 0 {
+		if errno := spinThenPreemptibly(d.Nanoseconds(), yield); errno != 0 {
 			return fmt.Errorf("compositor: debug spin %v: read this thread's CPU clock or scheduling policy: %w", d, errno)
 		}
 		return nil
@@ -195,12 +195,12 @@ func withoutGC(f func() error) error {
 
 //go:nosplit
 //go:noinline
-func spinThenPreemptibly(ns int64) syscall.Errno {
+func spinThenPreemptibly(ns int64, yield func()) syscall.Errno {
 	start, now, errno := spinThreadCPU(ns)
 	if errno != 0 {
 		return errno
 	}
-	return spinPreemptibly(start, now, ns)
+	return spinPreemptibly(start, now, ns, yield)
 }
 
 //go:nosplit
@@ -237,10 +237,10 @@ func spinUnsignalled(ns int64) (start, now int64, errno syscall.Errno) {
 }
 
 //go:noinline
-func spinPreemptibly(start, now, ns int64) syscall.Errno {
+func spinPreemptibly(start, now, ns int64, yield func()) syscall.Errno {
 	var errno syscall.Errno
 	for now-start < ns {
-		runtime.Gosched()
+		yield()
 		if now, errno = threadCPUNanos(); errno != 0 {
 			return errno
 		}

@@ -271,37 +271,52 @@ func TestADebugSpinCollectsNoGarbageAndGivesTheGCItsSettingsBack(t *testing.T) {
 	}
 }
 
+type preemptibleSpin struct {
+	policy uintptr
+	errno  syscall.Errno
+	stack  string
+}
+
 func TestADebugSpinLeftByItsPolicyIsSeenSpinningPreemptibly(t *testing.T) {
 	atLeastTwoProcs(t)
-	const d = time.Second
+	const most = time.Minute
 	tids := make(chan int)
-	done := make(chan error, 1)
+	out := make(chan any, 1)
 	go func() {
 		runtime.LockOSThread()
+		defer func() {
+			if seen := recover(); seen != nil {
+				out <- seen
+			}
+		}()
 		tids <- unix.Gettid()
-		done <- spinWithoutBlocking(d)
+		out <- spinWithoutBlocking(most, func() {
+			policy, errno := threadPolicy()
+			buf := make([]byte, 1<<16)
+			panic(preemptibleSpin{policy, errno, string(buf[:runtime.Stack(buf, false)])})
+		})
 	}()
 	toBatch(t, spinning(t, <-tids))
-	buf := make([]byte, 1<<20)
-	stacks := string(buf[:runtime.Stack(buf, true)])
-	if err := <-done; err != nil {
-		t.Fatal(err)
+	ended := <-out
+	got, yielded := ended.(preemptibleSpin)
+	if !yielded {
+		t.Fatalf("the spin ended with %v and never yielded after its thread moved to SCHED_BATCH", ended)
 	}
-	var spinning string
-	for g := range strings.SplitSeq(stacks, "\n\n") {
-		if strings.Contains(g, "compositor.spinWithoutBlocking(") {
-			spinning = g
-		}
+	if got.errno != 0 {
+		t.Fatalf("read the scheduling policy of the yielding spin: %v", got.errno)
 	}
-	if !strings.Contains(spinning, "compositor.spinPreemptibly(") {
-		t.Fatalf("the first stack taken after the spin left its policy is not in spinPreemptibly:\n%s", spinning)
+	if got.policy != unix.SCHED_BATCH {
+		t.Fatalf("the spin yielded under scheduling policy %d, before its thread left its policy for SCHED_BATCH", got.policy)
+	}
+	if !strings.Contains(got.stack, "compositor.spinPreemptibly(") || !strings.Contains(got.stack, "compositor.spinWithoutBlocking(") {
+		t.Fatalf("the first yield after the spin left its policy is not spinWithoutBlocking's spinPreemptibly:\n%s", got.stack)
 	}
 }
 
 func TestADebugSpinRefusesToHoldTheOnlyProcessor(t *testing.T) {
 	was := runtime.GOMAXPROCS(1)
 	t.Cleanup(func() { runtime.GOMAXPROCS(was) })
-	if err := spinWithoutBlocking(time.Hour); err == nil {
+	if err := spinWithoutBlocking(time.Hour, runtime.Gosched); err == nil {
 		t.Fatal("a spin started with GOMAXPROCS 1, where it would starve every other goroutine")
 	}
 }
