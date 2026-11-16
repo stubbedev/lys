@@ -9,7 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
+	"math"
 
 	"github.com/stubbedev/lys/lib/intconv"
 )
@@ -165,12 +165,12 @@ type Message struct {
 func (m Message) checkLengths() error {
 	for _, g := range m.Groups {
 		for _, a := range g.Attrs {
-			if _, err := intconv.Exact[uint16](len(a.Name)); err != nil {
-				return fmt.Errorf("ipp: attribute name of %d bytes: %w", len(a.Name), err)
+			if _, err := fieldLength(a.Name); err != nil {
+				return fmt.Errorf("ipp: attribute name %.32q…: %w", a.Name, err)
 			}
 			for _, v := range a.Values {
-				if _, err := intconv.Exact[uint16](len(v.Text)); err != nil {
-					return fmt.Errorf("ipp: %s value of %d bytes: %w", a.Name, len(v.Text), err)
+				if _, err := fieldLength(v.Text); err != nil {
+					return fmt.Errorf("ipp: %s value: %w", a.Name, err)
 				}
 			}
 		}
@@ -178,9 +178,17 @@ func (m Message) checkLengths() error {
 	return nil
 }
 
+func fieldLength(s string) (int16, error) {
+	n, err := intconv.Exact[int16](len(s))
+	if err != nil {
+		return 0, fmt.Errorf("%d bytes exceed the %d a SIGNED-SHORT length field holds (RFC 8010): %w", len(s), math.MaxInt16, err)
+	}
+	return n, nil
+}
+
 // Encode writes the message: version 2.0, the code, the request id,
 // the groups, the end tag. It panics on a name or value longer than
-// 65535 bytes.
+// 32767 bytes.
 func (m Message) Encode() []byte {
 	var b bytes.Buffer
 	b.Write([]byte{2, 0})
@@ -205,9 +213,9 @@ func (m Message) Encode() []byte {
 }
 
 func writeString(b *bytes.Buffer, s string) {
-	n, err := intconv.Exact[uint16](len(s))
+	n, err := fieldLength(s)
 	if err != nil {
-		panic(fmt.Sprintf("ipp: encoding a string the 16-bit length field cannot hold: %v", err))
+		panic(fmt.Sprintf("ipp: encoding a string: %v", err))
 	}
 	_ = binary.Write(b, binary.BigEndian, n)
 	b.WriteString(s)
@@ -251,21 +259,17 @@ var errShort = errors.New("ipp: truncated message")
 // Decode parses a message; trailing data after the end tag (a job's
 // document) is ignored.
 func Decode(data []byte) (Message, error) {
-	r := bytes.NewReader(data)
-	var head struct {
-		Version   [2]byte
-		Code      uint16
-		RequestID uint32
-	}
-	if err := binary.Read(r, binary.BigEndian, &head); err != nil {
+	const headLen = 8
+	if len(data) < headLen {
 		return Message{}, errShort
 	}
-	m := Message{Code: head.Code, RequestID: head.RequestID}
+	m := Message{Code: binary.BigEndian.Uint16(data[2:4]), RequestID: binary.BigEndian.Uint32(data[4:8])}
+	d := decoder{data[headLen:]}
 	var cur *Group
 	for {
-		tag, err := r.ReadByte()
+		tag, err := d.tag()
 		if err != nil {
-			return Message{}, errShort
+			return Message{}, err
 		}
 		switch {
 		case tag == groupEnd:
@@ -277,24 +281,15 @@ func Decode(data []byte) (Message, error) {
 		case cur == nil:
 			return Message{}, fmt.Errorf("ipp: value tag %#x outside a group", tag)
 		}
-		name, err := readString(r)
+		name, err := d.field()
 		if err != nil {
 			return Message{}, err
 		}
-		raw, err := readString(r)
+		v, err := d.value(tag)
 		if err != nil {
 			return Message{}, err
 		}
-		v, err := parseValue(tag, []byte(raw))
-		if err != nil {
-			return Message{}, err
-		}
-		if tag == TagCollection {
-			if v.Members, err = readMembers(r); err != nil {
-				return Message{}, err
-			}
-		}
-		if name == "" {
+		if len(name) == 0 {
 			if len(cur.Attrs) == 0 {
 				return Message{}, errors.New("ipp: additional value with no attribute")
 			}
@@ -302,58 +297,83 @@ func Decode(data []byte) (Message, error) {
 			last.Values = append(last.Values, v)
 			continue
 		}
-		cur.Attrs = append(cur.Attrs, Attr{Name: name, Values: []Value{v}})
+		cur.Attrs = append(cur.Attrs, Attr{Name: string(name), Values: []Value{v}})
 	}
 }
 
-// readMembers reads a collection's members up to its end.
-func readMembers(r *bytes.Reader) ([]Attr, error) {
+type decoder struct{ rest []byte }
+
+func (d *decoder) tag() (byte, error) {
+	if len(d.rest) == 0 {
+		return 0, errShort
+	}
+	t := d.rest[0]
+	d.rest = d.rest[1:]
+	return t, nil
+}
+
+func (d *decoder) field() ([]byte, error) {
+	if len(d.rest) < 2 {
+		return nil, errShort
+	}
+	n := int(binary.BigEndian.Uint16(d.rest))
+	if n > math.MaxInt16 {
+		return nil, fmt.Errorf("ipp: length field %#04x exceeds the %d a SIGNED-SHORT holds (RFC 8010)", n, math.MaxInt16)
+	}
+	body := d.rest[2:]
+	if n > len(body) {
+		return nil, fmt.Errorf("ipp: a %d-byte field with %d bytes left: %w", n, len(body), errShort)
+	}
+	d.rest = body[n:]
+	return body[:n:n], nil
+}
+
+func (d *decoder) value(tag byte) (Value, error) {
+	raw, err := d.field()
+	if err != nil {
+		return Value{}, err
+	}
+	v, err := parseValue(tag, raw)
+	if err != nil || tag != TagCollection {
+		return v, err
+	}
+	v.Members, err = d.members()
+	return v, err
+}
+
+func (d *decoder) members() ([]Attr, error) {
 	var members []Attr
 	for {
-		tag, err := r.ReadByte()
+		tag, err := d.tag()
 		if err != nil {
-			return nil, errShort
-		}
-		if _, err := readString(r); err != nil {
 			return nil, err
 		}
-		raw, err := readString(r)
-		if err != nil {
+		if _, err := d.field(); err != nil {
 			return nil, err
 		}
 		switch {
 		case tag == tagEndCollection:
+			if _, err := d.field(); err != nil {
+				return nil, err
+			}
 			return members, nil
 		case tag == tagMemberName:
-			members = append(members, Attr{Name: raw})
+			name, err := d.field()
+			if err != nil {
+				return nil, err
+			}
+			members = append(members, Attr{Name: string(name)})
 			continue
 		case len(members) == 0:
 			return nil, fmt.Errorf("ipp: collection value tag %#x before a member name", tag)
 		}
-		v, err := parseValue(tag, []byte(raw))
+		v, err := d.value(tag)
 		if err != nil {
 			return nil, err
-		}
-		if tag == TagCollection {
-			if v.Members, err = readMembers(r); err != nil {
-				return nil, err
-			}
 		}
 		last := &members[len(members)-1]
 		last.Values = append(last.Values, v)
 	}
-}
-
-func readString(r *bytes.Reader) (string, error) {
-	var n uint16
-	if err := binary.Read(r, binary.BigEndian, &n); err != nil {
-		return "", errShort
-	}
-	buf := make([]byte, n)
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return "", errShort
-	}
-	return string(buf), nil
 }
 
 func parseValue(tag byte, raw []byte) (Value, error) {

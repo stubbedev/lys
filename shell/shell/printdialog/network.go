@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/shell/internal/ipp"
 	"github.com/stubbedev/lys/shell/service/dnssd"
 )
 
@@ -188,6 +189,9 @@ func (s *sheet) readCaps(q queue) {
 			}
 			if err != nil {
 				log.Printf("print: reading %s: %v", query, err)
+				if errors.Is(err, ipp.ErrCertificateChanged) {
+					s.showNetworkDetail(key, certificateChanged)
+				}
 				return
 			}
 			caps := capabilitiesOf(&p)
@@ -201,6 +205,21 @@ func (s *sheet) readCaps(q queue) {
 			}
 		})
 	}()
+}
+
+// certificateChanged is a network printer's detail line once its
+// certificate no longer matches the one first trusted.
+const certificateChanged = "Certificate changed; not trusted"
+
+// showNetworkDetail shows detail in the row of the network printer
+// key, keeping it across relists.
+func (s *sheet) showNetworkDetail(key, detail string) {
+	if i := slices.IndexFunc(s.network, func(o queue) bool { return o.key == key }); i >= 0 {
+		s.network[i].detail = detail
+	}
+	if i := slices.IndexFunc(s.queues, func(o queue) bool { return o.kind == queueNetwork && o.key == key }); i >= 0 {
+		s.setDetail(i, detail)
+	}
 }
 
 // localQueueName is a CUPS queue name for a network printer's label:

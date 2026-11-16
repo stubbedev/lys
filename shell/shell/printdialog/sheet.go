@@ -472,9 +472,14 @@ func (s *sheet) showState(p ipp.Printer) {
 	if i < 0 {
 		return
 	}
-	s.queues[i].detail = printerDetail(p)
-	s.details[i].SetText(s.queues[i].detail)
-	s.details[i].SetVisible(s.queues[i].detail != "")
+	s.setDetail(i, printerDetail(p))
+}
+
+// setDetail shows detail in the row of queue i.
+func (s *sheet) setDetail(i int, detail string) {
+	s.queues[i].detail = detail
+	s.details[i].SetText(detail)
+	s.details[i].SetVisible(detail != "")
 }
 
 // close stops the loading, the state reads and the browsing.

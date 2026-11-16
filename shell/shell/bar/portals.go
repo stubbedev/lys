@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/user"
@@ -66,8 +67,12 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 	}
 	home, _ := os.UserHomeDir()
 	viewFile, presetsFile := "", ""
+	var device func(context.Context, string) (ipp.Printer, error)
 	if dir, ok := xdg.OS.StateDir(identity.Name); ok {
 		viewFile, presetsFile = filepath.Join(dir, "file-chooser-view"), filepath.Join(dir, "print-presets")
+		device = ipp.DeviceAttributes(filepath.Join(dir, "printer-certificates"))
+	} else {
+		log.Print("print: no state directory; network printers' capabilities are not read")
 	}
 	chooser := filechooser.New(filechooser.Deps{
 		Config:         current,
@@ -131,7 +136,7 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 			}
 			return nil
 		},
-		Device:     ipp.DeviceAttributes,
+		Device:     device,
 		PickOutput: func(suggested string, chosen func(string)) { pickOutput(application, chooser, suggested, chosen) },
 		Home:       home,
 		User:       currentUser(),

@@ -2,6 +2,8 @@ package printdialog
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -60,7 +62,7 @@ func overNetwork(t *testing.T, hs *harness) (*ipptest.Server, *fakeAvahi) {
 	avahi := &fakeAvahi{dnssdtest.Start(t)}
 	client := dnssd.New(avahi.Bus.Conn(t))
 	hs.h.d.DNSSD = func() *dnssd.Client { return client }
-	hs.h.d.Device = ipp.DeviceAttributes
+	hs.h.d.Device = ipp.DeviceAttributes(t.TempDir())
 	return srv, avahi
 }
 
@@ -225,11 +227,43 @@ func TestLinkLocalPrintersAreReadThroughTheirZone(t *testing.T) {
 	}
 	svc.Address = netip.MustParseAddr("::1%lo")
 	q, _ = networkQueue(svc)
-	p, err := ipp.DeviceAttributes(t.Context(), q.query)
+	p, err := ipp.DeviceAttributes(t.TempDir())(t.Context(), q.query)
 	if err != nil {
 		t.Fatalf("reading %s: %v", q.query, err)
 	}
 	if !slices.Equal(p.Media, []string{"iso_a5_148x210mm"}) || !slices.Contains(device.Ops(), ipp.OpGetPrinterAttributes) {
 		t.Errorf("the printer at %s answered %+v", q.query, p)
+	}
+}
+
+func TestANetworkPrinterWhoseCertificateChangedSaysSo(t *testing.T) {
+	for name, readErr := range map[string]error{
+		"changed": fmt.Errorf("ipp: reading: %w", ipp.ErrCertificateChanged),
+		"other":   errors.New("ipp: connection refused"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			hs := newHarness(t)
+			_, avahi := overNetwork(t, hs)
+			hs.h.d.Device = func(context.Context, string) (ipp.Printer, error) { return ipp.Printer{}, readErr }
+			svc, _ := laser(t)
+			avahi.Announce(t, svc)
+			got, c := hs.prepare(t)
+			hs.waitLabel(t, c, "Example Laser (network)")
+			hs.do(func() {
+				i := slices.IndexFunc(hs.h.sheet.queues, func(q queue) bool { return q.kind == queueNetwork })
+				treetest.First[*widget.ListBox](t, c.Root).Select(i)
+			})
+			if name == "changed" {
+				hs.waitLabel(t, c, certificateChanged)
+			}
+			hs.do(func() {
+				shown := slices.Contains(treetest.Labels(c.Root), certificateChanged)
+				if name == "other" && shown {
+					t.Error("another read failure claims the certificate changed")
+				}
+				treetest.Button(t, c.Root, "Cancel").OnClick()
+			})
+			<-got
+		})
 	}
 }

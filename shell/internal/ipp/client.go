@@ -2,18 +2,28 @@ package ipp
 
 import (
 	"bytes"
+	"cmp"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/stubbedev/lys/lib/atomicfile"
 )
 
 // The CUPS scheduler's domain sockets, the default server where one
@@ -214,31 +224,179 @@ func (c *Client) CreateLocalPrinter(ctx context.Context, deviceURI, name string)
 	return "", fmt.Errorf("ipp: CUPS named no queue for %s", deviceURI)
 }
 
-// DeviceAttributes reads the attributes of a network printer at its own
-// ipp:// or ipps:// URI, as the dialog does for one found over DNS-SD
-// before CUPS has a queue for it. An ipps printer's certificate is
-// self-signed as a rule, and only its capabilities are read, so it is
-// not verified; the job itself goes through CUPS.
-func DeviceAttributes(ctx context.Context, uri string) (Printer, error) {
+// DeviceAttributes is a reader of the attributes of a network printer
+// at its own ipp:// or ipps:// URI, as the dialog does for one found
+// over DNS-SD before CUPS has a queue for it. An ipps printer whose
+// certificate chains to a system root for its host is trusted as such;
+// any other certificate valid in itself is trusted on first use and
+// pinned in a file under pinDir named after the printer's host and
+// port, and a later certificate that differs is refused with
+// ErrCertificateChanged.
+func DeviceAttributes(pinDir string) func(ctx context.Context, uri string) (Printer, error) {
+	return (&devices{pins: pinDir}).attributes
+}
+
+// ErrCertificateChanged is an ipps printer presenting a certificate
+// other than the one pinned on first contact.
+var ErrCertificateChanged = errors.New("ipp: the printer's certificate changed since it was first trusted")
+
+type devices struct {
+	pins  string
+	roots *x509.CertPool
+	mu    sync.Mutex
+}
+
+func (d *devices) attributes(ctx context.Context, uri string) (Printer, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return Printer{}, fmt.Errorf("ipp: printer URI %q: %w", uri, err)
 	}
-	port := u.Port()
-	if port == "" {
-		port = "631"
-	}
+	host := net.JoinHostPort(u.Hostname(), cmp.Or(u.Port(), "631"))
 	c := &Client{http: &http.Client{Timeout: requestTimeout}}
 	switch u.Scheme {
 	case "ipp":
-		c.base = (&url.URL{Scheme: "http", Host: net.JoinHostPort(u.Hostname(), port)}).String()
+		c.base = (&url.URL{Scheme: "http", Host: host}).String()
 	case "ipps":
-		c.base = (&url.URL{Scheme: "https", Host: net.JoinHostPort(u.Hostname(), port)}).String()
-		c.http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} //nolint:gosec // capabilities only, from a printer whose certificate is self-signed
+		c.base = (&url.URL{Scheme: "https", Host: host}).String()
+		c.http.Transport = &http.Transport{DialTLSContext: d.dialTLS}
 	default:
 		return Printer{}, fmt.Errorf("ipp: printer URI %q is neither ipp nor ipps", uri)
 	}
+	defer c.http.CloseIdleConnections()
 	return c.Attributes(ctx, uri)
+}
+
+func (d *devices) dialTLS(ctx context.Context, network, addr string) (net.Conn, error) {
+	pinned, err := d.pinned(addr)
+	if err != nil {
+		return nil, err
+	}
+	if pinned != nil {
+		conn, err := dialPinned(ctx, network, addr, pinned)
+		if !isVerification(err) {
+			return conn, err
+		}
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("ipp: printer address %q: %w", addr, err)
+	}
+	conn, err := dial(ctx, network, addr, &tls.Config{MinVersion: tls.VersionTLS12, ServerName: host, RootCAs: d.roots})
+	var unverified *tls.CertificateVerificationError
+	if !errors.As(err, &unverified) || len(unverified.UnverifiedCertificates) == 0 {
+		return conn, err
+	}
+	presented := unverified.UnverifiedCertificates[0]
+	if pinned != nil && !presented.Equal(pinned) {
+		return nil, d.changed(addr, presented, pinned)
+	}
+	conn, err = dialPinned(ctx, network, addr, presented)
+	if err != nil || pinned != nil {
+		return conn, err
+	}
+	if err := d.pin(addr, presented); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
+func dialPinned(ctx context.Context, network, addr string, cert *x509.Certificate) (net.Conn, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("ipp: printer address %q: %w", addr, err)
+	}
+	name, err := certifiedName(cert, host)
+	if err != nil {
+		return nil, fmt.Errorf("ipp: the certificate of the printer at %s: %w", addr, err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	return dial(ctx, network, addr, &tls.Config{MinVersion: tls.VersionTLS12, ServerName: name, RootCAs: roots})
+}
+
+func certifiedName(cert *x509.Certificate, host string) (string, error) {
+	switch {
+	case cert.VerifyHostname(host) == nil:
+		return host, nil
+	case len(cert.DNSNames) > 0:
+		return cert.DNSNames[0], nil
+	case len(cert.IPAddresses) > 0:
+		return cert.IPAddresses[0].String(), nil
+	}
+	return "", errors.New("it names no host or address to pin it to")
+}
+
+func dial(ctx context.Context, network, addr string, config *tls.Config) (net.Conn, error) {
+	conn, err := (&tls.Dialer{Config: config}).DialContext(ctx, network, addr)
+	if err != nil {
+		return nil, fmt.Errorf("ipp: TLS to the printer at %s: %w", addr, err)
+	}
+	return conn, nil
+}
+
+func isVerification(err error) bool {
+	var unverified *tls.CertificateVerificationError
+	return errors.As(err, &unverified)
+}
+
+func fingerprint(cert *x509.Certificate) string {
+	sum := sha256.Sum256(cert.Raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func (d *devices) pinPath(addr string) string { return filepath.Join(d.pins, url.PathEscape(addr)) }
+
+func (d *devices) pinned(addr string) (*x509.Certificate, error) {
+	if err := os.MkdirAll(d.pins, 0o700); err != nil {
+		return nil, fmt.Errorf("ipp: the pinned certificate of %s: %w", addr, err)
+	}
+	root, err := os.OpenRoot(d.pins)
+	if err != nil {
+		return nil, fmt.Errorf("ipp: the pinned certificate of %s: %w", addr, err)
+	}
+	defer func() { _ = root.Close() }()
+	data, err := root.ReadFile(url.PathEscape(addr))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("ipp: reading the pinned certificate of %s: %w", addr, err)
+	}
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("ipp: %s holds no PEM certificate", d.pinPath(addr))
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("ipp: the pinned certificate in %s: %w", d.pinPath(addr), err)
+	}
+	return cert, nil
+}
+
+func (d *devices) changed(addr string, presented, pinned *x509.Certificate) error {
+	return fmt.Errorf("%w: the printer at %s presents sha256:%s, pinned sha256:%s in %s; remove that file to trust the new one",
+		ErrCertificateChanged, addr, fingerprint(presented), fingerprint(pinned), d.pinPath(addr))
+}
+
+func (d *devices) pin(addr string, cert *x509.Certificate) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	pinned, err := d.pinned(addr)
+	switch {
+	case err != nil:
+		return err
+	case pinned == nil:
+	case pinned.Equal(cert):
+		return nil
+	default:
+		return d.changed(addr, cert, pinned)
+	}
+	data := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+	if err := atomicfile.WriteFile(d.pinPath(addr), data, 0o600); err != nil {
+		return fmt.Errorf("ipp: pinning the certificate of %s: %w", addr, err)
+	}
+	return nil
 }
 
 // Default is the scheduler's default destination (CUPS-Get-Default),

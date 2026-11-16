@@ -2326,6 +2326,7 @@
   },
   "shell/internal/ipp": {
     "imports": [
+      "lib/atomicfile",
       "lib/intconv"
     ],
     "testImports": [

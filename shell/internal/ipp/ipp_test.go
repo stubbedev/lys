@@ -3,12 +3,15 @@ package ipp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -214,20 +217,56 @@ func TestDefaultServer(t *testing.T) {
 }
 
 func TestAValueTooLongForItsLengthFieldIsRefused(t *testing.T) {
-	ok := Message{Groups: []Group{{Tag: GroupOperation, Attrs: []Attr{String(TagName, "job-name", strings.Repeat("x", 65535))}}}}
+	ok := Message{Groups: []Group{{Tag: GroupOperation, Attrs: []Attr{String(TagName, "job-name", strings.Repeat("x", math.MaxInt16))}}}}
 	if err := ok.checkLengths(); err != nil {
-		t.Errorf("a 65535-byte value: %v", err)
+		t.Errorf("a 32767-byte value: %v", err)
 	}
-	long := Message{Groups: []Group{{Tag: GroupOperation, Attrs: []Attr{String(TagName, "job-name", strings.Repeat("x", 65536))}}}}
+	long := Message{Groups: []Group{{Tag: GroupOperation, Attrs: []Attr{String(TagName, "job-name", strings.Repeat("x", math.MaxInt16+1))}}}}
 	if err := long.checkLengths(); err == nil {
-		t.Error("a 65536-byte value passed")
+		t.Error("a 32768-byte value passed")
 	}
-	name := Message{Groups: []Group{{Tag: GroupOperation, Attrs: []Attr{String(TagKeyword, strings.Repeat("n", 65536), "v")}}}}
+	name := Message{Groups: []Group{{Tag: GroupOperation, Attrs: []Attr{String(TagKeyword, strings.Repeat("n", math.MaxInt16+1), "v")}}}}
 	if err := name.checkLengths(); err == nil {
-		t.Error("a 65536-byte name passed")
+		t.Error("a 32768-byte name passed")
 	}
 	if _, err := (&Client{}).do(context.Background(), "/", long, nil); err == nil {
 		t.Error("the client sent a message its length fields cannot hold")
+	}
+}
+
+func valueOfLength(n int) []byte {
+	head := []byte{2, 0, 0, 0, 0, 0, 0, 1, GroupPrinter, TagText, 0, 1, 'a', byte(n >> 8), byte(n)}
+	return append(append(head, make([]byte, n)...), groupEnd)
+}
+
+func allocatedPerCall(f func()) uint64 {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	const calls = 64
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	for range calls {
+		f()
+	}
+	runtime.ReadMemStats(&after)
+	return (after.TotalAlloc - before.TotalAlloc) / calls
+}
+
+func TestAnOversizedLengthIsRefusedWithoutAllocating(t *testing.T) {
+	for _, n := range []int{math.MaxInt16 + 1, math.MaxUint16} {
+		data := valueOfLength(n)
+		if _, err := Decode(data); err == nil {
+			t.Errorf("a %d-byte length decoded", n)
+		}
+		if got := allocatedPerCall(func() { _, _ = Decode(data) }); got >= 4096 {
+			t.Errorf("refusing a %d-byte length allocated %d bytes", n, got)
+		}
+	}
+	m, err := Decode(valueOfLength(math.MaxInt16))
+	if err != nil || len(m.Groups) != 1 || len(m.Groups[0].Text("a")) != math.MaxInt16 {
+		t.Errorf("a 32767-byte value: %v", err)
+	}
+	if _, err := Decode(valueOfLength(math.MaxInt16)[:100]); !errors.Is(err, errShort) {
+		t.Errorf("a length past the data: %v, want errShort", err)
 	}
 }
 
