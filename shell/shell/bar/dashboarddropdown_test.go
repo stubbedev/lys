@@ -80,7 +80,7 @@ func TestDashboardPaintsFromTheStylesheet(t *testing.T) {
 	ctx := styledContext(t, cfg)
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
 	ctx.Battery = newFakeBattery(upower.Device{Percentage: 8, State: upower.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 
 	var gauge *widget.ProgressBar
 	var percent *widget.Label
@@ -145,7 +145,7 @@ func TestDashboardQuickActionsDriveTheServices(t *testing.T) {
 	ctx.Notifications.SetDND(false)
 	ctx.IdleInhibit = idleinhibit.NewState(inhibitduration.Duration{})
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying, CanGoNext: true})
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	if len(v.refreshers) == 0 {
 		t.Fatal("no sections refresh")
 	}
@@ -206,7 +206,7 @@ func TestDashboardMediaAndBatterySections(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
 	ctx.Battery = newFakeBattery(upower.Device{Percentage: 8, State: upower.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	texts := map[string]bool{}
 	walkTree(v, func(w widget.Widget) bool {
 		if l, ok := w.(*widget.Label); ok {
@@ -221,7 +221,7 @@ func TestDashboardMediaAndBatterySections(t *testing.T) {
 	}
 	// Without a player the media card shows the empty state.
 	ctx.Media = newFakeMedia()
-	v = dashboardDropdown(ctx).(*dashboardView)
+	v = noRadiosDashboard(ctx).(*dashboardView)
 	found := false
 	walkTree(v, func(w widget.Widget) bool {
 		if s, ok := w.(*widget.Stack); ok && s.Visible() == "empty" {
@@ -241,7 +241,7 @@ func TestDashboardContentPadsOutsideTheScroll(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	content, ok := findByClass(v, "dropdown-content").(*widget.Box)
 	if !ok {
 		t.Fatal("no dropdown-content")
@@ -278,7 +278,7 @@ func TestDashboardContentPadsOutsideTheScroll(t *testing.T) {
 func TestDashboardAlwaysShowsTheVolumeAndMediaCards(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg) // no Pulse, no Media
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	var volumeCard, mediaCard *widget.Box
 	walkTree(v, func(w widget.Widget) bool {
 		if b, ok := w.(*widget.Box); ok && b.HasClass("dashboard-card") {
@@ -334,7 +334,7 @@ func TestDashboardAlwaysShowsTheVolumeAndMediaCards(t *testing.T) {
 	// Positive control: with services the cards drive them.
 	ctx.Pulse = &fakePulseSource{dev: pulse.Device{Name: "out", Description: "Speakers", Volume: pct(42)}, ticks: make(chan struct{}, 2)}
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
-	v = dashboardDropdown(ctx).(*dashboardView)
+	v = noRadiosDashboard(ctx).(*dashboardView)
 	walkTree(v, func(w widget.Widget) bool {
 		if b, ok := w.(*widget.Box); ok && b.HasClass("dashboard-slider-row") && b.Enabled() {
 			volumeCard = b
@@ -354,7 +354,7 @@ func TestDashboardBatteryDetailCarriesTheThresholdClasses(t *testing.T) {
 		cfg := config.Defaults()
 		ctx := newTestContext(t, cfg)
 		ctx.Battery = newFakeBattery(upower.Device{Percentage: pct, State: upower.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
-		v := dashboardDropdown(ctx).(*dashboardView)
+		v := noRadiosDashboard(ctx).(*dashboardView)
 		var detail *widget.Label
 		walkTree(v, func(w widget.Widget) bool {
 			if l, ok := w.(*widget.Label); ok && l.HasClass("battery-detail") {
@@ -386,7 +386,7 @@ func TestDashboardBatteryDetailCarriesTheThresholdClasses(t *testing.T) {
 func TestDashboardMediaEmptyStateArtAndLabels(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	empty, ok := findByClass(v, "empty-state").(*widget.StatusPage)
 	if !ok {
 		t.Fatal("no empty-state")
@@ -406,7 +406,7 @@ func TestDashboardMediaEmptyStateArtAndLabels(t *testing.T) {
 	// With a player: the art carries the per-instance class and the
 	// track labels cap at one character from the start.
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "A Very Long Song Title That Should Cap", Artist: "Band", State: mpris.StatePlaying})
-	v = dashboardDropdown(ctx).(*dashboardView)
+	v = noRadiosDashboard(ctx).(*dashboardView)
 	var artClasses []string
 	walkTree(v, func(w widget.Widget) bool {
 		if h, ok := w.(interface {
@@ -472,7 +472,7 @@ func TestDashboardMediaEmptyStateArtAndLabels(t *testing.T) {
 func TestDashboardQuickActionTiles(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	tile := quickActionTile(widget.NewThemeIcon("ld-wifi-symbolic", 16), widget.NewLabel(ctx.Font, 12, "Wifi", 0))
 	if got := len(tile.Children()); got != 2 {
 		t.Fatalf("the tile children = %d, want the icon tile over the label", got)
@@ -494,7 +494,7 @@ func TestDashboardBatteryCardFollowsPresence(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	bat := newFakeBattery(upower.Device{Percentage: 50, IsPresent: false})
 	ctx.Battery = bat
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	card := func() *widget.Box {
 		for _, c := range findByClass(v, "dashboard-info-row").(*widget.Box).Children() {
 			if b, ok := c.(*widget.Box); ok && len(treetest.WithClass(b, "battery-status")) > 0 {
@@ -544,7 +544,7 @@ func TestDashboardQuickActionTileCenters(t *testing.T) {
 // collapse to its header.
 func TestDashboardGrowsToItsSections(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	w, h, _ := dropdownDims("dashboard", ctx.Config)
 	card, _ := dropdownTree(dropdownPanel("dashboard", ctx.Config, v), ctx.Config)
 	ctx.Theme.Attach(card)
@@ -590,7 +590,7 @@ func TestTheSaverToggleHoldsWhileItsWriteRunsAndSaysWhyItFailed(t *testing.T) {
 	pp.setGate = make(chan struct{})
 	pp.setErr = errors.New("net.hadess.PowerProfiles: denied")
 	ctx.PowerProfiles = pp
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	defer v.dropdownClosed()
 	saver := quickActionButtons(t, v)[5]
 	alert := quickActionAlert(t, v)
@@ -630,7 +630,7 @@ func TestAQuickActionWriteThatGoesThroughClearsTheAlert(t *testing.T) {
 	bt := newFakeBluetooth(bluetooth.State{Available: true})
 	bt.fail["enable"] = errors.New("org.bluez.Error.Blocked")
 	ctx.Bluetooth = bt
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	defer v.dropdownClosed()
 	v.refreshAll()
 	btn := quickActionButtons(t, v)[1]
@@ -709,7 +709,7 @@ func TestTheVolumeAndMediaCardsSayWhyAWriteFailed(t *testing.T) {
 		src := &writeOutcome{errors.New("org.freedesktop.DBus.Error.NoReply"), make(chan bool, 4)}
 		ctx.Pulse = failingPulse{&fakePulseSource{dev: pulse.Device{Name: "out", Description: "Speakers", Volume: pct(42)}, ticks: make(chan struct{}, 2)}, src}
 		ctx.Media = failingMedia{newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", State: mpris.StatePlaying}), src}
-		v := dashboardDropdown(ctx).(*dashboardView)
+		v := noRadiosDashboard(ctx).(*dashboardView)
 		v.refreshAll()
 		alert := classedAlert(t, v, c.alert)
 		if onHeadlessLoop(alert.Visible) {
@@ -755,7 +755,7 @@ func TestSwitchingThePlayerSaysWhyItFailed(t *testing.T) {
 	} {
 		ctx := newTestContext(t, config.Defaults())
 		ctx.Media = c.src
-		v := dashboardDropdown(ctx).(*dashboardView)
+		v := noRadiosDashboard(ctx).(*dashboardView)
 		v.refreshAll()
 		alert := classedAlert(t, v, "media-failed")
 		onHeadlessLoop(func() bool { classedButton(t, v, "media-switch-btn").OnClick(); return true })

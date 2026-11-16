@@ -9,6 +9,7 @@ dropdown-dashboard-idle-inhibit = Inactiviteit blokkeren
 dropdown-dashboard-power-saver = Energiebesparing
 dropdown-dashboard-wifi-failed = Kan wifi niet schakelen
 dropdown-dashboard-bluetooth-failed = Kan Bluetooth niet schakelen
+dropdown-dashboard-airplane-failed = Kan vliegtuigmodus niet schakelen
 dropdown-dashboard-volume-failed = Kan het volume niet wijzigen
 dropdown-dashboard-media-failed = Kan de speler niet bedienen
 

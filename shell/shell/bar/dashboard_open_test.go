@@ -144,6 +144,7 @@ func newDashboardRig(t *testing.T) *dashboardRig {
 			return err
 		}
 		rig.reg = newDropdownRegistry(a, cfg, ctx.Font, &full, ctx)
+		rig.reg.builders["dashboard"] = noRadiosDashboard
 		rig.reg.attachHost(dashboardRigOutput, layer, 900)
 		rig.layer = layer
 		return nil
@@ -299,7 +300,7 @@ func TestDashboardPollCounts(t *testing.T) {
 	}
 	fixedProc(t)
 	ctx := styledContext(t, config.Defaults())
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	v.poll()
 	v.diskIn = 0
 	allocs := testing.AllocsPerRun(dashboardDiskPolls, v.poll)
@@ -366,10 +367,10 @@ func procReads(t *testing.T, fn func()) int64 {
 func TestTheDashboardHasSessionButtonsOnlyWithAPowerMenu(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	ctx.PowerMenu = nil
-	if n := countClass(dashboardDropdown(ctx), "dashboard-user-session"); n != 0 {
+	if n := countClass(noRadiosDashboard(ctx), "dashboard-user-session"); n != 0 {
 		t.Errorf("without a power menu the dashboard has %d session rows, whose buttons would request nothing; want none", n)
 	}
-	if n := countClass(dashboardDropdown(withPowerMenu(ctx)), "dashboard-user-session"); n != 1 {
+	if n := countClass(noRadiosDashboard(withPowerMenu(ctx)), "dashboard-user-session"); n != 1 {
 		t.Errorf("with a power menu the dashboard has %d session rows, want 1", n)
 	}
 }

@@ -24,6 +24,7 @@ import (
 
 	"github.com/stubbedev/lys/shell/service/network"
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
+	"github.com/stubbedev/lys/shell/service/rfkill"
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
@@ -45,9 +46,10 @@ var dashboardArtInstances atomic.Uint64
 // open.
 type dashboardView struct {
 	widget.Base
-	ctx  ModuleContext
-	font render.Font
-	px   float64
+	ctx    ModuleContext
+	radios radioSource
+	font   render.Font
+	px     float64
 
 	root       *widget.Box
 	scroll     *widget.Scroll
@@ -68,6 +70,14 @@ type dashboardReadings struct {
 	profiles  powerprofiles.Snapshot
 	battery   upower.Device
 	batteryOK bool
+	radios    rfkill.Snapshot
+}
+
+// radioSource is the kill switches the airplane toggle reads and flips.
+type radioSource interface {
+	Read(ctx context.Context) (rfkill.Snapshot, error)
+	SetAirplane(ctx context.Context, on bool) error
+	Subscribe(ctx context.Context) (<-chan struct{}, func() error, error)
 }
 
 func (v *dashboardView) read() dashboardReadings {
@@ -93,12 +103,21 @@ func (v *dashboardView) read() dashboardReadings {
 		}
 		r.batteryOK = err == nil
 	}
+	if r.radios, err = v.radios.Read(ctx); err != nil {
+		log.Printf("dashboard: read radios: %v", err)
+	}
 	return r
 }
 
 func dashboardDropdown(ctx ModuleContext) widget.Widget {
+	return newDashboardDropdown(ctx, rfkill.New(rfkill.DevicePath))
+}
+
+// newDashboardDropdown is the dashboard with its airplane toggle on
+// radios.
+func newDashboardDropdown(ctx ModuleContext, radios radioSource) widget.Widget {
 	font, px := dropdownFont(ctx)
-	v := &dashboardView{ctx: ctx, font: font, px: px}
+	v := &dashboardView{ctx: ctx, radios: radios, font: font, px: px}
 	v.openFollow = newOpenFollow(ctx, v.follow)
 	v.root = widget.NewBox(widget.Column, 0, 0)
 	v.root.AddClass("dropdown", "dashboard-dropdown")
@@ -201,13 +220,6 @@ func (v *dashboardView) header() widget.Widget {
 	return dropdownHeader(v.font, "ld-layout-dashboard-symbolic", i18n.T("dropdown-dashboard-title"), settings)
 }
 
-// quickActionsState is what the quick actions cannot read back from a
-// service: airplane mode and the radios it switched off.
-var quickActionsState struct {
-	sync.Mutex
-	airplane, preWifi, preBT bool
-}
-
 // quickActions: wifi, bluetooth, airplane, do not
 // disturb, idle inhibit, and power saver toggles.
 func (v *dashboardView) quickActions() widget.Widget {
@@ -235,11 +247,11 @@ func (v *dashboardView) quickActions() widget.Widget {
 	card.Append(failed, false)
 	var wifi, bt, airplane, dnd, idle, saver toggle
 	var state struct {
-		hasWifi, wifiOn, hasBT, btOn, dndOn, idleOn, hasPP, saverOn bool
+		hasWifi, wifiOn, hasBT, btOn, hasRadios, airplaneOn, dndOn, idleOn, hasPP, saverOn bool
 	}
 	// busy holds a toggle insensitive while its write runs; the
 	// re-read after it brings back what the service holds.
-	var busy struct{ wifi, bt, saver bool }
+	var busy struct{ wifi, bt, airplane, saver bool }
 	write := func(t *toggle, flag *bool, title string, w func(context.Context) error) {
 		*flag = true
 		t.btn.SetEnabled(false)
@@ -274,29 +286,14 @@ func (v *dashboardView) quickActions() widget.Widget {
 	wifi = make1(0, 0, "ld-wifi-symbolic", "dropdown-dashboard-wifi", func() { setWifi(!state.wifiOn) })
 	bt = make1(1, 0, "ld-bluetooth-symbolic", "dropdown-dashboard-bluetooth", func() { setBT(!state.btOn) })
 	airplane = make1(2, 0, "ld-plane-symbolic", "dropdown-dashboard-airplane", func() {
-		// Going on remembers and switches the radios
-		// off; going off restores the ones that were on.
-		s := &quickActionsState
-		s.Lock()
-		s.airplane = !s.airplane
-		if s.airplane {
-			s.preWifi, s.preBT = state.wifiOn, state.btOn
-			if state.wifiOn {
-				setWifi(false)
-			}
-			if state.btOn {
-				setBT(false)
-			}
-		} else {
-			if s.preWifi {
-				setWifi(true)
-			}
-			if s.preBT {
-				setBT(true)
-			}
+		if busy.airplane || !state.hasRadios {
+			return
 		}
-		s.Unlock()
-		v.refreshAll()
+		target := !state.airplaneOn
+		src := v.radios
+		write(&airplane, &busy.airplane, i18n.T("dropdown-dashboard-airplane-failed"), func(c context.Context) error {
+			return src.SetAirplane(c, target)
+		})
 	})
 	dnd = make1(0, 1, "ld-bell-symbolic", "dropdown-dashboard-dnd", func() {
 		if n := v.ctx.Notifications; n != nil {
@@ -343,18 +340,16 @@ func (v *dashboardView) quickActions() widget.Widget {
 		}
 		state.hasPP = r.profiles.Available
 		state.saverOn = r.profiles.Available && r.profiles.Active == powerprofiles.ProfilePowerSaver
-		quickActionsState.Lock()
-		air := quickActionsState.airplane
-		quickActionsState.Unlock()
+		state.hasRadios, state.airplaneOn = r.radios.Available(), r.radios.Airplane()
 		apply := func(t toggle, active, sensitive bool) {
 			setClass(t.btn, "active", active)
 			t.btn.SetEnabled(sensitive)
 		}
-		apply(wifi, state.wifiOn, state.hasWifi && !air && !busy.wifi)
+		apply(wifi, state.wifiOn, state.hasWifi && !state.airplaneOn && !busy.wifi)
 		wifi.icon.SetThemeName(dashboardGlyph(state.wifiOn, "ld-wifi-symbolic", "ld-wifi-off-symbolic"))
-		apply(bt, state.btOn, state.hasBT && !air && !busy.bt)
+		apply(bt, state.btOn, state.hasBT && !state.airplaneOn && !busy.bt)
 		bt.icon.SetThemeName(dashboardGlyph(state.btOn, "ld-bluetooth-symbolic", "ld-bluetooth-off-symbolic"))
-		apply(airplane, air, state.hasWifi || state.hasBT)
+		apply(airplane, state.airplaneOn, state.hasRadios && !busy.airplane)
 		apply(dnd, state.dndOn, v.ctx.Notifications != nil)
 		if n := v.ctx.Notifications; n != nil {
 			dnd.btn.SetTooltip(focusText(n.Focus()))
@@ -1068,7 +1063,7 @@ func (v *dashboardView) follow(life context.Context) {
 		})
 		add(ticks, stop)
 	}
-	subs := []sourceSubscription{subscribeOf(v.ctx.Network), subscribeOf(v.ctx.PowerProfiles), subscribeOf(v.ctx.Battery)}
+	subs := []sourceSubscription{subscribeOf(v.ctx.Network), subscribeOf(v.ctx.PowerProfiles), subscribeOf(v.ctx.Battery), subscribeOf(v.radios)}
 	if v.ctx.Pulse != nil {
 		subs = append(subs, infallibleStop(v.ctx.Pulse.Subscribe))
 	}

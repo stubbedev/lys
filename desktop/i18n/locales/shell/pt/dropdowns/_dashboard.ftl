@@ -9,6 +9,7 @@ dropdown-dashboard-idle-inhibit = Inibir inatividade
 dropdown-dashboard-power-saver = Poupança de energia
 dropdown-dashboard-wifi-failed = Não foi possível alternar o Wi-Fi
 dropdown-dashboard-bluetooth-failed = Não foi possível alternar o Bluetooth
+dropdown-dashboard-airplane-failed = Não foi possível alternar o modo de avião
 dropdown-dashboard-volume-failed = Não foi possível alterar o volume
 dropdown-dashboard-media-failed = Não foi possível controlar o leitor
 

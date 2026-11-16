@@ -59,7 +59,7 @@ func (d *dashboardKeys) openHoldingKeys() {
 	cfg := d.reg.cfg
 	reads := d.network.reads.Load()
 	apptest.On(d.a, func() error {
-		content := d.reg.instance("dashboard", dashboardDropdown)
+		content := d.reg.instance("dashboard", noRadiosDashboard)
 		panel := content.(*panelBox)
 		panel.clamp(900)
 		d.view = panel.child.(*dashboardView)
@@ -249,7 +249,7 @@ func keysView(t *testing.T, h int) (*dashboardView, *widget.Router) {
 	t.Helper()
 	ctx := withPowerMenu(styledContext(t, config.Defaults()))
 	ctx.Pulse = &fakePulseSource{ticks: make(chan struct{}, 1)}
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	root := widget.NewBox(widget.Column, 0, 0)
 	ctx.Theme.Attach(root)
 	root.Append(v, true)
@@ -407,7 +407,7 @@ func TestDashboardFocusShowsOnEveryControl(t *testing.T) {
 	restore := widget.SetAnimationsInstant(true)
 	t.Cleanup(restore)
 	ctx := withPowerMenu(lookContext(t))
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	data, w, h, root := paintPreview(ctx, v, "dashboard")
 	r := &widget.Router{Root: root}
 	rest := repaint(root)

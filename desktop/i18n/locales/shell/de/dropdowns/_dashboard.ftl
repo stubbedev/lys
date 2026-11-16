@@ -12,6 +12,7 @@ dropdown-dashboard-idle-inhibit = Leerlaufsperre
 dropdown-dashboard-power-saver = Energiesparen
 dropdown-dashboard-wifi-failed = WLAN konnte nicht umgeschaltet werden
 dropdown-dashboard-bluetooth-failed = Bluetooth konnte nicht umgeschaltet werden
+dropdown-dashboard-airplane-failed = Flugmodus konnte nicht umgeschaltet werden
 dropdown-dashboard-volume-failed = Lautstärke konnte nicht geändert werden
 dropdown-dashboard-media-failed = Player konnte nicht gesteuert werden
 

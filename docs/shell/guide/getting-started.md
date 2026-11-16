@@ -76,6 +76,12 @@ sudo dnf install pipewire-pulseaudio wireplumber NetworkManager bluez upower \
 
 :::
 
+### Airplane mode
+
+The dashboard's airplane toggle soft-blocks every transmitting radio (WLAN, Bluetooth, UWB, WiMAX, WWAN, NFC) through the kernel's `/dev/rfkill`. GPS and FM receivers are left alone. The block is kernel state: it outlasts a shell restart, the toggle shows it as it is, and `systemd-rfkill` restores it after a reboot. The toggle is active only while every one of those radios is soft-blocked. A radio blocked only by a hardware switch does not count.
+
+The shell needs read and write access to `/dev/rfkill`, and no root. systemd's `70-uaccess.rules` tags the device `uaccess`, so logind gives the user of the active local session access to it. A session that logind does not track as active and local (a session started outside a display manager or greeter, or over SSH) gets no access. The toggle then shows the refused write and goes back to the radios' real state. In that case, register the session with logind (`pam_systemd`), or give the user access through a udev rule, for example `KERNEL=="rfkill", GROUP="rfkill", MODE="0664"` plus membership of that group.
+
 ## Run
 
 ```sh
