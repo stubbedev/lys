@@ -363,3 +363,91 @@ func TestTheLogoIsLoggedOncePerOutputWhereSplashframePlacesIt(t *testing.T) {
 		}
 	}
 }
+
+func TestACardSwitchRedrawsWhatTheOldCardShowed(t *testing.T) {
+	t.Parallel()
+	easing := theme.State{Updating: true, Progress: theme.Progress{}.Toward(10).Toward(60)}
+	tests := []struct {
+		name    string
+		paused  bool
+		state   func(r *theme.Renderer, phase int) theme.State
+		phases  int
+		before  int
+		after   int
+		atOnce  bool
+		settled func(s theme.State) bool
+	}{
+		{"paused once the intro landed", true, func(r *theme.Renderer, phase int) theme.State { return r.Intro(theme.State{Phase: phase}) }, theme.Frames, theme.IntroPhases, 0, true, nil},
+		{"paused mid-intro", true, func(r *theme.Renderer, phase int) theme.State { return r.Intro(theme.State{Phase: phase}) }, 2, 4, theme.IntroPhases - 4, false, nil},
+		{"running mid-intro", false, func(r *theme.Renderer, phase int) theme.State { return r.Intro(theme.State{Phase: phase}) }, 2, 4, theme.IntroPhases, false, nil},
+		{"mid-ease", false, func(_ *theme.Renderer, phase int) theme.State { s := easing; s.Phase = phase; return s }, 2, 5, 8, true, func(s theme.State) bool { return s.Progress.Left == 0 }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			for phase := range tc.phases {
+				clock := newFakeClock()
+				r, err := theme.NewRenderer(theme.Default(), nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				size := image.Pt(1280, 800)
+				stay, old, lit := newScreen(size), newScreen(size), newScreen(size)
+				display := &fakeDisplay{screens: []Screen{stay, old}}
+				d := &daemon{
+					cfg:      Config{RasterizeLogo: theme.RasterizeLogo, SaveLastFrame: keepNoFrame, ForgetLastFrame: forgetNoFrame, Clock: clock, Log: slog.New(slog.DiscardHandler)},
+					display:  display,
+					renderer: r,
+					drawn:    map[Screen]drawnScreen{},
+					state:    tc.state(r, phase),
+					paused:   tc.paused,
+					ticking:  true,
+					phaseAt:  clock.Now(),
+					started:  clock.Now(),
+				}
+				frame := func() {
+					t.Helper()
+					clock.advance(FrameInterval)
+					d.step()
+					if err := d.redraw(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := d.redraw(); err != nil {
+					t.Fatal(err)
+				}
+				for range tc.before {
+					frame()
+				}
+				shown := slices.Clone(old.frame.Pix)
+				display.mu.Lock()
+				display.screens = []Screen{stay}
+				display.mu.Unlock()
+				if err := d.redraw(); err != nil {
+					t.Fatal(err)
+				}
+				display.mu.Lock()
+				display.screens = []Screen{stay, lit}
+				display.mu.Unlock()
+				if err := d.redraw(); err != nil {
+					t.Fatal(err)
+				}
+				if tc.atOnce && !bytes.Equal(lit.frame.Pix, shown) {
+					t.Errorf("phase %d: the card lit in place of the one gone shows another picture than it showed, at %+v", phase, d.state)
+				}
+				for range tc.after {
+					frame()
+					if tc.atOnce && !bytes.Equal(lit.frame.Pix, stay.frame.Pix) {
+						t.Fatalf("phase %d: the card lit and the card kept part at %+v", phase, d.state)
+					}
+				}
+				if d.state.Fading() || tc.settled != nil && !tc.settled(d.state) {
+					t.Fatalf("phase %d: the motion has not landed by the end: %+v", phase, d.state)
+				}
+				if !bytes.Equal(lit.frame.Pix, stay.frame.Pix) {
+					t.Errorf("phase %d: the card lit lands on another picture than the card kept, at %+v", phase, d.state)
+				}
+			}
+		})
+	}
+}

@@ -112,7 +112,6 @@ type Renderer struct {
 	logos   map[logoKey]*render.Icon
 	steps   map[throbberStep][]byte
 	cv      render.Canvas
-	scv     render.Canvas
 	scratch []byte
 }
 
@@ -186,7 +185,7 @@ func (r *Renderer) Draw(f kms.Frame, scale int, prev *State, cur State) (kms.Dam
 		return kms.Damage{}, nil
 	}
 	if prev.Fading() || cur.Fading() || prev.Leaving != cur.Leaving {
-		return r.fade(f, l, *prev, cur)
+		return r.fade(f, cv, l, *prev, cur)
 	}
 	if cur.Leaving {
 		return kms.Damage{}, nil

@@ -2,6 +2,7 @@ package theme
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"slices"
 	"testing"
@@ -335,6 +336,78 @@ func TestAScreenLitMidFadeLandsWithTheOthers(t *testing.T) {
 	if !bytes.Equal(f.Pix, fresh.Pix) {
 		t.Error("a screen lit half way through a crossfade does not land on its target")
 	}
+}
+
+func TestAFadeLandsOnTheFullDrawOfItsStateAtEveryPhase(t *testing.T) {
+	t.Parallel()
+	size := image.Pt(1280, 800)
+	fades := []struct {
+		name  string
+		start func(r *Renderer, phase int) []State
+	}{
+		{"intro", func(r *Renderer, phase int) []State { return steps(r.Intro(State{Phase: phase}), IntroPhases) }},
+		{"paused intro", func(r *Renderer, phase int) []State {
+			out := []State{r.Intro(State{Phase: phase})}
+			for range IntroPhases {
+				out = append(out, out[len(out)-1].AdvanceFade(1))
+			}
+			return out
+		}},
+		{"crossfade", func(r *Renderer, phase int) []State {
+			from := State{Phase: phase}
+			return append([]State{from}, steps(r.Crossfade(from, State{Phase: phase, Message: "Starting Disk Encryption"}), CrossfadePhases)...)
+		}},
+	}
+	for _, throbber := range []Throbber{Spinner, Dots} {
+		for _, bgrt := range []*splashframe.BGRT{nil, bgrtLogo()} {
+			for _, fade := range fades {
+				t.Run(fmt.Sprintf("%s throbber %d bgrt %v", fade.name, throbber, bgrt != nil), func(t *testing.T) {
+					t.Parallel()
+					th := Default()
+					th.Throbber = throbber
+					for phase := range Frames {
+						r := renderer(t, th, bgrt)
+						states := fade.start(r, phase)
+						landed := states[len(states)-1]
+						if landed.Fading() {
+							t.Fatalf("the fade has not landed: %+v", landed.Fade)
+						}
+						faded := frame(size)
+						drawAll(t, r, faded, 1, states)
+						whole := frame(size)
+						draw(t, renderer(t, th, bgrt), whole, 1, nil, landed)
+						if p, ok := firstDifference(faded, whole); ok {
+							t.Errorf("phase %d: the fade landed on phase %d differs from a full draw of it at %v", phase, landed.Phase, p)
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestAFadeShortOfItsEndIsNotItsTarget(t *testing.T) {
+	t.Parallel()
+	size := image.Pt(1280, 800)
+	r := renderer(t, Default(), nil)
+	states := steps(r.Intro(State{Phase: 1}), IntroPhases-1)
+	faded := frame(size)
+	drawAll(t, r, faded, 1, states)
+	whole := frame(size)
+	draw(t, renderer(t, Default(), nil), whole, 1, nil, states[len(states)-1].AdvanceFade(1))
+	if _, ok := firstDifference(faded, whole); !ok {
+		t.Error("a fade one phase short of its end already shows its target")
+	}
+}
+
+func firstDifference(a, b kms.Frame) (image.Point, bool) {
+	for i := range a.Pix {
+		if a.Pix[i] != b.Pix[i] {
+			p := i / kms.BytesPerPixel
+			return image.Pt(p%a.Size.X, p/a.Size.X), true
+		}
+	}
+	return image.Point{}, false
 }
 
 func TestNoFadeWhileHiddenOrLeaving(t *testing.T) {
