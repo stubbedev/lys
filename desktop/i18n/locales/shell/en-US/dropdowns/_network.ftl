@@ -193,3 +193,28 @@ dropdown-network-error-disconnect = Could not disconnect from { $name }: { $erro
 dropdown-network-vpn-import-error = Could not open a file: { $error }
 dropdown-network-vpn-error-toggle = Could not switch { $name }: { $error }
 dropdown-network-vpn-error-read = Could not read { $name }: { $error }
+
+## Enterprise sign-in
+
+dropdown-network-enterprise-method = Authentication
+dropdown-network-enterprise-phase2 = Inner authentication
+dropdown-network-enterprise-identity = Identity
+dropdown-network-enterprise-anonymous-identity = Anonymous identity
+dropdown-network-enterprise-password = Password
+dropdown-network-enterprise-client-cert = User certificate
+dropdown-network-enterprise-private-key = Private key
+dropdown-network-enterprise-private-key-password = Private key password
+dropdown-network-enterprise-ca-cert = CA certificate
+dropdown-network-enterprise-domain = Server domain
+dropdown-network-enterprise-optional = Optional
+dropdown-network-enterprise-browse = Choose a file
+dropdown-network-enterprise-browse-filter = Certificates and keys
+dropdown-network-enterprise-error-identity = Enter your identity
+dropdown-network-enterprise-error-password = Enter your password
+dropdown-network-enterprise-error-server = Give a CA certificate or a server domain to check the network's server against
+dropdown-network-enterprise-error-domain = A server domain has no spaces
+dropdown-network-enterprise-error-path = Certificate and key paths must be absolute, starting with /
+dropdown-network-enterprise-error-client-cert = TLS needs your user certificate
+dropdown-network-enterprise-error-private-key = TLS needs your private key
+dropdown-network-enterprise-error-auth = Sign-in refused. Check your identity, password and certificates
+dropdown-network-enterprise-error-browse = Could not open the file chooser: { $error }

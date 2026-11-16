@@ -176,3 +176,28 @@ dropdown-network-error-disconnect = Não foi possível desligar de { $name }: { 
 dropdown-network-vpn-import-error = Não foi possível abrir um ficheiro: { $error }
 dropdown-network-vpn-error-toggle = Não foi possível alternar { $name }: { $error }
 dropdown-network-vpn-error-read = Não foi possível ler { $name }: { $error }
+
+## Início de sessão empresarial
+
+dropdown-network-enterprise-method = Autenticação
+dropdown-network-enterprise-phase2 = Autenticação interna
+dropdown-network-enterprise-identity = Identidade
+dropdown-network-enterprise-anonymous-identity = Identidade anónima
+dropdown-network-enterprise-password = Palavra-passe
+dropdown-network-enterprise-client-cert = Certificado do utilizador
+dropdown-network-enterprise-private-key = Chave privada
+dropdown-network-enterprise-private-key-password = Palavra-passe da chave privada
+dropdown-network-enterprise-ca-cert = Certificado da AC
+dropdown-network-enterprise-domain = Domínio do servidor
+dropdown-network-enterprise-optional = Opcional
+dropdown-network-enterprise-browse = Escolher um ficheiro
+dropdown-network-enterprise-browse-filter = Certificados e chaves
+dropdown-network-enterprise-error-identity = Introduza a sua identidade
+dropdown-network-enterprise-error-password = Introduza a sua palavra-passe
+dropdown-network-enterprise-error-server = Indique um certificado da AC ou um domínio do servidor para verificar o servidor da rede
+dropdown-network-enterprise-error-domain = Um domínio do servidor não tem espaços
+dropdown-network-enterprise-error-path = Os caminhos dos certificados e das chaves têm de ser absolutos, a começar por /
+dropdown-network-enterprise-error-client-cert = O TLS precisa do seu certificado do utilizador
+dropdown-network-enterprise-error-private-key = O TLS precisa da sua chave privada
+dropdown-network-enterprise-error-auth = Início de sessão recusado. Verifique a identidade, a palavra-passe e os certificados
+dropdown-network-enterprise-error-browse = Não foi possível abrir o seletor de ficheiros: { $error }

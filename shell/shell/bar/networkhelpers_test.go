@@ -63,10 +63,10 @@ func TestSortedUniqueAccessPoints(t *testing.T) {
 		ap("corp", 80, network.SecurityEnterprise), ap("mine", 95, network.SecurityWPA2),
 	}
 	got := sortedUniqueAccessPoints(aps, "mine", map[string]bool{"home": true})
-	if s := ssidsOf(got); len(s) != 2 || s[0] != "cafe" || s[1] != "home" {
-		t.Fatalf("list = %v, want cafe, home (hidden, enterprise, connected dropped)", s)
+	if s := ssidsOf(got); !slices.Equal(s, []string{"cafe", "corp", "home"}) {
+		t.Fatalf("list = %v, want cafe, corp, home (hidden and connected dropped)", s)
 	}
-	if got[1].strength != 70 || !got[1].known || got[0].known {
+	if got[2].strength != 70 || !got[2].known || got[0].known {
 		t.Errorf("dedupe/known = %+v", got)
 	}
 }
@@ -135,28 +135,32 @@ func TestConnectionStepAndFailure(t *testing.T) {
 	}
 }
 
-func TestASavedEnterpriseNetworkIsListedAndAnUnsavedOneIsNot(t *testing.T) {
+func TestEnterpriseNetworksAreListedSavedOrNot(t *testing.T) {
 	aps := []network.AccessPoint{
 		ap("eduroam", 80, network.SecurityEnterprise), ap("corp", 90, network.SecurityEnterprise), ap("home", 40, network.SecurityWPA2),
 	}
 	got := sortedUniqueAccessPoints(aps, "", map[string]bool{"eduroam": true})
-	if s := ssidsOf(got); !slices.Equal(s, []string{"eduroam", "home"}) {
-		t.Fatalf("list = %v, want the saved eduroam and home, not the unsaved corp", s)
+	if s := ssidsOf(got); !slices.Equal(s, []string{"corp", "eduroam", "home"}) {
+		t.Fatalf("list = %v, want the unsaved corp, the saved eduroam and home", s)
 	}
-	if !got[0].known || got[0].security != network.SecurityEnterprise {
-		t.Errorf("eduroam = %+v, want a known enterprise entry", got[0])
+	if got[0].known || got[0].security != network.SecurityEnterprise || rowSecurityLabel(got[0]) != securityLabel(network.SecurityEnterprise) {
+		t.Errorf("corp = %+v reading %q, want an unsaved enterprise entry", got[0], rowSecurityLabel(got[0]))
 	}
-	if label := rowSecurityLabel(got[0]); label != i18n.T("dropdown-network-security-saved", i18n.Str("security", securityLabel(network.SecurityEnterprise))) {
+	if !got[1].known || got[1].security != network.SecurityEnterprise {
+		t.Errorf("eduroam = %+v, want a known enterprise entry", got[1])
+	}
+	if label := rowSecurityLabel(got[1]); label != i18n.T("dropdown-network-security-saved", i18n.Str("security", securityLabel(network.SecurityEnterprise))) {
 		t.Errorf("the saved enterprise row reads %q", label)
 	}
 }
 
-func TestAForgottenEnterpriseNetworkLeavesTheCache(t *testing.T) {
+func TestAForgottenEnterpriseNetworkStaysListedUnsaved(t *testing.T) {
 	cached := []apSnapshot{{ssid: "eduroam", strength: 80, security: network.SecurityEnterprise, known: true}, {ssid: "home", strength: 40, security: network.SecurityWPA2}}
 	if s := ssidsOf(mergeWithCache(nil, cached, "", map[string]bool{"eduroam": true})); !slices.Equal(s, []string{"eduroam~", "home~"}) {
 		t.Errorf("still saved: %v, want both kept stale", s)
 	}
-	if s := ssidsOf(mergeWithCache(nil, cached, "", map[string]bool{})); !slices.Equal(s, []string{"home~"}) {
-		t.Errorf("forgotten: %v, want the enterprise network gone", s)
+	forgotten := mergeWithCache(nil, cached, "", map[string]bool{})
+	if s := ssidsOf(forgotten); !slices.Equal(s, []string{"eduroam~", "home~"}) || forgotten[0].known {
+		t.Errorf("forgotten: %+v, want the enterprise network kept stale and unsaved, to join by its sign-in", forgotten)
 	}
 }

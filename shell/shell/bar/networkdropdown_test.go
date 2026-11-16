@@ -50,6 +50,7 @@ type fakeWifiCtl struct {
 	scanGate  chan struct{}
 	connects  []fakeConnect
 	hidden    []fakeHiddenJoin
+	eapJoins  []fakeEnterpriseJoin
 	connectFn func(progress func(network.DeviceState)) error
 	forgotten []string
 	forgetErr error
@@ -114,6 +115,28 @@ func (f *fakeWifiCtl) JoinHiddenAndWait(_ context.Context, net network.HiddenNet
 		return fn(progress)
 	}
 	return nil
+}
+
+type fakeEnterpriseJoin struct {
+	path dbus.ObjectPath
+	eap  network.EAPSettings
+}
+
+func (f *fakeWifiCtl) ConnectEnterpriseAndWait(_ context.Context, ap dbus.ObjectPath, eap network.EAPSettings, progress func(network.DeviceState)) error {
+	f.mu.Lock()
+	f.eapJoins = append(f.eapJoins, fakeEnterpriseJoin{ap, eap})
+	fn := f.connectFn
+	f.mu.Unlock()
+	if fn != nil {
+		return fn(progress)
+	}
+	return nil
+}
+
+func (f *fakeWifiCtl) enterpriseJoins() []fakeEnterpriseJoin {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.eapJoins)
 }
 
 func (f *fakeWifiCtl) hiddenJoins() []fakeHiddenJoin {
@@ -934,16 +957,16 @@ func TestNetworkSavedEnterpriseConnectsByItsProfile(t *testing.T) {
 		}
 		return out
 	})
-	if !slices.Equal(titles, []string{"eduroam"}) {
-		t.Fatalf("rows = %v, want the saved eduroam only", titles)
+	if !slices.Equal(titles, []string{"corp", "eduroam"}) {
+		t.Fatalf("rows = %v, want the unsaved corp and the saved eduroam", titles)
 	}
 	onHeadlessLoop(func() bool { v.selectNetwork("eduroam"); return true })
 	waitHeadless(t, "the connect", func() bool { c, _, _, _, _ := wifi.calls(); return len(c) == 1 })
 	if c, _, _, _, _ := wifi.calls(); c[0].path != "/ap/7" || c[0].password != "" {
 		t.Errorf("connect = %+v, want eduroam's access point with no password, so its profile is used", c[0])
 	}
-	if onHeadlessLoop(func() bool { return v.password.Visible() }) {
-		t.Error("a saved enterprise network asked for a password")
+	if onHeadlessLoop(func() bool { return v.password.Visible() || v.enterprise.Visible() }) {
+		t.Error("a saved enterprise network asked for a sign-in")
 	}
 }
 

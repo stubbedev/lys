@@ -59,18 +59,13 @@ func formatWiredSpeed(mbps uint32) string {
 	return strconv.FormatUint(uint64(mbps), 10) + " Mbps"
 }
 
-func listable(security network.SecurityType, known bool) bool {
-	return security != network.SecurityEnterprise || known
-}
-
 // sortedUniqueAccessPoints is one entry per SSID (the strongest),
-// hidden networks, unsaved enterprise ones and the connected SSID
-// dropped, strongest first.
+// hidden networks and the connected SSID dropped, strongest first.
 func sortedUniqueAccessPoints(aps []network.AccessPoint, connected string, known map[string]bool) []apSnapshot {
 	best := map[string]apSnapshot{}
 	for _, ap := range aps {
 		ssid := ap.Name()
-		if len(ap.SSID) == 0 || !listable(ap.Security, known[ssid]) {
+		if len(ap.SSID) == 0 {
 			continue
 		}
 		if ssid == connected && connected != "" {
@@ -95,8 +90,7 @@ func sortedUniqueAccessPoints(aps []network.AccessPoint, connected string, known
 }
 
 // mergeWithCache is the live list first, then the cached networks it
-// lacks, marked stale, connected and no longer listable ones dropped,
-// known recomputed.
+// lacks, marked stale, the connected one dropped, known recomputed.
 func mergeWithCache(live, cached []apSnapshot, connected string, known map[string]bool) []apSnapshot {
 	liveSSIDs := map[string]bool{}
 	for _, ap := range live {
@@ -107,11 +101,7 @@ func mergeWithCache(live, cached []apSnapshot, connected string, known map[strin
 		if liveSSIDs[ap.ssid] || (connected != "" && ap.ssid == connected) {
 			continue
 		}
-		ap.known = known[ap.ssid]
-		if !listable(ap.security, ap.known) {
-			continue
-		}
-		ap.stale = true
+		ap.known, ap.stale = known[ap.ssid], true
 		out = append(out, ap)
 	}
 	return out

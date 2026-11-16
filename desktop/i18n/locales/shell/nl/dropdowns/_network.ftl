@@ -176,3 +176,28 @@ dropdown-network-error-disconnect = Kan de verbinding met { $name } niet verbrek
 dropdown-network-vpn-import-error = Kan geen bestand openen: { $error }
 dropdown-network-vpn-error-toggle = Kan { $name } niet schakelen: { $error }
 dropdown-network-vpn-error-read = Kan { $name } niet lezen: { $error }
+
+## Zakelijke aanmelding
+
+dropdown-network-enterprise-method = Authenticatie
+dropdown-network-enterprise-phase2 = Interne authenticatie
+dropdown-network-enterprise-identity = Identiteit
+dropdown-network-enterprise-anonymous-identity = Anonieme identiteit
+dropdown-network-enterprise-password = Wachtwoord
+dropdown-network-enterprise-client-cert = Gebruikerscertificaat
+dropdown-network-enterprise-private-key = Privésleutel
+dropdown-network-enterprise-private-key-password = Wachtwoord van privésleutel
+dropdown-network-enterprise-ca-cert = CA-certificaat
+dropdown-network-enterprise-domain = Serverdomein
+dropdown-network-enterprise-optional = Optioneel
+dropdown-network-enterprise-browse = Kies een bestand
+dropdown-network-enterprise-browse-filter = Certificaten en sleutels
+dropdown-network-enterprise-error-identity = Voer uw identiteit in
+dropdown-network-enterprise-error-password = Voer uw wachtwoord in
+dropdown-network-enterprise-error-server = Geef een CA-certificaat of een serverdomein op om de server van het netwerk te controleren
+dropdown-network-enterprise-error-domain = Een serverdomein bevat geen spaties
+dropdown-network-enterprise-error-path = Paden van certificaten en sleutels moeten absoluut zijn en met / beginnen
+dropdown-network-enterprise-error-client-cert = TLS heeft uw gebruikerscertificaat nodig
+dropdown-network-enterprise-error-private-key = TLS heeft uw privésleutel nodig
+dropdown-network-enterprise-error-auth = Aanmelding geweigerd. Controleer uw identiteit, wachtwoord en certificaten
+dropdown-network-enterprise-error-browse = Kan de bestandskiezer niet openen: { $error }

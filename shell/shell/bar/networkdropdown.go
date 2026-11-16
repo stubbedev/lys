@@ -28,6 +28,7 @@ const (
 	netConnecting
 	netScanning
 	netHiddenEntry
+	netEnterpriseEntry
 )
 
 // netState is one read of NetworkManager for the dropdown.
@@ -73,6 +74,7 @@ type networkView struct {
 	availSection *widget.Box
 	password     *netPasswordForm
 	hidden       *netHiddenForm
+	enterprise   *netEnterpriseForm
 	hiddenCard   *widget.Box
 	listCard     *widget.Box
 	list         *widget.ItemGroup
@@ -104,6 +106,7 @@ type wifiControl interface {
 	ScanAndWait(ctx context.Context, timeout time.Duration)
 	ConnectAndWait(ctx context.Context, ap dbus.ObjectPath, password string, progress func(network.DeviceState)) error
 	JoinHiddenAndWait(ctx context.Context, net network.HiddenNetwork, password string, progress func(network.DeviceState)) error
+	ConnectEnterpriseAndWait(ctx context.Context, ap dbus.ObjectPath, eap network.EAPSettings, progress func(network.DeviceState)) error
 	Disconnect(ctx context.Context) error
 	Forget(ctx context.Context, ssid string) error
 	SetEnabled(ctx context.Context, on bool) error
@@ -202,6 +205,7 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	v.vpns = newNetVPNs(v)
 	browse.Append(v.vpns, false)
 	v.password = newNetPasswordForm(v)
+	v.enterprise = newNetEnterpriseForm(v)
 	v.list = widget.NewItemGroup()
 	v.listCard = widget.NewBox(widget.Column, 0, 0)
 	v.listCard.AddClass(css.Card, "network-list")
@@ -217,7 +221,7 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	hiddenRow.SetOnActivate(v.openHidden)
 	hiddenGroup.Append(hiddenRow)
 	v.hiddenCard = hiddenCard
-	v.availSection = dropdownSection(sectionLabel(v.font, i18n.T("dropdown-network-available")), v.password, v.hidden, v.listCard, v.hiddenCard)
+	v.availSection = dropdownSection(sectionLabel(v.font, i18n.T("dropdown-network-available")), v.password, v.enterprise, v.hidden, v.listCard, v.hiddenCard)
 	browse.Append(v.availSection, true)
 	noNetworks := widgets.EmptyState(font, px, "ld-wifi-off-symbolic", i18n.T("dropdown-network-no-networks-title"), i18n.T("dropdown-network-no-networks-description"))
 	v.noNetworks = noNetworks
@@ -325,6 +329,7 @@ func (v *networkView) rebuildList() {
 	}
 	v.availSection.SetVisible(wifiAvail)
 	v.password.SetVisible(wifiAvail && v.state == netPasswordEntry)
+	v.enterprise.SetVisible(wifiAvail && v.state == netEnterpriseEntry)
 	v.hidden.SetVisible(wifiAvail && v.state == netHiddenEntry)
 	v.hiddenCard.SetVisible(wifiAvail && v.cur.snap.WifiEnabled && v.state != netHiddenEntry)
 	v.listCard.SetVisible(wifiAvail && len(v.cache) > 0)
@@ -374,8 +379,9 @@ func (v *networkView) find(ssid string) (apSnapshot, bool) {
 	return apSnapshot{}, false
 }
 
-// selectNetwork picks ssid: a stale row scans for its network first; a secured unknown one asks for its password; anything else
-// connects.
+// selectNetwork picks ssid: a stale row scans for its network first;
+// an unsaved enterprise one asks for its sign-in, another secured
+// unknown one for its password; anything else connects.
 func (v *networkView) selectNetwork(ssid string) {
 	ap, ok := v.find(ssid)
 	if !ok {
@@ -392,13 +398,24 @@ func (v *networkView) selectNetwork(ssid string) {
 		return
 	}
 	v.selection = &ap
-	if ap.security.RequiresPassword() && !ap.known {
-		v.state = netPasswordEntry
-		v.password.show(ap, "")
-		v.rebuildList()
+	if ap.known || ap.security == network.SecurityNone {
+		v.connect("")
 		return
 	}
-	v.connect("")
+	v.askCredentials(ap, "")
+}
+
+// askCredentials opens the form ap signs in through: the enterprise
+// sign-in for an enterprise network, the password otherwise.
+func (v *networkView) askCredentials(ap apSnapshot, errMessage string) {
+	if ap.security == network.SecurityEnterprise {
+		v.state = netEnterpriseEntry
+		v.enterprise.show(ap, errMessage)
+	} else {
+		v.state = netPasswordEntry
+		v.password.show(ap, errMessage)
+	}
+	v.rebuildList()
 }
 
 // connect joins the selected network.
@@ -459,10 +476,8 @@ func (v *networkView) connectDone(err error) {
 		v.state, v.selection = netNormal, nil
 		v.progress = netProgress{}
 	case errors.As(err, &ce) && ce.Failure == network.FailureAuth && v.selection != nil:
-		// Wrong password: ask again, saying so.
-		v.state = netPasswordEntry
 		v.progress = netProgress{}
-		v.password.show(*v.selection, i18n.T("dropdown-network-error-wrong-password"))
+		v.askCredentials(*v.selection, authFailureMessage(v.selection.security))
 	case errors.As(err, &ce) && ce.Failure == network.FailureSuperseded:
 		v.state, v.selection = netNormal, nil
 		v.progress = netProgress{}

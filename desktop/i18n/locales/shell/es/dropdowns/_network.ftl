@@ -190,3 +190,28 @@ dropdown-network-error-disconnect = No se ha podido desconectar de { $name }: { 
 dropdown-network-vpn-import-error = No se ha podido abrir un archivo: { $error }
 dropdown-network-vpn-error-toggle = No se ha podido cambiar { $name }: { $error }
 dropdown-network-vpn-error-read = No se ha podido leer { $name }: { $error }
+
+## Inicio de sesión empresarial
+
+dropdown-network-enterprise-method = Autenticación
+dropdown-network-enterprise-phase2 = Autenticación interna
+dropdown-network-enterprise-identity = Identidad
+dropdown-network-enterprise-anonymous-identity = Identidad anónima
+dropdown-network-enterprise-password = Contraseña
+dropdown-network-enterprise-client-cert = Certificado de usuario
+dropdown-network-enterprise-private-key = Clave privada
+dropdown-network-enterprise-private-key-password = Contraseña de la clave privada
+dropdown-network-enterprise-ca-cert = Certificado de la CA
+dropdown-network-enterprise-domain = Dominio del servidor
+dropdown-network-enterprise-optional = Opcional
+dropdown-network-enterprise-browse = Elegir un archivo
+dropdown-network-enterprise-browse-filter = Certificados y claves
+dropdown-network-enterprise-error-identity = Introduzca su identidad
+dropdown-network-enterprise-error-password = Introduzca su contraseña
+dropdown-network-enterprise-error-server = Indique un certificado de la CA o un dominio del servidor para comprobar el servidor de la red
+dropdown-network-enterprise-error-domain = Un dominio del servidor no tiene espacios
+dropdown-network-enterprise-error-path = Las rutas de certificados y claves deben ser absolutas y empezar por /
+dropdown-network-enterprise-error-client-cert = TLS necesita su certificado de usuario
+dropdown-network-enterprise-error-private-key = TLS necesita su clave privada
+dropdown-network-enterprise-error-auth = Inicio de sesión rechazado. Compruebe su identidad, contraseña y certificados
+dropdown-network-enterprise-error-browse = No se ha podido abrir el selector de archivos: { $error }

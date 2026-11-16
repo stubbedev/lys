@@ -190,3 +190,28 @@ dropdown-network-error-disconnect = Verbindung zu { $name } konnte nicht getrenn
 dropdown-network-vpn-import-error = Datei konnte nicht geöffnet werden: { $error }
 dropdown-network-vpn-error-toggle = { $name } konnte nicht umgeschaltet werden: { $error }
 dropdown-network-vpn-error-read = { $name } konnte nicht gelesen werden: { $error }
+
+## Unternehmensanmeldung
+
+dropdown-network-enterprise-method = Authentifizierung
+dropdown-network-enterprise-phase2 = Innere Authentifizierung
+dropdown-network-enterprise-identity = Identität
+dropdown-network-enterprise-anonymous-identity = Anonyme Identität
+dropdown-network-enterprise-password = Passwort
+dropdown-network-enterprise-client-cert = Benutzerzertifikat
+dropdown-network-enterprise-private-key = Privater Schlüssel
+dropdown-network-enterprise-private-key-password = Passwort des privaten Schlüssels
+dropdown-network-enterprise-ca-cert = CA-Zertifikat
+dropdown-network-enterprise-domain = Serverdomäne
+dropdown-network-enterprise-optional = Optional
+dropdown-network-enterprise-browse = Datei auswählen
+dropdown-network-enterprise-browse-filter = Zertifikate und Schlüssel
+dropdown-network-enterprise-error-identity = Geben Sie Ihre Identität ein
+dropdown-network-enterprise-error-password = Geben Sie Ihr Passwort ein
+dropdown-network-enterprise-error-server = Geben Sie ein CA-Zertifikat oder eine Serverdomäne an, um den Server des Netzwerks zu prüfen
+dropdown-network-enterprise-error-domain = Eine Serverdomäne enthält keine Leerzeichen
+dropdown-network-enterprise-error-path = Pfade zu Zertifikaten und Schlüsseln müssen absolut sein und mit / beginnen
+dropdown-network-enterprise-error-client-cert = TLS benötigt Ihr Benutzerzertifikat
+dropdown-network-enterprise-error-private-key = TLS benötigt Ihren privaten Schlüssel
+dropdown-network-enterprise-error-auth = Anmeldung abgelehnt. Prüfen Sie Identität, Passwort und Zertifikate
+dropdown-network-enterprise-error-browse = Dateiauswahl konnte nicht geöffnet werden: { $error }

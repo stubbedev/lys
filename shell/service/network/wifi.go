@@ -90,8 +90,8 @@ func (s SecurityType) String() string {
 }
 
 // RequiresPassword reports whether connecting asks for a password
-// first; an enterprise network needs more than one, so it joins only
-// through a saved profile.
+// first; an enterprise network needs a whole sign-in (EAPSettings)
+// instead.
 func (s SecurityType) RequiresPassword() bool {
 	return s != SecurityNone && s != SecurityEnterprise
 }
@@ -321,14 +321,19 @@ func (w *Wifi) Forget(ctx context.Context, ssid string) error {
 
 // Connect joins an access point. A saved profile for its SSID is reused
 // (its password updated when one is given); otherwise a new profile is
-// made, locked to the BSSID for a manufacturer-default SSID. It returns
-// the active connection.
+// made, locked to the BSSID for a manufacturer-default SSID. An
+// enterprise network takes no password here: it connects by its saved
+// profile, or through ConnectEnterprise. It returns the active
+// connection.
 func (w *Wifi) Connect(ctx context.Context, apPath dbus.ObjectPath, password string) (dbus.ObjectPath, error) {
 	ap, err := w.accessPoint(ctx, apPath)
 	if err != nil {
 		return "", fmt.Errorf("cannot get ssid: %w", err)
 	}
-	return w.join(ctx, ap.SSID, ap.Security, apPath, password, newWifiProfile(ap, password))
+	if ap.Security == SecurityEnterprise && password != "" {
+		return "", fmt.Errorf("%w: %q", ErrEnterprisePassword, ap.Name())
+	}
+	return w.join(ctx, ap.SSID, apPath, newWifiProfile(ap), passwordSecurity(ap.Security, password))
 }
 
 // MaxSSIDBytes is the longest SSID 802.11 carries.
@@ -377,14 +382,17 @@ func (w *Wifi) JoinHidden(ctx context.Context, net HiddenNetwork, password strin
 	if net.security.RequiresPassword() && password == "" && len(w.settings.ForSSID(net.ssid)) == 0 {
 		return "", fmt.Errorf("%w: %q", ErrHiddenPasswordNeeded, net.Name())
 	}
-	return w.join(ctx, net.ssid, net.security, rootPath, password, hiddenWifiProfile(net, password))
+	return w.join(ctx, net.ssid, rootPath, hiddenWifiProfile(net), passwordSecurity(net.security, password))
 }
 
-func (w *Wifi) join(ctx context.Context, ssid []byte, security SecurityType, specific dbus.ObjectPath, password string, profile ConnectionDict) (dbus.ObjectPath, error) {
+// join activates the saved profile for ssid, secured anew by secure
+// when that is not nil, or adds profile secured by secure and
+// activates it.
+func (w *Wifi) join(ctx context.Context, ssid []byte, specific dbus.ObjectPath, profile ConnectionDict, secure func(ConnectionDict)) (dbus.ObjectPath, error) {
 	if saved := w.settings.ForSSID(ssid); len(saved) > 0 {
 		path := saved[0].Path
-		if password != "" {
-			if err := w.updatePassword(ctx, path, password, security); err != nil {
+		if secure != nil {
+			if err := w.resecure(ctx, path, secure); err != nil {
 				return "", err
 			}
 		}
@@ -394,6 +402,9 @@ func (w *Wifi) join(ctx context.Context, ssid []byte, security SecurityType, spe
 		}
 		return active, nil
 	}
+	if secure != nil {
+		secure(profile)
+	}
 	var settingsPath, active dbus.ObjectPath
 	if err := w.nm.manager().CallWithContext(ctx, nmIface+".AddAndActivateConnection", 0, profile, w.Device, specific).Store(&settingsPath, &active); err != nil {
 		return "", fmt.Errorf("cannot add and activate connection: %w", err)
@@ -402,36 +413,53 @@ func (w *Wifi) join(ctx context.Context, ssid []byte, security SecurityType, spe
 }
 
 // newWifiProfile is a new profile for an access point.
-func newWifiProfile(ap AccessPoint, password string) ConnectionDict {
+func newWifiProfile(ap AccessPoint) ConnectionDict {
 	wireless := map[string]dbus.Variant{"ssid": dbus.MakeVariant(ap.SSID)}
 	if slices.Contains(manufacturerDefaultSSIDs, ap.Name()) {
 		if mac, ok := parseMAC(ap.BSSID); ok {
 			wireless["bssid"] = dbus.MakeVariant(mac)
 		}
 	}
-	return wifiProfile(ap.Name(), wireless, ap.Security, password)
+	return wifiProfile(ap.Name(), wireless)
 }
 
-func hiddenWifiProfile(net HiddenNetwork, password string) ConnectionDict {
+func hiddenWifiProfile(net HiddenNetwork) ConnectionDict {
 	wireless := map[string]dbus.Variant{"ssid": dbus.MakeVariant(net.ssid), "hidden": dbus.MakeVariant(true)}
-	return wifiProfile(net.Name(), wireless, net.security, password)
+	return wifiProfile(net.Name(), wireless)
 }
 
-func wifiProfile(name string, wireless map[string]dbus.Variant, security SecurityType, password string) ConnectionDict {
-	dict := ConnectionDict{
+func wifiProfile(name string, wireless map[string]dbus.Variant) ConnectionDict {
+	return ConnectionDict{
 		"connection": {
 			"type": dbus.MakeVariant("802-11-wireless"),
 			"id":   dbus.MakeVariant(name),
 		},
 		"802-11-wireless": wireless,
 	}
-	if password != "" {
-		dict["802-11-wireless-security"] = map[string]dbus.Variant{
-			"key-mgmt":           dbus.MakeVariant(security.keyMgmt()),
-			security.secretKey(): dbus.MakeVariant(password),
-		}
+}
+
+// passwordSecurity secures a profile with a password, nil when there
+// is none to set.
+func passwordSecurity(security SecurityType, password string) func(ConnectionDict) {
+	if password == "" {
+		return nil
 	}
-	return dict
+	return func(dict ConnectionDict) {
+		section := securitySection(dict)
+		section["key-mgmt"] = dbus.MakeVariant(security.keyMgmt())
+		section[security.secretKey()] = dbus.MakeVariant(password)
+	}
+}
+
+// securitySection is the profile's 802-11-wireless-security setting,
+// added when it has none.
+func securitySection(dict ConnectionDict) map[string]dbus.Variant {
+	section := dict["802-11-wireless-security"]
+	if section == nil {
+		section = map[string]dbus.Variant{}
+		dict["802-11-wireless-security"] = section
+	}
+	return section
 }
 
 func parseMAC(s string) ([]byte, bool) {
@@ -450,18 +478,12 @@ func parseMAC(s string) ([]byte, bool) {
 	return mac, true
 }
 
-func (w *Wifi) updatePassword(ctx context.Context, profile dbus.ObjectPath, password string, security SecurityType) error {
+func (w *Wifi) resecure(ctx context.Context, profile dbus.ObjectPath, secure func(ConnectionDict)) error {
 	dict, err := w.settings.Get(ctx, profile)
 	if err != nil {
 		return err
 	}
-	section := dict["802-11-wireless-security"]
-	if section == nil {
-		section = map[string]dbus.Variant{}
-		dict["802-11-wireless-security"] = section
-	}
-	section["key-mgmt"] = dbus.MakeVariant(security.keyMgmt())
-	section[security.secretKey()] = dbus.MakeVariant(password)
+	secure(dict)
 	return w.settings.Update(ctx, profile, dict)
 }
 
