@@ -4,7 +4,8 @@ description: >-
   stage sets substitute-only: its Nix then only substitutes (max-jobs = 0), so
   anything the build jobs did not build and push fails the job instead of
   building again. Restores the job's Go build cache under its own key, and gives
-  the runner KVM, unprivileged user namespaces or free disk when the job asks.
+  the runner KVM, unprivileged user namespaces or its second disk for the
+  Nix store when the job asks.
   The job saves the Go build cache itself, with actions/cache/save on the
   go-cache-path and go-cache-key outputs under if: always() && go-cache-save,
   so a job that failed or timed out still leaves its compiled packages to the
@@ -28,7 +29,7 @@ inputs:
     description: Allow the unprivileged user namespaces bwrap needs.
     default: "false"
   free-disk:
-    description: Remove the runner's preinstalled toolchains, for VM closures and disk images.
+    description: Put the Nix store on the runner's second disk (/mnt), for VM closures and disk images.
     default: "false"
 
 outputs:
@@ -47,7 +48,14 @@ runs:
   steps:
     - if: inputs.free-disk == 'true'
       shell: bash
-      run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      run: |
+        if ! mountpoint -q /mnt; then
+          echo "::error::free-disk puts the Nix store on the runner's second disk, but /mnt is no mount point on this runner"
+          exit 1
+        fi
+        sudo mkdir -p /mnt/nix /nix
+        sudo mount --bind /mnt/nix /nix
+        df -h / /nix
 
     - if: inputs.kvm == 'true'
       shell: bash

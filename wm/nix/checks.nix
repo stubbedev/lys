@@ -70,6 +70,8 @@
         }
         (import ./autostart.nix pkgs)
         (import ./upgrade.nix pkgs)
+      ];
+      vms-apps = desktop "apps" [
         (import ./apps.nix pkgs)
       ];
       vms-share = desktop "share" [

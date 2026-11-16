@@ -79,9 +79,7 @@ build-stage +names:
         fi
     done
     list() { for name; do printf '"%s" ' "$name"; done; }
-    dir=$(mktemp -d)
-    trap 'rm -rf "$dir"' EXIT
-    just eval-jobs "flake: let
+    just build-jobs "flake: let
         lib = flake.inputs.nixpkgs.lib;
         system = \"{{ arch() }}-linux\";
         selected = [ $(list "${selected[@]}") ];
@@ -93,10 +91,37 @@ build-stage +names:
         checks = lib.filterAttrs (name: check: owned name && !(check ? driver)) flake.outputs.checks.\${system};
         devShells = lib.filterAttrs (name: _: lib.elem name selected) flake.outputs.devShells.\${system};
         vms = lib.genAttrs [ $(list "${vms[@]}") ] (name: flake.outputs.checks.\${system}.\${name}.driver);
-      }" > "${dir}/jobs"
+      }"
+
+# The CI job the Go, further and package jobs wait for, on this machine's
+# system: the dev shells of the named components, the only Nix outputs those
+# jobs use: `just build-shells lib ui wm`.
+[script("bash")]
+build-shells +components:
+    set -euo pipefail
+    list() { for name; do printf '"%s" ' "$name"; done; }
+    just build-jobs "flake: let
+        lib = flake.inputs.nixpkgs.lib;
+        shells = flake.outputs.devShells.{{ arch() }}-linux;
+        named = [ $(list {{ components }}) ];
+        missing = lib.filter (name: !(shells ? \${name})) named;
+      in
+        if missing != [ ] then throw \"build-shells: \${toString missing} have no dev shell on {{ arch() }}-linux\"
+        else { devShells = lib.getAttrs named shells; }"
+
+# Build every derivation a nix-eval-jobs selection of the flake picks, in one
+# nix build that keeps going past a failure, then realise each selected dev
+# shell's environment the way `nix develop` and `just gates` load it.
+[private]
+[script("bash")]
+build-jobs select:
+    set -euo pipefail
+    dir=$(mktemp -d)
+    trap 'rm -rf "$dir"' EXIT
+    just eval-jobs {{ quote(select) }} > "${dir}/jobs"
     mapfile -t drvs < <(jq -r '.drvPath + "^*"' "${dir}/jobs")
     if (( ${#drvs[@]} == 0 )); then
-        echo "build-stage: ${selected[*]} have nothing to build on {{ arch() }}-linux" >&2
+        echo "build-jobs: the selection picks nothing to build on {{ arch() }}-linux" >&2
         exit 1
     fi
     nix build -L --keep-going --no-link "${drvs[@]}"
@@ -150,7 +175,8 @@ eval-jobs select:
 # dev shell, sharing one Go build cache, as many at once as cores and memory
 # allow, and print the wall clock: `just gates`, `just gates wm shell`. A
 # target `<component>:gates` runs only its Go gates and `<component>:race` only
-# its race suite, as CI's Go jobs pick them. A component with `shards` in
+# its race suite, as CI's Go jobs pick them. On a system `gate-runners` in
+# ci/components.json names, only the gates it lists there run. A component with `shards` in
 # ci/components.json splits its test and race suites into one part per shard
 # and a last part for every other package; `wm/2` runs only the second part's
 # test and race suites, and the last part, `wm/4` for wm's three shards, runs
@@ -211,9 +237,10 @@ gates *targets:
                 else
                     rest[$task]=$(jq -r --arg c "$c" '[.components[$c].shards[][]] | join(" ")' ci/components.json)
                 fi
-            done < <(jq -r --arg c "$c" --arg kind "$kind" --argjson part "${part:-0}" '
-                .components[$c] | (.shards // [] | length) as $n
-                | if $kind == "race" then (select(.race) | "race") else (.gates // [])[] end
+            done < <(jq -r --arg c "$c" --arg kind "$kind" --arg arch "{{ arch() }}" --argjson part "${part:-0}" '
+                .["gate-runners"][$arch] as $only
+                | .components[$c] | (.shards // [] | length) as $n
+                | if $kind == "race" then (select(.race) | "race") else (.gates // [])[] | select(. as $g | $only == null or ($only | index($g))) end
                 | select($part == 0 or $part > $n or . == "test" or . == "race")
             ' ci/components.json)
         done

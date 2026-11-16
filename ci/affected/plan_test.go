@@ -184,20 +184,82 @@ func TestAGoJobKeepsItsIDAndCacheWhenOnlyPartOfItIsAffected(t *testing.T) {
 	}
 }
 
-func TestEachVMJobRunsItsGroupOfChecksAheadOfEveryOtherJob(t *testing.T) {
-	p := plan(testConfig, []string{"login", "ui", "wm"})
+func TestVMJobsAndJobsAfterTheBuildRunOnTheBuildAndTheRestOnTheDevShells(t *testing.T) {
+	cfg := testConfig
+	cfg.Components = maps.Clone(testComponents)
+	wm := cfg.Components["wm"]
+	wm.Jobs = []Job{{Name: "image", Runners: []Runner{X86_64}, Run: "just wm::image", AfterBuild: true}}
+	cfg.Components["wm"] = wm
+	p := plan(cfg, []string{"login", "ui", "wm"})
 	if !slices.Equal(p.Packages, []string{"login", "wm"}) {
 		t.Errorf("packages %v, want login and wm", p.Packages)
 	}
-	want := []Matrix{
+	wantBuildJobs := []Matrix{
 		{ID: "login-vm-x86-64", Name: "login-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks login-vm", KVM: true},
 		{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true, FreeDisk: true},
 		{ID: "wm-vm-apps-wm-vm-share-x86-64", Name: "wm-vm-apps + wm-vm-share (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps wm-vm-share", KVM: true, FreeDisk: true},
-		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
+		{ID: "wm-image-x86-64", Name: "wm / image (x86_64)", Runner: "ubuntu-latest", Run: "just wm::image"},
 	}
-	if len(p.Jobs) < len(want) || !slices.Equal(p.Jobs[:len(want)], want) {
-		t.Fatalf("jobs\n%+v\nwant them to start with\n%+v", p.Jobs, want)
+	if !slices.Equal(p.BuildJobs, wantBuildJobs) {
+		t.Fatalf("build jobs\n%+v\nwant\n%+v", p.BuildJobs, wantBuildJobs)
 	}
+	if len(p.Jobs) == 0 || p.Jobs[0].Run != "just in ui gpu" || slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.KVM }) {
+		t.Fatalf("jobs %+v, want the further jobs first and no VM job", p.Jobs)
+	}
+}
+
+func TestTheDevShellsBuildPerRunnerForItsGoSuitesAndPackages(t *testing.T) {
+	p := plan(testConfig, []string{"lib", "login", "ui", "wm"})
+	want := []Matrix{
+		{ID: "shells-lib-login-ui-wm-x86-64", Name: "dev shells (x86_64)", Runner: "ubuntu-latest", Run: "just build-shells lib login ui wm"},
+		{ID: "shells-lib-ui-aarch64", Name: "dev shells (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-shells lib ui"},
+	}
+	if !slices.Equal(p.Shells, want) {
+		t.Fatalf("shells\n%+v\nwant\n%+v", p.Shells, want)
+	}
+	if p := plan(testConfig, []string{"login"}); len(p.Shells) != 0 {
+		t.Fatalf("login runs only a VM job, yet the plan builds the dev shells %+v", p.Shells)
+	}
+}
+
+func TestARunnerInGateRunnersRunsOnlyThoseGates(t *testing.T) {
+	cfg := Config{
+		Components:  map[string]Component{"a": {Gates: []string{"lint", "test"}}, "b": {Gates: []string{"lint"}}},
+		GateRunners: map[Runner][]string{AArch64: {"test"}},
+		GoJobs:      map[Runner][][]Target{X86_64: {{target("a"), target("b")}}, AArch64: {{target("a")}}},
+	}
+	if err := validate(cfg); err != nil {
+		t.Fatalf("validate refused gates split by runner: %v", err)
+	}
+	if got := cfg.gates(cfg.Components["a"], AArch64); !slices.Equal(got, []string{"test"}) {
+		t.Errorf("a's gates on aarch64 = %v, want only test", got)
+	}
+	if got := cfg.gates(cfg.Components["a"], X86_64); !slices.Equal(got, []string{"lint", "test"}) {
+		t.Errorf("a's gates on x86_64 = %v, want every gate", got)
+	}
+	if got := cfg.suites(cfg.Components["b"], AArch64); len(got) != 0 {
+		t.Errorf("b has no gate aarch64 runs, yet runs %v there", got)
+	}
+	cfg.GoJobs[AArch64] = [][]Target{{target("a"), target("b")}}
+	wantErrors(t, validate(cfg), []string{"go-jobs on aarch64 names b, but b runs no such suite on aarch64"})
+}
+
+func TestValidateRefusesGateRunnersThatDropAGateOrNameAnUnknownOne(t *testing.T) {
+	cfg := Config{
+		Components:  map[string]Component{"a": {Gates: []string{"lint", "test"}}},
+		GateRunners: map[Runner][]string{X86_64: {"test"}, AArch64: {"test", "tset"}, "riscv": {}},
+	}
+	wantErrors(t, validate(cfg), []string{
+		"a's gate lint runs on no runner",
+		`gate-runners lets aarch64 run "tset", which is no component's gate`,
+		`gate-runners names "riscv", which is no runner`,
+		"gate-runners lets riscv run no gate",
+	})
+}
+
+func TestValidateRefusesAJobAfterABuildItsComponentDoesNotHave(t *testing.T) {
+	cfg := Config{Components: map[string]Component{"a": {Jobs: []Job{{Name: "x", Runners: []Runner{X86_64}, Run: "true", AfterBuild: true}}}}}
+	wantErrors(t, validate(cfg), []string{"a / x runs after its component's build, but a has no VM checks"})
 }
 
 func TestComponentsWithVMChecksBuildAloneAndTheRestTogether(t *testing.T) {
@@ -231,7 +293,7 @@ func TestAPlanWithoutJobsBuildsNothing(t *testing.T) {
 
 func TestAnEmptyPlanIsEmptyListsNotNull(t *testing.T) {
 	p := plan(testConfig, nil)
-	if p.Jobs == nil || p.Packages == nil || p.Builds == nil {
+	if p.Jobs == nil || p.Packages == nil || p.Builds == nil || p.Shells == nil || p.BuildJobs == nil {
 		t.Fatalf("an empty plan has nil lists, which GitHub reads as null: %+v", p)
 	}
 }

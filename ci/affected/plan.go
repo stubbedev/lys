@@ -23,8 +23,9 @@ var runners = []Runner{X86_64, AArch64}
 var runnerLabels = map[Runner]string{X86_64: "ubuntu-latest", AArch64: "ubuntu-24.04-arm"}
 
 const (
-	vmRunner   = X86_64
-	raceRunner = X86_64
+	vmRunner      = X86_64
+	raceRunner    = X86_64
+	packageRunner = X86_64
 )
 
 const shardedGate = "test"
@@ -37,9 +38,10 @@ const (
 )
 
 type Job struct {
-	Name    string   `json:"name"`
-	Runners []Runner `json:"runners"`
-	Run     string   `json:"run"`
+	Name       string   `json:"name"`
+	Runners    []Runner `json:"runners"`
+	Run        string   `json:"run"`
+	AfterBuild bool     `json:"after-build"`
 }
 
 type Component struct {
@@ -63,8 +65,9 @@ type Target struct {
 }
 
 type Config struct {
-	Components map[string]Component  `json:"components"`
-	GoJobs     map[Runner][][]Target `json:"go-jobs"`
+	Components  map[string]Component  `json:"components"`
+	GateRunners map[Runner][]string   `json:"gate-runners"`
+	GoJobs      map[Runner][][]Target `json:"go-jobs"`
 }
 
 type Matrix struct {
@@ -79,8 +82,10 @@ type Matrix struct {
 
 type Plan struct {
 	Components []string `json:"components"`
+	Shells     []Matrix `json:"shells"`
 	Builds     []Matrix `json:"builds"`
 	Jobs       []Matrix `json:"jobs"`
+	BuildJobs  []Matrix `json:"build-jobs"`
 	Packages   []string `json:"packages"`
 }
 
@@ -140,9 +145,17 @@ func (t Target) on(r Runner) Target {
 	return t
 }
 
-func (c Component) suites(r Runner) []Suite {
+func (cfg Config) gates(c Component, r Runner) []string {
+	only, restricted := cfg.GateRunners[r]
+	if !restricted {
+		return c.Gates
+	}
+	return slices.DeleteFunc(slices.Clone(c.Gates), func(g string) bool { return !slices.Contains(only, g) })
+}
+
+func (cfg Config) suites(c Component, r Runner) []Suite {
 	var s []Suite
-	if len(c.Gates) > 0 {
+	if len(cfg.gates(c, r)) > 0 {
 		s = append(s, GoGates)
 	}
 	if c.Race && r == raceRunner {
@@ -168,6 +181,9 @@ func validate(cfg Config) error {
 			}
 		}
 		for _, j := range c.Jobs {
+			if j.AfterBuild && len(c.VMs) == 0 {
+				errs = append(errs, fmt.Errorf("%s / %s runs after its component's build, but %s has no VM checks and so no build of its own", name, j.Name, name))
+			}
 			if j.Name == "" {
 				errs = append(errs, fmt.Errorf("%s has a job without a name", name))
 			}
@@ -198,8 +214,40 @@ func validate(cfg Config) error {
 		}
 		errs = append(errs, validateShards(name, c)...)
 	}
+	errs = append(errs, validateGateRunners(cfg)...)
 	errs = append(errs, validateGoJobs(cfg)...)
 	return errors.Join(errs...)
+}
+
+func validateGateRunners(cfg Config) []error {
+	var errs []error
+	known := map[string]bool{}
+	for _, c := range cfg.Components {
+		for _, g := range c.Gates {
+			known[g] = true
+		}
+	}
+	for _, r := range slices.Sorted(maps.Keys(cfg.GateRunners)) {
+		if _, ok := runnerLabels[r]; !ok {
+			errs = append(errs, fmt.Errorf("gate-runners names %q, which is no runner", r))
+		}
+		if len(cfg.GateRunners[r]) == 0 {
+			errs = append(errs, fmt.Errorf("gate-runners lets %s run no gate", r))
+		}
+		for _, g := range cfg.GateRunners[r] {
+			if !known[g] {
+				errs = append(errs, fmt.Errorf("gate-runners lets %s run %q, which is no component's gate", r, g))
+			}
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
+		for _, g := range cfg.Components[name].Gates {
+			if !slices.ContainsFunc(runners, func(r Runner) bool { return slices.Contains(cfg.gates(cfg.Components[name], r), g) }) {
+				errs = append(errs, fmt.Errorf("%s's gate %s runs on no runner", name, g))
+			}
+		}
+	}
+	return errs
 }
 
 func validateShards(name string, c Component) []error {
@@ -257,7 +305,7 @@ func validateGoJobs(cfg Config) []error {
 					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s has %s", r, t, t.Component, partsOf(c)))
 					continue
 				}
-				have := c.suites(r)
+				have := cfg.suites(c, r)
 				if t.Suite != "" && !slices.Contains(have, t.Suite) || len(have) == 0 {
 					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s runs no such suite on %s", r, t, t.Component, r))
 					continue
@@ -274,7 +322,7 @@ func validateGoJobs(cfg Config) []error {
 		}
 		for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
 			c := cfg.Components[name]
-			for _, s := range c.suites(r) {
+			for _, s := range cfg.suites(c, r) {
 				if err := coverage(r, name, s, c, covered[suiteOf{name, s}]); err != nil {
 					errs = append(errs, err)
 				}
@@ -394,7 +442,7 @@ func matches(path, file string) bool {
 }
 
 func plan(cfg Config, names []string) Plan {
-	p := Plan{Components: names, Builds: []Matrix{}, Jobs: []Matrix{}, Packages: []string{}}
+	p := Plan{Components: names, Shells: []Matrix{}, Builds: []Matrix{}, Jobs: []Matrix{}, BuildJobs: []Matrix{}, Packages: []string{}}
 	for _, name := range names {
 		c := cfg.Components[name]
 		if c.Package {
@@ -403,13 +451,18 @@ func plan(cfg Config, names []string) Plan {
 		for _, group := range c.VMs {
 			m := matrix(strings.Join(group, " "), strings.Join(group, " + "), vmRunner, "just vm-checks "+strings.Join(group, " "))
 			m.KVM, m.FreeDisk = true, c.FreeDisk
-			p.Jobs = append(p.Jobs, m)
+			p.BuildJobs = append(p.BuildJobs, m)
 		}
 	}
 	for _, name := range names {
 		for _, j := range cfg.Components[name].Jobs {
 			for _, r := range j.Runners {
-				p.Jobs = append(p.Jobs, matrix(name+"-"+j.Name, name+" / "+j.Name, r, j.Run))
+				m := matrix(name+"-"+j.Name, name+" / "+j.Name, r, j.Run)
+				if j.AfterBuild {
+					p.BuildJobs = append(p.BuildJobs, m)
+					continue
+				}
+				p.Jobs = append(p.Jobs, m)
 			}
 		}
 	}
@@ -421,9 +474,29 @@ func plan(cfg Config, names []string) Plan {
 		}
 	}
 	for _, r := range runners {
-		p.Builds = append(p.Builds, builds(cfg.Components, names, r)...)
+		p.Builds = append(p.Builds, cfg.builds(names, r)...)
+		if s, ok := cfg.shells(p, names, r); ok {
+			p.Shells = append(p.Shells, s)
+		}
 	}
 	return p
+}
+
+func (cfg Config) shells(p Plan, names []string, r Runner) (Matrix, bool) {
+	if !slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.Runner == runnerLabels[r] }) {
+		return Matrix{}, false
+	}
+	var shells []string
+	for _, name := range names {
+		c := cfg.Components[name]
+		if len(cfg.suites(c, r)) > 0 || c.Package && r == packageRunner {
+			shells = append(shells, name)
+		}
+	}
+	if len(shells) == 0 {
+		return Matrix{}, false
+	}
+	return matrix("shells "+strings.Join(shells, " "), "dev shells", r, "just build-shells "+strings.Join(shells, " ")), true
 }
 
 func goJob(job []Target, names []string, r Runner) (Matrix, bool) {
@@ -445,18 +518,18 @@ func goJob(job []Target, names []string, r Runner) (Matrix, bool) {
 	return m, true
 }
 
-func builds(components map[string]Component, names []string, r Runner) []Matrix {
+func (cfg Config) builds(names []string, r Runner) []Matrix {
 	var out []Matrix
 	var shared []string
 	for _, name := range names {
-		c := components[name]
+		c := cfg.Components[name]
 		if vms := c.vmChecks(r); len(vms) > 0 {
 			m := build([]string{name}, vms, r)
 			m.FreeDisk = c.FreeDisk
 			out = append(out, m)
 			continue
 		}
-		if len(c.suites(r)) > 0 {
+		if len(cfg.suites(c, r)) > 0 {
 			shared = append(shared, name)
 		}
 	}

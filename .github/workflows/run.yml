@@ -1,0 +1,50 @@
+name: run
+
+# The CI jobs on a build stage's outputs, one per entry of the matrix the plan
+# job wrote. Nix only substitutes, so a job that would build a lys derivation
+# fails instead of building it again.
+
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: The plan's job entries, as JSON.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  run:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: ./.github/actions/setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          go-cache: ${{ !matrix.kvm && matrix.id || '' }}
+          substitute-only: true
+          kvm: ${{ matrix.kvm }}
+          userns: ${{ matrix.userns }}
+          free-disk: ${{ matrix.free-disk }}
+      - run: ${{ matrix.run }}
+      - name: Save the Go build cache, also after a failure or the timeout
+        if: always() && steps.setup.outputs.go-cache-save == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.setup.outputs.go-cache-path }}
+          key: ${{ steps.setup.outputs.go-cache-key }}

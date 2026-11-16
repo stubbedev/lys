@@ -28,6 +28,7 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 | `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vms-greeter wm-module`. |
 | `just vm-checks <name>...` | Run NixOS VM checks one after another on closures built first: the drivers, then each test alone. |
 | `just build-stage <component>... [vm]...` | A CI build job for this machine: every package, non-VM check and dev shell of the components, and the named VM checks' closures, in one `nix build` that keeps going past a failure. |
+| `just build-shells <component>...` | The CI job the Go, further and package jobs wait for: the components' dev shells on this machine. |
 | `just packages <name>...` | Build flake packages: `just packages lys-wm`. |
 | `just affected [base]` | The components and CI jobs a change since `base` (default `origin/main`) touches. |
 | `just repository-check` | At the same time: a tidy `go.mod`, the CI helpers' tests and lint, `nix/go-packages.json` matching the tree, every flake output evaluating, spread over nix-eval-jobs workers, the `vms` lists of `ci/components.json` naming every VM check of the flake once, and each package hashing only its own sources (touching `docs/` changes no package, touching a Go package changes exactly its importers and what is built on them); prints each part's result and the wall clock. |
@@ -65,14 +66,21 @@ Every CI job, and every local gate run, finishes in under ten minutes of wall
 clock; a job that grows past that is split or made cheaper, never given a longer
 timeout. Every job's `timeout-minutes` is 10.
 
-`ci/components.json` holds `components` and `go-jobs`. Per component it says
+`ci/components.json` holds `components`, `gate-runners` and `go-jobs`. Per component it says
 which recipes of its justfile are its Go gates (`gates`), whether it has a race
 suite (`race`), how its test and race suites split into parts (`shards`), its
-further jobs (each a `run` command on named runners), its NixOS VM checks
+further jobs (each a `run` command on named runners, with `after-build` when it
+uses its component's build rather than only a dev shell), its NixOS VM checks
 (`vms`, a list of jobs, each a list of checks run in one job, with `free-disk`
 when their disk images need the runner's preinstalled toolchains gone), and
 what besides its Go imports it depends on (a VM test that boots another
-component's package). `go-jobs` lists, per runner, the Go jobs: each a list of
+component's package). `gate-runners` names the runners that run only some of
+the Go gates, and which: aarch64 runs only the gates whose result depends on
+the architecture (`vet`, `test`, `build`, `test-lysdebug`, `atspi`,
+`atspi-verify`, `dist`), and lint, formatting, `no-fused`, `vuln` and
+`schema-check` run on x86_64 alone; `ci/affected` refuses a gate no runner
+runs, and `just gates` applies the same list on the machine it runs on.
+`go-jobs` lists, per runner, the Go jobs: each a list of
 targets run together by one `just gates`. On every push and pull request the
 plan job runs `ci/affected`, which takes the changed files, adds every
 component importing or depending on a changed one, and plans only their work.
@@ -93,32 +101,42 @@ each job pays about a minute of fixed cost (runner, checkout, Nix install, the
 dev shell). Jobs are therefore as few as fit: work is grouped until a job holds
 six to eight minutes of it, and split only where one suite alone comes near ten.
 
-The jobs run in two stages:
+The jobs run in two lanes, each a stage of builds and the jobs on them:
 
 1. **Build**, per architecture: each component with VM checks there (on
    x86_64) builds in its own job, `just build-stage wm wm-vms-desktop ...`,
-   its packages, non-VM checks, dev shell and VM closures, freeing disk first
-   only when the component sets `free-disk`; every other component with Go
-   suites builds in one shared job, `just build-stage lib ui ...`, its
-   packages, non-VM checks and dev shell. A component with neither
-   (`repository`, `packaging`) builds nothing. The build step stops after six
-   minutes, and the next step pushes every store path that appeared during the
-   job to the binary cache (`nix.stubbe.dev`, through `XILO_TOKEN`; without the
-   token the job fails, since nothing could be shared), whether the build
-   passed, failed or timed out, so a re-run continues from what was built
-   instead of starting over. Derivations two VM components share, such as
-   `lys-wm` in the VM closures of wm, login and splash, are built by each of
-   their jobs on a cold cache, side by side, and substituted once one of them
-   pushed.
-2. **Jobs**, each on the build jobs' outputs, once every build job finished.
-   Their Nix runs with `max-jobs = 0`: it only substitutes, so a job that
-   would build a lys derivation fails instead of building it again. The plan
-   lists the longest jobs first, the VM jobs and then the further jobs, so
-   they take the first runners and the short Go jobs fill in behind them.
+   its packages, non-VM checks, dev shell and VM closures, putting the Nix
+   store on the runner's second disk first only when the component sets
+   `free-disk`; every other component with Go suites builds in one shared job,
+   `just build-stage lib ui ...`, its packages, non-VM checks and dev shell. A
+   component with neither (`repository`, `packaging`) builds nothing. The VM
+   jobs and the further jobs marked `after-build` wait for these.
+2. **Dev shells**, per architecture: one job, `just build-shells lib ui ...`,
+   builds the dev shells of the components with Go suites or packages there,
+   which is all the Go jobs, the other further jobs and the package jobs use,
+   so they start a minute or so after the plan instead of after the slowest
+   component build.
+
+Every build job stops building after six minutes, and the next step pushes
+every store path that appeared during the job to the binary cache
+(`nix.stubbe.dev`, through `XILO_TOKEN`; without the token the job fails, since
+nothing could be shared), whether the build passed, failed or timed out, so a
+re-run continues from what was built instead of starting over. Derivations two
+VM components share, such as `lys-wm` in the VM closures of wm, login and
+splash, are built by each of their jobs on a cold cache, side by side, and
+substituted once one of them pushed. Both kinds of build job run
+`.github/workflows/build.yml`, and every later job but the package jobs runs
+`.github/workflows/run.yml`, whose Nix runs with `max-jobs = 0`: it only
+substitutes, so a job that would build a lys derivation fails instead of
+building it again. The plan lists the VM jobs longest first, so they take the
+first runners. The jobs on the builds:
+
    - **VM jobs**, one per entry of a component's `vms`: `just vm-checks
      <check>...` on the closures its component's build job built. Checks
-     share a job when they share most of a closure and still fit; the
-     longest (`wm-vms-desktop`, about nine minutes) run alone. The `vms`
+     share a job when they share most of a closure and still fit; a check
+     near ten minutes is split into checks of fewer scenarios, each still one
+     boot for all of its scenarios (`wm-vms-desktop` and `wm-vms-apps` were
+     one check of about nine minutes). The `vms`
      lists are the one place the checks are named. VM jobs run on x86_64, the
      only runner with KVM, and `just repository-check` fails unless the lists
      hold every VM check the flake has there, each exactly once, and none it
@@ -126,7 +144,8 @@ The jobs run in two stages:
    - **Further jobs**, each a `run` command: lib's and ui's GPU and headless
      suites (one job each, `just in lib gpu headless`), wm's GLES and Vulkan
      pacing gates (apart, since each is timing-sensitive and near five
-     minutes), splash's initramfs-tools image and the repository check.
+     minutes) and the repository check, on the dev shells, and splash's
+     initramfs-tools image, which needs `lys-splash`, after splash's build.
    - **Go jobs**, one per entry of `go-jobs`: `just gates <target>...`, each
      gate recipe in its own process in its component's dev shell, as many at
      once as cores and memory allow, after one `go build` of the job's
@@ -156,7 +175,12 @@ The jobs run in two stages:
    - Each Go job restores its own Go build cache, keyed by its job id, and saves
      it at the end whether it passed, failed or timed out, so the next run
      starts warm.
-   - **package**: each packaged component's archive, `.deb` and `.rpm`.
+   - **package**: each packaged component's archive, `.deb` and `.rpm`, on
+     the dev shells. Its `dist` recipe compiles the release binaries again
+     rather than taking them from the Nix packages: those are linked for the
+     Nix store, the archives for the distributions' loader, and the measured
+     `dist` and `archive` step takes 25 to 85 seconds of a two to three
+     minute job, most of the rest being apt.
 
 To regroup, edit `go-jobs` or a component's `vms` from the job times of a recent
 full run (`gh run view <run> --json jobs`); `go run ./ci/affected` prints the

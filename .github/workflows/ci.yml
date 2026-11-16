@@ -25,8 +25,10 @@ jobs:
     timeout-minutes: 10
     outputs:
       components: ${{ steps.plan.outputs.components }}
+      shells: ${{ steps.plan.outputs.shells }}
       builds: ${{ steps.plan.outputs.builds }}
       jobs: ${{ steps.plan.outputs.jobs }}
+      build-jobs: ${{ steps.plan.outputs.build-jobs }}
       packages: ${{ steps.plan.outputs.packages }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,82 +57,41 @@ jobs:
         run: |
           printf 'Components: %s\n\nPackages: %s\n' "$COMPONENTS" "$PACKAGES" >> "$GITHUB_STEP_SUMMARY"
 
+  shells:
+    needs: plan
+    if: needs.plan.outputs.shells != '[]'
+    uses: ./.github/workflows/build.yml
+    with:
+      matrix: ${{ needs.plan.outputs.shells }}
+    secrets:
+      XILO_TOKEN: ${{ secrets.XILO_TOKEN }}
+
   build:
     needs: plan
     if: needs.plan.outputs.builds != '[]'
-    name: build ${{ matrix.name }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.plan.outputs.builds) }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 10
-    env:
+    uses: ./.github/workflows/build.yml
+    with:
+      matrix: ${{ needs.plan.outputs.builds }}
+    secrets:
       XILO_TOKEN: ${{ secrets.XILO_TOKEN }}
-    steps:
-      - name: The binary cache token the later jobs substitute through
-        run: |
-          if [ -z "$XILO_TOKEN" ]; then
-            echo "::error::XILO_TOKEN is not set, so the build job cannot push what it builds and every later job would have to build it again; set it as an Actions secret, and as a Dependabot secret for Dependabot's pull requests"
-            exit 1
-          fi
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          free-disk: ${{ matrix.free-disk }}
-      - uses: stubbedev/xilo@dd96cb09f7781ceccd534af338a36853c80f7193 # v1.2.6
-        with:
-          url: https://nix.stubbe.dev
-          cache: default/default
-          token: ${{ secrets.XILO_TOKEN }}
-      - id: store
-        name: The store before the build
-        run: ls /nix/store > "${RUNNER_TEMP}/store"
-      - name: The component's packages, checks, dev shell and VM closures
-        timeout-minutes: 6
-        run: ${{ matrix.run }}
-      - name: Push what the build built or substituted, also after it failed or timed out
-        if: always() && steps.store.outcome == 'success'
-        timeout-minutes: 2
-        run: just new-store-paths "${RUNNER_TEMP}/store" | xilo push default/default -
+
+  build-job:
+    needs: [plan, build]
+    if: ${{ !cancelled() && needs.plan.outputs.build-jobs != '[]' && needs.build.result != 'failure' }}
+    uses: ./.github/workflows/run.yml
+    with:
+      matrix: ${{ needs.plan.outputs.build-jobs }}
 
   job:
-    needs: [plan, build]
-    if: needs.plan.outputs.jobs != '[]'
-    name: ${{ matrix.name }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.plan.outputs.jobs) }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - id: setup
-        uses: ./.github/actions/setup
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          go-cache: ${{ !matrix.kvm && matrix.id || '' }}
-          substitute-only: true
-          kvm: ${{ matrix.kvm }}
-          userns: ${{ matrix.userns }}
-          free-disk: ${{ matrix.free-disk }}
-      - run: ${{ matrix.run }}
-      - name: Save the Go build cache, also after a failure or the timeout
-        if: always() && steps.setup.outputs.go-cache-save == 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ steps.setup.outputs.go-cache-path }}
-          key: ${{ steps.setup.outputs.go-cache-key }}
+    needs: [plan, shells]
+    if: ${{ !cancelled() && needs.plan.outputs.jobs != '[]' && needs.shells.result != 'failure' }}
+    uses: ./.github/workflows/run.yml
+    with:
+      matrix: ${{ needs.plan.outputs.jobs }}
 
   package:
-    needs: [plan, build]
-    if: needs.plan.outputs.packages != '[]'
+    needs: [plan, shells]
+    if: ${{ !cancelled() && needs.plan.outputs.packages != '[]' && needs.shells.result != 'failure' }}
     strategy:
       fail-fast: false
       matrix:
@@ -143,7 +104,7 @@ jobs:
       substitute-only: true
 
   ci:
-    needs: [plan, build, job, package]
+    needs: [plan, shells, build, build-job, job, package]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
