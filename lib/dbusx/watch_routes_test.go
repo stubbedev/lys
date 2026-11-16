@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const (
@@ -112,7 +113,7 @@ func TestAWatchLearnsInOrderThatItsSendersNameChangedOwner(t *testing.T) {
 	second := next.Names()[0]
 	emitBehindTheBus(t, next, 2)
 	for _, want := range []string{"tick 1", first + ">", ">" + second, "tick 2"} {
-		if g := awaitWatch(t, got, want); g != want {
+		if g := waittest.For(t, got, want); g != want {
 			t.Fatalf("the watch saw %q, want %q: each owner's signals with the change between them", g, want)
 		}
 	}

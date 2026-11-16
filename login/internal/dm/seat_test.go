@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/login/internal/auth"
 )
 
@@ -156,13 +158,9 @@ func TestAGreeterNeverOnScreenIsAWarning(t *testing.T) {
 	expired := make(chan time.Time, 1)
 	expired <- time.Now()
 	_, warnings := runGreeterSeat(t, expired)
-	select {
-	case got := <-warnings:
-		if want := fmt.Sprintf("dm: the greeter on VT 7 is not on screen %s after it started: its compositor presented none of its frames, so no login form shows\n", greeterShowWait); got != want {
-			t.Errorf("warning %q, want %q", got, want)
-		}
-	case <-time.After(stepDeadline):
-		t.Fatal("a greeter that never reached the screen was not reported")
+	got := waittest.For(t, warnings, "the warning of a greeter that never reached the screen")
+	if want := fmt.Sprintf("dm: the greeter on VT 7 is not on screen %s after it started: its compositor presented none of its frames, so no login form shows\n", greeterShowWait); got != want {
+		t.Errorf("warning %q, want %q", got, want)
 	}
 }
 
@@ -181,7 +179,7 @@ func TestAGreeterOnScreenIsNoWarning(t *testing.T) {
 	select {
 	case got := <-warnings:
 		t.Errorf("a greeter on screen was reported: %q", got)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 

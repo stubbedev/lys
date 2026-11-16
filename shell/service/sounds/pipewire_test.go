@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/sounds/soundpolicy"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -102,14 +103,11 @@ func startPipeWirePulse(t *testing.T) string {
 			t.Logf("pipewire log:\n%s", out)
 		}
 	})
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
-		if _, err := os.Stat(sock); err == nil {
-			return "unix:" + sock
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("pipewire never opened its pulse socket")
-		}
-	}
+	waittest.UntilSlow(t, func() bool {
+		_, err := os.Stat(sock)
+		return err == nil
+	}, "pipewire to open its pulse socket")
+	return "unix:" + sock
 }
 
 func TestANotificationSoundPlaysOnAPrivatePipeWire(t *testing.T) {
@@ -156,17 +154,11 @@ func TestANotificationSoundPlaysOnAPrivatePipeWire(t *testing.T) {
 	a := NewAnnouncer(svc, audio, NewTheme("", []string{data}), func() bool { return false }, soundpolicy.Policy{Mode: soundpolicy.All, Default: "message-new-instant"})
 	a.Announce(&notifications.Notification{ID: 1, AppName: "chat", SoundName: "message-new-instant"})
 	a.Announce(&notifications.Notification{ID: 2, AppName: "chat", SoundName: "message-new-instant"})
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+	waittest.Until(t, func() bool {
 		mu.Lock()
-		n := len(inputs)
-		mu.Unlock()
-		if n >= 2 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("pipewire started %d sample playbacks, want 2", n)
-		}
-	}
+		defer mu.Unlock()
+		return len(inputs) >= 2
+	}, "pipewire to start two sample playbacks")
 	if a.Decodes() != 1 {
 		t.Errorf("two plays decoded %d times, want once", a.Decodes())
 	}

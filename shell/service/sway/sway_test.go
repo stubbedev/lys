@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeSway speaks the i3-ipc protocol: canned GET_WORKSPACES and
@@ -116,6 +117,8 @@ const fixtureTree = `{"id":1,"type":"root","nodes":[
   {"id":20,"type":"workspace","name":"2","nodes":[],"floating_nodes":[]}
  ]}
 ]}`
+
+const quietWindow = 200 * time.Millisecond
 
 func TestSocketPath(t *testing.T) {
 	_ = os.Unsetenv("SWAYSOCK")
@@ -246,21 +249,11 @@ func TestSubscribeSkipsEarlyEventAndTicks(t *testing.T) {
 	if sub != `["workspace","window"]` {
 		t.Errorf("subscribed to %s, want workspace and window", sub)
 	}
-	select {
-	case <-ticks:
-	case <-time.After(2 * time.Second):
-		t.Fatal("no tick for the event after the ack")
-	}
+	waittest.For(t, ticks, "a tick for the event after the ack")
 	stop()
-	deadline := time.After(2 * time.Second)
 	for {
-		select {
-		case _, ok := <-ticks:
-			if !ok {
-				return
-			}
-		case <-deadline:
-			t.Fatal("ticks not closed after stop")
+		if _, open := waittest.Receive(t, ticks, "the ticks to close after stop"); !open {
+			break
 		}
 	}
 }
@@ -312,19 +305,14 @@ func TestSubscribeWithoutTitles(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer stop()
-			wait := 2 * time.Second
-			if !tc.ticks {
-				wait = 200 * time.Millisecond
+			if tc.ticks {
+				waittest.For(t, ticks, "the event to tick")
+				return
 			}
 			select {
 			case <-ticks:
-				if !tc.ticks {
-					t.Error("the title change ticked")
-				}
-			case <-time.After(wait):
-				if tc.ticks {
-					t.Error("the event never ticked")
-				}
+				t.Error("the title change ticked")
+			case <-time.After(quietWindow):
 			}
 		})
 	}

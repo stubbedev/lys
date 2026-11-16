@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // dialRaw connects the socket without sending an open frame.
@@ -138,6 +139,10 @@ func TestWidthTakesAllThreeRofiForms(t *testing.T) {
 	}
 }
 
+// quietWindow is how long what must not happen gets to happen anyway
+// before a test concludes it does not.
+const quietWindow = 150 * time.Millisecond
+
 // recordingHandler is a surface double.
 type recordingHandler struct {
 	opened chan *Session
@@ -207,7 +212,7 @@ func TestRowsStreamAndCloseOnRowsDone(t *testing.T) {
 	select {
 	case id := <-h.gone:
 		t.Fatalf("rows-done read as a dead client %d", id)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	s.Reply(Cancelled())
 }
@@ -218,13 +223,8 @@ func TestAClientThatDiesIsReportedGone(t *testing.T) {
 	s := <-h.opened
 	_, _ = c.NextFrame()
 	_ = c.Close()
-	select {
-	case id := <-h.gone:
-		if id != s.ID {
-			t.Errorf("gone id = %d, want %d", id, s.ID)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("a closed client must be reported gone")
+	if id := waittest.For(t, h.gone, "the closed client to be reported gone"); id != s.ID {
+		t.Errorf("gone id = %d, want %d", id, s.ID)
 	}
 	s.Release()
 }
@@ -248,7 +248,7 @@ func TestAConnectionWithoutAnOpenFrameIsDropped(t *testing.T) {
 	select {
 	case <-h.opened:
 		t.Fatal("a first frame that is not open must not start a session")
-	case <-time.After(150 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 

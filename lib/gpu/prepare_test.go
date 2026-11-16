@@ -9,29 +9,22 @@ import (
 	"runtime"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func awaitPrepared(t *testing.T, d *Device) {
 	t.Helper()
-	deadline := time.Now().Add(time.Minute)
-	for {
+	waittest.UntilSlow(t, func() bool {
 		ok, err := d.Prepared()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if ok {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the pipelines were not built within a minute")
-		}
-		time.Sleep(time.Millisecond)
-	}
+		return ok
+	}, "the pipelines to be built")
 }
 
 func TestAfterPrepareNoPassBuildsAPipeline(t *testing.T) {
@@ -203,15 +196,11 @@ func TestAPipelineTheWorkerCannotBuildFailsEveryDrawThatNeedsIt(t *testing.T) {
 	if p, err := d.lazyPipeline(key, 0, build, publish); p != 0 || err != nil {
 		t.Fatalf("the first ask: %v, %v, want it queued", p, err)
 	}
-	deadline := time.Now().Add(time.Minute)
 	var err error
-	for err == nil {
-		if time.Now().After(deadline) {
-			t.Fatal("the worker never reported the refusal")
-		}
+	waittest.UntilSlow(t, func() bool {
 		_, err = d.Prepared()
-		time.Sleep(time.Millisecond)
-	}
+		return err != nil
+	}, "the worker to report the refusal")
 	if !errors.Is(err, refused) {
 		t.Fatalf("Prepared reported %v, want the refusal", err)
 	}
@@ -386,27 +375,23 @@ func TestTargetsPreparedOnAWorkerReachFramesWithoutStoppingThem(t *testing.T) {
 	}()
 	waits := d.BlockingWaits()
 	var got []*Target
-	deadline := time.Now().Add(time.Minute)
-	for open := true; open; {
+	waittest.UntilSlow(t, func() bool {
+		open := true
 		select {
 		case err := <-errs:
 			t.Fatal(err)
 		case p, more := <-made:
-			if !more {
-				open = false
-				break
+			if more {
+				got = append(got, p)
 			}
-			got = append(got, p)
+			open = more
 		default:
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("the worker never finished")
-		}
-		err := d.Render(rec.Recording(), tg)
-		if err != nil && !errors.Is(err, ErrBusy) {
+		if err := d.Render(rec.Recording(), tg); err != nil && !errors.Is(err, ErrBusy) {
 			t.Fatal(err)
 		}
-	}
+		return !open
+	}, "the worker to finish")
 	if n := d.BlockingWaits() - waits; n != 0 {
 		t.Errorf("%d blocking waits while the worker allocated", n)
 	}

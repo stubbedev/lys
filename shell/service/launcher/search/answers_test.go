@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/shell/service/launcher/answer"
 )
 
@@ -47,10 +49,11 @@ func TestCurrencyRowAppearsOnceTheRatesLoad(t *testing.T) {
 	s := &sink{}
 	e := start(t, s, nil, testCalculator(rates))
 	e.SetQuery("100 usd in eur", 1)
-	waitFor(t, "the currency row", func() bool {
+	waittest.Until(t, func() bool {
 		rows := s.last().Rows
 		return len(rows) == 2 && rows[1].Entry.Title == "92.38 EUR"
-	})
+	}, "the currency row")
+
 	if sub := stripIsolation(s.last().Rows[1].Entry.Subtitle); !strings.Contains(sub, "ECB, 2026-11-06") || strings.Contains(sub, "old") {
 		t.Errorf("subtitle = %q, want the fresh rate date", sub)
 	}

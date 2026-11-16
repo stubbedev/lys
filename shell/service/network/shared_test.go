@@ -2,11 +2,11 @@ package network
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestOnlyTheManagersChangesTick(t *testing.T) {
@@ -50,13 +50,13 @@ func TestTheManagersFeedTicksAndLeavesTheSharedConnectionAsItWas(t *testing.T) {
 	default:
 	}
 	f.setState(StateConnecting)
-	select {
-	case _, open := <-ticks:
-		if !open {
-			t.Fatal("the feed closed while it was followed")
-		}
-	case <-time.After(liveness):
-		t.Fatal("no tick for the manager's State changing")
+	opened := make(chan bool, 1)
+	go func() {
+		_, open := <-ticks
+		opened <- open
+	}()
+	if !waittest.For(t, opened, "a tick for the manager's State changing") {
+		t.Fatal("the feed closed while it was followed")
 	}
 	stop()
 	for range ticks {

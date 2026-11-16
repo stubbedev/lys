@@ -277,7 +277,7 @@ func TestCustomOnActionFollowsShellBindingsOnly(t *testing.T) {
 	def.OnAction = &onAction
 	m := newTestCustom(t, def)
 	m.followAction(config.ClickAction{Kind: config.ClickDropdown, Dropdown: "x"}, false)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := onHeadlessLoop(m.btn.Label().Text); got == "done" {
 		t.Fatal("a dropdown binding ran on-action")
 	}

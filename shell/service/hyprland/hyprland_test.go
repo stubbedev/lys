@@ -3,6 +3,7 @@ package hyprland
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeHyprland is a scriptable IPC server: it answers command-socket
@@ -89,17 +91,12 @@ func (f *fakeHyprland) serveCommand(conn net.Conn) {
 // it, like the compositor pushing its event stream.
 func (f *fakeHyprland) PushEvents(t *testing.T, lines ...string) {
 	t.Helper()
-	select {
-	case conn := <-f.events:
-		w := bufio.NewWriter(conn)
-		for _, line := range lines {
-			w.WriteString(line + "\n")
-		}
-		if err := w.Flush(); err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no event subscriber connected")
+	w := bufio.NewWriter(waittest.For(t, f.events, "an event subscriber to connect"))
+	for _, line := range lines {
+		w.WriteString(line + "\n")
+	}
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -213,16 +210,9 @@ func TestEvents(t *testing.T) {
 		{Kind: "screencast", ID: -1, Payload: "1,0"},
 	}
 	for _, expected := range want {
-		select {
-		case got, ok := <-events:
-			if !ok {
-				t.Fatal("event channel closed early")
-			}
-			if got.Kind != expected.Kind || got.Name != expected.Name || got.ID != expected.ID || got.Payload != expected.Payload {
-				t.Fatalf("event %+v, want %+v", got, expected)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("timed out waiting for %+v", expected)
+		got := waittest.For(t, events, fmt.Sprintf("the event %+v", expected))
+		if got.Kind != expected.Kind || got.Name != expected.Name || got.ID != expected.ID || got.Payload != expected.Payload {
+			t.Fatalf("event %+v, want %+v", got, expected)
 		}
 	}
 }
@@ -351,13 +341,8 @@ func TestEventsCloseOnCancelWhileTheCompositorIsSilent(t *testing.T) {
 	}
 	time.Sleep(time.Duration(ipcsocktest.Fast))
 	cancel()
-	select {
-	case _, open := <-events:
-		if open {
-			t.Fatal("an event from a silent compositor")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("the channel stayed open after the cancel")
+	if ev := waittest.For(t, events, "the channel to close after the cancel"); ev != (Event{}) {
+		t.Fatalf("an event from a silent compositor: %+v", ev)
 	}
 }
 

@@ -7,7 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
 	"github.com/stubbedev/lys/splash/internal/protocol"
@@ -18,21 +19,10 @@ func keymapOf(name string) func() (string, error) {
 	return func() (string, error) { return name, nil }
 }
 
-func (r *run) await(t *testing.T, what string, done func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !done() {
-		if time.Now().After(deadline) {
-			t.Fatalf("not within 5s: %s", what)
-		}
-		time.Sleep(time.Millisecond)
-	}
-}
-
 func (r *run) polled(t *testing.T, n int) {
 	t.Helper()
 	from := r.vt.reads()
-	r.await(t, "the Caps Lock polls", func() bool { return r.vt.reads() >= from+n })
+	waittest.Until(t, func() bool { return r.vt.reads() >= from+n }, "the Caps Lock polls")
 }
 
 func (r *run) settled(t *testing.T) int {
@@ -110,7 +100,7 @@ func TestACapsLockChangePresentsOnlyTheHintOnce(t *testing.T) {
 		from, to theme.State
 	}{{true, off, on}, {false, on, off}} {
 		r.vt.setCaps(step.caps)
-		r.await(t, "a present for the Caps Lock change", func() bool { return r.presents() > before })
+		waittest.Until(t, func() bool { return r.presents() > before }, "a present for the Caps Lock change")
 		if got := r.settled(t); got != before+1 {
 			t.Fatalf("change %d: %d presents, want one", i, got-before)
 		}
@@ -135,12 +125,12 @@ func TestTheTextFallbackShowsTheHints(t *testing.T) {
 	c := r.dial(t)
 	r.send(t, c, protocol.Password{Prompt: "Disk:"}, protocol.Ping{})
 	expect(t, c, protocol.Ack{})
-	r.await(t, "the keymap on the prompt line", func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ") })
+	waittest.Until(t, func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ") }, "the keymap on the prompt line")
 	r.vt.setCaps(true)
-	r.await(t, "Caps Lock on the prompt line", func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ("+theme.CapsLockHint+") ") })
+	waittest.Until(t, func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ("+theme.CapsLockHint+") ") }, "Caps Lock on the prompt line")
 	r.typeKeys("p")
 	r.vt.setCaps(false)
-	r.await(t, "Caps Lock off the prompt line", func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ") })
+	waittest.Until(t, func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ") }, "Caps Lock off the prompt line")
 }
 
 func TestTheNewRootsKeymapIsShown(t *testing.T) {
@@ -156,9 +146,9 @@ func TestTheNewRootsKeymapIsShown(t *testing.T) {
 	c := r.dial(t)
 	r.send(t, c, protocol.Password{Prompt: "Disk:"}, protocol.Ping{})
 	expect(t, c, protocol.Ack{})
-	r.await(t, "the initrd's keymap", func() bool { return strings.HasSuffix(r.out(), "Disk: [us] ") })
+	waittest.Until(t, func() bool { return strings.HasSuffix(r.out(), "Disk: [us] ") }, "the initrd's keymap")
 	r.call(t, protocol.NewRoot{Dir: "/sysroot"}, protocol.Ack{})
-	r.await(t, "the real root's keymap", func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ") })
+	waittest.Until(t, func() bool { return strings.HasSuffix(r.out(), "Disk: [de] ") }, "the real root's keymap")
 }
 
 func TestPromptHintsOff(t *testing.T) {

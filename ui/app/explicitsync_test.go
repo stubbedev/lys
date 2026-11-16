@@ -14,10 +14,10 @@ import (
 	"github.com/stubbedev/lys/lib/logutil"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/ui/internal/buffer"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -248,7 +248,7 @@ func TestDRMTimelinesHandAReleaseToTheLoop(t *testing.T) {
 	select {
 	case <-queued:
 		t.Fatal("the release came before its point signalled")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(QuietWindow):
 	}
 	if err := tl.dev.Signal(s, 2); err != nil {
 		t.Fatal(err)

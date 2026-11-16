@@ -16,10 +16,10 @@ import (
 	"github.com/stubbedev/lys/lib/gputest"
 	"github.com/stubbedev/lys/lib/logutil"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/ui/internal/buffer"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 	"github.com/stubbedev/lys/ui/widget"
 )

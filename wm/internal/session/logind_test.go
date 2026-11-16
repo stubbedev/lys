@@ -9,15 +9,14 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const own logind.SessionID = "1"
@@ -63,16 +62,6 @@ func (e *events) ActiveChanged(active bool) error {
 		return e.add("active")
 	}
 	return e.add("inactive")
-}
-
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(testenv.HangLimit); !cond(); {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
 }
 
 func openLogind(t *testing.T, env map[string]string) (*logindtest.Logind, *loop.Loop, *Logind, *events) {
@@ -129,11 +118,11 @@ func TestLogindSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the inhibitor held", func() bool { return fake.Inhibitors.Load() == 1 })
+	waittest.Until(t, func() bool { return fake.Inhibitors.Load() == 1 }, "the inhibitor held")
 	if err := inhibitor.Close(); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the inhibitor released", func() bool { return fake.Inhibitors.Load() == 0 })
+	waittest.Until(t, func() bool { return fake.Inhibitors.Load() == 0 }, "the inhibitor released")
 	if err := lg.SwitchTo(0); err == nil {
 		t.Fatal("a refused VT switch succeeded")
 	}
@@ -155,11 +144,11 @@ func TestLogindSession(t *testing.T) {
 	fake.SetActive(t, own, false)
 	fake.PrepareForSleep(t, true)
 	fake.PrepareForSleep(t, false)
-	waitFor(t, "the signals", func() bool { return len(ev.seen()) == 6 })
+	waittest.Until(t, func() bool { return len(ev.seen()) == 6 }, "the signals")
 	if got := ev.seen(); !slices.Equal(got, []string{"paused", "paused", "resumed", "inactive", "sleep", "wake"}) {
 		t.Fatalf("events %v", got)
 	}
-	waitFor(t, "the pause acknowledged", func() bool { return len(fake.CallsTo("Session.PauseDeviceComplete")) == 1 })
+	waittest.Until(t, func() bool { return len(fake.CallsTo("Session.PauseDeviceComplete")) == 1 }, "the pause acknowledged")
 	if err := lg.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +238,7 @@ func expectLog(t *testing.T, ev *events, want map[string]int) {
 	for _, n := range want {
 		total += n
 	}
-	waitFor(t, fmt.Sprintf("%d events", total), func() bool { return len(ev.seen()) >= total })
+	waittest.Until(t, func() bool { return len(ev.seen()) >= total }, fmt.Sprintf("%d events", total))
 	if got := tally(ev.seen()); !maps.Equal(got, want) {
 		t.Fatalf("events %v, want %v", got, want)
 	}
@@ -277,14 +266,14 @@ func TestARefusedSuspendLeavesNoSleepPending(t *testing.T) {
 	f, ev, send := suspendOnPowerChanges(t)
 	f.Refuse("Manager.Suspend", dbus.NewError(logind.ErrOperationInProgress, []any{"There's already a shutdown or sleep operation in progress"}))
 	send(acUnplug[0])
-	waitFor(t, "the refusal", func() bool { return len(ev.seen()) == 1 })
+	waittest.Until(t, func() bool { return len(ev.seen()) == 1 }, "the refusal")
 	if got := ev.seen()[0]; !strings.Contains(got, logind.ErrOperationInProgress) {
 		t.Fatalf("a refused Suspend reported %q, want logind's %s", got, logind.ErrOperationInProgress)
 	}
 
 	f.Refuse("Manager.Suspend", nil)
 	send(acUnplug[0])
-	waitFor(t, "the suspend after the refusal", func() bool { return len(ev.seen()) == 3 })
+	waittest.Until(t, func() bool { return len(ev.seen()) == 3 }, "the suspend after the refusal")
 	if got := tally(ev.seen()[1:]); !maps.Equal(got, map[string]int{"power": 1, "sleep": 1}) {
 		t.Fatalf("after a refusal: events %v", got)
 	}

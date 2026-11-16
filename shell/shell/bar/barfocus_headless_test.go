@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -78,8 +78,8 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	if err := answerOnLoop(h.app, "focus the bar", func() error { return h.set.walk("", h.output.Name) }); err != nil {
 		t.Fatal(err)
 	}
-	h.wait("the first module ringed", ringed(0))
-	h.wait("the bar holding the keyboard", func() error {
+	untilNil(h.t, "the first module ringed", ringed(0))
+	untilNil(h.t, "the bar holding the keyboard", func() error {
 		var held bool
 		h.onLoop(func() { held = h.holdsKeyboard() })
 		if !held {
@@ -88,13 +88,13 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 		return nil
 	})
 	tap(walkRight)
-	h.wait("Right on the second module", ringed(1))
+	untilNil(h.t, "Right on the second module", ringed(1))
 	tap(walkRight)
-	h.wait("Right again on the third", ringed(2))
+	untilNil(h.t, "Right again on the third", ringed(2))
 	tap(walkLeft)
-	h.wait("Left back on the second", ringed(1))
+	untilNil(h.t, "Left back on the second", ringed(1))
 	tap(walkRight)
-	h.wait("Right on the third once more", ringed(2))
+	untilNil(h.t, "Right on the third once more", ringed(2))
 
 	var inside widget.Widget
 	focusedInside := make(chan bool, 4)
@@ -112,7 +112,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 		t.Fatal("the calendar has nothing the keyboard can focus")
 	}
 	tap(walkEnter)
-	h.wait("Enter opening the third module's calendar", func() error {
+	untilNil(h.t, "Enter opening the third module's calendar", func() error {
 		var name string
 		var checked []bool
 		h.onLoop(func() {
@@ -128,15 +128,10 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 		}
 		return nil
 	})
-	select {
-	case on := <-focusedInside:
-		if !on {
-			t.Fatal("the calendar's first control lost the focus it never had")
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the calendar opened without the keyboard inside it")
+	if !waittest.For(t, focusedInside, "the keyboard inside the opened calendar") {
+		t.Fatal("the calendar's first control lost the focus it never had")
 	}
-	h.wait("the ring on the calendar's first control before any Tab", func() error {
+	untilNil(h.t, "the ring on the calendar's first control before any Tab", func() error {
 		var ringed bool
 		h.onLoop(func() { ringed = widget.FocusVisible(inside) })
 		if !ringed {
@@ -146,7 +141,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	})
 
 	tap(walkEsc)
-	h.wait("the first Esc closing the calendar", func() error {
+	untilNil(h.t, "the first Esc closing the calendar", func() error {
 		var open bool
 		h.onLoop(func() {
 			h.rt.ctx.Dropdowns.mu.Lock()
@@ -163,7 +158,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 		t.Errorf("back on the bar: %v", err)
 	}
 	tap(walkEsc)
-	h.wait("the second Esc giving the keyboard back", func() error {
+	untilNil(h.t, "the second Esc giving the keyboard back", func() error {
 		var walking bool
 		var mode app.KeyboardMode
 		h.onLoop(func() { walking, mode = h.bar.layer.Walking(), h.bar.layer.KeyboardMode() })

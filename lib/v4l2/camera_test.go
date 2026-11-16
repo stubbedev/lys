@@ -1,12 +1,14 @@
 package v4l2
 
 import (
+	"fmt"
 	"image"
 	"os"
 	"strings"
 	"testing"
-	"time"
 	"unsafe"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // The ioctl structs have the kernel's LP64 sizes, which the request
@@ -78,16 +80,12 @@ func TestRealCameraStreams(t *testing.T) {
 	}
 	t.Logf("%s streams %s", device, c.Format())
 	for i := range 3 {
-		select {
-		case img := <-c.Frames():
-			b := img.Bounds()
-			if b.Dx()*frame.Y > (b.Dy()+1)*frame.X || (b.Dx()+1)*frame.Y < b.Dy()*frame.X {
-				t.Errorf("frame %d is %v, not 16:9", i, b)
-			}
-			c.Recycle(img)
-		case <-time.After(5 * time.Second):
-			t.Fatalf("no frame %d within 5s", i)
+		img := waittest.For(t, c.Frames(), fmt.Sprintf("frame %d", i))
+		b := img.Bounds()
+		if b.Dx()*frame.Y > (b.Dy()+1)*frame.X || (b.Dx()+1)*frame.Y < b.Dy()*frame.X {
+			t.Errorf("frame %d is %v, not 16:9", i, b)
 		}
+		c.Recycle(img)
 	}
 	c.Close()
 	for range c.Frames() {

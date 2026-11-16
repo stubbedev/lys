@@ -2,12 +2,14 @@ package pipewire
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // The names the tests' clients and streams go by.
@@ -41,14 +43,17 @@ func TestStartRefusesAConfigMissingARequiredField(t *testing.T) {
 // the stacks of the ones left over.
 func settlesTo(t *testing.T, want int) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for runtime.NumGoroutine() > want {
-		if time.Now().After(deadline) {
+	n := runtime.NumGoroutine()
+	defer func() {
+		if n > want {
 			buf := make([]byte, 1<<20)
-			t.Fatalf("%d goroutines, %d before the stream:\n%s", runtime.NumGoroutine(), want, buf[:runtime.Stack(buf, true)])
+			t.Logf("%d goroutines, %d before the stream:\n%s", n, want, buf[:runtime.Stack(buf, true)])
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	}()
+	waittest.Until(t, func() bool {
+		n = runtime.NumGoroutine()
+		return n <= want
+	}, fmt.Sprintf("the process to settle to %d goroutines", want))
 }
 
 // streaming starts a producer into a linked reference consumer and
@@ -79,17 +84,9 @@ func streaming(t *testing.T) (*Producer, int) {
 		})
 	})
 	link(t)
-	deadline := time.After(5 * time.Second)
-	for {
-		select {
-		case f := <-c.frames:
-			if f.size > 0 {
-				return p, before
-			}
-		case <-deadline:
-			t.Fatal("no frame arrived")
-		}
+	for waittest.For(t, c.frames, "the first frame").size == 0 {
 	}
+	return p, before
 }
 
 // PipeWire going away mid-stream ends the stream, saying so, and Close
@@ -100,14 +97,10 @@ func TestTheServerGoingAwayEndsTheStream(t *testing.T) {
 	select {
 	case <-p.Done():
 		t.Fatalf("the stream ended while PipeWire ran: %v", p.Err())
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	daemon.Kill()
-	select {
-	case <-p.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("the stream outlived PipeWire")
-	}
+	waittest.For(t, p.Done(), "the stream to end with PipeWire")
 	if !errors.Is(p.Err(), errServerClosed) {
 		t.Errorf("Err = %v, want the server hanging up", p.Err())
 	}
@@ -121,11 +114,7 @@ func TestAStreamRunsAgainAfterPipeWireRestarts(t *testing.T) {
 	first := pwtest.Start(t)
 	p, _ := streaming(t)
 	first.Kill()
-	select {
-	case <-p.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("the stream outlived PipeWire")
-	}
+	waittest.For(t, p.Done(), "the stream to end with PipeWire")
 	p.Close()
 
 	pwtest.Start(t)

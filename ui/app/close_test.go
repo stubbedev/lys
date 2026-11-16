@@ -1,52 +1,33 @@
 package app
 
 import (
+	"fmt"
 	"runtime"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 )
 
-const closeBound = 5 * time.Second
-
-// settleGoroutines waits up to closeBound for the goroutine count to
-// fall to atMost, reporting the count it settled at when it does not.
 func settleGoroutines(t *testing.T, atMost int, after string) {
 	t.Helper()
-	poll := time.NewTicker(time.Millisecond)
-	defer poll.Stop()
-	deadline := time.NewTimer(closeBound)
-	defer deadline.Stop()
-	for runtime.NumGoroutine() > atMost {
-		select {
-		case <-poll.C:
-		case <-deadline.C:
-			t.Errorf("%d goroutines %v after %s, want at most %d", runtime.NumGoroutine(), closeBound, after, atMost)
-			return
-		}
-	}
+	waittest.Until(t, func() bool { return runtime.NumGoroutine() <= atMost }, fmt.Sprintf("the goroutines to fall to %d after %s", atMost, after))
 }
 
 func awaitBusPeer(t *testing.T, signals <-chan *dbus.Signal, what string, match func(name, newOwner string) bool) string {
 	t.Helper()
-	deadline := time.After(closeBound)
 	for {
-		select {
-		case sig := <-signals:
-			if len(sig.Body) != 3 {
-				t.Fatalf("NameOwnerChanged carried %v", sig.Body)
-			}
-			name, _ := sig.Body[0].(string)
-			newOwner, _ := sig.Body[2].(string)
-			if match(name, newOwner) {
-				return name
-			}
-		case <-deadline:
-			t.Fatalf("waited %v for %s", closeBound, what)
+		sig := waittest.For(t, signals, what)
+		if len(sig.Body) != 3 {
+			t.Fatalf("NameOwnerChanged carried %v", sig.Body)
+		}
+		name, _ := sig.Body[0].(string)
+		newOwner, _ := sig.Body[2].(string)
+		if match(name, newOwner) {
+			return name
 		}
 	}
 }

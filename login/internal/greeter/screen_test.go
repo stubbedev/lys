@@ -3,6 +3,7 @@ package greeter
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image"
 	"io/fs"
 	"log"
@@ -21,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -214,19 +216,14 @@ func buildRig(t *testing.T, edit func(*Init), r *rig) *rig {
 // each runs on its own goroutine.
 func (r *rig) powerActions(t *testing.T, n int) []logind.PowerAction {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
+	var got []logind.PowerAction
+	waittest.Until(t, func() bool {
 		r.powerMu.Lock()
-		got := slices.Sorted(slices.Values(r.power))
+		got = slices.Sorted(slices.Values(r.power))
 		r.powerMu.Unlock()
-		if len(got) >= n {
-			return got
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%d power actions ran in 5s, want %d", len(got), n)
-		}
-		time.Sleep(time.Millisecond)
-	}
+		return len(got) >= n
+	}, fmt.Sprintf("%d power actions to run", n))
+	return got
 }
 
 func (r *rig) conv(t *testing.T) *fakeHandle {
@@ -836,11 +833,7 @@ func TestAPowerActionNeverRunsOnTheLoop(t *testing.T) {
 		btn.OnClick()
 	}
 	for range buttons {
-		select {
-		case <-entered:
-		case <-time.After(5 * time.Second):
-			t.Fatal("a power action never started while the click returned")
-		}
+		waittest.For(t, entered, "a power action to start while the click returned")
 	}
 	close(release)
 	r.powerActions(t, 3)
@@ -918,11 +911,7 @@ func TestAStalledDiskDoesNotHoldTheSessionBack(t *testing.T) {
 	}()
 	<-entered
 	close(r.timeout)
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the session waited on the disk past the deadline")
-	}
+	waittest.For(t, done, "the session to hand over without waiting on the disk past the deadline")
 }
 
 func TestAnAvatarKeepsOnlyWhatItsSlotShows(t *testing.T) {

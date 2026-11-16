@@ -8,8 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
+
+const quietWindow = 150 * time.Millisecond
 
 func newWatcher(t *testing.T, mask uint32, recursive bool, root string) *Watcher {
 	t.Helper()
@@ -24,15 +27,19 @@ func newWatcher(t *testing.T, mask uint32, recursive bool, root string) *Watcher
 	return w
 }
 
+func received(w *Watcher) <-chan bool {
+	ok := make(chan bool, 1)
+	go func() {
+		_, open := <-w.Changed()
+		ok <- open
+	}()
+	return ok
+}
+
 func expectTick(t *testing.T, w *Watcher, what string) {
 	t.Helper()
-	select {
-	case _, ok := <-w.Changed():
-		if !ok {
-			t.Fatalf("%s: channel closed", what)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatalf("%s: no tick", what)
+	if !waittest.For(t, received(w), "a tick for "+what) {
+		t.Fatalf("%s: channel closed", what)
 	}
 }
 
@@ -41,7 +48,7 @@ func expectQuiet(t *testing.T, w *Watcher, what string) {
 	select {
 	case <-w.Changed():
 		t.Fatalf("%s: unexpected tick", what)
-	case <-time.After(150 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -113,13 +120,8 @@ func TestCloseEndsTheChannelAndRefusesAdds(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case _, ok := <-w.Changed():
-		if ok {
-			t.Fatal("tick after Close, want a closed channel")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("Changed not closed by Close")
+	if waittest.For(t, received(w), "Close to close Changed") {
+		t.Fatal("tick after Close, want a closed channel")
 	}
 	if err := w.Add(root); err == nil {
 		t.Error("Add after Close: want an error")
@@ -156,22 +158,16 @@ func newNamed(t *testing.T, root string) *Watcher {
 	return w
 }
 
-// takeUntil takes batches until done holds for everything taken, or
-// fails with what was taken after the liveness bound.
+// takeUntil takes batches until done holds for everything taken.
 func takeUntil(t *testing.T, w *Watcher, done func([]Event, bool) bool) ([]Event, bool) {
 	t.Helper()
 	var events []Event
 	rescan := false
-	deadline := time.After(5 * time.Second)
 	for !done(events, rescan) {
-		select {
-		case <-w.Changed():
-			b := w.Take()
-			events = append(events, b.Events...)
-			rescan = rescan || b.Rescan
-		case <-deadline:
-			t.Fatalf("taken %+v (rescan %v), never done", events, rescan)
-		}
+		waittest.For(t, w.Changed(), "another batch of events")
+		b := w.Take()
+		events = append(events, b.Events...)
+		rescan = rescan || b.Rescan
 	}
 	return events, rescan
 }

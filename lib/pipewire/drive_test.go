@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // driving makes the rig's node the driver of its graph, with itself as the
@@ -305,11 +306,7 @@ func TestAStreamIsNotHeldToTheQuantum(t *testing.T) {
 	}
 	defer p.Close()
 	c := linkedConsumer(t, 240)
-	select {
-	case <-c.frames:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no first frame")
-	}
+	waittest.For(t, c.frames, "the first frame")
 	frames := 0
 	for end := time.After(time.Second); ; {
 		select {
@@ -342,13 +339,8 @@ func TestAStillSourceLeavesTheGraphIdle(t *testing.T) {
 	}
 	defer p.Close()
 	c := linkedConsumer(t, 240)
-	select {
-	case f := <-c.frames:
-		if f.size == 0 {
-			t.Fatalf("an empty frame: %+v", f)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the still source's frame never arrived")
+	if f := waittest.For(t, c.frames, "the still source's frame"); f.size == 0 {
+		t.Fatalf("an empty frame: %+v", f)
 	}
 	cycle := func() uint32 {
 		p.n.mu.Lock()
@@ -359,10 +351,10 @@ func TestAStillSourceLeavesTheGraphIdle(t *testing.T) {
 	select {
 	case f := <-c.frames:
 		t.Fatalf("a second frame from a still source: %+v", f)
-	case <-time.After(300 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if after := cycle(); after != before {
-		t.Errorf("%d cycles of a still source in 300 ms", after-before)
+		t.Errorf("%d cycles of a still source in %v", after-before, quietWindow)
 	}
 }
 

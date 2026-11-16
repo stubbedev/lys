@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -20,26 +22,21 @@ import (
 func announcedConnectors(t *testing.T, signals <-chan *dbus.Signal, want []string) {
 	t.Helper()
 	var seen [][]string
-	deadline := time.After(10 * time.Second)
 	for {
-		select {
-		case sig := <-signals:
-			if len(sig.Body) < 2 || sig.Body[0] != shellipc.ServiceName {
-				continue
-			}
-			changed, _ := sig.Body[1].(map[string]dbus.Variant)
-			v, ok := changed["Connectors"]
-			if !ok {
-				continue
-			}
-			got, _ := v.Value().([]string)
-			if slices.Equal(got, want) {
-				return
-			}
-			seen = append(seen, got)
-		case <-deadline:
-			t.Fatalf("Shell1 never announced Connectors %q; it announced %q", want, seen)
+		sig := waittest.For(t, signals, fmt.Sprintf("Shell1 to announce Connectors %q after it announced %q", want, seen))
+		if len(sig.Body) < 2 || sig.Body[0] != shellipc.ServiceName {
+			continue
 		}
+		changed, _ := sig.Body[1].(map[string]dbus.Variant)
+		v, ok := changed["Connectors"]
+		if !ok {
+			continue
+		}
+		got, _ := v.Value().([]string)
+		if slices.Equal(got, want) {
+			return
+		}
+		seen = append(seen, got)
 	}
 }
 
@@ -88,6 +85,6 @@ func TestShell1ConnectorsFollowHotplug(t *testing.T) {
 	select {
 	case sig := <-signals:
 		t.Errorf("an announcement past the unplug: %v", sig.Body)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }

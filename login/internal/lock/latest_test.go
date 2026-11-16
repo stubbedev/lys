@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
 
@@ -33,11 +34,7 @@ func TestABlockedLogindHoldsNeitherTheLockNorTheRelease(t *testing.T) {
 	})
 	h.s.d.SetLockedHint = w.set
 	h.lock(t)
-	select {
-	case <-entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the hint never left")
-	}
+	waittest.For(t, entered, "the hint to leave")
 	h.s.ForceUnlock()
 	h.finishExit()
 	if h.locker.active {
@@ -120,11 +117,7 @@ func TestAStdoutNobodyReadsLeavesTheLoopTicking(t *testing.T) {
 	h := newHarness(t, func(l *config.LoginConfig) { l.Lock.BlankTimeoutMS = 30000 })
 	h.s.d.OnLocked = line.set
 	h.lock(t)
-	select {
-	case <-writing:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the locked line was never written")
-	}
+	waittest.For(t, writing, "the locked line to be written")
 	ticks := 0
 	for range 100 {
 		h.s.Activity()

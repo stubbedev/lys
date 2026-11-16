@@ -4,21 +4,19 @@ import (
 	"fmt"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/gputest"
 	"github.com/stubbedev/lys/lib/media/demux"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/media"
 	"github.com/stubbedev/lys/ui/widget"
 )
-
-const videoLossBound = 60 * time.Second
 
 func onLoop[T any](a *app.Application, fn func() T) T {
 	got := make(chan T, 1)
@@ -28,11 +26,7 @@ func onLoop[T any](a *app.Application, fn func() T) T {
 
 func awaitOnLoop(t *testing.T, a *app.Application, what string, done func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(videoLossBound); !onLoop(a, done); time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("waited %v for %s", videoLossBound, what)
-		}
-	}
+	waittest.UntilSlow(t, func() bool { return onLoop(a, done) }, what)
 }
 
 type videoState struct {

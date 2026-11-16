@@ -149,7 +149,7 @@ func TestWithoutAccountsServiceTheAvatarIsWrittenToFace(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	p, l := usersFixture(t, bus)
-	l.drain(100 * time.Millisecond)
+	l.drain()
 	if p.realName.Enabled() || p.admin.Visible() {
 		t.Fatal("the name or the admin section without AccountsService")
 	}

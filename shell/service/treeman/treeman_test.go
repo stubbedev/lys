@@ -2,6 +2,7 @@ package treeman
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestWorstBucket(t *testing.T) {
@@ -104,18 +106,12 @@ echo "$line"
 // waitStatus waits for a tick that leaves Status at total.
 func waitStatus(t *testing.T, s *System, ticks <-chan struct{}, total uint32) {
 	t.Helper()
-	deadline := time.After(3 * time.Second)
-	for {
-		if st := s.Status(); st != nil && st.Total == total {
-			return
-		}
-		select {
-		case <-ticks:
-		case <-deadline:
-			t.Fatalf("status = %+v, want total %d", s.Status(), total)
-		}
+	for st := s.Status(); st == nil || st.Total != total; st = s.Status() {
+		waittest.For(t, ticks, fmt.Sprintf("a tick to leave the status at total %d, not %+v", total, st))
 	}
 }
+
+const quietWindow = 100 * time.Millisecond
 
 func TestStatusComesFromTheJSONStatusCommand(t *testing.T) {
 	t.Setenv("TREEMAN_SOCKET", filepath.Join(sockdir.Dir(t), "absent.sock"))
@@ -243,20 +239,11 @@ func TestEverySubscriberTicksAndStopClosesThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	feed.Notify(&s.changes)
-	for name, ch := range map[string]<-chan struct{}{"first": a, "second": b} {
-		select {
-		case <-ch:
-		case <-time.After(time.Second):
-			t.Fatalf("the %s subscriber missed the tick", name)
-		}
-	}
+	waittest.For(t, a, "the first subscriber's tick")
+	waittest.For(t, b, "the second subscriber's tick")
 	done := make(chan struct{})
 	go func() { s.Stop(); s.Stop(); close(done) }()
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("Stop deadlocked")
-	}
+	waittest.For(t, done, "Stop to return")
 	for _, ch := range []<-chan struct{}{a, b} {
 		for range ch { // drains the pending tick, ends on close
 		}
@@ -335,7 +322,7 @@ func TestTheDaemonSocketAppearingIsSeenAtOnce(t *testing.T) {
 	select {
 	case <-ticks:
 		t.Fatalf("a file beside the socket made a fetch: %+v", s.Status())
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	listener, err := net.Listen("unix", socket)
 	if err != nil {

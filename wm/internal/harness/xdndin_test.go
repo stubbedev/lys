@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -51,18 +52,13 @@ func (s *xDragSource) serve() {
 
 func (s *xDragSource) message(name string) xproto.ClientMessageEvent {
 	s.t.Helper()
-	timeout := time.After(testenv.HangLimit)
 	for {
-		select {
-		case m, open := <-s.msgs:
-			if !open {
-				s.t.Fatal("the X connection closed")
-			}
-			if m.Type == s.atoms[name] {
-				return m
-			}
-		case <-timeout:
-			s.t.Fatalf("no %s arrived", name)
+		m := waittest.For(s.t, s.msgs, name+" to arrive")
+		if m.Type == xproto.AtomNone {
+			s.t.Fatal("the X connection closed")
+		}
+		if m.Type == s.atoms[name] {
+			return m
 		}
 	}
 }
@@ -122,17 +118,12 @@ func xDragSetup(t *testing.T) *xDragRig {
 func (x *xDragRig) enterZone(at image.Point) xproto.Window {
 	x.src.t.Helper()
 	var proxy xproto.Window
-	for deadline := time.Now().Add(testenv.HangLimit); ; {
+	waittest.Until(x.src.t, func() bool {
 		x.r.moveOn(0, float64(at.X), float64(at.Y))
-		if w, ok := x.src.awareAt(at); ok {
-			proxy = w
-			break
-		}
-		if time.Now().After(deadline) {
-			x.src.t.Fatal("no XdndAware window appeared over the Wayland window")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		w, ok := x.src.awareAt(at)
+		proxy = w
+		return ok
+	}, "an XdndAware window over the Wayland window")
 	x.src.send(proxy, "XdndEnter", uint32(x.src.win), 5<<24, uint32(x.src.atoms["UTF8_STRING"]))
 	x.src.send(proxy, "XdndPosition", uint32(x.src.win), 0, uint32(at.X)<<16|uint32(at.Y), 0, uint32(x.src.atoms["XdndActionCopy"]))
 	x.zone.seen(x.src.t, "the drag entering the zone", func() bool { return x.zone.cb.Drag != nil })

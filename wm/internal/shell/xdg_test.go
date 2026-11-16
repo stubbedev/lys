@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
@@ -24,7 +25,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/server"
 	"github.com/stubbedev/lys/wm/internal/shm"
 	"github.com/stubbedev/lys/wm/internal/surface"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wire"
 	"github.com/stubbedev/lys/wm/internal/wlclient"
 )
@@ -538,18 +538,12 @@ func TestPingMarksUnresponsiveClients(t *testing.T) {
 	ping()
 	must(t, c.wm.Pong(c.wmE.pings[0]))
 	c.roundtrip()
-	time.Sleep(60 * time.Millisecond)
+	time.Sleep(2 * e.shell.pingTimeout)
 	if got := e.log(); slices.Contains(got, "responsive false") {
 		t.Fatal("a client that answered was marked unresponsive")
 	}
 	ping()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for !slices.Contains(e.log(), "responsive false") {
-		if time.Now().After(deadline) {
-			t.Fatal("a client that never answered stayed responsive")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Contains(e.log(), "responsive false") }, "a client that never answered to be marked unresponsive")
 	must(t, c.wm.Pong(c.wmE.pings[1]))
 	c.roundtrip()
 	if got := e.log(); got[len(got)-1] != "responsive true" {

@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -117,15 +117,6 @@ func (f *fakeTray) wantedSizes() []int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Sorted(maps.Keys(f.wanted))
-}
-
-func waitTray(t *testing.T, f *fakeTray, n int) []string {
-	t.Helper()
-	deadline := time.Now().Add(time.Second)
-	for len(f.Calls()) < n && time.Now().Before(deadline) {
-		time.Sleep(2 * time.Millisecond)
-	}
-	return f.Calls()
 }
 
 // openTrayMenu right-clicks the item on the loop and waits for its
@@ -366,13 +357,7 @@ func TestSystrayForgetsRemovedAndRetiredRasters(t *testing.T) {
 	}
 
 	onHeadlessLoop(func() bool { m.ctx.gen.retire(); return true })
-	deadline := time.Now().Add(2 * time.Second)
-	for (!f.has(idB) || len(tray.wantedSizes()) != 0) && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if !f.has(idB) || len(tray.wantedSizes()) != 0 {
-		t.Errorf("after retire: forgot b %v, wanted %v; want the raster forgotten and no size wanted", f.has(idB), tray.wantedSizes())
-	}
+	waittest.Until(t, func() bool { return f.has(idB) && len(tray.wantedSizes()) == 0 }, "the retire to forget b's raster and want no size")
 }
 
 func TestResolveTrayIcon(t *testing.T) {
@@ -426,7 +411,7 @@ func TestSystrayClicksDriveTheItem(t *testing.T) {
 	m.entries[menuOnly.Key()].button.ClickAt(widget.Point{})
 	router, p := treetest.Pointer(m.root, m.entries[plain.Key()].button, 500, 40)
 	router.Press(widget.BTNMiddle, p, 0)
-	calls := waitTray(t, tray, 3)
+	calls := waitCalls(t, tray.Calls, 3)
 	want := map[string]bool{"activate plain": true, "context-menu menu-only": true, "secondary plain": true}
 	for _, c := range calls {
 		if !want[c] {
@@ -469,7 +454,7 @@ func TestSystrayMenuRows(t *testing.T) {
 		t.Errorf("quit = %+v, want disabled with Ctrl+q", quit)
 	}
 	rows[0].OnClick()
-	if calls := waitTray(t, tray, 1); len(calls) != 1 || calls[0] != "clicked app 1" {
+	if calls := waitCalls(t, tray.Calls, 1); len(calls) != 1 || calls[0] != "clicked app 1" {
 		t.Errorf("calls = %v, want the clicked event for id 1", calls)
 	}
 }
@@ -480,7 +465,7 @@ func TestSystrayRightClickFallsBackWithoutAMenu(t *testing.T) {
 	m, tray, _ := newTrayForTest(t, cfg, it)
 	// An empty menu: the item's own ContextMenu.
 	onHeadlessLoop(func() bool { m.rightClick(it.Key()); return true })
-	if calls := waitTray(t, tray, 3); !slices.Equal(calls, []string{"menu-opening bare", "menu-layout bare", "context-menu bare"}) {
+	if calls := waitCalls(t, tray.Calls, 3); !slices.Equal(calls, []string{"menu-opening bare", "menu-layout bare", "context-menu bare"}) {
 		t.Errorf("calls = %v, want the context-menu fallback", calls)
 	}
 	if onHeadlessLoop(func() bool { return m.menu != nil }) {
@@ -548,19 +533,19 @@ func TestSystrayWheelScrollsTheItem(t *testing.T) {
 		router.Release(widget.BTNLeft, p)
 		return true
 	})
-	if calls := waitTray(t, tray, 1); !slices.Equal(calls, []string{"activate a"}) {
+	if calls := waitCalls(t, tray.Calls, 1); !slices.Equal(calls, []string{"activate a"}) {
 		t.Fatalf("a click: calls %v, want the activation alone", calls)
 	}
 	onHeadlessLoop(func() bool { router.Axis(0, 1, 0); return true })
-	if calls := waitTray(t, tray, 2); len(calls) != 2 || calls[1] != "scroll a -120 vertical" {
+	if calls := waitCalls(t, tray.Calls, 2); len(calls) != 2 || calls[1] != "scroll a -120 vertical" {
 		t.Fatalf("a step down: calls %v, want a vertical scroll of -120", calls)
 	}
 	onHeadlessLoop(func() bool { router.Axis(-1, 0, 0); return true })
-	if calls := waitTray(t, tray, 3); len(calls) != 3 || calls[2] != "scroll a 120 horizontal" {
+	if calls := waitCalls(t, tray.Calls, 3); len(calls) != 3 || calls[2] != "scroll a 120 horizontal" {
 		t.Fatalf("a step left: calls %v, want a horizontal scroll of 120", calls)
 	}
 	onHeadlessLoop(func() bool { router.Move(center(b.Key())); router.Axis(0, -1, 0); return true })
-	if calls := waitTray(t, tray, 4); len(calls) != 4 || calls[3] != "scroll b 120 vertical" {
+	if calls := waitCalls(t, tray.Calls, 4); len(calls) != 4 || calls[3] != "scroll b 120 vertical" {
 		t.Fatalf("a step up on the other item: calls %v, want it scrolled up", calls)
 	}
 }
@@ -675,7 +660,7 @@ func TestSystrayMenuShortcutsFire(t *testing.T) {
 	if !accels.press("<Control><Shift>q") {
 		t.Fatal("the nested Quit shortcut is not bound")
 	}
-	if calls := waitTray(t, tray, 3); !slices.Equal(calls, []string{"menu-opening app", "menu-layout app", "clicked app 3"}) {
+	if calls := waitCalls(t, tray.Calls, 3); !slices.Equal(calls, []string{"menu-opening app", "menu-layout app", "clicked app 3"}) {
 		t.Errorf("calls = %v, want the clicked event for id 3", calls)
 	}
 	for _, keys := range []string{"<Control>d", "<Control>g", "<Alt>x"} {

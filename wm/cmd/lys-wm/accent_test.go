@@ -1,20 +1,21 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/appearance"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const (
@@ -90,19 +91,9 @@ func TestFollowingTheSameAccentAgainAsksForNoReload(t *testing.T) {
 
 func waitForProblem(t *testing.T, socket, want string) {
 	t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
-		got := configProblems(t, socket)
-		for _, m := range got.Messages {
-			if strings.Contains(m, want) {
-				return
-			}
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("no reload reported %q; the config problems are %+v", want, got)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool {
+		return slices.ContainsFunc(configProblems(t, socket).Messages, func(m string) bool { return strings.Contains(m, want) })
+	}, fmt.Sprintf("a reload to report %q", want))
 }
 
 func TestADesktopAccentChangeReloadsTheConfig(t *testing.T) {

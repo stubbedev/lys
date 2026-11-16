@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -14,7 +15,6 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logind"
@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/secrets/control"
@@ -42,7 +43,12 @@ func TestMain(m *testing.M) {
 
 type daemon struct {
 	cmd  *exec.Cmd
-	logs chan string
+	logs chan logLine
+}
+
+type logLine struct {
+	text string
+	open bool
 }
 
 // start runs lys-secrets on the test's private session bus, the login
@@ -69,11 +75,11 @@ func start(t *testing.T, password string, args ...string) *daemon {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	d := &daemon{cmd: cmd, logs: make(chan string, 64)}
+	d := &daemon{cmd: cmd, logs: make(chan logLine, 64)}
 	go func() {
 		sc := bufio.NewScanner(stderr)
 		for sc.Scan() {
-			d.logs <- sc.Text()
+			d.logs <- logLine{text: sc.Text(), open: true}
 		}
 		close(d.logs)
 	}()
@@ -87,18 +93,13 @@ func start(t *testing.T, password string, args ...string) *daemon {
 // waitLog waits for a log line containing want.
 func (d *daemon) waitLog(t *testing.T, want string) {
 	t.Helper()
-	deadline := time.After(10 * time.Second)
 	for {
-		select {
-		case line, ok := <-d.logs:
-			if !ok {
-				t.Fatalf("lys-secrets exited before logging %q", want)
-			}
-			if strings.Contains(line, want) {
-				return
-			}
-		case <-deadline:
-			t.Fatalf("lys-secrets never logged %q", want)
+		line := waittest.For(t, d.logs, fmt.Sprintf("lys-secrets to log %q", want))
+		if !line.open {
+			t.Fatalf("lys-secrets exited before logging %q", want)
+		}
+		if strings.Contains(line.text, want) {
+			return
 		}
 	}
 }
@@ -276,14 +277,13 @@ func loginLocked(t *testing.T) bool {
 
 func lockUntilLocked(t *testing.T, how string, lock func()) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !loginLocked(t) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the collection did not lock on %s", how)
+	waittest.Until(t, func() bool {
+		if loginLocked(t) {
+			return true
 		}
 		lock()
-		time.Sleep(20 * time.Millisecond)
-	}
+		return false
+	}, "the collection to lock on "+how)
 }
 
 func unlockWithTheLockScreen(t *testing.T) {
@@ -348,17 +348,9 @@ func TestWithoutLogindTheServiceKeepsServingAndSaysSo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		err := control.Unlock(sock, []byte("login-pw"))
-		if err == nil {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the service does not answer: %v", err)
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool {
+		return control.Unlock(sock, []byte("login-pw")) == nil
+	}, "the service to answer an unlock")
 }
 
 func TestANegativeCollectionLockAfterIsRefused(t *testing.T) {
@@ -426,11 +418,7 @@ func TestAChangedLoginPasswordIsTakenOverThroughOneDialog(t *testing.T) {
 	if err := control.Unlock(sock, []byte("new-pw")); !errors.Is(err, control.ErrWrongPassword) {
 		t.Fatalf("the new password before the re-key = %v", err)
 	}
-	select {
-	case <-answered:
-	case <-time.After(10 * time.Second):
-		t.Fatal("no dialog asked for the previous password")
-	}
+	waittest.For(t, answered, "a dialog asking for the previous password")
 	d.waitLog(t, "moved to the new login password")
 	if got, err := secretTool(t, "", "lookup", "app", "a"); err != nil || got != "v1" {
 		t.Errorf("lookup after the re-key = %q, %v", got, err)

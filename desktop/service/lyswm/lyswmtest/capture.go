@@ -6,7 +6,8 @@ import (
 	"net"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type captureFake struct {
@@ -84,33 +85,20 @@ func (w *WM) serveCapture(conn net.Conn, reader *bufio.Reader, done <-chan struc
 // AwaitCapture waits for a capture to open.
 func (w *WM) AwaitCapture(t *testing.T) {
 	t.Helper()
-	select {
-	case <-w.captureFake(t).opened:
-	case <-time.After(hangGuard):
-		t.Fatal("lyswmtest: no capture opened")
-	}
+	waittest.For(t, w.captureFake(t).opened, "a capture to open")
 }
 
 // AwaitCaptureClosed waits for a capture to close.
 func (w *WM) AwaitCaptureClosed(t *testing.T) {
 	t.Helper()
-	select {
-	case <-w.captureFake(t).closed:
-	case <-time.After(hangGuard):
-		t.Fatal("lyswmtest: no capture closed")
-	}
+	waittest.For(t, w.captureFake(t).closed, "a capture to close")
 }
 
 // ExpectCaptureCommand checks the next command line a capture sent.
 func (w *WM) ExpectCaptureCommand(t *testing.T, want string) {
 	t.Helper()
-	select {
-	case got := <-w.captureFake(t).commands:
-		if got != want {
-			t.Errorf("capture command %s, want %s", got, want)
-		}
-	case <-time.After(hangGuard):
-		t.Fatalf("no capture command, want %s", want)
+	if got := waittest.For(t, w.captureFake(t).commands, "the capture command "+want); got != want {
+		t.Errorf("capture command %s, want %s", got, want)
 	}
 }
 
@@ -119,10 +107,11 @@ func (w *WM) SendCapture(t *testing.T, lines ...string) {
 	t.Helper()
 	c := w.captureFake(t)
 	for _, line := range lines {
-		select {
-		case c.events <- line:
-		case <-time.After(hangGuard):
-			t.Fatal("lyswmtest: the capture takes no more events")
-		}
+		sent := make(chan struct{})
+		go func() {
+			c.events <- line
+			close(sent)
+		}()
+		waittest.For(t, sent, "the capture to take the event "+line)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // countingProvider counts its loads.
@@ -62,11 +63,12 @@ func session(t *testing.T, s *sink, level *Level, open func() (*Frecency, error)
 
 func firstFrame(t *testing.T, s *sink) Frame {
 	t.Helper()
-	waitFor(t, "the first frame", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.frames) > 0
-	})
+	}, "the first frame")
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.frames[0]
@@ -275,13 +277,9 @@ func TestAnEmptyListSettlesInOneUpdateOnceTheSourcesAreKept(t *testing.T) {
 	s := &sink{}
 	windows := &fakeProvider{spec: Spec{Section: SectionWindows}, entries: []Entry{{ID: "w", Title: "a window"}}, published: make(chan struct{})}
 	e := startLevel(t, s, level(windows), open)
-	select {
-	case <-windows.published:
-	case <-time.After(liveness):
-		t.Fatal("the windows never loaded")
-	}
+	waittest.For(t, windows.published, "the windows to load")
 	e.SetQuery("", 1)
-	waitFor(t, "the query's frame", func() bool { return s.last().QuerySeq == 1 })
+	waittest.Until(t, func() bool { return s.last().QuerySeq == 1 }, "the query's frame")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if n := len(s.frames) - 1; n != 1 {
@@ -298,7 +296,7 @@ func TestALateRowThatChangesTheListIsStillDelivered(t *testing.T) {
 	slow := &fakeProvider{spec: Spec{Section: SectionNone}, entries: []Entry{entry("Firefox")}, gate: gate}
 	e := start(t, s, nil, slow)
 	e.SetQuery("fire", 1)
-	waitFor(t, "the query's frame", func() bool { return s.last().QuerySeq == 1 })
+	waittest.Until(t, func() bool { return s.last().QuerySeq == 1 }, "the query's frame")
 	close(gate)
 	until(t, s, "Firefox")
 	if !s.last().Late {

@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
 
 	"github.com/stubbedev/lys/lib/clib"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/lib/xkb/x11"
 )
@@ -78,18 +78,16 @@ func startXvfb(t *testing.T) string {
 	t.Cleanup(func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
+		if t.Failed() {
+			t.Logf("Xvfb: %s", logs.String())
+		}
 	})
 	socket := "/tmp/.X11-unix/X" + strings.TrimPrefix(display, ":")
-	deadline := time.Now().Add(15 * time.Second)
-	for {
-		if _, err := os.Stat(socket); err == nil {
-			return display
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("Xvfb did not start: %s", logs.String())
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	waittest.UntilSlow(t, func() bool {
+		_, err := os.Stat(socket)
+		return err == nil
+	}, "Xvfb to listen on "+socket)
+	return display
 }
 
 func cstr(s string) *byte {

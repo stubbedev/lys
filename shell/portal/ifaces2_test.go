@@ -18,6 +18,7 @@ import (
 	login1 "github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/notifications"
 	"github.com/stubbedev/lys/shell/service/wallpaper"
@@ -96,17 +97,7 @@ const notificationAdd = NotificationIface + ".AddNotification"
 // nextActionInvoked waits for the portal's ActionInvoked.
 func nextActionInvoked(t *testing.T, r *rig) []any {
 	t.Helper()
-	deadline := time.After(2 * time.Second)
-	for {
-		select {
-		case s := <-r.signals:
-			if s.Name == NotificationIface+".ActionInvoked" {
-				return s.Body
-			}
-		case <-deadline:
-			t.Fatal("no ActionInvoked forwarded")
-		}
-	}
+	return nextSignal(t, r.signals, NotificationIface+".ActionInvoked").Body
 }
 
 func TestNotificationShowsAndForwardsActions(t *testing.T) {
@@ -224,19 +215,11 @@ func TestNotificationClosedByTheDaemonIsForgotten(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = d.conn.Emit(notifications.ObjPath, notifications.Interface+".NotificationClosed", uint32(41), uint32(2))
-	deadline := time.Now().Add(2 * time.Second)
-	for {
+	waittest.Until(t, func() bool {
 		r.backend.notifier.mu.Lock()
-		n := len(r.backend.notifier.byDaemon)
-		r.backend.notifier.mu.Unlock()
-		if n == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("a closed notification stayed tracked")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+		defer r.backend.notifier.mu.Unlock()
+		return len(r.backend.notifier.byDaemon) == 0
+	}, "the closed notification to be forgotten")
 	if err := r.obj.Call(NotificationIface+".RemoveNotification", 0, "org.app", "n1").Err; err != nil {
 		t.Fatal(err)
 	}
@@ -599,16 +582,12 @@ func TestInhibitHoldsTheLockUntilClose(t *testing.T) {
 	select {
 	case <-readDone:
 		t.Fatal("the lock was released before Close")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if err := req.Call(RequestIface+".Close", 0).Err; err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-readDone:
-	case <-time.After(time.Second):
-		t.Fatal("Close kept the lock")
-	}
+	waittest.For(t, readDone, "Close to release the lock")
 	if r.idleHeld.Load() != 0 {
 		t.Error("Close kept the shell idle hold")
 	}
@@ -679,17 +658,8 @@ func TestInhibitMonitorFollowsTheLockScreen(t *testing.T) {
 	}
 	next := func() (dbus.ObjectPath, Vardict) {
 		t.Helper()
-		timeout := time.After(2 * time.Second)
-		for {
-			select {
-			case s := <-r.signals:
-				if s.Name == InhibitIface+".StateChanged" {
-					return s.Body[0].(dbus.ObjectPath), s.Body[1].(map[string]dbus.Variant)
-				}
-			case <-timeout:
-				t.Fatal("no StateChanged")
-			}
-		}
+		s := nextSignal(t, r.signals, InhibitIface+".StateChanged")
+		return s.Body[0].(dbus.ObjectPath), s.Body[1].(map[string]dbus.Variant)
 	}
 	var code uint32
 	if err := r.obj.Call(InhibitIface+".CreateMonitor", 0, handle, sessA, "org.app", "").Store(&code); err != nil || code != ResponseSuccess {
@@ -713,11 +683,5 @@ func TestInhibitMonitorFollowsTheLockScreen(t *testing.T) {
 		t.Error("the screensaver watch outlived the last monitor")
 	}
 	r.saver.watcher.Load()(false)
-	select {
-	case s := <-r.signals:
-		if s.Name == InhibitIface+".StateChanged" {
-			t.Errorf("a closed monitor got %v", s.Body)
-		}
-	case <-time.After(150 * time.Millisecond):
-	}
+	noSignal(t, r.signals, func(s *dbus.Signal) bool { return s.Name == InhibitIface+".StateChanged" }, "a closed monitor got StateChanged")
 }

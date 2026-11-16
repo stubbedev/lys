@@ -9,9 +9,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/pam"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakePAM is a scripted libpam: authenticate runs the conversation
@@ -435,22 +435,12 @@ func TestSuccessDoesNotWaitForTheKeyring(t *testing.T) {
 		}
 		events <- ev
 	})
-	var borrowed []byte
-	select {
-	case borrowed = <-entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the hook never ran")
-	}
+	borrowed := waittest.For(t, entered, "the hook to run")
 	if got := string(borrowed); got != "right" {
 		t.Errorf("the hook saw %q", got)
 	}
-	select {
-	case ev := <-events:
-		if ev.Kind != EventSuccess {
-			t.Errorf("event %v, want success while the keyring works", ev.Kind)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no EventSuccess while the keyring is blocked")
+	if ev := waittest.For(t, events, "the login to succeed while the keyring is blocked"); ev.Kind != EventSuccess {
+		t.Errorf("event %v, want success while the keyring works", ev.Kind)
 	}
 	close(release)
 	v.Wait()

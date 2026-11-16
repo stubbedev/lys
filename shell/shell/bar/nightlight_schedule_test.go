@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -96,13 +97,7 @@ func (f *fakeSunset) watchedEnv(t *testing.T) (sunsetEnv, *clockWatch) {
 
 func (w *clockWatch) jump(t *testing.T) func() {
 	t.Helper()
-	select {
-	case jump := <-w.onJump:
-		return jump
-	case <-time.After(5 * time.Second):
-		t.Fatal("the module never watched the clock")
-		return nil
-	}
+	return waittest.For(t, w.onJump, "the module to watch the clock")
 }
 
 func newNightlightWith(ctx ModuleContext, env sunsetEnv) *nightlightModule {
@@ -408,9 +403,9 @@ func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
 			if tc.lookups {
 				<-located
 			} else {
-				time.Sleep(lookupGrace)
+				time.Sleep(quietWindow)
 			}
-			waitForSchedule(t, func() bool { return !tc.running || fake.running })
+			waitHeadless(t, "the filter running when it should", func() bool { return !tc.running || fake.running })
 			headlessLoop.Lock()
 			defer headlessLoop.Unlock()
 			if got := asked.Load() > 0; got != tc.lookups {
@@ -421,25 +416,6 @@ func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
 			}
 		})
 	}
-}
-
-// lookupGrace is how long a lookup that must not happen gets to happen.
-const lookupGrace = 100 * time.Millisecond
-
-// waitForSchedule polls under the headless loop's lock until cond holds.
-func waitForSchedule(t *testing.T, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		headlessLoop.Lock()
-		done := cond()
-		headlessLoop.Unlock()
-		if done {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatal("the schedule did not reach the expected state")
 }
 
 // No location is a defined state: at 01:00 UTC it is night at 0, 0, and
@@ -580,7 +556,7 @@ func TestNightlightShowsABadCoordinatePair(t *testing.T) {
 	m.setChrome(chrome)
 	m.svc.run()
 	t.Cleanup(m.svc.stop)
-	time.Sleep(lookupGrace)
+	time.Sleep(quietWindow)
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
 	if fake.starts != 0 {
@@ -903,19 +879,19 @@ func TestNightlightStepsOnItsTimer(t *testing.T) {
 	fake := &fakeSunset{clock: start.Add(length / 4)}
 	m := newTestNightlight(t, cfg, fake.env(t))
 	m.svc.run()
-	waitForSchedule(t, func() bool { return fake.running })
+	waitHeadless(t, "the filter to run", func() bool { return fake.running })
 	headlessLoop.Lock()
 	fake.clock = start.Add(length / 2)
 	first := fake.applied
 	applied := fake.starts
 	headlessLoop.Unlock()
-	waitForSchedule(t, func() bool { return fake.applied != first && fake.starts > applied })
+	waitHeadless(t, "the next ease step", func() bool { return fake.applied != first && fake.starts > applied })
 	headlessLoop.Lock()
 	m.svc.stop()
 	stopped := fake.starts
 	fake.clock = start.Add(length * 3 / 4)
 	headlessLoop.Unlock()
-	time.Sleep(fakeEaseStep + 100*time.Millisecond)
+	time.Sleep(fakeEaseStep + quietWindow)
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
 	if fake.starts != stopped {
@@ -937,13 +913,13 @@ func TestNightlightCatchesUpOnAClockJump(t *testing.T) {
 	m.svc.run()
 	t.Cleanup(m.svc.stop)
 	jump := watch.jump(t)
-	waitForSchedule(t, func() bool { return m.svc.timer != nil })
+	waitHeadless(t, "the schedule's timer", func() bool { return m.svc.timer != nil })
 
 	headlessLoop.Lock()
 	fake.clock = sunsetNight.Add(24 * time.Hour)
 	headlessLoop.Unlock()
 	jump()
-	waitForSchedule(t, func() bool { return fake.running })
+	waitHeadless(t, "the filter to run", func() bool { return fake.running })
 	headlessLoop.Lock()
 	if fake.applied != night || fake.starts != 1 {
 		t.Errorf("after waking at night: applied %+v in %d applies, want %+v in one", fake.applied, fake.starts, night)
@@ -951,7 +927,7 @@ func TestNightlightCatchesUpOnAClockJump(t *testing.T) {
 	fake.clock = sunsetDay.Add(24 * time.Hour)
 	headlessLoop.Unlock()
 	jump()
-	waitForSchedule(t, func() bool { return !fake.running })
+	waitHeadless(t, "the filter to stop", func() bool { return !fake.running })
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
 	if fake.stops != 1 || fake.starts != 1 {
@@ -969,13 +945,13 @@ func TestNightlightWakesIntoAnEase(t *testing.T) {
 	m.svc.run()
 	t.Cleanup(m.svc.stop)
 	jump := watch.jump(t)
-	waitForSchedule(t, func() bool { return m.svc.timer != nil })
+	waitHeadless(t, "the schedule's timer", func() bool { return m.svc.timer != nil })
 	headlessLoop.Lock()
 	fake.clock = start.Add(length / 2)
 	want := nightlight.TargetAt(fake.clock, mustLocation(t, 55.6, 12.5), cfg.Nightlight.TransitionDuration.Transition(), m.svc.night).Setting
 	headlessLoop.Unlock()
 	jump()
-	waitForSchedule(t, func() bool { return fake.running })
+	waitHeadless(t, "the filter to run", func() bool { return fake.running })
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
 	if fake.applied != want {
@@ -994,13 +970,13 @@ func TestNightlightClockJumpKeepsAToggleInItsPhase(t *testing.T) {
 	m.svc.run()
 	t.Cleanup(m.svc.stop)
 	jump := watch.jump(t)
-	waitForSchedule(t, func() bool { return m.svc.timer != nil })
+	waitHeadless(t, "the schedule's timer", func() bool { return m.svc.timer != nil })
 	headlessLoop.Lock()
 	m.svc.toggle()
 	fake.clock = sunsetDay.Add(time.Hour)
 	headlessLoop.Unlock()
 	jump()
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
 	if !fake.running || !m.svc.manualOverride {
@@ -1016,11 +992,7 @@ func TestNightlightClockWatchLivesWithTheSchedule(t *testing.T) {
 	m.svc.run()
 	watch.jump(t)
 	m.svc.stop()
-	select {
-	case <-watch.ended:
-	case <-time.After(5 * time.Second):
-		t.Error("Stop left the clock watch running")
-	}
+	waittest.For(t, watch.ended, "Stop to end the clock watch")
 
 	off := &fakeSunset{clock: sunsetDay}
 	offEnv, offWatch := off.watchedEnv(t)
@@ -1030,7 +1002,7 @@ func TestNightlightClockWatchLivesWithTheSchedule(t *testing.T) {
 	select {
 	case <-offWatch.onJump:
 		t.Error("the schedule is off and the module watches the clock")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -1044,14 +1016,8 @@ func TestNightlightWithoutAClockWatchStillSchedulesAndSaysSo(t *testing.T) {
 	m := newTestNightlight(t, sunsetConfig(true), env)
 	m.svc.run()
 	t.Cleanup(m.svc.stop)
-	waitForSchedule(t, func() bool { return fake.running && m.svc.timer != nil })
-	deadline := time.Now().Add(5 * time.Second)
-	for !strings.Contains(logged.String(), "timerfd refused") {
-		if time.Now().After(deadline) {
-			t.Fatalf("log = %q, want the refusal", logged.String())
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waitHeadless(t, "the filter to run on its timer", func() bool { return fake.running && m.svc.timer != nil })
+	waittest.Until(t, func() bool { return strings.Contains(logged.String(), "timerfd refused") }, "the refusal in the log")
 }
 
 // lockedLog is a log sink a test can read while goroutines write to it.
@@ -1067,13 +1033,8 @@ func TestNightlightLiveEnvWatchesTheClock(t *testing.T) {
 	go func() { done <- env.clockJumps(ctx, func() {}) }()
 	time.Sleep(50 * time.Millisecond)
 	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Errorf("clockJumps = %v, want nil", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the live clock watch outlived its context")
+	if err := waittest.For(t, done, "the live clock watch to end with its context"); err != nil {
+		t.Errorf("clockJumps = %v, want nil", err)
 	}
 }
 

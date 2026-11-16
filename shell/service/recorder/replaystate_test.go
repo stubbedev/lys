@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/recorder"
 	"github.com/stubbedev/lys/shell/service/recorder/recordertest"
@@ -18,7 +19,7 @@ import (
 
 func armedReplay(t *testing.T, engine *recordertest.Engine, s *recorder.State) *recordertest.Replay {
 	t.Helper()
-	waitFor(t, "the replay armed", func() bool { return s.Snapshot().Replay == recorder.ReplayArmed })
+	waittest.Until(t, func() bool { return s.Snapshot().Replay == recorder.ReplayArmed }, "the replay armed")
 	replays := engine.Replays()
 	if len(replays) != 1 {
 		t.Fatalf("%d replays started, want 1", len(replays))
@@ -110,7 +111,7 @@ func TestReplaySaveWhileOneIsWritingFails(t *testing.T) {
 		_, err := s.SaveReplay()
 		first <- err
 	}()
-	waitFor(t, "the first save writing", func() bool { return s.Snapshot().ReplaySaving })
+	waittest.Until(t, func() bool { return s.Snapshot().ReplaySaving }, "the first save writing")
 	second := make(chan error, 1)
 	go func() {
 		_, err := s.SaveReplay()
@@ -150,9 +151,9 @@ func TestReplayFromTheCLIBesideARecording(t *testing.T) {
 		t.Errorf("opened %v, want DP-2 once", got)
 	}
 	s.Start()
-	waitFor(t, "recording", func() bool { return s.Snapshot().Active })
+	waittest.Until(t, func() bool { return s.Snapshot().Active }, "the state to be recording")
 	s.Stop()
-	waitFor(t, "idle", func() bool { return s.Snapshot().Status == recorder.StatusIdle })
+	waittest.Until(t, func() bool { return s.Snapshot().Status == recorder.StatusIdle }, "the state to be idle")
 	if rp.Stops() != 0 || s.Snapshot().Replay != recorder.ReplayArmed {
 		t.Errorf("the recording stopped the replay: %d stops", rp.Stops())
 	}
@@ -169,7 +170,7 @@ func TestReplayFailuresAreReported(t *testing.T) {
 	engine := &recordertest.Engine{OpenErr: errors.New("recorder: the output is gone: DP-9")}
 	s, log := newState(t, engine, nil)
 	s.StartReplay()
-	waitFor(t, "the failure report", func() bool { toasts, _ := log.snapshot(); return len(toasts) > 0 })
+	waittest.Until(t, func() bool { toasts, _ := log.snapshot(); return len(toasts) > 0 }, "the failure report")
 	if snap := s.Snapshot(); snap.Replay != recorder.ReplayOff {
 		t.Errorf("after a failed open = %+v", snap)
 	}
@@ -189,7 +190,7 @@ func TestReplayFailuresAreReported(t *testing.T) {
 		t.Error("a failed save disarmed the replay")
 	}
 	rp.Fail("recorder: the output is gone: DP-1")
-	waitFor(t, "off", func() bool { return s.Snapshot().Replay == recorder.ReplayOff })
+	waittest.Until(t, func() bool { return s.Snapshot().Replay == recorder.ReplayOff }, "the replay to be off")
 	if rp.Stops() != 1 || engine.Sessions()[0].Closed() != 1 {
 		t.Errorf("stops %d, closes %d after the capture died", rp.Stops(), engine.Sessions()[0].Closed())
 	}
@@ -217,7 +218,7 @@ func TestSessionCloseFailureOfTheReplayIsReported(t *testing.T) {
 	engine := &recordertest.Engine{StartErr: startErr, CloseErr: closeErr}
 	s, log := newState(t, engine, nil)
 	s.StartReplay()
-	waitFor(t, "the failure report", func() bool { toasts, _ := log.snapshot(); return len(toasts) > 0 })
+	waittest.Until(t, func() bool { toasts, _ := log.snapshot(); return len(toasts) > 0 }, "the failure report")
 	if toasts, _ := log.snapshot(); !strings.Contains(toasts[0], startErr.Error()) || !strings.Contains(toasts[0], closeErr.Error()) {
 		t.Errorf("toasts %q, want both the start and the close error", toasts)
 	}
@@ -257,7 +258,7 @@ func holdASave(t *testing.T) (s *recorder.State, engine *recordertest.Engine, rp
 		}
 		done <- err
 	}()
-	waitFor(t, "the save writing", func() bool { return s.Snapshot().ReplaySaving })
+	waittest.Until(t, func() bool { return s.Snapshot().ReplaySaving }, "the save writing")
 	return s, engine, rp, release, done
 }
 
@@ -271,7 +272,7 @@ func TestReplayStopWaitsForTheSaveWritingIt(t *testing.T) {
 		s.StopReplay()
 		close(stopped)
 	}()
-	waitFor(t, "the replay off", func() bool { return s.Snapshot().Replay == recorder.ReplayOff })
+	waittest.Until(t, func() bool { return s.Snapshot().Replay == recorder.ReplayOff }, "the replay off")
 	if rp.Stops() != 0 || engine.Sessions()[0].Closed() != 0 {
 		t.Fatalf("stops %d, session closes %d while the save still writes", rp.Stops(), engine.Sessions()[0].Closed())
 	}
@@ -294,7 +295,7 @@ func TestReplayCaptureDeathWaitsForTheSaveWritingIt(t *testing.T) {
 		rp.Fail("recorder: the output is gone: DP-1")
 		close(torndown)
 	}()
-	waitFor(t, "the replay off", func() bool { return s.Snapshot().Replay == recorder.ReplayOff })
+	waittest.Until(t, func() bool { return s.Snapshot().Replay == recorder.ReplayOff }, "the replay off")
 	if rp.Stops() != 0 || engine.Sessions()[0].Closed() != 0 {
 		t.Fatalf("stops %d, session closes %d while the save still writes", rp.Stops(), engine.Sessions()[0].Closed())
 	}
@@ -317,11 +318,11 @@ func TestReplayStopDoesNotWaitForASaveOfAnotherReplay(t *testing.T) {
 		s.StopReplay()
 		close(firstStopped)
 	}()
-	waitFor(t, "the first replay off", func() bool { return s.Snapshot().Replay == recorder.ReplayOff })
+	waittest.Until(t, func() bool { return s.Snapshot().Replay == recorder.ReplayOff }, "the first replay off")
 	s.StartReplay()
-	waitFor(t, "the second replay armed", func() bool {
+	waittest.Until(t, func() bool {
 		return len(engine.Replays()) == 2 && s.Snapshot().Replay == recorder.ReplayArmed
-	})
+	}, "the second replay armed")
 	second := engine.Replays()[1]
 	s.StopReplay()
 	if second.Stops() != 1 || engine.Sessions()[1].Closed() != 1 {

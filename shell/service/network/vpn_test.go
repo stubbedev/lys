@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/network/openconnect"
 	"github.com/stubbedev/lys/shell/service/network/secrets"
@@ -62,10 +63,10 @@ func (fx *serviceFixture) row(t *testing.T, uuid string) VPN {
 
 func (fx *serviceFixture) waitRow(t *testing.T, uuid, what string, cond func(VPN) bool) {
 	t.Helper()
-	waitFor(t, what, func() bool {
+	waittest.Until(t, func() bool {
 		row, ok := fx.svc.VPN.Get(uuid)
 		return ok && cond(row)
-	})
+	}, what)
 }
 
 func (fx *serviceFixture) activations() []dbus.ObjectPath {
@@ -77,7 +78,7 @@ func (fx *serviceFixture) activations() []dbus.ObjectPath {
 func (fx *serviceFixture) activeFor(t *testing.T, uuid string) dbus.ObjectPath {
 	t.Helper()
 	var path dbus.ObjectPath
-	waitFor(t, "an active connection for "+uuid, func() bool {
+	waittest.Until(t, func() bool {
 		fx.nm.mu.Lock()
 		defer fx.nm.mu.Unlock()
 		for p, a := range fx.nm.active {
@@ -87,7 +88,7 @@ func (fx *serviceFixture) activeFor(t *testing.T, uuid string) dbus.ObjectPath {
 			}
 		}
 		return false
-	})
+	}, "an active connection for "+uuid)
 	return path
 }
 
@@ -118,10 +119,10 @@ func TestTheVPNListIsWhateverNetworkManagerHolds(t *testing.T) {
 	}
 
 	added := fx.nm.addProfile(formVPNConnection("office"))
-	waitFor(t, "the new profile", func() bool { _, ok := fx.svc.VPN.Get("office"); return ok })
+	waittest.Until(t, func() bool { _, ok := fx.svc.VPN.Get("office"); return ok }, "the new profile")
 
 	fx.nm.removeProfile(added)
-	waitFor(t, "the removed profile to go", func() bool { _, ok := fx.svc.VPN.Get("office"); return !ok })
+	waittest.Until(t, func() bool { _, ok := fx.svc.VPN.Get("office"); return !ok }, "the removed profile to go")
 	if fx.svc.VPN.IsEmpty() {
 		t.Error("the list emptied with two VPNs left")
 	}
@@ -187,7 +188,7 @@ func TestOnlyNetworkManagerMovesARow(t *testing.T) {
 		return fx.svc.VPN.watched[active] != nil
 	})
 	must(t, fx.nm.client().Emit(active, activeIface+".StateChanged", uint32(ActiveActivated), uint32(ReasonNone)))
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if row := fx.row(t, "work"); row.State != VPNConnecting {
 		t.Fatalf("state = %v after another connection said it activated, want connecting", row.State)
 	}
@@ -207,7 +208,7 @@ func TestAFailedAttemptKeepsItsReason(t *testing.T) {
 	fx.nm.setActiveState(active, ActiveDeactivated, ReasonLoginFailed)
 	fx.nm.dropActive(active)
 	fx.waitRow(t, "work", "the failure", func(r VPN) bool { return r.State == VPNFailed })
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if row := fx.row(t, "work"); row.State != VPNFailed || row.Detail != "authentication failed" {
 		t.Errorf("row = %+v; the active list emptying must not wipe the reason", row)
 	}
@@ -232,7 +233,7 @@ func TestTheGatewaysOwnReasonOutranksNetworkManagersGenericOne(t *testing.T) {
 		return fx.svc.VPN.watched[active] != nil
 	})
 	fx.nm.setActiveState(active, ActiveDeactivated, ReasonNoSecrets)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if row := fx.row(t, "work"); row.Detail != "Invalid username or password" || row.State != VPNFailed {
 		t.Errorf("row = %+v; NM's generic caption replaced the gateway's", row)
 	}
@@ -289,7 +290,7 @@ func TestAnUnrelatedProfileChangeLeavesAConnectedRowAlone(t *testing.T) {
 	fx.nm.setActiveState(active, ActiveActivated, ReasonNone)
 	fx.waitRow(t, "work", "connected", func(r VPN) bool { return r.State == VPNConnected })
 	fx.nm.addProfile(wifiConnection("cafe", "Cafe", []byte("cafe")))
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if row := fx.row(t, "work"); row.State != VPNConnected {
 		t.Errorf("row = %+v after a wifi profile was added", row)
 	}
@@ -312,7 +313,7 @@ func currentUser(t *testing.T) string {
 func (fx *serviceFixture) lastAdded(t *testing.T) ConnectionDict {
 	t.Helper()
 	var dict ConnectionDict
-	waitFor(t, "an AddConnection", func() bool {
+	waittest.Until(t, func() bool {
 		fx.nm.mu.Lock()
 		defer fx.nm.mu.Unlock()
 		if len(fx.nm.added) == 0 {
@@ -320,7 +321,7 @@ func (fx *serviceFixture) lastAdded(t *testing.T) ConnectionDict {
 		}
 		dict = fx.nm.added[len(fx.nm.added)-1]
 		return true
-	})
+	}, "an AddConnection")
 	return dict
 }
 
@@ -353,7 +354,7 @@ func TestAWireGuardProfileMadeHereIsItsUsersOwn(t *testing.T) {
 		t.Errorf("stored reads back as %q %v", KindOf(stored), ReadProfileValues(stored))
 	}
 	must(t, fx.svc.VPN.Remove(t.Context(), uuid))
-	waitFor(t, "the deleted profile to go", func() bool { _, ok := fx.svc.VPN.Get(uuid); return !ok })
+	waittest.Until(t, func() bool { _, ok := fx.svc.VPN.Get(uuid); return !ok }, "the deleted profile to go")
 	if !slices.Equal(fx.signIn.Forgotten(), []string{uuid}) {
 		t.Errorf("forgotten = %v; a deleted profile's cache must go with it", fx.signIn.Forgotten())
 	}
@@ -448,12 +449,12 @@ func TestATunnelUpAtSuspendIsBroughtBackUnattendedOnWake(t *testing.T) {
 	fx.nm.dropActive(up)
 	fx.nm.setState(StateConnectedLocal)
 	fx.sleep(t, false)
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if len(fx.activations()) != 0 {
 		t.Fatal("restored before the network had a default route")
 	}
 	fx.nm.setState(StateConnectedGlobal)
-	waitFor(t, "the restore", func() bool { return len(fx.activations()) == 1 })
+	waittest.Until(t, func() bool { return len(fx.activations()) == 1 }, "the restore")
 	if got := fx.activations(); got[0] != settingPath(1) {
 		t.Errorf("restored %v; only the tunnel that was up", got)
 	}
@@ -469,7 +470,7 @@ func TestATunnelThatWasDownIsNotDialledOnWake(t *testing.T) {
 	fx.sleep(t, true)
 	time.Sleep(100 * time.Millisecond)
 	fx.sleep(t, false)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := fx.activations(); len(got) != 0 {
 		t.Errorf("activations = %v", got)
 	}
@@ -488,8 +489,8 @@ func TestTunnelsNetworkManagerTookWithItComeBackAndTurnedOffOnesStayOff(t *testi
 	fx.nm.stop()
 	fx.waitRow(t, "work", "down with NM", func(r VPN) bool { return r.State == VPNDisconnected })
 	fx.nm.own()
-	waitFor(t, "the restore", func() bool { return len(fx.activations()) == 1 })
-	time.Sleep(100 * time.Millisecond)
+	waittest.Until(t, func() bool { return len(fx.activations()) == 1 }, "the restore")
+	time.Sleep(quietWindow)
 	if got := fx.activations(); !slices.Equal(got, []dbus.ObjectPath{settingPath(1)}) {
 		t.Errorf("activations = %v; only the tunnel NM took", got)
 	}
@@ -507,8 +508,8 @@ func TestATunnelWhoseStateASweepCouldNotReadIsBroughtBackAfterAnNMRestart(t *tes
 
 	fx.nm.stop()
 	fx.nm.own()
-	waitFor(t, "the restore", func() bool { return len(fx.activations()) == 1 })
-	time.Sleep(100 * time.Millisecond)
+	waittest.Until(t, func() bool { return len(fx.activations()) == 1 }, "the restore")
+	time.Sleep(quietWindow)
 	if got := fx.activations(); !slices.Equal(got, []dbus.ObjectPath{settingPath(1)}) {
 		t.Errorf("activations = %v; only the tunnel that was up, not the one that never was", got)
 	}
@@ -543,8 +544,8 @@ func TestATunnelASweepSawGoingDownIsBroughtBackAfterAnNMRestart(t *testing.T) {
 
 	fx.nm.stop()
 	fx.nm.own()
-	waitFor(t, "the restore", func() bool { return len(fx.activations()) == 1 })
-	time.Sleep(100 * time.Millisecond)
+	waittest.Until(t, func() bool { return len(fx.activations()) == 1 }, "the restore")
+	time.Sleep(quietWindow)
 	if got := fx.activations(); !slices.Equal(got, []dbus.ObjectPath{settingPath(1)}) {
 		t.Errorf("activations = %v; only the tunnel NM took, not the one turned off", got)
 	}

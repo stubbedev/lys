@@ -8,7 +8,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeProc writes a minimal procfs tree and repoints ProcRoot at it.
@@ -240,13 +241,8 @@ func TestCPUTemperatureReadsOnlyTheMatchedInput(t *testing.T) {
 		temp, ok := CPUTemperature("auto")
 		got <- result{temp, ok}
 	}()
-	select {
-	case r := <-got:
-		if !r.ok || r.temp != 61 {
-			t.Errorf("auto = %v %v, want the second Package id 0 input's 61", r.temp, r.ok)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("CPUTemperature opened the unmatched nvme input")
+	if r := waittest.For(t, got, "CPUTemperature to skip the unmatched nvme input"); !r.ok || r.temp != 61 {
+		t.Errorf("auto = %v %v, want the second Package id 0 input's 61", r.temp, r.ok)
 	}
 
 	fakeSys(t, map[string]string{

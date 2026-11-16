@@ -11,13 +11,12 @@ import (
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/polkit/polkittest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/polkit/internal/polkit"
 	"github.com/stubbedev/lys/polkit/internal/tracker"
 	"github.com/stubbedev/lys/polkit/retained"
 )
-
-const timeout = 5 * time.Second
 
 var epoch = time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 
@@ -129,13 +128,8 @@ func start(t *testing.T) *env {
 	t.Cleanup(func() {
 		cancel()
 		wg.Wait()
-		select {
-		case err := <-served:
-			if err != nil {
-				t.Errorf("Serve: %v", err)
-			}
-		case <-time.After(timeout):
-			t.Error("Serve did not return within " + timeout.String())
+		if err := waittest.For(t, served, "Serve to return"); err != nil {
+			t.Errorf("Serve: %v", err)
 		}
 	})
 	return e
@@ -143,24 +137,12 @@ func start(t *testing.T) *env {
 
 func (e *env) next() []retained.Authorization {
 	e.t.Helper()
-	select {
-	case list := <-e.published:
-		return list
-	case <-time.After(timeout):
-		e.t.Fatal("nothing published within " + timeout.String())
-		return nil
-	}
+	return waittest.For(e.t, e.published, "a published list")
 }
 
 func (e *env) armed() time.Duration {
 	e.t.Helper()
-	select {
-	case d := <-e.clock.armed:
-		return d
-	case <-time.After(timeout):
-		e.t.Fatal("no timer armed within " + timeout.String())
-		return 0
-	}
+	return waittest.For(e.t, e.clock.armed, "a timer to be armed")
 }
 
 func (e *env) keep(id string, obtained, expires time.Time) libpolkit.TemporaryAuthorization {
@@ -309,20 +291,14 @@ func TestRevokeForwardsToPolkitd(t *testing.T) {
 
 func changed(t *testing.T, signals <-chan *dbus.Signal) []retained.Authorization {
 	t.Helper()
-	deadline := time.After(timeout)
 	for {
-		select {
-		case sig := <-signals:
-			list, ok, err := retained.Changed(sig)
-			if err != nil {
-				t.Fatalf("decode %s: %v", sig.Name, err)
-			}
-			if ok {
-				return list
-			}
-		case <-deadline:
-			t.Fatal("no PropertiesChanged within " + timeout.String())
-			return nil
+		sig := waittest.For(t, signals, "a PropertiesChanged")
+		list, ok, err := retained.Changed(sig)
+		if err != nil {
+			t.Fatalf("decode %s: %v", sig.Name, err)
+		}
+		if ok {
+			return list
 		}
 	}
 }

@@ -14,13 +14,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/power/autobrightness"
 	"github.com/stubbedev/lys/power/internal/ambient"
 )
 
 const (
-	hang     = 5 * time.Second
 	interval = time.Minute
 	stepGap  = 100 * time.Millisecond
 	steps    = 4
@@ -69,9 +69,23 @@ func (l *light) Sample(ctx context.Context) (ambient.Lux, error) {
 	select {
 	case r := <-l.readings:
 		return r.lux, r.err
-	case <-time.After(hang):
-		return 0, errors.New("the test gave no reading")
+	case <-ctx.Done():
+		return 0, ctx.Err()
 	}
+}
+
+func deliver[T any](t *testing.T, ch chan<- T, v T, what string) {
+	t.Helper()
+	ctx := t.Context()
+	sent := make(chan struct{})
+	go func() {
+		select {
+		case ch <- v:
+			close(sent)
+		case <-ctx.Done():
+		}
+	}()
+	waittest.For(t, sent, what)
 }
 
 type fakeBacklight struct {
@@ -243,13 +257,8 @@ func start(t *testing.T, names ...string) *harness {
 	go func() { h.done <- h.daemon.Run(ctx, h.pub) }()
 	t.Cleanup(func() {
 		cancel()
-		select {
-		case err := <-h.done:
-			if err != nil {
-				t.Errorf("the daemon stopped with %v", err)
-			}
-		case <-time.After(hang):
-			t.Error("the daemon did not stop")
+		if err := waittest.For(t, h.done, "the daemon to stop"); err != nil {
+			t.Errorf("the daemon stopped with %v", err)
 		}
 	})
 	return h
@@ -257,31 +266,17 @@ func start(t *testing.T, names ...string) *harness {
 
 func (h *harness) read(lux ambient.Lux) {
 	h.t.Helper()
-	select {
-	case h.light.readings <- reading{lux: lux}:
-	case <-time.After(hang):
-		h.t.Fatal("the daemon took no sample")
-	}
+	deliver(h.t, h.light.readings, reading{lux: lux}, "the daemon to take a sample")
 }
 
 func (h *harness) readErr(err error) {
 	h.t.Helper()
-	select {
-	case h.light.readings <- reading{err: err}:
-	case <-time.After(hang):
-		h.t.Fatal("the daemon took no sample")
-	}
+	deliver(h.t, h.light.readings, reading{err: err}, "the daemon to take a sample")
 }
 
 func (h *harness) armed() chan time.Time {
 	h.t.Helper()
-	select {
-	case ch := <-h.clock.samples:
-		return ch
-	case <-time.After(hang):
-		h.t.Fatal("the daemon armed no next sample")
-	}
-	return nil
+	return waittest.For(h.t, h.clock.samples, "the daemon to arm the next sample")
 }
 
 func (h *harness) tick(next chan time.Time) chan time.Time {
@@ -313,19 +308,9 @@ func (h *harness) transition(devices int) []float64 {
 	h.t.Helper()
 	var levels []float64
 	for range steps {
-		select {
-		case ch := <-h.clock.steps:
-			ch <- h.clock.now
-		case <-time.After(hang):
-			h.t.Fatalf("the transition stopped after %v", levels)
-		}
+		waittest.For(h.t, h.clock.steps, "the next step of the transition") <- h.clock.now
 		for range devices {
-			select {
-			case p := <-h.back.writes:
-				levels = append(levels, p)
-			case <-time.After(hang):
-				h.t.Fatalf("a step wrote nothing after %v", levels)
-			}
+			levels = append(levels, waittest.For(h.t, h.back.writes, "a step to write the backlight"))
 		}
 	}
 	return levels
@@ -334,23 +319,14 @@ func (h *harness) transition(devices int) []float64 {
 func (h *harness) changed() {
 	h.t.Helper()
 	for range 2 {
-		select {
-		case h.back.ticks <- struct{}{}:
-		case <-time.After(hang):
-			h.t.Fatal("the daemon does not watch the backlight")
-		}
+		deliver(h.t, h.back.ticks, struct{}{}, "the daemon to watch the backlight")
 	}
 }
 
 func (h *harness) published(want autobrightness.State) {
 	h.t.Helper()
-	select {
-	case got := <-h.pub.states:
-		if got != want {
-			h.t.Fatalf("published %v, want %v", got, want)
-		}
-	case <-time.After(hang):
-		h.t.Fatalf("published nothing, want %v", want)
+	if got := waittest.For(h.t, h.pub.states, "the daemon to publish "+want.String()); got != want {
+		h.t.Fatalf("published %v, want %v", got, want)
 	}
 }
 
@@ -373,9 +349,9 @@ func (h *harness) quiet() {
 
 func (h *harness) resume() {
 	h.t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), hang)
-	defer cancel()
-	if err := h.daemon.Resume(ctx); err != nil {
+	done := make(chan error, 1)
+	go func() { done <- h.daemon.Resume(h.t.Context()) }()
+	if err := waittest.For(h.t, done, "Resume to return"); err != nil {
 		h.t.Fatal(err)
 	}
 }
@@ -559,14 +535,8 @@ func TestAFailingLightStopsTheDaemon(t *testing.T) {
 	h := start(t)
 	fail := errors.New("the sensor went away")
 	h.readErr(fail)
-	select {
-	case err := <-h.done:
-		if !errors.Is(err, fail) {
-			t.Errorf("the daemon stopped with %v, want %v", err, fail)
-		}
-		h.done <- nil
-	case <-time.After(hang):
-		t.Fatal("the daemon went on without its light")
+	if err := h.stopped(); !errors.Is(err, fail) {
+		t.Errorf("the daemon stopped with %v, want %v", err, fail)
 	}
 }
 
@@ -590,14 +560,9 @@ func TestNoBacklightIsAnError(t *testing.T) {
 
 func (h *harness) stopped() error {
 	h.t.Helper()
-	select {
-	case err := <-h.done:
-		h.done <- nil
-		return err
-	case <-time.After(hang):
-		h.t.Fatal("the daemon went on")
-	}
-	return nil
+	err := waittest.For(h.t, h.done, "the daemon to stop")
+	h.done <- nil
+	return err
 }
 
 func TestTheSameDisplaySessionKeepsFollowing(t *testing.T) {

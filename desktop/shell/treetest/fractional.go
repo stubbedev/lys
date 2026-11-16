@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -42,18 +42,10 @@ func FractionalFirstPaint(t *testing.T, num int, makeIcon func(post func(func())
 	icon := makeIcon(func(fn func()) { posted <- fn })
 	root.Append(icon, false)
 	root.Arrange(render.Rect{W: 16, H: 16})
-	path := ""
-	for deadline := time.After(Liveness); path == ""; {
-		select {
-		case fn := <-posted:
-			fn()
-			if strings.HasSuffix(icon.Name(), ".svg") {
-				path = icon.Name()
-			}
-		case <-deadline:
-			t.Fatal("the icon never showed its file")
-		}
+	for !strings.HasSuffix(icon.Name(), ".svg") {
+		waittest.ForSlow(t, posted, "the icon to show its file")()
 	}
+	path := icon.Name()
 	if !widget.ThemeIconPreloaded(path, 16, num, 120) {
 		t.Fatal("the icon shows before it is decoded at its tree's scale: the first paint would decode on the loop")
 	}

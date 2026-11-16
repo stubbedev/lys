@@ -2,6 +2,7 @@ package portal
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"slices"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/lib/pipewire"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
@@ -103,23 +105,13 @@ func (f *fakeSession) Close() error {
 // filed it.
 func (f *fakeSession) land(t *testing.T, s *windowGPUSource, err error) {
 	t.Helper()
-	select {
-	case <-f.started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no copy started")
-	}
+	waittest.For(t, f.started, "a copy to start")
 	f.results <- err
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
-		idle := s.inflight == nil
-		s.mu.Unlock()
-		if idle {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the copy was never filed")
-		}
-	}
+		defer s.mu.Unlock()
+		return s.inflight == nil
+	}, "the copy to be filed")
 }
 
 func windowShm() *snapshotSource {
@@ -376,11 +368,7 @@ func TestWindowSourceRestartsItsSessionForNewBuffers(t *testing.T) {
 	if opened != 2 || closes != 1 {
 		t.Fatalf("after the restart: opened %d, closed %d", opened, closes)
 	}
-	for deadline := time.Now().Add(5 * time.Second); open(fd); time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("the copy on the old session was not woken to free its buffer")
-		}
-	}
+	waittest.Until(t, func() bool { return !open(fd) }, "the copy on the old session to free its buffer")
 	b, err := src.AllocDmabuf()
 	if err != nil {
 		t.Fatal(err)
@@ -454,11 +442,7 @@ func TestWindowSourceRefreshesAStillWindow(t *testing.T) {
 	defer a.Release()
 	src.FillDmabuf(a)
 	<-sess.started
-	select {
-	case <-sess.started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the copy was not restarted for the refresh")
-	}
+	waittest.For(t, sess.started, "the copy to restart for the refresh")
 	src.mu.Lock()
 	src.refresh = time.Hour
 	src.mu.Unlock()
@@ -477,14 +461,10 @@ func TestWindowSourceRefreshesAStillWindow(t *testing.T) {
 		}
 	}
 	sess.results <- nil
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
-		if _, ok := src.FillDmabuf(a); ok {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the refreshed frame did not go out")
-		}
-	}
+	waittest.Until(t, func() bool {
+		_, ok := src.FillDmabuf(a)
+		return ok
+	}, "the refreshed frame to go out")
 }
 
 // An ended copy wakes the producer, whatever its outcome, for the next fill
@@ -508,11 +488,7 @@ func TestWindowSourceWakesTheProducerWhenACopyEnds(t *testing.T) {
 	}
 	for _, outcome := range []error{nil, errors.New("copy refused")} {
 		sess.land(t, src, outcome)
-		select {
-		case <-woken:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("no wake after a copy ended with %v", outcome)
-		}
+		waittest.For(t, woken, fmt.Sprintf("a wake after a copy ended with %v", outcome))
 		src.FillDmabuf(a)
 		src.FillDmabuf(a)
 	}
@@ -758,13 +734,8 @@ func TestClosingTheRequestDuringTheClickToPickCancelsIt(t *testing.T) {
 	if err := r.client.Object(BusName, handle).Call(RequestIface+".Close", 0).Err; err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case code := <-done:
-		if code != ResponseCancelled {
-			t.Errorf("Start = %d after Close, want cancelled", code)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("Close did not end the click-to-pick")
+	if code := waittest.For(t, done, "Close to end the click-to-pick"); code != ResponseCancelled {
+		t.Errorf("Start = %d after Close, want cancelled", code)
 	}
 	if got := p.dismissed.Load(); !slices.Equal(got, []string{string(handle)}) {
 		t.Errorf("dismissed %v, want the request's handle", got)

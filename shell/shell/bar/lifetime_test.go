@@ -3,6 +3,8 @@ package bar
 import (
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // A module's followed subscription delivers until its generation
@@ -16,22 +18,14 @@ func TestRetiringAGenerationEndsItsModules(t *testing.T) {
 	follow(ctx, ticks, func() { close(stopped) }, func(struct{}) { got <- struct{}{} })
 
 	ticks <- struct{}{}
-	select {
-	case <-got:
-	case <-time.After(time.Second):
-		t.Fatal("a live generation did not deliver")
-	}
+	waittest.For(t, got, "a live generation to deliver")
 	if err := ctx.Life().Err(); err != nil {
 		t.Fatalf("Life ended before retire: %v", err)
 	}
 
 	gen.retire()
 	gen.retire() // idempotent
-	select {
-	case <-stopped:
-	case <-time.After(time.Second):
-		t.Fatal("retire did not unsubscribe the followed feed")
-	}
+	waittest.For(t, stopped, "retire to unsubscribe the followed feed")
 	if ctx.Life().Err() == nil {
 		t.Error("Life outlived its generation")
 	}
@@ -39,7 +33,7 @@ func TestRetiringAGenerationEndsItsModules(t *testing.T) {
 	select {
 	case <-got:
 		t.Error("a retired generation still delivered")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -50,11 +44,7 @@ func TestFollowEndsWithItsFeed(t *testing.T) {
 	stopped := make(chan struct{})
 	follow(ctx, ticks, func() { close(stopped) }, func(struct{}) {})
 	close(ticks)
-	select {
-	case <-stopped:
-	case <-time.After(time.Second):
-		t.Fatal("a closed feed did not end the follow")
-	}
+	waittest.For(t, stopped, "a closed feed to end the follow")
 	ctx.gen.waitWork()
 	if ctx.Life().Err() != nil {
 		t.Error("the follow's end ended its generation")

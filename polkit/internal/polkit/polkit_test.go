@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logind"
@@ -13,11 +12,10 @@ import (
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/polkit/polkittest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/polkit/internal/polkit"
 )
-
-const eventTimeout = 5 * time.Second
 
 type agent struct{}
 
@@ -29,13 +27,7 @@ func (agent) CancelAuthentication(string) *dbus.Error { return nil }
 
 func next(t *testing.T, a *polkittest.Authority) polkittest.Event {
 	t.Helper()
-	select {
-	case e := <-a.Events:
-		return e
-	case <-time.After(eventTimeout):
-		t.Fatal("no registration change within " + eventTimeout.String())
-		return polkittest.Event{}
-	}
+	return waittest.For(t, a.Events, "a registration change")
 }
 
 type served struct {
@@ -54,13 +46,7 @@ func serve(t *testing.T, conn *dbus.Conn, r polkit.Registration) served {
 
 func (s served) wait(t *testing.T) error {
 	t.Helper()
-	select {
-	case err := <-s.done:
-		return err
-	case <-time.After(eventTimeout):
-		t.Fatal("Serve did not return within " + eventTimeout.String())
-		return nil
-	}
+	return waittest.For(t, s.done, "Serve to return")
 }
 
 func TestServeRegistersTheResolvedSession(t *testing.T) {
@@ -217,16 +203,8 @@ func TestServeReportsRegistrationsAndChanges(t *testing.T) {
 	go func() {
 		done <- polkit.Serve(ctx, conn, polkit.Registration{Subject: libpolkit.UnixSession{ID: "c2"}, Locale: "C"}, agent{}, func() { changes <- struct{}{} })
 	}()
-	change := func(why string) {
-		t.Helper()
-		select {
-		case <-changes:
-		case <-time.After(eventTimeout):
-			t.Fatalf("no change reported %s within %s", why, eventTimeout)
-		}
-	}
 	next(t, first)
-	change("after the registration")
+	waittest.For(t, changes, "a change reported after the registration")
 
 	if err := authorityConn.Emit(libpolkit.AuthorityPath, libpolkit.Changed.Name()); err != nil {
 		t.Fatalf("emit Changed from a peer that is not polkitd: %v", err)
@@ -238,20 +216,15 @@ func TestServeReportsRegistrationsAndChanges(t *testing.T) {
 		t.Fatalf("emit Changed: %v", err)
 	}
 	next(t, second)
-	change("after the registration with the restarted polkitd")
-	change("on polkitd's Changed")
+	waittest.For(t, changes, "a change reported after the registration with the restarted polkitd")
+	waittest.For(t, changes, "a change reported on polkitd's Changed")
 	select {
 	case <-changes:
 		t.Error("a change reported for a Changed signal polkitd did not send")
 	default:
 	}
 	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("Serve: %v", err)
-		}
-	case <-time.After(eventTimeout):
-		t.Fatal("Serve did not return within " + eventTimeout.String())
+	if err := waittest.For(t, done, "Serve to return"); err != nil {
+		t.Fatalf("Serve: %v", err)
 	}
 }

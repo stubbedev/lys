@@ -2,14 +2,12 @@ package ipc
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/wmipc"
-
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type fakeCapture struct {
@@ -152,34 +150,17 @@ func (r *rig) capture() (*CaptureConn, <-chan string, *fakeCapture) {
 
 func (r *rig) applied(fc *fakeCapture, n int) []CaptureCommand {
 	r.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
-		var got []CaptureCommand
-		r.do(func(*fake) { got = append(got, fc.applied...) })
-		if len(got) >= n {
-			return got
-		}
-		if time.Now().After(deadline) {
-			r.t.Fatalf("%d capture commands applied, want %d", len(got), n)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	var got []CaptureCommand
+	r.until(fmt.Sprintf("%d capture commands to apply", n), func(*fake) bool {
+		got = append(got[:0], fc.applied...)
+		return len(got) >= n
+	})
+	return got
 }
 
 func (r *rig) closedCapture(fc *fakeCapture) {
 	r.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
-		var closed bool
-		r.do(func(*fake) { closed = fc.closed })
-		if closed {
-			return
-		}
-		if time.Now().After(deadline) {
-			r.t.Fatal("the capture session was never closed")
-		}
-		time.Sleep(time.Millisecond)
-	}
+	r.until("the capture session to close", func(*fake) bool { return fc.closed })
 }
 
 func TestACaptureCarriesCommandsInAndEventsOut(t *testing.T) {

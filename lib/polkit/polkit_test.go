@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -19,12 +18,12 @@ import (
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/testhome"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const (
 	action    polkit.Action = "dev.stubbe.test.action"
 	agentPath               = dbus.ObjectPath("/dev/stubbe/test/AuthenticationAgent")
-	wait                    = 5 * time.Second
 )
 
 var someone = polkit.UnixProcess{PID: 4242, StartTime: 987654, UID: 1000}
@@ -37,18 +36,6 @@ func dial(t *testing.T) polkit.Authority {
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	return polkit.NewAuthority(conn)
-}
-
-func await[T any](t *testing.T, ch <-chan T, what string) T {
-	t.Helper()
-	select {
-	case v := <-ch:
-		return v
-	case <-time.After(wait):
-		t.Fatalf("no %s within %s", what, wait)
-		var zero T
-		return zero
-	}
 }
 
 func TestCheckAuthorizationAsksForTheSubjectAndReadsTheAnswer(t *testing.T) {
@@ -97,18 +84,14 @@ func TestCheckAuthorizationCancelsTheCheckItGivesUpOn(t *testing.T) {
 		_, err := authority.CheckAuthorization(ctx, someone, action, polkit.AllowUserInteraction)
 		done <- err
 	}()
-	for deadline := time.Now().Add(wait); len(fake.Checks.Load()) == 0; time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("the check never reached polkit")
-		}
-	}
+	waittest.Until(t, func() bool { return len(fake.Checks.Load()) != 0 }, "the check to reach polkit")
 	select {
 	case err := <-done:
 		t.Fatalf("a check polkit holds returned %v", err)
 	default:
 	}
 	cancel()
-	err := await(t, done, "return of the check whose context ended")
+	err := waittest.For(t, done, "the check whose context ended to return")
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("CheckAuthorization = %v, want its context's end", err)
 	}
@@ -213,18 +196,13 @@ func TestCheckAuthorizationHandsPolkitThePeersPIDFD(t *testing.T) {
 func TestProcessOfPIDFDRefusesAPeerThatExited(t *testing.T) {
 	p, pidfd := peerPIDFD(t)
 	p.End()
-	for deadline := time.Now().Add(wait); ; time.Sleep(time.Millisecond) {
+	waittest.Until(t, func() bool {
 		exited, err := pidfd.Exited()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if exited {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the peer did not exit")
-		}
-	}
+		return exited
+	}, "the peer to exit")
 	if subject, err := polkit.ProcessOfPIDFD(pidfd); err == nil || !strings.Contains(err.Error(), "has exited") {
 		t.Errorf("ProcessOfPIDFD of an exited peer not yet reaped = %+v, %v; want it refused as exited", subject, err)
 	}
@@ -258,7 +236,7 @@ func TestAnAgentRegistersAndUnregisters(t *testing.T) {
 		t.Error("RegisterAuthenticationAgent gave no sequence for polkitd's reply")
 	}
 	want := polkittest.Event{Register: true, Sender: conn.Names()[0], Subject: "unix-session c2", Locale: "da_DK.UTF-8", Path: string(agentPath)}
-	if got := await(t, fake.Events, "registration"); got != want {
+	if got := waittest.For(t, fake.Events, "the registration"); got != want {
 		t.Errorf("registered %+v, want %+v", got, want)
 	}
 
@@ -275,7 +253,7 @@ func TestAnAgentRegistersAndUnregisters(t *testing.T) {
 		t.Fatal(err)
 	}
 	want = polkittest.Event{Sender: conn.Names()[0], Subject: "unix-session c2", Path: string(agentPath)}
-	if got := await(t, fake.Events, "unregistration"); got != want {
+	if got := waittest.For(t, fake.Events, "the unregistration"); got != want {
 		t.Errorf("unregistered %+v, want %+v", got, want)
 	}
 	err = authority.UnregisterAuthenticationAgent(t.Context(), session, agentPath)
@@ -341,7 +319,7 @@ func TestChangedIsReadAsEveryPolkitdSendsIt(t *testing.T) {
 		if err := fake.EmitChangedAs(form); err != nil {
 			t.Fatal(err)
 		}
-		await(t, changes, "Changed as sent by "+sender)
+		waittest.For(t, changes, "Changed as sent by "+sender)
 	}
 	if err := fake.EmitChangedAs(polkittest.ChangedBare + 1); err == nil {
 		t.Error("the fake sent Changed in a form no polkitd has")
@@ -394,7 +372,7 @@ func TestTemporaryAuthorizationsAreListedAndRevoked(t *testing.T) {
 	if err := authority.RevokeTemporaryAuthorizationByID(t.Context(), "tmpauthz1"); err != nil {
 		t.Fatal(err)
 	}
-	await(t, changes, "Changed after revoking one authorization")
+	waittest.For(t, changes, "Changed after revoking one authorization")
 	if got := list(); !slices.Equal(got, []string{"tmpauthz0"}) {
 		t.Errorf("after revoking tmpauthz1: %q", got)
 	}
@@ -406,7 +384,7 @@ func TestTemporaryAuthorizationsAreListedAndRevoked(t *testing.T) {
 	if err := authority.RevokeTemporaryAuthorizations(t.Context(), session); err != nil {
 		t.Fatal(err)
 	}
-	await(t, changes, "Changed after revoking the rest")
+	waittest.For(t, changes, "Changed after revoking the rest")
 	if got := list(); len(got) != 0 {
 		t.Errorf("after revoking all: %q", got)
 	}

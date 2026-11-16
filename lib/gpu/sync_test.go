@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/vk"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func monotonic() time.Duration {
@@ -109,18 +110,17 @@ func waitReadable(t *testing.T, fd int) {
 	if fd < 0 {
 		return
 	}
-	deadline := time.Now().Add(10 * time.Second)
 	pfd := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
-	for {
-		n, err := unix.Poll(pfd, int(time.Until(deadline).Milliseconds()))
-		if errors.Is(err, unix.EINTR) && time.Now().Before(deadline) {
-			continue
+	waittest.Until(t, func() bool {
+		n, err := unix.Poll(pfd, 0)
+		if errors.Is(err, unix.EINTR) {
+			return false
 		}
-		if err != nil || n != 1 {
-			t.Fatalf("poll on the sync_file: %d, %v", n, err)
+		if err != nil {
+			t.Fatalf("poll on the sync_file: %v", err)
 		}
-		return
-	}
+		return n == 1
+	}, "the sync_file to signal")
 }
 
 func TestSyncFileSignalsOnceThePassFinishes(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // socketPath is SocketPath under a runtime dir the test set.
@@ -66,16 +66,12 @@ func TestToastRoundTrip(t *testing.T) {
 	if err := SendToast(context.Background(), ToastRequest{Label: new("hello"), Percentage: &pct, DurationMS: &dur, Class: &cls}); err != nil {
 		t.Fatalf("SendToast: %v", err)
 	}
-	select {
-	case got := <-s.Toasts():
-		if *got.Label != "hello" || *got.Percentage != 42.5 || *got.DurationMS != 1200 || *got.Class != "mine" {
-			t.Fatalf("toast = %+v", got)
-		}
-		if got.Icon != nil || got.Preset != nil {
-			t.Fatalf("absent fields arrived: %+v", got)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no toast request")
+	got := waittest.For(t, s.Toasts(), "the toast request")
+	if *got.Label != "hello" || *got.Percentage != 42.5 || *got.DurationMS != 1200 || *got.Class != "mine" {
+		t.Fatalf("toast = %+v", got)
+	}
+	if got.Icon != nil || got.Preset != nil {
+		t.Fatalf("absent fields arrived: %+v", got)
 	}
 }
 
@@ -84,13 +80,8 @@ func TestWidgetUpdateRoundTrip(t *testing.T) {
 	if err := SendWidgetUpdate(context.Background(), "gpu", `{"text":"42"}`); err != nil {
 		t.Fatalf("SendWidgetUpdate: %v", err)
 	}
-	select {
-	case got := <-s.Updates():
-		if got.ID != "gpu" || got.Output != `{"text":"42"}` {
-			t.Fatalf("update = %+v", got)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no update")
+	if got := waittest.For(t, s.Updates(), "the widget update"); got.ID != "gpu" || got.Output != `{"text":"42"}` {
+		t.Fatalf("update = %+v", got)
 	}
 }
 

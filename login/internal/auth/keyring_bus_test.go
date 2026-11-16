@@ -20,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/testhome"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/secrets/vault"
@@ -216,13 +217,8 @@ func (b *activatableBus) startDaemon(t *testing.T, sock string, services ...fake
 		_, err := bufio.NewReader(out).ReadString('\n')
 		ready <- err
 	}()
-	select {
-	case err := <-ready:
-		if err != nil {
-			t.Fatalf("dbus-daemon printed no address: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("dbus-daemon printed no address within 10s")
+	if err := waittest.For(t, ready, "dbus-daemon to print its address"); err != nil {
+		t.Fatalf("dbus-daemon printed no address: %v", err)
 	}
 }
 

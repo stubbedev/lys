@@ -3,10 +3,11 @@ package render
 import (
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // chainTestTypefaces loads two distinct fixture faces: the Go regular
@@ -242,11 +243,7 @@ func TestAFallbackResolvesOffThePaintGoroutine(t *testing.T) {
 		t.Error("shaping again before the answer missed the cache")
 	}
 	close(release)
-	select {
-	case <-resolved:
-	case <-time.After(time.Minute):
-		t.Fatal("the owner never heard of the answer")
-	}
+	waittest.ForSlow(t, resolved, "the owner to hear of the answer")
 	if s := c.Shape("a你", 14); s == first || s.Runs() != 2 {
 		t.Errorf("after the answer: %d runs from the same shape: %v, want 2 anew", s.Runs(), s == first)
 	}

@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestReadSnapshotWifiAndWired(t *testing.T) {
@@ -80,11 +81,7 @@ func TestAHeldReadHoldsNoOtherReader(t *testing.T) {
 		_, err := sys.Read(context.Background())
 		first <- err
 	}()
-	select {
-	case <-f.devicesEntered:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the first read never reached NetworkManager")
-	}
+	waittest.For(t, f.devicesEntered, "the first read to reach NetworkManager")
 	ctx, cancel := context.WithCancel(context.Background())
 	second := make(chan error, 1)
 	go func() {
@@ -92,13 +89,8 @@ func TestAHeldReadHoldsNoOtherReader(t *testing.T) {
 		second <- err
 	}()
 	cancel()
-	select {
-	case err := <-second:
-		if !errors.Is(err, context.Canceled) {
-			t.Errorf("the second read = %v, want its context's end", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("a second read waited behind the held one past its context")
+	if err := waittest.For(t, second, "the second read to end with its context rather than wait behind the held one"); !errors.Is(err, context.Canceled) {
+		t.Errorf("the second read = %v, want its context's end", err)
 	}
 	select {
 	case err := <-first:

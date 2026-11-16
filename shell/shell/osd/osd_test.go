@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -458,21 +459,17 @@ func TestWatchShowsLayoutSwitches(t *testing.T) {
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	tick := func() {
-		select {
-		case src.ticks <- struct{}{}:
-		case <-time.After(5 * time.Second):
-			t.Fatal("Watch does not follow the layout")
-		}
+		sent := make(chan struct{})
+		go func() {
+			src.ticks <- struct{}{}
+			close(sent)
+		}()
+		waittest.For(t, sent, "Watch to follow the layout")
 	}
 	tick()
 	src.set("German", nil)
 	tick()
-	select {
-	case fn := <-calls:
-		fn()
-	case <-time.After(5 * time.Second):
-		t.Fatal("switching the layout showed nothing")
-	}
+	waittest.For(t, calls, "switching the layout to show it")()
 	if len(h.opened) != 1 || h.osd.face.toggleLabel.Text() != "German" || h.osd.face.toggleIcon.Name() != LayoutIcon {
 		t.Errorf("the switch showed %q, want German", h.osd.face.toggleLabel.Text())
 	}
@@ -501,24 +498,10 @@ func TestWatchShowsLockKeysFromItsSource(t *testing.T) {
 		defer close(done)
 		h.osd.Watch(ctx, nil, nil, nil, nil, locks)
 	}()
-	var report func(keytoggles.Event)
-	select {
-	case report = <-reports:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Watch did not start the lock-key source")
-	}
-	select {
-	case <-calls:
-		t.Fatal("starting the lock-key source showed something")
-	case <-time.After(100 * time.Millisecond):
-	}
+	report := waittest.For(t, reports, "Watch to start the lock-key source")
+	expectNoSignal(t, "starting the lock-key source showed something", calls)
 	report(keytoggles.Event{Key: keytoggles.NumLock, Active: true})
-	select {
-	case fn := <-calls:
-		fn()
-	case <-time.After(5 * time.Second):
-		t.Fatal("a reported lock key showed nothing")
-	}
+	waittest.For(t, calls, "a reported lock key to show")()
 	if got := h.osd.face.toggleLabel.Text(); got != "\u2068Num Lock\u2069 On" {
 		t.Errorf("the toggle reads %q, want Num Lock On", got)
 	}
@@ -544,11 +527,7 @@ func TestWatchSurvivesAFailedLockKeySource(t *testing.T) {
 			return nil, errors.New("no lys-wm")
 		})
 	}()
-	select {
-	case <-done:
-		t.Fatal("Watch ended before ctx")
-	case <-time.After(100 * time.Millisecond):
-	}
+	expectNoSignal(t, "Watch ended before ctx", done)
 	cancel()
 	<-done
 }
@@ -568,21 +547,16 @@ func (s *lockKeySource) start(func(keytoggles.Event)) (func(), error) {
 	return func() { s.stopped <- struct{}{} }, nil
 }
 
-func awaitSignal(t *testing.T, what string, ch <-chan struct{}) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(5 * time.Second):
-		t.Fatalf("timed out waiting for %s", what)
-	}
-}
+// quietWindow is how long what must not happen gets to happen anyway
+// before a test concludes it does not.
+const quietWindow = 100 * time.Millisecond
 
-func expectNoSignal(t *testing.T, what string, ch <-chan struct{}) {
+func expectNoSignal[T any](t *testing.T, what string, ch <-chan T) {
 	t.Helper()
 	select {
 	case <-ch:
 		t.Errorf("unexpected: %s", what)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -624,21 +598,21 @@ func TestLockKeySourceFollowsReloads(t *testing.T) {
 	enabled := quietConfig()
 	enabled.Osd.Enabled = true
 	h.osd.SetConfig(enabled)
-	awaitSignal(t, "enabling the OSD to start the source", source.started)
+	waittest.For(t, source.started, "enabling the OSD to start the source")
 
 	h.osd.SetConfig(enabled)
 	expectNoSignal(t, "a reload with the OSD still on restarted the source", source.started)
 	expectNoSignal(t, "a reload with the OSD still on stopped the source", source.stopped)
 
 	h.osd.SetConfig(cfg)
-	awaitSignal(t, "disabling the OSD to stop the source", source.stopped)
+	waittest.For(t, source.stopped, "disabling the OSD to stop the source")
 	h.osd.SetConfig(cfg)
 	expectNoSignal(t, "a reload with the OSD still off started the source", source.started)
 
 	h.osd.SetConfig(enabled)
-	awaitSignal(t, "enabling the OSD again to start the source", source.started)
+	waittest.For(t, source.started, "enabling the OSD again to start the source")
 	finish()
-	awaitSignal(t, "the end of Watch to stop the source", source.stopped)
+	waittest.For(t, source.stopped, "the end of Watch to stop the source")
 	expectNoSignal(t, "the source was stopped twice", source.stopped)
 }
 
@@ -651,7 +625,7 @@ func TestFailedLockKeySourceRetriesOnTheNextEnable(t *testing.T) {
 		return nil, errors.New("no lys-wm")
 	})
 	defer finish()
-	awaitSignal(t, "the first attempt", attempts)
+	waittest.For(t, attempts, "the first attempt")
 	on := quietConfig()
 	h.osd.SetConfig(on)
 	expectNoSignal(t, "a reload with the OSD still on retried", attempts)
@@ -660,7 +634,7 @@ func TestFailedLockKeySourceRetriesOnTheNextEnable(t *testing.T) {
 	h.osd.SetConfig(off)
 	expectNoSignal(t, "disabling the OSD retried", attempts)
 	h.osd.SetConfig(on)
-	awaitSignal(t, "enabling the OSD to retry", attempts)
+	waittest.For(t, attempts, "enabling the OSD to retry")
 }
 
 // A show after a dismissal maps a new surface over the tree the last one

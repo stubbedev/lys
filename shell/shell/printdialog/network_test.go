@@ -2,6 +2,7 @@ package printdialog
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net"
 	"net/netip"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -68,16 +70,7 @@ type fakeAvahi struct{ *dnssdtest.Avahi }
 // waitLabel waits until the dialog shows a label reading text.
 func (hs *harness) waitLabel(t *testing.T, c app.LayerConfig, text string) {
 	t.Helper()
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(2 * time.Millisecond) {
-		var labels []string
-		hs.do(func() { labels = treetest.Labels(c.Root) })
-		if slices.Contains(labels, text) {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("no %q among %q", text, labels)
-		}
-	}
+	hs.until(t, fmt.Sprintf("a label reading %q", text), func() bool { return slices.Contains(treetest.Labels(c.Root), text) })
 }
 
 // A driverless printer found over DNS-SD, at an IPv4 or an IPv6
@@ -103,16 +96,7 @@ func listedAndPrintedTo(t *testing.T, addr string) {
 		i := slices.IndexFunc(hs.h.sheet.queues, func(q queue) bool { return q.kind == queueNetwork })
 		treetest.First[*widget.ListBox](t, c.Root).Select(i)
 	})
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(2 * time.Millisecond) {
-		var papers []string
-		hs.do(func() { papers = dropdowns[dropPaper].Items() })
-		if slices.Equal(papers, []string{"A5"}) {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the network printer offers %v, want its own A5", papers)
-		}
-	}
+	hs.until(t, "the network printer to offer its own A5", func() bool { return slices.Equal(dropdowns[dropPaper].Items(), []string{"A5"}) })
 	if ops := device.Ops(); !slices.Contains(ops, ipp.OpGetPrinterAttributes) {
 		t.Errorf("the printer itself was asked %v", ops)
 	}
@@ -154,16 +138,7 @@ func TestNetworkPrintersAreNotListedTwice(t *testing.T) {
 	needsDriver.Name, needsDriver.TXT = "Old Inkjet", map[string]string{"ty": "Old Inkjet", "pdl": "application/vnd.hp-PCL"}
 	avahi.Announce(t, needsDriver)
 	got, c := hs.prepare(t)
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(2 * time.Millisecond) {
-		var found int
-		hs.do(func() { found = len(hs.h.sheet.network) })
-		if found == 1 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the laser was never found")
-		}
-	}
+	hs.until(t, "the laser to be found", func() bool { return len(hs.h.sheet.network) == 1 })
 	hs.do(func() {
 		if labels := treetest.Labels(c.Root); slices.Contains(labels, "Example Laser (network)") || slices.Contains(labels, "Old Inkjet (network)") {
 			t.Errorf("listed twice or needing a driver: %q", labels)
@@ -184,11 +159,7 @@ func TestNetworkPrintersAreNotListedTwice(t *testing.T) {
 // waitFreed waits until every browser made was freed.
 func (a *fakeAvahi) waitFreed(t *testing.T) {
 	t.Helper()
-	for deadline := time.Now().Add(treetest.Liveness); a.Freed.Load() != a.Created.Load(); time.Sleep(2 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("%d browsers made, %d freed after the dialog closed", a.Created.Load(), a.Freed.Load())
-		}
-	}
+	waittest.Until(t, func() bool { return a.Freed.Load() == a.Created.Load() }, "every browser made to be freed after the dialog closed")
 }
 
 // logLines captures the log for the test.
@@ -222,11 +193,7 @@ func TestNoAvahiListsTheQueues(t *testing.T) {
 	log.SetOutput(logs)
 	t.Cleanup(func() { log.SetOutput(prev) })
 	got, c := hs.prepare(t)
-	for deadline := time.Now().Add(treetest.Liveness); logs.count("no Avahi") == 0; time.Sleep(2 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("nothing said Avahi is missing")
-		}
-	}
+	waittest.Until(t, func() bool { return logs.count("no Avahi") > 0 }, "the log to say Avahi is missing")
 	hs.do(func() {
 		var names []string
 		for _, q := range hs.h.sheet.queues {

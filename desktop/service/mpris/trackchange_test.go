@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
 )
@@ -100,13 +101,7 @@ func TestDaemonNextFlagsTheTrackChangeItCauses(t *testing.T) {
 	}
 	next := func() TrackChange {
 		t.Helper()
-		select {
-		case c := <-changes:
-			return c
-		case <-time.After(2 * time.Second):
-			t.Fatal("no track change")
-		}
-		return TrackChange{}
+		return waittest.For(t, changes, "a track change")
 	}
 
 	d := &Daemon{s: svc}

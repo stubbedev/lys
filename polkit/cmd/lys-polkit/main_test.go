@@ -8,22 +8,19 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/polkit/polkittest"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/polkit/internal/polkit"
 	"github.com/stubbedev/lys/polkit/retained"
 )
 
-const (
-	processEnv   = "LYS_POLKIT_TEST_RUN_MAIN"
-	eventTimeout = 5 * time.Second
-)
+const processEnv = "LYS_POLKIT_TEST_RUN_MAIN"
 
 const display logind.SessionID = "3"
 
@@ -37,13 +34,7 @@ func TestMain(m *testing.M) {
 
 func next(t *testing.T, a *polkittest.Authority) polkittest.Event {
 	t.Helper()
-	select {
-	case e := <-a.Events:
-		return e
-	case <-time.After(eventTimeout):
-		t.Fatal("no registration change within " + eventTimeout.String())
-		return polkittest.Event{}
-	}
+	return waittest.For(t, a.Events, "a registration change")
 }
 
 // startAgent runs lys-polkit's main in a process of its own, with a
@@ -159,17 +150,10 @@ func TestRevokeGivesUpTheRetainedAuthorizations(t *testing.T) {
 	_, _, session := startAgent(t, auth)
 	next(t, auth)
 	conn := session.Conn(t)
-	deadline := time.Now().Add(eventTimeout)
-	for {
+	waittest.Until(t, func() bool {
 		list, err := retained.NewClient(conn).Authorizations(t.Context())
-		if err == nil && len(list) == 1 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("Authorizations = %+v, %v; want the one polkitd holds", list, err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return err == nil && len(list) == 1
+	}, "Authorizations to list the one polkitd holds")
 
 	cmd := exec.Command(os.Args[0], "revoke")
 	cmd.Env = append(os.Environ(), processEnv+"=1", "DBUS_SESSION_BUS_ADDRESS="+session.Address)

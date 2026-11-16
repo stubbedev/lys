@@ -4,7 +4,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
@@ -124,21 +123,11 @@ func (r *captureRig) barriers(t *testing.T, zoneSet uint32, barriers ...Vardict)
 
 func (r *captureRig) signal(t *testing.T, member string) *dbus.Signal {
 	t.Helper()
-	deadline := time.After(2 * time.Second)
-	for {
-		select {
-		case s := <-r.signals:
-			if s.Name == InputCaptureIface+"."+member {
-				if s.Body[0] != sessA {
-					t.Fatalf("%s for %v, want %s", member, s.Body[0], sessA)
-				}
-				return s
-			}
-		case <-deadline:
-			t.Fatalf("no %s", member)
-			return nil
-		}
+	s := nextSignal(t, r.signals, InputCaptureIface+"."+member)
+	if s.Body[0] != sessA {
+		t.Fatalf("%s for %v, want %s", member, s.Body[0], sessA)
 	}
+	return s
 }
 
 func signalOptions(s *dbus.Signal) map[string]dbus.Variant {
@@ -339,16 +328,7 @@ func TestTheCaptureEndingClosesTheSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.wm.SendCapture(t, `{"event":"error","error":"lys-wm is going away"}`)
-	deadline := time.After(2 * time.Second)
-	for {
-		select {
-		case s := <-r.signals:
-			if s.Name == SessionIface+".Closed" && s.Path == sessA {
-				return
-			}
-		case <-deadline:
-			t.Fatal("the session outlived its capture")
-		}
+	for nextSignal(t, r.signals, SessionIface+".Closed").Path != sessA {
 	}
 }
 

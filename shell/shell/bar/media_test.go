@@ -3,6 +3,7 @@ package bar
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -102,13 +104,10 @@ func (f *fakeMediaSource) Position(context.Context, string) (time.Duration, erro
 }
 
 // waitCalls polls until the fake saw n calls.
-func waitCalls(t *testing.T, f *fakeMediaSource, n int) []string {
+func waitCalls(t *testing.T, calls func() []string, n int) []string {
 	t.Helper()
-	deadline := time.Now().Add(time.Second)
-	for len(f.Calls()) < n && time.Now().Before(deadline) {
-		time.Sleep(2 * time.Millisecond)
-	}
-	return f.Calls()
+	waittest.Until(t, func() bool { return len(calls()) >= n }, fmt.Sprintf("%d calls", n))
+	return calls()
 }
 
 func TestMediaLabelPlaceholders(t *testing.T) {
@@ -328,7 +327,7 @@ func TestMediaDropdownTransport(t *testing.T) {
 	v.seek.Knob.SetPressed(true)
 	v.seek.Knob.SetValue(25)
 	v.seek.Knob.SetPressed(false)
-	calls := waitCalls(t, source, 5)
+	calls := waitCalls(t, source.Calls, 5)
 	want := map[string]bool{"play-pause " + bus: true, "next " + bus: true, "loop " + bus: true, "seek " + bus + " 15s": true}
 	seeks := 0
 	for _, c := range calls {

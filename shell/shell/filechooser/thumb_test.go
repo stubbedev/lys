@@ -18,6 +18,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/image/draw"
 )
@@ -144,23 +145,23 @@ func TestClosingCancelsThumbnailsInFlight(t *testing.T) {
 	}
 	hs.open(t, OpenRequest{CurrentFolder: dir})
 	hs.scrollGrid()
-	waitFor(t, "every lookup to wait for the budget", func() bool {
+	waittest.Until(t, func() bool {
 		th.budget.mu.Lock()
 		defer th.budget.mu.Unlock()
 		return len(th.budget.waiters) == len(paths)
-	})
+	}, "every lookup to wait for the budget")
 	hs.do(func() { hs.c.finish(nil) })
-	waitFor(t, "the lookups to stop waiting", func() bool {
+	waittest.Until(t, func() bool {
 		th.budget.mu.Lock()
 		defer th.budget.mu.Unlock()
 		return len(th.budget.waiters) == 0
-	})
+	}, "the lookups to stop waiting")
 	release()
-	waitFor(t, "the lookups to end", func() bool {
+	waittest.Until(t, func() bool {
 		th.budget.mu.Lock()
 		defer th.budget.mu.Unlock()
 		return len(th.budget.waiters) == 0 && th.budget.free == th.budget.total && len(th.workers) == 0
-	})
+	}, "the lookups to end")
 	hs.flush()
 	hs.run(func() {
 		if n := len(hs.c.thumbs.found); n != 0 {
@@ -198,33 +199,24 @@ func TestCloseFreesThumbnailsMadeAfterTheLoopEnded(t *testing.T) {
 	}
 	hs.open(t, OpenRequest{CurrentFolder: dir})
 	hs.scrollGrid()
-	waitFor(t, "every lookup to wait for the budget", func() bool {
+	waittest.Until(t, func() bool {
 		th.budget.mu.Lock()
 		defer th.budget.mu.Unlock()
 		return len(th.budget.waiters) == len(paths)
-	})
+	}, "every lookup to wait for the budget")
 	hs.endLoop()
 	release()
-	waitFor(t, "the lookups to end", func() bool {
+	waittest.Until(t, func() bool {
 		th.budget.mu.Lock()
 		defer th.budget.mu.Unlock()
 		return len(th.budget.waiters) == 0 && th.budget.free == th.budget.total && len(th.workers) == 0
-	})
+	}, "the lookups to end")
 	if live := th.mem.Stats().Live; live != len(paths) {
 		t.Fatalf("%d thumbnails allocated after the loop ended, want %d", live, len(paths))
 	}
 	hs.c.Close()
 	if live := th.mem.Stats().Live; live != 0 {
 		t.Errorf("%d thumbnails still allocated after Close", live)
-	}
-}
-
-func waitFor(t *testing.T, what string, done func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(treetest.Liveness); !done(); time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
 	}
 }
 
@@ -267,11 +259,11 @@ func TestByteBudgetBoundsWhatIsHeld(t *testing.T) {
 		_, err := b.acquire(ctx, 50)
 		gaveUp <- err
 	}()
-	waitFor(t, "the request to queue", func() bool {
+	waittest.Until(t, func() bool {
 		b.mu.Lock()
 		defer b.mu.Unlock()
 		return len(b.waiters) == 1
-	})
+	}, "the request to queue")
 	behind := make(chan struct{})
 	go func() {
 		r, err := b.acquire(context.Background(), 20)
@@ -284,17 +276,13 @@ func TestByteBudgetBoundsWhatIsHeld(t *testing.T) {
 	select {
 	case <-behind:
 		t.Fatal("a request overtook the one queued before it")
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	cancel()
 	if err := <-gaveUp; !errors.Is(err, context.Canceled) {
 		t.Errorf("a cancelled wait = %v, want context.Canceled", err)
 	}
-	select {
-	case <-behind:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the request behind a cancelled one never got its bytes")
-	}
+	waittest.For(t, behind, "the request behind a cancelled one to get its bytes")
 	release()
 	if b.free != total {
 		t.Errorf("%d of %d bytes free once everything was given back", b.free, total)

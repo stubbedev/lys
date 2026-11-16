@@ -61,21 +61,9 @@ func lyricsDropdown(t *testing.T, enabled bool, server *httptest.Server, dir str
 	return v
 }
 
-func loopRead[T any](read func() T) T {
-	headlessLoop.Lock()
-	defer headlessLoop.Unlock()
-	return read()
-}
-
 func waitLyricsPage(t *testing.T, v *mediaView, page string) {
 	t.Helper()
-	deadline := time.Now().Add(hangGuard)
-	for loopRead(func() string { return v.lyrics.Visible() }) != page {
-		if time.Now().After(deadline) {
-			t.Fatalf("the lyrics panel shows %q (%q), want %q", v.lyrics.Visible(), v.lyrics.status.Text(), page)
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
+	waitHeadless(t, "the lyrics panel to show "+page, func() bool { return v.lyrics.Visible() == page })
 }
 
 func currentRows(v *mediaView) []int {
@@ -91,10 +79,10 @@ func currentRows(v *mediaView) []int {
 func TestSyncedLyricsFollowThePosition(t *testing.T) {
 	server, requests := fakeLRCLIB(t, http.StatusOK, syncedLRCLIB(40))
 	v := lyricsDropdown(t, true, server, t.TempDir())
-	if !loopRead(func() bool { return widget.IsVisible(v.lyricsButton) }) {
+	if !onHeadlessLoop(func() bool { return widget.IsVisible(v.lyricsButton) }) {
 		t.Fatal("the lyrics button is hidden with lyrics on")
 	}
-	loopRead(func() bool { v.lyricsButton.OnClick(); return true })
+	onHeadlessLoop(func() bool { v.lyricsButton.OnClick(); return true })
 	waitLyricsPage(t, v, "lines")
 
 	headlessLoop.Lock()
@@ -152,15 +140,9 @@ func TestMissingLyricsShowNoLyricsOnce(t *testing.T) {
 	dir := t.TempDir()
 	for range 2 {
 		v := lyricsDropdown(t, true, server, dir)
-		loopRead(func() bool { v.toggleLyrics(); return true })
+		onHeadlessLoop(func() bool { v.toggleLyrics(); return true })
 		waitLyricsPage(t, v, "status")
-		deadline := time.Now().Add(hangGuard)
-		for loopRead(v.lyrics.status.Text) != i18n.T("dropdown-media-lyrics-none") {
-			if time.Now().After(deadline) {
-				t.Fatalf("status %q, want No lyrics", loopRead(v.lyrics.status.Text))
-			}
-			time.Sleep(2 * time.Millisecond)
-		}
+		waitForText(t, v.lyrics.status, i18n.T("dropdown-media-lyrics-none"))
 		v.ctx.Lyrics.Close()
 	}
 	if n := requests.Load(); n != 1 {
@@ -191,33 +173,33 @@ func TestPlayingLyricsAdvanceOnTheLineTime(t *testing.T) {
 	server, _ := fakeLRCLIB(t, http.StatusOK, syncedLRCLIB(5))
 	v := lyricsDropdown(t, true, server, t.TempDir())
 	clock := fakeclock.New()
-	loopRead(func() bool {
+	onHeadlessLoop(func() bool {
 		v.lyrics.after = clock.AfterFunc
 		v.current.State = mpris.StatePlaying
 		v.toggleLyrics()
 		return true
 	})
 	waitLyricsPage(t, v, "lines")
-	loopRead(func() bool { v.setPosition(2500 * time.Millisecond); return true })
-	if got := loopRead(func() []int { return currentRows(v) }); len(got) != 1 || got[0] != 1 {
+	onHeadlessLoop(func() bool { v.setPosition(2500 * time.Millisecond); return true })
+	if got := onHeadlessLoop(func() []int { return currentRows(v) }); len(got) != 1 || got[0] != 1 {
 		t.Fatalf("at 0:02.5 current %v, want line 1", got)
 	}
 	clock.Advance(1499 * time.Millisecond)
-	if got := loopRead(func() []int { return currentRows(v) }); got[0] != 1 {
+	if got := onHeadlessLoop(func() []int { return currentRows(v) }); got[0] != 1 {
 		t.Fatalf("before line 2 starts current %v", got)
 	}
 	clock.Advance(time.Millisecond)
-	if got := loopRead(func() []int { return currentRows(v) }); len(got) != 1 || got[0] != 2 {
+	if got := onHeadlessLoop(func() []int { return currentRows(v) }); len(got) != 1 || got[0] != 2 {
 		t.Errorf("at 0:04 current %v, want line 2 without a position poll", got)
 	}
 
-	loopRead(func() bool {
+	onHeadlessLoop(func() bool {
 		v.current.State = mpris.StatePaused
 		v.setPosition(2500 * time.Millisecond)
 		return true
 	})
 	clock.Advance(10 * time.Second)
-	if got := loopRead(func() []int { return currentRows(v) }); got[0] != 1 {
+	if got := onHeadlessLoop(func() []int { return currentRows(v) }); got[0] != 1 {
 		t.Errorf("paused lyrics moved on to %v", got)
 	}
 }

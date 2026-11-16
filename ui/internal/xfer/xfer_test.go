@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/ui/internal/fdtest"
 )
 
@@ -109,10 +111,7 @@ func TestReadTimesOutOnASilentPeer(t *testing.T) {
 	}
 	// The deadline is a runtime timer, not a parked goroutine: nothing
 	// may outlive the transfer.
-	time.Sleep(250 * time.Millisecond)
-	if after := runtime.NumGoroutine(); after > before {
-		t.Errorf("goroutines %d -> %d: the deadline leaked one", before, after)
-	}
+	waittest.Until(t, func() bool { return runtime.NumGoroutine() <= before }, "the deadline's goroutines to end")
 }
 
 func TestDeadlineWriterDeliversAndCloses(t *testing.T) {
@@ -153,10 +152,7 @@ func TestDeadlineWriterCutsOffAConsumerThatNeverReads(t *testing.T) {
 	if elapsed > 2*time.Second {
 		t.Errorf("stuck consumer held the write for %s, want the short deadline", elapsed)
 	}
-	time.Sleep(250 * time.Millisecond)
-	if after := runtime.NumGoroutine(); after > before {
-		t.Errorf("goroutines %d -> %d: the deadline leaked one", before, after)
-	}
+	waittest.Until(t, func() bool { return runtime.NumGoroutine() <= before }, "the deadline's goroutines to end")
 }
 
 func TestDeadlineWriterEndsOnEPIPE(t *testing.T) {

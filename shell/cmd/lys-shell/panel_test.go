@@ -7,10 +7,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/shellipc"
 )
@@ -249,12 +249,17 @@ func TestPanelStopIsToldOfTheApplicationIDLosingItsOwner(t *testing.T) {
 	if err := shell.Close(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-released:
-	case err := <-failed:
+	told := make(chan error, 1)
+	go func() {
+		select {
+		case <-released:
+			told <- nil
+		case err := <-failed:
+			told <- err
+		}
+	}()
+	if err := waittest.For(t, told, "the stop to be told the application id lost its owner"); err != nil {
 		t.Fatalf("the watch failed: %v", err)
-	case <-time.After(shutdownTimeout):
-		t.Fatal("the application id lost its owner and the stop was not told")
 	}
 	if err := watch.Stop(); err != nil {
 		t.Fatalf("stop the watch: %v", err)

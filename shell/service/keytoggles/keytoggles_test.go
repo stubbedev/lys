@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // Only a lock key's release is a toggle: its press, a repeat, other
@@ -126,9 +128,5 @@ func TestCloseEndsAReadAfterTheProbe(t *testing.T) {
 	}()
 	time.Sleep(50 * time.Millisecond)
 	_ = r.Close()
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("the read outlived Close")
-	}
+	waittest.For(t, done, "Close to end the read")
 }

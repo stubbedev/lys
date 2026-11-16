@@ -2,6 +2,7 @@ package headless
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"slices"
 	"strings"
@@ -14,8 +15,8 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 var _ backend.Backend = (*Backend)(nil)
@@ -218,10 +219,7 @@ func TestFramesRequestedBetweenVblanksMakeTheNextOne(t *testing.T) {
 	if err := o.ScheduleFrame(); err != nil {
 		t.Fatal(err)
 	}
-	runFor(t, l, testenv.HangLimit)
-	if len(r.presented) < want {
-		t.Fatalf("%d presentations in %v at 100 Hz, want %d", len(r.presented), testenv.HangLimit, want)
-	}
+	looptest.RunUntil(t, l, fmt.Sprintf("%d presentations at 100 Hz", want), func() bool { return len(r.presented) >= want })
 	// The wall clock decides when a frame renders: under load the
 	// client's request can land after the next vblank, and skipping it
 	// is then correct. What must hold whatever the load: a frame

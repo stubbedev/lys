@@ -4,12 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -48,15 +48,8 @@ func TestDispatchedActions(t *testing.T) {
 
 	out := filepath.Join(t.TempDir(), "display")
 	h.dispatch(`exec printf %s "$WAYLAND_DISPLAY" > ` + out)
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(t, func() bool {
 		got, err := os.ReadFile(out)
-		if err == nil && string(got) == filepath.Join(h.RuntimeDir, h.display.Name()) {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("exec wrote %q, %v; want the compositor's socket path", got, err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return err == nil && string(got) == filepath.Join(h.RuntimeDir, h.display.Name())
+	}, "exec to write the compositor's socket path")
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // pairedConns is two peers on a private bus.
@@ -102,15 +103,8 @@ func (r *recorder) Fast() *dbus.Error {
 // waitSeen waits until r served n calls.
 func waitSeen(t *testing.T, r *recorder, n int) []string {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if got := r.seen(); len(got) >= n {
-			return got
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatalf("served %v, want %d calls", r.seen(), n)
-	return nil
+	waittest.Until(t, func() bool { return len(r.seen()) >= n }, fmt.Sprintf("%d calls to be served", n))
+	return r.seen()
 }
 
 // TestOrderedCallsRunInArrivalOrder is the fourth lys-lib patch:

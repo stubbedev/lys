@@ -3,7 +3,6 @@ package powerprofile
 import (
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -11,7 +10,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
-	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 )
 
 type daemon struct {
@@ -60,28 +59,14 @@ type run struct {
 
 func (r *run) until(what string, done func() bool) {
 	r.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	var check *loop.Timer
-	check, err := r.l.AddTimer(func() error {
-		if done() || time.Now().After(deadline) {
-			r.l.Stop()
-			return nil
+	met := false
+	defer func() {
+		if !met {
+			r.t.Logf("changes %v, errors %v", r.saver, r.errors)
 		}
-		return check.Arm(time.Millisecond)
-	})
-	if err != nil {
-		r.t.Fatal(err)
-	}
-	defer check.Remove()
-	if err := check.Arm(time.Millisecond); err != nil {
-		r.t.Fatal(err)
-	}
-	if err := r.l.Run(); err != nil {
-		r.t.Fatal(err)
-	}
-	if !done() {
-		r.t.Fatalf("waited 10s for %s: changes %v, errors %v", what, r.saver, r.errors)
-	}
+	}()
+	looptest.RunUntil(r.t, r.l, what, done)
+	met = true
 }
 
 func watch(t *testing.T, address string) *run {

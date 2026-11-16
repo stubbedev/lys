@@ -173,7 +173,7 @@ func TestARealGTKWindowAnswersItsHolds(t *testing.T) {
 			t.Logf("gtk3-demo said:\n%s", gtk.output.String())
 		}
 	}()
-	h.Eventually("the GTK window managed and settled", xTiled(1))
+	h.EventuallySlow("the GTK window managed and settled", xTiled(1))
 
 	clients := xc.cardinalProperty(xc.root, "_NET_CLIENT_LIST")
 	if len(clients) != 1 {

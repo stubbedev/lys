@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const playersNamespace = "dev.stubbe.lys.Players"
@@ -148,7 +149,7 @@ func TestAWatchFollowsNamespacesOnTheBus(t *testing.T) {
 		}
 	}
 	for _, want := range []dbus.ObjectPath{watchedPath, watchedPath + "/Child", watchedPath} {
-		if got := awaitWatch(t, paths, "Tick in the namespace"); got != want {
+		if got := waittest.For(t, paths, "Tick in the namespace"); got != want {
 			t.Fatalf("Tick from %s, want %s: only the objects in the namespace, in order", got, want)
 		}
 	}
@@ -156,7 +157,7 @@ func TestAWatchFollowsNamespacesOnTheBus(t *testing.T) {
 		ownAs(t, w.bus, name)
 	}
 	for _, want := range []string{playersNamespace + ".A", playersNamespace} {
-		if got := awaitWatch(t, names, "a name in the namespace gaining an owner"); got != want {
+		if got := waittest.For(t, names, "a name in the namespace gaining an owner"); got != want {
 			t.Fatalf("%s gained an owner, want %s: only the names in the namespace, in order", got, want)
 		}
 	}
@@ -198,10 +199,10 @@ func TestAPropertiesChangedHandlerBorrowsTheDescriptorsInItsValues(t *testing.T)
 	if err := tickSignal.Emit(w.service, watchedPath, counted{N: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if err := awaitWatch(t, borrowed, "PropertiesChanged in its handler"); err != nil {
+	if err := waittest.For(t, borrowed, "PropertiesChanged in its handler"); err != nil {
 		t.Errorf("the handler's descriptor: %v, want it open while the handler runs", err)
 	}
-	awaitWatch(t, ticked, "Tick behind the PropertiesChanged")
+	waittest.For(t, ticked, "Tick behind the PropertiesChanged")
 	pipe.RequireEveryCopyClosed(t)
 }
 
@@ -235,7 +236,7 @@ func TestRemoveSignalClosesTheDescriptorsOfWhatNobodyRead(t *testing.T) {
 	if err := tickSignal.Emit(w.service, watchedPath, counted{N: 1}); err != nil {
 		t.Fatal(err)
 	}
-	awaitWatch(t, ticked, "Tick behind every Hand, by which the connection has read them all")
+	waittest.For(t, ticked, "Tick behind every Hand, by which the connection has read them all")
 	if unread := len(signals); unread != sent+1 {
 		t.Fatalf("%d signals unread, want the %d Hands and the Tick", unread, sent)
 	}

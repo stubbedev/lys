@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/anim"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 func titles(v *TabView) []string {

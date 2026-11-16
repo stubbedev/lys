@@ -3,11 +3,11 @@ package portal
 import (
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // gate is what every fake shell dialog embeds: it records who asked,
@@ -61,13 +61,7 @@ func (g *gate) open(handle string) bool {
 // waitOpen waits until a dialog is held for handle.
 func (g *gate) waitOpen(t *testing.T, handle dbus.ObjectPath) {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for !g.open(string(handle)) {
-		if time.Now().After(deadline) {
-			t.Fatalf("no dialog held for %s", handle)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return g.open(string(handle)) }, "a dialog held for "+string(handle))
 }
 
 // interactiveCase is one portal method that shows a shell dialog:
@@ -199,13 +193,8 @@ func TestRequestCloseDismissesEveryDialog(t *testing.T) {
 			if err := req.Call(RequestIface+".Close", 0).Err; err != nil {
 				t.Fatal(err)
 			}
-			select {
-			case c := <-done:
-				if c != ResponseCancelled {
-					t.Errorf("reply after Close = %d, want cancelled", c)
-				}
-			case <-time.After(2 * time.Second):
-				t.Fatal("Close did not end the call")
+			if c := waittest.For(t, done, "Close to end the call"); c != ResponseCancelled {
+				t.Errorf("reply after Close = %d, want cancelled", c)
 			}
 			if got := g.dismissed.Load(); len(got) != 1 || got[0] != string(handle) {
 				t.Errorf("dismissed %v, want the request's handle", got)

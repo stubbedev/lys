@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"io"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 )
 
@@ -61,17 +61,12 @@ func WireServer(t *testing.T, display string) <-chan WireFrame {
 }
 
 // WaitForFrame consumes frames until one matches, failing the test
-// after two seconds; the buffered noise passes through.
+// when the next frame is late; the buffered noise passes through.
 func WaitForFrame(t *testing.T, frames <-chan WireFrame, name string, match func(WireFrame) bool) WireFrame {
 	t.Helper()
 	for {
-		select {
-		case f := <-frames:
-			if match(f) {
-				return f
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("no %s request reached the wire", name)
+		if f := waittest.For(t, frames, "a "+name+" request on the wire"); match(f) {
+			return f
 		}
 	}
 }

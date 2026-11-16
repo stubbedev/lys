@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
@@ -521,7 +522,7 @@ func TestRemoteInputKeepsItsOrder(t *testing.T) {
 	send("NotifyPointerButton", int32(0x110), uint32(1))
 	send("NotifyPointerAxis", 0.0, 3.0)
 	want := []string{"abs 327680 0 819200 276480", "button 272 true", "axis finger 0 3"}
-	waitFor(t, func() bool { return len(sink.events.Load()) >= len(want) })
+	waittest.Until(t, func() bool { return len(sink.events.Load()) >= len(want) }, "the sink to receive the input")
 	if got := sink.events.Load(); !slices.Equal(got, want) {
 		t.Errorf("input = %q, want %q", got, want)
 	}
@@ -697,10 +698,7 @@ func TestLibeiSeesARegionPerMonitorStream(t *testing.T) {
 		"touch motion 0 335360 5120 819200 276480",
 		"touch up 0",
 	}
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && len(sink.events.Load()) < len(events) {
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return len(sink.events.Load()) >= len(events) }, "the sink to receive the replayed input")
 	if got := sink.events.Load(); !slices.Equal(got, events) {
 		t.Errorf("replayed %q, want %q", got, events)
 	}

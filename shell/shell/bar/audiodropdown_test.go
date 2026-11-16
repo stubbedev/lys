@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -15,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 )
@@ -454,17 +454,9 @@ func TestAudioPickerRowsRebuildOnlyOnChange(t *testing.T) {
 	// so each step waits until a read reflects it.
 	await := func(what string, cond func(audioState) bool) audioState {
 		t.Helper()
-		deadline := time.Now().Add(2 * time.Second)
-		for {
-			st := readAudioState(context.Background(), svc)
-			if cond(st) {
-				return st
-			}
-			if time.Now().After(deadline) {
-				t.Fatalf("timed out waiting for %s", what)
-			}
-			time.Sleep(5 * time.Millisecond)
-		}
+		var st audioState
+		waittest.Until(t, func() bool { st = readAudioState(context.Background(), svc); return cond(st) }, what)
+		return st
 	}
 
 	// The same state again: nothing rebuilds.

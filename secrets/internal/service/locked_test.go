@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/secrets/internal/keyring"
@@ -395,22 +396,18 @@ func idleFixture(t *testing.T, after time.Duration, now func() time.Time) (*fixt
 	t.Cleanup(svc.Close)
 	f.svc = svc
 	conn := f.bus.Conn(t)
-	deadline := time.Now().Add(10 * time.Second)
-	for {
+	var item dbus.ObjectPath
+	waittest.Until(t, func() bool {
 		if err := svc.UnlockLogin([]byte(loginPassword)); err != nil {
 			t.Fatal(err)
 		}
-		var item, prompt dbus.ObjectPath
+		var prompt dbus.ObjectPath
 		if err := conn.Object(BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(openSession(t, conn), "kept"), false).Store(&item, &prompt); err != nil {
 			t.Fatal(err)
 		}
-		if prompt == noPrompt {
-			return f, conn, item
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the collection kept locking within %v before an item could be created", after)
-		}
-	}
+		return prompt == noPrompt
+	}, "an item created before the collection locked again")
+	return f, conn, item
 }
 
 func (f *fixture) loginLocked() bool {
@@ -477,13 +474,7 @@ func TestIdleCollectionsLockOnlyOnceUnused(t *testing.T) {
 
 func TestAnIdleCollectionLocksByItself(t *testing.T) {
 	f, conn, item := idleFixture(t, 50*time.Millisecond, nil)
-	deadline := time.Now().Add(10 * time.Second)
-	for !f.loginLocked() {
-		if time.Now().After(deadline) {
-			t.Fatal("the idle collection never locked")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, f.loginLocked, "the idle collection to lock")
 	var secret Secret
 	err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, openSession(t, conn)).Store(&secret)
 	requireDBusError(t, "GetSecret", err, errIsLocked)
@@ -500,13 +491,7 @@ func TestANewEmptyCollectionLocksWhenIdleToo(t *testing.T) {
 	if err := svc.UnlockLogin([]byte(loginPassword)); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(10 * time.Second)
-	for !f.loginLocked() {
-		if time.Now().After(deadline) {
-			t.Fatal("the new collection never locked")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, f.loginLocked, "the new collection to lock")
 }
 
 func TestNoIdleLockByDefault(t *testing.T) {

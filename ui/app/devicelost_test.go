@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/lib/logutil"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/internal/buffer"
 	"github.com/stubbedev/lys/ui/widget"
@@ -84,13 +85,8 @@ func (rig *lossRig) open(rendererPlan) (*gpuRenderer, error) {
 
 func (rig *lossRig) land() {
 	rig.t.Helper()
-	deadline := time.After(time.Minute)
 	for rig.a.gpu == nil {
-		select {
-		case <-rig.woke:
-		case <-deadline:
-			rig.t.Fatal("the device worker never answered")
-		}
+		waittest.ForSlow(rig.t, rig.woke, "the device worker to answer")
 		rig.a.gpuOpening.Wait()
 		rig.drain()
 		if rig.openErr != nil {

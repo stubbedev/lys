@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestParseLRC(t *testing.T) {
@@ -188,9 +190,7 @@ func TestConcurrentGetsShareOneRequest(t *testing.T) {
 			}
 		})
 	}
-	for server.requests.Load() == 0 {
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return server.requests.Load() > 0 }, "the first request to reach LRCLIB")
 	close(server.gate)
 	wg.Wait()
 	if n := server.requests.Load(); n != 1 {

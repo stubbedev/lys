@@ -9,6 +9,7 @@ import (
 
 	drmbackend "github.com/stubbedev/lys/wm/internal/backend/drm"
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 )
 
 func TestPrimaryGPUFollowsTheRule(t *testing.T) {
@@ -60,28 +61,11 @@ func TestTheLidPolicyRunsOnceTheWakeHoldoffPasses(t *testing.T) {
 	if err := n.recheckAfterWake(holdoff); err != nil {
 		t.Fatal(err)
 	}
-	deadline, err := l.AddTimer(func() error {
-		l.Stop()
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	run := func(limit time.Duration) {
-		t.Helper()
-		if err := deadline.Arm(limit); err != nil {
-			t.Fatal(err)
-		}
-		if err := l.Run(); err != nil {
-			t.Fatal(err)
-		}
-	}
-
 	woke := time.Now()
 	if err := errors.Join(n.PrepareForSleep(true), n.PrepareForSleep(false)); err != nil {
 		t.Fatal(err)
 	}
-	run(5 * time.Second)
+	looptest.RunUntil(t, l, "the lid policy after the wake holdoff", func() bool { return len(checks) > 0 })
 	if len(checks) != 1 || checks[0].Sub(woke) < holdoff {
 		t.Fatalf("checks %v after waking at %v, want one after the %v holdoff", checks, woke, holdoff)
 	}
@@ -89,7 +73,7 @@ func TestTheLidPolicyRunsOnceTheWakeHoldoffPasses(t *testing.T) {
 	if err := errors.Join(n.PrepareForSleep(false), n.PrepareForSleep(true)); err != nil {
 		t.Fatal(err)
 	}
-	run(4 * holdoff)
+	looptest.RunAwhile(t, l, 4*holdoff, func() bool { return len(checks) > 1 })
 	if len(checks) != 1 {
 		t.Fatalf("a sleep that began during the holdoff still ran the check: %d checks", len(checks))
 	}

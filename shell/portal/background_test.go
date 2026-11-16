@@ -2,6 +2,7 @@ package portal
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/toplevels"
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -91,15 +93,7 @@ func TestWindowListRetriesAndAnnounces(t *testing.T) {
 		t.Errorf("%d attempts, want one per ask", attempts)
 	}
 	list.changed()
-	for deadline := time.After(2 * time.Second); ; {
-		select {
-		case s := <-r.signals:
-			if s.Name == BackgroundIface+".RunningApplicationsChanged" && s.Path == ObjectPath {
-				return
-			}
-		case <-deadline:
-			t.Fatal("no RunningApplicationsChanged")
-		}
+	for nextSignal(t, r.signals, BackgroundIface+".RunningApplicationsChanged").Path != ObjectPath {
 	}
 }
 
@@ -118,11 +112,7 @@ func notifyBackground(r *rig) <-chan []any {
 // waitNotify waits for the n-th Notify.
 func waitNotify(t *testing.T, d *fakeNotifyd, n int) notifyCall {
 	t.Helper()
-	for deadline := time.Now().Add(2 * time.Second); len(d.calls.Load()) < n; time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("no Notify")
-		}
-	}
+	waittest.Until(t, func() bool { return len(d.calls.Load()) >= n }, fmt.Sprintf("Notify call %d", n))
 	return d.calls.Load()[n-1]
 }
 
@@ -151,7 +141,7 @@ func TestNotifyBackgroundAsksTheUser(t *testing.T) {
 		select {
 		case got := <-done:
 			t.Fatalf("replied %v before the user answered", got)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(quietWindow):
 		}
 		id := d.next.Load()
 		if tc.signal == "ActionInvoked" {
@@ -171,7 +161,7 @@ func TestNotifyBackgroundAsksTheUser(t *testing.T) {
 	select {
 	case got := <-done:
 		t.Fatalf("another notification's action answered %v", got)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	// The frontend closing the request withdraws the notification.
 	if err := r.client.Object(BusName, handle).Call(RequestIface+".Close", 0).Err; err != nil {

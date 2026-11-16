@@ -13,7 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // HeadlessEnv is set by the recipes that boot a headless compositor
@@ -61,18 +62,20 @@ func LoopbackDisplay(t *testing.T, display string) (*net.UnixListener, string) {
 	return ln, sock
 }
 
-// Eventually retries fn until it succeeds or eight seconds pass.
+// Eventually retries fn until it succeeds, failing the test with fn's
+// last error when it still does not after waittest's limit.
 func Eventually(t *testing.T, what string, fn func() error) {
 	t.Helper()
-	deadline := time.Now().Add(8 * time.Second)
 	var err error
-	for time.Now().Before(deadline) {
-		if err = fn(); err == nil {
-			return
+	defer func() {
+		if err != nil {
+			t.Logf("%s: %v", what, err)
 		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	t.Fatalf("%s: %v", what, err)
+	}()
+	waittest.Until(t, func() bool {
+		err = fn()
+		return err == nil
+	}, what)
 }
 
 // WantColor checks one pixel of a captured frame.

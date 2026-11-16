@@ -482,7 +482,7 @@ func TestBatteryDropdownProfiles(t *testing.T) {
 		t.Error("the click did not move the toggle")
 	}
 	onHeadlessLoop(func() bool { saver.ClickAt(widget.Point{}); return true })
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := pp.sets(); len(got) != 2 {
 		t.Errorf("a click on the active segment wrote: %v", got)
 	}

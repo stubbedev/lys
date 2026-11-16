@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
 
@@ -33,12 +34,8 @@ func TestFiresOnTheBoundaryAndNowhereElse(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		select {
-		case at := <-fired:
-			t.Logf("fired %v after the boundary", at.Sub(at.Truncate(time.Second)))
-		case <-time.After(3 * time.Second):
-			t.Fatal("never fired")
-		}
+		at := waittest.For(t, fired, "the timer to fire on the boundary")
+		t.Logf("fired %v after the boundary", at.Sub(at.Truncate(time.Second)))
 	}
 }
 
@@ -76,11 +73,7 @@ func TestStopsWithItsContext(t *testing.T) {
 		work.Wait()
 		close(stopped)
 	}()
-	select {
-	case <-stopped:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the timer's goroutines outlive its context")
-	}
+	waittest.For(t, stopped, "the timer's goroutines to end with its context")
 	select {
 	case <-fired:
 		t.Fatal("fired after its context ended")

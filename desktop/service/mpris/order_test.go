@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type heldPlayer struct {
@@ -72,11 +73,7 @@ func TestAChangeSentWhileANewPlayerIsReadIsNotOvertakenByTheRead(t *testing.T) {
 			t.Fatalf("request %s: %v %v", name, reply, err)
 		}
 	}
-	select {
-	case <-held.entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the service never read the new player")
-	}
+	waittest.For(t, held.entered, "the service to read the new player")
 
 	ticked := make(chan struct{}, 1)
 	marker, err := dbusx.WatchSignals(t.Context(), conn, dbusx.FromOwner(markerName), func(err error) { t.Errorf("the marker watch failed: %v", err) },
@@ -96,19 +93,15 @@ func TestAChangeSentWhileANewPlayerIsReadIsNotOvertakenByTheRead(t *testing.T) {
 	if err := markerTick.Emit(player, "/", struct{}{}); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-ticked:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no Tick behind the change, by which the service's connection has read it")
-	}
+	waittest.For(t, ticked, "the Tick behind the change, by which the service's connection has read it")
 	select {
 	case <-held.again:
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(overtakeWindow):
 	}
 	release()
 
-	waitFor(t, "the change sent during the read", func() bool {
+	waittest.Until(t, func() bool {
 		p, ok := svc.Active()
 		return ok && p.State == StatePlaying
-	})
+	}, "the change sent during the read")
 }

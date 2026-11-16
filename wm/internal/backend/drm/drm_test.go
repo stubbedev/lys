@@ -933,28 +933,6 @@ func (r *rig) runUntil(what string, done func() bool) error {
 	return nil
 }
 
-func loopUntil(l *loop.Loop, done func() bool) (bool, error) {
-	deadline := time.Now().Add(testenv.HangLimit)
-	met := false
-	var check *loop.Timer
-	check, err := l.AddTimer(func() error {
-		if met = done(); met || time.Now().After(deadline) {
-			l.Stop()
-			return nil
-		}
-		return check.Arm(time.Millisecond)
-	})
-	if err != nil {
-		return false, err
-	}
-	defer check.Remove()
-	if err := check.Arm(time.Millisecond); err != nil {
-		return false, err
-	}
-	err = l.Run()
-	return met, err
-}
-
 func TestTheRigTakesTheAnswerAConditionGaveOnce(t *testing.T) {
 	r := start(t)
 	var tick *loop.Timer

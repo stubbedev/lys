@@ -45,7 +45,7 @@ func serveUnixAt(t *testing.T, path string, fn func(conn net.Conn, stop <-chan s
 			_ = conn.Close()
 		}
 		mu.Unlock()
-		awaitWork(t, "the fake "+path+" outlives the test", work.Wait)
+		awaitWork(t, "the fake "+path+" to end with the test", work.Wait)
 	})
 	work.Go(func() {
 		for {

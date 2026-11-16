@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -12,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
 
@@ -62,16 +63,13 @@ func listedPids(t *testing.T, self int) map[int]process {
 
 func sleeperListed(t *testing.T, pid int) process {
 	t.Helper()
-	deadline := time.Now().Add(liveness)
-	for {
-		if p, ok := listedPids(t, os.Getpid())[pid]; ok && p.name == "sleep" {
-			return p
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("pid %d never listed as sleep", pid)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	var p process
+	waittest.Until(t, func() bool {
+		var ok bool
+		p, ok = listedPids(t, os.Getpid())[pid]
+		return ok && p.name == "sleep"
+	}, fmt.Sprintf("pid %d to be listed as sleep", pid))
+	return p
 }
 
 func TestListsTheUsersProcessesButNotTheShell(t *testing.T) {

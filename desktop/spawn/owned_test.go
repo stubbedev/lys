@@ -8,6 +8,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // alive reports whether pid is a running process (not a zombie).
@@ -29,16 +31,16 @@ func TestOwnedStopsTheScriptsChildren(t *testing.T) {
 		t.Fatal(err)
 	}
 	var child int
-	waitFor(t, "the script's child", func() bool {
+	waittest.Until(t, func() bool {
 		data, _ := os.ReadFile(pidFile)
 		child, _ = strconv.Atoi(strings.TrimSpace(string(data)))
 		return child > 0
-	})
+	}, "the script's child")
 	t.Cleanup(func() { _ = syscall.Kill(child, syscall.SIGKILL) })
 	if !alive(child) {
 		t.Fatal("the script's child is not running before the context ends")
 	}
 	cancel()
 	_ = cmd.Wait()
-	waitFor(t, "the child to stop with its shell", func() bool { return !alive(child) })
+	waittest.Until(t, func() bool { return !alive(child) }, "the child to stop with its shell")
 }

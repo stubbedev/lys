@@ -9,7 +9,10 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/waittest"
 )
+
+const overtakeWindow = 200 * time.Millisecond
 
 func TestStateFromString(t *testing.T) {
 	for _, tc := range []struct {
@@ -190,18 +193,6 @@ func startFakePlayer(t *testing.T, bus *dbustest.Bus, name, title string, status
 	return f
 }
 
-// waitFor polls cond until it holds or a second passes.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-}
-
 func TestServiceFollowsPlayersOnABus(t *testing.T) {
 	bus := dbustest.Start(t)
 	vlcName := BusNamePrefix + "vlc"
@@ -225,20 +216,16 @@ func TestServiceFollowsPlayersOnABus(t *testing.T) {
 
 	// A PropertiesChanged re-reads the snapshot and ticks.
 	vlc.props.SetMust(PlayerIface, "PlaybackStatus", "Playing")
-	waitFor(t, "the playing state", func() bool {
+	waittest.Until(t, func() bool {
 		p, _ := svc.Active()
 		return p.State == StatePlaying
-	})
-	select {
-	case <-feed:
-	case <-time.After(time.Second):
-		t.Fatal("no tick for the property change")
-	}
+	}, "the playing state")
+	waittest.For(t, feed, "a tick for the property change")
 
 	// A second player arriving re-selects: the playing one wins.
 	mpvName := BusNamePrefix + "mpv"
 	mpv := startFakePlayer(t, bus, mpvName, "Second", "Paused")
-	waitFor(t, "the second player", func() bool { return len(svc.Players()) == 2 })
+	waittest.Until(t, func() bool { return len(svc.Players()) == 2 }, "the second player to arrive")
 	if p, _ := svc.Active(); p.BusName != vlcName {
 		t.Errorf("active after mpv joined = %q, want the playing vlc", p.BusName)
 	}
@@ -278,14 +265,14 @@ func TestServiceFollowsPlayersOnABus(t *testing.T) {
 	if err := svc.ToggleShuffle(ctx, mpvName); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "loop and shuffle", func() bool {
+	waittest.Until(t, func() bool {
 		for _, p := range svc.Players() {
 			if p.BusName == mpvName {
 				return p.Loop == LoopTrack && p.Shuffle
 			}
 		}
 		return false
-	})
+	}, "loop and shuffle")
 	if pos, err := svc.Position(ctx, mpvName); err != nil || pos != 42*time.Second {
 		t.Errorf("position = %v, %v; want 42s", pos, err)
 	}
@@ -297,7 +284,7 @@ func TestServiceFollowsPlayersOnABus(t *testing.T) {
 	if _, err := mpv.conn.ReleaseName(mpvName); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "mpv to leave", func() bool { return len(svc.Players()) == 1 })
+	waittest.Until(t, func() bool { return len(svc.Players()) == 1 }, "mpv to leave")
 	if p, _ := svc.Active(); p.BusName != vlcName {
 		t.Errorf("active after mpv left = %q, want vlc", p.BusName)
 	}

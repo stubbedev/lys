@@ -2,6 +2,7 @@ package bar
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -14,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
 )
@@ -243,14 +245,8 @@ func TestBrightnessStepActionHoldsTheConfiguredFloor(t *testing.T) {
 	runClickAction(ctx, config.ParseClickAction("brightness:-10"))
 	waitForSets := func(n int) []brightnessSet {
 		t.Helper()
-		for range 300 {
-			if sets := source.recorded(); len(sets) >= n {
-				return sets
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-		t.Fatalf("fewer than %d brightness writes", n)
-		return nil
+		waittest.Until(t, func() bool { return len(source.recorded()) >= n }, fmt.Sprintf("%d brightness writes", n))
+		return source.recorded()
 	}
 	want := []brightnessSet{{"panel", 5}, {"monitor", 40}}
 	if got := waitForSets(2); !slices.Equal(got, want) {

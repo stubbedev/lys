@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
-
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func newLoop(t *testing.T) *Loop {
@@ -70,13 +69,8 @@ func run(t *testing.T, l *Loop) {
 	t.Helper()
 	done := make(chan error, 1)
 	go func() { done <- l.Run() }()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("Run: %v", err)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("loop did not stop")
+	if err := waittest.For(t, done, "the loop to stop"); err != nil {
+		t.Fatalf("Run: %v", err)
 	}
 }
 

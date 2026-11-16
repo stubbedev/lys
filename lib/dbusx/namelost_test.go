@@ -6,6 +6,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const lostName = "dev.stubbe.lys.Lost"
@@ -53,13 +54,13 @@ func TestOnNameLostHearsANameReleasedAndAPeerLeavingOnALiveBus(t *testing.T) {
 	peer := bus.Conn(t)
 	unique := peer.Names()[0]
 	ownThenRelease(t, peer, lostName)
-	if got := awaitWatch(t, lost, "word of the released name"); got != lostName {
+	if got := waittest.For(t, lost, "word of the released name"); got != lostName {
 		t.Fatalf("lost %q first, want %q: connecting and taking the name are not losses", got, lostName)
 	}
 	if err := peer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if got := awaitWatch(t, lost, "word of the peer leaving"); got != unique {
+	if got := waittest.For(t, lost, "word of the peer leaving"); got != unique {
 		t.Fatalf("lost %q, want the unique name %q of the peer that left", got, unique)
 	}
 }
@@ -77,7 +78,7 @@ func TestANameLossIsSequencedAmongTheRepliesOfItsConnection(t *testing.T) {
 	if err := peer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	announced := awaitWatch(t, lost, "word of the peer leaving")
+	announced := waittest.For(t, lost, "word of the peer leaving")
 	after := busIDReplySequence(t, conn)
 	if before >= announced || announced >= after {
 		t.Errorf("the loss is sequenced %d, want it between the replies sequenced %d and %d", announced, before, after)
@@ -95,7 +96,7 @@ func TestOnNameLostNarrowedToOneNameHearsOnlyIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	ownThenRelease(t, bus.Conn(t), lostName)
-	if got := awaitWatch(t, lost, "word of the released name"); got != lostName {
+	if got := waittest.For(t, lost, "word of the released name"); got != lostName {
 		t.Fatalf("lost %q, want only %q: another peer left before it", got, lostName)
 	}
 }

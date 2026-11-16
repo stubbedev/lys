@@ -2,6 +2,7 @@ package bar
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -11,11 +12,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/service/hyprland"
@@ -313,11 +314,7 @@ func (f *fakeHypr) set(req, reply string) {
 func (f *fakeHypr) emit(t *testing.T, lines ...string) {
 	t.Helper()
 	if f.sub == nil {
-		select {
-		case f.sub = <-f.events:
-		case <-time.After(2 * time.Second):
-			t.Fatal("no event subscriber connected")
-		}
+		f.sub = waittest.For(t, f.events, "the event subscriber to connect")
 	}
 	for _, line := range lines {
 		if _, err := f.sub.Write([]byte(line + "\n")); err != nil {
@@ -518,15 +515,8 @@ func TestHyprlandClicksDispatch(t *testing.T) {
 	f, m := newTestHypr(t, nil)
 	wait := func(n int) []string {
 		t.Helper()
-		deadline := time.Now().Add(2 * time.Second)
-		for time.Now().Before(deadline) {
-			if got := f.dispatched(); len(got) >= n {
-				return got
-			}
-			time.Sleep(5 * time.Millisecond)
-		}
-		t.Fatalf("dispatches = %v, want %d", f.dispatched(), n)
-		return nil
+		waittest.Until(t, func() bool { return len(f.dispatched()) >= n }, fmt.Sprintf("%d dispatches", n))
+		return f.dispatched()
 	}
 	buttons := []*widget.Button{m.segs.Segment(0), m.segs.Segment(1), m.segs.Segment(2)}
 	buttons[2].ClickAt(widget.Point{})

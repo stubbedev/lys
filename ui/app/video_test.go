@@ -9,17 +9,16 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wlr"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/ui/app"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/media"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -198,17 +197,12 @@ func (c *videoCompositor) counts() videoCounts {
 
 func (c *videoCompositor) awaitVideoCommits(t *testing.T, n int) videoCounts {
 	t.Helper()
-	deadline := time.Now().Add(60 * time.Second)
-	for {
-		got := c.counts()
-		if got.videoCommits >= n {
-			return got
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%d video frames committed, want %d: %+v", got.videoCommits, n, got)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	var got videoCounts
+	waittest.UntilSlow(t, func() bool {
+		got = c.counts()
+		return got.videoCommits >= n
+	}, fmt.Sprintf("%d video frames to commit", n))
+	return got
 }
 
 func videoClip(full bool, frames int) []byte {

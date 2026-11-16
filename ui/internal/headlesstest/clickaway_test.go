@@ -104,7 +104,7 @@ func TestHeadlessClickAwayPopoverLeavesTheKeyboard(t *testing.T) {
 	if err := clickUntil(drop, in, "demo", x, y, BTNLeft, "dropdown open"); err != nil {
 		t.Fatalf("the dropdown never reopened: %v\n%s", err, tailTraces(drop, 25))
 	}
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	mark := window.Mark()
 	if err := in.ClickAt(showcaseW-20, showcaseH-20, BTNLeft); err != nil {
 		t.Fatal(err)
@@ -160,7 +160,7 @@ func TestHeadlessClickAwayEscapeBesideItWithoutTheProtocol(t *testing.T) {
 	if err := window.WaitSince(keys, "input", "wire key code=1 ", traceTimeout); err != nil {
 		t.Errorf("Esc beside the dropdown never reached the window: %v\n%s", err, tailTraces(window, 15))
 	}
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	for _, tr := range drop.Since(dropMark) {
 		if strings.Contains(tr.Message, "dropdown exit") {
 			t.Errorf("Esc beside the dropdown closed it: %s", tr.Message)

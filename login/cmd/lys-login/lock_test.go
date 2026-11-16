@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	"github.com/stubbedev/lys/lib/testhome"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // TestMain lets the test binary be lys-login: the tests re-exec it with
@@ -35,8 +36,6 @@ func TestMain(m *testing.M) {
 func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSession(t) }
 
 const displaySession logind.SessionID = "1"
-
-const hangGuard = 2 * time.Minute
 
 type lockProcess struct {
 	cmd    *exec.Cmd
@@ -81,6 +80,11 @@ func startLock(t *testing.T, args ...string) *lockProcess {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 	})
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("lys-login lock %q stderr:\n%s", args, p.stderr.String())
+		}
+	})
 	return p
 }
 
@@ -92,17 +96,11 @@ func (p *lockProcess) exit(t *testing.T) int {
 		_, _ = io.Copy(io.Discard, p.stdout)
 		done <- p.cmd.Wait()
 	}()
-	select {
-	case err := <-done:
-		var exit *exec.ExitError
-		if err != nil && !errors.As(err, &exit) {
-			t.Fatalf("wait for lys-login lock: %v", err)
-		}
-		return p.cmd.ProcessState.ExitCode()
-	case <-time.After(hangGuard):
-		t.Fatalf("lys-login lock never exited; stderr:\n%s", p.stderr.String())
-		return -1
+	var exit *exec.ExitError
+	if err := waittest.ForSlow(t, done, "lys-login lock to exit"); err != nil && !errors.As(err, &exit) {
+		t.Fatalf("wait for lys-login lock: %v", err)
 	}
+	return p.cmd.ProcessState.ExitCode()
 }
 
 // lockedLine waits for the line lys-login prints once the compositor
@@ -114,13 +112,8 @@ func (p *lockProcess) lockedLine(t *testing.T) {
 		line, _ := p.stdout.ReadString('\n')
 		lines <- line
 	}()
-	select {
-	case line := <-lines:
-		if strings.TrimSpace(line) != lockclient.LockedLine {
-			t.Fatalf("stdout = %q, want %q; stderr:\n%s", line, lockclient.LockedLine, p.stderr.String())
-		}
-	case <-time.After(hangGuard):
-		t.Fatalf("lys-login lock never reported the lock; stderr:\n%s", p.stderr.String())
+	if line := waittest.ForSlow(t, lines, "lys-login lock to report the lock"); strings.TrimSpace(line) != lockclient.LockedLine {
+		t.Fatalf("stdout = %q, want %q", line, lockclient.LockedLine)
 	}
 }
 
@@ -143,7 +136,7 @@ func TestLockWithoutACompositorFails(t *testing.T) {
 	t.Setenv("WAYLAND_DISPLAY", "lys-login-test-no-such-display")
 	p := startLock(t)
 	if code := p.exit(t); code != 1 {
-		t.Errorf("exit = %d, want 1; stderr:\n%s", code, p.stderr.String())
+		t.Errorf("exit = %d, want 1", code)
 	}
 }
 
@@ -159,7 +152,7 @@ func TestLockReportsTheLockHoldsTheSessionAndExitsOnUnlock(t *testing.T) {
 
 	second := startLock(t)
 	if code := second.exit(t); code != lockclient.ExitHeld {
-		t.Errorf("a second lock = exit %d, want %d (held); stderr:\n%s", code, lockclient.ExitHeld, second.stderr.String())
+		t.Errorf("a second lock = exit %d, want %d (held)", code, lockclient.ExitHeld)
 	}
 	if first.cmd.ProcessState != nil {
 		t.Fatal("the first lock exited while the session stayed locked")
@@ -183,6 +176,6 @@ func TestLockReportsTheLockHoldsTheSessionAndExitsOnUnlock(t *testing.T) {
 		}
 	}()
 	if code := first.exit(t); code != 0 {
-		t.Errorf("after logind's Unlock = exit %d, want 0; stderr:\n%s", code, first.stderr.String())
+		t.Errorf("after logind's Unlock = exit %d, want 0", code)
 	}
 }

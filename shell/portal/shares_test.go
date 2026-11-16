@@ -2,11 +2,12 @@ package portal
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
-	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/screenshare"
 )
@@ -24,15 +25,11 @@ func followShares(t *testing.T, r *rig) *screenshare.Shares {
 
 func awaitShares(t *testing.T, s *screenshare.Shares, want []screenshare.Share) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !slices.EqualFunc(s.List(), want, func(a, b screenshare.Share) bool {
-		return a.Session == b.Session && a.App == b.App && a.Kind == b.Kind && slices.Equal(a.Targets, b.Targets)
-	}) {
-		if time.Now().After(deadline) {
-			t.Fatalf("shares %+v, want %+v", s.List(), want)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool {
+		return slices.EqualFunc(s.List(), want, func(a, b screenshare.Share) bool {
+			return a.Session == b.Session && a.App == b.App && a.Kind == b.Kind && slices.Equal(a.Targets, b.Targets)
+		})
+	}, fmt.Sprintf("the shares to be %+v", want))
 }
 
 func TestAStartedShareIsListedAndStopEndsItsSession(t *testing.T) {
@@ -55,11 +52,7 @@ func TestAStartedShareIsListedAndStopEndsItsSession(t *testing.T) {
 		Session: sessA, App: "org.app", Kind: screenshare.KindScreenCast,
 		Targets: []screenshare.Target{{Kind: screenshare.TargetOutput, Name: "DP-1"}},
 	}})
-	select {
-	case <-ticks:
-	case <-time.After(5 * time.Second):
-		t.Error("no change was told")
-	}
+	waittest.For(t, ticks, "the change to be told")
 	if err := shares.Stop(context.Background(), sessA); err != nil {
 		t.Fatal(err)
 	}

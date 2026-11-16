@@ -3,6 +3,7 @@ package capture
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"image"
 	"net"
 	"slices"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dmabuf"
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wlr"
 	"github.com/stubbedev/lys/lib/wltest"
 )
@@ -500,7 +502,7 @@ func TestADmabufSessionWaitLeavesTheClientFree(t *testing.T) {
 	select {
 	case err := <-waited:
 		t.Fatalf("a Capture of the still window returned %v", err)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(QuietWindow):
 	}
 	worked := make(chan error, 1)
 	go func() {
@@ -514,25 +516,14 @@ func TestADmabufSessionWaitLeavesTheClientFree(t *testing.T) {
 		_, err = s.Formats()
 		worked <- err
 	}()
-	select {
-	case err := <-worked:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(5 * time.Second):
-		_ = s.Close()
-		t.Fatal("the Client's calls waited on the Capture")
+	if err := waittest.For(t, worked, "the Client's calls beside the parked Capture"); err != nil {
+		t.Fatal(err)
 	}
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case err := <-waited:
-		if !errors.Is(err, ErrClosed) {
-			t.Fatalf("Capture during Close = %v, want ErrClosed", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Close did not wake the Capture")
+	if err := waittest.For(t, waited, "Close to wake the Capture"); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Capture during Close = %v, want ErrClosed", err)
 	}
 }
 
@@ -561,17 +552,13 @@ func TestAResizedBufferStillLearnsTheSessionStopped(t *testing.T) {
 	}
 	f.send(f.sessionID(), 0, wireU32(400), wireU32(300))
 	f.send(f.sessionID(), 4)
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+	waittest.Until(t, func() bool {
 		if err := c.Refresh(); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.Capture(buf); errors.Is(err, ErrReconfigured) {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the resize was never reported")
-		}
-	}
+		_, err := s.Capture(buf)
+		return errors.Is(err, ErrReconfigured)
+	}, "the resize to be reported")
 	f.send(f.sessionID(), 5)
 	for range 2 {
 		if _, err = s.Capture(buf); errors.Is(err, ErrSessionStopped) {
@@ -660,14 +647,12 @@ func TestAStreamAsksOnlyForWhatChangedSinceABufferWasFilled(t *testing.T) {
 		}
 	}()
 	var captured []fakeCapture
-	for deadline := time.Now().Add(5 * time.Second); len(captured) <= live; time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("%d frames captured, want %d", len(captured), live+1)
-		}
+	waittest.Until(t, func() bool {
 		f.mu.Lock()
 		captured = slices.Clone(f.captured)
 		f.mu.Unlock()
-	}
+		return len(captured) > live
+	}, fmt.Sprintf("%d frames captured", live+1))
 	var got StreamFrame
 	if !s.Latest(&got) || got.Seq != live-1 || !slices.Equal(got.Damage, []Rect{{X: 60, Y: 30, Width: 10, Height: 5}}) {
 		t.Errorf("the latest frame is %+v", got)

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const testFPS = 30
@@ -52,23 +53,6 @@ func startTest(t *testing.T, parts recordingParts, format config.RecorderFormat)
 	return r, path, terms
 }
 
-// hangMargin is how long before the test binary's deadline a wait gives
-// up, so the test fails naming what it waited for instead of the binary
-// panicking.
-const hangMargin = 10 * time.Second
-
-// waitRecording polls cond until it holds. Only a hang stops it, by the
-// test binary's deadline: a loaded machine is slow, not wrong.
-func waitRecording(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline, bounded := t.Deadline()
-	for ; !cond(); time.Sleep(5 * time.Millisecond) {
-		if bounded && time.Until(deadline) < hangMargin {
-			t.Fatalf("never, by the test deadline: %s", what)
-		}
-	}
-}
-
 // endOrFail stops r unless the test has, reporting what that stop could
 // not write: deferred right after the start, it ends the capture before
 // a failing test releases the device it encodes on.
@@ -102,7 +86,7 @@ func TestRecordingWritesAPlayableFileWithAudio(t *testing.T) {
 			stopTones := make(chan struct{})
 			go desktop.tone(4000, stopTones)
 			go mic.tone(-1000, stopTones)
-			waitRecording(t, "ten frames", func() bool { return len(video.frames()) >= 10 })
+			waittest.UntilSlow(t, func() bool { return len(video.frames()) >= 10 }, "ten frames")
 			if err := r.Stop(); err != nil {
 				t.Fatal(err)
 			}
@@ -200,12 +184,8 @@ func TestFailuresOfBothTracksAreReportedOnce(t *testing.T) {
 	}
 	ended := make(chan struct{})
 	go func() { r.loops.Wait(); close(ended) }()
-	select {
-	case <-ended:
-	case <-time.After(5 * time.Second):
-		t.Fatalf("the tracks still run 5 s after their file closed; reported %q", terms.all())
-	}
-	waitRecording(t, "the failure report", func() bool { return len(terms.all()) > 0 })
+	waittest.For(t, ended, "the tracks to end after their file closed")
+	waittest.UntilSlow(t, func() bool { return len(terms.all()) > 0 }, "the failure report")
 	if got := terms.all(); len(got) != 1 || !strings.Contains(got[0], "file already closed") {
 		t.Errorf("reported %q, want the write failure once", got)
 	}
@@ -220,7 +200,7 @@ func TestRecordingFailureIsReportedAndStillFinalized(t *testing.T) {
 	fx := loadFixture(t)
 	video := &fakeVideo{fx: fx, failAt: 4, failErr: errors.New("recorder: the output is gone: HDMI-A-1")}
 	r, path, terms := startTest(t, recordingParts{video: video}, config.RecorderFormatMp4)
-	waitRecording(t, "the failure report", func() bool { return len(terms.all()) > 0 })
+	waittest.UntilSlow(t, func() bool { return len(terms.all()) > 0 }, "the failure report")
 	if got := terms.all(); !slices.Equal(got, []string{"recorder: the output is gone: HDMI-A-1"}) {
 		t.Fatalf("reported %q, want the failure once", got)
 	}
@@ -243,7 +223,7 @@ func TestStopReportsAnEncoderThatFailsToClose(t *testing.T) {
 	closeErr := errors.New("recorder: close the H.264 encoder recording HDMI-A-1 on iGPU: gpu: timed out")
 	video := &fakeVideo{fx: fx, closeErr: closeErr}
 	r, path, terms := startTest(t, recordingParts{video: video}, config.RecorderFormatMp4)
-	waitRecording(t, "three frames", func() bool { return len(video.frames()) >= 3 })
+	waittest.UntilSlow(t, func() bool { return len(video.frames()) >= 3 }, "three frames")
 	if err := r.Stop(); !errors.Is(err, closeErr) {
 		t.Fatalf("Stop = %v, want the encoder's close error", err)
 	}
@@ -310,7 +290,7 @@ func TestWebcamFramesBecomeTheOverlay(t *testing.T) {
 		t.Error("another frame came back")
 	}
 	close(cam.frames)
-	waitRecording(t, "the camera's report", func() bool { return len(terms.all()) > 0 })
+	waittest.UntilSlow(t, func() bool { return len(terms.all()) > 0 }, "the camera's report")
 	if got := terms.all(); len(got) != 1 || !strings.Contains(got[0], "the webcam stopped: /dev/video0 hung up") {
 		t.Errorf("reported %q, want the camera's reason", got)
 	}

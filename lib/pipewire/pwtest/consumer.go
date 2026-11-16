@@ -7,10 +7,11 @@ import (
 	"runtime"
 	"sync"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // Consumer is a reference consumer: a libpipewire input stream, linked
@@ -253,13 +254,7 @@ func readCursor(m spaMeta) *Cursor {
 // Buffer waits for the next buffer.
 func (c *Consumer) Buffer(t *testing.T) Buffer {
 	t.Helper()
-	select {
-	case b := <-c.buffers:
-		return b
-	case <-time.After(5 * time.Second):
-		t.Fatal("pwtest: the consumer received no buffer")
-		return Buffer{}
-	}
+	return waittest.For(t, c.buffers, "pwtest: a buffer at the consumer")
 }
 
 // Frame waits for the next buffer that holds a frame and returns its
@@ -281,14 +276,15 @@ func link(t *testing.T, output, input string) {
 		t.Fatalf("pw-link not on PATH: %v", err)
 	}
 	var out []byte
-	for range 100 {
-		out, err = exec.Command(bin, output, input).CombinedOutput() //nolint:gosec
-		if err == nil {
-			return
+	defer func() {
+		if err != nil {
+			t.Logf("pw-link %s %s: %v: %s", output, input, err, out)
 		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatalf("pw-link %s %s: %v: %s", output, input, err, out)
+	}()
+	waittest.Until(t, func() bool {
+		out, err = exec.Command(bin, output, input).CombinedOutput() //nolint:gosec
+		return err == nil
+	}, "pw-link to link "+output+" to "+input)
 }
 
 // podWriter builds the pods a reference consumer offers.

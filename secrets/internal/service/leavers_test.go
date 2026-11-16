@@ -3,10 +3,10 @@ package service
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/internal/keyring"
 )
@@ -29,19 +29,7 @@ func TestTheDescriptorsOfSignalsTheLeaverWatchDropsAreClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = client.Close()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		f.svc.mu.Lock()
-		_, open := f.svc.sessions[sess]
-		f.svc.mu.Unlock()
-		if !open {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the session outlived its client")
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return !f.sessionOpen(sess) }, "the session to close with its client")
 	pipe.RequireEveryCopyClosed(t)
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // monitorsFrame is one all-monitors watch frame.
@@ -94,16 +95,6 @@ func (f *fakeMango) stream(conn net.Conn, sub, frames string) {
 	<-f.done
 }
 
-// awaitTick waits for the watcher's tick after an applied frame.
-func awaitTick(t *testing.T, w *Watcher) {
-	t.Helper()
-	select {
-	case <-w.Ticks():
-	case <-time.After(2 * time.Second):
-		t.Fatal("no frame applied")
-	}
-}
-
 func TestNotRunning(t *testing.T) {
 	t.Setenv(SocketEnv, "")
 	if IsRunning() {
@@ -172,7 +163,7 @@ func TestWatchAppliesFramesAndSkipsGarbage(t *testing.T) {
 	}
 
 	f.send(watchMonitors)
-	awaitTick(t, w)
+	waittest.For(t, w.Ticks(), "a frame to apply")
 	if w.Ready() {
 		t.Fatal("ready with only the monitor stream's frame")
 	}
@@ -186,7 +177,7 @@ func TestWatchAppliesFramesAndSkipsGarbage(t *testing.T) {
 	}
 
 	f.send(watchClients)
-	awaitTick(t, w)
+	waittest.For(t, w.Ticks(), "a frame to apply")
 	if !w.Ready() {
 		t.Fatal("not ready after both streams' frames")
 	}
@@ -224,7 +215,7 @@ func TestWatchDecodesTheKeyboardLayout(t *testing.T) {
 	}
 	defer w.Close()
 	f.send(watchMonitors)
-	awaitTick(t, w)
+	waittest.For(t, w.Ticks(), "a frame to apply")
 	monitors, _ := w.State()
 	if got := KeyboardLayout(monitors); got != "English (US)" {
 		t.Fatalf("layout = %q, want English (US)", got)
@@ -248,15 +239,12 @@ func TestAWatchStreamMayStaySilentPastTheRequestDeadline(t *testing.T) {
 	time.Sleep(3 * time.Duration(ipcsocktest.Fast))
 	f.send(watchMonitors)
 	f.send(watchClients)
-	deadline := time.After(2 * time.Second)
 	for !w.Ready() {
-		select {
-		case _, open := <-w.Ticks():
-			if !open && !w.Ready() {
-				t.Fatal("the streams ended at the request deadline")
-			}
-		case <-deadline:
-			t.Fatal("no frames after the request deadline passed")
+		if _, open := waittest.Receive(t, w.Ticks(), "frames, or the streams' end, after the request deadline passed"); !open {
+			break
 		}
+	}
+	if !w.Ready() {
+		t.Fatal("the streams ended at the request deadline")
 	}
 }

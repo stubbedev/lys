@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
 	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -133,16 +134,12 @@ func TestDropdownBuildersReturnWhileEveryServiceHolds(t *testing.T) {
 	} {
 		built := make(chan widget.Widget, 1)
 		a.Invoke(func() { built <- build(ctx) })
-		select {
-		case w := <-built:
-			c, ok := w.(dropdownCloser)
-			if !ok {
-				t.Fatalf("%s: %T does not release", name, w)
-			}
-			t.Cleanup(c.dropdownClosed)
-		case <-time.After(10 * time.Second):
-			t.Fatalf("the %s builder waited on a held service", name)
+		w := waittest.For(t, built, "the "+name+" builder past a held service")
+		c, ok := w.(dropdownCloser)
+		if !ok {
+			t.Fatalf("%s: %T does not release", name, w)
 		}
+		t.Cleanup(c.dropdownClosed)
 		if name == "recorder" {
 			apptest.Answer(t, "the camera probe, off the loop", probing)
 		}

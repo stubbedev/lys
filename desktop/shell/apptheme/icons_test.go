@@ -6,8 +6,8 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -71,16 +71,10 @@ func TestInitIcons(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(r.IconsDir(), "ld-new-symbolic.svg"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		if _, n := fake.state(); n >= 2 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("installing an icon did not refresh the icon theme")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool {
+		_, n := fake.state()
+		return n >= 2
+	}, "installing an icon to refresh the icon theme")
 	if paths, _ := fake.state(); !slices.Equal(paths, []string{base, "/usr/share/icons"}) {
 		t.Errorf("a refresh changed the paths to %v", paths)
 	}

@@ -1,13 +1,13 @@
 package filechooser
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/udisks"
 	"github.com/stubbedev/lys/shell/service/udisks/udiskstest"
@@ -43,11 +43,7 @@ func drivesHarness(t *testing.T) (*harness, *udiskstest.UDisks) {
 // waitButton waits until a button named name is there, or gone.
 func (hs *harness) waitButton(t *testing.T, name string, there bool) {
 	t.Helper()
-	for deadline := time.Now().Add(treetest.Liveness); hs.hasButton(name) != there; time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the %q button never became there=%v", name, there)
-		}
-	}
+	waittest.Until(t, func() bool { return hs.hasButton(name) == there }, fmt.Sprintf("the %q button to become there=%v", name, there))
 }
 
 // An unmounted volume is listed, and activating it mounts it and opens

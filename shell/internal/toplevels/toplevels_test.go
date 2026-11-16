@@ -7,9 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wlr"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -51,20 +51,6 @@ func TestTrackerAppliesBatchesOnDone(t *testing.T) {
 	early.HandleZwlrForeignToplevelHandleV1Closed(wlr.ZwlrForeignToplevelHandleV1ClosedEvent{})
 	if changes.Load() != 3 {
 		t.Error("a window never listed announced its close")
-	}
-}
-
-// waitWindows polls the watcher until want holds.
-func waitWindows(t *testing.T, w *Watcher, want func([]Window) bool) []Window {
-	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
-		got := w.Windows()
-		if want(got) {
-			return got
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("windows = %v", got)
-		}
 	}
 }
 
@@ -124,14 +110,14 @@ func TestWatcherFollowsAWindow(t *testing.T) {
 		t.Fatalf("an empty session lists %v", got)
 	}
 	probe := startProbe(t, "org.example.Probe")
-	waitWindows(t, w, func(ws []Window) bool {
-		return slices.Equal(ws, []Window{{AppID: "org.example.Probe", Activated: true}})
-	})
+	waittest.Until(t, func() bool {
+		return slices.Equal(w.Windows(), []Window{{AppID: "org.example.Probe", Activated: true}})
+	}, "the probe's window to be listed, activated")
 	if changes.Load() == 0 {
 		t.Error("the window mapped without a change")
 	}
 	_ = probe.Close()
-	waitWindows(t, w, func(ws []Window) bool { return len(ws) == 0 })
+	waittest.Until(t, func() bool { return len(w.Windows()) == 0 }, "the probe's window to leave the list")
 	w.Close()
 	if err := w.Err(); err != nil {
 		t.Errorf("Close ended the watcher with %v", err)
@@ -148,11 +134,7 @@ func TestWatcherEndsWithTheCompositor(t *testing.T) {
 	if err := sway.Kill(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-w.Ended():
-	case <-time.After(10 * time.Second):
-		t.Fatal("the watcher outlived its compositor")
-	}
+	waittest.For(t, w.Ended(), "the watcher to end with its compositor")
 	if w.Err() == nil {
 		t.Error("the compositor went away without an error")
 	}

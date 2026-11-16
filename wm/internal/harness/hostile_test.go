@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"golang.org/x/sys/unix"
 
@@ -158,25 +159,25 @@ func TestClientsThatNeverReadAreDisconnected(t *testing.T) {
 	t.Parallel()
 	h := StartUntraced(t, small)
 	r := dialRaw(t, h.Socket())
-	for deadline := time.Now().Add(testenv.HangLimit); ; {
-		if time.Now().After(deadline) {
-			t.Fatal("a client that never read its events was still connected")
-		}
-		cb := r.newID()
-		err := r.send(displayID, displaySync, func(e *wire.Encoder) { e.Uint(uint32(cb)) })
-		if err == nil {
-			err = r.conn.Flush()
-		}
-		if errors.Is(err, wire.ErrWouldBlock) || errors.Is(err, wire.ErrOutputFull) {
-			if _, err := r.wait(unix.POLLOUT, time.Now().Add(100*time.Millisecond)); err != nil {
-				t.Fatal(err)
+	waittest.Until(t, func() bool {
+		for range 1000 {
+			cb := r.newID()
+			err := r.send(displayID, displaySync, func(e *wire.Encoder) { e.Uint(uint32(cb)) })
+			if err == nil {
+				err = r.conn.Flush()
 			}
-			continue
+			if errors.Is(err, wire.ErrWouldBlock) || errors.Is(err, wire.ErrOutputFull) {
+				if _, err := r.wait(unix.POLLOUT, time.Now().Add(100*time.Millisecond)); err != nil {
+					t.Fatal(err)
+				}
+				return false
+			}
+			if err != nil {
+				return true
+			}
 		}
-		if err != nil {
-			break
-		}
-	}
+		return false
+	}, "a client that never reads its events to be disconnected")
 	survives(t, h)
 }
 
@@ -187,11 +188,7 @@ func TestStalledWindowsDoNotStallOthers(t *testing.T) {
 	w := hung.Window("stalled", quadrants)
 	hung.DispatchUntil("the window to map", w.Mapped)
 	var done bool
-	disconnected := false
-	for deadline := time.Now().Add(testenv.HangLimit); !disconnected; {
-		if time.Now().After(deadline) {
-			t.Fatal("a client that never reads its frame callbacks was never disconnected")
-		}
+	waittest.Until(t, func() bool {
 		var err error
 		for range 1000 {
 			if _, err = w.Surface.Frame(frameDone{&done}); err != nil {
@@ -201,13 +198,8 @@ func TestStalledWindowsDoNotStallOthers(t *testing.T) {
 		if err == nil {
 			err = errors.Join(w.Surface.Attach(hung.Buffer(w.Logical, 1, quadrants), 0, 0), w.Surface.Damage(0, 0, 10, 10), w.Surface.Commit(), hung.Display.Flush())
 		}
-		switch {
-		case errors.Is(err, wire.ErrWouldBlock), errors.Is(err, wire.ErrOutputFull):
-			time.Sleep(10 * time.Millisecond)
-		case err != nil:
-			disconnected = true
-		}
-	}
+		return err != nil && !errors.Is(err, wire.ErrWouldBlock) && !errors.Is(err, wire.ErrOutputFull)
+	}, "a client that never reads its frame callbacks to be disconnected")
 	for range 3 {
 		survives(t, h)
 	}

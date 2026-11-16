@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const feedFixture = `<?xml version="1.0" encoding="UTF-8"?>
@@ -227,13 +229,8 @@ func TestRatesFetchHonoursCancellation(t *testing.T) {
 	done := make(chan bool)
 	go func() { done <- r.Refresh(ctx) }()
 	cancel()
-	select {
-	case changed := <-done:
-		if changed {
-			t.Error("a cancelled fetch changed the rates")
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the fetch outlived its context")
+	if waittest.For(t, done, "the cancelled fetch to return") {
+		t.Error("a cancelled fetch changed the rates")
 	}
 }
 

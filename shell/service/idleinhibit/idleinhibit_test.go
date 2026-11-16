@@ -5,21 +5,12 @@ import (
 	"fmt"
 	"math"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
-
-func waitChange(t *testing.T, ch <-chan struct{}) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(time.Second):
-		t.Fatal("no change tick within a second")
-	}
-}
 
 func TestStateEnableTimed(t *testing.T) {
 	s := NewState(minutes(t, 2))
@@ -35,7 +26,7 @@ func TestStateEnableTimed(t *testing.T) {
 	if got := s.Remaining(); got != 120 {
 		t.Errorf("remaining = %d, want 120", got)
 	}
-	waitChange(t, changes)
+	waittest.For(t, changes, "a change tick")
 
 	// The countdown runs and fires at zero, disabling the run: jump the
 	// remaining time to its last second (white-box: the field lives in
@@ -43,13 +34,7 @@ func TestStateEnableTimed(t *testing.T) {
 	s.mu.Lock()
 	s.remainingSecs = 1
 	s.mu.Unlock()
-	deadline := time.Now().Add(5 * time.Second)
-	for s.Active() && time.Now().Before(deadline) {
-		time.Sleep(20 * time.Millisecond)
-	}
-	if s.Active() {
-		t.Fatal("the timer never fired")
-	}
+	waittest.Until(t, func() bool { return !s.Active() }, "the timer to fire")
 	if got := s.Duration().Minutes(); got != 2 {
 		t.Errorf("duration survived the run: %d", got)
 	}
@@ -153,13 +138,7 @@ func TestStateTimerFiresToZero(t *testing.T) {
 	s.mu.Lock()
 	s.remainingSecs = 1
 	s.mu.Unlock()
-	deadline := time.Now().Add(5 * time.Second)
-	for s.Active() && time.Now().Before(deadline) {
-		time.Sleep(20 * time.Millisecond)
-	}
-	if s.Active() {
-		t.Fatal("the timer never fired")
-	}
+	waittest.Until(t, func() bool { return !s.Active() }, "the timer to fire")
 	if got := s.Duration().Minutes(); got != 1 {
 		t.Errorf("duration survived the run: %d", got)
 	}
@@ -241,13 +220,7 @@ func TestDaemonHoldsFollowTheirCaller(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = portal.Close()
-	deadline := time.Now().Add(2 * time.Second)
-	for state.Inhibiting() && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if state.Inhibiting() {
-		t.Error("a departed caller's hold kept idle inhibited")
-	}
+	waittest.Until(t, func() bool { return !state.Inhibiting() }, "a departed caller's hold to end")
 }
 
 func minutes(t *testing.T, n int64) inhibitduration.Duration {

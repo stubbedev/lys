@@ -228,7 +228,7 @@ func TestBrightnessDropdownFollowsLevels(t *testing.T) {
 	default:
 	}
 	// A tick after close never lands: the page stays empty.
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if onHeadlessLoop(func() string { return v.body.Visible() }) != "empty" {
 		t.Fatal("a tick after close rebuilt the closed dropdown")
 	}
@@ -327,7 +327,7 @@ func TestBrightnessDropdownStopsFollowingControlWhileHidden(t *testing.T) {
 	v := brightnessDropdown(ctx).(*brightnessView)
 	onHeadlessLoop(func() bool { v.dropdownHidden(); return true })
 	auto.set(brightness.ControlFollowing)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if onHeadlessLoop(v.auto.card.Visible) {
 		t.Error("a change while hidden showed the card")
 	}

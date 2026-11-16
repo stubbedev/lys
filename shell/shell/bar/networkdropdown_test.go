@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -388,11 +389,7 @@ func settleNetReads(t *testing.T, v *networkView) {
 	t.Helper()
 	settled := make(chan struct{})
 	v.reads.requestThen(func() { close(settled) })
-	select {
-	case <-settled:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the view's reads to settle")
-	}
+	waittest.For(t, settled, "the view's reads to settle")
 }
 
 func TestNetworkDropdownStaleSearchAndForget(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // testCursor is a Cursor whose shape n is an n x n image of byte n.
@@ -108,17 +108,12 @@ func cursorStream(t *testing.T, src Source, cur Cursor) *consumer {
 // passing every buffer before it to seen.
 func await(t *testing.T, c *consumer, what string, ok func(consumed) bool, seen func(consumed)) consumed {
 	t.Helper()
-	deadline := time.After(5 * time.Second)
 	for {
-		select {
-		case f := <-c.frames:
-			if ok(f) {
-				return f
-			}
-			seen(f)
-		case <-deadline:
-			t.Fatalf("the consumer received no buffer with %s", what)
+		f := waittest.For(t, c.frames, "a consumed buffer with "+what)
+		if ok(f) {
+			return f
 		}
+		seen(f)
 	}
 }
 

@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"sync"
@@ -8,9 +9,12 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
+
+const quietWindow = 200 * time.Millisecond
 
 // testLoop stands in for the application loop: Invoke queues, and the
 // loop goroutine runs each function under the lock the test reads with.
@@ -26,22 +30,14 @@ func (l *testLoop) invoke(fn func()) {
 	}()
 }
 
-// waitLoop polls cond under the loop lock for a second.
+// wait polls cond under the loop lock until it holds.
 func (l *testLoop) wait(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(time.Second)
-	for {
+	waittest.Until(t, func() bool {
 		l.mu.Lock()
-		ok := cond()
-		l.mu.Unlock()
-		if ok {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
+		defer l.mu.Unlock()
+		return cond()
+	}, what)
 }
 
 func testFont(t *testing.T) render.Font { return treetest.Font(t) }
@@ -213,13 +209,7 @@ func TestDebouncedSliderWritesInOrderLatestWins(t *testing.T) {
 	}
 	waitWrites := func(want ...float64) {
 		t.Helper()
-		deadline := time.Now().Add(time.Second)
-		for !slices.Equal(written(), want) {
-			if time.Now().After(deadline) {
-				t.Fatalf("writes = %v, want %v", written(), want)
-			}
-			time.Sleep(2 * time.Millisecond)
-		}
+		waittest.Until(t, func() bool { return slices.Equal(written(), want) }, fmt.Sprintf("the writes %v", want))
 	}
 
 	loop.mu.Lock()
@@ -236,7 +226,7 @@ func TestDebouncedSliderWritesInOrderLatestWins(t *testing.T) {
 	d.Knob.SetPressed(false)
 	loop.mu.Unlock()
 
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := written(); !slices.Equal(got, []float64{60}) {
 		t.Fatalf("writes = %v while the first was still running, want it alone", got)
 	}

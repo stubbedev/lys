@@ -3,6 +3,7 @@ package daemon
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/splash/internal/protocol"
 	"github.com/stubbedev/lys/splash/internal/theme"
@@ -162,11 +165,7 @@ func TestStalledDurationSaveHoldsNeitherTheQuitNorTheDevices(t *testing.T) {
 	r.call(t, protocol.SystemInitialized{}, protocol.Ack{})
 	clock.skip(time.Minute)
 	r.call(t, protocol.Quit{}, protocol.Ack{})
-	select {
-	case <-saving:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the quit never saved the duration")
-	}
+	waittest.For(t, saving, "the quit to save the duration")
 	r.display.mu.Lock()
 	closed := r.display.closed
 	r.display.mu.Unlock()
@@ -239,17 +238,10 @@ func TestBootReadsThePreviousDurationAfterTheNewRoot(t *testing.T) {
 			}
 			awaitLogged := func(wantMissing, wantCorrupt int) {
 				t.Helper()
-				deadline := time.Now().Add(5 * time.Second)
-				for {
+				waittest.Until(t, func() bool {
 					m, c := logged()
-					if m == wantMissing && c == wantCorrupt {
-						return
-					}
-					if time.Now().After(deadline) {
-						t.Fatalf("want the file missing %d times and corrupt %d times, logged:\n%s", wantMissing, wantCorrupt, logs.String())
-					}
-					time.Sleep(time.Millisecond)
-				}
+					return m == wantMissing && c == wantCorrupt
+				}, fmt.Sprintf("the file logged missing %d times and corrupt %d times", wantMissing, wantCorrupt))
 			}
 			loaded := make(chan struct{}, 2)
 			r := start(t, setup{screens: 1, duration: path, log: slog.New(slog.NewTextHandler(&logs, nil)), loadBoot: func(p string) (time.Duration, error) {

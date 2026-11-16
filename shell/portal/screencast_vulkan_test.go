@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/sys/unix"
@@ -226,19 +227,21 @@ func sharedWindow(t *testing.T, a *app.Application, label *widget.Label) string 
 		t.Fatal(err)
 	}
 	defer c.Close()
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+	var id string
+	waittest.Until(t, func() bool {
 		list, err := c.Toplevels()
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, tl := range list {
 			if tl.AppID == appID && tl.Identifier != "" && settled(c, tl) {
-				return tl.Identifier
+				id = tl.Identifier
+				return true
 			}
 		}
-	}
-	t.Fatal("the shared window never listed at a settled size")
-	return ""
+		return false
+	}, "the shared window to list at a settled size")
+	return id
 }
 
 // settled reports whether two captures of tl in a row have one size:
@@ -347,16 +350,17 @@ func TestWindowSessionCopiesIntoTheStreamsBuffers(t *testing.T) {
 	if !isDmabuf(b.Fd()) {
 		t.Fatalf("buffer fd %d is not a dmabuf", b.Fd())
 	}
-	for i := 0; ; i++ {
+	var redrawn time.Time
+	redraws := 0
+	waittest.Until(t, func() bool {
 		if _, ok := src.FillDmabuf(b); ok {
-			return
+			return true
 		}
-		if i == 500 {
-			t.Fatal("no frame landed in the stream's buffer")
+		if time.Since(redrawn) >= 500*time.Millisecond {
+			redrawn, redraws = time.Now(), redraws+1
+			text := fmt.Sprintf("frame %d", redraws)
+			a.Invoke(func() { label.SetText(text) })
 		}
-		if i%25 == 0 {
-			a.Invoke(func() { label.SetText(fmt.Sprintf("frame %d", i)) })
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+		return false
+	}, "a frame to land in the stream's buffer")
 }

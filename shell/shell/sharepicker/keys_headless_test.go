@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -421,7 +422,7 @@ func (r *regionRig) open() bool { return r.gate.Open() }
 func (r *regionRig) drawRegion(t *testing.T) {
 	t.Helper()
 	w, h := r.kb.OutputSize()
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
+	waittest.Until(t, func() bool {
 		for _, step := range []func() error{
 			func() error { return r.kb.MotionAbsolute(100, 100, uint32(w), uint32(h)) },
 			func() error { return r.kb.Button(buttonLeft, true) },
@@ -438,14 +439,13 @@ func (r *regionRig) drawRegion(t *testing.T) {
 		}
 		got := apptest.On(r.a, r.region.Selected)
 		if got.Empty() {
-			continue
+			return false
 		}
 		if want := image.Rect(100, 100, 300, 200); got != want {
 			t.Fatalf("the drag drew %v, want %v", got, want)
 		}
-		return
-	}
-	t.Fatal("no drag reached the overlay")
+		return true
+	}, "a drag to reach the overlay")
 }
 
 // A screenshot press during the share picker's region selection does not
@@ -613,16 +613,13 @@ func TestHeadlessOutputThumbShowsNoOverlay(t *testing.T) {
 	name := apptest.On(a, func() string { return a.Session().Outputs()[0].Name })
 	gate := &regionoverlay.Gate{}
 	end := openOverlay(t, a, gate)
-	var during *image.RGBA
-	for deadline := time.Now().Add(10 * time.Second); during == nil || !showsRed(during); {
-		if time.Now().After(deadline) {
-			t.Fatal("a capture during the session never showed the overlay's frame")
-		}
-		var err error
-		if during, err = outputThumb(name, 64); err != nil {
+	waittest.Until(t, func() bool {
+		during, err := outputThumb(name, 64)
+		if err != nil {
 			t.Fatalf("the capture during the session failed: %v", err)
 		}
-	}
+		return showsRed(during)
+	}, "a capture during the session to show the overlay's frame")
 	type thumb struct {
 		img *image.RGBA
 		err error

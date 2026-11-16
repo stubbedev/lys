@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // daemonConf is a private PipeWire daemon: the native protocol, the
@@ -80,14 +80,11 @@ func Start(t *testing.T) *Daemon {
 	d := &Daemon{cmd: cmd}
 	t.Cleanup(d.Kill)
 	sock := filepath.Join(dir, "pipewire-0")
-	for range 100 {
-		if _, err := os.Stat(sock); err == nil {
-			return d
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatal("pipewire did not create its socket")
-	return nil
+	waittest.Until(t, func() bool {
+		_, err := os.Stat(sock)
+		return err == nil
+	}, "pipewire to create its socket")
+	return d
 }
 
 // Kill ends the daemon at once, as a crash would, and reaps it.

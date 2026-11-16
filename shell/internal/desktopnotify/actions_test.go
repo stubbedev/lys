@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -192,23 +193,9 @@ func TestAskHearsTheShellsOwnServerOnItsOwnConnection(t *testing.T) {
 		key, ok, err := NewSender(conn).Ask(t.Context(), "lys-shell", "s", "b", "", yesNoActions, time.Minute)
 		answered <- answer{key, ok, err}
 	}()
-	var id uint32
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(5 * time.Millisecond) {
-		if popups := svc.Popups(); len(popups) == 1 {
-			id = popups[0].ID
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the server never showed the question")
-		}
-	}
-	svc.InvokeAction(id, "allow", "")
-	select {
-	case a := <-answered:
-		if a.err != nil || !a.ok || a.key != "allow" {
-			t.Fatalf("Ask = %q %v %v, want allow", a.key, a.ok, a.err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("Ask never heard the press its own server announced")
+	waittest.Until(t, func() bool { return len(svc.Popups()) == 1 }, "the server to show the question")
+	svc.InvokeAction(svc.Popups()[0].ID, "allow", "")
+	if a := waittest.For(t, answered, "Ask to hear the press its own server announced"); a.err != nil || !a.ok || a.key != "allow" {
+		t.Fatalf("Ask = %q %v %v, want allow", a.key, a.ok, a.err)
 	}
 }

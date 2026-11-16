@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/sys/unix"
@@ -111,7 +112,9 @@ type harness struct {
 	focusErr error
 }
 
-const hangGuard = 2 * time.Minute
+// quietWindow is how long nothing more must arrive before a test
+// concludes nothing more will.
+const quietWindow = 200 * time.Millisecond
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
@@ -184,12 +187,15 @@ func (h *harness) stop() {
 		s.work.Wait()
 		close(done)
 	}()
-	select {
-	case <-done:
-	case <-time.After(hangGuard):
-		stacks := make([]byte, 1<<20)
-		h.t.Errorf("the surface's work outlives its sessions:\n%s", stacks[:runtime.Stack(stacks, true)])
-	}
+	defer func() {
+		select {
+		case <-done:
+		default:
+			stacks := make([]byte, 1<<20)
+			h.t.Logf("the surface's work outlives its sessions:\n%s", stacks[:runtime.Stack(stacks, true)])
+		}
+	}()
+	waittest.For(h.t, done, "the surface's work to end with its sessions")
 }
 
 // open starts a session and returns its reply channel.
@@ -209,17 +215,10 @@ func (h *harness) open(opts launcheripc.SessionOptions, replace bool, rows ...st
 // until pumps the loop until cond holds.
 func (h *harness) until(what string, cond func() bool) {
 	h.t.Helper()
-	deadline := time.Now().Add(hangGuard)
-	for {
+	waittest.Until(h.t, func() bool {
 		h.loop.pump()
-		if cond() {
-			return
-		}
-		if time.Now().After(deadline) {
-			h.t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(time.Millisecond)
-	}
+		return cond()
+	}, what)
 }
 
 func (h *harness) key(spec string) bool {
@@ -247,20 +246,17 @@ func (h *harness) pointAt(pos int) (*widget.Router, widget.Point) {
 // frame pumps the loop until the session's terminal frame arrives.
 func (h *harness) frame(reply <-chan launcheripc.ServerFrame) launcheripc.ServerFrame {
 	h.t.Helper()
-	deadline := time.Now().Add(hangGuard)
-	for {
-		h.loop.pump()
+	var f launcheripc.ServerFrame
+	h.until("the session's terminal frame", func() bool {
 		select {
-		case f := <-reply:
-			h.loop.pump()
-			return f
+		case f = <-reply:
+			return true
 		default:
+			return false
 		}
-		if time.Now().After(deadline) {
-			h.t.Fatal("no terminal frame")
-		}
-		time.Sleep(time.Millisecond)
-	}
+	})
+	h.loop.pump()
+	return f
 }
 
 func dmenu() launcheripc.SessionOptions { return launcheripc.SessionOptions{Dmenu: true} }
@@ -1067,7 +1063,7 @@ func TestARowsFileIconPointingAtAFIFODrawsNothingAndDoesNotBlock(t *testing.T) {
 		select {
 		case fn := <-posted:
 			fn()
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(quietWindow):
 			quiet = true
 		}
 	}

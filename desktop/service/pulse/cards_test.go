@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func headset() native.CardInfo {
@@ -37,7 +38,7 @@ func TestCardsAreListedAndAProfileSwitchIsOneCallAndFollowed(t *testing.T) {
 		if err := s.SetCardProfile(context.Background(), 7, "headset-head-unit"); err != nil {
 			t.Fatal(err)
 		}
-		waitFor(t, "the profile change", func() bool { return s.Cards()[0].ActiveProfile == "headset-head-unit" })
+		waittest.Until(t, func() bool { return s.Cards()[0].ActiveProfile == "headset-head-unit" }, "the profile change")
 		calls := srv.Calls()[before:]
 		if slices.Index(calls, native.CmdSetCardProfile) < 0 || count(calls, native.CmdSetCardProfile) != 1 {
 			t.Fatalf("version %d: calls %v, want one SET_CARD_PROFILE", version, calls)

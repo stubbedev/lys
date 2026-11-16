@@ -2,11 +2,11 @@ package mpris
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func changedWith(iface string, fd dbus.UnixFD) dbusx.ChangedProperties {
@@ -38,10 +38,10 @@ func TestTheDescriptorsOfEverySignalTheServiceReadsAreClosed(t *testing.T) {
 	emitChanged(t, vlc.conn, changedWith("org.example.Other", pipe.Write))
 	emitChanged(t, vlc.conn, changedWith(PlayerIface, pipe.Write))
 	vlc.props.SetMust(PlayerIface, "PlaybackStatus", "Playing")
-	waitFor(t, "the change behind the descriptors", func() bool {
+	waittest.Until(t, func() bool {
 		p, _ := svc.Active()
 		return p.State == StatePlaying
-	})
+	}, "the change behind the descriptors")
 	pipe.RequireEveryCopyClosed(t)
 }
 
@@ -77,11 +77,7 @@ func TestCloseClosesTheDescriptorsOfTheSignalsItNeverRead(t *testing.T) {
 	if reply, err := slow.RequestName(BusNamePrefix+"stalled", dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
 		t.Fatalf("request the stalled player's name: %v %v", reply, err)
 	}
-	select {
-	case <-stalled.entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the service never read the stalled player")
-	}
+	waittest.For(t, stalled.entered, "the service to read the stalled player")
 
 	const markerName = "org.example.Marker"
 	if reply, err := slow.RequestName(markerName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
@@ -103,11 +99,7 @@ func TestCloseClosesTheDescriptorsOfTheSignalsItNeverRead(t *testing.T) {
 	if err := markerTick.Emit(slow, "/", struct{}{}); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-ticked:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no Tick behind the descriptors, by which the connection has handed the service all of them")
-	}
+	waittest.For(t, ticked, "the Tick behind the descriptors, by which the connection has handed the service all of them")
 
 	if err := svc.Close(); err != nil {
 		t.Fatalf("Close: %v", err)

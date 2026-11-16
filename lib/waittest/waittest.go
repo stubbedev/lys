@@ -30,13 +30,26 @@ func ForSlow[T any](t testing.TB, ch <-chan T, what string) T {
 	return within(t, ch, slowLimit, what)
 }
 
+// Receive is For that reports, as a receive does, whether the value
+// was sent (true) or ch was closed (false).
+func Receive[T any](t testing.TB, ch <-chan T, what string) (T, bool) {
+	t.Helper()
+	return receive(t, ch, limit, what)
+}
+
 func within[T any](t testing.TB, ch <-chan T, d time.Duration, what string) T {
+	t.Helper()
+	v, _ := receive(t, ch, d, what)
+	return v
+}
+
+func receive[T any](t testing.TB, ch <-chan T, d time.Duration, what string) (T, bool) {
 	t.Helper()
 	timeout := time.NewTimer(d)
 	defer timeout.Stop()
 	select {
-	case v := <-ch:
-		return v
+	case v, ok := <-ch:
+		return v, ok
 	case <-timeout.C:
 		t.Fatalf("waited %v for %s", d, what)
 		panic("unreachable")
@@ -47,18 +60,29 @@ func within[T any](t testing.TB, ch <-chan T, d time.Duration, what string) T {
 // not after the limit.
 func Until(t testing.TB, cond func() bool, what string) {
 	t.Helper()
+	until(t, cond, limit, what)
+}
+
+// UntilSlow is Until for slow work, with the longer slow limit.
+func UntilSlow(t testing.TB, cond func() bool, what string) {
+	t.Helper()
+	until(t, cond, slowLimit, what)
+}
+
+func until(t testing.TB, cond func() bool, d time.Duration, what string) {
+	t.Helper()
 	if cond() {
 		return
 	}
 	poll := time.NewTicker(pollInterval)
 	defer poll.Stop()
-	timeout := time.NewTimer(limit)
+	timeout := time.NewTimer(d)
 	defer timeout.Stop()
 	for !cond() {
 		select {
 		case <-poll.C:
 		case <-timeout.C:
-			t.Fatalf("waited %v for %s", limit, what)
+			t.Fatalf("waited %v for %s", d, what)
 			return
 		}
 	}

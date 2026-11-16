@@ -6,13 +6,13 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
 
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // solid fills every frame with one byte.
@@ -174,14 +174,15 @@ func link(t *testing.T) {
 		t.Fatalf("pw-link not on PATH: %v", err)
 	}
 	var out []byte
-	for range 100 {
-		out, err = exec.Command(bin, testNode+":output_0", "test-consumer:input_0").CombinedOutput()
-		if err == nil {
-			return
+	defer func() {
+		if err != nil {
+			t.Logf("pw-link: %v: %s", err, out)
 		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatalf("pw-link: %v: %s", err, out)
+	}()
+	waittest.Until(t, func() bool {
+		out, err = exec.Command(bin, testNode+":output_0", "test-consumer:input_0").CombinedOutput()
+		return err == nil
+	}, "pw-link to link the producer to the consumer")
 }
 
 // damaged fills the frame and reports two changed rectangles, one of
@@ -215,15 +216,9 @@ func TestProducerFeedsALinkedConsumer(t *testing.T) {
 	})
 	link(t)
 	var frames []consumed
-	deadline := time.After(5 * time.Second)
 	for len(frames) < 3 {
-		select {
-		case f := <-c.frames:
-			if f.size > 0 {
-				frames = append(frames, f)
-			}
-		case <-deadline:
-			t.Fatalf("frames received: %d", len(frames))
+		if f := waittest.For(t, c.frames, "three frames"); f.size > 0 {
+			frames = append(frames, f)
 		}
 	}
 	f := frames[0]
@@ -313,15 +308,9 @@ func TestProducerRenegotiatesAResizedSource(t *testing.T) {
 	link(t)
 	next := func(want func(consumed) bool) consumed {
 		t.Helper()
-		deadline := time.After(5 * time.Second)
 		for {
-			select {
-			case f := <-c.frames:
-				if f.size > 0 && want(f) {
-					return f
-				}
-			case <-deadline:
-				t.Fatal("no such frame")
+			if f := waittest.For(t, c.frames, "the wanted frame"); f.size > 0 && want(f) {
+				return f
 			}
 		}
 	}

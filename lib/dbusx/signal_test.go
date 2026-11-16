@@ -5,12 +5,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type moved struct {
@@ -183,16 +183,9 @@ func TestASignalWithoutArgumentsDecodesAnyBody(t *testing.T) {
 
 func receive(t *testing.T, signals <-chan *dbus.Signal) *dbus.Signal {
 	t.Helper()
-	timeout := time.After(5 * time.Second)
 	for {
-		select {
-		case sig := <-signals:
-			if sig.Path == path {
-				return sig
-			}
-		case <-timeout:
-			t.Fatalf("no signal at %s within 5s", path)
-			return nil
+		if sig := waittest.For(t, signals, "a signal at "+string(path)); sig.Path == path {
+			return sig
 		}
 	}
 }

@@ -7,7 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // SilentGateway is a gateway that takes connections and never says a
@@ -56,14 +57,8 @@ func NewSilentGateway(t testing.TB) *SilentGateway {
 // Accepted is how many connections the gateway has taken.
 func (g *SilentGateway) Accepted() int { return int(g.accepted.Load()) }
 
-// Reached waits up to five seconds for the gateway to be reached at
-// least once.
-func (g *SilentGateway) Reached() bool {
-	for range 100 {
-		if g.Accepted() > 0 {
-			return true
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	return false
+// Reached waits for the gateway to be reached at least once.
+func (g *SilentGateway) Reached(t testing.TB) {
+	t.Helper()
+	waittest.Until(t, func() bool { return g.Accepted() > 0 }, "the sign-in to reach the silent gateway")
 }

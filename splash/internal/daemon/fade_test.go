@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
 	"github.com/stubbedev/lys/splash/internal/protocol"
@@ -23,17 +24,11 @@ var pictureSize = image.Pt(800, 600)
 
 func (r *run) settles(t *testing.T) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
+	waittest.Until(t, func() bool {
 		from := r.presents()
-		time.Sleep(4 * FrameInterval)
-		if r.presents() == from {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the screen still presents after 5s")
-		}
-	}
+		time.Sleep(stillWindow)
+		return r.presents() == from
+	}, "the screen to stop presenting")
 }
 
 func (r *run) screen() *fakeScreen {
@@ -67,7 +62,7 @@ func TestTheIntroFadesInWhilePausedThenTheLoopIdles(t *testing.T) {
 	if got := r.presents(); got < 2 || got > 1+theme.IntroPhases {
 		t.Errorf("%d presents for the first frame and the intro, want 2 to %d", got, 1+theme.IntroPhases)
 	}
-	r.holdsStillFor(t, "a paused splash after its intro", 10*FrameInterval)
+	r.holdsStill(t, "a paused splash after its intro")
 }
 
 func TestReducedMotionHasNoIntro(t *testing.T) {
@@ -104,7 +99,7 @@ func TestDeactivateFadesTheGroupOutRecordsTheFrameAndThenDrawsNothing(t *testing
 	}
 	r.call(t, protocol.ShowMessage{Text: "Late"}, protocol.Ack{})
 	r.call(t, protocol.ResumeProgress{}, protocol.Ack{})
-	r.holdsStillFor(t, "an inactive splash", 10*FrameInterval)
+	r.holdsStill(t, "an inactive splash")
 }
 
 func TestReducedMotionDeactivatesWithOneCut(t *testing.T) {
@@ -209,7 +204,7 @@ func TestARetainedQuitAtTheEndOfAShutdownFadesOutOnceAndTheSplashStays(t *testin
 			faded := r.presents()
 			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
 			r.call(t, protocol.ShowMessage{Text: "Late"}, protocol.Ack{})
-			r.holdsStillFor(t, "a splash whose group is gone", 10*FrameInterval)
+			r.holdsStill(t, "a splash whose group is gone")
 			if got := r.presents(); got != faded || !bytes.Equal(r.screen().picture(), lysPicture(t)) {
 				t.Errorf("%d more presents after the first quit, want the frame to stay the logo alone", got-faded)
 			}
@@ -240,13 +235,7 @@ func TestARetainedQuitAtTheEndOfAShutdownFadesOutOnceAndTheSplashStays(t *testin
 
 func (r *run) awaitRemovals(t *testing.T, n int32) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for r.display.removed.Load() < n {
-		if time.Now().After(deadline) {
-			t.Fatalf("the display handled %d removals in 5s, want %d", r.display.removed.Load(), n)
-		}
-		time.Sleep(FrameInterval)
-	}
+	waittest.Until(t, func() bool { return r.display.removed.Load() >= n }, fmt.Sprintf("the display to handle %d removals", n))
 }
 
 func TestACardGoingAwayBeforeTheResetLeavesTheSplashInText(t *testing.T) {
@@ -268,7 +257,7 @@ func TestACardGoingAwayOnceTheFrameStaysUntilTheResetIsLeftAlone(t *testing.T) {
 			r := pausedRun(t, setup{mode: mode})
 			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
 			r.display.removals <- kms.Event{}
-			time.Sleep(10 * FrameInterval)
+			time.Sleep(stillWindow)
 			r.vtSettled(t)
 			if n := r.display.removed.Load(); n != 0 {
 				t.Errorf("the display handled %d removals after the frame was left until the reset, want none", n)

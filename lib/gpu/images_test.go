@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // rasterIn is an 8x8 raster over buf, memory its owner manages and
@@ -143,14 +143,10 @@ func TestForgetAndRetireWaitForThePendingList(t *testing.T) {
 // the garbage collector ends it.
 func awaitRetired(t *testing.T, freed *atomic.Bool) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !freed.Load() {
-		if time.Now().After(deadline) {
-			t.Fatal("the raster was not freed once its List ended")
-		}
+	waittest.Until(t, func() bool {
 		runtime.GC()
-		time.Sleep(time.Millisecond)
-	}
+		return freed.Load()
+	}, "the raster to be freed once its List ended")
 }
 
 // Forget of a raster without an identity panics instead of matching
@@ -306,19 +302,15 @@ func TestALargeStillUploadsOffTheFrameAndDrawsWhenItIsThere(t *testing.T) {
 	if d.frame.stats.imageBytes != 0 {
 		t.Errorf("the frame staged %d bytes of the still", d.frame.stats.imageBytes)
 	}
-	deadline := time.Now().Add(time.Minute)
-	for d.FrameIncomplete() {
-		if time.Now().After(deadline) {
-			t.Fatal("the still never arrived")
-		}
-		time.Sleep(time.Millisecond)
+	waittest.UntilSlow(t, func() bool {
 		if err := d.Finish(); err != nil {
 			t.Fatal(err)
 		}
 		if err := d.Render(rec.Recording(), tg); err != nil {
 			t.Fatal(err)
 		}
-	}
+		return !d.FrameIncomplete()
+	}, "the still to arrive")
 	if px, n := renderImage(t, d, tg, rec); px != red || n != 0 {
 		t.Errorf("drew %v with %d uploads, want %v from the worker's", px, n, red)
 	}

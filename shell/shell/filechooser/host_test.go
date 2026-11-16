@@ -28,6 +28,7 @@ import (
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
@@ -184,11 +185,7 @@ func (hs *harness) end() {
 		hs.asks.Wait()
 		close(asked)
 	}()
-	select {
-	case <-asked:
-	case <-time.After(treetest.Liveness):
-		hs.t.Error("a request outlives the closed chooser")
-	}
+	waittest.For(hs.t, asked, "every request to end with the closed chooser")
 }
 
 // flush waits until the loop ran everything queued so far.
@@ -226,17 +223,13 @@ func (hs *harness) do(fn func()) {
 // settle waits until no listing is being read and the loop ran what
 // that queued.
 func (hs *harness) settle() {
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(time.Millisecond) {
+	hs.t.Helper()
+	waittest.Until(hs.t, func() bool {
 		var loading bool
 		hs.run(func() { loading = hs.c.checking > 0 || hs.c.s != nil && hs.c.s.loading })
-		if !loading {
-			hs.flush()
-			return
-		}
-		if time.Now().After(deadline) {
-			hs.t.Fatal("a listing never arrived")
-		}
-	}
+		return !loading
+	}, "the listing to arrive")
+	hs.flush()
 }
 
 // ask starts a request and waits for its surface.
@@ -244,11 +237,7 @@ func (hs *harness) ask(t *testing.T, fn func() []string) chan []string {
 	t.Helper()
 	got := make(chan []string, 1)
 	hs.asks.Go(func() { got <- fn() })
-	select {
-	case hs.cfg = <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("no chooser opened")
-	}
+	hs.cfg = waittest.For(t, hs.opened, "the chooser to open")
 	hs.settle()
 	return got
 }
@@ -261,15 +250,9 @@ func (hs *harness) open(t *testing.T, r OpenRequest) chan []string {
 	return hs.ask(t, func() []string { return hs.c.Open(testCaller, r).URIs })
 }
 
-func answer(t *testing.T, got chan []string) []string {
+func answer[T any](t *testing.T, got chan T) T {
 	t.Helper()
-	select {
-	case uris := <-got:
-		return uris
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the request was never answered")
-		return nil
-	}
+	return waittest.For(t, got, "the request's answer")
 }
 
 func pending(t *testing.T, got chan []string) {
@@ -277,7 +260,7 @@ func pending(t *testing.T, got chan []string) {
 	select {
 	case uris := <-got:
 		t.Fatalf("answered %v while it should still be open", uris)
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -439,11 +422,7 @@ func TestCancelEscapeAndQueueing(t *testing.T) {
 	if uris := answer(t, first); uris != nil {
 		t.Errorf("Cancel answered %v", uris)
 	}
-	select {
-	case hs.cfg = <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the waiting request never showed")
-	}
+	hs.cfg = waittest.For(t, hs.opened, "the waiting request to show")
 	hs.click(t, "Cancel")
 	if uris := answer(t, second); uris != nil {
 		t.Errorf("Cancel answered %v", uris)
@@ -567,23 +546,12 @@ func TestRecursiveSearchStreamsMatchesForTheLiveQuery(t *testing.T) {
 		t.Errorf("in-folder search = %v", got)
 	}
 	hs.click(t, "Search subfolders")
-	deadline := time.Now().Add(treetest.Liveness)
 	want := []string{"a.png", filepath.Join("pics", "a.png")}
-	for !slices.Equal(hs.shown(), want) {
-		if time.Now().After(deadline) {
-			t.Fatalf("recursive search = %v, want %v", hs.shown(), want)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Equal(hs.shown(), want) }, "the recursive search to show the match in pics")
 	// The walk skipped the dot folder; showing hidden files walks again.
 	hs.click(t, "Show hidden files")
 	want = []string{"a.png", filepath.Join(".hidden", "a.png"), filepath.Join("pics", "a.png")}
-	for !slices.Equal(hs.shown(), want) {
-		if time.Now().After(deadline) {
-			t.Fatalf("with hidden files = %v, want %v", hs.shown(), want)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Equal(hs.shown(), want) }, "the recursive search to show the match in the hidden folder")
 	// Navigating drops the query and its walk.
 	hs.do(func() { hs.c.goTo(filepath.Join(hs.root, "docs")) })
 	if hs.c.ui.search.Text() != "" || hs.c.stopWalk != nil || len(hs.shown()) != 0 {
@@ -667,22 +635,15 @@ func TestUnfocusableOverlayAnswersNothing(t *testing.T) {
 // waitThumb waits until the thumbnail lookup for path at px ended.
 func (hs *harness) waitThumb(t *testing.T, path string, px int) {
 	t.Helper()
-	hs.waitThumbFor(t, path, px, treetest.Liveness)
+	waittest.Until(t, hs.thumbEnded(path, px), "the thumbnail lookup for "+path+" to end")
 }
 
-// waitThumbFor waits up to limit until the thumbnail lookup for path
-// at px ended.
-func (hs *harness) waitThumbFor(t *testing.T, path string, px int, limit time.Duration) {
-	t.Helper()
-	for deadline := time.Now().Add(limit); ; time.Sleep(5 * time.Millisecond) {
+// thumbEnded reports whether the thumbnail lookup for path at px ended.
+func (hs *harness) thumbEnded(path string, px int) func() bool {
+	return func() bool {
 		var ok bool
 		hs.do(func() { _, ok = hs.c.thumbs.found[thumbKey{path, px}] })
-		if ok {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the thumbnail lookup never ended")
-		}
+		return ok
 	}
 }
 
@@ -1150,18 +1111,14 @@ func TestConcurrentRequestsBothGetAnswers(t *testing.T) {
 		t.Fatalf("a second request answered the first with %v", uris)
 	case <-hs.opened:
 		t.Fatal("the second request mapped over the first")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	want := fileuri.FromPath(filepath.Join(hs.root, "a"))
 	hs.do(func() { hs.c.finish([]string{want}) })
 	if uris := answer(t, first); len(uris) != 1 || uris[0] != want {
 		t.Errorf("first = %v", uris)
 	}
-	select {
-	case hs.cfg = <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the second request never showed")
-	}
+	hs.cfg = waittest.For(t, hs.opened, "the second request to show")
 	hs.do(func() { hs.c.finish([]string{want + "2"}) })
 	if uris := answer(t, second); len(uris) != 1 || uris[0] != want+"2" {
 		t.Errorf("second = %v", uris)
@@ -1274,6 +1231,10 @@ func TestLayoutWidgetsReportTheirChildToTheFocusRing(t *testing.T) {
 	})
 }
 
+// quietWindow is how long what must not happen gets to happen anyway
+// before a test concludes it does not.
+const quietWindow = 50 * time.Millisecond
+
 // testCaller is the request the tests' dialogs serve.
 var testCaller = portaldialogs.Caller{Handle: "/r/test", AppID: "org.app", Modal: true}
 
@@ -1283,11 +1244,7 @@ func TestDismissTakesDownItsRequestOnly(t *testing.T) {
 	hs := newHarness(t, "")
 	got := hs.open(t, OpenRequest{})
 	hs.c.Dismiss("/r/other")
-	select {
-	case uris := <-got:
-		t.Fatalf("another request's dismissal answered %v", uris)
-	case <-time.After(50 * time.Millisecond):
-	}
+	pending(t, got)
 	hs.c.Dismiss(testCaller.Handle)
 	if uris := answer(t, got); len(uris) != 0 {
 		t.Errorf("a dismissed chooser answered %v", uris)
@@ -1300,24 +1257,9 @@ func (hs *harness) askResult(t *testing.T, fn func() Result) chan Result {
 	t.Helper()
 	got := make(chan Result, 1)
 	hs.asks.Go(func() { got <- fn() })
-	select {
-	case hs.cfg = <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("no chooser opened")
-	}
+	hs.cfg = waittest.For(t, hs.opened, "the chooser to open")
 	hs.settle()
 	return got
-}
-
-func result(t *testing.T, got chan Result) Result {
-	t.Helper()
-	select {
-	case r := <-got:
-		return r
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the request was never answered")
-		return Result{}
-	}
 }
 
 var (
@@ -1349,7 +1291,7 @@ func TestOpenTakesTheAppsOptions(t *testing.T) {
 	hs.do(func() { checks[0].SetChecked(false) })
 	hs.pick(t, "a.png")
 	hs.click(t, "Import")
-	r := result(t, got)
+	r := answer(t, got)
 	if !slices.Equal(r.URIs, []string{hs.uri("a.png")}) || r.Filter.Name != "Images" {
 		t.Errorf("result %+v", r)
 	}
@@ -1358,7 +1300,7 @@ func TestOpenTakesTheAppsOptions(t *testing.T) {
 	}
 	got = hs.askResult(t, func() Result { return hs.c.Open(testCaller, OpenRequest{CurrentFolder: hs.root, Choices: choices}) })
 	hs.click(t, "Cancel")
-	if r := result(t, got); r.URIs != nil || r.Choices != nil || len(r.Filter.Rules) != 0 {
+	if r := answer(t, got); r.URIs != nil || r.Choices != nil || len(r.Filter.Rules) != 0 {
 		t.Errorf("a cancel answered %+v", r)
 	}
 }
@@ -1771,11 +1713,7 @@ func TestListingFollowsTheFolder(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(hs.root, "c.txt"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for deadline := time.Now().Add(treetest.Liveness); !slices.Contains(hs.shown(), "c.txt"); time.Sleep(10 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the new file never listed: %v", hs.shown())
-		}
-	}
+	waittest.Until(t, func() bool { return slices.Contains(hs.shown(), "c.txt") }, "the new file to list")
 	var sel Entry
 	var ok bool
 	hs.do(func() { sel, ok = hs.c.selected() })
@@ -1786,11 +1724,7 @@ func TestListingFollowsTheFolder(t *testing.T) {
 	if err := os.Remove(filepath.Join(hs.root, "c.txt")); err != nil {
 		t.Fatal(err)
 	}
-	for deadline := time.Now().Add(treetest.Liveness); slices.Contains(hs.shown(), "c.txt"); time.Sleep(10 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the removed file stayed listed: %v", hs.shown())
-		}
-	}
+	waittest.Until(t, func() bool { return !slices.Contains(hs.shown(), "c.txt") }, "the removed file to leave the list")
 	if got, want := hs.shown(), slices.DeleteFunc(before, func(n string) bool { return n == "c.txt" }); !slices.Equal(got, want) {
 		t.Errorf("after the removal %v, want %v", got, want)
 	}
@@ -1836,11 +1770,7 @@ func TestWatchMountsStops(t *testing.T) {
 	stop := WatchMounts(func() {})
 	done := make(chan struct{})
 	go func() { stop(); close(done) }()
-	select {
-	case <-done:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("stopping the mount watch hung")
-	}
+	waittest.For(t, done, "the mount watch to stop")
 }
 
 // A folder still being read says so, not "No items".
@@ -2316,16 +2246,8 @@ func TestTheChooserMapsWhilePlacesAndLocationsHold(t *testing.T) {
 	}
 	got := make(chan []string, 1)
 	hs.asks.Go(func() { got <- hs.c.Open(testCaller, OpenRequest{CurrentFolder: hs.root}).URIs })
-	select {
-	case <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the chooser waited on its sidebar to map")
-	}
-	select {
-	case <-asked:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the sidebar was never read")
-	}
+	waittest.For(t, hs.opened, "the chooser to map without waiting on its sidebar")
+	waittest.For(t, asked, "the sidebar to be read")
 	hs.flush()
 }
 
@@ -2356,16 +2278,11 @@ func TestCloseAnswersTheRequestShowingAndThoseWaiting(t *testing.T) {
 	hs.asks.Go(func() {
 		waiting <- hs.c.Open(portaldialogs.Caller{Handle: "/r/second", AppID: "org.app"}, OpenRequest{CurrentFolder: hs.root}).URIs
 	})
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(time.Millisecond) {
+	waittest.Until(t, func() bool {
 		var queued int
 		hs.run(func() { queued = hs.c.queue.Len() })
-		if queued == 1 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the second request never queued")
-		}
-	}
+		return queued == 1
+	}, "the second request to queue")
 	pending(t, showing)
 	hs.endLoop()
 	hs.c.Close()

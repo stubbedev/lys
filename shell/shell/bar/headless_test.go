@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -31,17 +32,22 @@ func newCwsModuleOnHeadlessLoop(ctx ModuleContext, kind string, flavor cwsFlavor
 	return onHeadlessLoop(func() *cwsModule { return newCwsModule(ctx, kind, flavor, cfg, backend) })
 }
 
-// waitHeadless polls cond on the headless loop until it holds or the
-// deadline passes (followers deliver from their own goroutines).
-func waitHeadless(t *testing.T, what string, cond func() bool) {
+// waitHeadless polls cond on the headless loop until it holds
+// (followers deliver from their own goroutines).
+func waitHeadless(t testing.TB, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for !onHeadlessLoop(cond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
+	waittest.Until(t, func() bool { return onHeadlessLoop(cond) }, what)
+}
+
+func untilNil(t testing.TB, what string, cond func() error) {
+	t.Helper()
+	var last error
+	defer func() {
+		if last != nil {
+			t.Logf("%s: %v", what, last)
 		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	}()
+	waittest.Until(t, func() bool { last = cond(); return last == nil }, what)
 }
 
 // waitForText waits until the label carries want.

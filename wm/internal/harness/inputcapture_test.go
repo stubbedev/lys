@@ -6,15 +6,14 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/ipc"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const rightEdge ipc.BarrierID = 7
@@ -69,16 +68,11 @@ func (r *inputCaptureRig) send(cmds ...ipc.CaptureCommand) []string {
 
 func (r *inputCaptureRig) next() string {
 	r.t.Helper()
-	select {
-	case e, ok := <-r.events:
-		if !ok {
-			r.t.Fatal("the capture stream ended")
-		}
-		return e
-	case <-time.After(testenv.HangLimit):
-		r.t.Fatal("no capture event")
+	e := waittest.For(r.t, r.events, "a capture event")
+	if e == "" {
+		r.t.Fatal("the capture stream ended")
 	}
-	return ""
+	return e
 }
 
 func (r *inputCaptureRig) expectEvents(want ...string) {

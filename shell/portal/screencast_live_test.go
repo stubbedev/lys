@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"hash/fnv"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -48,14 +48,13 @@ func frameHash(src *snapshotSource) (uint64, bool) {
 
 func nextFrame(t *testing.T, src *snapshotSource, unlike uint64) uint64 {
 	t.Helper()
-	for deadline := time.Now().Add(hangGuard); ; {
-		if h, ok := frameHash(src); ok && h != unlike {
-			return h
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the share streamed no new frame in %s", hangGuard)
-		}
-	}
+	var h uint64
+	waittest.UntilSlow(t, func() bool {
+		next, ok := frameHash(src)
+		h = next
+		return ok && next != unlike
+	}, "the share to stream a new frame")
+	return h
 }
 
 func TestWindowShareFollowsTheWindowFromTheStart(t *testing.T) {

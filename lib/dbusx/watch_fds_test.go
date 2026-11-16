@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func openDescriptors(t *testing.T) int {
@@ -67,8 +68,8 @@ func TestWatchesOfOneSignalEachOwnItsDescriptor(t *testing.T) {
 	if err := tickSignal.Emit(w.service, watchedPath, counted{N: 1}); err != nil {
 		t.Fatal(err)
 	}
-	first, second := awaitWatch(t, takers[0], "descriptor for the first watch"), awaitWatch(t, takers[1], "descriptor for the second watch")
-	awaitWatch(t, ticked, "Tick behind the Hand, by which the third watch has dropped its copy")
+	first, second := waittest.For(t, takers[0], "descriptor for the first watch"), waittest.For(t, takers[1], "descriptor for the second watch")
+	waittest.For(t, ticked, "Tick behind the Hand, by which the third watch has dropped its copy")
 	if first == second || first == write || second == write || first < 0 || second < 0 {
 		t.Fatalf("the watches were handed descriptors %d and %d of the sender's %d, want one of its own each", first, second, write)
 	}
@@ -122,7 +123,7 @@ func TestAWatchThatEndsClosesTheDescriptorsItNeverRead(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	awaitWatch(t, entered, "first Hand in its handler")
+	waittest.For(t, entered, "first Hand in its handler")
 	arrived := make(chan uint32, 1)
 	marker, err := dbusx.WatchSignals(t.Context(), w.client, dbusx.FromOwner(watchedName), func(error) {},
 		dbusx.On(tickSignal, watchedPath, func(c counted, _ dbus.Sequence) error {
@@ -136,7 +137,7 @@ func TestAWatchThatEndsClosesTheDescriptorsItNeverRead(t *testing.T) {
 	if err := tickSignal.Emit(w.service, watchedPath, counted{N: 1}); err != nil {
 		t.Fatal(err)
 	}
-	awaitWatch(t, arrived, "Tick behind every Hand, by which the connection has read them all")
+	waittest.For(t, arrived, "Tick behind every Hand, by which the connection has read them all")
 	cancel()
 	close(release)
 	if err := watch.Stop(); err != nil {
@@ -181,7 +182,7 @@ func TestAWatchClosesTheDescriptorsInArgumentsItsSignalDoesNotDeclare(t *testing
 		t.Fatal(err)
 	}
 	for _, want := range []uint32{1, 2} {
-		if got := awaitWatch(t, ticked, "Tick, the first with two arguments appended"); got != want {
+		if got := waittest.For(t, ticked, "Tick, the first with two arguments appended"); got != want {
 			t.Fatalf("Tick %d, want %d", got, want)
 		}
 	}

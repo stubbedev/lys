@@ -76,3 +76,33 @@ func TestForSlowWaitsForTheSlowLimit(t *testing.T) {
 		t.Errorf("failure %q, want %q", got, want)
 	}
 }
+
+func TestUntilSlowWaitsForTheSlowLimit(t *testing.T) {
+	got := failureOf(t, func(tb testing.TB) { UntilSlow(tb, func() bool { return false }, "the font scan") })
+	if want := "waited 20ms for the font scan"; got != want {
+		t.Errorf("failure %q, want %q", got, want)
+	}
+}
+
+func TestReceiveReportsASentValue(t *testing.T) {
+	ch := make(chan int, 1)
+	ch <- 7
+	if got, ok := Receive(t, ch, "the value"); got != 7 || !ok {
+		t.Errorf("Receive = %d, %v, want what was sent and true", got, ok)
+	}
+}
+
+func TestReceiveReportsAClosedChannel(t *testing.T) {
+	ch := make(chan int)
+	close(ch)
+	if got, ok := Receive(t, ch, "the close"); got != 0 || ok {
+		t.Errorf("Receive = %d, %v, want the zero value and false", got, ok)
+	}
+}
+
+func TestReceiveFailsNamingWhatNeverArrived(t *testing.T) {
+	got := failureOf(t, func(tb testing.TB) { Receive(tb, make(chan int), "the event") })
+	if want := "waited 10ms for the event"; got != want {
+		t.Errorf("failure %q, want %q", got, want)
+	}
+}

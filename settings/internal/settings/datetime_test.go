@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/lib/glibclocale"
 	"github.com/stubbedev/lys/lib/glibclocale/glibclocaletest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -130,15 +131,10 @@ func systemKit(t *testing.T, bus *dbustest.Bus) (*kit, *loop) {
 
 func (l *loop) until(what string, ok func() bool) {
 	l.t.Helper()
-	deadline := time.After(hangGuard)
-	for !ok() {
-		select {
-		case fn := <-l.queue:
-			fn()
-		case <-deadline:
-			l.t.Fatalf("no %s in %v", what, hangGuard)
-		}
-	}
+	waittest.Until(l.t, func() bool {
+		l.settle()
+		return ok()
+	}, what)
 }
 
 func (l *loop) settle() {
@@ -152,8 +148,10 @@ func (l *loop) settle() {
 	}
 }
 
-func (l *loop) drain(d time.Duration) {
-	deadline := time.After(d)
+const quietWindow = 200 * time.Millisecond
+
+func (l *loop) drain() {
+	deadline := time.After(quietWindow)
 	for {
 		select {
 		case fn := <-l.queue:
@@ -187,7 +185,7 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 		t.Fatal("the switch does not show NTP on")
 	}
 	_, reads := td.snapshot()
-	l.drain(300 * time.Millisecond)
+	l.drain()
 	if calls, again := td.snapshot(); len(calls) != 0 || again != reads {
 		t.Fatalf("an idle page made %d calls and %d more reads", len(calls), again-reads)
 	}
@@ -326,7 +324,7 @@ func TestAPageWithoutTheServiceSaysSoAndOffersNothing(t *testing.T) {
 	k, l := systemKit(t, bus)
 	footer := dateTimeFooter(k).(*closingBox)
 	t.Cleanup(footer.close)
-	l.drain(100 * time.Millisecond)
+	l.drain()
 	if len(treetest.All[*choiceEditor](footer)) != 0 {
 		t.Fatal("controls without timedated")
 	}

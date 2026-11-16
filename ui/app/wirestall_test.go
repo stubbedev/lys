@@ -12,9 +12,9 @@ import (
 
 	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -100,13 +100,8 @@ func boundedTick(t *testing.T, a *Application, step func() error) {
 	t.Helper()
 	done := make(chan error, 1)
 	go func() { done <- a.tick(step, time.Now()) }()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("tick: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatalf("a loop pass stayed blocked for 10s with %d bytes unsent", a.sess.Display.Context().Backlog())
+	if err := waittest.For(t, done, "a loop pass to end"); err != nil {
+		t.Fatalf("tick: %v", err)
 	}
 }
 
@@ -179,12 +174,7 @@ func TestStalledWireSkipsFramesAndOwesThem(t *testing.T) {
 		t.Fatalf("the owed frame never went out once the peer read: pending %v, width %d", h.wnd.framePending, h.wnd.lastW)
 	}
 	boundedTick(t, a, wakeThenStep)
-	for deadline := time.Now().Add(10 * time.Second); commits.Load() != filled+1; {
-		if time.Now().After(deadline) {
-			t.Fatalf("the peer read %d commits, want %d, with %d bytes unsent", commits.Load(), filled+1, f.ctx.Backlog())
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return commits.Load() == filled+1 }, fmt.Sprintf("the peer to read %d commits", filled+1))
 }
 
 func TestStalledLoopWakesOnlyForWritableSocket(t *testing.T) {
@@ -215,18 +205,13 @@ func TestStalledLoopWakesOnlyForWritableSocket(t *testing.T) {
 		}
 		done <- nil
 	}()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(QuietWindow)
 	if n := passes.Load(); n > 2 {
 		t.Fatalf("a stalled loop made %d passes with the peer not reading, want it parked", n)
 	}
 	var commits atomic.Int64
 	go f.drain(&commits)
-	for deadline := time.Now().Add(10 * time.Second); f.ctx.Backlog() != 0; {
-		if time.Now().After(deadline) {
-			t.Fatalf("a parked loop never flushed after the peer read: %d bytes left after %d passes", f.ctx.Backlog(), passes.Load())
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return f.ctx.Backlog() == 0 }, "a parked loop to flush after the peer read")
 	if n := passes.Load(); n > 1000 {
 		t.Fatalf("the loop spun %d passes to drain", n)
 	}

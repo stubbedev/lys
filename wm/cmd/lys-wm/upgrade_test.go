@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"golang.org/x/sys/unix"
 
@@ -85,57 +86,47 @@ func startBare(t *testing.T, binary, config string, extra ...string) *running {
 	s := &running{t: t, cmd: cmd, binary: binary, runtime: runtime, logs: logs, exited: make(chan error, 1)}
 	go func() { s.exited <- cmd.Wait() }()
 	t.Cleanup(func() {
+		defer func() { _ = logs.Close() }()
+		defer func() {
+			if t.Failed() {
+				t.Log(s.log())
+			}
+		}()
 		if err := unix.Kill(-cmd.Process.Pid, unix.SIGKILL); err != nil && !errors.Is(err, unix.ESRCH) {
 			t.Errorf("kill the process group %d: %v", cmd.Process.Pid, err)
 		}
 		s.reap()
-		if t.Failed() {
-			t.Log(s.log())
-		}
-		_ = logs.Close()
 	})
-	getenv := func(k string) string {
-		if k == "XDG_RUNTIME_DIR" {
-			return runtime
-		}
-		return ""
-	}
-	for deadline := time.Now().Add(testenv.HangLimit); ; {
-		socket, err := ipc.FindSocket(getenv)
-		if err == nil {
-			if _, err = ipc.Do(socket, ipc.Request{Request: wmipc.KindVersion}); err == nil {
-				s.socket = socket
-				s.waylandPath = s.waylandSocket()
-				return s
-			}
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("lys-wm did not start: %v\n%s", err, s.log())
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.UntilSlow(t, func() bool {
+		socket, ok := answeringSocket(runtime)
+		s.socket = socket
+		return ok
+	}, "lys-wm to answer on its IPC socket")
+	s.waylandPath = s.waylandSocket()
+	return s
 }
 
 func (s *running) reap() {
 	s.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
-		left, err := s.survivors()
-		if err != nil {
-			s.t.Error(err)
+	var left []survivor
+	reaped := false
+	defer func() {
+		if reaped {
 			return
 		}
-		if len(left) == 0 {
-			return
+		for _, p := range left {
+			_ = unix.Kill(p.pid, unix.SIGKILL)
 		}
-		if time.Now().After(deadline) {
-			for _, p := range left {
-				_ = unix.Kill(p.pid, unix.SIGKILL)
-			}
-			s.t.Errorf("processes of the session outlived it by %v: %+v", testenv.HangLimit, left)
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
+		s.t.Logf("processes of the session outlived it: %+v", left)
+	}()
+	var err error
+	waittest.Until(s.t, func() bool {
+		left, err = s.survivors()
+		return err != nil || len(left) == 0
+	}, "the processes of the session to exit")
+	reaped = true
+	if err != nil {
+		s.t.Error(err)
 	}
 }
 
@@ -431,13 +422,8 @@ func (s *running) end() {
 	if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		s.t.Fatal(err)
 	}
-	select {
-	case err := <-s.exited:
-		if err != nil {
-			s.t.Fatalf("the session ended with %v\n%s", err, s.log())
-		}
-	case <-time.After(testenv.HangLimit):
-		s.t.Fatalf("the session did not end\n%s", s.log())
+	if err := waittest.For(s.t, s.exited, "the session to end"); err != nil {
+		s.t.Fatalf("the session ended with %v\n%s", err, s.log())
 	}
 	if _, err := os.Stat(s.waylandPath); !errors.Is(err, os.ErrNotExist) {
 		s.t.Fatalf("the Wayland socket outlived the session: %v", err)
@@ -824,12 +810,10 @@ exec `+next+` "$@"
 		_, err := s.upgrade(wrapper)
 		done <- err
 	}()
-	for {
-		if _, err := os.Stat(filepath.Join(gate, "started")); err == nil {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.UntilSlow(t, func() bool {
+		_, err := os.Stat(filepath.Join(gate, "started"))
+		return err == nil
+	}, "the new binary's wrapper to start")
 	if err := leaves.Display.Close(); err != nil {
 		t.Fatal(err)
 	}

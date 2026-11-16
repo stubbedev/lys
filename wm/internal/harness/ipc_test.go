@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -59,21 +59,18 @@ func (h *Harness) watch() <-chan string {
 	return lines
 }
 
+func nextEvent(t *testing.T, lines <-chan string, what string) string {
+	t.Helper()
+	line := waittest.For(t, lines, what+" on the event stream")
+	if line == "" {
+		t.Fatalf("the event stream ended before %s", what)
+	}
+	return line
+}
+
 func expectEvent(t *testing.T, lines <-chan string, want string) {
 	t.Helper()
-	deadline := time.After(testenv.HangLimit)
-	for {
-		select {
-		case line, ok := <-lines:
-			if !ok {
-				t.Fatalf("the event stream ended before %s", want)
-			}
-			if line == want {
-				return
-			}
-		case <-deadline:
-			t.Fatalf("no %s on the event stream", want)
-		}
+	for nextEvent(t, lines, want) != want {
 	}
 }
 
@@ -316,8 +313,7 @@ func TestWorkspacePreviousThroughIPC(t *testing.T) {
 
 func (h *Harness) expectActive(c *Client) {
 	h.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(h.t, func() bool {
 		raw, err := ipc.Do(h.IPCSocket(), ipc.Request{Request: wmipc.KindActiveWindow})
 		if err != nil {
 			h.t.Fatal(err)
@@ -332,13 +328,10 @@ func (h *Harness) expectActive(c *Client) {
 			if windows := query[[]ipc.Window](h, wmipc.KindWindows); !slices.ContainsFunc(windows, func(x ipc.Window) bool { return x.ID == w.ID }) {
 				h.t.Fatalf("the active window %d is not among the windows %+v", w.ID, windows)
 			}
-			return
+			return true
 		}
-		if time.Now().After(deadline) {
-			h.t.Fatalf("IPC never showed %s (pid %d) as the active window; last %s", filepath.Base(c.cmd.Path), c.cmd.Process.Pid, raw)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return false
+	}, fmt.Sprintf("IPC to show %s (pid %d) as the active window", filepath.Base(c.cmd.Path), c.cmd.Process.Pid))
 }
 
 func TestCapsLockShowsInTheLocksQuery(t *testing.T) {

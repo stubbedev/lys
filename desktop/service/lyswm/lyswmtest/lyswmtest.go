@@ -12,14 +12,15 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 )
 
 const (
-	ack       = `{"version":1}`
-	unknown   = `{"version":1,"error":"unknown request"}`
-	hangGuard = 2 * time.Minute
-	stopGrace = 2 * time.Second
+	ack         = `{"version":1}`
+	unknown     = `{"version":1,"error":"unknown request"}`
+	stopGrace   = 2 * time.Second
+	quietWindow = 200 * time.Millisecond
 )
 
 // WM is the fake. It answers each request by its name, records every
@@ -176,23 +177,14 @@ func (w *WM) serve(conn net.Conn, done <-chan struct{}) {
 // AwaitWatch waits for a watch connection.
 func (w *WM) AwaitWatch(t *testing.T) {
 	t.Helper()
-	select {
-	case <-w.watching:
-	case <-time.After(hangGuard):
-		t.Fatal("lyswmtest: nothing watched the event stream")
-	}
+	waittest.For(t, w.watching, "a watch of the event stream")
 }
 
 // ExpectDispatch waits for the next dispatched action and checks it.
 func (w *WM) ExpectDispatch(t *testing.T, want string) {
 	t.Helper()
-	select {
-	case got := <-w.dispatched:
-		if got != want {
-			t.Errorf("dispatched %q, want %q", got, want)
-		}
-	case <-time.After(hangGuard):
-		t.Fatalf("nothing dispatched, want %q", want)
+	if got := waittest.For(t, w.dispatched, "the dispatch of "+want); got != want {
+		t.Errorf("dispatched %q, want %q", got, want)
 	}
 }
 
@@ -202,6 +194,6 @@ func (w *WM) ExpectNoDispatch(t *testing.T) {
 	select {
 	case got := <-w.dispatched:
 		t.Errorf("dispatched %q, want nothing", got)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }

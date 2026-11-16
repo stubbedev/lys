@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type gated struct {
@@ -50,11 +52,7 @@ func TestABlockedLogHoldsNoCaller(t *testing.T) {
 	h := New(inner)
 	log := slog.New(h)
 	log.Warn("first")
-	select {
-	case <-inner.entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the writer never started")
-	}
+	waittest.For(t, inner.entered, "the writer to start")
 	const records = 10 * queueLength
 	for range records {
 		log.Warn("flood")

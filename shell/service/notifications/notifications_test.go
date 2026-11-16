@@ -10,20 +10,18 @@ import (
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
+	"github.com/stubbedev/lys/lib/waittest"
 )
+
+// quietWindow is how long a test watches for an event that must not come.
+const quietWindow = 50 * time.Millisecond
 
 // collect waits for n events.
 func collect(t *testing.T, feed <-chan Event, n int) []Event {
 	t.Helper()
-	var out []Event
-	deadline := time.After(time.Second)
+	out := make([]Event, 0, n)
 	for len(out) < n {
-		select {
-		case ev := <-feed:
-			out = append(out, ev)
-		case <-deadline:
-			t.Fatalf("got %d events, want %d", len(out), n)
-		}
+		out = append(out, waittest.For(t, feed, fmt.Sprintf("event %d of %d", len(out)+1, n)))
 	}
 	return out
 }
@@ -94,7 +92,7 @@ func TestBlocklistConsumes(t *testing.T) {
 	select {
 	case ev := <-feed:
 		t.Fatalf("blocked notification leaked: %+v", ev)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if got := s.Count(); got != 0 {
 		t.Fatalf("count = %d, want 0", got)
@@ -114,13 +112,8 @@ func TestDNDSuppressesPopups(t *testing.T) {
 	if !s.DND() {
 		t.Fatal("dnd flag lost")
 	}
-	select {
-	case ev := <-feed:
-		if ev.Kind != EventDnd {
-			t.Fatalf("event = %+v, want the dnd event", ev)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("no dnd event")
+	if ev := waittest.For(t, feed, "the dnd event"); ev.Kind != EventDnd {
+		t.Fatalf("event = %+v, want the dnd event", ev)
 	}
 	// A popup already up stays; DND keeps new ones off the list while
 	// the history still takes them.
@@ -177,13 +170,7 @@ func TestDismissAll(t *testing.T) {
 	collect(t, feed, 2)
 	s.DismissAll()
 	settle(s)
-	deadline := time.Now().Add(2 * time.Second)
-	for s.Count() > 0 && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if got := s.Count(); got != 0 {
-		t.Fatalf("dismiss all left %d", got)
-	}
+	waittest.Until(t, func() bool { return s.Count() == 0 }, "dismiss all to empty the history")
 }
 
 // An action press's token goes out as ActivationToken right before

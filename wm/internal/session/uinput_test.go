@@ -3,6 +3,7 @@ package session
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,10 +11,12 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/xkb"
 )
@@ -148,21 +151,20 @@ func newVirtualDevice(t testing.TB, devName string, bits []uinputBit) *virtualDe
 func (v *virtualDevice) awaitLED(t *testing.T, code uint16, value int32) {
 	t.Helper()
 	buf := make([]byte, 24)
-	deadline := time.Now().Add(testenv.HangLimit)
-	for time.Now().Before(deadline) {
-		n, err := unix.Read(int(v.f.Fd()), buf)
-		if errors.Is(err, unix.EAGAIN) {
-			time.Sleep(5 * time.Millisecond)
-			continue
+	waittest.Until(t, func() bool {
+		for {
+			n, err := unix.Read(int(v.f.Fd()), buf)
+			if errors.Is(err, unix.EAGAIN) {
+				return false
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n == len(buf) && binary.NativeEndian.Uint16(buf[16:]) == evLED && binary.NativeEndian.Uint16(buf[18:]) == code && int32(binary.NativeEndian.Uint32(buf[20:])) == value {
+				return true
+			}
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		if n == len(buf) && binary.NativeEndian.Uint16(buf[16:]) == evLED && binary.NativeEndian.Uint16(buf[18:]) == code && int32(binary.NativeEndian.Uint32(buf[20:])) == value {
-			return
-		}
-	}
-	t.Fatalf("LED %d never became %d", code, value)
+	}, fmt.Sprintf("LED %d to become %d", code, value))
 }
 
 func (v *virtualDevice) emit(t testing.TB, events ...[3]int32) {
@@ -201,7 +203,7 @@ func (r *inputRecorder) Input(_ backend.Device, e backend.Event) error {
 
 func (in *Libinput) waitAxis(t *testing.T, rec *inputRecorder) backend.PointerAxis {
 	t.Helper()
-	runUntil(t, in.loop, "a scroll event", func() bool { return len(rec.axes) > 0 })
+	looptest.RunUntil(t, in.loop, "a scroll event", func() bool { return len(rec.axes) > 0 })
 	a := rec.axes[0]
 	rec.axes = rec.axes[:0]
 	return a
@@ -218,7 +220,7 @@ func TestLibinputAppliesAndReappliesPointerSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	in.addNow(t, mouse.node)
-	runUntil(t, in.loop, "the mouse's DeviceAdded", func() bool { return len(rec.devices) > 0 })
+	looptest.RunUntil(t, in.loop, "the mouse's DeviceAdded", func() bool { return len(rec.devices) > 0 })
 	if len(rec.devices) != 1 || rec.devices[0].Name() != virtualMouse {
 		t.Fatalf("added %v", rec.devices)
 	}
@@ -249,7 +251,7 @@ func TestLibinputSetsKeyboardLEDs(t *testing.T) {
 	rec := &inputRecorder{}
 	in.Start(rec)
 	in.addNow(t, kbd.node)
-	runUntil(t, in.loop, "the keyboard's DeviceAdded", func() bool { return len(rec.devices) > 0 })
+	looptest.RunUntil(t, in.loop, "the keyboard's DeviceAdded", func() bool { return len(rec.devices) > 0 })
 	if len(rec.devices) != 1 || rec.devices[0].Name() != virtualKeyboard {
 		t.Fatalf("added %v", rec.devices)
 	}
@@ -282,7 +284,7 @@ func TestLibinputPointerMotionBecomesEvents(t *testing.T) {
 	in.Start(rec)
 	in.addNow(t, mouse.node)
 	mouse.emit(t, [3]int32{evRel, relX, 7}, [3]int32{evRel, relY, -3})
-	runUntil(t, in.loop, "a motion and its frame", func() bool { return len(rec.motions) > 0 && rec.frames > 0 })
+	looptest.RunUntil(t, in.loop, "a motion and its frame", func() bool { return len(rec.motions) > 0 && rec.frames > 0 })
 	m := rec.motions[0]
 	if m.Time <= 0 || m.DX <= 0 || m.DY >= 0 || m.UnaccelDX != 7 || m.UnaccelDY != -3 {
 		t.Fatalf("the motion arrived as %+v", m)

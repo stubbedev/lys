@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/clienttest"
 
@@ -479,14 +480,9 @@ func (h *Harness) Now() time.Duration {
 
 func (h *Harness) Ended() error {
 	h.t.Helper()
-	select {
-	case err := <-h.done:
-		h.done <- nil
-		return err
-	case <-time.After(testenv.HangLimit):
-		h.t.Fatalf("harness: the compositor loop is still running after %v", testenv.HangLimit)
-		return nil
-	}
+	err := waittest.For(h.t, h.done, "the compositor loop to end")
+	h.done <- nil
+	return err
 }
 
 func (h *Harness) Do(f func(b *headless.Backend, c *compositor.Compositor) error) {
@@ -531,20 +527,23 @@ func (h *Harness) awaitStart(started <-chan struct{}, hang <-chan time.Time) err
 
 func (h *Harness) Eventually(what string, cond func(b *headless.Backend, c *compositor.Compositor) bool) {
 	h.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(h.t, h.onLoop(cond), what)
+}
+
+func (h *Harness) EventuallySlow(what string, cond func(b *headless.Backend, c *compositor.Compositor) bool) {
+	h.t.Helper()
+	waittest.UntilSlow(h.t, h.onLoop(cond), what)
+}
+
+func (h *Harness) onLoop(cond func(b *headless.Backend, c *compositor.Compositor) bool) func() bool {
+	return func() bool {
+		h.t.Helper()
 		var ok bool
 		h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
 			ok = cond(b, c)
 			return nil
 		})
-		if ok {
-			return
-		}
-		if time.Now().After(deadline) {
-			h.t.Fatalf("harness: timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
+		return ok
 	}
 }
 
@@ -569,8 +568,8 @@ func (h *Harness) Rendered(i int) *soft.Buffer {
 
 func (h *Harness) stepHeldTo(done func(b *headless.Backend, c *compositor.Compositor) bool) {
 	h.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(h.t, func() bool {
+		h.t.Helper()
 		var next time.Duration
 		var step bool
 		h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
@@ -585,13 +584,11 @@ func (h *Harness) stepHeldTo(done func(b *headless.Backend, c *compositor.Compos
 			return nil
 		})
 		if !step {
-			return
-		}
-		if time.Now().After(deadline) {
-			h.t.Fatalf("harness: frames on the held clock still had not finished after %v", testenv.HangLimit)
+			return true
 		}
 		h.AdvanceTo(next)
-	}
+		return false
+	}, "frames on the held clock to finish")
 }
 
 func (h *Harness) Snapshot(i int) *soft.Buffer {
@@ -680,6 +677,11 @@ func (h *Harness) run(runtimeDir, display string, env []string, binary string, a
 		h.t.Fatalf("harness: start %s: %v", binary, err)
 	}
 	go func() { c.exited <- cmd.Wait() }()
+	h.t.Cleanup(func() {
+		if h.t.Failed() {
+			h.t.Logf("harness: %s printed:\n%s", filepath.Base(cmd.Path), c.output.String())
+		}
+	})
 	h.clients = append(h.clients, c)
 	return c
 }
@@ -702,25 +704,23 @@ func (c *Client) Output() string {
 
 func (c *Client) Wait(t *testing.T) string {
 	t.Helper()
-	select {
-	case err := <-c.exited:
-		c.exited <- err
-		if err != nil {
-			t.Fatalf("harness: %s failed: %v\n%s", filepath.Base(c.cmd.Path), err, c.output.String())
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatalf("harness: %s still running after %v\n%s", filepath.Base(c.cmd.Path), testenv.HangLimit, c.output.String())
+	err := waittest.ForSlow(t, c.exited, filepath.Base(c.cmd.Path)+" to exit")
+	c.exited <- err
+	if err != nil {
+		t.Fatalf("harness: %s failed: %v\n%s", filepath.Base(c.cmd.Path), err, c.output.String())
 	}
 	return c.output.String()
 }
 
 func (c *Client) Expect(t *testing.T, text string) string {
 	t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	var printed string
+	waittest.UntilSlow(t, func() bool {
+		t.Helper()
 		out := c.output.String()
 		if i := strings.Index(out, text); i >= 0 {
-			return out[i:]
+			printed = out[i:]
+			return true
 		}
 		select {
 		case err := <-c.exited:
@@ -728,11 +728,9 @@ func (c *Client) Expect(t *testing.T, text string) string {
 			t.Fatalf("harness: %s exited (%v) before printing %q:\n%s", filepath.Base(c.cmd.Path), err, text, out)
 		default:
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("harness: %s did not print %q within %v:\n%s", filepath.Base(c.cmd.Path), text, testenv.HangLimit, out)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return false
+	}, fmt.Sprintf("%s to print %q", filepath.Base(c.cmd.Path), text))
+	return printed
 }
 
 func (c *Client) kill() {

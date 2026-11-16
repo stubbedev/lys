@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,33 +106,12 @@ func ownerChanged(t *testing.T, s *dbus.Signal) (dbus.ObjectPath, []string, bool
 // clipSignal waits for the next Clipboard signal.
 func (r *rig) clipSignal(t *testing.T, member string) *dbus.Signal {
 	t.Helper()
-	deadline := time.After(2 * time.Second)
-	for {
-		select {
-		case s := <-r.signals:
-			if s.Name == ClipboardIface+"."+member {
-				return s
-			}
-		case <-deadline:
-			t.Fatalf("no %s", member)
-			return nil
-		}
-	}
+	return nextSignal(t, r.signals, ClipboardIface+"."+member)
 }
 
 func (r *rig) noClipSignal(t *testing.T) {
 	t.Helper()
-	timeout := time.After(200 * time.Millisecond)
-	for {
-		select {
-		case s := <-r.signals:
-			if len(s.Name) > len(ClipboardIface) && s.Name[:len(ClipboardIface)] == ClipboardIface {
-				t.Fatalf("unexpected %s %v", s.Name, s.Body)
-			}
-		case <-timeout:
-			return
-		}
-	}
+	noSignal(t, r.signals, func(s *dbus.Signal) bool { return strings.HasPrefix(s.Name, ClipboardIface+".") }, "an unexpected Clipboard signal")
 }
 
 const (

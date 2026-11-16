@@ -1,12 +1,13 @@
 package screenshare
 
 import (
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type portal struct{ shares []Share }
@@ -16,13 +17,7 @@ func (portal) Stop(dbus.ObjectPath) *dbus.Error { return nil }
 
 func waitList(t *testing.T, s *Shares, n int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for len(s.List()) != n {
-		if time.Now().After(deadline) {
-			t.Fatalf("shares %+v, want %d", s.List(), n)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return len(s.List()) == n }, fmt.Sprintf("%d shares", n))
 }
 
 func TestSharesFollowThePortalComingAndGoing(t *testing.T) {
@@ -45,11 +40,7 @@ func TestSharesFollowThePortalComingAndGoing(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitList(t, shares, 1)
-	select {
-	case <-ticks:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no change was told")
-	}
+	waittest.For(t, ticks, "the change to be told")
 	release()
 	waitList(t, shares, 0)
 }

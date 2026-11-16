@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/secrets/vault"
 
 	engine "github.com/stubbedev/lys/shell/service/launcher"
@@ -184,17 +185,6 @@ func (s *searchSink) ended() bool {
 	return len(s.finished) > 0
 }
 
-func searchUntil(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(time.Millisecond)
-	}
-}
-
 func startVaultSearch(t *testing.T, v *fakeVault) (*search.Engine, *searchSink, *[]copied) {
 	t.Helper()
 	m, copies := vaultModeOver(v)
@@ -203,14 +193,10 @@ func startVaultSearch(t *testing.T, v *fakeVault) (*search.Engine, *searchSink, 
 	e := search.Start(func(run func()) { go run() }, &search.Level{Providers: []search.Provider{pickers}}, nil, s, func(fn func()) { fn() })
 	t.Cleanup(func() {
 		e.Stop()
-		select {
-		case <-e.Done():
-		case <-time.After(5 * time.Second):
-			t.Error("the search engine outlives the test")
-		}
+		waittest.For(t, e.Done(), "the search engine to stop")
 	})
 	e.SetQuery("bitwarden", 1)
-	searchUntil(t, "the picker row", func() bool { return len(s.last().Rows) > 0 && s.last().Query == "bitwarden" })
+	waittest.Until(t, func() bool { return len(s.last().Rows) > 0 && s.last().Query == "bitwarden" }, "the picker row")
 	return e, s, copies
 }
 
@@ -230,7 +216,7 @@ func TestSearchPickerUnlocksTheRealVaultAndCopies(t *testing.T) {
 	v := &fakeVault{status: vault.Status{State: vault.StateLocked}, entries: bitwardenPreviewItems(), unlockErr: errors.New("wrong")}
 	e, s, copies := startVaultSearch(t, v)
 	e.Activate(firstEntry(s.last()), 0)
-	searchUntil(t, "the masked prompt", func() bool { return s.last().Mask })
+	waittest.Until(t, func() bool { return s.last().Mask }, "the masked prompt")
 	f := s.last()
 	if !f.CanSubmit || f.Title != "Vault" || f.Message == "" || f.Depth != 1 {
 		t.Fatalf("prompt %+v", f)
@@ -239,23 +225,23 @@ func TestSearchPickerUnlocksTheRealVaultAndCopies(t *testing.T) {
 		t.Errorf("a locked vault lists nothing: %+v", f.Rows)
 	}
 	e.Submit("nope")
-	searchUntil(t, "the refusal", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.frames) > 3
-	})
+	}, "the refusal")
 	if f := s.last(); !f.Mask {
 		t.Errorf("a wrong password stays asking: %+v", f)
 	}
 	v.set(func(f *fakeVault) { f.unlockErr = nil })
 	e.Submit("right")
-	searchUntil(t, "the items", func() bool { return !s.last().Mask && len(s.last().Rows) > 0 })
+	waittest.Until(t, func() bool { return !s.last().Mask && len(s.last().Rows) > 0 }, "the items")
 	f = s.last()
 	if f.CanSubmit {
 		t.Error("an open vault takes no typed text")
 	}
 	e.Activate(firstEntry(f), 0)
-	searchUntil(t, "the copy", s.ended)
+	waittest.Until(t, s.ended, "the copy")
 	if _, ok := s.finished[0].(search.Close); !ok {
 		t.Errorf("finished %+v", s.finished)
 	}
@@ -268,20 +254,20 @@ func TestSearchPickerShowsAnOpenVaultsFieldsOnItsSecondAction(t *testing.T) {
 	v := &fakeVault{status: vault.Status{State: vault.StateUnlocked}, entries: bitwardenPreviewItems()}
 	e, s, _ := startVaultSearch(t, v)
 	e.Activate(firstEntry(s.last()), 0)
-	searchUntil(t, "the items", func() bool { return s.last().Depth == 1 && len(s.last().Rows) > 0 })
+	waittest.Until(t, func() bool { return s.last().Depth == 1 && len(s.last().Rows) > 0 }, "the items")
 	e.Activate(firstEntry(s.last()), 1)
-	searchUntil(t, "the fields", func() bool { return s.last().Message == "Example Mail" })
+	waittest.Until(t, func() bool { return s.last().Message == "Example Mail" }, "the fields")
 	if got := len(s.last().Rows); got == 0 {
 		t.Errorf("fields %d", got)
 	}
 	e.Back()
-	searchUntil(t, "the root", func() bool { return s.last().Depth == 0 })
+	waittest.Until(t, func() bool { return s.last().Depth == 0 }, "the root")
 }
 
 func TestSearchPickerOverALoggedOutVaultSaysSo(t *testing.T) {
 	e, s, copies := startVaultSearch(t, &fakeVault{entries: bitwardenPreviewItems()})
 	e.Activate(firstEntry(s.last()), 0)
-	searchUntil(t, "the message", func() bool { return s.last().Depth == 1 })
+	waittest.Until(t, func() bool { return s.last().Depth == 1 }, "the message")
 	f := s.last()
 	if f.Message == "" || len(f.Rows) != 0 || f.CanSubmit || f.Mask {
 		t.Errorf("frame %+v", f)

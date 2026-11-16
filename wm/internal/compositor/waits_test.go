@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
@@ -271,16 +271,15 @@ func TestAStallWritesTheProtocolRecordedUpToItOnlyWhileProtocolIsRecorded(t *tes
 
 func (w *waitRig) waitApplied(n int) {
 	w.t.Helper()
-	for range 5000 {
+	waittest.Until(w.t, func() bool {
 		applied := 0
 		w.on(func() { applied = len(w.comp.textures) })
 		if applied == n {
-			return
+			return true
 		}
 		w.roundtrip()
-		time.Sleep(time.Millisecond)
-	}
-	w.t.Fatalf("the commit never applied")
+		return false
+	}, "the commit to apply")
 }
 
 func TestABufferReplacedButStillOnAPlaneIsReportedUntilItLeaves(t *testing.T) {
@@ -443,15 +442,12 @@ func (e *explicitRig) show(point uint32) *cw.WlBuffer {
 	before := e.shown()
 	b := e.memfdBuffer(&releases{})
 	must(e.t, e.dev.Signal(e.acquire, uint64(point)), e.sync.SetAcquirePoint(e.atl, 0, point), e.sync.SetReleasePoint(e.rtl, 0, point), e.surface.Attach(b, 0, 0), e.surface.Commit())
-	for range 5000 {
+	waittest.Until(e.t, func() bool {
 		e.roundtrip()
-		if now := e.shown(); now != nil && now != before {
-			return b
-		}
-		time.Sleep(time.Millisecond)
-	}
-	e.t.Fatalf("the commit of release point %d never applied", point)
-	return nil
+		now := e.shown()
+		return now != nil && now != before
+	}, fmt.Sprintf("the commit of release point %d to apply", point))
+	return b
 }
 
 func TestAReleasePointOwedPastItsBufferIsReportedUntilTheKernelReachesIt(t *testing.T) {

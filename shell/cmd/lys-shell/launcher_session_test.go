@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // The launcher socket's lifetime contract, against the real CLI
@@ -104,11 +105,15 @@ func (d *fakeDaemon) acceptSession(t *testing.T) (*bufio.Reader, net.Conn) {
 	return reader, conn
 }
 
+// quietWindow is how long what must not happen gets to happen anyway
+// before a test concludes it does not.
+const quietWindow = 750 * time.Millisecond
+
 // expectSilence asserts the client neither writes nor half-closes
-// within the window.
+// within quietWindow.
 func expectSilence(t *testing.T, conn net.Conn, reader *bufio.Reader, what string) {
 	t.Helper()
-	_ = conn.SetReadDeadline(time.Now().Add(750 * time.Millisecond))
+	_ = conn.SetReadDeadline(time.Now().Add(quietWindow))
 	defer func() { _ = conn.SetReadDeadline(time.Time{}) }()
 	b, err := reader.ReadByte()
 	switch {
@@ -150,8 +155,12 @@ func TestClientExitClosesTheSocketAndReturnsTheDaemonCode(t *testing.T) {
 	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
 		t.Fatalf("cancel must exit with rofi's code 1, got %v", err)
 	}
-	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-	if _, err := reader.ReadByte(); !errors.Is(err, io.EOF) {
+	read := make(chan error, 1)
+	go func() {
+		_, err := reader.ReadByte()
+		read <- err
+	}()
+	if err := waittest.For(t, read, "the socket to reach EOF once the CLI is gone"); !errors.Is(err, io.EOF) {
 		t.Errorf("socket must reach EOF once the CLI is gone, got %v", err)
 	}
 }

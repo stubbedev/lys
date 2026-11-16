@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/tabletinput"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func TestAPensPressureReachesAnXClientThroughXwayland(t *testing.T) {
@@ -21,15 +22,12 @@ func TestAPensPressureReachesAnXClientThroughXwayland(t *testing.T) {
 	h.Eventually("the X window tiled", func(_ *headless.Backend, c *compositor.Compositor) bool { return len(windowsOf(c)) == 1 })
 	addTablet(h)
 	events := h.RunX("stdbuf", "-oL", "xinput", "test-xi2", "--root")
-	for deadline := time.Now().Add(testenv.HangLimit); !strings.Contains(events.Output(), "EVENT type"); {
-		if time.Now().After(deadline) {
-			t.Fatalf("xinput test-xi2 saw no pointer motion:\n%s", events.Output())
-		}
+	waittest.UntilSlow(t, func() bool {
 		h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 			return errors.Join(b.Pointer().Move(1, 0), b.Pointer().Frame())
 		})
-		time.Sleep(20 * time.Millisecond)
-	}
+		return strings.Contains(events.Output(), "EVENT type")
+	}, "xinput test-xi2 to see pointer motion")
 
 	draw := pressed(0.5, 0.5, 0.5)
 	draw.Changed |= tabletinput.AxisPressure

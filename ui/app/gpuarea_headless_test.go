@@ -12,11 +12,11 @@ import (
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/udmabuf"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/internal/headlesstest/inproc"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 

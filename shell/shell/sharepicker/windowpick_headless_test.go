@@ -3,12 +3,13 @@ package sharepicker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -63,7 +64,7 @@ func windowPicker(t *testing.T, screen string) *pickRig {
 func (r *pickRig) point(x, y int, under string) {
 	r.t.Helper()
 	w, h := r.kb.OutputSize()
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
+	waittest.Until(r.t, func() bool {
 		for _, at := range [][2]int{{x + 1, y + 1}, {x, y}} {
 			if err := r.kb.MotionAbsolute(uint32(at[0]), uint32(at[1]), uint32(w), uint32(h)); err != nil {
 				r.t.Fatal(err)
@@ -74,11 +75,8 @@ func (r *pickRig) point(x, y int, under string) {
 			apptest.Dispatched(r.t, r.a)
 		}
 		hovered := apptest.On(r.a, func() regionoverlay.Window { w, _ := r.o.Hovered(); return w })
-		if hovered.ID == under {
-			return
-		}
-	}
-	r.t.Fatalf("the overlay never had the pointer at %d,%d over %q", x, y, under)
+		return hovered.ID == under
+	}, fmt.Sprintf("the overlay to have the pointer at %d,%d over %q", x, y, under))
 }
 
 // click presses and releases the left button where the pointer is.

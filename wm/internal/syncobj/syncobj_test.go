@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/dmabuf"
@@ -312,15 +313,17 @@ func (e *env) surface() (*cw.WlSurface, *cls.WpLinuxDrmSyncobjSurfaceV1) {
 	return s, ss
 }
 
+const quietWindow = 20 * time.Millisecond
+
 func (e *env) waitFor(what string, cond func() bool) {
 	e.t.Helper()
-	for deadline := time.Now().Add(testenv.HangLimit); !cond(); {
-		if time.Now().After(deadline) {
-			e.t.Fatalf("timed out waiting for %s", what)
+	waittest.Until(e.t, func() bool {
+		if cond() {
+			return true
 		}
-		time.Sleep(time.Millisecond)
 		e.roundtrip()
-	}
+		return false
+	}, what)
 }
 
 func (e *env) signaledAt(s drm.Syncobj, point uint64) bool {
@@ -344,7 +347,7 @@ func TestCommitsWaitForTheirAcquirePoint(t *testing.T) {
 		}
 	}
 	e.roundtrip()
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(quietWindow)
 	e.roundtrip()
 	if n := e.rec.count(); n != 0 {
 		t.Fatalf("a commit took effect before its acquire point: %d commits", n)

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -83,20 +82,6 @@ func (h *headlessBar) onLoop(fn func()) {
 	<-ran
 }
 
-// wait polls cond for up to ten seconds and fails with its last error.
-func (h *headlessBar) wait(what string, cond func() error) {
-	h.t.Helper()
-	var last error
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
-		if last = cond(); last == nil {
-			return
-		}
-		if time.Now().After(deadline) {
-			h.t.Fatalf("timed out waiting for %s: %v", what, last)
-		}
-	}
-}
-
 // buttons waits for the open bar to show n module buttons and returns
 // them in tree order.
 func (h *headlessBar) buttons(n int) []*barButton {
@@ -114,7 +99,7 @@ func (h *headlessBar) buttons(n int) []*barButton {
 func (h *headlessBar) buttonsWhere(what string, pass func([]*barButton) error) []*barButton {
 	h.t.Helper()
 	var out []*barButton
-	h.wait(what, func() error {
+	untilNil(h.t, what, func() error {
 		out = nil
 		h.onLoop(func() {
 			if h.bar == nil {

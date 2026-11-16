@@ -3,6 +3,7 @@ package wallpaper
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"math/rand/v2"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 	"github.com/stubbedev/lys/desktop/styling/material"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func seeded() *rand.Rand { return rand.New(rand.NewPCG(1, 2)) }
@@ -286,14 +288,8 @@ func TestThemingPath(t *testing.T) {
 	}
 }
 
-func waitTick(t *testing.T, ch <-chan struct{}) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(3 * time.Second):
-		t.Fatal("no tick within 3s")
-	}
-}
+// quietWindow is how long a test watches for a change that must not come.
+const quietWindow = 150 * time.Millisecond
 
 func TestChangesTickOnlyOnChange(t *testing.T) {
 	s := newTestService("DP-1")
@@ -306,7 +302,7 @@ func TestChangesTickOnlyOnChange(t *testing.T) {
 	default:
 	}
 	s.SetFitMode(FitFit, "")
-	waitTick(t, ch)
+	waittest.For(t, ch, "a change tick")
 }
 
 func TestTimerAdvancesTheCycle(t *testing.T) {
@@ -317,17 +313,11 @@ func TestTimerAdvancesTheCycle(t *testing.T) {
 	if err := s.StartCycling(dir, 30*time.Millisecond, Sequential); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(3 * time.Second)
-	for wallpaperOf(t, s, "DP-1") == filepath.Join(dir, "a.png") && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
-	}
-	if got := wallpaperOf(t, s, "DP-1"); got == filepath.Join(dir, "a.png") {
-		t.Fatal("the timer never advanced")
-	}
+	waittest.Until(t, func() bool { return wallpaperOf(t, s, "DP-1") != filepath.Join(dir, "a.png") }, "the timer to advance the cycle")
 	s.StopCycling()
 	time.Sleep(20 * time.Millisecond)
 	frozen := wallpaperOf(t, s, "DP-1")
-	time.Sleep(120 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := wallpaperOf(t, s, "DP-1"); got != frozen {
 		t.Errorf("a stopped cycle kept ticking: %q -> %q", frozen, got)
 	}
@@ -342,23 +332,22 @@ func TestDirectoryChangeRefreshesThePool(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The watcher is set up asynchronously by Run.
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		_ = os.WriteFile(filepath.Join(dir, "b.png"), nil, 0o600)
-		time.Sleep(30 * time.Millisecond)
-		if s.CyclingConfig().ImageCount() == 2 || time.Now().After(deadline) {
-			break
+	added := filepath.Join(dir, "b.png")
+	waittest.Until(t, func() bool {
+		if s.CyclingConfig().ImageCount() == 2 {
+			return true
 		}
-		_ = os.Remove(filepath.Join(dir, "b.png"))
-	}
-	if n := s.CyclingConfig().ImageCount(); n != 2 {
-		t.Fatalf("pool = %d images after adding one, want 2", n)
-	}
+		_ = os.Remove(added)
+		if err := os.WriteFile(added, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return false
+	}, "the pool to take the added image")
 	// A new subdirectory is not a file change.
 	if err := os.Mkdir(filepath.Join(dir, "sub.png"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if n := s.CyclingConfig().ImageCount(); n != 2 {
 		t.Errorf("a new directory refreshed the pool to %d", n)
 	}
@@ -421,7 +410,7 @@ func TestExtractColorsDeduplicatesAndFollowsTheming(t *testing.T) {
 	if err := s.ExtractColors(ctx); err != nil {
 		t.Fatal(err)
 	}
-	waitTick(t, done)
+	waittest.For(t, done, "the extraction to finish")
 	if got := calls(t, log); len(got) != 0 {
 		t.Fatalf("extracted without a wallpaper: %v", got)
 	}
@@ -461,19 +450,16 @@ func TestRunReExtractsOnExtractorChange(t *testing.T) {
 	go s.Run(ctx)
 	waitCalls := func(n int) {
 		t.Helper()
-		deadline := time.Now().Add(3 * time.Second)
-		for len(calls(t, log)) < n && time.Now().Before(deadline) {
-			time.Sleep(10 * time.Millisecond)
-		}
+		waittest.Until(t, func() bool { return len(calls(t, log)) >= n }, fmt.Sprintf("%d extractor calls", n))
 		if got := calls(t, log); len(got) != n {
 			t.Fatalf("calls = %v, want %d", got, n)
 		}
 	}
 	waitCalls(1) // the startup pass
-	waitTick(t, done)
+	waittest.For(t, done, "the extraction to finish")
 	// Same extractor config: nothing to do.
 	s.SetExtractor(extract.Config{Tool: extract.Matugen})
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := calls(t, log); len(got) != 1 {
 		t.Fatalf("an unchanged extractor re-extracted: %v", got)
 	}
@@ -582,7 +568,7 @@ func TestPreviewShowsOverTheSetImageAndThemesFromIt(t *testing.T) {
 	if err := s.SetPreview(b, "DP-1"); err != nil {
 		t.Fatal(err)
 	}
-	waitTick(t, changes)
+	waittest.For(t, changes, "a change tick")
 	if got := wallpaperOf(t, s, "DP-1"); got != b {
 		t.Errorf("DP-1 shows %s during its preview, want b", got)
 	}
@@ -594,7 +580,7 @@ func TestPreviewShowsOverTheSetImageAndThemesFromIt(t *testing.T) {
 		t.Errorf("the previewed theming monitor was sampled %d times in all, want 2", sampled)
 	}
 	s.EndPreview()
-	waitTick(t, changes)
+	waittest.For(t, changes, "a change tick")
 	if got := wallpaperOf(t, s, "DP-1"); got != a {
 		t.Errorf("DP-1 shows %s after the preview, want a again", got)
 	}

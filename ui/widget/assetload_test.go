@@ -3,7 +3,7 @@ package widget
 import (
 	"testing"
 
-	"github.com/stubbedev/lys/ui/internal/waittest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestRemovingAnInvokerLeavesALaterOne(t *testing.T) {

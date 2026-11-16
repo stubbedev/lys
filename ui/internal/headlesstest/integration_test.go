@@ -68,6 +68,8 @@ const traceTimeout = 8 * time.Second
 // parts).
 const showcaseControls = 16
 
+const quietWindow = time.Second
+
 // dwellTime is how long the pointer rests on a widget in the tooltip
 // test: past app's 500ms tooltip delay, short of test patience.
 const dwellTime = 900 * time.Millisecond
@@ -1610,7 +1612,7 @@ func TestHeadlessVideoPlays(t *testing.T) {
 		t.Fatalf("pause trace %q: %v", tr.Message, err)
 	}
 	after := w.Mark()
-	time.Sleep(time.Second)
+	time.Sleep(quietWindow)
 	for _, tr := range w.Since(after) {
 		if n, ok := videoFrame(tr); ok && n > at {
 			t.Fatalf("frame %d shown after pausing at frame %d", n, at)

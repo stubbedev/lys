@@ -71,7 +71,7 @@ func readEveryModuleOverAtSpi(t *testing.T, loc string) {
 	}
 	h := openHeadlessBar(t, config.Defaults(), layout)
 	var items []widget.Widget
-	h.wait("a box for every layout item", func() error {
+	untilNil(h.t, "a box for every layout item", func() error {
 		h.onLoop(func() {
 			if h.bar != nil {
 				items = h.bar.bar.Start().Children()
@@ -140,7 +140,7 @@ func readEveryModuleOverAtSpi(t *testing.T, loc string) {
 		}
 		return nil
 	}
-	h.wait("every shown module read by its title and state", func() error { return heard(expected()) })
+	untilNil(h.t, "every shown module read by its title and state", func() error { return heard(expected()) })
 	for _, name := range modulesThatNeedNoService {
 		if !shown[name] {
 			t.Errorf("the bar does not show %s (shown %v)", name, shown)
@@ -152,7 +152,7 @@ func readEveryModuleOverAtSpi(t *testing.T, loc string) {
 
 	state := "state " + loc
 	h.onLoop(func() { clock.SetDescription(state) })
-	h.wait("the clock's new state read", func() error {
+	untilNil(h.t, "the clock's new state read", func() error {
 		return heard(map[string]int{titles.Get("bar-module-clock") + ", " + state: 1}, nil)
 	})
 }

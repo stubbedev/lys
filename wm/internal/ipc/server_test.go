@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
@@ -152,6 +153,15 @@ func (r *rig) do(f func(*fake)) {
 	<-ran
 }
 
+func (r *rig) until(what string, cond func(*fake) bool) {
+	r.t.Helper()
+	waittest.Until(r.t, func() bool {
+		var ok bool
+		r.do(func(f *fake) { ok = cond(f) })
+		return ok
+	}, what)
+}
+
 func (r *rig) raw(line string) wmipc.Response {
 	r.t.Helper()
 	c, err := net.Dial("unix", r.path)
@@ -262,16 +272,11 @@ func watch(t *testing.T, path string) (<-chan string, func()) {
 
 func next(t *testing.T, lines <-chan string) string {
 	t.Helper()
-	select {
-	case l, ok := <-lines:
-		if !ok {
-			t.Fatal("the event stream ended")
-		}
-		return l
-	case <-time.After(testenv.HangLimit):
-		t.Fatalf("no event within %v", testenv.HangLimit)
+	l := waittest.For(t, lines, "the next event")
+	if l == "" {
+		t.Fatal("the event stream ended or sent a blank line")
 	}
-	return ""
+	return l
 }
 
 func TestIconsArePNGs(t *testing.T) {
@@ -355,20 +360,11 @@ func TestCloseWithClientsConnected(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer idle.Close()
-	for deadline := time.Now().Add(testenv.HangLimit); r.server.connected() == before; time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the server did not take the idle client within %v", testenv.HangLimit)
-		}
-	}
+	waittest.Until(t, func() bool { return r.server.connected() != before }, "the server to take the idle client")
 	closed := make(chan error, 1)
 	go func() { closed <- r.server.Close() }()
-	select {
-	case err := <-closed:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatalf("Close still waited for a connected client after %v, half the time the server waits for its request", testenv.HangLimit)
+	if err := waittest.For(t, closed, "Close to return with a client connected, well before the server gives up on its request"); err != nil {
+		t.Fatal(err)
 	}
 	if _, ok := <-lines; ok {
 		t.Fatal("the event stream outlived the server")
@@ -566,18 +562,7 @@ func TestPickWindowAnswersWithThePickAndCancelsWhenTheClientLeaves(t *testing.T)
 	r := start(t)
 	awaitPick := func() {
 		t.Helper()
-		deadline := time.Now().Add(testenv.HangLimit)
-		for {
-			armed := false
-			r.do(func(f *fake) { armed = f.pick != nil })
-			if armed {
-				return
-			}
-			if time.Now().After(deadline) {
-				t.Fatal("the pick never started")
-			}
-			time.Sleep(time.Millisecond)
-		}
+		r.until("the pick to start", func(f *fake) bool { return f.pick != nil })
 	}
 	answered := make(chan string, 1)
 	go func() {
@@ -607,12 +592,5 @@ func TestPickWindowAnswersWithThePickAndCancelsWhenTheClientLeaves(t *testing.T)
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(testenv.HangLimit)
-	for cancelled := 0; cancelled != 1; {
-		r.do(func(f *fake) { cancelled = f.cancelled })
-		if time.Now().After(deadline) {
-			t.Fatal("the pick of a client that left was not cancelled")
-		}
-		time.Sleep(time.Millisecond)
-	}
+	r.until("the pick of a client that left to be cancelled", func(f *fake) bool { return f.cancelled == 1 })
 }

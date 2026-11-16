@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/service/mail"
@@ -48,11 +48,7 @@ func seededMailWith(t *testing.T, cfg config.MailConfig, nm staticNotmuch) *mail
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	go svc.Run(ctx)
-	select {
-	case <-ticks:
-	case <-time.After(2 * time.Second):
-		t.Fatal("mail service never published its seed")
-	}
+	waittest.For(t, ticks, "the mail service's seed")
 	return svc
 }
 

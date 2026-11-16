@@ -9,7 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestStopGroupStopsTheCompositorBeforeItsClients(t *testing.T) {
@@ -24,26 +25,19 @@ func TestStopGroupStopsTheCompositorBeforeItsClients(t *testing.T) {
 	exited := make(chan error, 1)
 	go func() { exited <- cmd.Wait() }()
 	var child int
-	for deadline := time.Now().Add(stepDeadline); child == 0; {
+	waittest.Until(t, func() bool {
 		if b, err := os.ReadFile(childPid); err == nil {
 			child, _ = strconv.Atoi(strings.TrimSpace(string(b)))
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("the stand-in compositor never started its client")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return child != 0
+	}, "the stand-in compositor to start its client")
 	if err := stopGroup("the test", cmd, exited); err != nil {
 		t.Fatal(err)
 	}
 	if b, err := os.ReadFile(verdict); err != nil || strings.TrimSpace(string(b)) != "alive" {
 		t.Fatalf("the client was %q when the compositor got SIGTERM (%v), want still alive", b, err)
 	}
-	for deadline := time.Now().Add(stepDeadline); syscall.Kill(child, 0) == nil; time.Sleep(10 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("the compositor's client outlived the stopped group")
-		}
-	}
+	waittest.Until(t, func() bool { return syscall.Kill(child, 0) != nil }, "the compositor's client to end with the stopped group")
 }
 
 func TestALoginRegistersTheTypeOfTheSessionItStarts(t *testing.T) {

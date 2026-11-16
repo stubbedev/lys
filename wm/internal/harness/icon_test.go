@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/icontheme"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -24,7 +24,6 @@ import (
 	cxti "github.com/stubbedev/lys/wm/internal/protocol/client/xdgtoplevelicon"
 	"github.com/stubbedev/lys/wm/internal/shell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type iconSizes struct {
@@ -78,18 +77,17 @@ func setIcon(t *testing.T, c *testclient.Client, m *cxti.XdgToplevelIconManagerV
 
 func eventuallyIcon(t *testing.T, h *Harness, title string, ok func(*ipc.Icon) bool) *ipc.Icon {
 	t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	var icon *ipc.Icon
+	waittest.Until(t, func() bool {
 		for _, w := range query[[]ipc.Window](h, wmipc.KindWindows) {
 			if w.Title == title && ok(w.Icon) {
-				return w.Icon
+				icon = w.Icon
+				return true
 			}
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%s never reported the expected icon: %+v", title, query[[]ipc.Window](h, wmipc.KindWindows))
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return false
+	}, title+" to report the expected icon")
+	return icon
 }
 
 func iconImage(t *testing.T, h *Harness, size int) (ipc.IconImage, image.Image) {

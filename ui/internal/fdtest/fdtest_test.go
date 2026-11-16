@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const quietWindow = 20 * time.Millisecond
+
 func TestBeyondNamesWhatIsHeldMoreOftenThanTheBaselineHoldsIt(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
@@ -120,7 +122,7 @@ func TestHoldSilentKeepsThePipeOpenWithoutWriting(t *testing.T) {
 	if err := syscall.Close(int(w)); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.SetReadDeadline(time.Now().Add(20 * time.Millisecond)); err != nil {
+	if err := r.SetReadDeadline(time.Now().Add(quietWindow)); err != nil {
 		t.Fatal(err)
 	}
 	if n, err := r.Read(make([]byte, 1)); !errors.Is(err, os.ErrDeadlineExceeded) {

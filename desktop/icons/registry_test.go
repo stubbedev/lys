@@ -9,7 +9,11 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
+
+const quietWindow = 300 * time.Millisecond
 
 func TestDefaultPath(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", "/data")
@@ -100,18 +104,14 @@ func TestRegistryWatchStopWaitsForARunningCallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeIcon(t, r.IconsDir(), "ld-a-symbolic.svg", "")
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no change reported for an installed icon")
-	}
+	waittest.For(t, started, "a change reported for an installed icon")
 	stop()
 	done := finished.Load()
 	if done == 0 {
 		t.Fatal("stop returned while the callback was still running")
 	}
 	writeIcon(t, r.IconsDir(), "ld-b-symbolic.svg", "")
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := finished.Load(); got != done {
 		t.Errorf("%d callbacks ran after stop returned", got-done)
 	}
@@ -136,23 +136,23 @@ func TestRegistryWatch(t *testing.T) {
 		for {
 			select {
 			case <-changes:
-			case <-time.After(300 * time.Millisecond):
+			case <-time.After(quietWindow):
 				return
 			}
 		}
 	}
-	expect := func(what string, want bool) {
+	changed := func(what string) {
+		t.Helper()
+		waittest.For(t, changes, "a change reported for "+what)
+		quiet()
+	}
+	unchanged := func(what string) {
 		t.Helper()
 		select {
 		case <-changes:
-			if !want {
-				t.Errorf("%s: a change was reported", what)
-			}
+			t.Errorf("%s: a change was reported", what)
 			quiet()
-		case <-time.After(300 * time.Millisecond):
-			if want {
-				t.Errorf("%s: no change reported", what)
-			}
+		case <-time.After(quietWindow):
 		}
 	}
 
@@ -160,22 +160,22 @@ func TestRegistryWatch(t *testing.T) {
 	if err := os.WriteFile(existing, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	expect("rewrite in place", false)
+	unchanged("rewrite in place")
 
 	writeIcon(t, dir, "ld-b-symbolic.svg", "")
-	expect("install", true)
+	changed("install")
 	if err := os.Rename(filepath.Join(dir, "ld-b-symbolic.svg"), filepath.Join(dir, "ld-c-symbolic.svg")); err != nil {
 		t.Fatal(err)
 	}
-	expect("rename", true)
+	changed("rename")
 	if err := os.Remove(existing); err != nil {
 		t.Fatal(err)
 	}
-	expect("remove", true)
+	changed("remove")
 
 	stop()
 	writeIcon(t, dir, "ld-d-symbolic.svg", "")
-	expect("after stop", false)
+	unchanged("after stop")
 
 	if _, err := RegistryAt(filepath.Join(t.TempDir(), "absent")).Watch(func() {}); err == nil {
 		t.Error("watching a missing directory succeeded")

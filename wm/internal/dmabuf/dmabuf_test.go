@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/gpu"
@@ -48,6 +49,8 @@ func (i *importer) DMABUFFormats() ([]gpu.FormatModifier, error) {
 }
 
 const mainDevice = 0xe280
+
+const quietWindow = 50 * time.Millisecond
 
 func (i *importer) MainDevice() (uint64, error) { return mainDevice, i.device }
 
@@ -575,16 +578,12 @@ func TestAwaitWriterHoldsUntilThePlaneIsReadable(t *testing.T) {
 	select {
 	case <-released:
 		t.Fatal("released with the writer at work")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if _, err := unix.Write(p[1], []byte{0}); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-released:
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("not released after the writer finished")
-	}
+	waittest.For(t, released, "the release after the writer finished")
 	if err := e.l.Post(func() error {
 		return b.AwaitWriter(awaiter(func() func() error {
 			t.Error("a hold for a plane whose writer has finished")
@@ -627,11 +626,7 @@ func TestAWaitedPlaneKeepsOneDuplicateAcrossCommits(t *testing.T) {
 		if _, err := unix.Write(p[1], []byte{0}); err != nil {
 			t.Fatal(err)
 		}
-		select {
-		case <-released:
-		case <-time.After(testenv.HangLimit):
-			t.Fatal("not released after the writer finished")
-		}
+		waittest.For(t, released, "the release after the writer finished")
 		var one [1]byte
 		if _, err := unix.Read(p[0], one[:]); err != nil {
 			t.Fatal(err)
@@ -721,11 +716,7 @@ func TestASweepCountsHowLongAPlaneFenceHoldsItsCommit(t *testing.T) {
 	if _, err := unix.Write(p[1], []byte{0}); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-released:
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("not released after the writer finished")
-	}
+	waittest.For(t, released, "the release after the writer finished")
 	if s := sweep(); s.busy || len(s.buffers) != 0 {
 		t.Fatalf("a sweep after the writer finished found %v", s)
 	}

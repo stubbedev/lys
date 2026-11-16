@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeNotmuch serves counts by query and records calls.
@@ -114,18 +115,11 @@ func startService(t *testing.T, cfg config.MailConfig, nm *fakeNotmuch, notifier
 		cancel()
 		<-done
 	})
-	waitTick(t, ticks, "seed")
+	waittest.For(t, ticks, "the seed publish")
 	return svc, ticks
 }
 
-func waitTick(t *testing.T, ticks <-chan struct{}, what string) {
-	t.Helper()
-	select {
-	case <-ticks:
-	case <-time.After(3 * time.Second):
-		t.Fatalf("%s: no publish", what)
-	}
-}
+const quietWindow = 100 * time.Millisecond
 
 func touch(t *testing.T, dir, name string) {
 	t.Helper()
@@ -170,7 +164,7 @@ func TestMaildirChangeRequeriesAndNotifiesArrivals(t *testing.T) {
 	nm.set("tag:unread", 3)
 	nm.setNewest("tag:unread", []Message{{Sender: "Alice", Subject: "Lunch"}, {Sender: "Bob", Subject: "Build"}})
 	touch(t, cur, "2:2,")
-	waitTick(t, ticks, "after a maildir write")
+	waittest.For(t, ticks, "the publish after a maildir write")
 
 	if got := svc.State().Total; got != 3 {
 		t.Errorf("total = %d, want 3", got)
@@ -186,7 +180,7 @@ func TestMaildirChangeRequeriesAndNotifiesArrivals(t *testing.T) {
 	// A drop (mail read) re-queries but notifies nothing.
 	nm.set("tag:unread", 0)
 	touch(t, cur, "3:2,S")
-	waitTick(t, ticks, "after a read")
+	waittest.For(t, ticks, "the publish after a read")
 	if got := svc.State().Total; got != 0 {
 		t.Errorf("total = %d, want 0", got)
 	}
@@ -202,7 +196,7 @@ func TestNotifyOffStaysQuiet(t *testing.T) {
 	svc, ticks := startService(t, config.DefaultsMail(), nm, notifier)
 	nm.set("tag:unread", 9)
 	touch(t, maildir, "new")
-	waitTick(t, ticks, "after a write")
+	waittest.For(t, ticks, "the publish after a write")
 	if svc.State().Total != 9 {
 		t.Errorf("total = %d, want 9", svc.State().Total)
 	}
@@ -232,7 +226,7 @@ func TestAccountsCountSeparatelyAndFallBackToACountOnlyNotification(t *testing.T
 	// Work gains 8 with no readable details; Home is unchanged.
 	nm.set("folder:work", 10)
 	touch(t, maildir, "new")
-	waitTick(t, ticks, "after a write")
+	waittest.For(t, ticks, "the publish after a write")
 	want := []sent{{"Work", i18n.T("mail-notification-arrived", i18n.Int("new", 8), i18n.Int("count", 10)), "si-gmail-symbolic"}}
 	if got := notifier.all(); !reflect.DeepEqual(got, want) {
 		t.Errorf("notifications = %+v, want %+v", got, want)
@@ -251,7 +245,7 @@ func TestBurstIsCappedAtNotifyMax(t *testing.T) {
 	nm.setNewest("tag:unread", many)
 	nm.set("tag:unread", 20)
 	touch(t, maildir, "burst")
-	waitTick(t, ticks, "after a burst")
+	waittest.For(t, ticks, "the publish after a burst")
 	if got := len(notifier.all()); got != NotifyMax {
 		t.Errorf("notifications = %d, want the %d cap", got, NotifyMax)
 	}
@@ -263,7 +257,7 @@ func TestNoDatabaseMeansNoRequery(t *testing.T) {
 	select {
 	case <-ticks:
 		t.Fatal("re-queried without a database to watch")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	nm.mu.Lock()
 	defer nm.mu.Unlock()
@@ -385,13 +379,13 @@ func TestARecoveredQueryDoesNotNotifyItsBacklog(t *testing.T) {
 
 	nm.fail("tag:unread", errors.New("locked"))
 	touch(t, maildir, "a")
-	waitTick(t, ticks, "the failed read")
+	waittest.For(t, ticks, "the publish of the failed read")
 	if svc.State().Err == nil {
 		t.Fatal("the failed read published no error")
 	}
 	nm.fail("tag:unread", nil)
 	touch(t, maildir, "b")
-	waitTick(t, ticks, "the recovered read")
+	waittest.For(t, ticks, "the publish of the recovered read")
 	if st := svc.State(); st.Err != nil || st.Total != 3 {
 		t.Errorf("recovered state = %+v", st)
 	}
@@ -401,7 +395,7 @@ func TestARecoveredQueryDoesNotNotifyItsBacklog(t *testing.T) {
 
 	nm.set("tag:unread", 4)
 	touch(t, maildir, "c")
-	waitTick(t, ticks, "an arrival")
+	waittest.For(t, ticks, "the publish of an arrival")
 	if got := notifier.all(); len(got) != 1 {
 		t.Errorf("an arrival after the recovery notified %d, want 1", len(got))
 	}

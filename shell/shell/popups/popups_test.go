@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -688,11 +689,7 @@ func TestStackLeavingUnderThePointer(t *testing.T) {
 		s.click(c.close)
 		s.sync()
 	}()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("closing the hovered stack's last card hung the surface")
-	}
+	waittest.For(t, done, "closing the hovered stack's last card to leave the surface running")
 	if got := s.p.stackOrder(); len(got) != 0 {
 		t.Fatalf("stacks after closing the last card: %v", got)
 	}
@@ -789,18 +786,6 @@ func TestClearAllRemovesTheStacksNotifications(t *testing.T) {
 	}
 }
 
-// waitFor polls cond until it holds or the deadline passes.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(time.Millisecond)
-	}
-}
-
 // Clear all leaves the loop free however long the bus takes, and each
 // of the stack's apps still gets its closed signal, no other's.
 func TestClearAllDoesNotWaitForTheBus(t *testing.T) {
@@ -809,6 +794,8 @@ func TestClearAllDoesNotWaitForTheBus(t *testing.T) {
 	stack := s.stackOf(mail[2])
 	s.hover(s.card(mail[2]).summary)
 	release := make(chan struct{})
+	unblock := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(unblock)
 	var closed sync.Map
 	s.svc.SetEmitter(func(signal string, args ...any) {
 		<-release
@@ -821,20 +808,15 @@ func TestClearAllDoesNotWaitForTheBus(t *testing.T) {
 		defer close(clicked)
 		s.click(stack.clear)
 	}()
-	select {
-	case <-clicked:
-	case <-time.After(2 * time.Second):
-		close(release)
-		t.Fatal("the click waited for the bus")
-	}
-	waitFor(t, "the popups leaving while the bus blocks", func() bool { return len(s.svc.Popups()) == 3 })
-	close(release)
+	waittest.For(t, clicked, "the click to end without waiting for the bus")
+	waittest.Until(t, func() bool { return len(s.svc.Popups()) == 3 }, "the popups leaving while the bus blocks")
+	unblock()
 	count := func() int {
 		n := 0
 		closed.Range(func(_, _ any) bool { n++; return true })
 		return n
 	}
-	waitFor(t, "the mail stack's closed signals", func() bool { return count() == len(mail) })
+	waittest.Until(t, func() bool { return count() == len(mail) }, "the mail stack's closed signals")
 	for _, id := range mail {
 		if _, ok := closed.Load(id); !ok {
 			t.Errorf("mail %d got no closed signal", id)
@@ -1309,9 +1291,5 @@ func TestRunEndsWithItsLife(t *testing.T) {
 		p.Run(life)
 	}()
 	end()
-	select {
-	case <-ran:
-	case <-time.After(10 * time.Second):
-		t.Fatal("Run outlived its life")
-	}
+	waittest.For(t, ran, "Run to end with its life")
 }

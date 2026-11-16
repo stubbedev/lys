@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const vmEnv = "LYS_SPLASH_KMS_VM"
@@ -29,15 +29,9 @@ func realDisplay(t *testing.T) *Display {
 
 func awaitFlip(t *testing.T, d *Display, o *Output) {
 	t.Helper()
-	deadline := time.After(5 * time.Second)
 	for o.flipping {
-		select {
-		case e := <-d.Events():
-			if _, err := d.Handle(e); err != nil {
-				t.Fatal(err)
-			}
-		case <-deadline:
-			t.Fatalf("no flip on %s within 5s", o.Name())
+		if _, err := d.Handle(waittest.For(t, d.Events(), "a flip on "+o.Name())); err != nil {
+			t.Fatal(err)
 		}
 	}
 }

@@ -6,11 +6,11 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/gputest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // goldenDevice is the GPU the goldens also render on when
@@ -21,8 +21,6 @@ var goldenDevice = sync.OnceValues(func() (*gpu.Device, error) {
 	}
 	return gpu.Open()
 })
-
-const goldenBusyLimit = 30 * time.Second
 
 // checkGoldenGPU renders the recorded golden on the GPU and fails on
 // any pixel differing from want, the CPU's: the GPU's shaders run the
@@ -38,12 +36,10 @@ func checkGoldenGPU(t *testing.T, name string, l *render.List, want []byte, w, h
 		t.Fatal(err)
 	}
 	defer tg.Close()
-	for deadline := time.Now().Add(goldenBusyLimit); ; time.Sleep(time.Millisecond) {
+	waittest.UntilSlow(t, func() bool {
 		err = d.Render(l, tg)
-		if !errors.Is(err, gpu.ErrBusy) || time.Now().After(deadline) {
-			break
-		}
-	}
+		return !errors.Is(err, gpu.ErrBusy)
+	}, name+": the GPU to take the render")
 	if err != nil {
 		t.Fatalf("%s: rendering on the GPU: %v", name, err)
 	}

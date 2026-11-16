@@ -5,10 +5,10 @@ import (
 	"errors"
 	"net/netip"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/dnssd"
 	"github.com/stubbedev/lys/shell/service/dnssd/dnssdtest"
@@ -31,32 +31,17 @@ func TestBrowseFindsResolvesAndFrees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wait := func() dnssd.Service {
-		t.Helper()
-		select {
-		case s := <-found:
-			return s
-		case <-time.After(5 * time.Second):
-			t.Fatal("nothing found")
-			return dnssd.Service{}
-		}
-	}
-	if s := wait(); s.Key() != printer.Key() || s.Host != "laser.local" || s.Address != printer.Address || s.Port != 631 || s.TXT["ty"] != "Example Laser" {
+	if s := waittest.For(t, found, "the announced printer"); s.Key() != printer.Key() || s.Host != "laser.local" || s.Address != printer.Address || s.Port != 631 || s.TXT["ty"] != "Example Laser" {
 		t.Errorf("found %+v", s)
 	}
 	later := dnssd.Service{Name: "Inkjet", Type: "_ipp._tcp", Domain: "local", Host: "ink.local", Address: netip.MustParseAddr("192.0.2.8"), Port: 631}
 	a.Announce(t, later)
-	if s := wait(); s.Name != "Inkjet" {
+	if s := waittest.For(t, found, "the later service"); s.Name != "Inkjet" {
 		t.Errorf("found %+v, want the later one", s)
 	}
 	a.Withdraw(t, later)
-	select {
-	case k := <-removed:
-		if k != later.Key() {
-			t.Errorf("removed %q, want the inkjet", k)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the withdrawn service was not reported")
+	if k := waittest.For(t, removed, "the withdrawn service's removal"); k != later.Key() {
+		t.Errorf("removed %q, want the inkjet", k)
 	}
 	if err := b.Stop(); err != nil {
 		t.Fatal(err)
@@ -95,13 +80,8 @@ func TestBrowseFollowsEveryAddress(t *testing.T) {
 	}()
 	expect := func(want netip.Addr) {
 		t.Helper()
-		select {
-		case s := <-found:
-			if s.Key() != printer.Key() || s.Address != want || s.Port != 631 || s.TXT["ty"] != "Example Laser" {
-				t.Errorf("found %+v, want it at %v", s, want)
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatalf("nothing found, want %v", want)
+		if s := waittest.For(t, found, "the printer at "+want.String()); s.Key() != printer.Key() || s.Address != want || s.Port != 631 || s.TXT["ty"] != "Example Laser" {
+			t.Errorf("found %+v, want it at %v", s, want)
 		}
 	}
 	at := func(addr string) dnssd.Service {
@@ -126,13 +106,8 @@ func TestBrowseFollowsEveryAddress(t *testing.T) {
 	default:
 	}
 	a.Withdraw(t, linkLocal)
-	select {
-	case k := <-removed:
-		if k != printer.Key() {
-			t.Errorf("removed %q", k)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the service gone from every address was not removed")
+	if k := waittest.For(t, removed, "the removal of the service gone from every address"); k != printer.Key() {
+		t.Errorf("removed %q", k)
 	}
 }
 
@@ -158,11 +133,7 @@ func TestBrowseIgnoresAnotherConnection(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	select {
-	case <-found:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the announced printer was not found")
-	}
+	waittest.For(t, found, "the announced printer")
 	browsers := a.Browsing(printer.Type)
 	if len(browsers) != 1 {
 		t.Fatalf("browsers %v, want one", browsers)
@@ -176,13 +147,8 @@ func TestBrowseIgnoresAnotherConnection(t *testing.T) {
 	}
 	later := dnssd.Service{Name: "Inkjet", Type: printer.Type, Domain: "local", Host: "ink.local", Address: netip.MustParseAddr("192.0.2.8"), Port: 631}
 	a.Announce(t, later)
-	select {
-	case s := <-found:
-		if s.Key() != later.Key() {
-			t.Errorf("found %+v, want the inkjet", s)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the later service was not found")
+	if s := waittest.For(t, found, "the later service"); s.Key() != later.Key() {
+		t.Errorf("found %+v, want the inkjet", s)
 	}
 	select {
 	case k := <-removed:

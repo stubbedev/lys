@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
@@ -168,10 +169,10 @@ func TestDraggingTheSecondOutputLeftAndKeepingWritesPositionsLysWMTakes(t *testi
 	if string(r.config(t)) == string(before) {
 		t.Fatal("Keep wrote nothing")
 	}
-	r.s.Until("lys-wm reporting the kept layout", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		o := r.outputs(t)
 		return o[secondOutput].Rect.X == 0 && o["HEADLESS-1"].Rect.X == o[secondOutput].Rect.Width
-	})
+	}, "lys-wm reporting the kept layout")
 	if _, err := r.s.Ctl("reload"); err != nil {
 		t.Fatal(err)
 	}
@@ -193,12 +194,12 @@ func TestATimeoutWithoutKeepRestoresThePositionsAndWritesNothing(t *testing.T) {
 	if r.p.confirm == nil {
 		t.Fatalf("no confirmation: %s", r.p.status.Text())
 	}
-	r.s.Until("the applied layout", func() bool { return r.outputs(t)[secondOutput].Rect.X == 0 })
+	waittest.UntilSlow(t, func() bool { return r.outputs(t)[secondOutput].Rect.X == 0 }, "the applied layout")
 	r.l.until("the revert", func() bool { return r.p.confirm == nil })
-	r.s.Until("the original layout back", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		o := r.outputs(t)
 		return o[secondOutput].Rect == original[secondOutput].Rect && o["HEADLESS-1"].Rect == original["HEADLESS-1"].Rect
-	})
+	}, "the original layout back")
 	if got := r.config(t); string(got) != string(file) {
 		t.Fatalf("the config changed:\n%s\nwas\n%s", got, file)
 	}

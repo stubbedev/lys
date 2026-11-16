@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/shell/service/network/secrets"
 )
 
@@ -96,11 +98,11 @@ func TestAgentAsksWhenTheVaultsSecretsWereRejected(t *testing.T) {
 func offerShown(t *testing.T, a *Agent) SaveOffer {
 	t.Helper()
 	var o SaveOffer
-	waitFor(t, "a save offer", func() bool {
+	waittest.Until(t, func() bool {
 		var ok bool
 		o, ok = a.SaveOffer()
 		return ok
-	})
+	}, "a save offer")
 	return o
 }
 

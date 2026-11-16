@@ -3,6 +3,8 @@ package notifications
 import (
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestPopupTimesOutButStaysInHistory(t *testing.T) {
@@ -175,13 +177,8 @@ func TestEverySubscriberSeesEveryEvent(t *testing.T) {
 	b, _ := s.Subscribe()
 	s.Notify("app", 0, "", "one", "", nil, 0)
 	for name, feed := range map[string]<-chan Event{"a": a, "b": b} {
-		select {
-		case ev := <-feed:
-			if ev.Kind != EventAdd {
-				t.Errorf("%s: event = %+v", name, ev)
-			}
-		case <-time.After(time.Second):
-			t.Errorf("subscriber %s missed the event", name)
+		if ev := waittest.For(t, feed, "subscriber "+name+"'s event"); ev.Kind != EventAdd {
+			t.Errorf("%s: event = %+v", name, ev)
 		}
 	}
 }

@@ -2,6 +2,7 @@ package idle
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -11,11 +12,15 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
 )
 
-const display logind.SessionID = "c1"
+const (
+	display     logind.SessionID = "c1"
+	quietWindow                  = 100 * time.Millisecond
+)
 
 func startLogin(t *testing.T) (*logindtest.Logind, Login) {
 	t.Helper()
@@ -44,17 +49,9 @@ func startSleepLock(t *testing.T, lockWait time.Duration) *logindtest.Logind {
 
 func awaitEvents(t *testing.T, fake *logindtest.Logind, want []logindtest.Event) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
-		got := fake.Events.Load()
-		if len(got) >= len(want) {
-			if !slices.Equal(got, want) {
-				t.Fatalf("logind saw %v, want %v", got, want)
-			}
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("logind saw %v, want %v", got, want)
-		}
+	waittest.Until(t, func() bool { return len(fake.Events.Load()) >= len(want) }, fmt.Sprintf("logind to see %v", want))
+	if got := fake.Events.Load(); !slices.Equal(got, want) {
+		t.Fatalf("logind saw %v, want %v", got, want)
 	}
 }
 
@@ -97,7 +94,7 @@ func TestStopLetsGoOfTheInhibitor(t *testing.T) {
 	stop()
 	awaitEvents(t, fake, []logindtest.Event{logindtest.EventInhibit, logindtest.EventInhibitorReleased})
 	fake.PrepareForSleep(t, true)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := fake.Events.Load(); slices.Contains(got, logindtest.EventLock) {
 		t.Errorf("a stopped lock-before-sleep still locked: %v", got)
 	}

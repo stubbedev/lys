@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
 )
@@ -332,7 +333,7 @@ func (f *fakeNM) setPrimary(nmType string) {
 func (f *fakeNM) registered(t *testing.T) registration {
 	t.Helper()
 	var got registration
-	waitFor(t, "an agent registration", func() bool {
+	waittest.Until(t, func() bool {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		if len(f.registrations) == 0 {
@@ -340,7 +341,7 @@ func (f *fakeNM) registered(t *testing.T) registration {
 		}
 		got = f.registrations[len(f.registrations)-1]
 		return true
-	})
+	}, "an agent registration")
 	return got
 }
 
@@ -351,27 +352,23 @@ func (f *fakeNM) getSecrets(ctx context.Context, agent string, conn ConnectionDi
 	return reply, err
 }
 
+// addedAndActivated waits for the one AddAndActivateConnection.
+func (f *fakeNM) addedAndActivated(t *testing.T) {
+	t.Helper()
+	waittest.Until(t, func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return len(f.addAndActive) == 1
+	}, "the activation")
+}
+
 func (f *fakeNM) cancelSecrets(agent string, path dbus.ObjectPath, setting string) {
 	must(f.t, f.conn.Object(agent, AgentPath).Call(agentIface+".CancelGetSecrets", 0, path, setting).Err)
 }
 
-// liveness is how long the network tests wait for something to
-// happen: a guard against a hang, not a speed bound. The race gate runs
-// every package at once, and a restore that is simply slow under that
-// load must not read as a lost one.
-const liveness = 10 * time.Second
-
-// waitFor polls cond for up to the liveness bound.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(liveness)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
+// quietWindow is how long a test watches for something that must not
+// happen.
+const quietWindow = 150 * time.Millisecond
 
 type fakeManager struct{ f *fakeNM }
 
@@ -597,22 +594,22 @@ func TestStoppingNMLetsTheCallsInFlightFinishAndRefusesNewOnes(t *testing.T) {
 		return out
 	}
 	inFlight := activate()
-	waitFor(t, "the activation in flight", func() bool {
+	waittest.Until(t, func() bool {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		return len(f.activations) == 1
-	})
+	}, "the activation in flight")
 
 	stopped := make(chan struct{})
 	go func() {
 		f.stop()
 		close(stopped)
 	}()
-	waitFor(t, "NM to start stopping", func() bool {
+	waittest.Until(t, func() bool {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		return f.stopping
-	})
+	}, "NM to start stopping")
 	late := <-activate()
 	if dbusErr, ok := errors.AsType[dbus.Error](late.Err); !ok || dbusErr.Name != errStopping.Name {
 		t.Errorf("a call to a stopping NM = %v, want %s", late.Err, errStopping.Name)
@@ -626,14 +623,10 @@ func TestStoppingNMLetsTheCallsInFlightFinishAndRefusesNewOnes(t *testing.T) {
 	close(held)
 	<-inFlight
 	<-stopped
-	select {
-	case sig := <-changes:
-		changed, _ := sig.Body[1].(map[string]dbus.Variant)
-		if listed, _ := changed["ActiveConnections"].Value().([]dbus.ObjectPath); len(listed) != 1 {
-			t.Errorf("the call in flight announced %v, want its one active connection", sig.Body)
-		}
-	case <-time.After(liveness):
-		t.Fatal("the call in flight never announced its active connection before NM went")
+	sig := waittest.For(t, changes, "the call in flight to announce its active connection before NM went")
+	changed, _ := sig.Body[1].(map[string]dbus.Variant)
+	if listed, _ := changed["ActiveConnections"].Value().([]dbus.ObjectPath); len(listed) != 1 {
+		t.Errorf("the call in flight announced %v, want its one active connection", sig.Body)
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()

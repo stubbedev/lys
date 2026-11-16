@@ -6,10 +6,10 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const devicePath = dbus.ObjectPath("/net/reactivated/Fprint/Device/0")
@@ -95,6 +95,11 @@ func newRigOn(t *testing.T, bus *dbustest.Bus, fingers []string, noDevice bool) 
 	if reply, err := server.RequestName(BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
 		t.Fatalf("own %s: %v %v", BusName, reply, err)
 	}
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("the reader's calls: %v", dev.recorded())
+		}
+	})
 	return &rig{dev: dev, client: bus.Conn(t), results: make(chan Result, 8), ended: make(chan error, 1)}
 }
 
@@ -108,13 +113,16 @@ func (r *rig) verify(t *testing.T) {
 
 func (r *rig) awaitStart(t *testing.T) {
 	t.Helper()
-	select {
-	case <-r.dev.started:
-	case err := <-r.ended:
-		t.Fatalf("Verify ended before VerifyStart: %v; calls %v", err, r.dev.recorded())
-	case <-time.After(10 * time.Second):
-		t.Fatalf("no VerifyStart; calls %v", r.dev.recorded())
-	}
+	waittest.Until(t, func() bool {
+		select {
+		case <-r.dev.started:
+			return true
+		case err := <-r.ended:
+			t.Fatalf("Verify ended before VerifyStart: %v", err)
+		default:
+		}
+		return false
+	}, "VerifyStart")
 	if !r.listened {
 		r.listened = true
 		if got := r.awaitResult(t); got != Listening {
@@ -125,24 +133,12 @@ func (r *rig) awaitStart(t *testing.T) {
 
 func (r *rig) awaitResult(t *testing.T) Result {
 	t.Helper()
-	select {
-	case res := <-r.results:
-		return res
-	case <-time.After(10 * time.Second):
-		t.Fatalf("no result; calls %v", r.dev.recorded())
-		return 0
-	}
+	return waittest.For(t, r.results, "a scan result")
 }
 
 func (r *rig) awaitEnd(t *testing.T) error {
 	t.Helper()
-	select {
-	case err := <-r.ended:
-		return err
-	case <-time.After(10 * time.Second):
-		t.Fatalf("Verify did not end; calls %v", r.dev.recorded())
-		return nil
-	}
+	return waittest.For(t, r.ended, "Verify to end")
 }
 
 func TestAMatchEndsTheVerificationAndReleasesTheReader(t *testing.T) {

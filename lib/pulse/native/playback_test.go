@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func stereo48k() native.PlaybackParams {
@@ -32,17 +33,6 @@ func pattern(n int) []byte {
 		b[i] = byte(i * 7)
 	}
 	return b
-}
-
-func waitWrite(t *testing.T, done <-chan error) error {
-	t.Helper()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(5 * time.Second):
-		t.Fatal("Write did not return")
-		return nil
-	}
 }
 
 func TestPlaybackStreamWritesAsTheServerRequests(t *testing.T) {
@@ -81,7 +71,7 @@ func TestPlaybackStreamWritesAsTheServerRequests(t *testing.T) {
 	default:
 	}
 	p.Request(400)
-	if err := waitWrite(t, done); err != nil {
+	if err := waittest.For(t, done, "Write to return"); err != nil {
 		t.Fatal(err)
 	}
 	if got := p.WaitData(t, len(audio)); !bytes.Equal(got, audio) {
@@ -134,7 +124,7 @@ func TestPlaybackStreamEnds(t *testing.T) {
 		done := make(chan error, 1)
 		go func() { done <- stream.Write(context.Background(), make([]byte, 4)) }()
 		p.Kill()
-		if err := waitWrite(t, done); !errors.Is(err, native.ErrStreamKilled) {
+		if err := waittest.For(t, done, "Write to return"); !errors.Is(err, native.ErrStreamKilled) {
 			t.Errorf("blocked Write = %v, want ErrStreamKilled", err)
 		}
 		if !errors.Is(stream.Err(), native.ErrStreamKilled) {
@@ -159,7 +149,7 @@ func TestPlaybackStreamEnds(t *testing.T) {
 		if err := stream.Close(context.Background()); err != nil {
 			t.Fatal(err)
 		}
-		if err := waitWrite(t, done); !errors.Is(err, native.ErrClosed) {
+		if err := waittest.For(t, done, "Write to return"); !errors.Is(err, native.ErrClosed) {
 			t.Errorf("blocked Write = %v, want ErrClosed", err)
 		}
 		srv.WaitPlaybacks(t, 0)
@@ -174,11 +164,7 @@ func TestPlaybackStreamEnds(t *testing.T) {
 			t.Fatal(err)
 		}
 		srv.Disconnect()
-		select {
-		case <-stream.Ended():
-		case <-time.After(5 * time.Second):
-			t.Fatal("stream outlived its connection")
-		}
+		waittest.For(t, stream.Ended(), "the stream to end with its connection")
 		if stream.Err() == nil || errors.Is(stream.Err(), native.ErrStreamKilled) {
 			t.Errorf("Err = %v, want the connection error", stream.Err())
 		}
@@ -195,7 +181,7 @@ func TestPlaybackStreamEnds(t *testing.T) {
 		go func() { done <- stream.Write(ctx, make([]byte, p.TargetLength+4)) }()
 		p.WaitData(t, int(p.TargetLength))
 		cancel()
-		if err := waitWrite(t, done); !errors.Is(err, context.Canceled) {
+		if err := waittest.For(t, done, "Write to return"); !errors.Is(err, context.Canceled) {
 			t.Errorf("Write = %v, want Canceled", err)
 		}
 	})

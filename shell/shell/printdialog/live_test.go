@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
-	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/ipp"
@@ -43,12 +43,7 @@ func TestTheDialogShowsBeforeTheScheduler(t *testing.T) {
 	srv.SetPrinter("office", idlePrinter()...)
 	srv.Hold()
 	go hs.h.Prepare(testCaller, PrepareRequest{Title: "Doc"})
-	var c app.LayerConfig
-	select {
-	case c = <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the dialog waited for the scheduler")
-	}
+	c := waittest.For(t, hs.opened, "the dialog to show before the scheduler answers")
 	if replies := srv.Replies(); replies != 0 {
 		t.Fatalf("the dialog mapped after %d replies, want before any", replies)
 	}
@@ -58,15 +53,10 @@ func TestTheDialogShowsBeforeTheScheduler(t *testing.T) {
 		t.Errorf("before the answer the list reads %q", labels)
 	}
 	srv.Release()
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(time.Millisecond) {
-		hs.do(func() { labels = treetest.Labels(c.Root) })
-		if slices.Contains(labels, "office") {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the list never filled: %q", labels)
-		}
-	}
+	hs.until(t, "the list to fill", func() bool {
+		labels = treetest.Labels(c.Root)
+		return slices.Contains(labels, "office")
+	})
 	if slices.Contains(labels, lookingForPrinters) {
 		t.Error("the looking row stayed after the answer")
 	}
@@ -133,16 +123,7 @@ func TestPrinterStateIsLive(t *testing.T) {
 		ipp.String(ipp.TagText, "printer-location", "Hall"),
 		ipp.String(ipp.TagKeyword, "printer-state-reasons", "media-empty-error"),
 		ipp.String(ipp.TagKeyword, "media-supported", "iso_a4_210x297mm", "iso_a5_148x210mm"))
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(time.Millisecond) {
-		var text string
-		hs.do(func() { text = detail.Text() })
-		if text == "Hall · Paused · Out of paper" {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the row still reads %q", text)
-		}
-	}
+	hs.until(t, "the row to read the refreshed state", func() bool { return detail.Text() == "Hall · Paused · Out of paper" })
 	hs.do(func() {
 		if copies.Value() != 3 || dropdowns[dropPaper].Selection() != "A5" || hs.h.sheet.details[0] != detail {
 			t.Errorf("the refresh rebuilt the form: %v copies on %q", copies.Value(), dropdowns[dropPaper].Selection())
@@ -151,7 +132,7 @@ func TestPrinterStateIsLive(t *testing.T) {
 	hs.do(func() { treetest.Button(t, c.Root, "Cancel").OnClick() })
 	<-got
 	asked := len(srv.Ops())
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if after := srv.Ops()[asked:]; len(after) != 0 {
 		t.Errorf("the closed dialog asked %v", after)
 	}

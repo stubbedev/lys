@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/charnames"
@@ -43,7 +44,7 @@ func TestCharactersInTheMainListFromThreeLetters(t *testing.T) {
 	s := &sink{}
 	e := start(t, s, nil, NewCharacters(charnames.Shared), &fakeProvider{spec: Spec{Section: SectionApps}, entries: []Entry{entry("Firefox")}})
 	e.SetQuery("right arrow", 1)
-	waitFor(t, "the arrow", func() bool { return slices.Contains(titles(s.last()), "Rightwards Arrow") })
+	waittest.Until(t, func() bool { return slices.Contains(titles(s.last()), "Rightwards Arrow") }, "the arrow")
 	got := s.last()
 	if got.Rows[0].Header != SectionCharacters.Title() || len(got.Rows) > 1+SectionCharacters.rowCap() {
 		t.Errorf("rows %q", titles(got))
@@ -54,12 +55,13 @@ func TestCharactersInTheMainListFromThreeLetters(t *testing.T) {
 		}
 	}
 	e.SetQuery("degree", 2)
-	waitFor(t, "the degree sign", func() bool {
+	waittest.Until(t, func() bool {
 		rows := s.last().Rows
 		return len(rows) > 1 && rows[1].Entry != nil && rows[1].Entry.Glyph == "°"
-	})
+	}, "the degree sign")
+
 	e.SetQuery("de", 3)
-	waitFor(t, "two letters", func() bool { return s.last().Query == "de" })
+	waittest.Until(t, func() bool { return s.last().Query == "de" }, "two letters")
 	if got := titles(s.last()); slices.Contains(got, "#"+SectionCharacters.Title()) {
 		t.Errorf("two letters listed characters: %q", got)
 	}
@@ -70,12 +72,12 @@ func TestTheCharacterLevelListsWithAnEmptyQuery(t *testing.T) {
 	e := startLevel(t, s, CharactersLevel(charnames.Shared), nil)
 	e.SetQuery("x", 1)
 	e.SetQuery("", 2)
-	waitFor(t, "every character", func() bool { return len(s.last().Rows) == flatRowCap && s.last().Query == "" })
+	waittest.Until(t, func() bool { return len(s.last().Rows) == flatRowCap && s.last().Query == "" }, "every character")
 	if got := s.last().Rows[0].Entry; got.Subtitle != "U+0000" {
 		t.Errorf("first row %+v", *got)
 	}
 	e.SetQuery("x", 3)
-	waitFor(t, "one letter", func() bool { return s.last().Query == "x" && len(s.last().Rows) > 0 })
+	waittest.Until(t, func() bool { return s.last().Query == "x" && len(s.last().Rows) > 0 }, "one letter")
 }
 
 func TestCharacterActionsCopyTheCodePointAndEntity(t *testing.T) {

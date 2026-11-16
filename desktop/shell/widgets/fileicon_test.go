@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/sys/unix"
 
@@ -21,22 +22,16 @@ func paintOnce(t *testing.T, icon *widget.Icon) {
 	icon.Paint(render.New(data, render.Stride(px), px, px))
 }
 
-func runPosted(t *testing.T, path string) (icon *widget.Icon, shown bool) {
+func postedIcon(t *testing.T, path string) (icon *widget.Icon, posted <-chan func(), shown *bool) {
 	t.Helper()
-	posted := make(chan func(), 4)
-	icon = NewAsyncFileIcon(path, "ld-file-symbolic", 32, func(fn func()) { posted <- fn }, func() { shown = true })
+	queue := make(chan func(), 4)
+	shown = new(bool)
+	icon = NewAsyncFileIcon(path, "ld-file-symbolic", 32, func(fn func()) { queue <- fn }, func() { *shown = true })
 	paintOnce(t, icon)
 	if got := icon.Name(); got != "ld-file-symbolic" {
 		t.Errorf("icon shows %q before its load, want the fallback", got)
 	}
-	for {
-		select {
-		case fn := <-posted:
-			fn()
-		case <-time.After(200 * time.Millisecond):
-			return icon, shown
-		}
-	}
+	return icon, queue, shown
 }
 
 func TestAFileThatPaintsNothingKeepsTheFallbackAndThePaintFinishes(t *testing.T) {
@@ -50,18 +45,29 @@ func TestAFileThatPaintsNothingKeepsTheFallbackAndThePaintFinishes(t *testing.T)
 		t.Fatal(err)
 	}
 	for name, path := range map[string]string{"a FIFO": fifo, "undecodable": garbage, "missing": filepath.Join(dir, "gone.png")} {
-		icon, shown := runPosted(t, path)
-		if shown || icon.Name() != "ld-file-symbolic" {
-			t.Errorf("%s: shown %v as %q, want the fallback kept", name, shown, icon.Name())
+		icon, posted, shown := postedIcon(t, path)
+		for drained := false; !drained; {
+			select {
+			case fn := <-posted:
+				fn()
+			case <-time.After(quietWindow):
+				drained = true
+			}
+		}
+		if *shown || icon.Name() != "ld-file-symbolic" {
+			t.Errorf("%s: shown %v as %q, want the fallback kept", name, *shown, icon.Name())
 		}
 	}
 }
 
 func TestADecodableFileReplacesTheFallback(t *testing.T) {
 	path := treetest.GreenSVG(t)
-	icon, shown := runPosted(t, path)
-	if !shown || icon.Name() != path {
-		t.Errorf("shown %v as %q, want the file", shown, icon.Name())
+	icon, posted, shown := postedIcon(t, path)
+	for !*shown {
+		waittest.For(t, posted, "the icon's load to post its next step")()
+	}
+	if icon.Name() != path {
+		t.Errorf("shown as %q, want the file", icon.Name())
 	}
 }
 

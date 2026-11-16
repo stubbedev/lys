@@ -7,7 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // A free waits for every List open when it was retired, runs once the
@@ -78,14 +79,10 @@ func TestRetireRunsAfterADroppedList(t *testing.T) {
 	f.newRecorder(4, 4, 1, 1)
 	var freed atomic.Bool
 	f.retire(func() { freed.Store(true) })
-	deadline := time.Now().Add(10 * time.Second)
-	for !freed.Load() {
-		if time.Now().After(deadline) {
-			t.Fatal("a dropped List held its free back")
-		}
+	waittest.Until(t, func() bool {
 		runtime.GC()
-		time.Sleep(time.Millisecond)
-	}
+		return freed.Load()
+	}, "a dropped List to release its free")
 }
 
 // Lists recorded and ended on several goroutines while others retire:

@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/secrets/internal/keyring"
@@ -119,6 +120,13 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{bus: dbustest.Session(t), dir: t.TempDir(), prompter: &fakePrompter{}}
 	f.start(t)
 	return f
+}
+
+func (f *fixture) sessionOpen(sess dbus.ObjectPath) bool {
+	f.svc.mu.Lock()
+	defer f.svc.mu.Unlock()
+	_, open := f.svc.sessions[sess]
+	return open
 }
 
 func (f *fixture) start(t *testing.T) {
@@ -395,19 +403,7 @@ func TestSessionsBelongToTheirClient(t *testing.T) {
 		t.Fatalf("owner's GetSecret = %q, %v", secret.Value, err)
 	}
 	_ = alice.Close()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		f.svc.mu.Lock()
-		_, open := f.svc.sessions[sess]
-		f.svc.mu.Unlock()
-		if !open {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the session outlived its client")
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return !f.sessionOpen(sess) }, "the session to close with its client")
 }
 
 func TestUnknownAlgorithmIsNotSupported(t *testing.T) {

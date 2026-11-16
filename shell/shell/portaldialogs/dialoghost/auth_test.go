@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -39,13 +40,7 @@ func (hs *harness) authenticate(r portaldialogs.AuthRequest) chan portaldialogs.
 
 func reply(t *testing.T, ch chan portaldialogs.AuthReply) portaldialogs.AuthReply {
 	t.Helper()
-	select {
-	case r := <-ch:
-		return r
-	case <-time.After(treetest.Liveness):
-		t.Fatal("Authenticate never replied")
-		return nil
-	}
+	return waittest.For(t, ch, "Authenticate to reply")
 }
 
 func pendingReply(t *testing.T, ch chan portaldialogs.AuthReply) {
@@ -53,19 +48,13 @@ func pendingReply(t *testing.T, ch chan portaldialogs.AuthReply) {
 	select {
 	case r := <-ch:
 		t.Fatalf("replied %T before the user acted", r)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
 func signal(t *testing.T, hs *harness) signalled {
 	t.Helper()
-	select {
-	case s := <-hs.signals:
-		return s
-	case <-time.After(treetest.Liveness):
-		t.Fatal("no signal")
-		return signalled{}
-	}
+	return waittest.For(t, hs.signals, "a signal")
 }
 
 func authEntry(t *testing.T, c app.LayerConfig) *widget.Entry {
@@ -138,7 +127,7 @@ func TestAuthenticateAnswersAndKeepsTheWindowAcrossSteps(t *testing.T) {
 	select {
 	case <-hs.opened:
 		t.Fatal("the next step opened another window")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if opened, closed := hs.windowsOpen(); opened != 1 || closed != 0 {
 		t.Fatalf("windows opened %d, closed %d; want the one kept", opened, closed)
@@ -258,6 +247,6 @@ func TestAuthenticateWaitsItsTurn(t *testing.T) {
 	select {
 	case <-hs.opened:
 		t.Error("the dismissed authentication showed")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }

@@ -8,15 +8,16 @@ package pulsetest
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // DefaultVersion is the protocol version the fake announces:
@@ -314,15 +315,12 @@ func (s *Server) Records() []*Record {
 // WaitRecords waits until n record streams are live and returns them.
 func (s *Server) WaitRecords(t testing.TB, n int) []*Record {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if recs := s.Records(); len(recs) == n {
-			return recs
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatalf("pulsetest: %d record streams, want %d", len(s.Records()), n)
-	return nil
+	var recs []*Record
+	waittest.Until(t, func() bool {
+		recs = s.Records()
+		return len(recs) == n
+	}, fmt.Sprintf("pulsetest: %d record streams", n))
+	return recs
 }
 
 // Record is one record stream a client created.

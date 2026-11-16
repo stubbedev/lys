@@ -17,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/testhome"
@@ -29,6 +30,8 @@ import (
 	"github.com/stubbedev/lys/login/internal/keyboard"
 	"github.com/stubbedev/lys/login/internal/keyboard/keyboardtest"
 )
+
+const quietWindow = 100 * time.Millisecond
 
 // TestMain lets the test binary be a session worker whose PAM is a
 // script: the password "pw" authenticates, anything else fails.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // leftOn is what the service holds on conn as the bus and NM see it:
@@ -63,10 +64,10 @@ func TestAStoppedServiceLeavesTheSharedConnectionAsItWas(t *testing.T) {
 	cancel()
 	var rules []string
 	var exported, reg bool
-	waitFor(t, "the stopped service to leave the connection", func() bool {
+	waittest.Until(t, func() bool {
 		rules, exported, reg = leftOn(t, f, conn)
 		return len(rules) == 0 && !exported && !reg
-	})
+	}, "the stopped service to leave the connection")
 }
 
 // Every reader of the service's connection is handed its own copy of

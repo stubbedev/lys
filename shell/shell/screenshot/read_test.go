@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
@@ -266,21 +267,22 @@ func TestReadTextFindingNothingCopiesNothing(t *testing.T) {
 func TestCancellingTheReadingKillsTesseract(t *testing.T) {
 	calls := fakeTesseract(t, "exec sleep 30\n")
 	h, rec, _, _ := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
+	cancels := make(chan func(), 1)
 	h.Working = func(cancel func()) func() {
 		rec.working++
-		go func() {
-			for deadline := time.Now().Add(10 * time.Second); len(spawns(t, calls)) == 0; time.Sleep(10 * time.Millisecond) {
-				if time.Now().After(deadline) {
-					return
-				}
-			}
-			cancel()
-		}()
+		cancels <- cancel
 		return func() { rec.working-- }
 	}
 	start := time.Now()
-	_, err := h.Read(portaldialogs.Caller{Handle: "/req/1"}, ReadText)
-	if !errors.Is(err, context.Canceled) {
+	read := make(chan error, 1)
+	go func() {
+		_, err := h.Read(portaldialogs.Caller{Handle: "/req/1"}, ReadText)
+		read <- err
+	}()
+	cancel := waittest.For(t, cancels, "the reading to show that it works")
+	waittest.Until(t, func() bool { return len(spawns(t, calls)) > 0 }, "tesseract to start")
+	cancel()
+	if err := waittest.For(t, read, "the cancelled reading to end"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read = %v, want cancelled", err)
 	}
 	if time.Since(start) > 20*time.Second {
@@ -302,12 +304,14 @@ func TestCancellingTheReadingKillsTesseract(t *testing.T) {
 func TestDismissStopsTesseract(t *testing.T) {
 	calls := fakeTesseract(t, "exec sleep 30\n")
 	h, _, _, _ := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
+	read := make(chan error, 1)
 	go func() {
-		for deadline := time.Now().Add(10 * time.Second); len(spawns(t, calls)) == 0 && time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
-		}
-		h.Dismiss("/req/2")
+		_, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, ReadText)
+		read <- err
 	}()
-	if _, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, ReadText); !errors.Is(err, context.Canceled) {
+	waittest.Until(t, func() bool { return len(spawns(t, calls)) > 0 }, "tesseract to start")
+	h.Dismiss("/req/2")
+	if err := waittest.For(t, read, "the dismissed reading to end"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read = %v, want cancelled", err)
 	}
 }

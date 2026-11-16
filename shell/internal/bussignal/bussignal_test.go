@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/bussignal"
 )
 
 const (
-	liveness   = 10 * time.Second
 	handedPath = dbus.ObjectPath("/dev/stubbe/lys/Handed")
 	wellKnown  = "dev.stubbe.lys.Handed"
 )
@@ -50,13 +49,13 @@ func TestTicksFollowTheWatchAndCloseWithIt(t *testing.T) {
 	if err := handedSignal.Emit(service, handedPath, handed{Text: "changed"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, open := awaitOpen(t, ticks, "tick for the signal"); !open {
+	if open := awaitOpen(t, ticks, "tick for the signal"); !open {
 		t.Fatal("the feed closed while its watch ran")
 	}
 	if err := stop(); err != nil {
 		t.Fatalf("stop the feed: %v", err)
 	}
-	if _, open := awaitOpen(t, ticks, "close of the stopped feed"); open {
+	if open := awaitOpen(t, ticks, "close of the stopped feed"); open {
 		t.Fatal("a tick from a stopped feed")
 	}
 	if rules := dbustest.MatchRules(t, conn); len(rules) != 0 {
@@ -64,15 +63,14 @@ func TestTicksFollowTheWatchAndCloseWithIt(t *testing.T) {
 	}
 }
 
-func awaitOpen[T any](t *testing.T, ch <-chan T, what string) (T, bool) {
+func awaitOpen[T any](t *testing.T, ch <-chan T, what string) bool {
 	t.Helper()
-	select {
-	case v, open := <-ch:
-		return v, open
-	case <-time.After(liveness):
-		t.Fatalf("no %s", what)
-		panic("unreachable")
-	}
+	open := make(chan bool, 1)
+	go func() {
+		_, ok := <-ch
+		open <- ok
+	}()
+	return waittest.For(t, open, what)
 }
 
 func TestTicksEndWithTheirContext(t *testing.T) {
@@ -86,7 +84,7 @@ func TestTicksEndWithTheirContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancel()
-	if _, open := awaitOpen(t, ticks, "close of the feed whose context ended"); open {
+	if open := awaitOpen(t, ticks, "close of the feed whose context ended"); open {
 		t.Fatal("a tick from a feed whose context ended")
 	}
 	if err := stop(); err != nil {
@@ -110,7 +108,7 @@ func TestTicksEndWithTheirConnectionAndStopSaysSo(t *testing.T) {
 	if err := conn.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, open := awaitOpen(t, ticks, "close of the feed whose connection closed"); open {
+	if open := awaitOpen(t, ticks, "close of the feed whose connection closed"); open {
 		t.Fatal("a tick from a feed whose connection closed")
 	}
 	if err := stop(); !errors.Is(err, dbusx.ErrDisconnected) {

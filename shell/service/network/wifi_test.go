@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func wifiFixture(t *testing.T, setup func(f *fakeNM)) (*serviceFixture, *Wifi) {
@@ -129,7 +130,7 @@ func TestForgetDeletesEveryProfileOfTheNetwork(t *testing.T) {
 	if err := w.Forget(t.Context(), "home"); err != nil {
 		t.Fatalf("forget: %v", err)
 	}
-	waitFor(t, "the profiles to go", func() bool { return len(fx.svc.Settings.ForSSID([]byte("home"))) == 0 })
+	waittest.Until(t, func() bool { return len(fx.svc.Settings.ForSSID([]byte("home"))) == 0 }, "the profiles to go")
 	if len(fx.svc.Settings.ForSSID([]byte("cafe"))) != 1 {
 		t.Error("forgetting home deleted another network's profile")
 	}
@@ -148,7 +149,7 @@ func TestForgetReportsARefusedDeleteAndDeletesTheRest(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "not allowed") || !strings.Contains(err.Error(), string(refused)) {
 		t.Fatalf("forget = %v, want the refusal naming the profile", err)
 	}
-	waitFor(t, "the other profile to go", func() bool { return len(fx.svc.Settings.ForSSID([]byte("home"))) == 1 })
+	waittest.Until(t, func() bool { return len(fx.svc.Settings.ForSSID([]byte("home"))) == 1 }, "the other profile to go")
 	if left := fx.svc.Settings.ForSSID([]byte("home")); left[0].Path != refused {
 		t.Errorf("left %s, want only the refused %s", left[0].Path, refused)
 	}
@@ -274,15 +275,11 @@ func TestJoinHiddenAndWaitFollowsTheDeviceUp(t *testing.T) {
 	go func() {
 		done <- w.JoinHiddenAndWait(t.Context(), hiddenNetwork(t, "lab", SecurityNone), "", func(DeviceState) {})
 	}()
-	waitFor(t, "the activation", func() bool { fx.nm.mu.Lock(); defer fx.nm.mu.Unlock(); return len(fx.nm.addAndActive) == 1 })
+	fx.nm.addedAndActivated(t)
 	fx.nm.wifi.deviceState(DeviceFailed, DeviceReasonSSIDNotFound)
-	select {
-	case err := <-done:
-		if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureNotFound {
-			t.Fatalf("a hidden network that never answered = %v, want not found", err)
-		}
-	case <-time.After(liveness):
-		t.Fatal("the join never finished")
+	err := waittest.For(t, done, "the join to finish")
+	if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureNotFound {
+		t.Fatalf("a hidden network that never answered = %v, want not found", err)
 	}
 }
 
@@ -312,18 +309,14 @@ func TestConnectAndWaitReportsStepsUntilActivated(t *testing.T) {
 	go func() {
 		done <- w.ConnectAndWait(t.Context(), ap, "", func(s DeviceState) { steps = append(steps, s) })
 	}()
-	waitFor(t, "the activation", func() bool { fx.nm.mu.Lock(); defer fx.nm.mu.Unlock(); return len(fx.nm.addAndActive) == 1 })
+	fx.nm.addedAndActivated(t)
 	fx.nm.wifi.deviceState(DevicePrepare, DeviceReasonNone)
 	fx.nm.wifi.deviceState(DeviceDisconnected, DeviceReasonNewActivation)
 	fx.nm.wifi.deviceState(DeviceIPConfig, DeviceReasonNone)
 	fx.nm.wifi.deviceState(DeviceActivated, DeviceReasonNone)
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(liveness):
-		t.Fatal("the connect never finished")
+	err := waittest.For(t, done, "the connect to finish")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if !slices.Equal(steps, []DeviceState{DevicePrepare, DeviceIPConfig}) {
 		t.Errorf("steps = %v; a transient disconnect is not a step", steps)
@@ -335,7 +328,7 @@ func TestConnectAndWaitNamesAWrongPassword(t *testing.T) {
 	ap := fx.nm.wifi.addAP(fakeAP{ssid: "cafe", strength: 50, rsn: secKeyMgmtPSK})
 	done := make(chan error, 1)
 	go func() { done <- w.ConnectAndWait(t.Context(), ap, "wrong", nil) }()
-	waitFor(t, "the activation", func() bool { fx.nm.mu.Lock(); defer fx.nm.mu.Unlock(); return len(fx.nm.addAndActive) == 1 })
+	fx.nm.addedAndActivated(t)
 	fx.nm.wifi.deviceState(DeviceNeedAuth, DeviceReasonNone)
 	fx.nm.wifi.deviceState(DeviceFailed, DeviceReasonNoSecrets)
 	err := <-done
@@ -353,18 +346,14 @@ func TestConnectAndWaitFollowsNetworkManagerOnly(t *testing.T) {
 	before := dbustest.MatchRules(t, w.nm.conn)
 	done := make(chan error, 1)
 	go func() { done <- w.ConnectAndWait(t.Context(), ap, "wrong", nil) }()
-	waitFor(t, "the activation", func() bool { fx.nm.mu.Lock(); defer fx.nm.mu.Unlock(); return len(fx.nm.addAndActive) == 1 })
+	fx.nm.addedAndActivated(t)
 	impostor := fx.nm.client()
 	must(t, impostor.Emit(fakeWifiPath, deviceIface+".StateChanged", uint32(DeviceActivated), uint32(DeviceIPConfig), uint32(DeviceReasonNone)))
 	must(t, impostor.BusObject().Call("org.freedesktop.DBus.GetId", 0).Err)
 	fx.nm.wifi.deviceState(DeviceFailed, DeviceReasonNoSecrets)
-	select {
-	case err := <-done:
-		if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureAuth {
-			t.Fatalf("err = %v, want NM's auth failure: the impostor's activation ended the connect", err)
-		}
-	case <-time.After(liveness):
-		t.Fatal("the connect never finished")
+	err := waittest.For(t, done, "the connect to finish")
+	if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureAuth {
+		t.Fatalf("err = %v, want NM's auth failure: the impostor's activation ended the connect", err)
 	}
 	after := dbustest.MatchRules(t, w.nm.conn)
 	slices.Sort(before)

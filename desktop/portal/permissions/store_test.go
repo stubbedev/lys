@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/desktop/portal/permissions/permstoretest"
@@ -152,11 +152,7 @@ func TestWatchFollowsEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	permstoretest.Set(t, conn, permissions.Location, "location", map[string][]string{"org.app": {"EXACT", "0"}}, byte(0))
-	select {
-	case <-changed:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no change announced")
-	}
+	waittest.For(t, changed, "the edit to be announced")
 	if err := w.Stop(); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
@@ -193,11 +189,7 @@ func TestWatchClosesTheDescriptorsOfAnImpostorsChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	permstoretest.Set(t, impostor, permissions.Location, "location", map[string][]string{"org.app": {"EXACT", "0"}}, byte(0))
-	select {
-	case <-changed:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the store's change behind the impostor's was not announced")
-	}
+	waittest.For(t, changed, "the store's change behind the impostor's to be announced")
 	pipe.RequireEveryCopyClosed(t)
 }
 

@@ -15,11 +15,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -154,16 +154,19 @@ func lysWMWindow(appID string) (wmipc.Window, error) {
 }
 
 // until polls check until it passes, failing the test with its last
-// error after ten seconds.
+// error when it does not within waittest's limit.
 func until(t *testing.T, what string, check func() error) {
 	t.Helper()
 	var err error
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		if err = check(); err == nil {
-			return
+	defer func() {
+		if err != nil {
+			t.Logf("%s: %v", what, err)
 		}
-	}
-	t.Fatalf("never: %s: %v", what, err)
+	}()
+	waittest.Until(t, func() bool {
+		err = check()
+		return err == nil
+	}, what)
 }
 
 // AwaitParented waits until lys-wm shows a toplevel of appID transient

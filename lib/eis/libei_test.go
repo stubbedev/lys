@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/eis/eistest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
+
+const quietWindow = 500 * time.Millisecond
 
 // recorder is the Handler under test.
 type recorder struct {
@@ -104,11 +107,8 @@ func TestLibeiSenderEmulatesThroughTheServer(t *testing.T) {
 	if want := []string{testSeat + "-keyboard", testSeat + "-pointer"}; !slices.Equal(got.Devices, want) {
 		t.Errorf("devices %q, want %q", got.Devices, want)
 	}
-	deadline := time.Now().Add(2 * time.Second)
 	want := []string{"motion 1.5 -2", "button 272 true", "scroll 0 3", "stop false true", "discrete 0 240", "key 30 true", "key 30 false", "keysym 65 true"}
-	for time.Now().Before(deadline) && len(rec.list()) < len(want) {
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return len(rec.list()) >= len(want) }, "the emulated input to reach the Handler")
 	handled := rec.list()
 	slices.Sort(handled)
 	sorted := slices.Clone(want)
@@ -126,7 +126,7 @@ func TestLibeiPointerOnlyBindGetsNoKeyboard(t *testing.T) {
 	}
 	fd, _ := syscall.Dup(int(client.Fd()))
 	_ = client.Close()
-	got := drive(t, fd, []uintptr{eistest.CapPointer, eistest.CapButton, eistest.CapScroll}, 2, 500*time.Millisecond)
+	got := drive(t, fd, []uintptr{eistest.CapPointer, eistest.CapButton, eistest.CapScroll}, 2, quietWindow)
 	if want := []string{testSeat + "-pointer"}; !slices.Equal(got.Devices, want) {
 		t.Fatalf("devices %q resumed, want %q alone", got.Devices, want)
 	}
@@ -166,10 +166,7 @@ func TestLibeiAbsoluteDevicesReachTheRegions(t *testing.T) {
 			t.Errorf("%s regions %+v, want %+v", dev, got.Regions[dev], want)
 		}
 	}
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && len(rec.list()) < 4 {
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return len(rec.list()) >= 4 }, "the absolute motion and touch to reach the Handler")
 	events := rec.list()
 	var id uint32
 	if len(events) > 1 {
@@ -191,7 +188,7 @@ func TestLibeiNoRegionsNoAbsoluteDevices(t *testing.T) {
 	}
 	fd, _ := syscall.Dup(int(client.Fd()))
 	_ = client.Close()
-	got := drive(t, fd, []uintptr{eistest.CapAbsolute, eistest.CapTouch}, 1, 500*time.Millisecond)
+	got := drive(t, fd, []uintptr{eistest.CapAbsolute, eistest.CapTouch}, 1, quietWindow)
 	if len(got.Devices) != 0 || len(rec.list()) != 0 {
 		t.Errorf("devices %q and events %q without regions", got.Devices, rec.list())
 	}

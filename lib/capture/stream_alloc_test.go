@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 )
 
@@ -41,14 +42,13 @@ func startFakeCompositorProcess(t *testing.T) {
 	t.Cleanup(func() {
 		exited := make(chan error, 1)
 		go func() { exited <- cmd.Wait() }()
-		select {
-		case err := <-exited:
-			if err != nil {
-				t.Errorf("the fake compositor process: %v\n%s", err, out.String())
+		defer func() {
+			if cmd.Process.Kill() == nil {
+				t.Logf("the fake compositor process outlived its client (%v)\n%s", <-exited, out.String())
 			}
-		case <-time.After(5 * time.Second):
-			_ = cmd.Process.Kill()
-			t.Errorf("the fake compositor process outlived its client (%v)\n%s", <-exited, out.String())
+		}()
+		if err := waittest.For(t, exited, "the fake compositor process to exit after its client"); err != nil {
+			t.Errorf("the fake compositor process: %v\n%s", err, out.String())
 		}
 	})
 }

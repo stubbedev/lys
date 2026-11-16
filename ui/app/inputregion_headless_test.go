@@ -82,7 +82,7 @@ func TestHeadlessFloatingPanelPassesClicksThrough(t *testing.T) {
 	reach("a click beside the panel reaching the layer beneath", &below, 1)
 	click(uint32(w/2), uint32(h/2))
 	reach("a click on the panel staying on it", &panel, 1)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(app.QuietWindow)
 	if n := below.Load(); n != 1 {
 		t.Errorf("a click on the panel also reached the layer beneath (%d presses there)", n)
 	}

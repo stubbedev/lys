@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestTouchesOnBattery(t *testing.T) {
@@ -34,21 +35,14 @@ func TestTouchesOnBattery(t *testing.T) {
 	}
 }
 
-func expectWake(t *testing.T, c <-chan struct{}, within time.Duration) {
-	t.Helper()
-	select {
-	case <-c:
-	case <-time.After(within):
-		t.Fatalf("no wakeup within %v", within)
-	}
-}
+const quietWindow = 200 * time.Millisecond
 
-func expectQuiet(t *testing.T, c <-chan struct{}, during time.Duration) {
+func expectQuiet(t *testing.T, c <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-c:
 		t.Fatal("unexpected wakeup")
-	case <-time.After(during):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -63,20 +57,20 @@ func TestWallTimer(t *testing.T) {
 	if err := timer.Arm(time.Now().Add(30 * time.Millisecond)); err != nil {
 		t.Fatal(err)
 	}
-	expectWake(t, timer.wakes(), 2*time.Second)
+	waittest.For(t, timer.wakes(), "the timer to wake")
 
 	if err := timer.Arm(time.Now().Add(-time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	expectWake(t, timer.wakes(), 2*time.Second)
+	waittest.For(t, timer.wakes(), "the timer to wake")
 
-	if err := timer.Arm(time.Now().Add(50 * time.Millisecond)); err != nil {
+	if err := timer.Arm(time.Now().Add(quietWindow / 4)); err != nil {
 		t.Fatal(err)
 	}
 	if err := timer.Arm(time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	expectQuiet(t, timer.wakes(), 200*time.Millisecond)
+	expectQuiet(t, timer.wakes())
 }
 
 func TestWatchDir(t *testing.T) {
@@ -92,12 +86,12 @@ func TestWatchDir(t *testing.T) {
 	if err := os.WriteFile(flag, []byte("1"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	expectWake(t, watch.wakes(), 2*time.Second)
+	waittest.For(t, watch.wakes(), "the watch to wake")
 
 	if err := os.Remove(flag); err != nil {
 		t.Fatal(err)
 	}
-	expectWake(t, watch.wakes(), 2*time.Second)
+	waittest.For(t, watch.wakes(), "the watch to wake")
 }
 
 func TestWatchDirMissing(t *testing.T) {

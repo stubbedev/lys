@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
@@ -182,6 +183,15 @@ func (r *rig) on(f func()) {
 		r.t.Fatal(err)
 	}
 	<-ran
+}
+
+func (r *rig) until(what string, cond func() bool) {
+	r.t.Helper()
+	waittest.Until(r.t, func() bool {
+		var ok bool
+		r.on(func() { ok = cond() })
+		return ok
+	}, what)
 }
 
 func (r *rig) roundtrip() {

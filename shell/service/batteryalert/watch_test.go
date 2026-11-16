@@ -5,13 +5,13 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/service/upower/upowertest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/batteryalert"
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
@@ -20,7 +20,6 @@ import (
 const (
 	displayPath = dbus.ObjectPath(upower.DisplayDevicePath)
 	mousePath   = dbus.ObjectPath("/org/freedesktop/UPower/devices/mouse_hidpp_0")
-	waitLimit   = 10 * time.Second
 )
 
 type sent struct{ summary, body, icon string }
@@ -96,14 +95,7 @@ func start(t *testing.T, display map[string]dbus.Variant, cfg batteryalert.Confi
 
 func (r *rig) waitFor(what string, done func() bool) {
 	r.t.Helper()
-	deadline := time.Now().Add(waitLimit)
-	for !done() {
-		if time.Now().After(deadline) {
-			r.t.Fatalf("timed out waiting for %s; notifications %+v, profile switches %v, display reads %d",
-				what, r.notifier.all(), r.profiles.switches(), r.fake.Reads(displayPath))
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(r.t, done, what)
 }
 
 func (r *rig) waitReads(path dbus.ObjectPath, n int) {

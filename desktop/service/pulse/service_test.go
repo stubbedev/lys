@@ -9,7 +9,10 @@ import (
 
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
+
+const quietWindow = 50 * time.Millisecond
 
 func playback(index, sinkIndex uint32) native.StreamInfo {
 	return native.StreamInfo{
@@ -53,18 +56,6 @@ func connect(t *testing.T, srv *pulsetest.Server) *Service {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	return s
-}
-
-// waitFor polls until cond holds.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
 }
 
 func TestConnectDiscoversEverything(t *testing.T) {
@@ -166,7 +157,7 @@ func TestConnectFailures(t *testing.T) {
 	if _, err := Connect(context.Background(), srv.Addr()); !errors.Is(err, native.ErrAccess) {
 		t.Fatalf("Connect with a failing discovery = %v, want ErrAccess", err)
 	}
-	waitFor(t, "the failed client to disconnect", func() bool { return srv.Clients() == 0 })
+	waittest.Until(t, func() bool { return srv.Clients() == 0 }, "the failed client to disconnect")
 }
 
 func TestEventsFoldIntoState(t *testing.T) {
@@ -183,38 +174,34 @@ func TestEventsFoldIntoState(t *testing.T) {
 	loud.Volume = native.CVolume{native.VolumeNorm, native.VolumeNorm}
 	loud.Mute = true
 	srv.PutSink(loud)
-	select {
-	case <-ticks:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no tick after a sink change")
-	}
-	waitFor(t, "the new volume", func() bool {
+	waittest.For(t, ticks, "a tick after a sink change")
+	waittest.Until(t, func() bool {
 		d, _ := s.OutputDevice(1)
 		return d.Volume.IsNormal() && d.Muted
-	})
+	}, "the new volume")
 
 	// New and removed objects.
 	srv.PutSink(pulsetest.Sink(7, "hdmi", "HDMI", 8))
-	waitFor(t, "hdmi to appear", func() bool { _, err := s.OutputDevice(7); return err == nil })
+	waittest.Until(t, func() bool { _, err := s.OutputDevice(7); return err == nil }, "hdmi to appear")
 	srv.RemoveSink(3)
-	waitFor(t, "headphones to go", func() bool { _, err := s.OutputDevice(3); return err != nil })
+	waittest.Until(t, func() bool { _, err := s.OutputDevice(3); return err != nil }, "headphones to go")
 	srv.PutSinkInput(playback(41, 7))
-	waitFor(t, "stream 41", func() bool { return len(s.PlaybackStreams()) == 2 })
+	waittest.Until(t, func() bool { return len(s.PlaybackStreams()) == 2 }, "stream 41")
 	srv.RemoveSinkInput(40)
-	waitFor(t, "stream 40 to go", func() bool {
+	waittest.Until(t, func() bool {
 		streams := s.PlaybackStreams()
 		return len(streams) == 1 && streams[0].Key.Index == 41
-	})
+	}, "stream 40 to go")
 	srv.RemoveSourceOutput(50)
-	waitFor(t, "the recording stream to go", func() bool { return len(s.RecordingStreams()) == 0 })
+	waittest.Until(t, func() bool { return len(s.RecordingStreams()) == 0 }, "the recording stream to go")
 
 	// A server change re-reads the defaults.
 	srv.SetDefaults("hdmi", "speakers.monitor")
-	waitFor(t, "the new defaults", func() bool {
+	waittest.Until(t, func() bool {
 		out, ok := s.DefaultOutput()
 		in, ok2 := s.DefaultInput()
 		return ok && ok2 && out.Name == "hdmi" && in.Name == "speakers.monitor"
-	})
+	}, "the new defaults")
 }
 
 func TestStaleEventsAreDropped(t *testing.T) {
@@ -226,7 +213,7 @@ func TestStaleEventsAreDropped(t *testing.T) {
 	srv.Emit(native.SubscribeEvent{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: 99})
 	srv.Emit(native.SubscribeEvent{Facility: native.FacilitySink, Operation: native.OpRemove, Index: 99})
 	srv.PutSink(pulsetest.Sink(7, "hdmi", "HDMI", 8))
-	waitFor(t, "hdmi", func() bool { _, err := s.OutputDevice(7); return err == nil })
+	waittest.Until(t, func() bool { _, err := s.OutputDevice(7); return err == nil }, "hdmi")
 	if len(s.OutputDevices()) != 3 || len(s.PlaybackStreams()) != 1 {
 		t.Errorf("stale events changed the state: %d outputs, %d streams", len(s.OutputDevices()), len(s.PlaybackStreams()))
 	}
@@ -238,17 +225,17 @@ func TestDefaultResolvesByName(t *testing.T) {
 	// The server names a sink the client has not discovered: no
 	// default, not the previous one.
 	srv.SetDefaults("ghost", "mic")
-	waitFor(t, "the ghost default", func() bool { _, ok := s.DefaultOutput(); return !ok })
+	waittest.Until(t, func() bool { _, ok := s.DefaultOutput(); return !ok }, "the ghost default")
 	if _, err := s.DefaultSink(context.Background()); !errors.Is(err, ErrNoDefaultDevice) {
 		t.Errorf("DefaultSink = %v, want ErrNoDefaultDevice", err)
 	}
 	srv.PutSink(pulsetest.Sink(9, "ghost", "Ghost", 11))
-	waitFor(t, "the ghost to resolve", func() bool {
+	waittest.Until(t, func() bool {
 		d, ok := s.DefaultOutput()
 		return ok && d.Name == "ghost"
-	})
+	}, "the ghost to resolve")
 	srv.SetDefaults("", "")
-	waitFor(t, "no defaults", func() bool { _, ok := s.DefaultInput(); return !ok })
+	waittest.Until(t, func() bool { _, ok := s.DefaultInput(); return !ok }, "no defaults")
 }
 
 func TestDeviceControlsReachTheServer(t *testing.T) {
@@ -292,7 +279,7 @@ func TestDeviceControlsReachTheServer(t *testing.T) {
 		t.Errorf("defaults = %q, %q", sinkName, sourceName)
 	}
 	// The change comes back through the subscription.
-	waitFor(t, "the new default", func() bool { d, ok := s.DefaultOutput(); return ok && d.Name == "headphones" })
+	waittest.Until(t, func() bool { d, ok := s.DefaultOutput(); return ok && d.Name == "headphones" }, "the new default")
 }
 
 func TestDeviceControlsRejectUnknownKeys(t *testing.T) {
@@ -348,10 +335,10 @@ func TestStreamControls(t *testing.T) {
 	if st, _ := srv.SinkInput(40); st.Device != 3 {
 		t.Errorf("stream on sink %d, want 3", st.Device)
 	}
-	waitFor(t, "the move to fold in", func() bool {
+	waittest.Until(t, func() bool {
 		st, _ := s.AudioStream(play)
 		return st.DeviceIndex == 3
-	})
+	}, "the move to fold in")
 	if err := s.MoveStream(ctx, rec, DeviceKey{Index: 2, Type: DeviceInput}); err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +392,7 @@ func TestSeamControlsTheDefaults(t *testing.T) {
 	}
 
 	srv.SetDefaults("", "")
-	waitFor(t, "no defaults", func() bool { _, ok := s.DefaultOutput(); return !ok })
+	waittest.Until(t, func() bool { _, ok := s.DefaultOutput(); return !ok }, "no defaults")
 	for name, err := range map[string]error{
 		"volume": s.SetVolume(ctx, 50),
 		"mute":   s.SetMuted(ctx, false),
@@ -456,17 +443,18 @@ func TestSubscribeLifetime(t *testing.T) {
 // waitClosed drains ticks until the channel closes.
 func waitClosed(t *testing.T, ticks <-chan struct{}, why string) {
 	t.Helper()
-	deadline := time.After(5 * time.Second)
-	for {
-		select {
-		case _, ok := <-ticks:
-			if !ok {
-				return
+	waittest.Until(t, func() bool {
+		for {
+			select {
+			case _, ok := <-ticks:
+				if !ok {
+					return true
+				}
+			default:
+				return false
 			}
-		case <-deadline:
-			t.Fatalf("ticks did not close after %s", why)
 		}
-	}
+	}, "ticks to close after "+why)
 }
 
 func TestTicksCoalesce(t *testing.T) {
@@ -482,10 +470,10 @@ func TestTicksCoalesce(t *testing.T) {
 		d.Volume = native.CVolume{native.Volume(i), native.Volume(i)}
 		srv.PutSink(d)
 	}
-	waitFor(t, "the last change", func() bool {
+	waittest.Until(t, func() bool {
 		d, _ := s.OutputDevice(1)
 		return slices.Equal(d.Volume.toPulse(), native.CVolume{19, 19})
-	})
+	}, "the last change")
 	if n := len(ticks); n > 1 {
 		t.Errorf("%d ticks queued, want at most one", n)
 	}

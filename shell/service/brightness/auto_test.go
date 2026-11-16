@@ -2,18 +2,17 @@ package brightness
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/power/autobrightness"
 )
-
-const autoHang = 5 * time.Second
 
 type fakeAutoDaemon struct {
 	conn    *dbus.Conn
@@ -83,24 +82,18 @@ func (f autoFollower) await(t *testing.T, want Control) {
 	t.Helper()
 	for f.Control() != want {
 		select {
-		case <-f.ticks:
 		case err := <-f.failed:
 			t.Fatalf("waiting for %v: %v", want, err)
-		case <-time.After(autoHang):
-			t.Fatalf("control stayed %v, want %v", f.Control(), want)
+		default:
 		}
+		waittest.For(t, f.ticks, fmt.Sprintf("the control to change from %v to %v", f.Control(), want))
 	}
 }
 
 func (f autoFollower) awaitFailure(t *testing.T, want string) {
 	t.Helper()
-	select {
-	case err := <-f.failed:
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("reported %q, want it to name %q", err, want)
-		}
-	case <-time.After(autoHang):
-		t.Fatalf("nothing reported, want a failure naming %q", want)
+	if err := waittest.For(t, f.failed, fmt.Sprintf("a failure naming %q", want)); !strings.Contains(err.Error(), want) {
+		t.Errorf("reported %q, want it to name %q", err, want)
 	}
 }
 

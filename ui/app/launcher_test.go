@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys/ui/internal/waittest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // launchRecorder records transport calls race-safely.

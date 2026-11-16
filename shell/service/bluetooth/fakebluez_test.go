@@ -13,6 +13,8 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
+const quietWindow = 100 * time.Millisecond
+
 // fakeBlueZ is org.bluez on a private bus: the ObjectManager at /, the
 // AgentManager1 at /org/bluez, and Adapter1/Device1/Battery1 objects
 // with Properties, enough of bluetoothd's behavior for the service and
@@ -474,18 +476,6 @@ func (d fakeDevice) Pair() *dbus.Error {
 		"Bonded": dbus.MakeVariant(true),
 	})
 	return nil
-}
-
-// waitFor polls cond until it holds or two seconds pass.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
 }
 
 // errorName is a D-Bus error reply's name, empty for nil or a non-D-Bus

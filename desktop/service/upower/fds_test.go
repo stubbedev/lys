@@ -3,10 +3,10 @@ package upower_test
 import (
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/service/upower"
 )
@@ -28,11 +28,7 @@ func TestSubscriptionsCloseTheDescriptorsOfEverySignalTheyRead(t *testing.T) {
 		t.Fatalf("own %s: %v %v", upower.BusName, reply, err)
 	}
 	for what, ticks := range map[string]<-chan struct{}{"the DisplayDevice": display, "a peripheral": peripherals} {
-		select {
-		case <-ticks:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("no tick for %s as UPower appeared", what)
-		}
+		waittest.For(t, ticks, "a tick for "+what+" as UPower appeared")
 	}
 	for _, path := range []dbus.ObjectPath{upower.DisplayDevicePath, mousePath} {
 		err := sender.Emit(path, "org.freedesktop.DBus.Properties.PropertiesChanged", "org.freedesktop.UPower.Device",
@@ -42,11 +38,7 @@ func TestSubscriptionsCloseTheDescriptorsOfEverySignalTheyRead(t *testing.T) {
 		}
 	}
 	for what, ticks := range map[string]<-chan struct{}{"the DisplayDevice": display, "a peripheral": peripherals} {
-		select {
-		case <-ticks:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("no tick for %s's PropertiesChanged", what)
-		}
+		waittest.For(t, ticks, "a tick for "+what+"'s PropertiesChanged")
 	}
 	requireStopped(t, "the battery", stopDisplay)
 	requireStopped(t, "the peripherals", stopPeripherals)

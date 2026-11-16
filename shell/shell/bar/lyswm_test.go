@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -128,15 +129,11 @@ func TestLysWMWorkspacesFollowTheEventStream(t *testing.T) {
 	f.AwaitWatch(t)
 	f.Events <- `{"event":"submap","submap":"resize"}`
 	f.Events <- `{"event":"workspace","output":"DP-1","workspace":3}`
-	select {
-	case <-ticks:
-	case <-time.After(2 * time.Second):
-		t.Fatal("a workspace event did not tick")
-	}
+	waittest.For(t, ticks, "a workspace event's tick")
 	select {
 	case <-ticks:
 		t.Error("the submap event ticked the workspaces too")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -168,7 +165,7 @@ func TestKeyboardLayoutReadsLysWMsLayoutBeforeAnyEvent(t *testing.T) {
 	}
 	f.AwaitWatch(t)
 	f.Events <- `{"event":"layout","layout":{"index":1,"name":"German"}}`
-	waitLabel(t, label, "German")
+	waitForText(t, label, "German")
 }
 
 func TestKeyboardLayoutLysWMUnnamedLayoutIsAnError(t *testing.T) {
@@ -251,7 +248,7 @@ func TestKeyboardLayoutClickCyclesThroughLysWM(t *testing.T) {
 		t.Errorf("the click moved the label to %q before the compositor said so", got)
 	}
 	f.Events <- `{"event":"layout","layout":{"index":1,"name":"German"}}`
-	waitLabel(t, label, "German")
+	waitForText(t, label, "German")
 }
 
 // Any other action on the module is not a layout switch.

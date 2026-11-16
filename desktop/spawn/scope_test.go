@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type unitProp struct {
@@ -141,11 +142,7 @@ func TestQuietReturnsWhileTheBusHolds(t *testing.T) {
 		Quiet("true")
 	}
 	for range commands {
-		select {
-		case <-m.entered:
-		case <-time.After(5 * time.Second):
-			t.Fatal("the commands' scopes never reached the manager")
-		}
+		waittest.For(t, m.entered, "the commands' scopes to reach the manager")
 	}
 	release()
 	scopes.moves.Wait()

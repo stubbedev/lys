@@ -17,9 +17,9 @@ import (
 	"sync"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/polkit/internal/helper"
 )
@@ -64,11 +64,9 @@ const (
 )
 
 const (
-	namePrefix     = "fake-polkit-agent-helper-"
-	socketArg      = "--socket-activated"
-	pidSuffix      = ".pid"
-	reapTimeout    = 5 * time.Second
-	reapPollPeriod = 10 * time.Millisecond
+	namePrefix = "fake-polkit-agent-helper-"
+	socketArg  = "--socket-activated"
+	pidSuffix  = ".pid"
 )
 
 // Fake is one scenario's helper, as a program and as a socket.
@@ -165,22 +163,14 @@ func (f *Fake) Started(t testing.TB) int {
 // reaped.
 func (f *Fake) AssertNoneLeft(t testing.TB) {
 	t.Helper()
-	deadline := time.Now().Add(reapTimeout)
-	for {
-		var live []int
+	waittest.Until(t, func() bool {
 		for _, pid := range f.pids(t) {
 			if syscall.Kill(pid, 0) == nil {
-				live = append(live, pid)
+				return false
 			}
 		}
-		if len(live) == 0 {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("helpertest: helper processes %v still exist", live)
-		}
-		time.Sleep(reapPollPeriod)
-	}
+		return true
+	}, "the helper processes to be reaped")
 }
 
 func (f *Fake) pids(t testing.TB) []int {

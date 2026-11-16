@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
 
@@ -14,7 +15,9 @@ import (
 // machine to the VM of tests/clockwatch-vm.nix, the one place they may run.
 const vmEnv = "LYS_CLOCKWATCH_VM"
 
-const jumpTimeout = 30 * time.Second
+// quietWindow is how long a jump that must not come gets to come anyway
+// before a test concludes it does not.
+const quietWindow = 500 * time.Millisecond
 
 // watching runs Watch until the test ends and hands back its jumps.
 func watching(t *testing.T) <-chan struct{} {
@@ -25,13 +28,8 @@ func watching(t *testing.T) <-chan struct{} {
 	go func() { done <- Watch(ctx, func() { jumps <- struct{}{} }) }()
 	t.Cleanup(func() {
 		cancel()
-		select {
-		case err := <-done:
-			if err != nil {
-				t.Errorf("Watch: %v", err)
-			}
-		case <-time.After(jumpTimeout):
-			t.Error("Watch did not return after its context ended")
+		if err := waittest.For(t, done, "Watch to return after its context ended"); err != nil {
+			t.Errorf("Watch: %v", err)
 		}
 	})
 	return jumps
@@ -42,20 +40,14 @@ func TestAQuietClockIsNoJumpAndCancelEndsTheWatch(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- Watch(ctx, func() { jumps.Add(1) }) }()
-	time.Sleep(200 * time.Millisecond)
 	select {
 	case err := <-done:
 		t.Fatalf("Watch returned on its own: %v", err)
-	default:
+	case <-time.After(quietWindow):
 	}
 	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Errorf("Watch after cancel = %v, want nil", err)
-		}
-	case <-time.After(jumpTimeout):
-		t.Fatal("Watch did not return after its context ended")
+	if err := waittest.For(t, done, "Watch to return after its context ended"); err != nil {
+		t.Errorf("Watch after cancel = %v, want nil", err)
 	}
 	if n := jumps.Load(); n != 0 {
 		t.Errorf("a quiet clock reported %d jumps", n)
@@ -77,20 +69,11 @@ func requireVM(t *testing.T) {
 	}
 }
 
-func wantJump(t *testing.T, jumps <-chan struct{}, what string) {
-	t.Helper()
-	select {
-	case <-jumps:
-	case <-time.After(jumpTimeout):
-		t.Fatalf("%s reported no jump", what)
-	}
-}
-
 func drain(jumps <-chan struct{}) {
 	for {
 		select {
 		case <-jumps:
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(quietWindow):
 			return
 		}
 	}
@@ -107,7 +90,7 @@ func TestAStepOfTheClockIsAJump(t *testing.T) {
 		if err := unix.ClockSettime(unix.CLOCK_REALTIME, &ts); err != nil {
 			t.Fatal(err)
 		}
-		wantJump(t, jumps, "a clock step")
+		waittest.ForSlow(t, jumps, "a clock step to be reported")
 		drain(jumps)
 	}
 }
@@ -145,7 +128,7 @@ func TestAResumeIsAJump(t *testing.T) {
 		if slept < 2*time.Second {
 			t.Fatalf("slept %v in boot time: the machine did not sleep", slept)
 		}
-		wantJump(t, jumps, "a resume")
+		waittest.ForSlow(t, jumps, "a resume to be reported")
 		drain(jumps)
 	}
 }

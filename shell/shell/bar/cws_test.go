@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -285,13 +286,8 @@ func (f *fakeCws) close() { f.closed = true }
 
 func (f *fakeCws) expect(t *testing.T, want string) {
 	t.Helper()
-	select {
-	case got := <-f.calls:
-		if got != want {
-			t.Fatalf("call = %q, want %q", got, want)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatalf("no call, want %q", want)
+	if got := waittest.For(t, f.calls, "the call "+want); got != want {
+		t.Fatalf("call = %q, want %q", got, want)
 	}
 }
 
@@ -300,7 +296,7 @@ func (f *fakeCws) expectNone(t *testing.T) {
 	select {
 	case got := <-f.calls:
 		t.Fatalf("unexpected call %q", got)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 

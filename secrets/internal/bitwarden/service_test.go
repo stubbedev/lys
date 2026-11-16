@@ -19,9 +19,12 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/vaultserver"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/vault"
 )
+
+const quietWindow = 50 * time.Millisecond
 
 // account serves the test@bitwarden.com account: prelogin, the token
 // grants (checking the password hash, a second factor when asked, the
@@ -618,34 +621,20 @@ func TestLogoutWaitsForARunningRefresh(t *testing.T) {
 	a.mu.Unlock()
 	unlocked, loggedOut := make(chan error, 1), make(chan error, 1)
 	go func() { unlocked <- s.Unlock(context.Background(), "asdfasdfasdf") }()
-	waitFor(t, refreshing)
+	waittest.For(t, refreshing, "the refresh to start")
 	go func() { loggedOut <- s.Logout(context.Background()) }()
 	select {
 	case err := <-loggedOut:
 		t.Fatalf("Logout = %v before the running refresh ended", err)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	close(release)
 	for _, done := range []chan error{unlocked, loggedOut} {
-		select {
-		case err := <-done:
-			if err != nil {
-				t.Fatal(err)
-			}
-		case <-time.After(30 * time.Second):
-			t.Fatal("an operation did not end")
+		if err := waittest.ForSlow(t, done, "the unlock and the logout to end"); err != nil {
+			t.Fatal(err)
 		}
 	}
 	requireLoggedOut(t, s, h)
-}
-
-func waitFor(t *testing.T, ch <-chan struct{}) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(30 * time.Second):
-		t.Fatal("the refresh did not start")
-	}
 }
 
 // An open vault locks once it has gone unused for the idle time, and a

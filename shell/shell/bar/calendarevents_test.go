@@ -13,6 +13,7 @@ import (
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/strftime"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/service/calendar"
@@ -104,14 +105,9 @@ func TestCalendarDropdownFollowsAnEditedFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "review.ics"), []byte(icsEvent("review", "Retro", "20270310T140000", "20270310T150000")), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.After(5 * time.Second)
 	for !slices.Contains(treetest.Labels(v.agenda), "Retro") {
-		select {
-		case <-changes:
-			v.refreshEvents()
-		case <-deadline:
-			t.Fatalf("the agenda still reads %q after the edit", treetest.Labels(v.agenda))
-		}
+		waittest.For(t, changes, "a change to the edited calendar")
+		v.refreshEvents()
 	}
 }
 

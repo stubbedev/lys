@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/app"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -65,14 +65,10 @@ func startLock(t *testing.T) *lockRun {
 		t.Fatalf("LockSession: %v", err)
 	}
 	go func() { r.runErr = r.app.Run(); close(r.done) }()
+	t.Cleanup(sess.Close)
 	t.Cleanup(func() {
 		r.app.Invoke(r.app.Quit)
-		select {
-		case <-r.done:
-		case <-time.After(lockTimeout):
-			t.Error("application loop did not stop")
-		}
-		sess.Close()
+		waittest.For(t, r.done, "the application loop to stop")
 	})
 	return r
 }
@@ -195,11 +191,7 @@ func TestSessionLockLifecycle(t *testing.T) {
 		t.Error("a client unlock reported finished")
 	default:
 	}
-	select {
-	case <-holder.done:
-	case <-time.After(lockTimeout):
-		t.Error("the loop outlived its unlocked lock with no window left")
-	}
+	waittest.For(t, holder.done, "the loop to end with its lock unlocked and no window left")
 
 	// The compositor's side: a session it really unlocked grants the
 	// next lock (one it still holds refuses it). A lock left behind
@@ -260,12 +252,8 @@ func TestSessionLockRivalHelper(t *testing.T) {
 			t.Fatal("probe: the unlock never ran")
 		}
 		fmt.Println("probe: unlock returned", unlockErr)
-		select {
-		case <-r.done:
-			fmt.Println("probe: loop ended:", r.runErr)
-		case <-time.After(lockTimeout):
-			t.Error("probe: the loop outlived its unlocked lock")
-		}
+		waittest.For(t, r.done, "probe: the loop to end with its lock unlocked")
+		fmt.Println("probe: loop ended:", r.runErr)
 		return
 	}
 	select {
@@ -276,9 +264,5 @@ func TestSessionLockRivalHelper(t *testing.T) {
 	case <-time.After(lockTimeout):
 		t.Fatal("rival: no verdict")
 	}
-	select {
-	case <-r.done:
-	case <-time.After(lockTimeout):
-		t.Error("rival: a refused lock kept its loop alive")
-	}
+	waittest.For(t, r.done, "rival: the loop of a refused lock to end")
 }

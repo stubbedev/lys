@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // A region of a 100x50 logical output maps to the buffer by each
@@ -184,22 +184,20 @@ func TestRegionSourceMatchesTheCompositor(t *testing.T) {
 // minColours colours of the pattern and two captures in a row agree,
 // so what is grabbed or recorded next sees the same frame. swaybg
 // redraws on its own time after sway applied the change, blank
-// meanwhile. It fails after five seconds with what the screen showed
-// last.
+// meanwhile.
 func settledScreen(t *testing.T, c *capture.Client, o capture.Output, what string, minColours int) *image.RGBA {
 	t.Helper()
-	var prev *image.RGBA
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+	var prev, settled *image.RGBA
+	waittest.Until(t, func() bool {
 		full := grab(t, c, o, nil)
-		n := distinctColors(full)
-		if n >= minColours && prev != nil && full.Bounds() == prev.Bounds() && samePixels(full, prev) {
-			return full
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%s: the screen never settled on the pattern (last capture %v, %d colours, want %d)", what, full.Bounds(), n, minColours)
+		if distinctColors(full) >= minColours && prev != nil && full.Bounds() == prev.Bounds() && samePixels(full, prev) {
+			settled = full
+			return true
 		}
 		prev = full
-	}
+		return false
+	}, what+": the screen to settle on the pattern")
+	return settled
 }
 
 func distinctColors(img *image.RGBA) int {

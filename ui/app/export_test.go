@@ -11,6 +11,8 @@ import (
 	"github.com/stubbedev/lys/ui/media"
 )
 
+const QuietWindow = 100 * time.Millisecond
+
 // OpenDialogs returns the dialogs a test cannot reach through the API
 // that opened them, oldest first.
 func (a *Application) OpenDialogs() []*Dialog { return a.dialogs }

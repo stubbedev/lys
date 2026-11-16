@@ -1,12 +1,14 @@
 package bar
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/shell/service/keytoggles"
@@ -64,19 +66,14 @@ func startLysWMLockKeys(t *testing.T) <-chan keytoggles.Event {
 func expectLockEvents(t *testing.T, events <-chan keytoggles.Event, want ...keytoggles.Event) {
 	t.Helper()
 	for _, w := range want {
-		select {
-		case got := <-events:
-			if got != w {
-				t.Errorf("lock key %+v, want %+v", got, w)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("no lock key, want %+v", w)
+		if got := waittest.For(t, events, fmt.Sprintf("the lock key %+v", w)); got != w {
+			t.Errorf("lock key %+v, want %+v", got, w)
 		}
 	}
 	select {
 	case got := <-events:
 		t.Errorf("lock key %+v, want nothing more", got)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 

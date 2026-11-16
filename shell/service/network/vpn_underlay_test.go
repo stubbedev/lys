@@ -7,6 +7,7 @@ import (
 	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/network/openconnect"
 	"github.com/stubbedev/lys/shell/service/network/secrets"
@@ -118,7 +119,7 @@ func TestATunnelThatDroppedWhileTheNetworkWasGoneIsRestored(t *testing.T) {
 		t.Errorf("dropped while stalled: row %+v, want still reconnecting", row)
 	}
 	fx.nm.setUnderlay("192.168.1.170")
-	waitFor(t, "the restore", func() bool { return len(fx.activations()) == 1 })
+	waittest.Until(t, func() bool { return len(fx.activations()) == 1 }, "the restore")
 	if got := fx.activations(); !slices.Equal(got, []dbus.ObjectPath{settingPath(1)}) {
 		t.Errorf("activations = %v, want the dropped tunnel", got)
 	}

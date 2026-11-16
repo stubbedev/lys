@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -142,24 +141,6 @@ func clearCompositorEnv(t *testing.T) {
 	}
 }
 
-// waitLabel polls the label until it reads want.
-func waitLabel(t *testing.T, label *widget.Label, want string) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		headlessLoop.Lock()
-		got := label.Text()
-		headlessLoop.Unlock()
-		if got == want {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("label = %q, want %q", got, want)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-}
-
 func newTestKeyboardLayout(t *testing.T, cfg *config.Config) *widget.Label {
 	t.Helper()
 	module, err := createOnHeadlessLoop("keyboard-input", newTestContext(t, cfg))
@@ -244,11 +225,11 @@ func TestKeyboardLayoutFollowsSwayInputEvents(t *testing.T) {
 	}
 	// An input event re-reads the inputs.
 	events <- `[{"type":"keyboard","xkb_active_layout_name":"English (US)"}]`
-	waitLabel(t, label, "English (US)")
+	waitForText(t, label, "English (US)")
 	// A keyboard without a layout shows the unknown layout rather than
 	// keeping the stale one.
 	events <- `[{"type":"keyboard"}]`
-	waitLabel(t, label, "?")
+	waitForText(t, label, "?")
 }
 
 // A session without a keyboard starts on the unknown layout, through
@@ -327,10 +308,10 @@ func TestKeyboardLayoutFollowsNiriLayoutSwitches(t *testing.T) {
 		t.Errorf("label = %q, want the first layout", got)
 	}
 	switches <- 1
-	waitLabel(t, label, "German")
+	waitForText(t, label, "German")
 	// An index past the names is no layout: the unknown one.
 	switches <- 5
-	waitLabel(t, label, "?")
+	waitForText(t, label, "?")
 }
 
 func TestKeyboardLayoutFollowsMangosActiveMonitor(t *testing.T) {
@@ -340,7 +321,7 @@ func TestKeyboardLayoutFollowsMangosActiveMonitor(t *testing.T) {
 		`[]`)
 	label := newTestKeyboardLayout(t, config.Defaults())
 	// The frames stream in after the module mounts.
-	waitLabel(t, label, "English (US)")
+	waitForText(t, label, "English (US)")
 }
 
 func TestKeyboardLayoutHidesWithLabelShowOff(t *testing.T) {

@@ -4,12 +4,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakePlayer is one MPRIS player on the private bus.
@@ -101,7 +101,7 @@ func TestMediaCommands(t *testing.T) {
 	c := serveMedia(t, nil)
 	spotify := startPlayer(t, "spotify", "Spotify", "Playing", true)
 	startPlayer(t, "ignored.instance1", "Hidden", "Playing", false)
-	waitFor(t, func() bool { return len(c.Players()) == 2 && activeName(c) == "org.mpris.MediaPlayer2.spotify" })
+	waittest.Until(t, func() bool { return len(c.Players()) == 2 && activeName(c) == "org.mpris.MediaPlayer2.spotify" }, "both players listed with spotify active")
 
 	steps := []struct {
 		args []string
@@ -150,18 +150,7 @@ func TestMediaPriorityAndHotplug(t *testing.T) {
 	}
 	// A player matching the priority glob takes over when it appears.
 	startPlayer(t, "firefox.instance_1_2", "Firefox", "Paused", false)
-	waitFor(t, func() bool { return activeName(c) == "org.mpris.MediaPlayer2.firefox.instance_1_2" })
-}
-
-func waitFor(t *testing.T, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatal("condition not reached")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return activeName(c) == "org.mpris.MediaPlayer2.firefox.instance_1_2" }, "the priority player to take over")
 }
 
 func TestMediaErrors(t *testing.T) {
@@ -191,7 +180,7 @@ func TestMediaErrors(t *testing.T) {
 	}
 
 	startPlayer(t, "vlc", "VLC", "Paused", false)
-	waitFor(t, func() bool { return len(c.Players()) == 1 })
+	waittest.Until(t, func() bool { return len(c.Players()) == 1 }, "the one player to be listed")
 	cases = []struct {
 		args []string
 		want string

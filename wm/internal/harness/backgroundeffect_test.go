@@ -7,7 +7,8 @@ import (
 	"math"
 	"regexp"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
@@ -17,7 +18,6 @@ import (
 	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
 	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -430,16 +430,13 @@ func TestABlurRegionIsNotRedrawnWhenNothingBehindItChanged(t *testing.T) {
 		awayFromTheCursor := image.Rect(50, 35, 80, 50)
 		for range 5 {
 			presents := presentCount(h)
-			deadline := time.Now().Add(testenv.HangLimit)
-			for presentCount(h) == presents {
-				if time.Now().After(deadline) {
-					t.Fatal("the far layer stopped presenting")
-				}
+			waittest.Until(t, func() bool {
 				if err := c.Display.Flush(); err != nil {
 					t.Fatal(err)
 				}
 				c.Sync()
-			}
+				return presentCount(h) != presents
+			}, "the far layer to present")
 			h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 				for _, r := range b.Outputs()[0].LastDamage() {
 					if r.Overlaps(awayFromTheCursor) {
@@ -502,23 +499,17 @@ func TestAPopupsFirstFrameIsAlreadyBlurred(t *testing.T) {
 		}
 		tinted := func(px [3]byte) bool { return px[0] > 0x70 && (px[1] < 0x18 || px[1] > 0x68) && px[0] != px[1] }
 		frosted := func(px [3]byte) bool { return px[1] >= 0x18 && px[1] <= 0x68 && px[0] > 0x70 }
-		deadline := time.Now().Add(testenv.HangLimit)
-		for {
+		waittest.Until(t, func() bool {
 			c.Sync()
 			var px [3]byte
 			h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 				px = pixel(snapshot(b.Outputs()[0]), 30, 30)
 				return nil
 			})
-			if frosted(px) {
-				return
-			}
 			if tinted(px) {
 				t.Fatalf("a frame showed the popup %v over the unblurred desktop", px)
 			}
-			if time.Now().After(deadline) {
-				t.Fatalf("the popup never blurred: pixel %v", px)
-			}
-		}
+			return frosted(px)
+		}, "the popup to blur")
 	})
 }

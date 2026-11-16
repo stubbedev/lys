@@ -2,15 +2,16 @@ package portal
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/desktop/portal/permissions/permstoretest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -74,15 +75,10 @@ func (p persistRig) share(t *testing.T, token string) (dbus.ObjectPath, <-chan [
 
 func started(t *testing.T, done <-chan []any) (uint32, string) {
 	t.Helper()
-	select {
-	case got := <-done:
-		res, _ := got[1].(map[string]dbus.Variant)
-		token, _ := res["restore_token"].Value().(string)
-		return got[0].(uint32), token
-	case <-time.After(10 * time.Second):
-		t.Fatal("Start never replied")
-	}
-	return 0, ""
+	got := waittest.For(t, done, "Start to reply")
+	res, _ := got[1].(map[string]dbus.Variant)
+	token, _ := res["restore_token"].Value().(string)
+	return got[0].(uint32), token
 }
 
 // close closes a session through the frontend, which stores the token
@@ -114,11 +110,7 @@ func (p persistRig) tokens(t *testing.T) []string {
 
 func (p persistRig) waitTokens(t *testing.T, want []string) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); !slices.Equal(p.tokens(t), want); time.Sleep(10 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("stored tokens %v, want %v", p.tokens(t), want)
-		}
-	}
+	waittest.Until(t, func() bool { return slices.Equal(p.tokens(t), want) }, fmt.Sprintf("the stored tokens to be %v", want))
 }
 
 // A persistent token the frontend stored for org.app is listed, replays
@@ -168,11 +160,7 @@ func TestFrontendReminderRevokeDeletesTheToken(t *testing.T) {
 	if code, again := started(t, done); code != ResponseCancelled || again != "" {
 		t.Fatalf("Revoke: Start = %d, token %q; want cancelled with none", code, again)
 	}
-	select {
-	case <-closed:
-	case <-time.After(5 * time.Second):
-		t.Error("the frontend never closed the session")
-	}
+	waittest.For(t, closed, "the frontend to close the session")
 	p.waitTokens(t, nil)
 	if n := len(p.notify.calls.Load()); n != 1 {
 		t.Errorf("%d reminders, want one", n)

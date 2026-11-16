@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // A CPU layer's buffer lives off the Go heap: Free hands it back at
@@ -14,7 +16,7 @@ func TestLayerBuffersLiveOffTheHeap(t *testing.T) {
 		t.Fatal(err)
 	}
 	cv, _ := newTestCanvas(32, 32)
-	base := settledLayers()
+	base := settledLayers(t)
 	l := cv.Layer(nil, cv.Rect())
 	if got := layerPixels.Stats().Live; got != base+1 {
 		t.Fatalf("a new layer left %d buffers live, want %d", got, base+1)
@@ -41,25 +43,25 @@ func TestLayerBuffersLiveOffTheHeap(t *testing.T) {
 		t.Errorf("TrimLayers left %d pooled buffers live", got-base)
 	}
 
-	base = settledLayers()
+	base = settledLayers(t)
 	func() { _ = cv.Layer(nil, cv.Rect()) }()
-	if got := settledLayers(); got > base {
+	if got := settledLayers(t); got > base {
 		t.Errorf("a dropped layer's buffer outlived its collection (%d live over %d)", got, base)
 	}
 }
 
 // settledLayers collects until the cleanups of dropped layers, other
 // tests' included, have run, and is the layer buffers then live.
-func settledLayers() int {
+func settledLayers(t *testing.T) int {
+	t.Helper()
 	prev := -1
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+	waittest.Until(t, func() bool {
 		runtime.GC()
 		time.Sleep(10 * time.Millisecond)
 		live := layerPixels.Stats().Live
-		if live == prev {
-			return live
-		}
+		settled := live == prev
 		prev = live
-	}
+		return settled
+	}, "the dropped layers' cleanups to settle")
 	return prev
 }

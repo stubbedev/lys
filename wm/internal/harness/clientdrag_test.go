@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
@@ -320,19 +322,13 @@ func TestAClientWindowMenuRequestIsAnnounced(t *testing.T) {
 		request(t, c, send)
 		h.dispatch("submap menu-barrier")
 		var got []string
-		deadline := time.After(testenv.HangLimit)
 		for {
-			select {
-			case line := <-lines:
-				switch {
-				case strings.Contains(line, `"windowmenu"`):
-					got = append(got, line)
-				case line == `{"event":"dispatch","action":"submap menu-barrier"}`:
-					h.dispatch("submap reset")
-					return got
-				}
-			case <-deadline:
-				t.Fatal("no barrier on the event stream")
+			switch line := nextEvent(t, lines, "the barrier"); {
+			case strings.Contains(line, `"windowmenu"`):
+				got = append(got, line)
+			case line == `{"event":"dispatch","action":"submap menu-barrier"}`:
+				h.dispatch("submap reset")
+				return got
 			}
 		}
 	}
@@ -471,7 +467,7 @@ func TestARealGTKHeaderBarDragMovesItsWindow(t *testing.T) {
 					}
 				}
 			}()
-			h.Eventually("the GTK window mapped", func(_ *headless.Backend, c *compositor.Compositor) bool {
+			h.EventuallySlow("the GTK window mapped", func(_ *headless.Backend, c *compositor.Compositor) bool {
 				return len(windowsOf(c)) == 1 && !c.Holding()
 			})
 			h.dispatch("togglefloating")
@@ -482,24 +478,25 @@ func TestARealGTKHeaderBarDragMovesItsWindow(t *testing.T) {
 			from := onlyWindowRect(h)
 			h.Eventually("GTK drew itself at its floating size", showing(5, 5, previewBackground))
 			at := image.Pt(from.Min.X+from.Dx()/3, from.Min.Y+12)
-			presses := 0
-			giveUp := time.Now().Add(testenv.HangLimit)
-			for answer := 250 * time.Millisecond; !h.dragging(); answer *= 2 {
-				if time.Now().After(giveUp) {
-					t.Fatalf("GTK never asked lys-wm to move its window in %d header bar drags within %v", presses, testenv.HangLimit)
+			answer := 250 * time.Millisecond
+			waittest.UntilSlow(t, func() bool {
+				if h.dragging() {
+					return true
 				}
 				h.movePointer(at)
 				h.button(true)
 				h.movePointer(at.Add(image.Pt(20, 0)))
-				presses++
 				deadline := time.Now().Add(answer)
 				for !h.dragging() && time.Now().Before(deadline) {
 					time.Sleep(10 * time.Millisecond)
 				}
-				if !h.dragging() {
-					h.button(false)
+				answer *= 2
+				if h.dragging() {
+					return true
 				}
-			}
+				h.button(false)
+				return false
+			}, "GTK to ask lys-wm to move its window from a header bar drag")
 			h.movePointer(at.Add(image.Pt(80, 40)))
 			h.button(false)
 			h.Eventually("the GTK window moved with the pointer", func(_ *headless.Backend, c *compositor.Compositor) bool {

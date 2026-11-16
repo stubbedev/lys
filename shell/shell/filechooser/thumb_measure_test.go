@@ -16,6 +16,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // TestMeasureThumbnailScroll measures a grid scrolled through a folder
@@ -65,7 +67,8 @@ func TestMeasureThumbnailScroll(t *testing.T) {
 		}
 	})
 	for i := range count {
-		hs.waitThumbFor(t, filepath.Join(dir, fmt.Sprintf("%03d.jpg", i)), gridIconPx, time.Minute)
+		path := filepath.Join(dir, fmt.Sprintf("%03d.jpg", i))
+		waittest.UntilSlow(t, hs.thumbEnded(path, gridIconPx), "the thumbnail lookup for "+path+" to end")
 	}
 	took := time.Since(start)
 	close(stop)

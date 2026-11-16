@@ -2,6 +2,7 @@ package sni
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeMenu is a DBusMenu with one check row, a submenu, and a
@@ -114,19 +116,17 @@ func (it *fakeItem) register(t *testing.T) {
 	}
 }
 
+// quietWindow is how long a test watches for a change that must not come.
+const quietWindow = 150 * time.Millisecond
+
 func waitItems(t *testing.T, s *Store, cond func([]Item) bool) []Item {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		items := s.Items()
-		if cond(items) {
-			return items
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out; items = %+v", items)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	var items []Item
+	waittest.Until(t, func() bool {
+		items = s.Items()
+		return cond(items)
+	}, "the tray items to match")
+	return items
 }
 
 func TestHostAsWatcherTracksItemsAndMenus(t *testing.T) {
@@ -199,37 +199,27 @@ func TestHostAsWatcherTracksItemsAndMenus(t *testing.T) {
 	if err := actions.MenuClicked(context.Background(), got, 1); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(time.Second)
-	for {
-		n := len(item.menu.clickedCalls())
-		if n == 1 || time.Now().After(deadline) {
-			if n != 1 {
-				t.Error("the clicked event never arrived")
-			}
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return len(item.menu.clickedCalls()) == 1 }, "the clicked event")
 
 	// A LayoutUpdated reaches an open menu's feed, debounced.
 	feed, stop := host.WatchMenu(got.Key())
 	for range 3 {
 		_ = item.conn.Emit("/MenuBar", MenuIface+".LayoutUpdated", uint32(8), int32(0))
 	}
-	select {
-	case <-feed:
-	case <-time.After(2 * time.Second):
-		t.Fatal("no menu tick for LayoutUpdated")
-	}
+	waittest.For(t, feed, "a menu tick for LayoutUpdated")
 	stop()
 	stop()
-	select {
-	case _, open := <-feed:
-		if open {
-			t.Error("a tick after stop")
+	open := true
+	waittest.Until(t, func() bool {
+		select {
+		case _, open = <-feed:
+			return true
+		default:
+			return false
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("stop left the menu feed open")
+	}, "stop to close the menu feed")
+	if open {
+		t.Error("a tick after stop")
 	}
 
 	// The item's connection leaving unregisters it.
@@ -296,13 +286,7 @@ func TestMenuOpeningDoesNotWaitForTheAnswer(t *testing.T) {
 
 func waitShown(t *testing.T, m *fakeMenu, want []int32) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for !slices.Equal(m.shownCalls(), want) {
-		if time.Now().After(deadline) {
-			t.Fatalf("AboutToShow calls = %v, want %v", m.shownCalls(), want)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Equal(m.shownCalls(), want) }, fmt.Sprintf("the AboutToShow calls %v", want))
 }
 
 func TestHostRecoversOrphanedItems(t *testing.T) {
@@ -454,17 +438,7 @@ func TestHostKeepsOnlyTheWantedPixmaps(t *testing.T) {
 	waitItems(t, store, func(i []Item) bool { return len(i) == 1 })
 	waitPixmaps := func(fill byte, widths ...int32) {
 		t.Helper()
-		deadline := time.Now().Add(3 * time.Second)
-		for !pixmapsAre(store.Items(), fill, widths...) {
-			if time.Now().After(deadline) {
-				got := map[string][]int32{}
-				for name, ps := range itemPixmaps(store.Items()[0]) {
-					got[name] = pixmapWidths(ps)
-				}
-				t.Fatalf("kept %v, want %v filled with %#x", got, widths, fill)
-			}
-			time.Sleep(5 * time.Millisecond)
-		}
+		waittest.Until(t, func() bool { return pixmapsAre(store.Items(), fill, widths...) }, fmt.Sprintf("the pixmaps %v filled with %#x", widths, fill))
 	}
 	waitPixmaps(0xaa)
 
@@ -626,7 +600,7 @@ func TestHostFollowsTheSignalsOfTheItemsItTracksAlone(t *testing.T) {
 	if err := bus.Conn(t).Emit("/StatusNotifierItem", ItemIface+".NewIcon"); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if items := store.Items(); len(items) != 1 || items[0].IconName != "first-icon" {
 		t.Fatalf("items = %+v after another connection's NewIcon, want the first icon", items)
 	}
@@ -639,15 +613,7 @@ func TestHostFollowsTheSignalsOfTheItemsItTracksAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitItems(t, store, func(i []Item) bool { return len(i) == 0 })
-	for deadline := time.Now().Add(liveness); ; time.Sleep(5 * time.Millisecond) {
-		rules := dbustest.MatchRules(t, conn)
-		if slices.Equal(rules, untracked) {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the host holds the match rules %q once the item left, want %q", rules, untracked)
-		}
-	}
+	waittest.Until(t, func() bool { return slices.Equal(dbustest.MatchRules(t, conn), untracked) }, "the host to drop the item's match rules")
 }
 
 // fakeWatcher is a watcher another process serves: it lists items and
@@ -694,7 +660,7 @@ func TestHostFollowsTheExternalWatcherFromOwnerToOwner(t *testing.T) {
 	if host.watcher != nil {
 		t.Fatal("the host took the watcher role from the running watcher")
 	}
-	await(t, first.hosts, "the host registering with the first watcher")
+	waittest.For(t, first.hosts, "the host registering with the first watcher")
 	one := startItem(t, bus, "one")
 	pipe := dbustest.NewPipe(t)
 	if err := first.conn.Emit(WatcherPath, WatcherIface+".StatusNotifierHostRegistered", pipe.Write); err != nil {
@@ -711,7 +677,7 @@ func TestHostFollowsTheExternalWatcherFromOwnerToOwner(t *testing.T) {
 	}
 	two := startItem(t, bus, "two")
 	next := startExternalWatcher(t, bus, two.conn.Names()[0]+"/StatusNotifierItem")
-	if got := await(t, next.hosts, "the host registering with the next watcher"); got != host.conn.Names()[0] {
+	if got := waittest.For(t, next.hosts, "the host registering with the next watcher"); got != host.conn.Names()[0] {
 		t.Errorf("the next watcher was told of host %q, want %q", got, host.conn.Names()[0])
 	}
 	waitItems(t, store, func(i []Item) bool {

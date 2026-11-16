@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func speakers() native.DeviceInfo {
@@ -213,11 +214,7 @@ func TestSubscriptionEventsArriveInOrder(t *testing.T) {
 	srv.RemoveSink(1)
 	srv.SetDefaults("", "")
 	for range 4 {
-		select {
-		case <-seen:
-		case <-time.After(5 * time.Second):
-			t.Fatal("events did not arrive")
-		}
+		waittest.For(t, seen, "the subscribed events")
 	}
 	want := []native.SubscribeEvent{
 		{Facility: native.FacilitySink, Operation: native.OpNew, Index: 1},
@@ -241,11 +238,7 @@ func TestDisconnectFailsTheConnection(t *testing.T) {
 	srv := pulsetest.New(t)
 	c := dial(t, srv, native.Options{})
 	srv.Disconnect()
-	select {
-	case <-c.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("Done did not close on disconnect")
-	}
+	waittest.For(t, c.Done(), "Done to close on disconnect")
 	if c.Err() == nil {
 		t.Error("Err is nil after disconnect")
 	}
@@ -259,11 +252,7 @@ func TestMalformedFrameFailsTheConnection(t *testing.T) {
 	c := dial(t, srv, native.Options{})
 	// A descriptor announcing a 32 MiB frame is a protocol violation.
 	srv.SendRaw([]byte{0x02, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-	select {
-	case <-c.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("an oversized frame did not end the connection")
-	}
+	waittest.For(t, c.Done(), "an oversized frame to end the connection")
 	if !errors.Is(c.Err(), native.ErrProtocol) {
 		t.Errorf("Err = %v, want ErrProtocol", c.Err())
 	}
@@ -421,21 +410,12 @@ func TestRecordStreamDeliversAudioAndEnds(t *testing.T) {
 		t.Errorf("granted %+v", stream.Info())
 	}
 	rec.Push([]byte{1, 2, 3, 4})
-	select {
-	case b := <-chunks:
-		if !bytes.Equal(b, []byte{1, 2, 3, 4}) {
-			t.Errorf("chunk = %v", b)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no audio")
+	if b := waittest.For(t, chunks, "the pushed audio"); !bytes.Equal(b, []byte{1, 2, 3, 4}) {
+		t.Errorf("chunk = %v", b)
 	}
 
 	rec.Kill()
-	select {
-	case <-stream.Ended():
-	case <-time.After(5 * time.Second):
-		t.Fatal("a killed stream did not end")
-	}
+	waittest.For(t, stream.Ended(), "the killed stream to end")
 	if !errors.Is(stream.Err(), native.ErrStreamKilled) {
 		t.Errorf("Err = %v, want ErrStreamKilled", stream.Err())
 	}
@@ -504,11 +484,7 @@ func TestDisconnectEndsRecordStreams(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv.Disconnect()
-	select {
-	case <-stream.Ended():
-	case <-time.After(5 * time.Second):
-		t.Fatal("stream outlived its connection")
-	}
+	waittest.For(t, stream.Ended(), "the stream to end with its connection")
 	if stream.Err() == nil || errors.Is(stream.Err(), native.ErrStreamKilled) {
 		t.Errorf("Err = %v, want the connection error", stream.Err())
 	}

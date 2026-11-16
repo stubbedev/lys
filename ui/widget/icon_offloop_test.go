@@ -10,8 +10,7 @@ import (
 	"github.com/stubbedev/lys/lib/icons"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
-
-	"github.com/stubbedev/lys/ui/internal/waittest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func settleAssets(t *testing.T, f *fakeInvoker) {

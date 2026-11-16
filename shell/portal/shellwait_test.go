@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/shell/filechooser"
 )
@@ -38,13 +39,7 @@ func (r *rig) waitingFor(t *testing.T, service string) bool {
 // awaitWaiting waits until the backend waits for service to appear.
 func (r *rig) awaitWaiting(t *testing.T, service string) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !r.waitingFor(t, service) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the backend never waited for %s", service)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return r.waitingFor(t, service) }, "the backend to wait for "+service)
 }
 
 // A dialog asked for while no shell owns its service waits for the
@@ -55,7 +50,7 @@ func TestADialogWaitsForTheShellToAppear(t *testing.T) {
 	done := openFileAsync(t, r)
 	r.awaitWaiting(t, filechooser.ServiceName)
 	serveChooser(t, r, "file:///late.png")
-	if code := awaitReply(t, done); code != ResponseSuccess {
+	if code := waittest.For(t, done, "the call to reply"); code != ResponseSuccess {
 		t.Errorf("OpenFile = %d once the shell appeared, want success", code)
 	}
 	if r.waitingFor(t, filechooser.ServiceName) {
@@ -71,13 +66,8 @@ func TestADialogWithoutAShellFailsAfterTheBound(t *testing.T) {
 	r := newRig(t, nil)
 	start := time.Now()
 	done := openFileAsync(t, r)
-	select {
-	case code := <-done:
-		if code != ResponseOther {
-			t.Errorf("OpenFile = %d without a shell, want other", code)
-		}
-	case <-time.After(bound + 5*time.Second):
-		t.Fatal("the wait for the shell is unbounded")
+	if code := waittest.For(t, done, "the bounded wait for the shell to end"); code != ResponseOther {
+		t.Errorf("OpenFile = %d without a shell, want other", code)
 	}
 	if waited := time.Since(start); waited < bound {
 		t.Errorf("OpenFile replied after %v, before the %v wait for the shell was over", waited, bound)
@@ -97,7 +87,7 @@ func TestClosingARequestEndsTheWaitForTheShell(t *testing.T) {
 	if err := r.client.Object(BusName, handle).Call(RequestIface+".Close", 0).Err; err != nil {
 		t.Fatal(err)
 	}
-	if code := awaitReply(t, done); code != ResponseCancelled {
+	if code := waittest.For(t, done, "the call to reply"); code != ResponseCancelled {
 		t.Errorf("OpenFile = %d after Close, want cancelled", code)
 	}
 	if r.waitingFor(t, filechooser.ServiceName) {
@@ -121,7 +111,7 @@ func TestAShellDyingMidDialogFailsAtOnce(t *testing.T) {
 	if err := shell.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if code := awaitReply(t, done); code != ResponseOther {
+	if code := waittest.For(t, done, "the call to reply"); code != ResponseOther {
 		t.Errorf("OpenFile = %d after the shell died, want other", code)
 	}
 }

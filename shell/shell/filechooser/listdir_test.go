@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
 
@@ -139,21 +139,16 @@ func follow(t *testing.T, dir string) followCount {
 }
 
 // until takes updates until done holds for the changes taken, counting
-// rescans; past the liveness bound it fails with what came.
+// rescans.
 func (f followCount) until(t *testing.T, done func([]dirChange) bool) ([]dirChange, int) {
 	t.Helper()
 	var changes []dirChange
 	rescans := 0
-	deadline := time.After(10 * time.Second)
 	for !done(changes) {
-		select {
-		case u := <-f.updates:
-			changes = append(changes, u.changes...)
-			if u.rescan {
-				rescans++
-			}
-		case <-deadline:
-			t.Fatalf("after %d changes and %d rescans: never done", len(changes), rescans)
+		u := waittest.For(t, f.updates, fmt.Sprintf("the next update after %d changes and %d rescans", len(changes), rescans))
+		changes = append(changes, u.changes...)
+		if u.rescan {
+			rescans++
 		}
 	}
 	return changes, rescans

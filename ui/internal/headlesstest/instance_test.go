@@ -4,10 +4,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 
 	"github.com/stubbedev/lys/ui/clienttest"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 // The single-instance gate (#79) under a real compositor: two

@@ -3,7 +3,6 @@ package bar
 import (
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -142,31 +141,13 @@ func TestKeybindModeMountsWhileItsFirstSubmapArrives(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	ctx.Hyprland = hyprland.ConnectTo(filepath.Join(sockdir.Dir(t), "unused.sock"), startFakeEventStream(t, []string{"submap>>resize\n"}))
 	row := widget.NewBox(widget.Row, 0, 0)
-	shown := make(chan bool, 1)
-	go func() { shown <- shownInResize(row) }()
 	if err := mountInto(row, ctx, "keybind-mode"); err != nil {
 		t.Fatalf("mount: %v", err)
 	}
-	if !<-shown {
-		t.Fatal("under auto-hide the resize submap never showed the module")
-	}
-	if got := onHeadlessLoop(findLabel(row).Text); got != "resize" {
-		t.Errorf("the label reads %q, want the resize submap", got)
-	}
-}
-
-func shownInResize(row *widget.Box) bool {
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if onHeadlessLoop(func() bool {
-			kids := row.Children()
-			return len(kids) == 1 && widget.IsVisible(kids[0]) && findLabel(row).Text() == "resize"
-		}) {
-			return true
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	return false
+	waitHeadless(t, "the resize submap to show the module under auto-hide", func() bool {
+		kids := row.Children()
+		return len(kids) == 1 && widget.IsVisible(kids[0]) && findLabel(row).Text() == "resize"
+	})
 }
 
 // findLabel walks a module root for its first label.

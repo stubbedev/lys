@@ -3,9 +3,9 @@ package portal
 import (
 	"slices"
 	"testing"
-	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/notifications"
 )
@@ -49,18 +49,13 @@ func (r *rig) replay(t *testing.T, token dbus.Variant) <-chan []any {
 
 func replied(t *testing.T, done <-chan []any) (uint32, restoreGrant) {
 	t.Helper()
-	select {
-	case got := <-done:
-		if got[2] != nil {
-			t.Fatalf("Start: %v", got[2])
-		}
-		res, _ := got[1].(map[string]dbus.Variant)
-		g, _ := decodeRestore(res["restore_data"])
-		return got[0].(uint32), g
-	case <-time.After(5 * time.Second):
-		t.Fatal("Start never replied")
+	got := waittest.For(t, done, "Start to reply")
+	if got[2] != nil {
+		t.Fatalf("Start: %v", got[2])
 	}
-	return 0, restoreGrant{}
+	res, _ := got[1].(map[string]dbus.Variant)
+	g, _ := decodeRestore(res["restore_data"])
+	return got[0].(uint32), g
 }
 
 // A persistent token 29 days old replays without a reminder and keeps

@@ -3,10 +3,10 @@ package compositor
 import (
 	"image"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type blockedWriter struct {
@@ -38,11 +38,7 @@ func TestCancelReturnsWhileACopyIsStuckOnClientMemory(t *testing.T) {
 		r.cancel()
 		close(cancelled)
 	}()
-	select {
-	case <-cancelled:
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("cancel waited for the copy stuck in Write")
-	}
+	waittest.For(t, cancelled, "cancel to return while the copy is stuck in Write")
 	close(w.release)
 	if err := <-copied; err != nil {
 		t.Fatal(err)

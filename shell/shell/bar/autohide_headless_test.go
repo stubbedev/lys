@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -28,11 +29,12 @@ func TestHeadlessAutoHidingBarRevealsAtTheEdge(t *testing.T) {
 	}
 	wait := func(what string, cond func() bool) {
 		t.Helper()
-		for deadline := time.Now().Add(10 * time.Second); !cond(); time.Sleep(10 * time.Millisecond) {
-			if time.Now().After(deadline) {
-				t.Fatalf("timed out waiting for %s (thickness %d, reserved %d)", what, thickness(), reservedTop(t))
+		untilNil(t, what, func() error {
+			if cond() {
+				return nil
 			}
-		}
+			return fmt.Errorf("thickness %d, reserved %d", thickness(), reservedTop(t))
+		})
 		if top := reservedTop(t); top != 0 {
 			t.Fatalf("%s: the workspace starts %dpx down; the bar must reserve nothing", what, top)
 		}
@@ -66,7 +68,7 @@ func TestHeadlessAutoHidingBarRevealsAtTheEdge(t *testing.T) {
 		}
 	})
 	cursor(300, 500)
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(3 * time.Duration(cfg.Bar.AutoHideDelayMs) * time.Millisecond)
 	if got := thickness(); got != shown {
 		t.Fatalf("the bar is %d thick under an open dropdown, want %d", got, shown)
 	}

@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type servicesPAM struct {
@@ -103,14 +105,9 @@ func TestAWrongPasswordWhileTheReaderListensIsRefusedWithoutWaitingForIt(t *test
 		_, err := authenticateOrFingerprint(lib, raceServices, "alice", typing("wrong"), scan.scanner, diskKey("luks"))
 		done <- err
 	}()
-	select {
-	case err := <-done:
-		refused, ok := errors.AsType[*RefusedError](err)
-		if !ok || refused.Refusal() != RefusalCredentials {
-			t.Fatalf("a wrong password: %v, want the refusal of a wrong password", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("a wrong password waited on the fingerprint reader")
+	err := waittest.For(t, done, "the refusal of a wrong password while the fingerprint reader listens")
+	if refused, ok := errors.AsType[*RefusedError](err); !ok || refused.Refusal() != RefusalCredentials {
+		t.Fatalf("a wrong password: %v, want the refusal of a wrong password", err)
 	}
 	if !scan.wasHalted() {
 		t.Error("the refused password left the scan running")

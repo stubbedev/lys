@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/atspitest"
 	"github.com/stubbedev/lys/ui/internal/atspi/proto"
@@ -30,15 +31,10 @@ func TestRealAtSpi2Core(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stopWatch()
-	<-got
+	waittest.For(t, got, "the watch's first status")
 	core.Enable(t)
-	select {
-	case on := <-got:
-		if !on {
-			t.Error("IsEnabled on reported disabled")
-		}
-	case <-time.After(3 * time.Second):
-		t.Error("IsEnabled change never reached the watch")
+	if !waittest.For(t, got, "the IsEnabled change to reach the watch") {
+		t.Error("IsEnabled on reported disabled")
 	}
 
 	// Serve a window holding an entry; discovery goes through the
@@ -111,19 +107,10 @@ func TestRealAtSpi2Core(t *testing.T) {
 	at.Signal(signals)
 	scene.Invoke(func() { widget.Announce(entry, "hello world", widget.Polite) })
 	br.Refresh()
-	var heard []*dbus.Signal
-	timeout := time.After(3 * time.Second)
-	for len(heard) == 0 {
-		select {
-		case s := <-signals:
-			if s.Name == "org.a11y.atspi.Event.Object.Announcement" {
-				heard = append(heard, s)
-			}
-		case <-timeout:
-			t.Fatal("no Announcement reached the assistive technology")
-		}
+	var s *dbus.Signal
+	for s == nil || s.Name != "org.a11y.atspi.Event.Object.Announcement" {
+		s = waittest.For(t, signals, "an Announcement to reach the assistive technology")
 	}
-	s := heard[0]
 	if s.Path != entryPath || len(s.Body) != 5 || s.Body[1] != int32(widget.Polite) || s.Body[3].(dbus.Variant).Value() != "hello world" {
 		t.Errorf("announcement %s %v, want the text, polite, on the entry %s", s.Path, s.Body, entryPath)
 	}
@@ -132,6 +119,6 @@ func TestRealAtSpi2Core(t *testing.T) {
 		if s.Name == "org.a11y.atspi.Event.Object.Announcement" {
 			t.Errorf("a second announcement %v", s.Body)
 		}
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }

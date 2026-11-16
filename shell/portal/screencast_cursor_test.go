@@ -2,15 +2,16 @@ package portal
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
@@ -312,13 +313,10 @@ func TestTheEmbeddedCursorModeCapturesAFramePerMove(t *testing.T) {
 		x, y := at(i)
 		r.move(x, y)
 		v.until("a frame of the moved pointer", func(b pwtest.Buffer) bool { return b.Size > 0 }, noCursor)
-		deadline := time.Now().Add(hangGuard)
-		for frames <= uint64(i) {
-			if time.Now().After(deadline) {
-				t.Fatalf("move %d captured no frame", i)
-			}
+		waittest.Until(t, func() bool {
 			frames += v.captured()
-		}
+			return frames > uint64(i)
+		}, fmt.Sprintf("move %d to capture a frame", i))
 	}
 	if frames != moves {
 		t.Fatalf("%d moves captured %d frames", moves, frames)

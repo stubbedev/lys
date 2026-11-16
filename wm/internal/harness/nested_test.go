@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -108,20 +109,23 @@ func (n *nestedLysWM) do(f func(c *compositor.Compositor) error) {
 
 func (n *nestedLysWM) eventually(what string, cond func(c *compositor.Compositor) bool) {
 	n.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(n.t, n.holds(cond), "the nested lys-wm to show "+what)
+}
+
+func (n *nestedLysWM) eventuallySlow(what string, cond func(c *compositor.Compositor) bool) {
+	n.t.Helper()
+	waittest.UntilSlow(n.t, n.holds(cond), "the nested lys-wm to show "+what)
+}
+
+func (n *nestedLysWM) holds(cond func(c *compositor.Compositor) bool) func() bool {
+	return func() bool {
+		n.t.Helper()
 		var ok bool
 		n.do(func(c *compositor.Compositor) error {
 			ok = cond(c)
 			return nil
 		})
-		if ok {
-			return
-		}
-		if time.Now().After(deadline) {
-			n.t.Fatalf("nested lys-wm: timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
+		return ok
 	}
 }
 
@@ -149,14 +153,14 @@ func TestNestedSessionWithRealClients(t *testing.T) {
 	t.Setenv("GOELM_DEBUG", "demo")
 	host := Start(t, desktop)
 	n := startNested(t, host)
-	host.Eventually("the nested lys-wm window", mappedToplevels(1))
+	host.EventuallySlow("the nested lys-wm window", mappedToplevels(1))
 	n.do(func(c *compositor.Compositor) error {
 		return c.SetOutputScale(c.Outputs()[0].Backend(), 180)
 	})
 
 	typed := filepath.Join(t.TempDir(), "typed")
 	terminal := n.run("alacritty-swrast", "-e", "sh", "-c", `read -r line; printf %s "$line" > "$0"`, typed)
-	n.eventually("alacritty to map", nestedToplevels(1))
+	n.eventuallySlow("alacritty to map", nestedToplevels(1))
 	n.eventually("alacritty to take the keyboard", func(c *compositor.Compositor) bool {
 		return c.Seat().Focus() == c.Toplevels()[0].Surface()
 	})
@@ -246,7 +250,7 @@ func TestNestedTilingSession(t *testing.T) {
 		withBinds(t, specs...)(cfg)
 		cfg.Rules = []wm.Rule{{Match: wm.Match{Title: regexp.MustCompile(`^float-me$`)}, Mode: wm.RuleFloat, Size: wm.Px(300, 200)}}
 	})
-	host.Eventually("the nested lys-wm window", mappedToplevels(1))
+	host.EventuallySlow("the nested lys-wm window", mappedToplevels(1))
 	mapped := func(want int) {
 		t.Helper()
 		n.eventually(fmt.Sprintf("%d windows", want), func(c *compositor.Compositor) bool {
@@ -327,13 +331,13 @@ func TestNestedLysWMRendersWithVulkan(t *testing.T) {
 	}
 	host := StartVulkan(t, func(*compositor.Config) {}, desktop)
 	n := startNestedOn(t, host, nested.Vulkan, func(*compositor.Config) {})
-	host.Eventually("the nested lys-wm window", mappedToplevels(1))
+	host.EventuallySlow("the nested lys-wm window", mappedToplevels(1))
 	c := testclient.Connect(t, filepath.Join(n.dir, n.display))
 	w := c.Window("nested on Vulkan", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("the window to map", w.Mapped)
 	n.eventually("the window in the nested lys-wm", nestedToplevels(1))
 	const x, y = 100, 100
-	host.Eventually("the nested window through Vulkan and the host", showing(x, y, [3]byte{0xff, 0, 0}))
+	host.EventuallySlow("the nested window through Vulkan and the host", showing(x, y, [3]byte{0xff, 0, 0}))
 	w.Stop()
 	refill(t, c, w, testclient.Fill(0, 0xff, 0))
 	host.Eventually("the next frame through both buffers of the chain", showing(x, y, [3]byte{0, 0xff, 0}))
@@ -354,13 +358,13 @@ func TestNestedLysWMRendersWithVulkanIntoTheHostsBuffersAfterAGPUReset(t *testin
 	host := StartVulkan(t, func(*compositor.Config) {}, desktop)
 	got := &reports{}
 	n := startNestedOn(t, host, nested.Vulkan, func(cfg *compositor.Config) { cfg.Report = got.report })
-	host.Eventually("the nested lys-wm window", mappedToplevels(1))
+	host.EventuallySlow("the nested lys-wm window", mappedToplevels(1))
 	c := testclient.Connect(t, filepath.Join(n.dir, n.display))
 	w := c.Window("nested through a reset", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("the window to map", w.Mapped)
 	n.eventually("the window in the nested lys-wm", nestedToplevels(1))
 	const x, y = 100, 100
-	host.Eventually("the nested window before the reset", showing(x, y, [3]byte{0xff, 0, 0}))
+	host.EventuallySlow("the nested window before the reset", showing(x, y, [3]byte{0xff, 0, 0}))
 	w.Stop()
 	n.do(func(*compositor.Compositor) error {
 		n.backend.Renderer().LoseDevice()
@@ -470,7 +474,7 @@ func (m costMeter) log(name string) {
 func nestedCost(t *testing.T, name string, host *Harness, renderer nested.Renderer) {
 	t.Helper()
 	n := startNestedOn(t, host, renderer, func(*compositor.Config) {})
-	host.Eventually("the nested lys-wm window", mappedToplevels(1))
+	host.EventuallySlow("the nested lys-wm window", mappedToplevels(1))
 	c := testclient.Connect(t, filepath.Join(n.dir, n.display))
 	w := c.Window("frames", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("the window to map", w.Mapped)

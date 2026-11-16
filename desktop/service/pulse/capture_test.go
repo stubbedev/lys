@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func cavaSpec(channels uint8) CaptureSpec {
@@ -43,15 +44,10 @@ func TestCaptureRecordsTheDefaultMonitor(t *testing.T) {
 	if rec.FragSize != 512*4 || rec.Props["media.name"] != "cava" {
 		t.Errorf("fragsize %d, props %v", rec.FragSize, rec.Props)
 	}
-	waitFor(t, "the capture source", func() bool { return c.Source() == "speakers.monitor" })
+	waittest.Until(t, func() bool { return c.Source() == "speakers.monitor" }, "the capture source")
 	rec.Push([]byte{1, 0, 2, 0})
-	select {
-	case b := <-data:
-		if !bytes.Equal(b, []byte{1, 0, 2, 0}) {
-			t.Errorf("chunk = %v", b)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no audio reached the handler")
+	if b := waittest.For(t, data, "audio to reach the handler"); !bytes.Equal(b, []byte{1, 0, 2, 0}) {
+		t.Errorf("chunk = %v", b)
 	}
 }
 
@@ -61,7 +57,7 @@ func TestCaptureFollowsTheDefaultSink(t *testing.T) {
 	c, _ := startCapture(t, s, CaptureDefaultMonitor(), cavaSpec(1))
 	onlyRecord(t, srv)
 	srv.SetDefaults("headphones", "mic")
-	waitFor(t, "the capture to move", func() bool { return c.Source() == "headphones.monitor" })
+	waittest.Until(t, func() bool { return c.Source() == "headphones.monitor" }, "the capture to move")
 	rec := onlyRecord(t, srv)
 	if rec.Source != "headphones.monitor" || rec.SampleSpec.Channels != 1 {
 		t.Errorf("after the switch: %+v", rec)
@@ -110,7 +106,7 @@ func TestCaptureWaitsForItsTarget(t *testing.T) {
 	srv.SetDefaults("", "mic")
 	s := connect(t, srv)
 	c, _ := startCapture(t, s, CaptureDefaultMonitor(), cavaSpec(1))
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if len(srv.Records()) != 0 || c.Source() != "" {
 		t.Fatalf("recording with no default sink: %v", srv.Records())
 	}
@@ -128,11 +124,11 @@ func TestCaptureReopensAfterAKill(t *testing.T) {
 	c, _ := startCapture(t, s, CaptureDefaultMonitor(), cavaSpec(1))
 	first := onlyRecord(t, srv)
 	first.Kill()
-	waitFor(t, "a new stream", func() bool {
+	waittest.Until(t, func() bool {
 		recs := srv.Records()
 		return len(recs) == 1 && recs[0].Channel != first.Channel
-	})
-	waitFor(t, "the source", func() bool { return c.Source() == "speakers.monitor" })
+	}, "a new stream")
+	waittest.Until(t, func() bool { return c.Source() == "speakers.monitor" }, "the source")
 }
 
 func TestCaptureRetriesAMissingSource(t *testing.T) {
@@ -142,7 +138,7 @@ func TestCaptureRetriesAMissingSource(t *testing.T) {
 	s := connect(t, srv)
 	late, _ := CaptureNamed("late")
 	c, _ := startCapture(t, s, late, cavaSpec(1))
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if len(srv.Records()) != 0 || c.Source() != "" {
 		t.Fatal("recording a source that does not exist")
 	}
@@ -189,11 +185,7 @@ func TestCaptureEndsWithTheService(t *testing.T) {
 		c.Close()
 		close(done)
 	}()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Close hung after the connection died")
-	}
+	waittest.For(t, done, "Close after the connection died")
 }
 
 func TestCaptureResumesOnTheNextConnection(t *testing.T) {
@@ -205,20 +197,15 @@ func TestCaptureResumesOnTheNextConnection(t *testing.T) {
 	c, data := startCapture(t, s, CaptureDefaultMonitor(), cavaSpec(1))
 	first := onlyRecord(t, srv)
 	srv.Close()
-	waitFor(t, "the capture to lose its source", func() bool { return c.Source() == "" })
+	waittest.Until(t, func() bool { return c.Source() == "" }, "the capture to lose its source")
 	srv.Listen(t)
 	next := onlyRecord(t, srv)
 	if next == first {
 		t.Fatal("the stream of the lost connection is still listed")
 	}
-	waitFor(t, "the capture to follow the reconnect", func() bool { return c.Source() == "speakers.monitor" })
+	waittest.Until(t, func() bool { return c.Source() == "speakers.monitor" }, "the capture to follow the reconnect")
 	next.Push([]byte{7, 0})
-	select {
-	case b := <-data:
-		if !bytes.Equal(b, []byte{7, 0}) {
-			t.Errorf("chunk = %v", b)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no audio after the reconnect")
+	if b := waittest.For(t, data, "audio after the reconnect"); !bytes.Equal(b, []byte{7, 0}) {
+		t.Errorf("chunk = %v", b)
 	}
 }

@@ -4,6 +4,7 @@ package dbus_test
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // goroutineStacks is the stack of every goroutine now, by its header
@@ -45,19 +47,23 @@ func startedSince(before map[string]string) []string {
 	return started
 }
 
-// leftRunning are the goroutines running this package's code, started
-// since before, that have not ended within handWait: one that Close
-// waited for has left the connection's count and is returning, and one
-// of a peer is sending the reply of a method the test let go.
-func leftRunning(before map[string]string) []string {
-	deadline := time.Now().Add(handWait)
-	for {
-		left := startedSince(before)
-		if len(left) == 0 || time.Now().After(deadline) {
-			return left
+// requireNoneLeftRunning waits for the goroutines running this
+// package's code, started since before, to end, and logs the stacks of
+// those still running when they do not: one that Close waited for has
+// left the connection's count and is returning, and one of a peer is
+// sending the reply of a method the test let go.
+func requireNoneLeftRunning(t *testing.T, before map[string]string, what string) {
+	t.Helper()
+	var left []string
+	defer func() {
+		for _, stack := range left {
+			t.Logf("still running:\n%s", stack)
 		}
-		runtime.Gosched()
-	}
+	}()
+	waittest.Until(t, func() bool {
+		left = startedSince(before)
+		return len(left) == 0
+	}, what)
 }
 
 type slowHand struct{ entered, release chan struct{} }
@@ -122,18 +128,13 @@ func TestCloseWaitsForTheGoroutinesOfTheConnection(t *testing.T) {
 	select {
 	case err := <-closed:
 		t.Fatalf("Close returned (%v) while the read loop was still failing a pending call", err)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if got := <-full; got != nil {
 		t.Fatalf("the full channel held %v", got)
 	}
-	select {
-	case err := <-closed:
-		if err != nil {
-			t.Errorf("Close = %v", err)
-		}
-	case <-time.After(handWait):
-		t.Fatal("Close did not return once the read loop could finish")
+	if err := waittest.For(t, closed, "Close to return once the read loop could finish"); err != nil {
+		t.Errorf("Close = %v", err)
 	}
 	if got := <-full; got != held || held.Err == nil {
 		t.Errorf("the held call ended as %v with %v, want it failed by the connection closing", got, held.Err)
@@ -142,9 +143,7 @@ func TestCloseWaitsForTheGoroutinesOfTheConnection(t *testing.T) {
 		t.Error("the call still waiting for its reply ended without an error")
 	}
 	close(hand.release)
-	for _, stack := range leftRunning(before) {
-		t.Errorf("a goroutine of the connection is still running after Close returned and the peer's methods were let go:\n%s", stack)
-	}
+	requireNoneLeftRunning(t, before, "the connection's goroutines to end after Close returned and the peer's methods were let go")
 }
 
 type closingHand struct {
@@ -170,13 +169,8 @@ func TestAMethodMayCloseItsOwnConnection(t *testing.T) {
 			server.DispatchInOrder(handIface, "Quit")
 		}
 		_ = client.Object(server.Names()[0], handPath).Call(handIface+".Quit", 0)
-		select {
-		case err := <-hand.closed:
-			if err != nil {
-				t.Errorf("ordered %v: Close from a method = %v", ordered, err)
-			}
-		case <-time.After(handWait):
-			t.Fatalf("ordered %v: Close called from a method of the connection never returned", ordered)
+		if err := waittest.For(t, hand.closed, fmt.Sprintf("ordered %v: Close called from a method of the connection to return", ordered)); err != nil {
+			t.Errorf("ordered %v: Close from a method = %v", ordered, err)
 		}
 	}
 }
@@ -197,7 +191,5 @@ func TestAConnectionClosedByItsContextLeavesNoGoroutine(t *testing.T) {
 	if err := conn.Close(); err != nil {
 		t.Errorf("Close = %v", err)
 	}
-	for _, stack := range leftRunning(before) {
-		t.Errorf("a goroutine of the connection is still running after Close returned:\n%s", stack)
-	}
+	requireNoneLeftRunning(t, before, "the connection's goroutines to end after Close returned")
 }

@@ -3,6 +3,8 @@ package uevent
 import (
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestParseReadsAKernelUevent(t *testing.T) {
@@ -52,12 +54,7 @@ func TestCloseUnblocksNext(t *testing.T) {
 	if err := reader.Close(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case err := <-done:
-		if err == nil {
-			t.Error("Next after Close returned no error")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("Close did not unblock Next")
+	if err := waittest.For(t, done, "Close to unblock Next"); err == nil {
+		t.Error("Next after Close returned no error")
 	}
 }

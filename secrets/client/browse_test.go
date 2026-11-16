@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/client"
 	"github.com/stubbedev/lys/secrets/secretbus"
@@ -82,11 +82,7 @@ func TestDeletingAnItemIsAnnouncedAndChangeLockRekeys(t *testing.T) {
 	if err := c.DeleteItem(ctx, items[0]); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-changed:
-	case <-time.After(10 * time.Second):
-		t.Fatal("no ItemDeleted")
-	}
+	waittest.For(t, changed, "the ItemDeleted announcement")
 	if left, _ := c.Search(ctx, client.LoginCollection); len(left) != 0 {
 		t.Fatalf("%v left", left)
 	}
@@ -135,11 +131,7 @@ func TestWatchItemsClosesTheDescriptorsOfAnImpostorsAnnouncement(t *testing.T) {
 	if err := c.StoreLogin(ctx, "Mail", map[string]string{"service": "mail"}, []byte("pw")); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-changed:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the provider's ItemCreated behind the impostor's was not announced")
-	}
+	waittest.For(t, changed, "the provider's ItemCreated behind the impostor's")
 	pipe.RequireEveryCopyClosed(t)
 }
 

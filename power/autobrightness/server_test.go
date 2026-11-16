@@ -5,16 +5,14 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/power/autobrightness"
 )
-
-const timeout = 5 * time.Second
 
 func serve(t *testing.T, bus *dbustest.Bus, initial autobrightness.State, resume func(context.Context) error) *autobrightness.Server {
 	t.Helper()
@@ -43,17 +41,12 @@ func watch(t *testing.T, conn *dbus.Conn) <-chan *dbus.Signal {
 func next(t *testing.T, signals <-chan *dbus.Signal) autobrightness.State {
 	t.Helper()
 	for {
-		select {
-		case sig := <-signals:
-			state, ok, err := autobrightness.Changed(sig)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if ok {
-				return state
-			}
-		case <-time.After(timeout):
-			t.Fatal("no State change within the timeout")
+		state, ok, err := autobrightness.Changed(waittest.For(t, signals, "a State change"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			return state
 		}
 	}
 }

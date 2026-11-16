@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func openFilter(t *testing.T) (*Filter, *atomic.Int32) {
@@ -265,11 +266,7 @@ func roundtripFilter(t *testing.T, f *Filter) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-done.ch:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no sync reply")
-	}
+	waittest.For(t, done.ch, "the sync reply")
 }
 
 type syncDone struct{ ch chan struct{} }

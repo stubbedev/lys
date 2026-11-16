@@ -6,6 +6,8 @@ import (
 	"errors"
 	"runtime"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func goroutinesIn(frame string) int {
@@ -48,7 +50,7 @@ func TestNoSubscriptionGoroutineOutlivesStopOrClose(t *testing.T) {
 	}
 
 	stop := subscribe()
-	waitFor(t, "one subscription goroutine", func() bool { return subscriptionGoroutines() == 1 })
+	waittest.Until(t, func() bool { return subscriptionGoroutines() == 1 }, "one subscription goroutine")
 	stop()
 	if n := subscriptionGoroutines(); n != 0 {
 		t.Errorf("%d subscription goroutines left once stop returned", n)
@@ -56,7 +58,7 @@ func TestNoSubscriptionGoroutineOutlivesStopOrClose(t *testing.T) {
 
 	subscribe()
 	subscribe()
-	waitFor(t, "two subscription goroutines", func() bool { return subscriptionGoroutines() == 2 })
+	waittest.Until(t, func() bool { return subscriptionGoroutines() == 2 }, "two subscription goroutines")
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -72,9 +74,9 @@ func TestNoCaptureGoroutineOutlivesClose(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	waitFor(t, "two capture and two subscription goroutines", func() bool {
+	waittest.Until(t, func() bool {
 		return captureGoroutines() == 2 && subscriptionGoroutines() == 2
-	})
+	}, "two capture and two subscription goroutines")
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}

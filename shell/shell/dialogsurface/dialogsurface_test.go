@@ -21,6 +21,8 @@ import (
 
 const testAppID = "lys-shell-test-dialog"
 
+const quietWindow = 300 * time.Millisecond
+
 func TestParentHandle(t *testing.T) {
 	for _, tc := range []struct {
 		parent, handle string
@@ -159,12 +161,10 @@ func TestADialogWithoutAWaylandParentIsTheOverlay(t *testing.T) {
 				t.Errorf("the overlay's tree was built for %v, want the overlay alone", got)
 			}
 			other := r.MapOther(t)
-			deadline := time.Now().Add(300 * time.Millisecond)
-			for time.Now().Before(deadline) {
+			for deadline := time.Now().Add(quietWindow); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
 				if other() {
 					t.Fatal("another window took the keyboard from the modal overlay")
 				}
-				time.Sleep(20 * time.Millisecond)
 			}
 			if got := logged(); len(got) != 0 {
 				t.Errorf("the overlay path warned: %q", got)
@@ -313,7 +313,7 @@ func (g *growing) await(t *testing.T, what string, want widget.Size) {
 func (g *growing) holds(t *testing.T, what string, want widget.Size) {
 	t.Helper()
 	apptest.Dispatched(t, g.r.Shell)
-	for deadline := time.Now().Add(300 * time.Millisecond); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+	for deadline := time.Now().Add(quietWindow); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
 		if got := g.seen.last(); got != want {
 			t.Fatalf("%s: the window took %v, want it kept at %v", what, got, want)
 		}

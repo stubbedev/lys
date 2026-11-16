@@ -3,13 +3,14 @@ package wlsession
 import (
 	"errors"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // AfterSync runs its func from the dispatch of the compositor's answer,
 // not before, even when that answer is the next event a Step reads.
 func TestAfterSyncRunsOnTheAnswer(t *testing.T) {
-	s, _, answered := newSyncSession(t)
+	s, _, _ := newSyncSession(t)
 	ran := false
 	if err := s.AfterSync(func() { ran = true }); err != nil {
 		t.Fatal(err)
@@ -19,13 +20,8 @@ func TestAfterSyncRunsOnTheAnswer(t *testing.T) {
 	}
 	stepped := make(chan error, 1)
 	go func() { stepped <- s.Step() }()
-	select {
-	case err := <-stepped:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatalf("no answer dispatched (%d syncs answered)", answered.Load())
+	if err := waittest.For(t, stepped, "the sync's answer to be dispatched"); err != nil {
+		t.Fatal(err)
 	}
 	if !ran {
 		t.Error("the answer was dispatched and the func did not run")

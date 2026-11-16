@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/splash/internal/protocol"
 )
@@ -43,20 +44,9 @@ func (r *recorder) HangUp(c *Conn) {
 	r.events <- event{hung: c}
 }
 
-func (r *recorder) next(t *testing.T) event {
-	t.Helper()
-	select {
-	case e := <-r.events:
-		return e
-	case <-time.After(5 * time.Second):
-		t.Fatal("no request or hang-up within 5s")
-		return event{}
-	}
-}
-
 func (r *recorder) request(t *testing.T) *Call {
 	t.Helper()
-	e := r.next(t)
+	e := waittest.For(t, r.events, "a request or hang-up")
 	if e.call == nil {
 		t.Fatal("got a hang-up, want a request")
 	}
@@ -65,7 +55,7 @@ func (r *recorder) request(t *testing.T) *Call {
 
 func (r *recorder) hangUp(t *testing.T) *Conn {
 	t.Helper()
-	e := r.next(t)
+	e := waittest.For(t, r.events, "a request or hang-up")
 	if e.hung == nil {
 		t.Fatalf("got %#v, want a hang-up", e.call.Request)
 	}
@@ -319,7 +309,7 @@ func TestPlymouthClient(t *testing.T) {
 		}
 		var got []protocol.Request
 		for {
-			e := r.next(t)
+			e := waittest.For(t, r.events, "a request or hang-up")
 			if e.hung != nil {
 				break
 			}
@@ -395,15 +385,6 @@ func serveStalled(t *testing.T) (*recorder, *stalled, *net.UnixConn) {
 	return r, st, dial(t, name)
 }
 
-func entered(t *testing.T, st *stalled) {
-	t.Helper()
-	select {
-	case <-st.entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the writer never wrote")
-	}
-}
-
 func TestAClientThatStopsReadingCostsTheLoopNoWrites(t *testing.T) {
 	t.Parallel()
 	r, st, c := serveStalled(t)
@@ -412,7 +393,7 @@ func TestAClientThatStopsReadingCostsTheLoopNoWrites(t *testing.T) {
 	if err := call.Reply(protocol.Ack{}); err != nil {
 		t.Fatal(err)
 	}
-	entered(t, st)
+	waittest.For(t, st.entered, "the writer to write")
 	passes := 0
 	for range replyQueue {
 		send(t, c, "P\x00")
@@ -449,7 +430,7 @@ func TestATimedOutWriteDropsTheConnection(t *testing.T) {
 	if err := call.Reply(protocol.Ack{}); err != nil {
 		t.Fatal(err)
 	}
-	entered(t, st)
+	waittest.For(t, st.entered, "the writer to write")
 	r.hangUp(t)
 	if err := (&Call{Request: protocol.Ping{}, conn: call.Conn()}).Reply(protocol.Ack{}); err != nil {
 		t.Errorf("a reply after the drop: %v", err)
@@ -468,7 +449,7 @@ func TestQueuedAnswersAreZeroedWrittenOrDropped(t *testing.T) {
 	if err := call.Reply(secret); err != nil {
 		t.Fatal(err)
 	}
-	entered(t, st)
+	waittest.For(t, st.entered, "the writer to write")
 	var held [][]byte
 	conn := call.Conn()
 	for range 3 {
@@ -488,11 +469,7 @@ func TestQueuedAnswersAreZeroedWrittenOrDropped(t *testing.T) {
 		t.Fatalf("held %q, want four encoded answers", held)
 	}
 	st.end <- os.ErrDeadlineExceeded
-	select {
-	case <-conn.drained:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the writer never drained")
-	}
+	waittest.For(t, conn.drained, "the writer to drain")
 	for i, b := range held {
 		if slices.ContainsFunc(b, func(v byte) bool { return v != 0 }) {
 			t.Errorf("reply %d is left in memory: %q", i, b)

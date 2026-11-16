@@ -7,7 +7,10 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
+
+const quietWindow = 100 * time.Millisecond
 
 type fakeManager struct{ on dbustest.Var[bool] }
 
@@ -47,11 +50,7 @@ func TestOnBatteryFollowsUPower(t *testing.T) {
 	if err := conn.Emit(managerPath, propertiesInterface+".PropertiesChanged", BusName, map[string]dbus.Variant{"OnBattery": dbus.MakeVariant(true)}, []string{}); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-ticks:
-	case <-ctx.Done():
-		t.Fatal("no tick for OnBattery changing")
-	}
+	waittest.For(t, ticks, "a tick for OnBattery changing")
 	if on, err := s.OnBattery(ctx); err != nil || !on {
 		t.Fatalf("OnBattery = %v, %v; want true", on, err)
 	}
@@ -61,7 +60,7 @@ func TestOnBatteryFollowsUPower(t *testing.T) {
 	select {
 	case <-ticks:
 		t.Error("a battery device change ticked the power source")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 

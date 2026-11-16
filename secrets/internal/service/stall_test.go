@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/internal/keyring"
 	"github.com/stubbedev/lys/secrets/secretbus"
@@ -35,23 +36,21 @@ func (g *gate) pass() {
 
 func (g *gate) reached(t *testing.T, what string) {
 	t.Helper()
-	select {
-	case <-g.entered:
-	case <-time.After(5 * time.Second):
-		t.Fatalf("%s never started", what)
-	}
+	waittest.For(t, g.entered, what+" to start")
 }
 
 func finished[T any](t *testing.T, what string, c <-chan T) T {
 	t.Helper()
-	select {
-	case v := <-c:
-		return v
-	case <-time.After(5 * time.Second):
-		buf := make([]byte, 1<<16)
-		t.Fatalf("%s did not finish while the slow step was pending:\n%s", what, buf[:runtime.Stack(buf, true)])
-		panic("unreachable")
-	}
+	done := false
+	defer func() {
+		if !done {
+			buf := make([]byte, 1<<16)
+			t.Logf("the goroutines while the slow step was pending:\n%s", buf[:runtime.Stack(buf, true)])
+		}
+	}()
+	v := waittest.For(t, c, what+" to finish while the slow step was pending")
+	done = true
+	return v
 }
 
 type stallFixture struct {
@@ -149,19 +148,11 @@ func TestChangeLockAndFirstLoginRunTheKDFWithoutTheLock(t *testing.T) {
 	f.kdf.reached(t, "the new password's KDF")
 	f.search(t)
 	close(f.kdf.release)
-	deadline := time.Now().Add(5 * time.Second)
-	for {
+	waittest.Until(t, func() bool {
 		f.svc.mu.Lock()
-		pending := len(f.svc.prompts)
-		f.svc.mu.Unlock()
-		if pending == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the prompt did not complete")
-		}
-		time.Sleep(time.Millisecond)
-	}
+		defer f.svc.mu.Unlock()
+		return len(f.svc.prompts) == 0
+	}, "the prompt to complete")
 	if got := f.underLock.Load(); got != 0 {
 		t.Errorf("%d KDF calls with the lock held", got)
 	}
@@ -477,11 +468,7 @@ func TestABlockedBusHoldsNoRead(t *testing.T) {
 		close(finishedSearch)
 	}()
 	finished(t, "the read during a blocked Emit", finishedSearch)
-	select {
-	case <-entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the signal was never sent")
-	}
+	waittest.For(t, entered, "the signal to be sent")
 	close(release)
 	queue.drain(time.After(5 * time.Second))
 	mu.Lock()

@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"fmt"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -8,11 +9,11 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/ui/app"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -126,11 +127,7 @@ func watchLoop(a *app.Application) *loopWatch {
 func (w *loopWatch) await(t *testing.T, n int64) {
 	t.Helper()
 	w.want.Store(w.ticks.Load() + n)
-	select {
-	case <-w.reached:
-	case <-time.After(10 * time.Second):
-		t.Fatalf("the loop made %d passes with a paste pending, want %d more", w.ticks.Load(), n)
-	}
+	waittest.For(t, w.reached, fmt.Sprintf("the loop to make %d more passes with a paste pending", n))
 }
 
 func awaitOffer(t *testing.T, a *app.Application, clip *app.Clipboard) {

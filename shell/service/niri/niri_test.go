@@ -15,6 +15,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeNiri answers the JSON-lines protocol: canned workspace/window
@@ -218,22 +219,12 @@ func TestSubscribeTicksAndStopCloses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Subscribe: %v", err)
 	}
-	select {
-	case <-ticks:
-	case <-time.After(2 * time.Second):
-		t.Fatal("no tick for the event line")
-	}
+	waittest.For(t, ticks, "a tick for the event line")
 	stop()
-	select {
-	case _, ok := <-ticks:
-		if ok {
-			// A buffered tick may drain first; the close must follow.
-			if _, ok := <-ticks; ok {
-				t.Fatal("ticks still open after stop")
-			}
+	for {
+		if _, open := waittest.Receive(t, ticks, "the ticks to close after stop"); !open {
+			break
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("ticks not closed after stop")
 	}
 }
 
@@ -357,12 +348,7 @@ func TestAnEventStreamMayStaySilentPastTheRequestDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stop()
-	select {
-	case _, open := <-ticks:
-		if !open {
-			t.Fatal("the stream ended at the handshake's deadline")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no event after the handshake's deadline passed")
+	if _, open := waittest.Receive(t, ticks, "an event after the handshake's deadline passed"); !open {
+		t.Fatal("the stream ended at the handshake's deadline")
 	}
 }

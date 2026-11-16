@@ -2,6 +2,7 @@ package bar
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -85,15 +86,14 @@ func autoHidingDockRevealsAtTheEdge(t *testing.T) {
 	}
 	wait := func(what string, cond func(state) bool) state {
 		t.Helper()
-		for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
-			s := read()
-			if cond(s) {
-				return s
+		var s state
+		untilNil(t, what, func() error {
+			if s = read(); cond(s) {
+				return nil
 			}
-			if time.Now().After(deadline) {
-				t.Fatalf("timed out waiting for %s: %+v", what, s)
-			}
-		}
+			return fmt.Errorf("%+v", s)
+		})
+		return s
 	}
 	pointer, err := vinput.Dial("", vinput.Options{})
 	if err != nil {

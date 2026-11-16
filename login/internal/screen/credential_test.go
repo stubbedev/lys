@@ -1,12 +1,12 @@
 package screen
 
 import (
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 )
@@ -183,16 +184,15 @@ func TestThePeekIconsNeedNoDiskAfterThePromptIsBuilt(t *testing.T) {
 		pix := make([]byte, 4*64*64)
 		cv := render.NewScaled(pix, 4*64, 64, 64, num, denom)
 		widget.PaintChild(cv, p.scaleWatch)
-		deadline := time.Now().Add(5 * time.Second)
-		for !widget.ThemeIconPreloaded(peekReveal, p.iconPx, num, denom) || !widget.ThemeIconPreloaded(peekConceal, p.iconPx, num, denom) {
+		waittest.Until(t, func() bool {
+			if widget.ThemeIconPreloaded(peekReveal, p.iconPx, num, denom) && widget.ThemeIconPreloaded(peekConceal, p.iconPx, num, denom) {
+				return true
+			}
 			if removed {
 				t.Fatalf("scale %d/%d: the peek icons are not decoded and their files are gone", num, denom)
 			}
-			if time.Now().After(deadline) {
-				t.Fatalf("scale %d/%d: the peek icons were not decoded in 5s", num, denom)
-			}
-			time.Sleep(time.Millisecond)
-		}
+			return false
+		}, fmt.Sprintf("the peek icons at scale %d/%d to be decoded", num, denom))
 		if err := os.RemoveAll(dir); err != nil {
 			t.Fatal(err)
 		}

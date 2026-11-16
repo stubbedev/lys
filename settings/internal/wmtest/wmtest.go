@@ -16,14 +16,14 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
-// Bound is how long a test waits for lys-wm before it fails.
+// Bound limits one command run against lys-wm, and how long lys-wm gets
+// to stop before it is killed.
 const Bound = 60 * time.Second
-
-const poll = 50 * time.Millisecond
 
 // Need skips t outside `just test`, which sets LYS_SETTINGS_HEADLESS away
 // from the desktop session, and puts lys-wm and lys-wmctl, built from this
@@ -140,7 +140,7 @@ func Start(t *testing.T, config string) *Session {
 			t.Logf("lys-wm said:\n%s", s.logs.String())
 		}
 	})
-	s.Until("lys-wm answers", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		select {
 		case <-exited:
 			t.Fatalf("lys-wm exited: %v\n%s", waitErr, s.logs.String())
@@ -148,24 +148,12 @@ func Start(t *testing.T, config string) *Session {
 		}
 		_, err := s.Ctl("version")
 		return err == nil
-	})
+	}, "lys-wm to answer")
 	return s
 }
 
 // Stop ends lys-wm before the test does.
 func (s *Session) Stop() { s.stop() }
-
-// Until polls ok until it holds, failing the test after Bound.
-func (s *Session) Until(what string, ok func() bool) {
-	s.t.Helper()
-	deadline := time.Now().Add(Bound)
-	for !ok() {
-		if time.Now().After(deadline) {
-			s.t.Fatalf("no %s in %s", what, Bound)
-		}
-		time.Sleep(poll)
-	}
-}
 
 // Ctl runs lys-wmctl against this lys-wm and returns its trimmed output.
 func (s *Session) Ctl(args ...string) (string, error) {

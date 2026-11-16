@@ -105,9 +105,8 @@ func TestAWaylandDragDropsIntoAnXWindow(t *testing.T) {
 	x.release()
 	xc.xdnd("XdndDrop")
 	x.a.seen(t, "the drop performed", func() bool { return slices.Contains(x.src.Log, "dropped") })
-	typ, got := xc.paste(x.xwin, "XdndSelection", "UTF8_STRING", func(done <-chan struct{}) {
+	typ, got := xc.paste(x.xwin, "XdndSelection", "UTF8_STRING", func(<-chan struct{}) {
 		x.a.seen(t, "the source asked for the text", func() bool { return slices.Contains(x.src.Log, "send text/plain;charset=utf-8") })
-		<-done
 	})
 	if typ != xc.atoms["UTF8_STRING"] || string(got) != "dropped into X" {
 		t.Fatalf("the X window got %q of type %d", got, typ)

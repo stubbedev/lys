@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/desktop/service/backlight/backlighttest"
 	"github.com/stubbedev/lys/desktop/uevent"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type fakeUevents struct {
@@ -51,16 +52,7 @@ func newTestSystemWithEvents(t *testing.T, external bool) (*System, chan<- ueven
 	return sys, events.events
 }
 
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-}
+const quietWindow = 100 * time.Millisecond
 
 func ddcNames(t *testing.T, sys *System) []string {
 	t.Helper()
@@ -97,7 +89,7 @@ func TestExternalMonitorsAppearAfterTheDetachedScan(t *testing.T) {
 	fake := newFakeI2C(t)
 	fake.plug(t, 6, &fakeMonitor{current: 40, max: 100})
 	sys := newTestSystem(t, true)
-	waitFor(t, "the initial DDC scan", func() bool { return len(ddcNames(t, sys)) == 1 })
+	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 }
 
 func TestExternalDisabledNeverScans(t *testing.T) {
@@ -106,7 +98,7 @@ func TestExternalDisabledNeverScans(t *testing.T) {
 	fake.plug(t, 6, &fakeMonitor{current: 40, max: 100})
 	sys, events := newTestSystemWithEvents(t, false)
 	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if names := ddcNames(t, sys); len(names) != 0 {
 		t.Errorf("enable-external=false still found %v", names)
 	}
@@ -122,34 +114,30 @@ func TestDRMHotplugRescansAndTicks(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stop()
-	waitFor(t, "the initial DDC scan", func() bool { return len(ddcNames(t, sys)) == 1 })
+	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 	// The detached initial scan ticks only when it finished after the
 	// subscription; consume that tick if it came, never wait on one
 	// that cannot (a fast scan under -race hung here).
 	select {
 	case <-ticks:
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 
 	fake.plug(t, 8, &fakeMonitor{current: 70, max: 100})
 	// A non-hotplug DRM change must not rescan.
 	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{}}
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if names := ddcNames(t, sys); len(names) != 1 {
 		t.Fatalf("a mode-set change rescanned: %v", names)
 	}
 
 	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
-	waitFor(t, "the hotplug rescan", func() bool { return len(ddcNames(t, sys)) == 2 })
-	select {
-	case <-ticks:
-	case <-time.After(3 * time.Second):
-		t.Fatal("no tick after a monitor appeared")
-	}
+	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 2 }, "the hotplug rescan")
+	waittest.For(t, ticks, "a tick after a monitor appeared")
 
 	fake.unplug(t, 8)
 	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
-	waitFor(t, "the unplug rescan", func() bool { return len(ddcNames(t, sys)) == 1 })
+	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the unplug rescan")
 }
 
 func TestSetRoutesDDCNamesToTheMonitor(t *testing.T) {
@@ -158,15 +146,15 @@ func TestSetRoutesDDCNamesToTheMonitor(t *testing.T) {
 	monitor := &fakeMonitor{current: 10, max: 200}
 	fake.plug(t, 2, monitor)
 	sys := newTestSystem(t, true)
-	waitFor(t, "the initial DDC scan", func() bool { return len(ddcNames(t, sys)) == 1 })
+	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 
 	if err := sys.Set(context.Background(), "ddci2c-2", 50); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the DDC write", func() bool {
+	waittest.Until(t, func() bool {
 		w := monitor.written()
 		return len(w) > 0 && w[len(w)-1] == 100
-	})
+	}, "the DDC write")
 	devices, _ := sys.Devices(context.Background())
 	for _, d := range devices {
 		if d.Name == "ddci2c-2" && d.Brightness != 100 {
@@ -205,7 +193,7 @@ func TestSetExternalOffClosesTheBusesAndStopsScanning(t *testing.T) {
 	monitor := &fakeMonitor{current: 40, max: 100}
 	fake.plug(t, 6, monitor)
 	sys, events := newTestSystemWithEvents(t, true)
-	waitFor(t, "the initial DDC scan", func() bool { return len(ddcNames(t, sys)) == 1 })
+	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 	ticks, stop, err := sys.Subscribe(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -222,15 +210,11 @@ func TestSetExternalOffClosesTheBusesAndStopsScanning(t *testing.T) {
 	if closes == 0 {
 		t.Error("enable-external turned off left the bus open")
 	}
-	select {
-	case <-ticks:
-	case <-time.After(3 * time.Second):
-		t.Error("no tick after the monitors went away")
-	}
+	waittest.For(t, ticks, "a tick after the monitors went away")
 
 	fake.plug(t, 8, &fakeMonitor{current: 70, max: 100})
 	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if names := ddcNames(t, sys); len(names) != 0 {
 		t.Errorf("a hotplug with enable-external off scanned: %v", names)
 	}
@@ -251,7 +235,7 @@ func TestSetExternalOnScansAndARepeatDoesNot(t *testing.T) {
 		t.Fatalf("enable-external off found %v", names)
 	}
 	sys.SetExternal(true)
-	waitFor(t, "the scan on enable", func() bool { return len(ddcNames(t, sys)) == 1 })
+	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the scan on enable")
 	manager := sys.ddc.Load()
 	sys.SetExternal(true)
 	if sys.ddc.Load() != manager {

@@ -20,12 +20,14 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/ui/internal/atspi/proto"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
+
+const quietWindow = 200 * time.Millisecond
 
 // ref mirrors the (so) object reference for Store targets.
 type ref struct {
@@ -647,7 +649,7 @@ func TestEvents(t *testing.T) {
 	// First sample already happened in the fixture; the first Refresh
 	// below diffs against it. Walk to find the paths.
 	f.br.Refresh() // settle the tree under the event listener
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	f.bus.drainSignals()
 
 	paths := f.walk(t)
@@ -706,7 +708,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("an edit fires TextChanged, a selection TextSelectionChanged", func(t *testing.T) {
-		time.Sleep(50 * time.Millisecond) // the caret test's insert event lands, then goes
+		time.Sleep(quietWindow) // the caret test's insert event lands, then goes
 		f.bus.drainSignals()
 		f.scene.Invoke(func() {
 			f.entry.Select(0, 6)

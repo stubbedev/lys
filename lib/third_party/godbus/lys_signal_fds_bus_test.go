@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const (
@@ -19,6 +20,8 @@ const (
 	handPath   = dbus.ObjectPath("/dev/stubbe/lys/Hand")
 	handWait   = 5 * time.Second
 )
+
+const quietWindow = 50 * time.Millisecond
 
 func openDescriptors(t *testing.T) int {
 	t.Helper()
@@ -117,16 +120,11 @@ func descriptorsOf(t *testing.T, sig *dbus.Signal) []int {
 
 func awaitHand(t *testing.T, ch <-chan *dbus.Signal) *dbus.Signal {
 	t.Helper()
-	select {
-	case sig, ok := <-ch:
-		if !ok {
-			t.Fatal("the signal channel closed")
-		}
-		return sig
-	case <-time.After(handWait):
-		t.Fatalf("no %s within %s", handSignal, handWait)
-		return nil
+	sig := waittest.For(t, ch, handSignal)
+	if sig == nil {
+		t.Fatal("the signal channel closed")
 	}
+	return sig
 }
 
 // TestEachSignalChannelOwnsItsDescriptors is the descriptors patch
@@ -224,22 +222,11 @@ func TestASignalWithoutDescriptorsIsSharedAsUpstream(t *testing.T) {
 	if err := server.Emit(handPath, handIface+".Plain", "no descriptor"); err != nil {
 		t.Fatal(err)
 	}
-	a, b := awaitPlain(t, first), awaitPlain(t, second)
+	a, b := waittest.For(t, first, "the plain signal on the first channel"), waittest.For(t, second, "the plain signal on the second channel")
 	if a != b {
 		t.Error("a signal without descriptors was copied per channel")
 	}
 	if err := a.CloseFDs(); err != nil {
 		t.Errorf("CloseFDs of a signal without descriptors = %v", err)
-	}
-}
-
-func awaitPlain(t *testing.T, ch <-chan *dbus.Signal) *dbus.Signal {
-	t.Helper()
-	select {
-	case sig := <-ch:
-		return sig
-	case <-time.After(handWait):
-		t.Fatalf("no signal within %s", handWait)
-		return nil
 	}
 }

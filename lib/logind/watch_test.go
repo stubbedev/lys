@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -14,23 +13,20 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
-type received struct {
-	events chan logind.Event
-	errs   chan error
+type decoded struct {
+	event logind.Event
+	err   error
 }
+
+type received chan decoded
 
 func watch(t *testing.T, s logind.Session) (*logind.Watch, received) {
 	t.Helper()
-	r := received{events: make(chan logind.Event, 32), errs: make(chan error, 32)}
-	w, err := s.Watch(t.Context(), func(e logind.Event, err error) {
-		if err != nil {
-			r.errs <- err
-			return
-		}
-		r.events <- e
-	})
+	r := make(received, 64)
+	w, err := s.Watch(t.Context(), func(e logind.Event, err error) { r <- decoded{e, err} })
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
@@ -40,15 +36,11 @@ func watch(t *testing.T, s logind.Session) (*logind.Watch, received) {
 
 func (r received) next(t *testing.T) logind.Event {
 	t.Helper()
-	select {
-	case e := <-r.events:
-		return e
-	case err := <-r.errs:
-		t.Fatalf("the watch failed to decode a signal: %v", err)
-	case <-time.After(wait):
-		t.Fatal("no event within " + wait.String())
+	d := waittest.For(t, r, "an event of the watch")
+	if d.err != nil {
+		t.Fatalf("the watch failed to decode a signal: %v", d.err)
 	}
-	return nil
+	return d.event
 }
 
 func TestWatchDecodesEverySignalOfTheSession(t *testing.T) {
@@ -126,20 +118,16 @@ func TestWatchIgnoresSignalsNotFromLogind(t *testing.T) {
 	if e := r.next(t); e != (logind.Unlocked{}) {
 		t.Fatalf("event %#v, want logind's Unlock and nothing forged before it", e)
 	}
-	for deadline := time.Now().Add(wait); ; time.Sleep(5 * time.Millisecond) {
+	waittest.Until(t, func() bool {
 		n, err := unix.Read(fds[0], make([]byte, 1))
-		if n == 0 && err == nil {
-			break
-		}
-		if !errors.Is(err, unix.EAGAIN) || time.Now().After(deadline) {
+		if err != nil && !errors.Is(err, unix.EAGAIN) {
 			t.Fatalf("read the forged ResumeDevice's pipe = %d, %v; want end of file, its descriptor closed", n, err)
 		}
-	}
+		return n == 0 && err == nil
+	}, "the forged ResumeDevice's descriptor to close")
 	select {
-	case e := <-r.events:
-		t.Errorf("a forged signal was reported: %#v", e)
-	case err := <-r.errs:
-		t.Errorf("a forged signal was decoded: %v", err)
+	case d := <-r:
+		t.Errorf("a forged signal was reported: %#v, %v", d.event, d.err)
 	default:
 	}
 }
@@ -186,11 +174,7 @@ func TestAWatchEndsWithItsContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancel()
-	select {
-	case <-w.Done():
-	case <-time.After(wait):
-		t.Fatal("the watch outlived its context")
-	}
+	waittest.For(t, w.Done(), "the watch to end with its context")
 	if err := w.Stop(); err != nil {
 		t.Errorf("Stop after the context ended = %v", err)
 	}
@@ -211,11 +195,7 @@ func TestAWatchEndsWithItsConnection(t *testing.T) {
 	if err := conn.Close(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-w.Done():
-	case <-time.After(wait):
-		t.Fatal("the watch outlived its connection")
-	}
+	waittest.For(t, w.Done(), "the watch to end with its connection")
 	if err := w.Stop(); !errors.Is(err, logind.ErrDisconnected) {
 		t.Errorf("Stop = %v, want ErrDisconnected", err)
 	}
@@ -238,13 +218,8 @@ func TestWaitLocked(t *testing.T) {
 	if err := s.Lock(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("WaitLocked = %v", err)
-		}
-	case <-time.After(wait):
-		t.Fatal("WaitLocked missed LockedHint turning true")
+	if err := waittest.For(t, done, "WaitLocked to see LockedHint turn true"); err != nil {
+		t.Fatalf("WaitLocked = %v", err)
 	}
 	if err := s.WaitLocked(t.Context()); err != nil {
 		t.Errorf("WaitLocked on a locked session = %v", err)
@@ -260,23 +235,20 @@ func TestWaitLockedReportsAChangeItCannotRead(t *testing.T) {
 	s := session(t, m, logind.AutoSession)
 	done := make(chan error, 1)
 	go func() { done <- s.WaitLocked(t.Context()) }()
-	announce := time.NewTicker(time.Millisecond)
-	defer announce.Stop()
-	deadline := time.After(wait)
-	for {
+	var err error
+	waittest.Until(t, func() bool {
 		select {
-		case err := <-done:
-			if err == nil || !strings.Contains(err.Error(), "LockedHint") || !strings.Contains(err.Error(), "changed to a s") {
-				t.Errorf("WaitLocked = %v, want the LockedHint that changed to a string", err)
-			}
-			return
-		case <-announce.C:
-			if !fake.AnnounceProperty(t, display, "LockedHint", "yes") {
-				return
-			}
-		case <-deadline:
-			t.Fatal("WaitLocked waited on after a LockedHint it could not read")
+		case err = <-done:
+			return true
+		default:
 		}
+		if !fake.AnnounceProperty(t, display, "LockedHint", "yes") {
+			t.FailNow()
+		}
+		return false
+	}, "WaitLocked to end on a LockedHint it cannot read")
+	if err == nil || !strings.Contains(err.Error(), "LockedHint") || !strings.Contains(err.Error(), "changed to a s") {
+		t.Errorf("WaitLocked = %v, want the LockedHint that changed to a string", err)
 	}
 }
 
@@ -295,14 +267,9 @@ func TestPrepareForSleepFollowsSuspend(t *testing.T) {
 	}
 	fake.PrepareForSleep(t, false)
 	for _, want := range []bool{true, false} {
-		select {
-		case sig := <-signals:
-			got, err := logind.PrepareForSleep.Decode(sig)
-			if err != nil || got.Start != want {
-				t.Fatalf("PrepareForSleep = %+v, %v; want start %v", got, err, want)
-			}
-		case <-time.After(wait):
-			t.Fatalf("no PrepareForSleep(%v)", want)
+		got, err := logind.PrepareForSleep.Decode(waittest.For(t, signals, "PrepareForSleep"))
+		if err != nil || got.Start != want {
+			t.Fatalf("PrepareForSleep = %+v, %v; want start %v", got, err, want)
 		}
 	}
 	if err := m.Power(t.Context(), logind.Suspend); err != nil {

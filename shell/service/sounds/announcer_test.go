@@ -3,13 +3,13 @@ package sounds
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -192,14 +193,8 @@ func TestAServerThatForgotItsSamplesAfterAReconnectGetsThemAgain(t *testing.T) {
 
 func waitPlay(t *testing.T, r *rig, want int) {
 	t.Helper()
-	for range 500 {
+	waittest.Until(t, func() bool {
 		r.notify("chat", nil)
-		if len(r.srv.Plays()) >= want {
-			return
-		}
-		sleepBriefly()
-	}
-	t.Fatalf("plays = %d, want %d", len(r.srv.Plays()), want)
+		return len(r.srv.Plays()) >= want
+	}, fmt.Sprintf("%d plays", want))
 }
-
-func sleepBriefly() { time.Sleep(10 * time.Millisecond) }

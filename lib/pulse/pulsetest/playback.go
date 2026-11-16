@@ -1,11 +1,12 @@
 package pulsetest
 
 import (
+	"fmt"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const defaultTargetLength = 8192
@@ -47,15 +48,12 @@ func (s *Server) Playbacks() []*Playback {
 // them.
 func (s *Server) WaitPlaybacks(t testing.TB, n int) []*Playback {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if ps := s.Playbacks(); len(ps) == n {
-			return ps
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatalf("pulsetest: %d playback streams, want %d", len(s.Playbacks()), n)
-	return nil
+	var ps []*Playback
+	waittest.Until(t, func() bool {
+		ps = s.Playbacks()
+		return len(ps) == n
+	}, fmt.Sprintf("pulsetest: %d playback streams", n))
+	return ps
 }
 
 // Data is the audio received so far.
@@ -70,15 +68,12 @@ func (p *Playback) Data() []byte {
 // them.
 func (p *Playback) WaitData(t testing.TB, n int) []byte {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if d := p.Data(); len(d) >= n {
-			return d
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatalf("pulsetest: %d bytes of playback audio, want %d", len(p.Data()), n)
-	return nil
+	var d []byte
+	waittest.Until(t, func() bool {
+		d = p.Data()
+		return len(d) >= n
+	}, fmt.Sprintf("pulsetest: %d bytes of playback audio", n))
+	return d
 }
 
 // Corked reports whether the client corked the stream.

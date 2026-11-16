@@ -19,9 +19,9 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const seatVar = "LYS_WM_SEAT"
@@ -212,13 +212,14 @@ func onASeat(t *testing.T, driver string) (*seat, *Output) {
 
 func (s *seat) until(what string, done func() bool) {
 	s.t.Helper()
-	met, err := loopUntil(s.l, done)
-	if err != nil {
-		s.t.Fatal(err)
-	}
-	if !met {
-		s.t.Fatalf("waited %v for %s: %d commits, last errors %v, reports %v", testenv.HangLimit, what, len(s.dev.commits), s.dev.errs[max(0, len(s.dev.errs)-4):], s.reports)
-	}
+	met := false
+	defer func() {
+		if !met {
+			s.t.Logf("%d commits, last errors %v, reports %v", len(s.dev.commits), s.dev.errs[max(0, len(s.dev.errs)-4):], s.reports)
+		}
+	}()
+	looptest.RunUntil(s.t, s.l, what, done)
+	met = true
 	if len(s.reports) > 0 {
 		s.t.Fatalf("%s: the backend reported %v", what, s.reports)
 	}

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/clib"
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type receiverLib struct {
@@ -155,13 +155,18 @@ func connect(t testing.TB, l *receiverLib, newContext func(unsafe.Pointer) uintp
 }
 
 // Until dispatches libei until done holds, failing the test with the
-// log after five seconds.
+// log when it does not within waittest's limit.
 func (c *Client) Until(what string, done func() bool) {
 	c.t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !done() {
-		if time.Now().After(deadline) {
-			c.t.Fatalf("no %s; libei saw %q", what, c.Log)
+	held := false
+	defer func() {
+		if !held {
+			c.t.Logf("libei saw %q", c.Log)
+		}
+	}()
+	waittest.Until(c.t, func() bool {
+		if held = done(); held {
+			return true
 		}
 		pfd := []unix.PollFd{{Fd: c.fd, Events: unix.POLLIN}}
 		if _, err := unix.Poll(pfd, 50); err != nil && !errors.Is(err, unix.EINTR) {
@@ -172,7 +177,9 @@ func (c *Client) Until(what string, done func() bool) {
 			c.record(ev)
 			c.l.eventUnref(ev)
 		}
-	}
+		held = done()
+		return held
+	}, what)
 }
 
 // Saw holds once the log has every entry.

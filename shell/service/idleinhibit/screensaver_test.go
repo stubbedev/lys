@@ -2,10 +2,10 @@ package idleinhibit
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestScreenSaverInhibitHoldsUntilUnInhibitOrTheCallerLeaves(t *testing.T) {
@@ -42,11 +42,7 @@ func TestScreenSaverInhibitHoldsUntilUnInhibitOrTheCallerLeaves(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = browser.Close()
-	for deadline := time.Now().Add(2 * time.Second); state.Inhibiting(); time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("a departed browser's ScreenSaver hold kept idle inhibited")
-		}
-	}
+	waittest.Until(t, func() bool { return !state.Inhibiting() }, "a departed browser's ScreenSaver hold to end")
 }
 
 func TestAScreenSaverOwnedElsewhereLeavesTheDaemonServing(t *testing.T) {

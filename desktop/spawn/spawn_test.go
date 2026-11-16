@@ -8,7 +8,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // lockedBuf is a log sink safe to read while the logger writes.
@@ -37,32 +38,21 @@ func captureLog(t *testing.T) *lockedBuf {
 	return buf
 }
 
-func waitFor(t *testing.T, what string, ok func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !ok() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-}
-
 func TestQuietRunsTheCommand(t *testing.T) {
 	onBus(t, nil)
 	marker := filepath.Join(t.TempDir(), "ran")
 	Quiet("echo hello > " + marker)
-	waitFor(t, "the command", func() bool {
+	waittest.Until(t, func() bool {
 		data, _ := os.ReadFile(marker)
 		return strings.TrimSpace(string(data)) == "hello"
-	})
+	}, "the command to run")
 }
 
 func TestQuietLogsFailures(t *testing.T) {
 	onBus(t, nil)
 	logs := captureLog(t)
 	Quiet("echo oops >&2; exit 3")
-	waitFor(t, "the failure log", func() bool { return strings.Contains(logs.String(), "exit 3: oops") })
+	waittest.Until(t, func() bool { return strings.Contains(logs.String(), "exit 3: oops") }, "the failure log")
 }
 
 func TestQuietEmptyRunsNothing(t *testing.T) {

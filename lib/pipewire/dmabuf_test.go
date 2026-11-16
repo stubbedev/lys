@@ -3,12 +3,12 @@ package pipewire
 import (
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestObjectPropFindsTheModifier(t *testing.T) {
@@ -103,16 +103,9 @@ func streamTo(t *testing.T, src Source, modifier *fourcc.Modifier) (consumed, *P
 		})
 	})
 	link(t)
-	deadline := time.After(5 * time.Second)
 	for {
-		select {
-		case f := <-c.frames:
-			if f.size > 0 {
-				return f, p
-			}
-		case <-deadline:
-			t.Fatal("no frame arrived")
-			return consumed{}, nil
+		if f := waittest.For(t, c.frames, "the first frame"); f.size > 0 {
+			return f, p
 		}
 	}
 }
@@ -188,16 +181,14 @@ func TestAnUnfinishedFillKeepsItsBuffer(t *testing.T) {
 	src := &lateSource{switched: make(chan struct{}, 1)}
 	mod := fourcc.Linear
 	_, p := streamTo(t, src, &mod)
-	deadline := time.After(5 * time.Second)
-	for src.sent.Load() < 3 {
+	waittest.Until(t, func() bool {
 		select {
 		case <-src.switched:
 			t.Fatal("a fill in progress lost its buffer to another")
-		case <-deadline:
-			t.Fatalf("%d frames sent in 5 s", src.sent.Load())
-		case <-time.After(10 * time.Millisecond):
+		default:
 		}
-	}
+		return src.sent.Load() >= 3
+	}, "three frames sent")
 	p.Close()
 	if !src.prepared {
 		t.Error("the source was never asked to prepare the next buffer")

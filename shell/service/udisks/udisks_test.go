@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/udisks"
 	"github.com/stubbedev/lys/shell/service/udisks/udiskstest"
@@ -25,6 +26,9 @@ const (
 	root      = dbus.ObjectPath("/org/freedesktop/UDisks2/block_devices/sda2")
 	hidden    = dbus.ObjectPath("/org/freedesktop/UDisks2/block_devices/sda3")
 )
+
+// quietWindow is how long a test watches for a change that must not come.
+const quietWindow = 150 * time.Millisecond
 
 func fixture(t *testing.T) (*udiskstest.UDisks, *udisks.Client) {
 	t.Helper()
@@ -165,21 +169,13 @@ func TestWatchFollowsHotplug(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wait := func(what string) {
-		t.Helper()
-		select {
-		case <-changed:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("no change for %s", what)
-		}
-	}
 	u.Remove(t, stickPart)
-	wait("the removal")
+	waittest.For(t, changed, "a change for the removal")
 	if _, ok := find(volumes(t, c), stickPart); ok {
 		t.Error("the removed stick is still listed")
 	}
 	u.AddVolume(t, stickPart, udiskstest.Volume{Label: "STICK", Drive: stick})
-	wait("the addition")
+	waittest.For(t, changed, "a change for the addition")
 	stop()
 	for len(changed) > 0 {
 		<-changed
@@ -188,7 +184,7 @@ func TestWatchFollowsHotplug(t *testing.T) {
 	select {
 	case <-changed:
 		t.Error("a change after stop was reported")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -219,12 +215,8 @@ func TestWatchIgnoresAnotherConnection(t *testing.T) {
 		}
 	}
 	u.Remove(t, stickPart)
-	for deadline := time.Now().Add(5 * time.Second); changes.Load() == 0; time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("no change for UDisks2's removal")
-		}
-	}
-	time.Sleep(150 * time.Millisecond)
+	waittest.Until(t, func() bool { return changes.Load() != 0 }, "a change for UDisks2's removal")
+	time.Sleep(quietWindow)
 	if n := changes.Load(); n != 1 {
 		t.Errorf("%d changes, want UDisks2's removal alone", n)
 	}
@@ -254,11 +246,7 @@ func TestWatchClosesTheDescriptorsOfTheSignalsItReads(t *testing.T) {
 	}
 	handled := dbustest.NewPipe(t)
 	change(handled.Write)
-	select {
-	case <-entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the watch did not report the change")
-	}
+	waittest.For(t, entered, "the watch to report the change")
 	unread := dbustest.NewPipe(t)
 	change(unread.Write)
 	if err := conn.BusObject().Call("org.freedesktop.DBus.GetId", 0).Err; err != nil {
@@ -270,11 +258,7 @@ func TestWatchClosesTheDescriptorsOfTheSignalsItReads(t *testing.T) {
 		close(stopped)
 	}()
 	close(release)
-	select {
-	case <-stopped:
-	case <-time.After(5 * time.Second):
-		t.Fatal("stop did not return once the change it waited on did")
-	}
+	waittest.For(t, stopped, "stop to return once the change it waited on did")
 	handled.RequireEveryCopyClosed(t)
 	unread.RequireEveryCopyClosed(t)
 }

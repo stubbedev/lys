@@ -158,7 +158,7 @@ func TestHeadlessCompositorKillExitsCleanly(t *testing.T) {
 	select {
 	case <-c.Exited():
 		t.Fatal("showcase exited before the compositor was killed")
-	case <-time.After(250 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 
 	pidFile := testEnv.PIDPath()

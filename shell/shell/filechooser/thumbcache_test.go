@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/fileuri"
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 func goroutineID() int64 {
@@ -78,7 +77,7 @@ func (hs *harness) openRows(t *testing.T, dir string, paths []string) int {
 	})
 	found := 0
 	for _, p := range paths {
-		hs.waitThumbFor(t, p, rowIconPx, treetest.Liveness)
+		hs.waitThumb(t, p, rowIconPx)
 		hs.run(func() {
 			if hs.c.thumbs.found[thumbKey{p, rowIconPx}] != nil {
 				found++

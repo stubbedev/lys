@@ -37,7 +37,7 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 	clock := h.buttons(1)[0]
 
 	var segs widget.Boundser
-	h.wait("the workspace with the probe on it", func() error {
+	untilNil(h.t, "the workspace with the probe on it", func() error {
 		var err error
 		h.onLoop(func() {
 			found := treetest.WithClass(h.bar.bar, "workspaces")
@@ -84,7 +84,7 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 	}
 
 	at(segs)
-	h.wait("the workspace preview to open on a rest", holds(1, ""))
+	untilNil(h.t, "the workspace preview to open on a rest", holds(1, ""))
 
 	at(clock)
 	for _, pressed := range []bool{true, false} {
@@ -95,5 +95,5 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h.wait("the first click on the clock to open its calendar in place of the preview", holds(1, "calendar"))
+	untilNil(h.t, "the first click on the clock to open its calendar in place of the preview", holds(1, "calendar"))
 }

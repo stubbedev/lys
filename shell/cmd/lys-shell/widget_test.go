@@ -3,9 +3,9 @@ package main
 import (
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/widgetipc"
 )
@@ -23,13 +23,8 @@ func TestWidgetUpdateReachesTheShell(t *testing.T) {
 	if code != 0 || stdout != "" || stderr != "" {
 		t.Fatalf("code %d stdout %q stderr %q", code, stdout, stderr)
 	}
-	select {
-	case u := <-srv.Updates():
-		if u.ID != "gpu" || u.Output != `{"text":"42"}` {
-			t.Errorf("update = %+v", u)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no update reached the shell")
+	if u := waittest.For(t, srv.Updates(), "the update to reach the shell"); u.ID != "gpu" || u.Output != `{"text":"42"}` {
+		t.Errorf("update = %+v", u)
 	}
 }
 

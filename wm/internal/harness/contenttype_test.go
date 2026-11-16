@@ -2,12 +2,13 @@ package harness
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"maps"
 	"regexp"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -16,7 +17,6 @@ import (
 	cct "github.com/stubbedev/lys/wm/internal/protocol/client/contenttype"
 	ctc "github.com/stubbedev/lys/wm/internal/protocol/client/tearingcontrol"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -32,20 +32,13 @@ func contentTypeManager(t *testing.T, c *testclient.Client) *cct.WpContentTypeMa
 
 func expectContentTypes(t *testing.T, h *Harness, want map[string]wm.ContentType) {
 	t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(t, func() bool {
 		got := map[string]wm.ContentType{}
 		for _, w := range query[[]ipc.Window](h, wmipc.KindWindows) {
 			got[w.Title] = w.ContentType
 		}
-		if maps.Equal(got, want) {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("IPC reports content types %v, want %v", got, want)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return maps.Equal(got, want)
+	}, fmt.Sprintf("IPC to report the content types %v", want))
 }
 
 func TestIPCReportsEachWindowsContentType(t *testing.T) {

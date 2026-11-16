@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/pango"
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -83,19 +84,6 @@ func (s *sink) last() Frame {
 	return s.frames[len(s.frames)-1]
 }
 
-const liveness = 5 * time.Second
-
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(liveness)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(time.Millisecond)
-	}
-}
-
 func start(t *testing.T, s *sink, freq *Frecency, providers ...Provider) *Engine {
 	t.Helper()
 	var open func() (*Frecency, error)
@@ -115,11 +103,7 @@ func startLevel(t *testing.T, s *sink, level *Level, open func() (*Frecency, err
 func stopped(t *testing.T, e *Engine) {
 	t.Helper()
 	e.Stop()
-	select {
-	case <-e.Done():
-	case <-time.After(liveness):
-		t.Error("the engine did not stop")
-	}
+	waittest.For(t, e.Done(), "the engine to stop")
 }
 
 func titles(f Frame) []string {
@@ -136,13 +120,7 @@ func titles(f Frame) []string {
 
 func until(t *testing.T, s *sink, want ...string) {
 	t.Helper()
-	deadline := time.Now().Add(liveness)
-	for !slices.Equal(titles(s.last()), want) {
-		if time.Now().After(deadline) {
-			t.Fatalf("rows = %q, want %q", titles(s.last()), want)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Equal(titles(s.last()), want) }, fmt.Sprintf("the rows %q", want))
 }
 
 func entry(title string) Entry { return Entry{ID: title, Learn: title, Title: title} }
@@ -312,7 +290,7 @@ func TestEmptyQueryAtTheRootShowsNothingWithNoHistory(t *testing.T) {
 	e := start(t, s, nil, p)
 	<-p.published
 	e.SetQuery("", 1)
-	waitFor(t, "a frame", func() bool { return s.last().QuerySeq == 1 })
+	waittest.Until(t, func() bool { return s.last().QuerySeq == 1 }, "a frame")
 	if rows := s.last().Rows; len(rows) != 0 {
 		t.Errorf("rows = %v", rows)
 	}
@@ -356,7 +334,7 @@ func TestAnswerLeadsAndWebClosesTheList(t *testing.T) {
 	web := NewWeb(Env{}, "E", "https://e/?q={query}")
 	e := start(t, s, nil, web, testCalculator(nil), &fakeProvider{spec: Spec{Section: SectionApps}, entries: []Entry{entry("2+2 app")}})
 	e.SetQuery("2+2", 1)
-	waitFor(t, "rows", func() bool { return len(s.last().Rows) >= 5 })
+	waittest.Until(t, func() bool { return len(s.last().Rows) >= 5 }, "rows")
 	got := titles(s.last())
 	if got[1] != "4" {
 		t.Errorf("first row = %v", got)
@@ -401,19 +379,15 @@ func TestActionsLevelAndBackRestoreTheQuery(t *testing.T) {
 	e.ShowActions("Thing")
 	until(t, s, "Open", "Copy")
 	e.Activate("1", 0)
-	select {
-	case got := <-ran:
-		if got != "copy" {
-			t.Errorf("ran %s", got)
-		}
-	case <-time.After(liveness):
-		t.Fatal("the action did not run")
+	if got := waittest.For(t, ran, "the action to run"); got != "copy" {
+		t.Errorf("ran %s", got)
 	}
-	waitFor(t, "finish", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.finished) == 1
-	})
+	}, "finish")
+
 	if c, ok := s.finished[0].(Copy); !ok || c.Text != "x" {
 		t.Errorf("finished %v", s.finished)
 	}
@@ -423,11 +397,11 @@ func TestBackAtTheRootCloses(t *testing.T) {
 	s := &sink{}
 	e := start(t, s, nil)
 	e.Back()
-	waitFor(t, "finish", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.finished) == 1
-	})
+	}, "finish")
 }
 
 func TestActivatingRecordsTheUse(t *testing.T) {
@@ -472,11 +446,7 @@ func TestStopCancelsProvidersAndLeavesNothingRunning(t *testing.T) {
 	defer close(gate)
 	e := Start(func(run func()) { go run() }, &Level{Providers: []Provider{&fakeProvider{spec: Spec{Section: SectionApps}, gate: gate}}}, nil, s, func(fn func()) { fn() })
 	e.Stop()
-	select {
-	case <-e.Done():
-	case <-time.After(liveness):
-		t.Fatal("a provider kept the engine alive")
-	}
+	waittest.For(t, e.Done(), "a provider to let the engine stop")
 }
 
 func TestConvert(t *testing.T) {
@@ -558,7 +528,7 @@ func TestScriptArgumentsStayData(t *testing.T) {
 	s := &sink{}
 	e := start(t, s, nil, NewScripts(Env{}, dir))
 	e.SetQuery("c", 1)
-	waitFor(t, "row", func() bool { return len(titles(s.last())) > 0 })
+	waittest.Until(t, func() bool { return len(titles(s.last())) > 0 }, "row")
 	id := ""
 	for _, r := range s.last().Rows {
 		if r.Header == "" {
@@ -566,19 +536,21 @@ func TestScriptArgumentsStayData(t *testing.T) {
 		}
 	}
 	e.Activate(id, 0)
-	waitFor(t, "the argument level", func() bool { return s.last().CanSubmit })
+	waittest.Until(t, func() bool { return s.last().CanSubmit }, "the argument level")
 	e.Submit("")
-	waitFor(t, "the refusal", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.notices) == 1
-	})
+	}, "the refusal")
+
 	e.Submit("; rm -rf $HOME")
-	waitFor(t, "finish", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.finished) == 1
-	})
+	}, "finish")
+
 	if c, ok := s.finished[0].(Copy); !ok || c.Text != "; rm -rf $HOME" {
 		t.Errorf("finished %+v", s.finished[0])
 	}
@@ -870,22 +842,23 @@ func TestModeLevelHostsAModeWithItsPrompts(t *testing.T) {
 	e.SetQuery("vault", 1)
 	until(t, s, "vault")
 	e.Activate("vault", 0)
-	waitFor(t, "the masked prompt", func() bool { return s.last().Mask })
+	waittest.Until(t, func() bool { return s.last().Mask }, "the masked prompt")
 	if f := s.last(); f.Message != "locked" || !f.CanSubmit || f.Title != "Vault" {
 		t.Errorf("prompt frame %+v", f)
 	}
 	e.Submit("pw")
-	waitFor(t, "the items", func() bool { return !s.last().Mask && len(s.last().Rows) == 1 })
+	waittest.Until(t, func() bool { return !s.last().Mask && len(s.last().Rows) == 1 }, "the items")
 	f := s.last()
 	if f.Rows[0].Entry.Title != "item" || f.CanSubmit {
 		t.Errorf("items frame %+v", f)
 	}
 	e.Activate(f.Rows[0].Entry.ID, 0)
-	waitFor(t, "finish", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.finished) == 1
-	})
+	}, "finish")
+
 	if c, ok := s.finished[0].(Copy); !ok || c.Text != "secret" {
 		t.Errorf("finished %+v", s.finished)
 	}

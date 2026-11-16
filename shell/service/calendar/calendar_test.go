@@ -14,6 +14,7 @@ import (
 	_ "time/tzdata"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func vevent(lines ...string) string {
@@ -181,13 +182,8 @@ func TestAMonthIsExpandedOnceUntilAFileChanges(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "a.ics"), []byte(vevent("UID:a", "SUMMARY:After", "DTSTART:20261110T090000Z")), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.After(5 * time.Second)
 	for {
-		select {
-		case <-changes:
-		case <-deadline:
-			t.Fatal("editing a file did not update the store")
-		}
+		waittest.For(t, changes, "the store to take the edited file")
 		if got := s.Month(2026, time.November).Day(10); len(got) == 1 && got[0].Summary == "After" {
 			break
 		}
@@ -202,11 +198,7 @@ func TestAMonthIsExpandedOnceUntilAFileChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	for len(s.Month(2026, time.November).Day(11)) != 0 {
-		select {
-		case <-changes:
-		case <-time.After(5 * time.Second):
-			t.Fatal("removing a file did not remove its event")
-		}
+		waittest.For(t, changes, "the removed file's event to go")
 	}
 }
 

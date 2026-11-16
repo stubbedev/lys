@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // Regression: the client never set a pointer cursor, leaving the
@@ -434,10 +435,5 @@ func TestACursorFrameLeavesWithoutALoopPass(t *testing.T) {
 		t.Fatalf("SetCursor: %v", err)
 	}
 	h.advance(time.Second)
-	for deadline := time.Now().Add(10 * time.Second); answered.Load() == 0; {
-		if time.Now().After(deadline) {
-			t.Fatalf("an animated cursor's frame stayed in the buffer with the loop parked: %d bytes", wire.Display.Context().Backlog())
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return answered.Load() != 0 }, "an animated cursor's frame to leave the buffer with the loop parked")
 }

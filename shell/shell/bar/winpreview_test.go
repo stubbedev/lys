@@ -271,7 +271,7 @@ func TestWindowPreviewFocusesAndCapturesOnLysWM(t *testing.T) {
 	startProbeProcess(t, "org.example.First", "first")
 	startProbeProcess(t, "org.example.Second", "second")
 	var first, second wmipc.Window
-	until(t, "both probes on lys-wm", func() error {
+	untilNil(t, "both probes on lys-wm", func() error {
 		var err error
 		if first, err = lysWMWindow("org.example.First"); err != nil {
 			return err
@@ -293,7 +293,7 @@ func TestWindowPreviewFocusesAndCapturesOnLysWM(t *testing.T) {
 		t.Errorf("thumbnail %v, want its smaller side within %dpx", b, previewThumbPx)
 	}
 	actions.focus(w)
-	until(t, "the clicked window focused", func() error {
+	untilNil(t, "the clicked window focused", func() error {
 		got, err := lysWMWindow(target.AppID)
 		if err == nil && !got.Focused {
 			err = errors.New("not focused")

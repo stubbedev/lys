@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/gtksettings"
@@ -70,12 +71,43 @@ func newRig(t *testing.T, edit func(*Backend)) *rig {
 	return &rig{bus: bus, cfg: cfg, backend: b, client: client, obj: client.Object(BusName, ObjectPath), signals: signals}
 }
 
+// quietWindow is how long a test watches for something that must not
+// happen, or collects all that happens in answer to a change.
+const quietWindow = 300 * time.Millisecond
+
+// nextSignal returns the next signal named name, skipping others.
+func nextSignal(t *testing.T, signals <-chan *dbus.Signal, name string) *dbus.Signal {
+	t.Helper()
+	for {
+		if s := waittest.For(t, signals, "the signal "+name); s.Name == name {
+			return s
+		}
+	}
+}
+
+// noSignal fails the test, saying what, when a signal unwanted reports
+// arrives within the quiet window.
+func noSignal(t *testing.T, signals <-chan *dbus.Signal, unwanted func(*dbus.Signal) bool, what string) {
+	t.Helper()
+	window := time.After(quietWindow)
+	for {
+		select {
+		case s := <-signals:
+			if unwanted(s) {
+				t.Fatalf("%s: %s on %s %v", what, s.Name, s.Path, s.Body)
+			}
+		case <-window:
+			return
+		}
+	}
+}
+
 // changed collects the SettingChanged "namespace key" pairs emitted
-// within a short wait.
+// within the quiet window.
 func (r *rig) changed(t *testing.T) []string {
 	t.Helper()
 	var keys []string
-	timeout := time.After(300 * time.Millisecond)
+	timeout := time.After(quietWindow)
 	for {
 		select {
 		case s := <-r.signals:
@@ -449,25 +481,14 @@ func TestLockdownFollowsTheConfig(t *testing.T) {
 	if all["disable-printing"].Value() != true || all["disable-camera"].Value() != false {
 		t.Errorf("after disabling printing: %v", all)
 	}
-	timeout := time.After(2 * time.Second)
-	for {
-		select {
-		case s := <-r.signals:
-			if s.Name != "org.freedesktop.DBus.Properties.PropertiesChanged" {
-				continue
-			}
-			changed := s.Body[1].(map[string]dbus.Variant)
-			if s.Body[0] != LockdownIface || len(changed) != 1 || changed["disable-printing"].Value() != true {
-				t.Errorf("PropertiesChanged %v", s.Body)
-			}
-			err := r.obj.Call("org.freedesktop.DBus.Properties.Set", 0, LockdownIface, "disable-printing", dbus.MakeVariant(false)).Err
-			if err == nil {
-				t.Error("a D-Bus write to a lockdown property was accepted")
-			}
-			return
-		case <-timeout:
-			t.Fatal("no PropertiesChanged after a lockdown config change")
-		}
+	s := nextSignal(t, r.signals, "org.freedesktop.DBus.Properties.PropertiesChanged")
+	changed := s.Body[1].(map[string]dbus.Variant)
+	if s.Body[0] != LockdownIface || len(changed) != 1 || changed["disable-printing"].Value() != true {
+		t.Errorf("PropertiesChanged %v", s.Body)
+	}
+	err := r.obj.Call("org.freedesktop.DBus.Properties.Set", 0, LockdownIface, "disable-printing", dbus.MakeVariant(false)).Err
+	if err == nil {
+		t.Error("a D-Bus write to a lockdown property was accepted")
 	}
 }
 
@@ -499,11 +520,7 @@ func TestRequestCloseCancels(t *testing.T) {
 	if err := obj.Call(RequestIface+".Close", 0).Err; err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-req.Cancelled():
-	case <-time.After(time.Second):
-		t.Fatal("Close did not cancel")
-	}
+	waittest.For(t, req.Cancelled(), "Close to cancel the request")
 	// A second Close is harmless; after end the object is gone.
 	if err := obj.Call(RequestIface+".Close", 0).Err; err != nil {
 		t.Error(err)
@@ -538,11 +555,7 @@ func TestSessionCloseRunsCleanupOnce(t *testing.T) {
 	if err := obj.Call(SessionIface+".Close", 0).Err; err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case s := <-signals:
-		t.Errorf("the app's Close emitted %v", s)
-	case <-time.After(100 * time.Millisecond):
-	}
+	noSignal(t, signals, func(*dbus.Signal) bool { return true }, "the app's Close emitted a signal")
 	if closes.Load() != 1 {
 		t.Errorf("cleanups after Close = %d", closes.Load())
 	}
@@ -555,13 +568,8 @@ func TestSessionCloseRunsCleanupOnce(t *testing.T) {
 	if closes.Load() != 2 {
 		t.Errorf("cleanups after shutdown = %d, want 2", closes.Load())
 	}
-	select {
-	case s := <-signals:
-		if s.Path != second || s.Name != SessionIface+".Closed" {
-			t.Errorf("signal = %v", s)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("shutdown emitted no Closed")
+	if s := waittest.For(t, signals, "shutdown to emit Closed"); s.Path != second || s.Name != SessionIface+".Closed" {
+		t.Errorf("signal = %v", s)
 	}
 	// A cleanup registered on a closed session runs at once.
 	late, _ := reg.create("/org/freedesktop/portal/desktop/session/1_1/c", kindScreenCast, "org.app")

@@ -61,7 +61,7 @@ func TestHeadlessPassivePopoverLetsClicksAndKeysThrough(t *testing.T) {
 		t.Errorf("the dropdown opened over the layer did not replace the peek: %v\n%s", err, tailTraces(drop, 25))
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	for _, tr := range drop.Since(opened) {
 		if strings.Contains(tr.Message, "popover key") {
 			t.Errorf("the peek took a key: %s", tr.Message)

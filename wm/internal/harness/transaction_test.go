@@ -297,7 +297,7 @@ func TestRealClientsCatchUpWithEveryChangeAtTheirOwnPace(t *testing.T) {
 				return !comp.Holding() && len(tops) > 0 && tops[0].Mapped() && (client.mayNotRedraw || tops[0].Current().Size == tops[0].Requested().Size)
 			}
 			h.Run(client.name, client.args...)
-			h.Eventually(client.name+" to map and draw its size", caughtUp)
+			h.EventuallySlow(client.name+" to map and draw its size", caughtUp)
 			const changes = 20
 			start := h.holds()
 			for i := range changes {

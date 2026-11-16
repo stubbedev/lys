@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
@@ -354,10 +355,10 @@ func TestTheAppOpensOnALysWMPageAsAClientOfLysWM(t *testing.T) {
 			t.Logf("the app said:\n%s", appLog.String())
 		}
 	})
-	s.Until("settings window", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		windows, err := s.Ctl("windows")
 		return err == nil && strings.Contains(windows, "dev.stubbe.lys.settings")
-	})
+	}, "settings window")
 }
 
 func (s *session) settingsWindows() int {
@@ -408,7 +409,7 @@ func TestASettingLinkOpensItsPageWithTheControlFocused(t *testing.T) {
 	}
 
 	s.launch(t, bin, settingspage.SettingFlag, "input.touchpad.natural_scroll")
-	s.Until("settings window", func() bool { return s.settingsWindows() == 1 })
+	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
 	s.chooseOn(t, "natural_scroll: true")
 }
 
@@ -421,7 +422,7 @@ func TestASettingLinkMovesTheRunningWindowWithoutASecond(t *testing.T) {
 	s.Display()
 
 	s.launch(t, bin, settingspage.PageFlag, "wm-windows")
-	s.Until("settings window", func() bool { return s.settingsWindows() == 1 })
+	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
 	ctx, cancel := context.WithTimeout(context.Background(), bound)
 	defer cancel()
 	if out, err := exec.CommandContext(ctx, bin, settingspage.SettingFlag, "wm:input.touchpad.tap").CombinedOutput(); err != nil {
@@ -444,19 +445,12 @@ func (s *session) chooseOn(t *testing.T, want string) {
 		data, err := os.ReadFile(s.file.Runtime())
 		return err == nil && strings.Contains(string(data), want)
 	}
-	s.Until("the focused control's dropdown choosing On, writing "+want, func() bool {
+	waittest.UntilSlow(t, func() bool {
 		for _, key := range []string{"Escape", "space", "Home", "Down", "Return"} {
 			press(t, key)
 		}
-		deadline := time.Now().Add(settle)
-		for !written() {
-			if time.Now().After(deadline) {
-				return false
-			}
-			time.Sleep(poll)
-		}
-		return true
-	})
+		return within(written)
+	}, "the focused control's dropdown choosing On, writing "+want)
 }
 
 func (s *session) inhibiting() bool {
@@ -472,8 +466,8 @@ func (s *session) inhibiting() bool {
 	return json.Unmarshal([]byte(out), &w) == nil && w.AppID == "dev.stubbe.lys.settings" && w.Inhibits
 }
 
-func within(d time.Duration, ok func() bool) bool {
-	deadline := time.Now().Add(d)
+func within(ok func() bool) bool {
+	deadline := time.Now().Add(settle)
 	for !ok() {
 		if time.Now().After(deadline) {
 			return false
@@ -494,8 +488,8 @@ func TestTheShortcutRecorderHoldsLysWMsBindsOffAndWritesTheChord(t *testing.T) {
 	bin := buildApp(t)
 	s.Display()
 	s.launch(t, bin, settingspage.PageFlag, "wm-input")
-	s.Until("settings window", func() bool { return s.settingsWindows() == 1 })
-	s.Until("the bind's recorder recording, with lys-wm's shortcuts inhibited", func() bool {
+	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
+	waittest.UntilSlow(t, func() bool {
 		for _, args := range [][]string{{settingspage.PageFlag, "wm-input"}, {settingspage.SettingFlag, "wm:binds"}} {
 			if out, err := exec.Command(bin, args...).CombinedOutput(); err != nil {
 				t.Fatalf("%v: %v\n%s", args, err, out)
@@ -505,19 +499,19 @@ func TestTheShortcutRecorderHoldsLysWMsBindsOffAndWritesTheChord(t *testing.T) {
 		for _, key := range []string{"Tab", "space", "Tab", "Tab", "Tab", "Tab", "space"} {
 			press(t, key)
 		}
-		if within(settle, s.inhibiting) {
+		if within(s.inhibiting) {
 			return true
 		}
 		press(t, "Escape")
 		return false
-	})
+	}, "the bind's recorder recording, with lys-wm's shortcuts inhibited")
 	if out, err := exec.Command("wtype", "-M", "logo", "-M", "shift", "-k", "j", "-m", "shift", "-m", "logo").CombinedOutput(); err != nil {
 		t.Fatalf("wtype: %v\n%s", err, out)
 	}
-	s.Until("the recorded chord in lys-wm's syntax, taken by lys-wm", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		return strings.Contains(s.overrides(), "chord: SUPER + SHIFT + J")
-	})
-	s.Until("the inhibitor dropped once the chord was recorded", func() bool { return !s.inhibiting() })
+	}, "the recorded chord in lys-wm's syntax, taken by lys-wm")
+	waittest.UntilSlow(t, func() bool { return !s.inhibiting() }, "the inhibitor dropped once the chord was recorded")
 	if problems, err := s.Ctl("configproblems"); err != nil || strings.Contains(problems, "binds") {
 		t.Fatalf("lys-wm reports %q, %v", problems, err)
 	}
@@ -538,22 +532,13 @@ func registerShortcut(t *testing.T, appID, id string) <-chan bool {
 	})
 	ran := make(chan error, 1)
 	go func() { ran <- a.Run() }()
+	t.Cleanup(sess.Close)
 	t.Cleanup(func() {
 		a.Invoke(release)
-		select {
-		case <-ran:
-		case <-time.After(bound):
-			t.Error("the shortcut client did not stop")
-		}
-		sess.Close()
+		waittest.ForSlow(t, ran, "the shortcut client to stop")
 	})
-	select {
-	case err := <-registered:
-		if err != nil {
-			t.Fatalf("register %s:%s: %v", appID, id, err)
-		}
-	case <-time.After(bound):
-		t.Fatalf("no answer to registering %s:%s in %s", appID, id, bound)
+	if err := waittest.ForSlow(t, registered, "an answer to registering "+appID+":"+id); err != nil {
+		t.Fatalf("register %s:%s: %v", appID, id, err)
 	}
 	return presses
 }
@@ -578,8 +563,8 @@ func TestARecordedAppShortcutPressesWhatTheAppRegistered(t *testing.T) {
 	s.Display()
 	presses := registerShortcut(t, "org.example.Recorder", "start")
 	s.launch(t, bin, settingspage.PageFlag, "wm-input")
-	s.Until("settings window", func() bool { return s.settingsWindows() == 1 })
-	s.Until("the app shortcut's recorder recording", func() bool {
+	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
+	waittest.UntilSlow(t, func() bool {
 		for _, args := range [][]string{{settingspage.PageFlag, "wm-input"}, {settingspage.SettingFlag, "wm:binds"}} {
 			if out, err := exec.Command(bin, args...).CombinedOutput(); err != nil {
 				t.Fatalf("%v: %v\n%s", args, err, out)
@@ -589,28 +574,23 @@ func TestARecordedAppShortcutPressesWhatTheAppRegistered(t *testing.T) {
 		for _, key := range []string{"Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "space"} {
 			press(t, key)
 		}
-		if within(settle, s.inhibiting) {
+		if within(s.inhibiting) {
 			return true
 		}
 		press(t, "Escape")
 		return false
-	})
+	}, "the app shortcut's recorder recording")
 	if out, err := exec.Command("wtype", "-M", "logo", "-M", "alt", "-k", "r", "-m", "alt", "-m", "logo").CombinedOutput(); err != nil {
 		t.Fatalf("wtype: %v\n%s", err, out)
 	}
-	s.Until("a global bind for the app's shortcut, taken by lys-wm", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		o := s.overrides()
 		return strings.Contains(o, "chord: SUPER + ALT + R") && strings.Contains(o, "action: global org.example.Recorder:start")
-	})
+	}, "a global bind for the app's shortcut, taken by lys-wm")
 	if out, err := s.Ctl("dispatch", "global", "org.example.Recorder:start"); err != nil {
 		t.Fatalf("dispatch the bind's action: %v %s", err, out)
 	}
-	select {
-	case pressed := <-presses:
-		if !pressed {
-			t.Fatal("the app saw a release before any press")
-		}
-	case <-time.After(bound):
-		t.Fatalf("the app's shortcut was not pressed in %s", bound)
+	if !waittest.ForSlow(t, presses, "the app's shortcut to be pressed") {
+		t.Fatal("the app saw a release before any press")
 	}
 }

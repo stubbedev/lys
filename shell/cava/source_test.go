@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // audioServer is a fake PulseAudio with one sink (and its monitor)
@@ -37,19 +38,9 @@ func audioServer(t *testing.T) (*pulsetest.Server, *pulse.Service) {
 	return srv, svc
 }
 
-func drainUntil(t *testing.T, src *Source, n int) []float64 {
-	t.Helper()
-	var got []float64
-	deadline := time.Now().Add(5 * time.Second)
-	for len(got) < n {
-		if time.Now().After(deadline) {
-			t.Fatalf("got %d samples, want %d", len(got), n)
-		}
-		got = append(got, src.Drained(nil)...)
-		time.Sleep(5 * time.Millisecond)
-	}
-	return got
-}
+// quietWindow is how long what must not happen gets to happen anyway
+// before a test concludes it does not.
+const quietWindow = 50 * time.Millisecond
 
 func TestSourceRecordsTheMonitorAsRawInt16Mono(t *testing.T) {
 	srv, svc := audioServer(t)
@@ -75,7 +66,7 @@ func TestSourceRecordsTheMonitorAsRawInt16Mono(t *testing.T) {
 	// Wait for the stream to be up before pushing into it.
 	time.Sleep(20 * time.Millisecond)
 	rec.Push([]byte{0x01, 0x00, 0xff, 0xff, 0x00, 0x80})
-	got := drainUntil(t, src, 3)
+	got := waitDrained(t, src, "the pushed samples", 3)
 	if got[0] != 1 || got[1] != -1 || got[2] != -32768 {
 		t.Errorf("samples = %v, want raw int16 values 1, -1, -32768", got)
 	}
@@ -150,7 +141,7 @@ func TestSourceRecordsStereoInterleaved(t *testing.T) {
 	// Two frames (left 1, right -1; left 2, right -2) and a dangling
 	// half frame, which is no sample pair and is dropped.
 	rec.Push([]byte{0x01, 0x00, 0xff, 0xff, 0x02, 0x00, 0xfe, 0xff, 0x07, 0x00})
-	got := drainUntil(t, src, 4)
+	got := waitDrained(t, src, "the pushed frames", 4)
 	if len(got) != 4 || got[0] != 1 || got[1] != -1 || got[2] != 2 || got[3] != -2 {
 		t.Errorf("samples = %v, want 1 -1 2 -2", got)
 	}
@@ -175,17 +166,13 @@ func TestNotifySoundFiresOnceForTheFirstSoundAndDropsSilence(t *testing.T) {
 	select {
 	case <-fired:
 		t.Fatal("silence reported as sound")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if got := s.drained(nil); len(got) != 0 {
 		t.Errorf("silence queued while parked: %v", got)
 	}
 	s.push([]float64{0, 7})
-	select {
-	case <-fired:
-	case <-time.After(2 * time.Second):
-		t.Fatal("sound never reported")
-	}
+	waittest.For(t, fired, "the sound to be reported")
 	if got := s.drained(nil); len(got) != 2 || got[1] != 7 {
 		t.Errorf("the sound that woke the analyzer was lost: %v", got)
 	}
@@ -193,7 +180,7 @@ func TestNotifySoundFiresOnceForTheFirstSoundAndDropsSilence(t *testing.T) {
 	select {
 	case <-fired:
 		t.Fatal("one arming fired twice")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -202,11 +189,7 @@ func TestNotifySoundFiresAtOnceForSoundAlreadyWaiting(t *testing.T) {
 	s.push([]float64{1})
 	fired := make(chan struct{})
 	s.notifySound(func() { close(fired) })
-	select {
-	case <-fired:
-	case <-time.After(2 * time.Second):
-		t.Fatal("waiting sound never reported")
-	}
+	waittest.For(t, fired, "the waiting sound to be reported")
 }
 
 func TestPushS16DecodesWholeFramesAndReusesItsBuffer(t *testing.T) {

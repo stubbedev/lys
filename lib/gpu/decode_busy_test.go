@@ -1,10 +1,11 @@
 package gpu
 
 import (
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // drain takes and releases the frames Next has.
@@ -43,21 +44,17 @@ func TestDecodeNeverWaitsForACallerThatHeedsBusy(t *testing.T) {
 				t.Fatalf("a decoder that has decoded nothing is busy: %v, %v", busy, err)
 			}
 			waits, held := d.BlockingWaits(), 0
-			deadline := time.Now().Add(30 * time.Second)
 			for i, p := range pkts {
-				for {
+				waittest.UntilSlow(t, func() bool {
 					busy, err := v.Busy()
 					if err != nil {
 						t.Fatal(err)
 					}
-					if !busy {
-						break
+					if busy {
+						held++
 					}
-					held++
-					if time.Now().After(deadline) {
-						t.Fatalf("packet %d: the decoder stayed busy", i)
-					}
-				}
+					return !busy
+				}, fmt.Sprintf("the decoder to take packet %d", i))
 				if err := v.Decode(p); err != nil {
 					t.Fatal(err)
 				}

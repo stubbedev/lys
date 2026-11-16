@@ -8,7 +8,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func within(t *testing.T, fn func()) {
@@ -18,11 +19,7 @@ func within(t *testing.T, fn func()) {
 		defer close(done)
 		fn()
 	}()
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the open blocked")
-	}
+	waittest.For(t, done, "the open to return")
 }
 
 func TestOnlyRegularFilesOpen(t *testing.T) {

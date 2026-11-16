@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -20,8 +21,6 @@ import (
 // settle is how long what must not happen gets to happen anyway before
 // a test concludes it does not.
 const settle = 300 * time.Millisecond
-
-const hangGuard = 2 * time.Minute
 
 // Run starts a private headless sway, env overriding its environment
 // (swaytest.Start), and runs an application on it for the rest of the
@@ -57,17 +56,10 @@ func Loop(t *testing.T) *app.Application {
 }
 
 // Until polls cond on a's loop until it holds, failing the test with
-// what after hangGuard.
+// what when it does not within waittest's limit.
 func Until(t *testing.T, a *app.Application, what string, cond func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(hangGuard); ; time.Sleep(20 * time.Millisecond) {
-		if On(a, cond) {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("never: %s", what)
-		}
-	}
+	waittest.Until(t, func() bool { return On(a, cond) }, what)
 }
 
 // On runs fn on a's loop and returns its result.
@@ -82,7 +74,8 @@ func On[T any](a *app.Application, fn func() T) T {
 // wl_display.sync after all it queued for the client ahead of it, and
 // the loop dispatches in order. Input another client of the compositor
 // injected and round-tripped has reached a's handlers when it returns.
-// It fails the test after hangGuard.
+// It fails the test when the answer does not come within waittest's
+// limit.
 func Dispatched(t *testing.T, a *app.Application) {
 	t.Helper()
 	awaitCallback(t, a, "a display sync", func() (*wl.Callback, error) { return a.Session().Display.Sync() })
@@ -91,7 +84,8 @@ func Dispatched(t *testing.T, a *app.Application) {
 // Drawn waits until the compositor has taken a frame of surface drawn
 // after the call: invalidate owes the surface a draw, and that draw
 // drains every invalidation made before it, so no frame is owed for
-// them when Drawn returns. It fails the test after hangGuard.
+// them when Drawn returns. It fails the test when the frame does not
+// come within waittest's limit.
 func Drawn(t *testing.T, a *app.Application, surface *wl.Surface, invalidate func()) {
 	t.Helper()
 	awaitCallback(t, a, "a frame callback", func() (*wl.Callback, error) {
@@ -104,7 +98,7 @@ func Drawn(t *testing.T, a *app.Application, surface *wl.Surface, invalidate fun
 }
 
 // awaitCallback makes request on a's loop and waits for its callback,
-// what naming it in the failure after hangGuard.
+// what naming it in the failure.
 func awaitCallback(t *testing.T, a *app.Application, what string, request func() (*wl.Callback, error)) {
 	t.Helper()
 	done := make(chan struct{})
@@ -118,11 +112,7 @@ func awaitCallback(t *testing.T, a *app.Application, what string, request func()
 	}); err != nil {
 		t.Fatalf("request %s: %v", what, err)
 	}
-	select {
-	case <-done:
-	case <-time.After(hangGuard):
-		t.Fatalf("the loop dispatched no answer to %s within %s: it was stuck or the compositor never answered", what, hangGuard)
-	}
+	waittest.For(t, done, "the loop to dispatch the answer to "+what)
 }
 
 // callbackDone closes done when the callback cb fires.
@@ -147,18 +137,11 @@ func Never[T any](t *testing.T, what string, answered <-chan T) {
 	}
 }
 
-// Answer waits for answered's answer, failing the test with what after
-// hangGuard.
+// Answer waits for answered's answer, failing the test with what when
+// none comes within waittest's limit.
 func Answer[T any](t *testing.T, what string, answered <-chan T) T {
 	t.Helper()
-	select {
-	case v := <-answered:
-		return v
-	case <-time.After(hangGuard):
-		t.Fatalf("never answered: %s", what)
-		var none T
-		return none
-	}
+	return waittest.For(t, answered, what)
 }
 
 // ShmResident is how many bytes of lys-ui's shared-memory buffer pool

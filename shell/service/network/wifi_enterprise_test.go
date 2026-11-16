@@ -5,9 +5,9 @@ import (
 	"maps"
 	"slices"
 	"testing"
-	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func peapInput() EAPInput {
@@ -261,14 +261,10 @@ func TestJoinHiddenEnterpriseAndWaitFollowsTheDeviceUp(t *testing.T) {
 	go func() {
 		done <- w.JoinHiddenEnterpriseAndWait(t.Context(), hiddenNetwork(t, "corp", SecurityEnterprise), eapSettings(t, peapInput()), func(DeviceState) {})
 	}()
-	waitFor(t, "the activation", func() bool { fx.nm.mu.Lock(); defer fx.nm.mu.Unlock(); return len(fx.nm.addAndActive) == 1 })
+	fx.nm.addedAndActivated(t)
 	fx.nm.wifi.deviceState(DeviceFailed, DeviceReasonSupplicantFailed)
-	select {
-	case err := <-done:
-		if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureAuth {
-			t.Fatalf("a refused hidden sign-in = %v, want an auth failure", err)
-		}
-	case <-time.After(liveness):
-		t.Fatal("the join never finished")
+	err := waittest.For(t, done, "the join to finish")
+	if ce, ok := errors.AsType[*ConnectError](err); !ok || ce.Failure != FailureAuth {
+		t.Fatalf("a refused hidden sign-in = %v, want an auth failure", err)
 	}
 }

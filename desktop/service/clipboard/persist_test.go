@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // session is one shell run over the stores in dir: a fresh history and
@@ -224,13 +225,7 @@ func TestPinningNeedsAStore(t *testing.T) {
 // waitSaved waits for the persisted history's store to hold n records.
 func waitSaved(t *testing.T, s *Store, n int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for len(s.Records()) != n {
-		if time.Now().After(deadline) {
-			t.Fatalf("the saved history holds %+v, want %d records", s.Records(), n)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return len(s.Records()) == n }, fmt.Sprintf("the saved history to hold %d records", n))
 }
 
 func TestAPersistedHistorySurvivesARestart(t *testing.T) {

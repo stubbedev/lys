@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/secrets/vault"
 )
 
@@ -113,21 +115,11 @@ func TestKeepLocksAnOpenedVaultOnItsDeadline(t *testing.T) {
 		cancel()
 		<-done
 	}()
-	awaitState := func(want vault.State) {
-		t.Helper()
-		deadline := time.Now().Add(5 * time.Second)
-		for s.Status().State != want {
-			if time.Now().After(deadline) {
-				t.Fatalf("the vault is %+v after 5s, want state %v", s.Status(), want)
-			}
-			time.Sleep(time.Millisecond)
-		}
-	}
 	for range 2 {
 		if err := s.Login(ctx, login(a)); err != nil {
 			t.Fatal(err)
 		}
-		awaitState(vault.StateLocked)
+		waittest.Until(t, func() bool { return s.Status().State == vault.StateLocked }, "the opened vault to lock")
 	}
 }
 
@@ -194,16 +186,10 @@ func TestKeepLocksSoonAfterASuspendLongerThanTheIdleTime(t *testing.T) {
 	if err := s.Login(ctx, login(a)); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if st := s.Status(); st.State != vault.StateUnlocked {
 		t.Fatalf("locked with the idle time not passed: %+v", st)
 	}
 	clock.Add(int64((2 * time.Hour).Seconds()))
-	deadline := time.Now().Add(5 * time.Second)
-	for s.Status().State != vault.StateLocked {
-		if time.Now().After(deadline) {
-			t.Fatalf("still %+v after the wall clock jumped past the idle time", s.Status())
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return s.Status().State == vault.StateLocked }, "the vault to lock after the wall clock jumped past the idle time")
 }

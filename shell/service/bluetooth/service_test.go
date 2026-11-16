@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // populated is a fake with an unpowered hci0, a powered hci1, one
@@ -127,44 +128,40 @@ func TestMonitoringFollowsDevices(t *testing.T) {
 	defer stop()
 
 	f.add("/org/bluez/hci0/dev_AA_BB_CC_DD_EE_03", deviceIface, deviceProps("AA:BB:CC:DD:EE:03", "Mouse", hci0), true)
-	waitFor(t, "the added device", func() bool { return len(s.State().Devices) == 3 })
-	select {
-	case <-ticks:
-	case <-time.After(time.Second):
-		t.Error("an added device did not tick subscribers")
-	}
+	waittest.Until(t, func() bool { return len(s.State().Devices) == 3 }, "the added device")
+	waittest.For(t, ticks, "the added device to tick subscribers")
 
 	f.update(dev2, deviceIface, map[string]dbus.Variant{"Connected": dbus.MakeVariant(true)})
-	waitFor(t, "the connection", func() bool { return len(s.State().Connected) == 2 })
+	waittest.Until(t, func() bool { return len(s.State().Connected) == 2 }, "the connection")
 
 	// RSSI invalidated: the device left range.
 	f.update(dev2, deviceIface, map[string]dbus.Variant{}, "RSSI")
-	waitFor(t, "the invalidated RSSI", func() bool {
+	waittest.Until(t, func() bool {
 		d, _ := s.State().Device(dev2)
 		return d.RSSI == nil
-	})
+	}, "the invalidated RSSI")
 
 	f.update(dev1, batteryIface, map[string]dbus.Variant{"Percentage": dbus.MakeVariant(uint8(42))})
-	waitFor(t, "the battery change", func() bool {
+	waittest.Until(t, func() bool {
 		d, _ := s.State().Device(dev1)
 		return d.BatteryPercentage != nil && *d.BatteryPercentage == 42
-	})
+	}, "the battery change")
 	f.remove(dev1, batteryIface)
-	waitFor(t, "the battery removal", func() bool {
+	waittest.Until(t, func() bool {
 		d, ok := s.State().Device(dev1)
 		return ok && d.BatteryPercentage == nil
-	})
+	}, "the battery removal")
 	f.add(dev1, batteryIface, map[string]dbus.Variant{"Percentage": dbus.MakeVariant(uint8(7))}, true)
-	waitFor(t, "the battery re-add", func() bool {
+	waittest.Until(t, func() bool {
 		d, _ := s.State().Device(dev1)
 		return d.BatteryPercentage != nil && *d.BatteryPercentage == 7
-	})
+	}, "the battery re-add")
 
 	f.remove(dev1, deviceIface, batteryIface)
-	waitFor(t, "the removed device", func() bool {
+	waittest.Until(t, func() bool {
 		_, ok := s.State().Device(dev1)
 		return !ok
-	})
+	}, "the removed device")
 	if got := s.State().Connected; len(got) != 1 || got[0] != "AA:BB:CC:DD:EE:02" {
 		t.Errorf("connected after removal = %v, want only the speaker", got)
 	}
@@ -213,10 +210,10 @@ func TestMonitoringIgnoresForeignSignals(t *testing.T) {
 	f.emit(objectManagerAt, objectManager+".InterfacesAdded", dbus.ObjectPath("/org/freedesktop/UDisks2/drives/a"),
 		map[string]map[string]dbus.Variant{deviceIface: deviceProps("FF:FF:FF:FF:FF:FE", "Elsewhere", hci0)})
 	f.update(dev2, deviceIface, map[string]dbus.Variant{"Alias": dbus.MakeVariant("Renamed")})
-	waitFor(t, "the real change", func() bool {
+	waittest.Until(t, func() bool {
 		d, _ := s.State().Device(dev2)
 		return d.Alias == "Renamed"
-	})
+	}, "the real change")
 	st := s.State()
 	if len(st.Devices) != 2 {
 		t.Errorf("devices = %+v, want the headset and the speaker alone", st.Devices)
@@ -231,10 +228,10 @@ func TestMonitoringIgnoresForeignSignals(t *testing.T) {
 	}
 	f.update("/org/bluez/hci0/dev_UNKNOWN", deviceIface, map[string]dbus.Variant{"Connected": dbus.MakeVariant(true)})
 	f.update(dev2, deviceIface, map[string]dbus.Variant{"Alias": dbus.MakeVariant("Again")})
-	waitFor(t, "the second change", func() bool {
+	waittest.Until(t, func() bool {
 		d, _ := s.State().Device(dev2)
 		return d.Alias == "Again"
-	})
+	}, "the second change")
 	if len(s.State().Devices) != 2 {
 		t.Error("an unknown path's change created a device")
 	}
@@ -251,28 +248,28 @@ func TestPrimaryAdapterFollowsTheAdapterList(t *testing.T) {
 	}
 	// A powered adapter appears: the primary selection prefers it.
 	f.add(hci1, adapterIface, adapterProps("00:00:00:00:00:01", true), true)
-	waitFor(t, "the powered adapter as primary", func() bool {
+	waittest.Until(t, func() bool {
 		p := s.State().Primary
 		return p != nil && p.Path == hci1
-	})
+	}, "the powered adapter as primary")
 	if !s.State().Enabled {
 		t.Error("enabled follows the primary's Powered")
 	}
 	// Powering hci0 does not move the primary (only list changes do).
 	f.update(hci0, adapterIface, map[string]dbus.Variant{"Powered": dbus.MakeVariant(true)})
 	f.update(hci1, adapterIface, map[string]dbus.Variant{"Powered": dbus.MakeVariant(false)})
-	waitFor(t, "hci1 powered off", func() bool { return !s.State().Enabled })
+	waittest.Until(t, func() bool { return !s.State().Enabled }, "hci1 powered off")
 	if p := s.State().Primary; p == nil || p.Path != hci1 {
 		t.Errorf("primary moved on a power change: %+v", p)
 	}
 	// The primary goes away: the remaining adapter takes over.
 	f.remove(hci1, adapterIface)
-	waitFor(t, "hci0 as primary", func() bool {
+	waittest.Until(t, func() bool {
 		p := s.State().Primary
 		return p != nil && p.Path == hci0
-	})
+	}, "hci0 as primary")
 	f.remove(hci0, adapterIface)
-	waitFor(t, "no adapter", func() bool { return !s.State().Available })
+	waittest.Until(t, func() bool { return !s.State().Available }, "no adapter")
 }
 
 func TestSelectPrimary(t *testing.T) {
@@ -307,11 +304,11 @@ func TestAdapterControls(t *testing.T) {
 	if err := s.Disable(ctx); err != nil {
 		t.Fatalf("Disable: %v", err)
 	}
-	waitFor(t, "powered off", func() bool { return !s.State().Enabled })
+	waittest.Until(t, func() bool { return !s.State().Enabled }, "powered off")
 	if err := s.Enable(ctx); err != nil {
 		t.Fatalf("Enable: %v", err)
 	}
-	waitFor(t, "powered on", func() bool { return s.State().Enabled })
+	waittest.Until(t, func() bool { return s.State().Enabled }, "powered on")
 
 	a := s.Adapter(hci1)
 	for name, set := range map[string]func() error{
@@ -326,11 +323,11 @@ func TestAdapterControls(t *testing.T) {
 			t.Errorf("set %s: %v", name, err)
 		}
 	}
-	waitFor(t, "the adapter settings", func() bool {
+	waittest.Until(t, func() bool {
 		p := s.State().Primary
 		return p.Discoverable && p.DiscoverableTimeout == 60 && !p.Pairable &&
 			p.PairableTimeout == 30 && p.Alias == "desk" && !p.Connectable
-	})
+	}, "the adapter settings")
 
 	rssi := int16(-70)
 	transport := TransportLE
@@ -377,11 +374,11 @@ func TestTimedDiscoveryStopsItself(t *testing.T) {
 	if err := s.StartTimedDiscovery(context.Background(), 50*time.Millisecond); err != nil {
 		t.Fatalf("StartTimedDiscovery: %v", err)
 	}
-	waitFor(t, "discovering", func() bool { return s.State().Primary.Discovering })
+	waittest.Until(t, func() bool { return s.State().Primary.Discovering }, "discovering")
 	if !s.State().Snapshot().Discovering {
 		t.Error("snapshot does not report discovery")
 	}
-	waitFor(t, "the timed stop", func() bool { return !s.State().Primary.Discovering })
+	waittest.Until(t, func() bool { return !s.State().Primary.Discovering }, "the timed stop")
 	if !f.called("StopDiscovery " + string(hci1)) {
 		t.Error("the timer did not stop the primary adapter's session")
 	}
@@ -392,13 +389,14 @@ func TestTimedDiscoveryStopsItself(t *testing.T) {
 func TestTimedDiscoveryEndedEarlyIsNotStopped(t *testing.T) {
 	f := populated(t)
 	s := f.service()
-	if err := s.StartTimedDiscovery(context.Background(), 80*time.Millisecond); err != nil {
+	scan := 80 * time.Millisecond
+	if err := s.StartTimedDiscovery(context.Background(), scan); err != nil {
 		t.Fatalf("StartTimedDiscovery: %v", err)
 	}
-	waitFor(t, "discovering", func() bool { return s.State().Primary.Discovering })
+	waittest.Until(t, func() bool { return s.State().Primary.Discovering }, "discovering")
 	f.update(hci1, adapterIface, map[string]dbus.Variant{"Powered": dbus.MakeVariant(false), "Discovering": dbus.MakeVariant(false)})
-	waitFor(t, "the scan ending", func() bool { return !s.State().Primary.Discovering })
-	time.Sleep(150 * time.Millisecond)
+	waittest.Until(t, func() bool { return !s.State().Primary.Discovering }, "the scan ending")
+	time.Sleep(scan + quietWindow)
 	if f.called("StopDiscovery " + string(hci1)) {
 		t.Error("the timer stopped a scan that had already ended")
 	}
@@ -408,10 +406,11 @@ func TestStartDiscoveryFailureSkipsTheTimer(t *testing.T) {
 	f := populated(t)
 	s := f.service()
 	f.failOn("StartDiscovery "+string(hci1), dbus.NewError("org.bluez.Error.NotReady", []any{"Resource Not Ready"}))
-	if err := s.StartTimedDiscovery(context.Background(), 20*time.Millisecond); errorName(err) != "org.bluez.Error.NotReady" {
+	scan := 20 * time.Millisecond
+	if err := s.StartTimedDiscovery(context.Background(), scan); errorName(err) != "org.bluez.Error.NotReady" {
 		t.Fatalf("StartTimedDiscovery = %v, want NotReady", err)
 	}
-	time.Sleep(60 * time.Millisecond)
+	time.Sleep(scan + quietWindow)
 	if f.called("StopDiscovery " + string(hci1)) {
 		t.Error("a failed start still scheduled a stop")
 	}
@@ -425,31 +424,26 @@ func TestDeviceControls(t *testing.T) {
 	if err := s.Connect(ctx, dev2); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
-	waitFor(t, "connected", func() bool { d, _ := s.State().Device(dev2); return d.Connected })
+	waittest.Until(t, func() bool { d, _ := s.State().Device(dev2); return d.Connected }, "connected")
 
 	events, stop := s.Disconnected(dev2)
 	defer stop()
 	if err := s.Disconnect(ctx, dev2); err != nil {
 		t.Fatalf("Disconnect: %v", err)
 	}
-	select {
-	case ev := <-events:
-		if ev.Reason != DisconnectLocal || ev.Message == "" {
-			t.Errorf("disconnected event = %+v", ev)
-		}
-	case <-time.After(time.Second):
-		t.Error("no Disconnected event")
+	if ev := waittest.For(t, events, "the Disconnected event"); ev.Reason != DisconnectLocal || ev.Message == "" {
+		t.Errorf("disconnected event = %+v", ev)
 	}
-	waitFor(t, "disconnected", func() bool { d, _ := s.State().Device(dev2); return !d.Connected })
+	waittest.Until(t, func() bool { d, _ := s.State().Device(dev2); return !d.Connected }, "disconnected")
 
 	if err := s.SetTrusted(ctx, dev2, true); err != nil {
 		t.Fatalf("trust: %v", err)
 	}
-	waitFor(t, "trusted", func() bool { d, _ := s.State().Device(dev2); return d.Trusted })
+	waittest.Until(t, func() bool { d, _ := s.State().Device(dev2); return d.Trusted }, "trusted")
 	if err := s.SetTrusted(ctx, dev2, false); err != nil {
 		t.Fatalf("untrust: %v", err)
 	}
-	waitFor(t, "untrusted", func() bool { d, _ := s.State().Device(dev2); return !d.Trusted })
+	waittest.Until(t, func() bool { d, _ := s.State().Device(dev2); return !d.Trusted }, "untrusted")
 
 	d := s.Device(dev2)
 	for name, run := range map[string]func() error{
@@ -465,10 +459,10 @@ func TestDeviceControls(t *testing.T) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	waitFor(t, "the device settings", func() bool {
+	waittest.Until(t, func() bool {
 		d, _ := s.State().Device(dev2)
 		return d.Blocked && d.WakeAllowed && d.Alias == "Kitchen" && d.PreferredBearer != nil && *d.PreferredBearer == BearerLE
-	})
+	}, "the device settings")
 	for _, call := range []string{
 		"ConnectProfile 0000110b-0000-1000-8000-00805f9b34fb " + string(dev2),
 		"DisconnectProfile 0000110b-0000-1000-8000-00805f9b34fb " + string(dev2),
@@ -488,7 +482,7 @@ func TestDeviceControls(t *testing.T) {
 	if !f.called("RemoveDevice " + string(dev2)) {
 		t.Error("Forget did not go through the device's adapter")
 	}
-	waitFor(t, "forgotten", func() bool { _, ok := s.State().Device(dev2); return !ok })
+	waittest.Until(t, func() bool { _, ok := s.State().Device(dev2); return !ok }, "forgotten")
 }
 
 func TestDeviceControlErrors(t *testing.T) {
@@ -517,7 +511,7 @@ func TestDeviceControlErrors(t *testing.T) {
 	select {
 	case ev := <-events:
 		t.Errorf("dev1's stream got dev2's event %+v", ev)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -528,15 +522,13 @@ func TestCloseEndsSubscriptions(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
-	select {
-	case _, ok := <-ticks:
-		if ok {
-			for range ticks {
-			}
+	closed := make(chan struct{})
+	go func() {
+		for range ticks {
 		}
-	case <-time.After(time.Second):
-		t.Fatal("Close left the subscription open")
-	}
+		close(closed)
+	}()
+	waittest.For(t, closed, "Close to end the subscription")
 	if err := s.Close(); err != nil {
 		t.Errorf("second Close = %v, want nil", err)
 	}
@@ -555,9 +547,9 @@ func TestTheServiceClosesTheDescriptorsOfTheSignalsItReads(t *testing.T) {
 	props := deviceProps("AA:BB:CC:DD:EE:03", "Keyboard", hci0)
 	props["Handed"] = dbus.MakeVariant(added.Write)
 	f.add("/org/bluez/hci0/dev_AA_BB_CC_DD_EE_03", deviceIface, props, true)
-	waitFor(t, "the added keyboard", func() bool {
+	waittest.Until(t, func() bool {
 		_, ok := s.State().Device("/org/bluez/hci0/dev_AA_BB_CC_DD_EE_03")
 		return ok
-	})
+	}, "the added keyboard")
 	added.RequireEveryCopyClosed(t)
 }

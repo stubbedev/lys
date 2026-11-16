@@ -20,12 +20,13 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/testhome"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const (
 	logName     = "log"
 	pidName     = "pid"
-	startBudget = 30 * time.Second
+	answerBound = 5 * time.Second
 )
 
 const (
@@ -74,15 +75,18 @@ func Start(t *testing.T, env ...string) *os.Process {
 		t.Fatal(err)
 	}
 	socket := ipcSocket(dir, cmd.Process.Pid)
-	for deadline := w.began.Add(startBudget); ; time.Sleep(20 * time.Millisecond) {
-		err := answers(socket, deadline)
-		if err == nil {
-			break
+	var refusal error
+	answered := false
+	t.Cleanup(func() {
+		if !answered {
+			t.Logf("sway's last IPC refusal on %s: %v\n%s", socket, refusal, w.report(dir))
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("sway did not answer IPC on %s within %v: %v\n%s", socket, startBudget, err, w.report(dir))
-		}
-	}
+	})
+	waittest.UntilSlow(t, func() bool {
+		refusal = answers(socket, time.Now().Add(answerBound))
+		return refusal == nil
+	}, "sway to answer IPC on "+socket)
+	answered = true
 	sockets, err := filepath.Glob(filepath.Join(dir, "wayland-*"))
 	if err != nil {
 		t.Fatal(err)

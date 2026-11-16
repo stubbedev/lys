@@ -3,10 +3,10 @@ package portal
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestLogindLockTakesABlockInhibitor(t *testing.T) {
@@ -25,13 +25,7 @@ func TestLogindLockTakesABlockInhibitor(t *testing.T) {
 	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(10 * time.Second)
-	for fake.Inhibitors.Load() != 0 {
-		if time.Now().After(deadline) {
-			t.Fatal("closing the lock kept the inhibitor")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return fake.Inhibitors.Load() == 0 }, "closing the lock to release the inhibitor")
 }
 
 func TestLogindScreensaverFollowsLockedHint(t *testing.T) {
@@ -48,13 +42,8 @@ func TestLogindScreensaverFollowsLockedHint(t *testing.T) {
 		t.Fatalf("screensaverActive before the lock: %t, %v", active, err)
 	}
 	fake.SetLockedHint(t, "2", true)
-	select {
-	case active := <-changes:
-		if !active {
-			t.Error("LockedHint true reported the screensaver inactive")
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("the watch never saw LockedHint change")
+	if !waittest.For(t, changes, "the watch to see LockedHint change") {
+		t.Error("LockedHint true reported the screensaver inactive")
 	}
 	if active, err := l.screensaverActive(); err != nil || !active {
 		t.Errorf("screensaverActive after the lock: %t, %v", active, err)

@@ -492,16 +492,7 @@ func TestStartProducerRefusesAZeroFrameRate(t *testing.T) {
 // waitClosed waits for the backend's Closed on path.
 func (r *rig) waitClosed(t *testing.T, path dbus.ObjectPath) {
 	t.Helper()
-	deadline := time.After(2 * time.Second)
-	for {
-		select {
-		case s := <-r.signals:
-			if s.Name == SessionIface+".Closed" && s.Path == path {
-				return
-			}
-		case <-deadline:
-			t.Fatalf("no Closed for %s", path)
-		}
+	for nextSignal(t, r.signals, SessionIface+".Closed").Path != path {
 	}
 }
 
@@ -545,13 +536,7 @@ func TestScreenCastClosingIsNotSourceLoss(t *testing.T) {
 	if err := r.client.Object(BusName, sessA).Call(SessionIface+".Close", 0).Err; err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case s := <-r.signals:
-		if s.Name == SessionIface+".Closed" {
-			t.Errorf("the app's own close was announced as a backend close: %v", s)
-		}
-	case <-time.After(150 * time.Millisecond):
-	}
+	noSignal(t, r.signals, func(s *dbus.Signal) bool { return s.Name == SessionIface+".Closed" }, "the app's own close was announced as a backend close")
 }
 
 // Sessions answer only to their own interface: ScreenCast.Start on a

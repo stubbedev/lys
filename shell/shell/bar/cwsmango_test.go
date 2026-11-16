@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -68,13 +69,7 @@ func newTestMango(t *testing.T, cfg *config.Config, connector string) *cwsModule
 	m := module.(*cwsModule)
 	t.Cleanup(m.Stop)
 	backend := m.backend.(*connectingBackend).conn.(*mangoBackend)
-	deadline := time.Now().Add(2 * time.Second)
-	for !backend.watch.Ready() {
-		if time.Now().After(deadline) {
-			t.Fatal("frames never arrived")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, backend.watch.Ready, "the first frames")
 	if err := onHeadlessLoop(func() error { return readAndApply(m.read, m.apply) }); err != nil {
 		t.Fatal(err)
 	}
@@ -172,13 +167,8 @@ func TestMangoClicksDispatch(t *testing.T) {
 	b := m.segs.Segment(0)
 	expect := func(want string) {
 		t.Helper()
-		select {
-		case got := <-dispatched:
-			if got != want {
-				t.Fatalf("dispatched %q, want %q", got, want)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("no dispatch, want %q", want)
+		if got := waittest.For(t, dispatched, "the dispatch "+want); got != want {
+			t.Fatalf("dispatched %q, want %q", got, want)
 		}
 	}
 	b.ClickAt(widget.Point{})
@@ -193,7 +183,7 @@ func TestMangoClicksDispatch(t *testing.T) {
 	select {
 	case got := <-dispatched:
 		t.Fatalf("focus:last dispatched %q", got)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 

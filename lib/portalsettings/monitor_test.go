@@ -18,9 +18,12 @@ import (
 	"github.com/stubbedev/lys/lib/icons"
 	"github.com/stubbedev/lys/lib/internal/goroutine"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const xdgDesktopPortal = "org.freedesktop.portal.Desktop"
+
+const quietWindow = 100 * time.Millisecond
 
 // The mock: a real dbus daemon on a private unix socket (never the
 // session bus), with a test-owned connection that claims the portal's
@@ -243,52 +246,34 @@ func newTestMonitor(t *testing.T, address string) *Monitor {
 
 // collect returns an OnChange sink and a snapshot of what it received,
 // both goroutine-safe (callbacks arrive on the monitor goroutine).
-func collect() (sink func(appearance.ColorScheme), snapshot func() []appearance.ColorScheme) {
+func collect[T any]() (sink func(T), snapshot func() []T) {
 	var mu sync.Mutex
-	var got []appearance.ColorScheme
-	return func(a appearance.ColorScheme) {
+	var got []T
+	return func(v T) {
 			mu.Lock()
-			got = append(got, a)
+			got = append(got, v)
 			mu.Unlock()
-		}, func() []appearance.ColorScheme {
+		}, func() []T {
 			mu.Lock()
 			defer mu.Unlock()
-			return append([]appearance.ColorScheme(nil), got...)
+			return slices.Clone(got)
 		}
 }
 
-// wantEvents waits for snapshot to equal want exactly (delivery is
-// asynchronous; the wait bounds it) and fails with both sides on any
-// deviation — including extra events.
-func wantEvents(t *testing.T, snapshot func() []appearance.ColorScheme, want ...appearance.ColorScheme) {
+// wantEvents waits for snapshot to hold as many events as want and
+// fails with both sides on any deviation, including extra events.
+func wantEvents[T comparable](t *testing.T, snapshot func() []T, want ...T) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		got := snapshot()
-		if len(got) == len(want) {
-			if !equalEvents(got, want) {
-				t.Fatalf("events = %v, want %v", got, want)
-			}
-			return
-		}
-		time.Sleep(2 * time.Millisecond)
+	waittest.Until(t, func() bool { return len(snapshot()) >= len(want) }, fmt.Sprintf("the events %v", want))
+	if got := snapshot(); !slices.Equal(got, want) {
+		t.Fatalf("events = %v, want %v", got, want)
 	}
-	t.Fatalf("timed out waiting for events: got %v, want %v", snapshot(), want)
 }
 
-func equalEvents(got, want []appearance.ColorScheme) bool {
-	for i, w := range want {
-		if got[i] != w {
-			return false
-		}
-	}
-	return true
-}
-
-// wantNoEvents asserts the sink stays silent for a beat.
+// wantNoEvents asserts the sink stays silent for the quiet window.
 func wantNoEvents(t *testing.T, snapshot func() []appearance.ColorScheme) {
 	t.Helper()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := snapshot(); len(got) != 0 {
 		t.Fatalf("unexpected events: %v", got)
 	}
@@ -379,7 +364,7 @@ func TestNoPortalIsUnknownAndSilent(t *testing.T) {
 	// A bus, but nobody owns the portal name: the common
 	// no-portal-desktop shape.
 	m := newTestMonitor(t, bus.Address)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	if got := m.ColorScheme(); got != appearance.Unknown {
 		t.Fatalf("ColorScheme() = %v, want unknown", got)
@@ -392,7 +377,7 @@ func TestStartupReadNeverFiresOnChange(t *testing.T) {
 	mock := publishMock(t, bus)
 	mock.set(2)
 	m := newTestMonitor(t, bus.Address)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	// The baseline is not history: a listener registered after New
 	// must not see the startup read, ever (set(deliver=false)).
@@ -410,7 +395,7 @@ func TestSettingChangedDeliversInOrder(t *testing.T) {
 	if got := m.ColorScheme(); got != appearance.Dark {
 		t.Fatalf("ColorScheme() = %v, want dark", got)
 	}
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 
 	// A burst: the deliveries must arrive in signal order, one at a
@@ -438,13 +423,13 @@ func TestNoBusIsInert(t *testing.T) {
 	m := newMonitor(func() (*dbus.Conn, error) { return dbus.Connect(dead) },
 		10*time.Millisecond)
 	t.Cleanup(m.Close)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	if got := m.ColorScheme(); got != appearance.Unknown {
 		t.Fatalf("ColorScheme() = %v, want unknown", got)
 	}
 	// No dial means no goroutines: an inert monitor is free.
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if after := runtime.NumGoroutine(); after > before {
 		t.Fatalf("goroutines grew %d -> %d; inert monitor must not spawn", before, after)
 	}
@@ -467,7 +452,7 @@ func TestReconnectAfterBusRestart(t *testing.T) {
 	if got := m.ColorScheme(); got != appearance.Dark {
 		t.Fatalf("ColorScheme() = %v, want dark", got)
 	}
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 
 	// Stop generation one and wait for it to be gone: a new daemon on
@@ -496,7 +481,7 @@ func TestReconnectingBeforeThePortalIsBackKeepsThePreference(t *testing.T) {
 	publishMockSaying(t, first, 1)
 	m := newMonitor(func() (*dbus.Conn, error) { return dbus.Connect("unix:path=" + sock) }, time.Millisecond)
 	t.Cleanup(m.Close)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 
 	first.Stop(t)
@@ -519,8 +504,7 @@ func TestReconnectingBeforeThePortalIsBackKeepsThePreference(t *testing.T) {
 func awaitOtherClient(t *testing.T, bus *dbustest.Bus) {
 	t.Helper()
 	conn := bus.Conn(t)
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
+	waittest.Until(t, func() bool {
 		var names []string
 		if err := conn.BusObject().Call("org.freedesktop.DBus.ListNames", 0).Store(&names); err != nil {
 			t.Fatal(err)
@@ -531,12 +515,8 @@ func awaitOtherClient(t *testing.T, bus *dbustest.Bus) {
 				unique++
 			}
 		}
-		if unique >= 2 {
-			return
-		}
-		time.Sleep(time.Millisecond)
-	}
-	t.Fatal("the monitor never reconnected")
+		return unique >= 2
+	}, "the monitor to reconnect")
 }
 
 func TestAPortalThatStartsLaterIsReadAtOnce(t *testing.T) {
@@ -546,7 +526,7 @@ func TestAPortalThatStartsLaterIsReadAtOnce(t *testing.T) {
 	if got := m.ColorScheme(); got != appearance.Unknown {
 		t.Fatalf("ColorScheme() = %v before the portal", got)
 	}
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	publishMockSaying(t, bus, 1)
 	wantEvents(t, snapshot, appearance.Dark)
@@ -557,7 +537,7 @@ func TestAPortalThatGoesAwayLeavesTheLastKnownPreference(t *testing.T) {
 	mock := publishMockSaying(t, bus, 1)
 	m := NewOn(bus.Conn(t))
 	t.Cleanup(m.Close)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	if err := mock.conn.Close(); err != nil {
 		t.Fatal(err)
@@ -581,7 +561,7 @@ func TestSharedConnFailsSilentOnDeath(t *testing.T) {
 	if got := m.ColorScheme(); got != appearance.Dark {
 		t.Fatalf("ColorScheme() = %v, want dark", got)
 	}
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 
 	// The bus (or the owner) drops the connection. No re-dial, no
@@ -589,7 +569,6 @@ func TestSharedConnFailsSilentOnDeath(t *testing.T) {
 	if err := shared.Close(); err != nil {
 		t.Fatalf("close shared conn: %v", err)
 	}
-	time.Sleep(100 * time.Millisecond)
 	wantNoEvents(t, snapshot)
 	if got := m.ColorScheme(); got != appearance.Dark {
 		t.Fatalf("ColorScheme() = %v, want the last known value (dark)", got)
@@ -602,20 +581,12 @@ func TestCloseStopsGoroutines(t *testing.T) {
 	before := runtime.NumGoroutine()
 
 	m := newTestMonitor(t, bus.Address)
-	onChange, _ := collect()
+	onChange, _ := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	m.Close()
 	m.Close() // idempotent
 
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if runtime.NumGoroutine() <= before {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatalf("goroutines did not drain after Close: before %d, after %d",
-		before, runtime.NumGoroutine())
+	waittest.Until(t, func() bool { return runtime.NumGoroutine() <= before }, fmt.Sprintf("the goroutines to drain to %d after Close", before))
 }
 
 func TestCallbacksRunOnMonitorGoroutine(t *testing.T) {
@@ -630,14 +601,9 @@ func TestCallbacksRunOnMonitorGoroutine(t *testing.T) {
 		delivered <- goroutine.ID()
 	})
 	mock.emit(t, uint32(2))
-	select {
-	case id := <-delivered:
-		if id == caller {
-			t.Fatal("OnChange ran on the registering goroutine; the documented " +
-				"contract is the monitor's goroutine + Application.Invoke")
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("callback never ran")
+	if id := waittest.For(t, delivered, "the callback to run"); id == caller {
+		t.Fatal("OnChange ran on the registering goroutine; the documented " +
+			"contract is the monitor's goroutine + Application.Invoke")
 	}
 }
 
@@ -646,7 +612,7 @@ func TestCloseBeforeEventsDeliversNothing(t *testing.T) {
 	mock := publishMock(t, bus)
 	mock.set(1)
 	m := newTestMonitor(t, bus.Address)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	m.Close()
 	// Signals after Close must not panic or deliver: the loop is gone.
@@ -668,35 +634,6 @@ func TestAppearanceString(t *testing.T) {
 			t.Fatalf("%d.String() = %q, want %q", tc.a, got, tc.want)
 		}
 	}
-}
-
-// collectIconThemes is collect() for the icon-theme stream.
-func collectIconThemes() (sink func(string), snapshot func() []string) {
-	var mu sync.Mutex
-	var got []string
-	return func(name string) {
-			mu.Lock()
-			got = append(got, name)
-			mu.Unlock()
-		}, func() []string {
-			mu.Lock()
-			defer mu.Unlock()
-			return append([]string(nil), got...)
-		}
-}
-
-// wantIconThemes waits for snapshot to equal want exactly.
-func wantIconThemes(t *testing.T, snapshot func() []string, want ...string) {
-	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		got := snapshot()
-		if len(got) == len(want) && slices.Equal(got, want) {
-			return
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
-	t.Fatalf("timed out waiting for icon themes: got %v, want %v", snapshot(), want)
 }
 
 // iconTree writes a two-theme fixture both themes of which hold a
@@ -750,10 +687,10 @@ func TestIconThemeStream(t *testing.T) {
 		t.Fatalf("IconTheme() = %q, want the startup read Papirus", got)
 	}
 
-	sink, snapshot := collectIconThemes()
+	sink, snapshot := collect[string]()
 	off := m.OnIconThemeChange(sink)
 	mock.emitIconTheme(t, "Adwaita")
-	wantIconThemes(t, snapshot, "Adwaita")
+	wantEvents(t, snapshot, "Adwaita")
 	if got := m.IconTheme(); got != "Adwaita" {
 		t.Errorf("IconTheme() = %q after the change, want Adwaita", got)
 	}
@@ -761,7 +698,7 @@ func TestIconThemeStream(t *testing.T) {
 	// Noise: other settings in the same interface, and our own other
 	// key (color-scheme), never reach the icon listeners.
 	mock.emitOther(t)
-	schemes, schemeSnapshot := collect()
+	schemes, schemeSnapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(schemes)
 	mock.emit(t, uint32(1))
 	wantEvents(t, schemeSnapshot, appearance.Dark)
@@ -771,7 +708,7 @@ func TestIconThemeStream(t *testing.T) {
 
 	// A re-announcement of the same theme dedups.
 	mock.emitIconTheme(t, "Adwaita")
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := snapshot(); len(got) != 1 {
 		t.Errorf("duplicate icon-theme event: %v", got)
 	}
@@ -779,7 +716,7 @@ func TestIconThemeStream(t *testing.T) {
 	// Unregistering stops delivery.
 	off()
 	mock.emitIconTheme(t, "Breeze")
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := snapshot(); len(got) != 1 {
 		t.Errorf("unregistered listener kept receiving: %v", got)
 	}
@@ -794,10 +731,10 @@ func TestIconThemeStreamUnreadableValues(t *testing.T) {
 	mock.setIconTheme("Adwaita")
 	m := newTestMonitor(t, bus.Address)
 
-	sink, snapshot := collectIconThemes()
+	sink, snapshot := collect[string]()
 	m.OnIconThemeChange(sink)
 	mock.emitIconTheme(t, 42)
-	wantIconThemes(t, snapshot, "")
+	wantEvents(t, snapshot, "")
 	if got := m.IconTheme(); got != "" {
 		t.Errorf("IconTheme() = %q after a numeric change, want empty", got)
 	}
@@ -833,13 +770,8 @@ func TestIconThemeFollowsThroughCache(t *testing.T) {
 	notified := make(chan string, 1)
 	cache.OnIconThemeChanged(func(name string) { notified <- name })
 	mock.emitIconTheme(t, "second")
-	select {
-	case name := <-notified:
-		if name != "second" {
-			t.Fatalf("notified %q, want second", name)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("the followed switch never notified")
+	if name := waittest.For(t, notified, "the followed switch to notify"); name != "second" {
+		t.Fatalf("notified %q, want second", name)
 	}
 	if got := cache.Theme(); got != "second" {
 		t.Fatalf("cache theme = %q after the switch, want second", got)
@@ -853,7 +785,7 @@ func TestIconThemeFollowsThroughCache(t *testing.T) {
 
 	// An emptied setting keeps the previous theme.
 	mock.emitIconTheme(t, "")
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := cache.Theme(); got != "second" {
 		t.Errorf("empty setting flipped the theme to %q; the previous one stays", got)
 	}
@@ -866,7 +798,7 @@ func TestUpdateAfterCloseDeliversNothing(t *testing.T) {
 	bus := dbustest.Start(t)
 	publishMock(t, bus)
 	m := newTestMonitor(t, bus.Address)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 	m.Close()
 	m.scheme.update(m, appearance.Light, true)
@@ -899,25 +831,25 @@ func TestInterfaceFontStream(t *testing.T) {
 	m.OnTextScaleChange(func(f float64) { scales <- f })
 	emitSetting(t, mock.conn, interfaceNamespace, fontNameKey, "Cantarell 12")
 	emitSetting(t, mock.conn, interfaceNamespace, textScaleKey, 1.5)
-	if got := <-fonts; got != "Cantarell 12" {
+	if got := waittest.For(t, fonts, "the font change"); got != "Cantarell 12" {
 		t.Errorf("font change = %q", got)
 	}
-	if got := <-scales; got != 1.5 {
+	if got := waittest.For(t, scales, "the scale change"); got != 1.5 {
 		t.Errorf("scale change = %v", got)
 	}
 
 	emitSetting(t, mock.conn, interfaceNamespace, fontNameKey, uint32(3))
 	emitSetting(t, mock.conn, interfaceNamespace, textScaleKey, -1.0)
-	if got := <-fonts; got != "" {
+	if got := waittest.For(t, fonts, "the numeric font-name"); got != "" {
 		t.Errorf("a numeric font-name = %q, want unset", got)
 	}
-	if got := <-scales; got != 0 {
+	if got := waittest.For(t, scales, "the negative scale"); got != 0 {
 		t.Errorf("a negative scale = %v, want unset", got)
 	}
 	select {
 	case got := <-scales:
 		t.Errorf("an extra scale event %v", got)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -929,7 +861,7 @@ func TestASettingChangedFromAnotherPeerIsNotThePortals(t *testing.T) {
 	mock := publishMockSaying(t, bus, 1)
 	m := NewOn(bus.Conn(t))
 	t.Cleanup(m.Close)
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 
 	forger := bus.Conn(t)
@@ -956,7 +888,7 @@ func TestAMonitorLeavesASharedConnectionAsItWas(t *testing.T) {
 	if got := dbustest.MatchRules(t, shared); len(got) != len(before)+2 {
 		t.Errorf("the monitor holds %q, want two rules more than %q: the portal's SettingChanged and its name changing owner", got, before)
 	}
-	onChange, snapshot := collect()
+	onChange, snapshot := collect[appearance.ColorScheme]()
 	m.OnColorSchemeChange(onChange)
 
 	r, w, err := os.Pipe()
@@ -988,11 +920,5 @@ func TestAMonitorLeavesASharedConnectionAsItWas(t *testing.T) {
 	}
 
 	m.Close()
-	deadline := time.Now().Add(5 * time.Second)
-	for !slices.Equal(dbustest.MatchRules(t, shared), before) {
-		if time.Now().After(deadline) {
-			t.Fatalf("after Close the connection holds %q, want %q", dbustest.MatchRules(t, shared), before)
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Equal(dbustest.MatchRules(t, shared), before) }, fmt.Sprintf("the connection to hold %q again after Close", before))
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -28,6 +29,8 @@ func (c *countingDim) Dim(idlepolicy.DimPercent) (func() error, error) {
 func (c *countingDim) Lock() error                      { return nil }
 func (c *countingDim) ScreenOff() (func() error, error) { return nil, nil }
 func (c *countingDim) Suspend() error                   { return nil }
+
+const dimAfter = time.Second
 
 type inhibitRig struct {
 	state   *idleinhibit.State
@@ -72,12 +75,12 @@ func startInhibitRig(t *testing.T) *inhibitRig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := idlepolicy.NewTimeout(time.Second)
+	dim, err := idlepolicy.NewTimeout(dimAfter)
 	if err != nil {
 		t.Fatal(err)
 	}
 	p := idlepolicy.Policy{DimPercent: share}
-	p.Timeouts[idlepolicy.Dim] = idlepolicy.Timeouts{AC: second, Battery: second}
+	p.Timeouts[idlepolicy.Dim] = idlepolicy.Timeouts{AC: dim, Battery: dim}
 	if err := svc.Configure(p, true, idlepolicy.AC); err != nil {
 		t.Fatal(err)
 	}
@@ -86,16 +89,12 @@ func startInhibitRig(t *testing.T) *inhibitRig {
 
 func (r *inhibitRig) awaitDim(t *testing.T, what string) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); r.actions.dims.Load() == 0; time.Sleep(20 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("%s: the dim stage never ran", what)
-		}
-	}
+	waittest.Until(t, func() bool { return r.actions.dims.Load() > 0 }, what+": the dim stage")
 }
 
-func (r *inhibitRig) holdsFor(t *testing.T, what string, d time.Duration) {
+func (r *inhibitRig) holds(t *testing.T, what string) {
 	t.Helper()
-	time.Sleep(d)
+	time.Sleep(dimAfter * 5 / 2)
 	if n := r.actions.dims.Load(); n != 0 {
 		t.Fatalf("%s: the dim stage ran %d times while held", what, n)
 	}
@@ -103,24 +102,23 @@ func (r *inhibitRig) holdsFor(t *testing.T, what string, d time.Duration) {
 
 func TestEveryInhibitorHoldsTheIdleStagesAndReleasingReArmsThem(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		hold    func(t *testing.T, s *idleinhibit.State) (release func())
-		holdFor time.Duration
+		name string
+		hold func(t *testing.T, s *idleinhibit.State) (release func())
 	}{
 		{"caffeine", func(_ *testing.T, s *idleinhibit.State) func() {
 			s.Enable(true)
 			return s.Disable
-		}, 2500 * time.Millisecond},
+		}},
 		{"portal", func(_ *testing.T, s *idleinhibit.State) func() {
 			id := s.AddHold(idleinhibit.Hold{Owner: ":1.42", App: "org.example.Player", Reason: "Playing"})
 			return func() { s.ReleaseHold(id) }
-		}, 2500 * time.Millisecond},
-		{"screensaver", holdThroughScreenSaver, 2500 * time.Millisecond},
+		}},
+		{"screensaver", holdThroughScreenSaver},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rig := startInhibitRig(t)
 			release := tc.hold(t, rig.state)
-			rig.holdsFor(t, tc.name, tc.holdFor)
+			rig.holds(t, tc.name)
 			release()
 			rig.awaitDim(t, tc.name+" released")
 		})

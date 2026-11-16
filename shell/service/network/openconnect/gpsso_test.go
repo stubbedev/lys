@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func encode64(text string) string { return base64.StdEncoding.EncodeToString([]byte(text)) }
@@ -248,15 +250,11 @@ func TestANewSignInReplacesTheOneBeforeIt(t *testing.T) {
 		_, err := gpSSOSignIn(context.Background(), request, 5*time.Second)
 		first <- err
 	}()
-	for {
+	waittest.Until(t, func() bool {
 		pendingMu.Lock()
-		waiting := pending != nil
-		pendingMu.Unlock()
-		if waiting {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
+		defer pendingMu.Unlock()
+		return pending != nil
+	}, "the first sign-in to wait for its callback")
 
 	second := make(chan gpCallback, 1)
 	go func() {
@@ -267,9 +265,9 @@ func TestANewSignInReplacesTheOneBeforeIt(t *testing.T) {
 		t.Errorf("first = %v", err)
 	}
 	// The newer sign-in still takes the answer.
-	for !DeliverSSOCallback("globalprotectcallback:<prelogin-cookie>NEW</prelogin-cookie>") {
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool {
+		return DeliverSSOCallback("globalprotectcallback:<prelogin-cookie>NEW</prelogin-cookie>")
+	}, "the newer sign-in to take the answer")
 	if got := <-second; got.cookie() != "NEW" {
 		t.Errorf("second = %+v", got)
 	}

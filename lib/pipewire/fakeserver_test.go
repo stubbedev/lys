@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeServer is the server end of one connection, scripted by a test:
@@ -196,16 +197,11 @@ func startAgainst(t *testing.T, script func(*fakeServer)) (*fakeServer, started)
 		result <- started{p, err}
 	})
 	script(s)
-	select {
-	case r := <-result:
-		if r.p != nil {
-			t.Cleanup(r.p.Close)
-		}
-		return s, r
-	case <-time.After(10 * time.Second):
-		t.Fatal("Start did not return")
-		return nil, started{}
+	r := waittest.For(t, result, "Start to return")
+	if r.p != nil {
+		t.Cleanup(r.p.Close)
 	}
+	return s, r
 }
 
 // A server that registers the node starts the stream on its id; one
@@ -323,11 +319,7 @@ func TestAServerErrorMidStreamEndsTheStream(t *testing.T) {
 		t.Fatal(r.err)
 	}
 	s.event(coreID, coreEventError, podStruct(podInt(firstObjectID), podInt(0), podInt(-int32(unix.EIO)), podString("node broke")))
-	select {
-	case <-r.p.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("the stream outlived the server's error")
-	}
+	waittest.For(t, r.p.Done(), "the stream to end on the server's error")
 	var serverErr *ServerError
 	if !errors.As(r.p.Err(), &serverErr) || serverErr.Errno != unix.EIO || !strings.Contains(serverErr.Error(), "node broke") {
 		t.Errorf("Err = %v", r.p.Err())

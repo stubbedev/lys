@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/vaultserver"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeHost records what the daemon asks and answers what the test set.
@@ -455,24 +456,14 @@ func TestWatch(t *testing.T) {
 	if err := d.Changed(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case s := <-statuses:
-		if s.State != StateLocked || s.Email != "ada@example.com" {
-			t.Errorf("changed = %+v, want the daemon's, not the impostor's", s)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no Changed")
+	if s := waittest.For(t, statuses, "the daemon's Changed"); s.State != StateLocked || s.Email != "ada@example.com" {
+		t.Errorf("changed = %+v, want the daemon's, not the impostor's", s)
 	}
 	if err := d.SyncFailed(fmt.Errorf("refresh: %w", ErrLoginRequired)); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case err := <-failures:
-		if !errors.Is(err, ErrLoginRequired) {
-			t.Errorf("sync failed with %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no SyncFailed")
+	if err := waittest.For(t, failures, "the SyncFailed"); !errors.Is(err, ErrLoginRequired) {
+		t.Errorf("sync failed with %v", err)
 	}
 	var xml string
 	if err := conn.Object(ServiceName, ServicePath).Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xml); err != nil {
@@ -681,10 +672,13 @@ func TestWatchEndsWhenItsConnectionCloses(t *testing.T) {
 	if err := conn.Close(); err != nil {
 		t.Fatal(err)
 	}
-	for deadline := time.Now().Add(5 * time.Second); runtime.NumGoroutine() > before; time.Sleep(10 * time.Millisecond) {
-		if time.Now().After(deadline) {
+	ended := false
+	defer func() {
+		if !ended {
 			buf := make([]byte, 1<<16)
-			t.Fatalf("the watch outlived its connection: %d goroutines, %d before\n%s", runtime.NumGoroutine(), before, buf[:runtime.Stack(buf, true)])
+			t.Logf("%d goroutines, %d before the watch:\n%s", runtime.NumGoroutine(), before, buf[:runtime.Stack(buf, true)])
 		}
-	}
+	}()
+	waittest.Until(t, func() bool { return runtime.NumGoroutine() <= before }, "the watch to end with its connection")
+	ended = true
 }

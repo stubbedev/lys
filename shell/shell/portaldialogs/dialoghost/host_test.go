@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -130,17 +131,16 @@ func (hs *harness) do(fn func()) {
 	fn()
 }
 
+// quietWindow is how long what must not happen gets to happen anyway
+// before a test concludes it does not.
+const quietWindow = 50 * time.Millisecond
+
 // open waits for the next mapped dialog.
 func (hs *harness) open(t *testing.T) app.LayerConfig {
 	t.Helper()
-	select {
-	case c := <-hs.opened:
-		hs.do(func() {})
-		return c
-	case <-time.After(treetest.Liveness):
-		t.Fatal("no dialog opened")
-		return app.LayerConfig{}
-	}
+	c := waittest.For(t, hs.opened, "the dialog to open")
+	hs.do(func() {})
+	return c
 }
 
 func TestConfirmDialogsAnswer(t *testing.T) {
@@ -210,7 +210,7 @@ func TestRequestsQueueAndEscape(t *testing.T) {
 		t.Fatalf("a second request answered the first %v", r)
 	case <-hs.opened:
 		t.Fatal("the second dialog mapped over the first")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	hs.do(func() { treetest.Button(t, c.Root, "Install").OnClick() })
 	if r := <-first; !r {
@@ -235,18 +235,11 @@ func TestDismissingAWaitingRequest(t *testing.T) {
 	c := hs.open(t)
 	second := make(chan bool, 1)
 	go func() { second <- hs.h.ConfirmWallpaper(portaldialogs.Caller{Handle: "/r/2"}, "file:///b.png") }()
-	deadline := time.Now().Add(treetest.Liveness)
-	for {
+	waittest.Until(t, func() bool {
 		var waiting int
 		hs.do(func() { waiting = hs.h.queue.Len() })
-		if waiting == 1 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the second request never queued")
-		}
-		time.Sleep(time.Millisecond)
-	}
+		return waiting == 1
+	}, "the second request to queue")
 	hs.h.Dismiss("/r/2")
 	if r := <-second; r {
 		t.Error("a dismissed waiting request answered yes")
@@ -258,7 +251,7 @@ func TestDismissingAWaitingRequest(t *testing.T) {
 	select {
 	case <-hs.opened:
 		t.Error("a dismissed request showed")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -447,16 +440,11 @@ func TestDismissTakesDownItsRequestOnly(t *testing.T) {
 	select {
 	case r := <-got:
 		t.Fatalf("dismissing another request answered %v", r)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	hs.h.Dismiss("/r/mine")
-	select {
-	case r := <-got:
-		if r {
-			t.Error("a dismissed dialog answered yes")
-		}
-	case <-time.After(treetest.Liveness):
-		t.Fatal("Dismiss left the dialog waiting")
+	if waittest.For(t, got, "Dismiss to answer the dialog") {
+		t.Error("a dismissed dialog answered yes")
 	}
 	hs.mu.Lock()
 	closed := hs.windows[0].closed
@@ -607,13 +595,8 @@ func TestAppChooserPreselectsTheLastChoice(t *testing.T) {
 		t.Errorf("selected row %d, want the last choice's (1)", sel)
 	}
 	hs.do(func() { treetest.Button(t, c.Root, "Open").OnClick() })
-	select {
-	case id := <-got:
-		if id != "org.example.Editor" {
-			t.Errorf("Open answered %q", id)
-		}
-	case <-time.After(treetest.Liveness):
-		t.Fatal("Open answered nothing")
+	if id := waittest.For(t, got, "Open to answer"); id != "org.example.Editor" {
+		t.Errorf("Open answered %q", id)
 	}
 
 	go func() {
@@ -627,7 +610,7 @@ func TestAppChooserPreselectsTheLastChoice(t *testing.T) {
 	select {
 	case id := <-got:
 		t.Fatalf("Open with nothing selected answered %q", id)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	hs.do(func() { treetest.Button(t, c.Root, "Cancel").OnClick() })
 	<-got
@@ -657,7 +640,7 @@ func TestAppChooserUpdateChoices(t *testing.T) {
 	}
 
 	go func() { got <- hs.h.ChooseApplication(portaldialogs.Caller{Handle: "/r/b"}, viewer) }()
-	waitFor(t, func() bool { return hs.h.UpdateChoices("/r/b", []string{"org.example.Editor"}) })
+	waittest.Until(t, func() bool { return hs.h.UpdateChoices("/r/b", []string{"org.example.Editor"}) }, "the second chooser to take its update")
 	hs.do(func() { list.OnActivate(0) })
 	if id := <-got; id != "org.example.Editor" {
 		t.Errorf("the updated chooser answered %q", id)
@@ -692,16 +675,6 @@ func TestAppChooserNamesTheTarget(t *testing.T) {
 		}
 		hs.do(func() { treetest.Button(t, c.Root, "Cancel").OnClick() })
 		<-got
-	}
-}
-
-// waitFor polls cond until it holds, failing after treetest.Liveness.
-func waitFor(t *testing.T, cond func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(treetest.Liveness); !cond(); time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("condition never held")
-		}
 	}
 }
 

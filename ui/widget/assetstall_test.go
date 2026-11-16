@@ -9,8 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/assetfile"
 	"github.com/stubbedev/lys/lib/render"
-
-	"github.com/stubbedev/lys/ui/internal/waittest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestAStuckReadAndAPipeHoldUpNoOtherIcon(t *testing.T) {

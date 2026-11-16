@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/polkit/internal/helper"
 	"github.com/stubbedev/lys/polkit/internal/helper/helpertest"
@@ -18,8 +18,6 @@ func TestMain(m *testing.M) {
 	helpertest.MaybeRun()
 	os.Exit(m.Run())
 }
-
-const eventTimeout = 5 * time.Second
 
 type transport struct {
 	name string
@@ -33,16 +31,11 @@ var transports = []transport{
 
 func next(t *testing.T, s *helper.Session) helper.Event {
 	t.Helper()
-	select {
-	case ev, ok := <-s.Events():
-		if !ok {
-			t.Fatal("events closed before a verdict")
-		}
-		return ev
-	case <-time.After(eventTimeout):
-		t.Fatal("no helper event within " + eventTimeout.String())
-		return nil
+	ev := waittest.For(t, s.Events(), "a helper event")
+	if ev == nil {
+		t.Fatal("events closed before a verdict")
 	}
+	return ev
 }
 
 func start(t *testing.T, tr helper.Transport) *helper.Session {

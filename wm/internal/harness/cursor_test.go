@@ -6,8 +6,8 @@ import (
 	"image"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xcursor"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
@@ -202,13 +202,8 @@ func TestARefusingCursorPlaneFallsBackToTheFrame(t *testing.T) {
 		b.Outputs()[0].Cursor().Refuse(errors.New("plane gone"))
 		return errors.Join(b.Pointer().MoveTo(b.Outputs()[0], 0.1, 0.1), b.Pointer().Frame())
 	})
-	select {
-	case err := <-reports:
-		if !strings.Contains(err.Error(), "drawing the cursor in the frame on HEADLESS-1: plane gone") {
-			t.Fatalf("reported %v", err)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("the refusal was not reported")
+	if err := waittest.For(t, reports, "the refusal to be reported"); !strings.Contains(err.Error(), "drawing the cursor in the frame on HEADLESS-1: plane gone") {
+		t.Fatalf("reported %v", err)
 	}
 	h.Eventually("the arrow drawn in the frame", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		return !b.Outputs()[0].Cursor().Visible() && arrowAt(image.Pt(16, 10))(b, nil)

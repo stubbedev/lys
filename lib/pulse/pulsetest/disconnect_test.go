@@ -3,13 +3,11 @@ package pulsetest_test
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
-
-const eventWait = 5 * time.Second
 
 func device(index uint32, name string) native.DeviceInfo {
 	return native.DeviceInfo{
@@ -85,23 +83,13 @@ func TestADisconnectedClientsStreamsLeaveTheListings(t *testing.T) {
 		t.Fatal(err)
 	}
 	sinkInput, sourceOutput := playback.Info().SinkInput, record.Info().SourceOutput
-	next := func(what string) native.SubscribeEvent {
-		t.Helper()
-		select {
-		case ev := <-events:
-			return ev
-		case <-time.After(eventWait):
-			t.Fatalf("no event for %s within %s", what, eventWait)
-			return native.SubscribeEvent{}
-		}
-	}
 	for _, want := range []native.SubscribeEvent{
 		{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: sinkInput},
 		{Facility: native.FacilitySourceOutput, Operation: native.OpNew, Index: sourceOutput},
 		{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: closed.Info().SinkInput},
 		{Facility: native.FacilitySinkInput, Operation: native.OpRemove, Index: closed.Info().SinkInput},
 	} {
-		if got := next("the client's streams"); got != want {
+		if got := waittest.For(t, events, "an event for the client's streams"); got != want {
 			t.Fatalf("event %+v, want %+v", got, want)
 		}
 	}
@@ -109,7 +97,7 @@ func TestADisconnectedClientsStreamsLeaveTheListings(t *testing.T) {
 	if err := client.Close(); err != nil {
 		t.Fatal(err)
 	}
-	removed := []native.SubscribeEvent{next("the disconnect"), next("the disconnect")}
+	removed := []native.SubscribeEvent{waittest.For(t, events, "the disconnect's first event"), waittest.For(t, events, "the disconnect's second event")}
 	want := []native.SubscribeEvent{
 		{Facility: native.FacilitySourceOutput, Operation: native.OpRemove, Index: sourceOutput},
 		{Facility: native.FacilitySinkInput, Operation: native.OpRemove, Index: sinkInput},

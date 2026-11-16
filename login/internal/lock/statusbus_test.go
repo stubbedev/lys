@@ -1,13 +1,13 @@
 package lock
 
 import (
+	"fmt"
 	"maps"
 	"net"
 	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/mpris"
@@ -16,11 +16,10 @@ import (
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/login/internal/fprint"
 )
-
-const waitBound = 10 * time.Second
 
 type loopQueue chan func()
 
@@ -28,12 +27,7 @@ func (q loopQueue) Invoke(fn func()) { q <- fn }
 
 func (q loopQueue) next(t *testing.T, what string) {
 	t.Helper()
-	select {
-	case fn := <-q:
-		fn()
-	case <-time.After(waitBound):
-		t.Fatalf("no %s within %v", what, waitBound)
-	}
+	waittest.For(t, q, what)()
 }
 
 type fakePlayer struct {
@@ -90,13 +84,7 @@ func startPlayer(t *testing.T, bus *dbustest.Bus, name, title, status string) *f
 
 func awaitCalls(t *testing.T, p *fakePlayer, want []string) {
 	t.Helper()
-	end := time.Now().Add(waitBound)
-	for !slices.Equal(p.recorded(), want) {
-		if time.Now().After(end) {
-			t.Fatalf("player calls %v, want %v", p.recorded(), want)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Equal(p.recorded(), want) }, fmt.Sprintf("the player calls %v", want))
 }
 
 type mediaSeen struct {
@@ -106,15 +94,14 @@ type mediaSeen struct {
 
 func awaitMedia(t *testing.T, loop loopQueue, seen chan mediaSeen, what string, done func(mediaSeen) bool) {
 	t.Helper()
-	end := time.Now().Add(waitBound)
 	var last mediaSeen
-	for time.Now().Before(end) {
-		loop.next(t, what)
-		if last = <-seen; done(last) {
+	for {
+		after := fmt.Sprintf("%s after %+v", what, last)
+		loop.next(t, after)
+		if last = waittest.For(t, seen, after); done(last) {
 			return
 		}
 	}
-	t.Fatalf("no %s; last saw %+v", what, last)
 }
 
 func TestTheSessionsPlayerReachesTheLockAndItsButtons(t *testing.T) {
@@ -293,9 +280,5 @@ func TestStoppingAWatchEndsItsDialOfASilentBus(t *testing.T) {
 		watches.wait()
 		close(ended)
 	}()
-	select {
-	case <-ended:
-	case <-time.After(waitBound):
-		t.Fatalf("the watches still dial a silent bus %v after they were stopped", waitBound)
-	}
+	waittest.For(t, ended, "the stopped watches to stop dialling a silent bus")
 }

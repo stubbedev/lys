@@ -14,6 +14,8 @@ import (
 	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 )
 
+const pastTheDeadline = 3 * time.Duration(ipcsocktest.Fast)
+
 func fullBacklog(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(sockdir.Dir(t), "full.sock")
@@ -82,7 +84,7 @@ func TestADisarmedConnectionWaitsPastTheDeadline(t *testing.T) {
 	select {
 	case err := <-read:
 		t.Fatalf("a disarmed read ended: %v", err)
-	case <-time.After(3 * time.Duration(ipcsocktest.Fast)):
+	case <-time.After(pastTheDeadline):
 	}
 }
 
@@ -152,6 +154,6 @@ func TestAStreamMayStaySilentPastTheDeadline(t *testing.T) {
 	select {
 	case err := <-read:
 		t.Fatalf("a stream's read ended: %v", err)
-	case <-time.After(3 * time.Duration(ipcsocktest.Fast)):
+	case <-time.After(pastTheDeadline):
 	}
 }

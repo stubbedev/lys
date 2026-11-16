@@ -2,8 +2,10 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // scripted is a Conversation that asks the given prompts in order and
@@ -43,14 +45,10 @@ func collect(t *testing.T, conv Conversation, script func(*Handle, Event)) []Eve
 	close(ready)
 	var got []Event
 	for {
-		select {
-		case ev := <-events:
-			got = append(got, ev)
-			if ev.Kind != EventPrompt {
-				return got
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatalf("conversation never ended; events so far: %+v", got)
+		ev := waittest.For(t, events, fmt.Sprintf("the event after %+v", got))
+		got = append(got, ev)
+		if ev.Kind != EventPrompt {
+			return got
 		}
 	}
 }
@@ -101,11 +99,7 @@ func TestSpawnCancel(t *testing.T) {
 		handle.Cancel()
 		close(done)
 	}()
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("answering a finished conversation blocked")
-	}
+	waittest.For(t, done, "answers to a finished conversation to return")
 }
 
 func TestSpawnReportsBackendFailure(t *testing.T) {
@@ -161,10 +155,6 @@ func TestSpawnClosesTheConversation(t *testing.T) {
 		events := make(chan Event, 2)
 		Spawn(c, "alice", func(e Event) { events <- e })
 		<-events
-		select {
-		case <-c.closed:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("run error %v: the conversation was not closed", runErr)
-		}
+		waittest.For(t, c.closed, fmt.Sprintf("the conversation that ended in %v to close", runErr))
 	}
 }

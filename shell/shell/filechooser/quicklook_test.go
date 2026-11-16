@@ -11,10 +11,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -72,16 +72,11 @@ func (w *loadWatch) count() int {
 // waitPreview waits until the preview of the entry named name landed.
 func (hs *harness) waitPreview(t *testing.T, name string) {
 	t.Helper()
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(2 * time.Millisecond) {
+	waittest.Until(t, func() bool {
 		var done bool
 		hs.do(func() { done = hs.c.pv.shown != nil && hs.c.pv.entry.Name() == name })
-		if done {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the preview of %s never landed", name)
-		}
-	}
+		return done
+	}, "the preview of "+name+" to land")
 }
 
 // quicklookOn opens folder, selects name and presses Space.
@@ -173,20 +168,15 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	}
 	hs.click(t, "Cancel")
 	answer(t, got)
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(2 * time.Millisecond) {
+	waittest.Until(t, func() bool {
 		var live int
 		var shown *preview
 		hs.do(func() { live, shown = hs.c.thumbnailer.mem.Stats().Live, hs.c.pv.shown })
 		if shown != nil {
 			t.Fatal("the closed dialog still holds its preview")
 		}
-		if live == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%d rasters left after the dialog closed", live)
-		}
-	}
+		return live == 0
+	}, "every raster to be freed after the dialog closed")
 }
 
 // A 2 GB text file previews from its first 64 KiB, read off the loop.
@@ -247,11 +237,7 @@ func TestPreviewLoadsOncePerRest(t *testing.T) {
 		defer w.mu.Unlock()
 		return w.ctxs["note3.txt"]
 	}
-	for deadline := time.Now().Add(treetest.Liveness); held() == nil; time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("the held load never started")
-		}
-	}
+	waittest.Until(t, func() bool { return held() != nil }, "the held load to start")
 	hs.do(func() { hs.c.activeView().Select(4) })
 	superseded := held()
 	w.mu.Lock()

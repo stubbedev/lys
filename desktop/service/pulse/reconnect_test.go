@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func fastReconnect(t *testing.T) {
@@ -32,9 +33,9 @@ func TestLostConnectionEmptiesThenRefills(t *testing.T) {
 	defer stop()
 
 	srv.Close()
-	waitFor(t, "the state to empty with the connection", func() bool {
+	waittest.Until(t, func() bool {
 		return len(s.OutputDevices()) == 0 && len(s.InputDevices()) == 0 && len(s.PlaybackStreams()) == 0
-	})
+	}, "the state to empty with the connection")
 	if _, err := s.DefaultSink(context.Background()); !errors.Is(err, ErrNoDefaultDevice) {
 		t.Errorf("DefaultSink while down = %v, want ErrNoDefaultDevice", err)
 	}
@@ -44,24 +45,28 @@ func TestLostConnectionEmptiesThenRefills(t *testing.T) {
 	if err := s.SetDeviceMute(context.Background(), DeviceKey{Index: 1, Type: DeviceOutput}, true); !errors.Is(err, ErrDisconnected) {
 		t.Errorf("SetDeviceMute while down = %v, want ErrDisconnected", err)
 	}
-	select {
-	case _, ok := <-ticks:
-		if !ok {
-			t.Fatal("a lost connection closed the subscriber")
+	open := false
+	waittest.Until(t, func() bool {
+		select {
+		case _, open = <-ticks:
+			return true
+		default:
+			return false
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no tick for the lost connection")
+	}, "a tick for the lost connection")
+	if !open {
+		t.Fatal("a lost connection closed the subscriber")
 	}
 
 	srv.Listen(t)
-	waitFor(t, "the state to refill on reconnect", func() bool { return len(s.OutputDevices()) == 2 && hasDefaultSink(s) })
+	waittest.Until(t, func() bool { return len(s.OutputDevices()) == 2 && hasDefaultSink(s) }, "the state to refill on reconnect")
 	if err := s.SetMuted(context.Background(), true); err != nil {
 		t.Fatalf("SetMuted after reconnect: %v", err)
 	}
-	waitFor(t, "events from the new connection", func() bool {
+	waittest.Until(t, func() bool {
 		d, err := s.DefaultSink(context.Background())
 		return err == nil && d.Muted
-	})
+	}, "events from the new connection")
 }
 
 func TestStartWaitsForTheServer(t *testing.T) {
@@ -70,12 +75,12 @@ func TestStartWaitsForTheServer(t *testing.T) {
 	srv.Close()
 	s := Start(srv.Addr())
 	t.Cleanup(func() { _ = s.Close() })
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if len(s.OutputDevices()) != 0 || hasDefaultSink(s) {
 		t.Fatal("state before the server is up")
 	}
 	srv.Listen(t)
-	waitFor(t, "the first connection", func() bool { return len(s.OutputDevices()) == 2 && hasDefaultSink(s) })
+	waittest.Until(t, func() bool { return len(s.OutputDevices()) == 2 && hasDefaultSink(s) }, "the first connection")
 }
 
 func TestCloseStopsReconnecting(t *testing.T) {
@@ -88,13 +93,9 @@ func TestCloseStopsReconnecting(t *testing.T) {
 		_ = s.Close()
 		close(done)
 	}()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Close hung while reconnecting")
-	}
+	waittest.For(t, done, "Close while reconnecting")
 	srv.Listen(t)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if srv.Clients() != 0 || len(s.OutputDevices()) != 0 {
 		t.Error("a closed service connected")
 	}

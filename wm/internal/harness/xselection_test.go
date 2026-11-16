@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -55,37 +56,39 @@ func (c *xclient) inputWindow() xproto.Window {
 }
 
 func (c *xclient) next() (xgb.Event, error) {
-	type result struct {
-		ev  xgb.Event
-		err error
-	}
-	got := make(chan result, 1)
-	go func() {
-		for {
-			ev, xerr := c.x.WaitForEvent()
-			switch {
-			case ev == nil && xerr == nil:
-				got <- result{err: errors.New("the X connection closed")}
-				return
-			case ev != nil:
-				got <- result{ev: ev}
-				return
-			}
+	for {
+		ev, xerr := c.x.WaitForEvent()
+		switch {
+		case ev == nil && xerr == nil:
+			return nil, errors.New("the X connection closed")
+		case ev != nil:
+			return ev, nil
 		}
-	}()
-	select {
-	case r := <-got:
-		return r.ev, r.err
-	case <-time.After(testenv.HangLimit):
-		return nil, errors.New("no X event arrived")
 	}
+}
+
+type conversion struct {
+	typ   xproto.Atom
+	value []byte
+	err   error
 }
 
 func (c *xclient) convert(win xproto.Window, selection, target string) (xproto.Atom, []byte, error) {
-	return c.convertWith(win, selection, target, func() {})
+	c.t.Helper()
+	r := waittest.For(c.t, c.converting(win, selection, target, func() {}), fmt.Sprintf("the X selection %s converted to %s", selection, target))
+	return r.typ, r.value, r.err
 }
 
-func (c *xclient) convertWith(win xproto.Window, selection, target string, notified func()) (xproto.Atom, []byte, error) {
+func (c *xclient) converting(win xproto.Window, selection, target string, notified func()) <-chan conversion {
+	got := make(chan conversion, 1)
+	go func() {
+		typ, value, err := c.transfer(win, selection, target, notified)
+		got <- conversion{typ, value, err}
+	}()
+	return got
+}
+
+func (c *xclient) transfer(win xproto.Window, selection, target string, notified func()) (xproto.Atom, []byte, error) {
 	prop := c.atoms["XSEL_DATA"]
 	if err := xproto.ConvertSelectionChecked(c.x, win, c.atoms[selection], c.atoms[target], prop, xproto.TimeCurrentTime).Check(); err != nil {
 		return 0, nil, err
@@ -131,20 +134,15 @@ func (c *xclient) convertWith(win xproto.Window, selection, target string, notif
 
 func (c *xclient) paste(win xproto.Window, selection, target string, dispatch func(done <-chan struct{})) (xproto.Atom, []byte) {
 	c.t.Helper()
-	type result struct {
-		typ   xproto.Atom
-		value []byte
-		err   error
-	}
-	got := make(chan result, 1)
+	got := make(chan conversion, 1)
 	done := make(chan struct{})
 	go func() {
-		typ, value, err := c.convert(win, selection, target)
+		typ, value, err := c.transfer(win, selection, target, func() {})
 		close(done)
-		got <- result{typ, value, err}
+		got <- conversion{typ, value, err}
 	}()
 	dispatch(done)
-	r := <-got
+	r := waittest.For(c.t, got, fmt.Sprintf("the X selection %s pasted as %s", selection, target))
 	if r.err != nil {
 		c.t.Fatal(r.err)
 	}
@@ -183,21 +181,18 @@ func TestWaylandSelectionsPasteIntoX(t *testing.T) {
 			return err == nil && r.Owner != 0
 		})
 		win := xc.inputWindow()
-		serve := func(done <-chan struct{}) {
+		serve := func(<-chan struct{}) {
 			a.seen(t, "the source asked for the text", func() bool { return slices.Contains(src.Log, "send text/plain;charset=utf-8") })
-			<-done
 		}
 		var targets []byte
-		for deadline := time.Now().Add(testenv.HangLimit); ; time.Sleep(10 * time.Millisecond) {
+		waittest.Until(t, func() bool {
 			_, list, err := xc.convert(win, "CLIPBOARD", "TARGETS")
-			if err == nil {
-				targets = list
-				break
-			}
-			if !errors.Is(err, errRefused) || time.Now().After(deadline) {
+			if err != nil && !errors.Is(err, errRefused) {
 				t.Fatal(err)
 			}
-		}
+			targets = list
+			return err == nil
+		}, "the X clipboard to offer its targets")
 		if got := xc.names(targets); !slices.Equal(got, []string{"TARGETS", "UTF8_STRING", "text/html"}) {
 			t.Fatalf("targets %v", got)
 		}
@@ -217,9 +212,8 @@ func TestWaylandSelectionsPasteIntoX(t *testing.T) {
 		r, err := xproto.GetSelectionOwner(xc.x, xc.atoms["PRIMARY"]).Reply()
 		return err == nil && r.Owner != 0
 	})
-	_, got := xc.paste(xc.inputWindow(), "PRIMARY", "UTF8_STRING", func(done <-chan struct{}) {
+	_, got := xc.paste(xc.inputWindow(), "PRIMARY", "UTF8_STRING", func(<-chan struct{}) {
 		a.seen(t, "the primary source asked", func() bool { return slices.Contains(selected.Log, "send text/plain;charset=utf-8") })
-		<-done
 	})
 	if string(got) != "middle click" {
 		t.Fatalf("pasted %q from PRIMARY", got)
@@ -422,11 +416,7 @@ func TestAnXSelectionDiesWithXwayland(t *testing.T) {
 	h.Do(func(*headless.Backend, *compositor.Compositor) error {
 		return syscall.Kill(h.xwayland.Pid(), syscall.SIGKILL)
 	})
-	select {
-	case <-reports:
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("the crash was not reported")
-	}
+	waittest.For(t, reports, "the crash to be reported")
 	h.Eventually("the dead X selection cleared", func(_ *headless.Backend, c *compositor.Compositor) bool {
 		return c.CurrentSelection(data.Clipboard) == nil
 	})
@@ -461,11 +451,7 @@ func TestASilentXOwnerDoesNotHoldUpLaterPastes(t *testing.T) {
 	p.seen(t, "the X selection offered", func() bool { return p.cb.Selection != nil })
 	h.Freeze()
 	read := askPaste(t, p, "text/plain;charset=utf-8")
-	select {
-	case <-o.ignored:
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("the paste never reached the X owner")
-	}
+	waittest.For(t, o.ignored, "the paste to reach the X owner")
 	mu.Lock()
 	early := slices.Clone(reported)
 	mu.Unlock()
@@ -546,18 +532,10 @@ func TestALargeSelectionStreamsIntoXRatherThanBufferingWhole(t *testing.T) {
 		return err == nil && r.Owner != 0
 	})
 	win := xc.inputWindow()
-	type result struct {
-		value []byte
-		err   error
-	}
-	got := make(chan result, 1)
 	var atNotify int64
-	go func() {
-		_, v, err := xc.convertWith(win, "CLIPBOARD", "UTF8_STRING", func() { atNotify = written.Load() })
-		got <- result{v, err}
-	}()
+	got := xc.converting(win, "CLIPBOARD", "UTF8_STRING", func() { atNotify = written.Load() })
 	a.seen(t, "the source asked for the text", func() bool { return slices.Contains(src.Log, "send text/plain;charset=utf-8") })
-	r := <-got
+	r := waittest.ForSlow(t, got, "the 1 MiB X selection converted incrementally")
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
@@ -628,13 +606,8 @@ func TestAStalledTransferToXIsDroppedOnTimeAndReleasesItsSource(t *testing.T) {
 		t.Fatal("the stalled transfer was dropped before its timeout passed on the harness clock")
 	}
 	h.Advance(time.Millisecond)
-	select {
-	case err := <-writeErr:
-		if !errors.Is(err, syscall.EPIPE) {
-			t.Fatalf("the source's write failed with %v, want EPIPE once the transfer is dropped", err)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatalf("the source still writes %v after the transfer timeout passed on the harness clock", testenv.HangLimit)
+	if err := waittest.For(t, writeErr, "the source's write to fail once the transfer timeout passed on the harness clock"); !errors.Is(err, syscall.EPIPE) {
+		t.Fatalf("the source's write failed with %v, want EPIPE once the transfer is dropped", err)
 	}
 	h.Eventually("the dropped transfer reported", func(*headless.Backend, *compositor.Compositor) bool { return dropped() })
 }
@@ -691,14 +664,15 @@ func TestStalledTransfersToXAreBoundedAndDieWithTheirWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	typ, got := xc.paste(xc.inputWindow(), "CLIPBOARD", "UTF8_STRING", func(done <-chan struct{}) {
-		for {
+		waittest.Until(t, func() bool {
 			select {
 			case <-done:
-				return
+				return true
 			default:
 				a.c.Sync()
+				return false
 			}
-		}
+		}, "the paste after the stalled requestor went away")
 	})
 	if typ != xc.atoms["UTF8_STRING"] || string(got) != big {
 		t.Fatalf("after the stalled requestor went away, pasted %d bytes of type %d", len(got), typ)

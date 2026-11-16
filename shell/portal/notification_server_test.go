@@ -2,9 +2,9 @@ package portal
 
 import (
 	"testing"
-	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -35,15 +35,14 @@ func TestNotificationActionsReachAppsFromTheShellsOwnServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	var id uint32
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(5 * time.Millisecond) {
-		if popups := svc.Popups(); len(popups) == 1 {
-			id = popups[0].ID
-			break
+	waittest.Until(t, func() bool {
+		popups := svc.Popups()
+		if len(popups) != 1 {
+			return false
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("the server never showed the portal's notification")
-		}
-	}
+		id = popups[0].ID
+		return true
+	}, "the server to show the portal's notification")
 	svc.InvokeAction(id, "default", "tok-1")
 	body := nextActionInvoked(t, r)
 	if body[0] != "org.app" || body[1] != "n1" || body[2] != "app.open" {

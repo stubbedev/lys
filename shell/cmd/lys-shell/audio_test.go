@@ -2,17 +2,18 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // audioFixture serves dev.stubbe.lys.Audio1 on a private session bus over a
@@ -47,14 +48,16 @@ func audioFixture(t *testing.T) *pulsetest.Server {
 // reads see a change once the server's subscription event lands.
 func runUntil(t *testing.T, want string, args ...string) (stdout, stderr string, code int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		stdout, stderr, code = runCaptured(t, false, args...)
-		if (code == 0 && stdout == want) || time.Now().After(deadline) {
-			return stdout, stderr, code
+	defer func() {
+		if code != 0 || stdout != want {
+			t.Logf("the last run of %v: code %d stdout %q stderr %q", args, code, stdout, stderr)
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	}()
+	waittest.Until(t, func() bool {
+		stdout, stderr, code = runCaptured(t, false, args...)
+		return code == 0 && stdout == want
+	}, fmt.Sprintf("%v to print %q", args, want))
+	return stdout, stderr, code
 }
 
 func TestAudioCommands(t *testing.T) {

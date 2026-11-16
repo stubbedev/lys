@@ -10,19 +10,18 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const (
 	own     logind.SessionID = "c2"
 	display logind.SessionID = "3"
-	wait                     = 5 * time.Second
 )
 
 func manager(t *testing.T, cfg logindtest.Config) (*logindtest.Logind, logind.Manager) {
@@ -382,11 +381,7 @@ func TestInhibitHoldsUntilTheFileCloses(t *testing.T) {
 	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
-	for deadline := time.Now().Add(wait); fake.Inhibitors.Load() != 0; time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("the inhibitor outlived its file")
-		}
-	}
+	waittest.Until(t, func() bool { return fake.Inhibitors.Load() == 0 }, "the inhibitor to be released with its file")
 	if got := fake.Events.Load(); !slices.Equal(got, []logindtest.Event{logindtest.EventInhibit, logindtest.EventInhibitorReleased}) {
 		t.Errorf("events %v", got)
 	}
@@ -460,19 +455,10 @@ func TestCallsEndWithTheirContext(t *testing.T) {
 		_, err := m.GetSession(ctx, logind.AutoSession)
 		done <- err
 	}()
-	select {
-	case <-held.entered:
-	case <-time.After(wait):
-		t.Fatal("GetSession never reached logind")
-	}
+	waittest.For(t, held.entered, "GetSession to reach logind")
 	cancel()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Errorf("GetSession = %v, want its context's end", err)
-		}
-	case <-time.After(wait):
-		t.Fatal("GetSession outlived its context with logind silent")
+	if err := waittest.For(t, done, "GetSession to end with its context with logind silent"); !errors.Is(err, context.Canceled) {
+		t.Errorf("GetSession = %v, want its context's end", err)
 	}
 }
 
@@ -514,13 +500,8 @@ func TestDialEndsWithItsContextOnASilentBus(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = peer.Close() })
 	cancel()
-	select {
-	case err := <-done:
-		if err == nil {
-			t.Error("a connection from a bus that never answered")
-		}
-	case <-time.After(wait):
-		t.Fatal("Dial outlived its context on a silent bus")
+	if err := waittest.For(t, done, "Dial to end with its context on a silent bus"); err == nil {
+		t.Error("a connection from a bus that never answered")
 	}
 }
 
@@ -567,13 +548,8 @@ func TestFollowLidReadsTheLidThenEveryChangeInOrder(t *testing.T) {
 	})
 	for _, want := range []bool{false, true, false} {
 		fake.SwitchLid(t, want)
-		select {
-		case got := <-changes:
-			if got != want {
-				t.Fatalf("change %v, want %v", got, want)
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatalf("no change to %v", want)
+		if got := waittest.For(t, changes, "the lid to change"); got != want {
+			t.Fatalf("change %v, want %v", got, want)
 		}
 	}
 }
@@ -589,13 +565,8 @@ func TestFollowLidReportsALidStateThatIsNoBoolean(t *testing.T) {
 	t.Cleanup(func() { _ = w.Stop() })
 	fake.AnnounceManagerProperty(t, "Docked", true)
 	fake.AnnounceManagerProperty(t, "LidClosed", "yes")
-	select {
-	case err := <-failures:
-		if !strings.Contains(err.Error(), "LidClosed") {
-			t.Fatalf("failure %q does not name LidClosed", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no failure for a LidClosed that is a string")
+	if err := waittest.For(t, failures, "a failure for a LidClosed that is a string"); !strings.Contains(err.Error(), "LidClosed") {
+		t.Fatalf("failure %q does not name LidClosed", err)
 	}
 }
 

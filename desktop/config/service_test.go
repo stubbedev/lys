@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func collectDiags() (DiagnosticSink, func() []Diagnostic) {
@@ -326,22 +327,12 @@ func TestWatcherReloadsAfterTheDebounce(t *testing.T) {
 	changed := make(chan Location, 4)
 	Watch(svc, func(c *Config) Location { return c.Bar.Location }, func(l Location) { changed <- l })
 	writeFile(t, dir, "config.yaml", "bar:\n  location: left\n")
-	select {
-	case l := <-changed:
-		if l != LocationLeft {
-			t.Errorf("reloaded location = %q", l)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no reload after a config write")
+	if l := waittest.For(t, changed, "a reload after a config write"); l != LocationLeft {
+		t.Errorf("reloaded location = %q", l)
 	}
 	writeFile(t, dir, "runtime.yaml", "bar:\n  location: right\n")
-	select {
-	case l := <-changed:
-		if l != LocationRight {
-			t.Errorf("runtime reload = %q", l)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no reload after a runtime.yaml write")
+	if l := waittest.For(t, changed, "a reload after a runtime.yaml write"); l != LocationRight {
+		t.Errorf("runtime reload = %q", l)
 	}
 }
 

@@ -2,9 +2,9 @@ package wlsession
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 
 	"github.com/stubbedev/lys/ui/internal/compose"
@@ -48,12 +48,7 @@ func TestSessionComposeLoadsOffTheStartupPath(t *testing.T) {
 		})
 		close(loaded)
 	}()
-	select {
-	case <-loaded:
-	case <-time.After(5 * time.Second):
-		close(release)
-		t.Fatal("loadCompose waited for the compose table to parse")
-	}
+	waittest.For(t, loaded, "loadCompose to return before the compose table parses")
 	close(release)
 	if res, _ := s.FeedCompose(xkb.KeyDeadAcute); res != compose.Pending {
 		t.Fatalf("first key dead_acute = %v, want pending", res)

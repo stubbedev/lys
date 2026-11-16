@@ -2,18 +2,19 @@ package harness
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const chromiumEnv = "LYS_WM_CHROMIUM"
@@ -63,13 +64,7 @@ func (ch *chromium) frames() int {
 func (ch *chromium) paints(after string, n int) {
 	ch.t.Helper()
 	from := ch.frames()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for ch.frames() < from+n {
-		if time.Now().After(deadline) {
-			ch.t.Fatalf("Chromium drew %d of %d animation frames after %s within %v, so it stopped painting:\n%s", ch.frames()-from, n, after, testenv.HangLimit, ch.c.Output())
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.UntilSlow(ch.t, func() bool { return ch.frames() >= from+n }, fmt.Sprintf("Chromium to draw %d animation frames after %s", n, after))
 }
 
 func TestChromiumKeepsPaintingAcrossOutputsPowerAndCaps(t *testing.T) {
@@ -110,10 +105,9 @@ func (ch *chromium) capturedWhileHidden(n int) {
 	r := newCaptureRig(ch.t, ch.h, c)
 	session, view := r.windowSession()
 	from := ch.frames()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for ch.frames() < from+n {
-		if time.Now().After(deadline) {
-			ch.t.Fatalf("Chromium drew %d of %d animation frames while its hidden window was captured, within %v:\n%s", ch.frames()-from, n, testenv.HangLimit, ch.c.Output())
+	waittest.UntilSlow(ch.t, func() bool {
+		if ch.frames() >= from+n {
+			return true
 		}
 		f, frame, _ := grab(ch.t, c, session, view.size)
 		c.DispatchUntil("a capture of the hidden window", func() bool { return f.ready || f.failed })
@@ -123,5 +117,6 @@ func (ch *chromium) capturedWhileHidden(n int) {
 		if err := errors.Join(frame.Destroy(), c.Display.Flush()); err != nil {
 			ch.t.Fatal(err)
 		}
-	}
+		return false
+	}, fmt.Sprintf("Chromium to draw %d animation frames while its hidden window is captured", n))
 }

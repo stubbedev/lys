@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -652,6 +653,8 @@ func TestNotificationClearsDoNotWaitForTheBus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			v, svc, _ := clearableDropdown(t)
 			release := make(chan struct{})
+			releaseBus := sync.OnceFunc(func() { close(release) })
+			t.Cleanup(releaseBus)
 			var closed atomic.Int32
 			svc.SetEmitter(func(string, ...any) {
 				<-release
@@ -665,19 +668,14 @@ func TestNotificationClearsDoNotWaitForTheBus(t *testing.T) {
 					return true
 				})
 			}()
-			select {
-			case <-clicked:
-			case <-time.After(2 * time.Second):
-				close(release)
-				t.Fatal("the click waited for the bus")
-			}
+			waittest.For(t, clicked, "the click past the blocked bus")
 			waitHeadless(t, "the dropdown updated while the bus blocks", func() bool { return tc.done(v) })
 			if got := closed.Load(); got != 0 {
 				t.Errorf("%d signals before the bus took any", got)
 			}
-			close(release)
+			releaseBus()
 			waitHeadless(t, "every closed signal", func() bool { return closed.Load() == tc.closed })
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(quietWindow)
 			if got := closed.Load(); got != tc.closed {
 				t.Errorf("closed signals = %d, want %d", got, tc.closed)
 			}
@@ -708,7 +706,7 @@ func TestNotificationDropdownRereadsOnlyTheHistory(t *testing.T) {
 		return true
 	})
 	svc.Notify("mail", 0, "", "after", "", nil, 0)
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := onHeadlessLoop(func() int { return len(v.notifs) }); got != 4 {
 		t.Errorf("a closed dropdown reread the history: %d notifications", got)
 	}

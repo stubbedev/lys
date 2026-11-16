@@ -3,8 +3,8 @@ package bar
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/swaytest"
@@ -147,11 +147,12 @@ func TestBarReloadKeepsTheSurface(t *testing.T) {
 	}
 	wait := func(what string, cond func() bool) {
 		t.Helper()
-		for deadline := time.Now().Add(10 * time.Second); !cond(); time.Sleep(10 * time.Millisecond) {
-			if time.Now().After(deadline) {
-				t.Fatalf("timed out waiting for %s (thickness %d, reserved %d)", what, thickness(), reservedTop(t))
+		untilNil(t, what, func() error {
+			if cond() {
+				return nil
 			}
-		}
+			return fmt.Errorf("thickness %d, reserved %d", thickness(), reservedTop(t))
+		})
 	}
 	reload := func(next *config.Config, layout config.BarLayout) {
 		onLoop(func() {

@@ -10,11 +10,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
@@ -88,7 +89,7 @@ func TestLibinputAsksTheOpenerForDevices(t *testing.T) {
 	var reports []error
 	in := libinputReporting(t, opener, func(err error) { reports = append(reports, err) })
 	in.AddLater(node)
-	runUntil(t, in.loop, "the refused open's report", func() bool { return len(reports) > 0 })
+	looptest.RunUntil(t, in.loop, "the refused open's report", func() bool { return len(reports) > 0 })
 	if err := reports[0]; len(reports) != 1 || !errors.Is(err, unix.EPERM) || errors.Is(err, ErrDeclined) || !strings.Contains(err.Error(), node) {
 		t.Fatalf("a refused open reported %v", reports)
 	}
@@ -243,39 +244,22 @@ func TestAnInputDeviceIsTakenOffTheLoop(t *testing.T) {
 		t.Fatal("the device was not in flight while the opener held it")
 	}
 	close(opener.release)
-	deadline := time.After(testenv.HangLimit)
-	for adding() {
-		select {
-		case <-deadline:
-			t.Fatal("the taken device never reached the input reader")
-		default:
-			time.Sleep(time.Millisecond)
-		}
-	}
+	waittest.Until(t, func() bool { return !adding() }, "the taken device to reach the input reader")
 	in.onReader(t, "look at what is left", func(r *inputReader) error {
 		if len(r.ready) != 0 || len(r.paths) != 0 {
 			return fmt.Errorf("a device libinput declines left ready %v, paths %v", r.ready, r.paths)
 		}
 		return nil
 	})
-	select {
-	case <-opener.released:
-	case <-deadline:
-		t.Fatal("the declined device was never released")
-	}
+	waittest.For(t, opener.released, "the declined device's release")
 }
 
 func TestAReleaseDoesNotWaitForTheOpener(t *testing.T) {
 	opener := &blockingOpener{entered: make(chan struct{}), release: make(chan struct{}), released: make(chan Device)}
 	in := libinput(t, opener)
 	in.reader.releaseLater(Device{Major: 13, Minor: 64})
-	select {
-	case d := <-opener.released:
-		if d.Major != 13 {
-			t.Fatalf("released %+v", d)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("the release never ran")
+	if d := waittest.For(t, opener.released, "the release"); d.Major != 13 {
+		t.Fatalf("released %+v", d)
 	}
 }
 
@@ -312,18 +296,11 @@ func TestTheInputReaderRaisesItsOwnThreadAndReleasesItBeforeTheThreadEnds(t *tes
 		return
 	}
 	task := fmt.Sprintf("/proc/self/task/%d", tid)
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(t, func() bool {
 		_, err := os.Stat(task)
-		if errors.Is(err, os.ErrNotExist) {
-			return
-		}
-		if err != nil {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			t.Fatal(err)
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the reader's thread %d outlived Close by %v", tid, testenv.HangLimit)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+		return err != nil
+	}, fmt.Sprintf("the reader's thread %d to end after Close", tid))
 }

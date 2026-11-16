@@ -3,14 +3,12 @@ package compositor
 import (
 	"image"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/surface"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 type offThreadRenderer struct {
@@ -49,21 +47,6 @@ func TestAFrameWithAnIncompletePassIsRedrawnWhole(t *testing.T) {
 		return b
 	}, func(*Config) {})
 	o := b.Outputs()[0]
-	await := func(what string, cond func() bool) {
-		t.Helper()
-		deadline := time.Now().Add(testenv.HangLimit)
-		for {
-			var ok bool
-			r.on(func() { ok = cond() })
-			if ok {
-				return
-			}
-			if time.Now().After(deadline) {
-				t.Fatalf("timed out waiting for %s", what)
-			}
-			time.Sleep(time.Millisecond)
-		}
-	}
 	r.on(func() {
 		if b.r.offThread != 0 {
 			t.Errorf("a compositor nobody raised asked its renderer to build off the thread %d times", b.r.offThread)
@@ -75,7 +58,7 @@ func TestAFrameWithAnIncompletePassIsRedrawnWhole(t *testing.T) {
 			t.Errorf("BuildOffThread asked the renderer %d times, want once", b.r.offThread)
 		}
 	})
-	await("the first frames to settle", func() bool { return o.Frames() > 0 && !o.FrameOwed() })
+	r.until("the first frames to settle", func() bool { return o.Frames() > 0 && !o.FrameOwed() })
 	frameAsked := func(incomplete bool) uint64 {
 		t.Helper()
 		var frames uint64
@@ -88,7 +71,7 @@ func TestAFrameWithAnIncompletePassIsRedrawnWhole(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
-		await("the frames to settle", func() bool { return !o.FrameOwed() })
+		r.until("the frames to settle", func() bool { return !o.FrameOwed() })
 		var n uint64
 		r.on(func() { n = o.Frames() - frames })
 		return n

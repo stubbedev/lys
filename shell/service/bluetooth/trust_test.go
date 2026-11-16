@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func setTrustedCall(p dbus.ObjectPath) string { return deviceIface + ".Set.Trusted " + string(p) }
@@ -21,7 +22,7 @@ func TestTrustPaired(t *testing.T) {
 	if !f.called(setTrustedCall(dev1)) {
 		t.Fatal("a paired device was not trusted")
 	}
-	waitFor(t, "trusted", func() bool { d, _ := s.State().Device(dev1); return d.Trusted })
+	waittest.Until(t, func() bool { d, _ := s.State().Device(dev1); return d.Trusted }, "trusted")
 	// An unpaired device is left alone: a stray trust would linger.
 	if err := s.TrustPaired(ctx, dev2); err != nil {
 		t.Fatalf("TrustPaired unpaired: %v", err)

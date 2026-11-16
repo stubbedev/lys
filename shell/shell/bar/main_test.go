@@ -2,9 +2,12 @@ package bar
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/lib/testhome"
 )
+
+const quietWindow = 200 * time.Millisecond
 
 // TestMain runs the package against a scratch home: building a theme
 // or a config reads, and the shell scaffolds, the user's config dir.

@@ -11,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/ui/internal/waittest"
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/ui/widget"
 )
 

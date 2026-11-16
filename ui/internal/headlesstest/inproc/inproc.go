@@ -8,10 +8,10 @@ import (
 	"image"
 	"image/color"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 
 	"github.com/stubbedev/lys/ui/app"
@@ -42,14 +42,10 @@ func Show(t *testing.T, build func(a *app.Application, out *app.Output) error) {
 		defer close(done)
 		_ = a.Run()
 	}()
+	t.Cleanup(sess.Close)
 	t.Cleanup(func() {
 		a.Invoke(a.Quit)
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			t.Error("application did not quit")
-		}
-		sess.Close()
+		waittest.For(t, done, "the application to quit")
 	})
 }
 

@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
-
-	"github.com/stubbedev/lys/ui/internal/waittest"
 )
+
+const quietWindow = 50 * time.Millisecond
 
 // answerSync plays the compositor's half of one request on c: a
 // wl_display.sync is counted in answered, then answered with its
@@ -83,17 +84,12 @@ func newSyncSession(t *testing.T) (*Session, net.Conn, *atomic.Int32) {
 	return s, srv, answered
 }
 
-func stepWithin(t *testing.T, s *Session, limit time.Duration) time.Time {
+func awaitStep(t *testing.T, s *Session) time.Time {
 	t.Helper()
 	done := make(chan error, 1)
 	go func() { done <- s.Step() }()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("step: %v", err)
-		}
-	case <-time.After(limit):
-		t.Fatalf("a loop parked in Step did not wake within %v", limit)
+	if err := waittest.For(t, done, "a loop parked in Step to wake"); err != nil {
+		t.Fatalf("step: %v", err)
 	}
 	return time.Now()
 }
@@ -102,7 +98,7 @@ func TestWakeAfterWakesTheLoopWithoutTheCompositor(t *testing.T) {
 	s, _, answered := newSyncSession(t)
 	asked := time.Now()
 	s.WakeAfter(10 * time.Millisecond)
-	if got := stepWithin(t, s, 5*time.Second).Sub(asked); got < 10*time.Millisecond {
+	if got := awaitStep(t, s).Sub(asked); got < 10*time.Millisecond {
 		t.Errorf("woke after %v, before the 10ms it asked for", got)
 	}
 	if n := answered.Load(); n != 0 {
@@ -126,37 +122,32 @@ func TestEveryPendingWakeFiresInOrder(t *testing.T) {
 	s.WakeAfter(60 * time.Millisecond)
 	s.WakeAfter(5 * time.Millisecond)
 	parked := time.Now()
-	if got := stepWithin(t, s, 5*time.Second).Sub(parked); got >= 60*time.Millisecond {
+	if got := awaitStep(t, s).Sub(parked); got >= 60*time.Millisecond {
 		t.Errorf("the nearer wake came after %v", got)
 	}
 	start := time.Now()
-	stepWithin(t, s, 5*time.Second)
+	awaitStep(t, s)
 	if time.Since(start) < 20*time.Millisecond {
 		t.Error("the later wake fired with the earlier one")
 	}
 }
 
 func TestADueWakeDoesNotSpinTheLoop(t *testing.T) {
-	s, _, answered := newSyncSession(t)
+	s, _, _ := newSyncSession(t)
 	s.WakeAfter(0)
-	stepWithin(t, s, 5*time.Second)
+	awaitStep(t, s)
 	done := make(chan error, 1)
 	go func() { done <- s.Step() }()
 	select {
 	case err := <-done:
 		t.Fatalf("Step returned with nothing to do: %v", err)
-	case <-time.After(30 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if err := s.AfterSync(func() {}); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatalf("compositor events no longer end a park; %d syncs answered", answered.Load())
+	if err := waittest.For(t, done, "compositor events to end a park"); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -207,7 +198,7 @@ func TestADueWakeStillDispatchesTheEventsWaiting(t *testing.T) {
 		t.Fatalf("the compositor did not answer the sync: %d syncs, %v", synced.Load(), err)
 	}
 	s.WakeAfter(0)
-	stepWithin(t, s, 5*time.Second)
+	awaitStep(t, s)
 	if !answered {
 		t.Error("a Step with a due wake left the compositor's waiting answer undispatched")
 	}
@@ -218,7 +209,7 @@ func TestWakeAfterCloseIsSilent(t *testing.T) {
 	s, _, answered := newSyncSession(t)
 	s.Close()
 	s.WakeAfter(0)
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if answered.Load() != 0 {
 		t.Errorf("a wake after Close sent %d syncs", answered.Load())
 	}
@@ -231,7 +222,7 @@ func TestSetDeadlineReplacesTheLast(t *testing.T) {
 	s, _, _ := newSyncSession(t)
 	s.SetDeadline(time.Now().Add(time.Hour))
 	s.SetDeadline(time.Now().Add(5 * time.Millisecond))
-	stepWithin(t, s, 5*time.Second)
+	awaitStep(t, s)
 	if !s.deadline.IsZero() {
 		t.Errorf("a fired deadline stayed set: %v", s.deadline)
 	}
@@ -242,11 +233,11 @@ func TestSetDeadlineReplacesTheLast(t *testing.T) {
 	select {
 	case err := <-done:
 		t.Fatalf("a replaced deadline still fired: %v", err)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	s.SetDeadline(time.Time{})
 	s.WakeAfter(0)
-	if err := <-done; err != nil {
+	if err := waittest.For(t, done, "a cleared deadline's Step to wake"); err != nil {
 		t.Fatal(err)
 	}
 	if !s.armed.IsZero() {

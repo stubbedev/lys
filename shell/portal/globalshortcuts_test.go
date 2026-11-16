@@ -7,12 +7,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // fakeShortcuts is the compositor's shortcut manager.
@@ -103,8 +103,6 @@ func (r *rig) shortcutSignals(t *testing.T) []*dbus.Signal {
 
 const settledSignal = "dev.stubbe.lys.test.Settled"
 
-const hangGuard = 2 * time.Minute
-
 func (r *rig) settled(t *testing.T, names ...string) []*dbus.Signal {
 	t.Helper()
 	worked := make(chan struct{})
@@ -112,26 +110,18 @@ func (r *rig) settled(t *testing.T, names ...string) []*dbus.Signal {
 		r.backend.shortcuts.waitIdle()
 		close(worked)
 	}()
-	select {
-	case <-worked:
-	case <-time.After(hangGuard):
-		t.Fatalf("the global shortcuts' work still runs after %s", hangGuard)
-	}
+	waittest.For(t, worked, "the global shortcuts' work to finish")
 	if err := r.backend.conn.Emit(ObjectPath, settledSignal); err != nil {
 		t.Fatalf("emit %s: %v", settledSignal, err)
 	}
 	var out []*dbus.Signal
 	for {
-		select {
-		case s := <-r.signals:
-			if s.Name == settledSignal {
-				return out
-			}
-			if slices.Contains(names, s.Name) {
-				out = append(out, s)
-			}
-		case <-time.After(hangGuard):
-			t.Fatalf("%s never arrived after %s", settledSignal, hangGuard)
+		s := waittest.For(t, r.signals, "the signal "+settledSignal)
+		if s.Name == settledSignal {
+			return out
+		}
+		if slices.Contains(names, s.Name) {
+			out = append(out, s)
 		}
 	}
 }
@@ -316,7 +306,7 @@ func TestGlobalShortcutsConfigure(t *testing.T) {
 	if err := r.obj.Call(GlobalShortcutsIface+".ConfigureShortcuts", 0, sessA, "", Vardict{}).Err; err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, func() bool { return len(d.callers.Load()) == 2 })
+	waittest.Until(t, func() bool { return len(d.callers.Load()) == 2 }, "the configure dialog to be asked")
 	if body := d.asked.Load()[0].(portaldialogs.AccessRequest).Body; !strings.Contains(body, "Mic") || !strings.Contains(body, "global, org.app:mic") {
 		t.Errorf("configure shows %q", body)
 	}
@@ -353,16 +343,6 @@ func TestGlobalShortcutsCloseWhenTheLoopEnds(t *testing.T) {
 	r.bind(t, sessB, shortcut{"mic", props("Mic")})
 	if got := f.registered.Load(); len(got) != 2 {
 		t.Errorf("registered %v: the next session did not reach a fresh device", got)
-	}
-}
-
-// waitFor polls cond until it holds, failing after two seconds.
-func waitFor(t *testing.T, cond func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(hangGuard); !cond(); time.Sleep(5 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("condition never held")
-		}
 	}
 }
 

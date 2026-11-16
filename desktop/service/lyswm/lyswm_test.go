@@ -10,21 +10,35 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 )
 
+const quietWindow = 200 * time.Millisecond
+
+func received(w *lyswm.Watcher) <-chan bool {
+	open := make(chan bool, 1)
+	go func() {
+		_, ok := <-w.Ticks()
+		open <- ok
+	}()
+	return open
+}
+
 func awaitTick(t *testing.T, w *lyswm.Watcher) {
 	t.Helper()
-	select {
-	case _, ok := <-w.Ticks():
-		if !ok {
-			t.Fatal("the stream ended")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no tick")
+	if !waittest.For(t, received(w), "a tick") {
+		t.Fatal("the stream ended")
+	}
+}
+
+func awaitEnd(t *testing.T, w *lyswm.Watcher, why string) {
+	t.Helper()
+	if waittest.For(t, received(w), "the stream to end after "+why) {
+		t.Fatalf("ticked after %s", why)
 	}
 }
 
@@ -158,7 +172,7 @@ func checkSeed[T comparable](t *testing.T, s lyswm.State[T], kind, seed string, 
 	select {
 	case <-w.Ticks():
 		t.Error("seeding ticked")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -187,7 +201,7 @@ func checkFollow[T comparable](t *testing.T, s lyswm.State[T], event string, wan
 	select {
 	case <-w.Ticks():
 		t.Fatal("ticked on an event of another kind")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	if got := w.Value(); got != seeded {
 		t.Fatalf("another kind's event changed the value to %+v", got)
@@ -274,7 +288,7 @@ func TestWatchTicksOnlyOnItsKinds(t *testing.T) {
 	select {
 	case <-w.Ticks():
 		t.Fatal("ticked on an event it does not follow")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	f.Events <- `{"event":"focus","window":null}`
 	awaitTick(t, w)
@@ -290,14 +304,7 @@ func TestWatchEndsOnAMalformedLine(t *testing.T) {
 	log.SetOutput(&logged)
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 	f.Events <- `not json`
-	select {
-	case _, ok := <-w.Ticks():
-		if ok {
-			t.Fatal("a malformed line ticked")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("the stream did not end")
-	}
+	awaitEnd(t, w, "a malformed line")
 	if !strings.Contains(logged.String(), "not json") {
 		t.Errorf("the stream ended without saying why: %q", logged.String())
 	}
@@ -314,11 +321,7 @@ func TestWatchClosedLogsNothing(t *testing.T) {
 	log.SetOutput(&logged)
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 	w.Close()
-	select {
-	case <-w.Ticks():
-	case <-time.After(2 * time.Second):
-		t.Fatal("the stream did not end")
-	}
+	waittest.For(t, w.Ticks(), "the stream to end")
 	if logged.String() != "" {
 		t.Errorf("logged %q", logged.String())
 	}
@@ -349,14 +352,7 @@ func TestWatchEndsWhenClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.Close()
-	select {
-	case _, ok := <-w.Ticks():
-		if ok {
-			t.Fatal("ticked after Close")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("Ticks stayed open after Close")
-	}
+	awaitEnd(t, w, "Close")
 }
 
 func TestFollowReducedMotionSeedsFollowsAndSaysWhenItEnds(t *testing.T) {
@@ -370,24 +366,15 @@ func TestFollowReducedMotionSeedsFollowsAndSaysWhenItEnds(t *testing.T) {
 	}
 	expect := func(want bool) {
 		t.Helper()
-		select {
-		case got := <-seen:
-			if got != want {
-				t.Fatalf("set(%v), want %v", got, want)
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatal("no call of set")
+		if got := waittest.For(t, seen, "a call of set"); got != want {
+			t.Fatalf("set(%v), want %v", got, want)
 		}
 	}
 	expect(true)
 	f.Events <- `{"event":"reducedmotion","reduced_motion":false}`
 	expect(false)
 	stop()
-	select {
-	case <-gone:
-	case <-time.After(5 * time.Second):
-		t.Fatal("gone was not called when the stream ended")
-	}
+	waittest.For(t, gone, "gone to be called as the stream ended")
 }
 
 func TestWatchTitlesDropsHiddenWindows(t *testing.T) {
@@ -399,35 +386,35 @@ func TestWatchTitlesDropsHiddenWindows(t *testing.T) {
 	}
 	defer w.Close()
 	f.AwaitWatch(t)
-	expect := func(what string, ticks bool) {
+	announcedTick := func(what string) {
 		t.Helper()
-		wait := 2 * time.Second
-		if !ticks {
-			wait = 200 * time.Millisecond
+		if len(announced) != 1 {
+			t.Errorf("%s: %d announcements ahead of its tick", what, len(announced))
 		}
+		<-announced
+	}
+	ticks := func(what string) {
+		t.Helper()
+		waittest.For(t, w.Ticks(), "a tick for "+what)
+		announcedTick(what)
+	}
+	quiet := func(what string) {
+		t.Helper()
 		select {
 		case <-w.Ticks():
-			if !ticks {
-				t.Errorf("%s ticked", what)
-			}
-			if len(announced) != 1 {
-				t.Errorf("%s: %d announcements ahead of its tick", what, len(announced))
-			}
-			<-announced
-		case <-time.After(wait):
-			if ticks {
-				t.Errorf("%s never ticked", what)
-			}
+			t.Errorf("%s ticked", what)
+			announcedTick(what)
+		case <-time.After(quietWindow):
 		}
 	}
 	f.Events <- `{"event":"title","window":9,"title":"hidden"}`
-	expect("a hidden window's title", false)
+	quiet("a hidden window's title")
 	f.Events <- `{"event":"title","window":4,"title":"shown"}`
-	expect("a shown window's title", true)
+	ticks("a shown window's title")
 	f.Events <- `{"event":"workspace","output":"DP-1","workspace":3}`
-	expect("a workspace", true)
+	ticks("a workspace")
 	f.Events <- `{"event":"submap","submap":"resize"}`
-	expect("another kind", false)
+	quiet("another kind")
 }
 
 func TestWatchSurvivesAnEventWithAWindowObject(t *testing.T) {
@@ -441,14 +428,7 @@ func TestWatchSurvivesAnEventWithAWindowObject(t *testing.T) {
 	f.Events <- `{"event":"open","window":{"id":7,"app_id":"foot"}}`
 	f.Events <- `{"event":"focus","window":null}`
 	f.Events <- `{"event":"layout","layout":{"index":1,"name":"German"}}`
-	select {
-	case _, ok := <-w.Ticks():
-		if !ok {
-			t.Fatal("the stream ended on the window object")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no tick for the layout after the window object")
-	}
+	awaitTick(t, w.Watcher)
 	if got := w.Value(); got.Name != "German" {
 		t.Errorf("the layout reads %q", got.Name)
 	}
@@ -490,7 +470,7 @@ func TestWatchTicksOnStackEvents(t *testing.T) {
 	select {
 	case <-w.Ticks():
 		t.Fatal("ticked on an event it does not follow")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	f.Events <- `{"event":"stack","window":3,"stack":null}`
 	awaitTick(t, w)

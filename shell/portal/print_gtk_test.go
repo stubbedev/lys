@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/ipp"
@@ -110,43 +111,41 @@ func (g *gtkPrintRig) print(t *testing.T, gtk string, choose func(root widget.Wi
 	defer func() {
 		cancel()
 		<-exited
+		if t.Failed() {
+			t.Logf("GTK %s:\n%s%s", gtk, stdout.String(), stderr.String())
+		}
 	}()
 	var root widget.Widget
-	select {
-	case root = <-g.opened:
-	case err := <-exited:
-		exited <- err
-		t.Fatalf("GTK %s ended before its dialog opened: %v\n%s", gtk, err, stderr.String())
-	case <-time.After(hangGuard):
-		t.Fatalf("GTK %s never opened the dialog:\n%s", gtk, stderr.String())
-	}
-	for deadline := time.Now().Add(hangGuard); ; time.Sleep(time.Millisecond) {
+	waittest.UntilSlow(t, func() bool {
+		select {
+		case root = <-g.opened:
+			return true
+		case err := <-exited:
+			exited <- err
+			t.Fatalf("GTK %s ended before its dialog opened: %v", gtk, err)
+		default:
+		}
+		return false
+	}, "GTK "+gtk+" to open the dialog")
+	waittest.UntilSlow(t, func() bool {
 		treetest.Loop.Lock()
-		listed := slices.Contains(treetest.Labels(root), "office")
-		treetest.Loop.Unlock()
-		if listed {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the dialog never listed the office printer")
-		}
-	}
+		defer treetest.Loop.Unlock()
+		return slices.Contains(treetest.Labels(root), "office")
+	}, "the dialog to list the office printer")
 	treetest.Loop.Lock()
 	choose(root)
 	treetest.Button(t, root, "Print").OnClick()
 	treetest.Loop.Unlock()
 	sent := func() bool { return strings.HasSuffix(stdout.String(), "sent\n") }
-	for deadline := time.Now().Add(hangGuard); !landed() || !sent(); time.Sleep(5 * time.Millisecond) {
+	waittest.UntilSlow(t, func() bool {
 		select {
 		case err := <-exited:
 			exited <- err
-			t.Fatalf("GTK %s ended before its document landed: %v\n%s%s", gtk, err, stdout.String(), stderr.String())
+			t.Fatalf("GTK %s ended before its document landed: %v", gtk, err)
 		default:
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("GTK %s's document never landed:\n%s%s", gtk, stdout.String(), stderr.String())
-		}
-	}
+		return landed() && sent()
+	}, "GTK "+gtk+"'s document to land")
 	lines := strings.Fields(stdout.String())
 	if len(lines) == 0 || lines[len(lines)-1] != "sent" {
 		t.Fatalf("GTK %s printed %q", gtk, stdout.String())

@@ -10,20 +10,10 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const liveness = 10 * time.Second
-
-func await[T any](t *testing.T, ch <-chan T, what string) T {
-	t.Helper()
-	select {
-	case v := <-ch:
-		return v
-	case <-time.After(liveness):
-		t.Fatalf("no %s", what)
-		panic("unreachable")
-	}
-}
 
 // frozenProps is the Properties object of a tray application that has
 // stopped answering: each GetAll is announced on asked and answered
@@ -83,7 +73,7 @@ func TestAnItemThatNeverAnswersDoesNotStallTheHost(t *testing.T) {
 	if err := stuck.conn.Emit("/StatusNotifierItem", ItemIface+".NewIcon"); err != nil {
 		t.Fatal(err)
 	}
-	await(t, frozen.asked, "read of the item that changed its icon")
+	waittest.For(t, frozen.asked, "read of the item that changed its icon")
 	for range 3 {
 		if err := stuck.conn.Emit("/StatusNotifierItem", ItemIface+".NewIcon"); err != nil {
 			t.Fatal(err)
@@ -118,7 +108,7 @@ func TestAnItemThatNeverAnswersDoesNotStallTheHost(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- host.Close() }()
 	closed = true
-	if err := await(t, done, "end of Close while an item's read is under way"); err != nil {
+	if err := waittest.For(t, done, "end of Close while an item's read is under way"); err != nil {
 		t.Errorf("Close: %v", err)
 	}
 	select {
@@ -143,9 +133,9 @@ func TestTheHostReportsTheItemThatNeverAnswers(t *testing.T) {
 	stuck := startItem(t, bus, "stuck")
 	frozen := freeze(t, stuck.conn, nil)
 	stuck.register(t)
-	await(t, frozen.asked, "read of the registered item")
+	waittest.For(t, frozen.asked, "read of the registered item")
 
-	failure := await(t, failures, "report of the item that never answered")
+	failure := waittest.For(t, failures, "report of the item that never answered")
 	if !errors.Is(failure, context.DeadlineExceeded) {
 		t.Errorf("the report is %v, want a deadline that passed", failure)
 	}

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -131,11 +131,7 @@ func TestUserStylesReloadOnAWatchedChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	changed()
-	select {
-	case <-applied:
-	case <-time.After(10 * time.Second):
-		t.Fatal("a watched edit did not reload the stylesheet")
-	}
+	waittest.For(t, applied, "a watched edit to reload the stylesheet")
 	if !strings.Contains(theme.loaded, ".bar .x { color: red; }") {
 		t.Error("the reload did not carry the edit")
 	}

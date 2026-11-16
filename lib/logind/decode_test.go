@@ -5,12 +5,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const (
@@ -90,14 +90,15 @@ func eof(read int) (bool, error) {
 	return n == 0 && err == nil, err
 }
 
-func closed(t *testing.T, read int) bool {
+func waitClosed(t *testing.T, read int, what string) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
-		if done, err := eof(read); done || err != nil {
-			return done
+	waittest.Until(t, func() bool {
+		done, err := eof(read)
+		if err != nil {
+			t.Fatalf("waiting for %s: %v", what, err)
 		}
-	}
-	return false
+		return done
+	}, what)
 }
 
 func TestDecodeClosesTheDescriptorOfAResumeDeviceItDoesNotHandOver(t *testing.T) {
@@ -107,18 +108,14 @@ func TestDecodeClosesTheDescriptorOfAResumeDeviceItDoesNotHandOver(t *testing.T)
 	if err != nil || len(got) != 0 {
 		t.Errorf("a forged ResumeDevice: decode = %v, %v; want nothing", got, err)
 	}
-	if !closed(t, read) {
-		t.Error("the forged ResumeDevice's descriptor stayed open")
-	}
+	waitClosed(t, read, "the forged ResumeDevice's descriptor to close")
 
 	read, write = pipe(t)
 	got, err = decodeAll(t, &dbus.Signal{Sender: owner, Path: watched, Name: ResumeDevice.Name(), Body: []any{uint32(1), write}})
 	if err == nil || len(got) != 0 {
 		t.Errorf("a short ResumeDevice: decode = %v, %v; want an error", got, err)
 	}
-	if !closed(t, read) {
-		t.Error("the malformed ResumeDevice's descriptor stayed open")
-	}
+	waitClosed(t, read, "the malformed ResumeDevice's descriptor to close")
 }
 
 func TestDecodeHandsOverTheDescriptorOfAResumeDevice(t *testing.T) {

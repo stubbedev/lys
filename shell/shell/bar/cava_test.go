@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	analyzer "github.com/stubbedev/lys/shell/cava"
@@ -355,11 +356,7 @@ func TestCavaModuleEndsWithItsGeneration(t *testing.T) {
 		t.Fatal("the ticker stopped before the generation retired")
 	}
 	retire()
-	select {
-	case <-in.stopped:
-	case <-time.After(2 * time.Second):
-		t.Fatal("the capture outlived its generation")
-	}
+	waittest.For(t, in.stopped, "the capture to stop with its generation")
 	if ticking {
 		t.Error("the ticker outlived its generation")
 	}
@@ -456,11 +453,7 @@ func TestCavaStaysStoppedWhenSoundFollowsItsGeneration(t *testing.T) {
 	a.join(life, testSpawn(t), newCavaBarSlot(newSpectrum(config.DefaultsCava(), 10, 0, 1, false), func(fn func()) { fn() }))
 	loop.tick()
 	retire()
-	select {
-	case <-in.stopped:
-	case <-time.After(2 * time.Second):
-		t.Fatal("the capture outlived its generation")
-	}
+	waittest.For(t, in.stopped, "the capture to stop with its generation")
 	in.onSound()
 	if loop.tick != nil {
 		t.Error("sound restarted a retired module")

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -17,6 +18,8 @@ type echo struct{}
 func (echo) Echo(s string) (string, *dbus.Error) { return s, nil }
 
 func (echo) Fail() *dbus.Error { return dbusx.Failed("it broke") }
+
+const quietWindow = 300 * time.Millisecond
 
 const (
 	name  = "dev.stubbe.lys.Test1"

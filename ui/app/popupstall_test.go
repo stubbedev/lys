@@ -4,8 +4,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/ui/app"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 

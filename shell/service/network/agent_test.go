@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/network/openconnect"
 	"github.com/stubbedev/lys/shell/service/network/secrets"
@@ -197,23 +198,17 @@ func (fx *agentFixture) ask(conn ConnectionDict, at int, setting string, hints .
 func (fx *agentFixture) shown(t *testing.T) secrets.Request {
 	t.Helper()
 	var req secrets.Request
-	waitFor(t, "a prompt", func() bool {
+	waittest.Until(t, func() bool {
 		var ok bool
 		req, ok = fx.agent.Request()
 		return ok
-	})
+	}, "a prompt")
 	return req
 }
 
 func await(t *testing.T, ch <-chan answer) answer {
 	t.Helper()
-	select {
-	case a := <-ch:
-		return a
-	case <-time.After(liveness):
-		t.Fatal("the request never answered")
-	}
-	return answer{}
+	return waittest.For(t, ch, "the request's answer")
 }
 
 func errName(err error) string {
@@ -282,13 +277,7 @@ func TestAnNMThatAppearedBeforeARegistrationWasAnsweredIsNotAskedAgain(t *testin
 	t.Cleanup(func() { must(t, unwatch()) })
 	appeared := func() dbus.Sequence {
 		t.Helper()
-		select {
-		case announced := <-appearances:
-			return announced
-		case <-time.After(liveness):
-			t.Fatal("the bus did not announce NM taking its name")
-			return dbus.NoSequence
-		}
+		return waittest.For(t, appearances, "the bus to announce NM taking its name")
 	}
 
 	r := &agentRegistration{conn: conn}
@@ -535,7 +524,7 @@ func TestAWithdrawnPromptComesDown(t *testing.T) {
 	if a := await(t, pending); errName(a.err) != errAgentCanceled {
 		t.Fatalf("err = %v", a.err)
 	}
-	waitFor(t, "the prompt to come down", func() bool { _, ok := fx.agent.Request(); return !ok })
+	waittest.Until(t, func() bool { _, ok := fx.agent.Request(); return !ok }, "the prompt to come down")
 }
 
 func TestANewRequestForTheSameSettingSupersedesTheOld(t *testing.T) {
@@ -603,13 +592,13 @@ func TestPromptsAreServedOneAtATime(t *testing.T) {
 		t.Fatalf("first = %+v", req)
 	}
 	second := fx.ask(wifiConnection("b", "B", []byte("b")), 2, "802-11-wireless-security")
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if req, _ := fx.agent.Request(); req.UUID != "a" {
 		t.Fatalf("the second prompt took over the form: %+v", req)
 	}
 	fx.agent.Submit(map[string]string{"psk": "1"})
 	await(t, first)
-	waitFor(t, "the second prompt", func() bool { req, ok := fx.agent.Request(); return ok && req.UUID == "b" })
+	waittest.Until(t, func() bool { req, ok := fx.agent.Request(); return ok && req.UUID == "b" }, "the second prompt")
 	fx.agent.Submit(map[string]string{"psk": "2"})
 	if a := await(t, second); variantString(a.reply["802-11-wireless-security"]["psk"]) != "2" {
 		t.Errorf("second reply = %v %v", a.reply, a.err)

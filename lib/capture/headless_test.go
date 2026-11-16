@@ -2,12 +2,13 @@ package capture_test
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/capture"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 )
 
@@ -93,13 +94,8 @@ func TestHeadlessOutputCapture(t *testing.T) {
 				_, err := c.CaptureOutput(out, capture.Options{})
 				done <- err
 			}()
-			select {
-			case err := <-done:
-				if err != nil {
-					t.Fatalf("capture %d: %v", i, err)
-				}
-			case <-time.After(5 * time.Second):
-				t.Fatalf("capture %d of a static screen never finished", i)
+			if err := waittest.For(t, done, fmt.Sprintf("capture %d of a static screen", i)); err != nil {
+				t.Fatalf("capture %d: %v", i, err)
 			}
 		}
 	})
@@ -153,13 +149,8 @@ func TestHeadlessOutputCapture(t *testing.T) {
 		}
 		closed := make(chan error, 1)
 		go func() { closed <- s.Close() }()
-		select {
-		case err := <-closed:
-			if err != nil {
-				t.Fatal(err)
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatal("Close did not wake the parked capture")
+		if err := waittest.For(t, closed, "Close to wake the parked capture"); err != nil {
+			t.Fatal(err)
 		}
 		if s.Err() != nil {
 			t.Errorf("Err after Close = %v, want nil", s.Err())

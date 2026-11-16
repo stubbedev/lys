@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // TestADictOfDescriptorsArrives is the received-descriptors patch on a
@@ -27,7 +28,7 @@ func TestADictOfDescriptorsArrives(t *testing.T) {
 	if err := server.Emit(handPath, handIface+".Dict", map[string]dbus.UnixFD{"a": pipe.fd(), "b": pipe.fd()}, map[string][]dbus.UnixFD{"c": {pipe.fd()}}); err != nil {
 		t.Fatal(err)
 	}
-	sig := awaitPlain(t, ch)
+	sig := waittest.For(t, ch, "the Dict signal")
 	if len(sig.Body) != 2 {
 		t.Fatalf("received %#v", sig.Body)
 	}

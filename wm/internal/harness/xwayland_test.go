@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -68,13 +69,9 @@ func TestXwaylandStartsOnTheFirstXClientAndAfterACrash(t *testing.T) {
 		pid = h.xwayland.Pid()
 		return syscall.Kill(pid, syscall.SIGKILL)
 	})
-	select {
-	case err := <-reports:
-		if exit, ok := errors.AsType[*spawn.ExitError](err); !ok || !exit.Status.Signaled() || exit.Status.Signal() != syscall.SIGKILL {
-			t.Fatalf("reported %v, want Xwayland killed by SIGKILL", err)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("the crash was not reported")
+	err := waittest.For(t, reports, "the crash to be reported")
+	if exit, ok := errors.AsType[*spawn.ExitError](err); !ok || !exit.Status.Signaled() || exit.Status.Signal() != syscall.SIGKILL {
+		t.Fatalf("reported %v, want Xwayland killed by SIGKILL", err)
 	}
 	xConnect(t, h)
 	h.Eventually("Xwayland restarted", func(*headless.Backend, *compositor.Compositor) bool {
@@ -283,13 +280,7 @@ func TestAnXWindowIconifiesItself(t *testing.T) {
 		}
 		return binary.LittleEndian.Uint32(reply.Value)
 	}
-	deadline := time.Now().Add(testenv.HangLimit)
-	for wmState() != iconicState {
-		if time.Now().After(deadline) {
-			t.Fatalf("WM_STATE %d, want iconic", wmState())
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return wmState() == iconicState }, "WM_STATE to become iconic")
 	h.dispatch("restore")
 	h.Eventually("the X window back", func(_ *headless.Backend, c *compositor.Compositor) bool {
 		ws := windowsOf(c)
@@ -343,31 +334,18 @@ func (c *xclient) clientMessage() xproto.ClientMessageEvent {
 }
 
 func (c *xclient) event() (xgb.Event, bool) {
+	c.t.Helper()
 	type result struct {
 		ev   xgb.Event
 		open bool
 	}
 	got := make(chan result, 1)
 	go func() {
-		for {
-			ev, err := c.x.WaitForEvent()
-			if ev == nil && err == nil {
-				got <- result{nil, false}
-				return
-			}
-			if ev != nil {
-				got <- result{ev, true}
-				return
-			}
-		}
+		ev, err := c.next()
+		got <- result{ev, err == nil}
 	}()
-	select {
-	case r := <-got:
-		return r.ev, r.open
-	case <-time.After(testenv.HangLimit):
-		c.t.Fatal("no X event arrived")
-		return nil, false
-	}
+	r := waittest.For(c.t, got, "an X event")
+	return r.ev, r.open
 }
 
 func kill(h *Harness) {
@@ -764,13 +742,8 @@ func TestAnXwaylandThatLostItsWindowManagerIsRestarted(t *testing.T) {
 		return err == nil && owner.ValueLen == 1
 	})
 	xproto.KillClient(c.x, xgb.Get32(owner.Value))
-	select {
-	case err := <-reports:
-		if !strings.Contains(err.Error(), "killed because its window manager failed") {
-			t.Fatalf("reported %v", err)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatal("Xwayland kept running without its window manager")
+	if err := waittest.For(t, reports, "Xwayland to be killed without its window manager"); !strings.Contains(err.Error(), "killed because its window manager failed") {
+		t.Fatalf("reported %v", err)
 	}
 	xConnect(t, h)
 	h.Eventually("Xwayland restarted", func(*headless.Backend, *compositor.Compositor) bool {

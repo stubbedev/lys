@@ -11,8 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/compositor"
@@ -245,40 +245,38 @@ func startSessionOnBus(t *testing.T, config, bus string) (string, string, <-chan
 	}
 	done := make(chan error, 1)
 	go func() { done <- run([]string{"--backend", "headless", "--config", path}) }()
-	getenv := func(k string) string {
-		if k == "XDG_RUNTIME_DIR" {
-			return runtime
-		}
-		return ""
-	}
-	for deadline := time.Now().Add(testenv.HangLimit); ; {
-		socket, err := ipc.FindSocket(getenv)
-		if err == nil {
-			if _, err = ipc.Do(socket, ipc.Request{Request: wmipc.KindVersion}); err == nil {
-				return socket, path, done
-			}
-		}
+	var socket string
+	waittest.UntilSlow(t, func() bool {
 		select {
 		case err := <-done:
 			t.Fatalf("lys-wm exited: %v", err)
 		default:
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("no IPC socket: %v", err)
+		found, ok := answeringSocket(runtime)
+		socket = found
+		return ok
+	}, "lys-wm to answer on its IPC socket")
+	return socket, path, done
+}
+
+func answeringSocket(runtime string) (string, bool) {
+	socket, err := ipc.FindSocket(func(k string) string {
+		if k == "XDG_RUNTIME_DIR" {
+			return runtime
 		}
-		time.Sleep(10 * time.Millisecond)
+		return ""
+	})
+	if err != nil {
+		return "", false
 	}
+	_, err = ipc.Do(socket, ipc.Request{Request: wmipc.KindVersion})
+	return socket, err == nil
 }
 
 func expectCleanExit(t *testing.T, socket string, done <-chan error, how string) {
 	t.Helper()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Fatalf("lys-wm ignored %s", how)
+	if err := waittest.For(t, done, "lys-wm to exit on "+how); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := os.Stat(socket); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("the socket outlived lys-wm: %v", err)

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
@@ -391,22 +391,13 @@ func TestAnUntrustedPoolIsCopiedOffTheLoop(t *testing.T) {
 	c.roundtrip()
 	var pixels [][]byte
 	var touches uint64
-	deadline := time.Now().Add(testenv.HangLimit)
-	for len(pixels) == 0 {
-		done := make(chan struct{})
-		if err := e.loop.Post(func() error {
+	waittest.Until(t, func() bool {
+		e.onLoop(func() error {
 			pixels, touches = e.reader.pixels, e.m.LoopTouches()
-			close(done)
 			return nil
-		}); err != nil {
-			t.Fatal(err)
-		}
-		<-done
-		if time.Now().After(deadline) {
-			t.Fatal("the commit never applied once its copy finished")
-		}
-		time.Sleep(time.Millisecond)
-	}
+		})
+		return len(pixels) != 0
+	}, "the commit to apply once its copy finished")
 	if touches != 0 {
 		t.Fatalf("%d reads touched an untrusted pool on the loop", touches)
 	}

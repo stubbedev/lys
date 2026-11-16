@@ -26,6 +26,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/shell/service/mango"
@@ -36,8 +37,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/sni"
 	"github.com/stubbedev/lys/shell/shell/filechooser"
 )
-
-const startupBound = 2 * time.Minute
 
 func redJPEG(t *testing.T) []byte {
 	t.Helper()
@@ -228,18 +227,9 @@ func barMappedOn(t *testing.T, output string) bool {
 	return barsMapped(t)[output]
 }
 
-func awaitBar(t *testing.T, s *startedShell) {
+func awaitBar(t *testing.T) {
 	t.Helper()
-	await(t, s, "the bar to map", func() bool { return barMapped(t) })
-}
-
-func await(t *testing.T, s *startedShell, what string, cond func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(startupBound); !cond(); time.Sleep(10 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("waited %v for %s\nshell log:\n%s", startupBound, what, s.logs(t))
-		}
-	}
+	waittest.UntilSlow(t, func() bool { return barMapped(t) }, "the bar to map")
 }
 
 func isBlack(c color.RGBA) bool { return c.R == 0 && c.G == 0 && c.B == 0 }
@@ -272,10 +262,10 @@ func TestShellUnderTestNeverReachesTheHostsLogind(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := startShellProcess(t, image)
-	await(t, s, "the lock client to look for logind", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		logs := s.logs(t)
 		return strings.Contains(logs, "lock: logind unavailable") || strings.Contains(logs, "session was locked at startup")
-	})
+	}, "the lock client to look for logind")
 	if strings.Contains(s.logs(t), "session was locked at startup") {
 		t.Error("the shell read a locked session off the host's logind")
 	}
@@ -305,8 +295,8 @@ func TestBarsLandOnAVisibleWallpaperOnEveryOutput(t *testing.T) {
 	if err := os.WriteFile(image, redJPEG(t), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := startShellProcess(t, image)
-	await(t, s, "a bar on every output", func() bool {
+	startShellProcess(t, image)
+	waittest.UntilSlow(t, func() bool {
 		n := 0
 		for _, mapped := range barsMapped(t) {
 			if mapped {
@@ -314,7 +304,7 @@ func TestBarsLandOnAVisibleWallpaperOnEveryOutput(t *testing.T) {
 			}
 		}
 		return n == 2
-	})
+	}, "a bar on every output")
 	centers := captureCenters(t)
 	if len(centers) != 2 {
 		t.Fatalf("%d outputs, want 2", len(centers))
@@ -324,14 +314,14 @@ func TestBarsLandOnAVisibleWallpaperOnEveryOutput(t *testing.T) {
 			t.Errorf("%s shows a black desktop under the bar", got.output)
 		}
 	}
-	await(t, s, "the image on every output", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		for _, got := range captureCenters(t) {
 			if !isRed(got.color) {
 				return false
 			}
 		}
 		return true
-	})
+	}, "the image on every output")
 }
 
 func TestDecodeThatHangsShowsTheBuiltinWallpaperUnderTheBar(t *testing.T) {
@@ -340,14 +330,14 @@ func TestDecodeThatHangsShowsTheBuiltinWallpaperUnderTheBar(t *testing.T) {
 	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := startShellProcess(t, fifo)
-	awaitBar(t, s)
+	startShellProcess(t, fifo)
+	awaitBar(t)
 	got := captureCenter(t)
 	if isBlack(got) {
 		t.Fatalf("the bar mapped over a black desktop while the image decodes")
 	}
 	feed(t, fifo, redJPEG(t))
-	await(t, s, "the image to replace the built-in wallpaper", func() bool { return isRed(captureCenter(t)) })
+	waittest.UntilSlow(t, func() bool { return isRed(captureCenter(t)) }, "the image to replace the built-in wallpaper")
 }
 
 func TestUndecodableImageShowsTheBuiltinWallpaperUnderTheBar(t *testing.T) {
@@ -357,7 +347,7 @@ func TestUndecodableImageShowsTheBuiltinWallpaperUnderTheBar(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := startShellProcess(t, image)
-	awaitBar(t, s)
+	awaitBar(t)
 	if got := captureCenter(t); isBlack(got) {
 		t.Fatalf("the bar mapped over a black desktop: %v", got)
 	}
@@ -400,8 +390,8 @@ func TestWallpaperDoesNotWaitForServices(t *testing.T) {
 	if err := os.WriteFile(image, redJPEG(t), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := startShellProcess(t, image, "DBUS_SYSTEM_BUS_ADDRESS="+silentBus(t))
-	await(t, s, "the wallpaper to show while a service hangs", func() bool { return isRed(captureCenter(t)) })
+	startShellProcess(t, image, "DBUS_SYSTEM_BUS_ADDRESS="+silentBus(t))
+	waittest.UntilSlow(t, func() bool { return isRed(captureCenter(t)) }, "the wallpaper to show while a service hangs")
 	if barMapped(t) {
 		t.Error("the bar mapped before the services it waits for")
 	}
@@ -469,27 +459,27 @@ func TestShellWithoutAnOutputWaitsForOneAndKeepsItsServices(t *testing.T) {
 	s := startShellProcess(t, image)
 	bus := dbustest.SessionConn(t)
 	var owners map[string]string
-	await(t, s, "the shell's services without an output", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		var err error
 		owners, err = serviceOwners(bus)
 		return err == nil
-	})
+	}, "the shell's services without an output")
 	if n := strings.Count(s.logs(t), outputWaitLog); n != 1 {
 		t.Fatalf("the wait for an output was logged %d times, want once:\n%s", n, s.logs(t))
 	}
 
 	swaytest.Msg(t, "create_output")
-	awaitBar(t, s)
-	await(t, s, "the wallpaper on the first output", func() bool { return isRed(captureCenter(t)) })
+	awaitBar(t)
+	waittest.UntilSlow(t, func() bool { return isRed(captureCenter(t)) }, "the wallpaper on the first output")
 	requireSameServices(t, s, bus, owners, "after the first output appeared")
 
 	unplugEveryOutput(t)
-	await(t, s, "the shell to log the second wait", func() bool { return strings.Count(s.logs(t), outputWaitLog) == 2 })
+	waittest.UntilSlow(t, func() bool { return strings.Count(s.logs(t), outputWaitLog) == 2 }, "the shell to log the second wait")
 	requireSameServices(t, s, bus, owners, "with every output unplugged")
 
 	swaytest.Msg(t, "create_output")
-	awaitBar(t, s)
-	await(t, s, "the wallpaper on the returning output", func() bool { return isRed(captureCenter(t)) })
+	awaitBar(t)
+	waittest.UntilSlow(t, func() bool { return isRed(captureCenter(t)) }, "the wallpaper on the returning output")
 	requireSameServices(t, s, bus, owners, "after an output came back")
 	if n := strings.Count(s.logs(t), outputWaitLog); n != 2 {
 		t.Errorf("the two waits for an output were logged %d times:\n%s", n, s.logs(t))
@@ -511,7 +501,7 @@ func startShellAwaitingAPluggedOutput(t *testing.T) (s *startedShell, heldImage 
 		t.Fatal(err)
 	}
 	s = startShellWithWallpapers(t, image, []monitorWallpaper{{monitor: pluggedOutput, path: heldImage}})
-	awaitBar(t, s)
+	awaitBar(t)
 	swaytest.Msg(t, "create_output")
 	if names := swayOutputNames(t); !slices.Contains(names, pluggedOutput) {
 		t.Fatalf("sway added none of %q: %q", pluggedOutput, names)
@@ -521,16 +511,16 @@ func startShellAwaitingAPluggedOutput(t *testing.T) (s *startedShell, heldImage 
 
 func awaitBarOverAWallpaper(t *testing.T, s *startedShell) {
 	t.Helper()
-	await(t, s, "the bar", func() bool { return barMapped(t) })
+	waittest.UntilSlow(t, func() bool { return barMapped(t) }, "the bar")
 	if got := captureCenter(t); isBlack(got) {
 		t.Fatalf("the bar mapped over a black desktop\nshell log:\n%s", s.logs(t))
 	}
-	await(t, s, "the red wallpaper", func() bool { return isRed(captureCenter(t)) })
+	waittest.UntilSlow(t, func() bool { return isRed(captureCenter(t)) }, "the red wallpaper")
 }
 
 func awaitPluggedBarOverAWallpaper(t *testing.T, s *startedShell) {
 	t.Helper()
-	await(t, s, "the bar on "+pluggedOutput, func() bool {
+	waittest.UntilSlow(t, func() bool {
 		if !barMappedOn(t, pluggedOutput) {
 			return false
 		}
@@ -538,7 +528,7 @@ func awaitPluggedBarOverAWallpaper(t *testing.T, s *startedShell) {
 			t.Fatalf("the bar mapped on %s over a black desktop\nshell log:\n%s", pluggedOutput, s.logs(t))
 		}
 		return true
-	})
+	}, "the bar on "+pluggedOutput)
 }
 
 func feed(t *testing.T, fifo string, data []byte) {
@@ -546,13 +536,8 @@ func feed(t *testing.T, fifo string, data []byte) {
 	fed := make(chan error, 1)
 	go func() { fed <- os.WriteFile(fifo, data, 0o600) }()
 	t.Cleanup(func() {
-		select {
-		case err := <-fed:
-			if err != nil {
-				t.Errorf("feed %s: %v", fifo, err)
-			}
-		case <-time.After(startupBound):
-			t.Errorf("the shell never opened %s to read it in %v", fifo, startupBound)
+		if err := waittest.ForSlow(t, fed, "the shell to open "+fifo+" to read it"); err != nil {
+			t.Errorf("feed %s: %v", fifo, err)
 		}
 	})
 }
@@ -561,5 +546,5 @@ func TestBarOnAPluggedOutputMapsOverTheBuiltinWallpaperWhileItsImageDecodes(t *t
 	s, held := startShellAwaitingAPluggedOutput(t)
 	awaitPluggedBarOverAWallpaper(t, s)
 	feed(t, held, redJPEG(t))
-	await(t, s, "the image to replace the built-in wallpaper on "+pluggedOutput, func() bool { return isRed(captureCenterOf(t, pluggedOutput)) })
+	waittest.UntilSlow(t, func() bool { return isRed(captureCenterOf(t, pluggedOutput)) }, "the image to replace the built-in wallpaper on "+pluggedOutput)
 }

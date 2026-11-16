@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/splash/internal/kms"
 	"github.com/stubbedev/lys/splash/internal/protocol"
 	"github.com/stubbedev/lys/splash/internal/theme"
@@ -64,11 +66,7 @@ func TestAPromptWakesTheLoopOnlyForItsCaretAndBreath(t *testing.T) {
 	}
 	<-clock.armed
 	cancel()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the loop did not stop")
-	}
+	waittest.For(t, done, "the loop to stop")
 	if wakes != want {
 		t.Errorf("%d wakes in %d phases of a prompt, want the %d pictures it shows", wakes, phases, want)
 	}

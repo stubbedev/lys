@@ -2,13 +2,14 @@ package dbustest
 
 import (
 	"errors"
+	"fmt"
 	"testing"
-	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // Pipe proves that a descriptor a test sends over D-Bus is closed by
@@ -50,18 +51,19 @@ func (p *Pipe) closeWrite(t testing.TB) {
 }
 
 // RequireEveryCopyClosed closes Write and fails the test unless every
-// copy of it the bus handed out in the process is closed as well within
-// the hang guard.
+// copy of it the bus handed out in the process is closed as well.
 func (p *Pipe) RequireEveryCopyClosed(t testing.TB) {
 	t.Helper()
 	p.closeWrite(t)
 	fds := []unix.PollFd{{Fd: intconv.Must[int32](p.read), Events: unix.POLLIN}}
-	deadline := time.Now().Add(hangGuard)
-	n, err := unix.Poll(fds, int(hangGuard.Milliseconds()))
-	for errors.Is(err, unix.EINTR) && time.Now().Before(deadline) {
-		n, err = unix.Poll(fds, int(time.Until(deadline).Milliseconds()))
-	}
-	if err != nil || n != 1 || fds[0].Revents&unix.POLLHUP == 0 {
-		t.Fatalf("dbustest: a copy of descriptor %d is still open %v after the test closed its own: poll = %d, %v, events %#x", p.Write, hangGuard, n, err, fds[0].Revents)
-	}
+	waittest.Until(t, func() bool {
+		n, err := unix.Poll(fds, 0)
+		if errors.Is(err, unix.EINTR) {
+			return false
+		}
+		if err != nil {
+			t.Fatalf("dbustest: poll the read end of descriptor %d: %v", p.Write, err)
+		}
+		return n == 1 && fds[0].Revents&unix.POLLHUP != 0
+	}, fmt.Sprintf("dbustest: every copy of descriptor %d to close after the test closed its own", p.Write))
 }

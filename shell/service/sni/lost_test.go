@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const itemName = "org.kde.StatusNotifierItem-233-1"
@@ -32,7 +33,7 @@ func playedHost(t *testing.T, bus *dbustest.Bus, store *Store) *Host {
 func (h *Host) answerOf(t *testing.T, address string) reading {
 	t.Helper()
 	h.track(address)
-	answer := await(t, h.results, "answer of "+address)
+	answer := waittest.For(t, h.results, "answer of "+address)
 	if answer.err != nil {
 		t.Fatalf("read %s: %v", address, answer.err)
 	}
@@ -41,7 +42,7 @@ func (h *Host) answerOf(t *testing.T, address string) reading {
 
 func (h *Host) lossOf(t *testing.T, name string) nameLoss {
 	t.Helper()
-	loss := await(t, h.vanished, "word that "+name+" lost its owner")
+	loss := waittest.For(t, h.vanished, "word that "+name+" lost its owner")
 	if loss.name != name {
 		t.Fatalf("%s lost its owner, want word of %s", loss.name, name)
 	}
@@ -125,7 +126,7 @@ func TestAnAnswerIsOrderedAgainstTheLossOfItsName(t *testing.T) {
 		ownName(t, conn, itemName, dbus.NameFlagDoNotQueue, dbus.RequestNameReplyPrimaryOwner)
 		frozen := freeze(t, conn, map[string]dbus.Variant{"Id": dbus.MakeVariant("taken again")})
 		h.track(itemName + "/StatusNotifierItem")
-		await(t, frozen.asked, "read of the item")
+		waittest.For(t, frozen.asked, "read of the item")
 		if _, err := conn.ReleaseName(itemName); err != nil {
 			t.Fatal(err)
 		}
@@ -133,7 +134,7 @@ func TestAnAnswerIsOrderedAgainstTheLossOfItsName(t *testing.T) {
 		h.nameLost(loss)
 		ownName(t, conn, itemName, dbus.NameFlagDoNotQueue, dbus.RequestNameReplyPrimaryOwner)
 		frozen.thaw()
-		answer := await(t, h.results, "answer of the item")
+		answer := waittest.For(t, h.results, "answer of the item")
 		if answer.err != nil {
 			t.Fatal(answer.err)
 		}
@@ -260,7 +261,7 @@ func TestARegistrationIsOrderedAgainstTheLossOfItsName(t *testing.T) {
 			defer close(registered)
 			w.register(service)
 		}()
-		if got := await(t, h.tracks, "the registered item to track"); got != service {
+		if got := waittest.For(t, h.tracks, "the registered item to track"); got != service {
 			t.Errorf("tracking %q, want %q", got, service)
 		}
 		<-registered

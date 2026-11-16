@@ -20,6 +20,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
@@ -454,20 +455,13 @@ func TestAddedKeysConfirmExpireAndLock(t *testing.T) {
 	if err := c.Add(agent.AddedKey{PrivateKey: priv, Comment: "brief", LifetimeSecs: 1}); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(10 * time.Second)
-	for {
+	waittest.Until(t, func() bool {
 		keys, err := c.List()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(keys) == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("a key with a one-second lifetime is still listed: %v", keys)
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
+		return len(keys) == 0
+	}, "the key with a one-second lifetime to expire")
 	if err := c.Add(agent.AddedKey{PrivateKey: priv}); err != nil {
 		t.Fatal(err)
 	}

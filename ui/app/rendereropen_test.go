@@ -7,9 +7,9 @@ import (
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/gputest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/internal/buffer"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 

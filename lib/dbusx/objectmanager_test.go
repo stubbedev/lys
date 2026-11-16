@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const managedPath = dbus.ObjectPath("/dev/stubbe/lys/Watched/Managed")
@@ -80,10 +81,10 @@ func TestAnInterfacesAddedHandlerBorrowsTheDescriptorsInItsProperties(t *testing
 	if err := tickSignal.Emit(w.service, watchedPath, counted{N: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if err := awaitWatch(t, borrowed, "InterfacesAdded in its handler"); err != nil {
+	if err := waittest.For(t, borrowed, "InterfacesAdded in its handler"); err != nil {
 		t.Errorf("the handler's descriptor: %v, want it open while the handler runs", err)
 	}
-	awaitWatch(t, ticked, "Tick behind the InterfacesAdded")
+	waittest.For(t, ticked, "Tick behind the InterfacesAdded")
 	pipe.RequireEveryCopyClosed(t)
 }
 
@@ -125,7 +126,7 @@ func TestAWatchTakesTheObjectManagerSignalsFromTheOwnerOnly(t *testing.T) {
 		"added " + string(managedPath) + " " + watchedIface,
 		"removed " + string(managedPath) + " " + watchedIface,
 	} {
-		if g := awaitWatch(t, got, want); g != want {
+		if g := waittest.For(t, got, want); g != want {
 			t.Fatalf("the watch saw %q, want %q: only the owner's", g, want)
 		}
 	}

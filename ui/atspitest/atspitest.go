@@ -14,10 +14,10 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/internal/atspi/proto"
 )
@@ -33,8 +33,6 @@ const LibexecEnv = "ATSPI_LIBEXEC"
 // toolkit-accessibility key, and without the schema IsEnabled reads
 // false whatever was set.
 const SchemaDirEnv = "ATSPI_GSETTINGS_SCHEMA_DIR"
-
-const waitBound = 5 * time.Second
 
 // Core is real at-spi2-core serving one test.
 type Core struct {
@@ -242,17 +240,16 @@ func (a Accessible) Names() ([]string, error) {
 
 func eventually(t *testing.T, what string, cond func() error) {
 	t.Helper()
-	deadline := time.Now().Add(waitBound)
-	for {
-		last := cond()
-		if last == nil {
-			return
+	var last error
+	defer func() {
+		if last != nil {
+			t.Logf("atspitest: the last attempt at %s: %v", what, last)
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("atspitest: timed out waiting for %s: %v", what, last)
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	}()
+	waittest.Until(t, func() bool {
+		last = cond()
+		return last == nil
+	}, what)
 }
 
 // killGroup kills the process group cmd leads and fails the test if a
@@ -263,18 +260,16 @@ func killGroup(t *testing.T, cmd *exec.Cmd, dir string) {
 	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	_ = cmd.Process.Kill()
 	_ = cmd.Wait()
-	deadline := time.Now().Add(waitBound)
-	for {
-		left := processesNaming(t, dir)
-		if len(left) == 0 {
-			return
+	var left []string
+	defer func() {
+		if len(left) != 0 {
+			t.Logf("atspitest: %s left running: %v", cmd.Path, left)
 		}
-		if time.Now().After(deadline) {
-			t.Errorf("atspitest: %s left running: %v", cmd.Path, left)
-			return
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	}()
+	waittest.Until(t, func() bool {
+		left = processesNaming(t, dir)
+		return len(left) == 0
+	}, fmt.Sprintf("the processes of %s to end", cmd.Path))
 }
 
 func processesNaming(t *testing.T, s string) []string {

@@ -8,16 +8,13 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
-const (
-	own  logind.SessionID = "c2"
-	wait                  = 5 * time.Second
-)
+const own logind.SessionID = "c2"
 
 type reports struct {
 	testing.TB
@@ -64,16 +61,16 @@ func TestAHookReportsAFailedAnnouncementAndGoesOn(t *testing.T) {
 		results <- fake.SetLockedHint(r, "absent", true)
 		results <- fake.SetLockedHint(r, own, true)
 	})
+	t.Cleanup(func() {
+		if t.Failed() {
+			errs, fatal := r.read()
+			t.Logf("the hook reported errors %q, fatal %q", errs, fatal)
+		}
+	})
 	lock(t, fake)
 	for i, want := range []bool{false, true} {
-		select {
-		case got := <-results:
-			if got != want {
-				t.Errorf("announcement %d from the hook = %v, want %v", i, got, want)
-			}
-		case <-time.After(wait):
-			errs, fatal := r.read()
-			t.Fatalf("the hook did not go on to announcement %d: errors %q, fatal %q", i, errs, fatal)
+		if got := waittest.For(t, results, fmt.Sprintf("the hook to go on to announcement %d", i)); got != want {
+			t.Errorf("announcement %d from the hook = %v, want %v", i, got, want)
 		}
 	}
 	errs, fatal := r.read()
@@ -119,11 +116,7 @@ func TestEveryAnnouncementReportsWithoutStoppingItsGoroutine(t *testing.T) {
 
 	fake.Bus.Stop(t)
 	r := &reports{TB: t}
-	for deadline := time.Now().Add(wait); fake.PrepareForSleep(r, true); time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("PrepareForSleep still went out after the bus stopped")
-		}
-	}
+	waittest.Until(t, func() bool { return !fake.PrepareForSleep(r, true) }, "PrepareForSleep to fail on the stopped bus")
 	if errs, fatal := r.read(); len(errs) != 1 || len(fatal) != 0 {
 		t.Errorf("PrepareForSleep on a stopped bus reported errors %q, fatal %q; want one error", errs, fatal)
 	}

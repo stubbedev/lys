@@ -305,9 +305,7 @@ func TestAConnectSomeoneAskedForSignsInWhenTheSessionIsGone(t *testing.T) {
 		_, err := Authenticate(ctx, p, false, false, &fakePrompter{})
 		done <- err
 	}()
-	if !gateway.Reached() {
-		t.Error("a connect someone asked for never went to the gateway")
-	}
+	gateway.Reached(t)
 	// Withdrawing the request ends the sign-in, and does not cost the
 	// password.
 	cancel()

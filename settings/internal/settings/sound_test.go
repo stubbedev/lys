@@ -198,7 +198,7 @@ func TestTheLevelMeterRedrawsOncePerFrameWhateverTheSampleRate(t *testing.T) {
 		rec.Push(pcm(int16(1000+100*i), 400))
 	}
 	r.l.until("the first redraw", func() bool { return m.redraws == 1 })
-	r.l.drain(200 * time.Millisecond)
+	r.l.drain()
 	if m.redraws != 1 {
 		t.Fatalf("%d chunks with no frame painted redrew %d times", chunks, m.redraws)
 	}
@@ -207,7 +207,7 @@ func TestTheLevelMeterRedrawsOncePerFrameWhateverTheSampleRate(t *testing.T) {
 		rec.Push(pcm(int16(20000+10*i), 400))
 	}
 	r.l.until("the redraw the painted frame lets through", func() bool { return m.redraws == 2 })
-	r.l.drain(200 * time.Millisecond)
+	r.l.drain()
 	if m.redraws != 2 {
 		t.Fatalf("%d chunks after one painted frame redrew %d times, want 2", chunks, m.redraws)
 	}

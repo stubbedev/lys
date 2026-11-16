@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func source(index uint32, name string, monitor bool) pulse.InputDevice {
@@ -54,6 +55,10 @@ func TestMicUsersAreTheAppsRecordingAMicrophone(t *testing.T) {
 	}
 }
 
+// quietWindow is how long a test watches for a /proc scan that must not
+// happen.
+const quietWindow = 100 * time.Millisecond
+
 func TestCamerasFollowOpensAndClosesOfTheVideoNodes(t *testing.T) {
 	dev := t.TempDir()
 	node := filepath.Join(dev, "video0")
@@ -76,7 +81,7 @@ func TestCamerasFollowOpensAndClosesOfTheVideoNodes(t *testing.T) {
 		return c.scans
 	}
 	idle := scans()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := scans(); got != idle {
 		t.Fatalf("%d /proc scans with nothing opened, want none", got-idle)
 	}
@@ -84,13 +89,13 @@ func TestCamerasFollowOpensAndClosesOfTheVideoNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	await(t, ticks, "the open")
+	waittest.For(t, ticks, "a tick for the open")
 	users := c.Users()
 	if len(users) != 1 || users[0].PID != os.Getpid() || users[0].Device != node || users[0].Name == "" {
 		t.Fatalf("users %+v, want this process on %s", users, node)
 	}
 	f.Close()
-	await(t, ticks, "the close")
+	waittest.For(t, ticks, "a tick for the close")
 	if users := c.Users(); len(users) != 0 {
 		t.Errorf("users after the close %+v", users)
 	}
@@ -100,7 +105,7 @@ func TestCamerasFollowOpensAndClosesOfTheVideoNodes(t *testing.T) {
 	}
 	other.Close()
 	before := scans()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := scans(); got != before {
 		t.Errorf("opening another device scanned /proc %d times", got-before)
 	}
@@ -108,23 +113,17 @@ func TestCamerasFollowOpensAndClosesOfTheVideoNodes(t *testing.T) {
 	if err := os.WriteFile(second, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+	waittest.Until(t, func() bool {
 		c.mu.Lock()
-		watched := slices.Contains(c.watched, second)
-		c.mu.Unlock()
-		if watched {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("a new video node is not watched")
-		}
-	}
+		defer c.mu.Unlock()
+		return slices.Contains(c.watched, second)
+	}, "the new video node to be watched")
 	g, err := os.Open(second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer g.Close()
-	await(t, ticks, "the open of the new node")
+	waittest.For(t, ticks, "a tick for the open of the new node")
 	if users := c.Users(); len(users) != 1 || users[0].Device != second {
 		t.Errorf("users %+v, want this process on the new node", users)
 	}
@@ -148,14 +147,5 @@ func TestScanCamerasSkipsOtherUsersAndNoDevices(t *testing.T) {
 	}
 	if _, err := ScanCameras(filepath.Join(t.TempDir(), "missing"), 0, []string{dev}); err == nil {
 		t.Error("a missing /proc is no error")
-	}
-}
-
-func await(t *testing.T, ticks <-chan struct{}, what string) {
-	t.Helper()
-	select {
-	case <-ticks:
-	case <-time.After(5 * time.Second):
-		t.Fatalf("no tick for %s", what)
 	}
 }

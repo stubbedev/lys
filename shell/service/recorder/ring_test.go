@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/media/mux"
 	"github.com/stubbedev/lys/lib/media/opus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // ringFeed writes a stream into a ring in arrival order: fps video
@@ -291,7 +292,7 @@ func TestReplaySavesWithoutDisturbingTheCapture(t *testing.T) {
 	if err := rp.Save(second, config.RecorderFormatMkv); err != nil {
 		t.Fatal(err)
 	}
-	waitRecording(t, "the last frame in the ring", func() bool { return rp.rec.videoFrames.Load() == uint64(len(video.frames())-1) })
+	waittest.UntilSlow(t, func() bool { return rp.rec.videoFrames.Load() == uint64(len(video.frames())-1) }, "the last frame in the ring")
 	encoded := video.frames()
 	if len(encoded) != 3*testFPS {
 		t.Fatalf("%d frames encoded, want %d: the saves held up the capture", len(encoded), 3*testFPS)

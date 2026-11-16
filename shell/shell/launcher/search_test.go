@@ -3,6 +3,7 @@ package launcher
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"slices"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -115,14 +117,7 @@ func (h *panelHarness) typed(p *panel, text string) {
 
 func (h *panelHarness) waitTitles(p *panel, want ...string) {
 	h.t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for !slices.Equal(p.rowTitles(), want) {
-		if time.Now().After(deadline) {
-			h.t.Fatalf("rows = %q, want %q", p.rowTitles(), want)
-		}
-		h.loop.pump()
-		time.Sleep(time.Millisecond)
-	}
+	h.until(fmt.Sprintf("the rows %q", want), func() bool { return slices.Equal(p.rowTitles(), want) })
 }
 
 func (p *panel) selectedTitle() string {
@@ -398,11 +393,7 @@ func TestPanelLeavesNothingRunningOnceClosed(t *testing.T) {
 	eng := p.eng
 	h.key("Escape")
 	h.until("closed", func() bool { return h.s.panel == nil })
-	select {
-	case <-eng.Done():
-	case <-time.After(10 * time.Second):
-		t.Fatal("the engine is still running")
-	}
+	waittest.For(t, eng.Done(), "the engine to stop")
 	if !h.harness.windows[0].closed {
 		t.Error("the surface must go")
 	}
@@ -807,11 +798,7 @@ func TestIconsDecodeOffTheLoopAndLandWithoutMovingAnything(t *testing.T) {
 	if target.icon.shown == name {
 		t.Fatal("shown before its decode")
 	}
-	select {
-	case <-decoded:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the decode must run on the loader, with the UI loop free")
-	}
+	waittest.For(t, decoded, "the decode to run on the loader, with the UI loop free")
 	v.root.Arrange(out)
 	if target.Bounds() != before {
 		t.Errorf("waiting moved the row: %+v to %+v", before, target.Bounds())
@@ -861,19 +848,11 @@ func TestLoaderStopsWithThePanel(t *testing.T) {
 	l.request(iconRequest{name: "b"})
 	cancel()
 	close(gate)
-	deadline := time.Now().Add(10 * time.Second)
-	for {
+	waittest.Until(t, func() bool {
 		l.mu.Lock()
-		running := l.running
-		l.mu.Unlock()
-		if !running {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the loader kept running")
-		}
-		time.Sleep(time.Millisecond)
-	}
+		defer l.mu.Unlock()
+		return !l.running
+	}, "the loader to stop")
 	loop.pump()
 	if len(ready) != 0 {
 		t.Errorf("delivered after the panel closed: %v", ready)

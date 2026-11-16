@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -85,15 +86,6 @@ func startNowPlayingOSD(t *testing.T, mode config.OsdMedia, tracks osd.Tracks) *
 	return h
 }
 
-func (h *nowPlayingOSD) waitShow(t *testing.T) {
-	t.Helper()
-	select {
-	case <-h.shows:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the now-playing OSD never showed")
-	}
-}
-
 func (h *nowPlayingOSD) titles() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -144,18 +136,18 @@ func TestMediaNextShowsTheNowPlayingOSD(t *testing.T) {
 	dbustest.Session(t)
 	player := startSkippingPlayer(t)
 	c := serveMedia(t, nil)
-	waitFor(t, func() bool { return activeName(c) == "org.mpris.MediaPlayer2.vlc" })
+	waittest.Until(t, func() bool { return activeName(c) == "org.mpris.MediaPlayer2.vlc" }, "vlc to be the active player")
 	h := startNowPlayingOSD(t, config.OsdMediaRequested, c)
 
 	mediaNext(t)
 	player.SetMust("org.mpris.MediaPlayer2.Player", "Metadata", osdTrack("Second"))
-	h.waitShow(t)
+	waittest.For(t, h.shows, "the now-playing OSD to show")
 
 	player.SetMust("org.mpris.MediaPlayer2.Player", "Metadata", osdTrack("Third"))
-	waitFor(t, func() bool { p, _ := c.Active(); return p.Title == "Third" })
+	waittest.Until(t, func() bool { p, _ := c.Active(); return p.Title == "Third" }, "the active player to play the third track")
 	mediaNext(t)
 	player.SetMust("org.mpris.MediaPlayer2.Player", "Metadata", osdTrack("Fourth"))
-	h.waitShow(t)
+	waittest.For(t, h.shows, "the now-playing OSD to show")
 
 	if got := h.titles(); !slices.Equal(got, []string{"Second", "Fourth"}) {
 		t.Errorf("the OSD showed %q, want the two tracks media next skipped to and not the playlist advance", got)
@@ -166,11 +158,11 @@ func TestEveryTrackChangeShowsWithOsdMediaAlways(t *testing.T) {
 	dbustest.Session(t)
 	player := startSkippingPlayer(t)
 	c := serveMedia(t, nil)
-	waitFor(t, func() bool { return activeName(c) == "org.mpris.MediaPlayer2.vlc" })
+	waittest.Until(t, func() bool { return activeName(c) == "org.mpris.MediaPlayer2.vlc" }, "vlc to be the active player")
 	h := startNowPlayingOSD(t, config.OsdMediaAlways, c)
 
 	player.SetMust("org.mpris.MediaPlayer2.Player", "Metadata", osdTrack("Second"))
-	h.waitShow(t)
+	waittest.For(t, h.shows, "the now-playing OSD to show")
 	if got := h.titles(); !slices.Equal(got, []string{"Second"}) {
 		t.Errorf("osd.media always showed %q, want the playlist advance", got)
 	}

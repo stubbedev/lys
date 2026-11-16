@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -361,17 +362,13 @@ func lysWMTitleBar(t *testing.T, edit func(*config.Config)) *lyswmtest.WM {
 
 func awaitRequest(t *testing.T, f *lyswmtest.WM, request string, before int) {
 	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); countRequests(f, request) == before; time.Sleep(time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("lys-wm never heard another %s request", request)
-		}
-	}
+	waittest.Until(t, func() bool { return countRequests(f, request) != before }, "lys-wm to hear another "+request+" request")
 }
 
 func neverRequests(t *testing.T, f *lyswmtest.WM, what string) {
 	t.Helper()
 	before := f.Requests()
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if got := f.Requests(); !slices.Equal(got, before) {
 		t.Fatalf("%s: lys-wm heard %q", what, got[len(before):])
 	}
@@ -643,13 +640,8 @@ func TestAHungServiceWriteEndsWithItsContext(t *testing.T) {
 	}, func(err error) { answered <- err })
 	<-started
 	cancel()
-	select {
-	case err := <-answered:
-		if !errors.Is(err, context.Canceled) {
-			t.Errorf("the hung write answered %v, want its context's end", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("the hung write outlived its context")
+	if err := waittest.For(t, answered, "the hung write to end with its context"); !errors.Is(err, context.Canceled) {
+		t.Errorf("the hung write answered %v, want its context's end", err)
 	}
 }
 

@@ -1,11 +1,12 @@
 package sharepicker
 
 import (
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
 )
@@ -31,13 +32,5 @@ func TestADismissedPickerReleasesItsPixels(t *testing.T) {
 	}
 	p.Dismiss("/r/memory")
 	apptest.Answer(t, "the dismissed picker's answer", answers)
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(50 * time.Millisecond) {
-		left := apptest.ShmResident(t)
-		if left <= before {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("after dismissing, %d resident bytes stay, want at most the %d before the picker opened (%d while shown)", left, before, shown)
-		}
-	}
+	waittest.Until(t, func() bool { return apptest.ShmResident(t) <= before }, fmt.Sprintf("the dismissed picker to give back its resident bytes, down to the %d before it opened (%d while shown)", before, shown))
 }

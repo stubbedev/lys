@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/internal/keyring"
 	"github.com/stubbedev/lys/secrets/secretbus"
@@ -244,14 +244,9 @@ func watchCompleted(t *testing.T, f *fixture, prompt dbus.ObjectPath) func() (bo
 	t.Cleanup(func() { _ = w.Stop() })
 	return func() (bool, []dbus.ObjectPath) {
 		t.Helper()
-		select {
-		case c := <-completed:
-			paths, _ := c.Result.Value().([]dbus.ObjectPath)
-			return c.Dismissed, paths
-		case <-time.After(10 * time.Second):
-			t.Fatal("the prompt never completed")
-		}
-		return false, nil
+		c := waittest.For(t, completed, "the prompt to complete")
+		paths, _ := c.Result.Value().([]dbus.ObjectPath)
+		return c.Dismissed, paths
 	}
 }
 

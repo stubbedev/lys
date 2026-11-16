@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
 	"github.com/stubbedev/lys/splash/internal/theme"
@@ -123,27 +124,18 @@ func TestAFlipDrawsNothing(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- d.loop(ctx) }()
-	await := func() {
+	flip := func() {
 		t.Helper()
-		select {
-		case <-display.handled:
-		case <-time.After(5 * time.Second):
-			t.Fatal("the loop did not handle the event")
-		}
+		display.events <- kms.Event{}
+		waittest.For(t, display.handled, "the loop to handle the event")
 	}
 	for range 100 {
-		display.events <- kms.Event{}
-		await()
+		flip()
 	}
 	display.changed.Store(true)
-	display.events <- kms.Event{}
-	await()
+	flip()
 	cancel()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the loop did not stop")
-	}
+	waittest.For(t, done, "the loop to stop")
 	if s.frames != 2 {
 		t.Errorf("%d draws: the first frame, nothing for 100 flips and one for the change is 2", s.frames)
 	}
@@ -176,22 +168,16 @@ func (c *fakeClock) Stop() {}
 
 func (c *fakeClock) fire(t *testing.T) time.Duration {
 	t.Helper()
-	select {
-	case d := <-c.armed:
-		c.mu.Lock()
-		c.now = c.now.Add(d)
-		now := c.now
-		c.mu.Unlock()
-		c.c <- now
-		return d
-	case <-time.After(5 * time.Second):
-		t.Fatal("the loop armed no timer")
-		return 0
-	}
+	d := waittest.For(t, c.armed, "the loop to arm a timer")
+	c.mu.Lock()
+	c.now = c.now.Add(d)
+	now := c.now
+	c.mu.Unlock()
+	c.c <- now
+	return d
 }
 
 func TestTheLoopWakesOnlyForAPictureThatChanges(t *testing.T) {
-	const turn = theme.Frames * FrameInterval
 	tests := []struct {
 		name     string
 		throbber theme.Throbber
@@ -239,11 +225,7 @@ func TestTheLoopWakesOnlyForAPictureThatChanges(t *testing.T) {
 			}
 			<-clock.armed
 			cancel()
-			select {
-			case <-done:
-			case <-time.After(5 * time.Second):
-				t.Fatal("the loop did not stop")
-			}
+			waittest.For(t, done, "the loop to stop")
 			if wakes != tc.wakes {
 				t.Errorf("%d wakes in a turn, want %d", wakes, tc.wakes)
 			}
@@ -317,11 +299,7 @@ func TestAFailingScreenBacksOffAndLogsOnce(t *testing.T) {
 				elapsed += clock.fire(t)
 			}
 			cancel()
-			select {
-			case <-done:
-			case <-time.After(5 * time.Second):
-				t.Fatal("the loop did not stop")
-			}
+			waittest.For(t, done, "the loop to stop")
 			if got := records.Load(); got != 2 {
 				t.Errorf("%d log records in a minute of failing commits, want the failure once beside the first event", got)
 			}
@@ -427,11 +405,7 @@ func TestALogoIsRasterizedOffTheLoopAndTheScreenWaitsForIt(t *testing.T) {
 	if err := d.redraw(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the logo was never rasterized")
-	}
+	waittest.For(t, entered, "the logo to be rasterized")
 	if later.presents != 0 {
 		t.Errorf("a screen presented %d frames without its logo", later.presents)
 	}
@@ -446,13 +420,8 @@ func TestALogoIsRasterizedOffTheLoopAndTheScreenWaitsForIt(t *testing.T) {
 		t.Errorf("the screen with a logo presented %d frames while another waited, want 3", got)
 	}
 	close(release)
-	select {
-	case e := <-d.inbox:
-		if err := d.logoRasterized(e.logo); err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the logo never arrived")
+	if err := d.logoRasterized(waittest.For(t, d.inbox, "the logo to arrive").logo); err != nil {
+		t.Fatal(err)
 	}
 	if err := d.redraw(); err != nil {
 		t.Fatal(err)

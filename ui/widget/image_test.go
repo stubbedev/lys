@@ -16,9 +16,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/internal/imgcache"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 // quadImage returns a 4x4 raster with solid 2x2 quadrants: red top

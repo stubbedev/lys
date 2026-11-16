@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // Monitor is a fake org.freedesktop.background.Monitor.
@@ -71,13 +71,7 @@ func describe(appID string) (string, string) {
 
 func waitFor(t *testing.T, a *Apps, what string, ok func([]App) bool) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !ok(a.List()) {
-		if time.Now().After(deadline) {
-			t.Fatalf("%s: apps %+v", what, a.List())
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return ok(a.List()) }, what)
 }
 
 func TestAppsFollowTheMonitor(t *testing.T) {
@@ -101,11 +95,7 @@ func TestAppsFollowTheMonitor(t *testing.T) {
 	defer stop()
 	m.set(t, entry("com.example.NoEntry", "99", ""))
 	waitFor(t, apps, "the removed app's row", func(l []App) bool { return slices.Equal(l, want[1:]) })
-	select {
-	case <-ticks:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the removal ticked nobody")
-	}
+	waittest.For(t, ticks, "the removal to tick the subscriber")
 
 	sleeper := startInstance(t, "99")
 	apps.proc = sleeper.proc

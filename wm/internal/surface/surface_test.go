@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/wm/internal/loop"
 	cfs "github.com/stubbedev/lys/wm/internal/protocol/client/fractionalscale"
 	cvp "github.com/stubbedev/lys/wm/internal/protocol/client/viewporter"
@@ -667,18 +669,11 @@ func TestDestroyingSurfaces(t *testing.T) {
 	if err := e.client.Close(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(testenv.HangLimit)
-	for {
+	waittest.Until(t, func() bool {
 		var n int
 		e.on(func() { n = len(e.rec.destroyed) })
-		if n == 3 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%d surfaces reported destroyed after disconnect, want 3", n)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+		return n == 3
+	}, "3 surfaces to be reported destroyed after disconnect")
 }
 
 type fakeRole struct{ name string }

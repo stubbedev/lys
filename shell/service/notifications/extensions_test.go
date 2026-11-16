@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
 )
@@ -120,23 +121,18 @@ func TestAReplyIsSentAsNotificationRepliedToARealClient(t *testing.T) {
 		t.Fatal("the reply was refused")
 	}
 	var got []string
-	for deadline := time.After(5 * time.Second); len(got) < 2; {
-		select {
-		case sig := <-signals:
-			switch sig.Name {
-			case Interface + ".NotificationReplied":
-				if sig.Body[0] != chat || sig.Body[1] != "hi" {
-					t.Errorf("NotificationReplied%v", sig.Body)
-				}
-				got = append(got, "replied")
-			case Interface + ".NotificationClosed":
-				if sig.Body[0] != chat || sig.Body[1] != uint32(Dismissed) {
-					t.Errorf("NotificationClosed%v", sig.Body)
-				}
-				got = append(got, "closed")
+	for len(got) < 2 {
+		switch sig := waittest.For(t, signals, "the reply and close signals"); sig.Name {
+		case Interface + ".NotificationReplied":
+			if sig.Body[0] != chat || sig.Body[1] != "hi" {
+				t.Errorf("NotificationReplied%v", sig.Body)
 			}
-		case <-deadline:
-			t.Fatalf("signals seen: %v", got)
+			got = append(got, "replied")
+		case Interface + ".NotificationClosed":
+			if sig.Body[0] != chat || sig.Body[1] != uint32(Dismissed) {
+				t.Errorf("NotificationClosed%v", sig.Body)
+			}
+			got = append(got, "closed")
 		}
 	}
 	if !slices.Equal(got, []string{"replied", "closed"}) {

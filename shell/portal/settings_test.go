@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/gtksettings"
@@ -151,20 +150,12 @@ func writeAtomically(t *testing.T, path, data string) {
 func (r *rig) changedUntil(t *testing.T, stop string) []string {
 	t.Helper()
 	var keys []string
-	timeout := time.After(10 * time.Second)
 	for {
-		select {
-		case s := <-r.signals:
-			if s.Name != SettingsIface+".SettingChanged" {
-				continue
-			}
-			key := s.Body[0].(string) + " " + s.Body[1].(string)
-			keys = append(keys, key)
-			if key == stop {
-				return keys
-			}
-		case <-timeout:
-			t.Fatalf("no SettingChanged for %s; saw %v", stop, keys)
+		s := nextSignal(t, r.signals, SettingsIface+".SettingChanged")
+		key := s.Body[0].(string) + " " + s.Body[1].(string)
+		keys = append(keys, key)
+		if key == stop {
+			return keys
 		}
 	}
 }

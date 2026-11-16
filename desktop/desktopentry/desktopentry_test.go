@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func write(t *testing.T, dir, rel, body string) string {
@@ -193,10 +194,10 @@ func TestLaunchRunsTheExecDetached(t *testing.T) {
 	if err := a.Launch(); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, func() bool {
+	waittest.Until(t, func() bool {
 		data, err := os.ReadFile(marker)
 		return err == nil && string(data) == path+"\n"
-	})
+	}, "the launched app to record its desktop file")
 }
 
 // A portal request names its app by the entry's name and icon; an

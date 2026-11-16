@@ -7,10 +7,13 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/service/upower/upowertest"
 )
+
+const quietWindow = 200 * time.Millisecond
 
 const (
 	mousePath  = dbus.ObjectPath("/org/freedesktop/UPower/devices/mouse_hidpp_0")
@@ -73,11 +76,7 @@ func TestSubscribePeripheralsTicksOnDeviceChangesOnly(t *testing.T) {
 	defer requireStopped(t, "the peripherals", stop)
 	expect := func(what string) {
 		t.Helper()
-		select {
-		case <-ticks:
-		case <-ctx.Done():
-			t.Fatalf("no tick for %s", what)
-		}
+		waittest.For(t, ticks, "a tick for "+what)
 	}
 	fake.Add(mousePath, upowertest.Peripheral(upower.KindMouse, "M", 40, upower.WarningNone))
 	expect("DeviceAdded")
@@ -89,7 +88,7 @@ func TestSubscribePeripheralsTicksOnDeviceChangesOnly(t *testing.T) {
 	select {
 	case <-ticks:
 		t.Error("a DisplayDevice change ticked the peripherals")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	stranger := bus.Conn(t)
 	if err := stranger.Emit(mousePath, "org.freedesktop.DBus.Properties.PropertiesChanged", "org.freedesktop.UPower.Device", map[string]dbus.Variant{}, []string{}); err != nil {
@@ -101,7 +100,7 @@ func TestSubscribePeripheralsTicksOnDeviceChangesOnly(t *testing.T) {
 	select {
 	case <-ticks:
 		t.Error("a peer that is not UPower ticked the peripherals")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -122,11 +121,7 @@ func TestSubscribeTicksWhenUPowerAppears(t *testing.T) {
 	defer requireStopped(t, "the peripherals", stopPeripherals)
 	upowertest.Serve(t, bus.Conn(t), upowertest.Battery(50, upower.StateDischarging, upower.WarningNone))
 	for name, ticks := range map[string]<-chan struct{}{"battery": display, "peripherals": peripherals} {
-		select {
-		case <-ticks:
-		case <-ctx.Done():
-			t.Fatalf("UPower appeared without a %s tick", name)
-		}
+		waittest.For(t, ticks, "a "+name+" tick as UPower appeared")
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/desktop/service/backlight/backlighttest"
@@ -60,11 +61,13 @@ func subscribe(t *testing.T, s *backlight.Sysfs) <-chan struct{} {
 	return ticks
 }
 
-func tickWithin(ticks <-chan struct{}, d time.Duration) bool {
+const quietWindow = 50 * time.Millisecond
+
+func ticksSoon(ticks <-chan struct{}) bool {
 	select {
 	case <-ticks:
 		return true
-	case <-time.After(d):
+	case <-time.After(quietWindow):
 		return false
 	}
 }
@@ -131,9 +134,7 @@ func TestSubscribeTicksOnWrites(t *testing.T) {
 	s, _ := quietSysfs(t)
 	ticks := subscribe(t, s)
 	backlighttest.SetLevel(t, "intel_backlight", 9000)
-	if !tickWithin(ticks, 3*time.Second) {
-		t.Fatal("no tick within 3s of a brightness write")
-	}
+	waittest.For(t, ticks, "a tick for a brightness write")
 }
 
 func TestBacklightHotplugWatchesTheNewDevice(t *testing.T) {
@@ -142,14 +143,10 @@ func TestBacklightHotplugWatchesTheNewDevice(t *testing.T) {
 	ticks := subscribe(t, s)
 	backlighttest.Add(t, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
 	events <- uevent.Event{Action: uevent.Add, Subsystem: "backlight", Sysname: "acpi_video0"}
-	if !tickWithin(ticks, 3*time.Second) {
-		t.Fatal("no tick for the hotplugged device")
-	}
+	waittest.For(t, ticks, "a tick for the hotplugged device")
 	time.Sleep(10 * time.Millisecond)
 	backlighttest.SetLevel(t, "acpi_video0", 7)
-	if !tickWithin(ticks, 3*time.Second) {
-		t.Fatal("no tick for a write to the hotplugged device")
-	}
+	waittest.For(t, ticks, "a tick for a write to the hotplugged device")
 }
 
 func TestSubscribeStopsAndRefusesAfterClose(t *testing.T) {
@@ -173,29 +170,31 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	s, _ := quietSysfs(t)
 	ticks := subscribe(t, s)
 	_ = s.Close()
-	select {
-	case _, ok := <-ticks:
-		for ok {
-			_, ok = <-ticks
+	waittest.Until(t, func() bool {
+		for {
+			select {
+			case _, ok := <-ticks:
+				if !ok {
+					return true
+				}
+			default:
+				return false
+			}
 		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("Close left a subscription open")
-	}
+	}, "Close to end the subscription")
 }
 
 func TestDriftWithoutADeviceWakesNobodyUntilOneAppears(t *testing.T) {
 	backlighttest.Fake(t, nil)
 	s, events := newSysfs(t, nil, time.Millisecond)
 	ticks := subscribe(t, s)
-	if tickWithin(ticks, 50*time.Millisecond) {
+	if ticksSoon(ticks) {
 		t.Fatal("a machine without a backlight ticked")
 	}
 	backlighttest.Add(t, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
 	events <- uevent.Event{Action: uevent.Add, Subsystem: "backlight", Sysname: "acpi_video0"}
-	if !tickWithin(ticks, 3*time.Second) {
-		t.Fatal("the hotplugged device did not tick")
-	}
-	if tickWithin(ticks, 50*time.Millisecond) {
+	waittest.For(t, ticks, "a tick from the hotplugged device")
+	if ticksSoon(ticks) {
 		t.Fatal("an unmoved level ticked")
 	}
 }
@@ -204,7 +203,7 @@ func TestDriftWithAStillLevelWakesNobody(t *testing.T) {
 	backlighttest.Fake(t, map[string]backlighttest.Device{"acpi_video0": {Type: "firmware", Brightness: 5, Max: 10}})
 	s, _ := newSysfs(t, nil, time.Millisecond)
 	ticks := subscribe(t, s)
-	if tickWithin(ticks, 50*time.Millisecond) {
+	if ticksSoon(ticks) {
 		t.Fatal("an unmoved level ticked")
 	}
 }
@@ -214,13 +213,11 @@ func TestBacklightChangeUeventTicksAndOthersDoNot(t *testing.T) {
 	s, events := quietSysfs(t)
 	ticks := subscribe(t, s)
 	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
-	if tickWithin(ticks, 50*time.Millisecond) {
+	if ticksSoon(ticks) {
 		t.Fatal("a drm change ticked the backlight subscribers")
 	}
 	events <- uevent.Event{Action: uevent.Change, Subsystem: "backlight", Sysname: "x"}
-	if !tickWithin(ticks, 3*time.Second) {
-		t.Fatal("the kernel announced a level and nobody heard")
-	}
+	waittest.For(t, ticks, "a tick for the level the kernel announced")
 }
 
 func TestLevelProbeSeesAChangeOnTheFileItHoldsOpen(t *testing.T) {

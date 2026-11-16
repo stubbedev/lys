@@ -12,13 +12,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/polkit/polkittest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/polkit/internal/agent"
 	"github.com/stubbedev/lys/polkit/internal/helper/helpertest"
@@ -32,9 +32,8 @@ func TestMain(m *testing.M) {
 }
 
 const (
-	timeout = 5 * time.Second
-	bob     = polkit.UID(1000)
-	alice   = polkit.UID(1001)
+	bob   = polkit.UID(1000)
+	alice = polkit.UID(1001)
 )
 
 var names = map[polkit.UID]string{bob: "bob", alice: helpertest.User}
@@ -115,7 +114,7 @@ func processName(pid polkit.PID) (string, error) {
 func start(t *testing.T, s setup) *env {
 	t.Helper()
 	bus := dbustest.Start(t)
-	h := &host{calls: make(chan call, 64), replies: make(chan portaldialogs.AuthReply), stop: make(chan struct{})}
+	h := &host{calls: make(chan call, 64), replies: make(chan portaldialogs.AuthReply, 1), stop: make(chan struct{})}
 	t.Cleanup(func() { close(h.stop) })
 	hostConn := bus.Conn(t)
 	if !s.noDialogs {
@@ -158,11 +157,7 @@ func start(t *testing.T, s setup) *env {
 	}()
 	t.Cleanup(func() {
 		cancel()
-		select {
-		case <-served:
-		case <-time.After(timeout):
-			t.Error("Serve did not return within " + timeout.String())
-		}
+		waittest.For(t, served, "Serve to return")
 	})
 	e := &env{t: t, agentName: agentConn.Names()[0], caller: bus.Conn(t), host: h, emitter: portaldialogs.NewEmitter(hostConn), fake: fake, authority: auth, release: release, bus: bus, changes: changes, authorized: &authorized}
 	e.registered(auth)
@@ -172,13 +167,8 @@ func start(t *testing.T, s setup) *env {
 
 func (e *env) registered(auth *polkittest.Authority) {
 	e.t.Helper()
-	select {
-	case ev := <-auth.Events:
-		if !ev.Register {
-			e.t.Fatalf("Authority saw %+v, want the agent registered", ev)
-		}
-	case <-time.After(timeout):
-		e.t.Fatal("the agent did not register within " + timeout.String())
+	if ev := waittest.For(e.t, auth.Events, "the agent to register"); !ev.Register {
+		e.t.Fatalf("Authority saw %+v, want the agent registered", ev)
 	}
 }
 
@@ -206,13 +196,7 @@ func (e *env) cancel(cookie string) error {
 
 func (e *env) next() call {
 	e.t.Helper()
-	select {
-	case c := <-e.host.calls:
-		return c
-	case <-time.After(timeout):
-		e.t.Fatal("no dialog call within " + timeout.String())
-		return call{}
-	}
+	return waittest.For(e.t, e.host.calls, "a dialog call")
 }
 
 func (e *env) expect(method string) call {
@@ -228,20 +212,14 @@ func (e *env) reply(r portaldialogs.AuthReply) {
 	e.t.Helper()
 	select {
 	case e.host.replies <- r:
-	case <-time.After(timeout):
-		e.t.Fatal("no Authenticate waiting for a reply")
+	default:
+		e.t.Fatal("the previous reply is still unread")
 	}
 }
 
 func result(t *testing.T, done <-chan error) error {
 	t.Helper()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(timeout):
-		t.Fatal("BeginAuthentication did not return within " + timeout.String())
-		return nil
-	}
+	return waittest.For(t, done, "BeginAuthentication to return")
 }
 
 func wantError(t *testing.T, err error, name, text string) {
@@ -394,11 +372,7 @@ func TestCancelAuthenticationDuringUserLookup(t *testing.T) {
 		return "", ctx.Err()
 	}})
 	done := e.begin("cookie-1", unixUser(alice))
-	select {
-	case <-looking:
-	case <-time.After(timeout):
-		t.Fatal("the user lookup never started")
-	}
+	waittest.For(t, looking, "the user lookup to start")
 	if err := e.cancel("cookie-1"); err != nil {
 		t.Fatalf("CancelAuthentication: %v", err)
 	}
@@ -432,17 +406,7 @@ func TestCancelAuthenticationQueued(t *testing.T) {
 	running := e.expect("Authenticate")
 	queued := e.begin("cookie-2", unixUser(alice))
 	third := e.begin("cookie-3", unixUser(alice))
-	deadline := time.Now().Add(timeout)
-	for {
-		err := e.cancel("cookie-2")
-		if err == nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("CancelAuthentication(cookie-2): %v", err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return e.cancel("cookie-2") == nil }, "CancelAuthentication(cookie-2) to succeed")
 	wantError(t, result(t, queued), libpolkit.ErrCancelled, "cancelled")
 
 	e.reply(answer(helpertest.Password))
@@ -503,11 +467,7 @@ func TestDialogsAbsentFails(t *testing.T) {
 
 func (e *env) changed() {
 	e.t.Helper()
-	select {
-	case <-e.changes:
-	case <-time.After(timeout):
-		e.t.Fatal("Serve reported no change within " + timeout.String())
-	}
+	waittest.For(e.t, e.changes, "Serve to report a change")
 }
 
 func (e *env) succeed() portaldialogs.AuthRequest {

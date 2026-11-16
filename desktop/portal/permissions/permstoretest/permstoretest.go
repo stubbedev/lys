@@ -10,15 +10,13 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 )
-
-const ownBound = 2 * time.Minute
 
 // Binary is xdg-permission-store, which ships in xdg-desktop-portal's
 // libexec beside the frontend $XDG_DESKTOP_PORTAL names (the dev shell
@@ -75,18 +73,13 @@ func Start(t testing.TB, bus *dbustest.Bus, dataHome string) {
 		}
 	})
 	conn := bus.Conn(t)
-	for deadline := time.Now().Add(ownBound); ; time.Sleep(10 * time.Millisecond) {
+	waittest.UntilSlow(t, func() bool {
 		var owned bool
 		if err := conn.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0, permissions.StoreName).Store(&owned); err != nil {
 			t.Fatal(err)
 		}
-		if owned {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("xdg-permission-store never owned %s:\n%s", permissions.StoreName, log.String())
-		}
-	}
+		return owned
+	}, "xdg-permission-store to own "+permissions.StoreName)
 }
 
 // Set writes an entry: each app's permissions for id in table, with

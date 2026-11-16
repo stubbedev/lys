@@ -3,9 +3,9 @@ package portal
 import (
 	"sync"
 	"testing"
-	"time"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // sessionStartCase is a Start that shares the screens of a session
@@ -59,17 +59,6 @@ func startAsync(t *testing.T, tc sessionStartCase, r *rig) <-chan uint32 {
 	return done
 }
 
-func awaitReply(t *testing.T, done <-chan uint32) uint32 {
-	t.Helper()
-	select {
-	case code := <-done:
-		return code
-	case <-time.After(2 * time.Second):
-		t.Fatal("the call did not reply")
-		return 0
-	}
-}
-
 func (r *rig) closeSession(t *testing.T, path dbus.ObjectPath) {
 	t.Helper()
 	if err := r.client.Object(BusName, path).Call(SessionIface+".Close", 0).Err; err != nil {
@@ -98,7 +87,7 @@ func TestSessionCloseDismissesItsPicker(t *testing.T) {
 			done := startAsync(t, tc, r)
 			p.waitOpen(t, handle)
 			r.closeSession(t, sessA)
-			if code := awaitReply(t, done); code != ResponseCancelled {
+			if code := waittest.For(t, done, "the call to reply"); code != ResponseCancelled {
 				t.Errorf("Start = %d after the session closed, want cancelled", code)
 			}
 			if got := p.dismissed.Load(); len(got) != 1 || got[0] != string(handle) {
@@ -123,7 +112,7 @@ func TestSessionCloseWhileStreamsStartStopsThem(t *testing.T) {
 			r, f, _ := tc.setup(t)
 			var once sync.Once
 			f.starting.Store(func() { once.Do(func() { r.closeSession(t, sessA) }) })
-			if code := awaitReply(t, startAsync(t, tc, r)); code != ResponseCancelled {
+			if code := waittest.For(t, startAsync(t, tc, r), "the call to reply"); code != ResponseCancelled {
 				t.Errorf("Start = %d after the session closed, want cancelled", code)
 			}
 			if got := len(f.streams.Load()); got != 2 {
@@ -146,7 +135,7 @@ func TestOpenSessionStreamsThePick(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r, f, p := tc.setup(t)
 			f.starting.Store(func() {})
-			if code := awaitReply(t, startAsync(t, tc, r)); code != ResponseSuccess {
+			if code := waittest.For(t, startAsync(t, tc, r), "the call to reply"); code != ResponseSuccess {
 				t.Fatalf("Start = %d", code)
 			}
 			if got := p.dismissed.Load(); len(got) != 0 {
@@ -182,7 +171,7 @@ func TestSessionCloseDismissesItsShortcutConsent(t *testing.T) {
 	}()
 	d.waitOpen(t, handle)
 	r.closeSession(t, sessA)
-	if code := awaitReply(t, done); code != ResponseCancelled {
+	if code := waittest.For(t, done, "the call to reply"); code != ResponseCancelled {
 		t.Errorf("BindShortcuts = %d after the session closed, want cancelled", code)
 	}
 	if got := d.dismissed.Load(); len(got) != 1 || got[0] != string(handle) {

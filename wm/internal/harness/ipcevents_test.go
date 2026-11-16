@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/wmipc"
 
@@ -18,7 +17,6 @@ import (
 	csb "github.com/stubbedev/lys/wm/internal/protocol/client/systembell"
 	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -60,20 +58,17 @@ func parseStreamed(t *testing.T, line string) streamed {
 
 func awaitStreamed(t *testing.T, lines <-chan string, what string, match func(streamed) bool) streamed {
 	t.Helper()
-	deadline := time.After(testenv.HangLimit)
 	var seen []string
+	defer func() {
+		if t.Failed() {
+			t.Logf("the event stream carried, before %s:\n%s", what, strings.Join(seen, "\n"))
+		}
+	}()
 	for {
-		select {
-		case line, ok := <-lines:
-			if !ok {
-				t.Fatalf("the event stream ended before %s; saw %s", what, strings.Join(seen, "\n"))
-			}
-			seen = append(seen, line)
-			if e := parseStreamed(t, line); match(e) {
-				return e
-			}
-		case <-deadline:
-			t.Fatalf("no %s on the event stream; saw %s", what, strings.Join(seen, "\n"))
+		line := nextEvent(t, lines, what)
+		seen = append(seen, line)
+		if e := parseStreamed(t, line); match(e) {
+			return e
 		}
 	}
 }

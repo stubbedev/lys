@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 var shellSessionNames = []string{
@@ -27,10 +28,10 @@ func TestTheShellServesItsSessionNamesOnOneConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := startShellProcess(t, image)
-	awaitBar(t, s)
+	awaitBar(t)
 	conn := dbustest.SessionConn(t)
 	owners := map[string]string{}
-	await(t, s, "every session name", func() bool {
+	waittest.UntilSlow(t, func() bool {
 		for _, name := range shellSessionNames {
 			var owner string
 			if err := conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, name).Store(&owner); err != nil {
@@ -39,7 +40,7 @@ func TestTheShellServesItsSessionNamesOnOneConnection(t *testing.T) {
 			owners[name] = owner
 		}
 		return true
-	})
+	}, "every session name")
 	shared := owners["dev.stubbe.lys.shell"]
 	for _, name := range shellSessionNames {
 		if owners[name] != shared {
@@ -79,7 +80,7 @@ func TestTheShellOpensOneConnectionPerBusBeforeItsBarMaps(t *testing.T) {
 	}
 	session, system := connectionSerial(t, dbus.ConnectSessionBus), connectionSerial(t, dbus.ConnectSystemBus)
 	s := startShellProcess(t, image)
-	awaitBar(t, s)
+	awaitBar(t)
 	sessionOpened := connectionSerial(t, dbus.ConnectSessionBus) - session - 1
 	systemOpened := connectionSerial(t, dbus.ConnectSystemBus) - system - 1
 	if sessionOpened != 1 || systemOpened != 1 {

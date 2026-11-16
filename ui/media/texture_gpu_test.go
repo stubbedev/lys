@@ -14,9 +14,9 @@ import (
 	"github.com/stubbedev/lys/lib/gputest"
 	"github.com/stubbedev/lys/lib/media/demux"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/anim"
-	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 const fixtureStep = 40 * time.Millisecond

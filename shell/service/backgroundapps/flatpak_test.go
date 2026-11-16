@@ -9,7 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func instanceID(t *testing.T, s string) InstanceID {
@@ -83,15 +84,11 @@ func (in *instance) writeFlatpakInfo(t *testing.T, body string) {
 
 func (in *instance) killed(t *testing.T) {
 	t.Helper()
-	select {
-	case err := <-in.done:
-		in.done <- err
-		exit, ok := errors.AsType[*exec.ExitError](err)
-		if !ok || exit.Sys().(syscall.WaitStatus).Signal() != syscall.SIGKILL { //nolint:forcetypeassert // a Linux exit status
-			t.Errorf("the instance ended with %v, want SIGKILL", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the instance was not killed")
+	err := waittest.For(t, in.done, "the instance to be killed")
+	in.done <- err
+	exit, ok := errors.AsType[*exec.ExitError](err)
+	if !ok || exit.Sys().(syscall.WaitStatus).Signal() != syscall.SIGKILL { //nolint:forcetypeassert // a Linux exit status
+		t.Errorf("the instance ended with %v, want SIGKILL", err)
 	}
 }
 

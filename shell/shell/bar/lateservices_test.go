@@ -3,11 +3,11 @@ package bar
 import (
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/network"
 )
@@ -39,13 +39,8 @@ func TestLateServicesStartTheirClientAndRebuild(t *testing.T) {
 	}
 	expect := func(what string, withClient bool) {
 		t.Helper()
-		select {
-		case got := <-rebuilt:
-			if got != withClient {
-				t.Errorf("%s: rebuilt with a client %v, want %v", what, got, withClient)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("%s: no rebuild", what)
+		if got := waittest.For(t, rebuilt, what+": the rebuild"); got != withClient {
+			t.Errorf("%s: rebuilt with a client %v, want %v", what, got, withClient)
 		}
 	}
 	appear := func(name string) *dbus.Conn {

@@ -7,9 +7,9 @@ import (
 	"sync"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/assetfile"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // heldReadFS parks every ReadFile until release hands it the contents,
@@ -49,11 +49,7 @@ func TestPreloadReadsOutsideTheLockAndDropsAStaleDecode(t *testing.T) {
 	}
 	c.InvalidateTheme()
 	fsys.release <- `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"/>`
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the preload never finished")
-	}
+	waittest.For(t, done, "the preload to finish")
 	if c.Cached(path, 16, 120) {
 		t.Error("a raster decoded across a theme switch must not be kept")
 	}
@@ -87,11 +83,7 @@ func TestAPipeAtAnIconPathIsRefusedWithoutBlocking(t *testing.T) {
 		defer close(done)
 		c.Preload(path, 16, 120)
 	}()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the preload blocked on the pipe")
-	}
+	waittest.For(t, done, "the preload to refuse the pipe")
 	if r, ok := c.Peek(path, 16, 120); !ok || !errors.Is(r.Err, assetfile.ErrNotRegular) {
 		t.Errorf("raster %+v, %v: want the pipe refused", r, ok)
 	}

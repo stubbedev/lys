@@ -7,12 +7,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 )
 
@@ -258,7 +258,7 @@ func TestHotkeysConfigureRebinds(t *testing.T) {
 	if err := r.obj.Call(GlobalShortcutsIface+".ConfigureShortcuts", 0, sessA, "", Vardict{}).Err; err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, func() bool { return len(d.editors.Load()) == 3 })
+	waittest.Until(t, func() bool { return len(d.editors.Load()) == 3 }, "the third configure editor")
 	if changed := r.shortcutsChanged(t); len(changed) != 0 {
 		t.Errorf("a configure closed unchanged emitted %v", changed)
 	}
@@ -272,7 +272,7 @@ func TestHotkeysAConfigureIsKeptBeforeTheBackendStops(t *testing.T) {
 	if err := r.obj.Call(GlobalShortcutsIface+".ConfigureShortcuts", 0, sessA, "", Vardict{}).Err; err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, func() bool { return f.bound.Load()[shortcutKey("org.app", "screenshot")] == "Super+F9" })
+	waittest.Until(t, func() bool { return f.bound.Load()[shortcutKey("org.app", "screenshot")] == "Super+F9" }, "the configured trigger to be bound")
 	r.backend.shortcuts.close()
 	kept, err := permissions.ReadShortcuts(store)
 	if err != nil || len(kept["org.app"]) != 1 || kept["org.app"][0].Trigger != "Super+F9" {
@@ -294,21 +294,13 @@ func TestHotkeysAConfigureLeftUpEndsWithTheBackend(t *testing.T) {
 	if err := r.obj.Call(GlobalShortcutsIface+".ConfigureShortcuts", 0, sessA, "", Vardict{}).Err; err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-shown:
-	case <-time.After(hangGuard):
-		t.Fatal("the configure editor never showed")
-	}
+	waittest.For(t, shown, "the configure editor to show")
 	closed := make(chan struct{})
 	go func() {
 		r.backend.shortcuts.close()
 		close(closed)
 	}()
-	select {
-	case <-closed:
-	case <-time.After(hangGuard):
-		t.Fatal("the backend's stop waited on a configure dialog left up")
-	}
+	waittest.For(t, closed, "the backend's stop, with a configure dialog left up")
 	kept, err := permissions.ReadShortcuts(store)
 	if err != nil || len(kept["org.app"]) != 1 || kept["org.app"][0].Trigger != "Ctrl+Alt+P" {
 		t.Errorf("a dialog cut short by the stop changed the store to %v, %v", kept, err)

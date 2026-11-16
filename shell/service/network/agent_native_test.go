@@ -41,9 +41,7 @@ func TestANativeSignInNetworkManagerWithdrawsStopsAndKeepsThePassword(t *testing
 	openconnect.RememberPassword("withdrawn", "hunter2")
 	gateway := openconnecttest.NewSilentGateway(t)
 	pending := fx.ask(signedInBefore("withdrawn", gateway.Addr), 1, "vpn")
-	if !gateway.Reached() {
-		t.Fatal("the sign-in never got going")
-	}
+	gateway.Reached(t)
 	fx.nm.cancelSecrets(fx.name, settingPath(1), "vpn")
 	if a := await(t, pending); errName(a.err) != errAgentCanceled {
 		t.Fatalf("err = %v", a.err)
@@ -78,9 +76,7 @@ func TestWithdrawingANativeSignInLeavesTheWifiPromptAlone(t *testing.T) {
 	openconnect.RememberPassword("withdraw-one", "hunter2")
 	gateway := openconnecttest.NewSilentGateway(t)
 	vpn := fx.ask(signedInBefore("withdraw-one", gateway.Addr), 1, "vpn")
-	if !gateway.Reached() {
-		t.Fatal("the sign-in never got going")
-	}
+	gateway.Reached(t)
 	wifi := fx.ask(wifiConnection("home-wifi", "Home", []byte("home")), 2, "802-11-wireless-security")
 	fx.shown(t)
 	fx.nm.cancelSecrets(fx.name, settingPath(1), "vpn")

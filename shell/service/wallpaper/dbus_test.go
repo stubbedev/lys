@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
 )
@@ -137,13 +138,8 @@ func TestDaemonEmitsColorsExtracted(t *testing.T) {
 	if err := NewClient(dial(t, addr)).ExtractColors(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case sig := <-signals:
-		if sig.Path != ServicePath {
-			t.Errorf("signal path = %v", sig.Path)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("no ColorsExtracted after ExtractColors")
+	if sig := waittest.For(t, signals, "ColorsExtracted after ExtractColors"); sig.Path != ServicePath {
+		t.Errorf("signal path = %v", sig.Path)
 	}
 }
 

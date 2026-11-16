@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -17,7 +17,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/ipc"
 	"github.com/stubbedev/lys/wm/internal/output"
 	"github.com/stubbedev/lys/wm/internal/testclient"
-	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -77,13 +76,7 @@ func windowOutput(h *Harness) string {
 
 func (h *Harness) awaitWindowOn(name string) {
 	h.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for windowOutput(h) != name {
-		if time.Now().After(deadline) {
-			h.t.Fatalf("harness: the window never reached output %s", name)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(h.t, func() bool { return windowOutput(h) == name }, "the window to reach output "+name)
 }
 
 func TestAVirtualOutputComesAndGoesLikeAMonitor(t *testing.T) {

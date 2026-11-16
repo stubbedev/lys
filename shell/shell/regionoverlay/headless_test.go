@@ -3,12 +3,14 @@ package regionoverlay
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -123,13 +125,11 @@ func TestHeadlessSecondRequestOpensNothing(t *testing.T) {
 		return apptest.On(r.a, func() state { return state{slices.Clone(r.o.surfaces), r.o.ed.sel, r.o.reply} })
 	}
 	drawn := image.Rect(100, 100, 300, 200)
-	before := read()
-	for deadline := time.Now().Add(10 * time.Second); before.sel != drawn; before = read() {
-		if time.Now().After(deadline) {
-			t.Fatalf("the drag never reached %v: %+v", drawn, before)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	var before state
+	waittest.Until(t, func() bool {
+		before = read()
+		return before.sel == drawn
+	}, fmt.Sprintf("the drag to reach %v", drawn))
 	if len(before.surfaces) == 0 {
 		t.Fatalf("nothing open to refuse over: %+v", before)
 	}

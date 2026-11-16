@@ -2,13 +2,13 @@ package logind_test
 
 import (
 	"testing"
-	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestWatchesOfASessionOnOneConnectionEachOwnTheResumedDevice(t *testing.T) {
@@ -51,13 +51,8 @@ func TestWatchesOfASessionOnOneConnectionEachOwnTheResumedDevice(t *testing.T) {
 			t.Errorf("descriptor %d: device %#x, %v; want the resumed device, open", fd, st.Rdev, err)
 		}
 	}
-	select {
-	case err := <-waited:
-		if err != nil {
-			t.Errorf("WaitLocked beside the watches = %v", err)
-		}
-	case <-time.After(wait):
-		t.Error("WaitLocked beside the watches did not return")
+	if err := waittest.For(t, waited, "WaitLocked beside the watches to return"); err != nil {
+		t.Errorf("WaitLocked beside the watches = %v", err)
 	}
 	for _, fd := range fds {
 		if err := unix.Close(fd); err != nil {

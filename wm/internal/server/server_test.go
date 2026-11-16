@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
@@ -92,14 +92,9 @@ func (h *harness) on(f func()) {
 
 func (h *harness) ended() error {
 	h.t.Helper()
-	select {
-	case <-h.stopped:
-		h.ending = true
-		return h.ran
-	case <-time.After(testenv.HangLimit):
-		h.t.Fatalf("the loop is still running after %v", testenv.HangLimit)
-		return nil
-	}
+	waittest.For(h.t, h.stopped, "the loop to stop")
+	h.ending = true
+	return h.ran
 }
 
 func (h *harness) reports() func() []error {
@@ -133,13 +128,7 @@ func (h *harness) clients() int {
 
 func (h *harness) waitClients(n int) {
 	h.t.Helper()
-	deadline := time.Now().Add(testenv.HangLimit)
-	for h.clients() != n {
-		if time.Now().After(deadline) {
-			h.t.Fatalf("server has %d clients, want %d", h.clients(), n)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(h.t, func() bool { return h.clients() == n }, fmt.Sprintf("the server to have %d clients", n))
 }
 
 type registry struct {

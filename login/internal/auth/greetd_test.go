@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/login/internal/fprint"
 )
@@ -69,11 +69,7 @@ func runGreetd(t *testing.T, username string, ask Ask, cmd func() []string, serv
 	g := NewGreetd(client, Start{Session: func() Session { return Session{Cmd: cmd(), Env: []string{"XDG_SESSION_TYPE=wayland"}} }})
 	err := g.Run(username, ask)
 	_ = g.Close()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("fake greetd did not finish")
-	}
+	waittest.For(t, done, "the fake greetd to finish")
 	_ = server.Close()
 	return f, err
 }

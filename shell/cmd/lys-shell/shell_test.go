@@ -9,11 +9,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/shellipc"
 )
@@ -37,20 +37,13 @@ func TestStartingTheShellRefreshesASchemaFromAnotherVersion(t *testing.T) {
 		t.Fatalf("the shell's own result was replaced: %v", err)
 	}
 	expected := config.GenerateSchema()
-	deadline := time.Now().Add(30 * time.Second)
-	for {
+	waittest.UntilSlow(t, func() bool {
 		got, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(got) == expected {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("schema.json still holds %d stale bytes", len(got))
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+		return string(got) == expected
+	}, "schema.json to be refreshed")
 }
 
 func busPeers(t *testing.T, probe *dbus.Conn) int {

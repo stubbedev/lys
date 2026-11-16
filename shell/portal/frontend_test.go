@@ -11,13 +11,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/pipewire"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
@@ -97,18 +97,13 @@ func startFrontend(t *testing.T, r *rig, dataHome string) *frontend {
 		}
 	})
 	conn := r.bus.Conn(t)
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+	waittest.UntilSlow(t, func() bool {
 		var owned bool
 		if err := conn.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0, frontendName).Store(&owned); err != nil {
 			t.Fatal(err)
 		}
-		if owned {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("xdg-desktop-portal never owned %s", frontendName)
-		}
-	}
+		return owned
+	}, "xdg-desktop-portal to own "+frontendName)
 	return &frontend{conn: conn, obj: conn.Object(frontendName, frontendPath)}
 }
 
@@ -131,23 +126,16 @@ func (f *frontend) request(t *testing.T, method string, args ...any) (uint32, ma
 	if got != path {
 		t.Fatalf("%s answered request %s, want %s", method, got, path)
 	}
-	timeout := time.After(10 * time.Second)
-	for {
-		select {
-		case s := <-signals:
-			if s.Path != path || s.Name != "org.freedesktop.portal.Request.Response" {
-				continue
-			}
-			var code uint32
-			var results map[string]dbus.Variant
-			if err := dbus.Store(s.Body, &code, &results); err != nil {
-				t.Fatal(err)
-			}
-			return code, results
-		case <-timeout:
-			t.Fatalf("%s: no Response on %s", method, path)
-		}
+	s := nextSignal(t, signals, "org.freedesktop.portal.Request.Response")
+	for s.Path != path {
+		s = nextSignal(t, signals, "org.freedesktop.portal.Request.Response")
 	}
+	var code uint32
+	var results map[string]dbus.Variant
+	if err := dbus.Store(s.Body, &code, &results); err != nil {
+		t.Fatal(err)
+	}
+	return code, results
 }
 
 // session creates a session through iface's CreateSession and returns
@@ -242,10 +230,10 @@ func TestFrontendOpenURIAsksTheAppChooser(t *testing.T) {
 	if got := slices.Sorted(slices.Values(asked.Choices)); !slices.Equal(got, []string{"org.a.App", "org.chosen.App"}) {
 		t.Errorf("the chooser offered %q", asked.Choices)
 	}
-	waitFor(t, func() bool {
+	waittest.Until(t, func() bool {
 		b, err := os.ReadFile(opened)
 		return err == nil && string(b) == "org.chosen.App lystest:hello"
-	})
+	}, "the chosen app to open the URI")
 
 	if err := os.Remove(opened); err != nil {
 		t.Fatal(err)
@@ -308,7 +296,7 @@ func TestFrontendDrivesRemoteDesktopThroughTheScreenStreams(t *testing.T) {
 	}
 	// DP-2 is at (1280, 0) in a layout 3200x1080, in 256ths of a pixel.
 	want := []string{"abs 353408 1280 819200 276480", "abs 327680 0 819200 276480", "axis finger 0 2", "stop finger 0", "stop finger 1"}
-	waitFor(t, func() bool { return len(sink.events.Load()) >= len(want) })
+	waittest.Until(t, func() bool { return len(sink.events.Load()) >= len(want) }, "the sink to receive the input")
 	if got := sink.events.Load(); !slices.Equal(got, want) {
 		t.Errorf("input = %q, want %q", got, want)
 	}
@@ -382,26 +370,11 @@ func TestFrontendScreenCastStreamsToARealConsumer(t *testing.T) {
 			t.Fatalf("a frame of %d bytes, want %d", size, 256*32)
 		}
 	}
-	sessionClosed := func(within time.Duration) bool {
-		deadline := time.After(within)
-		for {
-			select {
-			case s := <-closed:
-				if s.Path == session && s.Name == "org.freedesktop.portal.Session.Closed" {
-					return true
-				}
-			case <-deadline:
-				return false
-			}
-		}
-	}
-	if sessionClosed(100 * time.Millisecond) {
-		t.Fatal("the session closed while PipeWire ran")
-	}
+	const sessionClosed = "org.freedesktop.portal.Session.Closed"
+	noSignal(t, closed, func(s *dbus.Signal) bool { return s.Path == session && s.Name == sessionClosed }, "the session closed while PipeWire ran")
 
 	daemon.Kill()
-	if !sessionClosed(10 * time.Second) {
-		t.Fatal("the session outlived PipeWire")
+	for nextSignal(t, closed, sessionClosed).Path != session {
 	}
 	if _, live := r.backend.sessions.get(session); live {
 		t.Error("the backend kept the session")
@@ -423,26 +396,20 @@ func TestFrontendRelaysANewAccentToApps(t *testing.T) {
 	if err := r.cfg.SetByPath("styling.palette.primary", "#336699"); err != nil {
 		t.Fatal(err)
 	}
-	timeout := time.After(10 * time.Second)
+	var value dbus.Variant
 	for {
-		select {
-		case s := <-signals:
-			var ns, key string
-			var value dbus.Variant
-			if dbus.Store(s.Body, &ns, &key, &value) != nil || ns != AppearanceNS || key != keyAccentColor {
-				continue
-			}
-			if got, _ := value.Value().([]any); !slices.Equal(got, want) {
-				t.Fatalf("the frontend relayed accent-color %v, want %v", value, want)
-			}
-			var after dbus.Variant
-			if err := f.obj.Call("org.freedesktop.portal.Settings.ReadOne", 0, AppearanceNS, keyAccentColor).Store(&after); err != nil || !slices.Equal(after.Value().([]any), want) {
-				t.Fatalf("ReadOne after the change = %v, %v; want %v", after, err, want)
-			}
-			return
-		case <-timeout:
-			t.Fatal("the frontend relayed no accent-color change")
+		var ns, key string
+		s := waittest.For(t, signals, "the frontend to relay the accent-color change")
+		if dbus.Store(s.Body, &ns, &key, &value) == nil && ns == AppearanceNS && key == keyAccentColor {
+			break
 		}
+	}
+	if got, _ := value.Value().([]any); !slices.Equal(got, want) {
+		t.Fatalf("the frontend relayed accent-color %v, want %v", value, want)
+	}
+	var after dbus.Variant
+	if err := f.obj.Call("org.freedesktop.portal.Settings.ReadOne", 0, AppearanceNS, keyAccentColor).Store(&after); err != nil || !slices.Equal(after.Value().([]any), want) {
+		t.Fatalf("ReadOne after the change = %v, %v; want %v", after, err, want)
 	}
 }
 

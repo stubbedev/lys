@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/testhome"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/desktop/service/lyswm"
@@ -67,30 +68,22 @@ func Headless(t *testing.T) {
 			mu.Unlock()
 		}
 	})
-	for deadline := time.Now().Add(hangGuard); ; time.Sleep(20 * time.Millisecond) {
+	waittest.UntilSlow(t, func() bool {
 		select {
 		case <-exited:
-			mu.Lock()
-			defer mu.Unlock()
-			t.Fatalf("lys-wm exited: %v\n%s", waitErr, logs.String())
+			t.Fatalf("lys-wm exited: %v", waitErr)
 		default:
-		}
-		if time.Now().After(deadline) {
-			mu.Lock()
-			defer mu.Unlock()
-			t.Fatalf("lys-wm never answered on its socket:\n%s", logs.String())
 		}
 		sockets, _ := filepath.Glob(filepath.Join(dir, "lys-wm", "*.sock"))
 		if len(sockets) == 0 {
-			continue
+			return false
 		}
 		t.Setenv("XDG_RUNTIME_DIR", dir)
 		t.Setenv(wmipc.SocketEnv, sockets[0])
 		t.Setenv("WAYLAND_DISPLAY", strings.TrimSuffix(filepath.Base(sockets[0]), ".sock"))
-		if _, err := lyswm.Outputs(); err == nil {
-			return
-		}
-	}
+		_, err := lyswm.Outputs()
+		return err == nil
+	}, "lys-wm to answer on its socket")
 }
 
 type writerFunc func([]byte) (int, error)

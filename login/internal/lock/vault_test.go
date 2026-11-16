@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/secrets/vault"
 )
@@ -128,16 +129,6 @@ func (b *syncBuffer) String() string {
 
 func vaultHelper() []string { return []string{os.Args[0], "vault-unlock"} }
 
-func eventually(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); !cond(); {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
 func TestVaultUnlockFiresOnceWhenEnabledAndLocked(t *testing.T) {
 	f := &fakeVault{state: vault.StateLocked}
 	serveVault(t, f)
@@ -146,8 +137,8 @@ func TestVaultUnlockFiresOnceWhenEnabledAndLocked(t *testing.T) {
 	v.start(pw)
 	clear(pw)
 	v.wait()
-	eventually(t, "the vault unlock", func() bool { _, u := f.calls(); return len(u) > 0 })
-	time.Sleep(100 * time.Millisecond)
+	waittest.Until(t, func() bool { _, u := f.calls(); return len(u) > 0 }, "the vault unlock")
+	time.Sleep(quietWindow)
 	if _, unlocks := f.calls(); len(unlocks) != 1 || unlocks[0] != "hunter2" {
 		t.Errorf("vault unlocks = %q, want the session password once", unlocks)
 	}
@@ -224,7 +215,7 @@ func TestLockAfterUnlockHonouredWhileVaultUnlockInFlight(t *testing.T) {
 	if err := first.Wait(); err != nil {
 		t.Fatalf("the unlocked lock process: %v", err)
 	}
-	eventually(t, "the vault unlock in flight", func() bool { _, u := f.calls(); return len(u) == 1 })
+	waittest.Until(t, func() bool { _, u := f.calls(); return len(u) == 1 }, "the vault unlock in flight")
 	second := startLockProcess(t)
 	if err := second.Wait(); err != nil {
 		t.Fatalf("a lock right after the unlock was not honoured: %v", err)

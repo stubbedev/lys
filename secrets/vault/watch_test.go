@@ -3,22 +3,11 @@ package vault
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
-
-func awaitStatus(t *testing.T, statuses <-chan Status, what string) Status {
-	t.Helper()
-	select {
-	case s := <-statuses:
-		return s
-	case <-time.After(5 * time.Second):
-		t.Fatalf("no Changed for %s", what)
-	}
-	return Status{}
-}
 
 // A watch begun before the vault is on the bus hears it appear, and
 // keeps following it across a restart.
@@ -33,7 +22,7 @@ func TestWatchFollowsTheVaultAcrossARestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := awaitStatus(t, statuses, "the vault appearing"); s.State != StateLocked || s.Email != "ada@example.com" {
+	if s := waittest.For(t, statuses, "a Changed for the vault appearing"); s.State != StateLocked || s.Email != "ada@example.com" {
 		t.Errorf("the vault appeared as %+v, want the first daemon's status", s)
 	}
 	release()
@@ -43,13 +32,13 @@ func TestWatchFollowsTheVaultAcrossARestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(releaseSecond)
-	if s := awaitStatus(t, statuses, "the vault restarting"); s.State != StateLoggedOut {
+	if s := waittest.For(t, statuses, "a Changed for the vault restarting"); s.State != StateLoggedOut {
 		t.Errorf("the restarted vault appeared as %+v, want the second daemon's status", s)
 	}
 	if err := second.Changed(); err != nil {
 		t.Fatal(err)
 	}
-	if s := awaitStatus(t, statuses, "the restarted vault's Changed"); s.State != StateLoggedOut {
+	if s := waittest.For(t, statuses, "the restarted vault's Changed"); s.State != StateLoggedOut {
 		t.Errorf("the restarted vault's Changed = %+v, want its status", s)
 	}
 }
@@ -77,7 +66,7 @@ func TestWatchClosesTheDescriptorsOfAnImpostorsSignal(t *testing.T) {
 	if err := d.Changed(); err != nil {
 		t.Fatal(err)
 	}
-	if s := awaitStatus(t, statuses, "the daemon's Changed"); s.State != StateLocked {
+	if s := waittest.For(t, statuses, "the daemon's Changed"); s.State != StateLocked {
 		t.Errorf("changed = %+v, want the daemon's, not the impostor's", s)
 	}
 	pipe.RequireEveryCopyClosed(t)

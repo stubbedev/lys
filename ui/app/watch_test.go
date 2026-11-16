@@ -8,9 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
-
-	"github.com/stubbedev/lys/ui/internal/waittest"
 )
 
 // loopApp is a testApp with a fake loop goroutine pumping each wake,
@@ -42,7 +41,7 @@ func loopApp(t *testing.T) *Application {
 // quiet asserts cond stays false for a while.
 func quiet(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	time.Sleep(60 * time.Millisecond)
+	time.Sleep(QuietWindow)
 	if cond() {
 		t.Fatal(what)
 	}
@@ -120,7 +119,7 @@ func TestWatchFilesCoalescesAndRecurses(t *testing.T) {
 		t.Fatal(err)
 	}
 	waittest.Until(t, func() bool { return flat.Load() >= 1 && deep.Load() >= 1 }, "a top-level change")
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(QuietWindow)
 	flatBefore := flat.Load()
 
 	sub := filepath.Join(dir, "sub")
@@ -128,7 +127,7 @@ func TestWatchFilesCoalescesAndRecurses(t *testing.T) {
 		t.Fatal(err)
 	}
 	waittest.Until(t, func() bool { return flat.Load() > flatBefore }, "the new directory")
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(QuietWindow)
 	flatBefore, deepBefore := flat.Load(), deep.Load()
 	if err := os.WriteFile(filepath.Join(sub, "b.scss"), []byte("b"), 0o600); err != nil {
 		t.Fatal(err)

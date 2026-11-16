@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // Desktop is the scratch desktop: Root holds config/ (the user's
@@ -87,19 +87,17 @@ func (d Desktop) Handler(t *testing.T, name, mimeType string) Tool {
 	return tool
 }
 
-// Ran waits up to five seconds for the tool's run and returns
+// Ran waits for the tool's run and returns
 // "<arguments>|<activation token>".
 func (tool Tool) Ran(t *testing.T) string {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if data, err := os.ReadFile(tool.record); err == nil && strings.HasSuffix(string(data), "\n") {
-			return strings.TrimSuffix(string(data), "\n")
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatalf("%s never ran", tool.Name)
-	return ""
+	var record string
+	waittest.Until(t, func() bool {
+		data, err := os.ReadFile(tool.record)
+		record = string(data)
+		return err == nil && strings.HasSuffix(record, "\n")
+	}, tool.Name+" to run")
+	return strings.TrimSuffix(record, "\n")
 }
 
 // HasRun reports whether the tool has run yet.

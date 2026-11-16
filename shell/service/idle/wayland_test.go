@@ -2,6 +2,7 @@ package idle
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type recordingActions struct {
@@ -76,17 +78,9 @@ func outputsPowered(t *testing.T) []bool {
 
 func awaitCalls(t *testing.T, a *recordingActions, want []string) {
 	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
-		got := a.Calls()
-		if len(got) >= len(want) {
-			if !slices.Equal(got, want) {
-				t.Fatalf("stages ran %v, want %v", got, want)
-			}
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("stages ran %v, want %v", got, want)
-		}
+	waittest.Until(t, func() bool { return len(a.Calls()) >= len(want) }, fmt.Sprintf("the stages %v to run", want))
+	if got := a.Calls(); !slices.Equal(got, want) {
+		t.Fatalf("stages ran %v, want %v", got, want)
 	}
 }
 
@@ -126,19 +120,11 @@ func TestAnIdleSessionWalksEveryStageOnTheCompositor(t *testing.T) {
 	if err := pointer.Roundtrip(); err != nil {
 		t.Fatal(err)
 	}
-	for deadline := time.Now().Add(10 * time.Second); len(a.Calls()) < 6; time.Sleep(20 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("input undid %v", a.Calls()[4:])
-		}
-	}
+	waittest.Until(t, func() bool { return len(a.Calls()) >= 6 }, "input to undo the dim and the screen-off")
 	if undone := slices.Sorted(slices.Values(a.Calls()[4:])); !slices.Equal(undone, []string{"screen-on", "undim"}) {
 		t.Fatalf("input undid %v, want the dim and the screen-off", undone)
 	}
-	for deadline := time.Now().Add(5 * time.Second); slices.Contains(outputsPowered(t), false); time.Sleep(20 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatalf("input left the outputs powered %v", outputsPowered(t))
-		}
-	}
+	waittest.Until(t, func() bool { return !slices.Contains(outputsPowered(t), false) }, "input to power every output")
 }
 
 func TestInputBeforeATimeoutHoldsItsStage(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -159,25 +160,22 @@ func (hs *harness) prepareWith(t *testing.T, c portaldialogs.Caller, r PrepareRe
 	return got, hs.open(t)
 }
 
+// until waits until cond, run as the loop, holds.
+func (hs *harness) until(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	waittest.Until(t, func() bool {
+		var ok bool
+		hs.do(func() { ok = cond() })
+		return ok
+	}, what)
+}
+
 // open waits for the next dialog and for its printers to be listed.
 func (hs *harness) open(t *testing.T) app.LayerConfig {
 	t.Helper()
-	var c app.LayerConfig
-	select {
-	case c = <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("no dialog opened")
-	}
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(time.Millisecond) {
-		var loading bool
-		hs.do(func() { loading = hs.h.sheet != nil && hs.h.sheet.loading })
-		if !loading {
-			return c
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the printers were never listed")
-		}
-	}
+	c := waittest.For(t, hs.opened, "the dialog to open")
+	hs.until(t, "the printers to be listed", func() bool { return hs.h.sheet == nil || !hs.h.sheet.loading })
+	return c
 }
 
 // The dropdowns of the form, in its order.
@@ -339,18 +337,13 @@ func TestCancelEscapeAndQueueing(t *testing.T) {
 		t.Fatalf("a second prepare answered the first %+v", r)
 	case <-hs.opened:
 		t.Fatal("the second dialog mapped over the first")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	hs.do(func() { treetest.Button(t, c.Root, "Print").OnClick() })
 	if r := <-first; !r.ok {
 		t.Error("the first prepare lost its answer")
 	}
-	var next app.LayerConfig
-	select {
-	case next = <-hs.opened:
-	case <-time.After(treetest.Liveness):
-		t.Fatal("the waiting prepare never showed")
-	}
+	next := waittest.For(t, hs.opened, "the waiting prepare to show")
 	hs.do(func() { treetest.Button(t, next.Root, "Print").OnClick() })
 	if r := <-second; !r.ok {
 		t.Error("the second prepare did not answer")
@@ -400,16 +393,7 @@ func TestPrintToFileAndAMissingScheduler(t *testing.T) {
 		treetest.Button(t, c.Root, "Print").OnClick()
 	})
 	note := "report.pdf exists. Print again to replace it."
-	for deadline := time.Now().Add(treetest.Liveness); ; time.Sleep(time.Millisecond) {
-		var shown bool
-		hs.do(func() { shown = slices.Contains(treetest.Labels(c.Root), note) })
-		if shown {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the replace note never showed")
-		}
-	}
+	hs.waitLabel(t, c, note)
 	select {
 	case r := <-got:
 		t.Fatalf("an existing file was replaced without asking: %+v", r)
@@ -567,6 +551,10 @@ func TestFormFollowsThePrinter(t *testing.T) {
 	}
 }
 
+// quietWindow is how long what must not happen gets to happen anyway
+// before a test concludes it does not.
+const quietWindow = 50 * time.Millisecond
+
 // testCaller is the request the tests' dialogs serve.
 var testCaller = portaldialogs.Caller{Handle: "/r/test", AppID: "org.app"}
 
@@ -579,16 +567,11 @@ func TestDismissCancelsItsRequestOnly(t *testing.T) {
 	select {
 	case r := <-got:
 		t.Fatalf("another request's dismissal answered %+v", r)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 	hs.h.Dismiss(testCaller.Handle)
-	select {
-	case r := <-got:
-		if r.ok || r.token != 0 {
-			t.Errorf("a dismissed dialog prepared %+v", r)
-		}
-	case <-time.After(treetest.Liveness):
-		t.Fatal("Dismiss left the dialog waiting")
+	if r := waittest.For(t, got, "Dismiss to answer the dialog"); r.ok || r.token != 0 {
+		t.Errorf("a dismissed dialog prepared %+v", r)
 	}
 }
 

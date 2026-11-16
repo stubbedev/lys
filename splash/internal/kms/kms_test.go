@@ -16,10 +16,13 @@ import (
 
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
 
 var quiet = slog.New(slog.DiscardHandler)
+
+const quietWindow = 50 * time.Millisecond
 
 func TestChooseMode(t *testing.T) {
 	t.Parallel()
@@ -194,7 +197,7 @@ func TestUeventReaderPostsOnlyDRMMessages(t *testing.T) {
 	if _, err := sender.WriteString(want); err != nil {
 		t.Fatal(err)
 	}
-	if e := nextEvent(t, disp); string(e.uevent) != want {
+	if e := waittest.For(t, disp.Events(), "an event"); string(e.uevent) != want {
 		t.Errorf("the first event posted after %d foreign messages is %+v", noise, e)
 	}
 	if n := len(disp.Events()); n != 0 {
@@ -672,24 +675,19 @@ func fakeDisplayAt(t *testing.T, devs map[string]*fakeDevice, drivers map[string
 // waiting for has happened.
 func pump(t *testing.T, disp *Display, done func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		select {
-		case e := <-disp.Events():
-			if _, err := disp.Handle(e); err != nil {
-				t.Fatal(err)
+	waittest.Until(t, func() bool {
+		for {
+			select {
+			case e := <-disp.Events():
+				if _, err := disp.Handle(e); err != nil {
+					t.Fatal(err)
+				}
+				continue
+			default:
 			}
-			continue
-		default:
+			return done()
 		}
-		if done() {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("what the loop was waiting for did not happen in 5s")
-		}
-		time.Sleep(time.Millisecond)
-	}
+	}, "what the loop was waiting for")
 }
 
 func outputsAre(disp *Display, n int) func() bool {
@@ -730,18 +728,13 @@ func (c *waitedClock) clock() clock {
 // fire ends the next wait, moving the time on by it, and returns its length.
 func (c *waitedClock) fire(t *testing.T) time.Duration {
 	t.Helper()
-	select {
-	case w := <-c.waits:
-		c.mu.Lock()
-		c.now = c.now.Add(w.d)
-		now := c.now
-		c.mu.Unlock()
-		w.fired <- now
-		return w.d
-	case <-time.After(5 * time.Second):
-		t.Fatal("no wait to try the busy card again")
-		return 0
-	}
+	w := waittest.For(t, c.waits, "a wait to try the busy card again")
+	c.mu.Lock()
+	c.now = c.now.Add(w.d)
+	now := c.now
+	c.mu.Unlock()
+	w.fired <- now
+	return w.d
 }
 
 func (c *waitedClock) assertNoWait(t *testing.T) {
@@ -749,7 +742,7 @@ func (c *waitedClock) assertNoWait(t *testing.T) {
 	select {
 	case w := <-c.waits:
 		t.Fatalf("a wait of %v after the display stopped trying", w.d)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
@@ -914,17 +907,6 @@ func busyFake() (*fakeDevice, map[string]*fakeDevice) {
 	return d, map[string]*fakeDevice{"card0": d}
 }
 
-func nextEvent(t *testing.T, disp *Display) Event {
-	t.Helper()
-	select {
-	case e := <-disp.Events():
-		return e
-	case <-time.After(5 * time.Second):
-		t.Fatal("no event")
-		return Event{}
-	}
-}
-
 func TestDisplayLightsACardOnceItsMasterLetsGo(t *testing.T) {
 	t.Parallel()
 	d, devs := busyFake()
@@ -938,13 +920,9 @@ func TestDisplayLightsACardOnceItsMasterLetsGo(t *testing.T) {
 	if n := len(disp.Events()); n != 0 {
 		t.Fatalf("%d events for a card still busy: its retries belong to its worker", n)
 	}
-	select {
-	case w := <-wc.waits:
-		d.setMasterErr(nil)
-		w.fired <- time.Time{}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no wait to try the busy card again")
-	}
+	w := waittest.For(t, wc.waits, "a wait to try the busy card again")
+	d.setMasterErr(nil)
+	w.fired <- time.Time{}
 	pump(t, disp, outputsAre(disp, 1))
 	if !d.master {
 		t.Error("the card lit without master")
@@ -1048,12 +1026,8 @@ func TestDisplayStopsTryingABusyCardWhileDeactivated(t *testing.T) {
 
 func (c *waitedClock) assertNoWaitAfterOne(t *testing.T) {
 	t.Helper()
-	select {
-	case w := <-c.waits:
-		w.fired <- time.Unix(0, 0)
-	case <-time.After(5 * time.Second):
-		t.Fatal("no wait from opening the busy card")
-	}
+	w := waittest.For(t, c.waits, "a wait from opening the busy card")
+	w.fired <- time.Unix(0, 0)
 	c.assertNoWait(t)
 }
 
@@ -1112,11 +1086,7 @@ func TestProbingAndLightingNeverHoldTheFlips(t *testing.T) {
 		}
 	}
 	for range 2 {
-		select {
-		case <-entered:
-		case <-time.After(5 * time.Second):
-			t.Fatal("the workers never probed")
-		}
+		waittest.For(t, entered, "the workers to probe")
 	}
 	const flips = 100
 	before := len(first.real())
@@ -1191,7 +1161,7 @@ func TestAnUnpluggedOutputIsFreedOnlyAfterTheLoopDropsIt(t *testing.T) {
 	if _, err := disp.Handle(Event{uevent: []byte("change@/x/card0\x00SUBSYSTEM=drm\x00DEVNAME=dri/card0\x00HOTPLUG=1\x00")}); err != nil {
 		t.Fatal(err)
 	}
-	e := nextEvent(t, disp)
+	e := waittest.For(t, disp.Events(), "an event")
 	d.mu.Lock()
 	destroyed := d.destroyed
 	d.mu.Unlock()

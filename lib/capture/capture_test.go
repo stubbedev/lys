@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/lib/dmabuf"
 	"github.com/stubbedev/lys/lib/fourcc"
@@ -16,6 +17,10 @@ import (
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/wlr"
 )
+
+// QuietWindow is how long a test watches for something that must not
+// happen, a Capture of a still source returning among them.
+const QuietWindow = 200 * time.Millisecond
 
 func wlrDamage(x, y, w, h int32) wlr.ImageCopyCaptureFrameV1DamageEvent {
 	return wlr.ImageCopyCaptureFrameV1DamageEvent{X: x, Y: y, Width: w, Height: h}

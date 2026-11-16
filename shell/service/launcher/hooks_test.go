@@ -5,7 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
-	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func hookCtx() HookContext {
@@ -65,12 +66,8 @@ func TestFireHookRunsDetachedWithoutAShell(t *testing.T) {
 	c := hookCtx()
 	c.Entry = out
 	FireHook("touch {entry}", c)
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if _, err := os.Stat(out); err == nil {
-			return
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatal("the hook never ran")
+	waittest.Until(t, func() bool {
+		_, err := os.Stat(out)
+		return err == nil
+	}, "the hook to run")
 }

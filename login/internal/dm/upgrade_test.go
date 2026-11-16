@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/login/internal/auth"
 	"github.com/stubbedev/lys/login/internal/cursorrecord"
@@ -37,7 +38,6 @@ const (
 	fakeGreeterFailEnv = "LYS_FAKE_GREETER_FAILS"
 	fakeDaemonMode     = "fake-daemon"
 	burstSize          = 3000
-	stepDeadline       = 2 * time.Minute
 )
 
 func openDescriptors() int {
@@ -335,23 +335,14 @@ func startFakeDM(t *testing.T, env ...string) *fakeDM {
 }
 
 func (d *fakeDM) remove() {
-	deadline := time.Now().Add(stepDeadline)
-	for {
+	untilNil(d.t, "the removal of "+d.dir, func() error {
 		for _, name := range []string{"workers", "greeters"} {
 			for _, p := range d.pids(name) {
 				_ = syscall.Kill(p, syscall.SIGKILL)
 			}
 		}
-		err := os.RemoveAll(d.dir)
-		if err == nil {
-			return
-		}
-		if time.Now().After(deadline) {
-			d.t.Errorf("remove %s: %v", d.dir, err)
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+		return os.RemoveAll(d.dir)
+	})
 }
 
 func (d *fakeDM) dump() {
@@ -407,11 +398,10 @@ func (d *fakeDM) await(what string, ok func() bool) {
 
 func (d *fakeDM) awaitNil(what string, check func() error) {
 	d.t.Helper()
-	deadline := time.Now().Add(stepDeadline)
-	for {
+	untilNil(d.t, what, func() error {
 		err := check()
 		if err == nil {
-			return
+			return nil
 		}
 		select {
 		case ended := <-d.done:
@@ -419,11 +409,22 @@ func (d *fakeDM) awaitNil(what string, check func() error) {
 			d.t.Fatalf("waiting for %s, the fake daemon ended: %v", what, ended)
 		default:
 		}
-		if time.Now().After(deadline) {
-			d.t.Fatalf("no %s in %s: %v", what, stepDeadline, err)
+		return err
+	})
+}
+
+func untilNil(t *testing.T, what string, check func() error) {
+	t.Helper()
+	var err error
+	defer func() {
+		if err != nil {
+			t.Logf("the last check for %s: %v", what, err)
 		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	}()
+	waittest.UntilSlow(t, func() bool {
+		err = check()
+		return err == nil
+	}, what)
 }
 
 func (d *fakeDM) awaitGreeter(n int) (pid int, generation string) {
@@ -739,17 +740,6 @@ func TestARefusedUpgradeLeavesTheGreeterUp(t *testing.T) {
 	d.endSession(worker)
 }
 
-func within[T any](t *testing.T, what string, ch <-chan T) T {
-	t.Helper()
-	select {
-	case v := <-ch:
-		return v
-	case <-time.After(stepDeadline):
-		t.Fatalf("no %s in %s", what, stepDeadline)
-		panic("unreachable")
-	}
-}
-
 func TestALoginUnderWayFinishesBeforeTheUpgrade(t *testing.T) {
 	d := startFakeDM(t)
 	d.awaitGreeter(1)
@@ -758,26 +748,29 @@ func TestALoginUnderWayFinishesBeforeTheUpgrade(t *testing.T) {
 	}})
 	upgraded := make(chan error, 1)
 	logged := make(chan error, 1)
+	answer := make(chan struct{})
 	go func() {
 		logged <- g.Run("alice", func(auth.Prompt) (string, bool) {
 			go func() {
 				_, err := d.upgrade(nextBuild(t, fakeGenerationEnv+"=2"))
 				upgraded <- err
 			}()
-			for deadline := time.Now().Add(stepDeadline); time.Now().Before(deadline) && !strings.Contains(d.logged(), "dm: an upgrade waits for the logins under way"); {
-				time.Sleep(5 * time.Millisecond)
+			select {
+			case <-answer:
+			case <-t.Context().Done():
 			}
 			return "pw", true
 		})
 	}()
-	if err := within(t, "end of the login", logged); err != nil {
+	waittest.UntilSlow(t, func() bool {
+		return strings.Contains(d.logged(), "dm: an upgrade waits for the logins under way")
+	}, "the upgrade to wait for the login under way")
+	close(answer)
+	if err := waittest.ForSlow(t, logged, "the end of the login"); err != nil {
 		t.Fatalf("the login under way failed: %v", err)
 	}
-	if err := within(t, "answer to the upgrade", upgraded); err != nil {
+	if err := waittest.ForSlow(t, upgraded, "the answer to the upgrade"); err != nil {
 		t.Fatalf("the upgrade: %v", err)
-	}
-	if !strings.Contains(d.logged(), "dm: an upgrade waits for the logins under way") {
-		t.Fatal("the upgrade did not wait for the login under way")
 	}
 	d.await("the worker", func() bool { return len(d.lines("workers")) == 1 })
 	worker := d.pids("workers")[0]
@@ -805,12 +798,12 @@ func TestALoginThatStallsIsCancelledForTheUpgrade(t *testing.T) {
 			return "pw", true
 		})
 	}()
-	within(t, "prompt", prompted)
+	waittest.ForSlow(t, prompted, "the prompt")
 	if _, err := d.upgrade(nextBuild(t, fakeGenerationEnv+"=2")); err != nil {
 		t.Fatalf("the upgrade waited on a stalled login: %v", err)
 	}
 	close(release)
-	if err := within(t, "end of the stalled login", logged); err == nil {
+	if err := waittest.ForSlow(t, logged, "the end of the stalled login"); err == nil {
 		t.Error("the stalled login went on after the upgrade")
 	}
 	if second, generation := d.awaitGreeter(2); second == first || generation != "2" {
@@ -1044,14 +1037,10 @@ func TestStoppingTheDaemonEndsTheSessionFirst(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	select {
-	case err := <-d.done:
-		d.done <- err
-		if err != nil {
-			t.Fatalf("the daemon: %v", err)
-		}
-	case <-time.After(stepDeadline):
-		t.Fatalf("the daemon did not stop with a session running:\n%s", d.logged())
+	err := waittest.ForSlow(t, d.done, "the daemon to stop with a session running")
+	d.done <- err
+	if err != nil {
+		t.Fatalf("the daemon: %v", err)
 	}
 	if _, err := os.Stat(fmt.Sprintf("/proc/%d", worker)); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("worker %d outlived the daemon: %v", worker, err)
@@ -1067,7 +1056,7 @@ func TestTheSessionRunsOnUntilTheDaemonStops(t *testing.T) {
 	d := startFakeDM(t)
 	d.awaitGreeter(1)
 	worker, _ := d.login()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if err := syscall.Kill(worker, 0); err != nil {
 		t.Fatalf("worker %d ended with nothing asking it to: %v", worker, err)
 	}

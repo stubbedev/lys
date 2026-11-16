@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/memory-go"
@@ -456,9 +457,7 @@ func TestShutdownStartsNoQueuedWork(t *testing.T) {
 		defer close(shut)
 		h.s.shutdown()
 	}()
-	for !h.s.rasters.work.Closed() {
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, h.s.rasters.work.Closed, "the shutdown to close the raster work")
 	h.run()
 	<-shut
 	h.wantLive(0, "shut down before the decode ran")
@@ -618,9 +617,7 @@ func TestShutdownFreesTheDecodedImageOfResamplesNotStarted(t *testing.T) {
 		defer close(shut)
 		h.s.shutdown()
 	}()
-	for !h.s.rasters.work.Closed() {
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, h.s.rasters.work.Closed, "the shutdown to close the raster work")
 	h.run()
 	<-shut
 	h.wantLive(0, "shut down before the resamples ran")

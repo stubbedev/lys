@@ -2,6 +2,7 @@ package capture_test
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"slices"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dmabuf"
 	"github.com/stubbedev/lys/lib/gpu"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 )
 
@@ -139,7 +141,7 @@ func captureRepainting(t *testing.T, s *capture.DmabufSession, buf *capture.Dmab
 
 // awaitCapture runs one Capture off the test goroutine, and during
 // alongside it until it returns; it fails the test when the capture
-// has not returned within five seconds.
+// never returns.
 func awaitCapture(t *testing.T, s *capture.DmabufSession, buf *capture.DmabufBuffer, during func(done <-chan struct{})) error {
 	t.Helper()
 	var err error
@@ -151,13 +153,8 @@ func awaitCapture(t *testing.T, s *capture.DmabufSession, buf *capture.DmabufBuf
 	if during != nil {
 		during(done)
 	}
-	select {
-	case <-done:
-		return err
-	case <-time.After(5 * time.Second):
-		t.Fatal("Capture never returned")
-		return nil
-	}
+	waittest.For(t, done, "Capture to return")
+	return err
 }
 
 // wantWindowSize fails unless every format fits the size the window is
@@ -181,24 +178,20 @@ func wantWindowSize(t *testing.T, c *capture.Client, formats []capture.DmabufFor
 func resizeWindow(t *testing.T, win *wltest.Window) {
 	t.Helper()
 	w, h := win.Size()
-	resized := func(within time.Duration) bool {
-		for deadline := time.Now().Add(within); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-			if nw, nh := win.Size(); nw != w || nh != h {
-				return true
-			}
-		}
-		return false
+	resized := func() bool {
+		nw, nh := win.Size()
+		return nw != w || nh != h
 	}
 	p := wltest.NewPainter(t)
 	p.Window("dev.stubbe.lys.ui.sibling", "sibling", 100, 100, fillRed)
 	p.Run()
-	if resized(time.Second) {
-		return
+	if !resized() {
+		time.Sleep(capture.QuietWindow)
 	}
-	win.Fullscreen()
-	if !resized(5 * time.Second) {
-		t.Fatalf("the window stayed %dx%d beside a second window and fullscreen", w, h)
+	if !resized() {
+		win.Fullscreen()
 	}
+	waittest.Until(t, resized, fmt.Sprintf("the %dx%d window to resize beside a second window or fullscreen", w, h))
 }
 
 // TestHeadlessToplevelDmabufSession runs a window share's zero-copy
@@ -226,7 +219,7 @@ func TestHeadlessToplevelDmabufSession(t *testing.T) {
 			t.Fatalf("first frame: %v", err)
 		}
 		err := awaitCapture(t, parked, buf.imported, func(<-chan struct{}) {
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(capture.QuietWindow)
 			if err := parked.Close(); err != nil {
 				t.Error(err)
 			}
@@ -336,9 +329,9 @@ func TestHeadlessToplevelSessionOverlap(t *testing.T) {
 }
 
 // captureToplevelPromptly runs one CaptureToplevel off the test
-// goroutine and fails the test when it has not returned within five
-// seconds, repainting the window then so the parked capture returns
-// and the client is free for cleanup.
+// goroutine and fails the test when it never returns, repainting the
+// window then so the parked capture returns and the client is free for
+// cleanup.
 func captureToplevelPromptly(t *testing.T, c *capture.Client, target capture.Toplevel, win *wltest.Window) error {
 	t.Helper()
 	done := make(chan error, 1)
@@ -346,15 +339,16 @@ func captureToplevelPromptly(t *testing.T, c *capture.Client, target capture.Top
 		_, err := c.CaptureToplevel(target, capture.Options{})
 		done <- err
 	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(5 * time.Second):
-		win.Repaint()
-		<-done
-		t.Fatal("CaptureToplevel blocked")
-		return nil
-	}
+	returned := false
+	defer func() {
+		if !returned {
+			win.Repaint()
+			<-done
+		}
+	}()
+	err := waittest.For(t, done, "CaptureToplevel to return")
+	returned = true
+	return err
 }
 
 // TestHeadlessOutputDmabufSession pins that a session opens on any
@@ -414,7 +408,7 @@ func TestHeadlessDmabufSessionWaitLeavesTheClientFree(t *testing.T) {
 	}
 	dropped, spare := allocate(t, c, formats), allocate(t, c, formats)
 	err := awaitCapture(t, s, buf.imported, func(<-chan struct{}) {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(capture.QuietWindow)
 		worked := make(chan struct{})
 		go func() {
 			defer close(worked)
@@ -429,11 +423,7 @@ func TestHeadlessDmabufSessionWaitLeavesTheClientFree(t *testing.T) {
 				t.Error(err)
 			}
 		}()
-		select {
-		case <-worked:
-		case <-time.After(5 * time.Second):
-			t.Error("the Client's calls waited on the Capture")
-		}
+		waittest.For(t, worked, "the Client's calls beside the parked Capture")
 		if err := s.Close(); err != nil {
 			t.Error(err)
 		}

@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/waittest"
+
 	"github.com/stubbedev/lys/shell/internal/apptest"
 )
 
@@ -67,20 +69,20 @@ func TestSamplerReadsOncePerTickForEveryBar(t *testing.T) {
 		t.Errorf("bars got %d and %d readings, want %d each", first.Load(), second.Load(), ticks)
 	}
 	leave1()
-	waitFor(t, "the first bar left", func() bool {
+	waittest.Until(t, func() bool {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		s := h.samplers["cpu"].(*sampler[int32])
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.subs) == 1
-	})
+	}, "the first bar left")
 	src.tick(1)
 	if got := reads.Load(); got != ticks+1 {
 		t.Error("one bar leaving ended the sampling for the other")
 	}
 	leave2()
-	waitFor(t, "the last bar's leaving ends the sampler", func() bool { return closes.Load() == 2 })
+	waittest.Until(t, func() bool { return closes.Load() == 2 }, "the last bar's leaving ends the sampler")
 }
 
 func TestSamplerReadsNothingWhilePausedAndCatchesUpOnce(t *testing.T) {

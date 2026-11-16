@@ -7,18 +7,16 @@ import (
 	"os/exec"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 )
-
-const liveTimeout = 10 * time.Second
 
 // countingToplevels counts the rectangles the windows are given.
 type countingToplevels struct {
@@ -63,13 +61,9 @@ func liveApp(t *testing.T, build func(a *app.Application, out *app.Output) error
 		_ = a.Run()
 	}()
 	t.Cleanup(func() {
+		defer sess.Close()
 		a.Invoke(a.Quit)
-		select {
-		case <-done:
-		case <-time.After(liveTimeout):
-			t.Error("the application did not quit")
-		}
-		sess.Close()
+		waittest.For(t, done, "the application to quit")
 	})
 	return a
 }
@@ -79,18 +73,6 @@ func onLiveLoop[T any](a *app.Application, fn func() T) T {
 	out := make(chan T, 1)
 	a.Invoke(func() { out <- fn() })
 	return <-out
-}
-
-// until polls cond, failing with what after the live timeout.
-func until(t *testing.T, what string, cond func() error) {
-	t.Helper()
-	var err error
-	for deadline := time.Now().Add(liveTimeout); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		if err = cond(); err == nil {
-			return
-		}
-	}
-	t.Fatalf("no %s: %v", what, err)
 }
 
 // lysWMWindow is the lys-wm window with appID.
@@ -141,7 +123,7 @@ func TestTheMinimizedWindowsModuleOnLysWM(t *testing.T) {
 	const probeID = "org.example.Probe"
 	probe := startProbeProcess(t, probeID, "probe title")
 	var id uint64
-	until(t, "the probe on lys-wm", func() error {
+	untilNil(t, "the probe on lys-wm", func() error {
 		w, err := lysWMWindow(probeID)
 		id = w.ID
 		return err
@@ -149,7 +131,7 @@ func TestTheMinimizedWindowsModuleOnLysWM(t *testing.T) {
 	if err := lyswm.Dispatch("minimize " + strconv.FormatUint(id, 10)); err != nil {
 		t.Fatal(err)
 	}
-	until(t, "the minimized probe in the module, named its entry", func() error {
+	untilNil(t, "the minimized probe in the module, named its entry", func() error {
 		return onLiveLoop(shell, func() error {
 			if len(m.shown) != 1 || m.shown[0].AppID() != probeID {
 				return fmt.Errorf("shown %d", len(m.shown))
@@ -166,14 +148,14 @@ func TestTheMinimizedWindowsModuleOnLysWM(t *testing.T) {
 		})
 	})
 	shell.Invoke(func() { m.entries[m.shown[0]].ClickAt(widget.Point{}) })
-	until(t, "the probe back and focused", func() error {
+	untilNil(t, "the probe back and focused", func() error {
 		w, err := lysWMWindow(probeID)
 		if err == nil && (w.Minimized || !w.Focused) {
 			err = fmt.Errorf("window %+v", w)
 		}
 		return err
 	})
-	until(t, "the module empty again", func() error {
+	untilNil(t, "the module empty again", func() error {
 		return onLiveLoop(shell, func() error {
 			if len(m.shown) != 0 {
 				return fmt.Errorf("shown %d", len(m.shown))
@@ -184,7 +166,7 @@ func TestTheMinimizedWindowsModuleOnLysWM(t *testing.T) {
 	if err := lyswm.Dispatch("minimize " + strconv.FormatUint(id, 10)); err != nil {
 		t.Fatal(err)
 	}
-	until(t, "the probe minimized again", func() error {
+	untilNil(t, "the probe minimized again", func() error {
 		return onLiveLoop(shell, func() error {
 			if len(m.shown) != 1 || m.entries[m.shown[0]].Bounds().Empty() {
 				return fmt.Errorf("shown %d", len(m.shown))
@@ -199,7 +181,7 @@ func TestTheMinimizedWindowsModuleOnLysWM(t *testing.T) {
 		r.Move(p)
 		r.Press(widget.BTNMiddle, p, 0)
 	})
-	until(t, "the probe closed", func() error {
+	untilNil(t, "the probe closed", func() error {
 		select {
 		case <-probe:
 			return nil
@@ -312,7 +294,7 @@ func TestTheDockOnLysWM(t *testing.T) {
 		t.Fatal("the dock hides with no window open")
 	}
 	startProbeProcess(t, probeID, "dock probe")
-	until(t, "the probe running on the dock, covering and hiding it", func() error {
+	untilNil(t, "the probe running on the dock, covering and hiding it", func() error {
 		if s := read(); !s.running || !s.hidden || s.hides != 1 {
 			return fmt.Errorf("%+v", s)
 		}
@@ -325,13 +307,13 @@ func TestTheDockOnLysWM(t *testing.T) {
 	if err := lyswm.Dispatch("minimize " + strconv.FormatUint(w.ID, 10)); err != nil {
 		t.Fatal(err)
 	}
-	until(t, "the dock revealed with the probe marked minimized", func() error {
+	untilNil(t, "the dock revealed with the probe marked minimized", func() error {
 		if s := read(); s.hidden || !s.minimize || s.reveals != 1 {
 			return fmt.Errorf("%+v", s)
 		}
 		return nil
 	})
-	until(t, "the probe's rectangle on its dock entry", func() error {
+	untilNil(t, "the probe's rectangle on its dock entry", func() error {
 		return onLiveLoop(shell, func() error {
 			e := d.entries[probeID]
 			for win, sent := range hub.windows.sent {
@@ -343,14 +325,14 @@ func TestTheDockOnLysWM(t *testing.T) {
 		})
 	})
 	shell.Invoke(func() { d.entries[probeID].ClickAt(widget.Point{}) })
-	until(t, "the probe back and focused", func() error {
+	untilNil(t, "the probe back and focused", func() error {
 		w, err := lysWMWindow(probeID)
 		if err == nil && (w.Minimized || !w.Focused) {
 			err = fmt.Errorf("window %+v", w)
 		}
 		return err
 	})
-	until(t, "the dock hidden again", func() error {
+	untilNil(t, "the dock hidden again", func() error {
 		if s := read(); !s.hidden || s.hides != 2 || s.reveals != 1 {
 			return fmt.Errorf("%+v", s)
 		}
@@ -387,7 +369,7 @@ func TestTheDockSurfaceReservesItsEdgeUnlessItAutoHides(t *testing.T) {
 	}
 	full := int(onLiveLoop(shell, func() int32 { return output.LogicalH }))
 	var reserved int
-	until(t, "the tiled probe ending above the dock", func() error {
+	untilNil(t, "the tiled probe ending above the dock", func() error {
 		bottom, err := height()
 		thick := onLiveLoop(shell, func() int { return window.(*dockWindow).dock.thickness() })
 		if err == nil && (thick == 0 || bottom > full-thick) {
@@ -400,7 +382,7 @@ func TestTheDockSurfaceReservesItsEdgeUnlessItAutoHides(t *testing.T) {
 	if err := onLiveLoop(shell, func() error { return window.Rebuild(cfg) }); err != nil {
 		t.Fatal(err)
 	}
-	until(t, "the probe over the whole output again", func() error {
+	untilNil(t, "the probe over the whole output again", func() error {
 		bottom, err := height()
 		if err == nil && full-bottom >= reserved {
 			err = fmt.Errorf("the probe still ends at %d of %d", bottom, full)

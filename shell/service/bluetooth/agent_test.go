@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // agentCall is one in-flight agent method driven by the fake.
@@ -22,13 +24,7 @@ func callAsync(f *fakeBlueZ, method string, out any, args ...any) agentCall {
 
 func (c agentCall) wait(t *testing.T) string {
 	t.Helper()
-	select {
-	case name := <-c.done:
-		return name
-	case <-time.After(2 * time.Second):
-		t.Fatal("the agent call never returned")
-		return ""
-	}
+	return waittest.For(t, c.done, "the agent call to return")
 }
 
 func (c agentCall) stillBlocked(t *testing.T) {
@@ -36,13 +32,13 @@ func (c agentCall) stillBlocked(t *testing.T) {
 	select {
 	case name := <-c.done:
 		t.Fatalf("the agent call returned %q, want it still waiting", name)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 
 func waitPairing(t *testing.T, s *Service) PairingRequest {
 	t.Helper()
-	waitFor(t, "a pairing request", func() bool { return s.State().Pairing != nil })
+	waittest.Until(t, func() bool { return s.State().Pairing != nil }, "a pairing request")
 	return s.State().Pairing
 }
 
@@ -302,10 +298,10 @@ func TestAgentNewRequestCancelsTheOld(t *testing.T) {
 	if name := first.wait(t); name != errCanceled {
 		t.Errorf("displaced reply = %q, want %s", name, errCanceled)
 	}
-	waitFor(t, "the second request", func() bool {
+	waittest.Until(t, func() bool {
 		_, ok := s.State().Pairing.(RequestConfirmation)
 		return ok
-	})
+	}, "the second request")
 	if err := s.ProvideConfirmation(true); err != nil {
 		t.Fatal(err)
 	}
@@ -332,13 +328,8 @@ func TestCloseCancelsAPendingRequest(t *testing.T) {
 	go func() { ans <- s.ask(RequestPasskey{Device: dev1}) }()
 	waitPairing(t, s)
 	_ = s.Close()
-	select {
-	case a := <-ans:
-		if a.err == nil || a.err.Name != errCanceled {
-			t.Errorf("answer on close = %+v, want Canceled", a)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("Close left the agent call blocked")
+	if a := waittest.For(t, ans, "Close to answer the agent call"); a.err == nil || a.err.Name != errCanceled {
+		t.Errorf("answer on close = %+v, want Canceled", a)
 	}
 }
 
@@ -358,7 +349,7 @@ func TestPairingFlowConfirmed(t *testing.T) {
 	if err := <-paired; err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
-	waitFor(t, "paired", func() bool { d, _ := s.State().Device(dev2); return d.Paired && d.Bonded })
+	waittest.Until(t, func() bool { d, _ := s.State().Device(dev2); return d.Paired && d.Bonded }, "paired")
 }
 
 func TestPairingFlowRejected(t *testing.T) {
@@ -420,8 +411,8 @@ func TestPairingFlowDisplayPasskeyWithdrawn(t *testing.T) {
 		t.Fatalf("Pair: %v", err)
 	}
 	// bluetoothd's Cancel after the remote typed the key clears it.
-	waitFor(t, "the display cleared", func() bool { return s.State().Pairing == nil })
-	waitFor(t, "paired", func() bool { d, _ := s.State().Device(dev2); return d.Paired })
+	waittest.Until(t, func() bool { return s.State().Pairing == nil }, "the display cleared")
+	waittest.Until(t, func() bool { d, _ := s.State().Device(dev2); return d.Paired }, "paired")
 }
 
 func TestPairingRequestDevicePath(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type fakeHost struct {
@@ -313,13 +314,8 @@ func TestCallsWithoutHostFail(t *testing.T) {
 
 func receive(t *testing.T, w *AuthWatch) (AuthAction, bool) {
 	t.Helper()
-	select {
-	case a, open := <-w.Actions():
-		return a, open
-	case <-time.After(5 * time.Second):
-		t.Fatal("no authentication action within 5s")
-		return nil, false
-	}
+	a := waittest.For(t, w.Actions(), "an authentication action or the watch's end")
+	return a, a != nil
 }
 
 func ended(t *testing.T, w *AuthWatch) {

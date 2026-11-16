@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
@@ -406,11 +407,12 @@ func TestActivatingABrowserRowOpensItsFullURL(t *testing.T) {
 		t.Errorf("subtitle = %q", row.Entry.Subtitle)
 	}
 	e.Activate(row.Entry.ID, 0)
-	waitFor(t, "finish", func() bool {
+	waittest.Until(t, func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return len(s.finished) == 1
-	})
+	}, "finish")
+
 	opened.mu.Lock()
 	defer opened.mu.Unlock()
 	if len(opened.argv) != 0 || !slices.Equal(opened.opened, []string{target}) {
@@ -435,7 +437,7 @@ func TestVisitedPickerListsMostVisitedFirstOnAnEmptyQuery(t *testing.T) {
 	e.SetQuery("most visited", 1)
 	until(t, s, "#Commands", "Most Visited Sites")
 	e.Activate(s.last().Rows[1].Entry.ID, 0)
-	waitFor(t, "the level", func() bool { return s.last().Depth == 1 })
+	waittest.Until(t, func() bool { return s.last().Depth == 1 }, "the level")
 	until(t, s, "Github Often", "Gitlab Marked", "Gitea Rarely")
 }
 
@@ -444,7 +446,7 @@ func TestBookmarksPickerListsEveryBookmark(t *testing.T) {
 	e.SetQuery("browser bookm", 1)
 	until(t, s, "#Commands", "Browser Bookmarks")
 	e.Activate(s.last().Rows[1].Entry.ID, 0)
-	waitFor(t, "the level", func() bool { return s.last().Depth == 1 })
+	waittest.Until(t, func() bool { return s.last().Depth == 1 }, "the level")
 	until(t, s, "Gitlab Marked")
 }
 

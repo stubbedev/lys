@@ -2,12 +2,12 @@ package powerprofiles
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestOnlyTheDaemonsPropertyChangesTick(t *testing.T) {
@@ -60,13 +60,17 @@ func TestTheDaemonsFeedTicksAndLeavesTheSharedConnectionAsItWas(t *testing.T) {
 	default:
 	}
 	props.SetMust(daemonIface, "ActiveProfile", ProfilePerformance)
-	select {
-	case _, open := <-ticks:
-		if !open {
-			t.Fatal("the feed closed while it was followed")
+	var open bool
+	waittest.Until(t, func() bool {
+		select {
+		case _, open = <-ticks:
+			return true
+		default:
+			return false
 		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("no tick for the active profile changing")
+	}, "a tick for the active profile changing")
+	if !open {
+		t.Fatal("the feed closed while it was followed")
 	}
 	stop()
 	for range ticks {

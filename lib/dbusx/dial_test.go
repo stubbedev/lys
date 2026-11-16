@@ -13,9 +13,10 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
-const dialWait = 5 * time.Second
+const dialTimeout = 5 * time.Second
 
 type dialedBus struct {
 	name    string
@@ -58,23 +59,18 @@ func (b dialedBus) connect(t *testing.T, ctx context.Context, timeout time.Durat
 		conn, err := b.dial(ctx, timeout)
 		done <- dialed{conn, err}
 	}()
-	select {
-	case d := <-done:
-		if d.conn != nil {
-			t.Cleanup(func() { _ = d.conn.Close() })
-		}
-		return d.conn, d.err
-	case <-time.After(dialWait):
-		t.Fatalf("the dial of the %s bus did not return within %s", b.name, dialWait)
-		return nil, nil
+	d := waittest.For(t, done, "the dial of the "+b.name+" bus to return")
+	if d.conn != nil {
+		t.Cleanup(func() { _ = d.conn.Close() })
 	}
+	return d.conn, d.err
 }
 
 func TestADialedConnectionOutlivesTheDial(t *testing.T) {
 	eachBus(t, func(t *testing.T, bus dialedBus) {
 		bus.private(dbustest.Start(t), t)
 		ctx, cancel := context.WithCancel(t.Context())
-		conn, err := bus.connect(t, ctx, dialWait)
+		conn, err := bus.connect(t, ctx, dialTimeout)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +96,7 @@ func TestADialGivesUpWithItsContext(t *testing.T) {
 		bus.silent(t)
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
-		conn, err := bus.connect(t, ctx, dialWait)
+		conn, err := bus.connect(t, ctx, dialTimeout)
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("the dial with its context ended = %v, %v; want the context's end", conn, err)
 		}
@@ -110,7 +106,7 @@ func TestADialGivesUpWithItsContext(t *testing.T) {
 func TestADialWithoutABusNamesTheBus(t *testing.T) {
 	eachBus(t, func(t *testing.T, bus dialedBus) {
 		t.Setenv(bus.env, "unix:path="+filepath.Join(sockdir.Dir(t), "absent"))
-		conn, err := bus.connect(t, t.Context(), dialWait)
+		conn, err := bus.connect(t, t.Context(), dialTimeout)
 		if err == nil || errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("the dial with no bus = %v, %v; want the dial's own failure", conn, err)
 		}

@@ -17,6 +17,8 @@ import (
 	"github.com/stubbedev/lys/ui/internal/headlesstest"
 )
 
+const quietWindow = 100 * time.Millisecond
+
 // xdg_toplevel request opcodes the tests match on.
 const (
 	opResize          = 6
@@ -100,7 +102,7 @@ func TestNoLimitRequestsWhenUnconstrained(t *testing.T) {
 		}
 	}
 	drain()
-	time.Sleep(20 * time.Millisecond) // settle: nothing else sends here
+	time.Sleep(quietWindow) // settle: nothing else sends here
 	drain()
 
 	// Live limit updates go out on the wire and land in the tracked state.
@@ -481,7 +483,7 @@ func TestCloseDestroysTheRole(t *testing.T) {
 	select {
 	case f := <-frames:
 		t.Errorf("a request followed the teardown: object %d opcode %d", f.Obj, f.Opcode)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(quietWindow):
 	}
 }
 

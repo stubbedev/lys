@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
-	"github.com/stubbedev/lys/wm/internal/loop"
-	"github.com/stubbedev/lys/wm/internal/testenv"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 )
 
 const (
@@ -22,6 +22,7 @@ const (
 	firstBurstKey    = 2
 	burstKeys        = 64
 	kernelBufferKeys = 16
+	quietWindow      = 200 * time.Millisecond
 )
 
 type grabbingOpener struct{ Opener }
@@ -134,46 +135,11 @@ func (r *keyRecorder) requireStrokes(t *testing.T, codes []int32) {
 	}
 }
 
-func runUntil(t testing.TB, l *loop.Loop, what string, done func() bool) {
-	t.Helper()
-	if !runAwhile(t, l, testenv.HangLimit, done) {
-		t.Fatalf("%s did not happen within %v", what, testenv.HangLimit)
-	}
-}
-
-func runAwhile(t testing.TB, l *loop.Loop, within time.Duration, done func() bool) bool {
-	t.Helper()
-	deadline := time.Now().Add(within)
-	var timer *loop.Timer
-	timer, err := l.AddTimer(func() error {
-		if done() || time.Now().After(deadline) {
-			l.Stop()
-			return nil
-		}
-		return timer.Arm(2 * time.Millisecond)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := timer.Remove(); err != nil {
-			t.Error(err)
-		}
-	}()
-	if err := timer.Arm(0); err != nil {
-		t.Fatal(err)
-	}
-	if err := l.Run(); err != nil {
-		t.Fatal(err)
-	}
-	return done()
-}
-
 func addKeyboard(t *testing.T, in *Libinput, rec *keyRecorder, kbd *virtualDevice) {
 	t.Helper()
 	in.Start(rec)
 	in.AddLater(kbd.node)
-	runUntil(t, in.loop, "the keyboard's DeviceAdded", func() bool { return rec.added == 1 })
+	looptest.RunUntil(t, in.loop, "the keyboard's DeviceAdded", func() bool { return rec.added == 1 })
 }
 
 type reportLog struct {
@@ -213,7 +179,7 @@ func TestKeysTypedWhileTheLoopIsBlockedAllReachTheHandlerInOrder(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	runAwhile(t, in.loop, testenv.HangLimit, func() bool { return len(rec.keys) >= 2*len(codes) })
+	looptest.RunUntil(t, in.loop, "the handler to get every key event typed", func() bool { return len(rec.keys) >= 2*len(codes) })
 	rec.requireStrokes(t, codes)
 	log.requireNoLoss()
 }
@@ -230,7 +196,7 @@ func TestAKernelOverflowIsReported(t *testing.T) {
 	if _, err := kbd.f.Write(burst); err != nil {
 		t.Fatal(err)
 	}
-	runUntil(t, in.loop, "a report of the kernel's SYN_DROPPED", func() bool { return log.saying(synDropped) })
+	looptest.RunUntil(t, in.loop, "a report of the kernel's SYN_DROPPED", func() bool { return log.saying(synDropped) })
 }
 
 func grabbedKeys(t *testing.T, kbd *virtualDevice, codes []int32) {
@@ -271,7 +237,7 @@ func TestSuspendingInputStopsReadingAndResumingRestartsIt(t *testing.T) {
 	in.reader.work.Wait()
 	grabbedKeys(t, kbd, burstCodes(3))
 	in.ResumeLater()
-	runUntil(t, in.loop, "the keyboard coming back", func() bool { return rec.added == 2 })
+	looptest.RunUntil(t, in.loop, "the keyboard coming back", func() bool { return rec.added == 2 })
 	if rec.removed != 1 {
 		t.Fatalf("the keyboard was removed %d times over a suspend", rec.removed)
 	}
@@ -279,7 +245,7 @@ func TestSuspendingInputStopsReadingAndResumingRestartsIt(t *testing.T) {
 	if err := typeKeys(kbd.f, after, 0); err != nil {
 		t.Fatal(err)
 	}
-	runUntil(t, in.loop, "the keys typed after the resume", func() bool { return len(rec.keys) >= 2*len(after) })
+	looptest.RunUntil(t, in.loop, "the keys typed after the resume", func() bool { return len(rec.keys) >= 2*len(after) })
 	rec.requireStrokes(t, after)
 }
 
@@ -294,13 +260,7 @@ func TestParkingInputDeliversWhatWasReadAndReadsNothingUntilUnparked(t *testing.
 	if err := typeKeys(kbd.f, before, 0); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(testenv.HangLimit)
-	for in.queue.held.Load() < int64(2*len(before)) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the reader queued %d of %d key events", in.queue.held.Load(), 2*len(before))
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return in.queue.held.Load() >= int64(2*len(before)) }, fmt.Sprintf("the reader to queue %d key events", 2*len(before)))
 	if err := in.Park(); err != nil {
 		t.Fatal(err)
 	}
@@ -308,13 +268,13 @@ func TestParkingInputDeliversWhatWasReadAndReadsNothingUntilUnparked(t *testing.
 	if err := typeKeys(kbd.f, parked, 0); err != nil {
 		t.Fatal(err)
 	}
-	if runAwhile(t, in.loop, 200*time.Millisecond, func() bool { return len(rec.keys) > 2*len(before) }) {
+	if looptest.RunAwhile(t, in.loop, quietWindow, func() bool { return len(rec.keys) > 2*len(before) }) {
 		t.Fatal("parked input still read keys")
 	}
 	if err := in.Unpark(); err != nil {
 		t.Fatal(err)
 	}
-	runUntil(t, in.loop, "the keys typed while parked", func() bool { return len(rec.keys) >= 2*len(codes) })
+	looptest.RunUntil(t, in.loop, "the keys typed while parked", func() bool { return len(rec.keys) >= 2*len(codes) })
 	rec.requireStrokes(t, codes)
 	log.requireNoLoss()
 }

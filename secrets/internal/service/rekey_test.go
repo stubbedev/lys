@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/secrets/internal/keyring"
@@ -54,19 +55,18 @@ func (f *fixture) loginSecret(t *testing.T, id uint32) string {
 // rekeyDialogClosed waits until no re-key dialog is up.
 func (f *fixture) rekeyDialogClosed(t *testing.T) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for {
+	closed := false
+	defer func() {
+		if !closed {
+			t.Logf("the re-key dialog is still up; asked %v", f.prompter.log())
+		}
+	}()
+	waittest.Until(t, func() bool {
 		f.svc.rekey.mu.Lock()
-		up := f.svc.rekey.cancel != nil
-		f.svc.rekey.mu.Unlock()
-		if !up {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the re-key dialog is still up; asked %v", f.prompter.log())
-		}
-		time.Sleep(time.Millisecond)
-	}
+		defer f.svc.rekey.mu.Unlock()
+		return f.svc.rekey.cancel == nil
+	}, "the re-key dialog to close")
+	closed = true
 }
 
 func TestAChangedLoginPasswordAsksOnceForThePreviousOne(t *testing.T) {
@@ -149,11 +149,7 @@ func TestTheWaitingNewPasswordIsDestroyedWhicheverButtonIsPressed(t *testing.T) 
 		if err := f.svc.UnlockLogin([]byte("new")); !errors.Is(err, control.ErrWrongPassword) {
 			t.Fatalf("the new password = %v", err)
 		}
-		select {
-		case <-h.shown:
-		case <-time.After(10 * time.Second):
-			t.Fatal("the dialog never showed")
-		}
+		waittest.For(t, h.shown, "the re-key dialog to show")
 		f.svc.rekey.mu.Lock()
 		waiting := f.svc.rekey.next
 		f.svc.rekey.mu.Unlock()

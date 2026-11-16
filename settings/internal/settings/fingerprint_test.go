@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -216,7 +215,7 @@ func TestCancellingStopsThenReleases(t *testing.T) {
 		t.Fatalf("calls %v, want EnrollStop before Release", got)
 	}
 	r.emit(t, statusStage, false)
-	r.l.drain(100 * time.Millisecond)
+	r.l.drain()
 	if s.ring.updates != 1 {
 		t.Fatalf("the ring moved %d times after a cancel", s.ring.updates)
 	}
@@ -247,7 +246,7 @@ func TestADuplicateOrAFullReaderSaysSoAndReleases(t *testing.T) {
 func TestWithoutAReaderThereIsNoSectionAndNoClaim(t *testing.T) {
 	r := startFprint(t, false)
 	r.l.until("the reader asked for", func() bool { c, _ := r.manager.snapshot(); return len(c) == 1 })
-	r.l.drain(100 * time.Millisecond)
+	r.l.drain()
 	if r.p.fingerprint != nil || len(r.methods()) != 0 {
 		t.Fatalf("section %v, device calls %v", r.p.fingerprint != nil, r.methods())
 	}
@@ -293,7 +292,7 @@ func TestDeletingEveryFingerprintAsksFirst(t *testing.T) {
 		t.Fatalf("dialog %q modal %v cancel %q default %q", ask.Title, ask.Modal, ask.CancelResponse, ask.DefaultResponse)
 	}
 	ask.OnResponse(responseCancel)
-	r.l.drain(100 * time.Millisecond)
+	r.l.drain()
 	if len(r.methods()) != 0 {
 		t.Fatalf("cancelling reached the reader: %v", r.methods())
 	}

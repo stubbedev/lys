@@ -6,13 +6,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 const (
@@ -21,7 +21,6 @@ const (
 	otherIface   = "dev.stubbe.lys.Other"
 	watchedPath  = dbus.ObjectPath("/dev/stubbe/lys/Watched")
 	otherPath    = dbus.ObjectPath("/dev/stubbe/lys/Other")
-	watchWait    = 5 * time.Second
 )
 
 type counted struct {
@@ -197,18 +196,6 @@ func startWatched(t *testing.T) watched {
 	return w
 }
 
-func awaitWatch[T any](t *testing.T, ch <-chan T, what string) T {
-	t.Helper()
-	select {
-	case v := <-ch:
-		return v
-	case <-time.After(watchWait):
-		t.Fatalf("no %s within %s", what, watchWait)
-		var zero T
-		return zero
-	}
-}
-
 func TestWatchSignalsDeliversTheSendersSignalsInOrder(t *testing.T) {
 	w := startWatched(t)
 	got := make(chan string, 16)
@@ -245,11 +232,11 @@ func TestWatchSignalsDeliversTheSendersSignalsInOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"tick 1", "tock 2", "tick 4"} {
-		if g := awaitWatch(t, got, want); g != want {
+		if g := waittest.For(t, got, want); g != want {
 			t.Fatalf("handled %q, want %q", g, want)
 		}
 	}
-	if err := awaitWatch(t, failed, "report of the signal that does not decode"); !strings.Contains(err.Error(), "decode "+tockSignal.Name()) {
+	if err := waittest.For(t, failed, "report of the signal that does not decode"); !strings.Contains(err.Error(), "decode "+tockSignal.Name()) {
 		t.Errorf("failed = %v, want the Tock that does not decode", err)
 	}
 	if err := watch.Stop(); err != nil {
@@ -396,7 +383,7 @@ func TestAWatchFollowsItsSendersNameFromNoOwnerToOwnerToOwner(t *testing.T) {
 	emitBehindTheBus(t, third, 4)
 
 	for _, want := range []uint32{1, 2, 3, 4} {
-		if n := awaitWatch(t, got, "Tick from the name's owner"); n != want {
+		if n := waittest.For(t, got, "Tick from the name's owner"); n != want {
 			t.Fatalf("handled Tick %d, want %d: only what the name's owner of the moment sent, across its owners", n, want)
 		}
 	}
@@ -429,7 +416,7 @@ func TestAWatchStartedOnAnOwnedNameFollowsItToTheNextOwner(t *testing.T) {
 	restarted := ownAs(t, w.bus, watchedName)
 	emitBehindTheBus(t, restarted, 2)
 	for _, want := range []uint32{1, 2} {
-		if n := awaitWatch(t, got, "Tick from the name's owner"); n != want {
+		if n := waittest.For(t, got, "Tick from the name's owner"); n != want {
 			t.Fatalf("handled Tick %d, want %d", n, want)
 		}
 	}
@@ -462,15 +449,15 @@ func TestHandlersGetTheSequenceThatOrdersASignalAgainstAReply(t *testing.T) {
 	}
 
 	emitBehindTheBus(t, w.service, 1)
-	before := awaitWatch(t, ticks, "Tick sent before the call")
+	before := waittest.For(t, ticks, "Tick sent before the call")
 	answered := reply()
 	if err := w.service.Close(); err != nil {
 		t.Fatal(err)
 	}
 	restarted := ownAs(t, w.bus, watchedName)
 	emitBehindTheBus(t, restarted, 2)
-	appeared := awaitWatch(t, owners, "announcement of the restarted owner")
-	after := awaitWatch(t, ticks, "Tick sent after the call")
+	appeared := waittest.For(t, owners, "announcement of the restarted owner")
+	after := waittest.For(t, ticks, "Tick sent after the call")
 	if before >= answered || answered >= appeared || appeared >= after {
 		t.Errorf("sequences: Tick %d, the reply %d, the new owner %d, its Tick %d; want them in that order", before, answered, appeared, after)
 	}
@@ -486,7 +473,7 @@ func TestAWatchEndsWithItsContextOrItsConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancel()
-	awaitWatch(t, ended.Done(), "end of the watch whose context ended")
+	waittest.For(t, ended.Done(), "end of the watch whose context ended")
 	if err := ended.Stop(); err != nil {
 		t.Errorf("Stop after the context ended = %v", err)
 	}
@@ -501,7 +488,7 @@ func TestAWatchEndsWithItsContextOrItsConnection(t *testing.T) {
 	if err := w.client.Close(); err != nil {
 		t.Fatal(err)
 	}
-	awaitWatch(t, cut.Done(), "end of the watch whose connection closed")
+	waittest.For(t, cut.Done(), "end of the watch whose connection closed")
 	if err := cut.Stop(); !errors.Is(err, dbusx.ErrDisconnected) {
 		t.Errorf("Stop = %v, want ErrDisconnected", err)
 	}

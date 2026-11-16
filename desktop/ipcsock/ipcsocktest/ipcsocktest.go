@@ -12,14 +12,13 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
 // Fast is a timeout a test can afford to run into.
 const Fast = ipcsock.Timeout(50 * time.Millisecond)
-
-const failFast = 10 * time.Second
 
 // Silent is a socket that accepts every connection and then never reads or
 // answers, and the path to it.
@@ -64,17 +63,13 @@ func GivesUp(t *testing.T, call func() error, names ...string) {
 	t.Helper()
 	failed := make(chan error, 1)
 	go func() { failed <- call() }()
-	select {
-	case err := <-failed:
-		if !errors.Is(err, os.ErrDeadlineExceeded) {
-			t.Fatalf("error = %v, want a deadline exceeded", err)
+	err := waittest.For(t, failed, "the call to give up at its deadline")
+	if !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("error = %v, want a deadline exceeded", err)
+	}
+	for _, name := range names {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("error = %q, want it to name %q", err, name)
 		}
-		for _, name := range names {
-			if !strings.Contains(err.Error(), name) {
-				t.Errorf("error = %q, want it to name %q", err, name)
-			}
-		}
-	case <-time.After(failFast):
-		t.Fatalf("still blocked after %v", failFast)
 	}
 }

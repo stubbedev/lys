@@ -2,12 +2,13 @@ package fprint
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 type lidRig struct {
@@ -30,13 +31,7 @@ func newLidRig(t *testing.T, lidClosed bool) *lidRig {
 
 func (r *lidRig) awaitCalls(t *testing.T, want []string) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !slices.Equal(r.dev.recorded(), want) {
-		if time.Now().After(deadline) {
-			t.Fatalf("calls %v, want %v", r.dev.recorded(), want)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return slices.Equal(r.dev.recorded(), want) }, fmt.Sprintf("the reader's calls %v", want))
 }
 
 func TestWithTheLidClosedTheReaderIsNeverClaimed(t *testing.T) {

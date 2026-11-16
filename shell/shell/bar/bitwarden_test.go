@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
@@ -830,7 +831,7 @@ func TestBitwardenLocksWithTheSession(t *testing.T) {
 	serveVault(t, host)
 	h := sessionHost(t, cfg)
 	h.lockVault()
-	waitFor(t, "the vault to lock", func() bool { return host.lockCount() == 1 })
+	waittest.Until(t, func() bool { return host.lockCount() == 1 }, "the vault to lock")
 }
 
 // The host's vault mirrors lys-secrets: the status and listing as of
@@ -844,7 +845,7 @@ func TestBitwardenMirrorFollowsTheVault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the first read", func() bool { return v.Status().Email == "ada@example.com" })
+	waittest.Until(t, func() bool { return v.Status().Email == "ada@example.com" }, "the first read")
 	if v.Status().State != vault.StateLocked || v.Items() != nil {
 		t.Errorf("locked mirror = %+v, %v", v.Status(), v.Items())
 	}
@@ -857,12 +858,8 @@ func TestBitwardenMirrorFollowsTheVault(t *testing.T) {
 	if err := d.Changed(); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-ticks:
-	case <-time.After(5 * time.Second):
-		t.Fatal("no tick after Changed")
-	}
-	waitFor(t, "the listing", func() bool { return len(v.Items()) == 1 })
+	waittest.For(t, ticks, "a tick after Changed")
+	waittest.Until(t, func() bool { return len(v.Items()) == 1 }, "the listing")
 	if v.Items()[0].Name != "Mail" || v.Status().State != vault.StateUnlocked {
 		t.Errorf("open mirror = %+v, %+v", v.Status(), v.Items())
 	}
@@ -899,18 +896,6 @@ func TestBitwardenNetworkVault(t *testing.T) {
 	cfg.Bitwarden.NetworkFolder = ""
 	if _, ok := nv.Entry("Home"); ok {
 		t.Error("answered with no network folder configured")
-	}
-}
-
-// waitFor polls cond until it holds or five seconds pass.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -982,14 +967,14 @@ func TestBitwardenLiveTOTPRow(t *testing.T) {
 		return onHeadlessLoop(func() string { view.refreshTOTP(); return strings.Join(treetest.Labels(view.totpSt), "|") })
 	}
 	copyAndWait(t, view, v.entries[0].item, vault.FieldPassword)
-	waitFor(t, "the live code", func() bool { return strings.Contains(caption(), "123 456") })
+	waittest.Until(t, func() bool { return strings.Contains(caption(), "123 456") }, "the live code")
 	if c := caption(); !strings.Contains(c, "Mail") || !strings.Contains(c, "20") {
 		t.Errorf("live row = %q, want Mail, 123 456 and 20 s", c)
 	}
 	clock.Lock()
 	at = at.Add(30 * time.Second)
 	clock.Unlock()
-	waitFor(t, "the next period's code", func() bool { return strings.Contains(caption(), "654 321") })
+	waittest.Until(t, func() bool { return strings.Contains(caption(), "654 321") }, "the next period's code")
 	copyAndWait(t, view, v.entries[1].item, vault.FieldUsername)
 	if c := caption(); strings.Contains(c, "Bank") {
 		t.Errorf("a reprompt-protected item's code shows: %q", c)

@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dmabuf"
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/udmabuf"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wltest"
 )
 
@@ -147,16 +147,12 @@ func TestHeadlessDmabufCopyTakesAnIdleFrame(t *testing.T) {
 	for i := range 3 {
 		done := make(chan error, 1)
 		go func() { done <- c.CopyOutputDmabuf(out, false, buf) }()
-		select {
-		case err := <-done:
-			if errors.Is(err, capture.ErrFailed) {
-				t.Skip("compositor cannot render into a linear udmabuf on this GPU")
-			}
-			if err != nil {
-				t.Fatalf("copy %d: %v", i, err)
-			}
-		case <-time.After(3 * time.Second):
-			t.Fatalf("copy %d of an idle output never returned", i)
+		err := waittest.For(t, done, fmt.Sprintf("copy %d of an idle output", i))
+		if errors.Is(err, capture.ErrFailed) {
+			t.Skip("compositor cannot render into a linear udmabuf on this GPU")
+		}
+		if err != nil {
+			t.Fatalf("copy %d: %v", i, err)
 		}
 	}
 }

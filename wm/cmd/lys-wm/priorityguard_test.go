@@ -11,9 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
-
-	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const scriptedBudget = 20 * time.Millisecond
@@ -436,22 +435,20 @@ func TestAThreadRaisedThroughRtkitThatNeverBlocksIsDemotedAndRegainsRealtimeItse
 	if s.skip != "" {
 		t.Skipf("the thread took %s, not SCHED_RR through rtkit", s.skip)
 	}
+	t.Cleanup(func() {
+		close(quit)
+		if err := <-ended; err != nil {
+			t.Error(err)
+		}
+	})
 	first := <-asked
 	guard := <-asked
 	if first.tid != s.tid || guard.tid == s.tid || guard.priority != guardRTPriority {
 		t.Fatalf("rtkit was asked for %+v then %+v, want the thread %d then a guard at %d", first, guard, s.tid, guardRTPriority)
 	}
-	select {
-	case again := <-asked:
-		if again.tid != s.tid || again.priority != loopRTPriority || again.policy != unix.SCHED_NORMAL {
-			t.Errorf("rtkit was asked again for %+v, want thread %d at %d from SCHED_NORMAL", again, s.tid, loopRTPriority)
-		}
-	case <-time.After(testenv.HangLimit):
-		t.Errorf("a thread reading /dev/zero without blocking was not demoted and raised again within %v", testenv.HangLimit)
-	}
-	close(quit)
-	if err := <-ended; err != nil {
-		t.Fatal(err)
+	again := waittest.For(t, asked, "a thread reading /dev/zero without blocking to be demoted and raised again")
+	if again.tid != s.tid || again.priority != loopRTPriority || again.policy != unix.SCHED_NORMAL {
+		t.Errorf("rtkit was asked again for %+v, want thread %d at %d from SCHED_NORMAL", again, s.tid, loopRTPriority)
 	}
 }
 

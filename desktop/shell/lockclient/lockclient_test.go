@@ -16,10 +16,13 @@ import (
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	"github.com/stubbedev/lys/lib/testhome"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/desktop/config"
 )
+
+const quietWindow = 50 * time.Millisecond
 
 // TestMain lets the test binary play `lys-login lock`: FAKE_LOCK names
 // how it ends.
@@ -86,22 +89,16 @@ func (r *rig) start(cmd *exec.Cmd) (io.Reader, error) {
 	return out, cmd.Start()
 }
 
+func (r *rig) running() bool {
+	r.c.mu.Lock()
+	defer r.c.mu.Unlock()
+	return r.c.running
+}
+
 // settle waits until no lock process runs.
 func (r *rig) settle(t *testing.T) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		r.c.mu.Lock()
-		running := r.c.running
-		r.c.mu.Unlock()
-		if !running {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the lock process never ended")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return !r.running() }, "the lock process to end")
 }
 
 func TestLockRunsTheLockProcessOnce(t *testing.T) {
@@ -130,10 +127,7 @@ func TestDisabledLockStartsNothing(t *testing.T) {
 func TestADeadLockClientIsReplacedWhileLocked(t *testing.T) {
 	r := newRig(t, true, "crash", "unlock")
 	r.c.Lock()
-	deadline := time.Now().Add(10 * time.Second)
-	for r.starts.Load() < 2 && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
-	}
+	waittest.Until(t, func() bool { return r.starts.Load() >= 2 }, "the crashed lock process to be replaced")
 	r.settle(t)
 	if n := r.starts.Load(); n != 2 {
 		t.Fatalf("%d lock processes, want the crashed one replaced once", n)
@@ -142,7 +136,7 @@ func TestADeadLockClientIsReplacedWhileLocked(t *testing.T) {
 		r := newRig(t, true, mode, "unlock")
 		r.c.Lock()
 		r.settle(t)
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(quietWindow)
 		if n := r.starts.Load(); n != 1 {
 			t.Errorf("%s: %d lock processes, want no replacement", mode, n)
 		}
@@ -156,24 +150,18 @@ func TestReplacementsAreBounded(t *testing.T) {
 	r.hint = false
 	r.c.Lock()
 	r.settle(t)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(quietWindow)
 	if n := r.starts.Load(); n != 1 {
 		t.Errorf("an unlocked session got %d lock processes, want no replacement", n)
 	}
 
 	r = newRig(t, true, "crash", "crash", "crash", "crash", "crash", "crash")
 	r.c.Lock()
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
+	waittest.Until(t, func() bool {
 		r.settle(t)
-		time.Sleep(50 * time.Millisecond)
-		r.c.mu.Lock()
-		running := r.c.running
-		r.c.mu.Unlock()
-		if !running {
-			break
-		}
-	}
+		time.Sleep(quietWindow)
+		return !r.running()
+	}, "the lock process to stay ended")
 	if n := r.starts.Load(); n != 1+maxRespawns {
 		t.Errorf("%d lock processes for a client that always dies, want 1 + %d replacements", n, maxRespawns)
 	}
@@ -267,13 +255,13 @@ func TestLogindLockSignalStartsTheLock(t *testing.T) {
 	c.start = r.start
 	c.mu.Unlock()
 	r.c = c
-	deadline := time.Now().Add(10 * time.Second)
-	for r.starts.Load() == 0 {
-		if time.Now().After(deadline) {
-			t.Fatal("logind's Lock signal never started the lock process")
+	waittest.Until(t, func() bool {
+		if r.starts.Load() > 0 {
+			return true
 		}
 		fake.Lock(t, "2")
 		time.Sleep(20 * time.Millisecond)
-	}
+		return false
+	}, "logind's Lock signal to start the lock process")
 	r.settle(t)
 }

@@ -82,7 +82,7 @@ func TestWestonFlowerMaps(t *testing.T) {
 	t.Parallel()
 	h := Start(t, desktop)
 	flower := h.Run("weston-flower")
-	h.Eventually("weston-flower to map", mappedToplevels(1))
+	h.EventuallySlow("weston-flower to map", mappedToplevels(1))
 	h.expectActive(flower)
 	h.Eventually("the flower on the output", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		return notBackground(snapshot(b.Outputs()[0]), image.Rect(0, 0, 1280, 800)) > 1000
@@ -94,7 +94,7 @@ func TestFootMapsAndTakesInput(t *testing.T) {
 	h := Start(t, desktop)
 	typed := filepath.Join(t.TempDir(), "typed")
 	foot := h.Run("foot", "--override=main.font=monospace:size=12", "sh", "-c", `printf ready; read -r line; printf %s "$line" > "$0"`, typed)
-	h.Eventually("foot to map", mappedToplevels(1))
+	h.EventuallySlow("foot to map", mappedToplevels(1))
 	h.Eventually("foot to draw", func(b *headless.Backend, _ *compositor.Compositor) bool {
 		return notBackground(snapshot(b.Outputs()[0]), image.Rect(0, 0, 1280, 800)) > 1000
 	})

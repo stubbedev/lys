@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 // daemonFixture exports a daemon for a fixture service on a private
@@ -46,13 +47,13 @@ func TestDaemonVolumeMethods(t *testing.T) {
 	if err != nil || got != 100 {
 		t.Fatalf("SetOutputVolume(130) = %v, %v, want clamped 100", got, err)
 	}
-	waitFor(t, "100%", func() bool { d, _ := svc.DefaultOutput(); return d.Volume.IsNormal() })
+	waittest.Until(t, func() bool { d, _ := svc.DefaultOutput(); return d.Volume.IsNormal() }, "100%")
 
 	got, err = c.AdjustOutputVolume(ctx, -25)
 	if err != nil || got != 75 {
 		t.Fatalf("AdjustOutputVolume(-25) = %v, %v", got, err)
 	}
-	waitFor(t, "75%", func() bool { d, _ := svc.DefaultOutput(); return near(d.Volume.AveragePercentage(), 75) })
+	waittest.Until(t, func() bool { d, _ := svc.DefaultOutput(); return near(d.Volume.AveragePercentage(), 75) }, "75%")
 	if got, _ := c.AdjustOutputVolume(ctx, -500); got != 0 {
 		t.Errorf("AdjustOutputVolume(-500) = %v, want 0", got)
 	}
@@ -61,12 +62,12 @@ func TestDaemonVolumeMethods(t *testing.T) {
 	if err != nil || got != 40 {
 		t.Fatalf("SetInputVolume = %v, %v", got, err)
 	}
-	waitFor(t, "input 40%", func() bool { d, _ := svc.DefaultInput(); return near(d.Volume.AveragePercentage(), 40) })
+	waittest.Until(t, func() bool { d, _ := svc.DefaultInput(); return near(d.Volume.AveragePercentage(), 40) }, "input 40%")
 	if got, _ := c.AdjustInputVolume(ctx, 5); !near(got, 45) {
 		t.Errorf("AdjustInputVolume(5) = %v", got)
 	}
 	vol, err := c.InputVolume(ctx)
-	waitFor(t, "input 45%", func() bool { vol, err = c.InputVolume(ctx); return near(vol, 45) })
+	waittest.Until(t, func() bool { vol, err = c.InputVolume(ctx); return near(vol, 45) }, "input 45%")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,15 +80,15 @@ func TestDaemonMuteMethods(t *testing.T) {
 	if err != nil || !muted {
 		t.Fatalf("ToggleOutputMute = %v, %v", muted, err)
 	}
-	waitFor(t, "muted", func() bool { d, _ := svc.DefaultOutput(); return d.Muted })
+	waittest.Until(t, func() bool { d, _ := svc.DefaultOutput(); return d.Muted }, "muted")
 	if err := c.SetOutputMute(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "unmuted", func() bool { d, _ := svc.DefaultOutput(); return !d.Muted })
+	waittest.Until(t, func() bool { d, _ := svc.DefaultOutput(); return !d.Muted }, "unmuted")
 	if muted, _ := c.ToggleInputMute(ctx); !muted {
 		t.Error("ToggleInputMute did not report muted")
 	}
-	waitFor(t, "input muted", func() bool { m, _ := c.InputMuted(ctx); return m })
+	waittest.Until(t, func() bool { m, _ := c.InputMuted(ctx); return m }, "input muted")
 	if err := c.SetInputMute(ctx, false); err != nil {
 		t.Fatal(err)
 	}
@@ -128,11 +129,11 @@ func TestDaemonDevicesAndInfo(t *testing.T) {
 	if err := c.SetDefaultSink(ctx, 3); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the default sink", func() bool { name, _ := c.DefaultSink(ctx); return name == "headphones" })
+	waittest.Until(t, func() bool { name, _ := c.DefaultSink(ctx); return name == "headphones" }, "the default sink")
 	if err := c.SetDefaultSource(ctx, 2); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the default source", func() bool { d, ok := svc.DefaultInput(); return ok && d.Name == "speakers.monitor" })
+	waittest.Until(t, func() bool { d, ok := svc.DefaultInput(); return ok && d.Name == "speakers.monitor" }, "the default source")
 	if msg := dbusFailure(t, c.SetDefaultSink(ctx, 99)); msg != "device 99 (Output) not found" {
 		t.Errorf("SetDefaultSink(99) message = %q", msg)
 	}

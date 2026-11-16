@@ -2,31 +2,17 @@ package settings
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
-
-const hangGuard = 2 * time.Minute
 
 func flushed(t *testing.T, conn *dbus.Conn) {
 	t.Helper()
 	if err := conn.BusObject().CallWithContext(t.Context(), "org.freedesktop.DBus.GetId", 0).Err; err != nil {
 		t.Fatalf("round trip to the bus: %v", err)
-	}
-}
-
-func receive[T any](t *testing.T, ch <-chan T, what string) T {
-	t.Helper()
-	select {
-	case v := <-ch:
-		return v
-	case <-time.After(hangGuard):
-		t.Fatalf("no %s in %v", what, hangGuard)
-		var zero T
-		return zero
 	}
 }
 
@@ -58,7 +44,7 @@ func TestAPropertiesWatchClosesTheDescriptorsOfEverySignalItGets(t *testing.T) {
 	if err := dbusx.PropertiesChanged.Emit(owner, timedatePath, carrying(timedateName)); err != nil {
 		t.Fatal(err)
 	}
-	if got := receive(t, changes, "routed change"); len(got) != 1 {
+	if got := waittest.For(t, changes, "the routed change"); len(got) != 1 {
 		t.Fatalf("the change carried %v, want the one property", got)
 	}
 	if err := w.Stop(); err != nil {
@@ -96,7 +82,7 @@ func TestAnEnrolmentWatchClosesTheDescriptorsOfEverySignalItGets(t *testing.T) {
 	if err := owner.Emit(fakeReader, enrollStatus.Name(), statusStage, false, pipe.Write); err != nil {
 		t.Fatal(err)
 	}
-	if got := receive(t, statuses, "routed status"); got != statusStage {
+	if got := waittest.For(t, statuses, "the routed status"); got != statusStage {
 		t.Fatalf("the watch reported %q, want the owner's %q", got, statusStage)
 	}
 	if err := w.Stop(); err != nil {

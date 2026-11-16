@@ -20,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/splash/internal/key"
 	"github.com/stubbedev/lys/splash/internal/kms"
@@ -282,11 +283,7 @@ func (r *run) vtSettled(t *testing.T) {
 		close(reached)
 		return nil
 	})
-	select {
-	case <-reached:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the VT queue did not get there in 5s")
-	}
+	waittest.For(t, reached, "the VT queue to get there")
 }
 
 func listen(t *testing.T, socket string) *server.Server {
@@ -413,24 +410,21 @@ func start(t *testing.T, s setup) *run {
 	r.d = <-started
 	t.Cleanup(func() {
 		cancel()
-		select {
-		case <-r.done:
-		case <-time.After(5 * time.Second):
-			t.Error("Run did not return after its context ended")
-		}
+		waittest.For(t, r.done, "Run to return after its context ended")
 	})
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		c, err := net.Dial("unix", r.socket)
-		if err == nil {
-			c.Close()
-			return r
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the daemon never listened: %v", err)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	dialListening(t, r.socket).Close()
+	return r
+}
+
+func dialListening(t *testing.T, socket string) net.Conn {
+	t.Helper()
+	var c net.Conn
+	waittest.Until(t, func() bool {
+		var err error
+		c, err = net.Dial("unix", socket)
+		return err == nil
+	}, "the daemon to listen on "+socket)
+	return c
 }
 
 func (r *run) typeKeys(s string) {
@@ -487,14 +481,9 @@ func (r *run) call(t *testing.T, req protocol.Request, want protocol.Response) {
 
 func (r *run) finished(t *testing.T) error {
 	t.Helper()
-	select {
-	case err := <-r.done:
-		r.done <- err
-		return err
-	case <-time.After(5 * time.Second):
-		t.Fatal("Run did not return")
-		return nil
-	}
+	err := waittest.For(t, r.done, "Run to return")
+	r.done <- err
+	return err
 }
 
 func TestPingAndHasActiveVT(t *testing.T) {
@@ -674,30 +663,14 @@ func TestPanicRestoresTheVT(t *testing.T) {
 		defer func() { panicked <- recover() }()
 		_ = Run(t.Context(), cfg, theme.Default(), nil, Devices{Display: display, VT: vt})
 	}()
-	var c net.Conn
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		var err error
-		if c, err = net.Dial("unix", socket); err == nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal(err)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	c := dialListening(t, socket)
 	defer c.Close()
 	wire, _ := protocol.AppendRequest(nil, protocol.Deactivate{})
 	if _, err := c.Write(wire); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case p := <-panicked:
-		if p == nil {
-			t.Fatal("Run returned without the panic")
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the panic never surfaced")
+	if waittest.For(t, panicked, "the panic to surface") == nil {
+		t.Fatal("Run returned without the panic")
 	}
 	if vt.how() != "restore" || !display.closed || display.retained {
 		t.Errorf("after a panic: VT %q, display closed %v retained %v", vt.how(), display.closed, display.retained)
@@ -811,13 +784,7 @@ func (r *run) presents() int {
 
 func (r *run) presentsAfter(t *testing.T, from int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for r.presents() <= from {
-		if time.Now().After(deadline) {
-			t.Fatalf("the screen did not present in 5s, at %d presents", from)
-		}
-		time.Sleep(FrameInterval)
-	}
+	waittest.Until(t, func() bool { return r.presents() > from }, fmt.Sprintf("the screen to present past %d presents", from))
 }
 
 func (r *run) advances(t *testing.T) {
@@ -825,15 +792,15 @@ func (r *run) advances(t *testing.T) {
 	r.presentsAfter(t, r.presents())
 }
 
+const (
+	turn        = theme.Frames * FrameInterval
+	stillWindow = turn
+)
+
 func (r *run) holdsStill(t *testing.T, what string) {
 	t.Helper()
-	r.holdsStillFor(t, what, 5*FrameInterval)
-}
-
-func (r *run) holdsStillFor(t *testing.T, what string, d time.Duration) {
-	t.Helper()
 	from := r.presents()
-	time.Sleep(d)
+	time.Sleep(stillWindow)
 	if got := r.presents(); got != from {
 		t.Errorf("%s presented %d frames", what, got-from)
 	}
@@ -879,7 +846,7 @@ func TestAPromptHoldsStillWhileHiddenOrPaused(t *testing.T) {
 			expect(t, c, protocol.Ack{})
 			r.advances(t)
 			r.call(t, tc.halt, protocol.Ack{})
-			r.holdsStillFor(t, "a "+tc.name+" prompt", 40*FrameInterval)
+			r.holdsStill(t, "a "+tc.name+" prompt")
 			r.call(t, tc.resume, protocol.Ack{})
 			r.advances(t)
 		})
@@ -1000,11 +967,7 @@ func TestAStoppedTerminalLeavesTheLoopRunning(t *testing.T) {
 	if _, err := q.Write([]byte("first")); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-v.entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the queue never wrote")
-	}
+	waittest.For(t, v.entered, "the queue to write")
 	chunk := make([]byte, 4096)
 	passes := 0
 	for range 2 * maxPendingVTBytes / len(chunk) {
