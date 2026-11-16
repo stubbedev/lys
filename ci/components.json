@@ -58,7 +58,7 @@
     "package": true,
     "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "vuln"],
     "race": true,
-    "shards": [["./cmd/lys-wm"], ["./internal/compositor"]],
+    "shards": [["./cmd/lys-wm"], ["./internal/compositor"], ["./internal/harness"]],
     "jobs": [
       {
         "name": "pacing, GLES",

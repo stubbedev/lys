@@ -141,8 +141,8 @@ eval-jobs select:
 # allow, and print the wall clock: `just gates`, `just gates wm shell`. A
 # component with `shards` in ci/components.json splits its test and race suites
 # into one part per shard and a last part for every other package; `wm/2` runs
-# only the second part's test and race suites, and the last part, `wm/3` for a
-# wm of two shards, runs the rest of them and every other gate.
+# only the second part's test and race suites, and the last part, `wm/4` for
+# wm's three shards, runs the rest of them and every other gate.
 gates *targets: (run-gates "gates race" targets)
 
 # The Go gates alone, as CI's Go jobs run them on each architecture.

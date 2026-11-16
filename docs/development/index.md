@@ -111,7 +111,7 @@ The jobs run in two stages:
      lists `shards` in `ci/components.json`, each a list of its package
      directories (`./cmd/lys-wm`, `./internal/...`). Its `test` gate and its
      race suite then run as one job per shard plus one last job, `wm/1` to
-     `wm/3` for wm's two shards: job *k* tests only shard *k*'s packages, and
+     `wm/4` for wm's three shards: job *k* tests only shard *k*'s packages, and
      the last job tests every package of `go list ./...` no shard names (with
      the race suite's build flags for race) and runs every other gate, so no
      test is dropped when a package is added. The parts reach the recipe as
