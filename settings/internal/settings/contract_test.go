@@ -130,6 +130,7 @@ var systemDefaulted = []string{
 	"decoration.blur.tint", "tabs.font", "tabs.icon_theme", "gpu",
 	"input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options", "input.keyboard.model", "input.keyboard.rules",
 	"input.pointer.natural_scroll", "input.pointer.middle_emulation", "input.pointer.accel_speed", "input.pointer.scroll_factor",
+	"input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method", "input.trackpoint.accel_speed", "input.trackpoint.scroll_factor",
 	"input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation",
 	"input.touchpad.click_method", "input.touchpad.scroll_method", "input.touchpad.accel_speed", "input.touchpad.scroll_factor",
 	"gestures.hold", "outputs", "rules", "autostart",
