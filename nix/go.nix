@@ -48,9 +48,9 @@ in {
             // {
               ldflags = (args.ldflags or []) ++ ["-X github.com/stubbedev/lys/lib/buildinfo.version=${version}"];
             });
-        test = packages: ''
+        test = args: ''
           runHook preCheck
-          go test ${lib.escapeShellArgs packages}
+          go test ${lib.escapeShellArgs args}
           runHook postCheck
         '';
       };

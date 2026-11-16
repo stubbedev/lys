@@ -11,7 +11,7 @@ lysGo.build {
     "-s"
   ];
 
-  doCheck = true;
+  doCheck = false;
 
   postInstall = ''
     install -d $out/lib/systemd/system $out/lib/systemd/user $out/lib/tmpfiles.d

@@ -49,16 +49,9 @@ type Matrix struct {
 	FreeDisk bool   `json:"free-disk"`
 }
 
-type Build struct {
-	Arch       Runner `json:"arch"`
-	Runner     string `json:"runner"`
-	Components string `json:"components"`
-	VMs        string `json:"vms"`
-}
-
 type Plan struct {
 	Components []string `json:"components"`
-	Builds     []Build  `json:"builds"`
+	Builds     []Matrix `json:"builds"`
 	Jobs       []Matrix `json:"jobs"`
 	Packages   []string `json:"packages"`
 }
@@ -134,8 +127,8 @@ func matches(path, file string) bool {
 }
 
 func plan(components map[string]Component, names []string) Plan {
-	p := Plan{Components: names, Builds: []Build{}, Jobs: []Matrix{}, Packages: []string{}}
-	var gated, raced, vms []string
+	p := Plan{Components: names, Builds: []Matrix{}, Jobs: []Matrix{}, Packages: []string{}}
+	var gated, raced []string
 	for _, name := range names {
 		c := components[name]
 		if c.Package {
@@ -167,21 +160,29 @@ func plan(components map[string]Component, names []string) Plan {
 			m := matrix(vm, vm, vmRunner, "just vm-checks "+vm)
 			m.KVM, m.FreeDisk = true, c.FreeDisk
 			p.Jobs = append(p.Jobs, m)
-			vms = append(vms, vm)
 		}
 	}
 	for _, r := range runners {
-		packaged := r == X86_64 && len(p.Packages) > 0
-		if !packaged && !slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.Runner == runnerLabels[r] }) {
-			continue
+		for _, name := range names {
+			if b, ok := build(name, components[name], r); ok {
+				p.Builds = append(p.Builds, b)
+			}
 		}
-		b := Build{Arch: r, Runner: runnerLabels[r], Components: strings.Join(names, " ")}
-		if r == vmRunner {
-			b.VMs = strings.Join(vms, " ")
-		}
-		p.Builds = append(p.Builds, b)
 	}
 	return p
+}
+
+func build(name string, c Component, r Runner) (Matrix, bool) {
+	var vms []string
+	if r == vmRunner {
+		vms = c.VMs
+	}
+	if len(c.Gates) == 0 && len(vms) == 0 {
+		return Matrix{}, false
+	}
+	m := matrix("build-"+name, name, r, strings.Join(append([]string{"just build-stage", name}, vms...), " "))
+	m.FreeDisk = len(vms) > 0
+	return m, true
 }
 
 func userNS(m Matrix) Matrix {

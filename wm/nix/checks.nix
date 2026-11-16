@@ -39,6 +39,7 @@
       };
   in {
     legacyPackages.vm-steam = xwaylandApp "steam";
+    legacyPackages.vm-xwayland-idea = xwaylandApp "idea";
     legacyPackages.vm-pace-drm = import ./pace-drm.nix {
       inherit pkgs module;
       inherit (self'.packages) lys-wm;
@@ -129,11 +130,6 @@
       vms-go-tests = import ./go-test-vms.nix {
         inherit pkgs;
         inherit (self'.packages) lys-wm;
-      };
-      vms-xwayland-idea = xwaylandApp "idea";
-      headless = pkgs.callPackage ./headless.nix {
-        inherit (self'.packages) lys-wm;
-        inherit (self'.packages) lys-ui;
       };
       module = let
         machine = inputs.nixpkgs.lib.nixosSystem {

@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -54,7 +58,7 @@ jobs:
   build:
     needs: plan
     if: needs.plan.outputs.builds != '[]'
-    name: build (${{ matrix.arch }})
+    name: build ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +71,7 @@ jobs:
       - name: The binary cache token the later jobs substitute through
         run: |
           if [ -z "$XILO_TOKEN" ]; then
-            echo "::error::XILO_TOKEN is not set, so the build stage cannot push what it builds and every later job would have to build it again; set it as an Actions secret, and as a Dependabot secret for Dependabot's pull requests"
+            echo "::error::XILO_TOKEN is not set, so the build job cannot push what it builds and every later job would have to build it again; set it as an Actions secret, and as a Dependabot secret for Dependabot's pull requests"
             exit 1
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,21 +80,22 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          free-disk: true
-      - name: Every package, check, dev shell and VM closure, in one build
-        env:
-          COMPONENTS: ${{ matrix.components }}
-          VMS: ${{ matrix.vms }}
-        run: just build-stage "$COMPONENTS" "$VMS" > "${RUNNER_TEMP}/outpaths"
+          free-disk: ${{ matrix.free-disk }}
       - uses: stubbedev/xilo@dd96cb09f7781ceccd534af338a36853c80f7193 # v1.2.6
         with:
           url: https://nix.stubbe.dev
           cache: default/default
           token: ${{ secrets.XILO_TOKEN }}
-      - name: Push it to the binary cache
-        run: |
-          mapfile -t paths < "${RUNNER_TEMP}/outpaths"
-          xilo push default/default "${paths[@]}"
+      - id: store
+        name: The store before the build
+        run: ls /nix/store > "${RUNNER_TEMP}/store"
+      - name: The component's packages, checks, dev shell and VM closures
+        timeout-minutes: 6
+        run: ${{ matrix.run }}
+      - name: Push what the build built or substituted, also after it failed or timed out
+        if: always() && steps.store.outcome == 'success'
+        timeout-minutes: 2
+        run: just new-store-paths "${RUNNER_TEMP}/store" | xilo push default/default -
 
   job:
     needs: [plan, build]

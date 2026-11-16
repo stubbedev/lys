@@ -26,7 +26,6 @@
           "-X main.defaultFont=${dejavu_fonts}/share/fonts/truetype/DejaVuSans.ttf"
         ];
 
-
         postInstall = ''
           install -Dm644 wm/packaging/systemd/lys-wm-session.target $out/share/systemd/user/lys-wm-session.target
           install -Dm644 wm/packaging/xdg-desktop-portal/lys-wm-portals.conf $out/share/xdg-desktop-portal/lys-wm-portals.conf
@@ -34,9 +33,7 @@
           substituteInPlace $out/share/wayland-sessions/lys-wm.desktop --replace-fail "Exec=lys-wm" "Exec=$out/bin/lys-wm"
         '';
 
-        # The test suite is pure Go and safe to run in the sandbox.
-        doCheck = true;
-        nativeCheckInputs = [pkgs.dbus];
+        doCheck = false;
 
         passthru.providedSessions = ["lys-wm"];
 

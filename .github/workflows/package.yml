@@ -16,7 +16,7 @@ on:
         type: string
         default: '[{"runner": "ubuntu-latest", "arch": "x86_64", "deb": "amd64"}, {"runner": "ubuntu-24.04-arm", "arch": "aarch64", "deb": "arm64"}]'
       substitute-only:
-        description: Let Nix only substitute, when a build stage built the component's dev shell.
+        description: Let Nix only substitute, when a build job built the component's dev shell.
         type: boolean
         default: false
 

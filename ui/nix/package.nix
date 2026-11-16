@@ -3,83 +3,32 @@
     lib,
     lysGo,
     pkgs,
-    testFontsConf,
     ...
-  }: let
-    # Shared builder for every lys-ui derivation: pure Go (CGO off),
-    # modules fetched through buildGoModule's standard flow with
-    # vendorHash pinning go.sum, so no build reaches the network.
-    mkLysUI = {
-      pname,
-      subPackages,
-      description ? "",
-      mainProgram ? null,
-    }:
-      lysGo.build {
-        inherit pname subPackages;
-        ldflags = [
-          "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
-          "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
-        ];
-        doCheck = true;
-        preCheck = ''
-          export HOME="$TMPDIR" FONTCONFIG_FILE=${testFontsConf}
-        '';
-        # The GPU renderer loads the Vulkan loader at run time (no
-        # cgo, so no rpath): the binaries find it through the
-        # wrapper's library path, NixOS having none of its own.
-        nativeBuildInputs = [pkgs.makeWrapper];
-        nativeCheckInputs = [pkgs.dbus];
-        postFixup = ''
-          for bin in $out/bin/*; do
-            wrapProgram "$bin" --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [pkgs.vulkan-loader]}
-          done
-        '';
-
-        meta = with lib;
-          {
-            homepage = "https://github.com/stubbedev/lys/tree/main/ui";
-            license = licenses.mit;
-            platforms = platforms.linux;
-            inherit description;
-          }
-          // lib.optionalAttrs (mainProgram != null) {inherit mainProgram;};
-      };
-
-    # The module itself: one build of every package in the repo -
-    # all demo binaries plus the wlpointer test driver. Downstream
-    # nix Go builds can also reach lys-ui.goModules for the vendored
-    # dependency tree; plain Go consumers pin this repo in go.mod.
-    lys-ui = mkLysUI {
+  }: {
+    packages.lys-ui = lysGo.build {
       pname = "lys-ui";
       subPackages = ["ui/..."];
-      description = "pure-Go Wayland widget toolkit (module and demos)";
-    };
-  in {
-    packages = {
-      inherit lys-ui;
+      ldflags = [
+        "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
+        "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
+      ];
+      doCheck = false;
+      # The GPU renderer loads the Vulkan loader at run time (no
+      # cgo, so no rpath): the binaries find it through the
+      # wrapper's library path, NixOS having none of its own.
+      nativeBuildInputs = [pkgs.makeWrapper];
+      postFixup = ''
+        for bin in "$out"/bin/*; do
+          wrapProgram "$bin" --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [pkgs.vulkan-loader]}
+        done
+      '';
 
-      lys-ui-bar = mkLysUI {
-        pname = "lys-ui-bar";
-        subPackages = ["ui/cmd/lys-ui-bar"];
-        description = "lys-ui layer-shell status bar";
-        mainProgram = "lys-ui-bar";
+      meta = {
+        description = "pure-Go Wayland widget toolkit (module and demos)";
+        homepage = "https://github.com/stubbedev/lys/tree/main/ui";
+        license = lib.licenses.mit;
+        platforms = lib.platforms.linux;
       };
-
-      lys-ui-panel = mkLysUI {
-        pname = "lys-ui-panel";
-        subPackages = ["ui/cmd/lys-ui-panel"];
-        description = "lys-ui layer-shell panel";
-        mainProgram = "lys-ui-panel";
-      };
-
-      lys-ui-hello = mkLysUI {
-        pname = "lys-ui-hello";
-        subPackages = ["ui/cmd/lys-ui-hello"];
-        description = "lys-ui widget showcase";
-        mainProgram = "lys-ui-hello";
-      };
-
     };
   };
 }

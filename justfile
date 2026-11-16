@@ -36,30 +36,36 @@ checks +names:
 
 # Run NixOS VM checks, one after another, on closures built beforehand: their
 # drivers first, which CI's max-jobs = 0 only lets come from the binary cache
-# the build stage filled, then each test alone: `just vm-checks login-vms-greeter`.
+# their components' build jobs filled, then each test alone: `just vm-checks login-vms-greeter`.
 [script("bash")]
 vm-checks +names:
     set -euo pipefail
     drivers=()
     for name in {{ names }}; do drivers+=(".#checks.{{ arch() }}-linux.${name}.driver"); done
     if ! nix build -L --no-link "${drivers[@]}"; then
-        echo "vm-checks: the closures of {{ names }} neither built nor came from a substituter; in CI the build stage builds and pushes them" >&2
+        echo "vm-checks: the closures of {{ names }} neither built nor came from a substituter; in CI their component's build job builds and pushes them" >&2
         exit 1
     fi
     NIX_CONFIG="max-jobs = 1" just checks {{ names }}
 
-# CI's build stage for this machine's system, in one nix build: every package,
-# non-VM check and dev shell of the components, and the closures of the VM
-# checks the later jobs run. Prints the store paths for the binary cache:
-# `just build-stage "wm shell" "wm-vms-desktop shell-hyprland-vms"`.
+# A CI build job for this machine's system, in one nix build that keeps going
+# past a failure: every package, non-VM check and dev shell of one component,
+# and the closures of the VM checks named after it, which its CI jobs run. A
+# flake output belongs to the component its name starts with, the longest such
+# name winning: `just build-stage wm wm-vms-desktop wm-vms-gpus`.
 [script("bash")]
-build-stage components vms="":
+build-stage component *vms:
     set -euo pipefail
-    read -ra components <<< {{ quote(components) }}
+    component={{ quote(component) }}
     read -ra vms <<< {{ quote(vms) }}
-    for name in "${components[@]}" "${vms[@]}"; do
-        if [[ ! "$name" =~ ^[a-z0-9-]+$ ]]; then
-            echo "build-stage: ${name} is no component or check name" >&2
+    mapfile -t components < <(jq -r 'keys[]' ci/components.json)
+    if [[ ! " ${components[*]} " == *" ${component} "* ]]; then
+        echo "build-stage: ${component} is no component of ci/components.json" >&2
+        exit 1
+    fi
+    for name in "${vms[@]}"; do
+        if [[ ! "$name" =~ ^${component}-[a-z0-9-]+$ ]]; then
+            echo "build-stage: ${name} is no check name of ${component}" >&2
             exit 1
         fi
     done
@@ -69,23 +75,46 @@ build-stage components vms="":
     just eval-jobs "flake: let
         lib = flake.inputs.nixpkgs.lib;
         system = \"{{ arch() }}-linux\";
-        components = [ $(list "${components[@]}") ];
-        owned = set: owns: lib.filterAttrs (name: _: lib.any (owns name) components) set.\${system};
+        component = \"${component}\";
+        owners = name: lib.filter (c: name == c || lib.hasPrefix \"\${c}-\" name) [ $(list "${components[@]}") ];
+        owned = name: lib.foldl' (longest: c: if lib.stringLength c > lib.stringLength longest then c else longest) \"\" (owners name) == component;
       in {
-        packages = owned flake.outputs.packages (name: c: name == \"lys-\${c}\" || lib.hasPrefix \"lys-\${c}-\" name);
-        checks = lib.filterAttrs (_: check: !(check ? driver)) (owned flake.outputs.checks (name: c: lib.hasPrefix \"\${c}-\" name));
-        devShells = owned flake.outputs.devShells (name: c: name == c);
+        packages = lib.filterAttrs (name: _: lib.hasPrefix \"lys-\" name && owned (lib.removePrefix \"lys-\" name)) flake.outputs.packages.\${system};
+        checks = lib.filterAttrs (name: check: owned name && !(check ? driver)) flake.outputs.checks.\${system};
+        devShells = lib.filterAttrs (name: _: name == component) flake.outputs.devShells.\${system};
         vms = lib.genAttrs [ $(list "${vms[@]}") ] (name: flake.outputs.checks.\${system}.\${name}.driver);
       }" > "${dir}/jobs"
     mapfile -t drvs < <(jq -r '.drvPath + "^*"' "${dir}/jobs")
     if (( ${#drvs[@]} == 0 )); then
-        echo "build-stage: ${components[*]} have nothing to build on {{ arch() }}-linux" >&2
+        echo "build-stage: ${component} has nothing to build on {{ arch() }}-linux" >&2
         exit 1
     fi
-    nix build -L --no-link --print-out-paths "${drvs[@]}"
+    nix build -L --keep-going --no-link "${drvs[@]}"
     for shell in $(jq -r 'select(.attr | startswith("devShells.")) | .attr | ltrimstr("devShells.")' "${dir}/jobs"); do
         nix print-dev-env --profile "${dir}/${shell}" ".#${shell}" >/dev/null
-        readlink -f "${dir}/${shell}"
+    done
+
+# Print the valid store paths, derivations and sources aside, missing from a
+# listing of the store taken before: what a CI build job built or substituted,
+# for the binary cache, also when its build failed or timed out part way.
+[private]
+[script("bash")]
+new-store-paths listing:
+    set -euo pipefail
+    declare -A before=() invalid=()
+    while read -r name; do before[$name]=1; done < {{ quote(listing) }}
+    paths=()
+    for path in /nix/store/*; do
+        name=${path#/nix/store/}
+        case "$name" in
+            *.drv | *.lock | *.chroot | *-source) ;;
+            *) [[ -v before[$name] ]] || paths+=("$path") ;;
+        esac
+    done
+    (( ${#paths[@]} )) || exit 0
+    while read -r path; do invalid[$path]=1; done < <(nix-store --check-validity --print-invalid "${paths[@]}")
+    for path in "${paths[@]}"; do
+        [[ -v invalid[$path] ]] || printf '%s\n' "$path"
     done
 
 # Evaluate the derivations a nix-eval-jobs selection of the flake picks, on as

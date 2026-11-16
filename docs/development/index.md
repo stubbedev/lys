@@ -28,7 +28,7 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 | `just go-gates [component]...`, `just race-gates [component]...` | The Go gates alone, or the race suites alone, as CI's Go and race jobs run them. |
 | `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vms-greeter wm-module`. |
 | `just vm-checks <name>...` | Run NixOS VM checks one after another on closures built first: the drivers, then each test alone. |
-| `just build-stage <components> [vms]` | CI's build stage for this machine: every package, non-VM check and dev shell of the components, and the named VM checks' closures, in one `nix build`; prints the store paths. |
+| `just build-stage <component> [vm]...` | A CI build job for this machine: every package, non-VM check and dev shell of the component, and the named VM checks' closures, in one `nix build` that keeps going past a failure. |
 | `just packages <name>...` | Build flake packages: `just packages lys-wm`. |
 | `just affected [base]` | The components and CI jobs a change since `base` (default `origin/main`) touches. |
 | `just repository-check` | At the same time: a tidy `go.mod`, the CI planner's tests and lint, every flake output evaluating, spread over nix-eval-jobs workers, and the `vms` lists of `ci/components.json` naming every VM check of the flake once; prints each part's result and the wall clock. |
@@ -70,15 +70,23 @@ component, as do the weekly scheduled run and a manual one.
 
 The jobs run in two stages:
 
-1. **Build**, one job per architecture: `just build-stage` builds, in a single
-   `nix build`, every package, every non-VM check and every dev shell of the
-   affected components, and the closures of the VM checks the planned VM jobs
-   run, then pushes it all to the binary cache (`nix.stubbe.dev`, through
-   `XILO_TOKEN`; without the token the build stage fails, since nothing could
-   be shared). Every derivation is built here once per architecture.
-2. **Jobs**, each on the build stage's outputs. Their Nix runs with
-   `max-jobs = 0`: it only substitutes, so a job that would build a lys
-   derivation fails instead of building it again.
+1. **Build**, one job per component and architecture: `just build-stage
+   <component>` builds, in one `nix build`, the component's packages, non-VM
+   checks and dev shell, and on x86_64 the closures of its VM checks. A
+   component builds on every architecture when it has Go gates, since the Go
+   gates job of each architecture runs in its dev shell, and on x86_64 when it
+   has VM checks; a component with neither (`repository`, `packaging`) builds
+   nothing. The build step stops after six minutes, and the next step pushes
+   every store path that appeared during the job to the binary cache
+   (`nix.stubbe.dev`, through `XILO_TOKEN`; without the token the job fails,
+   since nothing could be shared), whether the build passed, failed or timed
+   out, so a re-run continues from what was built instead of starting over.
+   Derivations two components share, such as `lys-wm` in the VM closures of
+   wm, login and splash, are built by each of their jobs on a cold cache, side
+   by side, and substituted once one of them pushed.
+2. **Jobs**, each on the build jobs' outputs, once every build job finished.
+   Their Nix runs with `max-jobs = 0`: it only substitutes, so a job that
+   would build a lys derivation fails instead of building it again.
    - **Go gates**, one job per architecture: `just go-gates` with every affected
      component, each gate recipe in its own process in its component's dev
      shell, as many at once as cores and memory allow, after one
@@ -88,13 +96,18 @@ The jobs run in two stages:
    - **Further jobs**, each a job of its own so they run side by side: lib's
      and ui's GPU and headless suites, wm's GLES and Vulkan pacing gates,
      splash's initramfs-tools image, and one job per VM check, which
-     runs `just vm-checks <check>` on the closure the build stage built, so
-     the VM checks run side by side. The `vms` lists in `ci/components.json`
-     are the one place the checks are named. VM jobs run on x86_64, the only
-     runner with KVM, and `just repository-check` fails unless the lists hold
-     every VM check the flake has there, each exactly once, and none it
-     lacks.
+     runs `just vm-checks <check>` on the closure its component's build job
+     built, so the VM checks run side by side. The `vms` lists in
+     `ci/components.json` are the one place the checks are named. VM jobs run
+     on x86_64, the only runner with KVM, and `just repository-check` fails
+     unless the lists hold every VM check the flake has there, each exactly
+     once, and none it lacks.
    - **package**: each packaged component's archive, `.deb` and `.rpm`.
+
+The Go test suites run in the Go gates and race jobs only. The packages build
+without a `checkPhase`, since it would run the same tests again in each build
+job; Nix checks run what the gates cannot, such as `splash-plymouth-client`,
+the one test that needs nixpkgs' plymouth.
 
 The `ci` job is the one status to require: it passes when every planned job
 passed.

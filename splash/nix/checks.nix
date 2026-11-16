@@ -1,9 +1,7 @@
-{
-  self,
-  ...
-}: {
+{self, ...}: {
   perSystem = {
     lib,
+    lysGo,
     pkgs,
     self',
     ...
@@ -26,9 +24,8 @@
         '';
       };
     module = self.nixosModules.lys-splash;
-    untested = pkg: pkg.overrideAttrs {doCheck = false;};
-    splash = untested self'.packages.lys-splash;
-    wmPackage = untested self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
+    splash = self'.packages.lys-splash;
+    wmPackage = self'.packages.lys-wm;
     kms = testBinary "kms" "internal/kms";
     grab = pkgs.callPackage ./drm-grab.nix {};
     greeter = import ./greeter.nix {inherit pkgs splash self wmPackage;};
@@ -276,7 +273,8 @@
         plymouth-client = self'.packages.lys-splash.overrideAttrs (old: {
           pname = "lys-splash-plymouth-client";
           env = old.env // {LYS_SPLASH_PLYMOUTH = lib.getExe' pkgs.plymouth "plymouth";};
-          checkFlags = ["-run=^TestPlymouthClient$" "-v"];
+          doCheck = true;
+          checkPhase = lysGo.test ["-run=^TestPlymouthClient$" "-v" "./splash/internal/server"];
         });
         units = import ./units-check.nix {inherit pkgs splash;};
         module = import ./module-check.nix {inherit pkgs module;};

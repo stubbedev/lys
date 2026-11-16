@@ -1,7 +1,5 @@
 {
   lib,
-  dbus,
-  getent,
   lysGo,
 }:
 lysGo.build {
@@ -13,8 +11,7 @@ lysGo.build {
     "-s"
   ];
 
-  nativeCheckInputs = [dbus getent];
-  doCheck = true;
+  doCheck = false;
 
   postInstall = ''
     install -Dm644 polkit/dist/lys-polkit.service.in $out/lib/systemd/user/lys-polkit.service

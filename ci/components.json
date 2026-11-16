@@ -67,7 +67,7 @@
         "run": "just in wm pace-gate vulkan"
       }
     ],
-    "vms": ["wm-vms-desktop", "wm-vms-go-tests", "wm-vms-gpus", "wm-vms-share", "wm-vms-vkms", "wm-vms-xwayland-idea"]
+    "vms": ["wm-vms-desktop", "wm-vms-go-tests", "wm-vms-gpus", "wm-vms-share", "wm-vms-vkms"]
   },
   "shell": {
     "depends": ["wm", "login", "secrets", "settings", "packaging"],

@@ -135,12 +135,7 @@ func writeText(w io.Writer, p Plan) error {
 	if _, err := fmt.Fprintf(w, "components: %s\npackages: %s\n", strings.Join(p.Components, " "), strings.Join(p.Packages, " ")); err != nil {
 		return err
 	}
-	for _, b := range p.Builds {
-		if _, err := fmt.Fprintf(w, "  build (%s): %s\n", b.Arch, b.VMs); err != nil {
-			return err
-		}
-	}
-	for _, j := range p.Jobs {
+	for _, j := range slices.Concat(p.Builds, p.Jobs) {
 		if _, err := fmt.Fprintf(w, "  %s: %s\n", j.Name, j.Run); err != nil {
 			return err
 		}

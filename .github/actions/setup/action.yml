@@ -2,7 +2,7 @@ name: Nix, caches and the runner's switches
 description: >-
   Installs Nix with the xilo substituters, just and jq. A job after the build
   stage sets substitute-only: its Nix then only substitutes (max-jobs = 0), so
-  anything the build stage did not build and push fails the job instead of
+  anything the build jobs did not build and push fails the job instead of
   building again. Restores the job's Go build cache under its own key, and gives
   the runner KVM, unprivileged user namespaces or free disk when the job asks.
   Go reuses a test result only while nothing it depends on changed; the weekly

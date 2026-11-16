@@ -85,20 +85,32 @@ func TestEachVMCheckRunsInItsOwnJobOnTheBuildStagesClosures(t *testing.T) {
 	if !slices.Equal(p.Jobs, want) {
 		t.Fatalf("jobs %+v, want %+v", p.Jobs, want)
 	}
-	builds := []Build{{Arch: X86_64, Runner: "ubuntu-latest", Components: "login wm", VMs: "wm-vm wm-vm-apps"}}
+	builds := []Matrix{{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps", FreeDisk: true}}
 	if !slices.Equal(p.Builds, builds) {
 		t.Fatalf("builds %+v, want %+v", p.Builds, builds)
 	}
 }
 
-func TestEachArchitectureWithAJobGetsOneBuildOfEveryAffectedComponent(t *testing.T) {
+func TestEachGatedComponentBuildsOnEveryRunnerOnItsOwn(t *testing.T) {
 	p := plan(testComponents, []string{"lib", "ui"})
-	want := []Build{
-		{Arch: X86_64, Runner: "ubuntu-latest", Components: "lib ui"},
-		{Arch: AArch64, Runner: "ubuntu-24.04-arm", Components: "lib ui"},
+	want := []Matrix{
+		{ID: "build-lib-x86-64", Name: "lib (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage lib"},
+		{ID: "build-ui-x86-64", Name: "ui (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage ui"},
+		{ID: "build-lib-aarch64", Name: "lib (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-stage lib"},
+		{ID: "build-ui-aarch64", Name: "ui (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-stage ui"},
 	}
 	if !slices.Equal(p.Builds, want) {
 		t.Fatalf("builds %+v, want %+v", p.Builds, want)
+	}
+}
+
+func TestAComponentWithNothingToBuildHasNoBuild(t *testing.T) {
+	p := plan(testComponents, []string{"login", "polkit", "repository"})
+	if len(p.Builds) != 0 {
+		t.Fatalf("login, polkit and repository have no gates or VM checks, yet the plan builds %+v", p.Builds)
+	}
+	if len(p.Jobs) != 1 || p.Jobs[0].Run != "just tidy-check" {
+		t.Fatalf("jobs %+v, want only the repository's", p.Jobs)
 	}
 }
 

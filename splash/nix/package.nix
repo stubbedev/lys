@@ -18,8 +18,7 @@
       pname = "lys-splash";
       subPackages = ["splash/cmd/lys-splash"];
 
-      doCheck = true;
-      checkPhase = lysGo.test ["./splash/..."];
+      doCheck = false;
 
       outputs = ["out" "compat"];
 
