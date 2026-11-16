@@ -1,6 +1,7 @@
 package gpu
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"testing"
@@ -39,5 +40,29 @@ func TestReadRectReadsBackOnlyItsRowsAndMatchesTheFullFrame(t *testing.T) {
 		if _, err := tg.ReadRect(r); err == nil {
 			t.Errorf("reading back %v of a %dx%d target did not fail", r, w, h)
 		}
+	}
+}
+
+func TestAReadBackWhoseWaitTimesOutKeepsItsStagingUntilTheCopyFinishes(t *testing.T) {
+	d := openDevice(t)
+	const w, h = 32, 16
+	tg := newTarget(t, d, w, h)
+	red := color.RGBA{R: 0xff, A: 0xff}
+	runPass(t, d, tg, []image.Rectangle{{Max: tg.Size()}}, func(p *Pass) { p.Clear(red) })
+	if err := d.Finish(); err != nil {
+		t.Fatal(err)
+	}
+	d.waitFault = true
+	if img, err := tg.ReadPixels(); !errors.Is(err, ErrTimeout) || img != nil {
+		t.Fatalf("a read back whose wait times out: %v, %v, want ErrTimeout", img, err)
+	}
+	if d.waitFault {
+		t.Fatal("the read back submitted nothing to wait for, so its wait could not time out")
+	}
+	if err := d.Finish(); err != nil {
+		t.Fatalf("finishing the copy the timed-out read back submitted: %v", err)
+	}
+	if got := readTarget(t, tg).RGBAAt(w-1, h-1); got != red {
+		t.Errorf("the read back after a timed-out one reads %v, want %v", got, red)
 	}
 }

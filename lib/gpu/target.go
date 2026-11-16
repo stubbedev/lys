@@ -385,7 +385,7 @@ func (d *Device) readPixels(r image.Rectangle, vf vk.Format, opaque bool, record
 	if err != nil {
 		return nil, err
 	}
-	defer staging.close()
+	defer d.retire(staging)
 	if err := d.submit(func(cb vk.CommandBuffer) { record(cb, staging) }); err != nil {
 		return nil, err
 	}
