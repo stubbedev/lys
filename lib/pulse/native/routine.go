@@ -15,12 +15,14 @@ type routine struct {
 
 func startRoutine(f func()) *routine {
 	r := &routine{done: make(chan struct{})}
-	go func() {
-		defer close(r.done)
-		r.id.Store(goroutine.ID())
-		f()
-	}()
+	go r.run(f)
 	return r
+}
+
+func (r *routine) run(f func()) {
+	defer close(r.done)
+	r.id.Store(goroutine.ID())
+	f()
 }
 
 // wait returns once the routine has ended, or at once when self, the
