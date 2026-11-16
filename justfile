@@ -49,23 +49,32 @@ vm-checks +names:
     NIX_CONFIG="max-jobs = 1" just checks {{ names }}
 
 # A CI build job for this machine's system, in one nix build that keeps going
-# past a failure: every package, non-VM check and dev shell of one component,
-# and the closures of the VM checks named after it, which its CI jobs run. A
-# flake output belongs to the component its name starts with, the longest such
-# name winning: `just build-stage wm wm-vms-desktop wm-vms-gpus`.
+# past a failure: every package, non-VM check and dev shell of the named
+# components, and the closures of the named VM checks of theirs, which their CI
+# jobs run. A flake output belongs to the component its name starts with, the
+# longest such name winning: `just build-stage lib ui`, `just build-stage wm
+# wm-vms-desktop wm-vms-gpus`.
 [script("bash")]
-build-stage component *vms:
+build-stage +names:
     set -euo pipefail
-    component={{ quote(component) }}
-    read -ra vms <<< {{ quote(vms) }}
-    mapfile -t components < <(jq -r 'keys[]' ci/components.json)
-    if [[ ! " ${components[*]} " == *" ${component} "* ]]; then
-        echo "build-stage: ${component} is no component of ci/components.json" >&2
+    read -ra names <<< {{ quote(names) }}
+    mapfile -t components < <(jq -r '.components | keys[]' ci/components.json)
+    selected=()
+    vms=()
+    for name in "${names[@]}"; do
+        if [[ " ${components[*]} " == *" ${name} "* ]]; then
+            selected+=("$name")
+        else
+            vms+=("$name")
+        fi
+    done
+    if (( ${#selected[@]} == 0 )); then
+        echo "build-stage: ${names[*]} name no component of ci/components.json" >&2
         exit 1
     fi
     for name in "${vms[@]}"; do
-        if [[ ! "$name" =~ ^${component}-[a-z0-9-]+$ ]]; then
-            echo "build-stage: ${name} is no check name of ${component}" >&2
+        if ! jq -e --arg vm "$name" '[.components[$ARGS.positional[]].vms[]?[]] | index($vm)' ci/components.json --args "${selected[@]}" >/dev/null; then
+            echo "build-stage: ${name} is neither a component of ci/components.json nor a VM check of ${selected[*]}" >&2
             exit 1
         fi
     done
@@ -75,18 +84,19 @@ build-stage component *vms:
     just eval-jobs "flake: let
         lib = flake.inputs.nixpkgs.lib;
         system = \"{{ arch() }}-linux\";
-        component = \"${component}\";
+        selected = [ $(list "${selected[@]}") ];
         owners = name: lib.filter (c: name == c || lib.hasPrefix \"\${c}-\" name) [ $(list "${components[@]}") ];
-        owned = name: lib.foldl' (longest: c: if lib.stringLength c > lib.stringLength longest then c else longest) \"\" (owners name) == component;
+        owner = name: lib.foldl' (longest: c: if lib.stringLength c > lib.stringLength longest then c else longest) \"\" (owners name);
+        owned = name: lib.elem (owner name) selected;
       in {
         packages = lib.filterAttrs (name: _: lib.hasPrefix \"lys-\" name && owned (lib.removePrefix \"lys-\" name)) flake.outputs.packages.\${system};
         checks = lib.filterAttrs (name: check: owned name && !(check ? driver)) flake.outputs.checks.\${system};
-        devShells = lib.filterAttrs (name: _: name == component) flake.outputs.devShells.\${system};
+        devShells = lib.filterAttrs (name: _: lib.elem name selected) flake.outputs.devShells.\${system};
         vms = lib.genAttrs [ $(list "${vms[@]}") ] (name: flake.outputs.checks.\${system}.\${name}.driver);
       }" > "${dir}/jobs"
     mapfile -t drvs < <(jq -r '.drvPath + "^*"' "${dir}/jobs")
     if (( ${#drvs[@]} == 0 )); then
-        echo "build-stage: ${component} has nothing to build on {{ arch() }}-linux" >&2
+        echo "build-stage: ${selected[*]} have nothing to build on {{ arch() }}-linux" >&2
         exit 1
     fi
     nix build -L --keep-going --no-link "${drvs[@]}"
@@ -139,64 +149,79 @@ eval-jobs select:
 # named) in parallel, each gate recipe in its own process in its component's
 # dev shell, sharing one Go build cache, as many at once as cores and memory
 # allow, and print the wall clock: `just gates`, `just gates wm shell`. A
-# component with `shards` in ci/components.json splits its test and race suites
-# into one part per shard and a last part for every other package; `wm/2` runs
-# only the second part's test and race suites, and the last part, `wm/4` for
-# wm's three shards, runs the rest of them and every other gate.
-gates *targets: (run-gates "gates race" targets)
-
-# The Go gates alone, as CI's Go jobs run them on each architecture.
-go-gates *targets: (run-gates "gates" targets)
-
-# The race suites alone, as CI's race jobs run them.
-race-gates *targets: (run-gates "race" targets)
-
-[private]
+# target `<component>:gates` runs only its Go gates and `<component>:race` only
+# its race suite, as CI's Go jobs pick them. A component with `shards` in
+# ci/components.json splits its test and race suites into one part per shard
+# and a last part for every other package; `wm/2` runs only the second part's
+# test and race suites, and the last part, `wm/4` for wm's three shards, runs
+# the rest of them and every other gate: `just gates wm/2:race wm:gates`.
 [script("bash")]
-run-gates kinds targets:
+gates *targets:
     set -euo pipefail
     start=$SECONDS
-    read -ra kinds <<< {{ quote(kinds) }}
     read -ra targets <<< {{ quote(targets) }}
     if (( ${#targets[@]} == 0 )); then
-        mapfile -t targets < <(jq -r 'to_entries[] | select(.value.gates or .value.race) | .key' ci/components.json)
+        mapfile -t targets < <(jq -r '.components | to_entries[] | select(.value.gates or .value.race) | .key' ci/components.json)
     fi
     tasks=()
-    declare -A shard=() rest=()
-    for target in "${targets[@]}"; do
+    compile=0
+    declare -A shard=() rest=() seen=()
+    for spec in "${targets[@]}"; do
+        target=${spec%%:*}
+        suite=${spec#"$target"}
+        suite=${suite#:}
+        case "$suite" in
+            "") kinds=(gates race) ;;
+            gates | race) kinds=("$suite") ;;
+            *)
+                echo "gates: ${spec} names the suite ${suite}, which is neither gates nor race" >&2
+                exit 1
+                ;;
+        esac
         c=${target%%/*}
         part=${target#"$c"}
         part=${part#/}
-        if ! jq -e --arg c "$c" 'has($c)' ci/components.json >/dev/null; then
+        if ! jq -e --arg c "$c" '.components | has($c)' ci/components.json >/dev/null; then
             echo "gates: ${c} is no component of ci/components.json" >&2
             exit 1
         fi
-        shards=$(jq -r --arg c "$c" '.[$c].shards // [] | length' ci/components.json)
+        shards=$(jq -r --arg c "$c" '.components[$c].shards // [] | length' ci/components.json)
+        if [[ "$target" == */* ]] && ! (( shards > 0 )); then
+            echo "gates: ${target} is no part of ${c}, which has no shards" >&2
+            exit 1
+        fi
         if [[ "$target" == */* ]] && ! [[ "$part" =~ ^[1-9][0-9]*$ && "$part" -le $((shards + 1)) ]]; then
             echo "gates: ${target} is no part of ${c}, which has parts 1 to $((shards + 1))" >&2
             exit 1
         fi
+        count=${#tasks[@]}
         for kind in "${kinds[@]}"; do
             while read -r recipe; do
                 task="${target} ${recipe}"
+                if [[ -v seen[$task] ]]; then
+                    echo "gates: ${spec} runs ${task} a second time" >&2
+                    exit 1
+                fi
+                seen[$task]=1
                 tasks+=("$task")
+                if [[ "$kind" == gates ]]; then compile=1; fi
                 if [[ "$recipe" != test && "$recipe" != race ]] || [[ -z "$part" ]] || (( shards == 0 )); then continue; fi
                 if (( part <= shards )); then
-                    shard[$task]=$(jq -r --arg c "$c" --argjson i "$((part - 1))" '.[$c].shards[$i] | join(" ")' ci/components.json)
+                    shard[$task]=$(jq -r --arg c "$c" --argjson i "$((part - 1))" '.components[$c].shards[$i] | join(" ")' ci/components.json)
                 else
-                    rest[$task]=$(jq -r --arg c "$c" '[.[$c].shards[][]] | join(" ")' ci/components.json)
+                    rest[$task]=$(jq -r --arg c "$c" '[.components[$c].shards[][]] | join(" ")' ci/components.json)
                 fi
             done < <(jq -r --arg c "$c" --arg kind "$kind" --argjson part "${part:-0}" '
-                .[$c] | (.shards // [] | length) as $n
+                .components[$c] | (.shards // [] | length) as $n
                 | if $kind == "race" then (select(.race) | "race") else (.gates // [])[] end
                 | select($part == 0 or $part > $n or . == "test" or . == "race")
             ' ci/components.json)
         done
+        if (( ${#tasks[@]} == count )); then
+            echo "gates: ${spec} runs nothing, since ${c} has no ${kinds[*]} to run" >&2
+            exit 1
+        fi
     done
-    if (( ${#tasks[@]} == 0 )); then
-        echo "gates: ${targets[*]} run no ${kinds[*]}" >&2
-        exit 1
-    fi
     dir=$(mktemp -d)
     trap 'jobs -pr | xargs -r kill 2>/dev/null; wait; rm -rf "$dir"' EXIT
     declare -A running=() started=() envs=()
@@ -239,7 +264,7 @@ run-gates kinds targets:
             exit 1
         fi
     done
-    if [[ " ${kinds[*]} " == *" gates "* ]] && (( ${#tasks[@]} > 1 )); then
+    if (( compile )) && (( ${#tasks[@]} > 1 )); then
         trees=()
         for c in "${components[@]}"; do trees+=("./${c}/..."); done
         # shellcheck source=/dev/null
@@ -360,7 +385,7 @@ vm-coverage:
     # shellcheck disable=SC2016
     flake=$(nix eval --json .#checks.x86_64-linux --apply 'checks: builtins.filter (name: checks.${name} ? driver) (builtins.attrNames checks)')
     problems=$(jq -r -n --argjson flake "$flake" --slurpfile components ci/components.json '
-        [$components[0][] | .vms[]?] as $ci
+        [$components[0].components[] | .vms[]?[]] as $ci
         | ($flake - $ci | map("vm-coverage: the flake VM check \(.) is in no VM job of ci/components.json"))
         + ($ci - $flake | map("vm-coverage: ci/components.json runs \(.), which is no VM check of the flake on x86_64-linux"))
         + ($ci | group_by(.) | map(select(length > 1) | "vm-coverage: ci/components.json runs \(.[0]) in \(length) jobs"))

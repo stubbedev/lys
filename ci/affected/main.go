@@ -35,36 +35,36 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	components, err := load(root + "/ci/components.json")
+	cfg, err := load(root + "/ci/components.json")
 	if err != nil {
 		return err
 	}
-	names, err := choose(root, module, components, *base, *all)
+	names, err := choose(root, module, cfg.Components, *base, *all)
 	if err != nil {
 		return err
 	}
-	p := plan(components, names)
+	p := plan(cfg, names)
 	if *github {
 		return writeGitHub(p)
 	}
 	return writeText(stdout, p)
 }
 
-func load(path string) (map[string]Component, error) {
+func load(path string) (Config, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // ci/components.json under the module root
 	if err != nil {
-		return nil, fmt.Errorf("read the components: %w", err)
+		return Config{}, fmt.Errorf("read the components: %w", err)
 	}
-	var components map[string]Component
+	var cfg Config
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&components); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+	if err := dec.Decode(&cfg); err != nil {
+		return Config{}, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if err := validate(components); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	if err := validate(cfg); err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return components, nil
+	return cfg, nil
 }
 
 func choose(root, module string, components map[string]Component, base string, all bool) ([]string, error) {

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -14,9 +16,25 @@ var testComponents = map[string]Component{
 	"repository": {Paths: []string{"go.mod", "nix/"}, GoPackages: "nix/go-packages.json", AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
 	"lib":        {Paths: []string{"docs/lib/xkb.md"}, Gates: []string{"vet", "test"}, Race: true},
 	"ui":         {Gates: []string{"test"}, Shards: [][]string{{"./widget"}, {"./app", "./anim/..."}}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
-	"wm":         {Depends: []string{"ui"}, Package: true, VMs: []string{"wm-vm", "wm-vm-apps"}, FreeDisk: true},
-	"login":      {Depends: []string{"wm"}, Package: true},
+	"wm":         {Depends: []string{"ui"}, Package: true, VMs: [][]string{{"wm-vm"}, {"wm-vm-apps", "wm-vm-share"}}, FreeDisk: true},
+	"login":      {Depends: []string{"wm"}, Package: true, VMs: [][]string{{"login-vm"}}},
 	"polkit":     {},
+}
+
+var testConfig = Config{
+	Components: testComponents,
+	GoJobs: map[Runner][][]Target{
+		X86_64:  {{target("ui/3")}, {target("ui/1"), target("ui/2"), target("lib:race")}, {target("lib:gates")}},
+		AArch64: {{target("lib"), target("ui")}},
+	},
+}
+
+func target(s string) Target {
+	t, err := parseTarget(s)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
 
 var testImports = map[string][]string{"ui": {"lib"}, "wm": {"lib"}, "login": {"lib", "ui"}, "polkit": {"lib"}}
@@ -140,74 +158,65 @@ func TestTheGoPackageIndexLeavesTheRestOfItsDirectoryShared(t *testing.T) {
 	}
 }
 
-func TestThePlanRunsEachComponentsGoGatesOnEveryRunnerAndItsRaceSuiteOnce(t *testing.T) {
-	p := plan(testComponents, []string{"lib", "polkit", "ui"})
+func TestAGoJobRunsItsAffectedTargetsAndOffTheRaceRunnerOnlyTheirGoGates(t *testing.T) {
+	p := plan(testConfig, []string{"lib", "ui"})
 	want := []Matrix{
-		{ID: "go-lib-x86-64", Name: "Go gates lib (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates lib", UserNS: true},
-		{ID: "race-lib-x86-64", Name: "race lib (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates lib", UserNS: true},
-		{ID: "go-ui-1-x86-64", Name: "Go gates ui 1/3 (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates ui/1", UserNS: true},
-		{ID: "go-ui-2-x86-64", Name: "Go gates ui 2/3 (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates ui/2", UserNS: true},
-		{ID: "go-ui-3-x86-64", Name: "Go gates ui 3/3 (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates ui/3", UserNS: true},
-		{ID: "go-lib-aarch64", Name: "Go gates lib (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates lib", UserNS: true},
-		{ID: "go-ui-1-aarch64", Name: "Go gates ui 1/3 (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates ui/1", UserNS: true},
-		{ID: "go-ui-2-aarch64", Name: "Go gates ui 2/3 (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates ui/2", UserNS: true},
-		{ID: "go-ui-3-aarch64", Name: "Go gates ui 3/3 (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates ui/3", UserNS: true},
 		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
+		{ID: "go-ui-3-x86-64", Name: "Go ui/3 (x86_64)", Runner: "ubuntu-latest", Run: "just gates ui/3", UserNS: true},
+		{ID: "go-ui-1-ui-2-lib-race-x86-64", Name: "Go ui/1 ui/2 lib:race (x86_64)", Runner: "ubuntu-latest", Run: "just gates ui/1 ui/2 lib:race", UserNS: true},
+		{ID: "go-lib-gates-x86-64", Name: "Go lib:gates (x86_64)", Runner: "ubuntu-latest", Run: "just gates lib:gates", UserNS: true},
+		{ID: "go-lib-ui-aarch64", Name: "Go lib:gates ui:gates (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just gates lib:gates ui:gates", UserNS: true},
 	}
 	if !slices.Equal(p.Jobs, want) {
 		t.Fatalf("jobs\n%+v\nwant\n%+v", p.Jobs, want)
 	}
 }
 
-func TestShardsSplitOnlyTheTestGateAndTheRaceSuite(t *testing.T) {
-	components := map[string]Component{"shell": {Gates: []string{"vet", "lint"}, Race: true, Shards: [][]string{{"./bar"}}}}
-	p := plan(components, []string{"shell"})
+func TestAGoJobKeepsItsIDAndCacheWhenOnlyPartOfItIsAffected(t *testing.T) {
+	p := plan(testConfig, []string{"lib"})
 	want := []Matrix{
-		{ID: "go-shell-x86-64", Name: "Go gates shell (x86_64)", Runner: "ubuntu-latest", Run: "just go-gates shell", UserNS: true},
-		{ID: "race-shell-1-x86-64", Name: "race shell 1/2 (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates shell/1", UserNS: true},
-		{ID: "race-shell-2-x86-64", Name: "race shell 2/2 (x86_64)", Runner: "ubuntu-latest", Run: "just race-gates shell/2", UserNS: true},
-		{ID: "go-shell-aarch64", Name: "Go gates shell (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just go-gates shell", UserNS: true},
+		{ID: "go-ui-1-ui-2-lib-race-x86-64", Name: "Go lib:race (x86_64)", Runner: "ubuntu-latest", Run: "just gates lib:race", UserNS: true},
+		{ID: "go-lib-gates-x86-64", Name: "Go lib:gates (x86_64)", Runner: "ubuntu-latest", Run: "just gates lib:gates", UserNS: true},
+		{ID: "go-lib-ui-aarch64", Name: "Go lib:gates (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just gates lib:gates", UserNS: true},
 	}
 	if !slices.Equal(p.Jobs, want) {
 		t.Fatalf("jobs\n%+v\nwant\n%+v", p.Jobs, want)
 	}
 }
 
-func TestEachVMCheckRunsInItsOwnJobOnTheBuildStagesClosures(t *testing.T) {
-	p := plan(testComponents, []string{"login", "wm"})
+func TestEachVMJobRunsItsGroupOfChecksAheadOfEveryOtherJob(t *testing.T) {
+	p := plan(testConfig, []string{"login", "ui", "wm"})
 	if !slices.Equal(p.Packages, []string{"login", "wm"}) {
 		t.Errorf("packages %v, want login and wm", p.Packages)
 	}
 	want := []Matrix{
+		{ID: "login-vm-x86-64", Name: "login-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks login-vm", KVM: true},
 		{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true, FreeDisk: true},
-		{ID: "wm-vm-apps-x86-64", Name: "wm-vm-apps (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps", KVM: true, FreeDisk: true},
+		{ID: "wm-vm-apps-wm-vm-share-x86-64", Name: "wm-vm-apps + wm-vm-share (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps wm-vm-share", KVM: true, FreeDisk: true},
+		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
 	}
-	if !slices.Equal(p.Jobs, want) {
-		t.Fatalf("jobs %+v, want %+v", p.Jobs, want)
-	}
-	builds := []Matrix{{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps", FreeDisk: true}}
-	if !slices.Equal(p.Builds, builds) {
-		t.Fatalf("builds %+v, want %+v", p.Builds, builds)
+	if len(p.Jobs) < len(want) || !slices.Equal(p.Jobs[:len(want)], want) {
+		t.Fatalf("jobs\n%+v\nwant them to start with\n%+v", p.Jobs, want)
 	}
 }
 
-func TestEachGatedComponentBuildsOnEveryRunnerOnItsOwn(t *testing.T) {
-	p := plan(testComponents, []string{"lib", "ui"})
+func TestComponentsWithVMChecksBuildAloneAndTheRestTogether(t *testing.T) {
+	p := plan(testConfig, []string{"lib", "login", "ui", "wm"})
 	want := []Matrix{
-		{ID: "build-lib-x86-64", Name: "lib (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage lib"},
-		{ID: "build-ui-x86-64", Name: "ui (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage ui"},
-		{ID: "build-lib-aarch64", Name: "lib (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-stage lib"},
-		{ID: "build-ui-aarch64", Name: "ui (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-stage ui"},
+		{ID: "build-login-x86-64", Name: "login (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage login login-vm"},
+		{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps wm-vm-share", FreeDisk: true},
+		{ID: "build-lib-ui-x86-64", Name: "lib ui (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage lib ui"},
+		{ID: "build-lib-ui-aarch64", Name: "lib ui (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-stage lib ui"},
 	}
 	if !slices.Equal(p.Builds, want) {
-		t.Fatalf("builds %+v, want %+v", p.Builds, want)
+		t.Fatalf("builds\n%+v\nwant\n%+v", p.Builds, want)
 	}
 }
 
 func TestAComponentWithNothingToBuildHasNoBuild(t *testing.T) {
-	p := plan(testComponents, []string{"login", "polkit", "repository"})
+	p := plan(testConfig, []string{"polkit", "repository"})
 	if len(p.Builds) != 0 {
-		t.Fatalf("login, polkit and repository have no gates or VM checks, yet the plan builds %+v", p.Builds)
+		t.Fatalf("polkit and repository have no Go suites or VM checks, yet the plan builds %+v", p.Builds)
 	}
 	if len(p.Jobs) != 1 || p.Jobs[0].Run != "just tidy-check" {
 		t.Fatalf("jobs %+v, want only the repository's", p.Jobs)
@@ -215,48 +224,140 @@ func TestAComponentWithNothingToBuildHasNoBuild(t *testing.T) {
 }
 
 func TestAPlanWithoutJobsBuildsNothing(t *testing.T) {
-	if p := plan(testComponents, []string{"polkit"}); len(p.Builds) != 0 || len(p.Jobs) != 0 {
+	if p := plan(testConfig, []string{"polkit"}); len(p.Builds) != 0 || len(p.Jobs) != 0 {
 		t.Fatalf("polkit has no jobs, yet the plan builds %+v and runs %+v", p.Builds, p.Jobs)
 	}
 }
 
 func TestAnEmptyPlanIsEmptyListsNotNull(t *testing.T) {
-	p := plan(testComponents, nil)
+	p := plan(testConfig, nil)
 	if p.Jobs == nil || p.Packages == nil || p.Builds == nil {
 		t.Fatalf("an empty plan has nil lists, which GitHub reads as null: %+v", p)
 	}
 }
 
-func TestValidateRefusesUnknownNames(t *testing.T) {
-	bad := map[string]Component{
-		"wm": {Depends: []string{"wn"}, VMs: []string{"login-vm"}, Jobs: []Job{
-			{Name: "x", Runners: []Runner{"riscv"}, Run: "true"},
-			{Name: "", Runners: []Runner{X86_64}, Run: "true"},
-			{Name: "idle", Runners: []Runner{X86_64}},
-			{Name: "nowhere", Run: "true"},
-		}},
-		"ui":    {FreeDisk: true},
-		"shell": {Gates: []string{"test"}, Shards: [][]string{{"./bar", "./..."}, {}, {"bar", "./bar"}}},
-		"lib":   {Gates: []string{"vet"}, Shards: [][]string{{"./xkb"}}},
-	}
-	err := validate(bad)
+func wantErrors(t *testing.T, err error, wants []string) {
+	t.Helper()
 	if err == nil {
-		t.Fatal("validate accepted an unknown dependency, runner, an unnamed job and a foreign VM check")
+		t.Fatal("validate accepted the configuration")
 	}
-	for _, want := range []string{
-		`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`, "ui frees disk for VM checks it does not have",
-		`shell shard 1 names "./...", which is no package directory`, "shell shard 2 names no packages",
-		`shell shard 3 names "bar", which is no package directory`, `shell names "./bar" in two shards`, "lib has shards but neither a test gate nor a race suite",
-	} {
+	for _, want := range wants {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %s", err, want)
 		}
 	}
 }
 
+func TestValidateRefusesUnknownNames(t *testing.T) {
+	bad := map[string]Component{
+		"wm": {Depends: []string{"wn"}, VMs: [][]string{{"login-vm"}, {}}, Jobs: []Job{
+			{Name: "x", Runners: []Runner{"riscv"}, Run: "true"},
+			{Name: "", Runners: []Runner{X86_64}, Run: "true"},
+			{Name: "idle", Runners: []Runner{X86_64}},
+			{Name: "nowhere", Run: "true"},
+		}},
+		"ui":    {FreeDisk: true},
+		"shell": {Shards: [][]string{{"./bar", "./..."}, {}, {"bar", "./bar"}}, Race: true},
+		"lib":   {Shards: [][]string{{"./xkb"}}},
+	}
+	wantErrors(t, validate(Config{Components: bad}), []string{
+		`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`,
+		"wm's VM job 2 runs no VM check", "ui frees disk for VM checks it does not have",
+		`shell shard 1 names "./...", which is no package directory`, "shell shard 2 names no packages",
+		`shell shard 3 names "bar", which is no package directory`, `shell names "./bar" in two shards`, "lib has shards but neither a test gate nor a race suite",
+	})
+}
+
+func TestValidateRefusesGoJobsThatDoNotRunEverySuiteExactlyOnce(t *testing.T) {
+	cfg := Config{
+		Components: map[string]Component{
+			"a": {Gates: []string{"test"}, Race: true, Shards: [][]string{{"./x"}}},
+			"b": {Gates: []string{"vet"}},
+			"c": {Race: true},
+			"d": {Gates: []string{"test"}, Shards: [][]string{{"./y"}}},
+		},
+		GoJobs: map[Runner][][]Target{
+			X86_64:  {{target("a/1"), target("a")}, {target("b:race")}, {target("nope")}, {target("b/2")}, {}, {target("d")}},
+			AArch64: {{target("a/2:gates")}, {target("a:race")}, {target("c")}, {target("d")}},
+			"riscv": {{target("b")}},
+		},
+	}
+	wantErrors(t, validate(cfg), []string{
+		"a's gates suite runs on x86_64 as a/1, a, not once whole or once in each of its parts 1 to 2",
+		"go-jobs on x86_64 names b:race, but b runs no such suite on x86_64",
+		"go-jobs on x86_64 names nope, which is no component",
+		"go-jobs on x86_64 names b/2, but b has no parts",
+		"go-jobs job 5 on x86_64 names no target",
+		"b's gates suite runs in no Go job on x86_64",
+		"c's race suite runs in no Go job on x86_64",
+		"a's gates suite runs on aarch64 as a/2:gates, not once whole or once in each of its parts 1 to 2",
+		"go-jobs on aarch64 names a:race, but a runs no such suite on aarch64",
+		"go-jobs on aarch64 names c, but c runs no such suite on aarch64",
+		"b's gates suite runs in no Go job on aarch64",
+		`go-jobs runs on "riscv", which is no runner`,
+		"d has shards, but no Go job runs one of its parts",
+	})
+}
+
+func TestValidateAcceptsAComponentRunWholeOnOneSuiteAndInPartsOnAnother(t *testing.T) {
+	cfg := Config{
+		Components: map[string]Component{"a": {Gates: []string{"test"}, Race: true, Shards: [][]string{{"./x"}}}},
+		GoJobs: map[Runner][][]Target{
+			X86_64:  {{target("a:gates"), target("a/1:race")}, {target("a/2:race")}},
+			AArch64: {{target("a/1")}, {target("a/2")}},
+		},
+	}
+	if err := validate(cfg); err != nil {
+		t.Fatalf("validate refused a well-formed split: %v", err)
+	}
+}
+
 func TestValidateAcceptsWellFormedJobs(t *testing.T) {
-	if err := validate(testComponents); err != nil {
-		t.Fatalf("validate refused the test components: %v", err)
+	if err := validate(testConfig); err != nil {
+		t.Fatalf("validate refused the test configuration: %v", err)
+	}
+}
+
+func TestATargetNamesAComponentAndOptionallyAPartAndASuite(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want Target
+	}{
+		{"wm", Target{Component: "wm"}},
+		{"wm/12", Target{Component: "wm", Part: 12}},
+		{"wm:race", Target{Component: "wm", Suite: Race}},
+		{"wm/2:gates", Target{Component: "wm", Part: 2, Suite: GoGates}},
+	} {
+		got, err := parseTarget(tc.in)
+		if err != nil || got != tc.want || got.String() != tc.in {
+			t.Errorf("parseTarget(%q) = %+v, %v; want %+v printing as itself", tc.in, got, err, tc.want)
+		}
+	}
+	for _, tc := range []struct{ in, want string }{
+		{":race", "names no component"},
+		{"wm/0", `part "0"`},
+		{"wm/02", `part "02"`},
+		{"wm/x", `part "x"`},
+		{"wm:lint", `the suite "lint"`},
+	} {
+		if _, err := parseTarget(tc.in); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("parseTarget(%q) = %v, want an error naming %s", tc.in, err, tc.want)
+		}
+	}
+}
+
+func TestGoJobsDecodeTheirTargetsWhenTheConfigurationLoads(t *testing.T) {
+	var cfg Config
+	if err := json.Unmarshal([]byte(`{"go-jobs": {"x86_64": [["wm/2:race", "lib"]]}}`), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := cfg.GoJobs[X86_64], [][]Target{{{Component: "wm", Part: 2, Suite: Race}, {Component: "lib"}}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("go-jobs %+v, want %+v", got, want)
+	}
+	for _, bad := range []string{`{"go-jobs": {"x86_64": [[3]]}}`, `{"go-jobs": {"x86_64": [["wm:lint"]]}}`} {
+		if err := json.Unmarshal([]byte(bad), &cfg); err == nil {
+			t.Errorf("%s decoded", bad)
+		}
 	}
 }
 
@@ -272,10 +373,11 @@ func TestImportsOfMapsPackagesAndTestsToComponents(t *testing.T) {
 }
 
 func TestTheRepositorysComponentsAreValid(t *testing.T) {
-	components, err := load(filepath.Join("..", "components.json"))
+	cfg, err := load(filepath.Join("..", "components.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	components := cfg.Components
 	entries, err := os.ReadDir(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -290,10 +392,11 @@ func TestTheRepositorysComponentsAreValid(t *testing.T) {
 }
 
 func TestEveryShardNamesTestedPackagesOfItsComponent(t *testing.T) {
-	components, err := load(filepath.Join("..", "components.json"))
+	cfg, err := load(filepath.Join("..", "components.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	components := cfg.Components
 	for _, name := range slices.Sorted(maps.Keys(components)) {
 		for _, shard := range components[name].Shards {
 			for _, pattern := range shard {
@@ -328,10 +431,11 @@ func testFilesUnder(dir string) ([]string, error) {
 }
 
 func TestEveryShardedRecipeTestsTheShardsPackages(t *testing.T) {
-	components, err := load(filepath.Join("..", "components.json"))
+	cfg, err := load(filepath.Join("..", "components.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	components := cfg.Components
 	for _, name := range slices.Sorted(maps.Keys(components)) {
 		c := components[name]
 		if len(c.Shards) == 0 {
@@ -400,10 +504,11 @@ func recipesOf(justfile string) []string {
 }
 
 func TestEveryGateIsARecipeOfItsComponent(t *testing.T) {
-	components, err := load(filepath.Join("..", "components.json"))
+	cfg, err := load(filepath.Join("..", "components.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	components := cfg.Components
 	for _, name := range slices.Sorted(maps.Keys(components)) {
 		c := components[name]
 		want := slices.Clone(c.Gates)

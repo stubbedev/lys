@@ -7,6 +7,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -21,9 +22,19 @@ var runners = []Runner{X86_64, AArch64}
 
 var runnerLabels = map[Runner]string{X86_64: "ubuntu-latest", AArch64: "ubuntu-24.04-arm"}
 
-const vmRunner = X86_64
+const (
+	vmRunner   = X86_64
+	raceRunner = X86_64
+)
 
 const shardedGate = "test"
+
+type Suite string
+
+const (
+	GoGates Suite = "gates"
+	Race    Suite = "race"
+)
 
 type Job struct {
 	Name    string   `json:"name"`
@@ -40,9 +51,20 @@ type Component struct {
 	Gates      []string   `json:"gates"`
 	Race       bool       `json:"race"`
 	Jobs       []Job      `json:"jobs"`
-	VMs        []string   `json:"vms"`
+	VMs        [][]string `json:"vms"`
 	FreeDisk   bool       `json:"free-disk"`
 	Shards     [][]string `json:"shards"`
+}
+
+type Target struct {
+	Component string
+	Part      int
+	Suite     Suite
+}
+
+type Config struct {
+	Components map[string]Component  `json:"components"`
+	GoJobs     map[Runner][][]Target `json:"go-jobs"`
 }
 
 type Matrix struct {
@@ -62,12 +84,86 @@ type Plan struct {
 	Packages   []string `json:"packages"`
 }
 
-func validate(components map[string]Component) error {
+func (t *Target) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("a Go job target is a string like wm/2:race, not %s: %w", data, err)
+	}
+	parsed, err := parseTarget(s)
+	if err != nil {
+		return err
+	}
+	*t = parsed
+	return nil
+}
+
+func parseTarget(s string) (Target, error) {
+	rest, suite, hasSuite := strings.Cut(s, ":")
+	name, part, hasPart := strings.Cut(rest, "/")
+	if name == "" {
+		return Target{}, fmt.Errorf("the Go job target %q names no component", s)
+	}
+	t := Target{Component: name}
+	if hasPart {
+		n, err := strconv.Atoi(part)
+		if err != nil || n < 1 || strconv.Itoa(n) != part {
+			return Target{}, fmt.Errorf("the Go job target %q names part %q, which is no number from 1 up", s, part)
+		}
+		t.Part = n
+	}
+	if hasSuite {
+		switch Suite(suite) {
+		case GoGates, Race:
+			t.Suite = Suite(suite)
+		default:
+			return Target{}, fmt.Errorf("the Go job target %q names the suite %q, which is neither %s nor %s", s, suite, GoGates, Race)
+		}
+	}
+	return t, nil
+}
+
+func (t Target) String() string {
+	s := t.Component
+	if t.Part > 0 {
+		s += "/" + strconv.Itoa(t.Part)
+	}
+	if t.Suite != "" {
+		s += ":" + string(t.Suite)
+	}
+	return s
+}
+
+func (t Target) on(r Runner) Target {
+	if t.Suite == "" && r != raceRunner {
+		t.Suite = GoGates
+	}
+	return t
+}
+
+func (c Component) suites(r Runner) []Suite {
+	var s []Suite
+	if len(c.Gates) > 0 {
+		s = append(s, GoGates)
+	}
+	if c.Race && r == raceRunner {
+		s = append(s, Race)
+	}
+	return s
+}
+
+func (c Component) vmChecks(r Runner) []string {
+	if r != vmRunner {
+		return nil
+	}
+	return slices.Concat(c.VMs...)
+}
+
+func validate(cfg Config) error {
 	var errs []error
-	for _, name := range slices.Sorted(maps.Keys(components)) {
-		c := components[name]
+	for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
+		c := cfg.Components[name]
 		for _, dep := range c.Depends {
-			if _, ok := components[dep]; !ok {
+			if _, ok := cfg.Components[dep]; !ok {
 				errs = append(errs, fmt.Errorf("%s depends on %q, which is no component", name, dep))
 			}
 		}
@@ -87,9 +183,14 @@ func validate(components map[string]Component) error {
 				}
 			}
 		}
-		for _, vm := range c.VMs {
-			if !strings.HasPrefix(vm, name+"-") {
-				errs = append(errs, fmt.Errorf("%s runs VM check %q, which is not %s's", name, vm, name))
+		for i, group := range c.VMs {
+			if len(group) == 0 {
+				errs = append(errs, fmt.Errorf("%s's VM job %d runs no VM check", name, i+1))
+			}
+			for _, vm := range group {
+				if !strings.HasPrefix(vm, name+"-") {
+					errs = append(errs, fmt.Errorf("%s runs VM check %q, which is not %s's", name, vm, name))
+				}
 			}
 		}
 		if c.FreeDisk && len(c.VMs) == 0 {
@@ -97,6 +198,7 @@ func validate(components map[string]Component) error {
 		}
 		errs = append(errs, validateShards(name, c)...)
 	}
+	errs = append(errs, validateGoJobs(cfg)...)
 	return errors.Join(errs...)
 }
 
@@ -124,6 +226,98 @@ func validateShards(name string, c Component) []error {
 		}
 	}
 	return errs
+}
+
+type suiteOf struct {
+	component string
+	suite     Suite
+}
+
+func validateGoJobs(cfg Config) []error {
+	var errs []error
+	for _, r := range slices.Sorted(maps.Keys(cfg.GoJobs)) {
+		if _, ok := runnerLabels[r]; !ok {
+			errs = append(errs, fmt.Errorf("go-jobs runs on %q, which is no runner", r))
+		}
+	}
+	split := map[string]bool{}
+	for _, r := range runners {
+		covered := map[suiteOf][]Target{}
+		for i, job := range cfg.GoJobs[r] {
+			if len(job) == 0 {
+				errs = append(errs, fmt.Errorf("go-jobs job %d on %s names no target", i+1, r))
+			}
+			for _, t := range job {
+				c, ok := cfg.Components[t.Component]
+				if !ok {
+					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, which is no component", r, t))
+					continue
+				}
+				if t.Part > len(c.Shards)+1 || t.Part > 0 && len(c.Shards) == 0 {
+					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s has %s", r, t, t.Component, partsOf(c)))
+					continue
+				}
+				have := c.suites(r)
+				if t.Suite != "" && !slices.Contains(have, t.Suite) || len(have) == 0 {
+					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s runs no such suite on %s", r, t, t.Component, r))
+					continue
+				}
+				if t.Part > 0 {
+					split[t.Component] = true
+				}
+				for _, s := range have {
+					if t.Suite == "" || t.Suite == s {
+						covered[suiteOf{t.Component, s}] = append(covered[suiteOf{t.Component, s}], t)
+					}
+				}
+			}
+		}
+		for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
+			c := cfg.Components[name]
+			for _, s := range c.suites(r) {
+				if err := coverage(r, name, s, c, covered[suiteOf{name, s}]); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
+		if len(cfg.Components[name].Shards) > 0 && !split[name] {
+			errs = append(errs, fmt.Errorf("%s has shards, but no Go job runs one of its parts", name))
+		}
+	}
+	return errs
+}
+
+func coverage(r Runner, name string, s Suite, c Component, targets []Target) error {
+	parts := make([]int, len(targets))
+	for i, t := range targets {
+		parts[i] = t.Part
+	}
+	slices.Sort(parts)
+	whole := []int{0}
+	every := make([]int, len(c.Shards)+1)
+	for i := range every {
+		every[i] = i + 1
+	}
+	if slices.Equal(parts, whole) || len(c.Shards) > 0 && slices.Equal(parts, every) {
+		return nil
+	}
+	if len(targets) == 0 {
+		return fmt.Errorf("%s's %s suite runs in no Go job on %s", name, s, r)
+	}
+	names := make([]string, len(targets))
+	for i, t := range targets {
+		names[i] = t.String()
+	}
+	return fmt.Errorf("%s's %s suite runs on %s as %s, not once whole or once in each of its %s", name, s, r, strings.Join(names, ", "), partsOf(c))
+}
+
+func partsOf(c Component) string {
+	if len(c.Shards) == 0 {
+		return "no parts"
+	}
+	return fmt.Sprintf("parts 1 to %d", len(c.Shards)+1)
 }
 
 func owns(name string, c Component, file string) bool {
@@ -199,76 +393,81 @@ func matches(path, file string) bool {
 	return file == path
 }
 
-func plan(components map[string]Component, names []string) Plan {
+func plan(cfg Config, names []string) Plan {
 	p := Plan{Components: names, Builds: []Matrix{}, Jobs: []Matrix{}, Packages: []string{}}
 	for _, name := range names {
-		if components[name].Package {
+		c := cfg.Components[name]
+		if c.Package {
 			p.Packages = append(p.Packages, name)
 		}
-	}
-	for _, r := range runners {
-		for _, name := range names {
-			c := components[name]
-			if len(c.Gates) > 0 {
-				p.Jobs = append(p.Jobs, gateJobs("go", "Go gates", "go-gates", name, c, slices.Contains(c.Gates, shardedGate), r)...)
-			}
-			if r == X86_64 && c.Race {
-				p.Jobs = append(p.Jobs, gateJobs("race", "race", "race-gates", name, c, true, r)...)
-			}
-		}
-	}
-	for _, name := range names {
-		c := components[name]
-		for _, j := range c.Jobs {
-			for _, r := range j.Runners {
-				p.Jobs = append(p.Jobs, matrix(name+"-"+j.Name, name+" / "+j.Name, r, j.Run))
-			}
-		}
-		for _, vm := range c.VMs {
-			m := matrix(vm, vm, vmRunner, "just vm-checks "+vm)
+		for _, group := range c.VMs {
+			m := matrix(strings.Join(group, " "), strings.Join(group, " + "), vmRunner, "just vm-checks "+strings.Join(group, " "))
 			m.KVM, m.FreeDisk = true, c.FreeDisk
 			p.Jobs = append(p.Jobs, m)
 		}
 	}
-	for _, r := range runners {
-		for _, name := range names {
-			if b, ok := build(name, components[name], r); ok {
-				p.Builds = append(p.Builds, b)
+	for _, name := range names {
+		for _, j := range cfg.Components[name].Jobs {
+			for _, r := range j.Runners {
+				p.Jobs = append(p.Jobs, matrix(name+"-"+j.Name, name+" / "+j.Name, r, j.Run))
 			}
 		}
+	}
+	for _, r := range runners {
+		for _, job := range cfg.GoJobs[r] {
+			if m, ok := goJob(job, names, r); ok {
+				p.Jobs = append(p.Jobs, m)
+			}
+		}
+	}
+	for _, r := range runners {
+		p.Builds = append(p.Builds, builds(cfg.Components, names, r)...)
 	}
 	return p
 }
 
-func build(name string, c Component, r Runner) (Matrix, bool) {
-	var vms []string
-	if r == vmRunner {
-		vms = c.VMs
+func goJob(job []Target, names []string, r Runner) (Matrix, bool) {
+	var run []string
+	for _, t := range job {
+		if slices.Contains(names, t.Component) {
+			run = append(run, t.on(r).String())
+		}
 	}
-	if len(c.Gates) == 0 && len(vms) == 0 {
+	if len(run) == 0 {
 		return Matrix{}, false
 	}
-	m := matrix("build-"+name, name, r, strings.Join(append([]string{"just build-stage", name}, vms...), " "))
-	m.FreeDisk = len(vms) > 0
+	all := make([]string, len(job))
+	for i, t := range job {
+		all[i] = t.String()
+	}
+	m := matrix("go "+strings.Join(all, " "), "Go "+strings.Join(run, " "), r, "just gates "+strings.Join(run, " "))
+	m.UserNS = true
 	return m, true
 }
 
-func gateJobs(id, title, recipe, name string, c Component, sharded bool, r Runner) []Matrix {
-	if !sharded || len(c.Shards) == 0 {
-		return []Matrix{userNS(matrix(id+"-"+name, title+" "+name, r, "just "+recipe+" "+name))}
+func builds(components map[string]Component, names []string, r Runner) []Matrix {
+	var out []Matrix
+	var shared []string
+	for _, name := range names {
+		c := components[name]
+		if vms := c.vmChecks(r); len(vms) > 0 {
+			m := build([]string{name}, vms, r)
+			m.FreeDisk = c.FreeDisk
+			out = append(out, m)
+			continue
+		}
+		if len(c.suites(r)) > 0 {
+			shared = append(shared, name)
+		}
 	}
-	parts := len(c.Shards) + 1
-	jobs := make([]Matrix, 0, parts)
-	for part := 1; part <= parts; part++ {
-		target := fmt.Sprintf("%s/%d", name, part)
-		jobs = append(jobs, userNS(matrix(id+"-"+target, fmt.Sprintf("%s %s %d/%d", title, name, part, parts), r, "just "+recipe+" "+target)))
+	if len(shared) > 0 {
+		out = append(out, build(shared, nil, r))
 	}
-	return jobs
+	return out
 }
 
-func userNS(m Matrix) Matrix {
-	m.UserNS = true
-	return m
+func build(components, vms []string, r Runner) Matrix {
+	return matrix("build "+strings.Join(components, " "), strings.Join(components, " "), r, "just build-stage "+strings.Join(slices.Concat(components, vms), " "))
 }
 
 func matrix(id, name string, r Runner, run string) Matrix {

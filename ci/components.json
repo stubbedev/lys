@@ -1,131 +1,156 @@
 {
-  "repository": {
-    "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml", ".github/workflows/package.yml"],
-    "go-packages": "nix/go-packages.json",
-    "affects-all": true,
-    "jobs": [
-      {
-        "name": "tidy, flake and CI planner",
-        "runners": ["x86_64"],
-        "run": "just repository-check"
-      }
-    ]
+  "components": {
+    "repository": {
+      "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml", ".github/workflows/package.yml"],
+      "go-packages": "nix/go-packages.json",
+      "affects-all": true,
+      "jobs": [
+        {
+          "name": "tidy, flake and CI planner",
+          "runners": ["x86_64"],
+          "run": "just repository-check"
+        }
+      ]
+    },
+    "packaging": {},
+    "lib": {
+      "paths": ["docs/lib/xkb.md"],
+      "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build"],
+      "race": true,
+      "jobs": [
+        {
+          "name": "GPU and headless",
+          "runners": ["x86_64"],
+          "run": "just in lib gpu headless"
+        }
+      ]
+    },
+    "ui": {
+      "paths": ["docs/ui/css.md"],
+      "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "test-lysdebug", "atspi", "atspi-verify"],
+      "race": true,
+      "jobs": [
+        {
+          "name": "GPU and headless",
+          "runners": ["x86_64"],
+          "run": "just in ui gpu headless"
+        }
+      ]
+    },
+    "desktop": {
+      "gates": ["vet", "lint", "no-fused", "test", "build"],
+      "race": true
+    },
+    "wm": {
+      "depends": ["ui", "packaging"],
+      "paths": ["docs/wm/actions.md", "docs/wm/shaders/"],
+      "package": true,
+      "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "vuln"],
+      "race": true,
+      "shards": [["./cmd/lys-wm"], ["./internal/compositor"], ["./internal/harness"]],
+      "jobs": [
+        {
+          "name": "pacing, GLES",
+          "runners": ["x86_64"],
+          "run": "just in wm pace-gate gles"
+        },
+        {
+          "name": "pacing, Vulkan",
+          "runners": ["x86_64"],
+          "run": "just in wm pace-gate vulkan"
+        }
+      ],
+      "vms": [
+        ["wm-vms-desktop"],
+        ["wm-vms-go-tests"],
+        ["wm-vms-share"],
+        ["wm-vms-gpus"],
+        ["wm-vms-vkms"]
+      ]
+    },
+    "shell": {
+      "depends": ["wm", "login", "secrets", "settings", "packaging"],
+      "paths": ["docs/shell/config/"],
+      "package": true,
+      "gates": ["vet", "lint", "no-fused", "test", "schema-check", "dist"],
+      "race": true,
+      "shards": [
+        ["./shell/bar", "./shell/dialogsurface", "./cava"],
+        ["./shell/filechooser", "./shell/launcher", "./service/recorder", "./cmd/lys-shell"]
+      ],
+      "vms": [["shell-hyprland-vms"]]
+    },
+    "login": {
+      "depends": ["wm", "secrets", "packaging"],
+      "package": true,
+      "gates": ["vet", "lint", "no-fused", "test", "build"],
+      "race": true,
+      "vms": [
+        ["login-vms-autologin"],
+        ["login-vms-greeter"],
+        ["login-vms-sessions", "login-vms-greetd"]
+      ]
+    },
+    "settings": {
+      "depends": ["wm", "packaging"],
+      "package": true,
+      "gates": ["vet", "lint", "no-fused", "test", "build"],
+      "race": true
+    },
+    "polkit": {
+      "gates": ["vet", "lint", "test", "build"]
+    },
+    "power": {
+      "depends": ["packaging"],
+      "package": true,
+      "gates": ["vet", "lint", "test", "build"],
+      "race": true
+    },
+    "secrets": {
+      "depends": ["packaging"],
+      "package": true,
+      "gates": ["vet", "lint", "test", "build"],
+      "race": true
+    },
+    "splash": {
+      "depends": ["wm", "login"],
+      "gates": ["vet", "lint", "no-fused", "test", "build"],
+      "jobs": [
+        {
+          "name": "initramfs-tools image",
+          "runners": ["x86_64"],
+          "run": "just splash::initramfs-tools"
+        }
+      ],
+      "vms": [
+        ["splash-vms-luks", "splash-vms-firmware"],
+        ["splash-vms-greeter", "splash-vms-luks-headless"]
+      ],
+      "free-disk": true
+    },
+    "desktop-vms": {
+      "depends": ["lib", "polkit", "secrets", "settings", "shell"],
+      "vms": [["desktop-vms-session", "desktop-vms-system"]]
+    }
   },
-  "packaging": {},
-  "lib": {
-    "paths": ["docs/lib/xkb.md"],
-    "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build"],
-    "race": true,
-    "shards": [["./xkb"]],
-    "jobs": [
-      {
-        "name": "GPU",
-        "runners": ["x86_64"],
-        "run": "just in lib gpu"
-      },
-      {
-        "name": "headless",
-        "runners": ["x86_64"],
-        "run": "just in lib headless"
-      }
-    ]
-  },
-  "ui": {
-    "paths": ["docs/ui/css.md"],
-    "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "test-lysdebug", "atspi", "atspi-verify"],
-    "race": true,
-    "shards": [["./widget"]],
-    "jobs": [
-      {
-        "name": "GPU",
-        "runners": ["x86_64"],
-        "run": "just in ui gpu"
-      },
-      {
-        "name": "headless",
-        "runners": ["x86_64"],
-        "run": "just in ui headless"
-      }
-    ]
-  },
-  "desktop": {
-    "gates": ["vet", "lint", "no-fused", "test", "build"],
-    "race": true
-  },
-  "wm": {
-    "depends": ["ui", "packaging"],
-    "paths": ["docs/wm/actions.md", "docs/wm/shaders/"],
-    "package": true,
-    "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "vuln"],
-    "race": true,
-    "shards": [["./cmd/lys-wm"], ["./internal/compositor"], ["./internal/harness"]],
-    "jobs": [
-      {
-        "name": "pacing, GLES",
-        "runners": ["x86_64"],
-        "run": "just in wm pace-gate gles"
-      },
-      {
-        "name": "pacing, Vulkan",
-        "runners": ["x86_64"],
-        "run": "just in wm pace-gate vulkan"
-      }
+  "go-jobs": {
+    "x86_64": [
+      ["wm/3:race"],
+      ["wm/1:race", "wm/2:race", "wm/4:race"],
+      ["settings:race", "secrets:race"],
+      ["shell/1:race", "shell/2:race", "shell/2:gates"],
+      ["shell/3:race", "shell/1:gates"],
+      ["shell/3:gates", "login:gates"],
+      ["lib"],
+      ["settings:gates", "desktop"],
+      ["wm:gates", "splash", "polkit"],
+      ["ui:race", "login:race"],
+      ["ui:gates", "power", "secrets:gates"]
     ],
-    "vms": ["wm-vms-desktop", "wm-vms-go-tests", "wm-vms-gpus", "wm-vms-share", "wm-vms-vkms"]
-  },
-  "shell": {
-    "depends": ["wm", "login", "secrets", "settings", "packaging"],
-    "paths": ["docs/shell/config/"],
-    "package": true,
-    "gates": ["vet", "lint", "no-fused", "test", "schema-check", "dist"],
-    "race": true,
-    "shards": [["./shell/bar", "./shell/dialogsurface", "./cava"], ["./shell/filechooser", "./shell/launcher", "./service/recorder", "./cmd/lys-shell"]],
-    "vms": ["shell-hyprland-vms"]
-  },
-  "login": {
-    "depends": ["wm", "secrets", "packaging"],
-    "package": true,
-    "gates": ["vet", "lint", "no-fused", "test", "build"],
-    "race": true,
-    "vms": ["login-vms-autologin", "login-vms-greetd", "login-vms-greeter", "login-vms-sessions"]
-  },
-  "settings": {
-    "depends": ["wm", "packaging"],
-    "package": true,
-    "gates": ["vet", "lint", "no-fused", "test", "build"],
-    "race": true,
-    "shards": [["./internal/settings"]]
-  },
-  "polkit": {
-    "gates": ["vet", "lint", "test", "build"]
-  },
-  "power": {
-    "depends": ["packaging"],
-    "package": true,
-    "gates": ["vet", "lint", "test", "build"],
-    "race": true
-  },
-  "secrets": {
-    "depends": ["packaging"],
-    "package": true,
-    "gates": ["vet", "lint", "test", "build"],
-    "race": true
-  },
-  "splash": {
-    "depends": ["wm", "login"],
-    "gates": ["vet", "lint", "no-fused", "test", "build"],
-    "jobs": [
-      {
-        "name": "initramfs-tools image",
-        "runners": ["x86_64"],
-        "run": "just splash::initramfs-tools"
-      }
-    ],
-    "vms": ["splash-vms-firmware", "splash-vms-greeter", "splash-vms-luks", "splash-vms-luks-headless"],
-    "free-disk": true
-  },
-  "desktop-vms": {
-    "depends": ["lib", "polkit", "secrets", "settings", "shell"],
-    "vms": ["desktop-vms-session", "desktop-vms-system"]
+    "aarch64": [
+      ["shell", "ui"],
+      ["lib", "settings", "login", "secrets"],
+      ["wm", "polkit", "power", "splash", "desktop"]
+    ]
   }
 }
