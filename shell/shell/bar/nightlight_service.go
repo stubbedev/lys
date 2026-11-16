@@ -83,6 +83,7 @@ type nightlightService struct {
 
 	savedTemp uint32
 	saveErr   error
+	saves     uint64
 
 	enabled         bool
 	live            nightlight.Setting
@@ -490,16 +491,21 @@ func (s *nightlightService) setTemperature(kelvin uint32) error {
 	}
 	s.saveErr = nil
 	s.applyTemperature(kelvin, night)
-	s.ctx.setConfig(nightlightTemperaturePath, int64(kelvin), func(err error) { s.temperatureSaved(kelvin, err) })
+	s.saves++
+	save := s.saves
+	s.ctx.setConfig(nightlightTemperaturePath, int64(kelvin), func(err error) { s.temperatureSaved(save, kelvin, err) })
 	return nil
 }
 
-func (s *nightlightService) temperatureSaved(kelvin uint32, err error) {
+func (s *nightlightService) temperatureSaved(save uint64, kelvin uint32, err error) {
 	if err == nil {
 		s.savedTemp = kelvin
 		return
 	}
 	log.Print(err)
+	if save != s.saves {
+		return
+	}
 	s.saveErr = err
 	if s.cfg.Temperature != kelvin || s.savedTemp == kelvin {
 		s.notify()

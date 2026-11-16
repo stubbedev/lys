@@ -311,3 +311,22 @@ func TestNightlightModuleNeedsTheShellsNightLight(t *testing.T) {
 		t.Errorf("err = %v, want why the night light is unavailable", err)
 	}
 }
+
+func TestAnOlderFailedSaveOfTheSameStrengthDoesNotUndoANewerOne(t *testing.T) {
+	fake := &fakeSunset{clock: sunsetDay}
+	d := newNightlightDropdown(t, sunsetConfig(false), fake.env(t))
+	onHeadlessLoop(func() bool { d.card.toggle.SetOn(true); return true })
+	full := errors.New("config: save: no space left on device")
+	onHeadlessLoop(func() bool {
+		*d.saveFail = full
+		d.card.committed(3200)
+		*d.saveFail = nil
+		d.card.committed(3200)
+		return true
+	})
+	waitHeadless(t, "the newer save recorded", func() bool { return d.svc.savedTemp == 3200 })
+	got, failure, applied := onHeadlessLoop(d.card.slider.Value), onHeadlessLoop(d.failure), onHeadlessLoop(func() int { return fake.applied.Temp() })
+	if got != 3200 || failure != "" || applied != 3200 {
+		t.Errorf("after an older failed and a newer saved write of 3200K: slider %v error %q display %dK, want 3200K and no error", got, failure, applied)
+	}
+}
