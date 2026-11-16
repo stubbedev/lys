@@ -83,9 +83,9 @@ def session_started(scenario):
     machine.succeed(f"journalctl -b --no-pager -t lys-wm | grep 'rendering on {scenario['renders_on']},'")
     machine.fail("journalctl -b --no-pager -t lys-wm | grep CREATE_DUMB")
     if scenario["sole_compositor"]:
+        machine.wait_until_succeeds("[ \"$(pgrep -cx lys-wm)\" = 1 ] && ls -l /proc/$(pgrep -x lys-wm)/fd | grep -q /dev/dri/card", timeout=60)
         compositor = machine.succeed("pgrep -x lys-wm").split()
         assert len(compositor) == 1, f"a session without --holder runs {compositor}"
-        machine.succeed(f"ls -l /proc/{compositor[0]}/fd | grep -q /dev/dri/card")
         status, refusal = machine.execute(f"{as_alice('lys-wmctl upgrade /run/current-system/sw/bin/lys-wm')} 2>&1")
         assert status != 0 and "--holder" in refusal, f"an upgrade without a holder: {refusal}"
     got = sorted(machine.succeed(f"{outputs} | jq -r '.[].name'").split())
