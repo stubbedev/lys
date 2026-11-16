@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -493,17 +494,17 @@ func TestBtPairingDisplayRequests(t *testing.T) {
 	st.Pairing = bluetooth.DisplayPasskey{Device: pathHeadset, Passkey: 7, Entered: 2}
 	d, src := newTestBtDropdown(t, st)
 	c := d.card
-	if visible(c.right) || c.leftLabel.Text() != "Cancel" {
+	if visible(c.right) || c.leftLabel.Text() != i18n.T("dropdown-bluetooth-cancel") {
 		t.Error("a display request offers a confirm")
 	}
-	if plain(c.progress.Text()) != "2 of 6 digits entered" || c.pinCode[2].Text() != "000007" {
+	if c.progress.Text() != i18n.T("dropdown-bluetooth-pairing-entering", i18n.Int("entered", 2), i18n.Int("total", passkeyTotal)) || c.pinCode[2].Text() != "000007" {
 		t.Errorf("progress %q code %q", c.progress.Text(), c.pinCode[2].Text())
 	}
 	// The typing progress updates in place.
 	st.Pairing = bluetooth.DisplayPasskey{Device: pathHeadset, Passkey: 7, Entered: 5}
 	src.setState(st)
 	d.sync()
-	if plain(c.progress.Text()) != "5 of 6 digits entered" {
+	if c.progress.Text() != i18n.T("dropdown-bluetooth-pairing-entering", i18n.Int("entered", 5), i18n.Int("total", passkeyTotal)) {
 		t.Errorf("progress = %q", c.progress.Text())
 	}
 	// BlueZ withdrawing it clears the card.

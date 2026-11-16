@@ -1193,12 +1193,13 @@ func TestNetworkRefusedSwitchAndDisconnectShowWhy(t *testing.T) {
 	settleNetReads(t, v)
 	onHeadlessLoop(func() bool { v.wifiToggled(false); return true })
 	waitHeadless(t, "the refused switch", v.actionErr.Visible)
-	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not turn Wi-Fi off: rfkill blocked" {
+	if got, want := onHeadlessLoop(v.actionErr.Text), i18n.T("dropdown-network-error-wifi-off", i18n.Str("error", "rfkill blocked")); got != want {
 		t.Errorf("a refused switch says %q", got)
 	}
 	settleNetReads(t, v)
 	onHeadlessLoop(func() bool { v.active.disconnect(); return true })
-	waitHeadless(t, "the refused disconnect", func() bool { return plain(v.actionErr.Text()) == "Could not disconnect from home: busy" })
+	refusedDisconnect := i18n.T("dropdown-network-error-disconnect", i18n.Str("name", "home"), i18n.Str("error", "busy"))
+	waitHeadless(t, "the refused disconnect", func() bool { return v.actionErr.Text() == refusedDisconnect })
 	wifi.mu.Lock()
 	wifi.enableErr = nil
 	wifi.mu.Unlock()

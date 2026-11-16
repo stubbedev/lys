@@ -126,7 +126,7 @@ func newBorderEditor(k *kit, s slot, colors wmconfig.Field) *borderEditor {
 		get: func() any { colors, _ := c.parts(); return colors },
 		set: func(v any) error { colors, _ := v.([]any); _, angle := c.parts(); return c.write(colors, angle) },
 	}, listSpec{
-		addKey: "wm-border-add-colour", rowClass: "string-list-row", reorder: true,
+		addKey: "wm-border-add-color", rowClass: "string-list-row", reorder: true,
 		pick: func(anchor widget.Widget, choose func(any)) { c.pickColour(k, anchor, choose) },
 		full: func(n int) bool { return n >= colors.MaxItems },
 		item: func(k *kit, v any, changed func()) listItem {

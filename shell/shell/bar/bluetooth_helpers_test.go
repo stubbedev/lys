@@ -127,13 +127,13 @@ func TestFormatPasskeyPads(t *testing.T) {
 func TestBtText(t *testing.T) {
 	// The en-US wording comes from the shared Fluent bundle, not a Go
 	// table: one placeholder key and one plain key.
-	if got := plain(btText("dropdown-bluetooth-battery", "percent", uint8(80))); got != "80%" {
+	if got, want := btText("dropdown-bluetooth-battery", "percent", uint8(80)), i18n.T("dropdown-bluetooth-battery", i18n.Int("percent", 80)); got != want {
 		t.Errorf("battery = %q", got)
 	}
 	if got := btText("dropdown-bluetooth-forget"); got != i18n.T("dropdown-bluetooth-forget") {
 		t.Errorf("forget = %q, want the bundle's text", got)
 	}
-	if got := plain(btText("dropdown-bluetooth-pairing-entering", "entered", 2, "total", 6)); got != "2 of 6 digits entered" {
+	if got, want := btText("dropdown-bluetooth-pairing-entering", "entered", 2, "total", 6), i18n.T("dropdown-bluetooth-pairing-entering", i18n.Int("entered", 2), i18n.Int("total", 6)); got != want {
 		t.Errorf("entering = %q", got)
 	}
 	// An unknown key renders the loader's "No localization" marker.

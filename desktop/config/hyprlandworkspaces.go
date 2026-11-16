@@ -72,7 +72,7 @@ var _ = registerEnum(ActiveBackground, ActiveUnderline)
 // Per-workspace styling override.
 type WorkspaceStyle struct {
 	// Custom icon for this workspace. When set, the icon is shown regardless
-	// of the module's `display-mode`, so a row can mix labelled workspaces
+	// of the module's `display-mode`, so a row can mix labeled workspaces
 	// with icon-only ones (e.g. `[1][2][icon]`).
 	Icon *string `cfg:"icon"`
 	// Custom background color for this workspace when active.

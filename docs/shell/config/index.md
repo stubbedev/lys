@@ -48,7 +48,7 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 | [`bitwarden`](/shell/config/modules/bitwarden) | Bitwarden vault: the bar shows whether it is locked; the dropdown logs |
 | [`bluetooth`](/shell/config/modules/bluetooth) | Bluetooth connection status with a dropdown for pairing and managing devices. |
 | [`brightness`](/shell/config/modules/brightness) | Backlight control bar module. |
-| [`cava`](/shell/config/modules/cava) | Audio frequency bars visualising the output stream. |
+| [`cava`](/shell/config/modules/cava) | Audio frequency bars visualizing the output stream. |
 | [`clock`](/shell/config/modules/clock) | Clock module configuration. |
 | [`cpu`](/shell/config/modules/cpu) | CPU usage, frequency, and temperature. |
 | [`custom`](/shell/config/modules/custom) | User-defined module that runs a shell command and renders the output in the bar. |
@@ -65,7 +65,7 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 | [`minimized-windows`](/shell/config/modules/minimized-windows) | Minimized windows, like a dock. |
 | [`netstat`](/shell/config/modules/netstat) | Network traffic counters (up/down rates). |
 | [`network`](/shell/config/modules/network) | Network connection status with a dropdown for switching connections. |
-| [`nightlight`](/shell/config/modules/nightlight) | Night light: warms the display colours, by hand or on a dawn/dusk schedule. |
+| [`nightlight`](/shell/config/modules/nightlight) | Night light: warms the display colors, by hand or on a dawn/dusk schedule. |
 | [`niri-workspaces`](/shell/config/modules/niri-workspaces) | Niri workspace indicators with click-to-switch. |
 | [`notifications`](/shell/config/modules/notifications) | Notification center: icon in the bar, dropdown with history, DND toggle. |
 | [`power`](/shell/config/modules/power) | Shutdown, reboot, and logout menu. |

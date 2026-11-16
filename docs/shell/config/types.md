@@ -274,7 +274,7 @@ modules: {bitwarden: {generator-passphrases: [{name: Spoken, words: 5, separator
 | `name` | Name the generator lists the preset by. |
 | `words` | Number of words, 3-20. |
 | `separator` | Text between the words. |
-| `capitalize` | Capitalise the first letter of every word. |
+| `capitalize` | Capitalize the first letter of every word. |
 | `number` | Append a digit to one of the words. |
 
 ## BitwardenPasswordPreset {#bitwarden-password-preset}

@@ -7,7 +7,7 @@ outline: [2, 3]
 
 <div v-pre>
 
-Audio frequency bars visualising the output stream.
+Audio frequency bars visualizing the output stream.
 
 Add it to your layout with `cava`:
 

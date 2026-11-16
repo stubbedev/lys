@@ -236,7 +236,7 @@ type BitwardenPassphrasePreset struct {
 	Words PassphraseWords `cfg:"words,default"`
 	// Text between the words.
 	Separator string `cfg:"separator,default"`
-	// Capitalise the first letter of every word.
+	// Capitalize the first letter of every word.
 	Capitalize bool `cfg:"capitalize,default"`
 	// Append a digit to one of the words.
 	Number bool `cfg:"number,default"`

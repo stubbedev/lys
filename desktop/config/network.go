@@ -4,15 +4,15 @@ package config
 //
 // Network connection status with a dropdown for switching connections.
 type NetworkConfig struct {
-	// WiFi icon when disabled.
+	// Wi-Fi icon when disabled.
 	WifiDisabledIcon string `cfg:"wifi-disabled-icon"`
-	// WiFi icon when connecting.
+	// Wi-Fi icon when connecting.
 	WifiAcquiringIcon string `cfg:"wifi-acquiring-icon"`
-	// WiFi icon when disconnected.
+	// Wi-Fi icon when disconnected.
 	WifiOfflineIcon string `cfg:"wifi-offline-icon"`
-	// WiFi icon when connected but signal strength unavailable.
+	// Wi-Fi icon when connected but signal strength unavailable.
 	WifiConnectedIcon string `cfg:"wifi-connected-icon"`
-	// WiFi signal strength icons from weak to excellent.
+	// Wi-Fi signal strength icons from weak to excellent.
 	//
 	// The signal percentage maps to icons: 0-25% uses icons\[0\], 26-50% uses
 	// icons\[1\], etc.
@@ -35,7 +35,7 @@ type NetworkConfig struct {
 	IconColor ColorValue `cfg:"icon-color"`
 	// Icon container background color token.
 	IconBgColor ColorValue `cfg:"icon-bg-color"`
-	// Display connection label (SSID for WiFi, "Wired" for ethernet).
+	// Display connection label (SSID for Wi-Fi, "Wired" for ethernet).
 	LabelShow bool `cfg:"label-show"`
 	// Label text color token.
 	LabelColor ColorValue `cfg:"label-color"`
@@ -49,7 +49,7 @@ type NetworkConfig struct {
 	VpnConnectingIcon string `cfg:"vpn-connecting-icon"`
 	// Icon when a VPN is configured but disconnected.
 	VpnDisconnectedIcon string `cfg:"vpn-disconnected-icon"`
-	// When the VPN state replaces the wifi/wired icon.
+	// When the VPN state replaces the Wi-Fi/wired icon.
 	//
 	// `auto` shows it only once NetworkManager holds a VPN profile, so adding
 	// the key changes nothing on a machine with no VPN.

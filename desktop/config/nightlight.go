@@ -10,7 +10,7 @@ import (
 // applies itself, through the compositor's colour transform matrix
 // (hyprland-ctm-control-v1) or gamma ramps (wlr-gamma-control-v1).
 //
-// Night light: warms the display colours, by hand or on a dawn/dusk schedule.
+// Night light: warms the display colors, by hand or on a dawn/dusk schedule.
 type NightlightConfig struct {
 	// Format string for the label.
 	//
@@ -34,7 +34,7 @@ type NightlightConfig struct {
 	// Automatically ease the filter on at dusk and off at dawn, following the
 	// sun at the machine's location.
 	//
-	// Transitions are centred on civil dawn and dusk (sun 6 degrees below the
+	// Transitions are centered on civil dawn and dusk (sun 6 degrees below the
 	// horizon). During polar day or night the filter stays off or on.
 	//
 	// The location is `latitude` and `longitude` when both are set (0, 0
@@ -59,7 +59,7 @@ type NightlightConfig struct {
 	// A manual click cancels a running transition, applies at once, and holds
 	// until the next transition begins.
 	AutoSchedule bool `cfg:"auto-schedule"`
-	// Length of the transition between day and night, in whole minutes, centred
+	// Length of the transition between day and night, in whole minutes, centered
 	// on civil dawn or dusk. 0 switches at once. Range: 0-120.
 	TransitionDuration NightlightTransition `cfg:"transition-duration"`
 	// Latitude for the schedule, in decimal degrees (north positive). Range: -90

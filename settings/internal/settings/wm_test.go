@@ -692,6 +692,24 @@ func TestABorderIsAColourOrAGradient(t *testing.T) {
 	}
 }
 
+func TestABordersAddButtonOffersAColorUnderItsAmericanID(t *testing.T) {
+	k, w, _, _ := wmKit(t, "")
+	c := fieldControl(k, w, wmBorder("borders.active")).(*borderEditor)
+	en, err := i18n.Select(locale.Assets(), []i18n.LangID{i18n.Fallback})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !en.Has("wm-border-add-color") {
+		t.Fatal("en-US has no wm-border-add-color")
+	}
+	if en.Has("wm-border-add-colour") {
+		t.Error("en-US still carries the British wm-border-add-colour")
+	}
+	if got, want := c.colors.add.TooltipText(), locale.T().Get("wm-border-add-color"); got != want {
+		t.Errorf("the add button says %q, want %q", got, want)
+	}
+}
+
 func TestChangesMadeWhileOneIsOnItsWayLandAsOneLatest(t *testing.T) {
 	k, w, fake, files := wmKitWith(t, "", "gaps:\n  inner: 1\n")
 	var queued []func()

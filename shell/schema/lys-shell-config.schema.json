@@ -1554,7 +1554,7 @@
       "properties": {
         "capitalize": {
           "default": true,
-          "description": "Capitalise the first letter of every word.",
+          "description": "Capitalize the first letter of every word.",
           "type": "boolean"
         },
         "name": {
@@ -1892,7 +1892,7 @@
       "type": "object"
     },
     "CavaConfig": {
-      "description": "Audio frequency bars visualising the output stream.",
+      "description": "Audio frequency bars visualizing the output stream.",
       "properties": {
         "bar-gap": {
           "$ref": "#/$defs/uint32",
@@ -7489,7 +7489,7 @@
         "label-show": {
           "$ref": "#/$defs/boolean",
           "default": true,
-          "description": "Display connection label (SSID for WiFi, \"Wired\" for ethernet)."
+          "description": "Display connection label (SSID for Wi-Fi, \"Wired\" for ethernet)."
         },
         "left-click": {
           "$ref": "#/$defs/ClickAction",
@@ -7539,27 +7539,27 @@
         "vpn-show": {
           "$ref": "#/$defs/VpnShow",
           "default": "auto",
-          "description": "When the VPN state replaces the wifi/wired icon.\n\n`auto` shows it only once NetworkManager holds a VPN profile, so adding\nthe key changes nothing on a machine with no VPN."
+          "description": "When the VPN state replaces the Wi-Fi/wired icon.\n\n`auto` shows it only once NetworkManager holds a VPN profile, so adding\nthe key changes nothing on a machine with no VPN."
         },
         "wifi-acquiring-icon": {
           "$ref": "#/$defs/string",
           "default": "ld-wifi-sync-symbolic",
-          "description": "WiFi icon when connecting."
+          "description": "Wi-Fi icon when connecting."
         },
         "wifi-connected-icon": {
           "$ref": "#/$defs/string",
           "default": "ld-wifi-symbolic",
-          "description": "WiFi icon when connected but signal strength unavailable."
+          "description": "Wi-Fi icon when connected but signal strength unavailable."
         },
         "wifi-disabled-icon": {
           "$ref": "#/$defs/string",
           "default": "ld-wifi-off-symbolic",
-          "description": "WiFi icon when disabled."
+          "description": "Wi-Fi icon when disabled."
         },
         "wifi-offline-icon": {
           "$ref": "#/$defs/string",
           "default": "ld-wifi-zero-symbolic",
-          "description": "WiFi icon when disconnected."
+          "description": "Wi-Fi icon when disconnected."
         },
         "wifi-signal-icons": {
           "$ref": "#/$defs/Array_of_string",
@@ -7569,7 +7569,7 @@
             "ld-wifi-high-symbolic",
             "ld-wifi-symbolic"
           ],
-          "description": "WiFi signal strength icons from weak to excellent.\n\nThe signal percentage maps to icons: 0-25% uses icons\\[0\\], 26-50% uses\nicons\\[1\\], etc."
+          "description": "Wi-Fi signal strength icons from weak to excellent.\n\nThe signal percentage maps to icons: 0-25% uses icons\\[0\\], 26-50% uses\nicons\\[1\\], etc."
         },
         "wired-acquiring-icon": {
           "$ref": "#/$defs/string",
@@ -7590,12 +7590,12 @@
       "type": "object"
     },
     "NightlightConfig": {
-      "description": "Night light: warms the display colours, by hand or on a dawn/dusk schedule.",
+      "description": "Night light: warms the display colors, by hand or on a dawn/dusk schedule.",
       "properties": {
         "auto-schedule": {
           "$ref": "#/$defs/boolean",
           "default": false,
-          "description": "Automatically ease the filter on at dusk and off at dawn, following the\nsun at the machine's location.\n\nTransitions are centred on civil dawn and dusk (sun 6 degrees below the\nhorizon). During polar day or night the filter stays off or on.\n\nThe location is `latitude` and `longitude` when both are set (0, 0\ncounts as unset), otherwise GeoClue's, whose last fix is kept in the\nstate directory. Without a usable location the schedule does not run;\nthe tooltip and the log say why.\n\nWhen no GeoClue agent runs, lys-shell registers as one during the\nlookup, which needs it on GeoClue's agent whitelist. The deb and rpm\ninstall `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's\n`autoInstallDependencies` sets it up. From the tarball, install its\n`geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue\nbefore 2.7 reads no `conf.d`: add the file's `lys-shell` entry to\n`/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under\n`[agent]`. A drop-in `whitelist` replaces the main file's, so the\nshipped one repeats upstream's list; add any agents you rely on.\n\nWhen GeoClue answers but finds no fix, it has no source that can place\nthe machine: set `url` under `[wifi]`, describe the location in\n`/etc/geolocation`, or set `latitude` and `longitude`.\n\nA manual click cancels a running transition, applies at once, and holds\nuntil the next transition begins."
+          "description": "Automatically ease the filter on at dusk and off at dawn, following the\nsun at the machine's location.\n\nTransitions are centered on civil dawn and dusk (sun 6 degrees below the\nhorizon). During polar day or night the filter stays off or on.\n\nThe location is `latitude` and `longitude` when both are set (0, 0\ncounts as unset), otherwise GeoClue's, whose last fix is kept in the\nstate directory. Without a usable location the schedule does not run;\nthe tooltip and the log say why.\n\nWhen no GeoClue agent runs, lys-shell registers as one during the\nlookup, which needs it on GeoClue's agent whitelist. The deb and rpm\ninstall `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's\n`autoInstallDependencies` sets it up. From the tarball, install its\n`geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue\nbefore 2.7 reads no `conf.d`: add the file's `lys-shell` entry to\n`/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under\n`[agent]`. A drop-in `whitelist` replaces the main file's, so the\nshipped one repeats upstream's list; add any agents you rely on.\n\nWhen GeoClue answers but finds no fix, it has no source that can place\nthe machine: set `url` under `[wifi]`, describe the location in\n`/etc/geolocation`, or set `latitude` and `longitude`.\n\nA manual click cancels a running transition, applies at once, and holds\nuntil the next transition begins."
         },
         "border-color": {
           "$ref": "#/$defs/ColorValue",
@@ -7742,7 +7742,7 @@
         "transition-duration": {
           "$ref": "#/$defs/NightlightTransition",
           "default": 15,
-          "description": "Length of the transition between day and night, in whole minutes, centred\non civil dawn or dusk. 0 switches at once. Range: 0-120."
+          "description": "Length of the transition between day and night, in whole minutes, centered\non civil dawn or dusk. 0 switches at once. Range: 0-120."
         }
       },
       "type": "object"
@@ -11486,7 +11486,7 @@
           "description": "Custom background color for this workspace when active."
         },
         "icon": {
-          "description": "Custom icon for this workspace. When set, the icon is shown regardless\nof the module's `display-mode`, so a row can mix labelled workspaces\nwith icon-only ones (e.g. `[1][2][icon]`).",
+          "description": "Custom icon for this workspace. When set, the icon is shown regardless\nof the module's `display-mode`, so a row can mix labeled workspaces\nwith icon-only ones (e.g. `[1][2][icon]`).",
           "type": [
             "string",
             "null"

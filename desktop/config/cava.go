@@ -2,7 +2,7 @@ package config
 
 // CavaConfig configures the cava module.
 //
-// Audio frequency bars visualising the output stream.
+// Audio frequency bars visualizing the output stream.
 type CavaConfig struct {
 	// Number of frequency bars.
 	Bars BarCount `cfg:"bars"`

@@ -22,23 +22,23 @@ bar:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `wifi-disabled-icon` | string | `"ld-wifi-off-symbolic"` | WiFi icon when disabled. |
-| `wifi-acquiring-icon` | string | `"ld-wifi-sync-symbolic"` | WiFi icon when connecting. |
-| `wifi-offline-icon` | string | `"ld-wifi-zero-symbolic"` | WiFi icon when disconnected. |
-| `wifi-connected-icon` | string | `"ld-wifi-symbolic"` | WiFi icon when connected but signal strength unavailable. |
-| `wifi-signal-icons` | array of string | `[...]` | WiFi signal strength icons from weak to excellent. |
+| `wifi-disabled-icon` | string | `"ld-wifi-off-symbolic"` | Wi-Fi icon when disabled. |
+| `wifi-acquiring-icon` | string | `"ld-wifi-sync-symbolic"` | Wi-Fi icon when connecting. |
+| `wifi-offline-icon` | string | `"ld-wifi-zero-symbolic"` | Wi-Fi icon when disconnected. |
+| `wifi-connected-icon` | string | `"ld-wifi-symbolic"` | Wi-Fi icon when connected but signal strength unavailable. |
+| `wifi-signal-icons` | array of string | `[...]` | Wi-Fi signal strength icons from weak to excellent. |
 | `wired-connected-icon` | string | `"ld-ethernet-port-symbolic"` | Wired icon when connected. |
 | `wired-acquiring-icon` | string | `"ld-loader-circle-symbolic"` | Wired icon when connecting. |
 | `wired-disconnected-icon` | string | `"ld-unplug-symbolic"` | Wired icon when disconnected. |
 | `border-show` | bool | `false` | Display border around button. |
 | `icon-show` | bool | `true` | Display module icon. |
 | `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
-| `label-show` | bool | `true` | Display connection label (SSID for WiFi, "Wired" for ethernet). |
+| `label-show` | bool | `true` | Display connection label (SSID for Wi-Fi, "Wired" for ethernet). |
 | `label-max-length` | u32 | `15` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
 | `vpn-connected-icon` | string | `"ld-lock-symbolic"` | Icon when a VPN is connected. |
 | `vpn-connecting-icon` | string | `"ld-refresh-cw-symbolic"` | Icon while a VPN connection is in flight. |
 | `vpn-disconnected-icon` | string | `"ld-unplug-symbolic"` | Icon when a VPN is configured but disconnected. |
-| `vpn-show` | [`VpnShow`](/shell/config/types#vpn-show) | `"auto"` | When the VPN state replaces the wifi/wired icon. |
+| `vpn-show` | [`VpnShow`](/shell/config/types#vpn-show) | `"auto"` | When the VPN state replaces the Wi-Fi/wired icon. |
 
 ::: details More about `wifi-signal-icons`
 

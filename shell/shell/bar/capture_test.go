@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 	"github.com/stubbedev/lys/desktop/swaytest"
@@ -214,9 +215,10 @@ func TestHeadlessScreenshotCopyFailureReachesTheNotification(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("a failed copy lost the saved file: %v", err)
 	}
+	notCopied, _, _ := strings.Cut(i18n.T("screenshot-not-copied", i18n.Str("error", "\x00")), "\x00")
 	select {
 	case n := <-notices:
-		if n.Summary != "Screenshot saved" || !strings.HasPrefix(n.Body, path+"\nNot copied to the clipboard: ") {
+		if n.Summary != i18n.T("screenshot-saved") || !strings.HasPrefix(n.Body, path+"\n"+notCopied) {
 			t.Fatalf("the notification reads %q / %q, want the path and the failed copy", n.Summary, n.Body)
 		}
 	case <-time.After(5 * time.Second):
