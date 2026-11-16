@@ -120,7 +120,10 @@
           '';
         fingerprint-pam = let
           system =
-            greeterSystemWith {services.fprintd.enable = true;} {
+            greeterSystemWith {
+              services.fprintd.enable = true;
+              programs.lys-login.lock.enable = true;
+            } {
               displayManager = "lys-login";
               compositorPackage = fakeLysWm;
             };
@@ -130,6 +133,7 @@
           pkgs.runCommand "lys-login-fingerprint-pam" {} ''
             ${lib.optionalString (!lib.hasInfix "pam_fprintd" (pamText "login")) ''echo "services.fprintd.enable puts no pam_fprintd in the login stack, so this check proves nothing" >&2; exit 1''}
             ${lib.optionalString (lib.hasInfix "pam_fprintd" (pamText "lys-login")) ''echo "the lys-login password stack waits on pam_fprintd before the password" >&2; exit 1''}
+            ${lib.optionalString (lib.hasInfix "pam_fprintd" (pamText system.programs.lys-login.lock.pamService)) ''echo "the lock screen's password stack waits on pam_fprintd, though the lock screen scans for a fingerprint itself" >&2; exit 1''}
             ${lib.optionalString (lib.hasInfix "pam_fprintd" fingerprint || lib.hasInfix "pam_unix" fingerprint) ''echo "lys-login-fingerprint authenticates again after the daemon verified the fingerprint" >&2; exit 1''}
             ${lib.optionalString (!lib.hasInfix "pam_permit.so" fingerprint || !lib.hasInfix "pam_nologin.so" fingerprint || !lib.hasInfix "pam_systemd_loadkey.so" fingerprint) ''echo "lys-login-fingerprint is not nologin, the disk key, then permit" >&2; exit 1''}
             ${lib.optionalString (!lib.hasInfix "account  include   lys-login" fingerprint || !lib.hasInfix "session  include   lys-login" fingerprint) ''echo "lys-login-fingerprint skips the account or session stack of lys-login" >&2; exit 1''}

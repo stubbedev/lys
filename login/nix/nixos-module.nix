@@ -401,7 +401,10 @@ in {
       # the password to lys-secrets itself after the unlock, and the
       # gnome-keyring lines stay unused.
       # The user's lys-shell config `login.lock.pam-service` must name this same service.
-      security.pam.services.${cfg.lock.pamService}.enableGnomeKeyring = !(config.services.lys-secrets.enable or false);
+      security.pam.services.${cfg.lock.pamService} = {
+        enableGnomeKeyring = !(config.services.lys-secrets.enable or false);
+        fprintAuth = false;
+      };
     })
 
     (lib.mkIf (cfg.greeter.enable && cfg.greeter.displayManager == "greetd") {
