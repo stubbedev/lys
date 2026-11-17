@@ -125,8 +125,10 @@
         }
       ],
       "vms": [
-        ["splash-vms-luks", "splash-vms-firmware"],
-        ["splash-vms-greeter", "splash-vms-luks-headless"]
+        ["splash-vms-luks"],
+        ["splash-vms-firmware"],
+        ["splash-vms-greeter"],
+        ["splash-vms-luks-headless"]
       ],
       "free-disk": true
     },
