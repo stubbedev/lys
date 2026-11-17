@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -416,6 +418,15 @@ func (r *regionRig) selectRegion(t *testing.T) {
 // open reports whether a capture overlay session is open.
 func (r *regionRig) open() bool { return r.gate.Open() }
 
+func (r *regionRig) gateFree() bool {
+	release, err := r.gate.Instant()
+	if err != nil {
+		return false
+	}
+	release()
+	return true
+}
+
 // drawRegion drags out 100,100 to 300,200 on the overlay. The picker's surface
 // can still hold the keyboard while the overlay maps, so a drag that reached
 // nothing is repeated until one lands; one that lands must draw exactly this.
@@ -474,12 +485,32 @@ func TestHeadlessScreenshotPressLeavesTheRegionSelection(t *testing.T) {
 	if want := "/region:" + apptest.On(r.a, func() string { return r.a.Session().Outputs()[0].Name }) + "@100,100,200,100"; got != want {
 		t.Fatalf("the picker answered %q, want %q", got, want)
 	}
+	if !r.gateFree() {
+		t.Fatal("the capture gate is still held once the picker answered the drawn region")
+	}
+}
+
+func TestHeadlessDismissDuringRegionSelectionFreesTheGate(t *testing.T) {
+	r := regionPicker(t)
+	r.selectRegion(t)
+	apptest.Until(t, r.a, "the overlay took the keyboard", func() bool {
+		return r.open() && r.p.layer == nil && r.a.Session().KeyboardFocus() != nil
+	})
+	if r.gateFree() {
+		t.Fatal("the capture gate admits a capture while the region selection is open")
+	}
+	r.p.Dismiss("/r/keys")
+	if got := apptest.Answer(t, "the dismissed picker", r.answers); got != "" {
+		t.Fatalf("the dismissed picker answered %q", got)
+	}
+	waittest.Until(t, r.gateFree, "the dismissed request's region selection to free the capture gate")
 }
 
 // Select region while another capture holds the gate opens nothing: the picker
 // comes back unanswered, and dismissing it leaves the other capture's session.
 func TestHeadlessSelectRegionRefusedLeavesTheOtherSession(t *testing.T) {
 	r := regionPicker(t)
+	logs := logtest.Capture(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	other := make(chan error, 1)
@@ -491,6 +522,9 @@ func TestHeadlessSelectRegionRefusedLeavesTheOtherSession(t *testing.T) {
 	r.selectRegion(t)
 	apptest.Until(t, r.a, "the refused picker came back", func() bool { return r.p.layer != nil && r.p.cancelSelect == nil })
 	apptest.Never(t, "the picker after a refused Select region", r.answers)
+	if got := strings.Count(logs.String(), "share picker: region selection: "+regionoverlay.ErrBusy.Error()); got != 1 {
+		t.Fatalf("the refused Select region logged its refusal %d times, want once: %q", got, logs.String())
+	}
 	r.p.Dismiss("/r/keys")
 	if got := apptest.Answer(t, "the dismissed picker", r.answers); got != "" {
 		t.Fatalf("the dismissed picker answered %q", got)
@@ -499,6 +533,9 @@ func TestHeadlessSelectRegionRefusedLeavesTheOtherSession(t *testing.T) {
 	cancel()
 	if err := apptest.Answer(t, "the other capture's session", other); err != nil {
 		t.Fatalf("the other session answered %v", err)
+	}
+	if !r.gateFree() {
+		t.Fatal("the capture gate is still held once the other session ended after a refused Select region")
 	}
 }
 
