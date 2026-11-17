@@ -343,9 +343,63 @@ func TestPowerActions(t *testing.T) {
 
 func TestPowerActionNames(t *testing.T) {
 	t.Parallel()
-	for a, want := range map[logind.PowerAction]string{logind.Suspend: "suspend", logind.Reboot: "reboot", logind.PowerOff: "poweroff", 4: "PowerAction(4)"} {
+	for a, want := range map[logind.PowerAction]string{
+		logind.Suspend:              "suspend",
+		logind.Hibernate:            "hibernate",
+		logind.HybridSleep:          "hybrid-sleep",
+		logind.SuspendThenHibernate: "suspend-then-hibernate",
+		logind.Reboot:               "reboot",
+		logind.PowerOff:             "poweroff",
+		0:                           "PowerAction(0)",
+		7:                           "PowerAction(7)",
+	} {
 		if got := a.String(); got != want {
 			t.Errorf("%d.String() = %q, want %q", a, got, want)
+		}
+	}
+}
+
+func TestEverySleepActionCallsItsLogindMethod(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		action logind.PowerAction
+		method string
+		event  logindtest.Event
+	}{
+		{logind.Suspend, "Manager.Suspend", logindtest.EventSuspend},
+		{logind.Hibernate, "Manager.Hibernate", logindtest.EventHibernate},
+		{logind.HybridSleep, "Manager.HybridSleep", logindtest.EventHybridSleep},
+		{logind.SuspendThenHibernate, "Manager.SuspendThenHibernate", logindtest.EventSuspendThenHibernate},
+	} {
+		t.Run(tc.action.String(), func(t *testing.T) {
+			t.Parallel()
+			fake, m := manager(t, logindtest.Config{Display: display})
+			if err := m.Power(t.Context(), tc.action); err != nil {
+				t.Fatalf("Power(%s): %v", tc.action, err)
+			}
+			if got := fake.Events.Load(); !slices.Equal(got, []logindtest.Event{tc.event}) {
+				t.Errorf("events %v, want %s", got, tc.event)
+			}
+			if calls := fake.CallsTo(tc.method); len(calls) != 1 || !reflect.DeepEqual(calls[0].Args, []any{false}) {
+				t.Errorf("%s calls %v, want one, never interactive", tc.method, calls)
+			}
+			err := m.Power(t.Context(), tc.action)
+			if derr, ok := errors.AsType[dbus.Error](err); !ok || derr.Name != logind.ErrOperationInProgress {
+				t.Errorf("a second %s while asleep = %v, want logind's %s", tc.action, err, logind.ErrOperationInProgress)
+			}
+		})
+	}
+}
+
+func TestSleepActionsAreTheSleepingPowerActions(t *testing.T) {
+	t.Parallel()
+	want := []logind.PowerAction{logind.Suspend, logind.Hibernate, logind.HybridSleep, logind.SuspendThenHibernate}
+	if got := logind.SleepActions(); !slices.Equal(got, want) {
+		t.Errorf("SleepActions() = %v, want %v", got, want)
+	}
+	for _, a := range []logind.PowerAction{logind.Reboot, logind.PowerOff} {
+		if slices.Contains(logind.SleepActions(), a) {
+			t.Errorf("SleepActions() holds %s", a)
 		}
 	}
 }

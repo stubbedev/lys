@@ -42,16 +42,19 @@ type Event string
 
 // The entries Events records, in the order they happen.
 const (
-	EventLock              Event = "lock"
-	EventLockedHint        Event = "locked-hint"
-	EventUnlockedHint      Event = "unlocked-hint"
-	EventIdleHint          Event = "idle-hint"
-	EventActiveHint        Event = "active-hint"
-	EventInhibit           Event = "inhibit"
-	EventInhibitorReleased Event = "inhibitor-released"
-	EventSuspend           Event = "suspend"
-	EventReboot            Event = "reboot"
-	EventPowerOff          Event = "poweroff"
+	EventLock                 Event = "lock"
+	EventLockedHint           Event = "locked-hint"
+	EventUnlockedHint         Event = "unlocked-hint"
+	EventIdleHint             Event = "idle-hint"
+	EventActiveHint           Event = "active-hint"
+	EventInhibit              Event = "inhibit"
+	EventInhibitorReleased    Event = "inhibitor-released"
+	EventSuspend              Event = "suspend"
+	EventHibernate            Event = "hibernate"
+	EventHybridSleep          Event = "hybrid-sleep"
+	EventSuspendThenHibernate Event = "suspend-then-hibernate"
+	EventReboot               Event = "reboot"
+	EventPowerOff             Event = "poweroff"
 )
 
 // Call is one method call the fake answered, refused or not. Method is
@@ -510,7 +513,23 @@ func (m manager) ActivateSession(name string) *dbus.Error {
 }
 
 func (m manager) Suspend(interactive bool) *dbus.Error {
-	if err := m.l.enter(logind.ManagerPath, "Manager.Suspend", interactive); err != nil {
+	return m.sleep("Manager.Suspend", EventSuspend, interactive)
+}
+
+func (m manager) Hibernate(interactive bool) *dbus.Error {
+	return m.sleep("Manager.Hibernate", EventHibernate, interactive)
+}
+
+func (m manager) HybridSleep(interactive bool) *dbus.Error {
+	return m.sleep("Manager.HybridSleep", EventHybridSleep, interactive)
+}
+
+func (m manager) SuspendThenHibernate(interactive bool) *dbus.Error {
+	return m.sleep("Manager.SuspendThenHibernate", EventSuspendThenHibernate, interactive)
+}
+
+func (m manager) sleep(method string, event Event, interactive bool) *dbus.Error {
+	if err := m.l.enter(logind.ManagerPath, method, interactive); err != nil {
 		return err
 	}
 	m.l.mu.Lock()
@@ -520,7 +539,7 @@ func (m manager) Suspend(interactive bool) *dbus.Error {
 	}
 	m.l.sleeping = true
 	m.l.mu.Unlock()
-	m.l.record(EventSuspend)
+	m.l.record(event)
 	if err := logind.PrepareForSleep.Emit(m.l.conn, logind.ManagerPath, logind.Sleep{Start: true}); err != nil {
 		return failed(err)
 	}

@@ -215,7 +215,7 @@ func (m Manager) ActivateSession(ctx context.Context, id SessionID) error {
 	return m.obj.call(ctx, ManagerInterface, "ActivateSession", nil, string(id))
 }
 
-// Power asks logind to suspend, reboot or power off the system, never
+// Power asks logind to put the system to sleep, reboot or power it off, never
 // interactively: polkit decides without a prompt, as it does for the
 // active local session.
 func (m Manager) Power(ctx context.Context, action PowerAction) error {

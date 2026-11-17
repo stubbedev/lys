@@ -17,14 +17,25 @@ type PowerAction uint8
 // The power actions.
 const (
 	Suspend PowerAction = iota + 1
+	Hibernate
+	HybridSleep
+	SuspendThenHibernate
 	Reboot
 	PowerOff
 )
 
 var powerActions = [...]struct{ name, method string }{
-	Suspend:  {"suspend", "Suspend"},
-	Reboot:   {"reboot", "Reboot"},
-	PowerOff: {"poweroff", "PowerOff"},
+	Suspend:              {"suspend", "Suspend"},
+	Hibernate:            {"hibernate", "Hibernate"},
+	HybridSleep:          {"hybrid-sleep", "HybridSleep"},
+	SuspendThenHibernate: {"suspend-then-hibernate", "SuspendThenHibernate"},
+	Reboot:               {"reboot", "Reboot"},
+	PowerOff:             {"poweroff", "PowerOff"},
+}
+
+// SleepActions are the actions that put the system to sleep.
+func SleepActions() []PowerAction {
+	return []PowerAction{Suspend, Hibernate, HybridSleep, SuspendThenHibernate}
 }
 
 func (a PowerAction) valid() bool { return a >= Suspend && int(a) < len(powerActions) }
