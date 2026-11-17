@@ -193,7 +193,7 @@ type processLink struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
-	stderr *stderrLines
+	logged <-chan struct{}
 	wait   sync.Once
 	exit   error
 }
@@ -211,8 +211,10 @@ func spawnFirst(programs []string, user string) (*processLink, error) {
 
 func spawn(program, user string) (*processLink, error) {
 	cmd := exec.Command(program, user) //nolint:gosec // the helper path is fixed at build time
-	stderr := &stderrLines{}
-	cmd.Stderr = stderr
+	diagnostics, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("helper %s stderr: %w", program, err)
+	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("helper %s stdin: %w", program, err)
@@ -224,7 +226,9 @@ func spawn(program, user string) (*processLink, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start helper %s: %w", program, err)
 	}
-	return &processLink{cmd: cmd, stdin: stdin, stdout: stdout, stderr: stderr}, nil
+	logged := make(chan struct{})
+	go logDiagnostics(diagnostics, logged)
+	return &processLink{cmd: cmd, stdin: stdin, stdout: stdout, logged: logged}, nil
 }
 
 func (l *processLink) Read(p []byte) (int, error)  { return l.stdout.Read(p) }
@@ -238,44 +242,26 @@ func (l *processLink) abort() {
 func (l *processLink) finish() error {
 	l.wait.Do(func() {
 		_ = l.stdin.Close()
+		<-l.logged
 		if err := l.cmd.Wait(); err != nil {
 			l.exit = fmt.Errorf("helper %s: %w", l.cmd.Path, err)
 		}
-		l.stderr.flush()
 	})
 	return l.exit
 }
 
 func (d Diagnostic) log() { slog.Warn("polkit agent helper", "message", d.Text) }
 
-// stderrLines logs the setuid helper's stderr a line at a time as the
-// Diagnostics the socket-activated helper sends among its protocol
-// lines. A line past bufio.MaxScanTokenSize is logged in pieces.
-type stderrLines struct{ pending []byte }
-
-func (w *stderrLines) Write(p []byte) (int, error) {
-	w.pending = append(w.pending, p...)
+func logDiagnostics(r io.Reader, done chan<- struct{}) {
+	defer close(done)
+	lines := bufio.NewReaderSize(r, bufio.MaxScanTokenSize)
 	for {
-		i := bytes.IndexByte(w.pending, '\n')
-		if i < 0 {
-			break
+		line, err := lines.ReadSlice('\n')
+		if text := bytes.TrimSuffix(line, []byte("\n")); len(text) > 0 {
+			Diagnostic{Text: strings.TrimPrefix(string(text), diagnostic)}.log()
 		}
-		w.emit(w.pending[:i])
-		w.pending = w.pending[i+1:]
+		if err != nil && !errors.Is(err, bufio.ErrBufferFull) {
+			return
+		}
 	}
-	if len(w.pending) >= bufio.MaxScanTokenSize {
-		w.flush()
-	}
-	return len(p), nil
-}
-
-func (w *stderrLines) flush() {
-	if len(w.pending) > 0 {
-		w.emit(w.pending)
-	}
-	w.pending = nil
-}
-
-func (w *stderrLines) emit(line []byte) {
-	Diagnostic{Text: strings.TrimPrefix(string(line), diagnostic)}.log()
 }

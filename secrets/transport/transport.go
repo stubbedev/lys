@@ -112,11 +112,7 @@ func (a AES) Encode(secret []byte) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("IV: %w", err)
 	}
 	pad := aes.BlockSize - len(secret)%aes.BlockSize
-	buf := make([]byte, len(secret)+pad)
-	copy(buf, secret)
-	for i := len(secret); i < len(buf); i++ {
-		buf[i] = byte(pad)
-	}
+	buf := append(bytes.Clone(secret), bytes.Repeat([]byte{byte(pad)}, pad)...)
 	cipher.NewCBCEncrypter(block, iv).CryptBlocks(buf, buf)
 	return iv, buf, nil
 }

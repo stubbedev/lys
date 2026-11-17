@@ -200,7 +200,7 @@ func writeGreetdFrame(w io.Writer, msg any) error {
 	if size > maxGreetdFrame {
 		return greetdFrameTooLarge(size)
 	}
-	frame := binary.NativeEndian.AppendUint32(make([]byte, 0, 4+size), intconv.Must[uint32](size))
+	frame := binary.NativeEndian.AppendUint32(nil, intconv.Must[uint32](size))
 	frame = append(frame, payload...)
 	_, err = w.Write(frame)
 	return err

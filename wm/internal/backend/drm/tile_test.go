@@ -54,7 +54,7 @@ func TestATileBlobFieldIsA32BitCount(t *testing.T) {
 	if got.group != 4294967295 {
 		t.Fatalf("group %d, want 4294967295", got.group)
 	}
-	for _, bad := range []string{"4294967296:1:2:1:1:0:1920:2160", "4294967297:1:2:1:1:0:1920:2160", "7:1:2:1:1:0:4294967297:2160"} {
+	for _, bad := range []string{"4294967296:1:2:1:1:0:1920:2160", "4294967297:1:2:1:1:0:1920:2160", "7:1:2:1:1:0:4294967297:2160", "7:1:2:1:1:0:2147483648:2160"} {
 		if _, err := parseTile([]byte(bad)); !errors.Is(err, strconv.ErrRange) {
 			t.Errorf("%q parsed with %v, want %v", bad, err, strconv.ErrRange)
 		}

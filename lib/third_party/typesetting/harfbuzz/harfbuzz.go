@@ -258,6 +258,17 @@ func (p *parser) parseChar(c byte) bool {
 	return true
 }
 
+func (p *parser) parseIndex() (int, bool, error) {
+	u, ok, err := p.parseUint32()
+	if err != nil {
+		return 0, false, err
+	}
+	if u > math.MaxInt32 {
+		return 0, false, fmt.Errorf("feature index %d does not fit 31 bits: %w", u, strconv.ErrRange)
+	}
+	return int(u), ok, nil
+}
+
 func (p *parser) parseUint32() (uint32, bool, error) {
 	start := p.pos
 	// go to the next space
@@ -363,19 +374,18 @@ func (p *parser) parseFeatureIndices() (start, end int, err error) {
 		return start, end, nil
 	}
 
-	startU, hasStart, err := p.parseUint32()
+	start, hasStart, err := p.parseIndex()
 	if err != nil {
 		return 0, 0, err
 	}
-	start = int(startU)
 
 	if p.parseChar(':') || p.parseChar(';') {
-		endU, ok, err := p.parseUint32()
+		endI, ok, err := p.parseIndex()
 		if err != nil {
 			return 0, 0, err
 		}
 		if ok {
-			end = int(endU)
+			end = endI
 		}
 	} else {
 		if hasStart {
