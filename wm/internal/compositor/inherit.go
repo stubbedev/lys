@@ -140,7 +140,7 @@ func (c *Compositor) drawInheritedFade(pass *frame, o *output.Output, bounds ima
 		return
 	}
 	size := f.tex.Size()
-	pass.DrawTexture(f.tex, render.FRect{W: float64(size.X), H: float64(size.Y)}, bounds, o.Transform(), float32(alpha))
+	pass.DrawTexture(f.tex, render.FRect{W: float64(size.X), H: float64(size.Y)}, bounds, o.Transform().Invert(), float32(alpha))
 }
 
 func (c *Compositor) inheritFading(o *output.Output, now time.Duration) bool {

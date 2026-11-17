@@ -506,7 +506,8 @@ package's test therefore opens its EGL host before its Vulkan device, and
   copied through a mapping when it is linear 32-bit RGB, and drawn over the
   first frames at an opacity falling from 1 to 0 on the `fade_in` animation,
   so the first frame on screen is the inherited one and the desktop fades in
-  from it. With
+  from it. The framebuffer holds the panel's pixels, so it is drawn under the
+  inverse of the output's transform and lands on the panel unturned. With
   `fade_in` off (the greeter's kiosk turns animations off) the first frame
   replaces it in one cut; a frame that cannot be read is reported and cut.
   Windows and layer surfaces that map while the inherited frame holds or

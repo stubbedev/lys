@@ -1127,7 +1127,10 @@ func (t *Touch) Frame() error {
 	return t.backend.emit(t, backend.TouchFrame{Time: t.now()})
 }
 
-var InheritedColor = color.RGBA{R: 0x30, G: 0x50, B: 0xa0, A: 0xff}
+var (
+	InheritedColor      = color.RGBA{R: 0x30, G: 0x50, B: 0xa0, A: 0xff}
+	InheritedRightColor = color.RGBA{R: 0xa0, G: 0x80, B: 0x30, A: 0xff}
+)
 
 func (o *Output) InheritedFrame() (*gpu.Buffer, error) {
 	if !o.inherited {
@@ -1139,9 +1142,16 @@ func (o *Output) InheritedFrame() (*gpu.Buffer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("headless: the frame %s inherited: %w", o.name, err)
 	}
-	pixel := [4]byte{InheritedColor.B, InheritedColor.G, InheritedColor.R, 0xff}
-	for i := 0; i+4 <= stride*size.Y; i += 4 {
-		copy(mem.Mem[i:], pixel[:])
+	left := [4]byte{InheritedColor.B, InheritedColor.G, InheritedColor.R, 0xff}
+	right := [4]byte{InheritedRightColor.B, InheritedRightColor.G, InheritedRightColor.R, 0xff}
+	for y := range size.Y {
+		for x := range size.X {
+			pixel := left
+			if x >= size.X/2 {
+				pixel = right
+			}
+			copy(mem.Mem[y*stride+4*x:], pixel[:])
+		}
 	}
 	fd, err := unix.FcntlInt(uintptr(mem.FD), unix.F_DUPFD_CLOEXEC, 0)
 	if err != nil {
