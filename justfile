@@ -118,13 +118,16 @@ build-jobs select:
     set -euo pipefail
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
-    just eval-jobs {{ quote(select) }} > "${dir}/jobs"
-    mapfile -t drvs < <(jq -r '.drvPath + "^*"' "${dir}/jobs")
-    if (( ${#drvs[@]} == 0 )); then
+    just eval-jobs {{ quote(select) }} --check-cache-status > "${dir}/jobs"
+    if ! jq -e -s 'length > 0' "${dir}/jobs" >/dev/null; then
         echo "build-jobs: the selection picks nothing to build on {{ arch() }}-linux" >&2
         exit 1
     fi
-    nix build -L --keep-going --no-link "${drvs[@]}"
+    jq -r 'select(.cacheStatus == "cached") | "build-jobs: \(.attr) is in the binary cache already"' "${dir}/jobs"
+    mapfile -t drvs < <(jq -r 'select(.cacheStatus != "cached") | .drvPath + "^*"' "${dir}/jobs")
+    if (( ${#drvs[@]} > 0 )); then
+        nix build -L --keep-going --no-link "${drvs[@]}"
+    fi
     for shell in $(jq -r 'select(.attr | startswith("devShells.")) | .attr | ltrimstr("devShells.")' "${dir}/jobs"); do
         nix print-dev-env --profile "${dir}/${shell}" ".#${shell}" >/dev/null
     done
@@ -157,13 +160,13 @@ new-store-paths listing:
 # evaluation error fails it, naming the attribute.
 [private]
 [script("bash")]
-eval-jobs select:
+eval-jobs select *flags:
     set -euo pipefail
     memory=$(awk '/^MemTotal:/ { print int($2 / 1048576) }' /proc/meminfo)
     workers=$(( memory / 4 < $(nproc) ? memory / 4 : $(nproc) ))
     out=$(mktemp)
     trap 'rm -f "$out"' EXIT
-    nix run --inputs-from . nixpkgs#nix-eval-jobs -- --flake . --force-recurse --workers "$(( workers > 0 ? workers : 1 ))" --max-memory-size 3072 --select {{ quote(select) }} > "$out"
+    nix run --inputs-from . nixpkgs#nix-eval-jobs -- --flake . --force-recurse --workers "$(( workers > 0 ? workers : 1 ))" --max-memory-size 3072 {{ flags }} --select {{ quote(select) }} > "$out"
     if jq -e -s 'any(.[]; has("error") and .error != null)' "$out" >/dev/null; then
         jq -r 'select(.error != null) | "eval-jobs: \(.attr) does not evaluate:\n\(.error)"' "$out" >&2
         exit 1

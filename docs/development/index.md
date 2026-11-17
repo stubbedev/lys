@@ -116,7 +116,7 @@ The jobs run in two lanes, each a stage of builds and the jobs on them:
    so they start a minute or so after the plan instead of after the slowest
    component build.
 
-Every build job pushes each store path to the binary cache (`nix.stubbe.dev`,
+A build job builds only the jobs nix-eval-jobs does not find in a binary cache (`--check-cache-status`), so outputs an earlier run already pushed, VM disk images included, are neither built nor downloaded again. Every build job pushes each store path to the binary cache (`nix.stubbe.dev`,
 through `XILO_TOKEN`; without the token the job fails, since nothing could be
 shared) as the build finishes it, with `xilo watch`, so uploads overlap the
 build. The build stops after six minutes, and the next step pushes whatever
