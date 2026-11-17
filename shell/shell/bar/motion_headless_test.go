@@ -53,6 +53,7 @@ func TestHeadlessAMenuShowsInTheFrameOfTheClick(t *testing.T) {
 	if err := pointer.MotionAbsolute(intconv.Clamp[uint32](b.X+b.W/2), intconv.Clamp[uint32](b.Y+b.H/2), intconv.Clamp[uint32](ow), intconv.Clamp[uint32](oh)); err != nil {
 		t.Fatal(err)
 	}
+	apptest.UntilSlow(t, a, "the pointer rests on the button", func() bool { return button.Hovered })
 
 	firstReveal := func(t *testing.T, cfg *config.Config) float64 {
 		t.Helper()
