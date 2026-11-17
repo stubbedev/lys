@@ -61,6 +61,7 @@ func (w *fakeWall) Disarm() { w.r.armed = nil }
 
 type rig struct {
 	avatar     image.Image
+	treeFocus  bool
 	scale      int
 	invoke     func(func())
 	save       func(path, value string)
@@ -152,7 +153,11 @@ func buildRig(t *testing.T, edit func(*Init), r *rig) *rig {
 			}
 			return SaveLast(path, value)
 		},
-		focus:        func(w widget.Widget) { r.focused = w },
+		focus: func(w widget.Widget) {
+			if !r.treeFocus || holds(r.s.root, w) {
+				r.focused = w
+			}
+		},
 		focused:      func() widget.Widget { return r.focused },
 		keyboardHeld: func() bool { return r.keyboard },
 		quit:         func() { r.quit++ },
@@ -1004,4 +1009,20 @@ func TestAGreeterOnItsOwnRevealsItsForm(t *testing.T) {
 	if p := r.s.prompt.Reveal.Progress(); p == 1 {
 		t.Error("a greeter that takes no screen over skipped its configured reveal")
 	}
+}
+
+func holds(root, w widget.Widget) bool {
+	if root == w {
+		return true
+	}
+	parent, ok := root.(interface{ Children() []widget.Widget })
+	if !ok {
+		return false
+	}
+	for _, c := range parent.Children() {
+		if holds(c, w) {
+			return true
+		}
+	}
+	return false
 }

@@ -117,6 +117,7 @@ type screen struct {
 	power  *widget.Box
 	users  []*userButton
 	picked *userButton
+	first  widget.Widget
 
 	// bg is the background at the outputs' size, freed when the
 	// greeter ends; nil draws the color. Its pixels live in mem.
@@ -247,14 +248,16 @@ func (s *screen) start() {
 	if s.init.HandOver {
 		s.prompt.Reveal.Finish()
 	}
+	s.first = s.prompt.Username
 	if s.init.LastUser != "" {
 		s.prompt.Username.SetText(s.init.LastUser)
 		s.wantLayoutOf(s.init.LastUser)
-		s.d.focus(s.prompt.Entry)
+		s.first = s.prompt.Entry
+		s.d.focus(s.first)
 		s.listenFor(s.init.LastUser)
 		return
 	}
-	s.d.focus(s.prompt.Username)
+	s.d.focus(s.first)
 }
 
 // markPresented notes that the compositor showed the form's first frame.
@@ -262,6 +265,9 @@ func (s *screen) markPresented() {
 	s.presented = true
 	if s.over != nil {
 		s.over.start()
+		if s.d.focused() == nil && s.first != nil {
+			s.d.focus(s.first)
+		}
 	}
 	s.announceReady()
 }

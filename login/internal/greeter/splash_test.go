@@ -158,6 +158,19 @@ func TestTheGreetersUIFadesInOverTheSplashOnceShown(t *testing.T) {
 	}
 }
 
+func TestTheUsernameFieldTakesTheKeyboardOnceTheGreeterFadesInOverTheSplash(t *testing.T) {
+	r := splashRig(t, nil, lysFrame(image.Pt(800, 600), 1))
+	r.keyboard, r.treeFocus = true, true
+	r.s.start()
+	if r.focused != nil {
+		t.Fatalf("%T holds the focus inside the greeter's UI before it shows", r.focused)
+	}
+	r.s.markPresented()
+	if r.focused != r.s.prompt.Username {
+		t.Fatalf("once the greeter's UI fades in, %T holds the focus, not the username field", r.focused)
+	}
+}
+
 func TestTheSplashsReducedMotionCutsToTheGreeter(t *testing.T) {
 	size := image.Pt(800, 600)
 	f := lysFrame(size, 1)
