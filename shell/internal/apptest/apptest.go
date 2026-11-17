@@ -3,11 +3,12 @@
 package apptest
 
 import (
-	"bufio"
 	"errors"
+	"io/fs"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -151,29 +152,51 @@ func Answer[T any](t *testing.T, what string, answered <-chan T) T {
 	return waittest.For(t, answered, what)
 }
 
-// ShmResident is how many bytes of lys-ui's shared-memory buffer pool
-// are resident in this process: the pixels of every surface drawn on a
-// compositor without the GPU path, and of none it has let go.
-func ShmResident(t *testing.T) int {
+// ShmHeld is how many bytes of lys-ui's shared-memory buffer pool this
+// process holds: the pages its pool files have allocated, the pixels of
+// every surface drawn on a compositor without the GPU path and of none
+// it has let go. It reads the files, not the process's mapping of them,
+// whose page tables a pool growth's remap starts afresh while the pages
+// stay in the file.
+func ShmHeld(t *testing.T) int {
 	t.Helper()
-	f, err := os.Open("/proc/self/smaps")
+	const fds = "/proc/self/fd"
+	entries, err := os.ReadDir(fds)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
-	resident, inPool := 0, false
-	for sc := bufio.NewScanner(f); sc.Scan(); {
-		fields := strings.Fields(sc.Text())
-		switch {
-		case len(fields) >= 5 && strings.Contains(fields[0], "-"):
-			inPool = len(fields) >= 6 && strings.HasPrefix(fields[5], "/memfd:lys-ui-shm")
-		case inPool && len(fields) == 3 && fields[0] == "Rss:":
-			kb, err := strconv.Atoi(fields[1])
-			if err != nil {
-				t.Fatal(err)
-			}
-			resident += kb << 10
+	type fileID struct{ dev, ino uint64 }
+	seen := make(map[fileID]bool, len(entries))
+	held := 0
+	for _, e := range entries {
+		path := filepath.Join(fds, e.Name())
+		target, err := os.Readlink(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
 		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(target, "/memfd:lys-ui-shm") {
+			continue
+		}
+		info, err := os.Stat(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		st, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			t.Fatalf("stat %s (%s): no syscall.Stat_t in %T", path, target, info.Sys())
+		}
+		id := fileID{dev: st.Dev, ino: st.Ino}
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		held += int(st.Blocks) * 512
 	}
-	return resident
+	return held
 }
