@@ -256,13 +256,10 @@ func TestRotationMapsPixelsAndRectangles(t *testing.T) {
 
 func TestRotationOf(t *testing.T) {
 	t.Parallel()
-	for name, want := range map[string]Rotation{"Normal": Upright, "Upside Down": UpsideDown, "Left Side Up": CounterClockwise, "Right Side Up": Clockwise} {
-		if got, err := rotationOf(name); err != nil || got != want {
-			t.Errorf("rotationOf(%q) = %v, %v; want %v", name, got, err, want)
+	for o, want := range map[drm.PanelOrientation]Rotation{drm.PanelNormal: Upright, drm.PanelUpsideDown: UpsideDown, drm.PanelLeftSideUp: CounterClockwise, drm.PanelRightSideUp: Clockwise} {
+		if got := rotationOf(o); got != want {
+			t.Errorf("rotationOf(%v) = %v; want %v", o, got, want)
 		}
-	}
-	if _, err := rotationOf("Sideways"); err == nil {
-		t.Error("an unknown orientation parsed")
 	}
 }
 

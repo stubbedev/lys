@@ -2,8 +2,9 @@ package kms
 
 import (
 	"encoding/binary"
-	"fmt"
 	"image"
+
+	"github.com/stubbedev/lys/lib/drm"
 )
 
 // Rotation is how a frame is turned on its way to a panel, so that a panel
@@ -20,19 +21,16 @@ const (
 	CounterClockwise
 )
 
-// rotationOf maps a "panel orientation" enumerator name to a Rotation.
-func rotationOf(orientation string) (Rotation, error) {
-	switch orientation {
-	case "Normal":
-		return Upright, nil
-	case "Upside Down":
-		return UpsideDown, nil
-	case "Left Side Up":
-		return CounterClockwise, nil
-	case "Right Side Up":
-		return Clockwise, nil
+func rotationOf(o drm.PanelOrientation) Rotation {
+	switch o {
+	case drm.PanelUpsideDown:
+		return UpsideDown
+	case drm.PanelLeftSideUp:
+		return CounterClockwise
+	case drm.PanelRightSideUp:
+		return Clockwise
 	}
-	return Upright, fmt.Errorf("kms: unknown panel orientation %q", orientation)
+	return Upright
 }
 
 func (r Rotation) String() string {

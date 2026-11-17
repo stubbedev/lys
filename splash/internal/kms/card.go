@@ -368,23 +368,6 @@ func (c *Card) litMode(cr *crtc, routed uint32) (*drm.Mode, error) {
 	return &m, nil
 }
 
-func (c *Card) orientation(props map[string]drm.Property) (Rotation, error) {
-	p, ok := props["panel orientation"]
-	if !ok {
-		return Upright, nil
-	}
-	info, err := c.dev.PropertyInfo(p.ID)
-	if err != nil {
-		return Upright, err
-	}
-	for name, v := range info.Enums {
-		if v == p.Value {
-			return rotationOf(name)
-		}
-	}
-	return Upright, fmt.Errorf("kms: panel orientation %d is none of %v", p.Value, info.Enums)
-}
-
 func (c *Card) add(conn drm.Connector) (*Output, error) {
 	props, err := c.dev.Properties(conn.ID, drm.ObjectConnector)
 	if err != nil {
@@ -415,7 +398,7 @@ func (c *Card) add(conn drm.Connector) (*Output, error) {
 		c.log.Info("waiting for the native driver instead of the firmware's placeholder mode", "connector", conn.Name(), "size", size)
 		return nil, nil
 	}
-	rot, err := c.orientation(props)
+	orientation, err := drm.PanelOrientationOf(props, c.dev)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +409,7 @@ func (c *Card) add(conn drm.Connector) (*Output, error) {
 		crtc:      cr,
 		plane:     pl,
 		mode:      mode,
-		rotation:  rot,
+		rotation:  rotationOf(orientation),
 		scale:     c.scaler.Scale(size, conn.PhysicalMM, c.firmware),
 		modeset:   lit == nil,
 		inherited: lit != nil,
@@ -437,7 +420,7 @@ func (c *Card) add(conn drm.Connector) (*Output, error) {
 		return nil, errors.Join(err, o.release(false))
 	}
 	c.built = append(c.built, o)
-	c.log.Info("lit an output", "connector", o.name, "size", size, "scale", o.scale, "rotation", rot, "kept the lit mode", lit != nil)
+	c.log.Info("lit an output", "connector", o.name, "size", size, "scale", o.scale, "rotation", o.rotation, "kept the lit mode", lit != nil)
 	return o, nil
 }
 
