@@ -176,6 +176,7 @@ func (m *Menu) open(cfg *config.Config, shown []Action, focus int) {
 		row.Append(b, false)
 	}
 	m.rev = widget.NewRevealer(widgets.Center(row))
+	reveal.Show(m.rev, cfg.Animations, config.AnimPower)
 	root := widget.NewBox(widget.Column, 0, 0)
 	root.AddClass("power-menu-window")
 	if m.d.Sheet != nil {
@@ -212,7 +213,6 @@ func (m *Menu) open(cfg *config.Config, shown []Action, focus int) {
 	}
 	m.win, m.closing = win, false
 	m.focus(focus)
-	reveal.Show(m.rev, cfg.Animations, config.AnimPower)
 }
 
 // step moves the keyboard along the buttons, wrapping at the ends.
