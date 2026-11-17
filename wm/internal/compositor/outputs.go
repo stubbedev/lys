@@ -31,7 +31,7 @@ type OutputRule struct {
 	ICC           *colorspace.Description
 	ICCPath       string
 	HotCorners    *HotCornerSet
-	Transform     render.Transform
+	Transform     *render.Transform
 	Mirror        *wm.OutputMatch
 	Reserved      Insets
 }
@@ -63,6 +63,16 @@ func (r OutputRule) scale() output.Scale {
 		return output.Unit
 	}
 	return r.Scale
+}
+
+func (r OutputRule) transform(b backend.Output) render.Transform {
+	if r.Transform != nil {
+		return *r.Transform
+	}
+	if p, ok := b.(backend.Panel); ok {
+		return p.PanelTransform()
+	}
+	return render.Normal
 }
 
 func internalPanel(name string) bool {
@@ -404,7 +414,7 @@ func (c *Compositor) probeFrame(b backend.Output) error {
 }
 
 func (c *Compositor) enable(b backend.Output, rule OutputRule) error {
-	o, err := c.layout.Add(b, image.Point{}, rule.scale(), rule.Transform)
+	o, err := c.layout.Add(b, image.Point{}, rule.scale(), rule.transform(b))
 	if err != nil {
 		return err
 	}
@@ -532,7 +542,8 @@ func (c *Compositor) Configure(heads []outputmanagement.HeadConfig, apply bool) 
 			rule.Scale = *h.Scale
 		}
 		if h.Transform != nil {
-			rule.Transform = *h.Transform
+			t := *h.Transform
+			rule.Transform = &t
 		}
 		if h.AdaptiveSync != nil {
 			rule.VRR = VRROff
@@ -661,8 +672,8 @@ func (c *Compositor) applyEnabledRule(o *output.Output) error {
 	}
 	changed, recolored, err := c.commitOutput(b, rule)
 	switch {
-	case changed || o.Scale() != rule.scale() || o.Transform() != rule.Transform:
-		return errors.Join(err, o.Update(o.Position(), rule.scale(), rule.Transform), c.outputResized(o))
+	case changed || o.Scale() != rule.scale() || o.Transform() != rule.transform(b):
+		return errors.Join(err, o.Update(o.Position(), rule.scale(), rule.transform(b)), c.outputResized(o))
 	case recolored && c.colorManager != nil:
 		return errors.Join(err, c.colorManager.OutputDone(o))
 	}

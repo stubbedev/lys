@@ -133,7 +133,7 @@ A list of rules. Each output takes the first rule that matches, else the
 | `sdr_brightness` | With `hdr`: cd/m² of SDR white, 1 to 10000 | 203 |
 | `hdr_peak` | With `hdr`: display peak in cd/m², 1 to 10000 | EDID, else 400 |
 | `icc` | Matrix-shaper ICC profile for an SDR output; absolute, `~/`, or relative to the config file. Runs on the CRTC's colour pipeline where present, else per draw. An unreadable profile is a warning and the output stays sRGB | none |
-| `transform` | `normal`, `90`, `180`, `270`, `flipped`, `flipped-90`, `flipped-180`, `flipped-270`. Windows tile in the turned size; absolute pointers, touchscreens and tablets follow; captures stay upright | `normal` |
+| `transform` | `normal`, `90`, `180`, `270`, `flipped`, `flipped-90`, `flipped-180`, `flipped-270`. Windows tile in the turned size; absolute pointers, touchscreens and tablets follow; captures stay upright | the connector's `panel orientation`: `180` upside down, `90` left side up, `270` right side up, else `normal` |
 | `mirror` | Connector or `desc:` of another output to show, letterboxed. A mirror has no workspaces, is hidden from `wl_output` and the layout, and has `mirror_of` in IPC. Black while nothing matches | none |
 | `reserved` | `[top, right, bottom, left]` logical pixels kept free of tiled and maximized windows, on top of what bars reserve | none |
 | `disabled` | `true` turns the output off | `false` |

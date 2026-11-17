@@ -21,7 +21,7 @@ import (
 var everyTransform = []render.Transform{render.Normal, render.Rotate90, render.Rotate180, render.Rotate270, render.Flipped, render.Flipped90, render.Flipped180, render.Flipped270}
 
 func transformed(t render.Transform) func(*compositor.Config) {
-	return func(cfg *compositor.Config) { cfg.Outputs.Fallback.Transform = t }
+	return func(cfg *compositor.Config) { cfg.Outputs.Fallback.Transform = &t }
 }
 
 func twoWindows(t *testing.T, h *Harness) (*soft.Buffer, []ipc.Window) {
@@ -141,7 +141,8 @@ func TestRotatingAtRuntimeRetilesOnce(t *testing.T) {
 		c.DispatchUntil(name+" to map", w.Mapped)
 	}
 	lines := h.watch()
-	cfg.Outputs.Fallback.Transform = render.Rotate90
+	rotated := render.Rotate90
+	cfg.Outputs.Fallback.Transform = &rotated
 	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error { return comp.Reconfigure(cfg) })
 	if _, err := ipc.Do(h.IPCSocket(), ipc.Request{Request: wmipc.KindDispatch, Action: "submap done"}); err != nil {
 		t.Fatal(err)

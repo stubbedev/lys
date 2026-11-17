@@ -492,6 +492,10 @@ package's test therefore opens its EGL host before its Vulkan device, and
   `bitdepth: 10`, which tries XRGB2101010 then XBGR2101010 with the plane's
   modifiers, falling back to 8 bits only when every format's test modeset is
   refused.
+- **Panel orientation**: an output on a connector with a `panel orientation`
+  property takes the transform that shows a frame upright on the panel as it
+  is mounted, as lys-splash turns its frame, so the splash, the greeter and the
+  desktop draw at one size. An output rule's `transform` overrides it.
 - **Inheriting a splash**: an output keeps the CRTC and primary plane already
   lit in its chosen mode. Nothing commits to it until a client surface has
   content on it, or `Config.InheritTimeout` (30 s) passes; that first frame

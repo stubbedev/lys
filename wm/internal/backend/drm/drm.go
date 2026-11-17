@@ -135,6 +135,7 @@ func (p *plane) layouts(d backend.BitDepth) []layout {
 var (
 	_ backend.Scanner      = (*Output)(nil)
 	_ backend.Inheriting   = (*Output)(nil)
+	_ backend.Panel        = (*Output)(nil)
 	_ backend.FrameTearing = (*Output)(nil)
 	_ backend.FrameFilling = (*Output)(nil)
 	_ backend.FrameRateCap = (*Output)(nil)
@@ -772,6 +773,10 @@ func (b *Backend) light(c kdrm.Connector, t *tiling) error {
 		b.report(fmt.Errorf("drm: %s is a non-desktop display, such as a VR headset, and is not lit as an output", c.Name()))
 		return nil
 	}
+	orientation, err := kdrm.PanelOrientationOf(props, b.dev)
+	if err != nil {
+		return fmt.Errorf("drm: the panel orientation of %s: %w", c.Name(), err)
+	}
 	routed := uint32(props["CRTC_ID"].Value) //nolint:gosec // KMS object IDs are 32-bit
 	cr, p, err := b.pick(c, routed)
 	if errors.Is(err, errNoCRTC) {
@@ -782,7 +787,7 @@ func (b *Backend) light(c kdrm.Connector, t *tiling) error {
 	if err != nil {
 		return err
 	}
-	o := &Output{b: b, conn: c, connector: kmsObject{c.ID, props}, renderFence: -1, lateFence: -1, tested: map[planeKey]bool{}}
+	o := &Output{b: b, conn: c, connector: kmsObject{c.ID, props}, panel: panelTransform(orientation), renderFence: -1, lateFence: -1, tested: map[planeKey]bool{}}
 	if t != nil {
 		o.tiles, o.tileMode, t.tiles = t.tiles, t.mode, nil
 	}
@@ -1067,6 +1072,23 @@ type Output struct {
 	primaryAt     backend.Placement
 	primaryNext   backend.Placement
 	commits       backend.Commits
+	panel         render.Transform
+}
+
+func panelTransform(o kdrm.PanelOrientation) render.Transform {
+	switch o {
+	case kdrm.PanelUpsideDown:
+		return render.Rotate180
+	case kdrm.PanelLeftSideUp:
+		return render.Rotate90
+	case kdrm.PanelRightSideUp:
+		return render.Rotate270
+	}
+	return render.Normal
+}
+
+func (o *Output) PanelTransform() render.Transform {
+	return o.panel
 }
 
 func (o *Output) Name() string {

@@ -43,7 +43,7 @@ func (c *Compositor) mirrorSource(m *mirror) *output.Output {
 }
 
 func (c *Compositor) addMirror(b backend.Output, rule OutputRule) error {
-	m := &mirror{out: b, source: *rule.Mirror, transform: rule.Transform}
+	m := &mirror{out: b, source: *rule.Mirror, transform: rule.transform(b)}
 	c.mirrors = append(c.mirrors, m)
 	return errors.Join(c.mirrorChanged(m), c.outputConfig.Changed())
 }
@@ -150,8 +150,8 @@ func (c *Compositor) applyMirrorRules() error {
 			if _, _, err := c.commitOutput(b, rule); err != nil {
 				errs = append(errs, err)
 			}
-			if m.source != *rule.Mirror || m.transform != rule.Transform {
-				m.source, m.transform = *rule.Mirror, rule.Transform
+			if t := rule.transform(b); m.source != *rule.Mirror || m.transform != t {
+				m.source, m.transform = *rule.Mirror, t
 				errs = append(errs, c.mirrorChanged(m))
 			}
 			continue

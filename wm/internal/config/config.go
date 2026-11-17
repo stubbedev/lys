@@ -1282,7 +1282,7 @@ func (p *parser) output(i int, at At[rawOutput], corners compositor.HotCornerSet
 		if !ok {
 			p.fail(r.Transform.Line, key+".transform", "%q is not one of %s", r.Transform.V, strings.Join(render.TransformNames(), ", "))
 		}
-		rule.Transform = t
+		rule.Transform = &t
 	}
 	if r.Mirror != nil {
 		if r.Mirror.V == "" || r.Mirror.V == outputFallback {

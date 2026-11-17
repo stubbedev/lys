@@ -66,6 +66,7 @@ const (
 	propVRRCapableID
 	propVRREnabledID
 	propTileID
+	propPanelOrientationID
 	inFormatsBlob    = 500
 	edidBlob         = 501
 	litModeBlob      = 502
@@ -138,6 +139,7 @@ type fakeDevice struct {
 	refuseScaling     bool
 	secondOverlay     bool
 	degammaSize       uint64
+	orientation       *uint64
 	overlayBudget     int
 	noMaster          bool
 	refuseMode        func(m kdrm.Mode) bool
@@ -371,6 +373,9 @@ func (f *fakeDevice) Properties(object, kind uint32) (map[string]kdrm.Property, 
 		if _, ok := f.tiles[object]; ok {
 			props[propTile] = kdrm.Property{ID: propTileID, Value: uint64(tileBlobs + object)}
 		}
+		if f.orientation != nil {
+			props["panel orientation"] = kdrm.Property{ID: propPanelOrientationID, Value: *f.orientation}
+		}
 		if f.nonDesktop[object] {
 			props["non-desktop"] = kdrm.Property{ID: propNonDesktop, Value: 1}
 		}
@@ -393,6 +398,9 @@ func (f *fakeDevice) PropertyInfo(id uint32) (kdrm.PropertyInfo, error) {
 		return kdrm.PropertyInfo{Name: propColorEncoding, Enums: map[string]uint64{"ITU-R BT.601 YCbCr": 0, "ITU-R BT.709 YCbCr": 1, "ITU-R BT.2020 YCbCr": 2}}, nil
 	case propColorRangeID:
 		return kdrm.PropertyInfo{Name: propColorRange, Enums: map[string]uint64{"YCbCr limited range": 0, "YCbCr full range": 1}}, nil
+	}
+	if id == propPanelOrientationID {
+		return kdrm.PropertyInfo{Name: "panel orientation", Enums: map[string]uint64{"Normal": 0, "Upside Down": 1, "Left Side Up": 2, "Right Side Up": 3}}, nil
 	}
 	if id == propContentTypeID {
 		return kdrm.PropertyInfo{Name: propContentType, Enums: map[string]uint64{"No Data": 0, "Graphics": 1, "Photo": 2, "Cinema": 3, "Game": 4}}, nil
@@ -3165,5 +3173,49 @@ func TestEveryOverlayUseIsReleasedEvenIfItNeverReachedThePlane(t *testing.T) {
 	r.until("the flip that takes it off", func() bool { return !o.flipping })
 	if released != set {
 		t.Fatalf("%d overlay uses were handed to the backend and %d released", set, released)
+	}
+}
+
+func TestAnOutputTakesItsPanelOrientationAsItsTransform(t *testing.T) {
+	panel := image.Pt(int(modes[0].HDisplay), int(modes[0].VDisplay))
+	for value, c := range []struct {
+		transform render.Transform
+		topLeft   image.Point
+	}{
+		{render.Normal, image.Pt(0, 0)},
+		{render.Rotate180, panel},
+		{render.Rotate90, image.Pt(0, panel.Y)},
+		{render.Rotate270, image.Pt(panel.X, 0)},
+	} {
+		r := boot(t, func(d *fakeDevice) allocator {
+			v := uint64(value)
+			d.orientation = &v
+			return &fakeAlloc{soft: soft.New()}
+		})
+		got := r.b.Outputs()[0].PanelTransform()
+		if got != c.transform {
+			t.Errorf("panel orientation %d: transform %v, want %v", value, got, c.transform)
+		}
+		if at := got.Point(image.Point{}, got.Size(panel)); at != c.topLeft {
+			t.Errorf("panel orientation %d: the upright frame's top-left corner lands at %v of the panel, want %v", value, at, c.topLeft)
+		}
+	}
+}
+
+func TestAnOutputWithoutAPanelOrientationIsUpright(t *testing.T) {
+	r := boot(t, func(*fakeDevice) allocator { return &fakeAlloc{soft: soft.New()} })
+	if got := r.b.Outputs()[0].PanelTransform(); got != render.Normal {
+		t.Fatalf("transform %v, want normal", got)
+	}
+}
+
+func TestAPanelOrientationNoEnumeratorNamesStopsTheOutput(t *testing.T) {
+	r := rigged(t, func(d *fakeDevice) allocator {
+		v := uint64(9)
+		d.orientation = &v
+		return &fakeAlloc{soft: soft.New()}
+	}, HoldsMaster)
+	if err := r.b.Start(r.rec); err == nil || !strings.Contains(err.Error(), "the panel orientation of") {
+		t.Fatalf("starting on a panel orientation of 9: %v", err)
 	}
 }

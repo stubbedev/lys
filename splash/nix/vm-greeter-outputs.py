@@ -32,3 +32,10 @@ with logs_on_failure(machine, greeter_logs):
         shot.save(machine.out_dir / f"greeter-{output}.png")
     held = machine.execute("journalctl -b -g 'no client drew on'")
     assert held[0] != 0, f"lys-wm gave up on a frame no client drew over: {held[1]}"
+
+    greeter_log = machine.succeed("journalctl -b -t lys-login -o cat --no-pager")
+    fell_back = [line for line in greeter_log.splitlines() if "the splash's background without its logo" in line]
+    assert not fell_back, f"the greeter fell back to the splash's background: {fell_back}"
+    took = dict(re.findall(r"greeter: the first frame on (\S+) takes over the splash's: the logo at \S+ on (\d+x\d+)", greeter_log))
+    want = {"Virtual-1": "1024x768", "Virtual-2": "768x1024"}
+    assert took == want, f"the greeter took the splash's logo over on {took}, want {want}: lys-wm turns Virtual-2 by its panel orientation as the splash does"

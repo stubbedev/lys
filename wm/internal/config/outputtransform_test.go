@@ -10,15 +10,18 @@ import (
 )
 
 func TestOutputsTakeATransformAMirrorAndReservedEdges(t *testing.T) {
-	cfg, err := Parse("t.yaml", []byte("outputs:\n  - match: DP-1\n    transform: flipped-270\n    reserved: [10, 0, 20, 5]\n  - match: HDMI-A-1\n    mirror: 'desc:Dell U2720Q'\n"))
+	cfg, err := Parse("t.yaml", []byte("outputs:\n  - match: DP-1\n    transform: flipped-270\n    reserved: [10, 0, 20, 5]\n  - match: HDMI-A-1\n    mirror: 'desc:Dell U2720Q'\n  - match: eDP-1\n    transform: normal\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r := cfg.Outputs.Named[0]; r.Transform != render.Flipped270 || r.Reserved != (compositor.Insets{Top: 10, Bottom: 20, Left: 5}) || r.Mirror != nil {
+	if r := cfg.Outputs.Named[0]; r.Transform == nil || *r.Transform != render.Flipped270 || r.Reserved != (compositor.Insets{Top: 10, Bottom: 20, Left: 5}) || r.Mirror != nil {
 		t.Errorf("the first rule %+v", r)
 	}
-	if r := cfg.Outputs.Named[1]; r.Mirror == nil || *r.Mirror != (wm.OutputMatch{Description: "Dell U2720Q"}) || r.Transform != render.Normal {
-		t.Errorf("the mirror rule %+v", r)
+	if r := cfg.Outputs.Named[1]; r.Mirror == nil || *r.Mirror != (wm.OutputMatch{Description: "Dell U2720Q"}) || r.Transform != nil {
+		t.Errorf("the mirror rule %+v, want no transform so the panel's applies", r)
+	}
+	if r := cfg.Outputs.Named[2]; r.Transform == nil || *r.Transform != render.Normal {
+		t.Errorf("the rule that sets normal %+v, want it to override the panel's orientation", r)
 	}
 	for text, problem := range map[string]string{
 		"outputs:\n  - match: DP-1\n    transform: 45\n":           `"45" is not one of normal, 90`,

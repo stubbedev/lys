@@ -48,6 +48,7 @@ type Backend struct {
 	refuseOverlay bool
 	overlayTarget gpu.ScanoutTarget
 	inherit       bool
+	panel         render.Transform
 	closed        bool
 	fenceTime     func(fd int) (time.Duration, bool, error)
 	report        func(error)
@@ -196,6 +197,10 @@ func (b *Backend) InheritFrames() {
 	b.inherit = true
 }
 
+func (b *Backend) MountPanels(t render.Transform) {
+	b.panel = t
+}
+
 func (b *Backend) AddOutput(modes ...backend.Mode) (*Output, error) {
 	return b.AddNamedOutput(fmt.Sprintf("HEADLESS-%d", b.next+1), modes...)
 }
@@ -221,6 +226,7 @@ func (b *Backend) AddNamedOutput(name string, modes ...backend.Mode) (*Output, e
 		state:       backend.OutputState{Power: backend.PoweredOn, Mode: current},
 		ctm:         backend.Identity,
 		inherited:   b.inherit,
+		panel:       b.panel,
 		renderFence: -1,
 		timing:      timingOf(b.loop),
 	}
@@ -276,6 +282,7 @@ func (b *Backend) RemoveOutput(o *Output) error {
 
 var (
 	_ backend.Inheriting     = (*Output)(nil)
+	_ backend.Panel          = (*Output)(nil)
 	_ backend.Scanner        = (*Output)(nil)
 	_ backend.Gamma          = (*Output)(nil)
 	_ backend.ColorTransform = (*Output)(nil)
@@ -347,6 +354,11 @@ type Output struct {
 	loseInFrame    bool
 	inherited      bool
 	takeover       *soft.Buffer
+	panel          render.Transform
+}
+
+func (o *Output) PanelTransform() render.Transform {
+	return o.panel
 }
 
 func (o *Output) Inherited() bool {

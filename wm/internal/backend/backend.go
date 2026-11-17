@@ -279,6 +279,10 @@ type Inheriting interface {
 	InheritedFrame() (*gpu.Buffer, error)
 }
 
+type Panel interface {
+	PanelTransform() render.Transform
+}
+
 type ContentTyped interface {
 	SetContentType(t wm.ContentType)
 }
