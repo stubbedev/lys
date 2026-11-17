@@ -62,6 +62,13 @@ func Until(t *testing.T, a *app.Application, what string, cond func() bool) {
 	waittest.Until(t, func() bool { return On(a, cond) }, what)
 }
 
+// UntilSlow is Until for work the compositor or another process does,
+// with waittest's slow limit.
+func UntilSlow(t *testing.T, a *app.Application, what string, cond func() bool) {
+	t.Helper()
+	waittest.UntilSlow(t, func() bool { return On(a, cond) }, what)
+}
+
 // On runs fn on a's loop and returns its result.
 func On[T any](a *app.Application, fn func() T) T {
 	got := make(chan T, 1)

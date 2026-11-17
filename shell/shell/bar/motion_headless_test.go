@@ -71,7 +71,7 @@ func TestHeadlessAMenuShowsInTheFrameOfTheClick(t *testing.T) {
 		}
 		var reveal float64
 		var failed error
-		apptest.Until(t, a, "the compositor places the menu", func() bool {
+		apptest.UntilSlow(t, a, "the compositor places the menu", func() bool {
 			if failed = openErr; failed != nil {
 				return true
 			}
