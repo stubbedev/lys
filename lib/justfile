@@ -27,9 +27,10 @@ lint:
 no-fused:
     no-fused
 
-# Run the test suite for every package.
-test:
-    go test ./...
+# Run the test suite, shuffled, for every package or the ones
+# LYS_TEST_PACKAGES names; LYS_TEST_ARGS replaces the shuffle flag.
+test *args:
+    go test ${LYS_TEST_ARGS--shuffle=on} ${LYS_TEST_PACKAGES:-./...} {{args}}
 
 # Compile-check every package; the output is discarded.
 build:
