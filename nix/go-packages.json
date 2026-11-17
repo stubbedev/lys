@@ -391,6 +391,7 @@
       "lib/render",
       "lib/waittest",
       "lib/xkb",
+      "ui/app",
       "ui/widget"
     ]
   },
@@ -3572,8 +3573,7 @@
     "testImports": [
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
-      "lib/testhome",
-      "lib/xkb"
+      "lib/testhome"
     ]
   },
   "shell/shell/printdialog": {
