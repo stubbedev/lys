@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/udmabuf"
+
 	"github.com/stubbedev/lys/wm/internal/anim"
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -100,6 +102,13 @@ func TestTheFirstFrameOverAnInheritedOneFadesFromIt(t *testing.T) {
 }
 
 func testTheFirstFrameOverAnInheritedOneFadesFromIt(t *testing.T, start func(*testing.T, func(*compositor.Config), ...backend.Mode) *Harness) {
+	probe, err := udmabuf.New(4096)
+	if err != nil {
+		t.Skipf("the headless backend makes the inherited frame a udmabuf: %v", err)
+	}
+	if err := probe.Close(); err != nil {
+		t.Fatal(err)
+	}
 	d := 10 * time.Second
 	off, on := false, true
 	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{anim.Global: {Enabled: &off}, anim.FadeIn: {Enabled: &on, Shape: anim.Linear, Duration: &d}})
