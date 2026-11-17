@@ -116,6 +116,31 @@ func TestRecordingWritesAPlayableFileWithAudio(t *testing.T) {
 	}
 }
 
+func TestStopCompletesTheAudioToTheVideo(t *testing.T) {
+	fx := loadFixture(t)
+	video := &fakeVideo{fx: fx}
+	period := time.Second / testFPS
+	wall := newFakeWall(time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC), period, audioFrameTime)
+	src := &fakeAudio{}
+	r, path, _ := startTest(t, recordingParts{video: video, audio: []startAudio{src.start}, wall: wall}, config.RecorderFormatMkv)
+	src.push(pcmBytes(make([]int16, audioFrame*audioChannels)...))
+	recordFrames(wall, period, 10)
+	const late = 6 * time.Millisecond
+	wall.advance(late)
+	if err := r.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	p := ffprobe(t, path)
+	vpts, apts := p.ptsOf(0), p.ptsOf(1)
+	if len(vpts) == 0 || len(apts) == 0 {
+		t.Fatalf("video at %v, audio at %v: a track is empty", vpts, apts)
+	}
+	end := slices.Max(apts) + audioFrameTime.Seconds()
+	if video := slices.Max(vpts); end < video || end >= video+(audioFrameTime+late).Seconds() {
+		t.Errorf("audio plays to %v, want from the video's last frame at %v to within a packet after it", end, video)
+	}
+}
+
 // A pause cuts its span from both tracks: no frame falls due while
 // paused, however often the video loop ticks, and after the resume the
 // video and audio timestamps run on from where the pause stopped them.

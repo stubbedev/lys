@@ -43,3 +43,9 @@ func framesDue(elapsed, latency time.Duration, emitted int) int {
 	}
 	return max(int(upTo/audioFrameTime)-emitted, 0)
 }
+
+const preSkipTime = time.Second * opus.PreSkip / audioRate
+
+func framesToEnd(elapsed time.Duration, emitted int) int {
+	return max(int((elapsed+preSkipTime+audioFrameTime-1)/audioFrameTime)-emitted, 0)
+}

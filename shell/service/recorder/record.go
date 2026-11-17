@@ -335,7 +335,8 @@ func (r *recording) pushAudio(source int, chunk []byte) {
 
 // audioLoop mixes and encodes the frames due every packet period,
 // trailing the clock by audioLatency (a stopped clock makes none due);
-// on stop it drains up to the clock itself.
+// on stop it completes the track, past its pre-skip and with silence
+// where no source delivered, up to the clock itself.
 func (r *recording) audioLoop() {
 	defer r.loops.Done()
 	ticks, stopTicks := r.p.wall.Ticker(audioFrameTime)
@@ -343,10 +344,10 @@ func (r *recording) audioLoop() {
 	emitted := 0
 	pcm := make([]int16, audioFrame*audioChannels)
 	var packet []byte
-	pump := func(latency time.Duration) error {
+	pump := func(due func(elapsed time.Duration, emitted int) int) error {
 		for {
 			r.mu.Lock()
-			if framesDue(r.clock.elapsed(r.p.wall.Now()), latency, emitted) == 0 {
+			if due(r.clock.elapsed(r.p.wall.Now()), emitted) == 0 {
 				r.mu.Unlock()
 				return nil
 			}
@@ -362,13 +363,14 @@ func (r *recording) audioLoop() {
 			emitted++
 		}
 	}
+	trailing := func(elapsed time.Duration, emitted int) int { return framesDue(elapsed, audioLatency, emitted) }
 	for {
 		select {
 		case <-r.stop:
-			r.drainErr = pump(0)
+			r.drainErr = pump(framesToEnd)
 			return
 		case <-ticks:
-			if err := pump(audioLatency); err != nil {
+			if err := pump(trailing); err != nil {
 				r.fail(err)
 				return
 			}

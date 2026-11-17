@@ -23,3 +23,22 @@ func TestFramesDue(t *testing.T) {
 		}
 	}
 }
+
+func TestFramesToEnd(t *testing.T) {
+	for _, c := range []struct {
+		elapsed       time.Duration
+		emitted, want int
+	}{
+		{0, 0, 1},
+		{17500 * time.Microsecond, 0, 1},
+		{17501 * time.Microsecond, 0, 2},
+		{339 * time.Millisecond, 0, 18},
+		{339 * time.Millisecond, 15, 3},
+		{339 * time.Millisecond, 18, 0},
+		{339 * time.Millisecond, 20, 0},
+	} {
+		if got := framesToEnd(c.elapsed, c.emitted); got != c.want {
+			t.Errorf("framesToEnd(%v, %d) = %d, want %d", c.elapsed, c.emitted, got, c.want)
+		}
+	}
+}

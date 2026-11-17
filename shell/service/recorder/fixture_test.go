@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/gpu"
-	"github.com/stubbedev/lys/lib/media/opus"
 )
 
 // requireFFmpeg skips a test that needs ffmpeg and ffprobe without
@@ -355,11 +354,10 @@ func (w *fakeWall) playPaused(rec Recording, period time.Duration, before, pause
 }
 
 // lastAudioPacket is the time of the last Opus packet in a file that
-// recorded recorded: whole packets up to it, less the encoder's
-// pre-skip.
+// recorded recorded: the packets whose playback, past the encoder's
+// pre-skip, reaches it.
 func lastAudioPacket(recorded time.Duration) time.Duration {
-	preSkip := time.Duration(opus.PreSkip) * time.Second / audioRate
-	return time.Duration(int(recorded/audioFrameTime)-1)*audioFrameTime - preSkip
+	return time.Duration(framesToEnd(recorded, 0)-1)*audioFrameTime - preSkipTime
 }
 
 func closeOrFail(t *testing.T, what string, c interface{ Close() error }) {
