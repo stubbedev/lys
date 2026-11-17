@@ -174,6 +174,10 @@ def when(entries, unit, pattern):
     raise AssertionError(f"the journal has no {pattern!r}" + (f" from {unit}" if unit else ""))
 
 
+def started(m, unit):
+    return m.succeed(f"systemctl show -P ExecMainStartTimestampMonotonic {unit}").strip() not in ("", "0")
+
+
 def in_order(m, *steps):
     entries = journal(m)
     times = [when(entries, unit, pattern) for unit, pattern in steps]

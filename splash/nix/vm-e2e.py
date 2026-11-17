@@ -32,7 +32,7 @@ with stage(machine, "memory lock"):
 
 with stage(machine, "compatibility"):
     machine.succeed(f"{plymouth} --ping", f"{plymouth} display-message --text='nixpkgs plymouth'")
-    machine.succeed("journalctl -b -u lys-splash-ask-password.service -g 'Started '")
+    assert started(machine, "lys-splash-ask-password.service"), "the splash's ask-password agent never started"
 
 with stage(machine, "hand-over", greeter_logs):
     await_gate(machine)
