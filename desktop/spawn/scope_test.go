@@ -67,6 +67,7 @@ func (m *fakeManager) scope(name string) (map[string]dbus.Variant, bool) {
 func onBus(t *testing.T, manager *fakeManager) {
 	t.Helper()
 	bus := dbustest.Start(t)
+	t.Cleanup(scopes.moves.Wait)
 	if manager != nil {
 		conn := bus.Conn(t)
 		if err := conn.Export(manager, systemdPath, systemdIface); err != nil {
@@ -136,7 +137,6 @@ func TestQuietReturnsWhileTheBusHolds(t *testing.T) {
 	onBus(t, m)
 	release := sync.OnceFunc(func() { close(m.hold) })
 	t.Cleanup(release)
-	t.Cleanup(scopes.moves.Wait)
 	const commands = 3
 	for range commands {
 		Quiet("true")
