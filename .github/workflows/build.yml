@@ -49,8 +49,8 @@ jobs:
           free-disk: ${{ matrix.free-disk }}
       - uses: stubbedev/xilo@b0f2295b1cb83fc46543f969b8c9991a78c37624 # v1.2.9
         with:
-          url: https://nix.stubbe.dev
-          cache: default/default
+          url: https://xilos.dev
+          cache: stubbedev/main
           token: ${{ secrets.XILO_TOKEN }}
       - id: store
         name: The store before the build
@@ -80,7 +80,7 @@ jobs:
             cat "${RUNNER_TEMP}/watch.log"
             watch=$(cat "${RUNNER_TEMP}/watch.status")
           fi
-          just new-store-paths "${RUNNER_TEMP}/store" | xilo push default/default -
+          just new-store-paths "${RUNNER_TEMP}/store" | xilo push stubbedev/main -
           if [ "${watch}" != 0 ]; then
             echo "::error::xilo watch exited ${watch} without pushing every path it saw; its log above names them"
             exit 1
