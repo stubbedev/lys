@@ -802,6 +802,7 @@
       "lib/waittest"
     ]
   },
+  "lib/logtest": {},
   "lib/logutil": {
     "testImports": [
       "lib/testbuild"
@@ -3674,6 +3675,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/dbustest",
+      "lib/logtest",
       "lib/testhome",
       "lib/third_party/wayland/wl",
       "lib/waittest",
