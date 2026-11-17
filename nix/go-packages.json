@@ -5128,6 +5128,7 @@
       "lib/logind",
       "lib/render",
       "lib/testhome",
+      "lib/udmabuf",
       "lib/vinput",
       "lib/xcursor",
       "wm/internal/anim",
