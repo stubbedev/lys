@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -130,14 +131,7 @@ func TestArrowsWalkTheButtonsAndWrap(t *testing.T) {
 	h.cfg.Power.ShowReboot = false
 	h.m.Show()
 	buttons := h.buttons(t)
-	press := func(name string) bool {
-		t.Helper()
-		a, err := app.ParseAccel(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return h.opened[0].KeyCapture(a)
-	}
+	press := func(name string) bool { t.Helper(); return h.press(t, name) }
 	for i, step := range []struct {
 		key  string
 		want int
@@ -158,11 +152,7 @@ func TestTheFirstLeftLandsOnTheLastButton(t *testing.T) {
 	h := newHarness(t)
 	h.m.Show()
 	buttons := h.buttons(t)
-	a, err := app.ParseAccel("Left")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h.opened[0].KeyCapture(a)
+	h.press(t, "Left")
 	if h.windows[0].focused() != widget.Widget(buttons[len(buttons)-1]) {
 		t.Error("the first Left did not land on the last button")
 	}
@@ -250,7 +240,7 @@ func TestRowIsHomogeneousAndUnpinned(t *testing.T) {
 	h.m.Show()
 	root := h.opened[0].Root
 	rows := treetest.WithClass(root, "power-menu-surface")
-	if len(rows) != 1 || !rows[0].(*widget.Box).Homogeneous() {
+	if len(rows) != 1 || !rows[0].(*buttonRow).Homogeneous() {
 		t.Fatalf("surface %v, want one homogeneous .power-menu-surface", rows)
 	}
 	for _, l := range treetest.All[*widget.Label](root) {
@@ -291,7 +281,103 @@ func (h *harness) press(t *testing.T, name string) bool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return h.opened[len(h.opened)-1].KeyCapture(a)
+	cfg, router := h.opened[len(h.opened)-1], h.windows[len(h.windows)-1].router
+	if cfg.KeyCapture(a) {
+		return true
+	}
+	cfg.Root.Arrange(render.Rect{W: 1600, H: 1000})
+	if a.Sym == xkb.KeyTab {
+		if a.Mods&app.ModShift != 0 {
+			router.FocusPrev()
+		} else {
+			router.FocusNext()
+		}
+		return true
+	}
+	action, ok := widget.KeyActionForSym(a.Sym)
+	if !ok {
+		return false
+	}
+	router.KeyAction(action, 0)
+	return true
+}
+
+func TestReturnRunsTheButtonTabReached(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.cfg.Power.SuspendCommand = "suspend-now"
+	h.m.Show()
+	h.press(t, "Tab")
+	h.press(t, "Tab")
+	if got, want := h.windows[0].focused(), widget.Widget(h.buttons(t)[2]); got != want {
+		t.Fatalf("focused %v after two Tabs, want the suspend button", got)
+	}
+	h.press(t, "Return")
+	if len(h.ran) != 1 || h.ran[0] != "suspend-now" {
+		t.Errorf("ran %v, want the suspend command alone", h.ran)
+	}
+}
+
+func TestKPEnterRunsTheButtonShiftTabReached(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.cfg.Power.ShutdownCommand = "power-off-now"
+	h.m.Show()
+	h.press(t, "Shift+Tab")
+	buttons := h.buttons(t)
+	if got, want := h.windows[0].focused(), widget.Widget(buttons[len(buttons)-1]); got != want {
+		t.Fatalf("focused %v after Shift+Tab, want the shut-down button", got)
+	}
+	h.press(t, "KP_Enter")
+	if len(h.ran) != 1 || h.ran[0] != "power-off-now" {
+		t.Errorf("ran %v, want the shut-down command alone", h.ran)
+	}
+}
+
+func TestArrowsContinueFromTheButtonTabReached(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.cfg.Power.RebootCommand = "reboot-now"
+	h.m.Show()
+	buttons := h.buttons(t)
+	h.press(t, "Tab")
+	h.press(t, "Tab")
+	h.press(t, "Right")
+	if got, want := h.windows[0].focused(), widget.Widget(buttons[3]); got != want {
+		t.Fatalf("focused %v after two Tabs and Right, want the reboot button", got)
+	}
+	h.press(t, "Shift+Tab")
+	h.press(t, "Left")
+	if got, want := h.windows[0].focused(), widget.Widget(buttons[1]); got != want {
+		t.Fatalf("focused %v after Shift+Tab and Left, want the log-out button", got)
+	}
+	h.press(t, "Right")
+	h.press(t, "Right")
+	h.press(t, "Return")
+	if len(h.ran) != 1 || h.ran[0] != "reboot-now" {
+		t.Errorf("ran %v, want the reboot command alone", h.ran)
+	}
+}
+
+func TestReturnRunsTheButtonThePointerFocused(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.Animations.Enabled = false
+	h.m.Show()
+	router := h.windows[0].router
+	router.Root.Arrange(render.Rect{W: 1600, H: 1000})
+	suspend := h.buttons(t)[2]
+	at := suspend.Bounds()
+	p := widget.Point{X: at.X + at.W/2, Y: at.Y + at.H/2}
+	router.Move(p)
+	router.Press(0x110, p, 0)
+	router.CancelPress()
+	if len(h.ran) != 0 || router.Focused() != widget.Widget(suspend) {
+		t.Fatalf("a cancelled press ran %v and focused %v, want nothing run and the suspend button focused", h.ran, router.Focused())
+	}
+	h.press(t, "Return")
+	if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.SuspendCommand {
+		t.Errorf("ran %v, want the suspend command alone", h.ran)
+	}
 }
 
 func TestTheFirstButtonHasTheKeyboardOnOpen(t *testing.T) {

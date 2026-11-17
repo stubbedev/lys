@@ -3,10 +3,11 @@
 // holding lock, log out, suspend, reboot and shut-down buttons, each
 // running its [modules.power] command. The power module's `:menu`
 // binding opens it, and the dashboard's session buttons go through it
-// (Request). It opens with a button focused; the arrows walk the
-// buttons, Return presses the focused one and Escape dismisses it. It
-// enters and leaves through the power surface's transition, and a
-// button's command runs once the menu is gone.
+// (Request). It opens with a button focused; the arrows, like Tab,
+// move the window's focus along the buttons, Return presses the
+// focused one and Escape dismisses it. It enters and leaves through
+// the power surface's transition, and a button's command runs once
+// the menu is gone.
 package powermenu
 
 import (
@@ -35,17 +36,8 @@ const (
 	chipPx = 48
 )
 
-// escape dismisses the menu; the arrows walk its buttons, and Return
-// presses the focused one.
-var (
-	escape, _  = app.ParseAccel("Escape")
-	left, _    = app.ParseAccel("Left")
-	right, _   = app.ParseAccel("Right")
-	up, _      = app.ParseAccel("Up")
-	down, _    = app.ParseAccel("Down")
-	enter, _   = app.ParseAccel("Return")
-	kpEnter, _ = app.ParseAccel("KP_Enter")
-)
+// escape dismisses the menu.
+var escape, _ = app.ParseAccel("Escape")
 
 // Action is one of the menu's power actions.
 type Action int
@@ -128,10 +120,6 @@ type Menu struct {
 	d   Deps
 	win Window
 	rev *widget.Revealer
-	// buttons are the shown actions, in order; focused indexes the one
-	// with the keyboard.
-	buttons []*widget.Button
-	focused int
 	// closing: the exit is playing; a Show reopens a fresh surface.
 	closing bool
 }
@@ -166,13 +154,12 @@ func (m *Menu) open(cfg *config.Config, shown []Action, focus int) {
 	}
 	scale := float64(cfg.Styling.Scale)
 	th := widget.Current()
-	row := widget.NewBox(widget.Row, th.Spacing, 3*th.Padding)
+	row := &buttonRow{Box: widget.NewBox(widget.Row, th.Spacing, 3*th.Padding), buttons: make([]*widget.Button, 0, len(shown))}
 	row.AddClass(css.Glass, "power-menu-surface")
 	row.SetHomogeneous(true)
-	m.buttons = m.buttons[:0]
 	for _, a := range shown {
 		b := m.button(a, scale)
-		m.buttons = append(m.buttons, b)
+		row.buttons = append(row.buttons, b)
 		row.Append(b, false)
 	}
 	m.rev = widget.NewRevealer(widgets.Center(row))
@@ -192,18 +179,10 @@ func (m *Menu) open(cfg *config.Config, shown []Action, focus int) {
 		Root:           root,
 		BackgroundBlur: cfg.Styling.Translucent(),
 		KeyCapture: func(a app.Accel) bool {
-			switch a.Sym { // whatever modifiers are held
-			case escape.Sym:
-				m.Cancel()
-			case left.Sym, up.Sym:
-				m.step(-1)
-			case right.Sym, down.Sym:
-				m.step(1)
-			case enter.Sym, kpEnter.Sym:
-				m.press()
-			default:
+			if a.Sym != escape.Sym { // whatever modifiers are held
 				return false
 			}
+			m.Cancel()
 			return true
 		},
 	})
@@ -212,35 +191,45 @@ func (m *Menu) open(cfg *config.Config, shown []Action, focus int) {
 		return
 	}
 	m.win, m.closing = win, false
-	m.focus(focus)
-}
-
-// step moves the keyboard along the buttons, wrapping at the ends.
-func (m *Menu) step(by int) {
-	if m.win == nil || m.closing || len(m.buttons) == 0 {
+	if focus < 0 || focus >= len(row.buttons) {
 		return
 	}
-	n := len(m.buttons)
-	m.focus((m.focused + by + n) % n)
-}
-
-// focus hands the keyboard to button i.
-func (m *Menu) focus(i int) {
-	if i < 0 || i >= len(m.buttons) {
-		return
-	}
-	m.focused = i
-	if err := m.win.SetFocus(m.buttons[i]); err != nil {
-		log.Printf("power menu: focus button %d: %v", i, err)
+	if err := win.SetFocus(row.buttons[focus]); err != nil {
+		log.Printf("power menu: focus button %d: %v", focus, err)
 	}
 }
 
-// press clicks the focused button.
-func (m *Menu) press() {
-	if m.win == nil || m.closing || m.focused >= len(m.buttons) {
-		return
+type buttonRow struct {
+	*widget.Box
+	buttons []*widget.Button
+}
+
+func (r *buttonRow) NavigateFocus(target widget.Widget, a widget.KeyAction) widget.Widget {
+	var by int
+	switch a {
+	case widget.KeyLeft, widget.KeyUp:
+		by = -1
+	case widget.KeyRight, widget.KeyDown:
+		by = 1
+	default:
+		return nil
 	}
-	m.buttons[m.focused].OnClick()
+	stops := make([]widget.Widget, 0, len(r.buttons))
+	at := -1
+	for _, b := range r.buttons {
+		if !widget.Describe(b).Focusable {
+			continue
+		}
+		if widget.Widget(b) == target {
+			at = len(stops)
+		}
+		stops = append(stops, b)
+	}
+	if at < 0 {
+		return nil
+	}
+	n := len(stops)
+	return stops[(at+by+n)%n]
 }
 
 // scaled is px at the styling scale.
