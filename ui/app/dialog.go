@@ -146,17 +146,23 @@ type DialogParent interface {
 // dialogWindow implements DialogParent.
 func (w *Window) dialogWindow() *Window { return w }
 
+// parentWindow is the xdg window a dialog parents to: none for a nil
+// parent or a layer surface.
+func parentWindow(parent DialogParent) *Window {
+	if parent == nil {
+		return nil
+	}
+	return parent.dialogWindow()
+}
+
 // dialogAppID is a dialog's app id: its parent window's, so the
 // compositor and taskbars group the dialog with its application, as a
-// GTK dialog is; none without a parent.
-func dialogAppID(parent DialogParent) string {
-	if parent == nil {
+// GTK dialog is; none without a parent window.
+func dialogAppID(pw *Window) string {
+	if pw == nil {
 		return ""
 	}
-	if pw := parent.dialogWindow(); pw != nil {
-		return pw.cfg.AppID
-	}
-	return ""
+	return pw.cfg.AppID
 }
 
 // dialogWindow implements DialogParent; layer surfaces have no xdg
@@ -186,9 +192,10 @@ func (a *Application) NewDialog(parent DialogParent, cfg DialogConfig) (*Dialog,
 	if cfg.Height == 0 {
 		cfg.Height = intconv.Clamp[uint32](root.Measure(widget.Column, int(cfg.Width)).Within(dialogMaxHeight))
 	}
+	pw := parentWindow(parent)
 
 	winCfg := WindowConfig{
-		Title: cfg.Title, AppID: dialogAppID(parent), Width: cfg.Width, Height: cfg.Height,
+		Title: cfg.Title, AppID: dialogAppID(pw), Width: cfg.Width, Height: cfg.Height,
 		Root: root, Background: background,
 		OnKey: func(_ *widget.Router, code uint32, _ wlsession.Mods) {
 			if resp, ok := dialogResponseForKey(cfg, a.sess.KeySym(code)); ok {
@@ -240,7 +247,7 @@ func (a *Application) NewDialog(parent DialogParent, cfg DialogConfig) (*Dialog,
 	if cfg.Modal {
 		a.blockAll(true)
 	}
-	if pw := parent.dialogWindow(); pw != nil && pw.win != nil {
+	if pw != nil && pw.win != nil {
 		w.win.SetParent(pw.win)
 		if !cfg.Modal {
 			return d, nil

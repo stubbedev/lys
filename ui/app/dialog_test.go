@@ -249,10 +249,13 @@ func TestDialogHeaderPairsTitleAndDescription(t *testing.T) {
 // taskbar keyed on the app id passed it by.
 func TestDialogTakesItsParentsAppID(t *testing.T) {
 	parent := &Window{cfg: WindowConfig{AppID: "dev.example.app"}}
-	if got := dialogAppID(parent); got != "dev.example.app" {
+	if got := dialogAppID(parentWindow(parent)); got != "dev.example.app" {
 		t.Errorf("dialog app id %q, want the parent's", got)
 	}
-	if got := dialogAppID(nil); got != "" {
+	if got := dialogAppID(parentWindow(nil)); got != "" {
 		t.Errorf("parentless dialog app id %q, want none", got)
+	}
+	if got := dialogAppID(parentWindow(&LayerWindow{})); got != "" {
+		t.Errorf("a layer-parented dialog app id %q, want none", got)
 	}
 }
