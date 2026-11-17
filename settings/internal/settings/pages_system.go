@@ -151,7 +151,7 @@ func idlePage(*config.Config) pageSpec {
 			{title: "settings-section-idle-dim", rows: fields("idle.dim.ac", "idle.dim.battery", "idle.dim-percent")},
 			{title: "settings-section-idle-lock", rows: fields("idle.lock.ac", "idle.lock.battery")},
 			{title: "settings-section-idle-screen-off", rows: fields("idle.screen-off.ac", "idle.screen-off.battery")},
-			{title: "settings-section-idle-suspend", rows: fields("idle.suspend.ac", "idle.suspend.battery")},
+			{title: "settings-section-idle-suspend", rows: fields("idle.suspend.ac", "idle.suspend.battery", "idle.suspend-action")},
 		},
 	}
 }

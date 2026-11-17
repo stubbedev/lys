@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
@@ -28,7 +29,7 @@ func (c *countingDim) Dim(idlepolicy.DimPercent) (func() error, error) {
 }
 func (c *countingDim) Lock() error                      { return nil }
 func (c *countingDim) ScreenOff() (func() error, error) { return nil, nil }
-func (c *countingDim) Suspend() error                   { return nil }
+func (c *countingDim) Sleep(logind.PowerAction) error   { return nil }
 
 const dimAfter = time.Second
 

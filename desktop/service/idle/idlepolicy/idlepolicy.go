@@ -6,6 +6,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"github.com/stubbedev/lys/lib/logind"
 )
 
 // Stage is one step of the policy, in the order a session usually reaches
@@ -110,6 +112,7 @@ func (d DimPercent) Of(level float64) float64 { return level * float64(d.percent
 type Policy struct {
 	Timeouts        [stageCount]Timeouts
 	DimPercent      DimPercent
+	Sleep           logind.PowerAction
 	LockBeforeSleep bool
 }
 

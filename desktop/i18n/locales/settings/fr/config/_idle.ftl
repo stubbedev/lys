@@ -8,6 +8,9 @@ settings-idle-enable = Gestion intégrée de l'inactivité
 settings-idle-dim-percent = Luminosité assombrie
     .description = Part de son niveau, en pourcentage, que garde un rétroéclairage assombri
 
+settings-idle-suspend-action = Mode de veille
+    .description = Comment le système se met en veille à l’étape de mise en veille, via logind
+
 settings-idle-lock-before-sleep = Verrouiller avant la veille
     .description = Verrouiller la session avant la mise en veille, pour qu'elle se réveille toujours verrouillée
 
@@ -16,3 +19,9 @@ settings-idle-timeouts-ac = Sur secteur
 
 settings-idle-timeouts-battery = Sur batterie
     .description = Durée d'inactivité, par exemple 90s, 5m ou 1h30m, ou never
+
+## SleepAction variants
+enum-sleep-action-suspend = Veille
+enum-sleep-action-hibernate = Hibernation
+enum-sleep-action-hybrid-sleep = Veille hybride
+enum-sleep-action-suspend-then-hibernate = Veille, puis hibernation

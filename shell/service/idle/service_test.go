@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
+	"github.com/stubbedev/lys/lib/logind"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
 )
@@ -54,7 +55,10 @@ func (a *fakeActions) ScreenOff() (func() error, error) {
 	return func() error { a.calls = append(a.calls, "screen-on"); return nil }, nil
 }
 
-func (a *fakeActions) Suspend() error { a.calls = append(a.calls, "suspend"); return nil }
+func (a *fakeActions) Sleep(action logind.PowerAction) error {
+	a.calls = append(a.calls, action.String())
+	return nil
+}
 
 func timeout(t *testing.T, d time.Duration) idlepolicy.Timeout {
 	t.Helper()
@@ -77,6 +81,7 @@ func testPolicy(t *testing.T) idlepolicy.Policy {
 	p.Timeouts[idlepolicy.ScreenOff] = idlepolicy.Timeouts{AC: timeout(t, 10*time.Minute), Battery: timeout(t, 5*time.Minute)}
 	p.Timeouts[idlepolicy.Suspend] = idlepolicy.Timeouts{AC: idlepolicy.Never, Battery: timeout(t, 15*time.Minute)}
 	p.DimPercent = share
+	p.Sleep = logind.Suspend
 	return p
 }
 
@@ -108,6 +113,24 @@ func TestEachPowerSourceArmsItsOwnTimeouts(t *testing.T) {
 	}
 	if len(a.calls) != 0 {
 		t.Errorf("arming ran %v", a.calls)
+	}
+}
+
+func TestTheSuspendStageSleepsAsThePolicyNames(t *testing.T) {
+	for _, action := range logind.SleepActions() {
+		w, a := &fakeWatcher{}, &fakeActions{}
+		s := New(w, a)
+		p := testPolicy(t)
+		p.Sleep = action
+		if err := s.Configure(p, true, idlepolicy.Battery); err != nil {
+			t.Fatal(err)
+		}
+		for _, fw := range w.live() {
+			fw.idle()
+		}
+		if want := []string{"dim", "lock", "screen-off", action.String()}; !slices.Equal(a.calls, want) {
+			t.Errorf("idle through every stage with %s ran %v, want %v", action, a.calls, want)
+		}
 	}
 }
 
@@ -254,8 +277,8 @@ func TestStagesWithoutTheirSystemFailLoudly(t *testing.T) {
 	if err := s.Lock(); !errors.Is(err, ErrNoLogind) {
 		t.Errorf("Lock = %v, want ErrNoLogind", err)
 	}
-	if err := s.Suspend(); !errors.Is(err, ErrNoLogind) {
-		t.Errorf("Suspend = %v, want ErrNoLogind", err)
+	if err := s.Sleep(logind.Suspend); !errors.Is(err, ErrNoLogind) {
+		t.Errorf("Sleep = %v, want ErrNoLogind", err)
 	}
 	if _, err := s.ScreenOff(); !errors.Is(err, ErrNoOutputPower) {
 		t.Errorf("ScreenOff = %v, want ErrNoOutputPower", err)

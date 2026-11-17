@@ -108,10 +108,10 @@ func (s System) ScreenOff() (func() error, error) {
 	return s.Outputs.PowerOff()
 }
 
-// Suspend asks logind to suspend.
-func (s System) Suspend() error {
+// Sleep asks logind to put the system to sleep as action names.
+func (s System) Sleep(action logind.PowerAction) error {
 	if s.Login == nil {
 		return ErrNoLogind
 	}
-	return s.Login.Manager.Power(context.Background(), logind.Suspend)
+	return s.Login.Manager.Power(context.Background(), action)
 }

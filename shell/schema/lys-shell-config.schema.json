@@ -3630,7 +3630,12 @@
             "ac": "never",
             "battery": "15m"
           },
-          "description": "Idle time before the system suspends."
+          "description": "Idle time before the system sleeps."
+        },
+        "suspend-action": {
+          "$ref": "#/$defs/SleepAction",
+          "default": "suspend",
+          "description": "How the suspend stage sleeps, through logind. lys-wm's `lid_action`\ntakes the same values."
         }
       },
       "type": "object"
@@ -9715,6 +9720,31 @@
       ],
       "description": "Size as a scale multiplier (number) or absolute pixels (e.g. \"24px\")"
     },
+    "SleepAction": {
+      "description": "A sleep logind offers, named as its HandleLidSwitch and IdleAction name it.",
+      "oneOf": [
+        {
+          "const": "suspend",
+          "description": "Suspend to RAM.",
+          "type": "string"
+        },
+        {
+          "const": "hibernate",
+          "description": "Hibernate to disk.",
+          "type": "string"
+        },
+        {
+          "const": "hybrid-sleep",
+          "description": "Suspend to RAM and disk at once; a power loss resumes from disk.",
+          "type": "string"
+        },
+        {
+          "const": "suspend-then-hibernate",
+          "description": "Suspend, then hibernate after logind's HibernateDelaySec.",
+          "type": "string"
+        }
+      ]
+    },
     "StackingOrder": {
       "description": "Order in which popups are stacked on screen.",
       "oneOf": [
@@ -11921,7 +11951,8 @@
         "suspend": {
           "ac": "never",
           "battery": "15m"
-        }
+        },
+        "suspend-action": "suspend"
       },
       "description": "Built-in idle policy: dim, lock, screens off and suspend."
     },

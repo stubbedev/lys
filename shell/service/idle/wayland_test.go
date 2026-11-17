@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/desktop/swaytest"
+	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/vinput"
 	"github.com/stubbedev/lys/lib/waittest"
 )
@@ -48,7 +49,10 @@ func (a *recordingActions) ScreenOff() (func() error, error) {
 	return func() error { a.record("screen-on"); return restore() }, nil
 }
 
-func (a *recordingActions) Suspend() error { a.record("suspend"); return nil }
+func (a *recordingActions) Sleep(action logind.PowerAction) error {
+	a.record(action.String())
+	return nil
+}
 
 func connectSway(t *testing.T) *Compositor {
 	t.Helper()
@@ -90,7 +94,7 @@ func secondsPolicy(t *testing.T, stages ...idlepolicy.Stage) idlepolicy.Policy {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := idlepolicy.Policy{DimPercent: share}
+	p := idlepolicy.Policy{DimPercent: share, Sleep: logind.Suspend}
 	for i, stage := range stages {
 		p.Timeouts[stage] = idlepolicy.Timeouts{AC: timeout(t, time.Duration(i+1)*time.Second), Battery: timeout(t, time.Duration(i+1)*time.Second)}
 	}

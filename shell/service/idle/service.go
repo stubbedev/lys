@@ -17,6 +17,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
+	"github.com/stubbedev/lys/lib/logind"
 )
 
 // Watcher tells when the session has been idle for a while: idle runs once
@@ -32,7 +33,7 @@ type Actions interface {
 	Dim(idlepolicy.DimPercent) (restore func() error, err error)
 	Lock() error
 	ScreenOff() (restore func() error, err error)
-	Suspend() error
+	Sleep(logind.PowerAction) error
 }
 
 // Status is what the service has armed and which stages have run since the
@@ -191,7 +192,7 @@ func (s *Service) runLocked(stage idlepolicy.Stage) error {
 	case idlepolicy.ScreenOff:
 		restore, err = s.actions.ScreenOff()
 	case idlepolicy.Suspend:
-		err = s.actions.Suspend()
+		err = s.actions.Sleep(s.policy.Sleep)
 	}
 	s.restores[stage] = restore
 	return err

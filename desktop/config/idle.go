@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/stubbedev/lys/lib/logind"
+
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 )
 
@@ -33,8 +35,11 @@ type IdleConfig struct {
 	Lock IdleTimeouts `cfg:"lock"`
 	// Idle time before the outputs power off. Input powers them back on.
 	ScreenOff IdleTimeouts `cfg:"screen-off"`
-	// Idle time before the system suspends.
+	// Idle time before the system sleeps.
 	Suspend IdleTimeouts `cfg:"suspend"`
+	// How the suspend stage sleeps, through logind. lys-wm's `lid_action`
+	// takes the same values.
+	SuspendAction SleepAction `cfg:"suspend-action"`
 	// Lock the session before the system sleeps (a lid close, a suspend
 	// from any program), and hold the sleep until the lock screen is up, so
 	// the machine always wakes locked.
@@ -60,6 +65,7 @@ func DefaultsIdle() IdleConfig {
 		Lock:            IdleTimeouts{AC: mustIdleTimeout("5m"), Battery: mustIdleTimeout("3m")},
 		ScreenOff:       IdleTimeouts{AC: mustIdleTimeout("10m"), Battery: mustIdleTimeout("5m")},
 		Suspend:         IdleTimeouts{AC: mustIdleTimeout("never"), Battery: mustIdleTimeout("15m")},
+		SuspendAction:   SleepActionSuspend,
 		LockBeforeSleep: true,
 	}
 }
@@ -71,6 +77,7 @@ func (c IdleConfig) Policy() idlepolicy.Policy {
 	p.Timeouts[idlepolicy.Lock] = c.Lock.timeouts()
 	p.Timeouts[idlepolicy.ScreenOff] = c.ScreenOff.timeouts()
 	p.Timeouts[idlepolicy.Suspend] = c.Suspend.timeouts()
+	p.Sleep = c.SuspendAction.PowerAction()
 	p.DimPercent = c.DimPercent.share
 	p.LockBeforeSleep = c.LockBeforeSleep
 	return p
@@ -78,6 +85,40 @@ func (c IdleConfig) Policy() idlepolicy.Policy {
 
 func (t IdleTimeouts) timeouts() idlepolicy.Timeouts {
 	return idlepolicy.Timeouts{AC: t.AC.timeout, Battery: t.Battery.timeout}
+}
+
+// SleepAction is how the system sleeps.
+//
+// A sleep logind offers, named as its HandleLidSwitch and IdleAction name it.
+type SleepAction string
+
+// SleepAction values.
+const (
+	// Suspend to RAM.
+	SleepActionSuspend SleepAction = "suspend"
+	// Hibernate to disk.
+	SleepActionHibernate SleepAction = "hibernate"
+	// Suspend to RAM and disk at once; a power loss resumes from disk.
+	SleepActionHybridSleep SleepAction = "hybrid-sleep"
+	// Suspend, then hibernate after logind's HibernateDelaySec.
+	SleepActionSuspendThenHibernate SleepAction = "suspend-then-hibernate"
+)
+
+var _ = registerEnum(SleepActionSuspend, SleepActionHibernate, SleepActionHybridSleep, SleepActionSuspendThenHibernate)
+
+// PowerAction is the logind sleep the action names.
+func (a SleepAction) PowerAction() logind.PowerAction {
+	switch a {
+	case SleepActionSuspend:
+		return logind.Suspend
+	case SleepActionHibernate:
+		return logind.Hibernate
+	case SleepActionHybridSleep:
+		return logind.HybridSleep
+	case SleepActionSuspendThenHibernate:
+		return logind.SuspendThenHibernate
+	}
+	panic(fmt.Sprintf("config: sleep action %q has no logind sleep", a))
 }
 
 // idleNever is the spelling of a stage that does not run.

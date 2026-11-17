@@ -170,7 +170,7 @@ func TestSystemLocksAndSuspendsThroughLogind(t *testing.T) {
 	if err := s.Lock(); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Suspend(); err != nil {
+	if err := s.Sleep(logind.Suspend); err != nil {
 		t.Fatal(err)
 	}
 	want := []logindtest.Event{logindtest.EventLock, logindtest.EventSuspend}
@@ -183,7 +183,32 @@ func TestSystemLocksAndSuspendsThroughLogind(t *testing.T) {
 	if err := (System{}).Lock(); !errors.Is(err, ErrNoLogind) {
 		t.Errorf("Lock without logind: %v, want ErrNoLogind", err)
 	}
-	if err := (System{}).Suspend(); !errors.Is(err, ErrNoLogind) {
-		t.Errorf("Suspend without logind: %v, want ErrNoLogind", err)
+	if err := (System{}).Sleep(logind.Suspend); !errors.Is(err, ErrNoLogind) {
+		t.Errorf("Sleep without logind: %v, want ErrNoLogind", err)
+	}
+}
+
+func TestSystemSleepsThroughTheLogindMethodItIsGiven(t *testing.T) {
+	for action, tc := range map[logind.PowerAction]struct {
+		method string
+		event  logindtest.Event
+	}{
+		logind.Suspend:              {"Manager.Suspend", logindtest.EventSuspend},
+		logind.Hibernate:            {"Manager.Hibernate", logindtest.EventHibernate},
+		logind.HybridSleep:          {"Manager.HybridSleep", logindtest.EventHybridSleep},
+		logind.SuspendThenHibernate: {"Manager.SuspendThenHibernate", logindtest.EventSuspendThenHibernate},
+	} {
+		t.Run(action.String(), func(t *testing.T) {
+			fake, login := startLogin(t)
+			if err := (System{Login: &login}).Sleep(action); err != nil {
+				t.Fatal(err)
+			}
+			if got := fake.Events.Load(); !slices.Equal(got, []logindtest.Event{tc.event}) {
+				t.Errorf("logind saw %v, want %s", got, tc.event)
+			}
+			if got := fake.CallsTo(tc.method); len(got) != 1 {
+				t.Errorf("%s calls %v, want one", tc.method, got)
+			}
+		})
 	}
 }

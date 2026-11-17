@@ -31,13 +31,13 @@
       "desktop/tokens",
       "lib/atomicfile",
       "lib/intconv",
+      "lib/logind",
       "lib/vaultserver",
       "lib/xdg"
     ],
     "testImports": [
       "desktop/config/internal/schemadoc",
       "desktop/spawn",
-      "lib/logind",
       "lib/logind/logindtest",
       "lib/logtest",
       "lib/testhome",
@@ -259,7 +259,11 @@
     ]
   },
   "desktop/service/clipboard/historybudget": {},
-  "desktop/service/idle/idlepolicy": {},
+  "desktop/service/idle/idlepolicy": {
+    "imports": [
+      "lib/logind"
+    ]
+  },
   "desktop/service/idleinhibit/inhibitduration": {},
   "desktop/service/lyswm": {
     "imports": [

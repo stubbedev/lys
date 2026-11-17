@@ -2,8 +2,11 @@ package config
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/logind"
 
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 )
@@ -60,5 +63,40 @@ func TestIdleDefaultsArmPerPowerSource(t *testing.T) {
 	}
 	if !p.LockBeforeSleep || p.DimPercent.Percent() != 30 {
 		t.Errorf("defaults = %+v", p)
+	}
+}
+
+func TestTheSuspendActionNamesTheLogindSleepItRuns(t *testing.T) {
+	if got := DefaultsIdle().Policy().Sleep; got != logind.Suspend {
+		t.Errorf("default suspend-action sleeps through %s, want suspend", got)
+	}
+	variants := enumVariants(typeOf[SleepAction]())
+	want := make([]string, 0, len(logind.SleepActions()))
+	for _, a := range logind.SleepActions() {
+		want = append(want, a.String())
+	}
+	if !slices.Equal(variants, want) {
+		t.Fatalf("suspend-action variants %v, want logind's sleeps %v", variants, want)
+	}
+	for _, raw := range variants {
+		cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "idle:\n  suspend-action: "+raw+"\n"))
+		if err != nil {
+			t.Fatalf("suspend-action %s: %v", raw, err)
+		}
+		if got := cfg.Idle.Policy().Sleep; got.String() != raw {
+			t.Errorf("suspend-action %s sleeps through %s", raw, got)
+		}
+	}
+}
+
+func TestAnUnknownSuspendActionIsTheConfigsError(t *testing.T) {
+	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "idle:\n  suspend-action: ignore\n  dim-percent: 40\n"))
+	var d Diagnostic
+	const want = "unknown variant `ignore`, expected one of `suspend`, `hibernate`, `hybrid-sleep`, `suspend-then-hibernate`"
+	if !errors.As(err, &d) || d.Field("Field") != "idle.suspend-action" || d.Field("Error") != want {
+		t.Fatalf("suspend-action ignore: error %v, want %q", err, want)
+	}
+	if cfg.Idle.SuspendAction != SleepActionSuspend || cfg.Idle.DimPercent.MarshalConfig() != int64(40) {
+		t.Errorf("suspend-action ignore: action %q dim %v, want the default kept and the valid sibling applied", cfg.Idle.SuspendAction, cfg.Idle.DimPercent.MarshalConfig())
 	}
 }

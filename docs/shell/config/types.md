@@ -1473,6 +1473,17 @@ Number `>= 0.0`.
 
 String matching `^[0-9]+(\.[0-9]+)?px$`.
 
+## SleepAction {#sleep-action}
+
+A sleep logind offers, named as its HandleLidSwitch and IdleAction name it.
+
+| Value | Meaning |
+|---|---|
+| `"suspend"` | Suspend to RAM. |
+| `"hibernate"` | Hibernate to disk. |
+| `"hybrid-sleep"` | Suspend to RAM and disk at once; a power loss resumes from disk. |
+| `"suspend-then-hibernate"` | Suspend, then hibernate after logind's HibernateDelaySec. |
+
 ## StackingOrder {#stacking-order}
 
 Order in which popups are stacked on screen.
