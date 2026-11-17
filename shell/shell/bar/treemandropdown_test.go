@@ -89,9 +89,17 @@ func TestTreemanDropdownListAndCollapse(t *testing.T) {
 	if p := fold.Progress(); p != 1 {
 		t.Errorf("a fresh card's fold is at %v, want fully open", p)
 	}
+	open := fold.Measure(widget.Column, 300).Nat
+	if open == 0 {
+		t.Fatal("an open fold takes no height")
+	}
 	header.ClickAt(widget.Point{})
 	if fold.Revealed() || !v.collapsed["lys-shell"] {
 		t.Error("the header did not fold the card")
+	}
+	fold.Finish()
+	if h := fold.Measure(widget.Column, 300).Nat; h != 0 {
+		t.Errorf("a folded card keeps %d of its rows' %d px of height", h, open)
 	}
 	// The fold survives a status refresh.
 	src.ticks <- struct{}{}

@@ -217,6 +217,7 @@ func (v *treemanView) repoCard(repo treeman.Repo) widget.Widget {
 	// The accordion: a revealer sliding the rows in and out.
 	fold := widget.NewRevealer(rows)
 	fold.SetTransition(widget.RevealSlideDown)
+	fold.SetCollapse(true)
 	fold.SetRevealed(expanded)
 	// A fresh card shows its fold as it stands; only a click slides it.
 	fold.Finish()
