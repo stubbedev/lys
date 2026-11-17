@@ -132,9 +132,10 @@ substitutes, so a job that would build a lys derivation fails instead of
 building it again. The plan lists the VM jobs longest first, so they take the
 first runners. The jobs on the builds:
 
-   - **VM jobs**, one per entry of a component's `vms`: `just vm-checks
-     <check>...` on the closures its component's build job built. Checks
-     share a job when they share most of a closure and still fit; a check
+   - **VM jobs**, one per entry of a component's `vms`:
+     `just vm-checks <check>...` on the closures its component's build job
+     built. Checks share a job when they share most of a closure and still
+     fit; a check
      near ten minutes is split into checks of fewer scenarios, each still one
      boot for all of its scenarios (`wm-vms-desktop` and `wm-vms-apps` were
      one check of about nine minutes). The `vms`
