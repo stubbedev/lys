@@ -431,6 +431,7 @@ func TestAFrozenHarnessClockMovesOnlyByAdvanceAndFrames(t *testing.T) {
 func TestAHeldHarnessClockStepsNoFramesAndMovesOnlyByAdvance(t *testing.T) {
 	t.Parallel()
 	h := Start(t, small)
+	h.Freeze()
 	h.Eventually("no frame owed", quiet)
 	start := h.Hold()
 	var before uint64
@@ -468,6 +469,29 @@ func TestAHeldHarnessClockStepsNoFramesAndMovesOnlyByAdvance(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestAHeldHarnessClockRunsAFrameWhoseLatchIsOpenWithoutMoving(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	h.Freeze()
+	h.Eventually("no frame owed", quiet)
+	open := h.Hold() + small.Interval()*5/8
+	h.AdvanceTo(open)
+	var before uint64
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		before = b.Outputs()[0].Frames()
+		return b.Outputs()[0].ScheduleFrame()
+	})
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		if got := b.Outputs()[0].Frames() - before; got != 1 {
+			return fmt.Errorf("a frame asked for past its latch on a held clock at %v ran %d times, want once", open, got)
+		}
+		return nil
+	})
+	if now := h.Now(); now != open {
+		t.Fatalf("running a frame on a held clock moved it from %v to %v", open, now)
+	}
 }
 
 func TestAnAdvanceFiresTimersAtTheirOwnDeadlinesWhileTheClockFollowsTheWall(t *testing.T) {
