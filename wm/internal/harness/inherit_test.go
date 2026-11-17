@@ -126,7 +126,7 @@ func testTheFirstFrameOverAnInheritedOneFadesFromIt(t *testing.T, start func(*te
 		return nil
 	})
 	if !near(first, inherited) {
-		t.Fatalf("the first frame over the inherited one shows %v at (1, 1), not the inherited %v it fades from", first, inherited)
+		t.Fatalf("the first frame over the inherited one shows %v at (1, 1), not the inherited %v it fades from (reported %q)", first, inherited, r.take())
 	}
 	at := h.Hold()
 	last := 0.0

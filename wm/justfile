@@ -228,7 +228,7 @@ docker recipe="gates" memory="10g":
     docker volume create lys-wm-go > /dev/null
     docker run --rm -v lys-wm-go:/go debian:trixie-slim chown "$(id -u):$(id -g)" /go
     recipe={{quote(recipe)}}
-    nodes=(/dev/dri/renderD* /dev/nvidia*)
+    nodes=(/dev/dri/renderD* /dev/nvidia* /dev/udmabuf)
     if [[ "$recipe" == hardware ]]; then
         nodes+=(/dev/dri/card*)
     fi
