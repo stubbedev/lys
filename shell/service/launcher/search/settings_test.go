@@ -1,16 +1,15 @@
 package search
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"log"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/lib/logtest"
 )
 
 func settingsEntries(t *testing.T, pages func(context.Context) ([]settingspage.Page, error)) []Entry {
@@ -42,10 +41,7 @@ func TestSettingsOffersThePagesAndOpensTheOneChosen(t *testing.T) {
 }
 
 func TestSettingsWithoutTheAppOffersNothingAndSaysSoOnce(t *testing.T) {
-	var logged bytes.Buffer
-	before := log.Writer()
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(before) })
+	logged := logtest.Capture(t)
 	notInstalled = sync.Once{}
 	for range 3 {
 		got := settingsEntries(t, func(context.Context) ([]settingspage.Page, error) {
@@ -61,10 +57,7 @@ func TestSettingsWithoutTheAppOffersNothingAndSaysSoOnce(t *testing.T) {
 }
 
 func TestSettingsReportsAnAppThatFailsEveryTime(t *testing.T) {
-	var logged bytes.Buffer
-	before := log.Writer()
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(before) })
+	logged := logtest.Capture(t)
 	for range 2 {
 		got := settingsEntries(t, func(context.Context) ([]settingspage.Page, error) {
 			return nil, errors.New("the app broke")

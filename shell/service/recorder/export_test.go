@@ -8,5 +8,3 @@ import "time"
 func DriveElapsed(s *State, ticks <-chan time.Time) {
 	s.newTicker = func(time.Duration) (<-chan time.Time, func()) { return ticks, func() {} }
 }
-
-var TeeLog = teeLog

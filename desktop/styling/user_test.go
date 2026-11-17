@@ -1,27 +1,13 @@
 package styling
 
 import (
-	"bytes"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-)
 
-// captureLog redirects the standard logger for the test.
-func captureLog(t *testing.T) *bytes.Buffer {
-	t.Helper()
-	var buf bytes.Buffer
-	prev, flags := log.Writer(), log.Flags()
-	log.SetOutput(&buf)
-	log.SetFlags(0)
-	t.Cleanup(func() {
-		log.SetOutput(prev)
-		log.SetFlags(flags)
-	})
-	return &buf
-}
+	"github.com/stubbedev/lys/lib/logtest"
+)
 
 func writeStyles(t *testing.T, files map[string]string) string {
 	t.Helper()
@@ -88,7 +74,7 @@ func TestTryUserCSSSurfacesReadErrors(t *testing.T) {
 }
 
 func TestUserCSSLogsAndDropsAFailure(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	config := writeStyles(t, map[string]string{"index.scss": "$x: 1;"})
 	if got := UserCSS(config); got != "" {
 		t.Errorf("UserCSS of a failing stylesheet = %q, want \"\"", got)
@@ -99,12 +85,12 @@ func TestUserCSSLogsAndDropsAFailure(t *testing.T) {
 }
 
 func TestUserCSSReturnsTheCSSSilently(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	config := writeStyles(t, map[string]string{"index.css": ".a { b: c; }"})
 	if got := UserCSS(config); got != ".a { b: c; }" {
 		t.Errorf("UserCSS = %q", got)
 	}
-	if logs.Len() != 0 {
+	if logs.String() != "" {
 		t.Errorf("a clean read logged %q", logs.String())
 	}
 }
@@ -163,7 +149,7 @@ func TestEnsureUserStylesScaffoldNeverOverwrites(t *testing.T) {
 }
 
 func TestEnsureUserStylesScaffoldLogsFailures(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	config := t.TempDir()
 	// styles cannot be created where a file already sits.
 	if err := os.WriteFile(filepath.Join(config, "styles"), nil, 0o644); err != nil {
@@ -181,7 +167,7 @@ func TestEnsureUserStylesScaffoldLogsFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	EnsureUserStylesScaffold(config)
-	if logs.Len() != 0 {
+	if logs.String() != "" {
 		t.Errorf("an existing index.css path (even a directory) is left alone, but logged %q", logs.String())
 	}
 }

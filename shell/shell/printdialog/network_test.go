@@ -1,22 +1,20 @@
 package printdialog
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -164,24 +162,6 @@ func (a *fakeAvahi) waitFreed(t *testing.T) {
 	waittest.Until(t, func() bool { return a.Freed.Load() == a.Created.Load() }, "every browser made to be freed after the dialog closed")
 }
 
-// logLines captures the log for the test.
-type logLines struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (l *logLines) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.buf.Write(p)
-}
-
-func (l *logLines) count(sub string) int {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return strings.Count(l.buf.String(), sub)
-}
-
 // Without Avahi on the system bus the list is the CUPS queues and
 // Print to File, and one line says so.
 func TestNoAvahiListsTheQueues(t *testing.T) {
@@ -190,12 +170,9 @@ func TestNoAvahiListsTheQueues(t *testing.T) {
 	srv.SetPrinter("office", idlePrinter()...)
 	client := dnssd.New(dbustest.Start(t).Conn(t))
 	hs.h.d.DNSSD = func() *dnssd.Client { return client }
-	logs := &logLines{}
-	prev := log.Writer()
-	log.SetOutput(logs)
-	t.Cleanup(func() { log.SetOutput(prev) })
+	logs := logtest.Capture(t)
 	got, c := hs.prepare(t)
-	waittest.Until(t, func() bool { return logs.count("no Avahi") > 0 }, "the log to say Avahi is missing")
+	waittest.Until(t, func() bool { return strings.Count(logs.String(), "no Avahi") > 0 }, "the log to say Avahi is missing")
 	hs.do(func() {
 		var names []string
 		for _, q := range hs.h.sheet.queues {
@@ -207,8 +184,8 @@ func TestNoAvahiListsTheQueues(t *testing.T) {
 		treetest.Button(t, c.Root, "Cancel").OnClick()
 	})
 	<-got
-	if n := logs.count("print:"); n != 1 {
-		t.Errorf("%d print log lines, want the one about Avahi:\n%s", n, logs.buf.String())
+	if n := strings.Count(logs.String(), "print:"); n != 1 {
+		t.Errorf("%d print log lines, want the one about Avahi:\n%s", n, logs.String())
 	}
 }
 

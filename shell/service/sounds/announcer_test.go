@@ -1,20 +1,18 @@
 package sounds
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/sounds/soundpolicy"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -30,24 +28,7 @@ type rig struct {
 	a     *Announcer
 	theme string
 	muted bool
-	logs  *syncBuffer
-}
-
-type syncBuffer struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (s *syncBuffer) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.Write(p)
-}
-
-func (s *syncBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.String()
+	logs  *logtest.Log
 }
 
 func newRig(t *testing.T, policy soundpolicy.Policy) *rig {
@@ -77,10 +58,9 @@ func newRig(t *testing.T, policy soundpolicy.Policy) *rig {
 	t.Cleanup(func() { _ = audio.Close() })
 	svc := notifytest.NewService(t)
 	svc.UseClock(fakeclock.New())
-	r := &rig{svc: svc, srv: srv, theme: theme, logs: &syncBuffer{}}
+	r := &rig{svc: svc, srv: srv, theme: theme}
 	r.a = NewAnnouncer(svc, audio, NewTheme("", []string{data}), func() bool { return r.muted }, policy)
-	log.SetOutput(r.logs)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	r.logs = logtest.Capture(t)
 	return r
 }
 

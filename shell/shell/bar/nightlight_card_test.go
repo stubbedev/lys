@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/service/nightlight"
@@ -287,7 +288,7 @@ func TestBrightnessDropdownWithoutANightLight(t *testing.T) {
 func TestBrightnessDropdownSaysWhyTheNightLightIsUnavailable(t *testing.T) {
 	env := (&fakeSunset{clock: sunsetDay}).env(t)
 	env.open = func(func()) (colourFilter, error) { return nil, nightlight.ErrUnsupported }
-	captureLog(t)
+	logtest.Capture(t)
 	d := newNightlightDropdown(t, sunsetConfig(false), env)
 	if d.card.toggle.Enabled() || d.card.slider.Enabled() {
 		t.Error("the night light's controls stay usable without a colour protocol")

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -18,7 +19,7 @@ func tickSource(ticks chan struct{}) sourceSubscription {
 }
 
 func TestFollowReadsFailedFirstReadStaysHiddenAndNamesTheModule(t *testing.T) {
-	buf := captureLog(t)
+	buf := logtest.Capture(t)
 	ctx := newTestContext(t, config.Defaults())
 	var broken atomic.Bool
 	broken.Store(true)
@@ -45,7 +46,7 @@ func TestFollowReadsFailedFirstReadStaysHiddenAndNamesTheModule(t *testing.T) {
 }
 
 func TestFollowReadsLogsALaterFailure(t *testing.T) {
-	buf := captureLog(t)
+	buf := logtest.Capture(t)
 	logged := func() string { return onHeadlessLoop(buf.String) }
 
 	ctx := newTestContext(t, config.Defaults())
@@ -80,7 +81,7 @@ func TestFollowReadsLogsALaterFailure(t *testing.T) {
 }
 
 func TestFollowReadsLogsWhatStoppingMetAndNothingElse(t *testing.T) {
-	buf := captureLog(t)
+	buf := logtest.Capture(t)
 	ctx := newTestContext(t, config.Defaults())
 	read := func(context.Context) (int, error) { return 1, nil }
 	var stops atomic.Int32

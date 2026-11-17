@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/logtest"
 
 	"github.com/stubbedev/lys/shell/service/nightlight"
 )
@@ -73,7 +74,7 @@ func TestLoadFileAppliesNightlight(t *testing.T) {
 }
 
 func TestNightlightLogsTheServiceErrorsAsTheyAre(t *testing.T) {
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	fake := &fakeSunset{clock: sunsetDay}
 	env := fake.env(t)
 	refusal := errors.New("nightlight: set the ramps of output DP-1: refused")

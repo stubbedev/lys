@@ -1,9 +1,7 @@
 package notifications
 
 import (
-	"bytes"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,17 +10,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
+	"github.com/stubbedev/lys/lib/logtest"
 )
-
-// captureLog collects the process log until the test ends.
-func captureLog(t *testing.T) *bytes.Buffer {
-	t.Helper()
-	buf := &bytes.Buffer{}
-	out := log.Writer()
-	log.SetOutput(buf)
-	t.Cleanup(func() { log.SetOutput(out) })
-	return buf
-}
 
 // FlushWrites waits for every detached change still running and for the
 // write it queues, however late the change gets to it: the flag a
@@ -63,7 +52,7 @@ func TestFlushWritesWaitsForDetachedChangesAndTheirWrites(t *testing.T) {
 func TestFlushWritesGivesUpOnADetachedChangeThatHangs(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	synctest.Test(t, func(t *testing.T) {
-		logged := captureLog(t)
+		logged := logtest.Capture(t)
 		s := NewService(fakeclock.New())
 		hung := make(chan struct{})
 		defer close(hung)
@@ -142,7 +131,7 @@ func TestAFailedDNDSaveIsLogged(t *testing.T) {
 	}
 	t.Setenv("XDG_STATE_HOME", notADir)
 	s := restartedService(t)
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	s.SetDND(true)
 	settle(s)
 	if want := "notifications: save do-not-disturb on: "; !strings.Contains(logged.String(), want) || !strings.Contains(logged.String(), notADir) {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/recorder"
@@ -223,7 +224,7 @@ func TestSessionCloseFailureOfTheReplayIsReported(t *testing.T) {
 		t.Errorf("toasts %q, want both the start and the close error", toasts)
 	}
 
-	logged := recorder.TeeLog(t)
+	logged := logtest.Tee(t)
 	engine = &recordertest.Engine{CloseErr: closeErr}
 	s, _ = newState(t, engine, nil)
 	s.StartReplay()

@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/recorder"
@@ -354,7 +355,7 @@ func TestSessionCloseFailureJoinsTheFailedStart(t *testing.T) {
 }
 
 func TestSessionCloseFailureOfATerminatedRecordingIsLogged(t *testing.T) {
-	logged := recorder.TeeLog(t)
+	logged := logtest.Tee(t)
 	closeErr := errors.New("recorder: close the compositor connection capturing DP-1: broken pipe")
 	engine := &recordertest.Engine{CloseErr: closeErr}
 	s, _ := newState(t, engine, nil)

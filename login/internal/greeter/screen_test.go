@@ -1,13 +1,10 @@
 package greeter
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"image"
 	"io/fs"
-	"log"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -269,12 +267,10 @@ func TestGreeterStartsRevealedAndFocused(t *testing.T) {
 // readyLines runs fn and returns the readiness lines it logged.
 func readyLines(t *testing.T, fn func()) []string {
 	t.Helper()
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logs := logtest.Capture(t)
 	fn()
 	var lines []string
-	for line := range strings.Lines(buf.String()) {
+	for line := range strings.Lines(logs.String()) {
 		if strings.Contains(line, "greeter: ready:") {
 			lines = append(lines, line)
 		}

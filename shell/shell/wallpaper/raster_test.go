@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -636,15 +635,6 @@ func TestReleaseOfAnUnheldRasterPanics(t *testing.T) {
 
 func testOutput(name string, w, ht int) *app.Output {
 	return &app.Output{Name: name, ModeW: w, ModeH: ht, Scale: 1, LogicalW: int32(w), LogicalH: int32(ht)}
-}
-
-func captureLog(t *testing.T) *bytes.Buffer {
-	t.Helper()
-	var buf bytes.Buffer
-	prev := log.Writer()
-	log.SetOutput(&buf)
-	t.Cleanup(func() { log.SetOutput(prev) })
-	return &buf
 }
 
 func (h *harness) useFile(t *testing.T, image string) {

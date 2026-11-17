@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/ui/app"
@@ -150,7 +151,7 @@ func TestPopoverHookFocusesOnAttachAndLogsARefusal(t *testing.T) {
 	if pop.focused != entry {
 		t.Errorf("the pending focus landed on %v, want the entry", pop.focused)
 	}
-	buf := captureLog(t)
+	buf := logtest.Capture(t)
 	hook.attachPopover(&fakePopover{refuse: widget.ErrNotInTree})
 	hook.focus(entry)
 	if got := buf.String(); !strings.Contains(got, "cannot focus") || !strings.Contains(got, widget.ErrNotInTree.Error()) {

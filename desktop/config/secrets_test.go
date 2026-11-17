@@ -1,17 +1,14 @@
 package config
 
 import (
-	"bytes"
-	"log"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/logtest"
 )
 
 func TestAnUnsetSecretReferenceIsLoggedWithoutItsName(t *testing.T) {
-	var logs bytes.Buffer
-	previous := log.Writer()
-	log.SetOutput(&logs)
-	t.Cleanup(func() { log.SetOutput(previous) })
+	logs := logtest.Capture(t)
 
 	const secret = "LYS_SHELL_TEST_sk_live_unset"
 	if got, ok := ResolveSecret("$" + secret); ok || got != "" {

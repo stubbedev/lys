@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -105,7 +106,7 @@ func TestOffLoopReadWaitsForTheLoop(t *testing.T) {
 }
 
 func TestOffLoopReadLogsAFailureAndGoesOn(t *testing.T) {
-	buf := captureLog(t)
+	buf := logtest.Capture(t)
 	ctx := newTestContext(t, config.Defaults())
 	var fail atomic.Bool
 	fail.Store(true)

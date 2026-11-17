@@ -2,14 +2,12 @@ package lyswm_test
 
 import (
 	"errors"
-	"log"
-	"os"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
@@ -300,9 +298,7 @@ func TestWatchEndsOnAMalformedLine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var logged syncBuffer
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logged := logtest.Capture(t)
 	f.Events <- `not json`
 	awaitEnd(t, w, "a malformed line")
 	if !strings.Contains(logged.String(), "not json") {
@@ -317,32 +313,12 @@ func TestWatchClosedLogsNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var logged syncBuffer
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logged := logtest.Capture(t)
 	w.Close()
 	waittest.For(t, w.Ticks(), "the stream to end")
 	if logged.String() != "" {
 		t.Errorf("logged %q", logged.String())
 	}
-}
-
-// syncBuffer is a log destination the watcher's goroutine and the test share.
-type syncBuffer struct {
-	mu sync.Mutex
-	b  strings.Builder
-}
-
-func (s *syncBuffer) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.Write(p)
-}
-
-func (s *syncBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.String()
 }
 
 func TestWatchEndsWhenClosed(t *testing.T) {

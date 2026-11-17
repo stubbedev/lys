@@ -1,14 +1,13 @@
 package search
 
 import (
-	"bytes"
-	"log"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/logtest"
 )
 
 func setXDGHomes(t *testing.T, configHome, cacheHome, dataHome string) {
@@ -61,10 +60,7 @@ func TestTheRootsDirectoriesFollowXDG(t *testing.T) {
 // working directory; a configured commands directory still serves.
 func TestARootWithoutItsDirectoriesLeavesTheirSourcesOut(t *testing.T) {
 	setXDGHomes(t, "", "", "")
-	var logged bytes.Buffer
-	out := log.Writer()
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(out) })
+	logged := logtest.Capture(t)
 	cfg := config.DefaultsLauncher().Search
 	cfg.Providers = []config.LauncherSearchProvider{config.SearchScripts, config.SearchFiles, config.SearchWeb}
 	root := NewRoot(cfg, config.DefaultsPower(), Deps{Env: Env{}}, "")

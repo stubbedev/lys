@@ -20,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -343,7 +344,7 @@ func TestTheAudioModuleNeedsItsSourceAndHidesOnAFailedRead(t *testing.T) {
 	if _, err := createOnHeadlessLoop("audio", ctx); err == nil || !strings.Contains(err.Error(), "no audio source") {
 		t.Fatalf("no audio source: %v, want an error", err)
 	}
-	buf := captureLog(t)
+	buf := logtest.Capture(t)
 	ctx.Pulse = &fakePulseSource{err: errors.New("broken pipe"), ticks: make(chan struct{})}
 	_, chrome := newAudioOnHeadlessLoop(t, ctx)
 	if onHeadlessLoop(chrome.Visible) {
@@ -432,7 +433,7 @@ func TestAudioBuiltinsParse(t *testing.T) {
 	if _, ok, err := parseAudioBuiltin("audio output-volume loud"); !ok || err == nil || !strings.Contains(err.Error(), `parse volume level "loud"`) {
 		t.Errorf("a bad level: %v %v, want its parse error", ok, err)
 	}
-	buf := captureLog(t)
+	buf := logtest.Capture(t)
 	ctx := newTestContext(t, config.Defaults())
 	runShellBuiltin(ctx, "lys-shell audio input-volume +x")
 	if got := buf.String(); !strings.Contains(got, `click: lys-shell audio input-volume +x: parse volume delta "+x"`) || strings.Contains(got, "shelling out") {

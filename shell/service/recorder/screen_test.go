@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"image"
-	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +12,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/gputest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 
@@ -106,7 +104,7 @@ func feedRecords(recs []*pulsetest.Record, stop <-chan struct{}) {
 func TestRecordsAnOutputOnTheGPU(t *testing.T) {
 	requireFFmpeg(t)
 	output := gpuSway(t)
-	logged := teeLog(t)
+	logged := logtest.Tee(t)
 	srv, audio := audioServer(t)
 	stateDir := t.TempDir()
 	for i, format := range []config.RecorderFormat{config.RecorderFormatMp4, config.RecorderFormatMkv} {
@@ -225,35 +223,6 @@ func TestReplayOnTheGPU(t *testing.T) {
 // encodingLogged matches the line a recording announces its encoder
 // with, whichever backend the GPU encodes through.
 var encodingLogged = regexp.MustCompile(`(?m)recorder: encoding H\.264 on .+ through (Vulkan video|VA-API)$`)
-
-// syncBuffer is a log destination tests read while recordings write.
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *syncBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *syncBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
-}
-
-// teeLog copies the process log into a buffer for the test, still
-// writing it where it went.
-func teeLog(t *testing.T) *syncBuffer {
-	t.Helper()
-	buf := &syncBuffer{}
-	out := log.Writer()
-	log.SetOutput(io.MultiWriter(out, buf))
-	t.Cleanup(func() { log.SetOutput(out) })
-	return buf
-}
 
 // The encoder's log line names the device and the backend, the Vulkan
 // video queue or the VA-API driver.

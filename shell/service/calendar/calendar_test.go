@@ -1,19 +1,17 @@
 package calendar
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 	_ "time/tzdata"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -56,33 +54,6 @@ func copenhagen(t *testing.T) *time.Location {
 	return loc
 }
 
-type logCapture struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (c *logCapture) Write(p []byte) (int, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.buf.Write(p)
-}
-
-func (c *logCapture) lines() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return strings.Split(strings.TrimSpace(c.buf.String()), "\n")
-}
-
-func captureLog(t *testing.T) *logCapture {
-	t.Helper()
-	c := &logCapture{}
-	prev, flags := log.Writer(), log.Flags()
-	log.SetOutput(c)
-	log.SetFlags(0)
-	t.Cleanup(func() { log.SetOutput(prev); log.SetFlags(flags) })
-	return c
-}
-
 func newFixtureStore(t *testing.T, files map[string]string) (*Store, string) {
 	t.Helper()
 	dir := writeFixture(t, files)
@@ -107,7 +78,7 @@ func dayText(m *Month, d int) []string {
 }
 
 func TestFixtureVdirShowsExactlyTheExpectedEventsPerDay(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	s, dir := newFixtureStore(t, fixture)
 	oct := s.Month(2026, time.October)
 	nov := s.Month(2026, time.November)
@@ -151,7 +122,7 @@ func TestFixtureVdirShowsExactlyTheExpectedEventsPerDay(t *testing.T) {
 	}
 
 	broken, unsupported := 0, 0
-	for _, line := range logs.lines() {
+	for line := range strings.Lines(logs.String()) {
 		if strings.Contains(line, filepath.Join(dir, "broken.ics")) {
 			broken++
 		}
@@ -160,7 +131,7 @@ func TestFixtureVdirShowsExactlyTheExpectedEventsPerDay(t *testing.T) {
 		}
 	}
 	if broken != 1 || unsupported != 1 {
-		t.Errorf("log lines naming the malformed file: %d, the unsupported event: %d; want one each\n%s", broken, unsupported, strings.Join(logs.lines(), "\n"))
+		t.Errorf("log lines naming the malformed file: %d, the unsupported event: %d; want one each\n%s", broken, unsupported, logs.String())
 	}
 }
 

@@ -1,12 +1,10 @@
 package lock
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/secrets/vault"
@@ -101,32 +100,6 @@ func serveVault(t *testing.T, f *fakeVault) {
 	t.Cleanup(release)
 }
 
-func captureLog(t *testing.T) *syncBuffer {
-	t.Helper()
-	buf := &syncBuffer{}
-	prev := log.Writer()
-	log.SetOutput(buf)
-	t.Cleanup(func() { log.SetOutput(prev) })
-	return buf
-}
-
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *syncBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *syncBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
-}
-
 func vaultHelper() []string { return []string{os.Args[0], "vault-unlock"} }
 
 func TestVaultUnlockFiresOnceWhenEnabledAndLocked(t *testing.T) {
@@ -145,7 +118,7 @@ func TestVaultUnlockFiresOnceWhenEnabledAndLocked(t *testing.T) {
 }
 
 func TestVaultUnlockSkippedWhenDisabled(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	v := newVaultUnlock(false, []string{filepath.Join(t.TempDir(), "missing")})
 	v.start([]byte("hunter2"))
 	v.wait()
@@ -169,7 +142,7 @@ func TestVaultUnlockSkippedWhenNotLocked(t *testing.T) {
 
 func TestVaultUnlockSkippedWhenNotRunning(t *testing.T) {
 	dbustest.Session(t)
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	if err := UnlockVault(strings.NewReader("hunter2")); err != nil {
 		t.Error(err)
 	}

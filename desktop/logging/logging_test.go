@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/logtest"
 )
 
 func TestDirFollowsXDGStateHome(t *testing.T) {
@@ -74,7 +76,7 @@ func TestDailyFileRollsAndPrunes(t *testing.T) {
 
 func TestSetupRoutesTheStandardLogger(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
-	defer log.SetOutput(os.Stderr)
+	logtest.Capture(t)
 	var console bytes.Buffer
 	closer, err := Setup("lys-shell", &console)
 	if err != nil {
@@ -108,16 +110,13 @@ func TestSetupRoutesTheStandardLogger(t *testing.T) {
 // lys-ui's warnings and errors reach lys-shell's log; its debug chatter does
 // not.
 func TestLibraryLogsWarningsToTheLog(t *testing.T) {
-	var buf strings.Builder
-	prev := log.Writer()
-	log.SetOutput(&buf)
-	t.Cleanup(func() { log.SetOutput(prev) })
+	logs := logtest.Capture(t)
 	l := Library()
 	l.Debug("bound an optional global")
 	l.Info("chatter")
 	l.Warn("optional protocol failed to bind")
 	l.Error("compositor fatal protocol error")
-	out := buf.String()
+	out := logs.String()
 	for _, want := range []string{"optional protocol failed to bind", "compositor fatal protocol error"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("log %q lacks %q", out, want)

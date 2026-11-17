@@ -1,9 +1,7 @@
 package greeter
 
 import (
-	"bytes"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/tokens"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
@@ -408,9 +407,7 @@ func TestDetectCursorFromEnvironmentD(t *testing.T) {
 		t.Errorf("hyprland session: %+v, want the later file's theme over the earlier's size", got)
 	}
 
-	var logs bytes.Buffer
-	log.SetOutput(&logs)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logs := logtest.Capture(t)
 	write("30-broken.conf", "XCURSOR_SIZE=huge\n")
 	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{}) {
 		t.Errorf("a malformed file: %+v, want nothing from environment.d", got)
@@ -556,9 +553,7 @@ func TestStylesheetInstallsTheWidgetTheme(t *testing.T) {
 
 func TestStylesheetOnAMalformedPaletteLogsItAndShowsTheTokenDefault(t *testing.T) {
 	t.Cleanup(func() { widget.SetTheme(nil) })
-	var logs bytes.Buffer
-	log.SetOutput(&logs)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logs := logtest.Capture(t)
 	cfg := config.Defaults()
 	cfg.Styling.Palette.Bg = config.HexColor{}
 	Stylesheet(cfg)

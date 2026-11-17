@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/png"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -16,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/logtest"
 	"golang.org/x/sys/unix"
 )
 
@@ -196,9 +196,7 @@ func TestNoSandboxRunsNoThumbnailer(t *testing.T) {
 	doc := pdfFile(t, hs)
 	t.Setenv("PATH", t.TempDir())
 	installThumbnailer(t, hs, "png")
-	var logged bytes.Buffer
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logged := logtest.Capture(t)
 	for range 2 {
 		if hs.openRows(t, filepath.Dir(doc), []string{doc}) != 0 {
 			t.Fatal("a thumbnailer ran without a sandbox")

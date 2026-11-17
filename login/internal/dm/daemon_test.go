@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/testhome"
 	"github.com/stubbedev/lys/lib/xkb"
 	"go.yaml.in/yaml/v3"
@@ -578,9 +578,7 @@ func TestWithoutLocaledTheKioskTypesWithTheXorgFilesLayout(t *testing.T) {
 func TestALayoutLysWMCannotCompileLeavesTheKioskOnItsDefault(t *testing.T) {
 	keyboardtest.XKBData(t)
 	keyboardtest.ServeLocale1(t, xkb.Names{Layout: "no-such-layout"})
-	var logged strings.Builder
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logged := logtest.Capture(t)
 	cfg := greeterKiosk(t, keyboardOptions(t, ""))
 	if cfg.Input.Keyboard != nil {
 		t.Errorf("input.keyboard = %v, want none, so lys-wm still starts", cfg.Input.Keyboard)

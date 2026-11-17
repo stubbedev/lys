@@ -6,8 +6,6 @@ import (
 	"image"
 	"image/color"
 	"io/fs"
-	"log"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/splashframe"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -247,14 +246,6 @@ func paintedRoot(w widget.Widget, size image.Point) []byte {
 	return data
 }
 
-func captureLog(t *testing.T) *bytes.Buffer {
-	t.Helper()
-	var logs bytes.Buffer
-	log.SetOutput(&logs)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
-	return &logs
-}
-
 func TestSameSizeOutputsAtDifferentScalesEachGetTheirOwnPicture(t *testing.T) {
 	size := image.Pt(1600, 1200)
 	for _, tc := range []struct {
@@ -274,7 +265,7 @@ func TestAnOutputTheRecordLacksShowsTheBackgroundAndSaysWhich(t *testing.T) {
 	for _, tc := range []struct {
 		output, logged string
 	}{{"HDMI-A-1", "HDMI-A-1"}, {"", "does not know the output"}} {
-		logs := captureLog(t)
+		logs := logtest.Capture(t)
 		r := splashRig(t, nil, twoOutputFrame(size))
 		r.output = tc.output
 		if box := ink(painted(r, size), size, render.RGB(0, 0, 0)); !box.Empty() {
@@ -288,7 +279,7 @@ func TestAnOutputTheRecordLacksShowsTheBackgroundAndSaysWhich(t *testing.T) {
 
 func TestTheWindowsOutputSettlingRedrawsThePicture(t *testing.T) {
 	size := image.Pt(1600, 1200)
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	r := splashRig(t, nil, twoOutputFrame(size))
 	r.output = "HDMI-A-1"
 	painted(r, size)
@@ -305,7 +296,7 @@ func TestTheWindowsOutputSettlingRedrawsThePicture(t *testing.T) {
 	r.output = "DP-1"
 	logs.Reset()
 	r.s.outputChanged()
-	if logs.Len() != 0 {
+	if logs.String() != "" {
 		t.Errorf("an output change after the fade landed redrew the hand-over: %q", logs.String())
 	}
 }
@@ -385,7 +376,7 @@ func TestTheWindowsOutputIsTheOneItIsOnElseTheOneItAskedFor(t *testing.T) {
 
 func TestTheHandOverIsAnnouncedOnceForAnOutputThatDoesNotChange(t *testing.T) {
 	size := image.Pt(1600, 1200)
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	r := splashRig(t, nil, twoOutputFrame(size))
 	r.output = "DP-2"
 	painted(r, size)
@@ -412,7 +403,7 @@ func TestTheHandOverIsAnnouncedOnceForAnOutputThatDoesNotChange(t *testing.T) {
 
 func TestAPictureShownByTheWindowAndACoverIsAnnouncedOnce(t *testing.T) {
 	size := image.Pt(1600, 1200)
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	r := splashRig(t, nil, twoOutputFrame(size))
 	r.output = "DP-2"
 	painted(r, size)

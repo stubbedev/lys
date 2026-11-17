@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/logtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	secrets "github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/ui/widget"
@@ -279,10 +279,7 @@ func pwqualityStack(t *testing.T) (passwordChanger, *fakeLogin) {
 
 func TestAPasswordChangeShowsPwqualitysRefusalAndRekeysOnSuccess(t *testing.T) {
 	pc, login := pwqualityStack(t)
-	var logged bytes.Buffer
-	before := log.Writer()
-	log.SetOutput(&logged)
-	t.Cleanup(func() { log.SetOutput(before) })
+	logged := logtest.Capture(t)
 	k := testKit(t, "")
 	p := &usersPanel{Box: gapBox(widget.Column), k: k, changer: pc, user: "nobody"}
 	p.openPasswordDialog()

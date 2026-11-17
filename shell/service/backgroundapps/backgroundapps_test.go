@@ -1,8 +1,6 @@
 package backgroundapps
 
 import (
-	"bytes"
-	"log"
 	"slices"
 	"strings"
 	"sync"
@@ -10,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/logtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 )
@@ -127,22 +126,8 @@ func TestAppsSkipEntriesNothingCouldStop(t *testing.T) {
 	}
 }
 
-// captureLog collects the standard logger's output for the test.
-func captureLog(t *testing.T) *bytes.Buffer {
-	t.Helper()
-	var buf bytes.Buffer
-	prev, flags := log.Writer(), log.Flags()
-	log.SetOutput(&buf)
-	log.SetFlags(0)
-	t.Cleanup(func() {
-		log.SetOutput(prev)
-		log.SetFlags(flags)
-	})
-	return &buf
-}
-
 func TestNoMonitorListsNothingAndLogsOnce(t *testing.T) {
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	bus := dbustest.Start(t)
 	apps, err := Follow(bus.Conn(t), describe)
 	if err != nil {

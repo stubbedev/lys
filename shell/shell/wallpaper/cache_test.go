@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/logtest"
 )
 
 func cachedHarness(t *testing.T, dir string) *harness {
@@ -106,7 +107,7 @@ func TestDamagedCacheFileIsDecodedAgainAndReplaced(t *testing.T) {
 			if err := os.WriteFile(file, damage(data), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			logs := captureLog(t)
+			logs := logtest.Capture(t)
 			second := loginWith(t, dir, source)
 			if n := second.decodes[source]; n != 1 {
 				t.Errorf("a damaged file decoded %d times, want 1", n)
@@ -158,7 +159,7 @@ func TestUnreportedOutputSizeIsNotCached(t *testing.T) {
 }
 
 func TestUnwritableCacheOnlyLogs(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	h := cachedHarness(t, filepath.Join(t.TempDir(), "missing"))
 	h.plug("DP-1", 64, 36)
 	h.run()

@@ -3,7 +3,6 @@ package portal
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"testing"
@@ -14,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dmabufprobe"
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -127,21 +127,6 @@ func TestADeviceWithoutVulkanOpensNoAllocator(t *testing.T) {
 	}
 }
 
-// captureLog collects the process log for the test; the PipeWire
-// thread may write to it.
-func captureLog(t *testing.T) *lockedBuffer {
-	t.Helper()
-	buf := &lockedBuffer{}
-	out, flags := log.Writer(), log.Flags()
-	log.SetOutput(buf)
-	log.SetFlags(0)
-	t.Cleanup(func() {
-		log.SetOutput(out)
-		log.SetFlags(flags)
-	})
-	return buf
-}
-
 // Against a private headless sway rendering with Vulkan on the host's
 // render node: the compositor names that device and the modifiers it
 // imports, and an output streams zero-copy without a word; with no
@@ -169,7 +154,7 @@ func TestOutputStreamTakesTheGPUOrSaysWhyNot(t *testing.T) {
 	}
 	_ = c.Close()
 
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	streams := screenStreams{openDevice: openVulkanAllocator}
 	s, err := streams.startGPU(output, castCursor{}, 30)
 	if err != nil {
@@ -269,7 +254,7 @@ func TestWindowStreamTakesTheGPUOrSaysWhyNot(t *testing.T) {
 	pwtest.Start(t)
 	window := sharepicker.Target{Kind: sharepicker.TargetWindow, Name: sharedWindow(t, a, widget.NewLabel(treetest.Font(t), 14, "shared", render.RGBA(255, 255, 255, 255)))}
 
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	streams := screenStreams{openDevice: openVulkanAllocator}
 	s, err := streams.startWindowGPU(window.Name, castCursor{}, 30)
 	if err != nil {

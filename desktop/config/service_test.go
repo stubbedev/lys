@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -390,12 +390,9 @@ func TestSecrets(t *testing.T) {
 // returns what it logged.
 func logged(t *testing.T, fn func()) string {
 	t.Helper()
-	var buf bytes.Buffer
-	prev := log.Writer()
-	log.SetOutput(&buf)
-	defer log.SetOutput(prev)
+	logs := logtest.Capture(t)
 	fn()
-	return buf.String()
+	return logs.String()
 }
 
 // runtime.yaml exists only once an override was written: without it

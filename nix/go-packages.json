@@ -39,6 +39,7 @@
       "desktop/spawn",
       "lib/logind",
       "lib/logind/logindtest",
+      "lib/logtest",
       "lib/testhome",
       "lib/waittest"
     ]
@@ -151,6 +152,9 @@
     "imports": [
       "desktop/identity",
       "lib/xdg"
+    ],
+    "testImports": [
+      "lib/logtest"
     ]
   },
   "desktop/mime": {
@@ -264,6 +268,7 @@
     ],
     "testImports": [
       "desktop/service/lyswm/lyswmtest",
+      "lib/logtest",
       "lib/testhome",
       "lib/waittest"
     ]
@@ -414,6 +419,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/logtest",
       "lib/testhome",
       "lib/waittest"
     ]
@@ -442,7 +448,8 @@
       "desktop/styling/css"
     ],
     "testImports": [
-      "desktop/styling/material"
+      "desktop/styling/material",
+      "lib/logtest"
     ]
   },
   "desktop/styling/material": {
@@ -1501,6 +1508,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/logind/logindtest",
+      "lib/logtest",
       "lib/polkit/polkittest",
       "lib/sockdir",
       "lib/testhome",
@@ -1563,6 +1571,7 @@
       "desktop/shell/treetest",
       "lib/dbustest",
       "lib/logind/logindtest",
+      "lib/logtest",
       "lib/testbuild",
       "lib/testhome",
       "lib/waittest"
@@ -1628,6 +1637,7 @@
     "testImports": [
       "desktop/shell/treetest",
       "lib/dbustest",
+      "lib/logtest",
       "lib/sockdir",
       "lib/testbuild",
       "lib/testhome",
@@ -2101,6 +2111,7 @@
       "desktop/shell/treetest",
       "lib/dbustest",
       "lib/glibclocale/glibclocaletest",
+      "lib/logtest",
       "lib/pulse/pulsetest",
       "lib/sockdir",
       "lib/testhome",
@@ -2507,6 +2518,7 @@
       "lib/dbustest",
       "lib/eis/eistest",
       "lib/logind/logindtest",
+      "lib/logtest",
       "lib/pipewire/pwtest",
       "lib/testhome",
       "lib/waittest",
@@ -2533,6 +2545,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/logtest",
       "lib/testhome",
       "lib/waittest"
     ]
@@ -2589,6 +2602,7 @@
     ],
     "testImports": [
       "desktop/fakeclock",
+      "lib/logtest",
       "lib/waittest"
     ]
   },
@@ -2768,6 +2782,7 @@
     ],
     "testImports": [
       "desktop/service/clipboard/historybudget",
+      "lib/logtest",
       "lib/waittest",
       "shell/service/launcher/launchertest"
     ]
@@ -2908,6 +2923,7 @@
     "testImports": [
       "desktop/fakeclock",
       "lib/dbustest",
+      "lib/logtest",
       "lib/testhome",
       "lib/waittest",
       "shell/internal/bussignal/bussignaltest",
@@ -2964,6 +2980,7 @@
     "testImports": [
       "desktop/swaytest",
       "lib/gputest",
+      "lib/logtest",
       "lib/pulse/native",
       "lib/pulse/pulsetest",
       "lib/testhome",
@@ -3034,6 +3051,7 @@
       "desktop/fakeclock",
       "desktop/service/notifications/notifypolicy",
       "desktop/service/pulse",
+      "lib/logtest",
       "lib/pulse/pulsetest",
       "lib/sockdir",
       "lib/testhome",
@@ -3246,6 +3264,7 @@
       "desktop/styling/material",
       "desktop/swaytest",
       "lib/dbustest",
+      "lib/logtest",
       "lib/pulse/native",
       "lib/pulse/pulsetest",
       "lib/sockdir",
@@ -3300,6 +3319,7 @@
       "desktop/config",
       "desktop/shell/treetest",
       "desktop/shell/widgets",
+      "lib/logtest",
       "lib/render",
       "lib/testhome",
       "shell/internal/apptest",
@@ -3361,6 +3381,7 @@
     "testImports": [
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
+      "lib/logtest",
       "lib/testhome",
       "lib/waittest",
       "shell/internal/apptest",
@@ -3551,7 +3572,8 @@
     "testImports": [
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/xkb"
     ]
   },
   "shell/shell/printdialog": {
@@ -3581,6 +3603,7 @@
     "testImports": [
       "desktop/shell/treetest",
       "lib/dbustest",
+      "lib/logtest",
       "lib/testhome",
       "lib/waittest",
       "lib/xkb",
@@ -3724,6 +3747,7 @@
       "ui/widget"
     ],
     "testImports": [
+      "lib/logtest",
       "lib/waittest"
     ]
   },

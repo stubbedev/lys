@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
@@ -136,7 +137,6 @@ func mustLocation(t *testing.T, latitude, longitude float64) nightschedule.Locat
 	return loc
 }
 
-// captureLog collects the log for the rest of the test.
 // duskEase is when Copenhagen's dusk transition starts on sunsetDay's
 // date, per cfg, and how long it runs.
 func duskEase(t *testing.T, cfg *config.Config) (time.Time, time.Duration) {
@@ -271,7 +271,7 @@ func TestNightlightRestartReplaysTheToggle(t *testing.T) {
 // to the schedule, and says the toggle can come back; one that deletes it
 // logs no failure.
 func TestNightlightLogsAFailedClear(t *testing.T) {
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	fake := &fakeSunset{clock: sunsetNight}
 	env := fake.env(t)
 	m := newTestNightlight(t, sunsetConfig(true), env)
@@ -326,7 +326,7 @@ func TestNightlightLiveEnvNeedsAStateDir(t *testing.T) {
 
 // A toggle whose record cannot be saved still toggles, and says so.
 func TestNightlightToggleLogsAFailedSave(t *testing.T) {
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	fake := &fakeSunset{clock: sunsetDay}
 	env := fake.env(t)
 	blocker := filepath.Join(env.stateDir, "file")
@@ -346,7 +346,7 @@ func TestNightlightToggleLogsAFailedSave(t *testing.T) {
 
 // A toggle that saves logs no failure.
 func TestNightlightToggleSavesQuietly(t *testing.T) {
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	fake := &fakeSunset{clock: sunsetDay}
 	env := fake.env(t)
 	m := newTestNightlight(t, sunsetConfig(false), env)
@@ -421,7 +421,7 @@ func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
 // No location is a defined state: at 01:00 UTC it is night at 0, 0, and
 // the schedule must not act on it.
 func TestNightlightWithoutALocationDoesNotFollowASun(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	fake := &fakeSunset{clock: sunsetNight}
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
 	chrome := widget.NewBox(widget.Row, 0, 0)
@@ -472,7 +472,7 @@ func TestNightlightHidesTheNoLocationStateWithTheScheduleOff(t *testing.T) {
 }
 
 func TestNightlightLogsARepeatingLookupFailureOnce(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
 	for range 3 {
@@ -515,7 +515,7 @@ func TestNightlightKeepsItsLocationThroughAFailedLookup(t *testing.T) {
 // A spelled-out 0, 0 was the old default: it is ignored with a warning
 // and GeoClue is used, never the sun over the Atlantic.
 func TestNightlightIgnoresSpelledOutNullCoordinates(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	cfg := unpinnedConfig()
 	lat, lng := 0.0, 0.0
 	cfg.Nightlight.Latitude, cfg.Nightlight.Longitude = &lat, &lng
@@ -540,7 +540,7 @@ func TestNightlightIgnoresSpelledOutNullCoordinates(t *testing.T) {
 // One coordinate, or an impossible pair, is a mistake to show rather
 // than to paper over with GeoClue.
 func TestNightlightShowsABadCoordinatePair(t *testing.T) {
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	cfg := unpinnedConfig()
 	lat := 55.6
 	cfg.Nightlight.Latitude = &lat
@@ -1009,7 +1009,7 @@ func TestNightlightClockWatchLivesWithTheSchedule(t *testing.T) {
 // A kernel that refuses the watch costs the prompt wake and nothing else:
 // the schedule runs on its timer, and the log says why.
 func TestNightlightWithoutAClockWatchStillSchedulesAndSaysSo(t *testing.T) {
-	logged := captureLog(t)
+	logged := logtest.Capture(t)
 	fake := &fakeSunset{clock: sunsetNight}
 	env := fake.env(t)
 	env.clockJumps = func(context.Context, func()) error { return errors.New("timerfd refused") }
@@ -1020,7 +1020,6 @@ func TestNightlightWithoutAClockWatchStillSchedulesAndSaysSo(t *testing.T) {
 	waittest.Until(t, func() bool { return strings.Contains(logged.String(), "timerfd refused") }, "the refusal in the log")
 }
 
-// lockedLog is a log sink a test can read while goroutines write to it.
 // The shell's real environment watches the kernel's clock, and lets go
 // with the module.
 func TestNightlightLiveEnvWatchesTheClock(t *testing.T) {
@@ -1117,7 +1116,7 @@ func TestNightlightRejectsAnOutOfRangeStrength(t *testing.T) {
 func TestNightlightFailsWithoutAColourProtocol(t *testing.T) {
 	env := (&fakeSunset{clock: sunsetDay}).env(t)
 	env.open = func(func()) (colourFilter, error) { return nil, nightlight.ErrUnsupported }
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	m := newTestNightlight(t, sunsetConfig(false), env)
 	if m.read {
 		t.Error("a compositor without a colour protocol revealed the module")

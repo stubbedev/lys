@@ -1,13 +1,13 @@
 package greeter
 
 import (
-	"bytes"
-	"log"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -111,10 +111,7 @@ func TestAHungAccountsServiceIsBoundedAndHidesNobody(t *testing.T) {
 	block := make(chan struct{})
 	t.Cleanup(func() { close(block) })
 	serveAccounts(t, &fakeAccounts{system: map[string]bool{"temp_root": true}, block: block})
-	var logs bytes.Buffer
-	prev := log.Writer()
-	log.SetOutput(&logs)
-	t.Cleanup(func() { log.SetOutput(prev) })
+	logs := logtest.Capture(t)
 	begin := time.Now()
 	got := names(withoutSystemAccounts(accountUsers(), 200*time.Millisecond))
 	if d := time.Since(begin); d > 3*time.Second {
@@ -123,7 +120,7 @@ func TestAHungAccountsServiceIsBoundedAndHidesNobody(t *testing.T) {
 	if want := names(accountUsers()); !slices.Equal(got, want) {
 		t.Errorf("listed = %v, want %v", got, want)
 	}
-	if !bytes.Contains(logs.Bytes(), []byte("AccountsService did not answer")) {
+	if !strings.Contains(logs.String(), "AccountsService did not answer") {
 		t.Errorf("log = %q, want the reason", logs.String())
 	}
 }

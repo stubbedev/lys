@@ -1,15 +1,13 @@
 package dialogsurface_test
 
 import (
-	"bytes"
-	"log"
-	"os"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -100,21 +98,10 @@ func open(t *testing.T, r *surfacetest.Rig, parent string, b *built, failed func
 // warnings collects what the package logs for the rest of the test.
 func warnings(t *testing.T) func() []string {
 	t.Helper()
-	var (
-		mu  sync.Mutex
-		buf bytes.Buffer
-	)
-	log.SetOutput(writerFunc(func(p []byte) (int, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		return buf.Write(p)
-	}))
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	logs := logtest.Capture(t)
 	return func() []string {
-		mu.Lock()
-		defer mu.Unlock()
 		var out []string
-		for line := range strings.Lines(buf.String()) {
+		for line := range strings.Lines(logs.String()) {
 			if strings.Contains(line, "portal dialog:") {
 				out = append(out, line)
 			}
@@ -393,7 +380,3 @@ func TestAnInvalidSpecIsRefused(t *testing.T) {
 	}
 	r.AssertNoToplevel(t, testAppID)
 }
-
-type writerFunc func([]byte) (int, error)
-
-func (f writerFunc) Write(p []byte) (int, error) { return f(p) }

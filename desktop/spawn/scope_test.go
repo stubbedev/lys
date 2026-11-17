@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 )
@@ -110,7 +111,7 @@ func TestDetachedRunsInItsOwnScope(t *testing.T) {
 
 func TestDetachedWithoutSystemdJustStarts(t *testing.T) {
 	onBus(t, nil)
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	cmd := running(t, "my-app")
 	if cmd.Process == nil {
 		t.Fatal("the app did not start")
@@ -122,7 +123,7 @@ func TestDetachedWithoutSystemdJustStarts(t *testing.T) {
 
 func TestDetachedLogsARefusedScope(t *testing.T) {
 	onBus(t, &fakeManager{fail: true})
-	logs := captureLog(t)
+	logs := logtest.Capture(t)
 	cmd := running(t, "my-app")
 	if cmd.Process == nil {
 		t.Fatal("the app did not start")
