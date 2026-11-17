@@ -495,7 +495,19 @@ package's test therefore opens its EGL host before its Vulkan device, and
 - **Inheriting a splash**: an output keeps the CRTC and primary plane already
   lit in its chosen mode. Nothing commits to it until a client surface has
   content on it, or `Config.InheritTimeout` (30 s) passes; that first frame
-  swaps only the framebuffer, without `ALLOW_MODESET`.
+  swaps only the framebuffer, without `ALLOW_MODESET`. The inherited
+  framebuffer (the splash's, or the greeter's lys-wm's at a login) is read
+  with `GETFB2`, exported as a dmabuf, imported by the renderer or, when it
+  cannot import it (a dumb buffer on a display-only card such as vkms),
+  copied through a mapping when it is linear 32-bit RGB, and drawn over the
+  first frames at an opacity falling from 1 to 0 on the `fade_in` animation,
+  so the first frame on screen is the inherited one and the desktop fades in
+  from it. With
+  `fade_in` off (the greeter's kiosk turns animations off) the first frame
+  replaces it in one cut; a frame that cannot be read is reported and cut.
+  Windows and layer surfaces that map while the inherited frame holds or
+  fades skip their own entrance, so the fade is a blend of the two frames
+  alone, and the pointer stays hidden until the first pointer event.
 
 ### Cursor
 

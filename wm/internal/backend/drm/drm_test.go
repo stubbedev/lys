@@ -223,6 +223,27 @@ func (f *fakeDevice) CloseHandle(h uint32) error {
 
 const primeHandles = 1000
 
+const splashHandle = 660
+
+func (f *fakeDevice) GetFB2(id uint32) (kdrm.FB, error) {
+	if f.splash == nil || id != splashFB {
+		return kdrm.FB{}, fmt.Errorf("framebuffer %d: %w", id, unix.ENOENT)
+	}
+	if f.openHandles == nil {
+		f.openHandles = map[uint32]bool{}
+	}
+	f.openHandles[splashHandle] = true
+	size := f.splash.mode
+	return kdrm.FB{Width: uint32(size.HDisplay), Height: uint32(size.VDisplay), Format: fourcc.XRGB8888, Handles: [4]uint32{splashHandle}, Pitches: [4]uint32{4 * uint32(size.HDisplay)}}, nil
+}
+
+func (f *fakeDevice) PrimeHandleToFD(h uint32) (int, error) {
+	if !f.openHandles[h] {
+		return -1, fmt.Errorf("handle %d is not open: %w", h, unix.ENOENT)
+	}
+	return unix.MemfdCreate("fake-dmabuf", unix.MFD_CLOEXEC)
+}
+
 func (f *fakeDevice) Resources() (kdrm.Resources, error) {
 	res := kdrm.Resources{CRTCs: []uint32{10, 11}, Connectors: []uint32{20}, Encoders: []uint32{30}}
 	if f.connectors != nil {
@@ -2422,6 +2443,34 @@ func TestAnOutputLitInItsModeFlipsOverWhatIsOnScreen(t *testing.T) {
 	}
 	if fb, at, ok := cursorAt(flip); !ok || fb == 0 || at != image.Pt(29, 39) {
 		t.Fatalf("the first frame put cursor fb %d at %v (%v)", fb, at, ok)
+	}
+}
+
+func TestTheFrameAnOutputInheritedIsExportedWithItsLayout(t *testing.T) {
+	r := bootLit(t, &splash{crtc: 10, plane: 40, mode: modes[0]}, false)
+	o := r.b.Outputs()[0]
+	frame, err := o.InheritedFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := frame.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := image.Pt(int(modes[0].HDisplay), int(modes[0].VDisplay))
+	if frame.Size != want || frame.Format != fourcc.XRGB8888 || frame.Modifier != fourcc.Invalid || len(frame.Planes) != 1 || frame.Planes[0].Stride != uint32(4*want.X) {
+		t.Fatalf("exported %+v, want one %v XRGB8888 plane of implicit layout", frame.DMABUF, want)
+	}
+	if len(r.dev.openHandles) != 0 {
+		t.Fatalf("handles %v stay open after the export", r.dev.openHandles)
+	}
+	if _, err := unix.FcntlInt(uintptr(frame.Planes[0].FD), unix.F_GETFD, 0); err != nil {
+		t.Fatalf("the exported dmabuf is not open: %v", err)
+	}
+	r.firstFrame(o)
+	if _, err := o.InheritedFrame(); err == nil || !strings.Contains(err.Error(), "shows no inherited frame") {
+		t.Fatalf("after its first frame the output exported %v", err)
 	}
 }
 

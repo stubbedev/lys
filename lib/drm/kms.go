@@ -83,6 +83,7 @@ const (
 	ioctlSetMaster         = 0x1e
 	ioctlDropMaster        = 0x1f
 	ioctlGEMClose          = 0x09
+	ioctlPrimeHandleToFD   = 0x2d
 	ioctlPrimeFDToHandle   = 0x2e
 	ioctlGetResources      = 0xa0
 	ioctlGetEncoder        = 0xa6
@@ -100,6 +101,7 @@ const (
 	ioctlDestroyDumb       = 0xb4
 	ioctlCreatePropBlob    = 0xbd
 	ioctlDestroyPropBlob   = 0xbe
+	ioctlGetFB2            = 0xce
 	ioctlCloseFB           = 0xd0
 	modeInfoSize           = 68
 	propertyEnumSize       = 40
@@ -608,6 +610,20 @@ func (d *Device) PrimeFDToHandle(fd int) (uint32, error) {
 	return arg.handle, nil
 }
 
+// PrimeHandleToFD exports GEM handle as a dmabuf with
+// DRM_IOCTL_PRIME_HANDLE_TO_FD, readable and writable and closed on exec.
+// The fd is the caller's to close; the handle stays open.
+func (d *Device) PrimeHandleToFD(handle uint32) (int, error) {
+	arg := struct {
+		handle, flags uint32
+		fd            int32
+	}{handle: handle, flags: unix.O_CLOEXEC | unix.O_RDWR}
+	if err := d.ioctl("DRM_IOCTL_PRIME_HANDLE_TO_FD", ioctlPrimeHandleToFD, unsafe.Pointer(&arg), unsafe.Sizeof(arg)); err != nil { //nolint:gosec // the kernel fills this struct during the call
+		return -1, err
+	}
+	return int(arg.fd), nil
+}
+
 // CloseHandle releases a GEM handle with DRM_IOCTL_GEM_CLOSE. On an
 // unplugged device (ENODEV) it succeeds.
 func (d *Device) CloseHandle(handle uint32) error {
@@ -650,6 +666,27 @@ func (d *Device) AddFB2(fb FB) (uint32, error) {
 		return 0, err
 	}
 	return arg.id, nil
+}
+
+// GetFB2 reads framebuffer id with DRM_IOCTL_MODE_GETFB2, whoever made it.
+// The kernel opens a GEM handle per plane only for a DRM master or a
+// caller with CAP_SYS_ADMIN, and leaves Handles zero otherwise; release
+// each distinct handle with CloseHandle.
+func (d *Device) GetFB2(id uint32) (FB, error) {
+	arg := struct {
+		id, width, height, format, flags uint32
+		handles, pitches, offsets        [4]uint32
+		pad                              uint32
+		modifiers                        [4]uint64
+	}{id: id}
+	if err := d.ioctl("DRM_IOCTL_MODE_GETFB2", ioctlGetFB2, unsafe.Pointer(&arg), unsafe.Sizeof(arg)); err != nil { //nolint:gosec // the kernel fills this struct during the call
+		return FB{}, err
+	}
+	fb := FB{Width: arg.width, Height: arg.height, Format: fourcc.Format(arg.format), Handles: arg.handles, Pitches: arg.pitches, Offsets: arg.offsets}
+	if arg.flags&FBModifiers != 0 {
+		fb.Modifier, fb.WithModifier = fourcc.Modifier(arg.modifiers[0]), true
+	}
+	return fb, nil
 }
 
 // RemoveFB releases framebuffer id with DRM_IOCTL_MODE_RMFB, which

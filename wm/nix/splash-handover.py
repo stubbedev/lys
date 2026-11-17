@@ -37,6 +37,8 @@ assert commits, "lys-wm committed nothing on vkms"
 assert commits[0].endswith(" nonblocking"), f"something but lys-wm committed on vkms first: {commits[0]}"
 modesets = [line for line in vkms if modeset.search(line)]
 assert not modesets, f"the hand-over modeset vkms: {modesets[:8]}"
+cut = machine.execute("journalctl -b --no-pager -t lys-wm | grep 'instead of fading'")
+assert cut[0] != 0, f"lys-wm cut from the frame it inherited instead of fading from it: {cut[1]}"
 
 machine.succeed("systemctl stop greetd.service")
 machine.wait_until_fails("pgrep -x lys-wm", timeout=timedelta(seconds=60))

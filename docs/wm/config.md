@@ -279,7 +279,9 @@ reported when named under `devices`. Applies on the drm backend only.
 | `hide_after` | Milliseconds without pointer input before hiding; 0 never. Never during a button hold, move, resize, drag or pointer lock | 0 |
 | `shake_to_find` | Shaking the mouse grows the pointer to three times its size briefly | `false` |
 
-Any pointer, touch or pen event shows it again. Pointer size comes from
+Any pointer, touch or pen event shows it again. When lys-wm starts over a
+frame it inherited from a splash or the greeter, which shows no pointer, the
+pointer stays hidden until the first such event. Pointer size comes from
 `XCURSOR_SIZE`.
 
 ## Colours
@@ -479,7 +481,7 @@ An event's unset key comes from its parent, else its default motion below. A
 | `windows_minimize` | `windows` | Minimizing and restoring | `genie` (toward the taskbar's rectangle, else the nearest edge), `fade` | cross-fade |
 | `overview` | `global` | The [overview](#overview) opening, closing and rearranging | | still |
 | `fade` | `global` | Every fade | | fade |
-| `fade_in` | `fade` | A window or the session lock fading in | | fade |
+| `fade_in` | `fade` | A window or the session lock fading in, and the first frames over a frame lys-wm inherited from a splash or the greeter | | fade |
 | `fade_out` | `fade` | A window or the session lock fading out | | fade |
 | `fade_switch` | `fade` | Active/inactive opacity change | | fade |
 | `fade_dim` | `fade` | `dim_inactive` coming and going | | fade |

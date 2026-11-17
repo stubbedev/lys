@@ -30,6 +30,8 @@ type kernelDevice interface {
 	DestroyDumb(b kdrm.Dumb) error
 	AddFB2(fb kdrm.FB) (uint32, error)
 	PrimeFDToHandle(fd int) (uint32, error)
+	PrimeHandleToFD(handle uint32) (int, error)
+	GetFB2(id uint32) (kdrm.FB, error)
 	CloseHandle(handle uint32) error
 	RemoveFB(id uint32) error
 	CloseFB(id uint32) error
@@ -148,6 +150,16 @@ func (d device) AddFB2(fb kdrm.FB) (uint32, error) {
 func (d device) PrimeFDToHandle(fd int) (uint32, error) {
 	h, err := d.kernel.PrimeFDToHandle(fd)
 	return h, d.lost(err)
+}
+
+func (d device) PrimeHandleToFD(handle uint32) (int, error) {
+	fd, err := d.kernel.PrimeHandleToFD(handle)
+	return fd, d.lost(err)
+}
+
+func (d device) GetFB2(id uint32) (kdrm.FB, error) {
+	fb, err := d.kernel.GetFB2(id)
+	return fb, d.lost(err)
 }
 
 func (d device) CloseHandle(handle uint32) error {

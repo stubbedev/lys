@@ -378,7 +378,7 @@ func (c *Compositor) Animating(o *output.Output) bool {
 func (c *Compositor) animating(o *output.Output, now time.Duration) bool {
 	return slices.ContainsFunc(c.windows, func(w *window) bool {
 		return w.shown(now) && (!w.motion.Done(now) || !w.fade.Done(now) || w.looking(now) || c.borderMoving(w, now) || w.wobble != nil || w.genie != nil) && w.motion.Source().Union(w.motion.Target()).Overlaps(o.Logical())
-	}) || c.overviewAnimating(o, now) || c.switcherWaiting(o) || c.switcherDirty(o) || slices.ContainsFunc(c.closing, func(cl *closing) bool { return cl.output == o }) || c.switchAnimates(o) || c.scratchSlideOf[o] != nil || c.peekAnimates(o, now) || c.shaderAnimates(o) || c.zoomMoves(o, now) || c.cursorGrows(o, now) || c.previewMoves(o, now) || c.lockFading(now) || slices.ContainsFunc(c.layers, func(e *layer) bool {
+	}) || c.overviewAnimating(o, now) || c.switcherWaiting(o) || c.switcherDirty(o) || slices.ContainsFunc(c.closing, func(cl *closing) bool { return cl.output == o }) || c.switchAnimates(o) || c.scratchSlideOf[o] != nil || c.peekAnimates(o, now) || c.shaderAnimates(o) || c.zoomMoves(o, now) || c.cursorGrows(o, now) || c.previewMoves(o, now) || c.lockFading(now) || c.inheritFading(o, now) || slices.ContainsFunc(c.layers, func(e *layer) bool {
 		return e.output == o && e.appeared && (!e.motion.Done(now) || !e.fade.Done(now))
 	})
 }

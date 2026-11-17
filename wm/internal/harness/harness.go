@@ -139,6 +139,21 @@ func StartGLES(t *testing.T, configure func(*compositor.Config), modes ...backen
 	return start(t, setup{open: glesBackend, configure: configure, traced: true}, modes...)
 }
 
+func StartInheritedGLES(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) *Harness {
+	t.Helper()
+	glesTurn.hold(t)
+	testenv.GPU(t)
+	open := func(l *loop.Loop) (*headless.Backend, error) {
+		b, err := glesBackend(l)
+		if err != nil {
+			return nil, err
+		}
+		b.InheritFrames()
+		return b, nil
+	}
+	return start(t, setup{open: open, configure: configure, traced: true}, modes...)
+}
+
 type rendererTurn struct {
 	sync.Mutex
 	turn   chan struct{}

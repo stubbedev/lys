@@ -104,6 +104,9 @@ func (c *Compositor) frame(o *output.Output) error {
 	if err := c.settleLockFade(c.frameTime); err != nil {
 		return err
 	}
+	if err := c.settleInheritedFade(o, c.frameTime); err != nil {
+		return err
+	}
 	if err := c.settleWobbles(); err != nil {
 		return err
 	}
@@ -212,6 +215,7 @@ func (c *Compositor) render(o *output.Output) error {
 	if held, err := c.holdsInherited(o, len(shown) > 0); held || err != nil {
 		return err
 	}
+	c.drawInheritedFade(pass, o, bounds)
 	pass.cursorFrom = len(pass.ops)
 	placed, err := c.placeCursor(o)
 	if err != nil {

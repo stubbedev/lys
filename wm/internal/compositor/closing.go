@@ -118,12 +118,13 @@ func (c *Compositor) neighbour(w *window, r image.Rectangle) (image.Rectangle, b
 }
 
 func (c *Compositor) appear(w *window, goal image.Rectangle, now time.Duration) {
-	if c.stillWindow(w) {
+	o := c.outputAtRect(goal)
+	if c.stillWindow(w) || c.entersUnderInherited(o) {
 		w.motion.Jump(goal)
 		return
 	}
 	w.bud = image.Rectangle{}
-	if o := c.outputAtRect(goal); o != nil {
+	if o != nil {
 		style := c.windowStyle(w, anim.WindowsIn)
 		start := styled(style, o, goal)
 		if style.Kind == anim.Bud {

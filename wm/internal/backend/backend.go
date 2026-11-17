@@ -276,6 +276,7 @@ type HDRDisplay interface {
 
 type Inheriting interface {
 	Inherited() bool
+	InheritedFrame() (*gpu.Buffer, error)
 }
 
 type ContentTyped interface {

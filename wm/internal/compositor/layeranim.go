@@ -53,6 +53,9 @@ func (c *Compositor) layerAppear(l *layer, now time.Duration) {
 	goal := l.box
 	l.motion = anim.NewTween(goal, anim.LerpRect)
 	l.fade = anim.NewTween(1.0, anim.Lerp)
+	if c.entersUnderInherited(l.output) {
+		return
+	}
 	curve := c.animations.Curve(anim.LayersIn)
 	if _, animated := c.layerStyle(l, anim.LayersIn); curve == anim.Instant || !animated {
 		return

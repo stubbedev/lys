@@ -271,6 +271,7 @@ type Compositor struct {
 	scenes             map[*output.Output]*scene
 	dropped            map[backend.Output]int
 	inherited          map[*output.Output]*loop.Timer
+	inheritFades       map[*output.Output]*inheritedFade
 	inheritTimeout     time.Duration
 	outputResources    []*sw.WlOutput
 	tabBars            []wm.TabBar
@@ -555,6 +556,7 @@ func New(l *loop.Loop, display *server.Display, b backend.Backend, cfg Config) (
 		profiles:       map[backend.Output]*profile{},
 		dropped:        map[backend.Output]int{},
 		inherited:      map[*output.Output]*loop.Timer{},
+		inheritFades:   map[*output.Output]*inheritedFade{},
 		loop:           l,
 		clock:          l.Now,
 		display:        display,
@@ -819,6 +821,9 @@ func (c *Compositor) Close() error {
 	}
 	for o := range c.inherited {
 		errs = append(errs, c.endInherited(o))
+	}
+	for o := range c.inheritFades {
+		errs = append(errs, c.dropInheritedFade(o))
 	}
 	if c.repeat.timer != nil {
 		errs = append(errs, c.repeat.timer.Remove())

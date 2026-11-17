@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"os"
 	"slices"
 	"time"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/edid"
+	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/udmabuf"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
@@ -1110,4 +1113,30 @@ func (t *Touch) Cancel(id int32) error {
 
 func (t *Touch) Frame() error {
 	return t.backend.emit(t, backend.TouchFrame{Time: t.now()})
+}
+
+var InheritedColor = color.RGBA{R: 0x30, G: 0x50, B: 0xa0, A: 0xff}
+
+func (o *Output) InheritedFrame() (*gpu.Buffer, error) {
+	if !o.inherited {
+		return nil, fmt.Errorf("headless: %s shows no inherited frame", o.name)
+	}
+	size := o.state.Mode.Size
+	stride := 4 * size.X
+	mem, err := udmabuf.New(stride * size.Y)
+	if err != nil {
+		return nil, fmt.Errorf("headless: the frame %s inherited: %w", o.name, err)
+	}
+	pixel := [4]byte{InheritedColor.B, InheritedColor.G, InheritedColor.R, 0xff}
+	for i := 0; i+4 <= stride*size.Y; i += 4 {
+		copy(mem.Mem[i:], pixel[:])
+	}
+	fd, err := unix.FcntlInt(uintptr(mem.FD), unix.F_DUPFD_CLOEXEC, 0)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("headless: duplicate the frame %s inherited: %w", o.name, err), mem.Close())
+	}
+	if err := mem.Close(); err != nil {
+		return nil, errors.Join(fmt.Errorf("headless: the frame %s inherited: %w", o.name, err), unix.Close(fd))
+	}
+	return gpu.NewBuffer(gpu.DMABUF{Size: size, Format: fourcc.XRGB8888, Modifier: fourcc.Linear, Planes: []gpu.Plane{{FD: fd, Stride: uint32(stride)}}}, func() {}), nil //nolint:gosec // a mode's width is far below 2^30
 }

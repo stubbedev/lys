@@ -185,6 +185,14 @@ func BeginCPUWrite(fd int) error { return cpuSync(fd, dmaBufSyncStart|uint64(Wri
 // the device that reads the buffer next.
 func EndCPUWrite(fd int) error { return cpuSync(fd, dmaBufSyncEnd|uint64(Write), "end") }
 
+// BeginCPURead starts a CPU read through a mapping of the dmabuf fd
+// (DMA_BUF_IOCTL_SYNC): it waits for the devices still writing the
+// buffer. EndCPURead closes the read.
+func BeginCPURead(fd int) error { return cpuSync(fd, dmaBufSyncStart|uint64(Read), "start") }
+
+// EndCPURead ends a CPU read BeginCPURead started.
+func EndCPURead(fd int) error { return cpuSync(fd, dmaBufSyncEnd|uint64(Read), "end") }
+
 func cpuSync(fd int, flags uint64, what string) error {
 	for {
 		_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), dmaBufIoctlSync, uintptr(unsafe.Pointer(&flags))) //nolint:gosec // the kernel reads the flags during the call
@@ -194,6 +202,6 @@ func cpuSync(fd int, flags uint64, what string) error {
 		case unix.EINTR, unix.EAGAIN:
 			continue
 		}
-		return fmt.Errorf("dmabuf: DMA_BUF_IOCTL_SYNC %s of a CPU write to dmabuf %d: %w", what, fd, errno)
+		return fmt.Errorf("dmabuf: DMA_BUF_IOCTL_SYNC %s of a CPU %s of dmabuf %d: %w", what, Access(flags&uint64(Read|Write)), fd, errno)
 	}
 }

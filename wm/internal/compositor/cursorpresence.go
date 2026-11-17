@@ -63,6 +63,7 @@ func (s *shakeDetector) motion(at time.Duration, dx float64) bool {
 type cursorPresence struct {
 	behavior     CursorBehavior
 	typing, idle bool
+	unmoved      bool
 	pushed       bool
 	last         time.Duration
 	timer        *loop.Timer
@@ -74,7 +75,7 @@ type cursorPresence struct {
 }
 
 func (p *cursorPresence) hidden() bool {
-	return p.typing || p.idle
+	return p.typing || p.idle || p.unmoved
 }
 
 func (c *Compositor) adoptCursorBehavior(b CursorBehavior) error {
@@ -143,7 +144,7 @@ func (c *Compositor) pointerActive() error {
 	if !p.hidden() {
 		return c.armCursorIdle()
 	}
-	p.typing, p.idle = false, false
+	p.typing, p.idle, p.unmoved = false, false, false
 	return c.armCursorIdle()
 }
 
