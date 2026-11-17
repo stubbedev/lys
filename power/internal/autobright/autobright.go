@@ -136,6 +136,7 @@ func (d *Daemon) Run(ctx context.Context, pub Publisher) error {
 	var step <-chan time.Time
 	for {
 		sampled := false
+		var resumed chan error
 		select {
 		case <-ctx.Done():
 			return nil
@@ -147,12 +148,11 @@ func (d *Daemon) Run(ctx context.Context, pub Publisher) error {
 				return err
 			}
 		case reply := <-d.resumes:
-			err := d.resume(ctx, pub)
-			reply <- err
-			if err != nil {
+			if err := d.resume(ctx, pub); err != nil {
+				reply <- err
 				return err
 			}
-			step, sample = nil, d.clock.After(0)
+			resumed, step, sample = reply, nil, d.clock.After(0)
 		case <-sample:
 			if err := d.sample(ctx, pub); err != nil {
 				return err
@@ -171,6 +171,9 @@ func (d *Daemon) Run(ctx context.Context, pub Publisher) error {
 		}
 		if sampled {
 			sample = d.clock.After(d.params.Interval)
+		}
+		if resumed != nil {
+			resumed <- nil
 		}
 	}
 }

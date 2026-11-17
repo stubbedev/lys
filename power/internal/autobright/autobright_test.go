@@ -91,6 +91,7 @@ func deliver[T any](t *testing.T, ch chan<- T, v T, what string) {
 type fakeBacklight struct {
 	mu     sync.Mutex
 	levels map[string]uint32
+	unread []float64
 	ticks  chan struct{}
 	writes chan float64
 }
@@ -112,14 +113,18 @@ func (b *fakeBacklight) Devices(context.Context) ([]backlight.Device, error) {
 			out = append(out, backlight.Device{Name: name, Brightness: raw, Max: maxRaw})
 		}
 	}
+	for _, percent := range b.unread {
+		b.writes <- percent
+	}
+	b.unread = nil
 	return out, nil
 }
 
 func (b *fakeBacklight) Set(_ context.Context, name string, percent float64) error {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.levels[name] = uint32(math.Round(percent / 100 * maxRaw))
-	b.mu.Unlock()
-	b.writes <- percent
+	b.unread = append(b.unread, percent)
 	return nil
 }
 
@@ -310,7 +315,7 @@ func (h *harness) transition(devices int) []float64 {
 	for range steps {
 		waittest.For(h.t, h.clock.steps, "the next step of the transition") <- h.clock.now
 		for range devices {
-			levels = append(levels, waittest.For(h.t, h.back.writes, "a step to write the backlight"))
+			levels = append(levels, waittest.For(h.t, h.back.writes, "a step's write to be read back"))
 		}
 	}
 	return levels
