@@ -107,11 +107,11 @@ func TestThemeIconShowsTheNearestScaleWhileItsOwnDecodes(t *testing.T) {
 	if got := centerPx(data, dev); got != render.RGB(0, 0xff, 0) {
 		t.Errorf("first paint center = %v, want the 1x raster's green, not a blank frame", got)
 	}
-	if ThemeIconPreloaded("flag", 16, 3, 2) {
-		t.Fatal("the 1.5x raster decoded on the paint")
+	if TreeAssetsOwed(w) == 0 {
+		t.Fatal("the 1.5x raster decoded on the paint instead of off the loop")
 	}
 	settleAssets(t, f)
-	if !ThemeIconPreloaded("flag", 16, 3, 2) {
+	if !ThemeIconPreloaded("flag", 16, 3, 2) || TreeAssetsOwed(w) != 0 {
 		t.Fatal("the 1.5x raster never decoded")
 	}
 	paintIcon(w, 16, 3, 2)
