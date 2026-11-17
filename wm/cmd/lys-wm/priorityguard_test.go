@@ -285,8 +285,9 @@ func waitForCPU(clock int32, status string, spent time.Duration) error {
 }
 
 func countSwitchChanges(clock int32, status string, checks int) watchedSwitches {
+	const budget = time.Millisecond
 	return onOwnThread(func() (got watchedSwitches) {
-		w, err := newCPUWatch(clock, status, time.Millisecond)
+		w, err := newCPUWatch(clock, status, budget)
 		if err != nil {
 			return watchedSwitches{err: err}
 		}
@@ -295,10 +296,14 @@ func countSwitchChanges(clock int32, status string, checks int) watchedSwitches 
 		if err != nil {
 			return watchedSwitches{err: err}
 		}
+		since, err := cpuTime(clock)
+		if err != nil {
+			return watchedSwitches{err: err}
+		}
 		if got.err = w.arm(true); got.err != nil {
 			return got
 		}
-		for range checks {
+		for got.changed+got.same < checks {
 			if got.err = w.wait(); got.err != nil {
 				return got
 			}
@@ -307,12 +312,19 @@ func countSwitchChanges(clock int32, status string, checks int) watchedSwitches 
 				got.err = err
 				return got
 			}
-			if now == last {
-				got.same++
-			} else {
-				got.changed++
+			at, err := cpuTime(clock)
+			if err != nil {
+				got.err = err
+				return got
 			}
-			last = now
+			switch {
+			case now != last:
+				got.changed++
+				last, since = now, at
+			case at-since >= budget:
+				got.same++
+				since = at
+			}
 		}
 		got.err = w.arm(false)
 		return got
