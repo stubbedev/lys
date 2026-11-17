@@ -1,4 +1,5 @@
 import contextlib
+import re
 import time
 from datetime import timedelta
 
@@ -111,3 +112,36 @@ def matching(expected, what):
         return None if diff is None else f"the screen and {what} differ in {diff}"
 
     return settled
+
+
+scanout_log = "/tmp/scanout-watch"
+scanned = re.compile(r"^(\d+) plane=(\d+) crtc=(\d+) fb=(\d+) (.*)$")
+scanned_content = re.compile(r"by=(\S+) (\d+)x(\d+) .* mean=(\d+),(\d+),(\d+) dark=(\d+)$")
+
+
+def watch_scanout(m):
+    n = m.succeed("for c in /dev/dri/card*; do n=${c#/dev/dri/card}; if test -e /sys/kernel/debug/dri/$n/crtc-0; then echo $n; fi; done | sort -n | tail -1").strip()
+    assert n, "no DRM card has a CRTC to watch"
+    m.succeed(f"systemd-run --unit=scanout-watch -p StandardOutput=truncate:{scanout_log} scanout-watch /dev/dri/card{n} /sys/kernel/debug/dri/{n}")
+    m.wait_until_succeeds(f"grep -q ' start$' {scanout_log}", timeout=seconds(30))
+
+
+def scanned_out(m):
+    m.succeed("systemctl stop scanout-watch")
+    return scanned_lines(m)
+
+
+def scanned_lines(m):
+    records = []
+    for line in m.succeed(f"cat {scanout_log}").splitlines():
+        found = scanned.match(line)
+        if found is None:
+            continue
+        t, plane, crtc, fb, rest = found.groups()
+        record = {"t": int(t), "plane": int(plane), "crtc": int(crtc), "fb": int(fb), "line": line}
+        content = scanned_content.search(rest)
+        if content is not None:
+            by, w, h, r, g, b, dark = content.groups()
+            record.update(by=by, size=(int(w), int(h)), mean=(int(r), int(g), int(b)), dark=int(dark))
+        records.append(record)
+    return records

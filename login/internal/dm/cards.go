@@ -17,6 +17,9 @@ const cardGlob = "/dev/dri/card[0-9]*"
 type openCard interface {
 	FD() int
 	DropMaster() error
+	SetClientCap(capability, value uint64) error
+	Planes() ([]uint32, error)
+	Plane(id uint32) (drm.Plane, error)
 	Close() error
 }
 
@@ -55,6 +58,10 @@ func (h *heldCards) holdAll() error {
 			errs = append(errs, fmt.Errorf("give up the DRM master of %s: %w", path, err), card.Close())
 			continue
 		}
+		if err := listPrimaryPlanes(card, path); err != nil {
+			errs = append(errs, err, card.Close())
+			continue
+		}
 		h.cards[path] = card
 	}
 	return errors.Join(errs...)
@@ -76,9 +83,57 @@ func (h *heldCards) adopt(cards []handedCard, track func(io.Closer)) error {
 		}
 		c := h.fromFD(dup, card.Path)
 		track(c)
+		if err := listPrimaryPlanes(c, card.Path); err != nil {
+			return err
+		}
 		h.cards[card.Path] = c
 	}
 	return nil
+}
+
+func listPrimaryPlanes(card openCard, path string) error {
+	if err := card.SetClientCap(drm.ClientCapUniversal, 1); err != nil {
+		return fmt.Errorf("list the primary planes of %s: %w", path, err)
+	}
+	return nil
+}
+
+type scanouts map[string]map[uint32]uint32
+
+func (h *heldCards) scanouts() func() (scanouts, error) {
+	cards := maps.Clone(h.cards)
+	return func() (scanouts, error) {
+		shown := make(scanouts, len(cards))
+		for path, card := range cards {
+			planes, err := card.Planes()
+			if err != nil {
+				return nil, fmt.Errorf("list the planes of %s: %w", path, err)
+			}
+			fbs := make(map[uint32]uint32, len(planes))
+			for _, id := range planes {
+				p, err := card.Plane(id)
+				if err != nil {
+					return nil, fmt.Errorf("read plane %d of %s: %w", id, path, err)
+				}
+				if p.FB != 0 {
+					fbs[id] = p.FB
+				}
+			}
+			shown[path] = fbs
+		}
+		return shown, nil
+	}
+}
+
+func (s scanouts) replacedIn(now scanouts) bool {
+	for path, fbs := range s {
+		for plane, fb := range fbs {
+			if now[path][plane] != fb {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (h *heldCards) Close() error {

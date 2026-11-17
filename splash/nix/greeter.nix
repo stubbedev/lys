@@ -1,5 +1,6 @@
-# lys-login as the display manager, showing its greeter in a lys-wm kiosk
-# and taking the screen from lys-splash. greeter-gate holds lys-login until
+# lys-login as the display manager, showing its greeter in a lys-wm kiosk,
+# taking the screen from lys-splash and handing it to alice's lys-wm session,
+# which shows swaybg's colour. greeter-gate holds lys-login until
 # the test creates /run/greeter-go, then marks the kernel log, so a test can
 # use the splash first and read the DRM log from the hand-over on.
 {
@@ -7,7 +8,13 @@
   splash,
   self,
   wmPackage,
-}: {config, ...}: {
+  drmTools,
+}: {config, ...}: let
+  sessionConfig = pkgs.writeText "lys-splash-vm-session.yaml" ''
+    autostart:
+      - ${pkgs.swaybg}/bin/swaybg -c '#3050a0'
+  '';
+in {
   imports = [self.nixosModules.lys-login self.nixosModules.lys-wm];
   boot.kernelParams = ["drm.debug=0x10" "log_buf_len=64M"];
   programs.lys-wm = {
@@ -19,12 +26,16 @@
     displayManager = "lys-login";
     compositorPackage = config.programs.lys-wm.package;
     splashPackage = splash;
-    settings.login.show-clock = false;
+    settings.login = {
+      show-clock = false;
+      background-mode = "color";
+      background-color = "#2a4a3a";
+    };
     settings.animations.lock.enter-duration = 2000;
     session = {
       dirs = [];
       x11Dirs = [];
-      command = "${pkgs.coreutils}/bin/sleep infinity";
+      command = "${config.programs.lys-wm.package}/bin/lys-wm --config ${sessionConfig}";
     };
   };
   systemd.services.greeter-gate = {
@@ -39,12 +50,17 @@
       echo 'greeter-gate: the greeter may start' > /dev/kmsg
     '';
   };
+  users.users.alice = {
+    isNormalUser = true;
+    password = "lys-splash-vm";
+  };
   virtualisation.cores = 4;
   virtualisation.memorySize = 2048;
   environment.sessionVariables = {
     LIBGL_ALWAYS_SOFTWARE = "1";
     LYS_WM_RENDERER = "gles";
   };
+  environment.systemPackages = [drmTools];
   hardware.graphics.enable = true;
   hardware.graphics.extraPackages = [pkgs.mesa];
   fonts.packages = [pkgs.inter];

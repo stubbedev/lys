@@ -62,7 +62,7 @@ func TestAGreeterThatEndsCarriesItsLastOutput(t *testing.T) {
 	t.Setenv(fakeDirEnv, dir)
 	t.Setenv(fakeGreeterFailEnv, "1")
 	o := fakeOptions(dir, sockdir.Dir(t))
-	_, err := o.greet(context.Background(), o.VT, nil, 0, func(string) bool { return false })
+	_, err := o.greet(context.Background(), o.VT, nil, 0, func(string) bool { return false }, func() { t.Error("a greeter that exited without a login handed the screen off") })
 	exit, ok := errors.AsType[*greeterExit](err)
 	if !ok {
 		t.Fatalf("greet = %v, want the greeter's exit", err)

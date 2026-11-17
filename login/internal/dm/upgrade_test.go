@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/waittest"
 
@@ -74,6 +75,12 @@ func (c fileCard) FD() int           { return int(c.f.Fd()) }
 func (c fileCard) DropMaster() error { return nil }
 func (c fileCard) Close() error      { return c.f.Close() }
 
+func (fileCard) SetClientCap(uint64, uint64) error { return nil }
+func (fileCard) Planes() ([]uint32, error)         { return nil, nil }
+func (fileCard) Plane(id uint32) (drm.Plane, error) {
+	return drm.Plane{}, fmt.Errorf("no plane %d on a plain file", id)
+}
+
 func fakeConsole(dir string) console {
 	return console{
 		activate: func(int) error {
@@ -87,6 +94,16 @@ func fakeConsole(dir string) console {
 		say: func(int, string) error {
 			appendLine("console-modes", "say")
 			return nil
+		},
+		fbcon: &framebufferConsole{
+			unbind: func() ([]string, error) {
+				appendLine("console-modes", "unbind")
+				return []string{"vtcon1"}, nil
+			},
+			bind: func(entries []string) error {
+				appendLine("console-modes", "bind "+strings.Join(entries, " "))
+				return nil
+			},
 		},
 		clearX: func(uint32) ([]int, error) { return nil, nil },
 		clock:  systemClock,
@@ -1091,6 +1108,7 @@ func stoppedDaemonStops(t *testing.T, dir string) []int {
 		clearX:   func(uint32) ([]int, error) { return nil, nil },
 		clock:    systemClock,
 		cards:    newHeldCards(),
+		fbcon:    &framebufferConsole{},
 		stop:     func(worker int) error { stopped = append(stopped, worker); return nil },
 	}
 	if err := runDaemon(ctx, Options{RuntimeDir: dir}, c, rootOnly, nil); err != nil {
@@ -1128,28 +1146,26 @@ func TestStopSignalsCoverWhatSystemdSends(t *testing.T) {
 }
 
 // The console stays off the screen from the first greeter on: past the greeter
-// a login ends, and past a session that ends. A stop gives the console back.
+// a login ends, and past a session that ends. A login unbinds the framebuffer
+// console before the greeter's compositor lets go of the screen, and binds it
+// again once no compositor will replace the greeter's last frame: here when the
+// session ends, as the fake cards scan nothing out. A stop gives the console
+// back.
 func TestTheConsoleStaysHiddenBetweenCompositorsAndComesBackOnAStop(t *testing.T) {
 	d := startFakeDM(t)
 	d.awaitGreeter(1)
-	hidden := func(want int) {
+	modes := func(want ...string) {
 		t.Helper()
-		got := d.lines("console-modes")
-		if len(got) != want || slices.Contains(got, "true") {
-			t.Fatalf("console modes %v, want %d hidings and no text", got, want)
-		}
+		d.await(fmt.Sprintf("console modes %v", want), func() bool { return slices.Equal(d.lines("console-modes"), want) })
 	}
-	hidden(1)
+	modes("false")
 	worker, _ := d.login()
-	hidden(2)
+	modes("false", "unbind", "false")
 	d.endSession(worker)
 	d.awaitGreeter(2)
-	hidden(3)
+	modes("false", "unbind", "false", "bind vtcon1", "false")
 	if err := syscall.Kill(d.pid, syscall.SIGTERM); err != nil {
 		t.Fatal(err)
 	}
-	d.await("the console back", func() bool {
-		got := d.lines("console-modes")
-		return len(got) == 4 && got[3] == "true"
-	})
+	modes("false", "unbind", "false", "bind vtcon1", "false", "true")
 }

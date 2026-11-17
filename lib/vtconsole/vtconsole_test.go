@@ -1,4 +1,4 @@
-package console
+package vtconsole
 
 import (
 	"os"
@@ -37,7 +37,7 @@ func TestUnbindingTheFramebufferConsolesLeavesTheOthersBound(t *testing.T) {
 	dummy := vtConsole(t, dir, "vtcon0", "(S) dummy device", "1")
 	fbcon := vtConsole(t, dir, "vtcon1", "(M) frame buffer device", "1")
 	idle := vtConsole(t, dir, "vtcon2", "(S) frame buffer device", "0")
-	got, err := UnbindFramebufferConsoles(dir)
+	got, err := UnbindFramebuffer(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,14 +49,14 @@ func TestUnbindingTheFramebufferConsolesLeavesTheOthersBound(t *testing.T) {
 			t.Errorf("%s reads %q, want %q", path, b, want)
 		}
 	}
-	if again, err := UnbindFramebufferConsoles(dir); err != nil || len(again) != 0 {
+	if again, err := UnbindFramebuffer(dir); err != nil || len(again) != 0 {
 		t.Errorf("unbinding again unbound %q with %v, want nothing", again, err)
 	}
 }
 
 func TestUnbindingFramebufferConsolesWithoutVTsDoesNothing(t *testing.T) {
 	t.Parallel()
-	if got, err := UnbindFramebufferConsoles(filepath.Join(t.TempDir(), "absent")); err != nil || len(got) != 0 {
+	if got, err := UnbindFramebuffer(filepath.Join(t.TempDir(), "absent")); err != nil || len(got) != 0 {
 		t.Errorf("unbound %q with %v on a kernel without VT consoles, want nothing", got, err)
 	}
 }
@@ -67,7 +67,34 @@ func TestAVTConsoleWithoutANameIsAnError(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "vtcon0"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UnbindFramebufferConsoles(dir); err == nil || !strings.Contains(err.Error(), "read the name of "+filepath.Join(dir, "vtcon0")) {
+	if _, err := UnbindFramebuffer(dir); err == nil || !strings.Contains(err.Error(), "read the name of "+filepath.Join(dir, "vtcon0")) {
 		t.Errorf("got %v, want an error naming the console whose name could not be read", err)
+	}
+}
+
+func TestBindRebindsWhatUnbindingUnbound(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	fbcon := vtConsole(t, dir, "vtcon1", "(M) frame buffer device", "1")
+	idle := vtConsole(t, dir, "vtcon2", "(S) frame buffer device", "0")
+	unbound, err := UnbindFramebuffer(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Bind(dir, unbound); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{fbcon: "1", idle: "0"} {
+		if b := bindOf(t, path); b != want {
+			t.Errorf("%s reads %q after binding again, want %q", path, b, want)
+		}
+	}
+}
+
+func TestBindingAConsoleThatIsGoneNamesIt(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := Bind(dir, []string{"vtcon7"}); err == nil || !strings.Contains(err.Error(), "bind "+filepath.Join(dir, "vtcon7")) {
+		t.Errorf("got %v, want an error naming the console that could not be bound", err)
 	}
 }

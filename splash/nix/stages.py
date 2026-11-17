@@ -1,5 +1,4 @@
 import json
-import re
 
 gate_marker = "greeter-gate: the greeter may start"
 
@@ -61,6 +60,49 @@ def jumps(a, b):
 greeter_logs = "journalctl -b --no-pager -o short-monotonic -u 'lys-splash*' -u lys-login -u greeter-gate -u user@998; journalctl -b --no-pager -o short-monotonic _UID=998 | tail -50"
 
 
+greeter_background = (0x2a, 0x4a, 0x3a)
+session_background = (0x30, 0x50, 0xa0)
+console_framebuffer = "[fbcon]"
+
+
+def screen_records(records, size, what):
+    planes = {r["plane"] for r in records if r.get("size") == size}
+    assert len(planes) == 1, f"{what}: planes {sorted(planes)} scanned out {size[0]}x{size[1]} frames, want one primary plane"
+    primary = planes.pop()
+    shown = [r for r in records if r["plane"] == primary]
+    off = [r["line"] for r in shown if r["fb"] == 0]
+    assert not off, f"{what}: the primary plane went dark: {off[:4]}"
+    console = [r["line"] for r in shown if r.get("by") == console_framebuffer]
+    assert not console, f"{what}: the kernel's console took the screen: {console[:4]}"
+    unread = [r["line"] for r in shown if "mean" not in r]
+    assert not unread, f"{what}: frames the watch could not read: {unread[:4]}"
+    black = [r["line"] for r in shown if r["dark"] == 1000]
+    assert not black, f"{what}: black frames: {black[:4]}"
+    return shown
+
+
+def blend_of(colour, a, b):
+    seg = [b[i] - a[i] for i in range(3)]
+    t = sum((colour[i] - a[i]) * seg[i] for i in range(3)) / sum(x * x for x in seg)
+    return t, max(abs(colour[i] - (a[i] + t * seg[i])) for i in range(3))
+
+
+def assert_fades(shown, a, b, what):
+    start = next((i for i, r in enumerate(shown) if blend_of(r["mean"], a, b)[1] <= 4 and abs(blend_of(r["mean"], a, b)[0]) <= 0.02), None)
+    assert start is not None, f"{what}: no frame shows {a} alone: {[r['line'] for r in shown[-8:]]}"
+    last, between = 0.0, []
+    for r in shown[start:]:
+        t, off = blend_of(r["mean"], a, b)
+        assert off <= 6 and -0.02 <= t <= 1.02, f"{what}: {r['line']} is no blend of {a} and {b}"
+        assert t >= last - 0.02, f"{what}: {r['line']} steps back toward {a} from {last:.2f} of the way"
+        if 0.05 < t < 0.95:
+            between.append(r["line"])
+        last = max(last, t)
+    assert last >= 0.98, f"{what}: the frames end {last:.2f} of the way from {a} to {b}"
+    assert between, f"{what}: the screen cuts from {a} to {b} with no frame between"
+    return len(shown) - start, len(between)
+
+
 def await_gate(m):
     m.wait_for_unit("lys-splash-read-write.service", timeout=seconds(90))
     m.wait_until_succeeds("systemctl show -P ActiveState greeter-gate | grep -qx activating", timeout=seconds(60))
@@ -81,6 +123,7 @@ def hand_over(m):
     placed = placed_logo(m, splash.size)
     no_quit_unit(m, "under lys-login")
 
+    watch_scanout(m)
     m.succeed("touch /run/greeter-go")
     paths = []
     quit_at = None
@@ -92,6 +135,7 @@ def hand_over(m):
             quit_at = len(paths)
         assert time.monotonic() < deadline, f"the splash still runs 180s after lys-login was let start, {len(paths)} dumps in"
 
+    screen_records(scanned_out(m), splash.size, "the splash's hand-over")
     frames = [load(p) for p in paths]
     for i, frame in enumerate(frames):
         assert not black(frame), f"dump {i} of {len(frames)} is black"
@@ -127,6 +171,27 @@ def hand_over(m):
     no_quit_unit(m, "after the hand-over")
     m.succeed("pgrep -u lys-greeter -f 'lys-login greet'")
     return splash, logo
+
+
+def log_in(m, size):
+    m.wait_until_succeeds("journalctl -b -t lys-login -o cat | grep -q 'greeter: ready: .* the username field'", timeout=seconds(60))
+    m.succeed("echo 'lys-splash vm: alice logs in' > /dev/kmsg")
+    watch_scanout(m)
+    m.send_chars("alice\nlys-splash-vm\n")
+    m.wait_until_succeeds("pgrep -u alice swaybg", timeout=seconds(120))
+
+    def desktop():
+        shown = [r for r in scanned_lines(m) if r.get("size") == size]
+        settled = shown and max(abs(c - w) for c, w in zip(shown[-1].get("mean", (0, 0, 0)), session_background)) <= 2
+        return None, None if settled else f"the screen shows {shown[-1]['line'] if shown else 'nothing'}"
+
+    await_until(30, desktop)
+    shown = screen_records(scanned_out(m), size, "the login")
+    flips, between = assert_fades(shown, greeter_background, session_background, "the login")
+    m.wait_until_succeeds("journalctl -b -t lys-login -o cat | grep -q 'bound the framebuffer console .* again: a compositor replaced the greeter.s last frame'", timeout=seconds(60))
+    bound = m.succeed("grep -l 'frame buffer device' /sys/class/vtconsole/*/name | xargs -n1 dirname | xargs -I{} cat {}/bind").split()
+    assert bound and all(b == "1" for b in bound), f"the framebuffer console is not bound again once the desktop shows: {bound}"
+    print(f"the login: {flips} flips from the greeter's last frame to the desktop, {between} of them between the two")
 
 
 def reboot_shows_splash(m, splash, logo):

@@ -22,6 +22,9 @@ type sessionEvent struct {
 
 type greeterRun struct {
 	vt       int
+	release  uint64
+	left     scanouts
+	read     func() (scanouts, error)
 	started  time.Time
 	held     io.Closer
 	done     chan greetResult
@@ -98,6 +101,7 @@ func runDaemon(ctx context.Context, o Options, c console, may func(uint32) bool,
 			log.Printf("dm: %v", err)
 		}
 	}()
+	defer c.fbcon.restore("the display manager stops")
 	if r != nil {
 		r.finish(o)
 	}
@@ -257,12 +261,25 @@ func (d *seat) startGreeter(vt int) {
 		log.Printf("dm: %v", err)
 	}
 	ctx, cancel := context.WithCancel(d.ctx)
-	g := &greeterRun{vt: vt, started: d.c.clock.now(), done: make(chan greetResult, 1), upgrades: make(chan *pendingUpgrade), cancel: cancel, unseen: time.After(greeterShowWait)}
+	g := &greeterRun{vt: vt, read: d.c.cards.scanouts(), started: d.c.clock.now(), done: make(chan greetResult, 1), upgrades: make(chan *pendingUpgrade), cancel: cancel, unseen: time.After(greeterShowWait)}
 	d.greeter = g
 	go func() {
-		res, err := d.o.greet(ctx, vt, g.upgrades, d.u.drain, func(user string) bool { return d.sessionOf(user) != nil })
+		res, err := d.o.greet(ctx, vt, g.upgrades, d.u.drain, func(user string) bool { return d.sessionOf(user) != nil }, func() { d.handOff(g) })
 		g.done <- greetResult{res, err}
 	}()
+}
+
+func (d *seat) handOff(g *greeterRun) {
+	left, err := g.read()
+	if err != nil {
+		log.Printf("dm: %v; the framebuffer console is bound again %s after the greeter, whatever the screen shows", err, takeoverWait)
+	}
+	g.left = left
+	g.release = d.c.fbcon.handOff()
+}
+
+func (d *seat) awaitTakeover(g *greeterRun) {
+	go d.c.fbcon.awaitTakeover(g.release, g.left, g.read, d.c.clock, d.ctx.Done())
 }
 
 func (d *seat) greeterShown(ctx context.Context) error {
@@ -314,8 +331,11 @@ func (d *seat) greeted(r greetResult) {
 			log.Printf("dm: the session of %s ended before the switch to it", r.g.login.existing)
 		}
 		d.leaveGreeterVT(g, s)
+		d.awaitTakeover(g)
 	default:
-		d.start(r.g.login, g.vt, g.held)
+		if d.start(r.g.login, g.vt, g.held) {
+			d.awaitTakeover(g)
+		}
 	}
 }
 
@@ -394,18 +414,20 @@ func (d *seat) activate(s *session) {
 	log.Printf("dm: switched to the session of %s on VT %d", s.user, s.vt)
 }
 
-func (d *seat) start(l *pendingLogin, vt int, held io.Closer) {
+func (d *seat) start(l *pendingLogin, vt int, held io.Closer) bool {
 	d.c.hideText(vt)
 	if err := l.w.ch.send(request{Op: opStart, Cmd: l.cmd, Env: l.env}); err != nil {
 		log.Printf("dm: session: %v", errors.Join(err, l.w.wait()))
 		letGo(held, vt)
-		return
+		d.c.fbcon.restore("the session did not start")
+		return false
 	}
 	s := &session{w: l.w, cmd: l.cmd, vt: vt, user: l.user, held: held}
 	d.mu.Lock()
 	d.sessions = append(d.sessions, s)
 	d.mu.Unlock()
 	d.read(s)
+	return true
 }
 
 func (d *seat) handle(ev sessionEvent) {
@@ -445,6 +467,7 @@ func (d *seat) ended(s *session) {
 	}
 	letGo(s.held, s.vt)
 	s.held = nil
+	d.c.fbcon.restore("the session of " + s.user + " ended")
 	d.mu.Lock()
 	d.sessions = slices.DeleteFunc(d.sessions, func(cur *session) bool { return cur == s })
 	d.mu.Unlock()

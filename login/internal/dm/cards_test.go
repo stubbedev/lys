@@ -2,11 +2,14 @@ package dm
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/drm"
 	"golang.org/x/sys/unix"
 )
 
@@ -15,6 +18,18 @@ type fakeCard struct {
 	dropErr error
 	dropped bool
 	closed  bool
+	capErr  error
+	fbs     map[uint32]uint32
+}
+
+func (c *fakeCard) SetClientCap(uint64, uint64) error { return c.capErr }
+
+func (c *fakeCard) Planes() ([]uint32, error) {
+	return slices.Sorted(maps.Keys(c.fbs)), nil
+}
+
+func (c *fakeCard) Plane(id uint32) (drm.Plane, error) {
+	return drm.Plane{ID: id, FB: c.fbs[id]}, nil
 }
 
 func (c *fakeCard) FD() int           { return -1 }
@@ -75,5 +90,63 @@ func TestHeldCardsLetGoOfACardWhoseMasterTheyCannotDrop(t *testing.T) {
 	}
 	if !c.closed || len(h.cards) != 0 {
 		t.Error("a card kept as DRM master would block the next compositor")
+	}
+}
+
+func TestHeldCardsReadWhatEachPlaneScansOut(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "card0"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := &fakeCard{dropErr: unix.EINVAL, fbs: map[uint32]uint32{31: 40, 32: 0}}
+	h := &heldCards{glob: filepath.Join(dir, "card[0-9]*"), cards: map[string]openCard{}, open: func(string) (openCard, error) { return c, nil }}
+	if err := h.holdAll(); err != nil {
+		t.Fatal(err)
+	}
+	read := h.scanouts()
+	left, err := read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := filepath.Join(dir, "card0")
+	if want := (scanouts{card: {31: 40}}); !maps.EqualFunc(left, want, maps.Equal) {
+		t.Fatalf("read %v, want %v: only the plane with a framebuffer", left, want)
+	}
+	c.fbs[32] = 50
+	now, err := read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left.replacedIn(now) {
+		t.Error("a frame lit on another plane counted as replacing the left one")
+	}
+	c.fbs[31] = 41
+	if now, err = read(); err != nil {
+		t.Fatal(err)
+	}
+	if !left.replacedIn(now) {
+		t.Error("a flip to another framebuffer did not count as replacing the left frame")
+	}
+	delete(c.fbs, 31)
+	if now, err = read(); err != nil {
+		t.Fatal(err)
+	}
+	if !left.replacedIn(now) {
+		t.Error("a plane turned off did not count as replacing the left frame")
+	}
+}
+
+func TestHeldCardsLetGoOfACardThatCannotListItsPrimaryPlanes(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "card0"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := &fakeCard{dropErr: unix.EINVAL, capErr: unix.EINVAL}
+	h := &heldCards{glob: filepath.Join(dir, "card[0-9]*"), cards: map[string]openCard{}, open: func(string) (openCard, error) { return c, nil }}
+	if err := h.holdAll(); !errors.Is(err, unix.EINVAL) || !strings.Contains(err.Error(), "list the primary planes of") {
+		t.Fatalf("holdAll = %v, want the refused capability reported", err)
+	}
+	if !c.closed || len(h.cards) != 0 {
+		t.Error("a card whose primary planes cannot be read is still held")
 	}
 }

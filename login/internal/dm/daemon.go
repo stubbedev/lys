@@ -17,6 +17,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shlex"
+	"github.com/stubbedev/lys/lib/vtconsole"
 	"github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/sys/unix"
 
@@ -82,6 +83,7 @@ type console struct {
 	clearX   func(uid uint32) ([]int, error)
 	clock    clock
 	cards    *heldCards
+	fbcon    *framebufferConsole
 	stop     func(worker int) error
 	freeVT   func() (int, io.Closer, error)
 	release  func(vt int) error
@@ -92,7 +94,7 @@ type console struct {
 func systemConsole() console {
 	return console{
 		activate: activateVT, showText: showVTText, say: sayOnVT, clearX: clearSharedX, clock: systemClock,
-		cards: newHeldCards(), stop: stopWorker, freeVT: freeVT, release: disallocateVT,
+		cards: newHeldCards(), fbcon: newFramebufferConsole(vtconsole.Dir), stop: stopWorker, freeVT: freeVT, release: disallocateVT,
 		lock: lockLogindSession, switchTo: activateLogindSession,
 	}
 }
@@ -101,9 +103,8 @@ func clearSharedX(uid uint32) ([]int, error) {
 	return clearStaleX(sharedTmp, uid, pidAlive)
 }
 
-// hideText leaves nothing on the kernel's console to see. The console shows
-// whenever no compositor holds the VT, and logind decides when that starts, so
-// its mode cannot be held: its contents can.
+// hideText leaves nothing on the kernel's console to see, should it show while
+// no compositor holds the VT.
 func (c console) hideText(vt int) {
 	if err := c.showText(vt, false); err != nil {
 		log.Printf("dm: %v", err)
@@ -342,7 +343,7 @@ type greeterRequests struct {
 
 // greet runs the greeter until a user is authenticated and asks for a
 // session, or an upgrade replaces this program, then stops it.
-func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgrade, drain time.Duration, existing func(user string) bool) (greeted, error) {
+func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgrade, drain time.Duration, existing func(user string) bool, handOff func()) (greeted, error) {
 	settings := o.greeterConfig()
 	req := greeterRequests{vt: vt, method: greeterLoginMethod(settings), upgrades: upgrades, drain: drain, existing: existing}
 	sock := filepath.Join(o.RuntimeDir, "greeter.sock")
@@ -387,6 +388,9 @@ func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgr
 		}
 	}()
 	g, err := o.serveConns(ctx, conns, exited, req)
+	if g.login != nil {
+		handOff()
+	}
 	_ = gw.Process.Signal(syscall.SIGTERM)
 	<-exited
 	if g == (greeted{}) && err == nil {

@@ -1,3 +1,4 @@
 with logs_on_failure(machine, greeter_logs):
     await_gate(machine)
-    hand_over(machine)
+    splash, _ = hand_over(machine)
+    log_in(machine, splash.size)

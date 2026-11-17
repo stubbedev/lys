@@ -1335,6 +1335,7 @@
       "lib/wltest"
     ]
   },
+  "lib/vtconsole": {},
   "lib/waittest": {},
   "lib/wallclock": {
     "testImports": [
@@ -1485,6 +1486,7 @@
       "lib/logind",
       "lib/peercred",
       "lib/polkit",
+      "lib/vtconsole",
       "lib/xdg",
       "lib/xkb",
       "login/dmsocket",
@@ -3737,6 +3739,7 @@
     "imports": [
       "desktop/splashframe",
       "lib/atomicfile",
+      "lib/vtconsole",
       "splash/internal/asynclog",
       "splash/internal/client",
       "splash/internal/console",
@@ -4747,6 +4750,8 @@
     "imports": [
       "lib/drm",
       "lib/edid",
+      "lib/fourcc",
+      "lib/udmabuf",
       "wm/internal/backend",
       "wm/internal/gpu",
       "wm/internal/loop",
@@ -4758,7 +4763,6 @@
       "wm/internal/xkb"
     ],
     "testImports": [
-      "lib/fourcc",
       "lib/testhome",
       "wm/internal/looptest"
     ]
@@ -4867,6 +4871,7 @@
   "wm/internal/compositor": {
     "imports": [
       "lib/atomicfile",
+      "lib/dmabuf",
       "lib/drm",
       "lib/edid",
       "lib/fourcc",

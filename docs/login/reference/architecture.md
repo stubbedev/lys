@@ -47,7 +47,8 @@ daemon the socket is reachable only by the greeter account.
    waits for that frame to be presented (at most 2 s) and asks to start.
 5. The daemon stops the greeter's worker: compositor first, then the process
    group, killed after 5 s. The held DRM cards keep the last greeter frame on
-   screen until the session's compositor takes over.
+   screen until the session's compositor takes over ([From the greeter to the
+   session](#from-the-greeter-to-the-session)).
 6. The worker opens the PAM session and runs the command as the user, in its own
    session with the VT as controlling terminal, through `/bin/sh` sourcing
    `/etc/profile` and `~/.profile`. logind sees type `wayland` or `x11`, class
@@ -92,6 +93,25 @@ splash's background without its logo`, naming the output); the greeter then
 starts without the picture or shows the splash's background alone under the
 fade. The greeter logs where it put the logo (`greeter: the first frame on
 <output> takes over the splash's: the logo at ...`).
+
+## From the greeter to the session
+
+When the greeter's logind session ends, logind switches its VT back to text
+mode, and the kernel answers a switch to text mode by putting its framebuffer
+console on screen with a modeset, even over a DRM master: the screen would go
+black between the greeter's last frame and the session's first. So before the
+daemon stops the greeter's compositor for a login, it unbinds the framebuffer
+console from the VTs (`/sys/class/vtconsole`); the switch to text mode then
+draws nothing, and the frame the greeter's lys-wm leaves on screen stays until
+the session's compositor replaces it. lys-wm takes that frame over without a
+modeset and fades from it to the desktop
+([Inheriting a splash](/wm/architecture#drm-backend)).
+
+The daemon binds the console again once any plane on a held card shows another
+framebuffer than the greeter left, which only a DRM master can commit; when the
+session ends; when the daemon stops; or 30 s after the login, whichever comes
+first. The daemon logs each step (`dm: unbound the framebuffer console`, `dm:
+bound the framebuffer console ... again: <why>`).
 
 ## Switching users
 

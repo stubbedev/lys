@@ -26,6 +26,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/vtconsole"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/splash/internal/asynclog"
@@ -389,7 +390,7 @@ func serve(o options, base *slog.Logger) (err error) {
 		SaveLastFrame:    func(f splashframe.LastFrame) error { return splashframe.SaveLastFrame(splashframe.LastFramePath, f) },
 		ForgetLastFrame:  forgetLastFrame,
 		UnbindFramebufferConsoles: func() ([]string, error) {
-			return console.UnbindFramebufferConsoles(console.VTConsoles)
+			return vtconsole.UnbindFramebuffer(vtconsole.Dir)
 		},
 		LoadKeymap: func() (string, error) { return keymap.Load("/") },
 		Clock:      daemon.SystemClock{},
