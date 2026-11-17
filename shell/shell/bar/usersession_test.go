@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/useraccount"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -184,20 +185,13 @@ func accountAt(t *testing.T, home string) {
 	t.Cleanup(func() { currentAccount = prev })
 }
 
-type sessionMenuWindow struct{ closed *bool }
-
-func (w sessionMenuWindow) Close() { *w.closed = true }
-
-func (sessionMenuWindow) SetFocus(widget.Widget) error { return nil }
-
 // sessionHarness is the session card with a power menu that records
 // what it maps and runs.
 type sessionHarness struct {
 	cfg    *config.Config
 	btns   []*widget.Button
-	opened []app.LayerConfig
+	opened []*treetest.Layer
 	ran    []string
-	closed bool
 }
 
 func newSessionHarness(t *testing.T, actions ...config.SessionAction) *sessionHarness {
@@ -211,8 +205,9 @@ func newSessionHarness(t *testing.T, actions ...config.SessionAction) *sessionHa
 	ctx.PowerMenu = powermenu.New(powermenu.Deps{
 		Config: func() *config.Config { return h.cfg },
 		Open: func(cfg app.LayerConfig) (powermenu.Window, error) {
-			h.opened = append(h.opened, cfg)
-			return sessionMenuWindow{&h.closed}, nil
+			w := treetest.NewLayer(cfg, render.Rect{W: 1600, H: 1000})
+			h.opened = append(h.opened, w)
+			return w, nil
 		},
 		Run:  func(cmd string) { h.ran = append(h.ran, cmd) },
 		Font: ctx.Font,
@@ -223,11 +218,7 @@ func newSessionHarness(t *testing.T, actions ...config.SessionAction) *sessionHa
 
 func (h *sessionHarness) key(t *testing.T, name string) {
 	t.Helper()
-	a, err := app.ParseAccel(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !h.opened[len(h.opened)-1].KeyCapture(a) {
+	if !h.opened[len(h.opened)-1].Key(t, name) {
 		t.Fatalf("the power menu did not take %s", name)
 	}
 }
@@ -259,8 +250,8 @@ func TestDismissingTheConfirmationRunsNothing(t *testing.T) {
 	h := newSessionHarness(t, config.SessionActionPowerOff)
 	h.btns[0].OnClick()
 	h.key(t, "Escape")
-	if len(h.ran) != 0 || !h.closed {
-		t.Errorf("Escape: ran %v, closed %v; want nothing run and the menu closed", h.ran, h.closed)
+	if closed := h.opened[0].Closed; len(h.ran) != 0 || !closed {
+		t.Errorf("Escape: ran %v, closed %v; want nothing run and the menu closed", h.ran, closed)
 	}
 }
 

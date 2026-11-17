@@ -9,28 +9,16 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 )
 
-type fakeWindow struct {
-	closed bool
-	router *widget.Router
-}
-
-func (w *fakeWindow) Close() { w.closed = true }
-
-func (w *fakeWindow) SetFocus(t widget.Widget) error { return w.router.SetFocus(t) }
-
-func (w *fakeWindow) focused() widget.Widget { return w.router.Focused() }
-
 type harness struct {
 	cfg     *config.Config
 	m       *Menu
 	opened  []app.LayerConfig
-	windows []*fakeWindow
+	windows []*treetest.Layer
 	ran     []string
 	openErr error
 }
@@ -46,7 +34,7 @@ func newHarness(t *testing.T) *harness {
 				return nil, h.openErr
 			}
 			h.opened = append(h.opened, cfg)
-			w := &fakeWindow{router: &widget.Router{Root: cfg.Root}}
+			w := treetest.NewLayer(cfg, render.Rect{W: 1600, H: 1000})
 			h.windows = append(h.windows, w)
 			return w, nil
 		},
@@ -139,7 +127,7 @@ func TestArrowsWalkTheButtonsAndWrap(t *testing.T) {
 		if !press(step.key) {
 			t.Fatalf("step %d: %s was not taken", i, step.key)
 		}
-		if h.windows[0].focused() != widget.Widget(buttons[step.want]) {
+		if h.windows[0].Focused() != widget.Widget(buttons[step.want]) {
 			t.Errorf("step %d: %s did not focus button %d", i, step.key, step.want)
 		}
 	}
@@ -153,7 +141,7 @@ func TestTheFirstLeftLandsOnTheLastButton(t *testing.T) {
 	h.m.Show()
 	buttons := h.buttons(t)
 	h.press(t, "Left")
-	if h.windows[0].focused() != widget.Widget(buttons[len(buttons)-1]) {
+	if h.windows[0].Focused() != widget.Widget(buttons[len(buttons)-1]) {
 		t.Error("the first Left did not land on the last button")
 	}
 }
@@ -184,15 +172,15 @@ func TestButtonRunsItsCommandAfterTheExit(t *testing.T) {
 	h.m.Show()
 	h.m.rev.Finish()
 	h.buttons(t)[2].OnClick() // lock, log out, suspend
-	if len(h.ran) != 0 || h.windows[0].closed {
+	if len(h.ran) != 0 || h.windows[0].Closed {
 		t.Fatal("the command ran (or the menu closed) before the exit played")
 	}
 	if h.m.Open() {
 		t.Error("the menu still reports open mid-exit")
 	}
 	h.m.rev.Finish()
-	if !h.windows[0].closed || len(h.ran) != 1 || h.ran[0] != "systemctl suspend" {
-		t.Errorf("after the exit: closed %v, ran %v", h.windows[0].closed, h.ran)
+	if !h.windows[0].Closed || len(h.ran) != 1 || h.ran[0] != "systemctl suspend" {
+		t.Errorf("after the exit: closed %v, ran %v", h.windows[0].Closed, h.ran)
 	}
 	h.m.Show()
 	if len(h.opened) != 2 {
@@ -207,8 +195,8 @@ func TestEscapeCancels(t *testing.T) {
 	if !h.opened[0].KeyCapture(app.Accel{Sym: escape.Sym}) {
 		t.Fatal("Escape was not consumed")
 	}
-	if !h.windows[0].closed || len(h.ran) != 0 {
-		t.Errorf("Escape: closed %v, ran %v; want closed, nothing run", h.windows[0].closed, h.ran)
+	if !h.windows[0].Closed || len(h.ran) != 0 {
+		t.Errorf("Escape: closed %v, ran %v; want closed, nothing run", h.windows[0].Closed, h.ran)
 	}
 	other, _ := app.ParseAccel("a")
 	h.m.Show()
@@ -277,29 +265,7 @@ func TestTheMenuAsksForNoBlurWithReducedTransparency(t *testing.T) {
 
 func (h *harness) press(t *testing.T, name string) bool {
 	t.Helper()
-	a, err := app.ParseAccel(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg, router := h.opened[len(h.opened)-1], h.windows[len(h.windows)-1].router
-	if cfg.KeyCapture(a) {
-		return true
-	}
-	cfg.Root.Arrange(render.Rect{W: 1600, H: 1000})
-	if a.Sym == xkb.KeyTab {
-		if a.Mods&app.ModShift != 0 {
-			router.FocusPrev()
-		} else {
-			router.FocusNext()
-		}
-		return true
-	}
-	action, ok := widget.KeyActionForSym(a.Sym)
-	if !ok {
-		return false
-	}
-	router.KeyAction(action, 0)
-	return true
+	return h.windows[len(h.windows)-1].Key(t, name)
 }
 
 func TestReturnRunsTheButtonTabReached(t *testing.T) {
@@ -309,7 +275,7 @@ func TestReturnRunsTheButtonTabReached(t *testing.T) {
 	h.m.Show()
 	h.press(t, "Tab")
 	h.press(t, "Tab")
-	if got, want := h.windows[0].focused(), widget.Widget(h.buttons(t)[2]); got != want {
+	if got, want := h.windows[0].Focused(), widget.Widget(h.buttons(t)[2]); got != want {
 		t.Fatalf("focused %v after two Tabs, want the suspend button", got)
 	}
 	h.press(t, "Return")
@@ -325,7 +291,7 @@ func TestKPEnterRunsTheButtonShiftTabReached(t *testing.T) {
 	h.m.Show()
 	h.press(t, "Shift+Tab")
 	buttons := h.buttons(t)
-	if got, want := h.windows[0].focused(), widget.Widget(buttons[len(buttons)-1]); got != want {
+	if got, want := h.windows[0].Focused(), widget.Widget(buttons[len(buttons)-1]); got != want {
 		t.Fatalf("focused %v after Shift+Tab, want the shut-down button", got)
 	}
 	h.press(t, "KP_Enter")
@@ -343,12 +309,12 @@ func TestArrowsContinueFromTheButtonTabReached(t *testing.T) {
 	h.press(t, "Tab")
 	h.press(t, "Tab")
 	h.press(t, "Right")
-	if got, want := h.windows[0].focused(), widget.Widget(buttons[3]); got != want {
+	if got, want := h.windows[0].Focused(), widget.Widget(buttons[3]); got != want {
 		t.Fatalf("focused %v after two Tabs and Right, want the reboot button", got)
 	}
 	h.press(t, "Shift+Tab")
 	h.press(t, "Left")
-	if got, want := h.windows[0].focused(), widget.Widget(buttons[1]); got != want {
+	if got, want := h.windows[0].Focused(), widget.Widget(buttons[1]); got != want {
 		t.Fatalf("focused %v after Shift+Tab and Left, want the log-out button", got)
 	}
 	h.press(t, "Right")
@@ -363,8 +329,8 @@ func TestReturnRunsTheButtonThePointerFocused(t *testing.T) {
 	h := newHarness(t)
 	h.cfg.Animations.Enabled = false
 	h.m.Show()
-	router := h.windows[0].router
-	router.Root.Arrange(render.Rect{W: 1600, H: 1000})
+	router := h.windows[0].Router
+	router.Root.Arrange(h.windows[0].Size)
 	suspend := h.buttons(t)[2]
 	at := suspend.Bounds()
 	p := widget.Point{X: at.X + at.W/2, Y: at.Y + at.H/2}
@@ -383,8 +349,8 @@ func TestReturnRunsTheButtonThePointerFocused(t *testing.T) {
 func TestTheFirstButtonHasTheKeyboardOnOpen(t *testing.T) {
 	h := newHarness(t)
 	h.m.Show()
-	if h.windows[0].focused() != widget.Widget(h.buttons(t)[0]) {
-		t.Errorf("focused %v on open, want the first button", h.windows[0].focused())
+	if h.windows[0].Focused() != widget.Widget(h.buttons(t)[0]) {
+		t.Errorf("focused %v on open, want the first button", h.windows[0].Focused())
 	}
 }
 
@@ -540,7 +506,7 @@ func TestARequestToEndTheSessionWaitsForConfirmation(t *testing.T) {
 		if !h.m.Open() {
 			t.Fatalf("action %d did not open the menu", a)
 		}
-		if got := h.windows[0].focused(); got != widget.Widget(h.buttons(t)[slices.Index(actions[:], a)]) {
+		if got := h.windows[0].Focused(); got != widget.Widget(h.buttons(t)[slices.Index(actions[:], a)]) {
 			t.Errorf("action %d: the menu opened on another button", a)
 		}
 		h.press(t, "Return")
@@ -567,8 +533,8 @@ func TestARequestShowsTheActionTheConfigHides(t *testing.T) {
 	h.cfg.Power.RebootCommand = "reboot-now"
 	h.m.Request(Reboot)
 	buttons := h.buttons(t)
-	if len(buttons) != 5 || h.windows[0].focused() != widget.Widget(buttons[3]) {
-		t.Fatalf("buttons %d, focused %v; want all five with reboot focused", len(buttons), h.windows[0].focused())
+	if len(buttons) != 5 || h.windows[0].Focused() != widget.Widget(buttons[3]) {
+		t.Fatalf("buttons %d, focused %v; want all five with reboot focused", len(buttons), h.windows[0].Focused())
 	}
 	buttons[3].OnClick()
 	if len(h.ran) != 1 || h.ran[0] != "reboot-now" {
@@ -585,7 +551,7 @@ func TestReturnRightAfterOpeningRunsTheFirstShownActionWithTheKeyboardOnIt(t *te
 	h.cfg.Power.ShowLock = false
 	h.cfg.Power.LogoutCommand = "log-out-now"
 	h.m.Show()
-	if got, want := h.windows[0].focused(), widget.Widget(h.buttons(t)[0]); got != want {
+	if got, want := h.windows[0].Focused(), widget.Widget(h.buttons(t)[0]); got != want {
 		t.Fatalf("focused %v on open, want the first shown button, log out", got)
 	}
 	h.press(t, "Return")
@@ -600,7 +566,7 @@ func TestARequestToEndTheSessionOpensWithTheKeyboardOnIt(t *testing.T) {
 	h.cfg.Power.ShutdownCommand = "power-off-now"
 	h.m.Request(ShutDown)
 	buttons := h.buttons(t)
-	if got, want := h.windows[0].focused(), widget.Widget(buttons[len(buttons)-1]); got != want {
+	if got, want := h.windows[0].Focused(), widget.Widget(buttons[len(buttons)-1]); got != want {
 		t.Fatalf("focused %v on the request, want the shut-down button", got)
 	}
 	h.press(t, "Return")
@@ -619,7 +585,7 @@ func TestAReopenDuringTheExitFocusesTheFreshSurfacesButton(t *testing.T) {
 	if len(h.opened) != 2 {
 		t.Fatalf("opened %d surfaces, want a fresh one for the reopen", len(h.opened))
 	}
-	if got, want := h.windows[1].focused(), widget.Widget(h.buttons(t)[3]); got != want {
+	if got, want := h.windows[1].Focused(), widget.Widget(h.buttons(t)[3]); got != want {
 		t.Errorf("focused %v on the reopen, want the reboot button", got)
 	}
 }
@@ -632,7 +598,7 @@ func TestARequestWhileTheMenuIsUpLeavesTheKeyboardWhereItIs(t *testing.T) {
 	if len(h.opened) != 1 {
 		t.Fatalf("opened %d surfaces, want the one already up", len(h.opened))
 	}
-	if got, want := h.windows[0].focused(), widget.Widget(h.buttons(t)[1]); got != want {
+	if got, want := h.windows[0].Focused(), widget.Widget(h.buttons(t)[1]); got != want {
 		t.Errorf("focused %v after the request, want the button the arrow reached", got)
 	}
 	if len(h.ran) != 0 {

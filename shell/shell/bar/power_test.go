@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
-	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/shell/powermenu"
 )
@@ -42,12 +43,6 @@ func TestNewPowerRequiresAnIcon(t *testing.T) {
 	}
 }
 
-type powerMenuWindow struct{}
-
-func (powerMenuWindow) Close() {}
-
-func (powerMenuWindow) SetFocus(widget.Widget) error { return nil }
-
 // TestPowerMenuVerbOpensTheMenu pins the :menu verb: it opens the
 // native power menu, and with none it does nothing (no dropdown).
 func TestPowerMenuVerbOpensTheMenu(t *testing.T) {
@@ -56,9 +51,9 @@ func TestPowerMenuVerbOpensTheMenu(t *testing.T) {
 	opened := 0
 	ctx.PowerMenu = powermenu.New(powermenu.Deps{
 		Config: func() *config.Config { return cfg },
-		Open: func(app.LayerConfig) (powermenu.Window, error) {
+		Open: func(cfg app.LayerConfig) (powermenu.Window, error) {
 			opened++
-			return powerMenuWindow{}, nil
+			return treetest.NewLayer(cfg, render.Rect{W: 1600, H: 1000}), nil
 		},
 		Run:  func(string) {},
 		Font: ctx.Font,
