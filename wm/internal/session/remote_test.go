@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/logind"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/fdmsg"
@@ -78,5 +79,19 @@ func TestAHolderMessageWithTooManyFDsFailsAsTruncated(t *testing.T) {
 	}
 	if _, _, err := RecvHolder(b); !errors.Is(err, fdmsg.ErrFDsTruncated) {
 		t.Fatalf("received %d fds with error %v, want %v", maxHolderFDs+1, err, fdmsg.ErrFDsTruncated)
+	}
+}
+
+func TestAHolderPowerRequestCarriesItsSleepAction(t *testing.T) {
+	a, b := holderPair(t)
+	if err := SendHolder(a, HolderMsg{Op: OpPower, Power: logind.SuspendThenHibernate}); err != nil {
+		t.Fatal(err)
+	}
+	m, _, err := RecvHolder(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Op != OpPower || m.Power != logind.SuspendThenHibernate {
+		t.Fatalf("received %+v, want a power request for suspend-then-hibernate", m)
 	}
 }

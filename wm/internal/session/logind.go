@@ -202,17 +202,17 @@ func (lg *Logind) LidClosed() (bool, error) {
 	return closed, nil
 }
 
-func (lg *Logind) Suspend() error {
+func (lg *Logind) Sleep(action logind.PowerAction) error {
 	if lg.sleeping.Load() {
 		return nil
 	}
-	err := lg.manager.Power(context.Background(), logind.Suspend)
+	err := lg.manager.Power(context.Background(), action)
 	var refusal dbus.Error
 	switch {
 	case errors.As(err, &refusal):
-		return fmt.Errorf("session: logind refused to suspend: %s: %w", refusal.Name, err)
+		return fmt.Errorf("session: logind refused to %s: %s: %w", action, refusal.Name, err)
 	case err != nil:
-		return fmt.Errorf("session: suspend: %w", err)
+		return fmt.Errorf("session: %s: %w", action, err)
 	}
 	lg.sleeping.Store(true)
 	return nil

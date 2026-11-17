@@ -14,7 +14,7 @@ key does.
 | Tiling & Tabs | `wm-tiling` | `autotile`, `tabs` |
 | Input | `wm-input` | `input.keyboard`, `input.pointer`, `input.trackpoint`, `input.touchpad` |
 | Keys & Gestures | `wm-binds` | `binds`, `submaps`, app shortcuts, `gestures` |
-| Displays | `wm-outputs` | Output layout, `color_management`, `tearing`, `gpu`, `lid_suspend` |
+| Displays | `wm-outputs` | Output layout, `color_management`, `tearing`, `gpu`, `lid_action` |
 | Rules & Session | `wm-session` | `rules`, `env`, `xwayland`, `palette` |
 
 ## What a change does

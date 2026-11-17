@@ -192,7 +192,7 @@ func suspendOnPowerChanges(t *testing.T) (*logindtest.Logind, *events, func(msgs
 	}
 	t.Cleanup(func() { _ = unix.Close(fds[1]) })
 	m, err := watch(l, fds[0], DefaultSeat, "/sys", []Subsystem{PowerSupply}, trustSelf, func(UdevEvent) error {
-		if err := lg.Suspend(); err != nil {
+		if err := lg.Sleep(logind.Suspend); err != nil {
 			return ev.add(err.Error())
 		}
 		return ev.add("power")
@@ -279,5 +279,54 @@ func TestARefusedSuspendLeavesNoSleepPending(t *testing.T) {
 	}
 	if n := suspends(f); n != 2 {
 		t.Fatalf("logind saw %d Suspend calls, want 2", n)
+	}
+}
+
+var sleepMethods = map[string]string{
+	"suspend":                "Manager.Suspend",
+	"hibernate":              "Manager.Hibernate",
+	"hybrid-sleep":           "Manager.HybridSleep",
+	"suspend-then-hibernate": "Manager.SuspendThenHibernate",
+}
+
+func TestEachLidActionSleepsThroughItsLogindMethod(t *testing.T) {
+	for name, method := range sleepMethods {
+		t.Run(name, func(t *testing.T) {
+			action, ok := LidActions()[name].Sleep()
+			if !ok {
+				t.Fatalf("lid action %q sleeps through nothing", name)
+			}
+			fake, _, lg, _ := openLogind(t, map[string]string{"XDG_SESSION_ID": string(own)})
+			t.Cleanup(func() {
+				if err := lg.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			if err := lg.Sleep(action); err != nil {
+				t.Fatal(err)
+			}
+			for _, m := range sleepMethods {
+				want := 0
+				if m == method {
+					want = 1
+				}
+				if calls := fake.CallsTo(m); len(calls) != want || (want == 1 && !slices.Equal(calls[0].Args, []any{false})) {
+					t.Errorf("lid action %q: %s calls %v, want %d, never interactive", name, m, calls, want)
+				}
+			}
+		})
+	}
+}
+
+func TestTheIgnoreLidActionSleepsThroughNothingAndTheDefaultSuspends(t *testing.T) {
+	if action, ok := LidActions()["ignore"].Sleep(); ok {
+		t.Errorf("ignore sleeps through %s", action)
+	}
+	if action, ok := DefaultLidAction.Sleep(); !ok || action != logind.Suspend {
+		t.Errorf("the default lid action sleeps through %s %v, want suspend", action, ok)
+	}
+	names := slices.Sorted(maps.Keys(LidActions()))
+	if want := []string{"hibernate", "hybrid-sleep", "ignore", "suspend", "suspend-then-hibernate"}; !slices.Equal(names, want) {
+		t.Errorf("lid actions %v, want %v", names, want)
 	}
 }

@@ -39,7 +39,7 @@ func TestAStartWithTheLidClosedAppliesTheLidPolicy(t *testing.T) {
 				configure: func(cfg *compositor.Config) {
 					cfg.LidClosedAtStart = c.closed
 					cfg.Hooks.Lid = compositor.LidPolicy{
-						Suspend: func() error {
+						Sleep: func() error {
 							suspends.Add(1)
 							return nil
 						},

@@ -19,7 +19,7 @@ func TestTheLidSuspendsOnlyAnUndockedLaptopOnBattery(t *testing.T) {
 	battery := true
 	h := StartWith(t, func(c *compositor.Config) {
 		c.Hooks.Lid = compositor.LidPolicy{
-			Suspend: func() error {
+			Sleep: func() error {
 				suspends.Add(1)
 				return nil
 			},
@@ -90,7 +90,7 @@ func TestARefusedSuspendIsReportedAndTheSessionGoesOn(t *testing.T) {
 	h := StartWith(t, func(c *compositor.Config) {
 		c.Report = r.report
 		c.Hooks.Lid = compositor.LidPolicy{
-			Suspend: func() error {
+			Sleep: func() error {
 				suspends.Add(1)
 				return refusal
 			},
@@ -136,7 +136,7 @@ func TestAPowerReadErrorIsReportedAndTheLidDoesNotSuspend(t *testing.T) {
 	h := StartWith(t, func(c *compositor.Config) {
 		c.Report = r.report
 		c.Hooks.Lid = compositor.LidPolicy{
-			Suspend: func() error {
+			Sleep: func() error {
 				suspends.Add(1)
 				return nil
 			},
@@ -170,7 +170,7 @@ func TestTheLidPolicyAsksItsServicesOffTheLoop(t *testing.T) {
 	var first sync.Once
 	h := StartWith(t, func(c *compositor.Config) {
 		c.Hooks.Lid = compositor.LidPolicy{
-			Suspend: func() error { return nil },
+			Sleep: func() error { return nil },
 			OnBattery: func() (bool, error) {
 				first.Do(func() { close(reached) })
 				<-gate

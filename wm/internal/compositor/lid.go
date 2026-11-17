@@ -14,7 +14,7 @@ func (c *Compositor) PowerChanged() {
 
 func (c *Compositor) applyLidPolicy() {
 	lid := c.hooks.Lid
-	if lid.Suspend == nil || !c.lidWantsSleep() {
+	if lid.Sleep == nil || !c.lidWantsSleep() {
 		return
 	}
 	if c.lidBusy {
@@ -29,9 +29,9 @@ func (c *Compositor) applyLidPolicy() {
 	}, func(err error) error {
 		switch {
 		case err != nil:
-			c.report(fmt.Errorf("compositor: the lid policy does not suspend, the power state is unknown: %w", err))
+			c.report(fmt.Errorf("compositor: the lid policy does not sleep, the power state is unknown: %w", err))
 		case battery && c.lidWantsSleep():
-			c.offLoop(lid.Suspend, c.lidSuspended)
+			c.offLoop(lid.Sleep, c.lidSlept)
 			return nil
 		}
 		c.lidSettled()
@@ -68,9 +68,9 @@ func (c *Compositor) dockChanged(b backend.Output) error {
 	return c.reapplyOutputRules()
 }
 
-func (c *Compositor) lidSuspended(err error) error {
+func (c *Compositor) lidSlept(err error) error {
 	if err != nil {
-		c.report(fmt.Errorf("compositor: the lid policy could not suspend: %w", err))
+		c.report(fmt.Errorf("compositor: the lid policy could not sleep: %w", err))
 	}
 	c.lidSettled()
 	return nil

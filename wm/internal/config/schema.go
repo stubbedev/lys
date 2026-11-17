@@ -230,7 +230,7 @@ func annotations() map[string]annotation {
 		"power_saver_frame_rate":           atLeastAnn(0, compositor.DefaultPowerSaverRate),
 		"hold_opening":                     {def: false},
 		"tearing":                          {def: false},
-		"lid_suspend":                      {def: true},
+		"lid_action":                       {enum: slices.Sorted(maps.Keys(lidActions)), def: "suspend"},
 		"gpu":                              formatAnn(drmDeviceFormat),
 		"tabs.font":                        formatAnn(fontFileFormat),
 		"tabs.icon_theme":                  formatAnn(iconThemeFormat),

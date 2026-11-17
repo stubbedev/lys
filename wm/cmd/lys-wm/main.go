@@ -357,7 +357,7 @@ func (s source) load(accent render.Color) (loaded, error) {
 	if err != nil {
 		return loaded{}, errors.Join(err, keymaps.Close())
 	}
-	return loaded{cfg: cfg, keymaps: keymaps, env: file.Env, autostart: file.Autostart, xwayland: file.Xwayland, zero: file.ZeroScaling, native: nativeOptions{input: file.Input, gpu: file.GPU, lidSuspend: file.LidSuspend}, warnings: file.Warnings}, nil
+	return loaded{cfg: cfg, keymaps: keymaps, env: file.Env, autostart: file.Autostart, xwayland: file.Xwayland, zero: file.ZeroScaling, native: nativeOptions{input: file.Input, gpu: file.GPU, lid: file.Lid}, warnings: file.Warnings}, nil
 }
 
 func printHandoverInfo(path, runtime string, getenv func(string) string, out io.Writer) error {

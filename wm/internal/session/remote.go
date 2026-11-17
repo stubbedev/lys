@@ -8,12 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/stubbedev/lys/lib/logind"
+
 	"github.com/stubbedev/lys/wm/internal/fdmsg"
 	"github.com/stubbedev/lys/wm/internal/loop"
 )
 
 const (
-	HolderProtocol = 2
+	HolderProtocol = 3
 	maxHolderMsg   = 64 << 10
 	maxHolderFDs   = 4
 	holderTimeout  = 15 * time.Second
@@ -28,7 +30,7 @@ const (
 	OpRelease   HolderOp = "release"
 	OpInhibit   HolderOp = "inhibit"
 	OpLid       HolderOp = "lid"
-	OpSuspend   HolderOp = "suspend"
+	OpPower     HolderOp = "power"
 	OpSwitchTo  HolderOp = "switch"
 	OpSpawn     HolderOp = "spawn"
 	OpCommit    HolderOp = "commit"
@@ -42,19 +44,20 @@ const (
 )
 
 type HolderMsg struct {
-	Op       HolderOp `json:"op"`
-	ID       uint64   `json:"id,omitempty"`
-	Path     string   `json:"path,omitempty"`
-	Binary   string   `json:"binary,omitempty"`
-	Args     []string `json:"args,omitempty"`
-	Major    uint32   `json:"major,omitempty"`
-	Minor    uint32   `json:"minor,omitempty"`
-	VT       uint32   `json:"vt,omitempty"`
-	Seat     string   `json:"seat,omitempty"`
-	On       bool     `json:"on,omitempty"`
-	PID      int      `json:"pid,omitempty"`
-	Protocol int      `json:"protocol,omitempty"`
-	Err      string   `json:"err,omitempty"`
+	Op       HolderOp           `json:"op"`
+	ID       uint64             `json:"id,omitempty"`
+	Path     string             `json:"path,omitempty"`
+	Binary   string             `json:"binary,omitempty"`
+	Args     []string           `json:"args,omitempty"`
+	Major    uint32             `json:"major,omitempty"`
+	Minor    uint32             `json:"minor,omitempty"`
+	VT       uint32             `json:"vt,omitempty"`
+	Seat     string             `json:"seat,omitempty"`
+	On       bool               `json:"on,omitempty"`
+	PID      int                `json:"pid,omitempty"`
+	Protocol int                `json:"protocol,omitempty"`
+	Power    logind.PowerAction `json:"power,omitempty"`
+	Err      string             `json:"err,omitempty"`
 }
 
 func SendHolder(fd int, m HolderMsg, fds ...int) error {
@@ -228,8 +231,8 @@ func (h *Holder) LidClosed() (bool, error) {
 	return reply.On, err
 }
 
-func (h *Holder) Suspend() error {
-	_, _, err := h.call(HolderMsg{Op: OpSuspend})
+func (h *Holder) Sleep(action logind.PowerAction) error {
+	_, _, err := h.call(HolderMsg{Op: OpPower, Power: action})
 	return err
 }
 

@@ -1042,16 +1042,23 @@ hold_opening: true
 Default `false`: a new window shows at once and resized neighbours are
 stretched until they redraw. `true` waits up to 100 ms for them first.
 
-## lid_suspend {#lid_suspend}
+## lid_action {#lid_action}
 
 ```yaml
-lid_suspend: false
+lid_action: suspend-then-hibernate
 ```
 
-Default `true` on the drm backend: lys-wm inhibits logind's lid handling and
-suspends when the lid is closed, no output besides the `eDP-*` panels is on
-and displaying (as for the panel rule in [outputs](#outputs)), and the machine
-is on battery. `false` leaves the lid to logind. Read at startup.
+On the drm backend lys-wm inhibits logind's lid handling and applies the lid
+policy itself: when the lid is closed, no output besides the `eDP-*` panels is
+on and displaying (as for the panel rule in [outputs](#outputs)), and the
+machine is on battery, it asks logind for the sleep this key names. The values
+are logind's `HandleLidSwitch` sleeps, each calling the logind method of that
+name: `suspend` (the default), `hibernate`, `hybrid-sleep` and
+`suspend-then-hibernate` (which hibernates after logind's
+`HibernateDelaySec`). `ignore` does nothing on a lid close, and logind does
+nothing either, since lys-wm still holds its inhibitor. lys-shell's idle
+policy takes the same values in [`idle.suspend-action`](/shell/config/idle).
+Read at startup.
 
 ## gpu
 

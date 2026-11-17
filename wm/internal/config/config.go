@@ -150,7 +150,7 @@ type rawConfig struct {
 	Xwayland        rawXwayland                  `yaml:"xwayland"`
 	GPU             *At[string]                  `yaml:"gpu"`
 	Tearing         bool                         `yaml:"tearing"`
-	LidSuspend      *bool                        `yaml:"lid_suspend"`
+	LidAction       *At[string]                  `yaml:"lid_action"`
 	Gestures        rawGestures                  `yaml:"gestures"`
 	HotCorners      rawHotCorners                `yaml:"hot_corners"`
 	Focus           rawFocus                     `yaml:"focus"`
@@ -751,7 +751,7 @@ type Config struct {
 	ZeroScaling     bool
 	GPU             string
 	Tearing         bool
-	LidSuspend      bool
+	Lid             session.LidAction
 	Animations      anim.Table
 	LayerRules      []wm.LayerRule
 	WorkspaceRules  []compositor.WorkspaceRule
@@ -1399,6 +1399,7 @@ var (
 	closeFocuses     = map[string]wm.CloseFocus{"next": wm.CloseFocusesNext, "under_pointer": wm.CloseFocusesUnderPointer}
 	contentTypes     = byName(wm.ContentGame)
 	coverPolicies    = map[string]wm.CoverPolicy{"behind": wm.CoverBehind, "take_over": wm.CoverTakeOver, "exit": wm.CoverExit}
+	lidActions       = session.LidActions()
 )
 
 func byName[E interface {
@@ -1989,7 +1990,7 @@ func ParseLayers(accent render.Color, layers ...Layer) (Config, error) {
 		HiddenFrame:     p.hiddenFrame(raw.HiddenFrameRate),
 		PowerSaverRate:  p.nonNegative(raw.PowerSaverRate, "power_saver_frame_rate", compositor.DefaultPowerSaverRate),
 		HoldOpening:     raw.HoldOpening,
-		LidSuspend:      raw.LidSuspend == nil || *raw.LidSuspend,
+		Lid:             session.DefaultLidAction,
 	}
 	if raw.Tabs.Font != nil {
 		cfg.Font = raw.Tabs.Font.V
@@ -2021,6 +2022,9 @@ func ParseLayers(accent render.Color, layers ...Layer) (Config, error) {
 	}
 	if v := choice(p, raw.Focus.WarpPointer, "focus.warp_pointer", pointerWarps); v != nil {
 		cfg.WM.Focus.WarpPointer = *v
+	}
+	if v := choice(p, raw.LidAction, "lid_action", lidActions); v != nil {
+		cfg.Lid = *v
 	}
 	if v := choice(p, raw.Focus.OnClose, "focus.on_close", closeFocuses); v != nil {
 		cfg.WM.Focus.OnClose = *v

@@ -7,9 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/logind"
+
 	drmbackend "github.com/stubbedev/lys/wm/internal/backend/drm"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/looptest"
+	"github.com/stubbedev/lys/wm/internal/session"
 )
 
 func TestPrimaryGPUFollowsTheRule(t *testing.T) {
@@ -93,5 +96,44 @@ func TestAPrimaryWithoutVulkanNamesTheCardAndTheWayToGLES(t *testing.T) {
 	other := errors.New("drm: card0: atomic modesetting refused")
 	if got := withRendererHint(other); got.Error() != other.Error() {
 		t.Errorf("a failure with a Vulkan driver present became %v", got)
+	}
+}
+
+type sleepRecorder struct {
+	broker
+	slept []logind.PowerAction
+}
+
+func (r *sleepRecorder) Sleep(action logind.PowerAction) error {
+	r.slept = append(r.slept, action)
+	return nil
+}
+
+func TestTheLidPolicySleepsThroughTheConfiguredAction(t *testing.T) {
+	for name, want := range map[string]logind.PowerAction{
+		"suspend":                logind.Suspend,
+		"hibernate":              logind.Hibernate,
+		"hybrid-sleep":           logind.HybridSleep,
+		"suspend-then-hibernate": logind.SuspendThenHibernate,
+	} {
+		r := &sleepRecorder{}
+		n := &native{logind: r, lidAction: session.LidActions()[name]}
+		policy := n.lidPolicy()
+		if policy.Sleep == nil || policy.OnBattery == nil {
+			t.Fatalf("lid action %s: no lid policy", name)
+		}
+		if err := policy.Sleep(); err != nil {
+			t.Fatal(err)
+		}
+		if len(r.slept) != 1 || r.slept[0] != want {
+			t.Errorf("lid action %s slept through %v, want %s", name, r.slept, want)
+		}
+	}
+}
+
+func TestTheIgnoreLidActionHasNoLidPolicy(t *testing.T) {
+	n := &native{logind: &sleepRecorder{}, lidAction: session.LidActions()["ignore"]}
+	if policy := n.lidPolicy(); policy.Sleep != nil || policy.OnBattery != nil {
+		t.Fatalf("ignore has a lid policy %+v", policy)
 	}
 }

@@ -12,6 +12,7 @@ import (
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/edid"
+	"github.com/stubbedev/lys/lib/logind"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
@@ -36,7 +37,7 @@ type broker interface {
 	ReleaseDevice(d session.Device) error
 	InhibitLidSwitch() (*os.File, error)
 	LidClosed() (bool, error)
-	Suspend() error
+	Sleep(action logind.PowerAction) error
 	SwitchTo(vt uint32) error
 	Close() error
 }
@@ -62,6 +63,7 @@ type native struct {
 	report      func(error)
 	vulkan      bool
 	lid         *os.File
+	lidAction   session.LidAction
 	lidClosed   bool
 	power       func()
 	wake        *loop.Timer
@@ -71,11 +73,11 @@ type native struct {
 const lidHoldoff = 30 * time.Second
 
 type nativeOptions struct {
-	input      session.InputConfig
-	gpu        string
-	lidSuspend bool
-	vulkan     bool
-	holder     *session.Holder
+	input  session.InputConfig
+	gpu    string
+	lid    session.LidAction
+	vulkan bool
+	holder *session.Holder
 }
 
 func choosePrimary(cards []gpuCard, configured string) (int, string, error) {
@@ -185,10 +187,11 @@ func openNative(l *loop.Loop, getenv func(string) string, opts nativeOptions, re
 		return nil, err
 	}
 	subsystems := []session.Subsystem{session.DRM, session.Input}
-	if opts.lidSuspend {
-		if n.lid, err = n.logind.InhibitLidSwitch(); err != nil {
-			return nil, err
-		}
+	if n.lid, err = n.logind.InhibitLidSwitch(); err != nil {
+		return nil, err
+	}
+	n.lidAction = opts.lid
+	if _, ok := opts.lid.Sleep(); ok {
 		if err := n.recheckAfterWake(lidHoldoff); err != nil {
 			return nil, err
 		}
@@ -201,11 +204,12 @@ func openNative(l *loop.Loop, getenv func(string) string, opts nativeOptions, re
 }
 
 func (n *native) lidPolicy() compositor.LidPolicy {
-	if n.lid == nil {
+	sleep, ok := n.lidAction.Sleep()
+	if !ok {
 		return compositor.LidPolicy{}
 	}
 	return compositor.LidPolicy{
-		Suspend:   n.logind.Suspend,
+		Sleep:     func() error { return n.logind.Sleep(sleep) },
 		OnBattery: func() (bool, error) { return session.OnBattery(session.SystemRoots) },
 	}
 }

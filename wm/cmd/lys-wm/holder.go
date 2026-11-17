@@ -132,8 +132,8 @@ func (h *holder) handle(w *holderWorker, m session.HolderMsg, fds []int) error {
 		}
 	case session.OpLid:
 		reply.On, err = h.lg.LidClosed()
-	case session.OpSuspend:
-		err = h.lg.Suspend()
+	case session.OpPower:
+		err = h.lg.Sleep(m.Power)
 	case session.OpSwitchTo:
 		err = h.lg.SwitchTo(m.VT)
 	case session.OpSpawn:

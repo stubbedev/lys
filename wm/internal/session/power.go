@@ -7,7 +7,25 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/stubbedev/lys/lib/logind"
 )
+
+type LidAction struct{ sleep logind.PowerAction }
+
+var DefaultLidAction = LidAction{sleep: logind.Suspend}
+
+func LidActions() map[string]LidAction {
+	actions := map[string]LidAction{"ignore": {}}
+	for _, a := range logind.SleepActions() {
+		actions[a.String()] = LidAction{sleep: a}
+	}
+	return actions
+}
+
+func (a LidAction) Sleep() (logind.PowerAction, bool) {
+	return a.sleep, a.sleep != 0
+}
 
 func OnBattery(roots Roots) (bool, error) {
 	battery, err := onBattery(os.DirFS(roots.Sys))

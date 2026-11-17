@@ -74,7 +74,7 @@ func TestTheLidSuspendsALaptopWhoseExternalOutputStoppedTakingCommits(t *testing
 	h := startedWithOutputs(t, func(c *compositor.Config) {
 		c.Report = got.report
 		c.Hooks.Lid = compositor.LidPolicy{
-			Suspend: func() error {
+			Sleep: func() error {
 				suspends.Add(1)
 				return nil
 			},

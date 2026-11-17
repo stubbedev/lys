@@ -4642,6 +4642,7 @@
       "lib/appearance",
       "lib/drm",
       "lib/edid",
+      "lib/logind",
       "lib/portalsettings",
       "lib/render",
       "lib/wmipc",

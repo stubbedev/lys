@@ -4000,9 +4000,16 @@
       ],
       "default": "tree"
     },
-    "lid_suspend": {
-      "type": "boolean",
-      "default": true
+    "lid_action": {
+      "type": "string",
+      "enum": [
+        "hibernate",
+        "hybrid-sleep",
+        "ignore",
+        "suspend",
+        "suspend-then-hibernate"
+      ],
+      "default": "suspend"
     },
     "outputs": {
       "type": "array",

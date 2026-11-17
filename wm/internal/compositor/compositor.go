@@ -121,7 +121,7 @@ type Hooks struct {
 }
 
 type LidPolicy struct {
-	Suspend   func() error
+	Sleep     func() error
 	OnBattery func() (bool, error)
 }
 

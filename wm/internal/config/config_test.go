@@ -236,6 +236,7 @@ func TestUnknownKeysWarnAndTheRestOfTheFileApplies(t *testing.T) {
 		"input:\n  devices:\n    mouse:\n      speed: 1\n":                    "t.yaml:4: input.devices.mouse.speed: unknown key",
 		"decoration:\n  blur:\n    glint: 1\n":                                "t.yaml:3: decoration.blur.glint: unknown key",
 		"from_a_newer_lys_wm: {a: 1}\n":                                       "t.yaml:1: from_a_newer_lys_wm: unknown key (known: ",
+		"lid_suspend: false\n":                                                "t.yaml:1: lid_suspend: unknown key (known: ",
 	}
 	for text, want := range cases {
 		cfg, err := Parse("t.yaml", []byte(text+"gpu: card1\n"))
@@ -268,6 +269,7 @@ func TestErrorsNameFileLineAndKey(t *testing.T) {
 		"tabs:\n  urgent:\n    fg: red\n":                                       "t.yaml:3: tabs.urgent.fg: unknown key (known: background, text)",
 		"env:\n  LYS_WM_SOCKET: /x\n":                                           "t.yaml:2: env.LYS_WM_SOCKET: is set by lys-wm",
 		"env:\n  A=B: c\n":                                                      "t.yaml:2: env.A=B: is not a valid environment variable",
+		"lid_action: sleep\n":                                                   `t.yaml:1: lid_action: "sleep" is not one of hibernate, hybrid-sleep, ignore, suspend, suspend-then-hibernate`,
 		"tabs:\n  height: tall\n":                                               "t.yaml: yaml: unmarshal errors:\n  line 2: cannot unmarshal",
 		"borders:\n  active: chartreuse\n":                                      `t.yaml:2: borders.active: "chartreuse" is neither`,
 		"binds:\n  - chord: SUPER + Q\n    action: teleport\n":                  `t.yaml:3: binds[0].action: bad action: unknown action "teleport"`,
@@ -1578,6 +1580,25 @@ rules:
 	} {
 		if _, err := Parse("t.yaml", []byte(text)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v, want %q", text, err, want)
+		}
+	}
+}
+
+func TestTheLidActionIsTheConfiguredSleepAndSuspendByDefault(t *testing.T) {
+	for src, want := range map[string]session.LidAction{
+		"":                                     session.DefaultLidAction,
+		"lid_action: suspend\n":                session.LidActions()["suspend"],
+		"lid_action: hibernate\n":              session.LidActions()["hibernate"],
+		"lid_action: hybrid-sleep\n":           session.LidActions()["hybrid-sleep"],
+		"lid_action: suspend-then-hibernate\n": session.LidActions()["suspend-then-hibernate"],
+		"lid_action: ignore\n":                 session.LidActions()["ignore"],
+	} {
+		cfg, err := Parse("t.yaml", []byte(src))
+		if err != nil {
+			t.Fatalf("%q: %v", src, err)
+		}
+		if cfg.Lid != want {
+			t.Errorf("%q: lid action %+v, want %+v", src, cfg.Lid, want)
 		}
 	}
 }
