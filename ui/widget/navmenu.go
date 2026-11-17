@@ -263,26 +263,11 @@ func (m *NavigationMenu) InterceptKey(target Widget, a KeyAction, _ Mods) bool {
 // NavigateFocus implements FocusNavigator: Left and Right step between
 // the triggers that can take focus.
 func (m *NavigationMenu) NavigateFocus(target Widget, a KeyAction) Widget {
-	triggers := make([]Widget, 0, len(m.triggers))
-	at := -1
-	for _, b := range m.triggers {
-		if !isFocusable(b) {
-			continue
-		}
-		if Widget(b) == target {
-			at = len(triggers)
-		}
-		triggers = append(triggers, b)
-	}
-	if at < 0 {
-		return nil
-	}
-	n := len(triggers)
 	switch a {
 	case KeyRight:
-		return triggers[(at+1)%n]
+		return MoveFocusAmong(m.triggers, target, FocusMoveNext)
 	case KeyLeft:
-		return triggers[(at+n-1)%n]
+		return MoveFocusAmong(m.triggers, target, FocusMovePrev)
 	}
 	return nil
 }

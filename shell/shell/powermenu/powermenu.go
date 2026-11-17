@@ -205,31 +205,13 @@ type buttonRow struct {
 }
 
 func (r *buttonRow) NavigateFocus(target widget.Widget, a widget.KeyAction) widget.Widget {
-	var by int
 	switch a {
 	case widget.KeyLeft, widget.KeyUp:
-		by = -1
+		return widget.MoveFocusAmong(r.buttons, target, widget.FocusMovePrev)
 	case widget.KeyRight, widget.KeyDown:
-		by = 1
-	default:
-		return nil
+		return widget.MoveFocusAmong(r.buttons, target, widget.FocusMoveNext)
 	}
-	stops := make([]widget.Widget, 0, len(r.buttons))
-	at := -1
-	for _, b := range r.buttons {
-		if !widget.Describe(b).Focusable {
-			continue
-		}
-		if widget.Widget(b) == target {
-			at = len(stops)
-		}
-		stops = append(stops, b)
-	}
-	if at < 0 {
-		return nil
-	}
-	n := len(stops)
-	return stops[(at+by+n)%n]
+	return nil
 }
 
 // scaled is px at the styling scale.

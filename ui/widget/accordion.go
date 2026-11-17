@@ -96,32 +96,24 @@ func (a *Accordion) Items() []*AccordionItem { return a.items }
 // NavigateFocus implements FocusNavigator: Up and Down step between
 // the item triggers, Home and End go to the first and last.
 func (a *Accordion) NavigateFocus(target Widget, k KeyAction) Widget {
-	triggers := make([]Widget, 0, len(a.items))
-	at := -1
-	for _, it := range a.items {
-		if !isFocusable(it.trigger) {
-			continue
-		}
-		if Widget(it.trigger) == target {
-			at = len(triggers)
-		}
-		triggers = append(triggers, it.trigger)
-	}
-	if at < 0 {
-		return nil
-	}
-	n := len(triggers)
+	var move FocusMove
 	switch k {
 	case KeyDown:
-		return triggers[(at+1)%n]
+		move = FocusMoveNext
 	case KeyUp:
-		return triggers[(at+n-1)%n]
+		move = FocusMovePrev
 	case KeyHome:
-		return triggers[0]
+		move = FocusMoveFirst
 	case KeyEnd:
-		return triggers[n-1]
+		move = FocusMoveLast
+	default:
+		return nil
 	}
-	return nil
+	triggers := make([]*Button, len(a.items))
+	for i, it := range a.items {
+		triggers[i] = it.trigger
+	}
+	return MoveFocusAmong(triggers, target, move)
 }
 
 // NewAccordionItem returns a closed item titled title over content,
