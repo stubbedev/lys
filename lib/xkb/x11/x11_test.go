@@ -1,6 +1,7 @@
 package x11_test
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -67,12 +68,19 @@ func startXvfb(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("Xvfb is not on PATH: the dev shell provides it: %v", err)
 	}
-	display := fmt.Sprintf(":%d", 90+os.Getpid()%400)
+	ready, announce, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe for Xvfb's -displayfd: %v", err)
+	}
+	defer func() { _ = ready.Close() }()
 	dir := t.TempDir()
-	cmd := exec.Command(bin, display, "-screen", "0", "64x64x24", "-nolisten", "tcp", "-noreset", "-auth", filepath.Join(dir, "none"))
+	cmd := exec.Command(bin, "-displayfd", "3", "-screen", "0", "64x64x24", "-nolisten", "tcp", "-noreset", "-auth", filepath.Join(dir, "none"))
+	cmd.ExtraFiles = []*os.File{announce}
 	var logs bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &logs, &logs
-	if err := cmd.Start(); err != nil {
+	err = cmd.Start()
+	_ = announce.Close()
+	if err != nil {
 		t.Fatalf("start Xvfb: %v", err)
 	}
 	t.Cleanup(func() {
@@ -82,12 +90,20 @@ func startXvfb(t *testing.T) string {
 			t.Logf("Xvfb: %s", logs.String())
 		}
 	})
-	socket := "/tmp/.X11-unix/X" + strings.TrimPrefix(display, ":")
-	waittest.UntilSlow(t, func() bool {
-		_, err := os.Stat(socket)
-		return err == nil
-	}, "Xvfb to listen on "+socket)
-	return display
+	type announced struct {
+		display string
+		err     error
+	}
+	got := make(chan announced, 1)
+	go func() {
+		line, err := bufio.NewReader(ready).ReadString('\n')
+		got <- announced{":" + strings.TrimSpace(line), err}
+	}()
+	a := waittest.ForSlow(t, got, "Xvfb to announce the display it listens on")
+	if a.err != nil {
+		t.Fatalf("read the display Xvfb listens on: %v", a.err)
+	}
+	return a.display
 }
 
 func cstr(s string) *byte {
