@@ -96,9 +96,12 @@ def session_started(scenario):
         shot = f"/tmp/{scenario['name']}-{output}.png"
         machine.succeed(as_alice(f"WAYLAND_DISPLAY={display} grim -o {output} {shot}"))
         machine.copy_from_machine(shot)
-        pixels = machine.succeed(f"{as_alice(f'WAYLAND_DISPLAY={display} grim -t ppm -o {output} -')} | tail -n +4 | od -An -v -tx1 -w3 | sort -u").split("\n")
         if scenario["background_only"]:
-            assert [p.strip() for p in pixels if p.strip()] == ["1e 1e 2e"], f"{output} shows {pixels[:4]} besides the background"
+            colours = f"{as_alice(f'WAYLAND_DISPLAY={display} grim -t ppm -o {output} -')} | tail -n +4 | od -An -v -tx1 -w3 | sort -u | tr -s ' ' | sed '/^ *$/d'"
+            try:
+                machine.wait_until_succeeds(f"[ \"$({colours})\" = ' 1e 1e 2e' ]", timeout=30)
+            except Exception:
+                raise AssertionError(f"{output} shows {machine.succeed(colours).splitlines()[:4]} besides the background once the fade from the frame it inherited is over")
     return display
 
 
