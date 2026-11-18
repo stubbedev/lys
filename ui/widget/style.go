@@ -303,13 +303,11 @@ func resensitize() {
 	if len(missing) == 0 {
 		return
 	}
+	inline := false
 	for _, f := range missing {
-		requestFontFace(f.Family, f.Src)
+		inline = requestFontFace(f.Family, f.Src) || inline
 	}
-	if slices.ContainsFunc(missing, func(f *style.FontFace) bool {
-		_, ok := sysfont.PeekFaceFile(f.Src)
-		return ok
-	}) {
+	if inline {
 		publishCascade()
 	}
 }
@@ -1018,7 +1016,10 @@ type fontFaceEntry struct {
 	face               render.Font
 }
 
-func requestFontFace(family, src string) {
+// requestFontFace loads a @font-face's file off the loop, whose answer
+// relayers, and reports whether it loaded inline instead, there being no
+// loop: only then is the face already there for the cascade to take.
+func requestFontFace(family, src string) (inline bool) {
 	var failed error
 	l := currentLoop()
 	loadAsset(fontFaceKey(src), l, func() {
@@ -1032,6 +1033,7 @@ func requestFontFace(family, src string) {
 			relayer()
 		}
 	})
+	return l == nil
 }
 
 type fontFaceKey string
