@@ -63,7 +63,7 @@ func TestHeadlessAutoHidingBarRevealsAtTheEdge(t *testing.T) {
 
 	h.onLoop(func() {
 		anchor := h.bar.bar.Start().Children()[0]
-		if err := h.rt.ctx.Dropdowns.open(h.output.Name, "calendar", anchor); err != nil {
+		if err := h.rt.ctx.Dropdowns.open(h.output.Name, "calendar", anchor, openedByAnchor); err != nil {
 			t.Errorf("open the calendar: %v", err)
 		}
 	})

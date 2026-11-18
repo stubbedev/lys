@@ -29,6 +29,13 @@ type IMEClient interface {
 	IMECommit(text string)
 }
 
+// Editable reports whether w takes typed text: what holds the keyboard
+// for typing rather than for navigation.
+func Editable(w Widget) bool {
+	_, ok := w.(IMETracker)
+	return ok
+}
+
 // IMETracker exposes an editable widget's text-input state for the
 // set_surrounding_text and set_cursor_rectangle requests.
 type IMETracker interface {

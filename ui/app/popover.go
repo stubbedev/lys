@@ -98,8 +98,10 @@ const (
 	// popover, which holds the keyboard until it closes. For menus.
 	PopoverGrabs PopoverDismissal = iota
 	// PopoverClickAway closes on a click elsewhere with no seat grab:
-	// keys stay with the focused window until a press into the popover
-	// takes them, or from the start if Focus names a widget. Esc reaches
+	// keys stay with the focused window, and a press into the popover
+	// takes them only when it focuses an input (widget.Editable) and
+	// gives them back when it focuses anything else; Focus naming a
+	// widget takes them from the start. Esc reaches
 	// it while it holds them, and beside them on a compositor offering
 	// lys_escape_v1 (lys-wm). It needs layer shell and wp_viewporter.
 	PopoverClickAway
@@ -132,6 +134,16 @@ func popoverKeyboard(cfg PopoverConfig) KeyboardMode {
 		return KeyboardNone
 	}
 	return KeyboardExclusive
+}
+
+// clickAwayKeys is the keyboard a click-away popover holds after a
+// press into it: the keys while the press left an input focused, so it
+// takes typing, and none otherwise, so the focused window keeps them.
+func clickAwayKeys(focused widget.Widget) KeyboardMode {
+	if widget.Editable(focused) {
+		return KeyboardExclusive
+	}
+	return KeyboardNone
 }
 
 // AnchorAt is an anchor at a point in the host's coordinates - a
@@ -172,11 +184,13 @@ type Popover struct {
 	// while the compositor focuses its surfaces or its host's.
 	noGrab bool
 	// exiting is an Exit under way; away is the root's click catchers;
-	// takeKeys gives a click-away chain the keyboard at a press into it,
-	// nil where it has nothing to take (loop only).
+	// takeKeys settles a click-away chain's keyboard after a press into
+	// it: held while the press left an input focused, given back to the
+	// focused window otherwise; nil where it has nothing to take (loop
+	// only).
 	exiting  bool
 	away     *clickAway
-	takeKeys func()
+	takeKeys func(focused widget.Widget)
 }
 
 // Parent is the popover this one is nested under, nil for a root.
@@ -571,10 +585,11 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 		hold(popoverKeyboard(cfg))
 		restoreKeys = sync.OnceFunc(func() { hold(KeyboardNone) })
 		if cfg.Dismissal == PopoverClickAway {
-			p.takeKeys = func() {
-				if p.taking() {
-					hold(KeyboardExclusive)
+			p.takeKeys = func(focused widget.Widget) {
+				if !p.taking() {
+					return
 				}
+				hold(clickAwayKeys(focused))
 			}
 		}
 	}
@@ -689,7 +704,7 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 	op.detach, op.pointer = pop.AttachInput(a.sess, router, func() {
 		op.tip.press()
 		if p.takeKeys != nil {
-			p.takeKeys()
+			p.takeKeys(router.Focused())
 		}
 	})
 	a.openPopovers = append(a.openPopovers, op)

@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
+	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/internal/animclock"
@@ -362,6 +363,42 @@ func TestPopupInputHearsPresses(t *testing.T) {
 	in.HandleTouchDown(2, 0, 0, 2)
 	if presses != 2 {
 		t.Errorf("a dismissed popup heard presses: %d", presses)
+	}
+}
+
+// The press is the widgets' before the listener hears it, so a press on
+// an input reaches the listener with the input focused.
+func TestPopupInputHearsAPressAfterTheWidgetsTookIt(t *testing.T) {
+	face, err := render.LoadFont(goregular.TTF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := widget.NewEntry(face, 14, render.RGB(0, 0, 0))
+	entry.Arrange(render.Rect{W: 100, H: 30})
+	router := &widget.Router{Root: entry}
+	var focused []widget.Widget
+	in := &popupInput{
+		onPress:   func() { focused = append(focused, router.Focused()) },
+		dismissed: func() bool { return false },
+		router:    router,
+		pointer:   &struct{ x, y float64 }{},
+		mods:      func() widget.Mods { return 0 },
+		markDirty: func() {},
+	}
+	in.Input = touchinput.Input{Tracker: widget.TouchTracker{Router: router, Owner: new(anim.Clock)}, Blocked: in.dismissed}
+	in.HandlePointerEnter(10, 10)
+	in.HandlePointerButton(widget.BTNLeft, 1, 0)
+	in.HandlePointerButton(widget.BTNLeft, 0, 0)
+	if len(focused) != 1 || focused[0] != entry {
+		t.Fatalf("the listener heard the press with %v focused, want the entry it landed on", focused)
+	}
+	if err := router.SetFocus(nil); err != nil {
+		t.Fatal(err)
+	}
+	in.HandleTouchDown(1, 10, 10, 1)
+	in.HandleTouchUp(1)
+	if len(focused) != 2 || focused[1] != entry {
+		t.Errorf("the listener heard the touch with %v focused, want the entry it landed on", focused[1:])
 	}
 }
 

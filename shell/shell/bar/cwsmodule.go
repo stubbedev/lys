@@ -279,7 +279,7 @@ func (m *cwsView) dispatchScroll(action config.WorkspaceClickAction) {
 		m.run(m.actions.last())
 	case config.WorkspaceClickDropdown:
 		if m.ctx.Dropdowns != nil {
-			if err := m.ctx.Dropdowns.open(m.ctx.Connector, action.Arg, m.segs); err != nil {
+			if err := m.ctx.Dropdowns.open(m.ctx.Connector, action.Arg, m.segs, openedByAnchor); err != nil {
 				log.Printf("%s-workspaces: dropdown %q: %v", m.kind, action.Arg, err)
 			}
 		}

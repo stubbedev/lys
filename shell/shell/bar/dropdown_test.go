@@ -51,12 +51,12 @@ func TestDropdownOpenWithoutHostErrors(t *testing.T) {
 	// No host attached and no app: the open is an error, not a panic,
 	// and the click path logs it.
 	anchor := widget.NewLabel(ctx.Font, 12, "anchor", 0xFF000000)
-	if err := r.open("DP-1", "calendar", anchor); err == nil {
+	if err := r.open("DP-1", "calendar", anchor, openedByAnchor); err == nil {
 		t.Fatal("hostless open: want an error")
 	}
 	// An unknown dropdown name errors too.
 	r.attachHost("DP-1", fakeHost{}, 1000)
-	if err := r.open("DP-1", "nope", anchor); err == nil {
+	if err := r.open("DP-1", "nope", anchor, openedByAnchor); err == nil {
 		t.Fatal("unknown dropdown: want an error")
 	}
 }
@@ -74,7 +74,7 @@ func TestDropdownToggleSemantics(t *testing.T) {
 	r.mu.Unlock()
 	// nil popover: the toggle branch does not fire (nil != non-nil).
 	anchor := widget.NewLabel(ctx.Font, 12, "anchor", 0xFF000000)
-	if err := r.open("DP-1", "calendar", anchor); err == nil {
+	if err := r.open("DP-1", "calendar", anchor, openedByAnchor); err == nil {
 		t.Fatal("hostless open: want an error")
 	}
 }
@@ -494,5 +494,38 @@ func TestDropdownFadesInFromAReadableOpacity(t *testing.T) {
 	reveal.Show(rev, cfg.Animations, config.AnimDropdown)
 	if got := rev.Progress(); got != 0 {
 		t.Errorf("a sliding dropdown starts at %v, want hidden", got)
+	}
+}
+
+type focusingContent struct {
+	*widget.Box
+	choice widget.Widget
+}
+
+func (c focusingContent) dropdownFocus() widget.Widget { return c.choice }
+
+// A dropdown opened with the pointer focuses only an input its content
+// asks for, so a click leaves the keys with the focused window; opened
+// from the keyboard it focuses the content's choice or its first control.
+func TestADropdownOpensFocusedOnlyOnAnInputUnlessOpenedFromTheKeyboard(t *testing.T) {
+	entry := widget.NewEntry(testFont(t), 12, 0)
+	button := widget.NewButton(widget.NewSpacer(60, 30), 0, 0)
+	withButton := widget.NewBox(widget.Column, 0, 0)
+	withButton.Append(button, false)
+
+	if got := dropdownFocus(focusingContent{Box: widget.NewBox(widget.Column, 0, 0), choice: entry}, false); got != entry {
+		t.Errorf("a pointer-opened dropdown asking for its entry focuses %v, want the entry", got)
+	}
+	if got := dropdownFocus(focusingContent{Box: withButton, choice: button}, false); got != nil {
+		t.Errorf("a pointer-opened dropdown asking for a button focuses %v, want nothing", got)
+	}
+	if got := dropdownFocus(withButton, false); got != nil {
+		t.Errorf("a pointer-opened dropdown with no choice focuses %v, want nothing", got)
+	}
+	if got := dropdownFocus(focusingContent{Box: withButton, choice: button}, true); got != button {
+		t.Errorf("a keyboard-opened dropdown asking for a button focuses %v, want the button", got)
+	}
+	if got := dropdownFocus(withButton, true); got != button {
+		t.Errorf("a keyboard-opened dropdown with no choice focuses %v, want its first control", got)
 	}
 }

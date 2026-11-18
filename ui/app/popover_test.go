@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
+	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/ui/internal/window"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
@@ -184,6 +185,27 @@ func TestPopoverClickAwayKeyboard(t *testing.T) {
 	focus := widget.NewBox(widget.Row, 0, 0)
 	if got := popoverKeyboard(PopoverConfig{Dismissal: PopoverClickAway, Focus: focus}); got != KeyboardExclusive {
 		t.Errorf("click-away popover with a Focus widget holds %v, want exclusive", got)
+	}
+}
+
+// A press into a click-away popover takes the keys only onto an input,
+// and a press onto anything else gives them back.
+func TestAClickAwayPopoverHoldsTheKeysOnlyForAnInput(t *testing.T) {
+	face, err := render.LoadFont(goregular.TTF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := clickAwayKeys(widget.NewEntry(face, 14, render.RGB(0, 0, 0))); got != KeyboardExclusive {
+		t.Errorf("a press onto an entry holds %v, want exclusive", got)
+	}
+	for name, w := range map[string]widget.Widget{
+		"a button":  widget.NewButton(widget.NewLabel(face, 14, "ok", render.RGB(0, 0, 0)), 4, 4),
+		"a box":     widget.NewBox(widget.Row, 0, 0),
+		"no widget": nil,
+	} {
+		if got := clickAwayKeys(w); got != KeyboardNone {
+			t.Errorf("a press onto %s holds %v, want none", name, got)
+		}
 	}
 }
 

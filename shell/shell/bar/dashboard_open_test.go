@@ -167,7 +167,7 @@ func (r *dashboardRig) reads() int64 {
 
 func (r *dashboardRig) open() {
 	r.t.Helper()
-	if err := apptest.On(r.a, func() error { return r.reg.open(dashboardRigOutput, "dashboard", r.anchor) }); err != nil {
+	if err := apptest.On(r.a, func() error { return r.reg.open(dashboardRigOutput, "dashboard", r.anchor, openedByAnchor) }); err != nil {
 		r.t.Fatalf("open the dashboard: %v", err)
 	}
 }

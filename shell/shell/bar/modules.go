@@ -481,7 +481,7 @@ func appendModule(row *widget.Box, item config.BarItem, ctx ModuleContext) error
 		case action.Kind == config.ClickDropdown && ctx.Dropdowns != nil:
 			// Dropdown bindings anchor to this module's own button; the
 			// registry toggles the popover on the connector's host.
-			_ = ctx.Dropdowns.open(ctx.Connector, action.Dropdown, btn)
+			_ = ctx.Dropdowns.open(ctx.Connector, action.Dropdown, btn, openedByAnchor)
 		case handler != nil:
 			handler.RunAction(action)
 		default:

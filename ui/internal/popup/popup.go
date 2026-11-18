@@ -614,8 +614,9 @@ type inputSession interface {
 type popupInput struct {
 	// Input routes touch and touchpad gestures (internal/touchinput).
 	touchinput.Input
-	// onPress hears a press or touch landing in the popup, before the
-	// widgets do; nil without a listener.
+	// onPress hears a press or touch landing in the popup, after the
+	// widgets took it, so what it focused is settled; nil without a
+	// listener.
 	onPress   func()
 	dismissed func() bool
 	router    *widget.Router
@@ -664,8 +665,8 @@ func (in *popupInput) HandlePointerButton(button, state, _ uint32) {
 	pt := widget.Point{X: int(in.pointer.x), Y: int(in.pointer.y)}
 	debug.Log("input", "popup route button %d state=%d at (%d,%d)", button, state, pt.X, pt.Y)
 	if state == 1 {
-		in.pressed()
 		in.router.Press(button, pt, in.mods())
+		in.pressed()
 	} else {
 		in.router.Release(button, pt)
 	}
@@ -680,10 +681,11 @@ func (in *popupInput) pressed() {
 
 // HandleTouchDown implements wlsession.SurfaceTouchHandler.
 func (in *popupInput) HandleTouchDown(id int32, x, y float64, serial uint32) {
-	if !in.dismissed() {
+	live := !in.dismissed()
+	in.Input.HandleTouchDown(id, x, y, serial)
+	if live {
 		in.pressed()
 	}
-	in.Input.HandleTouchDown(id, x, y, serial)
 }
 
 // HandlePointerAxis implements wlsession.SurfacePointerHandler: the

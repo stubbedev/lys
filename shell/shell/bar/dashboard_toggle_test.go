@@ -70,6 +70,32 @@ func TestDashboardToggleHoldsTheKeyboard(t *testing.T) {
 	apptest.Until(t, rig.a, "the keys go back after Escape", onWindow)
 }
 
+// A click on the dashboard's button opens it without taking the keys:
+// the window that held them keeps them, as it does for every dropdown
+// that opens on no input.
+func TestADashboardOpenedByAClickLeavesTheKeyboard(t *testing.T) {
+	rig := newDashboardRig(t)
+	var window *app.Window
+	apptest.On(rig.a, func() error {
+		w, err := rig.a.NewWindow(app.WindowConfig{Title: "Focused", AppID: "focused", Root: widget.NewBox(widget.Column, 0, 0)})
+		window = w
+		return err
+	})
+	keytest.Dial(t, rig.a)
+	onWindow := func() bool { return rig.a.Session().KeyboardFocus() == window.HostSurface() }
+	apptest.Until(t, rig.a, "the toplevel holds the keyboard", onWindow)
+	rig.open()
+	apptest.Until(t, rig.a, "the dashboard opened", func() bool {
+		rig.reg.mu.Lock()
+		defer rig.reg.mu.Unlock()
+		return rig.reg.openPop[dashboardRigOutput] != nil
+	})
+	apptest.Dispatched(t, rig.a)
+	if !apptest.On(rig.a, onWindow) {
+		t.Errorf("a click-opened dashboard took the keyboard to %v", apptest.On(rig.a, rig.a.Session().KeyboardFocus))
+	}
+}
+
 func TestDropdownToggleChoosesTheConnector(t *testing.T) {
 	rig := newDashboardRig(t)
 	if err := apptest.On(rig.a, func() error { return rig.reg.toggleDashboard("", "") }); err == nil || !strings.Contains(err.Error(), "no dashboard module in any bar") {

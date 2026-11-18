@@ -221,7 +221,7 @@ func (r *dropdownRegistry) toggleDashboard(connector, preferred string) error {
 		}
 		return errors.New("no dashboard module in any bar")
 	}
-	return r.open(target, "dashboard", anchor)
+	return r.open(target, "dashboard", anchor, openedByKeys)
 }
 
 // instance is name's content, built on first use with the registry's
@@ -432,11 +432,29 @@ func (r *dropdownRegistry) Names() []string {
 	return names
 }
 
+// openedBy is what opened a dropdown, which decides whether it opens
+// focused and so takes the keyboard (dropdownFocus).
+type openedBy uint8
+
+const (
+	// openedByAnchor is the anchor's own activation, a click or a key on
+	// it: the keyboard when the anchor shows keyboard focus.
+	openedByAnchor openedBy = iota
+	// openedByKeys is a shortcut or a command: the keyboard.
+	openedByKeys
+)
+
+// fromKeyboard reports whether the user drives the dropdown from the
+// keyboard.
+func (by openedBy) fromKeyboard(anchor widget.Widget) bool {
+	return by == openedByKeys || widget.FocusVisible(anchor)
+}
+
 // open shows one dropdown anchored to the module's root widget on the
 // connector's host. Re-clicking the same module dismisses; opening
 // another while one is up dismisses it and opens the new, so the bar
 // never shows two.
-func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget) error {
+func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget, by openedBy) error {
 	r.mu.Lock()
 	host := r.hosts[connector]
 	monH := r.monH[connector]
@@ -496,12 +514,7 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget) er
 			closed()
 		}
 	}
-	if f, ok := content.(dropdownFocuser); ok {
-		cfg.Focus = f.dropdownFocus()
-	}
-	if cfg.Focus == nil && widget.FocusVisible(anchor) {
-		cfg.Focus = widget.FirstFocusable(content)
-	}
+	cfg.Focus = dropdownFocus(content, by.fromKeyboard(anchor))
 	var rev *widget.Revealer
 	cfg.Content, rev = dropdownTree(content, r.cfg)
 	cfg.Exit = dropdownExit(rev, r.cfg.Animations)
@@ -562,6 +575,23 @@ func (r *dropdownRegistry) closeAll() {
 	for _, pop := range closing {
 		pop.Dismiss()
 	}
+}
+
+// dropdownFocus is the widget a dropdown opens focused, which takes the
+// keyboard from the focused window: from the keyboard, the content's own
+// choice or its first control; from the pointer, only the content's
+// choice and only when it is an input, so a click leaves the keys where
+// they were and draws no focus ring on a button.
+func dropdownFocus(content widget.Widget, fromKeyboard bool) widget.Widget {
+	if f, ok := content.(dropdownFocuser); ok {
+		if w := f.dropdownFocus(); w != nil && (fromKeyboard || widget.Editable(w)) {
+			return w
+		}
+	}
+	if fromKeyboard {
+		return widget.FirstFocusable(content)
+	}
+	return nil
 }
 
 // dropdownPopover declares a dropdown's popover, its card playing its own motion (animations.dropdown)
