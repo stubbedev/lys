@@ -40,7 +40,7 @@ func placementFor(cfg Config) placement {
 	)
 	if cfg.AnchorRect.Empty() {
 		return placement{
-			rect:    render.Rect{X: cfg.X, Y: cfg.Y, W: 1, H: 1},
+			rect:    render.Rect{X: cfg.X - cfg.ParentMargin, Y: cfg.Y - cfg.ParentMargin, W: 1, H: 1},
 			anchor:  xdg.PositionerAnchorTopLeft,
 			gravity: xdg.PositionerGravityBottomRight,
 			adjust:  slideX | slideY | flipY,
@@ -48,6 +48,8 @@ func placementFor(cfg Config) placement {
 	}
 	g := intconv.Clamp[int32](cfg.Gutter - cfg.Gap)
 	p := placement{rect: cfg.AnchorRect}
+	p.rect.X -= cfg.ParentMargin
+	p.rect.Y -= cfg.ParentMargin
 	switch cfg.Gravity {
 	case GravityTop:
 		p.anchor, p.gravity, p.adjust = xdg.PositionerAnchorTop, xdg.PositionerGravityTop, slideX|flipY|resizeY

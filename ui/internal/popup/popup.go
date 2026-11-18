@@ -116,6 +116,9 @@ type Config struct {
 	Parent *xdg.Surface
 	// LayerParent parents the popup to a layer surface (bars, panels).
 	LayerParent *wlr.ZwlrLayerSurfaceV1
+
+	ParentMargin int
+
 	// X, Y is the anchor point in parent surface coordinates.
 	X, Y int
 	// AnchorRect, when non-empty, anchors the popup to a widget's rect

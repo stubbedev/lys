@@ -606,3 +606,142 @@ func TestForeignAndLocalParentsReplaceEachOther(t *testing.T) {
 		t.Error("a local parent left the foreign import live")
 	}
 }
+
+const opSetWindowGeometry = 3
+
+func TestAMarginStaysOutsideTheWindowOnTheWire(t *testing.T) {
+	frames := headlesstest.WireServer(t, "wayland-test")
+	w := newWireWindow(t, Config{
+		Title: "t", AppID: "t",
+		MinWidth: 320, MinHeight: 200,
+		MaxWidth: 800, MaxHeight: 600,
+		Margin: 16,
+	})
+
+	f := headlesstest.WaitForFrame(t, frames, "set_min_size", func(f headlesstest.WireFrame) bool {
+		return f.Opcode == opSetMinSize
+	})
+	if f.Word(0) != 288 || f.Word(1) != 168 {
+		t.Errorf("set_min_size (%d, %d), want the 320x200 surface without its margins, (288, 168)", f.Word(0), f.Word(1))
+	}
+	f = headlesstest.WaitForFrame(t, frames, "set_max_size", func(f headlesstest.WireFrame) bool {
+		return f.Opcode == opSetMaxSize
+	})
+	if f.Word(0) != 768 || f.Word(1) != 568 {
+		t.Errorf("set_max_size (%d, %d), want the 800x600 surface without its margins, (768, 568)", f.Word(0), f.Word(1))
+	}
+	if minW, minH, maxW, maxH := w.SizeLimits(); minW != 320 || minH != 200 || maxW != 800 || maxH != 600 {
+		t.Errorf("SizeLimits = %d,%d,%d,%d, want the surface's 320,200,800,600", minW, minH, maxW, maxH)
+	}
+
+	if err := w.PublishMinSize(100, 0); err != nil {
+		t.Fatal(err)
+	}
+	f = headlesstest.WaitForFrame(t, frames, "set_min_size", func(f headlesstest.WireFrame) bool {
+		return f.Opcode == opSetMinSize
+	})
+	if f.Word(0) != 68 || f.Word(1) != 0 {
+		t.Errorf("set_min_size (%d, %d), want (68, 0): an unconstrained axis stays unconstrained", f.Word(0), f.Word(1))
+	}
+
+	data := make([]byte, 12)
+	binary.NativeEndian.PutUint32(data[0:4], 640)
+	binary.NativeEndian.PutUint32(data[4:8], 400)
+	w.Toplevel.Dispatch(&wl.Event{Opcode: 0, Data: data})
+	gw, gh := w.Size()
+	if gw != 672 || gh != 432 {
+		t.Fatalf("surface after a 640x400 configure = %dx%d, want 672x432: the window plus its margins", gw, gh)
+	}
+
+	if err := w.SyncGeometry(gw, gh); err != nil {
+		t.Fatal(err)
+	}
+	f = headlesstest.WaitForFrame(t, frames, "set_window_geometry", func(f headlesstest.WireFrame) bool {
+		return f.Obj == uint32(w.XdgSurface.Id()) && f.Opcode == opSetWindowGeometry
+	})
+	if len(f.Body) != 16 || f.Word(0) != 16 || f.Word(1) != 16 || f.Word(2) != 640 || f.Word(3) != 400 {
+		t.Errorf("set_window_geometry payload %v, want (16, 16, 640, 400)", f.Body)
+	}
+
+	if err := w.SyncGeometry(32, 400); err == nil {
+		t.Error("a surface its margins fill has no window, and SyncGeometry said nothing")
+	}
+}
+
+func TestAWindowWithoutAMarginSetsNoGeometry(t *testing.T) {
+	frames := headlesstest.WireServer(t, "wayland-test")
+	w := newWireWindow(t, Config{Title: "t", AppID: "t"})
+
+	data := make([]byte, 12)
+	binary.NativeEndian.PutUint32(data[0:4], 640)
+	binary.NativeEndian.PutUint32(data[4:8], 400)
+	w.Toplevel.Dispatch(&wl.Event{Opcode: 0, Data: data})
+	if gw, gh := w.Size(); gw != 640 || gh != 400 {
+		t.Errorf("surface after a 640x400 configure = %dx%d, want it unchanged", gw, gh)
+	}
+	if err := w.SyncGeometry(640, 400); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.SetMinSize(7, 7); err != nil {
+		t.Fatal(err)
+	}
+	headlesstest.WaitForFrame(t, frames, "set_min_size", func(f headlesstest.WireFrame) bool {
+		if f.Obj == uint32(w.XdgSurface.Id()) && f.Opcode == opSetWindowGeometry {
+			t.Errorf("a window without a margin sent set_window_geometry %v", f.Body)
+		}
+		return f.Opcode == opSetMinSize && f.Word(0) == 7
+	})
+}
+
+func TestMarkDialogNamesTheToplevelADialogWithoutModality(t *testing.T) {
+	frames := headlesstest.WireServer(t, "wayland-test")
+	disp, err := wl.Connect("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = disp.Context().Close() })
+	ctx := disp.Context()
+	wmBase := xdg.NewWmBase(ctx)
+	wmBase.Unregister()
+	mgr := wlr.NewWmDialogV1(ctx)
+	mgr.Unregister()
+	surf := wl.NewSurface(ctx)
+	surf.Unregister()
+	w, err := New(wmBase, surf, Config{Title: "alert"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := w.MarkDialog(mgr); err != nil {
+		t.Fatal(err)
+	}
+	headlesstest.WaitForFrame(t, frames, "get_xdg_dialog", func(f headlesstest.WireFrame) bool {
+		return f.Obj == uint32(mgr.Id()) && f.Opcode == 1
+	})
+	if w.ModalHinted() {
+		t.Error("naming the window a dialog hinted it modal")
+	}
+	first := w.dialog
+	if err := w.MarkDialog(mgr); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.SetModal(mgr, true); err != nil {
+		t.Fatal(err)
+	}
+	if w.dialog != first {
+		t.Error("a second xdg_dialog_v1 was made for the toplevel, a protocol error")
+	}
+	headlesstest.WaitForFrame(t, frames, "set_modal", func(f headlesstest.WireFrame) bool {
+		if f.Obj == uint32(mgr.Id()) && f.Opcode == 1 {
+			t.Error("get_xdg_dialog was sent again for the same toplevel")
+		}
+		return f.Obj == uint32(first.Id()) && f.Opcode == 1
+	})
+
+	if err := (&Window{}).MarkDialog(mgr); err != nil {
+		t.Errorf("a wireless window's MarkDialog = %v, want nil", err)
+	}
+	if err := w.MarkDialog(nil); err != nil {
+		t.Errorf("MarkDialog without the manager = %v, want nil", err)
+	}
+}

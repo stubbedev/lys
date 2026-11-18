@@ -277,8 +277,8 @@ func (v *treemanView) worktreeRow(wt treeman.Worktree) widget.Widget {
 	return newRevealSlot(row, slot, "state", "actions")
 }
 
-// actions are the row's buttons: prepare, then reset and teardown,
-// both confirmed.
+// actions are the row's buttons: prepare, reset, which is confirmed,
+// and teardown.
 func (v *treemanView) actions(path string) *widget.Box {
 	row := widget.NewBox(widget.Row, widget.Current().Spacing/2, 0)
 	row.AddClass("treeman-actions")
@@ -287,7 +287,7 @@ func (v *treemanView) actions(path string) *widget.Box {
 	row.Append(ghostIconButton("ld-rotate-ccw-symbolic", itemIconPx, i18n.T("dropdown-treeman-action-reset"),
 		func() { v.confirmReset(path) }), false)
 	row.Append(ghostIconButton("ld-trash-2-symbolic", itemIconPx, i18n.T("dropdown-treeman-action-teardown"),
-		func() { v.confirmTeardown(path) }), false)
+		func() { v.run(treeman.ActionTeardown, path) }), false)
 	return row
 }
 
@@ -308,26 +308,14 @@ func (v *treemanView) run(action treeman.Action, path string) {
 // reset title and the worktree path, Cancel the default, and the
 // action runs only when the accept button answers.
 func (v *treemanView) confirmReset(path string) {
-	v.confirmThenRun(treeman.ActionReset, path, alertSpec{
+	v.ctx.showAlert(alertSpec{
 		message: i18n.T("dropdown-treeman-confirm-reset-title"),
 		detail:  path,
+		cancel:  i18n.T("dropdown-treeman-confirm-cancel"),
 		accept:  i18n.T("dropdown-treeman-confirm-reset-accept"),
-	})
-}
-
-func (v *treemanView) confirmTeardown(path string) {
-	v.confirmThenRun(treeman.ActionTeardown, path, alertSpec{
-		message: i18n.T("dropdown-treeman-confirm-teardown-title"),
-		detail:  i18n.T("dropdown-treeman-confirm-teardown-detail", i18n.Str("path", path)),
-		accept:  i18n.T("dropdown-treeman-confirm-teardown-accept"),
-	})
-}
-
-func (v *treemanView) confirmThenRun(action treeman.Action, path string, spec alertSpec) {
-	spec.cancel = i18n.T("dropdown-treeman-confirm-cancel")
-	v.ctx.showAlert(spec, func(accepted bool) {
+	}, func(accepted bool) {
 		if accepted {
-			v.run(action, path)
+			v.run(treeman.ActionReset, path)
 		}
 	})
 }

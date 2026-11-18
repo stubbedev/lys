@@ -11,9 +11,6 @@ dropdown-treeman-action-failed = a ação do treeman falhou
 dropdown-treeman-confirm-cancel = Cancelar
 dropdown-treeman-confirm-reset-title = Repor as bases de dados desta árvore de trabalho?
 dropdown-treeman-confirm-reset-accept = Repor
-dropdown-treeman-confirm-teardown-title = Eliminar esta árvore de trabalho?
-dropdown-treeman-confirm-teardown-detail = { $path } e todo o trabalho não confirmado nela serão eliminados.
-dropdown-treeman-confirm-teardown-accept = Eliminar
 
 dropdown-treeman-bucket-stable = pronta
 dropdown-treeman-bucket-up = a preparar

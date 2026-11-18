@@ -31,14 +31,20 @@ func nameSurfaceElement(w widget.Widget, surface string) {
 	}
 }
 
+type dialogFrame struct {
+	root       widget.Widget
+	background render.Color
+	margin     int
+}
+
 // dialogCard builds the dialog's card from its content box: with client
 // shadows on, a floating Elevation (theme shadow, rounded plate, on
 // transparent window margins so the falloff blends over whatever is
 // behind); shadows off, the content edge to edge on the window
-// background. Hit-testing stays on the card — the gutter is never a
-// hit. Either way the card is named for the stylesheet's `dialog`
-// element (docs/ui/css.md).
-func dialogCard(root *widget.Box) (widget.Widget, render.Color) {
+// background. The margin is outside the window, whose geometry and
+// input region are the card. Either way the card is named for the
+// stylesheet's `dialog` element (docs/ui/css.md).
+func dialogCard(root *widget.Box) dialogFrame {
 	background := widget.Current().Bg
 	if gutter := widget.Current().ShadowGutter(); gutter > 0 {
 		card := widget.NewElevation(root).
@@ -47,8 +53,8 @@ func dialogCard(root *widget.Box) (widget.Widget, render.Color) {
 		nameSurfaceElement(card, elemDialog)
 		margin := widget.NewBox(widget.Column, 0, gutter)
 		margin.Append(card, true)
-		return margin, 0
+		return dialogFrame{root: margin, margin: gutter}
 	}
 	nameSurfaceElement(root, elemDialog)
-	return root, background
+	return dialogFrame{root: root, background: background}
 }

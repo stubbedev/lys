@@ -93,14 +93,32 @@ func (k *keySpy) KeyAction(a widget.KeyAction, m widget.Mods) {
 // its layer surface; anything else cannot.
 func TestPopupParentOf(t *testing.T) {
 	surface := &xdg.Surface{}
-	if p, l, ok := popupParentOf(&Window{win: &window.Window{XdgSurface: surface}}); !ok || p != surface || l != nil {
-		t.Errorf("a Window: parent %v layer %v ok %v, want its xdg surface", p, l, ok)
+	if p, ok := popupParentOf(&Window{win: &window.Window{XdgSurface: surface}}); !ok || p != (popupParent{xdg: surface}) {
+		t.Errorf("a Window: parent %+v ok %v, want its xdg surface and no margin", p, ok)
 	}
-	if _, _, ok := popupParentOf(&Window{}); ok {
+	if _, ok := popupParentOf(&Window{}); ok {
 		t.Error("a Window without a surface carried a popup")
 	}
-	if _, _, ok := popupParentOf(nil); ok {
+	if _, ok := popupParentOf(nil); ok {
 		t.Error("no host carried a popup")
+	}
+	inside := &marginedSurfaceHost{margin: 16, surface: surface}
+	if p, ok := popupParentOf(inside); !ok || p != (popupParent{xdg: surface, margin: 16}) {
+		t.Errorf("a window inside a margin: parent %+v ok %v, want its xdg surface and the 16 margin", p, ok)
+	}
+}
+
+type marginedSurfaceHost struct {
+	marginHost
+	surface *xdg.Surface
+}
+
+func (m *marginedSurfaceHost) TooltipSurface() *xdg.Surface { return m.surface }
+
+func TestAPopupOnAWindowInsideAMarginIsAnchoredFromTheWindow(t *testing.T) {
+	from, ok := hostTooltipParent(&marginedSurfaceHost{w: 300, h: 200, margin: 16, surface: &xdg.Surface{}})
+	if !ok || from.margin != 16 || from.w != 300 || from.h != 200 {
+		t.Errorf("tooltip parent %+v ok %v, want the 300x200 surface and its 16 margin", from, ok)
 	}
 }
 

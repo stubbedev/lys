@@ -6,7 +6,6 @@ import (
 	"github.com/stubbedev/lys/lib/debug"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/xdg"
-	"github.com/stubbedev/lys/lib/wlr"
 
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/internal/popup"
@@ -245,11 +244,12 @@ func openTooltip(sess *wlsession.Session, clock *anim.Clock, gpu popup.Renderer,
 	gutter := widget.InkOutset(box).Max()
 	anchor := tooltipAnchor(hover, pointerX, pointerY, render.Rect{W: parent.w, H: parent.h})
 	tp, err := popup.New(sess, clock, popup.Config{
-		Parent:      parent.xdg,
-		LayerParent: parent.layer,
-		AnchorRect:  anchor,
-		Gap:         opts.gap(),
-		Width:       size.W + 2*gutter, Height: size.H + 2*gutter,
+		Parent:       parent.xdg,
+		LayerParent:  parent.layer,
+		ParentMargin: parent.margin,
+		AnchorRect:   anchor,
+		Gap:          opts.gap(),
+		Width:        size.W + 2*gutter, Height: size.H + 2*gutter,
 		Gutter:  gutter,
 		NoGrab:  true,
 		NoPlate: true,
@@ -271,19 +271,18 @@ func openTooltip(sess *wlsession.Session, clock *anim.Clock, gpu popup.Renderer,
 }
 
 type tooltipParent struct {
-	xdg   *xdg.Surface
-	layer *wlr.ZwlrLayerSurfaceV1
-	w, h  int
+	popupParent
+	w, h int
 }
 
 func hostTooltipParent(host Host) (tooltipParent, bool) {
-	xdgParent, layerParent, ok := popupParentOf(host)
+	from, ok := popupParentOf(host)
 	if !ok {
 		debug.Log("input", "tooltip unavailable: host %T carries no popups", host)
 		return tooltipParent{}, false
 	}
 	w, h := host.Size()
-	return tooltipParent{xdg: xdgParent, layer: layerParent, w: w, h: h}, true
+	return tooltipParent{popupParent: from, w: w, h: h}, true
 }
 
 func (t *tooltipCtl) close() {

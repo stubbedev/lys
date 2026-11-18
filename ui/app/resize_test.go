@@ -387,3 +387,67 @@ func TestOnResizeHearsEachConfiguredSizeOnce(t *testing.T) {
 		t.Errorf("OnResize heard %v, want the first size and each change once", sizes)
 	}
 }
+
+type marginHost struct {
+	fakeHost
+	margin   int
+	geometry [][2]int
+}
+
+func (m *marginHost) Margin() int { return m.margin }
+
+func (m *marginHost) SyncGeometry(width, height int) error {
+	m.geometry = append(m.geometry, [2]int{width, height})
+	return nil
+}
+
+func TestAWindowInsideAMarginIsTheWindowToTheCompositor(t *testing.T) {
+	h := newPaintHarness(widget.NewBox(widget.Row, 0, 0), 300, 200)
+	host := &marginHost{w: 300, h: 200, margin: 16}
+	h.wnd.host = host
+
+	if h.wnd.syncSize() {
+		t.Fatal("an unchanged size synced")
+	}
+	if len(host.geometry) != 0 {
+		t.Errorf("the geometry was sent again for an unchanged size: %v", host.geometry)
+	}
+	host.resizeTo(400, 260)
+	if !h.wnd.syncSize() {
+		t.Fatal("a resize did not sync")
+	}
+	if len(host.geometry) != 1 || host.geometry[0] != [2]int{400, 260} {
+		t.Errorf("geometry synced at %v, want once at the new 400x260 surface", host.geometry)
+	}
+
+	want := []render.Rect{{X: 16, Y: 16, W: 368, H: 228}}
+	if got, ok := h.wnd.wantedInputRegion(); !ok || !slices.Equal(got, want) {
+		t.Errorf("input region %v (%v), want the window inside its margin, %v", got, ok, want)
+	}
+
+	for _, c := range []struct {
+		name string
+		x, y float64
+		want uint32
+	}{
+		{"the window's corner", 18, 18, xdg.ToplevelResizeEdgeTop | xdg.ToplevelResizeEdgeLeft},
+		{"the window's right edge", 381, 130, xdg.ToplevelResizeEdgeRight},
+		{"the window's bottom edge", 200, 241, xdg.ToplevelResizeEdgeBottom},
+		{"inside the window", 200, 130, 0},
+		{"just inside the window, off its handle", 24, 130, 0},
+	} {
+		if got := h.wnd.resizeEdgeAt(c.x, c.y); got != c.want {
+			t.Errorf("resize edge at %s (%.0f,%.0f) = %d, want %d", c.name, c.x, c.y, got, c.want)
+		}
+	}
+}
+
+func TestAWindowWithoutAMarginTakesInputEverywhere(t *testing.T) {
+	h := newPaintHarness(widget.NewBox(widget.Row, 0, 0), 300, 200)
+	if got, ok := h.wnd.wantedInputRegion(); ok {
+		t.Errorf("a window without a margin limits its input to %v", got)
+	}
+	if e := h.wnd.resizeEdgeAt(2, 2); e != xdg.ToplevelResizeEdgeTop|xdg.ToplevelResizeEdgeLeft {
+		t.Errorf("resize edge at the surface's corner = %d, want top-left", e)
+	}
+}

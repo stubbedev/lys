@@ -280,7 +280,7 @@ func newHostWindow(sess *wlsession.Session, host surfaceOwner, initialScale int,
 	}
 	if tl, ok := host.(*window.Window); ok && tl.Toplevel != nil {
 		w.publishMin = func(s widget.Size) error {
-			return tl.Toplevel.SetMinSize(intconv.Clamp[int32](s.W), intconv.Clamp[int32](s.H))
+			return tl.PublishMinSize(intconv.Clamp[uint32](s.W), intconv.Clamp[uint32](s.H))
 		}
 	}
 	if rz, ok := host.(resizer); ok {
@@ -310,6 +310,7 @@ func newHostWindow(sess *wlsession.Session, host surfaceOwner, initialScale int,
 		w.state = st.State
 	}
 	w.lastW, w.lastH = w.layoutSize()
+	w.syncGeometry()
 	w.newBuffer = w.create
 	w.pool = buffer.New(w.allocator(), 3)
 	w.watchFeedback()
@@ -480,9 +481,10 @@ func (w *hostWindow) MarkFrame() { w.kick.Store(true) }
 // applyInputRegion takes the input region of the app's root
 // (widget.InputRegionOf) to the surface when it changed: outside it,
 // pointer input passes through to what is beneath. An empty region
-// is the whole surface.
+// is the whole surface. A window inside a margin takes input on the
+// window alone, never on the margin.
 func (w *hostWindow) applyInputRegion() {
-	want, ok := widget.InputRegionOf(w.styleRoot)
+	want, ok := w.wantedInputRegion()
 	if !ok || w.sess == nil {
 		return
 	}
@@ -510,6 +512,28 @@ func (w *hostWindow) applyInputRegion() {
 		return
 	}
 	w.inputRegion, w.regionSet = slices.Clone(want), true
+}
+
+func (w *hostWindow) syncGeometry() {
+	g, ok := w.host.(margined)
+	if !ok || w.lastW == 0 || w.lastH == 0 {
+		return
+	}
+	if err := g.SyncGeometry(w.lastW, w.lastH); err != nil {
+		debug.Log("frame", "window geometry: %v", err)
+	}
+}
+
+func (w *hostWindow) wantedInputRegion() ([]render.Rect, bool) {
+	if want, ok := widget.InputRegionOf(w.styleRoot); ok {
+		return want, true
+	}
+	m := w.margin()
+	if m == 0 {
+		return nil, false
+	}
+	bw, bh := w.layoutSize()
+	return []render.Rect{{X: m, Y: m, W: bw - 2*m, H: bh - 2*m}}, true
 }
 
 // SealInput implements surfx.Driver: an empty input region, committed,
@@ -714,6 +738,7 @@ func (w *hostWindow) syncSize() bool {
 	}
 	w.lastW, w.lastH = bw, bh
 	w.pool.Resize(w.allocator())
+	w.syncGeometry()
 	// A viewport's destination is the surface's logical size: it must
 	// follow every resize, or the compositor shows the new buffer
 	// squeezed into the first size.

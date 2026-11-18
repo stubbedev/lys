@@ -44,6 +44,8 @@ type Config struct {
 	// MaxWidth and MaxHeight constrain how far the compositor may
 	// resize the window up; zero axes are unconstrained.
 	MaxWidth, MaxHeight uint32
+
+	Margin uint32
 }
 
 // State is the compositor-confirmed toplevel state: the state array of
@@ -160,6 +162,7 @@ type Window struct {
 	height     uint32
 	minW, minH uint32
 	maxW, maxH uint32
+	margin     uint32
 	// floatW and floatH are the size the window last had while nothing
 	// dictated it (no fullscreen, maximize, or tiling): what a zero axis
 	// returns to once such a state ends, GTK's unconstrained size.
@@ -191,7 +194,8 @@ func New(wmBase *xdg.WmBase, surf *wl.Surface, cfg Config) (*Window, error) {
 		floatW: cfg.Width, floatH: cfg.Height,
 		minW: cfg.MinWidth, minH: cfg.MinHeight,
 		maxW: cfg.MaxWidth, maxH: cfg.MaxHeight,
-		title: cfg.Title,
+		margin: cfg.Margin,
+		title:  cfg.Title,
 	}
 	xdgSurf.AddConfigureHandler(w)
 	tl.AddConfigureHandler(w)
@@ -205,16 +209,62 @@ func New(wmBase *xdg.WmBase, surf *wl.Surface, cfg Config) (*Window, error) {
 		return nil, fmt.Errorf("window: set_app_id: %w", err)
 	}
 	if cfg.MinWidth != 0 || cfg.MinHeight != 0 {
-		if err := tl.SetMinSize(intconv.Clamp[int32](cfg.MinWidth), intconv.Clamp[int32](cfg.MinHeight)); err != nil {
+		if err := w.PublishMinSize(cfg.MinWidth, cfg.MinHeight); err != nil {
 			return nil, fmt.Errorf("window: set_min_size: %w", err)
 		}
 	}
 	if cfg.MaxWidth != 0 || cfg.MaxHeight != 0 {
-		if err := tl.SetMaxSize(intconv.Clamp[int32](cfg.MaxWidth), intconv.Clamp[int32](cfg.MaxHeight)); err != nil {
+		if err := tl.SetMaxSize(w.wireExtent(cfg.MaxWidth), w.wireExtent(cfg.MaxHeight)); err != nil {
 			return nil, fmt.Errorf("window: set_max_size: %w", err)
 		}
 	}
 	return w, nil
+}
+
+func (w *Window) wireExtent(surface uint32) int32 {
+	if surface == 0 {
+		return 0
+	}
+	return max(intconv.Clamp[int32](surface)-2*intconv.Clamp[int32](w.margin), 1)
+}
+
+func (w *Window) surfaceExtent(wire int32) uint32 {
+	return intconv.Clamp[uint32](wire) + 2*w.margin
+}
+
+// Margin is the width of the band on every side of the surface that
+// is outside the window, where a client-side shadow paints. Sizes here
+// are the surface's, the band included; on the wire the geometry, the
+// limits and the configured sizes are the window's.
+func (w *Window) Margin() int { return int(w.margin) }
+
+// SyncGeometry tells the compositor where the window lies in a surface
+// of the given size (xdg_surface.set_window_geometry): inside the
+// margin. It rides the next commit, so it is sent whenever the surface
+// takes a new size. A window without a margin is its whole surface and
+// sends nothing.
+func (w *Window) SyncGeometry(width, height int) error {
+	if w.margin == 0 || w.XdgSurface == nil {
+		return nil
+	}
+	m := intconv.Clamp[int32](w.margin)
+	gw, gh := intconv.Clamp[int32](width)-2*m, intconv.Clamp[int32](height)-2*m
+	if gw <= 0 || gh <= 0 {
+		return fmt.Errorf("window: a %dx%d surface leaves no window inside its %d margin", width, height, w.margin)
+	}
+	if err := w.XdgSurface.SetWindowGeometry(m, m, gw, gh); err != nil {
+		return fmt.Errorf("window: set_window_geometry: %w", err)
+	}
+	return nil
+}
+
+// PublishMinSize sends the smallest surface size the compositor may
+// resize the window to, without recording it as the window's limit.
+func (w *Window) PublishMinSize(width, height uint32) error {
+	if w.Toplevel == nil {
+		return nil
+	}
+	return w.Toplevel.SetMinSize(w.wireExtent(width), w.wireExtent(height))
 }
 
 // HandleSurfaceConfigure completes the configure round: it marks the
@@ -240,13 +290,13 @@ func (w *Window) HandleToplevelConfigure(ev xdg.ToplevelConfigureEvent) {
 	released := free && w.state.dictatesSize()
 	switch {
 	case ev.Width != 0:
-		w.width = intconv.Clamp[uint32](ev.Width)
+		w.width = w.surfaceExtent(ev.Width)
 	case released && w.floatW != 0:
 		w.width = w.floatW
 	}
 	switch {
 	case ev.Height != 0:
-		w.height = intconv.Clamp[uint32](ev.Height)
+		w.height = w.surfaceExtent(ev.Height)
 	case released && w.floatH != 0:
 		w.height = w.floatH
 	}
@@ -411,10 +461,7 @@ func (w *Window) SetCloseRequest(veto func() bool) { w.onCloseRequest = veto }
 // the limits without sending anything.
 func (w *Window) SetMinSize(width, height uint32) error {
 	w.minW, w.minH = width, height
-	if w.Toplevel == nil {
-		return nil
-	}
-	return w.Toplevel.SetMinSize(intconv.Clamp[int32](width), intconv.Clamp[int32](height))
+	return w.PublishMinSize(width, height)
 }
 
 // SetMaxSize publishes the largest size the compositor may resize the
@@ -424,7 +471,7 @@ func (w *Window) SetMaxSize(width, height uint32) error {
 	if w.Toplevel == nil {
 		return nil
 	}
-	return w.Toplevel.SetMaxSize(intconv.Clamp[int32](width), intconv.Clamp[int32](height))
+	return w.Toplevel.SetMaxSize(w.wireExtent(width), w.wireExtent(height))
 }
 
 // SizeLimits returns the current min/max size in surface (logical)
@@ -581,12 +628,8 @@ func (w *Window) SetModal(mgr *wlr.WmDialogV1, modal bool) error {
 	if mgr == nil || w.Toplevel == nil {
 		return nil
 	}
-	if w.dialog == nil {
-		d, err := mgr.GetDialog(w.Toplevel)
-		if err != nil {
-			return fmt.Errorf("window: get_xdg_dialog: %w", err)
-		}
-		w.dialog = d
+	if err := w.MarkDialog(mgr); err != nil {
+		return err
 	}
 	if modal {
 		if err := w.dialog.SetModal(); err != nil {
@@ -597,6 +640,22 @@ func (w *Window) SetModal(mgr *wlr.WmDialogV1, modal bool) error {
 	}
 	w.dialogModalled = false
 	return w.dialog.UnsetModal()
+}
+
+// MarkDialog names the toplevel a dialog to the compositor
+// (xdg_wm_dialog_v1.get_xdg_dialog), modal or not, so a tiling
+// compositor floats it at its own size; sent before the first commit.
+// Like SetModal it is silent without the manager or the wire.
+func (w *Window) MarkDialog(mgr *wlr.WmDialogV1) error {
+	if mgr == nil || w.Toplevel == nil || w.dialog != nil {
+		return nil
+	}
+	d, err := mgr.GetDialog(w.Toplevel)
+	if err != nil {
+		return fmt.Errorf("window: get_xdg_dialog: %w", err)
+	}
+	w.dialog = d
+	return nil
 }
 
 // Export publishes the toplevel through xdg-foreign so other clients,

@@ -4,11 +4,14 @@
 // CalendarDialog - plus the file dialogs, the adaptive dialog, and
 // the about dialog, all parented to the window so modality and
 // Escape behavior can be compared side by side. The status line
-// records every response.
+// records every response. With -alert it opens one application-level
+// alert instead, with no window behind it, as a panel's confirmation
+// is.
 package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 
@@ -26,6 +29,8 @@ func main() {
 }
 
 func run() error {
+	alert := flag.Bool("alert", false, "open one application-level alert with no window behind it")
+	flag.Parse()
 	sess, err := app.Connect()
 	if err != nil {
 		return err
@@ -37,6 +42,24 @@ func run() error {
 	}
 	application := app.NewApplication(sess)
 	defer application.Close()
+	if *alert {
+		if _, err := application.NewDialog(nil, app.DialogConfig{
+			Title:       "Delete this file?",
+			Description: "It is removed from the disk, with every change in it.",
+			Width:       400,
+			Buttons: []app.DialogButton{
+				{Label: "Cancel", Response: "cancel", Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
+				{Label: "Delete", Response: "delete", Appearance: app.AppearanceDestructive},
+			},
+			DefaultResponse: "cancel",
+			CancelResponse:  "cancel",
+			Modal:           true,
+			OnResponse:      func(string) { application.Quit() },
+		}); err != nil {
+			return err
+		}
+		return application.Run()
+	}
 	theme := widget.Current()
 
 	status := widget.NewLabel(face, 13, "no dialog answered yet", theme.TextMuted)

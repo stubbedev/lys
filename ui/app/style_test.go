@@ -30,12 +30,12 @@ func TestCSSSurfaceElementNames(t *testing.T) {
 			t.Cleanup(func() { widget.SetTheme(prev) })
 
 			content := widget.NewBox(widget.Column, 12, 12)
-			root, _ := dialogCard(content)
+			frame := dialogCard(content)
 			var named string
 			if tc.blur > 0 {
-				margin, ok := root.(*widget.Box)
+				margin, ok := frame.root.(*widget.Box)
 				if !ok || len(margin.Children()) != 1 {
-					t.Fatalf("shadowed dialog root = %T", root)
+					t.Fatalf("shadowed dialog root = %T", frame.root)
 				}
 				if e, ok := margin.Children()[0].(interface{ Element() string }); ok {
 					named = e.Element()
@@ -45,6 +45,9 @@ func TestCSSSurfaceElementNames(t *testing.T) {
 			}
 			if named != elemDialog {
 				t.Fatalf("dialog card element = %q, want %q", named, elemDialog)
+			}
+			if frame.margin != tc.blur {
+				t.Errorf("dialog margin = %d, want the %d the shadow falls in", frame.margin, tc.blur)
 			}
 		})
 	}

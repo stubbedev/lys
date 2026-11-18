@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys/lib/debug"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
@@ -185,18 +184,19 @@ func (a *Application) NewDialog(parent DialogParent, cfg DialogConfig) (*Dialog,
 			d.Respond(response)
 		}
 	}
-	root, background, err := a.dialogRoot(cfg, respond)
+	frame, err := a.dialogRoot(cfg, respond)
 	if err != nil {
 		return nil, err
 	}
 	if cfg.Height == 0 {
-		cfg.Height = intconv.Clamp[uint32](root.Measure(widget.Column, int(cfg.Width)).Within(dialogMaxHeight))
+		cfg.Height = intconv.Clamp[uint32](frame.root.Measure(widget.Column, int(cfg.Width)).Within(dialogMaxHeight))
 	}
 	pw := parentWindow(parent)
 
 	winCfg := WindowConfig{
 		Title: cfg.Title, AppID: dialogAppID(pw), Width: cfg.Width, Height: cfg.Height,
-		Root: root, Background: background,
+		Root: frame.root, Background: frame.background, margin: intconv.Clamp[uint32](frame.margin),
+		Parent: pw, Modal: cfg.Modal && pw != nil,
 		OnKey: func(_ *widget.Router, code uint32, _ wlsession.Mods) {
 			if resp, ok := dialogResponseForKey(cfg, a.sess.KeySym(code)); ok {
 				respond(resp)
@@ -246,20 +246,6 @@ func (a *Application) NewDialog(parent DialogParent, cfg DialogConfig) (*Dialog,
 	a.dialogs = append(a.dialogs, d)
 	if cfg.Modal {
 		a.blockAll(true)
-	}
-	if pw != nil && pw.win != nil {
-		w.win.SetParent(pw.win)
-		if !cfg.Modal {
-			return d, nil
-		}
-		// Window-level modality where the compositor offers it: the hint
-		// rides the dialog's first commit, and the compositor blocks input
-		// to the parent itself. Without the protocol this is a silent
-		// no-op and the application-level block above stays the whole
-		// story — the floor every compositor gets.
-		if err := w.win.SetModal(a.sess.DialogManager(), true); err != nil {
-			debug.Log("shell", "dialog modality hint: %v", err)
-		}
 	}
 	return d, nil
 }
@@ -649,9 +635,9 @@ var ErrNoDialogFace = errors.New("app: dialog text face unavailable: no configur
 // content and the footer of buttons, 16px apart,
 // each in its appearance (by default the default response's on the
 // primary fill and the others outlined); or, Bare, the content alone.
-func (a *Application) dialogRoot(cfg DialogConfig, respond func(string)) (widget.Widget, render.Color, error) {
+func (a *Application) dialogRoot(cfg DialogConfig, respond func(string)) (dialogFrame, error) {
 	if cfg.Bare {
-		return cfg.Content, cfg.Background, nil
+		return dialogFrame{root: cfg.Content, background: cfg.Background}, nil
 	}
 	if len(cfg.Buttons) == 0 {
 		cfg.Buttons = []DialogButton{{Label: widget.Tr("OK"), Response: "ok"}}
@@ -661,7 +647,7 @@ func (a *Application) dialogRoot(cfg DialogConfig, respond func(string)) (widget
 	// system without any usable font surfaces as an error here.
 	face := a.resolveFace(nil)
 	if face == nil {
-		return nil, 0, ErrNoDialogFace
+		return dialogFrame{}, ErrNoDialogFace
 	}
 	primary := cfg.DefaultResponse
 	if primary == "" {
@@ -698,8 +684,7 @@ func (a *Application) dialogRoot(cfg DialogConfig, respond func(string)) (widget
 		content.Append(cfg.Content, true)
 	}
 	content.Append(footer, false)
-	root, background := dialogCard(content)
-	return root, background, nil
+	return dialogCard(content), nil
 }
 
 // Window returns the dialog's own window, for toasts and popovers

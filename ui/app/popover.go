@@ -547,10 +547,11 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 	case parent != nil:
 		pcfg.Parent = parent.pop.XdgSurface
 	default:
-		var ok bool
-		if pcfg.Parent, pcfg.LayerParent, ok = popupParentOf(host); !ok {
+		from, ok := popupParentOf(host)
+		if !ok {
 			return nil, errors.New("app: host cannot carry popups")
 		}
+		pcfg.Parent, pcfg.LayerParent, pcfg.ParentMargin = from.xdg, from.layer, from.margin
 	}
 
 	// A bar-style layer declines the keyboard; a popover needs it (Esc,
@@ -988,20 +989,32 @@ func popoverCeiling(outputs []*wlsession.Output, maxW, maxH int) widget.Size {
 	return widget.Size{W: maxW, H: maxH}
 }
 
+type popupParent struct {
+	xdg    *xdg.Surface
+	layer  *wlr.ZwlrLayerSurfaceV1
+	margin int
+}
+
 // popupParentOf is the surface a popup on host hangs from: a layer's
-// layer surface, a toplevel's (Window or internal host) xdg surface.
-func popupParentOf(host Host) (xdgParent *xdg.Surface, layerParent *wlr.ZwlrLayerSurfaceV1, ok bool) {
+// layer surface, a toplevel's (Window or internal host) xdg surface,
+// with the margin its window lies inside, which a popup's anchor is
+// placed past.
+func popupParentOf(host Host) (popupParent, bool) {
 	switch h := host.(type) {
 	case LayerSurfacer:
-		return nil, h.LayerPopupSurface(), true
+		return popupParent{layer: h.LayerPopupSurface()}, true
 	case *Window:
 		if h.win != nil && h.win.XdgSurface != nil {
-			return h.win.XdgSurface, nil, true
+			return popupParent{xdg: h.win.XdgSurface, margin: h.win.Margin()}, true
 		}
 	case tooltipSurfacer:
-		return h.TooltipSurface(), nil, true
+		from := popupParent{xdg: h.TooltipSurface()}
+		if m, ok := host.(margined); ok {
+			from.margin = m.Margin()
+		}
+		return from, true
 	}
-	return nil, nil, false
+	return popupParent{}, false
 }
 
 func (op *openPopover) tooltipParent() (tooltipParent, bool) {

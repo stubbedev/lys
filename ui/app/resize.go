@@ -32,6 +32,11 @@ type sizeLimiter interface {
 	SizeLimits() (minW, minH, maxW, maxH int)
 }
 
+type margined interface {
+	Margin() int
+	SyncGeometry(width, height int) error
+}
+
 // serverDecorated hosts report compositor-owned decorations: the
 // compositor draws borders and handles resize there, so the client
 // keeps its own edge handles passive.
@@ -100,6 +105,13 @@ func resizeCursor(edges uint32) string {
 	return ""
 }
 
+func (w *hostWindow) margin() int {
+	if g, ok := w.host.(margined); ok {
+		return g.Margin()
+	}
+	return 0
+}
+
 // resizeEdgeAt is surfaceInput's edge probe: the resize_edge bits under
 // the pointer, 0 when the point is interior. A server-decorated window
 // reports none (the compositor owns the handles), and so does a
@@ -116,5 +128,6 @@ func (w *hostWindow) resizeEdgeAt(x, y float64) uint32 {
 		}
 	}
 	bw, bh := w.layoutSize()
-	return resizeEdge(bw, bh, x, y)
+	m := w.margin()
+	return resizeEdge(bw-2*m, bh-2*m, x-float64(m), y-float64(m))
 }

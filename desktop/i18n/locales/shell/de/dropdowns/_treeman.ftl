@@ -16,9 +16,6 @@ dropdown-treeman-action-failed = treeman-Aktion fehlgeschlagen
 dropdown-treeman-confirm-cancel = Abbrechen
 dropdown-treeman-confirm-reset-title = Datenbanken dieses Worktrees zurücksetzen?
 dropdown-treeman-confirm-reset-accept = Zurücksetzen
-dropdown-treeman-confirm-teardown-title = Diesen Worktree löschen?
-dropdown-treeman-confirm-teardown-detail = { $path } und alle nicht committeten Änderungen darin werden gelöscht.
-dropdown-treeman-confirm-teardown-accept = Löschen
 
 ## Bucket names (summary chips)
 dropdown-treeman-bucket-stable = bereit

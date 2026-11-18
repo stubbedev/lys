@@ -486,6 +486,9 @@ type WindowConfig struct {
 	// modal dialog of its parent, so it blocks input to that window
 	// only; ignored where the compositor lacks the protocol.
 	Modal bool
+
+	margin uint32
+
 	// OnPress fires after the router recorded a press (chrome drag,
 	// context menus).
 	OnPress func(button uint32, over widget.Widget)
@@ -632,6 +635,7 @@ func (a *Application) openWindow(w *Window, cfg WindowConfig) (*hostWindow, erro
 		Title: cfg.Title, AppID: cfg.AppID, Width: width, Height: height,
 		MinWidth: cfg.MinWidth, MinHeight: cfg.MinHeight,
 		MaxWidth: cfg.MaxWidth, MaxHeight: cfg.MaxHeight,
+		Margin: cfg.margin,
 	})
 	if err != nil {
 		return nil, err
@@ -657,6 +661,11 @@ func (a *Application) openWindow(w *Window, cfg WindowConfig) (*hostWindow, erro
 	}
 	if err := win.SetForeignParent(a.sess.Importer(), cfg.ForeignParent, w.parentLost); err != nil {
 		return nil, fmt.Errorf("app: %w", err)
+	}
+	if w.kind == surfx.KindDialog {
+		if err := win.MarkDialog(a.sess.DialogManager()); err != nil {
+			return nil, fmt.Errorf("app: %w", err)
+		}
 	}
 	if cfg.Modal {
 		if err := win.SetModal(a.sess.DialogManager(), true); err != nil {

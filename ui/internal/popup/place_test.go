@@ -85,3 +85,22 @@ func TestSideStep(t *testing.T) {
 		}
 	}
 }
+
+func TestPlacementIsFromTheParentsWindowInsideItsMargin(t *testing.T) {
+	if p := placementFor(Config{X: 40, Y: 60, ParentMargin: 16}); p.rect != (render.Rect{X: 24, Y: 44, W: 1, H: 1}) {
+		t.Errorf("point = %+v, want it 16 up and left, where the parent's window starts", p.rect)
+	}
+	rect := render.Rect{X: 400, Y: 60, W: 180, H: 42}
+	inside := placementFor(Config{AnchorRect: rect, Gutter: 10, ParentMargin: 16})
+	if inside.rect != (render.Rect{X: 384, Y: 44, W: 180, H: 42}) {
+		t.Errorf("rect = %+v, want it 16 up and left, at its size", inside.rect)
+	}
+	bare := placementFor(Config{AnchorRect: rect, Gutter: 10})
+	if bare.rect != rect {
+		t.Errorf("without a margin the rect = %+v, want it unmoved", bare.rect)
+	}
+	inside.rect = bare.rect
+	if inside != bare {
+		t.Errorf("a margin changed more than the anchor: %+v, want %+v", inside, bare)
+	}
+}

@@ -137,15 +137,16 @@ func TestDialogRootBare(t *testing.T) {
 	}
 	a := &Application{tooltipFace: face}
 	content := widget.NewBox(widget.Column, 0, 0)
-	root, bg, err := a.dialogRoot(DialogConfig{Content: content, Bare: true, Background: render.RGB(1, 2, 3)}, func(string) {})
-	if err != nil || root != widget.Widget(content) || bg != render.RGB(1, 2, 3) {
-		t.Errorf("bare root %v bg %#x err %v, want the content on its background", root, uint32(bg), err)
+	bare, err := a.dialogRoot(DialogConfig{Content: content, Bare: true, Background: render.RGB(1, 2, 3)}, func(string) {})
+	if err != nil || bare != (dialogFrame{root: content, background: render.RGB(1, 2, 3)}) {
+		t.Errorf("bare frame %+v err %v, want the content on its background with no margin", bare, err)
 	}
 	var got []string
-	root, _, err = a.dialogRoot(DialogConfig{Content: content}, func(r string) { got = append(got, r) })
-	if err != nil || root == widget.Widget(content) {
-		t.Fatalf("default root %v err %v, want a card around the content", root, err)
+	frame, err := a.dialogRoot(DialogConfig{Content: content}, func(r string) { got = append(got, r) })
+	if err != nil || frame.root == widget.Widget(content) {
+		t.Fatalf("default root %v err %v, want a card around the content", frame.root, err)
 	}
+	root := frame.root
 	var ok *widget.Button
 	var walk func(w widget.Widget)
 	walk = func(w widget.Widget) {
@@ -209,10 +210,11 @@ func TestDialogHeaderPairsTitleAndDescription(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := &Application{tooltipFace: face}
-	root, _, err := a.dialogRoot(DialogConfig{Title: "Are you absolutely sure?", Description: "This action cannot be undone."}, func(string) {})
+	frame, err := a.dialogRoot(DialogConfig{Title: "Are you absolutely sure?", Description: "This action cannot be undone."}, func(string) {})
 	if err != nil {
 		t.Fatal(err)
 	}
+	root := frame.root
 	sz := widget.SizeWithin(root, widget.Size{W: 440, H: 600})
 	root.Arrange(render.Rect{W: 440, H: sz.H})
 	var labels []*widget.Label

@@ -192,8 +192,8 @@ func (a *Application) planRebuild() []*hostWindow {
 }
 
 // rebuildWindows opens every planned window again on the current
-// session, in the original order, then re-links transient parents and
-// dialog modality across the rebuilt set.
+// session, in the original order, then re-links transient parents
+// across the rebuilt set.
 func (a *Application) rebuildWindows(plan []*hostWindow) error {
 	// The parent links name the old toplevels: map them to their
 	// handles before the rebuild replaces them.
@@ -222,13 +222,6 @@ func (a *Application) rebuildWindows(plan []*hostWindow) error {
 	for w, p := range parents {
 		if ph := handleOf[p]; ph != nil {
 			w.SetTransientFor(ph)
-		}
-	}
-	for _, d := range a.dialogs {
-		if d.cfg.Modal && d.win.win.Parent() != nil {
-			if err := d.win.win.SetModal(a.sess.DialogManager(), true); err != nil {
-				debug.Log("shell", "dialog modality hint: %v", err)
-			}
 		}
 	}
 	a.repostIcons()

@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/render/soft"
 	"github.com/stubbedev/lys/wm/internal/shell"
 	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 var desktop = backend.Mode{Size: image.Pt(1280, 800), RefreshMHz: 60000, Preferred: true}
@@ -208,4 +209,38 @@ func keyboardMovedFrom(prev *surface.Surface) func(*headless.Backend, *composito
 		focus := c.Seat().Focus()
 		return focus != nil && focus != prev
 	}
+}
+
+func TestALysUIAlertWithoutAParentFloatsAtItsCardWithItsShadowOutsideTheWindow(t *testing.T) {
+	h := Start(t, desktop)
+	h.Run("lys-ui-dialogs", "-alert")
+	h.Eventually("the alert to map", mappedToplevels(1))
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
+		alert := c.Toplevels()[0]
+		drawn, window := alert.Surface().TreeBounds(), alert.Geometry()
+		margin := window.Min.X - drawn.Min.X
+		if !alert.Dialog() || alert.Parent() != nil {
+			return fmt.Errorf("the alert is a dialog: %v, with parent %v; want a dialog with none", alert.Dialog(), alert.Parent())
+		}
+		if margin <= 0 || window != drawn.Inset(margin) {
+			return fmt.Errorf("the alert's window geometry is %v on a surface drawn over %v: the shadow's margin belongs to the window", window, drawn)
+		}
+		placed := c.WM().Arrange(wm.Spacing{}).Windows
+		if len(placed) != 1 || placed[0].Layer != wm.LayerFloating {
+			return fmt.Errorf("the alert was placed as %+v, want one floating window", placed)
+		}
+		frame := placed[0].Rect
+		border := frame.Dx() - window.Dx()
+		if border < 0 || border >= 2*margin || frame.Dy()-window.Dy() != border {
+			return fmt.Errorf("the alert's frame is %v around a %v window with a %d margin: the border does not hug the window", frame, window.Size(), margin)
+		}
+		if frame.Dx() > desktop.Size.X/2 || frame.Dy() > desktop.Size.Y/2 {
+			return fmt.Errorf("the alert's frame is %v on a %v output: not the size of its content", frame.Size(), desktop.Size)
+		}
+		off := frame.Min.Add(frame.Max).Sub(desktop.Size)
+		if off.X < -1 || off.X > 1 || off.Y < -1 || off.Y > 1 {
+			return fmt.Errorf("the alert's frame is %v on a %v output: not centred", frame, desktop.Size)
+		}
+		return nil
+	})
 }

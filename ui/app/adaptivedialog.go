@@ -80,12 +80,12 @@ func (a *Application) AdaptiveDialog(parent *Window, cfg AdaptiveDialogConfig) (
 	if hw == nil {
 		return nil, errors.New("app: the dialog's parent window is not open")
 	}
-	root, _, err := a.dialogRoot(cfg.DialogConfig, d.Respond)
+	frame, err := a.dialogRoot(cfg.DialogConfig, d.Respond)
 	if err != nil {
 		return nil, err
 	}
 	d.host = hw
-	d.sheet = widget.NewBottomSheet(hw.router.Root, root)
+	d.sheet = widget.NewBottomSheet(hw.router.Root, frame.root)
 	d.sheet.OnClosed = d.sheetClosed
 	hw.router.Root = d.sheet
 	hw.dirty = true

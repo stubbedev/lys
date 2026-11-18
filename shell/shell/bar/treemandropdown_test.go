@@ -177,7 +177,8 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 	v.run(treeman.ActionPrepare, "/w/feat")
 	v.confirmReset("/w/feat")
 	if len(alerts.specs) != 1 || alerts.specs[0].detail != "/w/feat" ||
-		alerts.specs[0].accept != i18n.T("dropdown-treeman-confirm-reset-accept") {
+		alerts.specs[0].accept != i18n.T("dropdown-treeman-confirm-reset-accept") ||
+		alerts.specs[0].cancel != i18n.T("dropdown-treeman-confirm-cancel") {
 		t.Fatalf("alerts = %+v, want the reset question", alerts.specs)
 	}
 	alerts.answers[0](false) // cancel
@@ -217,7 +218,7 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 	}
 }
 
-func TestTreemanTeardownRunsOnlyWhenAccepted(t *testing.T) {
+func TestTreemanTeardownRunsWithoutAsking(t *testing.T) {
 	src := &fakeTreeman{status: treemanFixture(), ticks: make(chan struct{}, 1)}
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Treeman = src
@@ -229,18 +230,17 @@ func TestTreemanTeardownRunsOnlyWhenAccepted(t *testing.T) {
 	slot := treetest.First[*widget.Stack](t, row)
 	path := row.TooltipText()
 	treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-teardown")).OnClick()
-	if len(alerts.specs) != 1 || alerts.specs[0].message != i18n.T("dropdown-treeman-confirm-teardown-title") ||
-		!strings.Contains(alerts.specs[0].detail, path) || alerts.specs[0].accept != i18n.T("dropdown-treeman-confirm-teardown-accept") ||
-		alerts.specs[0].cancel != i18n.T("dropdown-treeman-confirm-cancel") {
-		t.Fatalf("alerts = %+v, want the teardown question naming %s", alerts.specs, path)
-	}
-	alerts.answers[0](false)
-	if ran := src.ran(); len(ran) != 0 {
-		t.Fatalf("a cancelled teardown ran %q", ran)
-	}
-	v.confirmTeardown(path)
-	alerts.answers[1](true)
 	waitHeadless(t, "the teardown", func() bool { return slices.Equal(src.ran(), []string{"worktree delete " + path + " --yes"}) })
+	if len(alerts.specs) != 0 {
+		t.Fatalf("the teardown asked %+v, want it to run without a question", alerts.specs)
+	}
+	treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-reset")).OnClick()
+	if len(alerts.specs) != 1 || alerts.specs[0].detail != path {
+		t.Fatalf("alerts = %+v, want the reset still to ask about %s", alerts.specs, path)
+	}
+	if ran := src.ran(); len(ran) != 1 {
+		t.Fatalf("an unanswered reset ran: %q", ran)
+	}
 }
 
 func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
@@ -269,8 +269,11 @@ func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
 	}
 	tabUntil(t, router, v, teardown)
 	router.KeyAction(widget.KeyEnter, 0)
-	if len(alerts.specs) != 1 || alerts.specs[0].accept != i18n.T("dropdown-treeman-confirm-teardown-accept") {
-		t.Fatalf("alerts = %+v, want Enter on teardown to ask", alerts.specs)
+	waitHeadless(t, "Enter on teardown to run it", func() bool {
+		return slices.Equal(src.ran(), []string{"worktree delete " + row.TooltipText() + " --yes"})
+	})
+	if len(alerts.specs) != 0 {
+		t.Fatalf("alerts = %+v, want Enter on teardown to ask nothing", alerts.specs)
 	}
 	router.FocusNext()
 	layoutForKeys(v)
