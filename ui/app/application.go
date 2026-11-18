@@ -238,7 +238,7 @@ func NewApplication(sess *wlsession.Session, opts ...Option) *Application {
 		sess:         sess,
 		accels:       newAccelTable(),
 		primary:      &primarySelection{},
-		rep:          newKeyRepeater(sess.RepeatInfo()),
+		rep:          newKeyRepeater(sess.RepeatInfo),
 		ime:          newIMEController(sess),
 		wake:         sess.WakeAfter,
 		arm:          sess.SetDeadline,

@@ -157,7 +157,7 @@ func (a *Application) adoptSession(sess *wlsession.Session) {
 	a.dnd.Stop()
 	a.dnd = dragdrop.New(sess, a.Invoke)
 	a.ime = newIMEController(sess)
-	a.rep = newKeyRepeater(sess.RepeatInfo())
+	a.rep = newKeyRepeater(sess.RepeatInfo)
 	a.frameClock = animclock.FrameClock{}
 	if a.clip != nil {
 		a.clip.Reset(sess)

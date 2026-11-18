@@ -35,13 +35,13 @@ func TestNextWake(t *testing.T) {
 	now := time.Now()
 
 	t.Run("a fully idle loop never wakes", func(t *testing.T) {
-		if _, ok := nextWake(repNext(newKeyRepeater(0, 0)), animNext(&clock), never, never, now); ok {
+		if _, ok := nextWake(repNext(newKeyRepeater(unadvertisedRepeat)), animNext(&clock), never, never, now); ok {
 			t.Errorf("idle loop scheduled a wakeup")
 		}
 	})
 
 	t.Run("a held key wakes at its repeat deadline", func(t *testing.T) {
-		rep := newKeyRepeater(0, 0)
+		rep := newKeyRepeater(unadvertisedRepeat)
 		before := time.Now()
 		rep.press(30, 0)
 		after := time.Now()
@@ -55,7 +55,7 @@ func TestNextWake(t *testing.T) {
 	})
 
 	t.Run("a released key stops waking", func(t *testing.T) {
-		rep := newKeyRepeater(0, 0)
+		rep := newKeyRepeater(unadvertisedRepeat)
 		rep.press(30, 0)
 		rep.release(30)
 		if _, ok := nextWake(repNext(rep), animNext(&clock), never, never, now); ok {
@@ -66,7 +66,7 @@ func TestNextWake(t *testing.T) {
 	t.Run("a running animation wakes at its end", func(t *testing.T) {
 		var clock anim.Clock
 		anim.Start(&clock, 250*time.Millisecond, func(float64) {})
-		wake, ok := nextWake(repNext(newKeyRepeater(0, 0)), animNext(&clock), never, never, now)
+		wake, ok := nextWake(repNext(newKeyRepeater(unadvertisedRepeat)), animNext(&clock), never, never, now)
 		if !ok {
 			t.Fatal("animation did not schedule a wakeup")
 		}
@@ -78,7 +78,7 @@ func TestNextWake(t *testing.T) {
 	t.Run("the earliest deadline wins", func(t *testing.T) {
 		var clock anim.Clock
 		anim.Start(&clock, 20*time.Millisecond, func(float64) {})
-		rep := newKeyRepeater(0, 0)
+		rep := newKeyRepeater(unadvertisedRepeat)
 		rep.press(30, 0)
 		wake, ok := nextWake(repNext(rep), animNext(&clock), never, never, now)
 		if !ok {
@@ -102,7 +102,7 @@ func TestNextWake(t *testing.T) {
 // for the parked event loop; the pre-park loop burned a core here.
 func TestIdleLoopDoesNotWake(t *testing.T) {
 	var clock anim.Clock
-	rep := newKeyRepeater(0, 0)
+	rep := newKeyRepeater(unadvertisedRepeat)
 	wakes := 0
 	start := time.Now()
 	for time.Since(start) < 200*time.Millisecond {
@@ -120,7 +120,7 @@ func TestIdleLoopDoesNotWake(t *testing.T) {
 // (the key event itself wakes the loop) and repeats land at the
 // compositor's rate afterwards.
 func TestKeyRepeatLatency(t *testing.T) {
-	rep := newKeyRepeater(10, 100)
+	rep := newKeyRepeater(advertisedRepeat(10, 100))
 	rep.press(30, 0)
 
 	presses := 0
@@ -179,7 +179,7 @@ func TestShouldDraw(t *testing.T) {
 // the timer-driven animation clock.
 func TestAnimatingLoopWakesOnFrameDeadlines(t *testing.T) {
 	var clock anim.Clock
-	rep := newKeyRepeater(0, 0)
+	rep := newKeyRepeater(unadvertisedRepeat)
 	never := time.Time{}
 
 	if _, ok := nextWake(repNext(rep), animNext(&clock), never, never, time.Now()); ok {

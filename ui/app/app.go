@@ -699,14 +699,25 @@ func actionForSym(sym xkb.Keysym) (widget.KeyAction, bool) {
 	return widget.KeyActionForSym(sym)
 }
 
+// repeatInfo reports the compositor's key repeat as its latest
+// repeat_info gave it, the way Session.RepeatInfo does.
+type repeatInfo func() (rate, delayMs uint32, advertised bool)
+
+// The repeat a seat that advertises none gets.
+const (
+	fallbackRepeatRate    = 20
+	fallbackRepeatDelayMs = 400
+)
+
 // keyRepeater synthesizes repeat presses for a held key, on the
-// compositor's schedule: one repeat after the initial delay, then one
-// every 1/rate.
+// compositor's schedule as it stands at the press: one repeat after the
+// initial delay, then one every period.
 type keyRepeater struct {
-	rate, delay time.Duration
-	held        *heldKey
-	next        time.Time
-	now         func() time.Time
+	info          repeatInfo
+	period, delay time.Duration
+	held          *heldKey
+	next          time.Time
+	now           func() time.Time
 }
 
 type heldKey struct {
@@ -714,25 +725,27 @@ type heldKey struct {
 	mods wlsession.Mods
 }
 
-// newKeyRepeater builds a repeater from the compositor's repeat info;
-// zeros fall back to 400ms delay and 20 keys per second.
-func newKeyRepeater(rate, delayMs uint32) *keyRepeater {
-	if rate == 0 {
-		rate = 20
-	}
-	if delayMs == 0 {
-		delayMs = 400
-	}
-	return &keyRepeater{
-		rate:  time.Second / time.Duration(rate),
-		delay: time.Duration(delayMs) * time.Millisecond,
-		now:   time.Now,
-	}
+// newKeyRepeater builds a repeater that reads the compositor's repeat
+// info at every press, so a repeat_info sent after the application
+// started, or after a compositor reload, applies to the next key held.
+func newKeyRepeater(info repeatInfo) *keyRepeater {
+	return &keyRepeater{info: info, now: time.Now}
 }
 
 // press records the key now held; a new press replaces and re-arms the
-// previous one, matching physical repeat behavior.
+// previous one, matching physical repeat behavior. Under a repeat rate
+// of 0, the compositor turning repeat off, nothing is held.
 func (r *keyRepeater) press(code uint32, mods wlsession.Mods) {
+	rate, delayMs, advertised := r.info()
+	if !advertised {
+		rate, delayMs = fallbackRepeatRate, fallbackRepeatDelayMs
+	}
+	if rate == 0 {
+		r.held = nil
+		return
+	}
+	r.period = time.Second / time.Duration(rate)
+	r.delay = time.Duration(delayMs) * time.Millisecond
 	r.held = &heldKey{code: code, mods: mods}
 	r.next = r.now().Add(r.delay)
 }
@@ -757,9 +770,9 @@ func (r *keyRepeater) tick() (code uint32, mods wlsession.Mods, ok bool) {
 	if r.held == nil || now.Before(r.next) {
 		return 0, 0, false
 	}
-	r.next = r.next.Add(r.rate)
+	r.next = r.next.Add(r.period)
 	if !r.next.After(now) {
-		r.next = r.next.Add((now.Sub(r.next)/r.rate + 1) * r.rate)
+		r.next = r.next.Add((now.Sub(r.next)/r.period + 1) * r.period)
 	}
 	return r.held.code, r.held.mods, true
 }

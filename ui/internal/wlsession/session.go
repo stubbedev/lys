@@ -190,6 +190,7 @@ type Session struct {
 	layout              KeyboardLayout
 	repeatRate          uint32
 	repeatDelay         uint32
+	repeatAdvertised    bool
 	xkbContext          *xkb.Context
 	xkbKeymap           *xkb.Keymap
 	xkbState            *xkb.State
@@ -1452,13 +1453,16 @@ func (s *Session) KeyboardLayout() KeyboardLayout { return s.layout }
 func (s *Session) HandleKeyboardRepeatInfo(ev wl.KeyboardRepeatInfoEvent) {
 	s.repeatRate = intconv.Clamp[uint32](ev.Rate)
 	s.repeatDelay = intconv.Clamp[uint32](ev.Delay)
+	s.repeatAdvertised = true
 }
 
 // RepeatInfo returns the compositor's key repeat rate in keys per second
-// and the initial delay in milliseconds. Zeros mean the compositor sent
-// no repeat info; callers fall back to their own defaults.
-func (s *Session) RepeatInfo() (rate, delayMs uint32) {
-	return s.repeatRate, s.repeatDelay
+// and the initial delay in milliseconds, as its latest repeat_info gave
+// them. A rate of 0 is the compositor turning repeat off. advertised is
+// false while no repeat_info has arrived (a seat before version 4 never
+// sends one), and callers then fall back to their own defaults.
+func (s *Session) RepeatInfo() (rate, delayMs uint32, advertised bool) {
+	return s.repeatRate, s.repeatDelay, s.repeatAdvertised
 }
 
 // Compositor returns the bound wl_compositor.

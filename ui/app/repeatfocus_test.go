@@ -48,7 +48,7 @@ func TestHeldKeyStopsRepeatingWhenFocusMoves(t *testing.T) {
 }
 
 func TestKeyRepeaterStop(t *testing.T) {
-	r := newKeyRepeater(20, 400)
+	r := newKeyRepeater(advertisedRepeat(20, 400))
 	r.press(30, 0)
 	r.stop()
 	r.next = time.Now().Add(-time.Millisecond)
