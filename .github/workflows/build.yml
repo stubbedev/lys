@@ -59,7 +59,7 @@ jobs:
         name: Push each path as the build finishes it
         run: |
           (
-            xilo watch default/default > "${RUNNER_TEMP}/watch.log" 2>&1 &
+            xilo watch stubbedev/main > "${RUNNER_TEMP}/watch.log" 2>&1 &
             echo "$!" > "${RUNNER_TEMP}/watch.pid"
             status=0
             wait "$!" || status=$?
@@ -75,7 +75,7 @@ jobs:
         run: |
           watch=0
           if [ "${{ steps.watch.outcome }}" = success ]; then
-            kill -TERM "$(cat "${RUNNER_TEMP}/watch.pid")"
+            kill -TERM "$(cat "${RUNNER_TEMP}/watch.pid")" || echo "::warning::xilo watch exited before the build finished"
             until [ -s "${RUNNER_TEMP}/watch.status" ]; do sleep 1; done
             cat "${RUNNER_TEMP}/watch.log"
             watch=$(cat "${RUNNER_TEMP}/watch.status")
