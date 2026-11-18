@@ -117,6 +117,10 @@ lys_escape_arm_v1.destroy = destructor
 lys_escape_manager_v1 = journal retire=
 lys_escape_manager_v1.destroy = destructor
 lys_escape_manager_v1.arm = create
+lys_escape_manager_v1.watch_presses = create
+lys_press_watch_v1 = journal retire=
+lys_press_watch_v1.destroy = destructor
+lys_press_watch_v1.ignore = append
 lys_virtual_touch_manager_v1 = journal retire=
 lys_virtual_touch_manager_v1.destroy = destructor
 lys_virtual_touch_manager_v1.create_virtual_touch = create

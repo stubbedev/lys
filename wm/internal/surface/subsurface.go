@@ -38,6 +38,19 @@ func (s *Surface) Root() *Surface {
 	return s
 }
 
+func (s *Surface) Within(ancestor *Surface) bool {
+	for at := s; at != nil; {
+		if at == ancestor {
+			return true
+		}
+		if at.sub == nil {
+			return false
+		}
+		at = at.sub.parent
+	}
+	return false
+}
+
 func (s *Surface) TreeBounds() image.Rectangle {
 	return s.boundsAt(image.Point{})
 }

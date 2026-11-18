@@ -3,21 +3,24 @@
 package lysescape
 
 import (
+	"github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
 	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var LysEscapeManagerV1Interface = &wire.Interface{
 	Name:    "lys_escape_manager_v1",
-	Version: 1,
+	Version: 2,
 	Requests: []wire.MessageSpec{
 		{Name: "destroy", Since: 1, Destructor: true},
 		{Name: "arm", Since: 1, Args: []wire.Arg{{Name: "id", Type: wire.ArgNewID, Interface: "lys_escape_arm_v1"}}},
+		{Name: "watch_presses", Since: 2, Args: []wire.Arg{{Name: "id", Type: wire.ArgNewID, Interface: "lys_press_watch_v1"}}},
 	},
 }
 
 type LysEscapeManagerV1Handler interface {
 	Destroy(obj *LysEscapeManagerV1) error
 	Arm(obj *LysEscapeManagerV1, id *LysEscapeArmV1) (LysEscapeArmV1Handler, error)
+	WatchPresses(obj *LysEscapeManagerV1, id *LysPressWatchV1) (LysPressWatchV1Handler, error)
 }
 
 type LysEscapeManagerV1 struct {
@@ -82,6 +85,15 @@ func (obj *LysEscapeManagerV1) Dispatch(msg *wire.Message) error {
 		}
 		_, err := CreateLysEscapeArmV1(obj.object.Peer(), idID, obj.object.Version(), func(id *LysEscapeArmV1) (LysEscapeArmV1Handler, error) {
 			return obj.handler.Arm(obj, id)
+		})
+		return err
+	case 2:
+		idID := msg.NewID()
+		if err := msg.Finish(); err != nil {
+			return err
+		}
+		_, err := CreateLysPressWatchV1(obj.object.Peer(), idID, obj.object.Version(), func(id *LysPressWatchV1) (LysPressWatchV1Handler, error) {
+			return obj.handler.WatchPresses(obj, id)
 		})
 		return err
 	}
@@ -163,6 +175,96 @@ func (obj *LysEscapeArmV1) Dispatch(msg *wire.Message) error {
 }
 
 func (obj *LysEscapeArmV1) SendPressed() error {
+	enc := obj.object.Begin(0)
+	if err := enc.End(); err != nil {
+		return err
+	}
+	return nil
+}
+
+var LysPressWatchV1Interface = &wire.Interface{
+	Name:    "lys_press_watch_v1",
+	Version: 1,
+	Requests: []wire.MessageSpec{
+		{Name: "destroy", Since: 1, Destructor: true},
+		{Name: "ignore", Since: 1, Args: []wire.Arg{{Name: "surface", Type: wire.ArgObject, Interface: "wl_surface"}}},
+	},
+	Events: []wire.MessageSpec{
+		{Name: "pressed", Since: 1},
+	},
+}
+
+type LysPressWatchV1Handler interface {
+	Destroy(obj *LysPressWatchV1) error
+	Ignore(obj *LysPressWatchV1, surface *wayland.WlSurface) error
+}
+
+type LysPressWatchV1 struct {
+	object  wire.Object
+	handler LysPressWatchV1Handler
+}
+
+func (obj *LysPressWatchV1) Base() *wire.Object {
+	return &obj.object
+}
+
+func (obj *LysPressWatchV1) Handler() LysPressWatchV1Handler {
+	return obj.handler
+}
+
+func CreateLysPressWatchV1(p wire.Peer, id wire.ObjectID, version uint32, newHandler func(*LysPressWatchV1) (LysPressWatchV1Handler, error)) (*LysPressWatchV1, error) {
+	object, err := wire.NewObject(p, id, version, LysPressWatchV1Interface)
+	if err != nil {
+		return nil, err
+	}
+	obj := &LysPressWatchV1{object: object}
+	if err := p.Add(obj); err != nil {
+		return nil, err
+	}
+	h, err := newHandler(obj)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil {
+		return nil, wire.NoHandler(LysPressWatchV1Interface)
+	}
+	obj.handler = h
+	return obj, nil
+}
+
+func NewLysPressWatchV1(p wire.Peer, id wire.ObjectID, version uint32, h LysPressWatchV1Handler) (*LysPressWatchV1, error) {
+	if h == nil {
+		return nil, wire.NoHandler(LysPressWatchV1Interface)
+	}
+	if err := wire.CheckVersion(LysPressWatchV1Interface, version); err != nil {
+		return nil, err
+	}
+	return CreateLysPressWatchV1(p, id, version, func(*LysPressWatchV1) (LysPressWatchV1Handler, error) {
+		return h, nil
+	})
+}
+
+func (obj *LysPressWatchV1) Dispatch(msg *wire.Message) error {
+	switch obj.object.Expect(msg, LysPressWatchV1Interface.Requests) {
+	case 0:
+		if err := msg.Finish(); err != nil {
+			return err
+		}
+		if err := obj.handler.Destroy(obj); err != nil {
+			return err
+		}
+		return obj.object.Peer().Remove(obj.object.ID())
+	case 1:
+		surface := wire.ObjectArg[*wayland.WlSurface](msg, obj.object.Peer(), false)
+		if err := msg.Finish(); err != nil {
+			return err
+		}
+		return obj.handler.Ignore(obj, surface)
+	}
+	return msg.Finish()
+}
+
+func (obj *LysPressWatchV1) SendPressed() error {
 	enc := obj.object.Begin(0)
 	if err := enc.End(); err != nil {
 		return err

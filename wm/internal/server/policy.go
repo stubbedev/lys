@@ -158,6 +158,7 @@ var dropped = map[string][]string{
 }
 
 var appended = map[string][]string{
+	"lys_press_watch_v1":   {"ignore"},
 	"wl_region":            {"add", "subtract"},
 	"xdg_toplevel_icon_v1": {"add_buffer"},
 }

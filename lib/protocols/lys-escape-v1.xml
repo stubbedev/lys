@@ -53,9 +53,15 @@
       any key: no pressed event is sent, so one press never arrives twice;
     - the newest arm;
     - the focused surface.
+
+    Such a dropdown also closes on a click elsewhere. A surface spread
+    across the screen to hear that click swallows it, and every scroll,
+    so the window under the pointer needs a second click. A press watch
+    hears every press outside the dropdown and leaves it where it was
+    going.
   </description>
 
-  <interface name="lys_escape_manager_v1" version="1">
+  <interface name="lys_escape_manager_v1" version="2">
     <description summary="creates escape arms">
       A privileged global: compositors hide it from sandboxed clients.
     </description>
@@ -72,6 +78,14 @@
         When several clients hold one, only the newest receives the press.
       </description>
       <arg name="id" type="new_id" interface="lys_escape_arm_v1"/>
+    </request>
+
+    <request name="watch_presses" since="2">
+      <description summary="hear presses outside some surfaces">
+        Creates a watch that hears every pointer button press and touch
+        down outside the surfaces it ignores, until its destruction.
+      </description>
+      <arg name="id" type="new_id" interface="lys_press_watch_v1"/>
     </request>
   </interface>
 
@@ -93,6 +107,36 @@
         Escape went down and the focused client did not see it, and will not
         see its release or any repeat. The arm is spent and takes no further
         press; the client destroys it.
+      </description>
+    </event>
+  </interface>
+
+  <interface name="lys_press_watch_v1" version="1">
+    <description summary="a watch on presses outside some surfaces">
+      A press counts when a pointer button goes down, or a touch point
+      lands, anywhere but on an ignored surface or one of its
+      subsurfaces: on another client's surface, on another surface of the
+      watching client, on something the compositor draws itself, or on
+      nothing. The watch only hears it: the press goes wherever it would
+      have gone without one.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="stop watching"/>
+    </request>
+
+    <request name="ignore">
+      <description summary="leave presses on a surface unheard">
+        Presses on the surface and its subsurfaces no longer count. A
+        destroyed surface stops being ignored.
+      </description>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+
+    <event name="pressed">
+      <description summary="a press landed outside the ignored surfaces">
+        Sent as the press goes down, for every button and every touch
+        point.
       </description>
     </event>
   </interface>

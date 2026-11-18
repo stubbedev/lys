@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	cksi "github.com/stubbedev/lys/wm/internal/protocol/client/keyboardshortcutsinhibit"
 	cle "github.com/stubbedev/lys/wm/internal/protocol/client/lysescape"
 	cvk "github.com/stubbedev/lys/wm/internal/protocol/client/virtualkeyboard"
@@ -472,4 +473,89 @@ func TestAnUncompilableVirtualKeymapPassesItsKeys(t *testing.T) {
 	virtualTap(t, typist, kb, keyEscape)
 	r.expect("key 1 1", "key 1 0", "key 1 1", "key 1 0")
 	a.neverFired(ev)
+}
+
+type pressEvents struct{ log testclient.Log }
+
+func (e *pressEvents) Pressed(*cle.LysPressWatchV1) error { return e.log.Note("pressed") }
+
+func (r *inputRig) watchPresses() (*cle.LysPressWatchV1, *pressEvents) {
+	r.t.Helper()
+	mgr, err := cle.NewLysEscapeManagerV1(r.c.Display, 2)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	r.c.Bind(mgr)
+	ev := &pressEvents{}
+	w, err := mgr.WatchPresses(ev)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	r.c.Sync()
+	return w, ev
+}
+
+func (r *inputRig) clickAt(x, y float64) {
+	r.inject(func(b *headless.Backend, o *headless.Output) error {
+		p := b.Pointer()
+		return errors.Join(p.MoveTo(o, x/160, y/100), p.Frame(), p.Button(btnLeft, true), p.Frame(), p.Button(btnLeft, false), p.Frame())
+	})
+}
+
+func heardPresses(t *testing.T, c *testclient.Client, ev *pressEvents, want int) {
+	t.Helper()
+	c.Sync()
+	if got := len(ev.log); got != want {
+		t.Fatalf("the watch heard %d presses, want %d", got, want)
+	}
+}
+
+func TestAPressWatchHearsPressesOutsideItsSurfacesAndLeavesThemWhereTheyLand(t *testing.T) {
+	t.Parallel()
+	r := startInput(t)
+	r.focused()
+	watch, ev := r.watchPresses()
+
+	r.clickAt(40, 50)
+	r.expect("motion 40,50", "frame", "button 272 1", "frame", "button 272 0", "frame")
+	heardPresses(t, r.c, ev, 1)
+
+	if err := watch.Ignore(r.w.Surface); err != nil {
+		t.Fatal(err)
+	}
+	r.c.Sync()
+	r.clickAt(40, 50)
+	r.expect("motion 40,50", "frame", "button 272 1", "frame", "button 272 0", "frame")
+	heardPresses(t, r.c, ev, 1)
+
+	r.child()
+	r.clickAt(120, 50)
+	r.expect("leave win", "enter child 40,50", "frame", "motion 40,50", "frame", "button 272 1", "frame", "button 272 0", "frame")
+	r.inject(func(b *headless.Backend, o *headless.Output) error {
+		return errors.Join(b.Touch().Down(1, o, 0.75, 0.5), b.Touch().Frame(), b.Touch().Up(1), b.Touch().Frame())
+	})
+	r.expect("down 1 child 40,50", "touch_frame", "up 1", "touch_frame")
+	heardPresses(t, r.c, ev, 1)
+
+	if err := watch.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	r.c.Sync()
+	r.inject(func(b *headless.Backend, o *headless.Output) error {
+		return errors.Join(b.Touch().Down(1, o, 0.25, 0.5), b.Touch().Frame(), b.Touch().Up(1), b.Touch().Frame())
+	})
+	r.expect("down 1 win 40,50", "touch_frame", "up 1", "touch_frame")
+	heardPresses(t, r.c, ev, 1)
+}
+
+func TestAPressWatchHearsATouchOutsideItsSurfaces(t *testing.T) {
+	t.Parallel()
+	r := startInput(t)
+	r.focused()
+	_, ev := r.watchPresses()
+	r.inject(func(b *headless.Backend, o *headless.Output) error {
+		return errors.Join(b.Touch().Down(1, o, 0.25, 0.5), b.Touch().Frame(), b.Touch().Up(1), b.Touch().Frame())
+	})
+	r.expect("down 1 win 40,50", "touch_frame", "up 1", "touch_frame")
+	heardPresses(t, r.c, ev, 1)
 }

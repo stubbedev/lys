@@ -768,6 +768,10 @@ The private protocols are lys-lib's, in its `protocols` directory:
   exclusive layer, input-method grab or drag, a shortcut-inhibiting focus, the
   armed client when focused, the newest arm, the focused surface. A key the
   window saw go down is never taken.
+  Its version 2 adds a press watch: every pointer press and touch down
+  outside the surfaces a client ignores, and their subsurfaces, is reported
+  and still delivered where it lands, so a dropdown closes on the click that
+  also reaches the window under it.
 - **`lys_virtual_touch_v1`**: a touchscreen spanning the layout's bounding
   box for remote desktop, with its own block of touch ids.
 - **`lys_capture_hint_v1`**: declares a capture a one-shot screenshot; every

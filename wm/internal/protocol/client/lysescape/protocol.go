@@ -3,15 +3,17 @@
 package lysescape
 
 import (
+	"github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
 var LysEscapeManagerV1Interface = &wire.Interface{
 	Name:    "lys_escape_manager_v1",
-	Version: 1,
+	Version: 2,
 	Requests: []wire.MessageSpec{
 		{Name: "destroy", Since: 1, Destructor: true},
 		{Name: "arm", Since: 1, Args: []wire.Arg{{Name: "id", Type: wire.ArgNewID, Interface: "lys_escape_arm_v1"}}},
+		{Name: "watch_presses", Since: 2, Args: []wire.Arg{{Name: "id", Type: wire.ArgNewID, Interface: "lys_press_watch_v1"}}},
 	},
 }
 
@@ -81,6 +83,31 @@ func (obj *LysEscapeManagerV1) Arm(h LysEscapeArmV1Handler) (*LysEscapeArmV1, er
 		return nil, err
 	}
 	enc := obj.object.Begin(1)
+	enc.Object(childID)
+	if err := enc.End(); err != nil {
+		return nil, err
+	}
+	return child, nil
+}
+
+func (obj *LysEscapeManagerV1) WatchPresses(h LysPressWatchV1Handler) (*LysPressWatchV1, error) {
+	if err := obj.object.Require("watch_presses", 2); err != nil {
+		return nil, err
+	}
+	if h == nil {
+		return nil, wire.NoHandler(LysPressWatchV1Interface)
+	}
+	childID, err := obj.object.Peer().NewID()
+	if err != nil {
+		return nil, err
+	}
+	child, err := CreateLysPressWatchV1(obj.object.Peer(), childID, obj.object.Version(), func(*LysPressWatchV1) (LysPressWatchV1Handler, error) {
+		return h, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	enc := obj.object.Begin(2)
 	enc.Object(childID)
 	if err := enc.End(); err != nil {
 		return nil, err
@@ -172,6 +199,111 @@ func (obj *LysEscapeArmV1) Destroy() error {
 		return nil
 	}
 	if err := obj.object.Peer().Remove(obj.object.ID()); err != nil {
+		return err
+	}
+	return nil
+}
+
+var LysPressWatchV1Interface = &wire.Interface{
+	Name:    "lys_press_watch_v1",
+	Version: 1,
+	Requests: []wire.MessageSpec{
+		{Name: "destroy", Since: 1, Destructor: true},
+		{Name: "ignore", Since: 1, Args: []wire.Arg{{Name: "surface", Type: wire.ArgObject, Interface: "wl_surface"}}},
+	},
+	Events: []wire.MessageSpec{
+		{Name: "pressed", Since: 1},
+	},
+}
+
+type LysPressWatchV1Handler interface {
+	Pressed(obj *LysPressWatchV1) error
+}
+
+type LysPressWatchV1 struct {
+	object  wire.Object
+	handler LysPressWatchV1Handler
+}
+
+func (obj *LysPressWatchV1) Base() *wire.Object {
+	return &obj.object
+}
+
+func (obj *LysPressWatchV1) Handler() LysPressWatchV1Handler {
+	return obj.handler
+}
+
+func CreateLysPressWatchV1(p wire.Peer, id wire.ObjectID, version uint32, newHandler func(*LysPressWatchV1) (LysPressWatchV1Handler, error)) (*LysPressWatchV1, error) {
+	object, err := wire.NewObject(p, id, version, LysPressWatchV1Interface)
+	if err != nil {
+		return nil, err
+	}
+	obj := &LysPressWatchV1{object: object}
+	if err := p.Add(obj); err != nil {
+		return nil, err
+	}
+	h, err := newHandler(obj)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil {
+		return nil, wire.NoHandler(LysPressWatchV1Interface)
+	}
+	obj.handler = h
+	return obj, nil
+}
+
+func NewLysPressWatchV1(p wire.Peer, version uint32, h LysPressWatchV1Handler) (*LysPressWatchV1, error) {
+	if h == nil {
+		return nil, wire.NoHandler(LysPressWatchV1Interface)
+	}
+	if err := wire.CheckVersion(LysPressWatchV1Interface, version); err != nil {
+		return nil, err
+	}
+	id, err := p.NewID()
+	if err != nil {
+		return nil, err
+	}
+	return CreateLysPressWatchV1(p, id, version, func(*LysPressWatchV1) (LysPressWatchV1Handler, error) {
+		return h, nil
+	})
+}
+
+func (obj *LysPressWatchV1) Dispatch(msg *wire.Message) error {
+	switch obj.object.Expect(msg, LysPressWatchV1Interface.Events) {
+	case 0:
+		if err := msg.Finish(); err != nil {
+			return err
+		}
+		return obj.handler.Pressed(obj)
+	}
+	return msg.Finish()
+}
+
+func (obj *LysPressWatchV1) Destroy() error {
+	enc := obj.object.Begin(0)
+	if err := enc.End(); err != nil {
+		return err
+	}
+	if obj.object.Removed() {
+		return nil
+	}
+	if err := obj.object.Peer().Remove(obj.object.ID()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (obj *LysPressWatchV1) Ignore(surface *wayland.WlSurface) error {
+	if surface == nil {
+		return obj.object.NullArg("ignore", "surface")
+	}
+	if err := obj.object.Owns(surface); err != nil {
+		return err
+	}
+	enc := obj.object.Begin(1)
+	enc.Object(surface.Base().ID())
+	if err := enc.End(); err != nil {
 		return err
 	}
 	return nil

@@ -1,14 +1,17 @@
 package compositor
 
 import (
+	"errors"
 	"slices"
 
 	sle "github.com/stubbedev/lys/wm/internal/protocol/server/lysescape"
+	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
 	"github.com/stubbedev/lys/wm/internal/server"
+	"github.com/stubbedev/lys/wm/internal/surface"
 	"github.com/stubbedev/lys/wm/internal/wire"
 )
 
-const escapeVersion = 1
+const escapeVersion = 2
 
 type escapeArm struct {
 	res    *sle.LysEscapeArmV1
@@ -40,6 +43,50 @@ func (m escapeManager) Arm(_ *sle.LysEscapeManagerV1, res *sle.LysEscapeArmV1) (
 		return nil
 	})
 	return a, nil
+}
+
+type pressWatch struct {
+	res     *sle.LysPressWatchV1
+	ignored []*surface.Surface
+}
+
+func (*pressWatch) Destroy(*sle.LysPressWatchV1) error { return nil }
+
+func (w *pressWatch) Ignore(_ *sle.LysPressWatchV1, wl *sw.WlSurface) error {
+	s, err := surface.From(wl)
+	if err != nil || slices.Contains(w.ignored, s) {
+		return err
+	}
+	w.ignored = append(w.ignored, s)
+	server.OnDestroy(wl, func() error {
+		w.ignored = slices.DeleteFunc(w.ignored, func(o *surface.Surface) bool { return o == s })
+		return nil
+	})
+	return nil
+}
+
+func (w *pressWatch) hears(s *surface.Surface) bool {
+	return s == nil || !slices.ContainsFunc(w.ignored, s.Within)
+}
+
+func (m escapeManager) WatchPresses(_ *sle.LysEscapeManagerV1, res *sle.LysPressWatchV1) (sle.LysPressWatchV1Handler, error) {
+	w := &pressWatch{res: res}
+	m.c.pressWatches = append(m.c.pressWatches, w)
+	server.OnDestroy(res, func() error {
+		m.c.pressWatches = slices.DeleteFunc(m.c.pressWatches, func(o *pressWatch) bool { return o == w })
+		return nil
+	})
+	return w, nil
+}
+
+func (c *Compositor) pressedOn(s *surface.Surface) error {
+	var errs []error
+	for _, w := range c.pressWatches {
+		if w.hears(s) {
+			errs = append(errs, w.res.SendPressed())
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (c *Compositor) dropEscapeArm(a *escapeArm) {

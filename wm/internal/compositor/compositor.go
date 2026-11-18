@@ -384,6 +384,7 @@ type Compositor struct {
 	keyInhibitors      map[*surface.Surface]*shortcutsInhibitor
 	inhibiting         *shortcutsInhibitor
 	escapeArms         []*escapeArm
+	pressWatches       []*pressWatch
 	inputCaptures      []*inputCapture
 	capturing          *activeCapture
 	activations        uint32

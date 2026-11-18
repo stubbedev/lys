@@ -34,6 +34,12 @@ func (p *LysEscapeManagerV1) Arm() (*LysEscapeArmV1, error) {
 	return retId, p.Context().SendRequest(p, 1, retId)
 }
 
+// WatchPresses hear presses outside some surfaces
+func (p *LysEscapeManagerV1) WatchPresses() (*LysPressWatchV1, error) {
+	retId := NewLysPressWatchV1(p.Context())
+	return retId, p.Context().SendRequest(p, 2, retId)
+}
+
 // Dispatch dispatches event for object LysEscapeManagerV1
 func (p *LysEscapeManagerV1) Dispatch(event *Event) {
 	switch event.Opcode {
@@ -108,4 +114,79 @@ func (p *LysEscapeArmV1) RemovePressedHandler(h LysEscapeArmV1PressedHandler) {
 	defer p.mu.Unlock()
 
 	delete(p.privateLysEscapeArmV1Presseds, h)
+}
+
+// LysPressWatchV1 a watch on presses outside some surfaces
+type LysPressWatchV1 struct {
+	BaseProxy
+	mu                             sync.RWMutex
+	privateLysPressWatchV1Presseds map[LysPressWatchV1PressedHandler]struct{}
+}
+
+// initLysPressWatchV1 initializes the LysPressWatchV1 object's handler maps
+func (ret *LysPressWatchV1) initLysPressWatchV1() {
+	ret.privateLysPressWatchV1Presseds = make(map[LysPressWatchV1PressedHandler]struct{})
+}
+
+// NewLysPressWatchV1 is a constructor for the LysPressWatchV1 object
+func NewLysPressWatchV1(ctx *Context) *LysPressWatchV1 {
+	ret := new(LysPressWatchV1)
+	ret.initLysPressWatchV1()
+	ctx.Register(ret)
+	return ret
+}
+
+// Destroy stop watching
+func (p *LysPressWatchV1) Destroy() error {
+	defer p.Unregister()
+
+	return p.Context().SendRequest(p, 0)
+}
+
+// Ignore leave presses on a surface unheard
+func (p *LysPressWatchV1) Ignore(Surface *Surface) error {
+
+	return p.Context().SendRequest(p, 1, Surface)
+}
+
+// Dispatch dispatches event for object LysPressWatchV1
+func (p *LysPressWatchV1) Dispatch(event *Event) {
+	switch event.Opcode {
+	case 0:
+		p.mu.RLock()
+		if len(p.privateLysPressWatchV1Presseds) > 0 {
+			ev := LysPressWatchV1PressedEvent{}
+			for h := range p.privateLysPressWatchV1Presseds {
+				h.HandleLysPressWatchV1Pressed(ev)
+			}
+		}
+		p.mu.RUnlock()
+
+	}
+}
+
+// LysPressWatchV1PressedEvent is the a press landed outside the ignored surfaces
+type LysPressWatchV1PressedEvent struct {
+}
+
+// LysPressWatchV1PressedHandler is the handler interface for LysPressWatchV1PressedEvent
+type LysPressWatchV1PressedHandler interface {
+	HandleLysPressWatchV1Pressed(LysPressWatchV1PressedEvent)
+}
+
+// AddPressedHandler adds the Pressed handler
+func (p *LysPressWatchV1) AddPressedHandler(h LysPressWatchV1PressedHandler) {
+	if h != nil {
+		p.mu.Lock()
+		p.privateLysPressWatchV1Presseds[h] = struct{}{}
+		p.mu.Unlock()
+	}
+}
+
+// RemovePressedHandler removes the Pressed handler
+func (p *LysPressWatchV1) RemovePressedHandler(h LysPressWatchV1PressedHandler) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	delete(p.privateLysPressWatchV1Presseds, h)
 }

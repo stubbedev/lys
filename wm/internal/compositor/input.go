@@ -359,7 +359,7 @@ func (c *Compositor) inputButton(e backend.PointerButton) error {
 	if e.Pressed {
 		c.interruptTap()
 		c.settleFocus()
-		if err := c.endWalk(); err != nil {
+		if err := errors.Join(c.pressedOn(c.seat.PointerFocus()), c.endWalk()); err != nil {
 			return err
 		}
 	}
@@ -469,6 +469,9 @@ func (c *Compositor) touchDown(d backend.Device, e backend.TouchDown) error {
 		return nil
 	}
 	s, local, w := c.surfaceAt(p)
+	if err := c.pressedOn(s); err != nil {
+		return err
+	}
 	if c.outsideGrab(s) {
 		return c.dismissGrabs()
 	}
