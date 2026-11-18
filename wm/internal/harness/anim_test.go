@@ -481,6 +481,46 @@ func testBorderColoursChangeOnTheNextFrameWhenFocusMoves(t *testing.T, start gpu
 	s.Eventually("and back, in both directions", bordersShowing(borderInactive, borderActive))
 }
 
+func TestAClosingWindowLosesItsBorderOnItsFirstClosingFrame(t *testing.T) {
+	t.Parallel()
+	onEachConfiguredRenderer(t, testAClosingWindowLosesItsBorderOnItsFirstClosingFrame)
+}
+
+func testAClosingWindowLosesItsBorderOnItsFirstClosingFrame(t *testing.T, start gpuStarter) {
+	off := false
+	motion := placedAtOnce(slowMotion())
+	motion[anim.WindowsOut] = anim.Setting{Enabled: &off}
+	s := startBorderScene(t, start, motion)
+	w := s.open("closing")
+	s.Eventually("the focused window bordered", showing(1, 100, borderActive))
+
+	closing := s.Hold()
+	s.frameNow()
+	inside := pixel(s.Snapshot(0), 80, 60)
+	if inside == previewBackground {
+		t.Fatalf("the open window shows the background %v inside", inside)
+	}
+	if err := errors.Join(w.Destroy(), s.client.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	s.frameNow()
+	first := s.Snapshot(0)
+	if got := pixel(first, 1, 100); got != previewBackground {
+		t.Errorf("on the first closing frame the border is %v, not the background %v", got, previewBackground)
+	}
+	if got := pixel(first, 80, 60); got != inside {
+		t.Errorf("on the first closing frame the window is %v, not the %v it showed open", got, inside)
+	}
+	s.AdvanceTo(closing + 500*time.Millisecond)
+	half := s.Snapshot(0)
+	if got := pixel(half, 1, 100); got != previewBackground {
+		t.Errorf("half way through closing the border is %v, not the background %v", got, previewBackground)
+	}
+	if got := pixel(half, 80, 60); got == previewBackground {
+		t.Errorf("half way through closing the window is gone: %v", got)
+	}
+}
+
 func TestBorderColoursChangeOnTheNextFrameWhenANewWindowTakesFocus(t *testing.T) {
 	t.Parallel()
 	onEachConfiguredRenderer(t, testBorderColoursChangeOnTheNextFrameWhenANewWindowTakesFocus)

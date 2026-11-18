@@ -180,7 +180,7 @@ func (c *Compositor) startMinimize(w *window, now time.Duration) error {
 		at, to = w.genie.from, w.genie.to
 		w.genie = nil
 	}
-	tt, err := c.snapshot(w)
+	tt, err := c.snapshot(w, withBorder)
 	if err != nil || tt == nil {
 		return err
 	}

@@ -259,7 +259,7 @@ func (c *Compositor) flyInto(w *window, o *output.Output, s wm.State, dest wm.Wo
 	var tt render.TextureTarget
 	if curve != anim.Instant && o != nil {
 		var err error
-		if tt, err = c.snapshot(w); err != nil {
+		if tt, err = c.snapshot(w, withBorder); err != nil {
 			return err
 		}
 	}

@@ -145,7 +145,14 @@ func (c *Compositor) closeAnimated() bool {
 	return c.animations.Curve(anim.WindowsOut) != anim.Instant || c.animations.Curve(anim.FadeOut) != anim.Instant
 }
 
-func (c *Compositor) snapshot(w *window) (render.TextureTarget, error) {
+type snapshotBorder uint8
+
+const (
+	withBorder snapshotBorder = iota
+	withoutBorder
+)
+
+func (c *Compositor) snapshot(w *window, border snapshotBorder) (render.TextureTarget, error) {
 	o := w.output
 	if o == nil || !w.visible || w.snapshot != nil {
 		return nil, nil
@@ -156,7 +163,9 @@ func (c *Compositor) snapshot(w *window) (render.TextureTarget, error) {
 	if !slices.ContainsFunc(f.ops, func(op drawOp) bool { return op.surface != nil }) {
 		return nil, nil
 	}
-	c.drawBorder(&f, o, w)
+	if border == withBorder {
+		c.drawBorder(&f, o, w)
+	}
 	tt, err := c.renderOffscreen(o, &f, deviceRect(o, w.tile))
 	if err != nil {
 		return nil, fmt.Errorf("compositor: snapshot window %d: %w", w.id, err)
@@ -197,7 +206,7 @@ func (c *Compositor) keepSnapshot(s *surface.Surface) error {
 	if w == nil || !c.closeAnimated() {
 		return nil
 	}
-	tt, err := c.snapshot(w)
+	tt, err := c.snapshot(w, withoutBorder)
 	if err != nil || tt == nil {
 		return err
 	}
@@ -212,7 +221,7 @@ func (c *Compositor) startClosing(w *window, now time.Duration) error {
 	tt, fr := w.snapshot, w.frost
 	if tt == nil {
 		var err error
-		if tt, err = c.snapshot(w); err != nil || tt == nil {
+		if tt, err = c.snapshot(w, withoutBorder); err != nil || tt == nil {
 			return err
 		}
 		fr = c.windowFrost(w)
