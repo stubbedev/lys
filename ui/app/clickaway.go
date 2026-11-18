@@ -19,21 +19,45 @@ import (
 const clickAwayNamespace = "lys-ui-click-away"
 
 // clickAway is what closes a PopoverClickAway popover without a seat
-// grab, which would take the keyboard: an invisible layer surface on
-// every output that hears the press landing outside the popover. Popups
-// stack above layer surfaces, and the surfaces take no keyboard, so the
-// focused window keeps its keys. The press goes no further, as under a
-// grab. The surface that heard it lives until the button comes back up,
-// so the window beneath never sees a release without its press. Where
-// the compositor offers it, an Escape arm closes it the same way.
+// grab, which would take the keyboard. Where the compositor offers a
+// press watch (lys-wm) it hears every press outside the popover's
+// surfaces and leaves the press where it lands, so the window beneath
+// takes the click, and every scroll, at once. Elsewhere an invisible
+// layer surface on every output hears the press landing outside the
+// popover: popups stack above layer surfaces, and the surfaces take no
+// keyboard, so the focused window keeps its keys, but the press goes no
+// further, as under a grab. The surface that heard it lives until the
+// button comes back up, so the window beneath never sees a release
+// without its press. Where the compositor offers it, an Escape arm
+// closes it the same way.
 type clickAway struct {
 	wire     catcherWire
+	watch    pressWatch
 	onPress  func()
 	catchers map[*wlsession.Output]catcher
 	held     catcher
 	closing  bool
 	disarm   func()
 }
+
+// clickAwayWires are what a clickAway builds on: the press watch, the
+// catchers it falls back to, and the Escape arm.
+type clickAwayWires struct {
+	watch   watchWire
+	catcher catcherWire
+	escape  escapeWire
+}
+
+// pressWatch hears presses outside the surfaces it ignores.
+type pressWatch interface {
+	ignore(surf *wl.Surface) error
+	close()
+}
+
+// watchWire starts a press watch whose presses run pressed. It returns
+// nil and no error on a compositor without one, whose catchers stand
+// in.
+type watchWire func(pressed func()) (pressWatch, error)
 
 // catcher is one output's surface.
 type catcher interface{ destroy() }
@@ -47,12 +71,18 @@ type catcherWire func(out *wlsession.Output, press, release func()) (catcher, er
 // the popover only while it holds the keyboard.
 type escapeWire func(pressed func()) (disarm func(), err error)
 
-// newClickAway arms a catcher on every output, and the Escape press.
-func newClickAway(wire catcherWire, outputs []*wlsession.Output, escape escapeWire, onPress func()) (*clickAway, error) {
-	c := &clickAway{wire: wire, onPress: onPress, catchers: make(map[*wlsession.Output]catcher, len(outputs))}
-	err := c.sync(outputs)
+// newClickAway starts the press watch, or arms a catcher on every
+// output without one, and arms the Escape press.
+func newClickAway(wires clickAwayWires, outputs []*wlsession.Output, onPress func()) (*clickAway, error) {
+	c := &clickAway{wire: wires.catcher, onPress: onPress}
+	watch, err := wires.watch(c.pressedElsewhere)
+	c.watch = watch
+	if err == nil && watch == nil {
+		c.catchers = make(map[*wlsession.Output]catcher, len(outputs))
+		err = c.sync(outputs)
+	}
 	if err == nil {
-		c.disarm, err = escape(onPress)
+		c.disarm, err = wires.escape(onPress)
 	}
 	if err != nil {
 		c.close()
@@ -61,9 +91,32 @@ func newClickAway(wire catcherWire, outputs []*wlsession.Output, escape escapeWi
 	return c, nil
 }
 
+// pressedElsewhere is the watch hearing a press outside the popover.
+func (c *clickAway) pressedElsewhere() {
+	if !c.closing {
+		c.onPress()
+	}
+}
+
+// ignore keeps presses on surf from closing the popover: its own
+// surfaces and the host it hangs from. Catchers need no list, as they
+// stack beneath popups and keep off the bars' exclusive zones.
+func (c *clickAway) ignore(surfs ...*wl.Surface) error {
+	if c.watch == nil || c.closing {
+		return nil
+	}
+	var errs []error
+	for _, surf := range surfs {
+		if err := c.watch.ignore(surf); err != nil {
+			errs = append(errs, fmt.Errorf("app: click-away: %w", err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // sync follows outputs coming and going while the popover is open.
 func (c *clickAway) sync(outputs []*wlsession.Output) error {
-	if c.closing {
+	if c.closing || c.watch != nil {
 		return nil
 	}
 	var errs []error
@@ -120,6 +173,9 @@ func (c *clickAway) close() {
 		return
 	}
 	c.closing = true
+	if c.watch != nil {
+		c.watch.close()
+	}
 	if c.disarm != nil {
 		c.disarm()
 	}
@@ -136,6 +192,32 @@ func wireCatcher(sess *wlsession.Session) catcherWire {
 	return func(out *wlsession.Output, press, release func()) (catcher, error) {
 		return newLayerCatcher(sess, out, press, release)
 	}
+}
+
+// sessionWatch is a session press watch as a pressWatch.
+type sessionWatch struct{ w *wlsession.PressWatch }
+
+func (s sessionWatch) ignore(surf *wl.Surface) error { return s.w.Ignore(surf) }
+
+func (s sessionWatch) close() { s.w.Close() }
+
+// wireWatch is the session's watchWire.
+func wireWatch(sess *wlsession.Session) watchWire {
+	return func(pressed func()) (pressWatch, error) {
+		w, err := sess.WatchPresses(pressed)
+		if errors.Is(err, wlsession.ErrPressWatchUnavailable) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("app: click-away press watch: %w", err)
+		}
+		return sessionWatch{w}, nil
+	}
+}
+
+// wireClickAway is the session's clickAwayWires.
+func wireClickAway(sess *wlsession.Session) clickAwayWires {
+	return clickAwayWires{watch: wireWatch(sess), catcher: wireCatcher(sess), escape: wireEscape(sess)}
 }
 
 // wireEscape is the session's escapeWire.

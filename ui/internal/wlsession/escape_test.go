@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/wlr"
 )
 
@@ -75,5 +76,76 @@ func TestEscapeArmFailureSaysSo(t *testing.T) {
 	s := &Session{escapeMgr: &fakeEscapeManager{err: boom}}
 	if _, err := s.ArmEscape(func() {}); !errors.Is(err, boom) {
 		t.Errorf("ArmEscape = %v, want it to wrap the failure", err)
+	}
+}
+
+type fakePressWatch struct {
+	handler   wlr.LysPressWatchV1PressedHandler
+	ignored   []*wl.Surface
+	destroyed int
+}
+
+func (f *fakePressWatch) Destroy() error {
+	f.destroyed++
+	return nil
+}
+
+func (f *fakePressWatch) Ignore(s *wl.Surface) error {
+	f.ignored = append(f.ignored, s)
+	return nil
+}
+
+func (f *fakePressWatch) AddPressedHandler(h wlr.LysPressWatchV1PressedHandler) { f.handler = h }
+
+type fakePressWatchManager struct{ watch *fakePressWatch }
+
+func (f *fakePressWatchManager) WatchPresses() (pressWatchAPI, error) {
+	f.watch = &fakePressWatch{}
+	return f.watch, nil
+}
+
+func TestThePressWatchNeedsTheSecondVersion(t *testing.T) {
+	for name, s := range map[string]*Session{
+		"no protocol":       {},
+		"the first version": {escapeMgr: &fakeEscapeManager{}},
+	} {
+		w, err := s.WatchPresses(func() { t.Errorf("%s: heard a press", name) })
+		if !errors.Is(err, ErrPressWatchUnavailable) || w != nil {
+			t.Errorf("%s: WatchPresses = %v, %v, want nil, ErrPressWatchUnavailable", name, w, err)
+		}
+	}
+}
+
+func TestThePressWatchIgnoresItsSurfacesAndHearsPressesUntilClosed(t *testing.T) {
+	mgr := &fakePressWatchManager{}
+	s := &Session{pressWatchMgr: mgr}
+	popup, bar, nested := &wl.Surface{}, &wl.Surface{}, &wl.Surface{}
+	heard := 0
+	w, err := s.WatchPresses(func() { heard++ }, popup, bar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Ignore(nested); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(mgr.watch.ignored, []*wl.Surface{popup, bar, nested}) {
+		t.Errorf("ignored %v, want the popup, the bar and the nested popup", mgr.watch.ignored)
+	}
+	mgr.watch.handler.HandleLysPressWatchV1Pressed(wlr.LysPressWatchV1PressedEvent{})
+	mgr.watch.handler.HandleLysPressWatchV1Pressed(wlr.LysPressWatchV1PressedEvent{})
+	if heard != 2 {
+		t.Fatalf("heard %d presses, want 2", heard)
+	}
+	w.Close()
+	w.Close()
+	if mgr.watch.destroyed != 1 {
+		t.Errorf("destroyed %d times, want 1", mgr.watch.destroyed)
+	}
+	mgr.watch.handler.HandleLysPressWatchV1Pressed(wlr.LysPressWatchV1PressedEvent{})
+	if heard != 2 {
+		t.Errorf("a press in flight past the close was heard: %d", heard)
+	}
+	if err := w.Ignore(nested); err == nil {
+		t.Error("ignoring a surface on a closed watch succeeded")
 	}
 }

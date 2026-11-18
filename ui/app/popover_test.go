@@ -263,6 +263,105 @@ func fakeCatcherWire(made map[*wlsession.Output]*fakeCatcher, presses map[*wlses
 // noEscape is a compositor without lys_escape_v1.
 func noEscape(func()) (func(), error) { return nil, nil }
 
+// noWatch is a compositor without the lys_escape_v1 press watch.
+func noWatch(func()) (pressWatch, error) { return nil, nil }
+
+// fakeWatch records what it ignores and how often it closed.
+type fakeWatch struct {
+	pressed func()
+	ignored []*wl.Surface
+	closed  int
+}
+
+func (f *fakeWatch) ignore(s *wl.Surface) error {
+	f.ignored = append(f.ignored, s)
+	return nil
+}
+
+func (f *fakeWatch) close() { f.closed++ }
+
+func noCatchers(t *testing.T) catcherWire {
+	return func(*wlsession.Output, func(), func()) (catcher, error) {
+		t.Error("a catcher was armed beside a press watch")
+		return &fakeCatcher{}, nil
+	}
+}
+
+// With a press watch there is no catcher to swallow the press: the
+// watch hears it, the popover closes once, and the watch ends with the
+// Escape arm; presses on the ignored surfaces never reach it.
+func TestClickAwayWithAPressWatchArmsNoCatchers(t *testing.T) {
+	w := &fakeWatch{}
+	disarmed, fired := 0, 0
+	popup, bar := &wl.Surface{}, &wl.Surface{}
+	var c *clickAway
+	c, err := newClickAway(clickAwayWires{
+		watch: func(pressed func()) (pressWatch, error) {
+			w.pressed = pressed
+			return w, nil
+		},
+		catcher: noCatchers(t),
+		escape:  func(func()) (func(), error) { return func() { disarmed++ }, nil },
+	}, []*wlsession.Output{{}, {}}, func() {
+		fired++
+		c.close()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ignore(popup, bar); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.sync([]*wlsession.Output{{}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.ignored) != 2 || w.ignored[0] != popup || w.ignored[1] != bar {
+		t.Errorf("the watch ignores %v, want the popup and the bar", w.ignored)
+	}
+	w.pressed()
+	if fired != 1 || w.closed != 1 || disarmed != 1 {
+		t.Fatalf("after a press elsewhere: fired %d, watch closed %d, disarmed %d, want 1, 1, 1", fired, w.closed, disarmed)
+	}
+	w.pressed()
+	c.close()
+	if fired != 1 || w.closed != 1 {
+		t.Errorf("after the close: fired %d, watch closed %d, want 1 and 1", fired, w.closed)
+	}
+	if err := c.ignore(&wl.Surface{}); err != nil || len(w.ignored) != 2 {
+		t.Errorf("a closed click-away ignored a surface: %v, %v", err, w.ignored)
+	}
+}
+
+// Without one the catchers stand in, and ignoring surfaces is theirs to
+// do by stacking.
+func TestClickAwayWithoutAPressWatchArmsCatchers(t *testing.T) {
+	made, presses, releases := map[*wlsession.Output]*fakeCatcher{}, map[*wlsession.Output]func(){}, map[*wlsession.Output]func(){}
+	out := &wlsession.Output{}
+	c, err := newClickAway(clickAwayWires{watch: noWatch, catcher: fakeCatcherWire(made, presses, releases), escape: noEscape}, []*wlsession.Output{out}, func() {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if made[out] == nil {
+		t.Fatal("no catcher armed without a press watch")
+	}
+	if err := c.ignore(&wl.Surface{}); err != nil {
+		t.Errorf("ignore beside catchers: %v", err)
+	}
+}
+
+// A failed watch fails the open, with no catcher armed in its place.
+func TestClickAwayWatchFailureFailsTheOpen(t *testing.T) {
+	boom := errors.New("boom")
+	_, err := newClickAway(clickAwayWires{
+		watch:   func(func()) (pressWatch, error) { return nil, boom },
+		catcher: noCatchers(t),
+		escape:  noEscape,
+	}, []*wlsession.Output{{}}, func() {})
+	if !errors.Is(err, boom) {
+		t.Errorf("newClickAway = %v, want the watch's failure", err)
+	}
+}
+
 // The Escape arm closes the popover like a press on a catcher, and goes
 // the moment the close starts: a press beside an open popover fires
 // once, and the wire is disarmed before any later one.
@@ -276,7 +375,7 @@ func TestClickAwayEscapeClosesAndDisarmsOnce(t *testing.T) {
 	made, presses, releases := map[*wlsession.Output]*fakeCatcher{}, map[*wlsession.Output]func(){}, map[*wlsession.Output]func(){}
 	out := &wlsession.Output{}
 	var c *clickAway
-	c, err := newClickAway(fakeCatcherWire(made, presses, releases), []*wlsession.Output{out}, escape, func() {
+	c, err := newClickAway(clickAwayWires{watch: noWatch, catcher: fakeCatcherWire(made, presses, releases), escape: escape}, []*wlsession.Output{out}, func() {
 		fired++
 		c.close()
 	})
@@ -307,7 +406,7 @@ func TestClickAwayPressDisarmsEscape(t *testing.T) {
 	made, presses, releases := map[*wlsession.Output]*fakeCatcher{}, map[*wlsession.Output]func(){}, map[*wlsession.Output]func(){}
 	out := &wlsession.Output{}
 	var c *clickAway
-	c, err := newClickAway(fakeCatcherWire(made, presses, releases), []*wlsession.Output{out}, escape, func() { c.close() })
+	c, err := newClickAway(clickAwayWires{watch: noWatch, catcher: fakeCatcherWire(made, presses, releases), escape: escape}, []*wlsession.Output{out}, func() { c.close() })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +421,7 @@ func TestClickAwayEscapeFailureDropsTheCatchers(t *testing.T) {
 	boom := errors.New("boom")
 	made, presses, releases := map[*wlsession.Output]*fakeCatcher{}, map[*wlsession.Output]func(){}, map[*wlsession.Output]func(){}
 	out := &wlsession.Output{}
-	_, err := newClickAway(fakeCatcherWire(made, presses, releases), []*wlsession.Output{out}, func(func()) (func(), error) { return nil, boom }, func() {})
+	_, err := newClickAway(clickAwayWires{watch: noWatch, catcher: fakeCatcherWire(made, presses, releases), escape: func(func()) (func(), error) { return nil, boom }}, []*wlsession.Output{out}, func() {})
 	if !errors.Is(err, boom) {
 		t.Fatalf("newClickAway = %v, want the arm's failure", err)
 	}
@@ -339,7 +438,7 @@ func TestClickAwayHoldsTheCatcherUntilRelease(t *testing.T) {
 	made, presses, releases := map[*wlsession.Output]*fakeCatcher{}, map[*wlsession.Output]func(){}, map[*wlsession.Output]func(){}
 	fired := 0
 	var c *clickAway
-	c, err := newClickAway(fakeCatcherWire(made, presses, releases), []*wlsession.Output{a, b}, noEscape, func() {
+	c, err := newClickAway(clickAwayWires{watch: noWatch, catcher: fakeCatcherWire(made, presses, releases), escape: noEscape}, []*wlsession.Output{a, b}, func() {
 		fired++
 		c.close()
 	})
@@ -369,7 +468,7 @@ func TestClickAwayHoldsTheCatcherUntilRelease(t *testing.T) {
 func TestClickAwayFollowsOutputs(t *testing.T) {
 	a, b := &wlsession.Output{}, &wlsession.Output{}
 	made, presses, releases := map[*wlsession.Output]*fakeCatcher{}, map[*wlsession.Output]func(){}, map[*wlsession.Output]func(){}
-	c, err := newClickAway(fakeCatcherWire(made, presses, releases), []*wlsession.Output{a}, noEscape, func() {})
+	c, err := newClickAway(clickAwayWires{watch: noWatch, catcher: fakeCatcherWire(made, presses, releases), escape: noEscape}, []*wlsession.Output{a}, func() {})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -31,7 +31,12 @@ the window holding keyboard focus.
 - A button press opens an implicit grab on the focus surface: motion,
   further buttons and axis events stay there until a release, so a drag
   keeps feeding the widget it started on. The compositor's popup grab
-  handles click-away dismissal.
+  handles a menu's click-away dismissal. A click-away popover takes no
+  grab: on lys-wm a press watch (`lys_escape_v1` version 2) closes it on a
+  press elsewhere and leaves that press, and every scroll, to the window
+  under the pointer; elsewhere invisible catcher surfaces hear the press
+  and swallow it. It holds the keyboard only while a press left an input
+  focused, and Escape reaches it through the escape arm either way.
 - A click is a press and release on the same widget (`Clicker`). A
   second click within 400 ms on a `DoubleClicker` is a double-click.
 - A drag is motion while pressed (`DragMover`), with no threshold.

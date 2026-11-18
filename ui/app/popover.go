@@ -623,13 +623,21 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 		}
 	}
 	if parent == nil && cfg.Dismissal == PopoverClickAway {
-		p.away, err = newClickAway(wireCatcher(a.sess), a.outputs(), wireEscape(a.sess), p.Dismiss)
-		if err != nil {
-			pop.Close()
-			restoreKeys()
-			unanchor()
-			return nil, err
+		p.away, err = newClickAway(wireClickAway(a.sess), a.outputs(), p.Dismiss)
+		if err == nil {
+			err = p.away.ignore(pop.HostSurface(), host.HostSurface())
 		}
+	} else if root := p.Root(); root.away != nil {
+		err = root.away.ignore(pop.HostSurface())
+	}
+	if err != nil {
+		if p.away != nil {
+			p.away.close()
+		}
+		pop.Close()
+		restoreKeys()
+		unanchor()
+		return nil, err
 	}
 	// Dismiss, not Close: the programmatic path takes the same two-
 	// phase route as outside-clicks and Esc — input seals, OnClosed

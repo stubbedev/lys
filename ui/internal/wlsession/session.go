@@ -227,6 +227,7 @@ type Session struct {
 	idleInhibitMgr      idleInhibitAPI
 	shortcutsInhibitMgr shortcutsInhibitAPI
 	escapeMgr           escapeManagerAPI
+	pressWatchMgr       pressWatchManagerAPI
 	// hotkeyGlobal is the advertised xx_hotkey_manager_v1, nil without one.
 	hotkeyGlobal hotkeyGlobal
 	xdgOutputMgr xdgOutputMaker

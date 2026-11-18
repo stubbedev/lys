@@ -24,6 +24,24 @@ type escapeManagerAPI interface {
 	Arm() (escapeArmAPI, error)
 }
 
+// ErrPressWatchUnavailable reports that the compositor's
+// lys_escape_manager_v1, if any, predates the press watch.
+var ErrPressWatchUnavailable = errors.New("wlsession: no lys-escape press watch")
+
+// pressWatchManagerAPI is the press watch request of a version 2
+// lys_escape_manager_v1.
+type pressWatchManagerAPI interface {
+	WatchPresses() (pressWatchAPI, error)
+}
+
+// pressWatchAPI is a lys_press_watch_v1. *wlr.LysPressWatchV1 satisfies
+// it.
+type pressWatchAPI interface {
+	Destroy() error
+	Ignore(surface *wl.Surface) error
+	AddPressedHandler(h wlr.LysPressWatchV1PressedHandler)
+}
+
 // escapeArmAPI is a lys_escape_arm_v1. *wlr.LysEscapeArmV1 satisfies it.
 type escapeArmAPI interface {
 	Destroy() error
@@ -45,11 +63,30 @@ func (m wireEscapeManager) Arm() (escapeArmAPI, error) {
 	return a, nil
 }
 
-// bindEscapeManager binds lys_escape_manager_v1.
+// WatchPresses implements pressWatchManagerAPI.
+func (m wireEscapeManager) WatchPresses() (pressWatchAPI, error) {
+	w, err := m.mgr.WatchPresses()
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+// pressWatchVersion is the lys_escape_manager_v1 version that brought
+// the press watch.
+const pressWatchVersion = 2
+
+// bindEscapeManager binds lys_escape_manager_v1, and offers its press
+// watch where the compositor's version has one.
 func (s *Session) bindEscapeManager(ev wl.RegistryGlobalEvent) {
 	mgr := wlr.NewLysEscapeManagerV1(s.registry.Context())
-	if s.bindOptional(ev, 1, mgr) {
-		s.escapeMgr = wireEscapeManager{mgr: mgr}
+	if !s.bindOptional(ev, pressWatchVersion, mgr) {
+		return
+	}
+	wire := wireEscapeManager{mgr: mgr}
+	s.escapeMgr = wire
+	if bindVersion(ev.Version, pressWatchVersion) >= pressWatchVersion {
+		s.pressWatchMgr = wire
 	}
 }
 
@@ -91,4 +128,62 @@ func (a *EscapeArm) Disarm() {
 		debug.Log("input", "escape disarm: %v", err)
 	}
 	a.req = nil
+}
+
+// PressWatch hears every press outside the surfaces it ignores without
+// taking it: the press still lands where it was going.
+type PressWatch struct {
+	req     pressWatchAPI
+	pressed func()
+}
+
+// WatchPresses runs pressed for every pointer press and touch outside
+// the ignored surfaces and their subsurfaces, until Close.
+func (s *Session) WatchPresses(pressed func(), ignore ...*wl.Surface) (*PressWatch, error) {
+	if s.pressWatchMgr == nil {
+		return nil, ErrPressWatchUnavailable
+	}
+	req, err := s.pressWatchMgr.WatchPresses()
+	if err != nil {
+		return nil, fmt.Errorf("wlsession: watch presses: %w", err)
+	}
+	w := &PressWatch{req: req, pressed: pressed}
+	req.AddPressedHandler(w)
+	for _, surf := range ignore {
+		if err := w.Ignore(surf); err != nil {
+			w.Close()
+			return nil, err
+		}
+	}
+	return w, nil
+}
+
+// Ignore stops presses on surf and its subsurfaces from counting.
+func (w *PressWatch) Ignore(surf *wl.Surface) error {
+	if w.req == nil {
+		return errors.New("wlsession: ignore a surface on a closed press watch")
+	}
+	if err := w.req.Ignore(surf); err != nil {
+		return fmt.Errorf("wlsession: press watch ignore: %w", err)
+	}
+	return nil
+}
+
+// HandleLysPressWatchV1Pressed implements
+// wlr.LysPressWatchV1PressedHandler.
+func (w *PressWatch) HandleLysPressWatchV1Pressed(wlr.LysPressWatchV1PressedEvent) {
+	if w.req != nil {
+		w.pressed()
+	}
+}
+
+// Close ends the watch; a second call does nothing.
+func (w *PressWatch) Close() {
+	if w.req == nil {
+		return
+	}
+	if err := w.req.Destroy(); err != nil {
+		debug.Log("input", "press watch destroy: %v", err)
+	}
+	w.req = nil
 }
