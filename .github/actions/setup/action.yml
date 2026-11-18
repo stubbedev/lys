@@ -69,9 +69,13 @@ runs:
           experimental-features = nix-command flakes
           accept-flake-config = true
           always-allow-substitutes = true
-          extra-substituters = https://xilos.dev/c/stubbedev/main
-          extra-trusted-public-keys = xilos.dev/stubbedev/main-1:397R6S49v/FSvP+mZ3HlKrVN1KXhgzHIEIHxA/UuG6Y=
           max-jobs = ${{ inputs.substitute-only == 'true' && '0' || 'auto' }}
+
+    - uses: stubbedev/xilo@b48c60917a4472a527f463995ad62e9ea0addf18 # v2.0.0
+      with:
+        url: https://xilos.dev
+        cache: stubbedev/main
+        push: "false"
 
     - name: just and jq, from the flake's nixpkgs
       shell: bash

@@ -132,29 +132,6 @@ build-jobs select:
         nix print-dev-env --profile "${dir}/${shell}" ".#${shell}" >/dev/null
     done
 
-# Print the valid store paths, derivations and sources aside, missing from a
-# listing of the store taken before: what a CI build job built or substituted,
-# for the binary cache, also when its build failed or timed out part way.
-[private]
-[script("bash")]
-new-store-paths listing:
-    set -euo pipefail
-    declare -A before=() invalid=()
-    while read -r name; do before[$name]=1; done < {{ quote(listing) }}
-    paths=()
-    for path in /nix/store/*; do
-        name=${path#/nix/store/}
-        case "$name" in
-            *.drv | *.lock | *.chroot | *-source) ;;
-            *) [[ -v before[$name] ]] || paths+=("$path") ;;
-        esac
-    done
-    (( ${#paths[@]} )) || exit 0
-    while read -r path; do invalid[$path]=1; done < <(nix-store --check-validity --print-invalid "${paths[@]}")
-    for path in "${paths[@]}"; do
-        [[ -v invalid[$path] ]] || printf '%s\n' "$path"
-    done
-
 # Evaluate the derivations a nix-eval-jobs selection of the flake picks, on as
 # many workers as cores and memory allow, and print them as JSON lines; any
 # evaluation error fails it, naming the attribute.
