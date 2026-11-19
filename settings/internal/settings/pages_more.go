@@ -240,10 +240,10 @@ func launcherModesPage(*config.Config) pageSpec {
 func themePage(*config.Config) pageSpec {
 	return pageSpec{id: "theme", navKey: "settings-nav-theme", icon: "ld-palette-symbolic", header: "settings-page-theme", sections: []sectionSpec{
 		{title: "settings-section-provider", rows: []rowSpec{
-			field("styling.appearance"),
+			field("styling.appearance", pictureChoice(appearancePictures)),
 			field("styling.high-contrast"),
 			field("styling.reduce-transparency"),
-			field("styling.theme-provider"),
+			field("styling.theme-provider", pictureChoice(themeProviderPictures)),
 			field("styling.theming-monitor"),
 		}},
 		{title: "settings-section-palette", when: themeProviderIs(config.ThemeProviderLysShell), rows: []rowSpec{
@@ -294,7 +294,7 @@ func themeProviderIs(provider config.ThemeProvider) func(store) bool {
 
 func wallpaperPage(*config.Config) pageSpec {
 	return pageSpec{id: "wallpaper", navKey: "settings-nav-wallpaper", icon: "ld-image-symbolic", header: "settings-page-wallpaper", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode"), field("wallpaper.picker-directories", stringList)}},
+		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode", pictureChoice(fitPictures)), field("wallpaper.picker-directories", stringList)}},
 		{title: "settings-section-cycling", rows: []rowSpec{
 			field("wallpaper.cycling-directory"),
 			cyclingReveal("wallpaper.cycling-directory",

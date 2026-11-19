@@ -249,7 +249,7 @@ func (c *monitorWallpapers) showDetail() {
 		}
 	}
 	path := newFileEditor(c.k, field("wallpaper"))
-	fit := newEnumSelect(c.k, field("fit-mode"), config.MetaOf[config.FitMode]())
+	fit := newChoiceCards(c.k, field("fit-mode"), config.MetaOf[config.FitMode](), fitPictures)
 	c.detail.Append(panelRow(c.k, t.Get("settings-wallpaper-path-label"), "", path), false)
 	c.detail.Append(panelRow(c.k, t.Get("settings-wallpaper-monitor-fit"), "", fit), false)
 }

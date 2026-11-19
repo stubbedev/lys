@@ -17,6 +17,7 @@ ld-coffee-symbolic
 ld-copy-symbolic
 ld-cpu-symbolic
 ld-droplets-symbolic
+ld-droplet-symbolic
 ld-eye-off-symbolic
 ld-eye-symbolic
 ld-film-symbolic
@@ -53,6 +54,7 @@ ld-scale-symbolic
 ld-settings-symbolic
 ld-shield-check-symbolic
 ld-square-symbolic
+ld-sun-moon-symbolic
 ld-sun-symbolic
 ld-trash-2-symbolic
 ld-type-symbolic
