@@ -199,6 +199,7 @@ func TestOutputStreamTakesTheGPUOrSaysWhyNot(t *testing.T) {
 func sharedWindow(t *testing.T, a *app.Application, label *widget.Label) string {
 	t.Helper()
 	const appID = "dev.stubbe.lys.test.shared"
+	swaytest.Msg(t, "for_window", `[app_id="`+appID+`"]`, "floating", "enable")
 	opened := make(chan error, 1)
 	a.Invoke(func() {
 		_, err := a.NewWindow(app.WindowConfig{Title: "shared", AppID: appID, Width: 320, Height: 200, Root: label})
@@ -230,7 +231,8 @@ func sharedWindow(t *testing.T, a *app.Application, label *widget.Label) string 
 }
 
 // settled reports whether two captures of tl in a row have one size:
-// sway tiles a new window, resizing it after it first maps.
+// the window floats at the size it asked for, so sway's tiling never
+// resizes it under the stream, and it holds once its first frame is up.
 func settled(c *capture.Client, tl capture.Toplevel) bool {
 	var sizes [2][2]int
 	for i := range sizes {
