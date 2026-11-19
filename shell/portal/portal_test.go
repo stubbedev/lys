@@ -17,7 +17,7 @@ import (
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/gtksettings"
 
-	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
@@ -58,7 +58,7 @@ func newRig(t *testing.T, edit func(*Backend)) *rig {
 	bus := dbustest.Start(t)
 	cfg := config.Load(t.TempDir(), config.DiscardDiagnostics)
 	client := bus.Conn(t)
-	signals, _ := bussignaltest.Signals(t, client, 64, dbus.WithMatchObjectPath(ObjectPath))
+	signals, _ := dbusxtest.Signals(t, client, 64, dbus.WithMatchObjectPath(ObjectPath))
 	b := New(bus.Conn(t), cfg)
 	if edit != nil {
 		edit(b)
@@ -544,7 +544,7 @@ func TestSessionCloseRunsCleanupOnce(t *testing.T) {
 		}
 		s.onClose(func() { closes.Update(func(n int) int { return n + 1 }) })
 	}
-	signals, _ := bussignaltest.Signals(t, client, 4, dbus.WithMatchInterface(SessionIface))
+	signals, _ := dbusxtest.Signals(t, client, 4, dbus.WithMatchInterface(SessionIface))
 
 	obj := client.Object(server.Names()[0], first)
 	if v, err := obj.GetProperty(SessionIface + ".version"); err != nil || v.Value() != uint32(1) {

@@ -13,7 +13,7 @@ import (
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
-	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 
@@ -53,7 +53,7 @@ func TestShell1ConnectorsFollowHotplug(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer release()
-	signals, _ := bussignaltest.Signals(t, client, 16, dbus.WithMatchObjectPath(shellipc.ServicePath), dbus.WithMatchInterface("org.freedesktop.DBus.Properties"), dbus.WithMatchMember("PropertiesChanged"))
+	signals, _ := dbusxtest.Signals(t, client, 16, dbus.WithMatchObjectPath(shellipc.ServicePath), dbus.WithMatchInterface("org.freedesktop.DBus.Properties"), dbus.WithMatchMember("PropertiesChanged"))
 
 	o := &fakeOpener{}
 	set := newSurfaceSet(o.open, noWallpaper)

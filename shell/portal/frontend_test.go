@@ -19,7 +19,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 
-	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
 )
 
@@ -117,7 +117,7 @@ func (f *frontend) request(t *testing.T, method string, args ...any) (uint32, ma
 	args[len(args)-1].(Vardict)["handle_token"] = dbus.MakeVariant(token)
 	sender := strings.ReplaceAll(strings.TrimPrefix(f.conn.Names()[0], ":"), ".", "_")
 	path := dbus.ObjectPath("/org/freedesktop/portal/desktop/request/" + sender + "/" + token)
-	signals, stop := bussignaltest.Signals(t, f.conn, 4, dbus.WithMatchObjectPath(path), dbus.WithMatchMember("Response"))
+	signals, stop := dbusxtest.Signals(t, f.conn, 4, dbus.WithMatchObjectPath(path), dbus.WithMatchMember("Response"))
 	defer stop()
 	var got dbus.ObjectPath
 	if err := f.obj.Call(method, 0, args...).Store(&got); err != nil {
@@ -348,7 +348,7 @@ func TestFrontendScreenCastStreamsToARealConsumer(t *testing.T) {
 	f := startFrontend(t, r, t.TempDir())
 
 	session := f.session(t, publicScreenCast)
-	closed, _ := bussignaltest.Signals(t, f.conn, 4, dbus.WithMatchObjectPath(session), dbus.WithMatchMember("Closed"))
+	closed, _ := dbusxtest.Signals(t, f.conn, 4, dbus.WithMatchObjectPath(session), dbus.WithMatchMember("Closed"))
 	if code, _ := f.request(t, publicScreenCast+".SelectSources", session, Vardict{"types": dbus.MakeVariant(sourceMonitor)}); code != ResponseSuccess {
 		t.Fatalf("SelectSources = %d", code)
 	}
@@ -384,7 +384,7 @@ func TestFrontendScreenCastStreamsToARealConsumer(t *testing.T) {
 func TestFrontendRelaysANewAccentToApps(t *testing.T) {
 	r := newRig(t, nil)
 	f := startFrontend(t, r, t.TempDir())
-	signals, _ := bussignaltest.Signals(t, f.conn, 16, dbus.WithMatchObjectPath(frontendPath), dbus.WithMatchInterface("org.freedesktop.portal.Settings"), dbus.WithMatchMember("SettingChanged"))
+	signals, _ := dbusxtest.Signals(t, f.conn, 16, dbus.WithMatchObjectPath(frontendPath), dbus.WithMatchInterface("org.freedesktop.portal.Settings"), dbus.WithMatchMember("SettingChanged"))
 	want := []any{0x33 / 255.0, 0x66 / 255.0, 0x99 / 255.0}
 	var before dbus.Variant
 	if err := f.obj.Call("org.freedesktop.portal.Settings.ReadOne", 0, AppearanceNS, keyAccentColor).Store(&before); err != nil {

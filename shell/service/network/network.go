@@ -11,7 +11,6 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys/shell/internal/bussignal"
 )
 
 const (
@@ -207,7 +206,7 @@ func (s *System) Read(ctx context.Context) (Snapshot, error) {
 // Subscribe ticks on NM's StateChanged and on property changes of the
 // manager object.
 func (s *System) Subscribe(ctx context.Context) (<-chan struct{}, func() error, error) {
-	ticks, stop, err := bussignal.Ticks(ctx, s.conn, dbusx.FromOwner(BusName), "network", managerRoutes)
+	ticks, stop, err := dbusx.Ticks(ctx, s.conn, dbusx.FromOwner(BusName), "network", managerRoutes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("network: %w", err)
 	}

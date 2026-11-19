@@ -12,7 +12,6 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys/shell/internal/bussignal"
 )
 
 // Profile names as the daemon spells them.
@@ -130,7 +129,7 @@ func (s *System) SetActive(ctx context.Context, profile string) error {
 
 // Subscribe ticks on the daemon's PropertiesChanged.
 func (s *System) Subscribe(ctx context.Context) (<-chan struct{}, func() error, error) {
-	ticks, stop, err := bussignal.Ticks(ctx, s.conn, dbusx.FromOwner(BusName), "powerprofiles", daemonRoutes)
+	ticks, stop, err := dbusx.Ticks(ctx, s.conn, dbusx.FromOwner(BusName), "powerprofiles", daemonRoutes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("powerprofiles: %w", err)
 	}

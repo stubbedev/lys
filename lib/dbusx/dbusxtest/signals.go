@@ -1,6 +1,5 @@
-// Package bussignaltest is a reader of signals for a test's own that
-// keeps no descriptor.
-package bussignaltest
+// Package dbusxtest reads signals for a test without keeping their descriptors.
+package dbusxtest
 
 import (
 	"errors"

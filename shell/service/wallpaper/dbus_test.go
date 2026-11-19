@@ -13,7 +13,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 
-	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 )
 
 func dial(t *testing.T, addr string) *dbus.Conn {
@@ -134,7 +134,7 @@ func TestDaemonEmitsColorsExtracted(t *testing.T) {
 	}
 	defer release()
 	listener := dial(t, addr)
-	signals, _ := bussignaltest.Signals(t, listener, 4, dbus.WithMatchInterface(Interface), dbus.WithMatchMember("ColorsExtracted"))
+	signals, _ := dbusxtest.Signals(t, listener, 4, dbus.WithMatchInterface(Interface), dbus.WithMatchMember("ColorsExtracted"))
 	if err := NewClient(dial(t, addr)).ExtractColors(context.Background()); err != nil {
 		t.Fatal(err)
 	}

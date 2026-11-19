@@ -10,7 +10,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 
-	"github.com/stubbedev/lys/shell/internal/bussignal/bussignaltest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 )
 
 func hint(key string, v any) map[string]dbus.Variant {
@@ -105,7 +105,7 @@ func TestAReplyIsSentAsNotificationRepliedToARealClient(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = server.Release() })
 	client := bus.Conn(t)
-	signals, _ := bussignaltest.Signals(t, client, 8, dbus.WithMatchInterface(Interface))
+	signals, _ := dbusxtest.Signals(t, client, 8, dbus.WithMatchInterface(Interface))
 	obj := client.Object(Interface, ObjPath)
 	var chat, plain uint32
 	if err := obj.Call(Interface+".Notify", 0, "chat", uint32(0), "", "Ada", "lunch?", []string{InlineReplyActionID, "Reply"}, hint("x-kde-reply-placeholder-text", "Reply to Ada"), int32(-1)).Store(&chat); err != nil {

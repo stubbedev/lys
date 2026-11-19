@@ -1,4 +1,4 @@
-package bussignal_test
+package dbusx_test
 
 import (
 	"context"
@@ -9,31 +9,29 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
-
-	"github.com/stubbedev/lys/shell/internal/bussignal"
 )
 
 const (
-	handedPath = dbus.ObjectPath("/dev/stubbe/lys/Handed")
-	wellKnown  = "dev.stubbe.lys.Handed"
+	tickedPath = dbus.ObjectPath("/dev/stubbe/lys/Handed")
+	tickedName  = "dev.stubbe.lys.Handed"
 )
 
-type handed struct {
+type ticked struct {
 	Text string
 }
 
-var handedSignal = dbusx.NewSignal[handed]("dev.stubbe.lys.Handed", "Descriptor")
+var tickedSignal = dbusx.NewSignal[ticked]("dev.stubbe.lys.Handed", "Descriptor")
 
 // A feed of ticks carries one for the signals its routes name, closes
 // once it is stopped, and leaves no match rule on the connection.
 func TestTicksFollowTheWatchAndCloseWithIt(t *testing.T) {
 	bus := dbustest.Start(t)
 	conn, service := bus.Conn(t), bus.Conn(t)
-	if reply, err := service.RequestName(wellKnown, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
-		t.Fatalf("own %s: %v %v", wellKnown, reply, err)
+	if reply, err := service.RequestName(tickedName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("own %s: %v %v", tickedName, reply, err)
 	}
-	ticks, stop, err := bussignal.Ticks(t.Context(), conn, dbusx.FromOwner(wellKnown), "test", func(tick func()) []dbusx.Route {
-		return []dbusx.Route{dbusx.On(handedSignal, handedPath, func(handed, dbus.Sequence) error {
+	ticks, stop, err := dbusx.Ticks(t.Context(), conn, dbusx.FromOwner(tickedName), "test", func(tick func()) []dbusx.Route {
+		return []dbusx.Route{dbusx.On(tickedSignal, tickedPath, func(ticked, dbus.Sequence) error {
 			tick()
 			return nil
 		})}
@@ -46,7 +44,7 @@ func TestTicksFollowTheWatchAndCloseWithIt(t *testing.T) {
 		t.Fatal("a tick before any signal")
 	default:
 	}
-	if err := handedSignal.Emit(service, handedPath, handed{Text: "changed"}); err != nil {
+	if err := tickedSignal.Emit(service, tickedPath, ticked{Text: "changed"}); err != nil {
 		t.Fatal(err)
 	}
 	if open := awaitOpen(t, ticks, "tick for the signal"); !open {
@@ -77,8 +75,8 @@ func TestTicksEndWithTheirContext(t *testing.T) {
 	bus := dbustest.Start(t)
 	conn := bus.Conn(t)
 	ctx, cancel := context.WithCancel(t.Context())
-	ticks, stop, err := bussignal.Ticks(ctx, conn, dbusx.FromOwner(wellKnown), "test", func(func()) []dbusx.Route {
-		return []dbusx.Route{dbusx.On(handedSignal, handedPath, func(handed, dbus.Sequence) error { return nil })}
+	ticks, stop, err := dbusx.Ticks(ctx, conn, dbusx.FromOwner(tickedName), "test", func(func()) []dbusx.Route {
+		return []dbusx.Route{dbusx.On(tickedSignal, tickedPath, func(ticked, dbus.Sequence) error { return nil })}
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -99,8 +97,8 @@ func TestTicksEndWithTheirContext(t *testing.T) {
 func TestTicksEndWithTheirConnectionAndStopSaysSo(t *testing.T) {
 	bus := dbustest.Start(t)
 	conn := bus.Conn(t)
-	ticks, stop, err := bussignal.Ticks(t.Context(), conn, dbusx.FromOwner(wellKnown), "test", func(func()) []dbusx.Route {
-		return []dbusx.Route{dbusx.On(handedSignal, handedPath, func(handed, dbus.Sequence) error { return nil })}
+	ticks, stop, err := dbusx.Ticks(t.Context(), conn, dbusx.FromOwner(tickedName), "test", func(func()) []dbusx.Route {
+		return []dbusx.Route{dbusx.On(tickedSignal, tickedPath, func(ticked, dbus.Sequence) error { return nil })}
 	})
 	if err != nil {
 		t.Fatal(err)

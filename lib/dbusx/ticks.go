@@ -1,12 +1,9 @@
-// Package bussignal is what lys-shell's D-Bus signal readers share
-// beyond dbusx's watches: a watch as a feed of ticks.
-package bussignal
+package dbusx
 
 import (
 	"context"
 	"log"
 
-	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -17,9 +14,9 @@ import (
 // returns once the watch has taken its match rules off conn, with what
 // Watch.Stop reports. A signal that does not decode is logged under
 // what.
-func Ticks(ctx context.Context, conn *dbus.Conn, from dbusx.Sender, what string, routes func(tick func()) []dbusx.Route) (ticks <-chan struct{}, stop func() error, err error) {
+func Ticks(ctx context.Context, conn *dbus.Conn, from Sender, what string, routes func(tick func()) []Route) (ticks <-chan struct{}, stop func() error, err error) {
 	feed := make(chan struct{}, 1)
-	watch, err := dbusx.WatchSignals(ctx, conn, from,
+	watch, err := WatchSignals(ctx, conn, from,
 		func(err error) { log.Printf("%s: %v", what, err) },
 		routes(func() {
 			select {

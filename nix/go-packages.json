@@ -563,6 +563,12 @@
       "lib/waittest"
     ]
   },
+  "lib/dbusx/dbusxtest": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ]
+  },
   "lib/debug": {
     "testImports": [
       "lib/testbuild"
@@ -2268,23 +2274,6 @@
     ]
   },
   "shell/internal/audiolevel": {},
-  "shell/internal/bussignal": {
-    "imports": [
-      "lib/dbusx",
-      "lib/third_party/godbus"
-    ],
-    "testImports": [
-      "lib/dbustest",
-      "lib/testhome",
-      "lib/waittest"
-    ]
-  },
-  "shell/internal/bussignal/bussignaltest": {
-    "imports": [
-      "lib/dbusx",
-      "lib/third_party/godbus"
-    ]
-  },
   "shell/internal/cli": {},
   "shell/internal/clock": {
     "imports": [
@@ -2533,6 +2522,7 @@
       "desktop/shell/treetest",
       "desktop/swaytest",
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/eis/eistest",
       "lib/logind/logindtest",
       "lib/logtest",
@@ -2542,7 +2532,6 @@
       "lib/wltest",
       "secrets/secretstest",
       "shell/internal/apptest",
-      "shell/internal/bussignal/bussignaltest",
       "shell/internal/gpuhost",
       "shell/internal/ipp",
       "shell/internal/ipp/ipptest",
@@ -2863,17 +2852,16 @@
       "lib/dbusx",
       "lib/logind",
       "lib/third_party/godbus",
-      "shell/internal/bussignal",
       "shell/service/network/openconnect",
       "shell/service/network/secrets"
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/logind/logindtest",
       "lib/testhome",
       "lib/third_party/godbus/prop",
       "lib/waittest",
-      "shell/internal/bussignal/bussignaltest",
       "shell/service/network/openconnect/openconnecttest"
     ]
   },
@@ -2946,10 +2934,10 @@
     "testImports": [
       "desktop/fakeclock",
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/logtest",
       "lib/testhome",
       "lib/waittest",
-      "shell/internal/bussignal/bussignaltest",
       "shell/internal/clock/clocktest"
     ]
   },
@@ -2957,8 +2945,7 @@
     "imports": [
       "lib/dbusx",
       "lib/intconv",
-      "lib/third_party/godbus",
-      "shell/internal/bussignal"
+      "lib/third_party/godbus"
     ],
     "testImports": [
       "lib/dbustest",
@@ -3148,9 +3135,9 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/testhome",
-      "lib/waittest",
-      "shell/internal/bussignal/bussignaltest"
+      "lib/waittest"
     ]
   },
   "shell/service/weather": {
@@ -3289,6 +3276,7 @@
       "desktop/styling/material",
       "desktop/swaytest",
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/logtest",
       "lib/pulse/native",
       "lib/pulse/pulsetest",
@@ -3300,7 +3288,6 @@
       "lib/waittest",
       "lib/wallclock/wallclocktest",
       "shell/internal/apptest",
-      "shell/internal/bussignal/bussignaltest",
       "shell/internal/clock/clocktest",
       "shell/internal/keytest",
       "shell/internal/notifytest",
