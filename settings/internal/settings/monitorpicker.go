@@ -1,28 +1,53 @@
 package settings
 
 import (
+	"cmp"
 	"image"
 	"math"
 	"slices"
+	"strings"
 
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const monitorRing = 3
 
 type monitorTile struct {
-	name string
-	rect displays.Rect
+	name  string
+	label string
+	rect  displays.Rect
+}
+
+var builtInConnectors = []string{"eDP", "LVDS", "DSI"}
+
+func headLabel(h displays.Head) string {
+	if slices.ContainsFunc(builtInConnectors, func(prefix string) bool { return strings.HasPrefix(h.Name, prefix) }) {
+		return locale.T().Get("settings-displays-built-in")
+	}
+	if model := strings.TrimSpace(h.Make + " " + h.Model); h.Model != "" {
+		return model
+	}
+	return cmp.Or(h.Description, h.Name)
+}
+
+func headLabels(heads []displays.Head) map[string]string {
+	out := make(map[string]string, len(heads))
+	for _, h := range heads {
+		out[h.Name] = headLabel(h)
+	}
+	return out
 }
 
 func monitorTiles(heads []displays.Head) []monitorTile {
 	var out []monitorTile
+	labels := headLabels(heads)
 	for _, s := range displays.Settings(heads) {
 		if s.Enabled {
-			out = append(out, monitorTile{name: s.Name, rect: displays.Logical(s)})
+			out = append(out, monitorTile{name: s.Name, label: labels[s.Name], rect: displays.Logical(s)})
 		}
 	}
 	return out
@@ -57,7 +82,7 @@ func (p *monitorPicker) setTiles(tiles []monitorTile) {
 	p.handles = p.handles[:0]
 	for _, t := range tiles {
 		h := &monitorHandle{Base: widget.NewBase(), p: p, name: t.name}
-		h.SetAccessibleName(t.name)
+		h.SetAccessibleName(t.label + " (" + t.name + ")")
 		p.handles = append(p.handles, h)
 	}
 	for _, h := range p.handles {
@@ -158,11 +183,11 @@ func (p *monitorPicker) Paint(cv *render.Canvas) {
 			cv.RoundedBorder(tile, corners, render.UniformInsets(focusRing), th.Text)
 		}
 		px := p.k.textPx()
-		w, h := int(math.Ceil(p.k.face.Shape(t.name, px).Advance())), int(math.Ceil(px*1.4))
+		w, h := int(math.Ceil(p.k.face.Shape(t.label, px).Advance())), int(math.Ceil(px*1.4))
 		pad := th.Padding / 2
 		pill := render.Rect{X: tile.X + (tile.W-w)/2 - pad, Y: tile.Y + tile.H - h - 2*pad, W: w + 2*pad, H: h}
 		cv.RoundedRect(pill, tileRadius, th.CardColor())
-		p.k.face.DrawAligned(cv, t.name, pill, p.k.textPx(), ink, render.AlignCenter)
+		p.k.face.DrawAligned(cv, t.label, pill, p.k.textPx(), ink, render.AlignCenter)
 	}
 }
 

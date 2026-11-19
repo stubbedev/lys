@@ -1147,3 +1147,4 @@ settings-overview-battery = { $charge } · { $state }
 settings-overview-bluetooth-off = Bluetooth desligado
 settings-overview-bluetooth-on = Bluetooth ligado
 settings-overview-bluetooth-connected = Bluetooth: { $name }
+settings-displays-built-in = Ecrã integrado

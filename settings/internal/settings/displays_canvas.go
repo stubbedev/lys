@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"cmp"
 	"math"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -26,6 +27,7 @@ type displaysCanvas struct {
 	rects   []displays.Rect
 	index   []int
 	handles []*outputHandle
+	labels  map[string]string
 	drag    int
 	grabX   float64
 	grabY   float64
@@ -50,8 +52,10 @@ func (c *displaysCanvas) layout() {
 		widget.SetParents(c, h)
 	}
 	c.handles = c.handles[:len(c.rects)]
+	c.labels = headLabels(c.p.heads)
 	for i, h := range c.handles {
-		h.SetAccessibleName(c.p.draft[c.index[i]].Name)
+		name := c.p.draft[c.index[i]].Name
+		h.SetAccessibleName(cmp.Or(c.labels[name], name) + " (" + name + ")")
 	}
 	c.InvalidateLayout()
 	c.Invalidate()
@@ -97,7 +101,8 @@ func (c *displaysCanvas) Paint(cv *render.Canvas) {
 		if widget.FocusVisible(c.handles[i]) {
 			cv.RoundedBorder(tile, render.UniformCorners(tileRadius), render.UniformInsets(focusRing), th.Text)
 		}
-		c.p.k.face.DrawAligned(cv, c.p.draft[c.index[i]].Name, tile, c.p.k.textPx(), ink, render.AlignCenter)
+		name := c.p.draft[c.index[i]].Name
+		c.p.k.face.DrawAligned(cv, cmp.Or(c.labels[name], name), tile, c.p.k.textPx(), ink, render.AlignCenter)
 	}
 }
 
