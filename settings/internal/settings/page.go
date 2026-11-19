@@ -214,7 +214,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	conditional := p.showSections
 	for _, s := range spec.sections {
 		rows := widget.NewItemGroup()
-		section := newSection(k, s.title, rows)
+		section, group := newSectionParts(k, s.title, rows)
 		first := len(p.targets)
 		for _, rs := range s.rows {
 			var rowBackend backend = notifyingBackend{be, conditional}
@@ -237,7 +237,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			p.sections = append(p.sections, sectionCondition{box: section, when: s.when, first: first, n: len(p.targets) - first})
 		}
 		if s.advanced {
-			p.advanced = append(p.advanced, advancedSection(k, section, first, len(p.targets)-first))
+			p.advanced = append(p.advanced, advancedSection(k, section, group, first, len(p.targets)-first))
 		}
 		content.Append(section, false)
 	}
@@ -260,22 +260,27 @@ func sectionStack() *widget.Box { return widget.NewBox(widget.Column, sectionGap
 // newSection is a page section: its title, its description when it has
 // one, and body on a card.
 func newSection(k *kit, title string, body widget.Widget) *widget.Box {
-	section := gapBox(widget.Column)
+	section, _ := newSectionParts(k, title, body)
+	return section
+}
+
+func newSectionParts(k *kit, title string, body widget.Widget) (section, group *widget.Box) {
+	section = gapBox(widget.Column)
 	section.AddClass("settings-section")
 	section.Append(k.label(locale.T().Get(title), "settings-section-title", css.CaptionHeading, css.DimLabel), false)
 	if desc := description(title); desc != "" {
 		section.Append(wrapped(k.label(desc, "settings-section-description", css.Caption, css.DimLabel)), false)
 	}
-	group := widget.NewBox(widget.Column, 0, 0)
+	group = widget.NewBox(widget.Column, 0, 0)
 	group.AddClass(css.Card, "settings-group")
 	group.Append(body, false)
 	section.Append(group, false)
-	return section
+	return section, group
 }
 
-func advancedSection(k *kit, section *widget.Box, first, n int) disclosure {
+func advancedSection(k *kit, section, group *widget.Box, first, n int) disclosure {
 	kids := section.Children()
-	d := disclosure{group: kids[len(kids)-1].(*widget.Box), label: k.label(""), first: first, n: n}
+	d := disclosure{group: group, label: k.label(""), first: first, n: n}
 	d.toggle = k.button(d.label, func() { d.open(!d.group.Visible()) }, css.Small, css.Flat)
 	d.toggle.AddClass("settings-advanced-toggle")
 	head := gapBox(widget.Row)
