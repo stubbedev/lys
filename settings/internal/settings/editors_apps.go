@@ -78,12 +78,12 @@ type appItem struct {
 
 func (a appItem) itemValue() any { return a.id }
 
-var pinnedApps rowOpt = func(r *rowSpec) {
+var appList rowOpt = func(r *rowSpec) {
 	r.fullWidth = true
-	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newPinnedAppsEditor(k, s) }
+	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newAppListEditor(k, s) }
 }
 
-func newPinnedAppsEditor(k *kit, s slot) *listEditor {
+func newAppListEditor(k *kit, s slot) *listEditor {
 	var apps installedApps
 	var c *listEditor
 	c = newListEditor(k, s, listSpec{

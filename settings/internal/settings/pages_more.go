@@ -88,11 +88,11 @@ func notificationsPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-filtering", rows: []rowSpec{
 			field("modules.notifications.icon-source"),
-			field("modules.notifications.blocklist", stringList),
+			field("modules.notifications.blocklist", appList),
 		}},
 		{title: "settings-section-animation", rows: surfaceAnimationRows("animations.notifications")},
 		{title: "settings-section-focus-automatic", rows: append(fields("modules.notifications.dnd.while-sharing", "modules.notifications.dnd.while-fullscreen"), field("modules.notifications.dnd.schedule", dndScheduleList))},
-		{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical"), field("modules.notifications.dnd.allow-apps", stringList)}},
+		{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical"), field("modules.notifications.dnd.allow-apps", appList)}},
 		{title: "settings-section-bell", rows: append([]rowSpec{
 			field("modules.notifications.icon-name", iconRow),
 			field("modules.notifications.icon-unread", iconRow),
@@ -309,7 +309,7 @@ func dockPage(*config.Config) pageSpec {
 			field("dock.edge", screenPosition),
 			field("dock.auto-hide"),
 			field("dock.auto-hide-delay-ms"),
-			field("dock.pinned", pinnedApps),
+			field("dock.pinned", appList),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
 			field("dock.icon-size", sizeBase(config.TaskIconBaseRem)),

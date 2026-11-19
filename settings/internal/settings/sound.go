@@ -37,7 +37,7 @@ func soundPage(*config.Config) pageSpec {
 			field("modules.notifications.sounds"),
 			field("modules.notifications.sound-volume", percentage),
 			field("modules.notifications.sound-default", soundNameRow),
-			field("modules.notifications.sound-mute-apps", stringList),
+			field("modules.notifications.sound-mute-apps", appList),
 		}}},
 	}
 }
