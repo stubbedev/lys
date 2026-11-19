@@ -57,37 +57,29 @@ var trayItemsRow = func(r *rowSpec) {
 	r.fullWidth = true
 	r.also = []string{trayOverridesPath}
 	r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-		c := &trayItemsList{Box: gapBox(widget.Column), k: k, blacklist: s, overrides: k.store.slot(trayOverridesPath), list: gapBox(widget.Column)}
-		c.status = k.label("", css.Caption, css.DimLabel)
-		head := gapBox(widget.Row)
-		head.AppendAligned(c.status, true, widget.AlignCenter)
-		head.AppendAligned(k.iconButton("ld-refresh-cw-symbolic", "settings-tray-items-reload", c.load, css.Ghost), false, widget.AlignCenter)
-		c.Append(head, false)
-		c.Append(c.list, false)
+		c := &trayItemsList{k: k, blacklist: s, overrides: k.store.slot(trayOverridesPath)}
+		c.liveList = newLiveList(k, "settings-tray-items-reading", "settings-tray-items-reload", func() { c.load() })
 		c.load()
 		return c
 	}
 }
 
 type trayItemsList struct {
-	*widget.Box
+	*liveList
 	k                    *kit
 	blacklist, overrides slot
-	status               *widget.Label
-	list                 *widget.Box
 	listing              *trayListing
 }
 
 func (c *trayItemsList) load() {
-	c.status.SetText(locale.T().Get("settings-tray-items-reading"))
-	c.status.SetVisible(true)
+	c.startReading()
 	async(c.k, runningTrayItems, c.show)
 }
 
 func (c *trayItemsList) show(l trayListing) {
 	slices.SortFunc(l.items, func(a, b trayItem) int { return cmp.Or(cmp.Compare(a.name(), b.name()), cmp.Compare(a.id, b.id)) })
 	c.listing = &l
-	c.status.SetVisible(false)
+	c.doneReading()
 	c.refresh()
 }
 

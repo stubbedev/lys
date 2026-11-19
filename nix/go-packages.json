@@ -2193,6 +2193,7 @@
       "settings/internal/locale",
       "settings/internal/wmconfig",
       "shell/service/sni",
+      "shell/service/sysinfo",
       "ui/app",
       "ui/highlight",
       "ui/widget",

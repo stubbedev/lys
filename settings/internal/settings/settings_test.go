@@ -1191,25 +1191,6 @@ func TestStringMapEditor(t *testing.T) {
 	}
 }
 
-func TestMountPointsText(t *testing.T) {
-	k := testKit(t, "")
-	path := "modules.storage.mount-point"
-	c := fieldControl(k, k.store, field(path, mountPoints)).(*text)
-	for typed, want := range map[string]any{"/home": "/home", " /, /home ,": []any{"/", "/home"}, "  ": "/"} {
-		c.SelectAll()
-		c.Insert(typed)
-		c.KeyAction(widget.KeyEnter, 0)
-		if got := k.store.value(path); !reflect.DeepEqual(got, want) {
-			t.Errorf("%q wrote %#v, want %#v", typed, got, want)
-		}
-	}
-	_ = k.store.set(path, []any{"/a", "/b"})
-	c.refresh()
-	if c.Text() != "/a, /b" {
-		t.Errorf("a list shows %q", c.Text())
-	}
-}
-
 func TestOptionalSize(t *testing.T) {
 	k := testKit(t, "")
 	path := "dropdowns.audio.width"

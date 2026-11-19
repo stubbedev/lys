@@ -5,8 +5,8 @@
 settings-modules-storage-poll-interval-ms = Intervallo di aggiornamento
     .description = Intervallo di aggiornamento in millisecondi
 
-settings-modules-storage-mount-point = Punti di montaggio
-    .description = Punti di montaggio da monitorare (ad es. "/" o ["/", "/mnt/drive1"])
+settings-modules-storage-mount-point = Dischi da mostrare
+    .description = I dischi montati di cui l'elemento somma lo spazio; ne resta sempre uno scelto
 
 settings-modules-storage-format = Formato di visualizzazione
     .description = Stringa di formato con i segnaposto: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}

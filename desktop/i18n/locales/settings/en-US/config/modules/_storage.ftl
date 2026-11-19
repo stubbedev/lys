@@ -5,8 +5,8 @@
 settings-modules-storage-poll-interval-ms = Poll Interval
     .description = Polling interval in milliseconds
 
-settings-modules-storage-mount-point = Mount Point(s)
-    .description = Mount point(s) to monitor (e.g., "/" or ["/", "/mnt/drive1"])
+settings-modules-storage-mount-point = Disks to Show
+    .description = The mounted disks whose space the item adds up; one stays chosen
 
 settings-modules-storage-format = Display Format
     .description = Format string with placeholders: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}

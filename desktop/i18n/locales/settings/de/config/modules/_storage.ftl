@@ -5,8 +5,8 @@
 settings-modules-storage-poll-interval-ms = Abfrageintervall
     .description = Abfrageintervall in Millisekunden
 
-settings-modules-storage-mount-point = Einhängepunkt(e)
-    .description = Zu überwachende Einhängepunkte (z. B. "/" oder ["/", "/mnt/drive1"])
+settings-modules-storage-mount-point = Angezeigte Datenträger
+    .description = Die eingehängten Datenträger, deren Speicher das Element zusammenzählt; einer bleibt gewählt
 
 settings-modules-storage-format = Anzeigeformat
     .description = Formatzeichenkette mit Platzhaltern: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}

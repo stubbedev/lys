@@ -6,7 +6,6 @@ import (
 	"math"
 	"slices"
 	"strconv"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -372,46 +371,6 @@ func countSlider(lo, hi float64) rowOpt {
 		return newSlider(k, s, lo, hi, true, decimals(0))
 	})
 }
-
-// mountPoints is text_like over a StorageMountPoint: one path, or
-// several shown comma-joined; the typed text splits at commas back
-// into one path ("/" when empty) or a list.
-var mountPoints = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newText(k, slot{
-		get: func() any {
-			switch v := s.get().(type) {
-			case string:
-				return v
-			case []any:
-				parts := make([]string, 0, len(v))
-				for _, p := range v {
-					if str, ok := p.(string); ok {
-						parts = append(parts, str)
-					}
-				}
-				return strings.Join(parts, ", ")
-			}
-			return ""
-		},
-		set: func(v any) error {
-			text, _ := v.(string)
-			var paths []any
-			for p := range strings.SplitSeq(text, ",") {
-				if p = strings.TrimSpace(p); p != "" {
-					paths = append(paths, p)
-				}
-			}
-			switch len(paths) {
-			case 0:
-				return s.set("/")
-			case 1:
-				return s.set(paths[0])
-			}
-			return s.set(paths)
-		},
-		unset: s.unset,
-	}, false)
-})
 
 // Segmented control limits: an enum of this many variants, their labels
 // this many characters together, reads at a glance as segments; a longer

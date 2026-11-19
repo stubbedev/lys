@@ -1,8 +1,8 @@
 settings-modules-storage-poll-interval-ms = Pollinginterval
     .description = Pollinginterval in milliseconden
 
-settings-modules-storage-mount-point = Koppelpunt(en)
-    .description = Te bewaken koppelpunt(en) (bijv. "/" of ["/", "/mnt/drive1"])
+settings-modules-storage-mount-point = Te tonen schijven
+    .description = De gekoppelde schijven waarvan het item de ruimte optelt; er blijft er altijd één gekozen
 
 settings-modules-storage-format = Weergaveformaat
     .description = Formaattekenreeks met plaatshouders: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}

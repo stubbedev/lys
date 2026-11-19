@@ -486,7 +486,7 @@ func storagePage(*config.Config) pageSpec {
 	return pageSpec{id: "storage", navKey: "settings-nav-storage", icon: "ld-hard-drive-symbolic", header: "settings-page-storage", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.storage.poll-interval-ms", durationChips(inMilliseconds, after(10*time.Second), after(30*time.Second), after(time.Minute), after(5*time.Minute))),
-			field("modules.storage.mount-point", mountPoints),
+			field(storageMountPath, mountPoints),
 			field("modules.storage.format"),
 			field("modules.storage.icon-name", iconRow),
 			field("modules.storage.thresholds", thresholdList),
