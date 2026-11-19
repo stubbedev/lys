@@ -1684,7 +1684,9 @@ func TestMailAccountCards(t *testing.T) {
 	}
 	provider := c.cards[0].controls[1].(*enumSelect)
 	provider.SetSelected(slices.Index(provider.variants, "fastmail"))
-	c.cards[0].controls[0].(*liveText).Insert("tag:inbox")
+	q := c.cards[0].controls[0].(*mailQueryEditor)
+	q.terms = append(q.terms, queryTerm{field: "tag", value: "inbox"})
+	q.write()
 	got, _ = k.store.value(path).([]any)
 	if m := got[0].(map[string]any); m["provider"] != "fastmail" || m["query"] != "tag:inbox" {
 		t.Errorf("edited account %v", m)

@@ -46,6 +46,8 @@ func hostLists(h host) map[string]lister {
 		typeTerminal:        h.terminals,
 		listSoundNames:      h.soundNames,
 		listTimeZones:       h.timeZones,
+		listMailTags:        mailTags,
+		listMailFolders:     mailFolders,
 		"NetInterface":      h.interfaces,
 		"TempSensor":        h.sensors,
 		"AudioSource":       audioSources,

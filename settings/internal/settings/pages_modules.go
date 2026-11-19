@@ -605,7 +605,7 @@ func mailPage(*config.Config) pageSpec {
 	return pageSpec{id: "mail", navKey: "settings-nav-mail", icon: "ld-mail-symbolic", header: "settings-page-mail", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field(m + ".format"),
-			field(m + ".query"),
+			field(m+".query", mailQueryRow),
 			field(m+".icon-name", iconRow),
 			field(m + ".hide-when-zero"),
 			field(m + ".notify"),

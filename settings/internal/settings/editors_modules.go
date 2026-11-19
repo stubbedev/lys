@@ -102,8 +102,8 @@ var mailAccountList = cardRow(cardSpec{
 		return newLiveText(k, s, "name")
 	}},
 	fields: []cardField{
-		{key: "query", label: "settings-mail-account-query", editor: func(k *kit, s slot) control {
-			return newLiveText(k, s, "tag:unread and folder:…")
+		{key: "query", label: "settings-mail-account-query", fill: true, editor: func(k *kit, s slot) control {
+			return newMailQueryEditor(k, s, false)
 		}},
 		{key: "provider", label: "settings-mail-account-provider", editor: func(k *kit, s slot) control {
 			return newEnumSelect(k, s, config.MetaOf[config.MailProvider]())
