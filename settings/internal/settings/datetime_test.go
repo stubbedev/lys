@@ -257,6 +257,9 @@ func TestTheFormatsWriteLocaleConfAndChangeThePreview(t *testing.T) {
 	config := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", config)
 	put(t, filepath.Join(config, "locale.conf"), "# mine\nLC_NUMERIC=en_US.UTF-8\n")
+	h := useHostRoot(t)
+	put(t, h.path("usr/share/kbd/keymaps/i386/qwerty/dk.map.gz"), "")
+	put(t, h.path("usr/share/kbd/keymaps/i386/qwerty/us.map.gz"), "")
 	k, l := systemKit(t, bus)
 	footer := regionFooter(k).(*closingBox)
 	t.Cleanup(footer.close)
@@ -292,9 +295,11 @@ func TestTheFormatsWriteLocaleConfAndChangeThePreview(t *testing.T) {
 	if calls, _ := lc.snapshot(); calls[0].method != "SetLocale" || fmt.Sprint(calls[0].args) != "[[LANG=en_GB.utf8] true]" {
 		t.Fatalf("%+v", calls)
 	}
-	keymap := treetest.First[*widget.Entry](t, footer)
-	keymap.SetText("dk")
-	keymap.OnActivate("dk")
+	keymap := treetest.First[*choiceEditor](t, footer)
+	if keymap.entry.Text() != "us" || !slices.Equal(values(keymap.spec.list()), []string{"dk", "us"}) {
+		t.Fatalf("the keymap shows %q of %q", keymap.entry.Text(), values(keymap.spec.list()))
+	}
+	keymap.pick("dk")
 	l.until("SetVConsoleKeyboard", func() bool { c, _ := lc.snapshot(); return len(c) == 2 })
 	if calls, _ := lc.snapshot(); calls[1].method != "SetVConsoleKeyboard" || fmt.Sprint(calls[1].args) != "[dk  false true]" {
 		t.Fatalf("%+v", calls)
@@ -525,4 +530,12 @@ func TestTheWeekStartLivesOnDateAndTimeBesideAWorldClockLink(t *testing.T) {
 	if labels := treetest.Labels(linksSection(k, "settings-section-date-related", dateTimeLinks)); len(labels) != 0 {
 		t.Errorf("without a World Clock page the links read %q", labels)
 	}
+}
+
+func useHostRoot(t *testing.T) host {
+	t.Helper()
+	before := systemHost
+	systemHost = host{root: t.TempDir(), env: before.env}
+	t.Cleanup(func() { systemHost = before })
+	return systemHost
 }

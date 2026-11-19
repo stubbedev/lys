@@ -210,3 +210,20 @@ func TestTheListingsReadNoDirectoryRelativeToTheWorkingDirectory(t *testing.T) {
 		t.Errorf("sounds %q, want the system data directory's alone", got)
 	}
 }
+
+func TestTheConsoleKeymapsAreTheKbdMapsByName(t *testing.T) {
+	h := fakeHost(t, nil)
+	put(t, h.path("usr/share/kbd/keymaps/i386/qwerty/us.map.gz"), "")
+	put(t, h.path("usr/share/kbd/keymaps/i386/qwertz/de-latin1.map.gz"), "")
+	put(t, h.path("usr/share/kbd/keymaps/i386/include/linux-keys-bare.inc"), "")
+	put(t, h.path("usr/share/kbd/keymaps/i386/include/euro.map"), "")
+	put(t, h.path("usr/share/kbd/keymaps/i386/qwerty/README"), "")
+	put(t, h.path("usr/share/keymaps/i386/qwerty/us.map"), "")
+	got := h.consoleKeymaps()
+	if !slices.Equal(values(got), []string{"us", "de-latin1"}) || got[0].group != "qwerty" || got[1].group != "qwertz" {
+		t.Fatalf("keymaps %+v", got)
+	}
+	if got := fakeHost(t, nil).consoleKeymaps(); len(got) != 0 {
+		t.Fatalf("a host without kbd lists %+v", got)
+	}
+}

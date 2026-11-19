@@ -664,8 +664,12 @@ func regionFooter(k *kit) widget.Widget {
 		return ""
 	}
 	formats, showPreview := regionFormats(k, lang)
-	p.open(func(context.Context, sysService) (any, error) { return listLocales() }, func(extra any) {
-		names, _ := extra.([]string)
+	p.open(func(context.Context, sysService) (any, error) {
+		names, err := listLocales()
+		return regionLists{names: names, keymaps: systemHost.consoleKeymaps()}, err
+	}, func(extra any) {
+		lists, _ := extra.(regionLists)
+		names, keymaps := lists.names, lists.keymaps
 		language := widget.NewDropdown(k.face, k.textPx(), names, max(localeIndex(names, lang()), 0))
 		language.SetAccessibleName(t.Get("settings-region-language"))
 		syncing := false
@@ -674,11 +678,15 @@ func regionFooter(k *kit) widget.Widget {
 				p.do("SetLocale", []string{"LANG=" + names[i]}, interactive)
 			}
 		}
-		keymap := k.entry()
-		keymap.SetPlaceholder("us")
-		keymap.OnActivate = func(text string) {
-			p.do("SetVConsoleKeyboard", strings.TrimSpace(text), "", false, interactive)
-		}
+		keymap := newChoiceEditor(k, slot{
+			get: func() any { return p.props.str("VConsoleKeymap") },
+			set: func(v any) error {
+				s, _ := v.(string)
+				p.do("SetVConsoleKeyboard", s, "", false, interactive)
+				return nil
+			},
+			unset: func() {},
+		}, choiceSpec{list: fixedChoices(keymaps), known: func(current string, items []choice) bool { return hasValue(items, current) }})
 		layout := k.label("", "setting-description", css.Caption, css.DimLabel)
 		copyLayout := k.button(k.label(t.Get("settings-region-copy-layout")), func() {
 			kb := wmKeyboard(k)
@@ -695,9 +703,7 @@ func regionFooter(k *kit) widget.Widget {
 			if i := localeIndex(names, lang()); i >= 0 && language.Selected() != i {
 				language.SetSelected(i)
 			}
-			if keymap.Text() != p.props.str("VConsoleKeymap") {
-				keymap.SetText(p.props.str("VConsoleKeymap"))
-			}
+			keymap.refresh()
 			layout.SetText(strings.Join(slices.DeleteFunc([]string{p.props.str("X11Layout"), p.props.str("X11Variant"), p.props.str("X11Options")}, func(s string) bool { return s == "" }), " · "))
 			showPreview()
 		}
@@ -709,6 +715,11 @@ func regionFooter(k *kit) widget.Widget {
 	content.Append(newSection(k, "settings-section-region-formats", formats), false)
 	content.Append(newSection(k, "settings-section-region-system", p), false)
 	return &closingBox{content, p.close}
+}
+
+type regionLists struct {
+	names   []string
+	keymaps []choice
 }
 
 type localesListing struct {

@@ -245,6 +245,48 @@ func (h host) fontFiles() []choice {
 	return sortedChoices(out)
 }
 
+var keymapDirs = [][]string{
+	{"usr", "share", "keymaps"},
+	{"usr", "share", "kbd", "keymaps"},
+	{"usr", "lib", "kbd", "keymaps"},
+	{"run", "current-system", "sw", "share", "keymaps"},
+}
+
+var keymapExtensions = []string{".map", ".map.gz", ".map.bz2", ".map.xz", ".map.zst"}
+
+func keymapName(file string) (string, bool) {
+	for _, ext := range keymapExtensions {
+		if name, ok := strings.CutSuffix(file, ext); ok {
+			return name, true
+		}
+	}
+	return "", false
+}
+
+func (h host) consoleKeymaps() []choice {
+	var out []choice
+	seen := map[string]bool{}
+	for _, parts := range keymapDirs {
+		root := h.path(parts...)
+		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if d.IsDir() && d.Name() == "include" {
+				return filepath.SkipDir
+			}
+			name, ok := keymapName(d.Name())
+			if d.IsDir() || !ok || seen[name] {
+				return nil
+			}
+			seen[name] = true
+			out = append(out, choice{value: name, label: name, group: filepath.Base(filepath.Dir(path))})
+			return nil
+		})
+	}
+	return sortedChoices(out)
+}
+
 type xkbLists struct {
 	layouts, variants, options, models, rules []choice
 }
