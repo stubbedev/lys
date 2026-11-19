@@ -26,6 +26,11 @@ func privacyPage(*config.Config) pageSpec {
 		header: "settings-page-privacy",
 		sections: []sectionSpec{
 			{title: "settings-section-screen-share", rows: fields("portal.screen-cast.reminder-days")},
+			{title: "settings-section-lockdown", rows: fields("portal.lockdown.disable-camera", "portal.lockdown.disable-microphone",
+				"portal.lockdown.disable-location", "portal.lockdown.disable-sound-output", "portal.lockdown.disable-printing",
+				"portal.lockdown.disable-save-to-disk", "portal.lockdown.disable-application-handlers")},
+			{title: "settings-section-app-launchers", rows: []rowSpec{field("portal.dynamic-launcher.install-token-apps", stringList)}},
+			{title: "settings-section-clipboard", rows: fields("clipboard.persist", "clipboard.history-mib", "clipboard.pinned-mib")},
 		},
 		footer: grantsFooter,
 	}

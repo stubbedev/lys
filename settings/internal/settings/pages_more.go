@@ -10,6 +10,8 @@ func barGeneralPage(*config.Config) pageSpec {
 			field("bar.exclusive"),
 			field("bar.layer"),
 			field("bar.scale"),
+			field("bar.auto-hide"),
+			field("bar.auto-hide-delay-ms"),
 			field("bar.layout", layoutRow),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
@@ -100,7 +102,7 @@ func dropdownsPage(*config.Config) pageSpec {
 	var sections []sectionSpec
 	for _, d := range []string{
 		"audio", "battery", "bitwarden", "bluetooth", "brightness", "calendar", "dashboard", "media",
-		"network", "notification", "treeman", "weather",
+		"mail", "network", "notification", "treeman", "weather",
 	} {
 		path := "dropdowns." + d
 		title, ok := config.I18nKey(path)
@@ -133,6 +135,7 @@ func osdPage(*config.Config) pageSpec {
 			field("osd.monitor"),
 			field("osd.margin", sizeBase(config.OsdMarginBaseRem)),
 			field("osd.border"),
+			field("osd.media"),
 		}},
 		{title: "settings-section-presets", rows: []rowSpec{
 			field("osd.presets", toastPresetList),
@@ -168,6 +171,10 @@ func launcherPage(*config.Config) pageSpec {
 		{title: "settings-section-launcher-appearance", rows: []rowSpec{
 			field("launcher.show-icons"),
 			field("launcher.icon-theme"),
+			field("launcher.font", fontRow),
+			field("launcher.styles", stringMap),
+			field("launcher.preview-cmd"),
+			field("launcher.emoji.skin-tone"),
 			field("launcher.terminal", terminalRow),
 			field("launcher.display-names", stringMap),
 		}},
@@ -177,6 +184,7 @@ func launcherPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-launcher-keybindings", rows: []rowSpec{
 			field("launcher.keybindings", stringMap),
+			field("launcher.mouse-bindings", stringMap),
 		}},
 		{title: "settings-section-animation", rows: surfaceAnimationRows("animations.launcher")},
 	}}
@@ -245,6 +253,7 @@ func themePage(*config.Config) pageSpec {
 		{title: "settings-section-provider", rows: []rowSpec{
 			field("styling.appearance"),
 			field("styling.high-contrast"),
+			field("styling.reduce-transparency"),
 			field("styling.theme-provider"),
 			field("styling.theming-monitor"),
 		}},
@@ -289,7 +298,7 @@ func themePage(*config.Config) pageSpec {
 // the change animation.
 func wallpaperPage(*config.Config) pageSpec {
 	return pageSpec{id: "wallpaper", navKey: "settings-nav-wallpaper", icon: "ld-image-symbolic", header: "settings-page-wallpaper", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode")}},
+		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode"), field("wallpaper.picker-directories", stringList)}},
 		{title: "settings-section-cycling", rows: []rowSpec{
 			field("wallpaper.cycling-directory"),
 			cyclingReveal("wallpaper.cycling-directory",

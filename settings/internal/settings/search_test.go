@@ -3,6 +3,7 @@ package settings
 import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -166,6 +167,81 @@ func TestEveryLauncherSearchKeyHasALabelledRow(t *testing.T) {
 	for _, key := range []string{"providers", "web-engine", "web-url", "file-roots", "file-exclude", "commands-dir", "currency-rates", "previews", "quicklinks", "snippets"} {
 		if !labelled["launcher.search."+key] {
 			t.Errorf("launcher.search.%s has no labelled row", key)
+		}
+	}
+}
+
+var unlistedShellKeys = map[string]string{
+	"imports": "which files the config is assembled from, edited in the file itself",
+}
+
+func shellRowPaths() map[string]bool {
+	rows := map[string]bool{}
+	for _, s := range layout(config.Defaults()) {
+		for _, p := range s.pages {
+			for _, sec := range p.sections {
+				for _, r := range sec.flatRows() {
+					if !p.wm && !r.wm {
+						rows[r.path] = true
+					}
+				}
+			}
+		}
+	}
+	return rows
+}
+
+func rowCovers(rows map[string]bool, leaf string) bool {
+	for at := leaf; ; at = at[:strings.LastIndex(at, ".")] {
+		if rows[at] {
+			return true
+		}
+		if !strings.Contains(at, ".") {
+			break
+		}
+	}
+	for r := range rows {
+		if strings.HasPrefix(r, leaf+".") {
+			return true
+		}
+	}
+	return false
+}
+
+func TestEveryShellConfigKeyHasARow(t *testing.T) {
+	rows := shellRowPaths()
+	leaves := config.LeafPaths()
+	if len(leaves) < 500 {
+		t.Fatalf("only %d config leaves; the walk missed the schema", len(leaves))
+	}
+	for _, leaf := range leaves {
+		_, unlisted := unlistedShellKeys[leaf]
+		switch covered := rowCovers(rows, leaf); {
+		case !covered && !unlisted:
+			t.Errorf("%s has no row on any page", leaf)
+		case covered && unlisted:
+			t.Errorf("%s has a row but is listed as having none", leaf)
+		}
+	}
+	for key := range unlistedShellKeys {
+		if !slices.Contains(leaves, key) {
+			t.Errorf("%s is listed as having no row but is no config key", key)
+		}
+	}
+}
+
+func TestARowCoversItsKeyItsParentAndItsChildren(t *testing.T) {
+	rows := map[string]bool{"dock.pinned": true, "dropdowns.audio.width": true}
+	for leaf, want := range map[string]bool{
+		"dock.pinned":     true,
+		"dock.pinned.x":   true,
+		"dropdowns.audio": true,
+		"dock.enabled":    false,
+		"dropdowns.media": false,
+		"dock.pin":        false,
+	} {
+		if got := rowCovers(rows, leaf); got != want {
+			t.Errorf("rowCovers(%s) = %v, want %v", leaf, got, want)
 		}
 	}
 }

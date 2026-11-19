@@ -87,6 +87,14 @@ var trayOverrideList = listRow(func(config.FieldMeta) listSpec {
 	}
 })
 
+var calendarList = cardRow(cardSpec{
+	identity: &cardField{key: "path", label: "settings-calendar-path", editor: func(k *kit, s slot) control { return newFolderEditor(k, s) }},
+	fields:   []cardField{{key: "color", label: "settings-calendar-color", editor: optionalColor}},
+	blank:    func() map[string]any { return map[string]any{"path": ""} },
+	keep:     func(item map[string]any) bool { path, _ := item["path"].(string); return path != "" },
+	listCls:  "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
+})
+
 // mailAccountList edits the mail accounts: a card per account, its name in the header; a nameless account is not written,
 // an empty icon is unset (the provider's default).
 var mailAccountList = cardRow(cardSpec{

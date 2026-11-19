@@ -6,3 +6,6 @@ enum-color-format-hsl = HSL
 enum-color-format-hsv = HSV
 enum-color-format-oklch = OKLCH
 enum-color-format-cmyk = CMYK
+
+settings-colorpicker-format = Color Format
+    .description = The format a picked color is copied in; Tab in the picker cycles through the formats

@@ -4,3 +4,6 @@ enum-color-format-hsl = HSL
 enum-color-format-hsv = HSV
 enum-color-format-oklch = OKLCH
 enum-color-format-cmyk = CMYK
+
+settings-colorpicker-format = Kleurformaat
+    .description = Het formaat waarin een gekozen kleur wordt gekopieerd; Tab in de kleurkiezer wisselt van formaat

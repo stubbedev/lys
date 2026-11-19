@@ -1369,6 +1369,12 @@ Controllable from the CLI: `lys-shell recorder replay start|stop|save`.
 | `seconds` | Seconds a save writes, plus at most one 2 s keyframe interval. |
 | `output` | Output captured: `focused` (when armed) or a name such as `DP-1`. |
 
+## ReplayOutput {#replay-output}
+
+An output connector name (`DP-1`), or `focused` for the output holding the focused window.
+
+String.
+
 ## ReplaySeconds {#replay-seconds}
 
 Seconds of instant replay, clamped to 5-600.

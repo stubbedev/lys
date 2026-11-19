@@ -808,3 +808,26 @@ settings-greeter-apply-invalid = The login screen refused these settings: { $rea
 settings-greeter-apply-unauthorized = Not authorized to change the login screen: { $reason }
 settings-greeter-apply-dismissed = Authentication was dismissed: the login screen is unchanged
 settings-greeter-apply-failed = Apply failed: { $reason }
+
+settings-section-lockdown = Lockdown
+    .description = Refuse what every app may ask for, whatever its own permissions
+
+settings-section-app-launchers = App Launchers
+    .description = Which apps may add launchers to the app list
+
+settings-section-clipboard = Clipboard
+    .description = How much clipboard history is kept, and whether it survives a restart
+
+settings-section-colorpicker = Color Picker
+    .description = How a picked color is written
+
+settings-section-instant-replay = Instant Replay
+    .description = Keep the last seconds of the screen ready to save
+
+settings-section-calendars = Calendars
+    .description = Calendars whose events the clock's agenda shows
+settings-calendar-path = Folder
+settings-calendar-color = Color
+settings-nav-background-apps = Background Apps
+settings-page-background-apps = Background Apps
+    .breadcrumb = Modules

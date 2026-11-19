@@ -79,7 +79,7 @@ type LauncherConfig struct {
 	// `{input}` the icon's path, `{output}` where to write the thumbnail,
 	// `{size}` the requested pixel size. Empty uses the system's XDG
 	// thumbnailers. rofi's `-preview-cmd`.
-	PreviewCmd string `cfg:"preview-cmd"`
+	PreviewCmd string `cfg:"preview-cmd,type=Command"`
 	// Launch history / frecency.
 	History LauncherHistoryConfig `cfg:"history"`
 	// drun (application) mode.

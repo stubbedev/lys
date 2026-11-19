@@ -274,3 +274,28 @@ func valueFieldAt(t reflect.Type, segs []string) (fieldInfo, bool) {
 	}
 	return f, true
 }
+
+// LeafPaths is the dot path of every leaf field of the config, in
+// schema order: what a settings row can edit.
+func LeafPaths() []string {
+	var out []string
+	var walk func(t reflect.Type, prefix string)
+	walk = func(t reflect.Type, prefix string) {
+		for t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		for _, f := range fieldsOf(t) {
+			path := f.key
+			if prefix != "" {
+				path = prefix + "." + f.key
+			}
+			if isContainer(f.typ) {
+				walk(f.typ, path)
+				continue
+			}
+			out = append(out, path)
+		}
+	}
+	walk(typeOf[Config](), "")
+	return out
+}

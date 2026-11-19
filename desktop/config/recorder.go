@@ -169,7 +169,7 @@ type RecorderReplayConfig struct {
 	// Seconds a save writes, plus at most one 2 s keyframe interval.
 	Seconds ReplaySeconds `cfg:"seconds"`
 	// Output captured: `focused` (when armed) or a name such as `DP-1`.
-	Output string `cfg:"output"`
+	Output string `cfg:"output,type=ReplayOutput"`
 }
 
 // DefaultsRecorderReplay returns the schema defaults.

@@ -37,6 +37,7 @@ func hostLists(h host) map[string]lister {
 		"Monitor":           h.outputs,
 		"OsdMonitor":        h.outputs,
 		"PopupMonitor":      h.outputs,
+		"ReplayOutput":      h.outputs,
 		"IconTheme":         h.iconThemes,
 		"lys-wm-icon-theme": h.iconThemes,
 		"CursorTheme":       h.cursorThemes,

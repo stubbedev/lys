@@ -4245,7 +4245,7 @@
           "description": "Strip accents/normalize Unicode while matching."
         },
         "preview-cmd": {
-          "$ref": "#/$defs/string",
+          "$ref": "#/$defs/Command",
           "default": "",
           "description": "Command that turns a `thumbnail://` row icon into an image file:\n`{input}` the icon's path, `{output}` where to write the thumbnail,\n`{size}` the requested pixel size. Empty uses the system's XDG\nthumbnailers. rofi's `-preview-cmd`."
         },
@@ -9324,7 +9324,7 @@
           "description": "Arm the instant replay at start and whenever this is switched on."
         },
         "output": {
-          "$ref": "#/$defs/string",
+          "$ref": "#/$defs/ReplayOutput",
           "default": "focused",
           "description": "Output captured: `focused` (when armed) or a name such as `DP-1`."
         },
@@ -9335,6 +9335,13 @@
         }
       },
       "type": "object"
+    },
+    "ReplayOutput": {
+      "description": "An output connector name (`DP-1`), or `focused` for the output holding the focused window.",
+      "type": "string",
+      "x-variants": [
+        "focused"
+      ]
     },
     "ReplaySeconds": {
       "description": "Seconds of instant replay, clamped to 5-600.",

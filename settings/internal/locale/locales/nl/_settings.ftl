@@ -798,3 +798,26 @@ settings-greeter-apply-invalid = Het aanmeldscherm weigerde deze instellingen: {
 settings-greeter-apply-unauthorized = Niet gemachtigd om het aanmeldscherm te wijzigen: { $reason }
 settings-greeter-apply-dismissed = Authenticatie is afgebroken: het aanmeldscherm is ongewijzigd
 settings-greeter-apply-failed = Toepassen mislukt: { $reason }
+
+settings-section-lockdown = Vergrendeling
+    .description = Weigeren wat elke app mag vragen, ongeacht haar eigen rechten
+
+settings-section-app-launchers = App-starters
+    .description = Welke apps starters aan de app-lijst mogen toevoegen
+
+settings-section-clipboard = Klembord
+    .description = Hoeveel klembordgeschiedenis wordt bewaard en of die een herstart overleeft
+
+settings-section-colorpicker = Kleurkiezer
+    .description = Hoe een gekozen kleur wordt geschreven
+
+settings-section-instant-replay = Direct terugkijken
+    .description = De laatste seconden van het scherm klaarhouden om op te slaan
+
+settings-section-calendars = Agenda's
+    .description = Agenda's waarvan de klok de afspraken toont
+settings-calendar-path = Map
+settings-calendar-color = Kleur
+settings-nav-background-apps = Achtergrond-apps
+settings-page-background-apps = Achtergrond-apps
+    .breadcrumb = Modules

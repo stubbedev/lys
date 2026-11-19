@@ -24,6 +24,7 @@ func generalPage(*config.Config) pageSpec {
 			{title: "settings-section-fonts", rows: []rowSpec{field("general.font-sans", fontRow), field("general.font-mono", monoFontRow)}},
 			{title: "settings-section-scale-rounding", rows: fields("styling.scale", "styling.rounding")},
 			{title: "settings-section-display", rows: fields("general.tearing-mode")},
+			{title: "settings-section-colorpicker", rows: fields("colorpicker.format")},
 		},
 	}
 }
@@ -34,7 +35,8 @@ func lockPage(*config.Config) pageSpec {
 		id: "lock", navKey: "settings-nav-lock-page", icon: "ld-lock-symbolic",
 		header: "settings-page-lock",
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("login.lock.enabled", "login.lock.lock-on-start")},
+			{title: "settings-section-general", rows: fields("login.lock.enabled", "login.lock.lock-on-start", "login.lock.fingerprint",
+				"login.lock.show-media", "login.lock.show-battery", "login.lock.show-switch-user")},
 			{title: "settings-section-background", rows: []rowSpec{
 				field("login.background-mode"), field("login.background-image", filePath),
 				field("login.background-color"), field("login.blur"),
@@ -53,7 +55,7 @@ func greeterPage(*config.Config) pageSpec {
 		id: "greeter", navKey: "settings-nav-greeter-page", icon: "ld-monitor-symbolic",
 		header: "settings-page-greeter",
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint")},
+			{title: "settings-section-general", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint", "login.greeter.screen-reader")},
 			{title: "settings-section-cursor", rows: fields("login.greeter.cursor-theme", "login.greeter.cursor-size")},
 		},
 		footer: greeterApplyFooter,

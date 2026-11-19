@@ -135,8 +135,8 @@ func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 		t.Fatalf("the page list lacks %q", settingspage.PrivacyID)
 	}
 	spec, _ := pageByID(layout(k.store.svc.Config()), settingspage.PrivacyID)
-	if len(spec.sections) != 1 || spec.sections[0].rows[0].path != "portal.screen-cast.reminder-days" {
-		t.Errorf("the page's rows = %+v, want the reminder", spec.sections)
+	if len(spec.sections) == 0 || spec.sections[0].rows[0].path != "portal.screen-cast.reminder-days" {
+		t.Errorf("the page's first row is not the reminder: %+v", spec.sections)
 	}
 	f := &fakeGrants{apps: twoApps()}
 	serveGrants(t, f)

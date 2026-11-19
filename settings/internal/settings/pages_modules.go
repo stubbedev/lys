@@ -7,6 +7,7 @@ import "github.com/stubbedev/lys/desktop/config"
 func modulePages(cfg *config.Config) []pageSpec {
 	return []pageSpec{
 		audioPage(cfg),
+		backgroundAppsPage(cfg),
 		batteryPage(cfg),
 		bitwardenPage(cfg),
 		bluetoothPage(cfg),
@@ -44,6 +45,16 @@ func modulePages(cfg *config.Config) []pageSpec {
 		windowTitlePage(cfg),
 		worldClockPage(cfg),
 	}
+}
+
+func backgroundAppsPage(*config.Config) pageSpec {
+	const m = "modules.background-apps"
+	return pageSpec{id: "background-apps", navKey: "settings-nav-background-apps", icon: "ld-app-window-symbolic", header: "settings-page-background-apps", sections: []sectionSpec{
+		{title: "settings-section-general", rows: []rowSpec{field(m+".icon", iconRow)}},
+		barDisplaySection(m),
+		colorsSection(m),
+		actionsSection(m, actionChoices("background-apps")),
+	}}
 }
 
 // audioPage is pages/modules/audio.
@@ -85,6 +96,8 @@ func batteryPage(*config.Config) pageSpec {
 			field("modules.battery.format"),
 			field("modules.battery.level-icons", iconList),
 			field("modules.battery.thresholds", thresholdList),
+			field("modules.battery.notify-low"),
+			field("modules.battery.notify-charged-at"),
 		}},
 		barDisplaySection("modules.battery"),
 		colorsSection("modules.battery"),
@@ -105,6 +118,8 @@ func bitwardenPage(*config.Config) pageSpec {
 			field(m + ".format"),
 			field(m+".icon-locked", iconRow),
 			field(m+".icon-unlocked", iconRow),
+			field(m + ".network-folder"),
+			field(m + ".portal-folder"),
 		}},
 		{title: "settings-section-generator", rows: []rowSpec{
 			field(m+".generator-passwords", passwordPresetList),
@@ -196,6 +211,7 @@ func clockPage(*config.Config) pageSpec {
 			field("modules.clock.dropdown-show-seconds"),
 			field("modules.clock.calendar-weekday-start"),
 		}},
+		{title: "settings-section-calendars", rows: []rowSpec{field("modules.clock.calendars", calendarList)}},
 		barDisplaySection("modules.clock"),
 		colorsSection("modules.clock"),
 		actionsSection("modules.clock", actionChoices("clock")),
@@ -329,6 +345,7 @@ func mediaPage(*config.Config) pageSpec {
 			field("modules.media.player-icons", stringMap),
 			field("modules.media.players-ignored", stringList),
 			field("modules.media.player-priority", stringList),
+			field("modules.media.lyrics"),
 		}},
 		barDisplaySection("modules.media"),
 		colorsSection("modules.media"),
@@ -363,6 +380,10 @@ func networkPage(*config.Config) pageSpec {
 			field("modules.network.wired-acquiring-icon", iconRow),
 			field("modules.network.wired-disconnected-icon", iconRow),
 			field("modules.network.wifi-signal-icons", iconList),
+			field("modules.network.vpn-show"),
+			field("modules.network.vpn-connected-icon", iconRow),
+			field("modules.network.vpn-connecting-icon", iconRow),
+			field("modules.network.vpn-disconnected-icon", iconRow),
 		}},
 		barDisplaySection("modules.network"),
 		colorsSection("modules.network"),
@@ -390,6 +411,7 @@ func powerProfilesPage(*config.Config) pageSpec {
 	return pageSpec{id: "power-profiles", navKey: "settings-nav-power-profiles", icon: "ld-scale-symbolic", header: "settings-page-power-profiles", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.power-profiles.format"),
+			field("modules.power-profiles.auto-saver-at"),
 		}},
 		{title: "settings-section-power-profiles-profiles", rows: []rowSpec{
 			field("modules.power-profiles.icon-power-saver", iconRow),
@@ -465,6 +487,9 @@ func screenshotPage(*config.Config) pageSpec {
 			field("modules.screenshot.label"),
 			field("modules.screenshot.copy-to-clipboard"),
 			field("modules.screenshot.notify"),
+			field("modules.screenshot.thumbnail-ms"),
+			field("modules.screenshot.thumbnail-position"),
+			field("modules.screenshot.ocr-languages", stringList),
 		}},
 		{title: "settings-section-icons", rows: []rowSpec{
 			field("modules.screenshot.icon", iconRow),
@@ -596,10 +621,16 @@ func recorderPage(*config.Config) pageSpec {
 			field(m+".webcam-y", percentage),
 			field(m+".webcam-size", percentage),
 		}},
+		{title: "settings-section-instant-replay", rows: []rowSpec{
+			field(m + ".replay.enable"),
+			field(m + ".replay.seconds"),
+			field(m + ".replay.output"),
+		}},
 		{title: "settings-section-icons", rows: []rowSpec{
 			field(m+".icon-idle", iconRow),
 			field(m+".icon-recording", iconRow),
 			field(m+".icon-paused", iconRow),
+			field(m+".icon-replay", iconRow),
 		}},
 		barDisplaySection(m),
 		colorsSection(m),
@@ -619,6 +650,7 @@ func mailPage(*config.Config) pageSpec {
 			field(m + ".notify"),
 			field(m + ".notify-summary"),
 			field(m + ".notify-body"),
+			field(m + ".notify-click"),
 		}},
 		{title: "settings-section-mail-accounts", rows: []rowSpec{field(m+".accounts", mailAccountList)}},
 		barDisplaySection(m),

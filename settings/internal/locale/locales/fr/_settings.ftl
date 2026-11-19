@@ -811,3 +811,26 @@ settings-greeter-apply-invalid = L'écran de connexion a refusé ces réglages :
 settings-greeter-apply-unauthorized = Modification de l'écran de connexion non autorisée : { $reason }
 settings-greeter-apply-dismissed = L'authentification a été annulée : l'écran de connexion est inchangé
 settings-greeter-apply-failed = Les réglages n'ont pas été appliqués : { $reason }
+
+settings-section-lockdown = Verrouillage
+    .description = Refuser ce que toute application peut demander, quelles que soient ses autorisations
+
+settings-section-app-launchers = Lanceurs d'applications
+    .description = Quelles applications peuvent ajouter des lanceurs à la liste des applications
+
+settings-section-clipboard = Presse-papiers
+    .description = Quelle part de l'historique du presse-papiers est conservée, et si elle survit à un redémarrage
+
+settings-section-colorpicker = Pipette
+    .description = Comment une couleur choisie est écrite
+
+settings-section-instant-replay = Relecture instantanée
+    .description = Garder les dernières secondes de l'écran prêtes à être enregistrées
+
+settings-section-calendars = Calendriers
+    .description = Calendriers dont l'agenda de l'horloge affiche les événements
+settings-calendar-path = Dossier
+settings-calendar-color = Couleur
+settings-nav-background-apps = Applications en arrière-plan
+settings-page-background-apps = Applications en arrière-plan
+    .breadcrumb = Modules

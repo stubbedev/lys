@@ -15,6 +15,7 @@ import (
 var listFixtures = map[string][]choice{
 	"Monitor":           {{value: "DP-1", label: "DP-1"}, {value: "HDMI-A-1", label: "HDMI-A-1"}},
 	"OsdMonitor":        {{value: "DP-1", label: "DP-1"}},
+	"ReplayOutput":      {{value: "DP-1", label: "DP-1"}},
 	"PopupMonitor":      {{value: "DP-1", label: "DP-1"}},
 	"IconTheme":         {{value: "Adwaita", label: "Adwaita"}, {value: "Papirus", label: "Papirus"}},
 	"lys-wm-icon-theme": {{value: "Adwaita", label: "Adwaita"}},
@@ -55,6 +56,8 @@ var freeFormRows = []string{
 	"launcher.search.web-engine",
 	"launcher.search.web-url",
 	"modules.bitwarden.email",
+	"modules.bitwarden.network-folder",
+	"modules.bitwarden.portal-folder",
 	"modules.mail.query",
 	"modules.screenshot.label",
 	"modules.weather.location",

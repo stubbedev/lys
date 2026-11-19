@@ -1632,7 +1632,7 @@ func TestModulePagesFollowTheModuleOrder(t *testing.T) {
 		ids = append(ids, p.id)
 	}
 	want := []string{
-		"audio", "battery", "bitwarden", "bluetooth", "brightness", "cava", "clock", "cpu", "custom", "dashboard", "hyprland-workspaces",
+		"audio", "background-apps", "battery", "bitwarden", "bluetooth", "brightness", "cava", "clock", "cpu", "custom", "dashboard", "hyprland-workspaces",
 		"nightlight", "idle-inhibit", "keybind-mode", "keyboard-input", "lys-wm-workspaces", "mail", "mango-workspaces", "media", "minimized-windows",
 		"netstat", "network", "niri-workspaces", "notification", "power", "power-profiles", "ram", "recorder", "screenshot",
 		"separator", "storage", "sway-workspaces", "systray", "treeman", "weather", "window-title", "world-clock",
@@ -2456,7 +2456,7 @@ func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
 			}
 		}
 	}
-	if seen != 5 {
-		t.Fatalf("%d duration rows on the animations page, want 5", seen)
+	if want := 5 + 2*4; seen != want {
+		t.Fatalf("%d duration rows on the animations page, want %d", seen, want)
 	}
 }

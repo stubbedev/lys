@@ -220,7 +220,7 @@ func actionChoices(module string) []actionChoice {
 
 func barDisplaySection(module string) sectionSpec {
 	return sectionSpec{title: "settings-section-bar-display", rows: fields(
-		module+".icon-show", module+".label-show", module+".label-max-length", module+".border-show")}
+		module+".icon-show", module+".label-show", module+".label-max-length", module+".border-show", module+".tooltip")}
 }
 
 func colorsSection(module string) sectionSpec {

@@ -809,3 +809,26 @@ settings-greeter-apply-invalid = La pantalla de inicio de sesión ha rechazado e
 settings-greeter-apply-unauthorized = No tiene autorización para cambiar la pantalla de inicio de sesión: { $reason }
 settings-greeter-apply-dismissed = Se ha descartado la autenticación: la pantalla de inicio de sesión no ha cambiado
 settings-greeter-apply-failed = No se ha podido aplicar: { $reason }
+
+settings-section-lockdown = Bloqueo
+    .description = Rechazar lo que cualquier app puede pedir, sean cuales sean sus permisos
+
+settings-section-app-launchers = Lanzadores de apps
+    .description = Qué apps pueden añadir lanzadores a la lista de apps
+
+settings-section-clipboard = Portapapeles
+    .description = Cuánto historial del portapapeles se conserva y si sobrevive a un reinicio
+
+settings-section-colorpicker = Selector de color
+    .description = Cómo se escribe un color elegido
+
+settings-section-instant-replay = Repetición instantánea
+    .description = Mantener los últimos segundos de la pantalla listos para guardar
+
+settings-section-calendars = Calendarios
+    .description = Calendarios cuyos eventos muestra la agenda del reloj
+settings-calendar-path = Carpeta
+settings-calendar-color = Color
+settings-nav-background-apps = Apps en segundo plano
+settings-page-background-apps = Apps en segundo plano
+    .breadcrumb = Módulos

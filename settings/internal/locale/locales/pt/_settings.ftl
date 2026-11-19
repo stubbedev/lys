@@ -799,3 +799,26 @@ settings-greeter-apply-invalid = O ecrã de início de sessão recusou estas def
 settings-greeter-apply-unauthorized = Sem autorização para alterar o ecrã de início de sessão: { $reason }
 settings-greeter-apply-dismissed = A autenticação foi dispensada: o ecrã de início de sessão não foi alterado
 settings-greeter-apply-failed = Falha ao aplicar: { $reason }
+
+settings-section-lockdown = Bloqueio
+    .description = Recusar o que qualquer app pode pedir, sejam quais forem as suas permissões
+
+settings-section-app-launchers = Atalhos de apps
+    .description = Que apps podem adicionar atalhos à lista de apps
+
+settings-section-clipboard = Área de transferência
+    .description = Quanto histórico da área de transferência é guardado e se sobrevive a um reinício
+
+settings-section-colorpicker = Seletor de cor
+    .description = Como uma cor escolhida é escrita
+
+settings-section-instant-replay = Repetição instantânea
+    .description = Manter os últimos segundos do ecrã prontos a guardar
+
+settings-section-calendars = Calendários
+    .description = Calendários cujos eventos a agenda do relógio mostra
+settings-calendar-path = Pasta
+settings-calendar-color = Cor
+settings-nav-background-apps = Apps em segundo plano
+settings-page-background-apps = Apps em segundo plano
+    .breadcrumb = Módulos

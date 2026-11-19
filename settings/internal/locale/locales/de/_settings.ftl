@@ -808,3 +808,26 @@ settings-greeter-apply-invalid = Der Anmeldebildschirm hat diese Einstellungen a
 settings-greeter-apply-unauthorized = Keine Berechtigung, den Anmeldebildschirm zu ändern: { $reason }
 settings-greeter-apply-dismissed = Die Authentifizierung wurde abgebrochen: Der Anmeldebildschirm ist unverändert
 settings-greeter-apply-failed = Anwenden fehlgeschlagen: { $reason }
+
+settings-section-lockdown = Sperren
+    .description = Ablehnen, was jede App anfragen darf, unabhängig von ihren eigenen Berechtigungen
+
+settings-section-app-launchers = App-Starter
+    .description = Welche Apps Starter zur App-Liste hinzufügen dürfen
+
+settings-section-clipboard = Zwischenablage
+    .description = Wie viel Zwischenablageverlauf behalten wird und ob er einen Neustart überdauert
+
+settings-section-colorpicker = Farbauswahl
+    .description = Wie eine gewählte Farbe geschrieben wird
+
+settings-section-instant-replay = Sofortwiederholung
+    .description = Die letzten Sekunden des Bildschirms zum Speichern bereithalten
+
+settings-section-calendars = Kalender
+    .description = Kalender, deren Termine die Agenda der Uhr zeigt
+settings-calendar-path = Ordner
+settings-calendar-color = Farbe
+settings-nav-background-apps = Hintergrund-Apps
+settings-page-background-apps = Hintergrund-Apps
+    .breadcrumb = Module

@@ -809,3 +809,26 @@ settings-greeter-apply-invalid = La schermata di accesso ha rifiutato queste imp
 settings-greeter-apply-unauthorized = Non autorizzato a modificare la schermata di accesso: { $reason }
 settings-greeter-apply-dismissed = L'autenticazione è stata annullata: la schermata di accesso è invariata
 settings-greeter-apply-failed = Applicazione non riuscita: { $reason }
+
+settings-section-lockdown = Blocco
+    .description = Rifiuta ciò che ogni app può chiedere, qualunque siano i suoi permessi
+
+settings-section-app-launchers = Avviatori delle app
+    .description = Quali app possono aggiungere avviatori all'elenco delle app
+
+settings-section-clipboard = Appunti
+    .description = Quanta cronologia degli appunti viene conservata e se sopravvive a un riavvio
+
+settings-section-colorpicker = Selettore colore
+    .description = Come viene scritto un colore scelto
+
+settings-section-instant-replay = Replay istantaneo
+    .description = Tieni gli ultimi secondi dello schermo pronti da salvare
+
+settings-section-calendars = Calendari
+    .description = Calendari i cui eventi mostra l'agenda dell'orologio
+settings-calendar-path = Cartella
+settings-calendar-color = Colore
+settings-nav-background-apps = App in background
+settings-page-background-apps = App in background
+    .breadcrumb = Moduli

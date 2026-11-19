@@ -15,6 +15,7 @@ var semanticStrings = map[string]semanticString{
 	"IconTheme":    {doc: "An icon theme name.", variants: []string{""}},
 	"CursorTheme":  {doc: "An Xcursor theme name.", variants: []string{""}},
 	"Directory":    {doc: "A directory path.", variants: []string{""}},
+	"ReplayOutput": {doc: "An output connector name (`DP-1`), or `focused` for the output holding the focused window.", variants: []string{"focused"}},
 	"Program":      {doc: "A program name on the path, or its path.", variants: []string{""}},
 	"Command":      {doc: "A shell command line."},
 	"NetInterface": {doc: "A network interface name (`wlan0`).", variants: []string{"auto"}},
