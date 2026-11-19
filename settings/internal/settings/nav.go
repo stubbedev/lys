@@ -146,7 +146,7 @@ func motionPage(*config.Config) pageSpec {
 			{title: "settings-section-speed", rows: []rowSpec{
 				field("animations.ui-duration", animationDuration), field("animations.interaction-duration", animationDuration), field("animations.indicators"),
 			}},
-			{title: "wm-section-overview", rows: wmFields("overview.blur", "overview.dim", "switcher.open_delay", "showdesktop.peek")},
+			{title: "wm-section-overview", rows: []rowSpec{wmField("overview.blur"), wmField("overview.dim", fraction), wmField("switcher.open_delay"), wmField("showdesktop.peek")}},
 			{title: "wm-section-drag", rows: wmFields("drag_preview.enabled", "drag_preview.opacity", "drag_preview.blur", "drag_preview.snap_distance",
 				"drag_preview.snap_windows", "drag_preview.drag_switch.width", "drag_preview.drag_switch.frames")},
 			{title: "wm-section-hot-corners", rows: append([]rowSpec{

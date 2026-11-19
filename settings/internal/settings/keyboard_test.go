@@ -11,7 +11,7 @@ import (
 // controls, so a cycle that never closes fails instead of hanging.
 const maxTabStops = 5000
 
-// Tab, from the search field, reaches every row's control on the page,
+// Tab, from the search field, reaches every enabled row's control on the page,
 // each stop showing its focus, and comes back round to where it began.
 func tabReachesEveryControl(w *window) pageCheck {
 	router := &widget.Router{Root: w.root}
@@ -49,7 +49,7 @@ func tabReachesEveryControl(w *window) pageCheck {
 			}
 		}
 		for i, row := range w.page.rows {
-			if hidden[row] {
+			if hidden[row] || !widget.IsEnabled(row) {
 				continue
 			}
 			reached := false

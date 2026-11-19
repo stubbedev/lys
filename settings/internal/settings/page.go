@@ -55,7 +55,12 @@ type rowSpec struct {
 	nested []rowSpec
 	wmTwin string
 	also   []string
+	// enabledBy is the switch, in the row's own backend, the row is
+	// disabled while it is off.
+	enabledBy string
 }
+
+func enabledBy(path string) rowOpt { return func(r *rowSpec) { r.enabledBy = path } }
 
 func (r rowSpec) flat() []rowSpec {
 	out := []rowSpec{r}
@@ -126,6 +131,12 @@ type settingsPage struct {
 	k         *kit
 	sections  []sectionCondition
 	advanced  []disclosure
+	dependent []dependentRow
+}
+
+type dependentRow struct {
+	row *settingRow
+	on  slot
 }
 
 type sectionCondition struct {
@@ -155,6 +166,10 @@ func (d disclosure) open(on bool) {
 func (p *settingsPage) showSections() {
 	for _, c := range p.sections {
 		c.box.SetVisible(c.when(p.k.store))
+	}
+	for _, d := range p.dependent {
+		on, _ := d.on.get().(bool)
+		d.row.SetEnabled(on)
 	}
 }
 
@@ -228,6 +243,9 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 				rowBackend = notifyingBackend{w, conditional}
 			}
 			row := newFieldRow(k, rowBackend, rs)
+			if rs.enabledBy != "" {
+				p.dependent = append(p.dependent, dependentRow{row: row, on: rowBackend.slot(rs.enabledBy)})
+			}
 			p.own(row.ctl)
 			rows.Append(row)
 			p.rows = append(p.rows, row)

@@ -297,6 +297,50 @@ var percentage = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newSlider(k, s, 0, 100, true, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" })
 })
 
+// fraction is a 0-1 value shown and set as a whole percent.
+var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+	return newSlider(k, slot{
+		get: func() any {
+			switch v := s.get().(type) {
+			case float64:
+				return math.Round(v * 100)
+			case int64:
+				return float64(v * 100)
+			}
+			return nil
+		},
+		set: func(v any) error {
+			pct, _ := v.(int64)
+			return s.set(float64(pct) / 100)
+		},
+		unset: s.unset,
+	}, 0, 100, true, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" })
+})
+
+// softPixels is a slider over the pixel range nearly every setup sits
+// in, beside a number that takes a value past it.
+func softPixels(lo, hi float64) rowOpt {
+	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+		box := &pixelControl{Box: gapBox(widget.Row)}
+		box.slider = newSlider(k, s, lo, hi, true, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " px" })
+		box.number = newNumber(k, s, meta.Min, meta.Max, 1, 0)
+		box.Append(box.slider, true)
+		box.AppendAligned(box.number, false, widget.AlignCenter)
+		return box
+	})
+}
+
+type pixelControl struct {
+	*widget.Box
+	slider *slider
+	number *number
+}
+
+func (c *pixelControl) refresh() {
+	c.slider.refresh()
+	c.number.refresh()
+}
+
 // milliseconds is a slider of whole milliseconds over [lo, hi],
 // labeled in seconds with one decimal.
 func milliseconds(lo, hi float64) rowOpt {

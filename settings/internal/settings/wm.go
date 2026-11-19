@@ -450,18 +450,31 @@ func wmFields(paths ...string) []rowSpec {
 	return rows
 }
 
+func switchedBy(master string, rows ...rowSpec) []rowSpec {
+	out := []rowSpec{wmField(master)}
+	for _, r := range rows {
+		r.enabledBy = master
+		out = append(out, r)
+	}
+	return out
+}
+
 func wmPage(id, icon string, sections ...sectionSpec) pageSpec {
 	return pageSpec{id: id, navKey: "settings-nav-" + id, icon: icon, header: "settings-page-" + id, wm: true, sections: sections}
 }
 
 func wmWindowsPage() pageSpec {
 	return wmPage("wm-windows", "ld-app-window-symbolic",
-		sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner"), wmSides("gaps.outer")}},
-		sectionSpec{title: "wm-section-borders", rows: []rowSpec{wmField("borders.width"), wmBorder("borders.active"), wmBorder("borders.inactive")}},
-		sectionSpec{title: "wm-section-corners", rows: wmFields("decoration.rounding", "decoration.active_opacity", "decoration.inactive_opacity", "decoration.fullscreen_opacity", "decoration.dim_inactive", "decoration.dim_strength")},
+		sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner", softPixels(0, 48)), wmSides("gaps.outer")}},
+		sectionSpec{title: "wm-section-borders", rows: []rowSpec{wmField("borders.width", softPixels(0, 12)), wmBorder("borders.active"), wmBorder("borders.inactive")}},
+		sectionSpec{title: "wm-section-shape", rows: []rowSpec{
+			wmField("decoration.rounding", softPixels(0, 24)),
+			wmField("decoration.active_opacity", fraction), wmField("decoration.inactive_opacity", fraction), wmField("decoration.fullscreen_opacity", fraction),
+			wmField("decoration.dim_inactive"), wmField("decoration.dim_strength", fraction, enabledBy("decoration.dim_inactive")),
+		}},
 		sectionSpec{title: "wm-section-focus", rows: wmFields("focus.follows_mouse", "focus.raise_on_hover", "focus.warp_pointer", "focus.on_close", "focus.on_activate")},
 		sectionSpec{title: "wm-section-window-behavior", rows: wmFields("fullscreen.new_window", "hold_opening", "floating.step")},
-		sectionSpec{title: "wm-section-titlebars", rows: append(append(wmFields("titlebars.floating", "titlebars.height", "titlebars.side", "titlebars.double_click"), wmListRow("titlebars.buttons")),
+		sectionSpec{title: "wm-section-titlebars", rows: append(append([]rowSpec{wmField("titlebars.floating"), wmField("titlebars.height", softPixels(16, 48)), wmField("titlebars.side"), wmField("titlebars.double_click")}, wmListRow("titlebars.buttons")),
 			wmFields("titlebars.active.background", "titlebars.active.text", "titlebars.inactive.background", "titlebars.inactive.text",
 				"titlebars.urgent.background", "titlebars.urgent.text", "titlebars.lights.close", "titlebars.lights.minimize", "titlebars.lights.maximize")...)},
 	)
@@ -469,19 +482,24 @@ func wmWindowsPage() pageSpec {
 
 func wmEffectsPage() pageSpec {
 	return wmPage("wm-effects", "ld-droplets-symbolic",
-		sectionSpec{title: "wm-section-shadow", rows: wmFields("decoration.shadow.enabled", "decoration.shadow.range", "decoration.shadow.render_power", "decoration.shadow.sharp", "decoration.shadow.scale", "decoration.shadow.color", "decoration.shadow.color_inactive")},
-		sectionSpec{title: "wm-section-blur", rows: wmFields("decoration.blur.enabled", "decoration.blur.size", "decoration.blur.passes", "decoration.blur.xray", "decoration.blur.tint", "decoration.blur.saturation", "decoration.blur.brightness", "decoration.blur.contrast", "decoration.blur.grain",
-			"decoration.blur.live_tiled")},
-		sectionSpec{title: "wm-section-mica", rows: wmFields("decoration.blur.mica.enabled", "decoration.blur.mica.size", "decoration.blur.mica.passes", "decoration.blur.mica.tint")},
+		sectionSpec{title: "wm-section-shadow", rows: switchedBy("decoration.shadow.enabled",
+			wmField("decoration.shadow.range", softPixels(0, 64)), wmField("decoration.shadow.render_power"), wmField("decoration.shadow.sharp"), wmField("decoration.shadow.scale"),
+			wmField("decoration.shadow.color"), wmField("decoration.shadow.color_inactive"))},
+		sectionSpec{title: "wm-section-blur", rows: switchedBy("decoration.blur.enabled",
+			wmField("decoration.blur.size"), wmField("decoration.blur.passes"), wmField("decoration.blur.xray"), wmField("decoration.blur.tint"), wmField("decoration.blur.saturation"),
+			wmField("decoration.blur.brightness"), wmField("decoration.blur.contrast"), wmField("decoration.blur.grain", fraction), wmField("decoration.blur.live_tiled"))},
+		sectionSpec{title: "wm-section-mica", rows: switchedBy("decoration.blur.mica.enabled",
+			wmField("decoration.blur.mica.size"), wmField("decoration.blur.mica.passes"), wmField("decoration.blur.mica.tint"))},
 	)
 }
 
 func wmTilingPage() pageSpec {
 	return wmPage("wm-tiling", "ld-layout-grid-symbolic",
 		sectionSpec{title: "wm-section-layout", rows: wmFields("layout", "scroll.center")},
-		sectionSpec{title: "wm-section-autotile", rows: wmFields("autotile.enabled", "autotile.ephemeral", "autotile.min_trigger", "autotile.divisor")},
-		sectionSpec{title: "wm-section-tabs", rows: wmFields("tabs.height", "tabs.padding", "tabs.text_height", "tabs.text_padding", "tabs.font", "tabs.icon_theme",
-			"tabs.active.background", "tabs.active.text", "tabs.inactive.background", "tabs.inactive.text", "tabs.urgent.background", "tabs.urgent.text")},
+		sectionSpec{title: "wm-section-autotile", rows: switchedBy("autotile.enabled",
+			wmField("autotile.ephemeral"), wmField("autotile.min_trigger", softPixels(0, 1200)), wmField("autotile.divisor"))},
+		sectionSpec{title: "wm-section-tabs", rows: append([]rowSpec{wmField("tabs.height", softPixels(16, 48))}, wmFields("tabs.padding", "tabs.text_height", "tabs.text_padding", "tabs.font", "tabs.icon_theme",
+			"tabs.active.background", "tabs.active.text", "tabs.inactive.background", "tabs.inactive.text", "tabs.urgent.background", "tabs.urgent.text")...)},
 	)
 }
 
