@@ -584,6 +584,23 @@ settings-privacy-by-app = Per app
 settings-privacy-by-permission = Per permesso
 settings-privacy-read-only = Non usato da lys
 settings-privacy-set-failed = Il permesso non è stato modificato
+settings-privacy-value = { $value ->
+    [yes] Consentito
+    [no] Negato
+    [ask] Chiede ogni volta
+    [exact] Posizione esatta
+    [street] Via
+    [neighborhood] Quartiere
+    [city] Città
+    [country] Paese
+    [none] Nessuna posizione
+    [logout] Disconnessione
+    [user-switch] Cambio utente
+    [suspend] Sospensione
+    [idle] Inattività
+   *[other] { $value }
+}
+settings-privacy-last-used = usato l’ultima volta il { $date }
 settings-nav-passwords = Password
 settings-page-passwords = Password
 settings-section-passwords-reveal = Visualizzazione

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/desktop/settingspage"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
@@ -369,5 +370,29 @@ func TestAGrantNamesTheAppReadablyEvenWithoutAnID(t *testing.T) {
 		if got := l.appTitle(id); got != want {
 			t.Errorf("%q reads %q, want %q", id, got, want)
 		}
+	}
+}
+
+func TestAGrantReadsAsWordsNotTheStoresValues(t *testing.T) {
+	tr := locale.T()
+	word := func(v string) string { return tr.Get("settings-privacy-value", i18n.Str("value", v)) }
+	lastUsed := tr.Get("settings-privacy-last-used", i18n.Str("date", time.Unix(1700000000, 0).Format(time.DateOnly)))
+	for _, c := range []struct {
+		grant permissions.Grant
+		want  string
+	}{
+		{permissions.Grant{Table: permissions.Background, Value: "yes"}, word("yes")},
+		{permissions.Grant{Table: permissions.Wallpaper, Value: "no,ask"}, word("no") + ", " + word("ask")},
+		{permissions.Grant{Table: permissions.Location, Value: "EXACT,1700000000"}, word("exact") + ", " + lastUsed},
+		{permissions.Grant{Table: permissions.Inhibit, Value: "logout,suspend"}, word("logout") + ", " + word("suspend")},
+		{permissions.Grant{Table: permissions.Shortcuts, Value: "Toggle recording"}, "Toggle recording"},
+		{permissions.Grant{Table: permissions.USB, Value: "1234"}, "1234"},
+	} {
+		if got := grantWords(c.grant); got != c.want {
+			t.Errorf("%s %q reads %q, want %q", c.grant.Table, c.grant.Value, got, c.want)
+		}
+	}
+	if word("yes") == "yes" || word("no,ask") != "no,ask" {
+		t.Errorf("the value words are not translated, or an unknown value is lost: %q, %q", word("yes"), word("no,ask"))
 	}
 }

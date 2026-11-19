@@ -574,6 +574,23 @@ settings-privacy-by-app = Per toepassing
 settings-privacy-by-permission = Per recht
 settings-privacy-read-only = Niet gebruikt door lys
 settings-privacy-set-failed = Het recht is niet gewijzigd
+settings-privacy-value = { $value ->
+    [yes] Toegestaan
+    [no] Geweigerd
+    [ask] Vraagt elke keer
+    [exact] Exacte locatie
+    [street] Straat
+    [neighborhood] Buurt
+    [city] Stad
+    [country] Land
+    [none] Geen locatie
+    [logout] Afmelden
+    [user-switch] Van gebruiker wisselen
+    [suspend] Slaapstand
+    [idle] Inactiviteit
+   *[other] { $value }
+}
+settings-privacy-last-used = laatst gebruikt op { $date }
 settings-nav-passwords = Wachtwoorden
 settings-page-passwords = Wachtwoorden
 settings-section-passwords-reveal = Tonen

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/desktop/settingspage"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -252,7 +254,7 @@ func (l *grantsList) appHeader(id string) *widget.Item {
 
 func (l *grantsList) grantRow(app string, g permissions.Grant, title string) widget.Widget {
 	t := locale.T()
-	row := widget.NewItem(l.k.face, title, g.Value)
+	row := widget.NewItem(l.k.face, title, grantWords(g))
 	row.AddClass(css.Small, "settings-privacy-grant")
 	switch {
 	case slices.Contains(readOnlyTables, g.Table):
@@ -280,6 +282,23 @@ func (l *grantsList) grantRow(app string, g permissions.Grant, title string) wid
 		row.AddAction(revoke)
 	}
 	return row
+}
+
+func grantWords(g permissions.Grant) string {
+	if g.Table == permissions.Shortcuts {
+		return g.Value
+	}
+	t := locale.T()
+	tokens := strings.Split(g.Value, ",")
+	words := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if at, err := strconv.ParseInt(token, 10, 64); err == nil && g.Table == permissions.Location {
+			words = append(words, t.Get("settings-privacy-last-used", i18n.Str("date", time.Unix(at, 0).Format(time.DateOnly))))
+			continue
+		}
+		words = append(words, t.Get("settings-privacy-value", i18n.Str("value", strings.ToLower(token))))
+	}
+	return strings.Join(words, ", ")
 }
 
 func (l *grantsList) act(change func(context.Context, grantStore) error, failedKey string) {
