@@ -84,7 +84,7 @@ func plainTextRows(t *testing.T, k *kit, be backend, rows []rowSpec) []string {
 
 func shellRows() []rowSpec {
 	var rows []rowSpec
-	for _, s := range layout(config.Defaults()) {
+	for _, s := range layout(config.Defaults(), bothParts) {
 		for _, p := range s.pages {
 			if p.wm {
 				continue
@@ -338,7 +338,7 @@ func TestADirectoryRowPicksAFolder(t *testing.T) {
 func TestEveryDirectoryRowOnAPagePicksAFolder(t *testing.T) {
 	k := testKit(t, "")
 	seen := 0
-	for _, s := range layout(config.Defaults()) {
+	for _, s := range layout(config.Defaults(), bothParts) {
 		for _, p := range s.pages {
 			for _, sec := range p.sections {
 				for _, r := range sec.rows {
@@ -385,7 +385,7 @@ func TestTheWallpaperCyclingDirectoryPicksAFolderAndTheWallpaperAFile(t *testing
 
 func pageRow(t *testing.T, page, path string) rowSpec {
 	t.Helper()
-	p, ok := pageByID(layout(config.Defaults()), page)
+	p, ok := pageByID(layout(config.Defaults(), bothParts), page)
 	if !ok {
 		t.Fatalf("no page %q", page)
 	}

@@ -75,22 +75,22 @@ func TestAWMSettingResolvesWithAndWithoutItsPrefix(t *testing.T) {
 }
 
 func TestCheckSettingNamesTheUnknownPathAndAWrongPage(t *testing.T) {
-	if err := CheckSetting("", "bar.location"); err != nil {
+	if err := checkSetting(bothParts, "", "bar.location"); err != nil {
 		t.Fatal(err)
 	}
-	if err := CheckSetting("bar-general", "bar.location"); err != nil {
+	if err := checkSetting(bothParts, "bar-general", "bar.location"); err != nil {
 		t.Fatal(err)
 	}
-	if err := CheckSetting("", "does.not.exist"); err == nil || !strings.Contains(err.Error(), `"does.not.exist"`) {
+	if err := checkSetting(bothParts, "", "does.not.exist"); err == nil || !strings.Contains(err.Error(), `"does.not.exist"`) {
 		t.Fatalf("%v", err)
 	}
-	if err := CheckSetting("theme", "bar.location"); err == nil || !strings.Contains(err.Error(), `"bar-general"`) {
+	if err := checkSetting(bothParts, "theme", "bar.location"); err == nil || !strings.Contains(err.Error(), `"bar-general"`) {
 		t.Fatalf("%v", err)
 	}
 }
 
 func TestTheListedPagesCarryEveryRowOnceWithinBudget(t *testing.T) {
-	sections := layout(config.Defaults())
+	sections := layout(config.Defaults(), bothParts)
 	index := settingIndex(sections)
 	pages := ListedPages()
 	listed := map[string]string{}
@@ -201,16 +201,16 @@ func TestASettingOnAnotherPageBelowTheFoldIsScrolledIntoView(t *testing.T) {
 
 func TestANestedSettingIsListedAndOpensItsPage(t *testing.T) {
 	for _, path := range []string{"wallpaper.cycling-mode", "wallpaper.cycling-interval-mins", "wallpaper.cycling-same-image"} {
-		if err := CheckSetting("wallpaper", path); err != nil {
+		if err := checkSetting(bothParts, "wallpaper", path); err != nil {
 			t.Errorf("%s: %v", path, err)
 		}
-		index := settingIndex(layout(config.Defaults()))
+		index := settingIndex(layout(config.Defaults(), bothParts))
 		hit, _ := findSetting(index, path)
 		if hits := searchSettings(index, hit.label); hit.label == "" || !slices.ContainsFunc(hits, func(e settingEntry) bool { return e.path == path }) {
 			t.Errorf("searching %q does not find %s", hit.label, path)
 		}
 	}
-	if err := CheckSetting("wallpaper", "wallpaper.cycling-nothing"); err == nil {
+	if err := checkSetting(bothParts, "wallpaper", "wallpaper.cycling-nothing"); err == nil {
 		t.Error("an unknown nested path was accepted")
 	}
 }

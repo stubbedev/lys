@@ -34,6 +34,7 @@ type kit struct {
 	mono         render.Font
 	monoVariants widget.VariantFunc
 	store        store
+	parts        parts
 	// invoke runs a function on the loop (the slider's trailing commit).
 	invoke func(func())
 	// pickers opens popovers and dialogs; nil without a window.

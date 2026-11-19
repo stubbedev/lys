@@ -13,7 +13,7 @@ import (
 )
 
 func TestSettingIndexListsEveryRowOfEveryPage(t *testing.T) {
-	sections := layout(config.Defaults())
+	sections := layout(config.Defaults(), bothParts)
 	index := settingIndex(sections)
 	rows := 0
 	for _, s := range sections {
@@ -58,7 +58,7 @@ func TestSearchRanksLabelsOverPlacesOverDescriptions(t *testing.T) {
 }
 
 func TestSearchWithoutAWordOrAMatchFindsNothing(t *testing.T) {
-	index := settingIndex(layout(config.Defaults()))
+	index := settingIndex(layout(config.Defaults(), bothParts))
 	for _, q := range []string{"", "   ", "zqxjv"} {
 		if got := searchSettings(index, q); len(got) != 0 {
 			t.Errorf("%q found %d settings", q, len(got))
@@ -140,7 +140,7 @@ func otherPage(w *window, id string) pageSpec {
 func TestEveryRowOnEveryPageHasItsLabel(t *testing.T) {
 	tr := locale.T()
 	rows := 0
-	for _, s := range layout(config.Defaults()) {
+	for _, s := range layout(config.Defaults(), bothParts) {
 		for _, p := range s.pages {
 			for _, sec := range p.sections {
 				for _, r := range sec.flatRows() {
@@ -158,7 +158,7 @@ func TestEveryRowOnEveryPageHasItsLabel(t *testing.T) {
 }
 
 func TestEveryLauncherSearchKeyHasALabelledRow(t *testing.T) {
-	p, _ := pageByID(layout(config.Defaults()), "launcher-modes")
+	p, _ := pageByID(layout(config.Defaults(), bothParts), "launcher-modes")
 	labelled := map[string]bool{}
 	for _, sec := range p.sections {
 		for _, r := range sec.flatRows() {
@@ -178,7 +178,7 @@ var unlistedShellKeys = map[string]string{
 
 func shellRowPaths() map[string]bool {
 	rows := map[string]bool{}
-	for _, s := range layout(config.Defaults()) {
+	for _, s := range layout(config.Defaults(), bothParts) {
 		for _, p := range s.pages {
 			for _, sec := range p.sections {
 				for _, r := range sec.flatRows() {

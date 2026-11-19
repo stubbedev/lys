@@ -894,31 +894,6 @@ func TestEveryWMPageIDIsUnique(t *testing.T) {
 	}
 }
 
-func TestTheWMPagesAppearOnlyWithLysWMInstalled(t *testing.T) {
-	k := testKit(t, "")
-	empty := t.TempDir()
-	t.Setenv("PATH", empty)
-	ids := func() []string {
-		var out []string
-		for _, p := range Pages(k.store.svc.Config()) {
-			out = append(out, p.ID)
-		}
-		return out
-	}
-	if slices.Contains(ids(), "wm-windows") {
-		t.Fatal("lys-wm pages without lys-wm")
-	}
-	if !slices.Contains(ids(), "bar-general") {
-		t.Fatal("the shell's pages went too")
-	}
-	if err := os.WriteFile(filepath.Join(empty, "lys-wm"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(ids(), "wm-windows") {
-		t.Fatal("no lys-wm pages with lys-wm")
-	}
-}
-
 func TestAWMPageBuildsItsRowsAndStatus(t *testing.T) {
 	k, _, _, _ := wmKit(t, "")
 	spec := wmPage("wm-test", "ld-monitor-symbolic", sectionSpec{"wm-section-gaps", []rowSpec{wmField("gaps.inner"), wmSides("gaps.outer")}})
@@ -1079,7 +1054,7 @@ func TestEveryWMConfigKeyHasARow(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := map[string]bool{}
-	for _, s := range layout(config.Defaults()) {
+	for _, s := range layout(config.Defaults(), bothParts) {
 		for _, p := range s.pages {
 			for _, sec := range p.sections {
 				for _, r := range sec.flatRows() {

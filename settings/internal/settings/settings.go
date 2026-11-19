@@ -39,13 +39,14 @@ func Run(page, setting string) error {
 		// The running window was raised in this launch's stead.
 		return nil
 	}
+	installed := installedParts()
 	svc, err := config.Open()
 	if err != nil {
 		return fmt.Errorf("cannot load config: %w", err)
 	}
 	defer svc.Close()
 	if page != "" {
-		if _, ok := pageByID(layout(svc.Config()), page); !ok {
+		if _, ok := pageByID(layout(svc.Config(), installed), page); !ok {
 			return fmt.Errorf("settings: no page %q", page)
 		}
 	}
@@ -74,7 +75,7 @@ func Run(page, setting string) error {
 	}
 	k := &kit{
 		face: app.FontFallback(face), mono: app.FontFallback(mono), monoVariants: app.FontVariants(mono),
-		store: store{svc}, invoke: application.Invoke,
+		store: store{svc}, invoke: application.Invoke, parts: installed,
 		background: func(fn func()) { go fn() },
 		systemBus:  dialSystemBus,
 	}

@@ -134,7 +134,7 @@ func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 	if !slices.ContainsFunc(ListedPages(), func(p settingspage.Page) bool { return p.ID == settingspage.PrivacyID && p.Title != "" }) {
 		t.Fatalf("the page list lacks %q", settingspage.PrivacyID)
 	}
-	spec, _ := pageByID(layout(k.store.svc.Config()), settingspage.PrivacyID)
+	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), settingspage.PrivacyID)
 	if len(spec.sections) == 0 || spec.sections[0].rows[0].path != "portal.screen-cast.reminder-days" {
 		t.Errorf("the page's first row is not the reminder: %+v", spec.sections)
 	}

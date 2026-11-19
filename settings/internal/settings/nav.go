@@ -2,9 +2,11 @@ package settings
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/settingspage"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -24,7 +26,34 @@ type navSection struct {
 // layout is the sidebar's sections in order,
 // each page built from the config (a page may list what the config
 // holds).
-func layout(cfg *config.Config) []navSection {
+type parts struct{ shell, wm bool }
+
+func installedParts() parts {
+	_, err := exec.LookPath(identity.Name)
+	return parts{shell: err == nil, wm: wmconfig.Installed()}
+}
+
+func (p pageSpec) on(installed parts) (pageSpec, bool) {
+	if p.wm && !installed.wm {
+		return pageSpec{}, false
+	}
+	sections := make([]sectionSpec, 0, len(p.sections))
+	for _, s := range p.sections {
+		rows := make([]rowSpec, 0, len(s.rows))
+		for _, r := range s.rows {
+			if (p.wm || r.wm) && installed.wm || !(p.wm || r.wm) && installed.shell {
+				rows = append(rows, r)
+			}
+		}
+		if len(rows) > 0 {
+			sections = append(sections, sectionSpec{title: s.title, rows: rows})
+		}
+	}
+	p.sections = sections
+	return p, len(sections) > 0 || p.lead != nil || p.footer != nil
+}
+
+func layout(cfg *config.Config, installed parts) []navSection {
 	sections := []navSection{
 		{key: "settings-nav-account", pages: []pageSpec{usersPage(cfg)}},
 		{key: "settings-nav-bar-section", pages: []pageSpec{barGeneralPage(cfg), barButtonPage(cfg), barDropdownPage(cfg), dockPage(cfg)}},
@@ -36,13 +65,17 @@ func layout(cfg *config.Config) []navSection {
 		{key: "settings-nav-greeter", pages: []pageSpec{greeterPage(cfg)}},
 		{key: "settings-nav-modules", pages: modulePages(cfg)},
 	}
-	if wmconfig.Installed() {
-		sections = append(sections, wmSections()...)
-	}
+	sections = append(sections, wmSections()...)
 	out := sections[:0]
 	for _, s := range sections {
-		if len(s.pages) > 0 {
-			out = append(out, s)
+		pages := s.pages[:0]
+		for _, p := range s.pages {
+			if p, ok := p.on(installed); ok {
+				pages = append(pages, p)
+			}
+		}
+		if len(pages) > 0 {
+			out = append(out, navSection{key: s.key, pages: pages})
 		}
 	}
 	return out
@@ -131,9 +164,9 @@ func sharePickerPage(*config.Config) pageSpec {
 	}
 }
 
-func Pages(cfg *config.Config) []settingspage.Page {
+func pages(cfg *config.Config, installed parts) []settingspage.Page {
 	t := locale.T()
-	sections := layout(cfg)
+	sections := layout(cfg, installed)
 	out := []settingspage.Page{}
 	at := map[string]int{}
 	for _, s := range sections {
@@ -156,7 +189,7 @@ func Pages(cfg *config.Config) []settingspage.Page {
 
 // ListedPages is the page list for a launcher, without a session and without
 // touching the config: which pages exist does not depend on it.
-func ListedPages() []settingspage.Page { return Pages(config.Defaults()) }
+func ListedPages() []settingspage.Page { return pages(config.Defaults(), installedParts()) }
 
 type launch struct {
 	page, setting string
@@ -178,8 +211,10 @@ func flagValue(args []string, flag string) string {
 	return ""
 }
 
-func CheckSetting(page, path string) error {
-	hit, ok := findSetting(settingIndex(layout(config.Defaults())), path)
+func CheckSetting(page, path string) error { return checkSetting(installedParts(), page, path) }
+
+func checkSetting(installed parts, page, path string) error {
+	hit, ok := findSetting(settingIndex(layout(config.Defaults(), installed)), path)
 	if !ok {
 		return fmt.Errorf("no setting %q", path)
 	}

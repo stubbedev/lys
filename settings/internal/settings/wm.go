@@ -308,7 +308,7 @@ func (k *kit) resetAll() {
 		k.wm.resetAll()
 		return
 	}
-	if !wmconfig.Installed() {
+	if !k.parts.wm {
 		return
 	}
 	file, err := wmconfig.Open(os.Getenv, wmconfig.Exec)

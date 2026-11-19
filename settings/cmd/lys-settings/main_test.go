@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/desktop/identity"
 )
 
 func runCaptured(t *testing.T, args ...string) (stdout, stderr string, code int) {
@@ -27,6 +29,16 @@ func noSession(t *testing.T) {
 	t.Setenv("HOME", dir)
 	t.Setenv("WAYLAND_DISPLAY", "no-such-wayland")
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path="+dir+"/no-such-bus")
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{identity.Name, "lys-wm"} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin)
 }
 
 func TestHelpAndVersionNeedNoSession(t *testing.T) {

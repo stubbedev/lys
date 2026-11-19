@@ -61,7 +61,7 @@ type window struct {
 }
 
 func newWindow(k *kit, cfg *config.Config, after func(time.Duration, func())) *window {
-	w := &window{k: k, sections: layout(cfg), after: after, pages: map[string]*settingsPage{}}
+	w := &window{k: k, sections: layout(cfg, k.parts), after: after, pages: map[string]*settingsPage{}}
 	w.index = settingIndex(w.sections)
 	w.stack = widget.NewStack()
 	w.stack.SetTransition(widget.StackCrossfade, pageTransition)

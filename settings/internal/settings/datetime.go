@@ -24,7 +24,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
-	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 const (
@@ -531,7 +530,7 @@ func regionFooter(k *kit) widget.Widget {
 			kb := wmKeyboard(k)
 			p.do("SetX11Keyboard", kb.layout, kb.model, kb.variant, kb.options, false, interactive)
 		}, css.Secondary)
-		copyLayout.SetEnabled(wmconfig.Installed())
+		copyLayout.SetEnabled(k.parts.wm)
 		rows := widget.NewItemGroup()
 		rows.Append(panelRow(k, t.Get("settings-region-language"), t.Attr("settings-region-language", "description"), language))
 		rows.Append(panelRow(k, t.Get("settings-region-keymap"), t.Attr("settings-region-keymap", "description"), keymap))

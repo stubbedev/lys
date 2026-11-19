@@ -22,7 +22,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
-	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 const (
@@ -38,15 +37,12 @@ const (
 var sessionTargets = []string{"graphical-session.target", "lys-wm-session.target"}
 
 func loginItemsPage(*config.Config) pageSpec {
-	p := pageSpec{
+	return pageSpec{
 		id: loginItemsID, navKey: "settings-nav-login-items", icon: "ld-power-symbolic",
-		header: "settings-page-login-items",
-		footer: loginItemsFooter,
+		header:   "settings-page-login-items",
+		footer:   loginItemsFooter,
+		sections: []sectionSpec{{title: "settings-section-login-commands", rows: []rowSpec{wmField("autostart", commandList)}}},
 	}
-	if wmconfig.Installed() {
-		p.sections = []sectionSpec{{title: "settings-section-login-commands", rows: []rowSpec{wmField("autostart", commandList)}}}
-	}
-	return p
 }
 
 type autostartDirs struct {

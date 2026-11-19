@@ -31,6 +31,8 @@ import (
 
 // testKit is a kit over a config directory holding configYAML, its
 // loop invoke running inline.
+var bothParts = parts{shell: true, wm: true}
+
 func testKit(t *testing.T, configYAML string) *kit {
 	t.Helper()
 	lyswmtest.OnPath(t)
@@ -45,7 +47,7 @@ func testKit(t *testing.T, configYAML string) *kit {
 	lists := systemLists
 	systemLists = fixedLists()
 	t.Cleanup(func() { systemLists = lists })
-	return &kit{face: face, mono: face, store: s, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }}
+	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }}
 }
 
 func testStore(t *testing.T, configYAML string) store {
@@ -702,7 +704,7 @@ func TestFontRowsPickTheirKind(t *testing.T) {
 	f := &fakePickers{}
 	k.pickers = f
 	rows := map[string]rowSpec{}
-	for _, sec := range layout(k.store.svc.Config()) {
+	for _, sec := range layout(k.store.svc.Config(), bothParts) {
 		for _, page := range sec.pages {
 			for _, ps := range page.sections {
 				for _, r := range ps.rows {
@@ -2315,7 +2317,7 @@ func TestIdleWindowOwesNoFrame(t *testing.T) {
 func TestOpenPageShowsAndMarksThePage(t *testing.T) {
 	k := testKit(t, "")
 	w := newWindow(k, k.store.svc.Config(), (&fakeAfter{}).after)
-	pages := Pages(k.store.svc.Config())
+	pages := pages(k.store.svc.Config(), bothParts)
 	if len(pages) == 0 || pages[0].Title == "" || pages[0].Icon == "" {
 		t.Fatalf("pages = %+v", pages)
 	}
@@ -2434,7 +2436,7 @@ func TestALayoutChipAndThePickerNameModulesReadably(t *testing.T) {
 
 func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
 	k := testKit(t, "")
-	p, _ := pageByID(layout(config.Defaults()), "animations")
+	p, _ := pageByID(layout(config.Defaults(), bothParts), "animations")
 	seen := 0
 	for _, sec := range p.sections {
 		for _, r := range sec.rows {
