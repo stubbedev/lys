@@ -699,3 +699,24 @@ func (n *schemaNode) property(key string) *schemaNode {
 	}
 	return nil
 }
+
+// Leaves lists the path of every key a settings row edits whole: each key
+// under the root's objects down to a value, a list, a mapping or a Switch,
+// in sorted order.
+func (s *Schema) Leaves() [][]string {
+	var out [][]string
+	var walk func(path []string, node *schemaNode)
+	walk = func(path []string, node *schemaNode) {
+		if node.switched() != nil || len(node.Properties) == 0 || node.Values != nil || node.Items != nil {
+			out = append(out, slices.Clone(path))
+			return
+		}
+		for _, key := range slices.Sorted(maps.Keys(node.Properties)) {
+			walk(append(path, key), node.Properties[key])
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(s.root.Properties)) {
+		walk([]string{key}, s.root.Properties[key])
+	}
+	return out
+}

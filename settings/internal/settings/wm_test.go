@@ -1042,3 +1042,72 @@ func TestALongCardTitleShrinksInsteadOfWideningTheList(t *testing.T) {
 		t.Fatalf("a long title makes the list at least %dpx wide, a short one %dpx", got, base)
 	}
 }
+
+var unlistedWMKeys = map[string]string{
+	"outputs":                              "edited by the Displays arrangement, which writes the output rules itself",
+	"animations.curves":                    "a curve editor, planned in #138",
+	"animations.events":                    "per-event animations with the curve editor, planned in #138",
+	"decoration.shadow.offset":             "an x/y offset editor beside the window preview, planned in #138",
+	"gestures.touch":                       "illustrated touch gesture cards, planned in #138",
+	"input.devices":                        "a per-device list fed from lys-wm's input devices, #122 and #138",
+	"input.pointer.accel_points.points":    "the custom acceleration curve editor, planned in #138",
+	"input.pointer.accel_points.step":      "the custom acceleration curve editor, planned in #138",
+	"input.touchpad.accel_points.points":   "the custom acceleration curve editor, planned in #138",
+	"input.touchpad.accel_points.step":     "the custom acceleration curve editor, planned in #138",
+	"input.trackpoint.accel_points.points": "the custom acceleration curve editor, planned in #138",
+	"input.trackpoint.accel_points.step":   "the custom acceleration curve editor, planned in #138",
+	"input.pointer.scroll_button":          "a button picker that also takes an evdev code, planned in #138",
+	"input.touchpad.scroll_button":         "a button picker that also takes an evdev code, planned in #138",
+	"input.trackpoint.scroll_button":       "a button picker that also takes an evdev code, planned in #138",
+	"layer_rules":                          "the When/Then rule editor, planned in #138",
+	"scratchpads":                          "named scratchpad cards, planned in #138",
+	"scroll.presets":                       "column width presets with the layout picture cards, planned in #138",
+	"virtual_outputs":                      "virtual outputs on the Displays arrangement, planned in #138",
+	"workspaces":                           "per-workspace cards, planned in #138",
+	"swallow.terminals":                    "an app picker writing the match, with the window matching editor planned in #138",
+	"swallow.except_title":                 "a title match with the window matching editor planned in #138",
+	"decoration.blur.refraction.bezel":     "refraction is off until set: an on/off group with the window preview, planned in #138",
+	"decoration.blur.refraction.amount":    "refraction is off until set: an on/off group with the window preview, planned in #138",
+	"decoration.blur.specular.strength":    "the rim sheen is off until set: an on/off group with the window preview, planned in #138",
+	"decoration.blur.specular.width":       "the rim sheen is off until set: an on/off group with the window preview, planned in #138",
+}
+
+func TestEveryWMConfigKeyHasARow(t *testing.T) {
+	k := testKit(t, "")
+	w, err := k.wmBackend()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := map[string]bool{}
+	for _, s := range layout(config.Defaults()) {
+		for _, p := range s.pages {
+			for _, sec := range p.sections {
+				for _, r := range sec.flatRows() {
+					if p.wm || r.wm {
+						rows[r.path] = true
+					}
+				}
+			}
+		}
+	}
+	leaves := map[string]bool{}
+	for _, l := range w.schema.Leaves() {
+		path := strings.Join(l, ".")
+		leaves[path] = true
+		_, unlisted := unlistedWMKeys[path]
+		switch covered := rowCovers(rows, path); {
+		case !covered && !unlisted:
+			t.Errorf("lys-wm's %s has no row on any page", path)
+		case covered && unlisted:
+			t.Errorf("lys-wm's %s has a row but is listed as having none", path)
+		}
+	}
+	if len(leaves) < 150 {
+		t.Fatalf("only %d lys-wm leaves; the walk missed the schema", len(leaves))
+	}
+	for key := range unlistedWMKeys {
+		if !leaves[key] {
+			t.Errorf("%s is listed as having no row but is no lys-wm key", key)
+		}
+	}
+}

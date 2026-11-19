@@ -777,3 +777,20 @@ func TestACheckAsksLysWMAboutTheEditedOverridesAndWritesNothing(t *testing.T) {
 	}
 	only(t, filepath.Dir(runtime), "runtime.yaml")
 }
+
+func TestLeavesStopAtValuesListsMappingsAndSwitches(t *testing.T) {
+	s, err := ParseSchema([]byte(`{"type":"object","properties":{
+		"a":{"type":"object","properties":{"b":{"type":"integer"},"c":{"type":"array","items":{"type":"string"}}}},
+		"d":{"type":"object","additionalProperties":{"type":"string"}},
+		"e":{"type":"boolean"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, l := range s.Leaves() {
+		got = append(got, strings.Join(l, "."))
+	}
+	if want := []string{"a.b", "a.c", "d", "e"}; !slices.Equal(got, want) {
+		t.Fatalf("leaves %v, want %v", got, want)
+	}
+}

@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"github.com/stubbedev/lys/settings/internal/locale"
 	"slices"
 	"strings"
 	"testing"
@@ -9,6 +8,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func TestSettingIndexListsEveryRowOfEveryPage(t *testing.T) {

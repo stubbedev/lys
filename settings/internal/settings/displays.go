@@ -45,7 +45,7 @@ func displaysPage() pageSpec {
 	return pageSpec{
 		id: displaysID, navKey: "settings-nav-wm-outputs", icon: "ld-monitor-symbolic",
 		header: "settings-page-wm-outputs", wm: true, lead: displaysLead,
-		sections: []sectionSpec{{"wm-section-display", wmFields("color_management", "tearing", "gpu", "lid_action")}},
+		sections: []sectionSpec{{"wm-section-display", wmFields("color_management", "tearing", "gpu", "lid_action", "hidden_frame_rate", "power_saver_frame_rate")}},
 	}
 }
 
