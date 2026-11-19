@@ -203,6 +203,42 @@ func TestThePrivacyPageLeadsToTheOnlineLyrics(t *testing.T) {
 	}
 }
 
+func sectionOf(t *testing.T, page, path string) string {
+	t.Helper()
+	p, ok := pageByID(layout(config.Defaults(), bothParts), page)
+	if !ok {
+		t.Fatalf("no %s page", page)
+	}
+	for _, s := range p.sections {
+		for _, r := range s.flatRows() {
+			if r.path == path {
+				return s.title
+			}
+		}
+	}
+	t.Fatalf("no %s row on %s", path, page)
+	return ""
+}
+
+func TestBitwardenSeparatesTheAccountItsSecurityAndItsIntegrations(t *testing.T) {
+	for path, want := range map[string]string{
+		"modules.bitwarden.server":            "settings-section-bitwarden-account",
+		"modules.bitwarden.email":             "settings-section-bitwarden-account",
+		"modules.bitwarden.lock-with-session": "settings-section-bitwarden-security",
+		"modules.bitwarden.clipboard-clear":   "settings-section-bitwarden-security",
+		"modules.bitwarden.network-folder":    "settings-section-bitwarden-integrations",
+		"modules.bitwarden.portal-folder":     "settings-section-bitwarden-integrations",
+		"modules.bitwarden.icon-locked":       "settings-section-bitwarden-look",
+	} {
+		if got := sectionOf(t, "bitwarden", path); got != want {
+			t.Errorf("%s is under %s, want %s", path, got, want)
+		}
+	}
+	if got := sectionOf(t, "bitwarden", "modules.bitwarden.format"); got == "settings-section-bitwarden-account" {
+		t.Error("the bar label sits with the account")
+	}
+}
+
 func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
 	for _, id := range []string{"cava", "custom", "media"} {
 		p, ok := pageByID(layout(config.Defaults(), bothParts), id)

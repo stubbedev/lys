@@ -184,21 +184,21 @@ func batteryPage(*config.Config) pageSpec {
 func bitwardenPage(*config.Config) pageSpec {
 	const m = "modules.bitwarden"
 	return pageSpec{id: "bitwarden", navKey: "settings-nav-bitwarden", icon: "ld-shield-check-symbolic", header: "settings-page-bitwarden", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field(m + ".server"),
-			field(m + ".email"),
+		{title: "settings-section-bitwarden-account", rows: fields(m+".server", m+".email")},
+		{title: "settings-section-bitwarden-security", rows: []rowSpec{
 			field(m + ".lock-with-session"),
 			field(m + ".unlock-with-session"),
 			field(m+".clipboard-clear", durationChips(inSeconds, after(10*time.Second), after(30*time.Second), after(time.Minute), after(5*time.Minute), zeroAs(never))),
-			field(m + ".format"),
-			field(m+".icon-locked", iconRow),
-			field(m+".icon-unlocked", iconRow),
-			field(m + ".network-folder"),
-			field(m + ".portal-folder"),
 		}},
+		{title: "settings-section-bitwarden-integrations", rows: fields(m+".network-folder", m+".portal-folder")},
 		{title: "settings-section-generator", rows: []rowSpec{
 			field(m+".generator-passwords", passwordPresetList),
 			field(m+".generator-passphrases", passphrasePresetList),
+		}},
+		{title: "settings-section-bitwarden-look", rows: []rowSpec{
+			field(m + ".format"),
+			field(m+".icon-locked", iconRow),
+			field(m+".icon-unlocked", iconRow),
 		}},
 		barItemSection(m, actionChoices("bitwarden")),
 	}}
