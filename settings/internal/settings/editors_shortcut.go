@@ -12,7 +12,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
-	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 const (
@@ -177,31 +176,6 @@ func (e *chordEditor) refresh() {
 	} else if !ok && e.recorder.Accel() != "" {
 		e.recorder.SetAccel("")
 	}
-}
-
-func actionChoicesOf(actions []wmconfig.Action) lister {
-	return func() []choice {
-		out := make([]choice, 0, len(actions))
-		for _, a := range actions {
-			value := a.Name
-			if a.Args != "" {
-				value += " "
-			}
-			out = append(out, choice{value: value, label: strings.TrimSpace(a.Name + " " + a.Args)})
-		}
-		return out
-	}
-}
-
-func knownAction(actions []wmconfig.Action) func(current string, _ []choice) bool {
-	return func(current string, _ []choice) bool {
-		name, _, _ := strings.Cut(strings.TrimSpace(current), " ")
-		return slices.ContainsFunc(actions, func(a wmconfig.Action) bool { return a.Name == name })
-	}
-}
-
-func newWMActionEditor(k *kit, s slot, actions []wmconfig.Action) *choiceEditor {
-	return newChoiceEditor(k, s, choiceSpec{list: actionChoicesOf(actions), known: knownAction(actions)})
 }
 
 const globalAction = "global"

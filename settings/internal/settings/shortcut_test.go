@@ -119,16 +119,13 @@ func TestAMouseChordIsEditedAsText(t *testing.T) {
 func TestTheActionOffersLysWMsActions(t *testing.T) {
 	c, _ := bindCards(t, "binds:\n  - {chord: SUPER + Q, action: kill}\n")
 	openCard(c, 0)
-	ed := treetest.First[*choiceEditor](t, c.cards[0].root)
-	names := make([]string, 0, len(ed.items))
-	for _, it := range ed.items {
+	ed := treetest.First[*wmActionEditor](t, c.cards[0].root)
+	names := make([]string, 0, len(ed.choices()))
+	for _, it := range ed.choices() {
 		names = append(names, it.value)
 	}
-	if !slices.Equal(names, []string{"kill", "exec ", "workspace "}) {
+	if !slices.Equal(names, []string{"kill", "workspace", "exec"}) {
 		t.Fatalf("%q", names)
-	}
-	if !ed.isKnown("workspace 3") || ed.isKnown("frobnicate") {
-		t.Fatal("an action is known by its name, whatever its arguments")
 	}
 }
 

@@ -496,7 +496,7 @@ func TestTheShortcutRecorderHoldsLysWMsBindsOffAndWritesTheChord(t *testing.T) {
 			}
 		}
 		time.Sleep(settle / 6)
-		for _, key := range []string{"Tab", "space", "Tab", "Tab", "Tab", "Tab", "space"} {
+		for _, key := range []string{"Tab", "space", "Tab", "Tab", "Tab", "space"} {
 			press(t, key)
 		}
 		if within(s.inhibiting) {

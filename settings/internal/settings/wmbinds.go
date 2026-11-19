@@ -17,6 +17,8 @@ const (
 	actionKey      = "action"
 	descriptionKey = "description"
 	execAction     = "exec"
+	// emptyIsolate is what an empty argument reads as in a message.
+	emptyIsolate = "\u2068\u2069"
 	// argOmitted stands for the arguments an action is given without: the
 	// first one its label selects on, and an optional slot left out.
 	argOmitted = "default"
@@ -69,7 +71,8 @@ func (n bindNames) actionLabel(text string) (string, bool) {
 	if len(a.args) > 0 {
 		first, rest = a.args[0], strings.Join(a.args[1:], " ")
 	}
-	return strings.TrimSpace(t.Get(key, i18n.Str("first", first), i18n.Str("args", a.argText()), i18n.Str("rest", rest))), true
+	label := t.Get(key, i18n.Str("first", first), i18n.Str("args", a.argText()), i18n.Str("rest", rest))
+	return strings.TrimSpace(strings.ReplaceAll(label, emptyIsolate, "")), true
 }
 
 // bindLabel titles a bind: its own description, else what its action

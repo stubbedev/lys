@@ -76,6 +76,14 @@ key (Print, the volume, media and brightness keys) or by the program it runs
 (such as `grim`, `wpctl` or `playerctl`). The search field above finds a bind by
 what it does, its group, its action as written or its keys.
 
+A bind's action is picked from lys-wm's actions, grouped the same way, and its
+arguments are set by the form lys-wm describes for that action: a direction or
+other fixed choice is a row of segments or a dropdown, a workspace a number or a
+name, a word such as `follow` a switch, and the command of `exec` the command
+picker with its app picker. Arguments outside the action's form stay editable
+as text and are marked **Not a form of this action**; an action whose form the
+editor does not build (`debug`) takes its arguments as text.
+
 ## Home Manager and Nix
 
 A `config.yaml` linked into the Nix store is never written, so every setting stays
