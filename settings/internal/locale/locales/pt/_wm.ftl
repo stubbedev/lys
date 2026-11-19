@@ -234,11 +234,11 @@ wm-rules = Regras
 wm-autostart = Arranque automático
     .description = Comandos executados quando a sessão está pronta
 wm-env = Ambiente
-    .description = Variáveis para o lys-wm e o que ele inicia; uma configuração sem nenhuma não tem nenhuma das integradas
+    .description = Variáveis para o lys-wm e as aplicações que inicia; uma alteração chega às aplicações iniciadas depois, não às que já estão abertas
 wm-xwayland-enabled = Xwayland
     .description = Executar aplicações X11
 wm-xwayland-zero-scaling = Sem escala
-    .description = As janelas X11 são desenhadas nos píxeis reais da saída
+    .description = As aplicações X11 desenham nos píxeis reais do ecrã em vez de serem ampliadas e desfocadas; num ecrã escalado parecem pequenas, a menos que se escalem sozinhas
 wm-palette = Paleta
     .description = Cores com nome que as outras chaves podem usar
 

@@ -236,11 +236,11 @@ wm-rules = Regeln
 wm-autostart = Autostart
     .description = Befehle, die ausgeführt werden, sobald die Sitzung läuft
 wm-env = Umgebung
-    .description = Variablen für lys-wm und was es startet; eine Konfiguration ohne welche hat auch keine der eingebauten
+    .description = Variablen für lys-wm und die Apps, die es startet; eine Änderung erreicht danach gestartete Apps, nicht bereits laufende
 wm-xwayland-enabled = Xwayland
     .description = X11-Anwendungen ausführen
 wm-xwayland-zero-scaling = Nullskalierung
-    .description = X11-Fenster zeichnen in den echten Pixeln der Ausgabe
+    .description = X11-Apps zeichnen in den echten Pixeln des Bildschirms, statt unscharf hochskaliert zu werden; auf einem skalierten Bildschirm wirken sie klein, wenn sie sich nicht selbst skalieren
 wm-palette = Palette
     .description = Benannte Farben, die andere Schlüssel verwenden können
 
