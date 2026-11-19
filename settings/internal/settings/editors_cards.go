@@ -77,6 +77,9 @@ type cardSpec struct {
 	clean    func(item map[string]any) map[string]any
 	unique   string
 	clashKey string
+	// aside, when set, sits in each card's header beside the title and
+	// follows the item as the title does.
+	aside func(k *kit) cardAside
 	// searchable heads the cards with a filter over the items' values.
 	searchable bool
 	// collapsed shows each card as its header alone until it is opened,
@@ -119,9 +122,16 @@ type cardList struct {
 	partners []int
 }
 
+// cardAside is a card header's part beside its title, shown for the item.
+type cardAside interface {
+	widget.Widget
+	show(item map[string]any)
+}
+
 type card struct {
 	root     *widget.Box
 	title    *widget.Label
+	aside    cardAside
 	identity control
 	controls []control
 	clash    *widget.Box
@@ -334,6 +344,10 @@ func (c *cardList) appendCard(i int) {
 		cd.title.SetEllipsize(widget.EllipsizeEnd)
 		header.AppendAligned(cd.title, true, widget.AlignCenter)
 	}
+	if c.spec.aside != nil {
+		cd.aside = c.spec.aside(c.k)
+		header.AppendAligned(cd.aside, false, widget.AlignCenter)
+	}
 	remove := c.k.iconButton("ld-trash-2-symbolic", chrome.removeKey, func() {
 		if i < len(c.local) {
 			c.local = append(c.local[:i:i], c.local[i+1:]...)
@@ -413,8 +427,14 @@ func sectionCard(header, body *widget.Box, class string) *widget.Box {
 }
 
 func (c *cardList) retitle(i int) {
-	if i < len(c.cards) && c.cards[i].title != nil && c.spec.title != nil {
+	if i >= len(c.cards) {
+		return
+	}
+	if c.cards[i].title != nil && c.spec.title != nil {
 		c.cards[i].title.SetText(c.spec.title(c.local[i], i+1))
+	}
+	if c.cards[i].aside != nil {
+		c.cards[i].aside.show(c.local[i])
 	}
 }
 

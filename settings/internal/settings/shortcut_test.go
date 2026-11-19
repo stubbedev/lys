@@ -72,7 +72,7 @@ func TestAClashMarksBothBindsAndReplaceLeavesOne(t *testing.T) {
 	if !c.cards[0].clash.Visible() || !c.cards[1].clash.Visible() {
 		t.Fatal("a chord used twice is not marked on both binds")
 	}
-	if !strings.Contains(c.cards[1].clashMsg.Text(), "kill") {
+	if !strings.Contains(c.cards[1].clashMsg.Text(), "Close window") {
 		t.Fatalf("the clash names %q, not the other bind", c.cards[1].clashMsg.Text())
 	}
 	treetest.Button(t, c.cards[1].clash, "Replace").OnClick()

@@ -505,7 +505,7 @@ func TestBindsAreCardsWithAFilter(t *testing.T) {
 	const declared = "# keep\nbinds:\n  - {chord: SUPER + Q, action: kill}\n  - {chord: SUPER + F, action: fullscreen, flags: [locked]}\ntearing: true\n"
 	k, w, _, files := wmKit(t, declared)
 	c := fieldControl(k, w, wmObjects("binds", "chord", "action")).(*cardList)
-	if len(c.cards) != 2 || c.cards[1].title.Text() != "SUPER + F · fullscreen" {
+	if len(c.cards) != 2 || c.cards[1].title.Text() != "fullscreen" {
 		t.Fatalf("%d cards, the second titled %q", len(c.cards), c.cards[1].title.Text())
 	}
 	c.filter.SetText("full")

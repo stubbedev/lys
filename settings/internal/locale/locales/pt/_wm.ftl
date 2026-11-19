@@ -616,3 +616,226 @@ wm-palette-new-name = Nome da nova cor
 wm-palette-add = Adicionar cor
 wm-palette-reset = Voltar à cor do lys-wm
 wm-palette-taken = Já existe uma cor chamada { $name }
+
+## What a bind does, by lys-wm action: $first is the first argument, or default without any; $args all of them; $rest all after the first
+wm-action-focus = { $first ->
+        [left] Focar a janela à esquerda
+        [right] Focar a janela à direita
+        [up] Focar a janela acima
+        [down] Focar a janela abaixo
+       *[other] Focar { $args }
+    }
+wm-action-move = { $first ->
+        [left] Mover a janela para a esquerda
+        [right] Mover a janela para a direita
+        [up] Mover a janela para cima
+        [down] Mover a janela para baixo
+       *[other] Mover a janela { $args }
+    }
+wm-action-workspace = { $first ->
+        [previous] Mudar para a área de trabalho anterior
+        [empty] Mudar para uma área de trabalho vazia
+       *[other] Mudar para a área de trabalho { $args }
+    }
+wm-action-movetoworkspace = { $first ->
+        [previous] Mover a janela para a área de trabalho anterior
+        [empty] Mover a janela para uma área de trabalho vazia
+       *[other] Mover a janela para a área de trabalho { $args }
+    }
+wm-action-focusoutput = { $first ->
+        [left] Focar o ecrã à esquerda
+        [right] Focar o ecrã à direita
+        [up] Focar o ecrã acima
+        [down] Focar o ecrã abaixo
+       *[other] Focar o ecrã { $args }
+    }
+wm-action-movetooutput = { $first ->
+        [left] Mover a janela para o ecrã à esquerda
+        [right] Mover a janela para o ecrã à direita
+        [up] Mover a janela para o ecrã acima
+        [down] Mover a janela para o ecrã abaixo
+       *[other] Mover a janela para o ecrã { $args }
+    }
+wm-action-moveworkspacetooutput = { $first ->
+        [left] Mover a área de trabalho para o ecrã à esquerda
+        [right] Mover a área de trabalho para o ecrã à direita
+        [up] Mover a área de trabalho para o ecrã acima
+        [down] Mover a área de trabalho para o ecrã abaixo
+       *[other] Mover a área de trabalho para o ecrã { $args }
+    }
+wm-action-swapworkspaces = Trocar as áreas de trabalho dos ecrãs { $args }
+wm-action-scratchpad = { $first ->
+        [hide] Ocultar o scratchpad
+       *[other] Alternar o scratchpad { $rest }
+    }
+wm-action-movetoscratchpad = Mover a janela para o scratchpad { $args }
+wm-action-kill = Fechar a janela
+wm-action-focuswindow = Focar a janela { $args }
+wm-action-minimize = { $first ->
+        [default] Minimizar a janela
+       *[other] Minimizar a janela { $args }
+    }
+wm-action-restore = { $first ->
+        [default] Restaurar a última janela minimizada
+       *[other] Restaurar a janela { $args }
+    }
+wm-action-overview = { $first ->
+        [show] Mostrar a vista geral
+        [hide] Ocultar a vista geral
+       *[other] Alternar a vista geral
+    }
+wm-action-closewindow = Fechar a janela { $args }
+wm-action-dpms = { $first ->
+        [on] Ligar os ecrãs
+        [off] Desligar os ecrãs
+       *[other] Ligar ou desligar os ecrãs
+    }
+wm-action-reload = Recarregar a configuração
+wm-action-dismissconfignotice = Dispensar o aviso de configuração
+wm-action-exit = Terminar a sessão
+wm-action-nextlayout = Mudar para a disposição de teclado seguinte
+wm-action-stickykeys = { $first ->
+        [on] Ligar as teclas de aderência
+        [off] Desligar as teclas de aderência
+       *[other] Teclas de aderência { $args }
+    }
+wm-action-slowkeys = Definir as teclas lentas para { $args } ms
+wm-action-global = Atalho da aplicação { $args }
+wm-action-exec = Executar { $args }
+wm-action-launch = Iniciar { $app }
+wm-action-makegroup = { $first ->
+        [h] Agrupar a janela lado a lado
+        [v] Agrupar a janela empilhada
+        [tab] Agrupar a janela em abas
+       *[other] Agrupar a janela { $args }
+    }
+wm-action-setlayout = { $first ->
+        [tree] Usar a disposição em mosaico
+        [scroll] Usar a disposição com deslocamento
+       *[other] Definir a disposição { $args }
+    }
+wm-action-columnwidth = Definir a largura da coluna { $args }
+wm-action-consume = { $first ->
+        [left] Mover a janela para a coluna à esquerda
+        [right] Mover a janela para a coluna à direita
+       *[other] Mover a janela para a coluna { $args }
+    }
+wm-action-expel = Mover a janela para uma coluna própria
+wm-action-center = Centrar a coluna focada
+wm-action-columndisplay = { $first ->
+        [stack] Empilhar as janelas da coluna
+        [tab] Mostrar a coluna em abas
+       *[other] Mostrar a coluna como { $args }
+    }
+wm-action-changegroup = { $first ->
+        [h] Dispor o grupo lado a lado
+        [v] Dispor o grupo empilhado
+        [tab] Dispor o grupo em abas
+        [toggletab] Alternar as abas do grupo
+        [opposite] Virar o grupo para o outro lado
+       *[other] Alterar o grupo { $args }
+    }
+wm-action-focustab = { $first ->
+        [prev] Focar a aba anterior
+        [next] Focar a aba seguinte
+       *[other] Focar a aba { $args }
+    }
+wm-action-focusparent = Focar o grupo que envolve
+wm-action-focuschild = Focar de volta dentro do grupo
+wm-action-swap = { $first ->
+        [left] Trocar a janela com a da esquerda
+        [right] Trocar a janela com a da direita
+        [up] Trocar a janela com a de cima
+        [down] Trocar a janela com a de baixo
+       *[other] Trocar a janela { $args }
+    }
+wm-action-moveout = Mover a janela para fora do seu grupo
+wm-action-equalize = { $first ->
+        [all] Igualar todas as divisões
+       *[other] Igualar o grupo
+    }
+wm-action-locktab = { $first ->
+        [on] Bloquear o grupo de abas
+        [off] Desbloquear o grupo de abas
+       *[other] Bloquear ou desbloquear o grupo de abas
+    }
+wm-action-submap = { $first ->
+        [reset] Sair do modo
+       *[other] Entrar no modo { $args }
+    }
+wm-action-togglefloating = Tornar a janela flutuante ou em mosaico
+wm-action-place = { $first ->
+        [left] Colocar a janela na metade esquerda
+        [right] Colocar a janela na metade direita
+        [top] Colocar a janela na metade superior
+        [bottom] Colocar a janela na metade inferior
+        [topleft] Colocar a janela no quarto superior esquerdo
+        [topright] Colocar a janela no quarto superior direito
+        [bottomleft] Colocar a janela no quarto inferior esquerdo
+        [bottomright] Colocar a janela no quarto inferior direito
+        [fill] Fazer a janela preencher o ecrã
+        [center] Centrar a janela
+        [restore] Pôr a janela onde estava
+       *[other] Colocar a janela { $args }
+    }
+wm-action-focusfloating = { $first ->
+        [on] Focar as janelas flutuantes
+        [off] Focar as janelas em mosaico
+       *[other] Alternar o foco entre janelas flutuantes e em mosaico
+    }
+wm-action-fullscreen = { $first ->
+        [on] Pôr a janela em ecrã inteiro
+        [off] Sair do ecrã inteiro
+       *[other] Alternar o ecrã inteiro
+    }
+wm-action-setprop = Definir a propriedade da janela { $args }
+wm-action-showdesktop = { $first ->
+        [on] Mostrar o ambiente de trabalho
+        [off] Trazer as janelas de volta
+       *[other] Mostrar ou ocultar o ambiente de trabalho
+    }
+wm-action-swallow = { $first ->
+        [on] Ocultar o terminal na janela
+        [off] Mostrar o terminal oculto
+       *[other] Mostrar ou ocultar o terminal absorvido
+    }
+wm-action-pin = { $first ->
+        [on] Afixar a janela
+        [off] Desafixar a janela
+       *[other] Afixar ou desafixar a janela
+    }
+wm-action-maximize = { $first ->
+        [on] Maximizar a janela
+        [off] Desmaximizar a janela
+       *[other] Alternar a maximização
+    }
+wm-action-resizeactive = Redimensionar a janela em { $args }
+wm-action-movewindow = Arrastar a janela
+wm-action-resizewindow = Redimensionar a janela por arrasto
+wm-action-zoom = { $first ->
+        [in] Aumentar o zoom
+        [out] Diminuir o zoom
+        [reset] Repor o zoom
+       *[other] Definir o zoom para { $rest }
+    }
+wm-action-debug = Depurar { $args }
+wm-action-casttarget = { $first ->
+        [window] Partilhar uma janela
+        [output] Partilhar um ecrã
+        [clear] Parar a partilha
+       *[other] Partilhar { $args }
+    }
+wm-action-focuslast = Focar a janela anterior
+wm-action-focusurgent = Focar a janela que pede atenção
+wm-action-cycle = { $first ->
+        [next] Percorrer até à janela seguinte
+        [prev] Percorrer até à janela anterior
+       *[other] Percorrer as janelas { $args }
+    }
+wm-action-switcher = { $first ->
+        [next] Mudar para a janela seguinte
+        [prev] Mudar para a janela anterior
+       *[other] Mudar de janela { $args }
+    }
+wm-binds-unknown-action = Ação desconhecida
+    .description = O lys-wm não tem nenhuma ação com este nome; o atalho é mostrado como foi escrito

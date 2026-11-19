@@ -619,3 +619,226 @@ wm-palette-new-name = New colour name
 wm-palette-add = Add colour
 wm-palette-reset = Back to lys-wm’s colour
 wm-palette-taken = There is already a colour called { $name }
+
+## What a bind does, by lys-wm action: $first is the first argument, or default without any; $args all of them; $rest all after the first
+wm-action-focus = { $first ->
+        [left] Focus the window on the left
+        [right] Focus the window on the right
+        [up] Focus the window above
+        [down] Focus the window below
+       *[other] Focus { $args }
+    }
+wm-action-move = { $first ->
+        [left] Move window left
+        [right] Move window right
+        [up] Move window up
+        [down] Move window down
+       *[other] Move window { $args }
+    }
+wm-action-workspace = { $first ->
+        [previous] Switch to the previous workspace
+        [empty] Switch to an empty workspace
+       *[other] Switch to workspace { $args }
+    }
+wm-action-movetoworkspace = { $first ->
+        [previous] Move window to the previous workspace
+        [empty] Move window to an empty workspace
+       *[other] Move window to workspace { $args }
+    }
+wm-action-focusoutput = { $first ->
+        [left] Focus the display on the left
+        [right] Focus the display on the right
+        [up] Focus the display above
+        [down] Focus the display below
+       *[other] Focus display { $args }
+    }
+wm-action-movetooutput = { $first ->
+        [left] Move window to the display on the left
+        [right] Move window to the display on the right
+        [up] Move window to the display above
+        [down] Move window to the display below
+       *[other] Move window to display { $args }
+    }
+wm-action-moveworkspacetooutput = { $first ->
+        [left] Move workspace to the display on the left
+        [right] Move workspace to the display on the right
+        [up] Move workspace to the display above
+        [down] Move workspace to the display below
+       *[other] Move workspace to display { $args }
+    }
+wm-action-swapworkspaces = Swap the workspaces of displays { $args }
+wm-action-scratchpad = { $first ->
+        [hide] Hide the scratchpad
+       *[other] Toggle scratchpad { $rest }
+    }
+wm-action-movetoscratchpad = Move window to scratchpad { $args }
+wm-action-kill = Close window
+wm-action-focuswindow = Focus window { $args }
+wm-action-minimize = { $first ->
+        [default] Minimize window
+       *[other] Minimize window { $args }
+    }
+wm-action-restore = { $first ->
+        [default] Restore the last minimized window
+       *[other] Restore window { $args }
+    }
+wm-action-overview = { $first ->
+        [show] Show the overview
+        [hide] Hide the overview
+       *[other] Toggle the overview
+    }
+wm-action-closewindow = Close window { $args }
+wm-action-dpms = { $first ->
+        [on] Turn displays on
+        [off] Turn displays off
+       *[other] Turn displays on or off
+    }
+wm-action-reload = Reload the configuration
+wm-action-dismissconfignotice = Dismiss the configuration notice
+wm-action-exit = End the session
+wm-action-nextlayout = Switch to the next keyboard layout
+wm-action-stickykeys = { $first ->
+        [on] Turn sticky keys on
+        [off] Turn sticky keys off
+       *[other] Sticky keys { $args }
+    }
+wm-action-slowkeys = Set slow keys to { $args } ms
+wm-action-global = App shortcut { $args }
+wm-action-exec = Run { $args }
+wm-action-launch = Launch { $app }
+wm-action-makegroup = { $first ->
+        [h] Group window side by side
+        [v] Group window stacked
+        [tab] Group window as tabs
+       *[other] Group window { $args }
+    }
+wm-action-setlayout = { $first ->
+        [tree] Use the tiling layout
+        [scroll] Use the scrolling layout
+       *[other] Set layout { $args }
+    }
+wm-action-columnwidth = Set column width { $args }
+wm-action-consume = { $first ->
+        [left] Move window into the column on the left
+        [right] Move window into the column on the right
+       *[other] Move window into column { $args }
+    }
+wm-action-expel = Move window into a column of its own
+wm-action-center = Center the focused column
+wm-action-columndisplay = { $first ->
+        [stack] Stack the windows of the column
+        [tab] Show the column as tabs
+       *[other] Show the column as { $args }
+    }
+wm-action-changegroup = { $first ->
+        [h] Arrange the group side by side
+        [v] Arrange the group stacked
+        [tab] Arrange the group as tabs
+        [toggletab] Toggle tabs in the group
+        [opposite] Turn the group the other way
+       *[other] Change group { $args }
+    }
+wm-action-focustab = { $first ->
+        [prev] Focus the previous tab
+        [next] Focus the next tab
+       *[other] Focus tab { $args }
+    }
+wm-action-focusparent = Focus the surrounding group
+wm-action-focuschild = Focus back into the group
+wm-action-swap = { $first ->
+        [left] Swap window with the one on the left
+        [right] Swap window with the one on the right
+        [up] Swap window with the one above
+        [down] Swap window with the one below
+       *[other] Swap window { $args }
+    }
+wm-action-moveout = Move window out of its group
+wm-action-equalize = { $first ->
+        [all] Make every split even
+       *[other] Make the group even
+    }
+wm-action-locktab = { $first ->
+        [on] Lock the tab group
+        [off] Unlock the tab group
+       *[other] Lock or unlock the tab group
+    }
+wm-action-submap = { $first ->
+        [reset] Leave the mode
+       *[other] Enter mode { $args }
+    }
+wm-action-togglefloating = Float or tile window
+wm-action-place = { $first ->
+        [left] Place window on the left half
+        [right] Place window on the right half
+        [top] Place window on the top half
+        [bottom] Place window on the bottom half
+        [topleft] Place window in the top left quarter
+        [topright] Place window in the top right quarter
+        [bottomleft] Place window in the bottom left quarter
+        [bottomright] Place window in the bottom right quarter
+        [fill] Let window fill the screen
+        [center] Center window
+        [restore] Put window back where it was
+       *[other] Place window { $args }
+    }
+wm-action-focusfloating = { $first ->
+        [on] Focus the floating windows
+        [off] Focus the tiled windows
+       *[other] Switch focus between floating and tiled windows
+    }
+wm-action-fullscreen = { $first ->
+        [on] Make window fullscreen
+        [off] Leave fullscreen
+       *[other] Toggle fullscreen
+    }
+wm-action-setprop = Set window property { $args }
+wm-action-showdesktop = { $first ->
+        [on] Show the desktop
+        [off] Bring the windows back
+       *[other] Show or hide the desktop
+    }
+wm-action-swallow = { $first ->
+        [on] Hide the terminal in the window
+        [off] Show the hidden terminal
+       *[other] Show or hide the swallowed terminal
+    }
+wm-action-pin = { $first ->
+        [on] Pin window
+        [off] Unpin window
+       *[other] Pin or unpin window
+    }
+wm-action-maximize = { $first ->
+        [on] Maximize window
+        [off] Unmaximize window
+       *[other] Toggle maximize
+    }
+wm-action-resizeactive = Resize window by { $args }
+wm-action-movewindow = Drag window
+wm-action-resizewindow = Resize window by dragging
+wm-action-zoom = { $first ->
+        [in] Zoom in
+        [out] Zoom out
+        [reset] Reset zoom
+       *[other] Set zoom to { $rest }
+    }
+wm-action-debug = Debug { $args }
+wm-action-casttarget = { $first ->
+        [window] Share a window
+        [output] Share a display
+        [clear] Stop sharing
+       *[other] Share { $args }
+    }
+wm-action-focuslast = Focus the previous window
+wm-action-focusurgent = Focus the window asking for attention
+wm-action-cycle = { $first ->
+        [next] Cycle to the next window
+        [prev] Cycle to the previous window
+       *[other] Cycle windows { $args }
+    }
+wm-action-switcher = { $first ->
+        [next] Switch to the next window
+        [prev] Switch to the previous window
+       *[other] Switch windows { $args }
+    }
+wm-binds-unknown-action = Unknown action
+    .description = lys-wm has no action by this name; the bind is shown as written

@@ -1,0 +1,163 @@
+package settings
+
+import (
+	"log"
+	"slices"
+	"strings"
+
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/wmconfig"
+)
+
+const (
+	actionKey      = "action"
+	descriptionKey = "description"
+	execAction     = "exec"
+	// argOmitted stands for the arguments an action is given without: the
+	// first one its label selects on, and an optional slot left out.
+	argOmitted = "default"
+)
+
+// boundAction is a bind's action split into lys-wm's action name and its
+// arguments.
+type boundAction struct {
+	name string
+	args []string
+}
+
+func splitAction(text string) boundAction {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return boundAction{}
+	}
+	return boundAction{name: words[0], args: words[1:]}
+}
+
+func (a boundAction) argText() string { return strings.Join(a.args, " ") }
+
+// bindNames names binds by what they do: lys-wm's actions, and the
+// installed apps by the command that launches each.
+type bindNames struct {
+	actions  []wmconfig.Action
+	launches map[string]string
+}
+
+func (n bindNames) known(name string) bool {
+	return slices.ContainsFunc(n.actions, func(a wmconfig.Action) bool { return a.Name == name })
+}
+
+// actionLabel is what the action text does, and whether lys-wm knows its
+// action; an unknown one reads as written.
+func (n bindNames) actionLabel(text string) (string, bool) {
+	a := splitAction(text)
+	if !n.known(a.name) {
+		return strings.TrimSpace(text), false
+	}
+	t := locale.T()
+	if app, ok := n.launches[a.argText()]; ok && a.name == execAction {
+		return t.Get("wm-action-launch", i18n.Str("app", app)), true
+	}
+	key := "wm-action-" + a.name
+	if !t.Has(key) {
+		log.Panicf("settings: lys-wm's action %s has no label", a.name)
+	}
+	first, rest := argOmitted, ""
+	if len(a.args) > 0 {
+		first, rest = a.args[0], strings.Join(a.args[1:], " ")
+	}
+	return strings.TrimSpace(t.Get(key, i18n.Str("first", first), i18n.Str("args", a.argText()), i18n.Str("rest", rest))), true
+}
+
+// bindLabel titles a bind: its own description, else what its action
+// does, else its number.
+func (n bindNames) bindLabel(item map[string]any, number int) string {
+	if d, _ := item[descriptionKey].(string); strings.TrimSpace(d) != "" {
+		return d
+	}
+	if text, _ := item[actionKey].(string); strings.TrimSpace(text) != "" {
+		label, _ := n.actionLabel(text)
+		return label
+	}
+	return locale.T().Get("wm-card-number", i18n.Int("number", int64(number)))
+}
+
+func (n bindNames) unknown(item map[string]any) bool {
+	text, _ := item[actionKey].(string)
+	return strings.TrimSpace(text) != "" && !n.known(splitAction(text).name)
+}
+
+// launchNames are the installed apps' names by the command each launches.
+func launchNames(ix installedApps) map[string]string {
+	out := make(map[string]string, len(ix.shown))
+	for _, a := range ix.shown {
+		cmd, err := appCommand(a)
+		if err != nil {
+			log.Printf("settings: %v", err)
+			continue
+		}
+		if _, taken := out[cmd]; !taken {
+			out[cmd] = a.DisplayName()
+		}
+	}
+	return out
+}
+
+// chordKeys is a chord as the keycaps show it.
+func chordKeys(chord string) string {
+	if c, ok := parseChord(chord); ok {
+		return c.accel()
+	}
+	return strings.Join(strings.Fields(chord), "")
+}
+
+// bindAside is a bind card's header beside its title: the unknown-action
+// mark and the chord's keycaps.
+type bindAside struct {
+	*widget.Box
+	k       *kit
+	names   *bindNames
+	unknown *widget.Badge
+	keys    *widget.Box
+	shown   string
+}
+
+func newBindAside(k *kit, names *bindNames) cardAside {
+	t := locale.T()
+	a := &bindAside{Box: gapBox(widget.Row), k: k, names: names, keys: gapBox(widget.Row)}
+	a.unknown = k.badge(t.Get("wm-binds-unknown-action"), "warning")
+	a.unknown.SetTooltip(t.Attr("wm-binds-unknown-action", "description"))
+	a.AppendAligned(a.unknown, false, widget.AlignCenter)
+	a.AppendAligned(a.keys, false, widget.AlignCenter)
+	return a
+}
+
+func (a *bindAside) show(item map[string]any) {
+	a.unknown.SetVisible(a.names.unknown(item))
+	chord, _ := item[chordKey].(string)
+	keys := ""
+	if strings.TrimSpace(chord) != "" {
+		keys = chordKeys(chord)
+	}
+	if keys == a.shown {
+		return
+	}
+	a.shown = keys
+	a.keys.Clear()
+	if keys != "" {
+		a.keys.AppendAligned(newKeycaps(a.k, keys), false, widget.AlignCenter)
+	}
+}
+
+// keycaps is a chord drawn as lys-ui's keycaps: one picture, its keys set
+// apart by the keycaps' own spacing.
+type keycaps struct{ *widget.Box }
+
+func newKeycaps(k *kit, keys string) keycaps {
+	label := widget.NewShortcutLabel(k.face, keys)
+	label.AddClass("bind-keys", css.DimLabel)
+	return keycaps{label}
+}

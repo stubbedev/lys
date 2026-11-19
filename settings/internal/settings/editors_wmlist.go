@@ -55,18 +55,27 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 		searchable: true,
 		collapsed:  true,
 	}
+	var binds *bindNames
 	if f, ok := k.wm.schema.Field(append(item, chordKey)); ok && f.Format == wmChordFormat {
+		action, _ := k.wm.schema.Field(append(item, actionKey))
+		binds = &bindNames{actions: action.Actions}
+		cards.title = binds.bindLabel
+		cards.aside = func(k *kit) cardAside { return newBindAside(k, binds) }
 		cards.clashKey = chordKey
 		cards.keep = func(m map[string]any) bool { chord, _ := m[chordKey].(string); return chord != "" }
 	}
 	list := newCardList(k, s, cards)
-	if slices.Contains(spec.title, appIDKey) {
-		dirs := desktopentry.ApplicationDirs()
-		async(k, func() map[string]string { return appNames(scanInstalled(dirs)) }, func(names map[string]string) {
-			apps = names
-			list.rebuild()
-		})
+	if binds == nil && !slices.Contains(spec.title, appIDKey) {
+		return list
 	}
+	dirs := desktopentry.ApplicationDirs()
+	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+		if binds != nil {
+			binds.launches = launchNames(ix)
+		}
+		apps = appNames(ix)
+		list.rebuild()
+	})
 	return list
 }
 

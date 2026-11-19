@@ -616,3 +616,225 @@ wm-palette-new-name = Naam van de nieuwe kleur
 wm-palette-add = Kleur toevoegen
 wm-palette-reset = Terug naar de kleur van lys-wm
 wm-palette-taken = Er is al een kleur met de naam { $name }
+## What a bind does, by lys-wm action: $first is the first argument, or default without any; $args all of them; $rest all after the first
+wm-action-focus = { $first ->
+        [left] Het venster links focussen
+        [right] Het venster rechts focussen
+        [up] Het venster erboven focussen
+        [down] Het venster eronder focussen
+       *[other] { $args } focussen
+    }
+wm-action-move = { $first ->
+        [left] Venster naar links verplaatsen
+        [right] Venster naar rechts verplaatsen
+        [up] Venster omhoog verplaatsen
+        [down] Venster omlaag verplaatsen
+       *[other] Venster { $args } verplaatsen
+    }
+wm-action-workspace = { $first ->
+        [previous] Naar het vorige werkblad schakelen
+        [empty] Naar een leeg werkblad schakelen
+       *[other] Naar werkblad { $args } schakelen
+    }
+wm-action-movetoworkspace = { $first ->
+        [previous] Venster naar het vorige werkblad verplaatsen
+        [empty] Venster naar een leeg werkblad verplaatsen
+       *[other] Venster naar werkblad { $args } verplaatsen
+    }
+wm-action-focusoutput = { $first ->
+        [left] Het beeldscherm links focussen
+        [right] Het beeldscherm rechts focussen
+        [up] Het beeldscherm erboven focussen
+        [down] Het beeldscherm eronder focussen
+       *[other] Beeldscherm { $args } focussen
+    }
+wm-action-movetooutput = { $first ->
+        [left] Venster naar het beeldscherm links verplaatsen
+        [right] Venster naar het beeldscherm rechts verplaatsen
+        [up] Venster naar het beeldscherm erboven verplaatsen
+        [down] Venster naar het beeldscherm eronder verplaatsen
+       *[other] Venster naar beeldscherm { $args } verplaatsen
+    }
+wm-action-moveworkspacetooutput = { $first ->
+        [left] Werkblad naar het beeldscherm links verplaatsen
+        [right] Werkblad naar het beeldscherm rechts verplaatsen
+        [up] Werkblad naar het beeldscherm erboven verplaatsen
+        [down] Werkblad naar het beeldscherm eronder verplaatsen
+       *[other] Werkblad naar beeldscherm { $args } verplaatsen
+    }
+wm-action-swapworkspaces = De werkbladen van beeldschermen { $args } wisselen
+wm-action-scratchpad = { $first ->
+        [hide] De scratchpad verbergen
+       *[other] Scratchpad { $rest } in- of uitschakelen
+    }
+wm-action-movetoscratchpad = Venster naar de scratchpad verplaatsen { $args }
+wm-action-kill = Venster sluiten
+wm-action-focuswindow = Venster { $args } focussen
+wm-action-minimize = { $first ->
+        [default] Venster minimaliseren
+       *[other] Venster { $args } minimaliseren
+    }
+wm-action-restore = { $first ->
+        [default] Het laatst geminimaliseerde venster herstellen
+       *[other] Venster { $args } herstellen
+    }
+wm-action-overview = { $first ->
+        [show] Het overzicht tonen
+        [hide] Het overzicht verbergen
+       *[other] Het overzicht in- of uitschakelen
+    }
+wm-action-closewindow = Venster { $args } sluiten
+wm-action-dpms = { $first ->
+        [on] Beeldschermen aanzetten
+        [off] Beeldschermen uitzetten
+       *[other] Beeldschermen aan- of uitzetten
+    }
+wm-action-reload = De configuratie herladen
+wm-action-dismissconfignotice = De configuratiemelding sluiten
+wm-action-exit = De sessie beëindigen
+wm-action-nextlayout = Naar de volgende toetsenbordindeling schakelen
+wm-action-stickykeys = { $first ->
+        [on] Plaktoetsen aanzetten
+        [off] Plaktoetsen uitzetten
+       *[other] Plaktoetsen { $args }
+    }
+wm-action-slowkeys = Trage toetsen instellen op { $args } ms
+wm-action-global = App-sneltoets { $args }
+wm-action-exec = { $args } uitvoeren
+wm-action-launch = { $app } starten
+wm-action-makegroup = { $first ->
+        [h] Venster naast elkaar groeperen
+        [v] Venster gestapeld groeperen
+        [tab] Venster als tabbladen groeperen
+       *[other] Venster groeperen { $args }
+    }
+wm-action-setlayout = { $first ->
+        [tree] De tegelindeling gebruiken
+        [scroll] De scrollende indeling gebruiken
+       *[other] Indeling { $args } instellen
+    }
+wm-action-columnwidth = Kolombreedte { $args } instellen
+wm-action-consume = { $first ->
+        [left] Venster in de kolom links verplaatsen
+        [right] Venster in de kolom rechts verplaatsen
+       *[other] Venster in kolom { $args } verplaatsen
+    }
+wm-action-expel = Venster in een eigen kolom verplaatsen
+wm-action-center = De gefocuste kolom centreren
+wm-action-columndisplay = { $first ->
+        [stack] De vensters van de kolom stapelen
+        [tab] De kolom als tabbladen tonen
+       *[other] De kolom tonen als { $args }
+    }
+wm-action-changegroup = { $first ->
+        [h] De groep naast elkaar plaatsen
+        [v] De groep gestapeld plaatsen
+        [tab] De groep als tabbladen plaatsen
+        [toggletab] Tabbladen in de groep in- of uitschakelen
+        [opposite] De groep de andere kant op draaien
+       *[other] Groep { $args } wijzigen
+    }
+wm-action-focustab = { $first ->
+        [prev] Het vorige tabblad focussen
+        [next] Het volgende tabblad focussen
+       *[other] Tabblad { $args } focussen
+    }
+wm-action-focusparent = De omliggende groep focussen
+wm-action-focuschild = Terug de groep in focussen
+wm-action-swap = { $first ->
+        [left] Venster wisselen met het venster links
+        [right] Venster wisselen met het venster rechts
+        [up] Venster wisselen met het venster erboven
+        [down] Venster wisselen met het venster eronder
+       *[other] Venster { $args } wisselen
+    }
+wm-action-moveout = Venster uit zijn groep halen
+wm-action-equalize = { $first ->
+        [all] Elke splitsing gelijkmaken
+       *[other] De groep gelijkmaken
+    }
+wm-action-locktab = { $first ->
+        [on] De tabbladgroep vergrendelen
+        [off] De tabbladgroep ontgrendelen
+       *[other] De tabbladgroep vergrendelen of ontgrendelen
+    }
+wm-action-submap = { $first ->
+        [reset] De modus verlaten
+       *[other] Modus { $args } openen
+    }
+wm-action-togglefloating = Venster laten zweven of tegelen
+wm-action-place = { $first ->
+        [left] Venster op de linkerhelft plaatsen
+        [right] Venster op de rechterhelft plaatsen
+        [top] Venster op de bovenste helft plaatsen
+        [bottom] Venster op de onderste helft plaatsen
+        [topleft] Venster in het kwart linksboven plaatsen
+        [topright] Venster in het kwart rechtsboven plaatsen
+        [bottomleft] Venster in het kwart linksonder plaatsen
+        [bottomright] Venster in het kwart rechtsonder plaatsen
+        [fill] Venster het scherm laten vullen
+        [center] Venster centreren
+        [restore] Venster terugzetten waar het was
+       *[other] Venster { $args } plaatsen
+    }
+wm-action-focusfloating = { $first ->
+        [on] De zwevende vensters focussen
+        [off] De getegelde vensters focussen
+       *[other] De focus wisselen tussen zwevende en getegelde vensters
+    }
+wm-action-fullscreen = { $first ->
+        [on] Venster schermvullend maken
+        [off] Schermvullend verlaten
+       *[other] Schermvullend in- of uitschakelen
+    }
+wm-action-setprop = Venstereigenschap { $args } instellen
+wm-action-showdesktop = { $first ->
+        [on] Het bureaublad tonen
+        [off] De vensters terugbrengen
+       *[other] Het bureaublad tonen of verbergen
+    }
+wm-action-swallow = { $first ->
+        [on] De terminal in het venster verbergen
+        [off] De verborgen terminal tonen
+       *[other] De opgeslokte terminal tonen of verbergen
+    }
+wm-action-pin = { $first ->
+        [on] Venster vastzetten
+        [off] Venster losmaken
+       *[other] Venster vastzetten of losmaken
+    }
+wm-action-maximize = { $first ->
+        [on] Venster maximaliseren
+        [off] Venster herstellen van maximaal
+       *[other] Maximaliseren in- of uitschakelen
+    }
+wm-action-resizeactive = Venster { $args } vergroten of verkleinen
+wm-action-movewindow = Venster slepen
+wm-action-resizewindow = Venster slepend vergroten of verkleinen
+wm-action-zoom = { $first ->
+        [in] Inzoomen
+        [out] Uitzoomen
+        [reset] Zoom herstellen
+       *[other] Zoom instellen op { $rest }
+    }
+wm-action-debug = Debug { $args }
+wm-action-casttarget = { $first ->
+        [window] Een venster delen
+        [output] Een beeldscherm delen
+        [clear] Stoppen met delen
+       *[other] { $args } delen
+    }
+wm-action-focuslast = Het vorige venster focussen
+wm-action-focusurgent = Het venster focussen dat aandacht vraagt
+wm-action-cycle = { $first ->
+        [next] Naar het volgende venster doorlopen
+        [prev] Naar het vorige venster doorlopen
+       *[other] Vensters doorlopen { $args }
+    }
+wm-action-switcher = { $first ->
+        [next] Naar het volgende venster schakelen
+        [prev] Naar het vorige venster schakelen
+       *[other] Vensters wisselen { $args }
+    }
+wm-binds-unknown-action = Onbekende actie
+    .description = lys-wm kent geen actie met deze naam; de binding wordt getoond zoals geschreven

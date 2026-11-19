@@ -77,7 +77,7 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 func walkOwn(w widget.Widget, visit func(widget.Widget)) {
 	visit(w)
 	switch w.(type) {
-	case *widget.Chip, *widget.ToggleGroup, *segmentedEnum:
+	case *widget.Chip, *widget.ToggleGroup, *segmentedEnum, keycaps:
 		return
 	}
 	if c, ok := w.(interface{ Children() []widget.Widget }); ok {

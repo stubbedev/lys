@@ -619,3 +619,225 @@ wm-palette-new-name = Name der neuen Farbe
 wm-palette-add = Farbe hinzufügen
 wm-palette-reset = Zurück zur Farbe von lys-wm
 wm-palette-taken = Es gibt schon eine Farbe namens { $name }
+## What a bind does, by lys-wm action: $first is the first argument, or default without any; $args all of them; $rest all after the first
+wm-action-focus = { $first ->
+        [left] Das Fenster links fokussieren
+        [right] Das Fenster rechts fokussieren
+        [up] Das Fenster darüber fokussieren
+        [down] Das Fenster darunter fokussieren
+       *[other] { $args } fokussieren
+    }
+wm-action-move = { $first ->
+        [left] Fenster nach links verschieben
+        [right] Fenster nach rechts verschieben
+        [up] Fenster nach oben verschieben
+        [down] Fenster nach unten verschieben
+       *[other] Fenster verschieben: { $args }
+    }
+wm-action-workspace = { $first ->
+        [previous] Zur vorherigen Arbeitsfläche wechseln
+        [empty] Zu einer leeren Arbeitsfläche wechseln
+       *[other] Zu Arbeitsfläche { $args } wechseln
+    }
+wm-action-movetoworkspace = { $first ->
+        [previous] Fenster auf die vorherige Arbeitsfläche verschieben
+        [empty] Fenster auf eine leere Arbeitsfläche verschieben
+       *[other] Fenster auf Arbeitsfläche { $args } verschieben
+    }
+wm-action-focusoutput = { $first ->
+        [left] Den Bildschirm links fokussieren
+        [right] Den Bildschirm rechts fokussieren
+        [up] Den Bildschirm darüber fokussieren
+        [down] Den Bildschirm darunter fokussieren
+       *[other] Bildschirm { $args } fokussieren
+    }
+wm-action-movetooutput = { $first ->
+        [left] Fenster auf den Bildschirm links verschieben
+        [right] Fenster auf den Bildschirm rechts verschieben
+        [up] Fenster auf den Bildschirm darüber verschieben
+        [down] Fenster auf den Bildschirm darunter verschieben
+       *[other] Fenster auf Bildschirm { $args } verschieben
+    }
+wm-action-moveworkspacetooutput = { $first ->
+        [left] Arbeitsfläche auf den Bildschirm links verschieben
+        [right] Arbeitsfläche auf den Bildschirm rechts verschieben
+        [up] Arbeitsfläche auf den Bildschirm darüber verschieben
+        [down] Arbeitsfläche auf den Bildschirm darunter verschieben
+       *[other] Arbeitsfläche auf Bildschirm { $args } verschieben
+    }
+wm-action-swapworkspaces = Arbeitsflächen der Bildschirme { $args } tauschen
+wm-action-scratchpad = { $first ->
+        [hide] Das Scratchpad ausblenden
+       *[other] Scratchpad { $rest } umschalten
+    }
+wm-action-movetoscratchpad = Fenster ins Scratchpad verschieben { $args }
+wm-action-kill = Fenster schließen
+wm-action-focuswindow = Fenster { $args } fokussieren
+wm-action-minimize = { $first ->
+        [default] Fenster minimieren
+       *[other] Fenster minimieren: { $args }
+    }
+wm-action-restore = { $first ->
+        [default] Das zuletzt minimierte Fenster wiederherstellen
+       *[other] Fenster { $args } wiederherstellen
+    }
+wm-action-overview = { $first ->
+        [show] Die Übersicht anzeigen
+        [hide] Die Übersicht ausblenden
+       *[other] Die Übersicht umschalten
+    }
+wm-action-closewindow = Fenster { $args } schließen
+wm-action-dpms = { $first ->
+        [on] Bildschirme einschalten
+        [off] Bildschirme ausschalten
+       *[other] Bildschirme ein- oder ausschalten
+    }
+wm-action-reload = Die Konfiguration neu laden
+wm-action-dismissconfignotice = Den Konfigurationshinweis schließen
+wm-action-exit = Die Sitzung beenden
+wm-action-nextlayout = Zur nächsten Tastaturbelegung wechseln
+wm-action-stickykeys = { $first ->
+        [on] Einrastfunktion einschalten
+        [off] Einrastfunktion ausschalten
+       *[other] Einrastfunktion { $args }
+    }
+wm-action-slowkeys = Anschlagverzögerung auf { $args } ms setzen
+wm-action-global = App-Tastenkürzel { $args }
+wm-action-exec = { $args } ausführen
+wm-action-launch = { $app } starten
+wm-action-makegroup = { $first ->
+        [h] Fenster nebeneinander gruppieren
+        [v] Fenster gestapelt gruppieren
+        [tab] Fenster als Reiter gruppieren
+       *[other] Fenster gruppieren: { $args }
+    }
+wm-action-setlayout = { $first ->
+        [tree] Das Kachel-Layout verwenden
+        [scroll] Das Scroll-Layout verwenden
+       *[other] Layout { $args } festlegen
+    }
+wm-action-columnwidth = Spaltenbreite { $args } festlegen
+wm-action-consume = { $first ->
+        [left] Fenster in die Spalte links verschieben
+        [right] Fenster in die Spalte rechts verschieben
+       *[other] Fenster in Spalte { $args } verschieben
+    }
+wm-action-expel = Fenster in eine eigene Spalte verschieben
+wm-action-center = Die fokussierte Spalte zentrieren
+wm-action-columndisplay = { $first ->
+        [stack] Die Fenster der Spalte stapeln
+        [tab] Die Spalte als Reiter anzeigen
+       *[other] Die Spalte anzeigen als { $args }
+    }
+wm-action-changegroup = { $first ->
+        [h] Die Gruppe nebeneinander anordnen
+        [v] Die Gruppe gestapelt anordnen
+        [tab] Die Gruppe als Reiter anordnen
+        [toggletab] Reiter in der Gruppe umschalten
+        [opposite] Die Gruppe andersherum ausrichten
+       *[other] Gruppe ändern: { $args }
+    }
+wm-action-focustab = { $first ->
+        [prev] Den vorherigen Reiter fokussieren
+        [next] Den nächsten Reiter fokussieren
+       *[other] Reiter { $args } fokussieren
+    }
+wm-action-focusparent = Die umgebende Gruppe fokussieren
+wm-action-focuschild = Zurück in die Gruppe fokussieren
+wm-action-swap = { $first ->
+        [left] Fenster mit dem linken tauschen
+        [right] Fenster mit dem rechten tauschen
+        [up] Fenster mit dem darüber tauschen
+        [down] Fenster mit dem darunter tauschen
+       *[other] Fenster tauschen: { $args }
+    }
+wm-action-moveout = Fenster aus seiner Gruppe herausnehmen
+wm-action-equalize = { $first ->
+        [all] Jede Teilung gleichmäßig machen
+       *[other] Die Gruppe gleichmäßig machen
+    }
+wm-action-locktab = { $first ->
+        [on] Die Reitergruppe sperren
+        [off] Die Reitergruppe entsperren
+       *[other] Die Reitergruppe sperren oder entsperren
+    }
+wm-action-submap = { $first ->
+        [reset] Den Modus verlassen
+       *[other] Modus { $args } betreten
+    }
+wm-action-togglefloating = Fenster schweben lassen oder kacheln
+wm-action-place = { $first ->
+        [left] Fenster auf die linke Hälfte setzen
+        [right] Fenster auf die rechte Hälfte setzen
+        [top] Fenster auf die obere Hälfte setzen
+        [bottom] Fenster auf die untere Hälfte setzen
+        [topleft] Fenster in das obere linke Viertel setzen
+        [topright] Fenster in das obere rechte Viertel setzen
+        [bottomleft] Fenster in das untere linke Viertel setzen
+        [bottomright] Fenster in das untere rechte Viertel setzen
+        [fill] Fenster den Bildschirm füllen lassen
+        [center] Fenster zentrieren
+        [restore] Fenster an seinen alten Platz zurücksetzen
+       *[other] Fenster platzieren: { $args }
+    }
+wm-action-focusfloating = { $first ->
+        [on] Die schwebenden Fenster fokussieren
+        [off] Die gekachelten Fenster fokussieren
+       *[other] Den Fokus zwischen schwebenden und gekachelten Fenstern wechseln
+    }
+wm-action-fullscreen = { $first ->
+        [on] Fenster im Vollbild anzeigen
+        [off] Vollbild verlassen
+       *[other] Vollbild umschalten
+    }
+wm-action-setprop = Fenstereigenschaft { $args } festlegen
+wm-action-showdesktop = { $first ->
+        [on] Den Desktop anzeigen
+        [off] Die Fenster zurückholen
+       *[other] Den Desktop anzeigen oder ausblenden
+    }
+wm-action-swallow = { $first ->
+        [on] Das Terminal im Fenster ausblenden
+        [off] Das ausgeblendete Terminal anzeigen
+       *[other] Das verschluckte Terminal anzeigen oder ausblenden
+    }
+wm-action-pin = { $first ->
+        [on] Fenster anheften
+        [off] Fenster lösen
+       *[other] Fenster anheften oder lösen
+    }
+wm-action-maximize = { $first ->
+        [on] Fenster maximieren
+        [off] Fenster wiederherstellen
+       *[other] Maximieren umschalten
+    }
+wm-action-resizeactive = Fenstergröße ändern um { $args }
+wm-action-movewindow = Fenster ziehen
+wm-action-resizewindow = Fenstergröße durch Ziehen ändern
+wm-action-zoom = { $first ->
+        [in] Vergrößern
+        [out] Verkleinern
+        [reset] Zoom zurücksetzen
+       *[other] Zoom auf { $rest } setzen
+    }
+wm-action-debug = Debug { $args }
+wm-action-casttarget = { $first ->
+        [window] Ein Fenster teilen
+        [output] Einen Bildschirm teilen
+        [clear] Teilen beenden
+       *[other] { $args } teilen
+    }
+wm-action-focuslast = Das vorherige Fenster fokussieren
+wm-action-focusurgent = Das Fenster fokussieren, das Aufmerksamkeit verlangt
+wm-action-cycle = { $first ->
+        [next] Zum nächsten Fenster wechseln
+        [prev] Zum vorherigen Fenster wechseln
+       *[other] Fenster durchschalten: { $args }
+    }
+wm-action-switcher = { $first ->
+        [next] Zum nächsten Fenster umschalten
+        [prev] Zum vorherigen Fenster umschalten
+       *[other] Fenster umschalten: { $args }
+    }
+wm-binds-unknown-action = Unbekannte Aktion
+    .description = lys-wm kennt keine Aktion mit diesem Namen; das Tastenkürzel wird wie geschrieben angezeigt

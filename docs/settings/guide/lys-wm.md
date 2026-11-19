@@ -61,6 +61,14 @@ or off and sets its resolution, refresh rate and scale, over wlr-output-manageme
 without an answer it reverts after 15 seconds. **Keep** writes the layout to
 `outputs`, matching each monitor by its description when known, else by connector.
 
+## Keyboard Shortcuts
+
+Each bind reads as what it does, with its chord as keycaps beside it: the action
+lys-wm names with its arguments filled in, such as *Switch to workspace 3* or
+*Move window left*, *Launch Firefox* for a command an installed app is started
+with, or the bind's own `description` when it has one. An action lys-wm does not
+know reads as written and is marked **Unknown action**.
+
 ## Home Manager and Nix
 
 A `config.yaml` linked into the Nix store is never written, so every setting stays

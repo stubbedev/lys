@@ -619,3 +619,226 @@ wm-palette-new-name = Nom de la nouvelle couleur
 wm-palette-add = Ajouter une couleur
 wm-palette-reset = Revenir à la couleur de lys-wm
 wm-palette-taken = Il existe déjà une couleur nommée { $name }
+
+## What a bind does, by lys-wm action: $first is the first argument, or default without any; $args all of them; $rest all after the first
+wm-action-focus = { $first ->
+        [left] Focaliser la fenêtre de gauche
+        [right] Focaliser la fenêtre de droite
+        [up] Focaliser la fenêtre du dessus
+        [down] Focaliser la fenêtre du dessous
+       *[other] Focaliser { $args }
+    }
+wm-action-move = { $first ->
+        [left] Déplacer la fenêtre vers la gauche
+        [right] Déplacer la fenêtre vers la droite
+        [up] Déplacer la fenêtre vers le haut
+        [down] Déplacer la fenêtre vers le bas
+       *[other] Déplacer la fenêtre { $args }
+    }
+wm-action-workspace = { $first ->
+        [previous] Passer à l’espace de travail précédent
+        [empty] Passer à un espace de travail libre
+       *[other] Passer à l’espace de travail { $args }
+    }
+wm-action-movetoworkspace = { $first ->
+        [previous] Déplacer la fenêtre vers l’espace de travail précédent
+        [empty] Déplacer la fenêtre vers un espace de travail libre
+       *[other] Déplacer la fenêtre vers l’espace de travail { $args }
+    }
+wm-action-focusoutput = { $first ->
+        [left] Focaliser l’écran de gauche
+        [right] Focaliser l’écran de droite
+        [up] Focaliser l’écran du dessus
+        [down] Focaliser l’écran du dessous
+       *[other] Focaliser l’écran { $args }
+    }
+wm-action-movetooutput = { $first ->
+        [left] Déplacer la fenêtre vers l’écran de gauche
+        [right] Déplacer la fenêtre vers l’écran de droite
+        [up] Déplacer la fenêtre vers l’écran du dessus
+        [down] Déplacer la fenêtre vers l’écran du dessous
+       *[other] Déplacer la fenêtre vers l’écran { $args }
+    }
+wm-action-moveworkspacetooutput = { $first ->
+        [left] Déplacer l’espace de travail vers l’écran de gauche
+        [right] Déplacer l’espace de travail vers l’écran de droite
+        [up] Déplacer l’espace de travail vers l’écran du dessus
+        [down] Déplacer l’espace de travail vers l’écran du dessous
+       *[other] Déplacer l’espace de travail vers l’écran { $args }
+    }
+wm-action-swapworkspaces = Échanger les espaces de travail des écrans { $args }
+wm-action-scratchpad = { $first ->
+        [hide] Masquer le bloc-notes
+       *[other] Basculer le bloc-notes { $rest }
+    }
+wm-action-movetoscratchpad = Déplacer la fenêtre vers le bloc-notes { $args }
+wm-action-kill = Fermer la fenêtre
+wm-action-focuswindow = Focaliser la fenêtre { $args }
+wm-action-minimize = { $first ->
+        [default] Réduire la fenêtre
+       *[other] Réduire la fenêtre { $args }
+    }
+wm-action-restore = { $first ->
+        [default] Restaurer la dernière fenêtre réduite
+       *[other] Restaurer la fenêtre { $args }
+    }
+wm-action-overview = { $first ->
+        [show] Afficher la vue d’ensemble
+        [hide] Masquer la vue d’ensemble
+       *[other] Basculer la vue d’ensemble
+    }
+wm-action-closewindow = Fermer la fenêtre { $args }
+wm-action-dpms = { $first ->
+        [on] Allumer les écrans
+        [off] Éteindre les écrans
+       *[other] Allumer ou éteindre les écrans
+    }
+wm-action-reload = Recharger la configuration
+wm-action-dismissconfignotice = Fermer l’avis de configuration
+wm-action-exit = Terminer la session
+wm-action-nextlayout = Passer à la disposition de clavier suivante
+wm-action-stickykeys = { $first ->
+        [on] Activer les touches rémanentes
+        [off] Désactiver les touches rémanentes
+       *[other] Touches rémanentes { $args }
+    }
+wm-action-slowkeys = Régler les touches lentes à { $args } ms
+wm-action-global = Raccourci d’application { $args }
+wm-action-exec = Exécuter { $args }
+wm-action-launch = Lancer { $app }
+wm-action-makegroup = { $first ->
+        [h] Grouper la fenêtre côte à côte
+        [v] Grouper la fenêtre en pile
+        [tab] Grouper la fenêtre en onglets
+       *[other] Grouper la fenêtre { $args }
+    }
+wm-action-setlayout = { $first ->
+        [tree] Utiliser la disposition en mosaïque
+        [scroll] Utiliser la disposition à défilement
+       *[other] Définir la disposition { $args }
+    }
+wm-action-columnwidth = Définir la largeur de colonne { $args }
+wm-action-consume = { $first ->
+        [left] Déplacer la fenêtre dans la colonne de gauche
+        [right] Déplacer la fenêtre dans la colonne de droite
+       *[other] Déplacer la fenêtre dans la colonne { $args }
+    }
+wm-action-expel = Déplacer la fenêtre dans une colonne à part
+wm-action-center = Centrer la colonne active
+wm-action-columndisplay = { $first ->
+        [stack] Empiler les fenêtres de la colonne
+        [tab] Afficher la colonne en onglets
+       *[other] Afficher la colonne en { $args }
+    }
+wm-action-changegroup = { $first ->
+        [h] Disposer le groupe côte à côte
+        [v] Disposer le groupe en pile
+        [tab] Disposer le groupe en onglets
+        [toggletab] Basculer les onglets du groupe
+        [opposite] Tourner le groupe dans l’autre sens
+       *[other] Modifier le groupe { $args }
+    }
+wm-action-focustab = { $first ->
+        [prev] Focaliser l’onglet précédent
+        [next] Focaliser l’onglet suivant
+       *[other] Focaliser l’onglet { $args }
+    }
+wm-action-focusparent = Focaliser le groupe englobant
+wm-action-focuschild = Refocaliser dans le groupe
+wm-action-swap = { $first ->
+        [left] Échanger la fenêtre avec celle de gauche
+        [right] Échanger la fenêtre avec celle de droite
+        [up] Échanger la fenêtre avec celle du dessus
+        [down] Échanger la fenêtre avec celle du dessous
+       *[other] Échanger la fenêtre { $args }
+    }
+wm-action-moveout = Sortir la fenêtre de son groupe
+wm-action-equalize = { $first ->
+        [all] Égaliser toutes les divisions
+       *[other] Égaliser le groupe
+    }
+wm-action-locktab = { $first ->
+        [on] Verrouiller le groupe d’onglets
+        [off] Déverrouiller le groupe d’onglets
+       *[other] Verrouiller ou déverrouiller le groupe d’onglets
+    }
+wm-action-submap = { $first ->
+        [reset] Quitter le mode
+       *[other] Entrer dans le mode { $args }
+    }
+wm-action-togglefloating = Rendre la fenêtre flottante ou en mosaïque
+wm-action-place = { $first ->
+        [left] Placer la fenêtre sur la moitié gauche
+        [right] Placer la fenêtre sur la moitié droite
+        [top] Placer la fenêtre sur la moitié haute
+        [bottom] Placer la fenêtre sur la moitié basse
+        [topleft] Placer la fenêtre dans le quart haut gauche
+        [topright] Placer la fenêtre dans le quart haut droit
+        [bottomleft] Placer la fenêtre dans le quart bas gauche
+        [bottomright] Placer la fenêtre dans le quart bas droit
+        [fill] Remplir l’écran avec la fenêtre
+        [center] Centrer la fenêtre
+        [restore] Remettre la fenêtre où elle était
+       *[other] Placer la fenêtre { $args }
+    }
+wm-action-focusfloating = { $first ->
+        [on] Focaliser les fenêtres flottantes
+        [off] Focaliser les fenêtres en mosaïque
+       *[other] Basculer le focus entre fenêtres flottantes et en mosaïque
+    }
+wm-action-fullscreen = { $first ->
+        [on] Mettre la fenêtre en plein écran
+        [off] Quitter le plein écran
+       *[other] Basculer le plein écran
+    }
+wm-action-setprop = Définir la propriété de fenêtre { $args }
+wm-action-showdesktop = { $first ->
+        [on] Afficher le bureau
+        [off] Rétablir les fenêtres
+       *[other] Afficher ou masquer le bureau
+    }
+wm-action-swallow = { $first ->
+        [on] Masquer le terminal dans la fenêtre
+        [off] Afficher le terminal masqué
+       *[other] Afficher ou masquer le terminal absorbé
+    }
+wm-action-pin = { $first ->
+        [on] Épingler la fenêtre
+        [off] Désépingler la fenêtre
+       *[other] Épingler ou désépingler la fenêtre
+    }
+wm-action-maximize = { $first ->
+        [on] Agrandir la fenêtre
+        [off] Restaurer la taille de la fenêtre
+       *[other] Basculer l’agrandissement
+    }
+wm-action-resizeactive = Redimensionner la fenêtre de { $args }
+wm-action-movewindow = Faire glisser la fenêtre
+wm-action-resizewindow = Redimensionner la fenêtre en la faisant glisser
+wm-action-zoom = { $first ->
+        [in] Zoom avant
+        [out] Zoom arrière
+        [reset] Réinitialiser le zoom
+       *[other] Régler le zoom sur { $rest }
+    }
+wm-action-debug = Déboguer { $args }
+wm-action-casttarget = { $first ->
+        [window] Partager une fenêtre
+        [output] Partager un écran
+        [clear] Arrêter le partage
+       *[other] Partager { $args }
+    }
+wm-action-focuslast = Focaliser la fenêtre précédente
+wm-action-focusurgent = Focaliser la fenêtre qui demande l’attention
+wm-action-cycle = { $first ->
+        [next] Passer à la fenêtre suivante
+        [prev] Passer à la fenêtre précédente
+       *[other] Parcourir les fenêtres { $args }
+    }
+wm-action-switcher = { $first ->
+        [next] Basculer vers la fenêtre suivante
+        [prev] Basculer vers la fenêtre précédente
+       *[other] Changer de fenêtre { $args }
+    }
+wm-binds-unknown-action = Action inconnue
+    .description = lys-wm n’a aucune action de ce nom ; le raccourci est affiché tel qu’écrit
