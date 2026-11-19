@@ -43,7 +43,7 @@ func workspaceStyleMap(numeric bool) rowOpt {
 	return listRow(func(config.FieldMeta) listSpec {
 		t := locale.T()
 		return listSpec{
-			addKey: "settings-map-add", rowClass: "string-map-row", blank: workspaceStyle{},
+			addKey: "settings-map-add", rowClass: "string-map-row", blank: always(workspaceStyle{}),
 			classes: []string{"workspace-style-editor"}, listCls: "string-map",
 			item: func(k *kit, v any, changed func()) listItem {
 				style, _ := v.(workspaceStyle)

@@ -1058,7 +1058,7 @@ func TestEnumAndIconListItems(t *testing.T) {
 		t.Fatalf("test premise: %s is %+v", path, m)
 	}
 	c := fieldControl(k, k.store, field(path, enumList)).(*listEditor)
-	c.appendRow(c.spec.blank)
+	c.appendRow(c.spec.blank(c.values()))
 	last := c.items[len(c.items)-1].(*enumItem)
 	last.SetSelected(2)
 	got, _ := k.store.value(path).([]any)
@@ -1167,7 +1167,7 @@ func TestStringMapEditor(t *testing.T) {
 		t.Fatalf("rows %v, want the pairs sorted by key", c.values())
 	}
 	// A new row's typing never reorders or rebuilds the rows.
-	c.appendRow(c.spec.blank)
+	c.appendRow(c.spec.blank(c.values()))
 	row := c.items[2].(mapItem)
 	row.key.Insert("0")
 	c.refresh()
@@ -1180,7 +1180,7 @@ func TestStringMapEditor(t *testing.T) {
 		t.Errorf("wrote %v", got)
 	}
 	// An empty key is dropped on write.
-	c.appendRow(c.spec.blank)
+	c.appendRow(c.spec.blank(c.values()))
 	c.items[3].(mapItem).value.Insert("orphan")
 	if got, _ := k.store.value(path).(map[string]any); len(got) != 3 {
 		t.Errorf("an empty key was written: %v", got)
@@ -2458,5 +2458,28 @@ func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
 	}
 	if want := 5 + 2*4; seen != want {
 		t.Fatalf("%d duration rows on the animations page, want %d", seen, want)
+	}
+}
+
+func TestAnEnumListAddsOnlyValuesItDoesNotHoldAndStopsWhenAllAre(t *testing.T) {
+	k := testKit(t, "")
+	elem := config.FieldMeta{Kind: config.FieldEnum, Variants: []string{"close", "minimize", "maximize"}}
+	var stored any = []any{"close"}
+	c := newListEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() { stored = nil }}, enumListSpec(elem))
+	c.add.OnClick()
+	c.add.OnClick()
+	if got, _ := stored.([]any); !slices.Equal(got, []any{"close", "minimize", "maximize"}) {
+		t.Fatalf("two adds stored %v, want each value once", got)
+	}
+	if c.add.Visible() {
+		t.Error("the add button shows with every value listed")
+	}
+	c.remove(c.items[1])
+	if !c.add.Visible() {
+		t.Error("the add button stays hidden after a value is removed")
+	}
+	c.add.OnClick()
+	if got, _ := stored.([]any); !slices.Equal(got, []any{"close", "maximize", "minimize"}) {
+		t.Errorf("adding after a removal stored %v, want the removed value back", got)
 	}
 }

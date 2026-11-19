@@ -30,7 +30,7 @@ type listSpec struct {
 	rowClass string
 	reorder  bool
 	item     func(k *kit, v any, changed func()) listItem
-	blank    any
+	blank    func(listed []any) any
 	classes  []string
 	// listCls is the rows container's class (string-list).
 	listCls string
@@ -74,7 +74,7 @@ func newListEditor(k *kit, s slot, spec listSpec) *listEditor {
 			c.pickNew()
 			return
 		}
-		c.appendRow(spec.blank)
+		c.appendRow(spec.blank(c.values()))
 		c.fit()
 		if !sameStored(c.slot.get(), c.encoded()) {
 			c.commit()
@@ -218,7 +218,7 @@ var stringList = listRow(func(config.FieldMeta) listSpec { return stringListSpec
 // stringListSpec is a list of words, an entry per item.
 func stringListSpec() listSpec {
 	return listSpec{
-		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: "",
+		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: always(""),
 		item: func(k *kit, v any, changed func()) listItem {
 			e := k.entry()
 			s, _ := v.(string)
@@ -240,7 +240,7 @@ func (i iconItem) itemValue() any { return *i.value }
 // iconList edits a list of icon names.
 var iconList = listRow(func(config.FieldMeta) listSpec {
 	return listSpec{
-		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: "",
+		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: always(""),
 		item: func(k *kit, v any, changed func()) listItem {
 			s, _ := v.(string)
 			value := &s
@@ -271,12 +271,17 @@ var enumList = listRow(func(meta config.FieldMeta) listSpec {
 })
 
 func enumListSpec(elem config.FieldMeta) listSpec {
-	blank := ""
-	if len(elem.Variants) > 0 {
-		blank = elem.Variants[0]
-	}
 	return listSpec{
-		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: blank,
+		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true,
+		blank: func(listed []any) any {
+			for _, v := range elem.Variants {
+				if !slices.Contains(listed, any(v)) {
+					return v
+				}
+			}
+			return ""
+		},
+		full: func(n int) bool { return n >= len(elem.Variants) },
 		item: func(k *kit, v any, changed func()) listItem {
 			s, _ := v.(string)
 			d := widget.NewDropdown(k.face, k.textPx(), enumLabels(elem), max(slices.Index(elem.Variants, s), 0))
@@ -285,6 +290,8 @@ func enumListSpec(elem config.FieldMeta) listSpec {
 		},
 	}
 }
+
+func always(v any) func([]any) any { return func([]any) any { return v } }
 
 // sameStored compares stored values, an empty list or map equal to
 // none.
@@ -316,7 +323,7 @@ var stringMap = listRow(func(config.FieldMeta) listSpec { return stringMapSpec()
 func stringMapSpec() listSpec {
 	t := locale.T()
 	return listSpec{
-		addKey: "settings-map-add", rowClass: "string-map-row", blank: [2]string{}, classes: []string{"string-map-editor"}, listCls: "string-map",
+		addKey: "settings-map-add", rowClass: "string-map-row", blank: always([2]string{}), classes: []string{"string-map-editor"}, listCls: "string-map",
 		item: func(k *kit, v any, changed func()) listItem {
 			pair, _ := v.([2]string)
 			row := mapItem{Box: gapBox(widget.Row), key: k.entry(), value: k.entry()}
