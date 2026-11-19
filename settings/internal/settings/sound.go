@@ -443,6 +443,7 @@ func setChoices(d *widget.Dropdown, items []string, selected int) {
 
 type appRow struct {
 	*widget.Box
+	icon   *widget.Icon
 	title  *widget.Label
 	detail *widget.Label
 	volume *widgets.DebouncedSlider
@@ -452,7 +453,8 @@ type appRow struct {
 
 func newAppRow(p *soundPanel, key pulse.StreamKey) *appRow {
 	k := p.k
-	r := &appRow{}
+	r := &appRow{icon: widget.NewThemeIconFallback(appFallbackIcon, appIconPx)}
+	r.icon.AddClass("sound-app-icon")
 	r.title = k.label("", "setting-label")
 	r.detail = k.label("", "setting-description", css.Caption, css.DimLabel)
 	r.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke)
@@ -474,6 +476,7 @@ func newAppRow(p *soundPanel, key pulse.StreamKey) *appRow {
 	r.Box = gapBox(widget.Row)
 	r.SetElement("item")
 	r.AddClass(css.Small, "setting-row", "sound-app")
+	r.AppendAligned(r.icon, false, widget.AlignCenter)
 	r.AppendAligned(text, true, widget.AlignCenter)
 	r.AppendAligned(r.mute, false, widget.AlignCenter)
 	r.AppendAligned(r.volume, false, widget.AlignCenter)
@@ -484,6 +487,7 @@ func (r *appRow) show(s pulse.AudioStream) {
 	t := locale.T()
 	name := cmp.Or(s.ApplicationName, s.Binary, s.Name)
 	r.title.SetText(name)
+	r.icon.SetThemeName(streamIcon(s))
 	r.detail.SetText(cmp.Or(s.Media.Title, s.Name))
 	r.volume.Knob.SetAccessibleName(t.Get("settings-sound-app-volume", i18n.Str("app", name)))
 	r.mute.name(t.Get("settings-sound-app-mute", i18n.Str("app", name)))
@@ -491,6 +495,10 @@ func (r *appRow) show(s pulse.AudioStream) {
 	r.volume.Knob.SetEnabled(s.HasVolume && s.VolumeWritable)
 	r.volume.Set(peakLevel(r.levels) * 100)
 	r.mute.show(s.Muted)
+}
+
+func streamIcon(s pulse.AudioStream) string {
+	return cmp.Or(s.Media.IconName, appFallbackIcon)
 }
 
 type muteGlyphs struct{ sounding, muted string }

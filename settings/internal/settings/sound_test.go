@@ -42,7 +42,7 @@ func firefox() native.StreamInfo {
 	return native.StreamInfo{
 		Index: 40, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: 1,
 		SampleSpec: pulsetest.StereoSpec(), ChannelMap: pulsetest.StereoMap(), Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm},
-		Props:     native.PropList{"application.name": "Firefox", "media.title": "Song"},
+		Props:     native.PropList{"application.name": "Firefox", "media.title": "Song", "application.icon_name": "firefox"},
 		HasVolume: true, VolumeWritable: true,
 		Format: native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}},
 	}
@@ -272,8 +272,8 @@ func TestPortsVolumeMuteAndAppsReachTheServer(t *testing.T) {
 		return d.Volume[0] == 0x8000 && d.Volume[1] == 0x4000
 	})
 	row := r.p.appRows[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}]
-	if row.title.Text() != "Firefox" || row.detail.Text() != "Song" {
-		t.Fatalf("app row %q, %q", row.title.Text(), row.detail.Text())
+	if row.title.Text() != "Firefox" || row.detail.Text() != "Song" || row.icon.Name() != "firefox" {
+		t.Fatalf("app row %q, %q with icon %q", row.title.Text(), row.detail.Text(), row.icon.Name())
 	}
 	row.mute.OnClick()
 	if st, _ := r.srv.SinkInput(40); !st.Mute {
@@ -373,5 +373,14 @@ func TestAMutedServerShowsTheCrossedOutGlyphs(t *testing.T) {
 	}
 	if s, _ := srv.Source(10); !s.Mute {
 		t.Fatal("showing the muted input unmuted it on the server")
+	}
+}
+
+func TestAnAppWithoutAnIconShowsTheGenericAppIcon(t *testing.T) {
+	if got := streamIcon(pulse.AudioStream{}); got != appFallbackIcon {
+		t.Errorf("a stream without an icon shows %q", got)
+	}
+	if got := streamIcon(pulse.AudioStream{Media: pulse.MediaInfo{IconName: "mpv"}}); got != "mpv" {
+		t.Errorf("a stream naming mpv's icon shows %q", got)
 	}
 }
