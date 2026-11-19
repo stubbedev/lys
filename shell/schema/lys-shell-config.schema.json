@@ -10872,7 +10872,7 @@
       "description": "Wallpaper rendering, cycling, and per-monitor overrides.",
       "properties": {
         "cycling-directory": {
-          "$ref": "#/$defs/string",
+          "$ref": "#/$defs/Directory",
           "default": "",
           "description": "Directory of images to cycle through. Set it to enable cycling; leave\nempty to disable. Takes precedence over the single `wallpaper` image."
         },

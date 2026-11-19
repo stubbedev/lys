@@ -23,7 +23,7 @@ type WallpaperConfig struct {
 	FitMode FitMode `cfg:"fit-mode"`
 	// Directory of images to cycle through. Set it to enable cycling; leave
 	// empty to disable. Takes precedence over the single `wallpaper` image.
-	CyclingDirectory string `cfg:"cycling-directory"`
+	CyclingDirectory string `cfg:"cycling-directory,type=Directory"`
 	// Wallpaper cycling order.
 	CyclingMode CyclingMode `cfg:"cycling-mode"`
 	// Time between wallpaper changes in minutes.

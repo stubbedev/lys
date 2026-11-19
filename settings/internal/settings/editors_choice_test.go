@@ -331,6 +331,71 @@ func TestADirectoryRowPicksAFolder(t *testing.T) {
 	}
 }
 
+func TestEveryDirectoryRowOnAPagePicksAFolder(t *testing.T) {
+	k := testKit(t, "")
+	seen := 0
+	for _, s := range layout(config.Defaults()) {
+		for _, p := range s.pages {
+			for _, sec := range p.sections {
+				for _, r := range sec.rows {
+					if p.wm || r.wm || r.action {
+						continue
+					}
+					meta, ok := k.store.field(r.path)
+					if !ok || meta.Type != "Directory" {
+						continue
+					}
+					seen++
+					f := &fakePickers{}
+					k.pickers = f
+					c, ok := fieldControl(k, k.store, r).(*fileEditor)
+					if !ok {
+						t.Errorf("%s on %s: a directory row without a path editor", r.path, p.id)
+						continue
+					}
+					c.browse.ClickAt(widget.Point{})
+					if f.folderFn == nil || f.fileFn != nil {
+						t.Errorf("%s on %s: browse asked for a file, not a folder", r.path, p.id)
+					}
+				}
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no directory row on any page")
+	}
+}
+
+func TestTheWallpaperCyclingDirectoryPicksAFolderAndTheWallpaperAFile(t *testing.T) {
+	k := testKit(t, "")
+	for path, folder := range map[string]bool{"wallpaper.cycling-directory": true, "wallpaper.wallpaper": false} {
+		f := &fakePickers{}
+		k.pickers = f
+		c := fieldControl(k, k.store, pageRow(t, "wallpaper", path)).(*fileEditor)
+		c.browse.ClickAt(widget.Point{})
+		if got := f.folderFn != nil; got != folder || (f.fileFn != nil) == folder {
+			t.Errorf("%s: asked for a folder %v, want %v", path, got, folder)
+		}
+	}
+}
+
+func pageRow(t *testing.T, page, path string) rowSpec {
+	t.Helper()
+	p, ok := pageByID(layout(config.Defaults()), page)
+	if !ok {
+		t.Fatalf("no page %q", page)
+	}
+	for _, sec := range p.sections {
+		for _, r := range sec.rows {
+			if r.path == path {
+				return r
+			}
+		}
+	}
+	t.Fatalf("no row %q on page %q", path, page)
+	return rowSpec{}
+}
+
 func TestASecretIsMasked(t *testing.T) {
 	k := testKit(t, "")
 	const path = "modules.weather.weatherapi-key"

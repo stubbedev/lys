@@ -21,7 +21,7 @@ Wallpaper rendering, cycling, and per-monitor overrides.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `cycling-directory` | string | `""` | Directory of images to cycle through. Set it to enable cycling; leave empty to disable. Takes precedence over the single `wallpaper` image. |
+| `cycling-directory` | [`Directory`](/shell/config/types#directory) | `""` | Directory of images to cycle through. Set it to enable cycling; leave empty to disable. Takes precedence over the single `wallpaper` image. |
 | `cycling-mode` | [`CyclingMode`](/shell/config/types#cycling-mode) | `"sequential"` | Wallpaper cycling order. |
 | `cycling-interval-mins` | [`CyclingInterval`](/shell/config/types#cycling-interval) | `15` | Time between wallpaper changes in minutes. |
 | `cycling-same-image` | bool | `false` | Show the same cycling wallpaper on all monitors. Only affects shuffle mode since sequential already displays the same image. |
