@@ -5547,6 +5547,7 @@
   },
   "wm/internal/protocol/client/lysescape": {
     "imports": [
+      "wm/internal/protocol/client/wayland",
       "wm/internal/wire"
     ]
   },
@@ -5953,6 +5954,7 @@
   },
   "wm/internal/protocol/server/lysescape": {
     "imports": [
+      "wm/internal/protocol/server/wayland",
       "wm/internal/wire"
     ]
   },
