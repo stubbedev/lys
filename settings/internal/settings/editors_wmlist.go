@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"cmp"
 	"fmt"
 	"log"
 	"maps"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -44,9 +46,10 @@ func wmObjects(path string, title ...string) rowSpec {
 // another's card, is asked before each write.
 func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) func() error) *cardList {
 	item := append(slices.Clone(spec.schema), wmconfig.Each)
+	var apps map[string]string
 	cards := cardSpec{
 		check:      check,
-		title:      func(item map[string]any, number int) string { return wmCardTitle(item, number, spec.title) },
+		title:      func(item map[string]any, number int) string { return wmCardTitle(item, number, spec.title, apps) },
 		fields:     wmItemFields(k.wm, item, nil, spec.labels),
 		blank:      func() map[string]any { return map[string]any{} },
 		searchable: true,
@@ -56,17 +59,44 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 		cards.clashKey = chordKey
 		cards.keep = func(m map[string]any) bool { chord, _ := m[chordKey].(string); return chord != "" }
 	}
-	return newCardList(k, s, cards)
+	list := newCardList(k, s, cards)
+	if slices.Contains(spec.title, appIDKey) {
+		dirs := desktopentry.ApplicationDirs()
+		async(k, func() map[string]string { return appNames(scanInstalled(dirs)) }, func(names map[string]string) {
+			apps = names
+			list.rebuild()
+		})
+	}
+	return list
 }
 
-// wmCardTitle joins the values of the title keys an item sets, else
-// numbers the card.
-func wmCardTitle(item map[string]any, number int, keys []string) string {
+const appIDKey = "app_id"
+
+func appNames(ix installedApps) map[string]string {
+	out := make(map[string]string, len(ix.byID))
+	for id, a := range ix.byID {
+		out[id] = cmp.Or(a.DisplayName(), id)
+	}
+	return out
+}
+
+func exactAppID(pattern string) (string, bool) {
+	id := strings.ReplaceAll(strings.TrimSuffix(strings.TrimPrefix(pattern, "^"), "$"), `\.`, ".")
+	return id, !strings.ContainsAny(id, `*+?()[]{}|\^$`)
+}
+
+func wmCardTitle(item map[string]any, number int, keys []string, apps map[string]string) string {
 	var parts []string
 	for _, key := range keys {
-		if v, ok := item[key]; ok && v != nil && v != "" {
-			parts = append(parts, fmt.Sprint(v))
+		v, ok := item[key]
+		if !ok || v == nil || v == "" {
+			continue
 		}
+		text := fmt.Sprint(v)
+		if id, exact := exactAppID(text); key == appIDKey && exact && apps[id] != "" {
+			text = apps[id]
+		}
+		parts = append(parts, text)
 	}
 	if len(parts) == 0 {
 		return locale.T().Get("wm-card-number", i18n.Int("number", int64(number)))

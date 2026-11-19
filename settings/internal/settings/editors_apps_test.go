@@ -237,3 +237,26 @@ func TestACommandRunsAPickedApp(t *testing.T) {
 		t.Fatalf("picking Calculator stored %v", v)
 	}
 }
+
+func TestARuleCardNamesTheAppItMatchesExactly(t *testing.T) {
+	apps := map[string]string{"firefox": "Firefox", "org.gnome.Nautilus": "Files"}
+	for _, c := range []struct {
+		appID, want string
+	}{
+		{"firefox", "Firefox"},
+		{"^firefox$", "Firefox"},
+		{`^org\.gnome\.Nautilus$`, "Files"},
+		{"^fire.*", "^fire.*"},
+		{"unknown-app", "unknown-app"},
+	} {
+		if got := wmCardTitle(map[string]any{"app_id": c.appID}, 1, []string{"app_id", "title"}, apps); got != c.want {
+			t.Errorf("a rule for %q is titled %q, want %q", c.appID, got, c.want)
+		}
+	}
+	if got := wmCardTitle(map[string]any{"app_id": "firefox", "title": "Picture-in-Picture"}, 1, []string{"app_id", "title"}, apps); got != "Firefox · Picture-in-Picture" {
+		t.Errorf("an app and a title read %q", got)
+	}
+	if got := wmCardTitle(map[string]any{"app_id": "firefox"}, 1, []string{"app_id"}, nil); got != "firefox" {
+		t.Errorf("before the apps are read a rule reads %q", got)
+	}
+}
