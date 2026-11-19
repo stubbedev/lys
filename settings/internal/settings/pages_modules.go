@@ -551,7 +551,7 @@ func windowTitlePage(*config.Config) pageSpec {
 func worldClockPage(*config.Config) pageSpec {
 	return pageSpec{id: "world-clock", navKey: "settings-nav-world-clock", icon: "ld-globe-symbolic", header: "settings-page-world-clock", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.world-clock.format"),
+			field(worldClockPath, worldClockRow),
 			field("modules.world-clock.icon-name", iconRow),
 		}},
 		barItemSection("modules.world-clock", actionChoices("world-clock")),

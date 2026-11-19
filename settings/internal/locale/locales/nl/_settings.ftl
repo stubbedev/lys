@@ -835,3 +835,7 @@ settings-command-hybrid-sleep = Hybride slaapstand
 settings-command-reboot = Herstarten
 settings-command-poweroff = Uitschakelen
 settings-command-app = Een app starten
+settings-world-clock-zone = Tijdzone
+settings-world-clock-before = Tekst ervoor
+settings-world-clock-time = Tijdnotatie
+settings-world-clock-handwritten = Deze notatie bevat meer dan klokken en wordt daarom als tekst bewerkt.

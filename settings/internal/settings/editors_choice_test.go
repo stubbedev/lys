@@ -23,6 +23,7 @@ var listFixtures = map[string][]choice{
 	"Program":           {{value: "foot", label: "foot"}, {value: "ssh", label: "ssh"}, {value: "xdg-open", label: "xdg-open"}},
 	typeTerminal:        {{value: "foot", label: "Foot"}, {value: "kitty", label: "kitty"}},
 	listSoundNames:      {{value: "message-new-instant", label: "message-new-instant"}},
+	listTimeZones:       {{value: "Local", label: "Local"}, {value: "UTC", label: "UTC"}, {value: "Asia/Tokyo", label: "Asia/Tokyo"}, {value: "America/New_York", label: "America/New_York"}},
 	"NetInterface":      {{value: "eth0", label: "eth0"}, {value: "wlan0", label: "wlan0"}},
 	"TempSensor":        {{value: "Tctl", label: "Tctl", group: "k10temp"}},
 	"AudioSource":       {{value: "speakers.monitor", label: "Speakers monitor"}},

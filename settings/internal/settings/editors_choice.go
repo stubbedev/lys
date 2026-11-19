@@ -29,6 +29,7 @@ const (
 	wmRulesFormat   = "lys-wm-xkb-rules"
 	typeTerminal    = "Terminal"
 	listSoundNames  = "sound-name"
+	listTimeZones   = "time-zone"
 )
 
 func hostLists(h host) map[string]lister {
@@ -44,6 +45,7 @@ func hostLists(h host) map[string]lister {
 		"Program":           h.programs,
 		typeTerminal:        h.terminals,
 		listSoundNames:      h.soundNames,
+		listTimeZones:       h.timeZones,
 		"NetInterface":      h.interfaces,
 		"TempSensor":        h.sensors,
 		"AudioSource":       audioSources,

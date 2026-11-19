@@ -846,3 +846,7 @@ settings-command-hybrid-sleep = Sospensione ibrida
 settings-command-reboot = Riavvia
 settings-command-poweroff = Spegni
 settings-command-app = Esegui un’app
+settings-world-clock-zone = Fuso orario
+settings-world-clock-before = Testo prima
+settings-world-clock-time = Formato dell’ora
+settings-world-clock-handwritten = Questo formato contiene più che orologi, quindi si modifica come testo.

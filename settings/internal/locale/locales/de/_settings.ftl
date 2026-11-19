@@ -845,3 +845,7 @@ settings-command-hybrid-sleep = Hybrider Ruhezustand
 settings-command-reboot = Neu starten
 settings-command-poweroff = Herunterfahren
 settings-command-app = Eine App ausführen
+settings-world-clock-zone = Zeitzone
+settings-world-clock-before = Text davor
+settings-world-clock-time = Zeitformat
+settings-world-clock-handwritten = Dieses Format enthält mehr als Uhren und wird daher als Text bearbeitet.
