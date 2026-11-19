@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/stubbedev/lys/lib/render"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -142,11 +143,7 @@ func enrolledFingers(s *fingerprintSection) []string {
 }
 
 func offered(s *fingerprintSection, finger string) bool {
-	found := false
-	treetest.Walk(s.choices, func(w widget.Widget) {
-		found = found || widget.Describe(w).Name == fingerName(finger)
-	})
-	return found && s.enrol.Visible()
+	return s.hands.offers(finger) && s.enrol.Visible()
 }
 
 func TestTheEnrolledFingerIsListedAndNotOfferedAgain(t *testing.T) {
@@ -177,10 +174,10 @@ func TestWithNoFingerEnrolledThereIsNothingToDelete(t *testing.T) {
 func TestAFiveStageEnrolmentFillsTheRingFiveTimesAndListsTheFinger(t *testing.T) {
 	r := startFprint(t, true)
 	s := r.section(t)
-	treetest.Button(t, s.choices, "Left thumb").OnClick()
+	s.hands.pick("left-thumb")
 	r.l.until("EnrollStart", func() bool { return slices.Contains(r.methods(), "EnrollStart") })
-	if !s.progress.Visible() || !s.ring.Visible() || s.enrol.Visible() || s.deleteAll.Visible() {
-		t.Fatal("while enrolling the progress is not the only thing offered")
+	if !s.progress.Visible() || s.hands.enrolling != "left-thumb" || offered(s, "left-index-finger") || s.deleteAll.Visible() {
+		t.Fatal("while enrolling the hands do not show the thumb's progress alone")
 	}
 	r.enrolled = append(r.enrolled, "left-thumb")
 	for range 4 {
@@ -191,7 +188,7 @@ func TestAFiveStageEnrolmentFillsTheRingFiveTimesAndListsTheFinger(t *testing.T)
 	if s.ring.updates != 5 || s.ring.passed != 5 {
 		t.Fatalf("the ring moved %d times to %d stages for 5 signals", s.ring.updates, s.ring.passed)
 	}
-	if s.ring.Visible() || s.cancel.Visible() || offered(s, "left-thumb") {
+	if s.hands.enrolling != "" || s.cancel.Visible() || offered(s, "left-thumb") {
 		t.Fatal("the ring or cancel outlived the enrolment, or the finger is still offered")
 	}
 	if s.hint.Text() != "The finger is enrolled" {
@@ -205,7 +202,7 @@ func TestAFiveStageEnrolmentFillsTheRingFiveTimesAndListsTheFinger(t *testing.T)
 func TestCancellingStopsThenReleases(t *testing.T) {
 	r := startFprint(t, true)
 	s := r.section(t)
-	treetest.Button(t, s.choices, "Left index").OnClick()
+	s.hands.pick("left-index-finger")
 	r.l.until("EnrollStart", func() bool { return slices.Contains(r.methods(), "EnrollStart") })
 	r.emit(t, statusStage, false)
 	r.l.until("one stage", func() bool { return s.ring.passed == 1 })
@@ -229,7 +226,7 @@ func TestADuplicateOrAFullReaderSaysSoAndReleases(t *testing.T) {
 		t.Run(result, func(t *testing.T) {
 			r := startFprint(t, true)
 			s := r.section(t)
-			treetest.Button(t, s.choices, "Left index").OnClick()
+			s.hands.pick("left-index-finger")
 			r.l.until("EnrollStart", func() bool { return slices.Contains(r.methods(), "EnrollStart") })
 			r.emit(t, result, true)
 			r.l.until("released", func() bool { return slices.Contains(r.methods(), "Release") })
@@ -310,5 +307,33 @@ func TestWithoutAWindowDeletingEveryFingerprintIsRefused(t *testing.T) {
 	treetest.Button(t, s, "Delete All Fingerprints").OnClick()
 	if !r.p.problem.Visible() || len(r.methods()) != 0 {
 		t.Fatalf("problem shown %v, calls %v", r.p.problem.Visible(), r.methods())
+	}
+}
+
+func TestTheHandsShowEachFingerWhereItIsAndTheProgressOnTheOneEnrolled(t *testing.T) {
+	k := testKit(t, "")
+	var picked []string
+	h := newFingerHands(k, func(f string) { picked = append(picked, f) })
+	h.Arrange(render.Rect{W: handsWidth, H: handsHeight})
+	thumb, little := h.handles[slices.Index(fingers, "left-thumb")].Bounds(), h.handles[slices.Index(fingers, "left-little-finger")].Bounds()
+	rightThumb := h.handles[slices.Index(fingers, "right-thumb")].Bounds()
+	if !(little.X < thumb.X && thumb.X < rightThumb.X) {
+		t.Errorf("left little %v, left thumb %v, right thumb %v: want them left to right", little, thumb, rightThumb)
+	}
+	h.set([]string{"right-index-finger"}, "", 0, false)
+	h.PressAt(widget.Point{X: thumb.X + thumb.W/2, Y: thumb.Y + thumb.H/2})
+	h.handles[slices.Index(fingers, "right-index-finger")].KeyAction(widget.KeyEnter, 0)
+	if !slices.Equal(picked, []string{"left-thumb"}) {
+		t.Errorf("picked %v, want the left thumb and not the enrolled right index", picked)
+	}
+	h.set(nil, "left-thumb", 0.4, true)
+	h.handles[0].KeyAction(widget.KeyEnter, 0)
+	if len(picked) != 1 || h.offers("left-little-finger") {
+		t.Error("a finger was offered while another one is enrolled")
+	}
+	for i, fh := range h.handles {
+		if fh.AccessibleName() != fingerName(fingers[i]) {
+			t.Errorf("finger %d is named %q", i, fh.AccessibleName())
+		}
 	}
 }

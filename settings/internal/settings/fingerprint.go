@@ -98,15 +98,16 @@ func (f *fprint) watch(status func(result string, done bool), failed func(error)
 }
 
 type enrollRing struct {
-	*widget.ProgressRing
+	finger                  string
 	stages, passed, updates int
 }
 
 func (r *enrollRing) set(passed int) {
 	r.passed = passed
 	r.updates++
-	r.SetValue(float64(passed) / float64(r.stages))
 }
+
+func (r enrollRing) fraction() float64 { return float64(r.passed) / float64(max(1, r.stages)) }
 
 type fingerprintSection struct {
 	*widget.ItemGroup
@@ -115,7 +116,7 @@ type fingerprintSection struct {
 	fail      func(error)
 	enrolled  []string
 	enrol     *widget.Box
-	choices   *widget.FlowBox
+	hands     *fingerHands
 	progress  *widget.Box
 	ring      *enrollRing
 	hint      *widget.Label
@@ -168,20 +169,18 @@ func withTimeoutValue[T any](fn func(context.Context) T) T {
 func newFingerprintSection(k *kit, fp *fprint, stages int, enrolled []string, fail func(error)) *fingerprintSection {
 	t := locale.T()
 	s := &fingerprintSection{ItemGroup: widget.NewItemGroup(), k: k, fp: fp, fail: fail, enrolled: enrolled}
-	s.choices = widget.NewWrapBox(widget.Current().Spacing/2, widget.Current().Spacing/2, widget.JustifyStart)
-	s.choices.AddClass("fingerprint-fingers")
+	s.hands = newFingerHands(k, s.enroll)
+	s.hands.SetAccessibleName(t.Get("settings-fingerprint-progress"))
 	s.enrol = itemColumn(
 		k.label(t.Get("settings-fingerprint-enrol"), "setting-label"),
 		wrapped(k.label(t.Attr("settings-fingerprint-enrol", "description"), "setting-description", css.Caption, css.DimLabel)),
-		s.choices,
+		s.hands,
 	)
-	s.ring = &enrollRing{ProgressRing: widget.NewProgressRing(0), stages: stages}
-	s.ring.SetAccessibleName(t.Get("settings-fingerprint-progress"))
+	s.ring = &enrollRing{stages: stages}
 	s.hint = wrapped(k.label("", "setting-description"))
 	s.cancel = k.button(k.label(t.Get("settings-fingerprint-cancel")), s.finish, css.Small, css.Secondary)
 	s.progress = gapBox(widget.Row)
 	s.progress.SetElement("item")
-	s.progress.AppendAligned(s.ring, false, widget.AlignCenter)
 	s.progress.AppendAligned(s.hint, true, widget.AlignCenter)
 	s.progress.AppendAligned(s.cancel, false, widget.AlignCenter)
 	s.deleteAll = itemRow(k.button(k.label(t.Get("settings-fingerprint-delete-all")), s.confirmDeleteAll, css.Small, css.Destructive))
@@ -212,19 +211,20 @@ func fingerName(finger string) string {
 
 func (s *fingerprintSection) show() {
 	s.Clear()
-	s.choices.Clear()
+	enrolling := ""
+	if s.busy {
+		enrolling = s.ring.finger
+	}
+	s.hands.set(s.enrolled, enrolling, s.ring.fraction(), s.busy)
 	for _, f := range fingers {
-		if !slices.Contains(s.enrolled, f) {
-			s.choices.Append(s.k.button(s.k.label(fingerName(f)), func() { s.enroll(f) }, css.Small, css.Outline, "fingerprint-finger"))
-			continue
+		if slices.Contains(s.enrolled, f) {
+			s.Append(s.enrolledRow(f))
 		}
-		s.Append(s.enrolledRow(f))
 	}
 	if len(s.enrolled) == 0 {
 		s.Append(s.k.emptyRow("ld-lock-open-symbolic", locale.T().Get("settings-fingerprint-none")))
 	}
-	s.enrol.SetVisible(!s.busy && len(s.enrolled) < len(fingers))
-	s.ring.SetVisible(s.busy)
+	s.enrol.SetVisible(s.busy || len(s.enrolled) < len(fingers))
 	s.cancel.SetVisible(s.busy)
 	s.progress.SetVisible(s.hint.Text() != "")
 	s.deleteAll.SetVisible(!s.busy && len(s.enrolled) > 0)
@@ -307,8 +307,7 @@ func (s *fingerprintSection) enroll(finger string) {
 		return
 	}
 	s.watch, s.busy = watch, true
-	s.ring.passed, s.ring.updates = 0, 0
-	s.ring.SetValue(0)
+	s.ring.finger, s.ring.passed, s.ring.updates = finger, 0, 0
 	s.say(locale.T().Get("settings-fingerprint-place"))
 	fp := s.fp
 	async(s.k, func() error {
@@ -341,6 +340,7 @@ func (s *fingerprintSection) status(result string, done bool) {
 	case statusCompleted:
 		s.ring.set(s.ring.stages)
 	}
+	s.hands.set(s.enrolled, s.ring.finger, s.ring.fraction(), s.busy)
 	hint := t.Get("settings-fingerprint-place")
 	if key := "settings-fingerprint-" + strings.TrimPrefix(result, "enroll-"); t.Has(key) {
 		hint = t.Get(key)

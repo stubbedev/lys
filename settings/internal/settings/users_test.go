@@ -205,8 +205,15 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 	if got := len(treetest.All[*widget.Dropdown](w.page)); got != 1+len(others) {
 		t.Fatalf("the users page lists %d accounts, want %d", got, 1+len(others))
 	}
-	if got := len(treetest.WithClass(w.page, "fingerprint-finger")); got != len(fingers)-len(enrolled) {
-		t.Fatalf("the users page offers %d fingers, want %d", got, len(fingers)-len(enrolled))
+	hands := treetest.All[*fingerHands](w.page)
+	offered := 0
+	for _, f := range fingers {
+		if len(hands) == 1 && hands[0].offers(f) {
+			offered++
+		}
+	}
+	if offered != len(fingers)-len(enrolled) {
+		t.Fatalf("the users page offers %d fingers, want %d", offered, len(fingers)-len(enrolled))
 	}
 	if got := len(treetest.WithClass(w.page, "fingerprint-enrolled")); got != len(enrolled) {
 		t.Fatalf("the users page lists %d enrolled fingers, want %d", got, len(enrolled))
