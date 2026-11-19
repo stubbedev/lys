@@ -194,17 +194,27 @@ func (a *agent) Cancel() *dbus.Error {
 	return nil
 }
 
-// registerAgent exports the agent and registers it with BlueZ as the
-// default agent. The
-// default-agent request is best effort: pairing started from lys-shell
-// still reaches the agent without it.
-func (s *Service) registerAgent() error {
+// AgentRole is how the pairing agent stands with BlueZ.
+type AgentRole uint8
+
+// The agent roles: DefaultAgent also answers what no client started
+// (incoming pairing, service authorization); OwnAgent answers only the
+// pairing its own connection starts.
+const (
+	DefaultAgent AgentRole = iota
+	OwnAgent
+)
+
+func (s *Service) registerAgent(role AgentRole) error {
 	if err := s.conn.Export(&agent{s: s}, agentPath, agentIface); err != nil {
 		return fmt.Errorf("bluetooth: cannot register bluetooth agent: export: %w", err)
 	}
 	manager := s.conn.Object(BusName, bluezRoot)
 	if err := manager.Call(agentManager+".RegisterAgent", 0, agentPath, agentCapability.String()).Err; err != nil {
 		return fmt.Errorf("bluetooth: cannot register bluetooth agent: %w", err)
+	}
+	if role == OwnAgent {
+		return nil
 	}
 	if err := manager.Call(agentManager+".RequestDefaultAgent", 0, agentPath).Err; err != nil {
 		log.Printf("bluetooth: default agent: %v", err)

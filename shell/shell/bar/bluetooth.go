@@ -5,9 +5,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 // bluetoothLabel is Off when unavailable or

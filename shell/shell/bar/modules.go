@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
@@ -23,7 +24,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	timeclock "github.com/stubbedev/lys/shell/internal/clock"
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/calendar"
 	"github.com/stubbedev/lys/shell/service/hyprland"

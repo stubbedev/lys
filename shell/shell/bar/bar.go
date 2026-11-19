@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/logging"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/desktop/service/mpris"
@@ -40,7 +41,6 @@ import (
 	timeclock "github.com/stubbedev/lys/shell/internal/clock"
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/internal/widgetipc"
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/hyprland"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
@@ -1147,7 +1147,7 @@ func startBluetooth(system *dbus.Conn) (*bluetooth.Service, error) {
 	if system == nil {
 		return nil, errors.New("no system bus")
 	}
-	return bluetooth.New(system)
+	return bluetooth.New(system, bluetooth.DefaultAgent)
 }
 
 func startMedia(session *dbus.Conn, cfg config.MediaConfig) (*mpris.Service, error) {

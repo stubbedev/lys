@@ -43,12 +43,40 @@ func TestNewRegistersTheAgent(t *testing.T) {
 	}
 }
 
+func TestAnOwnAgentLeavesTheDefaultAndAnswersItsOwnPairing(t *testing.T) {
+	f := populated(t)
+	s, err := New(f.bus.Conn(t), OwnAgent)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	at, capability, isDefault := f.registration()
+	if at != agentPath || capability != "DisplayYesNo" {
+		t.Errorf("registered at %q with %q, want %q with DisplayYesNo", at, capability, agentPath)
+	}
+	if isDefault {
+		t.Error("an own agent asked to be BlueZ's default agent")
+	}
+	f.setPairMode(dev2, "confirm")
+	paired := make(chan error, 1)
+	go func() { paired <- s.Device(dev2).Pair(context.Background()) }()
+	if _, ok := waitPairing(t, s).(RequestConfirmation); !ok {
+		t.Fatalf("pairing = %#v, want a confirmation", s.State().Pairing)
+	}
+	if err := s.ProvideConfirmation(true); err != nil {
+		t.Fatal(err)
+	}
+	if err := waittest.For(t, paired, "the pairing to finish"); err != nil {
+		t.Fatalf("Pair: %v", err)
+	}
+}
+
 func TestNewFailsWhenRegistrationIsRefused(t *testing.T) {
 	f := startFakeBlueZ(t)
 	f.mu.Lock()
 	f.rejectRegister = true
 	f.mu.Unlock()
-	if s, err := New(f.bus.Conn(t)); err == nil {
+	if s, err := New(f.bus.Conn(t), DefaultAgent); err == nil {
 		_ = s.Close()
 		t.Fatal("refused RegisterAgent: want an error, got a service")
 	}
@@ -58,7 +86,7 @@ func TestNewFailsWithoutBlueZ(t *testing.T) {
 	f := startFakeBlueZ(t)
 	// A bus with no org.bluez owner: registration cannot happen.
 	_ = f.conn.Close()
-	if s, err := New(f.bus.Conn(t)); err == nil {
+	if s, err := New(f.bus.Conn(t), DefaultAgent); err == nil {
 		_ = s.Close()
 		t.Fatal("no BlueZ: want an error, got a service")
 	}
@@ -179,7 +207,7 @@ func TestMonitoringIgnoresForeignSignals(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	s, err := New(conn)
+	s, err := New(conn, DefaultAgent)
 	if err != nil {
 		t.Fatal(err)
 	}

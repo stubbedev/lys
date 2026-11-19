@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -17,7 +18,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 const (

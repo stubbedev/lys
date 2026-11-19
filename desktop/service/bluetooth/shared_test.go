@@ -5,7 +5,7 @@ import "testing"
 func TestCloseHandsASharedConnectionBack(t *testing.T) {
 	f := populated(t)
 	conn := f.bus.Conn(t)
-	s, err := New(conn)
+	s, err := New(conn, DefaultAgent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +18,7 @@ func TestCloseHandsASharedConnectionBack(t *testing.T) {
 	if err := conn.BusObject().Call("org.freedesktop.DBus.GetId", 0).Err; err != nil {
 		t.Fatalf("Close closed the shared connection: %v", err)
 	}
-	again, err := New(conn)
+	again, err := New(conn, DefaultAgent)
 	if err != nil {
 		t.Fatalf("a second service on the same connection: %v", err)
 	}

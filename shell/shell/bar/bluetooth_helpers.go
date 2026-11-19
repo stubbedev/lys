@@ -9,9 +9,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 // btText resolves a key through the shell domain with its Fluent

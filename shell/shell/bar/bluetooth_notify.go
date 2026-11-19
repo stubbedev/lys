@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 // The pairing card lives inside the dropdown, so a request that arrives

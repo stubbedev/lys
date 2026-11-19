@@ -14,9 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+
+	"github.com/stubbedev/lys/desktop/feed"
 )
 
 // Source is the UI's seam onto the service: the live state, change
@@ -123,13 +124,13 @@ type Service struct {
 // New starts the service on conn, which stays the caller's: it exports
 // and registers the agent, reads the object tree, and follows BlueZ's
 // signals. Close takes back what it put there.
-func New(conn *dbus.Conn) (*Service, error) {
+func New(conn *dbus.Conn, role AgentRole) (*Service, error) {
 	s := &Service{
 		conn:     conn,
 		ticks:    feed.NewTick(),
 		discSubs: make(map[chan DisconnectedEvent]dbus.ObjectPath),
 	}
-	if err := s.registerAgent(); err != nil {
+	if err := s.registerAgent(role); err != nil {
 		return nil, err
 	}
 	if err := s.follow(); err != nil {

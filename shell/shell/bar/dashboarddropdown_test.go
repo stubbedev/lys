@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
@@ -20,7 +21,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 )
 

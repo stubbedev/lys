@@ -85,7 +85,7 @@ func startFakeBlueZ(t *testing.T) *fakeBlueZ {
 // service starts the Service under test on its own connection.
 func (f *fakeBlueZ) service() *Service {
 	f.t.Helper()
-	s, err := New(f.bus.Conn(f.t))
+	s, err := New(f.bus.Conn(f.t), DefaultAgent)
 	if err != nil {
 		f.t.Fatalf("New: %v", err)
 	}

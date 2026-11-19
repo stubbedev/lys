@@ -5,13 +5,12 @@ import (
 	"log"
 	"sync"
 
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 )
 
 // lateServiceNames are the system services whose modules the bars

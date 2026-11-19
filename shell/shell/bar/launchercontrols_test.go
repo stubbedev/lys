@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 
-	"github.com/stubbedev/lys/shell/service/bluetooth"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 	"github.com/stubbedev/lys/shell/service/launcher/search"
 	"github.com/stubbedev/lys/shell/service/recorder"

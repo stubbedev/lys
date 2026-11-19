@@ -250,6 +250,18 @@
       "desktop/service/bitwarden/generator/eff_large_wordlist.txt"
     ]
   },
+  "desktop/service/bluetooth": {
+    "imports": [
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "desktop/service/clipboard": {
     "imports": [
       "desktop/fileuri",
@@ -2625,18 +2637,6 @@
       "lib/waittest"
     ]
   },
-  "shell/service/bluetooth": {
-    "imports": [
-      "desktop/feed",
-      "lib/dbusx",
-      "lib/third_party/godbus"
-    ],
-    "testImports": [
-      "lib/dbustest",
-      "lib/testhome",
-      "lib/waittest"
-    ]
-  },
   "shell/service/brightness": {
     "imports": [
       "desktop/drmconn",
@@ -3164,6 +3164,7 @@
       "desktop/logging",
       "desktop/mime",
       "desktop/service/bitwarden/generator",
+      "desktop/service/bluetooth",
       "desktop/service/clipboard",
       "desktop/service/idle/idlepolicy",
       "desktop/service/idleinhibit/inhibitduration",
@@ -3212,7 +3213,6 @@
       "shell/internal/widgetipc",
       "shell/service/backgroundapps",
       "shell/service/batteryalert",
-      "shell/service/bluetooth",
       "shell/service/brightness",
       "shell/service/calendar",
       "shell/service/clipboardipc",
