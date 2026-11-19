@@ -17,7 +17,7 @@ func TestSettingIndexListsEveryRowOfEveryPage(t *testing.T) {
 		for _, p := range s.pages {
 			n := 0
 			for _, sec := range p.sections {
-				n += len(sec.rows)
+				n += len(sec.flatRows())
 			}
 			for i := range n {
 				if !slices.ContainsFunc(index, func(e settingEntry) bool { return e.page == p.id && e.row == i }) {

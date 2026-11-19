@@ -105,7 +105,7 @@ func TestTheListedPagesCarryEveryRowOnceWithinBudget(t *testing.T) {
 	for _, sec := range sections {
 		for _, p := range sec.pages {
 			for _, s := range p.sections {
-				for _, r := range s.rows {
+				for _, r := range s.flatRows() {
 					path := settingPath(p, r)
 					on, ok := listed[path]
 					if !ok {
@@ -196,5 +196,52 @@ func TestASettingOnAnotherPageBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	last := w.page.rows[len(w.page.rows)-1]
 	if b, view := last.Bounds(), w.page.Bounds(); b.Y < view.Y || b.Y+b.H > view.Y+view.H {
 		t.Fatalf("the revealed row at %+v is outside the page's view %+v", b, view)
+	}
+}
+
+func TestANestedSettingIsListedAndOpensItsPage(t *testing.T) {
+	for _, path := range []string{"wallpaper.cycling-mode", "wallpaper.cycling-interval-mins", "wallpaper.cycling-same-image"} {
+		if err := CheckSetting("wallpaper", path); err != nil {
+			t.Errorf("%s: %v", path, err)
+		}
+		index := settingIndex(layout(config.Defaults()))
+		hit, _ := findSetting(index, path)
+		if hits := searchSettings(index, hit.label); hit.label == "" || !slices.ContainsFunc(hits, func(e settingEntry) bool { return e.path == path }) {
+			t.Errorf("searching %q does not find %s", hit.label, path)
+		}
+	}
+	if err := CheckSetting("wallpaper", "wallpaper.cycling-nothing"); err == nil {
+		t.Error("an unknown nested path was accepted")
+	}
+}
+
+func TestANestedSettingLaunchFocusesItOnceItsGroupShows(t *testing.T) {
+	for _, c := range []struct {
+		config string
+		want   string
+	}{
+		{"wallpaper:\n  cycling-directory: /walls\n", "wallpaper.cycling-mode"},
+		{"", "wallpaper.cycling-directory"},
+	} {
+		k := testKit(t, c.config)
+		w := newWindow(k, k.store.svc.Config(), (&fakeAfter{}).after)
+		var focused widget.Widget
+		w.focus = func(x widget.Widget) { focused = x }
+		w.open(launch{setting: "wallpaper.cycling-mode"})
+		w.root.Arrange(render.Rect{W: windowWidth, H: windowHeight})
+		if w.pageID != "wallpaper" {
+			t.Fatalf("page %q, want wallpaper", w.pageID)
+		}
+		i := slices.IndexFunc(w.page.targets, func(r *settingRow) bool { return r != nil && r.path == "wallpaper.cycling-mode" })
+		if i < 0 {
+			t.Fatal("no nested cycling-mode row among the page's targets")
+		}
+		row := w.page.shown(w.page.targets[i])
+		if row.path != c.want || row.action {
+			t.Fatalf("%q: revealed %s (action %v), want %s", c.config, row.path, row.action, c.want)
+		}
+		if want := widget.FirstFocusable(row.ctl); focused == nil || focused != want {
+			t.Fatalf("%q: focused %T, want %T", c.config, focused, want)
+		}
 	}
 }

@@ -2,6 +2,7 @@ package settings
 
 import (
 	"math"
+	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
@@ -46,6 +47,23 @@ type rowSpec struct {
 	// action marks a row that acts rather than holds a value
 	// (RowBehavior::Action): no source badge, no reset.
 	action bool
+	nested []rowSpec
+}
+
+func (r rowSpec) flat() []rowSpec {
+	out := []rowSpec{r}
+	for _, n := range r.nested {
+		out = append(out, n.flat()...)
+	}
+	return out
+}
+
+func (s sectionSpec) flatRows() []rowSpec {
+	var out []rowSpec
+	for _, r := range s.rows {
+		out = append(out, r.flat()...)
+	}
+	return out
 }
 
 // labelKey is the row's label key.
@@ -90,8 +108,10 @@ func withEditor(e editorFunc) rowOpt { return func(r *rowSpec) { r.editor = e } 
 // scroll, refreshing its rows when the config changes.
 type settingsPage struct {
 	*widget.Scroll
-	rows   []*settingRow
-	status *wmStatus
+	rows    []*settingRow
+	targets []*settingRow
+	hosts   map[*settingRow]nestHost
+	status  *wmStatus
 	// revealing is the row the next layout scrolls into view.
 	revealing *settingRow
 	focusing  func()
@@ -136,6 +156,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 				w, err := k.wmBackend()
 				if err != nil {
 					section.Append(wrapped(k.label(err.Error(), "error", css.Caption)), false)
+					p.targets = append(p.targets, make([]*settingRow, len(rs.flat()))...)
 					continue
 				}
 				rowBackend = w
@@ -143,6 +164,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			row := newFieldRow(k, rowBackend, rs)
 			rows.Append(row)
 			p.rows = append(p.rows, row)
+			p.addTarget(row)
 		}
 		content.Append(section, false)
 	}
@@ -206,11 +228,53 @@ func (k *kit) pageColumn(content widget.Widget) widget.Widget {
 
 // reveal scrolls row i into view at the next layout and hands its
 // control the keys through focus.
+type nester interface {
+	nestedRows() []*settingRow
+	showsNested() bool
+}
+
+type nestHost struct {
+	row   *settingRow
+	group nester
+}
+
+func (p *settingsPage) addTarget(row *settingRow) {
+	p.targets = append(p.targets, row)
+	n, ok := row.ctl.(nester)
+	if !ok {
+		return
+	}
+	if p.hosts == nil {
+		p.hosts = map[*settingRow]nestHost{}
+	}
+	for _, c := range n.nestedRows() {
+		p.hosts[c] = nestHost{row, n}
+		p.addTarget(c)
+	}
+}
+
+func (p *settingsPage) shown(row *settingRow) *settingRow {
+	out := row
+	for h, ok := p.hosts[row]; ok; h, ok = p.hosts[h.row] {
+		if !h.group.showsNested() {
+			out = p.governing(h.row)
+		}
+	}
+	return out
+}
+
+func (p *settingsPage) governing(group *settingRow) *settingRow {
+	if i := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r != group && !r.action && r.path == group.path }); i >= 0 {
+		return p.targets[i]
+	}
+	return group
+}
+
 func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *settingRow {
-	if i < 0 || i >= len(p.rows) {
+	if i < 0 || i >= len(p.targets) || p.targets[i] == nil {
 		return nil
 	}
-	row := p.rows[i]
+	row := p.shown(p.targets[i])
 	give := func() {
 		if target := widget.FirstFocusable(row.ctl); target != nil && focus != nil {
 			focus(target)

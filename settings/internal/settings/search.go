@@ -81,7 +81,7 @@ func settingIndex(sections []navSection) []settingEntry {
 			place := group + " › " + t.Get(p.navKey)
 			row := 0
 			for _, s := range p.sections {
-				for _, r := range s.rows {
+				for _, r := range s.flatRows() {
 					key := r.labelKey()
 					section := t.Get(s.title)
 					out = append(out, settingEntry{

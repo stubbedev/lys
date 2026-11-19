@@ -21,7 +21,7 @@ const revealDuration = 250 * time.Millisecond
 // path is set.
 func cyclingReveal(path string, rows ...rowSpec) rowSpec {
 	return rowSpec{
-		path: path, key: "settings-wallpaper-cycling-options", fullWidth: true, action: true,
+		path: path, key: "settings-wallpaper-cycling-options", fullWidth: true, action: true, nested: rows,
 		editor: func(k *kit, s slot, _ config.FieldMeta) control { return newRevealGroup(k, s, rows) },
 	}
 }
@@ -50,6 +50,10 @@ func newRevealGroup(k *kit, s slot, specs []rowSpec) *revealGroup {
 	g.SetDuration(revealDuration)
 	return g
 }
+
+func (g *revealGroup) nestedRows() []*settingRow { return g.rows }
+
+func (g *revealGroup) showsNested() bool { return g.Revealed() }
 
 func (g *revealGroup) refresh() {
 	dir, _ := g.slot.get().(string)
