@@ -4,9 +4,9 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 	"github.com/stubbedev/lys/shell/service/sni"
 )
 

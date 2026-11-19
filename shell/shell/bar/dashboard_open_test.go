@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/internal/notifytest"
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 	"github.com/stubbedev/lys/shell/shell/powermenu"
 )

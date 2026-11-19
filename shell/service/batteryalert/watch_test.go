@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/service/upower/upowertest"
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -14,7 +15,6 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/batteryalert"
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 const (

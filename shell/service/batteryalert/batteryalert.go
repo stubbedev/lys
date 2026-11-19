@@ -4,9 +4,8 @@
 package batteryalert
 
 import (
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/upower"
-
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 // Reading is the part of a UPower device the alerts follow.

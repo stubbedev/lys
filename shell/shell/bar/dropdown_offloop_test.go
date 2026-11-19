@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
 	"github.com/stubbedev/lys/desktop/service/upower"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/service/brightness"
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 type stuckCalls struct {

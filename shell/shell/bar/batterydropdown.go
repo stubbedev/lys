@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
@@ -16,7 +17,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/service/batteryalert"
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 // batteryCharging reports whether power flows into the battery: a

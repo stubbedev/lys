@@ -6,10 +6,10 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 // powerProfilesLabel renders format: the only variable

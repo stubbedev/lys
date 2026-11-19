@@ -350,6 +350,19 @@
   "desktop/service/network/secrets": {},
   "desktop/service/nightlight/nightschedule": {},
   "desktop/service/notifications/notifypolicy": {},
+  "desktop/service/powerprofiles": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/third_party/godbus/prop",
+      "lib/waittest"
+    ]
+  },
   "desktop/service/pulse": {
     "imports": [
       "lib/intconv",
@@ -2234,6 +2247,7 @@
       "desktop/service/lyswm",
       "desktop/service/mpris",
       "desktop/service/notifications/notifypolicy",
+      "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/settingspage",
       "desktop/shlex",
@@ -2256,7 +2270,6 @@
       "shell/service/launcher",
       "shell/service/launcher/modes",
       "shell/service/notifications",
-      "shell/service/powerprofiles",
       "shell/service/recorder",
       "shell/service/shellipc",
       "shell/service/sni",
@@ -2601,9 +2614,9 @@
   "shell/service/batteryalert": {
     "imports": [
       "desktop/i18n",
+      "desktop/service/powerprofiles",
       "desktop/service/upower",
-      "lib/third_party/godbus",
-      "shell/service/powerprofiles"
+      "lib/third_party/godbus"
     ],
     "testImports": [
       "desktop/service/upower/upowertest",
@@ -2945,19 +2958,6 @@
       "shell/internal/clock/clocktest"
     ]
   },
-  "shell/service/powerprofiles": {
-    "imports": [
-      "lib/dbusx",
-      "lib/intconv",
-      "lib/third_party/godbus"
-    ],
-    "testImports": [
-      "lib/dbustest",
-      "lib/testhome",
-      "lib/third_party/godbus/prop",
-      "lib/waittest"
-    ]
-  },
   "shell/service/privacy": {
     "imports": [
       "desktop/feed",
@@ -3172,6 +3172,7 @@
       "desktop/service/network",
       "desktop/service/network/secrets",
       "desktop/service/nightlight/nightschedule",
+      "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
       "desktop/service/rfkill",
@@ -3231,7 +3232,6 @@
       "shell/service/nightlight",
       "shell/service/niri",
       "shell/service/notifications",
-      "shell/service/powerprofiles",
       "shell/service/privacy",
       "shell/service/recorder",
       "shell/service/screenshare",

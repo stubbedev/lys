@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+
 	"github.com/stubbedev/lys/shell/internal/cli"
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 func powerCommand() *cli.Command {

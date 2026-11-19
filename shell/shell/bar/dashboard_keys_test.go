@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/render"
@@ -21,7 +22,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/keytest"
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
-	"github.com/stubbedev/lys/shell/service/powerprofiles"
 )
 
 type dashboardKeys struct {
