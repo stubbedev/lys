@@ -197,7 +197,7 @@ func findWifiDevice(ctx context.Context, n nm) (dbus.ObjectPath, bool) {
 	}
 	for _, path := range devices {
 		var deviceType uint32
-		if err := n.prop(ctx, path, deviceIface, "DeviceType", &deviceType); err == nil && deviceType == deviceWifi {
+		if err := n.prop(ctx, path, deviceIface, "DeviceType", &deviceType); err == nil && deviceType == deviceWifi && n.managed(ctx, path) {
 			return path, true
 		}
 	}

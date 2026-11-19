@@ -25,8 +25,9 @@ type fakeNM struct {
 	bus  *dbustest.Bus
 	conn *dbus.Conn
 
-	mu            sync.Mutex
-	registrations []registration
+	mu             sync.Mutex
+	unmanagedRadio bool
+	registrations  []registration
 	// onRegister, when set, runs as an agent registers, before NM answers.
 	onRegister    func()
 	order         []dbus.ObjectPath
@@ -430,11 +431,14 @@ func (m fakeManager) GetDevices() ([]dbus.ObjectPath, *dbus.Error) {
 		<-held
 	}
 	var devices []dbus.ObjectPath
+	m.f.mu.Lock()
+	defer m.f.mu.Unlock()
+	if m.f.unmanagedRadio {
+		devices = append(devices, fakeAccessPointRadio)
+	}
 	if m.f.wifi != nil {
 		devices = append(devices, fakeWifiPath)
 	}
-	m.f.mu.Lock()
-	defer m.f.mu.Unlock()
 	if m.f.wired {
 		devices = append(devices, fakeWiredPath)
 	}

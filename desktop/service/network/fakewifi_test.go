@@ -44,6 +44,7 @@ func (f *fakeNM) exportWifi() {
 			"ActiveConnection": {Value: rootPath, Emit: prop.EmitTrue},
 			"Ip4Config":        {Value: rootPath, Emit: prop.EmitTrue},
 			"HwAddress":        {Value: fakeWifiMAC},
+			"Managed":          {Value: true},
 		},
 		wirelessIface: {
 			"LastScan":          {Value: int64(0), Emit: prop.EmitTrue},
@@ -113,6 +114,22 @@ const (
 	fakeWifiMAC   = "AA:BB:CC:00:00:01"
 )
 
+const fakeAccessPointRadio = dbus.ObjectPath("/org/freedesktop/NetworkManager/Devices/3")
+
+// exportUnmanagedRadio lists, before the managed one, a wireless device
+// NetworkManager leaves alone, as hostapd's radio is.
+func (f *fakeNM) exportUnmanagedRadio() {
+	_, err := prop.Export(f.conn, fakeAccessPointRadio, prop.Map{deviceIface: {
+		"DeviceType": {Value: uint32(deviceWifi)},
+		"State":      {Value: uint32(DeviceUnmanaged)},
+		"Managed":    {Value: false},
+	}})
+	must(f.t, err)
+	f.mu.Lock()
+	f.unmanagedRadio = true
+	f.mu.Unlock()
+}
+
 // exportIP4 puts an IP4Config object carrying addr on the bus.
 func (f *fakeNM) exportIP4(path dbus.ObjectPath, addr string) {
 	_, err := prop.Export(f.conn, path, prop.Map{ip4ConfigIface: {
@@ -135,6 +152,7 @@ func (f *fakeNM) exportWired(speed uint32, addr string) {
 			"State":      {Value: uint32(DeviceActivated)},
 			"Ip4Config":  {Value: cfg},
 			"HwAddress":  {Value: fakeWiredMAC},
+			"Managed":    {Value: true},
 		},
 		wiredIface: {"Speed": {Value: speed}},
 	})

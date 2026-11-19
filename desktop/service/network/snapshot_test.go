@@ -118,3 +118,22 @@ func TestALinksDetailsAreItsAddressGatewayAndDNS(t *testing.T) {
 		t.Errorf("wifi details %+v, %v, %v", wifi, ok, err)
 	}
 }
+
+// A wireless device NetworkManager does not manage, an access point
+// hostapd runs, is neither the device the client scans on nor the Wi-Fi
+// the snapshot and the details report.
+func TestARadioNetworkManagerLeavesAloneIsNotTheWifi(t *testing.T) {
+	f := startFakeNM(t)
+	f.exportUnmanagedRadio()
+	svc, err := StartConnections(t.Context(), f.client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.Wifi == nil || svc.Wifi.Device != fakeWifiPath {
+		t.Fatalf("the client took %v as its Wi-Fi, want the managed %s", svc.Wifi, fakeWifiPath)
+	}
+	snap, err := (&System{conn: f.client()}).Read(t.Context())
+	if err != nil || !snap.HasWifi || snap.Wifi != StatusDisconnected {
+		t.Fatalf("snapshot %+v, %v", snap, err)
+	}
+}

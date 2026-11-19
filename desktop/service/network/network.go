@@ -155,6 +155,9 @@ func (s *System) Read(ctx context.Context) (Snapshot, error) {
 		return snap, fmt.Errorf("network: GetDevices: %w", err)
 	}
 	for _, devicePath := range devices {
+		if !(nm{s.conn}).managed(ctx, devicePath) {
+			continue
+		}
 		dev := s.conn.Object(BusName, devicePath)
 		var deviceType uint32
 		if err := dev.CallWithContext(ctx, properties+".Get", 0, deviceIface, "DeviceType").Store(&deviceType); err != nil {
@@ -275,7 +278,7 @@ func (s *System) Details(ctx context.Context, kind Link) (LinkDetails, bool, err
 	n := nm{s.conn}
 	for _, path := range devices {
 		var deviceType, state uint32
-		if n.prop(ctx, path, deviceIface, "DeviceType", &deviceType) != nil || deviceType != linkDeviceTypes[kind] {
+		if n.prop(ctx, path, deviceIface, "DeviceType", &deviceType) != nil || deviceType != linkDeviceTypes[kind] || !n.managed(ctx, path) {
 			continue
 		}
 		if n.prop(ctx, path, deviceIface, "State", &state) != nil || statusOf(DeviceState(state)) != StatusConnected {

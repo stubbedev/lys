@@ -188,6 +188,14 @@ func (n nm) managerState(ctx context.Context) State {
 	return State(state)
 }
 
+// managed reports whether NetworkManager manages the device at path: a
+// radio it leaves alone, an access point hostapd runs, is not one it
+// scans or connects on.
+func (n nm) managed(ctx context.Context, path dbus.ObjectPath) bool {
+	var on bool
+	return n.prop(ctx, path, deviceIface, "Managed", &on) == nil && on
+}
+
 // activate starts a saved profile on device/specific object ("/" lets
 // NM pick, which is what `nmcli connection up` does for a VPN).
 func (n nm) activate(ctx context.Context, profile, device, specific dbus.ObjectPath) (dbus.ObjectPath, error) {
