@@ -3,17 +3,19 @@ package modes
 import (
 	"context"
 
+	"github.com/stubbedev/lys/desktop/config"
+
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // Keys lists the launcher's own keybindings. Read-only: the
 // rows are informational.
 type Keys struct {
-	bindings []launcher.Binding
+	bindings []config.LauncherBinding
 }
 
 // NewKeys lists the session's effective bindings.
-func NewKeys(bindings []launcher.Binding) *Keys { return &Keys{bindings: bindings} }
+func NewKeys(bindings []config.LauncherBinding) *Keys { return &Keys{bindings: bindings} }
 
 // Name is "keys".
 func (*Keys) Name() string { return "keys" }

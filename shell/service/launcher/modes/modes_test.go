@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -794,7 +795,7 @@ func TestClipboardARefusedPinIsSaidAsText(t *testing.T) {
 }
 
 func TestKeysListsBindingsReadOnly(t *testing.T) {
-	m := NewKeys([]launcher.Binding{{Action: "cancel", Keys: "Escape"}})
+	m := NewKeys([]config.LauncherBinding{{Action: "cancel", Keys: "Escape"}})
 	st := m.Load(bg)
 	if len(st.Items) != 1 || st.Items[0].Display != "kb-cancel: Escape" || !st.Items[0].Flags.Has(launcher.FlagNonselectable) || !st.NoCustom {
 		t.Errorf("state = %+v", st)

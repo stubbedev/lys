@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -87,7 +88,7 @@ func actionFromName(name string) (keyAction, uint8, bool) {
 // compileKeys builds the lookup table; unimplemented actions are
 // skipped and unparseable key specs logged. Key specs are GTK
 // accelerator names (Control+Shift+Return, Super+Return).
-func compileKeys(bindings []engine.Binding) []keyBinding {
+func compileKeys(bindings []config.LauncherBinding) []keyBinding {
 	var table []keyBinding
 	for _, b := range bindings {
 		action, n, ok := actionFromName(b.Action)
@@ -152,7 +153,7 @@ func mouseActionFromName(name string) (mouseAction, bool) {
 	return 0, false
 }
 
-func compileMouse(bindings []engine.Binding) []mouseEntry {
+func compileMouse(bindings []config.LauncherBinding) []mouseEntry {
 	var table []mouseEntry
 	for _, b := range bindings {
 		action, ok := mouseActionFromName(b.Action)

@@ -1,8 +1,12 @@
 package launcher
 
-import "testing"
+import (
+	"testing"
 
-func keysOf(bindings []Binding, action string) (string, bool) {
+	"github.com/stubbedev/lys/desktop/config"
+)
+
+func keysOf(bindings []config.LauncherBinding, action string) (string, bool) {
 	for _, b := range bindings {
 		if b.Action == action {
 			return b.Keys, true
@@ -22,7 +26,7 @@ func TestKeybindingOverridesReplaceDefaults(t *testing.T) {
 	if _, ok := keysOf(b, "no-such-action"); ok {
 		t.Error("an override for an unknown action must not add one")
 	}
-	if len(b) != len(DefaultKeybindings) {
+	if len(b) != len(config.LauncherDefaultKeybindings) {
 		t.Errorf("table size changed: %d", len(b))
 	}
 }

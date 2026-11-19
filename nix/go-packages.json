@@ -2765,6 +2765,7 @@
   },
   "shell/service/launcher": {
     "imports": [
+      "desktop/config",
       "desktop/desktopentry",
       "desktop/fileuri",
       "desktop/glob",
@@ -2780,7 +2781,6 @@
       "lib/xdg"
     ],
     "testImports": [
-      "desktop/config",
       "desktop/opener/openertest",
       "lib/waittest",
       "shell/service/launcher/launchertest"
@@ -2810,6 +2810,7 @@
   "shell/service/launcher/modes": {
     "imports": [
       "desktop/compositor",
+      "desktop/config",
       "desktop/desktopentry",
       "desktop/i18n",
       "desktop/service/clipboard",
@@ -2830,7 +2831,6 @@
       "shell/service/launcher/modes/emojidata"
     ],
     "testImports": [
-      "desktop/config",
       "desktop/fileuri",
       "desktop/opener/openertest",
       "desktop/service/clipboard/historybudget",

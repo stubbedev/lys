@@ -501,7 +501,7 @@ func TestRowPressesCarryClicksAndModifiers(t *testing.T) {
 	h := newHarness(t)
 	_, reply := h.open(dmenu(), false, "alpha", "beta", "gamma")
 	h.until("the rows", func() bool { return h.s.model.len() == 3 })
-	h.s.cur.mouse = compileMouse([]engine.Binding{
+	h.s.cur.mouse = compileMouse([]config.LauncherBinding{
 		{Action: "me-select-entry", Keys: "Control+MouseMiddle"},
 		{Action: "me-accept-entry", Keys: "MouseDPrimary"},
 	})
@@ -669,7 +669,7 @@ func TestAcceptBindingAcceptsTheRowItLandedOn(t *testing.T) {
 	h := newHarness(t)
 	_, reply := h.open(dmenu(), false, "alpha", "beta", "gamma")
 	h.until("the rows", func() bool { return h.s.model.len() == 3 })
-	h.s.cur.mouse = compileMouse([]engine.Binding{{Action: "me-accept-entry", Keys: "MousePrimary"}})
+	h.s.cur.mouse = compileMouse([]config.LauncherBinding{{Action: "me-accept-entry", Keys: "MousePrimary"}})
 	r, p := h.pointAt(2)
 	r.Press(widget.BTNLeft, p, 0)
 	if f := h.frame(reply); len(f.Selected) != 1 || f.Selected[0].Text != "gamma" {
@@ -728,7 +728,7 @@ func TestSurfacePlaysItsExit(t *testing.T) {
 }
 
 func TestSuperKeyBindingsParse(t *testing.T) {
-	table := compileKeys([]engine.Binding{{Action: "accept-entry", Keys: "Super+Return, Control+j"}})
+	table := compileKeys([]config.LauncherBinding{{Action: "accept-entry", Keys: "Super+Return, Control+j"}})
 	if len(table) != 2 {
 		t.Fatalf("%d bindings, want the Super one too", len(table))
 	}

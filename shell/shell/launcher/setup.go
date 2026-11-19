@@ -42,8 +42,8 @@ type uiSettings struct {
 	showIcons     bool
 	sidebar       bool
 	displayNames  map[string]string
-	keybindings   []engine.Binding
-	mouseBindings []engine.Binding
+	keybindings   []config.LauncherBinding
+	mouseBindings []config.LauncherBinding
 	hooks         engine.Hooks
 	// css is the -font/-style CSS this session adds, "" for none.
 	css             string
@@ -195,7 +195,7 @@ func requestedModes(opts launcheripc.SessionOptions, l config.LauncherConfig) []
 	return names
 }
 
-func buildMode(name string, opts launcheripc.SessionOptions, cfg *config.Config, history *engine.History, bindings []engine.Binding, deps setupDeps) engine.Mode {
+func buildMode(name string, opts launcheripc.SessionOptions, cfg *config.Config, history *engine.History, bindings []config.LauncherBinding, deps setupDeps) engine.Mode {
 	l := cfg.Launcher
 	switch name {
 	case "drun":
