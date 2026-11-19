@@ -795,3 +795,20 @@ settings-wallpaper-monitor-own = Fondo propio para { $monitor }
     .description = Mostrar un fondo distinto en esta pantalla en lugar del predeterminado
 settings-wallpaper-monitor-fit = Ajuste
 settings-wallpaper-monitor-away = No conectada; su fondo se conserva hasta que la quites
+settings-section-idle-when = En inactividad
+    .description = Cuánto tiempo sin actividad antes de cada paso, enchufado y con batería
+settings-idle-on-ac = Enchufado
+settings-idle-on-battery = Con batería
+settings-duration-never = Nunca
+settings-duration-minutes = { $n ->
+    [one] 1 minuto
+   *[other] { $n } minutos
+}
+settings-duration-hours = { $n ->
+    [one] 1 hora
+   *[other] { $n } horas
+}
+settings-duration-seconds = { $n ->
+    [one] 1 segundo
+   *[other] { $n } segundos
+}

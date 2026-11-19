@@ -53,6 +53,7 @@ type rowSpec struct {
 	action bool
 	nested []rowSpec
 	wmTwin string
+	also   []string
 }
 
 func (r rowSpec) flat() []rowSpec {

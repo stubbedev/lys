@@ -20,14 +20,16 @@ func TestSettingIndexListsEveryRowOfEveryPage(t *testing.T) {
 		for _, p := range s.pages {
 			n := 0
 			for _, sec := range p.sections {
-				n += len(sec.flatRows())
+				for _, r := range sec.flatRows() {
+					n++
+					rows += 1 + len(r.also)
+				}
 			}
 			for i := range n {
 				if !slices.ContainsFunc(index, func(e settingEntry) bool { return e.page == p.id && e.row == i }) {
 					t.Errorf("row %d of %s is not indexed", i, p.id)
 				}
 			}
-			rows += n
 		}
 	}
 	if len(index) != rows {
@@ -184,6 +186,9 @@ func shellRowPaths() map[string]bool {
 				for _, r := range sec.flatRows() {
 					if !p.wm && !r.wm {
 						rows[r.path] = true
+						for _, also := range r.also {
+							rows[also] = true
+						}
 					}
 				}
 			}

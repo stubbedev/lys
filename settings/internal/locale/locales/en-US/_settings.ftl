@@ -794,3 +794,20 @@ settings-wallpaper-monitor-own = Own wallpaper for { $monitor }
     .description = Show a different wallpaper on this display instead of the default
 settings-wallpaper-monitor-fit = Fit
 settings-wallpaper-monitor-away = Not connected; its wallpaper is kept until you remove it
+settings-section-idle-when = When Idle
+    .description = How long without input before each step, plugged in and on battery
+settings-idle-on-ac = Plugged in
+settings-idle-on-battery = On battery
+settings-duration-never = Never
+settings-duration-minutes = { $n ->
+    [one] 1 minute
+   *[other] { $n } minutes
+}
+settings-duration-hours = { $n ->
+    [one] 1 hour
+   *[other] { $n } hours
+}
+settings-duration-seconds = { $n ->
+    [one] 1 second
+   *[other] { $n } seconds
+}

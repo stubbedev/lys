@@ -88,6 +88,12 @@ func settingIndex(sections []navSection) []settingEntry {
 						page: p.id, row: row, path: settingPath(p, r), label: t.Get(key), description: description(key), keywords: keywords(key),
 						section: section, place: place + " › " + section, order: len(out),
 					})
+					for _, also := range r.also {
+						out = append(out, settingEntry{
+							page: p.id, row: row, path: also, label: t.Get(key), description: description(key), keywords: keywords(key),
+							section: section, place: place + " › " + section, order: len(out),
+						})
+					}
 					row++
 				}
 			}

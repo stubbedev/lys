@@ -2,6 +2,7 @@ ld-activity-symbolic
 ld-app-window-symbolic
 ld-audio-lines-symbolic
 ld-battery-full-symbolic
+ld-battery-symbolic
 ld-bell-off-symbolic
 ld-bell-symbolic
 ld-bluetooth-symbolic
@@ -43,6 +44,7 @@ ld-palette-symbolic
 ld-panel-bottom-symbolic
 ld-panel-top-open-symbolic
 ld-panel-top-symbolic
+ld-plug-zap-symbolic
 ld-plus-symbolic
 ld-power-symbolic
 ld-rocket-symbolic

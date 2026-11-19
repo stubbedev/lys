@@ -784,3 +784,20 @@ settings-wallpaper-monitor-own = Eigen achtergrond voor { $monitor }
     .description = Een andere achtergrond op dit scherm tonen in plaats van de standaard
 settings-wallpaper-monitor-fit = Passend maken
 settings-wallpaper-monitor-away = Niet verbonden; de achtergrond blijft bewaard tot je hem verwijdert
+settings-section-idle-when = Bij inactiviteit
+    .description = Hoe lang zonder invoer voor elke stap, aan het net en op batterij
+settings-idle-on-ac = Aan het net
+settings-idle-on-battery = Op batterij
+settings-duration-never = Nooit
+settings-duration-minutes = { $n ->
+    [one] 1 minuut
+   *[other] { $n } minuten
+}
+settings-duration-hours = { $n ->
+    [one] 1 uur
+   *[other] { $n } uur
+}
+settings-duration-seconds = { $n ->
+    [one] 1 seconde
+   *[other] { $n } seconden
+}
