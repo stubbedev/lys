@@ -73,3 +73,14 @@ func TestTheColourStripWritesEachColourToItsOwnKey(t *testing.T) {
 		t.Error("the label colour also set the icon colour")
 	}
 }
+
+func TestTheSystemMonitorsOpenTheDashboard(t *testing.T) {
+	for _, module := range []string{"cpu", "ram", "storage", "netstat"} {
+		if !slices.ContainsFunc(actionChoices(module), func(c actionChoice) bool { return c.command == "dropdown:dashboard" }) {
+			t.Errorf("%s offers no action to open the dashboard", module)
+		}
+	}
+	if len(actionChoices("separator")) != 0 {
+		t.Error("the separator offers actions though it has none")
+	}
+}

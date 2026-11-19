@@ -176,7 +176,7 @@ func actionChoices(module string) []actionChoice {
 		return []actionChoice{dropdown("Open weather panel", "weather")}
 	case "treeman":
 		return []actionChoice{dropdown("Open treeman panel", "treeman")}
-	case "dashboard":
+	case "dashboard", "cpu", "ram", "storage", "netstat":
 		return []actionChoice{dropdown("Open dashboard", "dashboard")}
 	case "clock":
 		return []actionChoice{dropdown("Open calendar", "calendar"), dropdown("Open weather panel", "weather")}
