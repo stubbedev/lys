@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -99,6 +100,23 @@ func (u timeUnit) count(d time.Duration) int64 {
 	return int64(d / u.span())
 }
 
+type countUnit int
+
+const (
+	inPixels countUnit = iota
+	inEntries
+)
+
+func (u countUnit) custom() customUnit {
+	switch u {
+	case inPixels:
+		return customUnit{per: 1, name: "settings-unit-pixels"}
+	case inEntries:
+		return customUnit{per: 1, name: "settings-unit-entries"}
+	}
+	panic(fmt.Sprintf("settings: count unit %d", u))
+}
+
 type zeroWord string
 
 const (
@@ -136,6 +154,14 @@ func durationChips(u timeUnit, choices ...durationChoice) rowOpt {
 	presets := make([]preset, len(choices))
 	for i, c := range choices {
 		presets[i] = preset{value: u.count(c.span), label: c.label}
+	}
+	return presetChips(u.custom(), presets)
+}
+
+func countChips(u countUnit, values ...int64) rowOpt {
+	presets := make([]preset, len(values))
+	for i, v := range values {
+		presets[i] = preset{value: v, label: func() string { return strconv.FormatInt(v, 10) }}
 	}
 	return presetChips(u.custom(), presets)
 }

@@ -290,6 +290,10 @@ settings-section-launcher-matching = Corrispondenza
     .description = Come il testo digitato trova le voci
 settings-section-launcher-appearance = Aspetto
     .description = Come appare l'avviatore
+settings-section-launcher-search-behaviour = Ricerca
+    .description = Come il testo digitato trova le voci e se le maiuscole contano
+settings-section-launcher-expert = Regolazioni fini
+    .description = Ricominciare dall'inizio della lista, un'altezza fissa, stili personalizzati e il comando di anteprima
 settings-section-launcher-history = Cronologia
     .description = Memorizzazione e classificazione delle scelte fatte
 settings-section-launcher-keybindings = Scorciatoie da tastiera
@@ -875,6 +879,8 @@ settings-duration-custom = Personalizzato…
 settings-duration-unit-seconds = secondi
 settings-duration-unit-minutes = minuti
 settings-duration-unit-days = giorni
+settings-unit-pixels = pixel
+settings-unit-entries = voci
 settings-duration-minutes = { $n ->
     [one] 1 minuto
    *[other] { $n } minuti

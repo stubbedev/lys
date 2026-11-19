@@ -2,6 +2,7 @@ package settings
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -67,5 +68,14 @@ func TestASnippetKeepsItsLinesAndIsEditedInAnArea(t *testing.T) {
 	want := []any{map[string]any{"name": "Sign-off", "text": "Best,\nAda", "keyword": ""}}
 	if got := k.store.value(snippetsPath); !reflect.DeepEqual(got, want) {
 		t.Errorf("stored %v, want %v", got, want)
+	}
+}
+
+func TestTheTerminalIsSetOnDefaultAppsAlone(t *testing.T) {
+	if slices.Contains(rowPaths(bothParts, "launcher"), "launcher.terminal") {
+		t.Error("the launcher page still holds the terminal")
+	}
+	if !slices.Contains(rowPaths(bothParts, "default-apps"), "launcher.terminal") {
+		t.Error("Default Apps lost the terminal")
 	}
 }

@@ -280,6 +280,10 @@ settings-section-launcher-matching = Correspondência
     .description = Como o texto escrito encontra entradas
 settings-section-launcher-appearance = Aparência
     .description = O aspeto do lançador
+settings-section-launcher-search-behaviour = Pesquisa
+    .description = Como o texto escrito encontra entradas e se as maiúsculas contam
+settings-section-launcher-expert = Afinação
+    .description = Voltar ao início da lista, uma altura fixa, estilos próprios e o comando de pré-visualização
 settings-section-launcher-history = Histórico
     .description = Lembrar e classificar o que foi escolhido
 settings-section-launcher-keybindings = Atalhos de teclado
@@ -865,6 +869,8 @@ settings-duration-custom = Personalizado…
 settings-duration-unit-seconds = segundos
 settings-duration-unit-minutes = minutos
 settings-duration-unit-days = dias
+settings-unit-pixels = píxeis
+settings-unit-entries = entradas
 settings-duration-minutes = { $n ->
     [one] 1 minuto
    *[other] { $n } minutos

@@ -280,6 +280,10 @@ settings-section-launcher-matching = Zoeken
     .description = Hoe getypte tekst items vindt
 settings-section-launcher-appearance = Uiterlijk
     .description = Hoe de starter eruitziet
+settings-section-launcher-search-behaviour = Zoeken
+    .description = Hoe getypte tekst items vindt en of hoofdletters tellen
+settings-section-launcher-expert = Fijnafstelling
+    .description = Rondgaan in de lijst, een vaste lijsthoogte, eigen stijlen en het voorbeeldcommando
 settings-section-launcher-history = Geschiedenis
     .description = Onthouden en rangschikken wat is gekozen
 settings-section-launcher-keybindings = Sneltoetsen
@@ -864,6 +868,8 @@ settings-duration-custom = Aangepast…
 settings-duration-unit-seconds = seconden
 settings-duration-unit-minutes = minuten
 settings-duration-unit-days = dagen
+settings-unit-pixels = pixels
+settings-unit-entries = items
 settings-duration-minutes = { $n ->
     [one] 1 minuut
    *[other] { $n } minuten

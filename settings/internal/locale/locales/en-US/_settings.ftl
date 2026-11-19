@@ -290,6 +290,10 @@ settings-section-launcher-matching = Matching
     .description = How typed text finds entries
 settings-section-launcher-appearance = Appearance
     .description = How the launcher looks
+settings-section-launcher-search-behaviour = Search
+    .description = How typed text finds entries and whether case matters
+settings-section-launcher-expert = Fine-Tuning
+    .description = Wrapping around the list, a fixed list height, custom styles and the preview command
 settings-section-launcher-history = History
     .description = Remembering and ranking what was picked
 settings-section-launcher-keybindings = Keybindings
@@ -874,6 +878,8 @@ settings-duration-custom = Custom…
 settings-duration-unit-seconds = seconds
 settings-duration-unit-minutes = minutes
 settings-duration-unit-days = days
+settings-unit-pixels = pixels
+settings-unit-entries = entries
 settings-duration-minutes = { $n ->
     [one] 1 minute
    *[other] { $n } minutes

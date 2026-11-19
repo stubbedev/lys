@@ -293,6 +293,10 @@ settings-section-launcher-matching = Correspondance
     .description = Comment le texte tapé trouve les entrées
 settings-section-launcher-appearance = Apparence
     .description = L'apparence du lanceur
+settings-section-launcher-search-behaviour = Recherche
+    .description = Comment le texte saisi trouve les entrées et si la casse compte
+settings-section-launcher-expert = Réglages fins
+    .description = Boucler dans la liste, une hauteur de liste fixe, des styles personnalisés et la commande d'aperçu
 settings-section-launcher-history = Historique
     .description = Retenir et classer ce qui a été choisi
 settings-section-launcher-keybindings = Raccourcis clavier
@@ -877,6 +881,8 @@ settings-duration-custom = Personnalisé…
 settings-duration-unit-seconds = secondes
 settings-duration-unit-minutes = minutes
 settings-duration-unit-days = jours
+settings-unit-pixels = pixels
+settings-unit-entries = entrées
 settings-duration-minutes = { $n ->
     [one] 1 minute
    *[other] { $n } minutes

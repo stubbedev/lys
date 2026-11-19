@@ -235,3 +235,26 @@ func TestTheTimesThatWereTypedArePickedFromChips(t *testing.T) {
 		}
 	}
 }
+
+func TestACountChipWritesItsNumberAndCustomTakesAnyOther(t *testing.T) {
+	k := testKit(t, "")
+	p := pickerOf(t, k, field("launcher.history.max-size", countChips(inEntries, 25, 50, 100, 500)))
+	if got := chipLabels(p); len(got) != 4 || got[0] != "25" || got[3] != "500" {
+		t.Errorf("count chips read %q", got)
+	}
+	if p.active() != 0 || p.typed.Visible() {
+		t.Fatalf("the default 25 shows chip %d, custom shown %v", p.active(), p.typed.Visible())
+	}
+	p.chips[2].SetActive(true)
+	if v := k.store.value("launcher.history.max-size"); v != int64(100) {
+		t.Errorf("choosing 100 stored %v", v)
+	}
+	p.chips[4].SetActive(true)
+	p.custom.OnValueChanged(30)
+	if v := k.store.value("launcher.history.max-size"); v != int64(30) {
+		t.Errorf("typing 30 stored %v", v)
+	}
+	if p.active() != 4 || !p.typed.Visible() {
+		t.Errorf("30 entries shows chip %d, custom shown %v", p.active(), p.typed.Visible())
+	}
+}

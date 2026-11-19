@@ -290,6 +290,10 @@ settings-section-launcher-matching = Abgleich
     .description = Wie eingegebener Text Einträge findet
 settings-section-launcher-appearance = Erscheinungsbild
     .description = Wie der Starter aussieht
+settings-section-launcher-search-behaviour = Suche
+    .description = Wie eingegebener Text Einträge findet und ob Groß- und Kleinschreibung zählt
+settings-section-launcher-expert = Feinabstimmung
+    .description = Umlauf in der Liste, eine feste Listenhöhe, eigene Stile und der Vorschaubefehl
 settings-section-launcher-history = Verlauf
     .description = Gewähltes merken und einordnen
 settings-section-launcher-keybindings = Tastenkürzel
@@ -874,6 +878,8 @@ settings-duration-custom = Benutzerdefiniert…
 settings-duration-unit-seconds = Sekunden
 settings-duration-unit-minutes = Minuten
 settings-duration-unit-days = Tage
+settings-unit-pixels = Pixel
+settings-unit-entries = Einträge
 settings-duration-minutes = { $n ->
     [one] 1 Minute
    *[other] { $n } Minuten

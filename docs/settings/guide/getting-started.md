@@ -42,7 +42,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Input | `wm-keyboard` (layouts, typing, keyboard accessibility, the cursor), `wm-pointer` (mouse, touchpad, gestures, trackpoint), `wm-binds` (keyboard shortcuts, app shortcuts, modes) |
 | Notifications & Focus | `notifications` (with Do Not Disturb and the bar's bell), `osd` |
 | Power & Battery | `power-battery` (with the battery alerts and when to switch to power saver), `idle` |
-| Apps | `default-apps`, `login-items`, `launcher`, `launcher-modes` |
+| Apps | `default-apps` (with the terminal the launcher opens), `login-items`, `launcher`, `launcher-modes` |
 | Privacy & Security | `privacy` (with the screen share picker), `passwords`, `lock` (the lock and login screens: the background is picked by picture and shows only the chosen kind's settings; the PAM service sits under **Unlocking**, folded away) |
 | Time & Language | `date-time`, `region` |
 | Desktop | `bar` (with its buttons and dropdowns; each dropdown's size is on its bar item's page), `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
@@ -86,12 +86,14 @@ Some pages also act on the system:
 | On-Screen Display | **Show OSD** shows a volume toast with the settings on the page; each toast preset's **Show** shows that preset and the card names the `lys-shell toast --preset` line that does the same | `lys-shell toast` |
 | Displays (`wm-outputs`) | Output layout, tested and applied live | wlr-output-management |
 
-## Durations
+## Durations and sizes
 
 A time a setting waits, such as how long a notification stays, how soon the
 lock screen asks for the password or how often the wallpaper changes, is picked
 from a row of common durations. **Custom…** takes any other value in the unit
 named beside it (seconds, minutes or days); a value off the row shows there.
+Counts and sizes with a few usual values, such as the launcher's history or the
+login screen's cursor size, are picked the same way.
 
 ## Where changes go
 
