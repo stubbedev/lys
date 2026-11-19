@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -409,6 +410,46 @@ func TestAPasswordChangeShowsPwqualitysRefusalAndRekeysOnSuccess(t *testing.T) {
 		if strings.Contains(logged.String(), pw) || strings.Contains(strings.Join(os.Args, " "), pw) || strings.Contains(strings.Join(os.Environ(), " "), pw) {
 			t.Fatalf("a password reached the log, argv or the environment")
 		}
+	}
+}
+
+func TestThePasswordFormOpensUnderItsRowAndSaysHowStrongInWords(t *testing.T) {
+	p := usersFooter(testKit(t, "")).(*usersPanel)
+	t.Cleanup(p.close)
+	p.openPasswordDialog()
+	p.openPasswordDialog()
+	if got := len(treetest.WithClass(p, "password-change")); got != 1 {
+		t.Fatalf("opening the form twice shows %d forms", got)
+	}
+	kids := p.Children()
+	if at := slices.Index(kids, widget.Widget(p.account)); at < 0 || at+1 >= len(kids) || kids[at+1] != widget.Widget(p.password) {
+		t.Fatal("the password form is not right under the account section")
+	}
+	entries := treetest.All[*widget.Entry](p.password)
+	next, word := entries[1], treetest.WithClass(p.password, "password-strength")[0].(*widget.Label)
+	tr := locale.T()
+	for pw, want := range map[string]string{"": "", "abc": tr.Get("settings-users-password-weak"), "correct-Horse-battery-9": tr.Get("settings-users-password-good"), "correct-Horse-battery-staple-9": tr.Get("settings-users-password-strong")} {
+		next.SetText(pw)
+		next.OnChanged(pw)
+		if word.Text() != want {
+			t.Errorf("%q reads %q, want %q", pw, word.Text(), want)
+		}
+	}
+	reveal := treetest.WithClass(p.password, css.Icon)
+	if len(reveal) != 2 {
+		t.Fatalf("%d reveal buttons, want one for the current and one for the new password", len(reveal))
+	}
+	reveal[1].(*widget.Button).OnClick()
+	if entries[0].Echo() != widget.EchoPassword || entries[1].Echo() != widget.EchoNormal || entries[2].Echo() != widget.EchoNormal {
+		t.Errorf("revealing the new password shows echoes %v %v %v", entries[0].Echo(), entries[1].Echo(), entries[2].Echo())
+	}
+	reveal[1].(*widget.Button).OnClick()
+	if entries[1].Echo() != widget.EchoPassword || entries[2].Echo() != widget.EchoPassword {
+		t.Error("hiding the new password again left it shown")
+	}
+	treetest.Button(t, p.password, tr.Get("settings-users-password-cancel")).OnClick()
+	if p.password != nil || len(treetest.WithClass(p, "password-change")) != 0 {
+		t.Error("cancel left the form open")
 	}
 }
 

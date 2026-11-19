@@ -273,6 +273,8 @@ type usersPanel struct {
 	name        string
 	realName    *text
 	identity    *widget.Label
+	account     *widget.Box
+	password    *widget.Box
 	admin       *widget.Box
 	changer     passwordChanger
 	fingerprint *fingerprintSection
@@ -291,7 +293,8 @@ func usersFooter(k *kit) widget.Widget {
 	change := k.button(k.label(t.Get("settings-users-password-change")), p.openPasswordDialog, css.Secondary)
 	account := widget.NewItemGroup()
 	account.Append(panelRow(k, t.Get("settings-users-password"), t.Attr("settings-users-password", "description"), change))
-	p.Append(newSection(k, "settings-section-users-account", account), false)
+	p.account = newSection(k, "settings-section-users-account", account)
+	p.Append(p.account, false)
 	p.admin = gapBox(widget.Column)
 	p.admin.SetVisible(false)
 	p.Append(p.admin, false)
@@ -680,25 +683,70 @@ func (p *usersPanel) adminCall(fn func(context.Context) error) {
 	})
 }
 
+// strengthWords name passwordStrength's levels above none.
+var strengthWords = [strengthClasses]string{
+	"settings-users-password-weak", "settings-users-password-fair", "settings-users-password-good", "settings-users-password-strong",
+}
+
+// strengthWord says how strong pw is; an empty one has no strength to
+// say, and any other is at least weak.
+func strengthWord(pw string) string {
+	if pw == "" {
+		return ""
+	}
+	return locale.T().Get(strengthWords[max(passwordStrength(pw), 1)-1])
+}
+
+// revealButton shows what entries hold, and hides it again.
+func (p *usersPanel) revealButton(entries ...*widget.Entry) *widget.Button {
+	var b *widget.Button
+	shown := false
+	icon := p.k.icon("ld-eye-symbolic")
+	b = p.k.button(icon, func() {
+		shown = !shown
+		echo, name, tip := widget.EchoPassword, "ld-eye-symbolic", "settings-users-password-show"
+		if shown {
+			echo, name, tip = widget.EchoNormal, "ld-eye-off-symbolic", "settings-users-password-hide"
+		}
+		for _, e := range entries {
+			e.SetEcho(echo)
+		}
+		icon.SetThemeName(name)
+		b.SetTooltip(locale.T().Get(tip))
+	}, css.Ghost, css.Icon)
+	b.SetTooltip(locale.T().Get("settings-users-password-show"))
+	return b
+}
+
 func (p *usersPanel) openPasswordDialog() {
+	if p.password != nil {
+		return
+	}
 	t := locale.T()
 	box := gapBox(widget.Column)
 	box.AddClass("password-change")
+	p.password = box
 	entry := func(key string) *widget.Entry {
 		e := p.k.entry()
 		e.SetEcho(widget.EchoPassword)
 		e.SetAccessibleName(t.Get(key))
-		box.Append(panelRow(p.k, t.Get(key), "", e), false)
 		return e
 	}
 	current, next, confirm := entry("settings-users-password-current"), entry("settings-users-password-new"), entry("settings-users-password-confirm")
+	box.Append(panelRow(p.k, t.Get("settings-users-password-current"), "", current, p.revealButton(current)), false)
+	box.Append(panelRow(p.k, t.Get("settings-users-password-new"), "", next, p.revealButton(next, confirm)), false)
+	box.Append(panelRow(p.k, t.Get("settings-users-password-confirm"), "", confirm), false)
 	meter := widget.NewLevelBar(0)
 	meter.SetAccessibleName(t.Get("settings-users-password-strength"))
-	box.Append(panelRow(p.k, t.Get("settings-users-password-strength"), "", meter), false)
+	word := p.k.label("", "password-strength", css.Caption)
+	box.Append(panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word), false)
 	messages := wrapped(p.k.label("", "setting-problem", css.Caption, css.Error))
 	messages.SetVisible(false)
 	box.Append(messages, false)
-	next.OnChanged = func(text string) { meter.SetValue(float64(passwordStrength(text)) / strengthClasses) }
+	next.OnChanged = func(text string) {
+		meter.SetValue(float64(passwordStrength(text)) / strengthClasses)
+		word.SetText(strengthWord(text))
+	}
 	clear := func() {
 		for _, e := range []*widget.Entry{current, next, confirm} {
 			e.SetText("")
@@ -729,19 +777,24 @@ func (p *usersPanel) openPasswordDialog() {
 			messages.SetVisible(text != "")
 			if r.err == nil {
 				clear()
-				p.Remove(box)
+				p.closePassword()
 			}
 		})
 	}, css.SuggestedAction)
 	cancel := p.k.button(p.k.label(t.Get("settings-users-password-cancel")), func() {
 		clear()
-		p.Remove(box)
+		p.closePassword()
 	}, css.Secondary)
 	buttons := gapBox(widget.Row)
 	buttons.Append(cancel, false)
 	buttons.Append(apply, false)
 	box.Append(buttons, false)
-	p.Append(box, false)
+	p.InsertAt(slices.Index(p.Children(), widget.Widget(p.account))+1, box, false)
+}
+
+func (p *usersPanel) closePassword() {
+	p.Remove(p.password)
+	p.password = nil
 }
 
 func clear0(b []byte) {
