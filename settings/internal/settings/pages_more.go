@@ -214,7 +214,7 @@ func launcherModesPage(*config.Config) pageSpec {
 		{title: "settings-section-launcher-search", rows: []rowSpec{
 			field("launcher.search.providers", enumList),
 			field(webEnginePath, webEngineRow),
-			field("launcher.search.file-roots", stringList),
+			field("launcher.search.file-roots", folderList),
 			field("launcher.search.file-exclude", stringList),
 			field("launcher.search.commands-dir"),
 			field("launcher.search.currency-rates"),
@@ -286,7 +286,7 @@ func themeProviderIs(provider config.ThemeProvider) func(store) bool {
 
 func wallpaperPage(*config.Config) pageSpec {
 	return pageSpec{id: "wallpaper", navKey: "settings-nav-wallpaper", icon: "ld-image-symbolic", header: "settings-page-wallpaper", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode", pictureChoice(fitPictures)), field("wallpaper.picker-directories", stringList)}},
+		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode", pictureChoice(fitPictures)), field("wallpaper.picker-directories", folderList)}},
 		{title: "settings-section-cycling", rows: []rowSpec{
 			field("wallpaper.cycling-directory"),
 			cyclingReveal("wallpaper.cycling-directory",

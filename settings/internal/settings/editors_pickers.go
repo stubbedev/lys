@@ -318,6 +318,31 @@ func (c *fileEditor) dirtyBadge() *widget.Badge { return c.entry.badge }
 
 func (c *fileEditor) refresh() { c.entry.refresh() }
 
+type folderItem struct {
+	*fileEditor
+	value *string
+}
+
+func (f folderItem) itemValue() any { return *f.value }
+
+var folderList rowOpt = func(r *rowSpec) {
+	r.fullWidth = true
+	r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
+		return newListEditor(k, s, listSpec{
+			addKey: "settings-browse-folder", rowClass: "string-list-row", reorder: true,
+			item: func(k *kit, v any, changed func()) listItem {
+				path, _ := v.(string)
+				return folderItem{newFolderEditor(k, stringSlot(&path, changed)), &path}
+			},
+			pick: func(_ widget.Widget, choose func(any)) {
+				if k.pickers != nil {
+					k.pickers.openFolder(func(path string) { choose(path) })
+				}
+			},
+		})
+	}
+}
+
 // filePath is a file picker row.
 var filePath = withEditor(func(k *kit, s slot, _ config.FieldMeta) control { return newFileEditor(k, s) })
 
