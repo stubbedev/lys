@@ -324,7 +324,7 @@ func openChoicePicker(k *kit, anchor widget.Widget, opts []choice, pick func(str
 	}, pick)
 }
 
-func choiceRow(k *kit, o choice) widget.Widget {
+func choiceRow(k *kit, o choice) *widget.Box {
 	row := gapBox(widget.Row)
 	label := k.label(o.label, "choice-label")
 	label.SetEllipsize(widget.EllipsizeEnd)

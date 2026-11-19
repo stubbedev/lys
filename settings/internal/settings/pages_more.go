@@ -134,7 +134,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.width", sizeBase(config.LauncherWidthBaseRem)),
 			field("launcher.lines"),
 			field("launcher.monitor"),
-			field("launcher.modes", stringList),
+			field("launcher.modes", launcherModesRow),
 			field("launcher.cycle"),
 			field("launcher.fixed-num-lines"),
 			field("launcher.sidebar-mode"),
@@ -208,7 +208,7 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.filebrowser.command"),
 		}},
 		{title: "settings-section-launcher-combi", rows: []rowSpec{
-			field("launcher.combi.modes", stringList),
+			field("launcher.combi.modes", launcherModesRow),
 			field("launcher.combi.display-format"),
 		}},
 		{title: "settings-section-launcher-search", rows: []rowSpec{
@@ -223,7 +223,7 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.search.snippets", cardRow(snippetCards)),
 		}},
 		{title: "settings-section-launcher-scripts", rows: []rowSpec{
-			field("launcher.scripts", stringMap),
+			field(launcherScriptsPath, scriptsRow),
 		}},
 	}}
 }
@@ -305,7 +305,7 @@ func dockPage(*config.Config) pageSpec {
 	return pageSpec{id: "dock", navKey: "settings-nav-dock", icon: "ld-panel-bottom-symbolic", header: "settings-page-dock", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("dock.enabled"),
-			field("dock.monitors", stringList),
+			field("dock.monitors", monitorsRow),
 			field("dock.edge", screenPosition),
 			field("dock.auto-hide"),
 			field("dock.auto-hide-delay-ms"),
