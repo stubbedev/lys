@@ -24,6 +24,7 @@
   "desktop/config": {
     "imports": [
       "desktop/compositor",
+      "desktop/glob",
       "desktop/i18n",
       "desktop/identity",
       "desktop/service/bitwarden/generator",

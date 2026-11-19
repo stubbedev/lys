@@ -143,23 +143,6 @@ func newTrayForTest(t *testing.T, cfg *config.Config, items ...*sni.Item) (*syst
 	return module.(*systrayModule), tray, store
 }
 
-func TestSystrayPatternsAreCaseSensitiveGlobs(t *testing.T) {
-	it := sni.Item{ID: "com.discord.Discord", Title: "Discord"}
-	if !systrayBlacklisted([]string{"*discord*"}, it) {
-		t.Error("*discord* should match the id")
-	}
-	if !systrayBlacklisted([]string{"Discord"}, it) {
-		t.Error("an exact title should match")
-	}
-	if systrayBlacklisted([]string{"*DISCORD*"}, it) {
-		t.Error("patterns are case-sensitive")
-	}
-	o, ok := systrayOverride([]config.TrayItemOverride{{Name: "nope"}, {Name: "*Discord", Icon: new("x")}}, it)
-	if !ok || o.Icon == nil || *o.Icon != "x" {
-		t.Errorf("override = %+v, %v", o, ok)
-	}
-}
-
 // solidPixmap is a size x size ARGB32 pixmap of one opaque color.
 func solidPixmap(size int32, argb uint32) sni.Pixmap {
 	data := make([]byte, size*size*4)

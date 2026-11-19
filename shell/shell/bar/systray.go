@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/intconv"
@@ -113,31 +112,6 @@ func (t hostTray) WatchMenu(key string) (<-chan struct{}, func()) { return t.h.W
 
 func (t hostTray) WantPixmapSize(px int) func() { return t.h.WantPixmapSize(px) }
 
-// systrayMatches tests pattern against an item's Id and
-// Title: case-sensitive globs.
-func systrayMatches(pattern string, it sni.Item) bool {
-	return glob.Wildcard(pattern, it.ID) || glob.Wildcard(pattern, it.Title)
-}
-
-func systrayBlacklisted(patterns []string, it sni.Item) bool {
-	for _, p := range patterns {
-		if systrayMatches(p, it) {
-			return true
-		}
-	}
-	return false
-}
-
-// systrayOverride is the first entry whose name matches.
-func systrayOverride(overrides []config.TrayItemOverride, it sni.Item) (config.TrayItemOverride, bool) {
-	for _, o := range overrides {
-		if systrayMatches(o.Name, it) {
-			return o, true
-		}
-	}
-	return config.TrayItemOverride{}, false
-}
-
 // themePathIcon: <path>/<name>.<ext>.
 func themePathIcon(themePath, name string) (string, bool) {
 	if themePath == "" {
@@ -231,7 +205,7 @@ func resolveTrayLook(cfg config.SystrayConfig, it sni.Item, devicePx int) trayLo
 		}
 	}
 	name := it.IconName
-	if o, ok := systrayOverride(cfg.Overrides, it); ok && o.Icon != nil && *o.Icon != "" {
+	if o, ok := cfg.Override(it.ID, it.Title); ok && o.Icon != nil && *o.Icon != "" {
 		name = *o.Icon
 	}
 	src, ok := iconSource(name, it.IconThemePath, it.IconPixmap, devicePx)
@@ -547,7 +521,7 @@ func (m *systrayModule) read(context.Context) ([]trayView, error) {
 	items := m.store.Items()
 	views := make([]trayView, 0, len(items))
 	for _, it := range items {
-		if !systrayBlacklisted(cfg.Blacklist, it) {
+		if !cfg.Hidden(it.ID, it.Title) {
 			views = append(views, trayView{item: it, look: resolveTrayLook(cfg, it, px)})
 		}
 	}
@@ -675,7 +649,7 @@ func (m *systrayModule) updateIcon(e *trayEntry, look trayLook) {
 		e.look = look
 	}
 	var tint render.Color
-	if o, ok := systrayOverride(cfg.Overrides, e.item); ok && o.Color != nil && !look.attention {
+	if o, ok := cfg.Override(e.item.ID, e.item.Title); ok && o.Color != nil && !look.attention {
 		tint, _ = styling.ResolveColor(*o.Color, m.ctx.Style.palette)
 	}
 	e.icon.SetTint(tint)

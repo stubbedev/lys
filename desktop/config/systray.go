@@ -1,5 +1,7 @@
 package config
 
+import "github.com/stubbedev/lys/desktop/glob"
+
 // SystrayConfig configures the systray module.
 //
 // System tray icons via the StatusNotifierItem protocol.
@@ -68,6 +70,32 @@ type TrayItemOverride struct {
 }
 
 func (TrayItemOverride) noStructDefault() {}
+
+func trayMatches(pattern, id, title string) bool {
+	return glob.Wildcard(pattern, id) || glob.Wildcard(pattern, title)
+}
+
+// Hidden reports whether a blacklist pattern, a case-sensitive glob,
+// matches the tray item's id or title.
+func (c SystrayConfig) Hidden(id, title string) bool {
+	for _, p := range c.Blacklist {
+		if trayMatches(p, id, title) {
+			return true
+		}
+	}
+	return false
+}
+
+// Override is the first override whose name, a case-sensitive glob,
+// matches the tray item's id or title.
+func (c SystrayConfig) Override(id, title string) (TrayItemOverride, bool) {
+	for _, o := range c.Overrides {
+		if trayMatches(o.Name, id, title) {
+			return o, true
+		}
+	}
+	return TrayItemOverride{}, false
+}
 
 // SystrayIconBaseRem is the rem the icon-scale multiplier resolves
 // against (systray ICON_BASE_REM).
