@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/lib/testhome"
 	"golang.org/x/sys/unix"
 )
@@ -18,6 +19,9 @@ func TestMain(m *testing.M) {
 		if err := os.Setenv(key, noHostDir); err != nil {
 			panic(err)
 		}
+	}
+	if err := lyswmtest.Build(); err != nil {
+		panic(err)
 	}
 	testhome.Run(m)
 }

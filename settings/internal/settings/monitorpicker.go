@@ -46,7 +46,7 @@ type monitorHandle struct {
 }
 
 func newMonitorPicker(k *kit, onPick func(name string)) *monitorPicker {
-	return &monitorPicker{Base: widget.NewBase(), arrangement: arrangement{scale: 1}, k: k, thumbs: map[string]image.Image{}, onPick: onPick}
+	return &monitorPicker{Base: widget.NewBase(), k: k, thumbs: map[string]image.Image{}, onPick: onPick}
 }
 
 func (p *monitorPicker) setTiles(tiles []monitorTile) {

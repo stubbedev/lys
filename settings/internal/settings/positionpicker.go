@@ -18,7 +18,7 @@ type cell struct{ col, row int }
 
 func cellOf(value string) cell {
 	c := cell{1, 1}
-	for _, part := range strings.Split(value, "-") {
+	for part := range strings.SplitSeq(value, "-") {
 		switch part {
 		case "top", "north":
 			c.row = 0

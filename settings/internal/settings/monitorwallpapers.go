@@ -2,6 +2,7 @@ package settings
 
 import (
 	"image"
+	"maps"
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -42,10 +43,7 @@ func withMonitorField(v any, name, key string, value any) []any {
 	out := make([]any, 0, len(entries)+1)
 	found := false
 	for _, m := range entries {
-		c := map[string]any{}
-		for k, x := range m {
-			c[k] = x
-		}
+		c := maps.Clone(m)
 		if c["name"] == name {
 			c[key], found = value, true
 		}

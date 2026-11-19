@@ -317,7 +317,7 @@ func TestTheHandsShowEachFingerWhereItIsAndTheProgressOnTheOneEnrolled(t *testin
 	h.Arrange(render.Rect{W: handsWidth, H: handsHeight})
 	thumb, little := h.handles[slices.Index(fingers, "left-thumb")].Bounds(), h.handles[slices.Index(fingers, "left-little-finger")].Bounds()
 	rightThumb := h.handles[slices.Index(fingers, "right-thumb")].Bounds()
-	if !(little.X < thumb.X && thumb.X < rightThumb.X) {
+	if little.X >= thumb.X || thumb.X >= rightThumb.X {
 		t.Errorf("left little %v, left thumb %v, right thumb %v: want them left to right", little, thumb, rightThumb)
 	}
 	h.set([]string{"right-index-finger"}, "", 0, false)

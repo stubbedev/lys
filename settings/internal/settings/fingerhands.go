@@ -52,7 +52,7 @@ type fingerHandle struct {
 }
 
 func newFingerHands(k *kit, onPick func(finger string)) *fingerHands {
-	h := &fingerHands{Base: widget.NewBase(), k: k, onPick: onPick, scale: 1}
+	h := &fingerHands{Base: widget.NewBase(), k: k, onPick: onPick}
 	for _, f := range fingers {
 		fh := &fingerHandle{Base: widget.NewBase(), h: h, finger: f}
 		fh.SetAccessibleName(fingerName(f))

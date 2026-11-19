@@ -28,6 +28,14 @@ var binaries = sync.OnceValues(func() (*buildtest.Dir, error) {
 	return d, nil
 })
 
+// Build builds lys-wm and lys-wmctl now. A TestMain calls it before any
+// test runs, so a test that moves the working directory or narrows PATH
+// cannot be the one the shared build happens in.
+func Build() error {
+	_, err := binaries()
+	return err
+}
+
 // Binaries is a directory holding lys-wm and lys-wmctl, built from the
 // source tree the test binary was built from by the first call of the
 // process; later calls, concurrent ones included, share that build. The

@@ -39,7 +39,7 @@ type outputHandle struct {
 }
 
 func newDisplaysCanvas(p *displaysPanel) *displaysCanvas {
-	return &displaysCanvas{Base: widget.NewBase(), p: p, drag: -1, arrangement: arrangement{scale: 1}}
+	return &displaysCanvas{Base: widget.NewBase(), p: p, drag: -1}
 }
 
 func (c *displaysCanvas) layout() {
