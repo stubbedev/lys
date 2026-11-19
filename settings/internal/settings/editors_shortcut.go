@@ -7,11 +7,13 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 const (
@@ -217,18 +219,21 @@ type appShortcutsEditor struct {
 	list      *widget.Box
 	empty     *widget.Label
 	recorders []*widget.ShortcutRecorder
+	clashes   []*widget.Label
 	shortcuts []appShortcut
+	names     *bindNames
 }
 
 func appShortcutsRow() rowSpec {
-	return wmField("binds", withKey("wm-app-shortcuts"), func(r *rowSpec) {
+	return wmField(bindsKey, withKey("wm-app-shortcuts"), func(r *rowSpec) {
 		r.fullWidth, r.action = true, true
 		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newAppShortcutsEditor(k, s) }
 	})
 }
 
 func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
-	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds}
+	action, _ := k.wm.fieldOf(bindsKey + "." + wmconfig.Each + "." + actionKey)
+	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds, names: &bindNames{actions: action.Actions}}
 	e.list = gapBox(widget.Column)
 	e.empty = k.label(locale.T().Get("wm-app-shortcuts-none"), "setting-description", css.Caption, css.DimLabel)
 	e.Append(e.empty, false)
@@ -250,7 +255,7 @@ func (e *appShortcutsEditor) load() {
 func (e *appShortcutsEditor) show(l appShortcutsListing) {
 	t := locale.T()
 	e.list.Clear()
-	e.recorders, e.shortcuts = e.recorders[:0], l.shortcuts
+	e.recorders, e.clashes, e.shortcuts = e.recorders[:0], e.clashes[:0], l.shortcuts
 	switch {
 	case l.err != nil:
 		e.empty.SetText(l.err.Error())
@@ -276,7 +281,14 @@ func (e *appShortcutsEditor) show(l appShortcutsListing) {
 			row.AppendAligned(rec, false, widget.AlignCenter)
 			e.recorders = append(e.recorders, rec)
 		}
-		e.list.Append(row, false)
+		clash := e.k.label("", "setting-problem", css.Caption, css.Warning)
+		clash.SetWrap(true)
+		clash.SetVisible(false)
+		e.clashes = append(e.clashes, clash)
+		entry := gapBox(widget.Column)
+		entry.Append(row, false)
+		entry.Append(clash, false)
+		e.list.Append(entry, false)
 	}
 	e.refresh()
 }
@@ -303,18 +315,28 @@ func (e *appShortcutsEditor) bind(i int, chord string) {
 
 func (e *appShortcutsEditor) refresh() {
 	items := e.items()
+	modes := submapOwners(e.k.wm, e.names)
+	t := locale.T()
 	for i, rec := range e.recorders {
+		sc := e.shortcuts[i]
+		action := sc.action()
+		chord := chordFromAccel(sc.Trigger)
+		if j := slices.IndexFunc(items, func(it any) bool { return bindAction(it) == action }); j >= 0 {
+			m, _ := items[j].(map[string]any)
+			chord, _ = m[chordKey].(string)
+		}
+		others := append(bindOwners(slices.DeleteFunc(slices.Clone(items), func(it any) bool { return bindAction(it) == action }), e.names, ""), modes...)
+		owner, clashes := clashWith(chord, others)
+		e.clashes[i].SetVisible(clashes)
+		if clashes {
+			e.clashes[i].SetText(t.Get("settings-clash", i18n.Str("value", chord), i18n.Str("other", owner.owner)))
+		}
 		if rec == nil || rec.Recording() {
 			continue
 		}
-		action := e.shortcuts[i].action()
 		accel := ""
-		if j := slices.IndexFunc(items, func(it any) bool { return bindAction(it) == action }); j >= 0 {
-			m, _ := items[j].(map[string]any)
-			chord, _ := m[chordKey].(string)
-			if c, ok := parseChord(chord); ok {
-				accel = c.accel()
-			}
+		if c, ok := parseChord(chord); ok {
+			accel = c.accel()
 		}
 		if rec.Accel() != accel {
 			rec.SetAccel(accel)

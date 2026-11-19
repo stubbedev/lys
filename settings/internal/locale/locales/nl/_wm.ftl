@@ -923,3 +923,4 @@ enum-wm-arg-window = Venster
 enum-wm-arg-window-id = Venster
 enum-wm-arg-workspace = Werkblad
 enum-wm-arg-wrap = Rondom doorlopen
+wm-binds-clash-mode = { $label } in modus { $mode }

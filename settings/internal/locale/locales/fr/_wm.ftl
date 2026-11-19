@@ -928,3 +928,4 @@ enum-wm-arg-window = Fenêtre
 enum-wm-arg-window-id = Fenêtre
 enum-wm-arg-workspace = Espace de travail
 enum-wm-arg-wrap = Boucler
+wm-binds-clash-mode = { $label } dans le mode { $mode }

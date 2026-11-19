@@ -928,3 +928,4 @@ enum-wm-arg-window = Finestra
 enum-wm-arg-window-id = Finestra
 enum-wm-arg-workspace = Spazio di lavoro
 enum-wm-arg-wrap = Ricomincia da capo
+wm-binds-clash-mode = { $label } nella modalità { $mode }

@@ -65,6 +65,12 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 		cards.filterKey = "wm-binds-search"
 		cards.aside = func(k *kit) cardAside { return newBindAside(k, binds) }
 		cards.clashKey = chordKey
+		switch spec.schema[0] {
+		case bindsKey:
+			cards.clashOthers = func() []clashOwner { return submapOwners(k.wm, binds) }
+		case submapsKey:
+			cards.clashOthers = func() []clashOwner { return bindOwners(k.wm.value(bindsKey), binds, "") }
+		}
 		cards.keep = func(m map[string]any) bool { chord, _ := m[chordKey].(string); return chord != "" }
 	}
 	list := newCardList(k, s, cards)

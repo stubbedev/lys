@@ -84,6 +84,11 @@ picker with its app picker. Arguments outside the action's form stay editable
 as text and are marked **Not a form of this action**; an action whose form the
 editor does not build (`debug`) takes its arguments as text.
 
+A chord bound twice is marked on every row that holds it, naming the other: two
+binds in one list (with **Replace** to keep this one), a bind and a submap's
+bind (*Close window in mode resize*; while that mode is on, its bind wins), or an
+app shortcut and a bind or submap.
+
 ## Home Manager and Nix
 
 A `config.yaml` linked into the Nix store is never written, so every setting stays

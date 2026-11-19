@@ -78,6 +78,9 @@ type cardSpec struct {
 	clean    func(item map[string]any) map[string]any
 	unique   string
 	clashKey string
+	// clashOthers, when set, are the values outside the list a card's
+	// clashKey value clashes with too, each named by what holds it.
+	clashOthers func() []clashOwner
 	// aside, when set, sits in each card's header beside the title and
 	// follows the item as the title does.
 	aside func(k *kit) cardAside
@@ -158,7 +161,11 @@ type card struct {
 	controls []control
 	clash    *widget.Box
 	clashMsg *widget.Label
+	clashFix *widget.Button
 }
+
+// clashOwner is a value held outside a card list, and what holds it.
+type clashOwner struct{ value, owner string }
 
 func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	c := &cardList{Box: gapBox(widget.Column), k: k, slot: s, spec: spec}
@@ -782,7 +789,8 @@ func (c *cardList) addClash(cd *card, i int) {
 	cd.clashMsg = c.k.label("", "setting-problem", css.Caption, css.Warning)
 	cd.clashMsg.SetWrap(true)
 	cd.clash.AppendAligned(cd.clashMsg, true, widget.AlignCenter)
-	cd.clash.AppendAligned(c.k.button(c.k.label(locale.T().Get("settings-clash-replace")), func() { c.replace(i) }, css.Secondary), false, widget.AlignCenter)
+	cd.clashFix = c.k.button(c.k.label(locale.T().Get("settings-clash-replace")), func() { c.replace(i) }, css.Secondary)
+	cd.clash.AppendAligned(cd.clashFix, false, widget.AlignCenter)
 	cd.clash.SetVisible(false)
 	cd.root.Append(cd.clash, false)
 }
@@ -795,22 +803,39 @@ func (c *cardList) markClashes() {
 	for i, m := range c.local {
 		values[i], _ = m[c.spec.clashKey].(string)
 	}
-	c.partners = chordClashes(values, normalChord)
+	var others []clashOwner
+	if c.spec.clashOthers != nil {
+		others = c.spec.clashOthers()
+	}
+	all := slices.Clone(values)
+	for _, o := range others {
+		all = append(all, o.value)
+	}
+	c.partners = chordClashes(all, normalChord)
 	t := locale.T()
 	for i, cd := range c.cards {
-		if cd.clash == nil || i >= len(c.partners) {
+		if cd.clash == nil || i >= len(values) {
 			continue
 		}
 		p := c.partners[i]
 		cd.clash.SetVisible(p >= 0)
-		if p >= 0 {
-			cd.clashMsg.SetText(t.Get("settings-clash", i18n.Str("value", values[i]), i18n.Str("other", c.spec.title(c.local[p], p+1))))
+		if p < 0 {
+			continue
 		}
+		inside := p < len(values)
+		cd.clashFix.SetVisible(inside)
+		other := ""
+		if inside {
+			other = c.spec.title(c.local[p], p+1)
+		} else {
+			other = others[p-len(values)].owner
+		}
+		cd.clashMsg.SetText(t.Get("settings-clash", i18n.Str("value", values[i]), i18n.Str("other", other)))
 	}
 }
 
 func (c *cardList) replace(i int) {
-	if i >= len(c.partners) || c.partners[i] < 0 {
+	if i >= len(c.partners) || c.partners[i] < 0 || c.partners[i] >= len(c.local) {
 		return
 	}
 	p := c.partners[i]

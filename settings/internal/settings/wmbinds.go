@@ -2,6 +2,7 @@ package settings
 
 import (
 	"log"
+	"maps"
 	"slices"
 	"strings"
 
@@ -91,6 +92,60 @@ func (n bindNames) bindLabel(item map[string]any, number int) string {
 func (n bindNames) unknown(item map[string]any) bool {
 	text, _ := item[actionKey].(string)
 	return strings.TrimSpace(text) != "" && !n.known(splitAction(text).name)
+}
+
+const (
+	bindsKey   = "binds"
+	submapsKey = "submaps"
+)
+
+// bindOwners are the chords of binds, each held by what its bind does,
+// in mode when they are a submap's.
+func bindOwners(items any, names *bindNames, mode string) []clashOwner {
+	list, _ := items.([]any)
+	out := make([]clashOwner, 0, len(list))
+	for i, it := range list {
+		m, _ := it.(map[string]any)
+		chord, _ := m[chordKey].(string)
+		if strings.TrimSpace(chord) == "" {
+			continue
+		}
+		owner := names.bindLabel(m, i+1)
+		if mode != "" {
+			owner = locale.T().Get("wm-binds-clash-mode", i18n.Str("label", owner), i18n.Str("mode", mode))
+		}
+		out = append(out, clashOwner{value: chord, owner: owner})
+	}
+	return out
+}
+
+// submapOwners are the chords every submap binds, the submaps in name
+// order.
+func submapOwners(w *wmBackend, names *bindNames) []clashOwner {
+	submaps, _ := w.value(submapsKey).(map[string]any)
+	var out []clashOwner
+	for _, mode := range slices.Sorted(maps.Keys(submaps)) {
+		out = append(out, bindOwners(submaps[mode], names, mode)...)
+	}
+	return out
+}
+
+// clashWith is the first of others holding chord, by the clash check the
+// card lists use.
+func clashWith(chord string, others []clashOwner) (clashOwner, bool) {
+	if strings.TrimSpace(chord) == "" {
+		return clashOwner{}, false
+	}
+	values := make([]string, 0, len(others)+1)
+	values = append(values, chord)
+	for _, o := range others {
+		values = append(values, o.value)
+	}
+	p := chordClashes(values, normalChord)[0]
+	if p < 1 {
+		return clashOwner{}, false
+	}
+	return others[p-1], true
 }
 
 // launchNames are the installed apps' names by the command each launches.
