@@ -22,9 +22,6 @@
   color: var(--fg-default);
 }
 
-.yaml-editor.yaml-editor-lines-40 {
-  min-height: calc(30rem * var(--global-scale));
-}
 
 .yaml-editor + button {
   margin-top: var(--space-sm);

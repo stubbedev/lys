@@ -9,7 +9,7 @@ settings-color-auto = Auto
 settings-color-transparent = Transparent
 settings-color-custom = Custom...
 settings-custom-modules-editor = Custom Modules
-    .description = Define custom modules using YAML syntax
+    .description = Modules that show a command's output in the bar
 settings-theme-preset = Theme Preset
     .description = Overwrite the current palette with a predefined theme
 settings-theme-preset-apply = Browse presets
@@ -1051,3 +1051,14 @@ settings-quicklink-add = Add quick link
 settings-snippet-add = Add snippet
 
 settings-map-pattern-placeholder = app or pattern, such as firefox*
+
+settings-custom-add = Add custom module
+settings-custom-run = Try It
+settings-custom-run-once = Run once
+settings-custom-running = Running…
+settings-custom-run-no-command = Choose a command first
+settings-custom-run-empty = The command printed nothing; the module hides when Hide When Empty is on
+settings-custom-run-output = Output: { $output }
+settings-custom-run-failed = The command failed: { $reason }
+settings-custom-bar = Bar
+settings-custom-handwritten = Some modules use settings the cards do not edit ({ $keys }); change those in the text below

@@ -9,7 +9,7 @@ settings-color-auto = Auto
 settings-color-transparent = Transparent
 settings-color-custom = Personnalisé…
 settings-custom-modules-editor = Modules personnalisés
-    .description = Définir des modules personnalisés en syntaxe YAML
+    .description = Des modules qui affichent la sortie d'une commande dans la barre
 settings-theme-preset = Thème prédéfini
     .description = Remplacer la palette actuelle par un thème prédéfini
 settings-theme-preset-apply = Parcourir les thèmes
@@ -1054,3 +1054,14 @@ settings-quicklink-add = Ajouter un lien rapide
 settings-snippet-add = Ajouter un extrait
 
 settings-map-pattern-placeholder = application ou motif, comme firefox*
+
+settings-custom-add = Ajouter un module personnalisé
+settings-custom-run = Essayer
+settings-custom-run-once = Exécuter une fois
+settings-custom-running = Exécution…
+settings-custom-run-no-command = Choisissez d'abord une commande
+settings-custom-run-empty = La commande n'a rien affiché ; le module se masque si « Masquer si vide » est activé
+settings-custom-run-output = Sortie : { $output }
+settings-custom-run-failed = La commande a échoué : { $reason }
+settings-custom-bar = Barre
+settings-custom-handwritten = Certains modules utilisent des réglages que les cartes ne modifient pas ({ $keys }) ; modifiez-les dans le texte ci-dessous

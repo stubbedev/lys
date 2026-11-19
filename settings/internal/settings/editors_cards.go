@@ -30,7 +30,23 @@ type cardField struct {
 	key, label string
 	editor     func(k *kit, s slot) control
 	item       func(k *kit, field func(key string) slot) control
+	keys       []string
 	fill       bool
+}
+
+func (s cardSpec) editedKeys() []string {
+	var out []string
+	if s.identity != nil {
+		out = append(out, s.identity.key)
+	}
+	for _, f := range s.fields {
+		if f.item != nil {
+			out = append(out, f.keys...)
+			continue
+		}
+		out = append(out, f.key)
+	}
+	return out
 }
 
 // cardChrome is a card list's own card markup: the card, header and

@@ -6,7 +6,7 @@ settings-color-auto = Automatisch
 settings-color-transparent = Transparant
 settings-color-custom = Aangepast...
 settings-custom-modules-editor = Aangepaste modules
-    .description = Aangepaste modules definiëren met YAML-syntaxis
+    .description = Modules die de uitvoer van een opdracht in de balk tonen
 settings-theme-preset = Themavoorinstelling
     .description = Het huidige palet overschrijven met een vooraf gedefinieerd thema
 settings-theme-preset-apply = Voorinstellingen bekijken
@@ -1041,3 +1041,14 @@ settings-quicklink-add = Snelkoppeling toevoegen
 settings-snippet-add = Tekstfragment toevoegen
 
 settings-map-pattern-placeholder = app of patroon, zoals firefox*
+
+settings-custom-add = Aangepaste module toevoegen
+settings-custom-run = Uitproberen
+settings-custom-run-once = Eenmaal uitvoeren
+settings-custom-running = Bezig…
+settings-custom-run-no-command = Kies eerst een opdracht
+settings-custom-run-empty = De opdracht gaf niets uit; de module verdwijnt als ‘Verbergen indien leeg’ aan staat
+settings-custom-run-output = Uitvoer: { $output }
+settings-custom-run-failed = De opdracht is mislukt: { $reason }
+settings-custom-bar = Balk
+settings-custom-handwritten = Sommige modules gebruiken instellingen die de kaarten niet bewerken ({ $keys }); wijzig die in de tekst hieronder

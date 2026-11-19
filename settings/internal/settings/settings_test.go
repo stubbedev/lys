@@ -1705,11 +1705,11 @@ func TestMailAccountCards(t *testing.T) {
 
 func TestYAMLEditor(t *testing.T) {
 	k := testKit(t, "modules:\n  custom:\n    - id: cpu\n      command: echo 1\n")
-	c := fieldControl(k, k.store, field("modules.custom", yamlRow("custom", 40))).(*yamlEditor)
+	c := newYAMLEditor(k, k.store.slot("modules.custom"), "custom")
 	if !strings.HasPrefix(c.area.Text(), "custom:\n  - ") || !strings.Contains(c.area.Text(), "id: cpu") {
 		t.Fatalf("document %q, want the module under custom", c.area.Text())
 	}
-	if !c.scroll.HasClass("yaml-editor") || !c.scroll.HasClass("yaml-editor-lines-40") || !c.area.LineNumbers() || !c.area.AutoIndent() || c.area.Indent() != 2 {
+	if !c.scroll.HasClass("yaml-editor") || !c.area.LineNumbers() || !c.area.AutoIndent() || c.area.Indent() != 2 {
 		t.Error("the code view lacks its classes, line numbers or indent")
 	}
 	if c.badge.Visible() {

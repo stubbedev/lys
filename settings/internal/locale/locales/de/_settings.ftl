@@ -9,7 +9,7 @@ settings-color-auto = Automatisch
 settings-color-transparent = Transparent
 settings-color-custom = Benutzerdefiniert …
 settings-custom-modules-editor = Eigene Module
-    .description = Eigene Module in YAML-Syntax definieren
+    .description = Module, die die Ausgabe eines Befehls in der Leiste zeigen
 settings-theme-preset = Themenvorlage
     .description = Die aktuelle Palette mit einem vordefinierten Thema überschreiben
 settings-theme-preset-apply = Vorlagen durchsuchen
@@ -1051,3 +1051,14 @@ settings-quicklink-add = Schnelllink hinzufügen
 settings-snippet-add = Textbaustein hinzufügen
 
 settings-map-pattern-placeholder = App oder Muster, etwa firefox*
+
+settings-custom-add = Eigenes Modul hinzufügen
+settings-custom-run = Ausprobieren
+settings-custom-run-once = Einmal ausführen
+settings-custom-running = Wird ausgeführt…
+settings-custom-run-no-command = Zuerst einen Befehl wählen
+settings-custom-run-empty = Der Befehl gab nichts aus; das Modul wird ausgeblendet, wenn „Ausblenden wenn leer“ an ist
+settings-custom-run-output = Ausgabe: { $output }
+settings-custom-run-failed = Der Befehl ist fehlgeschlagen: { $reason }
+settings-custom-bar = Leiste
+settings-custom-handwritten = Einige Module nutzen Einstellungen, die die Karten nicht bearbeiten ({ $keys }); diese im Text unten ändern

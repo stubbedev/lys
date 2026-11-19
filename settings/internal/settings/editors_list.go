@@ -239,7 +239,9 @@ type iconItem struct {
 func (i iconItem) itemValue() any { return *i.value }
 
 // iconList edits a list of icon names.
-var iconList = listRow(func(config.FieldMeta) listSpec {
+var iconList = listRow(func(config.FieldMeta) listSpec { return iconListSpec() })
+
+func iconListSpec() listSpec {
 	return listSpec{
 		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: always(""),
 		item: func(k *kit, v any, changed func()) listItem {
@@ -248,7 +250,7 @@ var iconList = listRow(func(config.FieldMeta) listSpec {
 			return iconItem{newIconEditor(k, stringSlot(value, changed)), value}
 		},
 	}
-})
+}
 
 // enumItem is an enum_list row: the variants' dropdown.
 type enumItem struct {

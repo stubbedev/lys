@@ -1,8 +1,6 @@
 package settings
 
 import (
-	"strconv"
-
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/highlight"
@@ -28,7 +26,7 @@ type yamlEditor struct {
 	shown string
 }
 
-func newYAMLEditor(k *kit, s slot, key string, minLines int) *yamlEditor {
+func newYAMLEditor(k *kit, s slot, key string) *yamlEditor {
 	c := &yamlEditor{Box: widget.NewBox(widget.Column, 0, 0), k: k, slot: s, key: key}
 	c.badge = k.badge(locale.T().Get("settings-source-unsaved"), "warning")
 	c.badge.SetVisible(false)
@@ -41,9 +39,6 @@ func newYAMLEditor(k *kit, s slot, key string, minLines int) *yamlEditor {
 	c.scroll = widget.NewScroll(c.area)
 	c.scroll.VerticalOnly, c.scroll.FillX, c.scroll.ShowBars = true, true, true
 	c.scroll.AddClass("yaml-editor")
-	if minLines > 0 {
-		c.scroll.AddClass("yaml-editor-lines-" + strconv.Itoa(minLines))
-	}
 	apply := k.button(k.label(locale.T().Get("settings-apply")), c.apply, css.SuggestedAction)
 	c.Append(c.scroll, true)
 	c.AppendAligned(apply, false, widget.AlignEnd)
@@ -85,15 +80,6 @@ func (c *yamlEditor) apply() {
 	}
 	c.scroll.RemoveClass("error")
 	c.badge.SetVisible(false)
-}
-
-// yamlRow is the YAML editor for a row: the document under key, at
-// least minLines tall.
-func yamlRow(key string, minLines int) rowOpt {
-	return func(r *rowSpec) {
-		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newYAMLEditor(k, s, key, minLines) }
-	}
 }
 
 // paletteScheme is build_scheme_xml: the code view's styles from the

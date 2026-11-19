@@ -37,32 +37,54 @@ func withModuleAdded(layouts []config.BarLayout, m config.BarModule) []config.Ba
 	return out
 }
 
+type placementRow struct {
+	*widget.Box
+	k      *kit
+	module func() (config.BarModule, bool)
+	status *widget.Label
+	add    *widget.Button
+}
+
+func newPlacementRow(k *kit, module func() (config.BarModule, bool)) *placementRow {
+	p := &placementRow{Box: gapBox(widget.Row), k: k, module: module}
+	p.AddClass("settings-bar-placement")
+	p.status = k.label("", "settings-bar-placement-status", css.Caption)
+	p.add = k.button(k.label(locale.T().Get("settings-bar-placement-add")), p.place, css.Small, css.SuggestedAction)
+	p.AppendAligned(p.status, true, widget.AlignCenter)
+	p.AppendAligned(p.add, false, widget.AlignCenter)
+	p.refresh()
+	return p
+}
+
+func (p *placementRow) place() {
+	m, ok := p.module()
+	if !ok {
+		return
+	}
+	if err := p.k.store.set(barLayoutPath, config.Encode(withModuleAdded(p.k.store.svc.Config().Bar.Layout, m))); err != nil {
+		p.status.SetText(err.Error())
+		return
+	}
+	p.refresh()
+}
+
+func (p *placementRow) refresh() {
+	m, ok := p.module()
+	p.SetVisible(ok)
+	if !ok {
+		return
+	}
+	in := layoutsHold(p.k.store.svc.Config().Bar.Layout, m)
+	key := "settings-bar-placement-absent"
+	if in {
+		key = "settings-bar-placement-present"
+	}
+	p.status.SetText(locale.T().Get(key))
+	p.add.SetVisible(!in)
+}
+
 func barPlacement(module config.BarModule) func(k *kit) widget.Widget {
 	return func(k *kit) widget.Widget {
-		t := locale.T()
-		row := gapBox(widget.Row)
-		row.AddClass("settings-bar-placement")
-		status := k.label("", "settings-bar-placement-status", css.Caption)
-		var add *widget.Button
-		show := func() {
-			in := layoutsHold(k.store.svc.Config().Bar.Layout, module)
-			key := "settings-bar-placement-absent"
-			if in {
-				key = "settings-bar-placement-present"
-			}
-			status.SetText(t.Get(key))
-			add.SetVisible(!in)
-		}
-		add = k.button(k.label(t.Get("settings-bar-placement-add")), func() {
-			if err := k.store.set(barLayoutPath, config.Encode(withModuleAdded(k.store.svc.Config().Bar.Layout, module))); err != nil {
-				status.SetText(err.Error())
-				return
-			}
-			show()
-		}, css.Small, css.SuggestedAction)
-		row.AppendAligned(status, true, widget.AlignCenter)
-		row.AppendAligned(add, false, widget.AlignCenter)
-		show()
-		return row
+		return newPlacementRow(k, func() (config.BarModule, bool) { return module, true })
 	}
 }

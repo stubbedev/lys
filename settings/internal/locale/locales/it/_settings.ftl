@@ -9,7 +9,7 @@ settings-color-auto = Automatico
 settings-color-transparent = Trasparente
 settings-color-custom = Personalizzato...
 settings-custom-modules-editor = Moduli personalizzati
-    .description = Definisci moduli personalizzati con la sintassi YAML
+    .description = Moduli che mostrano nella barra l'output di un comando
 settings-theme-preset = Tema predefinito
     .description = Sovrascrive la tavolozza attuale con un tema predefinito
 settings-theme-preset-apply = Sfoglia i temi
@@ -1052,3 +1052,14 @@ settings-quicklink-add = Aggiungi collegamento rapido
 settings-snippet-add = Aggiungi frammento
 
 settings-map-pattern-placeholder = app o schema, come firefox*
+
+settings-custom-add = Aggiungi modulo personalizzato
+settings-custom-run = Prova
+settings-custom-run-once = Esegui una volta
+settings-custom-running = In esecuzione…
+settings-custom-run-no-command = Scegli prima un comando
+settings-custom-run-empty = Il comando non ha stampato nulla; il modulo si nasconde se «Nascondi se vuoto» è attivo
+settings-custom-run-output = Output: { $output }
+settings-custom-run-failed = Il comando non è riuscito: { $reason }
+settings-custom-bar = Barra
+settings-custom-handwritten = Alcuni moduli usano impostazioni che le schede non modificano ({ $keys }); cambiale nel testo qui sotto

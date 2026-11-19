@@ -68,6 +68,19 @@ func (f itemForm[T]) identity(key string) *cardField {
 	return &c
 }
 
+func (f itemForm[T]) group(label string, keys []string, build func(k *kit, slots []slot) control) cardField {
+	for _, key := range keys {
+		f.meta(key)
+	}
+	return cardField{key: keys[0], keys: keys, label: label, item: func(k *kit, field func(string) slot) control {
+		slots := make([]slot, len(keys))
+		for i, key := range keys {
+			slots[i] = f.shown(field(key), key)
+		}
+		return build(k, slots)
+	}}
+}
+
 func filled(c cardField) cardField {
 	c.fill = true
 	return c

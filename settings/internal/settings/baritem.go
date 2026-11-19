@@ -52,23 +52,31 @@ func colorRow(paths []string) rowSpec {
 		r.fullWidth = true
 		r.also = paths[1:]
 		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-			c := &colorStrip{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)}
+			slots := make([]slot, len(paths))
+			labels := make([]string, len(paths))
 			for i, path := range paths {
-				slot := s
+				slots[i] = s
 				if i > 0 {
-					slot = k.store.slot(path)
+					slots[i] = k.store.slot(path)
 				}
-				ed := newColorValueEditor(k, slot)
-				key, _ := config.I18nKey(path)
-				col := widget.NewBox(widget.Column, choiceCardGap/2, 0)
-				col.Append(k.label(locale.T().Get(key), css.Caption, css.DimLabel), false)
-				col.Append(ed, false)
-				c.Append(col)
-				c.editors = append(c.editors, ed)
+				labels[i], _ = config.I18nKey(path)
 			}
-			return c
+			return newColorStrip(k, slots, labels)
 		}
 	})
+}
+
+func newColorStrip(k *kit, slots []slot, labels []string) *colorStrip {
+	c := &colorStrip{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)}
+	for i, s := range slots {
+		ed := newColorValueEditor(k, s)
+		col := widget.NewBox(widget.Column, choiceCardGap/2, 0)
+		col.Append(k.label(locale.T().Get(labels[i]), css.Caption, css.DimLabel), false)
+		col.Append(ed, false)
+		c.Append(col)
+		c.editors = append(c.editors, ed)
+	}
+	return c
 }
 
 type colorStrip struct {
