@@ -49,11 +49,11 @@ settings-bar-shadow-enabled = Ombre
 
 ## Configuration de la barre - Paramètres des boutons/modules
 
-settings-bar-button-opacity = Opacité des boutons
-    .description = Transparence des boutons de la barre (0-100 %)
+settings-bar-button-opacity = Opacité globale
+    .description = Transparence du bouton entier, icône et texte compris (0-100 %)
 
-settings-bar-button-bg-opacity = Opacité de l'arrière-plan des boutons
-    .description = Transparence de la couleur d'arrière-plan des boutons de la barre (0-100 %)
+settings-bar-button-bg-opacity = Remplissage des boutons
+    .description = Opacité du remplissage derrière l'icône et le texte du bouton (0-100 %)
 
 settings-bar-button-icon-size = Taille de l'icône du bouton
     .description = Multiplicateur de taille pour les icônes de bouton
@@ -119,8 +119,8 @@ settings-bar-dropdown-opacity = Opacité du menu déroulant
 settings-bar-dropdown-autohide = Masquage automatique du menu déroulant
     .description = Fermer le menu déroulant lors d'un clic à l'extérieur
 
-settings-bar-dropdown-freeze-label = Figer le libellé
-    .description = Empêcher la mise à jour du libellé du bouton de la barre lorsque son menu déroulant est ouvert
+settings-bar-dropdown-freeze-label = Figer le texte du bouton pendant l'ouverture
+    .description = Garder le texte du bouton de la barre tel quel tant que son menu déroulant est ouvert, pour que le bouton ne change pas de taille et que le menu reste en place
 
 settings-bar-shadow = Ombre
     .description = Activer l'ombre portée

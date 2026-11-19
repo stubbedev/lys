@@ -61,11 +61,11 @@ settings-bar-shadow-enabled = Ombra
 
 ## Bar Configuration - Button/Module Settings
 
-settings-bar-button-opacity = Opacità dei pulsanti
-    .description = Trasparenza dei pulsanti della barra (0-100%)
+settings-bar-button-opacity = Opacità complessiva
+    .description = Quanto è trasparente l'intero pulsante, icona e testo compresi (0-100%)
 
-settings-bar-button-bg-opacity = Opacità dello sfondo dei pulsanti
-    .description = Trasparenza del colore di sfondo dei pulsanti della barra (0-100%)
+settings-bar-button-bg-opacity = Riempimento dei pulsanti
+    .description = Quanto è pieno lo sfondo dietro l'icona e il testo del pulsante (0-100%)
 
 settings-bar-button-icon-size = Dimensione delle icone dei pulsanti
     .description = Moltiplicatore di dimensione delle icone dei pulsanti
@@ -131,8 +131,8 @@ settings-bar-dropdown-opacity = Opacità dei menu a discesa
 settings-bar-dropdown-autohide = Chiusura automatica dei menu a discesa
     .description = Chiude il menu a discesa quando si fa clic all'esterno
 
-settings-bar-dropdown-freeze-label = Blocca l'etichetta
-    .description = Impedisce l'aggiornamento dell'etichetta del pulsante della barra mentre il suo menu a discesa è aperto
+settings-bar-dropdown-freeze-label = Mantieni fisso il testo del pulsante mentre è aperto
+    .description = Mantiene invariato il testo del pulsante della barra mentre il suo menu a discesa è aperto, così il pulsante non cambia dimensione e il menu resta al suo posto
 
 settings-bar-shadow = Ombra
     .description = Attiva l'ombra esterna

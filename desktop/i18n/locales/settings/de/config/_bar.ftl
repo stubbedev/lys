@@ -61,11 +61,11 @@ settings-bar-shadow-enabled = Schatten
 
 ## Bar Configuration - Button/Module Settings
 
-settings-bar-button-opacity = Schaltflächendeckkraft
-    .description = Transparenz der Leistenschaltflächen (0–100 %)
+settings-bar-button-opacity = Gesamtdeckkraft
+    .description = Wie durchscheinend die ganze Schaltfläche samt Symbol und Text ist (0–100 %)
 
-settings-bar-button-bg-opacity = Hintergrunddeckkraft der Schaltflächen
-    .description = Transparenz der Hintergrundfarbe der Leistenschaltflächen (0–100 %)
+settings-bar-button-bg-opacity = Schaltflächenfüllung
+    .description = Wie deckend die Füllung hinter Symbol und Text der Schaltfläche ist (0–100 %)
 
 settings-bar-button-icon-size = Symbolgröße der Schaltflächen
     .description = Größenfaktor für Schaltflächensymbole
@@ -131,8 +131,8 @@ settings-bar-dropdown-opacity = Dropdown-Deckkraft
 settings-bar-dropdown-autohide = Dropdown automatisch schließen
     .description = Dropdown beim Klick außerhalb schließen
 
-settings-bar-dropdown-freeze-label = Beschriftung einfrieren
-    .description = Beschriftung der Leistenschaltfläche nicht aktualisieren, solange ihr Dropdown offen ist
+settings-bar-dropdown-freeze-label = Schaltflächentext beim Öffnen festhalten
+    .description = Den Text der Leistenschaltfläche festhalten, solange ihr Dropdown offen ist, damit die Schaltfläche ihre Größe behält und das Dropdown an seinem Platz bleibt
 
 settings-bar-shadow = Schatten
     .description = Schlagschatten aktivieren

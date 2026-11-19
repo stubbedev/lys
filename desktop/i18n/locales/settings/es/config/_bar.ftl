@@ -61,11 +61,11 @@ settings-bar-shadow-enabled = Sombra
 
 ## Bar Configuration - Button/Module Settings
 
-settings-bar-button-opacity = Opacidad de los botones
-    .description = Transparencia de los botones de la barra (0-100%)
+settings-bar-button-opacity = Opacidad general
+    .description = Lo transparente que es todo el botón, icono y texto incluidos (0-100%)
 
-settings-bar-button-bg-opacity = Opacidad del fondo de los botones
-    .description = Transparencia del color de fondo de los botones de la barra (0-100%)
+settings-bar-button-bg-opacity = Relleno de los botones
+    .description = Lo opaco que es el relleno detrás del icono y el texto del botón (0-100%)
 
 settings-bar-button-icon-size = Tamaño de los iconos de los botones
     .description = Multiplicador de tamaño de los iconos de los botones
@@ -131,8 +131,8 @@ settings-bar-dropdown-opacity = Opacidad de los desplegables
 settings-bar-dropdown-autohide = Ocultación automática de los desplegables
     .description = Cierra el desplegable al pulsar fuera de él
 
-settings-bar-dropdown-freeze-label = Congelar la etiqueta
-    .description = Impide que la etiqueta del botón de la barra se actualice mientras su desplegable está abierto
+settings-bar-dropdown-freeze-label = Mantener fijo el texto del botón mientras está abierto
+    .description = Mantiene el texto del botón de la barra tal cual mientras su desplegable está abierto, para que el botón no cambie de tamaño y el desplegable no se mueva
 
 settings-bar-shadow = Sombra
     .description = Activa la sombra paralela

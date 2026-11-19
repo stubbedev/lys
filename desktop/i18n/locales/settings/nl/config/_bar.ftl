@@ -55,11 +55,11 @@ settings-bar-rounding = Afronding
 settings-bar-shadow-enabled = Schaduw
     .description = Slagschaduw op de balk inschakelen
 
-settings-bar-button-opacity = Knopdekking
-    .description = Transparantie van balkknoppen (0-100%)
+settings-bar-button-opacity = Totale dekking
+    .description = Hoe doorzichtig de hele knop is, pictogram en tekst inbegrepen (0-100%)
 
-settings-bar-button-bg-opacity = Dekking knopachtergrond
-    .description = Transparantie van de achtergrondkleur van balkknoppen (0-100%)
+settings-bar-button-bg-opacity = Knopvulling
+    .description = Hoe dekkend de vulling achter het pictogram en de tekst van de knop is (0-100%)
 
 settings-bar-button-icon-size = Grootte knoppictogram
     .description = Schaalfactor voor knoppictogrammen
@@ -121,8 +121,8 @@ settings-bar-dropdown-opacity = Dekking uitklapmenu
 settings-bar-dropdown-autohide = Uitklapmenu automatisch sluiten
     .description = Het uitklapmenu sluiten bij klikken erbuiten
 
-settings-bar-dropdown-freeze-label = Label bevriezen
-    .description = Voorkomen dat het label van een balkknop wordt bijgewerkt terwijl zijn uitklapmenu open is
+settings-bar-dropdown-freeze-label = Knoptekst vasthouden zolang het menu open is
+    .description = De tekst van een balkknop ongewijzigd laten zolang zijn uitklapmenu open is, zodat de knop niet van grootte verandert en het menu op zijn plaats blijft
 
 settings-bar-shadow = Schaduw
     .description = Slagschaduw inschakelen

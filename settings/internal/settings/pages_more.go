@@ -8,8 +8,6 @@ func barPage(*config.Config) pageSpec {
 		{title: "settings-section-layout", rows: []rowSpec{
 			field("bar.location", screenPosition),
 			field("bar.exclusive"),
-			field("bar.layer"),
-			field("bar.scale"),
 			field("bar.auto-hide"),
 			field("bar.auto-hide-delay-ms"),
 			field("bar.layout", layoutRow),
@@ -17,33 +15,33 @@ func barPage(*config.Config) pageSpec {
 		{title: "settings-section-appearance", rows: []rowSpec{
 			field("bar.bg"),
 			field("bar.background-opacity", percentage),
-			field("bar.rounding"),
-			field("bar.shadow"),
+			field("bar.rounding", roundingChoice),
+			field("bar.shadow", pictureChoice(shadowPictures)),
 		}},
-		{title: "settings-section-spacing", advanced: true, rows: fields("bar.inset-edge", "bar.inset-ends", "bar.padding", "bar.padding-ends", "bar.module-gap")},
-		{title: "settings-section-border", rows: bordered("bar.border-location", "bar.border-width", "bar.border-color")},
+		{title: "settings-section-bar-size", advanced: true, rows: fields("bar.scale", "bar.layer", "bar.inset-edge", "bar.inset-ends", "bar.padding", "bar.padding-ends", "bar.module-gap")},
+		{title: "settings-section-border", advanced: true, rows: bordered("bar.border-location", field("bar.border-width", borderWidth), field("bar.border-color"))},
 
 		{title: "settings-section-buttons", rows: []rowSpec{
-			field("bar.button-variant"),
+			field("bar.button-variant", pictureChoice(buttonVariantPictures)),
 			field("bar.button-opacity", percentage),
 			field("bar.button-bg-opacity", percentage),
-			field("bar.button-rounding"),
+			field("bar.button-rounding", roundingChoice),
 			field("bar.button-gap"),
-			field("bar.button-icon-position"),
+			field("bar.button-icon-position", pictureChoice(iconPositionPictures)),
 			field("bar.button-icon-size"),
 			field("bar.button-icon-padding", shownWhen("bar.button-variant", valueIn(string(config.ButtonBlockPrefix), string(config.ButtonIconSquare)))),
 			field("bar.button-label-size"),
 			field("bar.button-label-weight"),
 			field("bar.button-label-padding"),
 		}},
-		{title: "settings-section-button-border", rows: bordered("bar.button-border-location", "bar.button-border-width")},
+		{title: "settings-section-button-border", rows: bordered("bar.button-border-location", field("bar.button-border-width", borderWidth))},
 		{title: "settings-section-button-groups", advanced: true, rows: append([]rowSpec{
 			field("bar.button-group-opacity", percentage),
-			field("bar.button-group-rounding"),
+			field("bar.button-group-rounding", roundingChoice),
 			field("bar.button-group-padding"),
 			field("bar.button-group-module-gap"),
 			field("bar.button-group-background"),
-		}, bordered("bar.button-group-border-location", "bar.button-group-border-width", "bar.button-group-border-color")...)},
+		}, bordered("bar.button-group-border-location", field("bar.button-group-border-width", borderWidth), field("bar.button-group-border-color"))...)},
 		{title: "settings-section-dropdowns", rows: []rowSpec{
 			field("bar.dropdown-shadow"), field("bar.dropdown-autohide"), field("bar.dropdown-freeze-label"),
 			field("bar.dropdown-opacity", percentage),
@@ -55,13 +53,21 @@ func barPage(*config.Config) pageSpec {
 
 // bordered is a border's location row and the rows styling it, shown
 // while the border is drawn.
-func bordered(location string, styling ...string) []rowSpec {
+func bordered(location string, styling ...rowSpec) []rowSpec {
 	rows := []rowSpec{field(location)}
-	for _, p := range styling {
-		rows = append(rows, field(p, shownWhen(location, valueNot(string(config.BorderNone)))))
+	for _, r := range styling {
+		shownWhen(location, valueNot(string(config.BorderNone)))(&r)
+		rows = append(rows, r)
 	}
 	return rows
 }
+
+// borderWidth is a border's width on a slider over the widths a bar
+// border takes, beside a number for a wider one.
+var borderWidth = softPixels(0, 8)
+
+// roundingChoice is a rounding level chosen on a picture of its corners.
+var roundingChoice = pictureChoice(roundingPictures)
 
 // notificationsPage is pages/notifications.
 func notificationsPage(*config.Config) pageSpec {

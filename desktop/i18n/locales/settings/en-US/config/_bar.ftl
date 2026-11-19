@@ -61,11 +61,11 @@ settings-bar-shadow-enabled = Shadow
 
 ## Bar Configuration - Button/Module Settings
 
-settings-bar-button-opacity = Button Opacity
-    .description = Transparency for bar buttons (0-100%)
+settings-bar-button-opacity = Overall Opacity
+    .description = How see-through the whole button is, icon and text included (0-100%)
 
-settings-bar-button-bg-opacity = Button Background Opacity
-    .description = Background color transparency for bar buttons (0-100%)
+settings-bar-button-bg-opacity = Button Fill
+    .description = How solid the fill behind the button's icon and text is (0-100%)
 
 settings-bar-button-icon-size = Button Icon Size
     .description = Size multiplier for button icons
@@ -131,8 +131,8 @@ settings-bar-dropdown-opacity = Dropdown Opacity
 settings-bar-dropdown-autohide = Dropdown Autohide
     .description = Close dropdown when clicking outside it
 
-settings-bar-dropdown-freeze-label = Freeze Label
-    .description = Prevent bar button label from updating while its dropdown is open
+settings-bar-dropdown-freeze-label = Keep Button Text Still While Open
+    .description = Hold the bar button's text as it is while its dropdown is open, so the button does not resize and the dropdown stays put
 
 settings-bar-shadow = Shadow
     .description = Enable drop shadow

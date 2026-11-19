@@ -506,6 +506,10 @@ func TestSourceBadgesAreOneHeightWhateverShareTheirLine(t *testing.T) {
 func TestSegmentLabelsAreCentredInTheirSegments(t *testing.T) {
 	for _, scale := range []string{"1", "1.25", "2"} {
 		win := laidOutPage(t, "styling:\n  scale: "+scale+"\n", "bar", 1400)
+		for _, d := range win.page.advanced {
+			d.open(true)
+		}
+		layOut(win, 1400)
 		segmented := treetest.All[*segmentedEnum](win.page)
 		if len(segmented) == 0 {
 			t.Fatal("the Bar page shows no segmented control")

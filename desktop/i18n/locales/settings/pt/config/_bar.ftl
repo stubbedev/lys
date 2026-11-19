@@ -55,11 +55,11 @@ settings-bar-rounding = Arredondamento
 settings-bar-shadow-enabled = Sombra
     .description = Ativar sombra projetada na barra
 
-settings-bar-button-opacity = Opacidade dos botões
-    .description = Transparência dos botões da barra (0-100%)
+settings-bar-button-opacity = Opacidade geral
+    .description = Quão transparente é o botão inteiro, incluindo o ícone e o texto (0-100%)
 
-settings-bar-button-bg-opacity = Opacidade do fundo dos botões
-    .description = Transparência da cor de fundo dos botões da barra (0-100%)
+settings-bar-button-bg-opacity = Preenchimento dos botões
+    .description = Quão opaco é o preenchimento por trás do ícone e do texto do botão (0-100%)
 
 settings-bar-button-icon-size = Tamanho dos ícones dos botões
     .description = Multiplicador de tamanho dos ícones dos botões
@@ -121,8 +121,8 @@ settings-bar-dropdown-opacity = Opacidade do menu pendente
 settings-bar-dropdown-autohide = Ocultar menu pendente automaticamente
     .description = Fechar o menu pendente ao clicar fora dele
 
-settings-bar-dropdown-freeze-label = Congelar etiqueta
-    .description = Impedir que a etiqueta do botão da barra se atualize enquanto o seu menu pendente está aberto
+settings-bar-dropdown-freeze-label = Manter o texto do botão fixo enquanto está aberto
+    .description = Mantém o texto do botão da barra tal como está enquanto o seu menu pendente está aberto, para que o botão não mude de tamanho e o menu fique no lugar
 
 settings-bar-shadow = Sombra
     .description = Ativar sombra projetada
