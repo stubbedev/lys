@@ -1021,7 +1021,9 @@ func TestEveryWMConfigKeyHasARow(t *testing.T) {
 			for _, sec := range p.sections {
 				for _, r := range sec.flatRows() {
 					if p.wm || r.wm {
-						rows[r.path] = true
+						for _, path := range append([]string{r.path}, r.also...) {
+							rows[path] = true
+						}
 					}
 					if r.wmTwin != "" {
 						rows[r.wmTwin] = true
@@ -1205,5 +1207,34 @@ func TestLysWMSpeedsAndRepeatSlideOverTheirUsualRange(t *testing.T) {
 	}
 	if _, ok := fieldControl(k, w, wmField("input.pointer.scroll_factor")).(*slider); ok {
 		t.Error("a key outside the presentation table became a slider")
+	}
+}
+
+func TestHotCornersArePickedOnAScreen(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	k := testKit(t, "")
+	if _, err := k.wmBackend(); err != nil {
+		t.Fatal(err)
+	}
+	stored := map[string]any{}
+	slots := make([]slot, len(hotCornerKeys))
+	paths := make([]string, len(hotCornerKeys))
+	for i, c := range hotCornerKeys {
+		path := "hot_corners." + c
+		paths[i] = path
+		slots[i] = slot{get: func() any { return stored[path] }, set: func(v any) error { stored[path] = v; return nil }, unset: func() { delete(stored, path) }}
+	}
+	h := newHotCorners(k, paths, slots)
+	if h.selected != 0 || h.set(0) {
+		t.Fatalf("the screen opens on corner %d, set %v", h.selected, h.set(0))
+	}
+	h.screen.handles[3].KeyAction(widget.KeyEnter, 0)
+	if h.selected != 3 || h.title.Text() != locale.T().Get(wmKey(paths[3])) {
+		t.Fatalf("choosing the bottom right shows %d %q", h.selected, h.title.Text())
+	}
+	stored[paths[3]] = map[string]any{"action": "overview"}
+	stored[paths[1]] = false
+	if !h.set(3) || h.set(1) || h.set(2) {
+		t.Errorf("set corners read %v %v %v", h.set(3), h.set(1), h.set(2))
 	}
 }

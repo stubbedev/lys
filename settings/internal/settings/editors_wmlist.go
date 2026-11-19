@@ -270,16 +270,6 @@ func namedMap(items []any) map[string]any {
 	return out
 }
 
-func wmHotCorner(corner string) rowSpec {
-	path := "hot_corners." + corner
-	return wmField(path, func(r *rowSpec) {
-		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-			return newWMSwitch(k, s, wmItemFields(k.wm, wmPath(path), nil, "hot_corners.corner"))
-		}
-	})
-}
-
 func wmListRow(path string) rowSpec {
 	return wmField(path, func(r *rowSpec) {
 		r.fullWidth = true
