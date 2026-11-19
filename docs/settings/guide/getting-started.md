@@ -53,6 +53,12 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 
 The `wm-` pages and `wm-outputs` are lys-wm's; see [lys-wm settings](./lys-wm).
 
+A row that has no effect in the current state stays out of the way: the dock's
+rows are greyed out while the dock is off, and a border's width and color, the
+dock's hide delay and zoom size, and the icon padding of a bar button style
+without an icon box are hidden until they apply. Search and `--setting` for a
+hidden row land on the row that hides it.
+
 lys-shell's pages edit its config and work without the shell running.
 
 Some pages also act on the system:

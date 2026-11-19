@@ -21,7 +21,7 @@ func barPage(*config.Config) pageSpec {
 			field("bar.shadow"),
 		}},
 		{title: "settings-section-spacing", advanced: true, rows: fields("bar.inset-edge", "bar.inset-ends", "bar.padding", "bar.padding-ends", "bar.module-gap")},
-		{title: "settings-section-border", rows: fields("bar.border-location", "bar.border-width", "bar.border-color")},
+		{title: "settings-section-border", rows: bordered("bar.border-location", "bar.border-width", "bar.border-color")},
 
 		{title: "settings-section-buttons", rows: []rowSpec{
 			field("bar.button-variant"),
@@ -31,25 +31,19 @@ func barPage(*config.Config) pageSpec {
 			field("bar.button-gap"),
 			field("bar.button-icon-position"),
 			field("bar.button-icon-size"),
-			field("bar.button-icon-padding"),
+			field("bar.button-icon-padding", shownWhen("bar.button-variant", valueIn(string(config.ButtonBlockPrefix), string(config.ButtonIconSquare)))),
 			field("bar.button-label-size"),
 			field("bar.button-label-weight"),
 			field("bar.button-label-padding"),
 		}},
-		{title: "settings-section-button-border", rows: []rowSpec{
-			field("bar.button-border-location"),
-			field("bar.button-border-width"),
-		}},
-		{title: "settings-section-button-groups", advanced: true, rows: []rowSpec{
+		{title: "settings-section-button-border", rows: bordered("bar.button-border-location", "bar.button-border-width")},
+		{title: "settings-section-button-groups", advanced: true, rows: append([]rowSpec{
 			field("bar.button-group-opacity", percentage),
 			field("bar.button-group-rounding"),
 			field("bar.button-group-padding"),
 			field("bar.button-group-module-gap"),
 			field("bar.button-group-background"),
-			field("bar.button-group-border-location"),
-			field("bar.button-group-border-width"),
-			field("bar.button-group-border-color"),
-		}},
+		}, bordered("bar.button-group-border-location", "bar.button-group-border-width", "bar.button-group-border-color")...)},
 		{title: "settings-section-dropdowns", rows: []rowSpec{
 			field("bar.dropdown-shadow"), field("bar.dropdown-autohide"), field("bar.dropdown-freeze-label"),
 			field("bar.dropdown-opacity", percentage),
@@ -57,6 +51,16 @@ func barPage(*config.Config) pageSpec {
 		{title: "settings-section-dropdown-animation", advanced: true, rows: surfaceAnimationRows("animations.dropdown")},
 		{title: "settings-animations-menu", advanced: true, rows: surfaceAnimationRows("animations.menu")},
 	}}
+}
+
+// bordered is a border's location row and the rows styling it, shown
+// while the border is drawn.
+func bordered(location string, styling ...string) []rowSpec {
+	rows := []rowSpec{field(location)}
+	for _, p := range styling {
+		rows = append(rows, field(p, shownWhen(location, valueNot(string(config.BorderNone)))))
+	}
+	return rows
 }
 
 // notificationsPage is pages/notifications.
@@ -300,22 +304,25 @@ func wallpaperPage(*config.Config) pageSpec {
 	}}
 }
 
+// dockRow is a dock row, in use only while the dock is shown.
+var dockRow = enabledBy("dock.enabled")
+
 // dockPage is the standalone dock.
 func dockPage(*config.Config) pageSpec {
 	return pageSpec{id: "dock", navKey: "settings-nav-dock", icon: "ld-panel-bottom-symbolic", header: "settings-page-dock", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("dock.enabled"),
-			field("dock.monitors", monitorsRow),
-			field("dock.edge", screenPosition),
-			field("dock.auto-hide"),
-			field("dock.auto-hide-delay-ms"),
-			field("dock.pinned", appList),
+			field("dock.monitors", monitorsRow, dockRow),
+			field("dock.edge", screenPosition, dockRow),
+			field("dock.auto-hide", dockRow),
+			field("dock.auto-hide-delay-ms", dockRow, shownWhen("dock.auto-hide", switchedOn)),
+			field("dock.pinned", appList, dockRow),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
-			field("dock.icon-size", sizeBase(config.TaskIconBaseRem)),
-			field("dock.hover-zoom"),
-			field("dock.hover-zoom-size", sizeBase(config.TaskIconBaseRem)),
-			field("dock.icon", iconRow),
+			field("dock.icon-size", sizeBase(config.TaskIconBaseRem), dockRow),
+			field("dock.hover-zoom", dockRow),
+			field("dock.hover-zoom-size", sizeBase(config.TaskIconBaseRem), dockRow, shownWhen("dock.hover-zoom", switchedOn)),
+			field("dock.icon", iconRow, dockRow),
 		}},
 	}}
 }

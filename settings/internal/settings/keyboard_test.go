@@ -49,7 +49,7 @@ func tabReachesEveryControl(w *window) pageCheck {
 			}
 		}
 		for i, row := range w.page.rows {
-			if hidden[row] || !widget.IsEnabled(row) {
+			if hidden[row] || !row.Visible() || !widget.IsEnabled(row) {
 				continue
 			}
 			reached := false

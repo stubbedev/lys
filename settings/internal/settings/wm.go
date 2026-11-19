@@ -467,7 +467,7 @@ func wmFields(paths ...string) []rowSpec {
 func switchedBy(master string, rows ...rowSpec) []rowSpec {
 	out := []rowSpec{wmField(master)}
 	for _, r := range rows {
-		r.enabledBy = master
+		enabledBy(master)(&r)
 		out = append(out, r)
 	}
 	return out

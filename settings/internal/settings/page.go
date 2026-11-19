@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"log"
 	"math"
 	"slices"
 
@@ -61,12 +62,52 @@ type rowSpec struct {
 	nested []rowSpec
 	wmTwin string
 	also   []string
-	// enabledBy is the switch, in the row's own backend, the row is
-	// disabled while it is off.
-	enabledBy string
+	// enabledWhen disables the row while its condition does not hold.
+	enabledWhen rowCondition
+	// shownWhen hides the row while its condition does not hold: what it
+	// sets has no effect then.
+	shownWhen rowCondition
 }
 
-func enabledBy(path string) rowOpt { return func(r *rowSpec) { r.enabledBy = path } }
+// rowCondition is what another field of the page, in the row's own
+// backend, must hold for a row to be in use.
+type rowCondition struct {
+	path  string
+	holds func(v any) bool
+}
+
+func (c rowCondition) set() bool { return c.path != "" }
+
+// enabledBy disables the row while the switch at path is off.
+func enabledBy(path string) rowOpt {
+	return func(r *rowSpec) { r.enabledWhen = rowCondition{path: path, holds: switchedOn} }
+}
+
+// shownWhen hides the row while the field at path does not hold.
+func shownWhen(path string, holds func(v any) bool) rowOpt {
+	return func(r *rowSpec) { r.shownWhen = rowCondition{path: path, holds: holds} }
+}
+
+func switchedOn(v any) bool {
+	on, _ := v.(bool)
+	return on
+}
+
+// valueIn holds for a value that is one of values.
+func valueIn(values ...string) func(any) bool {
+	return func(v any) bool {
+		s, _ := v.(string)
+		return slices.Contains(values, s)
+	}
+}
+
+// valueNot holds for any value but value.
+func valueNot(value string) func(any) bool {
+	return func(v any) bool {
+		s, _ := v.(string)
+		return s != value
+	}
+}
 
 func (r rowSpec) flat() []rowSpec {
 	out := []rowSpec{r}
@@ -140,9 +181,25 @@ type settingsPage struct {
 	dependent []dependentRow
 }
 
+// dependentRow is a row that follows another field: enabled, or shown
+// when it hides, while its condition holds; governing is the row editing
+// that field.
 type dependentRow struct {
-	row *settingRow
-	on  slot
+	row       *settingRow
+	on        rowCondition
+	value     slot
+	hides     bool
+	governing *settingRow
+}
+
+func (d dependentRow) holds() bool { return d.on.holds(d.value.get()) }
+
+func (d dependentRow) apply() {
+	if d.hides {
+		d.row.SetVisible(d.holds())
+		return
+	}
+	d.row.SetEnabled(d.holds())
 }
 
 type sectionCondition struct {
@@ -174,8 +231,27 @@ func (p *settingsPage) showSections() {
 		c.box.SetVisible(c.when(p.k.store))
 	}
 	for _, d := range p.dependent {
-		on, _ := d.on.get().(bool)
-		d.row.SetEnabled(on)
+		d.apply()
+	}
+}
+
+func (p *settingsPage) follow(row *settingRow, be backend, c rowCondition, hides bool) {
+	if !c.set() {
+		return
+	}
+	p.dependent = append(p.dependent, dependentRow{row: row, on: c, value: be.slot(c.path), hides: hides})
+}
+
+// governDependents finds, for each dependent row, the row editing the
+// field it follows; a condition over a field the page has no row for is a
+// page bug.
+func (p *settingsPage) governDependents() {
+	for i, d := range p.dependent {
+		at := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == d.on.path && !r.action })
+		if at < 0 {
+			log.Panicf("settings: the row %q follows %q, which has no row on its page", d.row.path, d.on.path)
+		}
+		p.dependent[i].governing = p.rows[at]
 	}
 }
 
@@ -249,9 +325,8 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 				rowBackend = notifyingBackend{w, conditional}
 			}
 			row := newFieldRow(k, rowBackend, rs)
-			if rs.enabledBy != "" {
-				p.dependent = append(p.dependent, dependentRow{row: row, on: rowBackend.slot(rs.enabledBy)})
-			}
+			p.follow(row, rowBackend, rs.enabledWhen, false)
+			p.follow(row, rowBackend, rs.shownWhen, true)
 			p.own(row.ctl)
 			rows.Append(row)
 			p.rows = append(p.rows, row)
@@ -265,6 +340,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		}
 		content.Append(section, false)
 	}
+	p.governDependents()
 	p.showSections()
 	if spec.footer != nil {
 		content.Append(p.own(spec.footer(k)), false)
@@ -384,6 +460,17 @@ func (p *settingsPage) shown(row *settingRow) *settingRow {
 	return out
 }
 
+// inUse is the row a reveal lands on for row: itself, or, while it is
+// hidden as having no effect, the row whose value hides it.
+func (p *settingsPage) inUse(row *settingRow) *settingRow {
+	for _, d := range p.dependent {
+		if d.row == row && d.hides && !d.holds() {
+			return p.inUse(d.governing)
+		}
+	}
+	return row
+}
+
 func (p *settingsPage) governing(group *settingRow) *settingRow {
 	if i := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r != group && !r.action && r.path == group.path }); i >= 0 {
 		return p.targets[i]
@@ -405,7 +492,7 @@ func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *settingRow {
 			d.open(true)
 		}
 	}
-	row := p.shown(p.targets[i])
+	row := p.inUse(p.shown(p.targets[i]))
 	give := func() {
 		if target := widget.FirstFocusable(row.ctl); target != nil && focus != nil {
 			focus(target)
