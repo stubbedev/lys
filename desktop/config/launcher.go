@@ -100,6 +100,13 @@ type LauncherConfig struct {
 	Emoji LauncherEmojiConfig `cfg:"emoji"`
 }
 
+// LauncherBuiltinModes are the modes the launcher builds itself; any other
+// mode name is a `scripts` key.
+var LauncherBuiltinModes = []string{
+	"drun", "run", "window", "windowcd", "ssh", "filebrowser", "recursivebrowser",
+	"keys", "calc", "clipboard", "emoji", "vault", "combi",
+}
+
 // LauncherEmojiConfig is a [launcher] schema type.
 //
 // How emoji are offered.

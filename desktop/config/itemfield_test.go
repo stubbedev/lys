@@ -2,6 +2,7 @@ package config
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -28,6 +29,18 @@ func TestEveryEditedItemFieldHasItsFTLKey(t *testing.T) {
 	n := itemKeys[LauncherQuicklink](t, loader) + itemKeys[LauncherSnippet](t, loader) + itemKeys[CustomModuleDefinition](t, loader)
 	if n < 30 {
 		t.Errorf("only %d item fields; the walk missed the structs", n)
+	}
+}
+
+func TestTheDefaultLauncherModesAreBuiltin(t *testing.T) {
+	l := Defaults().Launcher
+	for _, name := range append(slices.Clone(l.Modes), l.Combi.Modes...) {
+		if !slices.Contains(LauncherBuiltinModes, name) {
+			t.Errorf("default mode %q is not a built-in", name)
+		}
+	}
+	if slices.Contains(LauncherBuiltinModes, "dmenu") {
+		t.Error("dmenu, which only -dmenu opens, is offered as a mode")
 	}
 }
 
