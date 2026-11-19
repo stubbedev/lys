@@ -376,8 +376,8 @@ func mediaPage(*config.Config) pageSpec {
 			field(m+".player-icons", iconMap, iconType(config.MediaIconTypeApplicationMapped)),
 		}},
 		{title: "settings-section-media-players", rows: []rowSpec{
-			field(m+".players-ignored", stringList),
-			field(m+".player-priority", stringList),
+			field(m+".players-ignored", mediaPlayersRow),
+			field(m+".player-priority", mediaPlayersRow),
 		}},
 		{title: "settings-section-online-lyrics", rows: []rowSpec{field(m + ".lyrics")}},
 		barItemSection(m, actionChoices("media")),

@@ -23,6 +23,7 @@ var listFixtures = map[string][]choice{
 	"Program":           {{value: "foot", label: "foot"}, {value: "ssh", label: "ssh"}, {value: "xdg-open", label: "xdg-open"}},
 	typeTerminal:        {{value: "foot", label: "Foot"}, {value: "kitty", label: "kitty"}},
 	listSoundNames:      {{value: "message-new-instant", label: "message-new-instant"}},
+	listMediaPlayers:    {{value: "*spotify*", label: "spotify"}, {value: "*firefox*", label: "firefox"}},
 	listMailTags:        {{value: "inbox", label: "inbox"}, {value: "spam", label: "spam"}, {value: "unread", label: "unread"}},
 	listMailFolders:     {{value: "work/INBOX", label: "work/INBOX"}},
 	listTimeZones:       {{value: "Local", label: "Local"}, {value: "UTC", label: "UTC"}, {value: "Asia/Tokyo", label: "Asia/Tokyo"}, {value: "America/New_York", label: "America/New_York"}},
