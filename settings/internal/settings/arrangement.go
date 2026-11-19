@@ -26,15 +26,15 @@ func (a *arrangement) fit(rects []displays.Rect, r render.Rect) {
 	}
 	w, h := float64(max(1, maxX-minX)), float64(max(1, maxY-minY))
 	a.scale = min(float64(max(1, r.W-2*canvasPad))/w, float64(max(1, r.H-2*canvasPad))/h)
-	a.ox = float64(r.X) + (float64(r.W)-w*a.scale)/2 - float64(minX)*a.scale
-	a.oy = float64(r.Y) + (float64(r.H)-h*a.scale)/2 - float64(minY)*a.scale
+	a.ox = float64(r.X) + float64((float64(r.W)-float64(w*a.scale))/2) - float64(float64(minX)*a.scale)
+	a.oy = float64(r.Y) + float64((float64(r.H)-float64(h*a.scale))/2) - float64(float64(minY)*a.scale)
 }
 
 func (a arrangement) screen(r displays.Rect) render.Rect {
-	x0 := int(math.Round(a.ox + float64(r.X)*a.scale))
-	y0 := int(math.Round(a.oy + float64(r.Y)*a.scale))
-	x1 := int(math.Round(a.ox + float64(r.X+r.W)*a.scale))
-	y1 := int(math.Round(a.oy + float64(r.Y+r.H)*a.scale))
+	x0 := int(math.Round(a.ox + float64(float64(r.X)*a.scale)))
+	y0 := int(math.Round(a.oy + float64(float64(r.Y)*a.scale)))
+	x1 := int(math.Round(a.ox + float64(float64(r.X+r.W)*a.scale)))
+	y1 := int(math.Round(a.oy + float64(float64(r.Y+r.H)*a.scale)))
 	return render.Rect{X: x0 + tileGap, Y: y0 + tileGap, W: max(1, x1-x0-2*tileGap), H: max(1, y1-y0-2*tileGap)}
 }
 

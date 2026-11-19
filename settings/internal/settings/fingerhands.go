@@ -100,7 +100,7 @@ func palmUnit(right bool) unitRect {
 
 func (h *fingerHands) screen(u unitRect) render.Rect {
 	return render.Rect{
-		X: int(math.Round(h.ox + u.x*h.scale)), Y: int(math.Round(h.oy + u.y*h.scale)),
+		X: int(math.Round(h.ox + float64(u.x*h.scale))), Y: int(math.Round(h.oy + float64(u.y*h.scale))),
 		W: int(math.Round(u.w * h.scale)), H: int(math.Round(u.h * h.scale)),
 	}
 }
@@ -124,8 +124,8 @@ func (h *fingerHands) Arrange(r render.Rect) {
 	h.ArrangeSelf(r)
 	w, ht := 2*handUnitW+handGapUnits, handUnitH
 	h.scale = min(float64(r.W)/w, float64(r.H)/ht)
-	h.ox = float64(r.X) + (float64(r.W)-w*h.scale)/2
-	h.oy = float64(r.Y) + (float64(r.H)-ht*h.scale)/2
+	h.ox = float64(r.X) + float64((float64(r.W)-float64(w*h.scale))/2)
+	h.oy = float64(r.Y) + float64((float64(r.H)-float64(ht*h.scale))/2)
 	for i, fh := range h.handles {
 		fh.Arrange(h.screen(fingerUnit(i)))
 	}

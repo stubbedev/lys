@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"github.com/stubbedev/lys/lib/render"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -10,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 )

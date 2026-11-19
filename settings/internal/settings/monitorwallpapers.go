@@ -4,13 +4,12 @@ import (
 	"image"
 	"slices"
 
-	xdraw "golang.org/x/image/draw"
-
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
+	xdraw "golang.org/x/image/draw"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
 	"github.com/stubbedev/lys/settings/internal/locale"

@@ -15,7 +15,7 @@ type idleDisplays struct{ closed bool }
 
 func (*idleDisplays) Test([]displays.Setting) error  { return nil }
 func (*idleDisplays) Apply([]displays.Setting) error { return nil }
-func (m *idleDisplays) Close()                        { m.closed = true }
+func (m *idleDisplays) Close()                       { m.closed = true }
 
 func fakeHeads(t *testing.T, heads []displays.Head, err error) *idleDisplays {
 	t.Helper()
