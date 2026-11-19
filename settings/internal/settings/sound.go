@@ -248,7 +248,7 @@ type deviceControls struct {
 	profiles   []string
 	card       uint32
 	volume     *widgets.DebouncedSlider
-	mute       *widget.Switch
+	mute       *muteToggle
 	balance    *widgets.DebouncedSlider
 	balanceRow *widget.Box
 	tests      *widget.Box
@@ -261,9 +261,9 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	t := locale.T()
 	k := p.k
 	c := &deviceControls{p: p, kind: kind, body: gapBox(widget.Column), rows: widget.NewItemGroup()}
-	noneKey, deviceKey, muteKey := "settings-sound-no-input", "settings-sound-input-device", "settings-sound-mute-input"
+	noneKey, deviceKey, muteKey, glyphs := "settings-sound-no-input", "settings-sound-input-device", "settings-sound-mute-input", micGlyphs
 	if kind == pulse.DeviceOutput {
-		noneKey, deviceKey, muteKey = "settings-sound-no-output", "settings-sound-output-device", "settings-sound-mute-output"
+		noneKey, deviceKey, muteKey, glyphs = "settings-sound-no-output", "settings-sound-output-device", "settings-sound-mute-output", speakerGlyphs
 	}
 	c.none = k.label(t.Get(noneKey), css.DimLabel)
 	c.body.Append(c.none, false)
@@ -308,16 +308,15 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 			return svc.SetDeviceVolume(ctx, key, pulse.NewVolume(levels))
 		})
 	}
-	c.mute = widget.NewSwitch(false)
-	c.mute.SetAccessibleName(t.Get(muteKey))
-	c.mute.OnChanged = func(on bool) {
+	c.mute = newMuteToggle(k, glyphs, func(on bool) {
 		if p.syncing {
 			return
 		}
 		key := c.current.Key
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetDeviceMute(ctx, key, on) })
-	}
-	c.rows.Append(panelRow(k, t.Get("settings-sound-volume"), "", c.volume, c.mute))
+	})
+	c.mute.name(t.Get(muteKey))
+	c.rows.Append(panelRow(k, t.Get("settings-sound-volume"), "", c.mute, c.volume))
 	c.balance = widgets.NewRangedSlider(-balanceRange, balanceRange, 0, nil, 0, 0, k.invoke)
 	c.balance.Knob.SetAccessibleName(t.Get("settings-sound-balance"))
 	c.balance.Write = func(b float64) func() {
@@ -365,9 +364,7 @@ func (c *deviceControls) show(devices []pulse.Device, current pulse.Device, has 
 	setChoices(c.port, portNames, slices.Index(c.ports, current.ActivePort))
 	c.showProfiles(current, cards)
 	c.volume.Set(peakLevel(current.Volume.Levels()) * 100)
-	if c.mute.On() != current.Muted {
-		c.mute.SetOn(current.Muted)
-	}
+	c.mute.show(current.Muted)
 	b, stereo := balanceOf(current.Volume.Levels(), current.ChannelMap)
 	c.balanceRow.SetVisible(stereo)
 	c.balance.Set(b * balanceRange)
@@ -440,7 +437,7 @@ type appRow struct {
 	title  *widget.Label
 	detail *widget.Label
 	volume *widgets.DebouncedSlider
-	mute   *widget.Switch
+	mute   *muteToggle
 	levels []float64
 }
 
@@ -456,13 +453,12 @@ func newAppRow(p *soundPanel, key pulse.StreamKey) *appRow {
 			return svc.SetStreamVolume(ctx, key, pulse.NewVolume(levels))
 		})
 	}
-	r.mute = widget.NewSwitch(false)
-	r.mute.OnChanged = func(on bool) {
+	r.mute = newMuteToggle(k, speakerGlyphs, func(on bool) {
 		if p.syncing {
 			return
 		}
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetStreamMute(ctx, key, on) })
-	}
+	})
 	text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
 	text.Append(r.title, false)
 	text.Append(r.detail, false)
@@ -470,8 +466,8 @@ func newAppRow(p *soundPanel, key pulse.StreamKey) *appRow {
 	r.SetElement("item")
 	r.AddClass(css.Small, "setting-row", "sound-app")
 	r.AppendAligned(text, true, widget.AlignCenter)
-	r.AppendAligned(r.volume, false, widget.AlignCenter)
 	r.AppendAligned(r.mute, false, widget.AlignCenter)
+	r.AppendAligned(r.volume, false, widget.AlignCenter)
 	return r
 }
 
@@ -481,11 +477,50 @@ func (r *appRow) show(s pulse.AudioStream) {
 	r.title.SetText(name)
 	r.detail.SetText(cmp.Or(s.Media.Title, s.Name))
 	r.volume.Knob.SetAccessibleName(t.Get("settings-sound-app-volume", i18n.Str("app", name)))
-	r.mute.SetAccessibleName(t.Get("settings-sound-app-mute", i18n.Str("app", name)))
+	r.mute.name(t.Get("settings-sound-app-mute", i18n.Str("app", name)))
 	r.levels = s.Volume.Levels()
 	r.volume.Knob.SetEnabled(s.HasVolume && s.VolumeWritable)
 	r.volume.Set(peakLevel(r.levels) * 100)
-	if r.mute.On() != s.Muted {
-		r.mute.SetOn(s.Muted)
+	r.mute.show(s.Muted)
+}
+
+type muteGlyphs struct{ sounding, muted string }
+
+var (
+	speakerGlyphs = muteGlyphs{sounding: "ld-volume-2-symbolic", muted: "ld-volume-x-symbolic"}
+	micGlyphs     = muteGlyphs{sounding: "ld-mic-symbolic", muted: "ld-mic-off-symbolic"}
+)
+
+type muteToggle struct {
+	*widget.ToggleButton
+	glyph  *widget.Icon
+	glyphs muteGlyphs
+}
+
+func newMuteToggle(k *kit, glyphs muteGlyphs, onMuted func(bool)) *muteToggle {
+	m := &muteToggle{glyph: k.icon(glyphs.sounding), glyphs: glyphs}
+	m.ToggleButton = widget.NewToggleButton(m.glyph, 0, 0)
+	m.AddClass(css.Icon, css.Flat, "sound-mute")
+	m.OnToggled = func(muted bool) {
+		m.glyph.SetThemeName(m.glyphFor(muted))
+		onMuted(muted)
 	}
+	return m
+}
+
+func (m *muteToggle) glyphFor(muted bool) string {
+	if muted {
+		return m.glyphs.muted
+	}
+	return m.glyphs.sounding
+}
+
+func (m *muteToggle) name(text string) {
+	m.SetAccessibleName(text)
+	m.SetTooltip(text)
+}
+
+func (m *muteToggle) show(muted bool) {
+	m.SetActive(muted)
+	m.glyph.SetThemeName(m.glyphFor(muted))
 }

@@ -79,7 +79,11 @@ type soundRig struct {
 
 func startSound(t *testing.T) *soundRig {
 	t.Helper()
-	srv := soundServer(t)
+	return startSoundOn(t, soundServer(t))
+}
+
+func startSoundOn(t *testing.T, srv *pulsetest.Server) *soundRig {
+	t.Helper()
 	useSoundServer(t, srv)
 	k := testKit(t, "")
 	l := &loop{t: t, queue: make(chan func(), 64)}
@@ -248,9 +252,19 @@ func TestPortsVolumeMuteAndAppsReachTheServer(t *testing.T) {
 	if d, _ := r.srv.Sink(1); d.ActivePort != "headphones" {
 		t.Fatalf("the sink's port is %q", d.ActivePort)
 	}
-	r.p.output.mute.SetOn(true)
+	r.p.output.mute.OnClick()
 	if d, _ := r.srv.Sink(1); !d.Mute {
 		t.Fatal("the sink was not muted")
+	}
+	if !r.p.output.mute.Active() || r.p.output.mute.glyph.Name() != speakerGlyphs.muted {
+		t.Fatalf("the muted output shows %q, pressed %v", r.p.output.mute.glyph.Name(), r.p.output.mute.Active())
+	}
+	r.p.output.mute.OnClick()
+	if d, _ := r.srv.Sink(1); d.Mute {
+		t.Fatal("the sink stayed muted")
+	}
+	if r.p.output.mute.Active() || r.p.output.mute.glyph.Name() != speakerGlyphs.sounding {
+		t.Fatalf("the unmuted output shows %q, pressed %v", r.p.output.mute.glyph.Name(), r.p.output.mute.Active())
 	}
 	r.p.output.balance.Knob.SetValue(-50)
 	r.l.until("the balance written", func() bool {
@@ -261,7 +275,7 @@ func TestPortsVolumeMuteAndAppsReachTheServer(t *testing.T) {
 	if row.title.Text() != "Firefox" || row.detail.Text() != "Song" {
 		t.Fatalf("app row %q, %q", row.title.Text(), row.detail.Text())
 	}
-	row.mute.SetOn(true)
+	row.mute.OnClick()
 	if st, _ := r.srv.SinkInput(40); !st.Mute {
 		t.Fatal("the app was not muted")
 	}
@@ -291,7 +305,7 @@ func shownControls(root widget.Widget) []widget.Widget {
 		}
 	})
 	var out []widget.Widget
-	controlRoles := []widget.Role{widget.RoleComboBox, widget.RoleSwitch, widget.RoleButton, widget.RoleSlider}
+	controlRoles := []widget.Role{widget.RoleComboBox, widget.RoleSwitch, widget.RoleButton, widget.RoleToggleButton, widget.RoleSlider}
 	treetest.Walk(root, func(w widget.Widget) {
 		r, ok := w.(interface{ Role() widget.Role })
 		if !ok || !slices.Contains(controlRoles, r.Role()) {
@@ -341,5 +355,23 @@ func TestTabReachesEverySoundControl(t *testing.T) {
 			name, _ := c.(interface{ AccessibleName() string })
 			t.Errorf("%T %q is out of Tab's reach", c, name.AccessibleName())
 		}
+	}
+}
+
+func TestAMutedServerShowsTheCrossedOutGlyphs(t *testing.T) {
+	srv := soundServer(t)
+	mic := pulsetest.Source(10, "mic", "Microphone", native.InvalidIndex, "")
+	mic.Mute = true
+	srv.PutSource(mic)
+	r := startSoundOn(t, srv)
+	r.l.until("the muted input shown", func() bool { return r.p.input.mute.Active() })
+	if r.p.input.mute.glyph.Name() != micGlyphs.muted {
+		t.Fatalf("the muted input shows %q", r.p.input.mute.glyph.Name())
+	}
+	if r.p.output.mute.Active() || r.p.output.mute.glyph.Name() != speakerGlyphs.sounding {
+		t.Fatalf("the sounding output shows %q, pressed %v", r.p.output.mute.glyph.Name(), r.p.output.mute.Active())
+	}
+	if s, _ := srv.Source(10); !s.Mute {
+		t.Fatal("showing the muted input unmuted it on the server")
 	}
 }
