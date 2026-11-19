@@ -49,6 +49,7 @@ type rowSpec struct {
 	// (RowBehavior::Action): no source badge, no reset.
 	action bool
 	nested []rowSpec
+	wmTwin string
 }
 
 func (r rowSpec) flat() []rowSpec {

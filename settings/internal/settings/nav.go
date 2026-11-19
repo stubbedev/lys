@@ -2,6 +2,7 @@ package settings
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 
@@ -41,8 +42,11 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 	for _, s := range p.sections {
 		rows := make([]rowSpec, 0, len(s.rows))
 		for _, r := range s.rows {
-			if (p.wm || r.wm) && installed.wm || !(p.wm || r.wm) && installed.shell {
+			switch {
+			case (p.wm || r.wm) && installed.wm, !(p.wm || r.wm) && installed.shell:
 				rows = append(rows, r)
+			case r.wmTwin != "" && installed.wm:
+				rows = append(rows, r.asWMTwin())
 			}
 		}
 		if len(rows) > 0 {
@@ -57,7 +61,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 	sections := []navSection{
 		{key: "settings-nav-home", pages: []pageSpec{overviewPage()}},
 		{key: "settings-nav-account", pages: []pageSpec{usersPage(cfg)}},
-		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), generalPage(cfg), animationsPage(cfg), wmMotionPage()}},
+		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), generalPage(cfg), motionPage(cfg)}},
 		{key: "settings-nav-displays", pages: []pageSpec{displaysPage()}},
 		{key: "settings-nav-sound-section", pages: []pageSpec{soundPage(cfg)}},
 		{key: "settings-nav-input", pages: []pageSpec{wmInputPage(), wmBindsPage()}},
@@ -125,13 +129,15 @@ func barDropdownPage(*config.Config) pageSpec {
 	}
 }
 
-// animationsPage is pages/animations.
-func animationsPage(*config.Config) pageSpec {
+func motionPage(*config.Config) pageSpec {
 	return pageSpec{
-		id: "animations", navKey: "settings-nav-animations", icon: "ld-zap-symbolic",
-		header: "settings-page-animations",
+		id: "motion", navKey: "settings-nav-motion", icon: "ld-zap-symbolic",
+		header: "settings-page-motion",
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: append(fields("animations.enabled", "animations.reduced-motion", "animations.transition"), field("animations.duration", animationDuration))},
+			{title: "settings-section-general", rows: []rowSpec{
+				twinToggle("animations.enabled", "animations.enabled"), twinToggle("animations.reduced-motion", "animations.reduced_motion"),
+				field("animations.transition"), field("animations.duration", animationDuration),
+			}},
 			{title: "settings-section-direction", rows: []rowSpec{
 				field("animations.enter"), field("animations.exit"),
 				field("animations.enter-duration", animationDuration), field("animations.exit-duration", animationDuration),
@@ -143,6 +149,70 @@ func animationsPage(*config.Config) pageSpec {
 			{title: "settings-section-speed", rows: []rowSpec{
 				field("animations.ui-duration", animationDuration), field("animations.interaction-duration", animationDuration), field("animations.indicators"),
 			}},
+			{title: "wm-section-overview", rows: wmFields("overview.blur", "overview.dim", "switcher.open_delay", "showdesktop.peek")},
+			{title: "wm-section-drag", rows: wmFields("drag_preview.enabled", "drag_preview.opacity", "drag_preview.blur", "drag_preview.snap_distance",
+				"drag_preview.snap_windows", "drag_preview.drag_switch.width", "drag_preview.drag_switch.frames")},
+			{title: "wm-section-hot-corners", rows: append([]rowSpec{
+				wmHotCorner("top_left"), wmHotCorner("top_right"), wmHotCorner("bottom_left"), wmHotCorner("bottom_right"),
+			}, wmFields("hot_corners.pressure", "hot_corners.fullscreen")...)},
+		},
+	}
+}
+
+func (r rowSpec) asWMTwin() rowSpec {
+	r.key, r.path, r.wm = r.labelKey(), r.wmTwin, true
+	return r
+}
+
+// twinToggle is a switch for a lys-shell key and the lys-wm key that means
+// the same, writing whichever of the two is installed.
+func twinToggle(shellPath, wmPath string) rowSpec {
+	return field(shellPath, func(r *rowSpec) {
+		r.wmTwin = wmPath
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
+			var slots []slot
+			if k.parts.shell {
+				slots = append(slots, s)
+			}
+			if k.parts.wm {
+				w, err := k.wmBackend()
+				if err != nil {
+					log.Printf("settings: %s: %v", wmPath, err)
+				} else {
+					f, ok := w.fieldOf(wmPath)
+					if !ok {
+						log.Panicf("settings: lys-wm has no %s", wmPath)
+					}
+					slots = append(slots, wmChoiceSlot(f, w.slot(wmPath)))
+				}
+			}
+			return newToggle(k, joinSlots(slots))
+		}
+	})
+}
+
+// joinSlots reads the first slot and writes every one, the first refusal
+// stopping the rest.
+func joinSlots(slots []slot) slot {
+	return slot{
+		get: func() any {
+			if len(slots) == 0 {
+				return nil
+			}
+			return slots[0].get()
+		},
+		set: func(v any) error {
+			for _, s := range slots {
+				if err := s.set(v); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		unset: func() {
+			for _, s := range slots {
+				s.unset()
+			}
 		},
 	}
 }

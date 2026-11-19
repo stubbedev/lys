@@ -476,18 +476,6 @@ func wmEffectsPage() pageSpec {
 	)
 }
 
-func wmMotionPage() pageSpec {
-	return wmPage("wm-motion", "ld-film-symbolic",
-		sectionSpec{"wm-section-animations", wmFields("animations.enabled", "animations.reduced_motion")},
-		sectionSpec{"wm-section-overview", wmFields("overview.blur", "overview.dim", "switcher.open_delay", "showdesktop.peek")},
-		sectionSpec{"wm-section-drag", wmFields("drag_preview.enabled", "drag_preview.opacity", "drag_preview.blur", "drag_preview.snap_distance",
-			"drag_preview.snap_windows", "drag_preview.drag_switch.width", "drag_preview.drag_switch.frames")},
-		sectionSpec{"wm-section-hot-corners", append([]rowSpec{
-			wmHotCorner("top_left"), wmHotCorner("top_right"), wmHotCorner("bottom_left"), wmHotCorner("bottom_right"),
-		}, wmFields("hot_corners.pressure", "hot_corners.fullscreen")...)},
-	)
-}
-
 func wmTilingPage() pageSpec {
 	return wmPage("wm-tiling", "ld-layout-grid-symbolic",
 		sectionSpec{"wm-section-layout", wmFields("layout", "scroll.center")},

@@ -35,7 +35,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | --- | --- |
 | Home | `overview` |
 | Account | `users` |
-| Appearance | `theme`, `wallpaper`, `general`, `animations`, `wm-motion` |
+| Appearance | `theme`, `wallpaper`, `general`, `motion` |
 | Displays | `wm-outputs` |
 | Sound | `sound` |
 | Input | `wm-input`, `wm-binds` |

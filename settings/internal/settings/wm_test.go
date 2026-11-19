@@ -23,6 +23,7 @@ import (
 const wmSchema = `{"type":"object","properties":{
 "gaps":{"type":"object","properties":{"inner":{"type":"integer","minimum":0,"default":8},"outer":{"oneOf":[{"type":"integer"},{"type":"array"}]}}},
 "tearing":{"type":"boolean","default":false},
+"animations":{"type":"object","properties":{"enabled":{"type":"boolean","default":true},"reduced_motion":{"type":"boolean","default":false}}},
 "hdr":{"enum":[false,"fullscreen",true]},
 "binds":{"type":"array","items":{"type":"object","properties":{"action":{"type":"string","format":"lys-wm-action","x-lys-wm-actions":[{"name":"kill","summary":"Close"},{"name":"exec","args":"<command>","summary":"Run"},{"name":"workspace","args":"<n>","summary":"Show"}]},"chord":{"type":"string","format":"lys-wm-chord"},"flags":{"type":"array","items":{"type":"string","enum":["locked","repeating"]}}},"additionalProperties":false}},
 "submaps":{"type":"object","additionalProperties":{"type":"array","items":{"type":"object","properties":{"action":{"type":"string","format":"lys-wm-action","x-lys-wm-actions":[{"name":"kill","summary":"Close"}]},"chord":{"type":"string","format":"lys-wm-chord"}},"additionalProperties":false}}},
@@ -1062,6 +1063,9 @@ func TestEveryWMConfigKeyHasARow(t *testing.T) {
 				for _, r := range sec.flatRows() {
 					if p.wm || r.wm {
 						rows[r.path] = true
+					}
+					if r.wmTwin != "" {
+						rows[r.wmTwin] = true
 					}
 				}
 			}

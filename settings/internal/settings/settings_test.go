@@ -2433,7 +2433,7 @@ func TestALayoutChipAndThePickerNameModulesReadably(t *testing.T) {
 
 func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
 	k := testKit(t, "")
-	p, _ := pageByID(layout(config.Defaults(), bothParts), "animations")
+	p, _ := pageByID(layout(config.Defaults(), bothParts), "motion")
 	seen := 0
 	for _, sec := range p.sections {
 		for _, r := range sec.rows {

@@ -1,6 +1,7 @@
 # lys-wm settings
 
-The **Compositor** pages appear when `lys-wm` is on `PATH`. They write runtime
+lys-wm's settings appear when `lys-wm` is on `PATH`, on their own pages or
+beside lys-shell's where both set the same thing. They write runtime
 overrides to `$XDG_CONFIG_HOME/lys-wm/runtime.yaml` (`~/.config/lys-wm/runtime.yaml`
 when unset). lys-wm merges them over `config.yaml`, which this app only reads. See
 lys-wm's [config reference](/wm/config) for what each
@@ -8,9 +9,9 @@ key does.
 
 | Page | ID | Keys |
 | --- | --- | --- |
-| Windows | `wm-windows` | `gaps`, `borders`, corner radius, opacity and dimming under `decoration`, `focus.on_activate` |
+| Windows | `wm-windows` | `gaps`, `borders`, corner radius, opacity and dimming under `decoration`, `focus`, `fullscreen`, `floating`, `titlebars` |
 | Shadow & Blur | `wm-effects` | `decoration.shadow`, `decoration.blur` |
-| Motion | `wm-motion` | `animations`, `overview`, `drag_preview` |
+| Motion | `motion` | `animations.enabled` and `animations.reduced_motion` (one switch each with lys-shell's), `overview`, `switcher`, `showdesktop`, `drag_preview`, `hot_corners` |
 | Tiling & Tabs | `wm-tiling` | `autotile`, `tabs` |
 | Input | `wm-input` | `input.keyboard`, `input.pointer`, `input.trackpoint`, `input.touchpad` |
 | Keys & Gestures | `wm-binds` | `binds`, `submaps`, app shortcuts, `gestures` |
