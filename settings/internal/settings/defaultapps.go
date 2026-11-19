@@ -92,6 +92,16 @@ func (ix appIndex) current(mimeType string) string {
 	return ""
 }
 
+func (ix appIndex) currentOf(types []string) (id string, mixed bool) {
+	id = ix.current(types[0])
+	for _, t := range types[1:] {
+		if ix.current(t) != id {
+			return "", true
+		}
+	}
+	return id, false
+}
+
 type defaultApps struct {
 	k       *kit
 	ix      appIndex
@@ -166,10 +176,13 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 		row.AppendAligned(d.k.label(locale.T().Get("settings-default-none"), css.DimLabel), false, widget.AlignCenter)
 		return row
 	}
-	current := d.ix.current(types[0])
+	current, mixed := d.ix.currentOf(types)
 	items := make([]widget.DropdownRow, 0, len(apps)+1)
 	selected := 0
-	if !slices.ContainsFunc(apps, func(a desktopentry.App) bool { return a.ID == current }) {
+	switch {
+	case mixed:
+		items = append(items, widget.DropdownRow{Label: locale.T().Get("settings-default-mixed")})
+	case !slices.ContainsFunc(apps, func(a desktopentry.App) bool { return a.ID == current }):
 		items = append(items, widget.DropdownRow{Label: locale.T().Get("settings-default-unset")})
 	}
 	for _, a := range apps {
@@ -194,6 +207,7 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 				return
 			}
 			d.ix.mime = desktopentry.ReadMimeApps(desktopentry.MimeAppsLists())
+			d.show(d.ix)
 		})
 	}
 	row.AppendAligned(dd, false, widget.AlignCenter)

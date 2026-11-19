@@ -11,6 +11,8 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func defaultAppsFixture(t *testing.T) (config string) {
@@ -62,13 +64,14 @@ func TestPickingABrowserWritesItsThreeKeysAtOnceFromOneScan(t *testing.T) {
 		t.Fatalf("%d scans of the applications for one page, want one", scans)
 	}
 	web := dropdownNamed(t, w.page, "Web browser")
-	if got := web.Items(); !slices.Equal(got, []string{"Chromium", "Firefox"}) || web.Selected() != 1 {
-		t.Fatalf("web browsers %q selected %d, want Firefox, the https default", got, web.Selected())
+	mixed := locale.T().Get("settings-default-mixed")
+	if got := web.Items(); !slices.Equal(got, []string{mixed, "Chromium", "Firefox"}) || web.Selected() != 0 {
+		t.Fatalf("web browsers %q selected %d, want Mixed: https opens Firefox, http Chromium", got, web.Selected())
 	}
 	if pdf := dropdownNamed(t, w.page, "PDF documents"); pdf.Items()[pdf.Selected()] != "Evince" {
 		t.Fatalf("the only PDF viewer is not shown as the default: %q", pdf.Items())
 	}
-	web.SetSelected(0)
+	web.SetSelected(1)
 	if len(writes) != 1 || !slices.Equal(writes[0], []string{"x-scheme-handler/https", "x-scheme-handler/http", "text/html"}) {
 		t.Fatalf("writes %v, want the three browser types in one", writes)
 	}
@@ -83,6 +86,9 @@ func TestPickingABrowserWritesItsThreeKeysAtOnceFromOneScan(t *testing.T) {
 	}
 	if scans != 1 {
 		t.Fatalf("a pick rescanned the applications: %d scans", scans)
+	}
+	if web := dropdownNamed(t, w.page, "Web browser"); !slices.Equal(web.Items(), []string{"Chromium", "Firefox"}) || web.Selected() != 0 {
+		t.Fatalf("after the pick the web browsers read %q selected %d, want Chromium alone", web.Items(), web.Selected())
 	}
 	filter := treetest.First[*widget.SearchEntry](t, w.page)
 	filter.SetText("pdf")

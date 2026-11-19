@@ -455,6 +455,7 @@ settings-default-text = Teksteditor
 settings-default-files = Bestandsbeheerder
 settings-default-none = Geen geïnstalleerde toepassing opent het
 settings-default-unset = Niet gekozen
+settings-default-mixed = Gemengd: kies er één voor alles
 settings-default-types-filter = Typen filteren
 settings-default-types-more = Er komen meer typen overeen; verfijn het filter
 settings-nav-date-time = Datum en tijd

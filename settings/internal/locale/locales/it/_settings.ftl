@@ -465,6 +465,7 @@ settings-default-text = Editor di testo
 settings-default-files = Gestore file
 settings-default-none = Nessuna app installata lo apre
 settings-default-unset = Non scelta
+settings-default-mixed = Misto: scegline una per tutti
 settings-default-types-filter = Filtra i tipi
 settings-default-types-more = Corrispondono altri tipi; restringi il filtro
 settings-nav-date-time = Data e ora
