@@ -1613,38 +1613,37 @@ func TestDeviceSelect(t *testing.T) {
 	}
 }
 
-func TestTrayOverrideList(t *testing.T) {
+func TestTrayOverrideCards(t *testing.T) {
 	k := testKit(t, "")
 	path := "modules.systray.overrides"
 	_ = k.store.set(path, []any{map[string]any{"name": "discord", "color": "#ff0000"}})
-	c := fieldControl(k, k.store, field(path, trayOverrideList)).(*listEditor)
-	row := c.items[0].(trayOverrideItem)
-	if row.name.Text() != "discord" || row.icon.Text() != "" {
-		t.Fatalf("row shows %q %q", row.name.Text(), row.icon.Text())
+	c := fieldControl(k, k.store, field(path, trayOverrideList)).(*cardList)
+	if c.cards[0].identity.(*liveText).Text() != "discord" {
+		t.Fatalf("the card is headed %q", c.cards[0].identity.(*liveText).Text())
 	}
-	row.icon.Insert("ld-chat-symbolic")
+	icon, ok := c.cards[0].controls[0].(*iconEditor)
+	if !ok {
+		t.Fatalf("the override's icon is a %T, not the icon picker", c.cards[0].controls[0])
+	}
+	_ = icon.slot.set("ld-chat-symbolic")
 	got, _ := k.store.value(path).([]any)
 	if m := got[0].(map[string]any); m["icon"] != "ld-chat-symbolic" || m["color"] != "#ff0000" {
 		t.Errorf("stored %v", m)
 	}
-	row.icon.SelectAll()
-	row.icon.Backspace()
+	_ = icon.slot.set("")
 	got, _ = k.store.value(path).([]any)
 	if _, has := got[0].(map[string]any)["icon"]; has {
 		t.Errorf("an empty icon was stored: %v", got[0])
 	}
-	// A nameless override is not written, and adding one writes nothing.
-	addRowButton(c).ClickAt(widget.Point{})
-	c.items[1].(trayOverrideItem).icon.Insert("x")
+	c.local = append(c.local, c.spec.blank())
+	c.commit()
+	c.rebuild()
 	if got, _ := k.store.value(path).([]any); len(got) != 1 {
 		t.Errorf("a nameless override was stored: %v", got)
 	}
-	c.items[1].(trayOverrideItem).name.Insert("slack")
+	c.cards[1].identity.(*liveText).Insert("slack")
 	if got, _ := k.store.value(path).([]any); len(got) != 2 || got[1].(map[string]any)["name"] != "slack" {
 		t.Errorf("named override stored %v", got)
-	}
-	if !c.rows.HasClass("string-map") {
-		t.Error("the overrides lack string_map's list class")
 	}
 }
 
