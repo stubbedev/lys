@@ -725,7 +725,7 @@ settings-nav-input = Entrada
 settings-nav-notifications-focus = Notificações e foco
     .description = Notificações, Não incomodar e mensagens no ecrã
 settings-nav-power = Energia e bateria
-    .description = Quando o ecrã escurece, bloqueia e suspende
+    .description = Bateria, modo de energia e quando o ecrã escurece, bloqueia e suspende
 settings-nav-apps = Aplicações
     .description = Aplicações predefinidas, itens de início de sessão e o lançador
 settings-nav-privacy-security = Privacidade e segurança
@@ -917,3 +917,58 @@ settings-overview-sound-muted = { $device } · sem som
 settings-overview-wifi = Wi-Fi: { $name }
 settings-overview-wired = Com fios
 settings-overview-offline = Sem ligação
+settings-nav-power-battery = Bateria e modo de energia
+settings-page-power-battery = Bateria e modo de energia
+settings-section-power-alerts = Alertas da bateria
+    .description = Notificações sobre a bateria e quando poupar energia sozinho
+settings-power-section-battery = Bateria
+settings-power-section-mode = Modo de energia
+settings-power-section-sleep = Suspensão e bloqueio
+settings-power-loading = A ler a bateria e o modo de energia…
+settings-power-unavailable = Não é possível ler a bateria nem o modo de energia
+settings-power-battery = Bateria
+settings-power-no-upower = O UPower não está em execução, por isso não é possível ler a bateria
+settings-power-no-battery = Este computador não tem bateria; funciona ligado à corrente
+settings-power-percent = { $percent ->
+    [one] { $percent }%
+   *[other] { $percent }%
+}
+settings-power-health = Estado
+settings-power-health-detail = { $percent ->
+    [one] Mantém { $percent }% da capacidade de origem
+   *[other] Mantém { $percent }% da capacidade de origem
+}
+settings-power-charge-limit = Limite de carga
+settings-power-charge-limit-detail = { $percent ->
+    [one] Para de carregar aos { $percent }% para poupar a bateria
+   *[other] Para de carregar aos { $percent }% para poupar a bateria
+}
+settings-power-charge-limit-refused = O limite de carga não foi alterado: { $reason }
+settings-power-state-unknown = Estado desconhecido
+settings-power-state-charging = A carregar
+settings-power-state-discharging = Com bateria
+settings-power-state-empty = Vazia
+settings-power-state-full = Carga completa
+settings-power-state-not-charging = Ligado, sem carregar
+settings-power-state-with-time = { $state } · { $time }
+settings-power-time-to-full = cheia dentro de { $time }
+settings-power-time-to-empty = restam { $time }
+settings-power-hours-minutes = { $hours ->
+    [one] 1 hora
+   *[other] { $hours } horas
+} { $minutes ->
+    [one] 1 minuto
+   *[other] { $minutes } minutos
+}
+settings-power-mode = Modo de energia
+settings-power-mode-detail = Troque autonomia por velocidade; o sistema guarda a escolha
+settings-power-no-daemon = O power-profiles-daemon não está em execução, por isso não é possível mudar o modo de energia
+settings-power-mode-power-saver = Poupança de energia
+settings-power-mode-balanced = Equilibrado
+settings-power-mode-performance = Desempenho
+settings-power-mode-refused = O modo de energia não foi alterado: { $reason }
+settings-power-mode-degraded = O hardware está a limitar o desempenho
+settings-power-mode-degraded-lap = O desempenho fica limitado enquanto o computador está ao colo
+settings-power-mode-degraded-heat = O desempenho fica limitado enquanto o computador está demasiado quente
+settings-power-link-idle-detail = Quando o ecrã escurece, se desliga e o computador suspende
+settings-power-link-lock-detail = Como o ecrã bloqueia e desbloqueia

@@ -26,6 +26,7 @@ const (
 	ErrUnknownProperty = "org.freedesktop.DBus.Error.UnknownProperty"
 	ErrUnknownIface    = "org.freedesktop.DBus.Error.UnknownInterface"
 	ErrPropertyRO      = "org.freedesktop.DBus.Error.PropertyReadOnly"
+	ErrServiceUnknown  = "org.freedesktop.DBus.Error.ServiceUnknown"
 )
 
 // ErrNameTaken is what Own and Serve wrap when another connection

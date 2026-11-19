@@ -734,7 +734,7 @@ settings-nav-input = Eingabe
 settings-nav-notifications-focus = Mitteilungen & Fokus
     .description = Mitteilungen, Nicht stören und Bildschirmanzeigen
 settings-nav-power = Energie & Akku
-    .description = Wann der Bildschirm abdunkelt, sperrt und ruht
+    .description = Akku, Energiemodus und wann der Bildschirm abdunkelt, sperrt und ruht
 settings-nav-apps = Apps
     .description = Standard-Apps, Anmeldeobjekte und der Starter
 settings-nav-privacy-security = Datenschutz & Sicherheit
@@ -926,3 +926,58 @@ settings-overview-sound-muted = { $device } · stumm
 settings-overview-wifi = WLAN: { $name }
 settings-overview-wired = Kabelgebunden
 settings-overview-offline = Nicht verbunden
+settings-nav-power-battery = Akku & Energiemodus
+settings-page-power-battery = Akku & Energiemodus
+settings-section-power-alerts = Akku-Hinweise
+    .description = Benachrichtigungen zum Akku und wann von selbst Energie gespart wird
+settings-power-section-battery = Akku
+settings-power-section-mode = Energiemodus
+settings-power-section-sleep = Ruhezustand & Sperre
+settings-power-loading = Akku und Energiemodus werden gelesen…
+settings-power-unavailable = Akku und Energiemodus können nicht gelesen werden
+settings-power-battery = Akku
+settings-power-no-upower = UPower läuft nicht, daher kann der Akku nicht gelesen werden
+settings-power-no-battery = Dieser Computer hat keinen Akku; er läuft am Netz
+settings-power-percent = { $percent ->
+    [one] { $percent } %
+   *[other] { $percent } %
+}
+settings-power-health = Zustand
+settings-power-health-detail = { $percent ->
+    [one] Hält { $percent } % seiner Nennkapazität
+   *[other] Hält { $percent } % seiner Nennkapazität
+}
+settings-power-charge-limit = Ladegrenze
+settings-power-charge-limit-detail = { $percent ->
+    [one] Hört bei { $percent } % auf zu laden, um den Akku zu schonen
+   *[other] Hört bei { $percent } % auf zu laden, um den Akku zu schonen
+}
+settings-power-charge-limit-refused = Die Ladegrenze wurde nicht geändert: { $reason }
+settings-power-state-unknown = Zustand unbekannt
+settings-power-state-charging = Wird geladen
+settings-power-state-discharging = Akkubetrieb
+settings-power-state-empty = Leer
+settings-power-state-full = Vollständig geladen
+settings-power-state-not-charging = Angeschlossen, lädt nicht
+settings-power-state-with-time = { $state } · { $time }
+settings-power-time-to-full = voll in { $time }
+settings-power-time-to-empty = noch { $time }
+settings-power-hours-minutes = { $hours ->
+    [one] 1 Stunde
+   *[other] { $hours } Stunden
+} { $minutes ->
+    [one] 1 Minute
+   *[other] { $minutes } Minuten
+}
+settings-power-mode = Energiemodus
+settings-power-mode-detail = Akkulaufzeit gegen Geschwindigkeit abwägen; das System merkt sich die Wahl
+settings-power-no-daemon = power-profiles-daemon läuft nicht, daher kann der Energiemodus nicht geändert werden
+settings-power-mode-power-saver = Energiesparen
+settings-power-mode-balanced = Ausgewogen
+settings-power-mode-performance = Leistung
+settings-power-mode-refused = Der Energiemodus wurde nicht geändert: { $reason }
+settings-power-mode-degraded = Die Leistung ist gerade durch die Hardware begrenzt
+settings-power-mode-degraded-lap = Die Leistung ist begrenzt, solange der Computer auf dem Schoß liegt
+settings-power-mode-degraded-heat = Die Leistung ist begrenzt, solange der Computer zu heiß ist
+settings-power-link-idle-detail = Wann der Bildschirm abdunkelt, ausgeht und der Computer ruht
+settings-power-link-lock-detail = Wie der Bildschirm sperrt und entsperrt

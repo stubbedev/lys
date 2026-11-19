@@ -659,7 +659,6 @@ type agentRegistration struct {
 // was never registered, or NM is not running.
 const (
 	errAgentNotRegistered = "org.freedesktop.NetworkManager.AgentManager.NotRegistered"
-	errServiceUnknown     = "org.freedesktop.DBus.Error.ServiceUnknown"
 )
 
 // register announces the agent to the NM that gained its name with the
@@ -700,7 +699,7 @@ func (r *agentRegistration) unregister() error {
 	if err == nil || errors.Is(err, dbus.ErrClosed) {
 		return nil
 	}
-	if dbusErr, ok := errors.AsType[dbus.Error](err); ok && (dbusErr.Name == errAgentNotRegistered || dbusErr.Name == errServiceUnknown) {
+	if dbusErr, ok := errors.AsType[dbus.Error](err); ok && (dbusErr.Name == errAgentNotRegistered || dbusErr.Name == dbusx.ErrServiceUnknown) {
 		return nil
 	}
 	return fmt.Errorf("network: unregister the secret agent: %w", err)

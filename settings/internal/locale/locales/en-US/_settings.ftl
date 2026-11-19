@@ -734,7 +734,7 @@ settings-nav-input = Input
 settings-nav-notifications-focus = Notifications & Focus
     .description = Notifications, Do Not Disturb and on-screen messages
 settings-nav-power = Power & Battery
-    .description = When the screen dims, locks and sleeps
+    .description = Battery, power mode, and when the screen dims, locks and sleeps
 settings-nav-apps = Apps
     .description = Default apps, login items and the launcher
 settings-nav-privacy-security = Privacy & Security
@@ -926,3 +926,58 @@ settings-overview-sound-muted = { $device } · muted
 settings-overview-wifi = Wi-Fi: { $name }
 settings-overview-wired = Wired
 settings-overview-offline = Not connected
+settings-nav-power-battery = Battery & Power Mode
+settings-page-power-battery = Battery & Power Mode
+settings-section-power-alerts = Battery Alerts
+    .description = Notifications about the battery, and when to save power by itself
+settings-power-section-battery = Battery
+settings-power-section-mode = Power Mode
+settings-power-section-sleep = Sleep & Lock
+settings-power-loading = Reading the battery and power mode…
+settings-power-unavailable = The battery and power mode cannot be read
+settings-power-battery = Battery
+settings-power-no-upower = UPower is not running, so the battery cannot be read
+settings-power-no-battery = This computer has no battery; it runs on mains power
+settings-power-percent = { $percent ->
+    [one] { $percent }%
+   *[other] { $percent }%
+}
+settings-power-health = Health
+settings-power-health-detail = { $percent ->
+    [one] Holds { $percent }% of its design capacity
+   *[other] Holds { $percent }% of its design capacity
+}
+settings-power-charge-limit = Charge limit
+settings-power-charge-limit-detail = { $percent ->
+    [one] Stops charging at { $percent }% to spare the battery
+   *[other] Stops charging at { $percent }% to spare the battery
+}
+settings-power-charge-limit-refused = The charge limit was not changed: { $reason }
+settings-power-state-unknown = State unknown
+settings-power-state-charging = Charging
+settings-power-state-discharging = On battery
+settings-power-state-empty = Empty
+settings-power-state-full = Fully charged
+settings-power-state-not-charging = Plugged in, not charging
+settings-power-state-with-time = { $state } · { $time }
+settings-power-time-to-full = full in { $time }
+settings-power-time-to-empty = { $time } left
+settings-power-hours-minutes = { $hours ->
+    [one] 1 hour
+   *[other] { $hours } hours
+} { $minutes ->
+    [one] 1 minute
+   *[other] { $minutes } minutes
+}
+settings-power-mode = Power mode
+settings-power-mode-detail = Trade battery life for speed; the system keeps the choice
+settings-power-no-daemon = power-profiles-daemon is not running, so the power mode cannot be changed
+settings-power-mode-power-saver = Power Saver
+settings-power-mode-balanced = Balanced
+settings-power-mode-performance = Performance
+settings-power-mode-refused = The power mode was not changed: { $reason }
+settings-power-mode-degraded = Performance is limited by the hardware right now
+settings-power-mode-degraded-lap = Performance is limited while the computer sits on a lap
+settings-power-mode-degraded-heat = Performance is limited while the computer is too hot
+settings-power-link-idle-detail = When the screen dims, turns off, and the computer sleeps
+settings-power-link-lock-detail = How the screen locks and unlocks

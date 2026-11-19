@@ -724,7 +724,7 @@ settings-nav-input = Invoer
 settings-nav-notifications-focus = Meldingen en focus
     .description = Meldingen, Niet storen en schermberichten
 settings-nav-power = Energie en batterij
-    .description = Wanneer het scherm dimt, vergrendelt en slaapt
+    .description = Batterij, energiestand en wanneer het scherm dimt, vergrendelt en slaapt
 settings-nav-apps = Apps
     .description = Standaard-apps, aanmeldonderdelen en de starter
 settings-nav-privacy-security = Privacy en beveiliging
@@ -916,3 +916,58 @@ settings-overview-sound-muted = { $device } · gedempt
 settings-overview-wifi = Wifi: { $name }
 settings-overview-wired = Bekabeld
 settings-overview-offline = Niet verbonden
+settings-nav-power-battery = Batterij en energiestand
+settings-page-power-battery = Batterij en energiestand
+settings-section-power-alerts = Batterijmeldingen
+    .description = Meldingen over de batterij, en wanneer vanzelf energie wordt bespaard
+settings-power-section-battery = Batterij
+settings-power-section-mode = Energiestand
+settings-power-section-sleep = Slaap en vergrendeling
+settings-power-loading = Batterij en energiestand worden gelezen…
+settings-power-unavailable = De batterij en energiestand kunnen niet worden gelezen
+settings-power-battery = Batterij
+settings-power-no-upower = UPower draait niet, dus de batterij kan niet worden gelezen
+settings-power-no-battery = Deze computer heeft geen batterij; hij draait op netstroom
+settings-power-percent = { $percent ->
+    [one] { $percent }%
+   *[other] { $percent }%
+}
+settings-power-health = Conditie
+settings-power-health-detail = { $percent ->
+    [one] Houdt { $percent }% van zijn ontwerpcapaciteit
+   *[other] Houdt { $percent }% van zijn ontwerpcapaciteit
+}
+settings-power-charge-limit = Laadlimiet
+settings-power-charge-limit-detail = { $percent ->
+    [one] Stopt met laden bij { $percent }% om de batterij te sparen
+   *[other] Stopt met laden bij { $percent }% om de batterij te sparen
+}
+settings-power-charge-limit-refused = De laadlimiet is niet gewijzigd: { $reason }
+settings-power-state-unknown = Status onbekend
+settings-power-state-charging = Bezig met laden
+settings-power-state-discharging = Op batterij
+settings-power-state-empty = Leeg
+settings-power-state-full = Volledig opgeladen
+settings-power-state-not-charging = Aangesloten, laadt niet
+settings-power-state-with-time = { $state } · { $time }
+settings-power-time-to-full = vol over { $time }
+settings-power-time-to-empty = nog { $time }
+settings-power-hours-minutes = { $hours ->
+    [one] 1 uur
+   *[other] { $hours } uur
+} { $minutes ->
+    [one] 1 minuut
+   *[other] { $minutes } minuten
+}
+settings-power-mode = Energiestand
+settings-power-mode-detail = Ruil batterijduur in voor snelheid; het systeem onthoudt de keuze
+settings-power-no-daemon = power-profiles-daemon draait niet, dus de energiestand kan niet worden gewijzigd
+settings-power-mode-power-saver = Energiebesparing
+settings-power-mode-balanced = Gebalanceerd
+settings-power-mode-performance = Prestaties
+settings-power-mode-refused = De energiestand is niet gewijzigd: { $reason }
+settings-power-mode-degraded = De hardware beperkt de prestaties op dit moment
+settings-power-mode-degraded-lap = De prestaties zijn beperkt zolang de computer op schoot ligt
+settings-power-mode-degraded-heat = De prestaties zijn beperkt zolang de computer te warm is
+settings-power-link-idle-detail = Wanneer het scherm dimt, uitgaat en de computer slaapt
+settings-power-link-lock-detail = Hoe het scherm vergrendelt en ontgrendelt

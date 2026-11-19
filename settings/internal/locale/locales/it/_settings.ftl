@@ -735,7 +735,7 @@ settings-nav-input = Input
 settings-nav-notifications-focus = Notifiche e concentrazione
     .description = Notifiche, Non disturbare e messaggi a schermo
 settings-nav-power = Alimentazione e batteria
-    .description = Quando lo schermo si attenua, si blocca e va in sospensione
+    .description = Batteria, modalità energetica e quando lo schermo si attenua, si blocca e va in sospensione
 settings-nav-apps = App
     .description = App predefinite, elementi di accesso e l'avviatore
 settings-nav-privacy-security = Privacy e sicurezza
@@ -927,3 +927,58 @@ settings-overview-sound-muted = { $device } · muto
 settings-overview-wifi = Wi-Fi: { $name }
 settings-overview-wired = Cablata
 settings-overview-offline = Non connesso
+settings-nav-power-battery = Batteria e modalità energetica
+settings-page-power-battery = Batteria e modalità energetica
+settings-section-power-alerts = Avvisi della batteria
+    .description = Notifiche sulla batteria e quando risparmiare energia da solo
+settings-power-section-battery = Batteria
+settings-power-section-mode = Modalità energetica
+settings-power-section-sleep = Sospensione e blocco
+settings-power-loading = Lettura della batteria e della modalità energetica…
+settings-power-unavailable = Non è possibile leggere la batteria e la modalità energetica
+settings-power-battery = Batteria
+settings-power-no-upower = UPower non è in esecuzione, quindi la batteria non può essere letta
+settings-power-no-battery = Questo computer non ha una batteria; funziona con l'alimentazione di rete
+settings-power-percent = { $percent ->
+    [one] { $percent }%
+   *[other] { $percent }%
+}
+settings-power-health = Salute
+settings-power-health-detail = { $percent ->
+    [one] Conserva il { $percent }% della capacità di progetto
+   *[other] Conserva il { $percent }% della capacità di progetto
+}
+settings-power-charge-limit = Limite di carica
+settings-power-charge-limit-detail = { $percent ->
+    [one] Smette di caricare al { $percent }% per preservare la batteria
+   *[other] Smette di caricare al { $percent }% per preservare la batteria
+}
+settings-power-charge-limit-refused = Il limite di carica non è stato cambiato: { $reason }
+settings-power-state-unknown = Stato sconosciuto
+settings-power-state-charging = In carica
+settings-power-state-discharging = A batteria
+settings-power-state-empty = Scarica
+settings-power-state-full = Carica completa
+settings-power-state-not-charging = Collegato, non in carica
+settings-power-state-with-time = { $state } · { $time }
+settings-power-time-to-full = piena tra { $time }
+settings-power-time-to-empty = restano { $time }
+settings-power-hours-minutes = { $hours ->
+    [one] 1 ora
+   *[other] { $hours } ore
+} { $minutes ->
+    [one] 1 minuto
+   *[other] { $minutes } minuti
+}
+settings-power-mode = Modalità energetica
+settings-power-mode-detail = Scambia autonomia con velocità; il sistema ricorda la scelta
+settings-power-no-daemon = power-profiles-daemon non è in esecuzione, quindi la modalità energetica non può essere cambiata
+settings-power-mode-power-saver = Risparmio energetico
+settings-power-mode-balanced = Bilanciata
+settings-power-mode-performance = Prestazioni
+settings-power-mode-refused = La modalità energetica non è stata cambiata: { $reason }
+settings-power-mode-degraded = L'hardware sta limitando le prestazioni
+settings-power-mode-degraded-lap = Le prestazioni sono limitate mentre il computer è sulle gambe
+settings-power-mode-degraded-heat = Le prestazioni sono limitate mentre il computer è troppo caldo
+settings-power-link-idle-detail = Quando lo schermo si attenua, si spegne e il computer va in sospensione
+settings-power-link-lock-detail = Come lo schermo si blocca e si sblocca

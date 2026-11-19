@@ -41,10 +41,13 @@ type choiceCard struct {
 }
 
 func newChoiceCards(k *kit, s slot, meta config.FieldMeta, pictures map[string]picture) *choiceCards {
+	return newCards(k, s, meta.Variants, enumLabels(meta), pictures)
+}
+
+func newCards(k *kit, s slot, values, labels []string, pictures map[string]picture) *choiceCards {
 	c := &choiceCards{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), slot: s}
 	c.AddClass("choice-cards")
-	labels := enumLabels(meta)
-	for i, v := range meta.Variants {
+	for i, v := range values {
 		card := &choiceCard{Base: widget.NewBase(), k: k, owner: c, value: v, label: labels[i], pic: pictures[v]}
 		card.SetAccessibleName(labels[i])
 		if name := pictures[v].icon; name != "" {

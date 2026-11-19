@@ -164,13 +164,6 @@ func (c *nmControl) changes(ctx context.Context) (<-chan struct{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("follow NetworkManager: %w", err)
 	}
-	out := make(chan struct{}, 1)
-	tick := func() {
-		select {
-		case out <- struct{}{}:
-		default:
-		}
-	}
 	profiles := c.svc.Settings.Changes(ctx)
 	radios, stopRadios, err := c.radio.Subscribe(ctx)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -179,31 +172,7 @@ func (c *nmControl) changes(ctx context.Context) (<-chan struct{}, error) {
 	if err != nil {
 		return nil, errors.Join(err, stopNM())
 	}
-	go func() {
-		defer close(out)
-		defer func() { _ = errors.Join(stopNM(), stopRadios()) }()
-		for nm != nil || profiles != nil || radios != nil {
-			select {
-			case _, ok := <-nm:
-				if !ok {
-					nm = nil
-					continue
-				}
-			case _, ok := <-profiles:
-				if !ok {
-					profiles = nil
-					continue
-				}
-			case _, ok := <-radios:
-				if !ok {
-					radios = nil
-					continue
-				}
-			}
-			tick()
-		}
-	}()
-	return out, nil
+	return mergeTicks("the network", func() error { return errors.Join(stopNM(), stopRadios()) }, nm, profiles, radios), nil
 }
 
 func (c *nmControl) wifi() (*network.Wifi, error) {
@@ -322,7 +291,7 @@ func newNetworkPanel(k *kit) *networkPanel {
 		if err != nil {
 			return opened{err: err}
 		}
-		st, err := callNet(ctl.read)
+		st, err := callWithin(networkCallWait, ctl.read)
 		if err != nil {
 			return opened{err: errors.Join(err, ctl.close())}
 		}
@@ -344,12 +313,6 @@ func newNetworkPanel(k *kit) *networkPanel {
 	return p
 }
 
-func callNet[T any](fn func(context.Context) (T, error)) (T, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), networkCallWait)
-	defer cancel()
-	return fn(ctx)
-}
-
 func (p *networkPanel) unavailable(err error) {
 	p.status.Clear()
 	p.netsSec.SetVisible(false)
@@ -365,14 +328,7 @@ func (p *networkPanel) follow() {
 		p.fail(err)
 		return
 	}
-	if p.k.background == nil {
-		return
-	}
-	go func() {
-		for range ticks {
-			p.k.invoke(p.reload)
-		}
-	}()
+	followTicks(p.k, ticks, p.reload)
 }
 
 func (p *networkPanel) reload() {
@@ -381,7 +337,7 @@ func (p *networkPanel) reload() {
 	}
 	ctl := p.ctl
 	async(p.k, func() netReadResult {
-		st, err := callNet(ctl.read)
+		st, err := callWithin(networkCallWait, ctl.read)
 		return netReadResult{st, err}
 	}, func(r netReadResult) {
 		if p.closed {
@@ -407,8 +363,7 @@ func (p *networkPanel) run(work func(ctx context.Context) error) {
 		return
 	}
 	async(p.k, func() error {
-		_, err := callNet(func(ctx context.Context) (struct{}, error) { return struct{}{}, work(ctx) })
-		return err
+		return doWithin(networkCallWait, work)
 	}, func(err error) {
 		p.pending = ""
 		p.fail(err)

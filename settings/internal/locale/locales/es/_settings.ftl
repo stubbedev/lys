@@ -735,7 +735,7 @@ settings-nav-input = Entrada
 settings-nav-notifications-focus = Notificaciones y concentración
     .description = Notificaciones, No molestar y avisos en pantalla
 settings-nav-power = Energía y batería
-    .description = Cuándo la pantalla se atenúa, se bloquea y se suspende
+    .description = Batería, modo de energía y cuándo la pantalla se atenúa, se bloquea y se suspende
 settings-nav-apps = Aplicaciones
     .description = Aplicaciones predeterminadas, inicio de sesión y el lanzador
 settings-nav-privacy-security = Privacidad y seguridad
@@ -927,3 +927,58 @@ settings-overview-sound-muted = { $device } · silenciado
 settings-overview-wifi = Wi-Fi: { $name }
 settings-overview-wired = Cableada
 settings-overview-offline = Sin conexión
+settings-nav-power-battery = Batería y modo de energía
+settings-page-power-battery = Batería y modo de energía
+settings-section-power-alerts = Avisos de batería
+    .description = Notificaciones sobre la batería y cuándo ahorrar energía por sí solo
+settings-power-section-battery = Batería
+settings-power-section-mode = Modo de energía
+settings-power-section-sleep = Suspensión y bloqueo
+settings-power-loading = Leyendo la batería y el modo de energía…
+settings-power-unavailable = No se pueden leer la batería ni el modo de energía
+settings-power-battery = Batería
+settings-power-no-upower = UPower no se está ejecutando, así que no se puede leer la batería
+settings-power-no-battery = Este equipo no tiene batería; funciona con la corriente
+settings-power-percent = { $percent ->
+    [one] { $percent } %
+   *[other] { $percent } %
+}
+settings-power-health = Salud
+settings-power-health-detail = { $percent ->
+    [one] Conserva el { $percent } % de su capacidad de diseño
+   *[other] Conserva el { $percent } % de su capacidad de diseño
+}
+settings-power-charge-limit = Límite de carga
+settings-power-charge-limit-detail = { $percent ->
+    [one] Deja de cargar al { $percent } % para cuidar la batería
+   *[other] Deja de cargar al { $percent } % para cuidar la batería
+}
+settings-power-charge-limit-refused = No se cambió el límite de carga: { $reason }
+settings-power-state-unknown = Estado desconocido
+settings-power-state-charging = Cargando
+settings-power-state-discharging = Con batería
+settings-power-state-empty = Vacía
+settings-power-state-full = Carga completa
+settings-power-state-not-charging = Enchufado, sin cargar
+settings-power-state-with-time = { $state } · { $time }
+settings-power-time-to-full = llena en { $time }
+settings-power-time-to-empty = quedan { $time }
+settings-power-hours-minutes = { $hours ->
+    [one] 1 hora
+   *[other] { $hours } horas
+} { $minutes ->
+    [one] 1 minuto
+   *[other] { $minutes } minutos
+}
+settings-power-mode = Modo de energía
+settings-power-mode-detail = Cambia autonomía por velocidad; el sistema recuerda la elección
+settings-power-no-daemon = power-profiles-daemon no se está ejecutando, así que no se puede cambiar el modo de energía
+settings-power-mode-power-saver = Ahorro de energía
+settings-power-mode-balanced = Equilibrado
+settings-power-mode-performance = Rendimiento
+settings-power-mode-refused = No se cambió el modo de energía: { $reason }
+settings-power-mode-degraded = El hardware limita ahora el rendimiento
+settings-power-mode-degraded-lap = El rendimiento se limita mientras el equipo está sobre las piernas
+settings-power-mode-degraded-heat = El rendimiento se limita mientras el equipo está demasiado caliente
+settings-power-link-idle-detail = Cuándo la pantalla se atenúa, se apaga y el equipo se suspende
+settings-power-link-lock-detail = Cómo se bloquea y desbloquea la pantalla

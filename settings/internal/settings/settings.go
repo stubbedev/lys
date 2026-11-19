@@ -80,6 +80,7 @@ func Run(page, setting string) error {
 		systemBus:  dialSystemBus,
 		network:    func() (netControl, error) { return openNetwork(dialSystemBus) },
 		statuses:   tileStatuses,
+		power:      func() (powerControl, error) { return openPower(dialSystemBus) },
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })

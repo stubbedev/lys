@@ -32,6 +32,7 @@ ld-key-round-symbolic
 ld-layers-symbolic
 ld-layout-dashboard-symbolic
 ld-layout-grid-symbolic
+ld-leaf-symbolic
 ld-lock-open-symbolic
 ld-lock-symbolic
 ld-mail-symbolic

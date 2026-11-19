@@ -737,7 +737,7 @@ settings-nav-input = Saisie
 settings-nav-notifications-focus = Notifications et concentration
     .description = Notifications, Ne pas déranger et messages à l'écran
 settings-nav-power = Alimentation et batterie
-    .description = Quand l'écran s'assombrit, se verrouille et se met en veille
+    .description = Batterie, mode d'alimentation et quand l'écran s'assombrit, se verrouille et se met en veille
 settings-nav-apps = Applications
     .description = Applications par défaut, ouverture de session et lanceur
 settings-nav-privacy-security = Confidentialité et sécurité
@@ -929,3 +929,58 @@ settings-overview-sound-muted = { $device } · muet
 settings-overview-wifi = Wi-Fi : { $name }
 settings-overview-wired = Filaire
 settings-overview-offline = Non connecté
+settings-nav-power-battery = Batterie et mode d'alimentation
+settings-page-power-battery = Batterie et mode d'alimentation
+settings-section-power-alerts = Alertes de batterie
+    .description = Notifications sur la batterie, et quand économiser l'énergie de lui-même
+settings-power-section-battery = Batterie
+settings-power-section-mode = Mode d'alimentation
+settings-power-section-sleep = Veille et verrouillage
+settings-power-loading = Lecture de la batterie et du mode d'alimentation…
+settings-power-unavailable = La batterie et le mode d'alimentation ne peuvent pas être lus
+settings-power-battery = Batterie
+settings-power-no-upower = UPower ne fonctionne pas, la batterie ne peut donc pas être lue
+settings-power-no-battery = Cet ordinateur n'a pas de batterie ; il fonctionne sur secteur
+settings-power-percent = { $percent ->
+    [one] { $percent } %
+   *[other] { $percent } %
+}
+settings-power-health = État
+settings-power-health-detail = { $percent ->
+    [one] Garde { $percent } % de sa capacité d'origine
+   *[other] Garde { $percent } % de sa capacité d'origine
+}
+settings-power-charge-limit = Limite de charge
+settings-power-charge-limit-detail = { $percent ->
+    [one] Arrête la charge à { $percent } % pour ménager la batterie
+   *[other] Arrête la charge à { $percent } % pour ménager la batterie
+}
+settings-power-charge-limit-refused = La limite de charge n'a pas été modifiée : { $reason }
+settings-power-state-unknown = État inconnu
+settings-power-state-charging = En charge
+settings-power-state-discharging = Sur batterie
+settings-power-state-empty = Vide
+settings-power-state-full = Chargée
+settings-power-state-not-charging = Branché, pas en charge
+settings-power-state-with-time = { $state } · { $time }
+settings-power-time-to-full = pleine dans { $time }
+settings-power-time-to-empty = encore { $time }
+settings-power-hours-minutes = { $hours ->
+    [one] { $hours } heure
+   *[other] { $hours } heures
+} { $minutes ->
+    [one] { $minutes } minute
+   *[other] { $minutes } minutes
+}
+settings-power-mode = Mode d'alimentation
+settings-power-mode-detail = Échanger de l'autonomie contre de la vitesse ; le système garde ce choix
+settings-power-no-daemon = power-profiles-daemon ne fonctionne pas, le mode d'alimentation ne peut donc pas être changé
+settings-power-mode-power-saver = Économie d'énergie
+settings-power-mode-balanced = Équilibré
+settings-power-mode-performance = Performances
+settings-power-mode-refused = Le mode d'alimentation n'a pas été changé : { $reason }
+settings-power-mode-degraded = Le matériel limite les performances en ce moment
+settings-power-mode-degraded-lap = Les performances sont limitées tant que l'ordinateur est sur les genoux
+settings-power-mode-degraded-heat = Les performances sont limitées tant que l'ordinateur est trop chaud
+settings-power-link-idle-detail = Quand l'écran s'assombrit, s'éteint et l'ordinateur se met en veille
+settings-power-link-lock-detail = Comment l'écran se verrouille et se déverrouille

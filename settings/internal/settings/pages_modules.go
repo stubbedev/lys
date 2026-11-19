@@ -159,8 +159,6 @@ func batteryPage(*config.Config) pageSpec {
 			field("modules.battery.format"),
 			field("modules.battery.level-icons", iconList),
 			field("modules.battery.thresholds", thresholdList),
-			field("modules.battery.notify-low"),
-			field("modules.battery.notify-charged-at"),
 		}},
 		barItemSection("modules.battery", actionChoices("battery")),
 	}}
@@ -405,7 +403,6 @@ func powerProfilesPage(*config.Config) pageSpec {
 	return pageSpec{id: "power-profiles", navKey: "settings-nav-power-profiles", icon: "ld-scale-symbolic", header: "settings-page-power-profiles", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.power-profiles.format"),
-			field("modules.power-profiles.auto-saver-at"),
 		}},
 		{title: "settings-section-power-profiles-profiles", rows: []rowSpec{
 			field("modules.power-profiles.icon-power-saver", iconRow),
