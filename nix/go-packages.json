@@ -16,8 +16,14 @@
       "lib/atomicfile"
     ]
   },
+  "desktop/compositor": {
+    "imports": [
+      "lib/wmipc"
+    ]
+  },
   "desktop/config": {
     "imports": [
+      "desktop/compositor",
       "desktop/i18n",
       "desktop/identity",
       "desktop/service/bitwarden/generator",
@@ -453,6 +459,7 @@
       "desktop/styling/css"
     ],
     "testImports": [
+      "desktop/compositor",
       "desktop/styling/material",
       "lib/logtest"
     ]
@@ -2039,6 +2046,7 @@
       "settings/internal/settings"
     ],
     "testImports": [
+      "desktop/identity",
       "lib/testhome"
     ]
   },
@@ -2070,9 +2078,11 @@
   },
   "settings/internal/settings": {
     "imports": [
+      "desktop/compositor",
       "desktop/config",
       "desktop/desktopentry",
       "desktop/i18n",
+      "desktop/identity",
       "desktop/logging",
       "desktop/portal/permissions",
       "desktop/service/clipboard",
@@ -2643,6 +2653,7 @@
   },
   "shell/service/hyprland": {
     "imports": [
+      "desktop/compositor",
       "desktop/ipcsock"
     ],
     "testImports": [
@@ -2736,6 +2747,7 @@
   "shell/service/launcher/launchertest": {},
   "shell/service/launcher/modes": {
     "imports": [
+      "desktop/compositor",
       "desktop/desktopentry",
       "desktop/i18n",
       "desktop/service/clipboard",
@@ -2821,6 +2833,7 @@
       "desktop/fswatch",
       "desktop/i18n",
       "desktop/icons",
+      "desktop/spawn",
       "shell/internal/desktopnotify",
       "shell/internal/jinja"
     ],
@@ -2831,6 +2844,7 @@
   },
   "shell/service/mango": {
     "imports": [
+      "desktop/compositor",
       "desktop/ipcsock"
     ],
     "testImports": [
@@ -2901,6 +2915,7 @@
   },
   "shell/service/niri": {
     "imports": [
+      "desktop/compositor",
       "desktop/ipcsock"
     ],
     "testImports": [
@@ -3067,6 +3082,7 @@
   },
   "shell/service/sway": {
     "imports": [
+      "desktop/compositor",
       "desktop/ipcsock",
       "lib/intconv"
     ],
@@ -3144,6 +3160,7 @@
   },
   "shell/shell/bar": {
     "imports": [
+      "desktop/compositor",
       "desktop/config",
       "desktop/desktopentry",
       "desktop/feed",
