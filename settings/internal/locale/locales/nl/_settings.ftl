@@ -956,6 +956,11 @@ settings-duration-milliseconds = { $n ->
    *[other] { $n } ms
 }
 settings-duration-off = Uit
+settings-framerate = { $n ->
+    [one] 1 beeld per seconde
+   *[other] { $n } fps
+}
+settings-framerate-unit = fps
 settings-advanced-show = Tonen
 settings-advanced-hide = Verbergen
 settings-section-bar-item = Balkonderdeel

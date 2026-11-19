@@ -969,6 +969,11 @@ settings-duration-milliseconds = { $n ->
    *[other] { $n } ms
 }
 settings-duration-off = Désactivé
+settings-framerate = { $n ->
+    [one] 1 image par seconde
+   *[other] { $n } i/s
+}
+settings-framerate-unit = i/s
 settings-advanced-show = Afficher
 settings-advanced-hide = Masquer
 settings-section-bar-item = Élément de la barre

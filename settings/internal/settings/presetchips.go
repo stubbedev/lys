@@ -112,7 +112,15 @@ type countUnit int
 const (
 	inPixels countUnit = iota
 	inEntries
+	inFrames
 )
+
+func (u countUnit) words(n int64) string {
+	if u == inFrames {
+		return locale.T().Get("settings-framerate", i18n.Int("n", n))
+	}
+	return strconv.FormatInt(n, 10)
+}
 
 func (u countUnit) custom() customUnit {
 	switch u {
@@ -120,6 +128,8 @@ func (u countUnit) custom() customUnit {
 		return customUnit{per: 1, name: "settings-unit-pixels", least: 1}
 	case inEntries:
 		return customUnit{per: 1, name: "settings-unit-entries", least: 1}
+	case inFrames:
+		return customUnit{per: 1, name: "settings-framerate-unit", least: 1}
 	}
 	panic(fmt.Sprintf("settings: count unit %d", u))
 }
@@ -169,7 +179,7 @@ func durationChips(u timeUnit, choices ...durationChoice) rowOpt {
 func countChips(u countUnit, values ...int64) rowOpt {
 	presets := make([]preset, len(values))
 	for i, v := range values {
-		presets[i] = preset{value: v, label: func() string { return strconv.FormatInt(v, 10) }}
+		presets[i] = preset{value: v, label: func() string { return u.words(v) }}
 	}
 	return presetChips(u.custom(), presets)
 }

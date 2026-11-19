@@ -967,6 +967,11 @@ settings-duration-milliseconds = { $n ->
    *[other] { $n } ms
 }
 settings-duration-off = Disattivato
+settings-framerate = { $n ->
+    [one] 1 fotogramma al secondo
+   *[other] { $n } fps
+}
+settings-framerate-unit = fps
 settings-advanced-show = Mostra
 settings-advanced-hide = Nascondi
 settings-section-bar-item = Elemento della barra

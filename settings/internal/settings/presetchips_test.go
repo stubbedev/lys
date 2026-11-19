@@ -343,3 +343,28 @@ func TestACountChipWritesItsNumberAndCustomTakesAnyOther(t *testing.T) {
 		t.Errorf("30 entries shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
 }
+
+func TestTheFramerateIsPickedFromChipsInFramesPerSecond(t *testing.T) {
+	k := testKit(t, "")
+	p := pickerOf(t, k, pageRow(t, "recorder", "modules.recorder.framerate"))
+	tr := locale.T()
+	want := []string{tr.Get("settings-framerate", i18n.Int("n", 30)), tr.Get("settings-framerate", i18n.Int("n", 60)), tr.Get("settings-framerate", i18n.Int("n", 120))}
+	if got := chipLabels(p); !slices.Equal(got, want) {
+		t.Fatalf("chips %q, want %q", got, want)
+	}
+	if p.active() != 1 {
+		t.Errorf("the default 60 fps shows chip %d", p.active())
+	}
+	p.chips[2].SetActive(true)
+	if v := k.store.value("modules.recorder.framerate"); v != int64(120) {
+		t.Errorf("120 fps stored %v", v)
+	}
+	k = testKit(t, "modules:\n  recorder:\n    framerate: 24\n")
+	p = pickerOf(t, k, pageRow(t, "recorder", "modules.recorder.framerate"))
+	if !p.typed.Visible() || p.custom.Value() != 24 || !slices.Contains(treetest.Labels(p.typed), tr.Get("settings-framerate-unit")) {
+		t.Errorf("24 fps: number shown %v at %v, beside %q", p.typed.Visible(), p.custom.Value(), treetest.Labels(p.typed))
+	}
+	if lo, _ := p.custom.Range(); lo != 1 {
+		t.Errorf("the custom framerate starts at %v, want 1", lo)
+	}
+}

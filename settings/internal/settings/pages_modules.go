@@ -566,9 +566,7 @@ func recorderPage(*config.Config) pageSpec {
 			field(m + ".show-cursor"),
 			field(m+".start-delay-ms", durationChips(inMilliseconds, after(time.Second), after(3*time.Second), after(5*time.Second), zeroAs(off))),
 		}},
-		// Quality and the encoder are chosen automatically, so the
-		// framerate is the only video knob.
-		{title: "settings-section-video", rows: []rowSpec{field(m+".framerate", spin(1, 240, 1, 0))}},
+		{title: "settings-section-video", rows: []rowSpec{field(m+".framerate", countChips(inFrames, 30, 60, 120))}},
 		{title: "settings-section-audio", rows: []rowSpec{
 			field(m + ".system-audio"),
 			field(m + ".microphone"),
