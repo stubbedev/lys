@@ -3,12 +3,17 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/login/dmsocket"
 	"github.com/stubbedev/lys/login/greeterconfig"
 	"github.com/stubbedev/lys/ui/widget"
@@ -87,6 +92,8 @@ const (
 	greeterApplyInvalid      = "settings-greeter-apply-invalid"
 	greeterApplyUnauthorized = "settings-greeter-apply-unauthorized"
 	greeterApplyDismissed    = "settings-greeter-apply-dismissed"
+	greeterPending           = "settings-greeter-pending"
+	greeterApplied           = "settings-greeter-applied"
 )
 
 var loginRuntimeDir = dmsocket.DefaultRuntimeDir
@@ -100,30 +107,61 @@ func lockLinksSection(k *kit) widget.Widget {
 	return linksSection(k, "settings-lock-section-related", lockLinks)
 }
 
-func lockFooter(k *kit) widget.Widget {
-	box := sectionStack()
-	box.Append(greeterApplyFooter(k), false)
-	box.Append(lockLinksSection(k), false)
-	return box
+type lockFooterBox struct {
+	*widget.Box
+	apply *greeterFooter
 }
 
-func greeterApplyFooter(k *kit) widget.Widget {
-	box := gapBox(widget.Column)
-	box.AddClass("settings-section")
+func (f *lockFooterBox) configChanged() { f.apply.refresh() }
+
+func lockFooter(k *kit) widget.Widget {
+	f := &lockFooterBox{Box: sectionStack(), apply: newGreeterFooter(k)}
+	f.Append(f.apply, false)
+	f.Append(lockLinksSection(k), false)
+	return f
+}
+
+type greeterFooter struct {
+	*widget.Box
+	k      *kit
+	status *widget.Label
+	hint   *widget.Label
+}
+
+func newGreeterFooter(k *kit) *greeterFooter {
 	t := locale.T()
-	hint := k.label(t.Get(greeterApplyHint), "settings-section-title")
-	hint.SetWrap(true)
+	f := &greeterFooter{Box: gapBox(widget.Column), k: k}
+	f.AddClass("settings-section")
+	f.status = wrapped(k.label("", "settings-greeter-status", css.Caption))
+	f.hint = wrapped(k.label(t.Get(greeterApplyHint), "settings-section-title"))
 	apply := func() {
 		async(k, func() error { return applyGreeter(k.store, loginRuntimeDir) }, func(err error) {
 			if err != nil {
 				log.Printf("settings: greeter apply: %v", err)
 			}
-			hint.SetText(greeterApplyOutcome(t, err))
+			f.hint.SetText(greeterApplyOutcome(t, err))
+			f.refresh()
 		})
 	}
-	box.AppendAligned(k.button(k.label(t.Get(greeterApplyLabel)), apply, css.SuggestedAction), false, widget.AlignStart)
-	box.Append(hint, false)
-	return box
+	f.Append(f.status, false)
+	f.AppendAligned(k.button(k.label(t.Get(greeterApplyLabel)), apply, css.SuggestedAction), false, widget.AlignStart)
+	f.Append(f.hint, false)
+	f.refresh()
+	return f
+}
+
+func (f *greeterFooter) refresh() {
+	pending, err := greeterPendingChanges(f.k.store)
+	if err != nil {
+		log.Printf("settings: greeter status: %v", err)
+	}
+	key, class := greeterApplied, css.DimLabel
+	if pending || err != nil {
+		key, class = greeterPending, css.Warning
+	}
+	f.status.RemoveClass(css.DimLabel, css.Warning)
+	f.status.AddClass(class)
+	f.status.SetText(locale.T().Get(key))
 }
 
 func greeterApplyOutcome(t *i18n.Loader, err error) string {
@@ -153,18 +191,55 @@ func greeterApplyOutcome(t *i18n.Loader, err error) string {
 	}
 }
 
-func applyGreeter(s store, runtimeDir string) error {
+func greeterDocument(s store) (string, error) {
 	login := make(map[string]any, len(config.GreeterApplyKeys))
 	for _, key := range config.GreeterApplyKeys {
 		if v := s.value("login." + key); v != nil {
 			if err := config.InsertPath(login, key, v); err != nil {
-				return fmt.Errorf("stage login.%s: %w", key, err)
+				return "", fmt.Errorf("stage login.%s: %w", key, err)
 			}
 		}
 	}
 	body, err := config.YAMLDocument(map[string]any{"login": login})
 	if err != nil {
-		return fmt.Errorf("stage the login screen settings: %w", err)
+		return "", fmt.Errorf("stage the login screen settings: %w", err)
+	}
+	return body, nil
+}
+
+const greeterAppliedFile = "greeter-applied.yaml"
+
+func greeterAppliedPath() (string, error) {
+	dir, ok := xdg.OS.StateDir("lys-settings")
+	if !ok {
+		return "", errors.New("no state directory to remember the applied login screen settings in")
+	}
+	return filepath.Join(dir, greeterAppliedFile), nil
+}
+
+func greeterPendingChanges(s store) (bool, error) {
+	body, err := greeterDocument(s)
+	if err != nil {
+		return false, err
+	}
+	path, err := greeterAppliedPath()
+	if err != nil {
+		return false, err
+	}
+	applied, err := os.ReadFile(path) //nolint:gosec // lys-settings's own state file
+	if errors.Is(err, fs.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read the applied login screen settings: %w", err)
+	}
+	return body != string(applied), nil
+}
+
+func applyGreeter(s store, runtimeDir string) error {
+	body, err := greeterDocument(s)
+	if err != nil {
+		return err
 	}
 	c, err := greeterconfig.NewChange(body)
 	if err != nil {
@@ -172,6 +247,16 @@ func applyGreeter(s store, runtimeDir string) error {
 	}
 	if _, err := dmsocket.Apply.Send(runtimeDir, c); err != nil {
 		return fmt.Errorf("apply the login screen settings: %w", err)
+	}
+	path, err := greeterAppliedPath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("remember the applied login screen settings: %w", err)
+	}
+	if err := atomicfile.WriteFile(path, []byte(body), 0o600); err != nil {
+		return fmt.Errorf("remember the applied login screen settings: %w", err)
 	}
 	return nil
 }

@@ -81,7 +81,7 @@ Some pages also act on the system:
 | Default Apps | Default app per category and file type; the terminal | `mimeapps.list` |
 | Passwords | Filter, reveal and copy keyring items; how many minutes until a reveal asks for the collection password again | Secret Service |
 | Privacy | Per-app portal grants: background and notifications switch on or off, GameMode and realtime are read-only, others can be revoked; the screen-share reminder | xdg-desktop-portal permission store |
-| Login & Lock Screen | **Apply to login screen** sends the background, clock and login screen settings to lys-login's display manager, which asks polkit when you are not the logged-in user; the footer says whether they were applied, invalid, not authorized, or the authentication was dismissed | `/run/lys-login/apply.sock` |
+| Login & Lock Screen | **Apply to login screen** sends the background, clock and login screen settings to lys-login's display manager, which asks polkit when you are not the logged-in user; the footer says whether they were applied, invalid, not authorized, or the authentication was dismissed, and whether the login screen has changes not applied yet (the last applied settings are kept in `~/.local/state/lys-settings/greeter-applied.yaml`) | `/run/lys-login/apply.sock` |
 | Notifications | **Send Test Notification** shows a notification with the settings on the page; the page says why when nothing answers | org.freedesktop.Notifications |
 | On-Screen Display | **Show OSD** shows a volume toast with the settings on the page; each toast preset's **Show** shows that preset and the card names the `lys-shell toast --preset` line that does the same | `lys-shell toast` |
 | Displays (`wm-outputs`) | Output layout, tested and applied live | wlr-output-management |

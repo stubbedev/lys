@@ -150,8 +150,9 @@ func clickGreeterApply(t *testing.T, runtimeDir string) []string {
 	saved := loginRuntimeDir
 	loginRuntimeDir = runtimeDir
 	t.Cleanup(func() { loginRuntimeDir = saved })
-	footer := greeterApplyFooter(k).(*widget.Box)
-	greeterApplyButton(t, footer).ClickAt(widget.Point{})
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	footer := newGreeterFooter(k)
+	greeterApplyButton(t, footer.Box).ClickAt(widget.Point{})
 	return treetest.Labels(footer)
 }
 
@@ -162,27 +163,28 @@ func TestGreeterApplyNamesWhatHappened(t *testing.T) {
 		name   string
 		answer dmsocket.Reply
 		want   string
+		status string
 	}{
-		{"applied", dmsocket.Answer("/etc/lys-shell/runtime.yaml", nil), tr.Get(greeterApplyDone)},
+		{"applied", dmsocket.Answer("/etc/lys-shell/runtime.yaml", nil), tr.Get(greeterApplyDone), tr.Get(greeterApplied)},
 		{
 			"invalid", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Invalid, "no recognised login screen keys")),
-			tr.Get(greeterApplyInvalid, i18n.Str("reason", "no recognised login screen keys")),
+			tr.Get(greeterApplyInvalid, i18n.Str("reason", "no recognised login screen keys")), tr.Get(greeterPending),
 		},
 		{
 			"not authorized", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Unauthorized, "polkit does not authorize uid 1000")),
-			tr.Get(greeterApplyUnauthorized, i18n.Str("reason", "polkit does not authorize uid 1000")),
+			tr.Get(greeterApplyUnauthorized, i18n.Str("reason", "polkit does not authorize uid 1000")), tr.Get(greeterPending),
 		},
-		{"dismissed", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Dismissed, "the authentication was dismissed")), tr.Get(greeterApplyDismissed)},
+		{"dismissed", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Dismissed, "the authentication was dismissed")), tr.Get(greeterApplyDismissed), tr.Get(greeterPending)},
 		{
 			"failed", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Failed, "write /etc/lys-shell/runtime.yaml: disk full")),
-			tr.Get(greeterApplyFailed, i18n.Str("reason", "write /etc/lys-shell/runtime.yaml: disk full")),
+			tr.Get(greeterApplyFailed, i18n.Str("reason", "write /etc/lys-shell/runtime.yaml: disk full")), tr.Get(greeterPending),
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			dir, daemon := serveFakeDaemon(t, c.answer)
 			labels := clickGreeterApply(t, dir)
 			daemon.request(t)
-			if want := []string{tr.Get(greeterApplyLabel), c.want}; !slices.Equal(labels, want) {
+			if want := []string{c.status, tr.Get(greeterApplyLabel), c.want}; !slices.Equal(labels, want) {
 				t.Errorf("the footer shows %q, want %q", labels, want)
 			}
 		})
@@ -193,15 +195,16 @@ func TestGreeterApplyWithoutTheDisplayManager(t *testing.T) {
 	noPrograms(t)
 	tr := locale.T()
 	labels := clickGreeterApply(t, sockdir.Dir(t))
-	if want := []string{tr.Get(greeterApplyLabel), tr.Get(greeterApplyNoDaemon)}; !slices.Equal(labels, want) {
+	if want := []string{tr.Get(greeterPending), tr.Get(greeterApplyLabel), tr.Get(greeterApplyNoDaemon)}; !slices.Equal(labels, want) {
 		t.Errorf("without a daemon the footer shows %q, want %q", labels, want)
 	}
 }
 
 func TestGreeterApplyFooterStartsWithWhatApplyingChanges(t *testing.T) {
 	tr := locale.T()
-	labels := treetest.Labels(greeterApplyFooter(testKit(t, "")))
-	if want := []string{tr.Get(greeterApplyLabel), tr.Get(greeterApplyHint)}; !slices.Equal(labels, want) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	labels := treetest.Labels(newGreeterFooter(testKit(t, "")))
+	if want := []string{tr.Get(greeterPending), tr.Get(greeterApplyLabel), tr.Get(greeterApplyHint)}; !slices.Equal(labels, want) {
 		t.Errorf("the footer shows %q, want %q", labels, want)
 	}
 }
@@ -224,6 +227,42 @@ func TestTheLockPageLinksToWhenItLocksAndTheFingerprints(t *testing.T) {
 	k.nav = nil
 	if labels := treetest.Labels(lockLinksSection(k)); len(labels) != 0 {
 		t.Errorf("without those pages the links read %q", labels)
+	}
+}
+
+func TestTheLoginScreenSaysWhetherItsSettingsWereApplied(t *testing.T) {
+	noPrograms(t)
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	tr := locale.T()
+	k := testKit(t, "")
+	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), "lock")
+	p := buildPage(k, spec)
+	f := treetest.All[*greeterFooter](p)[0]
+	if got := f.status.Text(); got != tr.Get(greeterPending) {
+		t.Fatalf("never applied, the footer says %q", got)
+	}
+	dir, daemon := serveFakeDaemon(t, dmsocket.Answer("/etc/lys-shell/runtime.yaml", nil))
+	if err := applyGreeter(k.store, dir); err != nil {
+		t.Fatal(err)
+	}
+	daemon.request(t)
+	p.refresh()
+	if got := f.status.Text(); got != tr.Get(greeterApplied) {
+		t.Fatalf("after applying, the footer says %q", got)
+	}
+	if err := k.store.set("login.max-attempts", int64(3)); err != nil {
+		t.Fatal(err)
+	}
+	p.refresh()
+	if got := f.status.Text(); got != tr.Get(greeterApplied) {
+		t.Errorf("a lock-screen-only change marks the login screen pending: %q", got)
+	}
+	if err := k.store.set("login.show-clock", false); err != nil {
+		t.Fatal(err)
+	}
+	p.refresh()
+	if got := f.status.Text(); got != tr.Get(greeterPending) {
+		t.Errorf("after changing the shared clock, the footer says %q", got)
 	}
 }
 

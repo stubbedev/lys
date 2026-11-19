@@ -183,7 +183,10 @@ type settingsPage struct {
 	sections  []sectionCondition
 	advanced  []disclosure
 	dependent []dependentRow
+	extras    []configWatcher
 }
+
+type configWatcher interface{ configChanged() }
 
 // dependentRow is a row that follows another field: enabled, or shown
 // when it hides, while its condition holds; governing is the row editing
@@ -309,7 +312,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		content.Append(p.status, false)
 	}
 	if spec.lead != nil {
-		content.Append(p.own(spec.lead(k)), false)
+		content.Append(p.own(p.extra(spec.lead(k))), false)
 	}
 	p.k = k
 	conditional := p.showSections
@@ -347,7 +350,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	p.governDependents()
 	p.showSections()
 	if spec.footer != nil {
-		content.Append(p.own(spec.footer(k)), false)
+		content.Append(p.own(p.extra(spec.footer(k))), false)
 	}
 	p.Scroll = widget.NewScroll(k.pageColumn(content))
 	p.VerticalOnly, p.ShowBars, p.FillY = true, true, true
@@ -397,10 +400,20 @@ func advancedSection(k *kit, section, group *widget.Box, first, n int) disclosur
 	return d
 }
 
+func (p *settingsPage) extra(w widget.Widget) widget.Widget {
+	if r, ok := w.(configWatcher); ok {
+		p.extras = append(p.extras, r)
+	}
+	return w
+}
+
 // refresh re-reads every row.
 func (p *settingsPage) refresh() {
 	for _, r := range p.rows {
 		r.refresh()
+	}
+	for _, e := range p.extras {
+		e.configChanged()
 	}
 	if p.k != nil {
 		p.showSections()
