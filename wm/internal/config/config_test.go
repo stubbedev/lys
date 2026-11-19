@@ -102,7 +102,7 @@ func TestExampleConfig(t *testing.T) {
 	if c, err := Parse("t.yaml", []byte("decoration:\n  blur:\n    xray: true\n")); err != nil || !c.Decor.Blur.XRay {
 		t.Errorf("decoration.blur.xray: %+v, %v", c.Decor.Blur, err)
 	}
-	if p := wm.DecideLayer(cfg.LayerRules, "waybar"); cfg.Decor.Blur != (compositor.Blur{Enabled: true, Size: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Size, Passes: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Passes, Look: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Look}) || p.Blur == nil || !*p.Blur {
+	if p := wm.DecideLayer(cfg.LayerRules, "waybar"); cfg.Decor.Blur != (compositor.Blur{Enabled: true, Size: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Size, Passes: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Passes, Look: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Look, Mica: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Mica}) || p.Blur == nil || !*p.Blur {
 		t.Errorf("decoration.blur parsed to %+v, layer rules %+v", cfg.Decor.Blur, cfg.LayerRules)
 	}
 	if c, err := Parse("t.yaml", []byte("rules:\n  - {app_id: foot, blur: false}\n")); err != nil || *wm.Decide(c.Rules, wm.Subject{AppID: "foot", Title: ""}).Blur {
@@ -226,6 +226,7 @@ func TestEmptyConfigIsTheDefaults(t *testing.T) {
 func TestUnknownKeysWarnAndTheRestOfTheFileApplies(t *testing.T) {
 	cases := map[string]string{
 		"borders:\n  colour: red\n":                                           "t.yaml:2: borders.colour: unknown key (known: active, inactive, width)",
+		"tabs:\n  urgent:\n    fg: red\n":                                     "t.yaml:3: tabs.urgent.fg: unknown key (known: background, text)",
 		"submaps:\n  r:\n    - {chord: Q, action: kill, x: 1}\n":              "t.yaml:3: submaps.r[0].x: unknown key",
 		"rules:\n  - {app_id: a, floats: true}\n":                             "t.yaml:2: rules[0].floats: unknown key",
 		"animations:\n  curves:\n    a: {bezier: [0, 0, 1, 1], tension: 2}\n": "t.yaml:3: animations.curves.a.tension: unknown key",
@@ -266,7 +267,6 @@ func TestARejectedFileAlsoNamesItsUnknownKeys(t *testing.T) {
 func TestErrorsNameFileLineAndKey(t *testing.T) {
 	cases := map[string]string{
 		"binds:\n  - chord: Q\n    acton: kill\n":                               "t.yaml:3: binds[0].acton: unknown key (known: action, chord, cooldown, description, flags, long_press)",
-		"tabs:\n  urgent:\n    fg: red\n":                                       "t.yaml:3: tabs.urgent.fg: unknown key (known: background, text)",
 		"env:\n  LYS_WM_SOCKET: /x\n":                                           "t.yaml:2: env.LYS_WM_SOCKET: is set by lys-wm",
 		"env:\n  A=B: c\n":                                                      "t.yaml:2: env.A=B: is not a valid environment variable",
 		"lid_action: sleep\n":                                                   `t.yaml:1: lid_action: "sleep" is not one of hibernate, hybrid-sleep, ignore, suspend, suspend-then-hibernate`,
@@ -1600,5 +1600,22 @@ func TestTheLidActionIsTheConfiguredSleepAndSuspendByDefault(t *testing.T) {
 		if cfg.Lid != want {
 			t.Errorf("%q: lid action %+v, want %+v", src, cfg.Lid, want)
 		}
+	}
+}
+
+func TestOneColorOfATabOrTitleBarStateKeepsTheOtherAtItsDefault(t *testing.T) {
+	cfg, err := Parse("t.yaml", []byte("tabs:\n  urgent:\n    background: \"#112233\"\ntitlebars:\n  active:\n    text: \"#445566\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	def := compositor.DefaultDecor(compositor.DefaultAccent)
+	if got := cfg.Decor.Tab.Urgent; got.Background != (render.Color{R: 0x11, G: 0x22, B: 0x33, A: 0xff}) || got.Text != def.Tab.Urgent.Text {
+		t.Errorf("tabs.urgent = %+v, want the set background and the default text %+v", got, def.Tab.Urgent.Text)
+	}
+	if got := cfg.Decor.Titlebar.Active; got.Text != (render.Color{R: 0x44, G: 0x55, B: 0x66, A: 0xff}) || got.Background != def.Titlebar.Active.Background {
+		t.Errorf("titlebars.active = %+v, want the set text and the default background %+v", got, def.Titlebar.Active.Background)
+	}
+	if _, err := Parse("t.yaml", []byte("tabs:\n  urgent:\n    background: nope\n")); err == nil || !strings.Contains(err.Error(), "tabs.urgent.background") {
+		t.Errorf("a bad colour: %v, want an error naming tabs.urgent.background", err)
 	}
 }

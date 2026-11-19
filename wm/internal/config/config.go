@@ -553,8 +553,8 @@ func (s *sides) UnmarshalYAML(n *yaml.Node) error {
 }
 
 type rawTabColors struct {
-	Background At[string] `yaml:"background"`
-	Text       At[string] `yaml:"text"`
+	Background *At[string] `yaml:"background"`
+	Text       *At[string] `yaml:"text"`
 }
 
 type rawSwitcher struct {
@@ -1177,11 +1177,11 @@ func (p *parser) look(r rawLook, key string) wm.LookOverride {
 	return o
 }
 
-func (p *parser) micaPasses(a *At[int]) int {
-	v := p.positive(a, "decoration.blur.mica.passes", 0)
+func (p *parser) micaPasses(a *At[int], def int) int {
+	v := p.positive(a, "decoration.blur.mica.passes", def)
 	if v > 4 {
 		p.fail(a.Line, "decoration.blur.mica.passes", "%d is not from 1 to 4", v)
-		return 0
+		return def
 	}
 	return v
 }
@@ -1593,7 +1593,7 @@ func (p *parser) tabColors(r *rawTabColors, key string, fallback compositor.TabC
 	if r == nil {
 		return fallback
 	}
-	return compositor.TabColors{Background: p.color(r.Background, key+".background", fallback.Background), Text: p.color(r.Text, key+".text", fallback.Text)}
+	return compositor.TabColors{Background: p.optColor(r.Background, key+".background", fallback.Background), Text: p.optColor(r.Text, key+".text", fallback.Text)}
 }
 
 func (p *parser) stateColors(active, inactive, urgent *rawTabColors, key string, def compositor.StateColors) compositor.StateColors {
@@ -1911,8 +1911,8 @@ func (p *parser) decor(raw rawConfig, def compositor.Decor) compositor.Decor {
 			Look:      p.look(raw.Decoration.Blur.rawLook, "decoration.blur").Over(def.Blur.Look),
 			Mica: compositor.Mica{
 				Enabled: raw.Decoration.Blur.Mica.Enabled != nil && *raw.Decoration.Blur.Mica.Enabled,
-				Size:    p.positive(raw.Decoration.Blur.Mica.Size, "decoration.blur.mica.size", 0),
-				Passes:  p.micaPasses(raw.Decoration.Blur.Mica.Passes),
+				Size:    p.positive(raw.Decoration.Blur.Mica.Size, "decoration.blur.mica.size", def.Blur.Mica.Size),
+				Passes:  p.micaPasses(raw.Decoration.Blur.Mica.Passes, def.Blur.Mica.Passes),
 				Tint:    p.tint(raw.Decoration.Blur.Mica.Tint, "decoration.blur.mica.tint"),
 			},
 		},

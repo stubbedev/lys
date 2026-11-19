@@ -242,12 +242,6 @@ func (c *Compositor) blurSpec(o *output.Output) chainSpec {
 
 func (c *Compositor) micaSpec(o *output.Output) chainSpec {
 	m := c.decor.Blur.Mica
-	if m.Size == 0 {
-		m.Size = micaSize
-	}
-	if m.Passes == 0 {
-		m.Passes = micaPasses
-	}
 	return chainSpec{offset: deviceLength(o, m.Size), passes: m.Passes}
 }
 

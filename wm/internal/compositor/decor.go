@@ -92,7 +92,7 @@ func PlainDecor() Decor {
 		BorderWidth: 1,
 		Opacity:     Opacity{Active: 1, Inactive: 1, Fullscreen: 1},
 		Dim:         Dim{Strength: 0.5},
-		Blur:        Blur{Size: 8, Passes: 1},
+		Blur:        Blur{Size: 8, Passes: 1, Mica: Mica{Size: micaSize, Passes: micaPasses}},
 		Shadow: Shadow{
 			Range: 4, Power: 3, Scale: 1,
 			Active:   render.Color{R: 0x1a, G: 0x1a, B: 0x1a, A: 0xee},
@@ -134,7 +134,7 @@ func DefaultDecor(accent render.Color) Decor {
 		Active:   render.Color{A: 0x60},
 		Inactive: render.Color{A: 0x38},
 	}
-	d.Blur = Blur{Size: 6, Passes: 2, Look: wm.Look{SaturationShift: 0.3}}
+	d.Blur = Blur{Size: 6, Passes: 2, Look: wm.Look{SaturationShift: 0.3}, Mica: d.Blur.Mica}
 	d.Titlebar.Height = 24
 	d.Tab = TabStyle{
 		Height: 24, Padding: 0, TextHeight: 11, TextPadding: 8,

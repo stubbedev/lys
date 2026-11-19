@@ -557,13 +557,19 @@
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "default": false
                 },
                 "passes": {
-                  "type": "integer"
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4,
+                  "default": 4
                 },
                 "size": {
-                  "type": "integer"
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 16
                 },
                 "tint": {
                   "type": "string",
@@ -582,10 +588,12 @@
               "type": "object",
               "properties": {
                 "amount": {
-                  "type": "integer"
+                  "type": "integer",
+                  "minimum": 0
                 },
                 "bezel": {
-                  "type": "integer"
+                  "type": "integer",
+                  "minimum": 0
                 }
               },
               "additionalProperties": false
@@ -605,10 +613,13 @@
               "type": "object",
               "properties": {
                 "strength": {
-                  "type": "number"
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
                 },
                 "width": {
-                  "type": "integer"
+                  "type": "integer",
+                  "minimum": 1
                 }
               },
               "additionalProperties": false
@@ -2149,6 +2160,7 @@
       "type": "object",
       "properties": {
         "bottom_left": {
+          "default": false,
           "oneOf": [
             {
               "type": "boolean",
@@ -2459,6 +2471,7 @@
           ]
         },
         "bottom_right": {
+          "default": false,
           "oneOf": [
             {
               "type": "boolean",
@@ -2778,6 +2791,7 @@
           "default": 80
         },
         "top_left": {
+          "default": false,
           "oneOf": [
             {
               "type": "boolean",
@@ -3088,6 +3102,7 @@
           ]
         },
         "top_right": {
+          "default": false,
           "oneOf": [
             {
               "type": "boolean",
@@ -5762,7 +5777,10 @@
       "type": "object",
       "properties": {
         "peek": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 2
         }
       },
       "additionalProperties": false
@@ -6115,6 +6133,7 @@
       "properties": {
         "open_delay": {
           "type": "integer",
+          "minimum": 0,
           "default": 150
         }
       },
@@ -6128,11 +6147,13 @@
           "properties": {
             "background": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "accent"
             },
             "text": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#11111b"
             }
           },
           "additionalProperties": false
@@ -6155,11 +6176,13 @@
           "properties": {
             "background": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#313244"
             },
             "text": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#cdd6f4"
             }
           },
           "additionalProperties": false
@@ -6184,11 +6207,13 @@
           "properties": {
             "background": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#f38ba8"
             },
             "text": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#11111b"
             }
           },
           "additionalProperties": false
@@ -6208,17 +6233,24 @@
           "properties": {
             "background": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#1c1c2c"
             },
             "text": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#d4d6e8"
             }
           },
           "additionalProperties": false
         },
         "buttons": {
           "type": "array",
+          "default": [
+            "close",
+            "minimize",
+            "maximize"
+          ],
           "items": {
             "type": "string",
             "enum": [
@@ -6250,11 +6282,13 @@
           "properties": {
             "background": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#1c1c2c"
             },
             "text": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#8a8ca4"
             }
           },
           "additionalProperties": false
@@ -6264,15 +6298,18 @@
           "properties": {
             "close": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#e46870"
             },
             "maximize": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#68c898"
             },
             "minimize": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#e0b870"
             }
           },
           "additionalProperties": false
@@ -6290,11 +6327,13 @@
           "properties": {
             "background": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#f38ba8"
             },
             "text": {
               "type": "string",
-              "format": "lys-wm-color"
+              "format": "lys-wm-color",
+              "default": "#11111b"
             }
           },
           "additionalProperties": false

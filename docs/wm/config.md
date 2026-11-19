@@ -666,7 +666,7 @@ once it settles (a bind's at key release, hover's at the next input).
 | `text_padding` | 0 or more | 8 |
 | `font` | A TrueType or OpenType file | `LYS_WM_FONT`, then the packaged DejaVu Sans |
 | `icon_theme` | Freedesktop icon theme name | `Adwaita` (then `hicolor`) |
-| `active`, `inactive`, `urgent` | `{background, text}`, both required | `accent`/`crust`, `surface0`/`text`, `red`/`crust` |
+| `active`, `inactive`, `urgent` | `{background, text}`; a colour left out keeps its default | `accent`/`crust`, `surface0`/`text`, `red`/`crust` |
 
 Tabs at least four icons wide show the window's `xdg_toplevel_icon_v1` icon.
 
@@ -686,7 +686,7 @@ window's dots take the `inactive` text colour.
 | `buttons` | Any of `minimize`, `maximize`, `close`, in order, each once | `close`, `minimize`, `maximize` |
 | `side` | `right` or `left` | `left` |
 | `double_click` | `maximize` toggles maximize; `float` tiles the window | `maximize` |
-| `active`, `inactive`, `urgent` | `{background, text}`, both required | `#1c1c2c`/`#d4d6e8`, `#1c1c2c`/`#8a8ca4`, `red`/`crust` |
+| `active`, `inactive`, `urgent` | `{background, text}`; a colour left out keeps its default | `#1c1c2c`/`#d4d6e8`, `#1c1c2c`/`#8a8ca4`, `red`/`crust` |
 | `lights.close`, `lights.minimize`, `lights.maximize` | Colour of that button's dot | `#e46870`, `#e0b870`, `#68c898` |
 
 Dragging the bar moves the window. Middle click minimizes; right click sends
