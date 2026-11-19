@@ -46,7 +46,11 @@
           [
             (import ../lib/nix/kms-vm.nix packages.drm-tests)
             (import ../settings/nix/accounts-vm.nix)
-            (import ../desktop/nix/network-vm.nix packages.network-vm-tests)
+            (import ../desktop/nix/network-vm.nix packages.desktop-vm-tests)
+            (import ../desktop/nix/bluetooth-vm.nix {
+              vmTests = packages.desktop-vm-tests;
+              inherit (packages) btvirt;
+            })
             (import ../secrets/nix/tests/activation-vm.nix self)
           ]
           ++ x86 [

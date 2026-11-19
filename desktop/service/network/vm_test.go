@@ -1,4 +1,4 @@
-//go:build nmvm
+//go:build vm
 
 package network
 
