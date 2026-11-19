@@ -197,6 +197,8 @@ func (a *Application) NewDialog(parent DialogParent, cfg DialogConfig) (*Dialog,
 		Title: cfg.Title, AppID: dialogAppID(pw), Width: cfg.Width, Height: cfg.Height,
 		Root: frame.root, Background: frame.background, margin: intconv.Clamp[uint32](frame.margin),
 		Parent: pw, Modal: cfg.Modal && pw != nil,
+		MinWidth: fixedWithoutParent(pw, cfg.Width), MinHeight: fixedWithoutParent(pw, cfg.Height),
+		MaxWidth: fixedWithoutParent(pw, cfg.Width), MaxHeight: fixedWithoutParent(pw, cfg.Height),
 		OnKey: func(_ *widget.Router, code uint32, _ wlsession.Mods) {
 			if resp, ok := dialogResponseForKey(cfg, a.sess.KeySym(code)); ok {
 				respond(resp)
@@ -718,4 +720,11 @@ func (a *Application) PreferencesDialog(parent *Window, title string, view *widg
 // AddToast shows text as a toast inside the dialog.
 func (p *PreferencesDialog) AddToast(text string, timeout time.Duration) (*widget.Toast, error) {
 	return p.app.ShowToast(text, timeout, &ToastConfig{Host: p.win})
+}
+
+func fixedWithoutParent(parent *Window, extent uint32) uint32 {
+	if parent != nil {
+		return 0
+	}
+	return extent
 }
