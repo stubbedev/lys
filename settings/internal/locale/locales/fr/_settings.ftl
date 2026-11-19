@@ -819,3 +819,6 @@ settings-mouse-middle-click = Clic central
 settings-mouse-right-click = Clic droit
 settings-mouse-scroll-up = Défiler vers le haut
 settings-mouse-scroll-down = Défiler vers le bas
+settings-format-edit-text = Modifier en texte
+settings-format-edit-parts = Modifier par éléments
+settings-format-separators = Séparateurs

@@ -807,3 +807,6 @@ settings-mouse-middle-click = Clique do meio
 settings-mouse-right-click = Clique direito
 settings-mouse-scroll-up = Deslocar para cima
 settings-mouse-scroll-down = Deslocar para baixo
+settings-format-edit-text = Editar como texto
+settings-format-edit-parts = Editar por partes
+settings-format-separators = Separadores

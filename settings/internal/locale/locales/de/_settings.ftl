@@ -816,3 +816,6 @@ settings-mouse-middle-click = Mittelklick
 settings-mouse-right-click = Rechtsklick
 settings-mouse-scroll-up = Nach oben scrollen
 settings-mouse-scroll-down = Nach unten scrollen
+settings-format-edit-text = Als Text bearbeiten
+settings-format-edit-parts = In Teilen bearbeiten
+settings-format-separators = Trennzeichen

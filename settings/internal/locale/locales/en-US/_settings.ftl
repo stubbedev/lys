@@ -816,3 +816,6 @@ settings-mouse-middle-click = Middle click
 settings-mouse-right-click = Right click
 settings-mouse-scroll-up = Scroll up
 settings-mouse-scroll-down = Scroll down
+settings-format-edit-text = Edit as text
+settings-format-edit-parts = Edit as parts
+settings-format-separators = Separators

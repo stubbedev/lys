@@ -456,7 +456,7 @@ func TestAFormatFieldInsertsItsPlaceholdersWithAPreview(t *testing.T) {
 	if len(ps) == 0 {
 		t.Fatal("lys-shell declares no placeholders")
 	}
-	c := shellControl(t, k, path).(*formatEditor)
+	c := shellControl(t, k, path).(*labelBuilder).raw
 	fp := &fakePickers{}
 	k.pickers = fp
 	c.open.ClickAt(widget.Point{})

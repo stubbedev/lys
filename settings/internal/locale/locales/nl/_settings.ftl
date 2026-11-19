@@ -806,3 +806,6 @@ settings-mouse-middle-click = Middenklik
 settings-mouse-right-click = Rechtsklik
 settings-mouse-scroll-up = Omhoog scrollen
 settings-mouse-scroll-down = Omlaag scrollen
+settings-format-edit-text = Als tekst bewerken
+settings-format-edit-parts = In delen bewerken
+settings-format-separators = Scheidingstekens

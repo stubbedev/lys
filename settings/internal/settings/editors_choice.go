@@ -136,7 +136,7 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 		return newWMActionEditor(k, s, f.Actions), true
 	}
 	if len(meta.Placeholders) > 0 {
-		return newFormatEditor(k, s, meta.Optional, placeholderFormat(meta.Placeholders)), true
+		return newLabelBuilder(k, s, meta.Optional, placeholderFormat(meta.Placeholders)), true
 	}
 	list, ok := systemLists[meta.Type]
 	if !ok {
