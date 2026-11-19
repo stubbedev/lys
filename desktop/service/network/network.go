@@ -244,6 +244,69 @@ func SignalIndex(strength uint8, numIcons int) int {
 	return min(clamped/bucket, numIcons-1)
 }
 
+// Link is a kind of network device a detail read asks about.
+type Link int
+
+// Links.
+const (
+	LinkWired Link = iota
+	LinkWifi
+)
+
+var linkDeviceTypes = map[Link]uint32{LinkWired: deviceEthernet, LinkWifi: deviceWifi}
+
+// LinkDetails is what a connected device's link carries beyond its
+// status: its hardware address, its IPv4 gateway, the DNS servers it
+// was given and its first IPv6 address.
+type LinkDetails struct {
+	HardwareAddress string
+	Gateway         string
+	DNS             []string
+	IP6             string
+}
+
+// Details reads the first connected device of kind; false when none
+// of that kind is connected.
+func (s *System) Details(ctx context.Context, kind Link) (LinkDetails, bool, error) {
+	var devices []dbus.ObjectPath
+	if err := s.conn.Object(BusName, dbus.ObjectPath(nmPath)).CallWithContext(ctx, nmIface+".GetDevices", 0).Store(&devices); err != nil {
+		return LinkDetails{}, false, fmt.Errorf("network: GetDevices: %w", err)
+	}
+	n := nm{s.conn}
+	for _, path := range devices {
+		var deviceType, state uint32
+		if n.prop(ctx, path, deviceIface, "DeviceType", &deviceType) != nil || deviceType != linkDeviceTypes[kind] {
+			continue
+		}
+		if n.prop(ctx, path, deviceIface, "State", &state) != nil || statusOf(DeviceState(state)) != StatusConnected {
+			continue
+		}
+		var d LinkDetails
+		if err := n.prop(ctx, path, deviceIface, "HwAddress", &d.HardwareAddress); err != nil {
+			return LinkDetails{}, false, fmt.Errorf("network: the hardware address of %s: %w", path, err)
+		}
+		var ip4, ip6 dbus.ObjectPath
+		if n.prop(ctx, path, deviceIface, "Ip4Config", &ip4) == nil && ip4 != rootPath && ip4 != "" {
+			_ = n.prop(ctx, ip4, ip4ConfigIface, "Gateway", &d.Gateway)
+			var servers []map[string]dbus.Variant
+			if n.prop(ctx, ip4, ip4ConfigIface, "NameserverData", &servers) == nil {
+				for _, srv := range servers {
+					if addr, ok := srv["address"].Value().(string); ok {
+						d.DNS = append(d.DNS, addr)
+					}
+				}
+			}
+		}
+		if n.prop(ctx, path, deviceIface, "Ip6Config", &ip6) == nil && ip6 != rootPath && ip6 != "" {
+			if addrs := n.configAddresses(ctx, ip6, ip6ConfigIface); len(addrs) > 0 {
+				d.IP6 = addrs[0]
+			}
+		}
+		return d, true, nil
+	}
+	return LinkDetails{}, false, nil
+}
+
 // ip4 is a device's first IPv4 address (Ip4Config's AddressData), ""
 // when it has none.
 func (s *System) ip4(ctx context.Context, dev dbus.BusObject) string {

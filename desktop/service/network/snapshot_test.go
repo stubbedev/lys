@@ -98,3 +98,23 @@ func TestAHeldReadHoldsNoOtherReader(t *testing.T) {
 	default:
 	}
 }
+
+func TestALinksDetailsAreItsAddressGatewayAndDNS(t *testing.T) {
+	f := startFakeNM(t)
+	sys := &System{conn: f.client()}
+	if _, ok, err := sys.Details(context.Background(), LinkWired); err != nil || ok {
+		t.Fatalf("with no wired device the details read %v, %v", ok, err)
+	}
+	ap := f.wifi.addAP(fakeAP{ssid: "home", strength: 71})
+	f.wifi.associate(ap, "192.168.1.20")
+	f.exportWired(1000, "10.0.0.5")
+	wired, ok, err := sys.Details(context.Background(), LinkWired)
+	want := LinkDetails{HardwareAddress: fakeWiredMAC, Gateway: fakeGateway, DNS: []string{fakeDNS}}
+	if err != nil || !ok || wired.HardwareAddress != want.HardwareAddress || wired.Gateway != want.Gateway || len(wired.DNS) != 1 || wired.DNS[0] != fakeDNS || wired.IP6 != "" {
+		t.Fatalf("wired details %+v, %v, %v; want %+v", wired, ok, err, want)
+	}
+	wifi, ok, err := sys.Details(context.Background(), LinkWifi)
+	if err != nil || !ok || wifi.HardwareAddress != fakeWifiMAC {
+		t.Errorf("wifi details %+v, %v, %v", wifi, ok, err)
+	}
+}

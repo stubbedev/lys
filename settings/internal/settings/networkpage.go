@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -47,6 +48,12 @@ type netState struct {
 	radios   bool
 	airplane bool
 	vpns     []vpnRow
+	details  []linkDetail
+}
+
+type linkDetail struct {
+	link    network.Link
+	details network.LinkDetails
 }
 
 type vpnRow struct {
@@ -106,6 +113,15 @@ func (c *nmControl) read(ctx context.Context) (netState, error) {
 		return netState{}, fmt.Errorf("read NetworkManager's state: %w", err)
 	}
 	st := netState{snap: snap, wifi: c.svc.Wifi != nil}
+	for _, link := range []network.Link{network.LinkWired, network.LinkWifi} {
+		d, ok, err := c.sys.Details(ctx, link)
+		if err != nil {
+			return netState{}, err
+		}
+		if ok {
+			st.details = append(st.details, linkDetail{link: link, details: d})
+		}
+	}
 	if st.vpns, err = c.vpns(ctx); err != nil {
 		return netState{}, err
 	}
@@ -260,6 +276,8 @@ type networkPanel struct {
 	netsSec  *widget.Box
 	vpn      *widget.Box
 	vpnSec   *widget.Box
+	details  *widget.Box
+	detSec   *widget.Box
 	pending  string
 	asking   string
 	password *widget.Entry
@@ -280,6 +298,10 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.vpnSec = newSection(k, "settings-vpn-section", p.vpn)
 	p.vpnSec.SetVisible(false)
 	p.Append(p.vpnSec, false)
+	p.details = gapBox(widget.Column)
+	p.detSec = newSection(k, "settings-wifi-section-details", p.details)
+	p.detSec.SetVisible(false)
+	p.Append(p.detSec, false)
 	p.status.Append(k.label(locale.T().Get("settings-wifi-loading"), css.Caption, css.DimLabel), false)
 	type opened struct {
 		ctl   netControl
@@ -428,6 +450,7 @@ func (p *networkPanel) show() {
 	p.status.Append(status, false)
 	p.netsSec.SetVisible(st.wifi && st.wifiOn)
 	p.showVPNs()
+	p.showDetails()
 	if st.snap.HasWired {
 		status.Append(panelRow(p.k, t.Get("settings-wifi-wired"), wiredDetail(st.snap)))
 	}
@@ -667,4 +690,27 @@ func vpnDetail(v vpnRow) string {
 		state = "settings-vpn-disconnecting"
 	}
 	return kind + " · " + t.Get(state)
+}
+
+var linkTitles = map[network.Link]string{network.LinkWired: "settings-wifi-wired", network.LinkWifi: "settings-wifi-title"}
+
+func (p *networkPanel) showDetails() {
+	p.details.Clear()
+	t := locale.T()
+	p.detSec.SetVisible(len(p.state.details) > 0)
+	for _, d := range p.state.details {
+		rows := widget.NewItemGroup()
+		rows.Append(panelRow(p.k, t.Get(linkTitles[d.link]), ""))
+		for _, f := range []struct{ key, value string }{
+			{"settings-wifi-detail-hardware", d.details.HardwareAddress},
+			{"settings-wifi-detail-gateway", d.details.Gateway},
+			{"settings-wifi-detail-dns", strings.Join(d.details.DNS, ", ")},
+			{"settings-wifi-detail-ip6", d.details.IP6},
+		} {
+			if f.value != "" {
+				rows.Append(panelRow(p.k, t.Get(f.key), "", p.k.label(f.value, css.Monospace)))
+			}
+		}
+		p.details.Append(rows, false)
+	}
 }

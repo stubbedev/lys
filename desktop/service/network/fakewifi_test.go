@@ -43,6 +43,7 @@ func (f *fakeNM) exportWifi() {
 			"State":            {Value: uint32(DeviceDisconnected), Emit: prop.EmitTrue},
 			"ActiveConnection": {Value: rootPath, Emit: prop.EmitTrue},
 			"Ip4Config":        {Value: rootPath, Emit: prop.EmitTrue},
+			"HwAddress":        {Value: fakeWifiMAC},
 		},
 		wirelessIface: {
 			"LastScan":          {Value: int64(0), Emit: prop.EmitTrue},
@@ -104,7 +105,13 @@ func (x fakeWireless) RequestScan(map[string]dbus.Variant) *dbus.Error {
 	return nil
 }
 
-const fakeWiredPath = dbus.ObjectPath("/org/freedesktop/NetworkManager/Devices/2")
+const (
+	fakeWiredPath = dbus.ObjectPath("/org/freedesktop/NetworkManager/Devices/2")
+	fakeGateway   = "192.0.2.1"
+	fakeDNS       = "192.0.2.53"
+	fakeWiredMAC  = "AA:BB:CC:00:00:02"
+	fakeWifiMAC   = "AA:BB:CC:00:00:01"
+)
 
 // exportIP4 puts an IP4Config object carrying addr on the bus.
 func (f *fakeNM) exportIP4(path dbus.ObjectPath, addr string) {
@@ -112,6 +119,8 @@ func (f *fakeNM) exportIP4(path dbus.ObjectPath, addr string) {
 		"AddressData": {Value: []map[string]dbus.Variant{
 			{"address": dbus.MakeVariant(addr), "prefix": dbus.MakeVariant(uint32(24))},
 		}},
+		"Gateway":        {Value: fakeGateway},
+		"NameserverData": {Value: []map[string]dbus.Variant{{"address": dbus.MakeVariant(fakeDNS)}}},
 	}})
 	must(f.t, err)
 }
@@ -125,6 +134,7 @@ func (f *fakeNM) exportWired(speed uint32, addr string) {
 			"DeviceType": {Value: uint32(deviceEthernet)},
 			"State":      {Value: uint32(DeviceActivated)},
 			"Ip4Config":  {Value: cfg},
+			"HwAddress":  {Value: fakeWiredMAC},
 		},
 		wiredIface: {"Speed": {Value: speed}},
 	})

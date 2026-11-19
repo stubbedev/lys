@@ -246,3 +246,26 @@ func TestTheVPNsSwitchOnAndOffAndAreRemoved(t *testing.T) {
 		t.Error("the VPN section shows with no VPN")
 	}
 }
+
+func TestAConnectedLinkShowsItsDetails(t *testing.T) {
+	f := homeNets()
+	f.state.details = []linkDetail{{link: network.LinkWifi, details: network.LinkDetails{HardwareAddress: "AA:BB:CC:00:00:01", Gateway: "192.0.2.1", DNS: []string{"192.0.2.53", "192.0.2.54"}}}}
+	_, p := netPanel(t, f)
+	if !p.detSec.Visible() {
+		t.Fatal("a connected link shows no details")
+	}
+	labels := strings.Join(treetest.Labels(p.details), "|")
+	for _, want := range []string{"AA:BB:CC:00:00:01", "192.0.2.1", "192.0.2.53, 192.0.2.54", locale.T().Get("settings-wifi-detail-gateway")} {
+		if !strings.Contains(labels, want) {
+			t.Errorf("the details lack %q: %q", want, labels)
+		}
+	}
+	if strings.Contains(labels, locale.T().Get("settings-wifi-detail-ip6")) {
+		t.Error("a link without IPv6 shows an IPv6 row")
+	}
+	f.state.details = nil
+	_, p = netPanel(t, f)
+	if p.detSec.Visible() {
+		t.Error("details show with nothing connected")
+	}
+}
