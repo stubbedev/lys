@@ -85,9 +85,7 @@ func backgroundAppsPage(*config.Config) pageSpec {
 	const m = "modules.background-apps"
 	return pageSpec{id: "background-apps", navKey: "settings-nav-background-apps", icon: "ld-app-window-symbolic", header: "settings-page-background-apps", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{field(m+".icon", iconRow)}},
-		barDisplaySection(m),
-		colorsSection(m),
-		actionsSection(m, actionChoices("background-apps")),
+		barItemSection(m, actionChoices("background-apps")),
 	}}
 }
 
@@ -148,9 +146,7 @@ func audioPage(*config.Config) pageSpec {
 		{title: "settings-section-dropdown", rows: []rowSpec{
 			field("modules.audio.dropdown-app-icons"),
 		}},
-		barDisplaySection("modules.audio"),
-		colorsSection("modules.audio"),
-		actionsSection("modules.audio", actionChoices("audio")),
+		barItemSection("modules.audio", actionChoices("audio")),
 	}}
 }
 
@@ -166,9 +162,7 @@ func batteryPage(*config.Config) pageSpec {
 			field("modules.battery.notify-low"),
 			field("modules.battery.notify-charged-at"),
 		}},
-		barDisplaySection("modules.battery"),
-		colorsSection("modules.battery"),
-		actionsSection("modules.battery", actionChoices("battery")),
+		barItemSection("modules.battery", actionChoices("battery")),
 	}}
 }
 
@@ -192,9 +186,7 @@ func bitwardenPage(*config.Config) pageSpec {
 			field(m+".generator-passwords", passwordPresetList),
 			field(m+".generator-passphrases", passphrasePresetList),
 		}},
-		barDisplaySection(m),
-		colorsSection(m),
-		actionsSection(m, actionChoices("bitwarden")),
+		barItemSection(m, actionChoices("bitwarden")),
 	}}
 }
 
@@ -207,9 +199,7 @@ func bluetoothPage(*config.Config) pageSpec {
 			field("modules.bluetooth.connected-icon", iconRow),
 			field("modules.bluetooth.searching-icon", iconRow),
 		}},
-		barDisplaySection("modules.bluetooth"),
-		colorsSection("modules.bluetooth"),
-		actionsSection("modules.bluetooth", actionChoices("bluetooth")),
+		barItemSection("modules.bluetooth", actionChoices("bluetooth")),
 	}}
 }
 
@@ -223,9 +213,7 @@ func brightnessPage(*config.Config) pageSpec {
 			field("modules.brightness.enable-external"),
 			field("modules.brightness.thresholds", thresholdList),
 		}},
-		barDisplaySection("modules.brightness"),
-		colorsSection("modules.brightness"),
-		actionsSection("modules.brightness", actionChoices("brightness")),
+		barItemSection("modules.brightness", actionChoices("brightness")),
 	}}
 }
 
@@ -249,21 +237,7 @@ func cavaPage(*config.Config) pageSpec {
 			field("modules.cava.bar-gap"),
 			field("modules.cava.internal-padding"),
 		}},
-		{title: "settings-section-bar-display", rows: []rowSpec{
-			field("modules.cava.border-show"),
-		}},
-		{title: "settings-section-colors", rows: []rowSpec{
-			field("modules.cava.color"),
-			field("modules.cava.button-bg-color"),
-			field("modules.cava.border-color"),
-		}},
-		{title: "settings-section-actions", rows: []rowSpec{
-			field("modules.cava.left-click", actions(actionChoices("cava"))),
-			field("modules.cava.right-click", actions(actionChoices("cava"))),
-			field("modules.cava.middle-click", actions(actionChoices("cava"))),
-			field("modules.cava.scroll-up", actions(actionChoices("cava"))),
-			field("modules.cava.scroll-down", actions(actionChoices("cava"))),
-		}},
+		barItemSection("modules.cava", actionChoices("cava")),
 	}}
 }
 
@@ -279,9 +253,7 @@ func clockPage(*config.Config) pageSpec {
 			field("modules.clock.calendar-weekday-start"),
 		}},
 		{title: "settings-section-calendars", rows: []rowSpec{field("modules.clock.calendars", calendarList)}},
-		barDisplaySection("modules.clock"),
-		colorsSection("modules.clock"),
-		actionsSection("modules.clock", actionChoices("clock")),
+		barItemSection("modules.clock", actionChoices("clock")),
 	}}
 }
 
@@ -295,9 +267,7 @@ func cpuPage(*config.Config) pageSpec {
 			field("modules.cpu.icon-name", iconRow),
 			field("modules.cpu.thresholds", thresholdList),
 		}},
-		barDisplaySection("modules.cpu"),
-		colorsSection("modules.cpu"),
-		actionsSection("modules.cpu", actionChoices("cpu")),
+		barItemSection("modules.cpu", actionChoices("cpu")),
 	}}
 }
 
@@ -318,21 +288,7 @@ func dashboardPage(*config.Config) pageSpec {
 			field("modules.dashboard.battery-warning", spin(0, 100, 1, 0)),
 			field("modules.dashboard.battery-critical", spin(0, 100, 1, 0)),
 		}},
-		{title: "settings-section-bar-display", rows: []rowSpec{
-			field("modules.dashboard.border-show"),
-		}},
-		{title: "settings-section-colors", rows: []rowSpec{
-			field("modules.dashboard.icon-color"),
-			field("modules.dashboard.icon-bg-color"),
-			field("modules.dashboard.border-color"),
-		}},
-		{title: "settings-section-actions", rows: []rowSpec{
-			field("modules.dashboard.left-click", actions(actionChoices("dashboard"))),
-			field("modules.dashboard.right-click", actions(actionChoices("dashboard"))),
-			field("modules.dashboard.middle-click", actions(actionChoices("dashboard"))),
-			field("modules.dashboard.scroll-up", actions(actionChoices("dashboard"))),
-			field("modules.dashboard.scroll-down", actions(actionChoices("dashboard"))),
-		}},
+		barItemSection("modules.dashboard", actionChoices("dashboard")),
 	}}
 }
 
@@ -352,9 +308,7 @@ func nightlightPage(*config.Config) pageSpec {
 			field("modules.nightlight.latitude", optionalFloat(-90.0, 90.0, 0.1, 4)),
 			field("modules.nightlight.longitude", optionalFloat(-180.0, 180.0, 0.1, 4)),
 		}},
-		barDisplaySection("modules.nightlight"),
-		colorsSection("modules.nightlight"),
-		actionsSection("modules.nightlight", actionChoices("nightlight")),
+		barItemSection("modules.nightlight", actionChoices("nightlight")),
 	}}
 }
 
@@ -367,9 +321,7 @@ func idleInhibitPage(*config.Config) pageSpec {
 			field("modules.idle-inhibit.icon-active", iconRow),
 			field("modules.idle-inhibit.format"),
 		}},
-		barDisplaySection("modules.idle-inhibit"),
-		colorsSection("modules.idle-inhibit"),
-		actionsSection("modules.idle-inhibit", actionChoices("idle-inhibit")),
+		barItemSection("modules.idle-inhibit", actionChoices("idle-inhibit")),
 	}}
 }
 
@@ -381,9 +333,7 @@ func keybindModePage(*config.Config) pageSpec {
 			field("modules.keybind-mode.icon-name", iconRow),
 			field("modules.keybind-mode.auto-hide"),
 		}},
-		barDisplaySection("modules.keybind-mode"),
-		colorsSection("modules.keybind-mode"),
-		actionsSection("modules.keybind-mode", actionChoices("keybind-mode")),
+		barItemSection("modules.keybind-mode", actionChoices("keybind-mode")),
 	}}
 }
 
@@ -395,9 +345,7 @@ func keyboardInputPage(*config.Config) pageSpec {
 			field("modules.keyboard-input.icon-name", iconRow),
 			field("modules.keyboard-input.layout-alias-map", stringMap),
 		}},
-		barDisplaySection("modules.keyboard-input"),
-		colorsSection("modules.keyboard-input"),
-		actionsSection("modules.keyboard-input", actionChoices("keyboard-input")),
+		barItemSection("modules.keyboard-input", actionChoices("keyboard-input")),
 	}}
 }
 
@@ -414,9 +362,7 @@ func mediaPage(*config.Config) pageSpec {
 			field("modules.media.player-priority", stringList),
 			field("modules.media.lyrics"),
 		}},
-		barDisplaySection("modules.media"),
-		colorsSection("modules.media"),
-		actionsSection("modules.media", actionChoices("media")),
+		barItemSection("modules.media", actionChoices("media")),
 	}}
 }
 
@@ -429,9 +375,7 @@ func netstatPage(*config.Config) pageSpec {
 			field("modules.netstat.format"),
 			field("modules.netstat.icon-name", iconRow),
 		}},
-		barDisplaySection("modules.netstat"),
-		colorsSection("modules.netstat"),
-		actionsSection("modules.netstat", actionChoices("netstat")),
+		barItemSection("modules.netstat", actionChoices("netstat")),
 	}}
 }
 
@@ -452,9 +396,7 @@ func networkPage(*config.Config) pageSpec {
 			field("modules.network.vpn-connecting-icon", iconRow),
 			field("modules.network.vpn-disconnected-icon", iconRow),
 		}},
-		barDisplaySection("modules.network"),
-		colorsSection("modules.network"),
-		actionsSection("modules.network", actionChoices("network")),
+		barItemSection("modules.network", actionChoices("network")),
 	}}
 }
 
@@ -473,9 +415,7 @@ func powerProfilesPage(*config.Config) pageSpec {
 			field("modules.power-profiles.icon-performance", iconRow),
 			field("modules.power-profiles.color-performance"),
 		}},
-		barDisplaySection("modules.power-profiles"),
-		colorsSection("modules.power-profiles"),
-		actionsSection("modules.power-profiles", actionChoices("power-profiles")),
+		barItemSection("modules.power-profiles", actionChoices("power-profiles")),
 	}}
 }
 
@@ -484,14 +424,6 @@ func powerPage(*config.Config) pageSpec {
 	return pageSpec{id: "power", navKey: "settings-nav-power", icon: "ld-power-symbolic", header: "settings-page-power", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.power.icon-name", iconRow),
-		}},
-		{title: "settings-section-bar-display", rows: []rowSpec{
-			field("modules.power.border-show"),
-		}},
-		{title: "settings-section-colors", rows: []rowSpec{
-			field("modules.power.icon-color"),
-			field("modules.power.icon-bg-color"),
-			field("modules.power.border-color"),
 		}},
 		{title: "settings-section-power-menu", rows: []rowSpec{
 			field("modules.power.show-lock"),
@@ -505,13 +437,7 @@ func powerPage(*config.Config) pageSpec {
 			field("modules.power.show-shutdown"),
 			field("modules.power.shutdown-command"),
 		}},
-		{title: "settings-section-actions", rows: []rowSpec{
-			field("modules.power.left-click", actions(actionChoices("power"))),
-			field("modules.power.right-click", actions(actionChoices("power"))),
-			field("modules.power.middle-click", actions(actionChoices("power"))),
-			field("modules.power.scroll-up", actions(actionChoices("power"))),
-			field("modules.power.scroll-down", actions(actionChoices("power"))),
-		}},
+		barItemSection("modules.power", actionChoices("power")),
 	}}
 }
 
@@ -524,9 +450,7 @@ func ramPage(*config.Config) pageSpec {
 			field("modules.ram.icon-name", iconRow),
 			field("modules.ram.thresholds", thresholdList),
 		}},
-		barDisplaySection("modules.ram"),
-		colorsSection("modules.ram"),
-		actionsSection("modules.ram", actionChoices("ram")),
+		barItemSection("modules.ram", actionChoices("ram")),
 	}}
 }
 
@@ -547,9 +471,7 @@ func screenshotPage(*config.Config) pageSpec {
 			field("modules.screenshot.icon", iconRow),
 		}},
 		{title: "settings-section-colorpicker", rows: fields("colorpicker.format")},
-		barDisplaySection("modules.screenshot"),
-		colorsSection("modules.screenshot"),
-		actionsSection("modules.screenshot", actionChoices("screenshot")),
+		barItemSection("modules.screenshot", actionChoices("screenshot")),
 	}}
 }
 
@@ -560,9 +482,7 @@ func separatorPage(*config.Config) pageSpec {
 			field("modules.separator.size"),
 			field("modules.separator.length"),
 		}},
-		{title: "settings-section-colors", rows: []rowSpec{
-			field("modules.separator.color"),
-		}},
+		barItemSection("modules.separator", nil),
 	}}
 }
 
@@ -576,9 +496,7 @@ func storagePage(*config.Config) pageSpec {
 			field("modules.storage.icon-name", iconRow),
 			field("modules.storage.thresholds", thresholdList),
 		}},
-		barDisplaySection("modules.storage"),
-		colorsSection("modules.storage"),
-		actionsSection("modules.storage", actionChoices("storage")),
+		barItemSection("modules.storage", actionChoices("storage")),
 	}}
 }
 
@@ -593,9 +511,7 @@ func treemanPage(*config.Config) pageSpec {
 			field("modules.treeman.icon-failed", iconRow),
 			field("modules.treeman.hide-if-empty"),
 		}},
-		barDisplaySection("modules.treeman"),
-		colorsSection("modules.treeman"),
-		actionsSection("modules.treeman", actionChoices("treeman")),
+		barItemSection("modules.treeman", actionChoices("treeman")),
 	}}
 }
 
@@ -615,9 +531,7 @@ func weatherPage(*config.Config) pageSpec {
 			field("modules.weather.visual-crossing-key"),
 			field("modules.weather.weatherapi-key"),
 		}},
-		barDisplaySection("modules.weather"),
-		colorsSection("modules.weather"),
-		actionsSection("modules.weather", actionChoices("weather")),
+		barItemSection("modules.weather", actionChoices("weather")),
 	}}
 }
 
@@ -629,9 +543,7 @@ func windowTitlePage(*config.Config) pageSpec {
 			field("modules.window-title.icon-name", iconRow),
 			field("modules.window-title.icon-mappings", stringMap),
 		}},
-		barDisplaySection("modules.window-title"),
-		colorsSection("modules.window-title"),
-		actionsSection("modules.window-title", actionChoices("window-title")),
+		barItemSection("modules.window-title", actionChoices("window-title")),
 	}}
 }
 
@@ -642,9 +554,7 @@ func worldClockPage(*config.Config) pageSpec {
 			field("modules.world-clock.format"),
 			field("modules.world-clock.icon-name", iconRow),
 		}},
-		barDisplaySection("modules.world-clock"),
-		colorsSection("modules.world-clock"),
-		actionsSection("modules.world-clock", actionChoices("world-clock")),
+		barItemSection("modules.world-clock", actionChoices("world-clock")),
 	}}
 }
 
@@ -685,9 +595,7 @@ func recorderPage(*config.Config) pageSpec {
 			field(m+".icon-paused", iconRow),
 			field(m+".icon-replay", iconRow),
 		}},
-		barDisplaySection(m),
-		colorsSection(m),
-		actionsSection(m, actionChoices("recorder")),
+		barItemSection(m, actionChoices("recorder")),
 	}}
 }
 
@@ -706,9 +614,7 @@ func mailPage(*config.Config) pageSpec {
 			field(m + ".notify-click"),
 		}},
 		{title: "settings-section-mail-accounts", rows: []rowSpec{field(m+".accounts", mailAccountList)}},
-		barDisplaySection(m),
-		colorsSection(m),
-		actionsSection(m, actionChoices("mail")),
+		barItemSection(m, actionChoices("mail")),
 	}}
 }
 
@@ -723,8 +629,7 @@ func systrayPage(*config.Config) pageSpec {
 			field(m+".blacklist", stringList),
 			field(m+".overrides", trayOverrideList),
 		}},
-		{title: "settings-section-bar-display", rows: fields(m + ".border-show")},
-		{title: "settings-section-colors", rows: fields(m+".border-color", m+".button-bg-color")},
+		barItemSection(m, nil),
 	}}
 }
 

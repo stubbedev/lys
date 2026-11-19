@@ -121,13 +121,6 @@ func (c *actionEditor) refresh() {
 	c.syncing = false
 }
 
-// actions is an action picker row offering choices.
-func actions(choices []actionChoice) rowOpt {
-	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-		return newActionEditor(k, s, choices)
-	})
-}
-
 // workspaceChoices is workspace_choices: the focus actions the
 // workspace modules add (WorkspaceClickAction).
 func workspaceChoices() []actionChoice {
@@ -213,25 +206,4 @@ func actionChoices(module string) []actionChoice {
 		return []actionChoice{dropdown("Open audio panel", "audio")}
 	}
 	return nil
-}
-
-// The bar item sections every module page shares,
-// over the module's path (modules.battery).
-
-func barDisplaySection(module string) sectionSpec {
-	return sectionSpec{title: "settings-section-bar-display", rows: fields(
-		module+".icon-show", module+".label-show", module+".label-max-length", module+".border-show", module+".tooltip")}
-}
-
-func colorsSection(module string) sectionSpec {
-	return sectionSpec{title: "settings-section-colors", rows: fields(
-		module+".icon-color", module+".icon-bg-color", module+".label-color", module+".button-bg-color", module+".border-color")}
-}
-
-func actionsSection(module string, choices []actionChoice) sectionSpec {
-	rows := make([]rowSpec, 0, 5)
-	for _, key := range []string{"left-click", "right-click", "middle-click", "scroll-up", "scroll-down"} {
-		rows = append(rows, field(module+"."+key, actions(choices)))
-	}
-	return sectionSpec{title: "settings-section-actions", rows: rows}
 }

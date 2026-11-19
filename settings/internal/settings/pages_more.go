@@ -98,16 +98,9 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.icon-unread", iconRow),
 			field("modules.notifications.icon-dnd", iconRow),
 			field("modules.notifications.thresholds", thresholdList),
-		}, barDisplaySection("modules.notifications").rows...)},
-		retitled(colorsSection("modules.notifications"), "settings-section-bell-colors"),
-		retitled(actionsSection("modules.notifications", actionChoices("notification")), "settings-section-bell-actions"),
+		}, barItemSection("modules.notifications", actionChoices("notification")).rows...)},
 		dropdownSizeSection("notification"),
 	}}
-}
-
-func retitled(s sectionSpec, title string) sectionSpec {
-	s.title = title
-	return s
 }
 
 // osdPage is pages/osd.

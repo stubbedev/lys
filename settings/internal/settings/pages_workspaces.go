@@ -20,10 +20,6 @@ func workspacesPage(*config.Config) pageSpec {
 	on := sessionCompositor()
 	key := func(k string) rowSpec { return field(workspacesModule + "." + k) }
 	keyWith := func(k string, opt rowOpt) rowSpec { return field(workspacesModule+"."+k, opt) }
-	clicks := make([]rowSpec, 0, 5)
-	for _, k := range []string{"left-click", "middle-click", "right-click", "scroll-up", "scroll-down"} {
-		clicks = append(clicks, keyWith(k, actions(workspaceChoices())))
-	}
 	sections := []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			key("monitor-specific"), keyWith("workspace-ignore", stringList), key("hide-trailing-empty"), key("hide-empty"),
@@ -41,12 +37,11 @@ func workspacesPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-urgent", rows: []rowSpec{key("urgent-show"), key("urgent-mode")}},
 		{title: "settings-section-mappings", rows: []rowSpec{keyWith("workspace-map", workspaceStyleMap), keyWith("app-icon-map", stringMap)}},
-		{title: "settings-section-bar-display", rows: []rowSpec{key("border-show")}},
 		{title: "settings-section-colors", rows: []rowSpec{
 			key("active-indicator"), key("active-color"), key("highlight-active-on-other-monitor"), key("active-on-other-monitor-color"),
-			key("occupied-color"), key("empty-color"), key("container-bg-color"), key("border-color"),
+			key("occupied-color"), key("empty-color"), key("container-bg-color"),
 		}},
-		{title: "settings-section-actions", rows: clicks},
+		barItemSection(workspacesModule, workspaceChoices()),
 	}
 	return pageSpec{
 		id: "workspaces", navKey: "settings-nav-workspaces", icon: "ld-grid-2x2-symbolic",
