@@ -79,6 +79,32 @@ func Field(path string) (FieldMeta, bool) {
 	return describeField(f), true
 }
 
+// ItemField describes the field under key of T, a list's item struct.
+func ItemField[T any](key string) (FieldMeta, bool) {
+	t := typeOf[T]()
+	f, ok := fieldByKey(t, key)
+	if !ok || isContainer(f.typ) {
+		return FieldMeta{}, false
+	}
+	m := describeField(*f)
+	m.Placeholders = placeholdersOf(t, *f)
+	return m, true
+}
+
+// ItemI18nKey is the settings label key of the field under key of T, a
+// list's item struct.
+func ItemI18nKey[T any](key string) (string, bool) {
+	t := typeOf[T]()
+	prefix, ok := i18nPrefixes[schemaName(t)]
+	if !ok {
+		return "", false
+	}
+	if _, ok := fieldByKey(t, key); !ok {
+		return "", false
+	}
+	return prefix + "-" + key, true
+}
+
 // MetaOf describes type T as Field would a field of it: for the
 // fields of a list's items, which have no path of their own.
 func MetaOf[T any]() FieldMeta { return describe(typeOf[T]()) }

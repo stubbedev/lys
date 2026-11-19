@@ -2697,8 +2697,16 @@
         },
         "format": {
           "default": "{{ output }}",
-          "description": "Format string for the label using Jinja2 template syntax.\n\n## Variables\n\n- `{{ output }}` - Raw command output\n- `{{ field }}` - JSON field access\n- `{{ nested.field }}` - Nested field access\n- `{{ items.0 }}` - Array index access\n\n## Filters\n\n- `{{ val | default('fallback') }}` - Fallback for missing values\n- `{{ \"%02d\" | format(val) }}` - Zero-padding\n- `{{ val | upper }}`, `| lower`, `| trim` - String transforms\n\n## Examples\n\n- `\"{{ output }}°C\"` - Plain text: \"72°C\"\n- `\"{{ percentage }}%\"` - JSON field: \"75%\"\n- `\"{{ data.temp }}°C\"` - Nested: \"22°C\"\n\nIf JSON output contains a `text` field, it overrides this format.",
-          "type": "string"
+          "description": "Format string for the label using Jinja2 template syntax.\n\n## Variables\n\n- `{{ output }}` - Raw command output\n- `{{ field }}` - JSON field access\n- `{{ nested.field }}` - Nested field access\n- `{{ items.0 }}` - Array index access\n\n## Filters\n\n- `{{ val | default('fallback') }}` - Fallback for missing values\n- `{{ \"%02d\" | format(val) }}` - Zero-padding\n- `{{ val | upper }}`, `| lower`, `| trim` - String transforms\n\n## Placeholders\n\n- `{{ output }}` - The command's output\n\n## Examples\n\n- `\"{{ output }}°C\"` - Plain text: \"72°C\"\n- `\"{{ percentage }}%\"` - JSON field: \"75%\"\n- `\"{{ data.temp }}°C\"` - Nested: \"22°C\"\n\nIf JSON output contains a `text` field, it overrides this format.",
+          "type": "string",
+          "x-placeholders": [
+            {
+              "description": "The command's output",
+              "name": "output",
+              "sample": "72",
+              "token": "{{ output }}"
+            }
+          ]
         },
         "hide-if-empty": {
           "default": false,
@@ -2825,10 +2833,18 @@
         },
         "tooltip-format": {
           "default": null,
-          "description": "Format string for the tooltip (hover text).\n\nSupports the same Jinja2 syntax as `format`. If not set, no tooltip is shown.\nIf JSON output contains a `tooltip` field, it overrides this format.\n\n## Example\n\n```yaml\nformat: \"{{ percentage }}%\"\ntooltip-format: \"Volume: {{ percentage }}% on {{ device }}\"\n```",
+          "description": "Format string for the tooltip (hover text).\n\nSupports the same Jinja2 syntax as `format`. If not set, no tooltip is shown.\nIf JSON output contains a `tooltip` field, it overrides this format.\n\n## Example\n\n```yaml\nformat: \"{{ percentage }}%\"\ntooltip-format: \"Volume: {{ percentage }}% on {{ device }}\"\n```\n\n## Placeholders\n\n- `{{ output }}` - The command's output",
           "type": [
             "string",
             "null"
+          ],
+          "x-placeholders": [
+            {
+              "description": "The command's output",
+              "name": "output",
+              "sample": "72",
+              "token": "{{ output }}"
+            }
           ]
         }
       },
@@ -4497,8 +4513,16 @@
         },
         "url": {
           "default": "",
-          "description": "URL to open, with `{query}` where a query goes if it takes one.",
-          "type": "string"
+          "description": "URL to open, with `{query}` where a query goes if it takes one.\n\n## Placeholders\n\n- `{query}` - The words typed after the keyword",
+          "type": "string",
+          "x-placeholders": [
+            {
+              "description": "The words typed after the keyword",
+              "name": "query",
+              "sample": "rust",
+              "token": "{query}"
+            }
+          ]
         }
       },
       "type": "object"

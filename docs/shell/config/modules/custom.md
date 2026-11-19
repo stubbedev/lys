@@ -110,6 +110,10 @@ mode, the command still runs once at startup.
 - `{{ "%02d" | format(val) }}` - Zero-padding
 - `{{ val | upper }}`, `| lower`, `| trim` - String transforms
 
+#### Placeholders
+
+- `{{ output }}` - The command's output
+
 #### Examples
 
 - `"{{ output }}°C"` - Plain text: "72°C"
@@ -131,6 +135,10 @@ If JSON output contains a `tooltip` field, it overrides this format.
 format: "{{ percentage }}%"
 tooltip-format: "Volume: {{ percentage }}% on {{ device }}"
 ```
+
+#### Placeholders
+
+- `{{ output }}` - The command's output
 
 :::
 

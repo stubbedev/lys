@@ -322,3 +322,14 @@ settings-launcher-ssh-command-placeholder-host = De host
 settings-launcher-preview-cmd-placeholder-input = Het bestand om te bekijken
 settings-launcher-preview-cmd-placeholder-output = Waar de miniatuur heen gaat
 settings-launcher-preview-cmd-placeholder-size = De grootte van de miniatuur in pixels
+
+## Quick links and snippets
+
+settings-launcher-quicklink-name = Naam
+settings-launcher-quicklink-url = Adres
+settings-launcher-quicklink-keyword = Trefwoord
+settings-launcher-quicklink-icon = Pictogram
+settings-launcher-quicklink-url-placeholder-query = De woorden getypt na het trefwoord
+settings-launcher-snippet-name = Naam
+settings-launcher-snippet-text = Tekst
+settings-launcher-snippet-keyword = Trefwoord

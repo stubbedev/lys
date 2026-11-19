@@ -327,3 +327,14 @@ settings-launcher-ssh-command-placeholder-host = L’hôte
 settings-launcher-preview-cmd-placeholder-input = Le fichier à prévisualiser
 settings-launcher-preview-cmd-placeholder-output = Où écrire la miniature
 settings-launcher-preview-cmd-placeholder-size = La taille de la miniature en pixels
+
+## Quick links and snippets
+
+settings-launcher-quicklink-name = Nom
+settings-launcher-quicklink-url = Adresse
+settings-launcher-quicklink-keyword = Mot-clé
+settings-launcher-quicklink-icon = Icône
+settings-launcher-quicklink-url-placeholder-query = Les mots tapés après le mot-clé
+settings-launcher-snippet-name = Nom
+settings-launcher-snippet-text = Texte
+settings-launcher-snippet-keyword = Mot-clé

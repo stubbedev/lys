@@ -339,3 +339,14 @@ settings-launcher-ssh-command-placeholder-host = Der Host
 settings-launcher-preview-cmd-placeholder-input = Die Datei für die Vorschau
 settings-launcher-preview-cmd-placeholder-output = Wohin das Vorschaubild geschrieben wird
 settings-launcher-preview-cmd-placeholder-size = Die Größe des Vorschaubilds in Pixeln
+
+## Quick links and snippets
+
+settings-launcher-quicklink-name = Name
+settings-launcher-quicklink-url = Adresse
+settings-launcher-quicklink-keyword = Stichwort
+settings-launcher-quicklink-icon = Symbol
+settings-launcher-quicklink-url-placeholder-query = Die nach dem Stichwort getippten Wörter
+settings-launcher-snippet-name = Name
+settings-launcher-snippet-text = Text
+settings-launcher-snippet-keyword = Stichwort

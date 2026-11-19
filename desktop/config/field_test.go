@@ -73,7 +73,7 @@ func enumTypes(visit func(t reflect.Type)) {
 
 // unlabeledEnums have no variant labels: their options show as raw
 // values.
-var unlabeledEnums = []string{"RestartPolicy", "VpnShow"}
+var unlabeledEnums = []string{"VpnShow"}
 
 // Every enum value has its label in the settings FTL, and no override
 // is dead.

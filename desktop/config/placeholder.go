@@ -116,11 +116,14 @@ var formatFields = map[string]formatField{
 	"LauncherWindowConfig.Format": braceFormat(
 		ph("w", "1"), ph("c", "firefox"), ph("t", "GitHub"), ph("n", "firefox"), ph("r", ""),
 	),
-	"LauncherCombiConfig.DisplayFormat": braceFormat(ph("mode", "drun"), ph("text", "Firefox")),
-	"LauncherRunConfig.RunCommand":      braceFormat(ph("cmd", "htop")),
-	"LauncherRunConfig.ShellCommand":    braceFormat(ph("terminal", "foot"), ph("cmd", "htop")),
-	"LauncherSSHConfig.Command":         braceFormat(ph("terminal", "foot"), ph("ssh-client", "ssh"), ph("host", "example.org")),
-	"LauncherConfig.PreviewCmd":         braceFormat(ph("input", "/home/ada/report.pdf"), ph("output", "/tmp/report.png"), ph("size", "256")),
+	"LauncherCombiConfig.DisplayFormat":    braceFormat(ph("mode", "drun"), ph("text", "Firefox")),
+	"LauncherRunConfig.RunCommand":         braceFormat(ph("cmd", "htop")),
+	"LauncherRunConfig.ShellCommand":       braceFormat(ph("terminal", "foot"), ph("cmd", "htop")),
+	"LauncherSSHConfig.Command":            braceFormat(ph("terminal", "foot"), ph("ssh-client", "ssh"), ph("host", "example.org")),
+	"LauncherConfig.PreviewCmd":            braceFormat(ph("input", "/home/ada/report.pdf"), ph("output", "/tmp/report.png"), ph("size", "256")),
+	"LauncherQuicklink.URL":                braceFormat(ph("query", "rust")),
+	"CustomModuleDefinition.Format":        jinjaFormat(ph("output", "72")),
+	"CustomModuleDefinition.TooltipFormat": jinjaFormat(ph("output", "72")),
 }
 
 // Placeholders are the values the format field at a dot path substitutes,
