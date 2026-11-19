@@ -43,6 +43,7 @@
         (checks "ui" ./ui/nix/checks.nix)
         ./ui/nix/shell.nix
         ./desktop/nix/shell.nix
+        (checks "desktop" ./desktop/nix/checks.nix)
         ./wm/nix/package.nix
         ./wm/nix/shell.nix
         ./wm/nix/module.nix

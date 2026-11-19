@@ -46,6 +46,7 @@
           [
             (import ../lib/nix/kms-vm.nix packages.drm-tests)
             (import ../settings/nix/accounts-vm.nix)
+            (import ../desktop/nix/network-vm.nix packages.network-vm-tests)
             (import ../secrets/nix/tests/activation-vm.nix self)
           ]
           ++ x86 [
