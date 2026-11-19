@@ -241,6 +241,7 @@ type Output interface {
 	Description() string
 	Identity() edid.Info
 	PhysicalSize() image.Point
+	MaxBitDepth() BitDepth
 	Modes() []Mode
 	State() OutputState
 	Commit(s OutputState) error

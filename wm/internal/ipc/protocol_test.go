@@ -119,7 +119,7 @@ func TestDiff(t *testing.T) {
 	next.ReducedMotion = true
 	next.Overview = true
 	want := []string{
-		`{"event":"output","change":"changed","output":{"name":"DP-1","description":"","rect":{"x":0,"y":0,"width":100,"height":50},"scale":2,"mode":{"width":0,"height":0,"refresh_mhz":0},"workspace":1,"focused":false,"powered":false}}`,
+		`{"event":"output","change":"changed","output":{"name":"DP-1","description":"","rect":{"x":0,"y":0,"width":100,"height":50},"scale":2,"mode":{"width":0,"height":0,"refresh_mhz":0},"workspace":1,"focused":false,"powered":false,"capabilities":{"hdr":false,"vrr":false,"max_bitdepth":0}}}`,
 		`{"event":"workspace","output":"HDMI-A-1","workspace":3}`,
 		`{"event":"focusedoutput","output":"HDMI-A-1"}`,
 		`{"event":"appid","window":2,"app_id":"footclient"}`,
@@ -143,7 +143,7 @@ func TestDiff(t *testing.T) {
 
 	gone := Snapshot{Outputs: []Output{dp1}}
 	want = []string{
-		`{"event":"output","change":"removed","output":{"name":"HDMI-A-1","description":"","rect":{"x":100,"y":0,"width":100,"height":50},"scale":1,"mode":{"width":0,"height":0,"refresh_mhz":0},"workspace":2,"focused":false,"powered":false}}`,
+		`{"event":"output","change":"removed","output":{"name":"HDMI-A-1","description":"","rect":{"x":100,"y":0,"width":100,"height":50},"scale":1,"mode":{"width":0,"height":0,"refresh_mhz":0},"workspace":2,"focused":false,"powered":false,"capabilities":{"hdr":false,"vrr":false,"max_bitdepth":0}}}`,
 		`{"event":"close","window":1}`,
 		`{"event":"close","window":2}`,
 		`{"event":"focus","window":null}`,

@@ -57,7 +57,8 @@ does not know.
 
 ```json
 {"name":"DP-1","description":"LG Electronics 27GL850","rect":{"x":0,"y":0,"width":2048,"height":1152},
- "scale":1.25,"mode":{"width":2560,"height":1440,"refresh_mhz":143912},"workspace":1,"focused":true,"powered":true}
+ "scale":1.25,"mode":{"width":2560,"height":1440,"refresh_mhz":143912},"workspace":1,"focused":true,"powered":true,
+ "capabilities":{"hdr":true,"vrr":true,"max_bitdepth":10}}
 ```
 
 | Field | Meaning |
@@ -70,6 +71,7 @@ does not know.
 | `zoom` | The zoom factor; absent at 1 |
 | `transform` | `90`, `flipped-270`, ...; absent when normal |
 | `mirror_of` | The output this one [mirrors](./config#outputs) |
+| `capabilities` | What the output can do, whatever its rule asks: `hdr`, an HDR signal (the panel's EDID and the connector allow one and the renderer has the float targets HDR composites in); `vrr`, adaptive sync; `max_bitdepth`, `8` or `10`, the deepest frames its primary plane scans out. Every output takes every `transform`, as lys-wm rotates in its renderer |
 
 **`workspaces`**: open workspaces in ID order;
 `name` only when a rule names it.

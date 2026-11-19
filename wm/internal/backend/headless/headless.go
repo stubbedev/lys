@@ -473,6 +473,13 @@ func (o *Output) PhysicalSize() image.Point {
 	return image.Point{}
 }
 
+func (o *Output) MaxBitDepth() backend.BitDepth {
+	if o.backend.shallow {
+		return backend.Depth8
+	}
+	return backend.Depth10
+}
+
 func (o *Output) Modes() []backend.Mode {
 	return slices.Clone(o.modes)
 }

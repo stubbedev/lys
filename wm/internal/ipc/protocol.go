@@ -171,20 +171,21 @@ func RectOf(r image.Rectangle) wmipc.Rect {
 }
 
 type Output struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Rect        wmipc.Rect     `json:"rect"`
-	Scale       float64        `json:"scale"`
-	Mode        wmipc.Mode     `json:"mode"`
-	Workspace   wm.WorkspaceID `json:"workspace"`
-	Focused     bool           `json:"focused"`
-	Powered     bool           `json:"powered"`
-	Shader      string         `json:"shader,omitempty"`
-	ShaderError string         `json:"shader_error,omitempty"`
-	HDR         bool           `json:"hdr,omitempty"`
-	Zoom        float64        `json:"zoom,omitempty"`
-	Transform   string         `json:"transform,omitempty"`
-	MirrorOf    string         `json:"mirror_of,omitempty"`
+	Name         string                   `json:"name"`
+	Description  string                   `json:"description"`
+	Rect         wmipc.Rect               `json:"rect"`
+	Scale        float64                  `json:"scale"`
+	Mode         wmipc.Mode               `json:"mode"`
+	Workspace    wm.WorkspaceID           `json:"workspace"`
+	Focused      bool                     `json:"focused"`
+	Powered      bool                     `json:"powered"`
+	Shader       string                   `json:"shader,omitempty"`
+	ShaderError  string                   `json:"shader_error,omitempty"`
+	HDR          bool                     `json:"hdr,omitempty"`
+	Zoom         float64                  `json:"zoom,omitempty"`
+	Transform    string                   `json:"transform,omitempty"`
+	MirrorOf     string                   `json:"mirror_of,omitempty"`
+	Capabilities wmipc.OutputCapabilities `json:"capabilities"`
 }
 
 type Workspace struct {

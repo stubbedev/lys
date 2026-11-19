@@ -1110,6 +1110,13 @@ func (o *Output) PhysicalSize() image.Point {
 	return image.Pt(int(o.conn.PhysicalMM[0]), int(o.conn.PhysicalMM[1]))
 }
 
+func (o *Output) MaxBitDepth() backend.BitDepth {
+	if o.primary == nil || len(o.primary.layouts(backend.Depth10)) == 0 {
+		return backend.Depth8
+	}
+	return backend.Depth10
+}
+
 func modeOf(m kdrm.Mode) backend.Mode {
 	return backend.Mode{Size: image.Pt(int(m.HDisplay), int(m.VDisplay)), RefreshMHz: m.RefreshMHz(), Preferred: m.Preferred()}
 }

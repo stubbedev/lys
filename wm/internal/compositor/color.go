@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/stubbedev/lys/lib/edid"
+	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/colormanager"
@@ -185,25 +186,43 @@ func (c *Compositor) hdrOutput(b backend.Output, rule OutputRule, caps edid.HDR)
 	}
 }
 
-func (c *Compositor) hdrAsked(b backend.Output, rule OutputRule) (colorspace.Output, backend.HDRMetadata, error) {
+func (c *Compositor) hdrCapabilities(b backend.Output) (edid.HDR, error) {
 	d, ok := b.(backend.HDRDisplay)
 	if !ok {
-		return colorspace.Output{}, backend.HDRMetadata{}, fmt.Errorf("%w: this backend has no HDR signal", backend.ErrHDRUnsupported)
+		return edid.HDR{}, fmt.Errorf("%w: this backend has no HDR signal", backend.ErrHDRUnsupported)
 	}
 	caps, err := d.HDRCapabilities()
 	if err != nil {
-		return colorspace.Output{}, backend.HDRMetadata{}, err
+		return edid.HDR{}, err
 	}
 	probe, err := c.renderer.NewWorkingTarget(image.Pt(1, 1))
 	if err != nil {
-		return colorspace.Output{}, backend.HDRMetadata{}, fmt.Errorf("%w: %w", backend.ErrHDRUnsupported, err)
+		return edid.HDR{}, fmt.Errorf("%w: %w", backend.ErrHDRUnsupported, err)
 	}
 	if err := probe.Destroy(); err != nil {
+		return edid.HDR{}, err
+	}
+	return caps, nil
+}
+
+func (c *Compositor) hdrAsked(b backend.Output, rule OutputRule) (colorspace.Output, backend.HDRMetadata, error) {
+	caps, err := c.hdrCapabilities(b)
+	if err != nil {
 		return colorspace.Output{}, backend.HDRMetadata{}, err
 	}
 	co, meta := c.hdrOutput(b, rule, caps)
 	return co, meta, nil
 }
+
+func (c *Compositor) outputCapabilities(b backend.Output) wmipc.OutputCapabilities {
+	_, err := c.hdrCapabilities(b)
+	if err != nil && !errors.Is(err, backend.ErrHDRUnsupported) {
+		c.report(fmt.Errorf("compositor: output %s reports no HDR, as whether it carries an HDR signal could not be read: %w", b.Name(), err))
+	}
+	return wmipc.OutputCapabilities{HDR: err == nil, VRR: backend.AdaptiveSyncCapable(b), MaxBitDepth: ipcBitDepths[b.MaxBitDepth()]}
+}
+
+var ipcBitDepths = [...]wmipc.BitDepth{backend.Depth8: wmipc.Depth8, backend.Depth10: wmipc.Depth10}
 
 func (c *Compositor) setOutputColor(b backend.Output, co *colorspace.Output) (bool, error) {
 	prev := c.hdr[b]

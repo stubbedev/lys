@@ -45,11 +45,13 @@ func (c *Compositor) mirrorSource(m *mirror) *output.Output {
 func (c *Compositor) addMirror(b backend.Output, rule OutputRule) error {
 	m := &mirror{out: b, source: *rule.Mirror, transform: rule.transform(b)}
 	c.mirrors = append(c.mirrors, m)
+	c.capabilities[b] = c.outputCapabilities(b)
 	return errors.Join(c.mirrorChanged(m), c.outputConfig.Changed())
 }
 
 func (c *Compositor) dropMirror(m *mirror) error {
 	c.mirrors = slices.DeleteFunc(c.mirrors, func(x *mirror) bool { return x == m })
+	delete(c.capabilities, m.out)
 	var err error
 	if src := c.mirrorSource(m); src != nil {
 		err = c.sourceChanged(src)

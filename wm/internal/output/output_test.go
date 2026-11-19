@@ -78,11 +78,12 @@ type fakeOutput struct {
 	mode backend.Mode
 }
 
-func (f *fakeOutput) Name() string              { return f.name }
-func (f *fakeOutput) Description() string       { return "fake " + f.name }
-func (*fakeOutput) Identity() edid.Info         { return edid.Info{} }
-func (f *fakeOutput) PhysicalSize() image.Point { return image.Pt(300, 200) }
-func (f *fakeOutput) Modes() []backend.Mode     { return []backend.Mode{f.mode} }
+func (f *fakeOutput) Name() string                { return f.name }
+func (f *fakeOutput) Description() string         { return "fake " + f.name }
+func (*fakeOutput) Identity() edid.Info           { return edid.Info{} }
+func (f *fakeOutput) PhysicalSize() image.Point   { return image.Pt(300, 200) }
+func (*fakeOutput) MaxBitDepth() backend.BitDepth { return backend.Depth8 }
+func (f *fakeOutput) Modes() []backend.Mode       { return []backend.Mode{f.mode} }
 func (f *fakeOutput) State() backend.OutputState {
 	return backend.OutputState{Power: backend.PoweredOn, Mode: f.mode}
 }

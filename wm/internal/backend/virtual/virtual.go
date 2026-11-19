@@ -107,6 +107,10 @@ func (*Output) PhysicalSize() image.Point {
 	return image.Point{}
 }
 
+func (*Output) MaxBitDepth() backend.BitDepth {
+	return backend.Depth8
+}
+
 func (o *Output) Modes() []backend.Mode {
 	return []backend.Mode{o.mode}
 }

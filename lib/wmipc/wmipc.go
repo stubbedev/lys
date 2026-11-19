@@ -150,16 +150,35 @@ type CapturePoint struct {
 	Y float64 `json:"y"`
 }
 
+// BitDepth is the bits per colour channel of an output's frames.
+type BitDepth int
+
+// The bit depths an output can show.
+const (
+	Depth8  BitDepth = 8
+	Depth10 BitDepth = 10
+)
+
+// OutputCapabilities is what an output can do, whatever its config asks:
+// carry an HDR signal, vary its refresh rate, and show frames this deep.
+type OutputCapabilities struct {
+	HDR         bool     `json:"hdr"`
+	VRR         bool     `json:"vrr"`
+	MaxBitDepth BitDepth `json:"max_bitdepth"`
+}
+
 // Output is a client's view of one entry of the outputs result.
+// Capabilities is nil from a lys-wm that predates them.
 type Output struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Rect        Rect    `json:"rect"`
-	Scale       float64 `json:"scale"`
-	Mode        Mode    `json:"mode"`
-	Workspace   int     `json:"workspace"`
-	Focused     bool    `json:"focused"`
-	Powered     bool    `json:"powered"`
+	Name         string              `json:"name"`
+	Description  string              `json:"description"`
+	Rect         Rect                `json:"rect"`
+	Scale        float64             `json:"scale"`
+	Mode         Mode                `json:"mode"`
+	Workspace    int                 `json:"workspace"`
+	Focused      bool                `json:"focused"`
+	Powered      bool                `json:"powered"`
+	Capabilities *OutputCapabilities `json:"capabilities,omitempty"`
 }
 
 // Capability is one kind of input an input device sends.

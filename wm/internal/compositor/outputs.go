@@ -419,6 +419,7 @@ func (c *Compositor) enable(b backend.Output, rule OutputRule) error {
 		return err
 	}
 	c.outputs = append(c.outputs, o)
+	c.capabilities[b] = c.outputCapabilities(b)
 	if err := c.keepInherited(o); err != nil {
 		return err
 	}
@@ -476,6 +477,7 @@ func (c *Compositor) disable(o *output.Output) error {
 		errs = append(errs, sc.blurs.drop(), sc.dropImage(), sc.dropWorking())
 	}
 	delete(c.scenes, o)
+	delete(c.capabilities, b)
 	delete(c.hdr, b)
 	if c.colorManager != nil {
 		c.colorManager.OutputRemoved(o)

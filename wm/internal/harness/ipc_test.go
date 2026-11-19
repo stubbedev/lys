@@ -434,3 +434,31 @@ func TestAnAppIDChangeAndARetileAreEvents(t *testing.T) {
 	}
 	expectEvent(t, lines, strings.TrimSpace(string(line)))
 }
+
+func TestOutputsReportWhatEachCanDoWhateverTheConfigAsks(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		b.RefuseHDR()
+		b.RefuseDepth10()
+		b.EnableAdaptiveSync()
+		_, err := b.AddNamedOutput("PLAIN-1", small)
+		return err
+	})
+	caps := map[string]wmipc.OutputCapabilities{}
+	for _, o := range query[[]wmipc.Output](h, wmipc.KindOutputs) {
+		if o.Capabilities == nil {
+			t.Fatalf("output %s reports no capabilities", o.Name)
+		}
+		caps[o.Name] = *o.Capabilities
+	}
+	if got, want := caps["HEADLESS-1"], (wmipc.OutputCapabilities{HDR: true, MaxBitDepth: wmipc.Depth10}); got != want {
+		t.Errorf("the output with HDR and 10-bit frames but no adaptive sync reports %+v, want %+v", got, want)
+	}
+	if got, want := caps["PLAIN-1"], (wmipc.OutputCapabilities{VRR: true, MaxBitDepth: wmipc.Depth8}); got != want {
+		t.Errorf("the output with adaptive sync but neither HDR nor 10-bit frames reports %+v, want %+v", got, want)
+	}
+	if len(caps) != 2 {
+		t.Errorf("outputs %v, want HEADLESS-1 and PLAIN-1", caps)
+	}
+}

@@ -17,6 +17,7 @@ import (
 	lgpu "github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/icontheme"
 	gtext "github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/lib/xcursor"
 
 	"github.com/stubbedev/lys/wm/internal/alphamodifier"
@@ -216,6 +217,7 @@ type Compositor struct {
 	hotkeys            hotkeyState
 	plans              colorspace.Plans
 	hdr                map[backend.Output]*hdrColor
+	capabilities       map[backend.Output]wmipc.OutputCapabilities
 	ctms               map[backend.Output]backend.Matrix
 	captureTargets     map[*dmabuf.Buffer]render.ReadTarget
 	dmabuf             *dmabuf.Manager
@@ -554,6 +556,7 @@ func New(l *loop.Loop, display *server.Display, b backend.Backend, cfg Config) (
 		shaders:        map[string]*screenShader{},
 		scenes:         map[*output.Output]*scene{},
 		hdrSwitches:    map[backend.Output]*hdrSwitch{},
+		capabilities:   map[backend.Output]wmipc.OutputCapabilities{},
 		profiles:       map[backend.Output]*profile{},
 		dropped:        map[backend.Output]int{},
 		inherited:      map[*output.Output]*loop.Timer{},

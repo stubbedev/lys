@@ -49,31 +49,33 @@ func (c *Compositor) Snapshot() ipc.Snapshot {
 		active, _ := s.ActiveOn(b.Name())
 		shader, shaderError := c.shaderReport(o)
 		snap.Outputs = append(snap.Outputs, ipc.Output{
-			Name:        b.Name(),
-			Description: b.Description(),
-			Rect:        ipc.RectOf(o.Logical()),
-			Scale:       float64(o.Scale()) / float64(output.Unit),
-			Mode:        wmipc.Mode{Width: mode.Size.X, Height: mode.Size.Y, RefreshMHz: mode.RefreshMHz},
-			Workspace:   active,
-			Focused:     b.Name() == focusedOutput,
-			Powered:     b.State().Lit(),
-			Shader:      shader,
-			ShaderError: shaderError,
-			HDR:         b.State().HDR.Active,
-			Zoom:        c.ipcZoom(o),
-			Transform:   ipcTransform(o.Transform()),
+			Name:         b.Name(),
+			Description:  b.Description(),
+			Rect:         ipc.RectOf(o.Logical()),
+			Scale:        float64(o.Scale()) / float64(output.Unit),
+			Mode:         wmipc.Mode{Width: mode.Size.X, Height: mode.Size.Y, RefreshMHz: mode.RefreshMHz},
+			Workspace:    active,
+			Focused:      b.Name() == focusedOutput,
+			Powered:      b.State().Lit(),
+			Shader:       shader,
+			ShaderError:  shaderError,
+			HDR:          b.State().HDR.Active,
+			Zoom:         c.ipcZoom(o),
+			Transform:    ipcTransform(o.Transform()),
+			Capabilities: c.capabilities[b],
 		})
 	}
 	for _, m := range c.mirrors {
 		mode := m.out.State().Mode
 		snap.Outputs = append(snap.Outputs, ipc.Output{
-			Name:        m.out.Name(),
-			Description: m.out.Description(),
-			Scale:       1,
-			Mode:        wmipc.Mode{Width: mode.Size.X, Height: mode.Size.Y, RefreshMHz: mode.RefreshMHz},
-			Powered:     m.out.State().Lit(),
-			Transform:   ipcTransform(m.transform),
-			MirrorOf:    c.mirrorName(m),
+			Name:         m.out.Name(),
+			Description:  m.out.Description(),
+			Scale:        1,
+			Mode:         wmipc.Mode{Width: mode.Size.X, Height: mode.Size.Y, RefreshMHz: mode.RefreshMHz},
+			Powered:      m.out.State().Lit(),
+			Transform:    ipcTransform(m.transform),
+			MirrorOf:     c.mirrorName(m),
+			Capabilities: c.capabilities[m.out],
 		})
 	}
 	for _, w := range s.Workspaces() {

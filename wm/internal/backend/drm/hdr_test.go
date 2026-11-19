@@ -355,3 +355,19 @@ func TestARefusedMaxBPCIsDroppedAndNotTriedAgain(t *testing.T) {
 		t.Fatal("a hotplug kept the refusal")
 	}
 }
+
+func TestTheDeepestFramesAreTheOnesThePrimaryPlaneScansOut(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		primary *plane
+		want    backend.BitDepth
+	}{
+		{"an unbound output", nil, backend.Depth8},
+		{"a primary plane with no 10-bit format", &plane{}, backend.Depth8},
+		{"a primary plane with a 10-bit format", &plane{deep: []layout{{format: deepFormats[0]}}}, backend.Depth10},
+	} {
+		if got := (&Output{primary: c.primary}).MaxBitDepth(); got != c.want {
+			t.Errorf("%s shows frames %d deep at most, want %d", c.name, got, c.want)
+		}
+	}
+}

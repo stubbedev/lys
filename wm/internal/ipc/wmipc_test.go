@@ -31,6 +31,9 @@ func TestClientViewsDecodeWhatTheCompositorSends(t *testing.T) {
 				t.Errorf("%s.%s is not on the wire", view.Name(), name)
 				continue
 			}
+			if viewType.Kind() == reflect.Pointer && wireType.Kind() != reflect.Pointer {
+				viewType = viewType.Elem()
+			}
 			if viewType.Kind() != wireType.Kind() {
 				t.Errorf("%s.%s is %s, the compositor sends %s", view.Name(), name, viewType, wireType)
 			}
