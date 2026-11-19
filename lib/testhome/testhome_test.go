@@ -3,6 +3,7 @@ package testhome
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -537,5 +538,35 @@ func TestASessionARecipeNamedWithNoTestHomeOwnsOnlyItsDirectory(t *testing.T) {
 	errs := verdictOf(t)
 	if len(errs) != 2 || !strings.Contains(errs[0], sessionBusEnv) || !strings.Contains(errs[1], systemBusEnv) {
 		t.Errorf("without a test home the guard said %q, want the buses Main pinned there refused", errs)
+	}
+}
+
+func TestAloneRunsTheTestInAProcessOfItsOwn(t *testing.T) {
+	if !Alone(t) {
+		return
+	}
+	if os.Getenv(aloneEnv) != t.Name() {
+		t.Fatal("the test went on outside its own process")
+	}
+}
+
+const aloneProbeEnv = "LYS_TEST_ALONE_PROBE"
+
+func TestAloneProbeThatFails(t *testing.T) {
+	if os.Getenv(aloneProbeEnv) == "" {
+		t.Skip("run by TestAloneFailsWhenTheTestFailsAlone")
+	}
+	if !Alone(t) {
+		return
+	}
+	t.Fatal("failing on purpose")
+}
+
+func TestAloneFailsWhenTheTestFailsAlone(t *testing.T) {
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestAloneProbeThatFails$", "-test.count=1")
+	cmd.Env = append(os.Environ(), aloneProbeEnv+"=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "in a process of its own") || !strings.Contains(string(out), "failing on purpose") {
+		t.Fatalf("a test failing alone gave %v:\n%s", err, out)
 	}
 }

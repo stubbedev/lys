@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/testhome"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
@@ -830,6 +831,9 @@ func TestCwsSwitchMovesTheLabelColors(t *testing.T) {
 }
 
 func TestCwsBlinkAllocatesLittle(t *testing.T) {
+	if !testhome.Alone(t) {
+		return
+	}
 	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Sway), newFakeCws(cwsCostWorkspaces(), nil))
 	if got := testing.AllocsPerRun(100, m.blinkTick); got > 100 {
 		t.Fatalf("a blink allocates %.0f times, want at most 100", got)
