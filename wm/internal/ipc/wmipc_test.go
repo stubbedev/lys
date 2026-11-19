@@ -22,6 +22,7 @@ func TestClientViewsDecodeWhatTheCompositorSends(t *testing.T) {
 		{wmipc.Output{}, Output{}},
 		{wmipc.Workspace{}, Workspace{}},
 		{wmipc.Window{}, Window{}},
+		{wmipc.Device{}, Device{}},
 	} {
 		view, wire := reflect.TypeOf(c.view), jsonFields(reflect.TypeOf(c.wire))
 		for name, viewType := range jsonFields(view) {

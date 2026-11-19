@@ -162,6 +162,39 @@ type Output struct {
 	Powered     bool    `json:"powered"`
 }
 
+// Capability is one kind of input an input device sends.
+type Capability string
+
+// The input capabilities.
+const (
+	CapKeyboard  Capability = "keyboard"
+	CapPointer   Capability = "pointer"
+	CapTouch     Capability = "touch"
+	CapTablet    Capability = "tablet"
+	CapTabletPad Capability = "tablet_pad"
+)
+
+// DeviceClass is the input config section that configures a device:
+// input.pointer, input.touchpad or input.trackpoint, or none.
+type DeviceClass string
+
+// The device classes; ClassNone is a device no input section configures,
+// such as a keyboard or a virtual pointer.
+const (
+	ClassNone       DeviceClass = "none"
+	ClassPointer    DeviceClass = "pointer"
+	ClassTouchpad   DeviceClass = "touchpad"
+	ClassTrackpoint DeviceClass = "trackpoint"
+)
+
+// Device is a client's view of one entry of the devices result. Class is
+// empty from a lys-wm that predates it.
+type Device struct {
+	Name         string       `json:"name"`
+	Capabilities []Capability `json:"capabilities"`
+	Class        DeviceClass  `json:"class"`
+}
+
 // Workspace is a client's view of one open workspace.
 type Workspace struct {
 	ID      int    `json:"id"`

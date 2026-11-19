@@ -281,20 +281,11 @@ type CastTarget struct {
 	Output string      `json:"output,omitempty"`
 }
 
-type Capability string
-
-const (
-	CapKeyboard  Capability = "keyboard"
-	CapPointer   Capability = "pointer"
-	CapTouch     Capability = "touch"
-	CapTablet    Capability = "tablet"
-	CapTabletPad Capability = "tablet_pad"
-)
-
 type Device struct {
-	Name         string        `json:"name"`
-	Capabilities []Capability  `json:"capabilities"`
-	Layout       *wmipc.Layout `json:"layout,omitempty"`
+	Name         string             `json:"name"`
+	Capabilities []wmipc.Capability `json:"capabilities"`
+	Class        wmipc.DeviceClass  `json:"class"`
+	Layout       *wmipc.Layout      `json:"layout,omitempty"`
 }
 
 type Icon struct {

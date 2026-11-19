@@ -141,7 +141,7 @@ type InputDevice struct {
 	name         string
 	caps         backend.Capability
 	h            uintptr
-	class        *DeviceClass
+	class        *backend.DeviceClass
 	scrollFactor float64
 	reader       *inputReader
 	tablet       bool
@@ -151,10 +151,20 @@ type InputDevice struct {
 	group        uintptr
 }
 
-var _ backend.KeyboardLEDs = (*InputDevice)(nil)
+var (
+	_ backend.KeyboardLEDs = (*InputDevice)(nil)
+	_ backend.Classified   = (*InputDevice)(nil)
+)
 
 func (d *InputDevice) Name() string                     { return d.name }
 func (d *InputDevice) Capabilities() backend.Capability { return d.caps }
+
+func (d *InputDevice) Class() (backend.DeviceClass, bool) {
+	if d.class == nil {
+		return 0, false
+	}
+	return *d.class, true
+}
 
 const (
 	ledNumLock    = 1 << 0

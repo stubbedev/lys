@@ -126,10 +126,13 @@ reused; `rect` is in layout coordinates.
 
 **`devices`**: input devices. `capabilities` from `keyboard`, `pointer`,
 `touch`, `tablet`, `tablet_pad`; keyboards also carry the seat's shared
-`layout`.
+`layout`. `class` is the [input section](./config#inputpointer-inputtouchpad-inputtrackpoint-and-inputdevices) that configures the
+device: `pointer`, `touchpad` or `trackpoint`, or `none` for a device none of
+them configures (a keyboard, a tablet, a virtual pointer).
 
 ```json
-{"name":"AT Translated Set 2 keyboard","capabilities":["keyboard"],"layout":{"index":0,"name":"English (US)"}}
+{"name":"AT Translated Set 2 keyboard","capabilities":["keyboard"],"class":"none","layout":{"index":0,"name":"English (US)"}}
+{"name":"SynPS/2 Synaptics TouchPad","capabilities":["pointer"],"class":"touchpad"}
 ```
 
 **`binds`**: every bind of the loaded config, in config order. `chord` is as

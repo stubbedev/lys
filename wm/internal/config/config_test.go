@@ -68,7 +68,7 @@ func TestExampleConfig(t *testing.T) {
 		t.Error("xwayland.enabled: false left Xwayland on")
 	}
 	in := cfg.Input
-	pointer, touchpad := in.Classes[session.ClassPointer], in.Classes[session.ClassTouchpad]
+	pointer, touchpad := in.Classes[backend.ClassPointer], in.Classes[backend.ClassTouchpad]
 	if pointer.AccelProfile != session.AccelFlat || *pointer.AccelSpeed != -0.5 || *pointer.ScrollFactor != 1.5 || pointer.Tap != nil {
 		t.Errorf("pointer %+v", pointer)
 	}
@@ -1346,7 +1346,7 @@ func TestDeviceSettingsParseIntoTypedValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, tp, d := cfg.Input.Classes[session.ClassPointer], cfg.Input.Classes[session.ClassTouchpad], cfg.Input.Devices
+	p, tp, d := cfg.Input.Classes[backend.ClassPointer], cfg.Input.Classes[backend.ClassTouchpad], cfg.Input.Devices
 	if !*p.LeftHanded || *p.ScrollButton != 0x113 || !*p.ScrollButtonLock || p.AccelProfile.String() != custom.String() {
 		t.Errorf("pointer %+v", p)
 	}
@@ -1382,13 +1382,13 @@ func TestAFreshConfigAcceleratesTouchpadsAndTrackpointsAndNotMice(t *testing.T) 
 		if err != nil {
 			t.Fatalf("%q: %v", text, err)
 		}
-		if p := cfg.Input.Classes[session.ClassPointer].AccelProfile; p != session.AccelFlat {
+		if p := cfg.Input.Classes[backend.ClassPointer].AccelProfile; p != session.AccelFlat {
 			t.Errorf("%q: input.pointer.accel_profile is %v, want flat", text, p)
 		}
-		if p := cfg.Input.Classes[session.ClassTouchpad].AccelProfile; p != session.AccelAdaptive {
+		if p := cfg.Input.Classes[backend.ClassTouchpad].AccelProfile; p != session.AccelAdaptive {
 			t.Errorf("%q: input.touchpad.accel_profile is %v, want adaptive", text, p)
 		}
-		if p := cfg.Input.Classes[session.ClassTrackpoint].AccelProfile; p != session.AccelAdaptive {
+		if p := cfg.Input.Classes[backend.ClassTrackpoint].AccelProfile; p != session.AccelAdaptive {
 			t.Errorf("%q: input.trackpoint.accel_profile is %v, want adaptive", text, p)
 		}
 	}
@@ -1399,13 +1399,13 @@ func TestEachClassTakesItsOwnAccelerationProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := cfg.Input.Classes[session.ClassPointer].AccelProfile; p != session.AccelAdaptive {
+	if p := cfg.Input.Classes[backend.ClassPointer].AccelProfile; p != session.AccelAdaptive {
 		t.Errorf("input.pointer.accel_profile adaptive parsed to %v", p)
 	}
-	if p := cfg.Input.Classes[session.ClassTouchpad].AccelProfile; p != session.AccelFlat {
+	if p := cfg.Input.Classes[backend.ClassTouchpad].AccelProfile; p != session.AccelFlat {
 		t.Errorf("input.touchpad.accel_profile flat parsed to %v", p)
 	}
-	if tp := cfg.Input.Classes[session.ClassTrackpoint]; tp.AccelProfile != session.AccelFlat || tp.AccelSpeed == nil || *tp.AccelSpeed != -0.25 {
+	if tp := cfg.Input.Classes[backend.ClassTrackpoint]; tp.AccelProfile != session.AccelFlat || tp.AccelSpeed == nil || *tp.AccelSpeed != -0.25 {
 		t.Errorf("input.trackpoint with flat at -0.25 parsed to %+v", tp)
 	}
 	for text, want := range map[string]string{
@@ -1424,14 +1424,14 @@ func TestEachClassTakesItsOwnAccelerationProfile(t *testing.T) {
 	if want := "t.yaml:2: input.mouse: unknown key (known: devices, keyboard, pointer, touchpad, trackpoint)"; len(cfg.Warnings) != 1 || !strings.Contains(cfg.Warnings[0].Error(), want) {
 		t.Errorf("a class lys-wm does not have warned %v, want %q", cfg.Warnings, want)
 	}
-	if p := cfg.Input.Classes[session.ClassPointer].AccelProfile; p != session.AccelFlat {
+	if p := cfg.Input.Classes[backend.ClassPointer].AccelProfile; p != session.AccelFlat {
 		t.Errorf("input.mouse changed input.pointer.accel_profile to %v", p)
 	}
 }
 
 func TestEveryDeviceClassIsAnInputKey(t *testing.T) {
 	keys := fieldNames(reflect.TypeFor[rawInput]())
-	for _, k := range session.DeviceClasses() {
+	for _, k := range backend.DeviceClasses() {
 		if _, ok := keys[k.String()]; !ok {
 			t.Errorf("class %s has no input.%s key", k, k)
 		}

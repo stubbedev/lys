@@ -190,29 +190,42 @@ func (c *Compositor) ipcLayers() []ipc.Layer {
 	return out
 }
 
+var ipcDeviceClasses = [backend.DeviceClassCount]wmipc.DeviceClass{
+	backend.ClassPointer:    wmipc.ClassPointer,
+	backend.ClassTouchpad:   wmipc.ClassTouchpad,
+	backend.ClassTrackpoint: wmipc.ClassTrackpoint,
+}
+
+func ipcDeviceClass(d backend.Device) wmipc.DeviceClass {
+	if k, ok := backend.ClassOf(d); ok {
+		return ipcDeviceClasses[k]
+	}
+	return wmipc.ClassNone
+}
+
 func (c *Compositor) ipcDevices() []ipc.Device {
 	out := make([]ipc.Device, 0, len(c.devices))
 	for _, d := range c.devices {
-		dev := ipc.Device{Name: d.Name(), Capabilities: []ipc.Capability{}}
+		dev := ipc.Device{Name: d.Name(), Capabilities: []wmipc.Capability{}, Class: ipcDeviceClass(d)}
 		caps := d.Capabilities()
 		if caps.Has(backend.Keyboard) {
 			layout := c.keyboardLayout()
-			dev.Capabilities, dev.Layout = append(dev.Capabilities, ipc.CapKeyboard), &layout
+			dev.Capabilities, dev.Layout = append(dev.Capabilities, wmipc.CapKeyboard), &layout
 		}
 		if caps.Has(backend.Pointer) {
-			dev.Capabilities = append(dev.Capabilities, ipc.CapPointer)
+			dev.Capabilities = append(dev.Capabilities, wmipc.CapPointer)
 		}
 		if caps.Has(backend.Touch) {
-			dev.Capabilities = append(dev.Capabilities, ipc.CapTouch)
+			dev.Capabilities = append(dev.Capabilities, wmipc.CapTouch)
 		}
 		if t, ok := d.(tabletinput.Tablet); ok {
 			if _, tablet := t.Tablet(); tablet {
-				dev.Capabilities = append(dev.Capabilities, ipc.CapTablet)
+				dev.Capabilities = append(dev.Capabilities, wmipc.CapTablet)
 			}
 		}
 		if p, ok := d.(tabletinput.Pad); ok {
 			if _, pad := p.Pad(); pad {
-				dev.Capabilities = append(dev.Capabilities, ipc.CapTabletPad)
+				dev.Capabilities = append(dev.Capabilities, wmipc.CapTabletPad)
 			}
 		}
 		out = append(out, dev)

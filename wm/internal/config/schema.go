@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/binds"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/render"
@@ -317,8 +318,8 @@ func annotations() map[string]annotation {
 	}
 	out["titlebars.buttons"] = annotation{def: buttons}
 	saturation := short(d.Blur.Look.SaturationShift + 1)
-	for _, k := range session.DeviceClasses() {
-		maps.Copy(out, device(classKey(k), k.DefaultAccel().String()))
+	for _, k := range backend.DeviceClasses() {
+		maps.Copy(out, device(classKey(k), session.DefaultAccel(k).String()))
 	}
 	for _, group := range []map[string]annotation{
 		device("input.devices.*", nil),

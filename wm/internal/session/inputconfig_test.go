@@ -203,7 +203,7 @@ func TestEveryLibinputSettingAppliesOnHotplugAndRevertsWhenRemoved(t *testing.T)
 		t.Fatal(err)
 	}
 	in.config = DefaultInputConfig()
-	in.config.Classes[ClassTouchpad].DeviceConfig = DeviceConfig{Tap: new(true), TapButtonMap: new(TapLMR), DisabledOnExternalMouse: new(true)}
+	in.config.Classes[backend.ClassTouchpad].DeviceConfig = DeviceConfig{Tap: new(true), TapButtonMap: new(TapLMR), DisabledOnExternalMouse: new(true)}
 	in.config.Devices = map[string]NamedDeviceConfig{fakeDevice: {
 		DeviceConfig: DeviceConfig{
 			DragLock: new(true), NaturalScroll: new(true), DisableWhileTyping: new(false), MiddleEmulation: new(true),
@@ -234,8 +234,8 @@ func TestEveryLibinputSettingAppliesOnHotplugAndRevertsWhenRemoved(t *testing.T)
 		t.Fatalf("after the settings left the config the device holds\n%+v\nwant its defaults\n%+v", *now, def)
 	}
 	classes := DefaultInputConfig()
-	classes.Classes[ClassPointer].AccelProfile = AccelFlat
-	classes.Classes[ClassTouchpad].AccelProfile = custom
+	classes.Classes[backend.ClassPointer].AccelProfile = AccelFlat
+	classes.Classes[backend.ClassTouchpad].AccelProfile = custom
 	if err := in.reconfigure(classes); err != nil {
 		t.Fatal(err)
 	}
@@ -291,8 +291,8 @@ func TestAFreshConfigAcceleratesATouchpadAndNotAMouse(t *testing.T) {
 
 func TestAClassProfileReplacesItsDefaultAndADeviceProfileReplacesTheClass(t *testing.T) {
 	swapped := DefaultInputConfig()
-	swapped.Classes[ClassPointer].AccelProfile = AccelAdaptive
-	swapped.Classes[ClassTouchpad].AccelProfile = AccelFlat
+	swapped.Classes[backend.ClassPointer].AccelProfile = AccelAdaptive
+	swapped.Classes[backend.ClassTouchpad].AccelProfile = AccelFlat
 	if got := hotplugAccel(t, 3, accelAdaptive, swapped); got != accelFlat {
 		t.Errorf("input.touchpad.accel_profile flat left the touchpad at profile %d", got)
 	}
@@ -324,20 +324,25 @@ func TestDevicesAreClassedByTappingThenByStickThenByPointing(t *testing.T) {
 		tapFingers int32
 		stick      bool
 		caps       backend.Capability
-		want       *DeviceClass
+		want       *backend.DeviceClass
 	}{
-		{3, false, backend.Pointer, new(ClassTouchpad)},
-		{3, true, backend.Pointer, new(ClassTouchpad)},
-		{0, true, backend.Pointer, new(ClassTrackpoint)},
-		{0, true, backend.Pointer | backend.Keyboard, new(ClassTrackpoint)},
-		{0, false, backend.Pointer, new(ClassPointer)},
-		{0, false, backend.Pointer | backend.Keyboard, new(ClassPointer)},
+		{3, false, backend.Pointer, new(backend.ClassTouchpad)},
+		{3, true, backend.Pointer, new(backend.ClassTouchpad)},
+		{0, true, backend.Pointer, new(backend.ClassTrackpoint)},
+		{0, true, backend.Pointer | backend.Keyboard, new(backend.ClassTrackpoint)},
+		{0, false, backend.Pointer, new(backend.ClassPointer)},
+		{0, false, backend.Pointer | backend.Keyboard, new(backend.ClassPointer)},
 		{0, true, backend.Keyboard, nil},
 		{0, false, backend.Keyboard, nil},
 		{0, false, backend.Touch, nil},
 	} {
-		if got := classify(c.tapFingers, c.stick, c.caps); !reflect.DeepEqual(got, c.want) {
+		got := classify(c.tapFingers, c.stick, c.caps)
+		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%d tap fingers, pointing stick %t, capabilities %v: class %v, want %v", c.tapFingers, c.stick, c.caps, got, c.want)
+		}
+		k, ok := backend.ClassOf(&InputDevice{caps: c.caps, class: got})
+		if ok != (c.want != nil) || ok && k != *c.want {
+			t.Errorf("%d tap fingers, pointing stick %t, capabilities %v: the device reports class %v, %t; want %v", c.tapFingers, c.stick, c.caps, k, ok, c.want)
 		}
 	}
 }
@@ -382,7 +387,7 @@ func TestAFreshConfigAcceleratesATrackpointAndNotAMouse(t *testing.T) {
 		}
 	}
 	flat := DefaultInputConfig()
-	flat.Classes[ClassTrackpoint].AccelProfile = AccelFlat
+	flat.Classes[backend.ClassTrackpoint].AccelProfile = AccelFlat
 	if got := hotplugStick(t, "1", accelAdaptive, flat); got != accelFlat {
 		t.Errorf("input.trackpoint.accel_profile flat left the trackpoint at profile %d", got)
 	}
@@ -390,12 +395,12 @@ func TestAFreshConfigAcceleratesATrackpointAndNotAMouse(t *testing.T) {
 
 func TestEveryClassHasANameAndADefaultProfile(t *testing.T) {
 	seen := map[string]bool{}
-	for _, k := range DeviceClasses() {
+	for _, k := range backend.DeviceClasses() {
 		if k.String() == "" || seen[k.String()] {
 			t.Errorf("class %d is named %q", k, k.String())
 		}
 		seen[k.String()] = true
-		if p := k.DefaultAccel(); p != AccelFlat && p != AccelAdaptive {
+		if p := DefaultAccel(k); p != AccelFlat && p != AccelAdaptive {
 			t.Errorf("class %s defaults to %v", k, p)
 		}
 	}

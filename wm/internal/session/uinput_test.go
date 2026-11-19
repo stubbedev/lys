@@ -215,7 +215,7 @@ func TestLibinputAppliesAndReappliesPointerSettings(t *testing.T) {
 	rec := &inputRecorder{}
 	in.Start(rec)
 	scrolling := DefaultInputConfig()
-	scrolling.Classes[ClassPointer].DeviceConfig = DeviceConfig{NaturalScroll: new(true), ScrollFactor: new(2.0)}
+	scrolling.Classes[backend.ClassPointer].DeviceConfig = DeviceConfig{NaturalScroll: new(true), ScrollFactor: new(2.0)}
 	if err := in.Reconfigure(scrolling); err != nil {
 		t.Fatal(err)
 	}

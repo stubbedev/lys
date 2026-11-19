@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/wmipc"
 
+	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/ipc"
@@ -19,6 +20,15 @@ import (
 	"github.com/stubbedev/lys/wm/internal/testclient"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
+
+type classedDevice struct {
+	name  string
+	class backend.DeviceClass
+}
+
+func (d classedDevice) Name() string                       { return d.name }
+func (classedDevice) Capabilities() backend.Capability     { return backend.Pointer }
+func (d classedDevice) Class() (backend.DeviceClass, bool) { return d.class, true }
 
 type streamed struct {
 	Event     string       `json:"event"`
@@ -135,10 +145,28 @@ func TestModeGroupLayerAndBellEventsAndTheLayerAndDeviceQueries(t *testing.T) {
 	awaitStreamed(t, lines, "the bar closing", func(e streamed) bool { return e.Event == "layer" && e.Change == "close" && e.Namespace == "bar" })
 
 	devices := query[[]ipc.Device](h, wmipc.KindDevices)
-	keyboard := slices.IndexFunc(devices, func(d ipc.Device) bool { return slices.Contains(d.Capabilities, ipc.CapKeyboard) })
-	pointer := slices.IndexFunc(devices, func(d ipc.Device) bool { return slices.Contains(d.Capabilities, ipc.CapPointer) })
+	keyboard := slices.IndexFunc(devices, func(d ipc.Device) bool { return slices.Contains(d.Capabilities, wmipc.CapKeyboard) })
+	pointer := slices.IndexFunc(devices, func(d ipc.Device) bool { return slices.Contains(d.Capabilities, wmipc.CapPointer) })
 	if keyboard < 0 || pointer < 0 || devices[keyboard].Layout == nil || devices[keyboard].Name == "" {
 		t.Fatalf("devices %+v", devices)
+	}
+	if devices[keyboard].Class != wmipc.ClassNone || devices[pointer].Class != wmipc.ClassNone {
+		t.Fatalf("the headless keyboard and pointer, which no input section configures, are classed: %+v", devices)
+	}
+	classed := []classedDevice{{"Synaptics TM3276", backend.ClassTouchpad}, {"TPPS/2 IBM TrackPoint", backend.ClassTrackpoint}, {"Logitech G305", backend.ClassPointer}}
+	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
+		var errs []error
+		for _, d := range classed {
+			errs = append(errs, comp.DeviceAdded(d))
+		}
+		return errors.Join(errs...)
+	})
+	devices = query[[]ipc.Device](h, wmipc.KindDevices)
+	for want, name := range map[wmipc.DeviceClass]string{wmipc.ClassTouchpad: classed[0].name, wmipc.ClassTrackpoint: classed[1].name, wmipc.ClassPointer: classed[2].name} {
+		at := slices.IndexFunc(devices, func(d ipc.Device) bool { return d.Name == name })
+		if at < 0 || devices[at].Class != want || !slices.Contains(devices[at].Capabilities, wmipc.CapPointer) {
+			t.Fatalf("%s is not a %s pointer: %+v", name, want, devices)
+		}
 	}
 
 	bell, err := csb.NewXdgSystemBellV1(c.Display, 1)

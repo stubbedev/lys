@@ -546,11 +546,11 @@ func TestLayersAndDevicesAreQueries(t *testing.T) {
 	r := start(t)
 	r.do(func(f *fake) {
 		f.snap.Layers = []Layer{{ID: 4, Namespace: "bar", Layer: LayerTop, Output: "DP-1", Rect: wmipc.Rect{Width: 100, Height: 30}, Keyboard: KeyboardOnDemand}}
-		f.snap.Devices = []Device{{Name: "kbd", Capabilities: []Capability{CapKeyboard}, Layout: &wmipc.Layout{Name: "Danish"}}}
+		f.snap.Devices = []Device{{Name: "kbd", Capabilities: []wmipc.Capability{wmipc.CapKeyboard}, Class: wmipc.ClassNone, Layout: &wmipc.Layout{Name: "Danish"}}}
 	})
 	for kind, want := range map[wmipc.Kind]string{
 		wmipc.KindLayers:  `[{"id":4,"namespace":"bar","layer":"top","output":"DP-1","rect":{"x":0,"y":0,"width":100,"height":30},"keyboard_interactivity":"on_demand"}]`,
-		wmipc.KindDevices: `[{"name":"kbd","capabilities":["keyboard"],"layout":{"index":0,"name":"Danish"}}]`,
+		wmipc.KindDevices: `[{"name":"kbd","capabilities":["keyboard"],"class":"none","layout":{"index":0,"name":"Danish"}}]`,
 	} {
 		if got, err := Do(r.path, Request{Request: kind}); err != nil || string(got) != want {
 			t.Errorf("%s: %s, %v; want %s", kind, got, err, want)

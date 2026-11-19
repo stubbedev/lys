@@ -327,6 +327,39 @@ type Device interface {
 	Capabilities() Capability
 }
 
+type DeviceClass uint8
+
+const (
+	ClassPointer DeviceClass = iota
+	ClassTouchpad
+	ClassTrackpoint
+	DeviceClassCount
+)
+
+var deviceClassNames = [DeviceClassCount]string{ClassPointer: "pointer", ClassTouchpad: "touchpad", ClassTrackpoint: "trackpoint"}
+
+func DeviceClasses() []DeviceClass {
+	out := make([]DeviceClass, DeviceClassCount)
+	for i := range out {
+		out[i] = DeviceClass(i)
+	}
+	return out
+}
+
+func (c DeviceClass) String() string { return deviceClassNames[c] }
+
+type Classified interface {
+	Class() (DeviceClass, bool)
+}
+
+func ClassOf(d Device) (DeviceClass, bool) {
+	c, ok := d.(Classified)
+	if !ok {
+		return 0, false
+	}
+	return c.Class()
+}
+
 type KeyboardLEDs interface {
 	SetLEDs(l xkb.Locks)
 }

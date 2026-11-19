@@ -153,56 +153,36 @@ type NamedDeviceConfig struct {
 	Area         *Area
 }
 
-type DeviceClass uint8
+var deviceClassAccel = [backend.DeviceClassCount]AccelProfile{backend.ClassPointer: AccelFlat, backend.ClassTouchpad: AccelAdaptive, backend.ClassTrackpoint: AccelAdaptive}
 
-const (
-	ClassPointer DeviceClass = iota
-	ClassTouchpad
-	ClassTrackpoint
-)
+func DefaultAccel(c backend.DeviceClass) AccelProfile { return deviceClassAccel[c] }
 
-var deviceClassNames = [...]string{ClassPointer: "pointer", ClassTouchpad: "touchpad", ClassTrackpoint: "trackpoint"}
-
-var deviceClassAccel = [len(deviceClassNames)]AccelProfile{ClassPointer: AccelFlat, ClassTouchpad: AccelAdaptive, ClassTrackpoint: AccelAdaptive}
-
-func DeviceClasses() []DeviceClass {
-	out := make([]DeviceClass, len(deviceClassNames))
-	for i := range out {
-		out[i] = DeviceClass(i)
-	}
-	return out
-}
-
-func (c DeviceClass) String() string { return deviceClassNames[c] }
-
-func (c DeviceClass) DefaultAccel() AccelProfile { return deviceClassAccel[c] }
-
-func classify(tapFingers int32, pointingStick bool, caps backend.Capability) *DeviceClass {
+func classify(tapFingers int32, pointingStick bool, caps backend.Capability) *backend.DeviceClass {
 	switch {
 	case tapFingers > 0:
-		return new(ClassTouchpad)
+		return new(backend.ClassTouchpad)
 	case caps&backend.Pointer == 0:
 		return nil
 	case pointingStick:
-		return new(ClassTrackpoint)
+		return new(backend.ClassTrackpoint)
 	}
-	return new(ClassPointer)
+	return new(backend.ClassPointer)
 }
 
 type InputConfig struct {
-	Classes [len(deviceClassNames)]ClassConfig
+	Classes [backend.DeviceClassCount]ClassConfig
 	Devices map[string]NamedDeviceConfig
 }
 
 func DefaultInputConfig() InputConfig {
 	var c InputConfig
-	for _, k := range DeviceClasses() {
-		c.Classes[k].AccelProfile = k.DefaultAccel()
+	for _, k := range backend.DeviceClasses() {
+		c.Classes[k].AccelProfile = DefaultAccel(k)
 	}
 	return c
 }
 
-func (c InputConfig) class(k *DeviceClass) (DeviceConfig, *AccelProfile) {
+func (c InputConfig) class(k *backend.DeviceClass) (DeviceConfig, *AccelProfile) {
 	if k == nil {
 		return DeviceConfig{}, nil
 	}

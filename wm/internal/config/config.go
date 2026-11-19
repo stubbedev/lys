@@ -1566,15 +1566,15 @@ func (p *parser) deviceOutputs(devices map[string]rawNamedDevice) map[string]wm.
 }
 
 func (r rawInput) classes() [len(session.InputConfig{}.Classes)]rawDevice {
-	return [...]rawDevice{session.ClassPointer: r.Pointer, session.ClassTouchpad: r.Touchpad, session.ClassTrackpoint: r.Trackpoint}
+	return [...]rawDevice{backend.ClassPointer: r.Pointer, backend.ClassTouchpad: r.Touchpad, backend.ClassTrackpoint: r.Trackpoint}
 }
 
-func classKey(k session.DeviceClass) string { return "input." + k.String() }
+func classKey(k backend.DeviceClass) string { return "input." + k.String() }
 
 func (p *parser) input(r rawInput) session.InputConfig {
 	c := session.DefaultInputConfig()
 	for i, raw := range r.classes() {
-		k := session.DeviceClass(i)
+		k := backend.DeviceClass(i)
 		c.Classes[k].DeviceConfig = p.device(raw, classKey(k))
 		if accel := p.accel(raw, classKey(k)); accel != nil {
 			c.Classes[k].AccelProfile = *accel
