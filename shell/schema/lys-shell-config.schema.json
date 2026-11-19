@@ -5630,6 +5630,19 @@
             }
           ]
         },
+        "notify-click": {
+          "$ref": "#/$defs/string",
+          "default": "",
+          "description": "Shell command run when a new-mail notification is clicked, with the\nmessage's notmuch thread in `{{ thread }}` (e.g.\n`mail-open thread:{{ thread }}`). Empty: the notification takes no\nclick action.\n\n## Placeholders\n\n- `{{ thread }}` - The message's notmuch thread id",
+          "x-placeholders": [
+            {
+              "description": "The message's notmuch thread id",
+              "name": "thread",
+              "sample": "0000000000003285",
+              "token": "{{ thread }}"
+            }
+          ]
+        },
         "notify-summary": {
           "$ref": "#/$defs/string",
           "default": "{{ sender }}",
@@ -6641,6 +6654,7 @@
             "middle-click": "",
             "notify": false,
             "notify-body": "{{ subject }}",
+            "notify-click": "",
             "notify-summary": "{{ sender }}",
             "query": "tag:unread",
             "right-click": "",
@@ -12545,6 +12559,7 @@
           "middle-click": "",
           "notify": false,
           "notify-body": "{{ subject }}",
+          "notify-click": "",
           "notify-summary": "{{ sender }}",
           "query": "tag:unread",
           "right-click": "",

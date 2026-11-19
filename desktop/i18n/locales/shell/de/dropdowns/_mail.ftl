@@ -12,3 +12,4 @@ mail-notification-arrived = { $new ->
     [one] { $count } ungelesen
    *[other] { $count } ungelesen
 })
+mail-notification-open = Öffnen

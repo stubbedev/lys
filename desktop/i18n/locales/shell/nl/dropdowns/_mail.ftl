@@ -10,3 +10,4 @@ mail-notification-arrived = { $new ->
     [one] { $count } ongelezen
    *[other] { $count } ongelezen
 })
+mail-notification-open = Openen

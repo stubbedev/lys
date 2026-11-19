@@ -31,6 +31,9 @@ settings-modules-mail-notify-summary = Benachrichtigungstitel
 settings-modules-mail-notify-body = Benachrichtigungstext
     .description = Haupttext. Platzhalter: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (gesamt), {"{{ new }}"} (neu)
 
+settings-modules-mail-notify-click = Befehl beim Klick auf die Benachrichtigung
+    .description = Shell-Befehl, der beim Klick auf eine Benachrichtigung über neue E-Mails ausgeführt wird. Platzhalter: {"{{ thread }}"} (notmuch-Thread)
+
 settings-modules-mail-icon-name = Symbol
     .description = Modulsymbol
 
@@ -98,3 +101,5 @@ settings-modules-mail-notify-body-placeholder-subject = Betreff der Nachricht
 settings-modules-mail-notify-body-placeholder-count = Gesamtzahl der Nachrichten, die der Abfrage entsprechen
 
 settings-modules-mail-notify-body-placeholder-new = Wie viele seit der letzten Zählung eingetroffen sind
+
+settings-modules-mail-notify-click-placeholder-thread = Die notmuch-Thread-ID der Nachricht

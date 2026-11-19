@@ -14,3 +14,4 @@ mail-notification-arrived = { $new ->
     [many] { $count } sin leer
    *[other] { $count } sin leer
 })
+mail-notification-open = Abrir

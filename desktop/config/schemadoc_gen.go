@@ -959,6 +959,7 @@ var schemaDocs = map[string]string{
 	"MailConfig.MiddleClick":                                 "Action on middle click.",
 	"MailConfig.Notify":                                      "Fire a desktop notification when the unread count\nrises — i.e. new mail arrives. One notification per newly-arrived\nmessage (capped per burst), showing its sender and subject. With\n`accounts` configured, each notification uses that account's provider\nicon; otherwise the module icon is used.",
 	"MailConfig.NotifyBody":                                  "Notification body when new mail arrives.",
+	"MailConfig.NotifyClick":                                 "Shell command run when a new-mail notification is clicked, with the\nmessage's notmuch thread in `{{ thread }}` (e.g.\n`mail-open thread:{{ thread }}`). Empty: the notification takes no\nclick action.",
 	"MailConfig.NotifySummary":                               "Notification summary when new mail arrives.",
 	"MailConfig.Query":                                       "notmuch search query whose match count is shown.\n\nAny query `notmuch count` accepts, e.g. `tag:unread`,\n`tag:unread and tag:inbox`, `folder:work and tag:unread`.\n\nIgnored when `accounts` is non-empty — the bar count is then the sum of\nthe per-account queries.",
 	"MailConfig.RightClick":                                  "Action on right click.",

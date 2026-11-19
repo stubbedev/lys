@@ -72,6 +72,7 @@ var formatFields = map[string]formatField{
 	"MailConfig.Format":          jinjaFormat(ph("count", "3")),
 	"MailConfig.NotifySummary":   mailNotificationPlaceholders,
 	"MailConfig.NotifyBody":      mailNotificationPlaceholders,
+	"MailConfig.NotifyClick":     jinjaFormat(ph("thread", "0000000000003285")),
 	"MediaConfig.Format": jinjaFormat(
 		ph("title", "Bohemian Rhapsody"), ph("artist", "Queen"), ph("album", "A Night at the Opera"),
 		ph("status", "Playing"), ph("status_icon", "󰐊"),

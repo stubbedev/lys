@@ -33,6 +33,7 @@ bar:
 | `notify` | bool | `false` | Fire a desktop notification when the unread count rises — i.e. new mail arrives. One notification per newly-arrived message (capped per burst), showing its sender and subject. With `accounts` configured, each notification uses that account's provider icon; otherwise the module icon is used. |
 | `notify-summary` | string | `"{{ sender }}"` | Notification summary when new mail arrives. |
 | `notify-body` | string | `"{{ subject }}"` | Notification body when new mail arrives. |
+| `notify-click` | string | `""` | Shell command run when a new-mail notification is clicked, with the message's notmuch thread in `{{ thread }}` (e.g. `mail-open thread:{{ thread }}`). Empty: the notification takes no click action. |
 | `icon-name` | string | `"ld-mail-symbolic"` | Module icon. |
 | `border-show` | bool | `false` | Display border around button. |
 | `icon-show` | bool | `true` | Display module icon. |
@@ -84,6 +85,14 @@ the per-account queries.
 
 :::
 
+::: details More about `notify-click`
+
+#### Placeholders
+
+- `{{ thread }}` - The message's notmuch thread id
+
+:::
+
 ## Colors
 
 | Field | Type | Default | Description |
@@ -116,6 +125,7 @@ modules:
     notify: false
     notify-summary: '{{ sender }}'
     notify-body: '{{ subject }}'
+    notify-click: ""
     icon-name: ld-mail-symbolic
     border-show: false
     border-color: blue

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/spawn"
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 )
@@ -64,6 +65,7 @@ func (CLI) Newest(ctx context.Context, query string, limit int) ([]Message, erro
 // "matched | non-matched"; the sender is the first matched author.
 func parseSearch(out []byte) ([]Message, error) {
 	var threads []struct {
+		Thread  string `json:"thread"`
 		Authors string `json:"authors"`
 		Subject string `json:"subject"`
 	}
@@ -74,7 +76,7 @@ func parseSearch(out []byte) ([]Message, error) {
 	for _, thread := range threads {
 		matched, _, _ := strings.Cut(thread.Authors, "|")
 		first, _, _ := strings.Cut(matched, ",")
-		m := Message{Sender: strings.TrimSpace(first), Subject: strings.TrimSpace(thread.Subject)}
+		m := Message{Sender: strings.TrimSpace(first), Subject: strings.TrimSpace(thread.Subject), Thread: thread.Thread}
 		if m.Sender == "" && m.Subject == "" {
 			continue
 		}
@@ -103,14 +105,31 @@ type DesktopNotifier struct {
 // notifyTimeout bounds one fire-and-forget send.
 const notifyTimeout = 5 * time.Second
 
+const clickWait = 30 * time.Minute
+
 // Notify sends in the background; failures are logged, never returned,
 // as a missing notification must not fail the re-query.
-func (d DesktopNotifier) Notify(summary, body, icon string) {
+func (d DesktopNotifier) Notify(summary, body, icon, click string) {
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
+		source := i18n.T("notification-source-mail")
+		if click == "" {
+			ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
+			defer cancel()
+			if _, err := d.Sender.Send(ctx, source, summary, body, icon); err != nil {
+				log.Printf("mail: notify: %v", err)
+			}
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), clickWait)
 		defer cancel()
-		if _, err := d.Sender.Send(ctx, i18n.T("notification-source-mail"), summary, body, icon); err != nil {
+		actions := []desktopnotify.Action{{Key: "default", Label: i18n.T("mail-notification-open")}}
+		key, ok, err := d.Sender.Ask(ctx, source, summary, body, icon, actions, -time.Millisecond)
+		if err != nil {
 			log.Printf("mail: notify: %v", err)
+			return
+		}
+		if ok && key == "default" {
+			spawn.Quiet(click)
 		}
 	}()
 }

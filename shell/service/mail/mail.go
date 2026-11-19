@@ -53,6 +53,7 @@ type State struct {
 type Message struct {
 	Sender  string
 	Subject string
+	Thread  string
 }
 
 // Notmuch is the query seam.
@@ -68,7 +69,7 @@ type Notmuch interface {
 
 // Notifier fires one desktop notification, fire-and-forget.
 type Notifier interface {
-	Notify(summary, body, icon string)
+	Notify(summary, body, icon, click string)
 }
 
 // Service holds the counts and runs the watch loop.
@@ -224,6 +225,7 @@ func (s *Service) recompute(ctx context.Context, notify bool) {
 			renderNotification(s.cfg.NotifySummary, item),
 			renderNotification(s.cfg.NotifyBody, item),
 			notifyIconArg(item.icon),
+			clickCommand(s.cfg.NotifyClick, item),
 		)
 	}
 
@@ -236,6 +238,7 @@ type newMail struct {
 	icon    string
 	sender  string
 	subject string
+	thread  string
 	count   uint32 // total unread for the query after the arrival
 	new     uint32 // how many arrived in this burst
 }
@@ -259,7 +262,7 @@ func (s *Service) buildBatch(ctx context.Context, query, icon, fallbackSender st
 	}
 	batch := make([]newMail, 0, len(messages))
 	for _, m := range messages {
-		batch = append(batch, newMail{icon: icon, sender: m.Sender, subject: m.Subject, count: total, new: arrived})
+		batch = append(batch, newMail{icon: icon, sender: m.Sender, subject: m.Subject, thread: m.Thread, count: total, new: arrived})
 	}
 	return batch
 }
@@ -268,6 +271,13 @@ func (s *Service) buildBatch(ctx context.Context, query, icon, fallbackSender st
 // {{ count }} and {{ new }}.
 func renderNotification(format string, m newMail) string {
 	return jinja.ReplaceVars(format, notificationVars(m))
+}
+
+func clickCommand(format string, m newMail) string {
+	if format == "" || m.thread == "" {
+		return ""
+	}
+	return jinja.ReplaceVars(format, map[string]string{"thread": m.thread})
 }
 
 func notificationVars(m newMail) map[string]string {

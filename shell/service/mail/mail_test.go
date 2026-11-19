@@ -78,17 +78,17 @@ func (f *fakeNotmuch) DatabasePath(context.Context) (string, bool) {
 	return f.dbPath, f.dbPath != ""
 }
 
-type sent struct{ summary, body, icon string }
+type sent struct{ summary, body, icon, click string }
 
 type fakeNotifier struct {
 	mu   sync.Mutex
 	sent []sent
 }
 
-func (f *fakeNotifier) Notify(summary, body, icon string) {
+func (f *fakeNotifier) Notify(summary, body, icon, click string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.sent = append(f.sent, sent{summary, body, icon})
+	f.sent = append(f.sent, sent{summary, body, icon, click})
 }
 
 func (f *fakeNotifier) all() []sent {
@@ -170,8 +170,8 @@ func TestMaildirChangeRequeriesAndNotifiesArrivals(t *testing.T) {
 		t.Errorf("total = %d, want 3", got)
 	}
 	want := []sent{
-		{"2 from Alice", "Lunch (3)", "ld-mail-symbolic"},
-		{"2 from Bob", "Build (3)", "ld-mail-symbolic"},
+		{"2 from Alice", "Lunch (3)", "ld-mail-symbolic", ""},
+		{"2 from Bob", "Build (3)", "ld-mail-symbolic", ""},
 	}
 	if got := notifier.all(); !reflect.DeepEqual(got, want) {
 		t.Errorf("notifications = %+v, want %+v", got, want)
@@ -227,7 +227,7 @@ func TestAccountsCountSeparatelyAndFallBackToACountOnlyNotification(t *testing.T
 	nm.set("folder:work", 10)
 	touch(t, maildir, "new")
 	waittest.For(t, ticks, "the publish after a write")
-	want := []sent{{"Work", i18n.T("mail-notification-arrived", i18n.Int("new", 8), i18n.Int("count", 10)), "si-gmail-symbolic"}}
+	want := []sent{{"Work", i18n.T("mail-notification-arrived", i18n.Int("new", 8), i18n.Int("count", 10)), "si-gmail-symbolic", ""}}
 	if got := notifier.all(); !reflect.DeepEqual(got, want) {
 		t.Errorf("notifications = %+v, want %+v", got, want)
 	}
@@ -503,7 +503,45 @@ func TestANotificationWithReadableMessagesUsesThemNotTheCountText(t *testing.T) 
 	svc.recompute(t.Context(), false)
 	nm.set("tag:unread", 1)
 	svc.recompute(t.Context(), true)
-	if got, want := notifier.all(), []sent{{"Alice", "Lunch", "ld-mail-symbolic"}}; !reflect.DeepEqual(got, want) {
+	if got, want := notifier.all(), []sent{{"Alice", "Lunch", "ld-mail-symbolic", ""}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("notifications = %+v, want %+v", got, want)
+	}
+}
+
+func TestParseSearchKeepsTheThread(t *testing.T) {
+	got, err := parseSearch([]byte(`[{"thread": "0000000000003285", "authors": "Ann", "subject": "Hi"}]`))
+	want := []Message{{Sender: "Ann", Subject: "Hi", Thread: "0000000000003285"}}
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("parse = %+v, %v, want %+v", got, err, want)
+	}
+}
+
+func TestANotificationClickRunsTheCommandForItsThread(t *testing.T) {
+	maildir := t.TempDir()
+	cur := filepath.Join(maildir, "INBOX", "cur")
+	if err := os.MkdirAll(cur, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	nm := &fakeNotmuch{dbPath: maildir, counts: map[string]uint32{"tag:unread": 0}, newest: map[string][]Message{}}
+	notifier := &fakeNotifier{}
+	cfg := notifyConfig()
+	cfg.NotifyClick = "mail-open thread:{{ thread }}"
+	_, ticks := startService(t, cfg, nm, notifier)
+
+	nm.set("tag:unread", 1)
+	nm.setNewest("tag:unread", []Message{{Sender: "Alice", Subject: "Lunch", Thread: "00ab"}})
+	touch(t, cur, "1:2,")
+	waittest.For(t, ticks, "the publish after a maildir write")
+	if got := notifier.all(); len(got) != 1 || got[0].click != "mail-open thread:00ab" {
+		t.Fatalf("notifications = %+v, want one whose click opens thread 00ab", got)
+	}
+}
+
+func TestNoClickCommandWithoutTheSettingOrAThread(t *testing.T) {
+	if got := clickCommand("", newMail{thread: "00ab"}); got != "" {
+		t.Errorf("no notify-click gave the click %q", got)
+	}
+	if got := clickCommand("mail-open thread:{{ thread }}", newMail{}); got != "" {
+		t.Errorf("a count-only notification without a thread gave the click %q", got)
 	}
 }

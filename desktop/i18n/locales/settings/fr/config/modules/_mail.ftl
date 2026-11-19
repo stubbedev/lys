@@ -31,6 +31,9 @@ settings-modules-mail-notify-summary = Résumé de la notification
 settings-modules-mail-notify-body = Corps de la notification
     .description = Texte du corps. Espaces réservés : {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (nouveaux)
 
+settings-modules-mail-notify-click = Commande au clic sur la notification
+    .description = Commande shell exécutée au clic sur une notification de nouveau courrier. Espace réservé : {"{{ thread }}"} (fil notmuch)
+
 settings-modules-mail-icon-name = Icône
     .description = Icône du module
 
@@ -98,3 +101,5 @@ settings-modules-mail-notify-body-placeholder-subject = Objet du message
 settings-modules-mail-notify-body-placeholder-count = Nombre total de messages correspondant à la requête
 
 settings-modules-mail-notify-body-placeholder-new = Nombre de messages arrivés depuis le dernier décompte
+
+settings-modules-mail-notify-click-placeholder-thread = L'identifiant du fil notmuch du message

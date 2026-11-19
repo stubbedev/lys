@@ -31,6 +31,9 @@ settings-modules-mail-notify-summary = Notification Summary
 settings-modules-mail-notify-body = Notification Body
     .description = Body text. Placeholders: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (new)
 
+settings-modules-mail-notify-click = Notification Click Command
+    .description = Shell command run when a new-mail notification is clicked. Placeholder: {"{{ thread }}"} (notmuch thread)
+
 settings-modules-mail-icon-name = Icon
     .description = Module icon
 
@@ -98,3 +101,5 @@ settings-modules-mail-notify-body-placeholder-subject = Message subject
 settings-modules-mail-notify-body-placeholder-count = Total messages matching the query
 
 settings-modules-mail-notify-body-placeholder-new = How many arrived since the last count
+
+settings-modules-mail-notify-click-placeholder-thread = The message's notmuch thread id

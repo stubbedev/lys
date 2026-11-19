@@ -14,3 +14,4 @@ mail-notification-arrived = { $new ->
     [many] { $count } non letti
    *[other] { $count } non letti
 })
+mail-notification-open = Apri

@@ -27,6 +27,9 @@ settings-modules-mail-notify-summary = Samenvatting van melding
 settings-modules-mail-notify-body = Tekst van melding
     .description = Hoofdtekst. Plaatshouders: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (totaal), {"{{ new }}"} (nieuw)
 
+settings-modules-mail-notify-click = Opdracht bij klikken op melding
+    .description = Shell-opdracht die wordt uitgevoerd bij een klik op een melding van nieuwe e-mail. Plaatshouder: {"{{ thread }}"} (notmuch-thread)
+
 settings-modules-mail-icon-name = Pictogram
     .description = Modulepictogram
 
@@ -92,3 +95,5 @@ settings-modules-mail-notify-body-placeholder-subject = Onderwerp van het berich
 settings-modules-mail-notify-body-placeholder-count = Totaal aantal berichten dat aan de zoekopdracht voldoet
 
 settings-modules-mail-notify-body-placeholder-new = Hoeveel er sinds de laatste telling zijn binnengekomen
+
+settings-modules-mail-notify-click-placeholder-thread = De notmuch-thread-id van het bericht

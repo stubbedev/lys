@@ -93,6 +93,11 @@ type MailConfig struct {
 	NotifySummary string `cfg:"notify-summary"`
 	// Notification body when new mail arrives.
 	NotifyBody string `cfg:"notify-body"`
+	// Shell command run when a new-mail notification is clicked, with the
+	// message's notmuch thread in `{{ thread }}` (e.g.
+	// `mail-open thread:{{ thread }}`). Empty: the notification takes no
+	// click action.
+	NotifyClick string `cfg:"notify-click"`
 	// Module icon.
 	IconName string `cfg:"icon-name"`
 	// Display border around button.
@@ -138,6 +143,7 @@ func DefaultsMail() MailConfig {
 		Notify:         false,
 		NotifySummary:  "{{ sender }}",
 		NotifyBody:     "{{ subject }}",
+		NotifyClick:    "",
 		IconName:       "ld-mail-symbolic",
 		BorderShow:     false,
 		BorderColor:    mustColor("blue"),

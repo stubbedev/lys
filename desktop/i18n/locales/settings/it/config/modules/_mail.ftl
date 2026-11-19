@@ -31,6 +31,9 @@ settings-modules-mail-notify-summary = Riepilogo della notifica
 settings-modules-mail-notify-body = Corpo della notifica
     .description = Testo del corpo. Segnaposto: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (totale), {"{{ new }}"} (nuovi)
 
+settings-modules-mail-notify-click = Comando al clic sulla notifica
+    .description = Comando di shell eseguito al clic su una notifica di nuova posta. Segnaposto: {"{{ thread }}"} (thread notmuch)
+
 settings-modules-mail-icon-name = Icona
     .description = Icona del modulo
 
@@ -98,3 +101,5 @@ settings-modules-mail-notify-body-placeholder-subject = Oggetto del messaggio
 settings-modules-mail-notify-body-placeholder-count = Totale dei messaggi corrispondenti alla query
 
 settings-modules-mail-notify-body-placeholder-new = Quanti ne sono arrivati dall'ultimo conteggio
+
+settings-modules-mail-notify-click-placeholder-thread = L'identificativo del thread notmuch del messaggio
