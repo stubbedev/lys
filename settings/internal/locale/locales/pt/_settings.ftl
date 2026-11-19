@@ -840,3 +840,7 @@ settings-world-clock-zone = Fuso horário
 settings-world-clock-before = Texto antes
 settings-world-clock-time = Formato da hora
 settings-world-clock-handwritten = Este formato contém mais do que relógios, por isso é editado como texto.
+settings-web-engine-custom = Personalizado
+settings-web-engine-pick = Motor de pesquisa
+settings-web-engine-name = Nome
+settings-web-engine-url = Endereço de pesquisa

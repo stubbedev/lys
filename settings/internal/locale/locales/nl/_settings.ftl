@@ -839,3 +839,7 @@ settings-world-clock-zone = Tijdzone
 settings-world-clock-before = Tekst ervoor
 settings-world-clock-time = Tijdnotatie
 settings-world-clock-handwritten = Deze notatie bevat meer dan klokken en wordt daarom als tekst bewerkt.
+settings-web-engine-custom = Aangepast
+settings-web-engine-pick = Zoekmachine
+settings-web-engine-name = Naam
+settings-web-engine-url = Zoekadres

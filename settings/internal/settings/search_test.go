@@ -164,7 +164,9 @@ func TestEveryLauncherSearchKeyHasALabelledRow(t *testing.T) {
 	labelled := map[string]bool{}
 	for _, sec := range p.sections {
 		for _, r := range sec.flatRows() {
-			labelled[r.path] = locale.T().Has(r.labelKey())
+			for _, path := range append([]string{r.path}, r.also...) {
+				labelled[path] = locale.T().Has(r.labelKey())
+			}
 		}
 	}
 	for _, key := range []string{"providers", "web-engine", "web-url", "file-roots", "file-exclude", "commands-dir", "currency-rates", "previews", "quicklinks", "snippets"} {

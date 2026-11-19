@@ -213,8 +213,7 @@ func launcherModesPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-launcher-search", rows: []rowSpec{
 			field("launcher.search.providers", enumList),
-			field("launcher.search.web-engine"),
-			field("launcher.search.web-url"),
+			field(webEnginePath, webEngineRow),
 			field("launcher.search.file-roots", stringList),
 			field("launcher.search.file-exclude", stringList),
 			field("launcher.search.commands-dir"),

@@ -849,3 +849,7 @@ settings-world-clock-zone = Zeitzone
 settings-world-clock-before = Text davor
 settings-world-clock-time = Zeitformat
 settings-world-clock-handwritten = Dieses Format enthält mehr als Uhren und wird daher als Text bearbeitet.
+settings-web-engine-custom = Eigene
+settings-web-engine-pick = Suchmaschine
+settings-web-engine-name = Name
+settings-web-engine-url = Suchadresse

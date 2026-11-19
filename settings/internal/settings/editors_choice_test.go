@@ -54,8 +54,6 @@ func TestEveryListerHasATestFixture(t *testing.T) {
 
 var freeFormRows = []string{
 	"launcher.negate-char",
-	"launcher.search.web-engine",
-	"launcher.search.web-url",
 	"modules.bitwarden.email",
 	"modules.bitwarden.network-folder",
 	"modules.bitwarden.portal-folder",
