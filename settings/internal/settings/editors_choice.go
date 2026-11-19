@@ -60,16 +60,15 @@ func hostLists(h host) map[string]lister {
 
 var systemLists = hostLists(systemHost)
 
-var commandPresets = []struct {
-	keyword  string
-	commands []string
-}{
-	{"lock", []string{"loginctl lock-session"}},
-	{"logout", []string{"loginctl terminate-session self", "loginctl terminate-user $USER"}},
-	{"suspend", []string{"systemctl suspend", "systemctl hybrid-sleep"}},
-	{"reboot", []string{"systemctl reboot"}},
-	{"shutdown", []string{"systemctl poweroff"}},
-	{"poweroff", []string{"systemctl poweroff"}},
+var commandPresets = []struct{ keyword, command, key string }{
+	{"lock", "loginctl lock-session", "settings-command-lock-session"},
+	{"logout", "loginctl terminate-session self", "settings-command-end-session"},
+	{"logout", "loginctl terminate-user $USER", "settings-command-end-user"},
+	{"suspend", "systemctl suspend", "settings-command-suspend"},
+	{"suspend", "systemctl hybrid-sleep", "settings-command-hybrid-sleep"},
+	{"reboot", "systemctl reboot", "settings-command-reboot"},
+	{"shutdown", "systemctl poweroff", "settings-command-poweroff"},
+	{"poweroff", "systemctl poweroff", "settings-command-poweroff"},
 }
 
 var bitwardenServers = []string{"bitwarden.com", "bitwarden.eu"}
@@ -95,19 +94,20 @@ func shellDefault(path string) string {
 	return s
 }
 
-func commandsFor(path string) []string {
+func commandsFor(path string) []choice {
+	t := locale.T()
 	keys := strings.Split(path, ".")
 	last := keys[len(keys)-1]
-	out := []string{}
+	var out []choice
 	if d := shellDefault(path); d != "" {
-		out = append(out, d)
+		out = append(out, choice{value: d, label: t.Get("settings-command-default"), group: d})
 	}
 	for _, p := range commandPresets {
-		if strings.Contains(last, p.keyword) {
-			out = append(out, p.commands...)
+		if strings.Contains(last, p.keyword) && !hasValue(out, p.command) {
+			out = append(out, choice{value: p.command, label: t.Get(p.key), group: p.command})
 		}
 	}
-	return slices.Compact(out)
+	return out
 }
 
 func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, bool) {
@@ -122,7 +122,7 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	case "Directory":
 		return newFolderEditor(k, s), true
 	case "Command":
-		return newChoiceEditor(k, s, choiceSpec{list: fixed(commandsFor(path)...), free: true, optional: meta.Optional}), true
+		return newChoiceEditor(k, s, choiceSpec{list: fixedChoices(commandsFor(path)), free: true, optional: meta.Optional, browse: (*kit).appCommandButton}), true
 	case "BitwardenServer":
 		return newChoiceEditor(k, s, choiceSpec{list: fixed(bitwardenServers...), free: true}), true
 	case "IdleTimeout":

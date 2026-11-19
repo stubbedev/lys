@@ -294,8 +294,14 @@ func TestACommandOffersPresetsAndAcceptsAnyCommand(t *testing.T) {
 	if v := k.store.value(path); v != "my-suspend --now" || c.unknown.Visible() {
 		t.Fatalf("custom %v, unknown %v", v, c.unknown.Visible())
 	}
-	if got := commandsFor("launcher.run.run-command"); !slices.Equal(got, []string{shellDefault("launcher.run.run-command")}) {
-		t.Fatalf("a run command offers %q", got)
+	run := "launcher.run.run-command"
+	if got := commandsFor(run); len(got) != 1 || got[0].value != shellDefault(run) || got[0].label != locale.T().Get("settings-command-default") {
+		t.Fatalf("a run command offers %+v", got)
+	}
+	for _, o := range commandsFor(path) {
+		if o.label == o.value || o.group != o.value {
+			t.Errorf("the preset %q is not named, with its command beside the name: %+v", o.value, o)
+		}
 	}
 }
 

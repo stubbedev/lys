@@ -2092,6 +2092,7 @@
       "desktop/settingspage",
       "desktop/shell/apptheme",
       "desktop/shell/widgets",
+      "desktop/shlex",
       "desktop/strftime",
       "desktop/styling",
       "lib/atomicfile",

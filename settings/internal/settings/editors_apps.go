@@ -2,12 +2,16 @@ package settings
 
 import (
 	"cmp"
+	"fmt"
+	"log"
 	"slices"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/shlex"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 const (
@@ -104,4 +108,39 @@ func newPinnedAppsEditor(k *kit, s slot) *listEditor {
 		c.rebuild(c.values())
 	})
 	return c
+}
+
+func appCommand(a desktopentry.App) (string, error) {
+	argv, err := a.ExpandExec(a.Exec())
+	if err != nil {
+		return "", fmt.Errorf("the command of %s: %w", a.ID, err)
+	}
+	words := make([]string, len(argv))
+	for i, w := range argv {
+		if words[i], err = shlex.Quote(w); err != nil {
+			return "", fmt.Errorf("the command of %s: %w", a.ID, err)
+		}
+	}
+	return strings.Join(words, " "), nil
+}
+
+func (k *kit) appCommandButton(pick func(string)) *widget.Button {
+	var b *widget.Button
+	b = k.iconButton("ld-app-window-symbolic", "settings-command-app", func() {
+		if k.pickers == nil {
+			return
+		}
+		dirs := desktopentry.ApplicationDirs()
+		async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+			openAppPicker(k, b, ix.shown, func(a desktopentry.App) {
+				cmd, err := appCommand(a)
+				if err != nil {
+					log.Printf("settings: %v", err)
+					return
+				}
+				pick(cmd)
+			})
+		})
+	}, "app-command", css.Outline)
+	return b
 }

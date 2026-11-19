@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -193,5 +194,46 @@ func TestDockPinnedScansOffTheLoopAndOffersNoPickUntilItIsDone(t *testing.T) {
 	}
 	if got := pinnedValue(t, k); !slices.Equal(got, []any{"firefox", "gone-app"}) {
 		t.Fatalf("the scan rewrote the list: %v", got)
+	}
+}
+
+func TestAnAppBecomesItsCommandLine(t *testing.T) {
+	dir := t.TempDir()
+	load := func(exec string) desktopentry.App {
+		path := filepath.Join(dir, "x.desktop")
+		put(t, path, "[Desktop Entry]\nType=Application\nName=X\nExec="+exec+"\n")
+		a, ok := desktopentry.LoadApp("x.desktop", path)
+		if !ok {
+			t.Fatalf("%q does not load", exec)
+		}
+		return a
+	}
+	got, err := appCommand(load(`true --new-window %U "two words" "it's"`))
+	if err != nil || got != `true --new-window 'two words' "it's"` {
+		t.Fatalf("%q, %v", got, err)
+	}
+	if got, err := appCommand(load(`true`)); err != nil || got != "true" {
+		t.Fatalf("a bare program became %q, %v", got, err)
+	}
+}
+
+func TestACommandRunsAPickedApp(t *testing.T) {
+	dockAppsFixture(t)
+	k := testKit(t, "")
+	const path = "modules.power.lock-command"
+	c := shellControl(t, k, path).(*choiceEditor)
+	f := &fakePickers{}
+	k.pickers = f
+	c.browse.ClickAt(widget.Point{})
+	if f.content == nil {
+		t.Fatal("Run an app opened no app list")
+	}
+	flow := treetest.First[*widget.FlowBox](t, f.content)
+	if got := shownLabels(flow); !slices.Equal(got, []string{"Calculator", "Fichiers", "Firefox"}) {
+		t.Fatalf("Run an app offers %q", got)
+	}
+	flow.OnActivate(0)
+	if v := k.store.value(path); v != "true" {
+		t.Fatalf("picking Calculator stored %v", v)
 	}
 }
