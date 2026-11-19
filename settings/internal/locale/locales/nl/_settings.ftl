@@ -801,3 +801,5 @@ settings-duration-seconds = { $n ->
     [one] 1 seconde
    *[other] { $n } seconden
 }
+settings-advanced-show = Tonen
+settings-advanced-hide = Verbergen

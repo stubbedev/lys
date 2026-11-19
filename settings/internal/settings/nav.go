@@ -134,14 +134,14 @@ func motionPage(*config.Config) pageSpec {
 				twinToggle("animations.enabled", "animations.enabled"), twinToggle("animations.reduced-motion", "animations.reduced_motion"),
 				field("animations.transition"), field("animations.duration", animationDuration),
 			}},
-			{title: "settings-section-direction", rows: []rowSpec{
+			{title: "settings-section-direction", advanced: true, rows: []rowSpec{
 				field("animations.enter"), field("animations.exit"),
 				field("animations.enter-duration", animationDuration), field("animations.exit-duration", animationDuration),
 			}},
-			{title: "settings-animations-power", rows: surfaceAnimationRows("animations.power")},
-			{title: "settings-animations-dialog", rows: surfaceAnimationRows("animations.dialog")},
-			{title: "settings-animations-file-chooser", rows: surfaceAnimationRows("animations.file-chooser")},
-			{title: "settings-animations-print", rows: surfaceAnimationRows("animations.print")},
+			{title: "settings-animations-power", advanced: true, rows: surfaceAnimationRows("animations.power")},
+			{title: "settings-animations-dialog", advanced: true, rows: surfaceAnimationRows("animations.dialog")},
+			{title: "settings-animations-file-chooser", advanced: true, rows: surfaceAnimationRows("animations.file-chooser")},
+			{title: "settings-animations-print", advanced: true, rows: surfaceAnimationRows("animations.print")},
 			{title: "settings-section-speed", rows: []rowSpec{
 				field("animations.ui-duration", animationDuration), field("animations.interaction-duration", animationDuration), field("animations.indicators"),
 			}},

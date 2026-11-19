@@ -11,6 +11,8 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const listedPagesBudget = 256 << 10
@@ -146,7 +148,12 @@ func TestASettingBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	w.openPage("bar")
 	const width, height = 900, 600
 	w.root.Arrange(render.Rect{W: width, H: height})
-	last := w.page.rows[len(w.page.rows)-1]
+	var last *settingRow
+	for i := len(w.page.rows) - 1; i >= 0 && last == nil; i-- {
+		if !w.page.rows[i].Bounds().Empty() {
+			last = w.page.rows[i]
+		}
+	}
 	if last.Bounds().Y+last.Bounds().H <= height {
 		t.Fatalf("the last row at %+v is not below the fold", last.Bounds())
 	}
@@ -243,5 +250,33 @@ func TestANestedSettingLaunchFocusesItOnceItsGroupShows(t *testing.T) {
 		if want := widget.FirstFocusable(row.ctl); focused == nil || focused != want {
 			t.Fatalf("%q: focused %T, want %T", c.config, focused, want)
 		}
+	}
+}
+
+func TestASettingInAnAdvancedSectionOpensItAndIsScrolledIntoView(t *testing.T) {
+	k := testKit(t, "")
+	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
+	w.stack.SetTransition(widget.StackNone, 0)
+	w.openPage("bar")
+	const width, height = 900, 600
+	w.root.Arrange(render.Rect{W: width, H: height})
+	if len(w.page.advanced) == 0 || w.page.advanced[0].group.Visible() {
+		t.Fatal("the bar page has no advanced section collapsed")
+	}
+	w.open(launch{setting: "bar.button-group-opacity"})
+	w.root.Arrange(render.Rect{W: width, H: height})
+	i := slices.IndexFunc(w.page.rows, func(r *settingRow) bool { return r.path == "bar.button-group-opacity" })
+	row := w.page.rows[i]
+	if b, view := row.Bounds(), w.page.Bounds(); b.Empty() || b.Y < view.Y || b.Y+b.H > view.Y+view.H {
+		t.Fatalf("the revealed row at %+v is not shown in the page's view %+v", b, view)
+	}
+	for _, d := range w.page.advanced {
+		if d.first <= i && i < d.first+d.n && !d.group.Visible() {
+			t.Error("the row's advanced section stayed collapsed")
+		}
+	}
+	w.page.advanced[0].toggle.OnClick()
+	if w.page.advanced[0].group.Visible() == (w.page.advanced[0].label.Text() == locale.T().Get("settings-advanced-show")) {
+		t.Error("the toggle's label does not follow the section")
 	}
 }

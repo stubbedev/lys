@@ -20,7 +20,7 @@ func barPage(*config.Config) pageSpec {
 			field("bar.rounding"),
 			field("bar.shadow"),
 		}},
-		{title: "settings-section-spacing", rows: fields("bar.inset-edge", "bar.inset-ends", "bar.padding", "bar.padding-ends", "bar.module-gap")},
+		{title: "settings-section-spacing", advanced: true, rows: fields("bar.inset-edge", "bar.inset-ends", "bar.padding", "bar.padding-ends", "bar.module-gap")},
 		{title: "settings-section-border", rows: fields("bar.border-location", "bar.border-width", "bar.border-color")},
 
 		{title: "settings-section-buttons", rows: []rowSpec{
@@ -40,7 +40,7 @@ func barPage(*config.Config) pageSpec {
 			field("bar.button-border-location"),
 			field("bar.button-border-width"),
 		}},
-		{title: "settings-section-button-groups", rows: []rowSpec{
+		{title: "settings-section-button-groups", advanced: true, rows: []rowSpec{
 			field("bar.button-group-opacity", percentage),
 			field("bar.button-group-rounding"),
 			field("bar.button-group-padding"),
@@ -54,8 +54,8 @@ func barPage(*config.Config) pageSpec {
 			field("bar.dropdown-shadow"), field("bar.dropdown-autohide"), field("bar.dropdown-freeze-label"),
 			field("bar.dropdown-opacity", percentage),
 		}},
-		{title: "settings-section-dropdown-animation", rows: surfaceAnimationRows("animations.dropdown")},
-		{title: "settings-animations-menu", rows: surfaceAnimationRows("animations.menu")},
+		{title: "settings-section-dropdown-animation", advanced: true, rows: surfaceAnimationRows("animations.dropdown")},
+		{title: "settings-animations-menu", advanced: true, rows: surfaceAnimationRows("animations.menu")},
 	}}
 }
 
@@ -146,7 +146,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.fixed-num-lines"),
 			field("launcher.sidebar-mode"),
 		}},
-		{title: "settings-section-launcher-matching", rows: []rowSpec{
+		{title: "settings-section-launcher-matching", advanced: true, rows: []rowSpec{
 			field("launcher.matching"),
 			field("launcher.tokenize"),
 			field("launcher.negate-char"),

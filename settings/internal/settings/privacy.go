@@ -33,15 +33,15 @@ func privacyPage(*config.Config) pageSpec {
 				field("share-picker.resize-size"),
 				field("share-picker.widget-size", sizeBase(config.SharePickerWidgetBaseRem)),
 			}},
-			{title: "settings-section-share-picker-windows", rows: []rowSpec{
+			{title: "settings-section-share-picker-windows", advanced: true, rows: []rowSpec{
 				field("share-picker.windows-spacing", sizeBase(config.SharePickerWindowsSpacingBaseRem)),
 				field("share-picker.windows-min-per-row"), field("share-picker.windows-max-per-row"),
 			}},
-			{title: "settings-section-share-picker-outputs", rows: []rowSpec{
+			{title: "settings-section-share-picker-outputs", advanced: true, rows: []rowSpec{
 				field("share-picker.outputs-spacing", sizeBase(config.SharePickerOutputsSpacingBaseRem)),
 				field("share-picker.outputs-show-label"), field("share-picker.outputs-respect-scaling"),
 			}},
-			{title: "settings-section-share-picker-animation", rows: surfaceAnimationRows("animations.share-picker")},
+			{title: "settings-section-share-picker-animation", advanced: true, rows: surfaceAnimationRows("animations.share-picker")},
 			{title: "settings-section-lockdown", rows: fields("portal.lockdown.disable-camera", "portal.lockdown.disable-microphone",
 				"portal.lockdown.disable-location", "portal.lockdown.disable-sound-output", "portal.lockdown.disable-printing",
 				"portal.lockdown.disable-save-to-disk", "portal.lockdown.disable-application-handlers")},

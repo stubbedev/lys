@@ -43,6 +43,11 @@ func tabReachesEveryControl(w *window) pageCheck {
 				treetest.Walk(c.box, func(x widget.Widget) { hidden[x] = true })
 			}
 		}
+		for _, d := range w.page.advanced {
+			if !d.group.Visible() {
+				treetest.Walk(d.group, func(x widget.Widget) { hidden[x] = true })
+			}
+		}
 		for i, row := range w.page.rows {
 			if hidden[row] {
 				continue

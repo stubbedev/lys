@@ -34,9 +34,10 @@ type pageSpec struct {
 
 // sectionSpec is SectionSpec: a titled group of rows.
 type sectionSpec struct {
-	title string
-	rows  []rowSpec
-	when  func(s store) bool
+	title    string
+	rows     []rowSpec
+	when     func(s store) bool
+	advanced bool
 }
 
 // rowSpec is SettingRowInit, by path: the label key defaults to the
@@ -124,6 +125,7 @@ type settingsPage struct {
 	releases  []func()
 	k         *kit
 	sections  []sectionCondition
+	advanced  []disclosure
 }
 
 type sectionCondition struct {
@@ -131,6 +133,23 @@ type sectionCondition struct {
 	when  func(s store) bool
 	first int
 	n     int
+}
+
+type disclosure struct {
+	group  *widget.Box
+	toggle *widget.Button
+	label  *widget.Label
+	first  int
+	n      int
+}
+
+func (d disclosure) open(on bool) {
+	d.group.SetVisible(on)
+	key := "settings-advanced-show"
+	if on {
+		key = "settings-advanced-hide"
+	}
+	d.label.SetText(locale.T().Get(key))
 }
 
 func (p *settingsPage) showSections() {
@@ -217,6 +236,9 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		if s.when != nil {
 			p.sections = append(p.sections, sectionCondition{box: section, when: s.when, first: first, n: len(p.targets) - first})
 		}
+		if s.advanced {
+			p.advanced = append(p.advanced, advancedSection(k, section, first, len(p.targets)-first))
+		}
 		content.Append(section, false)
 	}
 	p.showSections()
@@ -249,6 +271,21 @@ func newSection(k *kit, title string, body widget.Widget) *widget.Box {
 	group.Append(body, false)
 	section.Append(group, false)
 	return section
+}
+
+func advancedSection(k *kit, section *widget.Box, first, n int) disclosure {
+	kids := section.Children()
+	d := disclosure{group: kids[len(kids)-1].(*widget.Box), label: k.label(""), first: first, n: n}
+	d.toggle = k.button(d.label, func() { d.open(!d.group.Visible()) }, css.Small, css.Flat)
+	d.toggle.AddClass("settings-advanced-toggle")
+	head := gapBox(widget.Row)
+	title := kids[0]
+	section.Remove(title)
+	head.AppendAligned(title, true, widget.AlignCenter)
+	head.AppendAligned(d.toggle, false, widget.AlignCenter)
+	section.InsertAt(0, head, false)
+	d.open(false)
+	return d
 }
 
 // refresh re-reads every row.
@@ -334,6 +371,11 @@ func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *settingRow {
 			c.box.SetVisible(true)
 		}
 	}
+	for _, d := range p.advanced {
+		if i >= d.first && i < d.first+d.n {
+			d.open(true)
+		}
+	}
 	row := p.shown(p.targets[i])
 	give := func() {
 		if target := widget.FirstFocusable(row.ctl); target != nil && focus != nil {
@@ -356,6 +398,7 @@ func (p *settingsPage) Arrange(r render.Rect) {
 	if row := p.revealing; row != nil {
 		p.revealing = nil
 		widget.RevealRect(row, row.Bounds())
+		p.Scroll.Arrange(r)
 	}
 	if give := p.focusing; give != nil {
 		p.focusing = nil

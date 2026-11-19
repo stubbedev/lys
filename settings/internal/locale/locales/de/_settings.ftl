@@ -811,3 +811,5 @@ settings-duration-seconds = { $n ->
     [one] 1 Sekunde
    *[other] { $n } Sekunden
 }
+settings-advanced-show = Anzeigen
+settings-advanced-hide = Ausblenden

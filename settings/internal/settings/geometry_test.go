@@ -475,6 +475,9 @@ func TestSourceBadgesAreOneHeightWhateverShareTheirLine(t *testing.T) {
 		win.stack.SetTransition(widget.StackNone, 0)
 		apptheme.New(cfg).Attach(win.root)
 		win.show("bar")
+		for _, d := range win.page.advanced {
+			d.open(true)
+		}
 		layOut(win, 1400)
 		heights := map[string]int{}
 		for _, row := range win.page.rows {
