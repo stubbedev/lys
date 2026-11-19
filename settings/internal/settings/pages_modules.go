@@ -540,7 +540,7 @@ func screenshotPage(*config.Config) pageSpec {
 			field("modules.screenshot.copy-to-clipboard"),
 			field("modules.screenshot.notify"),
 			field("modules.screenshot.thumbnail-ms"),
-			field("modules.screenshot.thumbnail-position"),
+			field("modules.screenshot.thumbnail-position", screenPosition),
 			field("modules.screenshot.ocr-languages", stringList),
 		}},
 		{title: "settings-section-icons", rows: []rowSpec{

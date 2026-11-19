@@ -6,7 +6,7 @@ import "github.com/stubbedev/lys/desktop/config"
 func barPage(*config.Config) pageSpec {
 	return pageSpec{id: "bar", navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", sections: []sectionSpec{
 		{title: "settings-section-layout", rows: []rowSpec{
-			field("bar.location"),
+			field("bar.location", screenPosition),
 			field("bar.exclusive"),
 			field("bar.layer"),
 			field("bar.scale"),
@@ -68,7 +68,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.history-stored"),
 		}},
 		{title: "settings-section-popup-display", rows: []rowSpec{
-			field("modules.notifications.popup-position"),
+			field("modules.notifications.popup-position", screenPosition),
 			field("modules.notifications.popup-max-visible"),
 			field("modules.notifications.popup-stacking-order"),
 			field("modules.notifications.popup-stack"),
@@ -117,7 +117,7 @@ func osdPage(*config.Config) pageSpec {
 			field("osd.enabled"),
 		}},
 		{title: "settings-section-display", rows: []rowSpec{
-			field("osd.position"),
+			field("osd.position", screenPosition),
 			field("osd.layer"),
 			field("osd.text-align"),
 			field("osd.duration"),
@@ -137,7 +137,7 @@ func osdPage(*config.Config) pageSpec {
 func launcherPage(*config.Config) pageSpec {
 	return pageSpec{id: "launcher", navKey: "settings-nav-launcher-page", icon: "ld-rocket-symbolic", header: "settings-page-launcher", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("launcher.location"),
+			field("launcher.location", screenPosition),
 			field("launcher.width", sizeBase(config.LauncherWidthBaseRem)),
 			field("launcher.lines"),
 			field("launcher.monitor"),
@@ -307,7 +307,7 @@ func dockPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("dock.enabled"),
 			field("dock.monitors", stringList),
-			field("dock.edge"),
+			field("dock.edge", screenPosition),
 			field("dock.auto-hide"),
 			field("dock.auto-hide-delay-ms"),
 			field("dock.pinned", pinnedApps),
