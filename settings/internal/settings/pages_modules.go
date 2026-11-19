@@ -416,25 +416,25 @@ func powerProfilesPage(*config.Config) pageSpec {
 	}}
 }
 
-// powerPage is pages/modules/power.
+var powerMenuActions = []string{"lock", "logout", "suspend", "reboot", "shutdown"}
+
+// powerPage is pages/modules/power: the power menu's buttons, with what
+// each runs under Advanced.
 func powerPage(*config.Config) pageSpec {
-	return pageSpec{id: "power", navKey: "settings-nav-power", icon: "ld-power-symbolic", header: "settings-page-power", sections: []sectionSpec{
+	const m = "modules.power"
+	buttons := make([]rowSpec, len(powerMenuActions))
+	commands := make([]rowSpec, len(powerMenuActions))
+	for i, a := range powerMenuActions {
+		buttons[i] = field(m + ".show-" + a)
+		commands[i] = field(m+"."+a+"-command", enabledBy(m+".show-"+a))
+	}
+	return pageSpec{id: "power", navKey: "settings-nav-power-menu", icon: "ld-power-symbolic", header: "settings-page-power-menu", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.power.icon-name", iconRow),
+			field(m+".icon-name", iconRow),
 		}},
-		{title: "settings-section-power-menu", rows: []rowSpec{
-			field("modules.power.show-lock"),
-			field("modules.power.lock-command"),
-			field("modules.power.show-logout"),
-			field("modules.power.logout-command"),
-			field("modules.power.show-suspend"),
-			field("modules.power.suspend-command"),
-			field("modules.power.show-reboot"),
-			field("modules.power.reboot-command"),
-			field("modules.power.show-shutdown"),
-			field("modules.power.shutdown-command"),
-		}},
-		barItemSection("modules.power", actionChoices("power")),
+		{title: "settings-section-power-menu", rows: buttons},
+		{title: "settings-section-power-menu-commands", advanced: true, rows: commands},
+		barItemSection(m, actionChoices("power")),
 	}}
 }
 
