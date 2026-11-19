@@ -362,7 +362,7 @@ func TestAWireGuardProfileMadeHereIsItsUsersOwn(t *testing.T) {
 
 func TestAnOpenconnectProfileIsSystemWideAndPersistent(t *testing.T) {
 	fx := startService(t, nil)
-	fx.svc.VPN.pluginDirs = nil
+	fx.svc.Settings.pluginDirs = nil
 	must(t, fx.svc.VPN.Add(t.Context(), openconnect.ServiceType, "lys-shell-test-openconnect", map[string]string{
 		"gateway": "vpn.invalid", "protocol": "gp", "lys-shell-username": "tester",
 	}))

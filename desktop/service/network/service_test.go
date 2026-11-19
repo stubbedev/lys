@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -142,5 +143,52 @@ func TestAProfileActivatesAndDeactivatesWithoutTheVPNService(t *testing.T) {
 	}
 	if err := svc.Settings.Activate(t.Context(), settingPath(99)); errName(err) != "org.freedesktop.NetworkManager.UnknownConnection" {
 		t.Errorf("activating an unknown profile: %v", err)
+	}
+}
+
+func TestAVPNProfileIsWrittenWithoutTheVPNServiceAsItsUsersOwn(t *testing.T) {
+	me := currentUser(t)
+	f := startFakeNM(t)
+	svc, err := StartConnections(t.Context(), f.client())
+	must(t, err)
+	values := map[string]string{
+		"interface":        "wgtest0",
+		"private-key":      "6HeTLQTdIcJHFmwCNBjMFR/nGiEBDSQMCsBcgWJZ7Fk=",
+		"address":          "10.123.45.2/24",
+		"peer-public-key":  "Kx3AZBHm3vDJXPGRAJfvTvUEHY1c2Jw4qYE9nR6qEXY=",
+		"peer-endpoint":    "vpn.invalid:51820",
+		"peer-allowed-ips": "10.123.45.0/24",
+	}
+	must(t, svc.Settings.AddVPN(t.Context(), WireGuard, "Office", values))
+	var saved Profile
+	waittest.Until(t, func() bool {
+		for _, p := range svc.Settings.Profiles() {
+			if p.ID == "Office" {
+				saved = p
+				return true
+			}
+		}
+		return false
+	}, "the new profile in the list")
+	stored, err := svc.Settings.Get(t.Context(), saved.Path)
+	must(t, err)
+	if got := permissions(stored); !slices.Equal(got, []string{"user:" + me + ":"}) {
+		t.Errorf("permissions = %v", got)
+	}
+	if KindOf(stored) != WireGuard || ReadProfileValues(stored)["interface"] != "wgtest0" {
+		t.Errorf("stored reads back as %q %v", KindOf(stored), ReadProfileValues(stored))
+	}
+	values["interface"] = "wgtest1"
+	must(t, svc.Settings.UpdateVPN(t.Context(), saved.UUID, WireGuard, "Office renamed", values))
+	stored, _ = f.profile(saved.Path)
+	if r := dictReader(stored); r.str("connection", "uuid") != saved.UUID || r.str("connection", "id") != "Office renamed" || r.str("connection", "interface-name") != "wgtest1" {
+		t.Errorf("the update rewrote %v", stored)
+	}
+	if err := svc.Settings.UpdateVPN(t.Context(), "gone", WireGuard, "x", values); err == nil || !strings.Contains(err.Error(), "gone") {
+		t.Errorf("updating a missing profile: %v", err)
+	}
+	f.stop()
+	if err := svc.Settings.AddVPN(t.Context(), WireGuard, "Refused", values); err == nil || !strings.Contains(err.Error(), `"Refused"`) {
+		t.Errorf("a refused add: %v", err)
 	}
 }

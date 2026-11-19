@@ -120,12 +120,7 @@ type VPNService struct {
 	settings *Settings
 	agent    *Agent
 	signIn   SignIn
-	// owner is whose the profiles made here are, "" when the passwd
-	// database has no name for this user (profiles are then
-	// system-wide).
-	owner      string
-	pluginDirs []string
-	timing     resumeTiming
+	timing   resumeTiming
 
 	mu      sync.Mutex
 	entries []*vpnEntry
@@ -142,14 +137,12 @@ type VPNService struct {
 // watching until ctx ends; stop takes its watch off the connection.
 func newVPNService(ctx context.Context, n nm, settings *Settings, agent *Agent, signIn SignIn, timing resumeTiming) (*VPNService, func() error, error) {
 	s := &VPNService{
-		nm:         n,
-		settings:   settings,
-		agent:      agent,
-		signIn:     signIn,
-		owner:      ownerName(),
-		pluginDirs: pluginDirectories,
-		timing:     timing,
-		watched:    make(map[dbus.ObjectPath]*vpnEntry),
+		nm:       n,
+		settings: settings,
+		agent:    agent,
+		signIn:   signIn,
+		timing:   timing,
+		watched:  make(map[dbus.ObjectPath]*vpnEntry),
 	}
 	sleep := &sleepResume{vpn: s}
 	restart := &restartResume{vpn: s}
@@ -413,33 +406,16 @@ func (s *VPNService) Toggle(ctx context.Context, uuid string) error {
 	return s.Disconnect(ctx, uuid)
 }
 
-// Add creates a profile from a kind and form values. It appears in the
-// rows on its own once NM announces it. It is the running user's own
-// when NM can run it that way (canBePrivate) and system-wide otherwise.
+// Add creates a profile from a kind and form values (Settings.AddVPN).
+// It appears in the rows on its own once NM announces it.
 func (s *VPNService) Add(ctx context.Context, kind, name string, values map[string]string) error {
-	dict := BuildProfile(kind, name, newUUID(), values)
-	s.own(kind, dict)
-	_, err := s.settings.Add(ctx, dict)
-	return err
+	return s.settings.AddVPN(ctx, kind, name, values)
 }
 
-// Update rewrites a profile in place, keeping its UUID so anything
-// referring to it (a cached session included) still matches. Saved
-// from here it becomes the user's own when a new profile would be.
+// Update rewrites a profile in place (Settings.UpdateVPN), so a cached
+// session for it still matches.
 func (s *VPNService) Update(ctx context.Context, uuid, kind, name string, values map[string]string) error {
-	p, ok := s.settings.byUUID(uuid)
-	if !ok {
-		return errNoProfile(uuid)
-	}
-	dict := BuildProfile(kind, name, uuid, values)
-	s.own(kind, dict)
-	return s.settings.Update(ctx, p.Path, dict)
-}
-
-func (s *VPNService) own(kind string, dict ConnectionDict) {
-	if s.owner != "" && canBePrivate(kind, s.pluginDirs) {
-		ownedBy(dict, s.owner)
-	}
+	return s.settings.UpdateVPN(ctx, uuid, kind, name, values)
 }
 
 // Remove deletes a profile and whatever lys-shell cached for it: leaving a

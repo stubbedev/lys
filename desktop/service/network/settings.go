@@ -36,6 +36,10 @@ type Profile struct {
 // anything else).
 type Settings struct {
 	nm nm
+	// owner is whose the VPN profiles made here are, "" when the passwd
+	// database has no name for this user (they are then system-wide).
+	owner      string
+	pluginDirs []string
 
 	mu       sync.Mutex
 	profiles []Profile
@@ -58,7 +62,7 @@ var (
 // ctx ends; stop takes its watch off the connection. An announcement
 // the watch hears while the first read runs is applied after it.
 func newSettings(ctx context.Context, n nm) (*Settings, func() error, error) {
-	s := &Settings{nm: n}
+	s := &Settings{nm: n, owner: ownerName(), pluginDirs: pluginDirectories}
 	loaded := make(chan struct{})
 	watch, err := dbusx.WatchSignals(ctx, n.conn, dbusx.FromOwner(BusName),
 		func(err error) { log.Printf("network: settings: %v", err) },
@@ -219,6 +223,40 @@ func (s *Settings) Update(ctx context.Context, path dbus.ObjectPath, dict Connec
 		return fmt.Errorf("cannot update connection: %w", err)
 	}
 	return nil
+}
+
+// AddVPN creates a VPN profile of kind from form values. It is the
+// running user's own when NetworkManager can run it that way
+// (canBePrivate) and system-wide otherwise.
+func (s *Settings) AddVPN(ctx context.Context, kind, name string, values map[string]string) error {
+	dict := BuildProfile(kind, name, newUUID(), values)
+	s.own(kind, dict)
+	if _, err := s.Add(ctx, dict); err != nil {
+		return fmt.Errorf("add the VPN profile %q: %w", name, err)
+	}
+	return nil
+}
+
+// UpdateVPN rewrites the VPN profile uuid in place, keeping its UUID so
+// anything referring to it still matches. Saved from here it becomes
+// the user's own when a new profile would be.
+func (s *Settings) UpdateVPN(ctx context.Context, uuid, kind, name string, values map[string]string) error {
+	p, ok := s.byUUID(uuid)
+	if !ok {
+		return errNoProfile(uuid)
+	}
+	dict := BuildProfile(kind, name, uuid, values)
+	s.own(kind, dict)
+	if err := s.Update(ctx, p.Path, dict); err != nil {
+		return fmt.Errorf("update the VPN profile %q: %w", name, err)
+	}
+	return nil
+}
+
+func (s *Settings) own(kind string, dict ConnectionDict) {
+	if s.owner != "" && canBePrivate(kind, s.pluginDirs) {
+		ownedBy(dict, s.owner)
+	}
 }
 
 // Delete removes a saved profile.
