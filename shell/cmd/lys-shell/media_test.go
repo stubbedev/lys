@@ -80,7 +80,7 @@ func startPlayer(t *testing.T, suffix, identity, status string, withShuffle bool
 func serveMedia(t *testing.T, priority []string) *mpris.Service {
 	t.Helper()
 	conn := dbustest.SessionConn(t)
-	c, err := mpris.New(conn, []string{"ignored"}, priority)
+	c, err := mpris.New(conn, []string{"*ignored*"}, priority)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -75,11 +75,18 @@ func TestSelectBest(t *testing.T) {
 	}
 }
 
-func TestIgnoredIsASubstringMatch(t *testing.T) {
-	if !Ignored("org.mpris.MediaPlayer2.chromium.instance123", []string{"chromium"}) {
-		t.Error("substring pattern did not ignore")
+// players-ignored takes the glob patterns its documentation shows, as
+// player-priority does: "*chromium*" ignores a Chromium instance, and a
+// bare word is a whole bus name, not a part of one.
+func TestIgnoredTakesGlobPatterns(t *testing.T) {
+	chromium := "org.mpris.MediaPlayer2.chromium.instance123"
+	if !Ignored(chromium, []string{"*chromium*"}) {
+		t.Error("the documented *chromium* did not ignore Chromium")
 	}
-	if Ignored("org.mpris.MediaPlayer2.vlc", []string{"spotify", "chrome"}) {
+	if Ignored(chromium, []string{"chromium"}) {
+		t.Error("a bare word matched part of a bus name")
+	}
+	if Ignored("org.mpris.MediaPlayer2.vlc", []string{"*spotify*", "*chrome*"}) {
 		t.Error("unrelated patterns ignored vlc")
 	}
 	if Ignored("org.mpris.MediaPlayer2.vlc", nil) {
@@ -199,7 +206,7 @@ func TestServiceFollowsPlayersOnABus(t *testing.T) {
 	vlc := startFakePlayer(t, bus, vlcName, "First", "Paused")
 	startFakePlayer(t, bus, BusNamePrefix+"ignored.instance1", "Hidden", "Playing")
 
-	svc, err := New(bus.Conn(t), []string{"ignored"}, nil)
+	svc, err := New(bus.Conn(t), []string{"*ignored*"}, nil)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

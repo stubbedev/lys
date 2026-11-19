@@ -167,15 +167,10 @@ func SelectBest(players []Player, priority []string) (Player, bool) {
 	return Player{}, false
 }
 
-// Ignored is a plain substring match of
-// any pattern against the bus name.
+// Ignored reports whether any pattern matches the bus name, as the
+// case-sensitive glob.Wildcard patterns players-ignored documents.
 func Ignored(busName string, patterns []string) bool {
-	for _, pattern := range patterns {
-		if strings.Contains(busName, pattern) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(patterns, func(pattern string) bool { return glob.Wildcard(pattern, busName) })
 }
 
 // Source is what the media module and dropdown read and drive.
