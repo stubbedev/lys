@@ -219,8 +219,8 @@ func TestALysUIAlertWithoutAParentFloatsAtItsCardWithItsShadowOutsideTheWindow(t
 		alert := c.Toplevels()[0]
 		drawn, window := alert.Surface().TreeBounds(), alert.Geometry()
 		margin := window.Min.X - drawn.Min.X
-		if !alert.Dialog() || alert.Parent() != nil {
-			return fmt.Errorf("the alert is a dialog: %v, with parent %v; want a dialog with none", alert.Dialog(), alert.Parent())
+		if alert.Parent() != nil || alert.MinSize() == (image.Point{}) || alert.MinSize() != alert.MaxSize() {
+			return fmt.Errorf("the alert has parent %v and size limits %v to %v; want no parent and a fixed size", alert.Parent(), alert.MinSize(), alert.MaxSize())
 		}
 		if margin <= 0 || window != drawn.Inset(margin) {
 			return fmt.Errorf("the alert's window geometry is %v on a surface drawn over %v: the shadow's margin belongs to the window", window, drawn)

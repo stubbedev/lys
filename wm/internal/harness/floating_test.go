@@ -240,13 +240,16 @@ func fixedSize(size image.Point) func(*testclient.Window) error {
 
 func TestWaylandWindowsThatAskToFloatFloat(t *testing.T) {
 	t.Parallel()
-	for name, setup := range map[string]func(*testing.T, *testclient.Client) func(*testclient.Window) error{
-		"a fixed size": func(*testing.T, *testclient.Client) func(*testclient.Window) error {
+	for name, setup := range map[string]func(*testing.T, *testclient.Client, *testclient.Window) func(*testclient.Window) error{
+		"a fixed size": func(*testing.T, *testclient.Client, *testclient.Window) func(*testclient.Window) error {
 			return fixedSize(image.Pt(60, 40))
 		},
-		"an xdg dialog without a parent": func(t *testing.T, c *testclient.Client) func(*testclient.Window) error {
+		"an xdg dialog of another window": func(t *testing.T, c *testclient.Client, parent *testclient.Window) func(*testclient.Window) error {
 			m := dialogManager(t, c)
 			return func(w *testclient.Window) error {
+				if err := w.Toplevel.SetParent(parent.Toplevel); err != nil {
+					return err
+				}
 				_, err := m.GetXdgDialog(w.Toplevel)
 				return err
 			}
@@ -257,7 +260,7 @@ func TestWaylandWindowsThatAskToFloatFloat(t *testing.T) {
 			c := testclient.Connect(t, h.Socket())
 			app := c.Window("app", testclient.Fill(0, 0, 0xff))
 			c.DispatchUntil("the app to map", app.Mapped)
-			asks := c.WindowWith("asks", testclient.Fill(0, 0xff, 0), setup(t, c))
+			asks := c.WindowWith("asks", testclient.Fill(0, 0xff, 0), setup(t, c, app))
 			c.DispatchUntil("it to map", asks.Mapped)
 			if slices.Contains(asks.States, cxdg.XdgToplevelStateTiledLeft) {
 				t.Fatalf("it was configured tiled: %v", asks.States)
@@ -283,10 +286,15 @@ func TestAFixedSizeWaylandWindowFloatsAtItsSize(t *testing.T) {
 func TestWaylandWindowsThatDoNotAskToFloatTile(t *testing.T) {
 	t.Parallel()
 	for name, cfg := range map[string]struct {
-		rules []wm.Rule
-		setup func(*testclient.Window) error
+		rules  []wm.Rule
+		dialog bool
+		setup  func(*testclient.Window) error
 	}{
 		"only a minimum size": {setup: func(w *testclient.Window) error { return w.Toplevel.SetMinSize(20, 20) }},
+		"an xdg dialog without a parent, as GTK 4 attaches to every window": {
+			dialog: true,
+			setup:  func(*testclient.Window) error { return nil },
+		},
 		"a fixed size overridden by a tile rule": {
 			rules: []wm.Rule{{Match: wm.Match{AppID: regexp.MustCompile(`^lys-wm\.testclient$`), Title: regexp.MustCompile(`^second$`)}, Mode: wm.RuleTile}},
 			setup: fixedSize(image.Pt(60, 40)),
@@ -297,7 +305,18 @@ func TestWaylandWindowsThatDoNotAskToFloatTile(t *testing.T) {
 			c := testclient.Connect(t, h.Socket())
 			app := c.Window("app", testclient.Fill(0, 0, 0xff))
 			c.DispatchUntil("the app to map", app.Mapped)
-			second := c.WindowWith("second", testclient.Fill(0, 0xff, 0), cfg.setup)
+			setup := cfg.setup
+			if cfg.dialog {
+				m := dialogManager(t, c)
+				setup = func(w *testclient.Window) error {
+					hint, err := m.GetXdgDialog(w.Toplevel)
+					if err != nil {
+						return err
+					}
+					return errors.Join(hint.UnsetModal(), cfg.setup(w))
+				}
+			}
+			second := c.WindowWith("second", testclient.Fill(0, 0xff, 0), setup)
 			c.DispatchUntil("the second window to map", second.Mapped)
 			c.DispatchUntil("the two share the output", func() bool { return app.Logical.X < small.Size.X })
 		})

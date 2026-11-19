@@ -970,8 +970,9 @@ Properties, held while the rule matches:
 | `touch_gestures` | `false`: no [touch gesture](#touchscreens) claims touches starting on it |
 | `block_out_from` | `screencast`: black in screencasts but not screenshots; `capture`: black in every capture |
 
-Without a rule a window floats when it has a parent or a fixed size, is an
-`xdg_dialog_v1`, or is an X11 modal or dialog-type window.
+Without a rule a window floats when it has a parent or a fixed size, or is an
+X11 modal or dialog-type window. An `xdg_dialog_v1` counts only on a window
+with a parent, as the protocol defines; GTK 4 attaches one to every window.
 
 ## env and autostart
 
