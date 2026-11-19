@@ -9,7 +9,7 @@ func barPage(*config.Config) pageSpec {
 			field("bar.location", screenPosition),
 			field("bar.exclusive"),
 			field("bar.auto-hide"),
-			field("bar.auto-hide-delay-ms"),
+			field("bar.auto-hide-delay-ms", hideDelay),
 			field("bar.layout", layoutRow),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
@@ -65,6 +65,9 @@ func bordered(location string, styling ...rowSpec) []rowSpec {
 // borderWidth is a border's width on a slider over the widths a bar
 // border takes, beside a number for a wider one.
 var borderWidth = softPixels(0, 8)
+
+// hideDelay is how long a surface stays before it hides.
+var hideDelay = softMilliseconds(0, 2000)
 
 // roundingChoice is a rounding level chosen on a picture of its corners.
 var roundingChoice = pictureChoice(roundingPictures)
@@ -321,7 +324,7 @@ func dockPage(*config.Config) pageSpec {
 			field("dock.monitors", monitorsRow, dockRow),
 			field("dock.edge", screenPosition, dockRow),
 			field("dock.auto-hide", dockRow),
-			field("dock.auto-hide-delay-ms", dockRow, shownWhen("dock.auto-hide", switchedOn)),
+			field("dock.auto-hide-delay-ms", hideDelay, dockRow, shownWhen("dock.auto-hide", switchedOn)),
 			field("dock.pinned", appList, dockRow),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{

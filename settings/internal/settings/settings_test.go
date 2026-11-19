@@ -1616,8 +1616,8 @@ func TestDeviceSelect(t *testing.T) {
 func TestMillisecondsSlider(t *testing.T) {
 	k := testKit(t, "")
 	c := fieldControl(k, k.store, field("modules.recorder.start-delay-ms", milliseconds(0, 5000))).(*slider)
-	if c.Format(1500) != "1.5s" || c.Label().Text() != c.Format(c.Value()) {
-		t.Errorf("label %q, want seconds", c.Format(1500))
+	if c.Format(1500) != msLabel(1500) || c.Label().Text() != c.Format(c.Value()) {
+		t.Errorf("label %q, want milliseconds", c.Format(1500))
 	}
 	c.Knob.SetValue(1234.6)
 	if v := k.store.value("modules.recorder.start-delay-ms"); v != int64(1235) {
@@ -2366,6 +2366,8 @@ func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
 				spin = c.SpinButton
 			case *optionalNumber:
 				spin = c.SpinButton
+			case *softRange:
+				spin = c.number.SpinButton
 			default:
 				t.Fatalf("%s: a %T, not a number", r.path, c)
 			}

@@ -842,6 +842,10 @@ settings-duration-days = { $n ->
    *[other] { $n } days
 }
 settings-duration-custom = Custom
+settings-duration-milliseconds = { $n ->
+    [one] 1 ms
+   *[other] { $n } ms
+}
 settings-advanced-show = Show
 settings-advanced-hide = Hide
 settings-section-bar-item = Bar Item

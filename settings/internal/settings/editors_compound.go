@@ -275,8 +275,12 @@ var animationDuration = withEditor(func(k *kit, s slot, meta config.FieldMeta) c
 	if meta.Optional {
 		return newOptionalNumber(k, s, meta.Min, meta.Max, durationStepMS, durationFallbackMS, 0)
 	}
-	return newNumber(k, s, meta.Min, meta.Max, durationStepMS, 0)
+	return newSoftRange(k, s, meta, 0, animationSliderMS, durationStepMS, msLabel)
 })
+
+// animationSliderMS is the end of an animation duration's slider, past
+// every duration that still reads as motion rather than a wait.
+const animationSliderMS = 2000
 
 // newOptionalSize is dropdown_size's size_control: the size editor over
 // an optional size, its spin empty and reading "Inherited" while unset; a

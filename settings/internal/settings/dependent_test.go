@@ -2,6 +2,7 @@ package settings
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -56,7 +57,7 @@ func TestSoftPixelsKeepAValuePastTheSlider(t *testing.T) {
 	softPixels(0, 48)(&r)
 	var stored any = int64(400)
 	s := slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() {}}
-	c := r.editor(testKit(t, ""), s, config.FieldMeta{Min: 0, Max: 1 << 31}).(*pixelControl)
+	c := r.editor(testKit(t, ""), s, config.FieldMeta{Min: 0, Max: 1 << 31}).(*softRange)
 	if got := c.number.Value(); got != 400 {
 		t.Fatalf("400 px reads %v in the number", got)
 	}
@@ -157,5 +158,34 @@ func TestTheDockRowsFollowTheDockSwitch(t *testing.T) {
 	setRow(t, p, "dock.hover-zoom", false)
 	if zoom.Visible() {
 		t.Error("the zoom size shows with hover zoom off")
+	}
+}
+
+func TestADurationReadsInWholeMilliseconds(t *testing.T) {
+	for ms, want := range map[float64]string{0: "0 ms", 1: "1 ms", 150: "150 ms", 1499.6: "1500 ms"} {
+		if got := strings.NewReplacer("\u2068", "", "\u2069", "").Replace(msLabel(ms)); got != want {
+			t.Errorf("%v ms reads %q, want %q", ms, got, want)
+		}
+	}
+}
+
+func TestDurationsAreSlidersThatKeepALongerValue(t *testing.T) {
+	k := testKit(t, "animations:\n  duration: 5000\n  ui-duration: 150\ndock:\n  enabled: true\n  auto-hide: true\n")
+	motion := layoutPage(t, k, "motion")
+	long, ok := rowOf(t, motion, "animations.duration").ctl.(*softRange)
+	if !ok {
+		t.Fatalf("the animation duration is a %T", rowOf(t, motion, "animations.duration").ctl)
+	}
+	if got, end := long.number.Value(), long.slider.Knob.Value(); got != 5000 || end != animationSliderMS {
+		t.Errorf("5 s reads %v in the number and %v on the slider", got, end)
+	}
+	short := rowOf(t, motion, "animations.ui-duration").ctl.(*softRange)
+	short.slider.OnCommit(300)
+	if got := k.store.value("animations.ui-duration"); got != int64(300) {
+		t.Errorf("sliding the UI duration to 300 ms stored %v", got)
+	}
+	dock := layoutPage(t, k, "dock")
+	if _, ok := rowOf(t, dock, "dock.auto-hide-delay-ms").ctl.(*softRange); !ok {
+		t.Errorf("the dock's hide delay is a %T, not a slider", rowOf(t, dock, "dock.auto-hide-delay-ms").ctl)
 	}
 }

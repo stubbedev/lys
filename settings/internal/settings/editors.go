@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -321,32 +322,49 @@ var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 // in, beside a number that takes a value past it.
 func softPixels(lo, hi float64) rowOpt {
 	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-		box := &pixelControl{Box: gapBox(widget.Row)}
-		box.slider = newSlider(k, s, lo, hi, true, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " px" })
-		box.number = newNumber(k, s, meta.Min, meta.Max, 1, 0)
-		box.Append(box.slider, true)
-		box.AppendAligned(box.number, false, widget.AlignCenter)
-		return box
+		return newSoftRange(k, s, meta, lo, hi, 1, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " px" })
 	})
 }
 
-type pixelControl struct {
+// softMilliseconds is softPixels over a duration in milliseconds.
+func softMilliseconds(lo, hi float64) rowOpt {
+	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+		return newSoftRange(k, s, meta, lo, hi, durationStepMS, msLabel)
+	})
+}
+
+// softRange is a whole number on a slider over [lo, hi], beside a number
+// stepping by step over the field's whole range.
+type softRange struct {
 	*widget.Box
 	slider *slider
 	number *number
 }
 
-func (c *pixelControl) refresh() {
+func newSoftRange(k *kit, s slot, meta config.FieldMeta, lo, hi, step float64, format func(float64) string) *softRange {
+	c := &softRange{Box: gapBox(widget.Row)}
+	c.slider = newSlider(k, s, lo, hi, true, format)
+	c.number = newNumber(k, s, meta.Min, meta.Max, step, 0)
+	c.Append(c.slider, true)
+	c.AppendAligned(c.number, false, widget.AlignCenter)
+	return c
+}
+
+func (c *softRange) refresh() {
 	c.slider.refresh()
 	c.number.refresh()
 }
 
-// milliseconds is a slider of whole milliseconds over [lo, hi],
-// labeled in seconds with one decimal.
+// milliseconds is a slider of whole milliseconds over [lo, hi].
 func milliseconds(lo, hi float64) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-		return newSlider(k, s, lo, hi, true, func(v float64) string { return strconv.FormatFloat(v/1000, 'f', 1, 64) + "s" })
+		return newSlider(k, s, lo, hi, true, msLabel)
 	})
+}
+
+// msLabel reads a whole number of milliseconds.
+func msLabel(ms float64) string {
+	return locale.T().Get("settings-duration-milliseconds", i18n.Int("n", int64(math.Round(ms))))
 }
 
 // mountPoints is text_like over a StorageMountPoint: one path, or

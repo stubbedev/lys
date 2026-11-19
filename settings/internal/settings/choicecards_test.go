@@ -74,7 +74,7 @@ func TestEachRoundingAndShadowDrawsItsOwnPicture(t *testing.T) {
 func TestTheBarBorderWidthIsASliderOverABarBordersWidths(t *testing.T) {
 	k := testKit(t, "bar:\n  border-location: all\n  border-width: 20\n")
 	p := layoutPage(t, k, "bar")
-	c, ok := rowOf(t, p, "bar.border-width").ctl.(*pixelControl)
+	c, ok := rowOf(t, p, "bar.border-width").ctl.(*softRange)
 	if !ok {
 		t.Fatalf("the border width is a %T", rowOf(t, p, "bar.border-width").ctl)
 	}
