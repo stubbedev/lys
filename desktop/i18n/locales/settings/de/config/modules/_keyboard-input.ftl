@@ -53,8 +53,8 @@ settings-modules-keyboard-input-scroll-up = Nach oben scrollen
 settings-modules-keyboard-input-scroll-down = Nach unten scrollen
     .description = Shell-Befehl beim Scrollen nach unten
 
-settings-modules-keyboard-input-layout-alias-map = Belegungsaliase
-    .description = Anzeigenamen der Tastaturbelegungen überschreiben
+settings-modules-keyboard-input-layout-alias-map = Kurznamen
+    .description = Der Name, den die Leiste für jede Tastaturbelegung zeigt; die in lys-wm eingerichteten Belegungen sind aufgeführt, weitere lassen sich hinzufügen
 
 ## Format placeholders
 

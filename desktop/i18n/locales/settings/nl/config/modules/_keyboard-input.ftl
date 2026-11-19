@@ -49,8 +49,8 @@ settings-modules-keyboard-input-scroll-up = Omhoog scrollen
 settings-modules-keyboard-input-scroll-down = Omlaag scrollen
     .description = Shell-opdracht bij omlaag scrollen
 
-settings-modules-keyboard-input-layout-alias-map = Indelingsaliassen
-    .description = Overschrijvingen van de weergavenaam van toetsenbordindelingen
+settings-modules-keyboard-input-layout-alias-map = Korte namen
+    .description = De naam die de balk voor elke toetsenbordindeling toont; de indelingen die lys-wm gebruikt staan erbij, en elke andere kan worden toegevoegd
 
 settings-modules-keyboard-input-format-placeholder-layout = Indelingsnaam van de compositor (bijv. English (US))
 

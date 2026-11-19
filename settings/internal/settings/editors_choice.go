@@ -59,6 +59,7 @@ func hostLists(h host) map[string]lister {
 		wmOptionsFormat:     func() []choice { return x().options },
 		wmModelFormat:       func() []choice { return x().models },
 		wmRulesFormat:       func() []choice { return x().rules },
+		listLayoutNames:     func() []choice { return layoutNames(x()) },
 	}
 }
 

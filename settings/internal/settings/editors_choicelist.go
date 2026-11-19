@@ -104,15 +104,32 @@ func newChoiceListEditor(k *kit, s slot, list lister, shape choiceShape) *choice
 			open := slices.DeleteFunc(slices.Clone(items), func(o choice) bool { return slices.Contains(listed, o.value) })
 			c.picker = openChoicePicker(k, anchor, open, func(v string) { choose(shape.picked(v)) })
 		},
-		full:   func(int) bool { return !loaded || allChosen(items, keys()) },
-		decode: shape.decode,
+		full: func(int) bool { return !loaded || allChosen(items, keys()) },
+		decode: func(v any) []any {
+			if shape.decode != nil {
+				return withPinned(items, shape.decode(v), shape)
+			}
+			listed, _ := v.([]any)
+			return withPinned(items, listed, shape)
+		},
 		encode: shape.encode,
 	})
 	async(k, list, func(cs []choice) {
 		items, loaded = cs, true
-		c.rebuild(c.values())
+		c.rebuild(withPinned(items, c.values(), shape))
 	})
 	return c
+}
+
+// withPinned is values with a new item for each pinned choice none holds.
+func withPinned(items []choice, values []any, shape choiceShape) []any {
+	out := slices.Clone(values)
+	for _, o := range items {
+		if o.pinned && !slices.ContainsFunc(out, func(v any) bool { return shape.key(v) == o.value }) {
+			out = append(out, shape.picked(o.value))
+		}
+	}
+	return out
 }
 
 func allChosen(items []choice, listed []string) bool {

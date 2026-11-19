@@ -39,7 +39,7 @@ func TestTheMailFoldersAreTheMaildirs(t *testing.T) {
 		t.Fatalf("%q", got)
 	}
 	if got := maildirFolders(filepath.Join(root, "missing")); len(got) != 0 {
-		t.Fatalf("a missing database lists %q", got)
+		t.Fatalf("a missing database lists %v", got)
 	}
 }
 

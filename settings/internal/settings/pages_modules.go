@@ -334,7 +334,7 @@ func keyboardInputPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.keyboard-input.format"),
 			field("modules.keyboard-input.icon-name", iconRow),
-			field("modules.keyboard-input.layout-alias-map", stringMap),
+			field("modules.keyboard-input.layout-alias-map", layoutAliasRow),
 		}},
 		barItemSection("modules.keyboard-input", actionChoices("keyboard-input")),
 	}}

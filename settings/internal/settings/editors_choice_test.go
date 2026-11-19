@@ -37,6 +37,11 @@ var listFixtures = map[string][]choice{
 	wmOptionsFormat:     {{value: "caps:escape", label: "Caps Lock is Escape", group: "Caps Lock behavior"}, {value: "grp:alt_shift_toggle", label: "Alt+Shift", group: "Switching layout"}},
 	wmModelFormat:       {{value: "pc105", label: "Generic 105-key PC"}},
 	wmRulesFormat:       {{value: "evdev", label: "evdev"}},
+	listLayoutNames: {
+		{value: "English (US)", label: "English (US)", group: "us"},
+		{value: "German", label: "German", group: "de"},
+		{value: "German (no dead keys)", label: "German (no dead keys)", group: "de(nodeadkeys)"},
+	},
 }
 
 func fixedLists() map[string]lister {

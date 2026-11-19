@@ -53,8 +53,8 @@ settings-modules-keyboard-input-scroll-up = Défilement vers le haut
 settings-modules-keyboard-input-scroll-down = Défilement vers le bas
     .description = Commande à exécuter au défilement vers le bas
 
-settings-modules-keyboard-input-layout-alias-map = Alias de disposition
-    .description = Remplacements de noms d'affichage des dispositions clavier
+settings-modules-keyboard-input-layout-alias-map = Noms courts
+    .description = Le nom que la barre affiche pour chaque disposition de clavier ; celles configurées dans lys-wm sont listées, et toute autre peut être ajoutée
 
 ## Format placeholders
 

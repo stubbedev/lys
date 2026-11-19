@@ -53,8 +53,8 @@ settings-modules-keyboard-input-scroll-up = Scorrimento in alto
 settings-modules-keyboard-input-scroll-down = Scorrimento in basso
     .description = Comando della shell allo scorrimento in basso
 
-settings-modules-keyboard-input-layout-alias-map = Alias delle disposizioni
-    .description = Nomi visualizzati alternativi per le disposizioni della tastiera
+settings-modules-keyboard-input-layout-alias-map = Nomi brevi
+    .description = Il nome che la barra mostra per ogni layout di tastiera; quelli configurati in lys-wm sono elencati, e se ne può aggiungere qualsiasi altro
 
 ## Format placeholders
 

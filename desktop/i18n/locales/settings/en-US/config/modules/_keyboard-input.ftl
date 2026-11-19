@@ -53,8 +53,8 @@ settings-modules-keyboard-input-scroll-up = Scroll Up
 settings-modules-keyboard-input-scroll-down = Scroll Down
     .description = Shell command on scroll down
 
-settings-modules-keyboard-input-layout-alias-map = Layout Aliases
-    .description = Keyboard layout display name overrides
+settings-modules-keyboard-input-layout-alias-map = Short Names
+    .description = The name the bar shows for each keyboard layout; the layouts lys-wm is set up with are listed, and any other can be added
 
 ## Format placeholders
 

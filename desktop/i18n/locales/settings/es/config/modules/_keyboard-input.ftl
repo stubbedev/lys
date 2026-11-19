@@ -53,8 +53,8 @@ settings-modules-keyboard-input-scroll-up = Desplazar hacia arriba
 settings-modules-keyboard-input-scroll-down = Desplazar hacia abajo
     .description = Orden de shell al desplazar hacia abajo
 
-settings-modules-keyboard-input-layout-alias-map = Alias de distribuciones
-    .description = Nombres visibles personalizados de las distribuciones de teclado
+settings-modules-keyboard-input-layout-alias-map = Nombres cortos
+    .description = El nombre que la barra muestra para cada distribución de teclado; se listan las configuradas en lys-wm y se puede añadir cualquier otra
 
 ## Format placeholders
 

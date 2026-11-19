@@ -49,8 +49,8 @@ settings-modules-keyboard-input-scroll-up = Deslocar para cima
 settings-modules-keyboard-input-scroll-down = Deslocar para baixo
     .description = Comando da shell ao deslocar para baixo
 
-settings-modules-keyboard-input-layout-alias-map = Nomes alternativos das disposições
-    .description = Substituições do nome apresentado das disposições de teclado
+settings-modules-keyboard-input-layout-alias-map = Nomes curtos
+    .description = O nome que a barra mostra para cada disposição de teclado; as configuradas no lys-wm estão listadas, e pode adicionar-se qualquer outra
 
 settings-modules-keyboard-input-format-placeholder-layout = Nome da disposição dado pelo compositor (ex.: English (US))
 

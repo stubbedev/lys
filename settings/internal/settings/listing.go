@@ -18,6 +18,9 @@ import (
 
 type choice struct {
 	value, label, group string
+	// pinned keeps a row for the choice in a list of choices, whether
+	// the list holds it or not.
+	pinned bool
 }
 
 type lister func() []choice

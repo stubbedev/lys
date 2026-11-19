@@ -77,6 +77,11 @@ fields and search providers) every choice has a switch and moves up or down;
 where it means nothing (a password preset's character sets) the choices are
 toggle chips.
 
+Keyboard Input's short names are given to layouts, never typed as layout
+names: the layouts lys-wm is set up with are listed by their full name for a
+short one, any other xkb layout or variant can be added from a list, and a
+short name for a layout no longer set up stays until it is removed.
+
 The dashboard's alarm levels are three bars with two stops each, which cannot
 cross: usage (0–100 %) and CPU temperature (0–150 °C) turn to warning, then
 error, as they rise; the battery turns to warning, then critical, at or below
