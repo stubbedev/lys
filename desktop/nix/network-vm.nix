@@ -1,5 +1,5 @@
 networkTests: {
-  name = "the network client joins, refuses and forgets a simulated Wi-Fi network";
+  name = "the network client joins, refuses and forgets a simulated Wi-Fi network, and airplane mode blocks it";
   module = {lib, ...}: {
     networking.wireless.enable = lib.mkOverride 5 true;
     boot.kernelModules = ["mac80211_hwsim"];
@@ -48,6 +48,9 @@ networkTests: {
     print(out)
     for test in ["TestVMConnectsWithThePasswordAndForgets", "TestVMSaysAWrongPasswordWasRefused"]:
         assert f"--- PASS: {test}" in out, f"{test} did not pass in the VM"
+    out = machine.succeed("${networkTests}/bin/rfkill.test -test.v -test.count=1 -test.run '^TestVM' 2>&1")
+    print(out)
+    assert "--- PASS: TestVMAirplaneModeBlocksTheRadiosAndLetsThemGo" in out, "airplane mode did not pass in the VM"
     machine.succeed("systemctl stop NetworkManager.service")
     out = machine.succeed("LYS_NM_STOPPED=1 ${networkTests}/bin/network.test -test.v -test.count=1 -test.run '^TestVMWithoutNetworkManager$' 2>&1")
     print(out)
