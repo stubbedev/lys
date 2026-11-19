@@ -16,6 +16,8 @@ const (
 	handGapUnits = 0.3
 	fingerUnitW  = 0.16
 	tipRingWidth = 3
+
+	disabledHandsAlpha = 0.4
 )
 
 type unitRect struct{ x, y, w, h float64 }
@@ -133,6 +135,10 @@ func (h *fingerHands) Arrange(r render.Rect) {
 
 func (h *fingerHands) Paint(cv *render.Canvas) {
 	th := widget.Current()
+	if !widget.IsEnabled(h) {
+		prev := cv.PushAlpha(disabledHandsAlpha)
+		defer cv.PopAlpha(prev)
+	}
 	for _, right := range []bool{false, true} {
 		palm := h.screen(palmUnit(right))
 		cv.RoundedRect(palm, palm.W/4, th.MutedColor())

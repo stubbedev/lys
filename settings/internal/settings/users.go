@@ -330,9 +330,16 @@ func (p *usersPanel) load() {
 			t := locale.T()
 			p.realName.SetPlaceholder(t.Get("settings-users-name-unavailable"))
 			p.realName.SetTooltip(t.Attr("settings-users-name-unavailable", "description"))
-			if acct, err := currentAccount(); err == nil {
-				p.user = acct
+			if o.conn == nil {
+				p.noFingerprint(o.err)
+				return
 			}
+			acct, err := currentAccount()
+			if err != nil {
+				p.noFingerprint(err)
+				return
+			}
+			p.user = acct
 			p.loadFingerprint()
 			return
 		}

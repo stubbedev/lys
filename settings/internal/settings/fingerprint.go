@@ -24,6 +24,8 @@ const (
 	fprintPath      = dbus.ObjectPath("/net/reactivated/Fprint/Manager")
 	errNoEnrolled   = fprintName + ".Error.NoEnrolledPrints"
 	errPermission   = fprintName + ".Error.PermissionDenied"
+	errNoSuchDevice = fprintName + ".Error.NoSuchDevice"
+	errNoService    = "org.freedesktop.DBus.Error.ServiceUnknown"
 	statusStage     = "enroll-stage-passed"
 	statusCompleted = "enroll-completed"
 	statusDuplicate = "enroll-duplicate"
@@ -48,9 +50,17 @@ type fprint struct {
 	user   string
 }
 
+// errNoReader is a machine without a fingerprint reader, or without
+// fprintd to drive one.
+var errNoReader = errors.New("no fingerprint reader")
+
 func openFprint(ctx context.Context, conn *dbus.Conn, user string) (*fprint, error) {
 	var path dbus.ObjectPath
 	if err := conn.Object(fprintName, fprintPath).CallWithContext(ctx, fprintManager+".GetDefaultDevice", 0).Store(&path); err != nil {
+		var derr dbus.Error
+		if errors.As(err, &derr) && (derr.Name == errNoSuchDevice || derr.Name == errNoService) {
+			return nil, fmt.Errorf("find a fingerprint reader: %w: %w", errNoReader, err)
+		}
 		return nil, fmt.Errorf("find a fingerprint reader: %w", err)
 	}
 	return &fprint{conn: conn, device: sysService{conn: conn, name: fprintName, iface: fprintDevice, path: path}, user: user}, nil
@@ -128,9 +138,6 @@ type fingerprintSection struct {
 }
 
 func (p *usersPanel) loadFingerprint() {
-	if p.conn == nil || p.user == "" {
-		return
-	}
 	conn, user := p.conn, p.user
 	type opened struct {
 		fp       *fprint
@@ -153,12 +160,26 @@ func (p *usersPanel) loadFingerprint() {
 		})
 	}, func(o opened) {
 		if o.err != nil {
+			p.noFingerprint(o.err)
 			return
 		}
 		s := newFingerprintSection(p.k, o.fp, o.stages, o.enrolled, p.fail)
 		p.fingerprint = s
 		p.Append(newSection(p.k, "settings-section-users-fingerprint", s), false)
 	})
+}
+
+// noFingerprint shows the hands greyed out over why no finger can be
+// enrolled: no reader, or what failed in reaching it.
+func (p *usersPanel) noFingerprint(err error) {
+	hands := newFingerHands(p.k, nil)
+	hands.set(nil, "", 0, true)
+	hands.SetEnabled(false)
+	why := wrapped(p.k.label(err.Error(), "fingerprint-unavailable", css.Caption, css.Error))
+	if errors.Is(err, errNoReader) {
+		why = wrapped(p.k.label(locale.T().Get("settings-fingerprint-no-reader"), "fingerprint-unavailable", css.DimLabel))
+	}
+	p.Append(newSection(p.k, "settings-section-users-fingerprint", itemColumn(hands, why)), false)
 }
 
 func withTimeoutValue[T any](fn func(context.Context) T) T {

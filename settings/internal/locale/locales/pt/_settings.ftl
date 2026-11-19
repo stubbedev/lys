@@ -545,6 +545,7 @@ settings-fingerprint-delete-all-description = Todos os dedos registados para si 
 settings-fingerprint-delete-all-confirm = Eliminar tudo
 settings-fingerprint-delete-all-cancel = Cancelar
 settings-fingerprint-none = Nenhum dedo registado
+settings-fingerprint-no-reader = Nenhum leitor de impressões digitais encontrado
 settings-fingerprint-enrol = Registar um dedo
     .description = Escolha um e coloque-o no leitor sempre que for pedido
 settings-fingerprint-delete = Eliminar { $finger }

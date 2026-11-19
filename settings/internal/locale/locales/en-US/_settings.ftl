@@ -555,6 +555,7 @@ settings-fingerprint-delete-all-description = Every finger enrolled for you is r
 settings-fingerprint-delete-all-confirm = Delete All
 settings-fingerprint-delete-all-cancel = Cancel
 settings-fingerprint-none = No finger enrolled
+settings-fingerprint-no-reader = No fingerprint reader found
 settings-fingerprint-enrol = Enrol a finger
     .description = Choose one, then place it on the reader each time it asks
 settings-fingerprint-delete = Delete { $finger }

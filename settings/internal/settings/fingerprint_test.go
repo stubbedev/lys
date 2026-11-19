@@ -12,6 +12,8 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const fakeReader = dbus.ObjectPath("/net/reactivated/Fprint/Device/0")
@@ -240,12 +242,38 @@ func TestADuplicateOrAFullReaderSaysSoAndReleases(t *testing.T) {
 	}
 }
 
-func TestWithoutAReaderThereIsNoSectionAndNoClaim(t *testing.T) {
+func unavailableFingerprint(t *testing.T, p widget.Widget) (*fingerHands, string) {
+	t.Helper()
+	notes := treetest.WithClass(p, "fingerprint-unavailable")
+	hands := treetest.All[*fingerHands](p)
+	if len(notes) != 1 || len(hands) != 1 {
+		t.Fatalf("%d notes and %d hands, want one of each", len(notes), len(hands))
+	}
+	return hands[0], notes[0].(*widget.Label).Text()
+}
+
+func TestWithoutAReaderTheHandsAreGreyedOutOverWhyAndNothingIsClaimed(t *testing.T) {
 	r := startFprint(t, false)
 	r.l.until("the reader asked for", func() bool { c, _ := r.manager.snapshot(); return len(c) == 1 })
-	r.l.drain()
+	r.l.until("the fingerprint section", func() bool { return len(treetest.WithClass(r.p, "fingerprint-unavailable")) == 1 })
 	if r.p.fingerprint != nil || len(r.methods()) != 0 {
 		t.Fatalf("section %v, device calls %v", r.p.fingerprint != nil, r.methods())
+	}
+	hands, note := unavailableFingerprint(t, r.p)
+	if widget.IsEnabled(hands) || slices.ContainsFunc(fingers, hands.offers) {
+		t.Error("the hands of a machine without a reader take a finger")
+	}
+	if want := locale.T().Get("settings-fingerprint-no-reader"); note != want {
+		t.Errorf("the section says %q, want %q", note, want)
+	}
+}
+
+func TestAFingerprintServiceThatCannotBeReachedSaysWhy(t *testing.T) {
+	p := usersFooter(testKit(t, "")).(*usersPanel)
+	t.Cleanup(p.close)
+	_, note := unavailableFingerprint(t, p)
+	if !strings.Contains(note, "no system bus") || note == locale.T().Get("settings-fingerprint-no-reader") {
+		t.Errorf("without a system bus the section says %q, want the bus error", note)
 	}
 }
 

@@ -555,6 +555,7 @@ settings-fingerprint-delete-all-description = Alle für Sie registrierten Finger
 settings-fingerprint-delete-all-confirm = Alle löschen
 settings-fingerprint-delete-all-cancel = Abbrechen
 settings-fingerprint-none = Kein Finger registriert
+settings-fingerprint-no-reader = Kein Fingerabdruckleser gefunden
 settings-fingerprint-enrol = Finger registrieren
     .description = Wählen Sie einen und legen Sie ihn jedes Mal auf den Sensor, wenn danach gefragt wird
 settings-fingerprint-delete = { $finger } löschen

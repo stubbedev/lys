@@ -545,6 +545,7 @@ settings-fingerprint-delete-all-description = Elke voor jou geregistreerde vinge
 settings-fingerprint-delete-all-confirm = Alles verwijderen
 settings-fingerprint-delete-all-cancel = Annuleren
 settings-fingerprint-none = Geen vinger geregistreerd
+settings-fingerprint-no-reader = Geen vingerafdruklezer gevonden
 settings-fingerprint-enrol = Een vinger registreren
     .description = Kies er een en leg hem op de lezer telkens als daarom wordt gevraagd
 settings-fingerprint-delete = { $finger } verwijderen
