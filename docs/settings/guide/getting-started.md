@@ -42,7 +42,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Notifications & Focus | `notifications` (with Do Not Disturb and the bar's bell), `osd` |
 | Power & Battery | `idle` |
 | Apps | `default-apps`, `login-items`, `launcher`, `launcher-modes` |
-| Privacy & Security | `privacy`, `passwords`, `lock` (the lock and login screens), `share-picker` |
+| Privacy & Security | `privacy` (with the screen share picker), `passwords`, `lock` (the lock and login screens) |
 | Time & Language | `date-time`, `region` |
 | Desktop | `bar` (with its buttons and dropdowns; each dropdown's size is on its bar item's page), `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
 | Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `power`, `power-profiles`, `ram`, `storage`, `systray` |

@@ -74,7 +74,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 		{key: "settings-nav-notifications-focus", pages: []pageSpec{notificationsPage(cfg), osdPage(cfg)}},
 		{key: "settings-nav-power", pages: []pageSpec{idlePage(cfg)}},
 		{key: "settings-nav-apps", pages: []pageSpec{defaultAppsPage(cfg), loginItemsPage(cfg), launcherPage(cfg), launcherModesPage(cfg)}},
-		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg), sharePickerPage(cfg)}},
+		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg)}},
 		{key: "settings-nav-time-language", pages: []pageSpec{dateTimePage(cfg), regionPage(cfg)}},
 		{key: "settings-nav-desktop", pages: []pageSpec{
 			barPage(cfg), dockPage(cfg),
@@ -207,32 +207,6 @@ func joinSlots(slots []slot) slot {
 			for _, s := range slots {
 				s.unset()
 			}
-		},
-	}
-}
-
-// sharePickerPage is pages/share_picker.
-func sharePickerPage(*config.Config) pageSpec {
-	return pageSpec{
-		id: "share-picker", navKey: "settings-nav-share-picker", icon: "ld-app-window-symbolic",
-		header: "settings-page-share-picker",
-		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("share-picker.default-page", "share-picker.hide-token-restore")},
-			{title: "settings-section-display", rows: []rowSpec{
-				field("share-picker.width", sizeBase(config.SharePickerWidthBaseRem)),
-				field("share-picker.height", sizeBase(config.SharePickerHeightBaseRem)),
-				field("share-picker.resize-size"),
-				field("share-picker.widget-size", sizeBase(config.SharePickerWidgetBaseRem)),
-			}},
-			{title: "settings-section-share-picker-windows", rows: []rowSpec{
-				field("share-picker.windows-spacing", sizeBase(config.SharePickerWindowsSpacingBaseRem)),
-				field("share-picker.windows-min-per-row"), field("share-picker.windows-max-per-row"),
-			}},
-			{title: "settings-section-share-picker-outputs", rows: []rowSpec{
-				field("share-picker.outputs-spacing", sizeBase(config.SharePickerOutputsSpacingBaseRem)),
-				field("share-picker.outputs-show-label"), field("share-picker.outputs-respect-scaling"),
-			}},
-			{title: "settings-section-animation", rows: surfaceAnimationRows("animations.share-picker")},
 		},
 	}
 }
