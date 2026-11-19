@@ -905,3 +905,14 @@ settings-vpn-on = Verbonden
 settings-vpn-off = Uit
 settings-vpn-connecting = Verbinden…
 settings-vpn-disconnecting = Verbinding verbreken…
+settings-overview-signed-in = Aangemeld als { $name }
+settings-overview-appearance = { $appearance } · { $provider }
+settings-overview-displays = { $count ->
+    [one] { $count } beeldscherm aangesloten
+   *[other] { $count } beeldschermen aangesloten
+}
+settings-overview-sound = { $device } · { $percent }%
+settings-overview-sound-muted = { $device } · gedempt
+settings-overview-wifi = Wifi: { $name }
+settings-overview-wired = Bekabeld
+settings-overview-offline = Niet verbonden

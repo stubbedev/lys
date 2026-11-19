@@ -915,3 +915,14 @@ settings-vpn-on = Connected
 settings-vpn-off = Off
 settings-vpn-connecting = Connecting…
 settings-vpn-disconnecting = Disconnecting…
+settings-overview-signed-in = Signed in as { $name }
+settings-overview-appearance = { $appearance } · { $provider }
+settings-overview-displays = { $count ->
+    [one] { $count } display connected
+   *[other] { $count } displays connected
+}
+settings-overview-sound = { $device } · { $percent }%
+settings-overview-sound-muted = { $device } · muted
+settings-overview-wifi = Wi-Fi: { $name }
+settings-overview-wired = Wired
+settings-overview-offline = Not connected

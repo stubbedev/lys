@@ -916,3 +916,14 @@ settings-vpn-on = Connessa
 settings-vpn-off = Spenta
 settings-vpn-connecting = Connessione in corso…
 settings-vpn-disconnecting = Disconnessione in corso…
+settings-overview-signed-in = Accesso come { $name }
+settings-overview-appearance = { $appearance } · { $provider }
+settings-overview-displays = { $count ->
+    [one] { $count } schermo collegato
+   *[other] { $count } schermi collegati
+}
+settings-overview-sound = { $device } · { $percent }%
+settings-overview-sound-muted = { $device } · muto
+settings-overview-wifi = Wi-Fi: { $name }
+settings-overview-wired = Cablata
+settings-overview-offline = Non connesso

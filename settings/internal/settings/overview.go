@@ -1,6 +1,15 @@
 package settings
 
 import (
+	"cmp"
+	"context"
+	"errors"
+	"math"
+	"time"
+
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -9,7 +18,22 @@ import (
 
 const overviewID = "overview"
 
-const overviewColumns = 3
+const (
+	overviewColumns   = 3
+	overviewReadLimit = 5 * time.Second
+)
+
+type tileStatus func(ctx context.Context, k *kit) (string, error)
+
+var errNoStatus = errors.New("nothing to report")
+
+var tileStatuses = map[string]tileStatus{
+	"settings-nav-account":       accountStatus,
+	"settings-nav-appearance":    appearanceStatus,
+	"settings-nav-displays":      displaysStatus,
+	"settings-nav-sound-section": soundStatus,
+	"settings-nav-connectivity":  networkStatus,
+}
 
 func overviewPage() pageSpec {
 	return pageSpec{
@@ -34,10 +58,114 @@ func overviewTiles(k *kit) widget.Widget {
 		face := widget.NewBox(widget.Column, th.Spacing/2, th.Padding)
 		face.AppendAligned(k.icon(s.pages[0].icon, "settings-overview-icon"), false, widget.AlignStart)
 		face.Append(k.label(t.Get(s.key), "settings-overview-title", css.Heading), false)
-		face.Append(wrapped(k.label(t.Attr(s.key, "description"), "settings-overview-description", css.Caption, css.DimLabel)), false)
+		desc := wrapped(k.label(t.Attr(s.key, "description"), "settings-overview-description", css.Caption, css.DimLabel))
+		face.Append(desc, false)
+		if status, ok := k.statuses[s.key]; ok {
+			showStatus(k, status, desc)
+		}
 		tile := k.button(face, func() { k.openPage(first) }, css.Card, "settings-overview-tile")
 		tile.SetAccessibleName(t.Get(s.key))
 		grid.Append(tile)
 	}
 	return grid
+}
+
+func showStatus(k *kit, status tileStatus, desc *widget.Label) {
+	async(k, func() string {
+		ctx, cancel := context.WithTimeout(context.Background(), overviewReadLimit)
+		defer cancel()
+		text, err := status(ctx, k)
+		if err != nil {
+			return ""
+		}
+		return text
+	}, func(text string) {
+		if text != "" {
+			desc.SetText(text)
+		}
+	})
+}
+
+func accountStatus(ctx context.Context, k *kit) (string, error) {
+	conn, err := k.systemBus()
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = conn.Close() }()
+	acc, err := openAccounts(ctx, conn)
+	if err != nil {
+		return "", err
+	}
+	props, err := acc.user.props(ctx)
+	if err != nil {
+		return "", err
+	}
+	name := cmp.Or(props.str("RealName"), props.str("UserName"))
+	if name == "" {
+		return "", errNoStatus
+	}
+	return locale.T().Get("settings-overview-signed-in", i18n.Str("name", name)), nil
+}
+
+func enumLabel(path, value string) string {
+	meta, ok := config.Field(path)
+	if !ok {
+		return value
+	}
+	for i, v := range meta.Variants {
+		if v == value {
+			return enumLabels(meta)[i]
+		}
+	}
+	return value
+}
+
+func appearanceStatus(_ context.Context, k *kit) (string, error) {
+	st := k.store.svc.Config().Styling
+	return locale.T().Get("settings-overview-appearance",
+		i18n.Str("appearance", enumLabel("styling.appearance", string(st.Appearance))),
+		i18n.Str("provider", enumLabel("styling.theme-provider", string(st.ColorExtractor.ThemeProvider)))), nil
+}
+
+func displaysStatus(context.Context, *kit) (string, error) {
+	n := len(systemHost.outputs())
+	if n == 0 {
+		return "", errNoStatus
+	}
+	return locale.T().Get("settings-overview-displays", i18n.Int("count", int64(n))), nil
+}
+
+func soundStatus(ctx context.Context, _ *kit) (string, error) {
+	svc, err := openPulse(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = svc.Close() }()
+	out, err := svc.DefaultSink(ctx)
+	if err != nil {
+		return "", err
+	}
+	if out.Muted {
+		return locale.T().Get("settings-overview-sound-muted", i18n.Str("device", out.Description)), nil
+	}
+	return locale.T().Get("settings-overview-sound", i18n.Str("device", out.Description), i18n.Int("percent", int64(math.Round(out.Volume.AveragePercentage())))), nil
+}
+
+func networkStatus(ctx context.Context, k *kit) (string, error) {
+	ctl, err := k.network()
+	if err != nil {
+		return "", err
+	}
+	st, err := ctl.read(ctx)
+	if err = errors.Join(err, ctl.close()); err != nil {
+		return "", err
+	}
+	t := locale.T()
+	switch {
+	case st.active != "":
+		return t.Get("settings-overview-wifi", i18n.Str("name", st.active)), nil
+	case st.snap.Wired == network.StatusConnected:
+		return t.Get("settings-overview-wired"), nil
+	}
+	return t.Get("settings-overview-offline"), nil
 }

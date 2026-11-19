@@ -79,6 +79,7 @@ func Run(page, setting string) error {
 		background: func(fn func()) { go fn() },
 		systemBus:  dialSystemBus,
 		network:    func() (netControl, error) { return openNetwork(dialSystemBus) },
+		statuses:   tileStatuses,
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })

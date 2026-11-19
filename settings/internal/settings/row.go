@@ -50,6 +50,7 @@ type kit struct {
 	background func(func())
 	systemBus  func() (*dbus.Conn, error)
 	network    func() (netControl, error)
+	statuses   map[string]tileStatus
 	copySecret func(text string) error
 	// overlays shows content on the output named on top of everything,
 	// taking the keys when interactive; nil without a session.

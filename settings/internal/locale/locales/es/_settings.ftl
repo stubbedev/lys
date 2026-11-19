@@ -916,3 +916,14 @@ settings-vpn-on = Conectada
 settings-vpn-off = Apagada
 settings-vpn-connecting = Conectando…
 settings-vpn-disconnecting = Desconectando…
+settings-overview-signed-in = Sesión iniciada como { $name }
+settings-overview-appearance = { $appearance } · { $provider }
+settings-overview-displays = { $count ->
+    [one] { $count } pantalla conectada
+   *[other] { $count } pantallas conectadas
+}
+settings-overview-sound = { $device } · { $percent } %
+settings-overview-sound-muted = { $device } · silenciado
+settings-overview-wifi = Wi-Fi: { $name }
+settings-overview-wired = Cableada
+settings-overview-offline = Sin conexión

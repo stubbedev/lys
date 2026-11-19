@@ -918,3 +918,14 @@ settings-vpn-on = Connecté
 settings-vpn-off = Désactivé
 settings-vpn-connecting = Connexion…
 settings-vpn-disconnecting = Déconnexion…
+settings-overview-signed-in = Connecté en tant que { $name }
+settings-overview-appearance = { $appearance } · { $provider }
+settings-overview-displays = { $count ->
+    [one] { $count } écran branché
+   *[other] { $count } écrans branchés
+}
+settings-overview-sound = { $device } · { $percent } %
+settings-overview-sound-muted = { $device } · muet
+settings-overview-wifi = Wi-Fi : { $name }
+settings-overview-wired = Filaire
+settings-overview-offline = Non connecté
