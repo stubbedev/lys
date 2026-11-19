@@ -57,7 +57,7 @@ func lockPage(*config.Config) pageSpec {
 			{title: "settings-section-login-screen", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint", "login.greeter.screen-reader")},
 			{title: "settings-section-cursor", rows: fields("login.greeter.cursor-theme", "login.greeter.cursor-size")},
 		},
-		footer: greeterApplyFooter, footerOnRows: true,
+		footer: greeterApplyFooter, extrasOnRows: true,
 	}
 }
 

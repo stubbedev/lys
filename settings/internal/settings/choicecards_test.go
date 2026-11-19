@@ -11,15 +11,17 @@ import (
 
 func TestEveryChoiceOfAPictureRowHasItsPicture(t *testing.T) {
 	for path, pictures := range map[string]map[string]picture{
-		"styling.appearance":       appearancePictures,
-		"styling.theme-provider":   themeProviderPictures,
-		"wallpaper.fit-mode":       fitPictures,
-		"bar.shadow":               shadowPictures,
-		"bar.rounding":             roundingPictures,
-		"bar.button-variant":       buttonVariantPictures,
-		"bar.button-icon-position": iconPositionPictures,
-		"styling.rounding":         roundingPictures,
-		"login.background-mode":    lockBackgroundPictures,
+		"styling.appearance":                appearancePictures,
+		"styling.theme-provider":            themeProviderPictures,
+		"wallpaper.fit-mode":                fitPictures,
+		"bar.shadow":                        shadowPictures,
+		"bar.rounding":                      roundingPictures,
+		"bar.button-variant":                buttonVariantPictures,
+		"bar.button-icon-position":          iconPositionPictures,
+		"styling.rounding":                  roundingPictures,
+		"login.background-mode":             lockBackgroundPictures,
+		"modules.notifications.popup-stack": popupStackPictures,
+		"osd.text-align":                    textAlignPictures,
 	} {
 		meta, ok := config.Field(path)
 		if !ok {

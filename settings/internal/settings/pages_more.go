@@ -78,36 +78,25 @@ var roundingChoice = pictureChoice(roundingPictures)
 
 // notificationsPage is pages/notifications.
 func notificationsPage(*config.Config) pageSpec {
-	return pageSpec{id: "notifications", navKey: "settings-nav-notifications", icon: "ld-bell-symbolic", header: "settings-page-notifications", sections: []sectionSpec{
+	return pageSpec{id: "notifications", navKey: "settings-nav-notifications", icon: "ld-bell-symbolic", header: "settings-page-notifications", lead: tryLead("settings-test-notification", testNotification), extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.notifications.enabled"),
-			field("modules.notifications.history-memory"),
-			field("modules.notifications.history-stored"),
 		}},
 		{title: "settings-section-popup-display", rows: []rowSpec{
 			field("modules.notifications.popup-position", screenPosition),
-			field("modules.notifications.popup-max-visible"),
-			field("modules.notifications.popup-stacking-order"),
-			field("modules.notifications.popup-stack"),
+			field("modules.notifications.popup-monitor"),
 			field("modules.notifications.popup-duration", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), after(30*time.Second))),
 			field("modules.notifications.popup-hover-pause"),
+			field("modules.notifications.popup-max-visible", countSlider(1, popupMaxVisibleSoftMax)),
+			field("modules.notifications.popup-stack", pictureChoice(popupStackPictures)),
+			field("modules.notifications.popup-stacking-order"),
 			field("modules.notifications.popup-shadow"),
 			field("modules.notifications.popup-opacity", percentage),
-			field("modules.notifications.popup-close-behavior"),
 			field("modules.notifications.popup-urgency-bar"),
 		}},
-		{title: "settings-section-positioning", rows: []rowSpec{
-			field("modules.notifications.popup-monitor"),
-			field("modules.notifications.popup-layer"),
-			field("modules.notifications.popup-margin-x", sizeBase(config.PopupMarginBaseRem)),
-			field("modules.notifications.popup-margin-y", sizeBase(config.PopupMarginBaseRem)),
-			field("modules.notifications.popup-gap", sizeBase(config.PopupGapBaseRem)),
-		}},
 		{title: "settings-section-filtering", rows: []rowSpec{
-			field("modules.notifications.icon-source"),
 			field("modules.notifications.blocklist", appList),
 		}},
-		{title: "settings-section-animation", rows: surfaceAnimationRows("animations.notifications")},
 		{title: "settings-section-focus-automatic", rows: append(fields("modules.notifications.dnd.while-sharing", "modules.notifications.dnd.while-fullscreen"), field("modules.notifications.dnd.schedule", dndScheduleList))},
 		{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical"), field("modules.notifications.dnd.allow-apps", appList)}},
 		{title: "settings-section-bell", rows: append([]rowSpec{
@@ -117,29 +106,44 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.thresholds", thresholdList),
 		}, barItemSection("modules.notifications", actionChoices("notification")).rows...)},
 		dropdownSizeSection("notification"),
+		{title: "settings-section-notifications-advanced", advanced: true, rows: []rowSpec{
+			field("modules.notifications.popup-close-behavior"),
+			field("modules.notifications.icon-source"),
+			field("modules.notifications.history-memory"),
+			field("modules.notifications.history-stored"),
+			field("modules.notifications.popup-layer"),
+			field("modules.notifications.popup-margin-x", sizeBase(config.PopupMarginBaseRem)),
+			field("modules.notifications.popup-margin-y", sizeBase(config.PopupMarginBaseRem)),
+			field("modules.notifications.popup-gap", sizeBase(config.PopupGapBaseRem)),
+		}},
+		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.notifications")},
 	}}
 }
 
+const popupMaxVisibleSoftMax = 10
+
 // osdPage is pages/osd.
 func osdPage(*config.Config) pageSpec {
-	return pageSpec{id: "osd", navKey: "settings-nav-osd", icon: "ld-monitor-symbolic", header: "settings-page-osd", sections: []sectionSpec{
+	return pageSpec{id: "osd", navKey: "settings-nav-osd", icon: "ld-monitor-symbolic", header: "settings-page-osd", lead: tryLead("settings-show-osd", osdPreview), extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("osd.enabled"),
 		}},
 		{title: "settings-section-display", rows: []rowSpec{
 			field("osd.position", screenPosition),
-			field("osd.layer"),
-			field("osd.text-align"),
-			field("osd.duration", durationChips(inMilliseconds, after(time.Second), after(1500*time.Millisecond), after(2500*time.Millisecond), after(5*time.Second))),
 			field("osd.monitor"),
-			field("osd.margin", sizeBase(config.OsdMarginBaseRem)),
+			field("osd.text-align", pictureChoice(textAlignPictures)),
+			field("osd.duration", durationChips(inMilliseconds, after(time.Second), after(1500*time.Millisecond), after(2500*time.Millisecond), after(5*time.Second))),
 			field("osd.border"),
 			field("osd.media"),
 		}},
 		{title: "settings-section-presets", rows: []rowSpec{
 			field("osd.presets", toastPresetList),
 		}},
-		{title: "settings-section-animation", rows: surfaceAnimationRows("animations.osd")},
+		{title: "settings-section-osd-advanced", advanced: true, rows: []rowSpec{
+			field("osd.layer"),
+			field("osd.margin", sizeBase(config.OsdMarginBaseRem)),
+		}},
+		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.osd")},
 	}}
 }
 

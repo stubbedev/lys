@@ -259,3 +259,52 @@ var titlebarSidePictures = map[string]picture{
 	"left":  drawn(func(cv *render.Canvas, r render.Rect) { titlebarMock(cv, r, true) }),
 	"right": drawn(func(cv *render.Canvas, r render.Rect) { titlebarMock(cv, r, false) }),
 }
+
+func popupMock(cv *render.Canvas, r render.Rect, behind int) {
+	th := widget.Current()
+	step := max(2, r.H/8)
+	h := r.H - behind*step
+	for i := behind; i > 0; i-- {
+		cv.RoundedRect(render.Rect{X: r.X + i*step, Y: r.Y + i*step, W: r.W - 2*i*step, H: h}, tileRadius/2, th.Border)
+	}
+	front := render.Rect{X: r.X, Y: r.Y, W: r.W, H: h}
+	miniWindow(cv, front, th.CardColor(), th.Border)
+}
+
+func popupColumn(cv *render.Canvas, r render.Rect, stacks, behind int) {
+	gap := max(2, r.H/12)
+	h := (r.H - (stacks-1)*gap) / stacks
+	for i := range stacks {
+		popupMock(cv, render.Rect{X: r.X, Y: r.Y + i*(h+gap), W: r.W, H: h}, behind)
+	}
+}
+
+var popupStackPictures = map[string]picture{
+	string(config.PopupStackPerApp): drawn(func(cv *render.Canvas, r render.Rect) { popupColumn(cv, r, 2, 2) }),
+	string(config.PopupStackAll):    drawn(func(cv *render.Canvas, r render.Rect) { popupColumn(cv, r, 1, 2) }),
+	string(config.PopupStackOff):    drawn(func(cv *render.Canvas, r render.Rect) { popupColumn(cv, r, 3, 0) }),
+}
+
+func alignedBars(cv *render.Canvas, r render.Rect, align config.OsdTextAlign) {
+	th := widget.Current()
+	cv.RoundedRect(r, tileRadius/2, th.CardColor())
+	pad := max(3, r.H/6)
+	h := max(3, r.H/8)
+	for i, frac := range []int{3, 2, 3} {
+		w := (r.W - 2*pad) * frac / 4
+		x := r.X + pad
+		switch align {
+		case config.OsdTextAlignCenter:
+			x = r.X + (r.W-w)/2
+		case config.OsdTextAlignEnd:
+			x = r.X + r.W - pad - w
+		}
+		cv.RoundedRect(render.Rect{X: x, Y: r.Y + pad + i*(h+pad), W: w, H: h}, h/2, th.Text)
+	}
+}
+
+var textAlignPictures = map[string]picture{
+	string(config.OsdTextAlignStart):  drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignStart) }),
+	string(config.OsdTextAlignCenter): drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignCenter) }),
+	string(config.OsdTextAlignEnd):    drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignEnd) }),
+}

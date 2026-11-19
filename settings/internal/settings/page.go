@@ -30,9 +30,11 @@ type pageSpec struct {
 	// panel names what the lead and footer build, for search and links.
 	panel []panelSetting
 	// wm says the rows are lys-wm's, not lys-shell's.
-	wm           bool
-	wmLead       bool
-	footerOnRows bool
+	wm     bool
+	wmLead bool
+	// extrasOnRows drops the lead and footer with the last row: they act
+	// on the rows.
+	extrasOnRows bool
 }
 
 // panelSetting is a control a page builds itself rather than from a

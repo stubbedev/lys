@@ -55,6 +55,10 @@ type kit struct {
 	battery    *batteryPresence
 	bluetooth  func() (btControl, error)
 	copySecret func(text string) error
+	// notify sends a desktop notification, shellCommand runs lys-shell
+	// with the arguments given; the tests stub both.
+	notify       func(summary, body string) error
+	shellCommand func(args ...string) error
 	// overlays shows content on the output named on top of everything,
 	// taking the keys when interactive; nil without a session.
 	overlays func(output string, content widget.Widget, interactive bool) (close func(), err error)

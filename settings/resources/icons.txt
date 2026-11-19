@@ -51,6 +51,7 @@ ld-palette-symbolic
 ld-panel-bottom-symbolic
 ld-panel-top-open-symbolic
 ld-panel-top-symbolic
+ld-play-symbolic
 ld-plug-zap-symbolic
 ld-plus-symbolic
 ld-power-symbolic

@@ -59,8 +59,8 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 		}
 	}
 	p.sections = sections
-	if p.footerOnRows && len(sections) == 0 {
-		p.footer = nil
+	if p.extrasOnRows && len(sections) == 0 {
+		p.lead, p.footer = nil, nil
 	}
 	return p, len(sections) > 0 || p.lead != nil || p.footer != nil
 }

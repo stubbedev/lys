@@ -641,6 +641,7 @@ var toastPresetList = cardRow(cardSpec{
 	fields: []cardField{
 		{key: "label", label: "settings-toast-preset-label", editor: func(k *kit, s slot) control { return newLiveText(k, s, "label") }},
 		{key: "icon", label: "settings-toast-preset-icon", editor: func(k *kit, s slot) control { return newIconEditor(k, s) }},
+		{label: "settings-toast-preset-try", item: func(k *kit, field func(key string) slot) control { return newPresetTry(k, field("id")) }},
 	},
 	blank: func() map[string]any { return map[string]any{"id": ""} },
 	keep:  func(m map[string]any) bool { id, _ := m["id"].(string); return id != "" },

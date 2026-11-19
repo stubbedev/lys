@@ -374,6 +374,12 @@ func msLabel(ms float64) string {
 	return locale.T().Get("settings-duration-milliseconds", i18n.Int("n", int64(math.Round(ms))))
 }
 
+func countSlider(lo, hi float64) rowOpt {
+	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+		return newSlider(k, s, lo, hi, true, decimals(0))
+	})
+}
+
 // mountPoints is text_like over a StorageMountPoint: one path, or
 // several shown comma-joined; the typed text splits at commas back
 // into one path ("/" when empty) or a list.

@@ -76,12 +76,14 @@ func Run(page, setting string) error {
 	k := &kit{
 		face: app.FontFallback(face), mono: app.FontFallback(mono), monoVariants: app.FontVariants(mono),
 		store: store{svc}, invoke: application.Invoke, parts: installed,
-		background: func(fn func()) { go fn() },
-		systemBus:  dialSystemBus,
-		network:    func() (netControl, error) { return openNetwork(dialSystemBus) },
-		statuses:   tileStatuses,
-		power:      func() (powerControl, error) { return openPower(dialSystemBus) },
-		bluetooth:  func() (btControl, error) { return openBluetooth(dialSystemBus) },
+		background:   func(fn func()) { go fn() },
+		systemBus:    dialSystemBus,
+		network:      func() (netControl, error) { return openNetwork(dialSystemBus) },
+		statuses:     tileStatuses,
+		power:        func() (powerControl, error) { return openPower(dialSystemBus) },
+		bluetooth:    func() (btControl, error) { return openBluetooth(dialSystemBus) },
+		notify:       sendNotification,
+		shellCommand: runShellCommand,
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })
