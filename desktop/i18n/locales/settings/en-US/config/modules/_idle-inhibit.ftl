@@ -2,14 +2,14 @@
 
 ## Idle Inhibit Module Configuration
 
-settings-modules-idle-inhibit-startup-duration = Startup Duration
-    .description = Duration in minutes when service starts (0 for indefinite)
+settings-modules-idle-inhibit-startup-duration = Default Duration
+    .description = How long keeping awake lasts when it is switched on
 
 settings-modules-idle-inhibit-icon-inactive = Inactive Icon
-    .description = Icon when idle inhibitor is off
+    .description = Icon while the computer may dim, lock and sleep as usual
 
 settings-modules-idle-inhibit-icon-active = Active Icon
-    .description = Icon when idle inhibitor is on
+    .description = Icon while keeping awake
 
 settings-modules-idle-inhibit-format = Format
     .description = Format string using placeholders: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}

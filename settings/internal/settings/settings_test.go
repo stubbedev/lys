@@ -2329,7 +2329,7 @@ func TestALayoutChipAndThePickerNameModulesReadably(t *testing.T) {
 	}
 	p := c.pickModule(nil, func(config.BarModule) {})
 	p.filter("idle-inhibit")
-	p.filter("Idle Inhibit")
+	p.filter("Keep Awake")
 	shown := 0
 	for i := range p.all {
 		if p.rows.ChildAt(i).Visible() {

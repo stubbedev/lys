@@ -1,11 +1,11 @@
-settings-modules-idle-inhibit-startup-duration = Duração no arranque
-    .description = Duração em minutos quando o serviço arranca (0 para indefinida)
+settings-modules-idle-inhibit-startup-duration = Duração predefinida
+    .description = Quanto tempo dura manter acordado depois de ligado
 
 settings-modules-idle-inhibit-icon-inactive = Ícone inativo
-    .description = Ícone quando o inibidor de inatividade está desligado
+    .description = Ícone enquanto o computador pode escurecer, bloquear e suspender como habitualmente
 
 settings-modules-idle-inhibit-icon-active = Ícone ativo
-    .description = Ícone quando o inibidor de inatividade está ligado
+    .description = Ícone enquanto se mantém acordado
 
 settings-modules-idle-inhibit-format = Formato
     .description = Cadeia de formato com os marcadores: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}

@@ -1,11 +1,11 @@
-settings-modules-idle-inhibit-startup-duration = Duur bij opstarten
-    .description = Duur in minuten als de dienst start (0 voor onbeperkt)
+settings-modules-idle-inhibit-startup-duration = Standaardduur
+    .description = Hoe lang wakker houden duurt nadat het is ingeschakeld
 
 settings-modules-idle-inhibit-icon-inactive = Pictogram inactief
-    .description = Pictogram als de inactiviteitsblokkering uit staat
+    .description = Pictogram zolang de computer zoals gewoonlijk mag dimmen, vergrendelen en slapen
 
 settings-modules-idle-inhibit-icon-active = Pictogram actief
-    .description = Pictogram als de inactiviteitsblokkering aan staat
+    .description = Pictogram zolang de computer wakker wordt gehouden
 
 settings-modules-idle-inhibit-format = Formaat
     .description = Formaattekenreeks met plaatshouders: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}

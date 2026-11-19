@@ -2,14 +2,14 @@
 
 ## Configuration du module Inhibiteur de veille
 
-settings-modules-idle-inhibit-startup-duration = Durée au démarrage
-    .description = Durée en minutes au démarrage du service (0 pour indéfini)
+settings-modules-idle-inhibit-startup-duration = Durée par défaut
+    .description = Combien de temps dure le maintien en éveil une fois activé
 
 settings-modules-idle-inhibit-icon-inactive = Icône inactive
-    .description = Icône lorsque l'inhibiteur de veille est désactivé
+    .description = Icône tant que l’ordinateur peut s’atténuer, se verrouiller et se mettre en veille normalement
 
 settings-modules-idle-inhibit-icon-active = Icône active
-    .description = Icône lorsque l'inhibiteur de veille est activé
+    .description = Icône pendant le maintien en éveil
 
 settings-modules-idle-inhibit-format = Format
     .description = Chaîne de format avec espaces réservés : {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}

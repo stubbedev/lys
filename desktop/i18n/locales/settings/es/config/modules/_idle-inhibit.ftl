@@ -2,14 +2,14 @@
 
 ## Idle Inhibit Module Configuration
 
-settings-modules-idle-inhibit-startup-duration = Duración al iniciar
-    .description = Duración en minutos al iniciarse el servicio (0 para indefinida)
+settings-modules-idle-inhibit-startup-duration = Duración predeterminada
+    .description = Cuánto dura mantener activo al activarlo
 
 settings-modules-idle-inhibit-icon-inactive = Icono de inactivo
-    .description = Icono cuando el inhibidor de inactividad está desactivado
+    .description = Icono mientras el equipo puede atenuarse, bloquearse y suspenderse como siempre
 
 settings-modules-idle-inhibit-icon-active = Icono de activo
-    .description = Icono cuando el inhibidor de inactividad está activado
+    .description = Icono mientras se mantiene activo
 
 settings-modules-idle-inhibit-format = Formato
     .description = Cadena de formato con marcadores: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}

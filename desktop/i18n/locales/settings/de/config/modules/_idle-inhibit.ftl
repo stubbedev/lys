@@ -2,14 +2,14 @@
 
 ## Idle Inhibit Module Configuration
 
-settings-modules-idle-inhibit-startup-duration = Dauer beim Start
-    .description = Dauer in Minuten beim Start des Dienstes (0 für unbegrenzt)
+settings-modules-idle-inhibit-startup-duration = Standarddauer
+    .description = Wie lange das Wachhalten nach dem Einschalten dauert
 
 settings-modules-idle-inhibit-icon-inactive = Symbol für inaktiv
-    .description = Symbol, wenn die Leerlaufsperre aus ist
+    .description = Symbol, solange der Rechner wie gewohnt abdunkeln, sperren und ruhen darf
 
 settings-modules-idle-inhibit-icon-active = Symbol für aktiv
-    .description = Symbol, wenn die Leerlaufsperre an ist
+    .description = Symbol, solange der Rechner wach gehalten wird
 
 settings-modules-idle-inhibit-format = Format
     .description = Formatzeichenkette mit Platzhaltern: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}

@@ -153,6 +153,17 @@ func TestAModuleLinkToAPageNotInstalledIsLeftOut(t *testing.T) {
 	}
 }
 
+func TestSearchFindsKeepAwakeByWhatItDoes(t *testing.T) {
+	index := settingIndex(layout(config.Defaults(), bothParts))
+	hits := searchSettings(index, "keep awake duration")
+	if !slices.ContainsFunc(hits, func(e settingEntry) bool { return e.path == "modules.idle-inhibit.startup-duration" }) {
+		t.Errorf("searching keep awake does not find its duration: %v", hits)
+	}
+	if got := searchSettings(index, "idle inhibit"); slices.ContainsFunc(got, func(e settingEntry) bool { return e.page == "idle-inhibit" }) {
+		t.Errorf("the jargon still names the page: %v", got)
+	}
+}
+
 func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
 	for _, id := range []string{"cava", "custom", "media"} {
 		p, ok := pageByID(layout(config.Defaults(), bothParts), id)
