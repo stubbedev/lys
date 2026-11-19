@@ -839,3 +839,12 @@ wm-action-switcher = { $first ->
     }
 wm-binds-unknown-action = Ação desconhecida
     .description = O lys-wm não tem nenhuma ação com este nome; o atalho é mostrado como foi escrito
+wm-binds-category-windows = Janelas
+wm-binds-category-workspaces = Áreas de trabalho
+wm-binds-category-layout = Disposição
+wm-binds-category-apps = Aplicações
+wm-binds-category-screenshots = Capturas de ecrã
+wm-binds-category-media = Multimédia
+wm-binds-category-system = Sistema
+wm-binds-category-custom = Personalizados
+wm-binds-search = Pesquisar atalhos, ações ou teclas

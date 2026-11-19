@@ -842,3 +842,12 @@ wm-action-switcher = { $first ->
     }
 wm-binds-unknown-action = Action inconnue
     .description = lys-wm n’a aucune action de ce nom ; le raccourci est affiché tel qu’écrit
+wm-binds-category-windows = Fenêtres
+wm-binds-category-workspaces = Espaces de travail
+wm-binds-category-layout = Disposition
+wm-binds-category-apps = Applications
+wm-binds-category-screenshots = Captures d’écran
+wm-binds-category-media = Multimédia
+wm-binds-category-system = Système
+wm-binds-category-custom = Personnalisé
+wm-binds-search = Rechercher des raccourcis, des actions ou des touches

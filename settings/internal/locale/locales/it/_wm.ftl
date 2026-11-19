@@ -842,3 +842,12 @@ wm-action-switcher = { $first ->
     }
 wm-binds-unknown-action = Azione sconosciuta
     .description = lys-wm non ha alcuna azione con questo nome; la scorciatoia è mostrata come scritta
+wm-binds-category-windows = Finestre
+wm-binds-category-workspaces = Spazi di lavoro
+wm-binds-category-layout = Disposizione
+wm-binds-category-apps = App
+wm-binds-category-screenshots = Schermate
+wm-binds-category-media = Multimedia
+wm-binds-category-system = Sistema
+wm-binds-category-custom = Personalizzate
+wm-binds-search = Cerca scorciatoie, azioni o tasti

@@ -69,6 +69,13 @@ lys-wm names with its arguments filled in, such as *Switch to workspace 3* or
 with, or the bind's own `description` when it has one. An action lys-wm does not
 know reads as written and is marked **Unknown action**.
 
+Binds are grouped by what they are for: **Windows**, **Workspaces**, **Layout**,
+**Apps**, **Screenshots**, **Media**, **System**, and **Custom** for an action
+lys-wm does not know. An app's bind counts as a screenshot or media one by its
+key (Print, the volume, media and brightness keys) or by the program it runs
+(such as `grim`, `wpctl` or `playerctl`). The search field above finds a bind by
+what it does, its group, its action as written or its keys.
+
 ## Home Manager and Nix
 
 A `config.yaml` linked into the Nix store is never written, so every setting stays

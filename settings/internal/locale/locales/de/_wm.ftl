@@ -841,3 +841,12 @@ wm-action-switcher = { $first ->
     }
 wm-binds-unknown-action = Unbekannte Aktion
     .description = lys-wm kennt keine Aktion mit diesem Namen; das Tastenkürzel wird wie geschrieben angezeigt
+wm-binds-category-windows = Fenster
+wm-binds-category-workspaces = Arbeitsflächen
+wm-binds-category-layout = Layout
+wm-binds-category-apps = Apps
+wm-binds-category-screenshots = Bildschirmfotos
+wm-binds-category-media = Medien
+wm-binds-category-system = System
+wm-binds-category-custom = Eigene
+wm-binds-search = Tastenkürzel, Aktionen oder Tasten suchen

@@ -842,3 +842,12 @@ wm-action-switcher = { $first ->
     }
 wm-binds-unknown-action = Unknown action
     .description = lys-wm has no action by this name; the bind is shown as written
+wm-binds-category-windows = Windows
+wm-binds-category-workspaces = Workspaces
+wm-binds-category-layout = Layout
+wm-binds-category-apps = Apps
+wm-binds-category-screenshots = Screenshots
+wm-binds-category-media = Media
+wm-binds-category-system = System
+wm-binds-category-custom = Custom
+wm-binds-search = Search shortcuts, actions or keys

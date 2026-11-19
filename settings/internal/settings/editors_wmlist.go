@@ -60,6 +60,9 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 		action, _ := k.wm.schema.Field(append(item, actionKey))
 		binds = &bindNames{actions: action.Actions}
 		cards.title = binds.bindLabel
+		cards.group = binds.group
+		cards.search = binds.searchText
+		cards.filterKey = "wm-binds-search"
 		cards.aside = func(k *kit) cardAside { return newBindAside(k, binds) }
 		cards.clashKey = chordKey
 		cards.keep = func(m map[string]any) bool { chord, _ := m[chordKey].(string); return chord != "" }

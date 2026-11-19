@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"math"
@@ -80,8 +81,15 @@ type cardSpec struct {
 	// aside, when set, sits in each card's header beside the title and
 	// follows the item as the title does.
 	aside func(k *kit) cardAside
-	// searchable heads the cards with a filter over the items' values.
+	// searchable heads the cards with a filter over the items' values, or
+	// over search's text of each item when set; filterKey is its
+	// placeholder (settings-list-filter).
 	searchable bool
+	search     func(item map[string]any) string
+	filterKey  string
+	// group, when set, files each card under a heading: the groups in the
+	// order of their rank, each card within its group in list order.
+	group func(item map[string]any) cardGroupKey
 	// collapsed shows each card as its header alone until it is opened,
 	// building its fields then: a long list stays a list of titles.
 	collapsed bool
@@ -120,6 +128,19 @@ type cardList struct {
 	drafting bool
 	checks   int
 	partners []int
+	groups   map[int]*cardGroup
+}
+
+// cardGroupKey is the group a card is filed under: rank orders the
+// groups, label heads one.
+type cardGroupKey struct {
+	rank  int
+	label string
+}
+
+type cardGroup struct {
+	root, list *widget.Box
+	title      *widget.Label
 }
 
 // cardAside is a card header's part beside its title, shown for the item.
@@ -132,6 +153,7 @@ type card struct {
 	root     *widget.Box
 	title    *widget.Label
 	aside    cardAside
+	group    int
 	identity control
 	controls []control
 	clash    *widget.Box
@@ -142,7 +164,7 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	c := &cardList{Box: gapBox(widget.Column), k: k, slot: s, spec: spec}
 	c.AddClass(append([]string{"card-form-editor"}, spec.classes...)...)
 	if spec.searchable {
-		c.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get("settings-list-filter"))
+		c.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get(cmp.Or(spec.filterKey, "settings-list-filter")))
 		c.filter.SetDelay(0)
 		c.filter.OnSearchChanged = func(string) { c.applyFilter() }
 		c.Append(c.filter, false)
@@ -261,6 +283,7 @@ func (c *cardList) fieldSlot(i int, key string) slot {
 		}
 		c.commit()
 		c.retitle(i)
+		c.regroup(i)
 	}
 	return slot{
 		get: func() any {
@@ -277,6 +300,7 @@ func (c *cardList) fieldSlot(i int, key string) slot {
 func (c *cardList) rebuild() {
 	c.list.Clear()
 	c.cards = nil
+	c.groups = nil
 	for i := range c.local {
 		c.appendCard(i)
 	}
@@ -292,10 +316,82 @@ func (c *cardList) applyFilter() {
 	}
 	c.filter.SetVisible(len(c.cards) > 0)
 	words := strings.Fields(strings.ToLower(c.filter.Text()))
+	search := itemText
+	if c.spec.search != nil {
+		search = func(v any) string { m, _ := v.(map[string]any); return c.spec.search(m) }
+	}
 	for i, cd := range c.cards {
-		text := strings.ToLower(itemText(c.local[i]))
+		text := strings.ToLower(search(c.local[i]))
 		cd.root.SetVisible(!slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(text, w) }))
 	}
+	c.showGroups()
+}
+
+// showGroups shows the headings of the groups with a card shown.
+func (c *cardList) showGroups() {
+	for rank, g := range c.groups {
+		g.root.SetVisible(slices.ContainsFunc(c.cards, func(cd *card) bool { return cd.group == rank && cd.root.Visible() }))
+	}
+}
+
+// place puts card i's root in its group, among the group's cards in list
+// order; without groups, at the list's end.
+func (c *cardList) place(i int) {
+	cd := c.cards[i]
+	if c.spec.group == nil {
+		c.list.Append(cd.root, false)
+		return
+	}
+	key := c.spec.group(c.local[i])
+	cd.group = key.rank
+	g, ok := c.groups[key.rank]
+	if !ok {
+		g = &cardGroup{root: gapBox(widget.Column), list: gapBox(widget.Column)}
+		g.root.AddClass("card-group")
+		g.title = c.k.label(key.label, "card-group-title", css.Heading)
+		g.title.SetHAlign(widget.AlignStart)
+		g.root.Append(g.title, false)
+		g.root.Append(g.list, false)
+		if c.groups == nil {
+			c.groups = map[int]*cardGroup{}
+		}
+		c.groups[key.rank] = g
+		at := 0
+		for rank := range c.groups {
+			if rank < key.rank {
+				at++
+			}
+		}
+		c.list.InsertAt(at, g.root, false)
+	}
+	at := 0
+	for j := range i {
+		if c.cards[j].group == key.rank {
+			at++
+		}
+	}
+	g.list.InsertAt(at, cd.root, false)
+}
+
+// regroup moves card i to the group its item now falls in, keeping the
+// card and its open fields.
+func (c *cardList) regroup(i int) {
+	if c.spec.group == nil || i >= len(c.cards) {
+		return
+	}
+	cd := c.cards[i]
+	if c.spec.group(c.local[i]).rank == cd.group {
+		return
+	}
+	if g, ok := c.groups[cd.group]; ok {
+		g.list.Remove(cd.root)
+		if len(g.list.Children()) == 0 {
+			c.list.Remove(g.root)
+			delete(c.groups, cd.group)
+		}
+	}
+	c.place(i)
+	c.showGroups()
 }
 
 // itemText is every value of an item, nested ones included, in key order.
@@ -378,8 +474,8 @@ func (c *cardList) appendCard(i int) {
 		fill()
 		cd.root = sectionCard(header, body, chrome.card)
 		c.addClash(cd, i)
-		c.list.Append(cd.root, false)
 		c.cards = append(c.cards, cd)
+		c.place(i)
 		c.retitle(i)
 		return
 	}
@@ -406,8 +502,8 @@ func (c *cardList) appendCard(i int) {
 	header.AppendAligned(disclose, false, widget.AlignCenter)
 	header.AppendAligned(remove, false, widget.AlignCenter)
 	show(false)
-	c.list.Append(cd.root, false)
 	c.cards = append(c.cards, cd)
+	c.place(i)
 	c.retitle(i)
 }
 
@@ -503,6 +599,7 @@ func (c *cardList) refresh() {
 			ctl.refresh()
 		}
 		c.retitle(i)
+		c.regroup(i)
 	}
 	c.validate()
 }

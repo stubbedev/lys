@@ -838,3 +838,12 @@ wm-action-switcher = { $first ->
     }
 wm-binds-unknown-action = Onbekende actie
     .description = lys-wm kent geen actie met deze naam; de binding wordt getoond zoals geschreven
+wm-binds-category-windows = Vensters
+wm-binds-category-workspaces = Werkbladen
+wm-binds-category-layout = Indeling
+wm-binds-category-apps = Apps
+wm-binds-category-screenshots = Schermafbeeldingen
+wm-binds-category-media = Media
+wm-binds-category-system = Systeem
+wm-binds-category-custom = Eigen
+wm-binds-search = Zoek sneltoetsen, acties of toetsen
