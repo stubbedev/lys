@@ -403,3 +403,39 @@ func TestTheSystemBusDialReachesTheBusAndNamesItselfOnceWhenItCannot(t *testing.
 	}
 	t.Fatalf("the page shows %q, not that the system bus cannot be reached", treetest.Labels(footer))
 }
+
+func TestThe24HourSwitchChangesOnlyTheHourOfACustomClockFormat(t *testing.T) {
+	k := testKit(t, "modules:\n  clock:\n    format: \"%Y-%m-%d · %I:%M %p\"\n")
+	var failed []error
+	row := hourCycleRow(k, func(err error) { failed = append(failed, err) })
+	h24 := treetest.First[*widget.Switch](t, row)
+	if h24.On() || !h24.Enabled() {
+		t.Fatalf("a 12-hour format shows on %v, enabled %v", h24.On(), h24.Enabled())
+	}
+	h24.SetOn(true)
+	if v := k.store.value(clockFormatPath); v != "%Y-%m-%d · %H:%M" {
+		t.Fatalf("on: %q", v)
+	}
+	h24.SetOn(false)
+	if v := k.store.value(clockFormatPath); v != "%Y-%m-%d · %I:%M %p" {
+		t.Fatalf("off again: %q", v)
+	}
+	if len(failed) != 0 {
+		t.Fatal(failed)
+	}
+}
+
+func TestThe24HourSwitchIsDisabledForAClockFormatWithoutAnHour(t *testing.T) {
+	for _, format := range []string{"%Y-%m-%d", "%H (%I %p)"} {
+		k := testKit(t, "modules:\n  clock:\n    format: \""+format+"\"\n")
+		row := hourCycleRow(k, func(err error) { t.Fatal(err) })
+		h24 := treetest.First[*widget.Switch](t, row)
+		if h24.Enabled() {
+			t.Errorf("%q: the switch is enabled", format)
+		}
+		h24.SetOn(!h24.On())
+		if v := k.store.value(clockFormatPath); v != format {
+			t.Errorf("%q: forcing the switch wrote %q", format, v)
+		}
+	}
+}

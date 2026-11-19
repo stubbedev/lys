@@ -36,8 +36,6 @@ const (
 	localePath       = dbus.ObjectPath("/org/freedesktop/locale1")
 	manualTimeLayout = "2006-01-02 15:04:05"
 	clockFormatPath  = "modules.clock.format"
-	clock24          = "%a %b %d %H:%M"
-	clock12          = "%a %b %d %I:%M %p"
 	localeConfName   = "locale.conf"
 	interactive      = true
 	previewNumber    = 123456789
@@ -198,6 +196,56 @@ func panelRow(k *kit, title, detail string, controls ...widget.Widget) *widget.B
 	return row
 }
 
+func hourCycleRow(k *kit, fail func(error)) widget.Widget {
+	t := locale.T()
+	preview := k.label("", "setting-description", css.Caption, css.DimLabel)
+	h24 := widget.NewSwitch(false)
+	h24.SetAccessibleName(t.Get("settings-date-24h"))
+	showing := false
+	layout := func() (*strftime.Layout, error) {
+		f, _ := k.store.value(clockFormatPath).(string)
+		l, err := strftime.Compile(f)
+		if err != nil {
+			return nil, fmt.Errorf("read the clock format %q: %w", f, err)
+		}
+		return l, nil
+	}
+	show := func() {
+		l, err := layout()
+		if err != nil {
+			h24.SetEnabled(false)
+			preview.SetText("")
+			return
+		}
+		c := l.HourCycle()
+		showing = true
+		h24.SetOn(c == strftime.Hour24)
+		showing = false
+		h24.SetEnabled(c == strftime.Hour12 || c == strftime.Hour24)
+		preview.SetText(l.Format(time.Now()))
+	}
+	h24.OnChanged = func(on bool) {
+		if showing {
+			return
+		}
+		l, err := layout()
+		if err != nil {
+			fail(err)
+			return
+		}
+		to := strftime.Hour12
+		if on {
+			to = strftime.Hour24
+		}
+		if err := k.store.set(clockFormatPath, l.WithHourCycle(to).String()); err != nil {
+			fail(err)
+		}
+		show()
+	}
+	show()
+	return panelRow(k, t.Get("settings-date-24h"), t.Attr("settings-date-24h", "description"), preview, h24)
+}
+
 func timezoneChoices(zones []string) []choice {
 	now := time.Now()
 	out := make([]choice, 0, len(zones))
@@ -215,32 +263,8 @@ func dateTimeFooter(k *kit) widget.Widget {
 	t := locale.T()
 	p := newSysPanel(k, timedateName, timedatePath)
 	clock := gapBox(widget.Column)
-	is24 := func() bool {
-		f, _ := k.store.value(clockFormatPath).(string)
-		return strings.Contains(f, "%H") || strings.Contains(f, "%R") || strings.Contains(f, "%T")
-	}
-	preview := k.label("", "setting-description", css.Caption, css.DimLabel)
-	showPreview := func() {
-		f, _ := k.store.value(clockFormatPath).(string)
-		if l, err := strftime.Compile(f); err == nil {
-			preview.SetText(l.Format(time.Now()))
-		}
-	}
-	h24 := widget.NewSwitch(is24())
-	h24.SetAccessibleName(t.Get("settings-date-24h"))
-	h24.OnChanged = func(on bool) {
-		format := clock12
-		if on {
-			format = clock24
-		}
-		if err := k.store.set(clockFormatPath, format); err != nil {
-			p.fail(err)
-		}
-		showPreview()
-	}
-	showPreview()
 	clockRows := widget.NewItemGroup()
-	clockRows.Append(panelRow(k, t.Get("settings-date-24h"), t.Attr("settings-date-24h", "description"), preview, h24))
+	clockRows.Append(hourCycleRow(k, p.fail))
 	clock.Append(clockRows, false)
 	p.open(func(ctx context.Context, svc sysService) (any, error) {
 		var zones []string
