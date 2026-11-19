@@ -24,6 +24,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 	secrets "github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 	xdraw "golang.org/x/image/draw"
@@ -603,13 +604,7 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 		}
 		controls := []widget.Widget{kind}
 		if !u.self {
-			uid := u.uid
-			manager := p.acc.manager()
-			controls = append(controls, p.k.iconButton("ld-trash-2-symbolic", "settings-users-remove", func() {
-				p.adminCall(func(ctx context.Context) error {
-					return manager.callInteractive(ctx, "DeleteUser", intconv.Must[int64](uid), false)
-				})
-			}, css.Ghost))
+			controls = append(controls, p.k.iconButton("ld-trash-2-symbolic", "settings-users-remove", func() { p.confirmRemove(u) }, css.Ghost))
 		}
 		rows.Append(panelRow(p.k, cmp.Or(u.real, u.name), u.name, controls...))
 	}
@@ -631,6 +626,48 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 	adding.Append(add, false)
 	body.Append(adding, false)
 	p.admin.Append(newSection(p.k, "settings-section-users-others", body), false)
+}
+
+// Responses of the remove-user question beside cancel.
+const (
+	responseKeepHome    = "keep-home"
+	responseDeleteFiles = "delete-files"
+)
+
+// confirmRemove asks before removing u, and whether their home folder
+// goes with them.
+func (p *usersPanel) confirmRemove(u otherUser) {
+	if p.k.pickers == nil {
+		p.fail(fmt.Errorf("settings: remove the user %s: no window to ask in", u.name))
+		return
+	}
+	t := locale.T()
+	name := i18n.Str("name", cmp.Or(u.real, u.name))
+	body := p.k.label(t.Get("settings-users-remove-description", name), css.DimLabel)
+	body.SetWrap(true)
+	manager := p.acc.manager()
+	uid := intconv.Must[int64](u.uid)
+	p.k.pickers.dialog(app.DialogConfig{
+		Title:   t.Get("settings-users-remove-title", name),
+		Width:   confirmDialogWidth,
+		Content: body,
+		Buttons: []app.DialogButton{
+			{Label: t.Get("settings-users-remove-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
+			{Label: t.Get("settings-users-remove-keep"), Response: responseKeepHome, Appearance: app.AppearancePlain},
+			{Label: t.Get("settings-users-remove-delete"), Response: responseDeleteFiles, Appearance: app.AppearanceDestructive},
+		},
+		Modal:          true,
+		CancelResponse: responseCancel,
+		OnResponse: func(r string) {
+			if r != responseKeepHome && r != responseDeleteFiles {
+				return
+			}
+			removeFiles := r == responseDeleteFiles
+			p.adminCall(func(ctx context.Context) error {
+				return manager.callInteractive(ctx, "DeleteUser", uid, removeFiles)
+			})
+		},
+	})
 }
 
 func (p *usersPanel) adminCall(fn func(context.Context) error) {

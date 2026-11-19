@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/lib/logtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	secrets "github.com/stubbedev/lys/secrets/control"
+	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -229,10 +230,46 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	if dropdownNamed(t, p.admin, "alice").Enabled() || !bob.Enabled() {
 		t.Fatal("an administrator can change their own type, or not another's")
 	}
-	treetest.WithClass(p.admin, css.Icon)[0].(*widget.Button).OnClick()
+	pickers := &fakePickers{}
+	p.k.pickers = pickers
+	remove := func() app.DialogConfig {
+		treetest.WithClass(p.admin, css.Icon)[0].(*widget.Button).OnClick()
+		return pickers.dialogs[len(pickers.dialogs)-1]
+	}
+	ask := remove()
+	if ask.Title != locale.T().Get("settings-users-remove-title", i18n.Str("name", "Bob")) || !ask.Modal || ask.CancelResponse != responseCancel || ask.DefaultResponse != "" {
+		t.Fatalf("dialog %q modal %v cancel %q default %q", ask.Title, ask.Modal, ask.CancelResponse, ask.DefaultResponse)
+	}
+	ask.OnResponse(responseCancel)
+	l.drain()
+	if calls, _ := manager.snapshot(); len(calls) != 1 {
+		t.Fatalf("cancelling removed a user: %+v", calls)
+	}
+	ask.OnResponse(responseKeepHome)
 	l.until("DeleteUser", func() bool { c, _ := manager.snapshot(); return len(c) == 2 })
 	if calls, _ := manager.snapshot(); calls[1].method != "DeleteUser" || fmt.Sprint(calls[1].args) != "[2000 false]" {
-		t.Fatalf("%+v", calls)
+		t.Fatalf("keeping the home folder: %+v", calls)
+	}
+	l.until("the list again", func() bool { return len(treetest.WithClass(p.admin, css.Icon)) == 1 })
+	remove().OnResponse(responseDeleteFiles)
+	l.until("DeleteUser", func() bool { c, _ := manager.snapshot(); return len(c) == 3 })
+	if calls, _ := manager.snapshot(); fmt.Sprint(calls[2].args) != "[2000 true]" {
+		t.Fatalf("deleting the files: %+v", calls)
+	}
+}
+
+func TestWithoutAWindowRemovingAUserIsRefused(t *testing.T) {
+	admin := alice
+	admin.accountType = accountAdmin
+	bus := dbustest.Start(t)
+	manager, _ := serveAccounts(t, bus, admin, bob)
+	p, l := usersFixture(t, bus)
+	l.until("the admin section", func() bool { return len(treetest.WithClass(p.admin, css.Icon)) == 1 })
+	p.k.pickers = nil
+	treetest.WithClass(p.admin, css.Icon)[0].(*widget.Button).OnClick()
+	l.drain()
+	if calls, _ := manager.snapshot(); !p.problem.Visible() || len(calls) != 1 {
+		t.Fatalf("problem shown %v, calls %+v", p.problem.Visible(), calls)
 	}
 }
 
