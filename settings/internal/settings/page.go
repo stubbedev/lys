@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -48,7 +49,8 @@ type sectionSpec struct {
 	when     func(s store) bool
 	advanced bool
 	// preview, when set, builds what shows the rows' effect above them.
-	preview func(k *kit) widget.Widget
+	preview  func(k *kit) widget.Widget
+	hardware wmipc.DeviceClass
 }
 
 // rowSpec is SettingRowInit, by path: the label key defaults to the
@@ -193,6 +195,7 @@ type settingsPage struct {
 	advanced  []disclosure
 	dependent []dependentRow
 	extras    []configWatcher
+	pointers  *pointerStrip
 }
 
 type configWatcher interface{ configChanged() }
@@ -219,10 +222,12 @@ func (d dependentRow) apply() {
 }
 
 type sectionCondition struct {
-	box   *widget.Box
-	when  func(s store) bool
-	first int
-	n     int
+	box      *widget.Box
+	when     func(s store) bool
+	hardware wmipc.DeviceClass
+	revealed bool
+	first    int
+	n        int
 }
 
 type disclosure struct {
@@ -244,7 +249,7 @@ func (d disclosure) open(on bool) {
 
 func (p *settingsPage) showSections() {
 	for _, c := range p.sections {
-		c.box.SetVisible(c.when(p.k.store))
+		c.box.SetVisible((c.when == nil || c.when(p.k.store)) && (c.revealed || p.pointers.allows(c.hardware)))
 	}
 	for _, d := range p.dependent {
 		d.apply()
@@ -319,6 +324,10 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		}
 		p.status = newWMStatus(k, w)
 		content.Append(p.status, false)
+		if slices.ContainsFunc(spec.sections, func(s sectionSpec) bool { return s.hardware != "" }) {
+			p.pointers = newPointerStrip(k, w)
+			content.Append(p.pointers, false)
+		}
 	}
 	if spec.lead != nil {
 		content.Append(p.own(p.extra(spec.lead(k))), false)
@@ -351,8 +360,11 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			p.rows = append(p.rows, row)
 			p.addTarget(row)
 		}
-		if s.when != nil {
-			p.sections = append(p.sections, sectionCondition{box: section, when: s.when, first: first, n: len(p.targets) - first})
+		if s.hardware != "" && p.pointers == nil {
+			log.Panicf("settings: section %q of %q follows lys-wm's devices, but the page is not lys-wm's", s.title, spec.id)
+		}
+		if s.when != nil || s.hardware != "" {
+			p.sections = append(p.sections, sectionCondition{box: section, when: s.when, hardware: s.hardware, first: first, n: len(p.targets) - first})
 		}
 		if s.advanced {
 			p.advanced = append(p.advanced, advancedSection(k, section, group, first, len(p.targets)-first))
@@ -361,6 +373,9 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	}
 	p.governDependents()
 	p.showSections()
+	if p.pointers != nil {
+		p.pointers.load(p.showSections)
+	}
 	if spec.footer != nil {
 		content.Append(p.own(p.extra(spec.footer(k))), false)
 	}
@@ -511,8 +526,9 @@ func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *settingRow {
 	if i < 0 || i >= len(p.targets) || p.targets[i] == nil {
 		return nil
 	}
-	for _, c := range p.sections {
+	for j, c := range p.sections {
 		if i >= c.first && i < c.first+c.n {
+			p.sections[j].revealed = true
 			c.box.SetVisible(true)
 		}
 	}

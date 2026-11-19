@@ -43,9 +43,17 @@ type fakeWM struct {
 	reject  string
 	reloads int
 	checks  int
+	running map[string]string
 }
 
 func (w *fakeWM) run(_ context.Context, argv ...string) ([]byte, error) {
+	if argv[0] == wmconfig.Control && argv[1] != "reload" {
+		answer, ok := w.running[argv[1]]
+		if !ok {
+			return nil, &wmconfig.ToolError{Argv: argv, Exit: 3, Stderr: "lys-wmctl: ipc: no lys-wm socket", Err: errors.New("exit status 3")}
+		}
+		return []byte(answer), nil
+	}
 	switch argv[0] + " " + argv[1] {
 	case "lys-wm --config-schema":
 		return []byte(wmSchema), nil

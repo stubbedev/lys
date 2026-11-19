@@ -57,6 +57,15 @@ wm-section-palette = Tavolozza
 enum-wm-toggle-on = Attivo
 enum-wm-toggle-off = Disattivo
 wm-status-not-running = Salvato. Nessun lys-wm è in esecuzione qui; il prossimo lo leggerà.
+wm-pointers-connected = Collegati: { $devices }
+wm-pointers-device = { $name } ({ $kind })
+wm-pointers-class-pointer = mouse
+wm-pointers-class-touchpad = touchpad
+wm-pointers-class-trackpoint = trackpoint
+wm-pointers-none = Nessun mouse, touchpad o trackpoint è collegato.
+wm-pointers-not-running = Nessun lys-wm è in esecuzione qui per dire quali dispositivi sono collegati, quindi vengono mostrate tutte le sezioni.
+wm-pointers-outdated = Il lys-wm in esecuzione è più vecchio e non dice quali dispositivi sono collegati, quindi tutte le sezioni restano visibili fino al prossimo accesso.
+wm-pointers-unreadable = Non è stato possibile leggere quali dispositivi sono collegati, quindi vengono mostrate tutte le sezioni: { $reason }
 wm-source-file = 
     .description = Impostato nel file di configurazione di lys-wm
 

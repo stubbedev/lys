@@ -57,6 +57,15 @@ wm-section-palette = Palette
 enum-wm-toggle-on = On
 enum-wm-toggle-off = Off
 wm-status-not-running = Saved. No lys-wm is running here; the next one reads it.
+wm-pointers-connected = Connected: { $devices }
+wm-pointers-device = { $name } ({ $kind })
+wm-pointers-class-pointer = mouse
+wm-pointers-class-touchpad = touchpad
+wm-pointers-class-trackpoint = trackpoint
+wm-pointers-none = No mouse, touchpad or trackpoint is connected.
+wm-pointers-not-running = No lys-wm is running here to say which devices are connected, so every section shows.
+wm-pointers-outdated = The running lys-wm is older and does not say which devices are connected, so every section shows until you sign in again.
+wm-pointers-unreadable = Which devices are connected could not be read, so every section shows: { $reason }
 wm-source-file = 
     .description = Set in lys-wm's config file
 

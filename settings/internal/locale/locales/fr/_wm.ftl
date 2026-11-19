@@ -57,6 +57,15 @@ wm-section-palette = Palette
 enum-wm-toggle-on = Activé
 enum-wm-toggle-off = Désactivé
 wm-status-not-running = Enregistré. Aucun lys-wm ne tourne ici ; le prochain le lira.
+wm-pointers-connected = Connectés : { $devices }
+wm-pointers-device = { $name } ({ $kind })
+wm-pointers-class-pointer = souris
+wm-pointers-class-touchpad = pavé tactile
+wm-pointers-class-trackpoint = trackpoint
+wm-pointers-none = Aucune souris, aucun pavé tactile ni trackpoint n'est connecté.
+wm-pointers-not-running = Aucun lys-wm ne tourne ici pour dire quels périphériques sont connectés, toutes les sections s'affichent donc.
+wm-pointers-outdated = Le lys-wm en cours est plus ancien et ne dit pas quels périphériques sont connectés, toutes les sections s'affichent donc jusqu'à votre prochaine connexion.
+wm-pointers-unreadable = Impossible de lire quels périphériques sont connectés, toutes les sections s'affichent donc : { $reason }
 wm-source-file = 
     .description = Défini dans le fichier de configuration de lys-wm
 

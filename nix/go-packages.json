@@ -2207,6 +2207,7 @@
       "lib/pulse/native",
       "lib/render",
       "lib/third_party/godbus",
+      "lib/wmipc",
       "lib/xcursor",
       "lib/xdg",
       "lib/xkb",
@@ -2218,6 +2219,7 @@
       "settings/internal/displays",
       "settings/internal/locale",
       "settings/internal/wmconfig",
+      "settings/internal/wmstate",
       "shell/service/sni",
       "shell/service/sysinfo",
       "ui/app",
@@ -2249,6 +2251,15 @@
     "imports": [
       "lib/atomicfile",
       "lib/xdg"
+    ]
+  },
+  "settings/internal/wmstate": {
+    "imports": [
+      "lib/wmipc",
+      "settings/internal/wmconfig"
+    ],
+    "testImports": [
+      "settings/internal/wmtest"
     ]
   },
   "settings/internal/wmtest": {

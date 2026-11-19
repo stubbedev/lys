@@ -55,6 +55,15 @@ wm-section-palette = Palet
 enum-wm-toggle-on = Aan
 enum-wm-toggle-off = Uit
 wm-status-not-running = Opgeslagen. Hier draait geen lys-wm; de volgende leest het in.
+wm-pointers-connected = Verbonden: { $devices }
+wm-pointers-device = { $name } ({ $kind })
+wm-pointers-class-pointer = muis
+wm-pointers-class-touchpad = touchpad
+wm-pointers-class-trackpoint = trackpoint
+wm-pointers-none = Er is geen muis, touchpad of trackpoint verbonden.
+wm-pointers-not-running = Hier draait geen lys-wm die kan zeggen welke apparaten verbonden zijn, dus alle secties worden getoond.
+wm-pointers-outdated = De draaiende lys-wm is ouder en zegt niet welke apparaten verbonden zijn, dus tot je opnieuw inlogt worden alle secties getoond.
+wm-pointers-unreadable = Welke apparaten verbonden zijn kon niet worden gelezen, dus alle secties worden getoond: { $reason }
 wm-source-file = 
     .description = Ingesteld in het configuratiebestand van lys-wm
 

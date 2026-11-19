@@ -23,7 +23,8 @@ import (
 
 const (
 	compositor = "lys-wm"
-	control    = "lys-wmctl"
+	// Control is the program that speaks to the running lys-wm.
+	Control    = "lys-wmctl"
 	notRunning = 3
 	toolLimit  = 10 * time.Second
 	// A file edited by hand between the read and the write is read again.
@@ -366,15 +367,20 @@ func (f *File) check(t target, data []byte) error {
 }
 
 func (f *File) reload() (Reload, error) {
-	_, err := f.tool(control, "reload")
+	_, err := f.tool(Control, "reload")
 	if err == nil {
 		return Reloaded, nil
 	}
-	var tool *ToolError
-	if errors.As(err, &tool) && tool.Exit == notRunning {
+	if IsNotRunning(err) {
 		return NotRunning, nil
 	}
 	return Unchanged, &ReloadError{Reason: err.Error()}
+}
+
+// IsNotRunning reports whether err is Control saying no lys-wm answered.
+func IsNotRunning(err error) bool {
+	var tool *ToolError
+	return errors.As(err, &tool) && tool.Exit == notRunning
 }
 
 // Lookup is the value at path in a tree of keys.
