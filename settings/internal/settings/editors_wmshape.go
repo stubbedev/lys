@@ -31,7 +31,6 @@ type sidesEditor struct {
 	same    *widget.Switch
 	diagram *widget.Box
 	one     bool
-	split   bool
 	syncing bool
 }
 
@@ -49,15 +48,10 @@ func newSidesEditor(k *kit, s slot, one bool) *sidesEditor {
 	}
 	for i := range c.spins {
 		c.spins[i] = spin(t.Get(sideKeys[i]))
-		c.spins[i].OnValueChanged = c.write
+		c.spins[i].OnValueChanged = c.writeSides
 	}
 	c.all = spin(t.Get("wm-side-all"))
-	c.all.OnValueChanged = func(v float64) {
-		for _, sb := range c.spins {
-			sb.SetValue(v)
-		}
-		c.write(v)
-	}
+	c.all.OnValueChanged = c.writeAll
 	c.same = widget.NewSwitch(true)
 	c.same.SetAccessibleName(t.Get("wm-side-same"))
 	c.same.OnChanged = c.chooseSame
@@ -65,6 +59,7 @@ func newSidesEditor(k *kit, s slot, one bool) *sidesEditor {
 	head.Append(k.label(t.Get("wm-side-same"), css.Caption), true)
 	head.AppendAligned(c.same, false, widget.AlignCenter)
 	head.AppendAligned(c.all, false, widget.AlignCenter)
+	head.SetVisible(one)
 	c.diagram = c.sideDiagram(k)
 	c.Append(head, false)
 	c.Append(c.diagram, false)
@@ -91,49 +86,53 @@ func (c *sidesEditor) chooseSame(on bool) {
 	if c.syncing {
 		return
 	}
-	c.split = !on
-	c.show(on)
-	if on && !c.spins[0].Empty() {
-		c.all.SetValue(c.spins[0].Value())
-		c.all.OnValueChanged(c.spins[0].Value())
+	if on {
+		c.writeAll(c.spins[0].Value())
+		return
 	}
+	c.writeSides(c.all.Value())
 }
 
-func (c *sidesEditor) write(v float64) {
+func (c *sidesEditor) writeAll(v float64) {
 	for _, s := range c.spins {
+		s.SetValue(v)
+	}
+	if c.one {
+		_ = c.slot.set(int64(math.Round(v)))
+		return
+	}
+	c.writeSides(v)
+}
+
+func (c *sidesEditor) writeSides(v float64) {
+	sides := make([]any, len(c.spins))
+	for i, s := range c.spins {
 		if s.Empty() {
 			s.SetValue(v)
 		}
-	}
-	sides := make([]any, len(c.spins))
-	same := true
-	for i, s := range c.spins {
 		sides[i] = int64(math.Round(s.Value()))
-		same = same && sides[i] == sides[0]
-	}
-	if same && c.one {
-		_ = c.slot.set(sides[0])
-		return
 	}
 	_ = c.slot.set(sides)
 }
 
 func (c *sidesEditor) refresh() {
 	v := c.slot.get()
+	c.same.SetEnabled(v != nil)
 	if v == nil {
 		for _, s := range c.spins {
 			s.Clear()
 		}
 		c.all.Clear()
-		c.show(!c.split)
+		c.show(c.one)
 		return
 	}
 	sides := [4]float64{}
+	split := true
 	switch v := v.(type) {
 	case int64:
-		sides = [4]float64{float64(v), float64(v), float64(v), float64(v)}
+		sides, split = [4]float64{float64(v), float64(v), float64(v), float64(v)}, false
 	case int:
-		sides = [4]float64{float64(v), float64(v), float64(v), float64(v)}
+		sides, split = [4]float64{float64(v), float64(v), float64(v), float64(v)}, false
 	case []any:
 		for i := range min(len(v), len(sides)) {
 			sides[i] = toFloat(v[i])
@@ -143,7 +142,7 @@ func (c *sidesEditor) refresh() {
 		s.SetValue(sides[i])
 	}
 	c.all.SetValue(sides[0])
-	c.show(!c.split && sides == [4]float64{sides[0], sides[0], sides[0], sides[0]})
+	c.show(c.one && !split)
 }
 
 func (c *sidesEditor) show(same bool) {

@@ -621,47 +621,6 @@ func TestSubmapsAreNamedCardsOfBinds(t *testing.T) {
 	}
 }
 
-func TestOuterGapsWriteOneNumberOrFour(t *testing.T) {
-	k, w, _, files := wmKit(t, "")
-	c := fieldControl(k, w, wmSides("gaps.outer")).(*sidesEditor)
-	for _, s := range c.spins {
-		if !s.Empty() {
-			t.Fatal("an unset gap shows a side")
-		}
-	}
-	c.spins[1].KeyAction(widget.KeyUp, 0)
-	if got := fileText(t, files.runtime); !strings.Contains(got, "outer: 1") || c.spins[3].Empty() {
-		t.Fatalf("setting one side of an inherited gap sets all: %q", got)
-	}
-	c.spins[0].KeyAction(widget.KeyUp, 0)
-	if got := fileText(t, files.runtime); !strings.Contains(got, "- 2") {
-		t.Fatalf("one side changed: %q", got)
-	}
-	for _, s := range c.spins {
-		s.SetValue(6)
-	}
-	c.write(0)
-	if got := fileText(t, files.runtime); !strings.Contains(got, "outer: 6") {
-		t.Fatalf("equal sides: %q", got)
-	}
-	emptySpin(c.spins[2])
-	c.refresh()
-	if got := fileText(t, files.runtime); strings.Contains(got, "outer") || !c.spins[0].Empty() {
-		t.Fatalf("inheriting kept %q", got)
-	}
-}
-
-func TestSidesThatTakeNoSingleNumberWriteFourEvenWhenEqual(t *testing.T) {
-	k, _, _, _ := wmKit(t, "")
-	var stored any
-	c := newSidesEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() { stored = nil }}, false)
-	c.spins[0].KeyAction(widget.KeyUp, 0)
-	got, _ := stored.([]any)
-	if want := []any{int64(1), int64(1), int64(1), int64(1)}; !slices.Equal(got, want) {
-		t.Fatalf("equal sides stored %#v, want %#v", stored, want)
-	}
-}
-
 func TestABorderIsAColourOrAGradient(t *testing.T) {
 	k, w, _, files := wmKit(t, "")
 	c := fieldControl(k, w, wmBorder("borders.active")).(*borderEditor)
@@ -1093,34 +1052,6 @@ func TestEveryWMConfigKeyHasARow(t *testing.T) {
 	}
 }
 
-func TestOuterGapsAreOneNumberUntilTheSidesAreSplit(t *testing.T) {
-	k, _, _, _ := wmKit(t, "")
-	var stored any = int64(6)
-	c := newSidesEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() { stored = nil }}, true)
-	if !c.same.On() || c.diagram.Visible() || !c.all.Visible() || c.all.Value() != 6 {
-		t.Fatalf("equal sides show same %v, diagram %v, all %v at %v", c.same.On(), c.diagram.Visible(), c.all.Visible(), c.all.Value())
-	}
-	c.same.OnChanged(false)
-	c.refresh()
-	if !c.diagram.Visible() || c.all.Visible() {
-		t.Fatalf("splitting the sides shows diagram %v, all %v", c.diagram.Visible(), c.all.Visible())
-	}
-	c.spins[1].SetValue(10)
-	c.write(10)
-	if got, _ := stored.([]any); !slices.Equal(got, []any{int64(6), int64(10), int64(6), int64(6)}) {
-		t.Fatalf("one side changed stored %v", stored)
-	}
-	c.same.OnChanged(true)
-	if stored != int64(6) || c.diagram.Visible() {
-		t.Errorf("joining the sides stored %v, diagram %v", stored, c.diagram.Visible())
-	}
-	stored = []any{int64(1), int64(2), int64(3), int64(4)}
-	c2 := newSidesEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() {}}, true)
-	if c2.same.On() || !c2.diagram.Visible() {
-		t.Errorf("differing sides open joined: same %v", c2.same.On())
-	}
-}
-
 func TestEveryLysWMChoiceOnAPageIsNamed(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	w, err := testKit(t, "").wmBackend()
@@ -1174,5 +1105,77 @@ func TestTheTitleBarSideIsPickedFromPictures(t *testing.T) {
 	c.cards[0].PressAt(widget.Point{})
 	if stored != "left" {
 		t.Errorf("the left card stored %v", stored)
+	}
+}
+
+func TestOuterGapsWriteOneNumberOrFour(t *testing.T) {
+	k, w, _, files := wmKit(t, "")
+	c := fieldControl(k, w, wmSides("gaps.outer")).(*sidesEditor)
+	if !c.all.Empty() || !c.same.On() || widget.IsEnabled(c.same) {
+		t.Fatal("an inherited gap shows a value or offers to split")
+	}
+	c.all.KeyAction(widget.KeyUp, 0)
+	if got := fileText(t, files.runtime); !strings.Contains(got, "outer: 1") {
+		t.Fatalf("setting an inherited gap: %q", got)
+	}
+	c.refresh()
+	c.same.OnChanged(false)
+	c.refresh()
+	if got := fileText(t, files.runtime); !strings.Contains(got, "- 1") || !c.diagram.Visible() {
+		t.Fatalf("splitting equal sides wrote %q, diagram %v", got, c.diagram.Visible())
+	}
+	c.spins[0].KeyAction(widget.KeyUp, 0)
+	if got := fileText(t, files.runtime); !strings.Contains(got, "- 2") {
+		t.Fatalf("one side changed: %q", got)
+	}
+	c.refresh()
+	c.same.OnChanged(true)
+	c.refresh()
+	if got := fileText(t, files.runtime); !strings.Contains(got, "outer: 2") || c.diagram.Visible() {
+		t.Fatalf("joining the sides wrote %q, diagram %v", got, c.diagram.Visible())
+	}
+	c.all.Clear()
+	c.all.OnCleared()
+	c.refresh()
+	if got := fileText(t, files.runtime); strings.Contains(got, "outer") || !c.all.Empty() {
+		t.Fatalf("inheriting kept %q", got)
+	}
+}
+
+func TestSidesThatTakeNoSingleNumberWriteFourEvenWhenEqual(t *testing.T) {
+	k, _, _, _ := wmKit(t, "")
+	var stored any
+	c := newSidesEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() { stored = nil }}, false)
+	if !c.diagram.Visible() {
+		t.Fatal("a key with no single number hides its sides")
+	}
+	c.spins[0].KeyAction(widget.KeyUp, 0)
+	got, _ := stored.([]any)
+	if want := []any{int64(1), int64(1), int64(1), int64(1)}; !slices.Equal(got, want) {
+		t.Fatalf("stored %v, want %v", stored, want)
+	}
+}
+
+func TestTheSplitIsTheStoredFormAndARefusalReturnsToIt(t *testing.T) {
+	k, _, _, _ := wmKit(t, "")
+	var stored any = int64(6)
+	refuse := false
+	c := newSidesEditor(k, slot{get: func() any { return stored }, set: func(v any) error {
+		if refuse {
+			return errors.New("refused")
+		}
+		stored = v
+		return nil
+	}, unset: func() {}}, true)
+	refuse = true
+	c.same.OnChanged(false)
+	c.refresh()
+	if !c.same.On() || c.diagram.Visible() {
+		t.Fatalf("a refused split shows same %v, diagram %v", c.same.On(), c.diagram.Visible())
+	}
+	stored = []any{int64(1), int64(2), int64(3), int64(4)}
+	c.refresh()
+	if c.same.On() || !c.diagram.Visible() || c.spins[2].Value() != 3 {
+		t.Errorf("stored sides show same %v, diagram %v, bottom %v", c.same.On(), c.diagram.Visible(), c.spins[2].Value())
 	}
 }
