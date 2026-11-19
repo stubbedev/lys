@@ -535,10 +535,11 @@ func weatherPage(*config.Config) pageSpec {
 func windowTitlePage(*config.Config) pageSpec {
 	return pageSpec{id: "window-title", navKey: "settings-nav-window-title", icon: "ld-app-window-symbolic", header: "settings-page-window-title", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.window-title.format"),
+			field(windowTitleFormatPath, windowTitleShow),
 			field("modules.window-title.icon-name", iconRow),
 			field("modules.window-title.icon-mappings", iconMap),
 		}},
+		{title: "settings-section-custom-format", advanced: true, rows: []rowSpec{field(windowTitleFormatPath)}},
 		barItemSection("modules.window-title", actionChoices("window-title")),
 	}}
 }
