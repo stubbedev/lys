@@ -60,7 +60,7 @@ Some pages also act on the system:
 | Page | What it changes | Through |
 | --- | --- | --- |
 | Users | Your name, avatar and password (the password change also re-keys the lys-secrets keyring); enrolled fingerprints; for administrators, adding and deleting users and their account type | accounts-daemon, PAM, fprintd |
-| Wi-Fi & Network | Wi-Fi on or off, airplane mode, the networks in range (connect with a password, disconnect, forget a saved one), joining a hidden network; the wired link's speed and address. Enterprise networks sign in from the bar's network menu, whose secret agent answers NetworkManager | NetworkManager, rfkill |
+| Wi-Fi & Network | Wi-Fi on or off, airplane mode, the networks in range (connect with a password, disconnect, forget a saved one), joining a hidden network; the wired link's speed and address; switching saved VPN and WireGuard profiles on and off and removing them. Enterprise networks sign in from the bar's network menu, whose secret agent answers NetworkManager | NetworkManager, rfkill |
 | Date & Time | Time zone, network time, manual time; the bar clock's 12- or 24-hour format | systemd-timedated |
 | Language & Region | System language, console keymap, the login screen's keyboard layout (copied from lys-wm); your date, number, currency, measurement and paper formats in `~/.config/locale.conf` | systemd-localed |
 | Sound | Output and input devices, volume, balance, input level, per-app volume; notification sounds | PulseAudio protocol |

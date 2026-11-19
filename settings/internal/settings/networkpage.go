@@ -46,7 +46,21 @@ type netState struct {
 	known    map[string]bool
 	radios   bool
 	airplane bool
+	vpns     []vpnRow
 }
+
+type vpnRow struct {
+	profile network.Profile
+	state   network.ActiveState
+	up      bool
+}
+
+func (v vpnRow) wireguard() bool { return v.profile.Type == vpnTypeWireGuard }
+
+const (
+	vpnTypeVPN       = "vpn"
+	vpnTypeWireGuard = "wireguard"
+)
 
 type netControl interface {
 	read(ctx context.Context) (netState, error)
@@ -58,6 +72,9 @@ type netControl interface {
 	joinHidden(ctx context.Context, net network.HiddenNetwork, password string) error
 	forget(ctx context.Context, ssid string) error
 	disconnect(ctx context.Context) error
+	activate(ctx context.Context, profile dbus.ObjectPath) error
+	deactivate(ctx context.Context, uuid string) error
+	remove(ctx context.Context, profile dbus.ObjectPath) error
 	close() error
 }
 
@@ -89,6 +106,9 @@ func (c *nmControl) read(ctx context.Context) (netState, error) {
 		return netState{}, fmt.Errorf("read NetworkManager's state: %w", err)
 	}
 	st := netState{snap: snap, wifi: c.svc.Wifi != nil}
+	if st.vpns, err = c.vpns(ctx); err != nil {
+		return netState{}, err
+	}
 	radios, err := c.radio.Read(ctx)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -109,6 +129,34 @@ func (c *nmControl) read(ctx context.Context) (netState, error) {
 	st.active = c.svc.Wifi.ActiveSSID(ctx)
 	st.known = c.svc.Wifi.KnownSSIDs()
 	return st, nil
+}
+
+func (c *nmControl) vpns(ctx context.Context) ([]vpnRow, error) {
+	states, err := c.svc.Settings.ActiveStates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []vpnRow
+	for _, prof := range c.svc.Settings.Profiles() {
+		if prof.Type != vpnTypeVPN && prof.Type != vpnTypeWireGuard {
+			continue
+		}
+		state, up := states[prof.UUID]
+		out = append(out, vpnRow{profile: prof, state: state, up: up})
+	}
+	return out, nil
+}
+
+func (c *nmControl) activate(ctx context.Context, profile dbus.ObjectPath) error {
+	return c.svc.Settings.Activate(ctx, profile)
+}
+
+func (c *nmControl) deactivate(ctx context.Context, uuid string) error {
+	return c.svc.Settings.Deactivate(ctx, uuid)
+}
+
+func (c *nmControl) remove(ctx context.Context, profile dbus.ObjectPath) error {
+	return c.svc.Settings.Delete(ctx, profile)
 }
 
 func (c *nmControl) changes(ctx context.Context) (<-chan struct{}, error) {
@@ -241,6 +289,8 @@ type networkPanel struct {
 	status   *widget.Box
 	nets     *widget.Box
 	netsSec  *widget.Box
+	vpn      *widget.Box
+	vpnSec   *widget.Box
 	pending  string
 	asking   string
 	password *widget.Entry
@@ -257,6 +307,10 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.netsSec = newSection(k, "settings-wifi-networks", p.nets)
 	p.netsSec.SetVisible(false)
 	p.Append(p.netsSec, false)
+	p.vpn = gapBox(widget.Column)
+	p.vpnSec = newSection(k, "settings-vpn-section", p.vpn)
+	p.vpnSec.SetVisible(false)
+	p.Append(p.vpnSec, false)
 	p.status.Append(k.label(locale.T().Get("settings-wifi-loading"), css.Caption, css.DimLabel), false)
 	type opened struct {
 		ctl   netControl
@@ -299,6 +353,7 @@ func callNet[T any](fn func(context.Context) (T, error)) (T, error) {
 func (p *networkPanel) unavailable(err error) {
 	p.status.Clear()
 	p.netsSec.SetVisible(false)
+	p.vpnSec.SetVisible(false)
 	p.status.Append(panelRow(p.k, locale.T().Get("settings-wifi-unavailable"), err.Error()), false)
 }
 
@@ -417,6 +472,7 @@ func (p *networkPanel) show() {
 	status := widget.NewItemGroup()
 	p.status.Append(status, false)
 	p.netsSec.SetVisible(st.wifi && st.wifiOn)
+	p.showVPNs()
 	if st.snap.HasWired {
 		status.Append(panelRow(p.k, t.Get("settings-wifi-wired"), wiredDetail(st.snap)))
 	}
@@ -613,4 +669,47 @@ func (p *networkPanel) hiddenForm() widget.Widget {
 	box.AppendAligned(open, false, widget.AlignStart)
 	box.Append(form, false)
 	return box
+}
+
+func (p *networkPanel) showVPNs() {
+	p.vpn.Clear()
+	t := locale.T()
+	p.vpnSec.SetVisible(len(p.state.vpns) > 0)
+	list := widget.NewItemGroup()
+	for _, v := range p.state.vpns {
+		on := widget.NewSwitch(v.up && v.state != network.ActiveDeactivating)
+		on.SetAccessibleName(v.profile.ID)
+		on.OnChanged = func(up bool) {
+			p.run(func(ctx context.Context) error {
+				if up {
+					return p.ctl.activate(ctx, v.profile.Path)
+				}
+				return p.ctl.deactivate(ctx, v.profile.UUID)
+			})
+		}
+		remove := p.k.button(p.k.label(t.Get("settings-vpn-remove")), func() {
+			p.run(func(ctx context.Context) error { return p.ctl.remove(ctx, v.profile.Path) })
+		}, css.Small, css.Flat, css.DestructiveAction)
+		list.Append(panelRow(p.k, v.profile.ID, vpnDetail(v), remove, on))
+	}
+	p.vpn.Append(list, false)
+	p.vpn.Append(wrapped(p.k.label(t.Get("settings-vpn-secrets"), css.Caption, css.DimLabel)), false)
+}
+
+func vpnDetail(v vpnRow) string {
+	t := locale.T()
+	kind := t.Get("settings-vpn-kind-vpn")
+	if v.wireguard() {
+		kind = t.Get("settings-vpn-kind-wireguard")
+	}
+	state := "settings-vpn-off"
+	switch {
+	case v.up && v.state == network.ActiveActivated:
+		state = "settings-vpn-on"
+	case v.up && v.state == network.ActiveActivating:
+		state = "settings-vpn-connecting"
+	case v.up && v.state == network.ActiveDeactivating:
+		state = "settings-vpn-disconnecting"
+	}
+	return kind + " · " + t.Get(state)
 }

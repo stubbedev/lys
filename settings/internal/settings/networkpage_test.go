@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -22,7 +23,25 @@ type fakeNet struct {
 	hidden     []string
 	airplane   []bool
 	wifi       []bool
+	activated  []dbus.ObjectPath
+	deactived  []string
+	removed    []dbus.ObjectPath
 	closed     bool
+}
+
+func (f *fakeNet) activate(_ context.Context, path dbus.ObjectPath) error {
+	f.activated = append(f.activated, path)
+	return nil
+}
+
+func (f *fakeNet) deactivate(_ context.Context, uuid string) error {
+	f.deactived = append(f.deactived, uuid)
+	return nil
+}
+
+func (f *fakeNet) remove(_ context.Context, path dbus.ObjectPath) error {
+	f.removed = append(f.removed, path)
+	return nil
 }
 
 func (f *fakeNet) read(context.Context) (netState, error)           { return f.state, nil }
@@ -190,5 +209,40 @@ func TestClosingThePageClosesTheConnection(t *testing.T) {
 	p.close()
 	if !f.closed {
 		t.Error("the page left NetworkManager's connection open")
+	}
+}
+
+func TestTheVPNsSwitchOnAndOffAndAreRemoved(t *testing.T) {
+	f := homeNets()
+	f.state.vpns = []vpnRow{
+		{profile: network.Profile{Path: "/p/1", UUID: "u1", ID: "Work", Type: vpnTypeVPN}, up: true, state: network.ActiveActivated},
+		{profile: network.Profile{Path: "/p/2", UUID: "u2", ID: "Home tunnel", Type: vpnTypeWireGuard}},
+	}
+	_, p := netPanel(t, f)
+	if !p.vpnSec.Visible() {
+		t.Fatal("the VPN section is hidden with two VPNs")
+	}
+	labels := strings.Join(treetest.Labels(p.vpn), "|")
+	t0 := locale.T()
+	if !strings.Contains(labels, t0.Get("settings-vpn-kind-wireguard")+" · "+t0.Get("settings-vpn-off")) || !strings.Contains(labels, t0.Get("settings-vpn-on")) {
+		t.Errorf("the VPNs read %q", labels)
+	}
+	switches := treetest.All[*widget.Switch](p.vpn)
+	if len(switches) != 2 || !switches[0].On() || switches[1].On() {
+		t.Fatalf("%d switches", len(switches))
+	}
+	switches[0].OnChanged(false)
+	switches[1].OnChanged(true)
+	if !slices.Equal(f.deactived, []string{"u1"}) || !slices.Equal(f.activated, []dbus.ObjectPath{"/p/2"}) {
+		t.Errorf("deactivated %q, activated %q", f.deactived, f.activated)
+	}
+	clickText(t, p.vpn, t0.Get("settings-vpn-remove"), 1)
+	if !slices.Equal(f.removed, []dbus.ObjectPath{"/p/2"}) {
+		t.Errorf("removed %q", f.removed)
+	}
+	f.state.vpns = nil
+	_, p = netPanel(t, f)
+	if p.vpnSec.Visible() {
+		t.Error("the VPN section shows with no VPN")
 	}
 }

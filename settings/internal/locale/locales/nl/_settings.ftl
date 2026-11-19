@@ -896,3 +896,12 @@ settings-wifi-hidden-name-long = { $max ->
    *[other] Een netwerknaam is hoogstens { $max } bytes
 }
 settings-wifi-hidden-password-needed = Een beveiligd netwerk heeft zijn wachtwoord nodig
+settings-vpn-section = VPN
+settings-vpn-remove = Verwijderen
+settings-vpn-secrets = Een VPN die een wachtwoord of aanmelding vraagt, vraagt dat via de balk zolang lys-shell draait
+settings-vpn-kind-vpn = VPN
+settings-vpn-kind-wireguard = WireGuard
+settings-vpn-on = Verbonden
+settings-vpn-off = Uit
+settings-vpn-connecting = Verbinden…
+settings-vpn-disconnecting = Verbinding verbreken…

@@ -909,3 +909,12 @@ settings-wifi-hidden-name-long = { $max ->
    *[other] Un nom de réseau fait au plus { $max } octets
 }
 settings-wifi-hidden-password-needed = Un réseau sécurisé demande son mot de passe
+settings-vpn-section = VPN
+settings-vpn-remove = Supprimer
+settings-vpn-secrets = Un VPN qui demande un mot de passe ou une connexion le demande dans la barre tant que lys-shell tourne
+settings-vpn-kind-vpn = VPN
+settings-vpn-kind-wireguard = WireGuard
+settings-vpn-on = Connecté
+settings-vpn-off = Désactivé
+settings-vpn-connecting = Connexion…
+settings-vpn-disconnecting = Déconnexion…
