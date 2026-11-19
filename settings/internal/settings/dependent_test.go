@@ -226,3 +226,20 @@ func TestDurationsNoSpeedGivesShowNoSpeedChosen(t *testing.T) {
 		t.Error("an unknown speed was accepted")
 	}
 }
+
+func TestTheMotionRowsRestWhileAnimationsAreOff(t *testing.T) {
+	k := testKit(t, "animations:\n  enabled: false\n")
+	p := layoutPage(t, k, "motion")
+	speed := p.rows[slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.action && r.path == "animations.duration" })]
+	transition, exact := rowOf(t, p, "animations.transition"), rowOf(t, p, "animations.duration")
+	if widget.IsEnabled(speed) || widget.IsEnabled(transition) || widget.IsEnabled(exact) {
+		t.Fatalf("with animations off the speed is enabled %v, the transition %v, the duration %v", widget.IsEnabled(speed), widget.IsEnabled(transition), widget.IsEnabled(exact))
+	}
+	if !widget.IsEnabled(rowOf(t, p, "animations.reduced-motion")) {
+		t.Error("reduce motion rests with the animations it is about")
+	}
+	setRow(t, p, "animations.enabled", true)
+	if !widget.IsEnabled(speed) || !widget.IsEnabled(transition) {
+		t.Error("turning animations on left their rows disabled")
+	}
+}

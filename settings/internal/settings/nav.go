@@ -133,20 +133,20 @@ func motionPage(*config.Config) pageSpec {
 		sections: []sectionSpec{
 			{title: "settings-section-general", rows: []rowSpec{
 				twinToggle("animations.enabled", "animations.enabled"), twinToggle("animations.reduced-motion", "animations.reduced_motion"),
-				field("animations.transition"), field("animations.indicators"),
+				animated(field("animations.transition")), animated(field("animations.indicators")),
 			}},
-			{title: "settings-section-speed", rows: []rowSpec{speedRow()}},
-			{title: "settings-section-durations", advanced: true, rows: []rowSpec{
+			{title: "settings-section-speed", rows: []rowSpec{animated(speedRow())}},
+			{title: "settings-section-durations", advanced: true, rows: animatedRows(
 				field("animations.duration", animationDuration), field("animations.ui-duration", animationDuration), field("animations.interaction-duration", animationDuration),
-			}},
-			{title: "settings-section-direction", advanced: true, rows: []rowSpec{
+			)},
+			{title: "settings-section-direction", advanced: true, rows: animatedRows(
 				field("animations.enter"), field("animations.exit"),
 				field("animations.enter-duration", animationDuration), field("animations.exit-duration", animationDuration),
-			}},
-			{title: "settings-animations-power", advanced: true, rows: surfaceAnimationRows("animations.power")},
-			{title: "settings-animations-dialog", advanced: true, rows: surfaceAnimationRows("animations.dialog")},
-			{title: "settings-animations-file-chooser", advanced: true, rows: surfaceAnimationRows("animations.file-chooser")},
-			{title: "settings-animations-print", advanced: true, rows: surfaceAnimationRows("animations.print")},
+			)},
+			{title: "settings-animations-power", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.power")...)},
+			{title: "settings-animations-dialog", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.dialog")...)},
+			{title: "settings-animations-file-chooser", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.file-chooser")...)},
+			{title: "settings-animations-print", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.print")...)},
 			{title: "wm-section-overview", rows: []rowSpec{wmField("overview.blur"), wmField("overview.dim", fraction), wmField("switcher.open_delay"), wmField("showdesktop.peek")}},
 			{title: "wm-section-drag", rows: wmFields("drag_preview.enabled", "drag_preview.opacity", "drag_preview.blur", "drag_preview.snap_distance",
 				"drag_preview.snap_windows", "drag_preview.drag_switch.width", "drag_preview.drag_switch.frames")},
@@ -155,6 +155,21 @@ func motionPage(*config.Config) pageSpec {
 			}, wmFields("hot_corners.pressure", "hot_corners.fullscreen")...)},
 		},
 	}
+}
+
+// animated is a lys-shell animation row, in use only while animations
+// are on.
+func animated(r rowSpec) rowSpec {
+	enabledBy("animations.enabled")(&r)
+	return r
+}
+
+func animatedRows(rows ...rowSpec) []rowSpec {
+	out := make([]rowSpec, len(rows))
+	for i, r := range rows {
+		out[i] = animated(r)
+	}
+	return out
 }
 
 func (r rowSpec) asWMTwin() rowSpec {
