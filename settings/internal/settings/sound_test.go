@@ -149,7 +149,7 @@ func TestTheLevelMeterRecordsOnlyWhileThePageIsShown(t *testing.T) {
 		t.Fatalf("recording %q as %q", rec.Source, rec.Props["media.name"])
 	}
 	l.settle()
-	w.show("general")
+	w.show("fonts")
 	srv.WaitRecords(t, 0)
 	l.settle()
 	w.show(soundID)

@@ -529,6 +529,7 @@ func screenshotPage(*config.Config) pageSpec {
 		{title: "settings-section-icons", rows: []rowSpec{
 			field("modules.screenshot.icon", iconRow),
 		}},
+		{title: "settings-section-colorpicker", rows: fields("colorpicker.format")},
 		barDisplaySection("modules.screenshot"),
 		colorsSection("modules.screenshot"),
 		actionsSection("modules.screenshot", actionChoices("screenshot")),

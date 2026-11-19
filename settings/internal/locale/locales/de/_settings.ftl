@@ -177,7 +177,6 @@ settings-nav-lock-page = Anmelde- & Sperrbildschirm
 settings-nav-greeter-page = Anmeldebildschirm
 settings-nav-theme = Thema
 settings-nav-wallpaper = Hintergrundbild
-settings-nav-general = Allgemein
 settings-nav-bar = Leiste
 settings-nav-dock = Dock
 settings-nav-notifications = Benachrichtigungen
@@ -215,7 +214,6 @@ settings-nav-window-title = Fenstertitel
 settings-nav-world-clock = Weltuhr
 
 ## Page titles
-settings-page-general = Allgemein
 settings-page-launcher = Starter
 settings-page-launcher-modes = Startermodi
 settings-page-lock = Anmelde- & Sperrbildschirm
@@ -786,3 +784,5 @@ settings-section-dropdown-animation = Ausklappanimation
     .description = Wie Ausklappfelder sich öffnen und schließen
 settings-section-dropdown-size = Ausklappgröße
     .description = Wie groß sich das Ausklappfeld dieses Elements öffnet
+settings-nav-fonts = Schriften & Skalierung
+settings-page-fonts = Schriften & Skalierung

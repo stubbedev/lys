@@ -16,15 +16,13 @@ import (
 )
 
 // generalPage is pages/general.
-func generalPage(*config.Config) pageSpec {
+func fontsPage(*config.Config) pageSpec {
 	return pageSpec{
-		id: "general", navKey: "settings-nav-general", icon: "ld-settings-symbolic",
-		header: "settings-page-general",
+		id: "fonts", navKey: "settings-nav-fonts", icon: "ld-type-symbolic",
+		header: "settings-page-fonts",
 		sections: []sectionSpec{
 			{title: "settings-section-fonts", rows: []rowSpec{field("general.font-sans", fontRow), field("general.font-mono", monoFontRow)}},
 			{title: "settings-section-scale-rounding", rows: fields("styling.scale", "styling.rounding")},
-			{title: "settings-section-display", rows: fields("general.tearing-mode")},
-			{title: "settings-section-colorpicker", rows: fields("colorpicker.format")},
 		},
 	}
 }

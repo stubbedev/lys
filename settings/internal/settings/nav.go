@@ -38,6 +38,9 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 	if p.wm && !installed.wm {
 		return pageSpec{}, false
 	}
+	if p.wmLead && !installed.wm {
+		p.lead, p.wmLead = nil, false
+	}
 	sections := make([]sectionSpec, 0, len(p.sections))
 	for _, s := range p.sections {
 		rows := make([]rowSpec, 0, len(s.rows))
@@ -61,7 +64,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 	sections := []navSection{
 		{key: "settings-nav-home", pages: []pageSpec{overviewPage()}},
 		{key: "settings-nav-account", pages: []pageSpec{usersPage(cfg)}},
-		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), generalPage(cfg), motionPage(cfg)}},
+		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), fontsPage(cfg), motionPage(cfg)}},
 		{key: "settings-nav-displays", pages: []pageSpec{displaysPage()}},
 		{key: "settings-nav-sound-section", pages: []pageSpec{soundPage(cfg)}},
 		{key: "settings-nav-input", pages: []pageSpec{wmInputPage(), wmBindsPage()}},

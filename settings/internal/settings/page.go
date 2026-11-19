@@ -28,6 +28,7 @@ type pageSpec struct {
 	footer func(k *kit) widget.Widget
 	// wm says the rows are lys-wm's, not lys-shell's.
 	wm bool
+	wmLead bool
 }
 
 // sectionSpec is SectionSpec: a titled group of rows.
@@ -134,7 +135,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	content.Append(widget.NewSeparator(widget.Horizontal), false)
 	p := &settingsPage{}
 	var be backend = k.store
-	if spec.wm {
+	if spec.wm || spec.wmLead {
 		w, err := k.wmBackend()
 		if err != nil {
 			content.Append(k.label(err.Error(), "error", css.Caption), false)
@@ -142,7 +143,9 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			p.VerticalOnly, p.ShowBars, p.FillY = true, true, true
 			return p
 		}
-		be = w
+		if spec.wm {
+			be = w
+		}
 		p.status = newWMStatus(k, w)
 		content.Append(p.status, false)
 	}

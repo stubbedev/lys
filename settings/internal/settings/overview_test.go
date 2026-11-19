@@ -45,7 +45,7 @@ func TestTheOverviewLeavesOutWhatIsNotInstalled(t *testing.T) {
 	k.parts = parts{shell: true}
 	newWindow(k, k.store.svc.Config(), (&fakeAfter{}).after)
 	for _, b := range treetest.All[*widget.Button](overviewTiles(k)) {
-		if b.AccessibleName() == locale.T().Get("settings-nav-displays") || b.AccessibleName() == locale.T().Get("settings-nav-input") {
+		if b.AccessibleName() == locale.T().Get("settings-nav-input") {
 			t.Errorf("lys-shell alone shows the %q tile", b.AccessibleName())
 		}
 	}

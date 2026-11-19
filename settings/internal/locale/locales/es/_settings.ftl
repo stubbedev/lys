@@ -177,7 +177,6 @@ settings-nav-lock-page = Inicio de sesión y pantalla de bloqueo
 settings-nav-greeter-page = Pantalla de inicio de sesión
 settings-nav-theme = Tema
 settings-nav-wallpaper = Fondo de escritorio
-settings-nav-general = General
 settings-nav-bar = Barra
 settings-nav-dock = Dock
 settings-nav-notifications = Notificaciones
@@ -215,7 +214,6 @@ settings-nav-window-title = Título de la ventana
 settings-nav-world-clock = Reloj mundial
 
 ## Page titles
-settings-page-general = General
 settings-page-launcher = Lanzador
 settings-page-launcher-modes = Modos del lanzador
 settings-page-lock = Inicio de sesión y pantalla de bloqueo
@@ -787,3 +785,5 @@ settings-section-dropdown-animation = Animación de desplegables
     .description = Cómo se abren y cierran los desplegables
 settings-section-dropdown-size = Tamaño del desplegable
     .description = Qué tamaño tiene el desplegable de este elemento
+settings-nav-fonts = Fuentes y escala
+settings-page-fonts = Fuentes y escala

@@ -10,7 +10,7 @@ import (
 
 func TestPageColumnIsCappedAndCentred(t *testing.T) {
 	k := testKit(t, "styling:\n  scale: 1.5\n")
-	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), "general")
+	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), "fonts")
 	p := buildPage(k, spec)
 	p.Arrange(render.Rect{W: 3000, H: 3000})
 	clamp, ok := p.Children()[0].(*widget.Clamp)

@@ -35,8 +35,8 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | --- | --- |
 | Home | `overview` |
 | Account | `users` |
-| Appearance | `theme`, `wallpaper`, `general`, `motion` |
-| Displays | `wm-outputs` |
+| Appearance | `theme`, `wallpaper`, `fonts`, `motion` |
+| Displays | `wm-outputs` (the arrangement and lys-wm's display keys with lys-wm; lys-shell's tearing mode) |
 | Sound | `sound` |
 | Input | `wm-input`, `wm-binds` |
 | Notifications & Focus | `notifications` (with Do Not Disturb and the bar's bell), `osd` |

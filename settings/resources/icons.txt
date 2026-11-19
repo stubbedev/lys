@@ -53,6 +53,7 @@ ld-shield-check-symbolic
 ld-square-symbolic
 ld-sun-symbolic
 ld-trash-2-symbolic
+ld-type-symbolic
 ld-user-symbolic
 ld-video-symbolic
 ld-volume-2-symbolic

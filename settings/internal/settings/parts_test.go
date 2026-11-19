@@ -43,7 +43,7 @@ func TestEachPartShowsOnlyItsOwnPagesAndRows(t *testing.T) {
 		pages, absent []string
 	}{
 		{"both", bothParts, []string{"bar", "theme", "wm-windows", displaysID, "users"}, nil},
-		{"lys-shell alone", shellOnly, []string{"bar", "theme", "notifications", "users", soundID}, []string{"wm-windows", "wm-input", displaysID}},
+		{"lys-shell alone", shellOnly, []string{"bar", "theme", "notifications", "users", soundID, displaysID}, []string{"wm-windows", "wm-input"}},
 		{"lys-wm alone", wmOnly, []string{"wm-windows", "wm-input", displaysID, "users", soundID, loginItemsID}, []string{"bar", "theme", "notifications", "lock"}},
 		{"neither", neither, []string{"users", soundID, dateTimeID}, []string{"bar", "wm-windows", "lock"}},
 	} {
@@ -125,5 +125,16 @@ func TestNotificationsHoldDoNotDisturbAndTheBell(t *testing.T) {
 		if slices.Contains(pageIDs(bothParts), gone) {
 			t.Errorf("the %s page still shows beside notifications", gone)
 		}
+	}
+}
+
+func TestDisplaysShowsTheArrangementOnlyWithLysWM(t *testing.T) {
+	shell, _ := pageByID(layout(config.Defaults(), parts{shell: true}), displaysID)
+	if shell.lead != nil || !slices.Equal(rowPaths(parts{shell: true}, displaysID), []string{"general.tearing-mode"}) {
+		t.Errorf("lys-shell alone: lead %v, rows %v; want only the tearing switch", shell.lead != nil, rowPaths(parts{shell: true}, displaysID))
+	}
+	both, _ := pageByID(layout(config.Defaults(), bothParts), displaysID)
+	if both.lead == nil || !slices.Contains(rowPaths(bothParts, displaysID), "wm:lid_action") {
+		t.Error("both: the arrangement or lys-wm's display rows are missing")
 	}
 }

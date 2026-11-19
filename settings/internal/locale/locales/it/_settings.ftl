@@ -177,7 +177,6 @@ settings-nav-lock-page = Accesso e schermata di blocco
 settings-nav-greeter-page = Schermata di accesso
 settings-nav-theme = Tema
 settings-nav-wallpaper = Sfondo
-settings-nav-general = Generale
 settings-nav-bar = Barra
 settings-nav-dock = Dock
 settings-nav-notifications = Notifiche
@@ -215,7 +214,6 @@ settings-nav-window-title = Titolo della finestra
 settings-nav-world-clock = Orologio mondiale
 
 ## Page titles
-settings-page-general = Generale
 settings-page-launcher = Avviatore
 settings-page-launcher-modes = Modalità dell'avviatore
 settings-page-lock = Accesso e schermata di blocco
@@ -787,3 +785,5 @@ settings-section-dropdown-animation = Animazione dei menu
     .description = Come i menu a discesa si aprono e si chiudono
 settings-section-dropdown-size = Dimensione del menu
     .description = Quanto si apre grande il menu di questo elemento
+settings-nav-fonts = Caratteri e scala
+settings-page-fonts = Caratteri e scala

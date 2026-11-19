@@ -79,14 +79,14 @@ func TestSearchJumpsToTheSetting(t *testing.T) {
 		t.Fatalf("typing shows %q, want the results", w.stack.Visible())
 	}
 	hit, ok := w.results.first()
-	if !ok || hit.page != "general" {
+	if !ok || hit.page != displaysID {
 		t.Fatalf("the best hit for tearing mode is %+v", hit)
 	}
 	if len(w.results.button) != len(w.results.hits) || w.results.empty.Visible() {
 		t.Fatalf("%d result rows for %d hits", len(w.results.button), len(w.results.hits))
 	}
 	w.results.button[0].ClickAt(widget.Point{})
-	if w.pageID != "general" || w.stack.Visible() != w.names[len(w.names)-1] || w.search.Text() != "" {
+	if w.pageID != displaysID || w.stack.Visible() != w.names[len(w.names)-1] || w.search.Text() != "" {
 		t.Fatalf("after the jump page %q shows %q, search %q", w.pageID, w.stack.Visible(), w.search.Text())
 	}
 	row := w.page.rows[hit.row]

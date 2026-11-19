@@ -177,7 +177,6 @@ settings-nav-lock-page = Login & Lock Screen
 settings-nav-greeter-page = Greeter
 settings-nav-theme = Theme
 settings-nav-wallpaper = Wallpaper
-settings-nav-general = General
 settings-nav-bar = Bar
 settings-nav-dock = Dock
 settings-nav-notifications = Notifications
@@ -215,7 +214,6 @@ settings-nav-window-title = Window Title
 settings-nav-world-clock = World Clock
 
 ## Page titles
-settings-page-general = General
 settings-page-launcher = Launcher
 settings-page-launcher-modes = Launcher Modes
 settings-page-lock = Login & Lock Screen
@@ -786,3 +784,5 @@ settings-section-dropdown-animation = Dropdown Animation
     .description = How dropdowns open and close
 settings-section-dropdown-size = Dropdown Size
     .description = How large this item's dropdown opens
+settings-nav-fonts = Fonts & Scale
+settings-page-fonts = Fonts & Scale
