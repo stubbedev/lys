@@ -1793,30 +1793,40 @@ func newTestLayout(t *testing.T) (*kit, *layoutEditor) {
 
 func storedLayouts(k *kit) []config.BarLayout { return k.store.svc.Config().Bar.Layout }
 
+func TestALayoutForADisplayNotConnectedSaysSoAndKeepsIt(t *testing.T) {
+	k := testKit(t, "bar:\n  layout:\n    - {monitor: DP-9, extends: HDMI-7, show: true}\n")
+	c := fieldControl(k, k.store, field("bar.layout", layoutRow)).(*layoutEditor)
+	header := c.list.Children()[0].(*widget.Box).Children()[0].(*widget.Box)
+	monitor, extends := header.Children()[1].(*widget.Dropdown), header.Children()[3].(*widget.Dropdown)
+	tr := locale.T()
+	if got, want := monitor.Items()[monitor.Selected()], tr.Get("settings-layout-monitor-away", i18n.Str("name", "DP-9")); got != want {
+		t.Errorf("the display reads %q, want %q", got, want)
+	}
+	if got, want := extends.Items()[extends.Selected()], tr.Get("settings-layout-extends-missing", i18n.Str("name", "HDMI-7")); got != want {
+		t.Errorf("start from reads %q, want %q", got, want)
+	}
+	if l := storedLayouts(k)[0]; l.Monitor != "DP-9" || l.Extends == nil || *l.Extends != "HDMI-7" {
+		t.Errorf("showing the layout changed it: %+v", l)
+	}
+}
+
 func TestLayoutEditorCards(t *testing.T) {
 	k, c := newTestLayout(t)
 	if len(c.layouts) != 1 || len(c.list.Children()) != 1 {
 		t.Fatalf("%d layouts, %d cards", len(c.layouts), len(c.list.Children()))
 	}
-	// The monitor and extends entries write as typed; an empty extends
-	// is unset.
-	card := c.list.Children()[0].(*widget.Box)
-	header := card.Children()[0].(*widget.Box)
-	monitor := header.Children()[1].(*widget.Entry)
-	extends := header.Children()[3].(*widget.Entry)
-	monitor.SelectAll()
-	monitor.Insert("DP-1")
-	extends.Insert("*")
-	if l := storedLayouts(k)[0]; l.Monitor != "DP-1" || l.Extends == nil || *l.Extends != "*" {
-		t.Errorf("layout %+v", l)
+	// The display is chosen among every display and the connected ones.
+	header := func(i int) *widget.Box { return c.list.Children()[i].(*widget.Box).Children()[0].(*widget.Box) }
+	monitor := header(0).Children()[1].(*widget.Dropdown)
+	if got := monitor.Items(); !slices.Equal(got, []string{locale.T().Get("settings-monitors-all"), "DP-1", "HDMI-A-1"}) {
+		t.Fatalf("the display choices are %v", got)
 	}
-	extends.SelectAll()
-	extends.Backspace()
-	if storedLayouts(k)[0].Extends != nil {
-		t.Error("an empty extends stayed set")
+	monitor.OnSelect(1)
+	if l := storedLayouts(k)[0]; l.Monitor != "DP-1" {
+		t.Errorf("choosing DP-1 stored %+v", l)
 	}
 	// Hiding the bar swaps the zones for the note.
-	header.Children()[5].(*widget.Switch).SetOn(false)
+	header(0).Children()[5].(*widget.Switch).SetOn(false)
 	if storedLayouts(k)[0].Show {
 		t.Error("the show switch did not write")
 	}
@@ -1827,8 +1837,21 @@ func TestLayoutEditorCards(t *testing.T) {
 	// Add and remove cards.
 	addButton := c.Children()[1].(*widget.Button)
 	addButton.ClickAt(widget.Point{})
-	if got := storedLayouts(k); len(got) != 2 || !got[1].Show {
-		t.Fatalf("after add: %+v", got)
+	if got := storedLayouts(k); len(got) != 2 || !got[1].Show || got[1].Monitor != "HDMI-A-1" {
+		t.Fatalf("after add: %+v, want HDMI-A-1, the display no layout is for", got)
+	}
+	// A layout starts from nothing or from another layout's display.
+	extends := header(1).Children()[3].(*widget.Dropdown)
+	if got := extends.Items(); !slices.Equal(got, []string{locale.T().Get("settings-layout-extends-none"), "DP-1"}) {
+		t.Fatalf("the second layout can start from %v", got)
+	}
+	extends.OnSelect(1)
+	if l := storedLayouts(k)[1]; l.Extends == nil || *l.Extends != "DP-1" {
+		t.Errorf("starting from DP-1 stored %+v", l)
+	}
+	header(1).Children()[3].(*widget.Dropdown).OnSelect(0)
+	if storedLayouts(k)[1].Extends != nil {
+		t.Error("starting from nothing left extends set")
 	}
 	remove := c.list.Children()[1].(*widget.Box).Children()[0].(*widget.Box).Children()[6].(*widget.Button)
 	remove.ClickAt(widget.Point{})

@@ -2,6 +2,7 @@ package settings
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"slices"
 
@@ -62,7 +63,7 @@ func newLayoutEditor(k *kit, s slot) *layoutEditor {
 	c.list.AddClass("bar-layout-list")
 	c.Append(c.list, false)
 	add := addButton(k, "settings-layout-add", func() {
-		c.layouts = append(c.layouts, config.BarLayout{Show: true})
+		c.layouts = append(c.layouts, config.BarLayout{Monitor: c.unusedMonitor(), Show: true})
 		c.commit()
 		c.rebuild()
 	})
@@ -133,32 +134,28 @@ func (c *layoutEditor) card(i int) widget.Widget {
 	l := &c.layouts[i]
 	header := gapBox(widget.Row)
 	header.AddClass("layout-card-header")
-	monitor := c.k.entry()
+	monitors := layoutMonitorChoices(l.Monitor)
+	monitor := c.choiceDropdown(monitors, l.Monitor, func(v string) {
+		c.layouts[i].Monitor = v
+		c.commit()
+		c.rebuild()
+	})
 	monitor.AddClass("layout-monitor-input")
-	monitor.SetPlaceholder("DP-1")
-	monitor.SetText(l.Monitor)
-	monitor.OnChanged = func(text string) {
-		if c.layouts[i].Monitor != text {
-			c.layouts[i].Monitor = text
-			c.commit()
-		}
+	monitor.SetAccessibleName(t.Get("settings-layout-monitor-label"))
+	parents := c.extendsChoices(i)
+	extendsValue := ""
+	if name, ok := l.ExtendsName(); ok {
+		extendsValue = name
 	}
-	extends := c.k.entry()
+	extends := c.choiceDropdown(parents, extendsValue, func(v string) {
+		c.layouts[i].Extends = nil
+		if v != "" {
+			c.layouts[i].Extends = &v
+		}
+		c.commit()
+	})
 	extends.AddClass("layout-extends-input")
-	extends.SetPlaceholder(t.Get("settings-layout-extends-none"))
-	if l.Extends != nil {
-		extends.SetText(*l.Extends)
-	}
-	extends.OnChanged = func(text string) {
-		var v *string
-		if text != "" {
-			v = &text
-		}
-		if !reflect.DeepEqual(c.layouts[i].Extends, v) {
-			c.layouts[i].Extends = v
-			c.commit()
-		}
-	}
+	extends.SetAccessibleName(t.Get("settings-layout-extends-label"))
 	show := widget.NewSwitch(l.Show)
 	show.AddClass("layout-show-toggle")
 	show.OnChanged = func(on bool) {
@@ -193,6 +190,80 @@ func (c *layoutEditor) card(i int) widget.Widget {
 		}
 	}
 	return sectionCard(header, body, "layout-card")
+}
+
+// monitorLabel names a layout's display: All displays for "*", else its
+// connector.
+func monitorLabel(name string) string {
+	if name == everyMonitor {
+		return locale.T().Get("settings-monitors-all")
+	}
+	return name
+}
+
+// layoutMonitorChoices are the displays a layout can be for: every one,
+// each connected output, and own when it is neither, marked as not
+// connected.
+func layoutMonitorChoices(own string) []choice {
+	out := []choice{{value: everyMonitor, label: monitorLabel(everyMonitor)}}
+	for _, ch := range systemLists["Monitor"]() {
+		if ch.value != "" && ch.value != everyMonitor {
+			out = append(out, choice{value: ch.value, label: ch.value})
+		}
+	}
+	if !slices.ContainsFunc(out, func(ch choice) bool { return ch.value == own }) {
+		out = append(out, choice{value: own, label: locale.T().Get("settings-layout-monitor-away", i18n.Str("name", own))})
+	}
+	return out
+}
+
+// extendsChoices are what layout i can start from: nothing, or another
+// layout by its display, and the one it names when no layout is for it.
+func (c *layoutEditor) extendsChoices(i int) []choice {
+	t := locale.T()
+	out := []choice{{value: "", label: t.Get("settings-layout-extends-none")}}
+	for j, l := range c.layouts {
+		if j == i || l.Monitor == c.layouts[i].Monitor || slices.ContainsFunc(out, func(ch choice) bool { return ch.value == l.Monitor }) {
+			continue
+		}
+		out = append(out, choice{value: l.Monitor, label: monitorLabel(l.Monitor)})
+	}
+	if name, ok := c.layouts[i].ExtendsName(); ok && !slices.ContainsFunc(out, func(ch choice) bool { return ch.value == name }) {
+		out = append(out, choice{value: name, label: t.Get("settings-layout-extends-missing", i18n.Str("name", monitorLabel(name)))})
+	}
+	return out
+}
+
+// unusedMonitor is the display a new layout starts on: the first
+// connected one no layout is for yet, else every display.
+func (c *layoutEditor) unusedMonitor() string {
+	for _, ch := range layoutMonitorChoices(everyMonitor)[1:] {
+		if !slices.ContainsFunc(c.layouts, func(l config.BarLayout) bool { return l.Monitor == ch.value }) {
+			return ch.value
+		}
+	}
+	return everyMonitor
+}
+
+// choiceDropdown is a dropdown over choices showing current, handing set
+// the value picked.
+func (c *layoutEditor) choiceDropdown(choices []choice, current string, set func(value string)) *widget.Dropdown {
+	labels := make([]string, len(choices))
+	for i, ch := range choices {
+		labels[i] = ch.label
+	}
+	at := slices.IndexFunc(choices, func(ch choice) bool { return ch.value == current })
+	if at < 0 {
+		log.Panicf("settings: the layout choice %q is not among %v", current, labels)
+	}
+	d := widget.NewDropdown(c.k.face, c.k.textPx(), labels, at)
+	d.OnSelect = func(i int) {
+		if i >= 0 && i < len(choices) && choices[i].value != current {
+			current = choices[i].value
+			set(current)
+		}
+	}
+	return d
 }
 
 // zoneRow is build_zone_row: the label, sized with the card's other
