@@ -43,7 +43,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Notifications & Focus | `notifications` (with Do Not Disturb and the bar's bell), `osd` |
 | Power & Battery | `power-battery` (with the battery alerts and when to switch to power saver), `idle` |
 | Apps | `default-apps` (with the terminal the launcher opens), `login-items`, `launcher`, `launcher-modes` |
-| Privacy & Security | `privacy` (with the screen share picker), `passwords`, `lock` (the lock and login screens: the background is picked by picture and shows only the chosen kind's settings; the PAM service sits under **Unlocking**, folded away) |
+| Privacy & Security | `privacy` (with the screen share picker), `passwords`, `lock` (the lock and login screens: the background is picked by picture and shows only the chosen kind's settings; the PAM service sits under **Unlocking**, folded away; links lead to when it locks and to fingerprints) |
 | Time & Language | `date-time`, `region` |
 | Desktop | `bar` (with its buttons and dropdowns; each dropdown's size is on its bar item's page), `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
 | Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `power`, `power-profiles`, `ram`, `storage`, `systray` |

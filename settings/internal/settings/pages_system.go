@@ -57,7 +57,7 @@ func lockPage(*config.Config) pageSpec {
 			{title: "settings-section-login-screen", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint", "login.greeter.screen-reader")},
 			{title: "settings-section-cursor", rows: []rowSpec{field("login.greeter.cursor-theme"), field("login.greeter.cursor-size", countChips(inPixels, 24, 32, 48, 64, 96))}},
 		},
-		footer: greeterApplyFooter, extrasOnRows: true,
+		footer: lockFooter, extrasOnRows: true,
 	}
 }
 
@@ -90,6 +90,22 @@ const (
 )
 
 var loginRuntimeDir = dmsocket.DefaultRuntimeDir
+
+var lockLinks = []pageLink{
+	{"idle", "settings-lock-link-idle-detail"},
+	{"users", "settings-lock-link-users-detail"},
+}
+
+func lockLinksSection(k *kit) widget.Widget {
+	return linksSection(k, "settings-lock-section-related", lockLinks)
+}
+
+func lockFooter(k *kit) widget.Widget {
+	box := sectionStack()
+	box.Append(greeterApplyFooter(k), false)
+	box.Append(lockLinksSection(k), false)
+	return box
+}
 
 func greeterApplyFooter(k *kit) widget.Widget {
 	box := gapBox(widget.Column)

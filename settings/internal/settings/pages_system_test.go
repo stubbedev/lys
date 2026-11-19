@@ -206,6 +206,27 @@ func TestGreeterApplyFooterStartsWithWhatApplyingChanges(t *testing.T) {
 	}
 }
 
+func TestTheLockPageLinksToWhenItLocksAndTheFingerprints(t *testing.T) {
+	k := testKit(t, "")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	var opened []string
+	k.openPage = func(id string) { opened = append(opened, id) }
+	buttons := treetest.All[*widget.Button](lockLinksSection(k))
+	if len(buttons) != 2 {
+		t.Fatalf("%d links, want idle and users", len(buttons))
+	}
+	for _, b := range buttons {
+		b.OnClick()
+	}
+	if !slices.Equal(opened, []string{"idle", "users"}) {
+		t.Errorf("opened %q", opened)
+	}
+	k.nav = nil
+	if labels := treetest.Labels(lockLinksSection(k)); len(labels) != 0 {
+		t.Errorf("without those pages the links read %q", labels)
+	}
+}
+
 func TestGreeterApplyOutcomesReadApartInEveryLanguage(t *testing.T) {
 	const reason = "the daemon's own words"
 	invalid := fmt.Errorf("%w: %s", greeterconfig.ErrInvalid, reason)
