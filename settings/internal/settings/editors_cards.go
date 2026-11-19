@@ -191,9 +191,12 @@ func (c *cardList) commit() {
 }
 
 func (c *cardList) write(items []any) {
+	if err := c.slot.set(items); err != nil {
+		c.hold(err)
+		return
+	}
 	c.drafting = false
 	c.draft.SetVisible(false)
-	_ = c.slot.set(items)
 }
 
 // discardDraft drops the draft and any answer still on its way, so the
