@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -65,7 +66,11 @@ func (d *fakeDaemon) request(t *testing.T) greeterconfig.Change {
 
 func noPrograms(t *testing.T) {
 	t.Helper()
-	t.Setenv("PATH", t.TempDir())
+	goTool, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatalf("the tests build lys-wm with go: %v", err)
+	}
+	t.Setenv("PATH", t.TempDir()+string(os.PathListSeparator)+filepath.Dir(goTool))
 }
 
 func TestGreeterApplySendsTheAllowedKeys(t *testing.T) {

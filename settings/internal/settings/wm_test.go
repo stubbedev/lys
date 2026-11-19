@@ -810,9 +810,9 @@ func TestResetAllReachesTheWMOverridesBeforeAnyWMPageOpened(t *testing.T) {
 
 func TestResetAllWithoutLysWMTouchesNoWMFile(t *testing.T) {
 	k := testKit(t, "")
+	k.parts = parts{shell: true}
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv("PATH", t.TempDir())
 	runtime := filepath.Join(dir, "lys-wm", "runtime.yaml")
 	writeFile(t, runtime, "tearing: true\n")
 	k.resetAll()
