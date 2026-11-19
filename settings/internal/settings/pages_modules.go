@@ -174,7 +174,7 @@ func bitwardenPage(*config.Config) pageSpec {
 			field(m + ".email"),
 			field(m + ".lock-with-session"),
 			field(m + ".unlock-with-session"),
-			field(m + ".clipboard-clear"),
+			field(m+".clipboard-clear", durationChips(inSeconds, after(10*time.Second), after(30*time.Second), after(time.Minute), after(5*time.Minute), zeroAs(never))),
 			field(m + ".format"),
 			field(m+".icon-locked", iconRow),
 			field(m+".icon-unlocked", iconRow),
@@ -255,11 +255,13 @@ func clockPage(*config.Config) pageSpec {
 	}}
 }
 
+var pollInterval = durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second))
+
 // cpuPage is pages/modules/cpu.
 func cpuPage(*config.Config) pageSpec {
 	return pageSpec{id: "cpu", navKey: "settings-nav-cpu", icon: "ld-cpu-symbolic", header: "settings-page-cpu", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.cpu.poll-interval-ms", durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second))),
+			field("modules.cpu.poll-interval-ms", pollInterval),
 			field("modules.cpu.temp-sensor"),
 			field("modules.cpu.format"),
 			field("modules.cpu.icon-name", iconRow),
@@ -302,7 +304,7 @@ func nightlightPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-nightlight-schedule", rows: []rowSpec{
 			field("modules.nightlight.auto-schedule"),
-			field("modules.nightlight.transition-duration"),
+			field("modules.nightlight.transition-duration", durationChips(inMinutes, zeroAs(instant), after(15*time.Minute), after(30*time.Minute), after(time.Hour))),
 			field("modules.nightlight.latitude", optionalFloat(-90.0, 90.0, 0.1, 4)),
 			field("modules.nightlight.longitude", optionalFloat(-180.0, 180.0, 0.1, 4)),
 		}},
@@ -314,7 +316,7 @@ func nightlightPage(*config.Config) pageSpec {
 func idleInhibitPage(*config.Config) pageSpec {
 	return pageSpec{id: "idle-inhibit", navKey: "settings-nav-idle-inhibit", icon: "ld-coffee-symbolic", header: "settings-page-idle-inhibit", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.idle-inhibit.startup-duration"),
+			field("modules.idle-inhibit.startup-duration", durationChips(inMinutes, after(15*time.Minute), after(30*time.Minute), after(time.Hour), after(2*time.Hour), zeroAs(untilOff))),
 			field("modules.idle-inhibit.icon-inactive", iconRow),
 			field("modules.idle-inhibit.icon-active", iconRow),
 			field("modules.idle-inhibit.format"),
@@ -368,7 +370,7 @@ func mediaPage(*config.Config) pageSpec {
 func netstatPage(*config.Config) pageSpec {
 	return pageSpec{id: "netstat", navKey: "settings-nav-netstat", icon: "ld-activity-symbolic", header: "settings-page-netstat", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.netstat.poll-interval-ms", durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second))),
+			field("modules.netstat.poll-interval-ms", pollInterval),
 			field("modules.netstat.interface"),
 			field("modules.netstat.format"),
 			field("modules.netstat.icon-name", iconRow),
@@ -440,7 +442,7 @@ func powerPage(*config.Config) pageSpec {
 func ramPage(*config.Config) pageSpec {
 	return pageSpec{id: "ram", navKey: "settings-nav-ram", icon: "ld-memory-stick-symbolic", header: "settings-page-ram", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.ram.poll-interval-ms", durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second))),
+			field("modules.ram.poll-interval-ms", pollInterval),
 			field("modules.ram.format"),
 			field("modules.ram.icon-name", iconRow),
 			field("modules.ram.thresholds", thresholdList),

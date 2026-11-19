@@ -368,3 +368,55 @@ func TestTheFramerateIsPickedFromChipsInFramesPerSecond(t *testing.T) {
 		t.Errorf("the custom framerate starts at %v, want 1", lo)
 	}
 }
+
+func TestModuleDurationsAreChipsInTheirFieldsUnit(t *testing.T) {
+	tr := locale.T()
+	for _, tc := range []struct {
+		page, path string
+		first      string
+		pick       int
+		stored     int64
+	}{
+		{"bitwarden", "modules.bitwarden.clipboard-clear", tr.Get("settings-duration-seconds", i18n.Int("n", 10)), 2, 60},
+		{"idle-inhibit", "modules.idle-inhibit.startup-duration", tr.Get("settings-duration-minutes", i18n.Int("n", 15)), 3, 120},
+		{"nightlight", "modules.nightlight.transition-duration", tr.Get("settings-duration-instant"), 0, 0},
+		{"cpu", "modules.cpu.poll-interval-ms", tr.Get("settings-duration-seconds", i18n.Int("n", 1)), 0, 1000},
+		{"ram", "modules.ram.poll-interval-ms", tr.Get("settings-duration-seconds", i18n.Int("n", 1)), 3, 10000},
+	} {
+		k := testKit(t, "")
+		p := pickerOf(t, k, pageRow(t, tc.page, tc.path))
+		if got := chipLabels(p)[0]; got != tc.first {
+			t.Errorf("%s: the first chip reads %q, want %q", tc.path, got, tc.first)
+		}
+		p.chips[tc.pick].SetActive(true)
+		if v := k.store.value(tc.path); v != tc.stored {
+			t.Errorf("%s: chip %d stored %v, want %d", tc.path, tc.pick, v, tc.stored)
+		}
+	}
+}
+
+func TestZeroReadsAsWhatItMeansOrIsNoChoice(t *testing.T) {
+	tr := locale.T()
+	k := testKit(t, "")
+	labels := chipLabels(pickerOf(t, k, pageRow(t, "idle-inhibit", "modules.idle-inhibit.startup-duration")))
+	if got := labels[len(labels)-1]; got != tr.Get("settings-duration-until-off") {
+		t.Errorf("an indefinite keep-awake reads %q", got)
+	}
+	poll := pickerOf(t, k, pageRow(t, "cpu", "modules.cpu.poll-interval-ms"))
+	if slices.ContainsFunc(poll.presets, func(pr preset) bool { return pr.value == 0 }) {
+		t.Errorf("the poll interval offers 0 among %q", chipLabels(poll))
+	}
+	if lo, _ := poll.custom.Range(); lo <= 0 {
+		t.Errorf("a custom poll interval reaches %v", lo)
+	}
+}
+
+func TestEveryMonitorsDefaultPollIntervalIsAPreset(t *testing.T) {
+	for _, m := range []string{"cpu", "ram", "storage", "netstat"} {
+		k := testKit(t, "")
+		p := pickerOf(t, k, pageRow(t, m, "modules."+m+".poll-interval-ms"))
+		if p.typed.Visible() {
+			t.Errorf("%s's default poll interval %v shows as custom", m, k.store.value("modules."+m+".poll-interval-ms"))
+		}
+	}
+}

@@ -951,6 +951,8 @@ settings-duration-unit-minutes = minuten
 settings-duration-unit-days = dagen
 settings-unit-pixels = pixels
 settings-unit-entries = items
+settings-duration-until-off = Tot uitgeschakeld
+settings-duration-instant = Direct
 settings-duration-minutes = { $n ->
     [one] 1 minuut
    *[other] { $n } minuten

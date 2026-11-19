@@ -140,6 +140,8 @@ const (
 	never       zeroWord = "settings-duration-never"
 	immediately zeroWord = "settings-duration-immediately"
 	off         zeroWord = "settings-duration-off"
+	instant     zeroWord = "settings-duration-instant"
+	untilOff    zeroWord = "settings-duration-until-off"
 )
 
 type durationChoice struct {

@@ -962,6 +962,8 @@ settings-duration-unit-minutes = minutos
 settings-duration-unit-days = días
 settings-unit-pixels = píxeles
 settings-unit-entries = entradas
+settings-duration-until-off = Hasta que se desactive
+settings-duration-instant = Al instante
 settings-duration-minutes = { $n ->
     [one] 1 minuto
    *[other] { $n } minutos

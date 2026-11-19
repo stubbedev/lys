@@ -962,6 +962,8 @@ settings-duration-unit-minutes = minuti
 settings-duration-unit-days = giorni
 settings-unit-pixels = pixel
 settings-unit-entries = voci
+settings-duration-until-off = Finché non viene disattivato
+settings-duration-instant = Istantaneo
 settings-duration-minutes = { $n ->
     [one] 1 minuto
    *[other] { $n } minuti

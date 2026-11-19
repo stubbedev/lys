@@ -90,8 +90,13 @@ Some pages also act on the system:
 
 A time a setting waits, such as how long a notification stays, how soon the
 lock screen asks for the password or how often the wallpaper changes, is picked
-from a row of common durations. **Custom…** takes any other value in the unit
-named beside it (seconds, minutes or days); a value off the row shows there.
+from a row of common durations in words, as are the system monitors' poll
+intervals, how soon Bitwarden clears the clipboard and how long keeping awake
+lasts. Where 0 means something it has its own chip that says what
+(**Never**, **Immediately**, **Off**, **Instant**, **Until turned off**);
+where it means nothing, as for a poll interval, it is not offered.
+**Custom…** takes any other value in the unit named beside it (seconds,
+minutes or days); a value off the row shows there.
 Counts and sizes with a few usual values, such as the launcher's history or the
 login screen's cursor size, are picked the same way.
 
