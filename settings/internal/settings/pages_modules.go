@@ -379,40 +379,38 @@ func netstatPage(*config.Config) pageSpec {
 
 // networkPage is pages/modules/network.
 func networkPage(*config.Config) pageSpec {
+	const m = "modules.network"
 	return pageSpec{id: "network", navKey: "settings-nav-network", icon: "ld-wifi-symbolic", header: "settings-page-network", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.network.wifi-disabled-icon", iconRow),
-			field("modules.network.wifi-acquiring-icon", iconRow),
-			field("modules.network.wifi-offline-icon", iconRow),
-			field("modules.network.wifi-connected-icon", iconRow),
-			field("modules.network.wired-connected-icon", iconRow),
-			field("modules.network.wired-acquiring-icon", iconRow),
-			field("modules.network.wired-disconnected-icon", iconRow),
-			field("modules.network.wifi-signal-icons", iconList),
-			field("modules.network.vpn-show"),
-			field("modules.network.vpn-connected-icon", iconRow),
-			field("modules.network.vpn-connecting-icon", iconRow),
-			field("modules.network.vpn-disconnected-icon", iconRow),
+			field(m + ".vpn-show"),
 		}},
-		barItemSection("modules.network", actionChoices("network")),
+		{title: "settings-section-icons", advanced: true, rows: []rowSpec{
+			cellGridRow("settings-network-icons", []string{"settings-wifi-title", "settings-wifi-wired", "settings-vpn-section"},
+				gridRow{key: "settings-state-off", editor: iconGridCell, cells: []string{m + ".wifi-disabled-icon", "", ""}},
+				gridRow{key: "settings-state-disconnected", editor: iconGridCell, cells: []string{m + ".wifi-offline-icon", m + ".wired-disconnected-icon", m + ".vpn-disconnected-icon"}},
+				gridRow{key: "settings-state-connecting", editor: iconGridCell, cells: []string{m + ".wifi-acquiring-icon", m + ".wired-acquiring-icon", m + ".vpn-connecting-icon"}},
+				gridRow{key: "settings-state-connected", editor: iconGridCell, cells: []string{m + ".wifi-connected-icon", m + ".wired-connected-icon", m + ".vpn-connected-icon"}},
+			),
+			field(m+".wifi-signal-icons", iconList),
+		}},
+		barItemSection(m, actionChoices("network")),
 	}}
 }
 
 // powerProfilesPage is pages/modules/power_profiles.
 func powerProfilesPage(*config.Config) pageSpec {
+	const m = "modules.power-profiles"
 	return pageSpec{id: "power-profiles", navKey: "settings-nav-power-profiles", icon: "ld-scale-symbolic", header: "settings-page-power-profiles", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.power-profiles.format"),
+			field(m + ".format"),
 		}},
 		{title: "settings-section-power-profiles-profiles", rows: []rowSpec{
-			field("modules.power-profiles.icon-power-saver", iconRow),
-			field("modules.power-profiles.color-power-saver"),
-			field("modules.power-profiles.icon-balanced", iconRow),
-			field("modules.power-profiles.color-balanced"),
-			field("modules.power-profiles.icon-performance", iconRow),
-			field("modules.power-profiles.color-performance"),
+			cellGridRow("settings-power-profiles-look", []string{"settings-power-mode-power-saver", "settings-power-mode-balanced", "settings-power-mode-performance"},
+				gridRow{key: "settings-grid-icon", editor: iconGridCell, cells: []string{m + ".icon-power-saver", m + ".icon-balanced", m + ".icon-performance"}},
+				gridRow{key: "settings-grid-color", editor: colorGridCell, cells: []string{m + ".color-power-saver", m + ".color-balanced", m + ".color-performance"}},
+			),
 		}},
-		barItemSection("modules.power-profiles", actionChoices("power-profiles")),
+		barItemSection(m, actionChoices("power-profiles")),
 	}}
 }
 
@@ -502,10 +500,9 @@ func treemanPage(*config.Config) pageSpec {
 	return pageSpec{id: "treeman", navKey: "settings-nav-treeman", icon: "ld-graph-star-symbolic", header: "settings-page-treeman", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.treeman.format"),
-			field("modules.treeman.icon-name", iconRow),
-			field("modules.treeman.icon-preparing", iconRow),
-			field("modules.treeman.icon-tearing-down", iconRow),
-			field("modules.treeman.icon-failed", iconRow),
+			cellGridRow("settings-treeman-icons", []string{"settings-state-ready", "settings-state-preparing", "settings-state-tearing-down", "settings-state-failed"},
+				gridRow{editor: iconGridCell, cells: []string{"modules.treeman.icon-name", "modules.treeman.icon-preparing", "modules.treeman.icon-tearing-down", "modules.treeman.icon-failed"}},
+			),
 			field("modules.treeman.hide-if-empty"),
 		}},
 		barItemSection("modules.treeman", actionChoices("treeman")),
@@ -589,10 +586,9 @@ func recorderPage(*config.Config) pageSpec {
 			field(m + ".replay.output"),
 		}},
 		{title: "settings-section-icons", rows: []rowSpec{
-			field(m+".icon-idle", iconRow),
-			field(m+".icon-recording", iconRow),
-			field(m+".icon-paused", iconRow),
-			field(m+".icon-replay", iconRow),
+			cellGridRow("settings-recorder-icons", []string{"settings-state-idle", "settings-state-recording", "settings-state-paused", "settings-state-replay"},
+				gridRow{editor: iconGridCell, cells: []string{m + ".icon-idle", m + ".icon-recording", m + ".icon-paused", m + ".icon-replay"}},
+			),
 		}},
 		barItemSection(m, actionChoices("recorder")),
 	}}
