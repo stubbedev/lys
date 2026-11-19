@@ -3,6 +3,9 @@ package network
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -116,6 +119,23 @@ func ParseWgQuick(text, fileName string) (values map[string]string, ok bool) {
 		}
 	}
 	return values, true
+}
+
+// ErrNotWgQuick is a file that is not a wg-quick configuration.
+var ErrNotWgQuick = errors.New("not a wg-quick configuration")
+
+// ReadWgQuick reads and parses the wg-quick file at path, the file
+// naming the interface.
+func ReadWgQuick(path string) (map[string]string, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // the file the user picked
+	if err != nil {
+		return nil, fmt.Errorf("read the WireGuard configuration: %w", err)
+	}
+	values, ok := ParseWgQuick(string(data), filepath.Base(path))
+	if !ok {
+		return nil, fmt.Errorf("read %s: %w", path, ErrNotWgQuick)
+	}
+	return values, nil
 }
 
 // interfaceName takes wg0 out of wg0.conf; a name the kernel would

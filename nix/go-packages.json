@@ -361,6 +361,12 @@
     ]
   },
   "desktop/service/network/secrets": {},
+  "desktop/service/network/vpntext": {
+    "imports": [
+      "desktop/i18n",
+      "desktop/service/network"
+    ]
+  },
   "desktop/service/nightlight/nightschedule": {},
   "desktop/service/notifications/notifypolicy": {},
   "desktop/service/powerprofiles": {
@@ -3180,6 +3186,7 @@
       "desktop/service/mpris",
       "desktop/service/network",
       "desktop/service/network/secrets",
+      "desktop/service/network/vpntext",
       "desktop/service/nightlight/nightschedule",
       "desktop/service/powerprofiles",
       "desktop/service/pulse",

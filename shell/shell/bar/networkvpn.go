@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"maps"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"unicode"
@@ -14,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/network/vpntext"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -111,203 +109,6 @@ func sentence(reason string) string {
 		return ""
 	}
 	return string(unicode.ToUpper(first)) + reason[size:]
-}
-
-// vpnSlug is slug: a plugin key as a Fluent message-id fragment.
-// vpnc's keys are "IPSec gateway" and "Xauth password", which verbatim
-// build an id no Fluent file can declare.
-func vpnSlug(key string) string {
-	var b strings.Builder
-	for _, c := range key {
-		switch {
-		case c < utf8.RuneSelf && (unicode.IsLetter(c) || unicode.IsDigit(c)):
-			b.WriteRune(unicode.ToLower(c))
-		case !strings.HasSuffix(b.String(), "-"):
-			b.WriteByte('-')
-		}
-	}
-	return strings.Trim(b.String(), "-")
-}
-
-// vpnTranslated is the shell's string for id, or fallback when lys-shell
-// ships none: what keeps an unknown plugin's vocabulary usable.
-func vpnTranslated(id, fallback string) string {
-	if i18n.Shell().Has(id) {
-		return i18n.T(id)
-	}
-	return fallback
-}
-
-func vpnFieldName(f network.VPNField) string {
-	return vpnTranslated("dropdown-network-vpn-field-"+vpnSlug(f.Key), f.Label)
-}
-
-// vpnFieldLabel is the name, required ones marked.
-func vpnFieldLabel(f network.VPNField) string {
-	if f.Required {
-		return vpnFieldName(f) + " *"
-	}
-	return vpnFieldName(f)
-}
-
-func vpnSectionHeading(section string) string {
-	return vpnTranslated("dropdown-network-vpn-section-"+section, section)
-}
-
-// vpnChoiceLabel is a choice lys-shell cannot sign into says
-// so before it is picked.
-func vpnChoiceLabel(c network.VPNChoice) string {
-	if c.NativeSignIn {
-		return c.Label
-	}
-	return c.Label + " — " + i18n.T("dropdown-network-vpn-no-native-sign-in")
-}
-
-// parseRaw is one key = value per line, # comments, blank
-// lines and lines without a key ignored.
-func parseRaw(text string) map[string]string {
-	out := map[string]string{}
-	for line := range strings.Lines(text) {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		if key = strings.TrimSpace(key); ok && key != "" {
-			out[key] = strings.TrimSpace(value)
-		}
-	}
-	return out
-}
-
-// vpnTyped is one typed box's key and value.
-type vpnTyped struct{ key, value string }
-
-// mergeVPNValues is merge: the raw editor's keys with the typed fields
-// over them. A typed field wins (it is the one the user sees), an
-// emptied box clears its key rather than reviving the raw one: no blank
-// value reaches NetworkManager.
-func mergeVPNValues(raw map[string]string, typed []vpnTyped) map[string]string {
-	values := maps.Clone(raw)
-	if values == nil {
-		values = map[string]string{}
-	}
-	for _, t := range typed {
-		values[t.key] = t.value
-	}
-	maps.DeleteFunc(values, func(_, v string) bool { return strings.TrimSpace(v) == "" })
-	return values
-}
-
-// vpnLeftovers is leftovers: the saved values the kind's form has no
-// box for, kept in the raw editor so an edit never drops them.
-func vpnLeftovers(values map[string]string, kind network.VPNKind) map[string]string {
-	out := map[string]string{}
-	for k, v := range values {
-		if !slices.ContainsFunc(kind.Fields, func(f network.VPNField) bool { return f.Key == k }) {
-			out[k] = v
-		}
-	}
-	return out
-}
-
-// renderRaw is the values as the raw editor shows them,
-// sorted.
-func renderRaw(values map[string]string) string {
-	lines := make([]string, 0, len(values))
-	for k, v := range values {
-		lines = append(lines, k+" = "+v)
-	}
-	slices.Sort(lines)
-	return strings.Join(lines, "\n")
-}
-
-// vpnMalformedMessage is what the box wanted.
-func vpnMalformedMessage(f network.VPNField) string {
-	id := map[network.VPNFormat]string{
-		network.FormatText:     "dropdown-network-vpn-invalid-text",
-		network.FormatHost:     "dropdown-network-vpn-invalid-host",
-		network.FormatHostPort: "dropdown-network-vpn-invalid-host-port",
-		network.FormatIPList:   "dropdown-network-vpn-invalid-ip-list",
-		network.FormatCIDRList: "dropdown-network-vpn-invalid-cidr-list",
-		network.FormatKey:      "dropdown-network-vpn-invalid-key",
-		network.FormatNumber:   "dropdown-network-vpn-invalid-number",
-	}[f.Format]
-	if id == "" {
-		id = "dropdown-network-vpn-invalid-text"
-	}
-	return i18n.T(id, i18n.Str("field", vpnFieldName(f)))
-}
-
-// vpnMalformed is malformed: every field holding a value not in its
-// format.
-func vpnMalformed(kind network.VPNKind, values map[string]string) []network.VPNField {
-	var out []network.VPNField
-	for _, f := range kind.Fields {
-		if v, ok := values[f.Key]; ok && !f.Format.Accepts(v) {
-			out = append(out, f)
-		}
-	}
-	return out
-}
-
-// vpnMissingRequired is every required field left
-// empty, all at once, in drawing order.
-func vpnMissingRequired(kind network.VPNKind, values map[string]string) []network.VPNField {
-	var out []network.VPNField
-	for _, f := range kind.Fields {
-		if f.Required && values[f.Key] == "" {
-			out = append(out, f)
-		}
-	}
-	return out
-}
-
-// vpnRawHint: for a typed kind the keys it covers, for an
-// untyped one the plugin's service its documentation is indexed by.
-func vpnRawHint(kind network.VPNKind, ok bool) string {
-	switch {
-	case !ok:
-		return i18n.T("dropdown-network-vpn-raw-hint")
-	case !kind.IsTyped():
-		return i18n.T("dropdown-network-vpn-raw-hint-unknown", i18n.Str("service", kind.ID))
-	}
-	keys := make([]string, len(kind.Fields))
-	for i, f := range kind.Fields {
-		keys[i] = f.Key
-	}
-	return i18n.T("dropdown-network-vpn-raw-hint-typed", i18n.Str("covered", strings.Join(keys, ", ")))
-}
-
-// publicKeyReadout is the public key
-// for the private key typed, and nothing for a half-typed or mistyped
-// one (an old public key would hand the other end a key that opens
-// nothing).
-func publicKeyReadout(private string) string {
-	if public, ok := network.PublicKeyFor(private); ok {
-		return i18n.T("dropdown-network-vpn-public-key", i18n.Str("key", public))
-	}
-	return i18n.T("dropdown-network-vpn-public-key-empty")
-}
-
-// kindsWith is the kinds the form offers, plus the one a saved profile
-// names when this machine no longer has its plugin: the profile still
-// opens, in the raw editor, and saving keeps its type instead of
-// rewriting it as the first kind.
-func kindsWith(kinds []network.VPNKind, kind string) []network.VPNKind {
-	if kind == "" || slices.ContainsFunc(kinds, func(k network.VPNKind) bool { return k.ID == kind }) {
-		return kinds
-	}
-	return append(slices.Clone(kinds), network.VPNKind{ID: kind, Label: kind})
-}
-
-// readWgQuick reads and parses a wg-quick file.
-func readWgQuick(path string) (map[string]string, bool) {
-	data, err := os.ReadFile(path) //nolint:gosec // the file the user picked
-	if err != nil {
-		return nil, false
-	}
-	return network.ParseWgQuick(string(data), filepath.Base(path))
 }
 
 // netVPNs is the VPN label, one row per profile, and
@@ -508,7 +309,7 @@ func (f *netVPNForm) open(uuid, name, kind string, values map[string]string) {
 	if f.v.vpnKinds != nil {
 		kinds = f.v.vpnKinds()
 	}
-	f.kinds = kindsWith(kinds, kind)
+	f.kinds = network.KindsWith(kinds, kind)
 	f.selected = max(0, slices.IndexFunc(f.kinds, func(k network.VPNKind) bool { return k.ID == kind }))
 	f.editing = uuid
 	f.setError("")
@@ -555,22 +356,22 @@ func (f *netVPNForm) kindSelected(i int) {
 func (f *netVPNForm) rebuild(values map[string]string) {
 	f.entries, f.pickers = nil, nil
 	f.fields.Clear()
-	kind, ok := f.kind()
-	f.importBtn.SetVisible(ok && kind.ID == network.WireGuard)
-	f.rawTyped = ok && kind.IsTyped()
+	kind, _ := f.kind()
+	f.importBtn.SetVisible(kind.ID == network.WireGuard)
+	f.rawTyped = kind.IsTyped()
 	if !f.rawTyped {
-		f.raw.SetText(renderRaw(values))
+		f.raw.SetText(network.RenderRawValues(values))
 		f.rawOpen = true
-		f.syncRaw(kind, ok)
+		f.syncRaw(kind)
 		return
 	}
-	extra := vpnLeftovers(values, kind)
-	f.raw.SetText(renderRaw(extra))
+	extra := kind.Leftovers(values)
+	f.raw.SetText(network.RenderRawValues(extra))
 	f.rawOpen = len(extra) > 0
 	section := ""
 	for _, field := range kind.Fields {
 		if field.Section != "" && field.Section != section {
-			f.fields.Append(sectionLabel(f.v.font, vpnSectionHeading(field.Section)), false)
+			f.fields.Append(sectionLabel(f.v.font, vpntext.SectionHeading(field.Section)), false)
 			section = field.Section
 		}
 		current, has := values[field.Key]
@@ -580,13 +381,13 @@ func (f *netVPNForm) rebuild(values map[string]string) {
 		} else {
 			control = f.entry(kind, field, current)
 		}
-		row := widget.NewField(f.v.font, vpnFieldLabel(field), control)
+		row := widget.NewField(f.v.font, vpntext.FieldLabel(field), control)
 		if !field.Required {
 			row.AddClass("optional")
 		}
 		f.fields.Append(row, false)
 	}
-	f.syncRaw(kind, ok)
+	f.syncRaw(kind)
 }
 
 // picker draws a fixed-choice field. A stored value this build does not
@@ -595,7 +396,7 @@ func (f *netVPNForm) picker(field network.VPNField, current string, has bool) *w
 	labels := make([]string, len(field.Choices))
 	values := make([]string, len(field.Choices))
 	for i, c := range field.Choices {
-		labels[i], values[i] = vpnChoiceLabel(c), c.Value
+		labels[i], values[i] = vpntext.ChoiceLabel(c), c.Value
 	}
 	selected := 0
 	if i := slices.Index(values, current); has && i >= 0 {
@@ -629,7 +430,7 @@ func (f *netVPNForm) entry(kind network.VPNKind, field network.VPNField, current
 		entry.SetLeadingIcon(iconGenerateKey, f.v.px, func() {
 			entry.SetText(network.GenerateKeyPair().Private)
 		})
-		readout = widget.NewRichLabel(f.v.font, f.v.px*styling.Caption.Ratio(), publicKeyReadout(current), 0)
+		readout = widget.NewRichLabel(f.v.font, f.v.px*styling.Caption.Ratio(), vpntext.PublicKey(current), 0)
 		readout.SetVariants(app.FontVariantsOf(f.v.font))
 		readout.AddClass("network-vpn-public-key", css.Caption, css.DimLabel, css.Monospace)
 		readout.SetWrap(true)
@@ -640,7 +441,7 @@ func (f *netVPNForm) entry(kind network.VPNKind, field network.VPNField, current
 	entry.OnChanged = func(text string) {
 		entry.RemoveClass("error")
 		if readout != nil {
-			readout.SetMarkup(publicKeyReadout(text))
+			readout.SetMarkup(vpntext.PublicKey(text))
 		}
 	}
 	f.entries = append(f.entries, vpnEntry{key: field.Key, entry: entry})
@@ -648,37 +449,37 @@ func (f *netVPNForm) entry(kind network.VPNKind, field network.VPNField, current
 }
 
 // syncRaw shows the raw editor's parts for the current state.
-func (f *netVPNForm) syncRaw(kind network.VPNKind, ok bool) {
+func (f *netVPNForm) syncRaw(kind network.VPNKind) {
 	f.advanced.SetVisible(f.rawTyped)
 	if f.rawOpen {
 		f.advLabel.SetText(i18n.T("dropdown-network-vpn-advanced-hide"))
 	} else {
 		f.advLabel.SetText(i18n.T("dropdown-network-vpn-advanced-show"))
 	}
-	f.rawHint.SetText(vpnRawHint(kind, ok))
+	f.rawHint.SetText(vpntext.RawHint(kind))
 	f.rawHint.SetVisible(f.rawOpen)
 	f.raw.SetVisible(f.rawOpen)
 }
 
 func (f *netVPNForm) toggleAdvanced() {
 	f.rawOpen = !f.rawOpen
-	kind, ok := f.kind()
-	f.syncRaw(kind, ok)
+	kind, _ := f.kind()
+	f.syncRaw(kind)
 }
 
 // values is both editors: the raw keys with the typed boxes and the
 // pickers over them.
 func (f *netVPNForm) values() map[string]string {
-	typed := make([]vpnTyped, 0, len(f.entries)+len(f.pickers))
+	typed := make([]network.TypedValue, 0, len(f.entries)+len(f.pickers))
 	for _, e := range f.entries {
-		typed = append(typed, vpnTyped{e.key, e.entry.Text()})
+		typed = append(typed, network.TypedValue{Key: e.key, Value: e.entry.Text()})
 	}
 	for _, p := range f.pickers {
 		if i := p.picker.Selected(); i >= 0 && i < len(p.values) {
-			typed = append(typed, vpnTyped{p.key, p.values[i]})
+			typed = append(typed, network.TypedValue{Key: p.key, Value: p.values[i]})
 		}
 	}
-	return mergeVPNValues(parseRaw(f.raw.Text()), typed)
+	return network.MergeVPNValues(network.ParseRawValues(f.raw.Text()), typed)
 }
 
 // save validates, marks every refused box, and hands a valid profile to
@@ -694,15 +495,10 @@ func (f *netVPNForm) save() {
 		return
 	}
 	values := f.values()
-	missing := vpnMissingRequired(kind, values)
-	malformed := vpnMalformed(kind, values)
-	f.markBad(append(missing, malformed...))
-	switch {
-	case len(missing) > 0:
-		f.setError(i18n.T("dropdown-network-vpn-field-required", i18n.Str("field", vpnFieldName(missing[0]))))
-		return
-	case len(malformed) > 0:
-		f.setError(vpnMalformedMessage(malformed[0]))
+	problems := kind.Check(values)
+	f.markBad(problems)
+	if len(problems) > 0 {
+		f.setError(vpntext.Problem(problems[0]))
 		return
 	}
 	f.setError("")
@@ -711,9 +507,9 @@ func (f *netVPNForm) save() {
 
 // markBad puts the error mark on the refused boxes and takes it off the
 // rest.
-func (f *netVPNForm) markBad(bad []network.VPNField) {
+func (f *netVPNForm) markBad(bad []network.VPNProblem) {
 	for _, e := range f.entries {
-		if slices.ContainsFunc(bad, func(b network.VPNField) bool { return b.Key == e.key }) {
+		if slices.ContainsFunc(bad, func(b network.VPNProblem) bool { return b.Field.Key == e.key }) {
 			e.entry.AddClass("error")
 		} else {
 			e.entry.RemoveClass("error")
@@ -785,11 +581,13 @@ func (f *netVPNForm) importDone(path string, err error) {
 		f.setError(i18n.T("dropdown-network-vpn-import-error", i18n.Str("error", err.Error())))
 		return
 	}
-	if values, ok := readWgQuick(path); ok {
-		f.imported(values["interface"], values)
-	} else {
+	values, err := network.ReadWgQuick(path)
+	if err != nil {
+		log.Printf("network: VPN import: %v", err)
 		f.setError(i18n.T("dropdown-network-vpn-import-failed"))
+		return
 	}
+	f.imported(values["interface"], values)
 }
 
 // imported applies the file's values, and its interface as the

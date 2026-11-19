@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/network/vpntext"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -162,129 +163,6 @@ func TestVPNRowCaptionAndGlyph(t *testing.T) {
 	}
 	if sentence("ärger am gateway") != "Ärger am gateway" || sentence("   ") != "" {
 		t.Error("sentence touches more than the first letter")
-	}
-}
-
-func TestVPNRawEditor(t *testing.T) {
-	got := parseRaw("gateway = vpn.example.com\n  protocol=gp  \n\n# a comment = not a key\nno-equals\n = orphan\ntoken = abc=def==\n")
-	want := map[string]string{"gateway": "vpn.example.com", "protocol": "gp", "token": "abc=def=="}
-	if !maps.Equal(got, want) {
-		t.Errorf("parseRaw = %v, want %v (comments, junk and keyless lines ignored)", got, want)
-	}
-	if back := parseRaw(renderRaw(want)); !maps.Equal(back, want) {
-		t.Errorf("round trip = %v", back)
-	}
-	if renderRaw(map[string]string{"b": "2", "a": "1"}) != "a = 1\nb = 2" {
-		t.Error("render order is not stable")
-	}
-}
-
-func TestVPNMergeAndLeftovers(t *testing.T) {
-	raw := map[string]string{"gateway": "raw.example.com", "extra": "x", "blank": "  ", "cleared": "old"}
-	got := mergeVPNValues(raw, []vpnTyped{{"gateway", "typed.example.com"}, {"cleared", ""}})
-	want := map[string]string{"gateway": "typed.example.com", "extra": "x"}
-	if !maps.Equal(got, want) {
-		t.Errorf("merge = %v, want %v (typed wins, emptied clears, blank dropped)", got, want)
-	}
-	if raw["gateway"] != "raw.example.com" {
-		t.Error("merge wrote into the raw map")
-	}
-	kind := testKinds()[1]
-	left := vpnLeftovers(map[string]string{"gateway": "g", "protocol": "gp", "mtu": "1400"}, kind)
-	if !maps.Equal(left, map[string]string{"mtu": "1400"}) {
-		t.Errorf("leftovers = %v, want only the key the form has no box for", left)
-	}
-	if len(vpnLeftovers(map[string]string{"gateway": "g"}, kind)) != 0 {
-		t.Error("a profile that fits its form left raw keys")
-	}
-}
-
-func TestVPNValidation(t *testing.T) {
-	wg := network.AvailableKinds()[0]
-	missing := vpnMissingRequired(wg, map[string]string{"interface": "wg0"})
-	var keys []string
-	for _, f := range missing {
-		keys = append(keys, f.Key)
-	}
-	if !slices.Equal(keys, []string{"private-key", "address", "peer-public-key", "peer-endpoint", "peer-allowed-ips"}) {
-		t.Errorf("missing = %v, want every required field at once, in order", keys)
-	}
-	key := network.GenerateKeyPair()
-	good := map[string]string{
-		"interface": "wg0", "private-key": key.Private, "address": "10.0.0.2/24",
-		"peer-public-key": key.Public, "peer-endpoint": "vpn.example.com:51820", "peer-allowed-ips": "0.0.0.0/0",
-	}
-	if len(vpnMissingRequired(wg, good)) != 0 || len(vpnMalformed(wg, good)) != 0 {
-		t.Error("a complete, well-formed profile was refused")
-	}
-	bad := maps.Clone(good)
-	bad["peer-endpoint"] = "https://vpn.example.com"
-	bad["peer-keepalive"] = "soon"
-	malformed := vpnMalformed(wg, bad)
-	if len(malformed) != 2 || malformed[0].Key != "peer-endpoint" || malformed[1].Key != "peer-keepalive" {
-		t.Errorf("malformed = %v", malformed)
-	}
-	if got := vpnMalformedMessage(malformed[0]); got != i18n.T("dropdown-network-vpn-invalid-host-port", i18n.Str("field", vpnFieldName(malformed[0]))) {
-		t.Errorf("message = %q", got)
-	}
-	if len(vpnMalformed(wg, map[string]string{"interface": "wg0"})) != 0 {
-		t.Error("an absent value is malformed rather than missing")
-	}
-}
-
-func TestVPNLabels(t *testing.T) {
-	if got := vpnSlug("IPSec gateway"); got != "ipsec-gateway" {
-		t.Errorf("slug = %q", got)
-	}
-	if got := vpnSlug("--Xauth  password!"); got != "xauth-password" {
-		t.Errorf("slug = %q", got)
-	}
-	unknown := network.VPNField{Key: "zz-unknown-key", Label: "Plugin's own"}
-	if vpnFieldName(unknown) != "Plugin's own" || vpnFieldLabel(unknown) != "Plugin's own" {
-		t.Error("an unknown key lost the kind's own label")
-	}
-	unknown.Required = true
-	if vpnFieldLabel(unknown) != "Plugin's own *" {
-		t.Errorf("required label = %q", vpnFieldLabel(unknown))
-	}
-	if got := vpnSectionHeading("peer"); got != i18n.T("dropdown-network-vpn-section-peer") {
-		t.Errorf("heading = %q", got)
-	}
-	if vpnSectionHeading("zz-made-up") != "zz-made-up" {
-		t.Error("an unknown section is not shown as itself")
-	}
-	if vpnChoiceLabel(network.VPNChoice{Label: "AnyConnect", NativeSignIn: true}) != "AnyConnect" {
-		t.Error("a native choice was annotated")
-	}
-	if got := vpnChoiceLabel(network.VPNChoice{Label: "GP"}); got != "GP — "+i18n.T("dropdown-network-vpn-no-native-sign-in") {
-		t.Errorf("plugin choice = %q", got)
-	}
-	if !strings.Contains(vpnRawHint(testKinds()[1], true), "gateway, protocol, password") {
-		t.Error("the typed hint does not list the covered keys")
-	}
-	if !strings.Contains(vpnRawHint(testKinds()[2], true), "org.example.raw") {
-		t.Error("the untyped hint does not name the plugin")
-	}
-	pair := network.GenerateKeyPair()
-	if publicKeyReadout(pair.Private) != i18n.T("dropdown-network-vpn-public-key", i18n.Str("key", pair.Public)) {
-		t.Error("readout is not the derived public key")
-	}
-	if publicKeyReadout(pair.Private[:10]) != i18n.T("dropdown-network-vpn-public-key-empty") {
-		t.Error("a half-typed key showed a public key")
-	}
-}
-
-func TestKindsWith(t *testing.T) {
-	kinds := testKinds()
-	if len(kindsWith(kinds, testPlugin)) != len(kinds) || len(kindsWith(kinds, "")) != len(kinds) {
-		t.Error("a known kind or none was added again")
-	}
-	got := kindsWith(kinds, "org.gone.vpn")
-	if len(got) != len(kinds)+1 || got[len(kinds)].ID != "org.gone.vpn" || got[len(kinds)].IsTyped() {
-		t.Errorf("uninstalled kind = %+v, want it appended, untyped", got)
-	}
-	if len(kinds) != 3 {
-		t.Error("kindsWith changed its input")
 	}
 }
 
@@ -554,7 +432,7 @@ func TestVPNFormWireGuard(t *testing.T) {
 		t.Error("the public-key readout is not selectable")
 	}
 	priv.SetText(pair.Private)
-	if pub.Text() != publicKeyReadout(pair.Private) {
+	if pub.Text() != vpntext.PublicKey(pair.Private) {
 		t.Error("the readout does not follow the private key")
 	}
 	priv.SetText("not a key")
