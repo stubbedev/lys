@@ -1,46 +1,38 @@
 package settings
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-func cavaRange(t *testing.T, k *kit) *frequencyRange {
-	t.Helper()
-	c, ok := fieldControl(k, k.store, pageRow(t, "cava", "modules.cava.low-cutoff")).(*frequencyRange)
-	if !ok {
-		t.Fatal("the cutoffs are not one range")
-	}
-	return c
-}
-
 func TestTheCavaCutoffsCannotCross(t *testing.T) {
 	k := testKit(t, "modules:\n  cava:\n    low-cutoff: 50\n    high-cutoff: 17000\n")
-	c := cavaRange(t, k)
-	if _, hi := c.low.Range(); hi != 16999 {
-		t.Errorf("the low cutoff reaches %v under a 17000 Hz high one", hi)
+	c := pageRange(t, k, "cava", "modules.cava.low-cutoff")
+	if !c.spec.axis.log {
+		t.Error("the frequencies are not on a logarithmic axis")
 	}
-	c.low.SetValue(20000)
-	c.low.OnValueChanged(c.low.Value())
+	c.move(0, 20000)
 	if v := k.store.value("modules.cava.low-cutoff"); v != int64(16999) {
 		t.Errorf("a low cutoff past the high one stored %v", v)
 	}
-	c.high.SetValue(18000)
-	c.high.OnValueChanged(c.high.Value())
-	if lo, hi := c.low.Range(); lo != cavaLowestHz || hi != 17999 {
-		t.Errorf("after raising the high cutoff the low one spans %v-%v", lo, hi)
+	c.move(1, 10)
+	if v := k.store.value("modules.cava.high-cutoff"); v != int64(17000) {
+		t.Errorf("a high cutoff under the low one stored %v, want it held at 17000", v)
 	}
-	if lo, _ := c.high.Range(); lo != 17000 {
-		t.Errorf("the high cutoff reaches down to %v over a 16999 Hz low one", lo)
+	c.thumbs[1].KeyAction(widget.KeyRight, widget.ModShift)
+	if v, _ := thresholdNum(k.store.value("modules.cava.high-cutoff")); v <= 17000 {
+		t.Errorf("shift-right on the high cutoff stored %v", v)
 	}
 }
 
 func TestTheCavaRangeFollowsAnOutsideChange(t *testing.T) {
 	k := testKit(t, "")
-	c := cavaRange(t, k)
+	c := pageRange(t, k, "cava", "modules.cava.low-cutoff")
 	if err := k.store.set("modules.cava.high-cutoff", int64(400)); err != nil {
 		t.Fatal(err)
 	}
@@ -48,10 +40,13 @@ func TestTheCavaRangeFollowsAnOutsideChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.refresh()
-	if c.low.Value() != 300 || c.high.Value() != 400 {
-		t.Fatalf("the range shows %v-%v, want 300-400", c.low.Value(), c.high.Value())
+	if c.value(0) != 300 || c.value(1) != 400 {
+		t.Fatalf("the range shows %v-%v, want 300-400", c.value(0), c.value(1))
 	}
-	if _, hi := c.low.Range(); hi != 399 {
+	if !strings.Contains(c.thumbs[1].AccessibleName(), "400") {
+		t.Errorf("the high thumb reads %q after the change", c.thumbs[1].AccessibleName())
+	}
+	if _, hi := c.bounds(0); hi != 399 {
 		t.Errorf("the low cutoff reaches %v", hi)
 	}
 }

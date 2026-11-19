@@ -22,6 +22,12 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
+var windowsPerRow = rangeSpec{
+	axis:  linearAxis(1, 12, 1),
+	unit:  "settings-range-windows",
+	names: [2]string{"settings-share-picker-windows-min-per-row", "settings-share-picker-windows-max-per-row"},
+}
+
 func privacyPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: settingspage.PrivacyID, navKey: "settings-nav-privacy", icon: "ld-eye-symbolic",
@@ -37,7 +43,7 @@ func privacyPage(*config.Config) pageSpec {
 			}},
 			{title: "settings-section-share-picker-windows", advanced: true, rows: []rowSpec{
 				field("share-picker.windows-spacing", sizeBase(config.SharePickerWindowsSpacingBaseRem)),
-				field("share-picker.windows-min-per-row"), field("share-picker.windows-max-per-row"),
+				rangeRow("share-picker.windows-min-per-row", "share-picker.windows-max-per-row", "settings-share-picker-windows-per-row", windowsPerRow),
 			}},
 			{title: "settings-section-share-picker-outputs", advanced: true, rows: []rowSpec{
 				field("share-picker.outputs-spacing", sizeBase(config.SharePickerOutputsSpacingBaseRem)),

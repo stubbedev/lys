@@ -1029,8 +1029,15 @@ settings-cava-frequency-range = Intervallo di frequenze
     .description = Le frequenze più bassa e più alta mostrate
 settings-cava-frequency-low = Frequenza più bassa
 settings-cava-frequency-high = Frequenza più alta
-settings-cava-frequency-to = a
-settings-cava-frequency-unit = Hz
+settings-range-hertz = { $n ->
+   *[other] { $n } Hz
+}
+settings-range-windows = { $n ->
+    [one] 1 finestra
+   *[other] { $n } finestre
+}
+settings-share-picker-windows-per-row = Finestre per riga
+    .description = Il minimo e il massimo di schede finestra in una riga
 settings-dashboard-usage-levels = Utilizzo
     .description = Quando gli anelli di CPU, memoria e disco passano ad avviso, poi a errore
 settings-dashboard-temp-levels = Temperatura

@@ -4,9 +4,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
@@ -34,7 +31,7 @@ func cavaPage(*config.Config) pageSpec {
 			field(m + ".input"),
 			field(m + ".source"),
 			field(m + ".stereo"),
-			frequencyRangeRow(),
+			rangeRow(m+".low-cutoff", m+".high-cutoff", "settings-cava-frequency-range", cavaFrequencies),
 		}},
 		{title: "settings-section-cava-smoothing", advanced: true, rows: []rowSpec{
 			field(m+".noise-reduction", normalized),
@@ -110,53 +107,9 @@ var cavaDirectionPictures = map[string]picture{
 	string(config.CavaDirectionMirror):  cavaSample(config.CavaStyleBars, config.CavaDirectionMirror),
 }
 
-// frequencyRangeRow is cava's low and high cutoffs as one range whose
-// ends cannot cross.
-func frequencyRangeRow() rowSpec {
-	low, high := cavaPath+".low-cutoff", cavaPath+".high-cutoff"
-	return field(low, withKey("settings-cava-frequency-range"), func(r *rowSpec) {
-		r.also = []string{high}
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-			return newFrequencyRange(k, s, k.store.slot(high))
-		}
-	})
-}
-
-type frequencyRange struct {
-	*widget.Box
-	low, high *number
-}
-
-func newFrequencyRange(k *kit, low, high slot) *frequencyRange {
-	c := &frequencyRange{Box: gapBox(widget.Row)}
-	c.low = newNumber(k, low, cavaLowestHz, cavaHighestHz, 1, 0)
-	c.high = newNumber(k, high, cavaLowestHz, cavaHighestHz, 1, 0)
-	for _, n := range []*number{c.low, c.high} {
-		write := n.OnValueChanged
-		n.OnValueChanged = func(v float64) {
-			write(v)
-			c.fit()
-		}
-	}
-	c.low.SetAccessibleName(locale.T().Get("settings-cava-frequency-low"))
-	c.high.SetAccessibleName(locale.T().Get("settings-cava-frequency-high"))
-	c.AppendAligned(c.low, false, widget.AlignCenter)
-	c.AppendAligned(k.label(locale.T().Get("settings-cava-frequency-to"), css.DimLabel), false, widget.AlignCenter)
-	c.AppendAligned(c.high, false, widget.AlignCenter)
-	c.AppendAligned(k.label(locale.T().Get("settings-cava-frequency-unit"), css.DimLabel), false, widget.AlignCenter)
-	c.fit()
-	return c
-}
-
-func (c *frequencyRange) fit() {
-	c.low.SetRange(cavaLowestHz, c.high.Value()-1)
-	c.high.SetRange(c.low.Value()+1, cavaHighestHz)
-}
-
-func (c *frequencyRange) refresh() {
-	c.low.SetRange(cavaLowestHz, cavaHighestHz)
-	c.high.SetRange(cavaLowestHz, cavaHighestHz)
-	c.low.refresh()
-	c.high.refresh()
-	c.fit()
+var cavaFrequencies = rangeSpec{
+	axis:   logAxis(cavaLowestHz, cavaHighestHz, 1),
+	minGap: 1,
+	unit:   "settings-range-hertz",
+	names:  [2]string{"settings-cava-frequency-low", "settings-cava-frequency-high"},
 }
