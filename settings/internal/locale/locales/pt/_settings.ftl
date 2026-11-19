@@ -1148,3 +1148,5 @@ settings-overview-bluetooth-off = Bluetooth desligado
 settings-overview-bluetooth-on = Bluetooth ligado
 settings-overview-bluetooth-connected = Bluetooth: { $name }
 settings-displays-built-in = Ecrã integrado
+settings-displays-off = Desligados:
+settings-displays-off-tooltip = { $name } está desligado; escolha-o para o ligar

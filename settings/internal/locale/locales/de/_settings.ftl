@@ -1157,3 +1157,5 @@ settings-overview-bluetooth-off = Bluetooth aus
 settings-overview-bluetooth-on = Bluetooth an
 settings-overview-bluetooth-connected = Bluetooth: { $name }
 settings-displays-built-in = Eingebauter Bildschirm
+settings-displays-off = Aus:
+settings-displays-off-tooltip = { $name } ist aus; wähle ihn, um ihn einzuschalten

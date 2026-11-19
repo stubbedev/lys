@@ -1158,3 +1158,5 @@ settings-overview-bluetooth-off = Bluetooth spento
 settings-overview-bluetooth-on = Bluetooth acceso
 settings-overview-bluetooth-connected = Bluetooth: { $name }
 settings-displays-built-in = Schermo integrato
+settings-displays-off = Spenti:
+settings-displays-off-tooltip = { $name } è spento; sceglilo per accenderlo

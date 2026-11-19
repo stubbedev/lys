@@ -1147,3 +1147,5 @@ settings-overview-bluetooth-off = Bluetooth uit
 settings-overview-bluetooth-on = Bluetooth aan
 settings-overview-bluetooth-connected = Bluetooth: { $name }
 settings-displays-built-in = Ingebouwd beeldscherm
+settings-displays-off = Uit:
+settings-displays-off-tooltip = { $name } staat uit; kies het om het aan te zetten

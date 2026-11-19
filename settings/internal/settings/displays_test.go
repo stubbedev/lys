@@ -309,3 +309,28 @@ func TestTheArrangementsActionsSitInsetInItsCard(t *testing.T) {
 		t.Errorf("the action row moved to %v under the canvas %v in the card's %v", row, canvas, column)
 	}
 }
+
+func TestAnOutputTurnedOffWaitsInTheOffRowToBeChosen(t *testing.T) {
+	r := startDisplays(t)
+	if r.p.offTray.Visible() {
+		t.Fatal("the off row shows with every output on")
+	}
+	second := slices.IndexFunc(r.p.draft, func(s displays.Setting) bool { return s.Name == secondOutput })
+	r.p.selectOutput(second)
+	r.p.enabled.OnChanged(false)
+	if !r.p.offTray.Visible() {
+		t.Fatal("an output turned off is not in the off row")
+	}
+	r.p.selectOutput(1 - second)
+	var off *widget.Button
+	for _, b := range treetest.All[*widget.Button](r.p.offTray) {
+		off = b
+	}
+	if off == nil {
+		t.Fatal("the off row holds no output")
+	}
+	off.OnClick()
+	if r.p.selected != second || r.p.enabled.On() {
+		t.Errorf("choosing the off output selected %d (want %d), enabled %v", r.p.selected, second, r.p.enabled.On())
+	}
+}

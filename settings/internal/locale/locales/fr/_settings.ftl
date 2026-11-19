@@ -1160,3 +1160,5 @@ settings-overview-bluetooth-off = Bluetooth désactivé
 settings-overview-bluetooth-on = Bluetooth activé
 settings-overview-bluetooth-connected = Bluetooth : { $name }
 settings-displays-built-in = Écran intégré
+settings-displays-off = Éteints :
+settings-displays-off-tooltip = { $name } est éteint ; choisissez-le pour l’allumer

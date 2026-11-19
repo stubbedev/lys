@@ -1158,3 +1158,5 @@ settings-overview-bluetooth-off = Bluetooth desactivado
 settings-overview-bluetooth-on = Bluetooth activado
 settings-overview-bluetooth-connected = Bluetooth: { $name }
 settings-displays-built-in = Pantalla integrada
+settings-displays-off = Apagadas:
+settings-displays-off-tooltip = { $name } está apagada; elígela para encenderla

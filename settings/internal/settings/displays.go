@@ -61,6 +61,7 @@ type displaysPanel struct {
 	heads      []displays.Head
 	draft      []displays.Setting
 	selected   int
+	offTray    *widget.Box
 	canvas     *displaysCanvas
 	controls   *widget.Box
 	none       *widget.Label
@@ -118,6 +119,9 @@ func displaysLead(k *kit) widget.Widget {
 	arrangement := gapBox(widget.Column)
 	arrangement.Append(p.none, false)
 	arrangement.Append(p.canvas, false)
+	p.offTray = gapBox(widget.Row)
+	p.offTray.AddClass("displays-off-tray")
+	arrangement.Append(p.offTray, false)
 	arrangement.Append(actions, false)
 	arrangement.Append(p.status, false)
 	p.Append(newSection(k, "settings-section-displays-arrangement", arrangement), false)
@@ -233,6 +237,27 @@ func (p *displaysPanel) showHeads(heads []displays.Head) {
 	p.showExtraRows()
 }
 
+func (p *displaysPanel) showOffTray() {
+	p.offTray.Clear()
+	labels := headLabels(p.heads)
+	for i, s := range p.draft {
+		if s.Enabled {
+			continue
+		}
+		classes := []string{css.Small, css.Outline}
+		if i == p.selected {
+			classes = []string{css.Small, css.SuggestedAction}
+		}
+		b := p.k.button(p.k.label(cmp.Or(labels[s.Name], s.Name)), func() { p.selectOutput(i) }, classes...)
+		b.SetTooltip(locale.T().Get("settings-displays-off-tooltip", i18n.Str("name", s.Name)))
+		p.offTray.Append(b, false)
+	}
+	if len(p.offTray.Children()) > 0 {
+		p.offTray.InsertAligned(0, p.k.label(locale.T().Get("settings-displays-off"), css.Caption, css.DimLabel), false, widget.AlignCenter)
+	}
+	p.offTray.SetVisible(len(p.offTray.Children()) > 0)
+}
+
 func (p *displaysPanel) enabledNames() []string {
 	var out []string
 	for _, s := range p.draft {
@@ -256,6 +281,7 @@ func (p *displaysPanel) render() {
 	p.controls.SetVisible(has)
 	p.apply.SetEnabled(has && p.dirty() && p.confirm == nil && p.mgr != nil)
 	p.canvas.layout()
+	p.showOffTray()
 	if !has {
 		return
 	}
