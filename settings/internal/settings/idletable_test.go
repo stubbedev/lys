@@ -131,9 +131,9 @@ func TestIdleRowsFollowTheBuiltInIdleSwitch(t *testing.T) {
 	k := testKit(t, "idle:\n  enable: false\n")
 	p := buildPage(k, idlePage(nil))
 	for _, r := range p.rows {
-		if r.path == "idle.enable" {
+		if r.path == "idle.enable" || r.path == "lid_action" {
 			if !widget.IsEnabled(r) {
-				t.Error("the idle switch itself is disabled")
+				t.Errorf("%s, which does not hang on the built-in idle, is disabled", r.path)
 			}
 			continue
 		}

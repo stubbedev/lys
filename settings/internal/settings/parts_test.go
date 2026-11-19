@@ -134,7 +134,22 @@ func TestDisplaysShowsTheArrangementOnlyWithLysWM(t *testing.T) {
 		t.Errorf("lys-shell alone: lead %v, rows %v; want only the tearing switch", shell.lead != nil, rowPaths(parts{shell: true}, displaysID))
 	}
 	both, _ := pageByID(layout(config.Defaults(), bothParts), displaysID)
-	if both.lead == nil || !slices.Contains(rowPaths(bothParts, displaysID), "wm:lid_action") {
+	if both.lead == nil || !slices.Contains(rowPaths(bothParts, displaysID), "wm:gpu") {
 		t.Error("both: the arrangement or lys-wm's display rows are missing")
+	}
+}
+
+func TestTheLidActionSitsWithTheIdleTimesWhenLysWMIsInstalled(t *testing.T) {
+	if rows := rowPaths(bothParts, "idle"); !slices.Contains(rows, "wm:lid_action") {
+		t.Errorf("both: the idle page lacks lys-wm's lid action: %v", rows)
+	}
+	if rows := rowPaths(bothParts, displaysID); slices.Contains(rows, "wm:lid_action") {
+		t.Error("both: the lid action is still on Displays")
+	}
+	if rows := rowPaths(parts{shell: true}, "idle"); slices.Contains(rows, "wm:lid_action") {
+		t.Errorf("lys-shell alone: the idle page shows lys-wm's lid action: %v", rows)
+	}
+	if err := checkSetting(bothParts, "idle", "wm:lid_action"); err != nil {
+		t.Error(err)
 	}
 }

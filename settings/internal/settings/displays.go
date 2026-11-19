@@ -45,7 +45,7 @@ func displaysPage() pageSpec {
 	return pageSpec{
 		id: displaysID, navKey: "settings-nav-wm-outputs", icon: "ld-monitor-symbolic",
 		header: "settings-page-wm-outputs", wmLead: true, lead: displaysLead,
-		sections: []sectionSpec{{title: "wm-section-display", rows: append(wmFields("color_management", "tearing", "gpu", "lid_action", "hidden_frame_rate", "power_saver_frame_rate"), field("general.tearing-mode"))}},
+		sections: []sectionSpec{{title: "wm-section-display", rows: append(wmFields("color_management", "tearing", "gpu", "hidden_frame_rate", "power_saver_frame_rate"), field("general.tearing-mode"))}},
 	}
 }
 
