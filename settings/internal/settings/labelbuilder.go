@@ -18,7 +18,7 @@ type segment struct {
 	text  string
 }
 
-func parseTemplate(s string, tokens []string) []segment {
+func parseTemplate(s string, tokens, escapes []string) []segment {
 	byLength := slices.Clone(tokens)
 	slices.SortFunc(byLength, func(a, b string) int { return len(b) - len(a) })
 	var out []segment
@@ -30,6 +30,11 @@ func parseTemplate(s string, tokens []string) []segment {
 		}
 	}
 	for i := 0; i < len(s); {
+		if j := slices.IndexFunc(escapes, func(e string) bool { return strings.HasPrefix(s[i:], e) }); j >= 0 {
+			literal.WriteString(escapes[j])
+			i += len(escapes[j])
+			continue
+		}
 		matched := ""
 		for _, tok := range byLength {
 			if tok != "" && strings.HasPrefix(s[i:], tok) {
@@ -75,6 +80,7 @@ type labelBuilder struct {
 	raw     *formatEditor
 	toggle  *widget.Button
 	toggled *widget.Label
+	picker  *searchPicker
 	editing bool
 }
 
@@ -114,6 +120,8 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 	return b
 }
 
+func (b *labelBuilder) stacked() {}
+
 func (b *labelBuilder) dirtyBadge() *widget.Badge { return b.raw.dirtyBadge() }
 
 func (b *labelBuilder) tokens() []string {
@@ -132,7 +140,7 @@ func (b *labelBuilder) chipText(s segment) string {
 }
 
 func (b *labelBuilder) refresh() {
-	b.segs = parseTemplate(b.slot.text(), b.tokens())
+	b.segs = parseTemplate(b.slot.text(), b.tokens(), b.kind.escapes)
 	b.chips.Clear()
 	for i, s := range b.segs {
 		chip := widget.NewChip(b.k.face, b.chipText(s))
@@ -162,8 +170,11 @@ func (b *labelBuilder) write() {
 func (b *labelBuilder) options() []choice {
 	t := locale.T()
 	out := slices.Clone(b.kind.insert)
-	for _, sep := range labelSeparators {
+	for _, sep := range b.kind.separators {
 		out = append(out, choice{value: sep, label: "“" + sep + "”", group: t.Get("settings-format-separators")})
+	}
+	for _, p := range b.kind.presets {
+		out = append(out, choice{value: p, label: b.kind.render(p), group: t.Get("settings-format-whole")})
 	}
 	return out
 }
@@ -172,7 +183,12 @@ func (b *labelBuilder) pickPart() {
 	if b.k.pickers == nil {
 		return
 	}
-	openChoicePicker(b.k, b.add, b.options(), func(v string) {
+	b.picker = openChoicePicker(b.k, b.add, b.options(), func(v string) {
+		if slices.Contains(b.kind.presets, v) {
+			_ = b.slot.set(v)
+			b.refresh()
+			return
+		}
 		if _, isToken := b.names[v]; isToken {
 			b.segs = append(b.segs, segment{token: v})
 		} else {

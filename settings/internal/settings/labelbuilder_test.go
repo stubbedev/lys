@@ -10,16 +10,16 @@ import (
 func TestATemplateSplitsIntoPlaceholdersAndTextAndJoinsBack(t *testing.T) {
 	tokens := []string{"{percent}", "{time}", "{p}"}
 	for _, tmpl := range []string{"{percent}% · {time}", "Bat {percent}", "", "{percent}{time}", "{p}{percent}", "plain text"} {
-		if got := joinSegments(parseTemplate(tmpl, tokens)); got != tmpl {
+		if got := joinSegments(parseTemplate(tmpl, tokens, nil)); got != tmpl {
 			t.Errorf("%q came back as %q", tmpl, got)
 		}
 	}
-	segs := parseTemplate("{percent}% · {time}", tokens)
+	segs := parseTemplate("{percent}% · {time}", tokens, nil)
 	want := []segment{{token: "{percent}"}, {text: "% · "}, {token: "{time}"}}
 	if !slices.Equal(segs, want) {
 		t.Errorf("segments %+v, want %+v", segs, want)
 	}
-	if segs := parseTemplate("{percent}", []string{"{p}", "{percent}"}); len(segs) != 1 || segs[0].token != "{percent}" {
+	if segs := parseTemplate("{percent}", []string{"{p}", "{percent}"}, nil); len(segs) != 1 || segs[0].token != "{percent}" {
 		t.Errorf("a longer token was cut by a shorter one: %+v", segs)
 	}
 }
@@ -56,5 +56,40 @@ func TestTheLabelBuilderShowsChipsAndBuildsTheTemplate(t *testing.T) {
 	b.toggle.OnClick()
 	if !b.raw.Visible() {
 		t.Error("Edit as text did not show the raw template")
+	}
+}
+
+func TestATimeFormatIsBuiltFromNamedParts(t *testing.T) {
+	const path = "modules.clock.format"
+	k := testKit(t, "modules:\n  clock:\n    format: \"%H:%M\"\n")
+	b := shellControl(t, k, path).(*labelBuilder)
+	want := []segment{{token: "%H"}, {text: ":"}, {token: "%M"}}
+	if !slices.Equal(b.segs, want) {
+		t.Fatalf("%%H:%%M reads as %+v, want %+v", b.segs, want)
+	}
+	if got := b.chipText(b.segs[0]); got == "%H" || got == "" {
+		t.Errorf("the hour chip reads %q, not a name", got)
+	}
+	var whole, parts int
+	for _, o := range b.options() {
+		switch {
+		case slices.Contains(strftimePresets, o.value):
+			whole++
+		case o.value == "%-d":
+			parts++
+		}
+	}
+	if whole != len(strftimePresets) || parts != 1 {
+		t.Errorf("the picker offers %d whole formats and %d day-without-zero parts", whole, parts)
+	}
+	b.segs = slices.Insert(b.segs, 0, segment{token: "%-d"}, segment{text: " "})
+	b.write()
+	if v := k.store.value(path); v != "%-d %H:%M" {
+		t.Errorf("adding a day stored %v", v)
+	}
+	for _, s := range parseTemplate("%%H", b.tokens(), b.kind.escapes) {
+		if s.token == "%H" {
+			t.Error("an escaped percent was read as the hour")
+		}
 	}
 }

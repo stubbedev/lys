@@ -420,25 +420,26 @@ func TestASecretIsMasked(t *testing.T) {
 func TestAStrftimeFieldOffersPresetsWithAPreview(t *testing.T) {
 	k := testKit(t, "")
 	const path = "login.clock-format"
-	c := shellControl(t, k, path).(*formatEditor)
+	b := shellControl(t, k, path).(*labelBuilder)
 	current, _ := k.store.value(path).(string)
 	f, err := config.ParseStrftimeFormat(current)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(c.preview.Text(), f.Format(formatSampleTime)) {
-		t.Fatalf("preview %q", c.preview.Text())
+	if !strings.Contains(b.preview.Text(), f.Format(formatSampleTime)) {
+		t.Fatalf("preview %q", b.preview.Text())
 	}
 	fp := &fakePickers{}
 	k.pickers = fp
-	c.open.ClickAt(widget.Point{})
-	if !slices.Contains(c.picker.all, "%Y-%m-%d") {
-		t.Fatalf("offered %q", c.picker.all)
+	b.add.ClickAt(widget.Point{})
+	if !slices.Contains(b.picker.all, "%Y-%m-%d") {
+		t.Fatalf("offered %q", b.picker.all)
 	}
-	pickName(t, c.picker, "%Y-%m-%d")
-	if v := k.store.value(path); v != "%Y-%m-%d" || !strings.Contains(c.preview.Text(), "2026-03-14") {
-		t.Fatalf("%v, preview %q", v, c.preview.Text())
+	pickName(t, b.picker, "%Y-%m-%d")
+	if v := k.store.value(path); v != "%Y-%m-%d" || !strings.Contains(b.preview.Text(), "2026-03-14") {
+		t.Fatalf("%v, preview %q", v, b.preview.Text())
 	}
+	c := b.raw
 	c.entry.SelectAll()
 	c.entry.Insert("%Q")
 	if !strings.Contains(c.preview.Text(), strings.SplitN(locale.T().Get("settings-format-invalid"), " ", 2)[0]) {

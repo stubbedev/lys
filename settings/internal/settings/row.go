@@ -270,6 +270,9 @@ func (r *settingRow) showProblem(err error) {
 // stacks under the text, with the reset button beside the label.
 func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *settingRow {
 	t := locale.T()
+	if _, ok := ctl.(interface{ stacked() }); ok {
+		spec.fullWidth = true
+	}
 	axis := widget.Row
 	if spec.fullWidth {
 		axis = widget.Column

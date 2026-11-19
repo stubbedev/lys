@@ -116,7 +116,7 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	}
 	switch meta.Type {
 	case "StrftimeFormat":
-		return newFormatEditor(k, s, meta.Optional, strftimeFormat()), true
+		return newLabelBuilder(k, s, meta.Optional, strftimeParts()), true
 	case "Secret":
 		return newSecretEditor(k, s, meta.Optional), true
 	case "Directory":
@@ -421,14 +421,16 @@ func variantsListed(layouts func() []string) func(current string, items []choice
 }
 
 type formatKind struct {
-	insert  []choice
-	presets []string
-	render  func(string) string
+	insert     []choice
+	presets    []string
+	separators []string
+	escapes    []string
+	render     func(string) string
 }
 
 func placeholderFormat(ps []config.Placeholder) formatKind {
 	t := locale.T()
-	f := formatKind{}
+	f := formatKind{separators: labelSeparators}
 	for _, p := range ps {
 		f.insert = append(f.insert, choice{value: p.Token, label: cmp.Or(t.Get(p.Key), p.Name), group: p.Token})
 	}
@@ -450,6 +452,38 @@ func strftimeFormat() formatKind {
 		}
 		return f.Format(formatSampleTime)
 	}}
+}
+
+var timeParts = []struct{ directive, key string }{
+	{"%A", "settings-time-weekday-long"},
+	{"%a", "settings-time-weekday-short"},
+	{"%d", "settings-time-day"},
+	{"%-d", "settings-time-day-short"},
+	{"%B", "settings-time-month-long"},
+	{"%b", "settings-time-month-short"},
+	{"%m", "settings-time-month-number"},
+	{"%Y", "settings-time-year"},
+	{"%y", "settings-time-year-short"},
+	{"%H", "settings-time-hour-24"},
+	{"%-H", "settings-time-hour-24-short"},
+	{"%I", "settings-time-hour-12"},
+	{"%-I", "settings-time-hour-12-short"},
+	{"%M", "settings-time-minute"},
+	{"%S", "settings-time-second"},
+	{"%p", "settings-time-period"},
+}
+
+var timeSeparators = []string{" ", ":", ", ", "-", "/", ".", "_", " · "}
+
+func strftimeParts() formatKind {
+	f := strftimeFormat()
+	f.separators = timeSeparators
+	f.escapes = []string{"%%"}
+	t := locale.T()
+	for _, p := range timeParts {
+		f.insert = append(f.insert, choice{value: p.directive, label: t.Get(p.key), group: f.render(p.directive)})
+	}
+	return f
 }
 
 var formatSampleTime = time.Date(2026, time.March, 14, 15, 9, 26, 0, time.Local)
