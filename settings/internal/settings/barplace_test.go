@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -11,8 +12,10 @@ import (
 )
 
 func TestLayoutsHoldAModuleInAnyZoneOrGroup(t *testing.T) {
-	layouts := []config.BarLayout{{Monitor: "*", Left: []config.BarItem{{Module: config.ModuleClock}},
-		Right: []config.BarItem{{Group: &config.BarGroup{Name: "status", Modules: []config.BarItem{{Module: config.ModuleBattery}}}}}}}
+	layouts := []config.BarLayout{{
+		Monitor: "*", Left: []config.BarItem{{Module: config.ModuleClock}},
+		Right: []config.BarItem{{Group: &config.BarGroup{Name: "status", Modules: []config.BarItem{{Module: config.ModuleBattery}}}}},
+	}}
 	for m, want := range map[config.BarModule]bool{config.ModuleClock: true, config.ModuleBattery: true, config.ModuleWeather: false} {
 		if got := layoutsHold(layouts, m); got != want {
 			t.Errorf("%s: %v, want %v", m, got, want)
@@ -55,10 +58,5 @@ func TestABarItemPageSaysWhetherItIsInTheBarAndAddsIt(t *testing.T) {
 }
 
 func containsLabel(w widget.Widget, text string) bool {
-	for _, l := range treetest.Labels(w) {
-		if l == text {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(treetest.Labels(w), text)
 }

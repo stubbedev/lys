@@ -9,9 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/stubbedev/lys/desktop/identity"
+	"golang.org/x/sys/unix"
 )
 
 func runCaptured(t *testing.T, args ...string) (stdout, stderr string, code int) {
@@ -103,7 +102,7 @@ func TestAnUnknownSettingIsAUsageErrorNamingIt(t *testing.T) {
 	noSession(t)
 	for args, want := range map[string][]string{
 		`"does.not.exist"`: {"--setting", "does.not.exist"},
-		`"bar"`:    {"--page", "theme", "--setting", "bar.location"},
+		`"bar"`:            {"--page", "theme", "--setting", "bar.location"},
 	} {
 		stdout, stderr, code := runCaptured(t, want...)
 		if code != exitUsage || stdout != "" || !strings.HasPrefix(stderr, "error: ") || !strings.Contains(stderr, args) {

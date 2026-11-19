@@ -45,8 +45,9 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 	for _, s := range p.sections {
 		rows := make([]rowSpec, 0, len(s.rows))
 		for _, r := range s.rows {
+			isWM := p.wm || r.wm
 			switch {
-			case (p.wm || r.wm) && installed.wm, !(p.wm || r.wm) && installed.shell:
+			case isWM && installed.wm, !isWM && installed.shell:
 				rows = append(rows, r)
 			case r.wmTwin != "" && installed.wm:
 				rows = append(rows, r.asWMTwin())
