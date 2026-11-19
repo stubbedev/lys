@@ -13,11 +13,12 @@ import (
 	"os"
 	"sync"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
 // SocketEnv is niri_ipc::socket::SOCKET_PATH_ENV.
-const SocketEnv = "NIRI_SOCKET"
+const SocketEnv = compositor.NiriSocketEnv
 
 // ErrNotRunning is the error when $NIRI_SOCKET is unset.
 var ErrNotRunning = errors.New("niri: NIRI_SOCKET is not set")

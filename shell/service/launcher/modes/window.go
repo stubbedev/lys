@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -130,17 +131,18 @@ type WindowBackend interface {
 // DetectWindows picks the compositor from the environment, nil when
 // none it can talk to is running.
 func DetectWindows() WindowBackend {
-	switch {
-	case lyswm.IsRunning():
+	switch compositor.Detect(os.Getenv) {
+	case compositor.LysWM:
 		return lysWMBackend{}
-	case mango.IsRunning():
-		return mangoBackend{}
-	case os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") != "":
+	case compositor.Hyprland:
 		return hyprlandBackend{}
-	case os.Getenv("NIRI_SOCKET") != "":
+	case compositor.Niri:
 		return niriBackend{}
-	case os.Getenv("SWAYSOCK") != "":
+	case compositor.Mango:
+		return mangoBackend{}
+	case compositor.Sway:
 		return swayBackend{}
+	case compositor.Unknown:
 	}
 	return nil
 }

@@ -15,11 +15,12 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
 // SocketEnv names the variable that locates the mango instance.
-const SocketEnv = "MANGO_INSTANCE_SIGNATURE"
+const SocketEnv = compositor.MangoSocketEnv
 
 // The watch subscriptions.
 const (

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/ipcsock"
 )
 
@@ -25,7 +26,7 @@ const endOfTransmission = '\x04'
 // be set; without them Hyprland is not running as far as lys-shell is
 // concerned.
 func Paths() (command, events string, err error) {
-	his := os.Getenv("HYPRLAND_INSTANCE_SIGNATURE")
+	his := os.Getenv(compositor.HyprlandSocketEnv)
 	if his == "" {
 		return "", "", errors.New("hyprland: HYPRLAND_INSTANCE_SIGNATURE is not set")
 	}
