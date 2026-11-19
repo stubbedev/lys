@@ -113,6 +113,13 @@ func valueNot(value string) func(any) bool {
 	}
 }
 
+func valueIs(path, want string) func(store) bool {
+	return func(s store) bool {
+		v, _ := s.value(path).(string)
+		return v == want
+	}
+}
+
 func (r rowSpec) flat() []rowSpec {
 	out := []rowSpec{r}
 	for _, n := range r.nested {

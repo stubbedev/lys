@@ -302,10 +302,7 @@ func themePage(*config.Config) pageSpec {
 // cycling directory with its options, the per-monitor overrides and
 // the change animation.
 func themeProviderIs(provider config.ThemeProvider) func(store) bool {
-	return func(s store) bool {
-		v, _ := s.value("styling.theme-provider").(string)
-		return v == string(provider)
-	}
+	return valueIs("styling.theme-provider", string(provider))
 }
 
 func wallpaperPage(*config.Config) pageSpec {

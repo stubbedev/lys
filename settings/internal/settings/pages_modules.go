@@ -524,8 +524,10 @@ func weatherPage(*config.Config) pageSpec {
 			field("modules.weather.refresh-interval-seconds", durationChips(inSeconds, after(15*time.Minute), after(30*time.Minute), after(time.Hour), after(3*time.Hour))),
 			field("modules.weather.icon-name", iconRow),
 		}},
-		{title: "settings-section-api-keys", rows: []rowSpec{
+		{title: "settings-section-api-key", when: valueIs("modules.weather.provider", string(config.WeatherProviderVisualCrossing)), rows: []rowSpec{
 			field("modules.weather.visual-crossing-key"),
+		}},
+		{title: "settings-section-api-key", when: valueIs("modules.weather.provider", string(config.WeatherProviderWeatherApi)), rows: []rowSpec{
 			field("modules.weather.weatherapi-key"),
 		}},
 		barItemSection("modules.weather", actionChoices("weather")),
