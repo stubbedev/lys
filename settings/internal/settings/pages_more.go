@@ -189,8 +189,8 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.preview-cmd"),
 		}},
 		{title: "settings-section-launcher-keybindings", rows: []rowSpec{
-			field("launcher.keybindings", stringMap),
-			field("launcher.mouse-bindings", stringMap),
+			field("launcher.keybindings", launcherKeysRow),
+			field("launcher.mouse-bindings", launcherMouseRow),
 		}},
 		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.launcher")},
 	}}

@@ -204,13 +204,24 @@ func (p *sysPanel) close() {
 }
 
 func panelRow(k *kit, title, detail string, controls ...widget.Widget) *widget.Box {
+	if detail == "" {
+		return panelRowWith(k, title, nil, controls...)
+	}
+	return panelRowWith(k, title, detailLabel(k, detail), controls...)
+}
+
+func detailLabel(k *kit, text string) *widget.Label {
+	return wrapped(k.label(text, "setting-description", css.Caption, css.DimLabel))
+}
+
+func panelRowWith(k *kit, title string, detail *widget.Label, controls ...widget.Widget) *widget.Box {
 	row := gapBox(widget.Row)
 	row.SetElement("item")
 	row.AddClass(css.Small, "setting-row")
 	text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
 	text.Append(k.label(title, "setting-label"), false)
-	if detail != "" {
-		text.Append(wrapped(k.label(detail, "setting-description", css.Caption, css.DimLabel)), false)
+	if detail != nil {
+		text.Append(detail, false)
 	}
 	row.AppendAligned(text, true, widget.AlignCenter)
 	for _, c := range controls {
