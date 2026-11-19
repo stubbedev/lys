@@ -1,30 +1,21 @@
 ### lys-settings: the lys-wm pages
 
-settings-nav-wm = Compositor
 settings-nav-wm-windows = Finestre
 settings-page-wm-windows = Finestre
-    .breadcrumb = lys-wm
 settings-nav-wm-effects = Ombra e sfocatura
 settings-page-wm-effects = Ombra e sfocatura
-    .breadcrumb = lys-wm
 settings-nav-wm-motion = Movimento
 settings-page-wm-motion = Movimento
-    .breadcrumb = lys-wm
 settings-nav-wm-tiling = Affiancamento e schede
 settings-page-wm-tiling = Affiancamento e schede
-    .breadcrumb = lys-wm
 settings-nav-wm-input = Input
 settings-page-wm-input = Input
-    .breadcrumb = lys-wm
 settings-nav-wm-binds = Tasti e gesti
 settings-page-wm-binds = Tasti e gesti
-    .breadcrumb = lys-wm
 settings-nav-wm-outputs = Schermi
 settings-page-wm-outputs = Schermi
-    .breadcrumb = lys-wm
 settings-nav-wm-session = Regole e sessione
 settings-page-wm-session = Regole e sessione
-    .breadcrumb = lys-wm
 
 wm-section-gaps = Spazi
     .description = Spazio attorno e tra le finestre affiancate

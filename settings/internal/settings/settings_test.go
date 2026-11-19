@@ -321,13 +321,10 @@ func TestEveryPageBuilds(t *testing.T) {
 				t.Errorf("page id %s twice", p.id)
 			}
 			ids[p.id] = true
-			for _, key := range []string{p.navKey, p.header} {
+			for _, key := range []string{p.section, p.navKey, p.header} {
 				if !tr.Has(key) {
 					t.Errorf("%s: key %s missing", p.id, key)
 				}
-			}
-			if strings.HasPrefix(tr.Attr(p.header, "breadcrumb"), "No localization") {
-				t.Errorf("%s: no breadcrumb", p.id)
 			}
 			for _, sec := range p.sections {
 				if !tr.Has(sec.title) {
@@ -348,7 +345,7 @@ func TestEveryPageBuilds(t *testing.T) {
 			w.show(p.id)
 			page := w.page
 			assertPageFits(t, w)
-			if len(page.rows) == 0 && p.footer == nil {
+			if len(page.rows) == 0 && p.footer == nil && p.lead == nil {
 				t.Errorf("%s: no rows", p.id)
 			}
 			untippedIconButtons(t, p.id, page)

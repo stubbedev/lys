@@ -1,30 +1,21 @@
 ### lys-settings: the lys-wm pages
 
-settings-nav-wm = Compositor
 settings-nav-wm-windows = Fenster
 settings-page-wm-windows = Fenster
-    .breadcrumb = lys-wm
 settings-nav-wm-effects = Schatten & Unschärfe
 settings-page-wm-effects = Schatten & Unschärfe
-    .breadcrumb = lys-wm
 settings-nav-wm-motion = Bewegung
 settings-page-wm-motion = Bewegung
-    .breadcrumb = lys-wm
 settings-nav-wm-tiling = Kacheln & Reiter
 settings-page-wm-tiling = Kacheln & Reiter
-    .breadcrumb = lys-wm
 settings-nav-wm-input = Eingabe
 settings-page-wm-input = Eingabe
-    .breadcrumb = lys-wm
 settings-nav-wm-binds = Tasten & Gesten
 settings-page-wm-binds = Tasten & Gesten
-    .breadcrumb = lys-wm
 settings-nav-wm-outputs = Bildschirme
 settings-page-wm-outputs = Bildschirme
-    .breadcrumb = lys-wm
 settings-nav-wm-session = Regeln & Sitzung
 settings-page-wm-session = Regeln & Sitzung
-    .breadcrumb = lys-wm
 
 wm-section-gaps = Abstände
     .description = Raum um und zwischen gekachelten Fenstern

@@ -828,13 +828,23 @@ func TestASchemaThatCannotBeReadFailsThePageNotTheApp(t *testing.T) {
 	}
 }
 
+func wmPageSpecs() []pageSpec {
+	var out []pageSpec
+	for _, s := range layout(config.Defaults(), bothParts) {
+		for _, p := range s.pages {
+			if p.wm {
+				out = append(out, p)
+			}
+		}
+	}
+	return out
+}
+
 func allWMRows() []rowSpec {
 	var rows []rowSpec
-	for _, s := range wmSections() {
-		for _, p := range s.pages {
-			for _, section := range p.sections {
-				rows = append(rows, section.rows...)
-			}
+	for _, p := range wmPageSpecs() {
+		for _, section := range p.sections {
+			rows = append(rows, section.rows...)
 		}
 	}
 	for _, section := range loginItemsPage(config.Defaults()).sections {
@@ -854,23 +864,15 @@ func TestEveryWMRowAndPageHasItsMessagesInEveryLanguage(t *testing.T) {
 				t.Errorf("%s: no %s", lang, r.labelKey())
 			}
 		}
-		for _, s := range wmSections() {
-			if !l.Has(s.key) {
-				t.Errorf("%s: no %s", lang, s.key)
+		for _, p := range wmPageSpecs() {
+			for _, key := range []string{p.section, p.navKey, p.header} {
+				if !l.Has(key) {
+					t.Errorf("%s: no %s", lang, key)
+				}
 			}
-			for _, p := range s.pages {
-				for _, key := range []string{p.navKey, p.header} {
-					if !l.Has(key) {
-						t.Errorf("%s: no %s", lang, key)
-					}
-				}
-				if l.Attr(p.header, "breadcrumb") == "" {
-					t.Errorf("%s: %s has no breadcrumb", lang, p.header)
-				}
-				for _, section := range p.sections {
-					if !l.Has(section.title) {
-						t.Errorf("%s: no %s", lang, section.title)
-					}
+			for _, section := range p.sections {
+				if !l.Has(section.title) {
+					t.Errorf("%s: no %s", lang, section.title)
 				}
 			}
 		}
@@ -882,9 +884,9 @@ func TestEveryWMRowAndPageHasItsMessagesInEveryLanguage(t *testing.T) {
 	}
 }
 
-func TestEveryWMPageIDIsUnique(t *testing.T) {
+func TestEveryPageIDIsUnique(t *testing.T) {
 	seen := []string{}
-	for _, s := range wmSections() {
+	for _, s := range layout(config.Defaults(), bothParts) {
 		for _, p := range s.pages {
 			if slices.Contains(seen, p.id) {
 				t.Errorf("%s twice", p.id)

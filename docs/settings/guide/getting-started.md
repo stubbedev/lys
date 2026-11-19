@@ -25,18 +25,32 @@ description and keywords.
 
 ## Pages
 
+The window opens on the overview, a tile per group. The sidebar groups pages by
+what they are for, so one page may hold lys-shell's and lys-wm's settings side
+by side. With only one of the two installed (on `PATH`), the other's rows are
+hidden, and a page left with nothing to show is gone; search, `--list-pages` and
+`--setting` follow the same rule.
+
 | Sidebar group | Page IDs |
 | --- | --- |
+| Home | `overview` |
 | Account | `users` |
-| Bar | `bar-general`, `bar-button`, `bar-dropdown`, `dock` |
-| Appearance | `theme`, `wallpaper`, `animations` |
-| System | `general`, `date-time`, `region`, `sound`, `idle`, `focus`, `login-items`, `default-apps`, `passwords`, `privacy` |
-| Overlays | `notifications`, `osd`, `share-picker`, `dropdowns` |
-| Launcher | `launcher`, `launcher-modes` |
-| Lock | `lock` |
-| Greeter | `greeter` |
-| Modules | One page per bar module: `audio`, `battery`, `bitwarden`, `bluetooth`, `brightness`, `cava`, `clock`, `cpu`, `custom`, `dashboard`, `nightlight`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `mail`, `media`, `minimized-windows`, `netstat`, `network`, `notification`, `power`, `power-profiles`, `ram`, `recorder`, `screenshot`, `separator`, `storage`, `systray`, `treeman`, `weather`, `window-title`, `workspaces` (one page for every compositor, showing what the running one reads), `world-clock` |
-| Compositor | `wm-windows`, `wm-effects`, `wm-motion`, `wm-tiling`, `wm-input`, `wm-binds`, `wm-outputs`, `wm-session`; shown only when `lys-wm` is on `PATH`. See [lys-wm settings](./lys-wm) |
+| Appearance | `theme`, `wallpaper`, `general`, `animations`, `wm-motion` |
+| Displays | `wm-outputs` |
+| Sound | `sound` |
+| Input | `wm-input`, `wm-binds` |
+| Notifications & Focus | `notifications`, `focus`, `osd` |
+| Power & Battery | `idle` |
+| Apps | `default-apps`, `login-items`, `launcher`, `launcher-modes` |
+| Privacy & Security | `privacy`, `passwords`, `lock`, `greeter`, `share-picker` |
+| Time & Language | `date-time`, `region` |
+| Desktop | `bar-general`, `bar-button`, `bar-dropdown`, `dropdowns`, `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
+| Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `notification`, `power`, `power-profiles`, `ram`, `storage`, `systray` |
+| Bar Items: Media | `cava`, `media`, `recorder`, `screenshot` |
+| Bar Items: Productivity | `bitwarden`, `clock`, `custom`, `mail`, `separator`, `treeman`, `weather`, `world-clock` |
+| Bar Items: Workspaces & Windows | `minimized-windows`, `window-title`, `workspaces` (one page for every compositor, showing what the running one reads) |
+
+The `wm-` pages and `wm-outputs` are lys-wm's; see [lys-wm settings](./lys-wm).
 
 lys-shell's pages edit its config and work without the shell running.
 

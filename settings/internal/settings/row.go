@@ -35,6 +35,8 @@ type kit struct {
 	monoVariants widget.VariantFunc
 	store        store
 	parts        parts
+	nav          []navSection
+	openPage     func(id string)
 	// invoke runs a function on the loop (the slider's trailing commit).
 	invoke func(func())
 	// pickers opens popovers and dialogs; nil without a window.

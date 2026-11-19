@@ -1,30 +1,21 @@
 ### lys-settings: the lys-wm pages
 
-settings-nav-wm = Compositor
 settings-nav-wm-windows = Windows
 settings-page-wm-windows = Windows
-    .breadcrumb = lys-wm
 settings-nav-wm-effects = Shadow & Blur
 settings-page-wm-effects = Shadow & Blur
-    .breadcrumb = lys-wm
 settings-nav-wm-motion = Motion
 settings-page-wm-motion = Motion
-    .breadcrumb = lys-wm
 settings-nav-wm-tiling = Tiling & Tabs
 settings-page-wm-tiling = Tiling & Tabs
-    .breadcrumb = lys-wm
 settings-nav-wm-input = Input
 settings-page-wm-input = Input
-    .breadcrumb = lys-wm
 settings-nav-wm-binds = Keys & Gestures
 settings-page-wm-binds = Keys & Gestures
-    .breadcrumb = lys-wm
 settings-nav-wm-outputs = Displays
 settings-page-wm-outputs = Displays
-    .breadcrumb = lys-wm
 settings-nav-wm-session = Rules & Session
 settings-page-wm-session = Rules & Session
-    .breadcrumb = lys-wm
 
 wm-section-gaps = Gaps
     .description = Space around and between tiled windows

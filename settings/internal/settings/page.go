@@ -16,6 +16,7 @@ import (
 // page's sections.
 type pageSpec struct {
 	id, navKey, icon string
+	section          string
 	// header titles the page; its breadcrumb attribute heads it.
 	header   string
 	sections []sectionSpec
@@ -126,7 +127,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	content.AddClass("settings-page")
 	header := widget.NewBox(widget.Column, th.Spacing/2, 0)
 	header.AddClass("settings-page-header")
-	header.Append(k.label(t.Attr(spec.header, "breadcrumb"), "settings-breadcrumb", css.Caption, css.DimLabel), false)
+	header.Append(k.label(t.Get(spec.section), "settings-breadcrumb", css.Caption, css.DimLabel), false)
 	header.Append(k.label(t.Get(spec.header), "settings-page-title", css.H4), false)
 	content.Append(header, false)
 	content.Append(widget.NewSeparator(widget.Horizontal), false)

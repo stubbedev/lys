@@ -1,6 +1,10 @@
 package settings
 
-import "github.com/stubbedev/lys/desktop/config"
+import (
+	"log"
+
+	"github.com/stubbedev/lys/desktop/config"
+)
 
 // The module pages, in the order the sidebar lists them.
 
@@ -51,6 +55,39 @@ func backgroundAppsPage(*config.Config) pageSpec {
 		colorsSection(m),
 		actionsSection(m, actionChoices("background-apps")),
 	}}
+}
+
+var barItemGroups = []struct {
+	key string
+	ids []string
+}{
+	{"settings-nav-bar-items-status", []string{
+		"audio", "background-apps", "battery", "bluetooth", "brightness", "cpu", "dashboard", "idle-inhibit", "keybind-mode",
+		"keyboard-input", "netstat", "network", "nightlight", "notification", "power", "power-profiles", "ram", "storage", "systray",
+	}},
+	{"settings-nav-bar-items-media", []string{"cava", "media", "recorder", "screenshot"}},
+	{"settings-nav-bar-items-productivity", []string{"bitwarden", "clock", "custom", "mail", "separator", "treeman", "weather", "world-clock"}},
+	{"settings-nav-bar-items-windows", []string{"minimized-windows", "window-title", "workspaces"}},
+}
+
+func barItemSections(cfg *config.Config) []navSection {
+	byID := map[string]pageSpec{}
+	for _, p := range modulePages(cfg) {
+		byID[p.id] = p
+	}
+	out := make([]navSection, 0, len(barItemGroups))
+	for _, g := range barItemGroups {
+		pages := make([]pageSpec, 0, len(g.ids))
+		for _, id := range g.ids {
+			p, ok := byID[id]
+			if !ok {
+				log.Panicf("settings: bar item group %s names no module page %q", g.key, id)
+			}
+			pages = append(pages, p)
+		}
+		out = append(out, navSection{key: g.key, pages: pages})
+	}
+	return out
 }
 
 // audioPage is pages/modules/audio.

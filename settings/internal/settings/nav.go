@@ -15,7 +15,7 @@ import (
 
 // initialPage is the page the window opens on (INITIAL_PAGE_ID), or
 // the first page while that one is not ported.
-const initialPage = "bar-general"
+const initialPage = overviewID
 
 // navSection is NavSectionLayout: a titled sidebar group of pages.
 type navSection struct {
@@ -55,17 +55,23 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 
 func layout(cfg *config.Config, installed parts) []navSection {
 	sections := []navSection{
+		{key: "settings-nav-home", pages: []pageSpec{overviewPage()}},
 		{key: "settings-nav-account", pages: []pageSpec{usersPage(cfg)}},
-		{key: "settings-nav-bar-section", pages: []pageSpec{barGeneralPage(cfg), barButtonPage(cfg), barDropdownPage(cfg), dockPage(cfg)}},
-		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), animationsPage(cfg)}},
-		{key: "settings-nav-system", pages: []pageSpec{generalPage(cfg), dateTimePage(cfg), regionPage(cfg), soundPage(cfg), idlePage(cfg), focusPage(cfg), loginItemsPage(cfg), defaultAppsPage(cfg), passwordsPage(cfg), privacyPage(cfg)}},
-		{key: "settings-nav-overlays", pages: []pageSpec{notificationsPage(cfg), osdPage(cfg), sharePickerPage(cfg), dropdownsPage(cfg)}},
-		{key: "settings-nav-launcher", pages: []pageSpec{launcherPage(cfg), launcherModesPage(cfg)}},
-		{key: "settings-nav-lock", pages: []pageSpec{lockPage(cfg)}},
-		{key: "settings-nav-greeter", pages: []pageSpec{greeterPage(cfg)}},
-		{key: "settings-nav-modules", pages: modulePages(cfg)},
+		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), generalPage(cfg), animationsPage(cfg), wmMotionPage()}},
+		{key: "settings-nav-displays", pages: []pageSpec{displaysPage()}},
+		{key: "settings-nav-sound-section", pages: []pageSpec{soundPage(cfg)}},
+		{key: "settings-nav-input", pages: []pageSpec{wmInputPage(), wmBindsPage()}},
+		{key: "settings-nav-notifications-focus", pages: []pageSpec{notificationsPage(cfg), focusPage(cfg), osdPage(cfg)}},
+		{key: "settings-nav-power", pages: []pageSpec{idlePage(cfg)}},
+		{key: "settings-nav-apps", pages: []pageSpec{defaultAppsPage(cfg), loginItemsPage(cfg), launcherPage(cfg), launcherModesPage(cfg)}},
+		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg), greeterPage(cfg), sharePickerPage(cfg)}},
+		{key: "settings-nav-time-language", pages: []pageSpec{dateTimePage(cfg), regionPage(cfg)}},
+		{key: "settings-nav-desktop", pages: []pageSpec{
+			barGeneralPage(cfg), barButtonPage(cfg), barDropdownPage(cfg), dropdownsPage(cfg), dockPage(cfg),
+			wmWindowsPage(), wmEffectsPage(), wmTilingPage(), wmSessionPage(),
+		}},
 	}
-	sections = append(sections, wmSections()...)
+	sections = append(sections, barItemSections(cfg)...)
 	out := sections[:0]
 	for _, s := range sections {
 		pages := s.pages[:0]
@@ -73,6 +79,9 @@ func layout(cfg *config.Config, installed parts) []navSection {
 			if p, ok := p.on(installed); ok {
 				pages = append(pages, p)
 			}
+		}
+		for i := range pages {
+			pages[i].section = s.key
 		}
 		if len(pages) > 0 {
 			out = append(out, navSection{key: s.key, pages: pages})
