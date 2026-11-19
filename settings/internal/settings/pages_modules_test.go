@@ -62,3 +62,20 @@ func TestThePowerMenuListsItsButtonsWithTheirCommandsUnderAdvanced(t *testing.T)
 		}
 	}
 }
+
+func TestTheSeparatorsThicknessSlidesOverOneToFourPixels(t *testing.T) {
+	k := testKit(t, "modules:\n  separator:\n    size: 6\n")
+	c, ok := fieldControl(k, k.store, pageRow(t, "separator", "modules.separator.size")).(*softRange)
+	if !ok {
+		t.Fatal("the separator's thickness is not a pixel slider")
+	}
+	if c.number.Value() != 6 {
+		t.Errorf("a 6 px line reads %v in the number", c.number.Value())
+	}
+	for v, want := range map[float64]float64{0: 1, 3: 3, 9: 4} {
+		c.slider.Knob.SetValue(v)
+		if got := c.slider.Knob.Value(); got != want {
+			t.Errorf("sliding to %v rests at %v, want %v", v, got, want)
+		}
+	}
+}

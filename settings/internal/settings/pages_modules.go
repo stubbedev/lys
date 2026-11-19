@@ -474,7 +474,7 @@ func screenshotPage(*config.Config) pageSpec {
 func separatorPage(*config.Config) pageSpec {
 	return pageSpec{id: "separator", navKey: "settings-nav-separator", icon: "ld-minus-symbolic", header: "settings-page-separator", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.separator.size"),
+			field("modules.separator.size", softPixels(1, 4)),
 			field("modules.separator.length"),
 		}},
 		barItemSection("modules.separator", nil),
