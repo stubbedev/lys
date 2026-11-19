@@ -59,6 +59,10 @@ dock's hide delay and zoom size, and the icon padding of a bar button style
 without an icon box are hidden until they apply. Search and `--setting` for a
 hidden row land on the row that hides it.
 
+Displays are chosen on a picture of them, never typed: the dock shows on **All
+displays** or on the tiles chosen, and a display listed but not connected is
+kept, and named, until it is removed.
+
 lys-shell's pages edit its config and work without the shell running.
 
 Some pages also act on the system:

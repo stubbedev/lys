@@ -70,7 +70,7 @@ func TestThePickerShowsTheConnectedDisplaysAndGivesOneItsOwnWallpaper(t *testing
 		t.Fatalf("the picker shows %v", got)
 	}
 	c.picker.handles[1].KeyAction(widget.KeyEnter, 0)
-	if c.picker.selected != "HDMI-A-1" {
+	if c.picker.current() != "HDMI-A-1" {
 		t.Fatalf("Enter on the second display selected %q", c.picker.selected)
 	}
 	treetest.First[*widget.Switch](t, c.detail).SetOn(true)

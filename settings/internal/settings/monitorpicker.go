@@ -35,8 +35,11 @@ type monitorPicker struct {
 	tiles    []monitorTile
 	handles  []*monitorHandle
 	thumbs   map[string]image.Image
-	selected string
-	onPick   func(name string)
+	selected []string
+	// multi toggles each display a press chooses, instead of choosing it
+	// alone.
+	multi  bool
+	onPick func(name string)
 }
 
 type monitorHandle struct {
@@ -73,11 +76,33 @@ func (p *monitorPicker) setThumb(name string, img image.Image) {
 	p.Invalidate()
 }
 
+func (p *monitorPicker) isSelected(name string) bool { return slices.Contains(p.selected, name) }
+
+// current is the display a single choice holds, "" before one.
+func (p *monitorPicker) current() string {
+	if len(p.selected) == 0 {
+		return ""
+	}
+	return p.selected[0]
+}
+
+func (p *monitorPicker) setSelected(names []string) {
+	p.selected = names
+	p.Invalidate()
+}
+
 func (p *monitorPicker) choose(name string) {
 	if !slices.ContainsFunc(p.tiles, func(t monitorTile) bool { return t.name == name }) {
 		return
 	}
-	p.selected = name
+	switch {
+	case !p.multi:
+		p.selected = []string{name}
+	case p.isSelected(name):
+		p.selected = slices.DeleteFunc(slices.Clone(p.selected), func(n string) bool { return n == name })
+	default:
+		p.selected = append(slices.Clone(p.selected), name)
+	}
 	p.Invalidate()
 	if p.onPick != nil {
 		p.onPick(name)
@@ -127,7 +152,7 @@ func (p *monitorPicker) Paint(cv *render.Canvas) {
 		} else {
 			cv.RoundedRect(tile, tileRadius, th.CardColor())
 		}
-		if t.name == p.selected {
+		if p.isSelected(t.name) {
 			cv.RoundedBorder(tile, corners, render.UniformInsets(monitorRing), th.Accent)
 		} else if widget.FocusVisible(p.handles[i]) {
 			cv.RoundedBorder(tile, corners, render.UniformInsets(focusRing), th.Text)
@@ -139,6 +164,63 @@ func (p *monitorPicker) Paint(cv *render.Canvas) {
 		cv.RoundedRect(pill, tileRadius, th.CardColor())
 		p.k.face.DrawAligned(cv, t.name, pill, p.k.textPx(), ink, render.AlignCenter)
 	}
+}
+
+// tileFeed hands its show the enabled displays as tiles, again whenever
+// they change, until it is closed; without the output manager it hands
+// the outputs the system lists once, laid side by side.
+type tileFeed struct {
+	mgr    displayManager
+	closed bool
+}
+
+func watchTiles(k *kit, show func([]monitorTile)) *tileFeed {
+	f := &tileFeed{}
+	async(k, func() displaysConnection {
+		mgr, err := connectDisplays(func(heads []displays.Head) {
+			k.invoke(func() {
+				if !f.closed {
+					show(monitorTiles(heads))
+				}
+			})
+		})
+		return displaysConnection{mgr, err}
+	}, func(conn displaysConnection) {
+		if conn.err != nil {
+			var names []string
+			for _, ch := range systemLists["Monitor"]() {
+				if ch.value != "" {
+					names = append(names, ch.value)
+				}
+			}
+			if !f.closed {
+				show(outputTiles(names))
+			}
+			return
+		}
+		if f.closed {
+			conn.mgr.Close()
+			return
+		}
+		f.mgr = conn.mgr
+	})
+	return f
+}
+
+func (f *tileFeed) close() {
+	f.closed = true
+	if f.mgr != nil {
+		f.mgr.Close()
+		f.mgr = nil
+	}
+}
+
+func outputTiles(names []string) []monitorTile {
+	out := make([]monitorTile, len(names))
+	for i, n := range names {
+		out[i] = monitorTile{name: n, rect: displays.Rect{X: i * 1920, W: 1920, H: 1080}}
+	}
+	return out
 }
 
 func (p *monitorPicker) HitTest(pt widget.Point) widget.Widget { return p.HitLeaf(p, pt) }

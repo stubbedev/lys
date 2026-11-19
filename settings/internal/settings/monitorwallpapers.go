@@ -12,7 +12,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 	xdraw "golang.org/x/image/draw"
 
-	"github.com/stubbedev/lys/settings/internal/displays"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -65,14 +64,6 @@ func withoutMonitor(v any, name string) []any {
 	return out
 }
 
-func outputTiles(names []string) []monitorTile {
-	out := make([]monitorTile, len(names))
-	for i, n := range names {
-		out[i] = monitorTile{name: n, rect: displays.Rect{X: i * 1920, W: 1920, H: 1080}}
-	}
-	return out
-}
-
 type monitorWallpapers struct {
 	*widget.Box
 	k       *kit
@@ -81,7 +72,7 @@ type monitorWallpapers struct {
 	detail  *widget.Box
 	away    *widget.Box
 	note    *widget.Label
-	mgr     displayManager
+	feed    *tileFeed
 	tiles   []monitorTile
 	thumbs  map[string]image.Image
 	loading map[string]bool
@@ -92,7 +83,7 @@ func newMonitorWallpapers(k *kit, s slot) *monitorWallpapers {
 	c := &monitorWallpapers{Box: gapBox(widget.Column), k: k, slot: s, thumbs: map[string]image.Image{}, loading: map[string]bool{}}
 	c.AddClass("monitor-wallpapers")
 	c.picker = newMonitorPicker(k, func(string) { c.showDetail() })
-	c.picker.SetAccessibleName(locale.T().Get("settings-wallpaper-monitors"))
+	c.picker.SetAccessibleName(locale.T().Get("settings-monitors"))
 	c.note = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
 	c.detail = gapBox(widget.Column)
 	c.away = gapBox(widget.Column)
@@ -100,49 +91,20 @@ func newMonitorWallpapers(k *kit, s slot) *monitorWallpapers {
 	c.Append(c.note, false)
 	c.Append(c.detail, false)
 	c.Append(c.away, false)
-	c.connect()
+	c.feed = watchTiles(k, c.showTiles)
 	return c
-}
-
-func (c *monitorWallpapers) connect() {
-	async(c.k, func() displaysConnection {
-		mgr, err := connectDisplays(func(heads []displays.Head) { c.k.invoke(func() { c.showTiles(monitorTiles(heads)) }) })
-		return displaysConnection{mgr, err}
-	}, func(conn displaysConnection) {
-		if conn.err != nil {
-			var names []string
-			for _, ch := range systemLists["Monitor"]() {
-				if ch.value != "" {
-					names = append(names, ch.value)
-				}
-			}
-			c.showTiles(outputTiles(names))
-			return
-		}
-		if c.closed {
-			conn.mgr.Close()
-			return
-		}
-		c.mgr = conn.mgr
-	})
 }
 
 func (c *monitorWallpapers) close() {
 	c.closed = true
-	if c.mgr != nil {
-		c.mgr.Close()
-		c.mgr = nil
-	}
+	c.feed.close()
 }
 
 func (c *monitorWallpapers) showTiles(tiles []monitorTile) {
-	if c.closed {
-		return
-	}
 	c.tiles = tiles
 	c.picker.setTiles(tiles)
-	if c.picker.selected == "" && len(tiles) > 0 {
-		c.picker.selected = tiles[0].name
+	if c.picker.current() == "" && len(tiles) > 0 {
+		c.picker.setSelected([]string{tiles[0].name})
 	}
 	c.refresh()
 }
@@ -205,7 +167,7 @@ func (c *monitorWallpapers) refresh() {
 	c.paintThumbs()
 	t := locale.T()
 	c.picker.SetVisible(len(c.tiles) > 0)
-	c.note.SetText(t.Get("settings-wallpaper-monitors-none"))
+	c.note.SetText(t.Get("settings-monitors-none"))
 	c.note.SetVisible(len(c.tiles) == 0)
 	c.showDetail()
 	c.showAway()
@@ -213,7 +175,7 @@ func (c *monitorWallpapers) refresh() {
 
 func (c *monitorWallpapers) showDetail() {
 	c.detail.Clear()
-	name := c.picker.selected
+	name := c.picker.current()
 	if name == "" {
 		return
 	}

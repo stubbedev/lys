@@ -13,7 +13,6 @@ import (
 
 const (
 	launcherScriptsPath = "launcher.scripts"
-	everyMonitor        = "*"
 )
 
 type choiceItem struct {
@@ -141,17 +140,9 @@ func launcherModes(k *kit) lister {
 	}
 }
 
-func monitorsOrEvery(*kit) lister {
-	return func() []choice {
-		every := choice{value: everyMonitor, label: locale.T().Get("settings-monitors-every"), group: everyMonitor}
-		return append([]choice{every}, systemLists["Monitor"]()...)
-	}
-}
-
 var (
 	launcherModesRow = choiceListRow(launcherModes, plainChoices)
 	displayNamesRow  = choiceListRow(launcherModes, namedChoices)
-	monitorsRow      = choiceListRow(monitorsOrEvery, plainChoices)
 	scriptsRow       = listRow(func(config.FieldMeta) listSpec {
 		return pairMapSpec("settings-map-mode-name-placeholder", true, func(k *kit, value *string, changed func()) widget.Widget {
 			return newFileEditor(k, stringSlot(value, changed))

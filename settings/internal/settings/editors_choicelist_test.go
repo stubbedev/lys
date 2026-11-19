@@ -88,23 +88,6 @@ func TestADisplayNameIsGivenToAPickedMode(t *testing.T) {
 	}
 }
 
-func TestDockMonitorsArePickedFromTheConnectedOutputs(t *testing.T) {
-	k := testKit(t, "dock:\n  monitors: [\"*\"]\n")
-	c := choiceList(t, k, "dock", "dock.monitors")
-	p := openAdd(t, c)
-	if !slices.Equal(p.all, []string{"DP-1", "HDMI-A-1"}) {
-		t.Fatalf("offered %v", p.all)
-	}
-	pickName(t, p, "DP-1")
-	pickName(t, openAdd(t, c), "HDMI-A-1")
-	if got := k.store.value("dock.monitors"); !reflect.DeepEqual(got, []any{"*", "DP-1", "HDMI-A-1"}) {
-		t.Errorf("stored %v", got)
-	}
-	if c.add.Visible() {
-		t.Error("with every output listed the list still offers an add")
-	}
-}
-
 func TestAScriptModeNamesItsExecutableFile(t *testing.T) {
 	k := testKit(t, "launcher:\n  scripts:\n    notes: ~/bin/notes\n")
 	c, ok := fieldControl(k, k.store, pageRow(t, "launcher-modes", launcherScriptsPath)).(*listEditor)

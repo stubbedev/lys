@@ -321,7 +321,7 @@ func dockPage(*config.Config) pageSpec {
 	return pageSpec{id: "dock", navKey: "settings-nav-dock", icon: "ld-panel-bottom-symbolic", header: "settings-page-dock", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("dock.enabled"),
-			field("dock.monitors", monitorsRow, dockRow),
+			field("dock.monitors", monitorSetRow, dockRow),
 			field("dock.edge", screenPosition, dockRow),
 			field("dock.auto-hide", dockRow),
 			field("dock.auto-hide-delay-ms", hideDelay, dockRow, shownWhen("dock.auto-hide", switchedOn)),
