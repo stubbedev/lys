@@ -1155,3 +1155,5 @@ settings-wifi-detail-hardware = Endereço físico
 settings-wifi-detail-gateway = Gateway
 settings-wifi-detail-dns = Servidores DNS
 settings-wifi-detail-ip6 = Endereço IPv6
+settings-bluetooth-sound = Som
+settings-bluetooth-sound-tooltip = Escolher o perfil de som, como reprodução de alta qualidade ou o microfone do auricular, na página Som

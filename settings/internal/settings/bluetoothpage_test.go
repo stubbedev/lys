@@ -332,3 +332,29 @@ func TestEveryDeviceIconIsOneTheAppShips(t *testing.T) {
 		}
 	}
 }
+
+func TestAConnectedHeadsetOpensItsSoundSettings(t *testing.T) {
+	f := homeBT()
+	headsetHint, mouseHint := "audio-headset", "input-mouse"
+	f.st.Devices[0].Icon = &headsetHint
+	f.st.Devices[2].Icon, f.st.Devices[2].Connected = &mouseHint, true
+	k := testKit(t, "")
+	k.bluetooth = func() (btControl, error) { return f, nil }
+	var opened []string
+	k.openPage = func(id string) { opened = append(opened, id) }
+	p := newBluetoothPanel(k)
+	label := locale.T().Get("settings-bluetooth-sound")
+	var buttons []*widget.Button
+	for _, b := range treetest.All[*widget.Button](p) {
+		if slices.Contains(treetest.Labels(b), label) {
+			buttons = append(buttons, b)
+		}
+	}
+	if len(buttons) != 1 {
+		t.Fatalf("%d Sound buttons, want one for the connected headset and none for the connected mouse or the speaker", len(buttons))
+	}
+	buttons[0].OnClick()
+	if !slices.Equal(opened, []string{soundID}) {
+		t.Errorf("the Sound button opened %q", opened)
+	}
+}

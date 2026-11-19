@@ -1,6 +1,9 @@
 package bluetooth
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // The Bluetooth class-of-device major classes.
 const (
@@ -110,6 +113,15 @@ func peripheralIcon(minor uint32) string {
 		return "ld-mouse-symbolic"
 	}
 	return "ld-bluetooth-symbolic"
+}
+
+// IsAudio reports whether a device plays or records sound, by its icon
+// hint or, without one, its class.
+func IsAudio(hint *string, class *uint32) bool {
+	if hint != nil {
+		return strings.HasPrefix(*hint, "audio-")
+	}
+	return class != nil && MajorClass(*class) == MajorAV
 }
 
 // FormatPasskey zero-pads a passkey to six digits.

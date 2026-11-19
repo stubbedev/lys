@@ -1164,3 +1164,5 @@ settings-wifi-detail-hardware = Hardware address
 settings-wifi-detail-gateway = Gateway
 settings-wifi-detail-dns = DNS servers
 settings-wifi-detail-ip6 = IPv6 address
+settings-bluetooth-sound = Sound
+settings-bluetooth-sound-tooltip = Choose its sound profile, such as high-quality playback or the headset microphone, on the Sound page

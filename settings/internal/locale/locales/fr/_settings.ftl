@@ -1167,3 +1167,5 @@ settings-wifi-detail-hardware = Adresse matérielle
 settings-wifi-detail-gateway = Passerelle
 settings-wifi-detail-dns = Serveurs DNS
 settings-wifi-detail-ip6 = Adresse IPv6
+settings-bluetooth-sound = Son
+settings-bluetooth-sound-tooltip = Choisir son profil audio, comme la lecture haute qualité ou le micro du casque, sur la page Son

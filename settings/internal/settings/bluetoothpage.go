@@ -186,6 +186,7 @@ type btRow struct {
 	hasBattery bool
 	busy       btBusy
 	renaming   bool
+	audio      bool
 }
 
 type btView struct {
@@ -217,7 +218,7 @@ func btViewOf(st bluetooth.State, busy map[dbus.ObjectPath]btBusy, renaming dbus
 		}
 	}
 	for _, d := range st.Devices {
-		row := btRow{path: d.Path, name: d.DisplayName(), icon: bluetooth.DeviceIcon(d.Icon, d.Class), paired: d.Paired, connected: d.Connected, busy: busy[d.Path], renaming: d.Path == renaming}
+		row := btRow{path: d.Path, name: d.DisplayName(), icon: bluetooth.DeviceIcon(d.Icon, d.Class), paired: d.Paired, connected: d.Connected, busy: busy[d.Path], renaming: d.Path == renaming, audio: bluetooth.IsAudio(d.Icon, d.Class)}
 		if d.BatteryPercentage != nil {
 			row.battery, row.hasBattery = *d.BatteryPercentage, true
 		}
@@ -574,7 +575,13 @@ func (p *bluetoothPanel) deviceControls(r btRow) []widget.Widget {
 	}, css.Small, css.Flat)
 	forget := act("settings-bluetooth-forget", btForgetting, btCallWait, p.ctl.forget, css.Flat)
 	if r.connected {
-		return []widget.Widget{rename, forget, act("settings-bluetooth-disconnect", btDisconnecting, btCallWait, p.ctl.disconnect)}
+		controls := []widget.Widget{rename, forget, act("settings-bluetooth-disconnect", btDisconnecting, btCallWait, p.ctl.disconnect)}
+		if r.audio {
+			sound := p.k.button(p.k.label(t.Get("settings-bluetooth-sound")), func() { p.k.openPage(soundID) }, css.Small, css.Flat)
+			sound.SetTooltip(t.Get("settings-bluetooth-sound-tooltip"))
+			controls = append([]widget.Widget{sound}, controls...)
+		}
+		return controls
 	}
 	return []widget.Widget{rename, forget, act("settings-bluetooth-connect", btConnecting, btCallWait, p.ctl.connect)}
 }

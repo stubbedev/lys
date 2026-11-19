@@ -49,3 +49,19 @@ func TestFormatPasskeyPads(t *testing.T) {
 		t.Error("passkeys are six zero-padded digits")
 	}
 }
+
+func TestAnAudioDeviceIsKnownByItsHintOrClass(t *testing.T) {
+	headset, keyboard := "audio-headset", "input-keyboard"
+	av, phone := uint32(MajorAV<<8), uint32(MajorPhone<<8)
+	for _, c := range []struct {
+		hint  *string
+		class *uint32
+		want  bool
+	}{
+		{&headset, nil, true}, {&keyboard, &av, false}, {nil, &av, true}, {nil, &phone, false}, {nil, nil, false},
+	} {
+		if got := IsAudio(c.hint, c.class); got != c.want {
+			t.Errorf("IsAudio(%v, %v) = %v, want %v", c.hint, c.class, got, c.want)
+		}
+	}
+}
