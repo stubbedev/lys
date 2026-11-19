@@ -32,7 +32,7 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 	sway := swaytest.Start(t)
 	t.Setenv("SWAYSOCK", filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "sway-ipc."+strconv.Itoa(os.Getuid())+"."+strconv.Itoa(sway.Pid)+".sock"))
 	startProbeProcess(t, "org.example.Probe", "probe title")
-	layout := config.BarLayout{Monitor: "*", Left: []config.BarItem{{Module: "sway-workspaces"}}, Right: []config.BarItem{{Module: "clock"}}}
+	layout := config.BarLayout{Monitor: "*", Left: []config.BarItem{{Module: "workspaces"}}, Right: []config.BarItem{{Module: "clock"}}}
 	h := openHeadlessBar(t, config.Defaults(), layout)
 	clock := h.buttons(1)[0]
 

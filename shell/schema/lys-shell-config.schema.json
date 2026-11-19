@@ -1219,19 +1219,15 @@
             "clock",
             "cpu",
             "dashboard",
-            "hyprland-workspaces",
             "idle-inhibit",
             "keybind-mode",
             "keyboard-input",
-            "lys-wm-workspaces",
             "mail",
             "media",
-            "mango-workspaces",
             "minimized-windows",
             "netstat",
             "network",
             "nightlight",
-            "niri-workspaces",
             "notifications",
             "power",
             "power-profiles",
@@ -1240,7 +1236,6 @@
             "screenshot",
             "separator",
             "storage",
-            "sway-workspaces",
             "systray",
             "treeman",
             "updates",
@@ -3371,182 +3366,6 @@
       "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
       "type": "string"
     },
-    "HyprlandWorkspacesConfig": {
-      "description": "Hyprland workspace indicators with click-to-switch.",
-      "properties": {
-        "active-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "accent",
-          "description": "Color for the active (focused) workspace.\n\nApplied to icons and labels. In `background` indicator mode,\nalso used as the button background."
-        },
-        "active-indicator": {
-          "$ref": "#/$defs/ActiveIndicator",
-          "default": "background",
-          "description": "Visual indicator for the active workspace."
-        },
-        "active-on-other-monitor-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "accent",
-          "description": "Active on other minitor indicator color.\n\nOnly applies when `highlight-active-on-other-monitor` is `true`."
-        },
-        "app-icon-map": {
-          "$ref": "#/$defs/Map_of_string",
-          "default": {},
-          "description": "Application icon mapping with glob pattern support.\n\nMaps window class or title to symbolic icon names. Supports:\n- No prefix: Matches window class (e.g., `\"*firefox*\"`)\n- `class:` prefix: Explicit class match (e.g., `\"class:org.mozilla.*\"`)\n- `title:` prefix: Matches window title (e.g., `\"title:*YouTube*\"`)\n\nUser mappings are merged with built-in defaults for common applications.\n\n## Example\n\n```yaml\nmodules:\n  hyprland-workspaces:\n    app-icon-map:\n      \"*firefox*\": ld-globe-symbolic\n      \"title:*YouTube*\": ld-youtube-symbolic\n```"
-        },
-        "app-icons-dedupe": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Deduplicate application icons within a workspace.\n\nWhen true, shows only one icon per unique window class.\nWhen false, shows an icon for every window."
-        },
-        "app-icons-empty": {
-          "$ref": "#/$defs/string",
-          "default": "ld-minus-symbolic",
-          "description": "Icon shown for empty workspaces when `app-icons-show` is enabled.\n\nWhen a workspace has no windows but is displayed (via `min-workspace-count`),\nthis icon appears as a placeholder."
-        },
-        "app-icons-fallback": {
-          "$ref": "#/$defs/string",
-          "default": "ld-app-window-symbolic",
-          "description": "Fallback icon for applications not matched by `app-icon-map`."
-        },
-        "app-icons-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Show application icons for windows in each workspace.\n\nWhen enabled, displays icons for running applications.\nIcons are resolved via `app-icon-map` configuration."
-        },
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "border-default",
-          "description": "Border color for the workspaces container."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around the workspaces container."
-        },
-        "container-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Background color for the workspaces container."
-        },
-        "display-mode": {
-          "$ref": "#/$defs/DisplayMode",
-          "default": "label",
-          "description": "What identifies each workspace button.\n\n- `label`: Shows workspace number (or name if `label-use-name` is true)\n- `icon`: Shows icon from `workspace-map` (falls back to label if unmapped)\n- `none`: Shows nothing - only app icons visible"
-        },
-        "divider": {
-          "$ref": "#/$defs/string",
-          "default": " ",
-          "description": "Text separator between workspace identity and app icons.\n\nOnly shown when both `display-mode` is not `none` and `app-icons-show`\nis enabled. Common values: `\"|\"`, `\"·\"`, `\"-\"`."
-        },
-        "empty-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-subtle",
-          "description": "Color for empty workspaces.\n\nApplied to the empty placeholder icon and labels."
-        },
-        "highlight-active-on-other-monitor": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Highlight workspaces active on other monitors with a different color.\n\nWhen true, workspaces active on a different monior are highlicted differently.\nWhen false, workspaces active on a another monitor are not specially highlighted.\n\nThis setting only makes sense when `monitor-specific` is false."
-        },
-        "icon-gap": {
-          "$ref": "#/$defs/Size",
-          "default": 0.30000001192092896,
-          "description": "Gap between app icons within a workspace button.\n\nOnly applies to spacing between app icons."
-        },
-        "icon-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace icon size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`).\n\nApplies to workspace identity icons and custom icons from `workspace-map`."
-        },
-        "label-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace label and divider size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`).\n\nApplies to workspace number/name labels and the divider text."
-        },
-        "label-use-name": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Use workspace name instead of number when displaying labels.\n\nOnly applies when `display-mode: label` or as fallback for unmapped\nworkspaces in `display-mode: icon`."
-        },
-        "left-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:this",
-          "description": "Action on left-clicking a workspace. Default focuses it."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on middle-clicking a workspace."
-        },
-        "min-workspace-count": {
-          "$ref": "#/$defs/uint8",
-          "default": 0,
-          "description": "Minimum number of workspace buttons to display.\n\nWhen set to 0 (default), only active and occupied workspaces are shown.\nWhen set to N, at least N buttons are always visible, with empty ones\nusing `empty-color` styling."
-        },
-        "monitor-specific": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show only workspaces belonging to the bar's monitor.\n\nWhen true, each bar shows only its monitor's workspaces.\nWhen false, all workspaces from all monitors are shown."
-        },
-        "numbering": {
-          "$ref": "#/$defs/Numbering",
-          "default": "absolute",
-          "description": "How workspace numbers are displayed.\n\n- `absolute`: Show actual Hyprland workspace IDs (1, 2, 3, 4, 5, 6...)\n- `relative`: Show numbers relative to monitor's starting workspace.\n  If a monitor has workspaces 4, 5, 6 assigned, they display as 1, 2, 3.\n  Useful when keybinds use per-monitor numbering."
-        },
-        "occupied-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-muted",
-          "description": "Color for occupied workspaces (has windows but not focused).\n\nApplied to icons and labels."
-        },
-        "right-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on right-clicking a workspace."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:next",
-          "description": "Action on scrolling down over the module. Default focuses the next workspace."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:previous",
-          "description": "Action on scrolling up over the module. Default focuses the previous workspace."
-        },
-        "show-special": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Include special workspaces (scratchpads) in the display.\n\nSpecial workspaces have negative IDs in Hyprland."
-        },
-        "urgent-mode": {
-          "$ref": "#/$defs/UrgentMode",
-          "default": "workspace",
-          "description": "Where the urgent pulse is applied.\n\n- `workspace`: Entire workspace pulses (default)\n- `application`: Only the app icon(s) belonging to the urgent window\n  pulse, falling back to `workspace` when app icons are disabled"
-        },
-        "urgent-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Pulse animation on workspaces with urgent windows.\n\nWhen a window requests attention (e.g., terminal bell), the workspace\nbutton pulses until you switch to it."
-        },
-        "workspace-ignore": {
-          "$ref": "#/$defs/Array_of_string",
-          "default": [],
-          "description": "Workspaces to hide from the display.\n\nGlob patterns matching workspace IDs. Examples:\n- `\"10\"` - hide workspace 10\n- `\"1?\"` - hide workspaces 10-19"
-        },
-        "workspace-map": {
-          "$ref": "#/$defs/WorkspaceMap",
-          "default": {},
-          "description": "Per-workspace icon and color overrides.\n\nKeys are workspace IDs (use negative for special workspaces).\n\n## Example\n\n```yaml\nmodules:\n  hyprland-workspaces:\n    workspace-map:\n      \"1\": {icon: ld-globe-symbolic, color: \"#4a90d9\"}\n      \"2\": {icon: ld-terminal-symbolic}\n```"
-        },
-        "workspace-padding": {
-          "$ref": "#/$defs/Size",
-          "default": 0.5,
-          "description": "Padding along the bar direction for content wider than the circle: app icons, a divider or a long name. Accepts a scale multiplier or pixels (e.g. `\"8px\"`).\n\nA short label takes no padding. It sets the circle's size instead: at least a digit's width plus this padding on each side.\n\nFor horizontal bars, controls horizontal (left/right) padding.\nFor vertical bars, controls vertical (top/bottom) padding."
-        }
-      },
-      "type": "object"
-    },
     "IconPosition": {
       "description": "Icon position within bar buttons.",
       "oneOf": [
@@ -5338,152 +5157,6 @@
       },
       "type": "object"
     },
-    "LysWMWorkspacesConfig": {
-      "description": "lys-wm workspace indicators with click-to-switch.",
-      "properties": {
-        "active-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "accent",
-          "description": "Color for the active (visible on its output) workspace.\n\nIn `background` indicator mode, also used as the button background."
-        },
-        "active-indicator": {
-          "$ref": "#/$defs/ActiveIndicator",
-          "default": "background",
-          "description": "Visual indicator for the active workspace."
-        },
-        "app-icon-map": {
-          "$ref": "#/$defs/Map_of_string",
-          "default": {},
-          "description": "Application icon mapping with glob pattern support.\n\nMaps window `app_id` or title to symbolic icon names. Supports:\n- No prefix: matches `app_id` (e.g. `\"*firefox*\"`)\n- `app:` prefix: explicit `app_id` match (e.g. `\"app:org.mozilla.*\"`)\n- `title:` prefix: matches window title (e.g. `\"title:*YouTube*\"`)\n\n## Example\n\n```yaml\nmodules:\n  lys-wm-workspaces:\n    app-icon-map:\n      \"*firefox*\": ld-globe-symbolic\n      \"title:*YouTube*\": ld-youtube-symbolic\n```"
-        },
-        "app-icons-dedupe": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Deduplicate application icons within a workspace.\n\nWhen `true`, one icon per unique `app_id`. When `false`, one icon\nper window."
-        },
-        "app-icons-empty": {
-          "$ref": "#/$defs/string",
-          "default": "ld-minus-symbolic",
-          "description": "Icon shown when a workspace has no application windows."
-        },
-        "app-icons-fallback": {
-          "$ref": "#/$defs/string",
-          "default": "ld-app-window-symbolic",
-          "description": "Fallback icon for applications not matched by `app-icon-map`."
-        },
-        "app-icons-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Show application icons for windows on each workspace."
-        },
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "border-default",
-          "description": "Border color for the workspaces container."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around the workspaces container."
-        },
-        "container-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Background color for the workspaces container."
-        },
-        "display-mode": {
-          "$ref": "#/$defs/DisplayMode",
-          "default": "label",
-          "description": "What identifies each workspace button.\n\n- `label` (default): show the workspace number\n- `icon`: show an icon from `workspace-map` (falls back to label if unmapped)\n- `none`: show nothing — only app icons visible (if enabled)"
-        },
-        "divider": {
-          "$ref": "#/$defs/string",
-          "default": " ",
-          "description": "Text separator between workspace identity and app icons."
-        },
-        "empty-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-subtle",
-          "description": "Color for empty workspaces and placeholder slots."
-        },
-        "icon-gap": {
-          "$ref": "#/$defs/Size",
-          "default": 0.30000001192092896,
-          "description": "Gap between app icons within a workspace button. Accepts a scale multiplier or pixels (e.g. `\"4px\"`)."
-        },
-        "icon-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace icon size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`).\n\nApplies to identity icons and custom icons from `workspace-map`."
-        },
-        "label-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace label and divider size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`)."
-        },
-        "left-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:this",
-          "description": "Action on left click."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on middle click."
-        },
-        "monitor-specific": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show only workspaces on this bar's monitor.\n\nWhen `true` (default), each bar shows only its own output's\nworkspaces. When `false`, all workspaces from every output are shown."
-        },
-        "occupied-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-muted",
-          "description": "Color for occupied workspaces (have windows but not active)."
-        },
-        "right-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on right click."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:next",
-          "description": "Action on scroll down."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:previous",
-          "description": "Action on scroll up."
-        },
-        "urgent-mode": {
-          "$ref": "#/$defs/UrgentMode",
-          "default": "workspace",
-          "description": "Where the urgent pulse is applied.\n\n- `workspace` (default): whole button pulses\n- `application`: only the urgent app icon pulses, falling back to\n  `workspace` when app icons are disabled"
-        },
-        "urgent-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Pulse animation on workspaces with urgent windows."
-        },
-        "workspace-ignore": {
-          "$ref": "#/$defs/Array_of_string",
-          "default": [],
-          "description": "Workspaces to hide from the display.\n\nGlob patterns matched against the workspace number. Example:\n- `\"1?\"` — hide numbers 10-19"
-        },
-        "workspace-map": {
-          "$ref": "#/$defs/WorkspaceMap",
-          "default": {},
-          "description": "Per-workspace icon and color overrides, keyed by workspace number.\n\n## Example\n\n```yaml\nmodules:\n  lys-wm-workspaces:\n    workspace-map:\n      \"1\": {icon: ld-globe-symbolic, color: \"#4a90d9\"}\n      \"2\": {icon: ld-terminal-symbolic}\n```"
-        },
-        "workspace-padding": {
-          "$ref": "#/$defs/Size",
-          "default": 0.5,
-          "description": "Padding along the bar direction for content wider than the circle: app icons, a divider or a long name. Accepts a scale multiplier or pixels (e.g. `\"8px\"`).\n\nA short label takes no padding. It sets the circle's size instead: at least a digit's width plus this padding on each side."
-        }
-      },
-      "type": "object"
-    },
     "MailAccount": {
       "description": "One mail account in the `modules.mail` per-account breakdown.\n\nEach account has its own notmuch query; the dropdown shows the per-account\nunread counts and the bar shows their sum.\n\n## Example\n\n```yaml\nmodules: {mail: {accounts: [{name: Work, query: \"folder:work/INBOX and tag:unread\", provider: gmail}]}}\n```",
       "properties": {
@@ -5748,158 +5421,6 @@
           "type": "string"
         }
       ]
-    },
-    "MangoWorkspacesConfig": {
-      "description": "MangoWM tag switcher module configuration.",
-      "properties": {
-        "active-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "accent",
-          "description": "Color of the active tag."
-        },
-        "active-indicator": {
-          "$ref": "#/$defs/ActiveIndicator",
-          "default": "background",
-          "description": "How the active tag is marked."
-        },
-        "app-icon-map": {
-          "$ref": "#/$defs/Map_of_string",
-          "default": {},
-          "description": "Window-to-icon mappings for the application icons.\n\nKeys are glob patterns matched against a client's app id, or `title:`\npatterns matched against its title. Values are symbolic icon names.\n\n## Example\n\n```yaml\nmodules:\n  mango-workspaces:\n    app-icon-map:\n      \"*firefox*\": ld-globe-symbolic\n      \"title:*YouTube*\": si-youtube-symbolic\n```"
-        },
-        "app-icons-dedupe": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Collapse clients that share an application to a single icon."
-        },
-        "app-icons-empty": {
-          "$ref": "#/$defs/string",
-          "default": "ld-minus-symbolic",
-          "description": "Icon shown when a tag has no clients."
-        },
-        "app-icons-fallback": {
-          "$ref": "#/$defs/string",
-          "default": "ld-app-window-symbolic",
-          "description": "Icon for clients not matched by `app-icon-map`."
-        },
-        "app-icons-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Show an application icon per client on each tag."
-        },
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "border-default",
-          "description": "Border color when the border is shown."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Draw a border around the tag container."
-        },
-        "container-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Background color of the tag container."
-        },
-        "display-mode": {
-          "$ref": "#/$defs/DisplayMode",
-          "default": "label",
-          "description": "What identifies each tag: its label, an icon, or nothing."
-        },
-        "divider": {
-          "$ref": "#/$defs/string",
-          "default": " ",
-          "description": "Text shown between the tag label and its application icons."
-        },
-        "empty-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-subtle",
-          "description": "Color of empty tags."
-        },
-        "hide-empty": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Hide tags that hold no clients and are not active."
-        },
-        "icon-gap": {
-          "$ref": "#/$defs/Size",
-          "default": 0.30000001192092896,
-          "description": "Spacing between application icons. Accepts a scale multiplier or pixels (e.g. `\"4px\"`)."
-        },
-        "icon-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Application icon size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`)."
-        },
-        "label-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Tag label text size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`)."
-        },
-        "left-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:this",
-          "description": "Action for a left click on a tag."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action for a middle click on a tag."
-        },
-        "min-tag-count": {
-          "$ref": "#/$defs/uint8",
-          "default": 0,
-          "description": "Always show tags up to this one-based index, even when empty.\n\n`0` shows only occupied or active tags (subject to `hide-empty`). A\nvalue above the compositor's tag count just shows every tag."
-        },
-        "occupied-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-muted",
-          "description": "Color of tags that hold clients but are not active."
-        },
-        "right-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action for a right click on a tag."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:next",
-          "description": "Action for scrolling down over the tag container."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:previous",
-          "description": "Action for scrolling up over the tag container."
-        },
-        "tag-map": {
-          "$ref": "#/$defs/Map_of_WorkspaceStyle",
-          "default": {},
-          "description": "Per-tag icon and color overrides, keyed by one-based tag index.\n\n## Example\n\n```yaml\nmodules:\n  mango-workspaces:\n    tag-map:\n      \"1\":\n        label: web\n        icon: ld-globe-symbolic\n        color: \"#4a90d9\"\n      \"2\":\n        label: term\n        icon: ld-terminal-symbolic\n```"
-        },
-        "tag-padding": {
-          "$ref": "#/$defs/Size",
-          "default": 0.5,
-          "description": "Padding along the bar direction for content wider than the circle: app icons, a divider or a long name. Accepts a scale multiplier or pixels (e.g. `\"8px\"`).\n\nA short label takes no padding. It sets the circle's size instead: at least a digit's width plus this padding on each side."
-        },
-        "urgent-mode": {
-          "$ref": "#/$defs/UrgentMode",
-          "default": "workspace",
-          "description": "Whether urgency is tracked per tag or per application."
-        },
-        "urgent-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Highlight tags whose clients requested attention."
-        }
-      },
-      "type": "object"
-    },
-    "Map_of_WorkspaceStyle": {
-      "additionalProperties": {
-        "$ref": "#/$defs/WorkspaceStyle"
-      },
-      "type": "object"
     },
     "Map_of_string": {
       "additionalProperties": {
@@ -6494,46 +6015,6 @@
           },
           "description": "Dashboard module."
         },
-        "hyprland-workspaces": {
-          "$ref": "#/$defs/HyprlandWorkspacesConfig",
-          "default": {
-            "active-color": "accent",
-            "active-indicator": "background",
-            "active-on-other-monitor-color": "accent",
-            "app-icon-map": {},
-            "app-icons-dedupe": true,
-            "app-icons-empty": "ld-minus-symbolic",
-            "app-icons-fallback": "ld-app-window-symbolic",
-            "app-icons-show": false,
-            "border-color": "border-default",
-            "border-show": false,
-            "container-bg-color": "bg-surface-elevated",
-            "display-mode": "label",
-            "divider": " ",
-            "empty-color": "fg-subtle",
-            "highlight-active-on-other-monitor": true,
-            "icon-gap": 0.30000001192092896,
-            "icon-size": 1.0,
-            "label-size": 1.0,
-            "label-use-name": false,
-            "left-click": "focus:this",
-            "middle-click": "",
-            "min-workspace-count": 0,
-            "monitor-specific": true,
-            "numbering": "absolute",
-            "occupied-color": "fg-muted",
-            "right-click": "",
-            "scroll-down": "focus:next",
-            "scroll-up": "focus:previous",
-            "show-special": true,
-            "urgent-mode": "workspace",
-            "urgent-show": true,
-            "workspace-ignore": [],
-            "workspace-map": {},
-            "workspace-padding": 0.5
-          },
-          "description": "Hyprland workspace switcher module."
-        },
         "idle-inhibit": {
           "$ref": "#/$defs/IdleInhibitConfig",
           "default": {
@@ -6607,40 +6088,6 @@
           },
           "description": "Keyboard input module."
         },
-        "lys-wm-workspaces": {
-          "$ref": "#/$defs/LysWMWorkspacesConfig",
-          "default": {
-            "active-color": "accent",
-            "active-indicator": "background",
-            "app-icon-map": {},
-            "app-icons-dedupe": true,
-            "app-icons-empty": "ld-minus-symbolic",
-            "app-icons-fallback": "ld-app-window-symbolic",
-            "app-icons-show": false,
-            "border-color": "border-default",
-            "border-show": false,
-            "container-bg-color": "bg-surface-elevated",
-            "display-mode": "label",
-            "divider": " ",
-            "empty-color": "fg-subtle",
-            "icon-gap": 0.30000001192092896,
-            "icon-size": 1.0,
-            "label-size": 1.0,
-            "left-click": "focus:this",
-            "middle-click": "",
-            "monitor-specific": true,
-            "occupied-color": "fg-muted",
-            "right-click": "",
-            "scroll-down": "focus:next",
-            "scroll-up": "focus:previous",
-            "urgent-mode": "workspace",
-            "urgent-show": true,
-            "workspace-ignore": [],
-            "workspace-map": {},
-            "workspace-padding": 0.5
-          },
-          "description": "lys-wm workspace switcher module."
-        },
         "mail": {
           "$ref": "#/$defs/MailConfig",
           "default": {
@@ -6670,40 +6117,6 @@
             "tooltip": true
           },
           "description": "Unread mail count module."
-        },
-        "mango-workspaces": {
-          "$ref": "#/$defs/MangoWorkspacesConfig",
-          "default": {
-            "active-color": "accent",
-            "active-indicator": "background",
-            "app-icon-map": {},
-            "app-icons-dedupe": true,
-            "app-icons-empty": "ld-minus-symbolic",
-            "app-icons-fallback": "ld-app-window-symbolic",
-            "app-icons-show": false,
-            "border-color": "border-default",
-            "border-show": false,
-            "container-bg-color": "bg-surface-elevated",
-            "display-mode": "label",
-            "divider": " ",
-            "empty-color": "fg-subtle",
-            "hide-empty": true,
-            "icon-gap": 0.30000001192092896,
-            "icon-size": 1.0,
-            "label-size": 1.0,
-            "left-click": "focus:this",
-            "middle-click": "",
-            "min-tag-count": 0,
-            "occupied-color": "fg-muted",
-            "right-click": "",
-            "scroll-down": "focus:next",
-            "scroll-up": "focus:previous",
-            "tag-map": {},
-            "tag-padding": 0.5,
-            "urgent-mode": "workspace",
-            "urgent-show": true
-          },
-          "description": "MangoWM tag switcher module."
         },
         "media": {
           "$ref": "#/$defs/MediaConfig",
@@ -6836,42 +6249,6 @@
             "transition-duration": 15
           },
           "description": "Night light (blue light filter) module."
-        },
-        "niri-workspaces": {
-          "$ref": "#/$defs/NiriWorkspacesConfig",
-          "default": {
-            "active-color": "accent",
-            "active-indicator": "background",
-            "app-icon-map": {},
-            "app-icons-dedupe": true,
-            "app-icons-empty": "ld-minus-symbolic",
-            "app-icons-fallback": "ld-app-window-symbolic",
-            "app-icons-show": false,
-            "border-color": "border-default",
-            "border-show": false,
-            "container-bg-color": "bg-surface-elevated",
-            "display-mode": "label",
-            "divider": " ",
-            "empty-color": "fg-subtle",
-            "hide-trailing-empty": true,
-            "icon-gap": 0.30000001192092896,
-            "icon-size": 1.0,
-            "label-size": 1.0,
-            "label-strategy": "name-or-index",
-            "left-click": "focus:this",
-            "middle-click": "",
-            "monitor-specific": true,
-            "occupied-color": "fg-muted",
-            "right-click": "",
-            "scroll-down": "focus:next",
-            "scroll-up": "focus:previous",
-            "urgent-mode": "workspace",
-            "urgent-show": true,
-            "workspace-ignore": [],
-            "workspace-map": {},
-            "workspace-padding": 0.5
-          },
-          "description": "Niri workspace switcher module."
         },
         "notifications": {
           "$ref": "#/$defs/NotificationConfig",
@@ -7118,42 +6495,6 @@
           },
           "description": "Storage usage module."
         },
-        "sway-workspaces": {
-          "$ref": "#/$defs/SwayWorkspacesConfig",
-          "default": {
-            "active-color": "accent",
-            "active-indicator": "background",
-            "app-icon-map": {},
-            "app-icons-dedupe": true,
-            "app-icons-empty": "ld-minus-symbolic",
-            "app-icons-fallback": "ld-app-window-symbolic",
-            "app-icons-show": false,
-            "border-color": "border-default",
-            "border-show": false,
-            "container-bg-color": "bg-surface-elevated",
-            "display-mode": "label",
-            "divider": " ",
-            "empty-color": "fg-subtle",
-            "hide-trailing-empty": false,
-            "icon-gap": 0.30000001192092896,
-            "icon-size": 1.0,
-            "label-size": 1.0,
-            "label-strategy": "name-or-index",
-            "left-click": "focus:this",
-            "middle-click": "",
-            "monitor-specific": true,
-            "occupied-color": "fg-muted",
-            "right-click": "",
-            "scroll-down": "focus:next",
-            "scroll-up": "focus:previous",
-            "urgent-mode": "workspace",
-            "urgent-show": true,
-            "workspace-ignore": [],
-            "workspace-map": {},
-            "workspace-padding": 0.5
-          },
-          "description": "sway workspace switcher module."
-        },
         "systray": {
           "$ref": "#/$defs/SystrayConfig",
           "default": {
@@ -7248,6 +6589,50 @@
             "tooltip": true
           },
           "description": "Window title module."
+        },
+        "workspaces": {
+          "$ref": "#/$defs/WorkspacesConfig",
+          "default": {
+            "active-color": "accent",
+            "active-indicator": "background",
+            "active-on-other-monitor-color": "accent",
+            "app-icon-map": {},
+            "app-icons-dedupe": true,
+            "app-icons-empty": "ld-minus-symbolic",
+            "app-icons-fallback": "ld-app-window-symbolic",
+            "app-icons-show": false,
+            "border-color": "border-default",
+            "border-show": false,
+            "container-bg-color": "bg-surface-elevated",
+            "display-mode": "label",
+            "divider": " ",
+            "empty-color": "fg-subtle",
+            "hide-empty": true,
+            "hide-trailing-empty": true,
+            "highlight-active-on-other-monitor": true,
+            "icon-gap": 0.30000001192092896,
+            "icon-size": 1.0,
+            "label-size": 1.0,
+            "label-strategy": "name-or-index",
+            "label-use-name": false,
+            "left-click": "focus:this",
+            "middle-click": "",
+            "min-tag-count": 0,
+            "min-workspace-count": 0,
+            "monitor-specific": true,
+            "numbering": "absolute",
+            "occupied-color": "fg-muted",
+            "right-click": "",
+            "scroll-down": "focus:next",
+            "scroll-up": "focus:previous",
+            "show-special": true,
+            "urgent-mode": "workspace",
+            "urgent-show": true,
+            "workspace-ignore": [],
+            "workspace-map": {},
+            "workspace-padding": 0.5
+          },
+          "description": "Workspace switcher module, on whichever compositor runs."
         },
         "world-clock": {
           "$ref": "#/$defs/WorldClockConfig",
@@ -7779,162 +7164,6 @@
       "maximum": 120,
       "minimum": 0,
       "type": "integer"
-    },
-    "NiriWorkspacesConfig": {
-      "description": "Niri workspace indicators with click-to-switch.",
-      "properties": {
-        "active-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "accent",
-          "description": "Color for the active (visible on its output) workspace.\n\nIn `background` indicator mode, also used as the button background."
-        },
-        "active-indicator": {
-          "$ref": "#/$defs/ActiveIndicator",
-          "default": "background",
-          "description": "Visual indicator for the active workspace."
-        },
-        "app-icon-map": {
-          "$ref": "#/$defs/Map_of_string",
-          "default": {},
-          "description": "Application icon mapping with glob pattern support.\n\nMaps window `app_id` or title to symbolic icon names. Supports:\n- No prefix: matches `app_id` (e.g. `\"*firefox*\"`)\n- `app:` prefix: explicit `app_id` match (e.g. `\"app:org.mozilla.*\"`)\n- `title:` prefix: matches window title (e.g. `\"title:*YouTube*\"`)\n\n## Example\n\n```yaml\nmodules:\n  niri-workspaces:\n    app-icon-map:\n      \"*firefox*\": ld-globe-symbolic\n      \"title:*YouTube*\": ld-youtube-symbolic\n```"
-        },
-        "app-icons-dedupe": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Deduplicate application icons within a workspace.\n\nWhen `true`, one icon per unique `app_id`. When `false`, one icon\nper window."
-        },
-        "app-icons-empty": {
-          "$ref": "#/$defs/string",
-          "default": "ld-minus-symbolic",
-          "description": "Icon shown when a workspace has no application windows."
-        },
-        "app-icons-fallback": {
-          "$ref": "#/$defs/string",
-          "default": "ld-app-window-symbolic",
-          "description": "Fallback icon for applications not matched by `app-icon-map`."
-        },
-        "app-icons-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Show application icons for windows on each workspace."
-        },
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "border-default",
-          "description": "Border color for the workspaces container."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around the workspaces container."
-        },
-        "container-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Background color for the workspaces container."
-        },
-        "display-mode": {
-          "$ref": "#/$defs/DisplayMode",
-          "default": "label",
-          "description": "What identifies each workspace button.\n\n- `label` (default): show the workspace label per `label-strategy`\n- `icon`: show an icon from `workspace-map` (falls back to label if unmapped)\n- `none`: show nothing — only app icons visible (if enabled)"
-        },
-        "divider": {
-          "$ref": "#/$defs/string",
-          "default": " ",
-          "description": "Text separator between workspace identity and app icons."
-        },
-        "empty-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-subtle",
-          "description": "Color for empty workspaces and placeholder slots."
-        },
-        "hide-trailing-empty": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Hide niri's auto-allocated trailing empty workspace.\n\nNiri keeps one empty workspace at the tail of every output for\ndynamic allocation."
-        },
-        "icon-gap": {
-          "$ref": "#/$defs/Size",
-          "default": 0.30000001192092896,
-          "description": "Gap between app icons within a workspace button. Accepts a scale multiplier or pixels (e.g. `\"4px\"`)."
-        },
-        "icon-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace icon size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`).\n\nApplies to identity icons and custom icons from `workspace-map`."
-        },
-        "label-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace label and divider size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`)."
-        },
-        "label-strategy": {
-          "$ref": "#/$defs/LabelStrategy",
-          "default": "name-or-index",
-          "description": "How to compose the workspace label when `display-mode: label`.\n\n- `index`: index only (`\"1\"`, `\"2\"`)\n- `name-or-index` (default): name when set, index otherwise\n- `name-only`: name only; unnamed workspaces show nothing\n- `index-and-name`: `\"1: web\"` form; unnamed workspaces show the index alone"
-        },
-        "left-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:this",
-          "description": "Action on left click."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on middle click."
-        },
-        "monitor-specific": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show only workspaces on this bar's monitor.\n\nWhen `true` (default), each bar shows only its own output's\nworkspaces. When `false`, all workspaces from every output are shown."
-        },
-        "occupied-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-muted",
-          "description": "Color for occupied workspaces (have windows but not active)."
-        },
-        "right-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on right click."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:next",
-          "description": "Action on scroll down."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:previous",
-          "description": "Action on scroll up."
-        },
-        "urgent-mode": {
-          "$ref": "#/$defs/UrgentMode",
-          "default": "workspace",
-          "description": "Where the urgent pulse is applied.\n\n- `workspace` (default): whole button pulses\n- `application`: only the urgent app icon pulses, falling back to\n  `workspace` when app icons are disabled"
-        },
-        "urgent-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Pulse animation on workspaces with urgent windows."
-        },
-        "workspace-ignore": {
-          "$ref": "#/$defs/Array_of_string",
-          "default": [],
-          "description": "Workspaces to hide from the display.\n\nGlob patterns matched against the workspace's name (if set), then\nits index, then its stable id. Examples:\n- `\"scratch\"` — hide the workspace named `scratch`\n- `\"1?\"` — hide indices 10-19"
-        },
-        "workspace-map": {
-          "$ref": "#/$defs/WorkspaceMap",
-          "default": {},
-          "description": "Per-workspace icon and color overrides, keyed by name or id-as-string.\n\n## Example\n\n```yaml\nmodules:\n  niri-workspaces:\n    workspace-map:\n      web: {icon: ld-globe-symbolic, color: \"#4a90d9\"}\n      terminal: {icon: ld-terminal-symbolic}\n```"
-        },
-        "workspace-padding": {
-          "$ref": "#/$defs/Size",
-          "default": 0.5,
-          "description": "Padding along the bar direction for content wider than the circle: app icons, a divider or a long name. Accepts a scale multiplier or pixels (e.g. `\"8px\"`).\n\nA short label takes no padding. It sets the circle's size instead: at least a digit's width plus this padding on each side."
-        }
-      },
-      "type": "object"
     },
     "NormalizedF64": {
       "description": "Floating-point value clamped to 0.0-1.0.",
@@ -10255,162 +9484,6 @@
       },
       "type": "object"
     },
-    "SwayWorkspacesConfig": {
-      "description": "sway workspace indicators with click-to-switch.",
-      "properties": {
-        "active-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "accent",
-          "description": "Color for the active (visible on its output) workspace.\n\nIn `background` indicator mode, also used as the button background."
-        },
-        "active-indicator": {
-          "$ref": "#/$defs/ActiveIndicator",
-          "default": "background",
-          "description": "Visual indicator for the active workspace."
-        },
-        "app-icon-map": {
-          "$ref": "#/$defs/Map_of_string",
-          "default": {},
-          "description": "Application icon mapping with glob pattern support.\n\nMaps window `app_id` or title to symbolic icon names. Supports:\n- No prefix: matches `app_id` (e.g. `\"*firefox*\"`)\n- `app:` prefix: explicit `app_id` match (e.g. `\"app:org.mozilla.*\"`)\n- `title:` prefix: matches window title (e.g. `\"title:*YouTube*\"`)\n\n## Example\n\n```yaml\nmodules:\n  sway-workspaces:\n    app-icon-map:\n      \"*firefox*\": ld-globe-symbolic\n      \"title:*YouTube*\": ld-youtube-symbolic\n```"
-        },
-        "app-icons-dedupe": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Deduplicate application icons within a workspace.\n\nWhen `true`, one icon per unique `app_id`. When `false`, one icon\nper window."
-        },
-        "app-icons-empty": {
-          "$ref": "#/$defs/string",
-          "default": "ld-minus-symbolic",
-          "description": "Icon shown when a workspace has no application windows."
-        },
-        "app-icons-fallback": {
-          "$ref": "#/$defs/string",
-          "default": "ld-app-window-symbolic",
-          "description": "Fallback icon for applications not matched by `app-icon-map`."
-        },
-        "app-icons-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Show application icons for windows on each workspace."
-        },
-        "border-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "border-default",
-          "description": "Border color for the workspaces container."
-        },
-        "border-show": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Display border around the workspaces container."
-        },
-        "container-bg-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "bg-surface-elevated",
-          "description": "Background color for the workspaces container."
-        },
-        "display-mode": {
-          "$ref": "#/$defs/DisplayMode",
-          "default": "label",
-          "description": "What identifies each workspace button.\n\n- `label` (default): show the workspace label per `label-strategy`\n- `icon`: show an icon from `workspace-map` (falls back to label if unmapped)\n- `none`: show nothing — only app icons visible (if enabled)"
-        },
-        "divider": {
-          "$ref": "#/$defs/string",
-          "default": " ",
-          "description": "Text separator between workspace identity and app icons."
-        },
-        "empty-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-subtle",
-          "description": "Color for empty workspaces and placeholder slots."
-        },
-        "hide-trailing-empty": {
-          "$ref": "#/$defs/boolean",
-          "default": false,
-          "description": "Hide the trailing empty workspace on each output.\n\nOff by default, since sway does not auto-allocate a trailing empty\nworkspace the way niri does. Enable it if your config keeps one around."
-        },
-        "icon-gap": {
-          "$ref": "#/$defs/Size",
-          "default": 0.30000001192092896,
-          "description": "Gap between app icons within a workspace button. Accepts a scale multiplier or pixels (e.g. `\"4px\"`)."
-        },
-        "icon-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace icon size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`).\n\nApplies to identity icons and custom icons from `workspace-map`."
-        },
-        "label-size": {
-          "$ref": "#/$defs/Size",
-          "default": 1.0,
-          "description": "Workspace label and divider size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`)."
-        },
-        "label-strategy": {
-          "$ref": "#/$defs/LabelStrategy",
-          "default": "name-or-index",
-          "description": "How to compose the workspace label when `display-mode: label`.\n\n- `index`: number only (`\"1\"`, `\"2\"`)\n- `name-or-index` (default): name when set, number otherwise\n- `name-only`: name only; unnamed workspaces show nothing\n- `index-and-name`: `\"1: web\"` form; unnamed workspaces show the number alone"
-        },
-        "left-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:this",
-          "description": "Action on left click."
-        },
-        "middle-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on middle click."
-        },
-        "monitor-specific": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Show only workspaces on this bar's monitor.\n\nWhen `true` (default), each bar shows only its own output's\nworkspaces. When `false`, all workspaces from every output are shown."
-        },
-        "occupied-color": {
-          "$ref": "#/$defs/ColorValue",
-          "default": "fg-muted",
-          "description": "Color for occupied workspaces (have windows but not active)."
-        },
-        "right-click": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "",
-          "description": "Action on right click."
-        },
-        "scroll-down": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:next",
-          "description": "Action on scroll down."
-        },
-        "scroll-up": {
-          "$ref": "#/$defs/WorkspaceClickAction",
-          "default": "focus:previous",
-          "description": "Action on scroll up."
-        },
-        "urgent-mode": {
-          "$ref": "#/$defs/UrgentMode",
-          "default": "workspace",
-          "description": "Where the urgent pulse is applied.\n\n- `workspace` (default): whole button pulses\n- `application`: only the urgent app icon pulses, falling back to\n  `workspace` when app icons are disabled"
-        },
-        "urgent-show": {
-          "$ref": "#/$defs/boolean",
-          "default": true,
-          "description": "Pulse animation on workspaces with urgent windows."
-        },
-        "workspace-ignore": {
-          "$ref": "#/$defs/Array_of_string",
-          "default": [],
-          "description": "Workspaces to hide from the display.\n\nGlob patterns matched against the workspace's name, then its number,\nthen its stable id. Examples:\n- `\"scratch\"` — hide the workspace named `scratch`\n- `\"1?\"` — hide numbers 10-19"
-        },
-        "workspace-map": {
-          "$ref": "#/$defs/WorkspaceMap",
-          "default": {},
-          "description": "Per-workspace icon and color overrides, keyed by name or id-as-string.\n\n## Example\n\n```yaml\nmodules:\n  sway-workspaces:\n    workspace-map:\n      web: {icon: ld-globe-symbolic, color: \"#4a90d9\"}\n      terminal: {icon: ld-terminal-symbolic}\n```"
-        },
-        "workspace-padding": {
-          "$ref": "#/$defs/Size",
-          "default": 0.5,
-          "description": "Padding along the bar direction for content wider than the circle: app icons, a divider or a long name. Accepts a scale multiplier or pixels (e.g. `\"8px\"`).\n\nA short label takes no padding. It sets the circle's size instead: at least a digit's width plus this padding on each side."
-        }
-      },
-      "type": "object"
-    },
     "SystrayConfig": {
       "description": "System tray icons via the StatusNotifierItem protocol.",
       "properties": {
@@ -11526,13 +10599,10 @@
       "type": "string"
     },
     "WorkspaceMap": {
-      "additionalProperties": false,
-      "description": "Per-workspace icon and color overrides, keyed by workspace ID.\n\nKeys are written as strings, so `\"1\"` parses into the workspace\nwith ID `1`. Negative IDs refer to Hyprland's special workspaces. Keys\nthat don't appear in the map fall back to `display-mode`.\n\n## Examples\n\n```yaml\n# under modules.hyprland-workspaces.workspace-map\n\"1\": {label: Web, icon: ld-globe-symbolic, color: \"#4a90d9\"}\n\"2\": {icon: ld-terminal-symbolic}\n\"3\": {icon: ld-code-symbolic, color: accent}\n\"4\": {label: Chat, icon: ld-message-square-symbolic, color: status-success}\n\n# Negative IDs target Hyprland special workspaces\n\"-99\": {icon: ld-scratch-symbolic}\n```",
-      "patternProperties": {
-        "^-?\\d+$": {
-          "$ref": "#/$defs/WorkspaceStyle"
-        }
+      "additionalProperties": {
+        "$ref": "#/$defs/WorkspaceStyle"
       },
+      "description": "Per-workspace icon, label and color overrides, keyed by the workspace's\nname, its number, or on Hyprland its id (negative for special\nworkspaces) and on mango its tag index. Workspaces not in the map follow\n`display-mode`.\n\n## Examples\n\n```yaml\n# under modules.workspaces.workspace-map\n\"1\": {label: Web, icon: ld-globe-symbolic, color: \"#4a90d9\"}\nterminal: {icon: ld-terminal-symbolic}\n\"-99\": {icon: ld-scratch-symbolic}\n```",
       "type": "object"
     },
     "WorkspaceStyle": {
@@ -11562,6 +10632,202 @@
             "string",
             "null"
           ]
+        }
+      },
+      "type": "object"
+    },
+    "WorkspacesConfig": {
+      "description": "Workspace indicators with click-to-switch, on whichever compositor runs.",
+      "properties": {
+        "active-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "accent",
+          "description": "Color for the active (visible on its output) workspace.\n\nIn `background` indicator mode, also used as the button background."
+        },
+        "active-indicator": {
+          "$ref": "#/$defs/ActiveIndicator",
+          "default": "background",
+          "description": "Visual indicator for the active workspace."
+        },
+        "active-on-other-monitor-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "accent",
+          "description": "Active on other monitor indicator color (Hyprland).\n\nOnly applies when `highlight-active-on-other-monitor` is `true`."
+        },
+        "app-icon-map": {
+          "$ref": "#/$defs/Map_of_string",
+          "default": {},
+          "description": "Application icon mapping with glob pattern support.\n\nMaps window `app_id` or title to symbolic icon names. Supports:\n- No prefix: matches `app_id` (e.g. `\"*firefox*\"`)\n- `app:` prefix: explicit `app_id` match (e.g. `\"app:org.mozilla.*\"`)\n- `title:` prefix: matches window title (e.g. `\"title:*YouTube*\"`)\n\n## Example\n\n```yaml\nmodules:\n  workspaces:\n    app-icon-map:\n      \"*firefox*\": ld-globe-symbolic\n      \"title:*YouTube*\": ld-youtube-symbolic\n```"
+        },
+        "app-icons-dedupe": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Deduplicate application icons within a workspace.\n\nWhen `true`, one icon per unique `app_id`. When `false`, one icon\nper window."
+        },
+        "app-icons-empty": {
+          "$ref": "#/$defs/string",
+          "default": "ld-minus-symbolic",
+          "description": "Icon shown when a workspace has no application windows."
+        },
+        "app-icons-fallback": {
+          "$ref": "#/$defs/string",
+          "default": "ld-app-window-symbolic",
+          "description": "Fallback icon for applications not matched by `app-icon-map`."
+        },
+        "app-icons-show": {
+          "$ref": "#/$defs/boolean",
+          "default": false,
+          "description": "Show application icons for windows on each workspace."
+        },
+        "border-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "border-default",
+          "description": "Border color for the workspaces container."
+        },
+        "border-show": {
+          "$ref": "#/$defs/boolean",
+          "default": false,
+          "description": "Display border around the workspaces container."
+        },
+        "container-bg-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "bg-surface-elevated",
+          "description": "Background color for the workspaces container."
+        },
+        "display-mode": {
+          "$ref": "#/$defs/DisplayMode",
+          "default": "label",
+          "description": "What identifies each workspace button.\n\n- `label` (default): show the workspace label per `label-strategy`\n- `icon`: show an icon from `workspace-map` (falls back to label if unmapped)\n- `none`: show nothing — only app icons visible (if enabled)"
+        },
+        "divider": {
+          "$ref": "#/$defs/string",
+          "default": " ",
+          "description": "Text separator between workspace identity and app icons."
+        },
+        "empty-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "fg-subtle",
+          "description": "Color for empty workspaces and placeholder slots."
+        },
+        "hide-empty": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Hide tags that hold no clients and are not active (mango)."
+        },
+        "hide-trailing-empty": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Hide the trailing empty workspace niri keeps (niri, sway).\n\nNiri keeps one empty workspace at the tail of every output for\ndynamic allocation."
+        },
+        "highlight-active-on-other-monitor": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Highlight workspaces active on other monitors with a different color (Hyprland).\n\nWhen true, workspaces active on a different monitor are highlighted differently.\nWhen false, workspaces active on another monitor are not specially highlighted.\n\nThis setting only makes sense when `monitor-specific` is false."
+        },
+        "icon-gap": {
+          "$ref": "#/$defs/Size",
+          "default": 0.30000001192092896,
+          "description": "Gap between app icons within a workspace button. Accepts a scale multiplier or pixels (e.g. `\"4px\"`)."
+        },
+        "icon-size": {
+          "$ref": "#/$defs/Size",
+          "default": 1.0,
+          "description": "Workspace icon size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`).\n\nApplies to identity icons and custom icons from `workspace-map`."
+        },
+        "label-size": {
+          "$ref": "#/$defs/Size",
+          "default": 1.0,
+          "description": "Workspace label and divider size. Accepts a scale multiplier or pixels (e.g. `\"16px\"`)."
+        },
+        "label-strategy": {
+          "$ref": "#/$defs/LabelStrategy",
+          "default": "name-or-index",
+          "description": "How to compose the workspace label when `display-mode: label` (niri, sway).\n\n- `index`: index only (`\"1\"`, `\"2\"`)\n- `name-or-index` (default): name when set, index otherwise\n- `name-only`: name only; unnamed workspaces show nothing\n- `index-and-name`: `\"1: web\"` form; unnamed workspaces show the index alone"
+        },
+        "label-use-name": {
+          "$ref": "#/$defs/boolean",
+          "default": false,
+          "description": "Use workspace name instead of number when displaying labels (Hyprland).\n\nOnly applies when `display-mode: label` or as fallback for unmapped\nworkspaces in `display-mode: icon`."
+        },
+        "left-click": {
+          "$ref": "#/$defs/WorkspaceClickAction",
+          "default": "focus:this",
+          "description": "Action on left click."
+        },
+        "middle-click": {
+          "$ref": "#/$defs/WorkspaceClickAction",
+          "default": "",
+          "description": "Action on middle click."
+        },
+        "min-tag-count": {
+          "$ref": "#/$defs/uint8",
+          "default": 0,
+          "description": "Always show tags up to this one-based index, even when empty (mango).\n\n`0` shows only occupied or active tags (subject to `hide-empty`). A\nvalue above the compositor's tag count just shows every tag."
+        },
+        "min-workspace-count": {
+          "$ref": "#/$defs/uint8",
+          "default": 0,
+          "description": "Minimum number of workspace buttons to display (Hyprland).\n\nWhen set to 0 (default), only active and occupied workspaces are shown.\nWhen set to N, at least N buttons are always visible, with empty ones\nusing `empty-color` styling."
+        },
+        "monitor-specific": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Show only workspaces on this bar's monitor (all but mango).\n\nWhen `true` (default), each bar shows only its own output's\nworkspaces. When `false`, all workspaces from every output are shown."
+        },
+        "numbering": {
+          "$ref": "#/$defs/Numbering",
+          "default": "absolute",
+          "description": "How workspace numbers are displayed (Hyprland).\n\n- `absolute`: Show actual Hyprland workspace IDs (1, 2, 3, 4, 5, 6...)\n- `relative`: Show numbers relative to monitor's starting workspace.\n  If a monitor has workspaces 4, 5, 6 assigned, they display as 1, 2, 3.\n  Useful when keybinds use per-monitor numbering."
+        },
+        "occupied-color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": "fg-muted",
+          "description": "Color for occupied workspaces (have windows but not active)."
+        },
+        "right-click": {
+          "$ref": "#/$defs/WorkspaceClickAction",
+          "default": "",
+          "description": "Action on right click."
+        },
+        "scroll-down": {
+          "$ref": "#/$defs/WorkspaceClickAction",
+          "default": "focus:next",
+          "description": "Action on scroll down."
+        },
+        "scroll-up": {
+          "$ref": "#/$defs/WorkspaceClickAction",
+          "default": "focus:previous",
+          "description": "Action on scroll up."
+        },
+        "show-special": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Include special workspaces (scratchpads) in the display (Hyprland).\n\nSpecial workspaces have negative IDs in Hyprland."
+        },
+        "urgent-mode": {
+          "$ref": "#/$defs/UrgentMode",
+          "default": "workspace",
+          "description": "Where the urgent pulse is applied.\n\n- `workspace` (default): whole button pulses\n- `application`: only the urgent app icon pulses, falling back to\n  `workspace` when app icons are disabled"
+        },
+        "urgent-show": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Pulse animation on workspaces with urgent windows."
+        },
+        "workspace-ignore": {
+          "$ref": "#/$defs/Array_of_string",
+          "default": [],
+          "description": "Workspaces to hide from the display (all but mango).\n\nGlob patterns matched against the workspace's name (if set), then\nits index, then its stable id. Examples:\n- `\"scratch\"` — hide the workspace named `scratch`\n- `\"1?\"` — hide indices 10-19"
+        },
+        "workspace-map": {
+          "$ref": "#/$defs/WorkspaceMap",
+          "default": {},
+          "description": "Per-workspace icon and color overrides, keyed by name or id-as-string.\n\n## Example\n\n```yaml\nmodules:\n  workspaces:\n    workspace-map:\n      web: {icon: ld-globe-symbolic, color: \"#4a90d9\"}\n      terminal: {icon: ld-terminal-symbolic}\n```"
+        },
+        "workspace-padding": {
+          "$ref": "#/$defs/Size",
+          "default": 0.5,
+          "description": "Padding along the bar direction for content wider than the circle: app icons, a divider or a long name. Accepts a scale multiplier or pixels (e.g. `\"8px\"`).\n\nA short label takes no padding. It sets the circle's size instead: at least a digit's width plus this padding on each side."
         }
       },
       "type": "object"
@@ -12434,42 +11700,6 @@
             ]
           }
         },
-        "hyprland-workspaces": {
-          "active-color": "accent",
-          "active-indicator": "background",
-          "active-on-other-monitor-color": "accent",
-          "app-icon-map": {},
-          "app-icons-dedupe": true,
-          "app-icons-empty": "ld-minus-symbolic",
-          "app-icons-fallback": "ld-app-window-symbolic",
-          "app-icons-show": false,
-          "border-color": "border-default",
-          "border-show": false,
-          "container-bg-color": "bg-surface-elevated",
-          "display-mode": "label",
-          "divider": " ",
-          "empty-color": "fg-subtle",
-          "highlight-active-on-other-monitor": true,
-          "icon-gap": 0.30000001192092896,
-          "icon-size": 1.0,
-          "label-size": 1.0,
-          "label-use-name": false,
-          "left-click": "focus:this",
-          "middle-click": "",
-          "min-workspace-count": 0,
-          "monitor-specific": true,
-          "numbering": "absolute",
-          "occupied-color": "fg-muted",
-          "right-click": "",
-          "scroll-down": "focus:next",
-          "scroll-up": "focus:previous",
-          "show-special": true,
-          "urgent-mode": "workspace",
-          "urgent-show": true,
-          "workspace-ignore": [],
-          "workspace-map": {},
-          "workspace-padding": 0.5
-        },
         "idle-inhibit": {
           "border-color": "green",
           "border-show": false,
@@ -12531,36 +11761,6 @@
           "scroll-up": "",
           "tooltip": true
         },
-        "lys-wm-workspaces": {
-          "active-color": "accent",
-          "active-indicator": "background",
-          "app-icon-map": {},
-          "app-icons-dedupe": true,
-          "app-icons-empty": "ld-minus-symbolic",
-          "app-icons-fallback": "ld-app-window-symbolic",
-          "app-icons-show": false,
-          "border-color": "border-default",
-          "border-show": false,
-          "container-bg-color": "bg-surface-elevated",
-          "display-mode": "label",
-          "divider": " ",
-          "empty-color": "fg-subtle",
-          "icon-gap": 0.30000001192092896,
-          "icon-size": 1.0,
-          "label-size": 1.0,
-          "left-click": "focus:this",
-          "middle-click": "",
-          "monitor-specific": true,
-          "occupied-color": "fg-muted",
-          "right-click": "",
-          "scroll-down": "focus:next",
-          "scroll-up": "focus:previous",
-          "urgent-mode": "workspace",
-          "urgent-show": true,
-          "workspace-ignore": [],
-          "workspace-map": {},
-          "workspace-padding": 0.5
-        },
         "mail": {
           "accounts": [],
           "border-color": "blue",
@@ -12586,36 +11786,6 @@
           "scroll-down": "",
           "scroll-up": "",
           "tooltip": true
-        },
-        "mango-workspaces": {
-          "active-color": "accent",
-          "active-indicator": "background",
-          "app-icon-map": {},
-          "app-icons-dedupe": true,
-          "app-icons-empty": "ld-minus-symbolic",
-          "app-icons-fallback": "ld-app-window-symbolic",
-          "app-icons-show": false,
-          "border-color": "border-default",
-          "border-show": false,
-          "container-bg-color": "bg-surface-elevated",
-          "display-mode": "label",
-          "divider": " ",
-          "empty-color": "fg-subtle",
-          "hide-empty": true,
-          "icon-gap": 0.30000001192092896,
-          "icon-size": 1.0,
-          "label-size": 1.0,
-          "left-click": "focus:this",
-          "middle-click": "",
-          "min-tag-count": 0,
-          "occupied-color": "fg-muted",
-          "right-click": "",
-          "scroll-down": "focus:next",
-          "scroll-up": "focus:previous",
-          "tag-map": {},
-          "tag-padding": 0.5,
-          "urgent-mode": "workspace",
-          "urgent-show": true
         },
         "media": {
           "border-color": "blue",
@@ -12728,38 +11898,6 @@
           "temperature": 5000,
           "tooltip": true,
           "transition-duration": 15
-        },
-        "niri-workspaces": {
-          "active-color": "accent",
-          "active-indicator": "background",
-          "app-icon-map": {},
-          "app-icons-dedupe": true,
-          "app-icons-empty": "ld-minus-symbolic",
-          "app-icons-fallback": "ld-app-window-symbolic",
-          "app-icons-show": false,
-          "border-color": "border-default",
-          "border-show": false,
-          "container-bg-color": "bg-surface-elevated",
-          "display-mode": "label",
-          "divider": " ",
-          "empty-color": "fg-subtle",
-          "hide-trailing-empty": true,
-          "icon-gap": 0.30000001192092896,
-          "icon-size": 1.0,
-          "label-size": 1.0,
-          "label-strategy": "name-or-index",
-          "left-click": "focus:this",
-          "middle-click": "",
-          "monitor-specific": true,
-          "occupied-color": "fg-muted",
-          "right-click": "",
-          "scroll-down": "focus:next",
-          "scroll-up": "focus:previous",
-          "urgent-mode": "workspace",
-          "urgent-show": true,
-          "workspace-ignore": [],
-          "workspace-map": {},
-          "workspace-padding": 0.5
         },
         "notifications": {
           "blocklist": [],
@@ -12974,38 +12112,6 @@
           "thresholds": [],
           "tooltip": true
         },
-        "sway-workspaces": {
-          "active-color": "accent",
-          "active-indicator": "background",
-          "app-icon-map": {},
-          "app-icons-dedupe": true,
-          "app-icons-empty": "ld-minus-symbolic",
-          "app-icons-fallback": "ld-app-window-symbolic",
-          "app-icons-show": false,
-          "border-color": "border-default",
-          "border-show": false,
-          "container-bg-color": "bg-surface-elevated",
-          "display-mode": "label",
-          "divider": " ",
-          "empty-color": "fg-subtle",
-          "hide-trailing-empty": false,
-          "icon-gap": 0.30000001192092896,
-          "icon-size": 1.0,
-          "label-size": 1.0,
-          "label-strategy": "name-or-index",
-          "left-click": "focus:this",
-          "middle-click": "",
-          "monitor-specific": true,
-          "occupied-color": "fg-muted",
-          "right-click": "",
-          "scroll-down": "focus:next",
-          "scroll-up": "focus:previous",
-          "urgent-mode": "workspace",
-          "urgent-show": true,
-          "workspace-ignore": [],
-          "workspace-map": {},
-          "workspace-padding": 0.5
-        },
         "systray": {
           "blacklist": [],
           "border-color": "border-accent",
@@ -13084,6 +12190,46 @@
           "scroll-down": "",
           "scroll-up": "",
           "tooltip": true
+        },
+        "workspaces": {
+          "active-color": "accent",
+          "active-indicator": "background",
+          "active-on-other-monitor-color": "accent",
+          "app-icon-map": {},
+          "app-icons-dedupe": true,
+          "app-icons-empty": "ld-minus-symbolic",
+          "app-icons-fallback": "ld-app-window-symbolic",
+          "app-icons-show": false,
+          "border-color": "border-default",
+          "border-show": false,
+          "container-bg-color": "bg-surface-elevated",
+          "display-mode": "label",
+          "divider": " ",
+          "empty-color": "fg-subtle",
+          "hide-empty": true,
+          "hide-trailing-empty": true,
+          "highlight-active-on-other-monitor": true,
+          "icon-gap": 0.30000001192092896,
+          "icon-size": 1.0,
+          "label-size": 1.0,
+          "label-strategy": "name-or-index",
+          "label-use-name": false,
+          "left-click": "focus:this",
+          "middle-click": "",
+          "min-tag-count": 0,
+          "min-workspace-count": 0,
+          "monitor-specific": true,
+          "numbering": "absolute",
+          "occupied-color": "fg-muted",
+          "right-click": "",
+          "scroll-down": "focus:next",
+          "scroll-up": "focus:previous",
+          "show-special": true,
+          "urgent-mode": "workspace",
+          "urgent-show": true,
+          "workspace-ignore": [],
+          "workspace-map": {},
+          "workspace-padding": 0.5
         },
         "world-clock": {
           "border-color": "yellow",

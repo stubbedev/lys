@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -178,7 +179,7 @@ func TestCwsOverrideColorCascade(t *testing.T) {
 }
 
 func TestCwsAppIconsDedupeOrderAndUrgency(t *testing.T) {
-	cfg := config.DefaultsNiriWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	windows := []cwsWindow{
 		{id: 3, workspace: 1, hasWorkspace: true, app: appicons.Window{AppID: "firefox", HasAppID: true}, order: [2]int{2, 1}},
 		{id: 1, workspace: 1, hasWorkspace: true, app: appicons.Window{AppID: "foot", HasAppID: true}, order: [2]int{1, 1}},
@@ -200,7 +201,7 @@ func TestCwsAppIconsDedupeOrderAndUrgency(t *testing.T) {
 }
 
 func TestCwsBuildModelsBlinkGatesUrgency(t *testing.T) {
-	cfg := config.DefaultsSwayWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	urgent := occupiedWS(1, 1, "DP-1")
 	urgent.urgent = true
 	all := []cwsWorkspace{urgent}
@@ -223,7 +224,7 @@ func TestCwsBuildModelsBlinkGatesUrgency(t *testing.T) {
 }
 
 func TestCwsClassesMatchComputeCSSClasses(t *testing.T) {
-	cfg := config.DefaultsNiriWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	ws := occupiedWS(5, 2, "DP-1")
 	ws.active, ws.focused, ws.name, ws.hasName = true, true, "web", true
 	m := cwsBuildModels(cwsWorkspaces, []cwsWorkspace{ws}, nil, cfg, "", true, false)
@@ -234,7 +235,7 @@ func TestCwsClassesMatchComputeCSSClasses(t *testing.T) {
 }
 
 func TestCwsShowRules(t *testing.T) {
-	cfg := config.DefaultsNiriWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	labelled := cwsButtonModel{label: "1", hasLabel: true}
 	if !labelled.showLabel(cfg.DisplayMode) || labelled.showIcon(cfg.DisplayMode) || labelled.showDivider(cfg) {
 		t.Error("a labelled button without app icons: label only")
@@ -311,7 +312,7 @@ func TestCwsModuleBuildsOneSegmentPerDisplayedWorkspace(t *testing.T) {
 	active := occupiedWS(1, 1, "DP-1")
 	active.active = true
 	f := newFakeCws([]cwsWorkspace{active, occupiedWS(2, 2, "DP-1"), emptyWS(3, 3, "DP-1"), occupiedWS(4, 1, "HDMI-A-1")}, nil)
-	m := newTestCws(t, config.DefaultsNiriWorkspaces().View(), f)
+	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Niri), f)
 	// niri hides the trailing empty 3; 4 is another output's.
 	if n := m.segs.Count(); n != 2 {
 		t.Fatalf("segments = %d, want 2", n)
@@ -339,7 +340,9 @@ func TestCwsRefreshMovesTheStates(t *testing.T) {
 	one, two := occupiedWS(1, 1, "DP-1"), emptyWS(2, 2, "DP-1")
 	one.active, one.focused = true, true
 	f := newFakeCws([]cwsWorkspace{one, two, occupiedWS(3, 3, "DP-1")}, nil)
-	m := newTestCws(t, config.DefaultsSwayWorkspaces().View(), f)
+	wcfg := config.DefaultsWorkspaces()
+	wcfg.HideTrailingEmpty = false
+	m := newTestCws(t, wcfg.View(compositor.Sway), f)
 	one.active, one.focused, two.active, two.focused, two.hasWindows = false, false, true, true, true
 	f.workspaces = []cwsWorkspace{one, two, emptyWS(5, 5, "DP-1")}
 	if err := readAndApply(m.read, m.apply); err != nil {
@@ -403,7 +406,7 @@ func TestCwsPaintsTheConfiguredColors(t *testing.T) {
 	ctx.Connector = "DP-1"
 	palette := ctx.Theme.RenderPalette()
 	resolve := func(cv config.ColorValue) render.Color { c, _ := styling.ResolveColor(cv, palette); return c }
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.HideTrailingEmpty = false
 	wcfg.EmptyColor = mustToken(config.TokenYellow)
 	red, _ := config.ParseColorValue("#ff0000")
@@ -437,7 +440,7 @@ func TestCwsUnderlinesTheActiveWorkspace(t *testing.T) {
 	ctx := styledContext(t, cfg)
 	ctx.Connector = "DP-1"
 	palette := ctx.Theme.RenderPalette()
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.ActiveIndicator = config.ActiveUnderline
 	active := occupiedWS(1, 1, "DP-1")
 	active.active = true
@@ -470,7 +473,7 @@ func TestCwsSegmentShadesUnderThePointer(t *testing.T) {
 	ctx.Connector = "DP-1"
 	active := occupiedWS(1, 1, "DP-1")
 	active.active = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, config.DefaultsNiriWorkspaces().View(), newFakeCws([]cwsWorkspace{active, occupiedWS(2, 2, "DP-1")}, nil))
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws([]cwsWorkspace{active, occupiedWS(2, 2, "DP-1")}, nil))
 	bar, size := cwsBar(t, ctx, m)
 	_, rest := paintCwsBar(m, bar, size)
 	before, activeRest := rest(1), rest(0)
@@ -494,7 +497,7 @@ func TestCwsSegmentMinSize(t *testing.T) {
 	}{{4, 0, 24}, {4, 30, 60}} {
 		ctx := styledContext(t, config.Defaults())
 		ctx.Connector = "DP-1"
-		wcfg := config.DefaultsNiriWorkspaces().View()
+		wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 		wcfg.LabelSize = config.Size{Value: tc.label, Unit: config.SizePixels}
 		wcfg.WorkspacePad = config.Size{Value: tc.pad, Unit: config.SizePixels}
 		m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1")}, nil))
@@ -514,7 +517,7 @@ func TestCwsSegmentsCenterInASideBar(t *testing.T) {
 	ctx := styledContext(t, cfg)
 	ctx.Connector = "DP-1"
 	palette := ctx.Theme.RenderPalette()
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil))
 	factories["test-cws"] = func(ModuleContext) (Module, error) { return m, nil }
 	defer delete(factories, "test-cws")
@@ -559,7 +562,7 @@ func classesIn(w widget.Widget) []string {
 // the label's place (hyprland's as its custom icon), an urgent app's
 // icon marked urgent, and the empty icon for a workspace without apps.
 func TestCwsSegmentContent(t *testing.T) {
-	cfg := config.DefaultsNiriWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	m := newTestCws(t, cfg, newFakeCws(nil, nil))
 	labelled := cwsButtonModel{label: "1", hasLabel: true}
 	if got := classesIn(m.segmentContent(labelled, &cwsSegmentShown{})); !slices.Contains(got, "workspace-label") || slices.Contains(got, "workspace-icons") || slices.Contains(got, "workspace-divider") {
@@ -592,7 +595,7 @@ func TestCwsSegmentContent(t *testing.T) {
 
 func TestCwsClicksRouteThroughTheRouter(t *testing.T) {
 	f := newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil)
-	cfg := config.DefaultsSwayWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	cfg.Click.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
 	m := newTestCws(t, cfg, f)
 	second := m.segs.Segment(1)
@@ -618,7 +621,7 @@ func TestCwsClicksRouteThroughTheRouter(t *testing.T) {
 
 func TestCwsScrollIgnoresFocusThis(t *testing.T) {
 	f := newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1")}, nil)
-	cfg := config.DefaultsSwayWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	cfg.Click.ScrollDown = config.ParseWorkspaceClickAction("focus:this")
 	cfg.Click.ScrollUp = config.ParseWorkspaceClickAction("")
 	m := newTestCws(t, cfg, f)
@@ -639,7 +642,7 @@ func TestCwsBlinkRunsOnlyWhileUrgent(t *testing.T) {
 	urgent := occupiedWS(1, 1, "DP-1")
 	urgent.urgent = true
 	f := newFakeCws([]cwsWorkspace{urgent}, nil)
-	m := newTestCws(t, config.DefaultsNiriWorkspaces().View(), f)
+	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Niri), f)
 	if m.blinkStop == nil || !m.blinkOn {
 		t.Fatal("urgent workspace: blink not started on")
 	}
@@ -678,7 +681,7 @@ func TestCwsUrgentPulseFadesTheSegment(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	ctx.Connector = "DP-1"
 	palette := ctx.Theme.RenderPalette()
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	urgent := occupiedWS(1, 1, "DP-1")
 	urgent.urgent = true
 	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{urgent}, nil))
@@ -694,7 +697,7 @@ func TestCwsUrgentPulseFadesTheSegment(t *testing.T) {
 }
 
 func TestCwsBorderShowUsesTheButtonBorder(t *testing.T) {
-	cfg := config.DefaultsNiriWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	m := newTestCws(t, cfg, newFakeCws(nil, nil))
 	if widget.HasClass(m.segs, "border-all") || !strings.Contains(m.segs.InlineStyle(), "--ws-border-width: 0px") {
 		t.Errorf("border-show off: classes %v, style %q; want no border", m.segs.Classes(), m.segs.InlineStyle())
@@ -709,7 +712,7 @@ func TestCwsBorderShowUsesTheButtonBorder(t *testing.T) {
 func TestCwsModuleIsNotWrappedInButtonChrome(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	row := widget.NewBox(widget.Row, 0, 0)
-	m := newTestCws(t, config.DefaultsNiriWorkspaces().View(), newFakeCws(nil, nil))
+	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(nil, nil))
 	factories["test-cws"] = func(ModuleContext) (Module, error) { return m, nil }
 	defer delete(factories, "test-cws")
 	if err := mountInto(row, ctx, "test-cws"); err != nil {
@@ -720,12 +723,11 @@ func TestCwsModuleIsNotWrappedInButtonChrome(t *testing.T) {
 	}
 }
 
-func TestCwsFactoriesRequireTheirCompositor(t *testing.T) {
-	clearCompositorEnv(t)
+func TestTheOldWorkspaceModulesAreGone(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	for _, name := range []string{"sway-workspaces", "niri-workspaces"} {
+	for _, name := range []string{"hyprland-workspaces", "sway-workspaces", "niri-workspaces", "mango-workspaces", "lys-wm-workspaces"} {
 		if _, err := createOnHeadlessLoop(name, ctx); err == nil {
-			t.Errorf("%s without its compositor: want an error", name)
+			t.Errorf("%s still builds a module", name)
 		}
 	}
 }
@@ -737,7 +739,7 @@ func TestCwsKeepsContentThatStillShowsTheSame(t *testing.T) {
 	urgent.urgent = true
 	other := occupiedWS(2, 2, "DP-1")
 	f := newFakeCws([]cwsWorkspace{urgent, other}, nil)
-	m := newTestCws(t, config.DefaultsSwayWorkspaces().View(), f)
+	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Sway), f)
 	first, second := segmentLabel(m, 0), segmentLabel(m, 1)
 	for range 3 {
 		m.blinkTick()
@@ -767,7 +769,7 @@ func TestCwsKeepsContentThatStillShowsTheSame(t *testing.T) {
 }
 
 func TestCwsAppIconUrgencyBlinksOnTheKeptIcon(t *testing.T) {
-	cfg := config.DefaultsSwayWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	cfg.AppIconsShow = true
 	f := newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1")}, []cwsWindow{{id: 9, workspace: 1, hasWorkspace: true, urgent: true}})
 	m := newTestCws(t, cfg, f)
@@ -793,7 +795,7 @@ func TestCwsSwitchMovesTheLabelColors(t *testing.T) {
 	ctx.Connector = "DP-1"
 	palette := ctx.Theme.RenderPalette()
 	resolve := func(cv config.ColorValue) render.Color { c, _ := styling.ResolveColor(cv, palette); return c }
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	one, two := occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")
 	one.active = true
 	f := newFakeCws([]cwsWorkspace{one, two}, nil)
@@ -828,7 +830,7 @@ func TestCwsSwitchMovesTheLabelColors(t *testing.T) {
 }
 
 func TestCwsBlinkAllocatesLittle(t *testing.T) {
-	m := newTestCws(t, config.DefaultsSwayWorkspaces().View(), newFakeCws(cwsCostWorkspaces(), nil))
+	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Sway), newFakeCws(cwsCostWorkspaces(), nil))
 	if got := testing.AllocsPerRun(100, m.blinkTick); got > 100 {
 		t.Fatalf("a blink allocates %.0f times, want at most 100", got)
 	}

@@ -4,94 +4,36 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/stubbedev/lys/desktop/service/lyswm"
-
-	"github.com/stubbedev/lys/shell/service/mango"
-	"github.com/stubbedev/lys/shell/service/niri"
-	"github.com/stubbedev/lys/shell/service/sway"
+	"github.com/stubbedev/lys/desktop/compositor"
 )
 
-// compositor is the session's compositor
-// as its environment advertises it.
-type compositor int
-
-const (
-	compositorUnknown compositor = iota
-	compositorHyprland
-	compositorNiri
-	compositorMango
-	compositorSway
-	compositorLysWM
-)
-
-// String names the compositor for diagnostics.
-func (c compositor) String() string {
-	switch c {
-	case compositorHyprland:
-		return "Hyprland"
-	case compositorNiri:
-		return "niri"
-	case compositorMango:
-		return "mango"
-	case compositorSway:
-		return "sway"
-	case compositorLysWM:
-		return "lys-wm"
-	}
-	return "unknown"
-}
-
-// detectCompositor picks the first advertised socket in the order
-// lys-wm, Hyprland, niri, mango, sway, so a
-// session that exports more than one is still a single compositor. An
-// empty variable advertises nothing.
-func detectCompositor() compositor {
-	switch {
-	case lyswm.IsRunning():
-		return compositorLysWM
-	case os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") != "":
-		return compositorHyprland
-	case niri.IsRunning():
-		return compositorNiri
-	case mango.IsRunning():
-		return compositorMango
-	case sway.IsRunning():
-		return compositorSway
-	}
-	return compositorUnknown
-}
+// detectCompositor is the session's compositor as its environment
+// advertises it.
+func detectCompositor() compositor.Kind { return compositor.Detect(os.Getenv) }
 
 func compositorHasClient() bool {
 	switch detectCompositor() {
-	case compositorLysWM, compositorNiri, compositorMango, compositorSway:
+	case compositor.LysWM, compositor.Niri, compositor.Mango, compositor.Sway:
 		return true
-	case compositorHyprland, compositorUnknown:
+	case compositor.Hyprland, compositor.Unknown:
 		return false
 	}
 	return false
-}
-
-// requireCompositor lets module build only under want.
-func requireCompositor(module string, want compositor) error {
-	if got := detectCompositor(); got != want {
-		return fmt.Errorf("%s: requires %s, the compositor is %s", module, want, got)
-	}
-	return nil
 }
 
 // newWorkspaces is the running compositor's workspace module, so that a
 // layout works on any of them.
 func newWorkspaces(ctx ModuleContext) (Module, error) {
 	switch c := detectCompositor(); c {
-	case compositorLysWM:
+	case compositor.LysWM:
 		return newLysWMWorkspaces(ctx)
-	case compositorHyprland:
+	case compositor.Hyprland:
 		return newHyprlandWorkspaces(ctx)
-	case compositorNiri:
+	case compositor.Niri:
 		return newNiriWorkspaces(ctx)
-	case compositorMango:
+	case compositor.Mango:
 		return newMangoWorkspaces(ctx)
-	case compositorSway:
+	case compositor.Sway:
 		return newSwayWorkspaces(ctx)
 	default:
 		return nil, fmt.Errorf("workspaces: no workspace module for the compositor, which is %s", c)

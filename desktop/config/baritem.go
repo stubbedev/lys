@@ -175,56 +175,51 @@ type BarModule string
 
 // The built-in modules the layout accepts (BUILTIN_MODULES).
 const (
-	ModuleAudio              BarModule = "audio"
-	ModuleBackgroundApps     BarModule = "background-apps"
-	ModuleBattery            BarModule = "battery"
-	ModuleBluetooth          BarModule = "bluetooth"
-	ModuleBrightness         BarModule = "brightness"
-	ModuleBitwarden          BarModule = "bitwarden"
-	ModuleCava               BarModule = "cava"
-	ModuleClock              BarModule = "clock"
-	ModuleCPU                BarModule = "cpu"
-	ModuleDashboard          BarModule = "dashboard"
-	ModuleHyprlandWorkspaces BarModule = "hyprland-workspaces"
-	ModuleIdleInhibit        BarModule = "idle-inhibit"
-	ModuleKeybindMode        BarModule = "keybind-mode"
-	ModuleKeyboardInput      BarModule = "keyboard-input"
-	ModuleLysWMWorkspaces    BarModule = "lys-wm-workspaces"
-	ModuleMail               BarModule = "mail"
-	ModuleMedia              BarModule = "media"
-	ModuleMangoWorkspaces    BarModule = "mango-workspaces"
-	ModuleMinimizedWindows   BarModule = "minimized-windows"
-	ModuleNetstat            BarModule = "netstat"
-	ModuleNetwork            BarModule = "network"
-	ModuleNightlight         BarModule = "nightlight"
-	ModuleNiriWorkspaces     BarModule = "niri-workspaces"
-	ModuleNotifications      BarModule = "notifications"
-	ModulePower              BarModule = "power"
-	ModulePowerProfiles      BarModule = "power-profiles"
-	ModuleRAM                BarModule = "ram"
-	ModuleRecorder           BarModule = "recorder"
-	ModuleScreenshot         BarModule = "screenshot"
-	ModuleSeparator          BarModule = "separator"
-	ModuleStorage            BarModule = "storage"
-	ModuleSwayWorkspaces     BarModule = "sway-workspaces"
-	ModuleSystray            BarModule = "systray"
-	ModuleTreeman            BarModule = "treeman"
-	ModuleUpdates            BarModule = "updates"
-	ModuleWeather            BarModule = "weather"
-	ModuleWindowTitle        BarModule = "window-title"
-	ModuleWorkspaces         BarModule = "workspaces"
-	ModuleWorldClock         BarModule = "world-clock"
+	ModuleAudio            BarModule = "audio"
+	ModuleBackgroundApps   BarModule = "background-apps"
+	ModuleBattery          BarModule = "battery"
+	ModuleBluetooth        BarModule = "bluetooth"
+	ModuleBrightness       BarModule = "brightness"
+	ModuleBitwarden        BarModule = "bitwarden"
+	ModuleCava             BarModule = "cava"
+	ModuleClock            BarModule = "clock"
+	ModuleCPU              BarModule = "cpu"
+	ModuleDashboard        BarModule = "dashboard"
+	ModuleIdleInhibit      BarModule = "idle-inhibit"
+	ModuleKeybindMode      BarModule = "keybind-mode"
+	ModuleKeyboardInput    BarModule = "keyboard-input"
+	ModuleMail             BarModule = "mail"
+	ModuleMedia            BarModule = "media"
+	ModuleMinimizedWindows BarModule = "minimized-windows"
+	ModuleNetstat          BarModule = "netstat"
+	ModuleNetwork          BarModule = "network"
+	ModuleNightlight       BarModule = "nightlight"
+	ModuleNotifications    BarModule = "notifications"
+	ModulePower            BarModule = "power"
+	ModulePowerProfiles    BarModule = "power-profiles"
+	ModuleRAM              BarModule = "ram"
+	ModuleRecorder         BarModule = "recorder"
+	ModuleScreenshot       BarModule = "screenshot"
+	ModuleSeparator        BarModule = "separator"
+	ModuleStorage          BarModule = "storage"
+	ModuleSystray          BarModule = "systray"
+	ModuleTreeman          BarModule = "treeman"
+	ModuleUpdates          BarModule = "updates"
+	ModuleWeather          BarModule = "weather"
+	ModuleWindowTitle      BarModule = "window-title"
+	ModuleWorkspaces       BarModule = "workspaces"
+	ModuleWorldClock       BarModule = "world-clock"
 )
 
 // BuiltinModules is the built-in module list in schema order.
 var BuiltinModules = []BarModule{
 	ModuleAudio, ModuleBackgroundApps, ModuleBattery, ModuleBitwarden, ModuleBluetooth, ModuleBrightness, ModuleCava, ModuleClock,
-	ModuleCPU, ModuleDashboard, ModuleHyprlandWorkspaces,
-	ModuleIdleInhibit, ModuleKeybindMode, ModuleKeyboardInput, ModuleLysWMWorkspaces, ModuleMail,
-	ModuleMedia, ModuleMangoWorkspaces, ModuleMinimizedWindows, ModuleNetstat,
-	ModuleNetwork, ModuleNightlight, ModuleNiriWorkspaces, ModuleNotifications, ModulePower,
+	ModuleCPU, ModuleDashboard,
+	ModuleIdleInhibit, ModuleKeybindMode, ModuleKeyboardInput, ModuleMail,
+	ModuleMedia, ModuleMinimizedWindows, ModuleNetstat,
+	ModuleNetwork, ModuleNightlight, ModuleNotifications, ModulePower,
 	ModulePowerProfiles, ModuleRAM, ModuleRecorder, ModuleScreenshot,
-	ModuleSeparator, ModuleStorage, ModuleSwayWorkspaces, ModuleSystray,
+	ModuleSeparator, ModuleStorage, ModuleSystray,
 	ModuleTreeman, ModuleUpdates, ModuleWeather,
 	ModuleWindowTitle, ModuleWorkspaces, ModuleWorldClock,
 }
@@ -238,10 +233,15 @@ var renamedModules = map[string]BarModule{
 // removedModules maps a module lys-shell no longer has to the one that
 // replaced it; a layout or a modules section naming it is an error.
 var removedModules = map[string]BarModule{
-	"microphone":   ModuleAudio,
-	"privacy":      ModuleAudio,
-	"screen-share": ModuleAudio,
-	"volume":       ModuleAudio,
+	"hyprland-workspaces": ModuleWorkspaces,
+	"lys-wm-workspaces":   ModuleWorkspaces,
+	"mango-workspaces":    ModuleWorkspaces,
+	"niri-workspaces":     ModuleWorkspaces,
+	"sway-workspaces":     ModuleWorkspaces,
+	"microphone":          ModuleAudio,
+	"privacy":             ModuleAudio,
+	"screen-share":        ModuleAudio,
+	"volume":              ModuleAudio,
 }
 
 // RemovedModuleError is a bar layout entry naming a module lys-shell no

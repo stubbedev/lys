@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/sockdir"
@@ -218,7 +219,7 @@ func TestHyprWorkspaceIconsDedupeByClass(t *testing.T) {
 		clients[i].Workspace.ID = 1
 	}
 	clients[3].Workspace.ID = 2
-	cfg := config.DefaultsHyprlandWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Hyprland)
 	icons := hyprWorkspaceIcons(1, clients, cfg, map[string]bool{"b": true})
 	if len(icons) != 2 || len(icons[0].windowIDs) != 2 || !icons[0].urgent || icons[1].urgent {
 		t.Fatalf("deduped = %+v", icons)
@@ -243,6 +244,7 @@ type fakeHypr struct {
 
 func startFakeHypr(t *testing.T, replies map[string]string) (*fakeHypr, *hyprland.Connection) {
 	t.Helper()
+	advertise(t, compositor.HyprlandSocketEnv)
 	dir := sockdir.Dir(t)
 	f := &fakeHypr{replies: replies, events: make(chan net.Conn, 1), held: map[string]chan struct{}{}, arrived: make(chan string, 16)}
 	cmdPath, evPath := filepath.Join(dir, ".socket.sock"), filepath.Join(dir, ".socket2.sock")
@@ -359,7 +361,7 @@ func newTestHypr(t *testing.T, mutate func(*config.Config)) (*fakeHypr, *hyprlan
 	ctx := newTestContext(t, cfg)
 	ctx.Hyprland = conn
 	ctx.Connector = "DP-1"
-	module, err := createOnHeadlessLoop("hyprland-workspaces", ctx)
+	module, err := createOnHeadlessLoop("workspaces", ctx)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -377,7 +379,7 @@ func modelIDs(models []cwsButtonModel) []int {
 func TestNewHyprlandWorkspacesRequiresHyprland(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Hyprland = nil
-	if _, err := createOnHeadlessLoop("hyprland-workspaces", ctx); err == nil {
+	if _, err := createOnHeadlessLoop("workspaces", ctx); err == nil {
 		t.Fatal("no Hyprland connection: want an error, got a module")
 	}
 }
@@ -404,7 +406,7 @@ func TestHyprlandModuleBuildsTheBarMonitorsRow(t *testing.T) {
 }
 
 func TestHyprlandActiveOnOtherMonitor(t *testing.T) {
-	_, m := newTestHypr(t, func(c *config.Config) { c.HyprlandWorkspaces.MonitorSpecific = false })
+	_, m := newTestHypr(t, func(c *config.Config) { c.Workspaces.MonitorSpecific = false })
 	var three *cwsButtonModel
 	for i := range m.models {
 		if m.models[i].ws.num == 3 {
@@ -427,7 +429,7 @@ func TestHyprlandActiveOnOtherMonitor(t *testing.T) {
 	if !strings.Contains(m.segs.InlineStyle(), want) {
 		t.Errorf("row style %q misses %q", m.segs.InlineStyle(), want)
 	}
-	niri := newTestCws(t, config.DefaultsNiriWorkspaces().View(), newFakeCws(nil, nil))
+	niri := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(nil, nil))
 	if strings.Contains(niri.segs.InlineStyle(), "--ws-active-other-monitor-color") {
 		t.Error("a compositor without the state declares its color")
 	}
@@ -461,8 +463,8 @@ func TestHyprlandUrgencyFromEvents(t *testing.T) {
 
 func TestHyprlandPerIconUrgency(t *testing.T) {
 	_, m := newTestHypr(t, func(c *config.Config) {
-		c.HyprlandWorkspaces.AppIconsShow = true
-		c.HyprlandWorkspaces.UrgentMode = config.UrgentApplication
+		c.Workspaces.AppIconsShow = true
+		c.Workspaces.UrgentMode = config.UrgentApplication
 	})
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventUrgent, Address: "bb"})
 	one := m.models[1]
@@ -492,8 +494,8 @@ func TestHyprlandStaleUrgencyPrunedOnClientChange(t *testing.T) {
 
 func TestHyprlandMinCountPlaceholdersAndRelativeRules(t *testing.T) {
 	f, m := newTestHypr(t, func(c *config.Config) {
-		c.HyprlandWorkspaces.MinWorkspaceCount = 4
-		c.HyprlandWorkspaces.Numbering = config.NumberingRelative
+		c.Workspaces.MinWorkspaceCount = 4
+		c.Workspaces.Numbering = config.NumberingRelative
 	})
 	// No rules: monitor-specific placeholders need rules.
 	if got := modelIDs(m.models); !reflect.DeepEqual(got, []int{-98, 1, 2}) {
@@ -550,11 +552,11 @@ func TestHyprlandModuleIsUnwrapped(t *testing.T) {
 	}
 }
 
-func TestLoadFileAppliesHyprlandWorkspaces(t *testing.T) {
+func TestLoadFileAppliesTheWorkspacesKeysHyprlandReads(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	content := `
 modules:
-  hyprland-workspaces:
+  workspaces:
     display-mode: icon
     active-color: "#89b4fa"
     numbering: relative
@@ -580,8 +582,8 @@ modules:
 	if err != nil {
 		t.Fatalf("LoadFile: %v", err)
 	}
-	hw := c.HyprlandWorkspaces
-	shared := hw.View()
+	hw := c.Workspaces
+	shared := hw.View(compositor.Hyprland)
 	if shared.DisplayMode != config.DisplayModeIcon || shared.ActiveColor.Hex != "#89b4fa" ||
 		hw.Numbering != config.NumberingRelative || hw.MinWorkspaceCount != 5 || !hw.LabelUseName || hw.ShowSpecial ||
 		hw.HighlightActiveOnOtherMonitor || hw.ActiveOnOtherMonitorColor.Hex != "#123456" ||
@@ -597,7 +599,7 @@ modules:
 	}
 }
 
-func TestLoadFileRejectsBadHyprlandWorkspaces(t *testing.T) {
+func TestLoadFileRejectsBadWorkspacesKeys(t *testing.T) {
 	for _, content := range []string{
 		"display-mode: text",
 		"active-indicator: glow",
@@ -605,10 +607,10 @@ func TestLoadFileRejectsBadHyprlandWorkspaces(t *testing.T) {
 		"min-workspace-count: 300",
 		"active-color: not-a-token",
 		"urgent-mode: loud",
-		"workspace-map:\n  web:\n    color: \"#fff\"",
+		"workspace-map:\n  web:\n    color: 7",
 	} {
 		path := filepath.Join(t.TempDir(), "config.yaml")
-		body := "modules:\n  hyprland-workspaces:\n    " + strings.ReplaceAll(content, "\n", "\n    ") + "\n"
+		body := "modules:\n  workspaces:\n    " + strings.ReplaceAll(content, "\n", "\n    ") + "\n"
 		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}

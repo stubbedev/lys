@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/desktop/service/upower"
@@ -264,7 +265,7 @@ func TestHeadlessLoopRunsWhileAReadIsBlocked(t *testing.T) {
 			return Create("battery", ctx)
 		}},
 		{name: "workspaces", create: func(ctx ModuleContext, h *heldRead, ticks chan struct{}) (Module, error) {
-			return newCwsModule(ctx, "niri", cwsWorkspaces, config.DefaultsNiriWorkspaces().View(), heldCws{newFakeCws(nil, nil), h, ticks}), nil
+			return newCwsModule(ctx, "niri", cwsWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), heldCws{newFakeCws(nil, nil), h, ticks}), nil
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -298,7 +299,7 @@ func TestHeadlessLoopRunsWhileAReadIsBlocked(t *testing.T) {
 func TestHeadlessLoopRunsWhileLysWMIsBlocked(t *testing.T) {
 	ctx, a := loopContext(t)
 	for _, tc := range []struct{ module, request, event string }{
-		{"lys-wm-workspaces", "workspaces", `{"event":"workspace","output":"DP-1","workspace":3}`},
+		{"workspaces", "workspaces", `{"event":"workspace","output":"DP-1","workspace":3}`},
 		{"window-title", "activewindow", `{"event":"focus","window":5}`},
 	} {
 		t.Run(tc.module, func(t *testing.T) {
@@ -351,7 +352,7 @@ func lysWMTitleBar(t *testing.T, edit func(*config.Config)) *lyswmtest.WM {
 	f := newFakeLysWM(t)
 	f.Result("workspaces", lysWMTwoOutputs)
 	f.Result("windows", lysWMWindows)
-	r := apptest.On(a, func() moduleResult { return createResult("lys-wm-workspaces", ctx) })
+	r := apptest.On(a, func() moduleResult { return createResult("workspaces", ctx) })
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
@@ -385,15 +386,15 @@ func TestHeadlessLysWMTitleWithoutAppIconsMakesNoRequest(t *testing.T) {
 }
 
 func TestHeadlessLysWMTitleWithPlainAppIconsMakesNoRequest(t *testing.T) {
-	f := lysWMTitleBar(t, func(c *config.Config) { c.LysWMWorkspaces.AppIconsShow = true })
+	f := lysWMTitleBar(t, func(c *config.Config) { c.Workspaces.AppIconsShow = true })
 	f.Events <- `{"event":"title","window":4,"title":"elsewhere"}`
 	neverRequests(t, f, "a request for a title change")
 }
 
 func TestHeadlessLysWMTitleOnlyOfAShownWindowReads(t *testing.T) {
 	f := lysWMTitleBar(t, func(c *config.Config) {
-		c.LysWMWorkspaces.AppIconsShow = true
-		c.LysWMWorkspaces.AppIconMap = map[string]string{"title:*secret*": "ld-lock-symbolic"}
+		c.Workspaces.AppIconsShow = true
+		c.Workspaces.AppIconMap = map[string]string{"title:*secret*": "ld-lock-symbolic"}
 	})
 	f.Events <- `{"event":"title","window":9,"title":"on the other output"}`
 	neverRequests(t, f, "a request for the title of a window the bar does not show")
@@ -425,7 +426,7 @@ func cwsCostWorkspaces() []cwsWorkspace {
 }
 
 func TestCwsEqualModelsAllocateLittle(t *testing.T) {
-	cfg := config.DefaultsSwayWorkspaces().View()
+	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	cfg.AppIconsShow = true
 	windows := []cwsWindow{{id: 1, workspace: 1, hasWorkspace: true}}
 	f := newFakeCws(cwsCostWorkspaces(), windows)
@@ -454,7 +455,7 @@ func TestHeadlessHyprlandLoopRunsWhileAReadIsBlocked(t *testing.T) {
 	f, conn := startFakeHypr(t, hyprReplies())
 	ctx.Hyprland = conn
 	ctx.Connector = "DP-1"
-	built := apptest.On(a, func() moduleResult { return createResult("hyprland-workspaces", ctx) })
+	built := apptest.On(a, func() moduleResult { return createResult("workspaces", ctx) })
 	if built.err != nil {
 		t.Fatal(built.err)
 	}
@@ -508,7 +509,7 @@ func TestHeadlessRetiringAGenerationStopsTheWorkspacesBlink(t *testing.T) {
 	f := newFakeLysWM(t)
 	f.Result("workspaces", lysWMTwoOutputs)
 	f.Result("windows", lysWMWindows)
-	r := apptest.On(a, func() moduleResult { return createResult("lys-wm-workspaces", ctx) })
+	r := apptest.On(a, func() moduleResult { return createResult("workspaces", ctx) })
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
@@ -535,7 +536,7 @@ func TestMountingAFullLayoutCompletesWhileEverySourceHolds(t *testing.T) {
 	ctx.Treeman = &fakeTreeman{}
 	ctx.Connector = "DP-1"
 	items := []config.BarItem{}
-	for _, name := range []string{"battery", "brightness", "network", "power-profiles", "audio", "bluetooth", "window-title", "keyboard-input", "hyprland-workspaces", "workspaces", "systray", "media", "keybind-mode", "treeman", "dashboard", "bitwarden", "mail", "weather", "cpu", "ram", "storage", "netstat"} {
+	for _, name := range []string{"battery", "brightness", "network", "power-profiles", "audio", "bluetooth", "window-title", "keyboard-input", "workspaces", "systray", "media", "keybind-mode", "treeman", "dashboard", "bitwarden", "mail", "weather", "cpu", "ram", "storage", "netstat"} {
 		items = append(items, config.BarItem{Module: config.BarModule(name)})
 	}
 	mounted := make(chan *widget.Box, 1)

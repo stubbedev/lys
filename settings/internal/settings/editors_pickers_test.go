@@ -789,14 +789,14 @@ func TestSearchPickerFiltersAndPicks(t *testing.T) {
 		}
 		return out
 	}
-	p.filter("  WORKspaces ")
-	want := []string{"hyprland-workspaces", "lys-wm-workspaces", "mango-workspaces", "niri-workspaces", "sway-workspaces", "workspaces"}
+	p.filter("  CLock ")
+	want := []string{"clock", "world-clock"}
 	if got := shown(); !slices.Equal(got, want) {
 		t.Fatalf("the filter shows %v, want %v", got, want)
 	}
-	p.rows.ChildAt(slices.Index(p.all, "niri-workspaces")).ClickAt(widget.Point{})
-	if !slices.Equal(picked, []config.BarModule{config.ModuleNiriWorkspaces}) || k.pickers.(*fakePickers).closed != 1 {
-		t.Errorf("a click picked %v (closed %d), want niri-workspaces once", picked, k.pickers.(*fakePickers).closed)
+	p.rows.ChildAt(slices.Index(p.all, "world-clock")).ClickAt(widget.Point{})
+	if !slices.Equal(picked, []config.BarModule{config.ModuleWorldClock}) || k.pickers.(*fakePickers).closed != 1 {
+		t.Errorf("a click picked %v (closed %d), want world-clock once", picked, k.pickers.(*fakePickers).closed)
 	}
 	p.filter("zzz")
 	if got := shown(); len(got) != 0 {

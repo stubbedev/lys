@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -19,12 +20,9 @@ import (
 	"github.com/stubbedev/lys/shell/service/sway"
 )
 
-// newSwayWorkspaces is the sway-workspaces factory.
+// newSwayWorkspaces is the workspaces module on sway.
 func newSwayWorkspaces(ctx ModuleContext) (Module, error) {
-	if err := requireCompositor("sway-workspaces", compositorSway); err != nil {
-		return nil, err
-	}
-	cfg := ctx.Config.SwayWorkspaces.View()
+	cfg := ctx.Config.Workspaces.View(compositor.Sway)
 	return newCwsModule(ctx, "sway", cwsWorkspaces, cfg, &connectingBackend{connect: func() (cwsBackend, error) {
 		conn, err := sway.Connect()
 		if err != nil {
@@ -34,12 +32,9 @@ func newSwayWorkspaces(ctx ModuleContext) (Module, error) {
 	}}), nil
 }
 
-// newNiriWorkspaces is the niri-workspaces factory.
+// newNiriWorkspaces is the workspaces module on niri.
 func newNiriWorkspaces(ctx ModuleContext) (Module, error) {
-	if err := requireCompositor("niri-workspaces", compositorNiri); err != nil {
-		return nil, err
-	}
-	return newCwsModule(ctx, "niri", cwsWorkspaces, ctx.Config.NiriWorkspaces.View(), &connectingBackend{connect: func() (cwsBackend, error) {
+	return newCwsModule(ctx, "niri", cwsWorkspaces, ctx.Config.Workspaces.View(compositor.Niri), &connectingBackend{connect: func() (cwsBackend, error) {
 		conn, err := niri.Connect()
 		if err != nil {
 			return nil, err
@@ -278,14 +273,11 @@ func (b *niriBackend) focusLast(ctx context.Context) error {
 func (b *niriBackend) subscribe() (<-chan struct{}, func(), error) { return niri.Subscribe() }
 func (b *niriBackend) close()                                      { _ = b.conn.Close() }
 
-// newMangoWorkspaces is the mango-workspaces factory: the watcher runs
+// newMangoWorkspaces is the workspaces module on mango: the watcher runs
 // from construction.
 func newMangoWorkspaces(ctx ModuleContext) (Module, error) {
-	if err := requireCompositor("mango-workspaces", compositorMango); err != nil {
-		return nil, err
-	}
-	cfg := ctx.Config.MangoWorkspaces
-	return newCwsModule(ctx, "mango", cwsTags, cfg.View(), &connectingBackend{connect: func() (cwsBackend, error) {
+	cfg := ctx.Config.Workspaces
+	return newCwsModule(ctx, "mango", cwsTags, cfg.View(compositor.Mango), &connectingBackend{connect: func() (cwsBackend, error) {
 		w, err := mango.Watch()
 		if err != nil {
 			return nil, err
@@ -377,10 +369,7 @@ func (b *mangoBackend) subscribe() (<-chan struct{}, func(), error) {
 func (b *mangoBackend) close() { b.watch.Close() }
 
 func newLysWMWorkspaces(ctx ModuleContext) (Module, error) {
-	if err := requireCompositor("lys-wm-workspaces", compositorLysWM); err != nil {
-		return nil, err
-	}
-	cfg := ctx.Config.LysWMWorkspaces.View()
+	cfg := ctx.Config.Workspaces.View(compositor.LysWM)
 	var titles *lysWMTitles
 	if cwsFollowsTitles(cfg) {
 		titles = &lysWMTitles{}

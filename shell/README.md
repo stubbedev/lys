@@ -35,7 +35,7 @@ The config is `~/.config/lys-shell/config.yaml`; changes apply on save:
 bar:
   layout:
     - monitor: "*"
-      left: [dashboard, hyprland-workspaces]
+      left: [dashboard, workspaces]
       center: [clock]
       right: [audio, network, bluetooth, battery]
 ```

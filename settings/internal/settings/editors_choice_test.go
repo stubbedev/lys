@@ -61,10 +61,11 @@ var freeFormRows = []string{
 	"modules.mail.query",
 	"modules.screenshot.label",
 	"modules.weather.location",
+	"modules.workspaces.divider",
 }
 
 func isFreeForm(path string) bool {
-	return slices.Contains(freeFormRows, path) || strings.HasSuffix(path, "-workspaces.divider")
+	return slices.Contains(freeFormRows, path)
 }
 
 func plainTextRows(t *testing.T, k *kit, be backend, rows []rowSpec) []string {

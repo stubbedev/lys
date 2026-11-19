@@ -57,7 +57,7 @@ in
       {
         monitor = "*";
         left = [
-          "lys-wm-workspaces"
+          "workspaces"
           "window-title"
         ];
         center = [ "clock" ];

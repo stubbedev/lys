@@ -55,7 +55,7 @@ let
       {
         monitor = "*";
         left = [
-          "hyprland-workspaces"
+          "workspaces"
           "window-title"
         ];
         center = [ "clock" ];

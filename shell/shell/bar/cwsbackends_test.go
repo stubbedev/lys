@@ -111,9 +111,10 @@ func TestSwayBackendMapsTheSnapshot(t *testing.T) {
 		  {"id":20,"type":"workspace","nodes":[],"floating_nodes":[]},
 		  {"id":30,"type":"workspace","nodes":[],"floating_nodes":[]}]}]}`)
 	cfg := config.Defaults()
+	cfg.Workspaces.HideTrailingEmpty = false
 	ctx := newTestContext(t, cfg)
 	ctx.Connector = "DP-1"
-	module, err := createOnHeadlessLoop("sway-workspaces", ctx)
+	module, err := createOnHeadlessLoop("workspaces", ctx)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -175,11 +176,11 @@ func TestNiriBackendMapsTheSnapshot(t *testing.T) {
 			`{"id":2,"title":"b","app_id":"firefox","workspace_id":7,"is_focused":false,"is_floating":true,"is_urgent":false,"layout":{"pos_in_scrolling_layout":null}},`+
 			`{"id":3,"title":"c","app_id":"kitty","workspace_id":7,"is_focused":false,"is_floating":false,"is_urgent":false,"layout":{"pos_in_scrolling_layout":[1,1]}}]`)
 	cfg := config.Defaults()
-	cfg.NiriWorkspaces.AppIconsShow = true
-	cfg.NiriWorkspaces.AppIconsDedupe = false
+	cfg.Workspaces.AppIconsShow = true
+	cfg.Workspaces.AppIconsDedupe = false
 	ctx := newTestContext(t, cfg)
 	ctx.Connector = "DP-1"
-	module, err := createOnHeadlessLoop("niri-workspaces", ctx)
+	module, err := createOnHeadlessLoop("workspaces", ctx)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

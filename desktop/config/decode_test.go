@@ -66,20 +66,20 @@ func TestAListElementThatFailsToDecodeIsNamedByItsIndex(t *testing.T) {
 }
 
 func TestAMapEntryThatFailsToDecodeIsNamedByItsKey(t *testing.T) {
-	_, err := LoadFile(writeConfig(t, "modules:\n  mango-workspaces:\n    tag-map:\n      \"1\": {label: web}\n      \"2\": {lable: term}\n"))
+	_, err := LoadFile(writeConfig(t, "modules:\n  workspaces:\n    workspace-map:\n      \"1\": {label: web}\n      \"2\": {lable: term}\n"))
 	diags := diagnosticsTitled(err, "invalid config value")
-	if len(diags) != 1 || diags[0].Field("Field") != "modules.mango-workspaces.tag-map.2.lable" {
-		t.Errorf("diagnostics %+v from %v, want one at modules.mango-workspaces.tag-map.2.lable", diags, err)
+	if len(diags) != 1 || diags[0].Field("Field") != "modules.workspaces.workspace-map.2.lable" {
+		t.Errorf("diagnostics %+v from %v, want one at modules.workspaces.workspace-map.2.lable", diags, err)
 	}
 }
 
 func TestAValidListAndMapDecodeWithoutADiagnostic(t *testing.T) {
-	cfg, err := LoadFile(writeConfig(t, "modules:\n  audio:\n    thresholds:\n      - {above: 70}\n      - {below: 10}\n  mango-workspaces:\n    tag-map:\n      \"1\": {label: web}\n"))
+	cfg, err := LoadFile(writeConfig(t, "modules:\n  audio:\n    thresholds:\n      - {above: 70}\n      - {below: 10}\n  workspaces:\n    workspace-map:\n      \"1\": {label: web}\n"))
 	if err != nil {
 		t.Fatalf("a valid list and map: %v", err)
 	}
-	if len(cfg.Audio.Thresholds) != 2 || *cfg.Audio.Thresholds[1].Below != 10 || *cfg.MangoWorkspaces.TagMap["1"].Label != "web" {
-		t.Errorf("thresholds %+v, tag-map %+v", cfg.Audio.Thresholds, cfg.MangoWorkspaces.TagMap)
+	if len(cfg.Audio.Thresholds) != 2 || *cfg.Audio.Thresholds[1].Below != 10 || *cfg.Workspaces.WorkspaceMap["1"].Label != "web" {
+		t.Errorf("thresholds %+v, tag-map %+v", cfg.Audio.Thresholds, cfg.Workspaces.WorkspaceMap)
 	}
 }
 

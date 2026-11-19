@@ -210,6 +210,7 @@ func rowCovers(rows map[string]bool, leaf string) bool {
 }
 
 func TestEveryShellConfigKeyHasARow(t *testing.T) {
+	runCompositor(t, "")
 	rows := shellRowPaths()
 	leaves := config.LeafPaths()
 	if len(leaves) < 500 {

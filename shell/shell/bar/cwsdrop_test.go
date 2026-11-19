@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -107,7 +108,7 @@ func TestCwsSegmentsAreCircles(t *testing.T) {
 			for _, scale := range []float32{1, 1.5} {
 				t.Run(tc.name+"/"+string(location)+"/"+strconv.FormatFloat(float64(scale), 'f', 1, 32), func(t *testing.T) {
 					ctx := cwsDropContext(t, location, scale)
-					wcfg := config.DefaultsNiriWorkspaces().View()
+					wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 					tc.edit(&wcfg)
 					m, _, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{activeWS(1), occupiedWS(10, 10, "DP-1")})
 					relayCwsBar(bar, size)
@@ -129,7 +130,7 @@ func TestCwsSegmentsAreCircles(t *testing.T) {
 
 func TestCwsCircleContentIsCentered(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	m, _, bar, size := cwsDropModule(t, ctx, config.DefaultsNiriWorkspaces().View(), []cwsWorkspace{activeWS(1), occupiedWS(10, 10, "DP-1")})
+	m, _, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), []cwsWorkspace{activeWS(1), occupiedWS(10, 10, "DP-1")})
 	relayCwsBar(bar, size)
 	for i := range m.segs.Count() {
 		seg := m.segs.Segment(i)
@@ -165,7 +166,7 @@ func TestCwsContentPastTheCircleIsAPill(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := cwsDropContext(t, tc.location, 1)
-			wcfg := config.DefaultsNiriWorkspaces().View()
+			wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 			tc.edit(&wcfg)
 			ws := tc.ws
 			if ws == nil {
@@ -189,7 +190,7 @@ func TestCwsContentPastTheCircleIsAPill(t *testing.T) {
 
 func TestCwsIndicatorPaintsTheCircleInTheActiveColor(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	palette := ctx.Theme.RenderPalette()
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, palette)
 	m, _, bar, size := cwsDropModule(t, ctx, wcfg, threeWorkspaces(1))
@@ -211,7 +212,7 @@ func TestCwsIndicatorEndsOnTheActiveSegment(t *testing.T) {
 	for _, location := range []config.Location{config.LocationTop, config.LocationLeft} {
 		t.Run(string(location), func(t *testing.T) {
 			ctx := cwsDropContext(t, location, 1)
-			m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsNiriWorkspaces().View(), threeWorkspaces(0))
+			m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(0))
 			relayCwsBar(bar, size)
 			assertDropOn(t, m.segs, 0)
 			assertDropAtRest(t, m.segs)
@@ -233,7 +234,7 @@ func TestCwsSwitchStartsTheIndicatorTravelling(t *testing.T) {
 	for _, location := range []config.Location{config.LocationTop, config.LocationLeft} {
 		t.Run(string(location), func(t *testing.T) {
 			ctx := cwsDropContext(t, location, 1)
-			m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsNiriWorkspaces().View(), threeWorkspaces(0))
+			m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(0))
 			relayCwsBar(bar, size)
 			start := m.segs.EnableDrop().Bounds()
 			f.workspaces = threeWorkspaces(2)
@@ -256,7 +257,7 @@ func TestCwsSwitchStartsTheIndicatorTravelling(t *testing.T) {
 
 func TestCwsNoIndicatorWhenNothingIsActive(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, ctx.Theme.RenderPalette())
 	m, f, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")})
 	assertNone := func(when string) {
@@ -289,7 +290,7 @@ func TestCwsNoIndicatorWhenNothingIsActive(t *testing.T) {
 
 func TestCwsRebuildWithTheSameActiveDoesNotAnimate(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	m, _, bar, size := cwsDropModule(t, ctx, config.DefaultsNiriWorkspaces().View(), threeWorkspaces(1))
+	m, _, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(1))
 	relayCwsBar(bar, size)
 	before := m.segs.EnableDrop().Bounds()
 	for range 3 {
@@ -306,7 +307,7 @@ func TestCwsRebuildWithTheSameActiveDoesNotAnimate(t *testing.T) {
 
 func TestCwsWorkspaceRemovedBeforeTheActiveDoesNotAnimate(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsNiriWorkspaces().View(), threeWorkspaces(2))
+	m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(2))
 	relayCwsBar(bar, size)
 	assertDropOn(t, m.segs, 2)
 	f.workspaces = f.workspaces[1:]
@@ -320,7 +321,7 @@ func TestCwsWorkspaceRemovedBeforeTheActiveDoesNotAnimate(t *testing.T) {
 
 func TestCwsWorkspaceRemovedMidFlightLandsOnTheRightSegment(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsNiriWorkspaces().View(), threeWorkspaces(0))
+	m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(0))
 	relayCwsBar(bar, size)
 	f.workspaces = threeWorkspaces(2)
 	if err := readAndApply(m.read, m.apply); err != nil {
@@ -346,7 +347,7 @@ func TestCwsWorkspaceRemovedMidFlightLandsOnTheRightSegment(t *testing.T) {
 
 func TestCwsWorkspaceMapTintsTheIndicator(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	red, _ := config.ParseColorValue("#ff0000")
 	wcfg.WorkspaceMap = map[string]config.WorkspaceStyle{"1": {Color: &red}}
 	m, f, bar, size := cwsDropModule(t, ctx, wcfg, threeWorkspaces(0))
@@ -371,7 +372,7 @@ func TestCwsWorkspaceMapTintsTheIndicator(t *testing.T) {
 
 func TestCwsUrgentPulseFadesTheActiveIndicator(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, ctx.Theme.RenderPalette())
 	ws := activeWS(1)
 	ws.urgent = true
@@ -396,7 +397,7 @@ func TestCwsUrgentPulseFadesTheActiveIndicator(t *testing.T) {
 
 func TestCwsUrgentApplicationModeLeavesTheIndicatorWhole(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.UrgentMode = config.UrgentApplication
 	ws := activeWS(1)
 	ws.urgent = true
@@ -410,7 +411,7 @@ func TestCwsUnderlineTravelsAsTheIndicator(t *testing.T) {
 	for _, location := range []config.Location{config.LocationTop, config.LocationLeft} {
 		t.Run(string(location), func(t *testing.T) {
 			ctx := cwsDropContext(t, location, 1)
-			wcfg := config.DefaultsNiriWorkspaces().View()
+			wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 			wcfg.ActiveIndicator = config.ActiveUnderline
 			accent, _ := styling.ResolveColor(wcfg.ActiveColor, ctx.Theme.RenderPalette())
 			m, f, bar, size := cwsDropModule(t, ctx, wcfg, threeWorkspaces(0))
@@ -515,11 +516,11 @@ func assertSharedLook(t *testing.T, name string, segs *widget.SegmentIndicator) 
 func TestEveryWorkspacesModuleSharesTheLook(t *testing.T) {
 	for _, kind := range []string{"sway", "niri", "lys-wm"} {
 		ctx := cwsDropContext(t, config.LocationTop, 1)
-		m := newCwsModuleOnHeadlessLoop(ctx, kind, cwsWorkspaces, config.DefaultsNiriWorkspaces().View(), newFakeCws(threeWorkspaces(0), nil))
+		m := newCwsModuleOnHeadlessLoop(ctx, kind, cwsWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
 		assertSharedLook(t, kind, m.segs)
 	}
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	tags := newCwsModuleOnHeadlessLoop(ctx, "mango", cwsTags, config.DefaultsNiriWorkspaces().View(), newFakeCws(threeWorkspaces(0), nil))
+	tags := newCwsModuleOnHeadlessLoop(ctx, "mango", cwsTags, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
 	assertSharedLook(t, "mango", tags.segs)
 	_, hypr := newTestHypr(t, nil)
 	assertSharedLook(t, "hyprland", hypr.segs)
@@ -546,7 +547,7 @@ func TestHyprlandWorkspaceDestroyedBeforeTheActiveDoesNotAnimate(t *testing.T) {
 
 func TestCwsLongNamePillTakesThePadding(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.LabelStrategy = config.LabelNameOrIndex
 	long := namedWS(1, "browser")
 	long.active = true
@@ -571,16 +572,16 @@ func TestHyprlandOtherMonitorFillsItsOwnCircle(t *testing.T) {
 	})
 	cfg := config.Defaults()
 	cfg.Bar = config.PlainBar()
-	cfg.HyprlandWorkspaces.MonitorSpecific = false
+	cfg.Workspaces.MonitorSpecific = false
 	teal, err := config.ParseColorValue("#008080")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.HyprlandWorkspaces.ActiveOnOtherMonitorColor = teal
+	cfg.Workspaces.ActiveOnOtherMonitorColor = teal
 	ctx := styledContext(t, cfg)
 	ctx.Hyprland = conn
 	ctx.Connector = "DP-1"
-	module, err := createOnHeadlessLoop("hyprland-workspaces", ctx)
+	module, err := createOnHeadlessLoop("workspaces", ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -612,7 +613,7 @@ func TestHyprlandOtherMonitorFillsItsOwnCircle(t *testing.T) {
 
 func TestCwsSecondRebuildBeforeTheNextFrameKeepsTheTravel(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsNiriWorkspaces().View(), threeWorkspaces(0))
+	m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(0))
 	relayCwsBar(bar, size)
 	f.workspaces = threeWorkspaces(2)
 	for range 2 {
@@ -630,7 +631,7 @@ func TestCwsLeavingAnEmptyWorkspaceTravelsFromInsideTheRow(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
 	last := emptyWS(3, 3, "DP-1")
 	last.active = true
-	wcfg := config.DefaultsNiriWorkspaces().View()
+	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.HideTrailingEmpty = false
 	m, f, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1"), last})
 	relayCwsBar(bar, size)

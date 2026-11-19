@@ -1,15 +1,11 @@
 package config
 
 import (
-	"errors"
-	"maps"
-	"slices"
 	"sort"
-	"strconv"
 	"strings"
 )
 
-// Types the four workspace modules share.
+// Types the workspaces module uses.
 
 // CSSClass is the indicator's CSS class.
 func (a ActiveIndicator) CSSClass() string {
@@ -113,95 +109,25 @@ type WorkspaceClicks struct {
 	ScrollDown  WorkspaceClickAction
 }
 
-// WorkspaceMap is hyprland's workspace-map: styles keyed by numeric
-// workspace id, the string keys parsed as i32.
+// WorkspaceMap is the workspace-map: styles keyed by workspace.
 //
-// Per-workspace icon and color overrides, keyed by workspace ID.
-//
-// Keys are written as strings, so `"1"` parses into the workspace
-// with ID `1`. Negative IDs refer to Hyprland's special workspaces. Keys
-// that don't appear in the map fall back to `display-mode`.
+// Per-workspace icon, label and color overrides, keyed by the workspace's
+// name, its number, or on Hyprland its id (negative for special
+// workspaces) and on mango its tag index. Workspaces not in the map follow
+// `display-mode`.
 //
 // ## Examples
 //
 // ```yaml
-// # under modules.hyprland-workspaces.workspace-map
+// # under modules.workspaces.workspace-map
 // "1": {label: Web, icon: ld-globe-symbolic, color: "#4a90d9"}
-// "2": {icon: ld-terminal-symbolic}
-// "3": {icon: ld-code-symbolic, color: accent}
-// "4": {label: Chat, icon: ld-message-square-symbolic, color: status-success}
-//
-// # Negative IDs target Hyprland special workspaces
+// terminal: {icon: ld-terminal-symbolic}
 // "-99": {icon: ld-scratch-symbolic}
 // ```
-type WorkspaceMap map[int32]WorkspaceStyle
-
-// UnmarshalConfig implements Unmarshaler: a table of styles whose keys
-// must parse as i32.
-func (m *WorkspaceMap) UnmarshalConfig(v any) error {
-	var byName map[string]WorkspaceStyle
-	if err := decodeInto(valueOf(&byName), v); err != nil {
-		return err
-	}
-	out := make(WorkspaceMap, len(byName))
-	for key, style := range byName {
-		id, err := strconv.ParseInt(key, 10, 32)
-		if err != nil {
-			return parseIntError(key, err)
-		}
-		out[int32(id)] = style
-	}
-	*m = out
-	return nil
-}
-
-// parseIntError describes why a workspace-map key is not an integer.
-func parseIntError(key string, err error) error {
-	switch {
-	case key == "":
-		return errors.New("cannot parse integer from empty string")
-	case strings.Contains(err.Error(), "out of range"):
-		if strings.HasPrefix(key, "-") {
-			return errors.New("number too small to fit in target type")
-		}
-		return errors.New("number too large to fit in target type")
-	}
-	return errors.New("invalid digit found in string")
-}
-
-// MarshalConfig implements Marshaler: keys in numeric order.
-func (m WorkspaceMap) MarshalConfig() any {
-	out := newTable()
-	for _, id := range slices.Sorted(maps.Keys(m)) {
-		out.set(strconv.Itoa(int(id)), encodeValue(valueOf(new(m[id]))))
-	}
-	return out
-}
+type WorkspaceMap map[string]WorkspaceStyle
 
 func (WorkspaceMap) configSchema(g *schemaGen) Schema {
-	return Schema{
-		"type":                 "object",
-		"additionalProperties": false,
-		"patternProperties":    Schema{`^-?\d+$`: g.subschema(typeOf[WorkspaceStyle]())},
-		"description":          typeDoc(typeOf[WorkspaceMap]()),
-	}
-}
-
-// Lookup returns the style of one workspace id.
-func (m WorkspaceMap) Lookup(id int32) (WorkspaceStyle, bool) {
-	s, ok := m[id]
-	return s, ok
-}
-
-// NamedWorkspaceMap is the niri/sway workspace-map: styles keyed by
-// workspace name or stable id. Its schema shares the WorkspaceMap
-// definition.
-type NamedWorkspaceMap map[string]WorkspaceStyle
-
-func (NamedWorkspaceMap) configSchemaName() string { return "WorkspaceMap" }
-
-func (NamedWorkspaceMap) configSchema(g *schemaGen) Schema {
-	return Schema{"type": "object", "additionalProperties": g.subschema(typeOf[WorkspaceStyle]())}
+	return Schema{"type": "object", "additionalProperties": g.subschema(typeOf[WorkspaceStyle]()), "description": typeDoc(typeOf[WorkspaceMap]())}
 }
 
 // The workspace modules' size bases (ICON_BASE_REM, LABEL_BASE_REM:
@@ -211,8 +137,8 @@ const (
 	WorkspaceLabelBaseRem = 1.1
 )
 
-// CompositorWorkspacesConfig is the view the sway and niri workspace
-// modules share: their two schemas are field-for-field identical.
+// CompositorWorkspacesConfig is the workspaces module's settings resolved
+// for one compositor (WorkspacesConfig.View).
 type CompositorWorkspacesConfig struct {
 	MonitorSpecific   bool
 	HideTrailingEmpty bool
@@ -237,69 +163,9 @@ type CompositorWorkspacesConfig struct {
 	ContainerBgColor  ColorValue
 	BorderShow        bool
 	BorderColor       ColorValue
-	WorkspaceMap      NamedWorkspaceMap
+	WorkspaceMap      WorkspaceMap
 	AppIconMap        map[string]string
 	Click             WorkspaceClicks
-}
-
-// View returns the shared sway/niri view.
-func (c SwayWorkspacesConfig) View() CompositorWorkspacesConfig {
-	return CompositorWorkspacesConfig{
-		c.MonitorSpecific, c.HideTrailingEmpty, c.DisplayMode, c.LabelStrategy,
-		c.UrgentShow, c.UrgentMode, c.ActiveIndicator, c.Divider,
-		c.AppIconsShow, c.AppIconsDedupe, c.AppIconsFallback, c.AppIconsEmpty,
-		c.IconGap, c.WorkspacePadding, c.IconSize, c.LabelSize, c.WorkspaceIgnore,
-		c.ActiveColor, c.OccupiedColor, c.EmptyColor, c.ContainerBgColor,
-		c.BorderShow, c.BorderColor, c.WorkspaceMap, c.AppIconMap, c.Clicks(),
-	}
-}
-
-// View returns the shared sway/niri view.
-func (c NiriWorkspacesConfig) View() CompositorWorkspacesConfig {
-	return CompositorWorkspacesConfig{
-		c.MonitorSpecific, c.HideTrailingEmpty, c.DisplayMode, c.LabelStrategy,
-		c.UrgentShow, c.UrgentMode, c.ActiveIndicator, c.Divider,
-		c.AppIconsShow, c.AppIconsDedupe, c.AppIconsFallback, c.AppIconsEmpty,
-		c.IconGap, c.WorkspacePadding, c.IconSize, c.LabelSize, c.WorkspaceIgnore,
-		c.ActiveColor, c.OccupiedColor, c.EmptyColor, c.ContainerBgColor,
-		c.BorderShow, c.BorderColor, c.WorkspaceMap, c.AppIconMap, c.Clicks(),
-	}
-}
-
-// View returns the lys-wm module in the shared shape: its workspaces
-// have numbers and no names, and lys-wm keeps no trailing empty one.
-func (c LysWMWorkspacesConfig) View() CompositorWorkspacesConfig {
-	return CompositorWorkspacesConfig{
-		MonitorSpecific: c.MonitorSpecific, DisplayMode: c.DisplayMode, LabelStrategy: LabelIndex,
-		UrgentShow: c.UrgentShow, UrgentMode: c.UrgentMode, ActiveIndicator: c.ActiveIndicator,
-		Divider: c.Divider, AppIconsShow: c.AppIconsShow, AppIconsDedupe: c.AppIconsDedupe,
-		AppIconsFallback: c.AppIconsFallback, AppIconsEmpty: c.AppIconsEmpty,
-		IconGap: c.IconGap, WorkspacePad: c.WorkspacePadding, IconSize: c.IconSize,
-		LabelSize: c.LabelSize, WorkspaceIgnore: c.WorkspaceIgnore,
-		ActiveColor: c.ActiveColor, OccupiedColor: c.OccupiedColor, EmptyColor: c.EmptyColor,
-		ContainerBgColor: c.ContainerBgColor, BorderShow: c.BorderShow, BorderColor: c.BorderColor,
-		WorkspaceMap: c.WorkspaceMap, AppIconMap: c.AppIconMap, Click: c.Clicks(),
-	}
-}
-
-// View returns the hyprland module's fields in the shared shape; the
-// numeric workspace map carries over with decimal keys.
-func (c HyprlandWorkspacesConfig) View() CompositorWorkspacesConfig {
-	named := make(NamedWorkspaceMap, len(c.WorkspaceMap))
-	for id, style := range c.WorkspaceMap {
-		named[strconv.Itoa(int(id))] = style
-	}
-	return CompositorWorkspacesConfig{
-		MonitorSpecific: c.MonitorSpecific, DisplayMode: c.DisplayMode,
-		UrgentShow: c.UrgentShow, UrgentMode: c.UrgentMode, ActiveIndicator: c.ActiveIndicator,
-		Divider: c.Divider, AppIconsShow: c.AppIconsShow, AppIconsDedupe: c.AppIconsDedupe,
-		AppIconsFallback: c.AppIconsFallback, AppIconsEmpty: c.AppIconsEmpty,
-		IconGap: c.IconGap, WorkspacePad: c.WorkspacePadding, IconSize: c.IconSize,
-		LabelSize: c.LabelSize, WorkspaceIgnore: c.WorkspaceIgnore,
-		ActiveColor: c.ActiveColor, OccupiedColor: c.OccupiedColor, EmptyColor: c.EmptyColor,
-		ContainerBgColor: c.ContainerBgColor, BorderShow: c.BorderShow, BorderColor: c.BorderColor,
-		WorkspaceMap: named, AppIconMap: c.AppIconMap, Click: c.Clicks(),
-	}
 }
 
 // AppIconMapKeys returns the app-icon-map patterns sorted.
@@ -310,20 +176,4 @@ func (c CompositorWorkspacesConfig) AppIconMapKeys() []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-// View returns the mango module in the shared workspace shape; tags
-// are its workspaces.
-func (c MangoWorkspacesConfig) View() CompositorWorkspacesConfig {
-	return CompositorWorkspacesConfig{
-		DisplayMode: c.DisplayMode, UrgentShow: c.UrgentShow, UrgentMode: c.UrgentMode,
-		ActiveIndicator: c.ActiveIndicator, Divider: c.Divider, AppIconsShow: c.AppIconsShow,
-		AppIconsDedupe: c.AppIconsDedupe, AppIconsFallback: c.AppIconsFallback,
-		AppIconsEmpty: c.AppIconsEmpty, IconGap: c.IconGap, WorkspacePad: c.TagPadding,
-		IconSize: c.IconSize, LabelSize: c.LabelSize, ActiveColor: c.ActiveColor,
-		OccupiedColor: c.OccupiedColor, EmptyColor: c.EmptyColor,
-		ContainerBgColor: c.ContainerBgColor, BorderShow: c.BorderShow,
-		BorderColor: c.BorderColor, WorkspaceMap: NamedWorkspaceMap(c.TagMap),
-		AppIconMap: c.AppIconMap, Click: c.Clicks(),
-	}
 }

@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/lib/wmipc"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func lockKeySource() osd.LockKeys {
-	if detectCompositor() == compositorLysWM {
+	if detectCompositor() == compositor.LysWM {
 		return lysWMLockKeys
 	}
 	return evdevLockKeys

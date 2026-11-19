@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -87,9 +88,9 @@ func windowTitleSource(ctx ModuleContext) (focusSource, error) {
 	switch {
 	case ctx.Hyprland != nil:
 		return hyprlandFocusSource(ctx.Hyprland), nil
-	case detectCompositor() == compositorLysWM:
+	case detectCompositor() == compositor.LysWM:
 		return lysWMFocusSource(), nil
-	case detectCompositor() == compositorNiri:
+	case detectCompositor() == compositor.Niri:
 		conn, err := niri.Connect()
 		if err != nil {
 			return focusSource{}, err
@@ -118,7 +119,7 @@ func windowTitleSource(ctx ModuleContext) (focusSource, error) {
 			subscribe: func(ModuleContext) (<-chan struct{}, func(), error) { return niri.Subscribe() },
 			close:     func() { _ = conn.Close() },
 		}, nil
-	case detectCompositor() == compositorMango:
+	case detectCompositor() == compositor.Mango:
 		w, err := mango.Watch()
 		if err != nil {
 			return focusSource{}, err
@@ -136,7 +137,7 @@ func windowTitleSource(ctx ModuleContext) (focusSource, error) {
 			subscribe: func(ModuleContext) (<-chan struct{}, func(), error) { return w.Ticks(), nil, nil },
 			close:     w.Close,
 		}, nil
-	case detectCompositor() == compositorSway:
+	case detectCompositor() == compositor.Sway:
 		conn, err := sway.Connect()
 		if err != nil {
 			return focusSource{}, err

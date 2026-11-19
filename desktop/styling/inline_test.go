@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 )
 
@@ -175,7 +176,7 @@ func TestResolveIconColor(t *testing.T) {
 
 func TestWorkspacesCSS(t *testing.T) {
 	d := config.Defaults()
-	ws := config.DefaultsNiriWorkspaces().View()
+	ws := config.DefaultsWorkspaces().View(compositor.Niri)
 	want := "* { --ws-active-color: var(--accent); --ws-occupied-color: var(--fg-muted); --ws-empty-color: var(--fg-subtle); " +
 		"--ws-container-bg-color: var(--bg-surface-elevated); --ws-border-color: var(--border-default); --ws-border-width: 0px; }"
 	if got := WorkspacesCSS(ws, nil, d.Bar); got != want {

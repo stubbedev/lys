@@ -62,7 +62,7 @@ func newTestMango(t *testing.T, cfg *config.Config, connector string) *cwsModule
 	t.Helper()
 	ctx := newTestContext(t, cfg)
 	ctx.Connector = connector
-	module, err := createOnHeadlessLoop("mango-workspaces", ctx)
+	module, err := createOnHeadlessLoop("workspaces", ctx)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestMangoHideEmptyAndMinTagCount(t *testing.T) {
 	} {
 		fakeMangoSocket(t, monitors, "[]")
 		cfg := config.Defaults()
-		cfg.MangoWorkspaces.HideEmpty, cfg.MangoWorkspaces.MinTagCount = tc.hide, uint8(tc.min)
+		cfg.Workspaces.HideEmpty, cfg.Workspaces.MinTagCount = tc.hide, uint8(tc.min)
 		m := newTestMango(t, cfg, "DP-1")
 		if got := tagIndices(m); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("hide=%v min=%d: tags %v, want %v", tc.hide, tc.min, got, tc.want)
@@ -127,9 +127,9 @@ func TestMangoTagButtonsAndClients(t *testing.T) {
 		`{"id":2,"title":"c","appid":"kitty","monitor":"DP-1","tags":[1],"is_urgent":false,"is_focused":false}]`
 	fakeMangoSocket(t, monitors, clients)
 	cfg := config.Defaults()
-	cfg.MangoWorkspaces.AppIconsShow = true
-	cfg.MangoWorkspaces.AppIconsDedupe = false
-	cfg.MangoWorkspaces.TagMap = map[string]config.WorkspaceStyle{"3": {Label: new("web")}}
+	cfg.Workspaces.AppIconsShow = true
+	cfg.Workspaces.AppIconsDedupe = false
+	cfg.Workspaces.WorkspaceMap = map[string]config.WorkspaceStyle{"3": {Label: new("web")}}
 	m := newTestMango(t, cfg, "DP-1")
 	if len(m.models) != 2 {
 		t.Fatalf("models = %+v", m.models)
@@ -162,7 +162,7 @@ func TestMangoClicksDispatch(t *testing.T) {
 	monitors := `[{"name":"DP-1","active":true,"tags":` + nineTags(1, 1) + `,"active_tags":[1],"active_client":{"id":null},"keymode":"","keyboardlayout":""}]`
 	dispatched := fakeMangoSocket(t, monitors, "[]")
 	cfg := config.Defaults()
-	cfg.MangoWorkspaces.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
+	cfg.Workspaces.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
 	m := newTestMango(t, cfg, "DP-1")
 	b := m.segs.Segment(0)
 	expect := func(want string) {

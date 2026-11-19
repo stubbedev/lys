@@ -1525,13 +1525,13 @@ func TestWorkspaceStyleMapNumericKeys(t *testing.T) {
 	k := testKit(t, "")
 	f := &fakePickers{}
 	k.pickers = f
-	path := "modules.hyprland-workspaces.workspace-map"
+	path := "modules.workspaces.workspace-map"
 	_ = k.store.set(path, map[string]any{
 		"10": map[string]any{"label": "ten"},
 		"2":  map[string]any{"icon": "ld-globe-symbolic", "color": "#4a90d9"},
 		"-1": map[string]any{},
 	})
-	c := fieldControl(k, k.store, field(path, workspaceStyleMap(true))).(*listEditor)
+	c := fieldControl(k, k.store, field(path, workspaceStyleMap)).(*listEditor)
 	var keys []string
 	for _, it := range c.items {
 		keys = append(keys, it.itemValue().(workspaceStyle).key)
@@ -1543,7 +1543,7 @@ func TestWorkspaceStyleMapNumericKeys(t *testing.T) {
 	if two.icon.btn.TooltipText() != "ld-globe-symbolic" || two.label.Text() != "" {
 		t.Errorf("row 2 shows icon %q label %q", two.icon.btn.TooltipText(), two.label.Text())
 	}
-	// Retyping a key trims it; a key that is no number drops.
+	// Retyping a key trims it.
 	two.key.SelectAll()
 	two.key.Insert(" 3 ")
 	got, _ := k.store.value(path).(map[string]any)
@@ -1555,8 +1555,8 @@ func TestWorkspaceStyleMapNumericKeys(t *testing.T) {
 	}
 	c.items[0].(workspaceStyleItem).key.Insert("x")
 	got, _ = k.store.value(path).(map[string]any)
-	if _, ok := got["-1x"]; ok || len(got) != 2 {
-		t.Errorf("a non-numeric key was stored: %v", got)
+	if _, ok := got["-1x"]; !ok || len(got) != 3 {
+		t.Errorf("a workspace name was not stored as typed: %v", got)
 	}
 	// The label writes only when set; the color through its picker.
 	ten := c.items[2].(workspaceStyleItem)
@@ -1575,9 +1575,18 @@ func TestWorkspaceStyleMapNumericKeys(t *testing.T) {
 
 func TestWorkspaceStyleMapNamedKeys(t *testing.T) {
 	k := testKit(t, "")
-	path := "modules.niri-workspaces.workspace-map"
+	path := "modules.workspaces.workspace-map"
+	_ = k.store.set(path, map[string]any{"web": map[string]any{}, "chat": map[string]any{"label": "c"}, "3": map[string]any{}, "12": map[string]any{}})
+	c := fieldControl(k, k.store, field(path, workspaceStyleMap)).(*listEditor)
+	var keys []string
+	for _, it := range c.items {
+		keys = append(keys, it.itemValue().(workspaceStyle).key)
+	}
+	if !slices.Equal(keys, []string{"3", "12", "chat", "web"}) {
+		t.Fatalf("rows %v, want numbers in numeric order, then names", keys)
+	}
 	_ = k.store.set(path, map[string]any{"web": map[string]any{}, "chat": map[string]any{"label": "c"}})
-	c := fieldControl(k, k.store, field(path, workspaceStyleMap(false))).(*listEditor)
+	c = fieldControl(k, k.store, field(path, workspaceStyleMap)).(*listEditor)
 	if c.items[0].itemValue().(workspaceStyle).key != "chat" {
 		t.Errorf("first row %v, want names sorted", c.items[0].itemValue())
 	}
@@ -1632,10 +1641,10 @@ func TestModulePagesFollowTheModuleOrder(t *testing.T) {
 		ids = append(ids, p.id)
 	}
 	want := []string{
-		"audio", "background-apps", "battery", "bitwarden", "bluetooth", "brightness", "cava", "clock", "cpu", "custom", "dashboard", "hyprland-workspaces",
-		"nightlight", "idle-inhibit", "keybind-mode", "keyboard-input", "lys-wm-workspaces", "mail", "mango-workspaces", "media", "minimized-windows",
-		"netstat", "network", "niri-workspaces", "notification", "power", "power-profiles", "ram", "recorder", "screenshot",
-		"separator", "storage", "sway-workspaces", "systray", "treeman", "weather", "window-title", "world-clock",
+		"audio", "background-apps", "battery", "bitwarden", "bluetooth", "brightness", "cava", "clock", "cpu", "custom", "dashboard",
+		"nightlight", "idle-inhibit", "keybind-mode", "keyboard-input", "mail", "media", "minimized-windows",
+		"netstat", "network", "notification", "power", "power-profiles", "ram", "recorder", "screenshot",
+		"separator", "storage", "systray", "treeman", "weather", "window-title", "workspaces", "world-clock",
 	}
 	if !slices.Equal(ids, want) {
 		t.Errorf("module pages\n%v\nwant (modules::factories, unported pages aside)\n%v", ids, want)

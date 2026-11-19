@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/ui/widget"
@@ -44,7 +45,7 @@ type keybindModeModule struct {
 var errKeybindModeUnsupported = errors.New("keybind-mode: the compositor is neither Hyprland nor lys-wm")
 
 func newKeybindMode(ctx ModuleContext) (Module, error) {
-	if ctx.Hyprland == nil && detectCompositor() != compositorLysWM {
+	if ctx.Hyprland == nil && detectCompositor() != compositor.LysWM {
 		return nil, errKeybindModeUnsupported
 	}
 	m := &keybindModeModule{ctx: ctx}
@@ -88,7 +89,7 @@ func submapSource(ctx ModuleContext) (<-chan string, func(), error) {
 			}
 		}()
 		return submaps, nil, nil
-	case detectCompositor() == compositorLysWM:
+	case detectCompositor() == compositor.LysWM:
 		w, err := lyswm.WatchState(lyswm.SubmapState)
 		if err != nil {
 			return nil, nil, err

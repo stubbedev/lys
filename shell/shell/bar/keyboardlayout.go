@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/ui/widget"
@@ -84,7 +85,7 @@ func keyboardLayoutSource(ctx ModuleContext) (layoutSource, error) {
 	switch {
 	case ctx.Hyprland != nil:
 		return hyprlandLayoutSource(ctx.Hyprland), nil
-	case detectCompositor() == compositorLysWM:
+	case detectCompositor() == compositor.LysWM:
 		w, err := lyswm.WatchState(lyswm.LayoutState)
 		if err != nil {
 			return layoutSource{}, err
@@ -101,7 +102,7 @@ func keyboardLayoutSource(ctx ModuleContext) (layoutSource, error) {
 			close:     w.Close,
 			next:      func(context.Context) error { return lyswm.Dispatch("nextlayout") },
 		}, nil
-	case detectCompositor() == compositorNiri:
+	case detectCompositor() == compositor.Niri:
 		conn, err := niri.Connect()
 		if err != nil {
 			return layoutSource{}, err
@@ -121,7 +122,7 @@ func keyboardLayoutSource(ctx ModuleContext) (layoutSource, error) {
 				return conn.Action(ctx, "SwitchLayout", map[string]any{"layout": "Next"})
 			},
 		}, nil
-	case detectCompositor() == compositorMango:
+	case detectCompositor() == compositor.Mango:
 		w, err := mango.Watch()
 		if err != nil {
 			return layoutSource{}, err
@@ -135,7 +136,7 @@ func keyboardLayoutSource(ctx ModuleContext) (layoutSource, error) {
 			close:     w.Close,
 			next:      func(context.Context) error { return mango.Dispatch("switch_keyboard_layout") },
 		}, nil
-	case detectCompositor() == compositorSway:
+	case detectCompositor() == compositor.Sway:
 		conn, err := sway.Connect()
 		if err != nil {
 			return layoutSource{}, err

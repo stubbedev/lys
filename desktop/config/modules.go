@@ -25,8 +25,6 @@ type ModulesConfig struct {
 	CPU CpuConfig `cfg:"cpu"`
 	// Dashboard module.
 	Dashboard DashboardConfig `cfg:"dashboard"`
-	// Hyprland workspace switcher module.
-	HyprlandWorkspaces HyprlandWorkspacesConfig `cfg:"hyprland-workspaces"`
 	// Night light (blue light filter) module.
 	Nightlight NightlightConfig `cfg:"nightlight,deprecated=hyprsunset"`
 	// Idle inhibitor module.
@@ -35,14 +33,10 @@ type ModulesConfig struct {
 	KeybindMode KeybindModeConfig `cfg:"keybind-mode"`
 	// Keyboard input module.
 	KeyboardInput KeyboardInputConfig `cfg:"keyboard-input"`
-	// lys-wm workspace switcher module.
-	LysWMWorkspaces LysWMWorkspacesConfig `cfg:"lys-wm-workspaces"`
 	// Bitwarden vault module.
 	Bitwarden BitwardenConfig `cfg:"bitwarden"`
 	// Unread mail count module.
 	Mail MailConfig `cfg:"mail"`
-	// MangoWM tag switcher module.
-	MangoWorkspaces MangoWorkspacesConfig `cfg:"mango-workspaces"`
 	// Media player module.
 	Media MediaConfig `cfg:"media"`
 	// Minimized windows module.
@@ -51,8 +45,6 @@ type ModulesConfig struct {
 	Network NetworkConfig `cfg:"network"`
 	// Network traffic statistics module.
 	Netstat NetstatConfig `cfg:"netstat"`
-	// Niri workspace switcher module.
-	NiriWorkspaces NiriWorkspacesConfig `cfg:"niri-workspaces"`
 	// Notification center module.
 	Notification NotificationConfig `cfg:"notifications,deprecated=notification"`
 	// Power menu module.
@@ -69,14 +61,14 @@ type ModulesConfig struct {
 	Storage StorageConfig `cfg:"storage"`
 	// Separator module.
 	Separator SeparatorConfig `cfg:"separator"`
-	// sway workspace switcher module.
-	SwayWorkspaces SwayWorkspacesConfig `cfg:"sway-workspaces"`
 	// System tray module.
 	Systray SystrayConfig `cfg:"systray"`
 	// treeman worktree health module.
 	Treeman TreemanConfig `cfg:"treeman"`
 	// Weather display module.
 	Weather WeatherConfig `cfg:"weather"`
+	// Workspace switcher module, on whichever compositor runs.
+	Workspaces WorkspacesConfig `cfg:"workspaces"`
 	// Window title module.
 	WindowTitle WindowTitleConfig `cfg:"window-title"`
 	// World clock module.
@@ -126,43 +118,39 @@ func (m *ModulesConfig) ModuleClicks(name string) (ClickConfig, bool) {
 // DefaultsModules returns every module's schema defaults.
 func DefaultsModules() ModulesConfig {
 	return ModulesConfig{
-		Audio:              DefaultsAudio(),
-		BackgroundApps:     DefaultsBackgroundApps(),
-		Battery:            DefaultsBattery(),
-		Bitwarden:          DefaultsBitwarden(),
-		Bluetooth:          DefaultsBluetooth(),
-		Brightness:         DefaultsBrightness(),
-		Cava:               DefaultsCava(),
-		Clock:              DefaultsClock(),
-		CPU:                DefaultsCpu(),
-		Dashboard:          DefaultsDashboard(),
-		HyprlandWorkspaces: DefaultsHyprlandWorkspaces(),
-		Nightlight:         DefaultsNightlight(),
-		IdleInhibit:        DefaultsIdleInhibit(),
-		KeybindMode:        DefaultsKeybindMode(),
-		KeyboardInput:      DefaultsKeyboardInput(),
-		LysWMWorkspaces:    DefaultsLysWMWorkspaces(),
-		Mail:               DefaultsMail(),
-		MangoWorkspaces:    DefaultsMangoWorkspaces(),
-		Media:              DefaultsMedia(),
-		MinimizedWindows:   DefaultsMinimizedWindows(),
-		Network:            DefaultsNetwork(),
-		Netstat:            DefaultsNetstat(),
-		NiriWorkspaces:     DefaultsNiriWorkspaces(),
-		Notification:       DefaultsNotification(),
-		Power:              DefaultsPower(),
-		PowerProfiles:      DefaultsPowerProfiles(),
-		RAM:                DefaultsRam(),
-		Recorder:           DefaultsRecorder(),
-		Screenshot:         DefaultsScreenshot(),
-		Storage:            DefaultsStorage(),
-		Separator:          DefaultsSeparator(),
-		SwayWorkspaces:     DefaultsSwayWorkspaces(),
-		Systray:            DefaultsSystray(),
-		Treeman:            DefaultsTreeman(),
-		Weather:            DefaultsWeather(),
-		WindowTitle:        DefaultsWindowTitle(),
-		WorldClock:         DefaultsWorldClock(),
-		Custom:             []CustomModuleDefinition{},
+		Audio:            DefaultsAudio(),
+		BackgroundApps:   DefaultsBackgroundApps(),
+		Battery:          DefaultsBattery(),
+		Bitwarden:        DefaultsBitwarden(),
+		Bluetooth:        DefaultsBluetooth(),
+		Brightness:       DefaultsBrightness(),
+		Cava:             DefaultsCava(),
+		Clock:            DefaultsClock(),
+		CPU:              DefaultsCpu(),
+		Dashboard:        DefaultsDashboard(),
+		Nightlight:       DefaultsNightlight(),
+		IdleInhibit:      DefaultsIdleInhibit(),
+		KeybindMode:      DefaultsKeybindMode(),
+		KeyboardInput:    DefaultsKeyboardInput(),
+		Mail:             DefaultsMail(),
+		Media:            DefaultsMedia(),
+		MinimizedWindows: DefaultsMinimizedWindows(),
+		Network:          DefaultsNetwork(),
+		Netstat:          DefaultsNetstat(),
+		Notification:     DefaultsNotification(),
+		Power:            DefaultsPower(),
+		PowerProfiles:    DefaultsPowerProfiles(),
+		RAM:              DefaultsRam(),
+		Recorder:         DefaultsRecorder(),
+		Screenshot:       DefaultsScreenshot(),
+		Storage:          DefaultsStorage(),
+		Separator:        DefaultsSeparator(),
+		Systray:          DefaultsSystray(),
+		Treeman:          DefaultsTreeman(),
+		Weather:          DefaultsWeather(),
+		WindowTitle:      DefaultsWindowTitle(),
+		Workspaces:       DefaultsWorkspaces(),
+		WorldClock:       DefaultsWorldClock(),
+		Custom:           []CustomModuleDefinition{},
 	}
 }

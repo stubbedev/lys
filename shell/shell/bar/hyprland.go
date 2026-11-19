@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -20,7 +21,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 
-// The hyprland-workspaces module: the filter
+// The workspaces module on Hyprland: the filter
 // with min-workspace-count placeholders and workspace rules, absolute
 // or relative numbering, per-monitor active tracking with the
 // active-on-other-monitor state, urgency tracked by window address
@@ -262,7 +263,7 @@ func hyprWorkspaceIcons(id int, clients []hyprland.Client, cfg config.Compositor
 // snapshot.
 type hyprlandWorkspaces struct {
 	cwsView
-	hcfg config.HyprlandWorkspacesConfig
+	hcfg config.WorkspacesConfig
 	conn *hyprland.Connection
 
 	workspaces []hyprland.Workspace
@@ -289,11 +290,11 @@ type hyprlandWorkspaces struct {
 
 func newHyprlandWorkspaces(ctx ModuleContext) (Module, error) {
 	if ctx.Hyprland == nil {
-		return nil, errors.New("hyprland-workspaces: the compositor is not Hyprland")
+		return nil, errors.New("workspaces: no Hyprland connection")
 	}
-	hcfg := ctx.Config.HyprlandWorkspaces
+	hcfg := ctx.Config.Workspaces
 	m := &hyprlandWorkspaces{
-		ctx: ctx, cfg: hcfg.View(), flavor: cwsHyprland, otherMonitor: &hcfg.ActiveOnOtherMonitorColor,
+		ctx: ctx, cfg: hcfg.View(compositor.Hyprland), flavor: cwsHyprland, otherMonitor: &hcfg.ActiveOnOtherMonitorColor,
 		hcfg:   hcfg,
 		conn:   ctx.Hyprland,
 		urgent: map[string]bool{},
@@ -313,7 +314,7 @@ func newHyprlandWorkspaces(ctx ModuleContext) (Module, error) {
 	m.hideUntilRead(m.segs)
 	m.firstDue.Store(true)
 	m.rulesDue.Store(true)
-	m.reads = newOffLoopRead(ctx, "hyprland-workspaces", m.read, m.apply)
+	m.reads = newOffLoopRead(ctx, "workspaces", m.read, m.apply)
 	if ctx.App == nil {
 		m.reads.first()
 		return m, nil
@@ -321,7 +322,7 @@ func newHyprlandWorkspaces(ctx ModuleContext) (Module, error) {
 	go func() {
 		events, err := ctx.Hyprland.Events(ctx.Life())
 		if err != nil {
-			log.Printf("hyprland-workspaces: events: %v", err)
+			log.Printf("workspaces: Hyprland events: %v", err)
 			m.reads.first()
 			return
 		}
@@ -439,7 +440,7 @@ func (m *hyprlandWorkspaces) readRules() map[int]string {
 	out := map[int]string{}
 	rules, err := m.conn.WorkspaceRules()
 	if err != nil {
-		log.Printf("hyprland-workspaces: cannot load workspace rules: %v", err)
+		log.Printf("workspaces: cannot load Hyprland workspace rules: %v", err)
 		return out
 	}
 	for _, rule := range rules {

@@ -61,7 +61,7 @@ func newTestLysWM(t *testing.T, cfg *config.Config, connector string) *cwsModule
 	t.Helper()
 	ctx := newTestContext(t, cfg)
 	ctx.Connector = connector
-	module, err := createOnHeadlessLoop("lys-wm-workspaces", ctx)
+	module, err := createOnHeadlessLoop("workspaces", ctx)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestLysWMWorkspacesShowTheBarOutputsNumbers(t *testing.T) {
 	}
 
 	cfg := config.Defaults()
-	cfg.LysWMWorkspaces.MonitorSpecific = false
+	cfg.Workspaces.MonitorSpecific = false
 	if got := len(newTestLysWM(t, cfg, "DP-1").models); got != 3 {
 		t.Errorf("monitor-specific off shows %d workspaces, want all 3", got)
 	}
@@ -94,7 +94,7 @@ func TestLysWMWorkspacesClicksDispatch(t *testing.T) {
 	f := newFakeLysWM(t)
 	f.Result("workspaces", lysWMTwoOutputs)
 	cfg := config.Defaults()
-	cfg.LysWMWorkspaces.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
+	cfg.Workspaces.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
 	m := newTestLysWM(t, cfg, "DP-1")
 	first := m.segs.Segment(0)
 	router, p := treetest.Pointer(m.segs, first, 500, 40)
@@ -109,13 +109,6 @@ func TestLysWMWorkspacesClicksDispatch(t *testing.T) {
 	f.ExpectNoDispatch(t)
 	if err := (lysWMBackend{}).focusLast(context.Background()); !errors.Is(err, errNoPreviousWorkspace) {
 		t.Errorf("focus:last = %v, want the missing-action error", err)
-	}
-}
-
-func TestLysWMWorkspacesRequireLysWM(t *testing.T) {
-	advertise(t, "SWAYSOCK")
-	if _, err := createOnHeadlessLoop("lys-wm-workspaces", newTestContext(t, config.Defaults())); err == nil {
-		t.Error("lys-wm-workspaces under sway: want an error, got a module")
 	}
 }
 

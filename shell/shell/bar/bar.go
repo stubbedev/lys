@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
@@ -304,7 +305,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 		mediaErr error
 		notifs   *notifications.Service
 	)
-	if detectCompositor() == compositorHyprland {
+	if detectCompositor() == compositor.Hyprland {
 		starts.Go(func() {
 			conn, err := hyprland.Connect()
 			if err != nil {
@@ -644,7 +645,7 @@ func (s *shellStart) mount() {
 		tasks := newTaskHub(appToplevels{application}, application.Invoke)
 		s.down.add(tasks.close)
 		baseCtx.Tasks = tasks
-		if detectCompositor() == compositorLysWM {
+		if detectCompositor() == compositor.LysWM {
 			s.down.addAsync(func() func() {
 				geometry, err := lyswm.WatchWindows()
 				if err != nil {

@@ -36,86 +36,84 @@ func (w workspaceStyleItem) itemValue() any {
 	return s
 }
 
-// workspaceStyleMap edits a map of WorkspaceStyle: numeric keys (a Hyprland workspace id, the
-// map's order numeric, a key that does not parse dropped on write) or
-// names (sorted, an empty one dropped).
-func workspaceStyleMap(numeric bool) rowOpt {
-	return listRow(func(config.FieldMeta) listSpec {
-		t := locale.T()
-		return listSpec{
-			addKey: "settings-map-add", rowClass: "string-map-row", blank: always(workspaceStyle{}),
-			classes: []string{"workspace-style-editor"}, listCls: "string-map",
-			item: func(k *kit, v any, changed func()) listItem {
-				style, _ := v.(workspaceStyle)
-				w := workspaceStyleItem{Box: gapBox(widget.Row), key: k.entry(), label: k.entry(), style: &style}
-				w.key.SetPlaceholder(t.Get("settings-workspace-key-placeholder"))
-				w.label.SetPlaceholder(t.Get("settings-workspace-label-placeholder"))
-				w.key.SetText(style.key)
-				w.label.SetText(style.label)
-				w.key.OnChanged = func(string) { changed() }
-				w.label.OnChanged = func(string) { changed() }
-				local := func(field *any) slot {
-					return slot{
-						get:   func() any { return *field },
-						set:   func(v any) error { *field = v; changed(); return nil },
-						unset: func() { *field = nil; changed() },
-					}
+// workspaceStyleMap edits the workspace-map: styles keyed by a workspace's
+// name or number, numbers first in numeric order, an empty key dropped.
+var workspaceStyleMap = listRow(func(config.FieldMeta) listSpec {
+	t := locale.T()
+	return listSpec{
+		addKey: "settings-map-add", rowClass: "string-map-row", blank: always(workspaceStyle{}),
+		classes: []string{"workspace-style-editor"}, listCls: "string-map",
+		item: func(k *kit, v any, changed func()) listItem {
+			style, _ := v.(workspaceStyle)
+			w := workspaceStyleItem{Box: gapBox(widget.Row), key: k.entry(), label: k.entry(), style: &style}
+			w.key.SetPlaceholder(t.Get("settings-workspace-key-placeholder"))
+			w.label.SetPlaceholder(t.Get("settings-workspace-label-placeholder"))
+			w.key.SetText(style.key)
+			w.label.SetText(style.label)
+			w.key.OnChanged = func(string) { changed() }
+			w.label.OnChanged = func(string) { changed() }
+			local := func(field *any) slot {
+				return slot{
+					get:   func() any { return *field },
+					set:   func(v any) error { *field = v; changed(); return nil },
+					unset: func() { *field = nil; changed() },
 				}
-				w.icon = newIconEditor(k, local(&style.icon))
-				w.color = optionalColor(k, local(&style.color))
-				w.Append(w.key, true)
-				w.Append(w.icon, true)
-				w.Append(w.label, true)
-				w.AppendAligned(w.color, false, widget.AlignCenter)
-				return w
-			},
-			decode: func(v any) []any {
-				m, _ := v.(map[string]any)
-				keys := slices.Collect(maps.Keys(m))
-				slices.SortFunc(keys, func(a, b string) int {
-					if numeric {
-						x, _ := strconv.Atoi(a)
-						y, _ := strconv.Atoi(b)
-						return cmp.Compare(x, y)
-					}
-					return cmp.Compare(a, b)
-				})
-				out := make([]any, len(keys))
-				for i, key := range keys {
-					fields, _ := m[key].(map[string]any)
-					label, _ := fields["label"].(string)
-					out[i] = workspaceStyle{key: key, label: label, icon: fields["icon"], color: fields["color"]}
+			}
+			w.icon = newIconEditor(k, local(&style.icon))
+			w.color = optionalColor(k, local(&style.color))
+			w.Append(w.key, true)
+			w.Append(w.icon, true)
+			w.Append(w.label, true)
+			w.AppendAligned(w.color, false, widget.AlignCenter)
+			return w
+		},
+		decode: func(v any) []any {
+			m, _ := v.(map[string]any)
+			keys := slices.Collect(maps.Keys(m))
+			slices.SortFunc(keys, workspaceKeyOrder)
+			out := make([]any, len(keys))
+			for i, key := range keys {
+				fields, _ := m[key].(map[string]any)
+				label, _ := fields["label"].(string)
+				out[i] = workspaceStyle{key: key, label: label, icon: fields["icon"], color: fields["color"]}
+			}
+			return out
+		},
+		encode: func(items []any) any {
+			out := map[string]any{}
+			for _, it := range items {
+				s, _ := it.(workspaceStyle)
+				key := strings.TrimSpace(s.key)
+				if key == "" {
+					continue
 				}
-				return out
-			},
-			encode: func(items []any) any {
-				out := map[string]any{}
-				for _, it := range items {
-					s, _ := it.(workspaceStyle)
-					key := s.key
-					if numeric {
-						id, err := strconv.ParseInt(strings.TrimSpace(key), 10, 32)
-						if err != nil {
-							continue
-						}
-						key = strconv.FormatInt(id, 10)
-					} else if key == "" {
-						continue
-					}
-					fields := map[string]any{}
-					if name, _ := s.icon.(string); name != "" {
-						fields["icon"] = name
-					}
-					if s.color != nil {
-						fields["color"] = s.color
-					}
-					if s.label != "" {
-						fields["label"] = s.label
-					}
-					out[key] = fields
+				fields := map[string]any{}
+				if name, _ := s.icon.(string); name != "" {
+					fields["icon"] = name
 				}
-				return out
-			},
-		}
-	})
+				if s.color != nil {
+					fields["color"] = s.color
+				}
+				if s.label != "" {
+					fields["label"] = s.label
+				}
+				out[key] = fields
+			}
+			return out
+		},
+	}
+})
+
+func workspaceKeyOrder(a, b string) int {
+	x, errA := strconv.Atoi(a)
+	y, errB := strconv.Atoi(b)
+	switch {
+	case errA == nil && errB == nil:
+		return cmp.Compare(x, y)
+	case errA == nil:
+		return -1
+	case errB == nil:
+		return 1
+	}
+	return cmp.Compare(a, b)
 }

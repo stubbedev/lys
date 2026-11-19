@@ -262,7 +262,7 @@ bar:
 
 Bar module name. Built-in modules or custom modules with a `custom-<id>` pattern.
 
-One of: `"audio"`, `"background-apps"`, `"battery"`, `"bitwarden"`, `"bluetooth"`, `"brightness"`, `"cava"`, `"clock"`, `"cpu"`, `"dashboard"`, `"hyprland-workspaces"`, `"idle-inhibit"`, `"keybind-mode"`, `"keyboard-input"`, `"lys-wm-workspaces"`, `"mail"`, `"media"`, `"mango-workspaces"`, `"minimized-windows"`, `"netstat"`, `"network"`, `"nightlight"`, `"niri-workspaces"`, `"notifications"`, `"power"`, `"power-profiles"`, `"ram"`, `"recorder"`, `"screenshot"`, `"separator"`, `"storage"`, `"sway-workspaces"`, `"systray"`, `"treeman"`, `"updates"`, `"weather"`, `"window-title"`, `"workspaces"`, `"world-clock"`.
+One of: `"audio"`, `"background-apps"`, `"battery"`, `"bitwarden"`, `"bluetooth"`, `"brightness"`, `"cava"`, `"clock"`, `"cpu"`, `"dashboard"`, `"idle-inhibit"`, `"keybind-mode"`, `"keyboard-input"`, `"mail"`, `"media"`, `"minimized-windows"`, `"netstat"`, `"network"`, `"nightlight"`, `"notifications"`, `"power"`, `"power-profiles"`, `"ram"`, `"recorder"`, `"screenshot"`, `"separator"`, `"storage"`, `"systray"`, `"treeman"`, `"updates"`, `"weather"`, `"window-title"`, `"workspaces"`, `"world-clock"`.
 
 String matching `^custom-[a-z0-9-]+$`.
 
@@ -1804,22 +1804,17 @@ String.
 
 ## WorkspaceMap {#workspace-map}
 
-Per-workspace icon and color overrides, keyed by workspace ID.
-
-Keys are written as strings, so `"1"` parses into the workspace
-with ID `1`. Negative IDs refer to Hyprland's special workspaces. Keys
-that don't appear in the map fall back to `display-mode`.
+Per-workspace icon, label and color overrides, keyed by the workspace's
+name, its number, or on Hyprland its id (negative for special
+workspaces) and on mango its tag index. Workspaces not in the map follow
+`display-mode`.
 
 ### Examples
 
 ```yaml
-# under modules.hyprland-workspaces.workspace-map
+# under modules.workspaces.workspace-map
 "1": {label: Web, icon: ld-globe-symbolic, color: "#4a90d9"}
-"2": {icon: ld-terminal-symbolic}
-"3": {icon: ld-code-symbolic, color: accent}
-"4": {label: Chat, icon: ld-message-square-symbolic, color: status-success}
-
-# Negative IDs target Hyprland special workspaces
+terminal: {icon: ld-terminal-symbolic}
 "-99": {icon: ld-scratch-symbolic}
 ```
 

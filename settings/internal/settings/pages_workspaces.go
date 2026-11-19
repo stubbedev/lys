@@ -1,116 +1,84 @@
 package settings
 
-import "github.com/stubbedev/lys/desktop/config"
+import (
+	"os"
 
-// The workspace module pages (pages/modules/*_workspaces).
+	"github.com/stubbedev/lys/desktop/compositor"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
-// workspaceSizing is the sizing section every workspace page shares;
-// padding is the module's own padding field.
-func workspaceSizing(module, padding string) sectionSpec {
-	return sectionSpec{title: "settings-section-sizing", rows: []rowSpec{
-		field(module + ".icon-gap"),
-		field(module + "." + padding),
-		field(module+".icon-size", sizeBase(config.WorkspaceIconBaseRem)),
-		field(module+".label-size", sizeBase(config.WorkspaceLabelBaseRem)),
-	}}
-}
+	"github.com/stubbedev/lys/settings/internal/locale"
+)
 
-// workspaceSections are the sections from app icons to the actions,
-// in the pages' order: the sizing, urgent, mappings, bar display,
-// colors and actions, with the mappings and colors the module's own.
-func workspaceSections(module string, sizing sectionSpec, mappings []rowSpec, colors []string) []sectionSpec {
-	actionRows := make([]rowSpec, 0, 5)
-	for _, key := range []string{"left-click", "middle-click", "right-click", "scroll-up", "scroll-down"} {
-		actionRows = append(actionRows, field(module+"."+key, actions(workspaceChoices())))
+const workspacesModule = "modules.workspaces"
+
+func sessionCompositor() compositor.Kind { return compositor.Detect(os.Getenv) }
+
+func workspacesPage(*config.Config) pageSpec {
+	on := sessionCompositor()
+	key := func(k string) rowSpec { return field(workspacesModule + "." + k) }
+	keyWith := func(k string, opt rowOpt) rowSpec { return field(workspacesModule+"."+k, opt) }
+	clicks := make([]rowSpec, 0, 5)
+	for _, k := range []string{"left-click", "middle-click", "right-click", "scroll-up", "scroll-down"} {
+		clicks = append(clicks, keyWith(k, actions(workspaceChoices())))
 	}
-	colorRows := []rowSpec{field(module + ".active-indicator")}
-	for _, c := range colors {
-		colorRows = append(colorRows, field(module+"."+c))
-	}
-	return []sectionSpec{
-		{title: "settings-section-app-icons", rows: []rowSpec{
-			field(module + ".app-icons-show"),
-			field(module + ".app-icons-dedupe"),
-			field(module+".app-icons-fallback", iconRow),
-			field(module+".app-icons-empty", iconRow),
+	sections := []sectionSpec{
+		{title: "settings-section-general", rows: []rowSpec{
+			key("monitor-specific"), keyWith("workspace-ignore", stringList), key("hide-trailing-empty"), key("hide-empty"),
+			key("min-workspace-count"), key("min-tag-count"), key("show-special"),
 		}},
-		sizing,
-		{title: "settings-section-urgent", rows: fields(module+".urgent-show", module+".urgent-mode")},
-		{title: "settings-section-mappings", rows: mappings},
-		{title: "settings-section-bar-display", rows: fields(module + ".border-show")},
-		{title: "settings-section-colors", rows: colorRows},
-		{title: "settings-section-actions", rows: actionRows},
+		{title: "settings-section-display", rows: []rowSpec{
+			key("display-mode"), key("label-strategy"), key("label-use-name"), key("numbering"), key("divider"),
+		}},
+		{title: "settings-section-app-icons", rows: []rowSpec{
+			key("app-icons-show"), key("app-icons-dedupe"), keyWith("app-icons-fallback", iconRow), keyWith("app-icons-empty", iconRow),
+		}},
+		{title: "settings-section-sizing", rows: []rowSpec{
+			key("icon-gap"), key("workspace-padding"),
+			keyWith("icon-size", sizeBase(config.WorkspaceIconBaseRem)), keyWith("label-size", sizeBase(config.WorkspaceLabelBaseRem)),
+		}},
+		{title: "settings-section-urgent", rows: []rowSpec{key("urgent-show"), key("urgent-mode")}},
+		{title: "settings-section-mappings", rows: []rowSpec{keyWith("workspace-map", workspaceStyleMap), keyWith("app-icon-map", stringMap)}},
+		{title: "settings-section-bar-display", rows: []rowSpec{key("border-show")}},
+		{title: "settings-section-colors", rows: []rowSpec{
+			key("active-indicator"), key("active-color"), key("highlight-active-on-other-monitor"), key("active-on-other-monitor-color"),
+			key("occupied-color"), key("empty-color"), key("container-bg-color"), key("border-color"),
+		}},
+		{title: "settings-section-actions", rows: clicks},
+	}
+	return pageSpec{
+		id: "workspaces", navKey: "settings-nav-workspaces", icon: "ld-grid-2x2-symbolic",
+		header: "settings-page-workspaces", sections: honouredOn(on, sections),
+		lead: func(k *kit) widget.Widget { return workspacesCompositorNote(k, on) },
 	}
 }
 
-// hyprlandWorkspacesPage is pages/modules/hyprland_workspaces.
-func hyprlandWorkspacesPage(*config.Config) pageSpec {
-	const m = "modules.hyprland-workspaces"
-	return pageSpec{
-		id: "hyprland-workspaces", navKey: "settings-nav-hyprland-workspaces", icon: "ld-grid-2x2-symbolic",
-		header: "settings-page-hyprland-workspaces",
-		sections: append([]sectionSpec{
-			{title: "settings-section-general", rows: fields(m+".min-workspace-count", m+".monitor-specific", m+".show-special", m+".highlight-active-on-other-monitor")},
-			{title: "settings-section-display", rows: fields(m+".display-mode", m+".label-use-name", m+".numbering", m+".divider")},
-		}, workspaceSections(m, workspaceSizing(m, "workspace-padding"), []rowSpec{
-			field(m+".workspace-map", workspaceStyleMap(true)),
-			field(m+".app-icon-map", stringMap),
-			field(m+".workspace-ignore", stringList),
-		}, []string{"active-color", "active-on-other-monitor-color", "occupied-color", "empty-color", "container-bg-color", "border-color"})...),
+func honouredOn(on compositor.Kind, sections []sectionSpec) []sectionSpec {
+	if on == compositor.Unknown {
+		return sections
 	}
+	out := make([]sectionSpec, 0, len(sections))
+	for _, s := range sections {
+		kept := make([]rowSpec, 0, len(s.rows))
+		for _, r := range s.rows {
+			if config.WorkspaceKeyHonored(r.path[len(workspacesModule)+1:], on) {
+				kept = append(kept, r)
+			}
+		}
+		if len(kept) > 0 {
+			out = append(out, sectionSpec{title: s.title, rows: kept})
+		}
+	}
+	return out
 }
 
-// compositorWorkspacesPage is pages/modules/{niri,sway}_workspaces:
-// field for field the same page.
-func compositorWorkspacesPage(name string) pageSpec {
-	m := "modules." + name + "-workspaces"
-	return pageSpec{
-		id: name + "-workspaces", navKey: "settings-nav-" + name + "-workspaces", icon: "ld-grid-2x2-symbolic",
-		header: "settings-page-" + name + "-workspaces",
-		sections: append([]sectionSpec{
-			{title: "settings-section-general", rows: fields(m+".monitor-specific", m+".hide-trailing-empty")},
-			{title: "settings-section-display", rows: fields(m+".display-mode", m+".label-strategy", m+".divider")},
-		}, workspaceSections(m, workspaceSizing(m, "workspace-padding"), []rowSpec{
-			field(m+".workspace-map", workspaceStyleMap(false)),
-			field(m+".app-icon-map", stringMap),
-			field(m+".workspace-ignore", stringList),
-		}, []string{"active-color", "occupied-color", "empty-color", "container-bg-color", "border-color"})...),
+func workspacesCompositorNote(k *kit, on compositor.Kind) widget.Widget {
+	t := locale.T()
+	text := t.Get("settings-workspaces-no-compositor")
+	if on != compositor.Unknown {
+		text = t.Get("settings-workspaces-compositor", i18n.Str("compositor", on.String()))
 	}
-}
-
-func lysWMWorkspacesPage(*config.Config) pageSpec {
-	const m = "modules.lys-wm-workspaces"
-	return pageSpec{
-		id: "lys-wm-workspaces", navKey: "settings-nav-lys-wm-workspaces", icon: "ld-grid-2x2-symbolic",
-		header: "settings-page-lys-wm-workspaces",
-		sections: append([]sectionSpec{
-			{title: "settings-section-general", rows: fields(m + ".monitor-specific")},
-			{title: "settings-section-display", rows: fields(m+".display-mode", m+".divider")},
-		}, workspaceSections(m, workspaceSizing(m, "workspace-padding"), []rowSpec{
-			field(m+".workspace-map", workspaceStyleMap(false)),
-			field(m+".app-icon-map", stringMap),
-			field(m+".workspace-ignore", stringList),
-		}, []string{"active-color", "occupied-color", "empty-color", "container-bg-color", "border-color"})...),
-	}
-}
-
-// mangoWorkspacesPage is pages/modules/mango_workspaces.
-func mangoWorkspacesPage(*config.Config) pageSpec {
-	const m = "modules.mango-workspaces"
-	return pageSpec{
-		id: "mango-workspaces", navKey: "settings-nav-mango-workspaces", icon: "ld-grid-2x2-symbolic",
-		header: "settings-page-mango-workspaces",
-		sections: append([]sectionSpec{
-			{title: "settings-section-general", rows: fields(m+".hide-empty", m+".min-tag-count")},
-			{title: "settings-section-display", rows: fields(m+".display-mode", m+".divider")},
-		}, workspaceSections(m, sectionSpec{title: "settings-section-sizing", rows: []rowSpec{
-			field(m + ".tag-padding"),
-			field(m + ".icon-gap"),
-			field(m+".icon-size", sizeBase(config.WorkspaceIconBaseRem)),
-			field(m+".label-size", sizeBase(config.WorkspaceLabelBaseRem)),
-		}}, []rowSpec{
-			field(m+".tag-map", workspaceStyleMap(false)),
-			field(m+".app-icon-map", stringMap),
-		}, []string{"active-color", "occupied-color", "empty-color", "container-bg-color", "border-color"})...),
-	}
+	return wrapped(k.label(text, "settings-section-description", css.Caption, css.DimLabel))
 }
