@@ -62,7 +62,7 @@ left out.
 
 A row that has no effect in the current state stays out of the way: the dock's
 rows are greyed out while the dock is off, and a border's width and color, the
-dock's hide delay and zoom size, and the icon padding of a bar button style
+dock's hide delay and zoom size, the media icon rows of an icon type that does not use them, and the icon padding of a bar button style
 without an icon box are hidden until they apply. Search and `--setting` for a
 hidden row land on the row that hides it.
 
@@ -87,7 +87,7 @@ Some pages also act on the system:
 | Login Items | XDG autostart entries and systemd user services | Autostart directories, systemd user manager |
 | Default Apps | Default app per category and file type; the terminal | `mimeapps.list` |
 | Passwords | Filter, reveal and copy keyring items; how many minutes until a reveal asks for the collection password again | Secret Service |
-| Privacy | Per-app portal grants: background and notifications switch on or off, GameMode and realtime are read-only, others can be revoked; the screen-share reminder | xdg-desktop-portal permission store |
+| Privacy | Per-app portal grants: background and notifications switch on or off, GameMode and realtime are read-only, others can be revoked; the screen-share reminder; a link to the online lyrics on the Media page, which send every track played to lrclib.net | xdg-desktop-portal permission store |
 | Login & Lock Screen | **Apply to login screen** sends the background, clock and login screen settings to lys-login's display manager, which asks polkit when you are not the logged-in user; the footer says whether they were applied, invalid, not authorized, or the authentication was dismissed, and whether the login screen has changes not applied yet (the last applied settings are kept in `~/.local/state/lys-settings/greeter-applied.yaml`) | `/run/lys-login/apply.sock` |
 | Notifications | **Send Test Notification** shows a notification with the settings on the page; the page says why when nothing answers | org.freedesktop.Notifications |
 | On-Screen Display | **Show OSD** shows a volume toast with the settings on the page; each toast preset's **Show** shows that preset and the card names the `lys-shell toast --preset` line that does the same | `lys-shell toast` |

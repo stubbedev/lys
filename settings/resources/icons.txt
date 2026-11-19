@@ -16,6 +16,7 @@ ld-code-symbolic
 ld-coffee-symbolic
 ld-copy-symbolic
 ld-cpu-symbolic
+ld-disc-3-symbolic
 ld-droplets-symbolic
 ld-droplet-symbolic
 ld-eye-off-symbolic

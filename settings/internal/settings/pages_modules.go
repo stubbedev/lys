@@ -366,19 +366,30 @@ func keyboardInputPage(*config.Config) pageSpec {
 
 // mediaPage is pages/modules/media.
 func mediaPage(*config.Config) pageSpec {
+	const m = "modules.media"
+	iconType := func(t config.MediaIconType) rowOpt { return shownWhen(m+".icon-type", valueIn(string(t))) }
 	return pageSpec{id: "media", navKey: "settings-nav-media", icon: "ld-music-symbolic", header: "settings-page-media", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.media.icon-type"),
-			field("modules.media.format"),
-			field("modules.media.icon-name", iconRow),
-			field("modules.media.spinning-disc-icon", iconRow),
-			field("modules.media.player-icons", iconMap),
-			field("modules.media.players-ignored", stringList),
-			field("modules.media.player-priority", stringList),
-			field("modules.media.lyrics"),
+		{title: "settings-section-general", rows: []rowSpec{field(m + ".format")}},
+		{title: "settings-section-icons", rows: []rowSpec{
+			field(m+".icon-type", pictureChoice(mediaIconPictures)),
+			field(m+".icon-name", iconRow),
+			field(m+".spinning-disc-icon", iconRow, iconType(config.MediaIconTypeSpinningDisc)),
+			field(m+".player-icons", iconMap, iconType(config.MediaIconTypeApplicationMapped)),
 		}},
-		barItemSection("modules.media", actionChoices("media")),
+		{title: "settings-section-media-players", rows: []rowSpec{
+			field(m+".players-ignored", stringList),
+			field(m+".player-priority", stringList),
+		}},
+		{title: "settings-section-online-lyrics", rows: []rowSpec{field(m + ".lyrics")}},
+		barItemSection(m, actionChoices("media")),
 	}}
+}
+
+var mediaIconPictures = map[string]picture{
+	string(config.MediaIconTypeDefault):           {icon: "ld-music-symbolic"},
+	string(config.MediaIconTypeApplication):       {icon: "ld-app-window-symbolic"},
+	string(config.MediaIconTypeSpinningDisc):      {icon: "ld-disc-3-symbolic"},
+	string(config.MediaIconTypeApplicationMapped): {icon: "ld-layout-grid-symbolic"},
 }
 
 // netstatPage is pages/modules/netstat.

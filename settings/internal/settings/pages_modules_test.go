@@ -164,6 +164,45 @@ func TestSearchFindsKeepAwakeByWhatItDoes(t *testing.T) {
 	}
 }
 
+func TestMediaShowsOnlyTheIconRowsOfTheChosenIconType(t *testing.T) {
+	k := testKit(t, "modules:\n  media:\n    icon-type: default\n")
+	p := layoutPage(t, k, "media")
+	if _, ok := rowOf(t, p, "modules.media.icon-type").ctl.(*choiceCards); !ok {
+		t.Fatal("the media icon type is not chosen by picture")
+	}
+	disc, mapped, fallback := rowOf(t, p, "modules.media.spinning-disc-icon"), rowOf(t, p, "modules.media.player-icons"), rowOf(t, p, "modules.media.icon-name")
+	if disc.Visible() || mapped.Visible() || !fallback.Visible() {
+		t.Fatalf("a generic icon shows the disc %v, the player map %v, the icon %v", disc.Visible(), mapped.Visible(), fallback.Visible())
+	}
+	setRow(t, p, "modules.media.icon-type", string(config.MediaIconTypeSpinningDisc))
+	if !disc.Visible() || mapped.Visible() || !fallback.Visible() {
+		t.Errorf("a spinning disc shows the disc %v, the player map %v, the icon %v", disc.Visible(), mapped.Visible(), fallback.Visible())
+	}
+	setRow(t, p, "modules.media.icon-type", string(config.MediaIconTypeApplicationMapped))
+	if disc.Visible() || !mapped.Visible() {
+		t.Errorf("a mapped icon shows the disc %v, the player map %v", disc.Visible(), mapped.Visible())
+	}
+}
+
+func TestThePrivacyPageLeadsToTheOnlineLyrics(t *testing.T) {
+	if err := checkSetting(bothParts, "media", "modules.media.lyrics"); err != nil {
+		t.Fatal(err)
+	}
+	serveGrants(t, &fakeGrants{})
+	k := testKit(t, "")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	var opened []string
+	k.openPage = func(id string) { opened = append(opened, id) }
+	footer := grantsFooter(k)
+	t.Cleanup(footer.(*grantsList).close)
+	for _, b := range treetest.All[*widget.Button](footer) {
+		b.OnClick()
+	}
+	if !slices.Equal(opened, []string{"media"}) {
+		t.Errorf("the Privacy page's links opened %q", opened)
+	}
+}
+
 func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
 	for _, id := range []string{"cava", "custom", "media"} {
 		p, ok := pageByID(layout(config.Defaults(), bothParts), id)
