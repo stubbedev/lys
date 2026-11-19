@@ -40,6 +40,7 @@ var i18nPrefixes = map[string]string{
 	"LauncherFilebrowserConfig": "settings-launcher-filebrowser",
 	"LauncherHistoryConfig":     "settings-launcher-history",
 	"LauncherRunConfig":         "settings-launcher-run",
+	"LauncherSearchConfig":      "settings-launcher-search",
 	"LauncherSshConfig":         "settings-launcher-ssh",
 	"LauncherWindowConfig":      "settings-launcher-window",
 	"LoginConfig":               "settings-login",

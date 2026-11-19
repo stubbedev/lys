@@ -228,6 +228,7 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.search.file-roots", stringList),
 			field("launcher.search.file-exclude", stringList),
 			field("launcher.search.commands-dir"),
+			field("launcher.search.currency-rates"),
 			field("launcher.search.previews"),
 			field("launcher.search.quicklinks", yamlRow("quicklinks", 8)),
 			field("launcher.search.snippets", yamlRow("snippets", 8)),

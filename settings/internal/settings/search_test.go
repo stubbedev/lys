@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/stubbedev/lys/settings/internal/locale"
 	"slices"
 	"testing"
 
@@ -132,4 +133,39 @@ func otherPage(w *window, id string) pageSpec {
 		}
 	}
 	return pageSpec{}
+}
+
+func TestEveryRowOnEveryPageHasItsLabel(t *testing.T) {
+	tr := locale.T()
+	rows := 0
+	for _, s := range layout(config.Defaults()) {
+		for _, p := range s.pages {
+			for _, sec := range p.sections {
+				for _, r := range sec.flatRows() {
+					rows++
+					if key := r.labelKey(); !tr.Has(key) {
+						t.Errorf("%s on %s: no label (%s)", r.path, p.id, key)
+					}
+				}
+			}
+		}
+	}
+	if rows < 1000 {
+		t.Fatalf("only %d rows; the walk missed the pages", rows)
+	}
+}
+
+func TestEveryLauncherSearchKeyHasALabelledRow(t *testing.T) {
+	p, _ := pageByID(layout(config.Defaults()), "launcher-modes")
+	labelled := map[string]bool{}
+	for _, sec := range p.sections {
+		for _, r := range sec.flatRows() {
+			labelled[r.path] = locale.T().Has(r.labelKey())
+		}
+	}
+	for _, key := range []string{"providers", "web-engine", "web-url", "file-roots", "file-exclude", "commands-dir", "currency-rates", "previews", "quicklinks", "snippets"} {
+		if !labelled["launcher.search."+key] {
+			t.Errorf("launcher.search.%s has no labelled row", key)
+		}
+	}
 }
