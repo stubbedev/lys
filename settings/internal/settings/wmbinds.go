@@ -3,6 +3,7 @@ package settings
 import (
 	"log"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -128,6 +129,53 @@ func submapOwners(w *wmBackend, names *bindNames) []clashOwner {
 		out = append(out, bindOwners(submaps[mode], names, mode)...)
 	}
 	return out
+}
+
+// normalBind is a bind compared by meaning: its chord as the clash check
+// reads it and its action's words, the rest as written.
+func normalBind(m map[string]any) map[string]any {
+	out := maps.Clone(m)
+	out[chordKey] = bindChord(m)
+	out[actionKey] = bindAction(m)
+	return out
+}
+
+func bindChord(m map[string]any) string {
+	chord, _ := m[chordKey].(string)
+	return normalChord(chord)
+}
+
+// bindDefault is the built-in bind that bind i of items goes back to: the
+// one it repeats with other flags or description, else the one doing its
+// action on a chord no bind holds, else the one on its chord. A bind that
+// is built in, or has none to go back to, has no default.
+func bindDefault(items []map[string]any, i int, defaults []any) (map[string]any, bool) {
+	own := normalBind(items[i])
+	builtIn := make([]map[string]any, 0, len(defaults))
+	for _, d := range defaults {
+		if m, ok := d.(map[string]any); ok {
+			builtIn = append(builtIn, m)
+		}
+	}
+	if slices.ContainsFunc(builtIn, func(d map[string]any) bool { return reflect.DeepEqual(normalBind(d), own) }) {
+		return nil, false
+	}
+	held := make(map[string]bool, len(items))
+	for _, m := range items {
+		held[bindChord(m)] = true
+	}
+	sameChord := func(d map[string]any) bool { return bindChord(d) == bindChord(items[i]) }
+	sameAction := func(d map[string]any) bool { return bindAction(d) == bindAction(items[i]) }
+	for _, match := range []func(d map[string]any) bool{
+		func(d map[string]any) bool { return sameChord(d) && sameAction(d) },
+		func(d map[string]any) bool { return sameAction(d) && !held[bindChord(d)] },
+		sameChord,
+	} {
+		if j := slices.IndexFunc(builtIn, match); j >= 0 {
+			return maps.Clone(builtIn[j]), true
+		}
+	}
+	return nil, false
 }
 
 // clashWith is the first of others holding chord, by the clash check the

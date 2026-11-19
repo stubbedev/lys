@@ -81,6 +81,10 @@ type cardSpec struct {
 	// clashOthers, when set, are the values outside the list a card's
 	// clashKey value clashes with too, each named by what holds it.
 	clashOthers func() []clashOwner
+	// reset, when set, is the item card i goes back to, and whether it has
+	// one: a reset button in its header puts it back.
+	reset    func(items []map[string]any, i int) (map[string]any, bool)
+	resetKey string
 	// aside, when set, sits in each card's header beside the title and
 	// follows the item as the title does.
 	aside func(k *kit) cardAside
@@ -162,6 +166,7 @@ type card struct {
 	clash    *widget.Box
 	clashMsg *widget.Label
 	clashFix *widget.Button
+	reset    *widget.Button
 }
 
 // clashOwner is a value held outside a card list, and what holds it.
@@ -451,6 +456,10 @@ func (c *cardList) appendCard(i int) {
 		cd.aside = c.spec.aside(c.k)
 		header.AppendAligned(cd.aside, false, widget.AlignCenter)
 	}
+	if c.spec.reset != nil {
+		cd.reset = c.k.iconButton("ld-rotate-ccw-symbolic", c.spec.resetKey, func() { c.resetItem(i) }, css.Ghost)
+		header.AppendAligned(cd.reset, false, widget.AlignCenter)
+	}
 	remove := c.k.iconButton("ld-trash-2-symbolic", chrome.removeKey, func() {
 		if i < len(c.local) {
 			c.local = append(c.local[:i:i], c.local[i+1:]...)
@@ -545,6 +554,7 @@ func (c *cardList) retitle(i int) {
 // another's (the duplicate preset id): the error class and tooltip.
 func (c *cardList) validate() {
 	c.markClashes()
+	c.markResets()
 	if c.spec.unique == "" {
 		return
 	}
@@ -832,6 +842,37 @@ func (c *cardList) markClashes() {
 		}
 		cd.clashMsg.SetText(t.Get("settings-clash", i18n.Str("value", values[i]), i18n.Str("other", other)))
 	}
+}
+
+// markResets shows the reset of each card with an item to go back to.
+func (c *cardList) markResets() {
+	if c.spec.reset == nil {
+		return
+	}
+	for i, cd := range c.cards {
+		if i < len(c.local) {
+			_, ok := c.spec.reset(c.local, i)
+			cd.reset.SetVisible(ok)
+		}
+	}
+}
+
+// resetItem puts card i's item back to the one reset gives.
+func (c *cardList) resetItem(i int) {
+	if i >= len(c.local) || i >= len(c.cards) {
+		return
+	}
+	item, ok := c.spec.reset(c.local, i)
+	if !ok {
+		return
+	}
+	c.local[i] = item
+	for _, ctl := range c.cards[i].controls {
+		ctl.refresh()
+	}
+	c.retitle(i)
+	c.regroup(i)
+	c.commit()
 }
 
 func (c *cardList) replace(i int) {

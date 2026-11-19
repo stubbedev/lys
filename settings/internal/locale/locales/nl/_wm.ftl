@@ -924,3 +924,4 @@ enum-wm-arg-window-id = Venster
 enum-wm-arg-workspace = Werkblad
 enum-wm-arg-wrap = Rondom doorlopen
 wm-binds-clash-mode = { $label } in modus { $mode }
+wm-binds-reset = Terug naar de sneltoets van lys-wm

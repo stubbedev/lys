@@ -929,3 +929,4 @@ enum-wm-arg-window-id = Ventana
 enum-wm-arg-workspace = Área de trabajo
 enum-wm-arg-wrap = Dar la vuelta
 wm-binds-clash-mode = { $label } en el modo { $mode }
+wm-binds-reset = Volver al atajo de lys-wm

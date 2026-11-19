@@ -89,6 +89,12 @@ binds in one list (with **Replace** to keep this one), a bind and a submap's
 bind (*Close window in mode resize*; while that mode is on, its bind wins), or an
 app shortcut and a bind or submap.
 
+A bind that differs from lys-wm's built-in ones (`lys-wm --default-config`) has a
+reset button that puts it back: to the built-in bind it repeats with other flags
+or description, else to the built-in bind doing its action on a chord no bind
+holds, else to the built-in bind on its chord. A bind of your own, with no
+built-in one to go back to, has none.
+
 ## Home Manager and Nix
 
 A `config.yaml` linked into the Nix store is never written, so every setting stays

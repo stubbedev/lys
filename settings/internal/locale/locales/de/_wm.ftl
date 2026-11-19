@@ -927,3 +927,4 @@ enum-wm-arg-window-id = Fenster
 enum-wm-arg-workspace = Arbeitsfläche
 enum-wm-arg-wrap = Umlaufend
 wm-binds-clash-mode = { $label } im Modus { $mode }
+wm-binds-reset = Zurück zum Tastenkürzel von lys-wm

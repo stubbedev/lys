@@ -68,6 +68,12 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 		switch spec.schema[0] {
 		case bindsKey:
 			cards.clashOthers = func() []clashOwner { return submapOwners(k.wm, binds) }
+			cards.resetKey = "wm-binds-reset"
+			cards.reset = func(items []map[string]any, i int) (map[string]any, bool) {
+				builtIn, _ := k.wm.defaultOf(bindsKey)
+				defaults, _ := builtIn.([]any)
+				return bindDefault(items, i, defaults)
+			}
 		case submapsKey:
 			cards.clashOthers = func() []clashOwner { return bindOwners(k.wm.value(bindsKey), binds, "") }
 		}

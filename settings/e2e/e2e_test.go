@@ -496,7 +496,7 @@ func TestTheShortcutRecorderHoldsLysWMsBindsOffAndWritesTheChord(t *testing.T) {
 			}
 		}
 		time.Sleep(settle / 6)
-		for _, key := range []string{"Tab", "space", "Tab", "Tab", "Tab", "space"} {
+		for _, key := range []string{"Tab", "Tab", "space", "Tab", "Tab", "Tab", "space"} {
 			press(t, key)
 		}
 		if within(s.inhibiting) {
@@ -571,7 +571,7 @@ func TestARecordedAppShortcutPressesWhatTheAppRegistered(t *testing.T) {
 			}
 		}
 		time.Sleep(settle / 6)
-		for _, key := range []string{"Tab", "Tab", "Tab", "Tab", "space"} {
+		for _, key := range []string{"Tab", "Tab", "Tab", "Tab", "Tab", "space"} {
 			press(t, key)
 		}
 		if within(s.inhibiting) {
