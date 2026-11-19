@@ -85,3 +85,31 @@ func TestTheServiceClosesTheDescriptorsOfTheSignalsItReads(t *testing.T) {
 	}
 	pipe.RequireEveryCopyClosed(t)
 }
+
+// StartConnections serves no agent beside lys-shell's, which holds
+// NetworkManager's one registration under AgentID, reads the profiles,
+// and takes its match rules back when stopped.
+func TestConnectionsWithoutAnAgentReadTheProfilesAndLeaveTheConnection(t *testing.T) {
+	f := startFakeNM(t)
+	f.addProfile(wifiConnection("u1", "Home", []byte("home")))
+	conn := f.client()
+	ctx, cancel := context.WithCancel(t.Context())
+	svc, err := StartConnections(ctx, conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.Agent != nil || svc.VPN != nil {
+		t.Fatalf("connections came up with agent %v and VPN %v", svc.Agent, svc.VPN)
+	}
+	if got := svc.Settings.ForSSID([]byte("home")); len(got) != 1 {
+		t.Fatalf("the saved profile reads as %v", got)
+	}
+	if rules, exported, reg := leftOn(t, f, conn); len(rules) == 0 || exported || reg {
+		t.Fatalf("connections hold the rules %q, an export %v, a registration %v; want rules alone", rules, exported, reg)
+	}
+	cancel()
+	waittest.Until(t, func() bool {
+		rules, _, _ := leftOn(t, f, conn)
+		return len(rules) == 0
+	}, "the stopped connections to leave the connection")
+}

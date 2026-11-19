@@ -47,15 +47,12 @@ func start(ctx context.Context, conn *dbus.Conn, signIn SignIn, vault Vault, tim
 		return nil, errors.Join(err, held.run())
 	}
 	n := nm{conn: conn}
-	settings, stopSettings, err := newSettings(life, n)
+	svc, err := startProfiles(life, n, &held)
 	if err != nil {
-		return fail(fmt.Errorf("cannot initialize network service: cannot initialize Settings: %w", err))
+		return fail(err)
 	}
-	held.push(stopSettings)
-	svc := &Service{Settings: settings, Agent: NewAgent()}
-	if device, ok := findWifiDevice(life, n); ok {
-		svc.Wifi = &Wifi{nm: n, settings: settings, Device: device}
-	}
+	svc.Agent = NewAgent()
+	settings := svc.Settings
 	stopAgent, err := serveAgent(life, conn, &agentObject{agent: svc.Agent, signIn: signIn, vault: vault, active: n.profileState, budget: RequestBudget})
 	if err != nil {
 		return fail(err)
@@ -67,13 +64,47 @@ func start(ctx context.Context, conn *dbus.Conn, signIn SignIn, vault Vault, tim
 	}
 	held.push(stopVPN)
 	svc.VPN = vpn
+	stopWith(ctx, cancel, held)
+	return svc, nil
+}
+
+// StartConnections brings up the saved profiles and the wifi device on
+// conn until ctx ends, without the secret agent or the VPNs: a second
+// process managing connections beside lys-shell, whose agent answers
+// NetworkManager's prompts, since NetworkManager takes one agent under
+// AgentID. Agent and VPN are nil.
+func StartConnections(ctx context.Context, conn *dbus.Conn) (*Service, error) {
+	life, cancel := context.WithCancel(ctx)
+	var held unwind
+	svc, err := startProfiles(life, nm{conn: conn}, &held)
+	if err != nil {
+		cancel()
+		return nil, errors.Join(err, held.run())
+	}
+	stopWith(ctx, cancel, held)
+	return svc, nil
+}
+
+func startProfiles(ctx context.Context, n nm, held *unwind) (*Service, error) {
+	settings, stopSettings, err := newSettings(ctx, n)
+	if err != nil {
+		return nil, fmt.Errorf("cannot initialize network service: cannot initialize Settings: %w", err)
+	}
+	held.push(stopSettings)
+	svc := &Service{Settings: settings}
+	if device, ok := findWifiDevice(ctx, n); ok {
+		svc.Wifi = &Wifi{nm: n, settings: settings, Device: device}
+	}
+	return svc, nil
+}
+
+func stopWith(ctx context.Context, cancel context.CancelFunc, held unwind) {
 	context.AfterFunc(ctx, func() {
 		cancel()
 		if err := held.run(); err != nil {
 			log.Printf("network: stop: %v", err)
 		}
 	})
-	return svc, nil
 }
 
 // unwind is what a started service holds on the shared connection, taken
