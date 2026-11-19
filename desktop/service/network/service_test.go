@@ -113,3 +113,34 @@ func TestConnectionsWithoutAnAgentReadTheProfilesAndLeaveTheConnection(t *testin
 		return len(rules) == 0
 	}, "the stopped connections to leave the connection")
 }
+
+// A profile is brought up and down by path and UUID alone, with its
+// state read back; taking down one that is not up is no error, and an
+// unknown profile is refused with NetworkManager's word.
+func TestAProfileActivatesAndDeactivatesWithoutTheVPNService(t *testing.T) {
+	f := startFakeNM(t)
+	path := f.addProfile(vpnConnection("u-vpn", "Work", "org.freedesktop.NetworkManager.openvpn", nil))
+	svc, err := StartConnections(t.Context(), f.client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Settings.Activate(t.Context(), path); err != nil {
+		t.Fatal(err)
+	}
+	states, err := svc.Settings.ActiveStates(t.Context())
+	if err != nil || states["u-vpn"] != ActiveActivating {
+		t.Fatalf("states %v, %v", states, err)
+	}
+	if err := svc.Settings.Deactivate(t.Context(), "u-vpn"); err != nil {
+		t.Fatal(err)
+	}
+	if states, _ := svc.Settings.ActiveStates(t.Context()); len(states) != 0 {
+		t.Errorf("a deactivated profile is still active: %v", states)
+	}
+	if err := svc.Settings.Deactivate(t.Context(), "u-vpn"); err != nil {
+		t.Errorf("deactivating a profile that is down: %v", err)
+	}
+	if err := svc.Settings.Activate(t.Context(), settingPath(99)); errName(err) != "org.freedesktop.NetworkManager.UnknownConnection" {
+		t.Errorf("activating an unknown profile: %v", err)
+	}
+}

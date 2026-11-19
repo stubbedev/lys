@@ -229,6 +229,46 @@ func (s *Settings) Delete(ctx context.Context, path dbus.ObjectPath) error {
 	return nil
 }
 
+// Activate brings the saved profile at path up on whatever device
+// NetworkManager picks; secrets it needs are asked of the registered
+// agent.
+func (s *Settings) Activate(ctx context.Context, path dbus.ObjectPath) error {
+	if _, err := s.nm.activate(ctx, path, rootPath, rootPath); err != nil {
+		return fmt.Errorf("activate the profile %s: %w", path, err)
+	}
+	return nil
+}
+
+// Deactivate takes the profile with uuid down; one not active is not
+// an error.
+func (s *Settings) Deactivate(ctx context.Context, uuid string) error {
+	active, err := s.nm.activeByUUID(ctx)
+	if err != nil {
+		return fmt.Errorf("list the active connections: %w", err)
+	}
+	path, ok := active[uuid]
+	if !ok {
+		return nil
+	}
+	if err := s.nm.deactivate(ctx, path); err != nil {
+		return fmt.Errorf("deactivate the profile %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// ActiveStates is the state of every active profile by UUID.
+func (s *Settings) ActiveStates(ctx context.Context) (map[string]ActiveState, error) {
+	conns, err := s.nm.activeStates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read the active connections: %w", err)
+	}
+	out := make(map[string]ActiveState, len(conns))
+	for uuid, c := range conns {
+		out[uuid] = c.state
+	}
+	return out, nil
+}
+
 // Get reads a saved profile's settings.
 func (s *Settings) Get(ctx context.Context, path dbus.ObjectPath) (ConnectionDict, error) {
 	dict, err := s.nm.getSettings(ctx, path)

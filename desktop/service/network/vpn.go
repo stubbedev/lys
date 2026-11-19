@@ -397,18 +397,7 @@ func (s *VPNService) Disconnect(ctx context.Context, uuid string) error {
 	// A restore cut short here never reaches its sign-in to use the
 	// mark.
 	s.agent.ExpectAttended(uuid)
-	active, err := s.nm.activeByUUID(ctx)
-	if err != nil {
-		return fmt.Errorf("dbus operation failed: %w", err)
-	}
-	path, ok := active[uuid]
-	if !ok {
-		return nil
-	}
-	if err := s.nm.deactivate(ctx, path); err != nil {
-		return fmt.Errorf("dbus operation failed: %w", err)
-	}
-	return nil
+	return s.settings.Deactivate(ctx, uuid)
 }
 
 // Toggle connects when down, and disconnects when up or connecting
