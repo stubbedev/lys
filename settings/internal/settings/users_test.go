@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -141,6 +142,56 @@ func TestAStockAvatarIsOneSetIconFileAndTheNameOneSetRealName(t *testing.T) {
 	l.until("SetRealName", func() bool { c, _ := user.snapshot(); return len(c) == 2 })
 	if calls, _ := user.snapshot(); calls[1].method != "SetRealName" || fmt.Sprint(calls[1].args) != "[Alice Liddell]" {
 		t.Fatalf("%+v", calls)
+	}
+}
+
+func TestTheHeaderShowsWhoYouAreAndKeepsANameTypedAndLeft(t *testing.T) {
+	icon := filepath.Join(t.TempDir(), "alice")
+	pic := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, pic); err != nil {
+		t.Fatal(err)
+	}
+	put(t, icon, buf.String())
+	self := alice
+	self.icon, self.accountType = icon, accountAdmin
+	bus := dbustest.Start(t)
+	_, user := serveAccounts(t, bus, self)
+	p, l := usersFixture(t, bus)
+	l.until("the account", func() bool { return p.realName.Enabled() })
+	tr := locale.T()
+	if want := tr.Get("settings-users-identity", i18n.Str("login", "alice"), i18n.Str("type", tr.Get("settings-users-type-admin"))); p.identity.Text() != want {
+		t.Errorf("the header reads %q, want %q", p.identity.Text(), want)
+	}
+	if p.face.Initials() != "A" || treetest.First[*widget.Avatar](t, p) != p.face {
+		t.Errorf("the header's avatar is not the first picture on the page, or reads %q", p.face.Initials())
+	}
+	p.realName.SetText("Alice Liddell")
+	p.realName.OnChanged("Alice Liddell")
+	if !p.realName.dirtyBadge().Visible() {
+		t.Fatal("a name typed and not saved shows no unsaved badge")
+	}
+	p.realName.SetText("  Alice Liddell ")
+	p.realName.OnActivate(p.realName.Text())
+	l.until("SetRealName", func() bool { c, _ := user.snapshot(); return len(c) == 1 })
+	if calls, _ := user.snapshot(); fmt.Sprint(calls[0].args) != "[Alice Liddell]" || p.realName.dirtyBadge().Visible() {
+		t.Fatalf("the name saved %+v, badge still shown %v", calls, p.realName.dirtyBadge().Visible())
+	}
+	if p.face.Initials() != "AL" {
+		t.Errorf("after the rename the avatar reads %q", p.face.Initials())
+	}
+}
+
+func TestAnAccountPictureThatCannotBeReadSaysSo(t *testing.T) {
+	broken := filepath.Join(t.TempDir(), "alice")
+	put(t, broken, "not a picture")
+	if img, err := loadIcon(broken); err == nil || img != nil {
+		t.Fatalf("a broken picture loaded %v, %v", img, err)
+	}
+	for _, none := range []string{"", filepath.Join(t.TempDir(), "missing")} {
+		if img, err := loadIcon(none); err != nil || img != nil {
+			t.Errorf("no picture at %q gave %v, %v", none, img, err)
+		}
 	}
 }
 

@@ -38,6 +38,7 @@ const (
 	accountsUser     = accountsName + ".User"
 	avatarSide       = 512
 	avatarThumb      = 64
+	identityAvatar   = 96
 	accountAdmin     = int32(1)
 	accountStandard  = int32(0)
 	passwdService    = "passwd"
@@ -267,7 +268,10 @@ type usersPanel struct {
 	user        string
 	problem     *widget.Label
 	avatar      *widget.Box
-	realName    *widget.Entry
+	face        *widget.Avatar
+	name        string
+	realName    *text
+	identity    *widget.Label
 	admin       *widget.Box
 	changer     passwordChanger
 	fingerprint *fingerprintSection
@@ -279,16 +283,12 @@ func usersFooter(k *kit) widget.Widget {
 	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
+	p.Append(p.identityHeader(), false)
 	p.avatar = gapBox(widget.Column)
 	p.avatar.SetElement("item")
 	p.Append(newSection(k, "settings-section-users-avatar", p.avatar), false)
-	p.realName = k.entry()
-	p.realName.SetAccessibleName(t.Get("settings-users-name"))
-	p.realName.SetEnabled(false)
-	p.realName.OnActivate = func(text string) { p.callUser("SetRealName", strings.TrimSpace(text)) }
 	change := k.button(k.label(t.Get("settings-users-password-change")), p.openPasswordDialog, css.Secondary)
 	account := widget.NewItemGroup()
-	account.Append(panelRow(k, t.Get("settings-users-name"), t.Attr("settings-users-name", "description"), p.realName))
 	account.Append(panelRow(k, t.Get("settings-users-password"), t.Attr("settings-users-password", "description"), change))
 	p.Append(newSection(k, "settings-section-users-account", account), false)
 	p.admin = gapBox(widget.Column)
@@ -299,11 +299,85 @@ func usersFooter(k *kit) widget.Widget {
 	return p
 }
 
+// identityHeader is the card heading the page: the current picture, the
+// full name edited in place, and the login name with the account type.
+func (p *usersPanel) identityHeader() widget.Widget {
+	t := locale.T()
+	p.face = widget.NewAvatar(p.k.face, identityAvatar, "")
+	p.realName = newText(p.k, slot{get: func() any { return p.name }, set: p.rename, unset: func() {}}, false)
+	p.realName.SetAccessibleName(t.Get("settings-users-name"))
+	p.realName.SetTooltip(t.Attr("settings-users-name", "description"))
+	p.realName.SetEnabled(false)
+	p.identity = p.k.label("", "users-identity", css.Caption, css.DimLabel)
+	name := gapBox(widget.Row)
+	name.AppendAligned(p.realName, false, widget.AlignCenter)
+	name.AppendAligned(p.realName.dirtyBadge(), false, widget.AlignCenter)
+	text := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
+	text.Append(name, false)
+	text.Append(p.identity, false)
+	row := gapBox(widget.Row)
+	row.SetElement("item")
+	row.AppendAligned(p.face, false, widget.AlignCenter)
+	row.AppendAligned(text, true, widget.AlignCenter)
+	card := widget.NewBox(widget.Column, 0, 0)
+	card.AddClass(css.Card, "settings-group", "users-identity-header")
+	card.Append(row, false)
+	return card
+}
+
+// rename hands AccountsService the full name typed, trimmed.
+func (p *usersPanel) rename(v any) error {
+	name, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("a full name is text, not %T", v)
+	}
+	p.name = strings.TrimSpace(name)
+	p.face.SetName(p.name)
+	p.callUser("SetRealName", p.name)
+	return nil
+}
+
+func (p *usersPanel) showIdentity(props sysProps) {
+	t := locale.T()
+	p.name = props.str("RealName")
+	p.realName.refresh()
+	p.realName.SetEnabled(true)
+	p.face.SetName(cmp.Or(p.name, p.user))
+	kind := t.Get("settings-users-type-standard")
+	if accountType, _ := props["AccountType"].Value().(int32); accountType == accountAdmin {
+		kind = t.Get("settings-users-type-admin")
+	}
+	p.identity.SetText(t.Get("settings-users-identity", i18n.Str("login", p.user), i18n.Str("type", kind)))
+}
+
+// loadIcon decodes the picture AccountsService keeps for the user; an
+// account without one has none to show.
+func loadIcon(path string) (image.Image, error) {
+	if path == "" {
+		return nil, nil
+	}
+	f, err := os.Open(path) //nolint:gosec // the path AccountsService reports
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("open the account picture %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return nil, fmt.Errorf("decode the account picture %s: %w", path, err)
+	}
+	return img, nil
+}
+
 type accountsOpened struct {
-	conn  *dbus.Conn
-	acc   *accounts
-	props sysProps
-	err   error
+	conn    *dbus.Conn
+	acc     *accounts
+	props   sysProps
+	icon    image.Image
+	iconErr error
+	err     error
 }
 
 func (p *usersPanel) load() {
@@ -318,7 +392,11 @@ func (p *usersPanel) load() {
 				return accountsOpened{}, err
 			}
 			props, err := acc.user.props(ctx)
-			return accountsOpened{conn: conn, acc: &acc, props: props}, err
+			if err != nil {
+				return accountsOpened{}, err
+			}
+			icon, iconErr := loadIcon(props.str("IconFile"))
+			return accountsOpened{conn: conn, acc: &acc, props: props, icon: icon, iconErr: iconErr}, nil
 		})
 		if err != nil {
 			return accountsOpened{conn: conn, err: err}
@@ -345,8 +423,9 @@ func (p *usersPanel) load() {
 		}
 		p.acc, p.props = o.acc, o.props
 		p.user = o.props.str("UserName")
-		p.realName.SetText(o.props.str("RealName"))
-		p.realName.SetEnabled(true)
+		p.showIdentity(o.props)
+		p.face.SetImage(o.icon)
+		p.fail(o.iconErr)
 		t, _ := o.props["AccountType"].Value().(int32)
 		if t == accountAdmin {
 			p.loadAdmin()
@@ -429,16 +508,27 @@ func (p *usersPanel) showAvatars() {
 	p.avatar.Append(choose, false)
 }
 
+type avatarSet struct {
+	img image.Image
+	err error
+}
+
 func (p *usersPanel) useAvatar(img image.Image, c avatarCrop) {
 	acc := p.acc
-	async(p.k, func() error {
-		data, err := encodeAvatar(cropAvatar(img, c))
+	async(p.k, func() avatarSet {
+		cropped := cropAvatar(img, c)
+		data, err := encodeAvatar(cropped)
 		if err != nil {
-			return err
+			return avatarSet{err: err}
 		}
 		_, err = withTimeout(func(ctx context.Context) (struct{}, error) { return struct{}{}, setAvatar(ctx, acc, data) })
-		return err
-	}, p.fail)
+		return avatarSet{cropped, err}
+	}, func(r avatarSet) {
+		p.fail(r.err)
+		if r.err == nil {
+			p.face.SetImage(r.img)
+		}
+	})
 }
 
 func (p *usersPanel) cropFile(path string) {
