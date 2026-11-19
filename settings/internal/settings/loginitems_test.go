@@ -20,6 +20,8 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func autostartFixture(t *testing.T) (autostartDirs, string) {
@@ -429,7 +431,7 @@ func TestTheAddAppPickerOffersShownAppsAndAddsThePickedOne(t *testing.T) {
 	k := testKit(t, "")
 	f := &fakePickers{}
 	k.pickers = f
-	footer := loginItemsFooter(k)
+	footer := loginItemsLead(k)
 	treetest.Button(t, footer, "Add app…").ClickAt(widget.Point{})
 	if f.content == nil {
 		t.Fatal("Add app opened no picker")
@@ -492,7 +494,7 @@ func TestWithoutAHomeTheLoginAppsSayWhyAndReadNoRelativeDirectory(t *testing.T) 
 	k := testKit(t, "")
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("HOME", "")
-	footer := loginItemsFooter(k)
+	footer := loginItemsLead(k)
 	if labels := treetest.Labels(footer); !slices.ContainsFunc(labels, func(text string) bool { return strings.Contains(text, errNoConfigHome.Error()) }) {
 		t.Fatalf("the page shows %q, not why it has no autostart directory", labels)
 	}
@@ -503,5 +505,45 @@ func TestWithoutAHomeTheLoginAppsSayWhyAndReadNoRelativeDirectory(t *testing.T) 
 		if b.AccessibleName() == "Add app…" {
 			t.Fatal("Add app is offered with no autostart directory to add to")
 		}
+	}
+}
+
+func TestANixUnitShowsALockAndTheCommandsFoldAwayAfterTheApps(t *testing.T) {
+	d, root := autostartFixture(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+	t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+	manager := &staticManager{units_: []userUnit{
+		{name: "syncthing.service", active: "active", fileState: "enabled", path: "/home/me/.config/systemd/user/syncthing.service"},
+		{name: "lys-shell.service", active: "active", fileState: "enabled", path: "/nix/store/x/lys-shell.service"},
+	}}
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) { return manager, func() {}, nil }
+	t.Cleanup(func() { openUserManager = before })
+	k := testKit(t, "")
+	page := buildPage(k, loginItemsPage(nil))
+	t.Cleanup(page.close)
+	managed := locale.T().Get("settings-login-services-nix")
+	var locks []*widget.Icon
+	for _, ic := range treetest.All[*widget.Icon](page) {
+		if ic.Name() == "ld-lock-symbolic" {
+			locks = append(locks, ic)
+		}
+	}
+	if len(locks) != 1 || locks[0].AccessibleName() != managed {
+		t.Fatalf("%d locks for one Nix unit among two", len(locks))
+	}
+	for _, label := range treetest.Labels(page) {
+		if strings.Contains(label, managed) {
+			t.Errorf("the Nix note is still text in a row: %q", label)
+		}
+	}
+	if len(page.advanced) != 1 || page.advanced[0].group.Visible() {
+		t.Fatalf("the lys-wm commands are not folded away behind Advanced")
+	}
+	labels := treetest.Labels(page)
+	apps := slices.Index(labels, locale.T().Get("settings-section-login-apps"))
+	commands := slices.Index(labels, locale.T().Get("settings-section-login-commands"))
+	if apps < 0 || commands < 0 || apps > commands {
+		t.Errorf("open at login is at %d, the commands at %d", apps, commands)
 	}
 }

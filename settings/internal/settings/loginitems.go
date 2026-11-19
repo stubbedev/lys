@@ -40,8 +40,8 @@ func loginItemsPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: loginItemsID, navKey: "settings-nav-login-items", icon: "ld-power-symbolic",
 		header:   "settings-page-login-items",
-		footer:   loginItemsFooter,
-		sections: []sectionSpec{{title: "settings-section-login-commands", rows: []rowSpec{wmField("autostart", commandList)}}},
+		lead:     loginItemsLead,
+		sections: []sectionSpec{{title: "settings-section-login-commands", advanced: true, rows: []rowSpec{wmField("autostart", commandList)}}},
 	}
 }
 
@@ -309,7 +309,7 @@ type loginItems struct {
 	problem  *widget.Label
 }
 
-func loginItemsFooter(k *kit) widget.Widget {
+func loginItemsLead(k *kit) widget.Widget {
 	l := &loginItems{k: k, desktops: desktopentry.CurrentDesktops()}
 	content := sectionStack()
 	l.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
@@ -449,10 +449,13 @@ func (l *loginItems) showServices(r unitsListing) {
 func (l *loginItems) serviceRow(u userUnit) widget.Widget {
 	t := locale.T()
 	detail := t.Get("settings-login-services-state", i18n.Str("active", u.active), i18n.Str("file", cmp.Or(u.fileState, "-")))
-	if u.nix() {
-		detail += " · " + t.Get("settings-login-services-nix")
-	}
 	row := l.itemRow("", cmp.Or(u.description, u.name), u.name+" · "+detail)
+	if u.nix() {
+		lock := l.k.icon("ld-lock-symbolic", "login-item-managed")
+		lock.SetTooltip(t.Get("settings-login-services-nix"))
+		lock.SetAccessibleName(t.Get("settings-login-services-nix"))
+		row.AddAction(lock)
+	}
 	if !u.switchable() {
 		return row
 	}
