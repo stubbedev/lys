@@ -92,7 +92,7 @@ func TestCheckSettingNamesTheUnknownPathAndAWrongPage(t *testing.T) {
 func TestTheListedPagesCarryEveryRowOnceWithinBudget(t *testing.T) {
 	sections := layout(config.Defaults(), bothParts)
 	index := settingIndex(sections)
-	pages := ListedPages()
+	pages := pages(config.Defaults(), bothParts)
 	listed := map[string]string{}
 	for _, p := range pages {
 		for _, s := range p.Settings {

@@ -131,7 +131,7 @@ func revokeButtons(root widget.Widget) []*widget.Button {
 // again without it.
 func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 	k := testKit(t, "")
-	if !slices.ContainsFunc(ListedPages(), func(p settingspage.Page) bool { return p.ID == settingspage.PrivacyID && p.Title != "" }) {
+	if !slices.ContainsFunc(pages(k.store.svc.Config(), bothParts), func(p settingspage.Page) bool { return p.ID == settingspage.PrivacyID && p.Title != "" }) {
 		t.Fatalf("the page list lacks %q", settingspage.PrivacyID)
 	}
 	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), settingspage.PrivacyID)
