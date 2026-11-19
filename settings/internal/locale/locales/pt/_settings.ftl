@@ -393,6 +393,12 @@ settings-section-nightlight-look = Etiqueta e ícones
 settings-kelvin = { $n ->
    *[other] { $n } K
 }
+settings-ddc-no-buses = Nenhum barramento I2C: carregue o módulo do kernel i2c-dev para chegar aos monitores externos
+settings-ddc-no-access = Sem acesso a /dev/i2c-*: adicione o seu utilizador ao grupo i2c e volte a iniciar sessão
+settings-ddc-access = { $n ->
+    [one] Chega aos monitores externos por 1 barramento I2C
+   *[other] Chega aos monitores externos por { $n } barramentos I2C
+}
 settings-section-power-profiles-profiles = Perfis
     .description = Os perfis de energia que oferece
 settings-section-provider = Fornecedor

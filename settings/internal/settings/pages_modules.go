@@ -227,8 +227,8 @@ func brightnessPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.brightness.format"),
 			field("modules.brightness.level-icons", iconList),
-			field("modules.brightness.min-brightness", spin(0, 100, 1, 0)),
-			field("modules.brightness.enable-external"),
+			field("modules.brightness.min-brightness", percentage),
+			field("modules.brightness.enable-external", ddcRow),
 			field("modules.brightness.thresholds", thresholdList),
 		}},
 		barItemSection("modules.brightness", actionChoices("brightness")),

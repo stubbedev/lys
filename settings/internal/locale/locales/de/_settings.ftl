@@ -403,6 +403,12 @@ settings-section-nightlight-look = Beschriftung und Symbole
 settings-kelvin = { $n ->
    *[other] { $n } K
 }
+settings-ddc-no-buses = Kein I2C-Bus: das Kernelmodul i2c-dev laden, um externe Monitore zu erreichen
+settings-ddc-no-access = Kein Zugriff auf /dev/i2c-*: den Benutzer zur Gruppe i2c hinzufügen und neu anmelden
+settings-ddc-access = { $n ->
+    [one] Externe Monitore über 1 I2C-Bus erreichbar
+   *[other] Externe Monitore über { $n } I2C-Busse erreichbar
+}
 settings-section-power-profiles-profiles = Profile
     .description = Die angebotenen Energieprofile
 settings-section-provider = Anbieter

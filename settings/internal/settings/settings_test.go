@@ -47,7 +47,7 @@ func testKit(t *testing.T, configYAML string) *kit {
 	lists := systemLists
 	systemLists = fixedLists()
 	t.Cleanup(func() { systemLists = lists })
-	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }, network: func() (netControl, error) { return nil, errors.New("no NetworkManager in the tests") }, power: func() (powerControl, error) { return nil, errors.New("no UPower in the tests") }, bluetooth: func() (btControl, error) { return nil, errors.New("no BlueZ in the tests") }, notify: func(string, string) error { return errors.New("no notification daemon in the tests") }, shellCommand: func(...string) error { return errors.New("no lys-shell in the tests") }}
+	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }, network: func() (netControl, error) { return nil, errors.New("no NetworkManager in the tests") }, power: func() (powerControl, error) { return nil, errors.New("no UPower in the tests") }, bluetooth: func() (btControl, error) { return nil, errors.New("no BlueZ in the tests") }, notify: func(string, string) error { return errors.New("no notification daemon in the tests") }, shellCommand: func(...string) error { return errors.New("no lys-shell in the tests") }, i2c: func() i2cAccess { return i2cAccess{} }}
 }
 
 func testStore(t *testing.T, configYAML string) store {

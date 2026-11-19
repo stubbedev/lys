@@ -84,6 +84,7 @@ func Run(page, setting string) error {
 		bluetooth:    func() (btControl, error) { return openBluetooth(dialSystemBus) },
 		notify:       sendNotification,
 		shellCommand: runShellCommand,
+		i2c:          systemHost.i2cAccess,
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })
