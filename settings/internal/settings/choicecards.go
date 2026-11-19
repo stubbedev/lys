@@ -237,3 +237,25 @@ var themeProviderPictures = map[string]picture{
 	string(config.ThemeProviderWallust):   {icon: "ld-sun-moon-symbolic"},
 	string(config.ThemeProviderWallpaper): {icon: "ld-image-symbolic"},
 }
+
+func titlebarMock(cv *render.Canvas, r render.Rect, buttonsLeft bool) {
+	th := widget.Current()
+	cv.RoundedRect(r, tileRadius/2, th.MutedColor())
+	bar := render.Rect{X: r.X, Y: r.Y, W: r.W, H: max(8, r.H/4)}
+	cv.RoundedRect(bar, tileRadius/2, th.Border)
+	dot := bar.H / 2
+	gap := dot / 2
+	x := bar.X + bar.W - gap - 3*dot - 2*gap
+	if buttonsLeft {
+		x = bar.X + gap
+	}
+	for range 3 {
+		cv.RoundedRect(render.Rect{X: x, Y: bar.Y + (bar.H-dot)/2, W: dot, H: dot}, dot/2, th.Text)
+		x += dot + gap
+	}
+}
+
+var titlebarSidePictures = map[string]picture{
+	"left":  drawn(func(cv *render.Canvas, r render.Rect) { titlebarMock(cv, r, true) }),
+	"right": drawn(func(cv *render.Canvas, r render.Rect) { titlebarMock(cv, r, false) }),
+}

@@ -108,7 +108,7 @@ func (w *wmBackend) field(path string) (config.FieldMeta, bool) {
 	}
 	meta := config.FieldMeta{Min: f.Min, Max: f.Max, Optional: !f.HasDefault}
 	if choices, ok := wmChoices(f); ok {
-		meta.Kind, meta.Variants = config.FieldEnum, wmChoiceNames(choices)
+		meta.Kind, meta.Variants, meta.Type = config.FieldEnum, wmChoiceNames(choices), wmChoiceType(path)
 		if slices.ContainsFunc(choices, isBool) {
 			meta.Type = wmToggleType
 		}
@@ -127,6 +127,20 @@ func (w *wmBackend) field(path string) (config.FieldMeta, bool) {
 		meta.Kind = config.FieldOther
 	}
 	return meta, true
+}
+
+// wmChoiceType names a key's choices for their labels: the key's last
+// segment, so one shared by pointer, touchpad and trackpoint reads alike.
+func wmChoiceType(path string) string {
+	key := path[strings.LastIndexByte(path, '.')+1:]
+	var b strings.Builder
+	b.WriteString("Wm")
+	for word := range strings.SplitSeq(key, "_") {
+		if word != "" {
+			b.WriteString(strings.ToUpper(word[:1]) + word[1:])
+		}
+	}
+	return b.String()
 }
 
 // wmChoices are the values a key offers as named choices: an enum's
@@ -474,7 +488,7 @@ func wmWindowsPage() pageSpec {
 		}},
 		sectionSpec{title: "wm-section-focus", rows: wmFields("focus.follows_mouse", "focus.raise_on_hover", "focus.warp_pointer", "focus.on_close", "focus.on_activate")},
 		sectionSpec{title: "wm-section-window-behavior", rows: wmFields("fullscreen.new_window", "hold_opening", "floating.step")},
-		sectionSpec{title: "wm-section-titlebars", rows: append(append([]rowSpec{wmField("titlebars.floating"), wmField("titlebars.height", softPixels(16, 48)), wmField("titlebars.side"), wmField("titlebars.double_click")}, wmListRow("titlebars.buttons")),
+		sectionSpec{title: "wm-section-titlebars", rows: append(append([]rowSpec{wmField("titlebars.floating"), wmField("titlebars.height", softPixels(16, 48)), wmField("titlebars.side", pictureChoice(titlebarSidePictures)), wmField("titlebars.double_click")}, wmListRow("titlebars.buttons")),
 			wmFields("titlebars.active.background", "titlebars.active.text", "titlebars.inactive.background", "titlebars.inactive.text",
 				"titlebars.urgent.background", "titlebars.urgent.text", "titlebars.lights.close", "titlebars.lights.minimize", "titlebars.lights.maximize")...)},
 	)

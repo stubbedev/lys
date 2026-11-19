@@ -1120,3 +1120,59 @@ func TestOuterGapsAreOneNumberUntilTheSidesAreSplit(t *testing.T) {
 		t.Errorf("differing sides open joined: same %v", c2.same.On())
 	}
 }
+
+func TestEveryLysWMChoiceOnAPageIsNamed(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	w, err := testKit(t, "").wmBackend()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := locale.T()
+	var missing []string
+	for _, s := range layout(config.Defaults(), bothParts) {
+		for _, p := range s.pages {
+			for _, sec := range p.sections {
+				for _, r := range sec.flatRows() {
+					if !r.wm && !p.wm {
+						continue
+					}
+					meta, ok := w.field(r.path)
+					if !ok || meta.Kind != config.FieldEnum || meta.Type == wmToggleType {
+						continue
+					}
+					for _, v := range meta.Variants {
+						if key := config.EnumLabelKey(meta.Type, v); !tr.Has(key) && !slices.Contains(missing, key) {
+							missing = append(missing, key)
+						}
+					}
+				}
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("lys-wm choices without a label:\n%s", strings.Join(missing, "\n"))
+	}
+}
+
+func TestTheTitleBarSideIsPickedFromPictures(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	k := testKit(t, "")
+	w, err := k.wmBackend()
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, ok := w.field("titlebars.side")
+	if !ok {
+		t.Fatal("lys-wm has no titlebars.side")
+	}
+	var stored any = "right"
+	r := wmField("titlebars.side", pictureChoice(titlebarSidePictures))
+	c := r.editor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() {}}, meta).(*choiceCards)
+	if len(c.cards) != 2 || c.cards[0].label != locale.T().Get("enum-wm-side-left") || c.current != "right" {
+		t.Fatalf("%d cards, first %q, current %q", len(c.cards), c.cards[0].label, c.current)
+	}
+	c.cards[0].PressAt(widget.Point{})
+	if stored != "left" {
+		t.Errorf("the left card stored %v", stored)
+	}
+}
