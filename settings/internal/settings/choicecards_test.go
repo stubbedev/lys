@@ -12,6 +12,7 @@ func TestEveryChoiceOfAPictureRowHasItsPicture(t *testing.T) {
 		"styling.appearance":     appearancePictures,
 		"styling.theme-provider": themeProviderPictures,
 		"wallpaper.fit-mode":     fitPictures,
+		"styling.rounding":       roundingPictures,
 	} {
 		meta, ok := config.Field(path)
 		if !ok {
@@ -52,4 +53,26 @@ func TestAPictureChoiceMissingAPictureRefusesToBuild(t *testing.T) {
 		}
 	}()
 	fieldControl(k, k.store, field("styling.appearance", pictureChoice(map[string]picture{"light": {icon: "ld-sun-symbolic"}})))
+}
+
+func TestTheRoundingPicturesRoundMoreFromNoneToFull(t *testing.T) {
+	const h = 40
+	order := []config.RoundingLevel{config.RoundingNone, config.RoundingSm, config.RoundingMd, config.RoundingLg, config.RoundingFull}
+	for i := 1; i < len(order); i++ {
+		if roundingRadius(order[i], h) <= roundingRadius(order[i-1], h) {
+			t.Errorf("%s rounds %d px, no more than %s's %d", order[i], roundingRadius(order[i], h), order[i-1], roundingRadius(order[i-1], h))
+		}
+	}
+	if roundingRadius(config.RoundingNone, h) != 0 || roundingRadius(config.RoundingFull, h) != h/2 {
+		t.Error("none is not square or full is not a pill")
+	}
+	if r := roundingRadius(config.RoundingDefault, h); r < 0 || r > h/2 {
+		t.Errorf("the theme default rounds %d px on a %d px button", r, h)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an unknown rounding drew a radius")
+		}
+	}()
+	roundingRadius("huge", h)
 }

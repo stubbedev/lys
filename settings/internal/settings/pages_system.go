@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/login/dmsocket"
 	"github.com/stubbedev/lys/login/greeterconfig"
 	"github.com/stubbedev/lys/ui/widget"
@@ -15,16 +16,54 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// generalPage is pages/general.
 func fontsPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: "fonts", navKey: "settings-nav-fonts", icon: "ld-type-symbolic",
 		header: "settings-page-fonts",
 		sections: []sectionSpec{
 			{title: "settings-section-fonts", rows: []rowSpec{field("general.font-sans", fontRow), field("general.font-mono", monoFontRow)}},
-			{title: "settings-section-scale-rounding", rows: fields("styling.scale", "styling.rounding")},
+			{title: "settings-section-scale-rounding", rows: []rowSpec{field("styling.scale"), field("styling.rounding", pictureChoice(roundingPictures))}},
 		},
 	}
+}
+
+func roundingRadius(level config.RoundingLevel, h int) int {
+	switch level {
+	case config.RoundingDefault:
+		return min(widget.Current().Radius, h/2)
+	case config.RoundingNone:
+		return 0
+	case config.RoundingSm:
+		return h / 8
+	case config.RoundingMd:
+		return h / 4
+	case config.RoundingLg:
+		return h * 3 / 8
+	case config.RoundingFull:
+		return h / 2
+	}
+	log.Panicf("settings: no corner radius for the rounding %q", level)
+	return 0
+}
+
+func roundedCorner(level config.RoundingLevel) picture {
+	return drawn(func(cv *render.Canvas, r render.Rect) {
+		th := widget.Current()
+		pad := r.H / 5
+		button := render.Rect{X: r.X + pad, Y: r.Y + r.H/3, W: r.W - 2*pad, H: r.H / 3}
+		radius := roundingRadius(level, button.H)
+		cv.RoundedRect(button, radius, th.MutedColor())
+		cv.RoundedBorder(button, render.UniformCorners(radius), render.UniformInsets(1), th.Border)
+	})
+}
+
+var roundingPictures = map[string]picture{
+	string(config.RoundingDefault): roundedCorner(config.RoundingDefault),
+	string(config.RoundingNone):    roundedCorner(config.RoundingNone),
+	string(config.RoundingSm):      roundedCorner(config.RoundingSm),
+	string(config.RoundingMd):      roundedCorner(config.RoundingMd),
+	string(config.RoundingLg):      roundedCorner(config.RoundingLg),
+	string(config.RoundingFull):    roundedCorner(config.RoundingFull),
 }
 
 // lockPage is pages/lock.
