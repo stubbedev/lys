@@ -1143,3 +1143,7 @@ settings-launcher-mode-script = Script: { $name }
 settings-map-mode-name-placeholder = nome do modo
 
 settings-map-name-placeholder = nome mostrado
+settings-overview-battery = { $charge } · { $state }
+settings-overview-bluetooth-off = Bluetooth desligado
+settings-overview-bluetooth-on = Bluetooth ligado
+settings-overview-bluetooth-connected = Bluetooth: { $name }

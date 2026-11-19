@@ -8,8 +8,10 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -138,5 +140,41 @@ func TestEveryTileStatusNamesASection(t *testing.T) {
 		if !keys[key] {
 			t.Errorf("a tile status for %s, which is no section", key)
 		}
+	}
+}
+
+func TestThePowerTileShowsTheChargeAndNothingWithoutABattery(t *testing.T) {
+	k := testKit(t, "")
+	f := &fakePower{state: powerState{upower: true, battery: upower.Device{IsPresent: true, Percentage: 64, State: upower.StateCharging}}}
+	k.power = func() (powerControl, error) { return f, nil }
+	got, err := powerStatus(t.Context(), k)
+	if err != nil || !strings.Contains(got, percentText(64)) || !f.closed {
+		t.Fatalf("%q, %v, closed %v", got, err, f.closed)
+	}
+	f.state.battery.IsPresent = false
+	if _, err := powerStatus(t.Context(), k); !errors.Is(err, errNoStatus) {
+		t.Errorf("a desktop without a battery reports %v", err)
+	}
+}
+
+func TestTheConnectivityTileJoinsNetworkAndBluetooth(t *testing.T) {
+	k := testKit(t, "")
+	tr := locale.T()
+	k.network = func() (netControl, error) { return &fakeNet{state: netState{active: "Home"}}, nil }
+	bt := &fakeBT{st: bluetooth.State{Available: true, Enabled: true, Devices: []bluetooth.Device{{Alias: "Buds", Connected: true}}}}
+	k.bluetooth = func() (btControl, error) { return bt, nil }
+	status := tileStatuses["settings-nav-connectivity"]
+	want := tr.Get("settings-overview-wifi", i18n.Str("name", "Home")) + " · " + tr.Get("settings-overview-bluetooth-connected", i18n.Str("name", "Buds"))
+	if got, err := status(t.Context(), k); err != nil || got != want {
+		t.Fatalf("%q, %v; want %q", got, err, want)
+	}
+	bt.st.Enabled = false
+	k.network = func() (netControl, error) { return nil, errors.New("no NetworkManager") }
+	if got, err := status(t.Context(), k); err != nil || got != tr.Get("settings-overview-bluetooth-off") {
+		t.Errorf("without NetworkManager and Bluetooth off: %q, %v", got, err)
+	}
+	k.bluetooth = func() (btControl, error) { return nil, errors.New("no BlueZ") }
+	if _, err := status(t.Context(), k); err == nil {
+		t.Error("with neither service the tile got a status")
 	}
 }

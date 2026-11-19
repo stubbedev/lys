@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -32,7 +33,8 @@ var tileStatuses = map[string]tileStatus{
 	"settings-nav-appearance":    appearanceStatus,
 	"settings-nav-displays":      displaysStatus,
 	"settings-nav-sound-section": soundStatus,
-	"settings-nav-connectivity":  networkStatus,
+	"settings-nav-connectivity":  joinedStatus(networkStatus, bluetoothStatus),
+	"settings-nav-power":         powerStatus,
 }
 
 func overviewPage() pageSpec {
@@ -168,4 +170,62 @@ func networkStatus(ctx context.Context, k *kit) (string, error) {
 		return t.Get("settings-overview-wired"), nil
 	}
 	return t.Get("settings-overview-offline"), nil
+}
+
+func powerStatus(ctx context.Context, k *kit) (string, error) {
+	ctl, err := k.power()
+	if err != nil {
+		return "", err
+	}
+	st, err := ctl.read(ctx)
+	if err = errors.Join(err, ctl.close()); err != nil {
+		return "", err
+	}
+	if !st.hasBattery() {
+		return "", errNoStatus
+	}
+	return locale.T().Get("settings-overview-battery", i18n.Str("charge", percentText(st.battery.Percentage)), i18n.Str("state", batteryDetail(st.battery))), nil
+}
+
+func bluetoothStatus(_ context.Context, k *kit) (string, error) {
+	ctl, err := k.bluetooth()
+	if err != nil {
+		return "", err
+	}
+	st := ctl.state()
+	if err := ctl.close(); err != nil {
+		return "", err
+	}
+	t := locale.T()
+	switch {
+	case !st.Available:
+		return "", errNoStatus
+	case !st.Enabled:
+		return t.Get("settings-overview-bluetooth-off"), nil
+	}
+	for _, d := range st.Devices {
+		if d.Connected && d.DisplayName() != "" {
+			return t.Get("settings-overview-bluetooth-connected", i18n.Str("name", d.DisplayName())), nil
+		}
+	}
+	return t.Get("settings-overview-bluetooth-on"), nil
+}
+
+func joinedStatus(parts ...tileStatus) tileStatus {
+	return func(ctx context.Context, k *kit) (string, error) {
+		var texts []string
+		var errs []error
+		for _, part := range parts {
+			text, err := part(ctx, k)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			texts = append(texts, text)
+		}
+		if len(texts) == 0 {
+			return "", errors.Join(errs...)
+		}
+		return strings.Join(texts, " · "), nil
+	}
 }
