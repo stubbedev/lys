@@ -71,7 +71,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg), greeterPage(cfg), sharePickerPage(cfg)}},
 		{key: "settings-nav-time-language", pages: []pageSpec{dateTimePage(cfg), regionPage(cfg)}},
 		{key: "settings-nav-desktop", pages: []pageSpec{
-			barGeneralPage(cfg), barButtonPage(cfg), barDropdownPage(cfg), dropdownsPage(cfg), dockPage(cfg),
+			barPage(cfg), dockPage(cfg),
 			wmWindowsPage(), wmEffectsPage(), wmTilingPage(), wmSessionPage(),
 		}},
 	}
@@ -115,18 +115,6 @@ func firstPage(sections []navSection) string {
 		return sections[0].pages[0].id
 	}
 	return ""
-}
-
-// barDropdownPage is the bar dropdown page.
-func barDropdownPage(*config.Config) pageSpec {
-	return pageSpec{
-		id: "bar-dropdown", navKey: "settings-nav-bar-dropdown", icon: "ld-panel-bottom-symbolic",
-		header: "settings-page-bar-dropdown",
-		sections: []sectionSpec{
-			{title: "settings-section-behavior", rows: fields("bar.dropdown-shadow", "bar.dropdown-autohide", "bar.dropdown-freeze-label")},
-			{title: "settings-section-appearance", rows: []rowSpec{field("bar.dropdown-opacity", percentage)}},
-		},
-	}
 }
 
 func motionPage(*config.Config) pageSpec {

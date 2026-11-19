@@ -103,7 +103,7 @@ func TestAnUnknownSettingIsAUsageErrorNamingIt(t *testing.T) {
 	noSession(t)
 	for args, want := range map[string][]string{
 		`"does.not.exist"`: {"--setting", "does.not.exist"},
-		`"bar-general"`:    {"--page", "theme", "--setting", "bar.location"},
+		`"bar"`:    {"--page", "theme", "--setting", "bar.location"},
 	} {
 		stdout, stderr, code := runCaptured(t, want...)
 		if code != exitUsage || stdout != "" || !strings.HasPrefix(stderr, "error: ") || !strings.Contains(stderr, args) {

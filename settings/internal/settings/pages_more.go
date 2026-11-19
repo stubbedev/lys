@@ -3,8 +3,8 @@ package settings
 import "github.com/stubbedev/lys/desktop/config"
 
 // barGeneralPage is pages/bar/general.
-func barGeneralPage(*config.Config) pageSpec {
-	return pageSpec{id: "bar-general", navKey: "settings-nav-bar-general", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar-general", sections: []sectionSpec{
+func barPage(*config.Config) pageSpec {
+	return pageSpec{id: "bar", navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", sections: []sectionSpec{
 		{title: "settings-section-layout", rows: []rowSpec{
 			field("bar.location"),
 			field("bar.exclusive"),
@@ -22,34 +22,25 @@ func barGeneralPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-spacing", rows: fields("bar.inset-edge", "bar.inset-ends", "bar.padding", "bar.padding-ends", "bar.module-gap")},
 		{title: "settings-section-border", rows: fields("bar.border-location", "bar.border-width", "bar.border-color")},
-	}}
-}
 
-// barButtonPage is pages/bar/button.
-func barButtonPage(*config.Config) pageSpec {
-	return pageSpec{id: "bar-button", navKey: "settings-nav-bar-button", icon: "ld-square-symbolic", header: "settings-page-bar-button", sections: []sectionSpec{
-		{title: "settings-section-style", rows: []rowSpec{
+		{title: "settings-section-buttons", rows: []rowSpec{
 			field("bar.button-variant"),
 			field("bar.button-opacity", percentage),
 			field("bar.button-bg-opacity", percentage),
 			field("bar.button-rounding"),
 			field("bar.button-gap"),
 			field("bar.button-icon-position"),
-		}},
-		{title: "settings-section-icons", rows: []rowSpec{
 			field("bar.button-icon-size"),
 			field("bar.button-icon-padding"),
-		}},
-		{title: "settings-section-labels", rows: []rowSpec{
 			field("bar.button-label-size"),
 			field("bar.button-label-weight"),
 			field("bar.button-label-padding"),
 		}},
-		{title: "settings-section-border", rows: []rowSpec{
+		{title: "settings-section-button-border", rows: []rowSpec{
 			field("bar.button-border-location"),
 			field("bar.button-border-width"),
 		}},
-		{title: "settings-section-group", rows: []rowSpec{
+		{title: "settings-section-button-groups", rows: []rowSpec{
 			field("bar.button-group-opacity", percentage),
 			field("bar.button-group-rounding"),
 			field("bar.button-group-padding"),
@@ -59,6 +50,12 @@ func barButtonPage(*config.Config) pageSpec {
 			field("bar.button-group-border-width"),
 			field("bar.button-group-border-color"),
 		}},
+		{title: "settings-section-dropdowns", rows: []rowSpec{
+			field("bar.dropdown-shadow"), field("bar.dropdown-autohide"), field("bar.dropdown-freeze-label"),
+			field("bar.dropdown-opacity", percentage),
+		}},
+		{title: "settings-section-dropdown-animation", rows: surfaceAnimationRows("animations.dropdown")},
+		{title: "settings-animations-menu", rows: surfaceAnimationRows("animations.menu")},
 	}}
 }
 
@@ -104,36 +101,13 @@ func notificationsPage(*config.Config) pageSpec {
 		}, barDisplaySection("modules.notifications").rows...)},
 		retitled(colorsSection("modules.notifications"), "settings-section-bell-colors"),
 		retitled(actionsSection("modules.notifications", actionChoices("notification")), "settings-section-bell-actions"),
+		dropdownSizeSection("notification"),
 	}}
 }
 
 func retitled(s sectionSpec, title string) sectionSpec {
 	s.title = title
 	return s
-}
-
-// dropdownsPage is pages/dropdowns: each dropdown's size overrides.
-func dropdownsPage(*config.Config) pageSpec {
-	var sections []sectionSpec
-	for _, d := range []string{
-		"audio", "battery", "bitwarden", "bluetooth", "brightness", "calendar", "dashboard", "media",
-		"mail", "network", "notification", "treeman", "weather",
-	} {
-		path := "dropdowns." + d
-		title, ok := config.I18nKey(path)
-		if !ok {
-			title = "settings-section-sizes"
-		}
-		sections = append(sections, sectionSpec{title: title, rows: dropdownSizeRows(path)})
-	}
-	sections = append(sections,
-		sectionSpec{title: "settings-section-animation", rows: surfaceAnimationRows("animations.dropdown")},
-		sectionSpec{title: "settings-animations-menu", rows: surfaceAnimationRows("animations.menu")},
-	)
-	return pageSpec{
-		id: "dropdowns", navKey: "settings-nav-dropdowns", icon: "ld-panel-top-open-symbolic",
-		header: "settings-page-dropdowns", sections: sections,
-	}
 }
 
 // osdPage is pages/osd.

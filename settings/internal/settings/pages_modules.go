@@ -9,7 +9,7 @@ import (
 // The module pages, in the order the sidebar lists them.
 
 func modulePages(cfg *config.Config) []pageSpec {
-	return []pageSpec{
+	pages := []pageSpec{
 		audioPage(cfg),
 		backgroundAppsPage(cfg),
 		batteryPage(cfg),
@@ -44,6 +44,24 @@ func modulePages(cfg *config.Config) []pageSpec {
 		workspacesPage(cfg),
 		worldClockPage(cfg),
 	}
+	for i, p := range pages {
+		if d, ok := moduleDropdowns[p.id]; ok {
+			pages[i].sections = append(p.sections, dropdownSizeSection(d))
+		}
+	}
+	return pages
+}
+
+// moduleDropdowns are the dropdowns.<name> sizes the bar module pages
+// carry, by page.
+var moduleDropdowns = map[string]string{
+	"audio": "audio", "battery": "battery", "bitwarden": "bitwarden", "bluetooth": "bluetooth", "brightness": "brightness",
+	"clock": "calendar", "dashboard": "dashboard", "media": "media", "mail": "mail", "network": "network",
+	"treeman": "treeman", "weather": "weather",
+}
+
+func dropdownSizeSection(dropdown string) sectionSpec {
+	return sectionSpec{title: "settings-section-dropdown-size", rows: dropdownSizeRows("dropdowns." + dropdown)}
 }
 
 func backgroundAppsPage(*config.Config) pageSpec {

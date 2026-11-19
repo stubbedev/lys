@@ -23,8 +23,8 @@ func TestASettingLaunchOpensItsPageFocusedAndHighlighted(t *testing.T) {
 	w.focus = func(x widget.Widget) { focused = x }
 	w.open(launch{setting: "bar.location"})
 	w.root.Arrange(render.Rect{W: windowWidth, H: windowHeight})
-	if w.pageID != "bar-general" {
-		t.Fatalf("page %q, want bar-general", w.pageID)
+	if w.pageID != "bar" {
+		t.Fatalf("page %q, want bar", w.pageID)
 	}
 	i := slices.IndexFunc(w.page.rows, func(r *settingRow) bool { return r.path == "bar.location" })
 	if i < 0 {
@@ -42,7 +42,7 @@ func TestASettingLaunchOpensItsPageFocusedAndHighlighted(t *testing.T) {
 		t.Fatal("the highlight stayed")
 	}
 	w.open(launch{setting: "no.such.setting"})
-	if w.pageID != "bar-general" {
+	if w.pageID != "bar" {
 		t.Fatalf("an unknown setting moved the window to %q", w.pageID)
 	}
 	w.open(launch{page: "theme"})
@@ -78,13 +78,13 @@ func TestCheckSettingNamesTheUnknownPathAndAWrongPage(t *testing.T) {
 	if err := checkSetting(bothParts, "", "bar.location"); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkSetting(bothParts, "bar-general", "bar.location"); err != nil {
+	if err := checkSetting(bothParts, "bar", "bar.location"); err != nil {
 		t.Fatal(err)
 	}
 	if err := checkSetting(bothParts, "", "does.not.exist"); err == nil || !strings.Contains(err.Error(), `"does.not.exist"`) {
 		t.Fatalf("%v", err)
 	}
-	if err := checkSetting(bothParts, "theme", "bar.location"); err == nil || !strings.Contains(err.Error(), `"bar-general"`) {
+	if err := checkSetting(bothParts, "theme", "bar.location"); err == nil || !strings.Contains(err.Error(), `"bar"`) {
 		t.Fatalf("%v", err)
 	}
 }
@@ -143,7 +143,7 @@ func TestASettingBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	k := testKit(t, "")
 	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
 	w.stack.SetTransition(widget.StackNone, 0)
-	w.openPage("bar-general")
+	w.openPage("bar")
 	const width, height = 900, 600
 	w.root.Arrange(render.Rect{W: width, H: height})
 	last := w.page.rows[len(w.page.rows)-1]
@@ -165,12 +165,12 @@ func TestTheNewestLaunchBeforeTheWindowShowsIsTheOneItOpens(t *testing.T) {
 	w.request(launch{page: "theme"})
 	w.request(launch{setting: "bar.location"})
 	w.request(launch{})
-	if w.pageID != "bar-general" || focused != nil {
+	if w.pageID != "bar" || focused != nil {
 		t.Fatalf("before the window shows: page %q, focused %T", w.pageID, focused)
 	}
 	w.presentedFirst()
 	w.root.Arrange(render.Rect{W: windowWidth, H: windowHeight})
-	if w.pageID != "bar-general" || focused == nil {
+	if w.pageID != "bar" || focused == nil {
 		t.Fatalf("once shown: page %q, focused %T", w.pageID, focused)
 	}
 	w.request(launch{page: "theme"})
@@ -187,7 +187,7 @@ func TestASettingOnAnotherPageBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	w.openPage("theme")
 	const width, height = 900, 600
 	w.root.Arrange(render.Rect{W: width, H: height})
-	spec, _ := pageByID(w.sections, "bar-general")
+	spec, _ := pageByID(w.sections, "bar")
 	rows := spec.sections[len(spec.sections)-1].rows
 	w.open(launch{setting: rows[len(rows)-1].path})
 	for range 3 {

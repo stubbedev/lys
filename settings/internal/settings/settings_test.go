@@ -2249,7 +2249,7 @@ func TestCardAndListEditorsTakeLysUiParts(t *testing.T) {
 	k := testKit(t, "")
 	cfg := k.store.svc.Config()
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
-	w.show("bar-general")
+	w.show("bar")
 	for _, card := range treetest.WithClass(w.root, "layout-card") {
 		if !widget.HasClass(card, css.Card) || len(treetest.All[*widget.Separator](card)) == 0 {
 			t.Error("a layout card is not lys-ui's card cut by a separator")
@@ -2340,7 +2340,7 @@ func TestParseLaunch(t *testing.T) {
 		{[]string{"--page=theme"}, launch{page: "theme"}},
 		{[]string{"--page"}, launch{}},
 		{[]string{"--setting", "bar.location"}, launch{setting: "bar.location"}},
-		{[]string{"--page", "bar-general", "--setting=bar.location"}, launch{page: "bar-general", setting: "bar.location"}},
+		{[]string{"--page", "bar", "--setting=bar.location"}, launch{page: "bar", setting: "bar.location"}},
 		{[]string{"--setting"}, launch{}},
 		{nil, launch{}},
 	} {

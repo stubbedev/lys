@@ -215,7 +215,7 @@ func actionChoices(module string) []actionChoice {
 	return nil
 }
 
-// The bar-button sections every module page shares (sections/bar_button),
+// The bar item sections every module page shares,
 // over the module's path (modules.battery).
 
 func barDisplaySection(module string) sectionSpec {

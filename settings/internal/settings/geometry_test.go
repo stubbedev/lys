@@ -225,14 +225,14 @@ func cardFieldsLineUp() pageCheck {
 				treetest.WithClass(card, "monitor-wallpaper-entry")[0],
 			})
 			checked[id] = true
-		case "bar-general":
+		case "bar":
 			sameX(t, id, "layout zones", treetest.WithClass(page, "layout-zone-items"))
 			checked[id] = true
 		}
 	}
 	return pageCheck{visit: visit, done: func(t *testing.T) {
 		if len(checked) != 3 {
-			t.Errorf("checked %v, want the battery, wallpaper and bar-general pages", checked)
+			t.Errorf("checked %v, want the battery, wallpaper and bar pages", checked)
 		}
 	}}
 }
@@ -471,7 +471,7 @@ func TestSourceBadgesAreOneHeightWhateverShareTheirLine(t *testing.T) {
 		win := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 		win.stack.SetTransition(widget.StackNone, 0)
 		apptheme.New(cfg).Attach(win.root)
-		win.show("bar-general")
+		win.show("bar")
 		layOut(win, 1400)
 		heights := map[string]int{}
 		for _, row := range win.page.rows {
@@ -499,7 +499,7 @@ func TestSourceBadgesAreOneHeightWhateverShareTheirLine(t *testing.T) {
 // its text's width, at scales 1, 1.25 and 2.
 func TestSegmentLabelsAreCentredInTheirSegments(t *testing.T) {
 	for _, scale := range []string{"1", "1.25", "2"} {
-		win := laidOutPage(t, "styling:\n  scale: "+scale+"\n", "bar-general", 1400)
+		win := laidOutPage(t, "styling:\n  scale: "+scale+"\n", "bar", 1400)
 		segmented := treetest.All[*segmentedEnum](win.page)
 		if len(segmented) == 0 {
 			t.Fatal("the Bar page shows no segmented control")

@@ -44,7 +44,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Apps | `default-apps`, `login-items`, `launcher`, `launcher-modes` |
 | Privacy & Security | `privacy`, `passwords`, `lock`, `greeter`, `share-picker` |
 | Time & Language | `date-time`, `region` |
-| Desktop | `bar-general`, `bar-button`, `bar-dropdown`, `dropdowns`, `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
+| Desktop | `bar` (with its buttons and dropdowns; each dropdown's size is on its bar item's page), `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
 | Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `power`, `power-profiles`, `ram`, `storage`, `systray` |
 | Bar Items: Media | `cava`, `media`, `recorder`, `screenshot` |
 | Bar Items: Productivity | `bitwarden`, `clock`, `custom`, `mail`, `separator`, `treeman`, `weather`, `world-clock` |

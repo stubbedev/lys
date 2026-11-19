@@ -47,7 +47,7 @@ in
       runHook preInstallCheck
       export HOME=$TMPDIR XDG_CONFIG_HOME=$TMPDIR/config
       $out/bin/lys-settings --version | grep -qxF "lys-settings $version"
-      $out/bin/lys-settings --list-pages | grep -qF '"id":"bar-general"'
+      $out/bin/lys-settings --list-pages | grep -qF '"id":"overview"'
       if $out/bin/lys-settings --bogus 2>/dev/null; then
         echo "an unknown flag was accepted" >&2
         exit 1
