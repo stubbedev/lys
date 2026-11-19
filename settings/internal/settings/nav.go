@@ -65,7 +65,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 		{key: "settings-nav-displays", pages: []pageSpec{displaysPage()}},
 		{key: "settings-nav-sound-section", pages: []pageSpec{soundPage(cfg)}},
 		{key: "settings-nav-input", pages: []pageSpec{wmInputPage(), wmBindsPage()}},
-		{key: "settings-nav-notifications-focus", pages: []pageSpec{notificationsPage(cfg), focusPage(cfg), osdPage(cfg)}},
+		{key: "settings-nav-notifications-focus", pages: []pageSpec{notificationsPage(cfg), osdPage(cfg)}},
 		{key: "settings-nav-power", pages: []pageSpec{idlePage(cfg)}},
 		{key: "settings-nav-apps", pages: []pageSpec{defaultAppsPage(cfg), loginItemsPage(cfg), launcherPage(cfg), launcherModesPage(cfg)}},
 		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg), greeterPage(cfg), sharePickerPage(cfg)}},

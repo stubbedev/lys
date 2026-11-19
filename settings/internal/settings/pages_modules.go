@@ -30,7 +30,6 @@ func modulePages(cfg *config.Config) []pageSpec {
 		minimizedWindowsPage(cfg),
 		netstatPage(cfg),
 		networkPage(cfg),
-		notificationPage(cfg),
 		powerPage(cfg),
 		powerProfilesPage(cfg),
 		ramPage(cfg),
@@ -63,7 +62,7 @@ var barItemGroups = []struct {
 }{
 	{"settings-nav-bar-items-status", []string{
 		"audio", "background-apps", "battery", "bluetooth", "brightness", "cpu", "dashboard", "idle-inhibit", "keybind-mode",
-		"keyboard-input", "netstat", "network", "nightlight", "notification", "power", "power-profiles", "ram", "storage", "systray",
+		"keyboard-input", "netstat", "network", "nightlight", "power", "power-profiles", "ram", "storage", "systray",
 	}},
 	{"settings-nav-bar-items-media", []string{"cava", "media", "recorder", "screenshot"}},
 	{"settings-nav-bar-items-productivity", []string{"bitwarden", "clock", "custom", "mail", "separator", "treeman", "weather", "world-clock"}},
@@ -421,21 +420,6 @@ func networkPage(*config.Config) pageSpec {
 		barDisplaySection("modules.network"),
 		colorsSection("modules.network"),
 		actionsSection("modules.network", actionChoices("network")),
-	}}
-}
-
-// notificationPage is pages/modules/notification_module.
-func notificationPage(*config.Config) pageSpec {
-	return pageSpec{id: "notification", navKey: "settings-nav-notification", icon: "ld-bell-symbolic", header: "settings-page-notification", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.notifications.icon-name", iconRow),
-			field("modules.notifications.icon-unread", iconRow),
-			field("modules.notifications.icon-dnd", iconRow),
-			field("modules.notifications.thresholds", thresholdList),
-		}},
-		barDisplaySection("modules.notifications"),
-		colorsSection("modules.notifications"),
-		actionsSection("modules.notifications", actionChoices("notification")),
 	}}
 }
 

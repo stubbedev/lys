@@ -39,13 +39,13 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Displays | `wm-outputs` |
 | Sound | `sound` |
 | Input | `wm-input`, `wm-binds` |
-| Notifications & Focus | `notifications`, `focus`, `osd` |
+| Notifications & Focus | `notifications` (with Do Not Disturb and the bar's bell), `osd` |
 | Power & Battery | `idle` |
 | Apps | `default-apps`, `login-items`, `launcher`, `launcher-modes` |
 | Privacy & Security | `privacy`, `passwords`, `lock`, `greeter`, `share-picker` |
 | Time & Language | `date-time`, `region` |
 | Desktop | `bar-general`, `bar-button`, `bar-dropdown`, `dropdowns`, `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
-| Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `notification`, `power`, `power-profiles`, `ram`, `storage`, `systray` |
+| Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `power`, `power-profiles`, `ram`, `storage`, `systray` |
 | Bar Items: Media | `cava`, `media`, `recorder`, `screenshot` |
 | Bar Items: Productivity | `bitwarden`, `clock`, `custom`, `mail`, `separator`, `treeman`, `weather`, `world-clock` |
 | Bar Items: Workspaces & Windows | `minimized-windows`, `window-title`, `workspaces` (one page for every compositor, showing what the running one reads) |

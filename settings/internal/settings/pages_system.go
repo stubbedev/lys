@@ -158,15 +158,4 @@ func idlePage(*config.Config) pageSpec {
 	}
 }
 
-func focusPage(*config.Config) pageSpec {
-	return pageSpec{
-		id: "focus", navKey: "settings-nav-focus", icon: "ld-bell-off-symbolic",
-		header: "settings-page-focus",
-		sections: []sectionSpec{
-			{title: "settings-section-focus-automatic", rows: append(fields("modules.notifications.dnd.while-sharing", "modules.notifications.dnd.while-fullscreen"), field("modules.notifications.dnd.schedule", dndScheduleList))},
-			{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical"), field("modules.notifications.dnd.allow-apps", stringList)}},
-		},
-	}
-}
-
 var idleTimeouts = []string{"1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "never"}

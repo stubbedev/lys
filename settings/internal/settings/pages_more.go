@@ -94,7 +94,22 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.blocklist", stringList),
 		}},
 		{title: "settings-section-animation", rows: surfaceAnimationRows("animations.notifications")},
+		{title: "settings-section-focus-automatic", rows: append(fields("modules.notifications.dnd.while-sharing", "modules.notifications.dnd.while-fullscreen"), field("modules.notifications.dnd.schedule", dndScheduleList))},
+		{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical"), field("modules.notifications.dnd.allow-apps", stringList)}},
+		{title: "settings-section-bell", rows: append([]rowSpec{
+			field("modules.notifications.icon-name", iconRow),
+			field("modules.notifications.icon-unread", iconRow),
+			field("modules.notifications.icon-dnd", iconRow),
+			field("modules.notifications.thresholds", thresholdList),
+		}, barDisplaySection("modules.notifications").rows...)},
+		retitled(colorsSection("modules.notifications"), "settings-section-bell-colors"),
+		retitled(actionsSection("modules.notifications", actionChoices("notification")), "settings-section-bell-actions"),
 	}}
+}
+
+func retitled(s sectionSpec, title string) sectionSpec {
+	s.title = title
+	return s
 }
 
 // dropdownsPage is pages/dropdowns: each dropdown's size overrides.
