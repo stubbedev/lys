@@ -58,6 +58,14 @@ func storedBy(attrs map[string]string) string {
 	return schema
 }
 
+func shownAttributes(attrs map[string]string) []string {
+	return slices.DeleteFunc(slices.Sorted(maps.Keys(attrs)), func(k string) bool { return k == schemaAttribute })
+}
+
+func itemTime(unix uint64, zone *time.Location) string {
+	return time.Unix(intconv.Must[int64](unix), 0).In(zone).Format(itemTimeLayout)
+}
+
 func keyringItemText(it client.Item) string {
 	parts := []string{strings.ToLower(it.Label)}
 	for _, k := range slices.Sorted(maps.Keys(it.Attributes)) {
@@ -436,15 +444,15 @@ func (p *passwordsPanel) showDetail(it client.Item) {
 		p.act(func(ctx context.Context) error { return p.c.SetLabel(ctx, path, strings.TrimSpace(text)) })
 	}
 	field(t.Get("settings-passwords-label"), label)
-	for _, k := range slices.Sorted(maps.Keys(it.Attributes)) {
+	for _, k := range shownAttributes(it.Attributes) {
 		text(k, it.Attributes[k])
 	}
 	text(t.Get("settings-passwords-stored-by"), storedBy(it.Attributes))
 	if it.Created != 0 {
-		text(t.Get("settings-passwords-created"), time.Unix(intconv.Must[int64](it.Created), 0).UTC().Format(itemTimeLayout))
+		text(t.Get("settings-passwords-created"), itemTime(it.Created, time.Local))
 	}
 	if it.Modified != 0 {
-		text(t.Get("settings-passwords-modified"), time.Unix(intconv.Must[int64](it.Modified), 0).UTC().Format(itemTimeLayout))
+		text(t.Get("settings-passwords-modified"), itemTime(it.Modified, time.Local))
 	}
 	p.secretLbl = p.k.label(hiddenText, css.Monospace)
 	var reveal *widget.Button

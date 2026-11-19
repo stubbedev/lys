@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -213,5 +214,29 @@ func TestAnItemIsSummarisedByItsAccountAndPlaceElseByWhatStoredIt(t *testing.T) 
 		if got := itemSummary(tc.attrs); got != tc.want {
 			t.Errorf("%v: %q, want %q", tc.attrs, got, tc.want)
 		}
+	}
+}
+
+func TestAnItemsTimesReadInTheLocalZone(t *testing.T) {
+	const at = 1762516800
+	copenhagen, err := time.LoadLocation("Europe/Copenhagen")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := itemTime(at, copenhagen); got != "2025-11-07 13:00" {
+		t.Errorf("in Copenhagen the time reads %q", got)
+	}
+	if got := itemTime(at, time.UTC); got != "2025-11-07 12:00" {
+		t.Errorf("in UTC the time reads %q", got)
+	}
+}
+
+func TestTheSchemaShowsOnceAsStoredByNotAsAnAttribute(t *testing.T) {
+	attrs := map[string]string{schemaAttribute: "org.git.Password", "user": "me", "service": "github.com"}
+	if got := shownAttributes(attrs); !slices.Equal(got, []string{"service", "user"}) {
+		t.Errorf("shown attributes %q", got)
+	}
+	if got := shownAttributes(map[string]string{"user": "me"}); !slices.Equal(got, []string{"user"}) {
+		t.Errorf("without a schema the attributes are %q", got)
 	}
 }
