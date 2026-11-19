@@ -790,6 +790,13 @@ settings-section-idle-when = Bei Inaktivität
     .description = Wie lange ohne Eingabe bis zu jedem Schritt, am Netz und im Akkubetrieb
 settings-idle-on-ac = Am Netz
 settings-idle-on-battery = Im Akkubetrieb
+settings-idle-overtaken = { $source ->
+        [ac] Am Netz
+       *[battery] Im Akkubetrieb
+    } geschieht das nie: zuerst { $then ->
+        [screen-off] gehen die Bildschirme aus
+       *[suspend] geht das System in Bereitschaft
+    }
 settings-duration-never = Nie
 settings-duration-minutes = { $n ->
     [one] 1 Minute

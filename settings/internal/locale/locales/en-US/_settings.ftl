@@ -790,6 +790,13 @@ settings-section-idle-when = When Idle
     .description = How long without input before each step, plugged in and on battery
 settings-idle-on-ac = Plugged in
 settings-idle-on-battery = On battery
+settings-idle-overtaken = { $source ->
+        [ac] Plugged in
+       *[battery] On battery
+    }, this never happens: { $then ->
+        [screen-off] the screens turn off
+       *[suspend] the system suspends
+    } first
 settings-duration-never = Never
 settings-duration-minutes = { $n ->
     [one] 1 minute

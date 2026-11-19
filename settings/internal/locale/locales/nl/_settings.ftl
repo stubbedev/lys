@@ -780,6 +780,13 @@ settings-section-idle-when = Bij inactiviteit
     .description = Hoe lang zonder invoer voor elke stap, aan het net en op batterij
 settings-idle-on-ac = Aan het net
 settings-idle-on-battery = Op batterij
+settings-idle-overtaken = { $source ->
+        [ac] Aan het net
+       *[battery] Op batterij
+    } gebeurt dit nooit: { $then ->
+        [screen-off] de schermen gaan eerst uit
+       *[suspend] het systeem gaat eerst in slaapstand
+    }
 settings-duration-never = Nooit
 settings-duration-minutes = { $n ->
     [one] 1 minuut

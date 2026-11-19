@@ -137,13 +137,13 @@ func idlePage(*config.Config) pageSpec {
 		id: "idle", navKey: "settings-nav-idle", icon: "ld-moon-symbolic",
 		header: "settings-page-idle",
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("idle.enable", "idle.lock-before-sleep")},
+			{title: "settings-section-general", rows: []rowSpec{field("idle.enable"), field("idle.lock-before-sleep", idleEnabled)}},
 			{title: "settings-section-idle-when", rows: []rowSpec{
-				idleTimeoutsRow("dim"), idleTimeoutsRow("lock"), idleTimeoutsRow("screen-off"), idleTimeoutsRow("suspend"),
-				field("idle.dim-percent"), field("idle.suspend-action"),
+				idleTimeoutsRow(idleDim), idleTimeoutsRow(idleLock), idleTimeoutsRow(idleScreenOff), idleTimeoutsRow(idleSuspend),
+				field("idle.dim-percent", idleEnabled), field("idle.suspend-action", idleEnabled),
 			}},
 		},
 	}
 }
 
-var idleTimeouts = []string{"1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "never"}
+var idleEnabled = enabledBy("idle.enable")

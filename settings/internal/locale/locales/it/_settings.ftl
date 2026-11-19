@@ -791,6 +791,13 @@ settings-section-idle-when = In inattività
     .description = Quanto tempo senza input prima di ogni passaggio, collegato e a batteria
 settings-idle-on-ac = Collegato
 settings-idle-on-battery = A batteria
+settings-idle-overtaken = { $source ->
+        [ac] Collegato
+       *[battery] A batteria
+    }, non succede mai: { $then ->
+        [screen-off] gli schermi si spengono
+       *[suspend] il sistema va in sospensione
+    } prima
 settings-duration-never = Mai
 settings-duration-minutes = { $n ->
     [one] 1 minuto

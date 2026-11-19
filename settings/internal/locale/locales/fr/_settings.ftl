@@ -793,6 +793,13 @@ settings-section-idle-when = En cas d'inactivité
     .description = Combien de temps sans activité avant chaque étape, sur secteur et sur batterie
 settings-idle-on-ac = Sur secteur
 settings-idle-on-battery = Sur batterie
+settings-idle-overtaken = { $source ->
+        [ac] Sur secteur
+       *[battery] Sur batterie
+    }, cela n’arrive jamais : { $then ->
+        [screen-off] les écrans s’éteignent
+       *[suspend] le système se met en veille
+    } avant
 settings-duration-never = Jamais
 settings-duration-minutes = { $n ->
     [one] 1 minute

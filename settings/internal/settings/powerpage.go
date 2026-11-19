@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"slices"
 	"time"
@@ -418,4 +419,47 @@ func powerLinksSection(k *kit) widget.Widget {
 		box.Append(newSection(k, "settings-power-section-sleep", rows), false)
 	}
 	return box
+}
+
+type batteryPresence struct {
+	settled bool
+	present bool
+	waiting []func(present bool)
+}
+
+func (k *kit) whenBatteryKnown(show func(present bool)) {
+	if k.battery == nil {
+		k.battery = &batteryPresence{}
+	}
+	b := k.battery
+	if b.settled {
+		show(b.present)
+		return
+	}
+	b.waiting = append(b.waiting, show)
+	if len(b.waiting) > 1 {
+		return
+	}
+	type reading struct {
+		present bool
+		err     error
+	}
+	async(k, func() reading {
+		ctl, err := k.power()
+		if err != nil {
+			return reading{err: err}
+		}
+		st, err := callWithin(powerCallWait, ctl.read)
+		return reading{present: st.hasBattery(), err: errors.Join(err, ctl.close())}
+	}, func(r reading) {
+		b.settled, b.present = true, r.present
+		if r.err != nil {
+			log.Printf("settings: read whether there is a battery, keeping the battery times: %v", r.err)
+			b.present = true
+		}
+		for _, show := range b.waiting {
+			show(b.present)
+		}
+		b.waiting = nil
+	})
 }

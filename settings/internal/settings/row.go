@@ -52,6 +52,7 @@ type kit struct {
 	network    func() (netControl, error)
 	statuses   map[string]tileStatus
 	power      func() (powerControl, error)
+	battery    *batteryPresence
 	bluetooth  func() (btControl, error)
 	copySecret func(text string) error
 	// overlays shows content on the output named on top of everything,
