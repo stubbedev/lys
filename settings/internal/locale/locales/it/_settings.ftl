@@ -920,6 +920,7 @@ settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
+settings-duration-off = Disattivato
 settings-advanced-show = Mostra
 settings-advanced-hide = Nascondi
 settings-section-bar-item = Elemento della barra

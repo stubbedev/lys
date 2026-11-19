@@ -919,6 +919,7 @@ settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
+settings-duration-off = Aus
 settings-advanced-show = Anzeigen
 settings-advanced-hide = Ausblenden
 settings-section-bar-item = Leistenelement

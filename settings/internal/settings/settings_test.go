@@ -1613,18 +1613,6 @@ func TestDeviceSelect(t *testing.T) {
 	}
 }
 
-func TestMillisecondsSlider(t *testing.T) {
-	k := testKit(t, "")
-	c := fieldControl(k, k.store, field("modules.recorder.start-delay-ms", milliseconds(0, 5000))).(*slider)
-	if c.Format(1500) != msLabel(1500) || c.Label().Text() != c.Format(c.Value()) {
-		t.Errorf("label %q, want milliseconds", c.Format(1500))
-	}
-	c.Knob.SetValue(1234.6)
-	if v := k.store.value("modules.recorder.start-delay-ms"); v != int64(1235) {
-		t.Errorf("stored %#v, want whole milliseconds", v)
-	}
-}
-
 func TestTrayOverrideList(t *testing.T) {
 	k := testKit(t, "")
 	path := "modules.systray.overrides"

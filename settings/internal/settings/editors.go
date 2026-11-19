@@ -362,13 +362,6 @@ func (c *softRange) refresh() {
 	c.number.refresh()
 }
 
-// milliseconds is a slider of whole milliseconds over [lo, hi].
-func milliseconds(lo, hi float64) rowOpt {
-	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-		return newSlider(k, s, lo, hi, true, msLabel)
-	})
-}
-
 // msLabel reads a whole number of milliseconds.
 func msLabel(ms float64) string {
 	return locale.T().Get("settings-duration-milliseconds", i18n.Int("n", int64(math.Round(ms))))

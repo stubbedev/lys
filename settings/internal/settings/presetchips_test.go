@@ -1,11 +1,12 @@
 package settings
 
 import (
+	"slices"
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -178,6 +179,8 @@ func TestADurationChipReadsAsWords(t *testing.T) {
 		{after(90 * time.Minute), tr.Get("settings-duration-minutes", i18n.Int("n", 90))},
 		{after(day), tr.Get("settings-duration-days", i18n.Int("n", 1))},
 		{after(36 * time.Hour), tr.Get("settings-duration-hours", i18n.Int("n", 36))},
+		{after(2 * time.Second), tr.Get("settings-duration-seconds", i18n.Int("n", 2))},
+		{zeroAs(off), tr.Get("settings-duration-off")},
 	} {
 		if got := tc.choice.label(); got != tc.want {
 			t.Errorf("%v reads %q, want %q", tc.choice, got, tc.want)
@@ -203,35 +206,117 @@ func TestAChipOffItsFieldsUnitIsRefused(t *testing.T) {
 }
 
 func TestTheTimesThatWereTypedArePickedFromChips(t *testing.T) {
-	cfg := config.Defaults()
-	for page, paths := range map[string][]string{
-		passwordsID:     {repromptPath},
-		"privacy":       {"portal.screen-cast.reminder-days"},
-		"notifications": {"modules.notifications.popup-duration"},
-		"osd":           {"osd.duration"},
-		"lock":          {"login.lock.grace-period-ms", "login.lock.blank-timeout-ms"},
+	for _, c := range []struct{ page, path string }{
+		{passwordsID, repromptPath},
+		{"privacy", "portal.screen-cast.reminder-days"},
+		{"notifications", "modules.notifications.popup-duration"},
+		{"osd", "osd.duration"},
+		{"lock", "login.lock.grace-period-ms"},
+		{"lock", "login.lock.blank-timeout-ms"},
+		{"cpu", "modules.cpu.poll-interval-ms"},
+		{"netstat", "modules.netstat.poll-interval-ms"},
+		{"ram", "modules.ram.poll-interval-ms"},
+		{"storage", "modules.storage.poll-interval-ms"},
+		{"weather", "modules.weather.refresh-interval-seconds"},
+		{"screenshot", "modules.screenshot.thumbnail-ms"},
+		{"recorder", "modules.recorder.start-delay-ms"},
+		{"recorder", "modules.recorder.replay.seconds"},
 	} {
-		p, ok := pageByID(layout(cfg, bothParts), page)
-		if !ok {
-			t.Fatalf("no page %s", page)
-		}
-		for _, path := range paths {
-			spec, found := rowSpec{}, false
-			for _, s := range p.sections {
-				for _, r := range s.rows {
-					if r.path == path {
-						spec, found = r, true
-					}
-				}
-			}
-			if !found {
-				t.Errorf("%s has no row %s", page, path)
-				continue
-			}
-			k := testKit(t, "")
-			if _, ok := fieldControl(k, k.store, spec).(*presetPicker); !ok {
-				t.Errorf("%s on %s is not preset chips", path, page)
-			}
+		k := testKit(t, "")
+		pickerOf(t, k, pageRow(t, c.page, c.path))
+	}
+}
+
+func pollRow() rowSpec {
+	return field("modules.netstat.poll-interval-ms", durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second)))
+}
+
+func TestAPollIntervalReadsInSecondsAndOffersNoOff(t *testing.T) {
+	k := testKit(t, "")
+	p := pickerOf(t, k, pollRow())
+	tr := locale.T()
+	want := []string{
+		tr.Get("settings-duration-seconds", i18n.Int("n", 1)), tr.Get("settings-duration-seconds", i18n.Int("n", 2)),
+		tr.Get("settings-duration-seconds", i18n.Int("n", 5)), tr.Get("settings-duration-seconds", i18n.Int("n", 10)),
+	}
+	if got := chipLabels(p); !slices.Equal(got, want) || len(p.chips) != len(want)+1 {
+		t.Fatalf("chips %q and %d buttons, want %q and Custom", got, len(p.chips), want)
+	}
+	if p.active() != 1 {
+		t.Fatalf("the default 2 s shows chip %d", p.active())
+	}
+	p.chips[2].SetActive(true)
+	if v := k.store.value("modules.netstat.poll-interval-ms"); v != int64(5000) {
+		t.Errorf("5 seconds stored %v", v)
+	}
+}
+
+func TestACustomPollIntervalStopsAtAQuarterSecond(t *testing.T) {
+	k := testKit(t, "modules:\n  netstat:\n    poll-interval-ms: 750\n")
+	p := pickerOf(t, k, pollRow())
+	if !p.typed.Visible() || p.custom.Value() != 0.75 {
+		t.Fatalf("750 ms: number shown %v at %v", p.typed.Visible(), p.custom.Value())
+	}
+	if lo, _ := p.custom.Range(); lo != shortestPeriod.Seconds() {
+		t.Fatalf("the custom number starts at %v, want %v", lo, shortestPeriod.Seconds())
+	}
+	p.custom.SetValue(0)
+	p.custom.OnValueChanged(p.custom.Value())
+	if v := k.store.value("modules.netstat.poll-interval-ms"); v != shortestPeriod.Milliseconds() {
+		t.Errorf("typing 0 stored %v, want the shortest interval", v)
+	}
+}
+
+func TestAnOffChipStoresZeroAndLetsCustomReachIt(t *testing.T) {
+	k := testKit(t, "")
+	p := pickerOf(t, k, field("modules.screenshot.thumbnail-ms", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), zeroAs(off))))
+	if got := chipLabels(p); got[3] != locale.T().Get("settings-duration-off") {
+		t.Fatalf("chips %q, want Off after the presets", got)
+	}
+	p.chips[3].SetActive(true)
+	if v := k.store.value("modules.screenshot.thumbnail-ms"); v != int64(0) {
+		t.Errorf("Off stored %v", v)
+	}
+	if lo, _ := p.custom.Range(); lo != 0 {
+		t.Errorf("with an Off chip the custom number starts at %v, want 0", lo)
+	}
+}
+
+func TestSecondChipsStoreSecondsAndCustomTakesSeconds(t *testing.T) {
+	k := testKit(t, "")
+	p := pickerOf(t, k, field("modules.weather.refresh-interval-seconds", durationChips(inSeconds, after(15*time.Minute), after(time.Hour))))
+	if got := chipLabels(p); got[1] != locale.T().Get("settings-duration-hours", i18n.Int("n", 1)) {
+		t.Errorf("3600 s reads %q", got[1])
+	}
+	p.chips[1].SetActive(true)
+	if v := k.store.value("modules.weather.refresh-interval-seconds"); v != int64(3600) {
+		t.Errorf("an hour stored %v", v)
+	}
+	p.chips[2].SetActive(true)
+	p.custom.OnValueChanged(90)
+	if v := k.store.value("modules.weather.refresh-interval-seconds"); v != int64(90) {
+		t.Errorf("typing 90 seconds stored %v", v)
+	}
+	if lo, _ := p.custom.Range(); lo != 1 {
+		t.Errorf("without a zero chip the custom seconds start at %v, want 1", lo)
+	}
+}
+
+func TestTheCustomNumberNamesItsUnit(t *testing.T) {
+	tr := locale.T()
+	for _, c := range []struct {
+		spec rowSpec
+		unit string
+	}{
+		{lockGraceRow(), "settings-duration-unit-seconds"},
+		{cyclingRow(), "settings-duration-unit-minutes"},
+		{reminderRow(), "settings-duration-unit-days"},
+		{field("launcher.history.max-size", countChips(inEntries, 25)), "settings-unit-entries"},
+	} {
+		k := testKit(t, "")
+		p := pickerOf(t, k, c.spec)
+		if labels := treetest.Labels(p.typed); !slices.Contains(labels, tr.Get(c.unit)) {
+			t.Errorf("%s's custom number reads %q, want %q beside it", c.spec.path, labels, tr.Get(c.unit))
 		}
 	}
 }

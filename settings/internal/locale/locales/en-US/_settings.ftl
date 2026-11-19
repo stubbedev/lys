@@ -919,6 +919,7 @@ settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
+settings-duration-off = Off
 settings-advanced-show = Show
 settings-advanced-hide = Hide
 settings-section-bar-item = Bar Item

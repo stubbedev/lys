@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	day        = 24 * time.Hour
-	chipRadius = 999
+	day            = 24 * time.Hour
+	shortestPeriod = 250 * time.Millisecond
+	chipRadius     = 999
 )
 
 func durationWords(d time.Duration) string {
@@ -39,6 +40,7 @@ type customUnit struct {
 	per    float64
 	digits int
 	name   string
+	least  float64
 }
 
 func (u customUnit) scaled(s slot) slot {
@@ -65,6 +67,7 @@ type timeUnit int
 
 const (
 	inMilliseconds timeUnit = iota
+	inSeconds
 	inMinutes
 	inDays
 )
@@ -73,6 +76,8 @@ func (u timeUnit) span() time.Duration {
 	switch u {
 	case inMilliseconds:
 		return time.Millisecond
+	case inSeconds:
+		return time.Second
 	case inMinutes:
 		return time.Minute
 	case inDays:
@@ -84,11 +89,13 @@ func (u timeUnit) span() time.Duration {
 func (u timeUnit) custom() customUnit {
 	switch u {
 	case inMilliseconds:
-		return customUnit{per: float64(time.Second / time.Millisecond), digits: 1, name: "settings-duration-unit-seconds"}
+		return customUnit{per: float64(time.Second / time.Millisecond), digits: 2, name: "settings-duration-unit-seconds", least: shortestPeriod.Seconds()}
+	case inSeconds:
+		return customUnit{per: 1, name: "settings-duration-unit-seconds", least: 1}
 	case inMinutes:
-		return customUnit{per: 1, name: "settings-duration-unit-minutes"}
+		return customUnit{per: 1, name: "settings-duration-unit-minutes", least: 1}
 	case inDays:
-		return customUnit{per: 1, name: "settings-duration-unit-days"}
+		return customUnit{per: 1, name: "settings-duration-unit-days", least: 1}
 	}
 	panic(fmt.Sprintf("settings: time unit %d", u))
 }
@@ -110,9 +117,9 @@ const (
 func (u countUnit) custom() customUnit {
 	switch u {
 	case inPixels:
-		return customUnit{per: 1, name: "settings-unit-pixels"}
+		return customUnit{per: 1, name: "settings-unit-pixels", least: 1}
 	case inEntries:
-		return customUnit{per: 1, name: "settings-unit-entries"}
+		return customUnit{per: 1, name: "settings-unit-entries", least: 1}
 	}
 	panic(fmt.Sprintf("settings: count unit %d", u))
 }
@@ -122,6 +129,7 @@ type zeroWord string
 const (
 	never       zeroWord = "settings-duration-never"
 	immediately zeroWord = "settings-duration-immediately"
+	off         zeroWord = "settings-duration-off"
 )
 
 type durationChoice struct {
@@ -206,7 +214,11 @@ func newPresetPicker(k *kit, s slot, meta config.FieldMeta, unit customUnit, pre
 		p.chips = append(p.chips, chip)
 		row.Append(chip)
 	}
-	p.custom = newNumber(k, unit.scaled(s), meta.Min/unit.per, meta.Max/unit.per, 1, unit.digits)
+	lo := meta.Min / unit.per
+	if !slices.ContainsFunc(presets, func(pr preset) bool { return pr.value == 0 }) {
+		lo = max(lo, unit.least)
+	}
+	p.custom = newNumber(k, unit.scaled(s), lo, meta.Max/unit.per, 1, unit.digits)
 	p.custom.SetAccessibleName(t.Get("settings-duration-custom"))
 	p.typed = gapBox(widget.Row)
 	p.typed.AppendAligned(p.custom, false, widget.AlignCenter)

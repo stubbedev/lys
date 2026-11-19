@@ -3,6 +3,7 @@ package settings
 import (
 	"log"
 	"slices"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
@@ -258,7 +259,7 @@ func clockPage(*config.Config) pageSpec {
 func cpuPage(*config.Config) pageSpec {
 	return pageSpec{id: "cpu", navKey: "settings-nav-cpu", icon: "ld-cpu-symbolic", header: "settings-page-cpu", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.cpu.poll-interval-ms"),
+			field("modules.cpu.poll-interval-ms", durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second))),
 			field("modules.cpu.temp-sensor"),
 			field("modules.cpu.format"),
 			field("modules.cpu.icon-name", iconRow),
@@ -367,7 +368,7 @@ func mediaPage(*config.Config) pageSpec {
 func netstatPage(*config.Config) pageSpec {
 	return pageSpec{id: "netstat", navKey: "settings-nav-netstat", icon: "ld-activity-symbolic", header: "settings-page-netstat", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.netstat.poll-interval-ms"),
+			field("modules.netstat.poll-interval-ms", durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second))),
 			field("modules.netstat.interface"),
 			field("modules.netstat.format"),
 			field("modules.netstat.icon-name", iconRow),
@@ -441,7 +442,7 @@ func powerPage(*config.Config) pageSpec {
 func ramPage(*config.Config) pageSpec {
 	return pageSpec{id: "ram", navKey: "settings-nav-ram", icon: "ld-memory-stick-symbolic", header: "settings-page-ram", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.ram.poll-interval-ms"),
+			field("modules.ram.poll-interval-ms", durationChips(inMilliseconds, after(time.Second), after(2*time.Second), after(5*time.Second), after(10*time.Second))),
 			field("modules.ram.format"),
 			field("modules.ram.icon-name", iconRow),
 			field("modules.ram.thresholds", thresholdList),
@@ -459,7 +460,7 @@ func screenshotPage(*config.Config) pageSpec {
 			field("modules.screenshot.label"),
 			field("modules.screenshot.copy-to-clipboard"),
 			field("modules.screenshot.notify"),
-			field("modules.screenshot.thumbnail-ms"),
+			field("modules.screenshot.thumbnail-ms", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), zeroAs(off))),
 			field("modules.screenshot.thumbnail-position", screenPosition),
 			field("modules.screenshot.ocr-languages", stringList),
 		}},
@@ -486,7 +487,7 @@ func separatorPage(*config.Config) pageSpec {
 func storagePage(*config.Config) pageSpec {
 	return pageSpec{id: "storage", navKey: "settings-nav-storage", icon: "ld-hard-drive-symbolic", header: "settings-page-storage", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.storage.poll-interval-ms"),
+			field("modules.storage.poll-interval-ms", durationChips(inMilliseconds, after(10*time.Second), after(30*time.Second), after(time.Minute), after(5*time.Minute))),
 			field("modules.storage.mount-point", mountPoints),
 			field("modules.storage.format"),
 			field("modules.storage.icon-name", iconRow),
@@ -520,7 +521,7 @@ func weatherPage(*config.Config) pageSpec {
 			field("modules.weather.units"),
 			field("modules.weather.format"),
 			field("modules.weather.time-format"),
-			field("modules.weather.refresh-interval-seconds"),
+			field("modules.weather.refresh-interval-seconds", durationChips(inSeconds, after(15*time.Minute), after(30*time.Minute), after(time.Hour), after(3*time.Hour))),
 			field("modules.weather.icon-name", iconRow),
 		}},
 		{title: "settings-section-api-keys", rows: []rowSpec{
@@ -563,7 +564,7 @@ func recorderPage(*config.Config) pageSpec {
 			field(m + ".output-format"),
 			field(m + ".output-directory"),
 			field(m + ".show-cursor"),
-			field(m+".start-delay-ms", milliseconds(0, 5000)),
+			field(m+".start-delay-ms", durationChips(inMilliseconds, after(time.Second), after(3*time.Second), after(5*time.Second), zeroAs(off))),
 		}},
 		// Quality and the encoder are chosen automatically, so the
 		// framerate is the only video knob.
@@ -582,7 +583,7 @@ func recorderPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-instant-replay", rows: []rowSpec{
 			field(m + ".replay.enable"),
-			field(m + ".replay.seconds"),
+			field(m+".replay.seconds", durationChips(inSeconds, after(15*time.Second), after(30*time.Second), after(time.Minute), after(2*time.Minute), after(5*time.Minute))),
 			field(m + ".replay.output"),
 		}},
 		{title: "settings-section-icons", rows: []rowSpec{
