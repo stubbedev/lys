@@ -27,6 +27,21 @@ func TestEveryActionPresetIsAMessage(t *testing.T) {
 	}
 }
 
+func TestKeybindModeOffersToLeaveTheMode(t *testing.T) {
+	commands := map[string]bool{}
+	for _, ch := range actionChoices("keybind-mode") {
+		commands[ch.command] = true
+	}
+	for _, want := range []string{"lys-wmctl dispatch submap reset", "hyprctl dispatch submap reset"} {
+		if !commands[want] {
+			t.Errorf("keybind-mode does not offer %q", want)
+		}
+	}
+	if slices.ContainsFunc(actionChoices("keyboard-input"), func(ch actionChoice) bool { return strings.Contains(ch.command, "submap") }) {
+		t.Error("another module offers to leave a mode")
+	}
+}
+
 func TestTheActionMenuReadsItsPresetsInTheLanguage(t *testing.T) {
 	k := testKit(t, "")
 	c := newActionEditor(k, k.store.slot("modules.media.left-click"), actionChoices("media"))

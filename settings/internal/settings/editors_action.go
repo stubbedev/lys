@@ -184,6 +184,11 @@ func actionChoices(module string) []actionChoice {
 		return []actionChoice{shell("settings-action-profile-cycle", ":cycle")}
 	case "power":
 		return []actionChoice{shell("settings-action-open-power-menu", ":menu")}
+	case "keybind-mode":
+		return []actionChoice{
+			shell("settings-action-leave-mode-lys-wm", "lys-wmctl dispatch submap reset"),
+			shell("settings-action-leave-mode-hyprland", "hyprctl dispatch submap reset"),
+		}
 	case "keyboard-input":
 		return []actionChoice{shell("settings-action-layout-next", config.KeyboardNextLayoutAction)}
 	case "idle-inhibit":
