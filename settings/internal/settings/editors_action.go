@@ -5,17 +5,12 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// actionChoice is ActionChoice: a labeled preset command.
-type actionChoice struct{ label, command string }
-
-// Action editor texts.
-const (
-	actionNoneLabel   = "None"
-	actionCustomLabel = "Custom command…"
-	actionPlaceholder = "Shell command"
-)
+// actionChoice is ActionChoice: a preset command and its label's message.
+type actionChoice struct{ key, command string }
 
 // actionEditor is ActionControl over a click action's command string
 // (ClickAction and WorkspaceClickAction both encode as one): the
@@ -35,15 +30,16 @@ type actionEditor struct {
 
 func newActionEditor(k *kit, s slot, choices []actionChoice) *actionEditor {
 	c := &actionEditor{Box: gapBox(widget.Column), k: k, slot: s, choices: choices}
+	t := locale.T()
 	labels := make([]string, 0, len(choices)+2)
 	for _, ch := range choices {
-		labels = append(labels, ch.label)
+		labels = append(labels, t.Get(ch.key))
 	}
-	labels = append(labels, actionNoneLabel, actionCustomLabel)
+	labels = append(labels, t.Get("settings-action-none"), t.Get("settings-action-custom"))
 	c.drop = widget.NewDropdown(k.face, k.textPx(), labels, 0)
 	c.drop.OnSelect = c.selected
 	c.entry = k.entry()
-	c.entry.SetPlaceholder(actionPlaceholder)
+	c.entry.SetPlaceholder(t.Get("settings-action-placeholder"))
 	c.entry.OnChanged = func(text string) {
 		if c.custom && !c.syncing {
 			_ = c.slot.set(text)
@@ -125,85 +121,85 @@ func (c *actionEditor) refresh() {
 // workspace modules add (WorkspaceClickAction).
 func workspaceChoices() []actionChoice {
 	return []actionChoice{
-		{"Focus workspace", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusThis}.String()},
-		{"Focus next", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusNext}.String()},
-		{"Focus previous", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusPrevious}.String()},
-		{"Focus last", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusLast}.String()},
+		{"settings-action-focus-workspace", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusThis}.String()},
+		{"settings-action-focus-next", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusNext}.String()},
+		{"settings-action-focus-previous", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusPrevious}.String()},
+		{"settings-action-focus-last", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusLast}.String()},
 	}
 }
 
 // actionChoices is choices_for: each module's preset click actions.
 func actionChoices(module string) []actionChoice {
-	shell := func(label, command string) actionChoice { return actionChoice{label, command} }
-	dropdown := func(label, id string) actionChoice { return actionChoice{label, "dropdown:" + id} }
+	shell := func(key, command string) actionChoice { return actionChoice{key, command} }
+	dropdown := func(key, id string) actionChoice { return actionChoice{key, "dropdown:" + id} }
 	switch module {
 	case "recorder":
 		return []actionChoice{
-			shell("Toggle recording", "lys-shell recorder toggle"), shell("Start recording", "lys-shell recorder start"),
-			shell("Stop recording", "lys-shell recorder stop"), shell("Pause recording", "lys-shell recorder pause"),
-			shell("Resume recording", "lys-shell recorder resume"), dropdown("Open recorder panel", "recorder"),
+			shell("settings-action-recording-toggle", "lys-shell recorder toggle"), shell("settings-action-recording-start", "lys-shell recorder start"),
+			shell("settings-action-recording-stop", "lys-shell recorder stop"), shell("settings-action-recording-pause", "lys-shell recorder pause"),
+			shell("settings-action-recording-resume", "lys-shell recorder resume"), dropdown("settings-action-open-recorder", "recorder"),
 		}
 	case "screenshot":
 		return []actionChoice{
-			shell("Capture region", "lys-shell screenshot region"), shell("Capture output", "lys-shell screenshot output"),
-			shell("Capture window", "lys-shell screenshot window"),
+			shell("settings-action-capture-region", "lys-shell screenshot region"), shell("settings-action-capture-output", "lys-shell screenshot output"),
+			shell("settings-action-capture-window", "lys-shell screenshot window"),
 		}
 	case "battery":
-		return []actionChoice{dropdown("Open battery panel", "battery")}
+		return []actionChoice{dropdown("settings-action-open-battery", "battery")}
 	case "bitwarden":
-		return []actionChoice{dropdown("Open vault panel", "bitwarden")}
+		return []actionChoice{dropdown("settings-action-open-vault", "bitwarden")}
 	case "bluetooth":
-		return []actionChoice{dropdown("Open bluetooth panel", "bluetooth")}
+		return []actionChoice{dropdown("settings-action-open-bluetooth", "bluetooth")}
 	case "brightness":
 		return []actionChoice{
-			{"Brightness up (+5%)", "brightness:5"},
-			{"Brightness down (-5%)", "brightness:-5"},
-			{"Toggle blackout (0% ⇄ last)", "brightness:toggle"},
-			dropdown("Open brightness panel", "brightness"),
+			{"settings-action-brightness-up", "brightness:5"},
+			{"settings-action-brightness-down", "brightness:-5"},
+			{"settings-action-brightness-blackout", "brightness:toggle"},
+			dropdown("settings-action-open-brightness", "brightness"),
 		}
 	case "network":
-		return []actionChoice{dropdown("Open network panel", "network")}
+		return []actionChoice{dropdown("settings-action-open-network", "network")}
 	case "media":
 		return []actionChoice{
-			shell("Play / pause", "lys-shell media play-pause"), shell("Next track", "lys-shell media next"),
-			shell("Previous track", "lys-shell media previous"), dropdown("Open media panel", "media"),
+			shell("settings-action-media-play-pause", "lys-shell media play-pause"), shell("settings-action-media-next", "lys-shell media next"),
+			shell("settings-action-media-previous", "lys-shell media previous"), dropdown("settings-action-open-media", "media"),
 		}
 	case "notifications", "notification":
-		return []actionChoice{shell("Toggle do not disturb", "lys-shell notify dnd"), dropdown("Open notifications panel", "notification")}
+		return []actionChoice{shell("settings-action-dnd-toggle", "lys-shell notify dnd"), dropdown("settings-action-open-notifications", "notification")}
 	case "mail":
-		return []actionChoice{dropdown("Open mail panel", "mail")}
+		return []actionChoice{dropdown("settings-action-open-mail", "mail")}
 	case "weather":
-		return []actionChoice{dropdown("Open weather panel", "weather")}
+		return []actionChoice{dropdown("settings-action-open-weather", "weather")}
 	case "treeman":
-		return []actionChoice{dropdown("Open treeman panel", "treeman")}
+		return []actionChoice{dropdown("settings-action-open-treeman", "treeman")}
 	case "dashboard", "cpu", "ram", "storage", "netstat":
-		return []actionChoice{dropdown("Open dashboard", "dashboard")}
+		return []actionChoice{dropdown("settings-action-open-dashboard", "dashboard")}
 	case "clock":
-		return []actionChoice{dropdown("Open calendar", "calendar"), dropdown("Open weather panel", "weather")}
+		return []actionChoice{dropdown("settings-action-open-calendar", "calendar"), dropdown("settings-action-open-weather", "weather")}
 	case "world-clock":
-		return []actionChoice{dropdown("Open calendar", "calendar")}
+		return []actionChoice{dropdown("settings-action-open-calendar", "calendar")}
 	case "nightlight":
-		return []actionChoice{shell("Toggle night light", ":toggle")}
+		return []actionChoice{shell("settings-action-nightlight-toggle", ":toggle")}
 	case "power-profiles":
-		return []actionChoice{shell("Cycle profile", ":cycle")}
+		return []actionChoice{shell("settings-action-profile-cycle", ":cycle")}
 	case "power":
-		return []actionChoice{shell("Open power menu", ":menu")}
+		return []actionChoice{shell("settings-action-open-power-menu", ":menu")}
 	case "keyboard-input":
-		return []actionChoice{shell("Next layout", config.KeyboardNextLayoutAction)}
+		return []actionChoice{shell("settings-action-layout-next", config.KeyboardNextLayoutAction)}
 	case "idle-inhibit":
 		return []actionChoice{
-			shell("Toggle idle inhibit", "lys-shell idle toggle"),
-			shell("Toggle idle inhibit (indefinite)", "lys-shell idle toggle --indefinite"),
+			shell("settings-action-keep-awake-toggle", "lys-shell idle toggle"),
+			shell("settings-action-keep-awake-toggle-indefinite", "lys-shell idle toggle --indefinite"),
 		}
 	case "audio":
 		return []actionChoice{
-			shell("Toggle speaker mute", "lys-shell audio output-mute"), shell("Speaker volume up (+5%)", "lys-shell audio output-volume +5"),
-			shell("Speaker volume down (-5%)", "lys-shell audio output-volume -5"), shell("Toggle microphone mute", "lys-shell audio input-mute"),
-			shell("Microphone volume up (+5%)", "lys-shell audio input-volume +5"), shell("Microphone volume down (-5%)", "lys-shell audio input-volume -5"),
-			dropdown("Open audio panel", "audio"),
+			shell("settings-action-speaker-mute", "lys-shell audio output-mute"), shell("settings-action-speaker-up", "lys-shell audio output-volume +5"),
+			shell("settings-action-speaker-down", "lys-shell audio output-volume -5"), shell("settings-action-mic-mute", "lys-shell audio input-mute"),
+			shell("settings-action-mic-up", "lys-shell audio input-volume +5"), shell("settings-action-mic-down", "lys-shell audio input-volume -5"),
+			dropdown("settings-action-open-audio", "audio"),
 		}
 	case "cava":
-		return []actionChoice{dropdown("Open audio panel", "audio")}
+		return []actionChoice{dropdown("settings-action-open-audio", "audio")}
 	}
 	return nil
 }

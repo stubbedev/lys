@@ -1512,7 +1512,7 @@ func TestWorkspaceChoicesAreFocusActions(t *testing.T) {
 	}
 	for i, ch := range got {
 		if a := config.ParseWorkspaceClickAction(ch.command); a.Kind != want[i] {
-			t.Errorf("choice %q = %q parses as %v", ch.label, ch.command, a.Kind)
+			t.Errorf("choice %q = %q parses as %v", ch.key, ch.command, a.Kind)
 		}
 	}
 	if actionChoices("hyprland-workspaces") != nil {
