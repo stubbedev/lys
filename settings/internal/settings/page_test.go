@@ -77,3 +77,44 @@ func TestTheThemePageShowsOnlyTheActiveProvidersSettings(t *testing.T) {
 		t.Errorf("revealing a wallust setting left its section hidden: %v", got)
 	}
 }
+
+func TestTheLockPageShowsOnlyTheChosenBackgroundsSettings(t *testing.T) {
+	k := testKit(t, "")
+	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), "lock")
+	p := buildPage(k, spec)
+	row := func(path string) *settingRow {
+		i := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == path })
+		if i < 0 {
+			t.Fatalf("no row %s", path)
+		}
+		return p.rows[i]
+	}
+	shown := func(path string) bool { return row(path).Visible() }
+	set := func(path string, v any) {
+		if err := row(path).be.slot(path).set(v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !shown("login.background-color") || shown("login.background-image") || shown("login.blur") {
+		t.Fatalf("with a colour background: colour %v, image %v, blur %v", shown("login.background-color"), shown("login.background-image"), shown("login.blur"))
+	}
+	set("login.background-mode", "image")
+	if shown("login.background-color") || !shown("login.background-image") || !shown("login.blur") {
+		t.Errorf("with a picture background: colour %v, image %v, blur %v", shown("login.background-color"), shown("login.background-image"), shown("login.blur"))
+	}
+	set("login.background-mode", "wallpaper")
+	if shown("login.background-color") || shown("login.background-image") || !shown("login.blur") {
+		t.Errorf("with the wallpaper: colour %v, image %v, blur %v", shown("login.background-color"), shown("login.background-image"), shown("login.blur"))
+	}
+	if !shown("login.clock-format") {
+		t.Fatal("the clock format is hidden while the clock shows")
+	}
+	set("login.show-clock", false)
+	if shown("login.clock-format") || shown("login.date-format") {
+		t.Error("the clock formats show without the clock")
+	}
+	i := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r.path == "login.date-format" })
+	if got := p.reveal(i, nil); got != row("login.show-clock") || shown("login.date-format") {
+		t.Errorf("revealing the hidden date format opened %v and showed it %v, want the clock switch", got.path, shown("login.date-format"))
+	}
+}

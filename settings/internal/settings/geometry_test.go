@@ -278,6 +278,7 @@ wallpaper:
   wallpaper: ` + longPath + `
   cycling-directory: /home/someone/Pictures/wallpapers/a-very-long-directory-name
 login:
+  background-mode: image
   background-image: ` + longPath + `
 `
 

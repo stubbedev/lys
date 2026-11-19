@@ -78,6 +78,8 @@ type rowCondition struct {
 
 func (c rowCondition) set() bool { return c.path != "" }
 
+func stackedRow(r *rowSpec) { r.fullWidth = true }
+
 // enabledBy disables the row while the switch at path is off.
 func enabledBy(path string) rowOpt {
 	return func(r *rowSpec) { r.enabledWhen = rowCondition{path: path, holds: switchedOn} }

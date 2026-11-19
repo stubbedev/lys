@@ -19,6 +19,7 @@ func TestEveryChoiceOfAPictureRowHasItsPicture(t *testing.T) {
 		"bar.button-variant":       buttonVariantPictures,
 		"bar.button-icon-position": iconPositionPictures,
 		"styling.rounding":         roundingPictures,
+		"login.background-mode":    lockBackgroundPictures,
 	} {
 		meta, ok := config.Field(path)
 		if !ok {
