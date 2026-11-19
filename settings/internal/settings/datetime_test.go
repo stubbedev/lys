@@ -18,6 +18,8 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 type fakeSysCall struct {
@@ -178,7 +180,7 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 	td := &fakeSys{props: map[string]any{"Timezone": "UTC", "NTP": true, "CanNTP": true, "LocalRTC": false}}
 	serveFake(t, bus, timedateName, timedatePath, td, fakeTimedate{td})
 	k, l := systemKit(t, bus)
-	footer := dateTimeFooter(k).(*closingBox)
+	footer := dateTimeLead(k).(*closingBox)
 	t.Cleanup(footer.close)
 	ntp := switchNamed(t, footer, "Set time automatically")
 	if !ntp.On() {
@@ -322,7 +324,7 @@ func TestCopyMyLayoutSendsLysWMsKeyboardInOneCall(t *testing.T) {
 func TestAPageWithoutTheServiceSaysSoAndOffersNothing(t *testing.T) {
 	bus := dbustest.Start(t)
 	k, l := systemKit(t, bus)
-	footer := dateTimeFooter(k).(*closingBox)
+	footer := dateTimeLead(k).(*closingBox)
 	t.Cleanup(footer.close)
 	l.drain()
 	if len(treetest.All[*choiceEditor](footer)) != 0 {
@@ -391,7 +393,7 @@ func TestTheSystemBusDialReachesTheBusAndNamesItselfOnceWhenItCannot(t *testing.
 	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path="+filepath.Join(t.TempDir(), "none"))
 	k := testKit(t, "")
 	k.systemBus = dialSystemBus
-	footer := dateTimeFooter(k).(*closingBox)
+	footer := dateTimeLead(k).(*closingBox)
 	t.Cleanup(footer.close)
 	const dialing = "connect to the system bus"
 	for _, text := range treetest.Labels(footer) {
@@ -407,7 +409,7 @@ func TestTheSystemBusDialReachesTheBusAndNamesItselfOnceWhenItCannot(t *testing.
 func TestThe24HourSwitchChangesOnlyTheHourOfACustomClockFormat(t *testing.T) {
 	k := testKit(t, "modules:\n  clock:\n    format: \"%Y-%m-%d · %I:%M %p\"\n")
 	var failed []error
-	row := hourCycleRow(k, func(err error) { failed = append(failed, err) })
+	row := hourCycleRow(k, func(err error) { failed = append(failed, err) }, func() {})
 	h24 := treetest.First[*widget.Switch](t, row)
 	if h24.On() || !h24.Enabled() {
 		t.Fatalf("a 12-hour format shows on %v, enabled %v", h24.On(), h24.Enabled())
@@ -428,7 +430,7 @@ func TestThe24HourSwitchChangesOnlyTheHourOfACustomClockFormat(t *testing.T) {
 func TestThe24HourSwitchIsDisabledForAClockFormatWithoutAnHour(t *testing.T) {
 	for _, format := range []string{"%Y-%m-%d", "%H (%I %p)"} {
 		k := testKit(t, "modules:\n  clock:\n    format: \""+format+"\"\n")
-		row := hourCycleRow(k, func(err error) { t.Fatal(err) })
+		row := hourCycleRow(k, func(err error) { t.Fatal(err) }, func() {})
 		h24 := treetest.First[*widget.Switch](t, row)
 		if h24.Enabled() {
 			t.Errorf("%q: the switch is enabled", format)
@@ -437,5 +439,90 @@ func TestThe24HourSwitchIsDisabledForAClockFormatWithoutAnHour(t *testing.T) {
 		if v := k.store.value(clockFormatPath); v != format {
 			t.Errorf("%q: forcing the switch wrote %q", format, v)
 		}
+	}
+}
+
+func clockCardAt(t *testing.T, config, timeLocale string) *clockCard {
+	t.Helper()
+	useLocales(t, glibclocale.NewSource("", glibclocaletest.Dirs(t)))
+	t.Setenv("LC_ALL", timeLocale)
+	before := clockNow
+	clockNow = func() time.Time { return time.Date(2026, time.November, 19, 14, 5, 0, 0, time.UTC) }
+	t.Cleanup(func() { clockNow = before })
+	k := testKit(t, config)
+	c := newClockCard(k)
+	t.Cleanup(c.close)
+	return c
+}
+
+func TestTheClockCardShowsTodayInTheTimeLocaleAndTheClocksHourCycle(t *testing.T) {
+	c := clockCardAt(t, "modules:\n  clock:\n    format: \"%a %I:%M %p\"\n", "en_US.utf8")
+	if c.date.Text() != "Thursday, 11/19/2026" || c.clock.Text() != "02:05 PM" {
+		t.Fatalf("en_US with a 12-hour clock shows %q, %q", c.date.Text(), c.clock.Text())
+	}
+	if err := c.k.store.set(clockFormatPath, "%a %H:%M"); err != nil {
+		t.Fatal(err)
+	}
+	c.retick()
+	if c.clock.Text() != "14:05" {
+		t.Fatalf("after the switch to 24-hour the clock shows %q", c.clock.Text())
+	}
+	de := clockCardAt(t, "", "de_DE.utf8")
+	if de.date.Text() != "Donnerstag, 19.11.2026" {
+		t.Fatalf("de_DE shows %q", de.date.Text())
+	}
+}
+
+func TestTheClockCardWithAnUninstalledLocaleShowsCsNames(t *testing.T) {
+	c := clockCardAt(t, "modules:\n  clock:\n    format: \"%H:%M\"\n", "xx_XX.utf8")
+	if c.date.Text() != "Thursday, 11/19/26" || c.clock.Text() != "14:05" {
+		t.Fatalf("an uninstalled locale shows %q, %q", c.date.Text(), c.clock.Text())
+	}
+}
+
+func TestTheClockCardShowsTheZoneAndWhetherTheTimeIsSynchronized(t *testing.T) {
+	c := clockCardAt(t, "", "en_US.utf8")
+	if c.zone.Visible() || c.sync.Visible() {
+		t.Fatal("the zone and sync lines show before timedated answered")
+	}
+	tr := locale.T()
+	c.showSystem("Europe/Copenhagen", true, true)
+	if c.zone.Text() != "Europe/Copenhagen · UTC+01:00" || c.sync.Text() != tr.Get("settings-date-sync-done") {
+		t.Fatalf("synchronized: %q, %q", c.zone.Text(), c.sync.Text())
+	}
+	c.showSystem("Europe/Copenhagen", true, false)
+	if c.sync.Text() != tr.Get("settings-date-sync-waiting") {
+		t.Fatalf("not yet synchronized: %q", c.sync.Text())
+	}
+	c.showSystem("UTC", false, false)
+	if c.zone.Text() != "UTC · UTC+00:00" || c.sync.Text() != tr.Get("settings-date-sync-manual") {
+		t.Fatalf("set by hand: %q, %q", c.zone.Text(), c.sync.Text())
+	}
+	c.showSystem("Nowhere/Atlantis", true, true)
+	if !strings.Contains(c.zone.Text(), `"Nowhere/Atlantis"`) {
+		t.Fatalf("an unknown zone reads %q", c.zone.Text())
+	}
+}
+
+func TestTheWeekStartLivesOnDateAndTimeBesideAWorldClockLink(t *testing.T) {
+	if err := checkSetting(bothParts, dateTimeID, "modules.clock.calendar-weekday-start"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkSetting(bothParts, "clock", "modules.clock.calendar-weekday-start"); err == nil {
+		t.Error("the week start is still on the Clock page")
+	}
+	k := testKit(t, "")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	var opened []string
+	k.openPage = func(id string) { opened = append(opened, id) }
+	for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-date-related", dateTimeLinks)) {
+		b.OnClick()
+	}
+	if !slices.Equal(opened, []string{"world-clock"}) {
+		t.Errorf("the related links opened %q", opened)
+	}
+	k.nav = nil
+	if labels := treetest.Labels(linksSection(k, "settings-section-date-related", dateTimeLinks)); len(labels) != 0 {
+		t.Errorf("without a World Clock page the links read %q", labels)
 	}
 }

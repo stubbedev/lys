@@ -244,7 +244,7 @@ func TestTheSleepAndLockLinksOpenTheirPagesWhenListed(t *testing.T) {
 	k.nav = layout(k.store.svc.Config(), bothParts)
 	var opened []string
 	k.openPage = func(id string) { opened = append(opened, id) }
-	links := powerLinksSection(k)
+	links := linksSection(k, "settings-power-section-sleep", powerLinks)
 	buttons := treetest.All[*widget.Button](links)
 	if len(buttons) != 2 {
 		t.Fatalf("%d links, want idle and lock", len(buttons))
@@ -256,7 +256,7 @@ func TestTheSleepAndLockLinksOpenTheirPagesWhenListed(t *testing.T) {
 		t.Errorf("opened %q", opened)
 	}
 	k.nav = nil
-	if labels := treetest.Labels(powerLinksSection(k)); len(labels) != 0 {
+	if labels := treetest.Labels(linksSection(k, "settings-power-section-sleep", powerLinks)); len(labels) != 0 {
 		t.Errorf("without those pages the links read %q", labels)
 	}
 }

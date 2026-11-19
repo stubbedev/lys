@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"maps"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/glibclocale"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -48,7 +50,11 @@ func dateTimePage(*config.Config) pageSpec {
 	return pageSpec{
 		id: dateTimeID, navKey: "settings-nav-date-time", icon: "ld-clock-symbolic",
 		header: "settings-page-date-time",
-		footer: dateTimeFooter,
+		lead:   dateTimeLead,
+		sections: []sectionSpec{
+			{title: "settings-section-date-calendar", rows: fields("modules.clock.calendar-weekday-start")},
+		},
+		footer: func(k *kit) widget.Widget { return linksSection(k, "settings-section-date-related", dateTimeLinks) },
 		panel: []panelSetting{
 			{"date-time.automatic", "settings-date-ntp", "settings-section-date-system"},
 			{"date-time.manual", "settings-date-manual", "settings-section-date-system"},
@@ -57,6 +63,8 @@ func dateTimePage(*config.Config) pageSpec {
 		},
 	}
 }
+
+var dateTimeLinks = []pageLink{{"world-clock", "settings-date-link-world-clock-detail"}}
 
 func regionPage(*config.Config) pageSpec {
 	return pageSpec{
@@ -211,20 +219,13 @@ func panelRow(k *kit, title, detail string, controls ...widget.Widget) *widget.B
 	return row
 }
 
-func hourCycleRow(k *kit, fail func(error)) widget.Widget {
+func hourCycleRow(k *kit, fail func(error), changed func()) widget.Widget {
 	t := locale.T()
 	preview := k.label("", "setting-description", css.Caption, css.DimLabel)
 	h24 := widget.NewSwitch(false)
 	h24.SetAccessibleName(t.Get("settings-date-24h"))
 	showing := false
-	layout := func() (*strftime.Layout, error) {
-		f, _ := k.store.value(clockFormatPath).(string)
-		l, err := strftime.Compile(f)
-		if err != nil {
-			return nil, fmt.Errorf("read the clock format %q: %w", f, err)
-		}
-		return l, nil
-	}
+	layout := func() (*strftime.Layout, error) { return clockLayout(k.store) }
 	show := func() {
 		l, err := layout()
 		if err != nil {
@@ -256,6 +257,7 @@ func hourCycleRow(k *kit, fail func(error)) widget.Widget {
 			fail(err)
 		}
 		show()
+		changed()
 	}
 	show()
 	return panelRow(k, t.Get("settings-date-24h"), t.Attr("settings-date-24h", "description"), preview, h24)
@@ -274,12 +276,13 @@ func timezoneChoices(zones []string) []choice {
 	return out
 }
 
-func dateTimeFooter(k *kit) widget.Widget {
+func dateTimeLead(k *kit) widget.Widget {
 	t := locale.T()
 	p := newSysPanel(k, timedateName, timedatePath)
+	card := newClockCard(k)
 	clock := gapBox(widget.Column)
 	clockRows := widget.NewItemGroup()
-	clockRows.Append(hourCycleRow(k, p.fail))
+	clockRows.Append(hourCycleRow(k, p.fail, card.retick))
 	clock.Append(clockRows, false)
 	p.open(func(ctx context.Context, svc sysService) (any, error) {
 		var zones []string
@@ -327,15 +330,150 @@ func dateTimeFooter(k *kit) widget.Widget {
 			manual.SetEnabled(!p.props.flag("NTP"))
 			set.SetEnabled(!p.props.flag("NTP"))
 			zone.refresh()
+			card.showSystem(p.props.str("Timezone"), p.props.flag("NTP"), p.props.flag("NTPSynchronized"))
 		}
 		p.refresh = refresh
 		refresh()
 		p.body.Append(rows, false)
 	})
 	content := sectionStack()
+	content.Append(card, false)
 	content.Append(newSection(k, "settings-section-date-system", p), false)
 	content.Append(newSection(k, "settings-section-date-clock", clock), false)
-	return &closingBox{content, p.close}
+	return &closingBox{content, func() { card.close(); p.close() }}
+}
+
+type clockCard struct {
+	*widget.Box
+	k      *kit
+	date   *widget.Label
+	clock  *widget.Label
+	zone   *widget.Label
+	sync   *widget.Label
+	names  *glibclocale.Time
+	timer  *time.Timer
+	closed bool
+}
+
+var clockNow = time.Now
+
+func timeLocaleName(env xdg.Env) string {
+	return cmp.Or(env("LC_ALL"), env("LC_TIME"), env("LANG"), "C")
+}
+
+func newClockCard(k *kit) *clockCard {
+	c := &clockCard{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k}
+	c.AddClass(css.Card, "clock-card")
+	c.SetPadding(cardInsets())
+	c.clock = k.label("", "clock-card-time", css.Title1, css.Numeric)
+	c.date = k.label("", "clock-card-date", css.H4)
+	c.zone = k.label("", css.Caption, css.DimLabel)
+	c.sync = k.label("", css.Caption, css.DimLabel)
+	c.zone.SetVisible(false)
+	c.sync.SetVisible(false)
+	for _, l := range []*widget.Label{c.clock, c.date, c.zone, c.sync} {
+		c.Append(l, false)
+	}
+	name := timeLocaleName(systemHost.env)
+	names, err := localeSource.Time(name)
+	if err != nil {
+		log.Printf("settings: the clock's names in %s, showing C's as glibc does: %v", name, err)
+		names, _ = localeSource.Time("C")
+	}
+	c.names = names
+	c.tick()
+	return c
+}
+
+const clockDateFormat = "%A, %x"
+
+func clockTimeFormat(cycle strftime.HourCycle) string {
+	if cycle == strftime.Hour12 {
+		return "%I:%M %p"
+	}
+	return "%H:%M"
+}
+
+func clockLayout(s store) (*strftime.Layout, error) {
+	f, _ := s.value(clockFormatPath).(string)
+	l, err := strftime.Compile(f)
+	if err != nil {
+		return nil, fmt.Errorf("read the clock format %q: %w", f, err)
+	}
+	return l, nil
+}
+
+func formatClock(names *glibclocale.Time, s store, now time.Time) (date, clock string, err error) {
+	l, err := clockLayout(s)
+	if err != nil {
+		return "", "", err
+	}
+	if date, err = names.Format(clockDateFormat, now); err != nil {
+		return "", "", err
+	}
+	if clock, err = names.Format(clockTimeFormat(l.HourCycle()), now); err != nil {
+		return "", "", err
+	}
+	return date, clock, nil
+}
+
+func (c *clockCard) tick() {
+	if c.closed {
+		return
+	}
+	now := clockNow()
+	date, clock, err := formatClock(c.names, c.k.store, now)
+	if err != nil {
+		date = err.Error()
+	}
+	c.date.SetText(date)
+	c.clock.SetText(clock)
+	next := now.Truncate(time.Minute).Add(time.Minute).Sub(now)
+	c.timer = time.AfterFunc(next, func() { c.k.invoke(c.tick) })
+}
+
+func zoneLine(zone string, now time.Time) (string, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return "", fmt.Errorf("read the time zone %q: %w", zone, err)
+	}
+	return zone + " · UTC" + now.In(loc).Format("-07:00"), nil
+}
+
+func syncKey(ntp, synchronized bool) string {
+	switch {
+	case !ntp:
+		return "settings-date-sync-manual"
+	case synchronized:
+		return "settings-date-sync-done"
+	default:
+		return "settings-date-sync-waiting"
+	}
+}
+
+func (c *clockCard) showSystem(zone string, ntp, synchronized bool) {
+	line, err := zoneLine(zone, clockNow())
+	if err != nil {
+		line = err.Error()
+	}
+	c.zone.SetText(line)
+	c.zone.SetVisible(zone != "")
+	c.sync.SetText(locale.T().Get(syncKey(ntp, synchronized)))
+	c.sync.SetVisible(true)
+}
+
+func (c *clockCard) retick() {
+	if c.timer != nil {
+		c.timer.Stop()
+	}
+	c.tick()
+}
+
+func (c *clockCard) close() {
+	c.closed = true
+	if c.timer != nil {
+		c.timer.Stop()
+	}
 }
 
 type closingBox struct {

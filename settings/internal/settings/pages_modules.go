@@ -248,7 +248,6 @@ func clockPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-dropdown", rows: []rowSpec{
 			field("modules.clock.dropdown-show-seconds"),
-			field("modules.clock.calendar-weekday-start"),
 		}},
 		{title: "settings-section-calendars", rows: []rowSpec{field("modules.clock.calendars", calendarList)}},
 		barItemSection("modules.clock", actionChoices("clock")),

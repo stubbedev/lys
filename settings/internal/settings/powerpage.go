@@ -49,7 +49,7 @@ var degradedKeys = map[string]string{
 	"high-operating-temperature": "settings-power-mode-degraded-heat",
 }
 
-var powerLinks = []struct{ page, detail string }{
+var powerLinks = []pageLink{
 	{"idle", "settings-power-link-idle-detail"},
 	{"lock", "settings-power-link-lock-detail"},
 }
@@ -139,7 +139,7 @@ func powerBatteryPage(*config.Config) pageSpec {
 			{title: "settings-section-power-alerts", rows: fields(
 				"modules.battery.notify-low", "modules.battery.notify-charged-at", "modules.power-profiles.auto-saver-at")},
 		},
-		footer: powerLinksSection,
+		footer: func(k *kit) widget.Widget { return linksSection(k, "settings-power-section-sleep", powerLinks) },
 	}
 }
 
@@ -401,12 +401,14 @@ func (p *powerPanel) modeRows() widget.Widget {
 	return box
 }
 
-func powerLinksSection(k *kit) widget.Widget {
+type pageLink struct{ page, detail string }
+
+func linksSection(k *kit, title string, links []pageLink) widget.Widget {
 	t := locale.T()
 	box := gapBox(widget.Column)
 	rows := widget.NewItemGroup()
 	linked := false
-	for _, l := range powerLinks {
+	for _, l := range links {
 		target, ok := pageByID(k.nav, l.page)
 		if !ok {
 			continue
@@ -416,7 +418,7 @@ func powerLinksSection(k *kit) widget.Widget {
 		linked = true
 	}
 	if linked {
-		box.Append(newSection(k, "settings-power-section-sleep", rows), false)
+		box.Append(newSection(k, title, rows), false)
 	}
 	return box
 }
