@@ -111,7 +111,7 @@ func btNotifyBody(req bluetooth.PairingRequest, display deviceDisplay) string {
 		device = btText("dropdown-bluetooth-new-device")
 	}
 	if c, ok := req.(bluetooth.RequestConfirmation); ok {
-		return btText("dropdown-bluetooth-notify-passkey", "device", device, "passkey", formatPasskey(c.Passkey))
+		return btText("dropdown-bluetooth-notify-passkey", "device", device, "passkey", bluetooth.FormatPasskey(c.Passkey))
 	}
 	return btText("dropdown-bluetooth-notify-body", "device", device)
 }

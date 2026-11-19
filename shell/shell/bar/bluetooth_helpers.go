@@ -40,113 +40,6 @@ func btText(key string, args ...any) string {
 	return i18n.T(key, fluent...)
 }
 
-// The Bluetooth class-of-device major classes.
-const (
-	majorComputer   = 0x01
-	majorPhone      = 0x02
-	majorNetwork    = 0x03
-	majorAV         = 0x04
-	majorPeripheral = 0x05
-	majorImaging    = 0x06
-	majorWearable   = 0x07
-	majorToy        = 0x08
-	majorHealth     = 0x09
-)
-
-func majorClass(raw uint32) uint32 { return (raw >> 8) & 0x1F }
-func minorClass(raw uint32) uint32 { return (raw >> 2) & 0x3F }
-
-// deviceIcon picks the row icon from BlueZ's icon hint, else the class
-// of device.
-func deviceIcon(hint *string, class *uint32) string {
-	if hint != nil {
-		switch *hint {
-		case "audio-headphones", "audio-headset":
-			return "ld-headphones-symbolic"
-		case "audio-speakers":
-			return "ld-speaker-symbolic"
-		case "input-keyboard":
-			return "ld-keyboard-symbolic"
-		case "input-mouse", "input-tablet":
-			return "ld-mouse-symbolic"
-		case "input-gaming":
-			return "ld-gamepad-2-symbolic"
-		case "video-display", "computer":
-			return "ld-monitor-symbolic"
-		case "phone":
-			return "ld-smartphone-symbolic"
-		}
-	}
-	if class == nil {
-		return "ld-bluetooth-symbolic"
-	}
-	raw := *class
-	minor := minorClass(raw)
-	switch majorClass(raw) {
-	case majorComputer:
-		switch minor {
-		case 0x03:
-			return "ld-laptop-symbolic"
-		case 0x07:
-			return "ld-tablet-symbolic"
-		}
-		return "ld-monitor-symbolic"
-	case majorPhone:
-		return "ld-smartphone-symbolic"
-	case majorAV:
-		return avIcon(minor)
-	case majorPeripheral:
-		return peripheralIcon(minor)
-	case majorImaging:
-		switch {
-		case minor&0x08 != 0:
-			return "ld-printer-symbolic"
-		case minor&0x02 != 0:
-			return "ld-camera-symbolic"
-		case minor&0x01 != 0:
-			return "ld-monitor-symbolic"
-		}
-		return "ld-printer-symbolic"
-	case majorWearable:
-		return "ld-watch-symbolic"
-	}
-	return "ld-bluetooth-symbolic"
-}
-
-func avIcon(minor uint32) string {
-	switch minor {
-	case 0x04:
-		return "ld-mic-symbolic"
-	case 0x05, 0x07, 0x08, 0x0A:
-		return "ld-speaker-symbolic"
-	case 0x09, 0x0B:
-		return "ld-tv-symbolic"
-	case 0x0C, 0x0D:
-		return "ld-camera-symbolic"
-	case 0x0E, 0x0F, 0x10:
-		return "ld-monitor-symbolic"
-	case 0x12:
-		return "ld-gamepad-2-symbolic"
-	}
-	return "ld-headphones-symbolic"
-}
-
-func peripheralIcon(minor uint32) string {
-	switch minor >> 4 {
-	case 0x01, 0x03:
-		return "ld-keyboard-symbolic"
-	case 0x02:
-		return "ld-mouse-symbolic"
-	}
-	switch minor & 0x0F {
-	case 0x01, 0x02:
-		return "ld-gamepad-2-symbolic"
-	case 0x05:
-		return "ld-mouse-symbolic"
-	}
-	return "ld-bluetooth-symbolic"
-}
-
 // batteryLevelIcons are a device battery's glyphs, emptiest first: the
 // battery module's default ladder.
 var batteryLevelIcons = config.DefaultsBattery().LevelIcons
@@ -186,29 +79,29 @@ func deviceTypeKey(hint *string, class *uint32) string {
 		return "dropdown-bluetooth-type-unknown"
 	}
 	raw := *class
-	minor := minorClass(raw)
-	switch majorClass(raw) {
-	case majorComputer:
+	minor := bluetooth.MinorClass(raw)
+	switch bluetooth.MajorClass(raw) {
+	case bluetooth.MajorComputer:
 		return pick(minor, "computer", map[uint32]string{
 			0x01: "desktop", 0x02: "server", 0x03: "laptop", 0x04: "handheld",
 			0x05: "palm", 0x06: "wearable-computer", 0x07: "computer-tablet",
 		})
-	case majorPhone:
+	case bluetooth.MajorPhone:
 		return pick(minor, "phone", map[uint32]string{
 			0x01: "cellular", 0x02: "cordless", 0x03: "smartphone", 0x04: "modem",
 		})
-	case majorNetwork:
+	case bluetooth.MajorNetwork:
 		return "dropdown-bluetooth-type-network"
-	case majorAV:
+	case bluetooth.MajorAV:
 		return pick(minor, "audio-video", map[uint32]string{
 			0x01: "headset", 0x02: "handsfree", 0x04: "microphone", 0x05: "loudspeaker",
 			0x06: "headphones", 0x07: "portable-audio", 0x08: "car-audio", 0x09: "set-top-box",
 			0x0A: "hifi", 0x0B: "vcr", 0x0C: "video-camera", 0x0D: "camcorder",
 			0x0E: "video-monitor", 0x0F: "video-display", 0x10: "video-conferencing", 0x12: "gaming",
 		})
-	case majorPeripheral:
+	case bluetooth.MajorPeripheral:
 		return peripheralTypeKey(minor)
-	case majorImaging:
+	case bluetooth.MajorImaging:
 		switch {
 		case minor&0x08 != 0:
 			return "dropdown-bluetooth-type-printer"
@@ -220,15 +113,15 @@ func deviceTypeKey(hint *string, class *uint32) string {
 			return "dropdown-bluetooth-type-display"
 		}
 		return "dropdown-bluetooth-type-imaging"
-	case majorWearable:
+	case bluetooth.MajorWearable:
 		return pick(minor, "wearable", map[uint32]string{
 			0x01: "wrist-watch", 0x02: "pager", 0x03: "jacket", 0x04: "helmet", 0x05: "glasses",
 		})
-	case majorToy:
+	case bluetooth.MajorToy:
 		return pick(minor, "toy", map[uint32]string{
 			0x01: "robot", 0x02: "vehicle", 0x03: "doll", 0x04: "controller", 0x05: "game",
 		})
-	case majorHealth:
+	case bluetooth.MajorHealth:
 		return "dropdown-bluetooth-type-health"
 	}
 	return "dropdown-bluetooth-type-unknown"
@@ -257,9 +150,6 @@ func peripheralTypeKey(minor uint32) string {
 		0x05: "tablet", 0x06: "card-reader",
 	})
 }
-
-// formatPasskey zero-pads a passkey to six digits.
-func formatPasskey(passkey uint32) string { return fmt.Sprintf("%06d", passkey) }
 
 const btBaseUUIDSuffix = "-0000-1000-8000-00805f9b34fb"
 
@@ -332,7 +222,7 @@ func resolveDeviceDisplay(d bluetooth.Device) deviceDisplay {
 			name = *d.Name
 		}
 	}
-	return deviceDisplay{name: name, icon: deviceIcon(d.Icon, d.Class), typeKey: deviceTypeKey(d.Icon, d.Class)}
+	return deviceDisplay{name: name, icon: bluetooth.DeviceIcon(d.Icon, d.Class), typeKey: deviceTypeKey(d.Icon, d.Class)}
 }
 
 // deviceCategory orders the rows: connected, paired, then the rest.
@@ -379,7 +269,7 @@ func categorizeDevice(d bluetooth.Device) *deviceSnapshot {
 	return &deviceSnapshot{
 		path:      d.Path,
 		name:      name,
-		icon:      deviceIcon(d.Icon, d.Class),
+		icon:      bluetooth.DeviceIcon(d.Icon, d.Class),
 		typeKey:   deviceTypeKey(d.Icon, d.Class),
 		battery:   d.BatteryPercentage,
 		connected: d.Connected,

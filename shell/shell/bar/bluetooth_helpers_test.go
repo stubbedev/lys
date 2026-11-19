@@ -13,66 +13,29 @@ func classOf(major, minor uint32) *uint32 {
 	return &c
 }
 
-func TestDeviceIconFromHintAndClass(t *testing.T) {
-	for _, c := range []struct {
-		hint  *string
-		class *uint32
-		want  string
-	}{
-		{new("audio-headphones"), nil, "ld-headphones-symbolic"},
-		{new("audio-headset"), nil, "ld-headphones-symbolic"},
-		{new("audio-speakers"), nil, "ld-speaker-symbolic"},
-		{new("input-keyboard"), nil, "ld-keyboard-symbolic"},
-		{new("input-mouse"), nil, "ld-mouse-symbolic"},
-		{new("input-gaming"), nil, "ld-gamepad-2-symbolic"},
-		{new("video-display"), nil, "ld-monitor-symbolic"},
-		{new("phone"), nil, "ld-smartphone-symbolic"},
-		{nil, classOf(majorComputer, 0), "ld-monitor-symbolic"},
-		{nil, classOf(majorComputer, 0x03), "ld-laptop-symbolic"},
-		{nil, classOf(majorPhone, 0), "ld-smartphone-symbolic"},
-		{nil, classOf(majorAV, 0x06), "ld-headphones-symbolic"},
-		{nil, classOf(majorAV, 0x09), "ld-tv-symbolic"},
-		{nil, classOf(majorAV, 0x05), "ld-speaker-symbolic"},
-		{nil, classOf(majorAV, 0x04), "ld-mic-symbolic"},
-		{nil, classOf(majorPeripheral, 0x01<<4), "ld-keyboard-symbolic"},
-		{nil, classOf(majorPeripheral, 0x02<<4), "ld-mouse-symbolic"},
-		{nil, classOf(majorPeripheral, 0x02), "ld-gamepad-2-symbolic"},
-		{nil, classOf(majorWearable, 0), "ld-watch-symbolic"},
-		// The hint wins over the class; an unknown hint falls through.
-		{new("phone"), classOf(majorComputer, 0), "ld-smartphone-symbolic"},
-		{new("unknown-device"), classOf(majorPhone, 0), "ld-smartphone-symbolic"},
-		{nil, nil, "ld-bluetooth-symbolic"},
-		{new("alien-device"), new(uint32(0xFF00)), "ld-bluetooth-symbolic"},
-	} {
-		if got := deviceIcon(c.hint, c.class); got != c.want {
-			t.Errorf("deviceIcon(%v, %v) = %q, want %q", c.hint, c.class, got, c.want)
-		}
-	}
-}
-
 func TestDeviceTypeKeyFromHintAndClass(t *testing.T) {
 	for _, c := range []struct {
 		hint  *string
 		class *uint32
 		want  string
 	}{
-		{nil, classOf(majorPeripheral, 0x01), "joystick"},
-		{nil, classOf(majorPeripheral, 0x01<<4), "keyboard"},
-		{nil, classOf(majorAV, 0x0B), "vcr"},
-		{nil, classOf(majorAV, 0x10), "video-conferencing"},
-		{nil, classOf(majorAV, 0x02), "handsfree"},
-		{nil, classOf(majorAV, 0x09), "set-top-box"},
-		{nil, classOf(majorAV, 0x3F), "audio-video"},
-		{nil, classOf(majorComputer, 0), "computer"},
-		{nil, classOf(majorComputer, 0x03), "laptop"},
-		{nil, classOf(majorComputer, 0x07), "computer-tablet"},
-		{nil, classOf(majorPhone, 0x03), "smartphone"},
-		{nil, classOf(majorWearable, 0x01), "wrist-watch"},
-		{nil, classOf(majorWearable, 0x05), "glasses"},
-		{nil, classOf(majorToy, 0x01), "robot"},
-		{nil, classOf(majorNetwork, 0), "network"},
-		{nil, classOf(majorHealth, 0), "health"},
-		{nil, classOf(majorImaging, 0x04), "scanner"},
+		{nil, classOf(bluetooth.MajorPeripheral, 0x01), "joystick"},
+		{nil, classOf(bluetooth.MajorPeripheral, 0x01<<4), "keyboard"},
+		{nil, classOf(bluetooth.MajorAV, 0x0B), "vcr"},
+		{nil, classOf(bluetooth.MajorAV, 0x10), "video-conferencing"},
+		{nil, classOf(bluetooth.MajorAV, 0x02), "handsfree"},
+		{nil, classOf(bluetooth.MajorAV, 0x09), "set-top-box"},
+		{nil, classOf(bluetooth.MajorAV, 0x3F), "audio-video"},
+		{nil, classOf(bluetooth.MajorComputer, 0), "computer"},
+		{nil, classOf(bluetooth.MajorComputer, 0x03), "laptop"},
+		{nil, classOf(bluetooth.MajorComputer, 0x07), "computer-tablet"},
+		{nil, classOf(bluetooth.MajorPhone, 0x03), "smartphone"},
+		{nil, classOf(bluetooth.MajorWearable, 0x01), "wrist-watch"},
+		{nil, classOf(bluetooth.MajorWearable, 0x05), "glasses"},
+		{nil, classOf(bluetooth.MajorToy, 0x01), "robot"},
+		{nil, classOf(bluetooth.MajorNetwork, 0), "network"},
+		{nil, classOf(bluetooth.MajorHealth, 0), "health"},
+		{nil, classOf(bluetooth.MajorImaging, 0x04), "scanner"},
 		{new("input-keyboard"), nil, "keyboard"},
 		{nil, nil, "unknown"},
 	} {
@@ -114,12 +77,6 @@ func TestServiceNameKey(t *testing.T) {
 		if got := serviceNameKey(uuid); got != "dropdown-bluetooth-service-"+want {
 			t.Errorf("%s = %q, want %s", uuid, got, want)
 		}
-	}
-}
-
-func TestFormatPasskeyPads(t *testing.T) {
-	if formatPasskey(42) != "000042" || formatPasskey(999999) != "999999" {
-		t.Error("passkeys are six zero-padded digits")
 	}
 }
 

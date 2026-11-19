@@ -208,11 +208,11 @@ func (c *btPairingCard) set(req bluetooth.PairingRequest, display deviceDisplay)
 		c.variant = variantRequestPasskey
 	case bluetooth.DisplayPasskey:
 		c.variant = variantDisplayPasskey
-		code = formatPasskey(r.Passkey)
+		code = bluetooth.FormatPasskey(r.Passkey)
 		c.progress.SetText(btText("dropdown-bluetooth-pairing-entering", "entered", r.Entered, "total", passkeyTotal))
 	case bluetooth.RequestConfirmation:
 		c.variant = variantRequestConfirmation
-		code = formatPasskey(r.Passkey)
+		code = bluetooth.FormatPasskey(r.Passkey)
 	case bluetooth.RequestAuthorization:
 		c.variant = variantRequestAuthorization
 	case bluetooth.RequestServiceAuthorization:
