@@ -2180,6 +2180,7 @@
       "desktop/portal/permissions",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",
+      "desktop/service/mpris",
       "desktop/service/network",
       "desktop/service/network/vpntext",
       "desktop/service/powerprofiles",
