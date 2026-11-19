@@ -4,3 +4,15 @@
 .card-form-editor entry.error image {
   color: var(--status-error);
 }
+
+.live-text-area {
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--rounding-element);
+  padding: var(--space-sm);
+  min-height: calc(4rem * var(--global-scale));
+}
+
+.live-text-area:focus-within {
+  border-color: var(--accent);
+}
