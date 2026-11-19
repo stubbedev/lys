@@ -78,6 +78,7 @@ func Run(page, setting string) error {
 		store: store{svc}, invoke: application.Invoke, parts: installed,
 		background: func(fn func()) { go fn() },
 		systemBus:  dialSystemBus,
+		network:    func() (netControl, error) { return openNetwork(dialSystemBus) },
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })

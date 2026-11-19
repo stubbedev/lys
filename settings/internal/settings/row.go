@@ -49,6 +49,7 @@ type kit struct {
 	// nil runs it in place, the tests' synchronous loop.
 	background func(func())
 	systemBus  func() (*dbus.Conn, error)
+	network    func() (netControl, error)
 	copySecret func(text string) error
 	// overlays shows content on the output named on top of everything,
 	// taking the keys when interactive; nil without a session.

@@ -1,0 +1,194 @@
+package settings
+
+import (
+	"context"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
+)
+
+type fakeNet struct {
+	state      netState
+	connectErr error
+	connected  []string
+	passwords  []string
+	forgotten  []string
+	hidden     []string
+	airplane   []bool
+	wifi       []bool
+	closed     bool
+}
+
+func (f *fakeNet) read(context.Context) (netState, error)           { return f.state, nil }
+func (f *fakeNet) changes(context.Context) (<-chan struct{}, error) { return make(chan struct{}), nil }
+func (f *fakeNet) scan(context.Context) error                       { return nil }
+func (f *fakeNet) setWifi(_ context.Context, on bool) error         { f.wifi = append(f.wifi, on); return nil }
+
+func (f *fakeNet) setAirplane(_ context.Context, on bool) error {
+	f.airplane = append(f.airplane, on)
+	return nil
+}
+func (f *fakeNet) disconnect(context.Context) error { return nil }
+func (f *fakeNet) close() error                     { f.closed = true; return nil }
+func (f *fakeNet) forget(_ context.Context, ssid string) error {
+	f.forgotten = append(f.forgotten, ssid)
+	return nil
+}
+
+func (f *fakeNet) connect(_ context.Context, ap network.AccessPoint, password string) error {
+	f.connected, f.passwords = append(f.connected, ap.Name()), append(f.passwords, password)
+	return f.connectErr
+}
+
+func (f *fakeNet) joinHidden(_ context.Context, n network.HiddenNetwork, password string) error {
+	f.hidden, f.passwords = append(f.hidden, n.Name()), append(f.passwords, password)
+	return nil
+}
+
+func ap(name string, strength uint8, sec network.SecurityType) network.AccessPoint {
+	return network.AccessPoint{SSID: []byte(name), Strength: strength, Security: sec}
+}
+
+func netPanel(t *testing.T, f *fakeNet) (*kit, *networkPanel) {
+	t.Helper()
+	k := testKit(t, "")
+	k.network = func() (netControl, error) { return f, nil }
+	k.pickers = &fakePickers{}
+	return k, newNetworkPanel(k)
+}
+
+func clickText(t *testing.T, root widget.Widget, text string, nth int) {
+	t.Helper()
+	var hits []*widget.Button
+	for _, b := range treetest.All[*widget.Button](root) {
+		if slices.Contains(treetest.Labels(b), text) {
+			hits = append(hits, b)
+		}
+	}
+	if nth >= len(hits) {
+		t.Fatalf("no button %d reading %q among %q", nth, text, treetest.Labels(root))
+	}
+	hits[nth].OnClick()
+}
+
+func homeNets() *fakeNet {
+	return &fakeNet{state: netState{
+		wifi: true, wifiOn: true, radios: true, active: "Home",
+		aps:   []network.AccessPoint{ap("Cafe", 40, network.SecurityWPA2), ap("Home", 80, network.SecurityWPA2), ap("Home", 30, network.SecurityWPA2), ap("", 90, network.SecurityNone), ap("Office", 60, network.SecurityEnterprise)},
+		known: map[string]bool{"Home": true},
+	}}
+}
+
+func TestTheNetworksAreTheNamedOnesStrongestFirst(t *testing.T) {
+	got := visibleNetworks(homeNets().state.aps)
+	var names []string
+	for _, a := range got {
+		names = append(names, a.Name())
+	}
+	if !slices.Equal(names, []string{"Home", "Office", "Cafe"}) || got[0].Strength != 80 {
+		t.Fatalf("%q, strongest Home %d", names, got[0].Strength)
+	}
+}
+
+func TestASecuredNetworkAsksForItsPasswordAndSaysWhenItIsRefused(t *testing.T) {
+	f := homeNets()
+	f.connectErr = &network.ConnectError{Failure: network.FailureAuth}
+	_, p := netPanel(t, f)
+	if p.password != nil {
+		t.Fatal("a password field shows before connecting")
+	}
+	clickText(t, p.nets, locale.T().Get("settings-wifi-connect"), 1)
+	if p.password == nil || len(f.connected) != 0 {
+		t.Fatalf("Connect on Cafe asked no password (%v) or connected at once %q", p.password, f.connected)
+	}
+	p.password.SetText("hunter2")
+	p.password.OnActivate("hunter2")
+	if !slices.Equal(f.connected, []string{"Cafe"}) || !slices.Equal(f.passwords, []string{"hunter2"}) {
+		t.Fatalf("connected %q with %q", f.connected, f.passwords)
+	}
+	if !p.problem.Visible() || p.problem.Text() != locale.T().Get("settings-wifi-failed-auth") {
+		t.Errorf("a refused password reads %q", p.problem.Text())
+	}
+}
+
+func TestASavedNetworkIsForgottenAndAnEnterpriseOneSendsToTheBar(t *testing.T) {
+	f := homeNets()
+	_, p := netPanel(t, f)
+	clickText(t, p.nets, locale.T().Get("settings-wifi-forget"), 0)
+	if !slices.Equal(f.forgotten, []string{"Home"}) {
+		t.Fatalf("forgot %q", f.forgotten)
+	}
+	clickText(t, p.nets, locale.T().Get("settings-wifi-connect"), 0)
+	if len(f.connected) != 0 || !strings.Contains(p.problem.Text(), locale.T().Get("settings-wifi-enterprise")) {
+		t.Errorf("an enterprise network connected %q, said %q", f.connected, p.problem.Text())
+	}
+}
+
+func TestAirplaneModeAndWifiSwitch(t *testing.T) {
+	f := homeNets()
+	_, p := netPanel(t, f)
+	switches := treetest.All[*widget.Switch](p.status)
+	if len(switches) != 2 {
+		t.Fatalf("%d switches, want airplane mode and Wi-Fi", len(switches))
+	}
+	switches[0].OnChanged(true)
+	switches[1].OnChanged(false)
+	if !slices.Equal(f.airplane, []bool{true}) || !slices.Equal(f.wifi, []bool{false}) {
+		t.Errorf("airplane %v, wifi %v", f.airplane, f.wifi)
+	}
+	f.state.radios = false
+	_, p = netPanel(t, f)
+	if n := len(treetest.All[*widget.Switch](p.status)); n != 1 {
+		t.Errorf("without kill switches %d switches show", n)
+	}
+}
+
+func TestAHiddenNetworkNeedsANameAndAPassword(t *testing.T) {
+	f := homeNets()
+	_, p := netPanel(t, f)
+	join := locale.T().Get("settings-wifi-join")
+	clickText(t, p.nets, join, 0)
+	if len(f.hidden) != 0 || p.problem.Text() != locale.T().Get("settings-wifi-hidden-name-empty") {
+		t.Fatalf("a nameless network joined %q, said %q", f.hidden, p.problem.Text())
+	}
+	entries := treetest.All[*widget.Entry](p.nets)
+	name, password := entries[len(entries)-2], entries[len(entries)-1]
+	name.SetText("Attic")
+	treetest.All[*widget.Dropdown](p.nets)[0].SetSelected(1)
+	clickText(t, p.nets, join, 0)
+	if len(f.hidden) != 0 || p.problem.Text() != locale.T().Get("settings-wifi-hidden-password-needed") {
+		t.Fatalf("a secured network without a password joined %q, said %q", f.hidden, p.problem.Text())
+	}
+	password.SetText("s3cret")
+	clickText(t, p.nets, join, 0)
+	if !slices.Equal(f.hidden, []string{"Attic"}) || f.passwords[len(f.passwords)-1] != "s3cret" {
+		t.Errorf("joined %q with %q", f.hidden, f.passwords)
+	}
+}
+
+func TestNoNetworkManagerIsSaidAndNoDeviceIsSaid(t *testing.T) {
+	k := testKit(t, "")
+	p := newNetworkPanel(k)
+	if labels := strings.Join(treetest.Labels(p.status), "|"); !strings.Contains(labels, locale.T().Get("settings-wifi-unavailable")) || p.netsSec.Visible() {
+		t.Fatalf("without NetworkManager the page reads %q, networks shown %v", labels, p.netsSec.Visible())
+	}
+	_, p = netPanel(t, &fakeNet{state: netState{}})
+	if labels := strings.Join(treetest.Labels(p.status), "|"); !strings.Contains(labels, locale.T().Get("settings-wifi-no-device")) || p.netsSec.Visible() {
+		t.Errorf("without a Wi-Fi device the page reads %q, networks shown %v", labels, p.netsSec.Visible())
+	}
+}
+
+func TestClosingThePageClosesTheConnection(t *testing.T) {
+	f := homeNets()
+	_, p := netPanel(t, f)
+	p.close()
+	if !f.closed {
+		t.Error("the page left NetworkManager's connection open")
+	}
+}

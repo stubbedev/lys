@@ -48,6 +48,7 @@ ld-panel-top-symbolic
 ld-plug-zap-symbolic
 ld-plus-symbolic
 ld-power-symbolic
+ld-refresh-cw-symbolic
 ld-rocket-symbolic
 ld-rotate-ccw-symbolic
 ld-scale-symbolic
@@ -62,7 +63,10 @@ ld-user-symbolic
 ld-video-symbolic
 ld-volume-2-symbolic
 ld-volume-x-symbolic
+ld-wifi-high-symbolic
+ld-wifi-low-symbolic
 ld-wifi-symbolic
+ld-wifi-zero-symbolic
 ld-x-circle-symbolic
 ld-x-symbolic
 ld-zap-symbolic

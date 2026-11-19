@@ -69,6 +69,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 	sections := []navSection{
 		{key: "settings-nav-home", pages: []pageSpec{overviewPage()}},
 		{key: "settings-nav-account", pages: []pageSpec{usersPage(cfg)}},
+		{key: "settings-nav-connectivity", pages: []pageSpec{wifiPage(cfg)}},
 		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), fontsPage(cfg), motionPage(cfg)}},
 		{key: "settings-nav-displays", pages: []pageSpec{displaysPage()}},
 		{key: "settings-nav-sound-section", pages: []pageSpec{soundPage(cfg)}},
