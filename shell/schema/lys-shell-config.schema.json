@@ -15,6 +15,13 @@
         }
       ]
     },
+    "AnimationMS": {
+      "description": "Animation duration in milliseconds, clamped to 0-10000.",
+      "format": "uint32",
+      "maximum": 10000,
+      "minimum": 0,
+      "type": "integer"
+    },
     "AnimationType": {
       "description": "Enter/exit transition style for transient surfaces (OSD, toasts,\nnotifications). Driven per frame by the custom revealer\n(`GskTransform` + opacity).",
       "oneOf": [
@@ -199,7 +206,7 @@
           "description": "Per-surface override for bar widget dropdown foldouts."
         },
         "duration": {
-          "$ref": "#/$defs/uint32",
+          "$ref": "#/$defs/AnimationMS",
           "default": 200,
           "description": "Animation duration in milliseconds."
         },
@@ -214,7 +221,7 @@
           "description": "Global enter transition. Unset → `transition`."
         },
         "enter-duration": {
-          "$ref": "#/$defs/Nullable_uint32",
+          "$ref": "#/$defs/Nullable_AnimationMS",
           "default": null,
           "description": "Global enter duration in ms. Unset → `duration`."
         },
@@ -224,7 +231,7 @@
           "description": "Global exit transition. Unset → `transition`."
         },
         "exit-duration": {
-          "$ref": "#/$defs/Nullable_uint32",
+          "$ref": "#/$defs/Nullable_AnimationMS",
           "default": null,
           "description": "Global exit duration in ms. Unset → `duration`."
         },
@@ -244,7 +251,7 @@
           "description": "Run looping status indicators: spinners, network/bluetooth scan\nanimations, the recording pulse, and the clock blink. Disable (or set\n`enabled: false`) for a fully static UI."
         },
         "interaction-duration": {
-          "$ref": "#/$defs/uint32",
+          "$ref": "#/$defs/AnimationMS",
           "default": 150,
           "description": "Duration in ms for in-place dropdown transitions: hover highlights and\nthe page/stack crossfades inside dropdowns. `enabled: false` removes\nthem entirely."
         },
@@ -339,7 +346,7 @@
           "description": "Transition style used for enter/exit of the OSD, toasts, and\nnotification cards. Base fallback for every surface and direction."
         },
         "ui-duration": {
-          "$ref": "#/$defs/uint32",
+          "$ref": "#/$defs/AnimationMS",
           "default": 250,
           "description": "Base duration in ms for general UI micro-transitions (hover, focus, and\ncolor fades) driven by the CSS `--duration-*` token family. Fast,\nnormal, and slow speeds are derived from this. `enabled: false` zeroes\nthem for an instant UI."
         },
@@ -8233,6 +8240,16 @@
         }
       ]
     },
+    "Nullable_AnimationMS": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnimationMS"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "Nullable_AnimationType": {
       "anyOf": [
         {
@@ -8267,14 +8284,6 @@
       "format": "double",
       "type": [
         "number",
-        "null"
-      ]
-    },
-    "Nullable_uint32": {
-      "format": "uint32",
-      "minimum": 0,
-      "type": [
-        "integer",
         "null"
       ]
     },
@@ -10201,14 +10210,16 @@
           "description": "Enter transition for this surface. Unset → global `enter`, then `transition`."
         },
         "enter-duration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnimationMS"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": null,
-          "description": "Enter duration in ms. Unset → global `enter-duration`, then `duration`.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "description": "Enter duration in ms. Unset → global `enter-duration`, then `duration`."
         },
         "exit": {
           "anyOf": [
@@ -10223,14 +10234,16 @@
           "description": "Exit transition for this surface. Unset → global `exit`, then `transition`."
         },
         "exit-duration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnimationMS"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": null,
-          "description": "Exit duration in ms. Unset → global `exit-duration`, then `duration`.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "description": "Exit duration in ms. Unset → global `exit-duration`, then `duration`."
         }
       },
       "type": "object"

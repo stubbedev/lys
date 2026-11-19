@@ -144,7 +144,7 @@ func newHarness(t *testing.T, kind config.AnimationType, monitors ...string) *ha
 		h.decodable[h.path(n)] = true
 	}
 	cfg := config.Defaults()
-	ms := uint32(1)
+	ms := config.AnimationMS(1)
 	cfg.Animations.Wallpaper.Enter, cfg.Animations.Wallpaper.EnterDuration = &kind, &ms
 	cfg.Wallpaper.Wallpaper = h.path("a.png")
 	svc := newSvc(monitors...)

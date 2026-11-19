@@ -18,6 +18,14 @@ Visual indicator style for the active workspace.
 | `"background"` | Entire button gets a colored background. |
 | `"underline"` | Small colored bar under the workspace button. |
 
+## AnimationMS {#animation-m-s}
+
+Animation duration in milliseconds, clamped to 0-10000.
+
+Number in `[0, 10000]`.
+
+Serialises as `uint32`.
+
 ## AnimationType {#animation-type}
 
 Enter/exit transition style for transient surfaces (OSD, toasts,

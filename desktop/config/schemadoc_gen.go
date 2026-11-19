@@ -8,6 +8,7 @@ var schemaDocs = map[string]string{
 	"ActiveIndicator":                                        "Visual indicator style for the active workspace.",
 	"ActiveIndicator=background":                             "Entire button gets a colored background.",
 	"ActiveIndicator=underline":                              "Small colored bar under the workspace button.",
+	"AnimationMS":                                            "Animation duration in milliseconds, clamped to 0-10000.",
 	"AnimationType":                                          "Enter/exit transition style for transient surfaces (OSD, toasts,\nnotifications). Driven per frame by the custom revealer\n(`GskTransform` + opacity).",
 	"AnimationType=bounce":                                   "Scale in from a shrunken state with an elastic overshoot, then settle.",
 	"AnimationType=fade":                                     "Cross-fade opacity in and out.",

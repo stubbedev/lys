@@ -139,8 +139,8 @@ func TestLeafPathSplitsAtTheValueStruct(t *testing.T) {
 		}
 	}
 	m, ok := Field("animations.osd.enter-duration")
-	if !ok || m.Kind != FieldInt || !m.Optional || m.Max != math.MaxUint32 {
-		t.Errorf("Field(animations.osd.enter-duration) = %+v %v, want an optional u32", m, ok)
+	if !ok || m.Kind != FieldInt || !m.Optional || m.Max != float64(AnimationMSMax) {
+		t.Errorf("Field(animations.osd.enter-duration) = %+v %v, want an optional AnimationMS", m, ok)
 	}
 	if e, ok := Field("animations.osd.enter"); !ok || e.Kind != FieldEnum || e.Type != "AnimationType" || !e.Optional {
 		t.Errorf("Field(animations.osd.enter) = %+v %v, want an optional AnimationType", e, ok)

@@ -92,7 +92,7 @@ func TestHeadlessAMenuShowsInTheFrameOfTheClick(t *testing.T) {
 	if r := firstReveal(t, config.Defaults()); r != 1 {
 		t.Errorf("default config: the menu's first frame is at reveal %v, want at rest", r)
 	}
-	hour := uint32(3_600_000)
+	hour := config.AnimationMSMax
 	long := config.Defaults()
 	long.Animations.Menu = config.SurfaceAnimation{EnterDuration: &hour}
 	if r := firstReveal(t, long); r < 0.4 || r >= 1 {

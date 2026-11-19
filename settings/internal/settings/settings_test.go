@@ -576,7 +576,7 @@ func TestOptionalCoordinateKeepsItsFraction(t *testing.T) {
 func TestOptionalNumberInheritsUntilSet(t *testing.T) {
 	k := testKit(t, "")
 	const path = "animations.enter-duration"
-	c := newOptionalNumber(k, pathSlot(k.store, path), 0, maxDurationMS, durationStepMS, durationFallbackMS, 0)
+	c := shellControl(t, k, path, animationDuration).(*optionalNumber)
 	if !c.Empty() || c.Text() != "" {
 		t.Fatalf("an unset duration shows %q", c.Text())
 	}
@@ -2420,5 +2420,43 @@ func TestALayoutChipAndThePickerNameModulesReadably(t *testing.T) {
 	}
 	if shown != 1 {
 		t.Fatalf("searching the readable name shows %d modules, want 1", shown)
+	}
+}
+
+func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
+	k := testKit(t, "")
+	p, _ := pageByID(layout(config.Defaults()), "animations")
+	seen := 0
+	for _, sec := range p.sections {
+		for _, r := range sec.rows {
+			if !strings.HasSuffix(r.path, "duration") {
+				continue
+			}
+			seen++
+			var spin *widget.SpinButton
+			switch c := fieldControl(k, k.store, r).(type) {
+			case *number:
+				spin = c.SpinButton
+			case *optionalNumber:
+				spin = c.SpinButton
+			default:
+				t.Fatalf("%s: a %T, not a number", r.path, c)
+			}
+			spin.SelectAll()
+			spin.Insert("4294967295")
+			spin.KeyAction(widget.KeyEnter, 0)
+			if v := k.store.value(r.path); v != int64(config.AnimationMSMax) {
+				t.Errorf("%s: typing 4294967295 stored %v, want %d", r.path, v, config.AnimationMSMax)
+			}
+			spin.SelectAll()
+			spin.Insert("450")
+			spin.KeyAction(widget.KeyEnter, 0)
+			if v := k.store.value(r.path); v != int64(450) {
+				t.Errorf("%s: typing 450 stored %v", r.path, v)
+			}
+		}
+	}
+	if seen != 5 {
+		t.Fatalf("%d duration rows on the animations page, want 5", seen)
 	}
 }

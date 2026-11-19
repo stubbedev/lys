@@ -20,7 +20,7 @@ type AnimationsConfig struct {
 	// owns the setting for the whole desktop.
 	ReducedMotion bool `cfg:"reduced-motion"`
 	// Animation duration in milliseconds.
-	Duration uint32 `cfg:"duration"`
+	Duration AnimationMS `cfg:"duration"`
 	// Transition style used for enter/exit of the OSD, toasts, and
 	// notification cards. Base fallback for every surface and direction.
 	Transition AnimationType `cfg:"transition"`
@@ -29,18 +29,18 @@ type AnimationsConfig struct {
 	// Global exit transition. Unset → `transition`.
 	Exit *AnimationType `cfg:"exit"`
 	// Global enter duration in ms. Unset → `duration`.
-	EnterDuration *uint32 `cfg:"enter-duration"`
+	EnterDuration *AnimationMS `cfg:"enter-duration"`
 	// Global exit duration in ms. Unset → `duration`.
-	ExitDuration *uint32 `cfg:"exit-duration"`
+	ExitDuration *AnimationMS `cfg:"exit-duration"`
 	// Duration in ms for in-place dropdown transitions: hover highlights and
 	// the page/stack crossfades inside dropdowns. `enabled: false` removes
 	// them entirely.
-	InteractionDuration uint32 `cfg:"interaction-duration"`
+	InteractionDuration AnimationMS `cfg:"interaction-duration"`
 	// Base duration in ms for general UI micro-transitions (hover, focus, and
 	// color fades) driven by the CSS `--duration-*` token family. Fast,
 	// normal, and slow speeds are derived from this. `enabled: false` zeroes
 	// them for an instant UI.
-	UIDuration uint32 `cfg:"ui-duration"`
+	UIDuration AnimationMS `cfg:"ui-duration"`
 	// Run looping status indicators: spinners, network/bluetooth scan
 	// animations, the recording pulse, and the clock blink. Disable (or set
 	// `enabled: false`) for a fully static UI.
@@ -104,7 +104,7 @@ func (a AnimationsConfig) CompositorOwnsMotion() bool { return a.session != sess
 
 // DefaultsAnimations returns the schema defaults.
 func DefaultsAnimations() AnimationsConfig {
-	enter, exit := uint32(0), uint32(0)
+	enter, exit := AnimationMS(0), AnimationMS(0)
 	return AnimationsConfig{
 		Enabled:             true,
 		Duration:            200,
@@ -215,18 +215,18 @@ func (a AnimationsConfig) DurationFor(s AnimSurface, exiting bool) uint32 {
 	}
 	switch {
 	case perSurface != nil:
-		return *perSurface
+		return uint32(*perSurface)
 	case global != nil:
-		return *global
+		return uint32(*global)
 	}
-	return a.Duration
+	return uint32(a.Duration)
 }
 
 // InteractionDurationMs is the in-place dropdown transition duration;
 // 0 when disabled.
 func (a AnimationsConfig) InteractionDurationMs() uint32 {
 	if a.Enabled {
-		return a.InteractionDuration
+		return uint32(a.InteractionDuration)
 	}
 	return 0
 }
@@ -241,7 +241,7 @@ func (a AnimationsConfig) PagesSlide() bool { return !a.Reduced() }
 func (a AnimationsConfig) CSSOverrides() string {
 	ui := uint32(0)
 	if a.Enabled {
-		ui = a.UIDuration
+		ui = uint32(a.UIDuration)
 	}
 	scaled := func(factor float32) uint32 {
 		return uint32(math.Round(float64(float32(ui) * factor)))
@@ -317,9 +317,31 @@ type SurfaceAnimation struct {
 	// Exit transition for this surface. Unset → global `exit`, then `transition`.
 	Exit *AnimationType `cfg:"exit"`
 	// Enter duration in ms. Unset → global `enter-duration`, then `duration`.
-	EnterDuration *uint32 `cfg:"enter-duration"`
+	EnterDuration *AnimationMS `cfg:"enter-duration"`
 	// Exit duration in ms. Unset → global `exit-duration`, then `duration`.
-	ExitDuration *uint32 `cfg:"exit-duration"`
+	ExitDuration *AnimationMS `cfg:"exit-duration"`
 }
 
 func (SurfaceAnimation) configValue() {}
+
+// AnimationMS is an animation duration in milliseconds.
+//
+// Animation duration in milliseconds, clamped to 0-10000.
+type AnimationMS uint32
+
+// AnimationMSMax is the longest animation the shell runs.
+const AnimationMSMax AnimationMS = 10_000
+
+// UnmarshalConfig implements Unmarshaler.
+func (d *AnimationMS) UnmarshalConfig(v any) error {
+	raw, err := decodeClamped(v, AnimationMS(0), AnimationMSMax, "animation duration")
+	*d = raw
+	return err
+}
+
+// MarshalConfig implements Marshaler.
+func (d AnimationMS) MarshalConfig() any { return int64(d) }
+
+func (AnimationMS) configSchema(*schemaGen) Schema {
+	return rangedSchema(typeOf[AnimationMS](), int64(0), int64(AnimationMSMax))
+}

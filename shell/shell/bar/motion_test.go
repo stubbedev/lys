@@ -10,7 +10,7 @@ import (
 )
 
 func TestPopoverMotionFollowsAnimationsMenu(t *testing.T) {
-	ms := func(n uint32) *uint32 { return &n }
+	ms := func(n config.AnimationMS) *config.AnimationMS { return &n }
 	kind := func(k config.AnimationType) *config.AnimationType { return &k }
 	for _, tc := range []struct {
 		name string

@@ -105,16 +105,8 @@ func (c *optionalNumber) refresh() {
 	}
 }
 
-// optionalSpin is number_u32_optional's row: the override switch and a
-// spin over [lo, hi] stepping by step, starting at fallback.
-func optionalSpin(lo, hi, step, fallback float64) rowOpt {
-	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-		return newOptionalNumber(k, s, lo, hi, step, fallback, 0)
-	})
-}
-
-// optionalFloat is optionalSpin for a fractional value: digits decimals
-// and a start at 0.
+// optionalFloat is an optional fractional number's row: the override
+// switch and a spin over [lo, hi] with digits decimals, starting at 0.
 func optionalFloat(lo, hi, step float64, digits int) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 		return newOptionalNumber(k, s, lo, hi, step, 0, digits)
@@ -266,21 +258,25 @@ func sizeBase(rem float64) rowOpt {
 // surface at prefix: the optional enter and exit transitions and
 // durations, each its own field.
 func surfaceAnimationRows(prefix string) []rowSpec {
-	duration := optionalSpin(0, maxDurationMS, durationStepMS, durationFallbackMS)
 	return []rowSpec{
 		field(prefix+".enter", withKey("settings-animations-enter")),
 		field(prefix+".exit", withKey("settings-animations-exit")),
-		field(prefix+".enter-duration", withKey("settings-animations-enter-duration"), duration),
-		field(prefix+".exit-duration", withKey("settings-animations-exit-duration"), duration),
+		field(prefix+".enter-duration", withKey("settings-animations-enter-duration"), animationDuration),
+		field(prefix+".exit-duration", withKey("settings-animations-exit-duration"), animationDuration),
 	}
 }
 
-// Animation duration bounds (pages/animations, editors/surface_animation).
 const (
-	maxDurationMS      = 100_000
 	durationStepMS     = 10
 	durationFallbackMS = 200
 )
+
+var animationDuration = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+	if meta.Optional {
+		return newOptionalNumber(k, s, meta.Min, meta.Max, durationStepMS, durationFallbackMS, 0)
+	}
+	return newNumber(k, s, meta.Min, meta.Max, durationStepMS, 0)
+})
 
 // newOptionalSize is dropdown_size's size_control: the size editor over
 // an optional size, its spin empty and reading "Inherited" while unset; a

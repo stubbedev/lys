@@ -108,7 +108,7 @@ func TestTheOwningCompositorDecidesAndTheKeySaysItHasNoEffect(t *testing.T) {
 func TestMenusAreInstantUnlessAnimationsMenuSaysOtherwise(t *testing.T) {
 	a := DefaultsAnimations()
 	a.Duration = 900
-	long := uint32(700)
+	long := AnimationMS(700)
 	a.EnterDuration, a.ExitDuration = &long, &long
 	for _, exiting := range []bool{false, true} {
 		if got := a.DurationFor(AnimMenu, exiting); got != 0 {
@@ -146,6 +146,32 @@ func TestAnInvalidMenuAnimationFailsAndKeepsMenusInstant(t *testing.T) {
 		}
 		if got := cfg.Animations.DurationFor(AnimMenu, false); got != 0 {
 			t.Errorf("menu %s: a rejected value left a %dms enter, want the instant default", raw, got)
+		}
+	}
+}
+
+func TestAnimationDurationsClampToTheirMaximum(t *testing.T) {
+	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "animations:\n"+
+		"  duration: 4294967295\n  ui-duration: 20000\n  interaction-duration: 5000\n  enter-duration: 10001\n"+
+		"  notifications:\n    exit-duration: 999999\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := cfg.Animations
+	if a.Duration != AnimationMSMax || a.UIDuration != AnimationMSMax || *a.EnterDuration != AnimationMSMax || *a.Notifications.ExitDuration != AnimationMSMax {
+		t.Errorf("duration %d, ui %d, enter %d, notifications exit %d: want each clamped to %d",
+			a.Duration, a.UIDuration, *a.EnterDuration, *a.Notifications.ExitDuration, AnimationMSMax)
+	}
+	if a.InteractionDuration != 5000 {
+		t.Errorf("interaction-duration 5000 became %d", a.InteractionDuration)
+	}
+}
+
+func TestAnimationDurationFieldsCarryTheirRange(t *testing.T) {
+	for _, path := range []string{"animations.duration", "animations.ui-duration", "animations.interaction-duration", "animations.enter-duration", "animations.osd.exit-duration"} {
+		m, ok := Field(path)
+		if !ok || m.Kind != FieldInt || m.Min != 0 || m.Max != float64(AnimationMSMax) {
+			t.Errorf("Field(%s) = %+v %v, want an int from 0 to %d", path, m, ok, AnimationMSMax)
 		}
 	}
 }

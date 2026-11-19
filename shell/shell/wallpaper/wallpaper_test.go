@@ -97,7 +97,7 @@ func TestTransitionOf(t *testing.T) {
 	if got := transitionOf(a); got != (Transition{Kind: TransitionCrossfade, Duration: 200 * time.Millisecond}) {
 		t.Errorf("default = %+v", got)
 	}
-	slide, ms := config.AnimationSlideLeft, uint32(900)
+	slide, ms := config.AnimationSlideLeft, config.AnimationMS(900)
 	a.Wallpaper.Enter, a.Wallpaper.EnterDuration = &slide, &ms
 	if got := transitionOf(a); got != (Transition{Kind: TransitionSlideLeft, Duration: 900 * time.Millisecond}) {
 		t.Errorf("wallpaper override = %+v", got)

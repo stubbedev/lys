@@ -85,17 +85,18 @@ func barDropdownPage(*config.Config) pageSpec {
 
 // animationsPage is pages/animations.
 func animationsPage(*config.Config) pageSpec {
-	duration := optionalSpin(0, maxDurationMS, durationStepMS, durationFallbackMS)
 	return pageSpec{
 		id: "animations", navKey: "settings-nav-animations", icon: "ld-zap-symbolic",
 		header: "settings-page-animations",
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("animations.enabled", "animations.reduced-motion", "animations.transition", "animations.duration")},
+			{title: "settings-section-general", rows: append(fields("animations.enabled", "animations.reduced-motion", "animations.transition"), field("animations.duration", animationDuration))},
 			{title: "settings-section-direction", rows: []rowSpec{
 				field("animations.enter"), field("animations.exit"),
-				field("animations.enter-duration", duration), field("animations.exit-duration", duration),
+				field("animations.enter-duration", animationDuration), field("animations.exit-duration", animationDuration),
 			}},
-			{title: "settings-section-speed", rows: fields("animations.ui-duration", "animations.interaction-duration", "animations.indicators")},
+			{title: "settings-section-speed", rows: []rowSpec{
+				field("animations.ui-duration", animationDuration), field("animations.interaction-duration", animationDuration), field("animations.indicators"),
+			}},
 		},
 	}
 }
