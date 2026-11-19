@@ -1037,3 +1037,6 @@ settings-bluetooth-failed-busy = O Bluetooth está ocupado com outro pedido; ten
 settings-bluetooth-failed-not-ready = O Bluetooth não está pronto; ligue-o primeiro
 settings-bluetooth-failed-exists = O dispositivo já está emparelhado
 settings-bluetooth-failed-gone = O dispositivo já não está presente
+
+settings-quicklink-add = Adicionar ligação rápida
+settings-snippet-add = Adicionar excerto

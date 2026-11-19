@@ -219,8 +219,8 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.search.commands-dir"),
 			field("launcher.search.currency-rates"),
 			field("launcher.search.previews"),
-			field("launcher.search.quicklinks", yamlRow("quicklinks", 8)),
-			field("launcher.search.snippets", yamlRow("snippets", 8)),
+			field("launcher.search.quicklinks", cardRow(quicklinkCards)),
+			field("launcher.search.snippets", cardRow(snippetCards)),
 		}},
 		{title: "settings-section-launcher-scripts", rows: []rowSpec{
 			field("launcher.scripts", stringMap),

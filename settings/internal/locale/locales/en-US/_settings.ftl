@@ -1046,3 +1046,6 @@ settings-bluetooth-failed-busy = Bluetooth is busy with another request; try aga
 settings-bluetooth-failed-not-ready = Bluetooth is not ready; turn it on first
 settings-bluetooth-failed-exists = The device is already paired
 settings-bluetooth-failed-gone = The device is no longer there
+
+settings-quicklink-add = Add quick link
+settings-snippet-add = Add snippet

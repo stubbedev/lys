@@ -1036,3 +1036,6 @@ settings-bluetooth-failed-busy = Bluetooth is bezig met een ander verzoek; probe
 settings-bluetooth-failed-not-ready = Bluetooth is niet gereed; schakel het eerst in
 settings-bluetooth-failed-exists = Het apparaat is al gekoppeld
 settings-bluetooth-failed-gone = Het apparaat is er niet meer
+
+settings-quicklink-add = Snelkoppeling toevoegen
+settings-snippet-add = Tekstfragment toevoegen
