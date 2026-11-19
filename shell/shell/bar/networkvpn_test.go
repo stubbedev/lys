@@ -13,11 +13,11 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/portal"
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // fakeVPN is a scripted vpnControl.

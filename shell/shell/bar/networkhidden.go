@@ -4,9 +4,8 @@ import (
 	"errors"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 var hiddenSecurities = []network.SecurityType{network.SecurityWPA2, network.SecurityWPA3, network.SecurityEnterprise, network.SecurityWEP, network.SecurityNone}

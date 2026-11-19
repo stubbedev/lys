@@ -4,12 +4,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
-
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // A service appearing after the shell rebuilds the bars; a client that

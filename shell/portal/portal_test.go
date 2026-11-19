@@ -11,13 +11,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/gtksettings"
 
-	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 

@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/stubbedev/lys/desktop/service/network"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // startNetworkService brings up the NetworkManager service (the secret

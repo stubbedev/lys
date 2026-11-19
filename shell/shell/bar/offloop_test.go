@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/logtest"
@@ -24,7 +25,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/hyprland"
-	"github.com/stubbedev/lys/shell/service/network"
 	"github.com/stubbedev/lys/shell/service/powerprofiles"
 	"github.com/stubbedev/lys/shell/service/sni"
 )

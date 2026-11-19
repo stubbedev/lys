@@ -10,10 +10,9 @@ import (
 
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
-
-	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 )
 
 func dial(t *testing.T, addr string) *dbus.Conn {

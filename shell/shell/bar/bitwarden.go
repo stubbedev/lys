@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
+	"github.com/stubbedev/lys/desktop/service/network"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/app"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/internal/jinja"
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // vaultCallTimeout bounds a call the shell makes on its own: locking

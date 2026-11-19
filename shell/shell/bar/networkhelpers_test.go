@@ -5,8 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
-
-	"github.com/stubbedev/lys/shell/service/network"
+	"github.com/stubbedev/lys/desktop/service/network"
 )
 
 // The dropdown's signal glyph climbs Lucide's wifi ladder in quarters,

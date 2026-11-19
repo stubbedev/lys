@@ -5,10 +5,9 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
-
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // netSaveOffer is the offer to keep a sign-in the user typed for a

@@ -11,7 +11,6 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
 )
 
 // Profile names as the daemon spells them.

@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -21,7 +22,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/internal/portal"
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 // This file is the network dropdown's VPNs: the section listing NM's

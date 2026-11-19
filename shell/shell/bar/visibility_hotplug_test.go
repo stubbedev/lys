@@ -8,12 +8,12 @@ import (
 
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
-	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/shell/service/shellipc"
 )
 

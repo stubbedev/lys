@@ -13,7 +13,7 @@ import (
 
 const (
 	tickedPath = dbus.ObjectPath("/dev/stubbe/lys/Handed")
-	tickedName  = "dev.stubbe.lys.Handed"
+	tickedName = "dev.stubbe.lys.Handed"
 )
 
 type ticked struct {

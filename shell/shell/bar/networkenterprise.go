@@ -6,11 +6,11 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/network"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/portal"
-	"github.com/stubbedev/lys/shell/service/network"
 )
 
 var certificatePatterns = []string{"*.pem", "*.crt", "*.cer", "*.der", "*.key", "*.p12", "*.pfx"}

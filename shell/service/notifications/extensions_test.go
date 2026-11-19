@@ -7,10 +7,9 @@ import (
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
-
-	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 )
 
 func hint(key string, v any) map[string]dbus.Variant {

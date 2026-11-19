@@ -9,9 +9,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/rfkill"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/shell/service/rfkill"
 )
 
 // fakeRadios stands in for the kernel's kill switches: an airplane

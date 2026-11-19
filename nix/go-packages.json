@@ -309,6 +309,45 @@
       "lib/waittest"
     ]
   },
+  "desktop/service/network": {
+    "imports": [
+      "desktop/feed",
+      "desktop/service/network/openconnect",
+      "desktop/service/network/secrets",
+      "lib/dbusx",
+      "lib/logind",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "desktop/service/network/openconnect/openconnecttest",
+      "lib/dbustest",
+      "lib/dbusx/dbusxtest",
+      "lib/logind/logindtest",
+      "lib/testhome",
+      "lib/third_party/godbus/prop",
+      "lib/waittest"
+    ]
+  },
+  "desktop/service/network/openconnect": {
+    "imports": [
+      "desktop/desktopentry",
+      "desktop/fileuri",
+      "desktop/opener",
+      "desktop/service/network/secrets",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "desktop/opener/openertest",
+      "desktop/service/network/openconnect/openconnecttest",
+      "lib/waittest"
+    ]
+  },
+  "desktop/service/network/openconnect/openconnecttest": {
+    "imports": [
+      "lib/waittest"
+    ]
+  },
+  "desktop/service/network/secrets": {},
   "desktop/service/nightlight/nightschedule": {},
   "desktop/service/notifications/notifypolicy": {},
   "desktop/service/pulse": {
@@ -330,6 +369,7 @@
       "lib/v4l2"
     ]
   },
+  "desktop/service/rfkill": {},
   "desktop/service/sounds/soundpolicy": {},
   "desktop/service/upower": {
     "imports": [
@@ -2846,44 +2886,6 @@
       "lib/waittest"
     ]
   },
-  "shell/service/network": {
-    "imports": [
-      "desktop/feed",
-      "lib/dbusx",
-      "lib/logind",
-      "lib/third_party/godbus",
-      "shell/service/network/openconnect",
-      "shell/service/network/secrets"
-    ],
-    "testImports": [
-      "lib/dbustest",
-      "lib/dbusx/dbusxtest",
-      "lib/logind/logindtest",
-      "lib/testhome",
-      "lib/third_party/godbus/prop",
-      "lib/waittest",
-      "shell/service/network/openconnect/openconnecttest"
-    ]
-  },
-  "shell/service/network/openconnect": {
-    "imports": [
-      "desktop/fileuri",
-      "lib/third_party/godbus",
-      "shell/service/launcher",
-      "shell/service/network/secrets"
-    ],
-    "testImports": [
-      "desktop/opener/openertest",
-      "lib/waittest",
-      "shell/service/network/openconnect/openconnecttest"
-    ]
-  },
-  "shell/service/network/openconnect/openconnecttest": {
-    "imports": [
-      "lib/waittest"
-    ]
-  },
-  "shell/service/network/secrets": {},
   "shell/service/nightlight": {
     "imports": [
       "desktop/identity",
@@ -3005,7 +3007,6 @@
       "shell/service/recorder"
     ]
   },
-  "shell/service/rfkill": {},
   "shell/service/screenshare": {
     "imports": [
       "desktop/feed",
@@ -3166,9 +3167,12 @@
       "desktop/service/idleinhibit/inhibitduration",
       "desktop/service/lyswm",
       "desktop/service/mpris",
+      "desktop/service/network",
+      "desktop/service/network/secrets",
       "desktop/service/nightlight/nightschedule",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
+      "desktop/service/rfkill",
       "desktop/service/upower",
       "desktop/settingspage",
       "desktop/shell/apptheme",
@@ -3222,15 +3226,12 @@
       "shell/service/lyrics",
       "shell/service/mail",
       "shell/service/mango",
-      "shell/service/network",
-      "shell/service/network/secrets",
       "shell/service/nightlight",
       "shell/service/niri",
       "shell/service/notifications",
       "shell/service/powerprofiles",
       "shell/service/privacy",
       "shell/service/recorder",
-      "shell/service/rfkill",
       "shell/service/screenshare",
       "shell/service/sharepreview",
       "shell/service/shellipc",

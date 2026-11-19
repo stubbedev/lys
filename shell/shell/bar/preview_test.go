@@ -12,6 +12,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/network/secrets"
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/secrets/vault"
@@ -21,8 +23,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/bluetooth"
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
-	"github.com/stubbedev/lys/shell/service/network"
-	"github.com/stubbedev/lys/shell/service/network/secrets"
 	"github.com/stubbedev/lys/shell/service/weather"
 )
 
