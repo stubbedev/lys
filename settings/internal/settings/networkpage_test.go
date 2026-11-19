@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -26,7 +27,37 @@ type fakeNet struct {
 	activated  []dbus.ObjectPath
 	deactived  []string
 	removed    []dbus.ObjectPath
+	kinds      []network.VPNKind
+	profiles   map[dbus.ObjectPath]vpnProfile
+	vpnErr     error
+	added      []vpnWrite
+	updated    []vpnWrite
 	closed     bool
+}
+
+type vpnWrite struct {
+	uuid, kind, name string
+	values           map[string]string
+}
+
+func (f *fakeNet) vpnKinds() []network.VPNKind { return f.kinds }
+
+func (f *fakeNet) readVPN(_ context.Context, path dbus.ObjectPath) (vpnProfile, error) {
+	prof, ok := f.profiles[path]
+	if !ok {
+		return vpnProfile{}, fmt.Errorf("no profile at %s", path)
+	}
+	return prof, nil
+}
+
+func (f *fakeNet) addVPN(_ context.Context, kind, name string, values map[string]string) error {
+	f.added = append(f.added, vpnWrite{"", kind, name, values})
+	return f.vpnErr
+}
+
+func (f *fakeNet) updateVPN(_ context.Context, uuid, kind, name string, values map[string]string) error {
+	f.updated = append(f.updated, vpnWrite{uuid, kind, name, values})
+	return f.vpnErr
 }
 
 func (f *fakeNet) activate(_ context.Context, path dbus.ObjectPath) error {
@@ -242,8 +273,11 @@ func TestTheVPNsSwitchOnAndOffAndAreRemoved(t *testing.T) {
 	}
 	f.state.vpns = nil
 	_, p = netPanel(t, f)
-	if p.vpnSec.Visible() {
-		t.Error("the VPN section shows with no VPN")
+	if !p.vpnSec.Visible() || len(treetest.All[*widget.Switch](p.vpn)) != 0 {
+		t.Error("with no VPN the section is hidden, or shows a switch")
+	}
+	if newNetworkPanel(testKit(t, "")).vpnSec.Visible() {
+		t.Error("the VPN section shows without NetworkManager")
 	}
 }
 

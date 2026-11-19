@@ -82,6 +82,10 @@ type netControl interface {
 	activate(ctx context.Context, profile dbus.ObjectPath) error
 	deactivate(ctx context.Context, uuid string) error
 	remove(ctx context.Context, profile dbus.ObjectPath) error
+	vpnKinds() []network.VPNKind
+	readVPN(ctx context.Context, profile dbus.ObjectPath) (vpnProfile, error)
+	addVPN(ctx context.Context, kind, name string, values map[string]string) error
+	updateVPN(ctx context.Context, uuid, kind, name string, values map[string]string) error
 	close() error
 }
 
@@ -173,6 +177,24 @@ func (c *nmControl) deactivate(ctx context.Context, uuid string) error {
 
 func (c *nmControl) remove(ctx context.Context, profile dbus.ObjectPath) error {
 	return c.svc.Settings.Delete(ctx, profile)
+}
+
+func (c *nmControl) vpnKinds() []network.VPNKind { return network.AvailableKinds() }
+
+func (c *nmControl) readVPN(ctx context.Context, profile dbus.ObjectPath) (vpnProfile, error) {
+	dict, err := c.svc.Settings.Get(ctx, profile)
+	if err != nil {
+		return vpnProfile{}, fmt.Errorf("read the VPN profile %s: %w", profile, err)
+	}
+	return vpnProfile{kind: network.KindOf(dict), values: network.ReadProfileValues(dict)}, nil
+}
+
+func (c *nmControl) addVPN(ctx context.Context, kind, name string, values map[string]string) error {
+	return c.svc.Settings.AddVPN(ctx, kind, name, values)
+}
+
+func (c *nmControl) updateVPN(ctx context.Context, uuid, kind, name string, values map[string]string) error {
+	return c.svc.Settings.UpdateVPN(ctx, uuid, kind, name, values)
 }
 
 func (c *nmControl) changes(ctx context.Context) (<-chan struct{}, error) {
@@ -276,6 +298,7 @@ type networkPanel struct {
 	netsSec  *widget.Box
 	vpn      *widget.Box
 	vpnSec   *widget.Box
+	vpnForm  *vpnForm
 	details  *widget.Box
 	detSec   *widget.Box
 	pending  string
@@ -295,7 +318,12 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.netsSec.SetVisible(false)
 	p.Append(p.netsSec, false)
 	p.vpn = gapBox(widget.Column)
-	p.vpnSec = newSection(k, "settings-vpn-section", p.vpn)
+	p.vpnForm = newVPNForm(p)
+	vpnBody := gapBox(widget.Column)
+	vpnBody.Append(p.vpn, false)
+	vpnBody.AppendAligned(k.button(k.label(i18n.T("dropdown-network-vpn-add")), func() { p.vpnForm.open("", "", vpnProfile{}) }, css.Small), false, widget.AlignStart)
+	vpnBody.Append(p.vpnForm, false)
+	p.vpnSec = newSection(k, "settings-vpn-section", vpnBody)
 	p.vpnSec.SetVisible(false)
 	p.Append(p.vpnSec, false)
 	p.details = gapBox(widget.Column)
@@ -652,7 +680,10 @@ func (p *networkPanel) hiddenForm() widget.Widget {
 func (p *networkPanel) showVPNs() {
 	p.vpn.Clear()
 	t := locale.T()
-	p.vpnSec.SetVisible(len(p.state.vpns) > 0)
+	p.vpnSec.SetVisible(true)
+	if len(p.state.vpns) == 0 {
+		return
+	}
 	list := widget.NewItemGroup()
 	for _, v := range p.state.vpns {
 		on := widget.NewSwitch(v.up && v.state != network.ActiveDeactivating)
@@ -665,13 +696,36 @@ func (p *networkPanel) showVPNs() {
 				return p.ctl.deactivate(ctx, v.profile.UUID)
 			})
 		}
+		edit := p.k.button(p.k.label(i18n.T("dropdown-network-vpn-edit")), func() { p.editVPN(v.profile) }, css.Small, css.Flat)
 		remove := p.k.button(p.k.label(t.Get("settings-vpn-remove")), func() {
 			p.run(func(ctx context.Context) error { return p.ctl.remove(ctx, v.profile.Path) })
 		}, css.Small, css.Flat, css.DestructiveAction)
-		list.Append(panelRow(p.k, v.profile.ID, vpnDetail(v), remove, on))
+		list.Append(panelRow(p.k, v.profile.ID, vpnDetail(v), edit, remove, on))
 	}
 	p.vpn.Append(list, false)
 	p.vpn.Append(wrapped(p.k.label(t.Get("settings-vpn-secrets"), css.Caption, css.DimLabel)), false)
+}
+
+func (p *networkPanel) editVPN(prof network.Profile) {
+	ctl := p.ctl
+	type read struct {
+		prof vpnProfile
+		err  error
+	}
+	async(p.k, func() read {
+		got, err := callWithin(networkCallWait, func(ctx context.Context) (vpnProfile, error) { return ctl.readVPN(ctx, prof.Path) })
+		return read{got, err}
+	}, func(r read) {
+		if p.closed {
+			return
+		}
+		if r.err != nil {
+			p.fail(r.err)
+			return
+		}
+		p.fail(nil)
+		p.vpnForm.open(prof.UUID, prof.ID, r.prof)
+	})
 }
 
 func vpnDetail(v vpnRow) string {
