@@ -615,3 +615,7 @@ wm-section-keyboard-accessibility = Barrierefreiheit
     .description = Tasten, die einrasten oder warten, um eine Taste nach der anderen zu tippen
 wm-section-keyboard-model = Tastaturmodell
     .description = Tastaturmodell und Regeln, für die die Belegungen gebaut sind
+wm-palette-new-name = Name der neuen Farbe
+wm-palette-add = Farbe hinzufügen
+wm-palette-reset = Zurück zur Farbe von lys-wm
+wm-palette-taken = Es gibt schon eine Farbe namens { $name }

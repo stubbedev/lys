@@ -615,3 +615,7 @@ wm-section-keyboard-accessibility = Accessibility
     .description = Keys that stick or wait, for typing one key at a time
 wm-section-keyboard-model = Keyboard model
     .description = The keyboard model and rules the layouts are built for
+wm-palette-new-name = New colour name
+wm-palette-add = Add colour
+wm-palette-reset = Back to lys-wm’s colour
+wm-palette-taken = There is already a colour called { $name }

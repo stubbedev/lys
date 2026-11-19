@@ -110,28 +110,3 @@ func TestARefusedBorderColourPutsTheRowBack(t *testing.T) {
 	}
 	noFile(t, files.runtime)
 }
-
-func TestThePaletteRowHoldsOnlyTheUsersNames(t *testing.T) {
-	k, w, _, files := wmKit(t, "")
-	c := fieldControl(k, w, wmPaletteRow()).(*listEditor)
-	if len(c.items) != 0 {
-		t.Fatalf("the built-in names fill the row: %d", len(c.items))
-	}
-	c.add.OnClick()
-	item := c.items[0].(mapItem)
-	item.key.SetText("mine")
-	item.editor.(*widget.Entry).SetText("#123456")
-	c.commit()
-	if got := fileText(t, files.runtime); got != "palette:\n  mine: '#123456'\n" {
-		t.Fatalf("wrote %q", got)
-	}
-	var names []string
-	for _, ch := range wmPaletteNames(k) {
-		names = append(names, ch.value)
-	}
-	for _, want := range []string{"accent", "blue", "red", "mine"} {
-		if !slices.Contains(names, want) {
-			t.Errorf("a colour cannot take %q: %v", want, names)
-		}
-	}
-}

@@ -612,3 +612,7 @@ wm-section-keyboard-accessibility = Toegankelijkheid
     .description = Toetsen die blijven hangen of wachten, om één toets tegelijk te typen
 wm-section-keyboard-model = Toetsenbordmodel
     .description = Het toetsenbordmodel en de regels waarvoor de indelingen zijn gemaakt
+wm-palette-new-name = Naam van de nieuwe kleur
+wm-palette-add = Kleur toevoegen
+wm-palette-reset = Terug naar de kleur van lys-wm
+wm-palette-taken = Er is al een kleur met de naam { $name }

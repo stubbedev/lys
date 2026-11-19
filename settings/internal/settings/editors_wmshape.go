@@ -317,15 +317,6 @@ var wmItemEditors = map[string]func(k *kit, s slot, path []string) control{
 
 // wmPaletteRow is the palette row: the names the user gives, which lys-wm
 // sets over its built-in ones.
-func wmPaletteRow() rowSpec {
-	return wmField("palette", func(r *rowSpec) {
-		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-			return newListEditor(k, wmOwnPalette(k.wm, s), stringMapSpec())
-		}
-	})
-}
-
 // wmOwnPalette is the palette without the built-in names it holds
 // unchanged, so writing it back never pins lys-wm's own colours.
 func wmOwnPalette(w *wmBackend, s slot) slot {

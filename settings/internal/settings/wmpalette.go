@@ -1,0 +1,146 @@
+package settings
+
+import (
+	"maps"
+	"slices"
+	"strings"
+
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
+)
+
+func wmPaletteRow() rowSpec {
+	return wmField("palette", func(r *rowSpec) {
+		r.fullWidth = true
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newPaletteGrid(k, s) }
+	})
+}
+
+type paletteGrid struct {
+	*widget.Box
+	k       *kit
+	own     slot
+	builtIn map[string]any
+	grid    *widget.FlowBox
+	tiles   []control
+	name    *widget.Entry
+	problem *widget.Label
+	shown   []string
+}
+
+func newPaletteGrid(k *kit, s slot) *paletteGrid {
+	t := locale.T()
+	builtIn, _ := k.wm.defaultOf("palette")
+	p := &paletteGrid{Box: gapBox(widget.Column), k: k, own: wmOwnPalette(k.wm, s), builtIn: asMap(builtIn)}
+	p.AddClass("wm-palette")
+	p.grid = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
+	p.name = k.entry()
+	p.name.SetPlaceholder(t.Get("wm-palette-new-name"))
+	p.name.SetAccessibleName(t.Get("wm-palette-new-name"))
+	p.name.OnActivate = func(string) { p.add() }
+	add := k.button(k.label(t.Get("wm-palette-add")), p.add, css.Secondary)
+	line := gapBox(widget.Row)
+	line.Append(p.name, true)
+	line.AppendAligned(add, false, widget.AlignCenter)
+	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem.SetVisible(false)
+	p.Append(p.grid, false)
+	p.Append(line, false)
+	p.Append(p.problem, false)
+	p.refresh()
+	return p
+}
+
+func (p *paletteGrid) names() []string {
+	all := maps.Clone(p.builtIn)
+	if all == nil {
+		all = map[string]any{}
+	}
+	maps.Copy(all, asMap(p.own.get()))
+	return slices.Sorted(maps.Keys(all))
+}
+
+func (p *paletteGrid) colorSlot(name string) slot {
+	return slot{
+		get: func() any {
+			if v, ok := asMap(p.own.get())[name]; ok {
+				return v
+			}
+			return p.builtIn[name]
+		},
+		set: func(v any) error {
+			own := maps.Clone(asMap(p.own.get()))
+			if own == nil {
+				own = map[string]any{}
+			}
+			own[name] = v
+			return p.own.set(own)
+		},
+		unset: func() { p.reset(name) },
+	}
+}
+
+func (p *paletteGrid) reset(name string) {
+	own := maps.Clone(asMap(p.own.get()))
+	delete(own, name)
+	_ = p.own.set(own)
+	p.refresh()
+}
+
+func (p *paletteGrid) refresh() {
+	names := p.names()
+	if slices.Equal(names, p.shown) {
+		for _, tile := range p.tiles {
+			tile.refresh()
+		}
+		return
+	}
+	p.shown = names
+	p.grid.Clear()
+	p.tiles = p.tiles[:0]
+	t := locale.T()
+	own := asMap(p.own.get())
+	for _, name := range names {
+		tile := widget.NewBox(widget.Column, choiceCardGap/2, 0)
+		tile.AddClass("wm-palette-tile")
+		head := gapBox(widget.Row)
+		head.Append(p.k.label(name, css.Caption), true)
+		if _, overridden := own[name]; overridden {
+			reset := p.k.iconButton("ld-rotate-ccw-symbolic", "wm-palette-reset", func() { p.reset(name) }, css.Ghost)
+			reset.SetTooltip(t.Get("wm-palette-reset"))
+			head.AppendAligned(reset, false, widget.AlignCenter)
+		}
+		ed := newWMColorEditor(p.k, p.colorSlot(name))
+		tile.Append(head, false)
+		tile.Append(ed, false)
+		p.grid.Append(tile)
+		p.tiles = append(p.tiles, ed)
+	}
+}
+
+func (p *paletteGrid) add() {
+	name := strings.TrimSpace(p.name.Text())
+	switch {
+	case name == "":
+		return
+	case slices.Contains(p.names(), name):
+		p.say(locale.T().Get("wm-palette-taken", i18n.Str("name", name)))
+		return
+	}
+	if err := p.colorSlot(name).set("#000000"); err != nil {
+		p.say(err.Error())
+		return
+	}
+	p.say("")
+	p.name.SetText("")
+	p.refresh()
+}
+
+func (p *paletteGrid) say(text string) {
+	p.problem.SetText(text)
+	p.problem.SetVisible(text != "")
+}

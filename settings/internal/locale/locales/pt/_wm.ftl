@@ -612,3 +612,7 @@ wm-section-keyboard-accessibility = Acessibilidade
     .description = Teclas que ficam premidas ou esperam, para escrever uma tecla de cada vez
 wm-section-keyboard-model = Modelo de teclado
     .description = O modelo e as regras de teclado para os quais as disposições são construídas
+wm-palette-new-name = Nome da nova cor
+wm-palette-add = Adicionar cor
+wm-palette-reset = Voltar à cor do lys-wm
+wm-palette-taken = Já existe uma cor chamada { $name }

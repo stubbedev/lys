@@ -1238,3 +1238,31 @@ func TestHotCornersArePickedOnAScreen(t *testing.T) {
 		t.Errorf("set corners read %v %v %v", h.set(3), h.set(1), h.set(2))
 	}
 }
+
+func TestThePaletteIsAGridOfSwatchesThatPinsOnlyWhatChanges(t *testing.T) {
+	k, w, _, files := wmKit(t, "")
+	p := fieldControl(k, w, wmPaletteRow()).(*paletteGrid)
+	if !slices.Equal(p.shown, []string{"blue", "red"}) {
+		t.Fatalf("the grid shows %q, want the built-in colours", p.shown)
+	}
+	if err := p.colorSlot("red").set("#ff0000"); err != nil {
+		t.Fatal(err)
+	}
+	if got := fileText(t, files.runtime); !strings.Contains(got, "red: '#ff0000'") || strings.Contains(got, "blue") {
+		t.Fatalf("changing red wrote %q", got)
+	}
+	p.name.SetText("mint")
+	p.add()
+	if !slices.Contains(p.shown, "mint") {
+		t.Fatalf("an added colour is missing: %q", p.shown)
+	}
+	p.name.SetText("blue")
+	p.add()
+	if !p.problem.Visible() || p.problem.Text() != locale.T().Get("wm-palette-taken", i18n.Str("name", "blue")) {
+		t.Errorf("a taken name says %q", p.problem.Text())
+	}
+	p.reset("red")
+	if got := fileText(t, files.runtime); strings.Contains(got, "red") {
+		t.Errorf("resetting red kept %q", got)
+	}
+}
