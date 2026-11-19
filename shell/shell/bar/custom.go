@@ -27,7 +27,6 @@ import (
 
 // Custom module limits.
 const (
-	commandTimeout     = 30 * time.Second
 	customScrollWait   = 50 * time.Millisecond
 	maxCustomJSONBytes = 64 * 1024
 )
@@ -421,11 +420,11 @@ func (m *customModule) runCommand(command string) {
 	}()
 }
 
-// commandOutput runs the command with the 30s timeout; its trimmed stdout is
+// commandOutput runs the command within config.CustomCommandTimeout; its trimmed stdout is
 // the module's output, and a command that could not run or timed out
 // gives its failure instead. One canceled with parent gives nothing.
 func (m *customModule) commandOutput(parent context.Context, command string) (customSample, bool) {
-	ctx, cancel := context.WithTimeout(parent, commandTimeout)
+	ctx, cancel := context.WithTimeout(parent, config.CustomCommandTimeout)
 	defer cancel()
 	cmd := spawn.Owned(ctx, command)
 	var out bytes.Buffer
@@ -433,7 +432,7 @@ func (m *customModule) commandOutput(parent context.Context, command string) (cu
 	if err := cmd.Run(); err != nil {
 		switch {
 		case errors.Is(ctx.Err(), context.DeadlineExceeded):
-			return m.failed(i18n.T("bar-custom-command-timed-out"), fmt.Errorf("timed out after %s", commandTimeout)), true
+			return m.failed(i18n.T("bar-custom-command-timed-out"), fmt.Errorf("timed out after %s", config.CustomCommandTimeout)), true
 		case ctx.Err() != nil:
 			return customSample{}, false
 		case !exitedWithOutput(err):

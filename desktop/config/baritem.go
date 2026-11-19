@@ -257,6 +257,9 @@ func (e *RemovedModuleError) Error() string {
 
 const customModulePrefix = "custom-"
 
+// CustomModule is the bar module of the `modules.custom` definition id.
+func CustomModule(id string) BarModule { return BarModule(customModulePrefix + id) }
+
 // CustomID is the `modules.custom` id of a custom-<id> module.
 func (m BarModule) CustomID() (string, bool) {
 	return strings.CutPrefix(string(m), customModulePrefix)

@@ -2799,12 +2799,9 @@
           "description": "Execution mode for the command.\n\n| Mode | Behavior |\n|------|----------|\n| `poll` | Run command every `interval-ms` (default) |\n| `watch` | Spawn long-running process, update on each stdout line |\n\nUse `poll` for commands that return current state and exit.\nUse `watch` for commands that stream updates (e.g., `pactl subscribe`)."
         },
         "on-action": {
+          "$ref": "#/$defs/Nullable_Command",
           "default": null,
-          "description": "Shell command to run after any click or scroll action.\n\nIts output updates the display at once, without waiting for the next\npoll. After scrolls it runs once, 50ms after the last one.\n\n## Example\n\n```yaml\n# Volume control with immediate feedback\nscroll-up: pactl set-sink-volume @DEFAULT_SINK@ +5%\nscroll-down: pactl set-sink-volume @DEFAULT_SINK@ -5%\non-action: |\n  vol=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -oP '\\d+(?=%)' | head -1)\n  echo \"{\\\"percentage\\\": $vol}\"\n```",
-          "type": [
-            "string",
-            "null"
-          ]
+          "description": "Shell command to run after any click or scroll action.\n\nIts output updates the display at once, without waiting for the next\npoll. After scrolls it runs once, 50ms after the last one.\n\n## Example\n\n```yaml\n# Volume control with immediate feedback\nscroll-up: pactl set-sink-volume @DEFAULT_SINK@ +5%\nscroll-down: pactl set-sink-volume @DEFAULT_SINK@ -5%\non-action: |\n  vol=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -oP '\\d+(?=%)' | head -1)\n  echo \"{\\\"percentage\\\": $vol}\"\n```"
         },
         "restart-interval-ms": {
           "$ref": "#/$defs/RestartDelay",

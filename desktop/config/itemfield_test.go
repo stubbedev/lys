@@ -31,6 +31,20 @@ func TestEveryEditedItemFieldHasItsFTLKey(t *testing.T) {
 	}
 }
 
+func TestACustomModuleIsNamedByItsID(t *testing.T) {
+	m := CustomModule("gpu")
+	if id, ok := m.CustomID(); m != "custom-gpu" || !ok || id != "gpu" {
+		t.Errorf("CustomModule(gpu) = %q, its id %q %v", m, id, ok)
+	}
+	var parsed BarModule
+	if err := parsed.UnmarshalConfig(string(m)); err != nil || parsed != m {
+		t.Errorf("the layout reads %q as %q, %v", m, parsed, err)
+	}
+	if _, ok := ModuleClock.CustomID(); ok {
+		t.Error("a built-in module named a custom id")
+	}
+}
+
 func TestItemFieldDescribesAFieldOfAListItem(t *testing.T) {
 	url, ok := ItemField[LauncherQuicklink]("url")
 	if !ok || url.Kind != FieldText || len(url.Placeholders) != 1 || url.Placeholders[0].Token != "{query}" {

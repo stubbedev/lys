@@ -36,7 +36,7 @@ bar:
 | `label-max-length` | u32 | `0` | Maximum label length in characters before truncation. |
 | `border-show` | bool | `false` | Display border around button. |
 | `color-map` | unknown | `null` | Map of per-state color overrides keyed by the `alt` field value. |
-| `on-action` | unknown | `null` | Shell command to run after any click or scroll action. |
+| `on-action` | [`Command`](/shell/config/types#command) or null | `null` | Shell command to run after any click or scroll action. |
 
 ::: details More about `id`
 

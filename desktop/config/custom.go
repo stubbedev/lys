@@ -1,5 +1,10 @@
 package config
 
+import "time"
+
+// CustomCommandTimeout is how long a custom module's command may run.
+const CustomCommandTimeout = 30 * time.Second
+
 // CustomModuleDefinition is part of the custom module's configuration.
 //
 // User-defined module that runs a shell command and renders the output in the bar.
@@ -270,7 +275,7 @@ type CustomModuleDefinition struct {
 	//   vol=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -oP '\d+(?=%)' | head -1)
 	//   echo "{\"percentage\": $vol}"
 	// ```
-	OnAction *string `cfg:"on-action,default"`
+	OnAction *string `cfg:"on-action,default,type=Command"`
 }
 
 // DefaultsCustomModuleDefinition returns the schema defaults.
