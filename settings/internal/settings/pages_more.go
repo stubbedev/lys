@@ -304,7 +304,7 @@ func wallpaperPage(*config.Config) pageSpec {
 			field("wallpaper.cycling-directory"),
 			cyclingReveal("wallpaper.cycling-directory",
 				field("wallpaper.cycling-mode"),
-				field("wallpaper.cycling-interval-mins", spin(1, 1440, 1, 0)),
+				field("wallpaper.cycling-interval-mins", minutePresets(5, 15, 30, 60, 180, 1440)),
 				field("wallpaper.cycling-same-image"),
 			),
 		}},

@@ -855,6 +855,7 @@ settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
+settings-duration-custom = Aangepast…
 settings-advanced-show = Tonen
 settings-advanced-hide = Verbergen
 settings-section-bar-item = Balkonderdeel

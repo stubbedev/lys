@@ -856,6 +856,7 @@ settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
+settings-duration-custom = Personalizado…
 settings-advanced-show = Mostrar
 settings-advanced-hide = Ocultar
 settings-section-bar-item = Item da barra
