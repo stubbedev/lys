@@ -900,6 +900,7 @@ func TestFramesAndBindsAllocateLittleOnceWarm(t *testing.T) {
 		p.move(1)
 		p.v.root.Arrange(out)
 	}
+	h.until("every row's and preview's icon", func() bool { return len(p.v.list.waiting) == 0 })
 	selection := testing.AllocsPerRun(50, func() {
 		p.move(1)
 		p.v.root.Arrange(out)
