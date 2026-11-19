@@ -73,11 +73,12 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 }
 
 // walkOwn visits the window's own widgets under w: a chip's inside, and a
-// segmented control's joined segments, are lys-ui's.
+// segmented control's joined segments, are lys-ui's, and a live
+// preview's surface is lys-shell's.
 func walkOwn(w widget.Widget, visit func(widget.Widget)) {
 	visit(w)
 	switch w.(type) {
-	case *widget.Chip, *widget.ToggleGroup, *widget.ShortcutRecorder, *segmentedEnum, keycaps:
+	case *widget.Chip, *widget.ToggleGroup, *widget.ShortcutRecorder, *segmentedEnum, keycaps, *livePreview:
 		return
 	}
 	if c, ok := w.(interface{ Children() []widget.Widget }); ok {

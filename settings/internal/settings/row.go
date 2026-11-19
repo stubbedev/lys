@@ -3,6 +3,7 @@ package settings
 import (
 	"log"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -64,6 +65,8 @@ type kit struct {
 	// overlays shows content on the output named on top of everything,
 	// taking the keys when interactive; nil without a session.
 	overlays func(output string, content widget.Widget, interactive bool) (close func(), err error)
+	// barFont loads the face lys-shell's bar labels in, for the previews.
+	barFont func(cfg *config.Config) (render.Font, error)
 }
 
 // async runs work off the loop and hands its result to done on it.

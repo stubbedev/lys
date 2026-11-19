@@ -8,7 +8,7 @@ import (
 
 // barGeneralPage is pages/bar/general.
 func barPage(*config.Config) pageSpec {
-	return pageSpec{id: "bar", navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", sections: []sectionSpec{
+	return pageSpec{id: "bar", navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", lead: barPreview, extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-layout", rows: []rowSpec{
 			field("bar.location", screenPosition),
 			field("bar.exclusive"),

@@ -44,7 +44,7 @@ func barItemSection(module string, choices []actionChoice) sectionSpec {
 	if hasKey(module + ".left-click") {
 		rows = append(rows, mouseRow(module, choices))
 	}
-	return sectionSpec{title: "settings-section-bar-item", rows: rows}
+	return sectionSpec{title: "settings-section-bar-item", rows: rows, preview: barItemPreview(moduleOfSection(module))}
 }
 
 func colorRow(paths []string) rowSpec {

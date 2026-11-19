@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -85,6 +86,7 @@ func Run(page, setting string) error {
 		notify:       sendNotification,
 		shellCommand: runShellCommand,
 		i2c:          systemHost.i2cAccess,
+		barFont:      barview.Font,
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })

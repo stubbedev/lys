@@ -47,6 +47,8 @@ type sectionSpec struct {
 	rows     []rowSpec
 	when     func(s store) bool
 	advanced bool
+	// preview, when set, builds what shows the rows' effect above them.
+	preview func(k *kit) widget.Widget
 }
 
 // rowSpec is SettingRowInit, by path: the label key defaults to the
@@ -326,6 +328,9 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	for _, s := range spec.sections {
 		rows := widget.NewItemGroup()
 		section, group := newSectionParts(k, s.title, rows)
+		if s.preview != nil {
+			section.InsertAt(len(section.Children())-1, p.own(p.extra(s.preview(k))), false)
+		}
 		first := len(p.targets)
 		for _, rs := range s.rows {
 			var rowBackend backend = notifyingBackend{be, conditional}

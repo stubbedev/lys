@@ -2189,6 +2189,7 @@
       "desktop/service/upower",
       "desktop/settingspage",
       "desktop/shell/apptheme",
+      "desktop/shell/barview",
       "desktop/shell/widgets",
       "desktop/shlex",
       "desktop/spawn",

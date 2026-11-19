@@ -14,6 +14,7 @@ lys-settings reads lys-shell's config through the packages of
 | `desktop/styling`, `desktop/shell/apptheme` | The window's theme, matching the shell |
 | `desktop/i18n` | Field labels; the app's own messages sit on top |
 | `desktop/settingspage` | The launcher contract below |
+| `desktop/shell/barview` | The previews: the bar and a bar item's button, drawn by lys-shell's own code from the config being edited, every module holding sample state |
 
 ## lys-wm
 
