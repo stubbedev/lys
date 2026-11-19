@@ -73,4 +73,4 @@ enum-screenshot-corner-bottom-right = Inferior direito
 enum-screenshot-corner-bottom-left = Inferior esquerdo
 
 settings-modules-screenshot-ocr-languages = Idiomas do reconhecimento de texto
-    .description = Códigos de idioma do Tesseract usados para copiar texto do ecrã (vazio segue o idioma da sessão)
+    .description = Os idiomas instalados em que se lê o texto do ecrã; sem nenhum escolhido segue o idioma da sessão

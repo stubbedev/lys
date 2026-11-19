@@ -460,7 +460,7 @@ func screenshotPage(*config.Config) pageSpec {
 			field("modules.screenshot.notify"),
 			field("modules.screenshot.thumbnail-ms", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), zeroAs(off))),
 			field("modules.screenshot.thumbnail-position", screenPosition),
-			field("modules.screenshot.ocr-languages", stringList),
+			field("modules.screenshot.ocr-languages", ocrLanguagesRow),
 		}},
 		{title: "settings-section-icons", rows: []rowSpec{
 			field("modules.screenshot.icon", iconRow),

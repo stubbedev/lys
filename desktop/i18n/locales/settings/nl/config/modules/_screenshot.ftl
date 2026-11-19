@@ -73,4 +73,4 @@ enum-screenshot-corner-bottom-right = Rechtsonder
 enum-screenshot-corner-bottom-left = Linksonder
 
 settings-modules-screenshot-ocr-languages = Talen voor tekstherkenning
-    .description = Tesseract-taalcodes om tekst van het scherm te kopiëren (leeg volgt de sessietaal)
+    .description = De geïnstalleerde talen waarin tekst van het scherm wordt gelezen; zonder keuze volgt het de sessietaal
