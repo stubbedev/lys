@@ -517,31 +517,38 @@ func wmTilingPage() pageSpec {
 	)
 }
 
-func wmInputPage() pageSpec {
-	return wmPage("wm-input", "ld-keyboard-symbolic",
-		sectionSpec{title: "wm-section-keyboard", rows: wmFields("input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options", "input.keyboard.model", "input.keyboard.rules", "input.keyboard.repeat_rate", "input.keyboard.repeat_delay",
-			"input.keyboard.numlock", "input.keyboard.sticky_keys", "input.keyboard.slow_keys")},
+func wmKeyboardPage() pageSpec {
+	return wmPage("wm-keyboard", "ld-keyboard-symbolic",
+		sectionSpec{title: "wm-section-keyboard", rows: wmFields("input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options")},
+		sectionSpec{title: "wm-section-typing", rows: wmFields("input.keyboard.repeat_rate", "input.keyboard.repeat_delay", "input.keyboard.numlock")},
+		sectionSpec{title: "wm-section-keyboard-accessibility", rows: wmFields("input.keyboard.sticky_keys", "input.keyboard.slow_keys")},
 		sectionSpec{title: "wm-section-cursor", rows: wmFields("cursor.hide_while_typing", "cursor.hide_after", "cursor.shake_to_find")},
+		sectionSpec{title: "wm-section-keyboard-model", advanced: true, rows: wmFields("input.keyboard.model", "input.keyboard.rules")},
+	)
+}
+
+func wmPointerPage() pageSpec {
+	return wmPage("wm-pointer", "ld-mouse-symbolic",
 		sectionSpec{title: "wm-section-pointer", rows: wmFields("input.pointer.natural_scroll", "input.pointer.middle_emulation", "input.pointer.accel_profile", "input.pointer.accel_speed", "input.pointer.scroll_factor",
 			"input.pointer.left_handed", "input.pointer.tap", "input.pointer.tap_button_map", "input.pointer.drag_lock", "input.pointer.click_method", "input.pointer.scroll_method",
 			"input.pointer.scroll_button_lock", "input.pointer.disable_while_typing", "input.pointer.disabled_on_external_mouse")},
-		sectionSpec{title: "wm-section-trackpoint", rows: wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method", "input.trackpoint.accel_profile", "input.trackpoint.accel_speed", "input.trackpoint.scroll_factor",
-			"input.trackpoint.left_handed", "input.trackpoint.tap", "input.trackpoint.tap_button_map", "input.trackpoint.drag_lock", "input.trackpoint.click_method",
-			"input.trackpoint.scroll_button_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.disabled_on_external_mouse")},
 		sectionSpec{title: "wm-section-touchpad", rows: wmFields("input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation", "input.touchpad.click_method", "input.touchpad.scroll_method", "input.touchpad.accel_profile", "input.touchpad.accel_speed", "input.touchpad.scroll_factor",
 			"input.touchpad.left_handed", "input.touchpad.tap_button_map", "input.touchpad.scroll_button_lock", "input.touchpad.disabled_on_external_mouse")},
+		sectionSpec{title: "wm-section-gestures", rows: []rowSpec{
+			wmObjects("gestures.swipe", "fingers", "direction", "modifiers"), wmObjects("gestures.pinch", "fingers", "direction", "modifiers"),
+			wmObjects("gestures.hold", "fingers", "modifiers"), wmField("gestures.distance"), wmField("gestures.edge_width"),
+		}},
+		sectionSpec{title: "wm-section-trackpoint", advanced: true, rows: wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method", "input.trackpoint.accel_profile", "input.trackpoint.accel_speed", "input.trackpoint.scroll_factor",
+			"input.trackpoint.left_handed", "input.trackpoint.tap", "input.trackpoint.tap_button_map", "input.trackpoint.drag_lock", "input.trackpoint.click_method",
+			"input.trackpoint.scroll_button_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.disabled_on_external_mouse")},
 	)
 }
 
 func wmBindsPage() pageSpec {
 	return wmPage("wm-binds", "ld-key-round-symbolic",
 		sectionSpec{title: "wm-section-binds", rows: []rowSpec{wmObjects("binds", "chord", "action")}},
-		sectionSpec{title: "wm-section-submaps", rows: []rowSpec{wmSubmaps()}},
 		sectionSpec{title: "wm-section-app-shortcuts", rows: []rowSpec{appShortcutsRow(), wmField("client_hotkeys")}},
-		sectionSpec{title: "wm-section-gestures", rows: []rowSpec{
-			wmObjects("gestures.swipe", "fingers", "direction", "modifiers"), wmObjects("gestures.pinch", "fingers", "direction", "modifiers"),
-			wmObjects("gestures.hold", "fingers", "modifiers"), wmField("gestures.distance"), wmField("gestures.edge_width"),
-		}},
+		sectionSpec{title: "wm-section-submaps", advanced: true, rows: []rowSpec{wmSubmaps()}},
 	)
 }
 

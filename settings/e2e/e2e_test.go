@@ -332,7 +332,7 @@ func TestTheAppOpensOnALysWMPageAsAClientOfLysWM(t *testing.T) {
 	}
 	found := false
 	for _, p := range pages {
-		found = found || p.ID == "wm-input"
+		found = found || p.ID == "wm-keyboard"
 	}
 	if !found {
 		t.Fatalf("the launcher would not see the lys-wm pages: %+v", pages)
@@ -343,7 +343,7 @@ func TestTheAppOpensOnALysWMPageAsAClientOfLysWM(t *testing.T) {
 	}
 
 	var appLog bytes.Buffer
-	app := exec.Command(bin, settingspage.PageFlag, "wm-input")
+	app := exec.Command(bin, settingspage.PageFlag, "wm-keyboard")
 	app.Stdout, app.Stderr = &appLog, &appLog
 	if err := app.Start(); err != nil {
 		t.Fatal(err)
@@ -487,10 +487,10 @@ func TestTheShortcutRecorderHoldsLysWMsBindsOffAndWritesTheChord(t *testing.T) {
 	}
 	bin := buildApp(t)
 	s.Display()
-	s.launch(t, bin, settingspage.PageFlag, "wm-input")
+	s.launch(t, bin, settingspage.PageFlag, "wm-keyboard")
 	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
 	waittest.UntilSlow(t, func() bool {
-		for _, args := range [][]string{{settingspage.PageFlag, "wm-input"}, {settingspage.SettingFlag, "wm:binds"}} {
+		for _, args := range [][]string{{settingspage.PageFlag, "wm-keyboard"}, {settingspage.SettingFlag, "wm:binds"}} {
 			if out, err := exec.Command(bin, args...).CombinedOutput(); err != nil {
 				t.Fatalf("%v: %v\n%s", args, err, out)
 			}
@@ -562,16 +562,16 @@ func TestARecordedAppShortcutPressesWhatTheAppRegistered(t *testing.T) {
 	bin := buildApp(t)
 	s.Display()
 	presses := registerShortcut(t, "org.example.Recorder", "start")
-	s.launch(t, bin, settingspage.PageFlag, "wm-input")
+	s.launch(t, bin, settingspage.PageFlag, "wm-keyboard")
 	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
 	waittest.UntilSlow(t, func() bool {
-		for _, args := range [][]string{{settingspage.PageFlag, "wm-input"}, {settingspage.SettingFlag, "wm:binds"}} {
+		for _, args := range [][]string{{settingspage.PageFlag, "wm-keyboard"}, {settingspage.SettingFlag, "wm:binds"}} {
 			if out, err := exec.Command(bin, args...).CombinedOutput(); err != nil {
 				t.Fatalf("%v: %v\n%s", args, err, out)
 			}
 		}
 		time.Sleep(settle / 6)
-		for _, key := range []string{"Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "space"} {
+		for _, key := range []string{"Tab", "Tab", "Tab", "Tab", "space"} {
 			press(t, key)
 		}
 		if within(s.inhibiting) {

@@ -57,13 +57,13 @@ func TestAWMSettingResolvesWithAndWithoutItsPrefix(t *testing.T) {
 	index := []settingEntry{
 		{page: "animations", path: "animations.enabled"},
 		{page: "wm-motion", path: "wm:animations.enabled"},
-		{page: "wm-input", path: "wm:input.touchpad.natural_scroll"},
+		{page: "wm-pointer", path: "wm:input.touchpad.natural_scroll"},
 	}
 	for path, page := range map[string]string{
 		"animations.enabled":               "animations",
 		"wm:animations.enabled":            "wm-motion",
-		"input.touchpad.natural_scroll":    "wm-input",
-		"wm:input.touchpad.natural_scroll": "wm-input",
+		"input.touchpad.natural_scroll":    "wm-pointer",
+		"wm:input.touchpad.natural_scroll": "wm-pointer",
 	} {
 		if hit, ok := findSetting(index, path); !ok || hit.page != page {
 			t.Errorf("%s: %+v %v, want page %s", path, hit, ok, page)

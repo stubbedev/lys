@@ -39,7 +39,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Appearance | `theme`, `wallpaper`, `fonts`, `motion` |
 | Displays | `wm-outputs` (the arrangement and lys-wm's display keys with lys-wm; lys-shell's tearing mode) |
 | Sound | `sound` |
-| Input | `wm-input`, `wm-binds` |
+| Input | `wm-keyboard` (layouts, typing, keyboard accessibility, the cursor), `wm-pointer` (mouse, touchpad, gestures, trackpoint), `wm-binds` (keyboard shortcuts, app shortcuts, modes) |
 | Notifications & Focus | `notifications` (with Do Not Disturb and the bar's bell), `osd` |
 | Power & Battery | `power-battery` (with the battery alerts and when to switch to power saver), `idle` |
 | Apps | `default-apps`, `login-items`, `launcher`, `launcher-modes` |

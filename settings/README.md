@@ -31,7 +31,7 @@ alone (`lys.nixosModules.lys-settings`, `lys.homeModules.lys-settings`).
 
 ```sh
 lys-settings                                          # open the window
-lys-settings --page wm-input                          # open on a page
+lys-settings --page wm-keyboard                        # open on a page
 lys-settings --setting input.touchpad.natural_scroll  # open on a setting, focused
 lys-settings --list-pages                             # print the pages and settings as JSON
 ```

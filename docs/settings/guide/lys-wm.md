@@ -13,8 +13,9 @@ key does.
 | Shadow & Blur | `wm-effects` | `decoration.shadow`, `decoration.blur` |
 | Motion | `motion` | `animations.enabled` and `animations.reduced_motion` (one switch each with lys-shell's), `overview`, `switcher`, `showdesktop`, `drag_preview`, `hot_corners` |
 | Tiling & Tabs | `wm-tiling` | `autotile`, `tabs` |
-| Input | `wm-input` | `input.keyboard`, `input.pointer`, `input.trackpoint`, `input.touchpad` |
-| Keys & Gestures | `wm-binds` | `binds`, `submaps`, app shortcuts, `gestures` |
+| Keyboard | `wm-keyboard` | `input.keyboard`, `cursor` |
+| Mouse & Touchpad | `wm-pointer` | `input.pointer`, `input.touchpad`, `gestures`, `input.trackpoint` |
+| Keyboard Shortcuts | `wm-binds` | `binds`, app shortcuts, `submaps` |
 | Displays | `wm-outputs` | Output layout, `color_management`, `tearing`, `gpu`, `lid_action` |
 | Rules & Session | `wm-session` | `rules`, `env`, `xwayland`, `palette` |
 

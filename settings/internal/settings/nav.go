@@ -73,7 +73,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 		{key: "settings-nav-appearance", pages: []pageSpec{themePage(cfg), wallpaperPage(cfg), fontsPage(cfg), motionPage(cfg)}},
 		{key: "settings-nav-displays", pages: []pageSpec{displaysPage()}},
 		{key: "settings-nav-sound-section", pages: []pageSpec{soundPage(cfg)}},
-		{key: "settings-nav-input", pages: []pageSpec{wmInputPage(), wmBindsPage()}},
+		{key: "settings-nav-input", pages: []pageSpec{wmKeyboardPage(), wmPointerPage(), wmBindsPage()}},
 		{key: "settings-nav-notifications-focus", pages: []pageSpec{notificationsPage(cfg), osdPage(cfg)}},
 		{key: "settings-nav-power", pages: []pageSpec{powerBatteryPage(cfg), idlePage(cfg)}},
 		{key: "settings-nav-apps", pages: []pageSpec{defaultAppsPage(cfg), loginItemsPage(cfg), launcherPage(cfg), launcherModesPage(cfg)}},

@@ -43,8 +43,8 @@ func TestEachPartShowsOnlyItsOwnPagesAndRows(t *testing.T) {
 		pages, absent []string
 	}{
 		{"both", bothParts, []string{"bar", "theme", "wm-windows", displaysID, "users"}, nil},
-		{"lys-shell alone", shellOnly, []string{"bar", "theme", "notifications", "users", soundID, displaysID}, []string{"wm-windows", "wm-input"}},
-		{"lys-wm alone", wmOnly, []string{"wm-windows", "wm-input", displaysID, "users", soundID, loginItemsID}, []string{"bar", "theme", "notifications", "lock"}},
+		{"lys-shell alone", shellOnly, []string{"bar", "theme", "notifications", "users", soundID, displaysID}, []string{"wm-windows", "wm-keyboard"}},
+		{"lys-wm alone", wmOnly, []string{"wm-windows", "wm-keyboard", displaysID, "users", soundID, loginItemsID}, []string{"bar", "theme", "notifications", "lock"}},
 		{"neither", neither, []string{"users", soundID, dateTimeID}, []string{"bar", "wm-windows", "lock"}},
 	} {
 		ids := pageIDs(tc.installed)
