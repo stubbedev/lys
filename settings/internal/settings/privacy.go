@@ -25,7 +25,7 @@ func privacyPage(*config.Config) pageSpec {
 		id: settingspage.PrivacyID, navKey: "settings-nav-privacy", icon: "ld-eye-symbolic",
 		header: "settings-page-privacy",
 		sections: []sectionSpec{
-			{title: "settings-section-screen-share", rows: fields("portal.screen-cast.reminder-days")},
+			{title: "settings-section-screen-share", rows: []rowSpec{field("portal.screen-cast.reminder-days", durationChoice(unitDays, 7, 30, 90))}},
 			{title: "settings-section-share-picker", rows: []rowSpec{
 				field("share-picker.default-page"), field("share-picker.hide-token-restore"),
 				field("share-picker.width", sizeBase(config.SharePickerWidthBaseRem)),

@@ -807,6 +807,11 @@ settings-duration-seconds = { $n ->
     [one] 1 seconde
    *[other] { $n } seconden
 }
+settings-duration-days = { $n ->
+    [one] 1 dag
+   *[other] { $n } dagen
+}
+settings-duration-custom = Aangepast
 settings-advanced-show = Tonen
 settings-advanced-hide = Verbergen
 settings-section-bar-item = Balkonderdeel

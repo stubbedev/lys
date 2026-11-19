@@ -100,7 +100,7 @@ func startPasswordsWith(t *testing.T, items int, yaml string) *passwordsRig {
 	k := testKit(t, yaml)
 	l := &loop{t: t, queue: make(chan func(), 64)}
 	k.invoke = func(fn func()) { l.queue <- fn }
-	p := passwordsFooter(k).(*passwordsPanel)
+	p := passwordsKeyring(k).(*passwordsPanel)
 	t.Cleanup(p.close)
 	return &passwordsRig{srv: srv, bus: bus, p: p, l: l, mon: mon}
 }

@@ -808,6 +808,11 @@ settings-duration-seconds = { $n ->
     [one] 1 segundo
    *[other] { $n } segundos
 }
+settings-duration-days = { $n ->
+    [one] 1 dia
+   *[other] { $n } dias
+}
+settings-duration-custom = Personalizado
 settings-advanced-show = Mostrar
 settings-advanced-hide = Ocultar
 settings-section-bar-item = Item da barra

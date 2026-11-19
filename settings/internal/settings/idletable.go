@@ -95,14 +95,18 @@ func idleTimesOn(s store, source idleSource) (map[idleStage]idleTime, error) {
 }
 
 func durationLabel(value string) string {
-	t := locale.T()
 	if value == idleNever {
-		return t.Get("settings-duration-never")
+		return locale.T().Get("settings-duration-never")
 	}
 	d, err := time.ParseDuration(value)
 	if err != nil {
 		return value
 	}
+	return durationWords(d)
+}
+
+func durationWords(d time.Duration) string {
+	t := locale.T()
 	switch {
 	case d >= time.Hour && d%time.Hour == 0:
 		return t.Get("settings-duration-hours", i18n.Int("n", int64(d/time.Hour)))

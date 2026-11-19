@@ -43,10 +43,10 @@ func passwordsPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: passwordsID, navKey: "settings-nav-passwords", icon: "ld-key-round-symbolic",
 		header: "settings-page-passwords",
+		lead:   passwordsKeyring,
 		sections: []sectionSpec{
-			{title: "settings-section-passwords-reveal", rows: fields(repromptPath)},
+			{title: "settings-section-passwords-reveal", rows: []rowSpec{field(repromptPath, durationChoice(unitMinutes, 1, 5, 15, 60))}},
 		},
-		footer: passwordsFooter,
 	}
 }
 
@@ -110,7 +110,7 @@ type passwordsPanel struct {
 	revealFace *widget.ButtonContent
 }
 
-func passwordsFooter(k *kit) widget.Widget {
+func passwordsKeyring(k *kit) widget.Widget {
 	t := locale.T()
 	p := &passwordsPanel{Box: sectionStack(), k: k, seen: map[dbus.ObjectPath]time.Time{}, now: time.Now}
 	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
