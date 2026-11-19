@@ -515,6 +515,7 @@ settings-nav-users = Benutzer
 settings-page-users = Benutzer
 settings-section-users-avatar = Bild
     .description = Was der Anmelde- und der Sperrbildschirm für Sie anzeigen
+    .keywords = Avatar, Foto, Profilbild
 settings-section-users-account = Konto
     .description = Wie Sie sich anmelden
 settings-section-users-others = Andere Benutzer

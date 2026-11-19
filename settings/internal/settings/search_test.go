@@ -39,6 +39,31 @@ func TestSettingIndexListsEveryRowOfEveryPage(t *testing.T) {
 	}
 }
 
+func TestSearchFindsTheUsersPagesParts(t *testing.T) {
+	index := settingIndex(layout(config.Defaults(), bothParts))
+	for query, path := range map[string]string{"password": "users.password", "avatar": "users.picture", "fingerprint": "users.fingerprint", "full name": "users.name", "add user": "users.add"} {
+		hits := searchSettings(index, query)
+		if !slices.ContainsFunc(hits, func(e settingEntry) bool { return e.path == path && e.page == usersID }) {
+			t.Errorf("searching %q does not find %s", query, path)
+		}
+		if err := checkSetting(bothParts, usersID, path); err != nil {
+			t.Errorf("%s: %v", path, err)
+		}
+	}
+	if err := checkSetting(bothParts, usersID, "users.nothing"); err == nil {
+		t.Error("an unknown users path was accepted")
+	}
+}
+
+func TestOpeningAPanelsTopicOpensItsPage(t *testing.T) {
+	k := testKit(t, "")
+	w := newWindow(k, k.store.svc.Config(), (&fakeAfter{}).after)
+	w.openSetting("users.password")
+	if w.pageID != usersID {
+		t.Fatalf("opening users.password shows %q", w.pageID)
+	}
+}
+
 func TestSearchRanksLabelsOverPlacesOverDescriptions(t *testing.T) {
 	index := []settingEntry{
 		{page: "a", label: "Width", place: "Bar › Opacity", order: 0},

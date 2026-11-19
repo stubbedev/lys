@@ -57,6 +57,13 @@ func usersPage(*config.Config) pageSpec {
 		id: usersID, navKey: "settings-nav-users", icon: "ld-user-symbolic",
 		header: "settings-page-users",
 		footer: usersFooter,
+		panel: []panelSetting{
+			{"users.name", "settings-users-name", "settings-section-users-account"},
+			{"users.picture", "settings-section-users-avatar", "settings-section-users-avatar"},
+			{"users.password", "settings-users-password", "settings-section-users-account"},
+			{"users.fingerprint", "settings-section-users-fingerprint", "settings-section-users-fingerprint"},
+			{"users.add", "settings-users-add", "settings-section-users-others"},
+		},
 	}
 }
 

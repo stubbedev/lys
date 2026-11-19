@@ -14,7 +14,7 @@ A second launch raises the open window on the page or setting it names.
 | Option | Effect |
 | --- | --- |
 | `--page <id>` | Open on a page |
-| `--setting <path>` | Open on the page holding a setting, with its control focused. A lys-shell config path (`bar.location`), or `wm:` and a lys-wm path (`wm:input.touchpad.natural_scroll`); `wm:` may be left out where lys-shell has no such path. A control a page reads from the system rather than a config, such as the time zone, has a path under its page's ID (`date-time.time-zone`, `region.lc-paper`, `sound.balance`) and opens that page |
+| `--setting <path>` | Open on the page holding a setting, with its control focused. A lys-shell config path (`bar.location`), or `wm:` and a lys-wm path (`wm:input.touchpad.natural_scroll`); `wm:` may be left out where lys-shell has no such path. A control a page reads from the system rather than a config, such as the time zone, has a path under its page's ID (`date-time.time-zone`, `region.lc-paper`, `sound.balance`) and opens that page. The Users page's parts open it by `users.name`, `users.picture`, `users.password`, `users.fingerprint` and `users.add` |
 | `--list-pages` | Print every page and its settings as JSON and exit |
 | `-V`, `--version` | Print the version |
 | `-h`, `--help` | Print help |

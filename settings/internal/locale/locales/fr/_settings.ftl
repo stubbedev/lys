@@ -518,6 +518,7 @@ settings-nav-users = Utilisateurs
 settings-page-users = Utilisateurs
 settings-section-users-avatar = Image
     .description = Ce que l'écran de connexion et l'écran de verrouillage affichent pour vous
+    .keywords = avatar, photo, portrait
 settings-section-users-account = Compte
     .description = Comment vous vous connectez
 settings-section-users-others = Autres utilisateurs

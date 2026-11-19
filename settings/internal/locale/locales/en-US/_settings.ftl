@@ -515,6 +515,7 @@ settings-nav-users = Users
 settings-page-users = Users
 settings-section-users-avatar = Picture
     .description = What the login screen and the lock screen show for you
+    .keywords = avatar, photo, image, face
 settings-section-users-account = Account
     .description = How you sign in
 settings-section-users-others = Other Users

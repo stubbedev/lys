@@ -505,6 +505,7 @@ settings-nav-users = Gebruikers
 settings-page-users = Gebruikers
 settings-section-users-avatar = Afbeelding
     .description = Wat het aanmeldscherm en het vergrendelscherm voor jou tonen
+    .keywords = avatar, foto, profielfoto
 settings-section-users-account = Account
     .description = Hoe je je aanmeldt
 settings-section-users-others = Andere gebruikers

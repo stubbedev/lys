@@ -515,6 +515,7 @@ settings-nav-users = Usuarios
 settings-page-users = Usuarios
 settings-section-users-avatar = Imagen
     .description = Lo que muestran de usted la pantalla de inicio de sesión y la pantalla de bloqueo
+    .keywords = avatar, foto, retrato
 settings-section-users-account = Cuenta
     .description = Cómo inicia sesión
 settings-section-users-others = Otros usuarios
