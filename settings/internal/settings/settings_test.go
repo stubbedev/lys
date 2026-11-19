@@ -2379,7 +2379,7 @@ func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
 	seen := 0
 	for _, sec := range p.sections {
 		for _, r := range sec.rows {
-			if !strings.HasSuffix(r.path, "duration") {
+			if !strings.HasSuffix(r.path, "duration") || r.action {
 				continue
 			}
 			seen++

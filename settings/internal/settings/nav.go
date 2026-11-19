@@ -133,7 +133,11 @@ func motionPage(*config.Config) pageSpec {
 		sections: []sectionSpec{
 			{title: "settings-section-general", rows: []rowSpec{
 				twinToggle("animations.enabled", "animations.enabled"), twinToggle("animations.reduced-motion", "animations.reduced_motion"),
-				field("animations.transition"), field("animations.duration", animationDuration),
+				field("animations.transition"), field("animations.indicators"),
+			}},
+			{title: "settings-section-speed", rows: []rowSpec{speedRow()}},
+			{title: "settings-section-durations", advanced: true, rows: []rowSpec{
+				field("animations.duration", animationDuration), field("animations.ui-duration", animationDuration), field("animations.interaction-duration", animationDuration),
 			}},
 			{title: "settings-section-direction", advanced: true, rows: []rowSpec{
 				field("animations.enter"), field("animations.exit"),
@@ -143,9 +147,6 @@ func motionPage(*config.Config) pageSpec {
 			{title: "settings-animations-dialog", advanced: true, rows: surfaceAnimationRows("animations.dialog")},
 			{title: "settings-animations-file-chooser", advanced: true, rows: surfaceAnimationRows("animations.file-chooser")},
 			{title: "settings-animations-print", advanced: true, rows: surfaceAnimationRows("animations.print")},
-			{title: "settings-section-speed", rows: []rowSpec{
-				field("animations.ui-duration", animationDuration), field("animations.interaction-duration", animationDuration), field("animations.indicators"),
-			}},
 			{title: "wm-section-overview", rows: []rowSpec{wmField("overview.blur"), wmField("overview.dim", fraction), wmField("switcher.open_delay"), wmField("showdesktop.peek")}},
 			{title: "wm-section-drag", rows: wmFields("drag_preview.enabled", "drag_preview.opacity", "drag_preview.blur", "drag_preview.snap_distance",
 				"drag_preview.snap_windows", "drag_preview.drag_switch.width", "drag_preview.drag_switch.frames")},

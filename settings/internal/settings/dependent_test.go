@@ -69,7 +69,7 @@ func TestSoftPixelsKeepAValuePastTheSlider(t *testing.T) {
 
 func rowOf(t *testing.T, p *settingsPage, path string) *settingRow {
 	t.Helper()
-	i := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == path })
+	i := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == path && !r.action })
 	if i < 0 {
 		t.Fatalf("no %s row", path)
 	}
@@ -187,5 +187,42 @@ func TestDurationsAreSlidersThatKeepALongerValue(t *testing.T) {
 	dock := layoutPage(t, k, "dock")
 	if _, ok := rowOf(t, dock, "dock.auto-hide-delay-ms").ctl.(*softRange); !ok {
 		t.Errorf("the dock's hide delay is a %T, not a slider", rowOf(t, dock, "dock.auto-hide-delay-ms").ctl)
+	}
+}
+
+func speedCards(t *testing.T, configYAML string) (*kit, *choiceCards) {
+	t.Helper()
+	k := testKit(t, configYAML)
+	return k, fieldControl(k, k.store, speedRow()).(*choiceCards)
+}
+
+func TestASpeedSetsTheThreeDurationsTogether(t *testing.T) {
+	k, c := speedCards(t, "")
+	if c.current != "normal" {
+		t.Fatalf("the default durations read as %q, want normal", c.current)
+	}
+	c.choose("fast")
+	want := map[string]int64{"animations.duration": 100, "animations.ui-duration": 125, "animations.interaction-duration": 75}
+	for path, ms := range want {
+		if got := k.store.value(path); got != ms {
+			t.Errorf("fast stored %s = %v, want %d", path, got, ms)
+		}
+	}
+	if c.current != "fast" {
+		t.Errorf("after choosing fast the cards show %q", c.current)
+	}
+	c.choose("instant")
+	if got := k.store.value("animations.ui-duration"); got != int64(0) {
+		t.Errorf("instant stored a UI duration of %v", got)
+	}
+}
+
+func TestDurationsNoSpeedGivesShowNoSpeedChosen(t *testing.T) {
+	_, c := speedCards(t, "animations:\n  duration: 200\n  ui-duration: 900\n")
+	if c.current != "" {
+		t.Errorf("hand-set durations read as the speed %q", c.current)
+	}
+	if err := speedSlot(c.cards[0].k).set("warp"); err == nil {
+		t.Error("an unknown speed was accepted")
 	}
 }
