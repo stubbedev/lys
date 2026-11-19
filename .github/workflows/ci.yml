@@ -28,7 +28,7 @@ jobs:
       shells: ${{ steps.plan.outputs.shells }}
       builds: ${{ steps.plan.outputs.builds }}
       jobs: ${{ steps.plan.outputs.jobs }}
-      build-jobs: ${{ steps.plan.outputs.build-jobs }}
+      lanes: ${{ steps.plan.outputs.lanes }}
       packages: ${{ steps.plan.outputs.packages }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,12 +75,20 @@ jobs:
     secrets:
       XILO_TOKEN: ${{ secrets.XILO_TOKEN }}
 
-  build-job:
-    needs: [plan, build]
-    if: ${{ !cancelled() && needs.plan.outputs.build-jobs != '[]' && needs.build.result != 'failure' }}
-    uses: ./.github/workflows/run.yml
+  lane:
+    name: ${{ matrix.name }}
+    needs: plan
+    if: needs.plan.outputs.lanes != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.lanes) }}
+    uses: ./.github/workflows/lane.yml
     with:
-      matrix: ${{ needs.plan.outputs.build-jobs }}
+      build: ${{ toJSON(matrix.build) }}
+      jobs: ${{ toJSON(matrix.jobs) }}
+    secrets:
+      XILO_TOKEN: ${{ secrets.XILO_TOKEN }}
 
   job:
     needs: [plan, shells]
@@ -104,7 +112,7 @@ jobs:
       substitute-only: true
 
   ci:
-    needs: [plan, shells, build, build-job, job, package]
+    needs: [plan, shells, build, lane, job, package]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10

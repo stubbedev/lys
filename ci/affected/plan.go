@@ -80,12 +80,18 @@ type Matrix struct {
 	FreeDisk bool   `json:"free-disk"`
 }
 
+type Lane struct {
+	Name  string   `json:"name"`
+	Build Matrix   `json:"build"`
+	Jobs  []Matrix `json:"jobs"`
+}
+
 type Plan struct {
 	Components []string `json:"components"`
 	Shells     []Matrix `json:"shells"`
 	Builds     []Matrix `json:"builds"`
 	Jobs       []Matrix `json:"jobs"`
-	BuildJobs  []Matrix `json:"build-jobs"`
+	Lanes      []Lane   `json:"lanes"`
 	Packages   []string `json:"packages"`
 }
 
@@ -183,6 +189,9 @@ func validate(cfg Config) error {
 		for _, j := range c.Jobs {
 			if j.AfterBuild && len(c.VMs) == 0 {
 				errs = append(errs, fmt.Errorf("%s / %s runs after its component's build, but %s has no VM checks and so no build of its own", name, j.Name, name))
+			}
+			if j.AfterBuild && slices.ContainsFunc(j.Runners, func(r Runner) bool { return r != vmRunner }) {
+				errs = append(errs, fmt.Errorf("%s / %s runs after its component's build, which only %s has, yet runs on %v", name, j.Name, vmRunner, j.Runners))
 			}
 			if j.Name == "" {
 				errs = append(errs, fmt.Errorf("%s has a job without a name", name))
@@ -442,27 +451,23 @@ func matches(path, file string) bool {
 }
 
 func plan(cfg Config, names []string) Plan {
-	p := Plan{Components: names, Shells: []Matrix{}, Builds: []Matrix{}, Jobs: []Matrix{}, BuildJobs: []Matrix{}, Packages: []string{}}
+	p := Plan{Components: names, Shells: []Matrix{}, Builds: []Matrix{}, Jobs: []Matrix{}, Lanes: []Lane{}, Packages: []string{}}
 	for _, name := range names {
 		c := cfg.Components[name]
 		if c.Package {
 			p.Packages = append(p.Packages, name)
 		}
-		for _, group := range c.VMs {
-			m := matrix(strings.Join(group, " "), strings.Join(group, " + "), vmRunner, "just vm-checks "+strings.Join(group, " "))
-			m.KVM, m.FreeDisk = true, c.FreeDisk
-			p.BuildJobs = append(p.BuildJobs, m)
+		if l, ok := lane(name, c); ok {
+			p.Lanes = append(p.Lanes, l)
 		}
 	}
 	for _, name := range names {
 		for _, j := range cfg.Components[name].Jobs {
+			if j.AfterBuild {
+				continue
+			}
 			for _, r := range j.Runners {
-				m := matrix(name+"-"+j.Name, name+" / "+j.Name, r, j.Run)
-				if j.AfterBuild {
-					p.BuildJobs = append(p.BuildJobs, m)
-					continue
-				}
-				p.Jobs = append(p.Jobs, m)
+				p.Jobs = append(p.Jobs, componentJob(name, j, r))
 			}
 		}
 	}
@@ -474,12 +479,39 @@ func plan(cfg Config, names []string) Plan {
 		}
 	}
 	for _, r := range runners {
-		p.Builds = append(p.Builds, cfg.builds(names, r)...)
+		if b, ok := cfg.sharedBuild(names, r); ok {
+			p.Builds = append(p.Builds, b)
+		}
 		if s, ok := cfg.shells(p, names, r); ok {
 			p.Shells = append(p.Shells, s)
 		}
 	}
 	return p
+}
+
+func lane(name string, c Component) (Lane, bool) {
+	vms := c.vmChecks(vmRunner)
+	if len(vms) == 0 {
+		return Lane{}, false
+	}
+	b := build([]string{name}, vms, vmRunner)
+	b.FreeDisk = c.FreeDisk
+	l := Lane{Name: name, Build: b, Jobs: []Matrix{}}
+	for _, group := range c.VMs {
+		m := matrix(strings.Join(group, " "), strings.Join(group, " + "), vmRunner, "just vm-checks "+strings.Join(group, " "))
+		m.KVM, m.FreeDisk = true, c.FreeDisk
+		l.Jobs = append(l.Jobs, m)
+	}
+	for _, j := range c.Jobs {
+		if j.AfterBuild {
+			l.Jobs = append(l.Jobs, componentJob(name, j, vmRunner))
+		}
+	}
+	return l, true
+}
+
+func componentJob(name string, j Job, r Runner) Matrix {
+	return matrix(name+"-"+j.Name, name+" / "+j.Name, r, j.Run)
 }
 
 func (cfg Config) shells(p Plan, names []string, r Runner) (Matrix, bool) {
@@ -518,25 +550,18 @@ func goJob(job []Target, names []string, r Runner) (Matrix, bool) {
 	return m, true
 }
 
-func (cfg Config) builds(names []string, r Runner) []Matrix {
-	var out []Matrix
+func (cfg Config) sharedBuild(names []string, r Runner) (Matrix, bool) {
 	var shared []string
 	for _, name := range names {
 		c := cfg.Components[name]
-		if vms := c.vmChecks(r); len(vms) > 0 {
-			m := build([]string{name}, vms, r)
-			m.FreeDisk = c.FreeDisk
-			out = append(out, m)
-			continue
-		}
-		if len(cfg.suites(c, r)) > 0 {
+		if len(c.vmChecks(r)) == 0 && len(cfg.suites(c, r)) > 0 {
 			shared = append(shared, name)
 		}
 	}
-	if len(shared) > 0 {
-		out = append(out, build(shared, nil, r))
+	if len(shared) == 0 {
+		return Matrix{}, false
 	}
-	return out
+	return build(shared, nil, r), true
 }
 
 func build(components, vms []string, r Runner) Matrix {

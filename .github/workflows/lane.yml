@@ -1,0 +1,34 @@
+name: lane
+
+on:
+  workflow_call:
+    inputs:
+      build:
+        description: The plan's build entry of one component with VM checks, as JSON.
+        required: true
+        type: string
+      jobs:
+        description: The plan's job entries on that build, as JSON.
+        required: true
+        type: string
+    secrets:
+      XILO_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      matrix: ${{ format('[{0}]', inputs.build) }}
+    secrets:
+      XILO_TOKEN: ${{ secrets.XILO_TOKEN }}
+
+  run:
+    needs: build
+    if: inputs.jobs != '[]'
+    uses: ./.github/workflows/run.yml
+    with:
+      matrix: ${{ inputs.jobs }}

@@ -1,7 +1,7 @@
 {
   "components": {
     "repository": {
-      "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml", ".github/workflows/build.yml", ".github/workflows/run.yml", ".github/workflows/package.yml"],
+      "paths": ["go.mod", "go.sum", "flake.nix", "flake.lock", "justfile", "nix/", "ci/", ".github/actions/", ".github/workflows/ci.yml", ".github/workflows/build.yml", ".github/workflows/run.yml", ".github/workflows/lane.yml", ".github/workflows/package.yml"],
       "go-packages": "nix/go-packages.json",
       "affects-all": true,
       "jobs": [

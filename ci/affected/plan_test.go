@@ -184,7 +184,7 @@ func TestAGoJobKeepsItsIDAndCacheWhenOnlyPartOfItIsAffected(t *testing.T) {
 	}
 }
 
-func TestVMJobsAndJobsAfterTheBuildRunOnTheBuildAndTheRestOnTheDevShells(t *testing.T) {
+func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn(t *testing.T) {
 	cfg := testConfig
 	cfg.Components = maps.Clone(testComponents)
 	wm := cfg.Components["wm"]
@@ -194,17 +194,32 @@ func TestVMJobsAndJobsAfterTheBuildRunOnTheBuildAndTheRestOnTheDevShells(t *test
 	if !slices.Equal(p.Packages, []string{"login", "wm"}) {
 		t.Errorf("packages %v, want login and wm", p.Packages)
 	}
-	wantBuildJobs := []Matrix{
-		{ID: "login-vm-x86-64", Name: "login-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks login-vm", KVM: true},
-		{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true, FreeDisk: true},
-		{ID: "wm-vm-apps-wm-vm-share-x86-64", Name: "wm-vm-apps + wm-vm-share (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps wm-vm-share", KVM: true, FreeDisk: true},
-		{ID: "wm-image-x86-64", Name: "wm / image (x86_64)", Runner: "ubuntu-latest", Run: "just wm::image"},
+	want := []Lane{
+		{
+			Name:  "login",
+			Build: Matrix{ID: "build-login-x86-64", Name: "login (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage login login-vm"},
+			Jobs: []Matrix{
+				{ID: "login-vm-x86-64", Name: "login-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks login-vm", KVM: true},
+			},
+		},
+		{
+			Name:  "wm",
+			Build: Matrix{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps wm-vm-share", FreeDisk: true},
+			Jobs: []Matrix{
+				{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true, FreeDisk: true},
+				{ID: "wm-vm-apps-wm-vm-share-x86-64", Name: "wm-vm-apps + wm-vm-share (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps wm-vm-share", KVM: true, FreeDisk: true},
+				{ID: "wm-image-x86-64", Name: "wm / image (x86_64)", Runner: "ubuntu-latest", Run: "just wm::image"},
+			},
+		},
 	}
-	if !slices.Equal(p.BuildJobs, wantBuildJobs) {
-		t.Fatalf("build jobs\n%+v\nwant\n%+v", p.BuildJobs, wantBuildJobs)
+	if !reflect.DeepEqual(p.Lanes, want) {
+		t.Fatalf("lanes\n%+v\nwant\n%+v", p.Lanes, want)
 	}
-	if len(p.Jobs) == 0 || p.Jobs[0].Run != "just in ui gpu" || slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.KVM }) {
-		t.Fatalf("jobs %+v, want the further jobs first and no VM job", p.Jobs)
+	if len(p.Jobs) == 0 || p.Jobs[0].Run != "just in ui gpu" || slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.KVM || m.Run == "just wm::image" }) {
+		t.Fatalf("jobs %+v, want the further jobs first, and no VM job or job after a build", p.Jobs)
+	}
+	if slices.ContainsFunc(p.Builds, func(m Matrix) bool { return strings.Contains(m.Run, "wm") || strings.Contains(m.Run, "login") }) {
+		t.Fatalf("builds %+v, want login's and wm's builds only in their lanes", p.Builds)
 	}
 }
 
@@ -262,23 +277,40 @@ func TestValidateRefusesAJobAfterABuildItsComponentDoesNotHave(t *testing.T) {
 	wantErrors(t, validate(cfg), []string{"a / x runs after its component's build, but a has no VM checks"})
 }
 
-func TestComponentsWithVMChecksBuildAloneAndTheRestTogether(t *testing.T) {
+func TestValidateRefusesAJobAfterABuildOnARunnerWithoutThatBuild(t *testing.T) {
+	cfg := Config{Components: map[string]Component{"a-vms": {
+		VMs:  [][]string{{"a-vms-x"}},
+		Jobs: []Job{{Name: "image", Runners: []Runner{X86_64, AArch64}, Run: "true", AfterBuild: true}},
+	}}}
+	wantErrors(t, validate(cfg), []string{"a-vms / image runs after its component's build, which only x86_64 has, yet runs on [x86_64 aarch64]"})
+	cfg.Components["a-vms"].Jobs[0].Runners = []Runner{X86_64}
+	if err := validate(cfg); err != nil {
+		t.Fatalf("validate refused a job after the build on x86_64: %v", err)
+	}
+}
+
+func TestComponentsWithVMChecksBuildInTheirLanesAndTheRestTogether(t *testing.T) {
 	p := plan(testConfig, []string{"lib", "login", "ui", "wm"})
 	want := []Matrix{
-		{ID: "build-login-x86-64", Name: "login (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage login login-vm"},
-		{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps wm-vm-share", FreeDisk: true},
 		{ID: "build-lib-ui-x86-64", Name: "lib ui (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage lib ui"},
 		{ID: "build-lib-ui-aarch64", Name: "lib ui (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-stage lib ui"},
 	}
 	if !slices.Equal(p.Builds, want) {
 		t.Fatalf("builds\n%+v\nwant\n%+v", p.Builds, want)
 	}
+	lanes := make([]string, len(p.Lanes))
+	for i, l := range p.Lanes {
+		lanes[i] = l.Build.ID
+	}
+	if !slices.Equal(lanes, []string{"build-login-x86-64", "build-wm-x86-64"}) {
+		t.Fatalf("lane builds %v, want login's and wm's", lanes)
+	}
 }
 
 func TestAComponentWithNothingToBuildHasNoBuild(t *testing.T) {
 	p := plan(testConfig, []string{"polkit", "repository"})
-	if len(p.Builds) != 0 {
-		t.Fatalf("polkit and repository have no Go suites or VM checks, yet the plan builds %+v", p.Builds)
+	if len(p.Builds) != 0 || len(p.Lanes) != 0 {
+		t.Fatalf("polkit and repository have no Go suites or VM checks, yet the plan builds %+v and %+v", p.Builds, p.Lanes)
 	}
 	if len(p.Jobs) != 1 || p.Jobs[0].Run != "just tidy-check" {
 		t.Fatalf("jobs %+v, want only the repository's", p.Jobs)
@@ -293,7 +325,7 @@ func TestAPlanWithoutJobsBuildsNothing(t *testing.T) {
 
 func TestAnEmptyPlanIsEmptyListsNotNull(t *testing.T) {
 	p := plan(testConfig, nil)
-	if p.Jobs == nil || p.Packages == nil || p.Builds == nil || p.Shells == nil || p.BuildJobs == nil {
+	if p.Jobs == nil || p.Packages == nil || p.Builds == nil || p.Shells == nil || p.Lanes == nil {
 		t.Fatalf("an empty plan has nil lists, which GitHub reads as null: %+v", p)
 	}
 }

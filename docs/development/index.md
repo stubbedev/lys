@@ -96,21 +96,27 @@ packages build from. A regeneration that changes no component's entry plans
 only the repository job.
 
 The account runs about twenty jobs at once, so a full run's wall clock is about
-its runner-minutes divided by twenty, plus the build stage it waits for, and
+its runner-minutes divided by twenty, plus the longest lane's build, and
 each job pays about a minute of fixed cost (runner, checkout, Nix install, the
 dev shell). Jobs are therefore as few as fit: work is grouped until a job holds
 six to eight minutes of it, and split only where one suite alone comes near ten.
 
-The jobs run in two lanes, each a stage of builds and the jobs on them:
+The jobs run in lanes, each a build and the jobs on it, none waiting for
+another lane's build:
 
-1. **Build**, per architecture: each component with VM checks there (on
-   x86_64) builds in its own job, `just build-stage wm wm-vms-desktop ...`,
-   its packages, non-VM checks, dev shell and VM closures, first removing the
-   runner's preinstalled toolchains only when the component sets `free-disk`; every other component with Go suites builds in one shared job,
-   `just build-stage lib ui ...`, its packages, non-VM checks and dev shell. A
-   component with neither (`repository`, `packaging`) builds nothing. The VM
-   jobs and the further jobs marked `after-build` wait for these.
-2. **Dev shells**, per architecture: one job, `just build-shells lib ui ...`,
+1. **Component lanes**, one per component with VM checks (on x86_64), the
+   `lanes` of the plan, run by `.github/workflows/lane.yml`: the component's
+   build job, `just build-stage wm wm-vms-desktop ...`, builds its packages,
+   non-VM checks, dev shell and VM closures, first removing the runner's
+   preinstalled toolchains only when the component sets `free-disk`, and its
+   VM jobs and the further jobs it marks `after-build` start as soon as that
+   build is done, not after the other components' builds: wm's VM jobs no
+   longer wait for splash's disk images.
+2. **Shared build**, per architecture: every other component with Go suites
+   builds in one job, `just build-stage lib ui ...`, its packages, non-VM
+   checks and dev shell. A component with neither (`repository`, `packaging`)
+   builds nothing. No job waits for it; the `ci` job does.
+3. **Dev shells**, per architecture: one job, `just build-shells lib ui ...`,
    builds the dev shells of the components with Go suites or packages there,
    which is all the Go jobs, the other further jobs and the package jobs use,
    so they start a minute or so after the plan instead of after the slowest
@@ -129,7 +135,7 @@ substituted once one of them pushed. Both kinds of build job run
 `.github/workflows/build.yml`, and every later job but the package jobs runs
 `.github/workflows/run.yml`, whose Nix runs with `max-jobs = 0`: it only
 substitutes, so a job that would build a lys derivation fails instead of
-building it again. The plan lists the VM jobs longest first, so they take the
+building it again. A lane lists its VM jobs longest first, so they take the
 first runners. The jobs on the builds:
 
    - **VM jobs**, one per entry of a component's `vms`:

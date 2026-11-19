@@ -178,7 +178,11 @@ func writeText(w io.Writer, p Plan) error {
 	if _, err := fmt.Fprintf(w, "components: %s\npackages: %s\n", strings.Join(p.Components, " "), strings.Join(p.Packages, " ")); err != nil {
 		return err
 	}
-	for _, j := range slices.Concat(p.Shells, p.Builds, p.Jobs, p.BuildJobs) {
+	jobs := slices.Concat(p.Shells, p.Builds, p.Jobs)
+	for _, l := range p.Lanes {
+		jobs = append(append(jobs, l.Build), l.Jobs...)
+	}
+	for _, j := range jobs {
 		if _, err := fmt.Fprintf(w, "  %s: %s\n", j.Name, j.Run); err != nil {
 			return err
 		}
@@ -195,7 +199,7 @@ func writeGitHub(p Plan) error {
 	for _, entry := range []struct {
 		key string
 		v   any
-	}{{"components", p.Components}, {"shells", p.Shells}, {"builds", p.Builds}, {"jobs", p.Jobs}, {"build-jobs", p.BuildJobs}, {"packages", p.Packages}} {
+	}{{"components", p.Components}, {"shells", p.Shells}, {"builds", p.Builds}, {"jobs", p.Jobs}, {"lanes", p.Lanes}, {"packages", p.Packages}} {
 		data, err := json.Marshal(entry.v)
 		if err != nil {
 			return fmt.Errorf("encode %s: %w", entry.key, err)
