@@ -1,0 +1,68 @@
+package settings
+
+import (
+	"testing"
+
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
+)
+
+func thresholdKit(t *testing.T) (*kit, *thresholdEditor) {
+	t.Helper()
+	k := testKit(t, "modules:\n  cpu:\n    thresholds:\n      - {above: 70, icon-color: \"#ff0000\"}\n      - {below: 10}\n")
+	e := fieldControl(k, k.store, field("modules.cpu.thresholds", thresholdList)).(*thresholdEditor)
+	e.bar.Arrange(render.Rect{W: 320, H: thresholdBarH})
+	return k, e
+}
+
+func storedBound(k *kit, entry int, key string) any {
+	items, _ := k.store.value("modules.cpu.thresholds").([]any)
+	return items[entry].(map[string]any)[key]
+}
+
+func TestTheThresholdBarHasAStopPerBound(t *testing.T) {
+	_, e := thresholdKit(t)
+	if len(e.bar.stops) != 2 {
+		t.Fatalf("%d stops for two thresholds with one bound each", len(e.bar.stops))
+	}
+	if want, _ := widget.ParseColor("#ff0000"); e.bar.colorOf(e.bar.items[0]) != want {
+		t.Errorf("the first threshold paints %v, want its icon colour", e.bar.colorOf(e.bar.items[0]))
+	}
+	if e.bar.xOf(70) <= e.bar.xOf(10) {
+		t.Error("70 sits left of 10 on the bar")
+	}
+}
+
+func TestDraggingAStopWritesItsBound(t *testing.T) {
+	k, e := thresholdKit(t)
+	stop := e.bar.stops[0].Bounds()
+	e.bar.PressAt(widget.Point{X: stop.X + stop.W/2, Y: stop.Y})
+	e.bar.DragMove(widget.Point{X: e.bar.xOf(85), Y: stop.Y})
+	e.bar.PressEnd()
+	if v := storedBound(k, 0, "above"); v != float64(85) && v != int64(85) {
+		t.Fatalf("dragging the stop to 85 stored %v", v)
+	}
+	e.bar.PressAt(widget.Point{X: e.bar.xOf(40), Y: stop.Y})
+	e.bar.DragMove(widget.Point{X: e.bar.xOf(45), Y: stop.Y})
+	if v := storedBound(k, 0, "above"); v != float64(85) && v != int64(85) {
+		t.Errorf("a press away from every stop moved one to %v", v)
+	}
+}
+
+func TestTheArrowKeysMoveAStop(t *testing.T) {
+	k, e := thresholdKit(t)
+	e.bar.stops[1].KeyAction(widget.KeyRight, 0)
+	e.bar.stops[1].KeyAction(widget.KeyRight, widget.ModShift)
+	if v := storedBound(k, 1, "below"); v != float64(21) && v != int64(21) {
+		t.Errorf("Right then Shift+Right from 10 stored %v, want 21", v)
+	}
+}
+
+func TestACardEditReachesTheBar(t *testing.T) {
+	_, e := thresholdKit(t)
+	e.cards.local = append(e.cards.local, map[string]any{"above": float64(90)})
+	e.cards.commit()
+	if len(e.bar.stops) != 3 {
+		t.Errorf("after a card added a threshold the bar holds %d stops", len(e.bar.stops))
+	}
+}

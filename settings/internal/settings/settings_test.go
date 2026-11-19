@@ -1108,7 +1108,7 @@ func TestThresholdCards(t *testing.T) {
 	k := testKit(t, "")
 	path := "modules.battery.thresholds"
 	_ = k.store.set(path, []any{})
-	c := fieldControl(k, k.store, field(path, thresholdList)).(*cardList)
+	c := fieldControl(k, k.store, field(path, thresholdList)).(*thresholdEditor).cards
 	if len(c.cards) != 0 {
 		t.Fatalf("%d cards for an empty list", len(c.cards))
 	}

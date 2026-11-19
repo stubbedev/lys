@@ -497,8 +497,44 @@ func optionalColor(k *kit, s slot) control {
 	})
 }
 
-// thresholdList edits a list of thresholds.
-var thresholdList = cardRow(cardSpec{
+// thresholdList edits a list of thresholds: the bar over the metric's
+// range above the cards with each threshold's colours.
+var thresholdList = func(r *rowSpec) {
+	r.fullWidth = true
+	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newThresholdEditor(k, s) }
+}
+
+type thresholdEditor struct {
+	*widget.Box
+	bar   *thresholdBar
+	cards *cardList
+}
+
+func newThresholdEditor(k *kit, s slot) *thresholdEditor {
+	e := &thresholdEditor{Box: gapBox(widget.Column)}
+	then := func(after func()) slot {
+		return slot{get: s.get, set: func(v any) error {
+			err := s.set(v)
+			after()
+			return err
+		}, unset: func() {
+			s.unset()
+			after()
+		}}
+	}
+	e.bar = newThresholdBar(k, then(func() { e.cards.refresh() }))
+	e.cards = newCardList(k, then(func() { e.bar.refresh() }), thresholdCards)
+	e.Append(e.bar, false)
+	e.Append(e.cards, false)
+	return e
+}
+
+func (e *thresholdEditor) refresh() {
+	e.bar.refresh()
+	e.cards.refresh()
+}
+
+var thresholdCards = cardSpec{
 	classes: []string{"threshold-editor"}, listCls: "threshold-list", rowClass: "threshold-row", labelCls: "threshold-label",
 	blank: func() map[string]any { return map[string]any{} },
 	title: thresholdTitle,
@@ -511,7 +547,7 @@ var thresholdList = cardRow(cardSpec{
 		{key: "button-bg-color", label: "settings-threshold-button-bg-color", editor: optionalColor},
 		{key: "border-color", label: "settings-threshold-border-color", editor: optionalColor},
 	},
-})
+}
 
 // thresholdBound is the override switch and spin over an optional
 // bound (optional_number_f64_widget at whole numbers).
