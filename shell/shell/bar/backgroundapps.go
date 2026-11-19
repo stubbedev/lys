@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
@@ -54,7 +53,7 @@ func newBackgroundApps(ctx ModuleContext) (Module, error) {
 		return nil, errBackgroundAppsNoService
 	}
 	cfg := ctx.Config.BackgroundApps
-	return newCountIndicator(ctx, config.IconWith(cfg.IconShow, cfg.Icon, cfg.IconColor), func() int { return len(src.List()) }, src.Subscribe), nil
+	return newCountIndicator(ctx, cfg.IconView(), func() int { return len(src.List()) }, src.Subscribe), nil
 }
 
 // backgroundAppsView is the background apps dropdown: a row per app,

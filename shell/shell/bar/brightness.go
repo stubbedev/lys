@@ -6,7 +6,6 @@ import (
 	"log"
 	"math"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -121,7 +120,7 @@ func newBrightness(ctx ModuleContext) (Module, error) {
 	}
 	cfg := ctx.Config.Brightness
 	m := &brightnessModule{ctx: ctx, source: ctx.Brightness}
-	m.icon = barview.Icon(config.IconWith(cfg.IconShow, brightnessIcon(cfg.LevelIcons, 0), cfg.IconColor))
+	m.icon = barview.Icon(cfg.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	followControl(ctx, ctx.Life(), ctx.AutoBrightness, m.applyControl)
 	followReads(ctx, "brightness", &m.firstRead, infallibleStop(ctx.Brightness.Subscribe), m.source.Devices, m.apply)

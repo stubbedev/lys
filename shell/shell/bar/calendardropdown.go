@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -37,43 +38,16 @@ func calendarWeekStart(w config.WeekStart) time.Weekday {
 	return time.Sunday
 }
 
-var (
-	calendarWeekdayIDs = [7]string{"cal-weekday-sun", "cal-weekday-mon", "cal-weekday-tue", "cal-weekday-wed", "cal-weekday-thu", "cal-weekday-fri", "cal-weekday-sat"}
-	calendarDayIDs     = [7]string{"cal-day-sunday", "cal-day-monday", "cal-day-tuesday", "cal-day-wednesday", "cal-day-thursday", "cal-day-friday", "cal-day-saturday"}
-	calendarMonthIDs   = [12]string{
-		"cal-month-january", "cal-month-february", "cal-month-march", "cal-month-april", "cal-month-may", "cal-month-june",
-		"cal-month-july", "cal-month-august", "cal-month-september", "cal-month-october", "cal-month-november", "cal-month-december",
-	}
-	calendarShortDayIDs = [7]string{
-		"cal-day-short-sunday", "cal-day-short-monday", "cal-day-short-tuesday", "cal-day-short-wednesday", "cal-day-short-thursday", "cal-day-short-friday", "cal-day-short-saturday",
-	}
-	calendarShortMonthIDs = [12]string{
-		"cal-month-short-january", "cal-month-short-february", "cal-month-short-march", "cal-month-short-april", "cal-month-short-may", "cal-month-short-june",
-		"cal-month-short-july", "cal-month-short-august", "cal-month-short-september", "cal-month-short-october", "cal-month-short-november", "cal-month-short-december",
-	}
-)
+var calendarWeekdayIDs = [7]string{"cal-weekday-sun", "cal-weekday-mon", "cal-weekday-tue", "cal-weekday-wed", "cal-weekday-thu", "cal-weekday-fri", "cal-weekday-sat"}
 
-// clockNames is the weekday, month and period names a strftime format
-// renders, in the loader's language.
-func clockNames(l *i18n.Loader) strftime.Names {
-	n := strftime.Names{AM: l.Get("cal-period-am"), PM: l.Get("cal-period-pm")}
-	for d := range n.Weekdays {
-		n.Weekdays[d], n.ShortWeekdays[d] = l.Get(calendarDayIDs[d]), l.Get(calendarShortDayIDs[d])
-	}
-	for m := range n.Months {
-		n.Months[m], n.ShortMonths[m] = l.Get(calendarMonthIDs[m]), l.Get(calendarShortMonthIDs[m])
-	}
-	return n
-}
-
-// shellClockNames is clockNames in the desktop locale, built once.
-var shellClockNames = sync.OnceValue(func() strftime.Names { return clockNames(i18n.Shell()) })
+// shellClockNames is barview.ClockNames in the desktop locale, built once.
+var shellClockNames = sync.OnceValue(func() strftime.Names { return barview.ClockNames(i18n.Shell()) })
 
 // calendarNames gives widget.Calendar the shell's localized month and
 // weekday names and its configured week start.
 type calendarNames struct{ weekStart time.Weekday }
 
-func (calendarNames) MonthName(m time.Month) string { return i18n.T(calendarMonthIDs[m-1]) }
+func (calendarNames) MonthName(m time.Month) string { return shellClockNames().Months[m-1] }
 
 func (calendarNames) WeekdayName(w time.Weekday) string { return i18n.T(calendarWeekdayIDs[w]) }
 
@@ -81,7 +55,7 @@ func (n calendarNames) FirstWeekday() time.Weekday { return n.weekStart }
 
 func (calendarNames) FormatDate(d widget.Date) string {
 	return i18n.T("cal-clock-date-rest",
-		i18n.Str("month", i18n.T(calendarMonthIDs[d.Month-1])),
+		i18n.Str("month", shellClockNames().Months[d.Month-1]),
 		i18n.Str("day", strconv.Itoa(d.Day)),
 		i18n.Str("year", strconv.Itoa(d.Year)))
 }
@@ -247,9 +221,9 @@ func (v *calendarView) tick() {
 	v.ampm.SetVisible(use12h)
 	// show-seconds stops the separator blink.
 	setClass(v.timeRow, "show-seconds", clock.DropdownShowSeconds)
-	v.dayName.SetText(i18n.T(calendarDayIDs[now.Weekday()]))
+	v.dayName.SetText(shellClockNames().Weekdays[now.Weekday()])
 	v.dateRest.SetText(i18n.T("cal-clock-date-rest",
-		i18n.Str("month", i18n.T(calendarMonthIDs[now.Month()-1])),
+		i18n.Str("month", shellClockNames().Months[now.Month()-1]),
 		i18n.Str("day", strconv.Itoa(now.Day())),
 		i18n.Str("year", strconv.Itoa(now.Year()))))
 	if today := widget.DateOf(now); today != v.today {

@@ -40,7 +40,7 @@ func newPowerProfiles(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("power-profiles: no power-profiles-daemon available")
 	}
 	m := &powerProfilesModule{ctx: ctx, src: ctx.PowerProfiles}
-	m.icon = barview.Icon(ctx.Config.PowerProfiles.Icons()[config.ProfileBalanced])
+	m.icon = barview.Icon(ctx.Config.PowerProfiles.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	followReads(ctx, "power-profiles", &m.firstRead, ctx.PowerProfiles.Subscribe, m.src.Read, m.apply)
 	return m, nil

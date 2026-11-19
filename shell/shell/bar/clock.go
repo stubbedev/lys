@@ -42,7 +42,7 @@ func clockSampler(ctx ModuleContext, resolution time.Duration) samplerSpec[strin
 		key:   configKey("clock", ctx.Config),
 		pause: pauseLocked,
 		source: func(life context.Context, spawn func(func()), fire func()) error {
-			if store != nil && strings.Contains(cfg.Format.String(), nextEventPlaceholder) {
+			if store != nil && strings.Contains(cfg.Format.String(), barview.NextEventPlaceholder) {
 				changes, stop := store.Changes()
 				spawn(func() { fireOnTicks(life, changes, stop, fire) })
 			}

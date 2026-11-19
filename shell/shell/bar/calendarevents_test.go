@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/i18n"
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -159,14 +160,14 @@ func TestClockLabelShowsTheNextEvent(t *testing.T) {
 	}
 }
 
-// clockNamesIn is clockNames in one of the shell's languages.
+// clockNamesIn is barview.ClockNames in one of the shell's languages.
 func clockNamesIn(t *testing.T, lang string) strftime.Names {
 	t.Helper()
 	l, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID(lang)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return clockNames(l)
+	return barview.ClockNames(l)
 }
 
 func TestTheClockLabelNamesDaysAndMonthsInTheShellLanguage(t *testing.T) {

@@ -450,10 +450,14 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/strftime",
       "desktop/styling",
       "lib/render",
       "ui/app",
       "ui/widget"
+    ],
+    "testImports": [
+      "desktop/shell/treetest"
     ]
   },
   "desktop/shell/lockclient": {

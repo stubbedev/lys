@@ -317,7 +317,7 @@ func newBitwarden(ctx ModuleContext) (Module, error) {
 		return nil, errBitwardenNoHost
 	}
 	m := &bitwardenModule{ctx: ctx}
-	m.icon = barview.Icon(ctx.Config.Bitwarden.Icons()[config.BitwardenLocked])
+	m.icon = barview.Icon(ctx.Config.Bitwarden.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	mountOffLoop(ctx, func() {
 		v, err := ctx.Bitwarden.vault()

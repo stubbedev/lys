@@ -48,12 +48,12 @@ func TestDashboardIconOrder(t *testing.T) {
 		want     string
 	}{
 		{"override wins", "custom-icon", distro("arch", ""), have(), "custom-icon"},
-		{"no os-release", "", none, have("si-archlinux-symbolic"), dashboardFallbackIcon},
+		{"no os-release", "", none, have("si-archlinux-symbolic"), config.DashboardFallbackIcon},
 		{"bundled icon", "", distro("arch", "arch-logo"), have("si-archlinux-symbolic", "arch-logo"), "si-archlinux-symbolic"},
 		{"opensuse variants share one", "", distro("opensuse-leap", ""), have("si-opensuse-symbolic"), "si-opensuse-symbolic"},
 		{"bundled missing falls to LOGO", "", distro("arch", "arch-logo"), have("arch-logo"), "arch-logo"},
 		{"then distributor-logo", "", distro("weird", "nope"), have("distributor-logo-weird"), "distributor-logo-weird"},
-		{"nothing resolves", "", distro("weird", "nope"), have(), dashboardFallbackIcon},
+		{"nothing resolves", "", distro("weird", "nope"), have(), config.DashboardFallbackIcon},
 	} {
 		if got := dashboardIcon(tc.override, tc.distro, tc.exists); got != tc.want {
 			t.Errorf("%s: icon = %q, want %q", tc.name, got, tc.want)

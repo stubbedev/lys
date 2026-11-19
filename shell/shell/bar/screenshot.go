@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -22,7 +21,7 @@ func newScreenshot(ctx ModuleContext) (Module, error) {
 	if cfg.LabelShow {
 		label = cfg.Label
 	}
-	icon := barview.Icon(config.IconWith(cfg.IconShow, cfg.Icon, cfg.IconColor))
+	icon := barview.Icon(cfg.IconView())
 	if icon == nil && label == "" {
 		return nil, errors.New("screenshot: neither the icon nor a label is shown")
 	}

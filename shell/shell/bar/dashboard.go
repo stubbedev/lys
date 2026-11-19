@@ -9,10 +9,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// dashboardFallbackIcon is the dashboard glyph shown when no distro icon
-// resolves.
-const dashboardFallbackIcon = "ld-layout-dashboard-symbolic"
-
 // osReleasePaths are read in order; the first readable one wins.
 var osReleasePaths = []string{"/etc/os-release", "/usr/lib/os-release"}
 
@@ -106,7 +102,7 @@ func dashboardIcon(override string, distro func() (distroInfo, bool), exists fun
 	}
 	info, ok := distro()
 	if !ok {
-		return dashboardFallbackIcon
+		return config.DashboardFallbackIcon
 	}
 	if icon, ok := bundledDistroIcons[info.id]; ok && exists(icon) {
 		return icon
@@ -117,7 +113,7 @@ func dashboardIcon(override string, distro func() (distroInfo, bool), exists fun
 	if logo := "distributor-logo-" + info.id; exists(logo) {
 		return logo
 	}
-	return dashboardFallbackIcon
+	return config.DashboardFallbackIcon
 }
 
 // dashboardModule is the icon-only quick-access button; its default
@@ -129,11 +125,7 @@ type dashboardModule struct {
 
 func newDashboard(ctx ModuleContext) (Module, error) {
 	cfg := ctx.Config.Dashboard
-	first := cfg.IconOverride
-	if first == "" {
-		first = dashboardFallbackIcon
-	}
-	icon := barview.Icon(config.IconConfig{Show: true, Name: first, Color: cfg.IconColor})
+	icon := barview.Icon(cfg.Icon())
 	if cfg.IconOverride == "" {
 		mountOffLoop(ctx, func() {
 			name := dashboardIcon(cfg.IconOverride, detectDistro, widget.ThemeIconExists)

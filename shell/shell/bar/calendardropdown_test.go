@@ -56,7 +56,7 @@ func TestCalendarViewNavigatesAndSelects(t *testing.T) {
 	if v.cal.Shown() != today.FirstOfMonth() || v.cal.Selection() != today {
 		t.Errorf("Today left %v picking %v, want today's month and today", v.cal.Shown(), v.cal.Selection())
 	}
-	if got := v.dayName.Text(); got != i18n.T(calendarDayIDs[time.Now().Weekday()]) {
+	if got := v.dayName.Text(); got != shellClockNames().Weekdays[time.Now().Weekday()] {
 		t.Errorf("day name = %q", got)
 	}
 }

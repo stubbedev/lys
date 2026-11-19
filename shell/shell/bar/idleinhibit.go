@@ -64,7 +64,7 @@ func newIdleInhibit(ctx ModuleContext) (Module, error) {
 		state = idleinhibit.NewState(ctx.Config.IdleInhibit.StartupDuration.Duration())
 	}
 	m := &idleInhibitModule{ctx: ctx, state: state}
-	m.icon = barview.Icon(ctx.Config.IdleInhibit.Icons()[config.IdleInhibitInactive])
+	m.icon = barview.Icon(ctx.Config.IdleInhibit.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.render()
 	changes, stop := state.Changes()

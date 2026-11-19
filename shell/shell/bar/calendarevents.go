@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -17,8 +18,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/service/calendar"
 )
-
-const nextEventPlaceholder = "{{ next_event }}"
 
 func calendarSources(cfg config.ClockConfig) []calendar.Source {
 	out := make([]calendar.Source, len(cfg.Calendars))
@@ -110,11 +109,9 @@ func nextEventText(store *calendar.Store, now time.Time, use12h bool, names strf
 }
 
 func clockLabel(cfg config.ClockConfig, store *calendar.Store, now time.Time, names strftime.Names) string {
-	text := cfg.Format.Layout().FormatIn(now, names)
-	if !strings.Contains(text, nextEventPlaceholder) {
-		return text
-	}
-	return strings.ReplaceAll(text, nextEventPlaceholder, nextEventText(store, now, calendarIs12h(cfg.Format.String()), names))
+	return barview.ClockLabel(cfg, now, names, func() string {
+		return nextEventText(store, now, calendarIs12h(cfg.Format.String()), names)
+	})
 }
 
 type calendarAgenda struct {
