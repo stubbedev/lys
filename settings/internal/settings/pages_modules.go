@@ -264,6 +264,8 @@ func cpuPage(*config.Config) pageSpec {
 
 // dashboardPage is pages/modules/dashboard.
 func dashboardPage(*config.Config) pageSpec {
+	const m = "modules.dashboard"
+	warningError := [2]string{"settings-level-warning", "settings-level-error"}
 	return pageSpec{id: "dashboard", navKey: "settings-nav-dashboard", icon: "ld-layout-dashboard-symbolic", header: "settings-page-dashboard", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.dashboard.icon-override", iconRow),
@@ -272,12 +274,10 @@ func dashboardPage(*config.Config) pageSpec {
 			field("modules.dashboard.user-session.actions", enumList),
 		}},
 		{title: "settings-section-thresholds", rows: []rowSpec{
-			field("modules.dashboard.usage-warning", spin(0, 100, 1, 0)),
-			field("modules.dashboard.usage-error", spin(0, 100, 1, 0)),
-			field("modules.dashboard.temp-warning", spin(0, 150, 1, 0)),
-			field("modules.dashboard.temp-error", spin(0, 150, 1, 0)),
-			field("modules.dashboard.battery-warning", spin(0, 100, 1, 0)),
-			field("modules.dashboard.battery-critical", spin(0, 100, 1, 0)),
+			levelPairRow(m+".usage-warning", m+".usage-error", "settings-dashboard-usage-levels", percentLevels, warningError),
+			levelPairRow(m+".temp-warning", m+".temp-error", "settings-dashboard-temp-levels", celsiusLevels, warningError),
+			levelPairRow(m+".battery-critical", m+".battery-warning", "settings-dashboard-battery-levels", chargeLevels,
+				[2]string{"settings-level-critical", "settings-level-warning"}),
 		}},
 		barItemSection("modules.dashboard", actionChoices("dashboard")),
 	}}

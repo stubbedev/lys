@@ -1003,6 +1003,21 @@ settings-cava-frequency-low = Lowest frequency
 settings-cava-frequency-high = Highest frequency
 settings-cava-frequency-to = to
 settings-cava-frequency-unit = Hz
+settings-dashboard-usage-levels = Usage
+    .description = When the CPU, memory and disk rings turn to warning, then error
+settings-dashboard-temp-levels = Temperature
+    .description = When the CPU temperature ring turns to warning, then error
+settings-dashboard-battery-levels = Battery
+    .description = At or below which charge the battery shows warning, then critical
+settings-level-warning = Warning
+settings-level-error = Error
+settings-level-critical = Critical
+settings-level-unit-percent = { $n ->
+   *[other] { $n } %
+}
+settings-level-unit-celsius = { $n ->
+   *[other] { $n } °C
+}
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms

@@ -77,6 +77,11 @@ fields and search providers) every choice has a switch and moves up or down;
 where it means nothing (a password preset's character sets) the choices are
 toggle chips.
 
+The dashboard's alarm levels are three bars with two stops each, which cannot
+cross: usage (0–100 %) and CPU temperature (0–150 °C) turn to warning, then
+error, as they rise; the battery turns to warning, then critical, at or below
+its stops.
+
 The Cava page picks its style and direction from drawings of the bars, takes
 its frequency range as one range whose ends cannot cross, offers the framerate
 as 30, 60, 120 or 144 fps (or a custom rate), and folds the smoothing away

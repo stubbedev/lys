@@ -1004,6 +1004,21 @@ settings-cava-frequency-low = Frecuencia más baja
 settings-cava-frequency-high = Frecuencia más alta
 settings-cava-frequency-to = a
 settings-cava-frequency-unit = Hz
+settings-dashboard-usage-levels = Uso
+    .description = Cuándo los anillos de CPU, memoria y disco pasan a aviso y luego a error
+settings-dashboard-temp-levels = Temperatura
+    .description = Cuándo el anillo de temperatura de la CPU pasa a aviso y luego a error
+settings-dashboard-battery-levels = Batería
+    .description = Con qué carga o menos la batería muestra aviso y luego crítico
+settings-level-warning = Aviso
+settings-level-error = Error
+settings-level-critical = Crítico
+settings-level-unit-percent = { $n ->
+   *[other] { $n } %
+}
+settings-level-unit-celsius = { $n ->
+   *[other] { $n } °C
+}
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms

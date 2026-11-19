@@ -993,6 +993,21 @@ settings-cava-frequency-low = Laagste frequentie
 settings-cava-frequency-high = Hoogste frequentie
 settings-cava-frequency-to = tot
 settings-cava-frequency-unit = Hz
+settings-dashboard-usage-levels = Gebruik
+    .description = Wanneer de ringen van processor, geheugen en schijf naar waarschuwing en dan fout gaan
+settings-dashboard-temp-levels = Temperatuur
+    .description = Wanneer de ring van de processortemperatuur naar waarschuwing en dan fout gaat
+settings-dashboard-battery-levels = Accu
+    .description = Bij welke lading of lager de accu een waarschuwing en dan kritiek toont
+settings-level-warning = Waarschuwing
+settings-level-error = Fout
+settings-level-critical = Kritiek
+settings-level-unit-percent = { $n ->
+   *[other] { $n } %
+}
+settings-level-unit-celsius = { $n ->
+   *[other] { $n } °C
+}
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
