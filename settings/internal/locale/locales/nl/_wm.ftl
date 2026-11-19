@@ -563,3 +563,6 @@ wm-power-saver-frame-rate = Framerate bij energiebesparing
     .description = Hoogste framerate met het energiebesparingsprofiel; 0 is uit
 wm-client-hotkeys = Globale app-sneltoetsen
     .description = Apps globale sneltoetsen laten instellen die het gefocuste venster niet ziet
+wm-side-all = Alle zijden
+wm-side-same = Gelijk aan alle zijden
+wm-side-window = Venster

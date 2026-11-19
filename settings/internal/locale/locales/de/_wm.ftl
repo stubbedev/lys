@@ -566,3 +566,6 @@ wm-power-saver-frame-rate = Bildrate im Energiesparmodus
     .description = Höchste Bildrate im Energiesparprofil; 0 ist aus
 wm-client-hotkeys = Globale App-Kürzel
     .description = Apps globale Kürzel erlauben, die das fokussierte Fenster nicht sieht
+wm-side-all = Alle Seiten
+wm-side-same = Auf allen Seiten gleich
+wm-side-window = Fenster

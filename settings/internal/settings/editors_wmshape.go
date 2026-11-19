@@ -23,31 +23,80 @@ import (
 // sideKeys label gaps.outer's sides in the order lys-wm lists them.
 var sideKeys = [4]string{"wm-side-top", "wm-side-right", "wm-side-bottom", "wm-side-left"}
 
-// sidesEditor is a spin per side showing the gap lys-wm uses, all empty and
-// reading "Inherited" only when lys-wm names none. Setting one side while
-// the others are empty sets them all to it; equal sides write one number
-// when the key takes one, else the four, and emptying any side inherits again.
 type sidesEditor struct {
 	*widget.Box
-	slot  slot
-	spins [4]*widget.SpinButton
-	one   bool
+	slot    slot
+	spins   [4]*widget.SpinButton
+	all     *widget.SpinButton
+	same    *widget.Switch
+	diagram *widget.Box
+	one     bool
+	split   bool
+	syncing bool
 }
 
 func newSidesEditor(k *kit, s slot, one bool) *sidesEditor {
 	t := locale.T()
-	c := &sidesEditor{Box: gapBox(widget.Row), slot: s, one: one}
-	for i := range c.spins {
-		spin := widget.NewSpinButton(k.face, k.textPx(), 0, 0, math.MaxInt32, 1, 0)
-		spin.SetOptional(t.Get("settings-inherited"))
-		spin.SetTooltip(t.Get(sideKeys[i]))
-		spin.OnValueChanged = c.write
-		spin.OnCleared = s.unset
-		c.spins[i] = spin
-		c.AppendAligned(spin, false, widget.AlignCenter)
+	c := &sidesEditor{Box: gapBox(widget.Column), slot: s, one: one}
+	c.AddClass("sides-editor")
+	spin := func(name string) *widget.SpinButton {
+		sb := widget.NewSpinButton(k.face, k.textPx(), 0, 0, math.MaxInt32, 1, 0)
+		sb.SetOptional(t.Get("settings-inherited"))
+		sb.SetTooltip(name)
+		sb.SetAccessibleName(name)
+		sb.OnCleared = s.unset
+		return sb
 	}
+	for i := range c.spins {
+		c.spins[i] = spin(t.Get(sideKeys[i]))
+		c.spins[i].OnValueChanged = c.write
+	}
+	c.all = spin(t.Get("wm-side-all"))
+	c.all.OnValueChanged = func(v float64) {
+		for _, sb := range c.spins {
+			sb.SetValue(v)
+		}
+		c.write(v)
+	}
+	c.same = widget.NewSwitch(true)
+	c.same.SetAccessibleName(t.Get("wm-side-same"))
+	c.same.OnChanged = c.chooseSame
+	head := gapBox(widget.Row)
+	head.Append(k.label(t.Get("wm-side-same"), css.Caption), true)
+	head.AppendAligned(c.same, false, widget.AlignCenter)
+	head.AppendAligned(c.all, false, widget.AlignCenter)
+	c.diagram = c.sideDiagram(k)
+	c.Append(head, false)
+	c.Append(c.diagram, false)
 	c.refresh()
 	return c
+}
+
+func (c *sidesEditor) sideDiagram(k *kit) *widget.Box {
+	window := widget.NewBox(widget.Column, 0, widget.Current().Padding)
+	window.AddClass(css.Card, "sides-editor-window")
+	window.AppendAligned(k.label(locale.T().Get("wm-side-window"), css.Caption, css.DimLabel), true, widget.AlignCenter)
+	middle := gapBox(widget.Row)
+	middle.AppendAligned(c.spins[3], false, widget.AlignCenter)
+	middle.Append(window, true)
+	middle.AppendAligned(c.spins[1], false, widget.AlignCenter)
+	d := gapBox(widget.Column)
+	d.AppendAligned(c.spins[0], false, widget.AlignCenter)
+	d.Append(middle, false)
+	d.AppendAligned(c.spins[2], false, widget.AlignCenter)
+	return d
+}
+
+func (c *sidesEditor) chooseSame(on bool) {
+	if c.syncing {
+		return
+	}
+	c.split = !on
+	c.show(on)
+	if on && !c.spins[0].Empty() {
+		c.all.SetValue(c.spins[0].Value())
+		c.all.OnValueChanged(c.spins[0].Value())
+	}
 }
 
 func (c *sidesEditor) write(v float64) {
@@ -75,6 +124,8 @@ func (c *sidesEditor) refresh() {
 		for _, s := range c.spins {
 			s.Clear()
 		}
+		c.all.Clear()
+		c.show(!c.split)
 		return
 	}
 	sides := [4]float64{}
@@ -91,6 +142,16 @@ func (c *sidesEditor) refresh() {
 	for i, s := range c.spins {
 		s.SetValue(sides[i])
 	}
+	c.all.SetValue(sides[0])
+	c.show(!c.split && sides == [4]float64{sides[0], sides[0], sides[0], sides[0]})
+}
+
+func (c *sidesEditor) show(same bool) {
+	c.syncing = true
+	c.same.SetOn(same)
+	c.syncing = false
+	c.diagram.SetVisible(!same)
+	c.all.SetVisible(same)
 }
 
 // toFloat is a decoded YAML number as a float, 0 for anything else.

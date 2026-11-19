@@ -566,3 +566,6 @@ wm-power-saver-frame-rate = Fotogramas en ahorro de energía
     .description = Fotogramas máximos con el perfil de ahorro; 0 desactiva
 wm-client-hotkeys = Atajos globales de apps
     .description = Permitir que las apps definan atajos globales que la ventana enfocada no ve
+wm-side-all = Todos los lados
+wm-side-same = Igual en todos los lados
+wm-side-window = Ventana

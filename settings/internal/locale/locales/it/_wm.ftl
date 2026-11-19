@@ -566,3 +566,6 @@ wm-power-saver-frame-rate = Frequenza in risparmio energetico
     .description = Frequenza massima con il profilo di risparmio; 0 disattiva
 wm-client-hotkeys = Scorciatoie globali delle app
     .description = Consenti alle app scorciatoie globali che la finestra attiva non vede
+wm-side-all = Tutti i lati
+wm-side-same = Uguale su tutti i lati
+wm-side-window = Finestra

@@ -1092,3 +1092,31 @@ func TestEveryWMConfigKeyHasARow(t *testing.T) {
 		}
 	}
 }
+
+func TestOuterGapsAreOneNumberUntilTheSidesAreSplit(t *testing.T) {
+	k, _, _, _ := wmKit(t, "")
+	var stored any = int64(6)
+	c := newSidesEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() { stored = nil }}, true)
+	if !c.same.On() || c.diagram.Visible() || !c.all.Visible() || c.all.Value() != 6 {
+		t.Fatalf("equal sides show same %v, diagram %v, all %v at %v", c.same.On(), c.diagram.Visible(), c.all.Visible(), c.all.Value())
+	}
+	c.same.OnChanged(false)
+	c.refresh()
+	if !c.diagram.Visible() || c.all.Visible() {
+		t.Fatalf("splitting the sides shows diagram %v, all %v", c.diagram.Visible(), c.all.Visible())
+	}
+	c.spins[1].SetValue(10)
+	c.write(10)
+	if got, _ := stored.([]any); !slices.Equal(got, []any{int64(6), int64(10), int64(6), int64(6)}) {
+		t.Fatalf("one side changed stored %v", stored)
+	}
+	c.same.OnChanged(true)
+	if stored != int64(6) || c.diagram.Visible() {
+		t.Errorf("joining the sides stored %v, diagram %v", stored, c.diagram.Visible())
+	}
+	stored = []any{int64(1), int64(2), int64(3), int64(4)}
+	c2 := newSidesEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() {}}, true)
+	if c2.same.On() || !c2.diagram.Visible() {
+		t.Errorf("differing sides open joined: same %v", c2.same.On())
+	}
+}

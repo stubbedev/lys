@@ -566,3 +566,6 @@ wm-power-saver-frame-rate = Fréquence en économie d'énergie
     .description = Fréquence maximale avec le profil d'économie ; 0 désactive
 wm-client-hotkeys = Raccourcis globaux des applications
     .description = Permettre aux applications des raccourcis globaux invisibles pour la fenêtre active
+wm-side-all = Tous les côtés
+wm-side-same = Identique sur tous les côtés
+wm-side-window = Fenêtre

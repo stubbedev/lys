@@ -566,3 +566,6 @@ wm-power-saver-frame-rate = Power saver frame rate
     .description = Highest frame rate while the power saver profile is on; 0 is off
 wm-client-hotkeys = App global shortcuts
     .description = Let apps bind global shortcuts that the focused window does not see
+wm-side-all = All sides
+wm-side-same = Same on all sides
+wm-side-window = Window

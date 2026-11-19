@@ -563,3 +563,6 @@ wm-power-saver-frame-rate = Taxa em poupança de energia
     .description = Taxa máxima com o perfil de poupança; 0 desliga
 wm-client-hotkeys = Atalhos globais de apps
     .description = Permitir que as apps definam atalhos globais que a janela focada não vê
+wm-side-all = Todos os lados
+wm-side-same = Igual em todos os lados
+wm-side-window = Janela
