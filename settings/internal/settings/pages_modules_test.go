@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -109,6 +111,56 @@ func TestTheSeparatorsThicknessSlidesOverOneToFourPixels(t *testing.T) {
 		c.slider.Knob.SetValue(v)
 		if got := c.slider.Knob.Value(); got != want {
 			t.Errorf("sliding to %v rests at %v, want %v", v, got, want)
+		}
+	}
+}
+
+func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
+	k := testKit(t, "")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	for module, want := range map[string]string{
+		"audio": soundID, "battery": powerPageID, "bluetooth": bluetoothPageID, "clock": dateTimeID,
+		"idle-inhibit": "idle", "keybind-mode": "wm-binds", "keyboard-input": "wm-keyboard",
+	} {
+		p, ok := pageByID(k.nav, module)
+		if !ok {
+			t.Fatalf("no %s page", module)
+		}
+		if p.footer == nil {
+			t.Errorf("the %s page links nowhere", module)
+			continue
+		}
+		var opened []string
+		k.openPage = func(id string) { opened = append(opened, id) }
+		for _, b := range treetest.All[*widget.Button](p.footer(k)) {
+			b.OnClick()
+		}
+		if !slices.Equal(opened, []string{want}) {
+			t.Errorf("the %s page's links opened %q, want %s", module, opened, want)
+		}
+	}
+}
+
+func TestAModuleLinkToAPageNotInstalledIsLeftOut(t *testing.T) {
+	k := testKit(t, "")
+	k.nav = layout(config.Defaults(), parts{shell: true})
+	p, ok := pageByID(layout(config.Defaults(), bothParts), "keyboard-input")
+	if !ok {
+		t.Fatal("no keyboard-input page")
+	}
+	if labels := treetest.Labels(p.footer(k)); len(labels) != 0 {
+		t.Errorf("without lys-wm the Keyboard Input page links to %q", labels)
+	}
+}
+
+func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
+	for _, id := range []string{"cava", "custom", "media"} {
+		p, ok := pageByID(layout(config.Defaults(), bothParts), id)
+		if !ok {
+			t.Fatalf("no %s page", id)
+		}
+		if p.footer != nil {
+			t.Errorf("the %s page has related links", id)
 		}
 	}
 }

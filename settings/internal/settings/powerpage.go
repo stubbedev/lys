@@ -403,6 +403,10 @@ func (p *powerPanel) modeRows() widget.Widget {
 
 type pageLink struct{ page, detail string }
 
+func relatedLinks(links []pageLink) func(k *kit) widget.Widget {
+	return func(k *kit) widget.Widget { return linksSection(k, "settings-section-related", links) }
+}
+
 func linksSection(k *kit, title string, links []pageLink) widget.Widget {
 	t := locale.T()
 	box := gapBox(widget.Column)

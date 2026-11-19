@@ -54,8 +54,23 @@ func modulePages(cfg *config.Config) []pageSpec {
 		if m := config.BarModule(p.id); slices.Contains(config.BuiltinModules, m) {
 			pages[i].lead = withPlacement(m, p.lead)
 		}
+		if links, ok := moduleLinks[p.id]; ok {
+			pages[i].footer = relatedLinks(links)
+		}
 	}
 	return pages
+}
+
+// moduleLinks are the pages a bar module page points to for what the
+// bar item only shows, by page.
+var moduleLinks = map[string][]pageLink{
+	"audio":          {{soundID, "settings-module-link-sound-detail"}},
+	"battery":        {{powerPageID, "settings-module-link-power-detail"}},
+	"bluetooth":      {{bluetoothPageID, "settings-module-link-bluetooth-detail"}},
+	"clock":          {{dateTimeID, "settings-module-link-date-time-detail"}},
+	"idle-inhibit":   {{"idle", "settings-module-link-idle-detail"}},
+	"keybind-mode":   {{"wm-binds", "settings-module-link-binds-detail"}},
+	"keyboard-input": {{"wm-keyboard", "settings-module-link-input-detail"}},
 }
 
 // moduleDropdowns are the dropdowns.<name> sizes the bar module pages

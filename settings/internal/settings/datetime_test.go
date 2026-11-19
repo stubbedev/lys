@@ -520,14 +520,14 @@ func TestTheWeekStartLivesOnDateAndTimeBesideAWorldClockLink(t *testing.T) {
 	k.nav = layout(k.store.svc.Config(), bothParts)
 	var opened []string
 	k.openPage = func(id string) { opened = append(opened, id) }
-	for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-date-related", dateTimeLinks)) {
+	for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", dateTimeLinks)) {
 		b.OnClick()
 	}
 	if !slices.Equal(opened, []string{"world-clock"}) {
 		t.Errorf("the related links opened %q", opened)
 	}
 	k.nav = nil
-	if labels := treetest.Labels(linksSection(k, "settings-section-date-related", dateTimeLinks)); len(labels) != 0 {
+	if labels := treetest.Labels(linksSection(k, "settings-section-related", dateTimeLinks)); len(labels) != 0 {
 		t.Errorf("without a World Clock page the links read %q", labels)
 	}
 }

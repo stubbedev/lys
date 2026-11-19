@@ -53,6 +53,13 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 
 The `wm-` pages and `wm-outputs` are lys-wm's; see [lys-wm settings](./lys-wm).
 
+A bar item page only sets how the item looks and acts in the bar. Where the
+feature itself has a page, a **Related** link at its foot opens it: Audio opens
+Sound, Battery opens Battery & Power Mode, Bluetooth the Bluetooth devices,
+Clock Date & Time, Keep awake Idle & Power, Keybind Mode Keys & Gestures, and
+Keyboard Input the lys-wm Input page. A link to a page that is not installed is
+left out.
+
 A row that has no effect in the current state stays out of the way: the dock's
 rows are greyed out while the dock is off, and a border's width and color, the
 dock's hide delay and zoom size, and the icon padding of a bar button style
