@@ -2083,6 +2083,7 @@
       "desktop/desktopentry",
       "desktop/i18n",
       "desktop/identity",
+      "desktop/imagedecode",
       "desktop/logging",
       "desktop/portal/permissions",
       "desktop/service/clipboard",
