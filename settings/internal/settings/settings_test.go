@@ -1056,13 +1056,15 @@ func TestEnumAndIconListItems(t *testing.T) {
 	if !ok || m.Elem == nil || m.Elem.Kind != config.FieldEnum {
 		t.Fatalf("test premise: %s is %+v", path, m)
 	}
-	c := fieldControl(k, k.store, field(path, enumList)).(*listEditor)
-	c.appendRow(c.spec.blank(c.values()))
-	last := c.items[len(c.items)-1].(*enumItem)
-	last.SetSelected(2)
+	c := fieldControl(k, k.store, field(path, enumList)).(*enumSet)
+	c.switches[m.Elem.Variants[2]].SetOn(false)
 	got, _ := k.store.value(path).([]any)
-	if got[len(got)-1] != m.Elem.Variants[2] {
-		t.Errorf("enum row wrote %v", got[len(got)-1])
+	if slices.Contains(got, any(m.Elem.Variants[2])) || len(got) != len(m.Elem.Variants)-1 {
+		t.Errorf("switching %s off stored %v", m.Elem.Variants[2], got)
+	}
+	c.switches[m.Elem.Variants[2]].SetOn(true)
+	if got, _ := k.store.value(path).([]any); got[2] != m.Elem.Variants[2] || len(got) != len(m.Elem.Variants) {
+		t.Errorf("switching %s back on stored %v, want it in its row's place", m.Elem.Variants[2], got)
 	}
 	f := &fakePickers{}
 	k.pickers = f
@@ -1084,23 +1086,24 @@ func TestEnumAndIconListItems(t *testing.T) {
 func TestEnumListRowsMoveAndRemove(t *testing.T) {
 	k := testKit(t, "")
 	path := "modules.dashboard.user-session.actions"
-	c := fieldControl(k, k.store, field(path, enumList)).(*listEditor)
+	c := fieldControl(k, k.store, field(path, enumList)).(*enumSet)
 	before, _ := k.store.value(path).([]any)
 	if len(before) < 2 {
 		t.Fatalf("test premise: %s holds %v", path, before)
 	}
-	c.move(c.items[0], 1)
+	first := c.order[0]
+	c.move(first, 1)
 	moved, _ := k.store.value(path).([]any)
 	if moved[0] != before[1] || moved[1] != before[0] {
 		t.Errorf("moving the first row down stored %v from %v", moved, before)
 	}
-	c.move(c.items[0], -1)
+	c.move(c.order[0], -1)
 	if got, _ := k.store.value(path).([]any); !slices.Equal(got, moved) {
 		t.Errorf("moving the first row up stored %v, want it unchanged", got)
 	}
-	c.remove(c.items[0])
-	if got, _ := k.store.value(path).([]any); !slices.Equal(got, moved[1:]) {
-		t.Errorf("removing the first row stored %v, want %v", got, moved[1:])
+	c.switches[first].SetOn(false)
+	if got, _ := k.store.value(path).([]any); slices.Contains(got, any(first)) || len(got) != len(before)-1 {
+		t.Errorf("switching %s off stored %v", first, got)
 	}
 }
 

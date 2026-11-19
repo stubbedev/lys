@@ -260,15 +260,6 @@ type enumItem struct {
 
 func (e *enumItem) itemValue() any { return e.variants[max(e.Selected(), 0)] }
 
-// enumList edits a list of the list's element enum.
-var enumList = listRow(func(meta config.FieldMeta) listSpec {
-	var elem config.FieldMeta
-	if meta.Elem != nil {
-		elem = *meta.Elem
-	}
-	return enumListSpec(elem)
-})
-
 func enumListSpec(elem config.FieldMeta) listSpec {
 	return listSpec{
 		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true,

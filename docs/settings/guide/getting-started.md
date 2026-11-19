@@ -71,6 +71,12 @@ tiles chosen, and each bar layout is for All displays or a connected display
 and starts from nothing or another layout. A display listed but not connected
 is kept, and named, until it is removed.
 
+A list of fixed choices names each choice once, so none can be listed twice:
+where the order counts (the dashboard's session buttons, the launcher's match
+fields and search providers) every choice has a switch and moves up or down;
+where it means nothing (a password preset's character sets) the choices are
+toggle chips.
+
 lys-shell's pages edit its config and work without the shell running.
 
 Some pages also act on the system:

@@ -93,7 +93,7 @@ var passwordPresetList = cardRow(cardSpec{
 	fields: []cardField{
 		{key: "length", label: "settings-generator-preset-length", editor: presetSpin(config.MetaOf[config.PasswordLength]())},
 		{key: "charsets", label: "settings-generator-preset-charsets", fill: true, editor: func(k *kit, s slot) control {
-			return newListEditor(k, s, enumListSpec(config.MetaOf[config.PasswordCharset]()))
+			return newEnumChips(k, s, config.MetaOf[config.PasswordCharset](), 1)
 		}},
 		{key: "avoid-ambiguous", label: "settings-generator-preset-avoid-ambiguous", editor: presetToggle},
 	},
