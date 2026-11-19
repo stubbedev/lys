@@ -2,8 +2,10 @@ package settings
 
 import (
 	"log"
+	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // The module pages, in the order the sidebar lists them.
@@ -48,6 +50,9 @@ func modulePages(cfg *config.Config) []pageSpec {
 		if d, ok := moduleDropdowns[p.id]; ok {
 			pages[i].sections = append(p.sections, dropdownSizeSection(d))
 		}
+		if m := config.BarModule(p.id); slices.Contains(config.BuiltinModules, m) {
+			pages[i].lead = withPlacement(m, p.lead)
+		}
 	}
 	return pages
 }
@@ -58,6 +63,18 @@ var moduleDropdowns = map[string]string{
 	"audio": "audio", "battery": "battery", "bitwarden": "bitwarden", "bluetooth": "bluetooth", "brightness": "brightness",
 	"clock": "calendar", "dashboard": "dashboard", "media": "media", "mail": "mail", "network": "network",
 	"treeman": "treeman", "weather": "weather",
+}
+
+func withPlacement(m config.BarModule, lead func(k *kit) widget.Widget) func(k *kit) widget.Widget {
+	if lead == nil {
+		return barPlacement(m)
+	}
+	return func(k *kit) widget.Widget {
+		box := sectionStack()
+		box.Append(barPlacement(m)(k), false)
+		box.Append(lead(k), false)
+		return box
+	}
 }
 
 func dropdownSizeSection(dropdown string) sectionSpec {
