@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -63,7 +64,7 @@ func newIdleInhibit(ctx ModuleContext) (Module, error) {
 		state = idleinhibit.NewState(ctx.Config.IdleInhibit.StartupDuration.Duration())
 	}
 	m := &idleInhibitModule{ctx: ctx, state: state}
-	m.icon = moduleIcon(ctx, ctx.Config.IdleInhibit.Icons()[config.IdleInhibitInactive])
+	m.icon = barview.Icon(ctx.Config.IdleInhibit.Icons()[config.IdleInhibitInactive])
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.render()
 	changes, stop := state.Changes()

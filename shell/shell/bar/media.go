@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -204,7 +205,7 @@ func newMedia(ctx ModuleContext) (Module, error) {
 // build assembles the icon+label tree and paints the first state.
 func (m *mediaModule) build() {
 	cfg := m.ctx.Config.Media
-	m.icon = moduleIcon(m.ctx, cfg.Icon())
+	m.icon = barview.Icon(cfg.Icon())
 	m.btn = newBarButton(m.ctx, m.icon, "")
 	m.refresh()
 }

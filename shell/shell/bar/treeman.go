@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -66,7 +67,7 @@ type treemanModule struct {
 
 func newTreeman(ctx ModuleContext) (Module, error) {
 	m := &treemanModule{ctx: ctx, src: ctx.Treeman}
-	m.icon = moduleIcon(ctx, ctx.Config.Treeman.Icon())
+	m.icon = barview.Icon(ctx.Config.Treeman.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.refresh()
 	if ctx.App == nil {

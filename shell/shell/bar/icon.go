@@ -1,27 +1,5 @@
 package bar
 
-import (
-	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/ui/widget"
-)
-
-// iconPx is the bar's icon size in logical pixels; the label height
-// scales around it.
-const iconPx = 16
-
-// moduleIcon builds the theme icon a module shows beside its label;
-// nil when the module shows none or the name is empty. The glyph is
-// the bar button's image: its color and size come from the
-// stylesheet (--bar-btn-icon-color, --bar-btn-icon-size), as in GTK.
-// The concrete return type keeps nil checks honest: a nil
-// *widget.Icon never hides inside a non-nil interface.
-func moduleIcon(_ ModuleContext, icon config.IconConfig) *widget.Icon {
-	if !icon.Show || icon.Name == "" {
-		return nil
-	}
-	return widget.NewThemeIcon(icon.Name, iconPx)
-}
-
 // levelIndexFloor is the battery's level math: the percentage
 // divided evenly across n icons from the top, empty first.
 func levelIndexFloor(percent float64, n int) int {

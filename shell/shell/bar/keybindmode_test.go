@@ -97,7 +97,7 @@ func TestKeybindModeModuleFollowsSubmaps(t *testing.T) {
 	}
 	// The icon defaults on, so the root is the bar button carrying both.
 	row, ok := module.Root().(*barButton)
-	if !ok || row.icon == nil {
+	if !ok || row.Icon() == nil {
 		t.Fatalf("Root = %T, want the bar button with its icon and label", module.Root())
 	}
 	label := findLabel(row)

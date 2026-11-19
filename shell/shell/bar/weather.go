@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -196,7 +197,7 @@ func newWeather(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("weather: no weather service")
 	}
 	m := &weatherModule{ctx: ctx, svc: ctx.Weather}
-	m.icon = moduleIcon(ctx, ctx.Config.Weather.Icon())
+	m.icon = barview.Icon(ctx.Config.Weather.Icon())
 	m.btn = newBarButton(ctx, m.icon, "--")
 	changes, stop := m.svc.Subscribe()
 	m.render()

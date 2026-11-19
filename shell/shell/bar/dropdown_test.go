@@ -422,12 +422,12 @@ func TestHoldDropdown(t *testing.T) {
 	btn := newBarButton(ctx, nil, "12:30")
 	content := &hidingContent{Box: widget.NewBox(widget.Column, 0, 0)}
 	closed := holdDropdown(btn, true, content)
-	if !btn.HasState(widget.StateChecked) || !btn.frozen {
+	if !btn.HasState(widget.StateChecked) || !btn.Frozen() {
 		t.Error("an open dropdown leaves its button unchecked or its label live")
 	}
 	closed()
-	if btn.HasState(widget.StateChecked) || btn.frozen || content.hidden != 1 {
-		t.Errorf("closed: checked %v, frozen %v, content hidden %d", btn.HasState(widget.StateChecked), btn.frozen, content.hidden)
+	if btn.HasState(widget.StateChecked) || btn.Frozen() || content.hidden != 1 {
+		t.Errorf("closed: checked %v, frozen %v, content hidden %d", btn.HasState(widget.StateChecked), btn.Frozen(), content.hidden)
 	}
 	plain := widget.NewBox(widget.Column, 0, 0)
 	holdDropdown(plain, true, newPanelBox(content, 0, 0))()

@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -226,7 +227,7 @@ func newWindowTitle(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("window-title: unsupported compositor")
 	}
 	m := &windowTitleModule{ctx: ctx}
-	m.icon = moduleIcon(ctx, ctx.Config.WindowTitle.Icon())
+	m.icon = barview.Icon(ctx.Config.WindowTitle.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	mountOffLoop(ctx, func() {
 		source, err := windowTitleSource(ctx)

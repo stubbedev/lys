@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -60,10 +61,10 @@ func TestBarConfigForReservesOnlyWhenExclusive(t *testing.T) {
 func TestBarEdgeRejectsAnUnknownLocation(t *testing.T) {
 	defer func() {
 		if recover() == nil {
-			t.Error("barEdge(sideways) returned an edge")
+			t.Error("barview.Edge(sideways) returned an edge")
 		}
 	}()
-	barEdge("sideways")
+	barview.Edge("sideways")
 }
 
 // The zone spaces its items by module-gap and a group its modules by

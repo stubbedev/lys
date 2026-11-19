@@ -259,13 +259,13 @@ func TestFailedMailStaysShownUnderHideWhenZero(t *testing.T) {
 	if got := mm.btn.Label().Text(); got != mailUnknownCount {
 		t.Errorf("a failed count reads %q, want %q", got, mailUnknownCount)
 	}
-	if mm.btn.detail != i18n.T("dropdown-mail-error-title") {
-		t.Errorf("detail = %q, want the failure", mm.btn.detail)
+	if mm.btn.Detail() != i18n.T("dropdown-mail-error-title") {
+		t.Errorf("detail = %q, want the failure", mm.btn.Detail())
 	}
 
 	onHeadlessLoop(func() bool { mm.apply(mail.State{}); return true })
 	if onHeadlessLoop(func() bool {
-		return chrome.Visible() || widget.HasClass(chrome, mailFailedClass) || mm.btn.detail != ""
+		return chrome.Visible() || widget.HasClass(chrome, mailFailedClass) || mm.btn.Detail() != ""
 	}) {
 		t.Error("a read zero after the failure stays shown or marked")
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/walltimer"
@@ -25,7 +26,7 @@ func newClock(ctx ModuleContext) (Module, error) {
 	}
 	spec := clockSampler(ctx, layout.Resolution())
 	label, _ := spec.sample()
-	btn := newBarButton(ctx, moduleIcon(ctx, ctx.Config.Clock.Icon()), label)
+	btn := newBarButton(ctx, barview.Icon(ctx.Config.Clock.Icon()), label)
 	if ctx.App == nil {
 		return &clock{btn: btn}, nil
 	}

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/mpris"
@@ -18,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/app"
@@ -375,7 +375,7 @@ var factories = map[string]Factory{
 // bar builds; a schema module without one (updates) is "not
 // implemented".
 func Create(name string, ctx ModuleContext) (Module, error) {
-	if def, ok := customDefinition(name, ctx.Config); ok {
+	if def, ok := barview.CustomDefinition(name, ctx.Config); ok {
 		return newCustomByID(ctx, def.Id)
 	}
 	factory, ok := factories[name]
@@ -385,38 +385,19 @@ func Create(name string, ctx ModuleContext) (Module, error) {
 	return factory(ctx)
 }
 
-// appendItems builds every item of one layout section into a bar
-// zone: one box.bar-item per layout item, a group's carrying the bar-group class and the
-// group name as its id, each module inside classed `module` plus its
-// per-instance class. The zone spaces its items by the module gap and
-// a group its modules by the group module gap: box gaps, not margins.
-//
-// A module that cannot be built (its service is unavailable on this
-// system, its compositor is not running) is logged and left out: one
-// missing daemon never takes
-// the bar down.
+// appendItems builds every item of one layout section into a bar zone
+// (barview.FillZone). A module that cannot be built (its service is
+// unavailable on this system, its compositor is not running) is logged
+// and left out: one missing daemon never takes the bar down.
 func appendItems(zone *widget.Box, items []config.BarItem, ctx ModuleContext) {
-	axis := widget.Row
-	if ctx.Config.Bar.Location.IsVertical() {
-		axis = widget.Column
-	}
-	zone.SetSpacing(ctx.Style.moduleGap)
-	for _, item := range items {
-		box := widget.NewBox(axis, 0, 0)
-		box.AddClass("bar-item")
-		modules := []config.BarItem{item}
-		if item.IsGroup() {
-			box.SetSpacing(ctx.Style.groupGap)
-			box.AddClass("bar-group")
-			box.SetID(item.Group.Name)
-			modules = item.Group.Modules
+	barview.FillZone(zone, ctx.Config, items, moduleAppender(ctx))
+}
+
+func moduleAppender(ctx ModuleContext) barview.ModuleAppender {
+	return func(row *widget.Box, item config.BarItem) {
+		if err := appendModule(row, item, ctx); err != nil {
+			log.Printf("bar: module %q will not appear: %v", item.Module, err)
 		}
-		for _, inner := range modules {
-			if err := appendModule(box, inner, ctx); err != nil {
-				log.Printf("bar: module %q will not appear: %v", inner.Module, err)
-			}
-		}
-		zone.Append(box, false)
 	}
 }
 
@@ -432,27 +413,15 @@ func appendModule(row *widget.Box, item config.BarItem, ctx ModuleContext) error
 	// Components that are not bar buttons (the workspace rows) carry
 	// their own chrome and input handling.
 	if _, ok := module.(interface{ ownsChrome() }); ok {
-		if n, ok := root.(interface{ AddClass(...string) }); ok {
-			n.AddClass("module", item.Class)
-		}
-		if n, ok := root.(interface{ SetAccessibleName(string) }); ok {
-			n.SetAccessibleName(moduleTitle(string(item.Module), ctx.Config))
-		}
+		barview.OwnChrome(root, item, ctx.Config)
 		row.Append(root, false)
 		return nil
 	}
-	// Every button module wraps in a module box: `module`, the module's own type class (battery, clock,
-	// media, ... — the layout name, overridable by the module), and the
-	// layout entry's instance class, so ancestor selectors like
-	// `.media-disc button.bar-button ...` reach the button.
-	wrap := widget.NewBox(widget.Row, 0, 0)
-	wrap.AddClass("module", string(item.Module))
+	var own []string
 	if t, ok := module.(interface{ typeClass() string }); ok {
-		wrap.AddClass(t.typeClass())
+		own = append(own, t.typeClass())
 	}
-	if item.Class != "" {
-		wrap.AddClass(item.Class)
-	}
+	wrap := barview.ModuleBox(item, own...)
 	if c, ok := module.(interface{ setChrome(moduleChrome) }); ok {
 		c.setChrome(wrap)
 	}
@@ -471,7 +440,7 @@ func appendModule(row *widget.Box, item config.BarItem, ctx ModuleContext) error
 	follower, _ := module.(interface {
 		followAction(action config.ClickAction, scroll bool)
 	})
-	btn.configure(moduleTitle(string(item.Module), ctx.Config), moduleButton(string(item.Module), ctx.Config), moduleBinding(string(item.Module), ctx.Config), func(action config.ClickAction, scroll bool) {
+	btn.configure(barview.ModuleTitle(string(item.Module), ctx.Config), barview.ModuleButton(string(item.Module), ctx.Config), moduleBinding(string(item.Module), ctx.Config), func(action config.ClickAction, scroll bool) {
 		switch {
 		case action.Kind == config.ClickDropdown && ctx.Dropdowns != nil:
 			// Dropdown bindings anchor to this module's own button; the
@@ -507,37 +476,12 @@ func asBarButton(ctx ModuleContext, root widget.Widget) *barButton {
 	return newBarButtonAround(ctx, root)
 }
 
-// moduleButton is the bar-button view a layout item's module carries;
-// a module without the key set (or no config) gets the neutral set.
-func moduleButton(name string, cfg *config.Config) config.ButtonConfig {
-	if cfg != nil {
-		if b, ok := cfg.ModuleButton(name); ok {
-			return b
-		}
-		if def, ok := customDefinition(name, cfg); ok {
-			return def.Button()
-		}
-	}
-	return config.ButtonConfig{IconShow: true, LabelShow: true, Tooltip: true}
-}
-
-// moduleTitle is the name a module's button gives assistive technology
-// and its tooltip: bar-module-<name> translated, a custom module's id.
-func moduleTitle(name string, cfg *config.Config) string {
-	if cfg != nil {
-		if def, ok := customDefinition(name, cfg); ok {
-			return def.Id
-		}
-	}
-	return i18n.T("bar-module-" + name)
-}
-
 // moduleBinding is the module's click and scroll bindings.
 func moduleBinding(name string, cfg *config.Config) config.ClickConfig {
 	if clicks, ok := cfg.ModuleClicks(name); ok {
 		return clicks
 	}
-	if def, ok := customDefinition(name, cfg); ok {
+	if def, ok := barview.CustomDefinition(name, cfg); ok {
 		return def.Clicks()
 	}
 	return config.ClickConfig{}

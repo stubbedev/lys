@@ -120,9 +120,9 @@ func TestRecorderFailedState(t *testing.T) {
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	onHeadlessLoop(func() bool { m.setChrome(chrome); return true })
 	failed := func() bool {
-		return widget.HasClass(chrome, "recorder-failed") && m.btn.detail == noEncoder.Error()
+		return widget.HasClass(chrome, "recorder-failed") && m.btn.Detail() == noEncoder.Error()
 	}
-	if onHeadlessLoop(failed) || onHeadlessLoop(func() bool { return m.btn.detail != "" }) {
+	if onHeadlessLoop(failed) || onHeadlessLoop(func() bool { return m.btn.Detail() != "" }) {
 		t.Fatal("a fresh module shows a failure")
 	}
 	ctx.Recorder.Start()
@@ -130,7 +130,7 @@ func TestRecorderFailedState(t *testing.T) {
 	engine.StartErr = nil
 	ctx.Recorder.Start()
 	waitHeadless(t, "the failure cleared by recording", func() bool {
-		return ctx.Recorder.Snapshot().Active && !widget.HasClass(chrome, "recorder-failed") && m.btn.detail == ""
+		return ctx.Recorder.Snapshot().Active && !widget.HasClass(chrome, "recorder-failed") && m.btn.Detail() == ""
 	})
 	ctx.Recorder.Stop()
 	waitHeadless(t, "idle", func() bool { return ctx.Recorder.Snapshot().Status == recorder.StatusIdle })

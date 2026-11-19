@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/ui/atspitest"
@@ -101,13 +102,13 @@ func readEveryModuleOverAtSpi(t *testing.T, loc string) {
 				}
 				for _, w := range buttons {
 					b := w.(*barButton)
-					if b.title != title {
-						t.Errorf("%s's button is titled %q, want its %s title %q", m.name, b.title, loc, title)
+					if b.Title() != title {
+						t.Errorf("%s's button is titled %q, want its %s title %q", m.name, b.Title(), loc, title)
 					}
 					if m.name == "clock" {
 						clock = b
 					}
-					exact[moduleDescription(title, b.detail, b.text)]++
+					exact[barview.ModuleDescription(title, b.Detail(), b.Text())]++
 				}
 			}
 		})

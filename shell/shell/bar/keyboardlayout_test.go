@@ -124,7 +124,7 @@ func TestKeyboardLayoutModuleRenders(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	label := findLabel(module.Root())
-	if btn, ok := module.Root().(*barButton); !ok || btn.icon == nil || btn.icon.Name() != ctx.Config.KeyboardInput.IconName {
+	if btn, ok := module.Root().(*barButton); !ok || btn.Icon() == nil || btn.Icon().Name() != ctx.Config.KeyboardInput.IconName {
 		t.Errorf("root %T, want a bar button with the keyboard icon", module.Root())
 	}
 	if got := label.Text(); got != "DE" {

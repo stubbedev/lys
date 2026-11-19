@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 )
 
@@ -168,7 +169,7 @@ func TestNetworkModuleLabel(t *testing.T) {
 	}
 	cfg.Network.LabelShow = false
 	hidden := newTestNetworkModule(t, cfg, network.Snapshot{Primary: network.ConnectionWifi, WifiEnabled: true, HasWifi: true, Wifi: network.StatusConnected, WifiSSID: "x"})
-	hidden.btn.configure(moduleTitle("network", cfg), moduleButton("network", cfg), config.ClickConfig{}, nil)
+	hidden.btn.configure(barview.ModuleTitle("network", cfg), barview.ModuleButton("network", cfg), config.ClickConfig{}, nil)
 	if err := readAndApply(hidden.read, hidden.apply); err != nil {
 		t.Fatal(err)
 	}

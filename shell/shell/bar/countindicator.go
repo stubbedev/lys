@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -25,7 +26,7 @@ type countIndicator struct {
 
 func newCountIndicator(ctx ModuleContext, icon config.IconConfig, length func() int, subscribe subscription) *countIndicator {
 	m := &countIndicator{ctx: ctx}
-	m.btn = newBarButton(ctx, moduleIcon(ctx, icon), "")
+	m.btn = newBarButton(ctx, barview.Icon(icon), "")
 	m.apply(length())
 	life, stop := context.WithCancel(context.Background())
 	m.stop = stop

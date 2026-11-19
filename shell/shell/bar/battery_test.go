@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -210,7 +211,7 @@ func TestBatteryModuleRendersAndRestyles(t *testing.T) {
 
 	// The refresh path itself is App-independent; drive it directly.
 	m := &battery{ctx: ctx, source: source}
-	m.icon = moduleIcon(ctx, cfg.Battery.Icon())
+	m.icon = barview.Icon(cfg.Battery.Icon())
 	m.btn = newBarButton(m.ctx, m.icon, "")
 	if err := readAndApply(m.source.Read, m.apply); err != nil {
 		t.Fatalf("refresh: %v", err)
@@ -249,7 +250,7 @@ func TestBatteryStateIcon(t *testing.T) {
 	style := computeStyle(cfg, styling.Default())
 	ctx := ModuleContext{Config: cfg, Font: testFont(t), Style: &style, Battery: source, gen: testGen(t)}
 	m := &battery{ctx: ctx, source: source}
-	m.icon = moduleIcon(ctx, cfg.Battery.Icon())
+	m.icon = barview.Icon(cfg.Battery.Icon())
 	m.btn = newBarButton(m.ctx, m.icon, "")
 	if m.icon == nil {
 		t.Fatal("the battery icon defaults on")

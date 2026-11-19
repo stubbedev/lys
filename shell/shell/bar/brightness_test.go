@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/waittest"
 
@@ -359,7 +360,7 @@ func TestBrightnessModuleWithoutAutomaticBrightness(t *testing.T) {
 	if m.icon.Name() != "low" || m.control != brightness.ControlManual {
 		t.Errorf("icon %q control %v, want the level icon under manual control", m.icon.Name(), m.control)
 	}
-	if got, want := m.btn.TooltipText(), moduleDescription(m.btn.title, "", "20%"); got != want {
+	if got, want := m.btn.TooltipText(), barview.ModuleDescription(m.btn.Title(), "", "20%"); got != want {
 		t.Errorf("tooltip %q, want %q", got, want)
 	}
 }

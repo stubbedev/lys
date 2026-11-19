@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -48,7 +49,7 @@ func newNightlight(ctx ModuleContext) (Module, error) {
 
 func newNightlightModule(ctx ModuleContext, svc *nightlightService) *nightlightModule {
 	m := &nightlightModule{ctx: ctx, svc: svc}
-	m.icon = moduleIcon(ctx, ctx.Config.Nightlight.IconOffView())
+	m.icon = barview.Icon(ctx.Config.Nightlight.IconOffView())
 	m.btn = newBarButton(ctx, m.icon, "")
 	ctx.OnRetire(svc.watch(m.render))
 	m.render()

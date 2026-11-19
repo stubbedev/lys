@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/strftime"
 
 	"github.com/stubbedev/lys/shell/service/weather"
@@ -76,15 +77,15 @@ func TestTheWorldClockButtonShowsAFailedFormatAndClearsIt(t *testing.T) {
 	m := &worldClockModule{btn: newBarButton(newTestContext(t, config.Defaults()), nil, "")}
 	failure := i18n.T("bar-world-clock-invalid-zone", i18n.Str("zone", "Mars/Olympus"))
 	m.show(worldClockShown{failure: failure})
-	if got, want := m.btn.Label().Text(), i18n.T("bar-module-failed"); got != want || !m.btn.HasClass(failedClass) {
-		t.Errorf("a failed format shows %q (failed %v), want %q marked failed", got, m.btn.HasClass(failedClass), want)
+	if got, want := m.btn.Label().Text(), i18n.T("bar-module-failed"); got != want || !m.btn.HasClass(barview.FailedClass) {
+		t.Errorf("a failed format shows %q (failed %v), want %q marked failed", got, m.btn.HasClass(barview.FailedClass), want)
 	}
 	if tip := m.btn.TooltipText(); !strings.Contains(tip, failure) {
 		t.Errorf("the tooltip %q does not say %q", tip, failure)
 	}
 	m.show(worldClockShown{text: "14:05"})
-	if got := m.btn.Label().Text(); got != "14:05" || m.btn.HasClass(failedClass) || strings.Contains(m.btn.TooltipText(), failure) {
-		t.Errorf("a render after the failure shows %q, failed %v, tooltip %q", got, m.btn.HasClass(failedClass), m.btn.TooltipText())
+	if got := m.btn.Label().Text(); got != "14:05" || m.btn.HasClass(barview.FailedClass) || strings.Contains(m.btn.TooltipText(), failure) {
+		t.Errorf("a render after the failure shows %q, failed %v, tooltip %q", got, m.btn.HasClass(barview.FailedClass), m.btn.TooltipText())
 	}
 }
 

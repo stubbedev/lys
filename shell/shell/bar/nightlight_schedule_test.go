@@ -430,12 +430,12 @@ func TestNightlightWithoutALocationDoesNotFollowASun(t *testing.T) {
 	if fake.starts != 0 || m.svc.enabled {
 		t.Fatal("the schedule drove the filter with no location")
 	}
-	if m.btn.detail != "" {
-		t.Errorf("tooltip %q while the first lookup is out", m.btn.detail)
+	if m.btn.Detail() != "" {
+		t.Errorf("tooltip %q while the first lookup is out", m.btn.Detail())
 	}
 	failure := errors.New("geoclue: get client: no such service")
 	m.svc.lookupFailed(failure)
-	if tip := m.btn.detail; !strings.Contains(tip, failure.Error()) {
+	if tip := m.btn.Detail(); !strings.Contains(tip, failure.Error()) {
 		t.Errorf("tooltip = %q, want the reason", tip)
 	}
 	if !widget.HasClass(chrome, "nightlight-no-location") || widget.HasClass(chrome, "nightlight-refused") {
@@ -453,7 +453,7 @@ func TestNightlightWithoutALocationDoesNotFollowASun(t *testing.T) {
 	if !fake.running {
 		t.Error("the first fix did not start the schedule")
 	}
-	if m.btn.detail != "" || widget.HasClass(chrome, "nightlight-no-location") {
+	if m.btn.Detail() != "" || widget.HasClass(chrome, "nightlight-no-location") {
 		t.Error("the fix did not clear the no-location state")
 	}
 }
@@ -466,7 +466,7 @@ func TestNightlightHidesTheNoLocationStateWithTheScheduleOff(t *testing.T) {
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
 	m.svc.lookupFailed(errors.New("geoclue: down"))
-	if m.btn.detail != "" || widget.HasClass(chrome, "nightlight-no-location") {
+	if m.btn.Detail() != "" || widget.HasClass(chrome, "nightlight-no-location") {
 		t.Error("the no-location state shows with the schedule off")
 	}
 }
@@ -565,7 +565,7 @@ func TestNightlightShowsABadCoordinatePair(t *testing.T) {
 	if asked.Load() != 0 {
 		t.Error("half a coordinate pair fell back to GeoClue")
 	}
-	if tip := m.btn.detail; !strings.Contains(tip, "both latitude and longitude") {
+	if tip := m.btn.Detail(); !strings.Contains(tip, "both latitude and longitude") {
 		t.Errorf("tooltip = %q, want the mistake", tip)
 	}
 	if !widget.HasClass(chrome, "nightlight-no-location") {
@@ -1076,13 +1076,13 @@ func TestNightlightShowsARefusal(t *testing.T) {
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
 	m.svc.toggle()
-	if m.btn.detail != "" || widget.HasClass(chrome, "nightlight-refused") {
+	if m.btn.Detail() != "" || widget.HasClass(chrome, "nightlight-refused") {
 		t.Fatal("a clean apply shows a refusal")
 	}
 	refusal := &nightlight.RefusedError{Protocol: "zwlr_gamma_control_manager_v1", Output: "DP-1"}
 	fake.refused = refusal
 	fake.changed()
-	if got := m.btn.detail; got != refusal.Error() {
+	if got := m.btn.Detail(); got != refusal.Error() {
 		t.Errorf("tooltip = %q, want %q", got, refusal.Error())
 	}
 	if !widget.HasClass(chrome, "nightlight-refused") {
@@ -1092,7 +1092,7 @@ func TestNightlightShowsARefusal(t *testing.T) {
 		t.Errorf("refused shows icon %q label %q, want the off state", m.icon.Name(), m.btn.Label().Text())
 	}
 	m.svc.toggle()
-	if m.btn.detail != "" || widget.HasClass(chrome, "nightlight-refused") {
+	if m.btn.Detail() != "" || widget.HasClass(chrome, "nightlight-refused") {
 		t.Error("turning the filter off kept the refusal")
 	}
 }
@@ -1108,7 +1108,7 @@ func TestNightlightRejectsAnOutOfRangeStrength(t *testing.T) {
 	if fake.starts != 0 {
 		t.Error("an out-of-range temperature reached the filter")
 	}
-	if tip := m.btn.detail; !strings.Contains(tip, "500K") {
+	if tip := m.btn.Detail(); !strings.Contains(tip, "500K") {
 		t.Errorf("tooltip = %q, want the rejected temperature", tip)
 	}
 }

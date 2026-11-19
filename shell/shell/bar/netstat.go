@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -39,7 +40,7 @@ func newNetstat(ctx ModuleContext) (Module, error) {
 	}
 	cfg := ctx.Config.Netstat
 	m := &netstatModule{}
-	m.btn = newBarButton(ctx, moduleIcon(ctx, cfg.Icon()), "")
+	m.btn = newBarButton(ctx, barview.Icon(cfg.Icon()), "")
 	if cfg.PollIntervalMs == 0 {
 		return m, nil
 	}

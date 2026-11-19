@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 )
 
@@ -76,7 +77,7 @@ func TestBluetoothStateIcon(t *testing.T) {
 	style := computeStyle(cfg, styling.Default())
 	source := newFakeBluetooth(btState("Headset"))
 	m := &bluetoothModule{ctx: ModuleContext{Config: cfg, Font: testFont(t), Style: &style, gen: testGen(t)}, source: source}
-	m.icon = moduleIcon(m.ctx, cfg.Bluetooth.Icon())
+	m.icon = barview.Icon(cfg.Bluetooth.Icon())
 	m.btn = newBarButton(m.ctx, m.icon, "")
 	if m.icon == nil {
 		t.Fatal("the bluetooth icon defaults on")

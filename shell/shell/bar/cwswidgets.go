@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -39,7 +40,7 @@ func newCwsRow(m *cwsView) {
 		m.segs.AddClass(c)
 	}
 	m.circle = m.measureCircle()
-	m.segs.SetInlineStyle(inlineDecls(styling.WorkspacesCSS(m.cfg, m.otherMonitor, bar)) + " --ws-circle: " + strconv.Itoa(m.circle) + "px;")
+	m.segs.SetInlineStyle(barview.InlineDecls(styling.WorkspacesCSS(m.cfg, m.otherMonitor, bar)) + " --ws-circle: " + strconv.Itoa(m.circle) + "px;")
 	m.preview = newWindowPreview(m.ctx, revealHoldOf(m.ctx))
 	m.ctx.OnRetire(m.preview.stop)
 	drop := m.segs.EnableDrop()

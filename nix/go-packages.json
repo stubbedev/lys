@@ -446,6 +446,16 @@
       "ui/widget/css"
     ]
   },
+  "desktop/shell/barview": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/styling",
+      "lib/render",
+      "ui/app",
+      "ui/widget"
+    ]
+  },
   "desktop/shell/lockclient": {
     "imports": [
       "desktop/config",
@@ -3196,6 +3206,7 @@
       "desktop/service/upower",
       "desktop/settingspage",
       "desktop/shell/apptheme",
+      "desktop/shell/barview",
       "desktop/shell/lockclient",
       "desktop/shell/reveal",
       "desktop/shell/widgets",

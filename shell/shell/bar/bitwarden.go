@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/app"
@@ -316,7 +317,7 @@ func newBitwarden(ctx ModuleContext) (Module, error) {
 		return nil, errBitwardenNoHost
 	}
 	m := &bitwardenModule{ctx: ctx}
-	m.icon = moduleIcon(ctx, ctx.Config.Bitwarden.Icons()[config.BitwardenLocked])
+	m.icon = barview.Icon(ctx.Config.Bitwarden.Icons()[config.BitwardenLocked])
 	m.btn = newBarButton(ctx, m.icon, "")
 	mountOffLoop(ctx, func() {
 		v, err := ctx.Bitwarden.vault()

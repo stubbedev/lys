@@ -163,7 +163,7 @@ func TestPowerProfilesColorsAndUnknown(t *testing.T) {
 	pp := module.(*powerProfilesModule)
 	check := func(profile string, color config.ColorValue, icon string) {
 		t.Helper()
-		th := pp.btn.thresholds
+		th := pp.btn.Thresholds()
 		if th.IconColor == nil || th.LabelColor == nil || *th.IconColor != color || *th.LabelColor != color {
 			t.Errorf("%s: thresholds %+v, want icon and label %v", profile, th, color)
 		}

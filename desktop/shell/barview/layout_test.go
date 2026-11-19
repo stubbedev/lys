@@ -1,4 +1,4 @@
-package bar
+package barview
 
 import (
 	"testing"

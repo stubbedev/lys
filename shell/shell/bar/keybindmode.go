@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -49,7 +50,7 @@ func newKeybindMode(ctx ModuleContext) (Module, error) {
 		return nil, errKeybindModeUnsupported
 	}
 	m := &keybindModeModule{ctx: ctx}
-	m.icon = moduleIcon(ctx, ctx.Config.KeybindMode.Icon())
+	m.icon = barview.Icon(ctx.Config.KeybindMode.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.render()
 	mountOffLoop(ctx, func() {

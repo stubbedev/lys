@@ -1,327 +1,46 @@
 package bar
 
 import (
-	"strings"
-
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// barButton is a module's button: lys-ui's BarButton with the module's
-// icon and label as its own, so the bar-button CSS styles it —
-//
-//	button.bar-button.<variant>[.icon-only][.label-only][.vertical][.border-*][.icon-end]
-//	└ box
-//	  ├ image.bar-button-icon
-//	  └ label.bar-button-label
-//
-// (the label first with button-icon-position end), with the module's
-// colors injected as the per-button custom properties
-// (styling.ButtonCSS) on the button. The module writes its label
-// through SetLabel, which the button shows unless label-show is off,
-// the text is blank or the label is frozen. The button is the router's
-// hit leaf, so the five click and scroll bindings route through it.
+// barButton is a module's barview.Button with the module's five click
+// and scroll bindings: the button is the router's hit leaf, so the
+// bindings route through it.
 type barButton struct {
-	labelFloor int
-	*widget.BarButton
-
-	// icon is the module's icon, nil for none and for a content
-	// button; iconShown is whether it sits in the button.
-	icon      *widget.Icon
-	iconShown bool
-	// text is the module's latest label; frozen holds the shown one
-	// still while a dropdown is open.
-	text   string
-	frozen bool
-	// title is the module's translated name; detail is the state the
-	// module describes itself with, the label text while it sets none.
-	// Both make the accessible name and the tooltip.
-	title, detail string
-	// failure says why the module cannot show its state, empty while it
-	// can; it stands in for detail.
-	failure string
-
-	cfg        *config.Config
-	button     config.ButtonConfig
-	thresholds config.ThresholdColors
+	*barview.Button
 
 	binding config.ClickConfig
 	onRun   func(action config.ClickAction, scroll bool)
-	// ownClasses are the classes refresh last applied; classes a module
-	// sets on its button (media-disc, the threshold states) are left
-	// alone.
-	ownClasses []string
 }
 
 // newBarButton builds a module's bar button of its icon (nil for none)
 // and its label text (empty for none yet).
 func newBarButton(ctx ModuleContext, icon *widget.Icon, label string) *barButton {
-	if icon != nil {
-		icon.AddClass("bar-button-icon")
-	}
-	b := newBarButtonOf(ctx, nil)
-	b.icon, b.text = icon, label
-	b.refresh()
-	return b
+	return withBindings(barview.NewButton(ctx.Config, ctx.Font, icon, label))
 }
 
 // newBarButtonAround wraps arbitrary module content (a canvas, a row of
 // its own) in the same button, in the icon's place.
 func newBarButtonAround(ctx ModuleContext, content widget.Widget) *barButton {
-	b := newBarButtonOf(ctx, content)
-	b.refresh()
-	return b
+	return withBindings(barview.NewButtonAround(ctx.Config, ctx.Font, content))
 }
 
-// newBarButtonOf builds the lys-ui bar button around lead, its icon
-// slot, on the bar's icon side.
-func newBarButtonOf(ctx ModuleContext, lead widget.Widget) *barButton {
-	b := &barButton{cfg: ctx.Config, BarButton: widget.NewBarButton(ctx.Font, lead, "")}
-	b.Label().AddClass("bar-button-label")
-	if ctx.Config != nil {
-		b.button = config.ButtonConfig{IconShow: true, LabelShow: true, Tooltip: true, AutoIconColor: config.TokenFgDefault}
-		if ctx.Config.Bar.ButtonIconPosition == config.IconEnd {
-			b.SetIconPosition(widget.IconEnd)
-		}
-	}
+func withBindings(button *barview.Button) *barButton {
+	b := &barButton{Button: button}
 	b.SetOnPointer(b.pointer)
 	b.SetOnScroll(b.scroll)
 	return b
-}
-
-// SetLabel is the module's label text: shown at once, or on thaw while
-// the label is frozen.
-func (b *barButton) SetLabel(text string) {
-	b.text = text
-	b.showLabel()
-	b.describe()
-}
-
-// SetDescription is the module's state in words for the accessible
-// name and the tooltip, after its title: what the label alone does not
-// say (charging, muted, the network's name). Empty describes the module
-// by its label text.
-func (b *barButton) SetDescription(detail string) {
-	b.detail = detail
-	b.describe()
-}
-
-// setFailure marks the button failed with message, which its accessible
-// name and tooltip say in place of the module's state and a blank label
-// stands in for; empty clears it.
-func (b *barButton) setFailure(message string) {
-	b.failure = message
-	if message == "" {
-		b.RemoveClass(failedClass)
-	} else {
-		b.AddClass(failedClass)
-	}
-	b.showLabel()
-	b.describe()
-}
-
-// failedClass marks a module's button while it fails.
-const failedClass = "failed"
-
-// describe names the button for assistive technology and, unless the
-// module's tooltip key is off, as its tooltip: the title, then the
-// state. Equal text marks nothing.
-func (b *barButton) describe() {
-	detail := b.detail
-	if b.failure != "" {
-		detail = b.failure
-	}
-	name := moduleDescription(b.title, detail, b.text)
-	b.SetAccessibleName(name)
-	if !b.button.Tooltip {
-		name = ""
-	}
-	b.SetTooltip(name)
-}
-
-// moduleDescription is title, then detail or else the label text, comma
-// separated, each left out when blank.
-func moduleDescription(title, detail, label string) string {
-	state := strings.TrimSpace(detail)
-	if state == "" {
-		state = strings.TrimSpace(label)
-	}
-	switch {
-	case state == "":
-		return title
-	case title == "":
-		return state
-	}
-	return title + ", " + state
-}
-
-// showLabel puts the module's text on the button unless the label is
-// frozen; label-show off or a blank text shows none, which drops the
-// label and its gap.
-func (b *barButton) showLabel() {
-	if b.frozen {
-		return
-	}
-	shown := b.text
-	if strings.TrimSpace(shown) == "" && b.failure != "" {
-		shown = i18n.T("bar-module-failed")
-	}
-	if !b.button.LabelShow || strings.TrimSpace(shown) == "" {
-		shown = ""
-	}
-	b.BarButton.SetLabel(shown)
-	b.ratchetLabel(shown)
-}
-
-// ratchetLabel keeps a numeric label at the widest it has been: a digit changing
-// repaints the label, where a width changing would move every module beside
-// it. Text with no digit in it lets go.
-func (b *barButton) ratchetLabel(shown string) {
-	if !strings.ContainsAny(shown, "0123456789") {
-		if b.labelFloor != 0 {
-			b.labelFloor = 0
-			b.Label().SetSizeRequest(0, 0)
-		}
-		return
-	}
-	width := b.Label().Measure(widget.Row, widget.Unknown).Nat
-	if width > b.labelFloor {
-		b.labelFloor = width
-		b.Label().SetSizeRequest(width, 0)
-	}
-}
-
-// showIcon puts the module's icon in the button while icon-show is on.
-func (b *barButton) showIcon() {
-	show := b.icon != nil && b.button.IconShow
-	if show == b.iconShown {
-		return
-	}
-	b.iconShown = show
-	if show {
-		b.SetIcon(b.icon)
-		return
-	}
-	b.SetIcon(nil)
-}
-
-// holdOpen marks the button while its dropdown is open: :checked, as a
-// BarButton stays while its own popover is, and with freezeLabel
-// (dropdown-freeze-label) its label held still so the popover stays
-// anchored (FreezeSize). The returned func ends both, showing what the
-// module set meanwhile.
-func (b *barButton) holdOpen(freezeLabel bool) func() {
-	b.SetState(widget.StateChecked, true)
-	b.frozen = freezeLabel
-	return func() {
-		b.SetState(widget.StateChecked, false)
-		b.frozen = false
-		b.showLabel()
-	}
 }
 
 // configure applies a module's title, button config and bindings;
 // appendModule calls it once it knows which module the button belongs
 // to.
 func (b *barButton) configure(title string, button config.ButtonConfig, binding config.ClickConfig, onRun func(action config.ClickAction, scroll bool)) {
-	b.title, b.button, b.binding, b.onRun = title, button, binding, onRun
-	// label-max-length caps the label's width caps at that many characters and ellipsizes there.
-	b.Label().SetMaxWidthChars(button.LabelMaxLength)
-	if button.LabelMaxLength > 0 {
-		b.Label().SetEllipsize(widget.EllipsizeEnd)
-	} else {
-		b.Label().SetEllipsize(widget.EllipsizeNone)
-	}
-	b.refresh()
-	b.describe()
-}
-
-// SetThresholds applies threshold color overrides over the config
-// colors: the per-button variables
-// rebuild when they changed.
-func (b *barButton) SetThresholds(t config.ThresholdColors) {
-	if thresholdsEqual(t, b.thresholds) {
-		return
-	}
-	b.thresholds = t
-	b.refresh()
-}
-
-// applyThresholds evaluates value against the module's thresholds and
-// applies the matching colors.
-func (b *barButton) applyThresholds(value float64, entries []config.ThresholdEntry) {
-	b.SetThresholds(config.EvaluateThresholds(value, entries))
-}
-
-// refresh recomputes the classes, the per-button variables, and which
-// of the icon and label show.
-func (b *barButton) refresh() {
-	b.showIcon()
-	b.showLabel()
-	if b.cfg == nil {
-		return
-	}
-	b.RemoveClass(b.ownClasses...)
-	b.ownClasses = b.classes()
-	b.AddClass(b.ownClasses...)
-	b.applyVariables()
-}
-
-// applyVariables sets the per-button variables from the config and the
-// active thresholds.
-func (b *barButton) applyVariables() {
-	b.SetInlineStyle(inlineDecls(styling.ButtonCSS(b.button, b.cfg.Bar, b.cfg.Styling, b.thresholds)))
-}
-
-// restyleFor gives the button cfg's variables in place, for a reload
-// that only changes high contrast or reduce transparency.
-func (b *barButton) restyleFor(cfg *config.Config) {
-	if b.cfg == nil {
-		return
-	}
-	b.cfg = cfg
-	b.applyVariables()
-}
-
-// restyleButtons restyles every bar button under w for cfg, a hidden
-// revealer's content included.
-func restyleButtons(w widget.Widget, cfg *config.Config) {
-	if b, ok := w.(interface{ restyleFor(*config.Config) }); ok {
-		b.restyleFor(cfg)
-	}
-	if r, ok := w.(*widget.Revealer); ok {
-		restyleButtons(r.Child(), cfg)
-		return
-	}
-	if c, ok := w.(interface{ Children() []widget.Widget }); ok {
-		for _, k := range c.Children() {
-			restyleButtons(k, cfg)
-		}
-	}
-}
-
-// classes are the CSS classes beyond lys-ui's bar-button and
-// vertical: the variant and the modifiers.
-func (b *barButton) classes() []string {
-	bar := b.cfg.Bar
-	out := []string{bar.ButtonVariant.CSSClass()}
-	if !b.button.LabelShow {
-		out = append(out, "icon-only")
-	}
-	if !b.button.IconShow {
-		out = append(out, "label-only")
-	}
-	if b.button.BorderShow {
-		if c, ok := bar.ButtonBorderLocation.CSSClass(); ok {
-			out = append(out, c)
-		}
-	}
-	if c, ok := bar.ButtonIconPosition.CSSClass(); ok {
-		out = append(out, c)
-	}
-	return out
+	b.binding, b.onRun = binding, onRun
+	b.Configure(title, button)
 }
 
 // run fires one binding; scroll marks the scroll-up/down ones (the custom
@@ -405,27 +124,4 @@ func (b *barButton) scroll(e widget.ScrollEvent) bool {
 		return false
 	}
 	return true
-}
-
-// inlineDecls strips a `selector { ... }` rule down to its declaration
-// list, the widget's inline declarations.
-func inlineDecls(rule string) string {
-	open, end := strings.IndexByte(rule, '{'), strings.LastIndexByte(rule, '}')
-	if open < 0 || end < open {
-		return rule
-	}
-	return strings.TrimSpace(rule[open+1 : end])
-}
-
-// thresholdsEqual compares two override sets by value.
-func thresholdsEqual(a, b config.ThresholdColors) bool {
-	eq := func(x, y *config.ColorValue) bool {
-		if x == nil || y == nil {
-			return x == y
-		}
-		return *x == *y
-	}
-	return eq(a.IconColor, b.IconColor) && eq(a.LabelColor, b.LabelColor) &&
-		eq(a.IconBgColor, b.IconBgColor) && eq(a.ButtonBgColor, b.ButtonBgColor) &&
-		eq(a.BorderColor, b.BorderColor)
 }

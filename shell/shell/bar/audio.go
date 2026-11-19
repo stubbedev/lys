@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -155,7 +156,7 @@ func newAudioModule(ctx ModuleContext, source pulse.Source) *audioModule {
 		{&m.camera, cfg.CaptureCameraIcon, "audio-capture-camera", capture},
 		{&m.screen, cfg.CaptureScreenIcon, "audio-capture-screen", capture},
 	} {
-		icon := widget.NewThemeIcon(slot.name, iconPx)
+		icon := widget.NewThemeIcon(slot.name, barview.IconPx)
 		icon.AddClass("bar-button-icon", slot.class)
 		icon.SetInlineStyle(slot.style)
 		icon.SetVisible(false)
@@ -207,7 +208,7 @@ func (m *audioModule) apply(r audioRead) {
 	m.camera.SetVisible(f.cameraShown)
 	m.screen.SetVisible(f.screenShown)
 	if f.hasLevel {
-		m.btn.applyThresholds(f.level, cfg.Thresholds)
+		m.btn.ApplyThresholds(f.level, cfg.Thresholds)
 	} else {
 		m.btn.SetThresholds(config.ThresholdColors{})
 	}

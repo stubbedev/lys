@@ -6,6 +6,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -58,7 +59,7 @@ func newBluetooth(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("bluetooth: no BlueZ source available")
 	}
 	m := &bluetoothModule{ctx: ctx, source: ctx.Bluetooth}
-	m.icon = moduleIcon(ctx, ctx.Config.Bluetooth.Icon())
+	m.icon = barview.Icon(ctx.Config.Bluetooth.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.refresh()
 	// The module lives as long as the bar; the subscription ends with

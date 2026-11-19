@@ -5,6 +5,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -65,7 +66,7 @@ func newRecorder(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("recorder: no recorder service available")
 	}
 	m := &recorderModule{ctx: ctx, src: ctx.Recorder}
-	m.icon = moduleIcon(ctx, ctx.Config.Recorder.Icon())
+	m.icon = barview.Icon(ctx.Config.Recorder.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.refresh()
 	// Follow the shared state; headless construction refreshes inline.

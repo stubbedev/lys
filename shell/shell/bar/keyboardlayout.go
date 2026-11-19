@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -214,7 +215,7 @@ func newKeyboardLayout(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("keyboard-input: unsupported compositor")
 	}
 	m := &keyboardLayout{ctx: ctx}
-	m.btn = newBarButton(ctx, moduleIcon(ctx, ctx.Config.KeyboardInput.Icon()), "")
+	m.btn = newBarButton(ctx, barview.Icon(ctx.Config.KeyboardInput.Icon()), "")
 	m.show(unknownLayout)
 	mountOffLoop(ctx, func() {
 		source, err := keyboardLayoutSource(ctx)

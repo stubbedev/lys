@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -16,7 +17,7 @@ type powerModule struct {
 
 func newPower(ctx ModuleContext) (Module, error) {
 	cfg := ctx.Config.Power
-	ic := moduleIcon(ctx, cfg.Icon())
+	ic := barview.Icon(cfg.Icon())
 	if ic == nil {
 		return nil, errors.New("power: icon-show is off and there is nothing to render")
 	}

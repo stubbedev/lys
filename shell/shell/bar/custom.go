@@ -18,6 +18,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/ui/widget"
@@ -342,7 +343,7 @@ func newCustom(ctx ModuleContext, def config.CustomModuleDefinition) (Module, er
 		return nil, errors.New("custom: requires the application loop")
 	}
 	m := newCustomModule(ctx, def)
-	m.icon = moduleIcon(ctx, def.Icon())
+	m.icon = barview.Icon(def.Icon())
 	m.btn = newBarButton(ctx, m.icon, formatCustomLabel(def, parsedOutput{}))
 	m.life, m.stop = context.WithCancel(ctx.Life())
 	initial := ""
@@ -605,7 +606,7 @@ func (m *customModule) show(v customView) {
 		m.icon.SetThemeName(v.icon)
 	}
 	btn.SetDescription(v.tooltip)
-	btn.setFailure(v.failure)
+	btn.SetFailure(v.failure)
 	btn.SetVisible(v.visible)
 	if v.hasColors {
 		btn.SetThresholds(v.colors)
@@ -627,14 +628,4 @@ func (m *customModule) Stop() {
 	if m.ctx.CustomUpdates != nil {
 		m.ctx.CustomUpdates.unregister(m)
 	}
-}
-
-// customDefinition resolves the definition behind a "custom-<id>"
-// layout name; plain module names return false.
-func customDefinition(name string, cfg *config.Config) (config.CustomModuleDefinition, bool) {
-	const prefix = "custom-"
-	if !strings.HasPrefix(name, prefix) {
-		return config.CustomModuleDefinition{}, false
-	}
-	return cfg.CustomByID(name[len(prefix):])
 }

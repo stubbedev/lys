@@ -365,12 +365,12 @@ func TestAudioThresholdsReadTheSpeaker(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	m := newAudioModule(ctx, &fakePulseSource{})
 	m.apply(audioRead{speaker: device(65, false), mic: device(10, false)})
-	if got := m.btn.thresholds; got.LabelColor == nil || *got.LabelColor != warn {
+	if got := m.btn.Thresholds(); got.LabelColor == nil || *got.LabelColor != warn {
 		t.Errorf("speaker at 65%%: thresholds %+v, want the warning", got)
 	}
 	m.apply(audioRead{speaker: device(30, false), mic: device(90, false)})
-	if !m.btn.thresholds.IsEmpty() {
-		t.Errorf("speaker at 30%%, microphone at 90%%: thresholds %+v, want none", m.btn.thresholds)
+	if !m.btn.Thresholds().IsEmpty() {
+		t.Errorf("speaker at 30%%, microphone at 90%%: thresholds %+v, want none", m.btn.Thresholds())
 	}
 }
 

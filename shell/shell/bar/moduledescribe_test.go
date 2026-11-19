@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -114,7 +115,7 @@ func TestABarButtonIsNamedByItsTitleAndState(t *testing.T) {
 func TestAnUnchangedStateMarksNothing(t *testing.T) {
 	cfg := config.Defaults()
 	b := newBarButton(newTestContext(t, cfg), nil, "")
-	b.configure("Audio", moduleButton("audio", cfg), config.ClickConfig{}, nil)
+	b.configure("Audio", barview.ModuleButton("audio", cfg), config.ClickConfig{}, nil)
 	b.SetLabel("40%")
 	b.SetDescription("40%, muted")
 	before := widget.A11yGeneration()
@@ -134,7 +135,7 @@ func TestEnterAndSpaceRunAModulesPrimaryBinding(t *testing.T) {
 	b := newBarButton(newTestContext(t, cfg), nil, "")
 	var ran []config.ClickAction
 	open := config.ParseClickAction("dropdown:calendar")
-	b.configure("Clock", moduleButton("clock", cfg), config.ClickConfig{LeftClick: open, RightClick: config.ParseClickAction("true")}, func(a config.ClickAction, _ bool) { ran = append(ran, a) })
+	b.configure("Clock", barview.ModuleButton("clock", cfg), config.ClickConfig{LeftClick: open, RightClick: config.ParseClickAction("true")}, func(a config.ClickAction, _ bool) { ran = append(ran, a) })
 	b.KeyAction(widget.KeyEnter, 0)
 	b.InsertRune(' ')
 	b.KeyAction(widget.KeyLeft, 0)

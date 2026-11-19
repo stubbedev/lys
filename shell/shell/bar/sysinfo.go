@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -130,7 +131,7 @@ type shown struct {
 }
 
 func (s shown) same(other shown) bool {
-	return s.label == other.label && thresholdsEqual(s.colors, other.colors)
+	return s.label == other.label && barview.ThresholdsEqual(s.colors, other.colors)
 }
 
 func (m *pollModule) shows(r reading) shown {
@@ -150,7 +151,7 @@ func newPollModule(ctx ModuleContext, kind string, cfg pollConfig, initial strin
 		return nil, errors.New("poll: requires the application loop")
 	}
 	m := &pollModule{ctx: ctx, cfg: cfg, read: read}
-	m.icon = moduleIcon(ctx, cfg.icon)
+	m.icon = barview.Icon(cfg.icon)
 	m.btn = newBarButton(ctx, m.icon, initial)
 	sample := func() (shown, bool) {
 		r, err := m.read()

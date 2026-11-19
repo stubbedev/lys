@@ -1,9 +1,8 @@
 package bar
 
 import (
-	"math"
-
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 )
@@ -40,24 +39,12 @@ func (s barStyle) forModules() barStyle {
 // the token table.
 func computeStyle(cfg *config.Config, palette *styling.Palette) barStyle {
 	bar := cfg.Bar
-	scale := float64(bar.Scale)
 	resolve := func(cv config.ColorValue) render.Color {
 		color, ok := styling.ResolveColor(cv, palette)
 		if !ok {
 			return render.Color(0)
 		}
 		return color
-	}
-
-	// The module label size: pixels are literal; multipliers scale the
-	// stylesheet base (--bar-btn-label-size: 1.04rem) by the bar scale and the
-	// configured multiplier.
-	labelSize := bar.ButtonLabelSize
-	var labelPx float64
-	if labelSize.Unit == config.SizePixels {
-		labelPx = float64(labelSize.Value)
-	} else {
-		labelPx = buttonLabelBaseRem * styling.RemBase * scale * float64(labelSize.Value)
 	}
 
 	// The dropdown buttons' hover and active shades deepen the group
@@ -69,17 +56,13 @@ func computeStyle(cfg *config.Config, palette *styling.Palette) barStyle {
 	return barStyle{
 		palette:        palette,
 		fg:             resolve(mustToken(config.TokenFgDefault)),
-		moduleGap:      int(math.Round(bar.ModuleGap.ResolvePx(styling.RemBase, scale))),
-		groupGap:       int(math.Round(bar.ButtonGroupModuleGap.ResolvePx(styling.RemBase, scale))),
-		labelPx:        labelPx,
+		moduleGap:      barview.ModuleGap(cfg),
+		groupGap:       barview.GroupGap(cfg),
+		labelPx:        barview.LabelPx(cfg),
 		buttonBgHover:  styling.ColorMix(hoverBase, buttonBg, 50),
 		buttonBgActive: styling.ColorMix(activeBase, buttonBg, 80),
 	}
 }
-
-// buttonLabelBaseRem is tokens/index.css's --bar-btn-label-size base,
-// the button-label-size multiplier scales.
-const buttonLabelBaseRem = 1.04
 
 // mustToken wraps a literal token lookup; a typo in one of these
 // constants is a programming error, not a config error.

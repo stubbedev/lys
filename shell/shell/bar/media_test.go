@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
@@ -189,7 +190,7 @@ func TestMediaModuleRenders(t *testing.T) {
 		t.Errorf("label = %q, want the whole default format", got)
 	}
 	root := m.btn
-	root.configure(moduleTitle("media", cfg), moduleButton("media", cfg), config.ClickConfig{}, nil)
+	root.configure(barview.ModuleTitle("media", cfg), barview.ModuleButton("media", cfg), config.ClickConfig{}, nil)
 	if root.Label().MaxWidthChars() != int(cfg.Media.LabelMaxLength) || root.Label().Ellipsize() != widget.EllipsizeEnd {
 		t.Errorf("label cap = %d chars, ellipsize %v; want %d, end", root.Label().MaxWidthChars(), root.Label().Ellipsize(), cfg.Media.LabelMaxLength)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -150,7 +151,7 @@ func newNetwork(ctx ModuleContext) (Module, error) {
 	if ctx.Networking != nil {
 		m.vpn = ctx.Networking.VPN
 	}
-	m.icon = moduleIcon(ctx, ctx.Config.Network.Icon())
+	m.icon = barview.Icon(ctx.Config.Network.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	reads := followReads(ctx, "network", &m.firstRead, ctx.Network.Subscribe, m.read, m.apply)
 	if m.vpn != nil {

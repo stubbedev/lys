@@ -26,6 +26,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/lockclient"
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -681,7 +682,7 @@ func (s *shellStart) mount() {
 	})
 	// A bar that cannot open is logged, not fatal.
 	s.down.add(bars.followOutputs(sess, func(connector string) (config.BarLayout, bool) {
-		return barLayoutFor(current.Load(), connector)
+		return barview.LayoutFor(current.Load(), connector)
 	}, func(output *app.Output) {
 		osdSrv.DetachOutput(output.Name)
 		if popupHost != nil {
@@ -700,7 +701,7 @@ func (s *shellStart) mount() {
 			log.Printf("%v; keeping the previous font", err)
 		}
 		rt.mount(application, cfg)
-		bars.reload(func(connector string) (config.BarLayout, bool) { return barLayoutFor(cfg, connector) })
+		bars.reload(func(connector string) (config.BarLayout, bool) { return barview.LayoutFor(cfg, connector) })
 		docks.reload(func(connector string) (config.DockConfig, bool) { return dockFor(cfg, connector) })
 	}
 	// A service that starts after the shell (or restarts) brings its
@@ -904,58 +905,19 @@ func barConfigFor(ctx ModuleContext, layout config.BarLayout, output *app.Output
 	}
 }
 
-// buildRoot assembles one bar on lys-ui's Bar, so the bar CSS styles
-// it:
-//
-//	bar.<edge>.<connector>[.floating]   (the --bar-* variables inline)
-//	├ box.start
-//	├ box.center
-//	└ box.end
-//
-// The bar's CSS margins carry the insets and the shadow margin, its
-// border, background and padding the bar chrome; each zone spaces its
-// items by the module gap.
+// buildRoot assembles one bar (barview.NewBar) styled by the bar
+// theme when the context has one.
 func buildRoot(ctx ModuleContext, layout config.BarLayout, connector string) *widget.Bar {
-	bar := widget.NewBar(barEdge(ctx.Config.Bar.Location))
-	if connector != "" {
-		bar.AddClass(connector)
-	}
+	bar := barview.NewBar(ctx.Config, layout, connector, moduleAppender(ctx))
 	if ctx.Theme != nil {
 		ctx.Theme.Attach(bar)
 	}
-	fillBar(bar, ctx, layout)
 	return bar
 }
 
-// fillBar gives bar the config-derived parts of buildRoot: its
-// floating class, the --bar-* variables, and the zones' modules, which
-// replace the ones it held. The edge is the window's to move.
+// fillBar refills bar from layout (barview.Fill).
 func fillBar(bar *widget.Bar, ctx ModuleContext, layout config.BarLayout) {
-	cfg := ctx.Config
-	bar.SetClass("floating", floating(cfg))
-	bar.SetInlineStyle(inlineDecls(styling.BarCSS(cfg.Bar, cfg.Styling)))
-	for _, z := range []struct {
-		box   *widget.Box
-		items []config.BarItem
-	}{{bar.Start(), layout.Left}, {bar.Center(), layout.Center}, {bar.End(), layout.Right}} {
-		z.box.Clear()
-		appendItems(z.box, z.items, ctx)
-	}
-}
-
-// barEdge is the lys-ui edge a bar at location runs along.
-func barEdge(location config.Location) widget.BarEdge {
-	switch location {
-	case config.LocationTop:
-		return widget.BarTop
-	case config.LocationBottom:
-		return widget.BarBottom
-	case config.LocationLeft:
-		return widget.BarLeft
-	case config.LocationRight:
-		return widget.BarRight
-	}
-	panic(fmt.Sprintf("bar: location %q has no edge", location))
+	barview.Fill(bar, ctx.Config, layout, moduleAppender(ctx))
 }
 
 // logicalSize converts an output's current mode to logical pixels at
@@ -992,11 +954,11 @@ func (r *barRuntime) derive(cfg *config.Config) error {
 	*r.palette = *r.theme.RenderPalette()
 	r.style = computeStyle(cfg, r.palette)
 	r.moduleStyle = r.style.forModules()
-	face, err := app.Font(cfg.General.FontSans, r.style.labelPx)
+	font, err := barview.Font(cfg)
 	if err != nil {
-		return fmt.Errorf("bar: font %q: %w", cfg.General.FontSans, err)
+		return err
 	}
-	r.font = app.FontFallback(face)
+	r.font = font
 	return nil
 }
 
@@ -1024,12 +986,6 @@ func (r *barRuntime) mount(application *app.Application, cfg *config.Config) {
 	}
 	r.ctx.Dropdowns = newDropdownRegistry(application, cfg, r.font, &r.style, r.ctx)
 	r.ctx.Dropdowns.buildAhead()
-}
-
-// barLayoutFor is the output's layout and whether it shows a bar.
-func barLayoutFor(cfg *config.Config, connector string) (config.BarLayout, bool) {
-	layout, ok := FindLayout(cfg.Bar.Layout, connector)
-	return layout, ok && layout.Show
 }
 
 // barHost opens the bars of the shell's mount generation; `lys-shell
@@ -1111,7 +1067,7 @@ func (w *barWindow) Rebuild(layout config.BarLayout) error {
 		}
 		w.layerKind = kind
 	}
-	if edge := barEdge(cfg.Bar.Location); edge != w.bar.Edge() {
+	if edge := barview.Edge(cfg.Bar.Location); edge != w.bar.Edge() {
 		if err := w.layer.SetEdge(edge); err != nil {
 			return fmt.Errorf("move to %s: %w", cfg.Bar.Location, err)
 		}
@@ -1181,7 +1137,7 @@ func (r *barRuntime) rederive(cfg *config.Config) {
 // Restyle gives the open bar and its buttons cfg's variables and blur in
 // place: its modules stay, the stylesheet restyles them on the next frame.
 func (w *barWindow) Restyle(cfg *config.Config) {
-	w.bar.SetInlineStyle(inlineDecls(styling.BarCSS(cfg.Bar, cfg.Styling)))
-	restyleButtons(w.bar, cfg)
+	w.bar.SetInlineStyle(barview.InlineDecls(styling.BarCSS(cfg.Bar, cfg.Styling)))
+	barview.Restyle(w.bar, cfg)
 	w.layer.SetBackgroundBlur(barBlur(cfg))
 }

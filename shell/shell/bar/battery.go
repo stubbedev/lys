@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -45,7 +46,7 @@ func newBattery(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("battery: no battery source available")
 	}
 	m := &battery{ctx: ctx, source: ctx.Battery}
-	m.icon = moduleIcon(ctx, ctx.Config.Battery.Icon())
+	m.icon = barview.Icon(ctx.Config.Battery.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	followReads(ctx, "battery", &m.firstRead, m.source.Subscribe, m.source.Read, m.apply)
 	return m, nil
@@ -55,7 +56,7 @@ func newBattery(ctx ModuleContext) (Module, error) {
 func (m *battery) apply(dev upower.Device) {
 	cfg := m.ctx.Config.Battery
 	label := batteryLabel(cfg.Format, dev.Percentage, dev.IsPresent)
-	m.btn.applyThresholds(dev.Percentage, cfg.Thresholds)
+	m.btn.ApplyThresholds(dev.Percentage, cfg.Thresholds)
 	m.btn.SetLabel(label)
 	m.setIcon(cfg, dev)
 }

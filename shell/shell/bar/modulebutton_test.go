@@ -167,10 +167,10 @@ func shownIcon(b *barButton) *widget.Icon {
 		r = render.Rect{W: size.W, H: size.H}
 	}
 	b.Arrange(r)
-	if b.icon == nil || (!widget.DescendsFrom(b.icon, b) && !widget.DescendsFrom(b.icon, &b.Button)) {
+	if b.Icon() == nil || (!widget.DescendsFrom(b.Icon(), b) && !widget.DescendsFrom(b.Icon(), &b.BarButton.Button)) {
 		return nil
 	}
-	return b.icon
+	return b.Icon()
 }
 
 // The module button is lys-ui's BarButton, its icon and label the
@@ -421,7 +421,7 @@ func TestBarButtonHoldsOpenWhileItsDropdownIs(t *testing.T) {
 		lb := b.Label().Bounds()
 		at := widget.Point{X: lb.X + 1, Y: lb.Y + 1}
 		rest := paintedAt(bar, 1000, 100, at)
-		release := b.holdOpen(freeze)
+		release := b.HoldOpen(freeze)
 		if open := paintedAt(bar, 1000, 100, at); !b.HasState(widget.StateChecked) || open == rest {
 			t.Errorf("freeze %v: the open dropdown's button paints %#x, as at rest", freeze, uint32(open))
 		}
@@ -477,7 +477,7 @@ func TestADigitChangeDamagesTheLabelAlone(t *testing.T) {
 	if _, damaged := settle(); !damaged {
 		t.Error("a label without digits repainted nothing")
 	}
-	if got := button.labelFloor; got != 0 {
+	if got := button.LabelFloor(); got != 0 {
 		t.Errorf("a label without digits keeps a floor of %d", got)
 	}
 }

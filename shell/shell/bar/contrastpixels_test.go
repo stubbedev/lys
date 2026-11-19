@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling/material"
 	"github.com/stubbedev/lys/lib/render"
@@ -83,7 +84,7 @@ func TestAccessibleBarPixelsAreOpaqueAndHighContrast(t *testing.T) {
 		}
 		high := *cfg
 		high.Styling.HighContrast = true
-		restyleButtons(root, &high)
+		barview.Restyle(root, &high)
 		if strings.Contains(btn.InlineStyle(), "#45465c") {
 			t.Errorf("the dim label survives turning high contrast on: %q", btn.InlineStyle())
 		}

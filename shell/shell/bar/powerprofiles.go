@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -39,7 +40,7 @@ func newPowerProfiles(ctx ModuleContext) (Module, error) {
 		return nil, errors.New("power-profiles: no power-profiles-daemon available")
 	}
 	m := &powerProfilesModule{ctx: ctx, src: ctx.PowerProfiles}
-	m.icon = moduleIcon(ctx, ctx.Config.PowerProfiles.Icons()[config.ProfileBalanced])
+	m.icon = barview.Icon(ctx.Config.PowerProfiles.Icons()[config.ProfileBalanced])
 	m.btn = newBarButton(ctx, m.icon, "")
 	followReads(ctx, "power-profiles", &m.firstRead, ctx.PowerProfiles.Subscribe, m.src.Read, m.apply)
 	return m, nil

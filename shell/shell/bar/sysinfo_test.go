@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 
 	"github.com/stubbedev/lys/shell/internal/jinja"
@@ -54,7 +55,7 @@ func TestSysinfoThresholdColors(t *testing.T) {
 	ctx := ModuleContext{Config: cfg, Font: testFont(t), Style: &style, gen: testGen(t)}
 	c := cfg.CPU
 	m := &pollModule{ctx: ctx, cfg: pollConfig{c.Format, c.Thresholds, c.Icon(), c.PollIntervalMs}}
-	m.icon = moduleIcon(ctx, cfg.CPU.Icon())
+	m.icon = barview.Icon(cfg.CPU.Icon())
 	m.btn = newBarButton(m.ctx, m.icon, "")
 
 	m.render(reading{vars: cpuContext(sysinfo.CPU{UsagePercent: 50}), value: 50, ok: true})

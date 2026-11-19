@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -75,7 +76,7 @@ func newMail(ctx ModuleContext) (Module, error) {
 		return nil, errMailNoService
 	}
 	m := &mailModule{ctx: ctx}
-	m.icon = moduleIcon(ctx, ctx.Config.Mail.Icon())
+	m.icon = barview.Icon(ctx.Config.Mail.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.apply(ctx.Mail.State())
 	ticks, unsubscribe := ctx.Mail.Subscribe()

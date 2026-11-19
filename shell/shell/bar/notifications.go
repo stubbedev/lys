@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -45,7 +46,7 @@ func newNotification(ctx ModuleContext) (Module, error) {
 	if m.src == nil {
 		return nil, errors.New("notifications: no notification service available")
 	}
-	m.icon = moduleIcon(ctx, ctx.Config.Notification.Icon())
+	m.icon = barview.Icon(ctx.Config.Notification.Icon())
 	m.btn = newBarButton(ctx, m.icon, "")
 	m.refresh()
 	// Follow the service's change feed (subscribed before returning, so
@@ -63,7 +64,7 @@ func (m *notificationModule) refresh() {
 	dnd := m.src.DND()
 	text := notificationLabel(count)
 	m.btn.SetLabel(text)
-	m.btn.applyThresholds(float64(count), cfg.Thresholds)
+	m.btn.ApplyThresholds(float64(count), cfg.Thresholds)
 	if setter := m.icon; setter != nil {
 		setter.SetThemeName(notificationIconName(cfg, count, dnd))
 	}

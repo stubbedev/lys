@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -132,7 +133,7 @@ func newDashboard(ctx ModuleContext) (Module, error) {
 	if first == "" {
 		first = dashboardFallbackIcon
 	}
-	icon := moduleIcon(ctx, config.IconConfig{Show: true, Name: first, Color: cfg.IconColor})
+	icon := barview.Icon(config.IconConfig{Show: true, Name: first, Color: cfg.IconColor})
 	if cfg.IconOverride == "" {
 		mountOffLoop(ctx, func() {
 			name := dashboardIcon(cfg.IconOverride, detectDistro, widget.ThemeIconExists)

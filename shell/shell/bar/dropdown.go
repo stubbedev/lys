@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -93,7 +94,7 @@ type dropdownHider interface{ dropdownHidden() }
 // dropdownAnchor is an anchor that shows its dropdown is open; the
 // returned func ends the hold as the dropdown closes.
 type dropdownAnchor interface {
-	holdOpen(freezeLabel bool) (release func())
+	HoldOpen(freezeLabel bool) (release func())
 }
 
 // dropdownCloser is live dropdown content (a service subscription) that
@@ -392,7 +393,7 @@ func barDropdowns(cfg *config.Config, builders map[string]func(ModuleContext) wi
 		}
 	}
 	for _, l := range cfg.Bar.Layout {
-		layout, ok := barLayoutFor(cfg, l.Monitor)
+		layout, ok := barview.LayoutFor(cfg, l.Monitor)
 		if !ok {
 			continue
 		}
@@ -546,7 +547,7 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget, by
 func holdDropdown(anchor widget.Widget, freezeLabel bool, content widget.Widget) func() {
 	var release func()
 	if a, ok := anchor.(dropdownAnchor); ok {
-		release = a.holdOpen(freezeLabel)
+		release = a.HoldOpen(freezeLabel)
 	}
 	h, hides := content.(dropdownHider)
 	if !hides {
@@ -608,7 +609,7 @@ func dropdownFocus(content widget.Widget, fromKeyboard bool) widget.Widget {
 func dropdownPopover(cfg *config.Config, anchor widget.Boundser, content widget.Widget, monH, width int) app.PopoverConfig {
 	pc := app.PopoverConfig{
 		Anchor:         anchor,
-		Gravity:        app.GravityOf(barEdge(cfg.Bar.Location).PopoverSide()),
+		Gravity:        app.GravityOf(barview.Edge(cfg.Bar.Location).PopoverSide()),
 		Content:        content,
 		Gap:            widget.PopoverGap,
 		Dismissal:      app.PopoverSticky,

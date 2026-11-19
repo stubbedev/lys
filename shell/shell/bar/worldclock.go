@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -148,7 +149,7 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 	}
 	cfg := ctx.Config.WorldClock
 	m := &worldClockModule{}
-	m.btn = newBarButton(ctx, moduleIcon(ctx, cfg.Icon()), "")
+	m.btn = newBarButton(ctx, barview.Icon(cfg.Icon()), "")
 	template := newWorldClockTemplate(cfg.Format, shellClockNames(), time.LoadLocation)
 	var lastErr string
 	spec := samplerSpec[worldClockShown]{
@@ -188,7 +189,7 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 // show puts a render on the button: its text, or its failure marked.
 func (m *worldClockModule) show(s worldClockShown) {
 	m.btn.SetLabel(s.text)
-	m.btn.setFailure(s.failure)
+	m.btn.SetFailure(s.failure)
 }
 
 func (m *worldClockModule) Root() widget.Widget { return m.btn }

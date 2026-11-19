@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -208,7 +209,7 @@ func TestACustomCommandThatTimesOutMarksTheButtonFailedUntilTheNextOutput(t *tes
 	m := newTestCustom(t, def)
 	m.deliver("hi")
 	waitForText(t, m.btn.Label(), "hi")
-	if onHeadlessLoop(func() bool { return m.btn.HasClass(failedClass) }) {
+	if onHeadlessLoop(func() bool { return m.btn.HasClass(barview.FailedClass) }) {
 		t.Fatal("a module with output shows failed")
 	}
 
@@ -219,14 +220,14 @@ func TestACustomCommandThatTimesOutMarksTheButtonFailedUntilTheNextOutput(t *tes
 		t.Fatalf("a timed out command gave %+v (%v), want the failure %q", s, ok, want)
 	}
 	m.take(s)
-	waitHeadless(t, "the failed mark", func() bool { return m.btn.HasClass(failedClass) })
+	waitHeadless(t, "the failed mark", func() bool { return m.btn.HasClass(barview.FailedClass) })
 	label, tip := onHeadlessLoop(m.btn.Label().Text), onHeadlessLoop(m.btn.TooltipText)
 	if label != "hi" || !strings.Contains(tip, s.failure) {
 		t.Errorf("a failed module shows %q with tooltip %q, want the last output and the failure", label, tip)
 	}
 
 	m.take(customSample{output: "hi"})
-	waitHeadless(t, "the failed mark to go", func() bool { return !m.btn.HasClass(failedClass) })
+	waitHeadless(t, "the failed mark to go", func() bool { return !m.btn.HasClass(barview.FailedClass) })
 	if tip := onHeadlessLoop(m.btn.TooltipText); strings.Contains(tip, s.failure) {
 		t.Errorf("the tooltip %q still says the failure once the command gave output", tip)
 	}
@@ -249,12 +250,12 @@ func TestAFailedCustomModuleShowsThoughHideIfEmptyHidesItsOutput(t *testing.T) {
 	}
 	failure := i18n.T("bar-custom-command-failed", i18n.Str("error", "fork/exec /bin/sh: no such file or directory"))
 	m.take(customSample{failure: failure})
-	waitHeadless(t, "the failed button shown", func() bool { return m.btn.Visible() && m.btn.HasClass(failedClass) })
+	waitHeadless(t, "the failed button shown", func() bool { return m.btn.Visible() && m.btn.HasClass(barview.FailedClass) })
 	if got, want := onHeadlessLoop(m.btn.Label().Text), i18n.T("bar-module-failed"); got != want {
 		t.Errorf("a failed module without output shows %q, want %q", got, want)
 	}
 	m.take(customSample{})
-	waitHeadless(t, "the empty output hidden again", func() bool { return !m.btn.Visible() && !m.btn.HasClass(failedClass) })
+	waitHeadless(t, "the empty output hidden again", func() bool { return !m.btn.Visible() && !m.btn.HasClass(barview.FailedClass) })
 }
 
 func TestCustomHideIfEmptyHidesTheButton(t *testing.T) {
@@ -325,14 +326,14 @@ func TestCustomDefinitionLookup(t *testing.T) {
 	def.Command = &cmd
 	cfg.Custom = []config.CustomModuleDefinition{def}
 
-	got, ok := customDefinition("custom-cpu-temp", cfg)
+	got, ok := barview.CustomDefinition("custom-cpu-temp", cfg)
 	if !ok || got.Id != "cpu-temp" {
 		t.Errorf("lookup = %+v ok=%v", got, ok)
 	}
-	if _, ok := customDefinition("clock", cfg); ok {
+	if _, ok := barview.CustomDefinition("clock", cfg); ok {
 		t.Error("plain module names must not match the custom- prefix")
 	}
-	if _, ok := customDefinition("custom-missing", cfg); ok {
+	if _, ok := barview.CustomDefinition("custom-missing", cfg); ok {
 		t.Error("unknown id matched")
 	}
 }

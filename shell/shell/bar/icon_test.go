@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -116,7 +117,7 @@ func TestBarIconTakesItsLogicalSizeOnFractionalScales(t *testing.T) {
 	cfg.Bar.ButtonIconSize = config.Px(20)
 	cfg.Bar.ButtonVariant = config.ButtonBasic
 	ctx := styledContext(t, cfg)
-	icon := moduleIcon(ctx, config.IconConfig{Show: true, Name: name})
+	icon := barview.Icon(config.IconConfig{Show: true, Name: name})
 	b := newBarButton(ctx, icon, "Off")
 	host := widget.NewBox(widget.Row, 0, 0).Append(b, false)
 	ctx.Theme.Attach(host)

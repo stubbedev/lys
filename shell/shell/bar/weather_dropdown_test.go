@@ -634,7 +634,7 @@ func TestWeatherModuleIsStaleOnlyWhileTheRefreshFails(t *testing.T) {
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	onHeadlessLoop(func() bool { wm.setChrome(chrome); return true })
 	stale := func() bool { return widget.HasClass(chrome, weatherStaleClass) }
-	if onHeadlessLoop(stale) || onHeadlessLoop(func() bool { return wm.btn.detail != "" }) {
+	if onHeadlessLoop(stale) || onHeadlessLoop(func() bool { return wm.btn.Detail() != "" }) {
 		t.Fatal("a current reading is marked stale")
 	}
 
@@ -642,14 +642,14 @@ func TestWeatherModuleIsStaleOnlyWhileTheRefreshFails(t *testing.T) {
 	svc.Refresh()
 	reason := i18n.T("dropdown-weather-error-location", i18n.Str("query", "Atlantis"))
 	want := i18n.T("weather-stale", i18n.Str("reading", "11°C"), i18n.Str("reason", reason))
-	waitHeadless(t, "the stale class and its reason", func() bool { return stale() && wm.btn.detail == want })
+	waitHeadless(t, "the stale class and its reason", func() bool { return stale() && wm.btn.Detail() == want })
 	if got := onHeadlessLoop(func() string { return wm.btn.Label().Text() }); got != "11°C" {
 		t.Errorf("the stale label = %q, want the held 11°C", got)
 	}
 
 	script.set(rainyWeather(), nil)
 	svc.Refresh()
-	waitHeadless(t, "the stale class cleared", func() bool { return !stale() && wm.btn.detail == "" })
+	waitHeadless(t, "the stale class cleared", func() bool { return !stale() && wm.btn.Detail() == "" })
 }
 
 func TestWeatherModuleWithoutDataIsNotStale(t *testing.T) {
@@ -670,7 +670,7 @@ func TestWeatherModuleWithoutDataIsNotStale(t *testing.T) {
 	if onHeadlessLoop(func() bool { return widget.HasClass(chrome, weatherStaleClass) }) {
 		t.Error("a module with no reading is marked stale")
 	}
-	if got := onHeadlessLoop(func() string { return wm.btn.detail }); got != i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", "weatherapi")) {
+	if got := onHeadlessLoop(func() string { return wm.btn.Detail() }); got != i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", "weatherapi")) {
 		t.Errorf("detail = %q, want the failure's reason", got)
 	}
 }
