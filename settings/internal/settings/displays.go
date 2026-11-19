@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
+	"github.com/stubbedev/lys/settings/internal/wmstate"
 )
 
 const (
@@ -74,6 +76,8 @@ type displaysPanel struct {
 	scales     []float64
 	custom     *widget.Entry
 	extra      *widget.ItemGroup
+	capsNote   *widget.Label
+	caps       outputCapabilities
 	identify   *widget.Button
 	apply      *widget.Button
 	status     *widget.Label
@@ -180,6 +184,9 @@ func (p *displaysPanel) buildControls() {
 	}
 	rows.Append(panelRow(k, t.Get("settings-displays-scale"), t.Attr("settings-displays-scale", "description"), p.scale, p.custom))
 	p.controls.Append(rows, false)
+	p.capsNote = wrapped(k.label("", "setting-description", css.Caption))
+	p.capsNote.SetVisible(false)
+	p.controls.Append(p.capsNote, false)
 	p.extra = widget.NewItemGroup()
 	p.controls.Append(p.extra, false)
 }
@@ -235,6 +242,7 @@ func (p *displaysPanel) showHeads(heads []displays.Head) {
 	p.selected = min(max(p.selected, 0), max(len(heads)-1, 0))
 	p.render()
 	p.showExtraRows()
+	p.readCapabilities()
 }
 
 func (p *displaysPanel) showOffTray() {
@@ -577,8 +585,27 @@ func (p *displaysPanel) revertLayout() {
 	})
 }
 
+func (p *displaysPanel) readCapabilities() {
+	w, err := p.k.wmBackend()
+	if err != nil {
+		return
+	}
+	run := w.run
+	async(p.k, func() outputCapabilities {
+		byName, err := wmstate.Capabilities(run)
+		return outputCapabilities{read: true, byName: byName, err: err}
+	}, func(c outputCapabilities) {
+		if p.closed {
+			return
+		}
+		p.caps = c
+		p.showExtraRows()
+	})
+}
+
 func (p *displaysPanel) showExtraRows() {
 	p.extra.Clear()
+	p.capsNote.SetVisible(false)
 	if len(p.heads) == 0 {
 		return
 	}
@@ -590,13 +617,79 @@ func (p *displaysPanel) showExtraRows() {
 	t := locale.T()
 	h := p.heads[p.selected]
 	rule := func() slot { return outputRuleSlot(w, h) }
+	set, _ := rule().get().(map[string]any)
+	caps, known := p.caps.of(h.Name)
+	hidden := false
 	for _, f := range wmItemFields(w, []string{outputsPath, wmconfig.Each}, nil, outputsPath) {
 		if arranged(f) {
+			continue
+		}
+		if known && !outputCanUse(f, caps, set) {
+			hidden = true
 			continue
 		}
 		ctl := f.item(p.k, func(key string) slot { return nestedSlot(rule(), []string{key}) })
 		p.extra.Append(panelRow(p.k, t.Get(f.label), t.Attr(f.label, "description"), ctl))
 	}
+	if note := p.caps.note(h.Name, hidden); note != "" {
+		p.capsNote.SetText(note)
+		p.capsNote.SetVisible(true)
+	}
+}
+
+type outputCapabilities struct {
+	read   bool
+	byName map[string]wmipc.OutputCapabilities
+	err    error
+}
+
+func (c outputCapabilities) of(name string) (wmipc.OutputCapabilities, bool) {
+	caps, ok := c.byName[name]
+	return caps, ok && c.err == nil
+}
+
+func (c outputCapabilities) note(name string, hidden bool) string {
+	t := locale.T()
+	_, known := c.of(name)
+	switch {
+	case !c.read:
+		return ""
+	case errors.Is(c.err, wmstate.ErrNotRunning):
+		return t.Get("settings-displays-caps-not-running")
+	case errors.Is(c.err, wmstate.ErrOutdated):
+		return t.Get("settings-displays-caps-outdated")
+	case c.err != nil:
+		return t.Get("settings-displays-caps-unreadable", i18n.Str("reason", c.err.Error()))
+	case !known:
+		return t.Get("settings-displays-caps-off")
+	case hidden:
+		return t.Get("settings-displays-caps-hidden")
+	}
+	return ""
+}
+
+type outputCapabilityKey struct {
+	key string
+	can func(wmipc.OutputCapabilities) bool
+}
+
+var outputCapabilityKeys = []outputCapabilityKey{
+	{"hdr", outputHDR},
+	{"sdr_brightness", outputHDR},
+	{"hdr_peak", outputHDR},
+	{"vrr", func(c wmipc.OutputCapabilities) bool { return c.VRR }},
+	{"bitdepth", func(c wmipc.OutputCapabilities) bool { return c.MaxBitDepth >= wmipc.Depth10 }},
+}
+
+func outputHDR(c wmipc.OutputCapabilities) bool { return c.HDR }
+
+func outputCanUse(f cardField, caps wmipc.OutputCapabilities, rule map[string]any) bool {
+	i := slices.IndexFunc(outputCapabilityKeys, func(g outputCapabilityKey) bool { return f.label == wmKey(outputsPath+"."+g.key) })
+	if i < 0 {
+		return true
+	}
+	_, set := rule[outputCapabilityKeys[i].key]
+	return set || outputCapabilityKeys[i].can(caps)
 }
 
 // arranged reports whether f is a key the arrangement above edits, which

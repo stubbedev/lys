@@ -334,3 +334,29 @@ func TestAnOutputTurnedOffWaitsInTheOffRowToBeChosen(t *testing.T) {
 		t.Errorf("choosing the off output selected %d (want %d), enabled %v", r.p.selected, second, r.p.enabled.On())
 	}
 }
+
+func TestTheSelectedDisplayOffersOnlyWhatItCanDo(t *testing.T) {
+	r := startDisplays(t)
+	r.l.until("lys-wm to say what the outputs can do", func() bool { return r.p.caps.read })
+	if r.p.caps.err != nil {
+		t.Fatal(r.p.caps.err)
+	}
+	tr := locale.T()
+	vrr, depth, shader := tr.Get(wmKey(outputsPath+".vrr")), tr.Get(wmKey(outputsPath+".bitdepth")), tr.Get(wmKey(outputsPath+".shader"))
+	for name, deep := range map[string]bool{"HEADLESS-1": true, secondOutput: false} {
+		r.p.selectOutput(slices.IndexFunc(r.p.draft, func(s displays.Setting) bool { return s.Name == name }))
+		labels := treetest.Labels(r.p.extra)
+		if slices.Contains(labels, vrr) {
+			t.Errorf("%s, which has no adaptive sync, offers it: %v", name, labels)
+		}
+		if slices.Contains(labels, depth) != deep {
+			t.Errorf("%s offers a bit depth: %t, want %t: %v", name, !deep, deep, labels)
+		}
+		if !slices.Contains(labels, shader) {
+			t.Errorf("%s lost the shader, which every display takes: %v", name, labels)
+		}
+		if !r.p.capsNote.Visible() || r.p.capsNote.Text() != tr.Get("settings-displays-caps-hidden") {
+			t.Errorf("%s says %q over its options, want that some are hidden", name, r.p.capsNote.Text())
+		}
+	}
+}

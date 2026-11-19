@@ -3,9 +3,12 @@ package wmstate
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 	"github.com/stubbedev/lys/settings/internal/wmtest"
@@ -72,7 +75,7 @@ func TestPointersFailAsDefined(t *testing.T) {
 	}
 }
 
-func TestTheRunningLysWMReportsEachDevicesClass(t *testing.T) {
+func TestTheRunningLysWMReportsDeviceClassesAndOutputCapabilities(t *testing.T) {
 	wmtest.Start(t, "")
 	got, err := Pointers(wmconfig.Exec)
 	if err != nil {
@@ -81,12 +84,59 @@ func TestTheRunningLysWMReportsEachDevicesClass(t *testing.T) {
 	if len(got) != 0 {
 		t.Fatalf("the headless lys-wm's virtual keyboard and pointer, which no input section configures, are pointers: %+v", got)
 	}
+	caps, err := Capabilities(wmconfig.Exec)
+	if err != nil {
+		t.Fatalf("the headless lys-wm's outputs: %v", err)
+	}
+	if len(caps) == 0 {
+		t.Fatal("the headless lys-wm shows no output")
+	}
+	for name, c := range caps {
+		if c.VRR || c.MaxBitDepth != wmipc.Depth10 {
+			t.Errorf("headless output %s, which has no adaptive sync and draws 10-bit frames, reports %+v", name, c)
+		}
+	}
 }
 
 func TestNoRunningLysWMIsNotRunning(t *testing.T) {
 	wmtest.Need(t)
 	wmtest.Private(t)
 	if _, err := Pointers(wmconfig.Exec); !errors.Is(err, ErrNotRunning) {
-		t.Fatalf("no lys-wm: %v, want %v", err, ErrNotRunning)
+		t.Fatalf("devices with no lys-wm: %v, want %v", err, ErrNotRunning)
+	}
+	if _, err := Capabilities(wmconfig.Exec); !errors.Is(err, ErrNotRunning) {
+		t.Fatalf("outputs with no lys-wm: %v, want %v", err, ErrNotRunning)
+	}
+}
+
+func TestCapabilitiesAreEachShownOutputs(t *testing.T) {
+	run := answering(map[string]string{"outputs": `[
+		{"name":"DP-1","capabilities":{"hdr":true,"vrr":true,"max_bitdepth":10}},
+		{"name":"eDP-1","capabilities":{"hdr":false,"vrr":false,"max_bitdepth":8}}]`})
+	got, err := Capabilities(run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]wmipc.OutputCapabilities{"DP-1": {HDR: true, VRR: true, MaxBitDepth: wmipc.Depth10}, "eDP-1": {MaxBitDepth: wmipc.Depth8}}
+	if !maps.Equal(got, want) {
+		t.Fatalf("capabilities %v, want %v", got, want)
+	}
+}
+
+func TestCapabilitiesFailAsDefined(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		run  wmconfig.Runner
+		want error
+	}{
+		{"no lys-wm", notRunning, ErrNotRunning},
+		{"a lys-wm that predates capabilities", answering(map[string]string{"outputs": `[{"name":"DP-1"}]`}), ErrOutdated},
+	} {
+		if _, err := Capabilities(c.run); !errors.Is(err, c.want) {
+			t.Errorf("%s: %v, want %v", c.name, err, c.want)
+		}
+	}
+	if _, err := Capabilities(failing); err == nil || errors.Is(err, ErrNotRunning) || !strings.Contains(err.Error(), "broken") {
+		t.Errorf("a failing lys-wmctl: %v, want its own error", err)
 	}
 }

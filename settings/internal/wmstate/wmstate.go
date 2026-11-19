@@ -47,6 +47,26 @@ func bounded[T any](limit time.Duration, ask func(ctx context.Context) (T, error
 	return ask(ctx)
 }
 
+// Capabilities is what each output lys-wm shows can do, by connector name.
+// An output that is off is not among them: lys-wm reads what an output can
+// do only while it shows it.
+func Capabilities(run wmconfig.Runner) (map[string]wmipc.OutputCapabilities, error) {
+	outputs, err := bounded(queryLimit, func(ctx context.Context) ([]wmipc.Output, error) {
+		return query[[]wmipc.Output](ctx, run, wmipc.KindOutputs)
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]wmipc.OutputCapabilities, len(outputs))
+	for _, o := range outputs {
+		if o.Capabilities == nil {
+			return nil, fmt.Errorf("%w: output %s carries no capabilities", ErrOutdated, o.Name)
+		}
+		out[o.Name] = *o.Capabilities
+	}
+	return out, nil
+}
+
 // Pointers are the connected devices one of lys-wm's input sections
 // configures, in the order lys-wm lists them.
 func Pointers(run wmconfig.Runner) ([]wmipc.Device, error) {
