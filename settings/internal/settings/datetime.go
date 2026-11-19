@@ -49,6 +49,12 @@ func dateTimePage(*config.Config) pageSpec {
 		id: dateTimeID, navKey: "settings-nav-date-time", icon: "ld-clock-symbolic",
 		header: "settings-page-date-time",
 		footer: dateTimeFooter,
+		panel: []panelSetting{
+			{"date-time.automatic", "settings-date-ntp", "settings-section-date-system"},
+			{"date-time.manual", "settings-date-manual", "settings-section-date-system"},
+			{"date-time.time-zone", "settings-date-zone", "settings-section-date-system"},
+			{"date-time.24-hour", "settings-date-24h", "settings-section-date-clock"},
+		},
 	}
 }
 
@@ -57,6 +63,16 @@ func regionPage(*config.Config) pageSpec {
 		id: regionID, navKey: "settings-nav-region", icon: "ld-globe-symbolic",
 		header: "settings-page-region",
 		footer: regionFooter,
+		panel: []panelSetting{
+			{"region.lc-time", "settings-region-lc-time", "settings-section-region-formats"},
+			{"region.lc-numeric", "settings-region-lc-numeric", "settings-section-region-formats"},
+			{"region.lc-monetary", "settings-region-lc-monetary", "settings-section-region-formats"},
+			{"region.lc-measurement", "settings-region-lc-measurement", "settings-section-region-formats"},
+			{"region.lc-paper", "settings-region-lc-paper", "settings-section-region-formats"},
+			{"region.language", "settings-region-language", "settings-section-region-system"},
+			{"region.keymap", "settings-region-keymap", "settings-section-region-system"},
+			{"region.keyboard-layout", "settings-region-layout", "settings-section-region-system"},
+		},
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/settingspage"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -25,6 +26,7 @@ func TestSettingIndexListsEveryRowOfEveryPage(t *testing.T) {
 					rows += 1 + len(r.also)
 				}
 			}
+			rows += len(p.panel)
 			for i := range n {
 				if !slices.ContainsFunc(index, func(e settingEntry) bool { return e.page == p.id && e.row == i }) {
 					t.Errorf("row %d of %s is not indexed", i, p.id)
@@ -252,5 +254,36 @@ func TestARowCoversItsKeyItsParentAndItsChildren(t *testing.T) {
 		if got := rowCovers(rows, leaf); got != want {
 			t.Errorf("rowCovers(%s) = %v, want %v", leaf, got, want)
 		}
+	}
+}
+
+func TestAPanelControlIsFoundAndOpensItsPage(t *testing.T) {
+	index := settingIndex(layout(config.Defaults(), bothParts))
+	for query, want := range map[string]string{"time zone": "date-time.time-zone", "24-hour": "date-time.24-hour", "paper": "region.lc-paper", "balance": "sound.balance"} {
+		hits := searchSettings(index, query)
+		if !slices.ContainsFunc(hits, func(e settingEntry) bool { return e.path == want }) {
+			t.Errorf("searching %q does not find %s", query, want)
+		}
+	}
+	for page, path := range map[string]string{dateTimeID: "date-time.automatic", regionID: "region.keymap", soundID: "sound.input-device"} {
+		if err := checkSetting(bothParts, page, path); err != nil {
+			t.Error(err)
+		}
+	}
+	if err := checkSetting(bothParts, "", "date-time.calendar"); err == nil {
+		t.Error("a panel control the page does not build was accepted")
+	}
+	listed := false
+	for _, p := range pages(config.Defaults(), bothParts) {
+		listed = listed || p.ID == dateTimeID && slices.ContainsFunc(p.Settings, func(s settingspage.Setting) bool { return s.Path == "date-time.time-zone" })
+	}
+	if !listed {
+		t.Error("the time zone is not in the page list")
+	}
+	k := testKit(t, "")
+	w := newWindow(k, k.store.svc.Config(), (&fakeAfter{}).after)
+	w.openSetting("date-time.time-zone")
+	if w.pageID != dateTimeID {
+		t.Errorf("the time zone link opened %q", w.pageID)
 	}
 }

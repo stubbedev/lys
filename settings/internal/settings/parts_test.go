@@ -90,7 +90,7 @@ func TestSearchAndSettingLinksFollowTheInstalledParts(t *testing.T) {
 	for _, p := range pages(config.Defaults(), parts{wm: true}) {
 		for _, s := range p.Settings {
 			listed++
-			if !strings.HasPrefix(s.Path, wmSettingPrefix) {
+			if _, _, shell := config.LeafPath(s.Path); shell && !strings.HasPrefix(s.Path, wmSettingPrefix) {
 				t.Errorf("lys-wm alone lists lys-shell's %s on %s", s.Path, p.ID)
 			}
 		}

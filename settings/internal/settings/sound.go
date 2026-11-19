@@ -33,6 +33,15 @@ func soundPage(*config.Config) pageSpec {
 		id: soundID, navKey: "settings-nav-sound", icon: "ld-audio-lines-symbolic",
 		header: "settings-page-sound",
 		lead:   soundLead,
+		panel: []panelSetting{
+			{"sound.output-device", "settings-sound-output-device", "settings-section-sound-output"},
+			{"sound.output-volume", "settings-sound-volume", "settings-section-sound-output"},
+			{"sound.balance", "settings-sound-balance", "settings-section-sound-output"},
+			{"sound.test", "settings-sound-test", "settings-section-sound-output"},
+			{"sound.input-device", "settings-sound-input-device", "settings-section-sound-input"},
+			{"sound.input-level", "settings-sound-level", "settings-section-sound-input"},
+			{"sound.apps", "settings-section-sound-apps", "settings-section-sound-apps"},
+		},
 		sections: []sectionSpec{{title: "settings-section-sound-alerts", rows: []rowSpec{
 			field("modules.notifications.sounds"),
 			field("modules.notifications.sound-volume", percentage),

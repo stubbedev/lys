@@ -26,11 +26,17 @@ type pageSpec struct {
 	// footer, when set, builds what follows the sections (the greeter's
 	// apply button).
 	footer func(k *kit) widget.Widget
+	// panel names what the lead and footer build, for search and links.
+	panel []panelSetting
 	// wm says the rows are lys-wm's, not lys-shell's.
 	wm           bool
 	wmLead       bool
 	footerOnRows bool
 }
+
+// panelSetting is a control a page builds itself rather than from a
+// config field: its own path, its label key and its section's title key.
+type panelSetting struct{ path, key, section string }
 
 // sectionSpec is SectionSpec: a titled group of rows.
 type sectionSpec struct {

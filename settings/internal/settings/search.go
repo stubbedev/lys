@@ -97,6 +97,13 @@ func settingIndex(sections []navSection) []settingEntry {
 					row++
 				}
 			}
+			for _, ps := range p.panel {
+				section := t.Get(ps.section)
+				out = append(out, settingEntry{
+					page: p.id, row: -1, path: ps.path, label: t.Get(ps.key), description: description(ps.key), keywords: keywords(ps.key),
+					section: section, place: place + " › " + section, order: len(out),
+				})
+			}
 		}
 	}
 	return out
