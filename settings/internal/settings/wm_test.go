@@ -899,7 +899,7 @@ func TestEveryPageIDIsUnique(t *testing.T) {
 
 func TestAWMPageBuildsItsRowsAndStatus(t *testing.T) {
 	k, _, _, _ := wmKit(t, "")
-	spec := wmPage("wm-test", "ld-monitor-symbolic", sectionSpec{"wm-section-gaps", []rowSpec{wmField("gaps.inner"), wmSides("gaps.outer")}})
+	spec := wmPage("wm-test", "ld-monitor-symbolic", sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner"), wmSides("gaps.outer")}})
 	page := buildPage(k, spec)
 	if len(page.rows) != 2 || page.status == nil {
 		t.Fatalf("%d rows, status %v", len(page.rows), page.status)

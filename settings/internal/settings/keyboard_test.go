@@ -37,7 +37,16 @@ func tabReachesEveryControl(w *window) pageCheck {
 		if !closed {
 			t.Fatalf("%s: Tab did not come back to the search field in %d stops", id, maxTabStops)
 		}
+		hidden := map[widget.Widget]bool{}
+		for _, c := range w.page.sections {
+			if !c.box.Visible() {
+				treetest.Walk(c.box, func(x widget.Widget) { hidden[x] = true })
+			}
+		}
 		for i, row := range w.page.rows {
+			if hidden[row] {
+				continue
+			}
 			reached := false
 			treetest.Walk(row.ctl, func(x widget.Widget) { reached = reached || visited[x] })
 			if !reached {

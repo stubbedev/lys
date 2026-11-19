@@ -54,7 +54,8 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 			}
 		}
 		if len(rows) > 0 {
-			sections = append(sections, sectionSpec{title: s.title, rows: rows})
+			s.rows = rows
+			sections = append(sections, s)
 		}
 	}
 	p.sections = sections

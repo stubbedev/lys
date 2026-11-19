@@ -246,7 +246,7 @@ func themePage(*config.Config) pageSpec {
 			field("styling.theme-provider"),
 			field("styling.theming-monitor"),
 		}},
-		{title: "settings-section-palette", rows: []rowSpec{
+		{title: "settings-section-palette", when: themeProviderIs(config.ThemeProviderLysShell), rows: []rowSpec{
 			themePreset(),
 			field("styling.palette.bg"),
 			field("styling.palette.surface"),
@@ -259,13 +259,13 @@ func themePage(*config.Config) pageSpec {
 			field("styling.palette.green"),
 			field("styling.palette.blue"),
 		}},
-		{title: "settings-section-matugen", rows: []rowSpec{
+		{title: "settings-section-matugen", when: themeProviderIs(config.ThemeProviderMatugen), rows: []rowSpec{
 			field("styling.matugen-scheme"),
 			field("styling.matugen-contrast", signedNormalized),
 			field("styling.matugen-source-color"),
 			field("styling.matugen-light"),
 		}},
-		{title: "settings-section-wallust", rows: []rowSpec{
+		{title: "settings-section-wallust", when: themeProviderIs(config.ThemeProviderWallust), rows: []rowSpec{
 			field("styling.wallust-palette"),
 			field("styling.wallust-saturation", percentage),
 			field("styling.wallust-check-contrast"),
@@ -273,7 +273,7 @@ func themePage(*config.Config) pageSpec {
 			field("styling.wallust-colorspace"),
 			field("styling.wallust-apply-globally"),
 		}},
-		{title: "settings-section-pywal", rows: []rowSpec{
+		{title: "settings-section-pywal", when: themeProviderIs(config.ThemeProviderPywal), rows: []rowSpec{
 			field("styling.pywal-saturation", normalized),
 			field("styling.pywal-contrast", spin(1.0, 21.0, 0.5, 1)),
 			field("styling.pywal-light"),
@@ -285,6 +285,13 @@ func themePage(*config.Config) pageSpec {
 // wallpaperPage is pages/wallpaper: the image and its scaling, the
 // cycling directory with its options, the per-monitor overrides and
 // the change animation.
+func themeProviderIs(provider config.ThemeProvider) func(store) bool {
+	return func(s store) bool {
+		v, _ := s.value("styling.theme-provider").(string)
+		return v == string(provider)
+	}
+}
+
 func wallpaperPage(*config.Config) pageSpec {
 	return pageSpec{id: "wallpaper", navKey: "settings-nav-wallpaper", icon: "ld-image-symbolic", header: "settings-page-wallpaper", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode"), field("wallpaper.picker-directories", stringList)}},

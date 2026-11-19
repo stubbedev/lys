@@ -68,7 +68,8 @@ func honouredOn(on compositor.Kind, sections []sectionSpec) []sectionSpec {
 			}
 		}
 		if len(kept) > 0 {
-			out = append(out, sectionSpec{title: s.title, rows: kept})
+			s.rows = kept
+			out = append(out, s)
 		}
 	}
 	return out

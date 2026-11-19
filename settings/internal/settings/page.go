@@ -36,6 +36,7 @@ type pageSpec struct {
 type sectionSpec struct {
 	title string
 	rows  []rowSpec
+	when  func(s store) bool
 }
 
 // rowSpec is SettingRowInit, by path: the label key defaults to the
@@ -120,6 +121,42 @@ type settingsPage struct {
 	revealing *settingRow
 	focusing  func()
 	releases  []func()
+	k         *kit
+	sections  []sectionCondition
+}
+
+type sectionCondition struct {
+	box   *widget.Box
+	when  func(s store) bool
+	first int
+	n     int
+}
+
+func (p *settingsPage) showSections() {
+	for _, c := range p.sections {
+		c.box.SetVisible(c.when(p.k.store))
+	}
+}
+
+type notifyingBackend struct {
+	backend
+	changed func()
+}
+
+func (b notifyingBackend) slot(path string) slot {
+	s := b.backend.slot(path)
+	return slot{
+		get: s.get,
+		set: func(v any) error {
+			err := s.set(v)
+			b.changed()
+			return err
+		},
+		unset: func() {
+			s.unset()
+			b.changed()
+		},
+	}
 }
 
 // buildPage lays out a page.
@@ -153,11 +190,14 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	if spec.lead != nil {
 		content.Append(p.own(spec.lead(k)), false)
 	}
+	p.k = k
+	conditional := p.showSections
 	for _, s := range spec.sections {
 		rows := widget.NewItemGroup()
 		section := newSection(k, s.title, rows)
+		first := len(p.targets)
 		for _, rs := range s.rows {
-			rowBackend := be
+			var rowBackend backend = notifyingBackend{be, conditional}
 			if rs.wm && !spec.wm {
 				w, err := k.wmBackend()
 				if err != nil {
@@ -165,7 +205,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 					p.targets = append(p.targets, make([]*settingRow, len(rs.flat()))...)
 					continue
 				}
-				rowBackend = w
+				rowBackend = notifyingBackend{w, conditional}
 			}
 			row := newFieldRow(k, rowBackend, rs)
 			p.own(row.ctl)
@@ -173,8 +213,12 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			p.rows = append(p.rows, row)
 			p.addTarget(row)
 		}
+		if s.when != nil {
+			p.sections = append(p.sections, sectionCondition{box: section, when: s.when, first: first, n: len(p.targets) - first})
+		}
 		content.Append(section, false)
 	}
+	p.showSections()
 	if spec.footer != nil {
 		content.Append(p.own(spec.footer(k)), false)
 	}
@@ -210,6 +254,9 @@ func newSection(k *kit, title string, body widget.Widget) *widget.Box {
 func (p *settingsPage) refresh() {
 	for _, r := range p.rows {
 		r.refresh()
+	}
+	if p.k != nil {
+		p.showSections()
 	}
 	if p.status != nil {
 		p.status.refresh()
@@ -280,6 +327,11 @@ func (p *settingsPage) governing(group *settingRow) *settingRow {
 func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *settingRow {
 	if i < 0 || i >= len(p.targets) || p.targets[i] == nil {
 		return nil
+	}
+	for _, c := range p.sections {
+		if i >= c.first && i < c.first+c.n {
+			c.box.SetVisible(true)
+		}
 	}
 	row := p.shown(p.targets[i])
 	give := func() {
