@@ -77,6 +77,11 @@ fields and search providers) every choice has a switch and moves up or down;
 where it means nothing (a password preset's character sets) the choices are
 toggle chips.
 
+The Cava page picks its style and direction from drawings of the bars, takes
+its frequency range as one range whose ends cannot cross, offers the framerate
+as 30, 60, 120 or 144 fps (or a custom rate), and folds the smoothing away
+under **Advanced**.
+
 lys-shell's pages edit its config and work without the shell running.
 
 Some pages also act on the system:

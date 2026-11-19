@@ -231,30 +231,6 @@ func brightnessPage(*config.Config) pageSpec {
 	}}
 }
 
-// cavaPage is pages/modules/cava.
-func cavaPage(*config.Config) pageSpec {
-	return pageSpec{id: "cava", navKey: "settings-nav-cava", icon: "ld-audio-lines-symbolic", header: "settings-page-cava", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.cava.bars", spin(1.0, 256.0, 1.0, 0)),
-			field("modules.cava.framerate", spin(1.0, 360.0, 1.0, 0)),
-			field("modules.cava.stereo"),
-			field("modules.cava.noise-reduction", normalized),
-			field("modules.cava.monstercat", spin(0.0, 10.0, 0.1, 1)),
-			field("modules.cava.waves"),
-			field("modules.cava.low-cutoff", spin(1.0, 50000.0, 1.0, 0)),
-			field("modules.cava.high-cutoff", spin(1.0, 50000.0, 1.0, 0)),
-			field("modules.cava.input"),
-			field("modules.cava.source"),
-			field("modules.cava.style"),
-			field("modules.cava.direction"),
-			field("modules.cava.bar-width"),
-			field("modules.cava.bar-gap"),
-			field("modules.cava.internal-padding"),
-		}},
-		barItemSection("modules.cava", actionChoices("cava")),
-	}}
-}
-
 // clockPage is pages/modules/clock.
 func clockPage(*config.Config) pageSpec {
 	return pageSpec{id: "clock", navKey: "settings-nav-clock", icon: "ld-clock-symbolic", header: "settings-page-clock", sections: []sectionSpec{

@@ -994,6 +994,18 @@ settings-duration-days = { $n ->
     [one] 1 jour
    *[other] { $n } jours
 }
+settings-section-cava-look = Apparence
+    .description = Comment les barres sont dessinées dans la barre
+settings-section-cava-sound = Son
+    .description = Ce qui est écouté et quelles fréquences sont affichées
+settings-section-cava-smoothing = Lissage
+    .description = Comment les barres se stabilisent d’une image à l’autre
+settings-cava-frequency-range = Plage de fréquences
+    .description = Les fréquences la plus basse et la plus haute affichées
+settings-cava-frequency-low = Fréquence la plus basse
+settings-cava-frequency-high = Fréquence la plus haute
+settings-cava-frequency-to = à
+settings-cava-frequency-unit = Hz
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms

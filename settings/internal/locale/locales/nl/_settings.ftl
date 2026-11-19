@@ -981,6 +981,18 @@ settings-duration-days = { $n ->
     [one] 1 dag
    *[other] { $n } dagen
 }
+settings-section-cava-look = Uiterlijk
+    .description = Hoe de staven in de balk worden getekend
+settings-section-cava-sound = Geluid
+    .description = Waarnaar geluisterd wordt en welke frequenties worden getoond
+settings-section-cava-smoothing = Afvlakking
+    .description = Hoe de staven van beeld tot beeld tot rust komen
+settings-cava-frequency-range = Frequentiebereik
+    .description = De laagste en hoogste getoonde frequentie
+settings-cava-frequency-low = Laagste frequentie
+settings-cava-frequency-high = Hoogste frequentie
+settings-cava-frequency-to = tot
+settings-cava-frequency-unit = Hz
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
