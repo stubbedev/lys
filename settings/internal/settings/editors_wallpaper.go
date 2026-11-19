@@ -5,9 +5,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // The wallpaper page's own editors (editors/wallpaper_cycling,
@@ -63,55 +60,4 @@ func (g *revealGroup) refresh() {
 	}
 }
 
-// monitorWallpaperList is monitor_wallpaper: a card per monitor, its
-// connector name in the header and its wallpaper path, browse button
-// and fit mode in the body.
-var monitorWallpaperList = cardRow(cardSpec{
-	identity: &cardField{key: "name", label: "settings-wallpaper-monitor-label", editor: func(k *kit, s slot) control {
-		c := newLiveText(k, s, "DP-1")
-		c.AddClass("monitor-name-entry")
-		return c
-	}},
-	fields: []cardField{{label: "settings-wallpaper-path-label", fill: true, item: newMonitorBody}},
-	blank: func() map[string]any {
-		return map[string]any{"name": "", "fit-mode": string(config.FitFill), "wallpaper": ""}
-	},
-	addKey:   "settings-monitor-add",
-	chrome:   &cardChrome{card: "monitor-card", header: "monitor-card-header", body: "monitor-card-body", remove: []string{css.Ghost}, removeKey: "settings-list-remove"},
-	classes:  []string{"monitor-wallpaper-control"},
-	listCls:  "monitor-wallpaper-list",
-	labelCls: "monitor-card-label",
-})
-
-// monitorBody is the card body's controls: the live path entry, the
-// browse button and the fit mode dropdown.
-type monitorBody struct {
-	*widget.Box
-	path   *liveText
-	browse *widget.Button
-	fit    *enumSelect
-}
-
-func newMonitorBody(k *kit, field func(key string) slot) control {
-	wallpaper := field("wallpaper")
-	c := &monitorBody{
-		Box:  gapBox(widget.Row),
-		path: newLiveText(k, wallpaper, locale.T().Get("settings-wallpaper-path-placeholder")),
-		fit:  newEnumSelect(k, field("fit-mode"), config.MetaOf[config.FitMode]()),
-	}
-	c.path.AddClass("monitor-wallpaper-entry")
-	c.fit.AddClass("monitor-fit-dropdown")
-	c.browse = k.browseButton(func(file string) {
-		_ = wallpaper.set(file)
-		c.path.refresh()
-	})
-	c.AppendAligned(c.path, true, widget.AlignCenter)
-	c.AppendAligned(c.browse, false, widget.AlignCenter)
-	c.AppendAligned(c.fit, false, widget.AlignCenter)
-	return c
-}
-
-func (c *monitorBody) refresh() {
-	c.path.refresh()
-	c.fit.refresh()
-}
+var monitorWallpaperRow = withEditor(func(k *kit, s slot, _ config.FieldMeta) control { return newMonitorWallpapers(k, s) })

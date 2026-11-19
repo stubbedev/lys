@@ -168,6 +168,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 				rowBackend = w
 			}
 			row := newFieldRow(k, rowBackend, rs)
+			p.own(row.ctl)
 			rows.Append(row)
 			p.rows = append(p.rows, row)
 			p.addTarget(row)

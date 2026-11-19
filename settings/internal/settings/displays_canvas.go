@@ -21,12 +21,11 @@ const (
 
 type displaysCanvas struct {
 	widget.Base
-	p       *displaysPanel
+	p *displaysPanel
+	arrangement
 	rects   []displays.Rect
 	index   []int
 	handles []*outputHandle
-	scale   float64
-	ox, oy  float64
 	drag    int
 	grabX   float64
 	grabY   float64
@@ -40,7 +39,7 @@ type outputHandle struct {
 }
 
 func newDisplaysCanvas(p *displaysPanel) *displaysCanvas {
-	return &displaysCanvas{Base: widget.NewBase(), p: p, drag: -1, scale: 1}
+	return &displaysCanvas{Base: widget.NewBase(), p: p, drag: -1, arrangement: arrangement{scale: 1}}
 }
 
 func (c *displaysCanvas) layout() {
@@ -75,34 +74,10 @@ func (c *displaysCanvas) Measure(axis widget.Axis, _ int) widget.Sizes {
 
 func (c *displaysCanvas) Arrange(r render.Rect) {
 	c.ArrangeSelf(r)
-	c.fit(r)
+	c.fit(c.rects, r)
 	for i, h := range c.handles {
 		h.Arrange(c.screen(c.rects[i]))
 	}
-}
-
-func (c *displaysCanvas) fit(r render.Rect) {
-	if len(c.rects) == 0 {
-		return
-	}
-	minX, minY := math.MaxInt, math.MaxInt
-	maxX, maxY := math.MinInt, math.MinInt
-	for _, rect := range c.rects {
-		minX, minY = min(minX, rect.X), min(minY, rect.Y)
-		maxX, maxY = max(maxX, rect.X+rect.W), max(maxY, rect.Y+rect.H)
-	}
-	w, h := float64(max(1, maxX-minX)), float64(max(1, maxY-minY))
-	c.scale = min(float64(max(1, r.W-2*canvasPad))/w, float64(max(1, r.H-2*canvasPad))/h)
-	c.ox = float64(r.X) + float64((float64(r.W)-float64(w*c.scale))/2) - float64(float64(minX)*c.scale)
-	c.oy = float64(r.Y) + float64((float64(r.H)-float64(h*c.scale))/2) - float64(float64(minY)*c.scale)
-}
-
-func (c *displaysCanvas) screen(r displays.Rect) render.Rect {
-	x0 := int(math.Round(c.ox + float64(float64(r.X)*c.scale)))
-	y0 := int(math.Round(c.oy + float64(float64(r.Y)*c.scale)))
-	x1 := int(math.Round(c.ox + float64(float64(r.X+r.W)*c.scale)))
-	y1 := int(math.Round(c.oy + float64(float64(r.Y+r.H)*c.scale)))
-	return render.Rect{X: x0 + tileGap, Y: y0 + tileGap, W: max(1, x1-x0-2*tileGap), H: max(1, y1-y0-2*tileGap)}
 }
 
 func (c *displaysCanvas) Paint(cv *render.Canvas) {
@@ -128,20 +103,14 @@ func (c *displaysCanvas) Paint(cv *render.Canvas) {
 
 func (c *displaysCanvas) HitTest(p widget.Point) widget.Widget { return c.HitLeaf(c, p) }
 
-func (c *displaysCanvas) logical(p widget.Point) (float64, float64) {
-	return (float64(p.X) - c.ox) / c.scale, (float64(p.Y) - c.oy) / c.scale
-}
-
 func (c *displaysCanvas) PressAt(p widget.Point) {
 	x, y := c.logical(p)
-	for i, r := range c.rects {
-		if x >= float64(r.X) && x < float64(r.X+r.W) && y >= float64(r.Y) && y < float64(r.Y+r.H) {
-			c.p.selectOutput(c.index[i])
-			c.drag, c.dragged = i, r
-			c.grabX, c.grabY = x-float64(r.X), y-float64(r.Y)
-			c.Invalidate()
-			return
-		}
+	if i := rectAt(c.rects, x, y); i >= 0 {
+		r := c.rects[i]
+		c.p.selectOutput(c.index[i])
+		c.drag, c.dragged = i, r
+		c.grabX, c.grabY = x-float64(r.X), y-float64(r.Y)
+		c.Invalidate()
 	}
 }
 

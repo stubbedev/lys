@@ -296,7 +296,7 @@ func wallpaperPage(*config.Config) pageSpec {
 				field("wallpaper.cycling-same-image"),
 			),
 		}},
-		{title: "settings-section-display", rows: []rowSpec{field("wallpaper.monitors", monitorWallpaperList)}},
+		{title: "settings-section-display", rows: []rowSpec{field("wallpaper.monitors", monitorWallpaperRow, func(r *rowSpec) { r.fullWidth = true })}},
 		{title: "settings-section-animation", rows: surfaceAnimationRows("animations.wallpaper")},
 	}}
 }

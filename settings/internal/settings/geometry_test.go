@@ -219,11 +219,14 @@ func cardFieldsLineUp() pageCheck {
 			}
 			checked[id] = true
 		case "wallpaper":
-			card := treetest.WithClass(page, "monitor-card")[0]
-			sameX(t, id, "monitor card's fields", []widget.Widget{
-				treetest.All[*liveText](treetest.WithClass(card, "monitor-card-header")[0])[0],
-				treetest.WithClass(card, "monitor-wallpaper-entry")[0],
-			})
+			ed := treetest.All[*monitorWallpapers](page)[0]
+			box, pick, detail := ed.Bounds(), ed.picker.Bounds(), ed.detail.Bounds()
+			if pick.W != box.W || pick.X != box.X {
+				t.Errorf("%s: the monitor picker spans x %d..%d of the editor's %d..%d", id, pick.X, pick.X+pick.W, box.X, box.X+box.W)
+			}
+			if detail.Y < pick.Y+pick.H {
+				t.Errorf("%s: the display's settings start at y=%d, inside the picker ending at %d", id, detail.Y, pick.Y+pick.H)
+			}
 			checked[id] = true
 		case "bar":
 			sameX(t, id, "layout zones", treetest.WithClass(page, "layout-zone-items"))
