@@ -27,8 +27,9 @@ type pageSpec struct {
 	// apply button).
 	footer func(k *kit) widget.Widget
 	// wm says the rows are lys-wm's, not lys-shell's.
-	wm bool
-	wmLead bool
+	wm           bool
+	wmLead       bool
+	footerOnRows bool
 }
 
 // sectionSpec is SectionSpec: a titled group of rows.

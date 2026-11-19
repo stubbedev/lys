@@ -42,7 +42,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Notifications & Focus | `notifications` (with Do Not Disturb and the bar's bell), `osd` |
 | Power & Battery | `idle` |
 | Apps | `default-apps`, `login-items`, `launcher`, `launcher-modes` |
-| Privacy & Security | `privacy`, `passwords`, `lock`, `greeter`, `share-picker` |
+| Privacy & Security | `privacy`, `passwords`, `lock` (the lock and login screens), `share-picker` |
 | Time & Language | `date-time`, `region` |
 | Desktop | `bar` (with its buttons and dropdowns; each dropdown's size is on its bar item's page), `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
 | Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `power`, `power-profiles`, `ram`, `storage`, `systray` |
@@ -66,7 +66,7 @@ Some pages also act on the system:
 | Default Apps | Default app per category and file type; the terminal | `mimeapps.list` |
 | Passwords | Filter, reveal and copy keyring items; how many minutes until a reveal asks for the collection password again | Secret Service |
 | Privacy | Per-app portal grants: background and notifications switch on or off, GameMode and realtime are read-only, others can be revoked; the screen-share reminder | xdg-desktop-portal permission store |
-| Greeter | **Apply to login screen** sends the greeter settings to lys-login's display manager, which asks polkit when you are not the logged-in user; the footer says whether they were applied, invalid, not authorized, or the authentication was dismissed | `/run/lys-login/apply.sock` |
+| Login & Lock Screen | **Apply to login screen** sends the background, clock and login screen settings to lys-login's display manager, which asks polkit when you are not the logged-in user; the footer says whether they were applied, invalid, not authorized, or the authentication was dismissed | `/run/lys-login/apply.sock` |
 | Displays (`wm-outputs`) | Output layout, tested and applied live | wlr-output-management |
 
 ## Where changes go

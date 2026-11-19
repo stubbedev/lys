@@ -43,20 +43,10 @@ func lockPage(*config.Config) pageSpec {
 			{title: "settings-section-security", rows: fields("login.lock.grace-period-ms", "login.max-attempts",
 				"login.show-failed-attempts", "login.lock.blank-timeout-ms", "login.lock.pam-service")},
 			{title: "settings-section-animation", rows: surfaceAnimationRows("animations.lock")},
-		},
-	}
-}
-
-// greeterPage is pages/greeter, with the apply footer.
-func greeterPage(*config.Config) pageSpec {
-	return pageSpec{
-		id: "greeter", navKey: "settings-nav-greeter-page", icon: "ld-monitor-symbolic",
-		header: "settings-page-greeter",
-		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint", "login.greeter.screen-reader")},
+			{title: "settings-section-login-screen", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint", "login.greeter.screen-reader")},
 			{title: "settings-section-cursor", rows: fields("login.greeter.cursor-theme", "login.greeter.cursor-size")},
 		},
-		footer: greeterApplyFooter,
+		footer: greeterApplyFooter, footerOnRows: true,
 	}
 }
 

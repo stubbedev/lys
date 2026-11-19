@@ -57,6 +57,9 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 		}
 	}
 	p.sections = sections
+	if p.footerOnRows && len(sections) == 0 {
+		p.footer = nil
+	}
 	return p, len(sections) > 0 || p.lead != nil || p.footer != nil
 }
 
@@ -71,7 +74,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 		{key: "settings-nav-notifications-focus", pages: []pageSpec{notificationsPage(cfg), osdPage(cfg)}},
 		{key: "settings-nav-power", pages: []pageSpec{idlePage(cfg)}},
 		{key: "settings-nav-apps", pages: []pageSpec{defaultAppsPage(cfg), loginItemsPage(cfg), launcherPage(cfg), launcherModesPage(cfg)}},
-		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg), greeterPage(cfg), sharePickerPage(cfg)}},
+		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg), sharePickerPage(cfg)}},
 		{key: "settings-nav-time-language", pages: []pageSpec{dateTimePage(cfg), regionPage(cfg)}},
 		{key: "settings-nav-desktop", pages: []pageSpec{
 			barPage(cfg), dockPage(cfg),
