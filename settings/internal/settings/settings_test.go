@@ -1173,14 +1173,14 @@ func TestStringMapEditor(t *testing.T) {
 	if len(c.items) != 3 || c.items[2] != row {
 		t.Fatal("typing a new key rebuilt the rows")
 	}
-	row.value.Insert("zero")
+	row.editor.(*widget.Entry).Insert("zero")
 	got, _ := k.store.value(path).(map[string]any)
 	if got["0"] != "zero" || got["a"] != "1" || len(got) != 3 {
 		t.Errorf("wrote %v", got)
 	}
 	// An empty key is dropped on write.
 	c.appendRow(c.spec.blank(c.values()))
-	c.items[3].(mapItem).value.Insert("orphan")
+	c.items[3].(mapItem).editor.(*widget.Entry).Insert("orphan")
 	if got, _ := k.store.value(path).(map[string]any); len(got) != 3 {
 		t.Errorf("an empty key was written: %v", got)
 	}

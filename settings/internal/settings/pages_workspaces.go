@@ -36,7 +36,7 @@ func workspacesPage(*config.Config) pageSpec {
 			keyWith("icon-size", sizeBase(config.WorkspaceIconBaseRem)), keyWith("label-size", sizeBase(config.WorkspaceLabelBaseRem)),
 		}},
 		{title: "settings-section-urgent", rows: []rowSpec{key("urgent-show"), key("urgent-mode")}},
-		{title: "settings-section-mappings", rows: []rowSpec{keyWith("workspace-map", workspaceStyleMap), keyWith("app-icon-map", stringMap)}},
+		{title: "settings-section-mappings", rows: []rowSpec{keyWith("workspace-map", workspaceStyleMap), keyWith("app-icon-map", iconMap)}},
 		{title: "settings-section-colors", rows: []rowSpec{
 			key("active-indicator"), key("active-color"), key("highlight-active-on-other-monitor"), key("active-on-other-monitor-color"),
 			key("occupied-color"), key("empty-color"), key("container-bg-color"),

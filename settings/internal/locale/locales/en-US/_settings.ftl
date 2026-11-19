@@ -1049,3 +1049,5 @@ settings-bluetooth-failed-gone = The device is no longer there
 
 settings-quicklink-add = Add quick link
 settings-snippet-add = Add snippet
+
+settings-map-pattern-placeholder = app or pattern, such as firefox*

@@ -120,7 +120,7 @@ func TestThePaletteRowHoldsOnlyTheUsersNames(t *testing.T) {
 	c.add.OnClick()
 	item := c.items[0].(mapItem)
 	item.key.SetText("mine")
-	item.value.SetText("#123456")
+	item.editor.(*widget.Entry).SetText("#123456")
 	c.commit()
 	if got := fileText(t, files.runtime); got != "palette:\n  mine: '#123456'\n" {
 		t.Fatalf("wrote %q", got)

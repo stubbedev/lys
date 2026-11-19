@@ -355,7 +355,7 @@ func mediaPage(*config.Config) pageSpec {
 			field("modules.media.format"),
 			field("modules.media.icon-name", iconRow),
 			field("modules.media.spinning-disc-icon", iconRow),
-			field("modules.media.player-icons", stringMap),
+			field("modules.media.player-icons", iconMap),
 			field("modules.media.players-ignored", stringList),
 			field("modules.media.player-priority", stringList),
 			field("modules.media.lyrics"),
@@ -538,7 +538,7 @@ func windowTitlePage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.window-title.format"),
 			field("modules.window-title.icon-name", iconRow),
-			field("modules.window-title.icon-mappings", stringMap),
+			field("modules.window-title.icon-mappings", iconMap),
 		}},
 		barItemSection("modules.window-title", actionChoices("window-title")),
 	}}

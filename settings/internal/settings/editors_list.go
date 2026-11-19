@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -244,11 +245,7 @@ var iconList = listRow(func(config.FieldMeta) listSpec {
 		item: func(k *kit, v any, changed func()) listItem {
 			s, _ := v.(string)
 			value := &s
-			ed := newIconEditor(k, slot{
-				get: func() any { return *value },
-				set: func(nv any) error { *value, _ = nv.(string); changed(); return nil },
-			})
-			return iconItem{ed, value}
+			return iconItem{newIconEditor(k, stringSlot(value, changed)), value}
 		},
 	}
 })
@@ -306,35 +303,63 @@ func sameStored(a, b any) bool {
 	return reflect.DeepEqual(a, b)
 }
 
-// mapItem is a string_map row: the key and value entries.
 type mapItem struct {
 	*widget.Box
-	key, value *widget.Entry
+	key    *widget.Entry
+	value  *string
+	editor widget.Widget
 }
 
-func (m mapItem) itemValue() any { return [2]string{m.key.Text(), m.value.Text()} }
+func (m mapItem) itemValue() any { return [2]string{m.key.Text(), *m.value} }
 
-// stringMap edits a string map: key/value rows, an empty key
-// dropped on write, the stored map shown sorted by key.
 var stringMap = listRow(func(config.FieldMeta) listSpec { return stringMapSpec() })
 
-// stringMapSpec is a mapping of words to words, a key and a value entry per
-// pair.
+var iconMap = listRow(func(config.FieldMeta) listSpec { return iconMapSpec() })
+
+func stringSlot(value *string, changed func()) slot {
+	return slot{
+		get: func() any { return *value },
+		set: func(v any) error {
+			s, ok := v.(string)
+			if !ok {
+				return fmt.Errorf("settings: %v is not text", v)
+			}
+			*value = s
+			changed()
+			return nil
+		},
+		unset: func() { *value = ""; changed() },
+	}
+}
+
 func stringMapSpec() listSpec {
-	t := locale.T()
+	return pairMapSpec("settings-map-key-placeholder", true, func(k *kit, value *string, changed func()) widget.Widget {
+		e := k.entry()
+		e.SetPlaceholder(locale.T().Get("settings-map-value-placeholder"))
+		e.SetText(*value)
+		e.OnChanged = func(s string) { *value = s; changed() }
+		return e
+	})
+}
+
+func iconMapSpec() listSpec {
+	return pairMapSpec("settings-map-pattern-placeholder", false, func(k *kit, value *string, changed func()) widget.Widget {
+		return newIconEditor(k, stringSlot(value, changed))
+	})
+}
+
+func pairMapSpec(keyPlaceholder string, fill bool, value func(k *kit, value *string, changed func()) widget.Widget) listSpec {
 	return listSpec{
 		addKey: "settings-map-add", rowClass: "string-map-row", blank: always([2]string{}), classes: []string{"string-map-editor"}, listCls: "string-map",
 		item: func(k *kit, v any, changed func()) listItem {
 			pair, _ := v.([2]string)
-			row := mapItem{Box: gapBox(widget.Row), key: k.entry(), value: k.entry()}
-			row.key.SetPlaceholder(t.Get("settings-map-key-placeholder"))
-			row.value.SetPlaceholder(t.Get("settings-map-value-placeholder"))
+			row := mapItem{Box: gapBox(widget.Row), key: k.entry(), value: &pair[1]}
+			row.key.SetPlaceholder(locale.T().Get(keyPlaceholder))
 			row.key.SetText(pair[0])
-			row.value.SetText(pair[1])
 			row.key.OnChanged = func(string) { changed() }
-			row.value.OnChanged = func(string) { changed() }
 			row.Append(row.key, true)
-			row.Append(row.value, true)
+			row.editor = value(k, row.value, changed)
+			row.AppendAligned(row.editor, fill, widget.AlignCenter)
 			return row
 		},
 		decode: func(v any) []any {

@@ -1039,3 +1039,5 @@ settings-bluetooth-failed-gone = Het apparaat is er niet meer
 
 settings-quicklink-add = Snelkoppeling toevoegen
 settings-snippet-add = Tekstfragment toevoegen
+
+settings-map-pattern-placeholder = app of patroon, zoals firefox*
