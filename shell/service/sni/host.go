@@ -508,10 +508,10 @@ func firstString(body []any) (string, bool) {
 func (h *Host) resync() {
 	ctx, cancel := h.answer()
 	defer cancel()
-	var regs []string
-	if err := h.conn.Object(WatcherName, WatcherPath).CallWithContext(ctx, PropsIface+".Get", 0, WatcherIface, "RegisteredStatusNotifierItems").Store(&regs); err != nil {
+	regs, err := registrations(ctx, h.conn)
+	if err != nil {
 		if h.ctx.Err() == nil {
-			h.failed(fmt.Errorf("read the items registered with %s within %s: %w", WatcherName, h.timeout, err))
+			h.failed(fmt.Errorf("within %s: %w", h.timeout, err))
 		}
 		return
 	}

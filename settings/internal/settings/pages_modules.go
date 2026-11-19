@@ -621,12 +621,15 @@ func mailPage(*config.Config) pageSpec {
 func systrayPage(*config.Config) pageSpec {
 	const m = "modules.systray"
 	return pageSpec{id: "systray", navKey: "settings-nav-systray", icon: "ld-panel-top-symbolic", header: "settings-page-systray", sections: []sectionSpec{
+		{title: "settings-section-tray-items", rows: []rowSpec{field(trayBlacklistPath, trayItemsRow)}},
 		{title: "settings-section-general", rows: []rowSpec{
 			field(m+".icon-scale", sizeBase(config.SystrayIconBaseRem)),
 			field(m + ".item-gap"),
 			field(m + ".internal-padding"),
-			field(m+".blacklist", stringList),
-			field(m+".overrides", trayOverrideList),
+		}},
+		{title: "settings-section-tray-patterns", advanced: true, rows: []rowSpec{
+			field(trayBlacklistPath, stringList),
+			field(trayOverridesPath, trayOverrideList),
 		}},
 		barItemSection(m, nil),
 	}}

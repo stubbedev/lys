@@ -2192,6 +2192,7 @@
       "settings/internal/displays",
       "settings/internal/locale",
       "settings/internal/wmconfig",
+      "shell/service/sni",
       "ui/app",
       "ui/highlight",
       "ui/widget",
