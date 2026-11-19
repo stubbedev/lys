@@ -2,11 +2,15 @@ package settings
 
 import (
 	"log"
+	"math"
 	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // The module pages, in the order the sidebar lists them.
@@ -285,23 +289,42 @@ func dashboardPage(*config.Config) pageSpec {
 
 // nightlightPage is pages/modules/nightlight.
 func nightlightPage(*config.Config) pageSpec {
+	const m = "modules.nightlight"
+	scheduled := shownWhen(m+".auto-schedule", switchedOn)
 	return pageSpec{id: "nightlight", navKey: "settings-nav-nightlight", icon: "ld-sun-symbolic", header: "settings-page-nightlight", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.nightlight.format"),
-			field("modules.nightlight.temperature"),
-			field("modules.nightlight.gamma"),
-			field("modules.nightlight.icon-off", iconRow),
-			field("modules.nightlight.icon-on", iconRow),
-		}},
+		{title: "settings-section-nightlight-filter", rows: []rowSpec{field(m+".temperature", kelvin)}},
 		{title: "settings-section-nightlight-schedule", rows: []rowSpec{
-			field("modules.nightlight.auto-schedule"),
-			field("modules.nightlight.transition-duration", durationChips(inMinutes, zeroAs(instant), after(15*time.Minute), after(30*time.Minute), after(time.Hour))),
-			field("modules.nightlight.latitude", optionalFloat(-90.0, 90.0, 0.1, 4)),
-			field("modules.nightlight.longitude", optionalFloat(-180.0, 180.0, 0.1, 4)),
+			field(m + ".auto-schedule"),
+			field(m+".transition-duration", durationChips(inMinutes, zeroAs(instant), after(15*time.Minute), after(30*time.Minute), after(time.Hour)), scheduled),
+			field(m+".latitude", optionalFloat(-90.0, 90.0, 0.1, 4), scheduled),
+			field(m+".longitude", optionalFloat(-180.0, 180.0, 0.1, 4), scheduled),
 		}},
-		barItemSection("modules.nightlight", actionChoices("nightlight")),
+		{title: "settings-section-nightlight-display", advanced: true, rows: []rowSpec{field(m+".gamma", gammaPercent)}},
+		{title: "settings-section-nightlight-look", rows: []rowSpec{
+			field(m + ".format"),
+			field(m+".icon-off", iconRow),
+			field(m+".icon-on", iconRow),
+		}},
+		barItemSection(m, actionChoices("nightlight")),
 	}}
 }
+
+// The night light's strength, over the range its dropdown card offers.
+const (
+	warmestKelvin = 1000
+	coolestKelvin = 6600
+	gammaMost     = 200
+)
+
+var kelvin = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+	return newSlider(k, s, warmestKelvin, coolestKelvin, true, func(v float64) string {
+		return locale.T().Get("settings-kelvin", i18n.Int("n", int64(math.Round(v))))
+	})
+})
+
+var gammaPercent = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+	return newSlider(k, s, 0, gammaMost, true, percentLabel)
+})
 
 // idleInhibitPage is pages/modules/idle_inhibit.
 func idleInhibitPage(*config.Config) pageSpec {

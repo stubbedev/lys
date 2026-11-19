@@ -252,6 +252,15 @@ settings-section-general = Général
     .description = Les réglages principaux
 settings-section-nightlight-schedule = Planification
     .description = Quand l'écran se réchauffe et se refroidit
+settings-section-nightlight-filter = Filtre
+    .description = À quel point l’écran se réchauffe quand l’éclairage nocturne est activé
+settings-section-nightlight-display = Affichage
+    .description = Le gamma de l’écran quand le filtre est activé
+settings-section-nightlight-look = Libellé et icônes
+    .description = Ce que l’élément de la barre affiche quand l’éclairage nocturne est éteint et allumé
+settings-kelvin = { $n ->
+   *[other] { $n } K
+}
 settings-section-power-profiles-profiles = Profils
     .description = Les profils d'alimentation qu'il propose
 settings-section-provider = Fournisseur

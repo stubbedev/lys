@@ -294,8 +294,11 @@ var signedNormalized = withEditor(func(k *kit, s slot, _ config.FieldMeta) contr
 
 // percentage is a 0-100 slider labeled in whole percent.
 var percentage = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newSlider(k, s, 0, 100, true, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" })
+	return newSlider(k, s, 0, 100, true, percentLabel)
 })
+
+// percentLabel reads a whole percent.
+func percentLabel(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" }
 
 // fraction is a 0-1 value shown and set as a whole percent.
 var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
@@ -314,7 +317,7 @@ var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 			return s.set(float64(pct) / 100)
 		},
 		unset: s.unset,
-	}, 0, 100, true, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" })
+	}, 0, 100, true, percentLabel)
 })
 
 // softPixels is a slider over the pixel range nearly every setup sits

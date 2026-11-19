@@ -384,6 +384,15 @@ settings-section-launcher-scripts = Scriptmodi
     .description = Modi waarvan een script de items levert
 settings-section-nightlight-schedule = Schema
     .description = Wanneer het scherm warmer en koeler wordt
+settings-section-nightlight-filter = Filter
+    .description = Hoe warm het scherm wordt terwijl het nachtlicht aan is
+settings-section-nightlight-display = Scherm
+    .description = De gamma van het scherm terwijl het filter aan is
+settings-section-nightlight-look = Label en pictogrammen
+    .description = Wat het balkitem toont terwijl het nachtlicht uit en aan is
+settings-kelvin = { $n ->
+   *[other] { $n } K
+}
 settings-section-power-profiles-profiles = Profielen
     .description = De energieprofielen die het aanbiedt
 settings-section-provider = Leverancier

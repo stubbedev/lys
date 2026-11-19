@@ -394,6 +394,15 @@ settings-section-launcher-scripts = Modalità script
     .description = Modalità le cui voci sono fornite da uno script
 settings-section-nightlight-schedule = Pianificazione
     .description = Quando lo schermo diventa più caldo o più freddo
+settings-section-nightlight-filter = Filtro
+    .description = Quanto diventa calda la luce dello schermo con la luce notturna accesa
+settings-section-nightlight-display = Schermo
+    .description = La gamma dello schermo con il filtro acceso
+settings-section-nightlight-look = Etichetta e icone
+    .description = Cosa mostra l’elemento della barra con la luce notturna spenta e accesa
+settings-kelvin = { $n ->
+   *[other] { $n } K
+}
 settings-section-power-profiles-profiles = Profili
     .description = I profili energetici che offre
 settings-section-provider = Provider

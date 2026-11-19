@@ -239,6 +239,38 @@ func TestBitwardenSeparatesTheAccountItsSecurityAndItsIntegrations(t *testing.T)
 	}
 }
 
+func TestTheNightLightScheduleRowsShowOnlyWithTheSchedule(t *testing.T) {
+	k := testKit(t, "modules:\n  nightlight:\n    auto-schedule: false\n")
+	p := layoutPage(t, k, "nightlight")
+	rows := []*settingRow{rowOf(t, p, "modules.nightlight.transition-duration"), rowOf(t, p, "modules.nightlight.latitude"), rowOf(t, p, "modules.nightlight.longitude")}
+	for _, r := range rows {
+		if r.Visible() {
+			t.Errorf("%s shows without the schedule", r.path)
+		}
+	}
+	setRow(t, p, "modules.nightlight.auto-schedule", true)
+	for _, r := range rows {
+		if !r.Visible() {
+			t.Errorf("%s stays hidden with the schedule on", r.path)
+		}
+	}
+}
+
+func TestTheNightLightStrengthSlidesInKelvin(t *testing.T) {
+	k := testKit(t, "")
+	c, ok := fieldControl(k, k.store, pageRow(t, "nightlight", "modules.nightlight.temperature")).(*slider)
+	if !ok {
+		t.Fatal("the temperature is not a slider")
+	}
+	c.OnCommit(3400.4)
+	if v := k.store.value("modules.nightlight.temperature"); v != int64(3400) {
+		t.Errorf("sliding to 3400 K stored %v", v)
+	}
+	if got := sectionOf(t, "nightlight", "modules.nightlight.gamma"); got != "settings-section-nightlight-display" {
+		t.Errorf("the gamma is under %s", got)
+	}
+}
+
 func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
 	for _, id := range []string{"cava", "custom", "media"} {
 		p, ok := pageByID(layout(config.Defaults(), bothParts), id)

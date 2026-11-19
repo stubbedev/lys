@@ -62,7 +62,7 @@ left out.
 
 A row that has no effect in the current state stays out of the way: the dock's
 rows are greyed out while the dock is off, and a border's width and color, the
-dock's hide delay and zoom size, the media icon rows of an icon type that does not use them, and the icon padding of a bar button style
+dock's hide delay and zoom size, the media icon rows of an icon type that does not use them, the night light's transition and location while its schedule is off, and the icon padding of a bar button style
 without an icon box are hidden until they apply. Search and `--setting` for a
 hidden row land on the row that hides it.
 
