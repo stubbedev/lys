@@ -173,5 +173,5 @@ func TestAStatusWatchClosesTheDescriptorsOfEverySignal(t *testing.T) {
 		emit(launcher, on)
 		await(on)
 	}
-	fdtest.RequireNoneBeyond(t, before, "the watch read what the launcher and another peer sent")
+	fdtest.AwaitNoneBeyond(t, before, "the watch read what the launcher and another peer sent")
 }

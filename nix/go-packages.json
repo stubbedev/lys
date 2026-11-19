@@ -4343,7 +4343,11 @@
     ]
   },
   "ui/internal/emoji": {},
-  "ui/internal/fdtest": {},
+  "ui/internal/fdtest": {
+    "imports": [
+      "lib/waittest"
+    ]
+  },
   "ui/internal/headlesstest": {
     "imports": [
       "lib/intconv",

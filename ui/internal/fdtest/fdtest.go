@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 var numberedInode = regexp.MustCompile(`^(socket|pipe):\[\d+\]$`)
@@ -74,6 +76,14 @@ func RequireNoneBeyond(t testing.TB, baseline []string, after string) {
 	if extra := Beyond(Own(t), baseline); len(extra) != 0 {
 		t.Errorf("after %s the process holds %q beyond what it did", after, extra)
 	}
+}
+
+// AwaitNoneBeyond waits until the process holds nothing beyond
+// baseline, failing the test when that does not come: for descriptors
+// a handler closes after it has signalled the test.
+func AwaitNoneBeyond(t testing.TB, baseline []string, after string) {
+	t.Helper()
+	waittest.Until(t, func() bool { return len(Beyond(Own(t), baseline)) == 0 }, "the process to hold nothing beyond what it did after "+after)
 }
 
 // RawPipe is a pipe whose write end the Go runtime has never seen, as a
