@@ -497,7 +497,7 @@ func storagePage(*config.Config) pageSpec {
 
 // treemanPage is pages/modules/treeman.
 func treemanPage(*config.Config) pageSpec {
-	return pageSpec{id: "treeman", navKey: "settings-nav-treeman", icon: "ld-graph-star-symbolic", header: "settings-page-treeman", sections: []sectionSpec{
+	return pageSpec{id: "treeman", navKey: "settings-nav-treeman", icon: "ld-graph-star-symbolic", header: "settings-page-treeman", lead: treemanNote, sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.treeman.format"),
 			cellGridRow("settings-treeman-icons", []string{"settings-state-ready", "settings-state-preparing", "settings-state-tearing-down", "settings-state-failed"},
