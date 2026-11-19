@@ -3,8 +3,10 @@ package settings
 import (
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -140,10 +142,38 @@ func launcherModes(k *kit) lister {
 	}
 }
 
+var mainDesktopCategories = []string{"AudioVideo", "Audio", "Video", "Development", "Education", "Game", "Graphics", "Network", "Office", "Science", "Settings", "System", "Utility"}
+
+func desktopCategories(*kit) lister {
+	dirs := desktopentry.ApplicationDirs()
+	return func() []choice {
+		t := locale.T()
+		out := make([]choice, 0, len(mainDesktopCategories))
+		for _, c := range mainDesktopCategories {
+			out = append(out, choice{value: c, label: t.Get("settings-desktop-category-" + strings.ToLower(c))})
+		}
+		var found []string
+		for _, a := range scanInstalled(dirs).shown {
+			for c := range strings.SplitSeq(a.Categories(), ";") {
+				if c = strings.TrimSpace(c); c != "" && !slices.Contains(mainDesktopCategories, c) && !slices.Contains(found, c) {
+					found = append(found, c)
+				}
+			}
+		}
+		slices.Sort(found)
+		installed := t.Get("settings-desktop-category-installed")
+		for _, c := range found {
+			out = append(out, choice{value: c, label: c, group: installed})
+		}
+		return out
+	}
+}
+
 var (
-	launcherModesRow = choiceListRow(launcherModes, plainChoices)
-	displayNamesRow  = choiceListRow(launcherModes, namedChoices)
-	scriptsRow       = listRow(func(config.FieldMeta) listSpec {
+	launcherModesRow     = choiceListRow(launcherModes, plainChoices)
+	displayNamesRow      = choiceListRow(launcherModes, namedChoices)
+	desktopCategoriesRow = choiceListRow(desktopCategories, plainChoices)
+	scriptsRow           = listRow(func(config.FieldMeta) listSpec {
 		return pairMapSpec("settings-map-mode-name-placeholder", true, func(k *kit, value *string, changed func()) widget.Widget {
 			return newFileEditor(k, stringSlot(value, changed))
 		})

@@ -200,8 +200,8 @@ func launcherPage(*config.Config) pageSpec {
 func launcherModesPage(*config.Config) pageSpec {
 	return pageSpec{id: "launcher-modes", navKey: "settings-nav-launcher-modes-page", icon: "ld-grid-2x2-symbolic", header: "settings-page-launcher-modes", sections: []sectionSpec{
 		{title: "settings-section-launcher-drun", rows: []rowSpec{
-			field("launcher.drun.categories", stringList),
-			field("launcher.drun.exclude-categories", stringList),
+			field("launcher.drun.categories", desktopCategoriesRow),
+			field("launcher.drun.exclude-categories", desktopCategoriesRow),
 			field("launcher.drun.match-fields", enumList),
 			field("launcher.drun.display-format"),
 			field("launcher.drun.show-actions"),

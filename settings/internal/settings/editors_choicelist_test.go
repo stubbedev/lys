@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"testing"
@@ -109,5 +111,29 @@ func TestAScriptModeNamesItsExecutableFile(t *testing.T) {
 	}
 	if !slices.Contains(config.LauncherBuiltinModes, "drun") {
 		t.Error("the built-in modes lost drun")
+	}
+}
+
+func TestAppCategoriesArePickedFromTheMainOnesAndTheInstalledApps(t *testing.T) {
+	dockAppsFixture(t)
+	put(t, filepath.Join(os.Getenv("XDG_DATA_HOME"), "applications", "gimp.desktop"), "[Desktop Entry]\nType=Application\nExec=true\nName=GIMP\nCategories=Graphics;RasterGraphics;\n")
+	k := testKit(t, "launcher:\n  drun:\n    categories: [Office, X-Unlisted]\n")
+	c := choiceList(t, k, "launcher-modes", "launcher.drun.categories")
+	if !containsLabel(c, locale.T().Get("settings-desktop-category-office")) {
+		t.Error("a main category row shows its id, not its name")
+	}
+	if !containsLabel(c, locale.T().Get("settings-choice-unknown")) {
+		t.Error("a category no app or list names is not marked as outside the list")
+	}
+	p := openAdd(t, c)
+	if slices.Contains(p.all, "Office") || !slices.Contains(p.all, "Graphics") || !slices.Contains(p.all, "RasterGraphics") {
+		t.Fatalf("offered %v", p.all)
+	}
+	if slices.Index(p.all, "Utility") > slices.Index(p.all, "RasterGraphics") {
+		t.Errorf("an installed app's category comes before the main ones: %v", p.all)
+	}
+	pickName(t, p, "RasterGraphics")
+	if got := k.store.value("launcher.drun.categories"); !reflect.DeepEqual(got, []any{"Office", "X-Unlisted", "RasterGraphics"}) {
+		t.Errorf("stored %v", got)
 	}
 }
