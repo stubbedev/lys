@@ -2169,6 +2169,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/widgets",
       "desktop/shlex",
+      "desktop/spawn",
       "desktop/strftime",
       "desktop/styling",
       "lib/atomicfile",
