@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -39,8 +40,12 @@ func lockPage(*config.Config) pageSpec {
 				field("login.background-color"), field("login.blur"),
 			}},
 			{title: "settings-section-clock", rows: fields("login.show-clock", "login.clock-format", "login.date-format")},
-			{title: "settings-section-security", rows: fields("login.lock.grace-period-ms", "login.max-attempts",
-				"login.show-failed-attempts", "login.lock.blank-timeout-ms", "login.lock.pam-service")},
+			{title: "settings-section-security", rows: []rowSpec{
+				field("login.lock.grace-period-ms", durationChips(inMilliseconds, zeroAs(immediately), after(5*time.Second), after(30*time.Second), after(time.Minute), after(5*time.Minute))),
+				field("login.max-attempts"), field("login.show-failed-attempts"),
+				field("login.lock.blank-timeout-ms", durationChips(inMilliseconds, zeroAs(never), after(30*time.Second), after(time.Minute), after(5*time.Minute), after(10*time.Minute))),
+				field("login.lock.pam-service"),
+			}},
 			{title: "settings-section-animation", rows: surfaceAnimationRows("animations.lock")},
 			{title: "settings-section-login-screen", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint", "login.greeter.screen-reader")},
 			{title: "settings-section-cursor", rows: fields("login.greeter.cursor-theme", "login.greeter.cursor-size")},

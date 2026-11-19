@@ -36,10 +36,10 @@ settings-login-lock-lock-on-start = Lock on Start
     .description = Lock the session as soon as the shell starts, for autologin setups where the lock screen is the access gate
 
 settings-login-lock-grace-period-ms = Grace Period
-    .description = Window after locking during which the screen unlocks without a password (ms, 0 = always require it)
+    .description = Window after locking during which the screen unlocks without a password (0 = always require it)
 
 settings-login-lock-blank-timeout-ms = Blank Timeout
-    .description = Black out the lock screen after this idle time (ms, 0 = never; visual only — DPMS is the idle daemon's job)
+    .description = Black out the lock screen after this idle time (0 = never; visual only — DPMS is the idle daemon's job)
 
 settings-login-lock-pam-service = PAM Service
     .description = PAM service used to verify the password (e.g. system-auth, login)

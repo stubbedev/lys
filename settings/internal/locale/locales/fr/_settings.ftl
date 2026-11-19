@@ -856,6 +856,11 @@ settings-idle-overtaken = { $source ->
        *[suspend] le système se met en veille
     } avant
 settings-duration-never = Jamais
+settings-duration-immediately = Immédiatement
+settings-duration-custom = Personnalisé…
+settings-duration-unit-seconds = secondes
+settings-duration-unit-minutes = minutes
+settings-duration-unit-days = jours
 settings-duration-minutes = { $n ->
     [one] 1 minute
    *[other] { $n } minutes
@@ -865,19 +870,17 @@ settings-duration-hours = { $n ->
    *[other] { $n } heures
 }
 settings-duration-seconds = { $n ->
-    [one] 1 seconde
+    [one] { $n } seconde
    *[other] { $n } secondes
 }
 settings-duration-days = { $n ->
     [one] 1 jour
    *[other] { $n } jours
 }
-settings-duration-custom = Personnalisé
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
-settings-duration-custom = Personnalisé…
 settings-advanced-show = Afficher
 settings-advanced-hide = Masquer
 settings-section-bar-item = Élément de la barre

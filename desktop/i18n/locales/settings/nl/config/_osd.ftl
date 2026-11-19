@@ -8,7 +8,7 @@ settings-osd-position = Positie
     .description = Waar de OSD op het scherm verschijnt (bijv. top-center, bottom-right)
 
 settings-osd-duration = Duur
-    .description = Hoe lang de OSD zichtbaar blijft voordat hij automatisch sluit (ms)
+    .description = Hoe lang de OSD zichtbaar blijft voordat hij automatisch sluit
 
 settings-osd-monitor = Monitor
     .description = Welke monitor de OSD toont: "primary" of een connector zoals "DP-1"

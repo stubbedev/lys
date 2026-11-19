@@ -47,7 +47,7 @@ settings-modules-notifications-popup-layer = Capa de las ventanas emergentes
     .description = Capa de layer-shell en la que se colocan las notificaciones emergentes. El modo de tearing rebaja overlay a top.
 
 settings-modules-notifications-popup-duration = Cierre automático
-    .description = Cuánto tiempo permanecen visibles las ventanas emergentes antes de cerrarse (ms)
+    .description = Cuánto tiempo permanecen visibles las ventanas emergentes antes de cerrarse
 
 settings-modules-notifications-popup-hover-pause = Pausar al pasar el puntero
     .description = Detiene el temporizador de cierre automático mientras el puntero está sobre una ventana emergente

@@ -32,10 +32,10 @@ settings-login-lock-lock-on-start = Bloquear ao iniciar
     .description = Bloquear a sessão logo que a shell inicia, para configurações de início de sessão automático em que o ecrã de bloqueio é a barreira de acesso
 
 settings-login-lock-grace-period-ms = Período de tolerância
-    .description = Intervalo após o bloqueio durante o qual o ecrã se desbloqueia sem palavra-passe (ms, 0 = exigi-la sempre)
+    .description = Intervalo após o bloqueio durante o qual o ecrã se desbloqueia sem palavra-passe (0 = exigi-la sempre)
 
 settings-login-lock-blank-timeout-ms = Tempo até escurecer
-    .description = Escurecer o ecrã de bloqueio após este tempo de inatividade (ms, 0 = nunca; apenas visual — o DPMS é tarefa do serviço de inatividade)
+    .description = Escurecer o ecrã de bloqueio após este tempo de inatividade (0 = nunca; apenas visual — o DPMS é tarefa do serviço de inatividade)
 
 settings-login-lock-pam-service = Serviço PAM
     .description = Serviço PAM usado para verificar a palavra-passe (ex.: system-auth, login)

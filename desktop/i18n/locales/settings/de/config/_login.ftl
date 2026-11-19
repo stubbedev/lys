@@ -36,10 +36,10 @@ settings-login-lock-lock-on-start = Beim Start sperren
     .description = Die Sitzung sperren, sobald die Shell startet, für automatische Anmeldungen, bei denen der Sperrbildschirm die Zugangskontrolle ist
 
 settings-login-lock-grace-period-ms = Kulanzzeit
-    .description = Zeitraum nach dem Sperren, in dem der Bildschirm ohne Passwort entsperrt wird (ms, 0 = immer verlangen)
+    .description = Zeitraum nach dem Sperren, in dem der Bildschirm ohne Passwort entsperrt wird (0 = immer verlangen)
 
 settings-login-lock-blank-timeout-ms = Schwärzen nach
-    .description = Den Sperrbildschirm nach dieser Leerlaufzeit schwärzen (ms, 0 = nie; nur optisch – DPMS ist Aufgabe des Leerlaufdienstes)
+    .description = Den Sperrbildschirm nach dieser Leerlaufzeit schwärzen (0 = nie; nur optisch – DPMS ist Aufgabe des Leerlaufdienstes)
 
 settings-login-lock-pam-service = PAM-Dienst
     .description = PAM-Dienst zur Passwortprüfung (z. B. system-auth, login)

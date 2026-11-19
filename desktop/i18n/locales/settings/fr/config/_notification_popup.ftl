@@ -44,7 +44,7 @@ settings-modules-notifications-popup-monitor = Moniteur des fenêtres contextuel
     .description = Moniteur affichant les fenêtres contextuelles : « primary » ou un connecteur comme « DP-1 »
 
 settings-modules-notifications-popup-duration = Fermeture automatique
-    .description = Durée de visibilité des fenêtres contextuelles avant fermeture (ms)
+    .description = Durée de visibilité des fenêtres contextuelles avant fermeture
 
 settings-modules-notifications-popup-hover-pause = Pause au survol
     .description = Suspendre le minuteur de fermeture automatique au survol d'une fenêtre contextuelle

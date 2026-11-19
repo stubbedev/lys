@@ -41,7 +41,7 @@ settings-modules-notifications-popup-layer = Camada das notificações
     .description = Camada layer-shell em que as notificações são colocadas. O modo de tearing despromove overlay para top.
 
 settings-modules-notifications-popup-duration = Dispensar automaticamente
-    .description = Quanto tempo as notificações ficam visíveis antes de fechar (ms)
+    .description = Quanto tempo as notificações ficam visíveis antes de fechar
 
 settings-modules-notifications-popup-hover-pause = Pausar ao passar o rato
     .description = Parar o temporizador de dispensa automática enquanto o rato está sobre uma notificação

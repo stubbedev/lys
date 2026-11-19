@@ -47,7 +47,7 @@ settings-modules-notifications-popup-layer = Popup Layer
     .description = Layer-shell layer popup notifications are placed on. Tearing mode demotes overlay to top.
 
 settings-modules-notifications-popup-duration = Auto-Dismiss
-    .description = How long popups stay visible before closing (ms)
+    .description = How long popups stay visible before closing
 
 settings-modules-notifications-popup-hover-pause = Pause on Hover
     .description = Stop the auto-dismiss timer while hovering over a popup

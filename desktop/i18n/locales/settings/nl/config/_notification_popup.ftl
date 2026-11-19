@@ -41,7 +41,7 @@ settings-modules-notifications-popup-layer = Pop-uplaag
     .description = Layer-shell-laag waarop meldingspop-ups worden geplaatst. De tearingmodus degradeert overlay naar top.
 
 settings-modules-notifications-popup-duration = Automatisch sluiten
-    .description = Hoe lang pop-ups zichtbaar blijven voordat ze sluiten (ms)
+    .description = Hoe lang pop-ups zichtbaar blijven voordat ze sluiten
 
 settings-modules-notifications-popup-hover-pause = Pauzeren bij zweven
     .description = De timer voor automatisch sluiten stoppen terwijl je boven een pop-up zweeft

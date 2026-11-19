@@ -47,7 +47,7 @@ settings-modules-notifications-popup-layer = Popup-Ebene
     .description = Layer-Shell-Ebene, auf der Benachrichtigungs-Popups liegen. Der Tearing-Modus stuft overlay auf top zurück.
 
 settings-modules-notifications-popup-duration = Automatisch schließen
-    .description = Wie lange Popups sichtbar bleiben, bevor sie sich schließen (ms)
+    .description = Wie lange Popups sichtbar bleiben, bevor sie sich schließen
 
 settings-modules-notifications-popup-hover-pause = Beim Überfahren pausieren
     .description = Den Timer zum automatischen Schließen anhalten, solange der Zeiger über einem Popup ist

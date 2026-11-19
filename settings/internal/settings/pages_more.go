@@ -1,6 +1,10 @@
 package settings
 
-import "github.com/stubbedev/lys/desktop/config"
+import (
+	"time"
+
+	"github.com/stubbedev/lys/desktop/config"
+)
 
 // barGeneralPage is pages/bar/general.
 func barPage(*config.Config) pageSpec {
@@ -85,7 +89,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.popup-max-visible"),
 			field("modules.notifications.popup-stacking-order"),
 			field("modules.notifications.popup-stack"),
-			field("modules.notifications.popup-duration"),
+			field("modules.notifications.popup-duration", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), after(30*time.Second))),
 			field("modules.notifications.popup-hover-pause"),
 			field("modules.notifications.popup-shadow"),
 			field("modules.notifications.popup-opacity", percentage),
@@ -126,7 +130,7 @@ func osdPage(*config.Config) pageSpec {
 			field("osd.position", screenPosition),
 			field("osd.layer"),
 			field("osd.text-align"),
-			field("osd.duration"),
+			field("osd.duration", durationChips(inMilliseconds, after(time.Second), after(1500*time.Millisecond), after(2500*time.Millisecond), after(5*time.Second))),
 			field("osd.monitor"),
 			field("osd.margin", sizeBase(config.OsdMarginBaseRem)),
 			field("osd.border"),
@@ -304,7 +308,7 @@ func wallpaperPage(*config.Config) pageSpec {
 			field("wallpaper.cycling-directory"),
 			cyclingReveal("wallpaper.cycling-directory",
 				field("wallpaper.cycling-mode"),
-				field("wallpaper.cycling-interval-mins", minutePresets(5, 15, 30, 60, 180, 1440)),
+				field("wallpaper.cycling-interval-mins", durationChips(inMinutes, after(5*time.Minute), after(15*time.Minute), after(30*time.Minute), after(time.Hour), after(3*time.Hour), after(day))),
 				field("wallpaper.cycling-same-image"),
 			),
 		}},

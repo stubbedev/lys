@@ -7,7 +7,7 @@ settings-osd-position = Position
     .description = Position de l'OSD à l'écran (ex. : haut-centre, bas-droite)
 
 settings-osd-duration = Durée
-    .description = Durée de visibilité de l'OSD avant fermeture automatique (ms)
+    .description = Durée de visibilité de l'OSD avant fermeture automatique
 
 settings-osd-monitor = Moniteur
     .description = Moniteur affichant l'OSD : « primary » ou un connecteur comme « DP-1 »

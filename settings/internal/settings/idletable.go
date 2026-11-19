@@ -105,17 +105,6 @@ func durationLabel(value string) string {
 	return durationWords(d)
 }
 
-func durationWords(d time.Duration) string {
-	t := locale.T()
-	switch {
-	case d >= time.Hour && d%time.Hour == 0:
-		return t.Get("settings-duration-hours", i18n.Int("n", int64(d/time.Hour)))
-	case d >= time.Minute && d%time.Minute == 0:
-		return t.Get("settings-duration-minutes", i18n.Int("n", int64(d/time.Minute)))
-	}
-	return t.Get("settings-duration-seconds", i18n.Int("n", int64(d/time.Second)))
-}
-
 func durationChoices(current string) []string {
 	if current == "" || slices.Contains(idlePresets, current) {
 		return idlePresets

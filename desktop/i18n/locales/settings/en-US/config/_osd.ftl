@@ -10,7 +10,7 @@ settings-osd-position = Position
     .description = Where on screen the OSD appears (e.g. top-center, bottom-right)
 
 settings-osd-duration = Duration
-    .description = How long the OSD stays visible before auto-dismissing (ms)
+    .description = How long the OSD stays visible before auto-dismissing
 
 settings-osd-monitor = Monitor
     .description = Which monitor shows the OSD: "primary" or a connector like "DP-1"

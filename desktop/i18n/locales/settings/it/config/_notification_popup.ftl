@@ -47,7 +47,7 @@ settings-modules-notifications-popup-layer = Livello dei popup
     .description = Livello layer-shell su cui vengono posti i popup delle notifiche. La modalità tearing declassa overlay a top.
 
 settings-modules-notifications-popup-duration = Chiusura automatica
-    .description = Per quanto restano visibili i popup prima di chiudersi (ms)
+    .description = Per quanto restano visibili i popup prima di chiudersi
 
 settings-modules-notifications-popup-hover-pause = Pausa al passaggio del mouse
     .description = Ferma il timer di chiusura automatica mentre il puntatore è su un popup

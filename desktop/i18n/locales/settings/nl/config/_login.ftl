@@ -32,10 +32,10 @@ settings-login-lock-lock-on-start = Vergrendelen bij start
     .description = De sessie vergrendelen zodra de shell start, voor opstellingen met automatisch aanmelden waarin het vergrendelscherm de toegangspoort is
 
 settings-login-lock-grace-period-ms = Respijtperiode
-    .description = Periode na het vergrendelen waarin het scherm zonder wachtwoord ontgrendelt (ms, 0 = altijd vereisen)
+    .description = Periode na het vergrendelen waarin het scherm zonder wachtwoord ontgrendelt (0 = altijd vereisen)
 
 settings-login-lock-blank-timeout-ms = Time-out voor zwart scherm
-    .description = Het vergrendelscherm zwart maken na deze inactiviteitstijd (ms, 0 = nooit; alleen visueel — DPMS is de taak van de inactiviteitsdaemon)
+    .description = Het vergrendelscherm zwart maken na deze inactiviteitstijd (0 = nooit; alleen visueel — DPMS is de taak van de inactiviteitsdaemon)
 
 settings-login-lock-pam-service = PAM-dienst
     .description = PAM-dienst die het wachtwoord controleert (bijv. system-auth, login)

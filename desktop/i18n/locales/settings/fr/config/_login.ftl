@@ -21,9 +21,9 @@ settings-login-lock-enabled = Activé
 settings-login-lock-lock-on-start = Verrouiller au démarrage
     .description = Verrouiller la session dès le démarrage du shell, pour les connexions automatiques où l'écran de verrouillage contrôle l'accès
 settings-login-lock-grace-period-ms = Délai de grâce
-    .description = Période après le verrouillage pendant laquelle l'écran se déverrouille sans mot de passe (ms, 0 = toujours l'exiger)
+    .description = Période après le verrouillage pendant laquelle l'écran se déverrouille sans mot de passe (0 = toujours l'exiger)
 settings-login-lock-blank-timeout-ms = Délai avant écran noir
-    .description = Noircir l'écran de verrouillage après ce temps d'inactivité (ms, 0 = jamais ; visuel uniquement, le DPMS relève du démon d'inactivité)
+    .description = Noircir l'écran de verrouillage après ce temps d'inactivité (0 = jamais ; visuel uniquement, le DPMS relève du démon d'inactivité)
 settings-login-lock-pam-service = Service PAM
     .description = Service PAM qui vérifie le mot de passe (ex. : system-auth, login)
 settings-login-lock-show-media = Afficher la lecture en cours

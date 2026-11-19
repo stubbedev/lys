@@ -84,6 +84,13 @@ Some pages also act on the system:
 | Login & Lock Screen | **Apply to login screen** sends the background, clock and login screen settings to lys-login's display manager, which asks polkit when you are not the logged-in user; the footer says whether they were applied, invalid, not authorized, or the authentication was dismissed | `/run/lys-login/apply.sock` |
 | Displays (`wm-outputs`) | Output layout, tested and applied live | wlr-output-management |
 
+## Durations
+
+A time a setting waits, such as how long a notification stays, how soon the
+lock screen asks for the password or how often the wallpaper changes, is picked
+from a row of common durations. **Custom…** takes any other value in the unit
+named beside it (seconds, minutes or days); a value off the row shows there.
+
 ## Where changes go
 
 | Pages | Written to | Takes effect |

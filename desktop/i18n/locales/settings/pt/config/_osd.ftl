@@ -8,7 +8,7 @@ settings-osd-position = Posição
     .description = Onde o OSD aparece no ecrã (ex.: top-center, bottom-right)
 
 settings-osd-duration = Duração
-    .description = Quanto tempo o OSD fica visível antes de se dispensar automaticamente (ms)
+    .description = Quanto tempo o OSD fica visível antes de se dispensar automaticamente
 
 settings-osd-monitor = Monitor
     .description = Que monitor mostra o OSD: "primary" ou um conector como "DP-1"

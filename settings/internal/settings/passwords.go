@@ -45,7 +45,7 @@ func passwordsPage(*config.Config) pageSpec {
 		header: "settings-page-passwords",
 		lead:   passwordsKeyring,
 		sections: []sectionSpec{
-			{title: "settings-section-passwords-reveal", rows: []rowSpec{field(repromptPath, durationChoice(unitMinutes, 1, 5, 15, 60))}},
+			{title: "settings-section-passwords-reveal", rows: []rowSpec{field(repromptPath, durationChips(inMinutes, after(time.Minute), after(5*time.Minute), after(15*time.Minute), after(time.Hour), zeroAs(never)))}},
 		},
 	}
 }

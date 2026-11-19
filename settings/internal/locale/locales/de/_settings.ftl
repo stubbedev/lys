@@ -853,6 +853,11 @@ settings-idle-overtaken = { $source ->
        *[suspend] geht das System in Bereitschaft
     }
 settings-duration-never = Nie
+settings-duration-immediately = Sofort
+settings-duration-custom = Benutzerdefiniert…
+settings-duration-unit-seconds = Sekunden
+settings-duration-unit-minutes = Minuten
+settings-duration-unit-days = Tage
 settings-duration-minutes = { $n ->
     [one] 1 Minute
    *[other] { $n } Minuten
@@ -869,12 +874,10 @@ settings-duration-days = { $n ->
     [one] 1 Tag
    *[other] { $n } Tage
 }
-settings-duration-custom = Eigene
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
-settings-duration-custom = Benutzerdefiniert…
 settings-advanced-show = Anzeigen
 settings-advanced-hide = Ausblenden
 settings-section-bar-item = Leistenelement

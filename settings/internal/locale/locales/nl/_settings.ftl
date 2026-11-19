@@ -843,6 +843,11 @@ settings-idle-overtaken = { $source ->
        *[suspend] het systeem gaat eerst in slaapstand
     }
 settings-duration-never = Nooit
+settings-duration-immediately = Direct
+settings-duration-custom = Aangepast…
+settings-duration-unit-seconds = seconden
+settings-duration-unit-minutes = minuten
+settings-duration-unit-days = dagen
 settings-duration-minutes = { $n ->
     [one] 1 minuut
    *[other] { $n } minuten
@@ -859,12 +864,10 @@ settings-duration-days = { $n ->
     [one] 1 dag
    *[other] { $n } dagen
 }
-settings-duration-custom = Aangepast
 settings-duration-milliseconds = { $n ->
     [one] 1 ms
    *[other] { $n } ms
 }
-settings-duration-custom = Aangepast…
 settings-advanced-show = Tonen
 settings-advanced-hide = Verbergen
 settings-section-bar-item = Balkonderdeel
