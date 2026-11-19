@@ -326,6 +326,13 @@ func softPixels(lo, hi float64) rowOpt {
 	})
 }
 
+// softPerSecond is softPixels over a rate a second.
+func softPerSecond(lo, hi float64) rowOpt {
+	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+		return newSoftRange(k, s, meta, lo, hi, 1, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "/s" })
+	})
+}
+
 // softMilliseconds is softPixels over a duration in milliseconds.
 func softMilliseconds(lo, hi float64) rowOpt {
 	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {

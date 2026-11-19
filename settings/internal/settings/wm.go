@@ -452,8 +452,18 @@ func wmKey(path string) string {
 	return "wm-" + strings.NewReplacer(".", "-", "_", "-").Replace(path)
 }
 
+var wmPresentation = map[string]rowOpt{
+	"input.pointer.accel_speed":    signedNormalized,
+	"input.touchpad.accel_speed":   signedNormalized,
+	"input.trackpoint.accel_speed": signedNormalized,
+}
+
 func wmField(path string, opts ...rowOpt) rowSpec {
-	return field(path, append([]rowOpt{withKey(wmKey(path)), func(r *rowSpec) { r.wm = true }}, opts...)...)
+	base := []rowOpt{withKey(wmKey(path)), func(r *rowSpec) { r.wm = true }}
+	if o, ok := wmPresentation[path]; ok {
+		base = append(base, o)
+	}
+	return field(path, append(base, opts...)...)
 }
 
 func wmFields(paths ...string) []rowSpec {
@@ -520,7 +530,9 @@ func wmTilingPage() pageSpec {
 func wmKeyboardPage() pageSpec {
 	return wmPage("wm-keyboard", "ld-keyboard-symbolic",
 		sectionSpec{title: "wm-section-keyboard", rows: wmFields("input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options")},
-		sectionSpec{title: "wm-section-typing", rows: wmFields("input.keyboard.repeat_rate", "input.keyboard.repeat_delay", "input.keyboard.numlock")},
+		sectionSpec{title: "wm-section-typing", rows: []rowSpec{
+			wmField("input.keyboard.repeat_rate", softPerSecond(10, 80)), wmField("input.keyboard.repeat_delay", softMilliseconds(150, 1000)), wmField("input.keyboard.numlock"),
+		}},
 		sectionSpec{title: "wm-section-keyboard-accessibility", rows: wmFields("input.keyboard.sticky_keys", "input.keyboard.slow_keys")},
 		sectionSpec{title: "wm-section-cursor", rows: wmFields("cursor.hide_while_typing", "cursor.hide_after", "cursor.shake_to_find")},
 		sectionSpec{title: "wm-section-keyboard-model", advanced: true, rows: wmFields("input.keyboard.model", "input.keyboard.rules")},

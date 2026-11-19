@@ -1179,3 +1179,31 @@ func TestTheSplitIsTheStoredFormAndARefusalReturnsToIt(t *testing.T) {
 		t.Errorf("stored sides show same %v, diagram %v, bottom %v", c.same.On(), c.diagram.Visible(), c.spins[2].Value())
 	}
 }
+
+func TestLysWMSpeedsAndRepeatSlideOverTheirUsualRange(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	k := testKit(t, "")
+	w, err := k.wmBackend()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"input.pointer.accel_speed", "input.touchpad.accel_speed", "input.trackpoint.accel_speed"} {
+		if _, ok := fieldControl(k, w, wmField(path)).(*slider); !ok {
+			t.Errorf("%s is not a slider", path)
+		}
+	}
+	rows := map[string]bool{}
+	for _, sec := range wmKeyboardPage().sections {
+		for _, r := range sec.rows {
+			if r.editor != nil {
+				rows[r.path] = true
+			}
+		}
+	}
+	if !rows["input.keyboard.repeat_rate"] || !rows["input.keyboard.repeat_delay"] {
+		t.Errorf("the repeat rows keep the plain number: %v", rows)
+	}
+	if _, ok := fieldControl(k, w, wmField("input.pointer.scroll_factor")).(*slider); ok {
+		t.Error("a key outside the presentation table became a slider")
+	}
+}
