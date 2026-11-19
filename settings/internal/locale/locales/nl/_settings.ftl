@@ -1069,3 +1069,5 @@ settings-launcher-mode-combi = Gecombineerd
 settings-launcher-mode-script = Script: { $name }
 settings-monitors-every = Elk scherm
 settings-map-mode-name-placeholder = modusnaam
+
+settings-map-name-placeholder = getoonde naam

@@ -64,6 +64,30 @@ func TestAModeOutsideTheListIsKeptAndMarked(t *testing.T) {
 	}
 }
 
+func TestADisplayNameIsGivenToAPickedMode(t *testing.T) {
+	k := testKit(t, "launcher:\n  display-names:\n    drun: apps\n")
+	c := choiceList(t, k, "launcher", "launcher.display-names")
+	if got := c.values(); !reflect.DeepEqual(got, []any{[2]string{"drun", "apps"}}) {
+		t.Fatalf("rows %v", got)
+	}
+	p := openAdd(t, c)
+	if slices.Contains(p.all, "drun") || !slices.Contains(p.all, "window") {
+		t.Fatalf("offered %v", p.all)
+	}
+	pickName(t, p, "window")
+	if got := k.store.value("launcher.display-names"); !reflect.DeepEqual(got, map[string]any{"drun": "apps"}) {
+		t.Fatalf("a mode without a name was written: %v", got)
+	}
+	named := c.items[1].(namedChoiceItem)
+	named.name.SetText("wins")
+	if got := k.store.value("launcher.display-names"); !reflect.DeepEqual(got, map[string]any{"drun": "apps", "window": "wins"}) {
+		t.Errorf("stored %v", got)
+	}
+	if len(c.items) != 2 || c.items[1].(namedChoiceItem).name != named.name {
+		t.Error("naming a mode rebuilt its row")
+	}
+}
+
 func TestDockMonitorsArePickedFromTheConnectedOutputs(t *testing.T) {
 	k := testKit(t, "dock:\n  monitors: [\"*\"]\n")
 	c := choiceList(t, k, "dock", "dock.monitors")

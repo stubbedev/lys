@@ -30,30 +30,82 @@ func listedChoice(items []choice, value string) choice {
 	return choice{value: value, label: value, group: locale.T().Get("settings-choice-unknown")}
 }
 
+type namedChoiceItem struct {
+	*widget.Box
+	key  string
+	name *widget.Entry
+}
+
+func (n namedChoiceItem) itemValue() any { return [2]string{n.key, n.name.Text()} }
+
+type choiceShape struct {
+	key     func(v any) string
+	item    func(k *kit, o choice, v any, changed func()) listItem
+	picked  func(value string) any
+	reorder bool
+	decode  func(v any) []any
+	encode  func(items []any) any
+}
+
+var plainChoices = choiceShape{
+	key: func(v any) string { s, _ := v.(string); return s },
+	item: func(k *kit, o choice, _ any, _ func()) listItem {
+		return choiceItem{choiceRow(k, o), o.value}
+	},
+	picked:  func(value string) any { return value },
+	reorder: true,
+}
+
+var namedChoices = choiceShape{
+	key: func(v any) string { pair, _ := v.([2]string); return pair[0] },
+	item: func(k *kit, o choice, v any, changed func()) listItem {
+		pair, _ := v.([2]string)
+		row := namedChoiceItem{Box: gapBox(widget.Row), key: o.value, name: k.entry()}
+		row.name.SetPlaceholder(locale.T().Get("settings-map-name-placeholder"))
+		row.name.SetText(pair[1])
+		row.name.OnChanged = func(string) { changed() }
+		row.Append(choiceRow(k, o), true)
+		row.Append(row.name, true)
+		return row
+	},
+	picked: func(value string) any { return [2]string{value, ""} },
+	decode: decodePairs,
+	encode: encodePairs(func(pair [2]string) bool { return pair[0] != "" && pair[1] != "" }),
+}
+
 type choiceListEditor struct {
 	*listEditor
 	picker *searchPicker
 }
 
-func newChoiceListEditor(k *kit, s slot, list lister) *choiceListEditor {
+func newChoiceListEditor(k *kit, s slot, list lister, shape choiceShape) *choiceListEditor {
 	var items []choice
 	loaded := false
 	c := &choiceListEditor{}
+	keys := func() []string {
+		values := c.values()
+		out := make([]string, len(values))
+		for i, v := range values {
+			out[i] = shape.key(v)
+		}
+		return out
+	}
 	c.listEditor = newListEditor(k, s, listSpec{
-		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true,
-		item: func(k *kit, v any, _ func()) listItem {
-			value, _ := v.(string)
-			return choiceItem{choiceRow(k, listedChoice(items, value)), value}
+		addKey: "settings-list-add", rowClass: "string-list-row", reorder: shape.reorder,
+		item: func(k *kit, v any, changed func()) listItem {
+			return shape.item(k, listedChoice(items, shape.key(v)), v, changed)
 		},
 		pick: func(anchor widget.Widget, choose func(any)) {
 			if k.pickers == nil {
 				return
 			}
-			listed := c.values()
-			open := slices.DeleteFunc(slices.Clone(items), func(o choice) bool { return slices.Contains(listed, any(o.value)) })
-			c.picker = openChoicePicker(k, anchor, open, func(v string) { choose(v) })
+			listed := keys()
+			open := slices.DeleteFunc(slices.Clone(items), func(o choice) bool { return slices.Contains(listed, o.value) })
+			c.picker = openChoicePicker(k, anchor, open, func(v string) { choose(shape.picked(v)) })
 		},
-		full: func(int) bool { return !loaded || allChosen(items, c.values()) },
+		full:   func(int) bool { return !loaded || allChosen(items, keys()) },
+		decode: shape.decode,
+		encode: shape.encode,
 	})
 	async(k, list, func(cs []choice) {
 		items, loaded = cs, true
@@ -62,14 +114,14 @@ func newChoiceListEditor(k *kit, s slot, list lister) *choiceListEditor {
 	return c
 }
 
-func allChosen(items []choice, listed []any) bool {
-	return !slices.ContainsFunc(items, func(o choice) bool { return !slices.Contains(listed, any(o.value)) })
+func allChosen(items []choice, listed []string) bool {
+	return !slices.ContainsFunc(items, func(o choice) bool { return !slices.Contains(listed, o.value) })
 }
 
-func choiceListRow(list func(k *kit) lister) rowOpt {
+func choiceListRow(list func(k *kit) lister, shape choiceShape) rowOpt {
 	return func(r *rowSpec) {
 		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newChoiceListEditor(k, s, list(k)) }
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newChoiceListEditor(k, s, list(k), shape) }
 	}
 }
 
@@ -97,8 +149,9 @@ func monitorsOrEvery(*kit) lister {
 }
 
 var (
-	launcherModesRow = choiceListRow(launcherModes)
-	monitorsRow      = choiceListRow(monitorsOrEvery)
+	launcherModesRow = choiceListRow(launcherModes, plainChoices)
+	displayNamesRow  = choiceListRow(launcherModes, namedChoices)
+	monitorsRow      = choiceListRow(monitorsOrEvery, plainChoices)
 	scriptsRow       = listRow(func(config.FieldMeta) listSpec {
 		return pairMapSpec("settings-map-mode-name-placeholder", true, func(k *kit, value *string, changed func()) widget.Widget {
 			return newFileEditor(k, stringSlot(value, changed))

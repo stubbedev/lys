@@ -158,7 +158,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.preview-cmd"),
 			field("launcher.emoji.skin-tone"),
 			field("launcher.terminal", terminalRow),
-			field("launcher.display-names", stringMap),
+			field("launcher.display-names", displayNamesRow),
 		}},
 		{title: "settings-section-launcher-history", rows: []rowSpec{
 			field("launcher.history.enable"),

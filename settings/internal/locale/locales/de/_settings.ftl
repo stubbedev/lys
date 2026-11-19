@@ -1079,3 +1079,5 @@ settings-launcher-mode-combi = Kombiniert
 settings-launcher-mode-script = Skript: { $name }
 settings-monitors-every = Jeder Bildschirm
 settings-map-mode-name-placeholder = Modusname
+
+settings-map-name-placeholder = angezeigter Name

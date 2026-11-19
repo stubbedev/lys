@@ -364,24 +364,30 @@ func pairMapSpec(keyPlaceholder string, fill bool, value func(k *kit, value *str
 			row.AppendAligned(row.editor, fill, widget.AlignCenter)
 			return row
 		},
-		decode: func(v any) []any {
-			m, _ := v.(map[string]any)
-			keys := slices.Sorted(maps.Keys(m))
-			out := make([]any, len(keys))
-			for i, key := range keys {
-				s, _ := m[key].(string)
-				out[i] = [2]string{key, s}
+		decode: decodePairs,
+		encode: encodePairs(func(pair [2]string) bool { return pair[0] != "" }),
+	}
+}
+
+func decodePairs(v any) []any {
+	m, _ := v.(map[string]any)
+	keys := slices.Sorted(maps.Keys(m))
+	out := make([]any, len(keys))
+	for i, key := range keys {
+		s, _ := m[key].(string)
+		out[i] = [2]string{key, s}
+	}
+	return out
+}
+
+func encodePairs(keep func(pair [2]string) bool) func(items []any) any {
+	return func(items []any) any {
+		out := map[string]any{}
+		for _, it := range items {
+			if pair, _ := it.([2]string); keep(pair) {
+				out[pair[0]] = pair[1]
 			}
-			return out
-		},
-		encode: func(items []any) any {
-			out := map[string]any{}
-			for _, it := range items {
-				if pair, _ := it.([2]string); pair[0] != "" {
-					out[pair[0]] = pair[1]
-				}
-			}
-			return out
-		},
+		}
+		return out
 	}
 }
