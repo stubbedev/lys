@@ -2,6 +2,7 @@ package settings
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -91,5 +92,23 @@ func TestATimeFormatIsBuiltFromNamedParts(t *testing.T) {
 		if s.token == "%H" {
 			t.Error("an escaped percent was read as the hour")
 		}
+	}
+}
+
+func TestATemplatedCommandIsBuiltFromItsPlaceholders(t *testing.T) {
+	const path = "launcher.ssh.command"
+	k := testKit(t, "")
+	b := shellControl(t, k, path).(*labelBuilder)
+	tokens := b.tokens()
+	for _, want := range []string{"{terminal}", "{ssh-client}", "{host}"} {
+		if !slices.Contains(tokens, want) {
+			t.Errorf("the connect command offers %q, not %s", tokens, want)
+		}
+	}
+	if !strings.Contains(b.preview.Text(), "example.org") {
+		t.Errorf("preview %q", b.preview.Text())
+	}
+	if _, ok := shellControl(t, k, "modules.power.lock-command").(*choiceEditor); !ok {
+		t.Error("a command without placeholders left the command picker")
 	}
 }

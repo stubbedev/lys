@@ -103,17 +103,17 @@ func NewThumbnailer(previewCmd string) Thumbnailer {
 	return Thumbnailer{previewCmd: previewCmd}
 }
 
+func previewVars(file, output string) map[string]string {
+	return map[string]string{"input": file, "output": output, "size": strconv.Itoa(ThumbnailSize)}
+}
+
 // Command is the argv that would produce file's thumbnail at output,
 // false when nothing here can make one. The -preview-cmd argv is split
 // before substituting and exec'd, never given to a shell: a file name
 // is attacker-controlled in every mode that lists a directory.
 func (t Thumbnailer) Command(file, output string) ([]string, bool) {
 	if t.previewCmd != "" {
-		argv := RenderArgv(t.previewCmd, Values(map[string]string{
-			"input":  file,
-			"output": output,
-			"size":   strconv.Itoa(ThumbnailSize),
-		}))
+		argv := RenderArgv(t.previewCmd, Values(previewVars(file, output)))
 		if len(argv) == 0 {
 			log.Printf("launcher: -preview-cmd %q does not parse as a command", t.previewCmd)
 			return nil, false

@@ -15,6 +15,9 @@ func TestEveryRowTemplateRendersExactlyItsDeclaredPlaceholders(t *testing.T) {
 		"launcher.drun.display-format":  drunVars("", "", "", "", ""),
 		"launcher.window.format":        windowVars(WindowInfo{}),
 		"launcher.combi.display-format": combiVars("", ""),
+		"launcher.run.run-command":      runVars(""),
+		"launcher.run.shell-command":    withTerminal(runVars("")),
+		"launcher.ssh.command":          withTerminal(sshVars("", "")),
 	} {
 		var declared []string
 		for _, p := range config.Placeholders(path) {
@@ -28,4 +31,10 @@ func TestEveryRowTemplateRendersExactlyItsDeclaredPlaceholders(t *testing.T) {
 			t.Errorf("%s renders %v, declares %v", path, rendered, declared)
 		}
 	}
+}
+
+func withTerminal(vars map[string]string) map[string]string {
+	out := maps.Clone(vars)
+	out["terminal"] = ""
+	return out
 }

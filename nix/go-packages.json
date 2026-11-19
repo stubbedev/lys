@@ -2721,6 +2721,7 @@
       "lib/xdg"
     ],
     "testImports": [
+      "desktop/config",
       "desktop/opener/openertest",
       "lib/waittest",
       "shell/service/launcher/launchertest"

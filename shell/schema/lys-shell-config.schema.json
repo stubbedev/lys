@@ -4066,7 +4066,27 @@
         "preview-cmd": {
           "$ref": "#/$defs/Command",
           "default": "",
-          "description": "Command that turns a `thumbnail://` row icon into an image file:\n`{input}` the icon's path, `{output}` where to write the thumbnail,\n`{size}` the requested pixel size. Empty uses the system's XDG\nthumbnailers. rofi's `-preview-cmd`."
+          "description": "Command that turns a `thumbnail://` row icon into an image file:\n`{input}` the icon's path, `{output}` where to write the thumbnail,\n`{size}` the requested pixel size. Empty uses the system's XDG\nthumbnailers. rofi's `-preview-cmd`.\n\n## Placeholders\n\n- `{input}` - The file to preview\n- `{output}` - Where to write the thumbnail\n- `{size}` - The thumbnail size in pixels",
+          "x-placeholders": [
+            {
+              "description": "The file to preview",
+              "name": "input",
+              "sample": "/home/ada/report.pdf",
+              "token": "{input}"
+            },
+            {
+              "description": "Where to write the thumbnail",
+              "name": "output",
+              "sample": "/tmp/report.png",
+              "token": "{output}"
+            },
+            {
+              "description": "The thumbnail size in pixels",
+              "name": "size",
+              "sample": "256",
+              "token": "{size}"
+            }
+          ]
         },
         "run": {
           "$ref": "#/$defs/LauncherRunConfig",
@@ -4494,12 +4514,34 @@
         "run-command": {
           "$ref": "#/$defs/Command",
           "default": "{cmd}",
-          "description": "Plain accept template (`{cmd}`)."
+          "description": "Plain accept template (`{cmd}`).\n\n## Placeholders\n\n- `{cmd}` - The command typed",
+          "x-placeholders": [
+            {
+              "description": "The command typed",
+              "name": "cmd",
+              "sample": "htop",
+              "token": "{cmd}"
+            }
+          ]
         },
         "shell-command": {
           "$ref": "#/$defs/Command",
           "default": "{terminal} -e {cmd}",
-          "description": "Run-in-terminal template (`{terminal}`, `{cmd}`)."
+          "description": "Run-in-terminal template (`{terminal}`, `{cmd}`).\n\n## Placeholders\n\n- `{terminal}` - The terminal\n- `{cmd}` - The command typed",
+          "x-placeholders": [
+            {
+              "description": "The terminal",
+              "name": "terminal",
+              "sample": "foot",
+              "token": "{terminal}"
+            },
+            {
+              "description": "The command typed",
+              "name": "cmd",
+              "sample": "htop",
+              "token": "{cmd}"
+            }
+          ]
         }
       },
       "type": "object"
@@ -4768,7 +4810,27 @@
         "command": {
           "$ref": "#/$defs/Command",
           "default": "{terminal} -e {ssh-client} {host}",
-          "description": "Connect template (`{terminal}`, `{ssh-client}`, `{host}`)."
+          "description": "Connect template (`{terminal}`, `{ssh-client}`, `{host}`).\n\n## Placeholders\n\n- `{terminal}` - The terminal\n- `{ssh-client}` - The SSH client\n- `{host}` - The host",
+          "x-placeholders": [
+            {
+              "description": "The terminal",
+              "name": "terminal",
+              "sample": "foot",
+              "token": "{terminal}"
+            },
+            {
+              "description": "The SSH client",
+              "name": "ssh-client",
+              "sample": "ssh",
+              "token": "{ssh-client}"
+            },
+            {
+              "description": "The host",
+              "name": "host",
+              "sample": "example.org",
+              "token": "{host}"
+            }
+          ]
         },
         "parse-hosts": {
           "$ref": "#/$defs/boolean",

@@ -59,6 +59,16 @@ entry instead of a schema change.
 
 :::
 
+::: details More about `preview-cmd`
+
+#### Placeholders
+
+- `{input}` - The file to preview
+- `{output}` - Where to write the thumbnail
+- `{size}` - The thumbnail size in pixels
+
+:::
+
 ## Default configuration
 
 ```yaml

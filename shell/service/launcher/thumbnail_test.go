@@ -4,12 +4,16 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 func TestTheCachePathIsTheMd5OfTheFileURI(t *testing.T) {
@@ -112,5 +116,16 @@ func TestAThumbnailerThatWritesNothingProducesNothing(t *testing.T) {
 func TestAFileWithNoThumbnailStillHasAnIconName(t *testing.T) {
 	if MimeIcon("/tmp/notes.txt") == "" {
 		t.Error("a mime icon must never be empty")
+	}
+}
+
+func TestThePreviewCommandRendersExactlyItsDeclaredPlaceholders(t *testing.T) {
+	var declared []string
+	for _, p := range config.Placeholders("launcher.preview-cmd") {
+		declared = append(declared, p.Name)
+	}
+	slices.Sort(declared)
+	if rendered := slices.Sorted(maps.Keys(previewVars("", ""))); len(declared) == 0 || !slices.Equal(rendered, declared) {
+		t.Errorf("-preview-cmd renders %v, declares %v", rendered, declared)
 	}
 }

@@ -312,3 +312,13 @@ enum-launcher-skin-tone-medium-light = Middellicht
 enum-launcher-skin-tone-medium = Getint
 enum-launcher-skin-tone-medium-dark = Middeldonker
 enum-launcher-skin-tone-dark = Donker
+
+settings-launcher-run-run-command-placeholder-cmd = De getypte opdracht
+settings-launcher-run-shell-command-placeholder-terminal = De terminal
+settings-launcher-run-shell-command-placeholder-cmd = De getypte opdracht
+settings-launcher-ssh-command-placeholder-terminal = De terminal
+settings-launcher-ssh-command-placeholder-ssh-client = De SSH-client
+settings-launcher-ssh-command-placeholder-host = De host
+settings-launcher-preview-cmd-placeholder-input = Het bestand om te bekijken
+settings-launcher-preview-cmd-placeholder-output = Waar de miniatuur heen gaat
+settings-launcher-preview-cmd-placeholder-size = De grootte van de miniatuur in pixels

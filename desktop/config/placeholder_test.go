@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,8 +13,10 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 )
 
-func isFormatKey(key string) bool {
-	return key == "format" || strings.HasSuffix(key, "-format") || strings.HasPrefix(key, "notify-")
+var templateCommands = []string{"launcher.run.run-command", "launcher.run.shell-command", "launcher.ssh.command", "launcher.preview-cmd"}
+
+func isFormatField(path, key string) bool {
+	return key == "format" || strings.HasSuffix(key, "-format") || strings.HasPrefix(key, "notify-") || slices.Contains(templateCommands, path)
 }
 
 func TestEveryFormatFieldDeclaresItsPlaceholders(t *testing.T) {
@@ -22,7 +25,7 @@ func TestEveryFormatFieldDeclaresItsPlaceholders(t *testing.T) {
 	leafPaths(typeOf[Config](), "", func(path string, _ reflect.Type) {
 		_, f, _ := fieldAtPath(typeOf[Config](), path)
 		ps := Placeholders(path)
-		if f.typ.Kind() != reflect.String || enumVariants(f.typ) != nil || !isFormatKey(f.key) {
+		if f.typ.Kind() != reflect.String || enumVariants(f.typ) != nil || !isFormatField(path, f.key) {
 			if ps != nil {
 				t.Errorf("%s: %v, but it is not a format string", path, ps)
 			}

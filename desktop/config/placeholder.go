@@ -117,6 +117,10 @@ var formatFields = map[string]formatField{
 		ph("w", "1"), ph("c", "firefox"), ph("t", "GitHub"), ph("n", "firefox"), ph("r", ""),
 	),
 	"LauncherCombiConfig.DisplayFormat": braceFormat(ph("mode", "drun"), ph("text", "Firefox")),
+	"LauncherRunConfig.RunCommand":      braceFormat(ph("cmd", "htop")),
+	"LauncherRunConfig.ShellCommand":    braceFormat(ph("terminal", "foot"), ph("cmd", "htop")),
+	"LauncherSSHConfig.Command":         braceFormat(ph("terminal", "foot"), ph("ssh-client", "ssh"), ph("host", "example.org")),
+	"LauncherConfig.PreviewCmd":         braceFormat(ph("input", "/home/ada/report.pdf"), ph("output", "/tmp/report.png"), ph("size", "256")),
 }
 
 // Placeholders are the values the format field at a dot path substitutes,

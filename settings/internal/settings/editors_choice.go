@@ -126,6 +126,9 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	case "Directory":
 		return newFolderEditor(k, s), true
 	case "Command":
+		if len(meta.Placeholders) > 0 {
+			return newLabelBuilder(k, s, meta.Optional, placeholderFormat(meta.Placeholders)), true
+		}
 		return newChoiceEditor(k, s, choiceSpec{list: fixedChoices(commandsFor(path)), free: true, optional: meta.Optional, browse: (*kit).appCommandButton}), true
 	case "BitwardenServer":
 		return newChoiceEditor(k, s, choiceSpec{list: fixed(bitwardenServers...), free: true}), true

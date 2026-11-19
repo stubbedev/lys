@@ -329,3 +329,13 @@ enum-launcher-skin-tone-medium-light = Mittelhell
 enum-launcher-skin-tone-medium = Mittel
 enum-launcher-skin-tone-medium-dark = Mitteldunkel
 enum-launcher-skin-tone-dark = Dunkel
+
+settings-launcher-run-run-command-placeholder-cmd = Der eingegebene Befehl
+settings-launcher-run-shell-command-placeholder-terminal = Das Terminal
+settings-launcher-run-shell-command-placeholder-cmd = Der eingegebene Befehl
+settings-launcher-ssh-command-placeholder-terminal = Das Terminal
+settings-launcher-ssh-command-placeholder-ssh-client = Der SSH-Client
+settings-launcher-ssh-command-placeholder-host = Der Host
+settings-launcher-preview-cmd-placeholder-input = Die Datei für die Vorschau
+settings-launcher-preview-cmd-placeholder-output = Wohin das Vorschaubild geschrieben wird
+settings-launcher-preview-cmd-placeholder-size = Die Größe des Vorschaubilds in Pixeln

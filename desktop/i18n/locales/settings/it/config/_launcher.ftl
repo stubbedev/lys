@@ -323,3 +323,13 @@ enum-launcher-skin-tone-medium-light = Medio-chiara
 enum-launcher-skin-tone-medium = Media
 enum-launcher-skin-tone-medium-dark = Medio-scura
 enum-launcher-skin-tone-dark = Scura
+
+settings-launcher-run-run-command-placeholder-cmd = Il comando digitato
+settings-launcher-run-shell-command-placeholder-terminal = Il terminale
+settings-launcher-run-shell-command-placeholder-cmd = Il comando digitato
+settings-launcher-ssh-command-placeholder-terminal = Il terminale
+settings-launcher-ssh-command-placeholder-ssh-client = Il client SSH
+settings-launcher-ssh-command-placeholder-host = L’host
+settings-launcher-preview-cmd-placeholder-input = Il file da visualizzare in anteprima
+settings-launcher-preview-cmd-placeholder-output = Dove scrivere la miniatura
+settings-launcher-preview-cmd-placeholder-size = La dimensione della miniatura in pixel

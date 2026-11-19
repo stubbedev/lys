@@ -329,3 +329,13 @@ enum-launcher-skin-tone-medium-light = Medium-Light
 enum-launcher-skin-tone-medium = Medium
 enum-launcher-skin-tone-medium-dark = Medium-Dark
 enum-launcher-skin-tone-dark = Dark
+
+settings-launcher-run-run-command-placeholder-cmd = The command typed
+settings-launcher-run-shell-command-placeholder-terminal = The terminal
+settings-launcher-run-shell-command-placeholder-cmd = The command typed
+settings-launcher-ssh-command-placeholder-terminal = The terminal
+settings-launcher-ssh-command-placeholder-ssh-client = The SSH client
+settings-launcher-ssh-command-placeholder-host = The host
+settings-launcher-preview-cmd-placeholder-input = The file to preview
+settings-launcher-preview-cmd-placeholder-output = Where to write the thumbnail
+settings-launcher-preview-cmd-placeholder-size = The thumbnail size in pixels

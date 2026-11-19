@@ -45,8 +45,12 @@ func NewSSH(cfg SSHConfig, history *launcher.History) *SSH { return &SSH{cfg: cf
 // Name is "ssh".
 func (*SSH) Name() string { return "ssh" }
 
+func sshVars(host, client string) map[string]string {
+	return map[string]string{"host": host, "ssh-client": client}
+}
+
 func (s *SSH) connect(host string) error {
-	command, err := launcher.RenderInTerminal(s.cfg.Command, s.cfg.Terminal, map[string]string{"host": host, "ssh-client": s.cfg.Client})
+	command, err := launcher.RenderInTerminal(s.cfg.Command, s.cfg.Terminal, sshVars(host, s.cfg.Client))
 	if err != nil {
 		return fmt.Errorf("connect to %s in a terminal: %w", host, err)
 	}

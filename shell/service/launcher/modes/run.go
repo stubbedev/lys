@@ -71,15 +71,17 @@ func NewRun(cfg RunConfig, history *launcher.History) *Run {
 // Name is "run".
 func (*Run) Name() string { return "run" }
 
+func runVars(command string) map[string]string { return map[string]string{"cmd": command} }
+
 func (r *Run) execute(command string, inTerminal bool) error {
 	var rendered string
 	if inTerminal {
 		var err error
-		if rendered, err = launcher.RenderInTerminal(r.cfg.ShellCommand, r.cfg.Terminal, map[string]string{"cmd": command}); err != nil {
+		if rendered, err = launcher.RenderInTerminal(r.cfg.ShellCommand, r.cfg.Terminal, runVars(command)); err != nil {
 			return fmt.Errorf("run %q in a terminal: %w", command, err)
 		}
 	} else {
-		rendered = launcher.Render(r.cfg.RunCommand, launcher.Values(map[string]string{"cmd": command}))
+		rendered = launcher.Render(r.cfg.RunCommand, launcher.Values(runVars(command)))
 	}
 	launcher.RunShell(rendered)
 	if IsIgnored(command, r.cfg.IgnoredPrefixes) || r.history == nil {
