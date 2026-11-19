@@ -22,6 +22,7 @@ func TestEveryChoiceOfAPictureRowHasItsPicture(t *testing.T) {
 		"login.background-mode":             lockBackgroundPictures,
 		"modules.notifications.popup-stack": popupStackPictures,
 		"osd.text-align":                    textAlignPictures,
+		"modules.minimized-windows.scope":   windowScopePictures,
 	} {
 		meta, ok := config.Field(path)
 		if !ok {

@@ -641,7 +641,7 @@ func customPage(*config.Config) pageSpec {
 func minimizedWindowsPage(*config.Config) pageSpec {
 	return pageSpec{id: "minimized-windows", navKey: "settings-nav-minimized-windows", icon: "ld-app-window-symbolic", header: "settings-page-minimized-windows", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.minimized-windows.scope"),
+			field("modules.minimized-windows.scope", pictureChoice(windowScopePictures)),
 			field("modules.minimized-windows.show-when-empty"),
 		}},
 		{title: "settings-section-icons", rows: []rowSpec{
