@@ -451,22 +451,25 @@ func ramPage(*config.Config) pageSpec {
 
 // screenshotPage is pages/modules/screenshot.
 func screenshotPage(*config.Config) pageSpec {
+	const m = "modules.screenshot"
 	return pageSpec{id: "screenshot", navKey: "settings-nav-screenshot", icon: "ld-camera-symbolic", header: "settings-page-screenshot", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.screenshot.output-directory"),
-			field("modules.screenshot.filename-format"),
-			field("modules.screenshot.label"),
-			field("modules.screenshot.copy-to-clipboard"),
-			field("modules.screenshot.notify"),
-			field("modules.screenshot.thumbnail-ms", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), zeroAs(off))),
-			field("modules.screenshot.thumbnail-position", screenPosition),
-			field("modules.screenshot.ocr-languages", ocrLanguagesRow),
+		{title: "settings-section-screenshot-save", rows: []rowSpec{
+			field(m + ".output-directory"),
+			field(m + ".filename-format"),
 		}},
+		{title: "settings-section-screenshot-after", rows: []rowSpec{
+			field(m + ".copy-to-clipboard"),
+			field(m + ".notify"),
+			field(m+".thumbnail-ms", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), zeroAs(off))),
+			field(m+".thumbnail-position", screenPosition),
+		}},
+		{title: "settings-section-screenshot-text", rows: []rowSpec{field(m+".ocr-languages", ocrLanguagesRow)}},
 		{title: "settings-section-icons", rows: []rowSpec{
-			field("modules.screenshot.icon", iconRow),
+			field(m+".icon", iconRow),
+			field(m + ".label"),
 		}},
 		{title: "settings-section-colorpicker", rows: fields("colorpicker.format")},
-		barItemSection("modules.screenshot", actionChoices("screenshot")),
+		barItemSection(m, actionChoices("screenshot")),
 	}}
 }
 

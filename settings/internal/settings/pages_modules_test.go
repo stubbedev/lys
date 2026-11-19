@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -60,6 +61,38 @@ func TestThePowerMenuListsItsButtonsWithTheirCommandsUnderAdvanced(t *testing.T)
 		if _, ok := config.Field(r.path); !ok {
 			t.Errorf("no config field %s", r.path)
 		}
+	}
+}
+
+func TestTheScreenshotPageGroupsWhatHappensAfterACapture(t *testing.T) {
+	p, ok := pageByID(layout(config.Defaults(), bothParts), "screenshot")
+	if !ok {
+		t.Fatal("no screenshot page")
+	}
+	want := map[string][]string{
+		"settings-section-screenshot-save": {"modules.screenshot.output-directory", "modules.screenshot.filename-format"},
+		"settings-section-screenshot-after": {
+			"modules.screenshot.copy-to-clipboard", "modules.screenshot.notify",
+			"modules.screenshot.thumbnail-ms", "modules.screenshot.thumbnail-position",
+		},
+		"settings-section-screenshot-text": {"modules.screenshot.ocr-languages"},
+	}
+	for _, s := range p.sections {
+		paths, ok := want[s.title]
+		if !ok {
+			continue
+		}
+		got := make([]string, len(s.rows))
+		for i, r := range s.rows {
+			got[i] = r.path
+		}
+		if !slices.Equal(got, paths) {
+			t.Errorf("%s holds %v, want %v", s.title, got, paths)
+		}
+		delete(want, s.title)
+	}
+	for title := range want {
+		t.Errorf("the screenshot page has no section %s", title)
 	}
 }
 
