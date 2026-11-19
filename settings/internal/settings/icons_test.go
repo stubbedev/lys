@@ -13,12 +13,17 @@ import (
 	"github.com/stubbedev/lys/desktop/resources"
 )
 
-func TestEveryIconTheAppNamesIsOneItShips(t *testing.T) {
+func listedIcons(t *testing.T) []string {
+	t.Helper()
 	list, err := os.ReadFile(filepath.Join("..", "..", "resources", "icons.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	listed := strings.Fields(string(list))
+	return strings.Fields(string(list))
+}
+
+func TestEveryIconTheAppNamesIsOneItShips(t *testing.T) {
+	listed := listedIcons(t)
 	files, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)

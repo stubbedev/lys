@@ -58,10 +58,10 @@ func TestAgentRequestPinCode(t *testing.T) {
 		t.Errorf("ProvidePasskey on a PIN request = %v", err)
 	}
 	// So is a PIN BlueZ cannot take.
-	if err := s.ProvidePin(""); err == nil {
+	if err := s.ProvidePin(""); !errors.Is(err, ErrPinLength) {
 		t.Error("empty PIN: want an error")
 	}
-	if err := s.ProvidePin("12345678901234567"); err == nil {
+	if err := s.ProvidePin("12345678901234567"); !errors.Is(err, ErrPinLength) {
 		t.Error("17-character PIN: want an error")
 	}
 	call.stillBlocked(t)
@@ -106,7 +106,7 @@ func TestAgentRequestPasskey(t *testing.T) {
 	if err := s.ProvidePin("0000"); err == nil {
 		t.Error("a PIN answered a passkey request")
 	}
-	if err := s.ProvidePasskey(1000000); err == nil {
+	if err := s.ProvidePasskey(1000000); !errors.Is(err, ErrPasskeyRange) {
 		t.Error("a 7-digit passkey was accepted")
 	}
 	call.stillBlocked(t)

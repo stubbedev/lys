@@ -20,6 +20,12 @@ const agentUnregisterTimeout = 2 * time.Second
 // code and ask yes/no, and the dropdown also takes PIN/passkey entry.
 const agentCapability = CapabilityDisplayYesNo
 
+// The answers BlueZ cannot take.
+var (
+	ErrPinLength    = errors.New("a PIN is 1-16 characters")
+	ErrPasskeyRange = errors.New("a passkey is 0-999999")
+)
+
 // The errors BlueZ's agent API defines for a refused request.
 const (
 	errRejected = "org.bluez.Error.Rejected"
@@ -286,7 +292,7 @@ func (s *Service) resolve(requestType string, match func(PairingRequest) bool, a
 // PIN outside that is an error and the request stays pending.
 func (s *Service) ProvidePin(pin string) error {
 	if n := utf8.RuneCountInString(pin); n < 1 || n > 16 {
-		return fmt.Errorf("bluetooth: cannot provide pin: %d characters, want 1-16", n)
+		return fmt.Errorf("bluetooth: cannot provide pin: %d characters: %w", n, ErrPinLength)
 	}
 	return s.resolve("pin", func(r PairingRequest) bool {
 		_, ok := r.(RequestPinCode)
@@ -298,7 +304,7 @@ func (s *Service) ProvidePin(pin string) error {
 // error and the request stays pending.
 func (s *Service) ProvidePasskey(passkey uint32) error {
 	if passkey > 999999 {
-		return fmt.Errorf("bluetooth: cannot provide passkey: %d is not 0-999999", passkey)
+		return fmt.Errorf("bluetooth: cannot provide passkey: %d: %w", passkey, ErrPasskeyRange)
 	}
 	return s.resolve("passkey", func(r PairingRequest) bool {
 		_, ok := r.(RequestPasskey)

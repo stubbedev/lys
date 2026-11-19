@@ -81,6 +81,7 @@ func Run(page, setting string) error {
 		network:    func() (netControl, error) { return openNetwork(dialSystemBus) },
 		statuses:   tileStatuses,
 		power:      func() (powerControl, error) { return openPower(dialSystemBus) },
+		bluetooth:  func() (btControl, error) { return openBluetooth(dialSystemBus) },
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })

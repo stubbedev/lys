@@ -35,7 +35,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | --- | --- |
 | Home | `overview` |
 | Account | `users` |
-| Connectivity | `wifi` |
+| Connectivity | `wifi`, `bluetooth-devices` |
 | Appearance | `theme`, `wallpaper`, `fonts`, `motion` |
 | Displays | `wm-outputs` (the arrangement and lys-wm's display keys with lys-wm; lys-shell's tearing mode) |
 | Sound | `sound` |
@@ -62,6 +62,7 @@ Some pages also act on the system:
 | Users | Your name, avatar and password (the password change also re-keys the lys-secrets keyring); enrolled fingerprints; for administrators, adding and deleting users and their account type | accounts-daemon, PAM, fprintd |
 | Wi-Fi & Network | Wi-Fi on or off, airplane mode, the networks in range (connect with a password, disconnect, forget a saved one), joining a hidden network; the wired link's speed and address; switching saved VPN and WireGuard profiles on and off and removing them. Enterprise networks sign in from the bar's network menu, whose secret agent answers NetworkManager | NetworkManager, rfkill |
 | Battery & Power Mode | Shows the battery's charge, state, time to full or empty and health, and says so when there is no battery or UPower is not running; turns the charge limit on or off where the battery supports one; switches the power mode, and says so when power-profiles-daemon is not running | UPower, power-profiles-daemon |
+| Bluetooth | Bluetooth on or off and the name other devices see; paired devices with their type, battery level, connect, disconnect, rename and forget; searching for nearby devices and pairing them, with the PIN, passkey or confirmation the pairing asks for answered on the page. Its pairing agent answers only the pairing the page starts; lys-shell stays BlueZ's default agent for requests from other devices | BlueZ |
 | Date & Time | Time zone, network time, manual time; the bar clock's 12- or 24-hour format | systemd-timedated |
 | Language & Region | System language, console keymap, the login screen's keyboard layout (copied from lys-wm); your date, number, currency, measurement and paper formats in `~/.config/locale.conf` | systemd-localed |
 | Sound | Output and input devices, volume, balance, input level, per-app volume; notification sounds | PulseAudio protocol |
