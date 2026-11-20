@@ -23,6 +23,9 @@ func RGB(r, g, b uint8) ARGB {
 // Hex is the color as #rrggbb.
 func (c ARGB) Hex() string { return fmt.Sprintf("#%06x", uint32(c)&0xffffff) }
 
+// Channels is the color's red, green and blue.
+func (c ARGB) Channels() (r, g, b uint8) { return c.red(), c.green(), c.blue() }
+
 func (c ARGB) alpha() uint8 { return uint8(c >> 24 & 0xff) }
 func (c ARGB) red() uint8   { return uint8(c >> 16 & 0xff) }
 func (c ARGB) green() uint8 { return uint8(c >> 8 & 0xff) }

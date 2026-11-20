@@ -1839,3 +1839,7 @@ settings-wallpaper-grid = Afbeeldingen
 settings-wallpaper-grid-no-folders = Geen afbeeldingsmappen om te tonen: voeg er een toe onder Kiezermappen.
 settings-wallpaper-grid-empty = Geen afbeeldingen in { $folders }
 settings-wallpaper-grid-failed = Sommige afbeeldingen kunnen niet worden opgesomd: { $error }
+settings-matugen-source-rank = Kleur { $n }
+settings-matugen-source-none = Stel een achtergrond in om de kleuren te zien die hij biedt.
+settings-matugen-source-cycling = De diavoorstelling wisselt de achtergrond, dus de kleur wordt gekozen op zijn rang in elke afbeelding.
+settings-matugen-source-failed = De kleuren van { $file } kunnen niet worden gelezen: { $error }

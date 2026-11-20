@@ -248,7 +248,7 @@ func themePage(*config.Config) pageSpec {
 		{title: "settings-section-matugen", when: themeProviderIs(config.ThemeProviderMatugen), rows: []rowSpec{
 			field("styling.matugen-scheme"),
 			field("styling.matugen-contrast", signedNormalized),
-			field("styling.matugen-source-color"),
+			field("styling.matugen-source-color", sourceColorRow),
 			field("styling.matugen-light"),
 		}},
 		{title: "settings-section-wallust", when: themeProviderIs(config.ThemeProviderWallust), rows: []rowSpec{

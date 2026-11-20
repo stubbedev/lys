@@ -1840,3 +1840,7 @@ settings-wallpaper-grid = Imagens
 settings-wallpaper-grid-no-folders = Não há pastas de imagens a mostrar: adicione uma em Pastas do seletor.
 settings-wallpaper-grid-empty = Não há imagens em { $folders }
 settings-wallpaper-grid-failed = Não é possível listar algumas imagens: { $error }
+settings-matugen-source-rank = Cor { $n }
+settings-matugen-source-none = Defina um fundo de ecrã para ver as cores que oferece.
+settings-matugen-source-cycling = A apresentação muda o fundo de ecrã, por isso a cor é escolhida pela sua posição em cada imagem.
+settings-matugen-source-failed = Não é possível ler as cores de { $file }: { $error }

@@ -1849,3 +1849,7 @@ settings-wallpaper-grid = Pictures
 settings-wallpaper-grid-no-folders = No picture folders to show: add one under Picker Directories.
 settings-wallpaper-grid-empty = No pictures in { $folders }
 settings-wallpaper-grid-failed = Some pictures cannot be listed: { $error }
+settings-matugen-source-rank = Color { $n }
+settings-matugen-source-none = Set a wallpaper to see the colors it offers.
+settings-matugen-source-cycling = The slideshow changes the wallpaper, so the color is picked by its rank in each picture.
+settings-matugen-source-failed = The colors of { $file } cannot be read: { $error }
