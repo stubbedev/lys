@@ -31,8 +31,11 @@ type Shape interface {
 }
 
 type Bezier struct {
-	curve motion.CubicBezier
+	curve  motion.CubicBezier
+	points [4]float64
 }
+
+func (b Bezier) Points() [4]float64 { return b.points }
 
 func NewBezier(x1, y1, x2, y2 float64) (Bezier, error) {
 	for _, v := range [4]float64{x1, y1, x2, y2} {
@@ -43,7 +46,7 @@ func NewBezier(x1, y1, x2, y2 float64) (Bezier, error) {
 	if x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1 {
 		return Bezier{}, fmt.Errorf("anim: bézier x coordinates %v and %v must lie in [0, 1]", x1, x2)
 	}
-	return Bezier{motion.NewCubicBezier(x1, y1, x2, y2)}, nil
+	return Bezier{motion.NewCubicBezier(x1, y1, x2, y2), [4]float64{x1, y1, x2, y2}}, nil
 }
 
 func (b Bezier) Ease(x float64) float64 {
@@ -76,7 +79,14 @@ const (
 type Spring struct {
 	omega, zeta float64
 	settle      time.Duration
+	params      SpringParams
 }
+
+type SpringParams struct {
+	Stiffness, Damping, Mass float64
+}
+
+func (s Spring) Params() SpringParams { return s.params }
 
 const criticalBand = 1e-6
 
@@ -86,7 +96,7 @@ func NewSpring(stiffness, damping, mass float64) (Spring, error) {
 			return Spring{}, fmt.Errorf("anim: spring stiffness %v, damping %v and mass %v must all be positive and finite", stiffness, damping, mass)
 		}
 	}
-	s := Spring{omega: math.Sqrt(stiffness / mass), zeta: damping / (2 * math.Sqrt(stiffness*mass))}
+	s := Spring{omega: math.Sqrt(stiffness / mass), zeta: damping / (2 * math.Sqrt(stiffness*mass)), params: SpringParams{stiffness, damping, mass}}
 	if math.Abs(s.zeta-1) < criticalBand {
 		s.zeta = 1
 	}

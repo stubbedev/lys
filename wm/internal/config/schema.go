@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/stubbedev/lys/wm/internal/anim"
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/binds"
 	"github.com/stubbedev/lys/wm/internal/compositor"
@@ -55,11 +56,14 @@ type schemaNode struct {
 	Properties           map[string]*schemaNode `json:"properties,omitempty"`
 	AdditionalProperties any                    `json:"additionalProperties,omitempty"`
 	Actions              []schemaAction         `json:"x-lys-wm-actions,omitempty"`
+	Events               []schemaEvent          `json:"x-lys-wm-events,omitempty"`
+	Curves               []schemaCurve          `json:"x-lys-wm-curves,omitempty"`
 }
 
 type annotation struct {
 	format             string
 	actions            bool
+	events, curves     bool
 	enum               []string
 	booleans           bool
 	minimum, maximum   *float64
@@ -117,6 +121,56 @@ func schemaActions() []schemaAction {
 	out := make([]schemaAction, len(wm.Actions))
 	for i, a := range wm.Actions {
 		out[i] = schemaAction{Name: a.Name, Args: a.Args, Summary: a.Summary}
+	}
+	return out
+}
+
+type schemaEvent struct {
+	Name   string   `json:"name"`
+	Parent string   `json:"parent,omitempty"`
+	Styles []string `json:"styles,omitempty"`
+}
+
+func schemaEvents() []schemaEvent {
+	all := anim.Events()
+	out := make([]schemaEvent, len(all))
+	for i, e := range all {
+		out[i] = schemaEvent{Name: e.String(), Styles: e.StyleNames()}
+		if p, ok := e.Parent(); ok {
+			out[i].Parent = p.String()
+		}
+	}
+	return out
+}
+
+type schemaCurve struct {
+	Name   string        `json:"name"`
+	Bezier *[4]float64   `json:"bezier,omitempty"`
+	Spring *schemaSpring `json:"spring,omitempty"`
+}
+
+type schemaSpring struct {
+	Stiffness float64 `json:"stiffness"`
+	Damping   float64 `json:"damping"`
+	Mass      float64 `json:"mass"`
+}
+
+func schemaCurves() []schemaCurve {
+	builtins := anim.Builtins()
+	out := make([]schemaCurve, 0, len(builtins))
+	for _, name := range slices.Sorted(maps.Keys(builtins)) {
+		c := schemaCurve{Name: name}
+		switch s := builtins[name].(type) {
+		case anim.Bezier:
+			points := s.Points()
+			c.Bezier = &points
+		case anim.Spring:
+			p := s.Params()
+			c.Spring = &schemaSpring{Stiffness: p.Stiffness, Damping: p.Damping, Mass: p.Mass}
+		default:
+			panic(fmt.Sprintf("config: the built-in curve %s is a %T, which the schema does not describe", name, s))
+		}
+		out = append(out, c)
 	}
 	return out
 }
@@ -285,6 +339,9 @@ func annotations() map[string]annotation {
 		"layout":                                 {enum: slices.Sorted(maps.Keys(layoutKinds)), def: "tree"},
 		"scroll.center":                          {enum: slices.Sorted(maps.Keys(centerModes)), def: "never"},
 		"scroll.presets":                         {minItems: new(1), def: columnWidths(s.Scroll.Presets)},
+		"animations.events":                      {events: true},
+		"animations.curves":                      {curves: true},
+		"animations.events.*.duration":           atLeastAnn(1, nil),
 		"workspaces[].id":                        atLeastAnn(1, nil),
 		"workspaces[].match":                     {enum: slices.Sorted(maps.Keys(workspaceSelectors))},
 		"workspaces[].layout":                    {enum: slices.Sorted(maps.Keys(layoutKinds))},
@@ -417,6 +474,12 @@ func schemaFor(t reflect.Type, path string, notes map[string]annotation) *schema
 		}
 		if note.actions {
 			n.Actions = schemaActions()
+		}
+		if note.events {
+			n.Events = schemaEvents()
+		}
+		if note.curves {
+			n.Curves = schemaCurves()
 		}
 	}
 	return n

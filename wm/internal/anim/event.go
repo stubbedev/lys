@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/stubbedev/lys/lib/motion"
 )
 
 type Event uint8
@@ -143,6 +141,18 @@ func (e Event) String() string {
 	return events[e].name
 }
 
+func (e Event) Parent() (Event, bool) {
+	return events[e].parent, e != Global
+}
+
+func (e Event) StyleNames() []string {
+	out := make([]string, len(events[e].styles))
+	for i, k := range events[e].styles {
+		out[i] = styleNames[k]
+	}
+	return out
+}
+
 func Events() []Event {
 	out := make([]Event, eventCount)
 	for i := range out {
@@ -175,15 +185,23 @@ type resolved struct {
 }
 
 var (
-	Linear         = Bezier{motion.NewCubicBezier(0, 0, 1, 1)}
-	Ease           = Bezier{motion.NewCubicBezier(0.25, 0.1, 0.25, 1)}
-	EaseIn         = Bezier{motion.NewCubicBezier(0.42, 0, 1, 1)}
-	EaseOut        = Bezier{motion.NewCubicBezier(0, 0, 0.58, 1)}
-	EaseInOut      = Bezier{motion.NewCubicBezier(0.42, 0, 0.58, 1)}
+	Linear         = mustBezier([4]float64{0, 0, 1, 1})
+	Ease           = mustBezier([4]float64{0.25, 0.1, 0.25, 1})
+	EaseIn         = mustBezier([4]float64{0.42, 0, 1, 1})
+	EaseOut        = mustBezier([4]float64{0, 0, 0.58, 1})
+	EaseInOut      = mustBezier([4]float64{0.42, 0, 0.58, 1})
 	Smooth         = mustSpring(170, 26)
 	overviewSpring = mustSpring(300, 34)
 	Wobbly         = mustSpring(200, 10)
 )
+
+func mustBezier(p [4]float64) Bezier {
+	b, err := NewBezier(p[0], p[1], p[2], p[3])
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
 
 func mustSpring(stiffness, damping float64) Spring {
 	s, err := NewSpring(stiffness, damping, 1)

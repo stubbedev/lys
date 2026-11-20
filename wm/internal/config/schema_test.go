@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -19,7 +20,7 @@ import (
 func nested(path string, value any) map[string]any {
 	keys := strings.Split(path, ".")
 	v := value
-	for _, key := range slices.Backward(keys) {
+	for i, key := range slices.Backward(keys) {
 		for {
 			inner, ok := strings.CutSuffix(key, "[]")
 			if !ok {
@@ -28,7 +29,7 @@ func nested(path string, value any) map[string]any {
 			key, v = inner, []any{v}
 		}
 		if key == "*" {
-			key = "name"
+			key = cmp.Or(wildcardKeys[strings.Join(keys[:i], ".")], "name")
 		}
 		v = map[string]any{key: v}
 	}
@@ -38,6 +39,8 @@ func nested(path string, value any) map[string]any {
 	}
 	return m
 }
+
+var wildcardKeys = map[string]string{"animations.events": "windows"}
 
 var requires = map[string]map[string]any{
 	"binds[].flags[]":                        {"binds[].chord": "SUPER + Q", "binds[].action": "kill"},
@@ -504,5 +507,74 @@ func TestTheChordFormatIsWhatABindsChordTakes(t *testing.T) {
 		if _, err := Parse("t.yaml", fmt.Appendf(nil, "binds:\n  - {chord: %q, action: kill}\n", chord)); err != nil {
 			t.Errorf("%q: %v", chord, err)
 		}
+	}
+}
+
+func TestThePublishedEventsAndTheirStylesAreWhatTheParserTakes(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(Schema(), &root); err != nil {
+		t.Fatal(err)
+	}
+	listed, _ := schemaAt(t, root, "animations.events")["x-lys-wm-events"].([]any)
+	if len(listed) != len(schemaEvents()) {
+		t.Fatalf("the schema lists %d events, want %d", len(listed), len(schemaEvents()))
+	}
+	allStyles := map[string]bool{}
+	for _, e := range schemaEvents() {
+		for _, s := range e.Styles {
+			allStyles[s] = true
+		}
+	}
+	for _, e := range schemaEvents() {
+		for _, s := range e.Styles {
+			if _, err := Parse("t.yaml", fmt.Appendf(nil, "animations:\n  events:\n    %s:\n      style: %s\n", e.Name, s)); err != nil {
+				t.Errorf("%s: the published style %s is refused: %v", e.Name, s, err)
+			}
+		}
+		for _, s := range slices.Sorted(maps.Keys(allStyles)) {
+			if slices.Contains(e.Styles, s) {
+				continue
+			}
+			if _, err := Parse("t.yaml", fmt.Appendf(nil, "animations:\n  events:\n    %s:\n      style: %s\n", e.Name, s)); err == nil {
+				t.Errorf("%s: the style %s it does not list was accepted", e.Name, s)
+			}
+		}
+		if e.Parent != "" && !slices.ContainsFunc(schemaEvents(), func(p schemaEvent) bool { return p.Name == e.Parent }) {
+			t.Errorf("%s: the parent %s is no event", e.Name, e.Parent)
+		}
+	}
+}
+
+func TestThePublishedBuiltInCurvesAreWhatTheParserKnows(t *testing.T) {
+	var root map[string]any
+	if err := json.Unmarshal(Schema(), &root); err != nil {
+		t.Fatal(err)
+	}
+	listed, _ := schemaAt(t, root, "animations.curves")["x-lys-wm-curves"].([]any)
+	if len(listed) == 0 || len(listed) != len(schemaCurves()) {
+		t.Fatalf("the schema lists %d curves, want %d", len(listed), len(schemaCurves()))
+	}
+	for _, c := range schemaCurves() {
+		if _, err := Parse("t.yaml", fmt.Appendf(nil, "animations:\n  events:\n    windows:\n      curve: %s\n", c.Name)); err != nil {
+			t.Errorf("the built-in curve %s is refused: %v", c.Name, err)
+		}
+		var shape string
+		switch {
+		case c.Bezier != nil:
+			shape = fmt.Sprintf("bezier: [%v, %v, %v, %v]", c.Bezier[0], c.Bezier[1], c.Bezier[2], c.Bezier[3])
+		case c.Spring != nil:
+			shape = fmt.Sprintf("spring: {stiffness: %v, damping: %v, mass: %v}", c.Spring.Stiffness, c.Spring.Damping, c.Spring.Mass)
+		default:
+			t.Fatalf("%s is published with no shape", c.Name)
+		}
+		if _, err := Parse("t.yaml", fmt.Appendf(nil, "animations:\n  curves:\n    own:\n      %s\n", shape)); err != nil {
+			t.Errorf("%s's published shape %s is refused as a curve of its own: %v", c.Name, shape, err)
+		}
+		if _, err := Parse("t.yaml", fmt.Appendf(nil, "animations:\n  curves:\n    %s:\n      %s\n", c.Name, shape)); err == nil {
+			t.Errorf("a curve of the user's named %s, a built-in name, was accepted", c.Name)
+		}
+	}
+	if _, err := Parse("t.yaml", []byte("animations:\n  events:\n    windows:\n      curve: no_such_curve\n")); err == nil {
+		t.Error("a curve neither built in nor defined was accepted")
 	}
 }

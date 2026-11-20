@@ -34,7 +34,62 @@
               }
             },
             "additionalProperties": false
-          }
+          },
+          "x-lys-wm-curves": [
+            {
+              "name": "ease",
+              "bezier": [
+                0.25,
+                0.1,
+                0.25,
+                1
+              ]
+            },
+            {
+              "name": "ease_in",
+              "bezier": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "name": "ease_in_out",
+              "bezier": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "name": "ease_out",
+              "bezier": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "name": "linear",
+              "bezier": [
+                0,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "name": "spring",
+              "spring": {
+                "stiffness": 170,
+                "damping": 26,
+                "mass": 1
+              }
+            }
+          ]
         },
         "enabled": {
           "type": "boolean",
@@ -49,7 +104,8 @@
                 "type": "string"
               },
               "duration": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 1
               },
               "enabled": {
                 "type": "boolean"
@@ -59,7 +115,140 @@
               }
             },
             "additionalProperties": false
-          }
+          },
+          "x-lys-wm-events": [
+            {
+              "name": "global"
+            },
+            {
+              "name": "windows",
+              "parent": "global"
+            },
+            {
+              "name": "windows_move",
+              "parent": "windows",
+              "styles": [
+                "morph",
+                "elastic"
+              ]
+            },
+            {
+              "name": "windows_in",
+              "parent": "windows",
+              "styles": [
+                "popin",
+                "slide",
+                "bud"
+              ]
+            },
+            {
+              "name": "windows_out",
+              "parent": "windows",
+              "styles": [
+                "popin",
+                "slide",
+                "bud"
+              ]
+            },
+            {
+              "name": "fade",
+              "parent": "global"
+            },
+            {
+              "name": "fade_in",
+              "parent": "fade"
+            },
+            {
+              "name": "fade_out",
+              "parent": "fade"
+            },
+            {
+              "name": "workspaces",
+              "parent": "global",
+              "styles": [
+                "slide",
+                "slidevert",
+                "fade",
+                "popin",
+                "goo"
+              ]
+            },
+            {
+              "name": "layers",
+              "parent": "global"
+            },
+            {
+              "name": "layers_in",
+              "parent": "layers",
+              "styles": [
+                "slide",
+                "popin",
+                "fade"
+              ]
+            },
+            {
+              "name": "layers_out",
+              "parent": "layers",
+              "styles": [
+                "slide",
+                "popin",
+                "fade"
+              ]
+            },
+            {
+              "name": "fade_switch",
+              "parent": "fade"
+            },
+            {
+              "name": "fade_dim",
+              "parent": "fade"
+            },
+            {
+              "name": "fade_shadow",
+              "parent": "fade"
+            },
+            {
+              "name": "borderangle",
+              "parent": "global",
+              "styles": [
+                "once",
+                "loop"
+              ]
+            },
+            {
+              "name": "windows_minimize",
+              "parent": "windows",
+              "styles": [
+                "genie",
+                "fade"
+              ]
+            },
+            {
+              "name": "zoom",
+              "parent": "global"
+            },
+            {
+              "name": "snap",
+              "parent": "windows"
+            },
+            {
+              "name": "fade_snap",
+              "parent": "fade"
+            },
+            {
+              "name": "overview",
+              "parent": "global"
+            },
+            {
+              "name": "scratchpad",
+              "parent": "global",
+              "styles": [
+                "slidevert",
+                "fade",
+                "popin"
+              ]
+            }
+          ]
         },
         "reduced_motion": {
           "type": "boolean",
