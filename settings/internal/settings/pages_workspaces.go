@@ -14,6 +14,15 @@ import (
 
 const workspacesModule = "modules.workspaces"
 
+var workspaceDividerRow = valueSelectRow(
+	namedValue{" ", "settings-divider-space"},
+	namedValue{" · ", "settings-divider-dot"},
+	namedValue{" | ", "settings-divider-bar"},
+	namedValue{" / ", "settings-divider-slash"},
+	namedValue{" – ", "settings-divider-dash"},
+	namedValue{"", "settings-divider-none"},
+)
+
 func sessionCompositor() compositor.Kind { return compositor.Detect(os.Getenv) }
 
 func workspacesPage(*config.Config) pageSpec {
@@ -26,7 +35,7 @@ func workspacesPage(*config.Config) pageSpec {
 			key("min-workspace-count"), key("min-tag-count"), key("show-special"),
 		}},
 		{title: "settings-section-display", rows: []rowSpec{
-			key("display-mode"), key("label-strategy"), key("label-use-name"), key("numbering"), key("divider"),
+			key("display-mode"), key("label-strategy"), key("label-use-name"), key("numbering"), keyWith("divider", workspaceDividerRow),
 		}},
 		{title: "settings-section-app-icons", rows: []rowSpec{
 			key("app-icons-show"), key("app-icons-dedupe"), keyWith("app-icons-fallback", iconRow), keyWith("app-icons-empty", iconRow),

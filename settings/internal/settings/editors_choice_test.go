@@ -74,7 +74,6 @@ var freeFormRows = []string{
 	"modules.bitwarden.network-folder",
 	"modules.bitwarden.portal-folder",
 	"modules.screenshot.label",
-	"modules.workspaces.divider",
 }
 
 func isFreeForm(path string) bool {
