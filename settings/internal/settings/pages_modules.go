@@ -520,13 +520,15 @@ func powerPage(*config.Config) pageSpec {
 func ramPage(*config.Config) pageSpec {
 	return pageSpec{id: "ram", navKey: "settings-nav-ram", icon: "ld-memory-stick-symbolic", header: "settings-page-ram", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			field("modules.ram.poll-interval-ms", pollInterval),
-			field("modules.ram.format"),
-			field("modules.ram.icon-name", iconRow),
+			field(ramPath+".poll-interval-ms", pollInterval),
+			field(ramPath + ".format"),
+			field(ramPath+".icon-name", iconRow),
 		}},
-		barItemSection("modules.ram", actionChoices("ram")),
+		barItemSection(ramPath, actionChoices("ram")),
 	}}
 }
+
+const ramPath = "modules.ram"
 
 // screenshotPage is pages/modules/screenshot.
 func screenshotPage(*config.Config) pageSpec {

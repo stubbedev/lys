@@ -1427,6 +1427,7 @@ settings-action-open-mail = Ouvrir le panneau du courrier
 settings-action-open-weather = Ouvrir le panneau météo
 settings-action-open-treeman = Ouvrir le panneau treeman
 settings-action-open-dashboard = Ouvrir le tableau de bord
+settings-action-open-monitor = Ouvrir { $app }
 settings-action-open-calendar = Ouvrir le calendrier
 settings-action-nightlight-toggle = Éclairage nocturne oui ou non
 settings-action-profile-cycle = Mode d’énergie suivant

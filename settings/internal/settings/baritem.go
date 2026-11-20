@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"slices"
+
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -104,7 +106,7 @@ func mouseRow(module string, choices []actionChoice) rowSpec {
 			for i := 1; i < len(paths); i++ {
 				slots[i] = k.store.slot(paths[i])
 			}
-			return newMouseActions(k, slots, choices)
+			return newMouseActions(k, slots, append(slices.Clone(choices), hostActionChoices(systemHost, module)...))
 		}
 	})
 }

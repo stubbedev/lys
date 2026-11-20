@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -131,5 +132,53 @@ func TestAPowerButtonsCommandOffersNoNoneAndNoTryingIt(t *testing.T) {
 	}
 	if slices.Contains(c.drop.Items(), locale.T().Get("settings-command-reboot")) {
 		t.Fatalf("shut down offers a reboot: %q", c.drop.Items())
+	}
+}
+
+func monitorHost(t *testing.T) host {
+	t.Helper()
+	data := t.TempDir()
+	h := fakeHost(t, map[string]string{"XDG_DATA_HOME": data, "XDG_DATA_DIRS": t.TempDir()})
+	put(t, filepath.Join(data, "applications/missioncenter.desktop"), "[Desktop Entry]\nName=Mission Center\nExec=missioncenter\nCategories=GTK;System;Monitor;\n")
+	put(t, filepath.Join(data, "applications/htop.desktop"), "[Desktop Entry]\nName=Htop\nExec=htop\nTerminal=true\nCategories=System;Monitor;ConsoleOnly;\n")
+	put(t, filepath.Join(data, "applications/nemo.desktop"), "[Desktop Entry]\nName=Nemo\nExec=nemo %U\nCategories=System;FileManager;\n")
+	put(t, filepath.Join(data, "applications/gnome-system-monitor.desktop"), "[Desktop Entry]\nName=System Monitor\nExec=gnome-system-monitor\nCategories=GNOME;GTK;System;Monitor;\n")
+	return h
+}
+
+func TestTheSystemMonitorsAreTheWindowedMonitorApps(t *testing.T) {
+	got := monitorHost(t).systemMonitors()
+	if !slices.Equal(values(got), []string{"missioncenter", "gnome-system-monitor"}) {
+		t.Fatalf("system monitors %+v, want Mission Center and System Monitor without htop or Nemo", got)
+	}
+	if got := fakeHost(t, map[string]string{"XDG_DATA_HOME": t.TempDir(), "XDG_DATA_DIRS": t.TempDir()}).systemMonitors(); len(got) != 0 {
+		t.Errorf("with no apps installed the system monitors are %+v", got)
+	}
+}
+
+func TestTheMemoryModuleOffersToOpenEachSystemMonitor(t *testing.T) {
+	h := monitorHost(t)
+	presets := hostActionChoices(h, ramPath)
+	labels := make([]string, len(presets))
+	for i, p := range presets {
+		labels[i] = p.label()
+	}
+	want := locale.T().Get("settings-action-open-monitor", i18n.Str("app", "Mission Center"))
+	if len(presets) != 2 || !slices.Contains(labels, want) {
+		t.Fatalf("the memory module's host presets are %q, want one per monitor with %q", labels, want)
+	}
+	if got := hostActionChoices(h, "modules.cpu"); got != nil {
+		t.Errorf("the CPU module got host presets %+v", got)
+	}
+	before := systemHost
+	systemHost = h
+	t.Cleanup(func() { systemHost = before })
+	k := testKit(t, "")
+	m, ok := fieldControl(k, k.store, pageRow(t, "ram", ramPath+".left-click")).(*mouseActions)
+	if !ok {
+		t.Fatal("the RAM page has no mouse actions")
+	}
+	if !slices.ContainsFunc(m.choices, func(c actionChoice) bool { return c.command == "missioncenter" && c.label() == want }) {
+		t.Errorf("the RAM page's click presets %+v miss %q", m.choices, want)
 	}
 }

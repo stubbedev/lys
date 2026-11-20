@@ -4,13 +4,20 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// actionChoice is ActionChoice: a preset command and its label's message.
-type actionChoice struct{ key, command string }
+// actionChoice is ActionChoice: a preset command and its label's message
+// with its arguments.
+type actionChoice struct {
+	key, command string
+	args         []i18n.Arg
+}
+
+func (c actionChoice) label() string { return locale.T().Get(c.key, c.args...) }
 
 // commandMenu is what an actionEditor offers beside its presets.
 type commandMenu int
@@ -50,7 +57,7 @@ func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *a
 	t := locale.T()
 	labels := make([]string, 0, len(choices)+2)
 	for _, ch := range choices {
-		labels = append(labels, t.Get(ch.key))
+		labels = append(labels, ch.label())
 	}
 	if menu == clickMenu {
 		labels = append(labels, t.Get("settings-action-none"))
@@ -158,17 +165,17 @@ func (c *actionEditor) refresh() {
 // workspace modules add (WorkspaceClickAction).
 func workspaceChoices() []actionChoice {
 	return []actionChoice{
-		{"settings-action-focus-workspace", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusThis}.String()},
-		{"settings-action-focus-next", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusNext}.String()},
-		{"settings-action-focus-previous", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusPrevious}.String()},
-		{"settings-action-focus-last", config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusLast}.String()},
+		{key: "settings-action-focus-workspace", command: config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusThis}.String()},
+		{key: "settings-action-focus-next", command: config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusNext}.String()},
+		{key: "settings-action-focus-previous", command: config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusPrevious}.String()},
+		{key: "settings-action-focus-last", command: config.WorkspaceClickAction{Kind: config.WorkspaceClickFocusLast}.String()},
 	}
 }
 
 // actionChoices is choices_for: each module's preset click actions.
 func actionChoices(module string) []actionChoice {
-	shell := func(key, command string) actionChoice { return actionChoice{key, command} }
-	dropdown := func(key, id string) actionChoice { return actionChoice{key, "dropdown:" + id} }
+	shell := func(key, command string) actionChoice { return actionChoice{key: key, command: command} }
+	dropdown := func(key, id string) actionChoice { return actionChoice{key: key, command: "dropdown:" + id} }
 	switch module {
 	case "recorder":
 		return []actionChoice{
@@ -190,9 +197,9 @@ func actionChoices(module string) []actionChoice {
 		return []actionChoice{dropdown("settings-action-open-bluetooth", "bluetooth")}
 	case "brightness":
 		return []actionChoice{
-			{"settings-action-brightness-up", "brightness:5"},
-			{"settings-action-brightness-down", "brightness:-5"},
-			{"settings-action-brightness-blackout", "brightness:toggle"},
+			{key: "settings-action-brightness-up", command: "brightness:5"},
+			{key: "settings-action-brightness-down", command: "brightness:-5"},
+			{key: "settings-action-brightness-blackout", command: "brightness:toggle"},
 			dropdown("settings-action-open-brightness", "brightness"),
 		}
 	case "network":
@@ -245,4 +252,19 @@ func actionChoices(module string) []actionChoice {
 		return []actionChoice{dropdown("settings-action-open-audio", "audio")}
 	}
 	return nil
+}
+
+// hostActionChoices are the presets a module's clicks get from what is
+// installed, listed as its row opens: an installed system monitor for
+// the memory module.
+func hostActionChoices(h host, module string) []actionChoice {
+	if module != ramPath {
+		return nil
+	}
+	monitors := h.systemMonitors()
+	out := make([]actionChoice, len(monitors))
+	for i, m := range monitors {
+		out[i] = actionChoice{key: "settings-action-open-monitor", command: m.value, args: []i18n.Arg{i18n.Str("app", m.label)}}
+	}
+	return out
 }

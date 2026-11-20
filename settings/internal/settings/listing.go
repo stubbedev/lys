@@ -220,7 +220,27 @@ func (h host) programs() []choice {
 	return sortedChoices(out)
 }
 
+const monitorCategory = "Monitor"
+
 func (h host) appsIn(category string) []choice {
+	return h.apps(func(entry string) bool { return slices.Contains(desktopEntryCategories(entry), category) })
+}
+
+// systemMonitors are the apps showing the system's load that open a
+// window: one run in a terminal cannot open from a click on the bar.
+func (h host) systemMonitors() []choice {
+	return h.apps(func(entry string) bool {
+		return slices.Contains(desktopEntryCategories(entry), monitorCategory) && iniValue(entry, "Desktop Entry", "Terminal") != "true"
+	})
+}
+
+func desktopEntryCategories(entry string) []string {
+	return strings.Split(iniValue(entry, "Desktop Entry", "Categories"), ";")
+}
+
+// apps are the installed desktop entries keep keeps, by the program
+// they run.
+func (h host) apps(keep func(entry string) bool) []choice {
 	var out []choice
 	for _, data := range h.env.DataSearchPath() {
 		dir := filepath.Join(data, "applications")
@@ -229,8 +249,7 @@ func (h host) appsIn(category string) []choice {
 				continue
 			}
 			entry := filepath.Join(dir, e.Name())
-			categories := strings.Split(iniValue(entry, "Desktop Entry", "Categories"), ";")
-			if !slices.Contains(categories, category) {
+			if !keep(entry) {
 				continue
 			}
 			program, ok := execProgram(iniValue(entry, "Desktop Entry", "Exec"))

@@ -109,22 +109,21 @@ func commandChoices(path string) []actionChoice {
 	last := keys[len(keys)-1]
 	var out []actionChoice
 	if d := shellDefault(path); d != "" {
-		out = append(out, actionChoice{"settings-command-default", d})
+		out = append(out, actionChoice{key: "settings-command-default", command: d})
 	}
 	for _, p := range commandPresets {
 		if strings.Contains(last, p.keyword) && !slices.ContainsFunc(out, func(c actionChoice) bool { return c.command == p.command }) {
-			out = append(out, actionChoice{p.key, p.command})
+			out = append(out, actionChoice{key: p.key, command: p.command})
 		}
 	}
 	return out
 }
 
 func commandsFor(path string) []choice {
-	t := locale.T()
 	presets := commandChoices(path)
 	out := make([]choice, len(presets))
 	for i, p := range presets {
-		out[i] = choice{value: p.command, label: t.Get(p.key), group: p.command}
+		out[i] = choice{value: p.command, label: p.label(), group: p.command}
 	}
 	return out
 }
