@@ -35,7 +35,19 @@ type fakeNet struct {
 	updated    []vpnWrite
 	proxies    []proxyWrite
 	autojoin   []autojoinWrite
+	eapJoins   []string
+	eapHidden  []string
 	closed     bool
+}
+
+func (f *fakeNet) connectEnterprise(_ context.Context, ap network.AccessPoint, _ network.EAPSettings) error {
+	f.eapJoins = append(f.eapJoins, ap.Name())
+	return f.connectErr
+}
+
+func (f *fakeNet) joinHiddenEnterprise(_ context.Context, n network.HiddenNetwork, _ network.EAPSettings) error {
+	f.eapHidden = append(f.eapHidden, n.Name())
+	return nil
 }
 
 type proxyWrite struct {
@@ -180,16 +192,71 @@ func TestASecuredNetworkAsksForItsPasswordAndSaysWhenItIsRefused(t *testing.T) {
 	}
 }
 
-func TestASavedNetworkIsForgottenAndAnEnterpriseOneSendsToTheBar(t *testing.T) {
+func TestASavedNetworkIsForgotten(t *testing.T) {
 	f := homeNets()
 	_, p := netPanel(t, f)
 	clickText(t, p.nets, locale.T().Get("settings-wifi-forget"), 0)
 	if !slices.Equal(f.forgotten, []string{"Home"}) {
 		t.Fatalf("forgot %q", f.forgotten)
 	}
+}
+
+func TestAnEnterpriseNetworkSignsInWithItsEAPSettings(t *testing.T) {
+	f := homeNets()
+	_, p := netPanel(t, f)
 	clickText(t, p.nets, locale.T().Get("settings-wifi-connect"), 0)
-	if len(f.connected) != 0 || !strings.Contains(p.problem.Text(), locale.T().Get("settings-wifi-enterprise")) {
-		t.Errorf("an enterprise network connected %q, said %q", f.connected, p.problem.Text())
+	if len(f.connected) != 0 || p.eap.target == nil || p.eap.target.ssid() != "Office" || !slices.Contains(treetest.All[*eapForm](p.nets), p.eap) {
+		t.Fatalf("Connect on Office connected %q, opened the sign-in for %v", f.connected, p.eap.target)
+	}
+	if want := locale.T().Get("settings-wifi-enterprise-title", i18n.Str("name", "Office")); p.eap.head.Text() != want {
+		t.Errorf("the sign-in reads %q, want %q", p.eap.head.Text(), want)
+	}
+	p.eap.connect()
+	if len(f.eapJoins) != 0 || p.eap.problem.Text() != i18n.T("dropdown-network-enterprise-error-identity") {
+		t.Fatalf("a sign-in without an identity joined %v, said %q", f.eapJoins, p.eap.problem.Text())
+	}
+	p.eap.identity.SetText("ada")
+	p.eap.password.SetText("s3cret")
+	p.eap.domain.SetText("radius.example.org")
+	p.eap.connect()
+	if !slices.Equal(f.eapJoins, []string{"Office"}) || p.eap.target != nil || p.eap.password.Text() != "" {
+		t.Errorf("signing in joined %v; form open for %v, password kept %q", f.eapJoins, p.eap.target, p.eap.password.Text())
+	}
+}
+
+func TestARefusedEnterpriseSignInKeepsTheForm(t *testing.T) {
+	f := homeNets()
+	f.connectErr = &network.ConnectError{Failure: network.FailureAuth}
+	_, p := netPanel(t, f)
+	p.eap.open(listedEAP{ap("Office", 60, network.SecurityEnterprise)})
+	p.eap.method.SetSelected(2)
+	p.eap.syncMethod()
+	p.eap.identity.SetText("ada")
+	p.eap.clientCert.SetText("/etc/ssl/me.pem")
+	p.eap.privateKey.SetText("/etc/ssl/me.key")
+	p.eap.caCert.SetText("/etc/ssl/ca.pem")
+	p.eap.connect()
+	if !slices.Equal(f.eapJoins, []string{"Office"}) || p.eap.target == nil || p.problem.Text() != locale.T().Get("settings-wifi-failed-auth") {
+		t.Errorf("a refused TLS sign-in joined %v; form open %v, said %q", f.eapJoins, p.eap.target != nil, p.problem.Text())
+	}
+}
+
+func TestAHiddenEnterpriseNetworkSignsInThroughTheForm(t *testing.T) {
+	f := homeNets()
+	_, p := netPanel(t, f)
+	entries := treetest.All[*widget.Entry](p.nets)
+	entries[len(entries)-2].SetText("Lab")
+	treetest.All[*widget.Dropdown](p.nets)[0].SetSelected(len(hiddenSecurities) - 1)
+	clickText(t, p.nets, locale.T().Get("settings-wifi-join"), 0)
+	if len(f.hidden) != 0 || p.eap.target == nil || p.eap.target.ssid() != "Lab" {
+		t.Fatalf("a hidden enterprise network joined %q with a password, sign-in open for %v", f.hidden, p.eap.target)
+	}
+	p.eap.identity.SetText("ada")
+	p.eap.password.SetText("s3cret")
+	p.eap.domain.SetText("radius.example.org")
+	p.eap.connect()
+	if !slices.Equal(f.eapHidden, []string{"Lab"}) {
+		t.Errorf("signing in joined the hidden %v", f.eapHidden)
 	}
 }
 

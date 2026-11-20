@@ -36,7 +36,7 @@ var hiddenProblems = map[error]string{
 	network.ErrHiddenPasswordNeeded: "settings-wifi-hidden-password-needed",
 }
 
-var hiddenSecurities = []network.SecurityType{network.SecurityNone, network.SecurityWPA2, network.SecurityWPA3, network.SecurityWEP}
+var hiddenSecurities = []network.SecurityType{network.SecurityNone, network.SecurityWPA2, network.SecurityWPA3, network.SecurityWEP, network.SecurityEnterprise}
 
 type netState struct {
 	snap     network.Snapshot
@@ -80,6 +80,8 @@ type netControl interface {
 	setAirplane(ctx context.Context, on bool) error
 	connect(ctx context.Context, ap network.AccessPoint, password string) error
 	joinHidden(ctx context.Context, net network.HiddenNetwork, password string) error
+	connectEnterprise(ctx context.Context, ap network.AccessPoint, eap network.EAPSettings) error
+	joinHiddenEnterprise(ctx context.Context, net network.HiddenNetwork, eap network.EAPSettings) error
 	forget(ctx context.Context, ssid string) error
 	disconnect(ctx context.Context) error
 	activate(ctx context.Context, profile dbus.ObjectPath) error
@@ -298,6 +300,22 @@ func (c *nmControl) joinHidden(ctx context.Context, net network.HiddenNetwork, p
 	return w.JoinHiddenAndWait(ctx, net, password, nil)
 }
 
+func (c *nmControl) connectEnterprise(ctx context.Context, ap network.AccessPoint, eap network.EAPSettings) error {
+	w, err := c.wifi()
+	if err != nil {
+		return err
+	}
+	return w.ConnectEnterpriseAndWait(ctx, ap.Path, eap, nil)
+}
+
+func (c *nmControl) joinHiddenEnterprise(ctx context.Context, net network.HiddenNetwork, eap network.EAPSettings) error {
+	w, err := c.wifi()
+	if err != nil {
+		return err
+	}
+	return w.JoinHiddenEnterpriseAndWait(ctx, net, eap, nil)
+}
+
 func (c *nmControl) forget(ctx context.Context, ssid string) error {
 	w, err := c.wifi()
 	if err != nil {
@@ -340,6 +358,7 @@ type networkPanel struct {
 	vpn      *widget.Box
 	vpnSec   *widget.Box
 	vpnForm  *vpnForm
+	eap      *eapForm
 	saved    *widget.Box
 	savedSec *widget.Box
 	proxy    *proxyForm
@@ -359,6 +378,7 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.Append(newSection(k, "settings-wifi-section-status", p.status), false)
+	p.eap = newEAPForm(p)
 	p.netsSec = newSection(k, "settings-wifi-networks", p.nets)
 	p.netsSec.SetVisible(false)
 	p.Append(p.netsSec, false)
@@ -572,6 +592,9 @@ func (p *networkPanel) show() {
 		list.Append(p.networkRow(ap))
 	}
 	p.nets.Append(list, false)
+	if p.eap.target != nil {
+		p.nets.Append(p.eap, false)
+	}
 	p.nets.Append(p.hiddenForm(), false)
 }
 
@@ -718,8 +741,9 @@ func (p *networkPanel) networkRow(ap network.AccessPoint) widget.Widget {
 func (p *networkPanel) join(ap network.AccessPoint, known bool) {
 	switch {
 	case ap.Security == network.SecurityEnterprise && !known:
-		p.problem.SetVisible(true)
-		p.problem.SetText(locale.T().Get("settings-wifi-enterprise"))
+		p.asking = ""
+		p.eap.open(listedEAP{ap})
+		p.show()
 	case ap.Security.RequiresPassword() && !known:
 		p.asking = ap.Name()
 		p.show()
@@ -732,6 +756,30 @@ func (p *networkPanel) connect(ap network.AccessPoint, password string) {
 	p.asking, p.pending = "", ap.Name()
 	p.show()
 	p.run(func(ctx context.Context) error { return p.ctl.connect(ctx, ap, password) })
+}
+
+// joinEnterprise signs in to target with eap; the form closes once it
+// joined and stays, saying why, when it did not.
+func (p *networkPanel) joinEnterprise(target eapTarget, eap network.EAPSettings) {
+	ctl := p.ctl
+	if ctl == nil {
+		return
+	}
+	p.pending = target.ssid()
+	p.show()
+	async(p.k, func() error {
+		return doWithin(networkCallWait, func(ctx context.Context) error { return target.join(ctx, ctl, eap) })
+	}, func(err error) {
+		if p.closed {
+			return
+		}
+		p.pending = ""
+		if err == nil {
+			p.eap.target = nil
+		}
+		p.fail(err)
+		p.reload()
+	})
 }
 
 func (p *networkPanel) passwordRow(submit func(string)) widget.Widget {
@@ -780,6 +828,11 @@ func (p *networkPanel) hiddenForm() widget.Widget {
 		net, err := network.NewHiddenNetwork(name.Text(), hiddenSecurities[security.Selected()])
 		if err != nil {
 			p.fail(err)
+			return
+		}
+		if net.Security() == network.SecurityEnterprise {
+			p.eap.open(hiddenEAP{net})
+			p.show()
 			return
 		}
 		pass := password.Text()
