@@ -116,7 +116,7 @@ func TestTheInstalledPartsAreWhatThePathHolds(t *testing.T) {
 
 func TestNotificationsHoldDoNotDisturbAndTheBell(t *testing.T) {
 	rows := rowPaths(bothParts, "notifications")
-	for _, want := range []string{"modules.notifications.popup-position", "modules.notifications.dnd.schedule", "modules.notifications.dnd.allow-apps", "modules.notifications.icon-dnd", "modules.notifications.left-click"} {
+	for _, want := range []string{"modules.notifications.popup-position", "modules.notifications.dnd.schedule", notifyBlockPath, "modules.notifications.icon-dnd", "modules.notifications.left-click"} {
 		if !slices.Contains(rows, want) {
 			t.Errorf("the notifications page lacks %s", want)
 		}

@@ -9,19 +9,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shlex"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
 	appIconPx       = 16
-	appTileIconPx   = 32
-	appTileWidthPx  = 96
-	appTileChars    = 12
 	appFallbackIcon = "ld-app-window-symbolic"
 )
 
@@ -44,20 +38,6 @@ func scanInstalled(dirs []string) installedApps {
 }
 
 func (ix installedApps) loaded() bool { return ix.byID != nil }
-
-func (ix installedApps) without(ids []string) []desktopentry.App {
-	return slices.DeleteFunc(slices.Clone(ix.shown), func(a desktopentry.App) bool { return slices.Contains(ids, a.AppID()) })
-}
-
-func appIDs(values []any) []string {
-	ids := make([]string, 0, len(values))
-	for _, v := range values {
-		if id, ok := v.(string); ok {
-			ids = append(ids, id)
-		}
-	}
-	return ids
-}
 
 func byDisplayName(a, b desktopentry.App) int {
 	return cmp.Or(cmp.Compare(strings.ToLower(a.DisplayName()), strings.ToLower(b.DisplayName())), cmp.Compare(a.ID, b.ID))
@@ -116,7 +96,9 @@ func newAppListEditor(k *kit, s slot) *listEditor {
 			return appItem{appFace(k, "", id, id), id}
 		},
 		pick: func(anchor widget.Widget, choose func(any)) {
-			openAppPicker(k, anchor, apps.without(appIDs(c.values())), func(a desktopentry.App) { choose(a.AppID()) })
+			pinned := c.values()
+			unpinned := slices.DeleteFunc(slices.Clone(apps.shown), func(a desktopentry.App) bool { return slices.Contains(pinned, any(a.AppID())) })
+			openAppPicker(k, anchor, unpinned, func(a desktopentry.App) { choose(a.AppID()) })
 		},
 		full: func(int) bool { return !apps.loaded() },
 	})
@@ -126,90 +108,6 @@ func newAppListEditor(k *kit, s slot) *listEditor {
 		c.rebuild(c.values())
 	})
 	return c
-}
-
-var appGrid rowOpt = func(r *rowSpec) {
-	r.fullWidth = true
-	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newAppGridEditor(k, s) }
-}
-
-type appGridEditor struct {
-	*widget.FlowBox
-	k     *kit
-	slot  slot
-	apps  installedApps
-	add   *widget.Button
-	shown []string
-}
-
-func newAppGridEditor(k *kit, s slot) *appGridEditor {
-	g := &appGridEditor{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), k: k, slot: s}
-	g.AddClass("app-grid")
-	g.add = addButton(k, "settings-list-add", func() {
-		openAppPicker(k, g.add, g.apps.without(g.shown), func(a desktopentry.App) {
-			g.write(append(slices.Clone(g.shown), a.AppID()))
-		})
-	})
-	g.add.SetAccessibleName(locale.T().Get("settings-list-add"))
-	g.rebuild()
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
-		g.apps = ix
-		g.rebuild()
-	})
-	return g
-}
-
-func (g *appGridEditor) stored() []string {
-	v, _ := g.slot.get().([]any)
-	return appIDs(v)
-}
-
-func (g *appGridEditor) write(ids []string) {
-	values := make([]any, len(ids))
-	for i, id := range ids {
-		values[i] = id
-	}
-	_ = g.slot.set(values)
-	g.rebuild()
-}
-
-func (g *appGridEditor) rebuild() {
-	g.Clear()
-	g.shown = g.stored()
-	for _, id := range g.shown {
-		g.Append(g.tile(id))
-	}
-	g.add.SetVisible(g.apps.loaded())
-	g.Append(g.add)
-}
-
-func (g *appGridEditor) tile(id string) widget.Widget {
-	icon, name := "", id
-	if a, ok := g.apps.byID[id]; ok {
-		icon, name = a.Icon(), cmp.Or(a.DisplayName(), id)
-	}
-	tile := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
-	tile.AddClass("app-tile")
-	tile.SetTooltip(id)
-	tile.SetSizeRequest(appTileWidthPx, 0)
-	tile.AppendAligned(widget.NewThemeIcon(cmp.Or(icon, appFallbackIcon), appTileIconPx), false, widget.AlignCenter)
-	label := g.k.label(name, css.Caption)
-	label.SetEllipsize(widget.EllipsizeEnd)
-	label.SetMaxWidthChars(appTileChars)
-	tile.AppendAligned(label, false, widget.AlignCenter)
-	remove := g.k.iconButton("ld-x-symbolic", "settings-list-remove", func() {
-		g.write(slices.DeleteFunc(slices.Clone(g.shown), func(s string) bool { return s == id }))
-	}, "string-list-button", css.Ghost)
-	remove.SetAccessibleName(locale.T().Get("settings-app-grid-remove", i18n.Str("name", name)))
-	tile.AppendAligned(remove, false, widget.AlignCenter)
-	return tile
-}
-
-func (g *appGridEditor) refresh() {
-	if !slices.Equal(g.stored(), g.shown) {
-		g.rebuild()
-	}
 }
 
 func appCommand(a desktopentry.App) (string, error) {
