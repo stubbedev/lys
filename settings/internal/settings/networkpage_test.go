@@ -32,7 +32,18 @@ type fakeNet struct {
 	vpnErr     error
 	added      []vpnWrite
 	updated    []vpnWrite
+	proxies    []proxyWrite
 	closed     bool
+}
+
+type proxyWrite struct {
+	profile dbus.ObjectPath
+	proxy   network.Proxy
+}
+
+func (f *fakeNet) setProxy(_ context.Context, profile dbus.ObjectPath, proxy network.Proxy) error {
+	f.proxies = append(f.proxies, proxyWrite{profile, proxy})
+	return nil
 }
 
 type vpnWrite struct {

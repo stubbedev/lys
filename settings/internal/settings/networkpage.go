@@ -49,6 +49,7 @@ type netState struct {
 	airplane bool
 	vpns     []vpnRow
 	details  []linkDetail
+	proxy    *proxyState
 }
 
 type linkDetail struct {
@@ -86,6 +87,7 @@ type netControl interface {
 	readVPN(ctx context.Context, profile dbus.ObjectPath) (vpnProfile, error)
 	addVPN(ctx context.Context, kind, name string, values map[string]string) error
 	updateVPN(ctx context.Context, uuid, kind, name string, values map[string]string) error
+	setProxy(ctx context.Context, profile dbus.ObjectPath, proxy network.Proxy) error
 	close() error
 }
 
@@ -129,6 +131,9 @@ func (c *nmControl) read(ctx context.Context) (netState, error) {
 	if st.vpns, err = c.vpns(ctx); err != nil {
 		return netState{}, err
 	}
+	if st.proxy, err = c.proxy(ctx); err != nil {
+		return netState{}, err
+	}
 	radios, err := c.radio.Read(ctx)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -165,6 +170,22 @@ func (c *nmControl) vpns(ctx context.Context) ([]vpnRow, error) {
 		out = append(out, vpnRow{profile: prof, state: state, up: up})
 	}
 	return out, nil
+}
+
+func (c *nmControl) proxy(ctx context.Context) (*proxyState, error) {
+	prof, ok, err := c.svc.Settings.PrimaryProfile(ctx)
+	if err != nil || !ok {
+		return nil, err
+	}
+	proxy, err := c.svc.Settings.Proxy(ctx, prof.Path)
+	if err != nil {
+		return nil, err
+	}
+	return &proxyState{profile: prof, proxy: proxy}, nil
+}
+
+func (c *nmControl) setProxy(ctx context.Context, profile dbus.ObjectPath, proxy network.Proxy) error {
+	return c.svc.Settings.SetProxy(ctx, profile, proxy)
 }
 
 func (c *nmControl) activate(ctx context.Context, profile dbus.ObjectPath) error {
@@ -299,6 +320,8 @@ type networkPanel struct {
 	vpn      *widget.Box
 	vpnSec   *widget.Box
 	vpnForm  *vpnForm
+	proxy    *proxyForm
+	proxySec *widget.Box
 	details  *widget.Box
 	detSec   *widget.Box
 	pending  string
@@ -326,6 +349,10 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.vpnSec = newSection(k, "settings-vpn-section", vpnBody)
 	p.vpnSec.SetVisible(false)
 	p.Append(p.vpnSec, false)
+	p.proxy = newProxyForm(p)
+	p.proxySec = newSection(k, "settings-proxy-section", p.proxy)
+	p.proxySec.SetVisible(false)
+	p.Append(p.proxySec, false)
 	p.details = gapBox(widget.Column)
 	p.detSec = newSection(k, "settings-wifi-section-details", p.details)
 	p.detSec.SetVisible(false)
@@ -367,6 +394,7 @@ func (p *networkPanel) unavailable(err error) {
 	p.status.Clear()
 	p.netsSec.SetVisible(false)
 	p.vpnSec.SetVisible(false)
+	p.proxySec.SetVisible(false)
 	p.status.Append(panelRow(p.k, locale.T().Get("settings-wifi-unavailable"), err.Error()), false)
 }
 
@@ -478,6 +506,8 @@ func (p *networkPanel) show() {
 	p.status.Append(status, false)
 	p.netsSec.SetVisible(st.wifi && st.wifiOn)
 	p.showVPNs()
+	p.proxySec.SetVisible(true)
+	p.proxy.show(st.proxy)
 	p.showDetails()
 	if st.snap.HasWired {
 		status.Append(panelRow(p.k, t.Get("settings-wifi-wired"), wiredDetail(st.snap)))
