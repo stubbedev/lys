@@ -153,8 +153,6 @@ func launcherPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			launcherShortcutRow(),
 			field("launcher.monitor", monitorChoiceRow(focusedMonitor)),
-			field("launcher.modes", launcherModesRow),
-			field("launcher.display-names", displayNamesRow),
 		}},
 		{title: "settings-section-launcher-search-behaviour", rows: []rowSpec{
 			field("launcher.matching"),
@@ -194,7 +192,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.mouse-bindings", launcherMouseRow),
 		}},
 		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.launcher")},
-	}}
+	}, footer: relatedLinks([]pageLink{{"launcher-modes", "settings-launcher-link-modes"}})}
 }
 
 // The launcher's sliders: the widths and line counts nearly every setup
@@ -208,42 +206,7 @@ const (
 // launcherModesPage is pages/launcher modes_entry.
 func launcherModesPage(*config.Config) pageSpec {
 	return pageSpec{id: "launcher-modes", navKey: "settings-nav-launcher-modes-page", icon: "ld-grid-2x2-symbolic", header: "settings-page-launcher-modes", sections: []sectionSpec{
-		{title: "settings-section-launcher-drun", rows: []rowSpec{
-			field("launcher.drun.categories", desktopCategoriesRow),
-			field("launcher.drun.exclude-categories", desktopCategoriesRow),
-			field("launcher.drun.match-fields", enumList),
-			field("launcher.drun.display-format"),
-			field("launcher.drun.show-actions"),
-			field("launcher.drun.url-launcher", browserRow),
-		}},
-		{title: "settings-section-launcher-run", rows: []rowSpec{
-			field("launcher.run.run-command"),
-			field("launcher.run.shell-command"),
-			field("launcher.run.list-command"),
-		}},
-		{title: "settings-section-launcher-window", rows: []rowSpec{
-			field("launcher.window.format"),
-			field("launcher.window.match-fields", enumList),
-			field("launcher.window.hide-active"),
-			field("launcher.window.close-on-delete"),
-		}},
-		{title: "settings-section-launcher-ssh", rows: []rowSpec{
-			field("launcher.ssh.client", sshClientRow),
-			field("launcher.ssh.command"),
-			field("launcher.ssh.parse-hosts"),
-			field("launcher.ssh.parse-known-hosts"),
-		}},
-		{title: "settings-section-launcher-filebrowser", rows: []rowSpec{
-			field("launcher.filebrowser.directory"),
-			field("launcher.filebrowser.sorting-method"),
-			field("launcher.filebrowser.directories-first"),
-			field("launcher.filebrowser.show-hidden"),
-			field("launcher.filebrowser.command", fileManagerRow),
-		}},
-		{title: "settings-section-launcher-combi", rows: []rowSpec{
-			field("launcher.combi.modes", launcherModesRow),
-			field("launcher.combi.display-format"),
-		}},
+		{title: "settings-section-launcher-modes", rows: []rowSpec{launcherModeListRow()}},
 		{title: "settings-section-launcher-search", rows: []rowSpec{
 			field("launcher.search.providers", enumList),
 			field(webEnginePath, webEngineRow),

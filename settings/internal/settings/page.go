@@ -490,6 +490,10 @@ type nester interface {
 	showsNested() bool
 }
 
+// nestSelector is a nester showing one group of its rows at a time,
+// which brings forward the group row is in.
+type nestSelector interface{ showNested(row *settingRow) }
+
 type nestHost struct {
 	row   *settingRow
 	group nester
@@ -552,6 +556,13 @@ func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *settingRow {
 		if i >= d.first && i < d.first+d.n {
 			d.open(true)
 		}
+	}
+	child := p.targets[i]
+	for h, ok := p.hosts[child]; ok; h, ok = p.hosts[h.row] {
+		if s, ok := h.group.(nestSelector); ok {
+			s.showNested(child)
+		}
+		child = h.row
 	}
 	row := p.inUse(p.shown(p.targets[i]))
 	give := func() {

@@ -424,7 +424,7 @@ func pageRow(t *testing.T, page, path string) rowSpec {
 		t.Fatalf("no page %q", page)
 	}
 	for _, sec := range p.sections {
-		for _, r := range sec.rows {
+		for _, r := range sec.flatRows() {
 			if r.path == path {
 				return r
 			}

@@ -188,7 +188,6 @@ func desktopCategories(*kit) lister {
 
 var (
 	launcherModesRow     = choiceListRow(launcherModes, plainChoices)
-	displayNamesRow      = choiceListRow(launcherModes, namedChoices)
 	desktopCategoriesRow = choiceListRow(desktopCategories, plainChoices)
 	scriptsRow           = listRow(func(config.FieldMeta) listSpec {
 		return pairMapSpec("settings-map-mode-name-placeholder", true, func(k *kit, value *string, changed func()) widget.Widget {

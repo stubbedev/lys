@@ -35,61 +35,6 @@ func openAdd(t *testing.T, c *choiceListEditor) *searchPicker {
 	return c.picker
 }
 
-func TestLauncherModesArePickedFromTheBuiltinsAndScripts(t *testing.T) {
-	k := testKit(t, "launcher:\n  scripts:\n    notes: ~/bin/notes\n")
-	c := choiceList(t, k, "launcher", "launcher.modes")
-	if got := c.values(); !slices.Equal(got, []any{"drun", "run", "window"}) {
-		t.Fatalf("rows %v", got)
-	}
-	if !containsLabel(c, locale.T().Get("settings-launcher-mode-drun")) {
-		t.Error("a mode row shows its id, not its name")
-	}
-	p := openAdd(t, c)
-	if slices.Contains(p.all, "drun") || !slices.Contains(p.all, "calc") || !slices.Contains(p.all, "notes") {
-		t.Fatalf("offered %v", p.all)
-	}
-	pickName(t, p, "notes")
-	if got := k.store.value("launcher.modes"); !reflect.DeepEqual(got, []any{"drun", "run", "window", "notes"}) {
-		t.Errorf("stored %v", got)
-	}
-}
-
-func TestAModeOutsideTheListIsKeptAndMarked(t *testing.T) {
-	k := testKit(t, "launcher:\n  modes: [drun, \"todo:~/bin/todo\"]\n")
-	c := choiceList(t, k, "launcher", "launcher.modes")
-	if !containsLabel(c, locale.T().Get("settings-choice-unknown")) {
-		t.Error("an inline script mode is not marked as outside the list")
-	}
-	pickName(t, openAdd(t, c), "calc")
-	if got := k.store.value("launcher.modes"); !reflect.DeepEqual(got, []any{"drun", "todo:~/bin/todo", "calc"}) {
-		t.Errorf("stored %v", got)
-	}
-}
-
-func TestADisplayNameIsGivenToAPickedMode(t *testing.T) {
-	k := testKit(t, "launcher:\n  display-names:\n    drun: apps\n")
-	c := choiceList(t, k, "launcher", "launcher.display-names")
-	if got := c.values(); !reflect.DeepEqual(got, []any{[2]string{"drun", "apps"}}) {
-		t.Fatalf("rows %v", got)
-	}
-	p := openAdd(t, c)
-	if slices.Contains(p.all, "drun") || !slices.Contains(p.all, "window") {
-		t.Fatalf("offered %v", p.all)
-	}
-	pickName(t, p, "window")
-	if got := k.store.value("launcher.display-names"); !reflect.DeepEqual(got, map[string]any{"drun": "apps"}) {
-		t.Fatalf("a mode without a name was written: %v", got)
-	}
-	named := c.items[1].(namedChoiceItem)
-	named.name.SetText("wins")
-	if got := k.store.value("launcher.display-names"); !reflect.DeepEqual(got, map[string]any{"drun": "apps", "window": "wins"}) {
-		t.Errorf("stored %v", got)
-	}
-	if len(c.items) != 2 || c.items[1].(namedChoiceItem).name != named.name {
-		t.Error("naming a mode rebuilt its row")
-	}
-}
-
 func TestAScriptModeNamesItsExecutableFile(t *testing.T) {
 	k := testKit(t, "launcher:\n  scripts:\n    notes: ~/bin/notes\n")
 	c, ok := fieldControl(k, k.store, pageRow(t, "launcher-modes", launcherScriptsPath)).(*listEditor)
