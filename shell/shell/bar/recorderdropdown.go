@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
+	"github.com/stubbedev/lys/desktop/service/recorder/webcamframe"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -81,7 +82,7 @@ func newWebcamPreview(sizePct, x, y uint8) *webcamPreview {
 }
 
 func (p *webcamPreview) travel() (margin, w, h int32) {
-	margin = recorder.WebcamMargin(p.pw, p.ph)
+	margin = webcamframe.Margin(p.pw, p.ph)
 	return margin, max(p.pw-p.cw-2*margin, 0), max(p.ph-p.ch-2*margin, 0)
 }
 

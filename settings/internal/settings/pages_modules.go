@@ -616,9 +616,7 @@ func recorderPage(*config.Config) pageSpec {
 		{title: "settings-section-webcam", rows: []rowSpec{
 			field(m + ".webcam-enabled"),
 			field(m+".webcam-device", webcamDevice),
-			field(m+".webcam-x", percentage),
-			field(m+".webcam-y", percentage),
-			field(m+".webcam-size", percentage),
+			field(webcamXPath, withKey("settings-recorder-webcam-place"), webcamPlacerRow),
 		}},
 		{title: "settings-section-instant-replay", rows: []rowSpec{
 			field(m + ".replay.enable"),

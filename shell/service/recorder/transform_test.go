@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/recorder/webcamframe"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/capture"
 
@@ -148,7 +149,7 @@ func TestWebcamRectOnATurnedOutputIsUpright(t *testing.T) {
 	if size != image.Pt(720, 1280) {
 		t.Fatalf("frame size %v, want the upright 720x1280", size)
 	}
-	if r := webcamRect(Webcam{X: 100, Y: 100, Size: 50}, int32(size.X), int32(size.Y)); !r.In(image.Rectangle{Max: size}) || r.Dx() != 360 {
+	if r := webcamframe.Rect(webcamframe.Placement{X: 100, Y: 100, Size: 50}, int32(size.X), int32(size.Y)); !r.In(image.Rectangle{Max: size}) || r.Dx() != 360 {
 		t.Errorf("webcam at %v, want half the upright width inside it", r)
 	}
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/service/recorder/webcamframe"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/gpu"
@@ -253,7 +254,7 @@ func TestWebcamOverlayIsEncodedIntoTheFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 	size := s.frameSize()
-	rect := webcamRect(Webcam{X: 0, Y: 0, Size: 30}, int32(size.X), int32(size.Y))
+	rect := webcamframe.Rect(webcamframe.Placement{X: 0, Y: 0, Size: 30}, int32(size.X), int32(size.Y))
 	red := image.NewRGBA(image.Rect(0, 0, 32, 18))
 	for i := 0; i < len(red.Pix); i += 4 {
 		copy(red.Pix[i:], []byte{255, 0, 0, 255})

@@ -410,6 +410,11 @@
       "lib/v4l2"
     ]
   },
+  "desktop/service/recorder/webcamframe": {
+    "imports": [
+      "lib/intconv"
+    ]
+  },
   "desktop/service/rfkill": {},
   "desktop/service/sounds/soundpolicy": {},
   "desktop/service/upower": {
@@ -2237,6 +2242,7 @@
       "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
+      "desktop/service/recorder/webcamframe",
       "desktop/service/rfkill",
       "desktop/service/upower",
       "desktop/settingspage",
@@ -3071,6 +3077,7 @@
       "desktop/identity",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
+      "desktop/service/recorder/webcamframe",
       "lib/atomicfile",
       "lib/audiomix",
       "lib/capture",
@@ -3275,6 +3282,7 @@
       "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
+      "desktop/service/recorder/webcamframe",
       "desktop/service/rfkill",
       "desktop/service/upower",
       "desktop/settingspage",
