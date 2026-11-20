@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -134,6 +135,22 @@ func Placeholders(path string) []Placeholder {
 		return nil
 	}
 	return placeholdersOf(holder, f)
+}
+
+// PlaceholderSamples maps each placeholder of the format field at a dot
+// path to its sample, the values a preview fills the format with; it
+// panics for a path with no placeholders, a preview of a field that is
+// no format.
+func PlaceholderSamples(path string) map[string]string {
+	ps := Placeholders(path)
+	if len(ps) == 0 {
+		panic(fmt.Sprintf("config: %s declares no placeholders", path))
+	}
+	vars := make(map[string]string, len(ps))
+	for _, p := range ps {
+		vars[p.Name] = p.Sample
+	}
+	return vars
 }
 
 func placeholdersOf(holder reflect.Type, f fieldInfo) []Placeholder {

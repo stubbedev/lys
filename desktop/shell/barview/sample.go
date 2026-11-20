@@ -1,7 +1,6 @@
 package barview
 
 import (
-	"log"
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -112,14 +111,7 @@ var moduleFormats = map[config.BarModule]func(*config.Config) string{
 func formatPath(m config.BarModule) string { return "modules." + string(m) + ".format" }
 
 func sampleFormatLabel(m config.BarModule, format string) string {
-	placeholders := config.Placeholders(formatPath(m))
-	if len(placeholders) == 0 {
-		log.Panicf("barview: %s declares no placeholders", formatPath(m))
-	}
-	vars := make(map[string]string, len(placeholders))
-	for _, p := range placeholders {
-		vars[p.Name] = p.Sample
-	}
+	vars := config.PlaceholderSamples(formatPath(m))
 	if m == config.ModuleMail {
 		return jinja.ReplaceVars(format, vars)
 	}

@@ -76,6 +76,19 @@ func TestFieldCarriesTheFormatPlaceholders(t *testing.T) {
 	}
 }
 
+func TestAFormatsSamplesFillEachOfItsPlaceholders(t *testing.T) {
+	want := map[string]string{"sender": "Ada Lovelace", "subject": "Lunch on Friday?", "count": "3", "new": "1"}
+	if got := PlaceholderSamples("modules.mail.notify-summary"); !reflect.DeepEqual(got, want) {
+		t.Errorf("the summary's samples are %v, want %v", got, want)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("a field without placeholders gave samples")
+		}
+	}()
+	PlaceholderSamples("modules.battery.icon-name")
+}
+
 func TestStrftimeFieldsSayTheyTakeAPattern(t *testing.T) {
 	for _, path := range []string{"modules.clock.format", "login.clock-format", "login.date-format"} {
 		if m, ok := Field(path); !ok || m.Kind != FieldText || m.Type != "StrftimeFormat" {
