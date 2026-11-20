@@ -676,6 +676,7 @@ settings-module-link-binds-detail = Define the modes and the keys that enter the
 settings-module-link-input-detail = Add and order the keyboard layouts
 settings-privacy-link-media-detail = Online lyrics send the artist, title, album and length of every track to lrclib.net
 settings-date-link-world-clock-detail = The times in other places, on the bar
+settings-region-link-keyboard-detail = The layouts you type with and how to switch between them
 settings-date-ntp = Set time automatically
     .description = Keep the clock in step with a time server
 settings-date-manual = Date and time

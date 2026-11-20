@@ -666,6 +666,7 @@ settings-module-link-binds-detail = De modi vastleggen en de toetsen die ze open
 settings-module-link-input-detail = Toetsenbordindelingen toevoegen en ordenen
 settings-privacy-link-media-detail = Songteksten online sturen de artiest, titel, het album en de lengte van elk nummer naar lrclib.net
 settings-date-link-world-clock-detail = De tijd op andere plaatsen, in de balk
+settings-region-link-keyboard-detail = De indelingen waarmee je typt en hoe je ertussen wisselt
 settings-date-ntp = Tijd automatisch instellen
     .description = De klok gelijk houden met een tijdserver
 settings-date-manual = Datum en tijd

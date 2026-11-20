@@ -676,6 +676,7 @@ settings-module-link-binds-detail = Die Modi festlegen und die Tasten, die sie �
 settings-module-link-input-detail = Tastaturbelegungen hinzufügen und ordnen
 settings-privacy-link-media-detail = Online-Liedtexte senden Interpret, Titel, Album und Länge jedes Titels an lrclib.net
 settings-date-link-world-clock-detail = Die Uhrzeit an anderen Orten, in der Leiste
+settings-region-link-keyboard-detail = Die Tastaturbelegungen, mit denen du tippst, und wie du zwischen ihnen wechselst
 settings-date-ntp = Uhrzeit automatisch einstellen
     .description = Die Uhr mit einem Zeitserver synchron halten
 settings-date-manual = Datum und Uhrzeit

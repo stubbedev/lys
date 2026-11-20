@@ -676,6 +676,7 @@ settings-module-link-binds-detail = Definire le modalità e i tasti che vi entra
 settings-module-link-input-detail = Aggiungere e ordinare i layout di tastiera
 settings-privacy-link-media-detail = I testi online inviano artista, titolo, album e durata di ogni brano a lrclib.net
 settings-date-link-world-clock-detail = L’ora in altri luoghi, nella barra
+settings-region-link-keyboard-detail = I layout con cui scrivi e come passare dall’uno all’altro
 settings-date-ntp = Imposta l'ora automaticamente
     .description = Mantiene l'orologio sincronizzato con un server dell'ora
 settings-date-manual = Data e ora

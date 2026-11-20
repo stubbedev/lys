@@ -65,7 +65,10 @@ func dateTimePage(*config.Config) pageSpec {
 	}
 }
 
-var dateTimeLinks = []pageLink{{"world-clock", "settings-date-link-world-clock-detail"}}
+var (
+	dateTimeLinks = []pageLink{{"world-clock", "settings-date-link-world-clock-detail"}}
+	regionLinks   = []pageLink{{"wm-keyboard", "settings-region-link-keyboard-detail"}}
+)
 
 func regionPage(*config.Config) pageSpec {
 	return pageSpec{
@@ -783,6 +786,7 @@ func regionFooter(k *kit) widget.Widget {
 	content := sectionStack()
 	content.Append(newSection(k, "settings-section-region-formats", formats), false)
 	content.Append(newSection(k, "settings-section-region-system", p), false)
+	content.Append(linksSection(k, "settings-section-related", regionLinks), false)
 	return &closingBox{content, p.close}
 }
 
