@@ -467,6 +467,8 @@ var wmPresentation = map[string]rowOpt{
 	"input.pointer.accel_speed":    signedNormalized,
 	"input.touchpad.accel_speed":   signedNormalized,
 	"input.trackpoint.accel_speed": signedNormalized,
+	"layout":                       pictureChoice(layoutPictures),
+	columnPresetsPath:              columnPresetsRow,
 }
 
 func wmField(path string, opts ...rowOpt) rowSpec {
@@ -593,7 +595,7 @@ func wmEffectsPage() pageSpec {
 
 func wmTilingPage() pageSpec {
 	return wmPage("wm-tiling", "ld-layout-grid-symbolic",
-		sectionSpec{title: "wm-section-layout", rows: wmFields("layout", "scroll.center")},
+		sectionSpec{title: "wm-section-layout", rows: wmFields("layout", "scroll.center", columnPresetsPath)},
 		sectionSpec{title: "wm-section-autotile", rows: switchedBy("autotile.enabled",
 			wmField("autotile.ephemeral"), wmField("autotile.min_trigger", softPixels(0, 1200)), wmField("autotile.divisor"))},
 		sectionSpec{title: "wm-section-tabs", rows: append([]rowSpec{wmField("tabs.height", softPixels(16, 48))}, wmFields("tabs.padding", "tabs.text_height", "tabs.text_padding", "tabs.font", "tabs.icon_theme",
