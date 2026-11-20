@@ -50,7 +50,7 @@ func TestThePreviewDrawsEveryItemOfTheLayout(t *testing.T) {
 	if len(treetest.WithClass(bar, "mine")) != 1 {
 		t.Error("the clock's instance class is missing")
 	}
-	if b := sampleButton(t, bar, "battery"); b.Label().Text() != "82%" || b.Icon() == nil || b.Icon().Name() != cfg.Battery.Icon().Name {
+	if b := sampleButton(t, bar, "battery"); b.Label().Text() != "45%" || b.Icon() == nil || b.Icon().Name() != cfg.Battery.Icon().Name {
 		t.Errorf("the battery shows %q beside %v, want its sample level beside its config icon", b.Label().Text(), b.Icon())
 	}
 	if len(treetest.All[*widget.BarSeparator](bar)) != 1 {
@@ -159,5 +159,47 @@ func TestTheWorkspaceSampleLeavesOutWhatTheConfigHides(t *testing.T) {
 	cfg.Workspaces.WorkspaceIgnore = []string{"*"}
 	if s := SampleWorkspaces(cfg, font, compositor.Niri); s.Segments().Count() != 0 || s.Segments().Active() != -1 {
 		t.Errorf("ignoring every workspace previews %d segments, active %d", s.Segments().Count(), s.Segments().Active())
+	}
+}
+
+func TestEveryFormattedModuleDeclaresItsPlaceholders(t *testing.T) {
+	for m := range moduleFormats {
+		if len(config.Placeholders(formatPath(m))) == 0 {
+			t.Errorf("%s declares no placeholders to preview", formatPath(m))
+		}
+	}
+}
+
+func TestASampleLabelFollowsItsModulesFormat(t *testing.T) {
+	cfg := config.Defaults()
+	for _, tc := range []struct {
+		module config.BarModule
+		format *string
+		set    string
+		want   string
+	}{
+		{config.ModuleBattery, &cfg.Battery.Format, "Bat {{ percent }}", "Bat 45"},
+		{config.ModuleCPU, &cfg.CPU.Format, "{{ percent }}% @ {{ freq_ghz }}", "45% @ 3.2"},
+		{config.ModuleKeyboardInput, &cfg.KeyboardInput.Format, "{{ alias | lower }}", "en"},
+		{config.ModuleMail, &cfg.Mail.Format, "Unread: {{ count }}", "Unread: 3"},
+		{config.ModuleWeather, &cfg.Weather.Format, "{{ condition }}, {{ temp }}{{ temp_unit }}", "Partly cloudy, 22°C"},
+	} {
+		before := sampleLabel(cfg, tc.module, true)
+		*tc.format = tc.set
+		if got := sampleLabel(cfg, tc.module, true); got != tc.want || got == before {
+			t.Errorf("%s format %q previews %q (was %q), want %q", tc.module, tc.set, got, before, tc.want)
+		}
+	}
+}
+
+func TestASampleLabelShowsWhatTheModuleShowsForAFormatItCannotRender(t *testing.T) {
+	if got := sampleFormatLabel(config.ModuleBattery, "{{ percent"); got != "" {
+		t.Errorf("an unterminated template previews %q, want the empty label the module shows", got)
+	}
+	if got := sampleFormatLabel(config.ModuleBattery, "[{{ pending }}]"); got != "[]" {
+		t.Errorf("an undeclared variable previews %q, want nothing in its place", got)
+	}
+	if got := sampleFormatLabel(config.ModuleMail, "{{ count | upper }}"); got != "{{ count | upper }}" {
+		t.Errorf("mail, which replaces rather than renders, previews %q, want the format as written", got)
 	}
 }

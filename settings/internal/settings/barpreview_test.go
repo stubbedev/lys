@@ -86,6 +86,22 @@ func TestABarItemPagePreviewsItsButton(t *testing.T) {
 	}
 }
 
+func TestABarItemPreviewLabelsItsButtonInItsFormat(t *testing.T) {
+	k := testKit(t, "")
+	p := buildPage(k, batteryPage(nil))
+	if got := previewedButton(t, previewedBar(t, p), "battery").Label().Text(); got != "45%" {
+		t.Fatalf("the default battery format previews %q, want 45%%", got)
+	}
+	set(t, k, p, "modules.battery.format", "Bat {{ percent }}")
+	if got := previewedButton(t, previewedBar(t, p), "battery").Label().Text(); got != "Bat 45" {
+		t.Errorf("the format Bat {{ percent }} previews %q, want Bat 45", got)
+	}
+	set(t, k, p, "modules.battery.format", "Bat {{ percent")
+	if got := previewedButton(t, previewedBar(t, p), "battery").Label().Text(); got != "" {
+		t.Errorf("a format that does not parse previews %q, want the empty label lys-shell shows", got)
+	}
+}
+
 func TestALayoutWithoutABarEverywherePreviewsNoBar(t *testing.T) {
 	k := testKit(t, "bar:\n  layout:\n    - monitor: DP-1\n      show: true\n      center: [clock]\n")
 	p := buildPage(k, barPage(nil))

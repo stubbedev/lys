@@ -461,6 +461,7 @@
       "desktop/config",
       "desktop/glob",
       "desktop/i18n",
+      "desktop/jinja",
       "desktop/strftime",
       "desktop/styling",
       "lib/render",
