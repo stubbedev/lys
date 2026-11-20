@@ -96,6 +96,7 @@ var passwordPresetList = cardRow(cardSpec{
 			return newEnumChips(k, s, config.MetaOf[config.PasswordCharset](), 1)
 		}},
 		{key: "avoid-ambiguous", label: "settings-generator-preset-avoid-ambiguous", editor: presetToggle},
+		generatorSampleField(passwordRules),
 	},
 	blank:   presetBlank(config.DefaultsBitwardenPasswordPreset()),
 	keep:    presetNamed,
@@ -111,6 +112,7 @@ var passphrasePresetList = cardRow(cardSpec{
 		}},
 		{key: "capitalize", label: "settings-generator-preset-capitalize", editor: presetToggle},
 		{key: "number", label: "settings-generator-preset-number", editor: presetToggle},
+		generatorSampleField(passphraseRules),
 	},
 	blank:   presetBlank(config.DefaultsBitwardenPassphrasePreset()),
 	keep:    presetNamed,
