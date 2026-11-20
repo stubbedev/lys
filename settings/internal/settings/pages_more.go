@@ -110,7 +110,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.popup-close-behavior"),
 			field("modules.notifications.icon-source"),
 			field("modules.notifications.history-memory"),
-			field("modules.notifications.history-stored"),
+			field("modules.notifications.history-stored", countChips(inEntries, 1_000, 10_000, 100_000)),
 			field("modules.notifications.popup-layer"),
 			field("modules.notifications.popup-margin-x", sizeBase(config.PopupMarginBaseRem)),
 			field("modules.notifications.popup-margin-y", sizeBase(config.PopupMarginBaseRem)),

@@ -1644,6 +1644,8 @@ settings-launcher-clear-history-cancel = Annuleren
 settings-launcher-clear-history-confirm = Geschiedenis wissen
 settings-launcher-clear-history-done = De geschiedenis is gewist
 settings-launcher-clear-history-failed = De geschiedenis is niet gewist: { $reason }
+settings-count-thousands = { $n }K
+settings-count-millions = { $n } mln.
 settings-map-mode-name-placeholder = modusnaam
 
 settings-map-name-placeholder = getoonde naam

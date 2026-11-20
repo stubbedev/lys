@@ -129,7 +129,20 @@ func (u countUnit) words(n int64) string {
 	if u == inFrames {
 		return locale.T().Get("settings-framerate", i18n.Int("n", n))
 	}
-	return strconv.FormatInt(n, 10)
+	return compactCount(locale.T(), n)
+}
+
+// compactCount is n as tr's language writes a round count short: a whole
+// number of millions or thousands abbreviated, any other count in digits.
+func compactCount(tr *i18n.Loader, n int64) string {
+	switch {
+	case n >= 1_000_000 && n%1_000_000 == 0:
+		return tr.Get("settings-count-millions", i18n.Int("n", n/1_000_000))
+	case n >= 1_000 && n%1_000 == 0:
+		return tr.Get("settings-count-thousands", i18n.Int("n", n/1_000))
+	default:
+		return strconv.FormatInt(n, 10)
+	}
 }
 
 func (u countUnit) custom() customUnit {

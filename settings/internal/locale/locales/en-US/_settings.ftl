@@ -1654,6 +1654,8 @@ settings-launcher-clear-history-cancel = Cancel
 settings-launcher-clear-history-confirm = Clear History
 settings-launcher-clear-history-done = The history is cleared
 settings-launcher-clear-history-failed = The history was not cleared: { $reason }
+settings-count-thousands = { $n }K
+settings-count-millions = { $n }M
 settings-map-mode-name-placeholder = mode name
 
 settings-map-name-placeholder = name shown
