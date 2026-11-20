@@ -528,7 +528,7 @@ type rawShadow struct {
 	Range         *At[int]     `yaml:"range"`
 	RenderPower   *At[int]     `yaml:"render_power"`
 	Sharp         *bool        `yaml:"sharp"`
-	Offset        *At[sides]   `yaml:"offset"`
+	Offset        *At[[]int]   `yaml:"offset"`
 	Scale         *At[float64] `yaml:"scale"`
 	Color         *At[string]  `yaml:"color"`
 	ColorInactive *At[string]  `yaml:"color_inactive"`

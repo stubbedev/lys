@@ -305,6 +305,7 @@ func TestErrorsNameFileLineAndKey(t *testing.T) {
 		"decoration:\n  dim_strength: 2\n":                                      "t.yaml:2: decoration.dim_strength: 2 is not from 0 to 1",
 		"decoration:\n  shadow:\n    render_power: 5\n":                         "t.yaml:3: decoration.shadow.render_power: 5 is not from 1 to 4",
 		"decoration:\n  shadow:\n    offset: [1]\n":                             "t.yaml:3: decoration.shadow.offset: [1] is not [x, y]",
+		"decoration:\n  shadow:\n    offset: 4\n":                               "line 3: cannot unmarshal",
 		"decoration:\n  shadow:\n    scale: 0\n":                                "t.yaml:3: decoration.shadow.scale: 0 is not above 0 to 1",
 		"borders:\n  active: {colors: [red, nope]}\n":                           `t.yaml:2: borders.active.colors[1]: "nope" is neither`,
 		"borders:\n  active: {colors: []}\n":                                    "t.yaml:2: borders.active: render: a gradient border takes 2 to 10 colours, not 0",

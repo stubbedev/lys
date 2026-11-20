@@ -195,6 +195,7 @@ func annotations() map[string]annotation {
 		"decoration.shadow.render_power":    at(1, 4, d.Shadow.Power),
 		"decoration.shadow.sharp":           {def: d.Shadow.Sharp},
 		"decoration.shadow.scale":           above(0, 1, d.Shadow.Scale),
+		"decoration.shadow.offset":          {minItems: new(2), maxItems: new(2), def: []int{d.Shadow.Offset.X, d.Shadow.Offset.Y}},
 		"decoration.shadow.color":           colorAnn(hexColor(d.Shadow.Active)),
 		"decoration.shadow.color_inactive":  colorAnn(hexColor(d.Shadow.Inactive)),
 		"decoration.blur.enabled":           {def: d.Blur.Enabled},

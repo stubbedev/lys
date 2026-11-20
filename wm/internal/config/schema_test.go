@@ -259,7 +259,7 @@ func TestEveryPublishedBoundIsWhatTheParserEnforces(t *testing.T) {
 	}
 }
 
-var itemFillers = map[string]any{"input.devices.*.calibration": 1.0, "input.devices.*.region": 0.25}
+var itemFillers = map[string]any{"input.devices.*.calibration": 1.0, "input.devices.*.region": 0.25, "decoration.shadow.offset": 3}
 
 func TestEveryPublishedItemCountIsWhatTheParserEnforces(t *testing.T) {
 	for _, path := range slices.Sorted(maps.Keys(annotations())) {

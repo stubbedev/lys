@@ -680,17 +680,16 @@
               "default": true
             },
             "offset": {
-              "oneOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "integer"
-                  }
-                }
-              ]
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "default": [
+                0,
+                8
+              ],
+              "items": {
+                "type": "integer"
+              }
             },
             "range": {
               "type": "integer",
