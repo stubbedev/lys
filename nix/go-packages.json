@@ -2238,6 +2238,7 @@
       "desktop/i18n",
       "desktop/identity",
       "desktop/imagedecode",
+      "desktop/jinja",
       "desktop/logging",
       "desktop/mime",
       "desktop/opener",
