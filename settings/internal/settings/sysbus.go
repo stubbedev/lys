@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -68,6 +69,41 @@ func (s sysService) watch(changed func(sysProps), failed func(error)) (*dbusx.Wa
 		return nil, fmt.Errorf("follow %s's properties: %w", s.name, err)
 	}
 	return w, nil
+}
+
+// ticks ticks whenever the service announces a change of its interface's
+// properties or comes onto the bus, until ctx ends; what names it in the
+// errors.
+func (s sysService) ticks(ctx context.Context, what string) (<-chan struct{}, error) {
+	ticks := make(chan struct{}, 1)
+	tick := func() {
+		select {
+		case ticks <- struct{}{}:
+		default:
+		}
+	}
+	w, err := dbusx.WatchSignals(ctx, s.conn, dbusx.FromOwner(s.name),
+		func(err error) { log.Printf("settings: follow %s: %v", what, err) },
+		dbusx.On(dbusx.PropertiesChanged, s.path, func(changed dbusx.ChangedProperties, _ dbus.Sequence) error {
+			if changed.Interface == s.iface {
+				tick()
+			}
+			return nil
+		}),
+		dbusx.OnOwnerChange(s.name, func(_, owner string, _ dbus.Sequence) error {
+			if owner != "" {
+				tick()
+			}
+			return nil
+		}))
+	if err != nil {
+		return nil, fmt.Errorf("follow %s in %s: %w", what, s.name, err)
+	}
+	go func() {
+		<-w.Done()
+		close(ticks)
+	}()
+	return mergeTicks(what, w.Stop, ticks), nil
 }
 
 func withTimeout[T any](fn func(context.Context) (T, error)) (T, error) {
