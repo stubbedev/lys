@@ -100,6 +100,7 @@ func (c *Compositor) rouse(w *window) error {
 	if c.fifo.Hidden() {
 		errs = errors.Join(errs, c.armHidden())
 	}
+	c.stateChanged()
 	return errs
 }
 
@@ -110,6 +111,7 @@ func (c *Compositor) fallAsleep(w *window) error {
 	})
 	goal := w.wanted
 	goal.suspended = true
+	c.stateChanged()
 	return c.settle(w, goal)
 }
 
@@ -159,9 +161,4 @@ func (c *Compositor) sleepDue() error {
 		}
 	}
 	return errors.Join(errs, c.armSleep(now))
-}
-
-func (c *Compositor) Asleep(id wm.WindowID) bool {
-	w := c.windowByID(id)
-	return w != nil && w.rest.asleep
 }

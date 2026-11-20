@@ -75,6 +75,10 @@ type (
 		Window    wm.WindowID `json:"window"`
 		Minimized bool        `json:"minimized"`
 	}
+	AsleepEvent struct {
+		Window wm.WindowID `json:"window"`
+		Asleep bool        `json:"asleep"`
+	}
 	PinEvent struct {
 		Window wm.WindowID `json:"window"`
 		Pinned bool        `json:"pinned"`
@@ -169,6 +173,7 @@ func (RectEvent) Name() string           { return string(wmipc.EventRect) }
 func (IconEvent) Name() string           { return string(wmipc.EventIcon) }
 func (UrgentEvent) Name() string         { return string(wmipc.EventUrgent) }
 func (MinimizedEvent) Name() string      { return string(wmipc.EventMinimized) }
+func (AsleepEvent) Name() string         { return string(wmipc.EventAsleep) }
 func (ModeEvent) Name() string           { return string(wmipc.EventMode) }
 func (UnresponsiveEvent) Name() string   { return string(wmipc.EventUnresponsive) }
 func (PinEvent) Name() string            { return string(wmipc.EventPin) }
@@ -295,6 +300,9 @@ func Diff(prev, next Snapshot) []Event {
 		}
 		if p.Minimized != w.Minimized {
 			out = append(out, MinimizedEvent{Window: w.ID, Minimized: w.Minimized})
+		}
+		if p.Asleep != w.Asleep {
+			out = append(out, AsleepEvent{Window: w.ID, Asleep: w.Asleep})
 		}
 		if p.Pinned != w.Pinned {
 			out = append(out, PinEvent{Window: w.ID, Pinned: w.Pinned})

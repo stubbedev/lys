@@ -94,7 +94,7 @@ one, or `null`.
 ```json
 {"id":7,"app_id":"foot","title":"~","pid":4242,"workspace":1,"output":"DP-1",
  "rect":{"x":0,"y":0,"width":1024,"height":1152},"floating":false,"fullscreen":false,"maximized":false,
- "client_fullscreen":false,"pinned":false,"minimized":false,"urgent":false,"unresponsive":false,
+ "client_fullscreen":false,"pinned":false,"minimized":false,"asleep":false,"urgent":false,"unresponsive":false,
  "focused":true,"inhibits_shortcuts":false,"content_type":"none","content_source":"client",
  "icon":{"serial":3,"name":"foot","sizes":[32,64]},"stack":0,"focus_timestamp":12,
  "group":{"id":4294967297,"layout":"h","index":0}}
@@ -110,6 +110,7 @@ one, or `null`.
 | `client_fullscreen` | The client is told it is fullscreen, including fake fullscreen in its tile |
 | `pinned` | Stays on screen across its output's workspace switches; `workspace` is the one shown |
 | `minimized` | Hidden, still counted in its workspace |
+| `asleep` | No output has drawn it and no capture has shared it for two seconds: it is told it is suspended (xdg-shell) and gets no frame callbacks until it is seen again |
 | `unresponsive` | The client has not answered a ping for 5 seconds; pings go out when the window gains focus |
 | `inhibits_shortcuts` | Holds an active `zwp_keyboard_shortcuts_inhibitor_v1`: only `locked` and `inhibit_proof` binds run |
 | `content_type` | `none`, `photo`, `video` or `game` |
@@ -310,6 +311,7 @@ its changes; `focus`; `showdesktop`; `mru`; `switcher`; `binds`; `submap`;
 | `urgent` | `window`, `urgent` | Asked for attention, or got it |
 | `mode` | `window`, `floating`, `fullscreen`, `maximized`, `client_fullscreen` | Any of those changed |
 | `minimized` | `window`, `minimized` | Minimized or restored |
+| `asleep` | `window`, `asleep` | Fell asleep hidden, or woke because it is seen |
 | `pin` | `window`, `pinned` | Pinned or unpinned |
 | `swallow` | `window`, `swallowed_by` | Swallowed (ID) or shown again (0) |
 | `unresponsive` | `window`, `unresponsive` | Stopped or resumed answering pings |

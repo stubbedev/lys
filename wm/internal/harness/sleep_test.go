@@ -26,7 +26,11 @@ func suspended(w *testclient.Window) bool {
 func asleep(h *Harness, id wm.WindowID) bool {
 	var a bool
 	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
-		a = c.Asleep(id)
+		for _, w := range c.Snapshot().Windows {
+			if w.ID == id {
+				a = w.Asleep
+			}
+		}
 		return nil
 	})
 	return a

@@ -93,3 +93,21 @@ func TestLayersGroupsAndFloatingAreEvents(t *testing.T) {
 		t.Fatalf("bell %s, %v", got, err)
 	}
 }
+
+func TestFallingAsleepAndWakingAreEvents(t *testing.T) {
+	awake := Window{ID: 4}
+	sleeping := awake
+	sleeping.Asleep = true
+	for _, c := range []struct {
+		from, to Window
+		want     []string
+	}{
+		{awake, sleeping, []string{`{"event":"asleep","window":4,"asleep":true}`}},
+		{sleeping, awake, []string{`{"event":"asleep","window":4,"asleep":false}`}},
+		{sleeping, sleeping, nil},
+	} {
+		if got := names(Diff(Snapshot{Windows: []Window{c.from}}, Snapshot{Windows: []Window{c.to}})); !slices.Equal(got, c.want) {
+			t.Fatalf("asleep %v to %v: %v, want %v", c.from.Asleep, c.to.Asleep, got, c.want)
+		}
+	}
+}

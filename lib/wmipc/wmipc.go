@@ -71,6 +71,7 @@ const (
 	EventIcon           EventKind = "icon"
 	EventUrgent         EventKind = "urgent"
 	EventMinimized      EventKind = "minimized"
+	EventAsleep         EventKind = "asleep"
 	EventMode           EventKind = "mode"
 	EventUnresponsive   EventKind = "unresponsive"
 	EventPin            EventKind = "pin"
@@ -248,6 +249,7 @@ type Window struct {
 	Floating   bool   `json:"floating"`
 	Fullscreen bool   `json:"fullscreen"`
 	Minimized  bool   `json:"minimized"`
+	Asleep     bool   `json:"asleep"`
 	Urgent     bool   `json:"urgent"`
 	Focused    bool   `json:"focused"`
 	// Stack is the window's front-to-back index among the windows its
