@@ -488,6 +488,15 @@ func stateHome(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", dir)
+	handedMu.Lock()
+	before := handedOut
+	handedOut = map[string]handout{}
+	handedMu.Unlock()
+	t.Cleanup(func() {
+		handedMu.Lock()
+		handedOut = before
+		handedMu.Unlock()
+	})
 	return dir
 }
 
