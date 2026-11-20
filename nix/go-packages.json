@@ -2202,6 +2202,12 @@
       "lib/waittest"
     ]
   },
+  "power/internal/devicepower": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ]
+  },
   "power/internal/energyd": {
     "imports": [
       "lib/third_party/godbus",
