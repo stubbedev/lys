@@ -2419,6 +2419,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/barview",
       "desktop/shell/cavaview",
+      "desktop/shell/dockview",
       "desktop/shell/launcherview",
       "desktop/shell/layers",
       "desktop/shell/lockview",

@@ -295,7 +295,7 @@ var dockRow = enabledBy("dock.enabled")
 
 // dockPage is the standalone dock.
 func dockPage(*config.Config) pageSpec {
-	return pageSpec{id: "dock", navKey: "settings-nav-dock", icon: "ld-panel-bottom-symbolic", header: "settings-page-dock", sections: []sectionSpec{
+	return pageSpec{id: "dock", navKey: "settings-nav-dock", icon: "ld-panel-bottom-symbolic", header: "settings-page-dock", lead: dockPreviewLead, extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("dock.enabled"),
 			field("dock.monitors", monitorSetRow, dockRow),
