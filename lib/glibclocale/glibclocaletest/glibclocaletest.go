@@ -1,6 +1,6 @@
 // Package glibclocaletest holds glibc compiled locale data for tests, as
-// glibc 2.44's localedef wrote it: the LC_IDENTIFICATION, LC_MONETARY,
-// LC_NUMERIC and LC_TIME of de_DE.utf8, en_GB.utf8, en_US.utf8,
+// glibc 2.44's localedef wrote it: the LC_IDENTIFICATION, LC_MEASUREMENT,
+// LC_MONETARY, LC_NUMERIC, LC_PAPER and LC_TIME of de_DE.utf8, en_GB.utf8, en_US.utf8,
 // fa_IR.utf8 and th_TH.utf8, as locale directories and as a
 // locale-archive holding the same five locales.
 package glibclocaletest

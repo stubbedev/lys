@@ -94,6 +94,8 @@ func TestTheArchiveAndTheDirectoriesReadAlike(t *testing.T) {
 			func(s Source) (any, error) { return s.Numeric(name) },
 			func(s Source) (any, error) { return s.Monetary(name) },
 			func(s Source) (any, error) { return s.Time(name) },
+			func(s Source) (any, error) { return s.Paper(name) },
+			func(s Source) (any, error) { return s.Measurement(name) },
 		} {
 			a, err := read(f.archive)
 			if err != nil {
@@ -353,7 +355,7 @@ func FuzzParseArchive(f *testing.F) {
 			if err != nil || !ok {
 				continue
 			}
-			for _, c := range []category{lcNumeric, lcMonetary, lcTime} {
+			for _, c := range []category{lcNumeric, lcMonetary, lcTime, lcPaper, lcMeasurement} {
 				if d, err := a.category(record, c); err == nil {
 					parseAll(d)
 				}
@@ -365,7 +367,7 @@ func FuzzParseArchive(f *testing.F) {
 func FuzzParseCategory(f *testing.F) {
 	dir := glibclocaletest.Dirs(f)
 	for _, name := range glibclocaletest.Names {
-		for _, c := range []category{lcNumeric, lcMonetary, lcTime} {
+		for _, c := range []category{lcNumeric, lcMonetary, lcTime, lcPaper, lcMeasurement} {
 			raw, err := os.ReadFile(filepath.Join(dir, name, c.String()))
 			if err != nil {
 				f.Fatal(err)
@@ -379,6 +381,8 @@ func FuzzParseCategory(f *testing.F) {
 func parseAll(data []byte) {
 	_, _ = parseNumeric(data)
 	_, _ = parseMonetary(data)
+	_, _ = parsePaper(data)
+	_, _ = parseMeasurement(data)
 	if tm, err := parseTime(data); err == nil {
 		_, _ = tm.Format("%c %x %X %r %Ey %OH %Oy", at)
 	}

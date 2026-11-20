@@ -2,8 +2,8 @@
 // locale-archive and the per-locale directories localedef writes, laid
 // out as glibc's locarchive.h and loadlocale.c read them. It lists the
 // locales a system has, as locale -a does, and reads a locale's
-// LC_NUMERIC, LC_MONETARY and LC_TIME, the last with a strftime over its
-// names and formats.
+// LC_NUMERIC, LC_MONETARY, LC_PAPER, LC_MEASUREMENT and LC_TIME, the last
+// with a strftime over its names and formats.
 //
 // A locale is found as glibc finds it: with LOCPATH set, only in its
 // directories; otherwise in the archive and then in /usr/lib/locale. A
@@ -130,6 +130,16 @@ func (s Source) Numeric(name string) (Numeric, error) {
 // Monetary reads the LC_MONETARY of the locale name.
 func (s Source) Monetary(name string) (Monetary, error) {
 	return load(s, name, lcMonetary, parseMonetary, cMonetary)
+}
+
+// Paper reads the LC_PAPER of the locale name.
+func (s Source) Paper(name string) (Paper, error) {
+	return load(s, name, lcPaper, parsePaper, cPaper)
+}
+
+// Measurement reads the LC_MEASUREMENT of the locale name.
+func (s Source) Measurement(name string) (Measurement, error) {
+	return load(s, name, lcMeasurement, parseMeasurement, cMeasurement)
 }
 
 // Time reads the LC_TIME of the locale name.

@@ -13,6 +13,8 @@ const (
 	lcNumeric        category = 1
 	lcTime           category = 2
 	lcMonetary       category = 4
+	lcPaper          category = 7
+	lcMeasurement    category = 11
 	lcIdentification category = 12
 	categorySlots             = 13
 )
@@ -27,6 +29,10 @@ func (c category) String() string {
 		return "LC_TIME"
 	case lcMonetary:
 		return "LC_MONETARY"
+	case lcPaper:
+		return "LC_PAPER"
+	case lcMeasurement:
+		return "LC_MEASUREMENT"
 	case lcIdentification:
 		return "LC_IDENTIFICATION"
 	}
