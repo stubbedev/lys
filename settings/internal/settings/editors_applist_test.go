@@ -19,7 +19,6 @@ func TestPerAppAlertSoundsAreSetWithTheOtherPerAppNotificationLists(t *testing.T
 func TestNotificationAppListsPickInstalledAppsAndKeepPatterns(t *testing.T) {
 	for _, row := range []struct{ page, path string }{
 		{"notifications", "modules.notifications.blocklist"},
-		{"notifications", "modules.notifications.dnd.allow-apps"},
 		{"notifications", "modules.notifications.sound-mute-apps"},
 	} {
 		dockAppsFixture(t)

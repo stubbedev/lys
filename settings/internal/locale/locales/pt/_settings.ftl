@@ -63,6 +63,7 @@ settings-icon-clear = Limpar ícone
 settings-icon-search = Pesquisar ícones...
 settings-list-add = Adicionar
 settings-list-remove = Remover
+settings-app-grid-remove = Remover { $name }
 settings-list-filter = Filtrar
 settings-card-expand = Mostrar detalhes
 settings-card-collapse = Ocultar detalhes

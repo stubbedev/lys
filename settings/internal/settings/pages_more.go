@@ -99,7 +99,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.sound-mute-apps", appList),
 		}},
 		{title: "settings-section-focus-automatic", rows: append(fields("modules.notifications.dnd.while-sharing", "modules.notifications.dnd.while-fullscreen"), field("modules.notifications.dnd.schedule", dndScheduleList))},
-		{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical"), field("modules.notifications.dnd.allow-apps", appList)}},
+		{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical"), field("modules.notifications.dnd.allow-apps", appGrid)}},
 		{title: "settings-section-bell", rows: append([]rowSpec{
 			field("modules.notifications.icon-name", iconRow),
 			field("modules.notifications.icon-unread", iconRow),
