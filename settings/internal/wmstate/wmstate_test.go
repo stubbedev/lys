@@ -180,3 +180,16 @@ func TestRunningAppsAreEachWindowsAppOnce(t *testing.T) {
 		t.Error("an answer that is no window list reads as apps")
 	}
 }
+
+func TestWorkspacesAreEachWorkspaceOnceInOrder(t *testing.T) {
+	got, err := Workspaces(answering(map[string]string{"workspaces": `[{"id":3,"output":"DP-1"},{"id":1,"output":"DP-1"},{"id":3,"output":"HDMI-A-1"}]`}))
+	if err != nil || !slices.Equal(got, []int{1, 3}) {
+		t.Fatalf("workspaces %v, %v", got, err)
+	}
+	if _, err := Workspaces(notRunning); !errors.Is(err, ErrNotRunning) {
+		t.Errorf("no lys-wm: %v, want %v", err, ErrNotRunning)
+	}
+	if _, err := Workspaces(answering(map[string]string{"workspaces": "nope"})); err == nil {
+		t.Error("an answer that is no workspace list reads as workspaces")
+	}
+}

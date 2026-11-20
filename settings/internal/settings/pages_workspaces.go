@@ -2,6 +2,8 @@ package settings
 
 import (
 	"os"
+	"slices"
+	"strconv"
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
@@ -10,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/wmstate"
 )
 
 const workspacesModule = "modules.workspaces"
@@ -31,7 +34,7 @@ func workspacesPage(*config.Config) pageSpec {
 	keyWith := func(k string, opt rowOpt) rowSpec { return field(workspacesModule+"."+k, opt) }
 	sections := []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
-			key("monitor-specific"), keyWith("workspace-ignore", stringList), key("hide-trailing-empty"), key("hide-empty"),
+			key("monitor-specific"), keyWith("workspace-ignore", workspaceIgnoreRow(on)), key("hide-trailing-empty"), key("hide-empty"),
 			key("min-workspace-count"), key("min-tag-count"), key("show-special"),
 		}},
 		{title: "settings-section-display", rows: []rowSpec{
@@ -86,4 +89,44 @@ func workspacesCompositorNote(k *kit, on compositor.Kind) widget.Widget {
 		text = t.Get("settings-workspaces-compositor", i18n.Str("compositor", on.String()))
 	}
 	return wrapped(k.label(text, "settings-section-description", css.Caption, css.DimLabel))
+}
+
+// workspaceIgnoreRow is the workspaces hidden from the bar as chips: under
+// lys-wm, a chip per workspace it keeps; any name, number or pattern typed.
+func workspaceIgnoreRow(on compositor.Kind) rowOpt {
+	return nameChipsRow(nameChipsSpec{
+		offered:     func(k *kit) func() offeredNames { return runningWorkspaces(k, on) },
+		placeholder: "settings-workspace-ignore-placeholder",
+		addKey:      "settings-workspace-ignore-add",
+		problem:     workspacePatternProblem,
+	})
+}
+
+func runningWorkspaces(k *kit, on compositor.Kind) func() offeredNames {
+	if on != compositor.LysWM {
+		return func() offeredNames { return offeredNames{} }
+	}
+	w, err := k.wmBackend()
+	if err != nil {
+		return func() offeredNames { return offeredNames{err: err} }
+	}
+	run := w.run
+	return func() offeredNames {
+		ids, err := wmstate.Workspaces(run)
+		names := make([]string, len(ids))
+		for i, id := range ids {
+			names[i] = strconv.Itoa(id)
+		}
+		return offeredNames{names: names, err: err}
+	}
+}
+
+func workspacePatternProblem(pattern string, listed []string) string {
+	switch {
+	case pattern == "":
+		return "settings-workspace-ignore-empty"
+	case slices.Contains(listed, pattern):
+		return "settings-workspace-ignore-listed"
+	}
+	return ""
 }

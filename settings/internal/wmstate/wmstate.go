@@ -132,3 +132,20 @@ func RunningApps(run wmconfig.Runner) ([]string, error) {
 	slices.Sort(ids)
 	return slices.Compact(ids), nil
 }
+
+// Workspaces are the IDs of the workspaces lys-wm keeps, each once, in
+// order.
+func Workspaces(run wmconfig.Runner) ([]int, error) {
+	workspaces, err := bounded(queryLimit, func(ctx context.Context) ([]wmipc.Workspace, error) {
+		return query[[]wmipc.Workspace](ctx, run, wmipc.KindWorkspaces)
+	})
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int, len(workspaces))
+	for i, w := range workspaces {
+		ids[i] = w.ID
+	}
+	slices.Sort(ids)
+	return slices.Compact(ids), nil
+}

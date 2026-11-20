@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -8,6 +9,8 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func runCompositor(t *testing.T, env string) {
@@ -116,5 +119,63 @@ func TestAHandEditedWorkspaceDividerIsKeptUntilAnotherIsPicked(t *testing.T) {
 	c.refresh()
 	if len(c.Items()) != 6 || k.store.value(workspacesModule+".divider") != " | " {
 		t.Fatalf("after picking | it offers %q, stored %q", c.Items(), k.store.value(workspacesModule+".divider"))
+	}
+}
+
+const workspaceIgnorePath = workspacesModule + ".workspace-ignore"
+
+func workspaceIgnoreChips(t *testing.T, k *kit, on compositor.Kind) *nameChips {
+	t.Helper()
+	return fieldControl(k, k.store, field(workspaceIgnorePath, workspaceIgnoreRow(on))).(*nameChips)
+}
+
+func TestUnderLysWMEachWorkspaceItKeepsIsAChipThatHidesIt(t *testing.T) {
+	k, _, fake, _ := wmKit(t, "")
+	fake.running = map[string]string{"workspaces": `[{"id":2,"output":"DP-1"},{"id":1,"output":"DP-1"},{"id":5,"output":"HDMI-A-1"}]`}
+	if err := k.store.set(workspaceIgnorePath, []any{"scratch*"}); err != nil {
+		t.Fatal(err)
+	}
+	c := workspaceIgnoreChips(t, k, compositor.LysWM)
+	if want := []string{"1", "2", "5", "scratch*"}; !slices.Equal(c.labels, want) || c.unread.Visible() {
+		t.Fatalf("chips %q (unread %v), want %q", c.labels, c.unread.Visible(), want)
+	}
+	if !c.toggles[3].Active() || c.toggles[0].Active() {
+		t.Fatal("the chips do not show what is hidden")
+	}
+	c.toggles[1].SetActive(true)
+	if got := k.store.value(workspaceIgnorePath); !reflect.DeepEqual(got, []any{"scratch*", "2"}) {
+		t.Fatalf("hiding workspace 2 stored %v", got)
+	}
+}
+
+func TestWithoutARunningLysWMTheWorkspaceChipsSayWhy(t *testing.T) {
+	k, _, _, _ := wmKit(t, "")
+	c := workspaceIgnoreChips(t, k, compositor.LysWM)
+	if !c.unread.Visible() || !strings.Contains(c.unread.Text(), "no lys-wm is running") || len(c.labels) != 0 {
+		t.Fatalf("unread %v %q, chips %q", c.unread.Visible(), c.unread.Text(), c.labels)
+	}
+}
+
+func TestATypedWorkspacePatternIsHiddenOnce(t *testing.T) {
+	k := testKit(t, "")
+	c := workspaceIgnoreChips(t, k, compositor.Sway)
+	tr := locale.T()
+	if len(c.labels) != 0 || c.unread.Visible() {
+		t.Fatalf("under sway the chips offer %q, unread %v", c.labels, c.unread.Visible())
+	}
+	c.entry.SetText("  ")
+	c.add()
+	if got := k.store.value(workspaceIgnorePath); c.problem.Text() != tr.Get("settings-workspace-ignore-empty") || !reflect.DeepEqual(got, []any{}) {
+		t.Fatalf("an empty pattern shows %q, stored %v", c.problem.Text(), got)
+	}
+	c.entry.SetText(" 1? ")
+	c.add()
+	if got := k.store.value(workspaceIgnorePath); !reflect.DeepEqual(got, []any{"1?"}) || c.problem.Visible() || !slices.Equal(c.labels, []string{"1?"}) {
+		t.Fatalf("stored %v, problem %v, chips %q", got, c.problem.Visible(), c.labels)
+	}
+	c.entry.SetText("1?")
+	c.add()
+	if c.problem.Text() != tr.Get("settings-workspace-ignore-listed") {
+		t.Fatalf("a repeat shows %q", c.problem.Text())
 	}
 }
