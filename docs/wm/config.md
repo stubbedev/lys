@@ -1051,6 +1051,10 @@ Default 60, an integer 0 or more; 0 is off. While power-profiles-daemon's
 profile is `power-saver`, a faster output composites every k-th vblank (k is
 refresh / rate rounded up) and its surfaces get frame callbacks at that rate.
 Under adaptive sync it is a minimum frame interval.
+The internal panel (`eDP-*`) also switches to its slowest mode of the same
+size at or above the rate, so the panel itself scans out slower (a 120 Hz panel
+that lists a 60 Hz timing drops to it), and its `hdr: true` acts as
+`hdr: fullscreen`. Both are restored when the profile changes again.
 
 ## hold_opening {#hold_opening}
 

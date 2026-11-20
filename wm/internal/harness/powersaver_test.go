@@ -19,8 +19,7 @@ var fast = backend.Mode{Size: image.Pt(160, 100), RefreshMHz: 120000, Preferred:
 
 func powerSaver(h *Harness, on bool) {
 	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
-		c.SetPowerSaver(on)
-		return nil
+		return c.SetPowerSaver(on)
 	})
 }
 
@@ -122,4 +121,78 @@ func TestPowerSaverSlidesAWorkspaceInHalfTheFrames(t *testing.T) {
 	if refreshes := uint64(took / fast.Interval()); presents == 0 || presents > refreshes/2+2 {
 		t.Fatalf("a workspace slide over %d refreshes of a 120 Hz output composited %d frames under power saver, want at most every other refresh", refreshes, presents)
 	}
+}
+
+var slowFast = backend.Mode{Size: fast.Size, RefreshMHz: 60000}
+
+func panelAndMonitor(t *testing.T, configure func(*compositor.Config)) *Harness {
+	t.Helper()
+	h := StartWith(t, configure)
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		for _, name := range []string{"eDP-1", "DP-1"} {
+			if _, err := b.AddNamedOutput(name, fast, slowFast); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return h
+}
+
+func outputStates(h *Harness) map[string]backend.OutputState {
+	states := map[string]backend.OutputState{}
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		for _, o := range b.Outputs() {
+			states[o.Name()] = o.State()
+		}
+		return nil
+	})
+	return states
+}
+
+func expectModes(t *testing.T, h *Harness, when string, want map[string]backend.Mode) {
+	t.Helper()
+	for name, state := range outputStates(h) {
+		if state.Mode != want[name] {
+			t.Errorf("%s: %s scans out %+v, want %+v", when, name, state.Mode, want[name])
+		}
+	}
+}
+
+func TestPowerSaverDropsOnlyTheInternalPanelToItsSlowerMode(t *testing.T) {
+	t.Parallel()
+	h := panelAndMonitor(t, func(*compositor.Config) {})
+	expectModes(t, h, "before power saver", map[string]backend.Mode{"eDP-1": fast, "DP-1": fast})
+	powerSaver(h, true)
+	expectModes(t, h, "under power saver", map[string]backend.Mode{"eDP-1": slowFast, "DP-1": fast})
+	powerSaver(h, false)
+	expectModes(t, h, "after power saver", map[string]backend.Mode{"eDP-1": fast, "DP-1": fast})
+}
+
+func TestPowerSaverWithoutAFrameRateKeepsThePanelsMode(t *testing.T) {
+	t.Parallel()
+	h := panelAndMonitor(t, func(cfg *compositor.Config) { cfg.PowerSaverRate = 0 })
+	powerSaver(h, true)
+	expectModes(t, h, "under power saver at power_saver_frame_rate 0", map[string]backend.Mode{"eDP-1": fast, "DP-1": fast})
+}
+
+func TestPowerSaverTurnsTheInternalPanelsHDROffOutsideFullscreen(t *testing.T) {
+	t.Parallel()
+	h := panelAndMonitor(t, func(cfg *compositor.Config) {
+		cfg.ColorManagement = true
+		cfg.Outputs = compositor.OutputRules{Fallback: compositor.OutputRule{HDR: compositor.HDROn}}
+	})
+	expectHDR := func(when string, want map[string]bool) {
+		t.Helper()
+		for name, state := range outputStates(h) {
+			if state.HDR.Active != want[name] {
+				t.Errorf("%s: %s signals HDR %v, want %v", when, name, state.HDR.Active, want[name])
+			}
+		}
+	}
+	expectHDR("before power saver", map[string]bool{"eDP-1": true, "DP-1": true})
+	powerSaver(h, true)
+	expectHDR("under power saver", map[string]bool{"eDP-1": false, "DP-1": true})
+	powerSaver(h, false)
+	expectHDR("after power saver", map[string]bool{"eDP-1": true, "DP-1": true})
 }

@@ -194,16 +194,10 @@ func TestTheRefreshClientsSeeStaysTheModesAcrossAFrameCapAndAdaptiveSync(t *test
 		tr.idle()
 	}
 	step(func(*headless.Output, *compositor.Compositor) error { return nil })
-	step(func(_ *headless.Output, c *compositor.Compositor) error {
-		c.SetPowerSaver(true)
-		return nil
-	})
+	step(func(_ *headless.Output, c *compositor.Compositor) error { return c.SetPowerSaver(true) })
 	step(func(o *headless.Output, _ *compositor.Compositor) error { return o.SetAdaptiveSync(true) })
 	step(func(o *headless.Output, _ *compositor.Compositor) error { return o.SetAdaptiveSync(false) })
-	step(func(_ *headless.Output, c *compositor.Compositor) error {
-		c.SetPowerSaver(false)
-		return nil
-	})
+	step(func(_ *headless.Output, c *compositor.Compositor) error { return c.SetPowerSaver(false) })
 	for i, e := range tr.events {
 		if time.Duration(e.refresh) != fast.Interval() {
 			t.Fatalf("presentation %d reported refresh %v, want the %v of the output's mode whatever its frame cap and adaptive sync", i, time.Duration(e.refresh), fast.Interval())

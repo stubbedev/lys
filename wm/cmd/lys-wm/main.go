@@ -753,10 +753,7 @@ func run(args []string) (err error) {
 		b.onPower(s.comp.PowerChanged)
 	}
 	if b.native != nil {
-		profiles, err := powerprofile.Watch(l, session.SystemBus(os.Getenv), func(saver bool) error {
-			s.comp.SetPowerSaver(saver)
-			return nil
-		}, cfg.Report)
+		profiles, err := powerprofile.Watch(l, session.SystemBus(os.Getenv), s.comp.SetPowerSaver, cfg.Report)
 		if err != nil {
 			return err
 		}

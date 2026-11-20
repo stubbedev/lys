@@ -627,6 +627,16 @@ reports the paced interval; the cursor plane keeps the mode's own. `internal/pow
 `ActiveProfile` (`org.freedesktop.UPower.PowerProfiles`, then
 `net.hadess.PowerProfiles`) off the loop; no daemon means no cap.
 
+Power saver is lys's Low Power Mode on the internal panel (`eDP-*`): its output
+rule picks the slowest mode of the chosen mode's size at or above the cap
+(`compositor.lowRefreshMode`), since pacing alone leaves the panel and the
+display engine scanning out at the full rate, and `hdr: true` acts as
+`hdr: fullscreen`, since HDR raises panel power. External outputs keep their
+mode: dropping theirs is a full modeset with a blank. The mode change is an
+ordinary commit; a driver that switches refresh rates without a modeset (xe's
+seamless switch between timings that differ only in vertical blanking) makes it
+invisible, and lys-power changes the profile only at an AC edge.
+
 ## Content rate
 
 A surface alone on an output whose content type is video, and whose last two

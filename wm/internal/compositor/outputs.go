@@ -95,7 +95,7 @@ func (c *Compositor) outputRule(b backend.Output) OutputRule {
 	if internalPanel(b.Name()) && c.clamshell() {
 		rule.Disabled = true
 	}
-	return rule
+	return c.lowPowerRule(b, rule)
 }
 
 type ModePolicy interface {
