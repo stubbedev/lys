@@ -19,6 +19,7 @@ import (
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -207,9 +208,7 @@ func fakeTesseract(t *testing.T, script string) string {
 		tools[name] = p
 	}
 	body := "#!" + tools["sh"] + "\necho \"$$ $*\" >> " + calls + "\n" + tools["cat"] + " > /dev/null\n" + strings.ReplaceAll(script, "sleep", tools["sleep"])
-	if err := os.WriteFile(filepath.Join(dir, Tesseract), []byte(body), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(dir, Tesseract), []byte(body))
 	t.Setenv("PATH", dir)
 	return calls
 }

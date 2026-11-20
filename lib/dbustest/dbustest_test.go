@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -106,9 +107,7 @@ func installFakeDaemon(t *testing.T, script string) fakeDaemon {
 		t.Fatal(err)
 	}
 	body := "#!/bin/sh\nSTARTED=" + d.started + "\nRELEASE=" + d.release + "\n" + script
-	if err := os.WriteFile(filepath.Join(bin, "dbus-daemon"), []byte(body), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(bin, "dbus-daemon"), []byte(body))
 	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
 	return d
 }

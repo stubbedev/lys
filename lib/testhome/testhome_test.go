@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/wltest"
@@ -170,9 +171,7 @@ func fakeGo(t *testing.T, script string) (marker string) {
 	t.Helper()
 	dir := t.TempDir()
 	marker = filepath.Join(dir, "ran")
-	if err := os.WriteFile(filepath.Join(dir, "go"), []byte("#!/bin/sh\n: > "+marker+"\n"+script+"\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(dir, "go"), []byte("#!/bin/sh\n: > "+marker+"\n"+script+"\n"))
 	t.Setenv("PATH", dir)
 	return marker
 }

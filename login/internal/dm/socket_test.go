@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/sockdir"
 
 	"github.com/stubbedev/lys/login/dmsocket"
@@ -188,9 +189,7 @@ func TestQuitSplashRetainsItsFrame(t *testing.T) {
 	dir := t.TempDir()
 	got := filepath.Join(dir, "args")
 	splash := filepath.Join(dir, "lys-splash")
-	if err := os.WriteFile(splash, []byte("#!/bin/sh\necho \"$@\" > "+got+"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, splash, []byte("#!/bin/sh\necho \"$@\" > "+got+"\n"))
 	if err := quitSplash(splash)(); err != nil {
 		t.Fatal(err)
 	}
@@ -207,9 +206,7 @@ func TestQuitSplashWithoutSplash(t *testing.T) {
 		t.Errorf("lys-splash not installed: %v", err)
 	}
 	failing := filepath.Join(t.TempDir(), "lys-splash")
-	if err := os.WriteFile(failing, []byte("#!/bin/sh\necho no daemon >&2\nexit 1\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, failing, []byte("#!/bin/sh\necho no daemon >&2\nexit 1\n"))
 	if err := quitSplash(failing)(); err == nil || !strings.Contains(err.Error(), "no daemon") {
 		t.Errorf("a failing lys-splash: %v, want its output", err)
 	}

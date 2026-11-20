@@ -3,11 +3,12 @@ package passwd_test
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/fdtest"
 
 	"github.com/stubbedev/lys/polkit/internal/passwd"
 )
@@ -18,9 +19,7 @@ func fakeGetent(t *testing.T, body string) {
 	t.Helper()
 	dir := t.TempDir()
 	script := "#!/bin/sh\n" + body + "\n"
-	if err := os.WriteFile(filepath.Join(dir, "getent"), []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(dir, "getent"), []byte(script))
 	t.Setenv("PATH", dir)
 }
 

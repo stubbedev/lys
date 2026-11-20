@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/data"
@@ -464,9 +465,7 @@ func (quietListener) XDragTarget() (*surface.Surface, float64, float64)  { retur
 func TestAnXwaylandThatCannotStartIsTriedAgainNextTime(t *testing.T) {
 	dir := testenv.SocketDir(t)
 	binary := filepath.Join(dir, "Xwayland")
-	if err := os.WriteFile(binary, []byte("not a program"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, binary, []byte("not a program"))
 	l, err := loop.New()
 	if err != nil {
 		t.Fatal(err)

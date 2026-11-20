@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"golang.org/x/sys/unix"
@@ -310,9 +311,7 @@ func buildCopy(t *testing.T, binary string) string {
 		t.Fatal(err)
 	}
 	next := filepath.Join(t.TempDir(), "lys-wm-next")
-	if err := os.WriteFile(next, data, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, next, data)
 	return next
 }
 
@@ -332,9 +331,7 @@ func (s *running) upgrade(binary string) (ipc.UpgradeResult, error) {
 func script(t *testing.T, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "fake-lys-wm")
-	if err := os.WriteFile(path, []byte("#!"+shellPath(t)+"\n"+body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, path, []byte("#!"+shellPath(t)+"\n"+body))
 	return path
 }
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/waittest"
 )
@@ -97,9 +98,7 @@ line=$(sed -n "${n}p" "` + lines + `")
 [ "$line" = FAIL ] && exit 1
 echo "$line"
 `
-	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, bin, []byte(script))
 	return bin
 }
 
@@ -267,9 +266,7 @@ func TestRunActionReportsStderr(t *testing.T) {
 	log := filepath.Join(dir, "args")
 	bin := filepath.Join(dir, "treeman")
 	script := "#!/bin/sh\necho \"$@\" > " + log + "\nif [ \"$1\" = db ]; then echo 'no such worktree' >&2; exit 3; fi\n"
-	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, bin, []byte(script))
 	s := New(bin)
 	if err := s.RunAction(context.Background(), ActionPrepare, "/w/x"); err != nil {
 		t.Fatal(err)

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/fdtest"
 )
 
 // fakeLysLogin puts a lys-login on PATH that runs script with $out set
@@ -20,9 +22,7 @@ func fakeLysLogin(t *testing.T, script string) string {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "out")
 	body := "#!" + sh + "\nout=" + out + "\n" + script + "\n"
-	if err := os.WriteFile(filepath.Join(dir, "lys-login"), []byte(body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(dir, "lys-login"), []byte(body))
 	t.Setenv("PATH", dir)
 	return out
 }

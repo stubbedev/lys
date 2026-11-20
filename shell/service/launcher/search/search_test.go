@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/pango"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -523,9 +524,7 @@ func TestScriptArgumentsStayData(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c")
 	body := "#!/bin/sh\n# @lys.title C\n# @lys.output copy\n# @lys.argument a\nprintf '%s' \"$1\"\n"
-	if err := os.WriteFile(path, []byte(body), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, path, []byte(body))
 	s := &sink{}
 	e := start(t, s, nil, NewScripts(Env{}, dir))
 	e.SetQuery("c", 1)

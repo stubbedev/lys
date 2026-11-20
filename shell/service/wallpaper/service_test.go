@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 	"github.com/stubbedev/lys/desktop/styling/material"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -376,9 +377,7 @@ func fakeExtractor(t *testing.T) (log string) {
 	bin := t.TempDir()
 	log = filepath.Join(t.TempDir(), "calls")
 	script := "#!/bin/sh\necho \"$2\" >> " + log + "\necho '{}'\n"
-	if err := os.WriteFile(filepath.Join(bin, "matugen"), []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(bin, "matugen"), []byte(script))
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	return log

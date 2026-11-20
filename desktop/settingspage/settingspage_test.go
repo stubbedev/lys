@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/fdtest"
 )
 
 func TestAListSurvivesTheRoundTrip(t *testing.T) {
@@ -70,9 +72,7 @@ func TestArgvOpensThePage(t *testing.T) {
 func fakeApp(t *testing.T, script string) {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, Program), []byte("#!/bin/sh\n"+script+"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(dir, Program), []byte("#!/bin/sh\n"+script+"\n"))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -179,9 +180,7 @@ func TestRunLoadForAnEndedSessionScansAndAsksNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "mytool"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(dir, "mytool"), []byte("#!/bin/sh\n"))
 	t.Setenv("PATH", dir+string(filepath.ListSeparator)+filepath.Dir(sh))
 	listed := filepath.Join(dir, "listed")
 	opened := false
@@ -270,9 +269,7 @@ func TestDrunMatchTextRespectsSelectedFields(t *testing.T) {
 
 func TestDrunListsAppsAndLinks(t *testing.T) {
 	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "mytool"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(bin, "mytool"), []byte("#!/bin/sh\n"))
 	t.Setenv("PATH", bin)
 	t.Setenv("XDG_CURRENT_DESKTOP", "")
 	dir := t.TempDir()

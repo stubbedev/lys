@@ -2,10 +2,11 @@ package modes
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/fdtest"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
@@ -87,9 +88,7 @@ func TestACustomDelimiter(t *testing.T) {
 func writeScript(t *testing.T, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "mode.sh")
-	if err := os.WriteFile(path, []byte(body), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, path, []byte(body))
 	return path
 }
 

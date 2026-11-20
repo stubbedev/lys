@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -69,9 +70,7 @@ func appsFixture(t *testing.T) (string, string) {
 	t.Helper()
 	bin := t.TempDir()
 	tool := filepath.Join(bin, "mytool")
-	if err := os.WriteFile(tool, []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, tool, []byte("#!/bin/sh\n"))
 	t.Setenv("PATH", bin)
 	dir := t.TempDir()
 	write(t, dir, "mytool.desktop", "[Desktop Entry]\nType=Application\nName=My Tool\nExec=mytool %U\nIcon=mytool\nActions=new;ghost;\n\n[Desktop Action new]\nName=New Window\nExec=mytool --new\n")
@@ -181,9 +180,7 @@ func TestLaunchRunsTheExecDetached(t *testing.T) {
 	bin := t.TempDir()
 	marker := filepath.Join(t.TempDir(), "ran")
 	script := filepath.Join(bin, "marktool")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\necho \"$GIO_LAUNCHED_DESKTOP_FILE\" > \""+marker+"\"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, script, []byte("#!/bin/sh\necho \"$GIO_LAUNCHED_DESKTOP_FILE\" > \""+marker+"\"\n"))
 	t.Setenv("PATH", bin+":/bin:/usr/bin:"+os.Getenv("PATH"))
 	dir := t.TempDir()
 	path := write(t, dir, "mark.desktop", "[Desktop Entry]\nType=Application\nName=Mark\nExec=marktool %u\n")

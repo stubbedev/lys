@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -83,9 +84,7 @@ func gnupg(t *testing.T) (gpg func(args ...string) (string, error), kill func())
 	home := t.TempDir()
 	wrapper := filepath.Join(home, "pinentry")
 	script := "#!/bin/sh\nexec env LYS_SECRETS_TEST_MAIN=1 DBUS_SESSION_BUS_ADDRESS='" + os.Getenv("DBUS_SESSION_BUS_ADDRESS") + "' '" + os.Args[0] + "' pinentry \"$@\"\n"
-	if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, wrapper, []byte(script))
 	if err := os.WriteFile(filepath.Join(home, "gpg-agent.conf"), []byte("pinentry-program "+wrapper+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

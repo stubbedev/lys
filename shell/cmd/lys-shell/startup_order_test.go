@@ -24,6 +24,7 @@ import (
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -245,9 +246,7 @@ func startBareSession(t *testing.T) (loginCalls string) {
 	bin := t.TempDir()
 	loginCalls = filepath.Join(bin, "calls")
 	script := fmt.Sprintf("#!/bin/sh\necho \"$*\" >> %s\nexit 1\n", strconv.Quote(loginCalls))
-	if err := os.WriteFile(filepath.Join(bin, "lys-login"), []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(bin, "lys-login"), []byte(script))
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return loginCalls
 }

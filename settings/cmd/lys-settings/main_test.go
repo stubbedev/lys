@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"golang.org/x/sys/unix"
 )
 
@@ -33,9 +34,7 @@ func noSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{identity.Name, "lys-wm"} {
-		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		fdtest.WriteExecutable(t, filepath.Join(bin, name), []byte("#!/bin/sh\nexit 1\n"))
 	}
 	t.Setenv("PATH", bin)
 }

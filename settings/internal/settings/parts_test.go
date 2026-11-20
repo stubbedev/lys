@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/fdtest"
 )
 
 func pageIDs(installed parts) []string {
@@ -106,9 +106,7 @@ func TestTheInstalledPartsAreWhatThePathHolds(t *testing.T) {
 	if got := installedParts(); got != (parts{}) {
 		t.Fatalf("an empty PATH: %+v", got)
 	}
-	if err := os.WriteFile(filepath.Join(dir, identity.Name), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, filepath.Join(dir, identity.Name), []byte("#!/bin/sh\n"))
 	if got := installedParts(); got != (parts{shell: true}) {
 		t.Fatalf("lys-shell on the PATH: %+v", got)
 	}

@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
+
 	"github.com/stubbedev/lys/wm/internal/frametrace"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 )
@@ -162,9 +164,7 @@ func TestMeasuringASoftwareRendererEndToEnd(t *testing.T) {
 
 func TestAMissingCompositorFailsWithItsLog(t *testing.T) {
 	script := filepath.Join(t.TempDir(), "lys-wm")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\necho 'no render node for you' >&2\nexit 3\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, script, []byte("#!/bin/sh\necho 'no render node for you' >&2\nexit 3\n"))
 	err := measure(options{backend: "headless", renderer: "vulkan", compositor: script, rounds: 1}, io.Discard, os.Getenv)
 	if err == nil || !strings.Contains(err.Error(), "did not start") || !strings.Contains(err.Error(), "no render node for you") || !strings.Contains(err.Error(), "/dev/dri") {
 		t.Fatalf("error = %v", err)

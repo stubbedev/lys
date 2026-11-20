@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/waittest"
 
@@ -546,9 +547,7 @@ func (d *fakeDM) endSession(worker int) {
 func wrapper(t *testing.T, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "next-lys-login")
-	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, path, []byte("#!/bin/sh\n"+body+"\n"))
 	return path
 }
 

@@ -69,6 +69,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/testhome",
       "lib/waittest"
     ]
@@ -519,7 +520,11 @@
       "lib/sockdir"
     ]
   },
-  "desktop/settingspage": {},
+  "desktop/settingspage": {
+    "testImports": [
+      "lib/fdtest"
+    ]
+  },
   "desktop/shell/apptheme": {
     "imports": [
       "desktop/config",
@@ -797,6 +802,7 @@
       "lib/waittest"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testbuild",
       "lib/testhome"
     ]
@@ -1353,6 +1359,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/pulse/pulsetest",
       "lib/sockdir"
     ]
@@ -1784,6 +1791,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/logind/logindtest",
       "lib/logtest",
       "lib/polkit/polkittest",
@@ -2001,7 +2009,11 @@
       "polkit/internal/locale"
     ]
   },
-  "polkit/internal/passwd": {},
+  "polkit/internal/passwd": {
+    "testImports": [
+      "lib/fdtest"
+    ]
+  },
   "polkit/internal/polkit": {
     "imports": [
       "lib/dbusx",
@@ -2170,6 +2182,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/logind/logindtest",
       "lib/portaldialogs",
       "lib/sockdir",
@@ -2304,6 +2317,7 @@
     ],
     "testImports": [
       "desktop/identity",
+      "lib/fdtest",
       "lib/testhome"
     ]
   },
@@ -2425,6 +2439,7 @@
       "desktop/service/workspaces/workspacestest",
       "desktop/shell/treetest",
       "lib/dbustest",
+      "lib/fdtest",
       "lib/glibclocale/glibclocaletest",
       "lib/logind/logindtest",
       "lib/logtest",
@@ -2541,6 +2556,7 @@
       "desktop/swaytest",
       "lib/capture",
       "lib/dbustest",
+      "lib/fdtest",
       "lib/logind/logindtest",
       "lib/pulse/native",
       "lib/pulse/pulsetest",
@@ -2819,6 +2835,7 @@
       "lib/dbustest",
       "lib/dbusx/dbusxtest",
       "lib/eis/eistest",
+      "lib/fdtest",
       "lib/logind/logindtest",
       "lib/logtest",
       "lib/pipewire/pwtest",
@@ -3035,6 +3052,7 @@
       "desktop/fileuri",
       "desktop/opener/openertest",
       "desktop/service/clipboard/historybudget",
+      "lib/fdtest",
       "lib/sockdir",
       "shell/service/launcher/launchertest"
     ]
@@ -3063,6 +3081,7 @@
     ],
     "testImports": [
       "desktop/service/clipboard/historybudget",
+      "lib/fdtest",
       "lib/logtest",
       "lib/waittest",
       "shell/service/launcher/launchertest"
@@ -3103,6 +3122,7 @@
     ],
     "testImports": [
       "desktop/i18n/locales/shell",
+      "lib/fdtest",
       "lib/waittest"
     ]
   },
@@ -3298,6 +3318,7 @@
       "lib/xdg"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/sockdir",
       "lib/waittest"
     ]
@@ -3335,6 +3356,7 @@
     "testImports": [
       "lib/dbustest",
       "lib/dbusx/dbusxtest",
+      "lib/fdtest",
       "lib/testhome",
       "lib/waittest"
     ]
@@ -3485,6 +3507,7 @@
       "desktop/swaytest",
       "lib/dbustest",
       "lib/dbusx/dbusxtest",
+      "lib/fdtest",
       "lib/logtest",
       "lib/pulse/native",
       "lib/pulse/pulsetest",
@@ -3893,6 +3916,7 @@
     "testImports": [
       "desktop/i18n/locales/shell",
       "lib/dbustest",
+      "lib/fdtest",
       "lib/testhome",
       "lib/waittest",
       "shell/internal/apptest",
@@ -4194,6 +4218,9 @@
   "ui/clienttest": {
     "imports": [
       "lib/buildtest"
+    ],
+    "testImports": [
+      "lib/fdtest"
     ]
   },
   "ui/cmd/lys-ui-a11y": {
@@ -4904,6 +4931,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/testhome",
       "lib/third_party/godbus",
       "lib/waittest",
@@ -4935,6 +4963,7 @@
       "wm/cmd/lys-wm-pace/baseline.json"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testhome",
       "wm/internal/testenv"
     ]
@@ -6858,6 +6887,7 @@
       "wm/third_party/xgb/xproto"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testhome",
       "wm/internal/protocol/client/wayland",
       "wm/internal/protocol/client/xwaylandshell",

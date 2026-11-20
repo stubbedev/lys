@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/buildtest"
+	"github.com/stubbedev/lys/lib/fdtest"
 )
 
 const childEnv = "LYS_CLIENTTEST_CHILD"
@@ -96,9 +97,7 @@ func TestAClientsDirectoryGoesOnceItsProcessEnds(t *testing.T) {
 func TestPathTakesThePrebuiltClient(t *testing.T) {
 	dir := t.TempDir()
 	want := filepath.Join(dir, "lys-ui-states")
-	if err := os.WriteFile(want, []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, want, []byte("#!/bin/sh\n"))
 	t.Setenv(PrebuiltEnv, dir)
 	got, err := Path("lys-ui-states")
 	if err != nil {

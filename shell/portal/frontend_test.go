@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/pipewire"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -199,9 +200,7 @@ func TestFrontendOpenURIAsksTheAppChooser(t *testing.T) {
 	data := t.TempDir()
 	opened := filepath.Join(t.TempDir(), "opened")
 	script := filepath.Join(t.TempDir(), "open")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '%s %s' \"$1\" \"$2\" > '"+opened+"'\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	fdtest.WriteExecutable(t, script, []byte("#!/bin/sh\nprintf '%s %s' \"$1\" \"$2\" > '"+opened+"'\n"))
 	apps := filepath.Join(data, "applications")
 	if err := os.Mkdir(apps, 0o700); err != nil {
 		t.Fatal(err)
