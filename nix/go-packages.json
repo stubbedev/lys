@@ -2698,6 +2698,11 @@
       "lib/waittest",
       "ui/app",
       "ui/widget"
+    ],
+    "testImports": [
+      "lib/capture",
+      "lib/render",
+      "lib/testhome"
     ]
   },
   "shell/internal/audiolevel": {},
