@@ -2403,6 +2403,7 @@
       "lib/pam",
       "lib/pulse/native",
       "lib/render",
+      "lib/shacrypt",
       "lib/third_party/godbus",
       "lib/wmipc",
       "lib/xcursor",

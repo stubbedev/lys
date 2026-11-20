@@ -845,8 +845,24 @@ settings-users-remove-keep = Persönlichen Ordner behalten
 settings-users-remove-delete = Dateien löschen
 settings-users-remove-cancel = Abbrechen
 settings-users-add-name = Anmeldename
+    .description = Damit meldet sich der Benutzer an, und so heißt sein persönlicher Ordner. Er folgt dem vollständigen Namen, bis du ihn änderst
 settings-users-add-full = Vollständiger Name
 settings-users-add = Benutzer hinzufügen
+settings-users-add-open = Benutzer hinzufügen…
+settings-users-add-type = Kontotyp
+settings-users-add-password = Passwort
+settings-users-add-confirm = Passwort bestätigen
+settings-users-add-cancel = Abbrechen
+settings-users-add-name-empty = Wähle einen Anmeldenamen
+settings-users-add-name-long = { $max ->
+    [one] Ein Anmeldename hat höchstens 1 Zeichen
+   *[other] Ein Anmeldename hat höchstens { $max } Zeichen
+}
+settings-users-add-name-start = Ein Anmeldename beginnt mit einem Kleinbuchstaben oder _
+settings-users-add-name-chars = Ein Anmeldename enthält nur Kleinbuchstaben, Ziffern, - und _
+settings-users-add-name-taken = { $name } ist schon ein Benutzer auf diesem Computer
+settings-users-add-password-empty = Wähle ein Passwort für den neuen Benutzer
+settings-users-add-no-password = { $name } wurde hinzugefügt, aber das Passwort wurde nicht gesetzt: { $reason }
 settings-section-users-fingerprint = Fingerabdruck
     .description = Finger, an denen der Sensor Sie erkennt; die Registrierung fragt lys-polkit nach Ihrem Passwort
 settings-fingerprint-progress = Registrierung

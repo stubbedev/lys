@@ -835,8 +835,24 @@ settings-users-remove-keep = Manter a pasta pessoal
 settings-users-remove-delete = Eliminar os ficheiros
 settings-users-remove-cancel = Cancelar
 settings-users-add-name = Nome de início de sessão
+    .description = Aquilo com que o utilizador inicia sessão, e o nome da sua pasta pessoal. Acompanha o nome completo até o alterar
 settings-users-add-full = Nome completo
 settings-users-add = Adicionar utilizador
+settings-users-add-open = Adicionar utilizador…
+settings-users-add-type = Tipo de conta
+settings-users-add-password = Palavra-passe
+settings-users-add-confirm = Confirmar palavra-passe
+settings-users-add-cancel = Cancelar
+settings-users-add-name-empty = Escolha um nome de início de sessão
+settings-users-add-name-long = { $max ->
+    [one] Um nome de início de sessão tem no máximo 1 caractere
+   *[other] Um nome de início de sessão tem no máximo { $max } caracteres
+}
+settings-users-add-name-start = Um nome de início de sessão começa por uma letra minúscula ou _
+settings-users-add-name-chars = Um nome de início de sessão contém apenas letras minúsculas, algarismos, - e _
+settings-users-add-name-taken = { $name } já é um utilizador deste computador
+settings-users-add-password-empty = Escolha uma palavra-passe para o novo utilizador
+settings-users-add-no-password = { $name } foi adicionado, mas a respetiva palavra-passe não foi definida: { $reason }
 settings-section-users-fingerprint = Impressão digital
     .description = Dedos pelos quais o leitor o reconhece; o registo pede a sua palavra-passe ao lys-polkit
 settings-fingerprint-progress = Registo

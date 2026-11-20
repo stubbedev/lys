@@ -43,8 +43,10 @@ func (f fakeAccounts) ListCachedUsers() ([]dbus.ObjectPath, *dbus.Error) {
 	return f.cached, nil
 }
 
+const createdUser = dbus.ObjectPath("/org/freedesktop/Accounts/User3000")
+
 func (f fakeAccounts) CreateUser(name, real string, kind int32) (dbus.ObjectPath, *dbus.Error) {
-	return "/org/freedesktop/Accounts/User3000", f.record("CreateUser", name, real, kind)
+	return createdUser, f.record("CreateUser", name, real, kind)
 }
 
 func (f fakeAccounts) DeleteUser(uid int64, remove bool) *dbus.Error {
@@ -65,6 +67,10 @@ func (f fakeAccountUser) SetAccountType(kind int32) *dbus.Error {
 	return f.record("SetAccountType", kind)
 }
 
+func (f fakeAccountUser) SetPassword(hash, hint string) *dbus.Error {
+	return f.record("SetPassword", hash, hint)
+}
+
 type fakeAccount struct {
 	name, real  string
 	uid         uint64
@@ -83,7 +89,17 @@ func (a fakeAccount) path() dbus.ObjectPath {
 
 func serveAccounts(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...fakeAccount) (manager, user *fakeSys) {
 	t.Helper()
+	manager, user, _ = serveAccountsCreating(t, bus, self, others...)
+	return manager, user
+}
+
+func serveAccountsCreating(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...fakeAccount) (manager, user, created *fakeSys) {
+	t.Helper()
 	conn := bus.Conn(t)
+	created = &fakeSys{props: map[string]any{}, conn: conn}
+	if _, err := dbusx.Export(conn, createdUser, dbusx.Interface{Name: accountsUser, Methods: fakeAccountUser{created}, Properties: created.getters()}); err != nil {
+		t.Fatal(err)
+	}
 	manager = &fakeSys{props: map[string]any{"DaemonVersion": "23.13"}, conn: conn}
 	cached := make([]dbus.ObjectPath, 0, 1+len(others))
 	for i, a := range append([]fakeAccount{self}, others...) {
@@ -102,7 +118,7 @@ func serveAccounts(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...
 	if _, err := dbusx.Own(conn, accountsName); err != nil {
 		t.Fatal(err)
 	}
-	return manager, user
+	return manager, user, created
 }
 
 func usersFixture(t *testing.T, bus *dbustest.Bus) (*usersPanel, *loop) {

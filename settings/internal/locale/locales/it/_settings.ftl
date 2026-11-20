@@ -845,8 +845,24 @@ settings-users-remove-keep = Mantieni la cartella personale
 settings-users-remove-delete = Elimina i file
 settings-users-remove-cancel = Annulla
 settings-users-add-name = Nome di accesso
+    .description = Ciò con cui l'utente accede, e il nome della sua cartella home. Segue il nome completo finché non lo cambi
 settings-users-add-full = Nome completo
 settings-users-add = Aggiungi utente
+settings-users-add-open = Aggiungi utente…
+settings-users-add-type = Tipo di account
+settings-users-add-password = Password
+settings-users-add-confirm = Conferma password
+settings-users-add-cancel = Annulla
+settings-users-add-name-empty = Scegli un nome di accesso
+settings-users-add-name-long = { $max ->
+    [one] Un nome di accesso ha al massimo 1 carattere
+   *[other] Un nome di accesso ha al massimo { $max } caratteri
+}
+settings-users-add-name-start = Un nome di accesso inizia con una lettera minuscola o _
+settings-users-add-name-chars = Un nome di accesso contiene solo lettere minuscole, cifre, - e _
+settings-users-add-name-taken = { $name } è già un utente di questo computer
+settings-users-add-password-empty = Scegli una password per il nuovo utente
+settings-users-add-no-password = { $name } è stato aggiunto, ma la sua password non è stata impostata: { $reason }
 settings-section-users-fingerprint = Impronta digitale
     .description = Le dita con cui il lettore ti riconosce; la registrazione chiede la tua password tramite lys-polkit
 settings-fingerprint-progress = Registrazione

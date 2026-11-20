@@ -835,8 +835,24 @@ settings-users-remove-keep = Persoonlijke map bewaren
 settings-users-remove-delete = Bestanden verwijderen
 settings-users-remove-cancel = Annuleren
 settings-users-add-name = Aanmeldnaam
+    .description = Waarmee de gebruiker zich aanmeldt, en de naam van de persoonlijke map. Volgt de volledige naam tot je hem wijzigt
 settings-users-add-full = Volledige naam
 settings-users-add = Gebruiker toevoegen
+settings-users-add-open = Gebruiker toevoegen…
+settings-users-add-type = Accounttype
+settings-users-add-password = Wachtwoord
+settings-users-add-confirm = Wachtwoord bevestigen
+settings-users-add-cancel = Annuleren
+settings-users-add-name-empty = Kies een aanmeldnaam
+settings-users-add-name-long = { $max ->
+    [one] Een aanmeldnaam heeft hoogstens 1 teken
+   *[other] Een aanmeldnaam heeft hoogstens { $max } tekens
+}
+settings-users-add-name-start = Een aanmeldnaam begint met een kleine letter of _
+settings-users-add-name-chars = Een aanmeldnaam bevat alleen kleine letters, cijfers, - en _
+settings-users-add-name-taken = { $name } is al een gebruiker op deze computer
+settings-users-add-password-empty = Kies een wachtwoord voor de nieuwe gebruiker
+settings-users-add-no-password = { $name } is toegevoegd, maar het wachtwoord is niet ingesteld: { $reason }
 settings-section-users-fingerprint = Vingerafdruk
     .description = Vingers waaraan de lezer je herkent; registreren vraagt lys-polkit om je wachtwoord
 settings-fingerprint-progress = Registratie

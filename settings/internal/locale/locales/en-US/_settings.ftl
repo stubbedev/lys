@@ -845,8 +845,24 @@ settings-users-remove-keep = Keep Home Folder
 settings-users-remove-delete = Delete Files
 settings-users-remove-cancel = Cancel
 settings-users-add-name = Login name
+    .description = What the user signs in with, and the name of their home folder. It follows the full name until you change it
 settings-users-add-full = Full name
 settings-users-add = Add User
+settings-users-add-open = Add User…
+settings-users-add-type = Account type
+settings-users-add-password = Password
+settings-users-add-confirm = Confirm password
+settings-users-add-cancel = Cancel
+settings-users-add-name-empty = Choose a login name
+settings-users-add-name-long = { $max ->
+    [one] A login name has at most 1 character
+   *[other] A login name has at most { $max } characters
+}
+settings-users-add-name-start = A login name starts with a lower-case letter or _
+settings-users-add-name-chars = A login name holds only lower-case letters, digits, - and _
+settings-users-add-name-taken = { $name } is already a user on this computer
+settings-users-add-password-empty = Choose a password for the new user
+settings-users-add-no-password = { $name } was added, but their password was not set: { $reason }
 settings-section-users-fingerprint = Fingerprint
     .description = Fingers the reader knows you by; enrolling asks lys-polkit for your password
 settings-fingerprint-progress = Enrollment

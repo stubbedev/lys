@@ -848,8 +848,24 @@ settings-users-remove-keep = Garder le dossier personnel
 settings-users-remove-delete = Supprimer les fichiers
 settings-users-remove-cancel = Annuler
 settings-users-add-name = Identifiant
+    .description = Ce avec quoi l'utilisateur se connecte, et le nom de son dossier personnel. Il suit le nom complet jusqu'à ce que vous le changiez
 settings-users-add-full = Nom complet
 settings-users-add = Ajouter un utilisateur
+settings-users-add-open = Ajouter un utilisateur…
+settings-users-add-type = Type de compte
+settings-users-add-password = Mot de passe
+settings-users-add-confirm = Confirmer le mot de passe
+settings-users-add-cancel = Annuler
+settings-users-add-name-empty = Choisissez un identifiant
+settings-users-add-name-long = { $max ->
+    [one] Un identifiant compte au plus 1 caractère
+   *[other] Un identifiant compte au plus { $max } caractères
+}
+settings-users-add-name-start = Un identifiant commence par une lettre minuscule ou _
+settings-users-add-name-chars = Un identifiant ne contient que des lettres minuscules, des chiffres, - et _
+settings-users-add-name-taken = { $name } est déjà un utilisateur de cet ordinateur
+settings-users-add-password-empty = Choisissez un mot de passe pour le nouvel utilisateur
+settings-users-add-no-password = { $name } a été ajouté, mais son mot de passe n'a pas été défini : { $reason }
 settings-section-users-fingerprint = Empreinte digitale
     .description = Les doigts par lesquels le lecteur vous reconnaît ; l'enregistrement demande votre mot de passe à lys-polkit
 settings-fingerprint-progress = Enregistrement

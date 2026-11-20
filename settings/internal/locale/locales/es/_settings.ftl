@@ -845,8 +845,24 @@ settings-users-remove-keep = Conservar la carpeta personal
 settings-users-remove-delete = Borrar los archivos
 settings-users-remove-cancel = Cancelar
 settings-users-add-name = Nombre de inicio de sesión
+    .description = Con lo que el usuario inicia sesión, y el nombre de su carpeta personal. Sigue al nombre completo hasta que lo cambies
 settings-users-add-full = Nombre completo
 settings-users-add = Añadir usuario
+settings-users-add-open = Añadir usuario…
+settings-users-add-type = Tipo de cuenta
+settings-users-add-password = Contraseña
+settings-users-add-confirm = Confirmar contraseña
+settings-users-add-cancel = Cancelar
+settings-users-add-name-empty = Elige un nombre de inicio de sesión
+settings-users-add-name-long = { $max ->
+    [one] Un nombre de inicio de sesión tiene como máximo 1 carácter
+   *[other] Un nombre de inicio de sesión tiene como máximo { $max } caracteres
+}
+settings-users-add-name-start = Un nombre de inicio de sesión empieza por una letra minúscula o _
+settings-users-add-name-chars = Un nombre de inicio de sesión solo contiene letras minúsculas, cifras, - y _
+settings-users-add-name-taken = { $name } ya es un usuario de este equipo
+settings-users-add-password-empty = Elige una contraseña para el nuevo usuario
+settings-users-add-no-password = Se añadió { $name }, pero no se estableció su contraseña: { $reason }
 settings-section-users-fingerprint = Huella dactilar
     .description = Dedos por los que le reconoce el lector; registrar uno pide su contraseña a través de lys-polkit
 settings-fingerprint-progress = Registro

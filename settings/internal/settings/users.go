@@ -265,6 +265,7 @@ type usersPanel struct {
 	admin       *widget.Box
 	changer     passwordChanger
 	fingerprint *fingerprintSection
+	others      []otherUser
 }
 
 func usersFooter(k *kit) widget.Widget {
@@ -640,22 +641,9 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 		rows.Append(panelRow(p.k, cmp.Or(u.real, u.name), u.name, controls...))
 	}
 	body.Append(rows, false)
-	name, full := p.k.entry(), p.k.entry()
-	name.SetPlaceholder(t.Get("settings-users-add-name"))
-	full.SetPlaceholder(t.Get("settings-users-add-full"))
-	add := p.k.button(p.k.label(t.Get("settings-users-add")), func() {
-		login, real := strings.TrimSpace(name.Text()), strings.TrimSpace(full.Text())
-		manager := p.acc.manager()
-		p.adminCall(func(ctx context.Context) error {
-			var path dbus.ObjectPath
-			return manager.storeInteractive(ctx, "CreateUser", &path, login, real, accountStandard)
-		})
-	}, css.Secondary)
-	adding := gapBox(widget.Row)
-	adding.Append(name, true)
-	adding.Append(full, true)
-	adding.Append(add, false)
-	body.Append(adding, false)
+	p.others = l.users
+	add := p.k.button(p.k.label(t.Get("settings-users-add-open")), p.openAddUserDialog, css.Secondary)
+	body.AppendAligned(add, false, widget.AlignStart)
 	p.admin.Append(newSection(p.k, "settings-section-users-others", body), false)
 }
 
@@ -763,28 +751,41 @@ func (p *usersPanel) newPasswordForm() *passwordForm {
 	t := locale.T()
 	f := &passwordForm{Box: gapBox(widget.Column)}
 	f.AddClass("password-change")
-	entry := func(key string) *widget.Entry {
-		e := p.k.entry()
-		e.SetEcho(widget.EchoPassword)
-		e.SetAccessibleName(t.Get(key))
-		return e
-	}
-	f.current, f.next, f.confirm = entry("settings-users-password-current"), entry("settings-users-password-new"), entry("settings-users-password-confirm")
+	f.current, f.next, f.confirm = p.passwordEntry("settings-users-password-current"), p.passwordEntry("settings-users-password-new"), p.passwordEntry("settings-users-password-confirm")
 	f.Append(panelRow(p.k, t.Get("settings-users-password-current"), "", f.current, p.revealButton(f.current)), false)
 	f.Append(panelRow(p.k, t.Get("settings-users-password-new"), "", f.next, p.revealButton(f.next, f.confirm)), false)
 	f.Append(panelRow(p.k, t.Get("settings-users-password-confirm"), "", f.confirm), false)
+	f.Append(p.strengthRow(f.next), false)
+	f.messages = p.dialogMessages()
+	f.Append(f.messages, false)
+	return f
+}
+
+func (p *usersPanel) passwordEntry(key string) *widget.Entry {
+	e := p.k.entry()
+	e.SetEcho(widget.EchoPassword)
+	e.SetAccessibleName(locale.T().Get(key))
+	return e
+}
+
+// strengthRow shows how strong the password typed into next is, in a
+// meter and in words.
+func (p *usersPanel) strengthRow(next *widget.Entry) widget.Widget {
+	t := locale.T()
 	meter := widget.NewLevelBar(0)
 	meter.SetAccessibleName(t.Get("settings-users-password-strength"))
 	word := p.k.label("", "password-strength", css.Caption)
-	f.Append(panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word), false)
-	f.messages = wrapped(p.k.label("", "setting-problem", css.Caption, css.Error))
-	f.messages.SetVisible(false)
-	f.Append(f.messages, false)
-	f.next.OnChanged = func(text string) {
+	next.OnChanged = func(text string) {
 		meter.SetValue(float64(passwordStrength(text)) / strengthClasses)
 		word.SetText(strengthWord(text))
 	}
-	return f
+	return panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word)
+}
+
+func (p *usersPanel) dialogMessages() *widget.Label {
+	l := wrapped(p.k.label("", "setting-problem", css.Caption, css.Error))
+	l.SetVisible(false)
+	return l
 }
 
 func (f *passwordForm) say(text string) {
