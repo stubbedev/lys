@@ -200,6 +200,19 @@ type settingsPage struct {
 
 type configWatcher interface{ configChanged() }
 
+// draftWatcher is an extra that follows every edit of the page's rows as
+// it is made, before the backend has stored it.
+type draftWatcher interface{ draftChanged() }
+
+func (p *settingsPage) edited() {
+	p.showSections()
+	for _, e := range p.extras {
+		if d, ok := e.(draftWatcher); ok {
+			d.draftChanged()
+		}
+	}
+}
+
 // dependentRow is a row that follows another field: enabled, or shown
 // when it hides, while its condition holds; governing is the row editing
 // that field.
@@ -333,7 +346,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		content.Append(p.own(p.extra(spec.lead(k))), false)
 	}
 	p.k = k
-	conditional := p.showSections
+	conditional := p.edited
 	for _, s := range spec.sections {
 		rows := widget.NewItemGroup()
 		section, group := newSectionParts(k, s.title, rows)

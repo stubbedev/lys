@@ -73,6 +73,8 @@ wm-rules-pick-gone = The window closed before it could be read.
 wm-rules-pick-unnamed = That window has neither an app ID nor a title to match.
 wm-rules-pick-not-running = No lys-wm is running here to pick a window from.
 wm-rules-pick-failed = The window could not be picked: { $reason }
+wm-preview-windows = Window preview
+wm-preview-unreadable = The preview cannot draw { $setting } set to { $value }.
 wm-source-file = 
     .description = Set in lys-wm's config file
 

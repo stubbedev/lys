@@ -171,6 +171,10 @@ var (
 
 func miniWindow(cv *render.Canvas, r render.Rect, bg, ink render.Color) {
 	cv.RoundedRect(r, tileRadius/2, bg)
+	windowLines(cv, r, ink)
+}
+
+func windowLines(cv *render.Canvas, r render.Rect, ink render.Color) {
 	pad := max(3, r.H/8)
 	bar := render.Rect{X: r.X + pad, Y: r.Y + pad, W: r.W - 2*pad, H: max(3, r.H/7)}
 	cv.RoundedRect(bar, bar.H/2, ink)
@@ -243,14 +247,18 @@ func titlebarMock(cv *render.Canvas, r render.Rect, buttonsLeft bool) {
 	cv.RoundedRect(r, tileRadius/2, th.MutedColor())
 	bar := render.Rect{X: r.X, Y: r.Y, W: r.W, H: max(8, r.H/4)}
 	cv.RoundedRect(bar, tileRadius/2, th.Border)
+	titlebarDots(cv, bar, buttonsLeft, []render.Color{th.Text, th.Text, th.Text})
+}
+
+func titlebarDots(cv *render.Canvas, bar render.Rect, left bool, dots []render.Color) {
 	dot := bar.H / 2
 	gap := dot / 2
-	x := bar.X + bar.W - gap - 3*dot - 2*gap
-	if buttonsLeft {
+	x := bar.X + bar.W - gap - len(dots)*dot - (len(dots)-1)*gap
+	if left {
 		x = bar.X + gap
 	}
-	for range 3 {
-		cv.RoundedRect(render.Rect{X: x, Y: bar.Y + (bar.H-dot)/2, W: dot, H: dot}, dot/2, th.Text)
+	for _, c := range dots {
+		cv.RoundedRect(render.Rect{X: x, Y: bar.Y + (bar.H-dot)/2, W: dot, H: dot}, dot/2, c)
 		x += dot + gap
 	}
 }

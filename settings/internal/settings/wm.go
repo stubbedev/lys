@@ -491,8 +491,13 @@ func wmPage(id, icon string, sections ...sectionSpec) pageSpec {
 	return pageSpec{id: id, navKey: "settings-nav-" + id, icon: icon, header: "settings-page-" + id, wm: true, sections: sections}
 }
 
+func withWindowPreview(p pageSpec) pageSpec {
+	p.lead = newWindowPreview
+	return p
+}
+
 func wmWindowsPage() pageSpec {
-	return wmPage("wm-windows", "ld-app-window-symbolic",
+	return withWindowPreview(wmPage("wm-windows", "ld-app-window-symbolic",
 		sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner", softPixels(0, 48)), wmSides("gaps.outer")}},
 		sectionSpec{title: "wm-section-borders", rows: []rowSpec{wmField("borders.width", softPixels(0, 12)), wmBorder("borders.active"), wmBorder("borders.inactive")}},
 		sectionSpec{title: "wm-section-shape", rows: []rowSpec{
@@ -505,11 +510,11 @@ func wmWindowsPage() pageSpec {
 		sectionSpec{title: "wm-section-titlebars", rows: append(append([]rowSpec{wmField("titlebars.floating"), wmField("titlebars.height", softPixels(16, 48)), wmField("titlebars.side", pictureChoice(titlebarSidePictures)), wmField("titlebars.double_click")}, wmListRow("titlebars.buttons")),
 			wmFields("titlebars.active.background", "titlebars.active.text", "titlebars.inactive.background", "titlebars.inactive.text",
 				"titlebars.urgent.background", "titlebars.urgent.text", "titlebars.lights.close", "titlebars.lights.minimize", "titlebars.lights.maximize")...)},
-	)
+	))
 }
 
 func wmEffectsPage() pageSpec {
-	return wmPage("wm-effects", "ld-droplets-symbolic",
+	return withWindowPreview(wmPage("wm-effects", "ld-droplets-symbolic",
 		sectionSpec{title: "wm-section-shadow", rows: switchedBy("decoration.shadow.enabled",
 			wmField("decoration.shadow.range", softPixels(0, 64)), wmField("decoration.shadow.render_power"), wmField("decoration.shadow.sharp"), wmField("decoration.shadow.scale"),
 			wmField("decoration.shadow.color"), wmField("decoration.shadow.color_inactive"))},
@@ -518,7 +523,7 @@ func wmEffectsPage() pageSpec {
 			wmField("decoration.blur.brightness"), wmField("decoration.blur.contrast"), wmField("decoration.blur.grain", fraction), wmField("decoration.blur.live_tiled"))},
 		sectionSpec{title: "wm-section-mica", rows: switchedBy("decoration.blur.mica.enabled",
 			wmField("decoration.blur.mica.size"), wmField("decoration.blur.mica.passes"), wmField("decoration.blur.mica.tint"))},
-	)
+	))
 }
 
 func wmTilingPage() pageSpec {

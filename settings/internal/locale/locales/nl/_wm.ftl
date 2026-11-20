@@ -71,6 +71,8 @@ wm-rules-pick-gone = Het venster sloot voordat het kon worden gelezen.
 wm-rules-pick-unnamed = Dat venster heeft geen app-ID en geen titel om op te passen.
 wm-rules-pick-not-running = Hier draait geen lys-wm om een venster uit te kiezen.
 wm-rules-pick-failed = Het venster kon niet worden gekozen: { $reason }
+wm-preview-windows = Voorbeeld van de vensters
+wm-preview-unreadable = Het voorbeeld kan { $setting } met de waarde { $value } niet tekenen.
 wm-source-file = 
     .description = Ingesteld in het configuratiebestand van lys-wm
 
