@@ -44,6 +44,16 @@ const (
 	KindBinds          Kind = "binds"
 )
 
+// OutputChange is what an output event says happened to its output.
+type OutputChange string
+
+// The output changes.
+const (
+	OutputAdded   OutputChange = "added"
+	OutputRemoved OutputChange = "removed"
+	OutputChanged OutputChange = "changed"
+)
+
 // EventKind names one event of the watch stream.
 type EventKind string
 

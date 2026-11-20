@@ -14,14 +14,6 @@ type Event interface {
 	Name() string
 }
 
-type OutputChange string
-
-const (
-	OutputAdded   OutputChange = "added"
-	OutputRemoved OutputChange = "removed"
-	OutputChanged OutputChange = "changed"
-)
-
 type LayerChange string
 
 const (
@@ -31,8 +23,8 @@ const (
 
 type (
 	OutputEvent struct {
-		Change OutputChange `json:"change"`
-		Output Output       `json:"output"`
+		Change wmipc.OutputChange `json:"change"`
+		Output Output             `json:"output"`
 	}
 	WorkspaceEvent struct {
 		Output    string         `json:"output"`
@@ -243,16 +235,16 @@ func Diff(prev, next Snapshot) []Event {
 	}
 	for _, o := range prev.Outputs {
 		if !slices.ContainsFunc(next.Outputs, func(n Output) bool { return n.Name == o.Name }) {
-			out = append(out, OutputEvent{Change: OutputRemoved, Output: o})
+			out = append(out, OutputEvent{Change: wmipc.OutputRemoved, Output: o})
 		}
 	}
 	for _, o := range next.Outputs {
 		p, ok := prevOutputs[o.Name]
 		switch {
 		case !ok:
-			out = append(out, OutputEvent{Change: OutputAdded, Output: o})
+			out = append(out, OutputEvent{Change: wmipc.OutputAdded, Output: o})
 		case !sameOutput(p, o):
-			out = append(out, OutputEvent{Change: OutputChanged, Output: o})
+			out = append(out, OutputEvent{Change: wmipc.OutputChanged, Output: o})
 		}
 		if !ok || p.Workspace != o.Workspace {
 			out = append(out, WorkspaceEvent{Output: o.Name, Workspace: o.Workspace})

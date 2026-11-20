@@ -168,20 +168,21 @@ func Dispatch(action string) error {
 }
 
 type event struct {
-	Event     wmipc.EventKind `json:"event"`
-	Submap    *string         `json:"submap"`
-	Layout    *wmipc.Layout   `json:"layout"`
-	Locks     *wmipc.Locks    `json:"locks"`
-	Motion    *bool           `json:"reduced_motion"`
-	Window    json.RawMessage `json:"window"`
-	Workspace *int            `json:"workspace"`
-	Title     *string         `json:"title"`
-	AppID     *string         `json:"app_id"`
-	Output    json.RawMessage `json:"output"`
-	Rect      *wmipc.Rect     `json:"rect"`
-	Urgent    *bool           `json:"urgent"`
-	Minimized *bool           `json:"minimized"`
-	Stack     json.RawMessage `json:"stack"`
+	Event     wmipc.EventKind    `json:"event"`
+	Submap    *string            `json:"submap"`
+	Layout    *wmipc.Layout      `json:"layout"`
+	Locks     *wmipc.Locks       `json:"locks"`
+	Motion    *bool              `json:"reduced_motion"`
+	Window    json.RawMessage    `json:"window"`
+	Workspace *int               `json:"workspace"`
+	Title     *string            `json:"title"`
+	AppID     *string            `json:"app_id"`
+	Output    json.RawMessage    `json:"output"`
+	Change    wmipc.OutputChange `json:"change"`
+	Rect      *wmipc.Rect        `json:"rect"`
+	Urgent    *bool              `json:"urgent"`
+	Minimized *bool              `json:"minimized"`
+	Stack     json.RawMessage    `json:"stack"`
 }
 
 // Watcher follows the watch stream and ticks after each event of the
