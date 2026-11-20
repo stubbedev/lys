@@ -3,6 +3,8 @@
   "quiet_probes": 4,
   "settle_limit_seconds": 180,
   "window_seconds": 20,
+  "hidden_client_wakeups": 20,
+  "shown_client_wakeups": 200,
   "wakeups": {
     "lys-wm": 300,
     "lys-shell": 200,

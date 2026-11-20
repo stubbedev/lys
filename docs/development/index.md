@@ -65,8 +65,13 @@ The idle wakeup gate (`nix/idle-vm.nix`) lets a still session of lys-wm,
 lys-shell and lys-power settle, measures it with `lys-power energy`, and fails
 when one of them wakes more often, or keeps the GPU busier, over its window
 than `nix/idle-budgets.json` allows, naming the process and its busiest
-threads. It then gives the shell a clock that shows seconds and fails unless
-the gate catches it.
+threads. It then opens a client that redraws every frame in its own scope,
+hides it on another workspace, and fails unless lys-wm puts it to sleep, the
+shell naps its scope (CPU and I/O weight 20, 50 ms timer slack), the client
+wakes at most `hidden_client_wakeups` times over the window while lys-wm
+stays within its budget, and showing it again restores all of it. Last it
+gives the shell a clock that shows seconds and fails unless the gate catches
+it.
 
 ## CI
 

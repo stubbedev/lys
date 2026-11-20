@@ -28,11 +28,14 @@ def lys_threads(report, wm):
     }
 
 
-def measure(window):
+def measure(window, unit=None):
     wm = int(machine.succeed("pgrep -x lys-wm").strip())
     report = json.loads(machine.succeed(f"lys-power energy -for {window}s -threads -json"))
     seconds = report["Covered"] / 1e9
     found = {}
+    if unit is not None:
+        apps = [app for app in report["Apps"] if app["Cgroup"].endswith(f"/{unit}")]
+        found[unit] = {"wakeups": round(sum(t["Wakeups"] for app in apps for t in app["Threads"]) * seconds)}
     for name, (threads, apps) in lys_threads(report, wm).items():
         found[name] = {
             "wakeups": round(sum(t["Wakeups"] for t in threads) * seconds),
@@ -81,6 +84,52 @@ def gate(label):
 machine.wait_until_succeeds("busctl --system status dev.stubbe.lys.Energy1", timeout=60)
 settle()
 gate("still session")
+
+BUSY = "app-busy-1.scope"
+WINDOWS = as_alice("lys-wmctl windows")
+
+
+def busy_property(name):
+    return machine.succeed(as_alice(f"systemctl --user show -P {name} {BUSY}")).strip()
+
+
+def busy_slack():
+    pid = machine.succeed(f"pgrep -u {USER} -x weston-presenta").split()[0]
+    return int(machine.succeed(f"cat /proc/{pid}/timerslack_ns"))
+
+
+def asleep():
+    return machine.succeed(f"{WINDOWS} | jq -c '[.[].asleep]'").strip()
+
+
+machine.succeed(as_alice(f"WAYLAND_DISPLAY={display} systemd-run --user --scope --unit={BUSY} weston-presentation-shm") + " > /tmp/busy.log 2>&1 &")
+try:
+    machine.wait_until_succeeds(f"[ \"$({WINDOWS} | jq length)\" = 1 ]", timeout=60)
+except Exception:
+    print(machine.execute(f"cat /tmp/busy.log; {WINDOWS}")[1])
+    raise
+shown = measure(PROBE, BUSY)[1][BUSY]["wakeups"]
+assert shown * WINDOW / PROBE >= BUDGETS["shown_client_wakeups"], f"a shown busy client woke only {shown} times in {PROBE}s: it is not busy, so hiding it proves nothing"
+assert busy_property("CPUWeight") == "[not set]", f"a shown app has CPUWeight {busy_property('CPUWeight')}"
+
+machine.succeed(as_alice("lys-wmctl dispatch workspace 9"))
+machine.wait_until_succeeds(f"[ \"$({WINDOWS} | jq -c '[.[].asleep]')\" = '[true]' ]", timeout=30)
+machine.wait_until_succeeds(f"[ \"$({as_alice(f'systemctl --user show -P CPUWeight {BUSY}')})\" = 20 ]", timeout=30)
+assert busy_property("IOWeight") == "20", f"a napping app has IOWeight {busy_property('IOWeight')}"
+assert busy_slack() == 50_000_000, f"a napping app's timer slack is {busy_slack()} ns"
+seconds, found = measure(WINDOW, BUSY)
+hidden = found.pop(BUSY)["wakeups"]
+print(f"a hidden busy client: {hidden} wakeups and lys-wm {found['lys-wm']['wakeups']} over {WINDOW}s; shown it woke {shown} times in {PROBE}s")
+assert hidden <= BUDGETS["hidden_client_wakeups"], f"a hidden busy client woke {hidden} times in {WINDOW}s, over {BUDGETS['hidden_client_wakeups']}"
+problems = over_budget(found, WINDOW)
+assert not problems, f"with a busy client hidden: {'; '.join(problems)}"
+
+machine.succeed(as_alice("lys-wmctl dispatch workspace 1"))
+machine.wait_until_succeeds(f"[ \"$({as_alice(f'systemctl --user show -P CPUWeight {BUSY}')})\" = '[not set]' ]", timeout=10)
+assert asleep() == "[false]", f"a shown window is still asleep: {asleep()}"
+assert busy_slack() == 50_000, f"a woken app's timer slack is {busy_slack()} ns, want the default"
+machine.succeed(f"pkill -u {USER} -x weston-presenta")
+machine.wait_until_succeeds(f"[ \"$({WINDOWS} | jq length)\" = 0 ]", timeout=30)
 
 machine.succeed(f"install -m 644 -o {USER} -g users {params['ticking']} {CONFIG}")
 try:

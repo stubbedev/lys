@@ -42,6 +42,7 @@ in {
     environment.sessionVariables.LIBGL_ALWAYS_SOFTWARE = "1";
     hardware.graphics.extraPackages = [pkgs.mesa];
     fonts.packages = [pkgs.inter];
+    environment.systemPackages = [pkgs.weston];
     users.users.${user}.extraGroups = ["video" "render" "input"];
   };
 
