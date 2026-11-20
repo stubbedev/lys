@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -286,6 +287,92 @@ func wmSides(path string) rowSpec {
 	return wmField(path, func(r *rowSpec) {
 		r.fullWidth = true
 		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newSidesEditor(k, s, true) }
+	})
+}
+
+// offsetAxes label an [x, y] offset's parts in the order lys-wm lists them.
+var offsetAxes = [2]string{"wm-shadow-offset-x", "wm-shadow-offset-y"}
+
+// offsetEditor is an [x, y] offset in pixels: each axis a slider over
+// lo to hi beside a number taking any whole pixel count.
+type offsetEditor struct {
+	*widget.Box
+	axes [2]*softRange
+}
+
+func newOffsetEditor(k *kit, s slot, path string, lo, hi float64) *offsetEditor {
+	t := locale.T()
+	c := &offsetEditor{Box: gapBox(widget.Column)}
+	c.AddClass("offset-editor")
+	labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
+	whole := config.FieldMeta{Min: math.MinInt32, Max: math.MaxInt32}
+	for i, key := range offsetAxes {
+		axis := newSoftRange(k, offsetAxisSlot(s, path, i), whole, lo, hi, 1, func(v float64) string {
+			return strconv.FormatFloat(v, 'f', 0, 64) + " px"
+		})
+		axis.slider.SetAccessibleName(t.Get(key))
+		axis.number.SetAccessibleName(t.Get(key))
+		row := gapBox(widget.Row)
+		row.AppendAligned(labels.Add(k.label(t.Get(key), css.Caption, css.DimLabel)), false, widget.AlignCenter)
+		row.Append(axis, true)
+		c.Append(row, false)
+		c.axes[i] = axis
+	}
+	return c
+}
+
+func (c *offsetEditor) refresh() {
+	for _, a := range c.axes {
+		a.refresh()
+	}
+}
+
+// offsetAxisSlot is axis i of the [x, y] offset s holds, writing the pair
+// with the other axis as it stands.
+func offsetAxisSlot(s slot, path string, i int) slot {
+	return slot{
+		get: func() any {
+			pair, err := offsetPair(path, s.get())
+			if err != nil {
+				log.Printf("settings: show the offset: %v", err)
+				return nil
+			}
+			return pair[i]
+		},
+		set: func(v any) error {
+			pair, err := offsetPair(path, s.get())
+			if err != nil {
+				return err
+			}
+			pair[i] = int64(math.Round(toFloat(v)))
+			return s.set([]any{pair[0], pair[1]})
+		},
+		unset: s.unset,
+	}
+}
+
+// offsetPair is the [x, y] v holds, or why it holds none.
+func offsetPair(path string, v any) ([2]int64, error) {
+	list, ok := v.([]any)
+	if !ok || len(list) != len(offsetAxes) {
+		return [2]int64{}, fmt.Errorf("settings: lys-wm's %s holds %v, not [x, y]", path, v)
+	}
+	var out [2]int64
+	for i, n := range list {
+		switch n.(type) {
+		case int, int64:
+			out[i] = int64(toFloat(n))
+		default:
+			return [2]int64{}, fmt.Errorf("settings: lys-wm's %s holds %v, not whole pixels", path, v)
+		}
+	}
+	return out, nil
+}
+
+// wmOffset is the row of an [x, y] pixel offset, its sliders over lo to hi.
+func wmOffset(path string, lo, hi float64) rowSpec {
+	return wmField(path, func(r *rowSpec) {
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newOffsetEditor(k, s, path, lo, hi) }
 	})
 }
 

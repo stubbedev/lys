@@ -115,6 +115,63 @@ func TestTheWindowPreviewDrawsTheBorderAndGapsItReads(t *testing.T) {
 	}
 }
 
+func TestTheShadowOffsetIsAnXYPairTheEffectsPagePreviews(t *testing.T) {
+	k := lysWMKit(t, "")
+	p := layoutPage(t, k, "wm-effects")
+	pv := previewOf(t, p)
+	if pv.look.shadow.offset != [2]int{0, 8} {
+		t.Fatalf("lys-wm's default offset previews as %v, want [0 8]", pv.look.shadow.offset)
+	}
+	ed, ok := rowOf(t, p, "decoration.shadow.offset").ctl.(*offsetEditor)
+	if !ok {
+		t.Fatalf("the offset row holds %T, want the x/y editor", rowOf(t, p, "decoration.shadow.offset").ctl)
+	}
+	if got := ed.axes[1].number.Value(); got != 8 {
+		t.Errorf("the vertical axis reads %v, want lys-wm's default 8", got)
+	}
+	ed.axes[0].slider.OnCommit(-12)
+	if got, err := offsetPair("decoration.shadow.offset", k.wm.value("decoration.shadow.offset")); err != nil || got != [2]int64{-12, 8} {
+		t.Errorf("moving the shadow left wrote %v, want [-12 8]", got)
+	}
+	if pv.look.shadow.offset != [2]int{-12, 8} {
+		t.Errorf("the preview draws the offset %v after the edit", pv.look.shadow.offset)
+	}
+	if err := offsetAxisSlot(slot{get: func() any { return int64(4) }}, "decoration.shadow.offset", 0).set(int64(1)); err == nil {
+		t.Error("an axis wrote over a value that is no [x, y] pair")
+	}
+}
+
+func TestTheWindowPreviewCastsTheShadowByItsOffset(t *testing.T) {
+	k := lysWMKit(t, "")
+	l, bad := readWindowLook(k.wm.value, func(text string) (render.Color, bool) { return wmColorRGB(k, text) })
+	if bad != nil {
+		t.Fatal(bad)
+	}
+	black := render.RGB(0, 0, 0)
+	l.titlebar.shown, l.borderWidth, l.rounding, l.gapOuter = false, 0, 0, [4]int{0, 0, 60, 0}
+	l.shadow = shadowLook{enabled: true, reach: 4, scale: 1, color: [windowFocusStates]render.Color{black, black}}
+	const w, h = 400, windowPreviewH
+	screen := render.Rect{W: w, H: h}
+	frame := windowFrames(l, screen)[windowFocused]
+	below := func(enabled bool, offset [2]int) render.Color {
+		l.shadow.enabled, l.shadow.offset = enabled, offset
+		data := make([]byte, render.Stride(w)*h)
+		paintWindows(render.New(data, render.Stride(w), w, h), l, screen)
+		at := (frame.Y+frame.H+10)*render.Stride(w) + (frame.X+frame.W/2)*4
+		return render.ColorFromBytes(data[at:])
+	}
+	bare := below(false, [2]int{})
+	if got := below(true, [2]int{0, 40}); got == bare {
+		t.Errorf("a shadow 40 px down leaves the wallpaper under the window as it was, %#x", got)
+	}
+	if got := below(true, [2]int{0, 0}); got != bare {
+		t.Errorf("a shadow with no offset paints %#x under the window, want the wallpaper %#x", got, bare)
+	}
+	if got := below(true, [2]int{0, -40}); got != bare {
+		t.Errorf("a shadow moved up paints %#x under the window, want the wallpaper %#x", got, bare)
+	}
+}
+
 func TestAValueThePreviewCannotDrawSaysWhichInsteadOfDrawing(t *testing.T) {
 	k := lysWMKit(t, "borders:\n  active: nosuchcolour\n")
 	pv := previewOf(t, layoutPage(t, k, "wm-windows"))
@@ -135,6 +192,7 @@ func TestAValueThePreviewCannotDrawSaysWhichInsteadOfDrawing(t *testing.T) {
 		{"titlebars.side", "middle"},
 		{"gaps.outer", []any{int64(1), int64(2)}},
 		{"decoration.rounding", "round"},
+		{"decoration.shadow.offset", []any{int64(1)}},
 	} {
 		_, bad := readWindowLook(func(path string) any {
 			if path == c.path {

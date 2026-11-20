@@ -516,7 +516,7 @@ func wmWindowsPage() pageSpec {
 func wmEffectsPage() pageSpec {
 	return withWindowPreview(wmPage("wm-effects", "ld-droplets-symbolic",
 		sectionSpec{title: "wm-section-shadow", rows: switchedBy("decoration.shadow.enabled",
-			wmField("decoration.shadow.range", softPixels(0, 64)), wmField("decoration.shadow.render_power"), wmField("decoration.shadow.sharp"), wmField("decoration.shadow.scale"),
+			wmField("decoration.shadow.range", softPixels(0, 64)), wmField("decoration.shadow.render_power"), wmField("decoration.shadow.sharp"), wmField("decoration.shadow.scale"), wmOffset("decoration.shadow.offset", -32, 32),
 			wmField("decoration.shadow.color"), wmField("decoration.shadow.color_inactive"))},
 		sectionSpec{title: "wm-section-blur", rows: switchedBy("decoration.blur.enabled",
 			wmField("decoration.blur.size"), wmField("decoration.blur.passes"), wmField("decoration.blur.xray"), wmField("decoration.blur.tint"), wmField("decoration.blur.saturation"),

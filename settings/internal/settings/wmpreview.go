@@ -46,6 +46,7 @@ type shadowLook struct {
 	enabled bool
 	reach   int
 	scale   float64
+	offset  [2]int
 	color   [windowFocusStates]render.Color
 }
 
@@ -181,6 +182,15 @@ func (r *lookReader) sides(path string) [4]int {
 	return [4]int{}
 }
 
+func (r *lookReader) pair(path string) [2]int {
+	v := r.value(path)
+	p, err := offsetPair(path, v)
+	if err != nil {
+		r.fail(path, v)
+	}
+	return [2]int{int(p[0]), int(p[1])}
+}
+
 func (r *lookReader) border(path string) borderLook {
 	v := r.value(path)
 	switch v := v.(type) {
@@ -254,6 +264,7 @@ func readWindowLook(value func(path string) any, colour func(text string) (rende
 			enabled: r.flag("decoration.shadow.enabled"),
 			reach:   r.pixels("decoration.shadow.range"),
 			scale:   r.fraction("decoration.shadow.scale"),
+			offset:  r.pair("decoration.shadow.offset"),
 			color:   [windowFocusStates]render.Color{r.color("decoration.shadow.color"), r.color("decoration.shadow.color_inactive")},
 		},
 		blur: blurLook{
@@ -287,6 +298,14 @@ func previewPixels(n int) int {
 		return 0
 	}
 	return max(1, int(math.Round(float64(n)*windowPreviewScale)))
+}
+
+// previewShift is a signed distance of lys-wm's at the preview's scale.
+func previewShift(n int) int {
+	if n < 0 {
+		return -previewPixels(-n)
+	}
+	return previewPixels(n)
 }
 
 // windowFrames are where the preview puts the two windows on screen, the
@@ -329,7 +348,7 @@ func paintWindow(cv *render.Canvas, l windowLook, f windowFocus, frame, screen r
 		dw := int(float64(frame.W) * (1 - l.shadow.scale) / 2)
 		dh := int(float64(frame.H) * (1 - l.shadow.scale) / 2)
 		cast := render.Insets{Top: dh, Right: dw, Bottom: dh, Left: dw}.Shrink(frame)
-		cv.BoxShadow(cast, radii, render.BoxShadow{Blur: previewPixels(l.shadow.reach), Color: l.shadow.color[f]})
+		cv.BoxShadow(cast, radii, render.BoxShadow{X: previewShift(l.shadow.offset[0]), Y: previewShift(l.shadow.offset[1]), Blur: previewPixels(l.shadow.reach), Color: l.shadow.color[f]})
 	}
 	if width > 0 {
 		paintBorder(cv, frame, radii, l.border[f])

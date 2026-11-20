@@ -993,7 +993,6 @@ var unlistedWMKeys = map[string]string{
 	"outputs":                              "edited by the Displays arrangement, which writes the output rules itself",
 	"animations.curves":                    "a curve editor, planned in #138",
 	"animations.events":                    "per-event animations with the curve editor, planned in #138",
-	"decoration.shadow.offset":             "an x/y offset editor beside the window preview, planned in #138",
 	"gestures.touch":                       "illustrated touch gesture cards, planned in #138",
 	"input.devices":                        "a per-device list fed from lys-wm's input devices, #122 and #138",
 	"input.pointer.accel_points.points":    "the custom acceleration curve editor, planned in #138",
