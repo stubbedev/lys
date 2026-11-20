@@ -3,15 +3,16 @@
   lys-wm,
 }: let
   gpuPackages = ["render/vulkan" "render/gles" "harness"];
+  seatPackages = ["backend/drm" "session"];
   tests = lys-wm.overrideAttrs {
     pname = "lys-wm-vm-tests";
-    goTests = map (p: "wm/internal/${p}") (gpuPackages ++ ["backend/drm"]);
+    goTests = map (p: "wm/internal/${p}") (gpuPackages ++ seatPackages);
     resources = ["wm/internal" "docs/wm/shaders"];
     doCheck = false;
     buildPhase = ''
       runHook preBuild
       mkdir -p "$out/bin"
-      ${pkgs.lib.concatMapStringsSep "\n" (p: ''go test -c -o "$out/bin/${baseNameOf p}.test" ./wm/internal/${p}'') (gpuPackages ++ ["backend/drm"])}
+      ${pkgs.lib.concatMapStringsSep "\n" (p: ''go test -c -o "$out/bin/${baseNameOf p}.test" ./wm/internal/${p}'') (gpuPackages ++ seatPackages)}
       runHook postBuild
     '';
     installPhase = ''
@@ -32,7 +33,7 @@ in
     nodes = {
       seat = {
         boot = {
-          kernelModules = ["vkms" "udmabuf"];
+          kernelModules = ["vkms" "udmabuf" "uinput"];
           extraModprobeConfig = "options vkms enable_cursor=1 enable_overlay=1";
         };
         virtualisation = {
@@ -81,6 +82,10 @@ in
               "(status=0; cd ${tests}/bin && LYS_WM_SEAT=1 HOME=/tmp TMPDIR=/tmp timeout -s QUIT -k 10 240 ./drm.test -test.count=1 -test.v -test.run 'OnASeat' > /tmp/seat.log 2>&1 || status=$?; "
               "echo $status > /tmp/seat.status) > /dev/null 2>&1 &"
           )
+          seat.succeed(
+              "(status=0; cd ${tests}/wm/internal/session && LYS_WM_SEAT=1 LYS_WM_HEADLESS=1 HOME=/tmp TMPDIR=/tmp timeout -s QUIT -k 10 240 ${tests}/bin/session.test -test.count=1 -test.v > /tmp/input.log 2>&1 || status=$?; "
+              "echo $status > /tmp/input.status) > /dev/null 2>&1 &"
+          )
 
       def ran(name, command):
           status, _ = gpu.execute(command, timeout=300)
@@ -126,6 +131,13 @@ in
           assert status == 0, f"the seat tests failed with status {status}"
           skipped = re.findall(r"--- SKIP: (\S+)", results)
           assert not skipped, f"these seat tests did not run: {skipped}"
+          seat.wait_until_succeeds("test -s /tmp/input.status", timeout=300)
+          results = seat.succeed("cat /tmp/input.log")
+          print(results)
+          status = int(seat.succeed("cat /tmp/input.status"))
+          assert status == 0, f"the session's input tests failed with status {status}"
+          skipped = [s for s in re.findall(r"--- SKIP: (\S+)", results) if s != "TestNoVirtualDeviceIsCreatedBesideASession/device"]
+          assert not skipped, f"these session tests did not run: {skipped}"
           kernel = seat.succeed("dmesg")
           requests = len(re.findall(r"Allocated atomic state", kernel))
           commits = len(re.findall(r"\] committing ", kernel))

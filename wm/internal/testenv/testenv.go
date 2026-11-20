@@ -23,6 +23,8 @@ import (
 
 const strictEnv = "LYS_WM_HEADLESS"
 
+const SeatEnv = "LYS_WM_SEAT"
+
 const HangLimit = 30 * time.Second
 
 func missing(t testing.TB, format string, args ...any) {
@@ -31,6 +33,13 @@ func missing(t testing.TB, format string, args ...any) {
 		t.Fatalf(format+"; "+strictEnv+"=1 forbids skipping", args...)
 	}
 	t.Skipf(format, args...)
+}
+
+func OwnSeat(t testing.TB, what string) {
+	t.Helper()
+	if os.Getenv(SeatEnv) != "1" {
+		t.Skipf("%s=1 lets this test %s: set it only in a VM, never beside a session", SeatEnv, what)
+	}
 }
 
 func Require(t testing.TB, binary string) string {

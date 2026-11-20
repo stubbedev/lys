@@ -22,9 +22,8 @@ import (
 	"github.com/stubbedev/lys/wm/internal/looptest"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
-
-const seatVar = "LYS_WM_SEAT"
 
 type seatDevice struct {
 	*kdrm.Device
@@ -168,9 +167,7 @@ func cardDriven(t *testing.T, driver string) *kdrm.Device {
 
 func onASeat(t *testing.T, driver string) (*seat, *Output) {
 	t.Helper()
-	if os.Getenv(seatVar) != "1" {
-		t.Skipf("%s=1 lets this take DRM master and commit on the machine's cards: set it only in a VM, never beside a session", seatVar)
-	}
+	testenv.OwnSeat(t, "take DRM master and commit on the machine's cards")
 	dev := cardDriven(t, driver)
 	if err := atomic(dev); err != nil {
 		t.Fatal(err)

@@ -46,7 +46,10 @@ What only a kernel driver can answer, the DRM tests named `OnASeat` ask real
 ones: `just checks wm-vms-go-tests` runs them as DRM master in a VM
 on virtio-gpu and vkms (cursor, overlay planes), counting every atomic request,
 reading the planes back from the kernel and tracing the damage clips it
-holds. They skip unless `LYS_WM_SEAT=1`, which is never set beside a session.
+holds. The same VM runs the session package's tests, whose uinput devices
+every session on a machine would see and take. They skip unless
+`LYS_WM_SEAT=1`, which is never set beside a session, not even in
+`just wm::docker`: a container shares the host's input devices.
 `just packages vm-pace-drm` plays `lys-wm-pace -backend drm` on vkms's vblanks in
 a VM, on llvmpipe, so its late frames are about the latch, not the GPU.
 

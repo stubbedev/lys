@@ -98,6 +98,7 @@ func newVirtualKeyboard(t *testing.T) *virtualDevice {
 
 func newVirtualDevice(t testing.TB, devName string, bits []uinputBit) *virtualDevice {
 	t.Helper()
+	testenv.OwnSeat(t, "create input devices, which every session on the machine sees")
 	f, err := os.OpenFile("/dev/uinput", os.O_RDWR|unix.O_NONBLOCK, 0)
 	if err != nil {
 		t.Skipf("no uinput here: %v", err)
