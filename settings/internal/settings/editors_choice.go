@@ -27,6 +27,7 @@ const (
 	wmOptionsFormat = "lys-wm-xkb-options"
 	wmModelFormat   = "lys-wm-xkb-model"
 	wmRulesFormat   = "lys-wm-xkb-rules"
+	wmCommandFormat = "lys-wm-command"
 	listBrowsers    = "browser"
 	listFileManager = "file-manager"
 	listSSHClients  = "ssh-client"
@@ -154,6 +155,8 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 		return newWMFontEditor(k, s), true
 	case wmChordFormat:
 		return newChordEditor(k, s), true
+	case wmCommandFormat:
+		return newChoiceEditor(k, s, choiceSpec{list: appCommands, optional: meta.Optional}), true
 	case wmActionFormat:
 		f, _ := k.wm.fieldOf(path)
 		return newWMActionEditor(k, s, f.Actions), true

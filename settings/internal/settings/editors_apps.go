@@ -82,6 +82,22 @@ func appCommand(a desktopentry.App) (string, error) {
 	return strings.Join(words, " "), nil
 }
 
+// appCommands are the installed apps a launcher shows as choices: each
+// app's command, named by the app.
+func appCommands() []choice {
+	shown := scanInstalled(desktopentry.ApplicationDirs()).shown
+	out := make([]choice, 0, len(shown))
+	for _, a := range shown {
+		cmd, err := appCommand(a)
+		if err != nil {
+			log.Printf("settings: %v", err)
+			continue
+		}
+		out = append(out, choice{value: cmd, label: a.DisplayName()})
+	}
+	return out
+}
+
 func (k *kit) appCommandButton(pick func(string)) *widget.Button {
 	var b *widget.Button
 	b = k.iconButton("ld-app-window-symbolic", "settings-command-app", func() {

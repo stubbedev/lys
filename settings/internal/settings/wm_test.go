@@ -23,7 +23,12 @@ import (
 const wmSchema = `{"type":"object","properties":{
 "gaps":{"type":"object","properties":{"inner":{"type":"integer","minimum":0,"default":8},"outer":{"oneOf":[{"type":"integer"},{"type":"array"}]}}},
 "tearing":{"type":"boolean","default":false},
-"animations":{"type":"object","properties":{"enabled":{"type":"boolean","default":true},"reduced_motion":{"type":"boolean","default":false}}},
+"animations":{"type":"object","properties":{"enabled":{"type":"boolean","default":true},"reduced_motion":{"type":"boolean","default":false},
+"curves":{"type":"object","x-lys-wm-curves":[{"name":"ease","bezier":[0.25,0.1,0.25,1]},{"name":"linear","bezier":[0,0,1,1]},{"name":"spring","spring":{"stiffness":170,"damping":26,"mass":1}}],"additionalProperties":{"type":"object","properties":{"bezier":{"type":"array","items":{"type":"number"}},"spring":{"type":"object","properties":{"damping":{"type":"number"},"mass":{"type":"number"},"stiffness":{"type":"number"}},"additionalProperties":false}},"additionalProperties":false}},
+"events":{"type":"object","x-lys-wm-events":[{"name":"global"},{"name":"windows","parent":"global"},{"name":"windows_in","parent":"windows","styles":["popin","slide","bud"]},{"name":"workspaces","parent":"global","styles":["slide","slidevert","fade"]}],"additionalProperties":{"type":"object","properties":{"curve":{"type":"string"},"duration":{"type":"integer","minimum":1},"enabled":{"type":"boolean"},"style":{"type":"string"}},"additionalProperties":false}}}},
+"workspaces":{"type":"array","items":{"type":"object","properties":{"id":{"type":"integer","minimum":1},"match":{"type":"string","enum":["any","fullscreen","single_tiled"]},"name":{"type":"string"},"output":{"type":"string"},"default":{"type":"boolean","default":false},"layout":{"type":"string","enum":["scroll","tree"]},"on_created_empty":{"type":"string","format":"lys-wm-command"},"gaps":{"type":"object","properties":{"inner":{"type":"integer"},"outer":{"oneOf":[{"type":"integer"},{"type":"array","items":{"type":"integer"}}]}},"additionalProperties":false}},"additionalProperties":false}},
+"scratchpads":{"type":"object","additionalProperties":{"type":"object","properties":{"exec":{"type":"string","format":"lys-wm-command"},"hide_on_workspace_switch":{"type":"boolean","default":true},"size":{"type":"string"}},"additionalProperties":false}},
+"virtual_outputs":{"type":"array","items":{"type":"object","properties":{"mode":{"type":"string"},"name":{"type":"string"}},"additionalProperties":false}},
 "hdr":{"enum":[false,"fullscreen",true]},
 "binds":{"type":"array","items":{"type":"object","properties":{"action":{"type":"string","format":"lys-wm-action","x-lys-wm-actions":[{"name":"kill","summary":"Close"},{"name":"exec","args":"<command>","summary":"Run"},{"name":"workspace","args":"<n>","summary":"Show"}]},"chord":{"type":"string","format":"lys-wm-chord"},"flags":{"type":"array","items":{"type":"string","enum":["locked","repeating"]}}},"additionalProperties":false}},
 "submaps":{"type":"object","additionalProperties":{"type":"array","items":{"type":"object","properties":{"action":{"type":"string","format":"lys-wm-action","x-lys-wm-actions":[{"name":"kill","summary":"Close"}]},"chord":{"type":"string","format":"lys-wm-chord"}},"additionalProperties":false}}},
@@ -965,9 +970,7 @@ var unlistedWMKeys = map[string]string{
 	"input.touchpad.accel_points.step":     "the custom acceleration curve editor, planned in #138",
 	"input.trackpoint.accel_points.points": "the custom acceleration curve editor, planned in #138",
 	"input.trackpoint.accel_points.step":   "the custom acceleration curve editor, planned in #138",
-	"scratchpads":                          "named scratchpad cards, planned in #138",
 	"virtual_outputs":                      "virtual outputs on the Displays arrangement, planned in #138",
-	"workspaces":                           "per-workspace cards, planned in #138",
 	"swallow.terminals":                    "an app picker writing the match, with the window matching editor planned in #138",
 	"swallow.except_title":                 "a title match with the window matching editor planned in #138",
 }

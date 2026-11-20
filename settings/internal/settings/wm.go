@@ -607,6 +607,8 @@ func wmTilingPage() pageSpec {
 			wmField("tabs.height", softPixels(16, 48)), wmField("tabs.padding", softPixels(0, 16)), wmField("tabs.text_height", softPixels(8, 24)), wmField("tabs.text_padding", softPixels(0, 24)),
 		}, wmFields("tabs.font", "tabs.icon_theme",
 			"tabs.active.background", "tabs.active.text", "tabs.inactive.background", "tabs.inactive.text", "tabs.urgent.background", "tabs.urgent.text")...)},
+		sectionSpec{title: "wm-section-workspaces", rows: []rowSpec{wmWorkspacesRow()}},
+		sectionSpec{title: "wm-section-scratchpads", rows: []rowSpec{wmScratchpadsRow()}},
 	)
 }
 

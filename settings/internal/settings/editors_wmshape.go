@@ -398,6 +398,11 @@ func wmBorderEditor(k *kit, s slot, path []string) control {
 // form the schema's types alone do not settle.
 var wmItemEditors = map[string]func(k *kit, s slot, path []string) control{
 	"outputs.[].reserved":      func(k *kit, s slot, _ []string) control { return newSidesEditor(k, s, false) },
+	"workspaces.[].gaps.outer": func(k *kit, s slot, _ []string) control { return newSidesEditor(k, s, true) },
+	"workspaces.[].output": func(k *kit, s slot, _ []string) control {
+		return newChoiceEditor(k, s, choiceSpec{list: systemLists["Monitor"], optional: true})
+	},
+	"scratchpads.[].size":      newPercentSizeEditor,
 	"rules.[].border.active":   wmBorderEditor,
 	"rules.[].border.inactive": wmBorderEditor,
 }
