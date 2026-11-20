@@ -390,6 +390,8 @@ func newNetworkPanel(k *kit) *networkPanel {
 	return p
 }
 
+func (p *networkPanel) configChanged() { p.proxy.configChanged() }
+
 func (p *networkPanel) unavailable(err error) {
 	p.status.Clear()
 	p.netsSec.SetVisible(false)

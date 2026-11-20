@@ -20,9 +20,6 @@ const (
 	ProxyAuto ProxyMethod = 1
 )
 
-// ProxyMethods are the methods in the order the page offers them.
-var ProxyMethods = []ProxyMethod{ProxyNone, ProxyAuto}
-
 const (
 	proxySection = "proxy"
 	proxyMethod  = "method"
