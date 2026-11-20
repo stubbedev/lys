@@ -92,7 +92,8 @@ func addUserDialog(t *testing.T, refuseCreate, refusePassword string) (*usersPan
 	admin := alice
 	admin.accountType = accountAdmin
 	bus := dbustest.Start(t)
-	manager, _, created := serveAccountsCreating(t, bus, admin, bob)
+	s := serveAllAccounts(t, bus, admin, bob)
+	manager, created := s.manager, s.created
 	p, l := usersFixture(t, bus)
 	l.until("the admin section", func() bool { return p.admin.Visible() && len(p.others) == 2 })
 	manager.refuse, created.refuse = refuseCreate, refusePassword

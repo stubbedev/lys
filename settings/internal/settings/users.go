@@ -333,11 +333,8 @@ func (p *usersPanel) showIdentity(props sysProps) {
 	p.realName.refresh()
 	p.realName.SetEnabled(true)
 	p.face.SetName(cmp.Or(p.name, p.user))
-	kind := t.Get("settings-users-type-standard")
-	if accountType, _ := props["AccountType"].Value().(int32); accountType == accountAdmin {
-		kind = t.Get("settings-users-type-admin")
-	}
-	p.identity.SetText(t.Get("settings-users-identity", i18n.Str("login", p.user), i18n.Str("type", kind)))
+	accountType, _ := props["AccountType"].Value().(int32)
+	p.identity.SetText(t.Get("settings-users-identity", i18n.Str("login", p.user), i18n.Str("type", accountTypeName(accountType))))
 }
 
 // loadIcon decodes the picture AccountsService keeps for the user; an
@@ -623,22 +620,13 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 		body.Append(wrapped(p.k.label(l.err.Error(), css.Error, css.Caption)), false)
 	}
 	rows := widget.NewItemGroup()
-	types := []string{t.Get("settings-users-type-standard"), t.Get("settings-users-type-admin")}
 	for _, u := range l.users {
-		kind := widget.NewDropdown(p.k.face, p.k.textPx(), types, int(u.accountType))
-		kind.SetAccessibleName(u.name)
-		kind.SetEnabled(!u.self)
-		user := sysService{conn: p.conn, name: accountsName, iface: accountsUser, path: u.path}
-		kind.OnSelect = func(i int) {
-			p.adminCall(func(ctx context.Context) error {
-				return user.callInteractive(ctx, "SetAccountType", intconv.Must[int32](i))
-			})
-		}
-		controls := []widget.Widget{kind}
+		var controls []widget.Widget
 		if !u.self {
-			controls = append(controls, p.k.iconButton("ld-trash-2-symbolic", "settings-users-remove", func() { p.confirmRemove(u) }, css.Ghost))
+			open := p.k.iconButton("ld-chevron-right-symbolic", "settings-users-edit", func() { p.openUserSheet(u) }, css.Flat, "user-details")
+			controls = append(controls, open)
 		}
-		rows.Append(panelRow(p.k, cmp.Or(u.real, u.name), u.name, controls...))
+		rows.Append(panelRow(p.k, cmp.Or(u.real, u.name), u.identity(), controls...))
 	}
 	body.Append(rows, false)
 	p.others = l.users
@@ -743,7 +731,7 @@ const passwordDialogWidth = 480
 type passwordForm struct {
 	*widget.Box
 	current, next, confirm *widget.Entry
-	messages               *widget.Label
+	messages               formNote
 	busy                   bool
 }
 
@@ -782,15 +770,19 @@ func (p *usersPanel) strengthRow(next *widget.Entry) widget.Widget {
 	return panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word)
 }
 
-func (p *usersPanel) dialogMessages() *widget.Label {
+func (p *usersPanel) dialogMessages() formNote {
 	l := wrapped(p.k.label("", "setting-problem", css.Caption, css.Error))
 	l.SetVisible(false)
-	return l
+	return formNote{l}
 }
 
-func (f *passwordForm) say(text string) {
-	f.messages.SetText(text)
-	f.messages.SetVisible(text != "")
+// formNote is a dialog's line for what refused its answer, hidden while
+// there is nothing to say.
+type formNote struct{ *widget.Label }
+
+func (n formNote) say(text string) {
+	n.SetText(text)
+	n.SetVisible(text != "")
 }
 
 func (f *passwordForm) clear() {
@@ -840,7 +832,7 @@ func (p *usersPanel) changePassword(f *passwordForm, done func()) {
 		return
 	}
 	if f.next.Text() != f.confirm.Text() {
-		f.say(locale.T().Get("settings-users-password-mismatch"))
+		f.messages.say(locale.T().Get("settings-users-password-mismatch"))
 		return
 	}
 	old, pw := []byte(f.current.Text()), []byte(f.next.Text())
@@ -857,7 +849,7 @@ func (p *usersPanel) changePassword(f *passwordForm, done func()) {
 		if r.err != nil {
 			text = strings.TrimSpace(text + "\n" + r.err.Error())
 		}
-		f.say(text)
+		f.messages.say(text)
 		if r.err == nil {
 			f.clear()
 			done()

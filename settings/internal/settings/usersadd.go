@@ -102,38 +102,95 @@ func parseNewAccount(full, login string, accountType int32, password, confirm []
 	if err != nil {
 		return newAccount{}, err
 	}
-	if !slices.Contains(accountTypes, accountType) {
-		return newAccount{}, fmt.Errorf("settings: account type %d", accountType)
+	if err := checkAccountType(accountType); err != nil {
+		return newAccount{}, err
 	}
 	if len(password) == 0 {
 		return newAccount{}, errPasswordEmpty
 	}
-	if string(password) != string(confirm) {
-		return newAccount{}, errPasswordDiffs
+	hash, err := hashPassword(password, confirm)
+	if err != nil {
+		return newAccount{}, err
 	}
-	return newAccount{login: name, real: strings.TrimSpace(full), accountType: accountType, hash: shacrypt.Hash(password)}, nil
+	return newAccount{login: name, real: strings.TrimSpace(full), accountType: accountType, hash: hash}, nil
+}
+
+func checkAccountType(accountType int32) error {
+	if !slices.Contains(accountTypes, accountType) {
+		return fmt.Errorf("settings: account type %d", accountType)
+	}
+	return nil
+}
+
+func hashPassword(password, confirm []byte) (string, error) {
+	if string(password) != string(confirm) {
+		return "", errPasswordDiffs
+	}
+	return shacrypt.Hash(password), nil
+}
+
+// passwordPair is a password asked for twice, with the strength meter.
+type passwordPair struct {
+	password, repeat *widget.Entry
+}
+
+// newPasswordPair appends the password, its repetition and the meter to
+// into, labelled by passwordKey and confirmKey.
+func (p *usersPanel) newPasswordPair(into *widget.Box, passwordKey, confirmKey string) passwordPair {
+	t := locale.T()
+	pp := passwordPair{password: p.passwordEntry(passwordKey), repeat: p.passwordEntry(confirmKey)}
+	into.Append(panelRow(p.k, t.Get(passwordKey), "", pp.password, p.revealButton(pp.password, pp.repeat)), false)
+	into.Append(panelRow(p.k, t.Get(confirmKey), "", pp.repeat), false)
+	into.Append(p.strengthRow(pp.password), false)
+	return pp
+}
+
+// take is what the entries hold, for the caller to wipe once used.
+func (pp passwordPair) take() (password, repeat []byte) {
+	return []byte(pp.password.Text()), []byte(pp.repeat.Text())
+}
+
+func (pp passwordPair) clear() {
+	pp.password.SetText("")
+	pp.repeat.SetText("")
+}
+
+// accountTypeChoice is the account types as a segmented control, current
+// active.
+func (p *usersPanel) accountTypeChoice(current int32) *widget.ToggleGroup {
+	t := locale.T()
+	kinds := widget.NewToggleGroup()
+	kinds.SetAccessibleName(t.Get("settings-users-add-type"))
+	for _, kind := range accountTypes {
+		kinds.Append(p.k.label(t.Get(accountTypeLabels[kind])))
+	}
+	kinds.SetActive(max(slices.Index(accountTypes, current), 0))
+	return kinds
+}
+
+// chosenAccountType is the type kinds has active, -1 for none.
+func chosenAccountType(kinds *widget.ToggleGroup) int32 {
+	if i := kinds.Active(); i >= 0 && i < len(accountTypes) {
+		return accountTypes[i]
+	}
+	return -1
 }
 
 type addUserForm struct {
 	*widget.Box
-	kinds            *widget.ToggleGroup
-	full, login      *widget.Entry
-	password, repeat *widget.Entry
-	messages         *widget.Label
-	derived          bool
-	busy             bool
+	passwordPair
+	kinds       *widget.ToggleGroup
+	full, login *widget.Entry
+	messages    formNote
+	derived     bool
+	busy        bool
 }
 
 func (p *usersPanel) newAddUserForm() *addUserForm {
 	t := locale.T()
 	f := &addUserForm{Box: gapBox(widget.Column), derived: true}
 	f.AddClass("user-add")
-	f.kinds = widget.NewToggleGroup()
-	f.kinds.SetAccessibleName(t.Get("settings-users-add-type"))
-	for _, kind := range accountTypes {
-		f.kinds.Append(p.k.label(t.Get(accountTypeLabels[kind])))
-	}
-	f.kinds.SetActive(0)
+	f.kinds = p.accountTypeChoice(accountStandard)
 	f.full, f.login = p.k.entry(), p.k.entry()
 	f.full.SetAccessibleName(t.Get("settings-users-add-full"))
 	f.login.SetAccessibleName(t.Get("settings-users-add-name"))
@@ -146,36 +203,22 @@ func (p *usersPanel) newAddUserForm() *addUserForm {
 		f.derived = text == "" || text == deriveLogin(f.full.Text())
 		f.checkLogin(p.takenLogins())
 	}
-	f.password, f.repeat = p.passwordEntry("settings-users-add-password"), p.passwordEntry("settings-users-add-confirm")
 	f.Append(panelRow(p.k, t.Get("settings-users-add-type"), "", f.kinds), false)
 	f.Append(panelRow(p.k, t.Get("settings-users-add-full"), "", f.full), false)
 	f.Append(panelRow(p.k, t.Get("settings-users-add-name"), t.Attr("settings-users-add-name", "description"), f.login), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-add-password"), "", f.password, p.revealButton(f.password, f.repeat)), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-add-confirm"), "", f.repeat), false)
-	f.Append(p.strengthRow(f.password), false)
+	f.passwordPair = p.newPasswordPair(f.Box, "settings-users-add-password", "settings-users-add-confirm")
 	f.messages = p.dialogMessages()
 	f.Append(f.messages, false)
 	return f
 }
 
-func (f *addUserForm) say(text string) {
-	f.messages.SetText(text)
-	f.messages.SetVisible(text != "")
-}
-
 func (f *addUserForm) checkLogin(taken []string) {
 	login := f.login.Text()
 	if _, err := parseLoginName(login, taken); err != nil && login != "" {
-		f.say(newAccountProblem(err, login))
+		f.messages.say(newAccountProblem(err, login))
 		return
 	}
-	f.say("")
-}
-
-func (f *addUserForm) clear() {
-	for _, e := range []*widget.Entry{f.password, f.repeat} {
-		e.SetText("")
-	}
+	f.messages.say("")
 }
 
 func (p *usersPanel) takenLogins() []string {
@@ -224,16 +267,12 @@ func (p *usersPanel) addUser(f *addUserForm, done func()) {
 	if f.busy || p.acc == nil {
 		return
 	}
-	password, repeat := []byte(f.password.Text()), []byte(f.repeat.Text())
-	kind := int32(-1)
-	if i := f.kinds.Active(); i >= 0 && i < len(accountTypes) {
-		kind = accountTypes[i]
-	}
-	account, err := parseNewAccount(f.full.Text(), f.login.Text(), kind, password, repeat, p.takenLogins())
+	password, repeat := f.take()
+	account, err := parseNewAccount(f.full.Text(), f.login.Text(), chosenAccountType(f.kinds), password, repeat, p.takenLogins())
 	clear0(password)
 	clear0(repeat)
 	if err != nil {
-		f.say(newAccountProblem(err, f.login.Text()))
+		f.messages.say(newAccountProblem(err, f.login.Text()))
 		return
 	}
 	acc := *p.acc
@@ -245,7 +284,7 @@ func (p *usersPanel) addUser(f *addUserForm, done func()) {
 		f.busy = false
 		p.loadAdmin()
 		if _, created := errors.AsType[*passwordNotSetError](err); err != nil && !created {
-			f.say(err.Error())
+			f.messages.say(err.Error())
 			return
 		}
 		f.clear()

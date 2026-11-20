@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -89,36 +90,46 @@ func (a fakeAccount) path() dbus.ObjectPath {
 
 func serveAccounts(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...fakeAccount) (manager, user *fakeSys) {
 	t.Helper()
-	manager, user, _ = serveAccountsCreating(t, bus, self, others...)
-	return manager, user
+	s := serveAllAccounts(t, bus, self, others...)
+	return s.manager, s.self
 }
 
-func serveAccountsCreating(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...fakeAccount) (manager, user, created *fakeSys) {
+// servedAccounts are the fakes of a served AccountsService: the manager,
+// the session's user, the others in order, and the user CreateUser
+// makes.
+type servedAccounts struct {
+	manager, self, created *fakeSys
+	others                 []*fakeSys
+}
+
+func serveAllAccounts(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...fakeAccount) servedAccounts {
 	t.Helper()
 	conn := bus.Conn(t)
-	created = &fakeSys{props: map[string]any{}, conn: conn}
-	if _, err := dbusx.Export(conn, createdUser, dbusx.Interface{Name: accountsUser, Methods: fakeAccountUser{created}, Properties: created.getters()}); err != nil {
+	s := servedAccounts{created: &fakeSys{props: map[string]any{}, conn: conn}}
+	if _, err := dbusx.Export(conn, createdUser, dbusx.Interface{Name: accountsUser, Methods: fakeAccountUser{s.created}, Properties: s.created.getters()}); err != nil {
 		t.Fatal(err)
 	}
-	manager = &fakeSys{props: map[string]any{"DaemonVersion": "23.13"}, conn: conn}
+	s.manager = &fakeSys{props: map[string]any{"DaemonVersion": "23.13"}, conn: conn}
 	cached := make([]dbus.ObjectPath, 0, 1+len(others))
 	for i, a := range append([]fakeAccount{self}, others...) {
 		f := &fakeSys{props: map[string]any{"UserName": a.name, "RealName": a.real, "IconFile": a.icon, "AccountType": a.accountType, "Uid": a.uid}, conn: conn}
 		if i == 0 {
-			user = f
+			s.self = f
+		} else {
+			s.others = append(s.others, f)
 		}
 		if _, err := dbusx.Export(conn, a.path(), dbusx.Interface{Name: accountsUser, Methods: fakeAccountUser{f}, Properties: f.getters()}); err != nil {
 			t.Fatal(err)
 		}
 		cached = append(cached, a.path())
 	}
-	if _, err := dbusx.Export(conn, accountsPath, dbusx.Interface{Name: accountsName, Methods: fakeAccounts{manager, self.path(), cached}, Properties: manager.getters()}); err != nil {
+	if _, err := dbusx.Export(conn, accountsPath, dbusx.Interface{Name: accountsName, Methods: fakeAccounts{s.manager, self.path(), cached}, Properties: s.manager.getters()}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := dbusx.Own(conn, accountsName); err != nil {
 		t.Fatal(err)
 	}
-	return manager, user, created
+	return s
 }
 
 func usersFixture(t *testing.T, bus *dbustest.Bus) (*usersPanel, *loop) {
@@ -240,15 +251,22 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	bus := dbustest.Start(t)
 	manager, _ := serveAccounts(t, bus, admin, bob)
 	p, l := usersFixture(t, bus)
-	l.until("the admin section", func() bool { return p.admin.Visible() && len(treetest.All[*widget.Dropdown](p.admin)) == 2 })
-	bob := dropdownNamed(t, p.admin, "bob")
-	if dropdownNamed(t, p.admin, "alice").Enabled() || !bob.Enabled() {
-		t.Fatal("an administrator can change their own type, or not another's")
+	l.until("the admin section", func() bool { return p.admin.Visible() && len(p.others) == 2 })
+	if got := len(treetest.WithClass(p.admin, "user-details")); got != 1 {
+		t.Fatalf("the list offers %d users' details, want only the other user's", got)
+	}
+	for _, want := range []string{"Alice", "Bob", locale.T().Get("settings-users-identity", i18n.Str("login", "bob"), i18n.Str("type", locale.T().Get("settings-users-type-standard")))} {
+		if !slices.Contains(treetest.Labels(p.admin), want) {
+			t.Errorf("the list reads %v, want %q", treetest.Labels(p.admin), want)
+		}
 	}
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
 	remove := func() app.DialogConfig {
-		treetest.WithClass(p.admin, css.Icon)[0].(*widget.Button).OnClick()
+		treetest.WithClass(p.admin, "user-details")[0].(*widget.Button).OnClick()
+		if !pickers.respond(responseRemove) {
+			t.Fatal("Remove User kept the details open")
+		}
 		return pickers.dialogs[len(pickers.dialogs)-1]
 	}
 	ask := remove()
@@ -265,7 +283,7 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	if calls, _ := manager.snapshot(); calls[1].method != "DeleteUser" || fmt.Sprint(calls[1].args) != "[2000 false]" {
 		t.Fatalf("keeping the home folder: %+v", calls)
 	}
-	l.until("the list again", func() bool { return len(treetest.WithClass(p.admin, css.Icon)) == 1 })
+	l.until("the list again", func() bool { return len(treetest.WithClass(p.admin, "user-details")) == 1 })
 	remove().OnResponse(responseDeleteFiles)
 	l.until("DeleteUser", func() bool { c, _ := manager.snapshot(); return len(c) == 3 })
 	if calls, _ := manager.snapshot(); fmt.Sprint(calls[2].args) != "[2000 true]" {
@@ -279,9 +297,9 @@ func TestWithoutAWindowRemovingAUserIsRefused(t *testing.T) {
 	bus := dbustest.Start(t)
 	manager, _ := serveAccounts(t, bus, admin, bob)
 	p, l := usersFixture(t, bus)
-	l.until("the admin section", func() bool { return len(treetest.WithClass(p.admin, css.Icon)) == 1 })
+	l.until("the admin section", func() bool { return len(treetest.WithClass(p.admin, "user-details")) == 1 })
 	p.k.pickers = nil
-	treetest.WithClass(p.admin, css.Icon)[0].(*widget.Button).OnClick()
+	p.confirmRemove(p.others[1])
 	l.drain()
 	if calls, _ := manager.snapshot(); !p.problem.Visible() || len(calls) != 1 {
 		t.Fatalf("problem shown %v, calls %+v", p.problem.Visible(), calls)
@@ -305,8 +323,8 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 	k, _ := systemKit(t, bus)
 	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
 	w.show(usersID)
-	if got := len(treetest.All[*widget.Dropdown](w.page)); got != 1+len(others) {
-		t.Fatalf("the users page lists %d accounts, want %d", got, 1+len(others))
+	if got := len(treetest.WithClass(w.page, "user-details")); got != len(others) {
+		t.Fatalf("the users page offers %d other accounts, want %d", got, len(others))
 	}
 	hands := treetest.All[*fingerHands](w.page)
 	offered := 0
