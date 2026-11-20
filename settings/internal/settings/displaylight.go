@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/nightlight"
@@ -199,3 +200,21 @@ var nightlightSwitch = switchSpec[bool]{
 }
 
 func nightlightNow(k *kit) widget.Widget { return newShellSwitch(k, nightlightSwitch) }
+
+// kelvinTrack is white as the night light tints it, at even steps from
+// the warmest temperature the slider offers to the coolest.
+func kelvinTrack() []render.Color {
+	out := make([]render.Color, kelvinStops)
+	for i := range out {
+		temp := warmestKelvin + (coolestKelvin-warmestKelvin)*i/(kelvinStops-1)
+		tint, err := nightlight.NewSetting(temp, 100)
+		if err != nil {
+			panic(fmt.Sprintf("settings: the night light slider's %dK: %v", temp, err))
+		}
+		m := tint.Matrix()
+		out[i] = render.RGB(channel(m[0]), channel(m[4]), channel(m[8]))
+	}
+	return out
+}
+
+func channel(scale float64) uint8 { return uint8(math.Round(scale * math.MaxUint8)) }

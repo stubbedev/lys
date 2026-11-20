@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/shell/service/brightness"
@@ -259,5 +260,26 @@ func TestTheNightLightClientSaysWhenLysShellIsNotThere(t *testing.T) {
 	t.Cleanup(func() { _ = ctl.close() })
 	if _, err := ctl.read(t.Context()); err == nil {
 		t.Error("the night light read without lys-shell on the bus")
+	}
+}
+
+// The temperature slider's track is white as the filter tints it: red
+// with no blue at the warmest end, white at the neutral end, and bluer
+// at every step towards it.
+func TestTheTemperatureTrackRunsFromWarmToNeutral(t *testing.T) {
+	track := kelvinTrack()
+	if len(track) != kelvinStops {
+		t.Fatalf("%d stops, want %d", len(track), kelvinStops)
+	}
+	if warm := track[0]; warm.R() != 255 || warm.B() != 0 {
+		t.Errorf("warmest stop %#x, want full red and no blue", uint32(warm))
+	}
+	if cool := track[len(track)-1]; cool != render.RGB(255, 255, 255) {
+		t.Errorf("coolest stop %#x, want white", uint32(cool))
+	}
+	for i := 2; i < len(track); i++ {
+		if track[i].B() <= track[i-1].B() {
+			t.Errorf("stop %d (%#x) is no bluer than stop %d (%#x)", i, uint32(track[i]), i-1, uint32(track[i-1]))
+		}
 	}
 }
