@@ -7,6 +7,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/stubbedev/lys/desktop/launchermatch"
 )
 
 // ErrNoModes is a session asked to run with no modes.
@@ -23,8 +25,8 @@ type Session struct {
 	// query is ROFI_INPUT, a combi !bang prefix already stripped.
 	query  string
 	subset []bool
-	// Engine is the matcher the surface reads matches from.
-	Engine *MatchEngine
+	items  []Item
+	engine *launchermatch.Engine
 	// completer is -completer-mode: the mode kb-mode-complete opens to
 	// complete the query rather than to launch something.
 	completer     string
@@ -34,12 +36,15 @@ type Session struct {
 
 // NewSession builds a session over modes, the first active. An empty
 // mode list is ErrNoModes.
-func NewSession(modes []Mode, opts MatcherOptions) (*Session, error) {
+func NewSession(modes []Mode, opts launchermatch.Options) (*Session, error) {
 	if len(modes) == 0 {
 		return nil, ErrNoModes
 	}
-	return &Session{modes: modes, Engine: NewMatchEngine(opts)}, nil
+	return &Session{modes: modes, engine: launchermatch.NewEngine(opts)}, nil
 }
+
+// Items are the active mode's rows, which Matched indexes.
+func (s *Session) Items() []Item { return s.items }
 
 // SetCompleter names the mode kb-mode-complete opens; empty is none.
 func (s *Session) SetCompleter(mode string) { s.completer = mode }
@@ -82,8 +87,8 @@ func (s *Session) completeWith(ctx context.Context, target Target) Action {
 	}
 	s.completingNow = false
 	text, found := "", false
-	if i, ok := target.Row(); ok && int(i) < len(s.Engine.Items()) {
-		text, found = s.Engine.Items()[i].Display, true
+	if i, ok := target.Row(); ok && int(i) < len(s.items) {
+		text, found = s.items[i].Display, true
 	}
 	s.SwitchTo(ctx, s.completeFrom)
 	if !found {
@@ -116,7 +121,7 @@ func (s *Session) SetQuery(query string) {
 			s.applyState(state)
 		}
 	}
-	s.Engine.SetQuery(s.query)
+	s.engine.SetQuery(s.query)
 }
 
 // Query is the current query, bang stripped.
@@ -125,7 +130,7 @@ func (s *Session) Query() string { return s.query }
 // Matched returns the ranked matched indices with a combi !bang mask
 // applied.
 func (s *Session) Matched() []uint32 {
-	matched := s.Engine.Matched()
+	matched := s.engine.Matched()
 	if s.subset == nil {
 		return matched
 	}
@@ -258,7 +263,16 @@ func (s *Session) applyState(state ModeState) {
 	}
 	state.Items = nil
 	s.state = state
-	s.Engine.SetItems(items)
+	s.items = items
+	texts := make([]string, len(items))
+	var permanent []uint32
+	for i, it := range items {
+		texts[i] = it.MatchText
+		if it.Flags.Has(FlagPermanent) {
+			permanent = append(permanent, uint32(i))
+		}
+	}
+	s.engine.SetTexts(texts, permanent)
 }
 
 // splitBang splits a leading `!bang ` off a query: "!win term" is

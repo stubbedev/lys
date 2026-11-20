@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/lib/waittest"
 
-	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/charnames"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
@@ -31,7 +31,7 @@ func TestCharactersReadTheTableOnTheFirstSearchOnly(t *testing.T) {
 		t.Fatal("opening the panel read the table")
 	}
 	for _, q := range []string{"right arrow", "degree"} {
-		if got := c.Search(launcher.NewFuzzyQuery(q), q, 4); len(got) == 0 {
+		if got := c.Search(launchermatch.NewFuzzyQuery(q), q, 4); len(got) == 0 {
 			t.Errorf("%q found nothing", q)
 		}
 	}
@@ -82,7 +82,7 @@ func TestTheCharacterLevelListsWithAnEmptyQuery(t *testing.T) {
 
 func TestCharacterActionsCopyTheCodePointAndEntity(t *testing.T) {
 	c := NewCharacters(charnames.Shared)
-	found := c.Search(launcher.NewFuzzyQuery("U+2192"), "U+2192", 4)
+	found := c.Search(launchermatch.NewFuzzyQuery("U+2192"), "U+2192", 4)
 	if len(found) != 1 {
 		t.Fatalf("found %d", len(found))
 	}
@@ -105,7 +105,7 @@ func TestACharacterSearchBuildsOnlyTheRowsItShows(t *testing.T) {
 	}
 	c := NewCharacters(charnames.Shared)
 	cost := func(query string) float64 {
-		q := launcher.NewFuzzyQuery(query)
+		q := launchermatch.NewFuzzyQuery(query)
 		if got := c.Search(q, query, 1); len(got) != 1 {
 			t.Fatalf("%q found %d", query, len(got))
 		}

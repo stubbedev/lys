@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/lib/waittest"
 
@@ -163,7 +164,7 @@ func TestHighlightsMarkTheMatchedCharacters(t *testing.T) {
 	e := start(t, s, nil, &fakeProvider{spec: Spec{Section: SectionNone}, entries: []Entry{entry("Visual Studio Code")}})
 	e.SetQuery("vsc", 1)
 	until(t, s, "Visual Studio Code")
-	got := s.last().Rows[0].AppendHighlights(nil, launcher.NewFuzzyQuery("vsc"))
+	got := s.last().Rows[0].AppendHighlights(nil, launchermatch.NewFuzzyQuery("vsc"))
 	if want := []int{0, 7, 14}; !slices.Equal(got, want) {
 		t.Errorf("highlights = %v, want the word starts %v", got, want)
 	}

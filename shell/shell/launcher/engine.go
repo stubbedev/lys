@@ -164,7 +164,7 @@ func (a *actor) run(ctx context.Context, sess *engine.Session, initial int, sink
 		deliver(func() { sink.onState(ev) })
 	}
 	pushMatches := func() {
-		ev := engineMatches{items: sess.Engine.Items(), matched: sess.Matched()}
+		ev := engineMatches{items: sess.Items(), matched: sess.Matched()}
 		deliver(func() { sink.onMatches(ev) })
 	}
 	dispatch := func(action engine.Action) {

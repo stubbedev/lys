@@ -1,6 +1,6 @@
 // Code generated from nucleo-matcher 0.3.1 src/chars/normalize.rs; DO NOT EDIT.
 
-package launcher
+package launchermatch
 
 // normalizeTable maps latin letters that are variants of an ASCII
 // letter to that letter.

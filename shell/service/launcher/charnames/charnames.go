@@ -20,9 +20,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/lib/intconv"
-
-	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // Magic starts the encoded table.
@@ -326,7 +325,7 @@ func (t *Table) NewSearcher() *Searcher { return &Searcher{t: t} }
 // ranks them. An empty query lists the first characters. "U+2192" and a
 // character typed as itself find that character. The result is valid until
 // the next Search.
-func (s *Searcher) Search(q *launcher.FuzzyQuery, query string, limit int) []Char {
+func (s *Searcher) Search(q *launchermatch.FuzzyQuery, query string, limit int) []Char {
 	s.top = s.top[:0]
 	if limit <= 0 {
 		return s.top
@@ -512,7 +511,7 @@ func (s *Searcher) matchesWords(e entry) (inName, ok bool, exact int) {
 	return seenName == all, seen == all, bits.OnesCount8(whole)
 }
 
-func (s *Searcher) score(q *launcher.FuzzyQuery, e entry, inName bool, exact int) (int32, int, bool) {
+func (s *Searcher) score(q *launchermatch.FuzzyQuery, e entry, inName bool, exact int) (int32, int, bool) {
 	s.hay = appendCodes(s.t, s.hay[:0], e.cp, e.codes, e.nameCodes)
 	length := len(s.hay)
 	if !inName {

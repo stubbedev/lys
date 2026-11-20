@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/lib/intconv"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -41,7 +42,7 @@ func (r Row) Actions() []Action {
 // grapheme clusters, of the characters q matched. It is computed when
 // asked, so only rows on screen pay for it, on the reader's own q and
 // buffer.
-func (r Row) AppendHighlights(dst []int, q *launcher.FuzzyQuery) []int {
+func (r Row) AppendHighlights(dst []int, q *launchermatch.FuzzyQuery) []int {
 	if r.title == nil {
 		return dst
 	}
@@ -156,7 +157,7 @@ type Engine struct {
 	seq uint64
 
 	// What one query's answer works in, reused.
-	query     launcher.FuzzyQuery
+	query     launchermatch.FuzzyQuery
 	sections  []sectionRows
 	secBuf    [sectionCount][]ranked
 	boosts    map[string]int

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
@@ -15,7 +16,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
-	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // WallpaperMode is the mode name that opens the wallpaper picker rather
@@ -76,7 +76,7 @@ type picker struct {
 	grid    *widget.GridView
 	images  []pickerImage
 	shown   []int
-	query   *engine.FuzzyQuery
+	query   *launchermatch.FuzzyQuery
 	monitor string
 	// current is what the monitor showed when the picker opened.
 	current    string
@@ -104,7 +104,7 @@ func (s *Surface) openPicker(sess *launcheripc.Session) {
 	if monitor == "" && s.d.FocusedOutput != nil {
 		monitor, _ = s.d.FocusedOutput()
 	}
-	p := &picker{s: s, sess: sess, walls: s.d.Wallpapers, monitor: monitor, query: engine.NewFuzzyQuery(""), cache: newThumbCache(pickerCached)}
+	p := &picker{s: s, sess: sess, walls: s.d.Wallpapers, monitor: monitor, query: launchermatch.NewFuzzyQuery(""), cache: newThumbCache(pickerCached)}
 	p.current = p.walls.Shown(monitor)
 	paths, err := p.walls.Images()
 	if err != nil {
@@ -113,7 +113,7 @@ func (s *Surface) openPicker(sess *launcheripc.Session) {
 	p.images = make([]pickerImage, len(paths))
 	for i, path := range paths {
 		name := filepath.Base(path)
-		p.images[i] = pickerImage{path: path, name: name, hay: engine.Haystack(name)}
+		p.images[i] = pickerImage{path: path, name: name, hay: launchermatch.Haystack(name)}
 	}
 	p.build(cfg)
 	p.thumbs = newThumbQueue(pickerColumns*(pickerLines+1), p.walls.LoadThumbnail, s.spawn, s.d.Invoke)

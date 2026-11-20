@@ -2,10 +2,10 @@ package settings
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
@@ -39,17 +39,21 @@ var launcherSamples = []launcherSample{
 	{"settings-launcher-sample-chat", "ld-message-circle-symbolic"},
 }
 
-// launcherSampleRows are the sample apps whose name holds query, ignoring
-// case, in the launcher's rows.
-func launcherSampleRows(query string) []launcherview.Row {
+// launcherSampleRows are the sample apps query matches as the launcher
+// matches with l's matching and case, in the order it ranks them.
+func launcherSampleRows(query string, l config.LauncherConfig) []launcherview.Row {
 	t := locale.T()
-	query = strings.ToLower(query)
-	rows := make([]launcherview.Row, 0, len(launcherSamples))
-	for _, s := range launcherSamples {
-		name := t.Get(s.key)
-		if strings.Contains(strings.ToLower(name), query) {
-			rows = append(rows, launcherview.Row{Text: name, Icon: launcherview.IconName(s.icon)})
-		}
+	names := make([]string, len(launcherSamples))
+	for i, s := range launcherSamples {
+		names[i] = t.Get(s.key)
+	}
+	engine := launchermatch.NewEngine(launchermatch.OptionsOf(l))
+	engine.SetTexts(names, nil)
+	engine.SetQuery(query)
+	matched := engine.Matched()
+	rows := make([]launcherview.Row, len(matched))
+	for i, at := range matched {
+		rows[i] = launcherview.Row{Text: names[at], Icon: launcherview.IconName(launcherSamples[at].icon)}
 	}
 	return rows
 }
@@ -64,7 +68,8 @@ type launcherPreviewState struct {
 
 // launcherPreview is lys-shell's launcher drawn from the config the
 // window edits, where launcher.location puts it on a small wallpaper,
-// listing sample apps a test query filters.
+// listing the sample apps a test query matches with launcher.matching
+// and launcher.case.
 func launcherPreview(k *kit) widget.Widget {
 	state := &launcherPreviewState{}
 	p := newLivePreview(k, "settings-launcher-preview", func(k *kit, cfg *config.Config, font render.Font) widget.Widget {
@@ -85,7 +90,7 @@ func drawLauncherOnScreen(k *kit, cfg *config.Config, font render.Font, state *l
 	px := launcherview.ScaledPx(cfg)
 	variants := app.FontVariantsOf(font)
 	st := launcherview.RowStyle{Font: font, Variants: variants, IconPx: px(launcherview.SearchIconSize), ShowIcons: look.ShowIcons, Post: k.invoke}
-	rows := launcherSampleRows(state.query)
+	rows := launcherSampleRows(state.query, cfg.Launcher)
 	column := widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	noMatch := wrapped(k.label("", "settings-preview-state", css.Caption, css.DimLabel))
 	var session *launcherview.Session
@@ -94,7 +99,7 @@ func drawLauncherOnScreen(k *kit, cfg *config.Config, font render.Font, state *l
 		Row: func(pos int) widget.Widget { return launcherview.NewRow(rows[pos], pos == 0, st) },
 		OnQuery: func(query string) {
 			state.query = query
-			rows = launcherSampleRows(query)
+			rows = launcherSampleRows(query, cfg.Launcher)
 			session.SetRows(len(rows))
 			showNoMatch(noMatch, query, len(rows))
 		},

@@ -1,39 +1,37 @@
-package launcher
+package launchermatch
 
 import (
 	"reflect"
 	"testing"
 )
 
-func items(texts ...string) []Item {
-	out := make([]Item, len(texts))
-	for i, t := range texts {
-		out[i] = NewItem(t)
-	}
-	return out
+func items(texts ...string) []string { return texts }
+
+func matches(opts Options, list []string, query string) []uint32 {
+	return matchesKeeping(opts, list, nil, query)
 }
 
-func matches(opts MatcherOptions, list []Item, query string) []uint32 {
-	e := NewMatchEngine(opts)
-	e.SetItems(list)
+func matchesKeeping(opts Options, list []string, permanent []uint32, query string) []uint32 {
+	e := NewEngine(opts)
+	e.SetTexts(list, permanent)
 	e.SetQuery(query)
 	return e.Matched()
 }
 
 func TestRewriteQuery(t *testing.T) {
-	def := DefaultMatcherOptions()
+	def := DefaultOptions()
 	for _, tc := range []struct {
 		name  string
-		opts  MatcherOptions
+		opts  Options
 		query string
 		want  string
 	}{
 		{"normal tokens become substring atoms", def, "fire fox", "'fire 'fox"},
-		{"prefix tokens", MatcherOptions{Method: MatchPrefix, Tokenize: true, NegationChar: '-'}, "fire fox", "^fire ^fox"},
+		{"prefix tokens", Options{Method: MatchPrefix, Tokenize: true, NegationChar: '-'}, "fire fox", "^fire ^fox"},
 		{"the negation char becomes !", def, "fire -fox", "'fire !'fox"},
 		{"a lone negation char is literal", def, "fire -", "'fire '-"},
-		{"no tokenize escapes spaces", MatcherOptions{Method: MatchNormal, NegationChar: '-'}, "fire fox", `'fire\ fox`},
-		{"fuzzy passes through", MatcherOptions{Method: MatchFuzzy, Tokenize: true, NegationChar: '-'}, "ffx -web", "ffx !web"},
+		{"no tokenize escapes spaces", Options{Method: MatchNormal, NegationChar: '-'}, "fire fox", `'fire\ fox`},
+		{"fuzzy passes through", Options{Method: MatchFuzzy, Tokenize: true, NegationChar: '-'}, "ffx -web", "ffx !web"},
 		{"empty stays empty", def, "", ""},
 	} {
 		if got := rewriteQuery(tc.query, tc.opts); got != tc.want {
@@ -43,18 +41,18 @@ func TestRewriteQuery(t *testing.T) {
 }
 
 func TestNormalMatchingFiltersAndKeepsOrder(t *testing.T) {
-	got := matches(DefaultMatcherOptions(), items("Firefox", "Files", "Terminal", "fire pit"), "fire")
+	got := matches(DefaultOptions(), items("Firefox", "Files", "Terminal", "fire pit"), "fire")
 	if !reflect.DeepEqual(got, []uint32{0, 3}) {
 		t.Errorf("got %v, want [0 3]", got)
 	}
 	// Negative: substring, not fuzzy - "frx" is a subsequence of Firefox.
-	if got := matches(DefaultMatcherOptions(), items("Firefox"), "frx"); len(got) != 0 {
+	if got := matches(DefaultOptions(), items("Firefox"), "frx"); len(got) != 0 {
 		t.Errorf("normal matching must not match a subsequence, got %v", got)
 	}
 }
 
 func TestFuzzyMatchesSubsequences(t *testing.T) {
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Method = MatchFuzzy
 	got := matches(opts, items("Firefox", "Files", "Terminal"), "frx")
 	if !reflect.DeepEqual(got, []uint32{0}) {
@@ -66,14 +64,14 @@ func TestFuzzyMatchesSubsequences(t *testing.T) {
 }
 
 func TestNegationExcludes(t *testing.T) {
-	got := matches(DefaultMatcherOptions(), items("Firefox", "fire pit", "Files"), "fi -fox")
+	got := matches(DefaultOptions(), items("Firefox", "fire pit", "Files"), "fi -fox")
 	if !reflect.DeepEqual(got, []uint32{1, 2}) {
 		t.Errorf("got %v, want [1 2]", got)
 	}
 }
 
 func TestSmartCaseRespectsUppercase(t *testing.T) {
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Case = CaseModeSmart
 	if got := matches(opts, items("firefox", "FireFox"), "FireF"); !reflect.DeepEqual(got, []uint32{1}) {
 		t.Errorf("uppercase query: got %v, want [1]", got)
@@ -84,7 +82,7 @@ func TestSmartCaseRespectsUppercase(t *testing.T) {
 }
 
 func TestCaseSensitivePrefixMatchesTheRightCase(t *testing.T) {
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Method = MatchPrefix
 	opts.Case = CaseModeSensitive
 	if got := matches(opts, items("Firefox", "firefox"), "Fire"); !reflect.DeepEqual(got, []uint32{0}) {
@@ -93,10 +91,10 @@ func TestCaseSensitivePrefixMatchesTheRightCase(t *testing.T) {
 }
 
 func TestNormalizationStripsAccents(t *testing.T) {
-	if got := matches(DefaultMatcherOptions(), items("Café", "Cafe", "Tea"), "cafe"); !reflect.DeepEqual(got, []uint32{0, 1}) {
+	if got := matches(DefaultOptions(), items("Café", "Cafe", "Tea"), "cafe"); !reflect.DeepEqual(got, []uint32{0, 1}) {
 		t.Errorf("normalized: got %v, want [0 1]", got)
 	}
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Normalize = false
 	if got := matches(opts, items("Café", "Cafe"), "cafe"); !reflect.DeepEqual(got, []uint32{1}) {
 		t.Errorf("unnormalized: got %v, want [1]", got)
@@ -104,7 +102,7 @@ func TestNormalizationStripsAccents(t *testing.T) {
 }
 
 func TestRegexScan(t *testing.T) {
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Method = MatchRegex
 	list := items("Firefox", "Files", "Terminal")
 	if got := matches(opts, list, "^fi.*x$"); !reflect.DeepEqual(got, []uint32{0}) {
@@ -119,7 +117,7 @@ func TestRegexScan(t *testing.T) {
 }
 
 func TestGlobScanWithNegation(t *testing.T) {
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Method = MatchGlob
 	if got := matches(opts, items("Firefox", "fire pit", "Files"), "fi* -fox"); !reflect.DeepEqual(got, []uint32{1, 2}) {
 		t.Errorf("got %v, want [1 2]", got)
@@ -130,9 +128,7 @@ func TestGlobScanWithNegation(t *testing.T) {
 }
 
 func TestPermanentRowsSurviveTheFilter(t *testing.T) {
-	list := items("Firefox", "Files", "Quit")
-	list[2].Flags |= FlagPermanent
-	if got := matches(DefaultMatcherOptions(), list, "fire"); !reflect.DeepEqual(got, []uint32{0, 2}) {
+	if got := matchesKeeping(DefaultOptions(), items("Firefox", "Files", "Quit"), []uint32{2}, "fire"); !reflect.DeepEqual(got, []uint32{0, 2}) {
 		t.Errorf("got %v, want [0 2]", got)
 	}
 }
@@ -149,7 +145,7 @@ func TestLevenshtein(t *testing.T) {
 }
 
 func TestLevenshteinSortOrdersByDistance(t *testing.T) {
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Sort, opts.SortMethod = true, SortLevenshtein
 	if got := matches(opts, items("firefight", "fire", "firefox"), "fire"); !reflect.DeepEqual(got, []uint32{1, 2, 0}) {
 		t.Errorf("got %v, want [1 2 0]", got)
@@ -162,7 +158,7 @@ func TestLevenshteinSortOrdersByDistance(t *testing.T) {
 }
 
 func TestFzfSortRanksByScore(t *testing.T) {
-	opts := DefaultMatcherOptions()
+	opts := DefaultOptions()
 	opts.Method = MatchFuzzy
 	opts.Sort, opts.SortMethod = true, SortFzf
 	// A word-boundary match outranks a mid-word one, and among equal
@@ -174,7 +170,7 @@ func TestFzfSortRanksByScore(t *testing.T) {
 }
 
 func TestEmptyQueryMatchesAllInOrder(t *testing.T) {
-	if got := matches(DefaultMatcherOptions(), items("b", "a", "c"), ""); !reflect.DeepEqual(got, []uint32{0, 1, 2}) {
+	if got := matches(DefaultOptions(), items("b", "a", "c"), ""); !reflect.DeepEqual(got, []uint32{0, 1, 2}) {
 		t.Errorf("got %v", got)
 	}
 }

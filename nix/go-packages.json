@@ -163,6 +163,12 @@
       "lib/third_party/gomath"
     ]
   },
+  "desktop/launchermatch": {
+    "imports": [
+      "desktop/config",
+      "desktop/glob"
+    ]
+  },
   "desktop/logging": {
     "imports": [
       "desktop/identity",
@@ -2270,6 +2276,7 @@
       "desktop/identity",
       "desktop/imagedecode",
       "desktop/jinja",
+      "desktop/launchermatch",
       "desktop/logging",
       "desktop/mime",
       "desktop/opener",
@@ -2905,9 +2912,9 @@
       "desktop/config",
       "desktop/desktopentry",
       "desktop/fileuri",
-      "desktop/glob",
       "desktop/identity",
       "desktop/imagedecode",
+      "desktop/launchermatch",
       "desktop/mime",
       "desktop/opener",
       "desktop/shlex",
@@ -2933,8 +2940,8 @@
   },
   "shell/service/launcher/charnames": {
     "imports": [
-      "lib/intconv",
-      "shell/service/launcher"
+      "desktop/launchermatch",
+      "lib/intconv"
     ],
     "embeds": [
       "shell/service/launcher/charnames/names.bin.gz"
@@ -2981,6 +2988,7 @@
       "desktop/desktopentry",
       "desktop/i18n",
       "desktop/identity",
+      "desktop/launchermatch",
       "desktop/pango",
       "desktop/service/clipboard",
       "desktop/settingspage",
@@ -3582,6 +3590,7 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/launchermatch",
       "desktop/pango",
       "desktop/shell/launcherview",
       "desktop/shell/layers",

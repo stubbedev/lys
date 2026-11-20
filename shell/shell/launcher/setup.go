@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
@@ -52,7 +53,7 @@ type uiSettings struct {
 type sessionSetup struct {
 	modes       []engine.Mode
 	initialMode int
-	matcher     engine.MatcherOptions
+	matcher     launchermatch.Options
 	ui          uiSettings
 	history     *engine.History
 }
@@ -379,60 +380,29 @@ func runConfig(opts launcheripc.SessionOptions, l config.LauncherConfig) modes.R
 
 // matcherOptions merges the matching flags over [launcher]. An unknown
 // -matching is normal, an unknown -sorting-method levenshtein.
-func matcherOptions(opts launcheripc.SessionOptions, l config.LauncherConfig) engine.MatcherOptions {
-	methods := map[string]engine.MatchMethod{
-		"normal": engine.MatchNormal, "regex": engine.MatchRegex, "glob": engine.MatchGlob,
-		"fuzzy": engine.MatchFuzzy, "prefix": engine.MatchPrefix,
-	}
-	method := methods[string(l.Matching)]
+func matcherOptions(opts launcheripc.SessionOptions, l config.LauncherConfig) launchermatch.Options {
+	o := launchermatch.OptionsOf(l)
 	if opts.Matching != nil {
-		method = methods[*opts.Matching] // unknown -> MatchNormal, the zero
+		o.Method = launchermatch.MethodOf(config.LauncherMatching(*opts.Matching))
 	}
-	var caseMode engine.CaseMode
 	switch {
 	case deref(opts.CaseInsensitive, false):
-		caseMode = engine.CaseModeInsensitive
+		o.Case = launchermatch.CaseModeInsensitive
 	case deref(opts.CaseSmart, false):
-		caseMode = engine.CaseModeSmart
+		o.Case = launchermatch.CaseModeSmart
 	case deref(opts.CaseSensitive, false):
-		caseMode = engine.CaseModeSensitive
-	default:
-		caseMode = map[config.LauncherCase]engine.CaseMode{
-			config.CaseInsensitive: engine.CaseModeInsensitive,
-			config.CaseSmart:       engine.CaseModeSmart,
-			config.CaseSensitive:   engine.CaseModeSensitive,
-		}[l.Case]
-	}
-	sortMethod := engine.SortLevenshtein
-	if l.SortingMethod == config.SortingFzf {
-		sortMethod = engine.SortFzf
+		o.Case = launchermatch.CaseModeSensitive
 	}
 	if opts.SortingMethod != nil {
-		sortMethod = engine.SortLevenshtein
-		if *opts.SortingMethod == "fzf" || *opts.SortingMethod == "fzf-v2" {
-			sortMethod = engine.SortFzf
-		}
-	}
-	negate := '-'
-	for _, r := range l.NegateChar {
-		negate = r
-		break
+		o.SortMethod = launchermatch.SortMethodOf(*opts.SortingMethod)
 	}
 	if opts.NegateChar != nil {
-		for _, r := range *opts.NegateChar {
-			negate = r
-			break
-		}
+		o.NegationChar = launchermatch.NegationCharOf(*opts.NegateChar, o.NegationChar)
 	}
-	return engine.MatcherOptions{
-		Method:       method,
-		Case:         caseMode,
-		Tokenize:     deref(opts.Tokenize, l.Tokenize),
-		Normalize:    deref(opts.NormalizeMatch, l.NormalizeMatch),
-		NegationChar: negate,
-		Sort:         deref(opts.Sort, l.Sort),
-		SortMethod:   sortMethod,
-	}
+	o.Tokenize = deref(opts.Tokenize, o.Tokenize)
+	o.Normalize = deref(opts.NormalizeMatch, o.Normalize)
+	o.Sort = deref(opts.Sort, o.Sort)
+	return o
 }
 
 func hooksOf(opts launcheripc.SessionOptions) engine.Hooks {

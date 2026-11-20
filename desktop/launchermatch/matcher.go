@@ -1,4 +1,9 @@
-package launcher
+// Package launchermatch is the launcher's matcher: rofi's matching
+// methods, case handling and sorting over a port of nucleo's fzf scoring,
+// the options launcher configures, and the fuzzy query searches compile
+// to. lys-shell filters its lists with it and lys-settings' launcher
+// preview matches its test query.
+package launchermatch
 
 import (
 	"regexp"
@@ -52,8 +57,8 @@ const (
 	SortLevenshtein
 )
 
-// MatcherOptions are the matching knobs.
-type MatcherOptions struct {
+// Options are the matching knobs.
+type Options struct {
 	Method MatchMethod
 	Case   CaseMode
 	// Tokenize splits the query into independently matched words.
@@ -69,59 +74,45 @@ type MatcherOptions struct {
 	SortMethod SortMethod
 }
 
-// DefaultMatcherOptions are the matching knobs without any flag or config.
-func DefaultMatcherOptions() MatcherOptions {
-	return MatcherOptions{Tokenize: true, Normalize: true, NegationChar: '-', SortMethod: SortFzf}
+// DefaultOptions are the matching knobs without any flag or config.
+func DefaultOptions() Options {
+	return Options{Tokenize: true, Normalize: true, NegationChar: '-', SortMethod: SortFzf}
 }
 
-// MatchEngine filters and ranks a mode's items against the query. The
+// Engine filters and ranks a list's texts against the query. The
 // fzf-syntax methods (normal, fuzzy, prefix) rewrite the query into
-// nucleo's pattern language and score every item; regex and glob scan.
-// It is synchronous: the engine goroutine calls it per keystroke, which
-// for launcher-sized lists is cheaper than nucleo's worker threads.
-type MatchEngine struct {
-	items     []Item
+// nucleo's pattern language and score every text; regex and glob scan.
+// It is synchronous: the caller runs it per keystroke, which for
+// launcher-sized lists is cheaper than nucleo's worker threads.
+type Engine struct {
+	texts     []string
 	hay       [][]rune
 	permanent []uint32
-	opts      MatcherOptions
+	opts      Options
 	query     string
 	matched   []uint32
 }
 
-// NewMatchEngine builds an engine with no items.
-func NewMatchEngine(opts MatcherOptions) *MatchEngine {
-	return &MatchEngine{opts: opts}
+// NewEngine builds an engine with no texts.
+func NewEngine(opts Options) *Engine {
+	return &Engine{opts: opts}
 }
 
-// Items returns the current items.
-func (e *MatchEngine) Items() []Item { return e.items }
-
-// Options returns the matching options.
-func (e *MatchEngine) Options() MatcherOptions { return e.opts }
-
-// SetItems replaces the item set (a mode load or reload) and re-runs
-// the query.
-func (e *MatchEngine) SetItems(items []Item) {
-	e.items = items
-	e.hay = make([][]rune, len(items))
-	e.permanent = e.permanent[:0]
-	for i, it := range items {
-		e.hay[i] = graphemeRunes(it.MatchText)
-		if it.Flags.Has(FlagPermanent) {
-			e.permanent = append(e.permanent, uint32(i))
-		}
+// SetTexts replaces the list (a mode load or reload) and re-runs the
+// query. permanent are the indices kept after the matches whatever the
+// query.
+func (e *Engine) SetTexts(texts []string, permanent []uint32) {
+	e.texts = texts
+	e.hay = make([][]rune, len(texts))
+	for i, text := range texts {
+		e.hay[i] = graphemeRunes(text)
 	}
-	e.SetQuery(e.query)
-}
-
-// SetOptions replaces the matching options and re-runs the query.
-func (e *MatchEngine) SetOptions(opts MatcherOptions) {
-	e.opts = opts
+	e.permanent = permanent
 	e.SetQuery(e.query)
 }
 
 // SetQuery updates the query and recomputes the matches.
-func (e *MatchEngine) SetQuery(query string) {
+func (e *Engine) SetQuery(query string) {
 	e.query = query
 	switch e.opts.Method {
 	case MatchRegex:
@@ -133,13 +124,13 @@ func (e *MatchEngine) SetQuery(query string) {
 	}
 }
 
-// Matched returns the ranked matched item indices plus the trailing
-// PERMANENT rows the filter dropped.
-func (e *MatchEngine) Matched() []uint32 {
+// Matched returns the ranked matched indices plus the trailing
+// permanent ones the filter dropped.
+func (e *Engine) Matched() []uint32 {
 	out := slices.Clone(e.matched)
 	if e.opts.Sort && e.opts.SortMethod == SortLevenshtein {
 		slices.SortStableFunc(out, func(a, b uint32) int {
-			return levenshtein(e.query, e.items[a].MatchText) - levenshtein(e.query, e.items[b].MatchText)
+			return levenshtein(e.query, e.texts[a]) - levenshtein(e.query, e.texts[b])
 		})
 	}
 	for _, p := range e.permanent {
@@ -151,7 +142,7 @@ func (e *MatchEngine) Matched() []uint32 {
 }
 
 // caseSensitive resolves the case mode against the query.
-func (e *MatchEngine) caseSensitive() bool {
+func (e *Engine) caseSensitive() bool {
 	switch e.opts.Case {
 	case CaseModeSensitive:
 		return true
@@ -165,13 +156,13 @@ func (e *MatchEngine) caseSensitive() bool {
 // scanPattern runs the nucleo path: every item scored against the
 // rewritten pattern, in list order unless sorting by quality, where
 // nucleo's order is score, then shorter text, then list order.
-func (e *MatchEngine) scanPattern() []uint32 {
+func (e *Engine) scanPattern() []uint32 {
 	atoms := parsePattern(rewriteQuery(e.query, e.opts), !e.caseSensitive(), e.opts.Normalize)
 	type hit struct {
 		idx   uint32
 		score int
 	}
-	hits := make([]hit, 0, len(e.items))
+	hits := make([]hit, 0, len(e.texts))
 	for i, hay := range e.hay {
 		if s, ok := patternScore(atoms, hay); ok {
 			hits = append(hits, hit{idx: uint32(i), score: s})
@@ -199,7 +190,7 @@ func (e *MatchEngine) scanPattern() []uint32 {
 // normal -> 'substring atoms, prefix -> ^prefix atoms, fuzzy -> the
 // query untouched. Tokens led by the negation char become ! atoms.
 // With tokenize off the whole query is one atom, spaces escaped.
-func rewriteQuery(query string, opts MatcherOptions) string {
+func rewriteQuery(query string, opts Options) string {
 	if query == "" {
 		return ""
 	}
@@ -231,8 +222,8 @@ func rewriteQuery(query string, opts MatcherOptions) string {
 	return strings.Join(fields, " ")
 }
 
-func (e *MatchEngine) all() []uint32 {
-	out := make([]uint32, len(e.items))
+func (e *Engine) all() []uint32 {
+	out := make([]uint32, len(e.texts))
 	for i := range out {
 		out[i] = uint32(i)
 	}
@@ -241,7 +232,7 @@ func (e *MatchEngine) all() []uint32 {
 
 // scanRegex matches the whole query as a regular expression. An
 // invalid one (a trailing '[' while typing) matches nothing, as rofi.
-func (e *MatchEngine) scanRegex() []uint32 {
+func (e *Engine) scanRegex() []uint32 {
 	if e.query == "" {
 		return e.all()
 	}
@@ -254,8 +245,8 @@ func (e *MatchEngine) scanRegex() []uint32 {
 		return nil
 	}
 	var out []uint32
-	for i, it := range e.items {
-		if re.MatchString(it.MatchText) {
+	for i, text := range e.texts {
+		if re.MatchString(text) {
 			out = append(out, uint32(i))
 		}
 	}
@@ -263,7 +254,7 @@ func (e *MatchEngine) scanRegex() []uint32 {
 }
 
 // scanGlob matches each token as `*token*` (`*` crossing separators); a malformed token matches nothing.
-func (e *MatchEngine) scanGlob() []uint32 {
+func (e *Engine) scanGlob() []uint32 {
 	if e.query == "" {
 		return e.all()
 	}
@@ -298,10 +289,10 @@ func (e *MatchEngine) scanGlob() []uint32 {
 		patterns = append(patterns, pattern{negated: negated, p: p})
 	}
 	var out []uint32
-	for i, it := range e.items {
+	for i, text := range e.texts {
 		keep := true
 		for _, p := range patterns {
-			if p.p.Matches(it.MatchText, sensitive) == p.negated {
+			if p.p.Matches(text, sensitive) == p.negated {
 				keep = false
 				break
 			}

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
@@ -240,7 +241,7 @@ type Answerer interface {
 // scores, best first, building only those. An empty query lists its first
 // rows.
 type Searcher interface {
-	Search(q *launcher.FuzzyQuery, query string, limit int) []Found
+	Search(q *launchermatch.FuzzyQuery, query string, limit int) []Found
 }
 
 // Found is a row a Searcher built, its score, and its title as the matcher

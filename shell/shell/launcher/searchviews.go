@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
@@ -26,7 +27,7 @@ type panelViews struct {
 	p   *panel
 	cfg *config.Config
 	// hl is the query's copy for highlighting, on the UI loop.
-	hl      engine.FuzzyQuery
+	hl      launchermatch.FuzzyQuery
 	body    *widget.Box
 	list    *searchList
 	pane    *previewPane

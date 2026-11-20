@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 
-	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
@@ -81,8 +81,8 @@ func BenchmarkPublish(b *testing.B) {
 
 // BenchmarkHighlights is the cost of one visible row's highlights.
 func BenchmarkHighlights(b *testing.B) {
-	q := launcher.NewFuzzyQuery("vsc")
-	hay := launcher.Haystack("Visual Studio Code - Insiders")
+	q := launchermatch.NewFuzzyQuery("vsc")
+	hay := launchermatch.Haystack("Visual Studio Code - Insiders")
 	dst := make([]int, 0, 8)
 	b.ReportAllocs()
 	for b.Loop() {
@@ -141,8 +141,8 @@ func TestAnsweringAQueryAllocatesNothing(t *testing.T) {
 }
 
 func TestHighlightsAllocateNothing(t *testing.T) {
-	q := launcher.NewFuzzyQuery("vsc code")
-	hay := launcher.Haystack("Visual Studio Code - Insiders")
+	q := launchermatch.NewFuzzyQuery("vsc code")
+	hay := launchermatch.Haystack("Visual Studio Code - Insiders")
 	dst := make([]int, 0, 16)
 	if got := testing.AllocsPerRun(20, func() { dst = q.AppendPositions(dst[:0], hay) }); got != 0 {
 		t.Errorf("%v allocations per row", got)

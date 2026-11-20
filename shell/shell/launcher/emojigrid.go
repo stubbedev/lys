@@ -7,13 +7,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
-	engine "github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 	"github.com/stubbedev/lys/shell/service/launcher/search"
 )
@@ -47,7 +47,7 @@ type emojiGrid struct {
 	hay     [][]rune
 	shown   []int
 	tone    modes.SkinTone
-	query   *engine.FuzzyQuery
+	query   *launchermatch.FuzzyQuery
 	glyphPx float64
 	closing bool
 	// afterClose runs once the surface has gone and the keyboard with it.
@@ -57,10 +57,10 @@ type emojiGrid struct {
 // openEmojiGrid starts an emoji grid session.
 func (s *Surface) openEmojiGrid(sess *launcheripc.Session) {
 	cfg := s.d.Config()
-	g := &emojiGrid{s: s, sess: sess, emojis: s.d.Emoji(), tone: search.SkinToneOf(cfg.Launcher.Emoji.SkinTone), query: engine.NewFuzzyQuery("")}
+	g := &emojiGrid{s: s, sess: sess, emojis: s.d.Emoji(), tone: search.SkinToneOf(cfg.Launcher.Emoji.SkinTone), query: launchermatch.NewFuzzyQuery("")}
 	g.hay = make([][]rune, len(g.emojis))
 	for i, e := range g.emojis {
-		g.hay[i] = engine.Haystack(e.Name + " " + strings.Join(e.Keywords, " "))
+		g.hay[i] = launchermatch.Haystack(e.Name + " " + strings.Join(e.Keywords, " "))
 	}
 	g.build(cfg)
 	s.emojiGrid = g

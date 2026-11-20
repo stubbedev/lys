@@ -5,9 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/lib/intconv"
-
-	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 const (
@@ -72,13 +71,13 @@ func (c *corpus) set(entries []Entry, boost func(string) int) {
 	for i := range entries {
 		e := &entries[i]
 		start := len(arena)
-		arena = launcher.AppendHaystack(arena, e.Title)
+		arena = launchermatch.AppendHaystack(arena, e.Title)
 		titleEnd := len(arena)
 		if e.Subtitle != "" {
-			arena = launcher.AppendHaystack(append(arena, ' '), e.Subtitle)
+			arena = launchermatch.AppendHaystack(append(arena, ' '), e.Subtitle)
 		}
 		if e.Keywords != "" {
-			arena = launcher.AppendHaystack(append(arena, ' '), e.Keywords)
+			arena = launchermatch.AppendHaystack(append(arena, ' '), e.Keywords)
 		}
 		c.titles[i] = arena[start:titleEnd:titleEnd]
 		c.full[i] = arena[start:len(arena):len(arena)]
@@ -87,7 +86,7 @@ func (c *corpus) set(entries []Entry, boost func(string) int) {
 }
 
 // matchOne scores one entry: its title, else the whole of it for less.
-func (c *corpus) matchOne(q *launcher.FuzzyQuery, i int) (int32, bool) {
+func (c *corpus) matchOne(q *launchermatch.FuzzyQuery, i int) (int32, bool) {
 	c.tested++
 	if s, ok := q.Score(c.titles[i]); ok {
 		return intconv.Clamp[int32](s), true
@@ -103,7 +102,7 @@ func (c *corpus) matchOne(q *launcher.FuzzyQuery, i int) (int32, bool) {
 
 // scan brings hits up to query: only the last query's hits when query
 // extends it, a query that narrows matching a subset by construction.
-func (c *corpus) scan(q *launcher.FuzzyQuery, query string) {
+func (c *corpus) scan(q *launchermatch.FuzzyQuery, query string) {
 	if c.scanned && c.lastQuery != "" && strings.HasPrefix(query, c.lastQuery) {
 		kept := c.hits[:0]
 		for _, h := range c.hits {

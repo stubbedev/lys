@@ -2,8 +2,19 @@ package launcher
 
 import (
 	"context"
+	"slices"
 	"testing"
+
+	"github.com/stubbedev/lys/desktop/launchermatch"
 )
+
+func items(texts ...string) []Item {
+	out := make([]Item, len(texts))
+	for i, t := range texts {
+		out[i] = NewItem(t)
+	}
+	return out
+}
 
 // staticMode is a Mode test double with fixed rows.
 type staticMode struct {
@@ -28,7 +39,7 @@ func newTestSession(t *testing.T) *Session {
 	s, err := NewSession([]Mode{
 		&staticMode{name: "alpha", entries: []string{"a1", "a2"}},
 		&staticMode{name: "beta", entries: []string{"b1"}},
-	}, DefaultMatcherOptions())
+	}, launchermatch.DefaultOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +47,7 @@ func newTestSession(t *testing.T) *Session {
 }
 
 func TestSessionNeedsAMode(t *testing.T) {
-	if _, err := NewSession(nil, DefaultMatcherOptions()); err == nil {
+	if _, err := NewSession(nil, launchermatch.DefaultOptions()); err == nil {
 		t.Fatal("a session over no modes must be refused")
 	}
 }
@@ -44,8 +55,8 @@ func TestSessionNeedsAMode(t *testing.T) {
 func TestLoadPopulatesEngineAndPrompt(t *testing.T) {
 	s := newTestSession(t)
 	s.Load(context.Background())
-	if s.State().Prompt != "alpha" || len(s.Engine.Items()) != 2 {
-		t.Errorf("state = %+v, items = %d", s.State(), len(s.Engine.Items()))
+	if s.State().Prompt != "alpha" || len(s.Items()) != 2 {
+		t.Errorf("state = %+v, items = %d", s.State(), len(s.Items()))
 	}
 }
 
@@ -54,8 +65,8 @@ func TestModeSwitchingWrapsAndLoads(t *testing.T) {
 	s := newTestSession(t)
 	s.Load(ctx)
 	s.SwitchNext(ctx)
-	if s.ActiveIndex() != 1 || len(s.Engine.Items()) != 1 {
-		t.Fatalf("after next: %d / %d items", s.ActiveIndex(), len(s.Engine.Items()))
+	if s.ActiveIndex() != 1 || len(s.Items()) != 1 {
+		t.Fatalf("after next: %d / %d items", s.ActiveIndex(), len(s.Items()))
 	}
 	s.SwitchNext(ctx)
 	if s.ActiveIndex() != 0 {
@@ -150,6 +161,25 @@ func TestTheCompleterCannotBeOpenedTwice(t *testing.T) {
 	}
 }
 
+// permanentMode lists two apps and a permanent row.
+type permanentMode struct{ staticMode }
+
+func (m *permanentMode) Load(ctx context.Context) ModeState {
+	st := m.staticMode.Load(ctx)
+	st.Items[2].Flags |= FlagPermanent
+	return st
+}
+
+func TestAPermanentRowOutlivesTheQueryAndAPlainOneDoesNot(t *testing.T) {
+	ctx := context.Background()
+	s, _ := NewSession([]Mode{&permanentMode{staticMode{name: "calc", entries: []string{"Firefox", "Files", "= 3"}}}}, launchermatch.DefaultOptions())
+	s.Load(ctx)
+	s.SetQuery("fire")
+	if got := s.Matched(); !slices.Equal(got, []uint32{0, 2}) {
+		t.Errorf("fire matches %v, want Firefox and the permanent row", got)
+	}
+}
+
 // customRefuser refuses typed text.
 type customRefuser struct{ staticMode }
 
@@ -158,7 +188,7 @@ func (customRefuser) AllowsCustom() bool { return false }
 func TestCustomInputARefusingModeNeverSees(t *testing.T) {
 	ctx := context.Background()
 	m := &customRefuser{staticMode{name: "keys", entries: []string{"x"}}}
-	s, _ := NewSession([]Mode{m}, DefaultMatcherOptions())
+	s, _ := NewSession([]Mode{m}, launchermatch.DefaultOptions())
 	s.Load(ctx)
 	if _, ok := s.Activate(ctx, NoRow, ActivateCustom{Text: "typed"}).(ActionNothing); !ok {
 		t.Error("custom input to a refusing mode is nothing")
@@ -200,7 +230,7 @@ func (subsetMode) Subset(bang string) ([]bool, bool) {
 
 func TestABangMasksAndIsStripped(t *testing.T) {
 	ctx := context.Background()
-	s, _ := NewSession([]Mode{&subsetMode{staticMode{name: "combi", entries: []string{"x1", "x2"}}}}, DefaultMatcherOptions())
+	s, _ := NewSession([]Mode{&subsetMode{staticMode{name: "combi", entries: []string{"x1", "x2"}}}}, launchermatch.DefaultOptions())
 	s.Load(ctx)
 	s.SetQuery("!b x")
 	if got := s.Matched(); len(got) != 1 || got[0] != 1 {

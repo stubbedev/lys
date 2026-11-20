@@ -111,6 +111,40 @@ func TestTheLauncherPreviewsQueryFiltersTheSampleApps(t *testing.T) {
 	}
 }
 
+func TestTheLauncherPreviewsQueryMatchesAsTheLauncherIsSetToMatch(t *testing.T) {
+	k := testKit(t, "")
+	p := buildPage(k, launcherPage(nil))
+	terminal := sampleName("settings-launcher-sample-terminal")
+	editor := sampleName("settings-launcher-sample-editor")
+	rowsFor := func(query string) []string {
+		t.Helper()
+		previewQuery(t, p).SetText(query)
+		panel, _ := previewedLauncher(t, p)
+		return launcherRowTexts(t, panel)
+	}
+	if got := rowsFor("trml"); len(got) != 0 {
+		t.Errorf("normal matching previews %v for trml, want nothing", got)
+	}
+	set(t, k, p, "launcher.matching", "fuzzy")
+	if got := rowsFor("trml"); !slices.Equal(got, []string{terminal}) {
+		t.Errorf("fuzzy matching previews %v for trml, want %s alone", got, terminal)
+	}
+	set(t, k, p, "launcher.matching", "prefix")
+	if got := rowsFor("editor"); len(got) != 0 {
+		t.Errorf("prefix matching previews %v for editor, want nothing", got)
+	}
+	if got := rowsFor("text"); !slices.Equal(got, []string{editor}) {
+		t.Errorf("prefix matching previews %v for text, want %s alone", got, editor)
+	}
+	set(t, k, p, "launcher.case", "sensitive")
+	if got := rowsFor("text"); len(got) != 0 {
+		t.Errorf("case-sensitive matching previews %v for text, want nothing", got)
+	}
+	if got := rowsFor("Text"); !slices.Equal(got, []string{editor}) {
+		t.Errorf("case-sensitive matching previews %v for Text, want %s alone", got, editor)
+	}
+}
+
 func TestTheLauncherPreviewDrawsAStylePresetItIsAskedTo(t *testing.T) {
 	k := testKit(t, "launcher:\n  styles:\n    huge: \".launcher-row-label { font-size: 40px; }\"\n")
 	p := buildPage(k, launcherPage(nil))

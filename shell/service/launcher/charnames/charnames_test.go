@@ -11,7 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/desktop/launchermatch"
+
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
@@ -25,7 +26,7 @@ func shared(t *testing.T) *Table {
 }
 
 func search(s *Searcher, query string, limit int) []Char {
-	return s.Search(launcher.NewFuzzyQuery(query), query, limit)
+	return s.Search(launchermatch.NewFuzzyQuery(query), query, limit)
 }
 
 func names(t *Table, found []Char) []string {
@@ -111,7 +112,7 @@ func TestGlyphsShowInvisibleCharactersVisibly(t *testing.T) {
 func TestSearchingEveryNameAllocatesNothing(t *testing.T) {
 	s := shared(t).NewSearcher()
 	for _, query := range []string{"letter", "a", "right arrow", "qqqzzz", "", "U+2192"} {
-		q := launcher.NewFuzzyQuery(query)
+		q := launchermatch.NewFuzzyQuery(query)
 		s.Search(q, query, 200)
 		allocs := testing.AllocsPerRun(5, func() { s.Search(q, query, 200) })
 		if allocs != 0 {

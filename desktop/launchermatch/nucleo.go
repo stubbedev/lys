@@ -1,4 +1,4 @@
-package launcher
+package launchermatch
 
 import (
 	"strings"

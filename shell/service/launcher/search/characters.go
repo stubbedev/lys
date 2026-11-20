@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/charnames"
@@ -44,7 +45,7 @@ func (c *Characters) Spec() Spec {
 func (*Characters) Load(context.Context, func([]Entry)) {}
 
 // Search implements Searcher.
-func (c *Characters) Search(q *launcher.FuzzyQuery, query string, limit int) []Found {
+func (c *Characters) Search(q *launchermatch.FuzzyQuery, query string, limit int) []Found {
 	if c.searcher == nil {
 		if c.failed {
 			return nil
@@ -72,7 +73,7 @@ func (c *Characters) Search(q *launcher.FuzzyQuery, query string, limit int) []F
 		if e.Glyph == "" {
 			e.Icon = iconInvisible
 		}
-		found[i] = Found{Entry: e, Score: ch.Score, Title: launcher.Haystack(title)}
+		found[i] = Found{Entry: e, Score: ch.Score, Title: launchermatch.Haystack(title)}
 	}
 	return found
 }
