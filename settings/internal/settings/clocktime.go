@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/daytime"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -65,7 +65,7 @@ func minuteChoices(step, current int) []int {
 type clockTimeEditor struct {
 	*widget.Box
 	slot       slot
-	avoid      func() (notifypolicy.ClockTime, bool)
+	avoid      func() (daytime.Time, bool)
 	step       int
 	hourLabels []string
 	hour       *widget.Dropdown
@@ -75,7 +75,7 @@ type clockTimeEditor struct {
 	problem    *widget.Label
 }
 
-func newClockTimeEditor(k *kit, s slot, name string, step int, avoid func() (notifypolicy.ClockTime, bool)) *clockTimeEditor {
+func newClockTimeEditor(k *kit, s slot, name string, step int, avoid func() (daytime.Time, bool)) *clockTimeEditor {
 	t := locale.T()
 	e := &clockTimeEditor{Box: gapBox(widget.Column), slot: s, avoid: avoid, step: step, hourLabels: hourLabels(k)}
 	e.hour = widget.NewDropdown(k.face, k.textPx(), nil, -1)
@@ -95,22 +95,22 @@ func newClockTimeEditor(k *kit, s slot, name string, step int, avoid func() (not
 	return e
 }
 
-func anyClockTime() (notifypolicy.ClockTime, bool) { return notifypolicy.ClockTime{}, false }
+func anyClockTime() (daytime.Time, bool) { return daytime.Time{}, false }
 
-func clockTimeOf(s slot) func() (notifypolicy.ClockTime, bool) {
-	return func() (notifypolicy.ClockTime, bool) {
+func clockTimeOf(s slot) func() (daytime.Time, bool) {
+	return func() (daytime.Time, bool) {
 		raw, _ := s.get().(string)
-		at, err := notifypolicy.ParseClockTime(raw)
+		at, err := daytime.Parse(raw)
 		return at, err == nil
 	}
 }
 
-func (e *clockTimeEditor) value() (notifypolicy.ClockTime, error) {
+func (e *clockTimeEditor) value() (daytime.Time, error) {
 	raw, ok := e.slot.get().(string)
 	if !ok {
-		return notifypolicy.ClockTime{}, fmt.Errorf("read the time of day: %v is not HH:MM", e.slot.get())
+		return daytime.Time{}, fmt.Errorf("read the time of day: %v is not HH:MM", e.slot.get())
 	}
-	return notifypolicy.ParseClockTime(raw)
+	return daytime.Parse(raw)
 }
 
 func (e *clockTimeEditor) write() {
@@ -118,7 +118,7 @@ func (e *clockTimeEditor) write() {
 	if _, err := e.value(); err != nil || h < 0 || h >= len(e.hours) || mi < 0 || mi >= len(e.minutes) {
 		return
 	}
-	at, err := notifypolicy.ClockTimeAt(e.hours[h], e.minutes[mi])
+	at, err := daytime.At(e.hours[h], e.minutes[mi])
 	if err == nil {
 		err = e.slot.set(at.String())
 	}

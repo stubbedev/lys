@@ -7,6 +7,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/stubbedev/lys/desktop/daytime"
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -141,11 +142,11 @@ func everyDay() notifypolicy.DaySet {
 
 func mustWindow(t *testing.T, days notifypolicy.DaySet, from, to string) notifypolicy.Window {
 	t.Helper()
-	f, err := notifypolicy.ParseClockTime(from)
+	f, err := daytime.Parse(from)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tt, err := notifypolicy.ParseClockTime(to)
+	tt, err := daytime.Parse(to)
 	if err != nil {
 		t.Fatal(err)
 	}

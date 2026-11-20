@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/daytime"
 )
 
 func everyDay() DaySet {
@@ -14,37 +16,13 @@ func everyDay() DaySet {
 	return d
 }
 
-func TestScheduleWindowsAndTimesAreValidated(t *testing.T) {
-	for _, raw := range []string{"24:00", "7:00", "07:60", "0700", "ab:cd"} {
-		if _, err := ParseClockTime(raw); !errors.Is(err, ErrClockTime) {
-			t.Errorf("%q: %v", raw, err)
-		}
-	}
-	at, err := ParseClockTime("07:00")
+func TestAWindowEndsAtAnotherTimeThanItStarts(t *testing.T) {
+	at, err := daytime.Parse("07:00")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewWindow(everyDay(), at, at); !errors.Is(err, ErrEmptyWindow) {
 		t.Errorf("empty window: %v", err)
-	}
-}
-
-func TestAClockTimeIsItsHourAndMinute(t *testing.T) {
-	at, err := ClockTimeAt(22, 5)
-	if err != nil || at.Hour() != 22 || at.Minute() != 5 || at.String() != "22:05" {
-		t.Fatalf("22:05 is %d:%d %q (%v)", at.Hour(), at.Minute(), at, err)
-	}
-	early, err := ParseClockTime("07:00")
-	if err != nil || !at.After(early) || early.After(at) || at.After(at) {
-		t.Fatalf("22:05 after 07:00 %v, 07:00 after 22:05 %v (%v)", at.After(early), early.After(at), err)
-	}
-	for _, hm := range [][2]int{{24, 0}, {-1, 0}, {7, 60}, {7, -1}} {
-		if _, err := ClockTimeAt(hm[0], hm[1]); !errors.Is(err, ErrClockTime) {
-			t.Errorf("%d:%d: %v", hm[0], hm[1], err)
-		}
-	}
-	if _, err := ParseClockTime("-1:00"); !errors.Is(err, ErrClockTime) {
-		t.Errorf("-1:00: %v", err)
 	}
 }
 

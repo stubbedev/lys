@@ -3,8 +3,9 @@ package notifypolicy
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/daytime"
 )
 
 // DaySet is a set of weekdays.
@@ -16,56 +17,6 @@ func (s DaySet) Has(d time.Weekday) bool { return s&(1<<d) != 0 }
 // With is the set with d added.
 func (s DaySet) With(d time.Weekday) DaySet { return s | 1<<d }
 
-// ClockTime is a time of day to the minute.
-type ClockTime struct{ minute int }
-
-// ErrClockTime is a time of day that is not HH:MM within a day.
-var ErrClockTime = errors.New("not a time of day as HH:MM")
-
-// ParseClockTime reads HH:MM, 00:00 to 23:59.
-func ParseClockTime(raw string) (ClockTime, error) {
-	if len(raw) != 5 || raw[2] != ':' {
-		return ClockTime{}, fmt.Errorf("%q: %w", raw, ErrClockTime)
-	}
-	h, herr := strconv.Atoi(raw[:2])
-	m, merr := strconv.Atoi(raw[3:])
-	if herr != nil || merr != nil {
-		return ClockTime{}, fmt.Errorf("%q: %w", raw, ErrClockTime)
-	}
-	c, err := ClockTimeAt(h, m)
-	if err != nil {
-		return ClockTime{}, fmt.Errorf("%q: %w", raw, ErrClockTime)
-	}
-	return c, nil
-}
-
-// ClockTimeAt is hour:minute, refusing one outside 00:00-23:59 with
-// ErrClockTime.
-func ClockTimeAt(hour, minute int) (ClockTime, error) {
-	if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
-		return ClockTime{}, fmt.Errorf("%d:%d: %w", hour, minute, ErrClockTime)
-	}
-	return ClockTime{minute: hour*60 + minute}, nil
-}
-
-// Hour is the hour of the day, 0-23.
-func (c ClockTime) Hour() int { return c.minute / 60 }
-
-// Minute is the minute of the hour, 0-59.
-func (c ClockTime) Minute() int { return c.minute % 60 }
-
-// After reports whether c is later in the day than o.
-func (c ClockTime) After(o ClockTime) bool { return c.minute > o.minute }
-
-func (c ClockTime) String() string {
-	return fmt.Sprintf("%02d:%02d", c.minute/60, c.minute%60)
-}
-
-func (c ClockTime) on(day time.Time) time.Time {
-	y, mo, d := day.Date()
-	return time.Date(y, mo, d, c.minute/60, c.minute%60, 0, 0, day.Location())
-}
-
 // ErrEmptyWindow is a schedule window that starts when it ends.
 var ErrEmptyWindow = errors.New("a do-not-disturb window must end at another time than it starts")
 
@@ -74,11 +25,11 @@ var ErrEmptyWindow = errors.New("a do-not-disturb window must end at another tim
 // after From.
 type Window struct {
 	days     DaySet
-	from, to ClockTime
+	from, to daytime.Time
 }
 
 // NewWindow validates a window on days from from to to.
-func NewWindow(days DaySet, from, to ClockTime) (Window, error) {
+func NewWindow(days DaySet, from, to daytime.Time) (Window, error) {
 	if from == to {
 		return Window{}, fmt.Errorf("%s-%s: %w", from, to, ErrEmptyWindow)
 	}
@@ -89,20 +40,21 @@ func NewWindow(days DaySet, from, to ClockTime) (Window, error) {
 func (w Window) Days() DaySet { return w.days }
 
 // From is when the window starts.
-func (w Window) From() ClockTime { return w.from }
+func (w Window) From() daytime.Time { return w.from }
 
 // To is when the window ends.
-func (w Window) To() ClockTime { return w.to }
+func (w Window) To() daytime.Time { return w.to }
 
-func (w Window) overnight() bool { return w.to.minute <= w.from.minute }
+func (w Window) overnight() bool { return !w.to.After(w.from) }
 
 func (w Window) activeAt(t time.Time) bool {
-	m := t.Hour()*60 + t.Minute()
+	m := daytime.Of(t)
 	day := t.Weekday()
+	started, ended := !w.from.After(m), !w.to.After(m)
 	if !w.overnight() {
-		return w.days.Has(day) && m >= w.from.minute && m < w.to.minute
+		return w.days.Has(day) && started && !ended
 	}
-	return (w.days.Has(day) && m >= w.from.minute) || (w.days.Has((day+6)%7) && m < w.to.minute)
+	return (w.days.Has(day) && started) || (w.days.Has((day+6)%7) && !ended)
 }
 
 // boundaries calls fn with each start and end of the window on the day
@@ -112,12 +64,12 @@ func (w Window) boundaries(base time.Time, day int, fn func(time.Time)) {
 	if !w.days.Has(date.Weekday()) {
 		return
 	}
-	fn(w.from.on(date))
+	fn(w.from.On(date))
 	if w.overnight() {
-		fn(w.to.on(date.AddDate(0, 0, 1)))
+		fn(w.to.On(date.AddDate(0, 0, 1)))
 		return
 	}
-	fn(w.to.on(date))
+	fn(w.to.On(date))
 }
 
 // FocusRules are the do-not-disturb rules: what still pops up while it is
@@ -167,10 +119,10 @@ var ErrUntil = errors.New("want a time of day as HH:MM or a duration such as 30m
 // ParseUntil reads when a do-not-disturb ends, from now: a time of day
 // (HH:MM, its next occurrence in now's zone) or a positive duration.
 func ParseUntil(raw string, now time.Time) (time.Time, error) {
-	if at, err := ParseClockTime(raw); err == nil {
-		until := at.on(now)
+	if at, err := daytime.Parse(raw); err == nil {
+		until := at.On(now)
 		if !until.After(now) {
-			until = at.on(now.AddDate(0, 0, 1))
+			until = at.On(now.AddDate(0, 0, 1))
 		}
 		return until, nil
 	}

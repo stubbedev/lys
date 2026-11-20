@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
+	"github.com/stubbedev/lys/desktop/daytime"
 	"github.com/stubbedev/lys/lib/glibclocale"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -83,7 +83,7 @@ func (m *manualTime) at(zone string) (time.Time, error) {
 	if day.IsZero() {
 		return time.Time{}, fmt.Errorf("set the date and time: %s", locale.T().Get("settings-date-manual-no-day"))
 	}
-	clock, err := notifypolicy.ParseClockTime(m.time)
+	clock, err := daytime.Parse(m.time)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("set the date and time: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/daytime"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 )
 
@@ -111,11 +112,11 @@ type dndWindowFields struct {
 }
 
 func parseDndWindow(f dndWindowFields) (DndWindow, error) {
-	from, err := notifypolicy.ParseClockTime(f.From)
+	from, err := daytime.Parse(f.From)
 	if err != nil {
 		return DndWindow{}, fmt.Errorf("from: %w", err)
 	}
-	to, err := notifypolicy.ParseClockTime(f.To)
+	to, err := daytime.Parse(f.To)
 	if err != nil {
 		return DndWindow{}, fmt.Errorf("to: %w", err)
 	}

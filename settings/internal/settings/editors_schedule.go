@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/daytime"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -54,11 +54,11 @@ func scheduleTimeField(key, other, label string) cardField {
 func scheduleTitle(item map[string]any, _ int) string {
 	rawFrom, _ := item["from"].(string)
 	rawTo, _ := item["to"].(string)
-	from, err := notifypolicy.ParseClockTime(rawFrom)
+	from, err := daytime.Parse(rawFrom)
 	if err != nil {
 		return err.Error()
 	}
-	to, err := notifypolicy.ParseClockTime(rawTo)
+	to, err := daytime.Parse(rawTo)
 	if err != nil {
 		return err.Error()
 	}

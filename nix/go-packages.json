@@ -24,6 +24,7 @@
   "desktop/config": {
     "imports": [
       "desktop/compositor",
+      "desktop/daytime",
       "desktop/geo",
       "desktop/glob",
       "desktop/i18n",
@@ -58,6 +59,7 @@
       "desktop/config/internal/schemadoc"
     ]
   },
+  "desktop/daytime": {},
   "desktop/desktopentry": {
     "imports": [
       "desktop/fileuri",
@@ -418,7 +420,11 @@
     ]
   },
   "desktop/service/notifications/notifymodel": {},
-  "desktop/service/notifications/notifypolicy": {},
+  "desktop/service/notifications/notifypolicy": {
+    "imports": [
+      "desktop/daytime"
+    ]
+  },
   "desktop/service/powerprofiles": {
     "imports": [
       "lib/dbusx",
@@ -2356,6 +2362,7 @@
     "imports": [
       "desktop/compositor",
       "desktop/config",
+      "desktop/daytime",
       "desktop/desktopentry",
       "desktop/geo",
       "desktop/i18n",
@@ -2374,7 +2381,6 @@
       "desktop/service/network",
       "desktop/service/network/vpntext",
       "desktop/service/notifications/notifymodel",
-      "desktop/service/notifications/notifypolicy",
       "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
@@ -3183,6 +3189,7 @@
       "shell/internal/clock"
     ],
     "testImports": [
+      "desktop/daytime",
       "desktop/fakeclock",
       "lib/dbustest",
       "lib/dbusx/dbusxtest",
