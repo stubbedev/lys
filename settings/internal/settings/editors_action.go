@@ -14,8 +14,8 @@ type actionChoice struct{ key, command string }
 
 // actionEditor is ActionControl over a click action's command string
 // (ClickAction and WorkspaceClickAction both encode as one): the
-// presets, None, and a custom command whose entry slides in and writes
-// as it is typed.
+// presets, None, and a custom command whose entry slides in, writes as
+// it is typed and can be run once to try it.
 type actionEditor struct {
 	*widget.Box
 	k       *kit
@@ -23,6 +23,7 @@ type actionEditor struct {
 	choices []actionChoice
 	drop    *widget.Dropdown
 	entry   *widget.Entry
+	run     *commandRun
 	reveal  *widget.Revealer
 	custom  bool
 	syncing bool
@@ -45,7 +46,11 @@ func newActionEditor(k *kit, s slot, choices []actionChoice) *actionEditor {
 			_ = c.slot.set(text)
 		}
 	}
-	c.reveal = widget.NewRevealer(c.entry)
+	custom := gapBox(widget.Column)
+	custom.Append(c.entry, false)
+	c.run = newCommandRun(k, s, "settings-command-run-empty")
+	custom.Append(c.run, false)
+	c.reveal = widget.NewRevealer(custom)
 	c.reveal.SetTransition(widget.RevealSlideDown)
 	c.reveal.SetCollapse(true)
 	c.Append(c.drop, false)

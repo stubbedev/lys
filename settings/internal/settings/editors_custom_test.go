@@ -127,7 +127,7 @@ func TestRunOnceShowsWhatTheCommandPrints(t *testing.T) {
 		"echo no; exit 3": "exit status 3",
 	} {
 		value := command
-		r := newCommandRun(k, stringSlot(&value, func() {}))
+		r := newCommandRun(k, stringSlot(&value, func() {}), "settings-custom-run-empty")
 		r.run()
 		if got := r.output.Text(); !strings.Contains(got, want) || !r.output.Visible() {
 			t.Errorf("%q shows %q, want %q", command, got, want)

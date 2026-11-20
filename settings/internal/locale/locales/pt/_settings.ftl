@@ -1385,6 +1385,7 @@ settings-custom-run-once = Executar uma vez
 settings-custom-running = A executar…
 settings-custom-run-no-command = Escolha primeiro um comando
 settings-custom-run-empty = O comando não imprimiu nada; o módulo oculta-se se «Ocultar se vazio» estiver ativo
+settings-command-run-empty = O comando foi executado e não imprimiu nada
 settings-custom-run-output = Saída: { $output }
 settings-custom-run-failed = O comando falhou: { $reason }
 settings-custom-bar = Barra

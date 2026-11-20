@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -56,6 +57,30 @@ func TestTheActionMenuReadsItsPresetsInTheLanguage(t *testing.T) {
 	for _, it := range items {
 		if strings.HasPrefix(it, "settings-") {
 			t.Errorf("the menu shows the message id %q", it)
+		}
+	}
+}
+
+func TestACustomClickCommandCanBeRunOnce(t *testing.T) {
+	k := testKit(t, "")
+	c := newActionEditor(k, k.store.slot("modules.media.left-click"), actionChoices("media"))
+	c.selected(c.customIndex())
+	if !c.reveal.Revealed() {
+		t.Fatal("the custom command is not shown")
+	}
+	tr := locale.T()
+	for command, want := range map[string]string{
+		"echo clicked": tr.Get("settings-custom-run-output", i18n.Str("output", "clicked")),
+		"true":         tr.Get("settings-command-run-empty"),
+		"exit 4":       tr.Get("settings-custom-run-failed", i18n.Str("reason", `run "exit 4": exit status 4`)),
+	} {
+		c.entry.SetText(command)
+		if v := k.store.value("modules.media.left-click"); v != command {
+			t.Fatalf("typing %q stored %v", command, v)
+		}
+		c.run.run()
+		if got := c.run.output.Text(); got != want {
+			t.Errorf("%q shows %q, want %q", command, got, want)
 		}
 	}
 }

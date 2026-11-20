@@ -1384,6 +1384,7 @@ settings-custom-run-once = Eenmaal uitvoeren
 settings-custom-running = Bezig…
 settings-custom-run-no-command = Kies eerst een opdracht
 settings-custom-run-empty = De opdracht gaf niets uit; de module verdwijnt als ‘Verbergen indien leeg’ aan staat
+settings-command-run-empty = De opdracht is uitgevoerd en gaf niets uit
 settings-custom-run-output = Uitvoer: { $output }
 settings-custom-run-failed = De opdracht is mislukt: { $reason }
 settings-custom-bar = Balk

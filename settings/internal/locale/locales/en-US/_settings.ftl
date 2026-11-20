@@ -1394,6 +1394,7 @@ settings-custom-run-once = Run once
 settings-custom-running = Running…
 settings-custom-run-no-command = Choose a command first
 settings-custom-run-empty = The command printed nothing; the module hides when Hide When Empty is on
+settings-command-run-empty = The command ran and printed nothing
 settings-custom-run-output = Output: { $output }
 settings-custom-run-failed = The command failed: { $reason }
 settings-custom-bar = Bar

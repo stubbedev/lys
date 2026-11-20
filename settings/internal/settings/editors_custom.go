@@ -39,7 +39,7 @@ func customCardSpec() cardSpec {
 		identity: f.identity("id"),
 		fields: []cardField{
 			filled(f.field("command")),
-			f.group("settings-custom-run", []string{"command"}, func(k *kit, slots []slot) control { return newCommandRun(k, slots[0]) }),
+			f.group("settings-custom-run", []string{"command"}, func(k *kit, slots []slot) control { return newCommandRun(k, slots[0], "settings-custom-run-empty") }),
 			f.field("mode"),
 			f.field("interval-ms"),
 			f.field("restart-policy"),
@@ -165,14 +165,15 @@ func runCustomCommand(command string) commandOutcome {
 
 type commandRun struct {
 	*widget.Box
-	k       *kit
-	command slot
-	output  *widget.Label
-	runs    int
+	k        *kit
+	command  slot
+	emptyKey string
+	output   *widget.Label
+	runs     int
 }
 
-func newCommandRun(k *kit, command slot) *commandRun {
-	c := &commandRun{Box: gapBox(widget.Column), k: k, command: command}
+func newCommandRun(k *kit, command slot, emptyKey string) *commandRun {
+	c := &commandRun{Box: gapBox(widget.Column), k: k, command: command, emptyKey: emptyKey}
 	c.output = wrapped(k.label("", "format-preview", css.Caption, css.DimLabel))
 	c.output.SetVisible(false)
 	c.AppendAligned(k.button(k.label(locale.T().Get("settings-custom-run-once")), c.run, css.Small), false, widget.AlignStart)
@@ -195,17 +196,17 @@ func (c *commandRun) run() {
 		if asked != c.runs {
 			return
 		}
-		c.output.SetText(o.message())
+		c.output.SetText(o.message(c.emptyKey))
 	})
 }
 
-func (o commandOutcome) message() string {
+func (o commandOutcome) message(emptyKey string) string {
 	t := locale.T()
 	switch {
 	case o.err != nil:
 		return t.Get("settings-custom-run-failed", i18n.Str("reason", o.err.Error()))
 	case o.output == "":
-		return t.Get("settings-custom-run-empty")
+		return t.Get(emptyKey)
 	}
 	return t.Get("settings-custom-run-output", i18n.Str("output", o.output))
 }
