@@ -2,12 +2,12 @@ package settings
 
 import (
 	"fmt"
-	"log"
 	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -15,8 +15,6 @@ import (
 )
 
 const idleNever = "never"
-
-var idlePresets = []string{"1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", idleNever}
 
 type idleStage string
 
@@ -38,7 +36,18 @@ const (
 
 var idleSources = []idleSource{idleOnAC, idleOnBattery}
 
+func (s idleSource) icon() string {
+	if s == idleOnBattery {
+		return "ld-battery-symbolic"
+	}
+	return "ld-plug-zap-symbolic"
+}
+
+func (s idleSource) name() string { return locale.T().Get("settings-idle-on-" + string(s)) }
+
 func (s idleStage) path(source idleSource) string { return "idle." + string(s) + "." + string(source) }
+
+func (s idleStage) name() string { return locale.T().Get("settings-section-idle-" + string(s)) }
 
 var idlePrecedes = []struct{ first, then idleStage }{
 	{idleDim, idleScreenOff},
@@ -94,121 +103,147 @@ func idleTimesOn(s store, source idleSource) (map[idleStage]idleTime, error) {
 	return times, nil
 }
 
-func durationLabel(value string) string {
-	if value == idleNever {
-		return locale.T().Get("settings-duration-never")
-	}
-	d, err := time.ParseDuration(value)
-	if err != nil {
-		return value
-	}
-	return durationWords(d)
+var idleChoices = []durationChoice{
+	after(time.Minute), after(2 * time.Minute), after(5 * time.Minute), after(10 * time.Minute),
+	after(15 * time.Minute), after(30 * time.Minute), after(time.Hour), zeroAs(never),
 }
 
-func durationChoices(current string) []string {
-	if current == "" || slices.Contains(idlePresets, current) {
-		return idlePresets
+func idleMinutes(s slot) slot {
+	return slot{
+		get: func() any {
+			raw, ok := s.get().(string)
+			if !ok {
+				return nil
+			}
+			t, err := parseIdleTime(raw)
+			if err != nil {
+				return nil
+			}
+			if t.never {
+				return float64(0)
+			}
+			return t.after.Minutes()
+		},
+		set: func(v any) error {
+			m, ok := v.(float64)
+			if !ok {
+				return fmt.Errorf("an idle time of %T, not minutes", v)
+			}
+			if m == 0 {
+				return s.set(idleNever)
+			}
+			return s.set(idlepolicy.FormatDuration(time.Duration(m * float64(time.Minute)).Round(time.Second)))
+		},
+		unset: s.unset,
 	}
-	return append(slices.Clone(idlePresets), current)
 }
 
-type durationMenu struct {
-	*widget.Dropdown
-	slot   slot
-	values []string
-}
-
-func newDurationMenu(k *kit, s slot, name string) *durationMenu {
-	m := &durationMenu{Dropdown: widget.NewDropdown(k.face, k.textPx(), nil, 0), slot: s}
-	m.SetAccessibleName(name)
-	m.OnSelect = func(i int) {
-		if i < 0 || i >= len(m.values) {
-			return
-		}
-		if err := m.slot.set(m.values[i]); err != nil {
-			log.Printf("settings: %s: %v", name, err)
-		}
-		m.refresh()
+func newIdleChips(k *kit, s slot) *presetPicker[float64] {
+	presets := make([]preset[float64], len(idleChoices))
+	for i, c := range idleChoices {
+		presets[i] = preset[float64]{value: c.span.Minutes(), label: c.label}
 	}
-	m.refresh()
-	return m
+	least := idlepolicy.MinTimeout.Minutes()
+	bounds := config.FieldMeta{Min: least, Max: idlepolicy.MaxTimeout.Minutes()}
+	unit := customUnit{per: 1, digits: 1, name: "settings-duration-unit-minutes", least: least}
+	return newPresetPicker(k, idleMinutes(s), bounds, unit, presets)
 }
 
-func (m *durationMenu) refresh() {
-	current, _ := m.slot.get().(string)
-	m.values = durationChoices(current)
-	labels := make([]string, len(m.values))
-	for i, v := range m.values {
-		labels[i] = durationLabel(v)
-	}
-	setChoices(m.Dropdown, labels, slices.Index(m.values, current))
-}
-
-type idlePair struct {
+type idleCell struct {
 	*widget.Box
-	k            *kit
-	stage        idleStage
-	ac, battery  *durationMenu
-	batteryIcon  *widget.Icon
-	warnings     map[idleSource]*widget.Label
-	batteryShown bool
+	k       *kit
+	stage   idleStage
+	source  idleSource
+	chips   *presetPicker[float64]
+	warning *widget.Label
 }
 
-func (p *idlePair) refresh() {
-	p.ac.refresh()
-	p.battery.refresh()
-	for _, source := range idleSources {
-		p.warn(source)
-	}
+func newIdleCell(k *kit, stage idleStage, source idleSource) *idleCell {
+	c := &idleCell{Box: gapBox(widget.Column), k: k, stage: stage, source: source}
+	c.chips = newIdleChips(k, k.store.slot(stage.path(source)))
+	c.chips.SetAccessibleName(locale.T().Get("settings-idle-cell", i18n.Str("stage", stage.name()), i18n.Str("source", source.name())))
+	c.warning = wrapped(k.label("", "setting-problem", css.Caption, css.Warning))
+	c.Append(c.chips, false)
+	c.Append(c.warning, false)
+	c.refresh()
+	return c
 }
 
-func (p *idlePair) warn(source idleSource) {
-	w := p.warnings[source]
-	times, err := idleTimesOn(p.k.store, source)
+func (c *idleCell) refresh() {
+	c.chips.refresh()
+	times, err := idleTimesOn(c.k.store, c.source)
 	if err != nil {
-		w.SetText(err.Error())
-		w.SetVisible(true)
+		c.warning.SetText(err.Error())
+		c.warning.SetVisible(true)
 		return
 	}
-	then, overtaken := idleOvertaken(times, p.stage)
-	w.SetVisible(overtaken && (source == idleOnAC || p.batteryShown))
+	then, overtaken := idleOvertaken(times, c.stage)
+	c.warning.SetVisible(overtaken)
 	if overtaken {
-		w.SetText(locale.T().Get("settings-idle-overtaken", i18n.Str("source", string(source)), i18n.Str("then", string(then))))
+		c.warning.SetText(locale.T().Get("settings-idle-overtaken", i18n.Str("source", string(c.source)), i18n.Str("then", string(then))))
 	}
 }
 
-func (p *idlePair) showBattery(present bool) {
-	p.batteryShown = present
-	p.batteryIcon.SetVisible(present)
-	p.battery.SetVisible(present)
-	p.warn(idleOnBattery)
+type idleTable struct {
+	*widget.Grid
+	cells   []*idleCell
+	battery []widget.Widget
 }
 
-func idleTimeoutsRow(stage idleStage) rowSpec {
-	ac, battery := stage.path(idleOnAC), stage.path(idleOnBattery)
-	return field(ac, withKey("settings-section-idle-"+string(stage)), idleEnabled, func(r *rowSpec) {
-		r.also = []string{battery}
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-			t := locale.T()
-			p := &idlePair{Box: gapBox(widget.Column), k: k, stage: stage, batteryShown: true, warnings: make(map[idleSource]*widget.Label, len(idleSources))}
-			p.ac = newDurationMenu(k, s, t.Get("settings-idle-on-ac"))
-			p.battery = newDurationMenu(k, k.store.slot(battery), t.Get("settings-idle-on-battery"))
-			p.batteryIcon = k.icon("ld-battery-symbolic")
-			menus := gapBox(widget.Row)
-			menus.AppendAligned(k.icon("ld-plug-zap-symbolic"), false, widget.AlignCenter)
-			menus.AppendAligned(p.ac, false, widget.AlignCenter)
-			menus.AppendAligned(p.batteryIcon, false, widget.AlignCenter)
-			menus.AppendAligned(p.battery, false, widget.AlignCenter)
-			p.AppendAligned(menus, false, widget.AlignEnd)
-			for _, source := range idleSources {
-				w := wrapped(k.label("", "setting-problem", css.Caption, css.Warning))
-				w.SetVisible(false)
-				p.warnings[source] = w
-				p.AppendAligned(w, false, widget.AlignEnd)
-			}
-			p.refresh()
-			k.whenBatteryKnown(p.showBattery)
-			return p
+func newIdleTable(k *kit) *idleTable {
+	g := &idleTable{Grid: widget.NewGrid(choiceCardGap*2, choiceCardGap)}
+	g.AddClass("cell-grid")
+	for c, source := range idleSources {
+		head := gapBox(widget.Row)
+		head.AppendAligned(k.icon(source.icon()), false, widget.AlignCenter)
+		head.AppendAligned(k.label(source.name(), css.Caption, css.DimLabel), false, widget.AlignCenter)
+		g.Attach(head, c+1, 0, 1, 1)
+		if source == idleOnBattery {
+			g.battery = append(g.battery, head)
 		}
+	}
+	for r, stage := range idleStages {
+		g.Attach(k.label(stage.name()), 0, r+1, 1, 1)
+		for c, source := range idleSources {
+			cell := newIdleCell(k, stage, source)
+			g.Attach(cell, c+1, r+1, 1, 1)
+			g.cells = append(g.cells, cell)
+			if source == idleOnBattery {
+				g.battery = append(g.battery, cell)
+			}
+		}
+	}
+	k.whenBatteryKnown(g.showBattery)
+	return g
+}
+
+func (g *idleTable) showBattery(present bool) {
+	if present {
+		return
+	}
+	for _, w := range g.battery {
+		g.Remove(w)
+	}
+	g.battery = nil
+	g.cells = slices.DeleteFunc(g.cells, func(c *idleCell) bool { return c.source == idleOnBattery })
+}
+
+func (g *idleTable) refresh() {
+	for _, c := range g.cells {
+		c.refresh()
+	}
+}
+
+func idleTimesRow() rowSpec {
+	paths := make([]string, 0, len(idleStages)*len(idleSources))
+	for _, stage := range idleStages {
+		for _, source := range idleSources {
+			paths = append(paths, stage.path(source))
+		}
+	}
+	return field(paths[0], withKey("settings-idle-times"), idleEnabled, func(r *rowSpec) {
+		r.fullWidth = true
+		r.also = paths[1:]
+		r.editor = func(k *kit, _ slot, _ config.FieldMeta) control { return newIdleTable(k) }
 	})
 }

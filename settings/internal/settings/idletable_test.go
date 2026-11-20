@@ -2,39 +2,164 @@ package settings
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-func TestADurationReadsAsWords(t *testing.T) {
-	for value, want := range map[string]string{"never": "Never", "1m": "1 minute", "5m": "\u20685\u2069 minutes", "1h": "1 hour", "90s": "\u206890\u2069 seconds", "2h": "\u20682\u2069 hours"} {
-		if got := durationLabel(value); got != want {
-			t.Errorf("%s reads %q, want %q", value, got, want)
+func idleTableOf(t *testing.T, k *kit) *idleTable {
+	t.Helper()
+	g, ok := fieldControl(k, k.store, idleTimesRow()).(*idleTable)
+	if !ok {
+		t.Fatal("the idle times are not a table")
+	}
+	return g
+}
+
+func (g *idleTable) cell(t *testing.T, stage idleStage, source idleSource) *idleCell {
+	t.Helper()
+	i := slices.IndexFunc(g.cells, func(c *idleCell) bool { return c.stage == stage && c.source == source })
+	if i < 0 {
+		t.Fatalf("the table has no %s cell %s", stage, source)
+	}
+	return g.cells[i]
+}
+
+func TestTheIdleTableHasACellPerStageAndSource(t *testing.T) {
+	k := testKit(t, "")
+	spec := idleTimesRow()
+	paths := append([]string{spec.path}, spec.also...)
+	if len(paths) != len(idleStages)*len(idleSources) {
+		t.Fatalf("the table edits %v", paths)
+	}
+	g := idleTableOf(t, k)
+	if len(g.cells) != len(paths) {
+		t.Fatalf("%d cells for %d times", len(g.cells), len(paths))
+	}
+	labels := treetest.Labels(g)
+	for _, want := range []string{idleOnAC.name(), idleOnBattery.name(), idleDim.name(), idleSuspend.name(), locale.T().Get("settings-duration-never")} {
+		if !slices.Contains(labels, want) {
+			t.Errorf("the table lacks %q: %q", want, labels)
 		}
 	}
 }
 
-func TestAnIdleRowSetsPluggedInAndBatteryTimes(t *testing.T) {
-	k := testKit(t, "idle:\n  lock:\n    ac: 7m\n")
-	p := fieldControl(k, k.store, idleTimeoutsRow("lock")).(*idlePair)
-	if got := p.ac.values[p.ac.Selected()]; got != "7m" {
-		t.Fatalf("a custom time shows as %q", got)
-	}
-	p.battery.SetSelected(len(p.battery.values) - 1)
+func TestAnIdleChipWritesItsDuration(t *testing.T) {
+	k := testKit(t, "")
+	g := idleTableOf(t, k)
+	lock := g.cell(t, idleLock, idleOnBattery).chips
+	lock.chips[len(idleChoices)-1].SetActive(true)
 	if v := k.store.value("idle.lock.battery"); v != "never" {
 		t.Errorf("choosing Never on battery stored %v", v)
 	}
-	p.ac.SetSelected(0)
-	if v := k.store.value("idle.lock.ac"); v != "1m" {
-		t.Errorf("choosing 1 minute plugged in stored %v", v)
+	lock.chips[0].SetActive(true)
+	if v := k.store.value("idle.lock.battery"); v != "1m" {
+		t.Errorf("choosing 1 minute on battery stored %v", v)
 	}
-	if p.ac.values[len(p.ac.values)-1] == "7m" {
-		t.Error("a custom time stays offered after it was replaced")
+	g.cell(t, idleSuspend, idleOnAC).chips.chips[6].SetActive(true)
+	if v := k.store.value("idle.suspend.ac"); v != "1h" {
+		t.Errorf("choosing 1 hour plugged in stored %v", v)
+	}
+	if v := k.store.value("idle.lock.ac"); v != "5m" {
+		t.Errorf("another cell's chip changed the lock plugged in to %v", v)
+	}
+}
+
+func TestAnIdleTimeOffTheChipsIsCustomMinutes(t *testing.T) {
+	k := testKit(t, "idle:\n  lock:\n    ac: 90s\n")
+	c := idleTableOf(t, k).cell(t, idleLock, idleOnAC).chips
+	if c.active() != len(idleChoices) || !c.typed.Visible() {
+		t.Fatalf("90s shows chip %d, custom shown %v", c.active(), c.typed.Visible())
+	}
+	if got := c.custom.Value(); got != 1.5 {
+		t.Errorf("90s reads %v minutes", got)
+	}
+	c.custom.OnValueChanged(7)
+	if v := k.store.value("idle.lock.ac"); v != "7m" {
+		t.Errorf("typing 7 minutes stored %v", v)
+	}
+	if lo, _ := c.custom.Range(); lo <= 0 {
+		t.Errorf("a custom time can be %v minutes, which is no idle time", lo)
+	}
+}
+
+func TestAnIdleTimeIsRefusedOutsideMinutes(t *testing.T) {
+	k := testKit(t, "")
+	s := idleMinutes(k.store.slot("idle.dim.ac"))
+	if err := s.set("5m"); err == nil {
+		t.Error("a text idle time was taken as minutes")
+	}
+	if v := k.store.value("idle.dim.ac"); v != "4m" {
+		t.Errorf("a refused idle time left %v", v)
+	}
+}
+
+func TestAnIdleTimeFieldAnywhereIsChips(t *testing.T) {
+	k := testKit(t, "")
+	meta, ok := config.Field("idle.screen-off.battery")
+	if !ok {
+		t.Fatal("no idle.screen-off.battery field")
+	}
+	c, ok := semanticEditor(k, k.store.slot("idle.screen-off.battery"), "idle.screen-off.battery", meta)
+	if _, chips := c.(*presetPicker[float64]); !ok || !chips {
+		t.Fatalf("an idle time is edited by %T", c)
+	}
+}
+
+func TestTheIdleTableWarnsWhenALaterStageComesFirst(t *testing.T) {
+	k := testKit(t, "idle:\n  dim:\n    ac: 10m\n    battery: 1m\n  screen-off:\n    ac: 5m\n    battery: 5m\n")
+	g := idleTableOf(t, k)
+	ac, battery := g.cell(t, idleDim, idleOnAC), g.cell(t, idleDim, idleOnBattery)
+	want := locale.T().Get("settings-idle-overtaken", i18n.Str("source", "ac"), i18n.Str("then", "screen-off"))
+	if !ac.warning.Visible() || ac.warning.Text() != want {
+		t.Fatalf("plugged in the dim cell warns %v: %q", ac.warning.Visible(), ac.warning.Text())
+	}
+	if battery.warning.Visible() {
+		t.Error("on battery, dimming before the screens turn off is warned about")
+	}
+	if err := k.store.set("idle.dim.ac", "2m"); err != nil {
+		t.Fatal(err)
+	}
+	g.refresh()
+	if ac.warning.Visible() {
+		t.Error("the warning stays once the order is fixed")
+	}
+}
+
+func TestTheBatteryColumnLeavesWithoutABattery(t *testing.T) {
+	desktop := laptop()
+	desktop.state.battery.IsPresent = false
+	for name, c := range map[string]struct {
+		power func() (powerControl, error)
+		shown bool
+	}{
+		"a laptop":         {func() (powerControl, error) { return laptop(), nil }, true},
+		"a desktop":        {func() (powerControl, error) { return desktop, nil }, false},
+		"no UPower to ask": {func() (powerControl, error) { return nil, errors.New("no UPower") }, true},
+	} {
+		k := testKit(t, "")
+		asked := 0
+		k.power = func() (powerControl, error) { asked++; return c.power() }
+		g := idleTableOf(t, k)
+		idleTimelineOf(t, k)
+		if asked != 1 {
+			t.Errorf("%s: the table and timeline asked for the battery %d times", name, asked)
+		}
+		battery := slices.ContainsFunc(g.cells, func(c *idleCell) bool { return c.source == idleOnBattery })
+		labels := treetest.Labels(g)
+		if battery != c.shown || slices.Contains(labels, idleOnBattery.name()) != c.shown {
+			t.Errorf("%s: the battery column shown %v (heading %v), want %v", name, battery, slices.Contains(labels, idleOnBattery.name()), c.shown)
+		}
+		if columns := len(g.cells) / len(idleStages); len(g.Children()) != columns+len(idleStages)+len(g.cells) {
+			t.Errorf("%s: %d widgets left in the table for %d cells", name, len(g.Children()), len(g.cells))
+		}
 	}
 }
 
@@ -71,59 +196,6 @@ func TestAStageReachedOnlyAfterALaterOneIsOvertaken(t *testing.T) {
 	}
 	if _, ok := idleOvertaken(map[idleStage]idleTime{idleLock: at(time.Hour), idleSuspend: never}, idleLock); ok {
 		t.Error("a stage is overtaken by one that never runs")
-	}
-}
-
-func idlePairOf(t *testing.T, k *kit, stage idleStage) *idlePair {
-	t.Helper()
-	return fieldControl(k, k.store, idleTimeoutsRow(stage)).(*idlePair)
-}
-
-func TestAnIdleRowWarnsWhenALaterStageComesFirst(t *testing.T) {
-	k := testKit(t, "idle:\n  dim:\n    ac: 10m\n    battery: 1m\n  screen-off:\n    ac: 5m\n    battery: 5m\n")
-	p := idlePairOf(t, k, idleDim)
-	want := locale.T().Get("settings-idle-overtaken", i18n.Str("source", "ac"), i18n.Str("then", "screen-off"))
-	if w := p.warnings[idleOnAC]; !w.Visible() || w.Text() != want {
-		t.Fatalf("plugged in the dim row warns %v: %q", w.Visible(), w.Text())
-	}
-	if p.warnings[idleOnBattery].Visible() {
-		t.Error("on battery, dimming before the screens turn off is warned about")
-	}
-	if err := k.store.set("idle.dim.ac", "2m"); err != nil {
-		t.Fatal(err)
-	}
-	p.refresh()
-	if p.warnings[idleOnAC].Visible() {
-		t.Error("the warning stays once the order is fixed")
-	}
-}
-
-func TestTheBatteryTimesHideWithoutABattery(t *testing.T) {
-	desktop := laptop()
-	desktop.state.battery.IsPresent = false
-	for name, c := range map[string]struct {
-		power func() (powerControl, error)
-		shown bool
-	}{
-		"a laptop":         {func() (powerControl, error) { return laptop(), nil }, true},
-		"a desktop":        {func() (powerControl, error) { return desktop, nil }, false},
-		"no UPower to ask": {func() (powerControl, error) { return nil, errors.New("no UPower") }, true},
-	} {
-		k := testKit(t, "idle:\n  lock:\n    battery: 1h\n  suspend:\n    battery: 15m\n")
-		asked := 0
-		k.power = func() (powerControl, error) { asked++; return c.power() }
-		lock, suspend := idlePairOf(t, k, idleLock), idlePairOf(t, k, idleSuspend)
-		if asked != 1 {
-			t.Errorf("%s: two rows asked for the battery %d times", name, asked)
-		}
-		for _, p := range []*idlePair{lock, suspend} {
-			if p.battery.Visible() != c.shown || p.batteryIcon.Visible() != c.shown {
-				t.Errorf("%s: the %s battery time shown %v, want %v", name, p.stage, p.battery.Visible(), c.shown)
-			}
-		}
-		if lock.warnings[idleOnBattery].Visible() != c.shown {
-			t.Errorf("%s: the battery order warning shown %v, want %v", name, lock.warnings[idleOnBattery].Visible(), c.shown)
-		}
 	}
 }
 

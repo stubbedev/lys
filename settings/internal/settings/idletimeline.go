@@ -44,7 +44,7 @@ func idleSequenceText(marks []idleMark) string {
 	}
 	parts := make([]string, len(marks))
 	for i, m := range marks {
-		parts[i] = t.Get("settings-idle-timeline-mark", i18n.Str("stage", t.Get("settings-section-idle-"+string(m.stage))), i18n.Str("after", durationWords(m.after)))
+		parts[i] = t.Get("settings-idle-timeline-mark", i18n.Str("stage", m.stage.name()), i18n.Str("after", durationWords(m.after)))
 	}
 	return strings.Join(parts, " → ")
 }
@@ -104,15 +104,11 @@ func idleTimelinePreview(k *kit) widget.Widget {
 	tl.off = wrapped(k.label(t.Get("settings-idle-timeline-off"), "settings-preview-state", css.Caption, css.DimLabel))
 	tl.Append(tl.off, false)
 	for _, source := range idleSources {
-		icon, name := "ld-plug-zap-symbolic", "settings-idle-on-ac"
-		if source == idleOnBattery {
-			icon, name = "ld-battery-symbolic", "settings-idle-on-battery"
-		}
 		line := &idleTimelineLine{Box: widget.NewBox(widget.Column, 0, 0), source: source, bar: &timelineBar{Base: widget.NewBase()}}
 		line.text = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
 		head := gapBox(widget.Row)
-		ic := k.icon(icon)
-		ic.SetAccessibleName(t.Get(name))
+		ic := k.icon(source.icon())
+		ic.SetAccessibleName(source.name())
 		head.AppendAligned(ic, false, widget.AlignCenter)
 		head.Append(line.bar, true)
 		line.Append(head, false)

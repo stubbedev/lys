@@ -2258,6 +2258,7 @@
       "desktop/portal/permissions",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",
+      "desktop/service/idle/idlepolicy",
       "desktop/service/mpris",
       "desktop/service/network",
       "desktop/service/network/vpntext",
