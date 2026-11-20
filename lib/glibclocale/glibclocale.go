@@ -51,6 +51,12 @@ type Source struct {
 	dirs    []string
 }
 
+// TimeName is the locale env formats dates and times in, as glibc picks
+// LC_TIME: LC_ALL, then LC_TIME, then LANG, and C when none is set.
+func TimeName(env xdg.Env) string {
+	return cmp.Or(env("LC_ALL"), env("LC_TIME"), env("LANG"), "C")
+}
+
 // NewSource reads the locale-archive at archive, "" for none, and then
 // the locale directories under dirs, in order.
 func NewSource(archive string, dirs ...string) Source {

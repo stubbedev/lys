@@ -406,6 +406,77 @@ func parseAll(data []byte) {
 	}
 }
 
+func TestTheWeekStartsWhereTheLocaleSays(t *testing.T) {
+	f := fixtures(t)
+	for name, want := range map[string]time.Weekday{
+		"C": time.Sunday, "de_DE.UTF-8": time.Monday, "en_GB.utf8": time.Monday, "en_US.UTF-8": time.Sunday,
+		"fa_IR.UTF-8": time.Saturday, "th_TH.UTF-8": time.Sunday,
+	} {
+		for kind, src := range map[string]Source{"archive": f.archive, "dirs": f.dirs} {
+			tm, err := src.Time(name)
+			if err != nil {
+				t.Fatalf("%s from the %s: %v", name, kind, err)
+			}
+			if got := tm.FirstWeekday(); got != want {
+				t.Errorf("%s from the %s starts its week on %s, want %s", name, kind, got, want)
+			}
+		}
+	}
+}
+
+func TestTheTimeLocaleIsPickedAsGlibcPicksLCTime(t *testing.T) {
+	for _, c := range []struct {
+		env  map[string]string
+		want string
+	}{
+		{map[string]string{"LC_ALL": "fa_IR.UTF-8", "LC_TIME": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "fa_IR.UTF-8"},
+		{map[string]string{"LC_TIME": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "de_DE.UTF-8"},
+		{map[string]string{"LANG": "en_US.UTF-8", "LC_NUMERIC": "de_DE.UTF-8"}, "en_US.UTF-8"},
+		{map[string]string{}, "C"},
+	} {
+		if got := TimeName(func(k string) string { return c.env[k] }); got != c.want {
+			t.Errorf("%v: %q, want %q", c.env, got, c.want)
+		}
+	}
+}
+
+func TestAWeekStartThatIsNoDayIsRefused(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(glibclocaletest.Dirs(t), "de_DE.utf8", "LC_TIME"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := parseCategory(lcTime, raw, firstWeekday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nth, err := d.offset(firstWeekday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	day, err := d.offset(weekFirstDay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	badDate := make([]byte, 4)
+	d.order.PutUint32(badDate, 19971345)
+	for _, c := range []struct {
+		name string
+		at   int
+		with []byte
+		want string
+	}{
+		{"first_weekday 0", nth, []byte{0}, "first_weekday 0"},
+		{"first_weekday 8", nth, []byte{8}, "first_weekday 8"},
+		{"a week starting on 1997-13-45", day, badDate, "no date"},
+	} {
+		broken := slices.Clone(raw)
+		copy(broken[c.at:], c.with)
+		if _, err := parseTime(broken); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: %v", c.name, err)
+		}
+	}
+}
+
 func TestInstalledIsWhatNewlocaleWouldFind(t *testing.T) {
 	f := fixtures(t)
 	dir := f.dirs.dirs[0]

@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -33,6 +34,8 @@ const (
 	altDigits     = abDay1 + 47
 	eraDTFmt      = abDay1 + 48
 	eraNumEntries = abDay1 + 50
+	weekFirstDay  = abDay1 + 102
+	firstWeekday  = abDay1 + 104
 
 	charMax = 127
 )
@@ -61,7 +64,12 @@ type Time struct {
 	dateTime, date, clock, clockAMPM string
 	eras                             []era
 	altDigits                        []string
+	firstWeekday                     time.Weekday
 }
+
+// FirstWeekday is the day the locale's weeks start on, the first
+// column of its calendars.
+func (t *Time) FirstWeekday() time.Weekday { return t.firstWeekday }
 
 type eraDate struct{ year, month, day int }
 
@@ -79,16 +87,17 @@ var (
 	cNumeric  = Numeric{decimal: "."}
 	cMonetary = Monetary{}
 	cTime     = Time{
-		abDays:    [7]string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
-		days:      [7]string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"},
-		abMonths:  [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"},
-		months:    [12]string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"},
-		am:        "AM",
-		pm:        "PM",
-		dateTime:  "%a %b %e %H:%M:%S %Y",
-		date:      "%m/%d/%y",
-		clock:     "%H:%M:%S",
-		clockAMPM: "%I:%M:%S %p",
+		abDays:       [7]string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+		days:         [7]string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"},
+		abMonths:     [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"},
+		months:       [12]string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"},
+		am:           "AM",
+		pm:           "PM",
+		dateTime:     "%a %b %e %H:%M:%S %Y",
+		date:         "%m/%d/%y",
+		clock:        "%H:%M:%S",
+		clockAMPM:    "%I:%M:%S %p",
+		firstWeekday: time.Sunday,
 	}
 )
 
@@ -144,11 +153,14 @@ func parseMonetary(data []byte) (Monetary, error) {
 }
 
 func parseTime(data []byte) (Time, error) {
-	d, err := parseCategory(lcTime, data, eraNumEntries)
+	d, err := parseCategory(lcTime, data, firstWeekday)
 	if err != nil {
 		return Time{}, err
 	}
 	var t Time
+	if t.firstWeekday, err = parseFirstWeekday(d); err != nil {
+		return Time{}, err
+	}
 	for _, a := range []struct {
 		first item
 		out   []string
@@ -195,6 +207,26 @@ func parseTime(data []byte) (Time, error) {
 		t.eras = append(t.eras, e)
 	}
 	return t, nil
+}
+
+func parseFirstWeekday(d categoryData) (time.Weekday, error) {
+	date, err := d.word(weekFirstDay)
+	if err != nil {
+		return 0, err
+	}
+	nth, err := d.char(firstWeekday)
+	if err != nil {
+		return 0, err
+	}
+	if nth < 1 || nth > 7 {
+		return 0, fmt.Errorf("%s first_weekday %d is not a day of the week 1-7", lcTime, nth)
+	}
+	year, month, day := int(date/10000), time.Month(date/100%100), int(date%100)
+	start := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	if start.Year() != year || start.Month() != month || start.Day() != day {
+		return 0, fmt.Errorf("%s week starts on %d, which is no date", lcTime, date)
+	}
+	return (start.Weekday() + time.Weekday(nth) - 1) % 7, nil
 }
 
 func parseEra(s string) (era, error) {
