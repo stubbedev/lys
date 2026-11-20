@@ -31,3 +31,25 @@ func TestRulesUpdateTheNamingRuleKeepTheRestAndAddOneForANewHead(t *testing.T) {
 		t.Fatal("the existing rules were changed in place")
 	}
 }
+
+func TestPrimaryIsTheFirstEnabledHeadTheTextNames(t *testing.T) {
+	heads := []Head{
+		{Name: "DP-1", Description: "Dell Inc. U2720Q ABC123", Enabled: false},
+		{Name: "DP-2", Description: "Dell Inc. U2720Q DEF456", Enabled: true},
+		{Name: "HDMI-A-1", Description: "HDMI-A-1", Enabled: true},
+		{Name: "DP-3", Description: "Dell Inc. U2720Q GHI789", Enabled: true},
+	}
+	for text, want := range map[string]int{
+		"HDMI-A-1":                     2,
+		"desc:Dell Inc. U2720Q":        1,
+		"desc:Dell Inc. U2720Q GHI789": 3,
+		"DP-1":                         -1,
+		"DP-9":                         -1,
+		"desc:":                        -1,
+		"":                             -1,
+	} {
+		if got := Primary(text, heads); got != want {
+			t.Errorf("Primary(%q) = %d, want %d", text, got, want)
+		}
+	}
+}

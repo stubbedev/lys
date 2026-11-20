@@ -991,6 +991,7 @@ func TestALongCardTitleShrinksInsteadOfWideningTheList(t *testing.T) {
 
 var unlistedWMKeys = map[string]string{
 	"outputs":                              "edited by the Displays arrangement, which writes the output rules itself",
+	"primary_output":                       "set by the Displays page's Primary display switch on the selected display",
 	"animations.curves":                    "a curve editor, planned in #138",
 	"animations.events":                    "per-event animations with the curve editor, planned in #138",
 	"gestures.touch":                       "illustrated touch gesture cards, planned in #138",

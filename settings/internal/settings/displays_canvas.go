@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
@@ -28,6 +29,7 @@ type displaysCanvas struct {
 	index   []int
 	handles []*outputHandle
 	labels  map[string]string
+	mark    string
 	drag    int
 	grabX   float64
 	grabY   float64
@@ -53,9 +55,14 @@ func (c *displaysCanvas) layout() {
 	}
 	c.handles = c.handles[:len(c.rects)]
 	c.labels = headLabels(c.p.heads)
+	c.mark = locale.T().Get("settings-displays-primary-mark")
 	for i, h := range c.handles {
 		name := c.p.draft[c.index[i]].Name
-		h.SetAccessibleName(cmp.Or(c.labels[name], name) + " (" + name + ")")
+		accessible := cmp.Or(c.labels[name], name) + " (" + name + ")"
+		if c.index[i] == c.p.primaryAt {
+			accessible += ", " + c.mark
+		}
+		h.SetAccessibleName(accessible)
 	}
 	c.InvalidateLayout()
 	c.Invalidate()
@@ -103,6 +110,10 @@ func (c *displaysCanvas) Paint(cv *render.Canvas) {
 		}
 		name := c.p.draft[c.index[i]].Name
 		c.p.k.face.DrawAligned(cv, cmp.Or(c.labels[name], name), tile, c.p.k.textPx(), ink, render.AlignCenter)
+		if c.index[i] == c.p.primaryAt {
+			third := tile.H / 3
+			c.p.k.face.DrawAligned(cv, c.mark, render.Rect{X: tile.X, Y: tile.Y + tile.H - third, W: tile.W, H: third}, c.p.k.textPx(), ink, render.AlignCenter)
+		}
 	}
 }
 

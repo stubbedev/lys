@@ -16,7 +16,7 @@ key does.
 | Keyboard | `wm-keyboard` | `input.keyboard`, `cursor` |
 | Mouse & Touchpad | `wm-pointer` | `input.pointer`, `input.touchpad`, `gestures`, `input.trackpoint` |
 | Keyboard Shortcuts | `wm-binds` | `binds`, app shortcuts, `submaps` |
-| Displays | `wm-outputs` | Output layout, `color_management`, `tearing`, `gpu`, `lid_action` |
+| Displays | `wm-outputs` | Output layout, `primary_output`, `color_management`, `tearing`, `gpu`, `lid_action` |
 | Rules & Session | `wm-session` | `rules`, `env`, `xwayland`, `palette` |
 
 ## What a change does
@@ -60,6 +60,11 @@ or off and sets its resolution, refresh rate and scale, over wlr-output-manageme
 **Apply** tests the layout, applies it, and asks on every output whether to keep it;
 without an answer it reverts after 15 seconds. **Keep** writes the layout to
 `outputs`, matching each monitor by its description when known, else by connector.
+**Primary display** makes the selected display the one
+[`primary_output`](/wm/config#primary_output) names, matched the same way, and
+the canvas marks it **Primary**; lys-shell shows its OSD and notifications
+there. Only a display that is on can be made primary, and as the key names one
+display, making another primary moves the mark.
 
 ## Keyboard Shortcuts
 

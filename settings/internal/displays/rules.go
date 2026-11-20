@@ -30,6 +30,12 @@ func names(rule string, h Head) bool {
 	return rule == h.Name
 }
 
+// Primary is the index of the head lys-wm's primary_output text names: the
+// first enabled head it matches, as lys-wm picks it; -1 when it names none.
+func Primary(text string, heads []Head) int {
+	return slices.IndexFunc(heads, func(h Head) bool { return h.Enabled && names(text, h) })
+}
+
 // ModeText is a mode as an outputs rule writes it.
 func ModeText(m Mode) string {
 	return strconv.Itoa(m.Width) + "x" + strconv.Itoa(m.Height) + "@" + strconv.FormatFloat(float64(m.RefreshMHz)/1000, 'f', -1, 64)

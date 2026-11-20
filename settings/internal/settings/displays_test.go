@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,8 +25,9 @@ import (
 const secondOutput = "HEADLESS-2"
 
 type wmOutput struct {
-	Name string `json:"name"`
-	Rect struct {
+	Name    string `json:"name"`
+	Primary bool   `json:"primary"`
+	Rect    struct {
 		X      int `json:"x"`
 		Y      int `json:"y"`
 		Width  int `json:"width"`
@@ -358,5 +360,56 @@ func TestTheSelectedDisplayOffersOnlyWhatItCanDo(t *testing.T) {
 		if !r.p.capsNote.Visible() || r.p.capsNote.Text() != tr.Get("settings-displays-caps-hidden") {
 			t.Errorf("%s says %q over its options, want that some are hidden", name, r.p.capsNote.Text())
 		}
+	}
+}
+
+func (r *displaysRig) primaries(t *testing.T) []string {
+	t.Helper()
+	var out []string
+	for name, o := range r.outputs(t) {
+		if o.Primary {
+			out = append(out, name)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+func TestMakingTheSelectedDisplayPrimaryWritesTheOneKeyLysWMReports(t *testing.T) {
+	r := startDisplays(t)
+	if r.p.primaryAt != -1 || r.p.primary.On() || !r.p.primary.Enabled() {
+		t.Fatalf("with no primary_output, primary at %d, switch on %v, enabled %v", r.p.primaryAt, r.p.primary.On(), r.p.primary.Enabled())
+	}
+	mark := locale.T().Get("settings-displays-primary-mark")
+	for _, name := range []string{secondOutput, "HEADLESS-1"} {
+		at := slices.IndexFunc(r.p.draft, func(s displays.Setting) bool { return s.Name == name })
+		r.p.selectOutput(at)
+		r.p.primary.OnChanged(true)
+		if r.p.primaryAt != at || !r.p.primary.On() || r.p.primary.Enabled() {
+			t.Fatalf("making %s primary left it at %d, switch on %v, enabled %v", name, r.p.primaryAt, r.p.primary.On(), r.p.primary.Enabled())
+		}
+		for i, h := range r.p.canvas.handles {
+			marked := strings.HasSuffix(h.AccessibleName(), ", "+mark)
+			if want := r.p.canvas.index[i] == at; marked != want {
+				t.Errorf("with %s primary, the tile %q is marked %v, want %v", name, h.AccessibleName(), marked, want)
+			}
+		}
+		waittest.UntilSlow(t, func() bool { return slices.Equal(r.primaries(t), []string{name}) }, "lys-wm reporting "+name+" alone as primary")
+	}
+	if !strings.Contains(string(r.config(t)), primaryPath+": ") {
+		t.Fatalf("the config holds no %s:\n%s", primaryPath, r.config(t))
+	}
+}
+
+func TestADisplayTurnedOffCannotBeMadePrimary(t *testing.T) {
+	r := startDisplays(t)
+	before := r.config(t)
+	r.p.selectOutput(slices.IndexFunc(r.p.draft, func(s displays.Setting) bool { return s.Name == secondOutput }))
+	r.p.enabled.OnChanged(false)
+	if r.p.primary.Enabled() {
+		t.Fatal("a display turned off offers to become primary")
+	}
+	if got := r.config(t); string(got) != string(before) {
+		t.Fatal("turning a display off wrote the config")
 	}
 }

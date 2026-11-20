@@ -25,6 +25,7 @@ import (
 const (
 	displaysID     = "wm-outputs"
 	outputsPath    = "outputs"
+	primaryPath    = "primary_output"
 	identifyFor    = 2 * time.Second
 	minCustomScale = 0.25
 	maxCustomScale = 10
@@ -68,6 +69,9 @@ type displaysPanel struct {
 	controls   *widget.Box
 	none       *widget.Label
 	enabled    *widget.Switch
+	primary    *widget.Switch
+	primaryRow *widget.Box
+	primaryAt  int
 	resolution *widget.Dropdown
 	sizes      [][2]int
 	refresh    *widget.Dropdown
@@ -104,7 +108,7 @@ type confirmBox struct {
 
 func displaysLead(k *kit) widget.Widget {
 	t := locale.T()
-	p := &displaysPanel{Box: sectionStack(), k: k}
+	p := &displaysPanel{Box: sectionStack(), k: k, primaryAt: -1}
 	p.status = wrapped(k.label("", "setting-description", css.Caption))
 	p.status.SetVisible(false)
 	p.canvas = newDisplaysCanvas(p)
@@ -148,6 +152,15 @@ func (p *displaysPanel) buildControls() {
 		}
 	}
 	rows.Append(panelRow(k, t.Get("settings-displays-enabled"), "", p.enabled))
+	p.primary = widget.NewSwitch(false)
+	p.primary.SetAccessibleName(t.Get("settings-displays-primary"))
+	p.primary.OnChanged = func(on bool) {
+		if !p.syncing && on {
+			p.makePrimary()
+		}
+	}
+	p.primaryRow = panelRow(k, t.Get("settings-displays-primary"), t.Attr("settings-displays-primary", "description"), p.primary)
+	rows.Append(p.primaryRow)
 	p.resolution = widget.NewDropdown(k.face, k.textPx(), nil, 0)
 	p.resolution.SetAccessibleName(t.Get("settings-displays-resolution"))
 	p.resolution.OnSelect = func(i int) {
@@ -288,6 +301,12 @@ func (p *displaysPanel) render() {
 	p.canvas.SetVisible(has)
 	p.controls.SetVisible(has)
 	p.apply.SetEnabled(has && p.dirty() && p.confirm == nil && p.mgr != nil)
+	w, wmErr := p.k.wmBackend()
+	p.primaryAt = -1
+	if wmErr == nil {
+		text, _ := w.value(primaryPath).(string)
+		p.primaryAt = displays.Primary(text, p.heads)
+	}
 	p.canvas.layout()
 	p.showOffTray()
 	if !has {
@@ -297,6 +316,12 @@ func (p *displaysPanel) render() {
 	if p.enabled.On() != s.Enabled {
 		p.enabled.SetOn(s.Enabled)
 	}
+	isPrimary := p.primaryAt == p.selected
+	p.primaryRow.SetVisible(wmErr == nil)
+	if p.primary.On() != isPrimary {
+		p.primary.SetOn(isPrimary)
+	}
+	p.primary.SetEnabled(!isPrimary && s.Enabled && h.Enabled)
 	p.sizes = p.sizes[:0]
 	for _, m := range h.Modes {
 		size := [2]int{m.Width, m.Height}
@@ -374,6 +399,18 @@ func (p *displaysPanel) setEnabled(on bool) {
 		s.Mode = h.Modes[max(0, slices.IndexFunc(h.Modes, func(m displays.Mode) bool { return m.Preferred }))]
 		s.Scale = cmp.Or(s.Scale, 1)
 	}, true)
+}
+
+func (p *displaysPanel) makePrimary() {
+	w, err := p.k.wmBackend()
+	if err != nil {
+		p.say(err.Error())
+		return
+	}
+	if err := w.edit(wmconfig.Edit{Path: []string{primaryPath}, Value: displays.Match(p.heads[p.selected])}); err != nil {
+		p.say(err.Error())
+	}
+	p.render()
 }
 
 func (p *displaysPanel) setSize(size [2]int) {
