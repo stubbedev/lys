@@ -76,9 +76,9 @@ func Capabilities(run wmconfig.Runner) (map[string]wmipc.OutputCapabilities, err
 	return out, nil
 }
 
-// Pointers are the connected devices one of lys-wm's input sections
-// configures, in the order lys-wm lists them.
-func Pointers(run wmconfig.Runner) ([]wmipc.Device, error) {
+// Devices are the connected input devices, in the order lys-wm lists
+// them, each with the input section that configures it.
+func Devices(run wmconfig.Runner) ([]wmipc.Device, error) {
 	devices, err := bounded(queryLimit, func(ctx context.Context) ([]wmipc.Device, error) {
 		return query[[]wmipc.Device](ctx, run, wmipc.KindDevices)
 	})
@@ -87,6 +87,16 @@ func Pointers(run wmconfig.Runner) ([]wmipc.Device, error) {
 	}
 	if i := slices.IndexFunc(devices, func(d wmipc.Device) bool { return d.Class == "" }); i >= 0 {
 		return nil, fmt.Errorf("%w: device %s carries no class", ErrOutdated, devices[i].Name)
+	}
+	return devices, nil
+}
+
+// Pointers are the connected devices one of lys-wm's input sections
+// configures, in the order lys-wm lists them.
+func Pointers(run wmconfig.Runner) ([]wmipc.Device, error) {
+	devices, err := Devices(run)
+	if err != nil {
+		return nil, err
 	}
 	return slices.DeleteFunc(devices, func(d wmipc.Device) bool { return d.Class == wmipc.ClassNone }), nil
 }

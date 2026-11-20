@@ -961,7 +961,6 @@ func TestALongCardTitleShrinksInsteadOfWideningTheList(t *testing.T) {
 var unlistedWMKeys = map[string]string{
 	"outputs":         "edited by the Displays arrangement, which writes the output rules itself",
 	"primary_output":  "set by the Displays page's Primary display switch on the selected display",
-	"input.devices":   "a per-device list fed from lys-wm's input devices, #122 and #138",
 	"virtual_outputs": "added, sized and removed on the Displays arrangement, which writes the list itself",
 }
 

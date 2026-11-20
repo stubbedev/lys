@@ -230,7 +230,7 @@ rendering only while captured. Reloads add, remove and remake them to match;
 `lys-wmctl dispatch stickykeys on|off` and `slowkeys <ms>` change them until
 the next reload.
 
-## input.pointer, input.touchpad, input.trackpoint and input.devices
+## input.pointer, input.touchpad, input.trackpoint and input.devices {#input_devices}
 
 `input.touchpad` applies to touchpads (devices that can tap), `input.trackpoint`
 to pointing sticks (devices udev tags `ID_INPUT_POINTINGSTICK`), `input.pointer`

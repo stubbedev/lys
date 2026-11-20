@@ -164,7 +164,7 @@ func TestACurveTheEditorCannotReadIsKeptAndMarked(t *testing.T) {
 	k := lysWMKit(t, "")
 	stored := map[string]any{"step": 1.0}
 	s := slot{get: func() any { return stored }, set: func(any) error { t.Fatal("an unreadable curve was rewritten"); return nil }, unset: func() {}}
-	c := newAccelCurveEditor(k, s, "input.pointer")
+	c := newAccelCurveEditor(k, k.wm, s, "input.pointer")
 	if !c.unknown.Visible() || !c.stop.Visible() || c.drawn.Visible() || c.start.Visible() {
 		t.Fatalf("an unreadable curve shows unknown %v, stop %v, canvas %v, start %v", c.unknown.Visible(), c.stop.Visible(), c.drawn.Visible(), c.start.Visible())
 	}

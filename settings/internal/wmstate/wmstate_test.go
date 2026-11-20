@@ -54,24 +54,45 @@ func TestPointersAreTheDevicesAnInputSectionConfigures(t *testing.T) {
 	}
 }
 
-func TestPointersFailAsDefined(t *testing.T) {
-	for _, c := range []struct {
-		name string
-		run  wmconfig.Runner
-		want error
-	}{
-		{"no lys-wm", notRunning, ErrNotRunning},
-		{"a lys-wm that predates classes", answering(map[string]string{"devices": `[{"name":"Synaptics","capabilities":["pointer"]}]`}), ErrOutdated},
-	} {
-		if _, err := Pointers(c.run); !errors.Is(err, c.want) {
-			t.Errorf("%s: %v, want %v", c.name, err, c.want)
+func TestDevicesAreEveryConnectedDeviceWithItsClass(t *testing.T) {
+	run := answering(map[string]string{"devices": `[
+		{"name":"AT keyboard","capabilities":["keyboard"],"class":"none"},
+		{"name":"Synaptics","capabilities":["pointer"],"class":"touchpad"}]`})
+	got, err := Devices(run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []wmipc.Device{
+		{Name: "AT keyboard", Capabilities: []wmipc.Capability{wmipc.CapKeyboard}, Class: wmipc.ClassNone},
+		{Name: "Synaptics", Capabilities: []wmipc.Capability{wmipc.CapPointer}, Class: wmipc.ClassTouchpad},
+	}
+	if !slices.EqualFunc(got, want, func(a, b wmipc.Device) bool {
+		return a.Name == b.Name && a.Class == b.Class && slices.Equal(a.Capabilities, b.Capabilities)
+	}) {
+		t.Fatalf("devices %+v, want %+v", got, want)
+	}
+}
+
+func TestDevicesAndPointersFailAsDefined(t *testing.T) {
+	for name, ask := range map[string]func(wmconfig.Runner) ([]wmipc.Device, error){"Devices": Devices, "Pointers": Pointers} {
+		for _, c := range []struct {
+			name string
+			run  wmconfig.Runner
+			want error
+		}{
+			{"no lys-wm", notRunning, ErrNotRunning},
+			{"a lys-wm that predates classes", answering(map[string]string{"devices": `[{"name":"Synaptics","capabilities":["pointer"]}]`}), ErrOutdated},
+		} {
+			if _, err := ask(c.run); !errors.Is(err, c.want) {
+				t.Errorf("%s, %s: %v, want %v", name, c.name, err, c.want)
+			}
 		}
-	}
-	if _, err := Pointers(failing); err == nil || errors.Is(err, ErrNotRunning) || !strings.Contains(err.Error(), "broken") {
-		t.Errorf("a failing lys-wmctl: %v, want its own error", err)
-	}
-	if _, err := Pointers(answering(map[string]string{"devices": `{"oops":1}`})); err == nil || errors.Is(err, ErrOutdated) {
-		t.Errorf("an answer that is no list: %v, want a decoding error", err)
+		if _, err := ask(failing); err == nil || errors.Is(err, ErrNotRunning) || !strings.Contains(err.Error(), "broken") {
+			t.Errorf("%s, a failing lys-wmctl: %v, want its own error", name, err)
+		}
+		if _, err := ask(answering(map[string]string{"devices": `{"oops":1}`})); err == nil || errors.Is(err, ErrOutdated) {
+			t.Errorf("%s, an answer that is no list: %v, want a decoding error", name, err)
+		}
 	}
 }
 

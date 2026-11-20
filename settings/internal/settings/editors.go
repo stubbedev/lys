@@ -255,6 +255,9 @@ func fieldControl(k *kit, be backend, spec rowSpec) control {
 	if !ok {
 		log.Panicf("settings: page row %q names no config field", spec.path)
 	}
+	if spec.scoped != nil {
+		return spec.scoped(k, k.wm, be.slot(spec.path), meta)
+	}
 	if spec.editor != nil {
 		return spec.editor(k, be.slot(spec.path), meta)
 	}

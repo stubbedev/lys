@@ -61,9 +61,12 @@ type sectionSpec struct {
 // rowSpec is SettingRowInit, by path: the label key defaults to the
 // field's (config.I18nKey), the editor to the one its type calls for.
 type rowSpec struct {
-	path      string
-	key       string
-	editor    editorFunc
+	path   string
+	key    string
+	editor editorFunc
+	// scoped, set in place of editor, is a lys-wm row's editor that edits
+	// through the scope of its row.
+	scoped    scopedEditor
 	fullWidth bool
 	wm        bool
 	unit      string

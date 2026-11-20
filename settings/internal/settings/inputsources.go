@@ -9,7 +9,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
-	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
 const (
@@ -39,23 +38,23 @@ func splitLayoutCode(code string) (layout, variant string) {
 	return layout, strings.TrimSuffix(rest, ")")
 }
 
-func wmText(w *wmBackend, path string) string {
-	s, _ := w.value(path).(string)
+func wmText(sc wmScope, path string) string {
+	s, _ := sc.value(path).(string)
 	return s
 }
 
 // sourcesAligned says whether every variant has its layout, so the pair of
 // keys reads as a list of input sources.
-func sourcesAligned(w *wmBackend) bool {
-	return len(splitList(wmText(w, wmVariantPath))) <= len(splitList(wmText(w, wmLayoutPath)))
+func sourcesAligned(sc wmScope) bool {
+	return len(splitList(wmText(sc, wmVariantPath))) <= len(splitList(wmText(sc, wmLayoutPath)))
 }
 
 // inputSourcesSlot is the layout and variant keys as one list of layout
 // codes, written together so the two lists never part.
-func inputSourcesSlot(w *wmBackend) slot {
+func inputSourcesSlot(sc wmScope) slot {
 	return slot{
 		get: func() any {
-			codes := layoutCodes(keyboardNames{layout: wmText(w, wmLayoutPath), variant: wmText(w, wmVariantPath)})
+			codes := layoutCodes(keyboardNames{layout: wmText(sc, wmLayoutPath), variant: wmText(sc, wmVariantPath)})
 			out := make([]any, len(codes))
 			for i, c := range codes {
 				out[i] = c
@@ -75,14 +74,11 @@ func inputSourcesSlot(w *wmBackend) slot {
 				}
 				layouts[i], variants[i] = splitLayoutCode(code)
 			}
-			return w.edit(
-				wmconfig.Edit{Path: wmPath(wmLayoutPath), Value: strings.Join(layouts, ",")},
-				wmconfig.Edit{Path: wmPath(wmVariantPath), Value: joinTrimmed(variants)},
-			)
+			return sc.edit(sc.editing(wmLayoutPath, strings.Join(layouts, ",")), sc.editing(wmVariantPath, joinTrimmed(variants)))
 		},
 		unset: func() {
-			w.dropOverride(wmVariantPath)
-			w.dropOverride(wmLayoutPath)
+			sc.slot(wmVariantPath).unset()
+			sc.slot(wmLayoutPath).unset()
 		},
 	}
 }
@@ -90,11 +86,11 @@ func inputSourcesSlot(w *wmBackend) slot {
 var inputSourcesRow rowOpt = func(r *rowSpec) {
 	r.fullWidth = true
 	r.also = []string{wmVariantPath}
-	r.editor = func(k *kit, s slot, meta config.FieldMeta) control {
-		if !sourcesAligned(k.wm) {
-			return newMisalignedSources(k, s, meta)
+	r.scoped = func(k *kit, sc wmScope, s slot, meta config.FieldMeta) control {
+		if !sourcesAligned(sc) {
+			return newMisalignedSources(k, sc, s, meta)
 		}
-		return newChoiceListEditor(k, inputSourcesSlot(k.wm), systemLists[listXKBSource], plainChoices)
+		return newChoiceListEditor(k, inputSourcesSlot(sc), systemLists[listXKBSource], plainChoices)
 	}
 }
 
@@ -106,15 +102,15 @@ type misalignedSources struct {
 	controls []control
 }
 
-func newMisalignedSources(k *kit, layout slot, layoutMeta config.FieldMeta) *misalignedSources {
+func newMisalignedSources(k *kit, sc wmScope, layout slot, layoutMeta config.FieldMeta) *misalignedSources {
 	m := &misalignedSources{Box: gapBox(widget.Column)}
 	m.Append(wrapped(k.label(locale.T().Get("wm-input-sources-misaligned"), "format-preview", css.Caption, css.DimLabel)), false)
-	variantMeta, _ := k.wm.field(wmVariantPath)
+	variantMeta, _ := sc.field(wmVariantPath)
 	for _, f := range []struct {
 		path string
 		s    slot
 		meta config.FieldMeta
-	}{{wmLayoutPath, layout, layoutMeta}, {wmVariantPath, k.wm.slot(wmVariantPath), variantMeta}} {
+	}{{wmLayoutPath, layout, layoutMeta}, {wmVariantPath, sc.slot(wmVariantPath), variantMeta}} {
 		c, ok := semanticEditor(k, f.s, f.path, f.meta)
 		if !ok {
 			panic(fmt.Sprintf("settings: %s has no xkb list", f.path))

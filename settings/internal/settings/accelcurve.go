@@ -43,7 +43,9 @@ func wmAccelRows(class string) []rowSpec {
 func wmAccelCurve(class string) rowSpec {
 	return wmField(accelPointsPath(class), func(r *rowSpec) {
 		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newAccelCurveEditor(k, s, class) }
+		r.scoped = func(k *kit, sc wmScope, s slot, _ config.FieldMeta) control {
+			return newAccelCurveEditor(k, sc, s, class)
+		}
 	})
 }
 
@@ -114,7 +116,7 @@ func (b accelBounds) clampPoint(v float64) float64 { return min(max(v, b.pointLo
 // until it is replaced.
 type accelCurveEditor struct {
 	*widget.Box
-	w       *wmBackend
+	scope   wmScope
 	slot    slot
 	class   string
 	bounds  accelBounds
@@ -132,9 +134,9 @@ type accelCurveEditor struct {
 
 const accelSpinStep = 0.1
 
-func newAccelCurveEditor(k *kit, s slot, class string) *accelCurveEditor {
+func newAccelCurveEditor(k *kit, sc wmScope, s slot, class string) *accelCurveEditor {
 	t := locale.T()
-	c := &accelCurveEditor{Box: gapBox(widget.Column), w: k.wm, slot: s, class: class, bounds: wmAccelBounds(k.wm, class)}
+	c := &accelCurveEditor{Box: gapBox(widget.Column), scope: sc, slot: s, class: class, bounds: wmAccelBounds(k.wm, class)}
 	c.AddClass("accel-curve-editor")
 
 	c.start = gapBox(widget.Row)
@@ -172,12 +174,12 @@ func newAccelCurveEditor(k *kit, s slot, class string) *accelCurveEditor {
 func (c *accelCurveEditor) stacked() {}
 
 func (c *accelCurveEditor) begin() {
-	_ = c.w.edit(c.w.clearing(c.class + accelProfileKey))
+	_ = c.scope.edit(c.scope.clearing(c.class + accelProfileKey))
 	c.write(starterAccelCurve)
 }
 
 func (c *accelCurveEditor) end() {
-	c.w.clear(c.slot, accelPointsPath(c.class))
+	clearIn(c.scope, c.slot, accelPointsPath(c.class))
 	c.refresh()
 }
 

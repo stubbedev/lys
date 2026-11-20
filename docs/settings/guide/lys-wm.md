@@ -13,8 +13,8 @@ key does.
 | Shadow & Blur | `wm-effects` | `decoration.shadow`, `decoration.blur` |
 | Motion | `motion` | `animations.enabled` and `animations.reduced_motion` (one switch each with lys-shell's), `overview`, `switcher`, `showdesktop`, `drag_preview`, `hot_corners` |
 | Tiling & Tabs | `wm-tiling` | `autotile`, `tabs` |
-| Keyboard | `wm-keyboard` | `input.keyboard`, `cursor` |
-| Mouse & Touchpad | `wm-pointer` | `input.pointer`, `input.touchpad`, `gestures`, `input.trackpoint` |
+| Keyboard | `wm-keyboard` | `input.keyboard`, `cursor`, each keyboard's `input.devices` layout |
+| Mouse & Touchpad | `wm-pointer` | `input.pointer`, `input.touchpad`, `gestures`, `input.trackpoint`, each pointing device's `input.devices` settings |
 | Keyboard Shortcuts | `wm-binds` | `binds` and `submaps` in one table, app shortcuts |
 | Displays | `wm-outputs` | Output layout, `primary_output`, `color_management`, `tearing`, `gpu`, `lid_action` |
 | Rules & Session | `wm-session` | `rules`, `env`, `xwayland`, `palette` |
@@ -65,6 +65,19 @@ device. **Draw a custom curve** starts from that line; each point is dragged up
 or down, and points are added or removed within the 2 to 64 lys-wm takes. While
 a curve is in use the profile row is hidden, and **Use the acceleration
 profile** clears the curve. A curve the editor cannot read is kept and marked.
+
+## Individual devices
+
+**Mouse & Touchpad** and **Keyboard** end with the devices lys-wm reports as
+connected, each a card that opens to the rows of its class: a touchpad's card
+holds the **Touchpad** rows, a keyboard's the layout and xkb rows. A value set
+in a card is written to [`input.devices`](/wm/config#input_devices) under the device's
+name and wins over its class for that device alone; a row left unset follows
+the class, and its reset button clears the device's own value. A device that is
+not connected but keeps settings of its own is listed after the connected ones,
+marked **Not connected**, and can be forgotten, which clears only the keys of
+that page. **Look for devices again** asks lys-wm anew after a device is
+plugged in.
 
 ## Terminal swallowing
 

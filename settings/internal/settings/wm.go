@@ -103,14 +103,18 @@ func (w *wmBackend) fieldOf(path string) (wmconfig.Field, bool) {
 	return w.schema.Field(wmPath(path))
 }
 
-func (w *wmBackend) field(path string) (config.FieldMeta, bool) {
-	f, ok := w.fieldOf(path)
+func (w *wmBackend) field(path string) (config.FieldMeta, bool) { return w.metaAt(wmPath(path)) }
+
+// metaAt is the editor's view of the key at keys.
+func (w *wmBackend) metaAt(keys []string) (config.FieldMeta, bool) {
+	f, ok := w.schema.Field(keys)
 	if !ok {
 		return config.FieldMeta{}, false
 	}
+	key := keys[len(keys)-1]
 	meta := config.FieldMeta{Min: f.Min, Max: f.Max, Optional: !f.HasDefault}
 	if choices, ok := wmChoices(f); ok {
-		meta.Kind, meta.Variants, meta.Type = config.FieldEnum, wmChoiceNames(choices), wmChoiceType(path)
+		meta.Kind, meta.Variants, meta.Type = config.FieldEnum, wmChoiceNames(choices), wmChoiceType(key)
 		if slices.ContainsFunc(choices, isBool) {
 			meta.Type = wmToggleType
 		}
@@ -126,7 +130,7 @@ func (w *wmBackend) field(path string) (config.FieldMeta, bool) {
 	case wmconfig.Text:
 		meta.Kind, meta.Type = config.FieldText, f.Format
 	case wmconfig.NamedOrWhole:
-		meta.Kind, meta.Variants, meta.Type = config.FieldOther, wmChoiceNames(f.Variants), wmChoiceType(path)
+		meta.Kind, meta.Variants, meta.Type = config.FieldOther, wmChoiceNames(f.Variants), wmChoiceType(key)
 	case wmconfig.Composite, wmconfig.Switch, wmconfig.Enum:
 		meta.Kind = config.FieldOther
 	}
@@ -188,11 +192,13 @@ func wmChoiceNames(choices []any) []string {
 
 // defaultOf is what the key means when no file says: the built-in config's
 // value, else the schema's default.
-func (w *wmBackend) defaultOf(path string) (any, bool) {
-	if v, ok := wmconfig.Lookup(w.builtIn, wmPath(path)); ok {
+func (w *wmBackend) defaultOf(path string) (any, bool) { return w.defaultAt(wmPath(path)) }
+
+func (w *wmBackend) defaultAt(keys []string) (any, bool) {
+	if v, ok := wmconfig.Lookup(w.builtIn, keys); ok {
 		return v, true
 	}
-	if f, ok := w.fieldOf(path); ok && f.HasDefault {
+	if f, ok := w.schema.Field(keys); ok && f.HasDefault {
 		return f.Default, true
 	}
 	return nil, false
@@ -207,39 +213,39 @@ func (w *wmBackend) base() map[string]any {
 
 // baseValue is the key's value under the overrides: the config file's, else
 // the built-in config's.
-func (w *wmBackend) baseValue(path string) any {
-	v, _ := wmconfig.Lookup(w.base(), wmPath(path))
+func (w *wmBackend) baseValue(path string) any { return w.baseAt(wmPath(path)) }
+
+func (w *wmBackend) baseAt(keys []string) any {
+	v, _ := wmconfig.Lookup(w.base(), keys)
 	return v
 }
 
-func (w *wmBackend) value(path string) any {
-	keys := wmPath(path)
+func (w *wmBackend) value(path string) any { return w.valueAt(wmPath(path)) }
+
+// valueAt is the key at keys as lys-wm reads it once the edits still
+// queued land.
+func (w *wmBackend) valueAt(keys []string) any {
 	tree := wmconfig.Merge(w.base(), w.overrides)
 	for _, e := range slices.Backward(w.pending) {
 		if slices.Equal(e.Path, keys) {
 			if !e.Unset {
-				return w.normal(path, e.Value)
+				return w.normal(keys, e.Value)
 			}
 			tree = w.base()
 			break
 		}
 	}
 	if v, ok := wmconfig.Lookup(tree, keys); ok {
-		return w.normal(path, v)
+		return w.normal(keys, v)
 	}
-	return w.fallback(path)
-}
-
-func (w *wmBackend) fallback(path string) any {
-	f, ok := w.fieldOf(path)
-	if ok && f.HasDefault {
+	if f, ok := w.schema.Field(keys); ok && f.HasDefault {
 		return f.Default
 	}
 	return nil
 }
 
-func (w *wmBackend) normal(path string, v any) any {
-	if f, ok := w.fieldOf(path); ok {
+func (w *wmBackend) normal(keys []string, v any) any {
+	if f, ok := w.schema.Field(keys); ok {
 		return f.Normal(v)
 	}
 	return v
@@ -309,32 +315,29 @@ func (w *wmBackend) dropOverride(path string) {
 
 // clearing is the edit taking the key out of what lys-wm reads: its override
 // goes, and a value beneath the overrides is covered by null.
-func (w *wmBackend) clearing(path string) wmconfig.Edit {
-	if w.baseValue(path) == nil {
-		return wmconfig.Edit{Path: wmPath(path), Unset: true}
+func (w *wmBackend) clearing(path string) wmconfig.Edit { return w.clearingAt(wmPath(path)) }
+
+func (w *wmBackend) clearingAt(keys []string) wmconfig.Edit {
+	if w.baseAt(keys) == nil {
+		return wmconfig.Edit{Path: keys, Unset: true}
 	}
-	return wmconfig.Edit{Path: wmPath(path)}
+	return wmconfig.Edit{Path: keys}
 }
 
 // clear takes the key at path out of what lys-wm reads through s, the
 // key's slot.
-func (w *wmBackend) clear(s slot, path string) {
-	if w.clearing(path).Unset {
-		s.unset()
-		return
-	}
-	_ = s.set(nil)
-}
+func (w *wmBackend) clear(s slot, path string) { clearIn(w, s, path) }
 
 // baseIsDefault reports whether the key without its override holds its
 // default.
 func (w *wmBackend) baseIsDefault(path string) bool {
-	v, ok := wmconfig.Lookup(w.base(), wmPath(path))
+	keys := wmPath(path)
+	v, ok := wmconfig.Lookup(w.base(), keys)
 	if !ok {
 		return true
 	}
 	d, _ := w.defaultOf(path)
-	return reflect.DeepEqual(w.normal(path, v), w.normal(path, d))
+	return reflect.DeepEqual(w.normal(keys, v), w.normal(keys, d))
 }
 
 // isDefault reports whether the key holds its default.
@@ -343,7 +346,7 @@ func (w *wmBackend) isDefault(path string) bool {
 	if !ok {
 		return w.value(path) == nil
 	}
-	return reflect.DeepEqual(w.value(path), w.normal(path, d))
+	return reflect.DeepEqual(w.value(path), w.normal(wmPath(path), d))
 }
 
 func (k *kit) resetAll() {
@@ -389,8 +392,9 @@ func (w *wmBackend) source(path string) sourceInfo {
 	return info
 }
 
-func (w *wmBackend) badge(path string) sourceInfo {
-	keys := wmPath(path)
+func (w *wmBackend) badge(path string) sourceInfo { return w.badgeAt(wmPath(path)) }
+
+func (w *wmBackend) badgeAt(keys []string) sourceInfo {
 	v, inConfig := wmconfig.Lookup(w.tree, keys)
 	inConfig = inConfig && w.exists
 	if wmconfig.Overridden(w.overrides, keys) {
@@ -399,7 +403,7 @@ func (w *wmBackend) badge(path string) sourceInfo {
 	if !inConfig {
 		return sourceInfo{}
 	}
-	if d, ok := w.defaultOf(path); ok && reflect.DeepEqual(w.normal(path, v), w.normal(path, d)) {
+	if d, ok := w.defaultAt(keys); ok && reflect.DeepEqual(w.normal(keys, v), w.normal(keys, d)) {
 		return sourceInfo{}
 	}
 	t := locale.T()
@@ -634,33 +638,56 @@ func wmTilingPage() pageSpec {
 
 func wmKeyboardPage() pageSpec {
 	return wmPage("wm-keyboard", "ld-keyboard-symbolic",
-		sectionSpec{title: "wm-section-keyboard", rows: []rowSpec{wmField(wmLayoutPath, inputSourcesRow), wmField("input.keyboard.options")}},
+		sectionSpec{title: "wm-section-keyboard", rows: wmKeyboardLayoutRows()},
 		sectionSpec{title: "wm-section-typing", rows: []rowSpec{
 			wmField("input.keyboard.repeat_rate", softPerSecond(10, 80)), wmField("input.keyboard.repeat_delay", softMilliseconds(150, 1000)), wmField("input.keyboard.numlock"),
 		}},
 		sectionSpec{title: "wm-section-keyboard-accessibility", rows: wmFields("input.keyboard.sticky_keys", "input.keyboard.slow_keys")},
 		sectionSpec{title: "wm-section-cursor", rows: wmFields("cursor.hide_while_typing", "cursor.hide_after", "cursor.shake_to_find")},
-		sectionSpec{title: "wm-section-keyboard-model", advanced: true, rows: wmFields("input.keyboard.model", "input.keyboard.rules")},
+		sectionSpec{title: "wm-section-keyboard-model", advanced: true, rows: wmKeyboardModelRows()},
+		sectionSpec{title: "wm-section-devices", rows: []rowSpec{wmDevicesRow(keyboardDevices)}},
 	)
 }
 
+func wmKeyboardLayoutRows() []rowSpec {
+	return []rowSpec{wmField(wmLayoutPath, inputSourcesRow), wmField("input.keyboard.options")}
+}
+
+func wmKeyboardModelRows() []rowSpec { return wmFields("input.keyboard.model", "input.keyboard.rules") }
+
 func wmPointerPage() pageSpec {
 	return wmPage("wm-pointer", "ld-mouse-symbolic",
-		sectionSpec{title: "wm-section-pointer", hardware: wmipc.ClassPointer, rows: append(append(wmFields("input.pointer.natural_scroll", "input.pointer.middle_emulation"), wmAccelRows("input.pointer")...), wmFields("input.pointer.scroll_factor",
-			"input.pointer.left_handed", "input.pointer.tap", "input.pointer.tap_button_map", "input.pointer.drag_lock", "input.pointer.click_method", "input.pointer.scroll_method",
-			"input.pointer.scroll_button", "input.pointer.scroll_button_lock", "input.pointer.disable_while_typing", "input.pointer.disabled_on_external_mouse")...)},
-		sectionSpec{title: "wm-section-touchpad", hardware: wmipc.ClassTouchpad, rows: append(append(wmFields("input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation", "input.touchpad.click_method", "input.touchpad.scroll_method"),
-			wmAccelRows("input.touchpad")...), wmFields("input.touchpad.scroll_factor",
-			"input.touchpad.left_handed", "input.touchpad.tap_button_map", "input.touchpad.scroll_button", "input.touchpad.scroll_button_lock", "input.touchpad.disabled_on_external_mouse")...)},
+		sectionSpec{title: "wm-section-pointer", hardware: wmipc.ClassPointer, rows: wmPointerRows(wmipc.ClassPointer)},
+		sectionSpec{title: "wm-section-touchpad", hardware: wmipc.ClassTouchpad, rows: wmPointerRows(wmipc.ClassTouchpad)},
 		sectionSpec{title: "wm-section-gestures", hardware: wmipc.ClassTouchpad, rows: []rowSpec{
 			wmObjects("gestures.swipe", "fingers", "direction", "modifiers"), wmObjects("gestures.pinch", "fingers", "direction", "modifiers"),
 			wmObjects("gestures.hold", "fingers", "modifiers"), wmField("gestures.distance"),
 		}},
 		sectionSpec{title: "wm-section-touch-gestures", rows: []rowSpec{touchGesturesRow(), wmField("gestures.edge_width", softPixels(4, 64))}},
-		sectionSpec{title: "wm-section-trackpoint", advanced: true, hardware: wmipc.ClassTrackpoint, rows: append(append(wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method"), wmAccelRows("input.trackpoint")...), wmFields("input.trackpoint.scroll_factor",
-			"input.trackpoint.left_handed", "input.trackpoint.tap", "input.trackpoint.tap_button_map", "input.trackpoint.drag_lock", "input.trackpoint.click_method",
-			"input.trackpoint.scroll_button", "input.trackpoint.scroll_button_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.disabled_on_external_mouse")...)},
+		sectionSpec{title: "wm-section-trackpoint", advanced: true, hardware: wmipc.ClassTrackpoint, rows: wmPointerRows(wmipc.ClassTrackpoint)},
+		sectionSpec{title: "wm-section-devices", rows: []rowSpec{wmDevicesRow(pointerDevices)}},
 	)
+}
+
+// wmPointerRows are the rows of the input section of class, in the order
+// its section shows them.
+func wmPointerRows(class wmipc.DeviceClass) []rowSpec {
+	switch class {
+	case wmipc.ClassPointer:
+		return append(append(wmFields("input.pointer.natural_scroll", "input.pointer.middle_emulation"), wmAccelRows("input.pointer")...), wmFields("input.pointer.scroll_factor",
+			"input.pointer.left_handed", "input.pointer.tap", "input.pointer.tap_button_map", "input.pointer.drag_lock", "input.pointer.click_method", "input.pointer.scroll_method",
+			"input.pointer.scroll_button", "input.pointer.scroll_button_lock", "input.pointer.disable_while_typing", "input.pointer.disabled_on_external_mouse")...)
+	case wmipc.ClassTouchpad:
+		return append(append(wmFields("input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation", "input.touchpad.click_method", "input.touchpad.scroll_method"),
+			wmAccelRows("input.touchpad")...), wmFields("input.touchpad.scroll_factor",
+			"input.touchpad.left_handed", "input.touchpad.tap_button_map", "input.touchpad.scroll_button", "input.touchpad.scroll_button_lock", "input.touchpad.disabled_on_external_mouse")...)
+	case wmipc.ClassTrackpoint:
+		return append(append(wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method"), wmAccelRows("input.trackpoint")...), wmFields("input.trackpoint.scroll_factor",
+			"input.trackpoint.left_handed", "input.trackpoint.tap", "input.trackpoint.tap_button_map", "input.trackpoint.drag_lock", "input.trackpoint.click_method",
+			"input.trackpoint.scroll_button", "input.trackpoint.scroll_button_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.disabled_on_external_mouse")...)
+	}
+	log.Panicf("settings: lys-wm has no input section for %q", class)
+	return nil
 }
 
 const wmBindsID = "wm-binds"
