@@ -341,6 +341,35 @@ func TestPowerActions(t *testing.T) {
 	}
 }
 
+func TestCanPowerReadsLogindsAnswer(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display, Can: map[string]string{"CanHibernate": "na", "CanHybridSleep": "no", "CanSuspendThenHibernate": "challenge", "CanReboot": "maybe"}})
+	for action, want := range map[logind.PowerAction]logind.Availability{
+		logind.Suspend:              logind.Available,
+		logind.Hibernate:            logind.Unsupported,
+		logind.HybridSleep:          logind.Denied,
+		logind.SuspendThenHibernate: logind.NeedsAuthentication,
+	} {
+		if got, err := m.CanPower(t.Context(), action); err != nil || got != want {
+			t.Errorf("CanPower(%s) = %d, %v; want %d", action, got, err, want)
+		}
+	}
+	if got, err := m.CanPower(t.Context(), logind.Reboot); err == nil || !strings.Contains(err.Error(), `answered "maybe"`) {
+		t.Errorf("an answer logind does not give = %d, %v", got, err)
+	}
+	calls := len(fake.Calls.Load())
+	if _, err := m.CanPower(t.Context(), logind.PowerAction(0)); err == nil || !strings.Contains(err.Error(), "PowerAction(0)") {
+		t.Errorf("CanPower of no action = %v", err)
+	}
+	if n := len(fake.Calls.Load()); n != calls {
+		t.Error("an invalid power action reached logind")
+	}
+	fake.Refuse("Manager.CanSuspend", dbus.NewError("org.freedesktop.DBus.Error.AccessDenied", []any{"no"}))
+	if _, err := m.CanPower(t.Context(), logind.Suspend); err == nil || !strings.Contains(err.Error(), "Manager.CanSuspend") {
+		t.Errorf("a refused CanSuspend = %v", err)
+	}
+}
+
 func TestPowerActionNames(t *testing.T) {
 	t.Parallel()
 	for a, want := range map[logind.PowerAction]string{

@@ -32,9 +32,13 @@ const userSelfPath = logind.ManagerPath + "/user/self"
 // session every calling process is in, "" for a caller in none (a
 // service of the systemd user manager); Display is the user's display
 // session, "" for none. They may be the same session.
+//
+// Can is what each Can method (CanSuspend, CanHibernate, ...) answers,
+// keyed by the method's name; one not listed answers "yes".
 type Config struct {
 	Own     logind.SessionID
 	Display logind.SessionID
+	Can     map[string]string
 }
 
 // Event is one entry of the fake's timeline.
@@ -544,6 +548,30 @@ func (m manager) sleep(method string, event Event, interactive bool) *dbus.Error
 		return failed(err)
 	}
 	return nil
+}
+
+func (m manager) CanSuspend() (string, *dbus.Error) { return m.can("CanSuspend") }
+
+func (m manager) CanHibernate() (string, *dbus.Error) { return m.can("CanHibernate") }
+
+func (m manager) CanHybridSleep() (string, *dbus.Error) { return m.can("CanHybridSleep") }
+
+func (m manager) CanSuspendThenHibernate() (string, *dbus.Error) {
+	return m.can("CanSuspendThenHibernate")
+}
+
+func (m manager) CanReboot() (string, *dbus.Error) { return m.can("CanReboot") }
+
+func (m manager) CanPowerOff() (string, *dbus.Error) { return m.can("CanPowerOff") }
+
+func (m manager) can(method string) (string, *dbus.Error) {
+	if err := m.l.enter(logind.ManagerPath, "Manager."+method); err != nil {
+		return "", err
+	}
+	if answer, ok := m.l.cfg.Can[method]; ok {
+		return answer, nil
+	}
+	return "yes", nil
 }
 
 func (m manager) Reboot(interactive bool) *dbus.Error {

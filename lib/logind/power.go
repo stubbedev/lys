@@ -55,6 +55,44 @@ func (a PowerAction) method() (string, error) {
 	return powerActions[a].method, nil
 }
 
+// Availability is logind's answer to whether the caller may take a power
+// action.
+type Availability uint8
+
+// The availabilities logind answers.
+const (
+	// Available is "yes": the action runs without asking.
+	Available Availability = iota + 1
+	// NeedsAuthentication is "challenge": polkit asks for a password
+	// first, so a non-interactive call is refused.
+	NeedsAuthentication
+	// Denied is "no": polkit refuses it.
+	Denied
+	// Unsupported is "na": the system cannot do it, such as hibernate
+	// without swap to resume from.
+	Unsupported
+)
+
+var availabilities = map[string]Availability{"yes": Available, "challenge": NeedsAuthentication, "no": Denied, "na": Unsupported}
+
+// CanPower asks logind whether the caller may take action, through its
+// Can method for the action (CanSuspend, CanHibernate, ...).
+func (m Manager) CanPower(ctx context.Context, action PowerAction) (Availability, error) {
+	method, err := action.method()
+	if err != nil {
+		return 0, err
+	}
+	var answer string
+	if err := m.obj.call(ctx, ManagerInterface, "Can"+method, []any{&answer}); err != nil {
+		return 0, err
+	}
+	a, ok := availabilities[answer]
+	if !ok {
+		return 0, fmt.Errorf("logind Manager.Can%s answered %q, not yes, challenge, no or na", method, answer)
+	}
+	return a, nil
+}
+
 // InhibitWhat is the set of operations an inhibitor holds off.
 type InhibitWhat uint8
 
