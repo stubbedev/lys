@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -101,5 +102,18 @@ func TestPickingABrowserWritesItsThreeKeysAtOnceFromOneScan(t *testing.T) {
 	}
 	if !slices.Equal(types, []string{"application/pdf"}) {
 		t.Fatalf("the pdf filter shows the types %q", types)
+	}
+}
+
+func TestAFileTypeReadsAsItsDescription(t *testing.T) {
+	defaultAppsFixture(t)
+	data := os.Getenv("XDG_DATA_HOME")
+	put(t, filepath.Join(data, "mime", "application", "pdf.xml"), `<mime-type type="application/pdf"><comment>PDF document</comment><comment xml:lang="zz">ZZ</comment></mime-type>`)
+	ix := indexApps(desktopentry.ApplicationDirs(), desktopentry.MimeAppsLists(), mimeDescriber())
+	if got := ix.names["application/pdf"]; got != "PDF document" {
+		t.Fatalf("application/pdf reads %q", got)
+	}
+	if got := ix.names["image/png"]; got != "image/png" {
+		t.Errorf("an undescribed type reads %q, want its own name", got)
 	}
 }

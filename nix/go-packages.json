@@ -2180,6 +2180,7 @@
       "desktop/identity",
       "desktop/imagedecode",
       "desktop/logging",
+      "desktop/mime",
       "desktop/portal/permissions",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",

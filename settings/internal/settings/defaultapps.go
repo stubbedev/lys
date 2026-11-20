@@ -1,11 +1,13 @@
 package settings
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -52,11 +54,12 @@ type appIndex struct {
 	byType map[string][]desktopentry.App
 	types  []string
 	mime   desktopentry.MimeApps
+	names  map[string]string
 }
 
-func indexApps(dirs, lists []string) appIndex {
+func indexApps(dirs, lists []string, describe func(mimeType string) string) appIndex {
 	all := scanApps(dirs)
-	ix := appIndex{byType: map[string][]desktopentry.App{}, mime: desktopentry.ReadMimeApps(lists)}
+	ix := appIndex{byType: map[string][]desktopentry.App{}, mime: desktopentry.ReadMimeApps(lists), names: map[string]string{}}
 	for _, a := range all {
 		if !a.ShouldShow() && len(a.MimeTypes()) == 0 {
 			continue
@@ -68,9 +71,21 @@ func indexApps(dirs, lists []string) appIndex {
 	}
 	for t := range ix.byType {
 		ix.types = append(ix.types, t)
+		ix.names[t] = cmp.Or(describe(t), t)
 	}
-	slices.Sort(ix.types)
+	slices.SortFunc(ix.types, func(a, b string) int {
+		return cmp.Or(cmp.Compare(strings.ToLower(ix.names[a]), strings.ToLower(ix.names[b])), cmp.Compare(a, b))
+	})
 	return ix
+}
+
+func mimeDescriber() func(string) string {
+	db := mime.Load(mime.DataDirs())
+	var langs []string
+	for _, l := range locale.T().Languages() {
+		langs = append(langs, l.String())
+	}
+	return func(mimeType string) string { return db.CommentIn(mimeType, langs) }
 }
 
 func (ix appIndex) candidates(types []string) []desktopentry.App {
@@ -131,7 +146,7 @@ func defaultAppsFooter(k *kit) widget.Widget {
 	typesBody.Append(d.types, false)
 	content.Append(newSection(k, "settings-section-default-types", typesBody), false)
 	dirs, lists := desktopentry.ApplicationDirs(), desktopentry.MimeAppsLists()
-	async(k, func() appIndex { return indexApps(dirs, lists) }, d.show)
+	async(k, func() appIndex { return indexApps(dirs, lists, mimeDescriber()) }, d.show)
 	return content
 }
 
@@ -154,14 +169,17 @@ func (d *defaultApps) showTypes() {
 	d.types.Append(rows, false)
 	shown := 0
 	for _, mimeType := range d.ix.types {
-		if slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(mimeType, w) }) {
+		name := d.ix.names[mimeType]
+		if slices.ContainsFunc(words, func(w string) bool {
+			return !strings.Contains(mimeType, w) && !strings.Contains(strings.ToLower(name), w)
+		}) {
 			continue
 		}
 		if shown == fileTypesShown {
 			rows.Append(widget.NewItem(d.k.face, "", locale.T().Get("settings-default-types-more")))
 			break
 		}
-		rows.Append(d.chooser(mimeType, []string{mimeType}))
+		rows.Append(d.chooser(name, []string{mimeType}))
 		shown++
 	}
 }
