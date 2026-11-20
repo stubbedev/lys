@@ -32,7 +32,7 @@ func vmSystemBus(t *testing.T) *dbus.Conn {
 	return conn
 }
 
-func vmWifi(t *testing.T) *Wifi {
+func vmService(t *testing.T) *Service {
 	t.Helper()
 	svc, err := StartConnections(t.Context(), vmSystemBus(t))
 	if err != nil {
@@ -44,8 +44,10 @@ func vmWifi(t *testing.T) *Wifi {
 	if err := svc.Wifi.Forget(t.Context(), vmSSID); err != nil {
 		t.Fatal(err)
 	}
-	return svc.Wifi
+	return svc
 }
+
+func vmWifi(t *testing.T) *Wifi { return vmService(t).Wifi }
 
 func vmAccessPoint(t *testing.T, w *Wifi) AccessPoint {
 	t.Helper()
@@ -96,6 +98,41 @@ func TestVMSaysAWrongPasswordWasRefused(t *testing.T) {
 	}
 	if err := w.Forget(t.Context(), vmSSID); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestVMAProxySetOnASavedNetworkKeepsItsPassword(t *testing.T) {
+	svc := vmService(t)
+	w := svc.Wifi
+	ap := vmAccessPoint(t, w)
+	if err := w.ConnectAndWait(t.Context(), ap.Path, vmPassword, nil); err != nil {
+		t.Fatalf("connecting with the password: %v", err)
+	}
+	t.Cleanup(func() { _ = w.Forget(context.Background(), vmSSID) })
+	var saved []Profile
+	waittest.UntilSlow(t, func() bool { saved = svc.Settings.ForSSID([]byte(vmSSID)); return len(saved) == 1 }, "the joined network's one saved profile")
+	pac, err := AutoProxy("http://wpad.lys-vm/proxy.pac")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Settings.SetProxy(t.Context(), saved[0].Path, pac); err != nil {
+		t.Fatalf("NetworkManager refused the proxy: %v", err)
+	}
+	if got, err := svc.Settings.Proxy(t.Context(), saved[0].Path); err != nil || got != pac {
+		t.Fatalf("the proxy reads back as %+v, %v; want %+v", got, err, pac)
+	}
+	if err := w.Disconnect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	waittest.UntilSlow(t, func() bool { return w.ActiveSSID(t.Context()) == "" }, "the network to drop")
+	if err := w.ConnectAndWait(t.Context(), ap.Path, "", nil); err != nil {
+		t.Fatalf("reconnecting without the password after the proxy was set: %v", err)
+	}
+	if err := svc.Settings.SetProxy(t.Context(), saved[0].Path, NoProxy()); err != nil {
+		t.Fatalf("NetworkManager refused no proxy: %v", err)
+	}
+	if got, err := svc.Settings.Proxy(t.Context(), saved[0].Path); err != nil || got != NoProxy() {
+		t.Fatalf("the proxy reads back as %+v, %v; want none", got, err)
 	}
 }
 

@@ -1,5 +1,5 @@
 vmTests: {
-  name = "the network client joins, refuses and forgets a simulated Wi-Fi network, and airplane mode blocks it";
+  name = "the network client joins, refuses and forgets a simulated Wi-Fi network, keeps its password through a proxy change, and airplane mode blocks it";
   module = {lib, ...}: {
     networking.wireless.enable = lib.mkOverride 5 true;
     boot.kernelModules = ["mac80211_hwsim"];
@@ -46,7 +46,7 @@ vmTests: {
     machine.wait_until_succeeds("nmcli -t -f DEVICE,STATE device | grep -q '^wlan1:disconnected'")
     out = machine.succeed("${vmTests}/bin/network.test -test.v -test.count=1 -test.run '^TestVM' 2>&1")
     print(out)
-    for test in ["TestVMConnectsWithThePasswordAndForgets", "TestVMSaysAWrongPasswordWasRefused"]:
+    for test in ["TestVMConnectsWithThePasswordAndForgets", "TestVMSaysAWrongPasswordWasRefused", "TestVMAProxySetOnASavedNetworkKeepsItsPassword"]:
         assert f"--- PASS: {test}" in out, f"{test} did not pass in the VM"
     out = machine.succeed("${vmTests}/bin/rfkill.test -test.v -test.count=1 -test.run '^TestVM' 2>&1")
     print(out)

@@ -57,6 +57,7 @@ type fakeNM struct {
 	calls sync.WaitGroup
 
 	manager *prop.Properties
+	primary *prop.Properties
 	// underlay is the primary connection's IPv4 config, whose addresses
 	// say whether the network under a tunnel is usable.
 	underlay *prop.Properties
@@ -138,7 +139,8 @@ func (f *fakeNM) own() {
 	}})
 	must(f.t, err)
 	f.manager = props
-	_, err = prop.Export(f.conn, fakePrimaryPath, prop.Map{activeIface: {
+	f.primary, err = prop.Export(f.conn, fakePrimaryPath, prop.Map{activeIface: {
+		"Connection":     {Value: rootPath, Emit: prop.EmitTrue},
 		"Vpn":            {Value: false, Emit: prop.EmitTrue},
 		"Ip4Config":      {Value: fakeIP4Path, Emit: prop.EmitTrue},
 		"Ip6Config":      {Value: rootPath, Emit: prop.EmitTrue},
@@ -327,6 +329,17 @@ func addressData(addresses ...string) []map[string]dbus.Variant {
 // setPrimary sets the primary connection's NM type ("" for none).
 func (f *fakeNM) setPrimary(nmType string) {
 	f.manager.SetMust(nmIface, "PrimaryConnectionType", nmType)
+}
+
+// setPrimaryProfile makes the saved profile at path the primary
+// connection's, rootPath leaving it without one.
+func (f *fakeNM) setPrimaryProfile(path dbus.ObjectPath) {
+	f.primary.SetMust(activeIface, "Connection", path)
+}
+
+// setNoPrimary leaves NM carrying traffic on nothing.
+func (f *fakeNM) setNoPrimary() {
+	f.manager.SetMust(nmIface, "PrimaryConnection", rootPath)
 }
 
 // registered waits for an agent registration.
