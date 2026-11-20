@@ -55,6 +55,7 @@ settings-modules-clock-dropdown-show-seconds = Seconden tonen
 settings-modules-clock-calendar-weekday-start = Begin van de week in agenda
     .description = Eerste dag van de week in het agenda-uitklapmenu
 
+enum-week-start-auto = Volgens de regio
 enum-week-start-monday = Maandag
 enum-week-start-tuesday = Dinsdag
 enum-week-start-wednesday = Woensdag

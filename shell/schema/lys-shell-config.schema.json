@@ -2196,7 +2196,7 @@
         },
         "calendar-weekday-start": {
           "$ref": "#/$defs/WeekStart",
-          "default": "sunday",
+          "default": "auto",
           "description": "First day of the week in the calendar dropdown."
         },
         "calendars": {
@@ -6029,7 +6029,7 @@
             "border-color": "border-accent",
             "border-show": false,
             "button-bg-color": "bg-surface-elevated",
-            "calendar-weekday-start": "sunday",
+            "calendar-weekday-start": "auto",
             "calendars": [],
             "dropdown-show-seconds": false,
             "format": "%a %b %d %I:%M %p",
@@ -10481,6 +10481,11 @@
       "description": "Which day appears in the first column of the calendar dropdown.",
       "oneOf": [
         {
+          "const": "auto",
+          "description": "Week starts where the time locale (LC_TIME) starts it (default).",
+          "type": "string"
+        },
+        {
           "const": "monday",
           "description": "Week starts on Monday.",
           "type": "string"
@@ -10512,7 +10517,7 @@
         },
         {
           "const": "sunday",
-          "description": "Week starts on Sunday (default).",
+          "description": "Week starts on Sunday.",
           "type": "string"
         }
       ]
@@ -11720,7 +11725,7 @@
           "border-color": "border-accent",
           "border-show": false,
           "button-bg-color": "bg-surface-elevated",
-          "calendar-weekday-start": "sunday",
+          "calendar-weekday-start": "auto",
           "calendars": [],
           "dropdown-show-seconds": false,
           "format": "%a %b %d %I:%M %p",

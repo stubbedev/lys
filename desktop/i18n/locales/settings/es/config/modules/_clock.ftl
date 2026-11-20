@@ -60,6 +60,7 @@ settings-modules-clock-calendar-weekday-start = Inicio de la semana del calendar
     .description = Primer día de la semana en el desplegable del calendario
 
 ## WeekStart variants
+enum-week-start-auto = Según la región
 enum-week-start-monday = Lunes
 enum-week-start-tuesday = Martes
 enum-week-start-wednesday = Miércoles

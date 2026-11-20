@@ -573,15 +573,15 @@ func cardValues(c *choiceCards) []string {
 	return out
 }
 
-func TestTheWeekStartIsMondaySundayOrSaturdayByCard(t *testing.T) {
+func TestTheWeekStartFollowsTheRegionOrIsMondaySundayOrSaturdayByCard(t *testing.T) {
 	k, c := weekStartCards(t, "")
-	if got := cardValues(c); !slices.Equal(got, []string{"monday", "sunday", "saturday"}) || c.current != "sunday" {
+	if got := cardValues(c); !slices.Equal(got, []string{"auto", "monday", "sunday", "saturday"}) || c.current != "auto" {
 		t.Fatalf("cards %q with %q chosen", got, c.current)
 	}
-	if label := c.cards[0].label; label == "monday" || label == "" {
+	if label := c.cards[1].label; label == "monday" || label == "" {
 		t.Errorf("Monday's card reads %q, not its name", label)
 	}
-	c.cards[0].PressAt(widget.Point{})
+	c.cards[1].PressAt(widget.Point{})
 	if v := k.store.value("modules.clock.calendar-weekday-start"); v != "monday" || c.current != "monday" {
 		t.Fatalf("stored %v, chosen %q", v, c.current)
 	}
@@ -589,7 +589,7 @@ func TestTheWeekStartIsMondaySundayOrSaturdayByCard(t *testing.T) {
 
 func TestAHandEditedWeekStartGetsItsOwnCard(t *testing.T) {
 	k, c := weekStartCards(t, "modules:\n  clock:\n    calendar-weekday-start: tuesday\n")
-	if got := cardValues(c); !slices.Equal(got, []string{"monday", "sunday", "saturday", "tuesday"}) || c.current != "tuesday" {
+	if got := cardValues(c); !slices.Equal(got, []string{"auto", "monday", "sunday", "saturday", "tuesday"}) || c.current != "tuesday" {
 		t.Fatalf("cards %q with %q chosen", got, c.current)
 	}
 	if v := k.store.value("modules.clock.calendar-weekday-start"); v != "tuesday" {

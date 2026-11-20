@@ -1779,13 +1779,14 @@ Which day appears in the first column of the calendar dropdown.
 
 | Value | Meaning |
 |---|---|
+| `"auto"` | Week starts where the time locale (LC_TIME) starts it (default). |
 | `"monday"` | Week starts on Monday. |
 | `"tuesday"` | Week starts on Tuesday. |
 | `"wednesday"` | Week starts on Wednesday. |
 | `"thursday"` | Week starts on Thursday. |
 | `"friday"` | Week starts on Friday. |
 | `"saturday"` | Week starts on Saturday. |
-| `"sunday"` | Week starts on Sunday (default). |
+| `"sunday"` | Week starts on Sunday. |
 
 ## Weekday {#weekday}
 

@@ -29,7 +29,7 @@ bar:
 | `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
 | `label-show` | bool | `true` | Display text label. |
 | `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
-| `calendar-weekday-start` | [`WeekStart`](/shell/config/types#week-start) | `"sunday"` | First day of the week in the calendar dropdown. |
+| `calendar-weekday-start` | [`WeekStart`](/shell/config/types#week-start) | `"auto"` | First day of the week in the calendar dropdown. |
 | `calendars` | array of [`CalendarSource`](/shell/config/types#calendar-source) | `[]` | vdir calendars whose events the calendar dropdown shows: directories of .ics files, one per event, as vdirsyncer and khal keep them (`~/` is the home directory). Edits show without a restart; syncing stays with vdirsyncer, the shell never goes online for them. The bar label shows the next event through a `{{ next_event }}` placeholder in `format`, and event reminders (VALARM) become notifications. |
 
 ::: details More about `format`
@@ -119,7 +119,7 @@ modules:
     scroll-up: ""
     scroll-down: ""
     dropdown-show-seconds: false
-    calendar-weekday-start: sunday
+    calendar-weekday-start: auto
     calendars: []
 ```
 

@@ -23,7 +23,6 @@ import (
 	"github.com/stubbedev/lys/lib/glibclocale"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -66,7 +65,7 @@ func dateTimePage(*config.Config) pageSpec {
 	}
 }
 
-var commonWeekStarts = []string{string(config.WeekStartMonday), string(config.WeekStartSunday), string(config.WeekStartSaturday)}
+var commonWeekStarts = []string{string(config.WeekStartAuto), string(config.WeekStartMonday), string(config.WeekStartSunday), string(config.WeekStartSaturday)}
 
 const (
 	weekDays      = 7
@@ -81,15 +80,18 @@ var weekStartRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) contro
 		values = append(values, current)
 	}
 	all := enumLabels(meta)
+	locale := sessionTimeLocale().FirstWeekday
 	labels := make([]string, len(values))
 	pictures := make(map[string]picture, len(values))
 	for i, v := range values {
-		day := slices.Index(meta.Variants, v)
-		labels[i] = all[day]
+		labels[i] = all[slices.Index(meta.Variants, v)]
+		day := mondayFirst(config.WeekStart(v).Weekday(locale))
 		pictures[v] = drawn(func(cv *render.Canvas, r render.Rect) { weekGrid(cv, r, day) })
 	}
 	return newCards(k, s, values, labels, pictures)
 })
+
+func mondayFirst(d time.Weekday) int { return (int(d) + weekDays - 1) % weekDays }
 
 func weekGrid(cv *render.Canvas, r render.Rect, firstDay int) {
 	th := widget.Current()
@@ -417,10 +419,6 @@ type clockCard struct {
 
 var clockNow = time.Now
 
-func timeLocaleName(env xdg.Env) string {
-	return cmp.Or(env("LC_ALL"), env("LC_TIME"), env("LANG"), "C")
-}
-
 func newClockCard(k *kit) *clockCard {
 	c := &clockCard{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k}
 	c.AddClass(css.Card, "clock-card")
@@ -434,15 +432,21 @@ func newClockCard(k *kit) *clockCard {
 	for _, l := range []*widget.Label{c.clock, c.date, c.zone, c.sync} {
 		c.Append(l, false)
 	}
-	name := timeLocaleName(systemHost.env)
-	names, err := localeSource.Time(name)
-	if err != nil {
-		log.Printf("settings: the clock's names in %s, showing C's as glibc does: %v", name, err)
-		names, _ = localeSource.Time("C")
-	}
-	c.names = names
+	c.names = sessionTimeLocale()
 	c.tick()
 	return c
+}
+
+// sessionTimeLocale is the LC_TIME of the session's time locale, C's as
+// glibc falls back to when it cannot be read, which is logged.
+func sessionTimeLocale() *glibclocale.Time {
+	name := glibclocale.TimeName(systemHost.env)
+	names, err := localeSource.Time(name)
+	if err != nil {
+		log.Printf("settings: the time locale %s, using C's as glibc does: %v", name, err)
+		names, _ = localeSource.Time("C")
+	}
+	return names
 }
 
 const clockDateFormat = "%A, %x"

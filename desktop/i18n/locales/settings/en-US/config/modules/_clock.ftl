@@ -60,6 +60,7 @@ settings-modules-clock-calendar-weekday-start = Calendar Week Start
     .description = First day of the week in the calendar dropdown
 
 ## WeekStart variants
+enum-week-start-auto = Follow region
 enum-week-start-monday = Monday
 enum-week-start-tuesday = Tuesday
 enum-week-start-wednesday = Wednesday

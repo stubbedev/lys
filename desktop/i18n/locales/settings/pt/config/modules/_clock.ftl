@@ -55,6 +55,7 @@ settings-modules-clock-dropdown-show-seconds = Mostrar segundos
 settings-modules-clock-calendar-weekday-start = Início da semana no calendário
     .description = Primeiro dia da semana no menu pendente do calendário
 
+enum-week-start-auto = Conforme a região
 enum-week-start-monday = Segunda-feira
 enum-week-start-tuesday = Terça-feira
 enum-week-start-wednesday = Quarta-feira

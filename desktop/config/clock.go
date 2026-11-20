@@ -1,5 +1,10 @@
 package config
 
+import (
+	"fmt"
+	"time"
+)
+
 // WeekStart is part of the clock module's configuration.
 //
 // Which day appears in the first column of the calendar dropdown.
@@ -7,6 +12,8 @@ type WeekStart string
 
 // WeekStart values.
 const (
+	// Week starts where the time locale (LC_TIME) starts it (default).
+	WeekStartAuto WeekStart = "auto"
 	// Week starts on Monday.
 	WeekStartMonday WeekStart = "monday"
 	// Week starts on Tuesday.
@@ -19,11 +26,29 @@ const (
 	WeekStartFriday WeekStart = "friday"
 	// Week starts on Saturday.
 	WeekStartSaturday WeekStart = "saturday"
-	// Week starts on Sunday (default).
+	// Week starts on Sunday.
 	WeekStartSunday WeekStart = "sunday"
 )
 
-var _ = registerEnum(WeekStartMonday, WeekStartTuesday, WeekStartWednesday, WeekStartThursday, WeekStartFriday, WeekStartSaturday, WeekStartSunday)
+var _ = registerEnum(WeekStartAuto, WeekStartMonday, WeekStartTuesday, WeekStartWednesday, WeekStartThursday, WeekStartFriday, WeekStartSaturday, WeekStartSunday)
+
+var weekStartDays = map[WeekStart]time.Weekday{
+	WeekStartMonday: time.Monday, WeekStartTuesday: time.Tuesday, WeekStartWednesday: time.Wednesday, WeekStartThursday: time.Thursday,
+	WeekStartFriday: time.Friday, WeekStartSaturday: time.Saturday, WeekStartSunday: time.Sunday,
+}
+
+// Weekday is the day w starts the week on, the locale's first weekday
+// for auto.
+func (w WeekStart) Weekday(locale func() time.Weekday) time.Weekday {
+	if w == WeekStartAuto {
+		return locale()
+	}
+	day, ok := weekStartDays[w]
+	if !ok {
+		panic(fmt.Sprintf("config: %q is no week start", string(w)))
+	}
+	return day
+}
 
 // ClockConfig configures the clock module.
 //
@@ -127,7 +152,7 @@ func DefaultsClock() ClockConfig {
 		ScrollUp:             ClickAction{},
 		ScrollDown:           ClickAction{},
 		DropdownShowSeconds:  false,
-		CalendarWeekdayStart: WeekStartSunday,
+		CalendarWeekdayStart: WeekStartAuto,
 		Calendars:            []CalendarSource{},
 	}
 }
