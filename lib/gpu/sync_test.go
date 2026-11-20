@@ -275,7 +275,10 @@ func TestWaitSyncFileOfASignalledFenceHoldsNoSemaphore(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitReadable(t, fd)
-	signalled := fdtest.WatchFD(t, fd)
+	var signalled fdtest.Watch
+	if fd >= 0 {
+		signalled = fdtest.WatchFD(t, fd)
+	}
 	if err := d.WaitSyncFile(fd); err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +288,7 @@ func TestWaitSyncFileOfASignalledFenceHoldsNoSemaphore(t *testing.T) {
 	if len(d.waits) != 0 {
 		t.Errorf("%d semaphores wait on fences already signalled", len(d.waits))
 	}
-	if signalled.Open(t) {
+	if fd >= 0 && signalled.Open(t) {
 		t.Errorf("the signalled fd %d is still open", fd)
 	}
 }
@@ -584,7 +587,11 @@ func TestDeviceCloseWithAFrameSignal(t *testing.T) {
 	defer tg.Close()
 	clearPass(t, d, tg)
 	syncFile(t, d)
-	kept := fdtest.WatchFD(t, d.lastSyncFile)
+	keptFD := d.lastSyncFile
+	var kept fdtest.Watch
+	if keptFD >= 0 {
+		kept = fdtest.WatchFD(t, keptFD)
+	}
 	flushedPass(t, d, tg)
 	if d.frameSignal == 0 {
 		t.Fatal("no frame signal to close with")
@@ -593,7 +600,7 @@ func TestDeviceCloseWithAFrameSignal(t *testing.T) {
 	if d.frameSignal != 0 || d.lastSyncFileSet {
 		t.Errorf("after Close: signal %d, sync_file kept %v", d.frameSignal, d.lastSyncFileSet)
 	}
-	if kept.Open(t) {
+	if keptFD >= 0 && kept.Open(t) {
 		t.Errorf("the kept sync_file %d is still open", kept.FD())
 	}
 }
