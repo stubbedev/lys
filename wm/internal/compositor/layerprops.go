@@ -23,7 +23,7 @@ func (c *Compositor) layerCut(o *output.Output, e *layer) (render.Texture, rende
 	}
 	return t.texture(), render.AlphaCut{
 		Src:       s.BufferSource(),
-		Dst:       flat(e.bounds().Min).device(o, s.Size()),
+		Dst:       flat(e.bounds().Min).texels(o, s),
 		Transform: lgpu.Transform(s.Transform().Invert()),
 		Threshold: *threshold,
 	}, true

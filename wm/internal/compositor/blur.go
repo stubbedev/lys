@@ -255,7 +255,7 @@ func (c *Compositor) drawBlurRegion(pass *frame, o *output.Output, s *surface.Su
 	}
 	sc := c.sceneOf(o)
 	sc.blurs.shape = c.appendBlurRegion(sc.blurs.shape[:0], o, s, org)
-	c.drawBlur(pass, o, glassDraw{surface: s, shape: sc.blurs.shape, extent: org.device(o, s.Size()), mask: m, alpha: c.alphaOf(s), look: look})
+	c.drawBlur(pass, o, glassDraw{surface: s, shape: sc.blurs.shape, extent: org.texels(o, s), mask: m, alpha: c.alphaOf(s), look: look})
 }
 
 func (c *Compositor) appendBlurRegion(rects []image.Rectangle, o *output.Output, s *surface.Surface, org origin) []image.Rectangle {

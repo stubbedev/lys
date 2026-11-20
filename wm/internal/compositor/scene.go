@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"slices"
 	"time"
 
@@ -453,6 +454,25 @@ func deviceRect(o *output.Output, r image.Rectangle) image.Rectangle {
 	return o.Scale().Rect(r.Sub(o.Position()))
 }
 
+func (r origin) texels(o *output.Output, s *surface.Surface) image.Rectangle {
+	size := s.Size()
+	dst := r.device(o, size)
+	src := s.BufferSource()
+	w, h := src.W, src.H
+	if s.Transform().SwapsAxes() {
+		w, h = h, w
+	}
+	k := o.Scale().Float() / r.k.Float()
+	if !texelExact(w, float64(size.X)*k) || !texelExact(h, float64(size.Y)*k) {
+		return dst
+	}
+	return image.Rectangle{Min: dst.Min, Max: dst.Min.Add(image.Pt(int(w), int(h)))}
+}
+
+func texelExact(texels, device float64) bool {
+	return texels == math.Trunc(texels) && math.Abs(texels-device) < 1
+}
+
 type popupBlur struct {
 	regions bool
 	whole   bool
@@ -523,7 +543,7 @@ func (c *Compositor) drawSurfaces(pass *frame, o *output.Output, s *surface.Surf
 		if st.regions {
 			c.drawBlurRegion(pass, o, s, org, st.mask, st.look)
 		}
-		dst, alpha := org.device(o, s.Size()), c.alphaOf(s)*st.alpha
+		dst, alpha := org.texels(o, s), c.alphaOf(s)*st.alpha
 		if f, fill := t.(filled); fill {
 			pass.fillSurface(s, dst, scaleColor(f.color, alpha), st.mask)
 		} else {
