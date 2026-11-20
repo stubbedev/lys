@@ -52,7 +52,7 @@ func dateTimePage(*config.Config) pageSpec {
 		header: "settings-page-date-time",
 		lead:   dateTimeLead,
 		sections: []sectionSpec{
-			{title: "settings-section-date-calendar", rows: []rowSpec{field("modules.clock.calendar-weekday-start", weekStartRow)}},
+			{title: "settings-section-date-calendar", rows: []rowSpec{field("modules.clock.calendar-weekday-start", weekStartRow, weekFollowsRegion)}},
 		},
 		links: dateTimeLinks,
 		panel: []panelSetting{

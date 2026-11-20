@@ -6,6 +6,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/region"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -66,10 +67,13 @@ type kit struct {
 	// nightLocation is where lys-shell last found itself for the night
 	// light, fs.ErrNotExist before it ever did.
 	nightLocation func() (geo.Coordinates, error)
-	brightness    func() (brightnessControl, error)
-	vault         func() (vaultControl, error)
-	cameras       func() (cameraSource, func(), error)
-	screenShares  func() (shareSource, func(), error)
+	// region is the session's region, which the fields following it
+	// resolve against.
+	region       func() (region.Prefs, error)
+	brightness   func() (brightnessControl, error)
+	vault        func() (vaultControl, error)
+	cameras      func() (cameraSource, func(), error)
+	screenShares func() (shareSource, func(), error)
 	// i2c says which I2C buses there are and which this user may open.
 	i2c        func() i2cAccess
 	copySecret func(text string) error

@@ -2456,6 +2456,7 @@
       "desktop/mime",
       "desktop/opener",
       "desktop/portal/permissions",
+      "desktop/region",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",
       "desktop/service/idle/idlepolicy",

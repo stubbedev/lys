@@ -565,7 +565,11 @@ func TestTheWeekStartLivesOnDateAndTimeBesideAWorldClockLink(t *testing.T) {
 func weekStartCards(t *testing.T, yaml string) (*kit, *choiceCards) {
 	t.Helper()
 	k := testKit(t, yaml)
-	c, ok := fieldControl(k, k.store, pageRow(t, dateTimeID, "modules.clock.calendar-weekday-start")).(*choiceCards)
+	h, ok := fieldControl(k, k.store, pageRow(t, dateTimeID, "modules.clock.calendar-weekday-start")).(*regionHint)
+	if !ok {
+		t.Fatal("the week start says nothing of the region")
+	}
+	c, ok := h.inner.(*choiceCards)
 	if !ok {
 		t.Fatal("the week start is not picked from cards")
 	}

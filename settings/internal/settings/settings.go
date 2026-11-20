@@ -87,6 +87,7 @@ func Run(page, setting string) error {
 		dnd:           func() (dndControl, error) { return openDND(dialSessionBus) },
 		nightlight:    func() (nightlightControl, error) { return openNightlight(dialSessionBus) },
 		nightLocation: rememberedNightLocation,
+		region:        sessionRegion,
 		brightness:    func() (brightnessControl, error) { return openBrightness(dialSessionBus) },
 		vault:         func() (vaultControl, error) { return openVault(dialSessionBus) },
 		cameras:       watchCameras,

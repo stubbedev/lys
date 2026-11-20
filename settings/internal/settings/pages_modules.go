@@ -599,9 +599,9 @@ func weatherPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.weather.provider"),
 			field("modules.weather.location", locationRow(pinnedOnly)),
-			field("modules.weather.units"),
+			field("modules.weather.units", temperatureFollowsRegion),
 			field("modules.weather.format"),
-			field("modules.weather.time-format"),
+			field("modules.weather.time-format", clockFollowsRegion),
 			field("modules.weather.refresh-interval-seconds", durationChips(inSeconds, after(15*time.Minute), after(30*time.Minute), after(time.Hour), after(3*time.Hour))),
 			field("modules.weather.icon-name", iconRow),
 		}},
