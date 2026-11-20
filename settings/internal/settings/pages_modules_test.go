@@ -308,11 +308,11 @@ func TestTheCustomHoursArePickedOnTheClockAndNeverMeet(t *testing.T) {
 
 func TestTheNightLightStrengthSlidesInKelvin(t *testing.T) {
 	k := testKit(t, "")
-	c, ok := fieldControl(k, k.store, pageRow(t, displaysID, "modules.nightlight.temperature")).(*slider)
+	c, ok := fieldControl(k, k.store, pageRow(t, displaysID, "modules.nightlight.temperature")).(*kelvinEditor)
 	if !ok {
-		t.Fatal("the temperature is not a slider")
+		t.Fatal("the temperature is not a kelvin slider")
 	}
-	c.OnCommit(3400.4)
+	c.slider.OnCommit(3400.4)
 	if v := k.store.value("modules.nightlight.temperature"); v != int64(3400) {
 		t.Errorf("sliding to 3400 K stored %v", v)
 	}

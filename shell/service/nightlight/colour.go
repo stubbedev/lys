@@ -38,13 +38,21 @@ var identity = Setting{temp: NeutralTemp, gamma: 100}
 // NewSetting validates temp against MinTemp..MaxTemp and gamma against
 // 0..MaxGamma.
 func NewSetting(temp, gamma int) (Setting, error) {
-	if temp < MinTemp || temp > MaxTemp {
-		return Setting{}, fmt.Errorf("nightlight: temperature %dK is outside %d-%dK", temp, MinTemp, MaxTemp)
+	if err := CheckTemp(temp); err != nil {
+		return Setting{}, err
 	}
 	if gamma < 0 || gamma > MaxGamma {
 		return Setting{}, fmt.Errorf("nightlight: gamma %d%% is outside 0-%d%%", gamma, MaxGamma)
 	}
 	return Setting{temp: float64(temp), gamma: float64(gamma)}, nil
+}
+
+// CheckTemp validates temp against MinTemp..MaxTemp.
+func CheckTemp(temp int) error {
+	if temp < MinTemp || temp > MaxTemp {
+		return fmt.Errorf("nightlight: temperature %dK is outside %d-%dK", temp, MinTemp, MaxTemp)
+	}
+	return nil
 }
 
 // Temp is the colour temperature in Kelvin, to the nearest whole one.

@@ -677,7 +677,10 @@ func (s *shellStart) mount() {
 		}
 	}
 	if s.session != nil {
-		bus := nightlight.NewDaemon(func(on bool) { application.Invoke(func() { rt.ctx.Nightlight.setEnabled(on) }) })
+		bus := nightlight.NewDaemon(
+			func(on bool) { application.Invoke(func() { rt.ctx.Nightlight.setEnabled(on) }) },
+			func(temp int) { application.Invoke(func() { rt.ctx.Nightlight.preview(temp) }) },
+		)
 		if release, err := bus.Export(s.session); err == nil {
 			s.down.add(release)
 			baseCtx.NightlightBus = bus

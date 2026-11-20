@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -106,8 +109,18 @@ func TestWithoutLysShellTheDisplaysSayTheirBrightnessCannotBeRead(t *testing.T) 
 }
 
 type fakeNightlight struct {
-	on     bool
-	setErr error
+	on         bool
+	setErr     error
+	previewErr error
+	previews   []uint32
+}
+
+func (f *fakeNightlight) preview(_ context.Context, kelvin uint32) error {
+	if f.previewErr != nil {
+		return f.previewErr
+	}
+	f.previews = append(f.previews, kelvin)
+	return nil
 }
 
 func (f *fakeNightlight) read(context.Context) (bool, error) { return f.on, nil }
@@ -224,7 +237,7 @@ func TestTheBrightnessClientReadsAndSetsLysShellsLevels(t *testing.T) {
 func TestTheNightLightClientFollowsLysShell(t *testing.T) {
 	bus := dbustest.Start(t)
 	var daemon *nightlight.Daemon
-	daemon = nightlight.NewDaemon(func(on bool) { go daemon.Show(on) })
+	daemon = nightlight.NewDaemon(func(on bool) { go daemon.Show(on) }, func(int) {})
 	release, err := daemon.Export(bus.Conn(t))
 	if err != nil {
 		t.Fatal(err)
@@ -281,5 +294,52 @@ func TestTheTemperatureTrackRunsFromWarmToNeutral(t *testing.T) {
 		if track[i].B() <= track[i-1].B() {
 			t.Errorf("stop %d (%#x) is no bluer than stop %d (%#x)", i, uint32(track[i]), i-1, uint32(track[i-1]))
 		}
+	}
+}
+
+func kelvinRow(t *testing.T, f *fakeNightlight) (*kelvinEditor, *fakeclock.Clock) {
+	t.Helper()
+	k := testKit(t, "modules:\n  nightlight:\n    temperature: 3200\n")
+	clock := fakeclock.New()
+	k.clock = clock
+	k.nightlight = func() (nightlightControl, error) { return f, nil }
+	c, ok := fieldControl(k, k.store, pageRow(t, displaysID, "modules.nightlight.temperature")).(*kelvinEditor)
+	if !ok {
+		t.Fatal("the temperature is not a kelvin slider")
+	}
+	return c, clock
+}
+
+// Preview shows the slider's temperature through lys-shell and says so
+// until lys-shell puts the screen back.
+func TestTheTemperaturePreviewShowsTheSlidersValueForAWhile(t *testing.T) {
+	f := &fakeNightlight{}
+	c, clock := kelvinRow(t, f)
+	c.button.OnClick()
+	if !slices.Equal(f.previews, []uint32{3200}) {
+		t.Fatalf("previewed %v, want 3200", f.previews)
+	}
+	if c.button.Enabled() || c.label.Text() != locale.T().Get("settings-nightlight-previewing") {
+		t.Errorf("while previewing the button is enabled %v and reads %q", c.button.Enabled(), c.label.Text())
+	}
+	clock.Advance(nightlight.PreviewLength - time.Millisecond)
+	if c.button.Enabled() {
+		t.Error("the button came back before the preview ended")
+	}
+	clock.Advance(time.Millisecond)
+	if !c.button.Enabled() || c.label.Text() != locale.T().Get("settings-nightlight-preview") || c.problem.Visible() {
+		t.Errorf("after the preview the button is enabled %v, reads %q, problem %q", c.button.Enabled(), c.label.Text(), c.problem.Text())
+	}
+}
+
+func TestARefusedTemperaturePreviewIsSaid(t *testing.T) {
+	f := &fakeNightlight{previewErr: errors.New("temperature refused")}
+	c, _ := kelvinRow(t, f)
+	c.button.OnClick()
+	if !c.problem.Visible() || !strings.Contains(c.problem.Text(), "temperature refused") {
+		t.Errorf("a refused preview shows %q (%v)", c.problem.Text(), c.problem.Visible())
+	}
+	if !c.button.Enabled() {
+		t.Error("a refused preview left the button disabled")
 	}
 }

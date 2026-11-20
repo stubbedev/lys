@@ -39,6 +39,7 @@ type colourFilter interface {
 type sunsetEnv struct {
 	open       func(changed func()) (colourFilter, error)
 	now        func() time.Time
+	after      func(d time.Duration, fn func()) (stop func() bool)
 	stateDir   string
 	locate     func(ctx context.Context) (geo.Coordinates, error)
 	clockJumps func(ctx context.Context, onJump func()) error
@@ -58,6 +59,7 @@ func liveSunsetEnv(vars xdg.Env, system *dbus.Conn) (sunsetEnv, error) {
 			return f, nil
 		},
 		now:      time.Now,
+		after:    func(d time.Duration, fn func()) func() bool { return time.AfterFunc(d, fn).Stop },
 		stateDir: dir,
 		locate: func(ctx context.Context) (geo.Coordinates, error) {
 			if system == nil {
@@ -92,6 +94,9 @@ type nightlightService struct {
 	manualOverride  bool
 	heldThroughEase bool
 	stepping        bool
+
+	previews    uint64
+	stopPreview func() bool
 
 	location    *geo.Coordinates
 	locationErr error
@@ -357,9 +362,59 @@ func (s *nightlightService) stop() {
 	if s.timer != nil {
 		s.timer.Stop()
 	}
+	if s.stopPreview != nil {
+		s.stopPreview()
+	}
 	s.onOwner(func() {
 		if s.filter != nil {
 			s.filter.Close()
+		}
+	})
+}
+
+// preview shows temp at the configured gamma for PreviewLength, then
+// the display goes back to what the night light shows; a later preview
+// restarts the wait.
+func (s *nightlightService) preview(temp int) {
+	setting, err := nightlight.NewSetting(temp, int(s.cfg.Gamma))
+	if err != nil {
+		log.Printf("nightlight: preview: %v", err)
+		return
+	}
+	if s.stopPreview != nil {
+		s.stopPreview()
+	}
+	s.previews++
+	n := s.previews
+	s.onOwner(func() {
+		if s.filter == nil {
+			return
+		}
+		if err := s.filter.Apply(setting); err != nil {
+			log.Printf("nightlight: preview %dK: %v", temp, err)
+		}
+	})
+	s.stopPreview = s.env.after(nightlight.PreviewLength, func() { s.onLoop(func() { s.endPreview(n) }) })
+}
+
+// endPreview puts back what the night light shows, unless a later
+// preview took over.
+func (s *nightlightService) endPreview(n uint64) {
+	if n != s.previews {
+		return
+	}
+	s.stopPreview = nil
+	on, live := s.showing(), s.live
+	s.onOwner(func() {
+		if s.filter == nil {
+			return
+		}
+		apply := s.filter.Clear
+		if on {
+			apply = func() error { return s.filter.Apply(live) }
+		}
+		if err := apply(); err != nil {
+			log.Printf("nightlight: end the preview: %v", err)
 		}
 	})
 }

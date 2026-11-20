@@ -2,16 +2,12 @@ package settings
 
 import (
 	"log"
-	"math"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // The module pages, in the order the sidebar lists them.
@@ -371,14 +367,6 @@ const (
 	gammaMost     = 200
 	kelvinStops   = 8
 )
-
-var kelvin = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	c := newSlider(k, s, warmestKelvin, coolestKelvin, true, func(v float64) string {
-		return locale.T().Get("settings-kelvin", i18n.Int("n", int64(math.Round(v))))
-	})
-	c.Knob.SetTrack(kelvinTrack()...)
-	return c
-})
 
 var gammaPercent = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newSlider(k, s, 0, gammaMost, true, percentLabel)

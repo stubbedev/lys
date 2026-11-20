@@ -2,15 +2,19 @@ package settings
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/nightlight"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -149,8 +153,12 @@ func (p *displaysPanel) closeBrightness() {
 	}
 }
 
-// nightlightControl is lys-shell's night light, on or off.
-type nightlightControl = switchControl[bool]
+// nightlightControl is lys-shell's night light, on or off, and a
+// temperature shown for nightlight.PreviewLength.
+type nightlightControl interface {
+	switchControl[bool]
+	preview(ctx context.Context, kelvin uint32) error
+}
 
 type shellNightlight struct{ svc sysService }
 
@@ -182,11 +190,24 @@ func (c *shellNightlight) set(ctx context.Context, on bool) error {
 	return c.svc.call(ctx, "SetEnabled", on)
 }
 
+func (c *shellNightlight) preview(ctx context.Context, kelvin uint32) error {
+	if err := c.svc.call(ctx, "Preview", kelvin); err != nil {
+		return fmt.Errorf("preview %dK in lys-shell: %w", kelvin, err)
+	}
+	return nil
+}
+
 func (c *shellNightlight) close() error { return c.svc.conn.Close() }
 
 var nightlightSwitch = switchSpec[bool]{
-	open: func(k *kit) (switchControl[bool], error) { return k.nightlight() },
-	on:   func(on bool) bool { return on },
+	open: func(k *kit) (switchControl[bool], error) {
+		ctl, err := k.nightlight()
+		if err != nil {
+			return nil, err
+		}
+		return ctl, nil
+	},
+	on: func(on bool) bool { return on },
 	words: func(_ *kit, on bool) string {
 		if on {
 			return locale.T().Get("settings-nightlight-is-on")
@@ -200,6 +221,76 @@ var nightlightSwitch = switchSpec[bool]{
 }
 
 func nightlightNow(k *kit) widget.Widget { return newShellSwitch(k, nightlightSwitch) }
+
+var kelvin = withEditor(func(k *kit, s slot, _ config.FieldMeta) control { return newKelvinEditor(k, s) })
+
+// kelvinEditor is the night light's temperature: a slider tinted as the
+// filter tints white, and a button showing the slider's temperature on
+// the screen for nightlight.PreviewLength.
+type kelvinEditor struct {
+	*widget.Box
+	k       *kit
+	slider  *slider
+	button  *widget.Button
+	label   *widget.Label
+	problem *widget.Label
+}
+
+func newKelvinEditor(k *kit, s slot) *kelvinEditor {
+	t := locale.T()
+	e := &kelvinEditor{Box: gapBox(widget.Column), k: k}
+	e.slider = newSlider(k, s, warmestKelvin, coolestKelvin, true, func(v float64) string {
+		return t.Get("settings-kelvin", i18n.Int("n", int64(math.Round(v))))
+	})
+	e.slider.Knob.SetTrack(kelvinTrack()...)
+	e.label = k.label(t.Get("settings-nightlight-preview"))
+	e.button = k.button(e.label, e.preview, css.Small)
+	e.button.SetTooltip(t.Get("settings-nightlight-preview-tooltip", i18n.Int("seconds", int64(nightlight.PreviewLength/time.Second))))
+	e.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	e.problem.SetVisible(false)
+	line := gapBox(widget.Row)
+	line.Append(e.slider, true)
+	line.AppendAligned(e.button, false, widget.AlignCenter)
+	e.Append(line, false)
+	e.Append(e.problem, false)
+	return e
+}
+
+func (e *kelvinEditor) refresh() { e.slider.refresh() }
+
+// preview asks lys-shell to show the slider's temperature, the button
+// saying so until the preview ends.
+func (e *kelvinEditor) preview() {
+	t := locale.T()
+	temp := uint32(math.Round(e.slider.Value()))
+	e.previewing(true)
+	e.problem.SetVisible(false)
+	async(e.k, func() error {
+		ctl, err := e.k.nightlight()
+		if err != nil {
+			return err
+		}
+		err = doWithin(shellCallWait, func(ctx context.Context) error { return ctl.preview(ctx, temp) })
+		return errors.Join(err, ctl.close())
+	}, func(err error) {
+		if err != nil {
+			e.previewing(false)
+			e.problem.SetText(t.Get("settings-nightlight-preview-failed", i18n.Str("reason", err.Error())))
+			e.problem.SetVisible(true)
+			return
+		}
+		e.k.clock.AfterFunc(nightlight.PreviewLength, func() { e.k.invoke(func() { e.previewing(false) }) })
+	})
+}
+
+func (e *kelvinEditor) previewing(on bool) {
+	key := "settings-nightlight-preview"
+	if on {
+		key = "settings-nightlight-previewing"
+	}
+	e.label.SetText(locale.T().Get(key))
+	e.button.SetEnabled(!on)
+}
 
 // kelvinTrack is white as the night light tints it, at even steps from
 // the warmest temperature the slider offers to the coolest.

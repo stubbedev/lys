@@ -3,6 +3,7 @@ package nightlight
 import (
 	"log"
 	"sync"
+	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -15,25 +16,45 @@ const (
 	ServicePath     = dbus.ObjectPath("/dev/stubbe/lys/Nightlight")
 	EnabledProperty = "Enabled"
 	SetEnabled      = ServiceName + ".SetEnabled"
+	Preview         = ServiceName + ".Preview"
 )
 
+// PreviewLength is how long Preview shows a temperature before the
+// display goes back to what the night light shows.
+const PreviewLength = 5 * time.Second
+
 // Daemon is the dev.stubbe.lys.Nightlight1 object: Enabled says whether
-// the filter is on, announced in a PropertiesChanged on every change, and
-// SetEnabled switches it as the bar's toggle does.
+// the filter is on, announced in a PropertiesChanged on every change,
+// SetEnabled switches it as the bar's toggle does, and Preview shows a
+// temperature for PreviewLength.
 type Daemon struct {
 	mu       sync.Mutex
 	on       bool
 	conn     *dbus.Conn
 	switchTo func(on bool)
+	preview  func(temp int)
 }
 
 // NewDaemon is the object over switchTo, which turns the filter on or
-// off on the shell's loop.
-func NewDaemon(switchTo func(on bool)) *Daemon { return &Daemon{switchTo: switchTo} }
+// off on the shell's loop, and preview, which shows a valid temperature
+// for PreviewLength there.
+func NewDaemon(switchTo func(on bool), preview func(temp int)) *Daemon {
+	return &Daemon{switchTo: switchTo, preview: preview}
+}
 
 // SetEnabled turns the night light on or off.
 func (d *Daemon) SetEnabled(on bool) *dbus.Error {
 	d.switchTo(on)
+	return nil
+}
+
+// Preview shows temp for PreviewLength, refusing one outside
+// MinTemp..MaxTemp.
+func (d *Daemon) Preview(temp uint32) *dbus.Error {
+	if err := CheckTemp(int(temp)); err != nil {
+		return dbusx.Failed(err.Error())
+	}
+	d.preview(int(temp))
 	return nil
 }
 

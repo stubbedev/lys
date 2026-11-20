@@ -35,6 +35,7 @@ type fakeSunset struct {
 	closed  bool
 	changed func()
 	clock   time.Time
+	timers  []func()
 }
 
 func (f *fakeSunset) Apply(s nightlight.Setting) error {
@@ -65,7 +66,11 @@ func (f *fakeSunset) env(t *testing.T) sunsetEnv {
 			f.changed = changed
 			return f, nil
 		},
-		now:      func() time.Time { return f.clock },
+		now: func() time.Time { return f.clock },
+		after: func(_ time.Duration, fn func()) func() bool {
+			f.timers = append(f.timers, fn)
+			return func() bool { return true }
+		},
 		stateDir: t.TempDir(),
 		locate: func(context.Context) (geo.Coordinates, error) {
 			return geo.Coordinates{}, errors.New("no GeoClue in this test")
@@ -202,7 +207,7 @@ func TestNightlightToggleFlipsTheFilterAndIcon(t *testing.T) {
 
 func TestTheNightlightBusSaysWhetherTheFilterIsOn(t *testing.T) {
 	bus := dbustest.Start(t)
-	daemon := nightlight.NewDaemon(func(bool) {})
+	daemon := nightlight.NewDaemon(func(bool) {}, func(int) {})
 	release, err := daemon.Export(bus.Conn(t))
 	if err != nil {
 		t.Fatal(err)
@@ -1260,5 +1265,45 @@ func TestNightlightFollowsOnlyTheChosenSchedule(t *testing.T) {
 	m.svc.evaluate()
 	if !fake.running {
 		t.Error("the custom hours left the filter off at noon, inside 11:00-13:00")
+	}
+}
+
+// A preview shows the temperature asked for, then the display goes back
+// to what the night light showed: off, or on at its own strength. Only
+// the latest preview's end puts it back, and a bad strength previews
+// nothing.
+func TestNightlightPreviewShowsATemperatureThenGoesBack(t *testing.T) {
+	cfg := sunsetConfig(false)
+	fake := &fakeSunset{clock: sunsetDay}
+	m := newTestNightlight(t, cfg, fake.env(t))
+	m.svc.preview(3000)
+	if !fake.running || fake.applied.Temp() != 3000 || m.svc.enabled {
+		t.Fatalf("previewing: running %v at %dK, enabled %v; want 3000K with the night light still off", fake.running, fake.applied.Temp(), m.svc.enabled)
+	}
+	if len(fake.timers) != 1 {
+		t.Fatalf("%d preview timers, want 1", len(fake.timers))
+	}
+	fake.timers[0]()
+	if fake.running {
+		t.Error("the preview's end left the filter on although the night light is off")
+	}
+
+	m.RunAction(config.ParseClickAction(":toggle"))
+	night := fake.applied
+	m.svc.preview(2000)
+	m.svc.preview(5000)
+	fake.timers[1]()
+	if fake.applied.Temp() != 5000 {
+		t.Errorf("an earlier preview's end put back %dK over the later preview", fake.applied.Temp())
+	}
+	fake.timers[2]()
+	if !fake.running || fake.applied != night {
+		t.Errorf("after the preview the filter runs %v at %dK, want the night light's %dK", fake.running, fake.applied.Temp(), night.Temp())
+	}
+
+	starts := fake.starts
+	m.svc.preview(nightlight.MaxTemp + 1)
+	if fake.starts != starts || len(fake.timers) != 3 {
+		t.Error("an out-of-range temperature was previewed")
 	}
 }
