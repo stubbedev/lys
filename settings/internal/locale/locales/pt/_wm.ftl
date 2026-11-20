@@ -1100,3 +1100,6 @@ wm-preview-tabs = Pré-visualização da barra de separadores
 wm-preview-tab-active = Em foco
 wm-preview-tab-inactive = Outra janela
 wm-preview-tab-urgent = Pede atenção
+wm-tabs-font-built-in = O tipo de letra próprio do lys-wm
+wm-tabs-font-unresolved = Não foi encontrado nenhum ficheiro de tipo de letra de { $family }
+wm-tabs-font-unreadable = O lys-wm não consegue ler o ficheiro de tipo de letra de { $family }

@@ -1102,3 +1102,6 @@ wm-preview-tabs = Vorschau der Tableiste
 wm-preview-tab-active = Fokussiert
 wm-preview-tab-inactive = Anderes Fenster
 wm-preview-tab-urgent = Will Aufmerksamkeit
+wm-tabs-font-built-in = Die eigene Schrift von lys-wm
+wm-tabs-font-unresolved = Keine Schriftdatei von { $family } gefunden
+wm-tabs-font-unreadable = lys-wm kann die Schriftdatei von { $family } nicht lesen

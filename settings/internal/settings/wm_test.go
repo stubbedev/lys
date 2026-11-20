@@ -136,7 +136,7 @@ func TestWMRowsFollowTheSchemasTypes(t *testing.T) {
 		"decoration.active_opacity":   &slider{},
 		"input.touchpad.tap":          &optionalEnum{},
 		"input.touchpad.click_method": &optionalEnum{},
-		"tabs.font":                   &choiceEditor{},
+		"tabs.font":                   &wmFontEditor{},
 		"tabs.icon_theme":             &choiceEditor{},
 		"tabs.label":                  &text{},
 		"gpu":                         &choiceEditor{},
@@ -905,28 +905,6 @@ func TestTheKeyboardLayoutsAreToggledInOrderAndTheVariantsFollowThem(t *testing.
 	pickName(t, p, "caps:escape")
 	if got := w.value("input.keyboard.options"); got != "caps:escape" {
 		t.Fatalf("%v", got)
-	}
-}
-
-func TestTheTabFontIsAFontFileListedOrBrowsed(t *testing.T) {
-	k, w, _, _ := wmKit(t, "")
-	f := &fakePickers{}
-	k.pickers = f
-	c := fieldControl(k, w, wmField("tabs.font")).(*choiceEditor)
-	c.open.ClickAt(widget.Point{})
-	if !slices.Contains(c.picker.all, "/fonts/Inter.ttf") {
-		t.Fatalf("offered %q", c.picker.all)
-	}
-	c.browse.ClickAt(widget.Point{})
-	if f.fileFn == nil {
-		t.Fatal("no file chooser")
-	}
-	f.fileFn("/home/me/.fonts/Mine.ttf")
-	if got := w.value("tabs.font"); got != "/home/me/.fonts/Mine.ttf" {
-		t.Fatalf("%v", got)
-	}
-	if !c.unknown.Visible() {
-		t.Fatal("a browsed file outside the list is not marked")
 	}
 }
 

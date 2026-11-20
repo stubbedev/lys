@@ -1099,3 +1099,6 @@ wm-preview-tabs = Voorbeeld van de tabbalk
 wm-preview-tab-active = Gefocust
 wm-preview-tab-inactive = Ander venster
 wm-preview-tab-urgent = Vraagt aandacht
+wm-tabs-font-built-in = Het eigen lettertype van lys-wm
+wm-tabs-font-unresolved = Geen lettertypebestand van { $family } gevonden
+wm-tabs-font-unreadable = lys-wm kan het lettertypebestand van { $family } niet lezen

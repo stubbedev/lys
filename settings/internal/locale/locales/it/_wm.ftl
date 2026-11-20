@@ -1104,3 +1104,6 @@ wm-preview-tabs = Anteprima della barra delle schede
 wm-preview-tab-active = Attiva
 wm-preview-tab-inactive = Altra finestra
 wm-preview-tab-urgent = Chiede attenzione
+wm-tabs-font-built-in = Il carattere di lys-wm
+wm-tabs-font-unresolved = Nessun file di carattere di { $family } trovato
+wm-tabs-font-unreadable = lys-wm non riesce a leggere il file di carattere di { $family }

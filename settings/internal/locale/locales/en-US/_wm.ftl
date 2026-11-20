@@ -1104,3 +1104,6 @@ wm-preview-tabs = Tab bar preview
 wm-preview-tab-active = Focused
 wm-preview-tab-inactive = Other window
 wm-preview-tab-urgent = Wants attention
+wm-tabs-font-built-in = lys-wm's own font
+wm-tabs-font-unresolved = No font file of { $family } was found
+wm-tabs-font-unreadable = lys-wm cannot read the font file of { $family }

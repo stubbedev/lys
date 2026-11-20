@@ -172,18 +172,6 @@ func TestTheSSHClientsAreTheInstalledOnes(t *testing.T) {
 	}
 }
 
-func TestTheFontFilesAreFoundUnderTheFontDirectories(t *testing.T) {
-	home := t.TempDir()
-	h := fakeHost(t, map[string]string{"HOME": home, "XDG_DATA_DIRS": t.TempDir()})
-	put(t, filepath.Join(home, ".local/share/fonts/inter/Inter.ttf"), "")
-	put(t, filepath.Join(home, ".fonts/Mono.OTF"), "")
-	put(t, filepath.Join(home, ".fonts/readme.txt"), "")
-	got := h.fontFiles()
-	if len(got) != 2 || got[0].label != "Inter" || got[1].value != filepath.Join(home, ".fonts/Mono.OTF") {
-		t.Fatalf("%+v", got)
-	}
-}
-
 func TestTheKeyboardListsComeFromTheXKBRegistry(t *testing.T) {
 	home, root := t.TempDir(), t.TempDir()
 	h := fakeHost(t, map[string]string{"HOME": home, "XKB_CONFIG_ROOT": root, "XKB_CONFIG_EXTRA_PATH": filepath.Join(home, "none")})
@@ -237,18 +225,12 @@ func TestTheListingsReadNoDirectoryRelativeToTheWorkingDirectory(t *testing.T) {
 	}
 	for _, data := range []string{"", "data", "share", "home/.local/share"} {
 		put(t, filepath.Join(cwd, data, "applications/stray.desktop"), browser("stray"))
-		put(t, filepath.Join(cwd, data, "fonts/Stray.ttf"), "")
 		put(t, filepath.Join(cwd, data, "sounds/stray/stereo/stray.oga"), "")
 	}
-	put(t, filepath.Join(cwd, "home/.fonts/Stray.ttf"), "")
 	put(t, filepath.Join(system, "applications/foot.desktop"), browser("foot"))
-	put(t, filepath.Join(system, "fonts/Inter.ttf"), "")
 	put(t, filepath.Join(system, "sounds/freedesktop/stereo/bell.oga"), "")
 	if got := values(h.browsers()); !slices.Equal(got, []string{"foot"}) {
 		t.Errorf("browsers %q, want the system data directory's alone", got)
-	}
-	if got := values(h.fontFiles()); !slices.Equal(got, []string{filepath.Join(system, "fonts/Inter.ttf")}) {
-		t.Errorf("fonts %q, want the system data directory's alone", got)
 	}
 	if got := values(h.soundNames()); !slices.Equal(got, []string{"bell"}) {
 		t.Errorf("sounds %q, want the system data directory's alone", got)

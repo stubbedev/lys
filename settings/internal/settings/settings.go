@@ -94,6 +94,8 @@ func Run(page, setting string) error {
 		mailCount:    countMail,
 		barFont:      barview.Font,
 		familyFont:   loadFamily,
+		fontFile:     app.FontFile,
+		fileFamily:   readFontFamily,
 		forgetImage:  application.ForgetImage,
 		clock:        wallClock{},
 	}

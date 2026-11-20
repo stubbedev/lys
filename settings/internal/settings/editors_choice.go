@@ -58,7 +58,6 @@ func hostLists(h host) map[string]lister {
 		"AudioSource":       audioSources,
 		"PamService":        h.pamServices,
 		"lys-wm-drm-device": h.drmDevices,
-		wmFontFormat:        h.fontFiles,
 		wmLayoutFormat:      func() []choice { return x().layouts },
 		wmVariantFormat:     func() []choice { return x().variants },
 		wmOptionsFormat:     func() []choice { return x().options },
@@ -152,6 +151,8 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 		return newIdleChips(k, s), true
 	case wmColorFormat:
 		return newWMColorEditor(k, s), true
+	case wmFontFormat:
+		return newWMFontEditor(k, s), true
 	case wmChordFormat:
 		return newChordEditor(k, s), true
 	case wmActionFormat:
@@ -172,8 +173,6 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	case wmVariantFormat:
 		layouts := func() []string { return splitList(wmSibling(k, path, "layout")) }
 		spec.expand, spec.known = variantChoices(layouts), variantsListed(layouts)
-	case wmFontFormat:
-		spec.browse = (*kit).browseButton
 	case "Program":
 		spec.known = func(current string, items []choice) bool {
 			return strings.Contains(current, "/") || hasValue(items, current)

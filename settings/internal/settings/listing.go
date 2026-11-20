@@ -263,32 +263,6 @@ func (h host) sshClients() []choice {
 	return slices.DeleteFunc(h.programs(), func(c choice) bool { return !slices.Contains(sshClientNames, c.value) })
 }
 
-var fontExtensions = []string{".ttf", ".otf", ".ttc"}
-
-func (h host) fontFiles() []choice {
-	data := h.env.DataSearchPath()
-	dirs := make([]string, 0, 1+len(data))
-	if home, ok := h.env.Home(); ok {
-		dirs = append(dirs, filepath.Join(home, ".fonts"))
-	}
-	for _, dir := range data {
-		dirs = append(dirs, filepath.Join(dir, "fonts"))
-	}
-	var out []choice
-	for _, dir := range dirs {
-		_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
-			if slices.Contains(fontExtensions, strings.ToLower(filepath.Ext(path))) {
-				out = append(out, choice{value: path, label: strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))})
-			}
-			return nil
-		})
-	}
-	return sortedChoices(out)
-}
-
 var keymapDirs = [][]string{
 	{"usr", "share", "keymaps"},
 	{"usr", "share", "kbd", "keymaps"},

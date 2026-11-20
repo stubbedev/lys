@@ -1104,3 +1104,6 @@ wm-preview-tabs = Aperçu de la barre d'onglets
 wm-preview-tab-active = Active
 wm-preview-tab-inactive = Autre fenêtre
 wm-preview-tab-urgent = Demande l'attention
+wm-tabs-font-built-in = La police propre à lys-wm
+wm-tabs-font-unresolved = Aucun fichier de police de { $family } trouvé
+wm-tabs-font-unreadable = lys-wm ne peut pas lire le fichier de police de { $family }

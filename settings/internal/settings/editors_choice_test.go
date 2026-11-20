@@ -34,7 +34,6 @@ var listFixtures = map[string][]choice{
 	"AudioSource":       {{value: "speakers.monitor", label: "Speakers monitor"}},
 	"PamService":        {{value: "login", label: "login"}, {value: "lys-lock", label: "lys-lock"}},
 	"lys-wm-drm-device": {{value: "card0", label: "card0 (amdgpu)"}},
-	wmFontFormat:        {{value: "/fonts/Inter.ttf", label: "Inter"}},
 	wmLayoutFormat:      {{value: "dk", label: "Danish"}, {value: "us", label: "English (US)"}},
 	wmVariantFormat:     {{value: "nodeadkeys", label: "Danish (no dead keys)", group: "dk"}, {value: "intl", label: "English (US, intl.)", group: "us"}},
 	wmOptionsFormat:     {{value: "caps:escape", label: "Caps Lock is Escape", group: "Caps Lock behavior"}, {value: "grp:alt_shift_toggle", label: "Alt+Shift", group: "Switching layout"}},

@@ -1104,3 +1104,6 @@ wm-preview-tabs = Vista previa de la barra de pestañas
 wm-preview-tab-active = Enfocada
 wm-preview-tab-inactive = Otra ventana
 wm-preview-tab-urgent = Pide atención
+wm-tabs-font-built-in = La fuente propia de lys-wm
+wm-tabs-font-unresolved = No se encontró ningún archivo de fuente de { $family }
+wm-tabs-font-unreadable = lys-wm no puede leer el archivo de fuente de { $family }
