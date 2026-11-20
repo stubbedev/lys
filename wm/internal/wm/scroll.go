@@ -190,6 +190,13 @@ func (w ColumnWidth) String() string {
 	return strconv.FormatFloat(w.share*100, 'f', -1, 64) + "%"
 }
 
+func (w ColumnWidth) Value() any {
+	if w.pixels != 0 {
+		return strconv.Itoa(w.pixels) + "px"
+	}
+	return w.share
+}
+
 func (w ColumnWidth) at(area, inner int) int {
 	if w.pixels != 0 {
 		return w.pixels

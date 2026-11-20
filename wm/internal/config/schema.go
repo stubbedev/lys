@@ -142,6 +142,14 @@ func short(v float32) float64 {
 	return f
 }
 
+func columnWidths(widths []wm.ColumnWidth) []any {
+	out := make([]any, len(widths))
+	for i, w := range widths {
+		out[i] = w.Value()
+	}
+	return out
+}
+
 func device(prefix string, accel any) map[string]annotation {
 	return map[string]annotation{
 		prefix + ".click_method":   {enum: slices.Sorted(maps.Keys(clickMethods))},
@@ -270,6 +278,7 @@ func annotations() map[string]annotation {
 		"fullscreen.new_window":             {enum: slices.Sorted(maps.Keys(coverPolicies)), def: "behind"},
 		"layout":                            {enum: slices.Sorted(maps.Keys(layoutKinds)), def: "tree"},
 		"scroll.center":                     {enum: slices.Sorted(maps.Keys(centerModes)), def: "never"},
+		"scroll.presets":                    {minItems: new(1), def: columnWidths(s.Scroll.Presets)},
 		"swallow.terminals":                 formatAnn(regexFormat),
 		"swallow.except_title":              formatAnn(regexFormat),
 		"rules[].on_activate":               {enum: slices.Sorted(maps.Keys(activations))},
