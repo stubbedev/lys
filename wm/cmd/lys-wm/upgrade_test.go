@@ -22,6 +22,8 @@ import (
 
 	"github.com/stubbedev/lys/wm/internal/handover"
 	"github.com/stubbedev/lys/wm/internal/ipc"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 	cel "github.com/stubbedev/lys/wm/internal/protocol/client/extforeigntoplevellist"
 	csl "github.com/stubbedev/lys/wm/internal/protocol/client/extsessionlock"
 	csc "github.com/stubbedev/lys/wm/internal/protocol/client/securitycontext"
@@ -963,6 +965,79 @@ func TestASessionEndsCleanlyAfterAFailedUpgrade(t *testing.T) {
 		t.Fatalf("the session did not answer after the failed upgrade: %v\n%s", err, s.log())
 	}
 	s.end()
+}
+
+func TestAFailedHandoverResumesOnlyOnceTheHolderReportsTheExit(t *testing.T) {
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	child := exec.Command(shellPath(t), "-c", "read line")
+	stdin, err := child.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stdin.Close()
+	if err := child.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pair, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Close(pair[1]); err != nil {
+		t.Fatal(err)
+	}
+	var resumed []error
+	end := &handoverEnd{resume: func(err error) { resumed = append(resumed, err) }}
+	logs := &tail{closed: make(chan struct{})}
+	close(logs.closed)
+	u := &upgrader{loop: l}
+	u.drive(child.Process.Pid, &handoverPeer{fd: pair[0]}, end, &handoverState{}, &handover.FDs{}, logs, "fake-lys-wm")
+	if err := child.Wait(); err == nil {
+		t.Fatal("the failed handover left the new process running")
+	}
+	looptest.RunUntil(t, l, "the failed handover to reach the loop", func() bool { return end.failed })
+	if len(resumed) != 0 {
+		t.Fatalf("the session resumed before the holder reported the exit: %v", resumed)
+	}
+	end.exit()
+	if len(resumed) != 1 || resumed[0] == nil || !strings.Contains(resumed[0].Error(), "fake-lys-wm did not take over") {
+		t.Fatalf("resumed with %v, want once with why fake-lys-wm did not take over", resumed)
+	}
+}
+
+func TestAHandoverEndResumesOnceBothTheFailureAndTheExitAreIn(t *testing.T) {
+	cause := errors.New("it answered nothing")
+	for name, order := range map[string][]string{
+		"the failure first": {"fail", "exit"},
+		"the exit first":    {"exit", "fail"},
+		"only the failure":  {"fail"},
+		"only the exit":     {"exit"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var resumed []error
+			end := &handoverEnd{resume: func(err error) { resumed = append(resumed, err) }}
+			for _, step := range order {
+				if len(resumed) != 0 {
+					t.Fatalf("resumed before %s", step)
+				}
+				if step == "fail" {
+					end.fail(cause)
+				} else {
+					end.exit()
+				}
+			}
+			want := 0
+			if len(order) == 2 {
+				want = 1
+			}
+			if len(resumed) != want || (want == 1 && !errors.Is(resumed[0], cause)) {
+				t.Fatalf("resumed %v, want %d resume with %v", resumed, want, cause)
+			}
+		})
+	}
 }
 
 func answersHandoverInfo() string {

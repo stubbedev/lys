@@ -6,9 +6,12 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/fdmsg"
+	"github.com/stubbedev/lys/wm/internal/loop"
+	"github.com/stubbedev/lys/wm/internal/looptest"
 )
 
 func holderPair(t *testing.T) (int, int) {
@@ -93,5 +96,71 @@ func TestAHolderPowerRequestCarriesItsSleepAction(t *testing.T) {
 	}
 	if m.Op != OpPower || m.Power != logind.SuspendThenHibernate {
 		t.Fatalf("received %+v, want a power request for suspend-then-hibernate", m)
+	}
+}
+
+const refusedChild, startedChild = 41, 42
+
+func serveSpawns(fd int) error {
+	for {
+		m, fds, err := RecvHolder(fd)
+		if err != nil {
+			return err
+		}
+		if err := fdmsg.CloseAll(fds); err != nil {
+			return err
+		}
+		reply := HolderMsg{Op: OpReply, ID: m.ID, Protocol: HolderProtocol}
+		exited := HolderMsg{Op: OpExited, PID: startedChild}
+		if m.Binary == "refused" {
+			reply.Err, exited.PID = "no such binary", refusedChild
+		} else {
+			reply.PID = startedChild
+		}
+		if err := SendHolder(fd, reply); err != nil {
+			return err
+		}
+		switch m.Op {
+		case OpSpawn:
+			if err := SendHolder(fd, exited); err != nil {
+				return err
+			}
+		case OpCommit:
+			return nil
+		}
+	}
+}
+
+func TestASpawnHearsItsChildsExitAndARefusedOneHearsNothing(t *testing.T) {
+	a, b := holderPair(t)
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	served := make(chan error, 1)
+	go func() { served <- serveSpawns(b) }()
+	h, err := DialHolder(a, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	heard := map[int]int{}
+	fds := devNull(t, 4)
+	if _, err := h.Spawn("refused", nil, fds[0], fds[1], func() { heard[refusedChild]++ }); err == nil {
+		t.Fatal("the holder's refusal reads as a started child")
+	}
+	pid, err := h.Spawn("lys-wm", nil, fds[2], fds[3], func() { heard[startedChild]++ })
+	if err != nil || pid != startedChild {
+		t.Fatalf("spawned %d, %v; want %d", pid, err, startedChild)
+	}
+	looptest.RunUntil(t, l, "the started child's exit notice", func() bool { return heard[startedChild] == 1 })
+	if heard[refusedChild] != 0 {
+		t.Errorf("the refused child's exit notice reached its callback %d times", heard[refusedChild])
+	}
+	if err := h.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := waittest.For(t, served, "the fake holder to finish"); err != nil {
+		t.Fatal(err)
 	}
 }

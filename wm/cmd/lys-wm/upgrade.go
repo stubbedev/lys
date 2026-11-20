@@ -352,14 +352,42 @@ func (u *upgrader) spawn(binary string, conn *os.File, resume func(error)) {
 		resume(errors.Join(fmt.Errorf("describe the session: %w", err), unix.Close(pair[0]), unix.Close(pair[1]), unix.Close(stderrPipe[1])))
 		return
 	}
-	pid, err := u.holder.Spawn(binary, u.args, pair[1], stderrPipe[1])
+	peer := &handoverPeer{fd: pair[0]}
+	end := &handoverEnd{resume: resume}
+	pid, err := u.holder.Spawn(binary, u.args, pair[1], stderrPipe[1], func() {
+		peer.shutdown()
+		end.exit()
+	})
 	err = errors.Join(err, unix.Close(pair[1]), unix.Close(stderrPipe[1]))
 	if err != nil {
 		t.CloseOwned()
 		resume(errors.Join(fmt.Errorf("start %s: %w", binary, err), unix.Close(pair[0])))
 		return
 	}
-	go u.drive(pid, pair[0], st, t, logs, binary, resume)
+	go u.drive(pid, peer, end, st, t, logs, binary)
+}
+
+type handoverEnd struct {
+	resume func(error)
+	cause  error
+	failed bool
+	exited bool
+}
+
+func (e *handoverEnd) fail(cause error) {
+	e.cause, e.failed = cause, true
+	e.settle()
+}
+
+func (e *handoverEnd) exit() {
+	e.exited = true
+	e.settle()
+}
+
+func (e *handoverEnd) settle() {
+	if e.failed && e.exited {
+		e.resume(e.cause)
+	}
 }
 
 type handoverPeer struct {
@@ -384,18 +412,17 @@ func (p *handoverPeer) close() {
 	}
 }
 
-func (u *upgrader) drive(pid int, fd int, st *handoverState, t *handover.FDs, logs *tail, binary string, resume func(error)) {
-	peer := &handoverPeer{fd: fd}
+func (u *upgrader) drive(pid int, peer *handoverPeer, end *handoverEnd, st *handoverState, t *handover.FDs, logs *tail, binary string) {
+	fd := peer.fd
 	fail := func(cause error) {
 		_ = unix.Kill(pid, unix.SIGKILL)
 		peer.close()
 		why := logs.settled()
 		u.loop.Hand("the failed handover to "+binary, func() error {
-			resume(fmt.Errorf("%s did not take over and this lys-wm keeps running: %w: %s", binary, cause, why))
+			end.fail(fmt.Errorf("%s did not take over and this lys-wm keeps running: %w: %s", binary, cause, why))
 			return nil
 		})
 	}
-	u.holder.OnExit(pid, peer.shutdown)
 	timer := time.AfterFunc(restoreLimit, peer.shutdown)
 	defer timer.Stop()
 	err := handover.Send(fd, st, t)

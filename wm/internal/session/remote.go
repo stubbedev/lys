@@ -73,12 +73,17 @@ type holderReply struct {
 	fds []int
 }
 
+type holderCall struct {
+	reply  chan holderReply
+	exited func()
+}
+
 type Holder struct {
 	fd       int
 	loop     *loop.Loop
 	next     atomic.Uint64
 	mu       sync.Mutex
-	pending  map[uint64]chan holderReply
+	pending  map[uint64]holderCall
 	listener Listener
 	seat     string
 	active   atomic.Bool
@@ -86,7 +91,7 @@ type Holder struct {
 }
 
 func DialHolder(fd int, l *loop.Loop) (*Holder, error) {
-	h := &Holder{fd: fd, loop: l, pending: map[uint64]chan holderReply{}}
+	h := &Holder{fd: fd, loop: l, pending: map[uint64]holderCall{}, exits: map[int]func(){}}
 	go h.read()
 	reply, _, err := h.call(HolderMsg{Op: OpHello, Protocol: HolderProtocol})
 	if err != nil {
@@ -110,25 +115,19 @@ func (h *Holder) read() {
 		}
 		if m.Op == OpReply {
 			h.mu.Lock()
-			ch := h.pending[m.ID]
+			c, ok := h.pending[m.ID]
 			delete(h.pending, m.ID)
+			if ok && c.exited != nil && m.Err == "" {
+				h.exits[m.PID] = c.exited
+			}
 			h.mu.Unlock()
-			if ch != nil {
-				ch <- holderReply{m, fds}
+			if ok {
+				c.reply <- holderReply{m, fds}
 			}
 			continue
 		}
 		h.loop.Hand("a holder event", func() error { return h.event(m, fds) })
 	}
-}
-
-func (h *Holder) OnExit(pid int, f func()) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.exits == nil {
-		h.exits = map[int]func(){}
-	}
-	h.exits[pid] = f
 }
 
 func (h *Holder) event(m HolderMsg, fds []int) error {
@@ -164,11 +163,15 @@ func (h *Holder) event(m HolderMsg, fds []int) error {
 	return fdmsg.CloseAll(fds)
 }
 
-func (h *Holder) call(m HolderMsg, fds ...int) (HolderMsg, []int, error) {
+func (h *Holder) call(m HolderMsg) (HolderMsg, []int, error) {
+	return h.request(m, nil)
+}
+
+func (h *Holder) request(m HolderMsg, exited func(), fds ...int) (HolderMsg, []int, error) {
 	m.ID = h.next.Add(1)
 	ch := make(chan holderReply, 1)
 	h.mu.Lock()
-	h.pending[m.ID] = ch
+	h.pending[m.ID] = holderCall{reply: ch, exited: exited}
 	h.mu.Unlock()
 	if err := SendHolder(h.fd, m, fds...); err != nil {
 		return HolderMsg{}, nil, err
@@ -245,8 +248,8 @@ func (h *Holder) Close() error {
 	return nil
 }
 
-func (h *Holder) Spawn(binary string, args []string, handover, stderr int) (int, error) {
-	reply, _, err := h.call(HolderMsg{Op: OpSpawn, Binary: binary, Args: args}, handover, stderr)
+func (h *Holder) Spawn(binary string, args []string, handover, stderr int, exited func()) (int, error) {
+	reply, _, err := h.request(HolderMsg{Op: OpSpawn, Binary: binary, Args: args}, exited, handover, stderr)
 	return reply.PID, err
 }
 
