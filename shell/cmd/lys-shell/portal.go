@@ -62,6 +62,7 @@ func portalCommand() *cli.Command {
 						},
 						Run: showScreenCast,
 					},
+					{Name: "screen-cast-preview", About: "Screencast source picker offering every source, returning at once; what is picked never leaves the shell", Run: showScreenCastPreview},
 					{Name: "access", About: "Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)", Run: showAccess},
 					{Name: "account", About: "Account info sharing consent (`org.freedesktop.impl.portal.Account`)", Run: showAccount},
 					{Name: "app-chooser", About: "Application chooser (`org.freedesktop.impl.portal.AppChooser`)", Run: showAppChooser},

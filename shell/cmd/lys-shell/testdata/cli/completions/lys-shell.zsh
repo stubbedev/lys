@@ -1720,6 +1720,12 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(screen-cast-preview)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (access)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -1786,6 +1792,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (screen-cast)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(screen-cast-preview)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -1898,6 +1908,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (screen-cast)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(screen-cast-preview)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -2635,6 +2649,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (screen-cast)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(screen-cast-preview)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -3401,6 +3419,7 @@ _lys-shell__help__portal__show_commands() {
 'color:Interactive color picker (\`Screenshot.PickColor\`)' \
 'print:Printer selection dialog (\`org.freedesktop.impl.portal.Print\`); only the printer/settings prepare step is shown, no document is spooled' \
 'screen-cast:Screencast source picker (\`org.freedesktop.impl.portal.ScreenCast\`)' \
+'screen-cast-preview:Screencast source picker offering every source, returning at once; what is picked never leaves the shell' \
 'access:Generic grant/deny access prompt (\`org.freedesktop.impl.portal.Access\`)' \
 'account:Account info sharing consent (\`org.freedesktop.impl.portal.Account\`)' \
 'app-chooser:Application chooser (\`org.freedesktop.impl.portal.AppChooser\`)' \
@@ -3454,6 +3473,11 @@ _lys-shell__help__portal__show__print_commands() {
 _lys-shell__help__portal__show__screen-cast_commands() {
     local commands; commands=()
     _describe -t commands 'lys-shell help portal show screen-cast commands' commands "$@"
+}
+(( $+functions[_lys-shell__help__portal__show__screen-cast-preview_commands] )) ||
+_lys-shell__help__portal__show__screen-cast-preview_commands() {
+    local commands; commands=()
+    _describe -t commands 'lys-shell help portal show screen-cast-preview commands' commands "$@"
 }
 (( $+functions[_lys-shell__help__portal__show__screenshot_commands] )) ||
 _lys-shell__help__portal__show__screenshot_commands() {
@@ -4357,6 +4381,7 @@ _lys-shell__portal__help__show_commands() {
 'color:Interactive color picker (\`Screenshot.PickColor\`)' \
 'print:Printer selection dialog (\`org.freedesktop.impl.portal.Print\`); only the printer/settings prepare step is shown, no document is spooled' \
 'screen-cast:Screencast source picker (\`org.freedesktop.impl.portal.ScreenCast\`)' \
+'screen-cast-preview:Screencast source picker offering every source, returning at once; what is picked never leaves the shell' \
 'access:Generic grant/deny access prompt (\`org.freedesktop.impl.portal.Access\`)' \
 'account:Account info sharing consent (\`org.freedesktop.impl.portal.Account\`)' \
 'app-chooser:Application chooser (\`org.freedesktop.impl.portal.AppChooser\`)' \
@@ -4410,6 +4435,11 @@ _lys-shell__portal__help__show__print_commands() {
 _lys-shell__portal__help__show__screen-cast_commands() {
     local commands; commands=()
     _describe -t commands 'lys-shell portal help show screen-cast commands' commands "$@"
+}
+(( $+functions[_lys-shell__portal__help__show__screen-cast-preview_commands] )) ||
+_lys-shell__portal__help__show__screen-cast-preview_commands() {
+    local commands; commands=()
+    _describe -t commands 'lys-shell portal help show screen-cast-preview commands' commands "$@"
 }
 (( $+functions[_lys-shell__portal__help__show__screenshot_commands] )) ||
 _lys-shell__portal__help__show__screenshot_commands() {
@@ -4482,6 +4512,7 @@ _lys-shell__portal__show_commands() {
 'color:Interactive color picker (\`Screenshot.PickColor\`)' \
 'print:Printer selection dialog (\`org.freedesktop.impl.portal.Print\`); only the printer/settings prepare step is shown, no document is spooled' \
 'screen-cast:Screencast source picker (\`org.freedesktop.impl.portal.ScreenCast\`)' \
+'screen-cast-preview:Screencast source picker offering every source, returning at once; what is picked never leaves the shell' \
 'access:Generic grant/deny access prompt (\`org.freedesktop.impl.portal.Access\`)' \
 'account:Account info sharing consent (\`org.freedesktop.impl.portal.Account\`)' \
 'app-chooser:Application chooser (\`org.freedesktop.impl.portal.AppChooser\`)' \
@@ -4535,6 +4566,7 @@ _lys-shell__portal__show__help_commands() {
 'color:Interactive color picker (\`Screenshot.PickColor\`)' \
 'print:Printer selection dialog (\`org.freedesktop.impl.portal.Print\`); only the printer/settings prepare step is shown, no document is spooled' \
 'screen-cast:Screencast source picker (\`org.freedesktop.impl.portal.ScreenCast\`)' \
+'screen-cast-preview:Screencast source picker offering every source, returning at once; what is picked never leaves the shell' \
 'access:Generic grant/deny access prompt (\`org.freedesktop.impl.portal.Access\`)' \
 'account:Account info sharing consent (\`org.freedesktop.impl.portal.Account\`)' \
 'app-chooser:Application chooser (\`org.freedesktop.impl.portal.AppChooser\`)' \
@@ -4595,6 +4627,11 @@ _lys-shell__portal__show__help__screen-cast_commands() {
     local commands; commands=()
     _describe -t commands 'lys-shell portal show help screen-cast commands' commands "$@"
 }
+(( $+functions[_lys-shell__portal__show__help__screen-cast-preview_commands] )) ||
+_lys-shell__portal__show__help__screen-cast-preview_commands() {
+    local commands; commands=()
+    _describe -t commands 'lys-shell portal show help screen-cast-preview commands' commands "$@"
+}
 (( $+functions[_lys-shell__portal__show__help__screenshot_commands] )) ||
 _lys-shell__portal__show__help__screenshot_commands() {
     local commands; commands=()
@@ -4614,6 +4651,11 @@ _lys-shell__portal__show__print_commands() {
 _lys-shell__portal__show__screen-cast_commands() {
     local commands; commands=()
     _describe -t commands 'lys-shell portal show screen-cast commands' commands "$@"
+}
+(( $+functions[_lys-shell__portal__show__screen-cast-preview_commands] )) ||
+_lys-shell__portal__show__screen-cast-preview_commands() {
+    local commands; commands=()
+    _describe -t commands 'lys-shell portal show screen-cast-preview commands' commands "$@"
 }
 (( $+functions[_lys-shell__portal__show__screenshot_commands] )) ||
 _lys-shell__portal__show__screenshot_commands() {

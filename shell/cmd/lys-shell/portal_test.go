@@ -38,6 +38,11 @@ func servePicker(t *testing.T, selection string) *dbustest.Var[[]any] {
 	return got
 }
 
+func (f fakePicker) Preview() *dbus.Error {
+	f.got.Store([]any{"preview"})
+	return nil
+}
+
 func TestSharePickerPrintsOnlyTheSelection(t *testing.T) {
 	dbustest.Session(t)
 	t.Setenv("XDPH_WINDOW_SHARING_LIST", "1[HC>]kitty[HT>]~[HE>]")

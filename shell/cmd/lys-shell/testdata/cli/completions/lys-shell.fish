@@ -397,6 +397,7 @@ complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_s
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_seen_subcommand_from show" -f -a "color" -d 'Interactive color picker (`Screenshot.PickColor`)'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_seen_subcommand_from show" -f -a "print" -d 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_seen_subcommand_from show" -f -a "screen-cast" -d 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)'
+complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_seen_subcommand_from show" -f -a "screen-cast-preview" -d 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_seen_subcommand_from show" -f -a "access" -d 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_seen_subcommand_from show" -f -a "account" -d 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand portal; and __fish_seen_subcommand_from show" -f -a "app-chooser" -d 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)'

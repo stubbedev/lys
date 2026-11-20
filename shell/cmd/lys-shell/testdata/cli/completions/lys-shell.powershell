@@ -1217,6 +1217,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             [CompletionResult]::new('color', 'color', [CompletionResultType]::ParameterValue, 'Interactive color picker (`Screenshot.PickColor`)')
             [CompletionResult]::new('print', 'print', [CompletionResultType]::ParameterValue, 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled')
             [CompletionResult]::new('screen-cast', 'screen-cast', [CompletionResultType]::ParameterValue, 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)')
+            [CompletionResult]::new('screen-cast-preview', 'screen-cast-preview', [CompletionResultType]::ParameterValue, 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell')
             [CompletionResult]::new('access', 'access', [CompletionResultType]::ParameterValue, 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)')
             [CompletionResult]::new('account', 'account', [CompletionResultType]::ParameterValue, 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)')
             [CompletionResult]::new('app-chooser', 'app-chooser', [CompletionResultType]::ParameterValue, 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)')
@@ -1258,6 +1259,11 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
+        'lys-shell;portal;show;screen-cast-preview' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
         'lys-shell;portal;show;access' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
@@ -1295,6 +1301,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             [CompletionResult]::new('color', 'color', [CompletionResultType]::ParameterValue, 'Interactive color picker (`Screenshot.PickColor`)')
             [CompletionResult]::new('print', 'print', [CompletionResultType]::ParameterValue, 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled')
             [CompletionResult]::new('screen-cast', 'screen-cast', [CompletionResultType]::ParameterValue, 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)')
+            [CompletionResult]::new('screen-cast-preview', 'screen-cast-preview', [CompletionResultType]::ParameterValue, 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell')
             [CompletionResult]::new('access', 'access', [CompletionResultType]::ParameterValue, 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)')
             [CompletionResult]::new('account', 'account', [CompletionResultType]::ParameterValue, 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)')
             [CompletionResult]::new('app-chooser', 'app-chooser', [CompletionResultType]::ParameterValue, 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)')
@@ -1317,6 +1324,9 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             break
         }
         'lys-shell;portal;show;help;screen-cast' {
+            break
+        }
+        'lys-shell;portal;show;help;screen-cast-preview' {
             break
         }
         'lys-shell;portal;show;help;access' {
@@ -1371,6 +1381,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             [CompletionResult]::new('color', 'color', [CompletionResultType]::ParameterValue, 'Interactive color picker (`Screenshot.PickColor`)')
             [CompletionResult]::new('print', 'print', [CompletionResultType]::ParameterValue, 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled')
             [CompletionResult]::new('screen-cast', 'screen-cast', [CompletionResultType]::ParameterValue, 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)')
+            [CompletionResult]::new('screen-cast-preview', 'screen-cast-preview', [CompletionResultType]::ParameterValue, 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell')
             [CompletionResult]::new('access', 'access', [CompletionResultType]::ParameterValue, 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)')
             [CompletionResult]::new('account', 'account', [CompletionResultType]::ParameterValue, 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)')
             [CompletionResult]::new('app-chooser', 'app-chooser', [CompletionResultType]::ParameterValue, 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)')
@@ -1392,6 +1403,9 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             break
         }
         'lys-shell;portal;help;show;screen-cast' {
+            break
+        }
+        'lys-shell;portal;help;show;screen-cast-preview' {
             break
         }
         'lys-shell;portal;help;show;access' {
@@ -1878,6 +1892,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             [CompletionResult]::new('color', 'color', [CompletionResultType]::ParameterValue, 'Interactive color picker (`Screenshot.PickColor`)')
             [CompletionResult]::new('print', 'print', [CompletionResultType]::ParameterValue, 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled')
             [CompletionResult]::new('screen-cast', 'screen-cast', [CompletionResultType]::ParameterValue, 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)')
+            [CompletionResult]::new('screen-cast-preview', 'screen-cast-preview', [CompletionResultType]::ParameterValue, 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell')
             [CompletionResult]::new('access', 'access', [CompletionResultType]::ParameterValue, 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)')
             [CompletionResult]::new('account', 'account', [CompletionResultType]::ParameterValue, 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)')
             [CompletionResult]::new('app-chooser', 'app-chooser', [CompletionResultType]::ParameterValue, 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)')
@@ -1899,6 +1914,9 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             break
         }
         'lys-shell;help;portal;show;screen-cast' {
+            break
+        }
+        'lys-shell;help;portal;show;screen-cast-preview' {
             break
         }
         'lys-shell;help;portal;show;access' {

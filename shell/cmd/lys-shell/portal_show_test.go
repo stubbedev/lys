@@ -254,12 +254,21 @@ func TestPortalShowPrintScreenCastAndScreenshot(t *testing.T) {
 		t.Errorf("print cancel: stdout %q", stdout)
 	}
 
+	if stdout, stderr, code := show(t, "screen-cast-preview"); code != 1 || stdout != "" || stderr != "Error: SharePicker service not running. Start lys-shell shell first.\n" {
+		t.Errorf("screen-cast-preview with no shell: code %d stdout %q stderr %q", code, stdout, stderr)
+	}
 	got := servePicker(t, "monitor:DP-1")
 	if stdout, _, code := show(t, "screen-cast", "--allow-token", "--multiple"); code != 0 || stdout != "monitor:DP-1\n" {
 		t.Errorf("screen-cast: code %d stdout %q", code, stdout)
 	}
 	if args := got.Load(); len(args) != 1 || args[0] != (sharepicker.Request{Sources: sharepicker.AllSources, AllowToken: true, Multiple: true}) {
 		t.Errorf("Pick args = %v, want no window list, every source and both flags", args)
+	}
+	if stdout, _, code := show(t, "screen-cast-preview"); code != 0 || stdout != "shown\n" {
+		t.Errorf("screen-cast-preview: code %d stdout %q", code, stdout)
+	}
+	if args := got.Load(); len(args) != 1 || args[0] != "preview" {
+		t.Errorf("screen-cast-preview called %v, want Preview and no Pick", args)
 	}
 
 	conn := dbustest.SessionConn(t)

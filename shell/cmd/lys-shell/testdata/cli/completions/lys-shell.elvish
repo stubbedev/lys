@@ -982,6 +982,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand color 'Interactive color picker (`Screenshot.PickColor`)'
             cand print 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled'
             cand screen-cast 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)'
+            cand screen-cast-preview 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell'
             cand access 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)'
             cand account 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)'
             cand app-chooser 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)'
@@ -1017,6 +1018,10 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand -h 'Print help'
             cand --help 'Print help'
         }
+        &'lys-shell;portal;show;screen-cast-preview'= {
+            cand -h 'Print help'
+            cand --help 'Print help'
+        }
         &'lys-shell;portal;show;access'= {
             cand -h 'Print help'
             cand --help 'Print help'
@@ -1048,6 +1053,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand color 'Interactive color picker (`Screenshot.PickColor`)'
             cand print 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled'
             cand screen-cast 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)'
+            cand screen-cast-preview 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell'
             cand access 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)'
             cand account 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)'
             cand app-chooser 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)'
@@ -1065,6 +1071,8 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;portal;show;help;print'= {
         }
         &'lys-shell;portal;show;help;screen-cast'= {
+        }
+        &'lys-shell;portal;show;help;screen-cast-preview'= {
         }
         &'lys-shell;portal;show;help;access'= {
         }
@@ -1105,6 +1113,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand color 'Interactive color picker (`Screenshot.PickColor`)'
             cand print 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled'
             cand screen-cast 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)'
+            cand screen-cast-preview 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell'
             cand access 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)'
             cand account 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)'
             cand app-chooser 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)'
@@ -1121,6 +1130,8 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;portal;help;show;print'= {
         }
         &'lys-shell;portal;help;show;screen-cast'= {
+        }
+        &'lys-shell;portal;help;show;screen-cast-preview'= {
         }
         &'lys-shell;portal;help;show;access'= {
         }
@@ -1486,6 +1497,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand color 'Interactive color picker (`Screenshot.PickColor`)'
             cand print 'Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled'
             cand screen-cast 'Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)'
+            cand screen-cast-preview 'Screencast source picker offering every source, returning at once; what is picked never leaves the shell'
             cand access 'Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)'
             cand account 'Account info sharing consent (`org.freedesktop.impl.portal.Account`)'
             cand app-chooser 'Application chooser (`org.freedesktop.impl.portal.AppChooser`)'
@@ -1502,6 +1514,8 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;help;portal;show;print'= {
         }
         &'lys-shell;help;portal;show;screen-cast'= {
+        }
+        &'lys-shell;help;portal;show;screen-cast-preview'= {
         }
         &'lys-shell;help;portal;show;access'= {
         }

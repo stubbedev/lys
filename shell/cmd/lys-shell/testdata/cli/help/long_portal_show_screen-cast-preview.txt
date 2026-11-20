@@ -1,0 +1,6 @@
+Screencast source picker offering every source, returning at once; what is picked never leaves the shell
+
+Usage: lys-shell portal show screen-cast-preview
+
+Options:
+  -h, --help  Print help

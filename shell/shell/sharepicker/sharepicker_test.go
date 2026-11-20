@@ -308,9 +308,18 @@ func TestMonitorAreaPlacement(t *testing.T) {
 type fakePicker struct {
 	reply   string
 	pickErr error
+	picked  chan<- pick
+}
+
+type pick struct {
+	caller  portaldialogs.Caller
+	request Request
 }
 
 func (f fakePicker) Pick(c portaldialogs.Caller, r Request) string {
+	if f.picked != nil {
+		f.picked <- pick{c, r}
+	}
 	return f.reply + "|" + c.Handle + "|" + r.WindowList + "|" + boolStr(r.AllowToken) + boolStr(r.Multiple) + "|" + strconv.Itoa(int(r.Sources))
 }
 
@@ -368,6 +377,34 @@ func TestDaemonOverTheBus(t *testing.T) {
 	}
 	if _, err := (&Daemon{picker: fakePicker{}}).Export(client); err == nil {
 		t.Fatal("a second daemon claimed the owned name")
+	}
+}
+
+func TestPreviewShowsEverySourceAndRepliesNoSelection(t *testing.T) {
+	bus := dbustest.Start(t)
+	server := bus.Conn(t)
+	client := bus.Conn(t)
+	picked := make(chan pick, 1)
+	release, err := (&Daemon{picker: fakePicker{reply: "/screen:DP-1", picked: picked}}).Export(server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	reply := client.Object(ServiceName, ServicePath).Call(iface+".Preview", 0)
+	if reply.Err != nil || len(reply.Body) != 0 {
+		t.Fatalf("Preview replied %v %v, want nothing", reply.Body, reply.Err)
+	}
+	got := <-picked
+	if want := (pick{portaldialogs.Caller{Handle: previewHandle}, Request{Sources: AllSources}}); got != want {
+		t.Errorf("Preview showed %+v, want %+v: every source, no restore token, one pick", got, want)
+	}
+	if err := NewClient(client).Preview(context.Background()); err != nil {
+		t.Errorf("Client.Preview = %v", err)
+	}
+	<-picked
+	release()
+	if err := NewClient(client).Preview(context.Background()); err == nil {
+		t.Error("Preview with no shell on the bus succeeded")
 	}
 }
 

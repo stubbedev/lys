@@ -3,18 +3,19 @@ Preview a portal dialog UI without an application request (developer tool; talks
 Usage: lys-shell portal show <COMMAND>
 
 Commands:
-  file-chooser      File open/save dialog (`org.freedesktop.impl.portal.FileChooser`)
-  screenshot        Screenshot capture (`org.freedesktop.impl.portal.Screenshot`)
-  color             Interactive color picker (`Screenshot.PickColor`)
-  print             Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled
-  screen-cast       Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)
-  access            Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)
-  account           Account info sharing consent (`org.freedesktop.impl.portal.Account`)
-  app-chooser       Application chooser (`org.freedesktop.impl.portal.AppChooser`)
-  dynamic-launcher  Dynamic launcher install confirmation (`org.freedesktop.impl.portal.DynamicLauncher`)
-  authenticate      Administrator authentication dialog (`dev.stubbe.lys.PortalDialogs1` `Authenticate`, lys-polkit's)
-  wallpaper         Wallpaper preview confirmation (`org.freedesktop.impl.portal.Wallpaper` `show-preview`)
-  help              Print this message or the help of the given subcommand(s)
+  file-chooser         File open/save dialog (`org.freedesktop.impl.portal.FileChooser`)
+  screenshot           Screenshot capture (`org.freedesktop.impl.portal.Screenshot`)
+  color                Interactive color picker (`Screenshot.PickColor`)
+  print                Printer selection dialog (`org.freedesktop.impl.portal.Print`); only the printer/settings prepare step is shown, no document is spooled
+  screen-cast          Screencast source picker (`org.freedesktop.impl.portal.ScreenCast`)
+  screen-cast-preview  Screencast source picker offering every source, returning at once; what is picked never leaves the shell
+  access               Generic grant/deny access prompt (`org.freedesktop.impl.portal.Access`)
+  account              Account info sharing consent (`org.freedesktop.impl.portal.Account`)
+  app-chooser          Application chooser (`org.freedesktop.impl.portal.AppChooser`)
+  dynamic-launcher     Dynamic launcher install confirmation (`org.freedesktop.impl.portal.DynamicLauncher`)
+  authenticate         Administrator authentication dialog (`dev.stubbe.lys.PortalDialogs1` `Authenticate`, lys-polkit's)
+  wallpaper            Wallpaper preview confirmation (`org.freedesktop.impl.portal.Wallpaper` `show-preview`)
+  help                 Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help

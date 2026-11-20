@@ -103,6 +103,11 @@ func showScreenCast(m *cli.Matches) error {
 	})(m)
 }
 
+var showScreenCastPreview = showDialog(func(ctx context.Context, conn *dbus.Conn) ([]string, string, string, error) {
+	err := sharepicker.NewClient(conn).Preview(ctx)
+	return []string{"shown"}, "SharePicker", "preview share picker", err
+})
+
 var showPrint = showDialog(func(ctx context.Context, conn *dbus.Conn) ([]string, string, string, error) {
 	granted, settings, _, token, err := printdialog.NewClient(conn).Prepare(ctx, portaldialogs.Caller{}, printdialog.PrepareRequest{Title: "Preview: Print"})
 	if !granted {

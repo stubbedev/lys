@@ -107,6 +107,15 @@ func (d *Daemon) PickWindow(c portaldialogs.Caller, r WindowRequest) (string, *d
 	return selection, nil
 }
 
+const previewHandle = "/dev/stubbe/lys/preview/share-picker"
+
+// Preview shows the picker offering every source, with no restore token
+// to grant, and returns at once: what is picked never leaves the shell.
+func (d *Daemon) Preview() *dbus.Error {
+	go d.picker.Pick(portaldialogs.Caller{Handle: previewHandle}, Request{Sources: AllSources})
+	return nil
+}
+
 // Dismiss cancels the picker showing for the request at handle.
 func (d *Daemon) Dismiss(handle string) *dbus.Error {
 	d.picker.Dismiss(handle)
@@ -137,6 +146,12 @@ func (c *Client) PickWindow(ctx context.Context, caller portaldialogs.Caller, r 
 	var selection string
 	err := c.obj.CallWithContext(ctx, iface+".PickWindow", 0, caller, r).Store(&selection)
 	return selection, err
+}
+
+// Preview asks the shell to show the picker without a request; see
+// Daemon.Preview.
+func (c *Client) Preview(ctx context.Context) error {
+	return c.obj.CallWithContext(ctx, iface+".Preview", 0).Err
 }
 
 // Dismiss cancels the picker showing for the request at handle.
