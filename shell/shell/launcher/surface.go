@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/pango"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -355,8 +355,7 @@ func (s *Surface) onMatches(m engineMatches) {
 	a := s.cur
 	previous := s.sel
 	s.model.update(m.items, m.matched)
-	a.views.list.reset(s.model.len())
-	a.views.setRows(s.model.len())
+	a.views.SetRows(s.model.len())
 	a.views.showPane(a.previews && s.model.len() > 0)
 	if n := s.model.len(); n > 0 {
 		target := 0
@@ -368,7 +367,7 @@ func (s *Surface) onMatches(m engineMatches) {
 		}
 		s.selectRow(target)
 		s.applyOneShotSelection()
-		if a.ui.autoSelect && n == 1 && a.views.entry.Text() != "" {
+		if a.ui.autoSelect && n == 1 && a.views.Entry.Text() != "" {
 			s.activatePosition(0)
 		}
 	} else {
@@ -387,8 +386,8 @@ func (s *Surface) onState(st engineState) {
 	if !st.multi {
 		clear(s.multi.picked)
 	}
-	if st.afterActivate && !st.keepFilter && a.views.entry.Text() != "" {
-		a.views.entry.SetText("")
+	if st.afterActivate && !st.keepFilter && a.views.Entry.Text() != "" {
+		a.views.Entry.SetText("")
 	}
 	switch {
 	case st.newSelection != nil:
@@ -403,7 +402,7 @@ func (s *Surface) onState(st engineState) {
 	a.previewGen++
 	a.modePrompt = st.prompt
 	a.masked = st.password
-	a.views.setMasked(a.ui.password || st.password)
+	a.views.SetMasked(a.ui.password || st.password)
 	// A state arrives on every reload, so the hook fires on a change of
 	// mode, not on being told the mode again.
 	name := ""
@@ -420,7 +419,7 @@ func (s *Surface) onState(st engineState) {
 	} else if named, ok := a.ui.displayNames[st.prompt]; ok {
 		shown = named
 	}
-	a.views.setPrompt(shown)
+	a.views.SetChip(shown)
 	message := st.message
 	if a.ui.errorMessage != nil {
 		message = a.ui.errorMessage
@@ -428,15 +427,15 @@ func (s *Surface) onState(st engineState) {
 		message = a.ui.mesg
 	}
 	a.views.showMessage(message)
-	if a.ui.sidebar {
-		s.rebuildTabs(st.modeNames, st.activeMode)
+	if a.ui.look.Sidebar {
+		a.views.SetTabs(st.modeNames, a.ui.displayNames, st.activeMode, func(i int) { s.send(cmdModeTo{index: i}) })
 	}
 	s.resize()
 }
 
 // onAction applies the engine's terminal and input actions.
 func (s *Surface) onAction(act engine.Action) {
-	filter := s.cur.views.entry.Text()
+	filter := s.cur.views.Entry.Text()
 	switch v := act.(type) {
 	case engine.ActionClose:
 		s.end(&launcheripc.ServerFrame{Type: launcheripc.FrameResult, Filter: filter})
@@ -453,7 +452,7 @@ func (s *Surface) onAction(act engine.Action) {
 			Selected: []launcheripc.Selected{{Index: 0, Text: v.Text}}, Filter: filter,
 		})
 	case engine.ActionSetInput:
-		s.cur.views.entry.SetText(v.Text)
+		s.cur.views.Entry.SetText(v.Text)
 	case engine.ActionCopy:
 		if s.d.Copy != nil {
 			s.d.Copy(v.Text)
@@ -489,7 +488,7 @@ func (s *Surface) selectRow(pos int) {
 	}
 	s.sel = pos
 	if s.cur != nil {
-		s.cur.views.list.setSelected(pos)
+		s.cur.views.List.SetSelected(pos)
 		s.fireSelectionHook()
 		s.schedulePreview()
 	}
@@ -551,7 +550,7 @@ func (a *active) hookInput() string {
 	if a.masked {
 		return ""
 	}
-	return a.views.entry.Text()
+	return a.views.Entry.Text()
 }
 
 // fireDecisionHook runs -on-entry-accepted and
@@ -653,9 +652,9 @@ func (s *Surface) onKey(b keyBinding) {
 			s.selectRow(n - 1)
 		}
 	case keyPagePrev:
-		s.moveSelection(-a.ui.lines)
+		s.moveSelection(-a.ui.look.Lines)
 	case keyPageNext:
-		s.moveSelection(a.ui.lines)
+		s.moveSelection(a.ui.look.Lines)
 	}
 }
 
@@ -732,7 +731,7 @@ func (s *Surface) togglePicked() {
 	} else {
 		s.multi.picked[i] = true
 	}
-	s.cur.views.list.refresh(s.sel)
+	s.cur.views.List.Refresh(s.sel)
 }
 
 // moveSelection moves the selection: single steps wrap under -cycle, the
@@ -761,7 +760,7 @@ func (s *Surface) activatePosition(pos int) {
 
 // activateCustom accepts the typed text.
 func (s *Surface) activateCustom() {
-	s.send(cmdActivate{target: engine.Target{}, kind: engine.ActivateCustom{Text: s.cur.views.entry.Text()}})
+	s.send(cmdActivate{target: engine.Target{}, kind: engine.ActivateCustom{Text: s.cur.views.Entry.Text()}})
 }
 
 func (s *Surface) send(c engineCmd) {
@@ -881,7 +880,7 @@ func (s *Surface) reveal(a *active) {
 		return
 	}
 	a.win = win
-	if err := win.SetFocus(a.views.entry); err != nil {
+	if err := win.SetFocus(a.views.Entry); err != nil {
 		log.Printf("launcher: cannot focus the entry: %v", err)
 		s.end(&launcheripc.ServerFrame{Type: launcheripc.FrameCancelled, Code: 1})
 		return
@@ -902,13 +901,13 @@ func (s *Surface) resize() {
 func (s *Surface) resolveWidth(ui uiSettings) int {
 	w := ui.widthOverride
 	if w == nil {
-		return max(ui.width, 1)
+		return max(ui.look.Width, 1)
 	}
 	switch w.Unit {
 	case launcheripc.WidthPixels:
 		return max(int(w.Value), 1)
 	case launcheripc.WidthPercent:
-		monitor := ui.width
+		monitor := ui.look.Width
 		if s.d.MonitorWidth != nil {
 			if m := s.d.MonitorWidth(); m > 0 {
 				monitor = m
@@ -916,42 +915,10 @@ func (s *Surface) resolveWidth(ui uiSettings) int {
 		}
 		return max(int(float64(monitor)*w.Value/100), 1)
 	case launcheripc.WidthChars:
-		advance := max(int(math.Ceil(s.d.Font.Shape("0", fontPx()).Advance())), 1)
+		advance := max(int(math.Ceil(s.d.Font.Shape("0", launcherview.FontPx()).Advance())), 1)
 		return max(advance*int(w.Value), 1)
 	}
-	return max(ui.width, 1)
-}
-
-// rebuildTabs makes one button per mode, the active one
-// marked.
-func (s *Surface) rebuildTabs(names []string, activeMode int) {
-	v := s.cur.views
-	v.tabs.Clear()
-	for i, name := range names {
-		label := name
-		if shown, ok := s.cur.ui.displayNames[name]; ok {
-			label = shown
-		}
-		b := widget.NewButton(widget.NewLabel(s.d.Font, fontPx(), label, 0), 0, 0)
-		b.AddClass("launcher-tab")
-		if i == activeMode {
-			b.AddClass("active")
-			b.SetState(widget.StateChecked, true)
-		}
-		index := i
-		b.OnClick = func() { s.send(cmdModeTo{index: index}) }
-		v.tabs.Append(b, true)
-	}
-}
-
-// messageMarkup is the message line's markup in lys-ui's dialect: the
-// Pango markup translated, its weights and colors kept; markup that
-// does not parse shows as the literal text, like a row's.
-func messageMarkup(markup string) string {
-	if translated, ok := pango.Translate(markup); ok {
-		return translated
-	}
-	return pango.Escape(markup)
+	return max(ui.look.Width, 1)
 }
 
 // closeHistory closes off the loop, behind whatever the session's actor is

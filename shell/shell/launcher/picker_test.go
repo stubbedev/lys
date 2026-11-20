@@ -136,8 +136,8 @@ func TestPickerListsEveryImageAndTheFilterNarrowsByName(t *testing.T) {
 		t.Errorf("forest shows %v", p.shown)
 	}
 	p.filter("nothing-like-it")
-	if len(p.shown) != 0 || !p.chrome.message.Visible() {
-		t.Errorf("an unmatched filter shows %d images, message %t", len(p.shown), p.chrome.message.Visible())
+	if len(p.shown) != 0 || !p.chrome.Message.Visible() {
+		t.Errorf("an unmatched filter shows %d images, message %t", len(p.shown), p.chrome.Message.Visible())
 	}
 }
 
@@ -245,9 +245,9 @@ func TestPickerAFailedCommitSaysTheErrorAsText(t *testing.T) {
 	h.walls.commitErr = errors.New("write <b>a.png</b>: disk full")
 	p := h.openPicker()
 	h.press("Return")
-	markup := p.chrome.message.Markup()
-	if !p.chrome.message.Visible() || !strings.Contains(markup, "&lt;b&gt;a.png&lt;/b&gt;: disk full") || strings.Contains(markup, "<b>") {
-		t.Errorf("the failed commit shows %q (visible %t), want the error as text", markup, p.chrome.message.Visible())
+	markup := p.chrome.Message.Markup()
+	if !p.chrome.Message.Visible() || !strings.Contains(markup, "&lt;b&gt;a.png&lt;/b&gt;: disk full") || strings.Contains(markup, "<b>") {
+		t.Errorf("the failed commit shows %q (visible %t), want the error as text", markup, p.chrome.Message.Visible())
 	}
 	if h.s.picker != p {
 		t.Error("the failed commit closed the picker")
@@ -259,9 +259,9 @@ func TestPickerAFailedSaveSaysTheErrorAndStaysOpen(t *testing.T) {
 	p := h.openPicker()
 	h.press("Return")
 	h.walls.save(t, errors.New("config: save: write <runtime.yaml>: read-only file system"))
-	markup := p.chrome.message.Markup()
-	if !p.chrome.message.Visible() || !strings.Contains(markup, "&lt;runtime.yaml&gt;: read-only file system") {
-		t.Errorf("the failed save shows %q (visible %t), want the error as text", markup, p.chrome.message.Visible())
+	markup := p.chrome.Message.Markup()
+	if !p.chrome.Message.Visible() || !strings.Contains(markup, "&lt;runtime.yaml&gt;: read-only file system") {
+		t.Errorf("the failed save shows %q (visible %t), want the error as text", markup, p.chrome.Message.Visible())
 	}
 	if h.s.picker != p || h.walls.ended != 0 {
 		t.Errorf("the failed save closed the picker: %d preview ends", h.walls.ended)

@@ -10,6 +10,7 @@ import (
 	"github.com/rivo/uniseg"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -99,7 +100,7 @@ func (s *Surface) openPanel(sess *launcheripc.Session) {
 	p.win = win
 	p.v.list.setScale(win.Scale())
 	p.stopScale = win.OnScaleChanged(p.v.list.setScale)
-	if err := win.SetFocus(p.v.entry); err != nil {
+	if err := win.SetFocus(p.v.Entry); err != nil {
 		log.Printf("launcher: cannot focus the entry: %v", err)
 		p.finish(search.Cancel{})
 		return
@@ -122,7 +123,7 @@ func (s *Surface) openPanel(sess *launcheripc.Session) {
 	if cfg.Launcher.History.Enable && s.d.OpenFrecency != nil {
 		openFrecency = s.openFrecency
 	}
-	p.v.entry.SetPlaceholder(root.Placeholder)
+	p.v.Entry.SetPlaceholder(root.Placeholder)
 	p.eng = search.Start(s.work.Go, root, openFrecency, panelSink{p}, s.d.Invoke)
 	p.v.motion.open(cfg.Animations)
 }
@@ -211,7 +212,7 @@ func (p *panel) results(f search.Frame) {
 	if p.eng != nil {
 		p.eng.Recycle(prev.Rows)
 	}
-	if p.acceptArmed && f.Query == p.v.entry.Text() {
+	if p.acceptArmed && f.Query == p.v.Entry.Text() {
 		p.acceptArmed = false
 		p.activate(p.accept)
 	}
@@ -337,14 +338,14 @@ func (p *panel) activate(action int) {
 	if p.eng == nil {
 		return
 	}
-	if p.frame.Query != p.v.entry.Text() {
+	if p.frame.Query != p.v.Entry.Text() {
 		p.accept, p.acceptArmed = action, true
 		return
 	}
 	row, ok := p.selected()
 	if !ok {
 		if action == 0 && p.frame.CanSubmit {
-			p.eng.Submit(p.v.entry.Text())
+			p.eng.Submit(p.v.Entry.Text())
 		}
 		return
 	}
@@ -360,7 +361,7 @@ func (p *panel) tab() {
 		return
 	}
 	if c := row.Entry.Completion; c != "" {
-		p.v.entry.SetText(c)
+		p.v.Entry.SetText(c)
 		return
 	}
 	p.eng.ShowActions(row.Entry.ID)
@@ -398,7 +399,7 @@ func (p *panel) keyCaptured(press app.Accel) bool {
 	case panelBack:
 		p.eng.Back()
 	case panelBackspace:
-		if p.depth == 0 || p.v.entry.Text() != "" {
+		if p.depth == 0 || p.v.Entry.Text() != "" {
 			return false
 		}
 		p.eng.Back()
@@ -482,7 +483,7 @@ func (p *panel) finish(o search.Outcome) {
 		return
 	}
 	p.closing = true
-	frame := launcheripc.ServerFrame{Type: launcheripc.FrameResult, Filter: p.v.entry.Text()}
+	frame := launcheripc.ServerFrame{Type: launcheripc.FrameResult, Filter: p.v.Entry.Text()}
 	switch v := o.(type) {
 	case search.Cancel:
 		frame = launcheripc.ServerFrame{Type: launcheripc.FrameCancelled, Code: 1}
@@ -597,34 +598,31 @@ func lookupPanelKey(press app.Accel) (panelKey, bool) {
 
 // hintFor is the footer's text: the default action, the second, how to
 // open the actions, and how to leave.
-func hintFor(p *panel, hints []footerHint) []footerHint {
+func hintFor(p *panel, hints []launcherview.FooterHint) []launcherview.FooterHint {
 	row, ok := p.selected()
 	switch {
 	case ok && len(p.actions) > 0:
-		hints = append(hints, footerHint{"Enter", p.actions[0].Title})
+		hints = append(hints, launcherview.FooterHint{Key: "Enter", Does: p.actions[0].Title})
 		if len(p.actions) > 1 {
-			hints = append(hints, footerHint{"Ctrl+Enter", p.actions[1].Title}, footerHint{"Ctrl+K", i18n.T("launcher-footer-actions")})
+			hints = append(hints, launcherview.FooterHint{Key: "Ctrl+Enter", Does: p.actions[1].Title}, launcherview.FooterHint{Key: "Ctrl+K", Does: i18n.T("launcher-footer-actions")})
 		}
 		if row.Entry.Completion != "" {
-			hints = append(hints, footerHint{"Tab", i18n.T("launcher-footer-complete")})
+			hints = append(hints, launcherview.FooterHint{Key: "Tab", Does: i18n.T("launcher-footer-complete")})
 		}
 	case !ok && p.frame.CanSubmit && p.frame.SubmitTitle != "":
-		hints = append(hints, footerHint{"Enter", p.frame.SubmitTitle})
+		hints = append(hints, launcherview.FooterHint{Key: "Enter", Does: p.frame.SubmitTitle})
 	}
 	if p.depth > 0 {
-		return append(hints, footerHint{"Esc", i18n.T("launcher-footer-back")})
+		return append(hints, launcherview.FooterHint{Key: "Esc", Does: i18n.T("launcher-footer-back")})
 	}
-	return append(hints, closeHint())
+	return append(hints, launcherview.CloseHint())
 }
-
-// footerHint is one key and what it does.
-type footerHint struct{ key, does string }
 
 // appendHighlightMarkup appends a title in lys-ui markup to dst, the
 // positions in grapheme clusters marked with open.
 func appendHighlightMarkup(dst []byte, title string, positions []int, open string) []byte {
 	if len(positions) == 0 {
-		return appendEscaped(dst, title)
+		return launcherview.AppendEscaped(dst, title)
 	}
 	marked := false
 	next := 0
@@ -644,32 +642,10 @@ func appendHighlightMarkup(dst []byte, title string, positions []int, open strin
 			}
 			marked = hit
 		}
-		dst = appendEscaped(dst, cluster)
+		dst = launcherview.AppendEscaped(dst, cluster)
 	}
 	if marked {
 		dst = append(dst, "</span>"...)
-	}
-	return dst
-}
-
-// appendEscaped appends text escaped for lys-ui markup, as pango.Escape
-// does, with no intermediate string.
-func appendEscaped(dst []byte, text string) []byte {
-	for i := range len(text) {
-		switch c := text[i]; c {
-		case '&':
-			dst = append(dst, "&amp;"...)
-		case '<':
-			dst = append(dst, "&lt;"...)
-		case '>':
-			dst = append(dst, "&gt;"...)
-		case '\'':
-			dst = append(dst, "&apos;"...)
-		case '"':
-			dst = append(dst, "&quot;"...)
-		default:
-			dst = append(dst, c)
-		}
 	}
 	return dst
 }

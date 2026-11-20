@@ -5,46 +5,14 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 )
-
-// The launcher's measures, in logical pixels at scale 1: every session is
-// these, whichever mode it shows.
-const (
-	// panelTopFraction is how far down the output the field sits: above
-	// centre, so results grow into the room below without the field
-	// moving.
-	panelTopFraction = 0.22
-	panelEdgeGap     = 32
-	inputRowHeight   = 62
-	footerHeight     = 36
-	searchRowHeight  = 46
-	headerRowHeight  = 28
-	searchIconSize   = 26
-	entryFontFactor  = 1.45
-	// glyphFontFactor sizes an emoji to read as large as an icon box.
-	glyphFontFactor = 0.8
-	rowEdgeGap      = 8
-	rowHalfGap      = 2
-)
-
-// scaledPx is the styling scale's measure of logical pixels.
-func scaledPx(cfg *config.Config) func(int) int {
-	scale := float64(cfg.Styling.Scale)
-	return func(v int) int { return int(math.Round(float64(v) * scale)) }
-}
-
-// launcherWidthPx is launcher.width in pixels.
-func launcherWidthPx(cfg *config.Config) int {
-	return int(math.Round(cfg.Launcher.Width.ResolvePx(config.LauncherWidthBaseRem*16, float64(cfg.Styling.Scale))))
-}
 
 // panelFrame is what every launcher session sits in: a surface covering
 // the output, the rounded panel on it, the springs moving the panel, and
@@ -64,8 +32,7 @@ type panelFrame struct {
 
 func newPanelFrame(d Deps, content *widget.Box, w, h int, win func() Window) *panelFrame {
 	f := &panelFrame{win: win, content: content}
-	f.box = widget.NewBox(widget.Column, 0, 0)
-	f.box.AddClass("launcher-panel")
+	f.box = launcherview.NewPanelBox()
 	f.box.Append(&panelStage{f: f}, true)
 	f.root = &panelRoot{f: f}
 	f.root.SetElement("window")
@@ -104,154 +71,6 @@ func panelLayer(translucent bool, output *app.Output, f *panelFrame, keys func(a
 		},
 		OnClosed: closed,
 	}
-}
-
-// placePanel is where a location puts a panel: centre is the search
-// panel's place, above the middle with its top fixed so it grows down;
-// the rest sit against their edges, offset by x and y (a positive x moves
-// right, a positive y down).
-func placePanel(out render.Rect, w, h int, loc config.LauncherLocation, x, y int) render.Rect {
-	r := render.Rect{X: out.X + (out.W-w)/2, Y: out.Y + (out.H-h)/2, W: w, H: h}
-	switch loc {
-	case config.LauncherCenter:
-		r.Y = out.Y + int(float64(out.H)*panelTopFraction)
-		return r
-	case config.LauncherNorth, config.LauncherNorthEast, config.LauncherNorthWest:
-		r.Y = out.Y + y
-	case config.LauncherSouth, config.LauncherSouthEast, config.LauncherSouthWest:
-		r.Y = out.Y + out.H - h + y
-	}
-	switch loc {
-	case config.LauncherWest, config.LauncherNorthWest, config.LauncherSouthWest:
-		r.X = out.X + x
-	case config.LauncherEast, config.LauncherNorthEast, config.LauncherSouthEast:
-		r.X = out.X + out.W - w + x
-	}
-	return r
-}
-
-// panelWidthIn is width held inside an output, whose size may not be known
-// yet.
-func panelWidthIn(out render.Rect, width int) int {
-	if out.W > 0 {
-		width = min(width, out.W-2*panelEdgeGap)
-	}
-	return max(width, 1)
-}
-
-// panelChrome is every session's field and footer: the search icon, the
-// chip (the level's title or the prompt), the entry, the message and the
-// separator above the list, the notice and key hints below it.
-type panelChrome struct {
-	input      *widget.Box
-	searchIcon *asyncIcon
-	chip       *widget.Label
-	entry      *widget.Entry
-	message    *widget.RichLabel
-	sep        *widget.Box
-	footer     *widget.Box
-	notice     *widget.Label
-	hints      *widget.RichLabel
-	hintBuf    []footerHint
-	markup     []byte
-}
-
-func newPanelChrome(d Deps, cfg *config.Config, changed func(string)) *panelChrome {
-	px := scaledPx(cfg)
-	body := fontPx()
-	c := &panelChrome{}
-	c.input = widget.NewBox(widget.Row, px(10), 0)
-	c.input.AddClass("launcher-search-input")
-	c.input.SetSizeRequest(0, px(inputRowHeight))
-	c.input.SetPadding(render.Insets{Left: px(18), Right: px(18)})
-	c.searchIcon = newAsyncIcon(px(22), "launcher-search-icon")
-	c.input.AppendAligned(c.searchIcon.slot, false, widget.AlignCenter)
-	c.chip = widget.NewLabel(d.Font, body, "", 0)
-	c.chip.AddClass("launcher-search-chip")
-	c.chip.SetVisible(false)
-	c.input.AppendAligned(c.chip, false, widget.AlignCenter)
-	c.entry = widget.NewEntry(d.Font, math.Round(body*entryFontFactor), 0)
-	c.entry.AddClass("launcher-search-entry")
-	c.entry.OnChanged = changed
-	c.input.AppendAligned(c.entry, true, widget.AlignCenter)
-
-	c.message = widget.NewRichLabel(d.Font, body, "", 0)
-	c.message.AddClass("launcher-search-message", css.DimLabel)
-	c.message.SetMargin(render.Insets{Left: px(20), Right: px(20), Bottom: px(8)})
-	c.message.SetVariants(d.Variants)
-	c.message.SetWrap(true)
-	c.message.SetVisible(false)
-
-	c.sep = widget.NewBox(widget.Column, 0, 0)
-	c.sep.AddClass("launcher-search-separator")
-	c.sep.SetSizeRequest(0, 1)
-	c.sep.SetVisible(false)
-
-	c.footer = widget.NewBox(widget.Row, px(12), 0)
-	c.footer.AddClass("launcher-search-footer")
-	c.footer.SetSizeRequest(0, px(footerHeight))
-	c.footer.SetPadding(render.Insets{Left: px(16), Right: px(16)})
-	c.notice = widget.NewLabel(d.Font, widgetsSmallPx(), "", 0)
-	c.notice.AddClass("launcher-search-notice")
-	c.notice.SetEllipsize(widget.EllipsizeEnd)
-	c.footer.AppendAligned(c.notice, true, widget.AlignCenter)
-	c.hints = widget.NewRichLabel(d.Font, widgetsSmallPx(), "", 0)
-	c.hints.AddClass("launcher-search-hints", css.DimLabel)
-	c.hints.SetVariants(d.Variants)
-	c.footer.AppendAligned(c.hints, false, widget.AlignCenter)
-	c.footer.SetVisible(false)
-	return c
-}
-
-// showHints writes the footer's hints from hintBuf.
-func (c *panelChrome) showHints() {
-	b := c.markup[:0]
-	for i, h := range c.hintBuf {
-		if i > 0 {
-			b = append(b, "     "...)
-		}
-		b = append(b, "<b>"...)
-		b = appendEscaped(b, h.key)
-		b = append(b, "</b> "...)
-		b = appendEscaped(b, h.does)
-	}
-	c.markup = b
-	// The comparison allocates nothing, and the same footer is the usual case.
-	if string(b) != c.hints.Markup() {
-		c.hints.SetMarkup(string(b))
-	}
-}
-
-// setMessage shows the message in markup, hidden without one.
-func (c *panelChrome) setMessage(markup string) {
-	if markup == "" {
-		c.message.SetVisible(false)
-		return
-	}
-	c.message.SetMarkup(messageMarkup(markup))
-	c.message.SetVisible(true)
-}
-
-// setChip shows the title or prompt, hidden when empty.
-func (c *panelChrome) setChip(text string) {
-	c.chip.SetText(text)
-	c.chip.SetVisible(text != "")
-}
-
-// closeHint is the footer's way out of a level.
-func closeHint() footerHint { return footerHint{"Esc", i18n.T("launcher-footer-close")} }
-
-func rowMargin(px func(int) int) render.Insets {
-	return render.Insets{Top: px(rowHalfGap), Bottom: px(rowHalfGap), Left: px(rowEdgeGap), Right: px(rowEdgeGap)}
-}
-
-// newRowBox is a list row's box, in any session.
-func newRowBox() *widget.Box {
-	th := widget.Current()
-	r := widget.NewBox(widget.Row, th.Spacing+4, 0)
-	r.SetPadding(render.Insets{Left: th.Padding + 6, Right: th.Padding + 6})
-	r.AddClass("launcher-search-row")
-	return r
 }
 
 // panelRoot fills the output: transparent, the panel laid where the

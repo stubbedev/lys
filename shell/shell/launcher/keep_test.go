@@ -24,7 +24,7 @@ func TestTheNextPanelReusesTheViewsClearedOfTheLastOne(t *testing.T) {
 	if next.v.p != next {
 		t.Error("the views still answer to the first panel")
 	}
-	if got := next.v.entry.Text(); got != "" {
+	if got := next.v.Entry.Text(); got != "" {
 		t.Errorf("field = %q, want it empty", got)
 	}
 	h.typed(next, "issues")

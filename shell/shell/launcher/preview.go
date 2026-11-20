@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -78,7 +79,7 @@ func newPreviewPane(font render.Font, px func(int) int, height int) *previewPane
 	p.image = widget.NewImage(nil)
 	p.image.SetScale(widget.ImageFit)
 	p.image.AddClass("launcher-preview-image")
-	p.code = widgets.NewCodeView(font, widgetsSmallPx())
+	p.code = widgets.NewCodeView(font, launcherview.SmallPx())
 	p.facts = widget.NewBox(widget.Column, px(4), 0)
 	p.facts.AddClass("launcher-preview-facts")
 	p.summary = newRowSummary(font, px)
@@ -119,9 +120,9 @@ func (p *previewPane) show(facts []engine.PreviewFact, c engine.PreviewContent, 
 func (p *previewPane) showFacts(facts []engine.PreviewFact) {
 	for len(p.rows) < len(facts) {
 		r := factRow{box: widget.NewBox(widget.Row, 8, 0)}
-		r.label = widget.NewLabel(p.font, widgetsSmallPx(), "", 0)
+		r.label = widget.NewLabel(p.font, launcherview.SmallPx(), "", 0)
 		r.label.AddClass("launcher-preview-fact-label", css.DimLabel)
-		r.value = widget.NewLabel(p.font, widgetsSmallPx(), "", 0)
+		r.value = widget.NewLabel(p.font, launcherview.SmallPx(), "", 0)
 		r.value.AddClass("launcher-preview-fact-value")
 		r.value.SetWrap(true)
 		r.box.AppendAligned(r.label, false, widget.AlignStart)
@@ -140,20 +141,17 @@ func (p *previewPane) showFacts(facts []engine.PreviewFact) {
 }
 
 // showSummary shows what a row says of itself, in place of content.
-func (p *previewPane) showSummary(bind func(*asyncIcon, string), icon, glyph, title, subtitle string) {
+func (p *previewPane) showSummary(bind func(*launcherview.AsyncIcon, string), icon, glyph, title, subtitle string) {
 	p.show(nil, engine.PreviewContent{}, nil)
 	p.summary.box.SetVisible(true)
 	p.summary.show(bind, icon, glyph, title, subtitle)
 }
 
-// widgetsSmallPx is the small text size: footers, subtitles, facts.
-func widgetsSmallPx() float64 { return math.Round(fontPx() * 0.85) }
-
 // rowSummary is the pane for a row with nothing to load: its picture
 // large, its title and its subtitle.
 type rowSummary struct {
 	box      *widget.Box
-	icon     *asyncIcon
+	icon     *launcherview.AsyncIcon
 	glyph    *widget.Label
 	title    *widget.Label
 	subtitle *widget.Label
@@ -163,16 +161,16 @@ func newRowSummary(font render.Font, px func(int) int) *rowSummary {
 	s := &rowSummary{box: widget.NewBox(widget.Column, px(8), 0)}
 	s.box.AddClass("launcher-preview-summary")
 	s.box.SetPadding(render.Insets{Top: px(24)})
-	s.icon = newAsyncIcon(px(heroIconSize), "launcher-preview-icon")
-	s.box.AppendAligned(s.icon.slot, false, widget.AlignCenter)
-	s.glyph = widget.NewLabel(font, float64(px(heroIconSize))*glyphFontFactor, "", 0)
+	s.icon = launcherview.NewAsyncIcon(px(heroIconSize), "launcher-preview-icon")
+	s.box.AppendAligned(s.icon.Slot, false, widget.AlignCenter)
+	s.glyph = widget.NewLabel(font, float64(px(heroIconSize))*launcherview.GlyphFontFactor, "", 0)
 	s.box.AppendAligned(s.glyph, false, widget.AlignCenter)
-	s.title = widget.NewLabel(font, math.Round(fontPx()*1.15), "", 0)
+	s.title = widget.NewLabel(font, math.Round(launcherview.FontPx()*1.15), "", 0)
 	s.title.AddClass("launcher-preview-title")
 	s.title.SetWrap(true)
 	s.title.SetAlignment(render.AlignCenter)
 	s.box.Append(s.title, false)
-	s.subtitle = widget.NewLabel(font, widgetsSmallPx(), "", 0)
+	s.subtitle = widget.NewLabel(font, launcherview.SmallPx(), "", 0)
 	s.subtitle.AddClass(css.DimLabel)
 	s.subtitle.SetWrap(true)
 	s.subtitle.SetAlignment(render.AlignCenter)
@@ -180,10 +178,10 @@ func newRowSummary(font render.Font, px func(int) int) *rowSummary {
 	return s
 }
 
-func (s *rowSummary) show(bind func(*asyncIcon, string), icon, glyph, title, subtitle string) {
+func (s *rowSummary) show(bind func(*launcherview.AsyncIcon, string), icon, glyph, title, subtitle string) {
 	s.glyph.SetVisible(glyph != "")
 	s.glyph.SetText(glyph)
-	s.icon.slot.SetVisible(glyph == "")
+	s.icon.Slot.SetVisible(glyph == "")
 	if glyph == "" {
 		bind(s.icon, icon)
 	}

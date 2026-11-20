@@ -67,16 +67,16 @@ func (h *gridHarness) press(spec string) {
 func TestTheEmojiGridMovesInTwoDimensionsAndNamesTheSelection(t *testing.T) {
 	h := newGridHarness(t, config.SkinToneNone)
 	g := h.s.emojiGrid
-	if len(g.shown) != 31 || g.chrome.notice.Text() != "thumbs up" {
-		t.Fatalf("%d shown, footer %q", len(g.shown), g.chrome.notice.Text())
+	if len(g.shown) != 31 || g.chrome.Notice.Text() != "thumbs up" {
+		t.Fatalf("%d shown, footer %q", len(g.shown), g.chrome.Notice.Text())
 	}
 	h.press("Right")
-	if g.grid.Selected() != 1 || g.chrome.notice.Text() != "face 00" {
-		t.Errorf("right: %d %q", g.grid.Selected(), g.chrome.notice.Text())
+	if g.grid.Selected() != 1 || g.chrome.Notice.Text() != "face 00" {
+		t.Errorf("right: %d %q", g.grid.Selected(), g.chrome.Notice.Text())
 	}
 	h.press("Down")
-	if g.grid.Selected() != 1+emojiColumns || g.chrome.notice.Text() != "face 10" {
-		t.Errorf("down moves a row of %d: %d %q", emojiColumns, g.grid.Selected(), g.chrome.notice.Text())
+	if g.grid.Selected() != 1+emojiColumns || g.chrome.Notice.Text() != "face 10" {
+		t.Errorf("down moves a row of %d: %d %q", emojiColumns, g.grid.Selected(), g.chrome.Notice.Text())
 	}
 	h.press("Left")
 	h.press("Up")
@@ -91,16 +91,16 @@ func TestTheEmojiGridFiltersByKeywordAndTypesThePickInTone(t *testing.T) {
 	if got := (emojiModel{g}).Row(0); got == nil {
 		t.Fatal("no cell")
 	}
-	g.chrome.entry.SetText("launch")
-	if len(g.shown) != 1 || g.chrome.notice.Text() != "rocket" {
-		t.Fatalf("launch shows %d, footer %q", len(g.shown), g.chrome.notice.Text())
+	g.chrome.Entry.SetText("launch")
+	if len(g.shown) != 1 || g.chrome.Notice.Text() != "rocket" {
+		t.Fatalf("launch shows %d, footer %q", len(g.shown), g.chrome.Notice.Text())
 	}
-	g.chrome.entry.SetText("nothing like it")
-	if len(g.shown) != 0 || !g.chrome.message.Visible() || g.chrome.notice.Text() != "" {
-		t.Errorf("no match: %d shown, message %v, footer %q", len(g.shown), g.chrome.message.Visible(), g.chrome.notice.Text())
+	g.chrome.Entry.SetText("nothing like it")
+	if len(g.shown) != 0 || !g.chrome.Message.Visible() || g.chrome.Notice.Text() != "" {
+		t.Errorf("no match: %d shown, message %v, footer %q", len(g.shown), g.chrome.Message.Visible(), g.chrome.Notice.Text())
 	}
 	h.press("Return")
-	g.chrome.entry.SetText("thumbs")
+	g.chrome.Entry.SetText("thumbs")
 	win := h.windows[0]
 	h.press("Return")
 	f := h.frame(h.reply)

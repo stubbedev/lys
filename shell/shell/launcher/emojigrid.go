@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -40,7 +41,7 @@ type emojiGrid struct {
 	sess    *launcheripc.Session
 	win     Window
 	frame   *panelFrame
-	chrome  *panelChrome
+	chrome  *launcherview.Chrome
 	grid    *widget.GridView
 	emojis  []modes.Emoji
 	hay     [][]rune
@@ -75,25 +76,25 @@ func (s *Surface) openEmojiGrid(sess *launcheripc.Session) {
 		return
 	}
 	g.win = win
-	if err := win.SetFocus(g.chrome.entry); err != nil {
+	if err := win.SetFocus(g.chrome.Entry); err != nil {
 		log.Printf("launcher: cannot focus the entry: %v", err)
 		g.finish("", false)
 		return
 	}
 	if sess.Options.Filter != nil {
-		g.chrome.entry.SetText(*sess.Options.Filter)
+		g.chrome.Entry.SetText(*sess.Options.Filter)
 	}
-	g.filter(g.chrome.entry.Text())
+	g.filter(g.chrome.Entry.Text())
 	g.frame.motion.open(cfg.Animations)
 }
 
 func (g *emojiGrid) build(cfg *config.Config) {
-	px := scaledPx(cfg)
+	px := launcherview.ScaledPx(cfg)
 	cell := px(emojiCell)
 	g.glyphPx = math.Round(emojiGlyphPx * float64(cfg.Styling.Scale))
-	g.chrome = newPanelChrome(g.s.d, cfg, g.filter)
-	g.chrome.entry.SetPlaceholder(i18n.T("launcher-placeholder-filter"))
-	g.chrome.setChip(i18n.T("launcher-picker-emoji"))
+	g.chrome = launcherview.NewChrome(g.s.d.Font, g.s.d.Variants, cfg, g.filter)
+	g.chrome.Entry.SetPlaceholder(i18n.T("launcher-placeholder-filter"))
+	g.chrome.SetChip(i18n.T("launcher-picker-emoji"))
 	g.grid = widget.NewGridView(emojiModel{g}, cell, cell)
 	g.grid.SetMinColumns(emojiColumns)
 	g.grid.SetMaxColumns(emojiColumns)
@@ -101,22 +102,23 @@ func (g *emojiGrid) build(cfg *config.Config) {
 	g.grid.AddClass("launcher-emoji-grid")
 	g.grid.OnSelect = g.selected
 	g.grid.OnActivate = func(int) { g.accept(false) }
-	g.chrome.hintBuf = append(g.chrome.hintBuf[:0],
-		footerHint{"Enter", i18n.T("launcher-action-type")},
-		footerHint{"Ctrl+Enter", i18n.T("launcher-action-copy")},
-		closeHint())
-	g.chrome.showHints()
-	g.chrome.footer.SetVisible(true)
+	g.chrome.ShowHints(
+		launcherview.FooterHint{Key: "Enter", Does: i18n.T("launcher-action-type")},
+		launcherview.FooterHint{Key: "Ctrl+Enter", Does: i18n.T("launcher-action-copy")},
+		launcherview.CloseHint())
+	g.chrome.Footer.SetVisible(true)
 	content := widget.NewBox(widget.Column, 0, 0)
-	content.Append(g.chrome.input, false)
-	content.Append(g.chrome.message, false)
+	content.Append(g.chrome.Input, false)
+	content.Append(g.chrome.Message, false)
 	content.Append(g.grid, true)
-	content.Append(g.chrome.footer, false)
-	width := emojiColumns*cell + px(2*rowEdgeGap)
-	height := int(math.Round(inputRowHeight*float64(cfg.Styling.Scale))) + emojiLines*cell + int(math.Round(footerHeight*float64(cfg.Styling.Scale)))
+	content.Append(g.chrome.Footer, false)
+	width := emojiColumns*cell + px(2*launcherview.RowEdgeGap)
+	height := px(launcherview.InputRowHeight) + emojiLines*cell + px(launcherview.FooterHeight)
 	g.frame = newPanelFrame(g.s.d, content, width, height, func() Window { return g.win })
-	g.frame.target = func(out render.Rect) (int, int) { return panelWidthIn(out, width), height }
-	g.frame.place = func(out render.Rect, w, h int) render.Rect { return placePanel(out, w, h, config.LauncherCenter, 0, 0) }
+	g.frame.target = func(out render.Rect) (int, int) { return launcherview.WidthIn(out, width), height }
+	g.frame.place = func(out render.Rect, w, h int) render.Rect {
+		return launcherview.Place(out, w, h, config.LauncherCenter, 0, 0)
+	}
 }
 
 // filter narrows the grid to the emoji whose name or keywords match text.
@@ -138,14 +140,14 @@ func (g *emojiGrid) filter(text string) {
 	g.grid.Reset()
 	switch {
 	case len(g.emojis) == 0:
-		g.chrome.setMessage(i18n.T("launcher-emoji-none"))
+		g.chrome.SetMessage(i18n.T("launcher-emoji-none"))
 	case len(g.shown) == 0:
-		g.chrome.setMessage(i18n.T("launcher-emoji-no-match"))
+		g.chrome.SetMessage(i18n.T("launcher-emoji-no-match"))
 	default:
-		g.chrome.setMessage("")
+		g.chrome.SetMessage("")
 	}
 	if len(g.shown) == 0 {
-		g.chrome.notice.SetText("")
+		g.chrome.Notice.SetText("")
 		return
 	}
 	g.grid.Select(0)
@@ -163,7 +165,7 @@ func (g *emojiGrid) emoji(pos int) (modes.Emoji, bool) {
 // selected names the selection in the footer.
 func (g *emojiGrid) selected(pos int) {
 	if e, ok := g.emoji(pos); ok {
-		g.chrome.notice.SetText(e.Name)
+		g.chrome.Notice.SetText(e.Name)
 	}
 }
 

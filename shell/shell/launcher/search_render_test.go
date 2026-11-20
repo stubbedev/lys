@@ -20,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/desktop/icons"
 	"github.com/stubbedev/lys/desktop/resources"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
@@ -163,7 +164,7 @@ func typingWorkload(t *testing.T, observe func(answer, paint time.Duration)) {
 	for range 12 {
 		for _, q := range queries {
 			start := time.Now()
-			p.v.entry.SetText(q)
+			p.v.Entry.SetText(q)
 			for p.frame.Query != q {
 				h.loop.pump()
 				if time.Since(start) > 10*time.Second {
@@ -325,7 +326,7 @@ func TestWholeKeystrokeAllocations(t *testing.T) {
 	paintPanel(p, data)
 	shown := 0
 	for _, r := range p.v.list.pool {
-		if r.icon.shown != "" {
+		if r.icon.Shown() != "" {
 			shown++
 		}
 	}
@@ -581,25 +582,25 @@ func highlightRect(t *testing.T, data []byte, list render.Rect, rowY int) render
 
 func assertRoomBeside(t *testing.T, what string, hl, list render.Rect) {
 	t.Helper()
-	if got := hl.X - list.X; got != rowEdgeGap {
-		t.Errorf("%s: highlight %v is %dpx from the left of list %v, want %d", what, hl, got, list, rowEdgeGap)
+	if got := hl.X - list.X; got != launcherview.RowEdgeGap {
+		t.Errorf("%s: highlight %v is %dpx from the left of list %v, want %d", what, hl, got, list, launcherview.RowEdgeGap)
 	}
-	if got := list.X + list.W - (hl.X + hl.W); got != rowEdgeGap {
-		t.Errorf("%s: highlight %v is %dpx from the right of list %v, want %d", what, hl, got, list, rowEdgeGap)
+	if got := list.X + list.W - (hl.X + hl.W); got != launcherview.RowEdgeGap {
+		t.Errorf("%s: highlight %v is %dpx from the right of list %v, want %d", what, hl, got, list, launcherview.RowEdgeGap)
 	}
 }
 
 func assertRoomAbove(t *testing.T, what string, hl, list render.Rect) {
 	t.Helper()
-	if got := hl.Y - list.Y; got != rowEdgeGap {
-		t.Errorf("%s: highlight %v is %dpx from the top of list %v, want %d", what, hl, got, list, rowEdgeGap)
+	if got := hl.Y - list.Y; got != launcherview.RowEdgeGap {
+		t.Errorf("%s: highlight %v is %dpx from the top of list %v, want %d", what, hl, got, list, launcherview.RowEdgeGap)
 	}
 }
 
 func assertRoomBelow(t *testing.T, what string, hl, list render.Rect) {
 	t.Helper()
-	if got := list.Y + list.H - (hl.Y + hl.H); got != rowEdgeGap {
-		t.Errorf("%s: highlight %v is %dpx from the bottom of list %v, want %d", what, hl, got, list, rowEdgeGap)
+	if got := list.Y + list.H - (hl.Y + hl.H); got != launcherview.RowEdgeGap {
+		t.Errorf("%s: highlight %v is %dpx from the bottom of list %v, want %d", what, hl, got, list, launcherview.RowEdgeGap)
 	}
 }
 
@@ -685,8 +686,8 @@ func TestSearchHighlightsLeaveAGapBetweenThem(t *testing.T) {
 	first, _ := p.selectedHighlight(t, data)
 	h.key("Down")
 	second, list := p.selectedHighlight(t, data)
-	if got := second.Y - (first.Y + first.H); got != 2*rowHalfGap {
-		t.Errorf("highlights %v and %v are %dpx apart, want %d", first, second, got, 2*rowHalfGap)
+	if got := second.Y - (first.Y + first.H); got != 2*launcherview.RowHalfGap {
+		t.Errorf("highlights %v and %v are %dpx apart, want %d", first, second, got, 2*launcherview.RowHalfGap)
 	}
 	x := first.X + 12
 	if pixelAt(data, x, first.Y+first.H/2) != pixelAt(data, list.X+1, first.Y+first.H/2) {
@@ -707,12 +708,8 @@ func rofiHighlight(t *testing.T, h *harness, data []byte) (hl, list render.Rect)
 	t.Helper()
 	v := h.s.cur.views
 	paintFrame(v.panelFrame, data)
-	row, ok := v.list.rows[h.s.sel].(*launcherRow)
-	if !ok {
-		t.Fatalf("row %d is not laid out", h.s.sel)
-	}
-	rb := row.Bounds()
-	return highlightRect(t, data, v.list.Bounds(), rb.Y+rb.H/2), v.list.Bounds()
+	rb := listRow(t, v, h.s.sel).Bounds()
+	return highlightRect(t, data, v.List.Bounds(), rb.Y+rb.H/2), v.List.Bounds()
 }
 
 func TestARofiHighlightHasRoomOnEverySideThroughAScroll(t *testing.T) {
@@ -744,9 +741,9 @@ func TestARofiListWithNoRowsKeepsNoRoom(t *testing.T) {
 	h.open(dmenu(), false, "alpha")
 	h.until("the rows", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
 	v := h.s.cur.views
-	v.entry.SetText("nothing matches this")
+	v.Entry.SetText("nothing matches this")
 	h.until("no rows", func() bool { return h.s.model.len() == 0 })
-	if got := v.list.Measure(widget.Column, 0).Nat; got != 0 {
+	if got := v.List.Measure(widget.Column, 0).Nat; got != 0 {
 		t.Errorf("an empty list wants %dpx", got)
 	}
 }

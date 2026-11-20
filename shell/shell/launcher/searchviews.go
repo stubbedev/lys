@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/anim"
@@ -20,18 +21,19 @@ import (
 // handed from one panel to the next.
 type panelViews struct {
 	*panelFrame
-	*panelChrome
+	*launcherview.Chrome
 	// p is the panel showing them, nil while none does.
 	p   *panel
 	cfg *config.Config
 	// hl is the query's copy for highlighting, on the UI loop.
-	hl    engine.FuzzyQuery
-	body  *widget.Box
-	list  *searchList
-	pane  *previewPane
-	font  render.Font
-	scale float64
-	lines int
+	hl      engine.FuzzyQuery
+	body    *widget.Box
+	list    *searchList
+	pane    *previewPane
+	font    render.Font
+	scale   float64
+	lines   int
+	hintBuf []launcherview.FooterHint
 	// baseW is the width without the preview pane.
 	baseW       int
 	withPreview bool
@@ -39,31 +41,31 @@ type panelViews struct {
 
 func newPanelViews(d Deps, cfg *config.Config) *panelViews {
 	scale := float64(cfg.Styling.Scale)
-	px := scaledPx(cfg)
+	px := launcherview.ScaledPx(cfg)
 	v := &panelViews{
 		cfg: cfg, font: d.Font, scale: scale, lines: max(int(cfg.Launcher.Lines), 1),
-		baseW: launcherWidthPx(cfg),
+		baseW: launcherview.WidthPx(cfg),
 	}
-	v.panelChrome = newPanelChrome(d, cfg, func(text string) {
+	v.Chrome = launcherview.NewChrome(d.Font, d.Variants, cfg, func(text string) {
 		if p := v.p; p != nil && p.eng != nil && !p.closing {
 			p.querySeq++
 			p.eng.SetQuery(text, p.querySeq)
 		}
 	})
 
-	v.list = newSearchList(v, cfg, d.Font, d.Variants, px(searchRowHeight), px(headerRowHeight), px(searchIconSize))
-	v.list.bindAsync(v.searchIcon, "ld-search-symbolic")
+	v.list = newSearchList(v, cfg, d.Font, d.Variants, px(launcherview.SearchRowHeight), px(launcherview.HeaderRowHeight), px(launcherview.SearchIconSize))
+	v.list.bindAsync(v.SearchIcon, launcherview.SearchIconName)
 	v.pane = newPreviewPane(d.Font, px, 0)
 	v.body = widget.NewBox(widget.Row, 0, 0)
 	v.body.Append(v.list, true)
 	v.body.Append(v.pane.box, false)
 
 	content := widget.NewBox(widget.Column, 0, 0)
-	content.Append(v.input, false)
-	content.Append(v.message, false)
-	content.Append(v.sep, false)
+	content.Append(v.Input, false)
+	content.Append(v.Message, false)
+	content.Append(v.Sep, false)
 	content.Append(v.body, true)
-	content.Append(v.footer, false)
+	content.Append(v.Footer, false)
 
 	v.panelFrame = newPanelFrame(d, content, v.baseW, v.fieldH(), func() Window {
 		if v.p == nil {
@@ -72,7 +74,9 @@ func newPanelViews(d Deps, cfg *config.Config) *panelViews {
 		return v.p.win
 	})
 	v.target = func(render.Rect) (int, int) { return v.targetW(), v.targetH() }
-	v.place = func(out render.Rect, w, h int) render.Rect { return placePanel(out, w, h, config.LauncherCenter, 0, 0) }
+	v.place = func(out render.Rect, w, h int) render.Rect {
+		return launcherview.Place(out, w, h, config.LauncherCenter, 0, 0)
+	}
 	return v
 }
 
@@ -85,11 +89,11 @@ func (v *panelViews) bind(p *panel, spawn, invoke func(func())) {
 	v.list.setRows(nil, -1)
 	v.hl.Set("")
 	v.setField("")
-	v.setChip("")
-	v.setMessage("")
-	v.sep.SetVisible(false)
-	v.notice.SetText("")
-	v.footer.SetVisible(false)
+	v.SetChip("")
+	v.SetMessage("")
+	v.Sep.SetVisible(false)
+	v.Notice.SetText("")
+	v.Footer.SetVisible(false)
 	v.withPreview = false
 	v.pane.box.SetVisible(false)
 	v.pane.show(nil, engine.PreviewContent{}, nil)
@@ -104,16 +108,16 @@ func (v *panelViews) release(p *panel) {
 }
 
 // fieldH is the fixed height above the list.
-func (v *panelViews) fieldH() int { return int(math.Round(inputRowHeight * v.scale)) }
+func (v *panelViews) fieldH() int { return int(math.Round(launcherview.InputRowHeight * v.scale)) }
 
-func (v *panelViews) footerH() int { return int(math.Round(footerHeight * v.scale)) }
+func (v *panelViews) footerH() int { return int(math.Round(launcherview.FooterHeight * v.scale)) }
 
 // messageH is the message's height at the panel's width.
 func (v *panelViews) messageH() int {
-	if !v.message.Visible() {
+	if !v.Message.Visible() {
 		return 0
 	}
-	return v.message.Measure(widget.Column, v.baseW).Nat
+	return v.Message.Measure(widget.Column, v.baseW).Nat
 }
 
 // targetH is the height the panel springs to for what it now shows.
@@ -121,7 +125,7 @@ func (v *panelViews) targetH() int {
 	h := v.fieldH() + v.messageH()
 	listH := v.list.contentH()
 	if listH == 0 {
-		if v.notice.Text() != "" {
+		if v.Notice.Text() != "" {
 			return h + v.footerH()
 		}
 		return h
@@ -134,7 +138,7 @@ func (v *panelViews) targetH() int {
 		limit = max(limit, v.list.linesH(previewMinRows))
 	}
 	if v.root.bounds().H > 0 {
-		limit = min(limit, int(float64(v.root.bounds().H)*(1-panelTopFraction))-h-v.footerH()-panelEdgeGap)
+		limit = min(limit, launcherview.RoomBelow(v.root.bounds())-h-v.footerH())
 	}
 	return h + 1 + min(listH, max(limit, v.list.linesH(1))) + v.footerH()
 }
@@ -145,7 +149,7 @@ func (v *panelViews) targetW() int {
 	if v.withPreview {
 		w += v.pane.width
 	}
-	return panelWidthIn(v.root.bounds(), w)
+	return launcherview.WidthIn(v.root.bounds(), w)
 }
 
 // pageRows is how many rows PageUp and PageDown move.
@@ -157,23 +161,19 @@ func (v *panelViews) retarget(*panel) {
 }
 
 func (v *panelViews) setField(text string) {
-	stop := v.entry.OnChanged
-	v.entry.OnChanged = nil
-	v.entry.SetText(text)
-	v.entry.OnChanged = stop
+	stop := v.Entry.OnChanged
+	v.Entry.OnChanged = nil
+	v.Entry.SetText(text)
+	v.Entry.OnChanged = stop
 }
 
 // setLevel shows what the level says about itself.
 func (v *panelViews) setLevel(f search.Frame) {
-	v.setChip(f.Title)
-	v.entry.SetPlaceholder(f.Placeholder)
-	echo := widget.EchoNormal
-	if f.Mask {
-		echo = widget.EchoPassword
-	}
-	v.entry.SetEcho(echo)
-	v.setMessage(f.Message)
-	v.sep.SetVisible(len(f.Rows) > 0)
+	v.SetChip(f.Title)
+	v.Entry.SetPlaceholder(f.Placeholder)
+	v.SetMasked(f.Mask)
+	v.SetMessage(f.Message)
+	v.Sep.SetVisible(len(f.Rows) > 0)
 }
 
 func (v *panelViews) setHasPreview(on bool, p *panel) {
@@ -187,14 +187,14 @@ func (v *panelViews) setHasPreview(on bool, p *panel) {
 
 // setFooter shows the hints, or a failure said out loud.
 func (v *panelViews) setFooter(p *panel) {
-	v.notice.SetText(p.notice)
+	v.Notice.SetText(p.notice)
 	shown := len(p.frame.Rows) > 0 || p.notice != "" || p.depth > 0
-	v.footer.SetVisible(shown)
+	v.Footer.SetVisible(shown)
 	if !shown {
 		return
 	}
 	v.hintBuf = hintFor(p, v.hintBuf[:0])
-	v.showHints()
+	v.ShowHints(v.hintBuf...)
 }
 
 // showPreview shows the entry's facts and loaded content; with nothing
@@ -236,14 +236,14 @@ type searchList struct {
 	// window's; num is 0 until the window exists.
 	num, denom int
 	// waiting are the icons shown once decoded.
-	waiting []*asyncIcon
+	waiting []*launcherview.AsyncIcon
 	// openTag is the highlight's markup, for the theme's accent.
 	openTag   string
 	openColor render.Color
 }
 
 func newSearchList(v *panelViews, cfg *config.Config, font render.Font, variants widget.VariantFunc, rowH, headerH, iconSize int) *searchList {
-	l := &searchList{v: v, font: font, variants: variants, rowH: rowH, headerH: headerH, margin: rowMargin(scaledPx(cfg)), iconSize: iconSize, icons: cfg.Launcher.ShowIcons, selected: -1}
+	l := &searchList{v: v, font: font, variants: variants, rowH: rowH, headerH: headerH, margin: launcherview.RowMargin(launcherview.ScaledPx(cfg)), iconSize: iconSize, icons: cfg.Launcher.ShowIcons, selected: -1}
 	l.SetElement("listview")
 	l.AddClass("launcher-search-list")
 	l.scroll = anim.NewSpring(l, anim.SpringParams{Response: 160 * time.Millisecond, Damping: 1}, []float64{0}, func(pos []float64) {
@@ -421,7 +421,7 @@ type searchRow struct {
 	*widget.Box
 	l     *searchList
 	index int
-	icon  *asyncIcon
+	icon  *launcherview.AsyncIcon
 	glyph *widget.Label
 	title *widget.RichLabel
 	// positions and markup are the highlight's memory.
@@ -433,11 +433,11 @@ type searchRow struct {
 }
 
 func newSearchRow(l *searchList) *searchRow {
-	px := fontPx()
-	r := &searchRow{Box: newRowBox(), l: l}
-	r.icon = newAsyncIcon(l.iconSize, "launcher-search-row-icon")
-	r.AppendAligned(r.icon.slot, false, widget.AlignCenter)
-	r.glyph = widget.NewLabel(l.font, float64(l.iconSize)*glyphFontFactor, "", 0)
+	px := launcherview.FontPx()
+	r := &searchRow{Box: launcherview.NewRowBox(), l: l}
+	r.icon = launcherview.NewAsyncIcon(l.iconSize, "launcher-search-row-icon")
+	r.AppendAligned(r.icon.Slot, false, widget.AlignCenter)
+	r.glyph = widget.NewLabel(l.font, float64(l.iconSize)*launcherview.GlyphFontFactor, "", 0)
 	r.glyph.SetVisible(false)
 	r.glyph.SetSizeRequest(l.iconSize, 0)
 	r.glyph.SetAlignment(render.AlignCenter)
@@ -447,14 +447,14 @@ func newSearchRow(l *searchList) *searchRow {
 	r.title.SetVariants(l.variants)
 	r.title.SetEllipsize(widget.EllipsizeEnd)
 	r.AppendAligned(r.title, false, widget.AlignCenter)
-	r.subtitle = widget.NewLabel(l.font, widgetsSmallPx(), "", 0)
+	r.subtitle = widget.NewLabel(l.font, launcherview.SmallPx(), "", 0)
 	r.subtitle.AddClass("launcher-search-row-subtitle", css.DimLabel)
 	r.subtitle.SetEllipsize(widget.EllipsizeEnd)
 	r.AppendAligned(r.subtitle, true, widget.AlignCenter)
-	r.hint = widget.NewLabel(l.font, widgetsSmallPx(), "", 0)
+	r.hint = widget.NewLabel(l.font, launcherview.SmallPx(), "", 0)
 	r.hint.AddClass("launcher-search-row-hint", css.DimLabel)
 	r.AppendAligned(r.hint, false, widget.AlignCenter)
-	r.header = widget.NewLabel(l.font, widgetsSmallPx(), "", 0)
+	r.header = widget.NewLabel(l.font, launcherview.SmallPx(), "", 0)
 	r.header.AddClass("launcher-search-header")
 	r.AppendAligned(r.header, true, widget.AlignCenter)
 	r.SetOnPointer(func(e widget.PointerEvent) bool {
@@ -475,7 +475,7 @@ func (r *searchRow) bind(i int, row search.Row, selected bool, number int) {
 	r.SetState(widget.StateSelected, selected)
 	isHeader := row.Header != ""
 	r.header.SetVisible(isHeader)
-	r.icon.slot.SetVisible(!isHeader && r.l.icons && row.Entry != nil && row.Entry.Glyph == "")
+	r.icon.Slot.SetVisible(!isHeader && r.l.icons && row.Entry != nil && row.Entry.Glyph == "")
 	r.glyph.SetVisible(!isHeader && r.l.icons && row.Entry != nil && row.Entry.Glyph != "")
 	r.title.SetVisible(!isHeader)
 	r.subtitle.SetVisible(!isHeader)
@@ -533,67 +533,29 @@ func (l *searchList) highlightTag() string {
 	return l.openTag
 }
 
-// asyncIcon is a fixed-size slot for an icon that may not be decoded yet.
-// The slot is its size from the start, so an icon landing moves nothing,
-// and the one Icon widget is renamed rather than rebuilt.
-type asyncIcon struct {
-	slot *widget.Box
-	icon *widget.Icon
-	size int
-	// name is what the slot should show, shown what it does.
-	name, shown string
-}
-
-func newAsyncIcon(size int, class string) *asyncIcon {
-	a := &asyncIcon{slot: widget.NewBox(widget.Row, 0, 0), size: size}
-	a.slot.SetSizeRequest(size, size)
-	a.slot.AddClass(class)
-	return a
-}
-
-// show puts the decoded icon in the slot. Only this touches a theme name
-// on the UI loop, once the cache holds its raster.
-func (a *asyncIcon) show(name string) {
-	a.shown = name
-	if a.icon == nil {
-		a.icon = widget.NewThemeIconFallback(name, a.size)
-		a.slot.Append(a.icon, false)
-		return
-	}
-	a.icon.SetThemeName(name)
-	a.icon.SetVisible(true)
-}
-
-func (a *asyncIcon) blank() {
-	a.shown = ""
-	if a.icon != nil {
-		a.icon.SetVisible(false)
-	}
-}
-
 // bindAsync makes a show name: at once when its raster is decoded (the
 // cache answers without waiting), else blank until the loader has it.
-func (l *searchList) bindAsync(a *asyncIcon, name string) {
-	if a.name == name && (a.shown == name || name == "") {
+func (l *searchList) bindAsync(a *launcherview.AsyncIcon, name string) {
+	if a.Name() == name && (a.Shown() == name || name == "") {
 		return
 	}
-	a.name = name
+	a.Want(name)
 	if name == "" {
-		a.blank()
+		a.Blank()
 		return
 	}
-	if l.num != 0 && widget.ThemeIconPreloaded(name, a.size, l.num, l.denom) {
-		a.show(name)
+	if l.num != 0 && widget.ThemeIconPreloaded(name, a.Size(), l.num, l.denom) {
+		a.Show(name)
 		return
 	}
-	a.blank()
+	a.Blank()
 	if !slices.Contains(l.waiting, a) {
 		l.waiting = append(l.waiting, a)
 	}
 	if l.num == 0 {
 		return
 	}
-	l.loader.request(iconRequest{name: name, size: a.size, num: l.num, denom: l.denom})
+	l.loader.request(iconRequest{name: name, size: a.Size(), num: l.num, denom: l.denom})
 }
 
 // iconReady runs on the UI loop when a decode finished.
@@ -601,9 +563,9 @@ func (l *searchList) iconReady(req iconRequest) {
 	kept := l.waiting[:0]
 	for _, a := range l.waiting {
 		switch {
-		case a.name == req.name && a.size == req.size:
-			a.show(req.name)
-		case a.name != "" && a.shown != a.name:
+		case a.Name() == req.name && a.Size() == req.size:
+			a.Show(req.name)
+		case a.Name() != "" && a.Shown() != a.Name():
 			kept = append(kept, a)
 		}
 	}
@@ -618,13 +580,13 @@ func (l *searchList) setScale(num, denom int) {
 	l.num, l.denom = num, denom
 	l.waiting = l.waiting[:0]
 	for _, row := range l.pool {
-		row.icon.name = ""
+		row.icon.Want("")
 	}
-	l.v.searchIcon.name = ""
-	l.bindAsync(l.v.searchIcon, "ld-search-symbolic")
+	l.v.SearchIcon.Want("")
+	l.bindAsync(l.v.SearchIcon, launcherview.SearchIconName)
 	hero := l.v.pane.summary.icon
-	name := hero.name
-	hero.name = ""
+	name := hero.Name()
+	hero.Want("")
 	l.bindAsync(hero, name)
 	l.InvalidateLayout()
 }

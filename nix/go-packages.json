@@ -487,6 +487,22 @@
       "desktop/shell/treetest"
     ]
   },
+  "desktop/shell/launcherview": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/pango",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/testhome"
+    ]
+  },
   "desktop/shell/layers": {},
   "desktop/shell/lockclient": {
     "imports": [
@@ -3560,6 +3576,7 @@
       "desktop/config",
       "desktop/i18n",
       "desktop/pango",
+      "desktop/shell/launcherview",
       "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",

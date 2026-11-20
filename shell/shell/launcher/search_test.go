@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -111,7 +112,7 @@ func (p *panel) rowTitles() []string {
 
 func (h *panelHarness) typed(p *panel, text string) {
 	h.t.Helper()
-	p.v.entry.SetText(text)
+	p.v.Entry.SetText(text)
 	h.until("rows for "+text, func() bool { return p.frame.Query == text })
 }
 
@@ -202,16 +203,16 @@ func TestEscapeGoesBackALevelThenCloses(t *testing.T) {
 	h.key("Down")
 	h.key("Control+k")
 	h.until("the actions", func() bool { return p.depth == 1 })
-	if p.v.entry.Text() != "" || !p.v.chip.Visible() || p.v.chip.Text() != "Alpha Issues" {
-		t.Errorf("actions: field %q chip %q", p.v.entry.Text(), p.v.chip.Text())
+	if p.v.Entry.Text() != "" || !p.v.Chip.Visible() || p.v.Chip.Text() != "Alpha Issues" {
+		t.Errorf("actions: field %q chip %q", p.v.Entry.Text(), p.v.Chip.Text())
 	}
 	if got := p.rowTitles(); !slices.Contains(got, "Copy URL") {
 		t.Errorf("actions = %v", got)
 	}
 	h.key("Escape")
 	h.until("back", func() bool { return p.depth == 0 })
-	if p.v.entry.Text() != "alpha" {
-		t.Errorf("field = %q, want the query restored", p.v.entry.Text())
+	if p.v.Entry.Text() != "alpha" {
+		t.Errorf("field = %q, want the query restored", p.v.Entry.Text())
 	}
 	if got := p.selectedTitle(); got != "Alpha Issues" {
 		t.Errorf("selection = %q, want it where it was", got)
@@ -274,10 +275,10 @@ func TestTabCompletesOrOpensActions(t *testing.T) {
 	h.waitTitles(p, "Beta Search", webRow("beta"))
 	h.key("Tab")
 	h.until("the completion's rows", func() bool { return p.frame.Query == "bs " })
-	if p.v.entry.Text() != "bs " {
-		t.Errorf("field = %q", p.v.entry.Text())
+	if p.v.Entry.Text() != "bs " {
+		t.Errorf("field = %q", p.v.Entry.Text())
 	}
-	p.v.entry.SetText("bs rust lang")
+	p.v.Entry.SetText("bs rust lang")
 	h.until("the filled link", func() bool { return p.selectedTitle() == "Beta Search: rust lang" })
 	h.key("Return")
 	h.until("the open", func() bool { return len(h.spawned) == 1 })
@@ -315,7 +316,7 @@ func TestEnterBeforeTheRowsArriveTakesWhatTheTextFinds(t *testing.T) {
 	h.typed(p, "alpha docs")
 	h.until("the row", func() bool { return p.selectedTitle() == "Alpha Docs" })
 	// No pump between the keys: the engine has not answered.
-	p.v.entry.SetText("alpha issues")
+	p.v.Entry.SetText("alpha issues")
 	if !h.key("Return") {
 		t.Fatal("Enter must be taken")
 	}
@@ -345,7 +346,7 @@ func TestWindowsJumpFromTheList(t *testing.T) {
 	h.windows.list = []modes.WindowInfo{{ID: "9", Title: "Quarterly Report", Class: "Writer"}}
 	p, _ := h.openPanel()
 	h.until("the window row", func() bool {
-		p.v.entry.SetText("quarterly")
+		p.v.Entry.SetText("quarterly")
 		h.loop.pump()
 		return p.selectedTitle() == "Quarterly Report"
 	})
@@ -696,17 +697,17 @@ func TestTypingBeforeTheFirstFrameIsKept(t *testing.T) {
 	h.s.d.Invoke(func() {})
 	h.until("the panel", func() bool { return h.s.panel != nil && h.s.panel.win != nil })
 	p := h.s.panel
-	p.v.entry.SetText("6*7")
+	p.v.Entry.SetText("6*7")
 	h.until("the answer", func() bool { return p.selectedTitle() == "42" })
-	if got := p.v.entry.Text(); got != "6*7" {
+	if got := p.v.Entry.Text(); got != "6*7" {
 		t.Errorf("field = %q: a frame older than the keys overwrote them", got)
 	}
 	p.results(search.Frame{Query: "6*7", QuerySeq: 0, SetField: true, Field: "stale"})
-	if got := p.v.entry.Text(); got != "6*7" {
+	if got := p.v.Entry.Text(); got != "6*7" {
 		t.Errorf("field = %q after a stale frame", got)
 	}
 	p.results(search.Frame{Query: "new", QuerySeq: p.querySeq, SetField: true, Field: "new"})
-	if got := p.v.entry.Text(); got != "new" {
+	if got := p.v.Entry.Text(); got != "new" {
 		t.Errorf("field = %q, a current frame may set it", got)
 	}
 }
@@ -726,13 +727,6 @@ func TestPanelOwnsItsMotion(t *testing.T) {
 	h.openPanel()
 	if !h.harness.windows[0].cfg.OwnMotion {
 		t.Error("the toolkit would scale the whole output's buffer every frame")
-	}
-}
-
-func TestApostropheInATitleIsMarkupTheLabelReads(t *testing.T) {
-	l := widget.NewRichLabel(treetest.Font(t), 14, string(appendEscaped(nil, "it's")), 0)
-	if !strings.Contains(l.Text(), "it's") {
-		t.Errorf("label reads %q", l.Text())
 	}
 }
 
@@ -787,7 +781,7 @@ func TestIconsDecodeOffTheLoopAndLandWithoutMovingAnything(t *testing.T) {
 	v.root.Arrange(out)
 	var target *searchRow
 	for _, r := range v.list.pool {
-		if r.icon.name == name {
+		if r.icon.Name() == name {
 			target = r
 		}
 	}
@@ -795,7 +789,7 @@ func TestIconsDecodeOffTheLoopAndLandWithoutMovingAnything(t *testing.T) {
 		t.Fatal("no row bound the icon")
 	}
 	before := target.Bounds()
-	if target.icon.shown == name {
+	if target.icon.Shown() == name {
 		t.Fatal("shown before its decode")
 	}
 	waittest.For(t, decoded, "the decode to run on the loader, with the UI loop free")
@@ -803,11 +797,11 @@ func TestIconsDecodeOffTheLoopAndLandWithoutMovingAnything(t *testing.T) {
 	if target.Bounds() != before {
 		t.Errorf("waiting moved the row: %+v to %+v", before, target.Bounds())
 	}
-	if got := target.icon.slot.Bounds().W; got != target.icon.size {
-		t.Errorf("slot %d wide, want its icon's %d before the icon lands", got, target.icon.size)
+	if got := target.icon.Slot.Bounds().W; got != target.icon.Size() {
+		t.Errorf("slot %d wide, want its icon's %d before the icon lands", got, target.icon.Size())
 	}
-	v.list.iconReady(iconRequest{name: name, size: target.icon.size})
-	if target.icon.shown != name {
+	v.list.iconReady(iconRequest{name: name, size: target.icon.Size()})
+	if target.icon.Shown() != name {
 		t.Error("the row did not take its icon when ready")
 	}
 	v.root.Arrange(out)
@@ -821,16 +815,16 @@ func TestAStaleIconDoesNotLandOnARowThatMovedOn(t *testing.T) {
 	p, _ := h.openPanel()
 	l := p.v.list
 	l.loader.setDecode(func(iconRequest) {})
-	a := newAsyncIcon(24, "x")
+	a := launcherview.NewAsyncIcon(24, "x")
 	l.bindAsync(a, "first-launcher-test-icon")
 	l.bindAsync(a, "second-launcher-test-icon")
 	l.iconReady(iconRequest{name: "first-launcher-test-icon", size: 24})
-	if a.shown == "first-launcher-test-icon" {
+	if a.Shown() == "first-launcher-test-icon" {
 		t.Error("a decode for a row that moved on must not show")
 	}
 	l.iconReady(iconRequest{name: "second-launcher-test-icon", size: 24})
-	if a.shown != "second-launcher-test-icon" {
-		t.Errorf("shown %q", a.shown)
+	if a.Shown() != "second-launcher-test-icon" {
+		t.Errorf("shown %q", a.Shown())
 	}
 }
 

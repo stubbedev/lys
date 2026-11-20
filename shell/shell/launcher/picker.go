@@ -3,13 +3,13 @@ package launcher
 import (
 	"image"
 	"log"
-	"math"
 	"path/filepath"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/pango"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -72,7 +72,7 @@ type picker struct {
 	walls   Wallpapers
 	win     Window
 	frame   *panelFrame
-	chrome  *panelChrome
+	chrome  *launcherview.Chrome
 	grid    *widget.GridView
 	images  []pickerImage
 	shown   []int
@@ -131,26 +131,26 @@ func (s *Surface) openPicker(sess *launcheripc.Session) {
 	}
 	p.win = win
 	p.stopScale = win.OnScaleChanged(func(int, int) { p.grid.Refresh() })
-	if err := win.SetFocus(p.chrome.entry); err != nil {
+	if err := win.SetFocus(p.chrome.Entry); err != nil {
 		log.Printf("launcher: cannot focus the entry: %v", err)
 		p.finish(false, "")
 		return
 	}
 	if sess.Options.Filter != nil {
-		p.chrome.entry.SetText(*sess.Options.Filter)
+		p.chrome.Entry.SetText(*sess.Options.Filter)
 	}
-	p.filter(p.chrome.entry.Text())
+	p.filter(p.chrome.Entry.Text())
 	p.frame.motion.open(cfg.Animations)
 }
 
 // build makes the picker's widgets: the field, the grid and the footer.
 func (p *picker) build(cfg *config.Config) {
-	px := scaledPx(cfg)
+	px := launcherview.ScaledPx(cfg)
 	p.thumbPx = px(pickerThumbH)
 	p.cellPx = [2]int{px(pickerCellWidth), px(pickerCellHeight)}
-	p.chrome = newPanelChrome(p.s.d, cfg, p.filter)
-	p.chrome.entry.SetPlaceholder(i18n.T("launcher-wallpaper-placeholder"))
-	p.chrome.setChip(i18n.T("launcher-wallpaper-title"))
+	p.chrome = launcherview.NewChrome(p.s.d.Font, p.s.d.Variants, cfg, p.filter)
+	p.chrome.Entry.SetPlaceholder(i18n.T("launcher-wallpaper-placeholder"))
+	p.chrome.SetChip(i18n.T("launcher-wallpaper-title"))
 	p.grid = widget.NewGridView(pickerModel{p}, p.cellPx[0], p.cellPx[1])
 	p.grid.SetMinColumns(pickerColumns)
 	p.grid.SetMaxColumns(pickerColumns)
@@ -158,22 +158,23 @@ func (p *picker) build(cfg *config.Config) {
 	p.grid.AddClass("launcher-wallpaper-grid")
 	p.grid.OnSelect = p.selected
 	p.grid.OnActivate = func(int) { p.commit(p.monitor) }
-	p.chrome.hintBuf = append(p.chrome.hintBuf[:0],
-		footerHint{"Enter", i18n.T("launcher-wallpaper-set-on", i18n.Str("monitor", p.monitorName()))},
-		footerHint{"Ctrl+Enter", i18n.T("launcher-wallpaper-set-all")},
-		closeHint())
-	p.chrome.showHints()
-	p.chrome.footer.SetVisible(true)
+	p.chrome.ShowHints(
+		launcherview.FooterHint{Key: "Enter", Does: i18n.T("launcher-wallpaper-set-on", i18n.Str("monitor", p.monitorName()))},
+		launcherview.FooterHint{Key: "Ctrl+Enter", Does: i18n.T("launcher-wallpaper-set-all")},
+		launcherview.CloseHint())
+	p.chrome.Footer.SetVisible(true)
 	content := widget.NewBox(widget.Column, 0, 0)
-	content.Append(p.chrome.input, false)
-	content.Append(p.chrome.message, false)
+	content.Append(p.chrome.Input, false)
+	content.Append(p.chrome.Message, false)
 	content.Append(p.grid, true)
-	content.Append(p.chrome.footer, false)
-	width := pickerColumns*p.cellPx[0] + px(2*rowEdgeGap)
-	height := int(math.Round(inputRowHeight*float64(cfg.Styling.Scale))) + pickerLines*p.cellPx[1] + int(math.Round(footerHeight*float64(cfg.Styling.Scale)))
+	content.Append(p.chrome.Footer, false)
+	width := pickerColumns*p.cellPx[0] + px(2*launcherview.RowEdgeGap)
+	height := px(launcherview.InputRowHeight) + pickerLines*p.cellPx[1] + px(launcherview.FooterHeight)
 	p.frame = newPanelFrame(p.s.d, content, width, height, func() Window { return p.win })
-	p.frame.target = func(out render.Rect) (int, int) { return panelWidthIn(out, width), height }
-	p.frame.place = func(out render.Rect, w, h int) render.Rect { return placePanel(out, w, h, config.LauncherCenter, 0, 0) }
+	p.frame.target = func(out render.Rect) (int, int) { return launcherview.WidthIn(out, width), height }
+	p.frame.place = func(out render.Rect, w, h int) render.Rect {
+		return launcherview.Place(out, w, h, config.LauncherCenter, 0, 0)
+	}
 }
 
 func (p *picker) monitorName() string {
@@ -202,11 +203,11 @@ func (p *picker) filter(text string) {
 	p.grid.Reset()
 	switch {
 	case len(p.images) == 0:
-		p.chrome.setMessage(i18n.T("launcher-wallpaper-none"))
+		p.chrome.SetMessage(i18n.T("launcher-wallpaper-none"))
 	case len(p.shown) == 0:
-		p.chrome.setMessage(i18n.T("launcher-wallpaper-no-match"))
+		p.chrome.SetMessage(i18n.T("launcher-wallpaper-no-match"))
 	default:
-		p.chrome.setMessage("")
+		p.chrome.SetMessage("")
 	}
 	if len(p.shown) == 0 {
 		return
@@ -270,7 +271,7 @@ func (p *picker) commit(monitor string) {
 	p.saving = true
 	if err := p.walls.Commit(path, monitor, func(err error) { p.saved(path, err) }); err != nil {
 		p.saving = false
-		p.chrome.setMessage(pango.Escape(i18n.T("launcher-failed", i18n.Str("what", i18n.T("launcher-wallpaper-title")), i18n.Str("error", err.Error()))))
+		p.chrome.SetMessage(pango.Escape(i18n.T("launcher-failed", i18n.Str("what", i18n.T("launcher-wallpaper-title")), i18n.Str("error", err.Error()))))
 	}
 }
 
@@ -283,7 +284,7 @@ func (p *picker) saved(path string, err error) {
 		return
 	}
 	if err != nil {
-		p.chrome.setMessage(pango.Escape(i18n.T("launcher-wallpaper-not-saved", i18n.Str("error", err.Error()))))
+		p.chrome.SetMessage(pango.Escape(i18n.T("launcher-wallpaper-not-saved", i18n.Str("error", err.Error()))))
 		return
 	}
 	p.finish(true, path)
@@ -410,7 +411,7 @@ func (m pickerModel) Row(pos int) widget.Widget {
 	pic.SetScale(widget.ImageFit)
 	pic.SetSizeRequest(0, p.thumbPx)
 	pic.AddClass("launcher-wallpaper-thumbnail")
-	label := widget.NewLabel(p.s.d.Font, widgetsSmallPx(), im.name, 0)
+	label := widget.NewLabel(p.s.d.Font, launcherview.SmallPx(), im.name, 0)
 	label.SetEllipsize(widget.EllipsizeMiddle)
 	label.AddClass("launcher-wallpaper-name")
 	cell.Append(pic, true)

@@ -5,14 +5,13 @@
 package launcher
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
 	engine "github.com/stubbedev/lys/shell/service/launcher"
@@ -22,41 +21,28 @@ import (
 
 // uiSettings are one session's resolved UI knobs.
 type uiSettings struct {
-	// width is [launcher] width in pixels; widthOverride is -width,
-	// resolved late because percent and chars need the monitor and the
-	// font.
-	width         int
+	look launcherview.Look
+	// widthOverride is -width, resolved late because percent and chars
+	// need the monitor and the font.
 	widthOverride *launcheripc.Width
-	offsetX       int
-	offsetY       int
-	lines         int
-	fixedNumLines bool
-	location      config.LauncherLocation
 	password      bool
 	mesg          *string
 	// errorMessage is -e: a message-only dialog.
 	errorMessage *string
 	filter       *string
 	// prompt is -p; modes supply their own otherwise.
-	prompt        *string
-	showIcons     bool
-	sidebar       bool
-	displayNames  map[string]string
-	keybindings   []config.LauncherBinding
-	mouseBindings []config.LauncherBinding
-	hooks         engine.Hooks
-	// css is the -font/-style CSS this session adds, "" for none.
-	css             string
-	previewCmd      string
-	completer       string
-	cycle           bool
-	autoSelect      bool
-	selectRow       *string
-	selectedRow     *uint32
-	displayColumns  []uint32
-	columnSeparator string
-	// ellipsize is start, middle, or end.
-	ellipsize        string
+	prompt           *string
+	displayNames     map[string]string
+	keybindings      []config.LauncherBinding
+	mouseBindings    []config.LauncherBinding
+	hooks            engine.Hooks
+	previewCmd       string
+	completer        string
+	cycle            bool
+	autoSelect       bool
+	selectRow        *string
+	selectedRow      *uint32
+	display          launcherview.RowDisplay
 	ballotSelected   string
 	ballotUnselected string
 	dump             bool
@@ -122,47 +108,44 @@ func buildSession(opts launcheripc.SessionOptions, cfg *config.Config, rows <-ch
 			}
 		}
 	}
-	width := launcherWidthPx(cfg)
-	location := l.Location
+	look := launcherview.LookOf(cfg)
+	look.OffsetX = int(deref(opts.XOffset, 0))
+	look.OffsetY = int(deref(opts.YOffset, 0))
+	look.Lines = int(deref(opts.Lines, l.Lines))
+	look.Fixed = look.Fixed && !opts.NoFixedNumLines
 	if opts.Location != nil {
 		if loc, ok := config.LauncherLocationFromRofi(int(*opts.Location)); ok {
-			location = loc
+			look.Location = loc
 		}
 	}
+	look.ShowIcons = deref(opts.ShowIcons, look.ShowIcons)
+	look.Sidebar = deref(opts.SidebarMode, look.Sidebar)
+	look.Font = deref(opts.Font, look.Font)
+	look.Style = stylePreset(opts, l)
 	return sessionSetup{
 		modes:       ms,
 		initialMode: initial,
 		matcher:     matcherOptions(opts, l),
 		history:     history,
 		ui: uiSettings{
-			width:            width,
+			look:             look,
 			widthOverride:    opts.Width,
-			offsetX:          int(deref(opts.XOffset, 0)),
-			offsetY:          int(deref(opts.YOffset, 0)),
-			lines:            int(deref(opts.Lines, l.Lines)),
-			fixedNumLines:    !opts.NoFixedNumLines && l.FixedNumLines,
-			location:         location,
 			password:         opts.Password,
 			mesg:             opts.Mesg,
 			errorMessage:     opts.ErrorMessage,
 			filter:           opts.Filter,
 			prompt:           opts.Prompt,
-			showIcons:        deref(opts.ShowIcons, l.ShowIcons),
-			sidebar:          deref(opts.SidebarMode, l.SidebarMode),
 			displayNames:     engine.MergeOverrides(l.DisplayNames, opts.DisplayNames),
 			keybindings:      bindings,
 			mouseBindings:    engine.EffectiveMouseBindings(engine.MergeOverrides(l.MouseBindings, opts.MouseOverrides)),
 			hooks:            hooksOf(opts),
-			css:              sessionCSS(opts, l),
 			previewCmd:       previewCmd(opts, l),
 			completer:        deref(opts.CompleterMode, ""),
 			cycle:            deref(opts.Cycle, l.Cycle),
 			autoSelect:       deref(opts.AutoSelect, l.AutoSelect),
 			selectRow:        opts.Select,
 			selectedRow:      opts.SelectedRow,
-			displayColumns:   opts.DisplayColumns,
-			columnSeparator:  deref(opts.DisplayColumnSeparator, "\t"),
-			ellipsize:        ellipsize(opts),
+			display:          launcherview.RowDisplay{Columns: opts.DisplayColumns, Separator: deref(opts.DisplayColumnSeparator, "\t"), Ellipsize: ellipsize(opts)},
 			ballotSelected:   deref(opts.BallotSelected, "☑ "),
 			ballotUnselected: deref(opts.BallotUnselected, "☐ "),
 			dump:             opts.Dump,
@@ -170,12 +153,19 @@ func buildSession(opts launcheripc.SessionOptions, cfg *config.Config, rows <-ch
 	}
 }
 
-// ellipsize: -keep-right is -ellipsize-mode start by another name.
-func ellipsize(opts launcheripc.SessionOptions) string {
+// ellipsize is -ellipsize-mode: start, middle, or anything else for end.
+// -keep-right is start by another name.
+func ellipsize(opts launcheripc.SessionOptions) launcherview.Ellipsize {
 	if opts.KeepRight {
-		return "start"
+		return launcherview.EllipsizeStart
 	}
-	return deref(opts.EllipsizeMode, "end")
+	switch deref(opts.EllipsizeMode, "end") {
+	case "start":
+		return launcherview.EllipsizeStart
+	case "middle":
+		return launcherview.EllipsizeMiddle
+	}
+	return launcherview.EllipsizeEnd
 }
 
 // requestedModes is -modes, else [launcher] modes, with -show's mode
@@ -464,101 +454,16 @@ func previewCmd(opts launcheripc.SessionOptions, l config.LauncherConfig) string
 	return cmd
 }
 
-// fontDescription is a parsed Pango font description.
-type fontDescription struct {
-	family string
-	// size is in points, or pixels when absolute.
-	size     float64
-	absolute bool
-	italic   bool
-	// weight is the CSS numeric weight; 0 leaves it unset.
-	weight int
-}
-
-// pangoWeights are the weight words pango_font_description_from_string
-// takes, to their numeric weights.
-var pangoWeights = map[string]int{
-	"thin": 100, "ultra-light": 200, "extra-light": 200, "light": 300, "semi-light": 350,
-	"demi-light": 350, "book": 380, "regular": 400, "medium": 500, "semi-bold": 600,
-	"demi-bold": 600, "bold": 700, "ultra-bold": 800, "extra-bold": 800, "heavy": 900,
-	"black": 900, "ultra-heavy": 1000, "extra-heavy": 1000,
-}
-
-// parseFontDescription reads "[FAMILY-LIST] [STYLE-OPTIONS] [SIZE]":
-// the size last (a trailing "px" makes it absolute), style and weight
-// words before it, the rest the family.
-func parseFontDescription(desc string) fontDescription {
-	words := strings.Fields(strings.ReplaceAll(desc, ",", " "))
-	var fd fontDescription
-	if n := len(words); n > 0 {
-		last := words[n-1]
-		absolute := strings.HasSuffix(last, "px")
-		if v, err := strconv.ParseFloat(strings.TrimSuffix(last, "px"), 64); err == nil && v > 0 {
-			fd.size, fd.absolute = v, absolute
-			words = words[:n-1]
-		}
-	}
-	for len(words) > 0 {
-		w := strings.ToLower(words[len(words)-1])
-		switch {
-		case w == "italic" || w == "oblique":
-			fd.italic = true
-		case w == "normal" || w == "roman":
-		case pangoWeights[w] != 0:
-			fd.weight = pangoWeights[w]
-		default:
-			fd.family = strings.Join(words, " ")
-			return fd
-		}
-		words = words[:len(words)-1]
-	}
-	return fd
-}
-
-// fontProperties turns a Pango description into CSS properties. The
-// syntaxes are not interchangeable: Pango puts the size last
-// ("Monospace 20"), CSS's font shorthand first, so handing CSS the
-// Pango string silently drops the declaration.
-func fontProperties(desc string) string {
-	fd := parseFontDescription(desc)
-	var props []string
-	if fd.family != "" {
-		props = append(props, fmt.Sprintf("font-family: %q;", fd.family))
-	}
-	if fd.size > 0 {
-		unit := "pt"
-		if fd.absolute {
-			unit = "px"
-		}
-		props = append(props, "font-size: "+strconv.FormatFloat(fd.size, 'f', -1, 64)+unit+";")
-	}
-	if fd.italic {
-		props = append(props, "font-style: italic;")
-	}
-	if fd.weight > 0 && fd.weight != 400 {
-		props = append(props, fmt.Sprintf("font-weight: %d;", fd.weight))
-	}
-	return strings.Join(props, " ")
-}
-
-// sessionCSS is the CSS one session adds: the -font (or [launcher]
-// font) scoped to .launcher-surface, and the -style preset. A preset
+// stylePreset is the CSS of the -style preset, "" without one. A preset
 // name that does not exist is a typo in a bind, logged rather than
 // silently rendering the default look.
-func sessionCSS(opts launcheripc.SessionOptions, l config.LauncherConfig) string {
-	var css strings.Builder
-	if font := strings.TrimSpace(deref(opts.Font, l.Font)); font != "" {
-		fmt.Fprintf(&css, ".launcher-surface { %s }\n", fontProperties(font))
-	}
-	if opts.Style != nil {
-		if preset, ok := l.Styles[*opts.Style]; ok {
-			css.WriteString(preset)
-		} else {
-			log.Printf("launcher: no such [launcher.styles] preset %q", *opts.Style)
-		}
-	}
-	if strings.TrimSpace(css.String()) == "" {
+func stylePreset(opts launcheripc.SessionOptions, l config.LauncherConfig) string {
+	if opts.Style == nil {
 		return ""
 	}
-	return css.String()
+	preset, ok := l.Styles[*opts.Style]
+	if !ok {
+		log.Printf("launcher: no such [launcher.styles] preset %q", *opts.Style)
+	}
+	return preset
 }

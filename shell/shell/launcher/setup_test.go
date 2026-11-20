@@ -1,56 +1,33 @@
 package launcher
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
 )
 
-func TestSessionCSS(t *testing.T) {
-	l := config.Defaults().Launcher
-	l.Font = ""
-	if css := sessionCSS(launcheripc.SessionOptions{}, l); css != "" {
-		t.Errorf("neither font nor style added %q", css)
+func TestASessionsFontAndStyleOverrideTheConfiguredLook(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Launcher.History.Enable = false
+	cfg.Launcher.Font = "Inter 12"
+	cfg.Launcher.Styles = map[string]string{"compact": ".launcher-row { padding: 0; }"}
+	rows := make(chan []string)
+	close(rows)
+	look := func(opts launcheripc.SessionOptions) launcherview.Look {
+		opts.Dmenu = true
+		return buildSession(opts, cfg, rows, setupDeps{}).ui.look
 	}
-	css := sessionCSS(launcheripc.SessionOptions{Font: new("Inter 12")}, l)
-	if !strings.Contains(css, `font-family: "Inter"`) || !strings.Contains(css, "font-size: 12pt") || !strings.Contains(css, ".launcher-surface") {
-		t.Errorf("font css = %q (a preset must not reach the rest of the shell)", css)
+	if got := look(launcheripc.SessionOptions{}); got.Font != "Inter 12" || got.Style != "" {
+		t.Errorf("no options = font %q style %q, want the configured font alone", got.Font, got.Style)
 	}
-	l.Styles = map[string]string{"compact": ".launcher-row { padding: 0; }"}
-	if got := sessionCSS(launcheripc.SessionOptions{Style: new("compact")}, l); got != ".launcher-row { padding: 0; }" {
-		t.Errorf("preset = %q", got)
+	if got := look(launcheripc.SessionOptions{Font: new("Monospace 9"), Style: new("compact")}); got.Font != "Monospace 9" || got.Style != cfg.Launcher.Styles["compact"] {
+		t.Errorf("-font and -style = font %q style %q", got.Font, got.Style)
 	}
-	if got := sessionCSS(launcheripc.SessionOptions{Style: new("nope")}, l); got != "" {
-		t.Errorf("an unknown preset contributed %q", got)
-	}
-	both := sessionCSS(launcheripc.SessionOptions{Font: new("Inter 12"), Style: new("compact")}, l)
-	if !strings.Contains(both, `font-family: "Inter"`) || !strings.Contains(both, ".launcher-row") {
-		t.Errorf("font and preset = %q", both)
-	}
-}
-
-func TestFontProperties(t *testing.T) {
-	// `font: Monospace 20` is not CSS (the size goes first there), so the
-	// shorthand silently did nothing.
-	p := fontProperties("Monospace 20")
-	if !strings.Contains(p, `font-family: "Monospace"`) || !strings.Contains(p, "font-size: 20pt") || strings.Contains(p, "font:") {
-		t.Errorf("Monospace 20 = %q", p)
-	}
-	p = fontProperties("Inter Bold Italic 11")
-	if !strings.Contains(p, "font-style: italic") || !strings.Contains(p, "font-weight: 700") {
-		t.Errorf("bold italic = %q", p)
-	}
-	if plain := fontProperties("Inter 11"); strings.Contains(plain, "font-style") || strings.Contains(plain, "font-weight") {
-		t.Errorf("a plain description overrode the theme: %q", plain)
-	}
-	if got := fontProperties("Inter"); got != `font-family: "Inter";` {
-		t.Errorf("sizeless = %q", got)
-	}
-	if got := fontProperties("Inter 14px"); !strings.Contains(got, "font-size: 14px") {
-		t.Errorf("absolute size = %q", got)
+	if got := look(launcheripc.SessionOptions{Style: new("nope")}); got.Style != "" {
+		t.Errorf("an unknown preset contributed %q", got.Style)
 	}
 }
 
@@ -68,19 +45,19 @@ func TestBuildSessionResolvesTheUI(t *testing.T) {
 		t.Fatalf("modes = %v", setup.modes)
 	}
 	ui := setup.ui
-	if ui.lines != 4 || ui.ellipsize != "start" || deref(ui.prompt, "") != "pick" {
+	if ui.look.Lines != 4 || ui.display.Ellipsize != launcherview.EllipsizeStart || deref(ui.prompt, "") != "pick" {
 		t.Errorf("ui = %+v", ui)
 	}
-	if want := int(cfg.Launcher.Width.ResolvePx(config.LauncherWidthBaseRem*16, 2)); ui.width != want {
-		t.Errorf("width %d, want %d at styling scale 2", ui.width, want)
+	if want := int(cfg.Launcher.Width.ResolvePx(config.LauncherWidthBaseRem*16, 2)); ui.look.Width != want {
+		t.Errorf("width %d, want %d at styling scale 2", ui.look.Width, want)
 	}
-	if ui.location != config.LauncherNorthWest {
-		t.Errorf("location = %s", ui.location)
+	if ui.look.Location != config.LauncherNorthWest {
+		t.Errorf("location = %s", ui.look.Location)
 	}
 	// An out-of-range rofi location keeps the configured one.
 	bad := uint8(200)
 	opts.Location = &bad
-	if got := buildSession(opts, cfg, rows, setupDeps{}).ui.location; got != cfg.Launcher.Location {
+	if got := buildSession(opts, cfg, rows, setupDeps{}).ui.look.Location; got != cfg.Launcher.Location {
 		t.Errorf("bad location = %s", got)
 	}
 }

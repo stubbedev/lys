@@ -128,7 +128,7 @@ func TestHeadlessKeysFindARowAndEnterTakesIt(t *testing.T) {
 	kb.Tap(keytest.Tab)
 	apptest.Until(t, a, "the actions panel", func() bool { return s.panel.depth == 1 })
 	kb.Tap(keytest.Escape)
-	apptest.Until(t, a, "back at the list", func() bool { return s.panel.depth == 0 && s.panel.v.entry.Text() == "hll" })
+	apptest.Until(t, a, "back at the list", func() bool { return s.panel.depth == 0 && s.panel.v.Entry.Text() == "hll" })
 	kb.Tap(keytest.Return)
 	got := apptest.Answer(t, "the window's focus", focused)
 	if got != "7" {

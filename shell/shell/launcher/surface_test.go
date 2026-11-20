@@ -3,7 +3,6 @@ package launcher
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -13,13 +12,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
-	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
 	engine "github.com/stubbedev/lys/shell/service/launcher"
@@ -111,10 +110,6 @@ type harness struct {
 	// focusErr fails every opened window's SetFocus.
 	focusErr error
 }
-
-// quietWindow is how long nothing more must arrive before a test
-// concludes nothing more will.
-const quietWindow = 200 * time.Millisecond
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
@@ -235,12 +230,19 @@ func (h *harness) key(spec string) bool {
 func (h *harness) pointAt(pos int) (*widget.Router, widget.Point) {
 	h.t.Helper()
 	v := h.s.cur.views
-	treetest.Pointer(v.box, v.list, 800, 600)
-	row, ok := v.list.rows[pos].(*launcherRow)
-	if !ok {
-		h.t.Fatalf("row %d is not laid out", pos)
+	treetest.Pointer(v.box, v.List, 800, 600)
+	return treetest.Pointer(v.box, listRow(h.t, v, pos), 800, 600)
+}
+
+// listRow is the session's row at pos, which must be laid out.
+func listRow(t *testing.T, v *views, pos int) *launcherview.RowView {
+	t.Helper()
+	w, ok := v.List.Row(pos)
+	row, isRow := w.(*launcherview.RowView)
+	if !ok || !isRow {
+		t.Fatalf("row %d is not laid out", pos)
 	}
-	return treetest.Pointer(v.box, row, 800, 600)
+	return row
 }
 
 // frame pumps the loop until the session's terminal frame arrives.
@@ -272,10 +274,10 @@ func TestDmenuSessionFiltersAndAccepts(t *testing.T) {
 	if w.cfg.Namespace != "lys-shell-launcher" || w.cfg.Keyboard != app.KeyboardExclusive || w.cfg.Anchor != app.AnchorTop|app.AnchorBottom|app.AnchorLeft|app.AnchorRight || w.cfg.Layer != app.LayerOverlay {
 		t.Errorf("layer = %+v", w.cfg)
 	}
-	if w.focused() != widget.Widget(h.s.cur.views.entry) || h.s.sel != 0 {
+	if w.focused() != widget.Widget(h.s.cur.views.Entry) || h.s.sel != 0 {
 		t.Error("the entry is not focused or the first row not selected")
 	}
-	h.s.cur.views.entry.SetText("ga")
+	h.s.cur.views.Entry.SetText("ga")
 	h.until("the filter", func() bool { return h.s.model.len() == 1 })
 	if h.s.model.textAt(0) != "gamma" {
 		t.Errorf("filtered = %q", h.s.model.textAt(0))
@@ -304,7 +306,7 @@ func TestEntryTakesFocusOnEveryOpen(t *testing.T) {
 		entryFocused := func(what string, w *fakeWindow) *active {
 			t.Helper()
 			h.until(what, func() bool { return h.s.cur != nil && h.s.cur.win == Window(w) })
-			if got := w.focused(); got != widget.Widget(h.s.cur.views.entry) {
+			if got := w.focused(); got != widget.Widget(h.s.cur.views.Entry) {
 				t.Errorf("animated %v, %s: focus = %v, want the entry", animated, what, got)
 			}
 			return h.s.cur
@@ -317,13 +319,13 @@ func TestEntryTakesFocusOnEveryOpen(t *testing.T) {
 		_, _ = h.open(dmenu(), false, "b")
 		h.until("the reopened surface", func() bool { return len(h.windows) == 2 })
 		reopened := entryFocused("the reopen after a hide", h.windows[1])
-		if h.windows[1].focused() == widget.Widget(was.views.entry) {
+		if h.windows[1].focused() == widget.Widget(was.views.Entry) {
 			t.Errorf("animated %v: the reopened surface focuses the ended session's entry", animated)
 		}
 		_, _ = h.open(dmenu(), true, "c")
 		h.until("the replacing surface", func() bool { return len(h.windows) == 3 })
 		entryFocused("a -replace", h.windows[2])
-		if h.windows[2].focused() == widget.Widget(reopened.views.entry) {
+		if h.windows[2].focused() == widget.Widget(reopened.views.Entry) {
 			t.Errorf("animated %v: the replacing surface focuses the displaced session's entry", animated)
 		}
 	}
@@ -429,12 +431,12 @@ func TestErrorDialogClosesOnAnyBinding(t *testing.T) {
 	_, reply := h.open(launcheripc.SessionOptions{ErrorMessage: &msg}, false)
 	h.loop.pump()
 	v := h.s.cur.views
-	if v.input.Visible() || v.frame.Visible() || !v.message.Visible() || v.message.Text() != "no network" {
-		t.Errorf("dialog: input %v list %v message %q", v.input.Visible(), v.frame.Visible(), v.message.Text())
+	if v.Input.Visible() || v.Frame.Visible() || !v.Message.Visible() || v.Message.Text() != "no network" {
+		t.Errorf("dialog: input %v list %v message %q", v.Input.Visible(), v.Frame.Visible(), v.Message.Text())
 	}
 	// The line renders the markup (its weight kept), not its text.
-	if !strings.Contains(v.message.Markup(), "<b>") {
-		t.Errorf("message markup = %q, want the bold kept", v.message.Markup())
+	if !strings.Contains(v.Message.Markup(), "<b>") {
+		t.Errorf("message markup = %q, want the bold kept", v.Message.Markup())
 	}
 	if h.s.cur.act != nil {
 		t.Error("a dialog started an engine")
@@ -589,34 +591,10 @@ func TestMoveSelectionCyclesOnlyUnderCycle(t *testing.T) {
 	}
 }
 
-// Centre is the search panel's place, whatever the panel's size; the rest sit
-// against their edges, offset from there.
-func TestPlacePanel(t *testing.T) {
-	out := render.Rect{W: 1000, H: 1000}
-	for _, c := range []struct {
-		loc  config.LauncherLocation
-		x, y int
-		want render.Rect
-	}{
-		{config.LauncherCenter, 0, 0, render.Rect{X: 400, Y: 220, W: 200, H: 100}},
-		{config.LauncherCenter, 10, 20, render.Rect{X: 400, Y: 220, W: 200, H: 100}},
-		{config.LauncherNorth, 10, 20, render.Rect{X: 400, Y: 20, W: 200, H: 100}},
-		{config.LauncherSouthEast, -10, -20, render.Rect{X: 790, Y: 880, W: 200, H: 100}},
-		{config.LauncherWest, 10, 20, render.Rect{X: 10, Y: 450, W: 200, H: 100}},
-	} {
-		if got := placePanel(out, 200, 100, c.loc, c.x, c.y); got != c.want {
-			t.Errorf("%s offset %d,%d: %v, want %v", c.loc, c.x, c.y, got, c.want)
-		}
-	}
-	if a, b := placePanel(out, 200, 100, config.LauncherCenter, 0, 0), placePanel(out, 200, 500, config.LauncherCenter, 0, 0); a.Y != b.Y {
-		t.Errorf("the field moved as the panel grew: %d, %d", a.Y, b.Y)
-	}
-}
-
 func TestResolveWidth(t *testing.T) {
 	h := newHarness(t)
-	ui := uiSettings{width: 600}
-	if h.s.resolveWidth(ui) != ui.width {
+	ui := uiSettings{look: launcherview.Look{Width: 600}}
+	if h.s.resolveWidth(ui) != ui.look.Width {
 		t.Error("no -width keeps the configured width")
 	}
 	ui.widthOverride = &launcheripc.Width{Unit: launcheripc.WidthPercent, Value: 50}
@@ -630,19 +608,6 @@ func TestResolveWidth(t *testing.T) {
 	ui.widthOverride = &launcheripc.Width{Unit: launcheripc.WidthChars, Value: 10}
 	if got := h.s.resolveWidth(ui); got < 10 || got%10 != 0 {
 		t.Errorf("10 chars = %d", got)
-	}
-}
-
-func TestRowDisplayColumnsAndEllipsize(t *testing.T) {
-	d := rowDisplay{columns: []uint32{2, 3, 9}, separator: "|"}
-	if got := d.applyColumns("a|b|c"); got != "b c" {
-		t.Errorf("columns = %q", got)
-	}
-	if (rowDisplay{}).applyColumns("a|b") != "a|b" {
-		t.Error("no columns keeps the text")
-	}
-	if (rowDisplay{ellipsize: "start"}).mode() != widget.EllipsizeStart || (rowDisplay{ellipsize: "x"}).mode() != widget.EllipsizeEnd {
-		t.Error("ellipsize modes")
 	}
 }
 
@@ -778,16 +743,6 @@ func layout(root widget.Widget, w, h int) {
 	root.Arrange(render.Rect{W: w, H: h})
 }
 
-func TestMessageMarkupFallsBackToTheLiteral(t *testing.T) {
-	if got := messageMarkup(`<span color="#ff0000">late</span>`); !strings.Contains(got, "late") || !strings.Contains(got, "<span") {
-		t.Errorf("valid markup = %q, want it translated", got)
-	}
-	got := messageMarkup("<b>broken")
-	if strings.Contains(got, "<b>") || !strings.Contains(got, "broken") {
-		t.Errorf("broken markup = %q, want the escaped literal", got)
-	}
-}
-
 // Every label takes its ink from the stylesheet, so a selected row
 // reads --fg-on-accent and urgent and active rows their colors
 // (launcher.css): nothing in the open surface pins one.
@@ -806,7 +761,7 @@ func TestLabelsTakeTheStylesheetInk(t *testing.T) {
 			t.Errorf("label %q pins ink %#08x", l.Text(), uint32(l.Color()))
 		}
 	}
-	if c := h.s.cur.views.entry.Color(); c != 0 {
+	if c := h.s.cur.views.Entry.Color(); c != 0 {
 		t.Errorf("the entry pins ink %#08x", uint32(c))
 	}
 	win := h.s.cur.views.root
@@ -816,26 +771,12 @@ func TestLabelsTakeTheStylesheetInk(t *testing.T) {
 	if box := h.s.cur.views.box; win.Children()[0] != widget.Widget(box) || !widget.HasClass(box, "launcher-panel") {
 		t.Errorf("window child %T, want .launcher-panel", win.Children()[0])
 	}
-	if !h.s.cur.views.tabs.Homogeneous() {
+	if !h.s.cur.views.Tabs.Homogeneous() {
 		t.Error("the mode tabs are not homogeneous")
 	}
 	lists := treetest.WithClass(root, "launcher-listview")
-	if len(lists) != 1 || lists[0].(*resultList).Element() != "listview" {
+	if len(lists) != 1 || lists[0].(*launcherview.List).Element() != "listview" {
 		t.Errorf("%d .launcher-listview nodes, want the one listview", len(lists))
-	}
-}
-
-// A desktop entry names a specific icon a theme may lack: the row
-// resolves it through GTK's dash fallbacks (preferences-system-network
-// to preferences-system), as a GAppInfo icon does, instead of drawing
-// nothing.
-func TestRowIconFallsBackAlongTheName(t *testing.T) {
-	treetest.IconTheme(t, "preferences-system")
-	if ink := treetest.Ink(rowIcon(engine.IconName("preferences-system-network"), 24, func(fn func()) { fn() })); ink == 0 {
-		t.Error("the row drew no icon for a name whose dash-shortened form exists")
-	}
-	if ink := treetest.Ink(rowIcon(engine.IconName("unrelated-app"), 24, func(fn func()) { fn() })); ink != 0 {
-		t.Error("a name with no present form drew an icon")
 	}
 }
 
@@ -854,23 +795,11 @@ func TestMessageLineKeepsItsPadding(t *testing.T) {
 	cfg := config.Defaults()
 	v.root.AttachStylesheet(widget.NewStylesheet(styling.BundleCSS(cfg, cfg.Styling.ActivePalette(), styling.Default()), 200))
 	layout(v.root, 600, 400)
-	bare := widget.NewRichLabel(h.s.d.Font, fontPx(), v.message.Markup(), 0)
+	bare := widget.NewRichLabel(h.s.d.Font, launcherview.FontPx(), v.Message.Markup(), 0)
 	natural := widget.SizeWithinAsChild(bare, widget.Size{W: 600, H: 400})
-	got := widget.SizeWithinAsChild(v.message, widget.Size{W: 600, H: 400})
+	got := widget.SizeWithinAsChild(v.Message, widget.Size{W: 600, H: 400})
 	if got.W <= natural.W || got.H <= natural.H {
 		t.Errorf("the message measures %v around %v of text, want its padding added", got, natural)
-	}
-}
-
-// A session's rows are the search panel's row box, carrying the selected
-// state.
-func TestASessionsRowsAreTheSharedRowBox(t *testing.T) {
-	row := buildRow(0, engine.Item{Display: "alpha"}, true, rowStyle{font: treetest.Font(t), px: 14}, nil, 0)
-	if !row.content.HasClass("launcher-search-row") || !row.content.HasState(widget.StateSelected) {
-		t.Error("a selected row is not a selected .launcher-search-row")
-	}
-	if idle := buildRow(1, engine.Item{Display: "beta"}, false, rowStyle{font: treetest.Font(t), px: 14}, nil, 1); idle.content.HasState(widget.StateSelected) {
-		t.Error("an unselected row carries the selected state")
 	}
 }
 
@@ -901,8 +830,8 @@ func TestMaskedModeKeepsTheSecretFromHooks(t *testing.T) {
 	accepted := "acc"
 	opts := launcheripc.SessionOptions{Modes: []string{VaultModeName}, OnEntryAccepted: &accepted}
 	h.open(opts, false)
-	h.until("the masked prompt", func() bool { return h.s.cur != nil && h.s.cur.views.entry.Echo() == widget.EchoPassword })
-	h.s.cur.views.entry.SetText("hunter2")
+	h.until("the masked prompt", func() bool { return h.s.cur != nil && h.s.cur.views.Entry.Echo() == widget.EchoPassword })
+	h.s.cur.views.Entry.SetText("hunter2")
 	h.loop.pump()
 	h.key("Return")
 	h.until("the rows", func() bool { return h.s.model.len() == 1 })
@@ -917,7 +846,7 @@ func TestMaskedModeKeepsTheSecretFromHooks(t *testing.T) {
 	if len(h.hooks) == 0 {
 		t.Error("the accept fired no hook")
 	}
-	if e := h.s.cur.views.entry; e.Echo() != widget.EchoNormal || e.Text() != "" {
+	if e := h.s.cur.views.Entry; e.Echo() != widget.EchoNormal || e.Text() != "" {
 		t.Errorf("after the secret: echo %v, text %q", e.Echo(), e.Text())
 	}
 }
@@ -937,7 +866,7 @@ func TestASessionIsTheSamePanelAsTheSearchPanel(t *testing.T) {
 	paintPanel(p, data)
 	panelCfg := ph.harness.windows[0].cfg
 	wantBox := p.v.box.Bounds()
-	wantInput, wantFooter := p.v.input.Bounds(), p.v.footer.Bounds()
+	wantInput, wantFooter := p.v.Input.Bounds(), p.v.Footer.Bounds()
 	var wantRow render.Rect
 	for _, r := range p.v.list.pool {
 		if r.title.Visible() {
@@ -967,17 +896,13 @@ func TestASessionIsTheSamePanelAsTheSearchPanel(t *testing.T) {
 	if got.X != wantBox.X || got.Y != wantBox.Y || got.W != wantBox.W {
 		t.Errorf("panel at %v, want the search panel's place and width %v", got, wantBox)
 	}
-	if b := v.input.Bounds(); b.H != wantInput.H || b.Y != wantInput.Y {
+	if b := v.Input.Bounds(); b.H != wantInput.H || b.Y != wantInput.Y {
 		t.Errorf("field %v, want %v", b, wantInput)
 	}
-	if b := v.footer.Bounds(); b.H != wantFooter.H || !widget.IsVisible(v.footer) {
-		t.Errorf("footer %v visible %v, want %v", b, widget.IsVisible(v.footer), wantFooter)
+	if b := v.Footer.Bounds(); b.H != wantFooter.H || !widget.IsVisible(v.Footer) {
+		t.Errorf("footer %v visible %v, want %v", b, widget.IsVisible(v.Footer), wantFooter)
 	}
-	row, ok := v.list.rows[0].(*launcherRow)
-	if !ok {
-		t.Fatal("no first row")
-	}
-	if b := row.Bounds(); b.H != wantRow.H {
+	if b := listRow(t, v, 0).Bounds(); b.H != wantRow.H {
 		t.Errorf("row %dpx tall, want the search panel's %d", b.H, wantRow.H)
 	}
 	for _, r := range widget.BackdropRegion(v.root) {
@@ -1011,12 +936,12 @@ func TestASessionsFooterFollowsItsRows(t *testing.T) {
 	h.open(dmenu(), false, "alpha")
 	h.until("the row", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
 	v := h.s.cur.views
-	if !v.footer.Visible() || !strings.Contains(v.hints.Markup(), "Esc") {
-		t.Errorf("with a row: footer %v, hints %q", v.footer.Visible(), v.hints.Markup())
+	if !v.Footer.Visible() || !strings.Contains(v.Hints.Markup(), "Esc") {
+		t.Errorf("with a row: footer %v, hints %q", v.Footer.Visible(), v.Hints.Markup())
 	}
-	v.entry.SetText("nothing matches this")
+	v.Entry.SetText("nothing matches this")
 	h.until("no rows", func() bool { return h.s.model.len() == 0 })
-	if v.footer.Visible() {
+	if v.Footer.Visible() {
 		t.Error("the footer stayed with no rows to act on")
 	}
 }
@@ -1049,26 +974,6 @@ func TestClosingWithoutAnEffectRunsNothingLater(t *testing.T) {
 	p.finish(search.Close{})
 	if len(ph.timers) != before {
 		t.Error("a plain close left something to run")
-	}
-}
-
-func TestARowsFileIconPointingAtAFIFODrawsNothingAndDoesNotBlock(t *testing.T) {
-	fifo := filepath.Join(t.TempDir(), "icon.png")
-	if err := unix.Mkfifo(fifo, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	posted := make(chan func(), 4)
-	icon := rowIcon(engine.IconFile(fifo), 24, func(fn func()) { posted <- fn })
-	for quiet := false; !quiet; {
-		select {
-		case fn := <-posted:
-			fn()
-		case <-time.After(quietWindow):
-			quiet = true
-		}
-	}
-	if ink := treetest.Ink(icon); ink != 0 {
-		t.Errorf("the row drew %d pixels for a file that is not one", ink)
 	}
 }
 

@@ -82,8 +82,8 @@ func TestARofiSessionPreviewsTheRowTheSelectionRestsOn(t *testing.T) {
 	if !v.pane.box.Visible() {
 		t.Fatal("a mode that previews its rows opens the pane")
 	}
-	if w, _ := v.targetIn(v.root.bounds()); w != v.width+v.pane.width {
-		t.Errorf("panel %d wide, want the list's %d and the pane's %d", w, v.width, v.pane.width)
+	if w, _ := v.targetIn(v.root.bounds()); w != v.Width()+v.pane.width {
+		t.Errorf("panel %d wide, want the list's %d and the pane's %d", w, v.Width(), v.pane.width)
 	}
 	for range 4 {
 		h.key("Down")
@@ -174,8 +174,8 @@ func TestNoPreviewsLeaveTheRofiPaneShut(t *testing.T) {
 	if v.pane.box.Visible() {
 		t.Error("dmenu rows opened the pane")
 	}
-	if w, _ := v.targetIn(v.root.bounds()); w != v.width {
-		t.Errorf("panel %d wide, want %d", w, v.width)
+	if w, _ := v.targetIn(v.root.bounds()); w != v.Width() {
+		t.Errorf("panel %d wide, want %d", w, v.Width())
 	}
 
 	off := newHarness(t)

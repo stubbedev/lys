@@ -1,44 +1,44 @@
-package launcher
+package launcherview
 
 import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// resultList is the virtualized results view: only the rows inside the
+// List is the virtualized results view: only the rows inside the
 // viewport exist as widgets, so a ten-thousand-row dmenu costs a
 // viewport's worth. It owns the selection and the scroll offset; the
-// row widgets are the surface's (factory), styled by CSS classes. It is
-// a widget of its own rather than a lys-ui List because it keeps rofi's
-// fixed row height and the selection apart from the scroll offset.
-type resultList struct {
+// row widgets are the factory's, styled by CSS classes. It is a widget
+// of its own rather than a lys-ui List because it keeps rofi's fixed row
+// height and the selection apart from the scroll offset.
+type List struct {
 	widget.Base
 	count    int
 	factory  func(i int) widget.Widget
 	selected int
 	offset   int
-	// rowH is every row's height.
-	rowH   int
-	margin render.Insets
+	rowH     int
+	margin   render.Insets
 	// visibleRows is how many rows the viewport shows.
 	visibleRows int
-	// fixed holds the viewport at visibleRows rows (-fixed-num-lines);
-	// otherwise it is as tall as its rows, up to visibleRows.
+	// fixed holds the viewport at visibleRows rows; otherwise it is as
+	// tall as its rows, up to visibleRows.
 	fixed bool
 	rows  map[int]widget.Widget
 }
 
-func newResultList(rowH int, margin render.Insets, factory func(i int) widget.Widget) *resultList {
-	l := &resultList{rowH: rowH, margin: margin, factory: factory, rows: map[int]widget.Widget{}, visibleRows: 10, selected: -1}
-	// GTK's ListView element, so the stylesheet's listview > row rules
-	// reach the rows.
+// NewList is an empty list of rows rowH tall inside margin, built by
+// factory as they come into view, showing visibleRows (at least one)
+// and, when fixed, always that tall.
+func NewList(rowH int, margin render.Insets, visibleRows int, fixed bool, factory func(i int) widget.Widget) *List {
+	l := &List{rowH: rowH, margin: margin, factory: factory, rows: map[int]widget.Widget{}, visibleRows: max(visibleRows, 1), fixed: fixed, selected: -1}
 	l.SetElement("listview")
 	l.AddClass("launcher-listview")
 	return l
 }
 
-// reset replaces the row count, dropping every cached row.
-func (l *resultList) reset(count int) {
+// Reset replaces the row count, dropping every cached row.
+func (l *List) Reset(count int) {
 	l.count = count
 	l.rows = map[int]widget.Widget{}
 	l.offset = min(l.offset, max(0, count-l.visibleRows))
@@ -46,14 +46,14 @@ func (l *resultList) reset(count int) {
 	l.InvalidateLayout()
 }
 
-// refresh rebuilds one row (a ballot toggle).
-func (l *resultList) refresh(i int) {
+// Refresh rebuilds one row.
+func (l *List) Refresh(i int) {
 	delete(l.rows, i)
 	l.InvalidateLayout()
 }
 
-// setSelected moves the selection and scrolls it into view; -1 clears.
-func (l *resultList) setSelected(i int) {
+// SetSelected moves the selection and scrolls it into view; -1 clears.
+func (l *List) SetSelected(i int) {
 	if i >= l.count {
 		i = l.count - 1
 	}
@@ -77,16 +77,26 @@ func (l *resultList) setSelected(i int) {
 	l.InvalidateLayout()
 }
 
-func (l *resultList) edge() int { return l.margin.Left - l.margin.Top }
+// RowH is every row's height.
+func (l *List) RowH() int { return l.rowH }
+
+// Edge is the gap above the first row and below the last.
+func (l *List) Edge() int { return l.margin.Left - l.margin.Top }
+
+// Row is row i's widget while it is built.
+func (l *List) Row(i int) (widget.Widget, bool) {
+	w, ok := l.rows[i]
+	return w, ok
+}
 
 // visible is the half-open range of rows in the viewport.
-func (l *resultList) visible() (int, int) {
+func (l *List) visible() (int, int) {
 	first := min(l.offset, max(0, l.count-1))
 	return first, min(l.count, first+l.visibleRows)
 }
 
 // rowAt returns the row widget for index i, building it when absent.
-func (l *resultList) rowAt(i int) widget.Widget {
+func (l *List) rowAt(i int) widget.Widget {
 	if w, ok := l.rows[i]; ok {
 		return w
 	}
@@ -98,7 +108,7 @@ func (l *resultList) rowAt(i int) widget.Widget {
 // Measure is the viewport: no width of its own, the column it sits in
 // gives it one; visibleRows rows tall when fixed, its rows up to
 // visibleRows otherwise.
-func (l *resultList) Measure(axis widget.Axis, _ int) widget.Sizes {
+func (l *List) Measure(axis widget.Axis, _ int) widget.Sizes {
 	if axis == widget.Row {
 		return widget.Sizes{}
 	}
@@ -109,11 +119,11 @@ func (l *resultList) Measure(axis widget.Axis, _ int) widget.Sizes {
 	if rows == 0 {
 		return widget.FixedSizes(0)
 	}
-	return widget.FixedSizes(rows*l.rowH + 2*l.edge())
+	return widget.FixedSizes(rows*l.rowH + 2*l.Edge())
 }
 
 // Arrange lays the visible rows out and evicts the rest.
-func (l *resultList) Arrange(r render.Rect) {
+func (l *List) Arrange(r render.Rect) {
 	l.ArrangeSelf(r)
 	first, last := l.visible()
 	for i := range l.rows {
@@ -124,17 +134,17 @@ func (l *resultList) Arrange(r render.Rect) {
 	kids := make([]widget.Widget, 0, last-first)
 	for i := first; i < last; i++ {
 		w := l.rowAt(i)
-		w.Arrange(l.margin.Shrink(render.Rect{X: r.X, Y: r.Y + l.edge() + (i-first)*l.rowH, W: r.W, H: l.rowH}))
+		w.Arrange(l.margin.Shrink(render.Rect{X: r.X, Y: r.Y + l.Edge() + (i-first)*l.rowH, W: r.W, H: l.rowH}))
 		kids = append(kids, w)
 	}
 	widget.SetParents(l, kids...)
 }
 
 // ArrangeRoot mirrors Arrange for the root path.
-func (l *resultList) ArrangeRoot(r render.Rect) { l.Arrange(r) }
+func (l *List) ArrangeRoot(r render.Rect) { l.Arrange(r) }
 
 // Paint paints the visible rows inside the viewport.
-func (l *resultList) Paint(cv *render.Canvas) {
+func (l *List) Paint(cv *render.Canvas) {
 	prev := cv.PushClip(l.Bounds())
 	first, last := l.visible()
 	for i := first; i < last; i++ {
@@ -146,7 +156,7 @@ func (l *resultList) Paint(cv *render.Canvas) {
 }
 
 // Children exposes the visible rows to the style cascade and hover.
-func (l *resultList) Children() []widget.Widget {
+func (l *List) Children() []widget.Widget {
 	first, last := l.visible()
 	out := make([]widget.Widget, 0, last-first)
 	for i := first; i < last; i++ {
@@ -158,13 +168,13 @@ func (l *resultList) Children() []widget.Widget {
 }
 
 // HitTest descends into the row under p.
-func (l *resultList) HitTest(p widget.Point) widget.Widget {
+func (l *List) HitTest(p widget.Point) widget.Widget {
 	b := l.Bounds()
 	if p.X < b.X || p.Y < b.Y || p.X >= b.X+b.W || p.Y >= b.Y+b.H {
 		return nil
 	}
 	first, last := l.visible()
-	y := p.Y - b.Y - l.edge()
+	y := p.Y - b.Y - l.Edge()
 	if i := first + y/l.rowH; y >= 0 && i < last {
 		if w, ok := l.rows[i]; ok {
 			if hit := w.HitTest(p); hit != nil {
@@ -176,7 +186,7 @@ func (l *resultList) HitTest(p widget.Point) widget.Widget {
 }
 
 // ScrollBy scrolls the viewport by whole rows.
-func (l *resultList) ScrollBy(_, dy int) {
+func (l *List) ScrollBy(_, dy int) {
 	next := min(max(0, l.offset+dy), max(0, l.count-l.visibleRows))
 	if next != l.offset {
 		l.offset = next
