@@ -1186,6 +1186,10 @@ settings-dashboard-battery-levels = Akku
 settings-level-warning = Warnung
 settings-level-error = Fehler
 settings-level-critical = Kritisch
+settings-level-band = { $to ->
+   *[other] Gezeigt von { $from } bis { $to } %
+}
+settings-level-muted = Gezeigt, solange stummgeschaltet
 settings-level-unit-percent = { $n ->
    *[other] { $n } %
 }

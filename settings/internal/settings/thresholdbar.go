@@ -43,16 +43,17 @@ type thresholdStop struct {
 
 type thresholdBar struct {
 	widget.Base
-	k     *kit
-	slot  slot
-	items []map[string]any
-	stops []*thresholdStop
-	max   float64
-	drag  *thresholdStop
+	k      *kit
+	slot   slot
+	items  []map[string]any
+	stops  []*thresholdStop
+	max    float64
+	drag   *thresholdStop
+	levels *levelBands
 }
 
-func newThresholdBar(k *kit, s slot) *thresholdBar {
-	b := &thresholdBar{Base: widget.NewBase(), k: k, slot: s, max: thresholdScaleMax}
+func newThresholdBar(k *kit, s slot, levels *levelBands) *thresholdBar {
+	b := &thresholdBar{Base: widget.NewBase(), k: k, slot: s, max: thresholdScaleMax, levels: levels}
 	b.AddClass("threshold-bar")
 	b.refresh()
 	return b
@@ -82,9 +83,10 @@ func (b *thresholdBar) refresh() {
 			}
 		}
 	}
-	for _, s := range b.stops {
-		widget.SetParents(b, s)
+	if b.levels != nil {
+		b.levels.refresh()
 	}
+	widget.SetParents(b, b.Children()...)
 	b.InvalidateLayout()
 	b.Invalidate()
 }
@@ -92,7 +94,13 @@ func (b *thresholdBar) refresh() {
 func (b *thresholdBar) track() render.Rect {
 	r := b.Bounds()
 	pad := thresholdStopR + 2
-	return render.Rect{X: r.X + pad, Y: r.Y + (r.H-thresholdTrackH)/2, W: max(1, r.W-2*pad), H: thresholdTrackH}
+	left := pad
+	if b.levels != nil {
+		r.Y += levelRowH
+		r.H -= levelRowH
+		left += b.levels.leftPad()
+	}
+	return render.Rect{X: r.X + left, Y: r.Y + (r.H-thresholdTrackH)/2, W: max(1, r.W-left-pad), H: thresholdTrackH}
 }
 
 func (b *thresholdBar) xOf(v float64) int {
@@ -134,12 +142,18 @@ func (b *thresholdBar) Children() []widget.Widget {
 	for i, s := range b.stops {
 		out[i] = s
 	}
+	if b.levels != nil {
+		out = append(out, b.levels.widgets()...)
+	}
 	return out
 }
 
 func (b *thresholdBar) Measure(axis widget.Axis, _ int) widget.Sizes {
 	if axis == widget.Row {
 		return widget.Sizes{Min: 160, Nat: 320}
+	}
+	if b.levels != nil {
+		return widget.FixedSizes(thresholdBarH + levelRowH)
 	}
 	return widget.FixedSizes(thresholdBarH)
 }
@@ -155,6 +169,9 @@ func (b *thresholdBar) Arrange(r render.Rect) {
 	for _, s := range b.stops {
 		x := b.xOf(b.stopValue(s))
 		s.Arrange(render.Rect{X: x - thresholdStopR, Y: t.Y + t.H/2 - thresholdStopR, W: 2 * thresholdStopR, H: 2 * thresholdStopR})
+	}
+	if b.levels != nil {
+		b.levels.arrange(b)
 	}
 }
 
@@ -176,6 +193,9 @@ func (b *thresholdBar) Paint(cv *render.Canvas) {
 		}
 		x0, x1 := b.xOf(lo), b.xOf(hi)
 		cv.RoundedRect(render.Rect{X: x0, Y: t.Y, W: max(1, x1-x0), H: t.H}, t.H/2, b.colorOf(m))
+	}
+	if b.levels != nil {
+		b.levels.paint(b, cv)
 	}
 	for _, s := range b.stops {
 		r := s.Bounds()

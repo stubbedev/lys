@@ -148,11 +148,11 @@ func audioPage(*config.Config) pageSpec {
 	return pageSpec{id: "audio", navKey: "settings-nav-audio", icon: "ld-volume-2-symbolic", header: "settings-page-audio", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.audio.format"),
-			field("modules.audio.thresholds", thresholdList),
 		}},
 		{title: "settings-section-speaker", rows: []rowSpec{
 			field("modules.audio.speaker-icons", iconList),
 			field("modules.audio.speaker-icon-muted", iconRow),
+			field("modules.audio.thresholds", levelThresholdList(levelScale{icons: "modules.audio.speaker-icons", muted: "modules.audio.speaker-icon-muted"})),
 		}},
 		{title: "settings-section-capture", rows: []rowSpec{captureTilesRow("modules.audio")}},
 		{title: "settings-section-dropdown", rows: []rowSpec{
@@ -170,7 +170,7 @@ func batteryPage(*config.Config) pageSpec {
 			field("modules.battery.alert-icon", iconRow),
 			field("modules.battery.format"),
 			field("modules.battery.level-icons", iconList),
-			field("modules.battery.thresholds", thresholdList),
+			field("modules.battery.thresholds", levelThresholdList(levelScale{icons: "modules.battery.level-icons"})),
 		}},
 		barItemSection("modules.battery", actionChoices("battery")),
 	}}
@@ -220,8 +220,8 @@ func brightnessPage(*config.Config) pageSpec {
 			field("modules.brightness.format"),
 			field("modules.brightness.level-icons", iconList),
 			field("modules.brightness.min-brightness", percentage),
+			field("modules.brightness.thresholds", levelThresholdList(levelScale{icons: "modules.brightness.level-icons", floor: "modules.brightness.min-brightness"})),
 			field("modules.brightness.enable-external", ddcRow),
-			field("modules.brightness.thresholds", thresholdList),
 		}},
 		barItemSection("modules.brightness", actionChoices("brightness")),
 	}}

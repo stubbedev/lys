@@ -782,7 +782,7 @@ func optionalColor(k *kit, s slot) control {
 // range above the cards with each threshold's colours.
 var thresholdList = func(r *rowSpec) {
 	r.fullWidth = true
-	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newThresholdEditor(k, s) }
+	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newThresholdEditor(k, s, nil) }
 }
 
 type thresholdEditor struct {
@@ -791,7 +791,7 @@ type thresholdEditor struct {
 	cards *cardList
 }
 
-func newThresholdEditor(k *kit, s slot) *thresholdEditor {
+func newThresholdEditor(k *kit, s slot, levels *levelBands) *thresholdEditor {
 	e := &thresholdEditor{Box: gapBox(widget.Column)}
 	then := func(after func()) slot {
 		return slot{get: s.get, set: func(v any) error {
@@ -803,7 +803,7 @@ func newThresholdEditor(k *kit, s slot) *thresholdEditor {
 			after()
 		}}
 	}
-	e.bar = newThresholdBar(k, then(func() { e.cards.refresh() }))
+	e.bar = newThresholdBar(k, then(func() { e.cards.refresh() }), levels)
 	e.cards = newCardList(k, then(func() { e.bar.refresh() }), thresholdCards)
 	e.Append(e.bar, false)
 	e.Append(e.cards, false)
