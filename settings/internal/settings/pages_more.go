@@ -175,7 +175,7 @@ func launcherPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-launcher-matching", advanced: true, rows: []rowSpec{
 			field("launcher.tokenize"),
-			field("launcher.negate-char"),
+			field("launcher.negate-char", negateCharRow),
 			field("launcher.normalize-match"),
 			field("launcher.sort"),
 			field("launcher.sorting-method"),

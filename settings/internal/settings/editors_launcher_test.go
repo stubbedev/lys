@@ -71,6 +71,43 @@ func TestASnippetKeepsItsLinesAndIsEditedInAnArea(t *testing.T) {
 	}
 }
 
+func negateChar(t *testing.T, k *kit) *valueSelect {
+	t.Helper()
+	c, ok := fieldControl(k, k.store, pageRow(t, "launcher", "launcher.negate-char")).(*valueSelect)
+	if !ok {
+		t.Fatal("the negation character is not picked from a list")
+	}
+	return c
+}
+
+func TestTheNegationCharacterIsOneOfThreeAndWritesThePickedOne(t *testing.T) {
+	k := testKit(t, "")
+	c := negateChar(t, k)
+	if len(c.Items()) != 3 || c.shown[c.Selected()] != "-" {
+		t.Fatalf("offers %q with %q selected", c.Items(), c.shown[c.Selected()])
+	}
+	c.OnSelect(slices.Index(c.shown, "~"))
+	if v := k.store.value("launcher.negate-char"); v != "~" {
+		t.Fatalf("stored %v", v)
+	}
+}
+
+func TestANegationCharacterOutsideTheThreeIsKeptAndShown(t *testing.T) {
+	k := testKit(t, "launcher:\n  negate-char: \"^\"\n")
+	c := negateChar(t, k)
+	if len(c.Items()) != 4 || c.shown[c.Selected()] != "^" {
+		t.Fatalf("offers %q with %q selected", c.Items(), c.shown[c.Selected()])
+	}
+	if v := k.store.value("launcher.negate-char"); v != "^" {
+		t.Fatalf("an unlisted character was rewritten to %v", v)
+	}
+	c.OnSelect(slices.Index(c.shown, "!"))
+	c.refresh()
+	if len(c.Items()) != 3 || k.store.value("launcher.negate-char") != "!" {
+		t.Fatalf("after picking ! it offers %q, stored %v", c.Items(), k.store.value("launcher.negate-char"))
+	}
+}
+
 func TestTheTerminalIsSetOnDefaultAppsAlone(t *testing.T) {
 	if slices.Contains(rowPaths(bothParts, "launcher"), "launcher.terminal") {
 		t.Error("the launcher page still holds the terminal")

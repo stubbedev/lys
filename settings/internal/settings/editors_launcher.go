@@ -7,6 +7,12 @@ var (
 	snippetForm   = formOf(config.LauncherSnippet{})
 )
 
+var negateCharRow = valueSelectRow(
+	namedValue{"-", "settings-negate-minus"},
+	namedValue{"!", "settings-negate-bang"},
+	namedValue{"~", "settings-negate-tilde"},
+)
+
 var quicklinkCards = cardSpec{
 	identity: quicklinkForm.identity("name"),
 	fields: []cardField{
