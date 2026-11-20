@@ -141,7 +141,7 @@ func newRangeSlider(k *kit, slots [2]slot, spec rangeSpec) *rangeSlider {
 }
 
 func (s *rangeSlider) value(i int) float64 {
-	v, _ := thresholdNum(s.slots[i].get())
+	v, _ := numeric(s.slots[i].get())
 	return v
 }
 

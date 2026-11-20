@@ -19,7 +19,7 @@ func pageRange(t *testing.T, k *kit, page, path string) *rangeSlider {
 
 func storedFloat(t *testing.T, k *kit, path string) float64 {
 	t.Helper()
-	v, ok := thresholdNum(k.store.value(path))
+	v, ok := numeric(k.store.value(path))
 	if !ok {
 		t.Fatalf("%s holds %v", path, k.store.value(path))
 	}

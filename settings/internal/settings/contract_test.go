@@ -132,6 +132,7 @@ var systemDefaulted = []string{
 	"input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method", "input.trackpoint.accel_speed", "input.trackpoint.scroll_factor",
 	"input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation",
 	"input.touchpad.click_method", "input.touchpad.scroll_method", "input.touchpad.accel_speed", "input.touchpad.scroll_factor",
+	"input.pointer.accel_points", "input.touchpad.accel_points", "input.trackpoint.accel_points",
 	"gestures.hold", "gestures.touch", "outputs", "rules", "layer_rules", "autostart", "workspaces", "scratchpads", "animations.curves", "animations.events",
 	"decoration.blur.refraction", "decoration.blur.specular",
 }

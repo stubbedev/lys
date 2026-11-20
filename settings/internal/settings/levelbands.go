@@ -62,7 +62,7 @@ func (l *levelBands) refresh() {
 	}
 	l.floor = 0
 	if l.scale.floor != "" {
-		l.floor, _ = thresholdNum(l.k.store.value(l.scale.floor))
+		l.floor, _ = numeric(l.k.store.value(l.scale.floor))
 	}
 }
 

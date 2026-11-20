@@ -57,7 +57,7 @@ func newWebcamPlacer(x, y, size slot) *webcamPlacer {
 }
 
 func slotPercent(s slot) uint32 {
-	n, ok := thresholdNum(s.get())
+	n, ok := numeric(s.get())
 	if !ok {
 		return 0
 	}

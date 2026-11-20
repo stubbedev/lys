@@ -25,7 +25,7 @@ func TestTheCavaCutoffsCannotCross(t *testing.T) {
 		t.Errorf("a high cutoff under the low one stored %v, want it held at 17000", v)
 	}
 	c.thumbs[1].KeyAction(widget.KeyRight, widget.ModShift)
-	if v, _ := thresholdNum(k.store.value("modules.cava.high-cutoff")); v <= 17000 {
+	if v, _ := numeric(k.store.value("modules.cava.high-cutoff")); v <= 17000 {
 		t.Errorf("shift-right on the high cutoff stored %v", v)
 	}
 }

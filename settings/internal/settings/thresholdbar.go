@@ -24,11 +24,13 @@ const (
 
 var thresholdColorKeys = []string{"icon-color", "label-color", "button-bg-color", "icon-bg-color", "border-color"}
 
-func thresholdNum(v any) (float64, bool) {
+func numeric(v any) (float64, bool) {
 	switch n := v.(type) {
 	case float64:
 		return n, true
 	case int64:
+		return float64(n), true
+	case int:
 		return float64(n), true
 	}
 	return 0, false
@@ -67,7 +69,7 @@ func (b *thresholdBar) refresh() {
 		m, _ := it.(map[string]any)
 		b.items = append(b.items, m)
 		for _, key := range []string{"above", "below"} {
-			if v, ok := thresholdNum(m[key]); ok && v > b.max {
+			if v, ok := numeric(m[key]); ok && v > b.max {
 				b.max = math.Ceil(float64(v*1.2)/10) * 10
 			}
 		}
@@ -76,7 +78,7 @@ func (b *thresholdBar) refresh() {
 	t := locale.T()
 	for i, m := range b.items {
 		for _, key := range []string{"above", "below"} {
-			if v, ok := thresholdNum(m[key]); ok {
+			if v, ok := numeric(m[key]); ok {
 				s := &thresholdStop{Base: widget.NewBase(), bar: b, entry: i, key: key}
 				s.SetAccessibleName(fmt.Sprintf("%s %d: %s %g", t.Get("settings-threshold-card-title"), i+1, t.Get("settings-threshold-"+key), v))
 				b.stops = append(b.stops, s)
@@ -159,7 +161,7 @@ func (b *thresholdBar) Measure(axis widget.Axis, _ int) widget.Sizes {
 }
 
 func (b *thresholdBar) stopValue(s *thresholdStop) float64 {
-	v, _ := thresholdNum(b.items[s.entry][s.key])
+	v, _ := numeric(b.items[s.entry][s.key])
 	return v
 }
 
@@ -180,8 +182,8 @@ func (b *thresholdBar) Paint(cv *render.Canvas) {
 	t := b.track()
 	cv.RoundedRect(t, t.H/2, th.MutedColor())
 	for _, m := range b.items {
-		lo, hasLo := thresholdNum(m["above"])
-		hi, hasHi := thresholdNum(m["below"])
+		lo, hasLo := numeric(m["above"])
+		hi, hasHi := numeric(m["below"])
 		if !hasLo {
 			lo = 0
 		}

@@ -959,18 +959,12 @@ func TestALongCardTitleShrinksInsteadOfWideningTheList(t *testing.T) {
 }
 
 var unlistedWMKeys = map[string]string{
-	"outputs":                              "edited by the Displays arrangement, which writes the output rules itself",
-	"primary_output":                       "set by the Displays page's Primary display switch on the selected display",
-	"input.devices":                        "a per-device list fed from lys-wm's input devices, #122 and #138",
-	"input.pointer.accel_points.points":    "the custom acceleration curve editor, planned in #138",
-	"input.pointer.accel_points.step":      "the custom acceleration curve editor, planned in #138",
-	"input.touchpad.accel_points.points":   "the custom acceleration curve editor, planned in #138",
-	"input.touchpad.accel_points.step":     "the custom acceleration curve editor, planned in #138",
-	"input.trackpoint.accel_points.points": "the custom acceleration curve editor, planned in #138",
-	"input.trackpoint.accel_points.step":   "the custom acceleration curve editor, planned in #138",
-	"virtual_outputs":                      "added, sized and removed on the Displays arrangement, which writes the list itself",
-	"swallow.terminals":                    "an app picker writing the match, with the window matching editor planned in #138",
-	"swallow.except_title":                 "a title match with the window matching editor planned in #138",
+	"outputs":              "edited by the Displays arrangement, which writes the output rules itself",
+	"primary_output":       "set by the Displays page's Primary display switch on the selected display",
+	"input.devices":        "a per-device list fed from lys-wm's input devices, #122 and #138",
+	"virtual_outputs":      "added, sized and removed on the Displays arrangement, which writes the list itself",
+	"swallow.terminals":    "an app picker writing the match, with the window matching editor planned in #138",
+	"swallow.except_title": "a title match with the window matching editor planned in #138",
 }
 
 func TestEveryWMConfigKeyHasARow(t *testing.T) {

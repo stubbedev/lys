@@ -24,7 +24,7 @@ func webcamPlacerOf(t *testing.T, yaml string) (*kit, *webcamPlacer) {
 
 func storedPlacement(k *kit) webcamframe.Placement {
 	n := func(path string) uint32 {
-		v, _ := thresholdNum(k.store.value(path))
+		v, _ := numeric(k.store.value(path))
 		return uint32(v)
 	}
 	return webcamframe.Placement{X: n(webcamXPath), Y: n(webcamYPath), Size: n(webcamSizePath)}

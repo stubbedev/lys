@@ -236,7 +236,7 @@ func (p *locationPicker) coordinate(latitude bool) slot {
 			return pick(place.Coordinates())
 		},
 		set: func(v any) error {
-			degrees, _ := thresholdNum(v)
+			degrees, _ := numeric(v)
 			place, _, err := p.current()
 			if err != nil {
 				return err

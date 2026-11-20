@@ -307,6 +307,15 @@ func (w *wmBackend) dropOverride(path string) {
 	}
 }
 
+// clearing is the edit taking the key out of what lys-wm reads: its override
+// goes, and a value beneath the overrides is covered by null.
+func (w *wmBackend) clearing(path string) wmconfig.Edit {
+	if w.baseValue(path) == nil {
+		return wmconfig.Edit{Path: wmPath(path), Unset: true}
+	}
+	return wmconfig.Edit{Path: wmPath(path)}
+}
+
 // baseIsDefault reports whether the key without its override holds its
 // default.
 func (w *wmBackend) baseIsDefault(path string) bool {
@@ -626,19 +635,20 @@ func wmKeyboardPage() pageSpec {
 
 func wmPointerPage() pageSpec {
 	return wmPage("wm-pointer", "ld-mouse-symbolic",
-		sectionSpec{title: "wm-section-pointer", hardware: wmipc.ClassPointer, rows: wmFields("input.pointer.natural_scroll", "input.pointer.middle_emulation", "input.pointer.accel_profile", "input.pointer.accel_speed", "input.pointer.scroll_factor",
+		sectionSpec{title: "wm-section-pointer", hardware: wmipc.ClassPointer, rows: append(append(wmFields("input.pointer.natural_scroll", "input.pointer.middle_emulation"), wmAccelRows("input.pointer")...), wmFields("input.pointer.scroll_factor",
 			"input.pointer.left_handed", "input.pointer.tap", "input.pointer.tap_button_map", "input.pointer.drag_lock", "input.pointer.click_method", "input.pointer.scroll_method",
-			"input.pointer.scroll_button", "input.pointer.scroll_button_lock", "input.pointer.disable_while_typing", "input.pointer.disabled_on_external_mouse")},
-		sectionSpec{title: "wm-section-touchpad", hardware: wmipc.ClassTouchpad, rows: wmFields("input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation", "input.touchpad.click_method", "input.touchpad.scroll_method", "input.touchpad.accel_profile", "input.touchpad.accel_speed", "input.touchpad.scroll_factor",
-			"input.touchpad.left_handed", "input.touchpad.tap_button_map", "input.touchpad.scroll_button", "input.touchpad.scroll_button_lock", "input.touchpad.disabled_on_external_mouse")},
+			"input.pointer.scroll_button", "input.pointer.scroll_button_lock", "input.pointer.disable_while_typing", "input.pointer.disabled_on_external_mouse")...)},
+		sectionSpec{title: "wm-section-touchpad", hardware: wmipc.ClassTouchpad, rows: append(append(wmFields("input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation", "input.touchpad.click_method", "input.touchpad.scroll_method"),
+			wmAccelRows("input.touchpad")...), wmFields("input.touchpad.scroll_factor",
+			"input.touchpad.left_handed", "input.touchpad.tap_button_map", "input.touchpad.scroll_button", "input.touchpad.scroll_button_lock", "input.touchpad.disabled_on_external_mouse")...)},
 		sectionSpec{title: "wm-section-gestures", hardware: wmipc.ClassTouchpad, rows: []rowSpec{
 			wmObjects("gestures.swipe", "fingers", "direction", "modifiers"), wmObjects("gestures.pinch", "fingers", "direction", "modifiers"),
 			wmObjects("gestures.hold", "fingers", "modifiers"), wmField("gestures.distance"),
 		}},
 		sectionSpec{title: "wm-section-touch-gestures", rows: []rowSpec{touchGesturesRow(), wmField("gestures.edge_width", softPixels(4, 64))}},
-		sectionSpec{title: "wm-section-trackpoint", advanced: true, hardware: wmipc.ClassTrackpoint, rows: wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method", "input.trackpoint.accel_profile", "input.trackpoint.accel_speed", "input.trackpoint.scroll_factor",
+		sectionSpec{title: "wm-section-trackpoint", advanced: true, hardware: wmipc.ClassTrackpoint, rows: append(append(wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method"), wmAccelRows("input.trackpoint")...), wmFields("input.trackpoint.scroll_factor",
 			"input.trackpoint.left_handed", "input.trackpoint.tap", "input.trackpoint.tap_button_map", "input.trackpoint.drag_lock", "input.trackpoint.click_method",
-			"input.trackpoint.scroll_button", "input.trackpoint.scroll_button_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.disabled_on_external_mouse")},
+			"input.trackpoint.scroll_button", "input.trackpoint.scroll_button_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.disabled_on_external_mouse")...)},
 	)
 }
 
