@@ -29,6 +29,7 @@ ld-graph-star-symbolic
 ld-grid-2x2-symbolic
 ld-hard-drive-symbolic
 ld-headphones-symbolic
+ld-headset-symbolic
 ld-image-symbolic
 ld-keyboard-symbolic
 ld-key-round-symbolic
@@ -72,11 +73,13 @@ ld-tablet-symbolic
 ld-trash-2-symbolic
 ld-tv-symbolic
 ld-type-symbolic
+ld-usb-symbolic
 ld-user-symbolic
 ld-video-symbolic
 ld-volume-2-symbolic
 ld-volume-x-symbolic
 ld-watch-symbolic
+ld-webcam-symbolic
 ld-wifi-high-symbolic
 ld-wifi-low-symbolic
 ld-wifi-symbolic

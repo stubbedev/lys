@@ -358,7 +358,9 @@ func (c *deviceControls) show(devices []pulse.Device, current pulse.Device, has 
 	for i, d := range devices {
 		c.keys[i], names[i] = d.Key, cmp.Or(d.Description, d.Name)
 	}
-	setChoices(c.devices, names, slices.Index(c.keys, current.Key))
+	if selected := slices.Index(c.keys, current.Key); !slices.Equal(c.devices.Items(), names) || c.devices.Selected() != selected {
+		c.devices.SetRows(soundDeviceRows(devices, c.kind, func(d pulse.Device) string { return cmp.Or(d.Description, d.Name) }), selected)
+	}
 	c.ports = c.ports[:0]
 	portNames := make([]string, 0, len(current.Ports))
 	for _, port := range current.Ports {
