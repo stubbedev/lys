@@ -30,19 +30,18 @@ import (
 )
 
 const (
-	dateTimeID       = "date-time"
-	regionID         = "region"
-	timedateName     = "org.freedesktop.timedate1"
-	timedatePath     = dbus.ObjectPath("/org/freedesktop/timedate1")
-	localeName       = "org.freedesktop.locale1"
-	localePath       = dbus.ObjectPath("/org/freedesktop/locale1")
-	manualTimeLayout = "2006-01-02 15:04:05"
-	clockFormatPath  = "modules.clock.format"
-	localeConfName   = "locale.conf"
-	interactive      = true
-	previewNumber    = 123456789
-	previewPrice     = 123450
-	previewScale     = 2
+	dateTimeID      = "date-time"
+	regionID        = "region"
+	timedateName    = "org.freedesktop.timedate1"
+	timedatePath    = dbus.ObjectPath("/org/freedesktop/timedate1")
+	localeName      = "org.freedesktop.locale1"
+	localePath      = dbus.ObjectPath("/org/freedesktop/locale1")
+	clockFormatPath = "modules.clock.format"
+	localeConfName  = "locale.conf"
+	interactive     = true
+	previewNumber   = 123456789
+	previewPrice    = 123450
+	previewScale    = 2
 )
 
 var userFormats = []string{"LC_TIME", "LC_NUMERIC", "LC_MONETARY", "LC_MEASUREMENT", "LC_PAPER"}
@@ -362,13 +361,11 @@ func dateTimeLead(k *kit) widget.Widget {
 				p.do("SetNTP", on, interactive)
 			}
 		}
-		manual := k.entry()
-		manual.SetPlaceholder(manualTimeLayout)
-		set := k.button(k.label(t.Get("settings-date-set")), nil, css.Secondary)
-		set.OnClick = func() {
-			at, err := time.ParseInLocation(manualTimeLayout, strings.TrimSpace(manual.Text()), time.Local)
+		manual := newManualTime(k, clockNow())
+		manual.set.OnClick = func() {
+			at, err := manual.at(p.props.str("Timezone"))
 			if err != nil {
-				p.fail(fmt.Errorf("%q is not a date and time as %s: %w", manual.Text(), manualTimeLayout, err))
+				p.fail(err)
 				return
 			}
 			p.do("SetTime", at.UnixMicro(), false, interactive)
@@ -380,7 +377,8 @@ func dateTimeLead(k *kit) widget.Widget {
 		}, choiceSpec{list: fixedChoices(zones), known: func(current string, items []choice) bool { return hasValue(items, current) }})
 		rows := widget.NewItemGroup()
 		rows.Append(panelRow(k, t.Get("settings-date-ntp"), t.Attr("settings-date-ntp", "description"), ntp))
-		rows.Append(panelRow(k, t.Get("settings-date-manual"), t.Attr("settings-date-manual", "description"), manual, set))
+		rows.Append(panelRow(k, t.Get("settings-date-manual"), t.Attr("settings-date-manual", "description"), manual.clock, manual.set))
+		rows.Append(insetRow(manual.calendar))
 		rows.Append(panelRow(k, t.Get("settings-date-zone"), t.Attr("settings-date-zone", "description"), zone))
 		refresh := func() {
 			syncing = true
@@ -389,8 +387,7 @@ func dateTimeLead(k *kit) widget.Widget {
 			if ntp.On() != p.props.flag("NTP") {
 				ntp.SetOn(p.props.flag("NTP"))
 			}
-			manual.SetEnabled(!p.props.flag("NTP"))
-			set.SetEnabled(!p.props.flag("NTP"))
+			manual.setEnabled(!p.props.flag("NTP"))
 			zone.refresh()
 			card.showSystem(p.props.str("Timezone"), p.props.flag("NTP"), p.props.flag("NTPSynchronized"))
 		}

@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	hoursPerDay  = 24
-	minuteStep   = 5
-	minutesPerHr = 60
+	hoursPerDay      = 24
+	minutesPerHr     = 60
+	everyMinute      = 1
+	everyFiveMinutes = 5
 )
 
 func clockHourFormat(cycle strftime.HourCycle) string {
@@ -49,9 +50,9 @@ func hourLabels(k *kit) []string {
 	return labels
 }
 
-func minuteChoices(current int) []int {
-	out := make([]int, 0, minutesPerHr/minuteStep+1)
-	for m := 0; m < minutesPerHr; m += minuteStep {
+func minuteChoices(step, current int) []int {
+	out := make([]int, 0, minutesPerHr/step+1)
+	for m := 0; m < minutesPerHr; m += step {
 		out = append(out, m)
 	}
 	if !slices.Contains(out, current) {
@@ -65,6 +66,7 @@ type clockTimeEditor struct {
 	*widget.Box
 	slot       slot
 	avoid      func() (notifypolicy.ClockTime, bool)
+	step       int
 	hourLabels []string
 	hour       *widget.Dropdown
 	minute     *widget.Dropdown
@@ -73,9 +75,9 @@ type clockTimeEditor struct {
 	problem    *widget.Label
 }
 
-func newClockTimeEditor(k *kit, s slot, name string, avoid func() (notifypolicy.ClockTime, bool)) *clockTimeEditor {
+func newClockTimeEditor(k *kit, s slot, name string, step int, avoid func() (notifypolicy.ClockTime, bool)) *clockTimeEditor {
 	t := locale.T()
-	e := &clockTimeEditor{Box: gapBox(widget.Column), slot: s, avoid: avoid, hourLabels: hourLabels(k)}
+	e := &clockTimeEditor{Box: gapBox(widget.Column), slot: s, avoid: avoid, step: step, hourLabels: hourLabels(k)}
 	e.hour = widget.NewDropdown(k.face, k.textPx(), nil, -1)
 	e.hour.SetAccessibleName(t.Get("settings-clock-time-hour", i18n.Str("name", name)))
 	e.minute = widget.NewDropdown(k.face, k.textPx(), nil, -1)
@@ -152,7 +154,7 @@ func (e *clockTimeEditor) refresh() {
 			labels = append(labels, e.hourLabels[h])
 		}
 	}
-	e.minutes = slices.DeleteFunc(minuteChoices(at.Minute()), func(m int) bool { return m != at.Minute() && clashes(at.Hour(), m) })
+	e.minutes = slices.DeleteFunc(minuteChoices(e.step, at.Minute()), func(m int) bool { return m != at.Minute() && clashes(at.Hour(), m) })
 	setChoices(e.hour, labels, slices.Index(e.hours, at.Hour()))
 	setChoices(e.minute, minuteLabels(e.minutes), slices.Index(e.minutes, at.Minute()))
 }

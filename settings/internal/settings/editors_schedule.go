@@ -47,7 +47,7 @@ var dndScheduleList = cardRow(cardSpec{
 
 func scheduleTimeField(key, other, label string) cardField {
 	return cardField{label: label, keys: []string{key}, item: func(k *kit, field func(key string) slot) control {
-		return newClockTimeEditor(k, field(key), locale.T().Get(label), clockTimeOf(field(other)))
+		return newClockTimeEditor(k, field(key), locale.T().Get(label), everyFiveMinutes, clockTimeOf(field(other)))
 	}}
 }
 

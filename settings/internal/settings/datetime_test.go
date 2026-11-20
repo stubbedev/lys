@@ -200,12 +200,14 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 		t.Fatalf("%+v, want one SetNTP(false, interactive)", calls)
 	}
 	td.set("NTP", false)
-	l.until("the manual entry enabled by the change", func() bool { return treetest.First[*widget.Entry](t, footer).Enabled() })
-	manual := treetest.First[*widget.Entry](t, footer)
-	manual.SetText("2026-03-04 13:05:06")
+	l.until("the manual date enabled by the change", func() bool { return widget.IsEnabled(treetest.First[*widget.Calendar](t, footer)) })
+	treetest.First[*widget.Calendar](t, footer).Select(widget.Date{Year: 2026, Month: time.March, Day: 4})
+	clock := treetest.First[*clockTimeEditor](t, footer)
+	clock.hour.SetSelected(slices.Index(clock.hours, 13))
+	clock.minute.SetSelected(slices.Index(clock.minutes, 7))
 	treetest.Button(t, footer, "Set").OnClick()
 	l.until("SetTime", func() bool { c, _ := td.snapshot(); return len(c) == 2 })
-	want := time.Date(2026, time.March, 4, 13, 5, 6, 0, time.Local).UnixMicro()
+	want := time.Date(2026, time.March, 4, 13, 7, 0, 0, time.UTC).UnixMicro()
 	if calls, _ := td.snapshot(); calls[1].method != "SetTime" || fmt.Sprint(calls[1].args) != fmt.Sprint([]any{want, false, true}) {
 		t.Fatalf("%+v, want one SetTime(%d, absolute, interactive)", calls, want)
 	}

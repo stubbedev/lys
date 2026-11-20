@@ -6,6 +6,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/glibclocale"
+	"github.com/stubbedev/lys/lib/glibclocale/glibclocaletest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -14,7 +16,7 @@ import (
 func TestAClockTimeIsPickedAsHourAndMinute(t *testing.T) {
 	k := testKit(t, "modules:\n  clock:\n    format: \"%H:%M\"\n")
 	var held any = "22:00"
-	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", anyClockTime)
+	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", everyFiveMinutes, anyClockTime)
 	if e.hour.Selected() != 22 || e.minutes[e.minute.Selected()] != 0 || e.problem.Visible() {
 		t.Fatalf("22:00 shows hour %d minute %d", e.hour.Selected(), e.minute.Selected())
 	}
@@ -34,7 +36,7 @@ func TestAClockTimeIsPickedAsHourAndMinute(t *testing.T) {
 func TestAClockTimeOffTheFiveMinuteStepsKeepsItsMinute(t *testing.T) {
 	k := testKit(t, "")
 	var held any = "06:07"
-	e := newClockTimeEditor(k, memorySlot(&held, nil), "To", anyClockTime)
+	e := newClockTimeEditor(k, memorySlot(&held, nil), "To", everyFiveMinutes, anyClockTime)
 	if !slices.Contains(e.minutes, 7) || e.minutes[e.minute.Selected()] != 7 {
 		t.Fatalf("06:07 offers %v with %d picked", e.minutes, e.minute.Selected())
 	}
@@ -42,24 +44,39 @@ func TestAClockTimeOffTheFiveMinuteStepsKeepsItsMinute(t *testing.T) {
 	if held != "08:07" {
 		t.Errorf("a new hour lost the minute: %v", held)
 	}
-	if got := minuteChoices(15); len(got) != 12 {
+	if got := minuteChoices(everyFiveMinutes, 15); len(got) != 12 {
 		t.Errorf("a minute on the steps is offered twice: %v", got)
 	}
 }
 
 func TestATwelveHourClockNamesTheHoursSo(t *testing.T) {
-	k := testKit(t, "modules:\n  clock:\n    format: \"%I:%M %p\"\n")
+	for locale, want := range map[string]string{"en_US.utf8": "10 PM", "C": "10 PM"} {
+		k := testKit(t, "modules:\n  clock:\n    format: \"%I:%M %p\"\n")
+		useLocales(t, glibclocale.NewSource("", glibclocaletest.Dirs(t)))
+		t.Setenv("LC_ALL", locale)
+		var held any = "22:00"
+		e := newClockTimeEditor(k, memorySlot(&held, nil), "From", everyFiveMinutes, anyClockTime)
+		if got := e.hour.Items()[22]; got != want {
+			t.Errorf("a 12-hour clock in %s names hour 22 %q, want %q", locale, got, want)
+		}
+	}
+}
+
+func TestATwentyFourHourClockNamesTheHoursAsDigits(t *testing.T) {
+	k := testKit(t, "modules:\n  clock:\n    format: \"%H:%M\"\n")
+	useLocales(t, glibclocale.NewSource("", glibclocaletest.Dirs(t)))
+	t.Setenv("LC_ALL", "en_US.utf8")
 	var held any = "22:00"
-	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", anyClockTime)
-	if got := e.hour.Items()[22]; got != "10 PM" {
-		t.Errorf("a 12-hour clock names hour 22 %q", got)
+	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", everyFiveMinutes, anyClockTime)
+	if got := e.hour.Items()[22]; got != "22" {
+		t.Errorf("a 24-hour clock names hour 22 %q", got)
 	}
 }
 
 func TestAClockTimeThatIsNotOneSaysSo(t *testing.T) {
 	k := testKit(t, "")
 	var held any = "7 o'clock"
-	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", anyClockTime)
+	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", everyFiveMinutes, anyClockTime)
 	if !e.problem.Visible() || widget.IsEnabled(e.hour) || widget.IsEnabled(e.minute) {
 		t.Fatalf("a malformed time shows problem %v, pickers enabled %v %v", e.problem.Visible(), widget.IsEnabled(e.hour), widget.IsEnabled(e.minute))
 	}
@@ -68,7 +85,7 @@ func TestAClockTimeThatIsNotOneSaysSo(t *testing.T) {
 		t.Errorf("an hour picked over a malformed time stored %v", held)
 	}
 	held = "09:00"
-	r := newClockTimeEditor(k, memorySlot(&held, func(any) bool { return true }), "From", anyClockTime)
+	r := newClockTimeEditor(k, memorySlot(&held, func(any) bool { return true }), "From", everyFiveMinutes, anyClockTime)
 	r.hour.SetSelected(10)
 	if !r.problem.Visible() || r.problem.Text() != "refused" || r.hour.Selected() != 9 {
 		t.Errorf("a refused time shows %q (%v), hour %d", r.problem.Text(), r.problem.Visible(), r.hour.Selected())
@@ -112,11 +129,11 @@ func TestTheScheduleTimesArePickers(t *testing.T) {
 func TestAClockTimeAvoidingAnotherOffersEverythingElse(t *testing.T) {
 	k := testKit(t, "")
 	var held, other any = "07:30", "07:00"
-	e := newClockTimeEditor(k, memorySlot(&held, nil), "To", clockTimeOf(memorySlot(&other, nil)))
+	e := newClockTimeEditor(k, memorySlot(&held, nil), "To", everyFiveMinutes, clockTimeOf(memorySlot(&other, nil)))
 	if slices.Contains(e.minutes, 0) || !slices.Contains(e.minutes, 5) || len(e.hours) != hoursPerDay {
 		t.Fatalf("07:30 avoiding 07:00 offers minutes %v, hours %v", e.minutes, e.hours)
 	}
-	free := newClockTimeEditor(k, memorySlot(&held, nil), "To", anyClockTime)
+	free := newClockTimeEditor(k, memorySlot(&held, nil), "To", everyFiveMinutes, anyClockTime)
 	if !slices.Contains(free.minutes, 0) {
 		t.Errorf("a time avoiding nothing leaves out minute 0: %v", free.minutes)
 	}
