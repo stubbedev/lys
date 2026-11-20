@@ -47,6 +47,7 @@
       unit=${pkg}/lib/systemd/system/lys-power.service
       grep -qxF "ExecStart=${lib.getExe pkg} run" $unit
       grep -qxF "After=power-profiles-daemon.service upower.service" $unit
+      grep -qxF "Wants=upower.service" $unit
       grep -qxF "StateDirectory=lys-power" $unit
       grep -qxF "Restart=on-failure" $unit
       grep -qxF "RestartSec=10s" $unit
