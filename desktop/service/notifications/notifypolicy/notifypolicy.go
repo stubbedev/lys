@@ -29,11 +29,33 @@ func ParseClockTime(raw string) (ClockTime, error) {
 	}
 	h, herr := strconv.Atoi(raw[:2])
 	m, merr := strconv.Atoi(raw[3:])
-	if herr != nil || merr != nil || h < 0 || h > 23 || m < 0 || m > 59 {
+	if herr != nil || merr != nil {
 		return ClockTime{}, fmt.Errorf("%q: %w", raw, ErrClockTime)
 	}
-	return ClockTime{minute: h*60 + m}, nil
+	c, err := ClockTimeAt(h, m)
+	if err != nil {
+		return ClockTime{}, fmt.Errorf("%q: %w", raw, ErrClockTime)
+	}
+	return c, nil
 }
+
+// ClockTimeAt is hour:minute, refusing one outside 00:00-23:59 with
+// ErrClockTime.
+func ClockTimeAt(hour, minute int) (ClockTime, error) {
+	if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+		return ClockTime{}, fmt.Errorf("%d:%d: %w", hour, minute, ErrClockTime)
+	}
+	return ClockTime{minute: hour*60 + minute}, nil
+}
+
+// Hour is the hour of the day, 0-23.
+func (c ClockTime) Hour() int { return c.minute / 60 }
+
+// Minute is the minute of the hour, 0-59.
+func (c ClockTime) Minute() int { return c.minute % 60 }
+
+// After reports whether c is later in the day than o.
+func (c ClockTime) After(o ClockTime) bool { return c.minute > o.minute }
 
 func (c ClockTime) String() string {
 	return fmt.Sprintf("%02d:%02d", c.minute/60, c.minute%60)

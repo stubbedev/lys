@@ -2,8 +2,11 @@ package settings
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -25,8 +28,8 @@ var dndScheduleList = cardRow(cardSpec{
 	title: scheduleTitle,
 	fields: []cardField{
 		{key: "days", label: "settings-schedule-days", editor: func(k *kit, s slot) control { return newWeekdaysEditor(k, s) }},
-		{key: "from", label: "settings-schedule-from", editor: func(k *kit, s slot) control { return newLiveText(k, s, scheduleFrom) }},
-		{key: "to", label: "settings-schedule-to", editor: func(k *kit, s slot) control { return newLiveText(k, s, scheduleTo) }},
+		scheduleTimeField("from", "to", "settings-schedule-from"),
+		scheduleTimeField("to", "from", "settings-schedule-to"),
 	},
 	blank: func() map[string]any { return map[string]any{"from": scheduleFrom, "to": scheduleTo} },
 	keep: func(m map[string]any) bool {
@@ -42,10 +45,24 @@ var dndScheduleList = cardRow(cardSpec{
 	},
 })
 
+func scheduleTimeField(key, other, label string) cardField {
+	return cardField{label: label, keys: []string{key}, item: func(k *kit, field func(key string) slot) control {
+		return newClockTimeEditor(k, field(key), locale.T().Get(label), clockTimeOf(field(other)))
+	}}
+}
+
 func scheduleTitle(item map[string]any, _ int) string {
-	from, _ := item["from"].(string)
-	to, _ := item["to"].(string)
-	return from + " – " + to
+	rawFrom, _ := item["from"].(string)
+	rawTo, _ := item["to"].(string)
+	from, err := notifypolicy.ParseClockTime(rawFrom)
+	if err != nil {
+		return err.Error()
+	}
+	to, err := notifypolicy.ParseClockTime(rawTo)
+	if err != nil {
+		return err.Error()
+	}
+	return locale.T().Get("settings-schedule-range", i18n.Str("from", from.String()), i18n.Str("to", to.String()), i18n.Str("overnight", strconv.FormatBool(!to.After(from))))
 }
 
 type weekdaysEditor struct {

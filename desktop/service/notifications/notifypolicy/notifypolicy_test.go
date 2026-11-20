@@ -29,6 +29,25 @@ func TestScheduleWindowsAndTimesAreValidated(t *testing.T) {
 	}
 }
 
+func TestAClockTimeIsItsHourAndMinute(t *testing.T) {
+	at, err := ClockTimeAt(22, 5)
+	if err != nil || at.Hour() != 22 || at.Minute() != 5 || at.String() != "22:05" {
+		t.Fatalf("22:05 is %d:%d %q (%v)", at.Hour(), at.Minute(), at, err)
+	}
+	early, err := ParseClockTime("07:00")
+	if err != nil || !at.After(early) || early.After(at) || at.After(at) {
+		t.Fatalf("22:05 after 07:00 %v, 07:00 after 22:05 %v (%v)", at.After(early), early.After(at), err)
+	}
+	for _, hm := range [][2]int{{24, 0}, {-1, 0}, {7, 60}, {7, -1}} {
+		if _, err := ClockTimeAt(hm[0], hm[1]); !errors.Is(err, ErrClockTime) {
+			t.Errorf("%d:%d: %v", hm[0], hm[1], err)
+		}
+	}
+	if _, err := ParseClockTime("-1:00"); !errors.Is(err, ErrClockTime) {
+		t.Errorf("-1:00: %v", err)
+	}
+}
+
 func TestParseUntilTakesATimeOfDayOrADuration(t *testing.T) {
 	now := time.Date(2026, 3, 2, 10, 30, 0, 0, time.UTC)
 	for raw, want := range map[string]time.Time{

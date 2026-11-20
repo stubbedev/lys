@@ -641,6 +641,12 @@ settings-dnd-status = { $status ->
 settings-schedule-days = Dias
 settings-schedule-from = De
 settings-schedule-to = Até
+settings-schedule-range = { $overnight ->
+        [true] { $from } – { $to } do dia seguinte
+       *[false] { $from } – { $to }
+    }
+settings-clock-time-hour = { $name }: hora
+settings-clock-time-minute = { $name }: minuto
 settings-weekday-mon = seg
 settings-weekday-tue = ter
 settings-weekday-wed = qua

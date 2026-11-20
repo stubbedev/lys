@@ -641,6 +641,12 @@ settings-dnd-status = { $status ->
 settings-schedule-days = Dagen
 settings-schedule-from = Van
 settings-schedule-to = Tot
+settings-schedule-range = { $overnight ->
+        [true] { $from } – { $to } de volgende dag
+       *[false] { $from } – { $to }
+    }
+settings-clock-time-hour = { $name }: uur
+settings-clock-time-minute = { $name }: minuut
 settings-weekday-mon = ma
 settings-weekday-tue = di
 settings-weekday-wed = wo

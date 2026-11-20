@@ -2263,6 +2263,7 @@
       "desktop/service/network",
       "desktop/service/network/vpntext",
       "desktop/service/notifications/notifymodel",
+      "desktop/service/notifications/notifypolicy",
       "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
