@@ -1163,6 +1163,7 @@ settings-lock-preview-greeter = Inlogscherm
 settings-lock-preview-second-account = Sam
 settings-lock-preview-track = Evening Tide
 settings-lock-preview-artist = Harbour Lights
+settings-cava-preview = Voorbeeld van de visualisatie
 settings-theme-preview = Voorbeeld van het thema
 settings-theme-preview-generated = De themaprovider maakt deze kleuren uit de achtergrond wanneer hij draait, dus hier is geen palet om te bekijken
 settings-launcher-preview = Voorbeeld van de starter

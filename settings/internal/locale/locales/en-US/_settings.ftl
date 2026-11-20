@@ -1173,6 +1173,7 @@ settings-lock-preview-greeter = Login screen
 settings-lock-preview-second-account = Sam
 settings-lock-preview-track = Evening Tide
 settings-lock-preview-artist = Harbour Lights
+settings-cava-preview = Visualizer preview
 settings-theme-preview = Theme preview
 settings-theme-preview-generated = The theme provider makes these colors from the wallpaper when it runs, so there is no palette to preview here
 settings-launcher-preview = Launcher preview

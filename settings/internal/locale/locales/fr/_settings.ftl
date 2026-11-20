@@ -1176,6 +1176,7 @@ settings-lock-preview-greeter = Écran de connexion
 settings-lock-preview-second-account = Sam
 settings-lock-preview-track = Evening Tide
 settings-lock-preview-artist = Harbour Lights
+settings-cava-preview = Aperçu du visualiseur
 settings-theme-preview = Aperçu du thème
 settings-theme-preview-generated = Le fournisseur de thème crée ces couleurs à partir du fond d’écran lorsqu’il s’exécute, il n’y a donc pas de palette à prévisualiser ici
 settings-launcher-preview = Aperçu du lanceur

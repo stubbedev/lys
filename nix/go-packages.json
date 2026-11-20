@@ -2405,6 +2405,7 @@
       "desktop/settingspage",
       "desktop/shell/apptheme",
       "desktop/shell/barview",
+      "desktop/shell/cavaview",
       "desktop/shell/launcherview",
       "desktop/shell/layers",
       "desktop/shell/lockview",
