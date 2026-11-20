@@ -494,6 +494,7 @@ wm-hold-opening = Auf Nachbarn warten
 wm-floating-step = Schrittweite schwebender Fenster
     .description = Pixel, um die ein Tastenkürzel ein schwebendes Fenster verschiebt
 wm-section-swallow = Terminal-Verschlucken
+    .description = Ein Terminal verbirgt sich hinter dem Fenster, das es öffnet, bis dieses sich schließt
 wm-swallow-terminals = Verschluckende Terminals
     .description = Ein aus einem dieser Terminals gestartetes Fenster nimmt dessen Platz ein, bis es sich schließt
 wm-swallow-except-title = Titel, die nie verschlucken

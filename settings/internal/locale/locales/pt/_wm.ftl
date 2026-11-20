@@ -491,6 +491,7 @@ wm-hold-opening = Esperar pelas vizinhas
 wm-floating-step = Passo de movimento flutuante
     .description = Píxeis que um atalho move uma janela flutuante
 wm-section-swallow = Absorção pelo terminal
+    .description = Um terminal esconde-se atrás da janela que abre até essa janela fechar
 wm-swallow-terminals = Terminais que absorvem
     .description = Uma janela iniciada a partir de um destes terminais ocupa o seu lugar até ser fechada
 wm-swallow-except-title = Títulos que nunca absorvem

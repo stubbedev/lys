@@ -494,6 +494,7 @@ wm-hold-opening = Wait for neighbors
 wm-floating-step = Floating move step
     .description = Pixels a shortcut moves a floating window
 wm-section-swallow = Terminal Swallowing
+    .description = A terminal hides behind the window it opens until that window closes
 wm-swallow-terminals = Terminals that swallow
     .description = A window started from one of these terminals takes its place until it closes
 wm-swallow-except-title = Titles that never swallow

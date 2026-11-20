@@ -494,6 +494,7 @@ wm-hold-opening = Attendi le vicine
 wm-floating-step = Passo di spostamento mobile
     .description = Pixel di cui una scorciatoia sposta una finestra mobile
 wm-section-swallow = Assorbimento nel terminale
+    .description = Un terminale si nasconde dietro la finestra che apre finché questa non si chiude
 wm-swallow-terminals = Terminali che assorbono
     .description = Una finestra avviata da uno di questi terminali ne prende il posto finché non si chiude
 wm-swallow-except-title = Titoli che non assorbono mai

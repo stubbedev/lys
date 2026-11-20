@@ -494,6 +494,7 @@ wm-hold-opening = Attendre les voisines
 wm-floating-step = Pas de déplacement flottant
     .description = Pixels dont un raccourci déplace une fenêtre flottante
 wm-section-swallow = Absorption par le terminal
+    .description = Un terminal se cache derrière la fenêtre qu'il ouvre jusqu'à ce qu'elle se ferme
 wm-swallow-terminals = Terminaux qui absorbent
     .description = Une fenêtre lancée depuis l'un de ces terminaux prend sa place jusqu'à sa fermeture
 wm-swallow-except-title = Titres qui n'absorbent jamais

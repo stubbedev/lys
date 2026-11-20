@@ -491,6 +491,7 @@ wm-hold-opening = Wachten op buren
 wm-floating-step = Stapgrootte zwevend
     .description = Pixels die een sneltoets een zwevend venster verplaatst
 wm-section-swallow = Opslokken door de terminal
+    .description = Een terminal verbergt zich achter het venster dat hij opent tot dat venster sluit
 wm-swallow-terminals = Terminals die opslokken
     .description = Een venster dat vanuit een van deze terminals start, neemt haar plaats in tot het sluit
 wm-swallow-except-title = Titels die nooit opslokken
