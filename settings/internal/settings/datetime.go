@@ -80,7 +80,7 @@ var weekStartRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) contro
 		values = append(values, current)
 	}
 	all := enumLabels(meta)
-	locale := sessionTimeLocale().FirstWeekday
+	locale := sessionTimeLocale().FirstWeekday()
 	labels := make([]string, len(values))
 	pictures := make(map[string]picture, len(values))
 	for i, v := range values {
@@ -440,7 +440,7 @@ func newClockCard(k *kit) *clockCard {
 // sessionTimeLocale is the LC_TIME of the session's time locale, C's as
 // glibc falls back to when it cannot be read, which is logged.
 func sessionTimeLocale() *glibclocale.Time {
-	name := glibclocale.TimeName(systemHost.env)
+	name := glibclocale.CategoryLocale(systemHost.env, glibclocale.CategoryTime)
 	names, err := localeSource.Time(name)
 	if err != nil {
 		log.Printf("settings: the time locale %s, using C's as glibc does: %v", name, err)

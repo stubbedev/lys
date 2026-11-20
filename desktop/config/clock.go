@@ -39,9 +39,9 @@ var weekStartDays = map[WeekStart]time.Weekday{
 
 // Weekday is the day w starts the week on, the locale's first weekday
 // for auto.
-func (w WeekStart) Weekday(locale func() time.Weekday) time.Weekday {
+func (w WeekStart) Weekday(locale time.Weekday) time.Weekday {
 	if w == WeekStartAuto {
-		return locale()
+		return locale
 	}
 	day, ok := weekStartDays[w]
 	if !ok {

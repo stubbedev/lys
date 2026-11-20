@@ -424,18 +424,21 @@ func TestTheWeekStartsWhereTheLocaleSays(t *testing.T) {
 	}
 }
 
-func TestTheTimeLocaleIsPickedAsGlibcPicksLCTime(t *testing.T) {
+func TestACategorysLocaleIsPickedAsGlibcPicksIt(t *testing.T) {
 	for _, c := range []struct {
-		env  map[string]string
-		want string
+		category Category
+		env      map[string]string
+		want     string
 	}{
-		{map[string]string{"LC_ALL": "fa_IR.UTF-8", "LC_TIME": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "fa_IR.UTF-8"},
-		{map[string]string{"LC_TIME": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "de_DE.UTF-8"},
-		{map[string]string{"LANG": "en_US.UTF-8", "LC_NUMERIC": "de_DE.UTF-8"}, "en_US.UTF-8"},
-		{map[string]string{}, "C"},
+		{CategoryTime, map[string]string{"LC_ALL": "fa_IR.UTF-8", "LC_TIME": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "fa_IR.UTF-8"},
+		{CategoryTime, map[string]string{"LC_TIME": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "de_DE.UTF-8"},
+		{CategoryTime, map[string]string{"LANG": "en_US.UTF-8", "LC_NUMERIC": "de_DE.UTF-8"}, "en_US.UTF-8"},
+		{CategoryTime, map[string]string{"LC_MEASUREMENT": "de_DE.UTF-8"}, "C"},
+		{CategoryMeasurement, map[string]string{"LC_MEASUREMENT": "de_DE.UTF-8", "LC_TIME": "en_US.UTF-8"}, "de_DE.UTF-8"},
+		{CategoryMeasurement, map[string]string{}, "C"},
 	} {
-		if got := TimeName(func(k string) string { return c.env[k] }); got != c.want {
-			t.Errorf("%v: %q, want %q", c.env, got, c.want)
+		if got := CategoryLocale(func(k string) string { return c.env[k] }, c.category); got != c.want {
+			t.Errorf("%s under %v: %q, want %q", c.category, c.env, got, c.want)
 		}
 	}
 }

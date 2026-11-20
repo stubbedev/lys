@@ -30,15 +30,16 @@ func TestCalendarNamesAreTheShells(t *testing.T) {
 	if names.FirstWeekday() != time.Monday {
 		t.Errorf("first weekday = %v, want the configured Monday", names.FirstWeekday())
 	}
-	was := localeWeekStart
-	localeWeekStart = func() time.Weekday { return time.Saturday }
-	t.Cleanup(func() { localeWeekStart = was })
-	def := calendarDropdown(newTestContext(t, config.Defaults())).(*calendarView)
+	saturday := newTestContext(t, config.Defaults())
+	saturday.Region.WeekStart = time.Saturday
+	def := calendarDropdown(saturday).(*calendarView)
 	if n := def.names; n.FirstWeekday() != time.Saturday {
 		t.Errorf("the default week starts %v, want the locale's Saturday", n.FirstWeekday())
 	}
 	cfg.Clock.CalendarWeekdayStart = config.WeekStartSunday
-	if n := calendarDropdown(newTestContext(t, cfg)).(*calendarView).names; n.FirstWeekday() != time.Sunday {
+	sunday := newTestContext(t, cfg)
+	sunday.Region.WeekStart = time.Saturday
+	if n := calendarDropdown(sunday).(*calendarView).names; n.FirstWeekday() != time.Sunday {
 		t.Errorf("a week set to start on Sunday starts %v under a Saturday locale", n.FirstWeekday())
 	}
 }

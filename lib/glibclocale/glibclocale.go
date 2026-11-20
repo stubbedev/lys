@@ -51,10 +51,20 @@ type Source struct {
 	dirs    []string
 }
 
-// TimeName is the locale env formats dates and times in, as glibc picks
-// LC_TIME: LC_ALL, then LC_TIME, then LANG, and C when none is set.
-func TimeName(env xdg.Env) string {
-	return cmp.Or(env("LC_ALL"), env("LC_TIME"), env("LANG"), "C")
+// Category is a locale category glibc picks a locale for on its own.
+type Category string
+
+// The categories lys reads.
+const (
+	CategoryTime        Category = "LC_TIME"
+	CategoryMeasurement Category = "LC_MEASUREMENT"
+)
+
+// CategoryLocale is the locale env names for c, as glibc picks it:
+// LC_ALL, then the category's own variable, then LANG, and C when none
+// is set.
+func CategoryLocale(env xdg.Env, c Category) string {
+	return cmp.Or(env("LC_ALL"), env(string(c)), env("LANG"), "C")
 }
 
 // NewSource reads the locale-archive at archive, "" for none, and then

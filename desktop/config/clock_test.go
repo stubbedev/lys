@@ -7,21 +7,13 @@ import (
 )
 
 func TestTheWeekStartsWhereItIsSetOrWhereTheLocaleStartsIt(t *testing.T) {
-	asked := 0
-	locale := func() time.Weekday {
-		asked++
-		return time.Saturday
-	}
-	if got := DefaultsClock().CalendarWeekdayStart.Weekday(locale); got != time.Saturday || asked != 1 {
-		t.Fatalf("the default week starts on %s after asking the locale %d times", got, asked)
+	if got := DefaultsClock().CalendarWeekdayStart.Weekday(time.Saturday); got != time.Saturday {
+		t.Fatalf("the default week starts on %s under a Saturday locale", got)
 	}
 	for w, want := range weekStartDays {
-		if got := w.Weekday(locale); got != want {
+		if got := w.Weekday(time.Saturday); got != want {
 			t.Errorf("%s starts the week on %s", w, got)
 		}
-	}
-	if asked != 1 {
-		t.Errorf("a set week start asked the locale %d times", asked-1)
 	}
 	if len(weekStartDays) != 7 {
 		t.Errorf("%d days have a week start", len(weekStartDays))
@@ -44,5 +36,5 @@ func TestAnUnknownWeekStartIsRefused(t *testing.T) {
 			t.Error("Weekday of an unparsed week start returned a day")
 		}
 	}()
-	WeekStart("someday").Weekday(func() time.Weekday { return time.Sunday })
+	WeekStart("someday").Weekday(time.Sunday)
 }

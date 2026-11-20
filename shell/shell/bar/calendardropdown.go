@@ -2,7 +2,6 @@ package bar
 
 import (
 	"context"
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,27 +11,12 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/strftime"
 	"github.com/stubbedev/lys/desktop/styling"
-	"github.com/stubbedev/lys/lib/glibclocale"
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/service/calendar"
 )
-
-// localeWeekStart is the first weekday of the time locale the shell
-// runs in, read once; a locale that cannot be read is logged and starts
-// the week on Sunday, as the C locale does.
-var localeWeekStart = sync.OnceValue(func() time.Weekday {
-	name := glibclocale.TimeName(xdg.OS)
-	t, err := glibclocale.System(xdg.OS).Time(name)
-	if err != nil {
-		log.Printf("bar: the calendar's week start from the locale %s, starting it on Sunday: %v", name, err)
-		return time.Sunday
-	}
-	return t.FirstWeekday()
-})
 
 var calendarWeekdayIDs = [7]string{"cal-weekday-sun", "cal-weekday-mon", "cal-weekday-tue", "cal-weekday-wed", "cal-weekday-thu", "cal-weekday-fri", "cal-weekday-sat"}
 
@@ -189,7 +173,7 @@ func (v *calendarView) calendar() widget.Widget {
 	col.Append(header, false)
 	v.today = widget.DateOf(v.now())
 	v.cal = widget.NewCalendar(v.font, v.px, v.today)
-	v.names = calendarNames{weekStart: v.ctx.Config.Clock.CalendarWeekdayStart.Weekday(localeWeekStart)}
+	v.names = calendarNames{weekStart: v.ctx.Config.Clock.CalendarWeekdayStart.Weekday(v.ctx.Region.WeekStart)}
 	v.cal.SetNames(v.names)
 	v.cal.SetToday(v.today)
 	v.cal.OnMonth = func(widget.Date) { v.markMonth() }
