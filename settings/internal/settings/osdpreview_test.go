@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-const osdScreenW = 900
+const previewScreenW = 900
 
 func onlyPreview(t *testing.T, p *settingsPage) *livePreview {
 	t.Helper()
@@ -22,21 +22,28 @@ func onlyPreview(t *testing.T, p *settingsPage) *livePreview {
 	return previews[0]
 }
 
-func previewedOsd(t *testing.T, p *settingsPage) (card *widget.Box, at render.Rect) {
+// previewedSurface is the one widget of class the page's preview shows,
+// and where it sits on the preview's screen, screenH tall.
+func previewedSurface(t *testing.T, p *settingsPage, class string, screenH int) (surface *widget.Box, at render.Rect) {
 	t.Helper()
 	preview := onlyPreview(t, p)
-	cards := treetest.WithClass(preview, "osd")
-	if len(cards) != 1 {
-		t.Fatalf("the preview shows %v instead of one OSD card", treetest.Labels(preview))
+	found := treetest.WithClass(preview, class)
+	if len(found) != 1 {
+		t.Fatalf("the preview shows %v instead of one %s", treetest.Labels(preview), class)
 	}
 	screen := treetest.First[*widget.Overlay](t, preview)
-	widget.SizeWithin(screen, widget.Size{W: osdScreenW, H: osdPreviewScreenH})
-	screen.Arrange(render.Rect{W: osdScreenW, H: osdPreviewScreenH})
-	card, ok := cards[0].(*widget.Box)
+	widget.SizeWithin(screen, widget.Size{W: previewScreenW, H: screenH})
+	screen.Arrange(render.Rect{W: previewScreenW, H: screenH})
+	surface, ok := found[0].(*widget.Box)
 	if !ok {
-		t.Fatal("the OSD card is no box")
+		t.Fatalf("the %s is no box", class)
 	}
-	return card, card.Bounds()
+	return surface, surface.Bounds()
+}
+
+func previewedOsd(t *testing.T, p *settingsPage) (*widget.Box, render.Rect) {
+	t.Helper()
+	return previewedSurface(t, p, "osd", osdPreviewScreenH)
 }
 
 func TestTheOsdPagePreviewsTheToastShowOsdFlashes(t *testing.T) {
@@ -50,7 +57,7 @@ func TestTheOsdPagePreviewsTheToastShowOsdFlashes(t *testing.T) {
 	if !card.HasClass("bordered") {
 		t.Errorf("the default OSD previews unbordered: %v", card.Classes())
 	}
-	if mid := at.X + at.W/2; at.Y < osdPreviewScreenH/2 || mid < osdScreenW/2-1 || mid > osdScreenW/2+1 {
+	if mid := at.X + at.W/2; at.Y < osdPreviewScreenH/2 || mid < previewScreenW/2-1 || mid > previewScreenW/2+1 {
 		t.Errorf("the default OSD previews at %+v, want the bottom middle", at)
 	}
 
@@ -60,7 +67,7 @@ func TestTheOsdPagePreviewsTheToastShowOsdFlashes(t *testing.T) {
 	if card.HasClass("bordered") {
 		t.Errorf("osd.border off previews a bordered card: %v", card.Classes())
 	}
-	if at.Y+at.H > osdPreviewScreenH/2 || at.X+at.W > osdScreenW/2 {
+	if at.Y+at.H > osdPreviewScreenH/2 || at.X+at.W > previewScreenW/2 {
 		t.Errorf("osd.position top-left previews the OSD at %+v", at)
 	}
 }

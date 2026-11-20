@@ -46,7 +46,7 @@ func sendNotification(summary, body string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shellCommandTimeout)
 	defer cancel()
 	call := conn.Object(notificationsName, notificationsPath).CallWithContext(ctx, notificationsNotify, 0,
-		locale.T().Get("settings-title"), uint32(0), testNotificationIcon, summary, body, []string{}, map[string]dbus.Variant{}, serverDefaultExpiresIn)
+		notificationSender(), uint32(0), testNotificationIcon, summary, body, []string{}, map[string]dbus.Variant{}, serverDefaultExpiresIn)
 	if call.Err != nil {
 		return fmt.Errorf("send a notification: %w", call.Err)
 	}
@@ -116,9 +116,12 @@ func (p *presetTry) refresh() {
 	p.command.SetText(strings.Join(append([]string{identity.Name}, shellToast{preset: p.id.text()}.args()...), " "))
 }
 
+// notificationSender is the app name lys-settings' notifications carry.
+func notificationSender() string { return locale.T().Get("settings-title") }
+
 func testNotification(k *kit) error {
-	t := locale.T()
-	return k.notify(t.Get("settings-test-notification-summary"), t.Get("settings-test-notification-body"))
+	c := testNotificationContent()
+	return k.notify(c.Summary, c.Body)
 }
 
 func showOsd(k *kit) error { return k.showToast(osdSampleToast()) }

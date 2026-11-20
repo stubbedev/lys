@@ -480,6 +480,40 @@
       "lib/waittest"
     ]
   },
+  "desktop/shell/notifyview": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/identity",
+      "desktop/service/notifications/notifymodel",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/testhome"
+    ]
+  },
+  "desktop/shell/osdview": {
+    "imports": [
+      "desktop/config",
+      "desktop/i18n",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/testhome"
+    ]
+  },
   "desktop/shell/reveal": {
     "imports": [
       "desktop/config",
@@ -2190,6 +2224,7 @@
       "desktop/service/mpris",
       "desktop/service/network",
       "desktop/service/network/vpntext",
+      "desktop/service/notifications/notifymodel",
       "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
@@ -2199,6 +2234,8 @@
       "desktop/shell/apptheme",
       "desktop/shell/barview",
       "desktop/shell/layers",
+      "desktop/shell/notifyview",
+      "desktop/shell/osdview",
       "desktop/shell/widgets",
       "desktop/shlex",
       "desktop/spawn",
@@ -3238,6 +3275,7 @@
       "desktop/shell/barview",
       "desktop/shell/layers",
       "desktop/shell/lockclient",
+      "desktop/shell/notifyview",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/spawn",
@@ -3511,7 +3549,8 @@
   "shell/shell/layering": {
     "imports": [
       "desktop/config",
-      "ui/app"
+      "ui/app",
+      "ui/widget"
     ]
   },
   "shell/shell/loupe": {
@@ -3537,21 +3576,16 @@
   "shell/shell/notifyui": {
     "imports": [
       "desktop/config",
-      "desktop/i18n",
-      "desktop/identity",
-      "desktop/service/notifications/notifymodel",
-      "desktop/shell/widgets",
-      "lib/render",
+      "desktop/shell/notifyview",
       "shell/internal/appicons",
       "shell/service/launcher",
       "shell/service/notifications",
-      "ui/app",
-      "ui/widget",
-      "ui/widget/css"
+      "ui/app"
     ],
     "testImports": [
+      "desktop/i18n",
+      "desktop/identity",
       "desktop/opener/openertest",
-      "desktop/shell/treetest",
       "lib/testhome"
     ]
   },
@@ -3562,8 +3596,8 @@
       "desktop/service/mpris",
       "desktop/service/pulse",
       "desktop/shell/layers",
+      "desktop/shell/osdview",
       "desktop/shell/reveal",
-      "desktop/shell/widgets",
       "desktop/styling",
       "lib/render",
       "shell/internal/widgetipc",
@@ -3571,8 +3605,7 @@
       "shell/service/keytoggles",
       "shell/shell/layering",
       "ui/app",
-      "ui/widget",
-      "ui/widget/css"
+      "ui/widget"
     ],
     "testImports": [
       "desktop/shell/treetest",
@@ -3585,6 +3618,7 @@
       "desktop/config",
       "desktop/i18n",
       "desktop/shell/layers",
+      "desktop/shell/notifyview",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",

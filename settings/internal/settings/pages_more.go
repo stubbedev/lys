@@ -82,7 +82,7 @@ func notificationsPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.notifications.enabled"),
 		}},
-		{title: "settings-section-popup-display", rows: []rowSpec{
+		{title: "settings-section-popup-display", preview: notificationPreview, rows: []rowSpec{
 			field("modules.notifications.popup-position", screenPosition),
 			field("modules.notifications.popup-monitor"),
 			field("modules.notifications.popup-duration", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), after(30*time.Second))),
