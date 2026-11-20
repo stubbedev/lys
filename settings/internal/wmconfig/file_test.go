@@ -689,6 +689,25 @@ func TestSchemaReadsKindsBoundsAndDefaults(t *testing.T) {
 	}
 }
 
+func TestAFieldsVariantsAndActionsAreTheCallersOwn(t *testing.T) {
+	s, err := ParseSchema([]byte(`{"type":"object","properties":{
+	"c":{"type":"string","enum":["x","y"]},
+	"a":{"type":"string","x-lys-wm-actions":[{"name":"kill","args":"","summary":"close"}]}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := s.Field([]string{"c"})
+	c.Variants[0] = "changed"
+	a, _ := s.Field([]string{"a"})
+	a.Actions[0].Name = "changed"
+	if c, _ := s.Field([]string{"c"}); !slices.Equal(c.Variants, []any{"x", "y"}) {
+		t.Errorf("a caller's change reached the schema's variants: %v", c.Variants)
+	}
+	if a, _ := s.Field([]string{"a"}); a.Actions[0].Name != "kill" {
+		t.Errorf("a caller's change reached the schema's actions: %+v", a.Actions)
+	}
+}
+
 func TestNormalGivesEditorsTheTypeTheyExpect(t *testing.T) {
 	for _, tc := range []struct {
 		f    Field

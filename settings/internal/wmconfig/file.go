@@ -491,9 +491,13 @@ type schemaNode struct {
 	// JSON boolean form, which says only whether other keys are allowed,
 	// leaves it nil.
 	Values *schemaNode `json:"-"`
+
+	asField  Field
+	hasField bool
 }
 
-// UnmarshalJSON reads additionalProperties, which is a boolean or a schema.
+// UnmarshalJSON reads additionalProperties, which is a boolean or a schema,
+// and the key the node describes.
 func (n *schemaNode) UnmarshalJSON(data []byte) error {
 	type plain schemaNode
 	var raw struct {
@@ -504,11 +508,15 @@ func (n *schemaNode) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	if len(raw.Additional) == 0 || raw.Additional[0] != '{' {
-		return nil
+	if len(raw.Additional) > 0 && raw.Additional[0] == '{' {
+		n.Values = &schemaNode{}
+		if err := json.Unmarshal(raw.Additional, n.Values); err != nil {
+			return err
+		}
 	}
-	n.Values = &schemaNode{}
-	return json.Unmarshal(raw.Additional, n.Values)
+	var err error
+	n.asField, n.hasField, err = n.readField()
+	return err
 }
 
 type variants []any
@@ -557,10 +565,12 @@ const (
 // Field finds the key at path; false when this lys-wm has no such key.
 func (s *Schema) Field(path []string) (Field, bool) {
 	node, ok := s.node(path)
-	if !ok {
+	if !ok || !node.hasField {
 		return Field{}, false
 	}
-	return node.field()
+	f := node.asField
+	f.Variants, f.Actions = slices.Clone(f.Variants), slices.Clone(f.Actions)
+	return f, true
 }
 
 // Keys lists, sorted, the keys of the object at path, or of a Switch's object
@@ -599,15 +609,15 @@ func (s *Schema) node(path []string) (*schemaNode, bool) {
 	return node, true
 }
 
-func (n *schemaNode) field() (Field, bool) {
-	f := Field{Min: -unboundedInt, Max: unboundedInt, MaxItems: unboundedInt, Format: n.Format, Actions: slices.Clone(n.Actions)}
+func (n *schemaNode) readField() (Field, bool, error) {
+	f := Field{Min: -unboundedInt, Max: unboundedInt, MaxItems: unboundedInt, Format: n.Format, Actions: n.Actions}
 	switch {
 	case n.switched() != nil:
 		f.Kind = Switch
 	case len(n.OneOf) > 0 || n.Type == "object" || n.Type == "array":
 		f.Kind = Composite
 	case len(n.Enum) > 0:
-		f.Kind, f.Variants = Enum, slices.Clone(n.Enum)
+		f.Kind, f.Variants = Enum, n.Enum
 	case n.Type == "boolean":
 		f.Kind = Bool
 	case n.Type == "integer":
@@ -617,7 +627,7 @@ func (n *schemaNode) field() (Field, bool) {
 	case n.Type == "string":
 		f.Kind = Text
 	default:
-		return Field{}, false
+		return Field{}, false, nil
 	}
 	if n.Minimum != nil {
 		f.Min = *n.Minimum
@@ -637,11 +647,11 @@ func (n *schemaNode) field() (Field, bool) {
 	if n.Default != nil {
 		var v any
 		if err := json.Unmarshal(*n.Default, &v); err != nil {
-			return Field{}, false
+			return Field{}, false, fmt.Errorf("default %s: %w", *n.Default, err)
 		}
 		f.Default, f.HasDefault = f.Normal(v), true
 	}
-	return f, true
+	return f, true, nil
 }
 
 // Normal is a value as an editor of this key expects it: whole numbers as
