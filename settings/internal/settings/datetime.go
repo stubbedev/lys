@@ -639,7 +639,9 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 			formatsProblem.SetVisible(true)
 		}
 		rows := widget.NewItemGroup()
-		labels := append([]string{t.Get("settings-region-same")}, l.names...)
+		names, shown := localeLabels(l.names)
+		l.names = names
+		labels := append([]string{t.Get("settings-region-same")}, shown...)
 		for _, key := range userFormats {
 			dd := widget.NewDropdown(k.face, k.textPx(), labels, max(localeIndex(l.names, values[key])+1, 0))
 			dd.SetAccessibleName(key)
@@ -680,8 +682,9 @@ func regionFooter(k *kit) widget.Widget {
 		return regionLists{names: names, keymaps: systemHost.consoleKeymaps()}, err
 	}, func(extra any) {
 		lists, _ := extra.(regionLists)
-		names, keymaps := lists.names, lists.keymaps
-		language := widget.NewDropdown(k.face, k.textPx(), names, max(localeIndex(names, lang()), 0))
+		names, shown := localeLabels(lists.names)
+		keymaps := lists.keymaps
+		language := widget.NewDropdown(k.face, k.textPx(), shown, max(localeIndex(names, lang()), 0))
 		language.SetAccessibleName(t.Get("settings-region-language"))
 		syncing := false
 		language.OnSelect = func(i int) {
