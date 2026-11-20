@@ -85,11 +85,3 @@ func audioDaemonSources() ([]devicechoice.Source, bool) {
 var webcamDevice = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newDeviceSelect(k, s, cameraChoices())
 })
-
-// microphoneDevice is microphone_device_select: the default alone at
-// first, the daemon's sources once they arrive.
-var microphoneDevice = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	c := newDeviceSelect(k, s, devicechoice.MicrophoneChoices(nil))
-	async(k, microphoneChoices, c.setChoices)
-	return c
-})
