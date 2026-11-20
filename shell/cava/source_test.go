@@ -207,3 +207,18 @@ func TestPushS16DecodesWholeFramesAndReusesItsBuffer(t *testing.T) {
 		t.Errorf("a chunk allocated %v times", allocs)
 	}
 }
+
+func TestTargetRecordsTheDefaultMonitorUnlessASourceIsNamed(t *testing.T) {
+	for _, source := range []string{"", "auto"} {
+		if got, err := Target(source); err != nil || got != pulse.CaptureDefaultMonitor() {
+			t.Errorf("%q records %v, %v; want the default monitor", source, got, err)
+		}
+	}
+	named, err := Target("mic")
+	if want, _ := pulse.CaptureNamed("mic"); err != nil || named != want {
+		t.Errorf("mic records %v, %v", named, err)
+	}
+	if _, err := Target("bad\x00name"); err == nil {
+		t.Error("a name with a NUL is taken")
+	}
+}

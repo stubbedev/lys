@@ -151,10 +151,18 @@ func (s *samples) drained(dst []float64) []float64 {
 	return out
 }
 
-// NewSource records source ("auto" or empty: the default sink's
-// monitor, following default changes; otherwise a device by name, a
-// sink recording its monitor). channels is 1 or 2, capacity the
-// analyzer's input size in interleaved samples.
+// Target is what source records: the default sink's monitor, following
+// default changes, for "auto" or empty; otherwise a device by name, a sink
+// recording its monitor.
+func Target(source string) (pulse.CaptureTarget, error) {
+	if source == "" || source == "auto" {
+		return pulse.CaptureDefaultMonitor(), nil
+	}
+	return pulse.CaptureNamed(source)
+}
+
+// NewSource records what Target makes of source. channels is 1 or 2,
+// capacity the analyzer's input size in interleaved samples.
 func NewSource(capturer Capturer, source string, channels, capacity int) (*Source, error) {
 	if capturer == nil {
 		return nil, errors.New("cava: no audio server connection")
@@ -165,13 +173,9 @@ func NewSource(capturer Capturer, source string, channels, capacity int) (*Sourc
 	if capacity < channels {
 		return nil, errors.New("cava: input capacity below one frame")
 	}
-	target := pulse.CaptureDefaultMonitor()
-	if source != "" && source != "auto" {
-		named, err := pulse.CaptureNamed(source)
-		if err != nil {
-			return nil, err
-		}
-		target = named
+	target, err := Target(source)
+	if err != nil {
+		return nil, err
 	}
 	return &Source{capturer: capturer, target: target, channels: channels, samples: newSamples(channels, capacity)}, nil
 }
