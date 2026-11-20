@@ -503,6 +503,27 @@
       "lib/waittest"
     ]
   },
+  "desktop/shell/lockview": {
+    "imports": [
+      "desktop/config",
+      "desktop/imagedecode",
+      "desktop/offheap",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/intconv",
+      "lib/render",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "testImports": [
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/srcroot",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "desktop/shell/notifyview": {
     "imports": [
       "desktop/config",
@@ -1705,6 +1726,7 @@
       "desktop/resources",
       "desktop/service/lyswm",
       "desktop/shell/apptheme",
+      "desktop/shell/lockview",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/splashframe",
@@ -1777,6 +1799,7 @@
       "desktop/service/upower",
       "desktop/shell/apptheme",
       "desktop/shell/lockclient",
+      "desktop/shell/lockview",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -1812,27 +1835,17 @@
   },
   "login/internal/screen": {
     "imports": [
-      "desktop/config",
       "desktop/i18n",
-      "desktop/imagedecode",
-      "desktop/offheap",
-      "desktop/shell/widgets",
-      "desktop/styling",
-      "lib/intconv",
-      "lib/render",
+      "desktop/shell/lockview",
       "login/internal/auth",
       "login/internal/fprint",
       "login/internal/layouts",
-      "ui/app",
-      "ui/widget",
-      "ui/widget/css"
+      "ui/app"
     ],
     "testImports": [
-      "desktop/shell/apptheme",
+      "desktop/config",
       "desktop/shell/treetest",
-      "lib/srcroot",
-      "lib/testhome",
-      "lib/waittest"
+      "lib/testhome"
     ]
   },
   "polkit/cmd/lys-polkit": {

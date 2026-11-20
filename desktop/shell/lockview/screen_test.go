@@ -1,4 +1,4 @@
-package screen
+package lockview
 
 import (
 	"fmt"
@@ -7,9 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/ui/widget"
+
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
-	"github.com/stubbedev/lys/ui/widget"
 )
 
 // shape is a widget tree as its node types and classes, depth first,

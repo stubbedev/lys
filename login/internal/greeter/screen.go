@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -111,7 +112,7 @@ type authHandle interface {
 type screen struct {
 	init   Init
 	d      deps
-	prompt *loginscreen.Prompt
+	prompt *lockview.Prompt
 	root   widget.Widget
 	drop   *widget.Dropdown
 	power  *widget.Box
@@ -121,7 +122,7 @@ type screen struct {
 
 	// bg is the background at the outputs' size, freed when the
 	// greeter ends; nil draws the color. Its pixels live in mem.
-	bg  *loginscreen.Backdrop
+	bg  *lockview.Backdrop
 	mem memory.Shared
 
 	mu       sync.Mutex // guards selected: greetd reads it off the loop
@@ -156,7 +157,7 @@ type screen struct {
 // userButton is one account in the user list.
 type userButton struct {
 	user   User
-	tile   *loginscreen.AccountTile
+	tile   *lockview.AccountTile
 	button *widget.Button
 }
 
@@ -196,7 +197,7 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	} else {
 		users.SetVisible(false)
 	}
-	rows := loginscreen.GreeterRows{Session: s.drop}
+	rows := lockview.GreeterRows{Session: s.drop}
 	footer := widget.NewBox(widget.Row, 4*th.Spacing, 0)
 	footer.AddClass("lock-footer")
 	footer.Append(s.a11yButton(font), false)
@@ -206,8 +207,8 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	}
 	rows.Power = footer
 	s.bg = s.loadBackground()
-	spec := loginscreen.Spec{
-		Mode: loginscreen.Greeter, Config: g, Font: font, Sheet: sheet, Backdrop: s.bg,
+	spec := lockview.Spec{
+		Mode: lockview.Greeter, Config: g, Font: font, Sheet: sheet, Backdrop: s.bg,
 		Identity: users, Greeter: rows, Password: t("greeter-password"), CapsLock: t("greeter-caps-lock"),
 		Focus: d.focus, OnSubmit: s.submit, Fingerprint: loginscreen.NewFingerprint(s.reader.ChoosePassword),
 	}
@@ -218,7 +219,7 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	if s.layouts.CanSwitch() {
 		spec.NextLayout = s.layouts.Cycle
 	}
-	surface := loginscreen.Build(spec)
+	surface := lockview.Build(spec)
 	s.prompt, s.root = surface.Prompt, surface.Root
 	if s.splash = takeOverSplash(d.splash); s.splash != nil {
 		s.over = s.splash.over(surface.Root, init.Config.Animations, d.windowOutput)
@@ -297,12 +298,12 @@ func (s *screen) announceReady() {
 // loadBackground is the greeter's background at the outputs' size,
 // blurred as the lock screen's is: an unreadable image falls back to the
 // color, never a mystery black.
-func (s *screen) loadBackground() *loginscreen.Backdrop {
+func (s *screen) loadBackground() *lockview.Backdrop {
 	path := s.init.Config.Login.Background.ImagePath(s.init.Config.Wallpaper.Wallpaper)
 	if path == "" {
 		return nil
 	}
-	bg, err := loginscreen.LoadBackdrop(&s.mem, s.d.loadImage, path, s.init.Config.Login.Blur.Sigma(), s.d.outputs())
+	bg, err := lockview.LoadBackdrop(&s.mem, s.d.loadImage, path, s.init.Config.Login.Blur.Sigma(), s.d.outputs())
 	if err != nil {
 		log.Printf("greeter: %v; using color fill", err)
 		return nil
@@ -325,7 +326,7 @@ func (s *screen) end() {
 // selected, and focuses the password.
 func (s *screen) populateUsers(row *widget.Box, font render.Font) {
 	for _, u := range s.init.Users {
-		ub := &userButton{user: u, tile: loginscreen.NewAccountTile(font, u.DisplayName)}
+		ub := &userButton{user: u, tile: lockview.NewAccountTile(font, u.DisplayName)}
 		if img := s.avatarPicture(u); img != nil {
 			ub.tile.SetPicture(img)
 		}
@@ -365,7 +366,7 @@ func (s *screen) pickUser(picked *userButton) {
 // avatarPicture is the user's image at the size their tile shows it, nil
 // when they have none that reads.
 func (s *screen) avatarPicture(u User) image.Image {
-	return loginscreen.AvatarPicture(s.d.loadAvatar, u.Icon, s.d.outputScale())
+	return lockview.AvatarPicture(s.d.loadAvatar, u.Icon, s.d.outputScale())
 }
 
 // powerRow is build_power_box: sleep, restart and shut down in the
@@ -612,10 +613,7 @@ func (s *screen) remember(l rememberedLogin) {
 }
 
 func (s *screen) refreshClock() {
-	now := s.d.now()
-	g := s.init.Config.Login
-	s.prompt.Clock.SetText(g.ClockFormat.Layout().Format(now))
-	s.prompt.Date.SetText(g.DateFormat.Layout().Format(now))
+	s.prompt.SetTime(lockview.TimeTexts(s.init.Config.Login, s.d.now()))
 }
 
 // setCapsLock shows or hides the warning.
@@ -705,6 +703,6 @@ func (s *screen) coverOn(out *app.Output, font render.Font, sheet *widget.Styles
 		Namespace:  "lys-greeter-cover",
 		Background: render.RGB(0, 0, 0),
 		OwnMotion:  true,
-		Root:       loginscreen.Cover(loginscreen.Spec{Config: s.init.Config.Login, Font: font, Sheet: sheet, Backdrop: s.bg}),
+		Root:       lockview.Cover(lockview.Spec{Config: s.init.Config.Login, Font: font, Sheet: sheet, Backdrop: s.bg}),
 	}
 }

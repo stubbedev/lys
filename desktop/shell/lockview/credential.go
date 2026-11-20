@@ -1,28 +1,31 @@
-// Package screen is the login screen: one screen the greeter shows
-// before login and the lock screen shows over a locked session, built by
-// the same code (Build) and styled by the same lock.css rules, so the two
-// look and behave alike. A Mode adds only what genuinely differs: the
-// greeter's user list, username entry, session picker and power buttons.
+// Package lockview draws the login screen from a config, without PAM,
+// input grabbing or a session: one screen the greeter shows before login
+// and the lock screen shows over a locked session, built by the same code
+// (Build) and styled by the same lock.css rules, so the two look and
+// behave alike, and lys-settings previews it from a draft config. A Mode
+// adds only what genuinely differs: the greeter's user list, username
+// entry, session picker and power buttons.
 //
 // The layout is the macOS lock screen's: the date over a large clock at
 // the top, and at the bottom the account being asked for, the password
 // pill under it, the caps lock warning and the error line, and under
 // all of it the greeter's power buttons. A chip in the top right corner
 // shows the keyboard layout when there are several.
-package screen
+package lockview
 
 import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
-	"github.com/stubbedev/lys/desktop/shell/widgets"
-	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
-	"github.com/stubbedev/lys/login/internal/layouts"
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/styling"
 )
 
 // entryChars is the entries' width-chars.
@@ -257,6 +260,7 @@ func label(font render.Font, px float64, classes ...string) *widget.Label {
 	return l
 }
 
+// PreloadIcons decodes the prompt's icons for the device scale num/denom.
 func (p *Prompt) PreloadIcons(num, denom int) error {
 	var errs []error
 	for _, name := range Icons() {
@@ -301,13 +305,25 @@ func (p *Prompt) SetCapsLock(on bool) {
 	}
 }
 
-func (p *Prompt) SetLayouts(all []layouts.Layout, active uint32) {
-	shown := len(all) > 1 && int(active) < len(all)
-	if shown {
-		p.layoutText.SetText(all[active].Label)
-		p.Layout.SetAccessibleName(all[active].Name)
-	}
-	p.Layout.SetVisible(shown)
+// ShowLayout shows the layout chip reading label, named name.
+func (p *Prompt) ShowLayout(label, name string) {
+	p.layoutText.SetText(label)
+	p.Layout.SetAccessibleName(name)
+	p.Layout.SetVisible(true)
+}
+
+// HideLayout hides the layout chip.
+func (p *Prompt) HideLayout() { p.Layout.SetVisible(false) }
+
+// TimeTexts are the clock and the date c shows at now.
+func TimeTexts(c config.LoginConfig, now time.Time) (clock, date string) {
+	return c.ClockFormat.Layout().Format(now), c.DateFormat.Layout().Format(now)
+}
+
+// SetTime shows clock and date.
+func (p *Prompt) SetTime(clock, date string) {
+	p.Clock.SetText(clock)
+	p.Date.SetText(date)
 }
 
 // SetMessage shows text on the error line, or hides it when empty.

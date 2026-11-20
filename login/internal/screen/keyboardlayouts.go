@@ -4,6 +4,7 @@ import (
 	"log"
 	"slices"
 
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/login/internal/layouts"
@@ -62,7 +63,14 @@ func (k *KeyboardLayouts) label(names []string) {
 	}()
 }
 
-func (k *KeyboardLayouts) ShowOn(p *Prompt) { p.SetLayouts(k.labeled, k.keyboard.Active) }
+func (k *KeyboardLayouts) ShowOn(p *lockview.Prompt) {
+	active := int(k.keyboard.Active)
+	if len(k.labeled) < 2 || active >= len(k.labeled) {
+		p.HideLayout()
+		return
+	}
+	p.ShowLayout(k.labeled[active].Label, k.labeled[active].Name)
+}
 
 func (k *KeyboardLayouts) show() {
 	k.d.Show(k.labeled, k.keyboard.Active)

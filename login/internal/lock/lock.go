@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -126,8 +127,8 @@ type authHandle interface {
 // face is one output's lock surface: the account, the prompt and the
 // blank scrim.
 type face struct {
-	account *loginscreen.AccountTile
-	prompt  *loginscreen.Prompt
+	account *lockview.AccountTile
+	prompt  *lockview.Prompt
 	scrim   *widget.Box
 	media   *mediaRow
 	battery *batteryChip
@@ -152,7 +153,7 @@ type Screen struct {
 	// bg is the background made once per lock, shared by every
 	// output's surface and freed when the lock ends; nil draws the
 	// color. Its pixels live in mem.
-	bg  *loginscreen.Backdrop
+	bg  *lockview.Backdrop
 	mem memory.Shared
 	// attempts counts failures in this lock session.
 	attempts uint32
@@ -372,12 +373,12 @@ func (s *Screen) lockOut() {
 
 // loadBackground resolves the configured background and makes it at
 // the outputs' size, blurred; nil draws the color.
-func (s *Screen) loadBackground() *loginscreen.Backdrop {
+func (s *Screen) loadBackground() *lockview.Backdrop {
 	path := s.cfg.Background.ImagePath(s.wallpaper)
 	if path == "" {
 		return nil
 	}
-	bg, err := loginscreen.LoadBackdrop(&s.mem, s.d.Decode, path, s.cfg.Blur.Sigma(), s.d.Outputs())
+	bg, err := lockview.LoadBackdrop(&s.mem, s.d.Decode, path, s.cfg.Blur.Sigma(), s.d.Outputs())
 	if err != nil {
 		log.Printf("lock: %v; using the color fill", err)
 		return nil
@@ -398,13 +399,13 @@ func (s *Screen) dropBackground() {
 // output at lock time and again for each output plugged in while
 // locked. A new face picks up the current state.
 func (s *Screen) buildFace(*app.Output) app.LockSurface {
-	account := loginscreen.NewAccountTile(s.font, s.account)
+	account := lockview.NewAccountTile(s.font, s.account)
 	if s.picture != nil {
 		account.SetPicture(s.picture)
 	}
 	f := &face{account: account}
-	spec := loginscreen.Spec{
-		Mode: loginscreen.Lock, Config: s.cfg, Font: s.font, Sheet: s.sheet, Backdrop: s.bg,
+	spec := lockview.Spec{
+		Mode: lockview.Lock, Config: s.cfg, Font: s.font, Sheet: s.sheet, Backdrop: s.bg,
 		Identity: account.Root, Password: i18n.T("lock-password"), CapsLock: i18n.T("lock-caps-lock"),
 		OnSubmit: s.Submit,
 	}
@@ -427,12 +428,11 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 	if s.layouts.CanSwitch() {
 		spec.NextLayout = s.layouts.Cycle
 	}
-	surface := loginscreen.Build(spec)
+	surface := lockview.Build(spec)
 	f.prompt, f.scrim = surface.Prompt, surface.Scrim
 	s.layouts.ShowOn(f.prompt)
 	f.prompt.SetCapsLock(s.caps)
-	f.prompt.Clock.SetText(s.clockText)
-	f.prompt.Date.SetText(s.dateText)
+	f.prompt.SetTime(s.clockText, s.dateText)
 	f.prompt.SetMessage(s.message)
 	f.prompt.Entry.SetEnabled(s.inputOn)
 	f.prompt.SetFingerprint(s.reader.Shown())
@@ -819,11 +819,9 @@ func (s *Screen) setCaps(on bool) {
 
 func (s *Screen) refreshClock() {
 	now := s.d.Now()
-	s.clockText = s.cfg.ClockFormat.Layout().Format(now)
-	s.dateText = s.cfg.DateFormat.Layout().Format(now)
+	s.clockText, s.dateText = lockview.TimeTexts(s.cfg, now)
 	for _, f := range s.faces {
-		f.prompt.Clock.SetText(s.clockText)
-		f.prompt.Date.SetText(s.dateText)
+		f.prompt.SetTime(s.clockText, s.dateText)
 	}
 }
 

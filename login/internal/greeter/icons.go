@@ -12,12 +12,11 @@ import (
 	"sync"
 
 	"github.com/stubbedev/lys/desktop/resources"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
-
-	loginscreen "github.com/stubbedev/lys/login/internal/screen"
 )
 
 // embeddedIcons holds the glyph the shared bundle does not.
@@ -35,7 +34,7 @@ const (
 // themeIcons are the theme icons the greeter draws, each from the shared
 // bundle or assets/<name>.svg: pre-login there is no icon theme to rely on.
 func themeIcons() []string {
-	return slices.Concat(buttonIcons[:], loginscreen.Icons())
+	return slices.Concat(buttonIcons[:], lockview.Icons())
 }
 
 var buttonIcons = [...]string{sleepIcon, restartIcon, shutdownIcon, accessibilityIcon}

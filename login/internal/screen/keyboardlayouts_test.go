@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/app"
 
@@ -13,7 +15,7 @@ import (
 
 type layoutRig struct {
 	k      *KeyboardLayouts
-	p      *Prompt
+	p      *lockview.Prompt
 	steps  []int
 	queued chan func()
 }
@@ -21,7 +23,7 @@ type layoutRig struct {
 func newLayoutRig(t *testing.T, canSwitch bool) *layoutRig {
 	t.Helper()
 	r := &layoutRig{queued: make(chan func(), 8)}
-	r.p = newPrompt(Options{Font: treetest.Font(t)}, func(string) {})
+	r.p = lockview.Build(lockview.Spec{Mode: lockview.Lock, Config: config.Defaults().Login, Font: treetest.Font(t), OnSubmit: func(string) {}}).Prompt
 	d := LayoutDeps{
 		Invoke: func(fn func()) { r.queued <- fn },
 		Label: func(names []string) ([]layouts.Layout, error) {
@@ -43,6 +45,13 @@ func newLayoutRig(t *testing.T, canSwitch bool) *layoutRig {
 
 func (r *layoutRig) run() { (<-r.queued)() }
 
+func (r *layoutRig) chip() string { return strings.Join(treetest.Labels(r.p.Layout), " ") }
+
+func (r *layoutRig) show(labeled []layouts.Layout, active uint32) {
+	r.k.labeled, r.k.keyboard.Active = labeled, active
+	r.k.ShowOn(r.p)
+}
+
 var usDENames = []string{"English (US)", "German"}
 
 func TestTheChipShowsOnceTheLayoutsAreLabeled(t *testing.T) {
@@ -56,16 +65,41 @@ func TestTheChipShowsOnceTheLayoutsAreLabeled(t *testing.T) {
 		t.Error("the chip shows before its labels")
 	}
 	r.run()
-	if !r.p.Layout.Visible() || r.p.layoutText.Text() != "GE" {
-		t.Errorf("two layouts, labeled: chip shown %v reading %q", r.p.Layout.Visible(), r.p.layoutText.Text())
+	if !r.p.Layout.Visible() || r.chip() != "GE" {
+		t.Errorf("two layouts, labeled: chip shown %v reading %q", r.p.Layout.Visible(), r.chip())
 	}
 	r.k.Set(app.KeyboardLayout{Names: usDENames, Active: 0})
-	if r.p.layoutText.Text() != "EN" {
-		t.Errorf("a switch to US reads %q", r.p.layoutText.Text())
+	if r.chip() != "EN" {
+		t.Errorf("a switch to US reads %q", r.chip())
 	}
 	r.k.Set(app.KeyboardLayout{Names: usDENames[:1]})
 	if r.p.Layout.Visible() {
 		t.Error("a keymap of one layout left the chip up")
+	}
+}
+
+var usDE = []layouts.Layout{{Label: "US", Name: "English (US)"}, {Label: "DE", Name: "German"}}
+
+func TestTheLayoutChipShowsOnlyForSeveralLayouts(t *testing.T) {
+	r := newLayoutRig(t, true)
+	if r.p.Layout.Visible() {
+		t.Error("the chip shows before any keymap")
+	}
+	r.show(usDE[:1], 0)
+	if r.p.Layout.Visible() {
+		t.Error("one layout shows a chip")
+	}
+	r.show(usDE, 1)
+	if !r.p.Layout.Visible() || r.chip() != "DE" {
+		t.Errorf("two layouts, the second active: chip shown %v reading %q", r.p.Layout.Visible(), r.chip())
+	}
+	r.show(usDE, 2)
+	if r.p.Layout.Visible() {
+		t.Error("an active layout past the keymap's leaves the chip up")
+	}
+	r.show(nil, 0)
+	if r.p.Layout.Visible() {
+		t.Error("a dropped keymap leaves the chip up")
 	}
 }
 
@@ -83,8 +117,8 @@ func TestLabelsForAnOlderKeymapAreDropped(t *testing.T) {
 	r.run()
 	close(older)
 	r.run()
-	if r.p.layoutText.Text() != "FR" {
-		t.Errorf("the chip reads %q, want the newer keymap's FR", r.p.layoutText.Text())
+	if r.chip() != "FR" {
+		t.Errorf("the chip reads %q, want the newer keymap's FR", r.chip())
 	}
 }
 

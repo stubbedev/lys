@@ -1,3 +1,6 @@
+// Package screen is the login screen's side that lockview leaves to the
+// session: the clock's timer, the keyboard layouts, the fingerprint
+// reader's state and how a refused login is worded.
 package screen
 
 import "time"

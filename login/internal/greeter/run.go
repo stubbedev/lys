@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/outputsize"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/tokens"
 	"github.com/stubbedev/lys/lib/logind"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/stubbedev/lys/login/internal/auth"
 	"github.com/stubbedev/lys/login/internal/layouts"
-	loginscreen "github.com/stubbedev/lys/login/internal/screen"
 )
 
 // Run shows the greeter until greetd starts a session (or the window
@@ -117,7 +117,7 @@ func Run(init Init) error {
 		outputs:      func() []image.Point { return outputsize.Devices(sess.Outputs()) },
 		forget:       a.ForgetImage,
 		loadAvatar:   imagedecode.Open,
-		outputScale:  func() int { return loginscreen.MaxScale(sess.Outputs()) },
+		outputScale:  func() int { return lockview.MaxScale(sess.Outputs()) },
 		nextLayout:   layouts.Switcher("greeter"),
 		labelLayouts: layouts.LabeledOnSystem,
 		splash:       loadSplashFrame,

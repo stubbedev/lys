@@ -1,19 +1,16 @@
-package screen
+package lockview
 
 import (
 	"testing"
+
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
-	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/login/internal/layouts"
 )
-
-var usDE = []layouts.Layout{{Label: "US", Name: "English (US)"}, {Label: "DE", Name: "German"}}
 
 func styledSurface(t *testing.T, mode Mode, next func()) *Surface {
 	t.Helper()
@@ -48,37 +45,16 @@ func settle(t *testing.T, root widget.Widget) {
 	t.Fatal("the screen never stopped asking for frames")
 }
 
-func TestTheLayoutChipShowsOnlyForSeveralLayouts(t *testing.T) {
-	for _, mode := range []Mode{Greeter, Lock} {
-		s := styledSurface(t, mode, nil)
-		if s.Prompt.Layout.Visible() {
-			t.Errorf("mode %d: the chip shows before any keymap", mode)
-		}
-		s.Prompt.SetLayouts(usDE[:1], 0)
-		if s.Prompt.Layout.Visible() {
-			t.Errorf("mode %d: one layout shows a chip", mode)
-		}
-		s.Prompt.SetLayouts(usDE, 1)
-		if !s.Prompt.Layout.Visible() || s.Prompt.layoutText.Text() != "DE" {
-			t.Errorf("mode %d: two layouts, the second active: chip shown %v reading %q", mode, s.Prompt.Layout.Visible(), s.Prompt.layoutText.Text())
-		}
-		s.Prompt.SetLayouts(nil, 0)
-		if s.Prompt.Layout.Visible() {
-			t.Errorf("mode %d: a dropped keymap leaves the chip up", mode)
-		}
-	}
-}
-
 func TestShowingOrSwitchingTheLayoutChipDamagesOnlyItInOneFrame(t *testing.T) {
 	s := styledSurface(t, Greeter, func() {})
 	settle(t, s.Root)
 
-	s.Prompt.SetLayouts(usDE[:1], 0)
+	s.Prompt.HideLayout()
 	if rects, any := frame(s.Root); any {
 		t.Errorf("one layout drew %v", rects)
 	}
 
-	s.Prompt.SetLayouts(usDE, 0)
+	s.Prompt.ShowLayout("US", "English (US)")
 	rects, any := frame(s.Root)
 	if !any {
 		t.Fatal("showing the chip drew nothing")
@@ -94,7 +70,7 @@ func TestShowingOrSwitchingTheLayoutChipDamagesOnlyItInOneFrame(t *testing.T) {
 		t.Errorf("showing the chip took a second frame: %v", rects)
 	}
 
-	s.Prompt.SetLayouts(usDE, 1)
+	s.Prompt.ShowLayout("DE", "German")
 	rects, any = frame(s.Root)
 	if !any {
 		t.Fatal("switching the layout drew nothing")
@@ -109,7 +85,7 @@ func TestShowingOrSwitchingTheLayoutChipDamagesOnlyItInOneFrame(t *testing.T) {
 		t.Errorf("switching took a second frame: %v", rects)
 	}
 
-	s.Prompt.SetLayouts(usDE, 1)
+	s.Prompt.ShowLayout("DE", "German")
 	if rects, any := frame(s.Root); any {
 		t.Errorf("the same layout again drew %v", rects)
 	}
@@ -118,7 +94,7 @@ func TestShowingOrSwitchingTheLayoutChipDamagesOnlyItInOneFrame(t *testing.T) {
 func TestClickingTheLayoutChipAsksForTheNextLayout(t *testing.T) {
 	clicks := 0
 	s := styledSurface(t, Greeter, func() { clicks++ })
-	s.Prompt.SetLayouts(usDE, 0)
+	s.Prompt.ShowLayout("US", "English (US)")
 	settle(t, s.Root)
 	b := s.Prompt.Layout.Bounds()
 	s.Prompt.Layout.ClickAt(widget.Point{X: b.X + b.W/2, Y: b.Y + b.H/2})

@@ -1,4 +1,4 @@
-package screen
+package lockview
 
 import (
 	"image"
@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/imagedecode"
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/srcroot"
 	"github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 // progressivePhoto is the large progressive JPEG desktop's jpeg decoder

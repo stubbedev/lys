@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/desktop/outputsize"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/lockclient"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/logind"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -32,7 +33,6 @@ import (
 	"github.com/stubbedev/lys/login/internal/dm"
 	"github.com/stubbedev/lys/login/internal/greeter"
 	"github.com/stubbedev/lys/login/internal/layouts"
-	loginscreen "github.com/stubbedev/lys/login/internal/screen"
 )
 
 // Errors Run ends with, which `lys-login lock` maps to lockclient's exit
@@ -131,9 +131,9 @@ func Run(cfg *config.Config, stdout io.Writer, vaultHelper []string) error {
 	account := sessionAccount()
 	s := New(cfg, account.RealName, app.FontFallback(base), apptheme.New(cfg).Sheet, deps)
 	defer s.stopWatches()
-	scale := loginscreen.MaxScale(sess.Outputs())
+	scale := lockview.MaxScale(sess.Outputs())
 	go func() {
-		if img := loginscreen.AvatarPicture(imagedecode.Open, account.Avatar, scale); img != nil {
+		if img := lockview.AvatarPicture(imagedecode.Open, account.Avatar, scale); img != nil {
 			a.Invoke(func() { s.SetPicture(img) })
 		}
 	}()

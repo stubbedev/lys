@@ -15,6 +15,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logtest"
@@ -925,8 +926,8 @@ func TestAnAvatarKeepsOnlyWhatItsSlotShows(t *testing.T) {
 		if got == nil {
 			t.Fatalf("scale %d: the avatar shows no image", scale)
 		}
-		if b := got.Bounds(); b.Dx() > loginscreen.AvatarPx*scale || b.Dy() > loginscreen.AvatarPx*scale {
-			t.Errorf("scale %d: the avatar keeps %v, want at most %d on a side", scale, b, loginscreen.AvatarPx*scale)
+		if b := got.Bounds(); b.Dx() > lockview.AvatarPx*scale || b.Dy() > lockview.AvatarPx*scale {
+			t.Errorf("scale %d: the avatar keeps %v, want at most %d on a side", scale, b, lockview.AvatarPx*scale)
 		}
 	}
 }

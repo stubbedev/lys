@@ -1,9 +1,10 @@
-package screen
+package lockview
 
 import (
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 // Mode is the situation the login screen is shown in.
@@ -22,6 +23,9 @@ type GreeterRows struct {
 	Session, Power widget.Widget
 }
 
+// LockRows are the rows only the lock screen shows: the media row under
+// the clock, the battery chip in the corner and the switch-user footer.
+// Any may be nil.
 type LockRows struct {
 	Status, Corner, Footer widget.Widget
 }
@@ -60,6 +64,8 @@ type Surface struct {
 	Scrim *widget.Box
 }
 
+// Cover is the screen's background alone, the layer the greeter keeps
+// under a session it hands over to.
 func Cover(s Spec) widget.Widget {
 	return Window(s.Sheet, Background(s.Backdrop, HexFill(s.Config.Background.Color)))
 }

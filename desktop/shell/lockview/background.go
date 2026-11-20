@@ -1,4 +1,4 @@
-package screen
+package lockview
 
 import (
 	"errors"
@@ -9,13 +9,14 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/imagedecode"
-	"github.com/stubbedev/lys/desktop/offheap"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/offheap"
 )
 
 // HexFill converts a config color to a premultiplied fill.

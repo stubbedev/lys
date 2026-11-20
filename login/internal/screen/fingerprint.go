@@ -2,12 +2,13 @@ package screen
 
 import (
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 
 	"github.com/stubbedev/lys/login/internal/fprint"
 )
 
-func NewFingerprint(onPassword func()) *Fingerprint {
-	return &Fingerprint{Text: i18n.T("lock-fingerprint-touch"), OnPassword: onPassword}
+func NewFingerprint(onPassword func()) *lockview.Fingerprint {
+	return &lockview.Fingerprint{Text: i18n.T("lock-fingerprint-touch"), OnPassword: onPassword}
 }
 
 func FingerprintMessage(r fprint.Result) string {

@@ -1,4 +1,4 @@
-package screen
+package lockview
 
 import (
 	"image"
@@ -8,10 +8,11 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 // photo is a w x h opaque test picture with detail at every scale:
