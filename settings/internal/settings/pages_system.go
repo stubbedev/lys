@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,9 +29,23 @@ func fontsPage(*config.Config) pageSpec {
 		header: "settings-page-fonts",
 		sections: []sectionSpec{
 			{title: "settings-section-fonts", rows: []rowSpec{field("general.font-sans", fontRow), field("general.font-mono", monoFontRow)}},
-			{title: "settings-section-scale-rounding", rows: []rowSpec{field("styling.scale"), field("styling.rounding", roundingChoice)}},
+			{title: "settings-section-scale-rounding", rows: []rowSpec{field("styling.scale", scaleChips()), field("styling.rounding", roundingChoice)}},
 		},
 	}
+}
+
+var scaleSteps = []float64{0.75, 1, 1.25, 1.5, 1.75, 2}
+
+func scaleChips() rowOpt {
+	presets := make([]preset[float64], len(scaleSteps))
+	for i, v := range scaleSteps {
+		presets[i] = preset[float64]{value: v, label: func() string { return scalePercent(v) }}
+	}
+	return presetChips(customUnit{per: 1, digits: 2, name: "settings-unit-scale"}, presets)
+}
+
+func scalePercent(v float64) string {
+	return locale.T().Get("settings-scale-percent", i18n.Int("n", int64(math.Round(v*100))))
 }
 
 // lockPage is pages/lock.

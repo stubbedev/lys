@@ -70,7 +70,7 @@ func TestTheCavaPageDrawsItsLookAndFoldsItsSmoothing(t *testing.T) {
 			}
 		}
 	}
-	fps, ok := rowOf(t, p, "modules.cava.framerate").ctl.(*presetPicker)
+	fps, ok := rowOf(t, p, "modules.cava.framerate").ctl.(*presetPicker[int64])
 	if !ok {
 		t.Fatal("the framerate is not chips")
 	}

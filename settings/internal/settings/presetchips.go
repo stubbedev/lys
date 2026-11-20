@@ -43,10 +43,12 @@ type customUnit struct {
 	least  float64
 }
 
-func (u customUnit) scaled(s slot) slot {
+type presetValue interface{ int64 | float64 }
+
+func scaledSlot[T presetValue](u customUnit, s slot) slot {
 	return slot{
 		get: func() any {
-			v, ok := s.get().(int64)
+			v, ok := s.get().(T)
 			if !ok {
 				return nil
 			}
@@ -57,10 +59,18 @@ func (u customUnit) scaled(s slot) slot {
 			if !ok {
 				return fmt.Errorf("a custom value of %T, not a number", v)
 			}
-			return s.set(int64(math.Round(f * u.per)))
+			return s.set(storedAs[T](f * u.per))
 		},
 		unset: s.unset,
 	}
+}
+
+func storedAs[T presetValue](f float64) T {
+	var zero T
+	if _, whole := any(zero).(int64); whole {
+		return T(math.Round(f))
+	}
+	return T(f)
 }
 
 type timeUnit int
@@ -165,38 +175,38 @@ func (c durationChoice) label() string {
 	return durationWords(c.span)
 }
 
-type preset struct {
-	value int64
+type preset[T presetValue] struct {
+	value T
 	label func() string
 }
 
 func durationChips(u timeUnit, choices ...durationChoice) rowOpt {
-	presets := make([]preset, len(choices))
+	presets := make([]preset[int64], len(choices))
 	for i, c := range choices {
-		presets[i] = preset{value: u.count(c.span), label: c.label}
+		presets[i] = preset[int64]{value: u.count(c.span), label: c.label}
 	}
 	return presetChips(u.custom(), presets)
 }
 
 func countChips(u countUnit, values ...int64) rowOpt {
-	presets := make([]preset, len(values))
+	presets := make([]preset[int64], len(values))
 	for i, v := range values {
-		presets[i] = preset{value: v, label: func() string { return u.words(v) }}
+		presets[i] = preset[int64]{value: v, label: func() string { return u.words(v) }}
 	}
 	return presetChips(u.custom(), presets)
 }
 
-func presetChips(unit customUnit, presets []preset) rowOpt {
+func presetChips[T presetValue](unit customUnit, presets []preset[T]) rowOpt {
 	return func(r *rowSpec) {
 		r.fullWidth = true
 		r.editor = func(k *kit, s slot, meta config.FieldMeta) control { return newPresetPicker(k, s, meta, unit, presets) }
 	}
 }
 
-type presetPicker struct {
+type presetPicker[T presetValue] struct {
 	*widget.Box
 	slot     slot
-	presets  []preset
+	presets  []preset[T]
 	chips    []*widget.ToggleButton
 	custom   *number
 	typed    *widget.Box
@@ -204,9 +214,9 @@ type presetPicker struct {
 	syncing  bool
 }
 
-func newPresetPicker(k *kit, s slot, meta config.FieldMeta, unit customUnit, presets []preset) *presetPicker {
+func newPresetPicker[T presetValue](k *kit, s slot, meta config.FieldMeta, unit customUnit, presets []preset[T]) *presetPicker[T] {
 	t := locale.T()
-	p := &presetPicker{Box: gapBox(widget.Column), slot: s, presets: presets}
+	p := &presetPicker[T]{Box: gapBox(widget.Column), slot: s, presets: presets}
 	row := widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
 	for i := range len(presets) + 1 {
 		label := t.Get("settings-duration-custom")
@@ -227,10 +237,10 @@ func newPresetPicker(k *kit, s slot, meta config.FieldMeta, unit customUnit, pre
 		row.Append(chip)
 	}
 	lo := meta.Min / unit.per
-	if !slices.ContainsFunc(presets, func(pr preset) bool { return pr.value == 0 }) {
+	if !slices.ContainsFunc(presets, func(pr preset[T]) bool { return pr.value == 0 }) {
 		lo = max(lo, unit.least)
 	}
-	p.custom = newNumber(k, unit.scaled(s), lo, meta.Max/unit.per, 1, unit.digits)
+	p.custom = newNumber(k, scaledSlot[T](unit, s), lo, meta.Max/unit.per, 1, unit.digits)
 	p.custom.SetAccessibleName(t.Get("settings-duration-custom"))
 	p.typed = gapBox(widget.Row)
 	p.typed.AppendAligned(p.custom, false, widget.AlignCenter)
@@ -241,7 +251,7 @@ func newPresetPicker(k *kit, s slot, meta config.FieldMeta, unit customUnit, pre
 	return p
 }
 
-func (p *presetPicker) pick(i int) {
+func (p *presetPicker[T]) pick(i int) {
 	if p.syncing {
 		return
 	}
@@ -252,10 +262,10 @@ func (p *presetPicker) pick(i int) {
 	p.refresh()
 }
 
-func (p *presetPicker) refresh() {
+func (p *presetPicker[T]) refresh() {
 	at := -1
-	if v, ok := p.slot.get().(int64); ok {
-		at = slices.IndexFunc(p.presets, func(pr preset) bool { return pr.value == v })
+	if v, ok := p.slot.get().(T); ok {
+		at = slices.IndexFunc(p.presets, func(pr preset[T]) bool { return pr.value == v })
 	}
 	custom := p.choosing || at < 0
 	if custom {
@@ -268,6 +278,6 @@ func (p *presetPicker) refresh() {
 	p.custom.refresh()
 }
 
-func (p *presetPicker) active() int {
+func (p *presetPicker[T]) active() int {
 	return slices.IndexFunc(p.chips, (*widget.ToggleButton).Active)
 }

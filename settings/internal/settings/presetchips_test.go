@@ -11,9 +11,9 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-func pickerOf(t *testing.T, k *kit, spec rowSpec) *presetPicker {
+func pickerOf(t *testing.T, k *kit, spec rowSpec) *presetPicker[int64] {
 	t.Helper()
-	p, ok := fieldControl(k, k.store, spec).(*presetPicker)
+	p, ok := fieldControl(k, k.store, spec).(*presetPicker[int64])
 	if !ok {
 		t.Fatalf("%s is not preset chips", spec.path)
 	}
@@ -32,7 +32,7 @@ func cyclingRow() rowSpec {
 	return field("wallpaper.cycling-interval-mins", durationChips(inMinutes, after(5*time.Minute), after(15*time.Minute), after(time.Hour)))
 }
 
-func chipLabels(p *presetPicker) []string {
+func chipLabels(p *presetPicker[int64]) []string {
 	labels := make([]string, len(p.presets))
 	for i, pr := range p.presets {
 		labels[i] = pr.label()
@@ -403,7 +403,7 @@ func TestZeroReadsAsWhatItMeansOrIsNoChoice(t *testing.T) {
 		t.Errorf("an indefinite keep-awake reads %q", got)
 	}
 	poll := pickerOf(t, k, pageRow(t, "cpu", "modules.cpu.poll-interval-ms"))
-	if slices.ContainsFunc(poll.presets, func(pr preset) bool { return pr.value == 0 }) {
+	if slices.ContainsFunc(poll.presets, func(pr preset[int64]) bool { return pr.value == 0 }) {
 		t.Errorf("the poll interval offers 0 among %q", chipLabels(poll))
 	}
 	if lo, _ := poll.custom.Range(); lo <= 0 {
@@ -418,5 +418,51 @@ func TestEveryMonitorsDefaultPollIntervalIsAPreset(t *testing.T) {
 		if p.typed.Visible() {
 			t.Errorf("%s's default poll interval %v shows as custom", m, k.store.value("modules."+m+".poll-interval-ms"))
 		}
+	}
+}
+
+func scalePicker(t *testing.T, yaml string) (*kit, *presetPicker[float64]) {
+	t.Helper()
+	k := testKit(t, yaml)
+	p, ok := fieldControl(k, k.store, pageRow(t, "fonts", "styling.scale")).(*presetPicker[float64])
+	if !ok {
+		t.Fatal("the scale is not step chips")
+	}
+	return k, p
+}
+
+func TestTheScaleSnapsToStepsInPercent(t *testing.T) {
+	k, p := scalePicker(t, "")
+	got := make([]string, len(p.presets))
+	for i, pr := range p.presets {
+		got[i] = pr.label()
+	}
+	want := []string{scalePercent(0.75), scalePercent(1), scalePercent(1.25), scalePercent(1.5), scalePercent(1.75), scalePercent(2)}
+	if !slices.Equal(got, want) || want[1] != locale.T().Get("settings-scale-percent", i18n.Int("n", 100)) {
+		t.Fatalf("steps %q, want %q", got, want)
+	}
+	if p.active() != 1 || p.typed.Visible() {
+		t.Fatalf("the default 1.0 shows chip %d, custom shown %v", p.active(), p.typed.Visible())
+	}
+	p.chips[3].SetActive(true)
+	if v := k.store.value("styling.scale"); v != 1.5 {
+		t.Fatalf("150 %% stored %v", v)
+	}
+}
+
+func TestAScaleBetweenTheStepsIsCustomWithinTheShellsRange(t *testing.T) {
+	k, p := scalePicker(t, "styling:\n  scale: 1.1\n")
+	if p.active() != len(p.presets) || !p.typed.Visible() {
+		t.Fatalf("1.1 shows chip %d, custom shown %v", p.active(), p.typed.Visible())
+	}
+	if v := p.custom.Value(); v < 1.09 || v > 1.11 {
+		t.Fatalf("the custom spin shows %v", v)
+	}
+	if lo, hi := p.custom.Range(); lo != 0.25 || hi != 3 {
+		t.Errorf("a custom scale reaches %v to %v, want the shell's 0.25 to 3", lo, hi)
+	}
+	p.custom.OnValueChanged(2.5)
+	if v := k.store.value("styling.scale"); v != 2.5 {
+		t.Fatalf("a custom 2.5 stored %v", v)
 	}
 }
