@@ -501,6 +501,7 @@ func screenshotPage(*config.Config) pageSpec {
 			field(m+".thumbnail-position", screenPosition),
 		}},
 		{title: "settings-section-screenshot-text", rows: []rowSpec{field(m+".ocr-languages", ocrLanguagesRow)}},
+		{title: "settings-section-screenshot-shortcuts", rows: []rowSpec{screenshotShortcutsRow()}},
 		{title: "settings-section-icons", rows: []rowSpec{
 			field(m+".icon", iconRow),
 			field(m + ".label"),

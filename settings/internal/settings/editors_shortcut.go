@@ -231,9 +231,13 @@ func appShortcutsRow() rowSpec {
 	})
 }
 
-func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
+func bindActionNames(k *kit) *bindNames {
 	action, _ := k.wm.fieldOf(bindsKey + "." + wmconfig.Each + "." + actionKey)
-	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds, names: &bindNames{actions: action.Actions}}
+	return &bindNames{actions: action.Actions}
+}
+
+func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
+	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds, names: bindActionNames(k)}
 	e.list = gapBox(widget.Column)
 	e.empty = k.label(locale.T().Get("wm-app-shortcuts-none"), "setting-description", css.Caption, css.DimLabel)
 	e.Append(e.empty, false)
@@ -398,13 +402,12 @@ type launcherShortcut struct {
 }
 
 func newLauncherShortcut(k *kit, binds slot) *launcherShortcut {
-	action, _ := k.wm.fieldOf(bindsKey + "." + wmconfig.Each + "." + actionKey)
 	l := &launcherShortcut{Box: gapBox(widget.Column), binds: binds}
-	l.chord = newActionChord(k, binds, &bindNames{actions: action.Actions}, launcherAction, locale.T().Get(launcherShortcutKey))
+	l.chord = newActionChord(k, binds, bindActionNames(k), launcherAction, locale.T().Get(launcherShortcutKey))
 	row := gapBox(widget.Row)
 	row.AppendAligned(l.chord.recorder, true, widget.AlignCenter)
-	if target, ok := pageByID(k.nav, wmBindsID); ok {
-		row.AppendAligned(k.iconButton("ld-chevron-right-symbolic", "settings-launcher-shortcut-all", func() { k.openPage(target.id) }, css.Flat), false, widget.AlignCenter)
+	if link, ok := allShortcutsLink(k); ok {
+		row.AppendAligned(link, false, widget.AlignCenter)
 	}
 	l.Append(row, false)
 	l.Append(l.chord.clash, false)
@@ -413,3 +416,11 @@ func newLauncherShortcut(k *kit, binds slot) *launcherShortcut {
 }
 
 func (l *launcherShortcut) refresh() { l.chord.refresh(l.binds) }
+
+func allShortcutsLink(k *kit) (*widget.Button, bool) {
+	target, ok := pageByID(k.nav, wmBindsID)
+	if !ok {
+		return nil, false
+	}
+	return k.iconButton("ld-chevron-right-symbolic", "settings-shortcuts-all", func() { k.openPage(target.id) }, css.Flat), true
+}

@@ -177,10 +177,11 @@ func actionChoices(module string) []actionChoice {
 			shell("settings-action-recording-resume", "lys-shell recorder resume"), dropdown("settings-action-open-recorder", "recorder"),
 		}
 	case "screenshot":
-		return []actionChoice{
-			shell("settings-action-capture-region", "lys-shell screenshot region"), shell("settings-action-capture-output", "lys-shell screenshot output"),
-			shell("settings-action-capture-window", "lys-shell screenshot window"),
+		out := make([]actionChoice, len(screenshotCaptures))
+		for i, c := range screenshotCaptures {
+			out[i] = shell(c.key, c.command())
 		}
+		return out
 	case "battery":
 		return []actionChoice{dropdown("settings-action-open-battery", "battery")}
 	case "bitwarden":
