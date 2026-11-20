@@ -43,6 +43,10 @@ dropdown-battery-energy-watts = { $watts }, { $percent }% de um CPU
 dropdown-battery-energy-show = Mostrar
 dropdown-battery-energy-quit = Sair
 dropdown-battery-energy-quit-failed = Não foi possível fechar { $app }: { $error }
+dropdown-battery-paused = Em pausa com bateria
+dropdown-battery-paused-now = Em pausa até ligar à corrente
+dropdown-battery-paused-failed = Não foi possível pôr em pausa: { $error }
+dropdown-battery-paused-resume-failed = Não foi possível retomar: { $error }
 
 battery-alert-low = Bateria fraca
 battery-alert-critical = Bateria criticamente fraca
@@ -54,6 +58,10 @@ battery-alert-device-critical = Bateria criticamente fraca: { $device }
 battery-offer-low-power = Ativar o modo de poupança de energia?
 battery-offer-low-power-body = { $percent }% restantes. O modo de poupança de energia reduz a taxa de atualização, escurece ligeiramente o ecrã e consulta com menos frequência até ligar o carregador.
 battery-offer-low-power-action = Ativar
+battery-paused = Em pausa com bateria
+battery-paused-body = Em pausa até ligar à corrente: { $units }
+battery-paused-resume = Retomar nesta sessão
+battery-paused-keep = Manter em execução com bateria
 
 battery-device-generic = Dispositivo
 battery-device-mouse = Rato

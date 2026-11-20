@@ -186,6 +186,7 @@ type batteryView struct {
 	devices        *widget.Box
 
 	energy *energySection
+	paused *pausedSection
 
 	// device and profiles read the two services; a write's re-read goes
 	// through them too, so it can never land after a newer change.
@@ -212,6 +213,7 @@ func batteryDropdown(ctx ModuleContext) widget.Widget {
 	content.Append(v.body, false)
 	content.Append(v.deviceSection(), false)
 	content.Append(v.energySection(), false)
+	content.Append(v.pausedSection(), false)
 	content.Append(v.profileSection(), false)
 	v.Append(content, true)
 	v.applyDevice(upower.Device{}, false)
@@ -587,6 +589,7 @@ func (v *batteryView) follow(life context.Context) {
 		followInto(life, "power profiles", src.Subscribe, v.profiles)
 	}
 	v.energy.follow(life)
+	v.paused.follow(life)
 }
 
 // deviceSection lists the peripherals UPower reports, hidden while

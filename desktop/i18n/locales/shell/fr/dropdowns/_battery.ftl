@@ -53,6 +53,10 @@ dropdown-battery-energy-watts = { $watts }, { $percent } % d’un processeur
 dropdown-battery-energy-show = Afficher
 dropdown-battery-energy-quit = Quitter
 dropdown-battery-energy-quit-failed = Impossible de quitter { $app } : { $error }
+dropdown-battery-paused = En pause sur batterie
+dropdown-battery-paused-now = En pause jusqu’au branchement
+dropdown-battery-paused-failed = Mise en pause impossible : { $error }
+dropdown-battery-paused-resume-failed = Reprise impossible : { $error }
 
 ## Alerts
 battery-alert-low = Batterie faible
@@ -65,6 +69,10 @@ battery-alert-device-critical = Batterie très faible : { $device }
 battery-offer-low-power = Activer le mode économie d’énergie ?
 battery-offer-low-power-body = { $percent } % restants. Le mode économie d’énergie réduit la fréquence de rafraîchissement, assombrit légèrement l’écran et interroge moins souvent jusqu’au branchement du chargeur.
 battery-offer-low-power-action = Activer
+battery-paused = En pause sur batterie
+battery-paused-body = En pause jusqu’au branchement : { $units }
+battery-paused-resume = Reprendre pour cette session
+battery-paused-keep = Laisser tourner sur batterie
 
 ## Peripheral Kinds
 battery-device-generic = Appareil

@@ -91,7 +91,10 @@ type ModuleContext struct {
 	// a session bus.
 	AutoBrightness autoBrightnessSource
 	AppEnergy      appEnergySource
-	Nightlight     *nightlightService
+	// PausedUnits is what lys-power pauses on battery, nil without a
+	// system bus.
+	PausedUnits pausedUnitsSource
+	Nightlight  *nightlightService
 	// NightlightBus announces the night light on the session bus, nil
 	// without one.
 	NightlightBus *nightlight.Daemon

@@ -53,6 +53,10 @@ dropdown-battery-energy-watts = { $watts }, { $percent }% di una CPU
 dropdown-battery-energy-show = Mostra
 dropdown-battery-energy-quit = Esci
 dropdown-battery-energy-quit-failed = Impossibile chiudere { $app }: { $error }
+dropdown-battery-paused = In pausa a batteria
+dropdown-battery-paused-now = In pausa finché non colleghi la corrente
+dropdown-battery-paused-failed = Impossibile mettere in pausa: { $error }
+dropdown-battery-paused-resume-failed = Impossibile riprendere: { $error }
 
 ## Alerts
 battery-alert-low = Batteria scarica
@@ -65,6 +69,10 @@ battery-alert-device-critical = Batteria di { $device } criticamente scarica
 battery-offer-low-power = Attivare il risparmio energetico?
 battery-offer-low-power-body = { $percent }% rimanente. Il risparmio energetico riduce la frequenza di aggiornamento, attenua leggermente lo schermo e interroga meno spesso finché non colleghi il caricatore.
 battery-offer-low-power-action = Attiva
+battery-paused = In pausa a batteria
+battery-paused-body = In pausa finché non colleghi la corrente: { $units }
+battery-paused-resume = Riprendi per questa sessione
+battery-paused-keep = Lascia in esecuzione a batteria
 
 ## Peripheral Kinds
 battery-device-generic = Dispositivo

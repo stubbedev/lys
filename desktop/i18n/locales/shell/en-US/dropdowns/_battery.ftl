@@ -53,6 +53,10 @@ dropdown-battery-energy-watts = { $watts }, { $percent }% of a CPU
 dropdown-battery-energy-show = Show
 dropdown-battery-energy-quit = Quit
 dropdown-battery-energy-quit-failed = Could not quit { $app }: { $error }
+dropdown-battery-paused = Paused on Battery
+dropdown-battery-paused-now = Paused until you plug in
+dropdown-battery-paused-failed = Could not pause: { $error }
+dropdown-battery-paused-resume-failed = Could not resume: { $error }
 
 ## Alerts
 battery-alert-low = Battery low
@@ -65,6 +69,10 @@ battery-alert-device-critical = { $device } battery critically low
 battery-offer-low-power = Turn on Low Power?
 battery-offer-low-power-body = { $percent }% remaining. Low Power lowers the refresh rate, dims the display slightly and polls less until you plug in.
 battery-offer-low-power-action = Turn On
+battery-paused = Paused on battery
+battery-paused-body = Paused until you plug in: { $units }
+battery-paused-resume = Resume for this session
+battery-paused-keep = Keep running on battery
 
 ## Peripheral Kinds
 battery-device-generic = Device

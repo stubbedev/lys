@@ -2998,10 +2998,10 @@
   },
   "shell/service/appenergy": {
     "imports": [
-      "desktop/feed",
       "lib/dbusx",
       "lib/third_party/godbus",
-      "power/energy"
+      "power/energy",
+      "shell/service/powerprop"
     ],
     "testImports": [
       "lib/dbustest",
@@ -3354,6 +3354,28 @@
       "shell/internal/clock/clocktest"
     ]
   },
+  "shell/service/pausedunits": {
+    "imports": [
+      "desktop/i18n",
+      "lib/third_party/godbus",
+      "power/pause",
+      "shell/internal/desktopnotify",
+      "shell/service/powerprop"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/intconv",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
+  "shell/service/powerprop": {
+    "imports": [
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ]
+  },
   "shell/service/privacy": {
     "imports": [
       "desktop/feed",
@@ -3606,6 +3628,7 @@
       "lib/xdg",
       "power/autobrightness",
       "power/energy",
+      "power/pause",
       "secrets/vault",
       "shell/cava",
       "shell/internal/appicons",
@@ -3639,6 +3662,7 @@
       "shell/service/mango",
       "shell/service/nightlight",
       "shell/service/notifications",
+      "shell/service/pausedunits",
       "shell/service/privacy",
       "shell/service/recorder",
       "shell/service/screenshare",

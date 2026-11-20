@@ -53,6 +53,10 @@ dropdown-battery-energy-watts = { $watts }, { $percent } % einer CPU
 dropdown-battery-energy-show = Anzeigen
 dropdown-battery-energy-quit = Beenden
 dropdown-battery-energy-quit-failed = { $app } konnte nicht beendet werden: { $error }
+dropdown-battery-paused = Im Akkubetrieb pausiert
+dropdown-battery-paused-now = Pausiert, bis Sie den Netzstecker einstecken
+dropdown-battery-paused-failed = Konnte nicht pausieren: { $error }
+dropdown-battery-paused-resume-failed = Konnte nicht fortsetzen: { $error }
 
 ## Alerts
 battery-alert-low = Akku schwach
@@ -65,6 +69,10 @@ battery-alert-device-critical = { $device }: Akku kritisch schwach
 battery-offer-low-power = Energiesparmodus einschalten?
 battery-offer-low-power-body = { $percent } % verbleibend. Der Energiesparmodus senkt die Bildwiederholrate, dimmt den Bildschirm leicht und fragt seltener ab, bis Sie das Ladegerät anschließen.
 battery-offer-low-power-action = Einschalten
+battery-paused = Im Akkubetrieb pausiert
+battery-paused-body = Pausiert, bis Sie den Netzstecker einstecken: { $units }
+battery-paused-resume = Für diese Sitzung fortsetzen
+battery-paused-keep = Im Akkubetrieb weiterlaufen lassen
 
 ## Peripheral Kinds
 battery-device-generic = Gerät

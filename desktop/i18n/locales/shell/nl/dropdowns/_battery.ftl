@@ -43,6 +43,10 @@ dropdown-battery-energy-watts = { $watts }, { $percent }% van een CPU
 dropdown-battery-energy-show = Tonen
 dropdown-battery-energy-quit = Stoppen
 dropdown-battery-energy-quit-failed = Kan { $app } niet stoppen: { $error }
+dropdown-battery-paused = Gepauzeerd op batterij
+dropdown-battery-paused-now = Gepauzeerd tot je de stroom aansluit
+dropdown-battery-paused-failed = Kon niet pauzeren: { $error }
+dropdown-battery-paused-resume-failed = Kon niet verdergaan: { $error }
 
 battery-alert-low = Accu bijna leeg
 battery-alert-critical = Accu kritiek laag
@@ -54,6 +58,10 @@ battery-alert-device-critical = Accu van { $device } kritiek laag
 battery-offer-low-power = Energiebesparing inschakelen?
 battery-offer-low-power-body = Nog { $percent }%. Energiebesparing verlaagt de verversingssnelheid, dimt het scherm iets en vraagt minder vaak gegevens op tot je de lader aansluit.
 battery-offer-low-power-action = Inschakelen
+battery-paused = Gepauzeerd op batterij
+battery-paused-body = Gepauzeerd tot je de stroom aansluit: { $units }
+battery-paused-resume = Hervatten voor deze sessie
+battery-paused-keep = Laten doorlopen op batterij
 
 battery-device-generic = Apparaat
 battery-device-mouse = Muis
