@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/widget"
@@ -135,10 +136,10 @@ func TestAnAppShortcutRecordedBecomesAGlobalBind(t *testing.T) {
 	writeFile(t, filepath.Join(state, "lys-shell", "portal-shortcuts.json"), `{"org.example.Recorder":[{"id":"start","description":"Start recording"},{"id":"held","description":"Push to talk","trigger":"Ctrl+Alt+P"}]}`)
 	k, w, _, files := wmKit(t, "binds:\n  - {chord: SUPER + Q, action: kill}\n")
 	e := fieldControl(k, w, appShortcutsRow()).(*appShortcutsEditor)
-	if len(e.recorders) != 2 || e.recorders[0] == nil || e.recorders[1] != nil {
-		t.Fatalf("recorders %v: the configurable shortcut needs one, the app-held one none", e.recorders)
+	if len(e.entries) != 2 || e.entries[0].recorder == nil || e.entries[1].recorder != nil {
+		t.Fatalf("recorders %v: the configurable shortcut needs one, the app-held one none", e.entries)
 	}
-	rec := e.recorders[0]
+	rec := e.entries[0].recorder
 	rec.StartRecording()
 	rec.RecordPress(xkb.Keysym('R'), widget.ModSuper|widget.ModAlt)
 	got := fileText(t, files.runtime)
@@ -155,5 +156,60 @@ func TestAnAppShortcutRecordedBecomesAGlobalBind(t *testing.T) {
 	rec.RecordPress(xkb.KeyBackSpace, 0)
 	if got := fileText(t, files.runtime); strings.Contains(got, "global") {
 		t.Fatalf("clearing left the bind: %q", got)
+	}
+}
+
+func TestTheLauncherPageRecordsTheChordThatOpensIt(t *testing.T) {
+	k, w, _, files := wmKit(t, "binds:\n  - {chord: SUPER + Space, action: global dev.stubbe.lys.shell:launcher}\n  - {chord: SUPER + Q, action: kill}\n")
+	e := fieldControl(k, w, launcherShortcutRow()).(*launcherShortcut)
+	rec := e.chord.recorder
+	if rec.Accel() != "Super+Space" || e.chord.clash.Visible() {
+		t.Fatalf("the launcher's chord reads %q, clash shown %v", rec.Accel(), e.chord.clash.Visible())
+	}
+	rec.StartRecording()
+	rec.RecordPress(xkb.Keysym('L'), widget.ModSuper)
+	got := fileText(t, files.runtime)
+	if strings.Count(got, "global dev.stubbe.lys.shell:launcher") != 1 || !strings.Contains(got, "SUPER + L") || strings.Contains(got, "Space") || !strings.Contains(got, "kill") {
+		t.Fatalf("rebinding the launcher wrote %q", got)
+	}
+	rec.StartRecording()
+	rec.RecordPress(xkb.Keysym('Q'), widget.ModSuper)
+	e.refresh()
+	if !e.chord.clash.Visible() || !strings.Contains(unisolated(e.chord.clash.Text()), "Close window") {
+		t.Fatalf("a chord another bind holds reads %v %q", e.chord.clash.Visible(), e.chord.clash.Text())
+	}
+	rec.StartRecording()
+	rec.RecordPress(xkb.KeyBackSpace, 0)
+	if got := fileText(t, files.runtime); strings.Contains(got, "launcher") || !strings.Contains(got, "kill") {
+		t.Fatalf("unbinding the launcher wrote %q", got)
+	}
+}
+
+func TestTheLauncherShortcutLinksToEveryShortcut(t *testing.T) {
+	k, w, _, _ := wmKit(t, "")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	var opened []string
+	k.openPage = func(id string) { opened = append(opened, id) }
+	buttons := treetest.All[*widget.Button](fieldControl(k, w, launcherShortcutRow()))
+	if len(buttons) != 1 {
+		t.Fatalf("%d buttons beside the launcher's chord, want the link", len(buttons))
+	}
+	buttons[0].OnClick()
+	if !slices.Equal(opened, []string{wmBindsID}) {
+		t.Errorf("opened %q", opened)
+	}
+	k.nav = nil
+	if buttons := treetest.All[*widget.Button](fieldControl(k, w, launcherShortcutRow())); len(buttons) != 0 {
+		t.Errorf("without the shortcuts page %d buttons remain", len(buttons))
+	}
+}
+
+func TestTheLauncherPageOpensWithItsShortcut(t *testing.T) {
+	rows := launcherPage(config.Defaults()).sections[0].rows
+	if len(rows) == 0 || rows[0].key != launcherShortcutKey || !rows[0].wm || rows[0].path != bindsKey {
+		t.Fatalf("the launcher page leads with %+v, not lys-wm's launcher bind", rows[0])
+	}
+	if launcherAction != "global dev.stubbe.lys.shell:launcher" {
+		t.Fatalf("the launcher's bind action is %q", launcherAction)
 	}
 }

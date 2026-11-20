@@ -565,8 +565,10 @@ func wmPointerPage() pageSpec {
 	)
 }
 
+const wmBindsID = "wm-binds"
+
 func wmBindsPage() pageSpec {
-	return wmPage("wm-binds", "ld-key-round-symbolic",
+	return wmPage(wmBindsID, "ld-key-round-symbolic",
 		sectionSpec{title: "wm-section-binds", rows: []rowSpec{wmObjects("binds", "chord", "action")}},
 		sectionSpec{title: "wm-section-app-shortcuts", rows: []rowSpec{appShortcutsRow(), wmField("client_hotkeys")}},
 		sectionSpec{title: "wm-section-submaps", advanced: true, rows: []rowSpec{wmSubmaps()}},

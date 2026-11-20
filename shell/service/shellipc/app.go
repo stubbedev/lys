@@ -20,6 +20,10 @@ const (
 	ActionInspect = "inspector"
 )
 
+// ShortcutLauncher is the id of the global shortcut the shell opens the
+// launcher on, bound in lys-wm as `global AppID:ShortcutLauncher`.
+const ShortcutLauncher = "launcher"
+
 // IsRunning reports whether a shell owns the application id.
 func IsRunning(conn *dbus.Conn) (bool, error) {
 	var owned bool

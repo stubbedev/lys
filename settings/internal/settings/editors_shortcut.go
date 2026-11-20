@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/portal/permissions"
+	"github.com/stubbedev/lys/shell/service/shellipc"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -218,8 +219,7 @@ type appShortcutsEditor struct {
 	binds     slot
 	list      *widget.Box
 	empty     *widget.Label
-	recorders []*widget.ShortcutRecorder
-	clashes   []*widget.Label
+	entries   []*actionChord
 	shortcuts []appShortcut
 	names     *bindNames
 }
@@ -255,7 +255,7 @@ func (e *appShortcutsEditor) load() {
 func (e *appShortcutsEditor) show(l appShortcutsListing) {
 	t := locale.T()
 	e.list.Clear()
-	e.recorders, e.clashes, e.shortcuts = e.recorders[:0], e.clashes[:0], l.shortcuts
+	e.entries, e.shortcuts = e.entries[:0], l.shortcuts
 	switch {
 	case l.err != nil:
 		e.empty.SetText(l.err.Error())
@@ -263,83 +263,153 @@ func (e *appShortcutsEditor) show(l appShortcutsListing) {
 		e.empty.SetText(t.Get("wm-app-shortcuts-none"))
 	}
 	e.empty.SetVisible(l.err != nil || len(l.shortcuts) == 0)
-	for i, sc := range l.shortcuts {
+	for _, sc := range l.shortcuts {
 		row := gapBox(widget.Row)
 		row.AddClass("app-shortcut")
 		text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
 		text.Append(e.k.label(cmp.Or(sc.Description, sc.ID), "setting-label"), false)
 		text.Append(e.k.label(sc.app, "setting-description", css.Caption, css.DimLabel), false)
 		row.AppendAligned(text, true, widget.AlignCenter)
+		var entry *actionChord
 		if sc.Trigger != "" {
+			entry = newHeldChord(e.k, e.names, sc.action(), chordFromAccel(sc.Trigger))
 			row.AppendAligned(widget.NewShortcutLabel(e.k.face, sc.Trigger), false, widget.AlignCenter)
 			row.SetTooltip(t.Get("wm-app-shortcuts-hotkey"))
-			e.recorders = append(e.recorders, nil)
 		} else {
-			rec := widget.NewShortcutRecorder(e.k.face, "")
-			rec.SetAccessibleName(cmp.Or(sc.Description, sc.ID))
-			rec.OnChanged = func(accel string) { e.bind(i, chordFromAccel(accel)) }
-			row.AppendAligned(rec, false, widget.AlignCenter)
-			e.recorders = append(e.recorders, rec)
+			entry = newActionChord(e.k, e.binds, e.names, sc.action(), cmp.Or(sc.Description, sc.ID))
+			row.AppendAligned(entry.recorder, false, widget.AlignCenter)
 		}
-		clash := e.k.label("", "setting-problem", css.Caption, css.Warning)
-		clash.SetWrap(true)
-		clash.SetVisible(false)
-		e.clashes = append(e.clashes, clash)
-		entry := gapBox(widget.Column)
-		entry.Append(row, false)
-		entry.Append(clash, false)
-		e.list.Append(entry, false)
+		e.entries = append(e.entries, entry)
+		box := gapBox(widget.Column)
+		box.Append(row, false)
+		box.Append(entry.clash, false)
+		e.list.Append(box, false)
 	}
 	e.refresh()
 }
 
-func (e *appShortcutsEditor) items() []any {
-	items, _ := e.binds.get().([]any)
-	return slices.Clone(items)
+func (e *appShortcutsEditor) refresh() {
+	for _, entry := range e.entries {
+		entry.refresh(e.binds)
+	}
 }
 
 func bindAction(item any) string {
 	m, _ := item.(map[string]any)
-	a, _ := m["action"].(string)
+	a, _ := m[actionKey].(string)
 	return strings.Join(strings.Fields(a), " ")
 }
 
-func (e *appShortcutsEditor) bind(i int, chord string) {
-	action := e.shortcuts[i].action()
-	items := slices.DeleteFunc(e.items(), func(it any) bool { return bindAction(it) == action })
-	if chord != "" {
-		items = append(items, map[string]any{chordKey: chord, "action": action})
-	}
-	_ = e.binds.set(items)
+// actionChord is the chord one bind action is pressed with, a recorder
+// rebinding it or the key an app holds itself, and what else holds that
+// chord.
+type actionChord struct {
+	k        *kit
+	names    *bindNames
+	action   string
+	held     string
+	recorder *widget.ShortcutRecorder
+	clash    *widget.Label
 }
 
-func (e *appShortcutsEditor) refresh() {
-	items := e.items()
-	modes := submapOwners(e.k.wm, e.names)
-	t := locale.T()
-	for i, rec := range e.recorders {
-		sc := e.shortcuts[i]
-		action := sc.action()
-		chord := chordFromAccel(sc.Trigger)
-		if j := slices.IndexFunc(items, func(it any) bool { return bindAction(it) == action }); j >= 0 {
-			m, _ := items[j].(map[string]any)
-			chord, _ = m[chordKey].(string)
-		}
-		others := append(bindOwners(slices.DeleteFunc(slices.Clone(items), func(it any) bool { return bindAction(it) == action }), e.names, ""), modes...)
-		owner, clashes := clashWith(chord, others)
-		e.clashes[i].SetVisible(clashes)
-		if clashes {
-			e.clashes[i].SetText(t.Get("settings-clash", i18n.Str("value", chord), i18n.Str("other", owner.owner)))
-		}
-		if rec == nil || rec.Recording() {
-			continue
-		}
-		accel := ""
-		if c, ok := parseChord(chord); ok {
-			accel = c.accel()
-		}
-		if rec.Accel() != accel {
-			rec.SetAccel(accel)
-		}
+func newActionChord(k *kit, binds slot, names *bindNames, action, name string) *actionChord {
+	c := newHeldChord(k, names, action, "")
+	c.recorder = widget.NewShortcutRecorder(k.face, "")
+	c.recorder.SetAccessibleName(name)
+	c.recorder.OnChanged = func(accel string) { _ = binds.set(rebound(bindItems(binds), action, chordFromAccel(accel))) }
+	return c
+}
+
+// newHeldChord is the key an app holds itself for action, which a bind
+// for the action replaces.
+func newHeldChord(k *kit, names *bindNames, action, held string) *actionChord {
+	c := &actionChord{k: k, names: names, action: action, held: held, clash: k.label("", "setting-problem", css.Caption, css.Warning)}
+	c.clash.SetWrap(true)
+	c.clash.SetVisible(false)
+	return c
+}
+
+func bindItems(binds slot) []any {
+	items, _ := binds.get().([]any)
+	return slices.Clone(items)
+}
+
+// rebound is items with action bound to chord alone, or to nothing for
+// an empty chord.
+func rebound(items []any, action, chord string) []any {
+	items = slices.DeleteFunc(items, func(it any) bool { return bindAction(it) == action })
+	if chord == "" {
+		return items
+	}
+	return append(items, map[string]any{chordKey: chord, actionKey: action})
+}
+
+// chord is what the action is pressed with: its bind's chord, else the
+// key its app holds.
+func (c *actionChord) chord(items []any) string {
+	j := slices.IndexFunc(items, func(it any) bool { return bindAction(it) == c.action })
+	if j < 0 {
+		return c.held
+	}
+	m, _ := items[j].(map[string]any)
+	chord, _ := m[chordKey].(string)
+	return chord
+}
+
+func (c *actionChord) refresh(binds slot) {
+	items := bindItems(binds)
+	chord := c.chord(items)
+	rest := slices.DeleteFunc(slices.Clone(items), func(it any) bool { return bindAction(it) == c.action })
+	owner, clashes := clashWith(chord, append(bindOwners(rest, c.names, ""), submapOwners(c.k.wm, c.names)...))
+	c.clash.SetVisible(clashes)
+	if clashes {
+		c.clash.SetText(locale.T().Get("settings-clash", i18n.Str("value", chord), i18n.Str("other", owner.owner)))
+	}
+	if c.recorder == nil || c.recorder.Recording() {
+		return
+	}
+	accel := ""
+	if parsed, ok := parseChord(chord); ok {
+		accel = parsed.accel()
+	}
+	if c.recorder.Accel() != accel {
+		c.recorder.SetAccel(accel)
 	}
 }
+
+// launcherAction is the bind lys-shell opens the launcher on.
+var launcherAction = appShortcut{app: shellipc.AppID, ID: shellipc.ShortcutLauncher}.action()
+
+const launcherShortcutKey = "settings-launcher-shortcut"
+
+// launcherShortcutRow is the chord lys-wm opens the launcher on, recorded
+// in place, beside a way to every other shortcut.
+func launcherShortcutRow() rowSpec {
+	return wmField(bindsKey, withKey(launcherShortcutKey), func(r *rowSpec) {
+		r.action = true
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newLauncherShortcut(k, s) }
+	})
+}
+
+type launcherShortcut struct {
+	*widget.Box
+	binds slot
+	chord *actionChord
+}
+
+func newLauncherShortcut(k *kit, binds slot) *launcherShortcut {
+	action, _ := k.wm.fieldOf(bindsKey + "." + wmconfig.Each + "." + actionKey)
+	l := &launcherShortcut{Box: gapBox(widget.Column), binds: binds}
+	l.chord = newActionChord(k, binds, &bindNames{actions: action.Actions}, launcherAction, locale.T().Get(launcherShortcutKey))
+	row := gapBox(widget.Row)
+	row.AppendAligned(l.chord.recorder, true, widget.AlignCenter)
+	if target, ok := pageByID(k.nav, wmBindsID); ok {
+		row.AppendAligned(k.iconButton("ld-chevron-right-symbolic", "settings-launcher-shortcut-all", func() { k.openPage(target.id) }, css.Flat), false, widget.AlignCenter)
+	}
+	l.Append(row, false)
+	l.Append(l.chord.clash, false)
+	l.refresh()
+	return l
+}
+
+func (l *launcherShortcut) refresh() { l.chord.refresh(l.binds) }

@@ -152,6 +152,7 @@ func osdPage(*config.Config) pageSpec {
 func launcherPage(*config.Config) pageSpec {
 	return pageSpec{id: "launcher", navKey: "settings-nav-launcher-page", icon: "ld-rocket-symbolic", header: "settings-page-launcher", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
+			launcherShortcutRow(),
 			field("launcher.location", screenPosition),
 			field("launcher.width", sizeBase(config.LauncherWidthBaseRem)),
 			field("launcher.lines"),

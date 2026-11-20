@@ -45,16 +45,16 @@ func TestAnAppShortcutClashingWithABindIsMarked(t *testing.T) {
 	writeFile(t, filepath.Join(state, "lys-shell", "portal-shortcuts.json"), `{"org.example.Recorder":[{"id":"start","description":"Start recording"},{"id":"stop","description":"Stop recording"},{"id":"held","description":"Push to talk","trigger":"Super+Escape"}]}`)
 	k, w, _, _ := wmKit(t, "binds:\n  - {chord: SUPER + ALT + R, action: global org.example.Recorder:start}\n  - {chord: SUPER + ALT + R, action: exec foot}\n  - {chord: SUPER + ALT + S, action: global org.example.Recorder:stop}\nsubmaps:\n  resize:\n    - {chord: SUPER + Escape, action: kill}\n")
 	e := fieldControl(k, w, appShortcutsRow()).(*appShortcutsEditor)
-	if len(e.clashes) != 3 {
-		t.Fatalf("%d clash lines for 3 shortcuts", len(e.clashes))
+	if len(e.entries) != 3 {
+		t.Fatalf("%d clash lines for 3 shortcuts", len(e.entries))
 	}
-	if !e.clashes[0].Visible() || !strings.Contains(unisolated(e.clashes[0].Text()), "Run foot") {
-		t.Fatalf("the shortcut sharing a bind's chord reads %v %q", e.clashes[0].Visible(), e.clashes[0].Text())
+	if !e.entries[0].clash.Visible() || !strings.Contains(unisolated(e.entries[0].clash.Text()), "Run foot") {
+		t.Fatalf("the shortcut sharing a bind's chord reads %v %q", e.entries[0].clash.Visible(), e.entries[0].clash.Text())
 	}
-	if e.clashes[1].Visible() {
-		t.Fatalf("a shortcut bound alone is marked: %q", e.clashes[1].Text())
+	if e.entries[1].clash.Visible() {
+		t.Fatalf("a shortcut bound alone is marked: %q", e.entries[1].clash.Text())
 	}
-	if !e.clashes[2].Visible() || !strings.Contains(unisolated(e.clashes[2].Text()), "in mode resize") {
-		t.Fatalf("the app-held key a mode binds reads %v %q", e.clashes[2].Visible(), e.clashes[2].Text())
+	if !e.entries[2].clash.Visible() || !strings.Contains(unisolated(e.entries[2].clash.Text()), "in mode resize") {
+		t.Fatalf("the app-held key a mode binds reads %v %q", e.entries[2].clash.Visible(), e.entries[2].clash.Text())
 	}
 }

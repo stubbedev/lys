@@ -73,7 +73,7 @@ var moduleLinks = map[string][]pageLink{
 	"bluetooth":      {{bluetoothPageID, "settings-module-link-bluetooth-detail"}},
 	"clock":          {{dateTimeID, "settings-module-link-date-time-detail"}},
 	"idle-inhibit":   {{"idle", "settings-module-link-idle-detail"}},
-	"keybind-mode":   {{"wm-binds", "settings-module-link-binds-detail"}},
+	"keybind-mode":   {{wmBindsID, "settings-module-link-binds-detail"}},
 	"keyboard-input": {{"wm-keyboard", "settings-module-link-input-detail"}},
 }
 

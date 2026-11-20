@@ -2272,6 +2272,7 @@
       "settings/internal/locale",
       "settings/internal/wmconfig",
       "settings/internal/wmstate",
+      "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/sysinfo",
       "ui/app",
