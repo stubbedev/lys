@@ -380,6 +380,12 @@
       "lib/waittest"
     ]
   },
+  "desktop/service/network/eaptext": {
+    "imports": [
+      "desktop/i18n",
+      "desktop/service/network"
+    ]
+  },
   "desktop/service/network/openconnect": {
     "imports": [
       "desktop/desktopentry",
@@ -3511,6 +3517,7 @@
       "desktop/service/lyswm",
       "desktop/service/mpris",
       "desktop/service/network",
+      "desktop/service/network/eaptext",
       "desktop/service/network/secrets",
       "desktop/service/network/vpntext",
       "desktop/service/niri",

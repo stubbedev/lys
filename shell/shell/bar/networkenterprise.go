@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/network/eaptext"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -240,7 +241,7 @@ func (f *netEnterpriseForm) input() network.EAPInput {
 func (f *netEnterpriseForm) connect() {
 	eap, err := network.NewEAPSettings(f.input())
 	if err != nil {
-		f.showError(enterpriseError(err))
+		f.showError(eaptext.Problem(err))
 		return
 	}
 	f.resetSecrets()
@@ -300,24 +301,4 @@ func authFailureMessage(security network.SecurityType) string {
 		return i18n.T("dropdown-network-enterprise-error-auth")
 	}
 	return i18n.T("dropdown-network-error-wrong-password")
-}
-
-func enterpriseError(err error) string {
-	switch {
-	case errors.Is(err, network.ErrEAPIdentityEmpty):
-		return i18n.T("dropdown-network-enterprise-error-identity")
-	case errors.Is(err, network.ErrEAPPasswordEmpty):
-		return i18n.T("dropdown-network-enterprise-error-password")
-	case errors.Is(err, network.ErrEAPServerUnchecked):
-		return i18n.T("dropdown-network-enterprise-error-server")
-	case errors.Is(err, network.ErrEAPDomainInvalid):
-		return i18n.T("dropdown-network-enterprise-error-domain")
-	case errors.Is(err, network.ErrEAPPathNotAbsolute), errors.Is(err, network.ErrEAPPathInvalid):
-		return i18n.T("dropdown-network-enterprise-error-path")
-	case errors.Is(err, network.ErrEAPClientCertMissing):
-		return i18n.T("dropdown-network-enterprise-error-client-cert")
-	case errors.Is(err, network.ErrEAPPrivateKeyMissing):
-		return i18n.T("dropdown-network-enterprise-error-private-key")
-	}
-	return err.Error()
 }
