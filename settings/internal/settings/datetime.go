@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/glibclocale"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
@@ -53,7 +54,7 @@ func dateTimePage(*config.Config) pageSpec {
 		header: "settings-page-date-time",
 		lead:   dateTimeLead,
 		sections: []sectionSpec{
-			{title: "settings-section-date-calendar", rows: fields("modules.clock.calendar-weekday-start")},
+			{title: "settings-section-date-calendar", rows: []rowSpec{field("modules.clock.calendar-weekday-start", weekStartRow)}},
 		},
 		footer: relatedLinks(dateTimeLinks),
 		panel: []panelSetting{
@@ -62,6 +63,50 @@ func dateTimePage(*config.Config) pageSpec {
 			{"date-time.time-zone", "settings-date-zone", "settings-section-date-system"},
 			{"date-time.24-hour", "settings-date-24h", "settings-section-date-clock"},
 		},
+	}
+}
+
+var commonWeekStarts = []string{string(config.WeekStartMonday), string(config.WeekStartSunday), string(config.WeekStartSaturday)}
+
+const (
+	weekDays      = 7
+	weekRows      = 3
+	weekCellGap   = 2
+	weekendDayMin = 5
+)
+
+var weekStartRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+	values := slices.Clone(commonWeekStarts)
+	if current, _ := s.get().(string); !slices.Contains(values, current) && slices.Contains(meta.Variants, current) {
+		values = append(values, current)
+	}
+	all := enumLabels(meta)
+	labels := make([]string, len(values))
+	pictures := make(map[string]picture, len(values))
+	for i, v := range values {
+		day := slices.Index(meta.Variants, v)
+		labels[i] = all[day]
+		pictures[v] = drawn(func(cv *render.Canvas, r render.Rect) { weekGrid(cv, r, day) })
+	}
+	return newCards(k, s, values, labels, pictures)
+})
+
+func weekGrid(cv *render.Canvas, r render.Rect, firstDay int) {
+	th := widget.Current()
+	cellW := (r.W - (weekDays-1)*weekCellGap) / weekDays
+	cellH := (r.H - (weekRows-1)*weekCellGap) / weekRows
+	for col := range weekDays {
+		fill := th.Border
+		switch {
+		case col == 0:
+			fill = th.Accent
+		case (firstDay+col)%weekDays >= weekendDayMin:
+			fill = th.TextMuted
+		}
+		for row := range weekRows {
+			cell := render.Rect{X: r.X + col*(cellW+weekCellGap), Y: r.Y + row*(cellH+weekCellGap), W: cellW, H: cellH}
+			cv.RoundedRect(cell, weekCellGap, fill)
+		}
 	}
 }
 

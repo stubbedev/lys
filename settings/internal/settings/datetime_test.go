@@ -555,6 +555,48 @@ func TestTheWeekStartLivesOnDateAndTimeBesideAWorldClockLink(t *testing.T) {
 	}
 }
 
+func weekStartCards(t *testing.T, yaml string) (*kit, *choiceCards) {
+	t.Helper()
+	k := testKit(t, yaml)
+	c, ok := fieldControl(k, k.store, pageRow(t, dateTimeID, "modules.clock.calendar-weekday-start")).(*choiceCards)
+	if !ok {
+		t.Fatal("the week start is not picked from cards")
+	}
+	return k, c
+}
+
+func cardValues(c *choiceCards) []string {
+	out := make([]string, len(c.cards))
+	for i, card := range c.cards {
+		out[i] = card.value
+	}
+	return out
+}
+
+func TestTheWeekStartIsMondaySundayOrSaturdayByCard(t *testing.T) {
+	k, c := weekStartCards(t, "")
+	if got := cardValues(c); !slices.Equal(got, []string{"monday", "sunday", "saturday"}) || c.current != "sunday" {
+		t.Fatalf("cards %q with %q chosen", got, c.current)
+	}
+	if label := c.cards[0].label; label == "monday" || label == "" {
+		t.Errorf("Monday's card reads %q, not its name", label)
+	}
+	c.cards[0].PressAt(widget.Point{})
+	if v := k.store.value("modules.clock.calendar-weekday-start"); v != "monday" || c.current != "monday" {
+		t.Fatalf("stored %v, chosen %q", v, c.current)
+	}
+}
+
+func TestAHandEditedWeekStartGetsItsOwnCard(t *testing.T) {
+	k, c := weekStartCards(t, "modules:\n  clock:\n    calendar-weekday-start: tuesday\n")
+	if got := cardValues(c); !slices.Equal(got, []string{"monday", "sunday", "saturday", "tuesday"}) || c.current != "tuesday" {
+		t.Fatalf("cards %q with %q chosen", got, c.current)
+	}
+	if v := k.store.value("modules.clock.calendar-weekday-start"); v != "tuesday" {
+		t.Fatalf("a hand-edited week start was rewritten to %v", v)
+	}
+}
+
 func TestTheRegionPageLinksToKeyboardLayoutsWhenLysWMIsThere(t *testing.T) {
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
