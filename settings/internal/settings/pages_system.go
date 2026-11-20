@@ -282,7 +282,7 @@ func idlePage(*config.Config) pageSpec {
 		header: "settings-page-idle",
 		sections: []sectionSpec{
 			{title: "settings-section-general", rows: []rowSpec{field("idle.enable"), field("idle.lock-before-sleep", idleEnabled)}},
-			{title: "settings-section-idle-when", rows: []rowSpec{
+			{title: "settings-section-idle-when", preview: idleTimelinePreview, rows: []rowSpec{
 				idleTimeoutsRow(idleDim), idleTimeoutsRow(idleLock), idleTimeoutsRow(idleScreenOff), idleTimeoutsRow(idleSuspend),
 				field("idle.dim-percent", idleEnabled), field("idle.suspend-action", idleEnabled, sleepActionRow),
 			}},

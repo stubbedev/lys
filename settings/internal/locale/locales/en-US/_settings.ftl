@@ -1070,6 +1070,10 @@ settings-sleep-reason-challenge = { $action } needs an administrator password, s
 settings-sleep-unknown = Cannot ask the system which sleep modes work: { $reason }
 settings-idle-on-ac = Plugged in
 settings-idle-on-battery = On battery
+settings-idle-timeline = What happens while you are away, in order
+settings-idle-timeline-mark = { $stage } after { $after }
+settings-idle-timeline-never = Nothing happens while you are away
+settings-idle-timeline-off = lys-shell's idle handling is off, so another program decides what happens while you are away
 settings-idle-overtaken = { $source ->
         [ac] Plugged in
        *[battery] On battery

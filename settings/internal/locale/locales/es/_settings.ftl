@@ -1071,6 +1071,10 @@ settings-sleep-reason-challenge = { $action } necesita una contraseña de admini
 settings-sleep-unknown = No se puede preguntar al sistema qué modos de suspensión funcionan: { $reason }
 settings-idle-on-ac = Enchufado
 settings-idle-on-battery = Con batería
+settings-idle-timeline = Lo que ocurre mientras no estás, en orden
+settings-idle-timeline-mark = { $stage } tras { $after }
+settings-idle-timeline-never = No ocurre nada mientras no estás
+settings-idle-timeline-off = La gestión de inactividad de lys-shell está desactivada, así que otro programa decide qué ocurre mientras no estás
 settings-idle-overtaken = { $source ->
         [ac] Enchufado
        *[battery] Con batería

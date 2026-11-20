@@ -1061,6 +1061,10 @@ settings-sleep-reason-challenge = { $action } precisa de uma palavra-passe de ad
 settings-sleep-unknown = Não é possível perguntar ao sistema que modos de suspensão funcionam: { $reason }
 settings-idle-on-ac = Ligado à corrente
 settings-idle-on-battery = Na bateria
+settings-idle-timeline = O que acontece enquanto está ausente, por ordem
+settings-idle-timeline-mark = { $stage } após { $after }
+settings-idle-timeline-never = Nada acontece enquanto está ausente
+settings-idle-timeline-off = A gestão de inatividade do lys-shell está desligada, por isso outro programa decide o que acontece enquanto está ausente
 settings-idle-overtaken = { $source ->
         [ac] Ligado à corrente
        *[battery] Na bateria

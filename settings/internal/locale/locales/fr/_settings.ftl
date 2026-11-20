@@ -1073,6 +1073,10 @@ settings-sleep-reason-challenge = { $action } demande un mot de passe administra
 settings-sleep-unknown = Impossible de demander au système quels modes de veille fonctionnent : { $reason }
 settings-idle-on-ac = Sur secteur
 settings-idle-on-battery = Sur batterie
+settings-idle-timeline = Ce qui se passe pendant votre absence, dans l’ordre
+settings-idle-timeline-mark = { $stage } après { $after }
+settings-idle-timeline-never = Rien ne se passe pendant votre absence
+settings-idle-timeline-off = La gestion de l’inactivité de lys-shell est désactivée : un autre programme décide de ce qui se passe pendant votre absence
 settings-idle-overtaken = { $source ->
         [ac] Sur secteur
        *[battery] Sur batterie

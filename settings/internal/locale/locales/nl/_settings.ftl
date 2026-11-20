@@ -1060,6 +1060,10 @@ settings-sleep-reason-challenge = { $action } vraagt een beheerderswachtwoord en
 settings-sleep-unknown = Kan het systeem niet vragen welke slaapstanden werken: { $reason }
 settings-idle-on-ac = Aan het net
 settings-idle-on-battery = Op batterij
+settings-idle-timeline = Wat er gebeurt terwijl je weg bent, op volgorde
+settings-idle-timeline-mark = { $stage } na { $after }
+settings-idle-timeline-never = Er gebeurt niets terwijl je weg bent
+settings-idle-timeline-off = De inactiviteitsafhandeling van lys-shell staat uit, dus een ander programma bepaalt wat er gebeurt terwijl je weg bent
 settings-idle-overtaken = { $source ->
         [ac] Aan het net
        *[battery] Op batterij

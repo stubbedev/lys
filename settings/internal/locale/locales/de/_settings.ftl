@@ -1070,6 +1070,10 @@ settings-sleep-reason-challenge = { $action } braucht ein Administratorpasswort 
 settings-sleep-unknown = Das System kann nicht gefragt werden, welche Schlafmodi funktionieren: { $reason }
 settings-idle-on-ac = Am Netz
 settings-idle-on-battery = Im Akkubetrieb
+settings-idle-timeline = Was passiert, während du weg bist, der Reihe nach
+settings-idle-timeline-mark = { $stage } nach { $after }
+settings-idle-timeline-never = Nichts passiert, während du weg bist
+settings-idle-timeline-off = Die Leerlaufsteuerung von lys-shell ist aus, daher entscheidet ein anderes Programm, was passiert, während du weg bist
 settings-idle-overtaken = { $source ->
         [ac] Am Netz
        *[battery] Im Akkubetrieb
